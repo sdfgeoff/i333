@@ -1,4 +1,3 @@
-use crate::types::Direction;
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -8,174 +7,218 @@ use crate::types::Direction;
  * output.c: Output (monitor) related functions.
  *
  */
-// Mechanical file-by-file Rust translation of src/output.c.
-// Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
+#![deny(unsafe_op_in_unsafe_fn)]
 
-pub type i3String = _i3String;
-
-pub type fullscreen_mode_t = ::core::ffi::c_uint;
-pub const CF_GLOBAL: fullscreen_mode_t = 2;
-pub const CF_OUTPUT: fullscreen_mode_t = 1;
-pub const CF_NONE: fullscreen_mode_t = 0;
-
-pub const M_BELOW: ::core::ffi::c_uint = 2;
-pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
-pub const M_HERE: ::core::ffi::c_uint = 0;
-
-pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
-pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
-pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
-pub const M_NODOCK: ::core::ffi::c_int = 0;
-pub const M_DONTCHECK: ::core::ffi::c_int = -1;
-
-pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
-pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
-pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
-pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
-pub const A_COMMAND: ::core::ffi::c_uint = 1;
-pub const A_ANY: ::core::ffi::c_uint = 0;
-
-pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
-pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
-pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
-pub const CT_CON: ::core::ffi::c_uint = 2;
-pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
-pub const CT_ROOT: ::core::ffi::c_uint = 0;
-
-pub type Output = xoutput;
-
-pub const __ASSERT_FUNCTION: [::core::ffi::c_char; 34] = unsafe {
-    ::core::mem::transmute::<[u8; 34], [::core::ffi::c_char; 34]>(
-        *b"Output *get_output_for_con(Con *)\0",
-    )
+use crate::con::{
+    con_activate, con_descend_focused, con_get_output, con_get_workspace, con_is_sticky,
+    con_move_to_workspace, CT_CON, CT_FLOATING_CON,
 };
-pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
+use crate::randr::{get_output_by_name, get_output_next_wrap};
+use crate::tree::{croot, focused};
+use crate::types::{xoutput as Output, Con, Direction};
+use crate::workspace::workspace_is_visible;
+use std::ffi::CStr;
 
-pub unsafe fn output_get_content(output: *mut Con) -> *mut Con {
-    let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-    child = (*output).nodes_head.tqh_first as *mut Con;
-    while !child.is_null() {
-        if (*child).type_0 as ::core::ffi::c_uint
-            == CT_CON as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
-            return child;
-        }
-        child = (*child).nodes.tqe_next as *mut Con;
-    }
-    ::core::ptr::null_mut::<Con>()
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum OutputQuery {
+    Current,
+    Next(Direction),
+    Named,
 }
 
+fn output_query(name: &CStr) -> OutputQuery {
+    for (keyword, query) in [
+        (c"current", OutputQuery::Current),
+        (c"left", OutputQuery::Next(Direction::Left)),
+        (c"right", OutputQuery::Next(Direction::Right)),
+        (c"up", OutputQuery::Next(Direction::Up)),
+        (c"down", OutputQuery::Next(Direction::Down)),
+    ] {
+        // SAFETY: both CStr values guarantee live, terminated strings. Preserve
+        // the current locale's strcasecmp semantics instead of ASCII folding.
+        if unsafe { libc::strcasecmp(name.as_ptr(), keyword.as_ptr()) } == 0 {
+            return query;
+        }
+    }
+    OutputQuery::Named
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum StickyMove {
+    Skip,
+    Move { restore_focus: bool },
+}
+
+fn sticky_move(floating: bool, sticky: bool, was_focused: bool) -> StickyMove {
+    if floating && sticky {
+        StickyMove::Move {
+            restore_focus: was_focused,
+        }
+    } else {
+        StickyMove::Skip
+    }
+}
+
+/// Find an output node's content child, returning a borrowed native pointer.
+///
+/// # Safety
+/// The caller owns event-thread access to a live output/container graph. The
+/// returned pointer must not outlive graph mutations which remove that node.
+pub unsafe fn output_get_content(output: *mut Con) -> *mut Con {
+    // SAFETY: the caller provides the stable intrusive queue. No references
+    // into it are created or held across callbacks.
+    unsafe {
+        let mut child = (*output).nodes_head.tqh_first;
+        while !child.is_null() {
+            if (*child).type_0 == CT_CON {
+                return child;
+            }
+            child = (*child).nodes.tqe_next;
+        }
+        std::ptr::null_mut()
+    }
+}
+
+/// Resolve a keyword or output name against the current native output graph.
+///
+/// # Safety
+/// `output_str` is a readable NUL string; `current_output` and global focus/output
+/// state are initialized and exclusively owned by this event thread. Returned
+/// pointers borrow the graph and must not survive removal of their nodes.
 pub unsafe fn get_output_from_string(
     current_output: *mut Output,
-    output_str: *const ::core::ffi::c_char,
+    output_str: *const libc::c_char,
 ) -> *mut Output {
-    if strcasecmp(output_str, c"current".as_ptr()) == 0 as ::core::ffi::c_int {
-        return get_output_for_con(focused);
+    // SAFETY: the input string and all lookup globals satisfy the caller's
+    // lifetime contract. Pure classification completes before native lookups.
+    unsafe {
+        match output_query(CStr::from_ptr(output_str)) {
+            OutputQuery::Current => get_output_for_con(focused),
+            OutputQuery::Next(direction) => get_output_next_wrap(direction, current_output),
+            OutputQuery::Named => get_output_by_name(output_str, true),
+        }
     }
-    if strcasecmp(output_str, c"left".as_ptr()) == 0 as ::core::ffi::c_int {
-        return get_output_next_wrap(Direction::Left, current_output);
-    }
-    if strcasecmp(output_str, c"right".as_ptr()) == 0 as ::core::ffi::c_int {
-        return get_output_next_wrap(Direction::Right, current_output);
-    }
-    if strcasecmp(output_str, c"up".as_ptr()) == 0 as ::core::ffi::c_int {
-        return get_output_next_wrap(Direction::Up, current_output);
-    }
-    if strcasecmp(output_str, c"down".as_ptr()) == 0 as ::core::ffi::c_int {
-        return get_output_next_wrap(Direction::Down, current_output);
-    }
-    get_output_by_name(output_str, true_0 != 0)
 }
 
-pub unsafe fn output_primary_name(output: *mut Output) -> *mut ::core::ffi::c_char {
-    (*(*output).names_head.slh_first).name
+/// Return the primary name borrowed from an output's native name list.
+///
+/// # Safety
+/// `output` has a nonempty, initialized name list. Its first name and node must
+/// remain live and exclusively accessible while the returned pointer is used.
+pub unsafe fn output_primary_name(output: *mut Output) -> *mut libc::c_char {
+    unsafe { (*(*output).names_head.slh_first).name }
 }
 
+/// Resolve the output containing a live native container.
+///
+/// # Safety
+/// The caller owns the initialized event-thread tree and output list. `con`
+/// belongs to a valid output with a live NUL name; the returned pointer borrows
+/// that output until its next removal from the native graph.
 pub unsafe fn get_output_for_con(con: *mut Con) -> *mut Output {
-    let output_con: *mut Con = con_get_output(con);
-    let output: *mut Output = get_output_by_name((*output_con).name, true_0 != 0);
-    if output != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Output {
-    } else {
-        __assert_fail(
-            c"output != NULL".as_ptr(),
-            c"../src/output.c".as_ptr(),
-            70 as ::core::ffi::c_uint,
-            __ASSERT_FUNCTION.as_ptr(),
-        );
-    };
-    output
-}
-
-pub unsafe fn output_push_sticky_windows(old_focus: *mut Con) {
-    let mut output: *mut Con = ::core::ptr::null_mut::<Con>();
-    output = (*croot).focus_head.tqh_first as *mut Con;
-    while !output.is_null() {
-        let mut visible_ws: *mut Con = ::core::ptr::null_mut::<Con>();
-        let mut child: *mut Con = -(1 as ::core::ffi::c_int) as *mut Con;
-        while child == -(1 as ::core::ffi::c_int) as *mut Con && {
-            child = ::core::ptr::null_mut::<Con>();
-            true_0 != 0
-        } {
-            child = (*output_get_content(output)).nodes_head.tqh_first as *mut Con;
-            while !child.is_null() {
-                if !workspace_is_visible(child) {
-                    child = (*child).nodes.tqe_next as *mut Con;
-                } else {
-                    visible_ws = child;
-                    break;
-                }
-            }
+    unsafe {
+        let output_con = con_get_output(con);
+        let output = get_output_by_name((*output_con).name, true);
+        if output.is_null() {
+            i3_common::native_stdio::__assert_fail(
+                c"output != NULL".as_ptr(),
+                c"../src/output.c".as_ptr(),
+                70,
+                c"Output *get_output_for_con(Con *)".as_ptr(),
+            );
         }
-        let mut workspace: *mut Con =
-            (*output_get_content(output)).focus_head.tqh_first as *mut Con;
-        while !workspace.is_null() {
-            let current_ws: *mut Con = workspace;
-            workspace = (*workspace).focused.tqe_next as *mut Con;
-            let mut child_0: *mut Con = (*current_ws).focus_head.tqh_first as *mut Con;
-            while !child_0.is_null() {
-                let current: *mut Con = child_0;
-                child_0 = (*child_0).focused.tqe_next as *mut Con;
-                if (*current).type_0 as ::core::ffi::c_uint
-                    != CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
-                    || !con_is_sticky(current)
-                {
-                    continue;
-                }
-                let ignore_focus: bool = old_focus.is_null() || current != (*old_focus).parent;
-                con_move_to_workspace(current, visible_ws, true_0 != 0, false_0 != 0, ignore_focus);
-                if !ignore_focus {
-                    let current_ws_0: *mut Con = con_get_workspace(focused);
-                    con_activate(con_descend_focused(current));
-                    con_activate(con_descend_focused(current_ws_0));
-                }
-            }
-        }
-        output = (*output).focused.tqe_next as *mut Con;
+        output
     }
 }
 
-// Canonical Cairo backend ABI; renderer logic remains local.
+/// Push sticky floating windows onto each output's visible workspace.
+///
+/// # Safety
+/// The caller owns exclusive access to initialized output/workspace/focus graphs.
+/// `old_focus` is null or a live node throughout the call. Native move/activation
+/// may mutate queues, so no other graph borrows may overlap this operation.
+pub unsafe fn output_push_sticky_windows(old_focus: *mut Con) {
+    // SAFETY: Traversal uses raw pointers under exclusive event-thread access.
+    // Save workspace/window successors BEFORE moving nodes or activating focus;
+    // no Rust references to graph nodes survive any of those callbacks.
+    unsafe {
+        let mut output = (*croot).focus_head.tqh_first;
+        while !output.is_null() {
+            let content = output_get_content(output);
+            let mut visible_ws = (*content).nodes_head.tqh_first;
+            while !visible_ws.is_null() && !workspace_is_visible(visible_ws) {
+                visible_ws = (*visible_ws).nodes.tqe_next;
+            }
+            let mut workspace = (*content).focus_head.tqh_first;
+            while !workspace.is_null() {
+                let current_ws = workspace;
+                workspace = (*workspace).focused.tqe_next;
+                let mut child = (*current_ws).focus_head.tqh_first;
+                while !child.is_null() {
+                    let current = child;
+                    child = (*child).focused.tqe_next;
+                    let floating = (*current).type_0 == CT_FLOATING_CON;
+                    let sticky = floating && con_is_sticky(current);
+                    let was_focused = floating
+                        && sticky
+                        && !old_focus.is_null()
+                        && current == (*old_focus).parent;
+                    let StickyMove::Move { restore_focus } =
+                        sticky_move(floating, sticky, was_focused)
+                    else {
+                        continue;
+                    };
+                    con_move_to_workspace(current, visible_ws, true, false, !restore_focus);
+                    if restore_focus {
+                        let current_workspace = con_get_workspace(focused);
+                        con_activate(con_descend_focused(current));
+                        con_activate(con_descend_focused(current_workspace));
+                    }
+                }
+            }
+            output = (*output).focused.tqe_next;
+        }
+    }
+}
 
-pub use libc::strcasecmp;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-use i3_common::native_stdio::__assert_fail;
+    #[test]
+    fn keywords_keep_order_case_insensitivity_and_raw_named_fallback() {
+        for (name, expected) in [
+            (c"current", OutputQuery::Current),
+            (c"CuRrEnT", OutputQuery::Current),
+            (c"LEFT", OutputQuery::Next(Direction::Left)),
+            (c"right", OutputQuery::Next(Direction::Right)),
+            (c"Up", OutputQuery::Next(Direction::Up)),
+            (c"DOWN", OutputQuery::Next(Direction::Down)),
+            (c"", OutputQuery::Named),
+            (c"current-output", OutputQuery::Named),
+            (c" left", OutputQuery::Named),
+            (c"HDMI-1", OutputQuery::Named),
+            (
+                CStr::from_bytes_with_nul(b"\xff\xfe\0").unwrap(),
+                OutputQuery::Named,
+            ),
+        ] {
+            assert_eq!(output_query(name), expected);
+        }
+    }
 
-// Shared model types retain field layout while using one Rust identity.
-pub use crate::types::xoutput;
-pub use crate::types::Con;
-pub use i3_common::string::I3String as _i3String;
-
-// Internal calls and globals use canonical Rust identities.
-use crate::con::con_activate;
-use crate::con::con_descend_focused;
-use crate::con::con_get_output;
-use crate::con::con_get_workspace;
-use crate::con::con_is_sticky;
-use crate::con::con_move_to_workspace;
-use crate::randr::get_output_by_name;
-use crate::randr::get_output_next_wrap;
-use crate::tree::croot;
-use crate::tree::focused;
-use crate::workspace::workspace_is_visible;
+    #[test]
+    fn only_sticky_floating_windows_move_and_only_old_focus_restores_activation() {
+        for was_focused in [false, true] {
+            for (floating, sticky) in [(false, false), (false, true), (true, false)] {
+                assert_eq!(sticky_move(floating, sticky, was_focused), StickyMove::Skip);
+            }
+            assert_eq!(
+                sticky_move(true, true, was_focused),
+                StickyMove::Move {
+                    restore_focus: was_focused
+                }
+            );
+        }
+    }
+}

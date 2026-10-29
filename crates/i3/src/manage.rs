@@ -552,15 +552,14 @@ pub unsafe fn manage_window(
                     ),
                     &raw mut motif_border_style,
                 );
-                window_update_normal_hints(
-                    cwindow,
-                    xcb_get_property_reply(
-                        conn,
-                        wm_normal_hints_cookie,
-                        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-                    ),
-                    geom,
+                let normal_hints_reply = xcb_get_property_reply(
+                    conn,
+                    wm_normal_hints_cookie,
+                    ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
                 );
+                // window_update_normal_hints borrows its reply; this request owns it.
+                window_update_normal_hints(cwindow, normal_hints_reply, geom);
+                free(normal_hints_reply.cast());
                 window_update_machine(
                     cwindow,
                     xcb_get_property_reply(

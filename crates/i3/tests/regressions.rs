@@ -25,7 +25,7 @@ fn cli_30_core_and_bar_cases() {
     suite("cli");
 }
 #[test]
-fn headless_52_window_manager_checkpoints() {
+fn headless_54_window_manager_checkpoints() {
     suite("headless");
 }
 #[test]

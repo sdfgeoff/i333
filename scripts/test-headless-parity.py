@@ -91,7 +91,7 @@ def count_windows(node):
 
 
 @contextlib.contextmanager
-def session(binary, xvfb):
+def session(binary, xvfb, *, force_xinerama=False):
     with temporary_directory(prefix="i333-headless-") as temporary:
         work = Path(temporary)
         env = {k: v for k, v in os.environ.items()
@@ -124,7 +124,7 @@ workspace_auto_back_and_forth no
 default_border pixel 2
 gaps inner 5
 gaps outer 3
-""")
+""" + ("force_xinerama yes\n" if force_xinerama else ""))
                 wm = subprocess.Popen([str(binary), "-a", "-c", str(config)], env=env,
                                       cwd=work, stdout=log, stderr=log)
                 wait_for(lambda: ipc.exists() or wm.poll() is not None, "WM startup")
@@ -216,6 +216,29 @@ def exercise(binary, xvfb):
     return snapshots
 
 
+def exercise_xinerama(binary, xvfb):
+    """Force the real legacy extension path on its own private server."""
+    snapshots = []
+    with session(binary, xvfb, force_xinerama=True) as (_, ipc):
+        def snapshot(label):
+            outputs = request(ipc, 3)
+            active = [output for output in outputs if output["active"]]
+            assert len(active) == 1, outputs
+            output = active[0]
+            assert output["name"] == "xinerama-0", outputs
+            assert output["rect"] == {"x": 0, "y": 0, "width": 1280, "height": 800}, outputs
+            snapshots.append((label, {
+                "outputs": outputs,
+                "tree": normalize(request(ipc, 4)),
+            }))
+
+        snapshot("xinerama-startup")
+        result = request(ipc, 0, 'workspace "7: xinerama"')
+        assert result and all(item.get("success") for item in result), result
+        snapshot("xinerama-workspace-switch")
+    return snapshots
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--xvfb", default=shutil.which("Xvfb"))
@@ -232,11 +255,11 @@ def main():
             parser.error(f"Missing executable {binary}; run cargo build, or provide an existing external reference")
     if not args.xvfb:
         parser.error("Pass --xvfb /path/to/Xvfb; no desktop fallback is permitted")
-    candidate = exercise(args.candidate.resolve(), args.xvfb)
+    candidate = exercise(args.candidate.resolve(), args.xvfb) + exercise_xinerama(args.candidate.resolve(), args.xvfb)
     if args.reference is None:
         print(f"PASS: {len(candidate)} headless Rust state checkpoints")
         return
-    reference = exercise(args.reference.resolve(), args.xvfb)
+    reference = exercise(args.reference.resolve(), args.xvfb) + exercise_xinerama(args.reference.resolve(), args.xvfb)
     for (label, expected), (other_label, actual) in zip(reference, candidate, strict=True):
         assert label == other_label
         if expected != actual:

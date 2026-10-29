@@ -1,114 +1,190 @@
-use crate::types::BorderStyle;
-use i3_common::safewrappers::sasprintf;
 /*
- * vim:ts=4:sw=4:expandtab
- *
  * i3 - an improved tiling window manager
  * © 2009 Michael Stapelberg and contributors (see also: LICENSE)
- *
- * window.c: Updates window attributes (X11 hints/properties).
- *
+ * Updates window attributes (X11 hints/properties).
  */
-// Mechanical file-by-file Rust translation of src/window.c.
-// Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
-extern "C" {
-
-    fn fabs(__x: ::core::ffi::c_double) -> ::core::ffi::c_double;
-
-}
-
-pub type i3String = _i3String;
-
-pub type fullscreen_mode_t = ::core::ffi::c_uint;
-pub const CF_GLOBAL: fullscreen_mode_t = 2;
-pub const CF_OUTPUT: fullscreen_mode_t = 1;
-pub const CF_NONE: fullscreen_mode_t = 0;
-
-pub const M_BELOW: ::core::ffi::c_uint = 2;
-pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
-pub const M_HERE: ::core::ffi::c_uint = 0;
-
-pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
-pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
-pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
-pub const M_NODOCK: ::core::ffi::c_int = 0;
-pub const M_DONTCHECK: ::core::ffi::c_int = -1;
-
-pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
-pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
-pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
-pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
-pub const A_COMMAND: ::core::ffi::c_uint = 1;
-pub const A_ANY: ::core::ffi::c_uint = 0;
-
-pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
-pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
-pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
-pub const CT_CON: ::core::ffi::c_uint = 2;
-pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
-pub const CT_ROOT: ::core::ffi::c_uint = 0;
-pub type i3Window = Window;
-pub const __ASSERT_FUNCTION: [::core::ffi::c_char; 90] = unsafe {
-    ::core::mem::transmute::<
-        [u8; 90],
-        [::core::ffi::c_char; 90],
-    >(
-        *b"_Bool window_update_motif_hints(i3Window *, xcb_get_property_reply_t *, border_style_t *)\0",
-    )
+use crate::application::conn;
+use crate::assignments::run_assignments;
+use crate::con::{con_by_window_id, con_parse_title_format};
+use crate::ewmh::ewmh_update_visible_name;
+use crate::log::{debuglog, verboselog};
+use crate::render::render_deco_height;
+use crate::types::{reservedpx, BorderStyle, Window};
+use cairo_sys::{
+    cairo_image_surface_create_for_data, cairo_surface_destroy, cairo_surface_set_user_data,
+    cairo_user_data_key_t, FORMAT_A_RGB32,
+};
+use i3_common::dpi::logical_px;
+use i3_common::safewrappers::smalloc;
+use i3_common::string::{i3string_as_utf8, i3string_free, I3String};
+use libc::free;
+use std::ptr::NonNull;
+use xcb_sys::{
+    xcb_generic_error_t, xcb_get_geometry_reply_t, xcb_get_property_reply_t,
+    xcb_icccm_get_wm_normal_hints_reply, xcb_icccm_get_wm_normal_hints_unchecked,
+    xcb_icccm_get_wm_transient_for_from_reply, xcb_icccm_wm_hints_t, xcb_size_hints_t,
+    xcb_window_t, XCB_ATOM_CARDINAL, XCB_ICCCM_SIZE_HINT_BASE_SIZE, XCB_ICCCM_SIZE_HINT_P_ASPECT,
+    XCB_ICCCM_SIZE_HINT_P_MAX_SIZE, XCB_ICCCM_SIZE_HINT_P_MIN_SIZE, XCB_ICCCM_SIZE_HINT_P_POSITION,
+    XCB_ICCCM_SIZE_HINT_P_RESIZE_INC, XCB_ICCCM_SIZE_HINT_P_SIZE, XCB_ICCCM_SIZE_HINT_US_POSITION,
+    XCB_ICCCM_SIZE_HINT_US_SIZE, XCB_ICCCM_WM_HINT_INPUT,
 };
 
-pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-pub const DBL_EPSILON: ::core::ffi::c_double = __DBL_EPSILON__;
-pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
-
-pub unsafe fn window_free(mut win: *mut i3Window) {
-    free((*win).class_class as *mut ::core::ffi::c_void);
-    (*win).class_class = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    free((*win).class_instance as *mut ::core::ffi::c_void);
-    (*win).class_instance = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    free((*win).role as *mut ::core::ffi::c_void);
-    (*win).role = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    free((*win).machine as *mut ::core::ffi::c_void);
-    (*win).machine = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    i3string_free((*win).name);
-    cairo_surface_destroy((*win).icon);
-    free((*win).ran_assignments as *mut ::core::ffi::c_void);
-    (*win).ran_assignments = ::core::ptr::null_mut::<*mut Assignment>();
-    free(win as *mut ::core::ffi::c_void);
-    win = ::core::ptr::null_mut::<i3Window>();
+macro_rules! trace {
+    ($function:literal, $line:literal, $message:literal $(,)?) => {
+        debuglog(
+            c"%s:%s:%d - %s".as_ptr().cast_mut(),
+            c"../src/window.c".as_ptr(),
+            concat!($function, "\0").as_ptr().cast::<libc::c_char>(),
+            $line as libc::c_int,
+            $message.as_ptr(),
+        );
+    };
 }
 
-pub unsafe fn window_update_class(win: *mut i3Window, mut prop: *mut xcb_get_property_reply_t) {
-    if prop.is_null() || xcb_get_property_value_length(prop) == 0 as ::core::ffi::c_int {
-        debuglog(
-            c"%s:%s:%d - WM_CLASS not set.\n".as_ptr().cast_mut(),
-            c"../src/window.c".as_ptr(),
-            c"window_update_class".as_ptr(),
-            36 as ::core::ffi::c_int,
-        );
-        free(prop as *mut ::core::ffi::c_void);
-        prop = ::core::ptr::null_mut::<xcb_get_property_reply_t>();
+macro_rules! tracef {
+    ($function:literal, $line:literal, $format:literal $(, $arg:expr)* $(,)?) => {
+        debuglog(concat!("%s:%s:%d - ", $format, "\0").as_ptr().cast_mut().cast(),
+            c"../src/window.c".as_ptr(), concat!($function,"\0").as_ptr().cast::<libc::c_char>(),
+            $line as libc::c_int $(, $arg)*);
+    };
+}
+
+/// One uniquely owned malloc allocation returned by XCB. Construction requires
+/// a complete native reply allocation, including the payload claimed by length.
+struct PropertyReply(Option<NonNull<xcb_get_property_reply_t>>);
+impl PropertyReply {
+    unsafe fn take(reply: *mut xcb_get_property_reply_t) -> Self {
+        Self(NonNull::new(reply))
+    }
+    fn raw(&self) -> *mut xcb_get_property_reply_t {
+        self.0.map_or(std::ptr::null_mut(), NonNull::as_ptr)
+    }
+    fn view(&self) -> Property<'_> {
+        unsafe { property_view(self.raw()) }
+    }
+}
+impl Drop for PropertyReply {
+    fn drop(&mut self) {
+        unsafe {
+            free(self.raw().cast());
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+struct Property<'a> {
+    kind: u32,
+    format: u8,
+    bytes: &'a [u8],
+}
+impl Property<'_> {
+    fn word(&self, index: usize) -> Option<u32> {
+        let start = index.checked_mul(4)?;
+        Some(u32::from_ne_bytes(
+            self.bytes
+                .get(start..start.checked_add(4)?)?
+                .try_into()
+                .ok()?,
+        ))
+    }
+}
+/// The allocation must be a complete live XCB reply, and remain immutable for
+/// the returned borrow. Validate payload arithmetic before constructing a slice;
+/// never trust value_len to extend beyond the native reply's wire allocation.
+unsafe fn property_view<'a>(reply: *const xcb_get_property_reply_t) -> Property<'a> {
+    let Some(reply) = (unsafe { reply.as_ref() }) else {
+        return Property {
+            kind: 0,
+            format: 0,
+            bytes: &[],
+        };
+    };
+    let length = match reply.format {
+        8 | 16 | 32 => (reply.value_len as usize).checked_mul(reply.format as usize / 8),
+        _ => None,
+    };
+    let wire_len = (reply.length as usize).checked_mul(4);
+    let bytes = match (length, wire_len) {
+        (Some(len), Some(wire)) if len <= wire && len <= isize::MAX as usize => unsafe {
+            std::slice::from_raw_parts(
+                (reply as *const xcb_get_property_reply_t).add(1).cast(),
+                len,
+            )
+        },
+        _ => {
+            return Property {
+                kind: 0,
+                format: 0,
+                bytes: &[],
+            }
+        }
+    };
+    Property {
+        kind: reply.type_0,
+        format: reply.format,
+        bytes,
+    }
+}
+fn string_prefix(bytes: &[u8]) -> &[u8] {
+    &bytes[..bytes
+        .iter()
+        .position(|byte| *byte == 0)
+        .unwrap_or(bytes.len())]
+}
+fn class_parts(bytes: &[u8]) -> (&[u8], Option<&[u8]>) {
+    let instance = string_prefix(bytes);
+    let class = bytes
+        .get(instance.len() + 1..)
+        .filter(|rest| !rest.is_empty())
+        .map(string_prefix);
+    (instance, class)
+}
+/// Transfer a byte string to the existing malloc-owned Window field ABI.
+unsafe fn replace_string(slot: *mut *mut libc::c_char, bytes: Option<&[u8]>) {
+    let owned = bytes
+        .map(|bytes| {
+            let bytes = string_prefix(bytes);
+            let ptr = unsafe { smalloc(bytes.len() + 1) }.cast::<libc::c_char>();
+            unsafe {
+                std::ptr::copy_nonoverlapping(bytes.as_ptr(), ptr.cast(), bytes.len());
+                ptr.add(bytes.len()).write(0);
+            }
+            ptr
+        })
+        .unwrap_or(std::ptr::null_mut());
+    unsafe {
+        free(slot.replace(owned).cast());
+    }
+}
+
+/// All entry points operate on the live event-thread Window graph. Property
+/// update APIs consume their reply except normal_hints, which explicitly borrows
+/// it. No &mut Window is held across tree, logging, or assignment callbacks.
+pub unsafe fn window_free(win: *mut Window) {
+    for text in [
+        (*win).class_class,
+        (*win).class_instance,
+        (*win).role,
+        (*win).machine,
+    ] {
+        free(text.cast());
+    }
+    i3string_free((*win).name);
+    cairo_surface_destroy((*win).icon);
+    free((*win).ran_assignments.cast());
+    free(win.cast());
+}
+
+pub unsafe fn window_update_class(win: *mut Window, prop: *mut xcb_get_property_reply_t) {
+    let prop = PropertyReply::take(prop);
+    let value = prop.view();
+    if value.bytes.is_empty() {
+        trace!("window_update_class", 36, c"WM_CLASS not set.\n");
         return;
     }
-    let prop_length: usize = xcb_get_property_value_length(prop) as usize;
-    let new_class: *mut ::core::ffi::c_char =
-        xcb_get_property_value(prop) as *mut ::core::ffi::c_char;
-    let class_class_index: usize =
-        (strnlen(new_class, prop_length) as usize).wrapping_add(1 as usize);
-    free((*win).class_instance as *mut ::core::ffi::c_void);
-    (*win).class_instance = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    free((*win).class_class as *mut ::core::ffi::c_void);
-    (*win).class_class = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    (*win).class_instance = sstrndup(new_class, prop_length);
-    if class_class_index < prop_length {
-        (*win).class_class = sstrndup(
-            new_class.offset(class_class_index as isize),
-            prop_length.wrapping_sub(class_class_index),
-        );
-    } else {
-        (*win).class_class = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    }
+    let (instance, class) = class_parts(value.bytes);
+    replace_string(&raw mut (*win).class_instance, Some(instance));
+    replace_string(&raw mut (*win).class_class, class);
     verboselog(
         c"WM_CLASS changed to %s (instance), %s (class)\n"
             .as_ptr()
@@ -116,310 +192,355 @@ pub unsafe fn window_update_class(win: *mut i3Window, mut prop: *mut xcb_get_pro
         (*win).class_instance,
         (*win).class_class,
     );
-    free(prop as *mut ::core::ffi::c_void);
 }
 
-pub unsafe fn window_update_name(win: *mut i3Window, mut prop: *mut xcb_get_property_reply_t) {
-    if prop.is_null() || xcb_get_property_value_length(prop) == 0 as ::core::ffi::c_int {
-        debuglog(
-            c"%s:%s:%d - _NET_WM_NAME not specified, not changing\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/window.c".as_ptr(),
-            c"window_update_name".as_ptr(),
-            70 as ::core::ffi::c_int,
+unsafe fn set_name(win: *mut Window, bytes: &[u8]) {
+    let name = Box::new(I3String::from_bytes(string_prefix(bytes)));
+    i3string_free((*win).name);
+    (*win).name = Box::into_raw(name);
+    let con = con_by_window_id((*win).id);
+    if !con.is_null() && !(*con).title_format.is_null() {
+        let formatted = con_parse_title_format(con);
+        ewmh_update_visible_name((*win).id, i3string_as_utf8(formatted));
+        i3string_free(formatted);
+    }
+}
+pub unsafe fn window_update_name(win: *mut Window, prop: *mut xcb_get_property_reply_t) {
+    let prop = PropertyReply::take(prop);
+    if prop.view().bytes.is_empty() {
+        trace!(
+            "window_update_name",
+            70,
+            c"_NET_WM_NAME not specified, not changing\n"
         );
-        free(prop as *mut ::core::ffi::c_void);
-        prop = ::core::ptr::null_mut::<xcb_get_property_reply_t>();
         return;
     }
-    i3string_free((*win).name);
-    let len: ::core::ffi::c_int = xcb_get_property_value_length(prop) as ::core::ffi::c_int;
-    let name: *mut ::core::ffi::c_char = sstrndup(
-        xcb_get_property_value(prop) as *const ::core::ffi::c_char,
-        len as usize,
-    );
-    (*win).name = i3string_from_utf8(name);
-    free(name as *mut ::core::ffi::c_void);
-    let con: *mut Con = con_by_window_id((*win).id);
-    if !con.is_null() && !(*con).title_format.is_null() {
-        let mut name_0: *mut i3String = con_parse_title_format(con);
-        ewmh_update_visible_name((*win).id, i3string_as_utf8(name_0));
-        i3string_free(name_0);
-        name_0 = ::core::ptr::null_mut::<i3String>();
-    }
-    (*win).name_x_changed = true_0 != 0;
+    set_name(win, prop.view().bytes);
+    (*win).name_x_changed = true;
     verboselog(
         c"_NET_WM_NAME changed to \"%s\"\n".as_ptr().cast_mut(),
         i3string_as_utf8((*win).name),
     );
-    (*win).uses_net_wm_name = true_0 != 0;
-    free(prop as *mut ::core::ffi::c_void);
+    (*win).uses_net_wm_name = true;
 }
-
-pub unsafe fn window_update_name_legacy(
-    win: *mut i3Window,
-    mut prop: *mut xcb_get_property_reply_t,
-) {
-    if prop.is_null() || xcb_get_property_value_length(prop) == 0 as ::core::ffi::c_int {
-        debuglog(
-            c"%s:%s:%d - WM_NAME not set (_NET_WM_NAME is what you want anyways).\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/window.c".as_ptr(),
-            c"window_update_name_legacy".as_ptr(),
-            106 as ::core::ffi::c_int,
+pub unsafe fn window_update_name_legacy(win: *mut Window, prop: *mut xcb_get_property_reply_t) {
+    let prop = PropertyReply::take(prop);
+    if prop.view().bytes.is_empty() {
+        trace!(
+            "window_update_name_legacy",
+            106,
+            c"WM_NAME not set (_NET_WM_NAME is what you want anyways).\n"
         );
-        free(prop as *mut ::core::ffi::c_void);
-        prop = ::core::ptr::null_mut::<xcb_get_property_reply_t>();
         return;
     }
     if (*win).uses_net_wm_name {
-        free(prop as *mut ::core::ffi::c_void);
         return;
     }
-    i3string_free((*win).name);
-    let len: ::core::ffi::c_int = xcb_get_property_value_length(prop) as ::core::ffi::c_int;
-    let name: *mut ::core::ffi::c_char = sstrndup(
-        xcb_get_property_value(prop) as *const ::core::ffi::c_char,
-        len as usize,
-    );
-    (*win).name = i3string_from_utf8(name);
-    free(name as *mut ::core::ffi::c_void);
-    let con: *mut Con = con_by_window_id((*win).id);
-    if !con.is_null() && !(*con).title_format.is_null() {
-        let mut name_0: *mut i3String = con_parse_title_format(con);
-        ewmh_update_visible_name((*win).id, i3string_as_utf8(name_0));
-        i3string_free(name_0);
-        name_0 = ::core::ptr::null_mut::<i3String>();
-    }
+    set_name(win, prop.view().bytes);
     verboselog(
         c"WM_NAME changed to \"%s\"\n".as_ptr().cast_mut(),
         i3string_as_utf8((*win).name),
     );
-    verboselog(
-        c"Using legacy window title. Note that in order to get Unicode window titles in i3, the application has to set _NET_WM_NAME (UTF-8)\n".as_ptr().cast_mut(),
-    );
-    (*win).name_x_changed = true_0 != 0;
-    free(prop as *mut ::core::ffi::c_void);
+    verboselog(c"Using legacy window title. Note that in order to get Unicode window titles in i3, the application has to set _NET_WM_NAME (UTF-8)\n".as_ptr().cast_mut());
+    (*win).name_x_changed = true;
 }
-
-pub unsafe fn window_update_leader(win: *mut i3Window, mut prop: *mut xcb_get_property_reply_t) {
-    if prop.is_null() || xcb_get_property_value_length(prop) == 0 as ::core::ffi::c_int {
-        debuglog(
-            c"%s:%s:%d - CLIENT_LEADER not set on window 0x%08x.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/window.c".as_ptr(),
-            c"window_update_leader".as_ptr(),
-            145 as ::core::ffi::c_int,
-            (*win).id,
+pub unsafe fn window_update_leader(win: *mut Window, prop: *mut xcb_get_property_reply_t) {
+    let prop = PropertyReply::take(prop);
+    let Some(leader) = prop.view().word(0) else {
+        tracef!(
+            "window_update_leader",
+            145,
+            "CLIENT_LEADER not set on window 0x%08x.\n",
+            (*win).id
         );
-        (*win).leader = XCB_NONE as xcb_window_t;
-        free(prop as *mut ::core::ffi::c_void);
-        prop = ::core::ptr::null_mut::<xcb_get_property_reply_t>();
+        (*win).leader = 0;
         return;
-    }
-    let leader: *mut xcb_window_t = xcb_get_property_value(prop) as *mut xcb_window_t;
-    if leader.is_null() {
-        free(prop as *mut ::core::ffi::c_void);
-        return;
-    }
-    debuglog(
-        c"%s:%s:%d - Client leader changed to %08x\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/window.c".as_ptr(),
-        c"window_update_leader".as_ptr(),
-        157 as ::core::ffi::c_int,
-        *leader,
-    );
-    (*win).leader = *leader;
-    free(prop as *mut ::core::ffi::c_void);
-}
-
-pub unsafe fn window_update_transient_for(
-    win: *mut i3Window,
-    mut prop: *mut xcb_get_property_reply_t,
-) {
-    if prop.is_null() || xcb_get_property_value_length(prop) == 0 as ::core::ffi::c_int {
-        debuglog(
-            c"%s:%s:%d - TRANSIENT_FOR not set on window 0x%08x.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/window.c".as_ptr(),
-            c"window_update_transient_for".as_ptr(),
-            170 as ::core::ffi::c_int,
-            (*win).id,
-        );
-        (*win).transient_for = XCB_NONE as xcb_window_t;
-        free(prop as *mut ::core::ffi::c_void);
-        prop = ::core::ptr::null_mut::<xcb_get_property_reply_t>();
-        return;
-    }
-    let mut transient_for: xcb_window_t = 0;
-    if xcb_icccm_get_wm_transient_for_from_reply(&raw mut transient_for, prop) == 0 {
-        free(prop as *mut ::core::ffi::c_void);
-        return;
-    }
-    debuglog(
-        c"%s:%s:%d - Transient for changed to 0x%08x (window 0x%08x)\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/window.c".as_ptr(),
-        c"window_update_transient_for".as_ptr(),
-        182 as ::core::ffi::c_int,
-        transient_for,
-        (*win).id,
-    );
-    (*win).transient_for = transient_for;
-    free(prop as *mut ::core::ffi::c_void);
-}
-
-pub unsafe fn window_update_strut_partial(
-    win: *mut i3Window,
-    mut prop: *mut xcb_get_property_reply_t,
-) {
-    if prop.is_null() || xcb_get_property_value_length(prop) == 0 as ::core::ffi::c_int {
-        debuglog(
-            c"%s:%s:%d - _NET_WM_STRUT_PARTIAL not set.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/window.c".as_ptr(),
-            c"window_update_strut_partial".as_ptr(),
-            195 as ::core::ffi::c_int,
-        );
-        free(prop as *mut ::core::ffi::c_void);
-        prop = ::core::ptr::null_mut::<xcb_get_property_reply_t>();
-        return;
-    }
-    let mut strut: *mut u32 = ::core::ptr::null_mut::<u32>();
-    strut = xcb_get_property_value(prop) as *mut u32;
-    if strut.is_null() {
-        free(prop as *mut ::core::ffi::c_void);
-        return;
-    }
-    debuglog(
-        c"%s:%s:%d - Reserved pixels changed to: left = %d, right = %d, top = %d, bottom = %d\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/window.c".as_ptr(),
-        c"window_update_strut_partial".as_ptr(),
-        207 as ::core::ffi::c_int,
-        *strut.offset(0 as ::core::ffi::c_int as isize),
-        *strut.offset(1 as ::core::ffi::c_int as isize),
-        *strut.offset(2 as ::core::ffi::c_int as isize),
-        *strut.offset(3 as ::core::ffi::c_int as isize),
-    );
-    (*win).reserved = reservedpx {
-        left: *strut.offset(0 as ::core::ffi::c_int as isize),
-        right: *strut.offset(1 as ::core::ffi::c_int as isize),
-        top: *strut.offset(2 as ::core::ffi::c_int as isize),
-        bottom: *strut.offset(3 as ::core::ffi::c_int as isize),
     };
-    free(prop as *mut ::core::ffi::c_void);
+    tracef!(
+        "window_update_leader",
+        157,
+        "Client leader changed to %08x\n",
+        leader
+    );
+    (*win).leader = leader;
 }
-
-pub unsafe fn window_update_role(win: *mut i3Window, mut prop: *mut xcb_get_property_reply_t) {
-    if prop.is_null() || xcb_get_property_value_length(prop) == 0 as ::core::ffi::c_int {
-        debuglog(
-            c"%s:%s:%d - WM_WINDOW_ROLE not set.\n".as_ptr().cast_mut(),
-            c"../src/window.c".as_ptr(),
-            c"window_update_role".as_ptr(),
-            220 as ::core::ffi::c_int,
+pub unsafe fn window_update_transient_for(win: *mut Window, prop: *mut xcb_get_property_reply_t) {
+    let prop = PropertyReply::take(prop);
+    if prop.view().bytes.is_empty() {
+        tracef!(
+            "window_update_transient_for",
+            170,
+            "TRANSIENT_FOR not set on window 0x%08x.\n",
+            (*win).id
         );
-        free(prop as *mut ::core::ffi::c_void);
-        prop = ::core::ptr::null_mut::<xcb_get_property_reply_t>();
+        (*win).transient_for = 0;
         return;
     }
-    let mut new_role: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    sasprintf(
-        &raw mut new_role,
-        c"%.*s".as_ptr(),
-        xcb_get_property_value_length(prop),
-        xcb_get_property_value(prop) as *mut ::core::ffi::c_char,
-    );
-    free((*win).role as *mut ::core::ffi::c_void);
-    (*win).role = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    (*win).role = new_role;
+    if prop.view().word(0).is_none() {
+        return;
+    }
+    let mut transient_for = 0;
+    if xcb_icccm_get_wm_transient_for_from_reply(&raw mut transient_for, prop.raw()) != 0 {
+        tracef!(
+            "window_update_transient_for",
+            182,
+            "Transient for changed to 0x%08x (window 0x%08x)\n",
+            transient_for,
+            (*win).id
+        );
+        (*win).transient_for = transient_for;
+    }
+}
+pub unsafe fn window_update_strut_partial(win: *mut Window, prop: *mut xcb_get_property_reply_t) {
+    let prop = PropertyReply::take(prop);
+    let value = prop.view();
+    if value.bytes.is_empty() {
+        trace!(
+            "window_update_strut_partial",
+            195,
+            c"_NET_WM_STRUT_PARTIAL not set.\n"
+        );
+        return;
+    }
+    if let (Some(left), Some(right), Some(top), Some(bottom)) =
+        (value.word(0), value.word(1), value.word(2), value.word(3))
+    {
+        tracef!(
+            "window_update_strut_partial",
+            207,
+            "Reserved pixels changed to: left = %d, right = %d, top = %d, bottom = %d\n",
+            left,
+            right,
+            top,
+            bottom
+        );
+        (*win).reserved = reservedpx {
+            left,
+            right,
+            top,
+            bottom,
+        };
+    }
+}
+pub unsafe fn window_update_role(win: *mut Window, prop: *mut xcb_get_property_reply_t) {
+    let prop = PropertyReply::take(prop);
+    if prop.view().bytes.is_empty() {
+        trace!("window_update_role", 220, c"WM_WINDOW_ROLE not set.\n");
+        return;
+    }
+    replace_string(&raw mut (*win).role, Some(prop.view().bytes));
     verboselog(
         c"WM_WINDOW_ROLE changed to \"%s\"\n".as_ptr().cast_mut(),
         (*win).role,
     );
-    free(prop as *mut ::core::ffi::c_void);
 }
-
-pub unsafe fn window_update_type(window: *mut i3Window, reply: *mut xcb_get_property_reply_t) {
-    let new_type: xcb_atom_t = xcb_get_preferred_window_type(reply);
-    free(reply as *mut ::core::ffi::c_void);
-    if new_type as ::core::ffi::c_long == XCB_NONE {
-        debuglog(
-            c"%s:%s:%d - cannot read _NET_WM_WINDOW_TYPE from window.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/window.c".as_ptr(),
-            c"window_update_type".as_ptr(),
-            243 as ::core::ffi::c_int,
+pub unsafe fn window_update_machine(win: *mut Window, prop: *mut xcb_get_property_reply_t) {
+    let prop = PropertyReply::take(prop);
+    if prop.view().bytes.is_empty() {
+        trace!(
+            "window_update_machine",
+            509,
+            c"WM_CLIENT_MACHINE not set.\n"
         );
         return;
     }
+    replace_string(&raw mut (*win).machine, Some(prop.view().bytes));
+    verboselog(
+        c"WM_CLIENT_MACHINE changed to \"%s\"\n".as_ptr().cast_mut(),
+        (*win).machine,
+    );
+}
+pub unsafe fn window_update_type(window: *mut Window, reply: *mut xcb_get_property_reply_t) {
+    let reply = PropertyReply::take(reply);
+    let value = reply.view();
+    // The old helper assumes format=32 and can walk beyond short/malformed
+    // payloads; choose only from bounded native-endian words here instead.
+    let supported = [
+        crate::application::A__NET_WM_WINDOW_TYPE_NORMAL,
+        crate::application::A__NET_WM_WINDOW_TYPE_DIALOG,
+        crate::application::A__NET_WM_WINDOW_TYPE_UTILITY,
+        crate::application::A__NET_WM_WINDOW_TYPE_TOOLBAR,
+        crate::application::A__NET_WM_WINDOW_TYPE_SPLASH,
+        crate::application::A__NET_WM_WINDOW_TYPE_MENU,
+        crate::application::A__NET_WM_WINDOW_TYPE_DROPDOWN_MENU,
+        crate::application::A__NET_WM_WINDOW_TYPE_POPUP_MENU,
+        crate::application::A__NET_WM_WINDOW_TYPE_TOOLTIP,
+        crate::application::A__NET_WM_WINDOW_TYPE_NOTIFICATION,
+    ];
+    let new_type = preferred_type(value, &supported);
+    drop(reply);
+    let Some(new_type) = new_type else {
+        trace!(
+            "window_update_type",
+            243,
+            c"cannot read _NET_WM_WINDOW_TYPE from window.\n"
+        );
+        return;
+    };
     (*window).window_type = new_type;
     verboselog(
         c"_NET_WM_WINDOW_TYPE changed to %i.\n".as_ptr().cast_mut(),
-        (*window).window_type,
+        new_type,
     );
     run_assignments(window);
 }
-
-pub unsafe fn window_update_normal_hints(
-    win: *mut i3Window,
-    reply: *mut xcb_get_property_reply_t,
-    geom: *mut xcb_get_geometry_reply_t,
-) -> bool {
-    let mut changed: bool = false_0 != 0;
-    let mut size_hints: xcb_size_hints_t = xcb_size_hints_t {
-        flags: 0,
-        x: 0,
-        y: 0,
-        width: 0,
-        height: 0,
-        min_width: 0,
-        min_height: 0,
-        max_width: 0,
-        max_height: 0,
-        width_inc: 0,
-        height_inc: 0,
-        min_aspect_num: 0,
-        min_aspect_den: 0,
-        max_aspect_num: 0,
-        max_aspect_den: 0,
-        base_width: 0,
-        base_height: 0,
-        win_gravity: 0,
-    };
-    let mut success: bool = false;
-    if !reply.is_null() {
-        success = xcb_icccm_get_wm_size_hints_from_reply(&raw mut size_hints, reply) != 0;
-    } else {
-        success = xcb_icccm_get_wm_normal_hints_reply(
-            conn,
-            xcb_icccm_get_wm_normal_hints_unchecked(conn, (*win).id),
-            &raw mut size_hints,
-            ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-        ) != 0;
+fn preferred_type(property: Property<'_>, supported: &[u32]) -> Option<u32> {
+    if property.format != 32 {
+        return None;
     }
-    if !success {
-        debuglog(
-            c"%s:%s:%d - Could not get WM_NORMAL_HINTS\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/window.c".as_ptr(),
-            c"window_update_normal_hints".as_ptr(),
-            269 as ::core::ffi::c_int,
+    property
+        .bytes
+        .chunks_exact(4)
+        .map(|word| u32::from_ne_bytes(word.try_into().unwrap()))
+        .find(|atom| *atom != 0 && supported.contains(atom))
+}
+fn decode_size_hints(property: Property<'_>) -> Option<xcb_size_hints_t> {
+    if property.kind != xcb_sys::XCB_ATOM_WM_SIZE_HINTS || property.format != 32 {
+        return None;
+    }
+    let signed = |index| property.word(index).unwrap_or(0) as i32;
+    let modern = property.bytes.len() / 4 >= 18;
+    Some(xcb_size_hints_t {
+        flags: property.word(0).unwrap_or(0) & if modern { 0x3ff } else { 0xff },
+        x: signed(1),
+        y: signed(2),
+        width: signed(3),
+        height: signed(4),
+        min_width: signed(5),
+        min_height: signed(6),
+        max_width: signed(7),
+        max_height: signed(8),
+        width_inc: signed(9),
+        height_inc: signed(10),
+        min_aspect_num: signed(11),
+        min_aspect_den: signed(12),
+        max_aspect_num: signed(13),
+        max_aspect_den: signed(14),
+        base_width: if modern { signed(15) } else { 0 },
+        base_height: if modern { signed(16) } else { 0 },
+        win_gravity: if modern {
+            property.word(17).unwrap()
+        } else {
+            0
+        },
+    })
+}
+fn decode_wm_hints(property: Property<'_>) -> Option<xcb_icccm_wm_hints_t> {
+    if property.kind != xcb_sys::XCB_ATOM_WM_HINTS
+        || property.format != 32
+        || property.bytes.len() < 8 * 4
+    {
+        return None;
+    }
+    Some(xcb_icccm_wm_hints_t {
+        flags: property.word(0)? as i32,
+        input: property.word(1)?,
+        initial_state: property.word(2)? as i32,
+        icon_pixmap: property.word(3)?,
+        icon_window: property.word(4)?,
+        icon_x: property.word(5)? as i32,
+        icon_y: property.word(6)? as i32,
+        icon_mask: property.word(7)?,
+        window_group: property.word(8).unwrap_or(0),
+    })
+}
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+struct SizeConstraints {
+    min_width: i32,
+    min_height: i32,
+    max_width: i32,
+    max_height: i32,
+    width_increment: i32,
+    height_increment: i32,
+    base_width: i32,
+    base_height: i32,
+    min_aspect_ratio: f64,
+    max_aspect_ratio: f64,
+}
+impl SizeConstraints {
+    fn update(&mut self, hints: &xcb_size_hints_t) -> bool {
+        fn set<T: PartialEq + Copy>(slot: &mut T, value: T) -> bool {
+            if *slot == value {
+                false
+            } else {
+                *slot = value;
+                true
+            }
+        }
+        let mut changed = false;
+        if hints.flags & XCB_ICCCM_SIZE_HINT_P_MIN_SIZE != 0 {
+            changed |= set(&mut self.min_width, hints.min_width);
+            changed |= set(&mut self.min_height, hints.min_height);
+        }
+        let max = hints.flags & XCB_ICCCM_SIZE_HINT_P_MAX_SIZE != 0;
+        changed |= set(
+            &mut self.max_width,
+            if max { hints.max_width.max(0) } else { 0 },
         );
-        return false_0 != 0;
+        changed |= set(
+            &mut self.max_height,
+            if max { hints.max_height.max(0) } else { 0 },
+        );
+        let increments = hints.flags & XCB_ICCCM_SIZE_HINT_P_RESIZE_INC != 0;
+        let increment = |n| {
+            if increments && (1..0xffff).contains(&n) {
+                n
+            } else {
+                0
+            }
+        };
+        changed |= set(&mut self.width_increment, increment(hints.width_inc));
+        changed |= set(&mut self.height_increment, increment(hints.height_inc));
+        // Preserve the original check of the existing base size, rather than
+        // silently changing it to validate the incoming base size.
+        let base = hints.flags & XCB_ICCCM_SIZE_HINT_BASE_SIZE != 0
+            && self.base_width >= 0
+            && self.base_height >= 0;
+        changed |= set(
+            &mut self.base_width,
+            if base { hints.base_width } else { 0 },
+        );
+        changed |= set(
+            &mut self.base_height,
+            if base { hints.base_height } else { 0 },
+        );
+        if hints.flags & XCB_ICCCM_SIZE_HINT_P_ASPECT != 0
+            && hints.min_aspect_num >= 0
+            && hints.min_aspect_den > 0
+            && hints.max_aspect_num >= 0
+            && hints.max_aspect_den > 0
+        {
+            let min = hints.min_aspect_num as f64 / hints.min_aspect_den as f64;
+            let max = hints.max_aspect_num as f64 / hints.max_aspect_den as f64;
+            if (self.min_aspect_ratio - min).abs() > f64::EPSILON {
+                self.min_aspect_ratio = min;
+                changed = true;
+            }
+            if (self.max_aspect_ratio - max).abs() > f64::EPSILON {
+                self.max_aspect_ratio = max;
+                changed = true;
+            }
+        } else {
+            changed |= set(&mut self.min_aspect_ratio, 0.0);
+            changed |= set(&mut self.max_aspect_ratio, 0.0);
+        }
+        changed
     }
-    if size_hints.flags & XCB_ICCCM_SIZE_HINT_P_MIN_SIZE as ::core::ffi::c_int as u32 != 0 {
+}
+fn requested_geometry(hints: &xcb_size_hints_t) -> Option<(i16, i16, u16, u16)> {
+    let positioned =
+        hints.flags & (XCB_ICCCM_SIZE_HINT_US_POSITION | XCB_ICCCM_SIZE_HINT_P_POSITION) != 0;
+    let sized = hints.flags & (XCB_ICCCM_SIZE_HINT_US_SIZE | XCB_ICCCM_SIZE_HINT_P_SIZE) != 0;
+    (positioned && sized).then_some((
+        hints.x as i16,
+        hints.y as i16,
+        hints.width as u16,
+        hints.height as u16,
+    ))
+}
+// Only owned hint values are borrowed while native logging runs.
+unsafe fn log_size_hints(size_hints: &xcb_size_hints_t, old: SizeConstraints, has_geometry: bool) {
+    if size_hints.flags & XCB_ICCCM_SIZE_HINT_P_MIN_SIZE != 0 {
         debuglog(
             c"%s:%s:%d - Minimum size: %d (width) x %d (height)\n"
                 .as_ptr()
@@ -430,16 +551,8 @@ pub unsafe fn window_update_normal_hints(
             size_hints.min_width,
             size_hints.min_height,
         );
-        if (*win).min_width as i32 != size_hints.min_width {
-            (*win).min_width = size_hints.min_width as ::core::ffi::c_int;
-            changed = true_0 != 0;
-        }
-        if (*win).min_height as i32 != size_hints.min_height {
-            (*win).min_height = size_hints.min_height as ::core::ffi::c_int;
-            changed = true_0 != 0;
-        }
     }
-    if size_hints.flags & XCB_ICCCM_SIZE_HINT_P_MAX_SIZE as ::core::ffi::c_int as u32 != 0 {
+    if size_hints.flags & XCB_ICCCM_SIZE_HINT_P_MAX_SIZE != 0 {
         debuglog(
             c"%s:%s:%d - Maximum size: %d (width) x %d (height)\n"
                 .as_ptr()
@@ -450,22 +563,6 @@ pub unsafe fn window_update_normal_hints(
             size_hints.max_width,
             size_hints.max_height,
         );
-        let max_width: ::core::ffi::c_int = max(
-            0 as ::core::ffi::c_int,
-            size_hints.max_width as ::core::ffi::c_int,
-        );
-        let max_height: ::core::ffi::c_int = max(
-            0 as ::core::ffi::c_int,
-            size_hints.max_height as ::core::ffi::c_int,
-        );
-        if (*win).max_width != max_width {
-            (*win).max_width = max_width;
-            changed = true_0 != 0;
-        }
-        if (*win).max_height != max_height {
-            (*win).max_height = max_height;
-            changed = true_0 != 0;
-        }
     } else {
         debuglog(
             c"%s:%s:%d - Clearing maximum size\n".as_ptr().cast_mut(),
@@ -473,16 +570,8 @@ pub unsafe fn window_update_normal_hints(
             c"window_update_normal_hints".as_ptr(),
             297 as ::core::ffi::c_int,
         );
-        if (*win).max_width != 0 as ::core::ffi::c_int {
-            (*win).max_width = 0 as ::core::ffi::c_int;
-            changed = true_0 != 0;
-        }
-        if (*win).max_height != 0 as ::core::ffi::c_int {
-            (*win).max_height = 0 as ::core::ffi::c_int;
-            changed = true_0 != 0;
-        }
     }
-    if size_hints.flags & XCB_ICCCM_SIZE_HINT_P_RESIZE_INC as ::core::ffi::c_int as u32 != 0 {
+    if size_hints.flags & XCB_ICCCM_SIZE_HINT_P_RESIZE_INC != 0 {
         debuglog(
             c"%s:%s:%d - Size increments: %d (width) x %d (height)\n"
                 .as_ptr()
@@ -493,24 +582,6 @@ pub unsafe fn window_update_normal_hints(
             size_hints.width_inc,
             size_hints.height_inc,
         );
-        if size_hints.width_inc > 0 as i32 && size_hints.width_inc < 0xffff as i32 {
-            if (*win).width_increment as i32 != size_hints.width_inc {
-                (*win).width_increment = size_hints.width_inc as ::core::ffi::c_int;
-                changed = true_0 != 0;
-            }
-        } else if (*win).width_increment != 0 as ::core::ffi::c_int {
-            (*win).width_increment = 0 as ::core::ffi::c_int;
-            changed = true_0 != 0;
-        }
-        if size_hints.height_inc > 0 as i32 && size_hints.height_inc < 0xffff as i32 {
-            if (*win).height_increment as i32 != size_hints.height_inc {
-                (*win).height_increment = size_hints.height_inc as ::core::ffi::c_int;
-                changed = true_0 != 0;
-            }
-        } else if (*win).height_increment != 0 as ::core::ffi::c_int {
-            (*win).height_increment = 0 as ::core::ffi::c_int;
-            changed = true_0 != 0;
-        }
     } else {
         debuglog(
             c"%s:%s:%d - Clearing size increments\n".as_ptr().cast_mut(),
@@ -518,18 +589,10 @@ pub unsafe fn window_update_normal_hints(
             c"window_update_normal_hints".as_ptr(),
             318 as ::core::ffi::c_int,
         );
-        if (*win).width_increment != 0 as ::core::ffi::c_int {
-            (*win).width_increment = 0 as ::core::ffi::c_int;
-            changed = true_0 != 0;
-        }
-        if (*win).height_increment != 0 as ::core::ffi::c_int {
-            (*win).height_increment = 0 as ::core::ffi::c_int;
-            changed = true_0 != 0;
-        }
     }
-    if size_hints.flags & XCB_ICCCM_SIZE_HINT_BASE_SIZE as ::core::ffi::c_int as u32 != 0
-        && (*win).base_width >= 0 as ::core::ffi::c_int
-        && (*win).base_height >= 0 as ::core::ffi::c_int
+    if size_hints.flags & XCB_ICCCM_SIZE_HINT_BASE_SIZE != 0
+        && old.base_width >= 0
+        && old.base_height >= 0
     {
         debuglog(
             c"%s:%s:%d - Base size: %d (width) x %d (height)\n"
@@ -541,14 +604,6 @@ pub unsafe fn window_update_normal_hints(
             size_hints.base_width,
             size_hints.base_height,
         );
-        if (*win).base_width as i32 != size_hints.base_width {
-            (*win).base_width = size_hints.base_width as ::core::ffi::c_int;
-            changed = true_0 != 0;
-        }
-        if (*win).base_height as i32 != size_hints.base_height {
-            (*win).base_height = size_hints.base_height as ::core::ffi::c_int;
-            changed = true_0 != 0;
-        }
     } else {
         debuglog(
             c"%s:%s:%d - Clearing base size\n".as_ptr().cast_mut(),
@@ -556,21 +611,8 @@ pub unsafe fn window_update_normal_hints(
             c"window_update_normal_hints".as_ptr(),
             332 as ::core::ffi::c_int,
         );
-        if (*win).base_width != 0 as ::core::ffi::c_int {
-            (*win).base_width = 0 as ::core::ffi::c_int;
-            changed = true_0 != 0;
-        }
-        if (*win).base_height != 0 as ::core::ffi::c_int {
-            (*win).base_height = 0 as ::core::ffi::c_int;
-            changed = true_0 != 0;
-        }
     }
-    if !geom.is_null()
-        && (size_hints.flags & XCB_ICCCM_SIZE_HINT_US_POSITION as ::core::ffi::c_int as u32 != 0
-            || size_hints.flags & XCB_ICCCM_SIZE_HINT_P_POSITION as ::core::ffi::c_int as u32 != 0)
-        && (size_hints.flags & XCB_ICCCM_SIZE_HINT_US_SIZE as ::core::ffi::c_int as u32 != 0
-            || size_hints.flags & XCB_ICCCM_SIZE_HINT_P_SIZE as ::core::ffi::c_int as u32 != 0)
-    {
+    if has_geometry && requested_geometry(size_hints).is_some() {
         debuglog(
             c"%s:%s:%d - Setting geometry x=%d y=%d w=%d h=%d\n"
                 .as_ptr()
@@ -583,21 +625,15 @@ pub unsafe fn window_update_normal_hints(
             size_hints.width,
             size_hints.height,
         );
-        (*geom).x = size_hints.x as i16;
-        (*geom).y = size_hints.y as i16;
-        (*geom).width = size_hints.width as u16;
-        (*geom).height = size_hints.height as u16;
     }
-    if size_hints.flags & XCB_ICCCM_SIZE_HINT_P_ASPECT as ::core::ffi::c_int as u32 != 0
-        && size_hints.min_aspect_num >= 0 as i32
-        && size_hints.min_aspect_den > 0 as i32
-        && size_hints.max_aspect_num >= 0 as i32
-        && size_hints.max_aspect_den > 0 as i32
+    if size_hints.flags & XCB_ICCCM_SIZE_HINT_P_ASPECT != 0
+        && size_hints.min_aspect_num >= 0
+        && size_hints.min_aspect_den > 0
+        && size_hints.max_aspect_num >= 0
+        && size_hints.max_aspect_den > 0
     {
-        let min_aspect: ::core::ffi::c_double = size_hints.min_aspect_num as ::core::ffi::c_double
-            / size_hints.min_aspect_den as ::core::ffi::c_double;
-        let max_aspect: ::core::ffi::c_double = size_hints.max_aspect_num as ::core::ffi::c_double
-            / size_hints.max_aspect_den as ::core::ffi::c_double;
+        let min_aspect = size_hints.min_aspect_num as f64 / size_hints.min_aspect_den as f64;
+        let max_aspect = size_hints.max_aspect_num as f64 / size_hints.max_aspect_den as f64;
         debuglog(
             c"%s:%s:%d - Aspect ratio set: minimum %f, maximum %f\n"
                 .as_ptr()
@@ -608,14 +644,6 @@ pub unsafe fn window_update_normal_hints(
             min_aspect,
             max_aspect,
         );
-        if fabs((*win).min_aspect_ratio - min_aspect) > DBL_EPSILON {
-            (*win).min_aspect_ratio = min_aspect;
-            changed = true_0 != 0;
-        }
-        if fabs((*win).max_aspect_ratio - max_aspect) > DBL_EPSILON {
-            (*win).max_aspect_ratio = max_aspect;
-            changed = true_0 != 0;
-        }
     } else {
         debuglog(
             c"%s:%s:%d - Clearing aspect ratios\n".as_ptr().cast_mut(),
@@ -623,337 +651,648 @@ pub unsafe fn window_update_normal_hints(
             c"window_update_normal_hints".as_ptr(),
             365 as ::core::ffi::c_int,
         );
-        if (*win).min_aspect_ratio != 0.0f64 {
-            (*win).min_aspect_ratio = 0.0f64;
-            changed = true_0 != 0;
+    }
+}
+/// Unlike the other update APIs, reply is BORROWED: existing handlers free it.
+/// win/geom must be live event-thread graph objects; geom may be null. A null
+/// reply requests an independent native ICCCM fetch, which owns its own reply.
+pub unsafe fn window_update_normal_hints(
+    win: *mut Window,
+    reply: *mut xcb_get_property_reply_t,
+    geom: *mut xcb_get_geometry_reply_t,
+) -> bool {
+    let mut hints: xcb_size_hints_t = std::mem::zeroed();
+    let success = if reply.is_null() {
+        xcb_icccm_get_wm_normal_hints_reply(
+            conn,
+            xcb_icccm_get_wm_normal_hints_unchecked(conn, (*win).id),
+            &raw mut hints,
+            std::ptr::null_mut(),
+        ) != 0
+    } else {
+        if let Some(decoded) = decode_size_hints(property_view(reply)) {
+            hints = decoded;
+            true
+        } else {
+            false
         }
-        if (*win).max_aspect_ratio != 0.0f64 {
-            (*win).max_aspect_ratio = 0.0f64;
-            changed = true_0 != 0;
+    };
+    if !success {
+        trace!(
+            "window_update_normal_hints",
+            269,
+            c"Could not get WM_NORMAL_HINTS\n"
+        );
+        return false;
+    }
+    let mut state = SizeConstraints {
+        min_width: (*win).min_width,
+        min_height: (*win).min_height,
+        max_width: (*win).max_width,
+        max_height: (*win).max_height,
+        width_increment: (*win).width_increment,
+        height_increment: (*win).height_increment,
+        base_width: (*win).base_width,
+        base_height: (*win).base_height,
+        min_aspect_ratio: (*win).min_aspect_ratio,
+        max_aspect_ratio: (*win).max_aspect_ratio,
+    };
+    log_size_hints(&hints, state, !geom.is_null());
+    let changed = state.update(&hints);
+    (*win).min_width = state.min_width;
+    (*win).min_height = state.min_height;
+    (*win).max_width = state.max_width;
+    (*win).max_height = state.max_height;
+    (*win).width_increment = state.width_increment;
+    (*win).height_increment = state.height_increment;
+    (*win).base_width = state.base_width;
+    (*win).base_height = state.base_height;
+    if !geom.is_null() {
+        if let Some((x, y, width, height)) = requested_geometry(&hints) {
+            (*geom).x = x;
+            (*geom).y = y;
+            (*geom).width = width;
+            (*geom).height = height;
         }
     }
+    (*win).min_aspect_ratio = state.min_aspect_ratio;
+    (*win).max_aspect_ratio = state.max_aspect_ratio;
     changed
 }
 
+fn hint_effects(hints: &xcb_icccm_wm_hints_t) -> (Option<bool>, bool) {
+    (
+        (hints.flags & XCB_ICCCM_WM_HINT_INPUT as i32 != 0).then_some(hints.input == 0),
+        hints.flags & xcb_sys::XCB_ICCCM_WM_HINT_X_URGENCY as i32 != 0,
+    )
+}
 pub unsafe fn window_update_hints(
-    win: *mut i3Window,
-    mut prop: *mut xcb_get_property_reply_t,
+    win: *mut Window,
+    prop: *mut xcb_get_property_reply_t,
     urgency_hint: *mut bool,
 ) {
+    let prop = PropertyReply::take(prop);
     if !urgency_hint.is_null() {
-        *urgency_hint = false_0 != 0;
+        *urgency_hint = false;
     }
-    if prop.is_null() || xcb_get_property_value_length(prop) == 0 as ::core::ffi::c_int {
-        debuglog(
-            c"%s:%s:%d - WM_HINTS not set.\n".as_ptr().cast_mut(),
-            c"../src/window.c".as_ptr(),
-            c"window_update_hints".as_ptr(),
-            384 as ::core::ffi::c_int,
-        );
-        free(prop as *mut ::core::ffi::c_void);
-        prop = ::core::ptr::null_mut::<xcb_get_property_reply_t>();
+    if prop.view().bytes.is_empty() {
+        trace!("window_update_hints", 384, c"WM_HINTS not set.\n");
         return;
     }
-    let mut hints: xcb_icccm_wm_hints_t = xcb_icccm_wm_hints_t {
-        flags: 0,
-        input: 0,
-        initial_state: 0,
-        icon_pixmap: 0,
-        icon_window: 0,
-        icon_x: 0,
-        icon_y: 0,
-        icon_mask: 0,
-        window_group: 0,
+    let Some(hints) = decode_wm_hints(prop.view()) else {
+        trace!("window_update_hints", 392, c"Could not get WM_HINTS\n");
+        return;
     };
-    if xcb_icccm_get_wm_hints_from_reply(&raw mut hints, prop) == 0 {
-        debuglog(
-            c"%s:%s:%d - Could not get WM_HINTS\n".as_ptr().cast_mut(),
-            c"../src/window.c".as_ptr(),
-            c"window_update_hints".as_ptr(),
-            392 as ::core::ffi::c_int,
-        );
-        free(prop as *mut ::core::ffi::c_void);
-        return;
-    }
-    if hints.flags & XCB_ICCCM_WM_HINT_INPUT as ::core::ffi::c_int as i32 != 0 {
-        (*win).doesnt_accept_focus = hints.input == 0;
+    let (focus, urgent) = hint_effects(&hints);
+    if let Some(doesnt_accept_focus) = focus {
+        (*win).doesnt_accept_focus = doesnt_accept_focus;
         verboselog(
             c"WM_HINTS.input changed to \"%d\"\n".as_ptr().cast_mut(),
             hints.input,
         );
     }
     if !urgency_hint.is_null() {
-        *urgency_hint = xcb_icccm_wm_hints_get_urgency(&raw mut hints) != 0 as u32;
+        *urgency_hint = urgent;
     }
-    free(prop as *mut ::core::ffi::c_void);
 }
-pub const MWM_HINTS_FLAGS_FIELD: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-pub const MWM_HINTS_DECORATIONS_FIELD: ::core::ffi::c_int = 2 as ::core::ffi::c_int;
-pub const MWM_HINTS_DECORATIONS: ::core::ffi::c_int =
-    (1 as ::core::ffi::c_int) << 1 as ::core::ffi::c_int;
-pub const MWM_DECOR_ALL: ::core::ffi::c_int = (1 as ::core::ffi::c_int) << 0 as ::core::ffi::c_int;
-pub const MWM_DECOR_BORDER: ::core::ffi::c_int =
-    (1 as ::core::ffi::c_int) << 1 as ::core::ffi::c_int;
-pub const MWM_DECOR_TITLE: ::core::ffi::c_int =
-    (1 as ::core::ffi::c_int) << 3 as ::core::ffi::c_int;
-unsafe fn border_style_from_motif_value(value: u32) -> BorderStyle {
-    if value & MWM_DECOR_ALL as u32 != 0 {
-        if value & MWM_DECOR_TITLE as u32 != 0 {
-            if value & MWM_DECOR_BORDER as u32 != 0 {
-                return BorderStyle::None;
-            }
-            return BorderStyle::Pixel;
-        }
-        return BorderStyle::Normal;
+fn border_style_from_motif_value(value: u32) -> BorderStyle {
+    let all = value & 1 != 0;
+    let border = value & 2 != 0;
+    let title = value & 8 != 0;
+    match (all, title, border) {
+        (true, true, true) | (false, false, false) => BorderStyle::None,
+        (true, true, false) | (false, false, true) => BorderStyle::Pixel,
+        _ => BorderStyle::Normal,
     }
-    if value & MWM_DECOR_TITLE as u32 != 0 {
-        return BorderStyle::Normal;
-    }
-    if value & MWM_DECOR_BORDER as u32 != 0 {
-        return BorderStyle::Pixel;
-    }
-    BorderStyle::None
 }
-
+fn motif_border(property: Property<'_>) -> Option<BorderStyle> {
+    if property.word(0)? & 2 == 0 {
+        return None;
+    }
+    Some(border_style_from_motif_value(property.word(2)?))
+}
 pub unsafe fn window_update_motif_hints(
-    win: *mut i3Window,
-    mut prop: *mut xcb_get_property_reply_t,
+    _win: *mut Window,
+    prop: *mut xcb_get_property_reply_t,
     motif_border_style: *mut BorderStyle,
 ) -> bool {
-    if prop.is_null() {
-        return false_0 != 0;
+    let prop = PropertyReply::take(prop);
+    if prop.raw().is_null() {
+        return false;
     }
-    if motif_border_style != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut BorderStyle {
-    } else {
-        __assert_fail(
-            c"motif_border_style != NULL".as_ptr(),
-            c"../src/window.c".as_ptr(),
-            469 as ::core::ffi::c_uint,
-            __ASSERT_FUNCTION.as_ptr(),
-        );
+    assert!(!motif_border_style.is_null(), "motif_border_style != NULL");
+    let Some(border) = motif_border(prop.view()) else {
+        return false;
     };
-    if xcb_get_property_value_length(prop) == 0 as ::core::ffi::c_int {
-        free(prop as *mut ::core::ffi::c_void);
-        prop = ::core::ptr::null_mut::<xcb_get_property_reply_t>();
-        return false_0 != 0;
-    }
-    let motif_hints: *mut u32 = xcb_get_property_value(prop) as *mut u32;
-    if *motif_hints.offset(MWM_HINTS_FLAGS_FIELD as isize) & MWM_HINTS_DECORATIONS as u32 != 0 {
-        *motif_border_style = border_style_from_motif_value(
-            *motif_hints.offset(MWM_HINTS_DECORATIONS_FIELD as isize),
-        );
-        free(prop as *mut ::core::ffi::c_void);
-        prop = ::core::ptr::null_mut::<xcb_get_property_reply_t>();
-        return true_0 != 0;
-    }
-    free(prop as *mut ::core::ffi::c_void);
-    prop = ::core::ptr::null_mut::<xcb_get_property_reply_t>();
-    false_0 != 0
+    *motif_border_style = border;
+    true
 }
 
-pub unsafe fn window_update_machine(win: *mut i3Window, mut prop: *mut xcb_get_property_reply_t) {
-    if prop.is_null() || xcb_get_property_value_length(prop) == 0 as ::core::ffi::c_int {
-        debuglog(
-            c"%s:%s:%d - WM_CLIENT_MACHINE not set.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/window.c".as_ptr(),
-            c"window_update_machine".as_ptr(),
-            509 as ::core::ffi::c_int,
-        );
-        free(prop as *mut ::core::ffi::c_void);
-        prop = ::core::ptr::null_mut::<xcb_get_property_reply_t>();
-        return;
-    }
-    free((*win).machine as *mut ::core::ffi::c_void);
-    (*win).machine = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    (*win).machine = sstrndup(
-        xcb_get_property_value(prop) as *mut ::core::ffi::c_char,
-        xcb_get_property_value_length(prop) as usize,
-    );
-    verboselog(
-        c"WM_CLIENT_MACHINE changed to \"%s\"\n".as_ptr().cast_mut(),
-        (*win).machine,
-    );
-    free(prop as *mut ::core::ffi::c_void);
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct IconCandidate {
+    width: u32,
+    height: u32,
+    start: usize,
+    pixels: usize,
 }
-
-pub unsafe fn window_update_icon(win: *mut i3Window, mut prop: *mut xcb_get_property_reply_t) {
-    let mut data: *mut u32 = ::core::ptr::null_mut::<u32>();
-    let mut width: u32 = 0 as u32;
-    let mut height: u32 = 0 as u32;
-    let mut len: u64 = 0 as u64;
-    let pref_size: u32 = (render_deco_height() - logical_px(2 as ::core::ffi::c_int)) as u32;
-    if prop.is_null()
-        || (*prop).type_0 != XCB_ATOM_CARDINAL as ::core::ffi::c_int as xcb_atom_t
-        || (*prop).format as ::core::ffi::c_int != 32 as ::core::ffi::c_int
-    {
-        debuglog(
-            c"%s:%s:%d - _NET_WM_ICON is not set\n".as_ptr().cast_mut(),
-            c"../src/window.c".as_ptr(),
-            c"window_update_icon".as_ptr(),
-            528 as ::core::ffi::c_int,
-        );
-        free(prop as *mut ::core::ffi::c_void);
-        prop = ::core::ptr::null_mut::<xcb_get_property_reply_t>();
-        return;
+fn select_icon(property: Property<'_>, preferred: u32) -> Option<IconCandidate> {
+    select_icon_with(property, preferred, |_, _| {})
+}
+fn select_icon_with(
+    property: Property<'_>,
+    preferred: u32,
+    mut found: impl FnMut(u32, u32),
+) -> Option<IconCandidate> {
+    if property.kind != XCB_ATOM_CARDINAL || property.format != 32 {
+        return None;
     }
-    let mut prop_value_len: u32 = xcb_get_property_value_length(prop) as u32;
-    let mut prop_value: *mut u32 = xcb_get_property_value(prop) as *mut u32;
-    while prop_value_len as usize > (::core::mem::size_of::<u32>() as usize).wrapping_mul(2_usize)
-        && !prop_value.is_null()
-        && *prop_value.offset(0 as ::core::ffi::c_int as isize) != 0
-        && *prop_value.offset(1 as ::core::ffi::c_int as isize) != 0
-    {
-        let cur_width: u32 = *prop_value.offset(0 as ::core::ffi::c_int as isize);
-        let cur_height: u32 = *prop_value.offset(1 as ::core::ffi::c_int as isize);
-        let cur_len: u64 = (cur_width as u64).wrapping_mul(cur_height as u64);
-        let expected_len: u64 = cur_len.wrapping_add(2 as u64).wrapping_mul(4 as u64);
-        if expected_len > prop_value_len as u64 {
+    let mut offset = 0usize;
+    let mut selected: Option<IconCandidate> = None;
+    // Native selection requires strictly more than the two dimension words.
+    while property.bytes.len().checked_sub(offset)? > 8 {
+        let remaining = Property {
+            bytes: &property.bytes[offset..],
+            ..property
+        };
+        let (width, height) = (remaining.word(0)?, remaining.word(1)?);
+        if width == 0 || height == 0 {
             break;
         }
-        debuglog(
-            c"%s:%s:%d - Found _NET_WM_ICON of size: (%d,%d)\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/window.c".as_ptr(),
-            c"window_update_icon".as_ptr(),
-            555 as ::core::ffi::c_int,
-            cur_width,
-            cur_height,
-        );
-        let at_least_preferred_size: bool = cur_width >= pref_size && cur_height >= pref_size;
-        let smaller_than_current: bool = cur_width < width || cur_height < height;
-        let larger_than_current: bool = cur_width > width || cur_height > height;
-        let not_yet_at_preferred: bool = width < pref_size || height < pref_size;
-        if len == 0 as u64
-            || at_least_preferred_size as ::core::ffi::c_int != 0
-                && (smaller_than_current as ::core::ffi::c_int != 0
-                    || not_yet_at_preferred as ::core::ffi::c_int != 0)
-            || !at_least_preferred_size
-                && not_yet_at_preferred as ::core::ffi::c_int != 0
-                && larger_than_current as ::core::ffi::c_int != 0
-        {
-            len = cur_len;
-            width = cur_width;
-            height = cur_height;
-            data = prop_value;
-        }
-        if width == pref_size && height == pref_size {
+        let Some(pixels) = (width as usize).checked_mul(height as usize) else {
+            break;
+        };
+        let Some(length) = pixels.checked_add(2).and_then(|n| n.checked_mul(4)) else {
+            break;
+        };
+        if length > remaining.bytes.len() {
             break;
         }
-        prop_value_len = (prop_value_len as u64).wrapping_sub(expected_len) as u32 as u32;
-        prop_value = (prop_value as *mut u8).offset(expected_len as isize) as *mut u32;
+        found(width, height);
+        let candidate = IconCandidate {
+            width,
+            height,
+            start: offset + 8,
+            pixels,
+        };
+        let replace = selected.is_none_or(|old| {
+            let at_least_preferred = width >= preferred && height >= preferred;
+            let smaller = width < old.width || height < old.height;
+            let larger = width > old.width || height > old.height;
+            let not_preferred = old.width < preferred || old.height < preferred;
+            at_least_preferred && (smaller || not_preferred)
+                || !at_least_preferred && not_preferred && larger
+        });
+        if replace {
+            selected = Some(candidate);
+        }
+        if selected.is_some_and(|icon| icon.width == preferred && icon.height == preferred) {
+            break;
+        }
+        offset += length;
     }
-    if data.is_null() {
-        debuglog(
-            c"%s:%s:%d - Could not get _NET_WM_ICON\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/window.c".as_ptr(),
-            c"window_update_icon".as_ptr(),
-            587 as ::core::ffi::c_int,
-        );
-        free(prop as *mut ::core::ffi::c_void);
-        prop = ::core::ptr::null_mut::<xcb_get_property_reply_t>();
+    selected
+}
+fn premultiplied_argb(pixel: u32) -> u32 {
+    let alpha = pixel >> 24;
+    let channel = |shift: u32| ((pixel >> shift) & 0xff_u32) * alpha / 255;
+    alpha << 24 | channel(16) << 16 | channel(8) << 8 | channel(0)
+}
+fn icon_pixels(property: Property<'_>, icon: IconCandidate) -> Vec<u32> {
+    property.bytes[icon.start..icon.start + icon.pixels * 4]
+        .chunks_exact(4)
+        .map(|bytes| premultiplied_argb(u32::from_ne_bytes(bytes.try_into().unwrap())))
+        .collect()
+}
+
+/// Own native pixel allocation until Cairo accepts its destruction callback.
+struct NativePixels(NonNull<u32>);
+impl NativePixels {
+    fn copy(pixels: &[u32]) -> Self {
+        let bytes = std::mem::size_of_val(pixels);
+        let ptr = unsafe { smalloc(bytes) }.cast::<u32>();
+        unsafe {
+            std::ptr::copy_nonoverlapping(pixels.as_ptr(), ptr, pixels.len());
+        }
+        Self(NonNull::new(ptr).expect("smalloc returns nonnull"))
+    }
+}
+impl Drop for NativePixels {
+    fn drop(&mut self) {
+        unsafe {
+            free(self.0.as_ptr().cast());
+        }
+    }
+}
+/// Own a native Cairo reference while its pixels are attached to that
+/// reference's user-data destructor. Transfer only at the Window ABI boundary.
+struct OwnedIcon(NonNull<cairo_sys::cairo_surface_t>);
+impl OwnedIcon {
+    fn new(width: u32, height: u32, values: &[u32]) -> Option<Self> {
+        let expected = (width as usize).checked_mul(height as usize)?;
+        if width == 0 || height == 0 || values.len() != expected {
+            return None;
+        }
+        let stride = i32::try_from(width.checked_mul(4)?).ok()?;
+        let (width, height) = (i32::try_from(width).ok()?, i32::try_from(height).ok()?);
+        let pixels = NativePixels::copy(values);
+        // cairo-sys is maintained by cairo-rs. The backing allocation is owned
+        // independently of the temporary Rust values passed to this constructor.
+        let surface = Self(NonNull::new(unsafe {
+            cairo_image_surface_create_for_data(
+                pixels.0.as_ptr().cast(),
+                FORMAT_A_RGB32,
+                width,
+                height,
+                stride,
+            )
+        })?);
+        static mut FREE_DATA: cairo_user_data_key_t = cairo_user_data_key_t { unused: 0 };
+        let status = unsafe {
+            cairo_surface_set_user_data(
+                surface.0.as_ptr(),
+                &raw mut FREE_DATA,
+                pixels.0.as_ptr().cast(),
+                Some(free),
+            )
+        };
+        if status != 0 {
+            return None;
+        }
+        std::mem::forget(pixels);
+        Some(surface)
+    }
+    fn into_raw(self) -> *mut cairo_sys::cairo_surface_t {
+        let raw = self.0.as_ptr();
+        std::mem::forget(self);
+        raw
+    }
+}
+impl Drop for OwnedIcon {
+    fn drop(&mut self) {
+        unsafe {
+            cairo_surface_destroy(self.0.as_ptr());
+        }
+    }
+}
+
+pub unsafe fn window_update_icon(win: *mut Window, prop: *mut xcb_get_property_reply_t) {
+    let prop = PropertyReply::take(prop);
+    let property = prop.view();
+    let preferred = (render_deco_height() - logical_px(2)) as u32;
+    if property.kind != XCB_ATOM_CARDINAL || property.format != 32 {
+        trace!("window_update_icon", 528, c"_NET_WM_ICON is not set\n");
         return;
     }
-    debuglog(
-        c"%s:%s:%d - Using icon of size (%d,%d) (preferred size: %d)\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/window.c".as_ptr(),
-        c"window_update_icon".as_ptr(),
-        593 as ::core::ffi::c_int,
-        width,
-        height,
-        pref_size,
+    let Some(icon) = select_icon_with(property, preferred, |width, height| {
+        tracef!(
+            "window_update_icon",
+            555,
+            "Found _NET_WM_ICON of size: (%d,%d)\n",
+            width,
+            height
+        );
+    }) else {
+        trace!("window_update_icon", 587, c"Could not get _NET_WM_ICON\n");
+        return;
+    };
+    tracef!(
+        "window_update_icon",
+        593,
+        "Using icon of size (%d,%d) (preferred size: %d)\n",
+        icon.width,
+        icon.height,
+        preferred
     );
-    (*win).name_x_changed = true_0 != 0;
-    let icon: *mut u32 = smalloc((len as usize).wrapping_mul(4 as usize)) as *mut u32;
-    let mut i: u64 = 0 as u64;
-    while i < len {
-        let pixel: u32 = *data.offset((2 as u64).wrapping_add(i) as isize);
-        let a: u8 = (pixel >> 24 as ::core::ffi::c_int & 0xff as u32) as u8;
-        let mut r: u8 = (pixel >> 16 as ::core::ffi::c_int & 0xff as u32) as u8;
-        let mut g: u8 = (pixel >> 8 as ::core::ffi::c_int & 0xff as u32) as u8;
-        let mut b: u8 = (pixel >> 0 as ::core::ffi::c_int & 0xff as u32) as u8;
-        r = (r as ::core::ffi::c_int * a as ::core::ffi::c_int / 0xff as ::core::ffi::c_int) as u8;
-        g = (g as ::core::ffi::c_int * a as ::core::ffi::c_int / 0xff as ::core::ffi::c_int) as u8;
-        b = (b as ::core::ffi::c_int * a as ::core::ffi::c_int / 0xff as ::core::ffi::c_int) as u8;
-        *icon.offset(i as isize) = (a as u32) << 24 as ::core::ffi::c_int
-            | ((r as ::core::ffi::c_int) << 16 as ::core::ffi::c_int) as u32
-            | ((g as ::core::ffi::c_int) << 8 as ::core::ffi::c_int) as u32
-            | b as u32;
-        i = i.wrapping_add(1);
-    }
-    if !(*win).icon.is_null() {
-        cairo_surface_destroy((*win).icon);
-    }
-    (*win).icon = cairo_image_surface_create_for_data(
-        icon as *mut ::core::ffi::c_uchar,
-        FORMAT_A_RGB32,
-        width as ::core::ffi::c_int,
-        height as ::core::ffi::c_int,
-        width.wrapping_mul(4 as u32) as ::core::ffi::c_int,
-    );
-    static mut free_data: cairo_user_data_key_t = cairo_user_data_key_t { unused: 0 };
-    cairo_surface_set_user_data(
-        (*win).icon,
-        &raw mut free_data,
-        icon as *mut ::core::ffi::c_void,
-        Some(free as unsafe extern "C" fn(*mut ::core::ffi::c_void) -> ()),
-    );
-    free(prop as *mut ::core::ffi::c_void);
-    prop = ::core::ptr::null_mut::<xcb_get_property_reply_t>();
+    let Some(surface) = OwnedIcon::new(icon.width, icon.height, &icon_pixels(property, icon))
+    else {
+        return;
+    };
+    (*win).name_x_changed = true;
+    cairo_surface_destroy((*win).icon);
+    (*win).icon = surface.into_raw();
 }
-pub const __DBL_EPSILON__: ::core::ffi::c_double = 2.2204460492503131e-16f64;
 
-// Internal helpers use Rust linkage rather than foreign symbol lookup.
-use crate::ewmh::ewmh_update_visible_name;
-use crate::render::render_deco_height;
-use crate::util::max;
-use i3_common::dpi::logical_px;
-use i3_common::safewrappers::smalloc;
-use i3_common::safewrappers::sstrndup;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-// Canonical Cairo backend ABI; renderer logic remains local.
-pub use cairo_sys::{
-    cairo_image_surface_create_for_data, cairo_surface_destroy, cairo_surface_set_user_data,
-    cairo_user_data_key_t, FORMAT_A_RGB32,
-};
+    fn property(bytes: &[u8]) -> Property<'_> {
+        Property {
+            kind: XCB_ATOM_CARDINAL,
+            format: 32,
+            bytes,
+        }
+    }
+    fn words(words: &[u32]) -> Vec<u8> {
+        words.iter().flat_map(|word| word.to_ne_bytes()).collect()
+    }
+    fn reply(kind: u32, format: u8, bytes: &[u8]) -> PropertyReply {
+        let payload = bytes.len().div_ceil(4) * 4;
+        let allocation =
+            unsafe { libc::calloc(1, size_of::<xcb_get_property_reply_t>() + payload) }
+                .cast::<xcb_get_property_reply_t>();
+        assert!(!allocation.is_null());
+        unsafe {
+            (*allocation).type_0 = kind;
+            (*allocation).format = format;
+            (*allocation).length = (payload / 4) as u32;
+            (*allocation).value_len = (bytes.len() / (usize::from(format) / 8).max(1)) as u32;
+            std::ptr::copy_nonoverlapping(bytes.as_ptr(), allocation.add(1).cast(), bytes.len());
+            PropertyReply::take(allocation)
+        }
+    }
 
-use xcb_sys::{
-    xcb_atom_t, xcb_generic_error_t, xcb_get_geometry_reply_t, xcb_get_property_reply_t,
-    xcb_get_property_value, xcb_get_property_value_length, xcb_icccm_get_wm_hints_from_reply,
-    xcb_icccm_get_wm_normal_hints_reply, xcb_icccm_get_wm_normal_hints_unchecked,
-    xcb_icccm_get_wm_size_hints_from_reply, xcb_icccm_get_wm_transient_for_from_reply,
-    xcb_icccm_wm_hints_get_urgency, xcb_icccm_wm_hints_t, xcb_size_hints_t, xcb_window_t,
-    XCB_ATOM_CARDINAL, XCB_ICCCM_SIZE_HINT_BASE_SIZE, XCB_ICCCM_SIZE_HINT_P_ASPECT,
-    XCB_ICCCM_SIZE_HINT_P_MAX_SIZE, XCB_ICCCM_SIZE_HINT_P_MIN_SIZE, XCB_ICCCM_SIZE_HINT_P_POSITION,
-    XCB_ICCCM_SIZE_HINT_P_RESIZE_INC, XCB_ICCCM_SIZE_HINT_P_SIZE, XCB_ICCCM_SIZE_HINT_US_POSITION,
-    XCB_ICCCM_SIZE_HINT_US_SIZE, XCB_ICCCM_WM_HINT_INPUT, XCB_NONE,
-};
+    #[test]
+    fn class_and_string_parsing_preserve_raw_bytes_and_first_nul() {
+        assert_eq!(
+            class_parts(b"instance\0Class\0ignored"),
+            (&b"instance"[..], Some(&b"Class"[..]))
+        );
+        assert_eq!(class_parts(b"instance"), (&b"instance"[..], None));
+        assert_eq!(class_parts(b"instance\0"), (&b"instance"[..], None));
+        assert_eq!(class_parts(b"\0\0"), (&b""[..], Some(&b""[..])));
+        assert_eq!(
+            class_parts(b"\xff\0\xfe"),
+            (&b"\xff"[..], Some(&b"\xfe"[..]))
+        );
+        assert_eq!(string_prefix(b"title\0ignored"), b"title");
+        // Final Window string fields still use native malloc/free ownership.
+        let mut field = std::ptr::null_mut();
+        unsafe {
+            replace_string(&mut field, Some(b"\xff\0ignored"));
+            assert_eq!(std::ffi::CStr::from_ptr(field).to_bytes(), b"\xff");
+            replace_string(&mut field, Some(b""));
+            assert!(!field.is_null());
+            assert_eq!(std::ffi::CStr::from_ptr(field).to_bytes(), b"");
+            replace_string(&mut field, None);
+        }
+        assert!(field.is_null());
+    }
 
-pub use libc::{free, strnlen};
+    #[test]
+    fn native_reply_views_reject_payload_overclaims_and_unaligned_words() {
+        assert_eq!(size_of::<xcb_get_property_reply_t>(), 32);
+        let bytes = words(&[0x01020304, 0xabcdef12]);
+        let owned = reply(XCB_ATOM_CARDINAL, 32, &bytes);
+        assert_eq!(owned.view().bytes, bytes);
+        assert_eq!(owned.view().word(1), Some(0xabcdef12));
+        assert_eq!(owned.view().word(2), None);
+        assert_eq!(owned.view().word(usize::MAX), None);
+        let unaligned = [0, 1, 2, 3, 4, 5];
+        assert_eq!(
+            property(&unaligned[1..]).word(0),
+            Some(u32::from_ne_bytes([1, 2, 3, 4]))
+        );
+        unsafe {
+            (*owned.raw()).value_len = 3;
+        }
+        assert!(owned.view().bytes.is_empty());
+        unsafe {
+            (*owned.raw()).value_len = 1;
+            (*owned.raw()).format = 7;
+        }
+        assert!(owned.view().bytes.is_empty());
+    }
 
-use i3_common::native_stdio::__assert_fail;
+    #[test]
+    fn bounded_icccm_decoding_matches_native_legacy_and_modern_forms() {
+        for count in 0..=19 {
+            let raw: Vec<u32> = (0..count)
+                .map(|i| if i == 0 { u32::MAX } else { i as u32 * 3 })
+                .collect();
+            let hints = words(&raw);
+            let owned = reply(xcb_sys::XCB_ATOM_WM_SIZE_HINTS, 32, &hints);
+            let mut native: xcb_size_hints_t = unsafe { std::mem::zeroed() };
+            assert_ne!(
+                unsafe {
+                    xcb_sys::xcb_icccm_get_wm_size_hints_from_reply(&mut native, owned.raw())
+                },
+                0
+            );
+            let decoded = decode_size_hints(owned.view()).unwrap();
+            assert_eq!(
+                (
+                    decoded.flags,
+                    decoded.x,
+                    decoded.y,
+                    decoded.width,
+                    decoded.height
+                ),
+                (
+                    native.flags,
+                    native.x,
+                    native.y,
+                    native.width,
+                    native.height
+                )
+            );
+            assert_eq!(
+                (
+                    decoded.min_width,
+                    decoded.min_height,
+                    decoded.max_width,
+                    decoded.max_height,
+                    decoded.width_inc,
+                    decoded.height_inc,
+                    decoded.min_aspect_num,
+                    decoded.min_aspect_den,
+                    decoded.max_aspect_num,
+                    decoded.max_aspect_den,
+                    decoded.base_width,
+                    decoded.base_height,
+                ),
+                (
+                    native.min_width,
+                    native.min_height,
+                    native.max_width,
+                    native.max_height,
+                    native.width_inc,
+                    native.height_inc,
+                    native.min_aspect_num,
+                    native.min_aspect_den,
+                    native.max_aspect_num,
+                    native.max_aspect_den,
+                    native.base_width,
+                    native.base_height,
+                )
+            );
+            assert_eq!(decoded.win_gravity, native.win_gravity);
+            let owned = reply(xcb_sys::XCB_ATOM_WM_HINTS, 32, &hints);
+            if count <= 9 {
+                // Some native libxcb-icccm versions over-copy oversized WM_HINTS;
+                // never use such a reply as a native oracle or runtime decoder.
+                let mut native: xcb_icccm_wm_hints_t = unsafe { std::mem::zeroed() };
+                let success = unsafe {
+                    xcb_sys::xcb_icccm_get_wm_hints_from_reply(&mut native, owned.raw()) != 0
+                };
+                let decoded = decode_wm_hints(owned.view());
+                assert_eq!(decoded.is_some(), success);
+                if let Some(decoded) = decoded {
+                    assert_eq!(
+                        (
+                            decoded.flags,
+                            decoded.input,
+                            decoded.initial_state,
+                            decoded.icon_pixmap,
+                            decoded.icon_window,
+                            decoded.icon_x,
+                            decoded.icon_y,
+                            decoded.icon_mask,
+                            decoded.window_group
+                        ),
+                        (
+                            native.flags,
+                            native.input,
+                            native.initial_state,
+                            native.icon_pixmap,
+                            native.icon_window,
+                            native.icon_x,
+                            native.icon_y,
+                            native.icon_mask,
+                            native.window_group
+                        )
+                    );
+                }
+            } else {
+                let decoded = decode_wm_hints(owned.view()).unwrap();
+                assert_eq!(decoded.window_group, raw[8]);
+            }
+        }
+    }
 
-use crate::log::{debuglog, verboselog};
+    #[test]
+    fn motif_and_preferred_type_use_only_complete_payload_words() {
+        for count in 0..12 {
+            let bytes = vec![0xff; count];
+            assert!(motif_border(property(&bytes)).is_none());
+        }
+        let bytes = words(&[2, 0, 1 | 2 | 8]);
+        assert_eq!(motif_border(property(&bytes)), Some(BorderStyle::None));
+        let bytes = words(&[2, 0, 2]);
+        assert_eq!(motif_border(property(&bytes)), Some(BorderStyle::Pixel));
+        let bytes = words(&[99, 7, 8]);
+        assert_eq!(preferred_type(property(&bytes), &[8, 7]), Some(7));
+        assert_eq!(
+            preferred_type(
+                Property {
+                    format: 8,
+                    ..property(&bytes)
+                },
+                &[7]
+            ),
+            None
+        );
+    }
 
-// Shared model types retain field layout while using one Rust identity.
-pub use crate::types::reservedpx;
-pub use crate::types::Assignment;
-pub use crate::types::Con;
-pub use crate::types::Window;
-pub use i3_common::string::I3String as _i3String;
+    fn icon_bytes(sizes: &[(u32, u32)]) -> Vec<u8> {
+        let mut data = Vec::new();
+        for &(width, height) in sizes {
+            data.extend(words(&[width, height]));
+            data.extend(words(&vec![0xff_123456; width as usize * height as usize]));
+        }
+        data
+    }
+    #[test]
+    fn icon_selection_preserves_preference_ties_and_valid_prefix_on_bad_tail() {
+        let bytes = icon_bytes(&[(2, 2), (8, 8), (4, 4), (3, 3)]);
+        let selected = select_icon(property(&bytes), 4).unwrap();
+        assert_eq!((selected.width, selected.height), (4, 4));
+        assert_eq!(
+            icon_pixels(property(&bytes), selected),
+            vec![0xff_123456; 16]
+        );
+        let mut bytes = icon_bytes(&[(2, 2)]);
+        bytes.extend(words(&[u32::MAX, u32::MAX, 1]));
+        let selected = select_icon(property(&bytes), 8).unwrap();
+        assert_eq!((selected.width, selected.height), (2, 2));
+        for words in [
+            &[0, 1, 0][..],
+            &[1, 0, 0],
+            &[2, 2, 0],
+            &[u32::MAX, u32::MAX, 0],
+        ] {
+            assert_eq!(select_icon(property(&self::words(words)), 4), None);
+        }
+        let bytes = icon_bytes(&[(4, 2), (2, 4)]);
+        // Native comparison uses either dimension, rather than area or sorting.
+        let selected = select_icon(property(&bytes), 8).unwrap();
+        assert_eq!((selected.width, selected.height), (2, 4));
+    }
 
-// Internal calls and globals use canonical Rust identities.
-use crate::application::conn;
-use crate::assignments::run_assignments;
-use crate::con::con_by_window_id;
-use crate::con::con_parse_title_format;
-use crate::xcb::xcb_get_preferred_window_type;
-use i3_common::string::i3string_as_utf8;
-use i3_common::string::i3string_free;
-use i3_common::string::i3string_from_utf8;
+    #[test]
+    fn alpha_premultiplication_matches_native_integer_channel_arithmetic() {
+        for alpha in 0..=255u32 {
+            for value in 0..=255u32 {
+                let pixel = alpha << 24 | value << 16 | (255 - value) << 8 | 127;
+                let native = alpha << 24
+                    | (value * alpha / 255) << 16
+                    | ((255 - value) * alpha / 255) << 8
+                    | (127 * alpha / 255);
+                assert_eq!(premultiplied_argb(pixel), native);
+            }
+        }
+        assert_eq!(premultiplied_argb(0x80_ff8040), 0x80_804020);
+    }
+
+    #[test]
+    fn cairo_icon_owns_pixels_across_temporary_and_surface_reference_lifetimes() {
+        let temporary = vec![premultiplied_argb(0x80_ff8040), 0xff_123456];
+        let surface = OwnedIcon::new(2, 1, &temporary).unwrap();
+        drop(temporary);
+        let retained = OwnedIcon(
+            NonNull::new(unsafe { cairo_sys::cairo_surface_reference(surface.0.as_ptr()) })
+                .unwrap(),
+        );
+        drop(surface);
+        unsafe {
+            cairo_sys::cairo_surface_flush(retained.0.as_ptr());
+            let data = cairo_sys::cairo_image_surface_get_data(retained.0.as_ptr()).cast::<u32>();
+            assert_eq!(data.read(), 0x80_804020);
+            assert_eq!(data.add(1).read(), 0xff_123456);
+        }
+        assert!(OwnedIcon::new(2, 2, &[1]).is_none());
+        assert!(OwnedIcon::new(0, 1, &[]).is_none());
+        assert!(OwnedIcon::new(u32::MAX, 1, &[]).is_none());
+    }
+
+    #[test]
+    fn constraints_keep_legacy_base_guard_increment_bounds_and_aspect_epsilon() {
+        let mut state = SizeConstraints {
+            base_width: -1,
+            max_width: 100,
+            width_increment: 3,
+            ..Default::default()
+        };
+        let mut hints: xcb_size_hints_t = unsafe { std::mem::zeroed() };
+        hints.flags = XCB_ICCCM_SIZE_HINT_BASE_SIZE
+            | XCB_ICCCM_SIZE_HINT_P_RESIZE_INC
+            | XCB_ICCCM_SIZE_HINT_P_ASPECT;
+        hints.base_width = 12;
+        hints.base_height = 13;
+        hints.width_inc = 0xffff;
+        hints.height_inc = 0xfffe;
+        hints.min_aspect_num = 1;
+        hints.min_aspect_den = 2;
+        hints.max_aspect_num = 2;
+        hints.max_aspect_den = 1;
+        assert!(state.update(&hints));
+        assert_eq!((state.base_width, state.base_height), (0, 0));
+        assert_eq!((state.width_increment, state.height_increment), (0, 0xfffe));
+        assert_eq!((state.min_aspect_ratio, state.max_aspect_ratio), (0.5, 2.0));
+        assert_eq!(state.max_width, 0);
+        assert!(state.update(&hints)); // existing nonnegative bases now permit hints
+        assert_eq!((state.base_width, state.base_height), (12, 13));
+        assert!(!state.update(&hints));
+        hints.flags = 0;
+        assert!(state.update(&hints));
+        assert_eq!((state.min_aspect_ratio, state.max_aspect_ratio), (0.0, 0.0));
+        hints.flags = XCB_ICCCM_SIZE_HINT_US_POSITION | XCB_ICCCM_SIZE_HINT_P_SIZE;
+        hints.x = 65537;
+        hints.y = -2;
+        hints.width = 65536;
+        hints.height = -1;
+        assert_eq!(requested_geometry(&hints), Some((1, -2, 0, 65535)));
+        hints.flags = XCB_ICCCM_SIZE_HINT_US_POSITION;
+        assert_eq!(requested_geometry(&hints), None);
+    }
+}
