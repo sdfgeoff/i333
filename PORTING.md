@@ -55,3 +55,10 @@
 9. **Small safety changes.** `mkdirp` accepts an empty path without reading a
    preceding byte; `i3-dump-log` omits an unused out-of-bounds NUL write after a
    full read. Normal outputs and return values match the reference cases.
+10. **Types and enums.** Generated scalar typedef chains now use Rust primitives
+    or maintained `libc` types directly. Closed application choices use named
+    Rust enums in their fields, parser state, comparisons and matches. Original
+    discriminants are preserved; enum fields in legacy zeroed allocations have
+    a valid zero variant. Bit masks, native protocol values and open-ended JSON
+    inputs keep representations that preserve their full value ranges. See
+    [the type policy](docs/development.md) for details.

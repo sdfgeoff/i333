@@ -1,3 +1,9 @@
+use crate::types::BorderStyle;
+use crate::types::FloatingState;
+use crate::types::JsonContent;
+use crate::types::Layout;
+use crate::types::MarkMode;
+use crate::types::ScratchpadState;
 use i3_common::safewrappers::sasprintf;
 /*
  * vim:ts=4:sw=4:expandtab
@@ -20,99 +26,39 @@ pub use i3_json::compat::{
     yajl_dont_validate_strings, yajl_handle, yajl_status, yajl_status_client_canceled,
     yajl_status_ok,
 };
-pub type size_t = usize;
-pub type __uint8_t = u8;
-pub type __uint16_t = u16;
-pub type __uint32_t = u32;
-pub type __time_t = ::core::ffi::c_long;
-pub type __suseconds_t = ::core::ffi::c_long;
-pub type time_t = __time_t;
-
-pub type uint8_t = __uint8_t;
-pub type uint16_t = __uint16_t;
-pub type uint32_t = __uint32_t;
 
 pub type i3String = _i3String;
 
-pub type C2RustUnnamed = ::core::ffi::c_uint;
-pub const SCRATCHPAD_CHANGED: C2RustUnnamed = 2;
-pub const SCRATCHPAD_FRESH: C2RustUnnamed = 1;
-pub const SCRATCHPAD_NONE: C2RustUnnamed = 0;
-
-pub type C2RustUnnamed_4 = ::core::ffi::c_uint;
-pub const FLOATING_USER_ON: C2RustUnnamed_4 = 3;
-pub const FLOATING_AUTO_ON: C2RustUnnamed_4 = 2;
-pub const FLOATING_USER_OFF: C2RustUnnamed_4 = 1;
-pub const FLOATING_AUTO_OFF: C2RustUnnamed_4 = 0;
-pub type border_style_t = ::core::ffi::c_uint;
-pub const BS_NORMAL: border_style_t = 2;
-pub const BS_PIXEL: border_style_t = 1;
-pub const BS_NONE: border_style_t = 0;
-pub type layout_t = ::core::ffi::c_uint;
-pub const L_SPLITH: layout_t = 6;
-pub const L_SPLITV: layout_t = 5;
-pub const L_OUTPUT: layout_t = 4;
-pub const L_DOCKAREA: layout_t = 3;
-pub const L_TABBED: layout_t = 2;
-pub const L_STACKED: layout_t = 1;
-pub const L_DEFAULT: layout_t = 0;
 pub type fullscreen_mode_t = ::core::ffi::c_uint;
 pub const CF_GLOBAL: fullscreen_mode_t = 2;
 pub const CF_OUTPUT: fullscreen_mode_t = 1;
 pub const CF_NONE: fullscreen_mode_t = 0;
 
-pub type C2RustUnnamed_6 = ::core::ffi::c_uint;
-pub const M_BELOW: C2RustUnnamed_6 = 2;
-pub const M_ASSIGN_WS: C2RustUnnamed_6 = 1;
-pub const M_HERE: C2RustUnnamed_6 = 0;
-pub type C2RustUnnamed_7 = ::core::ffi::c_uint;
-pub const WM_FLOATING: C2RustUnnamed_7 = 6;
-pub const WM_FLOATING_USER: C2RustUnnamed_7 = 5;
-pub const WM_FLOATING_AUTO: C2RustUnnamed_7 = 4;
-pub const WM_TILING: C2RustUnnamed_7 = 3;
-pub const WM_TILING_USER: C2RustUnnamed_7 = 2;
-pub const WM_TILING_AUTO: C2RustUnnamed_7 = 1;
-pub const WM_ANY: C2RustUnnamed_7 = 0;
-pub type C2RustUnnamed_8 = ::core::ffi::c_int;
-pub const M_DOCK_BOTTOM: C2RustUnnamed_8 = 3;
-pub const M_DOCK_TOP: C2RustUnnamed_8 = 2;
-pub const M_DOCK_ANY: C2RustUnnamed_8 = 1;
-pub const M_NODOCK: C2RustUnnamed_8 = 0;
-pub const M_DONTCHECK: C2RustUnnamed_8 = -1;
-pub type C2RustUnnamed_9 = ::core::ffi::c_int;
-pub const U_OLDEST: C2RustUnnamed_9 = 1;
-pub const U_LATEST: C2RustUnnamed_9 = 0;
-pub const U_DONTCHECK: C2RustUnnamed_9 = -1;
+pub const M_BELOW: ::core::ffi::c_uint = 2;
+pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
+pub const M_HERE: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_10 = ::core::ffi::c_uint;
-pub const W_DOCK_BOTTOM: C2RustUnnamed_10 = 2;
-pub const W_DOCK_TOP: C2RustUnnamed_10 = 1;
-pub const W_NODOCK: C2RustUnnamed_10 = 0;
+pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
+pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
+pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
+pub const M_NODOCK: ::core::ffi::c_int = 0;
+pub const M_DONTCHECK: ::core::ffi::c_int = -1;
 
-pub type C2RustUnnamed_13 = ::core::ffi::c_uint;
-pub const A_TO_OUTPUT: C2RustUnnamed_13 = 16;
-pub const A_TO_WORKSPACE_NUMBER: C2RustUnnamed_13 = 8;
-pub const A_NO_FOCUS: C2RustUnnamed_13 = 4;
-pub const A_TO_WORKSPACE: C2RustUnnamed_13 = 2;
-pub const A_COMMAND: C2RustUnnamed_13 = 1;
-pub const A_ANY: C2RustUnnamed_13 = 0;
+pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
+pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
+pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
+pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
+pub const A_COMMAND: ::core::ffi::c_uint = 1;
+pub const A_ANY: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_15 = ::core::ffi::c_uint;
-pub const CT_DOCKAREA: C2RustUnnamed_15 = 5;
-pub const CT_WORKSPACE: C2RustUnnamed_15 = 4;
-pub const CT_FLOATING_CON: C2RustUnnamed_15 = 3;
-pub const CT_CON: C2RustUnnamed_15 = 2;
-pub const CT_OUTPUT: C2RustUnnamed_15 = 1;
-pub const CT_ROOT: C2RustUnnamed_15 = 0;
+pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
+pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
+pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
+pub const CT_CON: ::core::ffi::c_uint = 2;
+pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
+pub const CT_ROOT: ::core::ffi::c_uint = 0;
 pub type i3Window = Window;
-pub type mark_mode_t = ::core::ffi::c_uint;
-pub const MM_ADD: mark_mode_t = 1;
-pub const MM_REPLACE: mark_mode_t = 0;
 
-pub type json_content_t = ::core::ffi::c_uint;
-pub const JSON_CONTENT_WORKSPACE: json_content_t = 2;
-pub const JSON_CONTENT_CON: json_content_t = 1;
-pub const JSON_CONTENT_UNKNOWN: json_content_t = 0;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct focus_mapping {
@@ -174,7 +120,7 @@ unsafe fn json_start_map(ctx: *mut ::core::ffi::c_void) -> ::core::ffi::c_int {
     );
     if parsing_swallows {
         verboselog(c"creating new swallow\n".as_ptr().cast_mut());
-        current_swallow = smalloc(::core::mem::size_of::<Match>() as size_t) as *mut Match;
+        current_swallow = smalloc(::core::mem::size_of::<Match>() as usize) as *mut Match;
         match_init(current_swallow);
         (*current_swallow).dock = M_DONTCHECK;
         (*current_swallow).matches.tqe_next = ::core::ptr::null_mut::<Match>();
@@ -242,9 +188,7 @@ unsafe fn json_end_map(ctx: *mut ::core::ffi::c_void) -> ::core::ffi::c_int {
         && !parsing_geometry
         && !parsing_gaps
     {
-        if (*json_node).layout as ::core::ffi::c_uint
-            == L_DEFAULT as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
+        if (*json_node).layout == Layout::Default {
             debuglog(
                 c"%s:%s:%d - Setting layout = L_SPLITH\n"
                     .as_ptr()
@@ -253,7 +197,7 @@ unsafe fn json_end_map(ctx: *mut ::core::ffi::c_void) -> ::core::ffi::c_int {
                 c"json_end_map".as_ptr(),
                 103 as ::core::ffi::c_int,
             );
-            (*json_node).layout = L_SPLITH;
+            (*json_node).layout = Layout::SplitH;
         }
         if con_is_split(json_node) as ::core::ffi::c_int > 0 as ::core::ffi::c_int
             && !(*json_node).swallow_head.tqh_first.is_null()
@@ -324,10 +268,10 @@ unsafe fn json_end_map(ctx: *mut ::core::ffi::c_void) -> ::core::ffi::c_int {
             if rect_equals(
                 (*json_node).rect as Rect,
                 Rect {
-                    x: 0 as uint32_t,
-                    y: 0 as uint32_t,
-                    width: 0 as uint32_t,
-                    height: 0 as uint32_t,
+                    x: 0 as u32,
+                    y: 0 as u32,
+                    width: 0 as u32,
+                    height: 0 as u32,
                 },
             ) {
                 debuglog(
@@ -356,7 +300,7 @@ unsafe fn json_end_map(ctx: *mut ::core::ffi::c_void) -> ::core::ffi::c_int {
                     (*json_node).rect.height = max(
                         (*json_node).rect.height as ::core::ffi::c_int,
                         (*child).geometry.height as ::core::ffi::c_int,
-                    ) as uint32_t;
+                    ) as u32;
                     child = (*child).nodes.tqe_next as *mut Con;
                 }
             }
@@ -367,7 +311,7 @@ unsafe fn json_end_map(ctx: *mut ::core::ffi::c_void) -> ::core::ffi::c_int {
             while i < num_marks {
                 let con: *mut Con = (*marks.offset(i as isize)).con_to_be_marked;
                 let mark: *mut ::core::ffi::c_char = (*marks.offset(i as isize)).mark;
-                con_mark(con, mark, MM_ADD);
+                con_mark(con, mark, MarkMode::Add);
                 free(mark as *mut ::core::ffi::c_void);
                 i += 1;
             }
@@ -379,8 +323,8 @@ unsafe fn json_end_map(ctx: *mut ::core::ffi::c_void) -> ::core::ffi::c_int {
         con_attach(json_node, (*json_node).parent as *mut Con, true_0 != 0);
         verboselog(c"Creating window\n".as_ptr().cast_mut());
         x_con_init(json_node);
-        let old_floating_mode: ::core::ffi::c_int = (*json_node).floating as ::core::ffi::c_int;
-        if old_floating_mode >= FLOATING_AUTO_ON as ::core::ffi::c_int
+        let old_floating_mode: FloatingState = (*json_node).floating;
+        if (old_floating_mode).is_floating()
             && (*(*json_node).parent).type_0 as ::core::ffi::c_uint
                 != CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
         {
@@ -389,9 +333,9 @@ unsafe fn json_end_map(ctx: *mut ::core::ffi::c_void) -> ::core::ffi::c_int {
                     .as_ptr()
                     .cast_mut(),
             );
-            (*json_node).floating = FLOATING_AUTO_OFF;
+            (*json_node).floating = FloatingState::AutoOff;
             floating_enable(json_node, false_0 != 0);
-            (*json_node).floating = old_floating_mode as C2RustUnnamed_4;
+            (*json_node).floating = old_floating_mode;
         }
         json_node = (*json_node).parent as *mut Con;
         incomplete -= 1;
@@ -484,7 +428,7 @@ unsafe fn json_end_array(ctx: *mut ::core::ffi::c_void) -> ::core::ffi::c_int {
 unsafe fn json_key(
     ctx: *mut ::core::ffi::c_void,
     val: *const ::core::ffi::c_uchar,
-    len: size_t,
+    len: usize,
 ) -> ::core::ffi::c_int {
     verboselog(
         c"key: %.*s\n".as_ptr().cast_mut(),
@@ -493,7 +437,7 @@ unsafe fn json_key(
     );
     free(last_key as *mut ::core::ffi::c_void);
     last_key = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    last_key = scalloc(len.wrapping_add(1 as size_t), 1 as size_t) as *mut ::core::ffi::c_char;
+    last_key = scalloc(len.wrapping_add(1 as usize), 1 as usize) as *mut ::core::ffi::c_char;
     memcpy(
         last_key as *mut ::core::ffi::c_void,
         val as *const ::core::ffi::c_void,
@@ -532,7 +476,7 @@ unsafe fn json_key(
 unsafe fn json_string(
     ctx: *mut ::core::ffi::c_void,
     val: *const ::core::ffi::c_uchar,
-    len: size_t,
+    len: usize,
 ) -> ::core::ffi::c_int {
     verboselog(
         c"string: %.*s for key %s\n".as_ptr().cast_mut(),
@@ -581,7 +525,7 @@ unsafe fn json_string(
         num_marks += 1;
         marks = srealloc(
             marks as *mut ::core::ffi::c_void,
-            (num_marks as size_t).wrapping_mul(::core::mem::size_of::<pending_marks>() as size_t),
+            (num_marks as usize).wrapping_mul(::core::mem::size_of::<pending_marks>() as usize),
         ) as *mut pending_marks;
         let ref mut fresh2 = (*marks.offset((num_marks - 1 as ::core::ffi::c_int) as isize)).mark;
         *fresh2 = mark;
@@ -590,7 +534,7 @@ unsafe fn json_string(
         *fresh3 = json_node;
     } else if strcasecmp(last_key, c"name".as_ptr()) == 0 as ::core::ffi::c_int {
         (*json_node).name =
-            scalloc(len.wrapping_add(1 as size_t), 1 as size_t) as *mut ::core::ffi::c_char;
+            scalloc(len.wrapping_add(1 as usize), 1 as usize) as *mut ::core::ffi::c_char;
         memcpy(
             (*json_node).name as *mut ::core::ffi::c_void,
             val as *const ::core::ffi::c_void,
@@ -598,7 +542,7 @@ unsafe fn json_string(
         );
     } else if strcasecmp(last_key, c"title_format".as_ptr()) == 0 as ::core::ffi::c_int {
         (*json_node).title_format =
-            scalloc(len.wrapping_add(1 as size_t), 1 as size_t) as *mut ::core::ffi::c_char;
+            scalloc(len.wrapping_add(1 as usize), 1 as usize) as *mut ::core::ffi::c_char;
         memcpy(
             (*json_node).title_format as *mut ::core::ffi::c_void,
             val as *const ::core::ffi::c_void,
@@ -606,7 +550,7 @@ unsafe fn json_string(
         );
     } else if strcasecmp(last_key, c"sticky_group".as_ptr()) == 0 as ::core::ffi::c_int {
         (*json_node).sticky_group =
-            scalloc(len.wrapping_add(1 as size_t), 1 as size_t) as *mut ::core::ffi::c_char;
+            scalloc(len.wrapping_add(1 as usize), 1 as usize) as *mut ::core::ffi::c_char;
         memcpy(
             (*json_node).sticky_group as *mut ::core::ffi::c_void,
             val as *const ::core::ffi::c_void,
@@ -629,9 +573,9 @@ unsafe fn json_string(
         if strcasecmp(buf, c"none".as_ptr()) == 0 as ::core::ffi::c_int
             || strcasecmp(buf, c"horizontal".as_ptr()) == 0 as ::core::ffi::c_int
         {
-            (*json_node).last_split_layout = L_SPLITH;
+            (*json_node).last_split_layout = Layout::SplitH;
         } else if strcasecmp(buf, c"vertical".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*json_node).last_split_layout = L_SPLITV;
+            (*json_node).last_split_layout = Layout::SplitV;
         } else {
             verboselog(c"Unhandled orientation: %s\n".as_ptr().cast_mut(), buf);
         }
@@ -645,17 +589,17 @@ unsafe fn json_string(
             val,
         );
         if strcasecmp(buf_0, c"none".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*json_node).border_style = BS_NONE;
+            (*json_node).border_style = BorderStyle::None;
             (*json_node).max_user_border_style = (*json_node).border_style;
         } else if strcasecmp(buf_0, c"1pixel".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*json_node).border_style = BS_PIXEL;
+            (*json_node).border_style = BorderStyle::Pixel;
             (*json_node).max_user_border_style = (*json_node).border_style;
             (*json_node).current_border_width = 1 as ::core::ffi::c_int;
         } else if strcasecmp(buf_0, c"pixel".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*json_node).border_style = BS_PIXEL;
+            (*json_node).border_style = BorderStyle::Pixel;
             (*json_node).max_user_border_style = (*json_node).border_style;
         } else if strcasecmp(buf_0, c"normal".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*json_node).border_style = BS_NORMAL;
+            (*json_node).border_style = BorderStyle::Normal;
             (*json_node).max_user_border_style = (*json_node).border_style;
         } else {
             verboselog(c"Unhandled \"border\": %s\n".as_ptr().cast_mut(), buf_0);
@@ -696,17 +640,17 @@ unsafe fn json_string(
         if strcasecmp(buf_2, c"default".as_ptr()) == 0 as ::core::ffi::c_int {
             (*json_node).layout = (*json_node).last_split_layout;
         } else if strcasecmp(buf_2, c"stacked".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*json_node).layout = L_STACKED;
+            (*json_node).layout = Layout::Stacked;
         } else if strcasecmp(buf_2, c"tabbed".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*json_node).layout = L_TABBED;
+            (*json_node).layout = Layout::Tabbed;
         } else if strcasecmp(buf_2, c"dockarea".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*json_node).layout = L_DOCKAREA;
+            (*json_node).layout = Layout::DockArea;
         } else if strcasecmp(buf_2, c"output".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*json_node).layout = L_OUTPUT;
+            (*json_node).layout = Layout::Output;
         } else if strcasecmp(buf_2, c"splith".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*json_node).layout = L_SPLITH;
+            (*json_node).layout = Layout::SplitH;
         } else if strcasecmp(buf_2, c"splitv".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*json_node).layout = L_SPLITV;
+            (*json_node).layout = Layout::SplitV;
         } else {
             verboselog(c"Unhandled \"layout\": %s\n".as_ptr().cast_mut(), buf_2);
         }
@@ -720,11 +664,11 @@ unsafe fn json_string(
             val,
         );
         if strcasecmp(buf_3, c"default".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*json_node).workspace_layout = L_DEFAULT;
+            (*json_node).workspace_layout = Layout::Default;
         } else if strcasecmp(buf_3, c"stacked".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*json_node).workspace_layout = L_STACKED;
+            (*json_node).workspace_layout = Layout::Stacked;
         } else if strcasecmp(buf_3, c"tabbed".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*json_node).workspace_layout = L_TABBED;
+            (*json_node).workspace_layout = Layout::Tabbed;
         } else {
             verboselog(
                 c"Unhandled \"workspace_layout\": %s\n".as_ptr().cast_mut(),
@@ -741,9 +685,9 @@ unsafe fn json_string(
             val,
         );
         if strcasecmp(buf_4, c"splith".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*json_node).last_split_layout = L_SPLITH;
+            (*json_node).last_split_layout = Layout::SplitH;
         } else if strcasecmp(buf_4, c"splitv".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*json_node).last_split_layout = L_SPLITV;
+            (*json_node).last_split_layout = Layout::SplitV;
         } else {
             verboselog(
                 c"Unhandled \"last_splitlayout\": %s\n".as_ptr().cast_mut(),
@@ -767,7 +711,7 @@ unsafe fn json_string(
             len as ::core::ffi::c_int,
             val,
         );
-        con_mark(json_node, buf_5, MM_REPLACE);
+        con_mark(json_node, buf_5, MarkMode::Replace);
     } else if strcasecmp(last_key, c"floating".as_ptr()) == 0 as ::core::ffi::c_int {
         let mut buf_6: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
         sasprintf(
@@ -777,13 +721,13 @@ unsafe fn json_string(
             val,
         );
         if strcasecmp(buf_6, c"auto_off".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*json_node).floating = FLOATING_AUTO_OFF;
+            (*json_node).floating = FloatingState::AutoOff;
         } else if strcasecmp(buf_6, c"auto_on".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*json_node).floating = FLOATING_AUTO_ON;
+            (*json_node).floating = FloatingState::AutoOn;
         } else if strcasecmp(buf_6, c"user_off".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*json_node).floating = FLOATING_USER_OFF;
+            (*json_node).floating = FloatingState::UserOff;
         } else if strcasecmp(buf_6, c"user_on".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*json_node).floating = FLOATING_USER_ON;
+            (*json_node).floating = FloatingState::UserOn;
         }
         free(buf_6 as *mut ::core::ffi::c_void);
     } else if strcasecmp(last_key, c"scratchpad_state".as_ptr()) == 0 as ::core::ffi::c_int {
@@ -795,11 +739,11 @@ unsafe fn json_string(
             val,
         );
         if strcasecmp(buf_7, c"none".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*json_node).scratchpad_state = SCRATCHPAD_NONE;
+            (*json_node).scratchpad_state = ScratchpadState::None;
         } else if strcasecmp(buf_7, c"fresh".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*json_node).scratchpad_state = SCRATCHPAD_FRESH;
+            (*json_node).scratchpad_state = ScratchpadState::Fresh;
         } else if strcasecmp(buf_7, c"changed".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*json_node).scratchpad_state = SCRATCHPAD_CHANGED;
+            (*json_node).scratchpad_state = ScratchpadState::Changed;
         }
         free(buf_7 as *mut ::core::ffi::c_void);
     } else if strcasecmp(last_key, c"previous_workspace_name".as_ptr()) == 0 as ::core::ffi::c_int {
@@ -815,7 +759,7 @@ unsafe fn json_int(
 ) -> ::core::ffi::c_int {
     verboselog(c"int %lld for key %s\n".as_ptr().cast_mut(), val, last_key);
     if strcasecmp(last_key, c"type".as_ptr()) == 0 as ::core::ffi::c_int {
-        (*json_node).type_0 = val as C2RustUnnamed_15;
+        (*json_node).type_0 = val as ::core::ffi::c_uint;
     }
     if strcasecmp(last_key, c"fullscreen_mode".as_ptr()) == 0 as ::core::ffi::c_int {
         (*json_node).fullscreen_mode = val as fullscreen_mode_t;
@@ -830,16 +774,15 @@ unsafe fn json_int(
         (*json_node).window_icon_padding = val as ::core::ffi::c_int;
     }
     if strcasecmp(last_key, c"depth".as_ptr()) == 0 as ::core::ffi::c_int {
-        (*json_node).depth = val as uint16_t;
+        (*json_node).depth = val as u16;
     }
     if !parsing_swallows && strcasecmp(last_key, c"id".as_ptr()) == 0 as ::core::ffi::c_int {
         (*json_node).old_id = val as ::core::ffi::c_int;
     }
     if parsing_focus {
-        let focus_mapping: *mut focus_mapping = scalloc(
-            1 as size_t,
-            ::core::mem::size_of::<focus_mapping>() as size_t,
-        ) as *mut focus_mapping;
+        let focus_mapping: *mut focus_mapping =
+            scalloc(1 as usize, ::core::mem::size_of::<focus_mapping>() as usize)
+                as *mut focus_mapping;
         (*focus_mapping).old_id = val as ::core::ffi::c_int;
         (*focus_mapping).focus_mappings.tqe_next = ::core::ptr::null_mut::<focus_mapping>();
         (*focus_mapping).focus_mappings.tqe_prev = focus_mappings.tqh_last;
@@ -859,13 +802,13 @@ unsafe fn json_int(
             r = &raw mut (*json_node).geometry as *mut Rect;
         }
         if strcasecmp(last_key, c"x".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*r).x = val as uint32_t;
+            (*r).x = val as u32;
         } else if strcasecmp(last_key, c"y".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*r).y = val as uint32_t;
+            (*r).y = val as u32;
         } else if strcasecmp(last_key, c"width".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*r).width = val as uint32_t;
+            (*r).width = val as u32;
         } else if strcasecmp(last_key, c"height".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*r).height = val as uint32_t;
+            (*r).height = val as u32;
         } else {
             errorlog(
                 c"ERROR: WARNING: unknown key %s in rect\n"
@@ -893,11 +836,11 @@ unsafe fn json_int(
             swallow_is_empty = false_0 != 0;
         }
         if strcasecmp(last_key, c"dock".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*current_swallow).dock = val as C2RustUnnamed_8;
+            (*current_swallow).dock = val as ::core::ffi::c_int;
             swallow_is_empty = false_0 != 0;
         }
         if strcasecmp(last_key, c"insert_where".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*current_swallow).insert_where = val as C2RustUnnamed_6;
+            (*current_swallow).insert_where = val as ::core::ffi::c_uint;
             swallow_is_empty = false_0 != 0;
         }
     }
@@ -942,7 +885,7 @@ unsafe fn json_double(
     }
     1 as ::core::ffi::c_int
 }
-static mut content_result: json_content_t = JSON_CONTENT_UNKNOWN;
+static mut content_result: JsonContent = JsonContent::Unknown;
 static mut content_level: ::core::ffi::c_int = 0;
 unsafe fn json_determine_content_deeper(ctx: *mut ::core::ffi::c_void) -> ::core::ffi::c_int {
     content_level += 1;
@@ -955,7 +898,7 @@ unsafe fn json_determine_content_shallower(ctx: *mut ::core::ffi::c_void) -> ::c
 unsafe fn json_determine_content_string(
     ctx: *mut ::core::ffi::c_void,
     val: *const ::core::ffi::c_uchar,
-    len: size_t,
+    len: usize,
 ) -> ::core::ffi::c_int {
     if strcasecmp(last_key, c"type".as_ptr()) != 0 as ::core::ffi::c_int
         || content_level > 1 as ::core::ffi::c_int
@@ -979,12 +922,12 @@ unsafe fn json_determine_content_string(
         len,
     ) == 0 as ::core::ffi::c_int
     {
-        content_result = JSON_CONTENT_WORKSPACE;
+        content_result = JsonContent::Workspace;
     }
     0 as ::core::ffi::c_int
 }
 
-pub unsafe fn json_validate(buf: *const ::core::ffi::c_char, len: size_t) -> bool {
+pub unsafe fn json_validate(buf: *const ::core::ffi::c_char, len: usize) -> bool {
     let mut valid: bool = true_0 != 0;
     let hand: yajl_handle = yajl_alloc(
         ::core::ptr::null::<yajl_callbacks>(),
@@ -1018,11 +961,8 @@ pub unsafe fn json_validate(buf: *const ::core::ffi::c_char, len: size_t) -> boo
     valid
 }
 
-pub unsafe fn json_determine_content(
-    buf: *const ::core::ffi::c_char,
-    len: size_t,
-) -> json_content_t {
-    content_result = JSON_CONTENT_CON;
+pub unsafe fn json_determine_content(buf: *const ::core::ffi::c_char, len: usize) -> JsonContent {
+    content_result = JsonContent::Container;
     content_level = 0 as ::core::ffi::c_int;
     static mut callbacks: yajl_callbacks = unsafe {
         yajl_callbacks {
@@ -1036,7 +976,7 @@ pub unsafe fn json_determine_content(
                     as unsafe fn(
                         *mut ::core::ffi::c_void,
                         *const ::core::ffi::c_uchar,
-                        size_t,
+                        usize,
                     ) -> ::core::ffi::c_int,
             ),
             yajl_start_map: Some(
@@ -1048,7 +988,7 @@ pub unsafe fn json_determine_content(
                     as unsafe fn(
                         *mut ::core::ffi::c_void,
                         *const ::core::ffi::c_uchar,
-                        size_t,
+                        usize,
                     ) -> ::core::ffi::c_int,
             ),
             yajl_end_map: Some(
@@ -1102,7 +1042,7 @@ pub unsafe fn json_determine_content(
 pub unsafe fn tree_append_json(
     con: *mut Con,
     buf: *const ::core::ffi::c_char,
-    len: size_t,
+    len: usize,
     errormsg: *mut *mut ::core::ffi::c_char,
 ) {
     static mut callbacks: yajl_callbacks = unsafe {
@@ -1135,7 +1075,7 @@ pub unsafe fn tree_append_json(
                     as unsafe fn(
                         *mut ::core::ffi::c_void,
                         *const ::core::ffi::c_uchar,
-                        size_t,
+                        usize,
                     ) -> ::core::ffi::c_int,
             ),
             yajl_start_map: Some(
@@ -1146,7 +1086,7 @@ pub unsafe fn tree_append_json(
                     as unsafe fn(
                         *mut ::core::ffi::c_void,
                         *const ::core::ffi::c_uchar,
-                        size_t,
+                        usize,
                     ) -> ::core::ffi::c_int,
             ),
             yajl_end_map: Some(

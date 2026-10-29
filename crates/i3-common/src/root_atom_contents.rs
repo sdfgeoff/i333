@@ -13,13 +13,6 @@ extern "C" {
     fn ceil(__x: ::core::ffi::c_double) -> ::core::ffi::c_double;
 
 }
-pub type size_t = usize;
-pub type __uint8_t = u8;
-pub type __uint16_t = u16;
-pub type __uint32_t = u32;
-pub type uint8_t = __uint8_t;
-pub type uint16_t = __uint16_t;
-pub type uint32_t = __uint32_t;
 
 pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
@@ -37,7 +30,7 @@ pub unsafe fn root_atom_contents(
     let mut atom_reply: *mut xcb_intern_atom_reply_t =
         ::core::ptr::null_mut::<xcb_intern_atom_reply_t>();
     let mut content: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    let mut content_max_words: size_t = 256 as size_t;
+    let mut content_max_words: usize = 256 as usize;
     let mut conn: *mut xcb_connection_t = provided_conn;
     if provided_conn.is_null() && {
         conn = xcb_connect(::core::ptr::null::<::core::ffi::c_char>(), &raw mut screen);
@@ -45,7 +38,7 @@ pub unsafe fn root_atom_contents(
     } {
         return ::core::ptr::null_mut::<::core::ffi::c_char>();
     }
-    atom_cookie = xcb_intern_atom(conn, 0 as uint8_t, strlen(atomname) as uint16_t, atomname);
+    atom_cookie = xcb_intern_atom(conn, 0 as u8, strlen(atomname) as u16, atomname);
     let root_screen: *mut xcb_screen_t = xcb_aux_get_screen(conn, screen);
     let root: xcb_window_t = (*root_screen).root;
     atom_reply = xcb_intern_atom_reply(
@@ -58,12 +51,12 @@ pub unsafe fn root_atom_contents(
         prop_reply = ::core::ptr::null_mut::<xcb_get_property_reply_t>();
         prop_cookie = xcb_get_property_unchecked(
             conn,
-            false_0 as uint8_t,
+            false_0 as u8,
             root,
             (*atom_reply).atom,
             XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-            0 as uint32_t,
-            content_max_words as uint32_t,
+            0 as u32,
+            content_max_words as u32,
         );
         prop_reply = xcb_get_property_reply(
             conn,
@@ -72,20 +65,20 @@ pub unsafe fn root_atom_contents(
         );
         if !prop_reply.is_null() {
             if xcb_get_property_value_length(prop_reply) > 0 as ::core::ffi::c_int
-                && (*prop_reply).bytes_after > 0 as uint32_t
+                && (*prop_reply).bytes_after > 0 as u32
             {
                 content_max_words = (content_max_words as ::core::ffi::c_double
                     + ceil((*prop_reply).bytes_after as ::core::ffi::c_double / 4.0f64))
-                    as size_t;
+                    as usize;
                 free(prop_reply as *mut ::core::ffi::c_void);
                 prop_cookie = xcb_get_property_unchecked(
                     conn,
-                    false_0 as uint8_t,
+                    false_0 as u8,
                     root,
                     (*atom_reply).atom,
                     XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-                    0 as uint32_t,
-                    content_max_words as uint32_t,
+                    0 as u32,
+                    content_max_words as u32,
                 );
                 prop_reply = xcb_get_property_reply(
                     conn,

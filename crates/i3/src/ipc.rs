@@ -5,6 +5,16 @@ use crate::config::included_files;
 use crate::config::modes;
 use crate::randr::outputs;
 use crate::tree::all_cons;
+use crate::types::BarHiddenState;
+use crate::types::BarPosition;
+use crate::types::BindingRelease;
+use crate::types::BorderStyle;
+use crate::types::FloatingState;
+use crate::types::InputType;
+use crate::types::Layout;
+use crate::types::Orientation;
+use crate::types::ScratchpadState;
+use crate::types::ShutdownReason;
 use i3_common::safewrappers::sasprintf;
 /*
  * vim:ts=4:sw=4:expandtab
@@ -30,176 +40,83 @@ pub use libev_sys::{
     ev_io, ev_io_start, ev_io_stop, ev_loop, ev_timer, ev_timer_start, ev_timer_stop, ev_tstamp,
     ev_watcher, ev_watcher_time, EV_READ, EV_WRITE, EV__IOFDSET,
 };
-pub type size_t = usize;
-pub type __uint8_t = u8;
-pub type __uint16_t = u16;
-pub type __int32_t = i32;
-pub type __uint32_t = u32;
-pub type __uid_t = ::core::ffi::c_uint;
-pub type __gid_t = ::core::ffi::c_uint;
-pub type __pid_t = ::core::ffi::c_int;
-pub type __time_t = ::core::ffi::c_long;
-pub type __suseconds_t = ::core::ffi::c_long;
-pub type __socklen_t = ::core::ffi::c_uint;
-pub type gid_t = __gid_t;
-pub type uid_t = __uid_t;
-pub type pid_t = __pid_t;
-pub type ssize_t = isize;
-pub type time_t = __time_t;
-pub type int32_t = __int32_t;
 
-pub type uint8_t = __uint8_t;
-pub type uint16_t = __uint16_t;
-pub type uint32_t = __uint32_t;
-pub type uintptr_t = usize;
-
-pub type socklen_t = __socklen_t;
 pub type i3String = _i3String;
 
 pub use crate::application::Binding;
-pub type i3_event_state_mask_t = uint32_t;
-pub type C2RustUnnamed_1 = ::core::ffi::c_uint;
-pub const B_UPON_KEYRELEASE_IGNORE_MODS: C2RustUnnamed_1 = 2;
-pub const B_UPON_KEYRELEASE: C2RustUnnamed_1 = 1;
-pub const B_UPON_KEYPRESS: C2RustUnnamed_1 = 0;
-pub type input_type_t = ::core::ffi::c_uint;
-pub const B_MOUSE: input_type_t = 1;
-pub const B_KEYBOARD: input_type_t = 0;
+pub type i3_event_state_mask_t = u32;
 
-pub type C2RustUnnamed_3 = ::core::ffi::c_uint;
-pub const SCRATCHPAD_CHANGED: C2RustUnnamed_3 = 2;
-pub const SCRATCHPAD_FRESH: C2RustUnnamed_3 = 1;
-pub const SCRATCHPAD_NONE: C2RustUnnamed_3 = 0;
-
-pub type C2RustUnnamed_8 = ::core::ffi::c_uint;
-pub const FLOATING_USER_ON: C2RustUnnamed_8 = 3;
-pub const FLOATING_AUTO_ON: C2RustUnnamed_8 = 2;
-pub const FLOATING_USER_OFF: C2RustUnnamed_8 = 1;
-pub const FLOATING_AUTO_OFF: C2RustUnnamed_8 = 0;
-pub type border_style_t = ::core::ffi::c_uint;
-pub const BS_NORMAL: border_style_t = 2;
-pub const BS_PIXEL: border_style_t = 1;
-pub const BS_NONE: border_style_t = 0;
-pub type layout_t = ::core::ffi::c_uint;
-pub const L_SPLITH: layout_t = 6;
-pub const L_SPLITV: layout_t = 5;
-pub const L_OUTPUT: layout_t = 4;
-pub const L_DOCKAREA: layout_t = 3;
-pub const L_TABBED: layout_t = 2;
-pub const L_STACKED: layout_t = 1;
-pub const L_DEFAULT: layout_t = 0;
 pub type fullscreen_mode_t = ::core::ffi::c_uint;
 pub const CF_GLOBAL: fullscreen_mode_t = 2;
 pub const CF_OUTPUT: fullscreen_mode_t = 1;
 pub const CF_NONE: fullscreen_mode_t = 0;
 
-pub type C2RustUnnamed_10 = ::core::ffi::c_uint;
-pub const M_BELOW: C2RustUnnamed_10 = 2;
-pub const M_ASSIGN_WS: C2RustUnnamed_10 = 1;
-pub const M_HERE: C2RustUnnamed_10 = 0;
-pub type C2RustUnnamed_11 = ::core::ffi::c_uint;
-pub const WM_FLOATING: C2RustUnnamed_11 = 6;
-pub const WM_FLOATING_USER: C2RustUnnamed_11 = 5;
-pub const WM_FLOATING_AUTO: C2RustUnnamed_11 = 4;
-pub const WM_TILING: C2RustUnnamed_11 = 3;
-pub const WM_TILING_USER: C2RustUnnamed_11 = 2;
-pub const WM_TILING_AUTO: C2RustUnnamed_11 = 1;
-pub const WM_ANY: C2RustUnnamed_11 = 0;
-pub type C2RustUnnamed_12 = ::core::ffi::c_int;
-pub const M_DOCK_BOTTOM: C2RustUnnamed_12 = 3;
-pub const M_DOCK_TOP: C2RustUnnamed_12 = 2;
-pub const M_DOCK_ANY: C2RustUnnamed_12 = 1;
-pub const M_NODOCK: C2RustUnnamed_12 = 0;
-pub const M_DONTCHECK: C2RustUnnamed_12 = -1;
-pub type C2RustUnnamed_13 = ::core::ffi::c_int;
-pub const U_OLDEST: C2RustUnnamed_13 = 1;
-pub const U_LATEST: C2RustUnnamed_13 = 0;
-pub const U_DONTCHECK: C2RustUnnamed_13 = -1;
+pub const M_BELOW: ::core::ffi::c_uint = 2;
+pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
+pub const M_HERE: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_14 = ::core::ffi::c_uint;
-pub const W_DOCK_BOTTOM: C2RustUnnamed_14 = 2;
-pub const W_DOCK_TOP: C2RustUnnamed_14 = 1;
-pub const W_NODOCK: C2RustUnnamed_14 = 0;
+pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
+pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
+pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
+pub const M_NODOCK: ::core::ffi::c_int = 0;
+pub const M_DONTCHECK: ::core::ffi::c_int = -1;
 
-pub type C2RustUnnamed_17 = ::core::ffi::c_uint;
-pub const A_TO_OUTPUT: C2RustUnnamed_17 = 16;
-pub const A_TO_WORKSPACE_NUMBER: C2RustUnnamed_17 = 8;
-pub const A_NO_FOCUS: C2RustUnnamed_17 = 4;
-pub const A_TO_WORKSPACE: C2RustUnnamed_17 = 2;
-pub const A_COMMAND: C2RustUnnamed_17 = 1;
-pub const A_ANY: C2RustUnnamed_17 = 0;
+pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
+pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
+pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
+pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
+pub const A_COMMAND: ::core::ffi::c_uint = 1;
+pub const A_ANY: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_19 = ::core::ffi::c_uint;
-pub const CT_DOCKAREA: C2RustUnnamed_19 = 5;
-pub const CT_WORKSPACE: C2RustUnnamed_19 = 4;
-pub const CT_FLOATING_CON: C2RustUnnamed_19 = 3;
-pub const CT_CON: C2RustUnnamed_19 = 2;
-pub const CT_OUTPUT: C2RustUnnamed_19 = 1;
-pub const CT_ROOT: C2RustUnnamed_19 = 0;
+pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
+pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
+pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
+pub const CT_CON: ::core::ffi::c_uint = 2;
+pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
+pub const CT_ROOT: ::core::ffi::c_uint = 0;
 
 pub type Output = xoutput;
-pub type orientation_t = ::core::ffi::c_uint;
-pub const VERT: orientation_t = 2;
-pub const HORIZ: orientation_t = 1;
-pub const NO_ORIENTATION: orientation_t = 0;
-pub type C2RustUnnamed_21 = ::core::ffi::c_uint;
-pub const I3_XKB_GROUP_MASK_4: C2RustUnnamed_21 = 8;
-pub const I3_XKB_GROUP_MASK_3: C2RustUnnamed_21 = 4;
-pub const I3_XKB_GROUP_MASK_2: C2RustUnnamed_21 = 2;
-pub const I3_XKB_GROUP_MASK_1: C2RustUnnamed_21 = 1;
-pub const I3_XKB_GROUP_MASK_ANY: C2RustUnnamed_21 = 0;
+
+pub const I3_XKB_GROUP_MASK_4: ::core::ffi::c_uint = 8;
+pub const I3_XKB_GROUP_MASK_3: ::core::ffi::c_uint = 4;
+pub const I3_XKB_GROUP_MASK_2: ::core::ffi::c_uint = 2;
+pub const I3_XKB_GROUP_MASK_1: ::core::ffi::c_uint = 1;
+pub const I3_XKB_GROUP_MASK_ANY: ::core::ffi::c_uint = 0;
 
 pub use crate::application::Barconfig;
 pub use crate::config::IncludedFile;
-pub type C2RustUnnamed_25 = ::core::ffi::c_uint;
-pub const P_TOP: C2RustUnnamed_25 = 1;
-pub const P_BOTTOM: C2RustUnnamed_25 = 0;
+
 pub use crate::application::Barbinding;
-pub type C2RustUnnamed_27 = ::core::ffi::c_uint;
-pub const S_SHOW: C2RustUnnamed_27 = 1;
-pub const S_HIDE: C2RustUnnamed_27 = 0;
-pub type C2RustUnnamed_28 = ::core::ffi::c_uint;
-pub const M_INVISIBLE: C2RustUnnamed_28 = 2;
-pub const M_HIDE: C2RustUnnamed_28 = 1;
-pub const M_DOCK: C2RustUnnamed_28 = 0;
+
 pub use crate::application::tray_output_t;
 pub use crate::bindings::Mode;
 #[derive(Copy, Clone)]
 #[repr(C, packed)]
 pub struct i3_ipc_header {
     pub magic: [::core::ffi::c_char; 6],
-    pub size: uint32_t,
-    pub type_0: uint32_t,
+    pub size: u32,
+    pub type_0: u32,
 }
 pub type i3_ipc_header_t = i3_ipc_header;
 pub use crate::application::ipc_client;
 pub type handler_t =
-    Option<unsafe fn(*mut ipc_client, *mut uint8_t, ::core::ffi::c_int, uint32_t, uint32_t) -> ()>;
+    Option<unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> ()>;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct ipc_client_head {
     pub tqh_first: *mut ipc_client,
     pub tqh_last: *mut *mut ipc_client,
 }
-pub type ylength = size_t;
+pub type ylength = usize;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct sync_state {
     pub last_key: *mut ::core::ffi::c_char,
-    pub rnd: uint32_t,
+    pub rnd: u32,
     pub window: xcb_window_t,
 }
 pub use crate::assignments::CommandResult;
 
-pub type sa_family_t = ::core::ffi::c_ushort;
-
-pub type shutdown_reason_t = ::core::ffi::c_uint;
-pub const SHUTDOWN_REASON_EXIT: shutdown_reason_t = 1;
-pub const SHUTDOWN_REASON_RESTART: shutdown_reason_t = 0;
-pub const SHUT_RDWR: C2RustUnnamed_32 = 2;
-pub type C2RustUnnamed_32 = ::core::ffi::c_uint;
-pub const SHUT_WR: C2RustUnnamed_32 = 1;
-pub const SHUT_RD: C2RustUnnamed_32 = 0;
 pub const MAJOR_VERSION: ::core::ffi::c_int = 4 as ::core::ffi::c_int;
 pub const MINOR_VERSION: ::core::ffi::c_int = 25 as ::core::ffi::c_int;
 pub const PATCH_VERSION: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
@@ -255,18 +172,18 @@ pub unsafe fn ipc_set_kill_timeout(new: ev_tstamp) {
     kill_timeout = new;
 }
 unsafe fn ipc_push_pending(client: *mut ipc_client) {
-    let result: ssize_t = writeall_nonblock(
+    let result: isize = writeall_nonblock(
         (*client).fd,
         (*client).buffer as *const ::core::ffi::c_void,
         (*client).buffer_size,
-    ) as ssize_t;
-    if result < 0 as ssize_t {
+    ) as isize;
+    if result < 0 as isize {
         return;
     }
-    if result as size_t == (*client).buffer_size {
+    if result as usize == (*client).buffer_size {
         free((*client).buffer as *mut ::core::ffi::c_void);
-        (*client).buffer = ::core::ptr::null_mut::<uint8_t>();
-        (*client).buffer_size = 0 as size_t;
+        (*client).buffer = ::core::ptr::null_mut::<u8>();
+        (*client).buffer_size = 0 as usize;
         if !(*client).timeout.is_null() {
             ev_timer_stop(main_loop, (*client).timeout as *mut ev_timer);
             free((*client).timeout as *mut ::core::ffi::c_void);
@@ -278,7 +195,7 @@ unsafe fn ipc_push_pending(client: *mut ipc_client) {
     ev_io_start(main_loop, (*client).write_callback as *mut ev_io);
     if (*client).timeout.is_null() {
         let timeout: *mut ev_timer =
-            scalloc(1 as size_t, ::core::mem::size_of::<ev_timer>() as size_t) as *mut ev_timer;
+            scalloc(1 as usize, ::core::mem::size_of::<ev_timer>() as usize) as *mut ev_timer;
         let ref mut fresh2 = (*(timeout as *mut ::core::ffi::c_void as *mut ev_watcher)).pending;
         *fresh2 = 0 as ::core::ffi::c_int;
         (*(timeout as *mut ::core::ffi::c_void as *mut ev_watcher)).active = *fresh2;
@@ -294,7 +211,7 @@ unsafe fn ipc_push_pending(client: *mut ipc_client) {
             &raw mut (*timeout).cb as *const ::core::ffi::c_void,
             ::core::mem::size_of::<
                 Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_timer, ::core::ffi::c_int) -> ()>,
-            >() as size_t,
+            >() as usize,
         );
         (*(timeout as *mut ev_watcher_time)).at = kill_timeout;
         (*timeout).repeat = 0.0f64 as ev_tstamp;
@@ -307,16 +224,16 @@ unsafe fn ipc_push_pending(client: *mut ipc_client) {
                 0 as ::core::ffi::c_int
             };
         ev_timer_start(main_loop, (*client).timeout as *mut ev_timer);
-    } else if result > 0 as ssize_t {
+    } else if result > 0 as isize {
         ev_timer_stop(main_loop, (*client).timeout as *mut ev_timer);
         (*((*client).timeout as *mut ev_watcher_time)).at = kill_timeout;
         (*(*client).timeout).repeat = 0.0f64 as ev_tstamp;
         ev_timer_start(main_loop, (*client).timeout as *mut ev_timer);
     }
-    if result == 0 as ssize_t {
+    if result == 0 as isize {
         return;
     }
-    (*client).buffer_size = (*client).buffer_size.wrapping_sub(result as size_t);
+    (*client).buffer_size = (*client).buffer_size.wrapping_sub(result as usize);
     memmove(
         (*client).buffer as *mut ::core::ffi::c_void,
         (*client).buffer.offset(result as isize) as *const ::core::ffi::c_void,
@@ -325,13 +242,13 @@ unsafe fn ipc_push_pending(client: *mut ipc_client) {
     (*client).buffer = srealloc(
         (*client).buffer as *mut ::core::ffi::c_void,
         (*client).buffer_size,
-    ) as *mut uint8_t;
+    ) as *mut u8;
 }
 unsafe fn ipc_send_client_message(
     client: *mut ipc_client,
-    size: size_t,
-    message_type: uint32_t,
-    payload: *const uint8_t,
+    size: usize,
+    message_type: u32,
+    payload: *const u8,
 ) {
     let header: i3_ipc_header_t = i3_ipc_header {
         magic: [
@@ -342,16 +259,16 @@ unsafe fn ipc_send_client_message(
             'p' as i32 as ::core::ffi::c_char,
             'c' as i32 as ::core::ffi::c_char,
         ],
-        size: size as uint32_t,
+        size: size as u32,
         type_0: message_type,
     };
-    let header_size: size_t = ::core::mem::size_of::<i3_ipc_header_t>() as size_t;
-    let message_size: size_t = header_size.wrapping_add(size);
-    let push_now: bool = (*client).buffer_size == 0 as size_t;
+    let header_size: usize = ::core::mem::size_of::<i3_ipc_header_t>() as usize;
+    let message_size: usize = header_size.wrapping_add(size);
+    let push_now: bool = (*client).buffer_size == 0 as usize;
     (*client).buffer = srealloc(
         (*client).buffer as *mut ::core::ffi::c_void,
         (*client).buffer_size.wrapping_add(message_size),
-    ) as *mut uint8_t;
+    ) as *mut u8;
     memcpy(
         (*client).buffer.offset((*client).buffer_size as isize) as *mut ::core::ffi::c_void,
         &raw const header as *mut ::core::ffi::c_void,
@@ -412,7 +329,7 @@ unsafe fn free_ipc_client(client: *mut ipc_client, exempt_fd: ::core::ffi::c_int
 
 pub unsafe fn ipc_send_event(
     event: *const ::core::ffi::c_char,
-    message_type: uint32_t,
+    message_type: u32,
     payload: *const ::core::ffi::c_char,
 ) {
     let mut current: *mut ipc_client = ::core::ptr::null_mut::<ipc_client>();
@@ -421,12 +338,7 @@ pub unsafe fn ipc_send_event(
         let mut i: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
         while i < (*current).num_events {
             if strcasecmp(*(*current).events.offset(i as isize), event) == 0 as ::core::ffi::c_int {
-                ipc_send_client_message(
-                    current,
-                    strlen(payload),
-                    message_type,
-                    payload as *mut uint8_t,
-                );
+                ipc_send_client_message(current, strlen(payload), message_type, payload as *mut u8);
                 break;
             } else {
                 i += 1;
@@ -435,7 +347,7 @@ pub unsafe fn ipc_send_event(
         current = (*current).clients.tqe_next as *mut ipc_client;
     }
 }
-unsafe fn ipc_send_shutdown_event(reason: shutdown_reason_t) {
+unsafe fn ipc_send_shutdown_event(reason: ShutdownReason) {
     let gen: yajl_gen = yajl_gen_alloc(::core::ptr::null::<yajl_alloc_funcs>());
     yajl_gen_map_open(gen);
     yajl_gen_string(
@@ -443,17 +355,13 @@ unsafe fn ipc_send_shutdown_event(reason: shutdown_reason_t) {
         c"change".as_ptr() as *mut ::core::ffi::c_uchar,
         strlen(c"change".as_ptr()),
     );
-    if reason as ::core::ffi::c_uint
-        == SHUTDOWN_REASON_RESTART as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if reason == ShutdownReason::Restart {
         yajl_gen_string(
             gen,
             c"restart".as_ptr() as *mut ::core::ffi::c_uchar,
             strlen(c"restart".as_ptr()),
         );
-    } else if reason as ::core::ffi::c_uint
-        == SHUTDOWN_REASON_EXIT as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    } else if reason == ShutdownReason::Exit {
         yajl_gen_string(
             gen,
             c"exit".as_ptr() as *mut ::core::ffi::c_uchar,
@@ -466,33 +374,31 @@ unsafe fn ipc_send_shutdown_event(reason: shutdown_reason_t) {
     yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
     ipc_send_event(
         c"shutdown".as_ptr(),
-        I3_IPC_EVENT_SHUTDOWN as uint32_t,
+        I3_IPC_EVENT_SHUTDOWN as u32,
         payload as *const ::core::ffi::c_char,
     );
     yajl_gen_free(gen);
 }
 
-pub unsafe fn ipc_shutdown(reason: shutdown_reason_t, exempt_fd: ::core::ffi::c_int) {
+pub unsafe fn ipc_shutdown(reason: ShutdownReason, exempt_fd: ::core::ffi::c_int) {
     ipc_send_shutdown_event(reason);
     while !all_clients.tqh_first.is_null() {
         let current: *mut ipc_client = all_clients.tqh_first as *mut ipc_client;
         if (*current).fd != exempt_fd {
-            shutdown((*current).fd, SHUT_RDWR as ::core::ffi::c_int);
+            shutdown((*current).fd, libc::SHUT_RDWR as ::core::ffi::c_int);
         }
         free_ipc_client(current, exempt_fd);
     }
 }
 unsafe fn handle_run_command(
     client: *mut ipc_client,
-    message: *mut uint8_t,
+    message: *mut u8,
     size: ::core::ffi::c_int,
-    message_size: uint32_t,
-    message_type: uint32_t,
+    message_size: u32,
+    message_type: u32,
 ) {
-    let command: *mut ::core::ffi::c_char = sstrndup(
-        message as *const ::core::ffi::c_char,
-        message_size as size_t,
-    );
+    let command: *mut ::core::ffi::c_char =
+        sstrndup(message as *const ::core::ffi::c_char, message_size as usize);
     verboselog(c"IPC: received: *%.4000s*\n".as_ptr().cast_mut(), command);
     let gen: yajl_gen = yajl_gen_alloc(::core::ptr::null::<yajl_alloc_funcs>());
     let result: *mut CommandResult = parse_command(command, gen, client);
@@ -506,9 +412,9 @@ unsafe fn handle_run_command(
     yajl_gen_get_buf(gen, &raw mut reply, &raw mut length);
     ipc_send_client_message(
         client,
-        length as size_t,
-        I3_IPC_REPLY_TYPE_COMMAND as uint32_t,
-        reply as *const uint8_t,
+        length as usize,
+        I3_IPC_REPLY_TYPE_COMMAND as u32,
+        reply as *const u8,
     );
     yajl_gen_free(gen);
 }
@@ -520,13 +426,13 @@ unsafe fn dump_rect(gen: yajl_gen, name: *const ::core::ffi::c_char, r: Rect) {
         c"x".as_ptr() as *mut ::core::ffi::c_uchar,
         strlen(c"x".as_ptr()),
     );
-    yajl_gen_integer(gen, r.x as int32_t as ::core::ffi::c_longlong);
+    yajl_gen_integer(gen, r.x as i32 as ::core::ffi::c_longlong);
     yajl_gen_string(
         gen,
         c"y".as_ptr() as *mut ::core::ffi::c_uchar,
         strlen(c"y".as_ptr()),
     );
-    yajl_gen_integer(gen, r.y as int32_t as ::core::ffi::c_longlong);
+    yajl_gen_integer(gen, r.y as i32 as ::core::ffi::c_longlong);
     yajl_gen_string(
         gen,
         c"width".as_ptr() as *mut ::core::ffi::c_uchar,
@@ -730,22 +636,16 @@ unsafe fn dump_binding(gen: yajl_gen, bind: *mut Binding) {
     );
     yajl_gen_string(
         gen,
-        (if (*bind).input_type as ::core::ffi::c_uint
-            == B_KEYBOARD as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
+        (if (*bind).input_type == InputType::Keyboard {
             c"keyboard".as_ptr()
         } else {
             c"mouse".as_ptr()
         }) as *mut ::core::ffi::c_uchar,
-        strlen(
-            if (*bind).input_type as ::core::ffi::c_uint
-                == B_KEYBOARD as ::core::ffi::c_int as ::core::ffi::c_uint
-            {
-                c"keyboard".as_ptr()
-            } else {
-                c"mouse".as_ptr()
-            },
-        ),
+        strlen(if (*bind).input_type == InputType::Keyboard {
+            c"keyboard".as_ptr()
+        } else {
+            c"mouse".as_ptr()
+        }),
     );
     yajl_gen_string(
         gen,
@@ -793,7 +693,7 @@ pub unsafe fn dump_node(gen: yajl_gen, con: *mut Con, inplace_restart: bool) {
         c"id".as_ptr() as *mut ::core::ffi::c_uchar,
         strlen(c"id".as_ptr()),
     );
-    yajl_gen_integer(gen, con as uintptr_t as ::core::ffi::c_longlong);
+    yajl_gen_integer(gen, con as usize as ::core::ffi::c_longlong);
     yajl_gen_string(
         gen,
         c"type".as_ptr() as *mut ::core::ffi::c_uchar,
@@ -855,9 +755,7 @@ pub unsafe fn dump_node(gen: yajl_gen, con: *mut Con, inplace_restart: bool) {
             c"none".as_ptr() as *mut ::core::ffi::c_uchar,
             strlen(c"none".as_ptr()),
         );
-    } else if con_orientation(con) as ::core::ffi::c_uint
-        == HORIZ as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    } else if con_orientation(con) == Orientation::Horizontal {
         yajl_gen_string(
             gen,
             c"horizontal".as_ptr() as *mut ::core::ffi::c_uchar,
@@ -875,29 +773,28 @@ pub unsafe fn dump_node(gen: yajl_gen, con: *mut Con, inplace_restart: bool) {
         c"scratchpad_state".as_ptr() as *mut ::core::ffi::c_uchar,
         strlen(c"scratchpad_state".as_ptr()),
     );
-    match (*con).scratchpad_state as ::core::ffi::c_uint {
-        0 => {
+    match (*con).scratchpad_state {
+        ScratchpadState::None => {
             yajl_gen_string(
                 gen,
                 c"none".as_ptr() as *mut ::core::ffi::c_uchar,
                 strlen(c"none".as_ptr()),
             );
         }
-        1 => {
+        ScratchpadState::Fresh => {
             yajl_gen_string(
                 gen,
                 c"fresh".as_ptr() as *mut ::core::ffi::c_uchar,
                 strlen(c"fresh".as_ptr()),
             );
         }
-        2 => {
+        ScratchpadState::Changed => {
             yajl_gen_string(
                 gen,
                 c"changed".as_ptr() as *mut ::core::ffi::c_uchar,
                 strlen(c"changed".as_ptr()),
             );
         }
-        _ => {}
     }
     yajl_gen_string(
         gen,
@@ -958,8 +855,8 @@ pub unsafe fn dump_node(gen: yajl_gen, con: *mut Con, inplace_restart: bool) {
         c"layout".as_ptr() as *mut ::core::ffi::c_uchar,
         strlen(c"layout".as_ptr()),
     );
-    match (*con).layout as ::core::ffi::c_uint {
-        0 => {
+    match (*con).layout {
+        Layout::Default => {
             debuglog(
                 c"%s:%s:%d - About to dump layout=default, this is a bug in the code.\n"
                     .as_ptr()
@@ -978,78 +875,77 @@ pub unsafe fn dump_node(gen: yajl_gen, con: *mut Con, inplace_restart: bool) {
                 );
             };
         }
-        5 => {
+        Layout::SplitV => {
             yajl_gen_string(
                 gen,
                 c"splitv".as_ptr() as *mut ::core::ffi::c_uchar,
                 strlen(c"splitv".as_ptr()),
             );
         }
-        6 => {
+        Layout::SplitH => {
             yajl_gen_string(
                 gen,
                 c"splith".as_ptr() as *mut ::core::ffi::c_uchar,
                 strlen(c"splith".as_ptr()),
             );
         }
-        1 => {
+        Layout::Stacked => {
             yajl_gen_string(
                 gen,
                 c"stacked".as_ptr() as *mut ::core::ffi::c_uchar,
                 strlen(c"stacked".as_ptr()),
             );
         }
-        2 => {
+        Layout::Tabbed => {
             yajl_gen_string(
                 gen,
                 c"tabbed".as_ptr() as *mut ::core::ffi::c_uchar,
                 strlen(c"tabbed".as_ptr()),
             );
         }
-        3 => {
+        Layout::DockArea => {
             yajl_gen_string(
                 gen,
                 c"dockarea".as_ptr() as *mut ::core::ffi::c_uchar,
                 strlen(c"dockarea".as_ptr()),
             );
         }
-        4 => {
+        Layout::Output => {
             yajl_gen_string(
                 gen,
                 c"output".as_ptr() as *mut ::core::ffi::c_uchar,
                 strlen(c"output".as_ptr()),
             );
         }
-        _ => {}
     }
     yajl_gen_string(
         gen,
         c"workspace_layout".as_ptr() as *mut ::core::ffi::c_uchar,
         strlen(c"workspace_layout".as_ptr()),
     );
-    match (*con).workspace_layout as ::core::ffi::c_uint {
-        0 => {
+    match (*con).workspace_layout {
+        Layout::Default => {
             yajl_gen_string(
                 gen,
                 c"default".as_ptr() as *mut ::core::ffi::c_uchar,
                 strlen(c"default".as_ptr()),
             );
         }
-        1 => {
+        Layout::Stacked => {
             yajl_gen_string(
                 gen,
                 c"stacked".as_ptr() as *mut ::core::ffi::c_uchar,
                 strlen(c"stacked".as_ptr()),
             );
         }
-        2 => {
+        Layout::Tabbed => {
             yajl_gen_string(
                 gen,
                 c"tabbed".as_ptr() as *mut ::core::ffi::c_uchar,
                 strlen(c"tabbed".as_ptr()),
             );
         }
-        _ => {
+        Layout::DockArea | Layout::Output | Layout::SplitV | Layout::SplitH => {
             debuglog(
                 c"%s:%s:%d - About to dump workspace_layout=%d (none of default/stacked/tabbed), this is a bug.\n".as_ptr().cast_mut(),
                 c"../src/ipc.c".as_ptr(),
@@ -1073,15 +969,20 @@ pub unsafe fn dump_node(gen: yajl_gen, con: *mut Con, inplace_restart: bool) {
         c"last_split_layout".as_ptr() as *mut ::core::ffi::c_uchar,
         strlen(c"last_split_layout".as_ptr()),
     );
-    match (*con).layout as ::core::ffi::c_uint {
-        5 => {
+    match (*con).layout {
+        Layout::SplitV => {
             yajl_gen_string(
                 gen,
                 c"splitv".as_ptr() as *mut ::core::ffi::c_uchar,
                 strlen(c"splitv".as_ptr()),
             );
         }
-        _ => {
+        Layout::Default
+        | Layout::Stacked
+        | Layout::Tabbed
+        | Layout::DockArea
+        | Layout::Output
+        | Layout::SplitH => {
             yajl_gen_string(
                 gen,
                 c"splith".as_ptr() as *mut ::core::ffi::c_uchar,
@@ -1094,29 +995,28 @@ pub unsafe fn dump_node(gen: yajl_gen, con: *mut Con, inplace_restart: bool) {
         c"border".as_ptr() as *mut ::core::ffi::c_uchar,
         strlen(c"border".as_ptr()),
     );
-    match (*con).border_style as ::core::ffi::c_uint {
-        2 => {
+    match (*con).border_style {
+        BorderStyle::Normal => {
             yajl_gen_string(
                 gen,
                 c"normal".as_ptr() as *mut ::core::ffi::c_uchar,
                 strlen(c"normal".as_ptr()),
             );
         }
-        0 => {
+        BorderStyle::None => {
             yajl_gen_string(
                 gen,
                 c"none".as_ptr() as *mut ::core::ffi::c_uchar,
                 strlen(c"none".as_ptr()),
             );
         }
-        1 => {
+        BorderStyle::Pixel => {
             yajl_gen_string(
                 gen,
                 c"pixel".as_ptr() as *mut ::core::ffi::c_uchar,
                 strlen(c"pixel".as_ptr()),
             );
         }
-        _ => {}
     }
     yajl_gen_string(
         gen,
@@ -1397,7 +1297,7 @@ pub unsafe fn dump_node(gen: yajl_gen, con: *mut Con, inplace_restart: bool) {
     yajl_gen_array_open(gen);
     node = (*con).focus_head.tqh_first as *mut Con;
     while !node.is_null() {
-        yajl_gen_integer(gen, node as uintptr_t as ::core::ffi::c_longlong);
+        yajl_gen_integer(gen, node as usize as ::core::ffi::c_longlong);
         node = (*node).focused.tqe_next as *mut Con;
     }
     yajl_gen_array_close(gen);
@@ -1418,36 +1318,35 @@ pub unsafe fn dump_node(gen: yajl_gen, con: *mut Con, inplace_restart: bool) {
         c"floating".as_ptr() as *mut ::core::ffi::c_uchar,
         strlen(c"floating".as_ptr()),
     );
-    match (*con).floating as ::core::ffi::c_uint {
-        0 => {
+    match (*con).floating {
+        FloatingState::AutoOff => {
             yajl_gen_string(
                 gen,
                 c"auto_off".as_ptr() as *mut ::core::ffi::c_uchar,
                 strlen(c"auto_off".as_ptr()),
             );
         }
-        2 => {
+        FloatingState::AutoOn => {
             yajl_gen_string(
                 gen,
                 c"auto_on".as_ptr() as *mut ::core::ffi::c_uchar,
                 strlen(c"auto_on".as_ptr()),
             );
         }
-        1 => {
+        FloatingState::UserOff => {
             yajl_gen_string(
                 gen,
                 c"user_off".as_ptr() as *mut ::core::ffi::c_uchar,
                 strlen(c"user_off".as_ptr()),
             );
         }
-        3 => {
+        FloatingState::UserOn => {
             yajl_gen_string(
                 gen,
                 c"user_on".as_ptr() as *mut ::core::ffi::c_uchar,
                 strlen(c"user_on".as_ptr()),
             );
         }
-        _ => {}
     }
     yajl_gen_string(
         gen,
@@ -1618,11 +1517,7 @@ unsafe fn dump_bar_bindings(gen: yajl_gen, config: *mut Barconfig) {
             c"release".as_ptr() as *mut ::core::ffi::c_uchar,
             strlen(c"release".as_ptr()),
         );
-        yajl_gen_bool(
-            gen,
-            ((*current).release as ::core::ffi::c_int == B_UPON_KEYRELEASE as ::core::ffi::c_int)
-                as ::core::ffi::c_int,
-        );
+        yajl_gen_bool(gen, i32::from((*current).release));
         yajl_gen_map_close(gen);
         current = (*current).bindings.tqe_next;
     }
@@ -1744,15 +1639,15 @@ unsafe fn dump_bar_config(gen: yajl_gen, config: *mut Barconfig) {
         c"hidden_state".as_ptr() as *mut ::core::ffi::c_uchar,
         strlen(c"hidden_state".as_ptr()),
     );
-    match (*config).hidden_state as ::core::ffi::c_uint {
-        1 => {
+    match (*config).hidden_state {
+        BarHiddenState::Show => {
             yajl_gen_string(
                 gen,
                 c"show".as_ptr() as *mut ::core::ffi::c_uchar,
                 strlen(c"show".as_ptr()),
             );
         }
-        0 | _ => {
+        BarHiddenState::Hide => {
             yajl_gen_string(
                 gen,
                 c"hide".as_ptr() as *mut ::core::ffi::c_uchar,
@@ -1772,9 +1667,7 @@ unsafe fn dump_bar_config(gen: yajl_gen, config: *mut Barconfig) {
         c"position".as_ptr() as *mut ::core::ffi::c_uchar,
         strlen(c"position".as_ptr()),
     );
-    if (*config).position as ::core::ffi::c_uint
-        == P_BOTTOM as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if (*config).position == BarPosition::Bottom {
         yajl_gen_string(
             gen,
             c"bottom".as_ptr() as *mut ::core::ffi::c_uchar,
@@ -2149,10 +2042,10 @@ unsafe fn dump_bar_config(gen: yajl_gen, config: *mut Barconfig) {
 }
 unsafe fn handle_tree(
     client: *mut ipc_client,
-    message: *mut uint8_t,
+    message: *mut u8,
     size: ::core::ffi::c_int,
-    message_size: uint32_t,
-    message_type: uint32_t,
+    message_size: u32,
+    message_type: u32,
 ) {
     let prev_locale: *mut ::core::ffi::c_char = sstrdup(setlocale(
         LC_NUMERIC,
@@ -2168,18 +2061,18 @@ unsafe fn handle_tree(
     yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
     ipc_send_client_message(
         client,
-        length as size_t,
-        I3_IPC_REPLY_TYPE_TREE as uint32_t,
-        payload as *const uint8_t,
+        length as usize,
+        I3_IPC_REPLY_TYPE_TREE as u32,
+        payload as *const u8,
     );
     yajl_gen_free(gen);
 }
 unsafe fn handle_get_workspaces(
     client: *mut ipc_client,
-    message: *mut uint8_t,
+    message: *mut u8,
     size: ::core::ffi::c_int,
-    message_size: uint32_t,
-    message_type: uint32_t,
+    message_size: u32,
+    message_type: u32,
 ) {
     let gen: yajl_gen = yajl_gen_alloc(::core::ptr::null::<yajl_alloc_funcs>());
     yajl_gen_array_open(gen);
@@ -2208,7 +2101,7 @@ unsafe fn handle_get_workspaces(
                     c"id".as_ptr() as *mut ::core::ffi::c_uchar,
                     strlen(c"id".as_ptr()),
                 );
-                yajl_gen_integer(gen, ws as uintptr_t as ::core::ffi::c_longlong);
+                yajl_gen_integer(gen, ws as usize as ::core::ffi::c_longlong);
                 yajl_gen_string(
                     gen,
                     c"num".as_ptr() as *mut ::core::ffi::c_uchar,
@@ -2296,18 +2189,18 @@ unsafe fn handle_get_workspaces(
     yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
     ipc_send_client_message(
         client,
-        length as size_t,
-        I3_IPC_REPLY_TYPE_WORKSPACES as uint32_t,
-        payload as *const uint8_t,
+        length as usize,
+        I3_IPC_REPLY_TYPE_WORKSPACES as u32,
+        payload as *const u8,
     );
     yajl_gen_free(gen);
 }
 unsafe fn handle_get_outputs(
     client: *mut ipc_client,
-    message: *mut uint8_t,
+    message: *mut u8,
     size: ::core::ffi::c_int,
-    message_size: uint32_t,
-    message_type: uint32_t,
+    message_size: u32,
+    message_type: u32,
 ) {
     let gen: yajl_gen = yajl_gen_alloc(::core::ptr::null::<yajl_alloc_funcs>());
     yajl_gen_array_open(gen);
@@ -2395,18 +2288,18 @@ unsafe fn handle_get_outputs(
     yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
     ipc_send_client_message(
         client,
-        length as size_t,
-        I3_IPC_REPLY_TYPE_OUTPUTS as uint32_t,
-        payload as *const uint8_t,
+        length as usize,
+        I3_IPC_REPLY_TYPE_OUTPUTS as u32,
+        payload as *const u8,
     );
     yajl_gen_free(gen);
 }
 unsafe fn handle_get_marks(
     client: *mut ipc_client,
-    message: *mut uint8_t,
+    message: *mut u8,
     size: ::core::ffi::c_int,
-    message_size: uint32_t,
-    message_type: uint32_t,
+    message_size: u32,
+    message_type: u32,
 ) {
     let gen: yajl_gen = yajl_gen_alloc(::core::ptr::null::<yajl_alloc_funcs>());
     yajl_gen_array_open(gen);
@@ -2431,18 +2324,18 @@ unsafe fn handle_get_marks(
     yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
     ipc_send_client_message(
         client,
-        length as size_t,
-        I3_IPC_REPLY_TYPE_MARKS as uint32_t,
-        payload as *const uint8_t,
+        length as usize,
+        I3_IPC_REPLY_TYPE_MARKS as u32,
+        payload as *const u8,
     );
     yajl_gen_free(gen);
 }
 unsafe fn handle_get_version(
     client: *mut ipc_client,
-    message: *mut uint8_t,
+    message: *mut u8,
     size: ::core::ffi::c_int,
-    message_size: uint32_t,
-    message_type: uint32_t,
+    message_size: u32,
+    message_type: u32,
 ) {
     let gen: yajl_gen = yajl_gen_alloc(::core::ptr::null::<yajl_alloc_funcs>());
     yajl_gen_map_open(gen);
@@ -2509,21 +2402,21 @@ unsafe fn handle_get_version(
     yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
     ipc_send_client_message(
         client,
-        length as size_t,
-        I3_IPC_REPLY_TYPE_VERSION as uint32_t,
-        payload as *const uint8_t,
+        length as usize,
+        I3_IPC_REPLY_TYPE_VERSION as u32,
+        payload as *const u8,
     );
     yajl_gen_free(gen);
 }
 unsafe fn handle_get_bar_config(
     client: *mut ipc_client,
-    message: *mut uint8_t,
+    message: *mut u8,
     size: ::core::ffi::c_int,
-    message_size: uint32_t,
-    message_type: uint32_t,
+    message_size: u32,
+    message_type: u32,
 ) {
     let gen: yajl_gen = yajl_gen_alloc(::core::ptr::null::<yajl_alloc_funcs>());
-    if message_size == 0 as uint32_t {
+    if message_size == 0 as u32 {
         yajl_gen_array_open(gen);
         let mut current: *mut Barconfig = ::core::ptr::null_mut::<Barconfig>();
         current = barconfigs.tqh_first as *mut Barconfig;
@@ -2541,9 +2434,9 @@ unsafe fn handle_get_bar_config(
         yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
         ipc_send_client_message(
             client,
-            length as size_t,
-            I3_IPC_REPLY_TYPE_BAR_CONFIG as uint32_t,
-            payload as *const uint8_t,
+            length as usize,
+            I3_IPC_REPLY_TYPE_BAR_CONFIG as u32,
+            payload as *const u8,
         );
         yajl_gen_free(gen);
         return;
@@ -2585,18 +2478,18 @@ unsafe fn handle_get_bar_config(
     yajl_gen_get_buf(gen, &raw mut payload_0, &raw mut length_0);
     ipc_send_client_message(
         client,
-        length_0 as size_t,
-        I3_IPC_REPLY_TYPE_BAR_CONFIG as uint32_t,
-        payload_0 as *const uint8_t,
+        length_0 as usize,
+        I3_IPC_REPLY_TYPE_BAR_CONFIG as u32,
+        payload_0 as *const u8,
     );
     yajl_gen_free(gen);
 }
 unsafe fn handle_get_binding_modes(
     client: *mut ipc_client,
-    message: *mut uint8_t,
+    message: *mut u8,
     size: ::core::ffi::c_int,
-    message_size: uint32_t,
-    message_type: uint32_t,
+    message_size: u32,
+    message_type: u32,
 ) {
     let gen: yajl_gen = yajl_gen_alloc(::core::ptr::null::<yajl_alloc_funcs>());
     yajl_gen_array_open(gen);
@@ -2616,9 +2509,9 @@ unsafe fn handle_get_binding_modes(
     yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
     ipc_send_client_message(
         client,
-        length as size_t,
-        I3_IPC_REPLY_TYPE_BINDING_MODES as uint32_t,
-        payload as *const uint8_t,
+        length as usize,
+        I3_IPC_REPLY_TYPE_BINDING_MODES as u32,
+        payload as *const u8,
     );
     yajl_gen_free(gen);
 }
@@ -2643,16 +2536,16 @@ unsafe fn add_subscription(
     (*client).num_events += 1;
     (*client).events = srealloc(
         (*client).events as *mut ::core::ffi::c_void,
-        ((*client).num_events as size_t)
-            .wrapping_mul(::core::mem::size_of::<*mut ::core::ffi::c_char>() as size_t),
+        ((*client).num_events as usize)
+            .wrapping_mul(::core::mem::size_of::<*mut ::core::ffi::c_char>() as usize),
     ) as *mut *mut ::core::ffi::c_char;
     let ref mut fresh3 = *(*client).events.offset(event as isize);
     *fresh3 =
-        scalloc((len as size_t).wrapping_add(1 as size_t), 1 as size_t) as *mut ::core::ffi::c_char;
+        scalloc((len as usize).wrapping_add(1 as usize), 1 as usize) as *mut ::core::ffi::c_char;
     memcpy(
         *(*client).events.offset(event as isize) as *mut ::core::ffi::c_void,
         s as *const ::core::ffi::c_void,
-        len as size_t,
+        len as usize,
     );
     debuglog(
         c"%s:%s:%d - client is now subscribed to:\n"
@@ -2683,10 +2576,10 @@ unsafe fn add_subscription(
 }
 unsafe fn handle_subscribe(
     client: *mut ipc_client,
-    message: *mut uint8_t,
+    message: *mut u8,
     size: ::core::ffi::c_int,
-    message_size: uint32_t,
-    message_type: uint32_t,
+    message_size: u32,
+    message_type: u32,
 ) {
     static mut callbacks: yajl_callbacks = unsafe {
         yajl_callbacks {
@@ -2715,18 +2608,18 @@ unsafe fn handle_subscribe(
         ::core::ptr::null_mut::<yajl_alloc_funcs>(),
         client as *mut ::core::ffi::c_void,
     ) as yajl_handle;
-    let stat: yajl_status = yajl_parse(p, message, message_size as size_t) as yajl_status;
+    let stat: yajl_status = yajl_parse(p, message, message_size as usize) as yajl_status;
     if stat as ::core::ffi::c_uint != yajl_status_ok as ::core::ffi::c_int as ::core::ffi::c_uint {
         let err: *mut ::core::ffi::c_uchar =
-            yajl_get_error(p, true_0, message, message_size as size_t);
+            yajl_get_error(p, true_0, message, message_size as usize);
         errorlog(c"ERROR: YAJL parse error: %s\n".as_ptr().cast_mut(), err);
         yajl_free_error(p, err);
         let reply: *const ::core::ffi::c_char = c"{\"success\":false}".as_ptr();
         ipc_send_client_message(
             client,
             strlen(reply),
-            I3_IPC_REPLY_TYPE_SUBSCRIBE as uint32_t,
-            reply as *const uint8_t,
+            I3_IPC_REPLY_TYPE_SUBSCRIBE as u32,
+            reply as *const u8,
         );
         yajl_free(p);
         return;
@@ -2736,8 +2629,8 @@ unsafe fn handle_subscribe(
     ipc_send_client_message(
         client,
         strlen(reply_0),
-        I3_IPC_REPLY_TYPE_SUBSCRIBE as uint32_t,
-        reply_0 as *const uint8_t,
+        I3_IPC_REPLY_TYPE_SUBSCRIBE as u32,
+        reply_0 as *const u8,
     );
     if (*client).first_tick_sent {
         return;
@@ -2761,16 +2654,16 @@ unsafe fn handle_subscribe(
     ipc_send_client_message(
         client,
         strlen(payload),
-        I3_IPC_EVENT_TICK as uint32_t,
-        payload as *const uint8_t,
+        I3_IPC_EVENT_TICK as u32,
+        payload as *const u8,
     );
 }
 unsafe fn handle_get_config(
     client: *mut ipc_client,
-    message: *mut uint8_t,
+    message: *mut u8,
     size: ::core::ffi::c_int,
-    message_size: uint32_t,
-    message_type: uint32_t,
+    message_size: u32,
+    message_type: u32,
 ) {
     let gen: yajl_gen = yajl_gen_alloc(::core::ptr::null::<yajl_alloc_funcs>());
     yajl_gen_map_open(gen);
@@ -2834,18 +2727,18 @@ unsafe fn handle_get_config(
     yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
     ipc_send_client_message(
         client,
-        length as size_t,
-        I3_IPC_REPLY_TYPE_CONFIG as uint32_t,
-        payload as *const uint8_t,
+        length as usize,
+        I3_IPC_REPLY_TYPE_CONFIG as u32,
+        payload as *const u8,
     );
     yajl_gen_free(gen);
 }
 unsafe fn handle_send_tick(
     client: *mut ipc_client,
-    message: *mut uint8_t,
+    message: *mut u8,
     size: ::core::ffi::c_int,
-    message_size: uint32_t,
-    message_type: uint32_t,
+    message_size: u32,
+    message_type: u32,
 ) {
     let gen: yajl_gen = yajl_gen_alloc(::core::ptr::null::<yajl_alloc_funcs>());
     yajl_gen_map_open(gen);
@@ -2863,7 +2756,7 @@ unsafe fn handle_send_tick(
     yajl_gen_string(
         gen,
         message as *mut ::core::ffi::c_uchar,
-        message_size as size_t,
+        message_size as usize,
     );
     yajl_gen_map_close(gen);
     let mut payload: *const ::core::ffi::c_uchar = ::core::ptr::null::<::core::ffi::c_uchar>();
@@ -2871,7 +2764,7 @@ unsafe fn handle_send_tick(
     yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
     ipc_send_event(
         c"tick".as_ptr(),
-        I3_IPC_EVENT_TICK as uint32_t,
+        I3_IPC_EVENT_TICK as u32,
         payload as *const ::core::ffi::c_char,
     );
     yajl_gen_free(gen);
@@ -2879,8 +2772,8 @@ unsafe fn handle_send_tick(
     ipc_send_client_message(
         client,
         strlen(reply),
-        I3_IPC_REPLY_TYPE_TICK as uint32_t,
-        reply as *const uint8_t,
+        I3_IPC_REPLY_TYPE_TICK as u32,
+        reply as *const u8,
     );
     debuglog(
         c"%s:%s:%d - Sent tick event\n".as_ptr().cast_mut(),
@@ -2892,13 +2785,13 @@ unsafe fn handle_send_tick(
 unsafe fn _sync_json_key(
     extra: *mut ::core::ffi::c_void,
     val: *const ::core::ffi::c_uchar,
-    len: size_t,
+    len: usize,
 ) -> ::core::ffi::c_int {
     let state: *mut sync_state = extra as *mut sync_state;
     free((*state).last_key as *mut ::core::ffi::c_void);
     (*state).last_key = ::core::ptr::null_mut::<::core::ffi::c_char>();
     (*state).last_key =
-        scalloc(len.wrapping_add(1 as size_t), 1 as size_t) as *mut ::core::ffi::c_char;
+        scalloc(len.wrapping_add(1 as usize), 1 as usize) as *mut ::core::ffi::c_char;
     memcpy(
         (*state).last_key as *mut ::core::ffi::c_void,
         val as *const ::core::ffi::c_void,
@@ -2912,7 +2805,7 @@ unsafe fn _sync_json_int(
 ) -> ::core::ffi::c_int {
     let state: *mut sync_state = extra as *mut sync_state;
     if strcasecmp((*state).last_key, c"rnd".as_ptr()) == 0 as ::core::ffi::c_int {
-        (*state).rnd = val as uint32_t;
+        (*state).rnd = val as u32;
     } else if strcasecmp((*state).last_key, c"window".as_ptr()) == 0 as ::core::ffi::c_int {
         (*state).window = val as xcb_window_t;
     }
@@ -2920,10 +2813,10 @@ unsafe fn _sync_json_int(
 }
 unsafe fn handle_sync(
     client: *mut ipc_client,
-    message: *mut uint8_t,
+    message: *mut u8,
     size: ::core::ffi::c_int,
-    message_size: uint32_t,
-    message_type: uint32_t,
+    message_size: u32,
+    message_type: u32,
 ) {
     static mut callbacks: yajl_callbacks = unsafe {
         yajl_callbacks {
@@ -2945,7 +2838,7 @@ unsafe fn handle_sync(
                     as unsafe fn(
                         *mut ::core::ffi::c_void,
                         *const ::core::ffi::c_uchar,
-                        size_t,
+                        usize,
                     ) -> ::core::ffi::c_int,
             ),
             yajl_end_map: None,
@@ -2963,20 +2856,20 @@ unsafe fn handle_sync(
         ::core::ptr::null_mut::<yajl_alloc_funcs>(),
         &raw mut state as *mut ::core::ffi::c_void,
     );
-    let stat: yajl_status = yajl_parse(p, message, message_size as size_t);
+    let stat: yajl_status = yajl_parse(p, message, message_size as usize);
     free(state.last_key as *mut ::core::ffi::c_void);
     state.last_key = ::core::ptr::null_mut::<::core::ffi::c_char>();
     if stat as ::core::ffi::c_uint != yajl_status_ok as ::core::ffi::c_int as ::core::ffi::c_uint {
         let err: *mut ::core::ffi::c_uchar =
-            yajl_get_error(p, true_0, message, message_size as size_t);
+            yajl_get_error(p, true_0, message, message_size as usize);
         errorlog(c"ERROR: YAJL parse error: %s\n".as_ptr().cast_mut(), err);
         yajl_free_error(p, err);
         let reply: *const ::core::ffi::c_char = c"{\"success\":false}".as_ptr();
         ipc_send_client_message(
             client,
             strlen(reply),
-            I3_IPC_REPLY_TYPE_SYNC as uint32_t,
-            reply as *const uint8_t,
+            I3_IPC_REPLY_TYPE_SYNC as u32,
+            reply as *const u8,
         );
         yajl_free(p);
         return;
@@ -2997,16 +2890,16 @@ unsafe fn handle_sync(
     ipc_send_client_message(
         client,
         strlen(reply_0),
-        I3_IPC_REPLY_TYPE_SYNC as uint32_t,
-        reply_0 as *const uint8_t,
+        I3_IPC_REPLY_TYPE_SYNC as u32,
+        reply_0 as *const u8,
     );
 }
 unsafe fn handle_get_binding_state(
     client: *mut ipc_client,
-    message: *mut uint8_t,
+    message: *mut u8,
     size: ::core::ffi::c_int,
-    message_size: uint32_t,
-    message_type: uint32_t,
+    message_size: u32,
+    message_type: u32,
 ) {
     let gen: yajl_gen = yajl_gen_alloc(::core::ptr::null::<yajl_alloc_funcs>());
     yajl_gen_map_open(gen);
@@ -3026,9 +2919,9 @@ unsafe fn handle_get_binding_state(
     yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
     ipc_send_client_message(
         client,
-        length as size_t,
-        I3_IPC_REPLY_TYPE_GET_BINDING_STATE as uint32_t,
-        payload as *const uint8_t,
+        length as usize,
+        I3_IPC_REPLY_TYPE_GET_BINDING_STATE as u32,
+        payload as *const u8,
     );
     yajl_gen_free(gen);
 }
@@ -3037,133 +2930,53 @@ pub static mut handlers: [handler_t; 13] = unsafe {
     [
         Some(
             handle_run_command
-                as unsafe fn(
-                    *mut ipc_client,
-                    *mut uint8_t,
-                    ::core::ffi::c_int,
-                    uint32_t,
-                    uint32_t,
-                ) -> (),
+                as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
         ),
         Some(
             handle_get_workspaces
-                as unsafe fn(
-                    *mut ipc_client,
-                    *mut uint8_t,
-                    ::core::ffi::c_int,
-                    uint32_t,
-                    uint32_t,
-                ) -> (),
+                as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
         ),
         Some(
             handle_subscribe
-                as unsafe fn(
-                    *mut ipc_client,
-                    *mut uint8_t,
-                    ::core::ffi::c_int,
-                    uint32_t,
-                    uint32_t,
-                ) -> (),
+                as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
         ),
         Some(
             handle_get_outputs
-                as unsafe fn(
-                    *mut ipc_client,
-                    *mut uint8_t,
-                    ::core::ffi::c_int,
-                    uint32_t,
-                    uint32_t,
-                ) -> (),
+                as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
         ),
         Some(
-            handle_tree
-                as unsafe fn(
-                    *mut ipc_client,
-                    *mut uint8_t,
-                    ::core::ffi::c_int,
-                    uint32_t,
-                    uint32_t,
-                ) -> (),
+            handle_tree as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
         ),
         Some(
             handle_get_marks
-                as unsafe fn(
-                    *mut ipc_client,
-                    *mut uint8_t,
-                    ::core::ffi::c_int,
-                    uint32_t,
-                    uint32_t,
-                ) -> (),
+                as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
         ),
         Some(
             handle_get_bar_config
-                as unsafe fn(
-                    *mut ipc_client,
-                    *mut uint8_t,
-                    ::core::ffi::c_int,
-                    uint32_t,
-                    uint32_t,
-                ) -> (),
+                as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
         ),
         Some(
             handle_get_version
-                as unsafe fn(
-                    *mut ipc_client,
-                    *mut uint8_t,
-                    ::core::ffi::c_int,
-                    uint32_t,
-                    uint32_t,
-                ) -> (),
+                as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
         ),
         Some(
             handle_get_binding_modes
-                as unsafe fn(
-                    *mut ipc_client,
-                    *mut uint8_t,
-                    ::core::ffi::c_int,
-                    uint32_t,
-                    uint32_t,
-                ) -> (),
+                as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
         ),
         Some(
             handle_get_config
-                as unsafe fn(
-                    *mut ipc_client,
-                    *mut uint8_t,
-                    ::core::ffi::c_int,
-                    uint32_t,
-                    uint32_t,
-                ) -> (),
+                as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
         ),
         Some(
             handle_send_tick
-                as unsafe fn(
-                    *mut ipc_client,
-                    *mut uint8_t,
-                    ::core::ffi::c_int,
-                    uint32_t,
-                    uint32_t,
-                ) -> (),
+                as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
         ),
         Some(
-            handle_sync
-                as unsafe fn(
-                    *mut ipc_client,
-                    *mut uint8_t,
-                    ::core::ffi::c_int,
-                    uint32_t,
-                    uint32_t,
-                ) -> (),
+            handle_sync as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
         ),
         Some(
             handle_get_binding_state
-                as unsafe fn(
-                    *mut ipc_client,
-                    *mut uint8_t,
-                    ::core::ffi::c_int,
-                    uint32_t,
-                    uint32_t,
-                ) -> (),
+                as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
         ),
     ]
 };
@@ -3172,9 +2985,9 @@ unsafe extern "C" fn ipc_receive_message(
     w: *mut ev_io,
     revents: ::core::ffi::c_int,
 ) {
-    let mut message_type: uint32_t = 0;
-    let mut message_length: uint32_t = 0;
-    let mut message: *mut uint8_t = ::core::ptr::null_mut::<uint8_t>();
+    let mut message_type: u32 = 0;
+    let mut message_length: u32 = 0;
+    let mut message: *mut u8 = ::core::ptr::null_mut::<u8>();
     let client: *mut ipc_client = (*w).data as *mut ipc_client;
     if (*client).fd == (*w).fd {
     } else {
@@ -3194,12 +3007,12 @@ unsafe extern "C" fn ipc_receive_message(
     if ret < 0 as ::core::ffi::c_int {
         if ret == -(1 as ::core::ffi::c_int) && *__errno_location() == EAGAIN {
             free(message as *mut ::core::ffi::c_void);
-            message = ::core::ptr::null_mut::<uint8_t>();
+            message = ::core::ptr::null_mut::<u8>();
             return;
         }
         free_ipc_client(client, -(1 as ::core::ffi::c_int));
         free(message as *mut ::core::ffi::c_void);
-        message = ::core::ptr::null_mut::<uint8_t>();
+        message = ::core::ptr::null_mut::<u8>();
         return;
     }
     if message_type as usize
@@ -3226,7 +3039,7 @@ unsafe extern "C" fn ipc_receive_message(
         );
     }
     free(message as *mut ::core::ffi::c_void);
-    message = ::core::ptr::null_mut::<uint8_t>();
+    message = ::core::ptr::null_mut::<u8>();
 }
 unsafe extern "C" fn ipc_client_timeout(
     loop_0: *mut ev_loop,
@@ -3236,7 +3049,7 @@ unsafe extern "C" fn ipc_client_timeout(
     let mut exepath: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
     let mut fd: ::core::ffi::c_int = 0;
     let mut buf: [::core::ffi::c_char; 512] = [0; 512];
-    let mut n: ssize_t = 0;
+    let mut n: isize = 0;
     let client: *mut ipc_client = (*w).data as *mut ipc_client;
     let mut cmdline: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
     let mut peercred: ucred = ucred {
@@ -3244,7 +3057,7 @@ unsafe extern "C" fn ipc_client_timeout(
         uid: 0,
         gid: 0,
     };
-    let mut so_len: socklen_t = ::core::mem::size_of::<ucred>() as socklen_t;
+    let mut so_len: libc::socklen_t = ::core::mem::size_of::<ucred>() as libc::socklen_t;
     if !(getsockopt(
         (*client).fd,
         SOL_SOCKET,
@@ -3775,10 +3588,10 @@ unsafe extern "C" fn ipc_client_timeout(
             n = read(
                 fd,
                 &raw mut buf as *mut ::core::ffi::c_char as *mut ::core::ffi::c_void,
-                ::core::mem::size_of::<[::core::ffi::c_char; 512]>() as size_t,
-            ) as ssize_t;
+                ::core::mem::size_of::<[::core::ffi::c_char; 512]>() as usize,
+            ) as isize;
             close(fd);
-            if !(n < 0 as ssize_t) {
+            if !(n < 0 as isize) {
                 let mut walk: *mut ::core::ffi::c_char = &raw mut buf as *mut ::core::ffi::c_char;
                 while walk
                     < (&raw mut buf as *mut ::core::ffi::c_char)
@@ -3848,7 +3661,7 @@ pub unsafe extern "C" fn ipc_new_client(
         sun_family: 0,
         sun_path: [0; 108],
     };
-    let mut len: socklen_t = ::core::mem::size_of::<sockaddr_un>() as socklen_t;
+    let mut len: libc::socklen_t = ::core::mem::size_of::<sockaddr_un>() as libc::socklen_t;
     let mut fd: ::core::ffi::c_int = 0;
     fd = accept((*w).fd, &raw mut peer as *mut sockaddr, &raw mut len);
     if fd < 0 as ::core::ffi::c_int {
@@ -3867,10 +3680,10 @@ pub unsafe fn ipc_new_client_on_fd(
 ) -> *mut ipc_client {
     set_nonblock(fd);
     let client: *mut ipc_client =
-        scalloc(1 as size_t, ::core::mem::size_of::<ipc_client>() as size_t) as *mut ipc_client;
+        scalloc(1 as usize, ::core::mem::size_of::<ipc_client>() as usize) as *mut ipc_client;
     (*client).fd = fd;
     (*client).read_callback =
-        scalloc(1 as size_t, ::core::mem::size_of::<ev_io>() as size_t) as *mut ev_io;
+        scalloc(1 as usize, ::core::mem::size_of::<ev_io>() as usize) as *mut ev_io;
     (*(*client).read_callback).data = client as *mut ::core::ffi::c_void;
     let ref mut fresh0 =
         (*((*client).read_callback as *mut ::core::ffi::c_void as *mut ev_watcher)).pending;
@@ -3888,14 +3701,14 @@ pub unsafe fn ipc_new_client_on_fd(
         &raw mut (*(*client).read_callback).cb as *const ::core::ffi::c_void,
         ::core::mem::size_of::<
             Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_io, ::core::ffi::c_int) -> ()>,
-        >() as size_t,
+        >() as usize,
     );
     (*(*client).read_callback).fd = fd;
     (*(*client).read_callback).events =
         EV_READ as ::core::ffi::c_int | EV__IOFDSET as ::core::ffi::c_int;
     ev_io_start(loop_0, (*client).read_callback as *mut ev_io);
     (*client).write_callback =
-        scalloc(1 as size_t, ::core::mem::size_of::<ev_io>() as size_t) as *mut ev_io;
+        scalloc(1 as usize, ::core::mem::size_of::<ev_io>() as usize) as *mut ev_io;
     (*(*client).write_callback).data = client as *mut ::core::ffi::c_void;
     let ref mut fresh1 =
         (*((*client).write_callback as *mut ::core::ffi::c_void as *mut ev_watcher)).pending;
@@ -3913,7 +3726,7 @@ pub unsafe fn ipc_new_client_on_fd(
         &raw mut (*(*client).write_callback).cb as *const ::core::ffi::c_void,
         ::core::mem::size_of::<
             Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_io, ::core::ffi::c_int) -> ()>,
-        >() as size_t,
+        >() as usize,
     );
     (*(*client).write_callback).fd = fd;
     (*(*client).write_callback).events =
@@ -3989,7 +3802,7 @@ pub unsafe fn ipc_send_workspace_event(
     yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
     ipc_send_event(
         c"workspace".as_ptr(),
-        I3_IPC_EVENT_WORKSPACE as uint32_t,
+        I3_IPC_EVENT_WORKSPACE as u32,
         payload as *const ::core::ffi::c_char,
     );
     yajl_gen_free(gen);
@@ -4036,7 +3849,7 @@ pub unsafe fn ipc_send_window_event(property: *const ::core::ffi::c_char, con: *
     yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
     ipc_send_event(
         c"window".as_ptr(),
-        I3_IPC_EVENT_WINDOW as uint32_t,
+        I3_IPC_EVENT_WINDOW as u32,
         payload as *const ::core::ffi::c_char,
     );
     yajl_gen_free(gen);
@@ -4066,7 +3879,7 @@ pub unsafe fn ipc_send_barconfig_update_event(barconfig: *mut Barconfig) {
     yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
     ipc_send_event(
         c"barconfig_update".as_ptr(),
-        I3_IPC_EVENT_BARCONFIG_UPDATE as uint32_t,
+        I3_IPC_EVENT_BARCONFIG_UPDATE as u32,
         payload as *const ::core::ffi::c_char,
     );
     yajl_gen_free(gen);
@@ -4133,7 +3946,7 @@ pub unsafe fn ipc_send_binding_event(
     yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
     ipc_send_event(
         c"binding".as_ptr(),
-        I3_IPC_EVENT_BINDING as uint32_t,
+        I3_IPC_EVENT_BINDING as u32,
         payload as *const ::core::ffi::c_char,
     );
     yajl_gen_free(gen);
@@ -4155,8 +3968,8 @@ pub unsafe fn ipc_confirm_restart(client: *mut ipc_client) {
     ipc_send_client_message(
         client,
         strlen(reply),
-        I3_IPC_REPLY_TYPE_COMMAND as uint32_t,
-        reply as *const uint8_t,
+        I3_IPC_REPLY_TYPE_COMMAND as u32,
+        reply as *const u8,
     );
     ipc_push_pending(client);
 }

@@ -14,32 +14,14 @@ use i3_common::string::i3string_from_utf8_with_length;
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 use i3_json::compat::{yajl_alloc, yajl_free, yajl_parse};
 pub use i3_json::compat::{yajl_alloc_funcs, yajl_callbacks, yajl_handle, yajl_status};
-pub type size_t = usize;
-pub type __uint32_t = u32;
-pub type __uint64_t = u64;
-pub type __off_t = ::core::ffi::c_long;
-pub type __off64_t = ::core::ffi::c_long;
-pub type ssize_t = isize;
-
-pub type uint32_t = __uint32_t;
 
 pub type i3String = _i3String;
 
-pub type position_t = ::core::ffi::c_uint;
-pub const POS_BOT: position_t = 2;
-pub const POS_TOP: position_t = 1;
-pub const POS_NONE: position_t = 0;
-pub type bar_display_mode_t = ::core::ffi::c_uint;
-pub const M_INVISIBLE: bar_display_mode_t = 2;
-pub const M_HIDE: bar_display_mode_t = 1;
-pub const M_DOCK: bar_display_mode_t = 0;
 pub use crate::application::binding_t;
 pub use crate::application::config_t;
 pub use crate::application::tray_output_t;
 pub use crate::application::Rect;
-pub type C2RustUnnamed_1 = ::core::ffi::c_uint;
-pub const S_SHOW: C2RustUnnamed_1 = 1;
-pub const S_HIDE: C2RustUnnamed_1 = 0;
+
 pub use crate::application::bindings_head;
 pub use crate::application::tray_outputs_head;
 
@@ -53,7 +35,7 @@ pub static mut config: config_t = config_t {
         tqh_first: ::core::ptr::null::<binding_t>() as *mut binding_t,
         tqh_last: ::core::ptr::null::<*mut binding_t>() as *mut *mut binding_t,
     },
-    position: POS_NONE,
+    position: crate::application::BarPosition::None,
     verbose: false,
     bar_height: 0,
     padding: Rect {
@@ -103,8 +85,8 @@ pub static mut config: config_t = config_t {
     tray_padding: 0,
     num_outputs: 0,
     outputs: ::core::ptr::null::<*mut ::core::ffi::c_char>() as *mut *mut ::core::ffi::c_char,
-    hide_on_modifier: M_DOCK,
-    hidden_state: S_HIDE,
+    hide_on_modifier: crate::application::BarDisplayMode::Dock,
+    hidden_state: crate::application::HiddenState::Hide,
 };
 static mut cur_key: *mut ::core::ffi::c_char =
     ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char;
@@ -114,7 +96,7 @@ static mut parsing_padding: bool = false;
 unsafe fn config_map_key_cb(
     params_: *mut ::core::ffi::c_void,
     keyVal: *const ::core::ffi::c_uchar,
-    keyLen: size_t,
+    keyLen: usize,
 ) -> ::core::ffi::c_int {
     free(cur_key as *mut ::core::ffi::c_void);
     cur_key = ::core::ptr::null_mut::<::core::ffi::c_char>();
@@ -161,14 +143,14 @@ unsafe fn config_null_cb(params_: *mut ::core::ffi::c_void) -> ::core::ffi::c_in
             c"../i3bar/src/config.c".as_ptr(),
             65 as ::core::ffi::c_int,
         );
-        exit(EXIT_FAILURE);
+        exit(libc::EXIT_FAILURE);
     }
     1 as ::core::ffi::c_int
 }
 unsafe fn config_string_cb(
     params_: *mut ::core::ffi::c_void,
     val: *const ::core::ffi::c_uchar,
-    mut _len: size_t,
+    mut _len: usize,
 ) -> ::core::ffi::c_int {
     let len: ::core::ffi::c_int = _len as ::core::ffi::c_int;
     if strcmp(cur_key, c"id".as_ptr()) == 0 || strcmp(cur_key, c"socket_path".as_ptr()) == 0 {
@@ -219,10 +201,9 @@ unsafe fn config_string_cb(
                 val,
             );
         }
-        let tray_output: *mut tray_output_t = scalloc(
-            1 as size_t,
-            ::core::mem::size_of::<tray_output_t>() as size_t,
-        ) as *mut tray_output_t;
+        let tray_output: *mut tray_output_t =
+            scalloc(1 as usize, ::core::mem::size_of::<tray_output_t>() as usize)
+                as *mut tray_output_t;
         sasprintf(&raw mut (*tray_output).output, c"%.*s".as_ptr(), len, val);
         (*tray_output).tray_outputs.tqe_next = ::core::ptr::null_mut::<tray_output_t>();
         (*tray_output).tray_outputs.tqe_prev = config.tray_outputs.tqh_last;
@@ -241,25 +222,27 @@ unsafe fn config_string_cb(
                 len,
             );
         }
-        config.hide_on_modifier = (if len as size_t == strlen(c"dock".as_ptr())
+        config.hide_on_modifier = if len as usize == strlen(c"dock".as_ptr())
             && strncmp(
                 val as *const ::core::ffi::c_char,
                 c"dock".as_ptr(),
                 strlen(c"dock".as_ptr()),
             ) == 0
         {
-            M_DOCK as ::core::ffi::c_int
-        } else if len as size_t == strlen(c"hide".as_ptr())
-            && strncmp(
-                val as *const ::core::ffi::c_char,
-                c"hide".as_ptr(),
-                strlen(c"hide".as_ptr()),
-            ) == 0
-        {
-            M_HIDE as ::core::ffi::c_int
+            crate::application::BarDisplayMode::Dock
         } else {
-            M_INVISIBLE as ::core::ffi::c_int
-        }) as bar_display_mode_t;
+            if len as usize == strlen(c"hide".as_ptr())
+                && strncmp(
+                    val as *const ::core::ffi::c_char,
+                    c"hide".as_ptr(),
+                    strlen(c"hide".as_ptr()),
+                ) == 0
+            {
+                crate::application::BarDisplayMode::Hide
+            } else {
+                crate::application::BarDisplayMode::Invisible
+            }
+        };
         return 1 as ::core::ffi::c_int;
     }
     if strcmp(cur_key, c"hidden_state".as_ptr()) == 0 {
@@ -273,17 +256,17 @@ unsafe fn config_string_cb(
                 len,
             );
         }
-        config.hidden_state = (if len as size_t == strlen(c"hide".as_ptr())
+        config.hidden_state = if len as usize == strlen(c"hide".as_ptr())
             && strncmp(
                 val as *const ::core::ffi::c_char,
                 c"hide".as_ptr(),
                 strlen(c"hide".as_ptr()),
             ) == 0
         {
-            S_HIDE as ::core::ffi::c_int
+            crate::application::HiddenState::Hide
         } else {
-            S_SHOW as ::core::ffi::c_int
-        }) as C2RustUnnamed_1;
+            crate::application::HiddenState::Show
+        };
         return 1 as ::core::ffi::c_int;
     }
     if strcmp(cur_key, c"modifier".as_ptr()) == 0 {
@@ -296,37 +279,37 @@ unsafe fn config_string_cb(
                 val,
             );
         }
-        if len as size_t == strlen(c"none".as_ptr())
+        if len as usize == strlen(c"none".as_ptr())
             && strncmp(
                 val as *const ::core::ffi::c_char,
                 c"none".as_ptr(),
                 strlen(c"none".as_ptr()),
             ) == 0
         {
-            config.modifier = XCB_NONE as uint32_t;
+            config.modifier = XCB_NONE as u32;
             return 1 as ::core::ffi::c_int;
         }
-        if len as size_t == strlen(c"shift".as_ptr())
+        if len as usize == strlen(c"shift".as_ptr())
             && strncmp(
                 val as *const ::core::ffi::c_char,
                 c"shift".as_ptr(),
                 strlen(c"shift".as_ptr()),
             ) == 0
         {
-            config.modifier = XCB_MOD_MASK_SHIFT as ::core::ffi::c_int as uint32_t;
+            config.modifier = XCB_MOD_MASK_SHIFT as ::core::ffi::c_int as u32;
             return 1 as ::core::ffi::c_int;
         }
-        if len as size_t == strlen(c"ctrl".as_ptr())
+        if len as usize == strlen(c"ctrl".as_ptr())
             && strncmp(
                 val as *const ::core::ffi::c_char,
                 c"ctrl".as_ptr(),
                 strlen(c"ctrl".as_ptr()),
             ) == 0
         {
-            config.modifier = XCB_MOD_MASK_CONTROL as ::core::ffi::c_int as uint32_t;
+            config.modifier = XCB_MOD_MASK_CONTROL as ::core::ffi::c_int as u32;
             return 1 as ::core::ffi::c_int;
         }
-        if len as size_t == strlen(c"Mod".as_ptr()).wrapping_add(1 as size_t)
+        if len as usize == strlen(c"Mod".as_ptr()).wrapping_add(1 as usize)
             && strncmp(
                 val as *const ::core::ffi::c_char,
                 c"Mod".as_ptr(),
@@ -335,25 +318,25 @@ unsafe fn config_string_cb(
         {
             match *val.offset(3 as ::core::ffi::c_int as isize) as ::core::ffi::c_int {
                 49 => {
-                    config.modifier = XCB_MOD_MASK_1 as ::core::ffi::c_int as uint32_t;
+                    config.modifier = XCB_MOD_MASK_1 as ::core::ffi::c_int as u32;
                     return 1 as ::core::ffi::c_int;
                 }
                 50 => {
-                    config.modifier = XCB_MOD_MASK_2 as ::core::ffi::c_int as uint32_t;
+                    config.modifier = XCB_MOD_MASK_2 as ::core::ffi::c_int as u32;
                     return 1 as ::core::ffi::c_int;
                 }
                 51 => {
-                    config.modifier = XCB_MOD_MASK_3 as ::core::ffi::c_int as uint32_t;
+                    config.modifier = XCB_MOD_MASK_3 as ::core::ffi::c_int as u32;
                     return 1 as ::core::ffi::c_int;
                 }
                 53 => {
-                    config.modifier = XCB_MOD_MASK_5 as ::core::ffi::c_int as uint32_t;
+                    config.modifier = XCB_MOD_MASK_5 as ::core::ffi::c_int as u32;
                     return 1 as ::core::ffi::c_int;
                 }
                 _ => {}
             }
         }
-        config.modifier = XCB_MOD_MASK_4 as ::core::ffi::c_int as uint32_t;
+        config.modifier = XCB_MOD_MASK_4 as ::core::ffi::c_int as u32;
         return 1 as ::core::ffi::c_int;
     }
     if strcmp(cur_key, c"wheel_up_cmd".as_ptr()) == 0 {
@@ -367,7 +350,7 @@ unsafe fn config_string_cb(
             );
         }
         let binding_0: *mut binding_t =
-            scalloc(1 as size_t, ::core::mem::size_of::<binding_t>() as size_t) as *mut binding_t;
+            scalloc(1 as usize, ::core::mem::size_of::<binding_t>() as usize) as *mut binding_t;
         (*binding_0).input_code = 4 as ::core::ffi::c_int;
         sasprintf(&raw mut (*binding_0).command, c"%.*s".as_ptr(), len, val);
         (*binding_0).bindings.tqe_next = ::core::ptr::null_mut::<binding_t>();
@@ -387,7 +370,7 @@ unsafe fn config_string_cb(
             );
         }
         let binding_1: *mut binding_t =
-            scalloc(1 as size_t, ::core::mem::size_of::<binding_t>() as size_t) as *mut binding_t;
+            scalloc(1 as usize, ::core::mem::size_of::<binding_t>() as usize) as *mut binding_t;
         (*binding_1).input_code = 5 as ::core::ffi::c_int;
         sasprintf(&raw mut (*binding_1).command, c"%.*s".as_ptr(), len, val);
         (*binding_1).bindings.tqe_next = ::core::ptr::null_mut::<binding_t>();
@@ -406,17 +389,17 @@ unsafe fn config_string_cb(
                 val,
             );
         }
-        config.position = (if len as size_t == strlen(c"top".as_ptr())
+        config.position = if len as usize == strlen(c"top".as_ptr())
             && strncmp(
                 val as *const ::core::ffi::c_char,
                 c"top".as_ptr(),
                 strlen(c"top".as_ptr()),
             ) == 0
         {
-            POS_TOP as ::core::ffi::c_int
+            crate::application::BarPosition::Top
         } else {
-            POS_BOT as ::core::ffi::c_int
-        }) as position_t;
+            crate::application::BarPosition::Bottom
+        };
         return 1 as ::core::ffi::c_int;
     }
     if strcmp(cur_key, c"status_command".as_ptr()) == 0 {
@@ -478,7 +461,7 @@ unsafe fn config_string_cb(
         i3string_free(config.separator_symbol);
         config.separator_symbol = ::core::ptr::null_mut::<i3String>();
         config.separator_symbol =
-            i3string_from_utf8_with_length(val as *const ::core::ffi::c_char, len as ssize_t);
+            i3string_from_utf8_with_length(val as *const ::core::ffi::c_char, len as isize);
         return 1 as ::core::ffi::c_int;
     }
     if strcmp(cur_key, c"outputs".as_ptr()) == 0 {
@@ -494,8 +477,8 @@ unsafe fn config_string_cb(
         let new_num_outputs: ::core::ffi::c_int = config.num_outputs + 1 as ::core::ffi::c_int;
         config.outputs = srealloc(
             config.outputs as *mut ::core::ffi::c_void,
-            (::core::mem::size_of::<*mut ::core::ffi::c_char>() as size_t)
-                .wrapping_mul(new_num_outputs as size_t),
+            (::core::mem::size_of::<*mut ::core::ffi::c_char>() as usize)
+                .wrapping_mul(new_num_outputs as usize),
         ) as *mut *mut ::core::ffi::c_char;
         sasprintf(
             config.outputs.offset(config.num_outputs as isize) as *mut *mut ::core::ffi::c_char,
@@ -516,10 +499,9 @@ unsafe fn config_string_cb(
                 val,
             );
         }
-        let tray_output_0: *mut tray_output_t = scalloc(
-            1 as size_t,
-            ::core::mem::size_of::<tray_output_t>() as size_t,
-        ) as *mut tray_output_t;
+        let tray_output_0: *mut tray_output_t =
+            scalloc(1 as usize, ::core::mem::size_of::<tray_output_t>() as usize)
+                as *mut tray_output_t;
         sasprintf(&raw mut (*tray_output_0).output, c"%.*s".as_ptr(), len, val);
         (*tray_output_0).tray_outputs.tqe_next = ::core::ptr::null_mut::<tray_output_t>();
         (*tray_output_0).tray_outputs.tqe_prev = config.tray_outputs.tqh_last;
@@ -997,8 +979,7 @@ unsafe fn config_integer_cb(
     if parsing_bindings {
         if strcmp(cur_key, c"input_code".as_ptr()) == 0 as ::core::ffi::c_int {
             let binding: *mut binding_t =
-                scalloc(1 as size_t, ::core::mem::size_of::<binding_t>() as size_t)
-                    as *mut binding_t;
+                scalloc(1 as usize, ::core::mem::size_of::<binding_t>() as usize) as *mut binding_t;
             (*binding).input_code = val as ::core::ffi::c_int;
             (*binding).bindings.tqe_next = ::core::ptr::null_mut::<binding_t>();
             (*binding).bindings.tqe_prev = config.bindings.tqh_last;
@@ -1025,7 +1006,7 @@ unsafe fn config_integer_cb(
                     val,
                 );
             }
-            config.padding.x = val as uint32_t;
+            config.padding.x = val as u32;
             return 1 as ::core::ffi::c_int;
         }
         if strcmp(cur_key, c"y".as_ptr()) == 0 as ::core::ffi::c_int {
@@ -1037,7 +1018,7 @@ unsafe fn config_integer_cb(
                     val,
                 );
             }
-            config.padding.y = val as uint32_t;
+            config.padding.y = val as u32;
             return 1 as ::core::ffi::c_int;
         }
         if strcmp(cur_key, c"width".as_ptr()) == 0 as ::core::ffi::c_int {
@@ -1049,7 +1030,7 @@ unsafe fn config_integer_cb(
                     val,
                 );
             }
-            config.padding.width = val as uint32_t;
+            config.padding.width = val as u32;
             return 1 as ::core::ffi::c_int;
         }
         if strcmp(cur_key, c"height".as_ptr()) == 0 as ::core::ffi::c_int {
@@ -1061,7 +1042,7 @@ unsafe fn config_integer_cb(
                     val,
                 );
             }
-            config.padding.height = val as uint32_t;
+            config.padding.height = val as u32;
             return 1 as ::core::ffi::c_int;
         }
     }
@@ -1074,7 +1055,7 @@ unsafe fn config_integer_cb(
                 val,
             );
         }
-        config.bar_height = val as uint32_t;
+        config.bar_height = val as u32;
         return 1 as ::core::ffi::c_int;
     }
     if strcmp(cur_key, c"tray_padding".as_ptr()) == 0 {
@@ -1098,7 +1079,7 @@ unsafe fn config_integer_cb(
                 val,
             );
         }
-        config.modifier = val as uint32_t;
+        config.modifier = val as u32;
         return 1 as ::core::ffi::c_int;
     }
     if strcmp(cur_key, c"workspace_min_width".as_ptr()) == 0 {
@@ -1138,7 +1119,7 @@ static mut outputs_callbacks: yajl_callbacks = unsafe {
                 as unsafe fn(
                     *mut ::core::ffi::c_void,
                     *const ::core::ffi::c_uchar,
-                    size_t,
+                    usize,
                 ) -> ::core::ffi::c_int,
         ),
         yajl_start_map: None,
@@ -1147,7 +1128,7 @@ static mut outputs_callbacks: yajl_callbacks = unsafe {
                 as unsafe fn(
                     *mut ::core::ffi::c_void,
                     *const ::core::ffi::c_uchar,
-                    size_t,
+                    usize,
                 ) -> ::core::ffi::c_int,
         ),
         yajl_end_map: None,
@@ -1158,7 +1139,7 @@ static mut outputs_callbacks: yajl_callbacks = unsafe {
     }
 };
 
-pub unsafe fn parse_config_json(json: *const ::core::ffi::c_uchar, size: size_t) {
+pub unsafe fn parse_config_json(json: *const ::core::ffi::c_uchar, size: usize) {
     config.bindings.tqh_first = ::core::ptr::null_mut::<binding_t>();
     config.bindings.tqh_last = &raw mut config.bindings.tqh_first;
     config.tray_outputs.tqh_first = ::core::ptr::null_mut::<tray_output_t>();
@@ -1177,7 +1158,7 @@ pub unsafe fn parse_config_json(json: *const ::core::ffi::c_uchar, size: size_t)
                 c"../i3bar/src/config.c".as_ptr(),
                 422 as ::core::ffi::c_int,
             );
-            exit(EXIT_FAILURE);
+            exit(libc::EXIT_FAILURE);
         }
         0 | _ => {}
     }
@@ -1197,7 +1178,7 @@ pub unsafe fn parse_config_json(json: *const ::core::ffi::c_uchar, size: size_t)
 unsafe fn i3bar_config_string_cb(
     params_: *mut ::core::ffi::c_void,
     val: *const ::core::ffi::c_uchar,
-    mut _len: size_t,
+    mut _len: usize,
 ) -> ::core::ffi::c_int {
     sasprintf(
         &raw mut config.bar_id,
@@ -1208,7 +1189,7 @@ unsafe fn i3bar_config_string_cb(
     0 as ::core::ffi::c_int
 }
 
-pub unsafe fn parse_get_first_i3bar_config(json: *const ::core::ffi::c_uchar, size: size_t) {
+pub unsafe fn parse_get_first_i3bar_config(json: *const ::core::ffi::c_uchar, size: usize) {
     let mut configs_callbacks: yajl_callbacks = yajl_callbacks {
         yajl_null: None,
         yajl_boolean: None,
@@ -1220,7 +1201,7 @@ pub unsafe fn parse_get_first_i3bar_config(json: *const ::core::ffi::c_uchar, si
                 as unsafe fn(
                     *mut ::core::ffi::c_void,
                     *const ::core::ffi::c_uchar,
-                    size_t,
+                    usize,
                 ) -> ::core::ffi::c_int,
         ),
         yajl_start_map: None,
@@ -1282,7 +1263,6 @@ pub unsafe fn free_colors(colors: *mut xcb_color_strings_t) {
     free((*colors).binding_mode_border as *mut ::core::ffi::c_void);
     (*colors).binding_mode_border = ::core::ptr::null_mut::<::core::ffi::c_char>();
 }
-pub const EXIT_FAILURE: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 
 // Internal helpers use Rust linkage rather than foreign symbol lookup.
 use i3_common::safewrappers::scalloc;

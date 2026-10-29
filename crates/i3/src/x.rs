@@ -1,3 +1,10 @@
+use crate::types::BorderStyle;
+use crate::types::KillWindow;
+use crate::types::Layout;
+use crate::types::Orientation;
+use crate::types::TitleAlign;
+use crate::types::Warping;
+use crate::xcursor::Cursor;
 use i3_common::draw_util::draw_util_text;
 use i3_common::safewrappers::sasprintf;
 /*
@@ -12,124 +19,49 @@ use i3_common::safewrappers::sasprintf;
  */
 // Mechanical file-by-file Rust translation of src/x.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
-pub type size_t = usize;
-pub type __uint8_t = u8;
-pub type __int16_t = i16;
-pub type __uint16_t = u16;
-pub type __int32_t = i32;
-pub type __uint32_t = u32;
-pub type __pid_t = ::core::ffi::c_int;
-pub type __time_t = ::core::ffi::c_long;
-pub type __suseconds_t = ::core::ffi::c_long;
-pub type pid_t = __pid_t;
-pub type time_t = __time_t;
-pub type int16_t = __int16_t;
-pub type int32_t = __int32_t;
-
-pub type uint8_t = __uint8_t;
-pub type uint16_t = __uint16_t;
-pub type uint32_t = __uint32_t;
-
-pub type C2RustUnnamed = ::core::ffi::c_uint;
 
 pub type i3String = _i3String;
 
-pub type C2RustUnnamed_2 = ::core::ffi::c_uint;
-pub const FONT_TYPE_PANGO: C2RustUnnamed_2 = 2;
-pub const FONT_TYPE_XCB: C2RustUnnamed_2 = 1;
-pub const FONT_TYPE_NONE: C2RustUnnamed_2 = 0;
 pub type i3Font = Font;
 
-pub type C2RustUnnamed_4 = ::core::ffi::c_uint;
-pub const SCRATCHPAD_CHANGED: C2RustUnnamed_4 = 2;
-pub const SCRATCHPAD_FRESH: C2RustUnnamed_4 = 1;
-pub const SCRATCHPAD_NONE: C2RustUnnamed_4 = 0;
-
-pub type C2RustUnnamed_9 = ::core::ffi::c_uint;
-pub const FLOATING_USER_ON: C2RustUnnamed_9 = 3;
-pub const FLOATING_AUTO_ON: C2RustUnnamed_9 = 2;
-pub const FLOATING_USER_OFF: C2RustUnnamed_9 = 1;
-pub const FLOATING_AUTO_OFF: C2RustUnnamed_9 = 0;
-pub type border_style_t = ::core::ffi::c_uint;
-pub const BS_NORMAL: border_style_t = 2;
-pub const BS_PIXEL: border_style_t = 1;
-pub const BS_NONE: border_style_t = 0;
-pub type layout_t = ::core::ffi::c_uint;
-pub const L_SPLITH: layout_t = 6;
-pub const L_SPLITV: layout_t = 5;
-pub const L_OUTPUT: layout_t = 4;
-pub const L_DOCKAREA: layout_t = 3;
-pub const L_TABBED: layout_t = 2;
-pub const L_STACKED: layout_t = 1;
-pub const L_DEFAULT: layout_t = 0;
 pub type fullscreen_mode_t = ::core::ffi::c_uint;
 pub const CF_GLOBAL: fullscreen_mode_t = 2;
 pub const CF_OUTPUT: fullscreen_mode_t = 1;
 pub const CF_NONE: fullscreen_mode_t = 0;
 
-pub type C2RustUnnamed_11 = ::core::ffi::c_uint;
-pub const M_BELOW: C2RustUnnamed_11 = 2;
-pub const M_ASSIGN_WS: C2RustUnnamed_11 = 1;
-pub const M_HERE: C2RustUnnamed_11 = 0;
-pub type C2RustUnnamed_12 = ::core::ffi::c_uint;
-pub const WM_FLOATING: C2RustUnnamed_12 = 6;
-pub const WM_FLOATING_USER: C2RustUnnamed_12 = 5;
-pub const WM_FLOATING_AUTO: C2RustUnnamed_12 = 4;
-pub const WM_TILING: C2RustUnnamed_12 = 3;
-pub const WM_TILING_USER: C2RustUnnamed_12 = 2;
-pub const WM_TILING_AUTO: C2RustUnnamed_12 = 1;
-pub const WM_ANY: C2RustUnnamed_12 = 0;
-pub type C2RustUnnamed_13 = ::core::ffi::c_int;
-pub const M_DOCK_BOTTOM: C2RustUnnamed_13 = 3;
-pub const M_DOCK_TOP: C2RustUnnamed_13 = 2;
-pub const M_DOCK_ANY: C2RustUnnamed_13 = 1;
-pub const M_NODOCK: C2RustUnnamed_13 = 0;
-pub const M_DONTCHECK: C2RustUnnamed_13 = -1;
-pub type C2RustUnnamed_14 = ::core::ffi::c_int;
-pub const U_OLDEST: C2RustUnnamed_14 = 1;
-pub const U_LATEST: C2RustUnnamed_14 = 0;
-pub const U_DONTCHECK: C2RustUnnamed_14 = -1;
+pub const M_BELOW: ::core::ffi::c_uint = 2;
+pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
+pub const M_HERE: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_15 = ::core::ffi::c_uint;
-pub const W_DOCK_BOTTOM: C2RustUnnamed_15 = 2;
-pub const W_DOCK_TOP: C2RustUnnamed_15 = 1;
-pub const W_NODOCK: C2RustUnnamed_15 = 0;
+pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
+pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
+pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
+pub const M_NODOCK: ::core::ffi::c_int = 0;
+pub const M_DONTCHECK: ::core::ffi::c_int = -1;
 
-pub type C2RustUnnamed_18 = ::core::ffi::c_uint;
-pub const A_TO_OUTPUT: C2RustUnnamed_18 = 16;
-pub const A_TO_WORKSPACE_NUMBER: C2RustUnnamed_18 = 8;
-pub const A_NO_FOCUS: C2RustUnnamed_18 = 4;
-pub const A_TO_WORKSPACE: C2RustUnnamed_18 = 2;
-pub const A_COMMAND: C2RustUnnamed_18 = 1;
-pub const A_ANY: C2RustUnnamed_18 = 0;
+pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
+pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
+pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
+pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
+pub const A_COMMAND: ::core::ffi::c_uint = 1;
+pub const A_ANY: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_20 = ::core::ffi::c_uint;
-pub const CT_DOCKAREA: C2RustUnnamed_20 = 5;
-pub const CT_WORKSPACE: C2RustUnnamed_20 = 4;
-pub const CT_FLOATING_CON: C2RustUnnamed_20 = 3;
-pub const CT_CON: C2RustUnnamed_20 = 2;
-pub const CT_OUTPUT: C2RustUnnamed_20 = 1;
-pub const CT_ROOT: C2RustUnnamed_20 = 0;
+pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
+pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
+pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
+pub const CT_CON: ::core::ffi::c_uint = 2;
+pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
+pub const CT_ROOT: ::core::ffi::c_uint = 0;
 
 pub type Output = xoutput;
-pub type orientation_t = ::core::ffi::c_uint;
-pub const VERT: orientation_t = 2;
-pub const HORIZ: orientation_t = 1;
-pub const NO_ORIENTATION: orientation_t = 0;
-pub type kill_window_t = ::core::ffi::c_uint;
-pub const KILL_CLIENT: kill_window_t = 2;
-pub const KILL_WINDOW: kill_window_t = 1;
-pub const DONT_KILL_WINDOW: kill_window_t = 0;
+
 pub type adjacent_t = ::core::ffi::c_uint;
 pub const ADJ_LOWER_SCREEN_EDGE: adjacent_t = 16;
 pub const ADJ_UPPER_SCREEN_EDGE: adjacent_t = 4;
 pub const ADJ_RIGHT_SCREEN_EDGE: adjacent_t = 2;
 pub const ADJ_LEFT_SCREEN_EDGE: adjacent_t = 1;
 pub const ADJ_NONE: adjacent_t = 0;
-pub type smart_gaps_t = ::core::ffi::c_uint;
-pub const SMART_GAPS_INVERSE_OUTER: smart_gaps_t = 2;
-pub const SMART_GAPS_ON: smart_gaps_t = 1;
-pub const SMART_GAPS_OFF: smart_gaps_t = 0;
+
 pub type hide_edge_borders_mode_t = ::core::ffi::c_uint;
 pub const HEBM_SMART_NO_GAPS: hide_edge_borders_mode_t = 64;
 pub const HEBM_SMART: hide_edge_borders_mode_t = 32;
@@ -137,14 +69,6 @@ pub const HEBM_BOTH: hide_edge_borders_mode_t = 23;
 pub const HEBM_HORIZONTAL: hide_edge_borders_mode_t = 20;
 pub const HEBM_VERTICAL: hide_edge_borders_mode_t = 3;
 pub const HEBM_NONE: hide_edge_borders_mode_t = 0;
-pub type warping_t = ::core::ffi::c_uint;
-pub const POINTER_WARPING_NONE: warping_t = 1;
-pub const POINTER_WARPING_OUTPUT: warping_t = 0;
-pub type focus_wrapping_t = ::core::ffi::c_uint;
-pub const FOCUS_WRAPPING_WORKSPACE: focus_wrapping_t = 3;
-pub const FOCUS_WRAPPING_FORCE: focus_wrapping_t = 2;
-pub const FOCUS_WRAPPING_ON: focus_wrapping_t = 1;
-pub const FOCUS_WRAPPING_OFF: focus_wrapping_t = 0;
 
 pub type tiling_drag_t = ::core::ffi::c_uint;
 pub const TILING_DRAG_MODIFIER_OR_TITLEBAR: tiling_drag_t = 3;
@@ -152,32 +76,6 @@ pub const TILING_DRAG_TITLEBAR: tiling_drag_t = 2;
 pub const TILING_DRAG_MODIFIER: tiling_drag_t = 1;
 pub const TILING_DRAG_OFF: tiling_drag_t = 0;
 
-pub type C2RustUnnamed_22 = ::core::ffi::c_uint;
-pub const PDF_ALL: C2RustUnnamed_22 = 3;
-pub const PDF_IGNORE: C2RustUnnamed_22 = 2;
-pub const PDF_LEAVE_FULLSCREEN: C2RustUnnamed_22 = 1;
-pub const PDF_SMART: C2RustUnnamed_22 = 0;
-
-pub type C2RustUnnamed_23 = ::core::ffi::c_uint;
-pub const ALIGN_RIGHT: C2RustUnnamed_23 = 2;
-pub const ALIGN_CENTER: C2RustUnnamed_23 = 1;
-pub const ALIGN_LEFT: C2RustUnnamed_23 = 0;
-pub type C2RustUnnamed_24 = ::core::ffi::c_uint;
-pub const FOWA_NONE: C2RustUnnamed_24 = 3;
-pub const FOWA_FOCUS: C2RustUnnamed_24 = 2;
-pub const FOWA_URGENT: C2RustUnnamed_24 = 1;
-pub const FOWA_SMART: C2RustUnnamed_24 = 0;
-pub type xcursor_cursor_t = ::core::ffi::c_uint;
-pub const XCURSOR_CURSOR_MAX: xcursor_cursor_t = 9;
-pub const XCURSOR_CURSOR_MOVE: xcursor_cursor_t = 8;
-pub const XCURSOR_CURSOR_WATCH: xcursor_cursor_t = 7;
-pub const XCURSOR_CURSOR_BOTTOM_RIGHT_CORNER: xcursor_cursor_t = 6;
-pub const XCURSOR_CURSOR_BOTTOM_LEFT_CORNER: xcursor_cursor_t = 5;
-pub const XCURSOR_CURSOR_TOP_RIGHT_CORNER: xcursor_cursor_t = 4;
-pub const XCURSOR_CURSOR_TOP_LEFT_CORNER: xcursor_cursor_t = 3;
-pub const XCURSOR_CURSOR_RESIZE_VERTICAL: xcursor_cursor_t = 2;
-pub const XCURSOR_CURSOR_RESIZE_HORIZONTAL: xcursor_cursor_t = 1;
-pub const XCURSOR_CURSOR_POINTER: xcursor_cursor_t = 0;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct con_state {
@@ -302,15 +200,15 @@ unsafe fn change_ewmh_focus(new_focus: xcb_window_t, old_focus: xcb_window_t) {
 }
 
 pub unsafe fn x_con_init(con: *mut Con) {
-    let mut mask: uint32_t = 0 as uint32_t;
-    let mut values: [uint32_t; 5] = [0; 5];
+    let mut mask: u32 = 0 as u32;
+    let mut values: [u32; 5] = [0; 5];
     let visual: xcb_visualid_t = get_visualid_by_depth((*con).depth);
     let mut win_colormap: xcb_colormap_t = 0;
     if (*con).depth as ::core::ffi::c_int != root_depth as ::core::ffi::c_int {
         win_colormap = xcb_generate_id(conn) as xcb_colormap_t;
         xcb_create_colormap(
             conn,
-            XCB_COLORMAP_ALLOC_NONE as ::core::ffi::c_int as uint8_t,
+            XCB_COLORMAP_ALLOC_NONE as ::core::ffi::c_int as u8,
             win_colormap,
             root,
             visual,
@@ -320,13 +218,13 @@ pub unsafe fn x_con_init(con: *mut Con) {
         win_colormap = colormap;
         (*con).colormap = XCB_NONE as xcb_colormap_t;
     }
-    mask |= XCB_CW_BACK_PIXEL as ::core::ffi::c_int as uint32_t;
+    mask |= XCB_CW_BACK_PIXEL as ::core::ffi::c_int as u32;
     values[0 as ::core::ffi::c_int as usize] = (*root_screen).black_pixel;
-    mask |= XCB_CW_BORDER_PIXEL as ::core::ffi::c_int as uint32_t;
+    mask |= XCB_CW_BORDER_PIXEL as ::core::ffi::c_int as u32;
     values[1 as ::core::ffi::c_int as usize] = (*root_screen).black_pixel;
-    mask |= XCB_CW_OVERRIDE_REDIRECT as ::core::ffi::c_int as uint32_t;
-    values[2 as ::core::ffi::c_int as usize] = 1 as uint32_t;
-    mask |= XCB_CW_EVENT_MASK as ::core::ffi::c_int as uint32_t;
+    mask |= XCB_CW_OVERRIDE_REDIRECT as ::core::ffi::c_int as u32;
+    values[2 as ::core::ffi::c_int as usize] = 1 as u32;
+    mask |= XCB_CW_EVENT_MASK as ::core::ffi::c_int as u32;
     values[3 as ::core::ffi::c_int as usize] = ((XCB_EVENT_MASK_BUTTON_PRESS as ::core::ffi::c_int
         | XCB_EVENT_MASK_BUTTON_RELEASE as ::core::ffi::c_int
         | XCB_EVENT_MASK_POINTER_MOTION as ::core::ffi::c_int
@@ -336,25 +234,25 @@ pub unsafe fn x_con_init(con: *mut Con) {
         | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY as ::core::ffi::c_int
         | XCB_EVENT_MASK_ENTER_WINDOW as ::core::ffi::c_int)
         & !(XCB_EVENT_MASK_ENTER_WINDOW as ::core::ffi::c_int))
-        as uint32_t;
-    mask |= XCB_CW_COLORMAP as ::core::ffi::c_int as uint32_t;
-    values[4 as ::core::ffi::c_int as usize] = win_colormap as uint32_t;
+        as u32;
+    mask |= XCB_CW_COLORMAP as ::core::ffi::c_int as u32;
+    values[4 as ::core::ffi::c_int as usize] = win_colormap as u32;
     let dims: Rect = Rect {
-        x: -(15 as ::core::ffi::c_int) as uint32_t,
-        y: -(15 as ::core::ffi::c_int) as uint32_t,
-        width: 10 as uint32_t,
-        height: 10 as uint32_t,
+        x: -(15 as ::core::ffi::c_int) as u32,
+        y: -(15 as ::core::ffi::c_int) as u32,
+        width: 10 as u32,
+        height: 10 as u32,
     };
     let frame_id: xcb_window_t = create_window(
         conn,
         dims,
         (*con).depth,
         visual,
-        XCB_WINDOW_CLASS_INPUT_OUTPUT as ::core::ffi::c_int as uint16_t,
-        XCURSOR_CURSOR_POINTER,
+        XCB_WINDOW_CLASS_INPUT_OUTPUT as ::core::ffi::c_int as u16,
+        Cursor::Pointer,
         false_0 != 0,
         mask,
-        &raw mut values as *mut uint32_t,
+        &raw mut values as *mut u32,
     );
     draw_util_surface_init(
         conn,
@@ -366,19 +264,19 @@ pub unsafe fn x_con_init(con: *mut Con) {
     );
     xcb_change_property(
         conn,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as uint8_t,
+        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
         (*con).frame.id as xcb_window_t,
         XCB_ATOM_WM_CLASS as ::core::ffi::c_int as xcb_atom_t,
         XCB_ATOM_STRING as ::core::ffi::c_int as xcb_atom_t,
-        8 as uint8_t,
+        8 as u8,
         strlen(c"i3-frame".as_ptr())
-            .wrapping_add(1 as size_t)
-            .wrapping_mul(2 as size_t) as uint32_t,
+            .wrapping_add(1 as usize)
+            .wrapping_mul(2 as usize) as u32,
         b"i3-frame\0i3-frame\0\0" as *const u8 as *const ::core::ffi::c_char
             as *const ::core::ffi::c_void,
     );
     let state: *mut con_state =
-        scalloc(1 as size_t, ::core::mem::size_of::<con_state>() as size_t) as *mut con_state;
+        scalloc(1 as usize, ::core::mem::size_of::<con_state>() as usize) as *mut con_state;
     (*state).id = (*con).frame.id as xcb_window_t;
     (*state).mapped = false_0 != 0;
     (*state).initial = true_0 != 0;
@@ -447,7 +345,7 @@ pub unsafe fn x_reinit(con: *mut Con) {
     memset(
         &raw mut (*state).window_rect as *mut ::core::ffi::c_void,
         0 as ::core::ffi::c_int,
-        ::core::mem::size_of::<Rect>() as size_t,
+        ::core::mem::size_of::<Rect>() as usize,
     );
 }
 
@@ -492,16 +390,16 @@ pub unsafe fn x_move_win(src: *mut Con, dest: *mut Con) {
     if rect_equals(
         (*state_dest).window_rect,
         Rect {
-            x: 0 as uint32_t,
-            y: 0 as uint32_t,
-            width: 0 as uint32_t,
-            height: 0 as uint32_t,
+            x: 0 as u32,
+            y: 0 as u32,
+            width: 0 as u32,
+            height: 0 as u32,
         },
     ) {
         memcpy(
             &raw mut (*state_dest).window_rect as *mut ::core::ffi::c_void,
             &raw mut (*state_src).window_rect as *const ::core::ffi::c_void,
-            ::core::mem::size_of::<Rect>() as size_t,
+            ::core::mem::size_of::<Rect>() as usize,
         );
         debuglog(
             c"%s:%s:%d - COPYING RECT\n".as_ptr().cast_mut(),
@@ -594,7 +492,7 @@ pub unsafe fn window_supports_protocol(window: xcb_window_t, atom: xcb_atom_t) -
     {
         return false_0 != 0;
     }
-    let mut i: uint32_t = 0 as uint32_t;
+    let mut i: u32 = 0 as u32;
     while i < protocols.atoms_len {
         if *protocols.atoms.offset(i as isize) == atom {
             result = true_0 != 0;
@@ -605,11 +503,9 @@ pub unsafe fn window_supports_protocol(window: xcb_window_t, atom: xcb_atom_t) -
     result
 }
 
-pub unsafe fn x_window_kill(window: xcb_window_t, kill_window: kill_window_t) {
+pub unsafe fn x_window_kill(window: xcb_window_t, kill_window: KillWindow) {
     if !window_supports_protocol(window, A_WM_DELETE_WINDOW) {
-        if kill_window as ::core::ffi::c_uint
-            == KILL_WINDOW as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
+        if kill_window == KillWindow::Window {
             verboselog(
                 c"Killing specific window 0x%08x\n".as_ptr().cast_mut(),
                 window,
@@ -622,24 +518,24 @@ pub unsafe fn x_window_kill(window: xcb_window_t, kill_window: kill_window_t) {
                     .cast_mut(),
                 window,
             );
-            xcb_kill_client(conn, window as uint32_t);
+            xcb_kill_client(conn, window as u32);
         }
         return;
     }
-    let event: *mut ::core::ffi::c_void = scalloc(32 as size_t, 1 as size_t);
+    let event: *mut ::core::ffi::c_void = scalloc(32 as usize, 1 as usize);
     let ev: *mut xcb_client_message_event_t = event as *mut xcb_client_message_event_t;
-    (*ev).response_type = XCB_CLIENT_MESSAGE as uint8_t;
+    (*ev).response_type = XCB_CLIENT_MESSAGE as u8;
     (*ev).window = window;
     (*ev).type_0 = A_WM_PROTOCOLS;
-    (*ev).format = 32 as uint8_t;
-    (*ev).data.data32[0 as ::core::ffi::c_int as usize] = A_WM_DELETE_WINDOW as uint32_t;
-    (*ev).data.data32[1 as ::core::ffi::c_int as usize] = XCB_CURRENT_TIME as uint32_t;
+    (*ev).format = 32 as u8;
+    (*ev).data.data32[0 as ::core::ffi::c_int as usize] = A_WM_DELETE_WINDOW as u32;
+    (*ev).data.data32[1 as ::core::ffi::c_int as usize] = XCB_CURRENT_TIME as u32;
     verboselog(c"Sending WM_DELETE to the client\n".as_ptr().cast_mut());
     xcb_send_event(
         conn,
-        false_0 as uint8_t,
+        false_0 as u8,
         window,
-        XCB_EVENT_MASK_NO_EVENT as ::core::ffi::c_int as uint32_t,
+        XCB_EVENT_MASK_NO_EVENT as ::core::ffi::c_int as u32,
         ev as *mut ::core::ffi::c_char,
     );
     xcb_flush(conn);
@@ -662,10 +558,7 @@ unsafe fn x_draw_title_border(
     draw_util_rectangle(
         dest_surface,
         (*(*p).color).border,
-        (*dr)
-            .x
-            .wrapping_add((*dr).width)
-            .wrapping_sub(1 as uint32_t) as ::core::ffi::c_double,
+        (*dr).x.wrapping_add((*dr).width).wrapping_sub(1 as u32) as ::core::ffi::c_double,
         (*dr).y as ::core::ffi::c_double,
         1 as ::core::ffi::c_int as ::core::ffi::c_double,
         (*dr).height as ::core::ffi::c_double,
@@ -682,10 +575,7 @@ unsafe fn x_draw_title_border(
         dest_surface,
         (*(*p).color).border,
         (*dr).x as ::core::ffi::c_double,
-        (*dr)
-            .y
-            .wrapping_add((*dr).height)
-            .wrapping_sub(1 as uint32_t) as ::core::ffi::c_double,
+        (*dr).y.wrapping_add((*dr).height).wrapping_sub(1 as u32) as ::core::ffi::c_double,
         (*dr).width as ::core::ffi::c_double,
         1 as ::core::ffi::c_int as ::core::ffi::c_double,
     );
@@ -711,7 +601,7 @@ unsafe fn x_draw_decoration_after_title(
             dest_surface,
             (*(*p).color).background,
             (*dr).x.wrapping_add((*dr).width).wrapping_sub(
-                (2 as ::core::ffi::c_int * logical_px(1 as ::core::ffi::c_int)) as uint32_t,
+                (2 as ::core::ffi::c_int * logical_px(1 as ::core::ffi::c_int)) as u32,
             ) as ::core::ffi::c_double,
             (*dr).y as ::core::ffi::c_double,
             (2 as ::core::ffi::c_int * logical_px(1 as ::core::ffi::c_int))
@@ -721,11 +611,10 @@ unsafe fn x_draw_decoration_after_title(
     }
     x_draw_title_border(con, p, dest_surface);
 }
-unsafe fn x_get_border_rectangles(con: *mut Con, rectangles: *mut xcb_rectangle_t) -> size_t {
-    let mut count: size_t = 0 as size_t;
-    let border_style: ::core::ffi::c_int = con_border_style(con);
-    if border_style != BS_NONE as ::core::ffi::c_int && con_is_leaf(con) as ::core::ffi::c_int != 0
-    {
+unsafe fn x_get_border_rectangles(con: *mut Con, rectangles: *mut xcb_rectangle_t) -> usize {
+    let mut count: usize = 0 as usize;
+    let border_style: BorderStyle = con_border_style(con);
+    if border_style != BorderStyle::None && con_is_leaf(con) as ::core::ffi::c_int != 0 {
         let borders_to_hide: adjacent_t = (con_adjacent_borders(con) as ::core::ffi::c_uint
             & config.hide_edge_borders as ::core::ffi::c_uint)
             as adjacent_t;
@@ -737,10 +626,10 @@ unsafe fn x_get_border_rectangles(con: *mut Con, rectangles: *mut xcb_rectangle_
             let fresh0 = count;
             count = count.wrapping_add(1);
             *rectangles.offset(fresh0 as isize) = xcb_rectangle_t {
-                x: 0 as int16_t,
-                y: 0 as int16_t,
-                width: br.x as uint16_t,
-                height: (*con).rect.height as uint16_t,
+                x: 0 as i16,
+                y: 0 as i16,
+                width: br.x as u16,
+                height: (*con).rect.height as u16,
             };
         }
         if borders_to_hide as ::core::ffi::c_uint
@@ -750,10 +639,10 @@ unsafe fn x_get_border_rectangles(con: *mut Con, rectangles: *mut xcb_rectangle_
             let fresh1 = count;
             count = count.wrapping_add(1);
             *rectangles.offset(fresh1 as isize) = xcb_rectangle_t {
-                x: (*con).rect.width.wrapping_add(br.width.wrapping_add(br.x)) as int16_t,
-                y: 0 as int16_t,
-                width: br.width.wrapping_add(br.x).wrapping_neg() as uint16_t,
-                height: (*con).rect.height as uint16_t,
+                x: (*con).rect.width.wrapping_add(br.width.wrapping_add(br.x)) as i16,
+                y: 0 as i16,
+                width: br.width.wrapping_add(br.x).wrapping_neg() as u16,
+                height: (*con).rect.height as u16,
             };
         }
         if borders_to_hide as ::core::ffi::c_uint
@@ -763,16 +652,16 @@ unsafe fn x_get_border_rectangles(con: *mut Con, rectangles: *mut xcb_rectangle_
             let fresh2 = count;
             count = count.wrapping_add(1);
             *rectangles.offset(fresh2 as isize) = xcb_rectangle_t {
-                x: br.x as int16_t,
+                x: br.x as i16,
                 y: (*con)
                     .rect
                     .height
-                    .wrapping_add(br.height.wrapping_add(br.y)) as int16_t,
-                width: (*con).rect.width.wrapping_add(br.width) as uint16_t,
-                height: br.height.wrapping_add(br.y).wrapping_neg() as uint16_t,
+                    .wrapping_add(br.height.wrapping_add(br.y)) as i16,
+                width: (*con).rect.width.wrapping_add(br.width) as u16,
+                height: br.height.wrapping_add(br.y).wrapping_neg() as u16,
             };
         }
-        if border_style == BS_PIXEL as ::core::ffi::c_int
+        if border_style == BorderStyle::Pixel
             && borders_to_hide as ::core::ffi::c_uint
                 & ADJ_UPPER_SCREEN_EDGE as ::core::ffi::c_int as ::core::ffi::c_uint
                 == 0
@@ -780,10 +669,10 @@ unsafe fn x_get_border_rectangles(con: *mut Con, rectangles: *mut xcb_rectangle_
             let fresh3 = count;
             count = count.wrapping_add(1);
             *rectangles.offset(fresh3 as isize) = xcb_rectangle_t {
-                x: br.x as int16_t,
-                y: 0 as int16_t,
-                width: (*con).rect.width.wrapping_add(br.width) as uint16_t,
-                height: br.y as uint16_t,
+                x: br.x as i16,
+                y: 0 as i16,
+                width: (*con).rect.width.wrapping_add(br.width) as u16,
+                height: br.y as u16,
             };
         }
     }
@@ -807,11 +696,7 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
     let mut title_offset_x: ::core::ffi::c_int = 0;
     let parent: *mut Con = (*con).parent as *mut Con;
     let leaf: bool = con_is_leaf(con);
-    if !leaf
-        && (*parent).layout as ::core::ffi::c_uint
-            != L_STACKED as ::core::ffi::c_int as ::core::ffi::c_uint
-        && (*parent).layout as ::core::ffi::c_uint
-            != L_TABBED as ::core::ffi::c_int as ::core::ffi::c_uint
+    if !leaf && (*parent).layout != Layout::Stacked && (*parent).layout != Layout::Tabbed
         || (*parent).type_0 as ::core::ffi::c_uint
             == CT_OUTPUT as ::core::ffi::c_int as ::core::ffi::c_uint
         || (*parent).type_0 as ::core::ffi::c_uint
@@ -821,7 +706,7 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
     {
         return;
     }
-    if (*con).rect.height == 0 as uint32_t {
+    if (*con).rect.height == 0 as u32 {
         return;
     }
     if leaf as ::core::ffi::c_int != 0 && (*con).frame_buffer.id as ::core::ffi::c_long == XCB_NONE
@@ -829,8 +714,8 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
         return;
     }
     let p: *mut deco_render_params = scalloc(
-        1 as size_t,
-        ::core::mem::size_of::<deco_render_params>() as size_t,
+        1 as usize,
+        ::core::mem::size_of::<deco_render_params>() as usize,
     ) as *mut deco_render_params;
     if (*con).urgent {
         (*p).color = &raw mut config.client.urgent as *mut Colortriple;
@@ -871,7 +756,7 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
         && memcmp(
             p as *const ::core::ffi::c_void,
             (*con).deco_render_params as *const ::core::ffi::c_void,
-            ::core::mem::size_of::<deco_render_params>() as size_t,
+            ::core::mem::size_of::<deco_render_params>() as usize,
         ) == 0 as ::core::ffi::c_int
     {
         free(p as *mut ::core::ffi::c_void);
@@ -938,18 +823,16 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
                 (*r).height as ::core::ffi::c_double,
             );
         }
-        if (*p).border_style != BS_NONE as ::core::ffi::c_int
-            && (*p).con_is_leaf as ::core::ffi::c_int != 0
-        {
+        if (*p).border_style != BorderStyle::None && (*p).con_is_leaf as ::core::ffi::c_int != 0 {
             let mut rectangles: [xcb_rectangle_t; 4] = [xcb_rectangle_t {
                 x: 0,
                 y: 0,
                 width: 0,
                 height: 0,
             }; 4];
-            let rectangles_count: size_t =
+            let rectangles_count: usize =
                 x_get_border_rectangles(con, &raw mut rectangles as *mut xcb_rectangle_t);
-            let mut i: size_t = 0 as size_t;
+            let mut i: usize = 0 as usize;
             while i < rectangles_count {
                 draw_util_rectangle(
                     &raw mut (*con).frame_buffer,
@@ -967,9 +850,7 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
                 && (*(*con).parent).type_0 as ::core::ffi::c_uint
                     != CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
             {
-                if (*p).parent_layout as ::core::ffi::c_uint
-                    == L_SPLITH as ::core::ffi::c_int as ::core::ffi::c_uint
-                {
+                if (*p).parent_layout == Layout::SplitH {
                     draw_util_rectangle(
                         &raw mut (*con).frame_buffer,
                         (*(*p).color).indicator,
@@ -979,9 +860,7 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
                         br.width.wrapping_add(br.x).wrapping_neg() as ::core::ffi::c_double,
                         (*r).height.wrapping_add(br.height) as ::core::ffi::c_double,
                     );
-                } else if (*p).parent_layout as ::core::ffi::c_uint
-                    == L_SPLITV as ::core::ffi::c_int as ::core::ffi::c_uint
-                {
+                } else if (*p).parent_layout == Layout::SplitV {
                     draw_util_rectangle(
                         &raw mut (*con).frame_buffer,
                         (*(*p).color).indicator,
@@ -1034,9 +913,9 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
                 free((*(*con).parent).deco_render_params as *mut ::core::ffi::c_void);
                 (*(*con).parent).deco_render_params = ::core::ptr::null_mut::<deco_render_params>();
             }
-            if !((*p).border_style != BS_NORMAL as ::core::ffi::c_int
-                || (*con).deco_rect.width == 0 as uint32_t
-                || (*con).deco_rect.height == 0 as uint32_t)
+            if !((*p).border_style != BorderStyle::Normal
+                || (*con).deco_rect.width == 0 as u32
+                || (*con).deco_rect.height == 0 as u32)
             {
                 debuglog(
                     c"%s:%s:%d - con->deco_rect = (x=%d, y=%d, w=%d, h=%d) for con->name=%s\n"
@@ -1063,9 +942,8 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
                 text_offset_y = (*con)
                     .deco_rect
                     .height
-                    .wrapping_sub(config.font.height as uint32_t)
-                    .wrapping_div(2 as uint32_t)
-                    as ::core::ffi::c_int;
+                    .wrapping_sub(config.font.height as u32)
+                    .wrapping_div(2 as u32) as ::core::ffi::c_int;
                 win = (*con).window;
                 deco_width = (*con).deco_rect.width as ::core::ffi::c_int;
                 title_padding = logical_px(2 as ::core::ffi::c_int) as ::core::ffi::c_int;
@@ -1099,22 +977,20 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
                     if had_visible_mark {
                         let mut mark_0: *mut i3String = i3string_from_utf8(formatted_mark);
                         mark_width = predict_text_width(mark_0);
-                        let mark_offset_x: ::core::ffi::c_int = if config.title_align
-                            as ::core::ffi::c_uint
-                            == ALIGN_RIGHT as ::core::ffi::c_int as ::core::ffi::c_uint
-                        {
-                            title_padding
-                        } else {
-                            deco_width - mark_width - title_padding
-                        };
+                        let mark_offset_x: ::core::ffi::c_int =
+                            if config.title_align == TitleAlign::Right {
+                                title_padding
+                            } else {
+                                deco_width - mark_width - title_padding
+                            };
                         draw_util_text(
                             mark_0,
                             dest_surface,
                             (*(*p).color).text,
                             (*(*p).color).background,
-                            (*con).deco_rect.x.wrapping_add(mark_offset_x as uint32_t)
+                            (*con).deco_rect.x.wrapping_add(mark_offset_x as u32)
                                 as ::core::ffi::c_int,
-                            (*con).deco_rect.y.wrapping_add(text_offset_y as uint32_t)
+                            (*con).deco_rect.y.wrapping_add(text_offset_y as u32)
                                 as ::core::ffi::c_int,
                             mark_width,
                         );
@@ -1152,7 +1028,7 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
                         (*con)
                             .deco_rect
                             .height
-                            .wrapping_sub(logical_px(2 as ::core::ffi::c_int) as uint32_t)
+                            .wrapping_sub(logical_px(2 as ::core::ffi::c_int) as u32)
                             as ::core::ffi::c_int,
                     );
                     icon_padding =
@@ -1169,12 +1045,12 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
                     }
                     icon_offset_x = 0;
                     title_offset_x = 0;
-                    match config.title_align as ::core::ffi::c_uint {
-                        0 => {
+                    match config.title_align {
+                        TitleAlign::Left => {
                             icon_offset_x = icon_padding;
                             title_offset_x = title_padding + total_icon_space;
                         }
-                        1 => {
+                        TitleAlign::Center => {
                             icon_offset_x = max(
                                 icon_padding,
                                 (deco_width
@@ -1188,7 +1064,7 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
                             title_offset_x =
                                 max(title_padding, icon_offset_x + icon_padding + icon_size);
                         }
-                        2 => {
+                        TitleAlign::Right => {
                             title_offset_x = max(
                                 title_padding + mark_width,
                                 deco_width
@@ -1201,25 +1077,15 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
                                 title_offset_x + predict_text_width(title) + icon_padding,
                             );
                         }
-                        _ => {
-                            errorlog(
-                                c"ERROR: BUG: invalid config.title_align value %d\n"
-                                    .as_ptr()
-                                    .cast_mut(),
-                                config.title_align as ::core::ffi::c_uint,
-                            );
-                            return;
-                        }
                     }
                     draw_util_text(
                         title,
                         dest_surface,
                         (*(*p).color).text,
                         (*(*p).color).background,
-                        (*con).deco_rect.x.wrapping_add(title_offset_x as uint32_t)
+                        (*con).deco_rect.x.wrapping_add(title_offset_x as u32)
                             as ::core::ffi::c_int,
-                        (*con).deco_rect.y.wrapping_add(text_offset_y as uint32_t)
-                            as ::core::ffi::c_int,
+                        (*con).deco_rect.y.wrapping_add(text_offset_y as u32) as ::core::ffi::c_int,
                         deco_width
                             - mark_width
                             - 2 as ::core::ffi::c_int * title_padding
@@ -1229,12 +1095,12 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
                         draw_util_image(
                             (*win).icon,
                             dest_surface,
-                            (*con).deco_rect.x.wrapping_add(icon_offset_x as uint32_t)
+                            (*con).deco_rect.x.wrapping_add(icon_offset_x as u32)
                                 as ::core::ffi::c_int,
                             (*con)
                                 .deco_rect
                                 .y
-                                .wrapping_add(logical_px(1 as ::core::ffi::c_int) as uint32_t)
+                                .wrapping_add(logical_px(1 as ::core::ffi::c_int) as u32)
                                 as ::core::ffi::c_int,
                             icon_size,
                             icon_size,
@@ -1347,7 +1213,7 @@ unsafe fn set_maximized_state(con: *mut Con) {
         return;
     }
     let state: *mut con_state = state_for_frame((*con).frame.id as xcb_window_t);
-    let con_maximized_horz: bool = con_is_maximized(con, HORIZ);
+    let con_maximized_horz: bool = con_is_maximized(con, Orientation::Horizontal);
     if con_maximized_horz as ::core::ffi::c_int != (*state).is_maximized_horz as ::core::ffi::c_int
     {
         debuglog(
@@ -1378,7 +1244,7 @@ unsafe fn set_maximized_state(con: *mut Con) {
         }
         (*state).is_maximized_horz = con_maximized_horz;
     }
-    let con_maximized_vert: bool = con_is_maximized(con, VERT);
+    let con_maximized_vert: bool = con_is_maximized(con, Orientation::Vertical);
     if con_maximized_vert as ::core::ffi::c_int != (*state).is_maximized_vert as ::core::ffi::c_int
     {
         debuglog(
@@ -1429,11 +1295,11 @@ unsafe fn x_shape_frame(con: *mut Con, shape_kind: xcb_shape_sk_t) {
         (*con)
             .window_rect
             .x
-            .wrapping_add((*con).border_width as uint32_t) as int16_t,
+            .wrapping_add((*con).border_width as u32) as i16,
         (*con)
             .window_rect
             .y
-            .wrapping_add((*con).border_width as uint32_t) as int16_t,
+            .wrapping_add((*con).border_width as u32) as i16,
         (*(*con).window).id,
     );
     let mut rectangles: [xcb_rectangle_t; 4] = [xcb_rectangle_t {
@@ -1442,18 +1308,18 @@ unsafe fn x_shape_frame(con: *mut Con, shape_kind: xcb_shape_sk_t) {
         width: 0,
         height: 0,
     }; 4];
-    let rectangles_count: size_t =
+    let rectangles_count: usize =
         x_get_border_rectangles(con, &raw mut rectangles as *mut xcb_rectangle_t);
     if rectangles_count != 0 {
         xcb_shape_rectangles(
             conn,
             XCB_SHAPE_SO_UNION as ::core::ffi::c_int as xcb_shape_op_t,
             shape_kind as xcb_shape_kind_t,
-            XCB_CLIP_ORDERING_UNSORTED as ::core::ffi::c_int as uint8_t,
+            XCB_CLIP_ORDERING_UNSORTED as ::core::ffi::c_int as u8,
             (*con).frame.id as xcb_window_t,
-            0 as int16_t,
-            0 as int16_t,
-            rectangles_count as uint32_t,
+            0 as i16,
+            0 as i16,
+            rectangles_count as u32,
             &raw mut rectangles as *mut xcb_rectangle_t,
         );
     }
@@ -1473,8 +1339,8 @@ unsafe fn x_unshape_frame(con: *mut Con, shape_kind: xcb_shape_sk_t) {
         XCB_SHAPE_SO_SET as ::core::ffi::c_int as xcb_shape_op_t,
         shape_kind as xcb_shape_kind_t,
         (*con).frame.id as xcb_window_t,
-        0 as int16_t,
-        0 as int16_t,
+        0 as i16,
+        0 as i16,
         XCB_PIXMAP_NONE as ::core::ffi::c_int as xcb_pixmap_t,
     );
 }
@@ -1528,25 +1394,22 @@ pub unsafe fn x_push_node(con: *mut Con) {
         );
         xcb_change_property(
             conn,
-            XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as uint8_t,
+            XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
             (*con).frame.id as xcb_window_t,
             XCB_ATOM_WM_NAME as ::core::ffi::c_int as xcb_atom_t,
             XCB_ATOM_STRING as ::core::ffi::c_int as xcb_atom_t,
-            8 as uint8_t,
-            strlen((*state).name) as uint32_t,
+            8 as u8,
+            strlen((*state).name) as u32,
             (*state).name as *const ::core::ffi::c_void,
         );
         free((*state).name as *mut ::core::ffi::c_void);
         (*state).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
     }
     if (*con).window.is_null()
-        && ((*con).layout as ::core::ffi::c_uint
-            == L_STACKED as ::core::ffi::c_int as ::core::ffi::c_uint
-            || (*con).layout as ::core::ffi::c_uint
-                == L_TABBED as ::core::ffi::c_int as ::core::ffi::c_uint)
+        && ((*con).layout == Layout::Stacked || (*con).layout == Layout::Tabbed)
     {
-        let mut max_y: uint32_t = 0 as uint32_t;
-        let mut max_height: uint32_t = 0 as uint32_t;
+        let mut max_y: u32 = 0 as u32;
+        let mut max_height: u32 = 0 as u32;
         current = (*con).nodes_head.tqh_first as *mut Con;
         while !current.is_null() {
             let dr: *mut Rect = &raw mut (*current).deco_rect;
@@ -1557,7 +1420,7 @@ pub unsafe fn x_push_node(con: *mut Con) {
             current = (*current).nodes.tqe_next as *mut Con;
         }
         rect.height = max_y.wrapping_add(max_height);
-        if rect.height == 0 as uint32_t {
+        if rect.height == 0 as u32 {
             (*con).mapped = false_0 != 0;
         }
     } else if (*con).window.is_null() {
@@ -1571,25 +1434,25 @@ pub unsafe fn x_push_node(con: *mut Con) {
             c"x_push_node".as_ptr(),
             978 as ::core::ffi::c_int,
         );
-        let mut values: [uint32_t; 1] = [XCB_NONE as uint32_t];
+        let mut values: [u32; 1] = [XCB_NONE as u32];
         xcb_change_window_attributes(
             conn,
             (*state).old_frame,
-            XCB_CW_EVENT_MASK as ::core::ffi::c_int as uint32_t,
-            &raw mut values as *mut uint32_t as *const ::core::ffi::c_void,
+            XCB_CW_EVENT_MASK as ::core::ffi::c_int as u32,
+            &raw mut values as *mut u32 as *const ::core::ffi::c_void,
         );
         xcb_change_window_attributes(
             conn,
             (*(*con).window).id,
-            XCB_CW_EVENT_MASK as ::core::ffi::c_int as uint32_t,
-            &raw mut values as *mut uint32_t as *const ::core::ffi::c_void,
+            XCB_CW_EVENT_MASK as ::core::ffi::c_int as u32,
+            &raw mut values as *mut u32 as *const ::core::ffi::c_void,
         );
         xcb_reparent_window(
             conn,
             (*(*con).window).id,
             (*con).frame.id as xcb_window_t,
-            0 as int16_t,
-            0 as int16_t,
+            0 as i16,
+            0 as i16,
         );
         values[0 as ::core::ffi::c_int as usize] =
             (XCB_EVENT_MASK_BUTTON_PRESS as ::core::ffi::c_int
@@ -1599,22 +1462,22 @@ pub unsafe fn x_push_node(con: *mut Con) {
                 | XCB_EVENT_MASK_STRUCTURE_NOTIFY as ::core::ffi::c_int
                 | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT as ::core::ffi::c_int
                 | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY as ::core::ffi::c_int
-                | XCB_EVENT_MASK_ENTER_WINDOW as ::core::ffi::c_int) as uint32_t;
+                | XCB_EVENT_MASK_ENTER_WINDOW as ::core::ffi::c_int) as u32;
         xcb_change_window_attributes(
             conn,
             (*state).old_frame,
-            XCB_CW_EVENT_MASK as ::core::ffi::c_int as uint32_t,
-            &raw mut values as *mut uint32_t as *const ::core::ffi::c_void,
+            XCB_CW_EVENT_MASK as ::core::ffi::c_int as u32,
+            &raw mut values as *mut u32 as *const ::core::ffi::c_void,
         );
         values[0 as ::core::ffi::c_int as usize] =
             (XCB_EVENT_MASK_PROPERTY_CHANGE as ::core::ffi::c_int
                 | XCB_EVENT_MASK_STRUCTURE_NOTIFY as ::core::ffi::c_int
-                | XCB_EVENT_MASK_FOCUS_CHANGE as ::core::ffi::c_int) as uint32_t;
+                | XCB_EVENT_MASK_FOCUS_CHANGE as ::core::ffi::c_int) as u32;
         xcb_change_window_attributes(
             conn,
             (*(*con).window).id,
-            XCB_CW_EVENT_MASK as ::core::ffi::c_int as uint32_t,
-            &raw mut values as *mut uint32_t as *const ::core::ffi::c_void,
+            XCB_CW_EVENT_MASK as ::core::ffi::c_int as u32,
+            &raw mut values as *mut u32 as *const ::core::ffi::c_void,
         );
         (*state).old_frame = XCB_NONE as xcb_window_t;
         (*state).need_reparent = false_0 != 0;
@@ -1644,11 +1507,9 @@ pub unsafe fn x_push_node(con: *mut Con) {
             as ::core::ffi::c_int)
         != 0;
     let mut is_pixmap_needed: bool = con_is_leaf(con) as ::core::ffi::c_int != 0
-        && con_border_style(con) != BS_NONE as ::core::ffi::c_int
-        || (*con).layout as ::core::ffi::c_uint
-            == L_STACKED as ::core::ffi::c_int as ::core::ffi::c_uint
-        || (*con).layout as ::core::ffi::c_uint
-            == L_TABBED as ::core::ffi::c_int as ::core::ffi::c_uint;
+        && con_border_style(con) != BorderStyle::None
+        || (*con).layout == Layout::Stacked
+        || (*con).layout == Layout::Tabbed;
     debuglog(
         c"%s:%s:%d - Con %p (layout %d), is_pixmap_needed = %s, rect.height = %d\n"
             .as_ptr()
@@ -1674,7 +1535,7 @@ pub unsafe fn x_push_node(con: *mut Con) {
     let mut fake_notify: bool = false_0 != 0;
     if is_pixmap_needed as ::core::ffi::c_int != 0
         && (*con).frame_buffer.id as ::core::ffi::c_long == XCB_NONE
-        || !rect_equals((*state).rect, rect) && rect.height > 0 as uint32_t
+        || !rect_equals((*state).rect, rect) && rect.height > 0 as u32
     {
         let has_rect_changed: bool = (*state).rect.x != rect.x
             || (*state).rect.y != rect.y
@@ -1695,16 +1556,16 @@ pub unsafe fn x_push_node(con: *mut Con) {
                 draw_util_surface_free(conn, &raw mut (*con).frame_buffer);
                 xcb_free_pixmap(conn, (*con).frame_buffer.id as xcb_pixmap_t);
             }
-            let mut win_depth: uint16_t = root_depth as uint16_t;
+            let mut win_depth: u16 = root_depth as u16;
             if !(*con).window.is_null() {
                 win_depth = (*(*con).window).depth;
             }
-            let width: ::core::ffi::c_int = if rect.width as int32_t > 1 as int32_t {
+            let width: ::core::ffi::c_int = if rect.width as i32 > 1 as i32 {
                 rect.width as ::core::ffi::c_int
             } else {
                 1 as ::core::ffi::c_int
             };
-            let height: ::core::ffi::c_int = if rect.height as int32_t > 1 as int32_t {
+            let height: ::core::ffi::c_int = if rect.height as i32 > 1 as i32 {
                 rect.height as ::core::ffi::c_int
             } else {
                 1 as ::core::ffi::c_int
@@ -1722,11 +1583,11 @@ pub unsafe fn x_push_node(con: *mut Con) {
             );
             xcb_create_pixmap(
                 conn,
-                win_depth as uint8_t,
+                win_depth as u8,
                 (*con).frame_buffer.id as xcb_pixmap_t,
                 (*con).frame.id,
-                width as uint16_t,
-                height as uint16_t,
+                width as u16,
+                height as u16,
             );
             draw_util_surface_init(
                 conn,
@@ -1746,18 +1607,17 @@ pub unsafe fn x_push_node(con: *mut Con) {
                     colorpixel: 0,
                 },
             );
-            let mut fresh4: [uint32_t; 1] = [0 as ::core::ffi::c_int as uint32_t];
+            let mut fresh4: [u32; 1] = [0 as ::core::ffi::c_int as u32];
             xcb_change_gc(
                 conn,
                 (*con).frame_buffer.gc,
-                XCB_GC_GRAPHICS_EXPOSURES as ::core::ffi::c_int as uint32_t,
-                &raw mut fresh4 as *mut uint32_t as *const ::core::ffi::c_void,
+                XCB_GC_GRAPHICS_EXPOSURES as ::core::ffi::c_int as u32,
+                &raw mut fresh4 as *mut u32 as *const ::core::ffi::c_void,
             );
             draw_util_surface_set_size(&raw mut (*con).frame, width, height);
             (*con).pixmap_recreated = true_0 != 0;
             if (*con).parent.is_null()
-                || (*(*con).parent).layout as ::core::ffi::c_uint
-                    != L_STACKED as ::core::ffi::c_int as ::core::ffi::c_uint
+                || (*(*con).parent).layout != Layout::Stacked
                 || (*(*con).parent).focus_head.tqh_first == con
             {
                 x_deco_recurse(con);
@@ -1793,7 +1653,7 @@ pub unsafe fn x_push_node(con: *mut Con) {
         memcpy(
             &raw mut (*state).rect as *mut ::core::ffi::c_void,
             &raw mut rect as *const ::core::ffi::c_void,
-            ::core::mem::size_of::<Rect>() as size_t,
+            ::core::mem::size_of::<Rect>() as usize,
         );
         fake_notify = true_0 != 0;
     }
@@ -1814,7 +1674,7 @@ pub unsafe fn x_push_node(con: *mut Con) {
         memcpy(
             &raw mut (*state).window_rect as *mut ::core::ffi::c_void,
             &raw mut (*con).window_rect as *const ::core::ffi::c_void,
-            ::core::mem::size_of::<Rect>() as size_t,
+            ::core::mem::size_of::<Rect>() as usize,
         );
         fake_notify = true_0 != 0;
     }
@@ -1823,18 +1683,18 @@ pub unsafe fn x_push_node(con: *mut Con) {
         let bsr: Rect = con_border_style_rect(con);
         let mut r: Rect = Rect {
             x: bsr.x,
-            y: (0 as uint32_t).wrapping_sub(bsr.width).wrapping_sub(bsr.x),
+            y: (0 as u32).wrapping_sub(bsr.width).wrapping_sub(bsr.x),
             width: bsr.y,
-            height: (0 as uint32_t).wrapping_sub(bsr.height).wrapping_sub(bsr.y),
+            height: (0 as u32).wrapping_sub(bsr.height).wrapping_sub(bsr.y),
         };
         xcb_change_property(
             conn,
-            XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as uint8_t,
+            XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
             (*(*con).window).id,
             A__NET_FRAME_EXTENTS,
             XCB_ATOM_CARDINAL as ::core::ffi::c_int as xcb_atom_t,
-            32 as uint8_t,
-            4 as uint32_t,
+            32 as u8,
+            4 as u32,
             &raw mut r as *const ::core::ffi::c_void,
         );
     }
@@ -1850,28 +1710,27 @@ pub unsafe fn x_push_node(con: *mut Con) {
             ];
             xcb_change_property(
                 conn,
-                XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as uint8_t,
+                XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
                 (*(*con).window).id,
                 A_WM_STATE,
                 A_WM_STATE,
-                32 as uint8_t,
-                2 as uint32_t,
+                32 as u8,
+                2 as u32,
                 &raw mut data as *mut ::core::ffi::c_long as *const ::core::ffi::c_void,
             );
         }
-        let mut values_0: [uint32_t; 1] = [0; 1];
+        let mut values_0: [u32; 1] = [0; 1];
         if !(*state).child_mapped && !(*con).window.is_null() {
             cookie = xcb_map_window(conn, (*(*con).window).id);
-            values_0[0 as ::core::ffi::c_int as usize] = (XCB_EVENT_MASK_PROPERTY_CHANGE
-                as ::core::ffi::c_int
-                | XCB_EVENT_MASK_STRUCTURE_NOTIFY as ::core::ffi::c_int
-                | XCB_EVENT_MASK_FOCUS_CHANGE as ::core::ffi::c_int)
-                as uint32_t;
+            values_0[0 as ::core::ffi::c_int as usize] =
+                (XCB_EVENT_MASK_PROPERTY_CHANGE as ::core::ffi::c_int
+                    | XCB_EVENT_MASK_STRUCTURE_NOTIFY as ::core::ffi::c_int
+                    | XCB_EVENT_MASK_FOCUS_CHANGE as ::core::ffi::c_int) as u32;
             xcb_change_window_attributes(
                 conn,
                 (*(*con).window).id,
-                XCB_CW_EVENT_MASK as ::core::ffi::c_int as uint32_t,
-                &raw mut values_0 as *mut uint32_t as *const ::core::ffi::c_void,
+                XCB_CW_EVENT_MASK as ::core::ffi::c_int as u32,
+                &raw mut values_0 as *mut u32 as *const ::core::ffi::c_void,
             );
             debuglog(
                 c"%s:%s:%d - mapping child window (serial %d)\n"
@@ -1893,12 +1752,12 @@ pub unsafe fn x_push_node(con: *mut Con) {
                 | XCB_EVENT_MASK_STRUCTURE_NOTIFY as ::core::ffi::c_int
                 | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT as ::core::ffi::c_int
                 | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY as ::core::ffi::c_int
-                | XCB_EVENT_MASK_ENTER_WINDOW as ::core::ffi::c_int) as uint32_t;
+                | XCB_EVENT_MASK_ENTER_WINDOW as ::core::ffi::c_int) as u32;
         xcb_change_window_attributes(
             conn,
             (*con).frame.id as xcb_window_t,
-            XCB_CW_EVENT_MASK as ::core::ffi::c_int as uint32_t,
-            &raw mut values_0 as *mut uint32_t as *const ::core::ffi::c_void,
+            XCB_CW_EVENT_MASK as ::core::ffi::c_int as u32,
+            &raw mut values_0 as *mut u32 as *const ::core::ffi::c_void,
         );
         if (*con).frame_buffer.id as ::core::ffi::c_long != XCB_NONE {
             draw_util_copy_surface(
@@ -1959,12 +1818,12 @@ unsafe fn x_push_node_unmaps(con: *mut Con) {
             ];
             xcb_change_property(
                 conn,
-                XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as uint8_t,
+                XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
                 (*(*con).window).id,
                 A_WM_STATE,
                 A_WM_STATE,
-                32 as uint8_t,
-                2 as uint32_t,
+                32 as u8,
+                2 as u32,
                 &raw mut data as *mut ::core::ffi::c_long as *const ::core::ffi::c_void,
             );
         }
@@ -2037,16 +1896,15 @@ pub unsafe fn x_push_changes(con: *mut Con) {
         c"x_push_changes".as_ptr(),
         1290 as ::core::ffi::c_int,
     );
-    let mut values: [uint32_t; 1] =
-        [XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT as ::core::ffi::c_int as uint32_t];
+    let mut values: [u32; 1] = [XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT as ::core::ffi::c_int as u32];
     state = state_head.cqh_last as *mut con_state;
     while state != &raw mut state_head as *mut ::core::ffi::c_void as *mut con_state {
         if (*state).mapped {
             xcb_change_window_attributes(
                 conn,
                 (*state).id,
-                XCB_CW_EVENT_MASK as ::core::ffi::c_int as uint32_t,
-                &raw mut values as *mut uint32_t as *const ::core::ffi::c_void,
+                XCB_CW_EVENT_MASK as ::core::ffi::c_int as u32,
+                &raw mut values as *mut u32 as *const ::core::ffi::c_void,
             );
         }
         state = (*state).state.cqe_prev as *mut con_state;
@@ -2067,7 +1925,7 @@ pub unsafe fn x_push_changes(con: *mut Con) {
     if cnt != client_list_count {
         client_list_windows = srealloc(
             client_list_windows as *mut ::core::ffi::c_void,
-            (::core::mem::size_of::<xcb_window_t>() as size_t).wrapping_mul(cnt as size_t),
+            (::core::mem::size_of::<xcb_window_t>() as usize).wrapping_mul(cnt as usize),
         ) as *mut xcb_window_t;
         client_list_count = cnt;
     }
@@ -2080,7 +1938,7 @@ pub unsafe fn x_push_changes(con: *mut Con) {
             memcpy(
                 fresh5 as *mut ::core::ffi::c_void,
                 &raw mut (*(*(*state).con).window).id as *const ::core::ffi::c_void,
-                ::core::mem::size_of::<xcb_window_t>() as size_t,
+                ::core::mem::size_of::<xcb_window_t>() as usize,
             );
         }
         let prev: *mut con_state = (*state).state.cqe_prev as *mut con_state;
@@ -2092,18 +1950,18 @@ pub unsafe fn x_push_changes(con: *mut Con) {
             && prev != &raw mut state_head as *mut ::core::ffi::c_void as *mut con_state
         {
             stacking_changed = true_0 != 0;
-            let mut mask: uint32_t = 0 as uint32_t;
-            mask |= XCB_CONFIG_WINDOW_SIBLING as ::core::ffi::c_int as uint32_t;
-            mask |= XCB_CONFIG_WINDOW_STACK_MODE as ::core::ffi::c_int as uint32_t;
-            let mut values_0: [uint32_t; 2] = [
+            let mut mask: u32 = 0 as u32;
+            mask |= XCB_CONFIG_WINDOW_SIBLING as ::core::ffi::c_int as u32;
+            mask |= XCB_CONFIG_WINDOW_STACK_MODE as ::core::ffi::c_int as u32;
+            let mut values_0: [u32; 2] = [
                 (*state).id,
-                XCB_STACK_MODE_ABOVE as ::core::ffi::c_int as uint32_t,
+                XCB_STACK_MODE_ABOVE as ::core::ffi::c_int as u32,
             ];
             xcb_configure_window(
                 conn,
                 (*prev).id,
-                mask as uint16_t,
-                &raw mut values_0 as *mut uint32_t as *const ::core::ffi::c_void,
+                mask as u16,
+                &raw mut values_0 as *mut u32 as *const ::core::ffi::c_void,
             );
         }
         (*state).initial = false_0 != 0;
@@ -2154,11 +2012,11 @@ pub unsafe fn x_push_changes(con: *mut Con) {
         } else {
             let mid_x: ::core::ffi::c_int = (*warp_to)
                 .x
-                .wrapping_add((*warp_to).width.wrapping_div(2 as uint32_t))
+                .wrapping_add((*warp_to).width.wrapping_div(2 as u32))
                 as ::core::ffi::c_int;
             let mid_y: ::core::ffi::c_int = (*warp_to)
                 .y
-                .wrapping_add((*warp_to).height.wrapping_div(2 as uint32_t))
+                .wrapping_add((*warp_to).height.wrapping_div(2 as u32))
                 as ::core::ffi::c_int;
             let current: *mut Output = get_output_containing(
                 (*pointerreply).root_x as ::core::ffi::c_uint,
@@ -2167,26 +2025,26 @@ pub unsafe fn x_push_changes(con: *mut Con) {
             let target: *mut Output =
                 get_output_containing(mid_x as ::core::ffi::c_uint, mid_y as ::core::ffi::c_uint);
             if current != target {
-                let mut fresh7: [uint32_t; 1] =
-                    [XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT as ::core::ffi::c_int as uint32_t];
+                let mut fresh7: [u32; 1] =
+                    [XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT as ::core::ffi::c_int as u32];
                 xcb_change_window_attributes(
                     conn,
                     root,
-                    XCB_CW_EVENT_MASK as ::core::ffi::c_int as uint32_t,
-                    &raw mut fresh7 as *mut uint32_t as *const ::core::ffi::c_void,
+                    XCB_CW_EVENT_MASK as ::core::ffi::c_int as u32,
+                    &raw mut fresh7 as *mut u32 as *const ::core::ffi::c_void,
                 );
                 xcb_warp_pointer(
                     conn,
                     XCB_NONE as xcb_window_t,
                     root,
-                    0 as int16_t,
-                    0 as int16_t,
-                    0 as uint16_t,
-                    0 as uint16_t,
-                    mid_x as int16_t,
-                    mid_y as int16_t,
+                    0 as i16,
+                    0 as i16,
+                    0 as u16,
+                    0 as u16,
+                    mid_x as i16,
+                    mid_y as i16,
                 );
-                let mut fresh8: [uint32_t; 1] = [(XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT
+                let mut fresh8: [u32; 1] = [(XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT
                     as ::core::ffi::c_int
                     | XCB_EVENT_MASK_BUTTON_PRESS as ::core::ffi::c_int
                     | XCB_EVENT_MASK_STRUCTURE_NOTIFY as ::core::ffi::c_int
@@ -2194,12 +2052,12 @@ pub unsafe fn x_push_changes(con: *mut Con) {
                     | XCB_EVENT_MASK_PROPERTY_CHANGE as ::core::ffi::c_int
                     | XCB_EVENT_MASK_FOCUS_CHANGE as ::core::ffi::c_int
                     | XCB_EVENT_MASK_ENTER_WINDOW as ::core::ffi::c_int)
-                    as uint32_t];
+                    as u32];
                 xcb_change_window_attributes(
                     conn,
                     root,
-                    XCB_CW_EVENT_MASK as ::core::ffi::c_int as uint32_t,
-                    &raw mut fresh8 as *mut uint32_t as *const ::core::ffi::c_void,
+                    XCB_CW_EVENT_MASK as ::core::ffi::c_int as u32,
+                    &raw mut fresh8 as *mut u32 as *const ::core::ffi::c_void,
                 );
             }
             free(pointerreply as *mut ::core::ffi::c_void);
@@ -2214,15 +2072,15 @@ pub unsafe fn x_push_changes(con: *mut Con) {
         | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT as ::core::ffi::c_int
         | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY as ::core::ffi::c_int
         | XCB_EVENT_MASK_ENTER_WINDOW as ::core::ffi::c_int)
-        as uint32_t;
+        as u32;
     state = state_head.cqh_last as *mut con_state;
     while state != &raw mut state_head as *mut ::core::ffi::c_void as *mut con_state {
         if (*state).mapped {
             xcb_change_window_attributes(
                 conn,
                 (*state).id,
-                XCB_CW_EVENT_MASK as ::core::ffi::c_int as uint32_t,
-                &raw mut values as *mut uint32_t as *const ::core::ffi::c_void,
+                XCB_CW_EVENT_MASK as ::core::ffi::c_int as u32,
+                &raw mut values as *mut u32 as *const ::core::ffi::c_void,
             );
         }
         state = (*state).state.cqe_prev as *mut con_state;
@@ -2289,17 +2147,17 @@ pub unsafe fn x_push_changes(con: *mut Con) {
                         | XCB_EVENT_MASK_STRUCTURE_NOTIFY as ::core::ffi::c_int
                         | XCB_EVENT_MASK_FOCUS_CHANGE as ::core::ffi::c_int)
                         & !(XCB_EVENT_MASK_FOCUS_CHANGE as ::core::ffi::c_int))
-                        as uint32_t;
+                        as u32;
                     xcb_change_window_attributes(
                         conn,
                         (*(*focused).window).id,
-                        XCB_CW_EVENT_MASK as ::core::ffi::c_int as uint32_t,
-                        &raw mut values as *mut uint32_t as *const ::core::ffi::c_void,
+                        XCB_CW_EVENT_MASK as ::core::ffi::c_int as u32,
+                        &raw mut values as *mut u32 as *const ::core::ffi::c_void,
                     );
                 }
                 xcb_set_input_focus(
                     conn,
-                    XCB_INPUT_FOCUS_POINTER_ROOT as ::core::ffi::c_int as uint8_t,
+                    XCB_INPUT_FOCUS_POINTER_ROOT as ::core::ffi::c_int as u8,
                     to_focus,
                     last_timestamp,
                 );
@@ -2308,12 +2166,12 @@ pub unsafe fn x_push_changes(con: *mut Con) {
                         as ::core::ffi::c_int
                         | XCB_EVENT_MASK_STRUCTURE_NOTIFY as ::core::ffi::c_int
                         | XCB_EVENT_MASK_FOCUS_CHANGE as ::core::ffi::c_int)
-                        as uint32_t;
+                        as u32;
                     xcb_change_window_attributes(
                         conn,
                         (*(*focused).window).id,
-                        XCB_CW_EVENT_MASK as ::core::ffi::c_int as uint32_t,
-                        &raw mut values as *mut uint32_t as *const ::core::ffi::c_void,
+                        XCB_CW_EVENT_MASK as ::core::ffi::c_int as u32,
+                        &raw mut values as *mut u32 as *const ::core::ffi::c_void,
                     );
                 }
                 change_ewmh_focus(
@@ -2346,7 +2204,7 @@ pub unsafe fn x_push_changes(con: *mut Con) {
         );
         xcb_set_input_focus(
             conn,
-            XCB_INPUT_FOCUS_POINTER_ROOT as ::core::ffi::c_int as uint8_t,
+            XCB_INPUT_FOCUS_POINTER_ROOT as ::core::ffi::c_int as u8,
             ewmh_window,
             last_timestamp,
         );
@@ -2373,15 +2231,15 @@ pub unsafe fn x_push_changes(con: *mut Con) {
         | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY as ::core::ffi::c_int
         | XCB_EVENT_MASK_ENTER_WINDOW as ::core::ffi::c_int)
         & !(XCB_EVENT_MASK_ENTER_WINDOW as ::core::ffi::c_int))
-        as uint32_t;
+        as u32;
     state = state_head.cqh_last as *mut con_state;
     while state != &raw mut state_head as *mut ::core::ffi::c_void as *mut con_state {
         if (*state).unmap_now {
             xcb_change_window_attributes(
                 conn,
                 (*state).id,
-                XCB_CW_EVENT_MASK as ::core::ffi::c_int as uint32_t,
-                &raw mut values as *mut uint32_t as *const ::core::ffi::c_void,
+                XCB_CW_EVENT_MASK as ::core::ffi::c_int as u32,
+                &raw mut values as *mut u32 as *const ::core::ffi::c_void,
             );
         }
         state = (*state).state.cqe_prev as *mut con_state;
@@ -2461,76 +2319,74 @@ pub unsafe fn update_shmlog_atom() {
     } else {
         xcb_change_property(
             conn,
-            XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as uint8_t,
+            XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
             root,
             A_I3_SHMLOG_PATH,
             A_UTF8_STRING,
-            8 as uint8_t,
-            strlen(shmlogname) as uint32_t,
+            8 as u8,
+            strlen(shmlogname) as u32,
             shmlogname as *const ::core::ffi::c_void,
         );
     };
 }
 
 pub unsafe fn x_set_i3_atoms() {
-    let mut pid: pid_t = getpid() as pid_t;
+    let mut pid: libc::pid_t = getpid() as libc::pid_t;
     xcb_change_property(
         conn,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as uint8_t,
+        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
         root,
         A_I3_SOCKET_PATH,
         A_UTF8_STRING,
-        8 as uint8_t,
+        8 as u8,
         (if current_socketpath.is_null() {
-            0 as size_t
+            0 as usize
         } else {
             strlen(current_socketpath)
-        }) as uint32_t,
+        }) as u32,
         current_socketpath as *const ::core::ffi::c_void,
     );
     xcb_change_property(
         conn,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as uint8_t,
+        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
         root,
         A_I3_PID,
         XCB_ATOM_CARDINAL as ::core::ffi::c_int as xcb_atom_t,
-        32 as uint8_t,
-        1 as uint32_t,
+        32 as u8,
+        1 as u32,
         &raw mut pid as *const ::core::ffi::c_void,
     );
     xcb_change_property(
         conn,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as uint8_t,
+        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
         root,
         A_I3_CONFIG_PATH,
         A_UTF8_STRING,
-        8 as uint8_t,
-        strlen(current_configpath) as uint32_t,
+        8 as u8,
+        strlen(current_configpath) as u32,
         current_configpath as *const ::core::ffi::c_void,
     );
     xcb_change_property(
         conn,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as uint8_t,
+        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
         root,
         A_I3_LOG_STREAM_SOCKET_PATH,
         A_UTF8_STRING,
-        8 as uint8_t,
-        strlen(current_log_stream_socket_path) as uint32_t,
+        8 as u8,
+        strlen(current_log_stream_socket_path) as u32,
         current_log_stream_socket_path as *const ::core::ffi::c_void,
     );
     update_shmlog_atom();
 }
 
 pub unsafe fn x_set_warp_to(rect: *mut Rect) {
-    if config.mouse_warping as ::core::ffi::c_uint
-        != POINTER_WARPING_NONE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if config.mouse_warping != Warping::None {
         warp_to = rect;
     }
 }
 
-pub unsafe fn x_mask_event_mask(mask: uint32_t) {
-    let mut values: [uint32_t; 1] = [(XCB_EVENT_MASK_BUTTON_PRESS as ::core::ffi::c_int
+pub unsafe fn x_mask_event_mask(mask: u32) {
+    let mut values: [u32; 1] = [(XCB_EVENT_MASK_BUTTON_PRESS as ::core::ffi::c_int
         | XCB_EVENT_MASK_BUTTON_RELEASE as ::core::ffi::c_int
         | XCB_EVENT_MASK_POINTER_MOTION as ::core::ffi::c_int
         | XCB_EVENT_MASK_EXPOSURE as ::core::ffi::c_int
@@ -2538,7 +2394,7 @@ pub unsafe fn x_mask_event_mask(mask: uint32_t) {
         | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT as ::core::ffi::c_int
         | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY as ::core::ffi::c_int
         | XCB_EVENT_MASK_ENTER_WINDOW as ::core::ffi::c_int)
-        as uint32_t
+        as u32
         & mask];
     let mut state: *mut con_state = ::core::ptr::null_mut::<con_state>();
     state = state_head.cqh_last as *mut con_state;
@@ -2547,8 +2403,8 @@ pub unsafe fn x_mask_event_mask(mask: uint32_t) {
             xcb_change_window_attributes(
                 conn,
                 (*state).id,
-                XCB_CW_EVENT_MASK as ::core::ffi::c_int as uint32_t,
-                &raw mut values as *mut uint32_t as *const ::core::ffi::c_void,
+                XCB_CW_EVENT_MASK as ::core::ffi::c_int as u32,
+                &raw mut values as *mut u32 as *const ::core::ffi::c_void,
             );
         }
         state = (*state).state.cqe_prev as *mut con_state;

@@ -27,36 +27,6 @@
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 use i3_common::i333_va_list;
 
-pub type __builtin_va_list = [__va_list_tag; 1];
-pub use i3_common::safewrappers::__va_list_tag;
-pub type size_t = usize;
-pub type __uint8_t = u8;
-pub type __uint16_t = u16;
-pub type __uint32_t = u32;
-pub type __dev_t = ::core::ffi::c_ulong;
-pub type __uid_t = ::core::ffi::c_uint;
-pub type __gid_t = ::core::ffi::c_uint;
-pub type __ino_t = ::core::ffi::c_ulong;
-pub type __mode_t = ::core::ffi::c_uint;
-pub type __nlink_t = ::core::ffi::c_ulong;
-pub type __off_t = ::core::ffi::c_long;
-pub type __pid_t = ::core::ffi::c_int;
-pub type __time_t = ::core::ffi::c_long;
-pub type __blksize_t = ::core::ffi::c_long;
-pub type __blkcnt_t = ::core::ffi::c_long;
-pub type __syscall_slong_t = ::core::ffi::c_long;
-pub type __socklen_t = ::core::ffi::c_uint;
-pub type pid_t = __pid_t;
-pub type ssize_t = isize;
-
-pub type __gnuc_va_list = __builtin_va_list;
-pub type va_list = __gnuc_va_list;
-pub type uint8_t = __uint8_t;
-pub type uint16_t = __uint16_t;
-pub type uint32_t = __uint32_t;
-
-pub type sa_family_t = ::core::ffi::c_ushort;
-
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub union sockaddr_union {
@@ -70,50 +40,14 @@ pub union sockaddr_union {
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub union C2RustUnnamed {
-    pub __u6_addr8: [uint8_t; 16],
-    pub __u6_addr16: [uint16_t; 8],
-    pub __u6_addr32: [uint32_t; 4],
+    pub __u6_addr8: [u8; 16],
+    pub __u6_addr16: [u16; 8],
+    pub __u6_addr32: [u32; 4],
 }
-pub type in_port_t = uint16_t;
+pub type in_port_t = u16;
 
-pub type in_addr_t = uint32_t;
-pub type socklen_t = __socklen_t;
+pub type in_addr_t = u32;
 
-pub const MSG_NOSIGNAL: C2RustUnnamed_0 = 16384;
-
-pub const SOCK_CLOEXEC: __socket_type = 524288;
-pub const SOCK_DGRAM: __socket_type = 2;
-pub type __socket_type = ::core::ffi::c_uint;
-pub const SOCK_NONBLOCK: __socket_type = 2048;
-pub const SOCK_PACKET: __socket_type = 10;
-pub const SOCK_DCCP: __socket_type = 6;
-pub const SOCK_SEQPACKET: __socket_type = 5;
-pub const SOCK_RDM: __socket_type = 4;
-pub const SOCK_RAW: __socket_type = 3;
-pub const SOCK_STREAM: __socket_type = 1;
-pub type C2RustUnnamed_0 = ::core::ffi::c_uint;
-pub const MSG_CMSG_CLOEXEC: C2RustUnnamed_0 = 1073741824;
-pub const MSG_FASTOPEN: C2RustUnnamed_0 = 536870912;
-pub const MSG_ZEROCOPY: C2RustUnnamed_0 = 67108864;
-pub const MSG_SOCK_DEVMEM: C2RustUnnamed_0 = 33554432;
-pub const MSG_BATCH: C2RustUnnamed_0 = 262144;
-pub const MSG_WAITFORONE: C2RustUnnamed_0 = 65536;
-pub const MSG_MORE: C2RustUnnamed_0 = 32768;
-pub const MSG_ERRQUEUE: C2RustUnnamed_0 = 8192;
-pub const MSG_RST: C2RustUnnamed_0 = 4096;
-pub const MSG_CONFIRM: C2RustUnnamed_0 = 2048;
-pub const MSG_SYN: C2RustUnnamed_0 = 1024;
-pub const MSG_FIN: C2RustUnnamed_0 = 512;
-pub const MSG_WAITALL: C2RustUnnamed_0 = 256;
-pub const MSG_EOR: C2RustUnnamed_0 = 128;
-pub const MSG_DONTWAIT: C2RustUnnamed_0 = 64;
-pub const MSG_TRUNC: C2RustUnnamed_0 = 32;
-pub const MSG_PROXY: C2RustUnnamed_0 = 16;
-pub const MSG_CTRUNC: C2RustUnnamed_0 = 8;
-pub const MSG_TRYHARD: C2RustUnnamed_0 = 4;
-pub const MSG_DONTROUTE: C2RustUnnamed_0 = 4;
-pub const MSG_PEEK: C2RustUnnamed_0 = 2;
-pub const MSG_OOB: C2RustUnnamed_0 = 1;
 pub const SD_LISTEN_FDS_START: ::core::ffi::c_int = 3 as ::core::ffi::c_int;
 pub const ENOENT: ::core::ffi::c_int = 2 as ::core::ffi::c_int;
 pub const ENOMEM: ::core::ffi::c_int = 12 as ::core::ffi::c_int;
@@ -151,7 +85,7 @@ pub unsafe fn sd_listen_fds(unset_environment: ::core::ffi::c_int) -> ::core::ff
             r = -*__errno_location();
         } else if p.is_null() || *p as ::core::ffi::c_int != 0 || l <= 0 as ::core::ffi::c_ulong {
             r = -EINVAL;
-        } else if getpid() != l as pid_t {
+        } else if getpid() != l as libc::pid_t {
             r = 0 as ::core::ffi::c_int;
         } else {
             e = getenv(c"LISTEN_FDS".as_ptr());
@@ -217,12 +151,12 @@ pub unsafe fn sd_is_fifo(
     memset(
         &raw mut st_fd as *mut ::core::ffi::c_void,
         0 as ::core::ffi::c_int,
-        ::core::mem::size_of::<stat>() as size_t,
+        ::core::mem::size_of::<stat>() as usize,
     );
     if fstat(fd, &raw mut st_fd) < 0 as ::core::ffi::c_int {
         return -*__errno_location();
     }
-    if !(st_fd.st_mode & __S_IFMT as __mode_t == 0o10000 as __mode_t) {
+    if !(st_fd.st_mode & __S_IFMT as libc::mode_t == 0o10000 as libc::mode_t) {
         return 0 as ::core::ffi::c_int;
     }
     if !path.is_null() {
@@ -250,12 +184,13 @@ unsafe fn sd_is_socket_internal(
     if fstat(fd, &raw mut st_fd) < 0 as ::core::ffi::c_int {
         return -*__errno_location();
     }
-    if !(st_fd.st_mode & __S_IFMT as __mode_t == 0o140000 as __mode_t) {
+    if !(st_fd.st_mode & __S_IFMT as libc::mode_t == 0o140000 as libc::mode_t) {
         return 0 as ::core::ffi::c_int;
     }
     if type_0 != 0 as ::core::ffi::c_int {
         let mut other_type: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-        let mut l: socklen_t = ::core::mem::size_of::<::core::ffi::c_int>() as socklen_t;
+        let mut l: libc::socklen_t =
+            ::core::mem::size_of::<::core::ffi::c_int>() as libc::socklen_t;
         if getsockopt(
             fd,
             SOL_SOCKET,
@@ -275,7 +210,8 @@ unsafe fn sd_is_socket_internal(
     }
     if listening >= 0 as ::core::ffi::c_int {
         let mut accepting: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-        let mut l_0: socklen_t = ::core::mem::size_of::<::core::ffi::c_int>() as socklen_t;
+        let mut l_0: libc::socklen_t =
+            ::core::mem::size_of::<::core::ffi::c_int>() as libc::socklen_t;
         if getsockopt(
             fd,
             SOL_SOCKET,
@@ -317,17 +253,17 @@ pub unsafe fn sd_is_socket(
                 sa_data: [0; 14],
             },
         };
-        let mut l: socklen_t = 0;
+        let mut l: libc::socklen_t = 0;
         memset(
             &raw mut sockaddr as *mut ::core::ffi::c_void,
             0 as ::core::ffi::c_int,
-            ::core::mem::size_of::<sockaddr_union>() as size_t,
+            ::core::mem::size_of::<sockaddr_union>() as usize,
         );
-        l = ::core::mem::size_of::<sockaddr_union>() as socklen_t;
+        l = ::core::mem::size_of::<sockaddr_union>() as libc::socklen_t;
         if getsockname(fd, &raw mut sockaddr.sa, &raw mut l) < 0 as ::core::ffi::c_int {
             return -*__errno_location();
         }
-        if (l as usize) < ::core::mem::size_of::<sa_family_t>() as usize {
+        if (l as usize) < ::core::mem::size_of::<libc::sa_family_t>() as usize {
             return -EINVAL;
         }
         return (sockaddr.sa.sa_family as ::core::ffi::c_int == family) as ::core::ffi::c_int;
@@ -340,7 +276,7 @@ pub unsafe fn sd_is_socket_inet(
     family: ::core::ffi::c_int,
     type_0: ::core::ffi::c_int,
     listening: ::core::ffi::c_int,
-    port: uint16_t,
+    port: u16,
 ) -> ::core::ffi::c_int {
     let mut sockaddr: sockaddr_union = sockaddr_union {
         sa: sockaddr {
@@ -348,7 +284,7 @@ pub unsafe fn sd_is_socket_inet(
             sa_data: [0; 14],
         },
     };
-    let mut l: socklen_t = 0;
+    let mut l: libc::socklen_t = 0;
     let mut r: ::core::ffi::c_int = 0;
     if family != 0 as ::core::ffi::c_int && family != AF_INET && family != AF_INET6 {
         return -EINVAL;
@@ -360,13 +296,13 @@ pub unsafe fn sd_is_socket_inet(
     memset(
         &raw mut sockaddr as *mut ::core::ffi::c_void,
         0 as ::core::ffi::c_int,
-        ::core::mem::size_of::<sockaddr_union>() as size_t,
+        ::core::mem::size_of::<sockaddr_union>() as usize,
     );
-    l = ::core::mem::size_of::<sockaddr_union>() as socklen_t;
+    l = ::core::mem::size_of::<sockaddr_union>() as libc::socklen_t;
     if getsockname(fd, &raw mut sockaddr.sa, &raw mut l) < 0 as ::core::ffi::c_int {
         return -*__errno_location();
     }
-    if (l as usize) < ::core::mem::size_of::<sa_family_t>() as usize {
+    if (l as usize) < ::core::mem::size_of::<libc::sa_family_t>() as usize {
         return -EINVAL;
     }
     if sockaddr.sa.sa_family as ::core::ffi::c_int != AF_INET
@@ -404,7 +340,7 @@ pub unsafe fn sd_is_socket_unix(
     type_0: ::core::ffi::c_int,
     listening: ::core::ffi::c_int,
     path: *const ::core::ffi::c_char,
-    mut length: size_t,
+    mut length: usize,
 ) -> ::core::ffi::c_int {
     let mut sockaddr: sockaddr_union = sockaddr_union {
         sa: sockaddr {
@@ -412,7 +348,7 @@ pub unsafe fn sd_is_socket_unix(
             sa_data: [0; 14],
         },
     };
-    let mut l: socklen_t = 0;
+    let mut l: libc::socklen_t = 0;
     let mut r: ::core::ffi::c_int = 0;
     r = sd_is_socket_internal(fd, type_0, listening);
     if r <= 0 as ::core::ffi::c_int {
@@ -421,35 +357,35 @@ pub unsafe fn sd_is_socket_unix(
     memset(
         &raw mut sockaddr as *mut ::core::ffi::c_void,
         0 as ::core::ffi::c_int,
-        ::core::mem::size_of::<sockaddr_union>() as size_t,
+        ::core::mem::size_of::<sockaddr_union>() as usize,
     );
-    l = ::core::mem::size_of::<sockaddr_union>() as socklen_t;
+    l = ::core::mem::size_of::<sockaddr_union>() as libc::socklen_t;
     if getsockname(fd, &raw mut sockaddr.sa, &raw mut l) < 0 as ::core::ffi::c_int {
         return -*__errno_location();
     }
-    if (l as usize) < ::core::mem::size_of::<sa_family_t>() as usize {
+    if (l as usize) < ::core::mem::size_of::<libc::sa_family_t>() as usize {
         return -EINVAL;
     }
     if sockaddr.sa.sa_family as ::core::ffi::c_int != AF_UNIX {
         return 0 as ::core::ffi::c_int;
     }
     if !path.is_null() {
-        if length <= 0 as size_t {
+        if length <= 0 as usize {
             length = strlen(path);
         }
-        if length <= 0 as size_t {
+        if length <= 0 as usize {
             return (l as ::core::ffi::c_ulong == 2 as ::core::ffi::c_ulong) as ::core::ffi::c_int;
         }
         if *path.offset(0 as ::core::ffi::c_int as isize) != 0 {
-            return (l as size_t >= (2 as size_t).wrapping_add(length).wrapping_add(1 as size_t)
+            return (l as usize >= (2 as usize).wrapping_add(length).wrapping_add(1 as usize)
                 && memcmp(
                     path as *const ::core::ffi::c_void,
                     &raw mut sockaddr.un.sun_path as *mut ::core::ffi::c_char
                         as *const ::core::ffi::c_void,
-                    length.wrapping_add(1 as size_t),
+                    length.wrapping_add(1 as usize),
                 ) == 0 as ::core::ffi::c_int) as ::core::ffi::c_int;
         } else {
-            return (l as size_t == (2 as size_t).wrapping_add(length)
+            return (l as usize == (2 as usize).wrapping_add(length)
                 && memcmp(
                     path as *const ::core::ffi::c_void,
                     &raw mut sockaddr.un.sun_path as *mut ::core::ffi::c_char
@@ -505,7 +441,7 @@ pub unsafe fn sd_notify(
         } else {
             fd = socket(
                 AF_UNIX,
-                SOCK_DGRAM as ::core::ffi::c_int | SOCK_CLOEXEC as ::core::ffi::c_int,
+                libc::SOCK_DGRAM as ::core::ffi::c_int | libc::SOCK_CLOEXEC as ::core::ffi::c_int,
                 0 as ::core::ffi::c_int,
             );
             if fd < 0 as ::core::ffi::c_int {
@@ -514,14 +450,14 @@ pub unsafe fn sd_notify(
                 memset(
                     &raw mut sockaddr as *mut ::core::ffi::c_void,
                     0 as ::core::ffi::c_int,
-                    ::core::mem::size_of::<sockaddr_union>() as size_t,
+                    ::core::mem::size_of::<sockaddr_union>() as usize,
                 );
-                sockaddr.sa.sa_family = AF_UNIX as sa_family_t;
+                sockaddr.sa.sa_family = AF_UNIX as libc::sa_family_t;
                 strncpy(
                     &raw mut sockaddr.un.sun_path as *mut ::core::ffi::c_char,
                     e,
-                    (::core::mem::size_of::<[::core::ffi::c_char; 108]>() as size_t)
-                        .wrapping_sub(1 as size_t),
+                    (::core::mem::size_of::<[::core::ffi::c_char; 108]>() as usize)
+                        .wrapping_sub(1 as usize),
                 );
                 if sockaddr.un.sun_path[0 as ::core::ffi::c_int as usize] as ::core::ffi::c_int
                     == '@' as i32
@@ -532,23 +468,28 @@ pub unsafe fn sd_notify(
                 memset(
                     &raw mut iovec as *mut ::core::ffi::c_void,
                     0 as ::core::ffi::c_int,
-                    ::core::mem::size_of::<iovec>() as size_t,
+                    ::core::mem::size_of::<iovec>() as usize,
                 );
                 iovec.iov_base = state as *mut ::core::ffi::c_char as *mut ::core::ffi::c_void;
                 iovec.iov_len = strlen(state);
                 memset(
                     &raw mut msghdr as *mut ::core::ffi::c_void,
                     0 as ::core::ffi::c_int,
-                    ::core::mem::size_of::<msghdr>() as size_t,
+                    ::core::mem::size_of::<msghdr>() as usize,
                 );
                 msghdr.msg_name = &raw mut sockaddr as *mut ::core::ffi::c_void;
-                msghdr.msg_namelen = (2 as size_t).wrapping_add(strlen(e)) as socklen_t;
+                msghdr.msg_namelen = (2 as usize).wrapping_add(strlen(e)) as libc::socklen_t;
                 if msghdr.msg_namelen as usize > ::core::mem::size_of::<sockaddr_un>() as usize {
-                    msghdr.msg_namelen = ::core::mem::size_of::<sockaddr_un>() as socklen_t;
+                    msghdr.msg_namelen = ::core::mem::size_of::<sockaddr_un>() as libc::socklen_t;
                 }
                 msghdr.msg_iov = &raw mut iovec;
-                msghdr.msg_iovlen = 1 as size_t;
-                if sendmsg(fd, &raw mut msghdr, MSG_NOSIGNAL as ::core::ffi::c_int) < 0 as ssize_t {
+                msghdr.msg_iovlen = 1 as usize;
+                if sendmsg(
+                    fd,
+                    &raw mut msghdr,
+                    libc::MSG_NOSIGNAL as ::core::ffi::c_int,
+                ) < 0 as isize
+                {
                     r = -*__errno_location();
                 } else {
                     r = 1 as ::core::ffi::c_int;

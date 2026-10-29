@@ -1,4 +1,11 @@
 use crate::tree::all_cons;
+use crate::types::BorderStyle;
+use crate::types::Direction;
+use crate::types::FloatingState;
+use crate::types::KillWindow;
+use crate::types::Layout;
+use crate::types::MarkMode;
+use crate::types::Orientation;
 use i3_common::format_placeholders::format_placeholders;
 use i3_common::safewrappers::sasprintf;
 /*
@@ -16,127 +23,52 @@ use i3_common::safewrappers::sasprintf;
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 pub use i3_json::compat::yajl_gen;
 use i3_json::compat::{yajl_gen_free, yajl_gen_get_buf};
-pub type size_t = usize;
-pub type __uint8_t = u8;
-pub type __int16_t = i16;
-pub type __uint16_t = u16;
-pub type __int32_t = i32;
-pub type __uint32_t = u32;
-pub type __time_t = ::core::ffi::c_long;
-pub type __suseconds_t = ::core::ffi::c_long;
-pub type int16_t = __int16_t;
-pub type int32_t = __int32_t;
-pub type uint8_t = __uint8_t;
-pub type uint16_t = __uint16_t;
-pub type uint32_t = __uint32_t;
-pub type time_t = __time_t;
 
 pub type i3String = _i3String;
 
-pub type C2RustUnnamed_1 = ::core::ffi::c_uint;
-pub const FONT_TYPE_PANGO: C2RustUnnamed_1 = 2;
-pub const FONT_TYPE_XCB: C2RustUnnamed_1 = 1;
-pub const FONT_TYPE_NONE: C2RustUnnamed_1 = 0;
 pub type i3Font = Font;
 
 pub use i3_common::format_placeholders::placeholder_t;
 
-pub type C2RustUnnamed_3 = ::core::ffi::c_uint;
-pub const SCRATCHPAD_CHANGED: C2RustUnnamed_3 = 2;
-pub const SCRATCHPAD_FRESH: C2RustUnnamed_3 = 1;
-pub const SCRATCHPAD_NONE: C2RustUnnamed_3 = 0;
-
-pub type C2RustUnnamed_8 = ::core::ffi::c_uint;
-pub const FLOATING_USER_ON: C2RustUnnamed_8 = 3;
-pub const FLOATING_AUTO_ON: C2RustUnnamed_8 = 2;
-pub const FLOATING_USER_OFF: C2RustUnnamed_8 = 1;
-pub const FLOATING_AUTO_OFF: C2RustUnnamed_8 = 0;
-pub type border_style_t = ::core::ffi::c_uint;
-pub const BS_NORMAL: border_style_t = 2;
-pub const BS_PIXEL: border_style_t = 1;
-pub const BS_NONE: border_style_t = 0;
-pub type layout_t = ::core::ffi::c_uint;
-pub const L_SPLITH: layout_t = 6;
-pub const L_SPLITV: layout_t = 5;
-pub const L_OUTPUT: layout_t = 4;
-pub const L_DOCKAREA: layout_t = 3;
-pub const L_TABBED: layout_t = 2;
-pub const L_STACKED: layout_t = 1;
-pub const L_DEFAULT: layout_t = 0;
 pub type fullscreen_mode_t = ::core::ffi::c_uint;
 pub const CF_GLOBAL: fullscreen_mode_t = 2;
 pub const CF_OUTPUT: fullscreen_mode_t = 1;
 pub const CF_NONE: fullscreen_mode_t = 0;
 
-pub type C2RustUnnamed_10 = ::core::ffi::c_uint;
-pub const M_BELOW: C2RustUnnamed_10 = 2;
-pub const M_ASSIGN_WS: C2RustUnnamed_10 = 1;
-pub const M_HERE: C2RustUnnamed_10 = 0;
-pub type C2RustUnnamed_11 = ::core::ffi::c_uint;
-pub const WM_FLOATING: C2RustUnnamed_11 = 6;
-pub const WM_FLOATING_USER: C2RustUnnamed_11 = 5;
-pub const WM_FLOATING_AUTO: C2RustUnnamed_11 = 4;
-pub const WM_TILING: C2RustUnnamed_11 = 3;
-pub const WM_TILING_USER: C2RustUnnamed_11 = 2;
-pub const WM_TILING_AUTO: C2RustUnnamed_11 = 1;
-pub const WM_ANY: C2RustUnnamed_11 = 0;
-pub type C2RustUnnamed_12 = ::core::ffi::c_int;
-pub const M_DOCK_BOTTOM: C2RustUnnamed_12 = 3;
-pub const M_DOCK_TOP: C2RustUnnamed_12 = 2;
-pub const M_DOCK_ANY: C2RustUnnamed_12 = 1;
-pub const M_NODOCK: C2RustUnnamed_12 = 0;
-pub const M_DONTCHECK: C2RustUnnamed_12 = -1;
-pub type C2RustUnnamed_13 = ::core::ffi::c_int;
-pub const U_OLDEST: C2RustUnnamed_13 = 1;
-pub const U_LATEST: C2RustUnnamed_13 = 0;
-pub const U_DONTCHECK: C2RustUnnamed_13 = -1;
+pub const M_BELOW: ::core::ffi::c_uint = 2;
+pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
+pub const M_HERE: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_14 = ::core::ffi::c_uint;
-pub const W_DOCK_BOTTOM: C2RustUnnamed_14 = 2;
-pub const W_DOCK_TOP: C2RustUnnamed_14 = 1;
-pub const W_NODOCK: C2RustUnnamed_14 = 0;
+pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
+pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
+pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
+pub const M_NODOCK: ::core::ffi::c_int = 0;
+pub const M_DONTCHECK: ::core::ffi::c_int = -1;
 
-pub type C2RustUnnamed_17 = ::core::ffi::c_uint;
-pub const A_TO_OUTPUT: C2RustUnnamed_17 = 16;
-pub const A_TO_WORKSPACE_NUMBER: C2RustUnnamed_17 = 8;
-pub const A_NO_FOCUS: C2RustUnnamed_17 = 4;
-pub const A_TO_WORKSPACE: C2RustUnnamed_17 = 2;
-pub const A_COMMAND: C2RustUnnamed_17 = 1;
-pub const A_ANY: C2RustUnnamed_17 = 0;
+pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
+pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
+pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
+pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
+pub const A_COMMAND: ::core::ffi::c_uint = 1;
+pub const A_ANY: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_19 = ::core::ffi::c_uint;
-pub const CT_DOCKAREA: C2RustUnnamed_19 = 5;
-pub const CT_WORKSPACE: C2RustUnnamed_19 = 4;
-pub const CT_FLOATING_CON: C2RustUnnamed_19 = 3;
-pub const CT_CON: C2RustUnnamed_19 = 2;
-pub const CT_OUTPUT: C2RustUnnamed_19 = 1;
-pub const CT_ROOT: C2RustUnnamed_19 = 0;
+pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
+pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
+pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
+pub const CT_CON: ::core::ffi::c_uint = 2;
+pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
+pub const CT_ROOT: ::core::ffi::c_uint = 0;
 
 pub type Output = xoutput;
 pub type i3Window = Window;
-pub type direction_t = ::core::ffi::c_uint;
-pub const D_DOWN: direction_t = 3;
-pub const D_UP: direction_t = 2;
-pub const D_RIGHT: direction_t = 1;
-pub const D_LEFT: direction_t = 0;
-pub type orientation_t = ::core::ffi::c_uint;
-pub const VERT: orientation_t = 2;
-pub const HORIZ: orientation_t = 1;
-pub const NO_ORIENTATION: orientation_t = 0;
-pub type kill_window_t = ::core::ffi::c_uint;
-pub const KILL_CLIENT: kill_window_t = 2;
-pub const KILL_WINDOW: kill_window_t = 1;
-pub const DONT_KILL_WINDOW: kill_window_t = 0;
+
 pub type adjacent_t = ::core::ffi::c_uint;
 pub const ADJ_LOWER_SCREEN_EDGE: adjacent_t = 16;
 pub const ADJ_UPPER_SCREEN_EDGE: adjacent_t = 4;
 pub const ADJ_RIGHT_SCREEN_EDGE: adjacent_t = 2;
 pub const ADJ_LEFT_SCREEN_EDGE: adjacent_t = 1;
 pub const ADJ_NONE: adjacent_t = 0;
-pub type smart_gaps_t = ::core::ffi::c_uint;
-pub const SMART_GAPS_INVERSE_OUTER: smart_gaps_t = 2;
-pub const SMART_GAPS_ON: smart_gaps_t = 1;
-pub const SMART_GAPS_OFF: smart_gaps_t = 0;
+
 pub type hide_edge_borders_mode_t = ::core::ffi::c_uint;
 pub const HEBM_SMART_NO_GAPS: hide_edge_borders_mode_t = 64;
 pub const HEBM_SMART: hide_edge_borders_mode_t = 32;
@@ -144,17 +76,6 @@ pub const HEBM_BOTH: hide_edge_borders_mode_t = 23;
 pub const HEBM_HORIZONTAL: hide_edge_borders_mode_t = 20;
 pub const HEBM_VERTICAL: hide_edge_borders_mode_t = 3;
 pub const HEBM_NONE: hide_edge_borders_mode_t = 0;
-pub type mark_mode_t = ::core::ffi::c_uint;
-pub const MM_ADD: mark_mode_t = 1;
-pub const MM_REPLACE: mark_mode_t = 0;
-pub type warping_t = ::core::ffi::c_uint;
-pub const POINTER_WARPING_NONE: warping_t = 1;
-pub const POINTER_WARPING_OUTPUT: warping_t = 0;
-pub type focus_wrapping_t = ::core::ffi::c_uint;
-pub const FOCUS_WRAPPING_WORKSPACE: focus_wrapping_t = 3;
-pub const FOCUS_WRAPPING_FORCE: focus_wrapping_t = 2;
-pub const FOCUS_WRAPPING_ON: focus_wrapping_t = 1;
-pub const FOCUS_WRAPPING_OFF: focus_wrapping_t = 0;
 
 pub type tiling_drag_t = ::core::ffi::c_uint;
 pub const TILING_DRAG_MODIFIER_OR_TITLEBAR: tiling_drag_t = 3;
@@ -162,22 +83,7 @@ pub const TILING_DRAG_TITLEBAR: tiling_drag_t = 2;
 pub const TILING_DRAG_MODIFIER: tiling_drag_t = 1;
 pub const TILING_DRAG_OFF: tiling_drag_t = 0;
 
-pub type C2RustUnnamed_21 = ::core::ffi::c_uint;
-pub const PDF_ALL: C2RustUnnamed_21 = 3;
-pub const PDF_IGNORE: C2RustUnnamed_21 = 2;
-pub const PDF_LEAVE_FULLSCREEN: C2RustUnnamed_21 = 1;
-pub const PDF_SMART: C2RustUnnamed_21 = 0;
-
-pub type C2RustUnnamed_22 = ::core::ffi::c_uint;
-pub const ALIGN_RIGHT: C2RustUnnamed_22 = 2;
-pub const ALIGN_CENTER: C2RustUnnamed_22 = 1;
-pub const ALIGN_LEFT: C2RustUnnamed_22 = 0;
-pub type C2RustUnnamed_23 = ::core::ffi::c_uint;
-pub const FOWA_NONE: C2RustUnnamed_23 = 3;
-pub const FOWA_FOCUS: C2RustUnnamed_23 = 2;
-pub const FOWA_URGENT: C2RustUnnamed_23 = 1;
-pub const FOWA_SMART: C2RustUnnamed_23 = 0;
-pub type ylength = size_t;
+pub type ylength = usize;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct bfs_entry {
@@ -222,7 +128,7 @@ pub unsafe fn con_force_split_parents_redraw(con: *mut Con) {
 }
 
 pub unsafe fn con_new_skeleton(parent: *mut Con, window: *mut i3Window) -> *mut Con {
-    let new: *mut Con = scalloc(1 as size_t, ::core::mem::size_of::<Con>() as size_t) as *mut Con;
+    let new: *mut Con = scalloc(1 as usize, ::core::mem::size_of::<Con>() as usize) as *mut Con;
     (*new).on_remove_child =
         Some(con_on_remove_child as unsafe fn(*mut Con) -> ()) as Option<unsafe fn(*mut Con) -> ()>;
     (*new).all_cons.tqe_next = ::core::ptr::null_mut::<Con>();
@@ -238,7 +144,7 @@ pub unsafe fn con_new_skeleton(parent: *mut Con, window: *mut i3Window) -> *mut 
     if !window.is_null() {
         (*new).depth = (*window).depth;
     } else {
-        (*new).depth = root_depth as uint16_t;
+        (*new).depth = root_depth as u16;
     }
     debuglog(
         c"%s:%s:%d - opening window\n".as_ptr().cast_mut(),
@@ -433,8 +339,7 @@ unsafe fn _con_attach(con: *mut Con, parent: *mut Con, previous: *mut Con, ignor
         if !(*con).window.is_null()
             && (*parent).type_0 as ::core::ffi::c_uint
                 == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-            && (*parent).workspace_layout as ::core::ffi::c_uint
-                != L_DEFAULT as ::core::ffi::c_int as ::core::ffi::c_uint
+            && (*parent).workspace_layout != Layout::Default
         {
             debuglog(
                 c"%s:%s:%d - Parent is a workspace. Applying default layout...\n"
@@ -604,7 +509,7 @@ pub unsafe fn con_activate_unblock(con: *mut Con) {
     }
 }
 
-pub unsafe fn con_close(con: *mut Con, kill_window: kill_window_t) {
+pub unsafe fn con_close(con: *mut Con, kill_window: KillWindow) {
     if con != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Con {
     } else {
         __assert_fail(
@@ -687,9 +592,11 @@ pub unsafe fn con_is_split(con: *mut Con) -> bool {
     if con_is_leaf(con) {
         return false_0 != 0;
     }
-    match (*con).layout as ::core::ffi::c_uint {
-        3 | 4 => false_0 != 0,
-        _ => true_0 != 0,
+    match (*con).layout {
+        Layout::DockArea | Layout::Output => false_0 != 0,
+        Layout::Default | Layout::Stacked | Layout::Tabbed | Layout::SplitV | Layout::SplitH => {
+            true_0 != 0
+        }
     }
 }
 
@@ -701,10 +608,7 @@ pub unsafe fn con_is_hidden(con: *mut Con) -> bool {
     {
         let parent: *mut Con = (*current).parent as *mut Con;
         if !parent.is_null()
-            && ((*parent).layout as ::core::ffi::c_uint
-                == L_TABBED as ::core::ffi::c_int as ::core::ffi::c_uint
-                || (*parent).layout as ::core::ffi::c_uint
-                    == L_STACKED as ::core::ffi::c_int as ::core::ffi::c_uint)
+            && ((*parent).layout == Layout::Tabbed || (*parent).layout == Layout::Stacked)
         {
             if (*parent).focus_head.tqh_first != current {
                 return true_0 != 0;
@@ -715,21 +619,21 @@ pub unsafe fn con_is_hidden(con: *mut Con) -> bool {
     false_0 != 0
 }
 
-pub unsafe fn con_is_maximized(con: *mut Con, orientation: orientation_t) -> bool {
+pub unsafe fn con_is_maximized(con: *mut Con, orientation: Orientation) -> bool {
     if (*con).fullscreen_mode as ::core::ffi::c_uint
         != CF_NONE as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         return true_0 != 0;
     }
-    let mut layout: layout_t = L_DEFAULT;
-    match orientation as ::core::ffi::c_uint {
-        1 => {
-            layout = L_SPLITH;
+    let mut layout: Layout = Layout::Default;
+    match orientation {
+        Orientation::Horizontal => {
+            layout = Layout::SplitH;
         }
-        2 => {
-            layout = L_SPLITV;
+        Orientation::Vertical => {
+            layout = Layout::SplitV;
         }
-        _ => {
+        Orientation::None => {
             if 0 as ::core::ffi::c_int != 0 {
             } else {
                 __assert_fail(
@@ -750,9 +654,7 @@ pub unsafe fn con_is_maximized(con: *mut Con, orientation: orientation_t) -> boo
         {
             return true_0 != 0;
         }
-        if (*parent).layout as ::core::ffi::c_uint == layout as ::core::ffi::c_uint
-            && con_num_children(parent) > 1 as ::core::ffi::c_int
-        {
+        if (*parent).layout == layout && con_num_children(parent) > 1 as ::core::ffi::c_int {
             return false_0 != 0;
         }
         if (*parent).type_0 as ::core::ffi::c_uint
@@ -831,7 +733,7 @@ pub unsafe fn con_get_workspace(con: *mut Con) -> *mut Con {
     result
 }
 
-pub unsafe fn con_parent_with_orientation(con: *mut Con, orientation: orientation_t) -> *mut Con {
+pub unsafe fn con_parent_with_orientation(con: *mut Con, orientation: Orientation) -> *mut Con {
     debuglog(
         c"%s:%s:%d - Searching for parent of Con %p with orientation %d\n"
             .as_ptr()
@@ -848,7 +750,7 @@ pub unsafe fn con_parent_with_orientation(con: *mut Con, orientation: orientatio
     {
         return ::core::ptr::null_mut::<Con>();
     }
-    while con_orientation(parent) as ::core::ffi::c_uint != orientation as ::core::ffi::c_uint {
+    while con_orientation(parent) != orientation {
         debuglog(
             c"%s:%s:%d - Need to go one level further up\n"
                 .as_ptr()
@@ -896,7 +798,7 @@ pub unsafe fn con_get_fullscreen_con(
         tqh_last: &raw mut bfs_head_0.tqh_first,
     };
     let mut entry: *mut bfs_entry =
-        smalloc(::core::mem::size_of::<bfs_entry>() as size_t) as *mut bfs_entry;
+        smalloc(::core::mem::size_of::<bfs_entry>() as usize) as *mut bfs_entry;
     (*entry).con = con;
     (*entry).entries.tqe_next = ::core::ptr::null_mut::<bfs_entry>();
     (*entry).entries.tqe_prev = bfs_head_0.tqh_last;
@@ -931,7 +833,7 @@ pub unsafe fn con_get_fullscreen_con(
         let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
         child = (*current).nodes_head.tqh_first as *mut Con;
         while !child.is_null() {
-            entry = smalloc(::core::mem::size_of::<bfs_entry>() as size_t) as *mut bfs_entry;
+            entry = smalloc(::core::mem::size_of::<bfs_entry>() as usize) as *mut bfs_entry;
             (*entry).con = child;
             (*entry).entries.tqe_next = ::core::ptr::null_mut::<bfs_entry>();
             (*entry).entries.tqe_prev = bfs_head_0.tqh_last;
@@ -941,7 +843,7 @@ pub unsafe fn con_get_fullscreen_con(
         }
         child = (*current).floating_head.tqh_first as *mut Con;
         while !child.is_null() {
-            entry = smalloc(::core::mem::size_of::<bfs_entry>() as size_t) as *mut bfs_entry;
+            entry = smalloc(::core::mem::size_of::<bfs_entry>() as usize) as *mut bfs_entry;
             (*entry).con = child;
             (*entry).entries.tqe_next = ::core::ptr::null_mut::<bfs_entry>();
             (*entry).entries.tqe_prev = bfs_head_0.tqh_last;
@@ -979,8 +881,7 @@ pub unsafe fn con_is_floating(con: *mut Con) -> bool {
             c"_Bool con_is_floating(Con *)".as_ptr(),
         );
     };
-    (*con).floating as ::core::ffi::c_uint
-        >= FLOATING_AUTO_ON as ::core::ffi::c_int as ::core::ffi::c_uint
+    ((*con).floating).is_floating()
 }
 
 pub unsafe fn con_is_docked(con: *mut Con) -> bool {
@@ -1004,9 +905,7 @@ pub unsafe fn con_inside_floating(con: *mut Con) -> *mut Con {
     {
         return con;
     }
-    if (*con).floating as ::core::ffi::c_uint
-        >= FLOATING_AUTO_ON as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if ((*con).floating).is_floating() {
         return (*con).parent as *mut Con;
     }
     if (*con).type_0 as ::core::ffi::c_uint
@@ -1140,7 +1039,7 @@ pub unsafe fn con_has_mark(con: *mut Con, mark: *const ::core::ffi::c_char) -> b
     false_0 != 0
 }
 
-pub unsafe fn con_mark_toggle(con: *mut Con, mark: *const ::core::ffi::c_char, mode: mark_mode_t) {
+pub unsafe fn con_mark_toggle(con: *mut Con, mark: *const ::core::ffi::c_char, mode: MarkMode) {
     if con != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Con {
     } else {
         __assert_fail(
@@ -1167,7 +1066,7 @@ pub unsafe fn con_mark_toggle(con: *mut Con, mark: *const ::core::ffi::c_char, m
     };
 }
 
-pub unsafe fn con_mark(con: *mut Con, mark: *const ::core::ffi::c_char, mode: mark_mode_t) {
+pub unsafe fn con_mark(con: *mut Con, mark: *const ::core::ffi::c_char, mode: MarkMode) {
     if con != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Con {
     } else {
         __assert_fail(
@@ -1188,7 +1087,7 @@ pub unsafe fn con_mark(con: *mut Con, mark: *const ::core::ffi::c_char, mode: ma
         con,
     );
     con_unmark(::core::ptr::null_mut::<Con>(), mark);
-    if mode as ::core::ffi::c_uint == MM_REPLACE as ::core::ffi::c_int as ::core::ffi::c_uint {
+    if mode == MarkMode::Replace {
         debuglog(
             c"%s:%s:%d - Removing all existing marks on con = %p.\n"
                 .as_ptr()
@@ -1204,7 +1103,7 @@ pub unsafe fn con_mark(con: *mut Con, mark: *const ::core::ffi::c_char, mode: ma
         }
     }
     let new: *mut mark_t =
-        scalloc(1 as size_t, ::core::mem::size_of::<mark_t>() as size_t) as *mut mark_t;
+        scalloc(1 as usize, ::core::mem::size_of::<mark_t>() as usize) as *mut mark_t;
     (*new).name = sstrdup(mark);
     (*new).marks.tqe_next = ::core::ptr::null_mut::<mark_t>();
     (*new).marks.tqe_prev = (*con).marks_head.tqh_last;
@@ -1366,7 +1265,7 @@ unsafe fn num_focus_heads(con: *mut Con) -> ::core::ffi::c_int {
 pub unsafe fn get_focus_order(con: *mut Con) -> *mut *mut Con {
     let focus_heads: ::core::ffi::c_int = num_focus_heads(con) as ::core::ffi::c_int;
     let focus_order: *mut *mut Con =
-        smalloc((focus_heads as size_t).wrapping_mul(::core::mem::size_of::<*mut Con>() as size_t))
+        smalloc((focus_heads as usize).wrapping_mul(::core::mem::size_of::<*mut Con>() as usize))
             as *mut *mut Con;
     let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut idx: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
@@ -2149,35 +2048,22 @@ pub unsafe fn con_move_to_output_name(
     true_0 != 0
 }
 
-pub unsafe fn con_orientation(con: *mut Con) -> orientation_t {
-    let current_block_5: u64;
-    match (*con).layout as ::core::ffi::c_uint {
-        5 | 1 => return VERT,
-        6 | 2 => return HORIZ,
-        0 => {
+pub unsafe fn con_orientation(con: *mut Con) -> Orientation {
+    match (*con).layout {
+        Layout::SplitV | Layout::Stacked => Orientation::Vertical,
+        Layout::SplitH | Layout::Tabbed => Orientation::Horizontal,
+        Layout::Default => {
             errorlog(
                 c"ERROR: Someone called con_orientation() on a con with L_DEFAULT, this is a bug in the code.\n".as_ptr().cast_mut(),
             );
-            if 0 as ::core::ffi::c_int != 0 {
-            } else {
-                __assert_fail(
-                    c"false".as_ptr(),
-                    c"../src/con.c".as_ptr(),
-                    1634 as ::core::ffi::c_uint,
-                    c"orientation_t con_orientation(Con *)".as_ptr(),
-                );
-            };
-            current_block_5 = 10837979787936441410;
+            __assert_fail(
+                c"false".as_ptr(),
+                c"../src/con.c".as_ptr(),
+                1634,
+                c"orientation_t con_orientation(Con *)".as_ptr(),
+            )
         }
-        3 | 4 => {
-            current_block_5 = 10837979787936441410;
-        }
-        _ => {
-            current_block_5 = 2473556513754201174;
-        }
-    }
-    match current_block_5 {
-        10837979787936441410 => {
+        Layout::DockArea | Layout::Output => {
             errorlog(
                 c"ERROR: con_orientation() called on dockarea/output (%d) container %p\n"
                     .as_ptr()
@@ -2185,28 +2071,14 @@ pub unsafe fn con_orientation(con: *mut Con) -> orientation_t {
                 (*con).layout as ::core::ffi::c_uint,
                 con,
             );
-            if 0 as ::core::ffi::c_int != 0 {
-            } else {
-                __assert_fail(
-                    c"false".as_ptr(),
-                    c"../src/con.c".as_ptr(),
-                    1639 as ::core::ffi::c_uint,
-                    c"orientation_t con_orientation(Con *)".as_ptr(),
-                );
-            };
+            __assert_fail(
+                c"false".as_ptr(),
+                c"../src/con.c".as_ptr(),
+                1639,
+                c"orientation_t con_orientation(Con *)".as_ptr(),
+            )
         }
-        _ => {}
     }
-    if 0 as ::core::ffi::c_int != 0 {
-    } else {
-        __assert_fail(
-            c"false".as_ptr(),
-            c"../src/con.c".as_ptr(),
-            1642 as ::core::ffi::c_uint,
-            c"orientation_t con_orientation(Con *)".as_ptr(),
-        );
-    };
-    panic!("Reached end of non-void function without returning");
 }
 
 pub unsafe fn con_next_focused(mut con: *mut Con) -> *mut Con {
@@ -2288,10 +2160,10 @@ pub unsafe fn con_descend_tiling_focused(con: *mut Con) -> *mut Con {
     next
 }
 
-pub unsafe fn con_descend_direction(con: *mut Con, direction: direction_t) -> *mut Con {
+pub unsafe fn con_descend_direction(con: *mut Con, direction: Direction) -> *mut Con {
     let mut most: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
-    let orientation: ::core::ffi::c_int = con_orientation(con) as ::core::ffi::c_int;
+    let orientation: Orientation = con_orientation(con);
     debuglog(
         c"%s:%s:%d - con_descend_direction(%p, orientation %d, direction %d)\n"
             .as_ptr()
@@ -2300,21 +2172,17 @@ pub unsafe fn con_descend_direction(con: *mut Con, direction: direction_t) -> *m
         c"con_descend_direction".as_ptr(),
         1741 as ::core::ffi::c_int,
         con,
-        orientation,
+        (orientation) as u32,
         direction as ::core::ffi::c_uint,
     );
-    if direction as ::core::ffi::c_uint == D_LEFT as ::core::ffi::c_int as ::core::ffi::c_uint
-        || direction as ::core::ffi::c_uint == D_RIGHT as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
-        if orientation == HORIZ as ::core::ffi::c_int {
-            if direction as ::core::ffi::c_uint
-                == D_RIGHT as ::core::ffi::c_int as ::core::ffi::c_uint
-            {
+    if direction == Direction::Left || direction == Direction::Right {
+        if orientation == Orientation::Horizontal {
+            if direction == Direction::Right {
                 most = (*con).nodes_head.tqh_first as *mut Con;
             } else {
                 most = *(*((*con).nodes_head.tqh_last as *mut nodes_head)).tqh_last as *mut Con;
             }
-        } else if orientation == VERT as ::core::ffi::c_int {
+        } else if orientation == Orientation::Vertical {
             current = (*con).focus_head.tqh_first as *mut Con;
             while !current.is_null() {
                 if (*current).type_0 as ::core::ffi::c_uint
@@ -2330,17 +2198,14 @@ pub unsafe fn con_descend_direction(con: *mut Con, direction: direction_t) -> *m
             return con;
         }
     }
-    if direction as ::core::ffi::c_uint == D_UP as ::core::ffi::c_int as ::core::ffi::c_uint
-        || direction as ::core::ffi::c_uint == D_DOWN as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
-        if orientation == VERT as ::core::ffi::c_int {
-            if direction as ::core::ffi::c_uint == D_UP as ::core::ffi::c_int as ::core::ffi::c_uint
-            {
+    if direction == Direction::Up || direction == Direction::Down {
+        if orientation == Orientation::Vertical {
+            if direction == Direction::Up {
                 most = *(*((*con).nodes_head.tqh_last as *mut nodes_head)).tqh_last as *mut Con;
             } else {
                 most = (*con).nodes_head.tqh_first as *mut Con;
             }
-        } else if orientation == HORIZ as ::core::ffi::c_int {
+        } else if orientation == Orientation::Horizontal {
             current = (*con).focus_head.tqh_first as *mut Con;
             while !current.is_null() {
                 if (*current).type_0 as ::core::ffi::c_uint
@@ -2370,12 +2235,10 @@ unsafe fn has_outer_gaps(gaps: gaps_t) -> bool {
 
 pub unsafe fn con_draw_decoration_into_frame(con: *mut Con) -> bool {
     con_is_leaf(con) as ::core::ffi::c_int != 0
-        && con_border_style(con) == BS_NORMAL as ::core::ffi::c_int
+        && con_border_style(con) == BorderStyle::Normal
         && ((*con).parent.is_null()
-            || (*(*con).parent).layout as ::core::ffi::c_uint
-                != L_TABBED as ::core::ffi::c_int as ::core::ffi::c_uint
-                && (*(*con).parent).layout as ::core::ffi::c_uint
-                    != L_STACKED as ::core::ffi::c_int as ::core::ffi::c_uint)
+            || (*(*con).parent).layout != Layout::Tabbed
+                && (*(*con).parent).layout != Layout::Stacked)
 }
 unsafe fn con_border_style_rect_without_title(con: *mut Con) -> Rect {
     if config.hide_edge_borders as ::core::ffi::c_uint
@@ -2388,10 +2251,10 @@ unsafe fn con_border_style_rect_without_title(con: *mut Con) -> Rect {
     {
         if !con_is_floating(con) {
             return Rect {
-                x: 0 as uint32_t,
-                y: 0 as uint32_t,
-                width: 0 as uint32_t,
-                height: 0 as uint32_t,
+                x: 0 as u32,
+                y: 0 as u32,
+                width: 0 as u32,
+                height: 0 as u32,
             };
         }
     }
@@ -2428,28 +2291,28 @@ unsafe fn con_border_style_rect_without_title(con: *mut Con) -> Rect {
         1840 as ::core::ffi::c_int,
         border_width,
     );
-    let border_style: ::core::ffi::c_int = con_border_style(con);
-    if border_style == BS_NONE as ::core::ffi::c_int {
+    let border_style: BorderStyle = con_border_style(con);
+    if border_style == BorderStyle::None {
         return Rect {
-            x: 0 as uint32_t,
-            y: 0 as uint32_t,
-            width: 0 as uint32_t,
-            height: 0 as uint32_t,
+            x: 0 as u32,
+            y: 0 as u32,
+            width: 0 as u32,
+            height: 0 as u32,
         };
     }
-    if border_style == BS_NORMAL as ::core::ffi::c_int {
+    if border_style == BorderStyle::Normal {
         result = Rect {
-            x: border_width as uint32_t,
-            y: 0 as uint32_t,
-            width: -(2 as ::core::ffi::c_int * border_width) as uint32_t,
-            height: -border_width as uint32_t,
+            x: border_width as u32,
+            y: 0 as u32,
+            width: -(2 as ::core::ffi::c_int * border_width) as u32,
+            height: -border_width as u32,
         };
     } else {
         result = Rect {
-            x: border_width as uint32_t,
-            y: border_width as uint32_t,
-            width: -(2 as ::core::ffi::c_int * border_width) as uint32_t,
-            height: -(2 as ::core::ffi::c_int * border_width) as uint32_t,
+            x: border_width as u32,
+            y: border_width as u32,
+            width: -(2 as ::core::ffi::c_int * border_width) as u32,
+            height: -(2 as ::core::ffi::c_int * border_width) as u32,
         };
     }
     if config.hide_edge_borders as ::core::ffi::c_uint
@@ -2467,40 +2330,40 @@ unsafe fn con_border_style_rect_without_title(con: *mut Con) -> Rect {
         & ADJ_LEFT_SCREEN_EDGE as ::core::ffi::c_int as ::core::ffi::c_uint
         != 0
     {
-        result.x = result.x.wrapping_sub(border_width as uint32_t);
-        result.width = result.width.wrapping_add(border_width as uint32_t);
+        result.x = result.x.wrapping_sub(border_width as u32);
+        result.width = result.width.wrapping_add(border_width as u32);
     }
     if borders_to_hide as ::core::ffi::c_uint
         & ADJ_RIGHT_SCREEN_EDGE as ::core::ffi::c_int as ::core::ffi::c_uint
         != 0
     {
-        result.width = result.width.wrapping_add(border_width as uint32_t);
+        result.width = result.width.wrapping_add(border_width as u32);
     }
     if borders_to_hide as ::core::ffi::c_uint
         & ADJ_UPPER_SCREEN_EDGE as ::core::ffi::c_int as ::core::ffi::c_uint
         != 0
-        && border_style != BS_NORMAL as ::core::ffi::c_int
+        && border_style != BorderStyle::Normal
     {
-        result.y = result.y.wrapping_sub(border_width as uint32_t);
-        result.height = result.height.wrapping_add(border_width as uint32_t);
+        result.y = result.y.wrapping_sub(border_width as u32);
+        result.height = result.height.wrapping_add(border_width as u32);
     }
     if borders_to_hide as ::core::ffi::c_uint
         & ADJ_LOWER_SCREEN_EDGE as ::core::ffi::c_int as ::core::ffi::c_uint
         != 0
     {
-        result.height = result.height.wrapping_add(border_width as uint32_t);
+        result.height = result.height.wrapping_add(border_width as u32);
     }
     result
 }
 
 pub unsafe fn con_border_style_rect(con: *mut Con) -> Rect {
     let mut result: Rect = con_border_style_rect_without_title(con);
-    if con_border_style(con) == BS_NORMAL as ::core::ffi::c_int
+    if con_border_style(con) == BorderStyle::Normal
         && con_draw_decoration_into_frame(con) as ::core::ffi::c_int != 0
     {
         let deco_height: ::core::ffi::c_int = render_deco_height() as ::core::ffi::c_int;
-        result.y = result.y.wrapping_add(deco_height as uint32_t);
-        result.height = result.height.wrapping_sub(deco_height as uint32_t);
+        result.y = result.y.wrapping_add(deco_height as u32);
+        result.height = result.height.wrapping_sub(deco_height as u32);
     }
     result
 }
@@ -2542,7 +2405,7 @@ pub unsafe fn con_adjacent_borders(con: *mut Con) -> adjacent_t {
     result
 }
 
-pub unsafe fn con_border_style(con: *mut Con) -> ::core::ffi::c_int {
+pub unsafe fn con_border_style(con: *mut Con) -> BorderStyle {
     if (*con).fullscreen_mode as ::core::ffi::c_uint
         == CF_OUTPUT as ::core::ffi::c_int as ::core::ffi::c_uint
         || (*con).fullscreen_mode as ::core::ffi::c_uint
@@ -2556,41 +2419,35 @@ pub unsafe fn con_border_style(con: *mut Con) -> ::core::ffi::c_int {
             c"con_border_style".as_ptr(),
             1933 as ::core::ffi::c_int,
         );
-        return BS_NONE as ::core::ffi::c_int;
+        return BorderStyle::None;
     }
     if !(*con).parent.is_null() {
-        if (*(*con).parent).layout as ::core::ffi::c_uint
-            == L_STACKED as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
-            return (if con_num_children((*con).parent as *mut Con) == 1 as ::core::ffi::c_int {
-                (*con).border_style as ::core::ffi::c_uint
+        if (*(*con).parent).layout == Layout::Stacked {
+            return if con_num_children((*con).parent as *mut Con) == 1 as ::core::ffi::c_int {
+                (*con).border_style
             } else {
-                BS_NORMAL as ::core::ffi::c_int as ::core::ffi::c_uint
-            }) as ::core::ffi::c_int;
+                BorderStyle::Normal
+            };
         }
-        if (*(*con).parent).layout as ::core::ffi::c_uint
-            == L_TABBED as ::core::ffi::c_int as ::core::ffi::c_uint
-            && (*con).border_style as ::core::ffi::c_uint
-                != BS_NORMAL as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
-            return (if con_num_children((*con).parent as *mut Con) == 1 as ::core::ffi::c_int {
-                (*con).border_style as ::core::ffi::c_uint
+        if (*(*con).parent).layout == Layout::Tabbed && (*con).border_style != BorderStyle::Normal {
+            return if con_num_children((*con).parent as *mut Con) == 1 as ::core::ffi::c_int {
+                (*con).border_style
             } else {
-                BS_NORMAL as ::core::ffi::c_int as ::core::ffi::c_uint
-            }) as ::core::ffi::c_int;
+                BorderStyle::Normal
+            };
         }
         if (*(*con).parent).type_0 as ::core::ffi::c_uint
             == CT_DOCKAREA as ::core::ffi::c_int as ::core::ffi::c_uint
         {
-            return BS_NONE as ::core::ffi::c_int;
+            return BorderStyle::None;
         }
     }
-    (*con).border_style as ::core::ffi::c_int
+    (*con).border_style
 }
 
 pub unsafe fn con_set_border_style(
     con: *mut Con,
-    mut border_style: border_style_t,
+    mut border_style: BorderStyle,
     border_width: ::core::ffi::c_int,
 ) {
     if border_style as ::core::ffi::c_uint > (*con).max_user_border_style as ::core::ffi::c_uint {
@@ -2612,7 +2469,7 @@ pub unsafe fn con_set_border_style(
     (*parent).rect = rect_sub((*parent).rect as Rect, bsr) as Rect;
 }
 
-pub unsafe fn con_set_layout(mut con: *mut Con, layout: layout_t) {
+pub unsafe fn con_set_layout(mut con: *mut Con, layout: Layout) {
     debuglog(
         c"%s:%s:%d - con_set_layout(%p, %d), con->type = %d\n"
             .as_ptr()
@@ -2629,25 +2486,18 @@ pub unsafe fn con_set_layout(mut con: *mut Con, layout: layout_t) {
     {
         con = (*con).parent as *mut Con;
     }
-    if (*con).layout as ::core::ffi::c_uint == L_SPLITH as ::core::ffi::c_int as ::core::ffi::c_uint
-        || (*con).layout as ::core::ffi::c_uint
-            == L_SPLITV as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if (*con).layout == Layout::SplitH || (*con).layout == Layout::SplitV {
         (*con).last_split_layout = (*con).layout;
     }
     if (*con).type_0 as ::core::ffi::c_uint
         == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         if con_num_children(con) == 0 as ::core::ffi::c_int {
-            let ws_layout: layout_t = (if layout as ::core::ffi::c_uint
-                == L_STACKED as ::core::ffi::c_int as ::core::ffi::c_uint
-                || layout as ::core::ffi::c_uint
-                    == L_TABBED as ::core::ffi::c_int as ::core::ffi::c_uint
-            {
-                layout as ::core::ffi::c_uint
+            let ws_layout: Layout = if layout == Layout::Stacked || layout == Layout::Tabbed {
+                layout
             } else {
-                L_DEFAULT as ::core::ffi::c_int as ::core::ffi::c_uint
-            }) as layout_t;
+                Layout::Default
+            };
             debuglog(
                 c"%s:%s:%d - Setting workspace_layout to %d\n"
                     .as_ptr()
@@ -2666,14 +2516,10 @@ pub unsafe fn con_set_layout(mut con: *mut Con, layout: layout_t) {
                 layout as ::core::ffi::c_uint,
             );
             (*con).layout = layout;
-        } else if layout as ::core::ffi::c_uint
-            == L_STACKED as ::core::ffi::c_int as ::core::ffi::c_uint
-            || layout as ::core::ffi::c_uint
-                == L_TABBED as ::core::ffi::c_int as ::core::ffi::c_uint
-            || layout as ::core::ffi::c_uint
-                == L_SPLITV as ::core::ffi::c_int as ::core::ffi::c_uint
-            || layout as ::core::ffi::c_uint
-                == L_SPLITH as ::core::ffi::c_int as ::core::ffi::c_uint
+        } else if layout == Layout::Stacked
+            || layout == Layout::Tabbed
+            || layout == Layout::SplitV
+            || layout == Layout::SplitH
         {
             debuglog(
                 c"%s:%s:%d - Creating new split container\n"
@@ -2730,15 +2576,13 @@ pub unsafe fn con_set_layout(mut con: *mut Con, layout: layout_t) {
         con_detach(child_0);
         con_attach(child_0, parent, true_0 != 0);
         (*parent).last_split_layout = (*con).last_split_layout;
-        tree_close_internal(con, DONT_KILL_WINDOW, true_0 != 0);
+        tree_close_internal(con, KillWindow::DontKill, true_0 != 0);
         con = parent;
     }
-    if layout as ::core::ffi::c_uint == L_DEFAULT as ::core::ffi::c_int as ::core::ffi::c_uint {
+    if layout == Layout::Default {
         (*con).layout = (*con).last_split_layout;
-        if (*con).layout as ::core::ffi::c_uint
-            == L_DEFAULT as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
-            (*con).layout = L_SPLITH;
+        if (*con).layout == Layout::Default {
+            (*con).layout = Layout::SplitH;
         }
     } else {
         (*con).layout = layout;
@@ -2769,42 +2613,31 @@ pub unsafe fn con_toggle_layout(con: *mut Con, toggle_mode: *const ::core::ffi::
     if strcasecmp(toggle_mode, c"split".as_ptr()) == 0 as ::core::ffi::c_int
         || !strstr(toggle_mode, &raw const delim as *const ::core::ffi::c_char).is_null()
     {
-        let mut new_layout: layout_t = L_DEFAULT;
+        let mut new_layout: Layout = Layout::Default;
         let mut current_layout_found: bool = false_0 != 0;
         let tm_dup: *mut ::core::ffi::c_char = sstrdup(toggle_mode);
         let mut cur_tok: *mut ::core::ffi::c_char =
             strtok(tm_dup, &raw const delim as *const ::core::ffi::c_char);
         let mut current_block_20: u64;
-        let mut layout: layout_t = L_DEFAULT;
+        let mut layout: Layout = Layout::Default;
         while !cur_tok.is_null() {
             if strcasecmp(cur_tok, c"split".as_ptr()) == 0 as ::core::ffi::c_int {
-                if (*parent).layout as ::core::ffi::c_uint
-                    != L_SPLITH as ::core::ffi::c_int as ::core::ffi::c_uint
-                    && (*parent).layout as ::core::ffi::c_uint
-                        != L_SPLITV as ::core::ffi::c_int as ::core::ffi::c_uint
-                {
+                if (*parent).layout != Layout::SplitH && (*parent).layout != Layout::SplitV {
                     layout = (*parent).last_split_layout;
-                    if layout as ::core::ffi::c_uint
-                        == L_DEFAULT as ::core::ffi::c_int as ::core::ffi::c_uint
-                    {
-                        layout = L_SPLITH;
+                    if layout == Layout::Default {
+                        layout = Layout::SplitH;
                     }
                 } else {
-                    layout = (if (*parent).layout as ::core::ffi::c_uint
-                        == L_SPLITH as ::core::ffi::c_int as ::core::ffi::c_uint
-                    {
-                        L_SPLITV as ::core::ffi::c_int
+                    layout = if (*parent).layout == Layout::SplitH {
+                        Layout::SplitV
                     } else {
-                        L_SPLITH as ::core::ffi::c_int
-                    }) as layout_t;
+                        Layout::SplitH
+                    };
                 }
                 current_block_20 = 6057473163062296781;
             } else {
                 let success: bool = layout_from_name(cur_tok, &raw mut layout);
-                if !success
-                    || layout as ::core::ffi::c_uint
-                        == L_DEFAULT as ::core::ffi::c_int as ::core::ffi::c_uint
-                {
+                if !success || layout == Layout::Default {
                     errorlog(
                         c"ERROR: The token '%s' was not recognized and has been skipped.\n"
                             .as_ptr()
@@ -2818,17 +2651,13 @@ pub unsafe fn con_toggle_layout(con: *mut Con, toggle_mode: *const ::core::ffi::
             }
             match current_block_20 {
                 6057473163062296781 => {
-                    if new_layout as ::core::ffi::c_uint
-                        == L_DEFAULT as ::core::ffi::c_int as ::core::ffi::c_uint
-                    {
+                    if new_layout == Layout::Default {
                         new_layout = layout;
                     }
                     if current_layout_found {
                         new_layout = layout;
                         break;
-                    } else if (*parent).layout as ::core::ffi::c_uint
-                        == layout as ::core::ffi::c_uint
-                    {
+                    } else if (*parent).layout == layout {
                         current_layout_found = true_0 != 0;
                     }
                 }
@@ -2840,41 +2669,29 @@ pub unsafe fn con_toggle_layout(con: *mut Con, toggle_mode: *const ::core::ffi::
             );
         }
         free(tm_dup as *mut ::core::ffi::c_void);
-        if new_layout as ::core::ffi::c_uint
-            != L_DEFAULT as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
+        if new_layout != Layout::Default {
             con_set_layout(con, new_layout);
         }
     } else if strcasecmp(toggle_mode, c"all".as_ptr()) == 0 as ::core::ffi::c_int
         || strcasecmp(toggle_mode, c"default".as_ptr()) == 0 as ::core::ffi::c_int
     {
-        if (*parent).layout as ::core::ffi::c_uint
-            == L_STACKED as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
-            con_set_layout(con, L_TABBED);
-        } else if (*parent).layout as ::core::ffi::c_uint
-            == L_TABBED as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
+        if (*parent).layout == Layout::Stacked {
+            con_set_layout(con, Layout::Tabbed);
+        } else if (*parent).layout == Layout::Tabbed {
             if strcasecmp(toggle_mode, c"all".as_ptr()) == 0 as ::core::ffi::c_int {
-                con_set_layout(con, L_SPLITH);
+                con_set_layout(con, Layout::SplitH);
             } else {
                 con_set_layout(con, (*parent).last_split_layout);
             }
-        } else if (*parent).layout as ::core::ffi::c_uint
-            == L_SPLITH as ::core::ffi::c_int as ::core::ffi::c_uint
-            || (*parent).layout as ::core::ffi::c_uint
-                == L_SPLITV as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
+        } else if (*parent).layout == Layout::SplitH || (*parent).layout == Layout::SplitV {
             if strcasecmp(toggle_mode, c"all".as_ptr()) == 0 as ::core::ffi::c_int {
-                if (*parent).layout as ::core::ffi::c_uint
-                    == L_SPLITH as ::core::ffi::c_int as ::core::ffi::c_uint
-                {
-                    con_set_layout(con, L_SPLITV);
+                if (*parent).layout == Layout::SplitH {
+                    con_set_layout(con, Layout::SplitV);
                 } else {
-                    con_set_layout(con, L_STACKED);
+                    con_set_layout(con, Layout::Stacked);
                 }
             } else {
-                con_set_layout(con, L_STACKED);
+                con_set_layout(con, Layout::Stacked);
             }
         }
     }
@@ -2921,14 +2738,14 @@ unsafe fn con_on_remove_child(con: *mut Con) {
             );
             let gen: yajl_gen =
                 ipc_marshal_workspace_event(c"empty".as_ptr(), con, ::core::ptr::null_mut::<Con>());
-            tree_close_internal(con, DONT_KILL_WINDOW, false_0 != 0);
+            tree_close_internal(con, KillWindow::DontKill, false_0 != 0);
             let mut payload: *const ::core::ffi::c_uchar =
                 ::core::ptr::null::<::core::ffi::c_uchar>();
             let mut length: ylength = 0;
             yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
             ipc_send_event(
                 c"workspace".as_ptr(),
-                I3_IPC_EVENT_WORKSPACE as uint32_t,
+                I3_IPC_EVENT_WORKSPACE as u32,
                 payload as *const ::core::ffi::c_char,
             );
             yajl_gen_free(gen);
@@ -2946,7 +2763,7 @@ unsafe fn con_on_remove_child(con: *mut Con) {
             c"con_on_remove_child".as_ptr(),
             2243 as ::core::ffi::c_int,
         );
-        tree_close_internal(con, DONT_KILL_WINDOW, false_0 != 0);
+        tree_close_internal(con, KillWindow::DontKill, false_0 != 0);
     }
 }
 
@@ -2970,10 +2787,10 @@ pub unsafe fn con_minimum_size(con: *mut Con) -> Rect {
             2257 as ::core::ffi::c_int,
         );
         return Rect {
-            x: 0 as uint32_t,
-            y: 0 as uint32_t,
-            width: 75 as uint32_t,
-            height: 50 as uint32_t,
+            x: 0 as u32,
+            y: 0 as u32,
+            width: 75 as u32,
+            height: 50 as u32,
         };
     }
     if (*con).type_0 as ::core::ffi::c_uint
@@ -2988,14 +2805,10 @@ pub unsafe fn con_minimum_size(con: *mut Con) -> Rect {
         let child: *mut Con = (*con).nodes_head.tqh_first as *mut Con;
         return con_minimum_size(child);
     }
-    if (*con).layout as ::core::ffi::c_uint
-        == L_STACKED as ::core::ffi::c_int as ::core::ffi::c_uint
-        || (*con).layout as ::core::ffi::c_uint
-            == L_TABBED as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
-        let mut max_width: uint32_t = 0 as uint32_t;
-        let mut max_height: uint32_t = 0 as uint32_t;
-        let mut deco_height: uint32_t = 0 as uint32_t;
+    if (*con).layout == Layout::Stacked || (*con).layout == Layout::Tabbed {
+        let mut max_width: u32 = 0 as u32;
+        let mut max_height: u32 = 0 as u32;
+        let mut deco_height: u32 = 0 as u32;
         let mut child_0: *mut Con = ::core::ptr::null_mut::<Con>();
         child_0 = (*con).nodes_head.tqh_first as *mut Con;
         while !child_0.is_null() {
@@ -3004,11 +2817,11 @@ pub unsafe fn con_minimum_size(con: *mut Con) -> Rect {
             max_width = max(
                 max_width as ::core::ffi::c_int,
                 min.width as ::core::ffi::c_int,
-            ) as uint32_t;
+            ) as u32;
             max_height = max(
                 max_height as ::core::ffi::c_int,
                 min.height as ::core::ffi::c_int,
-            ) as uint32_t;
+            ) as u32;
             child_0 = (*child_0).nodes.tqe_next as *mut Con;
         }
         debuglog(
@@ -3023,33 +2836,31 @@ pub unsafe fn con_minimum_size(con: *mut Con) -> Rect {
             deco_height,
         );
         return Rect {
-            x: 0 as uint32_t,
-            y: 0 as uint32_t,
+            x: 0 as u32,
+            y: 0 as u32,
             width: max_width,
             height: max_height.wrapping_add(deco_height),
         };
     }
     if con_is_split(con) {
-        let mut width: uint32_t = 0 as uint32_t;
-        let mut height: uint32_t = 0 as uint32_t;
+        let mut width: u32 = 0 as u32;
+        let mut height: u32 = 0 as u32;
         let mut child_1: *mut Con = ::core::ptr::null_mut::<Con>();
         child_1 = (*con).nodes_head.tqh_first as *mut Con;
         while !child_1.is_null() {
             let min_0: Rect = con_minimum_size(child_1);
-            if (*con).layout as ::core::ffi::c_uint
-                == L_SPLITH as ::core::ffi::c_int as ::core::ffi::c_uint
-            {
+            if (*con).layout == Layout::SplitH {
                 width = width.wrapping_add(min_0.width);
                 height = max(
                     height as ::core::ffi::c_int,
                     min_0.height as ::core::ffi::c_int,
-                ) as uint32_t;
+                ) as u32;
             } else {
                 height = height.wrapping_add(min_0.height);
                 width = max(
                     width as ::core::ffi::c_int,
                     min_0.width as ::core::ffi::c_int,
-                ) as uint32_t;
+                ) as u32;
             }
             child_1 = (*child_1).nodes.tqe_next as *mut Con;
         }
@@ -3064,8 +2875,8 @@ pub unsafe fn con_minimum_size(con: *mut Con) -> Rect {
             height,
         );
         return Rect {
-            x: 0 as uint32_t,
-            y: 0 as uint32_t,
+            x: 0 as u32,
+            y: 0 as u32,
             width,
             height,
         };
@@ -3205,8 +3016,8 @@ pub unsafe fn con_set_urgency(con: *mut Con, urgent: bool) {
         if (*con).urgent {
             gettimeofday(&raw mut (*(*con).window).urgent, ::core::ptr::null_mut());
         } else {
-            (*(*con).window).urgent.tv_sec = 0 as __time_t;
-            (*(*con).window).urgent.tv_usec = 0 as __suseconds_t;
+            (*(*con).window).urgent.tv_sec = 0 as libc::time_t;
+            (*(*con).window).urgent.tv_usec = 0 as libc::suseconds_t;
         }
     }
     con_update_parents_urgency(con);
@@ -3235,25 +3046,15 @@ pub unsafe fn con_get_tree_representation(con: *mut Con) -> *mut ::core::ffi::c_
         return sstrdup((*(*con).window).class_instance);
     }
     let mut buf: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    if (*con).layout as ::core::ffi::c_uint
-        == L_DEFAULT as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if (*con).layout == Layout::Default {
         buf = sstrdup(c"D[".as_ptr());
-    } else if (*con).layout as ::core::ffi::c_uint
-        == L_SPLITV as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    } else if (*con).layout == Layout::SplitV {
         buf = sstrdup(c"V[".as_ptr());
-    } else if (*con).layout as ::core::ffi::c_uint
-        == L_SPLITH as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    } else if (*con).layout == Layout::SplitH {
         buf = sstrdup(c"H[".as_ptr());
-    } else if (*con).layout as ::core::ffi::c_uint
-        == L_TABBED as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    } else if (*con).layout == Layout::Tabbed {
         buf = sstrdup(c"T[".as_ptr());
-    } else if (*con).layout as ::core::ffi::c_uint
-        == L_STACKED as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    } else if (*con).layout == Layout::Stacked {
         buf = sstrdup(c"S[".as_ptr());
     } else {
         errorlog(
@@ -3361,8 +3162,8 @@ pub unsafe fn con_parse_title_format(con: *mut Con) -> *mut i3String {
             value: machine,
         },
     ];
-    let num: size_t = (::core::mem::size_of::<[placeholder_t; 4]>() as size_t)
-        .wrapping_div(::core::mem::size_of::<placeholder_t>() as size_t);
+    let num: usize = (::core::mem::size_of::<[placeholder_t; 4]>() as usize)
+        .wrapping_div(::core::mem::size_of::<placeholder_t>() as usize);
     let formatted_str: *mut ::core::ffi::c_char = format_placeholders(
         (*con).title_format,
         (&raw mut placeholders as *mut placeholder_t).offset(0 as ::core::ffi::c_int as isize)
@@ -3626,9 +3427,9 @@ pub unsafe fn con_swap(first: *mut Con, second: *mut Con) -> bool {
     let tmp_SWAP: *mut Con = (*first).parent as *mut Con;
     (*first).parent = (*second).parent;
     (*second).parent = tmp_SWAP as *mut Con;
-    let tmp_SWAP_0: ::core::ffi::c_int = (*first).floating as ::core::ffi::c_int;
+    let tmp_SWAP_0: FloatingState = (*first).floating;
     (*first).floating = (*second).floating;
-    (*second).floating = tmp_SWAP_0 as C2RustUnnamed_8;
+    (*second).floating = tmp_SWAP_0;
     let tmp_SWAP_1: Rect = (*first).rect as Rect;
     (*first).rect = (*second).rect;
     (*second).rect = tmp_SWAP_1 as Rect;
@@ -3669,10 +3470,8 @@ pub unsafe fn con_swap(first: *mut Con, second: *mut Con) -> bool {
     true_0 != 0
 }
 
-pub unsafe fn con_rect_size_in_orientation(con: *mut Con) -> uint32_t {
-    if con_orientation(con) as ::core::ffi::c_uint
-        == HORIZ as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+pub unsafe fn con_rect_size_in_orientation(con: *mut Con) -> u32 {
+    if con_orientation(con) == Orientation::Horizontal {
         (*con).rect.width
     } else {
         (*con).rect.height
@@ -3709,18 +3508,14 @@ pub unsafe fn con_merge_into(old: *mut Con, new: *mut Con) {
     (*new).mark_changed = !(*old).marks_head.tqh_first.is_null();
     (*old).marks_head.tqh_first = ::core::ptr::null_mut::<mark_t>();
     (*old).marks_head.tqh_last = &raw mut (*old).marks_head.tqh_first;
-    tree_close_internal(old, DONT_KILL_WINDOW, false_0 != 0);
+    tree_close_internal(old, KillWindow::DontKill, false_0 != 0);
 }
 
 pub unsafe fn con_inside_stacked_or_tabbed(con: *mut Con) -> bool {
     if (*con).parent.is_null() {
         return false_0 != 0;
     }
-    if (*(*con).parent).layout as ::core::ffi::c_uint
-        == L_STACKED as ::core::ffi::c_int as ::core::ffi::c_uint
-        || (*(*con).parent).layout as ::core::ffi::c_uint
-            == L_TABBED as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if (*(*con).parent).layout == Layout::Stacked || (*(*con).parent).layout == Layout::Tabbed {
         return true_0 != 0;
     }
     con_inside_stacked_or_tabbed((*con).parent as *mut Con)

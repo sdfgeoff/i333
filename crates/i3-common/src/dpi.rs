@@ -13,12 +13,6 @@ extern "C" {
     fn lround(__x: ::core::ffi::c_double) -> ::core::ffi::c_long;
 
 }
-pub type __uint8_t = u8;
-pub type __uint16_t = u16;
-pub type __uint32_t = u32;
-pub type uint8_t = __uint8_t;
-pub type uint16_t = __uint16_t;
-pub type uint32_t = __uint32_t;
 
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 static mut dpi: ::core::ffi::c_long = 0;

@@ -2,13 +2,13 @@
 // Copyright © 2009 Michael Stapelberg and contributors (see LICENSE).
 // Direct translation of libi3/strndup.c; Legacy allocation ownership is preserved.
 
-use libc::{c_char, c_void, size_t};
+use libc::c_char;
 
 // Compile this fallback only on targets where HAVE_STRNDUP is false, as in C.
 /// # Safety
 /// `string` must be readable through its first NUL or `n` bytes.
 
-pub unsafe  fn strndup(string: *const c_char, n: size_t) -> *mut c_char {
+pub unsafe fn strndup(string: *const c_char, n: usize) -> *mut c_char {
     // SAFETY: The allocation covers the copied prefix and trailing NUL. Ownership
     // is transferred to the caller and remains compatible with libc::free.
     unsafe {

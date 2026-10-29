@@ -1,4 +1,8 @@
 use crate::tree::all_cons;
+use crate::types::FloatingState;
+use crate::types::UrgencyMatch;
+use crate::types::WindowDock;
+use crate::types::WindowMode;
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -14,90 +18,37 @@ use crate::tree::all_cons;
  */
 // Mechanical file-by-file Rust translation of src/match.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
-pub type size_t = usize;
-pub type __uint8_t = u8;
-pub type __uint16_t = u16;
-pub type __uint32_t = u32;
-pub type __time_t = ::core::ffi::c_long;
-pub type __suseconds_t = ::core::ffi::c_long;
-pub type time_t = __time_t;
-
-pub type uint8_t = __uint8_t;
-pub type uint16_t = __uint16_t;
-pub type uint32_t = __uint32_t;
 
 pub type i3String = _i3String;
 
-pub type C2RustUnnamed = ::core::ffi::c_uint;
-pub const SCRATCHPAD_CHANGED: C2RustUnnamed = 2;
-pub const SCRATCHPAD_FRESH: C2RustUnnamed = 1;
-pub const SCRATCHPAD_NONE: C2RustUnnamed = 0;
-
-pub type C2RustUnnamed_4 = ::core::ffi::c_uint;
-pub const FLOATING_USER_ON: C2RustUnnamed_4 = 3;
-pub const FLOATING_AUTO_ON: C2RustUnnamed_4 = 2;
-pub const FLOATING_USER_OFF: C2RustUnnamed_4 = 1;
-pub const FLOATING_AUTO_OFF: C2RustUnnamed_4 = 0;
-pub type border_style_t = ::core::ffi::c_uint;
-pub const BS_NORMAL: border_style_t = 2;
-pub const BS_PIXEL: border_style_t = 1;
-pub const BS_NONE: border_style_t = 0;
-pub type layout_t = ::core::ffi::c_uint;
-pub const L_SPLITH: layout_t = 6;
-pub const L_SPLITV: layout_t = 5;
-pub const L_OUTPUT: layout_t = 4;
-pub const L_DOCKAREA: layout_t = 3;
-pub const L_TABBED: layout_t = 2;
-pub const L_STACKED: layout_t = 1;
-pub const L_DEFAULT: layout_t = 0;
 pub type fullscreen_mode_t = ::core::ffi::c_uint;
 pub const CF_GLOBAL: fullscreen_mode_t = 2;
 pub const CF_OUTPUT: fullscreen_mode_t = 1;
 pub const CF_NONE: fullscreen_mode_t = 0;
 
-pub type C2RustUnnamed_6 = ::core::ffi::c_uint;
-pub const M_BELOW: C2RustUnnamed_6 = 2;
-pub const M_ASSIGN_WS: C2RustUnnamed_6 = 1;
-pub const M_HERE: C2RustUnnamed_6 = 0;
-pub type C2RustUnnamed_7 = ::core::ffi::c_uint;
-pub const WM_FLOATING: C2RustUnnamed_7 = 6;
-pub const WM_FLOATING_USER: C2RustUnnamed_7 = 5;
-pub const WM_FLOATING_AUTO: C2RustUnnamed_7 = 4;
-pub const WM_TILING: C2RustUnnamed_7 = 3;
-pub const WM_TILING_USER: C2RustUnnamed_7 = 2;
-pub const WM_TILING_AUTO: C2RustUnnamed_7 = 1;
-pub const WM_ANY: C2RustUnnamed_7 = 0;
-pub type C2RustUnnamed_8 = ::core::ffi::c_int;
-pub const M_DOCK_BOTTOM: C2RustUnnamed_8 = 3;
-pub const M_DOCK_TOP: C2RustUnnamed_8 = 2;
-pub const M_DOCK_ANY: C2RustUnnamed_8 = 1;
-pub const M_NODOCK: C2RustUnnamed_8 = 0;
-pub const M_DONTCHECK: C2RustUnnamed_8 = -1;
-pub type C2RustUnnamed_9 = ::core::ffi::c_int;
-pub const U_OLDEST: C2RustUnnamed_9 = 1;
-pub const U_LATEST: C2RustUnnamed_9 = 0;
-pub const U_DONTCHECK: C2RustUnnamed_9 = -1;
+pub const M_BELOW: ::core::ffi::c_uint = 2;
+pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
+pub const M_HERE: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_10 = ::core::ffi::c_uint;
-pub const W_DOCK_BOTTOM: C2RustUnnamed_10 = 2;
-pub const W_DOCK_TOP: C2RustUnnamed_10 = 1;
-pub const W_NODOCK: C2RustUnnamed_10 = 0;
+pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
+pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
+pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
+pub const M_NODOCK: ::core::ffi::c_int = 0;
+pub const M_DONTCHECK: ::core::ffi::c_int = -1;
 
-pub type C2RustUnnamed_13 = ::core::ffi::c_uint;
-pub const A_TO_OUTPUT: C2RustUnnamed_13 = 16;
-pub const A_TO_WORKSPACE_NUMBER: C2RustUnnamed_13 = 8;
-pub const A_NO_FOCUS: C2RustUnnamed_13 = 4;
-pub const A_TO_WORKSPACE: C2RustUnnamed_13 = 2;
-pub const A_COMMAND: C2RustUnnamed_13 = 1;
-pub const A_ANY: C2RustUnnamed_13 = 0;
+pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
+pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
+pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
+pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
+pub const A_COMMAND: ::core::ffi::c_uint = 1;
+pub const A_ANY: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_15 = ::core::ffi::c_uint;
-pub const CT_DOCKAREA: C2RustUnnamed_15 = 5;
-pub const CT_WORKSPACE: C2RustUnnamed_15 = 4;
-pub const CT_FLOATING_CON: C2RustUnnamed_15 = 3;
-pub const CT_CON: C2RustUnnamed_15 = 2;
-pub const CT_OUTPUT: C2RustUnnamed_15 = 1;
-pub const CT_ROOT: C2RustUnnamed_15 = 0;
+pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
+pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
+pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
+pub const CT_CON: ::core::ffi::c_uint = 2;
+pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
+pub const CT_ROOT: ::core::ffi::c_uint = 0;
 pub type i3Window = Window;
 pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
@@ -109,10 +60,10 @@ pub unsafe fn match_init(match_0: *mut Match) {
     memset(
         match_0 as *mut ::core::ffi::c_void,
         0 as ::core::ffi::c_int,
-        ::core::mem::size_of::<Match>() as size_t,
+        ::core::mem::size_of::<Match>() as usize,
     );
-    (*match_0).urgent = U_DONTCHECK;
-    (*match_0).window_mode = WM_ANY;
+    (*match_0).urgent = UrgencyMatch::DontCheck;
+    (*match_0).window_mode = WindowMode::Any;
     (*match_0).window_type = UINT32_MAX as xcb_atom_t;
 }
 
@@ -125,13 +76,12 @@ pub unsafe fn match_is_empty(match_0: *mut Match) -> bool {
         && (*match_0).window_role.is_null()
         && (*match_0).workspace.is_null()
         && (*match_0).machine.is_null()
-        && (*match_0).urgent as ::core::ffi::c_int == U_DONTCHECK as ::core::ffi::c_int
+        && (*match_0).urgent == UrgencyMatch::DontCheck
         && (*match_0).id as ::core::ffi::c_long == XCB_NONE
         && (*match_0).window_type == UINT32_MAX as xcb_atom_t
         && (*match_0).con_id.is_null()
         && (*match_0).dock as ::core::ffi::c_int == M_NODOCK as ::core::ffi::c_int
-        && (*match_0).window_mode as ::core::ffi::c_uint
-            == WM_ANY as ::core::ffi::c_int as ::core::ffi::c_uint
+        && (*match_0).window_mode == WindowMode::Any
         && (*match_0).match_all_windows as ::core::ffi::c_int == false_0
 }
 
@@ -139,7 +89,7 @@ pub unsafe fn match_copy(dest: *mut Match, src: *mut Match) {
     memcpy(
         dest as *mut ::core::ffi::c_void,
         src as *const ::core::ffi::c_void,
-        ::core::mem::size_of::<Match>() as size_t,
+        ::core::mem::size_of::<Match>() as usize,
     );
     if !(*src).title.is_null() {
         (*dest).title = regex_new((*(*src).title).pattern);
@@ -323,8 +273,8 @@ pub unsafe fn match_matches_window(match_0: *mut Match, window: *mut i3Window) -
         }
     }
     let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
-    if (*match_0).urgent as ::core::ffi::c_int == U_LATEST as ::core::ffi::c_int {
-        if (*window).urgent.tv_sec == 0 as __time_t {
+    if (*match_0).urgent == UrgencyMatch::Latest {
+        if (*window).urgent.tv_sec == 0 as libc::time_t {
             return false_0 != 0;
         }
         con = all_cons.tqh_first as *mut Con;
@@ -343,14 +293,14 @@ pub unsafe fn match_matches_window(match_0: *mut Match, window: *mut i3Window) -
         }
         verboselog(c"urgent matches latest\n".as_ptr().cast_mut());
     }
-    if (*match_0).urgent as ::core::ffi::c_int == U_OLDEST as ::core::ffi::c_int {
-        if (*window).urgent.tv_sec == 0 as __time_t {
+    if (*match_0).urgent == UrgencyMatch::Oldest {
+        if (*window).urgent.tv_sec == 0 as libc::time_t {
             return false_0 != 0;
         }
         con = all_cons.tqh_first as *mut Con;
         while !con.is_null() {
             if !(*con).window.is_null()
-                && (*(*con).window).urgent.tv_sec != 0 as __time_t
+                && (*(*con).window).urgent.tv_sec != 0 as libc::time_t
                 && (if (*(*con).window).urgent.tv_sec == (*window).urgent.tv_sec {
                     ((*(*con).window).urgent.tv_usec < (*window).urgent.tv_usec)
                         as ::core::ffi::c_int
@@ -385,19 +335,13 @@ pub unsafe fn match_matches_window(match_0: *mut Match, window: *mut i3Window) -
         }
     }
     if (*match_0).dock as ::core::ffi::c_int != M_DONTCHECK as ::core::ffi::c_int {
-        if (*window).dock as ::core::ffi::c_uint
-            == W_DOCK_TOP as ::core::ffi::c_int as ::core::ffi::c_uint
+        if (*window).dock == WindowDock::Top
             && (*match_0).dock as ::core::ffi::c_int == M_DOCK_TOP as ::core::ffi::c_int
-            || (*window).dock as ::core::ffi::c_uint
-                == W_DOCK_BOTTOM as ::core::ffi::c_int as ::core::ffi::c_uint
+            || (*window).dock == WindowDock::Bottom
                 && (*match_0).dock as ::core::ffi::c_int == M_DOCK_BOTTOM as ::core::ffi::c_int
-            || ((*window).dock as ::core::ffi::c_uint
-                == W_DOCK_TOP as ::core::ffi::c_int as ::core::ffi::c_uint
-                || (*window).dock as ::core::ffi::c_uint
-                    == W_DOCK_BOTTOM as ::core::ffi::c_int as ::core::ffi::c_uint)
+            || ((*window).dock == WindowDock::Top || (*window).dock == WindowDock::Bottom)
                 && (*match_0).dock as ::core::ffi::c_int == M_DOCK_ANY as ::core::ffi::c_int
-            || (*window).dock as ::core::ffi::c_uint
-                == W_NODOCK as ::core::ffi::c_int as ::core::ffi::c_uint
+            || (*window).dock == WindowDock::None
                 && (*match_0).dock as ::core::ffi::c_int == M_NODOCK as ::core::ffi::c_int
         {
             verboselog(c"dock status matches\n".as_ptr().cast_mut());
@@ -429,53 +373,43 @@ pub unsafe fn match_matches_window(match_0: *mut Match, window: *mut i3Window) -
             return false_0 != 0;
         }
     }
-    if (*match_0).window_mode as ::core::ffi::c_uint
-        != WM_ANY as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if (*match_0).window_mode != WindowMode::Any {
         con = con_by_window_id((*window).id);
         if con.is_null() {
             return false_0 != 0;
         }
-        match (*match_0).window_mode as ::core::ffi::c_uint {
-            1 => {
-                if (*con).floating as ::core::ffi::c_uint
-                    != FLOATING_AUTO_OFF as ::core::ffi::c_int as ::core::ffi::c_uint
-                {
+        match (*match_0).window_mode {
+            WindowMode::TilingAuto => {
+                if (*con).floating != FloatingState::AutoOff {
                     return false_0 != 0;
                 }
             }
-            2 => {
-                if (*con).floating as ::core::ffi::c_uint
-                    != FLOATING_USER_OFF as ::core::ffi::c_int as ::core::ffi::c_uint
-                {
+            WindowMode::TilingUser => {
+                if (*con).floating != FloatingState::UserOff {
                     return false_0 != 0;
                 }
             }
-            3 => {
+            WindowMode::Tiling => {
                 if !con_inside_floating(con).is_null() {
                     return false_0 != 0;
                 }
             }
-            4 => {
-                if (*con).floating as ::core::ffi::c_uint
-                    != FLOATING_AUTO_ON as ::core::ffi::c_int as ::core::ffi::c_uint
-                {
+            WindowMode::FloatingAuto => {
+                if (*con).floating != FloatingState::AutoOn {
                     return false_0 != 0;
                 }
             }
-            5 => {
-                if (*con).floating as ::core::ffi::c_uint
-                    != FLOATING_USER_ON as ::core::ffi::c_int as ::core::ffi::c_uint
-                {
+            WindowMode::FloatingUser => {
+                if (*con).floating != FloatingState::UserOn {
                     return false_0 != 0;
                 }
             }
-            6 => {
+            WindowMode::Floating => {
                 if con_inside_floating(con).is_null() {
                     return false_0 != 0;
                 }
             }
-            0 => {
+            WindowMode::Any => {
                 if 0 as ::core::ffi::c_int != 0 {
                 } else {
                     __assert_fail(
@@ -486,7 +420,6 @@ pub unsafe fn match_matches_window(match_0: *mut Match, window: *mut i3Window) -
                     );
                 };
             }
-            _ => {}
         }
         verboselog(c"window_mode matches\n".as_ptr().cast_mut());
     }
@@ -639,11 +572,11 @@ pub unsafe fn match_parse_property(
             || strcasecmp(cvalue, c"recent".as_ptr()) == 0 as ::core::ffi::c_int
             || strcasecmp(cvalue, c"last".as_ptr()) == 0 as ::core::ffi::c_int
         {
-            (*match_0).urgent = U_LATEST;
+            (*match_0).urgent = UrgencyMatch::Latest;
         } else if strcasecmp(cvalue, c"oldest".as_ptr()) == 0 as ::core::ffi::c_int
             || strcasecmp(cvalue, c"first".as_ptr()) == 0 as ::core::ffi::c_int
         {
-            (*match_0).urgent = U_OLDEST;
+            (*match_0).urgent = UrgencyMatch::Oldest;
         }
         return;
     }
@@ -658,39 +591,39 @@ pub unsafe fn match_parse_property(
         return;
     }
     if strcmp(ctype, c"tiling".as_ptr()) == 0 as ::core::ffi::c_int {
-        (*match_0).window_mode = WM_TILING;
+        (*match_0).window_mode = WindowMode::Tiling;
         return;
     }
     if strcmp(ctype, c"tiling_from".as_ptr()) == 0 as ::core::ffi::c_int
         && !cvalue.is_null()
         && strcmp(cvalue, c"auto".as_ptr()) == 0 as ::core::ffi::c_int
     {
-        (*match_0).window_mode = WM_TILING_AUTO;
+        (*match_0).window_mode = WindowMode::TilingAuto;
         return;
     }
     if strcmp(ctype, c"tiling_from".as_ptr()) == 0 as ::core::ffi::c_int
         && !cvalue.is_null()
         && strcmp(cvalue, c"user".as_ptr()) == 0 as ::core::ffi::c_int
     {
-        (*match_0).window_mode = WM_TILING_USER;
+        (*match_0).window_mode = WindowMode::TilingUser;
         return;
     }
     if strcmp(ctype, c"floating".as_ptr()) == 0 as ::core::ffi::c_int {
-        (*match_0).window_mode = WM_FLOATING;
+        (*match_0).window_mode = WindowMode::Floating;
         return;
     }
     if strcmp(ctype, c"floating_from".as_ptr()) == 0 as ::core::ffi::c_int
         && !cvalue.is_null()
         && strcmp(cvalue, c"auto".as_ptr()) == 0 as ::core::ffi::c_int
     {
-        (*match_0).window_mode = WM_FLOATING_AUTO;
+        (*match_0).window_mode = WindowMode::FloatingAuto;
         return;
     }
     if strcmp(ctype, c"floating_from".as_ptr()) == 0 as ::core::ffi::c_int
         && !cvalue.is_null()
         && strcmp(cvalue, c"user".as_ptr()) == 0 as ::core::ffi::c_int
     {
-        (*match_0).window_mode = WM_FLOATING_USER;
+        (*match_0).window_mode = WindowMode::FloatingUser;
         return;
     }
     if strcmp(ctype, c"all".as_ptr()) == 0 as ::core::ffi::c_int {

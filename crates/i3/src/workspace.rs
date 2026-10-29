@@ -1,5 +1,8 @@
 use crate::application::bindings;
 use crate::application::ws_assignments;
+use crate::types::KillWindow;
+use crate::types::Layout;
+use crate::types::Orientation;
 use i3_common::safewrappers::sasprintf;
 /*
  * vim:ts=4:sw=4:expandtab
@@ -19,125 +22,46 @@ pub use libev_sys::{
     ev_loop, ev_timer, ev_timer_again, ev_timer_start, ev_timer_stop, ev_tstamp, ev_watcher,
     ev_watcher_time,
 };
-pub type size_t = usize;
-pub type __uint8_t = u8;
-pub type __int16_t = i16;
-pub type __uint16_t = u16;
-pub type __int32_t = i32;
-pub type __uint32_t = u32;
-pub type __time_t = ::core::ffi::c_long;
-pub type __suseconds_t = ::core::ffi::c_long;
-pub type time_t = __time_t;
-pub type int16_t = __int16_t;
-pub type int32_t = __int32_t;
-
-pub type uint8_t = __uint8_t;
-pub type uint16_t = __uint16_t;
-pub type uint32_t = __uint32_t;
 
 pub type i3String = _i3String;
 
-pub type C2RustUnnamed_1 = ::core::ffi::c_uint;
-pub const FONT_TYPE_PANGO: C2RustUnnamed_1 = 2;
-pub const FONT_TYPE_XCB: C2RustUnnamed_1 = 1;
-pub const FONT_TYPE_NONE: C2RustUnnamed_1 = 0;
 pub type i3Font = Font;
 
 pub use crate::application::Binding;
-pub type i3_event_state_mask_t = uint32_t;
-pub type C2RustUnnamed_4 = ::core::ffi::c_uint;
-pub const B_UPON_KEYRELEASE_IGNORE_MODS: C2RustUnnamed_4 = 2;
-pub const B_UPON_KEYRELEASE: C2RustUnnamed_4 = 1;
-pub const B_UPON_KEYPRESS: C2RustUnnamed_4 = 0;
-pub type input_type_t = ::core::ffi::c_uint;
-pub const B_MOUSE: input_type_t = 1;
-pub const B_KEYBOARD: input_type_t = 0;
+pub type i3_event_state_mask_t = u32;
 
-pub type C2RustUnnamed_6 = ::core::ffi::c_uint;
-pub const SCRATCHPAD_CHANGED: C2RustUnnamed_6 = 2;
-pub const SCRATCHPAD_FRESH: C2RustUnnamed_6 = 1;
-pub const SCRATCHPAD_NONE: C2RustUnnamed_6 = 0;
-
-pub type C2RustUnnamed_11 = ::core::ffi::c_uint;
-pub const FLOATING_USER_ON: C2RustUnnamed_11 = 3;
-pub const FLOATING_AUTO_ON: C2RustUnnamed_11 = 2;
-pub const FLOATING_USER_OFF: C2RustUnnamed_11 = 1;
-pub const FLOATING_AUTO_OFF: C2RustUnnamed_11 = 0;
-pub type border_style_t = ::core::ffi::c_uint;
-pub const BS_NORMAL: border_style_t = 2;
-pub const BS_PIXEL: border_style_t = 1;
-pub const BS_NONE: border_style_t = 0;
-pub type layout_t = ::core::ffi::c_uint;
-pub const L_SPLITH: layout_t = 6;
-pub const L_SPLITV: layout_t = 5;
-pub const L_OUTPUT: layout_t = 4;
-pub const L_DOCKAREA: layout_t = 3;
-pub const L_TABBED: layout_t = 2;
-pub const L_STACKED: layout_t = 1;
-pub const L_DEFAULT: layout_t = 0;
 pub type fullscreen_mode_t = ::core::ffi::c_uint;
 pub const CF_GLOBAL: fullscreen_mode_t = 2;
 pub const CF_OUTPUT: fullscreen_mode_t = 1;
 pub const CF_NONE: fullscreen_mode_t = 0;
 
-pub type C2RustUnnamed_13 = ::core::ffi::c_uint;
-pub const M_BELOW: C2RustUnnamed_13 = 2;
-pub const M_ASSIGN_WS: C2RustUnnamed_13 = 1;
-pub const M_HERE: C2RustUnnamed_13 = 0;
-pub type C2RustUnnamed_14 = ::core::ffi::c_uint;
-pub const WM_FLOATING: C2RustUnnamed_14 = 6;
-pub const WM_FLOATING_USER: C2RustUnnamed_14 = 5;
-pub const WM_FLOATING_AUTO: C2RustUnnamed_14 = 4;
-pub const WM_TILING: C2RustUnnamed_14 = 3;
-pub const WM_TILING_USER: C2RustUnnamed_14 = 2;
-pub const WM_TILING_AUTO: C2RustUnnamed_14 = 1;
-pub const WM_ANY: C2RustUnnamed_14 = 0;
-pub type C2RustUnnamed_15 = ::core::ffi::c_int;
-pub const M_DOCK_BOTTOM: C2RustUnnamed_15 = 3;
-pub const M_DOCK_TOP: C2RustUnnamed_15 = 2;
-pub const M_DOCK_ANY: C2RustUnnamed_15 = 1;
-pub const M_NODOCK: C2RustUnnamed_15 = 0;
-pub const M_DONTCHECK: C2RustUnnamed_15 = -1;
-pub type C2RustUnnamed_16 = ::core::ffi::c_int;
-pub const U_OLDEST: C2RustUnnamed_16 = 1;
-pub const U_LATEST: C2RustUnnamed_16 = 0;
-pub const U_DONTCHECK: C2RustUnnamed_16 = -1;
+pub const M_BELOW: ::core::ffi::c_uint = 2;
+pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
+pub const M_HERE: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_17 = ::core::ffi::c_uint;
-pub const W_DOCK_BOTTOM: C2RustUnnamed_17 = 2;
-pub const W_DOCK_TOP: C2RustUnnamed_17 = 1;
-pub const W_NODOCK: C2RustUnnamed_17 = 0;
+pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
+pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
+pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
+pub const M_NODOCK: ::core::ffi::c_int = 0;
+pub const M_DONTCHECK: ::core::ffi::c_int = -1;
 
-pub type C2RustUnnamed_20 = ::core::ffi::c_uint;
-pub const A_TO_OUTPUT: C2RustUnnamed_20 = 16;
-pub const A_TO_WORKSPACE_NUMBER: C2RustUnnamed_20 = 8;
-pub const A_NO_FOCUS: C2RustUnnamed_20 = 4;
-pub const A_TO_WORKSPACE: C2RustUnnamed_20 = 2;
-pub const A_COMMAND: C2RustUnnamed_20 = 1;
-pub const A_ANY: C2RustUnnamed_20 = 0;
+pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
+pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
+pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
+pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
+pub const A_COMMAND: ::core::ffi::c_uint = 1;
+pub const A_ANY: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_22 = ::core::ffi::c_uint;
-pub const CT_DOCKAREA: C2RustUnnamed_22 = 5;
-pub const CT_WORKSPACE: C2RustUnnamed_22 = 4;
-pub const CT_FLOATING_CON: C2RustUnnamed_22 = 3;
-pub const CT_CON: C2RustUnnamed_22 = 2;
-pub const CT_OUTPUT: C2RustUnnamed_22 = 1;
-pub const CT_ROOT: C2RustUnnamed_22 = 0;
+pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
+pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
+pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
+pub const CT_CON: ::core::ffi::c_uint = 2;
+pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
+pub const CT_ROOT: ::core::ffi::c_uint = 0;
 
 pub type Output = xoutput;
 pub type i3Window = Window;
-pub type orientation_t = ::core::ffi::c_uint;
-pub const VERT: orientation_t = 2;
-pub const HORIZ: orientation_t = 1;
-pub const NO_ORIENTATION: orientation_t = 0;
-pub type kill_window_t = ::core::ffi::c_uint;
-pub const KILL_CLIENT: kill_window_t = 2;
-pub const KILL_WINDOW: kill_window_t = 1;
-pub const DONT_KILL_WINDOW: kill_window_t = 0;
-pub type smart_gaps_t = ::core::ffi::c_uint;
-pub const SMART_GAPS_INVERSE_OUTER: smart_gaps_t = 2;
-pub const SMART_GAPS_ON: smart_gaps_t = 1;
-pub const SMART_GAPS_OFF: smart_gaps_t = 0;
+
 pub type hide_edge_borders_mode_t = ::core::ffi::c_uint;
 pub const HEBM_SMART_NO_GAPS: hide_edge_borders_mode_t = 64;
 pub const HEBM_SMART: hide_edge_borders_mode_t = 32;
@@ -145,9 +69,7 @@ pub const HEBM_BOTH: hide_edge_borders_mode_t = 23;
 pub const HEBM_HORIZONTAL: hide_edge_borders_mode_t = 20;
 pub const HEBM_VERTICAL: hide_edge_borders_mode_t = 3;
 pub const HEBM_NONE: hide_edge_borders_mode_t = 0;
-pub type warping_t = ::core::ffi::c_uint;
-pub const POINTER_WARPING_NONE: warping_t = 1;
-pub const POINTER_WARPING_OUTPUT: warping_t = 0;
+
 pub type gaps_mask_t = ::core::ffi::c_uint;
 pub const GAPS_OUTER: gaps_mask_t = 30;
 pub const GAPS_HORIZONTAL: gaps_mask_t = 20;
@@ -157,11 +79,7 @@ pub const GAPS_BOTTOM: gaps_mask_t = 8;
 pub const GAPS_RIGHT: gaps_mask_t = 4;
 pub const GAPS_TOP: gaps_mask_t = 2;
 pub const GAPS_INNER: gaps_mask_t = 1;
-pub type focus_wrapping_t = ::core::ffi::c_uint;
-pub const FOCUS_WRAPPING_WORKSPACE: focus_wrapping_t = 3;
-pub const FOCUS_WRAPPING_FORCE: focus_wrapping_t = 2;
-pub const FOCUS_WRAPPING_ON: focus_wrapping_t = 1;
-pub const FOCUS_WRAPPING_OFF: focus_wrapping_t = 0;
+
 pub use crate::application::Workspace_Assignment;
 
 pub type tiling_drag_t = ::core::ffi::c_uint;
@@ -170,22 +88,7 @@ pub const TILING_DRAG_TITLEBAR: tiling_drag_t = 2;
 pub const TILING_DRAG_MODIFIER: tiling_drag_t = 1;
 pub const TILING_DRAG_OFF: tiling_drag_t = 0;
 
-pub type C2RustUnnamed_25 = ::core::ffi::c_uint;
-pub const PDF_ALL: C2RustUnnamed_25 = 3;
-pub const PDF_IGNORE: C2RustUnnamed_25 = 2;
-pub const PDF_LEAVE_FULLSCREEN: C2RustUnnamed_25 = 1;
-pub const PDF_SMART: C2RustUnnamed_25 = 0;
-
-pub type C2RustUnnamed_26 = ::core::ffi::c_uint;
-pub const ALIGN_RIGHT: C2RustUnnamed_26 = 2;
-pub const ALIGN_CENTER: C2RustUnnamed_26 = 1;
-pub const ALIGN_LEFT: C2RustUnnamed_26 = 0;
-pub type C2RustUnnamed_27 = ::core::ffi::c_uint;
-pub const FOWA_NONE: C2RustUnnamed_27 = 3;
-pub const FOWA_FOCUS: C2RustUnnamed_27 = 2;
-pub const FOWA_URGENT: C2RustUnnamed_27 = 1;
-pub const FOWA_SMART: C2RustUnnamed_27 = 0;
-pub type ylength = size_t;
+pub type ylength = usize;
 pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
@@ -249,13 +152,13 @@ pub unsafe fn get_existing_workspace_by_num(num: ::core::ffi::c_int) -> *mut Con
     workspace
 }
 unsafe fn _workspace_apply_default_orientation(ws: *mut Con) {
-    if config.default_orientation == NO_ORIENTATION as ::core::ffi::c_int {
+    if config.default_orientation == Orientation::None {
         let output: *mut Con = con_get_output(ws);
-        (*ws).layout = (if (*output).rect.height > (*output).rect.width {
-            L_SPLITV as ::core::ffi::c_int
+        (*ws).layout = if (*output).rect.height > (*output).rect.width {
+            Layout::SplitV
         } else {
-            L_SPLITH as ::core::ffi::c_int
-        }) as layout_t;
+            Layout::SplitH
+        };
         (*ws).rect = (*output).rect;
         debuglog(
             c"%s:%s:%d - Auto orientation. Workspace size set to (%d,%d), setting layout to %d.\n"
@@ -269,11 +172,11 @@ unsafe fn _workspace_apply_default_orientation(ws: *mut Con) {
             (*ws).layout as ::core::ffi::c_uint,
         );
     } else {
-        (*ws).layout = (if config.default_orientation == HORIZ as ::core::ffi::c_int {
-            L_SPLITH as ::core::ffi::c_int
+        (*ws).layout = if config.default_orientation == Orientation::Horizontal {
+            Layout::SplitH
         } else {
-            L_SPLITV as ::core::ffi::c_int
-        }) as layout_t;
+            Layout::SplitV
+        };
     };
 }
 
@@ -485,9 +388,9 @@ pub unsafe fn extract_workspace_names_from_bindings() {
                         n += 1;
                         binding_workspace_names = srealloc(
                             binding_workspace_names as *mut ::core::ffi::c_void,
-                            (n as size_t).wrapping_mul(::core::mem::size_of::<
-                                *mut ::core::ffi::c_char,
-                            >() as size_t),
+                            (n as usize).wrapping_mul(
+                                ::core::mem::size_of::<*mut ::core::ffi::c_char>() as usize,
+                            ),
                         )
                             as *mut *mut ::core::ffi::c_char;
                         let ref mut fresh0 =
@@ -502,7 +405,7 @@ pub unsafe fn extract_workspace_names_from_bindings() {
     n += 1;
     binding_workspace_names = srealloc(
         binding_workspace_names as *mut ::core::ffi::c_void,
-        (n as size_t).wrapping_mul(::core::mem::size_of::<*mut ::core::ffi::c_char>() as size_t),
+        (n as usize).wrapping_mul(::core::mem::size_of::<*mut ::core::ffi::c_char>() as usize),
     ) as *mut *mut ::core::ffi::c_char;
     let ref mut fresh1 = *binding_workspace_names.offset((n - 1 as ::core::ffi::c_int) as isize);
     *fresh1 = ::core::ptr::null_mut::<::core::ffi::c_char>();
@@ -789,7 +692,7 @@ pub unsafe fn workspace_show(workspace: *mut Con) {
                 workspace,
             );
             (*focused).urgency_timer =
-                scalloc(1 as size_t, ::core::mem::size_of::<ev_timer>() as size_t) as *mut ev_timer;
+                scalloc(1 as usize, ::core::mem::size_of::<ev_timer>() as usize) as *mut ev_timer;
             let ref mut fresh2 = (*((*focused).urgency_timer as *mut ::core::ffi::c_void
                 as *mut ev_watcher))
                 .pending;
@@ -813,7 +716,7 @@ pub unsafe fn workspace_show(workspace: *mut Con) {
                     Option<
                         unsafe extern "C" fn(*mut ev_loop, *mut ev_timer, ::core::ffi::c_int) -> (),
                     >,
-                >() as size_t,
+                >() as usize,
             );
             (*((*focused).urgency_timer as *mut ev_watcher_time)).at =
                 config.workspace_urgency_timer as ev_tstamp;
@@ -863,14 +766,14 @@ pub unsafe fn workspace_show(workspace: *mut Con) {
             );
             let gen: yajl_gen =
                 ipc_marshal_workspace_event(c"empty".as_ptr(), old, ::core::ptr::null_mut::<Con>());
-            tree_close_internal(old, DONT_KILL_WINDOW, false_0 != 0);
+            tree_close_internal(old, KillWindow::DontKill, false_0 != 0);
             let mut payload: *const ::core::ffi::c_uchar =
                 ::core::ptr::null::<::core::ffi::c_uchar>();
             let mut length: ylength = 0;
             yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
             ipc_send_event(
                 c"workspace".as_ptr(),
-                I3_IPC_EVENT_WORKSPACE as uint32_t,
+                I3_IPC_EVENT_WORKSPACE as u32,
                 payload as *const ::core::ffi::c_char,
             );
             yajl_gen_free(gen);
@@ -1405,7 +1308,7 @@ pub unsafe fn workspace_update_urgent_flag(ws: *mut Con) {
     }
 }
 
-pub unsafe fn ws_force_orientation(ws: *mut Con, orientation: orientation_t) {
+pub unsafe fn ws_force_orientation(ws: *mut Con, orientation: Orientation) {
     let split: *mut Con = con_new(
         ::core::ptr::null_mut::<Con>(),
         ::core::ptr::null_mut::<i3Window>(),
@@ -1426,13 +1329,11 @@ pub unsafe fn ws_force_orientation(ws: *mut Con, orientation: orientation_t) {
     }
     set_focus_order(split, focus_order);
     free(focus_order as *mut ::core::ffi::c_void);
-    (*ws).layout = (if orientation as ::core::ffi::c_uint
-        == HORIZ as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
-        L_SPLITH as ::core::ffi::c_int
+    (*ws).layout = if orientation == Orientation::Horizontal {
+        Layout::SplitH
     } else {
-        L_SPLITV as ::core::ffi::c_int
-    }) as layout_t;
+        Layout::SplitV
+    };
     debuglog(
         c"%s:%s:%d - split->layout = %d, ws->layout = %d\n"
             .as_ptr()
@@ -1468,9 +1369,7 @@ pub unsafe fn workspace_attach_to(ws: *mut Con) -> *mut Con {
         ws,
         (*ws).name,
     );
-    if (*ws).workspace_layout as ::core::ffi::c_uint
-        == L_DEFAULT as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if (*ws).workspace_layout == Layout::Default {
         debuglog(
             c"%s:%s:%d - Default layout, just attaching it to the workspace itself.\n"
                 .as_ptr()

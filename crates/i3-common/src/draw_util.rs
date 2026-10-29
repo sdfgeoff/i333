@@ -9,13 +9,6 @@ use crate::font::draw_text;
  */
 // Mechanical file-by-file Rust translation of libi3/draw_util.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
-pub type size_t = usize;
-pub type __uint8_t = u8;
-pub type __uint16_t = u16;
-pub type __uint32_t = u32;
-pub type uint8_t = __uint8_t;
-pub type uint16_t = __uint16_t;
-pub type uint32_t = __uint32_t;
 
 pub type i3String = _i3String;
 #[derive(Copy, Clone)]
@@ -25,7 +18,7 @@ pub struct color_t {
     pub green: ::core::ffi::c_double,
     pub blue: ::core::ffi::c_double,
     pub alpha: ::core::ffi::c_double,
-    pub colorpixel: uint32_t,
+    pub colorpixel: u32,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -41,7 +34,7 @@ pub struct surface_t {
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct C2RustUnnamed {
-    pub depth: uint8_t,
+    pub depth: u8,
     pub gc: xcb_gcontext_t,
 }
 pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
@@ -62,18 +55,18 @@ unsafe fn surface_initialized(surface: *mut surface_t) -> bool {
 }
 unsafe fn get_gc(
     conn: *mut xcb_connection_t,
-    depth: uint8_t,
+    depth: u8,
     drawable: xcb_drawable_t,
     should_free: *mut bool,
 ) -> xcb_gcontext_t {
     static mut gc_cache: [C2RustUnnamed; 2] = [
         C2RustUnnamed {
-            depth: 0 as uint8_t,
+            depth: 0 as u8,
             gc: 0,
         },
         C2RustUnnamed { depth: 0, gc: 0 },
     ];
-    let mut index: size_t = 0 as size_t;
+    let mut index: usize = 0 as usize;
     let mut cache: bool = false_0 != 0;
     *should_free = false_0 != 0;
     while index
@@ -95,7 +88,7 @@ unsafe fn get_gc(
         conn,
         gc,
         drawable,
-        0 as uint32_t,
+        0 as u32,
         ::core::ptr::null::<::core::ffi::c_void>(),
     );
     let error: *mut xcb_generic_error_t = xcb_request_check(conn, gc_cookie);
@@ -116,7 +109,7 @@ unsafe fn get_gc(
     gc
 }
 
-pub unsafe fn get_visual_depth(visual_id: xcb_visualid_t) -> uint16_t {
+pub unsafe fn get_visual_depth(visual_id: xcb_visualid_t) -> u16 {
     let crate::display::DisplayContext { root_screen, .. } = crate::display::context();
 
     let mut depth_iter: xcb_depth_iterator_t = xcb_depth_iterator_t {
@@ -134,13 +127,13 @@ pub unsafe fn get_visual_depth(visual_id: xcb_visualid_t) -> uint16_t {
         visual_iter = xcb_depth_visuals_iterator(depth_iter.data);
         while visual_iter.rem != 0 {
             if visual_id == (*visual_iter.data).visual_id {
-                return (*depth_iter.data).depth as uint16_t;
+                return (*depth_iter.data).depth as u16;
             }
             xcb_visualtype_next(&raw mut visual_iter);
         }
         xcb_depth_next(&raw mut depth_iter);
     }
-    0 as uint16_t
+    0 as u16
 }
 
 pub unsafe fn draw_util_surface_init(
@@ -161,7 +154,7 @@ pub unsafe fn draw_util_surface_init(
     }
     (*surface).gc = get_gc(
         conn,
-        get_visual_depth((*visual).visual_id) as uint8_t,
+        get_visual_depth((*visual).visual_id) as u8,
         drawable,
         &raw mut (*surface).owns_gc,
     );
@@ -202,7 +195,7 @@ pub unsafe fn draw_util_surface_set_size(
 }
 
 pub unsafe fn draw_util_hex_to_color(color: *const ::core::ffi::c_char) -> color_t {
-    if strlen(color) < 6 as size_t
+    if strlen(color) < 6 as usize
         || *color.offset(0 as ::core::ffi::c_int as isize) as ::core::ffi::c_int != '#' as i32
     {
         errorlog(

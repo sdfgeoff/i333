@@ -9,17 +9,10 @@
  */
 // Mechanical file-by-file Rust translation of src/sync.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
-pub type size_t = usize;
-pub type __uint8_t = u8;
-pub type __uint16_t = u16;
-pub type __uint32_t = u32;
-pub type uint8_t = __uint8_t;
-pub type uint16_t = __uint16_t;
-pub type uint32_t = __uint32_t;
 
 pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 
-pub unsafe fn sync_respond(window: xcb_window_t, rnd: uint32_t) {
+pub unsafe fn sync_respond(window: xcb_window_t, rnd: u32) {
     debuglog(
         c"%s:%s:%d - [i3 sync protocol] Sending random value %d back to X11 window 0x%08x\n"
             .as_ptr()
@@ -30,19 +23,19 @@ pub unsafe fn sync_respond(window: xcb_window_t, rnd: uint32_t) {
         rnd,
         window,
     );
-    let reply: *mut ::core::ffi::c_void = scalloc(32 as size_t, 1 as size_t);
+    let reply: *mut ::core::ffi::c_void = scalloc(32 as usize, 1 as usize);
     let ev: *mut xcb_client_message_event_t = reply as *mut xcb_client_message_event_t;
-    (*ev).response_type = XCB_CLIENT_MESSAGE as uint8_t;
+    (*ev).response_type = XCB_CLIENT_MESSAGE as u8;
     (*ev).window = window;
     (*ev).type_0 = A_I3_SYNC;
-    (*ev).format = 32 as uint8_t;
-    (*ev).data.data32[0 as ::core::ffi::c_int as usize] = window as uint32_t;
+    (*ev).format = 32 as u8;
+    (*ev).data.data32[0 as ::core::ffi::c_int as usize] = window as u32;
     (*ev).data.data32[1 as ::core::ffi::c_int as usize] = rnd;
     xcb_send_event(
         conn,
-        false_0 as uint8_t,
+        false_0 as u8,
         window,
-        XCB_EVENT_MASK_NO_EVENT as ::core::ffi::c_int as uint32_t,
+        XCB_EVENT_MASK_NO_EVENT as ::core::ffi::c_int as u32,
         ev as *mut ::core::ffi::c_char,
     );
     xcb_flush(conn);

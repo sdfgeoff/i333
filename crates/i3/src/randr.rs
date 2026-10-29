@@ -1,5 +1,10 @@
 use crate::application::ws_assignments;
 use crate::tree::all_cons;
+use crate::types::Direction;
+use crate::types::KillWindow;
+use crate::types::Layout;
+use crate::types::Orientation;
+use crate::types::OutputSelection;
 use crate::workspace::output_triggers_assignment;
 use i3_common::safewrappers::sasprintf;
 /*
@@ -15,120 +20,43 @@ use i3_common::safewrappers::sasprintf;
  */
 // Mechanical file-by-file Rust translation of src/randr.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
-pub type size_t = usize;
-pub type __uint8_t = u8;
-pub type __int16_t = i16;
-pub type __uint16_t = u16;
-pub type __int32_t = i32;
-pub type __uint32_t = u32;
-pub type __time_t = ::core::ffi::c_long;
-pub type __suseconds_t = ::core::ffi::c_long;
-pub type time_t = __time_t;
-pub type int16_t = __int16_t;
-pub type int32_t = __int32_t;
-
-pub type uint8_t = __uint8_t;
-pub type uint16_t = __uint16_t;
-pub type uint32_t = __uint32_t;
 
 pub type i3String = _i3String;
 
-pub type C2RustUnnamed_1 = ::core::ffi::c_uint;
-pub const FONT_TYPE_PANGO: C2RustUnnamed_1 = 2;
-pub const FONT_TYPE_XCB: C2RustUnnamed_1 = 1;
-pub const FONT_TYPE_NONE: C2RustUnnamed_1 = 0;
 pub type i3Font = Font;
 
-pub type C2RustUnnamed_3 = ::core::ffi::c_uint;
-pub const SCRATCHPAD_CHANGED: C2RustUnnamed_3 = 2;
-pub const SCRATCHPAD_FRESH: C2RustUnnamed_3 = 1;
-pub const SCRATCHPAD_NONE: C2RustUnnamed_3 = 0;
-
-pub type C2RustUnnamed_8 = ::core::ffi::c_uint;
-pub const FLOATING_USER_ON: C2RustUnnamed_8 = 3;
-pub const FLOATING_AUTO_ON: C2RustUnnamed_8 = 2;
-pub const FLOATING_USER_OFF: C2RustUnnamed_8 = 1;
-pub const FLOATING_AUTO_OFF: C2RustUnnamed_8 = 0;
-pub type border_style_t = ::core::ffi::c_uint;
-pub const BS_NORMAL: border_style_t = 2;
-pub const BS_PIXEL: border_style_t = 1;
-pub const BS_NONE: border_style_t = 0;
-pub type layout_t = ::core::ffi::c_uint;
-pub const L_SPLITH: layout_t = 6;
-pub const L_SPLITV: layout_t = 5;
-pub const L_OUTPUT: layout_t = 4;
-pub const L_DOCKAREA: layout_t = 3;
-pub const L_TABBED: layout_t = 2;
-pub const L_STACKED: layout_t = 1;
-pub const L_DEFAULT: layout_t = 0;
 pub type fullscreen_mode_t = ::core::ffi::c_uint;
 pub const CF_GLOBAL: fullscreen_mode_t = 2;
 pub const CF_OUTPUT: fullscreen_mode_t = 1;
 pub const CF_NONE: fullscreen_mode_t = 0;
 
-pub type C2RustUnnamed_10 = ::core::ffi::c_uint;
-pub const M_BELOW: C2RustUnnamed_10 = 2;
-pub const M_ASSIGN_WS: C2RustUnnamed_10 = 1;
-pub const M_HERE: C2RustUnnamed_10 = 0;
-pub type C2RustUnnamed_11 = ::core::ffi::c_uint;
-pub const WM_FLOATING: C2RustUnnamed_11 = 6;
-pub const WM_FLOATING_USER: C2RustUnnamed_11 = 5;
-pub const WM_FLOATING_AUTO: C2RustUnnamed_11 = 4;
-pub const WM_TILING: C2RustUnnamed_11 = 3;
-pub const WM_TILING_USER: C2RustUnnamed_11 = 2;
-pub const WM_TILING_AUTO: C2RustUnnamed_11 = 1;
-pub const WM_ANY: C2RustUnnamed_11 = 0;
-pub type C2RustUnnamed_12 = ::core::ffi::c_int;
-pub const M_DOCK_BOTTOM: C2RustUnnamed_12 = 3;
-pub const M_DOCK_TOP: C2RustUnnamed_12 = 2;
-pub const M_DOCK_ANY: C2RustUnnamed_12 = 1;
-pub const M_NODOCK: C2RustUnnamed_12 = 0;
-pub const M_DONTCHECK: C2RustUnnamed_12 = -1;
-pub type C2RustUnnamed_13 = ::core::ffi::c_int;
-pub const U_OLDEST: C2RustUnnamed_13 = 1;
-pub const U_LATEST: C2RustUnnamed_13 = 0;
-pub const U_DONTCHECK: C2RustUnnamed_13 = -1;
+pub const M_BELOW: ::core::ffi::c_uint = 2;
+pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
+pub const M_HERE: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_14 = ::core::ffi::c_uint;
-pub const W_DOCK_BOTTOM: C2RustUnnamed_14 = 2;
-pub const W_DOCK_TOP: C2RustUnnamed_14 = 1;
-pub const W_NODOCK: C2RustUnnamed_14 = 0;
+pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
+pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
+pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
+pub const M_NODOCK: ::core::ffi::c_int = 0;
+pub const M_DONTCHECK: ::core::ffi::c_int = -1;
 
-pub type C2RustUnnamed_17 = ::core::ffi::c_uint;
-pub const A_TO_OUTPUT: C2RustUnnamed_17 = 16;
-pub const A_TO_WORKSPACE_NUMBER: C2RustUnnamed_17 = 8;
-pub const A_NO_FOCUS: C2RustUnnamed_17 = 4;
-pub const A_TO_WORKSPACE: C2RustUnnamed_17 = 2;
-pub const A_COMMAND: C2RustUnnamed_17 = 1;
-pub const A_ANY: C2RustUnnamed_17 = 0;
+pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
+pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
+pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
+pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
+pub const A_COMMAND: ::core::ffi::c_uint = 1;
+pub const A_ANY: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_19 = ::core::ffi::c_uint;
-pub const CT_DOCKAREA: C2RustUnnamed_19 = 5;
-pub const CT_WORKSPACE: C2RustUnnamed_19 = 4;
-pub const CT_FLOATING_CON: C2RustUnnamed_19 = 3;
-pub const CT_CON: C2RustUnnamed_19 = 2;
-pub const CT_OUTPUT: C2RustUnnamed_19 = 1;
-pub const CT_ROOT: C2RustUnnamed_19 = 0;
+pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
+pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
+pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
+pub const CT_CON: ::core::ffi::c_uint = 2;
+pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
+pub const CT_ROOT: ::core::ffi::c_uint = 0;
 
 pub type Output = xoutput;
 pub type i3Window = Window;
-pub type direction_t = ::core::ffi::c_uint;
-pub const D_DOWN: direction_t = 3;
-pub const D_UP: direction_t = 2;
-pub const D_RIGHT: direction_t = 1;
-pub const D_LEFT: direction_t = 0;
-pub type C2RustUnnamed_21 = ::core::ffi::c_uint;
-pub const VERT: C2RustUnnamed_21 = 2;
-pub const HORIZ: C2RustUnnamed_21 = 1;
-pub const NO_ORIENTATION: C2RustUnnamed_21 = 0;
-pub type kill_window_t = ::core::ffi::c_uint;
-pub const KILL_CLIENT: kill_window_t = 2;
-pub const KILL_WINDOW: kill_window_t = 1;
-pub const DONT_KILL_WINDOW: kill_window_t = 0;
-pub type smart_gaps_t = ::core::ffi::c_uint;
-pub const SMART_GAPS_INVERSE_OUTER: smart_gaps_t = 2;
-pub const SMART_GAPS_ON: smart_gaps_t = 1;
-pub const SMART_GAPS_OFF: smart_gaps_t = 0;
+
 pub type hide_edge_borders_mode_t = ::core::ffi::c_uint;
 pub const HEBM_SMART_NO_GAPS: hide_edge_borders_mode_t = 64;
 pub const HEBM_SMART: hide_edge_borders_mode_t = 32;
@@ -136,9 +64,7 @@ pub const HEBM_BOTH: hide_edge_borders_mode_t = 23;
 pub const HEBM_HORIZONTAL: hide_edge_borders_mode_t = 20;
 pub const HEBM_VERTICAL: hide_edge_borders_mode_t = 3;
 pub const HEBM_NONE: hide_edge_borders_mode_t = 0;
-pub type warping_t = ::core::ffi::c_uint;
-pub const POINTER_WARPING_NONE: warping_t = 1;
-pub const POINTER_WARPING_OUTPUT: warping_t = 0;
+
 pub type gaps_mask_t = ::core::ffi::c_uint;
 pub const GAPS_OUTER: gaps_mask_t = 30;
 pub const GAPS_HORIZONTAL: gaps_mask_t = 20;
@@ -148,11 +74,7 @@ pub const GAPS_BOTTOM: gaps_mask_t = 8;
 pub const GAPS_RIGHT: gaps_mask_t = 4;
 pub const GAPS_TOP: gaps_mask_t = 2;
 pub const GAPS_INNER: gaps_mask_t = 1;
-pub type focus_wrapping_t = ::core::ffi::c_uint;
-pub const FOCUS_WRAPPING_WORKSPACE: focus_wrapping_t = 3;
-pub const FOCUS_WRAPPING_FORCE: focus_wrapping_t = 2;
-pub const FOCUS_WRAPPING_ON: focus_wrapping_t = 1;
-pub const FOCUS_WRAPPING_OFF: focus_wrapping_t = 0;
+
 pub use crate::application::Workspace_Assignment;
 pub type tiling_drag_t = ::core::ffi::c_uint;
 pub const TILING_DRAG_MODIFIER_OR_TITLEBAR: tiling_drag_t = 3;
@@ -160,25 +82,8 @@ pub const TILING_DRAG_TITLEBAR: tiling_drag_t = 2;
 pub const TILING_DRAG_MODIFIER: tiling_drag_t = 1;
 pub const TILING_DRAG_OFF: tiling_drag_t = 0;
 
-pub type C2RustUnnamed_23 = ::core::ffi::c_uint;
-pub const PDF_ALL: C2RustUnnamed_23 = 3;
-pub const PDF_IGNORE: C2RustUnnamed_23 = 2;
-pub const PDF_LEAVE_FULLSCREEN: C2RustUnnamed_23 = 1;
-pub const PDF_SMART: C2RustUnnamed_23 = 0;
-
-pub type C2RustUnnamed_24 = ::core::ffi::c_uint;
-pub const ALIGN_RIGHT: C2RustUnnamed_24 = 2;
-pub const ALIGN_CENTER: C2RustUnnamed_24 = 1;
-pub const ALIGN_LEFT: C2RustUnnamed_24 = 0;
-pub type C2RustUnnamed_25 = ::core::ffi::c_uint;
-pub const FOWA_NONE: C2RustUnnamed_25 = 3;
-pub const FOWA_FOCUS: C2RustUnnamed_25 = 2;
-pub const FOWA_URGENT: C2RustUnnamed_25 = 1;
-pub const FOWA_SMART: C2RustUnnamed_25 = 0;
 pub use crate::application::outputs_head;
-pub type output_close_far_t = ::core::ffi::c_uint;
-pub const FARTHEST_OUTPUT: output_close_far_t = 1;
-pub const CLOSEST_OUTPUT: output_close_far_t = 0;
+
 pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 
@@ -292,10 +197,10 @@ pub unsafe fn get_output_containing(x: ::core::ffi::c_uint, y: ::core::ffi::c_ui
                 (*output).rect.width,
                 (*output).rect.height,
             );
-            if x as uint32_t >= (*output).rect.x
-                && (x as uint32_t) < (*output).rect.x.wrapping_add((*output).rect.width)
-                && y as uint32_t >= (*output).rect.y
-                && (y as uint32_t) < (*output).rect.y.wrapping_add((*output).rect.height)
+            if x as u32 >= (*output).rect.x
+                && (x as u32) < (*output).rect.x.wrapping_add((*output).rect.width)
+                && y as u32 >= (*output).rect.y
+                && (y as u32) < (*output).rect.y.wrapping_add((*output).rect.height)
             {
                 return output;
             }
@@ -400,25 +305,20 @@ pub unsafe fn output_containing_rect(rect: Rect) -> *mut Output {
     result
 }
 
-pub unsafe fn get_output_next_wrap(direction: direction_t, current: *mut Output) -> *mut Output {
-    let mut best: *mut Output = get_output_next(direction, current, CLOSEST_OUTPUT);
+pub unsafe fn get_output_next_wrap(direction: Direction, current: *mut Output) -> *mut Output {
+    let mut best: *mut Output = get_output_next(direction, current, OutputSelection::Closest);
     if best.is_null() {
-        let mut opposite: direction_t = D_LEFT;
-        if direction as ::core::ffi::c_uint == D_RIGHT as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
-            opposite = D_LEFT;
-        } else if direction as ::core::ffi::c_uint
-            == D_LEFT as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
-            opposite = D_RIGHT;
-        } else if direction as ::core::ffi::c_uint
-            == D_DOWN as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
-            opposite = D_UP;
+        let mut opposite: Direction = Direction::Left;
+        if direction == Direction::Right {
+            opposite = Direction::Left;
+        } else if direction == Direction::Left {
+            opposite = Direction::Right;
+        } else if direction == Direction::Down {
+            opposite = Direction::Up;
         } else {
-            opposite = D_DOWN;
+            opposite = Direction::Down;
         }
-        best = get_output_next(opposite, current, FARTHEST_OUTPUT);
+        best = get_output_next(opposite, current, OutputSelection::Farthest);
     }
     if best.is_null() {
         best = current;
@@ -435,9 +335,9 @@ pub unsafe fn get_output_next_wrap(direction: direction_t, current: *mut Output)
 }
 
 pub unsafe fn get_output_next(
-    direction: direction_t,
+    direction: Direction,
     current: *mut Output,
-    close_far: output_close_far_t,
+    close_far: OutputSelection,
 ) -> *mut Output {
     let cur: *const Rect = &raw mut (*current).rect;
     let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
@@ -447,12 +347,8 @@ pub unsafe fn get_output_next(
     while !output.is_null() {
         if (*output).active {
             let other: *const Rect = &raw mut (*output).rect;
-            if direction as ::core::ffi::c_uint
-                == D_RIGHT as ::core::ffi::c_int as ::core::ffi::c_uint
-                && (*other).x > (*cur).x
-                || direction as ::core::ffi::c_uint
-                    == D_LEFT as ::core::ffi::c_int as ::core::ffi::c_uint
-                    && (*other).x < (*cur).x
+            if direction == Direction::Right && (*other).x > (*cur).x
+                || direction == Direction::Left && (*other).x < (*cur).x
             {
                 if (*other).y.wrapping_add((*other).height) <= (*cur).y
                     || (*cur).y.wrapping_add((*cur).height) <= (*other).y
@@ -461,12 +357,8 @@ pub unsafe fn get_output_next(
                 } else {
                     current_block_3 = 11650488183268122163;
                 }
-            } else if direction as ::core::ffi::c_uint
-                == D_DOWN as ::core::ffi::c_int as ::core::ffi::c_uint
-                && (*other).y > (*cur).y
-                || direction as ::core::ffi::c_uint
-                    == D_UP as ::core::ffi::c_int as ::core::ffi::c_uint
-                    && (*other).y < (*cur).y
+            } else if direction == Direction::Down && (*other).y > (*cur).y
+                || direction == Direction::Up && (*other).y < (*cur).y
             {
                 if (*other).x.wrapping_add((*other).width) <= (*cur).x
                     || (*cur).x.wrapping_add((*cur).width) <= (*other).x
@@ -483,36 +375,18 @@ pub unsafe fn get_output_next(
                 _ => {
                     if best.is_null() {
                         best = output;
-                    } else if close_far as ::core::ffi::c_uint
-                        == CLOSEST_OUTPUT as ::core::ffi::c_int as ::core::ffi::c_uint
-                    {
-                        if direction as ::core::ffi::c_uint
-                            == D_RIGHT as ::core::ffi::c_int as ::core::ffi::c_uint
-                            && (*other).x < (*best).rect.x
-                            || direction as ::core::ffi::c_uint
-                                == D_LEFT as ::core::ffi::c_int as ::core::ffi::c_uint
-                                && (*other).x > (*best).rect.x
-                            || direction as ::core::ffi::c_uint
-                                == D_DOWN as ::core::ffi::c_int as ::core::ffi::c_uint
-                                && (*other).y < (*best).rect.y
-                            || direction as ::core::ffi::c_uint
-                                == D_UP as ::core::ffi::c_int as ::core::ffi::c_uint
-                                && (*other).y > (*best).rect.y
+                    } else if close_far == OutputSelection::Closest {
+                        if direction == Direction::Right && (*other).x < (*best).rect.x
+                            || direction == Direction::Left && (*other).x > (*best).rect.x
+                            || direction == Direction::Down && (*other).y < (*best).rect.y
+                            || direction == Direction::Up && (*other).y > (*best).rect.y
                         {
                             best = output;
                         }
-                    } else if direction as ::core::ffi::c_uint
-                        == D_RIGHT as ::core::ffi::c_int as ::core::ffi::c_uint
-                        && (*other).x > (*best).rect.x
-                        || direction as ::core::ffi::c_uint
-                            == D_LEFT as ::core::ffi::c_int as ::core::ffi::c_uint
-                            && (*other).x < (*best).rect.x
-                        || direction as ::core::ffi::c_uint
-                            == D_DOWN as ::core::ffi::c_int as ::core::ffi::c_uint
-                            && (*other).y > (*best).rect.y
-                        || direction as ::core::ffi::c_uint
-                            == D_UP as ::core::ffi::c_int as ::core::ffi::c_uint
-                            && (*other).y < (*best).rect.y
+                    } else if direction == Direction::Right && (*other).x > (*best).rect.x
+                        || direction == Direction::Left && (*other).x < (*best).rect.x
+                        || direction == Direction::Down && (*other).y > (*best).rect.y
+                        || direction == Direction::Up && (*other).y < (*best).rect.y
                     {
                         best = output;
                     }
@@ -538,14 +412,14 @@ pub unsafe fn get_output_next(
 
 pub unsafe fn create_root_output(conn_0: *mut xcb_connection_t) -> *mut Output {
     let s: *mut Output =
-        scalloc(1 as size_t, ::core::mem::size_of::<Output>() as size_t) as *mut Output;
+        scalloc(1 as usize, ::core::mem::size_of::<Output>() as usize) as *mut Output;
     (*s).active = false_0 != 0;
-    (*s).rect.x = 0 as uint32_t;
-    (*s).rect.y = 0 as uint32_t;
-    (*s).rect.width = (*root_screen).width_in_pixels as uint32_t;
-    (*s).rect.height = (*root_screen).height_in_pixels as uint32_t;
+    (*s).rect.x = 0 as u32;
+    (*s).rect.y = 0 as u32;
+    (*s).rect.width = (*root_screen).width_in_pixels as u32;
+    (*s).rect.height = (*root_screen).height_in_pixels as u32;
     let output_name: *mut output_name =
-        scalloc(1 as size_t, ::core::mem::size_of::<output_name>() as size_t) as *mut output_name;
+        scalloc(1 as usize, ::core::mem::size_of::<output_name>() as usize) as *mut output_name;
     (*output_name).name = c"xroot-0".as_ptr().cast_mut();
     (*s).names_head.slh_first = ::core::ptr::null_mut::<output_name>();
     (*output_name).names.sle_next = (*s).names_head.slh_first;
@@ -590,7 +464,7 @@ pub unsafe fn output_init_con(output: *mut Output) {
         (*con).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
         (*con).name = sstrdup(output_primary_name(output));
         (*con).type_0 = CT_OUTPUT;
-        (*con).layout = L_OUTPUT;
+        (*con).layout = Layout::Output;
         con_fix_percent(croot);
     }
     (*con).rect = (*output).rect as Rect;
@@ -624,9 +498,9 @@ pub unsafe fn output_init_con(output: *mut Output) {
         ::core::ptr::null_mut::<i3Window>(),
     );
     (*topdock).type_0 = CT_DOCKAREA;
-    (*topdock).layout = L_DOCKAREA;
+    (*topdock).layout = Layout::DockArea;
     let mut match_0: *mut Match =
-        scalloc(1 as size_t, ::core::mem::size_of::<Match>() as size_t) as *mut Match;
+        scalloc(1 as usize, ::core::mem::size_of::<Match>() as usize) as *mut Match;
     match_init(match_0);
     (*match_0).dock = M_DOCK_TOP;
     (*match_0).insert_where = M_BELOW;
@@ -665,7 +539,7 @@ pub unsafe fn output_init_con(output: *mut Output) {
         ::core::ptr::null_mut::<i3Window>(),
     );
     (*content).type_0 = CT_CON;
-    (*content).layout = L_SPLITH;
+    (*content).layout = Layout::SplitH;
     free((*content).name as *mut ::core::ffi::c_void);
     (*content).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
     (*content).name = sstrdup(c"content".as_ptr());
@@ -679,8 +553,8 @@ pub unsafe fn output_init_con(output: *mut Output) {
         ::core::ptr::null_mut::<i3Window>(),
     );
     (*bottomdock).type_0 = CT_DOCKAREA;
-    (*bottomdock).layout = L_DOCKAREA;
-    match_0 = scalloc(1 as size_t, ::core::mem::size_of::<Match>() as size_t) as *mut Match;
+    (*bottomdock).layout = Layout::DockArea;
+    match_0 = scalloc(1 as usize, ::core::mem::size_of::<Match>() as usize) as *mut Match;
     match_init(match_0);
     (*match_0).dock = M_DOCK_BOTTOM;
     (*match_0).insert_where = M_BELOW;
@@ -851,15 +725,15 @@ unsafe fn output_change_mode(conn_0: *mut xcb_connection_t, output: *mut Output)
         }
         workspace = (*workspace).nodes.tqe_next as *mut Con;
     }
-    if config.default_orientation == NO_ORIENTATION as ::core::ffi::c_int {
+    if config.default_orientation == Orientation::None {
         workspace = (*content).nodes_head.tqh_first as *mut Con;
         while !workspace.is_null() {
             if !(con_num_children(workspace) > 1 as ::core::ffi::c_int) {
-                (*workspace).layout = (if (*output).rect.height > (*output).rect.width {
-                    L_SPLITV as ::core::ffi::c_int
+                (*workspace).layout = if (*output).rect.height > (*output).rect.width {
+                    Layout::SplitV
                 } else {
-                    L_SPLITH as ::core::ffi::c_int
-                }) as layout_t;
+                    Layout::SplitH
+                };
                 debuglog(
                     c"%s:%s:%d - Setting workspace [%d,%s]'s layout to %d.\n"
                         .as_ptr()
@@ -873,11 +747,7 @@ unsafe fn output_change_mode(conn_0: *mut xcb_connection_t, output: *mut Output)
                 );
                 child = (*workspace).nodes_head.tqh_first as *mut Con;
                 if !child.is_null() {
-                    if (*child).layout as ::core::ffi::c_uint
-                        == L_SPLITV as ::core::ffi::c_int as ::core::ffi::c_uint
-                        || (*child).layout as ::core::ffi::c_uint
-                            == L_SPLITH as ::core::ffi::c_int as ::core::ffi::c_uint
-                    {
+                    if (*child).layout == Layout::SplitV || (*child).layout == Layout::SplitH {
                         (*child).layout = (*workspace).layout;
                     }
                     debuglog(
@@ -912,7 +782,7 @@ unsafe fn randr_query_outputs_15() -> bool {
     let mut err: *mut xcb_generic_error_t = ::core::ptr::null_mut::<xcb_generic_error_t>();
     let monitors: *mut xcb_randr_get_monitors_reply_t = xcb_randr_get_monitors_reply(
         conn,
-        xcb_randr_get_monitors(conn, root, true_0 as uint8_t),
+        xcb_randr_get_monitors(conn, root, true_0 as u8),
         &raw mut err,
     );
     if !err.is_null() {
@@ -975,8 +845,7 @@ unsafe fn randr_query_outputs_15() -> bool {
             free(atom_reply as *mut ::core::ffi::c_void);
             let mut new: *mut Output = get_output_by_name(name, false_0 != 0);
             if new.is_null() {
-                new =
-                    scalloc(1 as size_t, ::core::mem::size_of::<Output>() as size_t) as *mut Output;
+                new = scalloc(1 as usize, ::core::mem::size_of::<Output>() as usize) as *mut Output;
                 (*new).names_head.slh_first = ::core::ptr::null_mut::<output_name>();
                 let randr_outputs: *mut xcb_randr_output_t =
                     xcb_randr_monitor_info_outputs(monitor_info);
@@ -1001,11 +870,9 @@ unsafe fn randr_query_outputs_15() -> bool {
                             xcb_randr_get_output_info_name(info),
                         );
                         if strcmp(name, oname) != 0 as ::core::ffi::c_int {
-                            let output_name: *mut output_name = scalloc(
-                                1 as size_t,
-                                ::core::mem::size_of::<output_name>() as size_t,
-                            )
-                                as *mut output_name;
+                            let output_name: *mut output_name =
+                                scalloc(1 as usize, ::core::mem::size_of::<output_name>() as usize)
+                                    as *mut output_name;
                             (*output_name).name = sstrdup(oname);
                             (*output_name).names.sle_next = (*new).names_head.slh_first;
                             (*new).names_head.slh_first = output_name;
@@ -1017,7 +884,7 @@ unsafe fn randr_query_outputs_15() -> bool {
                     i += 1;
                 }
                 let output_name_0: *mut output_name =
-                    scalloc(1 as size_t, ::core::mem::size_of::<output_name>() as size_t)
+                    scalloc(1 as usize, ::core::mem::size_of::<output_name>() as usize)
                         as *mut output_name;
                 (*output_name_0).name = sstrdup(name);
                 (*output_name_0).names.sle_next = (*new).names_head.slh_first;
@@ -1042,17 +909,15 @@ unsafe fn randr_query_outputs_15() -> bool {
             (*new).to_be_disabled = false_0 != 0;
             (*new).primary = (*monitor_info).primary != 0;
             let update_x: bool =
-                update_if_necessary(&raw mut (*new).rect.x, (*monitor_info).x as uint32_t) as bool;
+                update_if_necessary(&raw mut (*new).rect.x, (*monitor_info).x as u32) as bool;
             let update_y: bool =
-                update_if_necessary(&raw mut (*new).rect.y, (*monitor_info).y as uint32_t) as bool;
-            let update_w: bool = update_if_necessary(
-                &raw mut (*new).rect.width,
-                (*monitor_info).width as uint32_t,
-            ) as bool;
-            let update_h: bool = update_if_necessary(
-                &raw mut (*new).rect.height,
-                (*monitor_info).height as uint32_t,
-            ) as bool;
+                update_if_necessary(&raw mut (*new).rect.y, (*monitor_info).y as u32) as bool;
+            let update_w: bool =
+                update_if_necessary(&raw mut (*new).rect.width, (*monitor_info).width as u32)
+                    as bool;
+            let update_h: bool =
+                update_if_necessary(&raw mut (*new).rect.height, (*monitor_info).height as u32)
+                    as bool;
             (*new).changed = update_x as ::core::ffi::c_int != 0
                 || update_y as ::core::ffi::c_int != 0
                 || update_w as ::core::ffi::c_int != 0
@@ -1091,7 +956,7 @@ unsafe fn handle_output(
     let mut new: *mut Output = get_output_by_id(id);
     let existing: bool = !new.is_null();
     if !existing {
-        new = scalloc(1 as size_t, ::core::mem::size_of::<Output>() as size_t) as *mut Output;
+        new = scalloc(1 as usize, ::core::mem::size_of::<Output>() as usize) as *mut Output;
         (*new).names_head.slh_first = ::core::ptr::null_mut::<output_name>();
     }
     (*new).id = id;
@@ -1105,7 +970,7 @@ unsafe fn handle_output(
         old_head = ::core::ptr::null_mut::<output_name>();
     }
     let output_name: *mut output_name =
-        scalloc(1 as size_t, ::core::mem::size_of::<output_name>() as size_t) as *mut output_name;
+        scalloc(1 as usize, ::core::mem::size_of::<output_name>() as usize) as *mut output_name;
     sasprintf(
         &raw mut (*output_name).name,
         c"%.*s".as_ptr(),
@@ -1165,18 +1030,18 @@ unsafe fn handle_output(
         );
         return;
     }
-    let update_x: bool = update_if_necessary(&raw mut (*new).rect.x, (*crtc).x as uint32_t) as bool;
-    let update_y: bool = update_if_necessary(&raw mut (*new).rect.y, (*crtc).y as uint32_t) as bool;
+    let update_x: bool = update_if_necessary(&raw mut (*new).rect.x, (*crtc).x as u32) as bool;
+    let update_y: bool = update_if_necessary(&raw mut (*new).rect.y, (*crtc).y as u32) as bool;
     let update_w: bool =
-        update_if_necessary(&raw mut (*new).rect.width, (*crtc).width as uint32_t) as bool;
+        update_if_necessary(&raw mut (*new).rect.width, (*crtc).width as u32) as bool;
     let update_h: bool =
-        update_if_necessary(&raw mut (*new).rect.height, (*crtc).height as uint32_t) as bool;
+        update_if_necessary(&raw mut (*new).rect.height, (*crtc).height as u32) as bool;
     let updated: bool = update_x as ::core::ffi::c_int != 0
         || update_y as ::core::ffi::c_int != 0
         || update_w as ::core::ffi::c_int != 0
         || update_h as ::core::ffi::c_int != 0;
     free(crtc as *mut ::core::ffi::c_void);
-    (*new).active = (*new).rect.width != 0 as uint32_t && (*new).rect.height != 0 as uint32_t;
+    (*new).active = (*new).rect.width != 0 as u32 && (*new).rect.height != 0 as u32;
     if !(*new).active {
         debuglog(
             c"%s:%s:%d - width/height 0/0, disabling output\n"
@@ -1318,7 +1183,7 @@ unsafe fn move_content(con: *mut Con) {
                 current,
                 (*current).name,
             );
-            tree_close_internal(current, DONT_KILL_WINDOW, false_0 != 0);
+            tree_close_internal(current, KillWindow::DontKill, false_0 != 0);
         } else {
             debuglog(
                 c"%s:%s:%d - Detaching current = %p / %s\n"
@@ -1428,7 +1293,7 @@ unsafe fn move_content(con: *mut Con) {
         916 as ::core::ffi::c_int,
         con,
     );
-    tree_close_internal(con, DONT_KILL_WINDOW, true_0 != 0);
+    tree_close_internal(con, KillWindow::DontKill, true_0 != 0);
 }
 
 pub unsafe fn randr_query_outputs() {
@@ -1493,14 +1358,14 @@ pub unsafe fn randr_query_outputs() {
                             (*other).rect.width,
                             (*other).rect.height,
                         );
-                        let width: uint32_t = min(
+                        let width: u32 = min(
                             (*other).rect.width as ::core::ffi::c_int,
                             (*output).rect.width as ::core::ffi::c_int,
-                        ) as uint32_t;
-                        let height: uint32_t = min(
+                        ) as u32;
+                        let height: u32 = min(
                             (*other).rect.height as ::core::ffi::c_int,
                             (*output).rect.height as ::core::ffi::c_int,
-                        ) as uint32_t;
+                        ) as u32;
                         let update_w: bool =
                             update_if_necessary(&raw mut (*output).rect.width, width) as bool;
                         let update_h: bool =
@@ -1687,8 +1552,8 @@ pub unsafe fn randr_init(event_base: *mut ::core::ffi::c_int, disable_randr15: b
         conn,
         xcb_randr_query_version(
             conn,
-            XCB_RANDR_MAJOR_VERSION as uint32_t,
-            XCB_RANDR_MINOR_VERSION as uint32_t,
+            XCB_RANDR_MAJOR_VERSION as u32,
+            XCB_RANDR_MINOR_VERSION as u32,
         ),
         &raw mut err,
     );
@@ -1703,8 +1568,8 @@ pub unsafe fn randr_init(event_base: *mut ::core::ffi::c_int, disable_randr15: b
         fallback_to_root_output();
         return;
     }
-    has_randr_1_5 = (*randr_version).major_version >= 1 as uint32_t
-        && (*randr_version).minor_version >= 5 as uint32_t
+    has_randr_1_5 = (*randr_version).major_version >= 1 as u32
+        && (*randr_version).minor_version >= 5 as u32
         && !disable_randr15;
     free(randr_version as *mut ::core::ffi::c_void);
     randr_query_outputs();
@@ -1717,7 +1582,7 @@ pub unsafe fn randr_init(event_base: *mut ::core::ffi::c_int, disable_randr15: b
         (XCB_RANDR_NOTIFY_MASK_SCREEN_CHANGE as ::core::ffi::c_int
             | XCB_RANDR_NOTIFY_MASK_OUTPUT_CHANGE as ::core::ffi::c_int
             | XCB_RANDR_NOTIFY_MASK_CRTC_CHANGE as ::core::ffi::c_int
-            | XCB_RANDR_NOTIFY_MASK_OUTPUT_PROPERTY as ::core::ffi::c_int) as uint16_t,
+            | XCB_RANDR_NOTIFY_MASK_OUTPUT_PROPERTY as ::core::ffi::c_int) as u16,
     );
     xcb_flush(conn);
 }

@@ -1,3 +1,8 @@
+use crate::types::Direction;
+use crate::types::DragResult;
+use crate::types::Layout;
+use crate::types::Orientation;
+use crate::xcursor::Cursor;
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -9,112 +14,40 @@
  */
 // Mechanical file-by-file Rust translation of src/resize.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
-pub type __uint8_t = u8;
-pub type __int16_t = i16;
-pub type __uint16_t = u16;
-pub type __int32_t = i32;
-pub type __uint32_t = u32;
-pub type __time_t = ::core::ffi::c_long;
-pub type __suseconds_t = ::core::ffi::c_long;
-pub type time_t = __time_t;
-pub type int16_t = __int16_t;
-pub type int32_t = __int32_t;
-
-pub type uint8_t = __uint8_t;
-pub type uint16_t = __uint16_t;
-pub type uint32_t = __uint32_t;
 
 pub type i3String = _i3String;
 
-pub type C2RustUnnamed_1 = ::core::ffi::c_uint;
-pub const FONT_TYPE_PANGO: C2RustUnnamed_1 = 2;
-pub const FONT_TYPE_XCB: C2RustUnnamed_1 = 1;
-pub const FONT_TYPE_NONE: C2RustUnnamed_1 = 0;
 pub type i3Font = Font;
 
-pub type C2RustUnnamed_2 = ::core::ffi::c_uint;
-pub const SCRATCHPAD_CHANGED: C2RustUnnamed_2 = 2;
-pub const SCRATCHPAD_FRESH: C2RustUnnamed_2 = 1;
-pub const SCRATCHPAD_NONE: C2RustUnnamed_2 = 0;
-
-pub type C2RustUnnamed_7 = ::core::ffi::c_uint;
-pub const FLOATING_USER_ON: C2RustUnnamed_7 = 3;
-pub const FLOATING_AUTO_ON: C2RustUnnamed_7 = 2;
-pub const FLOATING_USER_OFF: C2RustUnnamed_7 = 1;
-pub const FLOATING_AUTO_OFF: C2RustUnnamed_7 = 0;
-pub type border_style_t = ::core::ffi::c_uint;
-pub const BS_NORMAL: border_style_t = 2;
-pub const BS_PIXEL: border_style_t = 1;
-pub const BS_NONE: border_style_t = 0;
-pub type layout_t = ::core::ffi::c_uint;
-pub const L_SPLITH: layout_t = 6;
-pub const L_SPLITV: layout_t = 5;
-pub const L_OUTPUT: layout_t = 4;
-pub const L_DOCKAREA: layout_t = 3;
-pub const L_TABBED: layout_t = 2;
-pub const L_STACKED: layout_t = 1;
-pub const L_DEFAULT: layout_t = 0;
 pub type fullscreen_mode_t = ::core::ffi::c_uint;
 pub const CF_GLOBAL: fullscreen_mode_t = 2;
 pub const CF_OUTPUT: fullscreen_mode_t = 1;
 pub const CF_NONE: fullscreen_mode_t = 0;
 
-pub type C2RustUnnamed_9 = ::core::ffi::c_uint;
-pub const M_BELOW: C2RustUnnamed_9 = 2;
-pub const M_ASSIGN_WS: C2RustUnnamed_9 = 1;
-pub const M_HERE: C2RustUnnamed_9 = 0;
-pub type C2RustUnnamed_10 = ::core::ffi::c_uint;
-pub const WM_FLOATING: C2RustUnnamed_10 = 6;
-pub const WM_FLOATING_USER: C2RustUnnamed_10 = 5;
-pub const WM_FLOATING_AUTO: C2RustUnnamed_10 = 4;
-pub const WM_TILING: C2RustUnnamed_10 = 3;
-pub const WM_TILING_USER: C2RustUnnamed_10 = 2;
-pub const WM_TILING_AUTO: C2RustUnnamed_10 = 1;
-pub const WM_ANY: C2RustUnnamed_10 = 0;
-pub type C2RustUnnamed_11 = ::core::ffi::c_int;
-pub const M_DOCK_BOTTOM: C2RustUnnamed_11 = 3;
-pub const M_DOCK_TOP: C2RustUnnamed_11 = 2;
-pub const M_DOCK_ANY: C2RustUnnamed_11 = 1;
-pub const M_NODOCK: C2RustUnnamed_11 = 0;
-pub const M_DONTCHECK: C2RustUnnamed_11 = -1;
-pub type C2RustUnnamed_12 = ::core::ffi::c_int;
-pub const U_OLDEST: C2RustUnnamed_12 = 1;
-pub const U_LATEST: C2RustUnnamed_12 = 0;
-pub const U_DONTCHECK: C2RustUnnamed_12 = -1;
+pub const M_BELOW: ::core::ffi::c_uint = 2;
+pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
+pub const M_HERE: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_13 = ::core::ffi::c_uint;
-pub const W_DOCK_BOTTOM: C2RustUnnamed_13 = 2;
-pub const W_DOCK_TOP: C2RustUnnamed_13 = 1;
-pub const W_NODOCK: C2RustUnnamed_13 = 0;
+pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
+pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
+pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
+pub const M_NODOCK: ::core::ffi::c_int = 0;
+pub const M_DONTCHECK: ::core::ffi::c_int = -1;
 
-pub type C2RustUnnamed_16 = ::core::ffi::c_uint;
-pub const A_TO_OUTPUT: C2RustUnnamed_16 = 16;
-pub const A_TO_WORKSPACE_NUMBER: C2RustUnnamed_16 = 8;
-pub const A_NO_FOCUS: C2RustUnnamed_16 = 4;
-pub const A_TO_WORKSPACE: C2RustUnnamed_16 = 2;
-pub const A_COMMAND: C2RustUnnamed_16 = 1;
-pub const A_ANY: C2RustUnnamed_16 = 0;
+pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
+pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
+pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
+pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
+pub const A_COMMAND: ::core::ffi::c_uint = 1;
+pub const A_ANY: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_18 = ::core::ffi::c_uint;
-pub const CT_DOCKAREA: C2RustUnnamed_18 = 5;
-pub const CT_WORKSPACE: C2RustUnnamed_18 = 4;
-pub const CT_FLOATING_CON: C2RustUnnamed_18 = 3;
-pub const CT_CON: C2RustUnnamed_18 = 2;
-pub const CT_OUTPUT: C2RustUnnamed_18 = 1;
-pub const CT_ROOT: C2RustUnnamed_18 = 0;
-pub type direction_t = ::core::ffi::c_uint;
-pub const D_DOWN: direction_t = 3;
-pub const D_UP: direction_t = 2;
-pub const D_RIGHT: direction_t = 1;
-pub const D_LEFT: direction_t = 0;
-pub type orientation_t = ::core::ffi::c_uint;
-pub const VERT: orientation_t = 2;
-pub const HORIZ: orientation_t = 1;
-pub const NO_ORIENTATION: orientation_t = 0;
-pub type smart_gaps_t = ::core::ffi::c_uint;
-pub const SMART_GAPS_INVERSE_OUTER: smart_gaps_t = 2;
-pub const SMART_GAPS_ON: smart_gaps_t = 1;
-pub const SMART_GAPS_OFF: smart_gaps_t = 0;
+pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
+pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
+pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
+pub const CT_CON: ::core::ffi::c_uint = 2;
+pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
+pub const CT_ROOT: ::core::ffi::c_uint = 0;
+
 pub type hide_edge_borders_mode_t = ::core::ffi::c_uint;
 pub const HEBM_SMART_NO_GAPS: hide_edge_borders_mode_t = 64;
 pub const HEBM_SMART: hide_edge_borders_mode_t = 32;
@@ -122,68 +55,31 @@ pub const HEBM_BOTH: hide_edge_borders_mode_t = 23;
 pub const HEBM_HORIZONTAL: hide_edge_borders_mode_t = 20;
 pub const HEBM_VERTICAL: hide_edge_borders_mode_t = 3;
 pub const HEBM_NONE: hide_edge_borders_mode_t = 0;
-pub type warping_t = ::core::ffi::c_uint;
-pub const POINTER_WARPING_NONE: warping_t = 1;
-pub const POINTER_WARPING_OUTPUT: warping_t = 0;
-pub type focus_wrapping_t = ::core::ffi::c_uint;
-pub const FOCUS_WRAPPING_WORKSPACE: focus_wrapping_t = 3;
-pub const FOCUS_WRAPPING_FORCE: focus_wrapping_t = 2;
-pub const FOCUS_WRAPPING_ON: focus_wrapping_t = 1;
-pub const FOCUS_WRAPPING_OFF: focus_wrapping_t = 0;
+
 pub type tiling_drag_t = ::core::ffi::c_uint;
 pub const TILING_DRAG_MODIFIER_OR_TITLEBAR: tiling_drag_t = 3;
 pub const TILING_DRAG_TITLEBAR: tiling_drag_t = 2;
 pub const TILING_DRAG_MODIFIER: tiling_drag_t = 1;
 pub const TILING_DRAG_OFF: tiling_drag_t = 0;
 
-pub type C2RustUnnamed_19 = ::core::ffi::c_uint;
-pub const PDF_ALL: C2RustUnnamed_19 = 3;
-pub const PDF_IGNORE: C2RustUnnamed_19 = 2;
-pub const PDF_LEAVE_FULLSCREEN: C2RustUnnamed_19 = 1;
-pub const PDF_SMART: C2RustUnnamed_19 = 0;
-
-pub type C2RustUnnamed_20 = ::core::ffi::c_uint;
-pub const ALIGN_RIGHT: C2RustUnnamed_20 = 2;
-pub const ALIGN_CENTER: C2RustUnnamed_20 = 1;
-pub const ALIGN_LEFT: C2RustUnnamed_20 = 0;
-pub type C2RustUnnamed_21 = ::core::ffi::c_uint;
-pub const FOWA_NONE: C2RustUnnamed_21 = 3;
-pub const FOWA_FOCUS: C2RustUnnamed_21 = 2;
-pub const FOWA_URGENT: C2RustUnnamed_21 = 1;
-pub const FOWA_SMART: C2RustUnnamed_21 = 0;
-pub type xcursor_cursor_t = ::core::ffi::c_uint;
-pub const XCURSOR_CURSOR_MAX: xcursor_cursor_t = 9;
-pub const XCURSOR_CURSOR_MOVE: xcursor_cursor_t = 8;
-pub const XCURSOR_CURSOR_WATCH: xcursor_cursor_t = 7;
-pub const XCURSOR_CURSOR_BOTTOM_RIGHT_CORNER: xcursor_cursor_t = 6;
-pub const XCURSOR_CURSOR_BOTTOM_LEFT_CORNER: xcursor_cursor_t = 5;
-pub const XCURSOR_CURSOR_TOP_RIGHT_CORNER: xcursor_cursor_t = 4;
-pub const XCURSOR_CURSOR_TOP_LEFT_CORNER: xcursor_cursor_t = 3;
-pub const XCURSOR_CURSOR_RESIZE_VERTICAL: xcursor_cursor_t = 2;
-pub const XCURSOR_CURSOR_RESIZE_HORIZONTAL: xcursor_cursor_t = 1;
-pub const XCURSOR_CURSOR_POINTER: xcursor_cursor_t = 0;
 pub type callback_t = Option<
     unsafe fn(
         *mut Con,
         *mut Rect,
-        uint32_t,
-        uint32_t,
+        u32,
+        u32,
         *const xcb_button_press_event_t,
         *const ::core::ffi::c_void,
     ) -> (),
 >;
-pub type drag_result_t = ::core::ffi::c_uint;
-pub const DRAG_ABORT: drag_result_t = 3;
-pub const DRAG_REVERT: drag_result_t = 2;
-pub const DRAG_SUCCESS: drag_result_t = 1;
-pub const DRAGGING: drag_result_t = 0;
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct callback_params {
-    pub orientation: orientation_t,
+    pub orientation: Orientation,
     pub output: *mut Con,
     pub helpwin: xcb_window_t,
-    pub new_position: *mut uint32_t,
+    pub new_position: *mut u32,
     pub threshold_exceeded: *mut bool,
 }
 pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
@@ -193,8 +89,8 @@ pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::
 unsafe fn resize_callback(
     con: *mut Con,
     old_rect: *mut Rect,
-    new_x: uint32_t,
-    new_y: uint32_t,
+    new_x: u32,
+    new_y: u32,
     event: *const xcb_button_press_event_t,
     extra: *const ::core::ffi::c_void,
 ) {
@@ -210,50 +106,46 @@ unsafe fn resize_callback(
     );
     if !*(*params).threshold_exceeded {
         xcb_map_window(conn, (*params).helpwin);
-        if (*params).orientation as ::core::ffi::c_uint
-            == HORIZ as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
+        if (*params).orientation == Orientation::Horizontal {
             xcb_warp_pointer(
                 conn,
                 XCB_NONE as xcb_window_t,
                 (*event).root,
-                0 as int16_t,
-                0 as int16_t,
-                0 as uint16_t,
-                0 as uint16_t,
+                0 as i16,
+                0 as i16,
+                0 as u16,
+                0 as u16,
                 (*(*params).new_position)
                     .wrapping_add(new_x)
-                    .wrapping_sub((*event).root_x as uint32_t) as int16_t,
-                new_y as int16_t,
+                    .wrapping_sub((*event).root_x as u32) as i16,
+                new_y as i16,
             );
         } else {
             xcb_warp_pointer(
                 conn,
                 XCB_NONE as xcb_window_t,
                 (*event).root,
-                0 as int16_t,
-                0 as int16_t,
-                0 as uint16_t,
-                0 as uint16_t,
-                new_x as int16_t,
+                0 as i16,
+                0 as i16,
+                0 as u16,
+                0 as u16,
+                new_x as i16,
                 (*(*params).new_position)
                     .wrapping_add(new_y)
-                    .wrapping_sub((*event).root_y as uint32_t) as int16_t,
+                    .wrapping_sub((*event).root_y as u32) as i16,
             );
         }
         *(*params).threshold_exceeded = true_0 != 0;
         return;
     }
-    if (*params).orientation as ::core::ffi::c_uint
-        == HORIZ as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if (*params).orientation == Orientation::Horizontal {
         if new_x
             > (*output)
                 .rect
                 .x
                 .wrapping_add((*output).rect.width)
-                .wrapping_sub(25 as uint32_t)
-            || new_x < (*output).rect.x.wrapping_add(25 as uint32_t)
+                .wrapping_sub(25 as u32)
+            || new_x < (*output).rect.x.wrapping_add(25 as u32)
         {
             return;
         }
@@ -261,7 +153,7 @@ unsafe fn resize_callback(
         xcb_configure_window(
             conn,
             (*params).helpwin,
-            XCB_CONFIG_WINDOW_X as ::core::ffi::c_int as uint16_t,
+            XCB_CONFIG_WINDOW_X as ::core::ffi::c_int as u16,
             (*params).new_position as *const ::core::ffi::c_void,
         );
     } else {
@@ -270,8 +162,8 @@ unsafe fn resize_callback(
                 .rect
                 .y
                 .wrapping_add((*output).rect.height)
-                .wrapping_sub(25 as uint32_t)
-            || new_y < (*output).rect.y.wrapping_add(25 as uint32_t)
+                .wrapping_sub(25 as u32)
+            || new_y < (*output).rect.y.wrapping_add(25 as u32)
         {
             return;
         }
@@ -279,7 +171,7 @@ unsafe fn resize_callback(
         xcb_configure_window(
             conn,
             (*params).helpwin,
-            XCB_CONFIG_WINDOW_Y as ::core::ffi::c_int as uint16_t,
+            XCB_CONFIG_WINDOW_Y as ::core::ffi::c_int as u16,
             (*params).new_position as *const ::core::ffi::c_void,
         );
     }
@@ -289,7 +181,7 @@ unsafe fn resize_callback(
 pub unsafe fn resize_find_tiling_participants(
     current: *mut *mut Con,
     other: *mut *mut Con,
-    direction: direction_t,
+    direction: Direction,
     both_sides: bool,
 ) -> bool {
     debuglog(
@@ -315,22 +207,17 @@ pub unsafe fn resize_find_tiling_participants(
         );
         return false_0 != 0;
     }
-    let search_orientation: orientation_t = orientation_from_direction(direction) as orientation_t;
-    let dir_backwards: bool = direction as ::core::ffi::c_uint
-        == D_UP as ::core::ffi::c_int as ::core::ffi::c_uint
-        || direction as ::core::ffi::c_uint == D_LEFT as ::core::ffi::c_int as ::core::ffi::c_uint;
+    let search_orientation: Orientation = orientation_from_direction(direction);
+    let dir_backwards: bool = direction == Direction::Up || direction == Direction::Left;
     while (*first).type_0 as ::core::ffi::c_uint
         != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
         && (*first).type_0 as ::core::ffi::c_uint
             != CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
         && second.is_null()
     {
-        if con_orientation((*first).parent as *mut Con) as ::core::ffi::c_uint
-            != search_orientation as ::core::ffi::c_uint
-            || (*(*first).parent).layout as ::core::ffi::c_uint
-                == L_STACKED as ::core::ffi::c_int as ::core::ffi::c_uint
-            || (*(*first).parent).layout as ::core::ffi::c_uint
-                == L_TABBED as ::core::ffi::c_int as ::core::ffi::c_uint
+        if con_orientation((*first).parent as *mut Con) != search_orientation
+            || (*(*first).parent).layout == Layout::Stacked
+            || (*(*first).parent).layout == Layout::Tabbed
         {
             first = (*first).parent as *mut Con;
         } else {
@@ -385,14 +272,12 @@ pub unsafe fn resize_find_tiling_participants(
 pub unsafe fn percent_for_1px(con: *mut Con) -> ::core::ffi::c_double {
     let parent_size: ::core::ffi::c_int =
         con_rect_size_in_orientation((*con).parent as *mut Con) as ::core::ffi::c_int;
-    let min_size: ::core::ffi::c_int = (if con_orientation((*con).parent as *mut Con)
-        as ::core::ffi::c_uint
-        == HORIZ as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
-        1 as uint32_t
-    } else {
-        (1 as uint32_t).wrapping_add((*con).deco_rect.height)
-    }) as ::core::ffi::c_int;
+    let min_size: ::core::ffi::c_int =
+        (if con_orientation((*con).parent as *mut Con) == Orientation::Horizontal {
+            1 as u32
+        } else {
+            (1 as u32).wrapping_add((*con).deco_rect.height)
+        }) as ::core::ffi::c_int;
     min_size as ::core::ffi::c_double / parent_size as ::core::ffi::c_double
 }
 
@@ -435,7 +320,7 @@ pub unsafe fn resize_neighboring_cons(
 pub unsafe fn resize_graphical_handler(
     first: *mut Con,
     second: *mut Con,
-    orientation: orientation_t,
+    orientation: Orientation,
     event: *const xcb_button_press_event_t,
     use_threshold: bool,
 ) {
@@ -464,25 +349,25 @@ pub unsafe fn resize_graphical_handler(
         second,
         (*second).name,
     );
-    x_mask_event_mask(!(XCB_EVENT_MASK_ENTER_WINDOW as ::core::ffi::c_int) as uint32_t);
+    x_mask_event_mask(!(XCB_EVENT_MASK_ENTER_WINDOW as ::core::ffi::c_int) as u32);
     xcb_flush(conn);
-    let mut mask: uint32_t = 0 as uint32_t;
-    let mut values: [uint32_t; 2] = [0; 2];
-    mask = XCB_CW_OVERRIDE_REDIRECT as ::core::ffi::c_int as uint32_t;
-    values[0 as ::core::ffi::c_int as usize] = 1 as uint32_t;
+    let mut mask: u32 = 0 as u32;
+    let mut values: [u32; 2] = [0; 2];
+    mask = XCB_CW_OVERRIDE_REDIRECT as ::core::ffi::c_int as u32;
+    values[0 as ::core::ffi::c_int as usize] = 1 as u32;
     let grabwin: xcb_window_t = create_window(
         conn,
         (*output).rect as Rect,
-        XCB_COPY_FROM_PARENT as uint16_t,
+        XCB_COPY_FROM_PARENT as u16,
         XCB_COPY_FROM_PARENT as xcb_visualid_t,
-        XCB_WINDOW_CLASS_INPUT_ONLY as ::core::ffi::c_int as uint16_t,
-        XCURSOR_CURSOR_POINTER,
+        XCB_WINDOW_CLASS_INPUT_ONLY as ::core::ffi::c_int as u16,
+        Cursor::Pointer,
         true_0 != 0,
         mask,
-        &raw mut values as *mut uint32_t,
+        &raw mut values as *mut u32,
     );
-    let mut initial_position: uint32_t = 0;
-    let mut new_position: uint32_t = 0;
+    let mut initial_position: u32 = 0;
+    let mut new_position: u32 = 0;
     let mut helprect: Rect = Rect {
         x: 0,
         y: 0,
@@ -493,15 +378,12 @@ pub unsafe fn resize_graphical_handler(
     helprect.y = (*second).rect.y;
     let ffirst: *mut Con = con_descend_focused(first);
     let fsecond: *mut Con = con_descend_focused(second);
-    if orientation as ::core::ffi::c_uint == HORIZ as ::core::ffi::c_int as ::core::ffi::c_uint {
-        helprect.width = logical_px(2 as ::core::ffi::c_int) as uint32_t;
+    if orientation == Orientation::Horizontal {
+        helprect.width = logical_px(2 as ::core::ffi::c_int) as u32;
         helprect.height = (*second).rect.height;
-        let ffirst_right: uint32_t = (*ffirst).rect.x.wrapping_add((*ffirst).rect.width);
-        let gap: uint32_t = (*fsecond).rect.x.wrapping_sub(ffirst_right);
-        let middle: uint32_t = (*fsecond)
-            .rect
-            .x
-            .wrapping_sub(gap.wrapping_div(2 as uint32_t));
+        let ffirst_right: u32 = (*ffirst).rect.x.wrapping_add((*ffirst).rect.width);
+        let gap: u32 = (*fsecond).rect.x.wrapping_sub(ffirst_right);
+        let middle: u32 = (*fsecond).rect.x.wrapping_sub(gap.wrapping_div(2 as u32));
         debuglog(
             c"%s:%s:%d - ffirst->rect = {.x = %u, .width = %u}\n"
                 .as_ptr()
@@ -533,13 +415,10 @@ pub unsafe fn resize_graphical_handler(
         initial_position = middle;
     } else {
         helprect.width = (*second).rect.width;
-        helprect.height = logical_px(2 as ::core::ffi::c_int) as uint32_t;
-        let ffirst_bottom: uint32_t = (*ffirst).rect.y.wrapping_add((*ffirst).rect.height);
-        let gap_0: uint32_t = (*fsecond).rect.y.wrapping_sub(ffirst_bottom);
-        let middle_0: uint32_t = (*fsecond)
-            .rect
-            .y
-            .wrapping_sub(gap_0.wrapping_div(2 as uint32_t));
+        helprect.height = logical_px(2 as ::core::ffi::c_int) as u32;
+        let ffirst_bottom: u32 = (*ffirst).rect.y.wrapping_add((*ffirst).rect.height);
+        let gap_0: u32 = (*fsecond).rect.y.wrapping_sub(ffirst_bottom);
+        let middle_0: u32 = (*fsecond).rect.y.wrapping_sub(gap_0.wrapping_div(2 as u32));
         debuglog(
             c"%s:%s:%d - ffirst->rect = {.y = %u, .height = %u}\n"
                 .as_ptr()
@@ -570,39 +449,37 @@ pub unsafe fn resize_graphical_handler(
         );
         initial_position = middle_0;
     }
-    mask = XCB_CW_BACK_PIXEL as ::core::ffi::c_int as uint32_t;
+    mask = XCB_CW_BACK_PIXEL as ::core::ffi::c_int as u32;
     values[0 as ::core::ffi::c_int as usize] = config.client.focused.border.colorpixel;
-    mask |= XCB_CW_OVERRIDE_REDIRECT as ::core::ffi::c_int as uint32_t;
-    values[1 as ::core::ffi::c_int as usize] = 1 as uint32_t;
+    mask |= XCB_CW_OVERRIDE_REDIRECT as ::core::ffi::c_int as u32;
+    values[1 as ::core::ffi::c_int as usize] = 1 as u32;
     let helpwin: xcb_window_t = create_window(
         conn,
         helprect,
-        XCB_COPY_FROM_PARENT as uint16_t,
+        XCB_COPY_FROM_PARENT as u16,
         XCB_COPY_FROM_PARENT as xcb_visualid_t,
-        XCB_WINDOW_CLASS_INPUT_OUTPUT as ::core::ffi::c_int as uint16_t,
-        (if orientation as ::core::ffi::c_uint == HORIZ as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
-            XCURSOR_CURSOR_RESIZE_HORIZONTAL as ::core::ffi::c_int
+        XCB_WINDOW_CLASS_INPUT_OUTPUT as ::core::ffi::c_int as u16,
+        if orientation == Orientation::Horizontal {
+            Cursor::ResizeHorizontal
         } else {
-            XCURSOR_CURSOR_RESIZE_VERTICAL as ::core::ffi::c_int
-        }) as xcursor_cursor_t,
+            Cursor::ResizeVertical
+        },
         false_0 != 0,
         mask,
-        &raw mut values as *mut uint32_t,
+        &raw mut values as *mut u32,
     );
     if !use_threshold {
         xcb_map_window(conn, helpwin);
-        if orientation as ::core::ffi::c_uint == HORIZ as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
+        if orientation == Orientation::Horizontal {
             xcb_warp_pointer(
                 conn,
                 XCB_NONE as xcb_window_t,
                 (*event).root,
-                0 as int16_t,
-                0 as int16_t,
-                0 as uint16_t,
-                0 as uint16_t,
-                initial_position as int16_t,
+                0 as i16,
+                0 as i16,
+                0 as u16,
+                0 as u16,
+                initial_position as i16,
                 (*event).root_y,
             );
         } else {
@@ -610,18 +487,18 @@ pub unsafe fn resize_graphical_handler(
                 conn,
                 XCB_NONE as xcb_window_t,
                 (*event).root,
-                0 as int16_t,
-                0 as int16_t,
-                0 as uint16_t,
-                0 as uint16_t,
+                0 as i16,
+                0 as i16,
+                0 as u16,
+                0 as u16,
                 (*event).root_x,
-                initial_position as int16_t,
+                initial_position as i16,
             );
         }
     }
     xcb_circulate_window(
         conn,
-        XCB_CIRCULATE_RAISE_LOWEST as ::core::ffi::c_int as uint8_t,
+        XCB_CIRCULATE_RAISE_LOWEST as ::core::ffi::c_int as u8,
         helpwin,
     );
     xcb_flush(conn);
@@ -635,19 +512,19 @@ pub unsafe fn resize_graphical_handler(
         threshold_exceeded: &raw mut threshold_exceeded,
     };
     tree_render();
-    let drag_result: drag_result_t = drag_pointer(
+    let drag_result: DragResult = drag_pointer(
         ::core::ptr::null_mut::<Con>(),
         event,
         grabwin,
-        0 as ::core::ffi::c_int,
+        Cursor::Pointer,
         use_threshold,
         Some(
             resize_callback
                 as unsafe fn(
                     *mut Con,
                     *mut Rect,
-                    uint32_t,
-                    uint32_t,
+                    u32,
+                    u32,
                     *const xcb_button_press_event_t,
                     *const ::core::ffi::c_void,
                 ) -> (),
@@ -657,9 +534,7 @@ pub unsafe fn resize_graphical_handler(
     xcb_destroy_window(conn, helpwin);
     xcb_destroy_window(conn, grabwin);
     xcb_flush(conn);
-    if drag_result as ::core::ffi::c_uint
-        == DRAG_REVERT as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if drag_result == DragResult::Revert {
         return;
     }
     let pixels: ::core::ffi::c_int =

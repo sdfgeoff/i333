@@ -1,3 +1,4 @@
+use crate::xcursor::Cursor;
 use i3_common::safewrappers::sasprintf;
 /*
  * vim:ts=4:sw=4:expandtab
@@ -14,95 +15,40 @@ use i3_common::safewrappers::sasprintf;
 // Mechanical file-by-file Rust translation of src/startup.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 pub use libev_sys::{ev_loop, ev_timer, ev_timer_start, ev_tstamp, ev_watcher, ev_watcher_time};
-pub type size_t = usize;
-pub type __uint8_t = u8;
-pub type __uint16_t = u16;
-pub type __uint32_t = u32;
-pub type __pid_t = ::core::ffi::c_int;
-pub type __rlim64_t = ::core::ffi::c_ulong;
-pub type __time_t = ::core::ffi::c_long;
-pub type __suseconds_t = ::core::ffi::c_long;
-pub type time_t = __time_t;
-
-pub type uint8_t = __uint8_t;
-pub type uint16_t = __uint16_t;
-pub type uint32_t = __uint32_t;
 
 pub use libc::sighandler_t as __sighandler_t;
 pub type i3String = _i3String;
 
 pub type Time = ::core::ffi::c_ulong;
 
-pub type C2RustUnnamed = ::core::ffi::c_uint;
-pub const SCRATCHPAD_CHANGED: C2RustUnnamed = 2;
-pub const SCRATCHPAD_FRESH: C2RustUnnamed = 1;
-pub const SCRATCHPAD_NONE: C2RustUnnamed = 0;
-
-pub type C2RustUnnamed_4 = ::core::ffi::c_uint;
-pub const FLOATING_USER_ON: C2RustUnnamed_4 = 3;
-pub const FLOATING_AUTO_ON: C2RustUnnamed_4 = 2;
-pub const FLOATING_USER_OFF: C2RustUnnamed_4 = 1;
-pub const FLOATING_AUTO_OFF: C2RustUnnamed_4 = 0;
-pub type border_style_t = ::core::ffi::c_uint;
-pub const BS_NORMAL: border_style_t = 2;
-pub const BS_PIXEL: border_style_t = 1;
-pub const BS_NONE: border_style_t = 0;
-pub type layout_t = ::core::ffi::c_uint;
-pub const L_SPLITH: layout_t = 6;
-pub const L_SPLITV: layout_t = 5;
-pub const L_OUTPUT: layout_t = 4;
-pub const L_DOCKAREA: layout_t = 3;
-pub const L_TABBED: layout_t = 2;
-pub const L_STACKED: layout_t = 1;
-pub const L_DEFAULT: layout_t = 0;
 pub type fullscreen_mode_t = ::core::ffi::c_uint;
 pub const CF_GLOBAL: fullscreen_mode_t = 2;
 pub const CF_OUTPUT: fullscreen_mode_t = 1;
 pub const CF_NONE: fullscreen_mode_t = 0;
 
-pub type C2RustUnnamed_6 = ::core::ffi::c_uint;
-pub const M_BELOW: C2RustUnnamed_6 = 2;
-pub const M_ASSIGN_WS: C2RustUnnamed_6 = 1;
-pub const M_HERE: C2RustUnnamed_6 = 0;
-pub type C2RustUnnamed_7 = ::core::ffi::c_uint;
-pub const WM_FLOATING: C2RustUnnamed_7 = 6;
-pub const WM_FLOATING_USER: C2RustUnnamed_7 = 5;
-pub const WM_FLOATING_AUTO: C2RustUnnamed_7 = 4;
-pub const WM_TILING: C2RustUnnamed_7 = 3;
-pub const WM_TILING_USER: C2RustUnnamed_7 = 2;
-pub const WM_TILING_AUTO: C2RustUnnamed_7 = 1;
-pub const WM_ANY: C2RustUnnamed_7 = 0;
-pub type C2RustUnnamed_8 = ::core::ffi::c_int;
-pub const M_DOCK_BOTTOM: C2RustUnnamed_8 = 3;
-pub const M_DOCK_TOP: C2RustUnnamed_8 = 2;
-pub const M_DOCK_ANY: C2RustUnnamed_8 = 1;
-pub const M_NODOCK: C2RustUnnamed_8 = 0;
-pub const M_DONTCHECK: C2RustUnnamed_8 = -1;
-pub type C2RustUnnamed_9 = ::core::ffi::c_int;
-pub const U_OLDEST: C2RustUnnamed_9 = 1;
-pub const U_LATEST: C2RustUnnamed_9 = 0;
-pub const U_DONTCHECK: C2RustUnnamed_9 = -1;
+pub const M_BELOW: ::core::ffi::c_uint = 2;
+pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
+pub const M_HERE: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_10 = ::core::ffi::c_uint;
-pub const W_DOCK_BOTTOM: C2RustUnnamed_10 = 2;
-pub const W_DOCK_TOP: C2RustUnnamed_10 = 1;
-pub const W_NODOCK: C2RustUnnamed_10 = 0;
+pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
+pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
+pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
+pub const M_NODOCK: ::core::ffi::c_int = 0;
+pub const M_DONTCHECK: ::core::ffi::c_int = -1;
 
-pub type C2RustUnnamed_13 = ::core::ffi::c_uint;
-pub const A_TO_OUTPUT: C2RustUnnamed_13 = 16;
-pub const A_TO_WORKSPACE_NUMBER: C2RustUnnamed_13 = 8;
-pub const A_NO_FOCUS: C2RustUnnamed_13 = 4;
-pub const A_TO_WORKSPACE: C2RustUnnamed_13 = 2;
-pub const A_COMMAND: C2RustUnnamed_13 = 1;
-pub const A_ANY: C2RustUnnamed_13 = 0;
+pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
+pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
+pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
+pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
+pub const A_COMMAND: ::core::ffi::c_uint = 1;
+pub const A_ANY: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_15 = ::core::ffi::c_uint;
-pub const CT_DOCKAREA: C2RustUnnamed_15 = 5;
-pub const CT_WORKSPACE: C2RustUnnamed_15 = 4;
-pub const CT_FLOATING_CON: C2RustUnnamed_15 = 3;
-pub const CT_CON: C2RustUnnamed_15 = 2;
-pub const CT_OUTPUT: C2RustUnnamed_15 = 1;
-pub const CT_ROOT: C2RustUnnamed_15 = 0;
+pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
+pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
+pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
+pub const CT_CON: ::core::ffi::c_uint = 2;
+pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
+pub const CT_ROOT: ::core::ffi::c_uint = 0;
 pub type i3Window = Window;
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -110,7 +56,7 @@ pub struct Startup_Sequence {
     pub id: *mut ::core::ffi::c_char,
     pub workspace: *mut ::core::ffi::c_char,
     pub context: *mut SnLauncherContext,
-    pub delete_at: time_t,
+    pub delete_at: libc::time_t,
     pub sequences: C2RustUnnamed_16,
 }
 #[derive(Copy, Clone)]
@@ -119,41 +65,6 @@ pub struct C2RustUnnamed_16 {
     pub tqe_next: *mut Startup_Sequence,
     pub tqe_prev: *mut *mut Startup_Sequence,
 }
-
-pub type __rlimit_resource = ::core::ffi::c_uint;
-pub const __RLIM_NLIMITS: __rlimit_resource = 16;
-pub const __RLIMIT_NLIMITS: __rlimit_resource = 16;
-pub const __RLIMIT_RTTIME: __rlimit_resource = 15;
-pub const __RLIMIT_RTPRIO: __rlimit_resource = 14;
-pub const __RLIMIT_NICE: __rlimit_resource = 13;
-pub const __RLIMIT_MSGQUEUE: __rlimit_resource = 12;
-pub const __RLIMIT_SIGPENDING: __rlimit_resource = 11;
-pub const __RLIMIT_LOCKS: __rlimit_resource = 10;
-pub const __RLIMIT_MEMLOCK: __rlimit_resource = 8;
-pub const __RLIMIT_NPROC: __rlimit_resource = 6;
-pub const RLIMIT_AS: __rlimit_resource = 9;
-pub const __RLIMIT_OFILE: __rlimit_resource = 7;
-pub const RLIMIT_NOFILE: __rlimit_resource = 7;
-pub const __RLIMIT_RSS: __rlimit_resource = 5;
-pub const RLIMIT_CORE: __rlimit_resource = 4;
-pub const RLIMIT_STACK: __rlimit_resource = 3;
-pub const RLIMIT_DATA: __rlimit_resource = 2;
-pub const RLIMIT_FSIZE: __rlimit_resource = 1;
-pub const RLIMIT_CPU: __rlimit_resource = 0;
-pub type rlim_t = __rlim64_t;
-
-pub type __rlimit_resource_t = __rlimit_resource;
-pub type xcursor_cursor_t = ::core::ffi::c_uint;
-pub const XCURSOR_CURSOR_MAX: xcursor_cursor_t = 9;
-pub const XCURSOR_CURSOR_MOVE: xcursor_cursor_t = 8;
-pub const XCURSOR_CURSOR_WATCH: xcursor_cursor_t = 7;
-pub const XCURSOR_CURSOR_BOTTOM_RIGHT_CORNER: xcursor_cursor_t = 6;
-pub const XCURSOR_CURSOR_BOTTOM_LEFT_CORNER: xcursor_cursor_t = 5;
-pub const XCURSOR_CURSOR_TOP_RIGHT_CORNER: xcursor_cursor_t = 4;
-pub const XCURSOR_CURSOR_TOP_LEFT_CORNER: xcursor_cursor_t = 3;
-pub const XCURSOR_CURSOR_RESIZE_VERTICAL: xcursor_cursor_t = 2;
-pub const XCURSOR_CURSOR_RESIZE_HORIZONTAL: xcursor_cursor_t = 1;
-pub const XCURSOR_CURSOR_POINTER: xcursor_cursor_t = 0;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -223,13 +134,13 @@ unsafe extern "C" fn startup_timeout(
     free(w as *mut ::core::ffi::c_void);
 }
 unsafe fn _prune_startup_sequences() -> ::core::ffi::c_int {
-    let current_time: time_t = time(::core::ptr::null_mut::<time_t>()) as time_t;
+    let current_time: libc::time_t = time(::core::ptr::null_mut::<libc::time_t>()) as libc::time_t;
     let mut active_sequences: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
     let mut next: *mut Startup_Sequence = startup_sequences.tqh_first;
     while !next.is_null() {
         let current: *mut Startup_Sequence = next;
         next = (*next).sequences.tqe_next;
-        if (*current).delete_at == 0 as time_t {
+        if (*current).delete_at == 0 as libc::time_t {
             active_sequences += 1;
         } else {
             if current_time <= (*current).delete_at {
@@ -260,7 +171,7 @@ pub unsafe fn startup_sequence_delete(mut sequence: *mut Startup_Sequence) {
         108 as ::core::ffi::c_int,
         (*sequence).id,
         (*sequence).delete_at as ::core::ffi::c_longlong,
-        time(::core::ptr::null_mut::<time_t>()) as ::core::ffi::c_longlong,
+        time(::core::ptr::null_mut::<libc::time_t>()) as ::core::ffi::c_longlong,
     );
     sn_launcher_context_unref((*sequence).context);
     if !(*sequence).sequences.tqe_next.is_null() {
@@ -293,7 +204,7 @@ pub unsafe fn start_application(
         sn_launcher_context_initiate(context, c"i3".as_ptr(), first_word, last_timestamp as Time);
         free(first_word as *mut ::core::ffi::c_void);
         let timeout: *mut ev_timer =
-            scalloc(1 as size_t, ::core::mem::size_of::<ev_timer>() as size_t) as *mut ev_timer;
+            scalloc(1 as usize, ::core::mem::size_of::<ev_timer>() as usize) as *mut ev_timer;
         let ref mut fresh0 = (*(timeout as *mut ::core::ffi::c_void as *mut ev_watcher)).pending;
         *fresh0 = 0 as ::core::ffi::c_int;
         (*(timeout as *mut ::core::ffi::c_void as *mut ev_watcher)).active = *fresh0;
@@ -309,7 +220,7 @@ pub unsafe fn start_application(
             &raw mut (*timeout).cb as *const ::core::ffi::c_void,
             ::core::mem::size_of::<
                 Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_timer, ::core::ffi::c_int) -> ()>,
-            >() as size_t,
+            >() as usize,
         );
         (*(timeout as *mut ev_watcher_time)).at = 60.0f64 as ev_tstamp;
         (*timeout).repeat = 0.0f64 as ev_tstamp;
@@ -321,8 +232,8 @@ pub unsafe fn start_application(
         );
         let ws: *mut Con = con_get_workspace(focused);
         let sequence: *mut Startup_Sequence = scalloc(
-            1 as size_t,
-            ::core::mem::size_of::<Startup_Sequence>() as size_t,
+            1 as usize,
+            ::core::mem::size_of::<Startup_Sequence>() as usize,
         ) as *mut Startup_Sequence;
         (*sequence).id = sstrdup(sn_launcher_context_get_startup_id(context));
         (*sequence).workspace = sstrdup((*ws).name);
@@ -336,7 +247,7 @@ pub unsafe fn start_application(
     verboselog(c"executing: %s\n".as_ptr().cast_mut(), command);
     if fork() == 0 as ::core::ffi::c_int {
         setsid();
-        setrlimit(RLIMIT_CORE, &raw mut original_rlimit_core);
+        setrlimit(libc::RLIMIT_CORE, &raw mut original_rlimit_core);
         let mut fd: ::core::ffi::c_int = SD_LISTEN_FDS_START;
         while fd < SD_LISTEN_FDS_START + listen_fds {
             close(fd);
@@ -374,7 +285,7 @@ pub unsafe fn start_application(
         err(EXIT_FAILURE, c"execl return".as_ptr());
     }
     if !no_startup_id {
-        xcursor_set_root_cursor(XCURSOR_CURSOR_WATCH as ::core::ffi::c_int);
+        xcursor_set_root_cursor(Cursor::Watch);
     }
 }
 
@@ -416,8 +327,8 @@ pub unsafe extern "C" fn startup_monitor_event(
                 243 as ::core::ffi::c_int,
                 sn_startup_sequence_get_id(sn_startup_sequence),
             );
-            let current_time: time_t = time(::core::ptr::null_mut::<time_t>());
-            (*sequence).delete_at = current_time + 30 as time_t;
+            let current_time: libc::time_t = time(::core::ptr::null_mut::<libc::time_t>());
+            (*sequence).delete_at = current_time + 30 as libc::time_t;
             debuglog(
                 c"%s:%s:%d - Will delete startup sequence %s at timestamp %lld\n"
                     .as_ptr()
@@ -435,7 +346,7 @@ pub unsafe extern "C" fn startup_monitor_event(
                     c"startup_monitor_event".as_ptr(),
                     252 as ::core::ffi::c_int,
                 );
-                xcursor_set_root_cursor(XCURSOR_CURSOR_POINTER as ::core::ffi::c_int);
+                xcursor_set_root_cursor(Cursor::Pointer);
             }
         }
         _ => {}
@@ -515,12 +426,12 @@ pub unsafe fn startup_sequence_get(
         );
         let cookie: xcb_get_property_cookie_t = xcb_get_property(
             conn,
-            false_0 as uint8_t,
+            false_0 as u8,
             (*cwindow).leader,
             A__NET_STARTUP_ID,
             XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-            0 as uint32_t,
-            512 as uint32_t,
+            0 as u32,
+            512 as u32,
         ) as xcb_get_property_cookie_t;
         startup_id_reply = xcb_get_property_reply(
             conn,
@@ -589,8 +500,8 @@ pub unsafe fn startup_workspace_for_window(
     if sequence.is_null() {
         return ::core::ptr::null_mut::<::core::ffi::c_char>();
     }
-    let current_time: time_t = time(::core::ptr::null_mut::<time_t>());
-    if (*sequence).delete_at > 0 as time_t && current_time > (*sequence).delete_at {
+    let current_time: libc::time_t = time(::core::ptr::null_mut::<libc::time_t>());
+    if (*sequence).delete_at > 0 as libc::time_t && current_time > (*sequence).delete_at {
         debuglog(
             c"%s:%s:%d - Deleting expired startup sequence %s\n"
                 .as_ptr()
@@ -609,12 +520,12 @@ pub unsafe fn startup_workspace_for_window(
 pub unsafe fn startup_sequence_delete_by_window(win: *const i3Window) {
     let cookie: xcb_get_property_cookie_t = xcb_get_property(
         conn,
-        false_0 as uint8_t,
+        false_0 as u8,
         (*win).id,
         A__NET_STARTUP_ID,
         XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-        0 as uint32_t,
-        512 as uint32_t,
+        0 as u32,
+        512 as u32,
     ) as xcb_get_property_cookie_t;
     let startup_id_reply: *mut xcb_get_property_reply_t = xcb_get_property_reply(
         conn,

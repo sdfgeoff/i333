@@ -16,28 +16,6 @@ use i3_json::compat::{yajl_alloc, yajl_free, yajl_parse};
 pub use i3_json::compat::{
     yajl_alloc_funcs, yajl_callbacks, yajl_handle, yajl_status, yajl_status_ok,
 };
-pub type size_t = usize;
-pub type __uint8_t = u8;
-pub type __uint32_t = u32;
-pub type __uint64_t = u64;
-pub type __dev_t = ::core::ffi::c_ulong;
-pub type __uid_t = ::core::ffi::c_uint;
-pub type __gid_t = ::core::ffi::c_uint;
-pub type __ino_t = ::core::ffi::c_ulong;
-pub type __mode_t = ::core::ffi::c_uint;
-pub type __nlink_t = ::core::ffi::c_ulong;
-pub type __off_t = ::core::ffi::c_long;
-pub type __off64_t = ::core::ffi::c_long;
-pub type __pid_t = ::core::ffi::c_int;
-pub type __time_t = ::core::ffi::c_long;
-pub type __blksize_t = ::core::ffi::c_long;
-pub type __blkcnt_t = ::core::ffi::c_long;
-pub type __syscall_slong_t = ::core::ffi::c_long;
-pub type ssize_t = isize;
-pub type time_t = __time_t;
-
-pub type uint8_t = __uint8_t;
-pub type uint32_t = __uint32_t;
 
 pub use crate::config::IncludedFile;
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
@@ -53,7 +31,7 @@ static mut loaded_config_file_name: *mut ::core::ffi::c_char =
 unsafe fn version_string(
     ctx: *mut ::core::ffi::c_void,
     val: *const ::core::ffi::c_uchar,
-    len: size_t,
+    len: usize,
 ) -> ::core::ffi::c_int {
     if human_readable_key {
         sasprintf(
@@ -72,10 +50,9 @@ unsafe fn version_string(
         );
     }
     if included_config_file_names {
-        let file: *mut IncludedFile = scalloc(
-            1 as size_t,
-            ::core::mem::size_of::<IncludedFile>() as size_t,
-        ) as *mut IncludedFile;
+        let file: *mut IncludedFile =
+            scalloc(1 as usize, ::core::mem::size_of::<IncludedFile>() as usize)
+                as *mut IncludedFile;
         sasprintf(
             &raw mut (*file).path,
             c"%.*s".as_ptr(),
@@ -92,7 +69,7 @@ unsafe fn version_string(
 unsafe fn version_map_key(
     ctx: *mut ::core::ffi::c_void,
     stringval: *const ::core::ffi::c_uchar,
-    stringlen: size_t,
+    stringlen: usize,
 ) -> ::core::ffi::c_int {
     human_readable_key = stringlen == strlen(c"human_readable".as_ptr())
         && strncmp(
@@ -126,7 +103,7 @@ static mut version_callbacks: yajl_callbacks = unsafe {
                 as unsafe fn(
                     *mut ::core::ffi::c_void,
                     *const ::core::ffi::c_uchar,
-                    size_t,
+                    usize,
                 ) -> ::core::ffi::c_int,
         ),
         yajl_start_map: None,
@@ -135,7 +112,7 @@ static mut version_callbacks: yajl_callbacks = unsafe {
                 as unsafe fn(
                     *mut ::core::ffi::c_void,
                     *const ::core::ffi::c_uchar,
-                    size_t,
+                    usize,
                 ) -> ::core::ffi::c_int,
         ),
         yajl_end_map: None,
@@ -145,7 +122,7 @@ static mut version_callbacks: yajl_callbacks = unsafe {
 };
 unsafe fn print_config_path(path: *const ::core::ffi::c_char, role: *const ::core::ffi::c_char) {
     let mut sb: stat = ::core::mem::zeroed();
-    let mut now: time_t = 0;
+    let mut now: libc::time_t = 0;
     let mut mtime: [::core::ffi::c_char; 64] = [0; 64];
     printf(c"  %s (%s)".as_ptr(), path, role);
     if stat(path, &raw mut sb) == -(1 as ::core::ffi::c_int) {
@@ -159,7 +136,7 @@ unsafe fn print_config_path(path: *const ::core::ffi::c_char, role: *const ::cor
     } else {
         strftime(
             &raw mut mtime as *mut ::core::ffi::c_char,
-            ::core::mem::size_of::<[::core::ffi::c_char; 64]>() as size_t,
+            ::core::mem::size_of::<[::core::ffi::c_char; 64]>() as usize,
             c"%c".as_ptr(),
             localtime(&raw mut sb.st_mtime),
         );
@@ -167,7 +144,7 @@ unsafe fn print_config_path(path: *const ::core::ffi::c_char, role: *const ::cor
         printf(
             c" (last modified: %s, %.f seconds ago)\n".as_ptr(),
             &raw mut mtime as *mut ::core::ffi::c_char,
-            difftime(now, sb.st_mtime as time_t),
+            difftime(now, sb.st_mtime as libc::time_t),
         );
     };
 }
@@ -196,16 +173,16 @@ pub unsafe fn display_running_version() {
     let sockfd: ::core::ffi::c_int = ipc_connect(::core::ptr::null::<::core::ffi::c_char>());
     if ipc_send_message(
         sockfd,
-        0 as uint32_t,
-        I3_IPC_MESSAGE_TYPE_GET_VERSION as uint32_t,
-        c"".as_ptr() as *mut uint8_t,
+        0 as u32,
+        I3_IPC_MESSAGE_TYPE_GET_VERSION as u32,
+        c"".as_ptr() as *mut u8,
     ) == -(1 as ::core::ffi::c_int)
     {
         err(EXIT_FAILURE, c"IPC: write()".as_ptr());
     }
-    let mut reply_length: uint32_t = 0;
-    let mut reply_type: uint32_t = 0;
-    let mut reply: *mut uint8_t = ::core::ptr::null_mut::<uint8_t>();
+    let mut reply_length: u32 = 0;
+    let mut reply_type: u32 = 0;
+    let mut reply: *mut u8 = ::core::ptr::null_mut::<u8>();
     let mut ret: ::core::ffi::c_int = 0;
     ret = ipc_recv_message(
         sockfd,
@@ -219,7 +196,7 @@ pub unsafe fn display_running_version() {
         }
         exit(EXIT_FAILURE);
     }
-    if reply_type != I3_IPC_MESSAGE_TYPE_GET_VERSION as uint32_t {
+    if reply_type != I3_IPC_MESSAGE_TYPE_GET_VERSION as u32 {
         errx(
             EXIT_FAILURE,
             c"Got reply type %d, but expected %d (GET_VERSION)".as_ptr(),
@@ -232,8 +209,7 @@ pub unsafe fn display_running_version() {
         ::core::ptr::null_mut::<yajl_alloc_funcs>(),
         NULL,
     );
-    let state: yajl_status =
-        yajl_parse(handle, reply, reply_length as ::core::ffi::c_int as size_t);
+    let state: yajl_status = yajl_parse(handle, reply, reply_length as ::core::ffi::c_int as usize);
     if state as ::core::ffi::c_uint != yajl_status_ok as ::core::ffi::c_int as ::core::ffi::c_uint {
         errx(
             EXIT_FAILURE,
@@ -258,21 +234,21 @@ pub unsafe fn display_running_version() {
             file = (*file).files.tqe_next as *mut IncludedFile;
         }
     }
-    let mut destpath_size: size_t = 1024 as size_t;
-    let mut linksize: ssize_t = 0;
+    let mut destpath_size: usize = 1024 as usize;
+    let mut linksize: isize = 0;
     let mut exepath: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
     let mut destpath: *mut ::core::ffi::c_char = smalloc(destpath_size) as *mut ::core::ffi::c_char;
     sasprintf(&raw mut exepath, c"/proc/%d/exe".as_ptr(), getpid());
     loop {
         linksize = readlink(exepath, destpath, destpath_size);
-        if !(linksize == destpath_size as ssize_t) {
+        if !(linksize == destpath_size as isize) {
             break;
         }
-        destpath_size = destpath_size.wrapping_mul(2 as size_t);
+        destpath_size = destpath_size.wrapping_mul(2 as usize);
         destpath = srealloc(destpath as *mut ::core::ffi::c_void, destpath_size)
             as *mut ::core::ffi::c_char;
     }
-    if linksize == -(1 as ::core::ffi::c_int) as ssize_t {
+    if linksize == -(1 as ::core::ffi::c_int) as isize {
         err(EXIT_FAILURE, c"readlink(%s)".as_ptr(), exepath);
     }
     *destpath.offset(linksize as isize) = '\0' as i32 as ::core::ffi::c_char;
@@ -282,14 +258,14 @@ pub unsafe fn display_running_version() {
     sasprintf(&raw mut exepath, c"/proc/%s/exe".as_ptr(), pid_from_atom);
     loop {
         linksize = readlink(exepath, destpath, destpath_size);
-        if !(linksize == destpath_size as ssize_t) {
+        if !(linksize == destpath_size as isize) {
             break;
         }
-        destpath_size = destpath_size.wrapping_mul(2 as size_t);
+        destpath_size = destpath_size.wrapping_mul(2 as usize);
         destpath = srealloc(destpath as *mut ::core::ffi::c_void, destpath_size)
             as *mut ::core::ffi::c_char;
     }
-    if linksize == -(1 as ::core::ffi::c_int) as ssize_t {
+    if linksize == -(1 as ::core::ffi::c_int) as isize {
         err(EXIT_FAILURE, c"readlink(%s)".as_ptr(), exepath);
     }
     *destpath.offset(linksize as isize) = '\0' as i32 as ::core::ffi::c_char;
@@ -310,8 +286,8 @@ pub unsafe fn display_running_version() {
     if read(
         fd,
         destpath as *mut ::core::ffi::c_void,
-        ::core::mem::size_of::<*mut ::core::ffi::c_char>() as size_t,
-    ) == -(1 as ::core::ffi::c_int) as ssize_t
+        ::core::mem::size_of::<*mut ::core::ffi::c_char>() as usize,
+    ) == -(1 as ::core::ffi::c_int) as isize
     {
         err(EXIT_FAILURE, c"read(%s)".as_ptr(), exepath);
     }

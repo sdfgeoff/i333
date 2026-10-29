@@ -19,13 +19,7 @@ use i3_common::string::i3string_set_markup;
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 use i3_json::compat::{yajl_alloc, yajl_free, yajl_parse};
 pub use i3_json::compat::{yajl_alloc_funcs, yajl_callbacks, yajl_handle, yajl_status};
-pub type size_t = usize;
-pub type __uint32_t = u32;
-pub type __uint64_t = u64;
-pub type __off_t = ::core::ffi::c_long;
-pub type __off64_t = ::core::ffi::c_long;
 
-pub type uint32_t = __uint32_t;
 pub type i3String = _i3String;
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -42,24 +36,11 @@ pub struct mode_json_params {
     pub mode: *mut mode,
 }
 
-pub type C2RustUnnamed = ::core::ffi::c_uint;
-pub const S_SHOW: C2RustUnnamed = 1;
-pub const S_HIDE: C2RustUnnamed = 0;
-pub type bar_display_mode_t = ::core::ffi::c_uint;
-pub const M_INVISIBLE: bar_display_mode_t = 2;
-pub const M_HIDE: bar_display_mode_t = 1;
-pub const M_DOCK: bar_display_mode_t = 0;
-
-pub type position_t = ::core::ffi::c_uint;
-pub const POS_BOT: position_t = 2;
-pub const POS_TOP: position_t = 1;
-pub const POS_NONE: position_t = 0;
-
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 unsafe fn mode_string_cb(
     params_: *mut ::core::ffi::c_void,
     val: *const ::core::ffi::c_uchar,
-    len: size_t,
+    len: usize,
 ) -> ::core::ffi::c_int {
     let params: *mut mode_json_params = params_ as *mut mode_json_params;
     if strcmp((*params).cur_key, c"change".as_ptr()) == 0 {
@@ -103,7 +84,7 @@ unsafe fn mode_boolean_cb(
 unsafe fn mode_map_key_cb(
     params_: *mut ::core::ffi::c_void,
     keyVal: *const ::core::ffi::c_uchar,
-    keyLen: size_t,
+    keyLen: usize,
 ) -> ::core::ffi::c_int {
     let params: *mut mode_json_params = params_ as *mut mode_json_params;
     free((*params).cur_key as *mut ::core::ffi::c_void);
@@ -148,7 +129,7 @@ static mut mode_callbacks: yajl_callbacks = unsafe {
                 as unsafe fn(
                     *mut ::core::ffi::c_void,
                     *const ::core::ffi::c_uchar,
-                    size_t,
+                    usize,
                 ) -> ::core::ffi::c_int,
         ),
         yajl_start_map: None,
@@ -157,7 +138,7 @@ static mut mode_callbacks: yajl_callbacks = unsafe {
                 as unsafe fn(
                     *mut ::core::ffi::c_void,
                     *const ::core::ffi::c_uchar,
-                    size_t,
+                    usize,
                 ) -> ::core::ffi::c_int,
         ),
         yajl_end_map: Some(
@@ -168,7 +149,7 @@ static mut mode_callbacks: yajl_callbacks = unsafe {
     }
 };
 
-pub unsafe fn parse_mode_json(json: *const ::core::ffi::c_uchar, size: size_t) {
+pub unsafe fn parse_mode_json(json: *const ::core::ffi::c_uchar, size: usize) {
     let mut params: mode_json_params = mode_json_params {
         cur_key: ::core::ptr::null_mut::<::core::ffi::c_char>(),
         name: ::core::ptr::null_mut::<::core::ffi::c_char>(),
@@ -195,7 +176,7 @@ pub unsafe fn parse_mode_json(json: *const ::core::ffi::c_uchar, size: size_t) {
                 c"../i3bar/src/mode.c".as_ptr(),
                 116 as ::core::ffi::c_int,
             );
-            exit(EXIT_FAILURE);
+            exit(libc::EXIT_FAILURE);
         }
         0 | _ => {}
     }
@@ -209,7 +190,6 @@ pub unsafe fn parse_mode_json(json: *const ::core::ffi::c_uchar, size: size_t) {
     free(params.cur_key as *mut ::core::ffi::c_void);
     params.cur_key = ::core::ptr::null_mut::<::core::ffi::c_char>();
 }
-pub const EXIT_FAILURE: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 
 pub use libc::{exit, fprintf, free, printf, strcmp};
 

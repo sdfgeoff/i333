@@ -1,4 +1,5 @@
 use crate::handlers::add_ignore_event;
+use crate::xcursor::Cursor;
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -10,104 +11,39 @@ use crate::handlers::add_ignore_event;
  */
 // Mechanical file-by-file Rust translation of src/xcb.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
-pub type size_t = usize;
-pub type __uint8_t = u8;
-pub type __int16_t = i16;
-pub type __uint16_t = u16;
-pub type __uint32_t = u32;
-pub type __time_t = ::core::ffi::c_long;
-pub type __suseconds_t = ::core::ffi::c_long;
-pub type time_t = __time_t;
-pub type int16_t = __int16_t;
-
-pub type uint8_t = __uint8_t;
-pub type uint16_t = __uint16_t;
-pub type uint32_t = __uint32_t;
 
 pub type i3String = _i3String;
 
-pub type C2RustUnnamed = ::core::ffi::c_uint;
-pub const SCRATCHPAD_CHANGED: C2RustUnnamed = 2;
-pub const SCRATCHPAD_FRESH: C2RustUnnamed = 1;
-pub const SCRATCHPAD_NONE: C2RustUnnamed = 0;
-
-pub type C2RustUnnamed_4 = ::core::ffi::c_uint;
-pub const FLOATING_USER_ON: C2RustUnnamed_4 = 3;
-pub const FLOATING_AUTO_ON: C2RustUnnamed_4 = 2;
-pub const FLOATING_USER_OFF: C2RustUnnamed_4 = 1;
-pub const FLOATING_AUTO_OFF: C2RustUnnamed_4 = 0;
-pub type border_style_t = ::core::ffi::c_uint;
-pub const BS_NORMAL: border_style_t = 2;
-pub const BS_PIXEL: border_style_t = 1;
-pub const BS_NONE: border_style_t = 0;
-pub type layout_t = ::core::ffi::c_uint;
-pub const L_SPLITH: layout_t = 6;
-pub const L_SPLITV: layout_t = 5;
-pub const L_OUTPUT: layout_t = 4;
-pub const L_DOCKAREA: layout_t = 3;
-pub const L_TABBED: layout_t = 2;
-pub const L_STACKED: layout_t = 1;
-pub const L_DEFAULT: layout_t = 0;
 pub type fullscreen_mode_t = ::core::ffi::c_uint;
 pub const CF_GLOBAL: fullscreen_mode_t = 2;
 pub const CF_OUTPUT: fullscreen_mode_t = 1;
 pub const CF_NONE: fullscreen_mode_t = 0;
 
-pub type C2RustUnnamed_6 = ::core::ffi::c_uint;
-pub const M_BELOW: C2RustUnnamed_6 = 2;
-pub const M_ASSIGN_WS: C2RustUnnamed_6 = 1;
-pub const M_HERE: C2RustUnnamed_6 = 0;
-pub type C2RustUnnamed_7 = ::core::ffi::c_uint;
-pub const WM_FLOATING: C2RustUnnamed_7 = 6;
-pub const WM_FLOATING_USER: C2RustUnnamed_7 = 5;
-pub const WM_FLOATING_AUTO: C2RustUnnamed_7 = 4;
-pub const WM_TILING: C2RustUnnamed_7 = 3;
-pub const WM_TILING_USER: C2RustUnnamed_7 = 2;
-pub const WM_TILING_AUTO: C2RustUnnamed_7 = 1;
-pub const WM_ANY: C2RustUnnamed_7 = 0;
-pub type C2RustUnnamed_8 = ::core::ffi::c_int;
-pub const M_DOCK_BOTTOM: C2RustUnnamed_8 = 3;
-pub const M_DOCK_TOP: C2RustUnnamed_8 = 2;
-pub const M_DOCK_ANY: C2RustUnnamed_8 = 1;
-pub const M_NODOCK: C2RustUnnamed_8 = 0;
-pub const M_DONTCHECK: C2RustUnnamed_8 = -1;
-pub type C2RustUnnamed_9 = ::core::ffi::c_int;
-pub const U_OLDEST: C2RustUnnamed_9 = 1;
-pub const U_LATEST: C2RustUnnamed_9 = 0;
-pub const U_DONTCHECK: C2RustUnnamed_9 = -1;
+pub const M_BELOW: ::core::ffi::c_uint = 2;
+pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
+pub const M_HERE: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_10 = ::core::ffi::c_uint;
-pub const W_DOCK_BOTTOM: C2RustUnnamed_10 = 2;
-pub const W_DOCK_TOP: C2RustUnnamed_10 = 1;
-pub const W_NODOCK: C2RustUnnamed_10 = 0;
+pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
+pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
+pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
+pub const M_NODOCK: ::core::ffi::c_int = 0;
+pub const M_DONTCHECK: ::core::ffi::c_int = -1;
 
-pub type C2RustUnnamed_13 = ::core::ffi::c_uint;
-pub const A_TO_OUTPUT: C2RustUnnamed_13 = 16;
-pub const A_TO_WORKSPACE_NUMBER: C2RustUnnamed_13 = 8;
-pub const A_NO_FOCUS: C2RustUnnamed_13 = 4;
-pub const A_TO_WORKSPACE: C2RustUnnamed_13 = 2;
-pub const A_COMMAND: C2RustUnnamed_13 = 1;
-pub const A_ANY: C2RustUnnamed_13 = 0;
+pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
+pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
+pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
+pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
+pub const A_COMMAND: ::core::ffi::c_uint = 1;
+pub const A_ANY: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_15 = ::core::ffi::c_uint;
-pub const CT_DOCKAREA: C2RustUnnamed_15 = 5;
-pub const CT_WORKSPACE: C2RustUnnamed_15 = 4;
-pub const CT_FLOATING_CON: C2RustUnnamed_15 = 3;
-pub const CT_CON: C2RustUnnamed_15 = 2;
-pub const CT_OUTPUT: C2RustUnnamed_15 = 1;
-pub const CT_ROOT: C2RustUnnamed_15 = 0;
+pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
+pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
+pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
+pub const CT_CON: ::core::ffi::c_uint = 2;
+pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
+pub const CT_ROOT: ::core::ffi::c_uint = 0;
 pub use crate::application::ignore_event_sequence_t;
-pub type xcursor_cursor_t = ::core::ffi::c_uint;
-pub const XCURSOR_CURSOR_MAX: xcursor_cursor_t = 9;
-pub const XCURSOR_CURSOR_MOVE: xcursor_cursor_t = 8;
-pub const XCURSOR_CURSOR_WATCH: xcursor_cursor_t = 7;
-pub const XCURSOR_CURSOR_BOTTOM_RIGHT_CORNER: xcursor_cursor_t = 6;
-pub const XCURSOR_CURSOR_BOTTOM_LEFT_CORNER: xcursor_cursor_t = 5;
-pub const XCURSOR_CURSOR_TOP_RIGHT_CORNER: xcursor_cursor_t = 4;
-pub const XCURSOR_CURSOR_TOP_LEFT_CORNER: xcursor_cursor_t = 3;
-pub const XCURSOR_CURSOR_RESIZE_VERTICAL: xcursor_cursor_t = 2;
-pub const XCURSOR_CURSOR_RESIZE_HORIZONTAL: xcursor_cursor_t = 1;
-pub const XCURSOR_CURSOR_POINTER: xcursor_cursor_t = 0;
+
 pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 
@@ -118,29 +54,29 @@ pub static mut xcb_numlock_mask: ::core::ffi::c_uint = 0;
 pub unsafe fn create_window(
     conn_0: *mut xcb_connection_t,
     dims: Rect,
-    mut depth: uint16_t,
+    mut depth: u16,
     mut visual: xcb_visualid_t,
-    window_class: uint16_t,
-    cursor: xcursor_cursor_t,
+    window_class: u16,
+    cursor: Cursor,
     map: bool,
-    mask: uint32_t,
-    values: *mut uint32_t,
+    mask: u32,
+    values: *mut u32,
 ) -> xcb_window_t {
     let result: xcb_window_t = xcb_generate_id(conn_0) as xcb_window_t;
     if window_class as ::core::ffi::c_int == XCB_WINDOW_CLASS_INPUT_ONLY as ::core::ffi::c_int {
-        depth = XCB_COPY_FROM_PARENT as uint16_t;
+        depth = XCB_COPY_FROM_PARENT as u16;
         visual = XCB_COPY_FROM_PARENT as xcb_visualid_t;
     }
     let gc_cookie: xcb_void_cookie_t = xcb_create_window(
         conn_0,
-        depth as uint8_t,
+        depth as u8,
         result,
         root,
-        dims.x as int16_t,
-        dims.y as int16_t,
-        dims.width as uint16_t,
-        dims.height as uint16_t,
-        0 as uint16_t,
+        dims.x as i16,
+        dims.y as i16,
+        dims.width as u16,
+        dims.height as u16,
+        0 as u16,
         window_class,
         visual,
         mask,
@@ -155,12 +91,12 @@ pub unsafe fn create_window(
             (*error).error_code as ::core::ffi::c_int,
         );
     }
-    let mut cursor_values: [uint32_t; 1] = [xcursor_get_cursor(cursor)];
+    let mut cursor_values: [u32; 1] = [xcursor_get_cursor(cursor)];
     xcb_change_window_attributes(
         conn_0,
         result,
-        XCB_CW_CURSOR as ::core::ffi::c_int as uint32_t,
-        &raw mut cursor_values as *mut uint32_t as *const ::core::ffi::c_void,
+        XCB_CW_CURSOR as ::core::ffi::c_int as u32,
+        &raw mut cursor_values as *mut u32 as *const ::core::ffi::c_void,
     );
     if map {
         xcb_map_window(conn_0, result);
@@ -178,10 +114,10 @@ pub unsafe fn fake_absolute_configure_notify(con: *mut Con) {
     if (*con).window.is_null() {
         return;
     }
-    absolute.x = (*con).rect.x.wrapping_add((*con).window_rect.x) as int16_t;
-    absolute.y = (*con).rect.y.wrapping_add((*con).window_rect.y) as int16_t;
-    absolute.width = (*con).window_rect.width as uint16_t;
-    absolute.height = (*con).window_rect.height as uint16_t;
+    absolute.x = (*con).rect.x.wrapping_add((*con).window_rect.x) as i16;
+    absolute.y = (*con).rect.y.wrapping_add((*con).window_rect.y) as i16;
+    absolute.width = (*con).window_rect.width as u16;
+    absolute.height = (*con).window_rect.height as u16;
     debuglog(
         c"%s:%s:%d - fake rect = (%d, %d, %d, %d)\n"
             .as_ptr()
@@ -198,14 +134,14 @@ pub unsafe fn fake_absolute_configure_notify(con: *mut Con) {
 }
 
 pub unsafe fn send_take_focus(window: xcb_window_t, timestamp: xcb_timestamp_t) {
-    let event: *mut ::core::ffi::c_void = scalloc(32 as size_t, 1 as size_t);
+    let event: *mut ::core::ffi::c_void = scalloc(32 as usize, 1 as usize);
     let ev: *mut xcb_client_message_event_t = event as *mut xcb_client_message_event_t;
-    (*ev).response_type = XCB_CLIENT_MESSAGE as uint8_t;
+    (*ev).response_type = XCB_CLIENT_MESSAGE as u8;
     (*ev).window = window;
     (*ev).type_0 = A_WM_PROTOCOLS;
-    (*ev).format = 32 as uint8_t;
-    (*ev).data.data32[0 as ::core::ffi::c_int as usize] = A_WM_TAKE_FOCUS as uint32_t;
-    (*ev).data.data32[1 as ::core::ffi::c_int as usize] = timestamp as uint32_t;
+    (*ev).format = 32 as u8;
+    (*ev).data.data32[0 as ::core::ffi::c_int as usize] = A_WM_TAKE_FOCUS as u32;
+    (*ev).data.data32[1 as ::core::ffi::c_int as usize] = timestamp as u32;
     debuglog(
         c"%s:%s:%d - Sending WM_TAKE_FOCUS to the client\n"
             .as_ptr()
@@ -216,9 +152,9 @@ pub unsafe fn send_take_focus(window: xcb_window_t, timestamp: xcb_timestamp_t) 
     );
     xcb_send_event(
         conn,
-        false_0 as uint8_t,
+        false_0 as u8,
         window,
-        XCB_EVENT_MASK_NO_EVENT as ::core::ffi::c_int as uint32_t,
+        XCB_EVENT_MASK_NO_EVENT as ::core::ffi::c_int as u32,
         ev as *mut ::core::ffi::c_char,
     );
     free(event);
@@ -235,12 +171,12 @@ pub unsafe fn xcb_set_window_rect(
         (XCB_CONFIG_WINDOW_X as ::core::ffi::c_int
             | XCB_CONFIG_WINDOW_Y as ::core::ffi::c_int
             | XCB_CONFIG_WINDOW_WIDTH as ::core::ffi::c_int
-            | XCB_CONFIG_WINDOW_HEIGHT as ::core::ffi::c_int) as uint16_t,
+            | XCB_CONFIG_WINDOW_HEIGHT as ::core::ffi::c_int) as u16,
         &raw mut r.x as *const ::core::ffi::c_void,
     );
     add_ignore_event(
         ignore_event_sequence_t {
-            value: cookie.sequence as uint32_t,
+            value: cookie.sequence as u32,
         },
         -(1 as ::core::ffi::c_int),
     );
@@ -326,7 +262,7 @@ pub unsafe fn get_visualtype_by_id(visual_id: xcb_visualid_t) -> *mut xcb_visual
     ::core::ptr::null_mut::<xcb_visualtype_t>()
 }
 
-pub unsafe fn get_visualid_by_depth(depth: uint16_t) -> xcb_visualid_t {
+pub unsafe fn get_visualid_by_depth(depth: u16) -> xcb_visualid_t {
     let mut depth_iter: xcb_depth_iterator_t = xcb_depth_iterator_t {
         data: ::core::ptr::null_mut::<xcb_depth_t>(),
         rem: 0,
@@ -352,16 +288,16 @@ pub unsafe fn xcb_add_property_atom(
     property: xcb_atom_t,
     atom: xcb_atom_t,
 ) {
-    let mut fresh0: [uint32_t; 1] = [atom];
+    let mut fresh0: [u32; 1] = [atom];
     xcb_change_property(
         conn_0,
-        XCB_PROP_MODE_APPEND as ::core::ffi::c_int as uint8_t,
+        XCB_PROP_MODE_APPEND as ::core::ffi::c_int as u8,
         window,
         property,
         XCB_ATOM_ATOM as ::core::ffi::c_int as xcb_atom_t,
-        32 as uint8_t,
-        1 as uint32_t,
-        &raw mut fresh0 as *mut uint32_t as *const ::core::ffi::c_void,
+        32 as u8,
+        1 as u32,
+        &raw mut fresh0 as *mut u32 as *const ::core::ffi::c_void,
     );
 }
 
@@ -377,12 +313,12 @@ pub unsafe fn xcb_remove_property_atom(
         conn_0,
         xcb_get_property(
             conn_0,
-            false_0 as uint8_t,
+            false_0 as u8,
             window,
             property,
             XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-            0 as uint32_t,
-            4096 as uint32_t,
+            0 as u32,
+            4096 as u32,
         ),
         ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
     );
@@ -406,12 +342,12 @@ pub unsafe fn xcb_remove_property_atom(
             }
             xcb_change_property(
                 conn_0,
-                XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as uint8_t,
+                XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
                 window,
                 property,
                 XCB_ATOM_ATOM as ::core::ffi::c_int as xcb_atom_t,
-                32 as uint8_t,
-                num as uint32_t,
+                32 as u8,
+                num as u32,
                 values.as_mut_ptr() as *const ::core::ffi::c_void,
             );
         }
@@ -430,15 +366,15 @@ pub unsafe fn xcb_grab_buttons(
     while *buttons.offset(i as isize) > 0 as ::core::ffi::c_int {
         xcb_grab_button(
             conn_0,
-            false_0 as uint8_t,
+            false_0 as u8,
             window,
-            XCB_EVENT_MASK_BUTTON_PRESS as ::core::ffi::c_int as uint16_t,
-            XCB_GRAB_MODE_SYNC as ::core::ffi::c_int as uint8_t,
-            XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as uint8_t,
+            XCB_EVENT_MASK_BUTTON_PRESS as ::core::ffi::c_int as u16,
+            XCB_GRAB_MODE_SYNC as ::core::ffi::c_int as u8,
+            XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as u8,
             root,
             XCB_NONE as xcb_cursor_t,
-            *buttons.offset(i as isize) as uint8_t,
-            XCB_BUTTON_MASK_ANY as ::core::ffi::c_int as uint16_t,
+            *buttons.offset(i as isize) as u8,
+            XCB_BUTTON_MASK_ANY as ::core::ffi::c_int as u16,
         );
         i += 1;
     }

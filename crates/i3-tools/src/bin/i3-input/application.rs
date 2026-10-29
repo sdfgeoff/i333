@@ -24,33 +24,11 @@ use i3_common::ucs2_conversion::convert_ucs2_to_utf8;
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 use i3_common::i333_va_list;
 
-pub type __builtin_va_list = [__va_list_tag; 1];
-pub use i3_common::safewrappers::__va_list_tag;
-pub type size_t = usize;
-pub type __uint8_t = u8;
-pub type __int16_t = i16;
-pub type __uint16_t = u16;
-pub type __uint32_t = u32;
-pub type __uint64_t = u64;
-pub type __off_t = ::core::ffi::c_long;
-pub type __off64_t = ::core::ffi::c_long;
-pub type __useconds_t = ::core::ffi::c_uint;
-pub type int16_t = __int16_t;
-pub type __gnuc_va_list = __builtin_va_list;
-pub type va_list = __gnuc_va_list;
-
-pub type uint8_t = __uint8_t;
-pub type uint16_t = __uint16_t;
-pub type uint32_t = __uint32_t;
-
 pub type i3String = _i3String;
 pub use i3_common::font::C2RustUnnamed;
 pub use i3_common::font::C2RustUnnamed_0;
 pub use i3_common::font::Font;
-pub type C2RustUnnamed_1 = ::core::ffi::c_uint;
-pub const FONT_TYPE_PANGO: C2RustUnnamed_1 = 2;
-pub const FONT_TYPE_XCB: C2RustUnnamed_1 = 1;
-pub const FONT_TYPE_NONE: C2RustUnnamed_1 = 0;
+
 pub type i3Font = Font;
 pub use i3_common::draw_util::color_t;
 pub use i3_common::draw_util::surface_t;
@@ -92,7 +70,7 @@ static mut glyphs_utf8: [*mut ::core::ffi::c_char; 512] =
     [::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char; 512];
 static mut input_position: ::core::ffi::c_int = 0;
 static mut font: i3Font = Font {
-    type_0: FONT_TYPE_NONE,
+    type_0: i3_common::font::FontType::None,
     height: 0,
     pattern: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
     specific: C2RustUnnamed {
@@ -131,10 +109,9 @@ pub unsafe extern "C" fn debuglog(fmt: *mut ::core::ffi::c_char, args: ...) {}
 unsafe fn concat_strings(
     glyphs: *mut *mut ::core::ffi::c_char,
     max: ::core::ffi::c_int,
-) -> *mut uint8_t {
-    let output: *mut uint8_t =
-        scalloc((max + 1 as ::core::ffi::c_int) as size_t, 4 as size_t) as *mut uint8_t;
-    let mut walk: *mut uint8_t = output;
+) -> *mut u8 {
+    let output: *mut u8 = scalloc((max + 1 as ::core::ffi::c_int) as usize, 4 as usize) as *mut u8;
+    let mut walk: *mut u8 = output;
     let mut c: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
     while c < max {
         printf(
@@ -149,7 +126,7 @@ unsafe fn concat_strings(
             memcpy(
                 walk as *mut ::core::ffi::c_void,
                 *glyphs.offset(c as isize) as *const ::core::ffi::c_void,
-                2 as size_t,
+                2 as usize,
             );
             walk = walk.offset(2 as ::core::ffi::c_int as isize);
         } else {
@@ -203,7 +180,7 @@ unsafe fn handle_expose(conn_0: *mut xcb_connection_t) -> ::core::ffi::c_int {
     if input_position > 0 as ::core::ffi::c_int {
         let input: *mut i3String = i3string_from_ucs2(
             &raw mut glyphs_ucs as *mut xcb_char2b_t,
-            input_position as size_t,
+            input_position as usize,
         );
         draw_util_text(
             input,
@@ -245,12 +222,12 @@ unsafe fn finish_input() {
         &raw mut glyphs_utf8 as *mut *mut ::core::ffi::c_char,
         input_position,
     ) as *mut ::core::ffi::c_char;
-    let len: size_t = strlen(format) as size_t;
-    let mut cnt: size_t = 0 as size_t;
-    let mut c: size_t = 0 as size_t;
-    while c < len.wrapping_sub(1 as size_t) {
+    let len: usize = strlen(format) as usize;
+    let mut cnt: usize = 0 as usize;
+    let mut c: usize = 0 as usize;
+    while c < len.wrapping_sub(1 as usize) {
         if *format.offset(c as isize) as ::core::ffi::c_int == '%' as i32
-            && *format.offset(c.wrapping_add(1 as size_t) as isize) as ::core::ffi::c_int
+            && *format.offset(c.wrapping_add(1 as usize) as isize) as ::core::ffi::c_int
                 == 's' as i32
         {
             cnt = cnt.wrapping_add(1);
@@ -258,27 +235,27 @@ unsafe fn finish_input() {
         c = c.wrapping_add(1);
     }
     printf(c"occurrences = %zu\n".as_ptr(), cnt);
-    let input_len: size_t = strlen(command) as size_t;
-    let full_len: size_t = if input_len
+    let input_len: usize = strlen(command) as usize;
+    let full_len: usize = if input_len
         > strlen(format)
-            .wrapping_sub((2 as size_t).wrapping_mul(cnt))
+            .wrapping_sub((2 as usize).wrapping_mul(cnt))
             .wrapping_add(input_len.wrapping_mul(cnt))
-            .wrapping_add(1 as size_t)
+            .wrapping_add(1 as usize)
     {
         input_len
     } else {
-        (strlen(format) as size_t)
-            .wrapping_sub((2 as size_t).wrapping_mul(cnt))
+        (strlen(format) as usize)
+            .wrapping_sub((2 as usize).wrapping_mul(cnt))
             .wrapping_add(input_len.wrapping_mul(cnt))
-            .wrapping_add(1 as size_t)
+            .wrapping_add(1 as usize)
     };
-    let full: *mut ::core::ffi::c_char = scalloc(full_len, 1 as size_t) as *mut ::core::ffi::c_char;
+    let full: *mut ::core::ffi::c_char = scalloc(full_len, 1 as usize) as *mut ::core::ffi::c_char;
     let mut dest: *mut ::core::ffi::c_char = full;
-    let mut c_0: size_t = 0 as size_t;
+    let mut c_0: usize = 0 as usize;
     while c_0 < len {
         if *format.offset(c_0 as isize) as ::core::ffi::c_int != '%' as i32
-            || c_0 == len.wrapping_sub(1 as size_t)
-            || *format.offset(c_0.wrapping_add(1 as size_t) as isize) as ::core::ffi::c_int
+            || c_0 == len.wrapping_sub(1 as usize)
+            || *format.offset(c_0.wrapping_add(1 as usize) as isize) as ::core::ffi::c_int
                 != 's' as i32
         {
             let fresh0 = dest;
@@ -292,12 +269,8 @@ unsafe fn finish_input() {
         c_0 = c_0.wrapping_add(1);
     }
     printf(c"command = %s\n".as_ptr(), full);
-    let ret: ::core::ffi::c_int = ipc_send_message(
-        sockfd,
-        strlen(full) as uint32_t,
-        0 as uint32_t,
-        full as *mut uint8_t,
-    );
+    let ret: ::core::ffi::c_int =
+        ipc_send_message(sockfd, strlen(full) as u32, 0 as u32, full as *mut u8);
     free(full as *mut ::core::ffi::c_void);
     exit(if ret == 0 as ::core::ffi::c_int {
         EXIT_OK
@@ -364,10 +337,10 @@ unsafe fn handle_key_press(
         return 1 as ::core::ffi::c_int;
     }
     printf(c"sym = %c (%d)\n".as_ptr(), sym, sym);
-    let ucs: uint16_t = super::keysym2ucs::keysym2ucs(sym)
+    let ucs: u16 = super::keysym2ucs::keysym2ucs(sym)
         .map(|code| code as u16)
         .unwrap_or(u16::MAX);
-    if ucs as int16_t as ::core::ffi::c_int == -(1 as ::core::ffi::c_int) {
+    if ucs as i16 as ::core::ffi::c_int == -(1 as ::core::ffi::c_int) {
         fprintf(
             stderr,
             c"Keysym could not be converted to UCS, skipping\n".as_ptr(),
@@ -376,15 +349,15 @@ unsafe fn handle_key_press(
     }
     let mut inp: xcb_char2b_t = xcb_char2b_t { byte1: 0, byte2: 0 };
     inp.byte1 = ((ucs as ::core::ffi::c_int & 0xff00 as ::core::ffi::c_int)
-        >> 2 as ::core::ffi::c_int) as uint8_t;
-    inp.byte2 = ((ucs as ::core::ffi::c_int & 0xff as ::core::ffi::c_int)
-        >> 0 as ::core::ffi::c_int) as uint8_t;
+        >> 2 as ::core::ffi::c_int) as u8;
+    inp.byte2 =
+        ((ucs as ::core::ffi::c_int & 0xff as ::core::ffi::c_int) >> 0 as ::core::ffi::c_int) as u8;
     printf(
         c"inp.byte1 = %02x, inp.byte2 = %02x\n".as_ptr(),
         inp.byte1 as ::core::ffi::c_int,
         inp.byte2 as ::core::ffi::c_int,
     );
-    let out: *mut ::core::ffi::c_char = convert_ucs2_to_utf8(&raw mut inp, 1 as size_t);
+    let out: *mut ::core::ffi::c_char = convert_ucs2_to_utf8(&raw mut inp, 1 as usize);
     printf(c"converted to %s\n".as_ptr(), out);
     glyphs_ucs[input_position as usize] = inp;
     glyphs_utf8[input_position as usize] = out;
@@ -397,13 +370,12 @@ unsafe fn handle_key_press(
 }
 unsafe fn get_window_position() -> xcb_rectangle_t {
     let mut result: xcb_rectangle_t = xcb_rectangle_t {
-        x: logical_px(50 as ::core::ffi::c_int) as int16_t,
-        y: logical_px(50 as ::core::ffi::c_int) as int16_t,
-        width: logical_px(500 as ::core::ffi::c_int) as uint16_t,
+        x: logical_px(50 as ::core::ffi::c_int) as i16,
+        y: logical_px(50 as ::core::ffi::c_int) as i16,
+        width: logical_px(500 as ::core::ffi::c_int) as u16,
         height: (font.height
             + 2 as ::core::ffi::c_int * logical_px(2 as ::core::ffi::c_int)
-            + 2 as ::core::ffi::c_int * logical_px(2 as ::core::ffi::c_int))
-            as uint16_t,
+            + 2 as ::core::ffi::c_int * logical_px(2 as ::core::ffi::c_int)) as u16,
     };
     let mut supporting_wm_reply: *mut xcb_get_property_reply_t =
         ::core::ptr::null_mut::<xcb_get_property_reply_t>();
@@ -418,8 +390,8 @@ unsafe fn get_window_position() -> xcb_rectangle_t {
     let mut A__NET_SUPPORTING_WM_CHECK: xcb_atom_t = 0;
     let nswc_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
         conn,
-        0 as uint8_t,
-        strlen(c"_NET_SUPPORTING_WM_CHECK".as_ptr()) as uint16_t,
+        0 as u8,
+        strlen(c"_NET_SUPPORTING_WM_CHECK".as_ptr()) as u16,
         c"_NET_SUPPORTING_WM_CHECK".as_ptr(),
     );
     let nswc_reply: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
@@ -441,12 +413,12 @@ unsafe fn get_window_position() -> xcb_rectangle_t {
         conn,
         xcb_get_property(
             conn,
-            false_0 as uint8_t,
+            false_0 as u8,
             root,
             A__NET_SUPPORTING_WM_CHECK,
             XCB_ATOM_WINDOW as ::core::ffi::c_int as xcb_atom_t,
-            0 as uint32_t,
-            32 as uint32_t,
+            0 as u32,
+            32 as u32,
         ),
         ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
     );
@@ -507,12 +479,12 @@ unsafe fn get_window_position() -> xcb_rectangle_t {
                 conn,
                 xcb_get_property(
                     conn,
-                    false_0 as uint8_t,
+                    false_0 as u8,
                     (*input_focus).focus,
                     XCB_ATOM_WM_CLASS as ::core::ffi::c_int as xcb_atom_t,
                     XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-                    0 as uint32_t,
-                    32 as uint32_t,
+                    0 as u32,
+                    32 as u32,
                 ),
                 ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
             );
@@ -554,10 +526,10 @@ unsafe fn get_window_position() -> xcb_rectangle_t {
                     );
                     result.x = (result.x as ::core::ffi::c_int
                         + (*coordinates).dst_x as ::core::ffi::c_int)
-                        as int16_t;
+                        as i16;
                     result.y = (result.y as ::core::ffi::c_int
                         + (*coordinates).dst_y as ::core::ffi::c_int)
-                        as int16_t;
+                        as i16;
                 }
             } else {
                 debuglog(
@@ -568,10 +540,10 @@ unsafe fn get_window_position() -> xcb_rectangle_t {
                     (*geometry).x as ::core::ffi::c_int,
                     (*geometry).y as ::core::ffi::c_int,
                 );
-                result.x = (result.x as ::core::ffi::c_int + (*geometry).x as ::core::ffi::c_int)
-                    as int16_t;
-                result.y = (result.y as ::core::ffi::c_int + (*geometry).y as ::core::ffi::c_int)
-                    as int16_t;
+                result.x =
+                    (result.x as ::core::ffi::c_int + (*geometry).x as ::core::ffi::c_int) as i16;
+                result.y =
+                    (result.y as ::core::ffi::c_int + (*geometry).y as ::core::ffi::c_int) as i16;
             }
         }
     }
@@ -655,7 +627,7 @@ unsafe fn run_window(settings: InputSettings) -> ::core::ffi::c_int {
     let mut screen: ::core::ffi::c_int = 0;
     conn = xcb_connect(::core::ptr::null::<::core::ffi::c_char>(), &raw mut screen);
     if conn.is_null() || xcb_connection_has_error(conn) != 0 {
-        errx(EXIT_FAILURE, c"Cannot open display".as_ptr());
+        errx(libc::EXIT_FAILURE, c"Cannot open display".as_ptr());
     }
     sockfd = ipc_connect(socket_path);
     root_screen = xcb_aux_get_screen(conn, screen);
@@ -676,27 +648,27 @@ unsafe fn run_window(settings: InputSettings) -> ::core::ffi::c_int {
     }
     let win_pos: xcb_rectangle_t = get_window_position() as xcb_rectangle_t;
     win = xcb_generate_id(conn) as xcb_window_t;
-    let mut fresh1: [uint32_t; 3] = [
-        0 as ::core::ffi::c_int as uint32_t,
-        1 as ::core::ffi::c_int as uint32_t,
-        XCB_EVENT_MASK_EXPOSURE as ::core::ffi::c_int as uint32_t,
+    let mut fresh1: [u32; 3] = [
+        0 as ::core::ffi::c_int as u32,
+        1 as ::core::ffi::c_int as u32,
+        XCB_EVENT_MASK_EXPOSURE as ::core::ffi::c_int as u32,
     ];
     xcb_create_window(
         conn,
-        XCB_COPY_FROM_PARENT as uint8_t,
+        XCB_COPY_FROM_PARENT as u8,
         win,
         root,
         win_pos.x,
         win_pos.y,
         win_pos.width,
         win_pos.height,
-        0 as uint16_t,
-        XCB_WINDOW_CLASS_INPUT_OUTPUT as ::core::ffi::c_int as uint16_t,
+        0 as u16,
+        XCB_WINDOW_CLASS_INPUT_OUTPUT as ::core::ffi::c_int as u16,
         XCB_WINDOW_CLASS_COPY_FROM_PARENT as ::core::ffi::c_int as xcb_visualid_t,
         (XCB_CW_BACK_PIXEL as ::core::ffi::c_int
             | XCB_CW_OVERRIDE_REDIRECT as ::core::ffi::c_int
-            | XCB_CW_EVENT_MASK as ::core::ffi::c_int) as uint32_t,
-        &raw mut fresh1 as *mut uint32_t as *const ::core::ffi::c_void,
+            | XCB_CW_EVENT_MASK as ::core::ffi::c_int) as u32,
+        &raw mut fresh1 as *mut u32 as *const ::core::ffi::c_void,
     );
     xcb_map_window(conn, win);
     draw_util_surface_init(
@@ -722,18 +694,18 @@ unsafe fn run_window(settings: InputSettings) -> ::core::ffi::c_int {
     {
         cookie = xcb_grab_keyboard(
             conn,
-            false_0 as uint8_t,
+            false_0 as u8,
             win,
             XCB_CURRENT_TIME as xcb_timestamp_t,
-            XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as uint8_t,
-            XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as uint8_t,
+            XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as u8,
+            XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as u8,
         );
         reply = xcb_grab_keyboard_reply(
             conn,
             cookie,
             ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
         );
-        usleep(1000 as __useconds_t);
+        usleep(1000 as libc::useconds_t);
     }
     if (*reply).status as ::core::ffi::c_int != XCB_GRAB_STATUS_SUCCESS as ::core::ffi::c_int {
         fprintf(
@@ -782,7 +754,7 @@ unsafe fn run_window(settings: InputSettings) -> ::core::ffi::c_int {
     draw_util_surface_free(conn, &raw mut surface);
     EXIT_OK
 }
-pub const EXIT_FAILURE: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
+
 pub fn main() {
     use i3_common::cli::{Item, Parser};
     use std::os::unix::ffi::OsStrExt;

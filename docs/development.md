@@ -110,6 +110,23 @@
    `pcre2-sys` can compile its bundled C fallback; the clean-build check blocks
    that fallback. Install the native development package for normal builds.
 
+   Generated scalar typedef chains such as `__uint32_t` → `uint32_t` now use
+   `u32` directly; lengths use `usize`, and platform ABI types and constants come
+   from `libc`. Closed application choices use named Rust enums throughout their
+   storage, comparisons and matches, including window layouts, rendering modes,
+   parser states, status-header keys and utility screens. The audit covers 42
+   distinct closed application families, represented by 47 enum definitions where
+   separate components retain their own types. Existing discriminants and
+   required representations remain stable. Enum fields in allocations still
+   initialized with zero retain a valid zero variant; this preserves the legacy
+   allocation contract without inventing invalid Rust values.
+
+   Keep bit masks and native protocol integers as flags or raw binding types.
+   Open-ended JSON numbers and unknown protocol values must retain their full
+   ranges; validate them at the boundary before constructing a closed Rust enum.
+   Native enum-like constants are not automatically application enums. Array
+   lengths and count sentinels remain integer constants outside their index enum.
+
    Internal Rust functions use Rust linkage. Logging sinks and display context
    providers replace executable symbol lookup; providers run on their registered
    event thread. Native callbacks, loader initialization hooks and language-

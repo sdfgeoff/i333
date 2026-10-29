@@ -14,40 +14,8 @@ pub use libev_sys::{
     ev_watcher, EVBREAK_ALL,
 };
 
-pub type __builtin_va_list = [__va_list_tag; 1];
-pub use i3_common::safewrappers::__va_list_tag;
-pub type size_t = usize;
-pub type __uint32_t = u32;
-pub type __uint64_t = u64;
-pub type __dev_t = ::core::ffi::c_ulong;
-pub type __uid_t = ::core::ffi::c_uint;
-pub type __gid_t = ::core::ffi::c_uint;
-pub type __ino_t = ::core::ffi::c_ulong;
-pub type __ino64_t = ::core::ffi::c_ulong;
-pub type __mode_t = ::core::ffi::c_uint;
-pub type __nlink_t = ::core::ffi::c_ulong;
-pub type __off_t = ::core::ffi::c_long;
-pub type __off64_t = ::core::ffi::c_long;
-pub type __time_t = ::core::ffi::c_long;
-pub type __blksize_t = ::core::ffi::c_long;
-pub type __blkcnt_t = ::core::ffi::c_long;
-pub type __syscall_slong_t = ::core::ffi::c_long;
-
-pub type __gnuc_va_list = __builtin_va_list;
-pub type va_list = __gnuc_va_list;
-
-pub type uint32_t = __uint32_t;
-
 pub type i3String = _i3String;
 
-pub type position_t = ::core::ffi::c_uint;
-pub const POS_BOT: position_t = 2;
-pub const POS_TOP: position_t = 1;
-pub const POS_NONE: position_t = 0;
-pub type bar_display_mode_t = ::core::ffi::c_uint;
-pub const M_INVISIBLE: bar_display_mode_t = 2;
-pub const M_HIDE: bar_display_mode_t = 1;
-pub const M_DOCK: bar_display_mode_t = 0;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct binding_t {
@@ -77,19 +45,19 @@ pub struct C2RustUnnamed_1 {
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct Rect {
-    pub x: uint32_t,
-    pub y: uint32_t,
-    pub width: uint32_t,
-    pub height: uint32_t,
+    pub x: u32,
+    pub y: u32,
+    pub width: u32,
+    pub height: u32,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct config_t {
-    pub modifier: uint32_t,
+    pub modifier: u32,
     pub bindings: bindings_head,
-    pub position: position_t,
+    pub position: crate::application::BarPosition,
     pub verbose: bool,
-    pub bar_height: uint32_t,
+    pub bar_height: u32,
     pub padding: Rect,
     pub transparency: bool,
     pub colors: xcb_color_strings_t,
@@ -107,12 +75,10 @@ pub struct config_t {
     pub tray_padding: ::core::ffi::c_int,
     pub num_outputs: ::core::ffi::c_int,
     pub outputs: *mut *mut ::core::ffi::c_char,
-    pub hide_on_modifier: bar_display_mode_t,
-    pub hidden_state: C2RustUnnamed_2,
+    pub hide_on_modifier: crate::application::BarDisplayMode,
+    pub hidden_state: crate::application::HiddenState,
 }
-pub type C2RustUnnamed_2 = ::core::ffi::c_uint;
-pub const S_SHOW: C2RustUnnamed_2 = 1;
-pub const S_HIDE: C2RustUnnamed_2 = 0;
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct tray_outputs_head {
@@ -126,16 +92,10 @@ pub struct bindings_head {
     pub tqh_last: *mut *mut binding_t,
 }
 
-pub type __size_t = usize;
-
 pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const SIGINT: ::core::ffi::c_int = 2;
-pub const SIGTERM: ::core::ffi::c_int = 15;
-pub const SIGHUP: ::core::ffi::c_int = 1;
+
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 
-pub const GLOB_NOCHECK: ::core::ffi::c_int = (1 as ::core::ffi::c_int) << 4 as ::core::ffi::c_int;
-pub const GLOB_TILDE: ::core::ffi::c_int = (1 as ::core::ffi::c_int) << 12 as ::core::ffi::c_int;
 pub const I3_IPC_MESSAGE_TYPE_GET_BAR_CONFIG: ::core::ffi::c_int = 6 as ::core::ffi::c_int;
 
 pub static mut main_loop: *mut ev_loop = ::core::ptr::null::<ev_loop>() as *mut ev_loop;
@@ -155,16 +115,22 @@ pub unsafe extern "C" fn errorlog(fmt: *mut ::core::ffi::c_char, args: ...) {
 pub unsafe extern "C" fn debuglog(fmt: *mut ::core::ffi::c_char, args: ...) {}
 unsafe fn expand_path(path: *mut ::core::ffi::c_char) -> *mut ::core::ffi::c_char {
     static mut globbuf: glob_t = unsafe { ::core::mem::zeroed() };
-    if glob(path, GLOB_NOCHECK | GLOB_TILDE, None, &raw mut globbuf) < 0 as ::core::ffi::c_int {
+    if glob(
+        path,
+        libc::GLOB_NOCHECK | libc::GLOB_TILDE,
+        None,
+        &raw mut globbuf,
+    ) < 0 as ::core::ffi::c_int
+    {
         fprintf(
             stderr,
             c"[%s:%d] ERROR: glob() failed\n".as_ptr(),
             c"../i3bar/src/main.c".as_ptr(),
             50 as ::core::ffi::c_int,
         );
-        exit(EXIT_FAILURE);
+        exit(libc::EXIT_FAILURE);
     }
-    let result: *mut ::core::ffi::c_char = sstrdup(if globbuf.gl_pathc > 0 as __size_t {
+    let result: *mut ::core::ffi::c_char = sstrdup(if globbuf.gl_pathc > 0 as usize {
         *globbuf.gl_pathv.offset(0 as ::core::ffi::c_int as isize)
     } else {
         path
@@ -186,7 +152,7 @@ unsafe extern "C" fn sig_cb(
     revents: ::core::ffi::c_int,
 ) {
     match (*watcher).signum {
-        SIGTERM => {
+        libc::SIGTERM => {
             if config.verbose {
                 printf(
                     c"[%s:%d] Got a SIGTERM, stopping\n".as_ptr(),
@@ -195,7 +161,7 @@ unsafe extern "C" fn sig_cb(
                 );
             }
         }
-        SIGINT => {
+        libc::SIGINT => {
             if config.verbose {
                 printf(
                     c"[%s:%d] Got a SIGINT, stopping\n".as_ptr(),
@@ -204,7 +170,7 @@ unsafe extern "C" fn sig_cb(
                 );
             }
         }
-        SIGHUP => {
+        libc::SIGHUP => {
             if config.verbose {
                 printf(
                     c"[%s:%d] Got a SIGHUP, stopping\n".as_ptr(),
@@ -246,7 +212,7 @@ unsafe fn run(arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
             Item::Error(message) => {
                 eprintln!("{}: {message}", program.to_string_lossy());
                 print_usage(&program);
-                return EXIT_FAILURE;
+                return libc::EXIT_FAILURE;
             }
             Item::Option { short, value } => match short {
                 b'v' => {
@@ -254,11 +220,11 @@ unsafe fn run(arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
                         "i3bar version {} © 2010 Axel Wagner and contributors",
                         env!("I3_VERSION")
                     );
-                    return EXIT_SUCCESS;
+                    return libc::EXIT_SUCCESS;
                 }
                 b'h' => {
                     print_usage(&program);
-                    return EXIT_FAILURE;
+                    return libc::EXIT_FAILURE;
                 }
                 b't' => config.transparency = true,
                 b'V' => config.verbose = true,
@@ -316,17 +282,14 @@ unsafe fn run(arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     init_dpi();
     init_outputs();
     init_connection(socket_path);
-    i3_send_msg(
-        I3_IPC_MESSAGE_TYPE_GET_BAR_CONFIG as uint32_t,
-        config.bar_id,
-    );
+    i3_send_msg(I3_IPC_MESSAGE_TYPE_GET_BAR_CONFIG as u32, config.bar_id);
     free(socket_path as *mut ::core::ffi::c_void);
     let sig_term: *mut ev_signal =
-        smalloc(::core::mem::size_of::<ev_signal>() as size_t) as *mut ev_signal;
+        smalloc(::core::mem::size_of::<ev_signal>() as usize) as *mut ev_signal;
     let sig_int: *mut ev_signal =
-        smalloc(::core::mem::size_of::<ev_signal>() as size_t) as *mut ev_signal;
+        smalloc(::core::mem::size_of::<ev_signal>() as usize) as *mut ev_signal;
     let sig_hup: *mut ev_signal =
-        smalloc(::core::mem::size_of::<ev_signal>() as size_t) as *mut ev_signal;
+        smalloc(::core::mem::size_of::<ev_signal>() as usize) as *mut ev_signal;
     let ref mut fresh0 = (*(sig_term as *mut ::core::ffi::c_void as *mut ev_watcher)).pending;
     *fresh0 = 0 as ::core::ffi::c_int;
     (*(sig_term as *mut ::core::ffi::c_void as *mut ev_watcher)).active = *fresh0;
@@ -340,7 +303,7 @@ unsafe fn run(arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         &raw mut (*sig_term).cb as *const ::core::ffi::c_void,
         ::core::mem::size_of::<
             Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_signal, ::core::ffi::c_int) -> ()>,
-        >() as size_t,
+        >() as usize,
     );
     (*sig_term).signum = 15 as ::core::ffi::c_int;
     let ref mut fresh1 = (*(sig_int as *mut ::core::ffi::c_void as *mut ev_watcher)).pending;
@@ -356,7 +319,7 @@ unsafe fn run(arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         &raw mut (*sig_int).cb as *const ::core::ffi::c_void,
         ::core::mem::size_of::<
             Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_signal, ::core::ffi::c_int) -> ()>,
-        >() as size_t,
+        >() as usize,
     );
     (*sig_int).signum = 2 as ::core::ffi::c_int;
     let ref mut fresh2 = (*(sig_hup as *mut ::core::ffi::c_void as *mut ev_watcher)).pending;
@@ -372,7 +335,7 @@ unsafe fn run(arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         &raw mut (*sig_hup).cb as *const ::core::ffi::c_void,
         ::core::mem::size_of::<
             Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_signal, ::core::ffi::c_int) -> ()>,
-        >() as size_t,
+        >() as usize,
     );
     (*sig_hup).signum = 1 as ::core::ffi::c_int;
     ev_signal_start(main_loop, sig_term);
@@ -384,8 +347,7 @@ unsafe fn run(arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     ev_default_destroy();
     0 as ::core::ffi::c_int
 }
-pub const EXIT_FAILURE: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const EXIT_SUCCESS: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
+
 pub fn main() {
     // Only native graphical initialization remains unsafe. Argument parsing
     // owns its bytes and never borrows libc's process-global getopt storage.
@@ -448,3 +410,26 @@ mod cli_tests {
 }
 
 pub use i3_common::string::I3String as _i3String;
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[repr(u32)]
+pub enum BarPosition {
+    None = 0,
+    Top = 1,
+    Bottom = 2,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[repr(u32)]
+pub enum BarDisplayMode {
+    Dock = 0,
+    Hide = 1,
+    Invisible = 2,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[repr(u32)]
+pub enum HiddenState {
+    Hide = 0,
+    Show = 1,
+}

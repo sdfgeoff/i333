@@ -9,92 +9,37 @@
  */
 // Mechanical file-by-file Rust translation of src/ewmh.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
-pub type size_t = usize;
-pub type __uint8_t = u8;
-pub type __int16_t = i16;
-pub type __uint16_t = u16;
-pub type __uint32_t = u32;
-pub type __time_t = ::core::ffi::c_long;
-pub type __suseconds_t = ::core::ffi::c_long;
-pub type time_t = __time_t;
-pub type int16_t = __int16_t;
-
-pub type uint8_t = __uint8_t;
-pub type uint16_t = __uint16_t;
-pub type uint32_t = __uint32_t;
 
 pub type i3String = _i3String;
 
-pub type C2RustUnnamed = ::core::ffi::c_uint;
-pub const SCRATCHPAD_CHANGED: C2RustUnnamed = 2;
-pub const SCRATCHPAD_FRESH: C2RustUnnamed = 1;
-pub const SCRATCHPAD_NONE: C2RustUnnamed = 0;
-
-pub type C2RustUnnamed_4 = ::core::ffi::c_uint;
-pub const FLOATING_USER_ON: C2RustUnnamed_4 = 3;
-pub const FLOATING_AUTO_ON: C2RustUnnamed_4 = 2;
-pub const FLOATING_USER_OFF: C2RustUnnamed_4 = 1;
-pub const FLOATING_AUTO_OFF: C2RustUnnamed_4 = 0;
-pub type border_style_t = ::core::ffi::c_uint;
-pub const BS_NORMAL: border_style_t = 2;
-pub const BS_PIXEL: border_style_t = 1;
-pub const BS_NONE: border_style_t = 0;
-pub type layout_t = ::core::ffi::c_uint;
-pub const L_SPLITH: layout_t = 6;
-pub const L_SPLITV: layout_t = 5;
-pub const L_OUTPUT: layout_t = 4;
-pub const L_DOCKAREA: layout_t = 3;
-pub const L_TABBED: layout_t = 2;
-pub const L_STACKED: layout_t = 1;
-pub const L_DEFAULT: layout_t = 0;
 pub type fullscreen_mode_t = ::core::ffi::c_uint;
 pub const CF_GLOBAL: fullscreen_mode_t = 2;
 pub const CF_OUTPUT: fullscreen_mode_t = 1;
 pub const CF_NONE: fullscreen_mode_t = 0;
 
-pub type C2RustUnnamed_6 = ::core::ffi::c_uint;
-pub const M_BELOW: C2RustUnnamed_6 = 2;
-pub const M_ASSIGN_WS: C2RustUnnamed_6 = 1;
-pub const M_HERE: C2RustUnnamed_6 = 0;
-pub type C2RustUnnamed_7 = ::core::ffi::c_uint;
-pub const WM_FLOATING: C2RustUnnamed_7 = 6;
-pub const WM_FLOATING_USER: C2RustUnnamed_7 = 5;
-pub const WM_FLOATING_AUTO: C2RustUnnamed_7 = 4;
-pub const WM_TILING: C2RustUnnamed_7 = 3;
-pub const WM_TILING_USER: C2RustUnnamed_7 = 2;
-pub const WM_TILING_AUTO: C2RustUnnamed_7 = 1;
-pub const WM_ANY: C2RustUnnamed_7 = 0;
-pub type C2RustUnnamed_8 = ::core::ffi::c_int;
-pub const M_DOCK_BOTTOM: C2RustUnnamed_8 = 3;
-pub const M_DOCK_TOP: C2RustUnnamed_8 = 2;
-pub const M_DOCK_ANY: C2RustUnnamed_8 = 1;
-pub const M_NODOCK: C2RustUnnamed_8 = 0;
-pub const M_DONTCHECK: C2RustUnnamed_8 = -1;
-pub type C2RustUnnamed_9 = ::core::ffi::c_int;
-pub const U_OLDEST: C2RustUnnamed_9 = 1;
-pub const U_LATEST: C2RustUnnamed_9 = 0;
-pub const U_DONTCHECK: C2RustUnnamed_9 = -1;
+pub const M_BELOW: ::core::ffi::c_uint = 2;
+pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
+pub const M_HERE: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_10 = ::core::ffi::c_uint;
-pub const W_DOCK_BOTTOM: C2RustUnnamed_10 = 2;
-pub const W_DOCK_TOP: C2RustUnnamed_10 = 1;
-pub const W_NODOCK: C2RustUnnamed_10 = 0;
+pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
+pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
+pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
+pub const M_NODOCK: ::core::ffi::c_int = 0;
+pub const M_DONTCHECK: ::core::ffi::c_int = -1;
 
-pub type C2RustUnnamed_13 = ::core::ffi::c_uint;
-pub const A_TO_OUTPUT: C2RustUnnamed_13 = 16;
-pub const A_TO_WORKSPACE_NUMBER: C2RustUnnamed_13 = 8;
-pub const A_NO_FOCUS: C2RustUnnamed_13 = 4;
-pub const A_TO_WORKSPACE: C2RustUnnamed_13 = 2;
-pub const A_COMMAND: C2RustUnnamed_13 = 1;
-pub const A_ANY: C2RustUnnamed_13 = 0;
+pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
+pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
+pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
+pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
+pub const A_COMMAND: ::core::ffi::c_uint = 1;
+pub const A_ANY: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_15 = ::core::ffi::c_uint;
-pub const CT_DOCKAREA: C2RustUnnamed_15 = 5;
-pub const CT_WORKSPACE: C2RustUnnamed_15 = 4;
-pub const CT_FLOATING_CON: C2RustUnnamed_15 = 3;
-pub const CT_CON: C2RustUnnamed_15 = 2;
-pub const CT_OUTPUT: C2RustUnnamed_15 = 1;
-pub const CT_ROOT: C2RustUnnamed_15 = 0;
+pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
+pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
+pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
+pub const CT_CON: ::core::ffi::c_uint = 2;
+pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
+pub const CT_ROOT: ::core::ffi::c_uint = 0;
 
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 pub const NET_WM_DESKTOP_NONE: ::core::ffi::c_uint = 0xfffffff0 as ::core::ffi::c_uint;
@@ -103,28 +48,28 @@ pub const NET_WM_DESKTOP_ALL: ::core::ffi::c_uint = 0xffffffff as ::core::ffi::c
 pub static mut ewmh_window: xcb_window_t = 0;
 
 pub unsafe fn ewmh_update_current_desktop() {
-    static mut old_idx: uint32_t = NET_WM_DESKTOP_NONE as uint32_t;
-    let idx: uint32_t = ewmh_get_workspace_index(focused) as uint32_t;
-    if idx == old_idx || idx == NET_WM_DESKTOP_NONE as uint32_t {
+    static mut old_idx: u32 = NET_WM_DESKTOP_NONE as u32;
+    let idx: u32 = ewmh_get_workspace_index(focused) as u32;
+    if idx == old_idx || idx == NET_WM_DESKTOP_NONE as u32 {
         return;
     }
     old_idx = idx;
     xcb_change_property(
         conn,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as uint8_t,
+        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
         root,
         A__NET_CURRENT_DESKTOP,
         XCB_ATOM_CARDINAL as ::core::ffi::c_int as xcb_atom_t,
-        32 as uint8_t,
-        1 as uint32_t,
+        32 as u8,
+        1 as u32,
         &raw const idx as *const ::core::ffi::c_void,
     );
 }
 unsafe fn ewmh_update_number_of_desktops() {
     let mut output: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut ws: *mut Con = ::core::ptr::null_mut::<Con>();
-    static mut old_idx: uint32_t = 0 as uint32_t;
-    let mut idx: uint32_t = 0 as uint32_t;
+    static mut old_idx: u32 = 0 as u32;
+    let mut idx: u32 = 0 as u32;
     output = (*croot).nodes_head.tqh_first as *mut Con;
     while !output.is_null() {
         ws = (*output_get_content(output)).nodes_head.tqh_first as *mut Con;
@@ -142,12 +87,12 @@ unsafe fn ewmh_update_number_of_desktops() {
     old_idx = idx;
     xcb_change_property(
         conn,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as uint8_t,
+        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
         root,
         A__NET_NUMBER_OF_DESKTOPS,
         XCB_ATOM_CARDINAL as ::core::ffi::c_int as xcb_atom_t,
-        32 as uint8_t,
-        1 as uint32_t,
+        32 as u8,
+        1 as u32,
         &raw mut idx as *const ::core::ffi::c_void,
     );
 }
@@ -160,8 +105,8 @@ unsafe fn ewmh_update_desktop_names() {
         ws = (*output_get_content(output)).nodes_head.tqh_first as *mut Con;
         while !ws.is_null() {
             if !con_is_internal(ws) {
-                msg_length = (msg_length as size_t)
-                    .wrapping_add(strlen((*ws).name).wrapping_add(1 as size_t))
+                msg_length = (msg_length as usize)
+                    .wrapping_add(strlen((*ws).name).wrapping_add(1 as usize))
                     as ::core::ffi::c_int as ::core::ffi::c_int;
             }
             ws = (*ws).nodes.tqe_next as *mut Con;
@@ -176,8 +121,8 @@ unsafe fn ewmh_update_desktop_names() {
         ws = (*output_get_content(output)).nodes_head.tqh_first as *mut Con;
         while !ws.is_null() {
             if !con_is_internal(ws) {
-                let mut i: size_t = 0 as size_t;
-                while i < strlen((*ws).name).wrapping_add(1 as size_t) {
+                let mut i: usize = 0 as usize;
+                while i < strlen((*ws).name).wrapping_add(1 as usize) {
                     let fresh0 = current_position;
                     current_position = current_position + 1;
                     *desktop_names.as_mut_ptr().offset(fresh0 as isize) =
@@ -191,12 +136,12 @@ unsafe fn ewmh_update_desktop_names() {
     }
     xcb_change_property(
         conn,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as uint8_t,
+        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
         root,
         A__NET_DESKTOP_NAMES,
         A_UTF8_STRING,
-        8 as uint8_t,
-        msg_length as uint32_t,
+        8 as u8,
+        msg_length as u32,
         desktop_names.as_mut_ptr() as *const ::core::ffi::c_void,
     );
 }
@@ -216,7 +161,7 @@ unsafe fn ewmh_update_desktop_viewport() {
         output = (*output).nodes.tqe_next as *mut Con;
     }
     let vla = (num_desktops * 2 as ::core::ffi::c_int) as usize;
-    let mut viewports: Vec<uint32_t> = ::std::vec::from_elem(0, vla);
+    let mut viewports: Vec<u32> = ::std::vec::from_elem(0, vla);
     let mut current_position: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
     output = (*croot).nodes_head.tqh_first as *mut Con;
     while !output.is_null() {
@@ -236,12 +181,12 @@ unsafe fn ewmh_update_desktop_viewport() {
     }
     xcb_change_property(
         conn,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as uint8_t,
+        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
         root,
         A__NET_DESKTOP_VIEWPORT,
         XCB_ATOM_CARDINAL as ::core::ffi::c_int as xcb_atom_t,
-        32 as uint8_t,
-        current_position as uint32_t,
+        32 as u8,
+        current_position as u32,
         viewports.as_mut_ptr() as *const ::core::ffi::c_void,
     );
 }
@@ -253,7 +198,7 @@ pub unsafe fn ewmh_update_desktop_properties() {
     ewmh_update_desktop_names();
     ewmh_update_wm_desktop();
 }
-unsafe fn ewmh_update_wm_desktop_recursively(con: *mut Con, desktop: uint32_t) {
+unsafe fn ewmh_update_wm_desktop_recursively(con: *mut Con, desktop: u32) {
     let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
     child = (*con).nodes_head.tqh_first as *mut Con;
     while !child.is_null() {
@@ -272,22 +217,22 @@ unsafe fn ewmh_update_wm_desktop_recursively(con: *mut Con, desktop: uint32_t) {
     if !con_has_managed_window(con) {
         return;
     }
-    let mut wm_desktop: uint32_t = desktop;
+    let mut wm_desktop: u32 = desktop;
     if con_is_sticky(con) as ::core::ffi::c_int != 0
         && con_is_floating(con) as ::core::ffi::c_int != 0
     {
-        wm_desktop = NET_WM_DESKTOP_ALL as uint32_t;
+        wm_desktop = NET_WM_DESKTOP_ALL as u32;
     }
     let ws: *mut Con = con_get_workspace(con);
     if !ws.is_null() && con_is_internal(ws) as ::core::ffi::c_int != 0 {
-        wm_desktop = NET_WM_DESKTOP_ALL as uint32_t;
+        wm_desktop = NET_WM_DESKTOP_ALL as u32;
     }
     if (*(*con).window).wm_desktop == wm_desktop {
         return;
     }
     (*(*con).window).wm_desktop = wm_desktop;
     let window: xcb_window_t = (*(*con).window).id;
-    if wm_desktop != NET_WM_DESKTOP_NONE as uint32_t {
+    if wm_desktop != NET_WM_DESKTOP_NONE as u32 {
         debuglog(
             c"%s:%s:%d - Setting _NET_WM_DESKTOP = %d for window 0x%08x.\n"
                 .as_ptr()
@@ -300,12 +245,12 @@ unsafe fn ewmh_update_wm_desktop_recursively(con: *mut Con, desktop: uint32_t) {
         );
         xcb_change_property(
             conn,
-            XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as uint8_t,
+            XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
             window,
             A__NET_WM_DESKTOP,
             XCB_ATOM_CARDINAL as ::core::ffi::c_int as xcb_atom_t,
-            32 as uint8_t,
-            1 as uint32_t,
+            32 as u8,
+            1 as u32,
             &raw mut wm_desktop as *const ::core::ffi::c_void,
         );
     } else {
@@ -318,7 +263,7 @@ unsafe fn ewmh_update_wm_desktop_recursively(con: *mut Con, desktop: uint32_t) {
 }
 
 pub unsafe fn ewmh_update_wm_desktop() {
-    let mut desktop: uint32_t = 0 as uint32_t;
+    let mut desktop: u32 = 0 as u32;
     let mut output: *mut Con = ::core::ptr::null_mut::<Con>();
     output = (*croot).nodes_head.tqh_first as *mut Con;
     while !output.is_null() {
@@ -338,12 +283,12 @@ pub unsafe fn ewmh_update_wm_desktop() {
 pub unsafe fn ewmh_update_active_window(mut window: xcb_window_t) {
     xcb_change_property(
         conn,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as uint8_t,
+        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
         root,
         A__NET_ACTIVE_WINDOW,
         XCB_ATOM_WINDOW as ::core::ffi::c_int as xcb_atom_t,
-        32 as uint8_t,
-        1 as uint32_t,
+        32 as u8,
+        1 as u32,
         &raw mut window as *const ::core::ffi::c_void,
     );
 }
@@ -352,12 +297,12 @@ pub unsafe fn ewmh_update_visible_name(window: xcb_window_t, name: *const ::core
     if !name.is_null() {
         xcb_change_property(
             conn,
-            XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as uint8_t,
+            XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
             window,
             A__NET_WM_VISIBLE_NAME,
             A_UTF8_STRING,
-            8 as uint8_t,
-            strlen(name) as uint32_t,
+            8 as u8,
+            strlen(name) as u32,
             name as *const ::core::ffi::c_void,
         );
     } else {
@@ -372,12 +317,12 @@ pub unsafe fn ewmh_update_workarea() {
 pub unsafe fn ewmh_update_client_list(list: *mut xcb_window_t, num_windows: ::core::ffi::c_int) {
     xcb_change_property(
         conn,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as uint8_t,
+        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
         root,
         A__NET_CLIENT_LIST,
         XCB_ATOM_WINDOW as ::core::ffi::c_int as xcb_atom_t,
-        32 as uint8_t,
-        num_windows as uint32_t,
+        32 as u8,
+        num_windows as u32,
         list as *const ::core::ffi::c_void,
     );
 }
@@ -388,12 +333,12 @@ pub unsafe fn ewmh_update_client_list_stacking(
 ) {
     xcb_change_property(
         conn,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as uint8_t,
+        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
         root,
         A__NET_CLIENT_LIST_STACKING,
         XCB_ATOM_WINDOW as ::core::ffi::c_int as xcb_atom_t,
-        32 as uint8_t,
-        num_windows as uint32_t,
+        32 as u8,
+        num_windows as u32,
         stack as *const ::core::ffi::c_void,
     );
 }
@@ -491,88 +436,88 @@ pub unsafe fn ewmh_setup_hints() {
         A__NET_MOVERESIZE_WINDOW,
     ];
     ewmh_window = xcb_generate_id(conn) as xcb_window_t;
-    let mut fresh3: [uint32_t; 1] = [1 as ::core::ffi::c_int as uint32_t];
+    let mut fresh3: [u32; 1] = [1 as ::core::ffi::c_int as u32];
     xcb_create_window(
         conn,
-        XCB_COPY_FROM_PARENT as uint8_t,
+        XCB_COPY_FROM_PARENT as u8,
         ewmh_window,
         root,
-        -(1 as ::core::ffi::c_int) as int16_t,
-        -(1 as ::core::ffi::c_int) as int16_t,
-        1 as uint16_t,
-        1 as uint16_t,
-        0 as uint16_t,
-        XCB_WINDOW_CLASS_INPUT_ONLY as ::core::ffi::c_int as uint16_t,
+        -(1 as ::core::ffi::c_int) as i16,
+        -(1 as ::core::ffi::c_int) as i16,
+        1 as u16,
+        1 as u16,
+        0 as u16,
+        XCB_WINDOW_CLASS_INPUT_ONLY as ::core::ffi::c_int as u16,
         XCB_COPY_FROM_PARENT as xcb_visualid_t,
-        XCB_CW_OVERRIDE_REDIRECT as ::core::ffi::c_int as uint32_t,
-        &raw mut fresh3 as *mut uint32_t as *const ::core::ffi::c_void,
+        XCB_CW_OVERRIDE_REDIRECT as ::core::ffi::c_int as u32,
+        &raw mut fresh3 as *mut u32 as *const ::core::ffi::c_void,
     );
     xcb_change_property(
         conn,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as uint8_t,
+        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
         ewmh_window,
         A__NET_SUPPORTING_WM_CHECK,
         XCB_ATOM_WINDOW as ::core::ffi::c_int as xcb_atom_t,
-        32 as uint8_t,
-        1 as uint32_t,
+        32 as u8,
+        1 as u32,
         &raw mut ewmh_window as *const ::core::ffi::c_void,
     );
     xcb_change_property(
         conn,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as uint8_t,
+        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
         ewmh_window,
         A__NET_WM_NAME,
         A_UTF8_STRING,
-        8 as uint8_t,
-        strlen(c"i3".as_ptr()) as uint32_t,
+        8 as u8,
+        strlen(c"i3".as_ptr()) as u32,
         c"i3".as_ptr() as *const ::core::ffi::c_void,
     );
     xcb_change_property(
         conn,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as uint8_t,
+        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
         root,
         A__NET_SUPPORTING_WM_CHECK,
         XCB_ATOM_WINDOW as ::core::ffi::c_int as xcb_atom_t,
-        32 as uint8_t,
-        1 as uint32_t,
+        32 as u8,
+        1 as u32,
         &raw mut ewmh_window as *const ::core::ffi::c_void,
     );
     xcb_change_property(
         conn,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as uint8_t,
+        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
         root,
         A__NET_WM_NAME,
         A_UTF8_STRING,
-        8 as uint8_t,
-        strlen(c"i3".as_ptr()) as uint32_t,
+        8 as u8,
+        strlen(c"i3".as_ptr()) as u32,
         c"i3".as_ptr() as *const ::core::ffi::c_void,
     );
     xcb_change_property(
         conn,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as uint8_t,
+        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
         root,
         A__NET_SUPPORTED,
         XCB_ATOM_ATOM as ::core::ffi::c_int as xcb_atom_t,
-        32 as uint8_t,
+        32 as u8,
         (::core::mem::size_of::<[xcb_atom_t; 37]>() as usize)
-            .wrapping_div(::core::mem::size_of::<xcb_atom_t>() as usize) as uint32_t,
+            .wrapping_div(::core::mem::size_of::<xcb_atom_t>() as usize) as u32,
         &raw mut supported_atoms as *mut xcb_atom_t as *const ::core::ffi::c_void,
     );
     xcb_map_window(conn, ewmh_window);
-    let mut fresh4: [uint32_t; 1] = [XCB_STACK_MODE_BELOW as ::core::ffi::c_int as uint32_t];
+    let mut fresh4: [u32; 1] = [XCB_STACK_MODE_BELOW as ::core::ffi::c_int as u32];
     xcb_configure_window(
         conn,
         ewmh_window,
-        XCB_CONFIG_WINDOW_STACK_MODE as ::core::ffi::c_int as uint16_t,
-        &raw mut fresh4 as *mut uint32_t as *const ::core::ffi::c_void,
+        XCB_CONFIG_WINDOW_STACK_MODE as ::core::ffi::c_int as u16,
+        &raw mut fresh4 as *mut u32 as *const ::core::ffi::c_void,
     );
 }
 
-pub unsafe fn ewmh_get_workspace_by_index(idx: uint32_t) -> *mut Con {
-    if idx == NET_WM_DESKTOP_NONE as uint32_t {
+pub unsafe fn ewmh_get_workspace_by_index(idx: u32) -> *mut Con {
+    if idx == NET_WM_DESKTOP_NONE as u32 {
         return ::core::ptr::null_mut::<Con>();
     }
-    let mut current_index: uint32_t = 0 as uint32_t;
+    let mut current_index: u32 = 0 as u32;
     let mut output: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut ws: *mut Con = ::core::ptr::null_mut::<Con>();
     output = (*croot).nodes_head.tqh_first as *mut Con;
@@ -592,8 +537,8 @@ pub unsafe fn ewmh_get_workspace_by_index(idx: uint32_t) -> *mut Con {
     ::core::ptr::null_mut::<Con>()
 }
 
-pub unsafe fn ewmh_get_workspace_index(con: *mut Con) -> uint32_t {
-    let mut index: uint32_t = 0 as uint32_t;
+pub unsafe fn ewmh_get_workspace_index(con: *mut Con) -> u32 {
+    let mut index: u32 = 0 as u32;
     let target_workspace: *mut Con = con_get_workspace(con);
     let mut output: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut ws: *mut Con = ::core::ptr::null_mut::<Con>();
@@ -611,7 +556,7 @@ pub unsafe fn ewmh_get_workspace_index(con: *mut Con) -> uint32_t {
         }
         output = (*output).nodes.tqe_next as *mut Con;
     }
-    NET_WM_DESKTOP_NONE as uint32_t
+    NET_WM_DESKTOP_NONE as u32
 }
 
 // Canonical Cairo backend ABI; renderer logic remains local.

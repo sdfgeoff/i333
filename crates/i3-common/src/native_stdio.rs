@@ -70,3 +70,8 @@ mod tests {
         }
     }
 }
+
+// glibc's x86_64 character-class table stores network-order flag bits.
+// libc exposes __ctype_b_loc through this module, but not these private masks.
+pub const CTYPE_SPACE: c_ushort = 0x2000;
+pub const CTYPE_DIGIT: c_ushort = 0x0800;

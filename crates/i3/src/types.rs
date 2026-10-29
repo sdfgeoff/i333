@@ -2,6 +2,296 @@
 // Shared model representations extracted from con.rs; implementations stay in their files.
 // Anonymous C2Rust names are mapped through their owning field paths, not numeric suffixes.
 
+/// The layout of a container or the default layout for a workspace.
+///
+/// Zero is a valid default because legacy model allocation still zeroes storage.
+/// Keep the existing representation while these models use C-compatible layouts.
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(u32)]
+pub enum Layout {
+    #[default]
+    Default = 0,
+    Stacked = 1,
+    Tabbed = 2,
+    DockArea = 3,
+    Output = 4,
+    SplitV = 5,
+    SplitH = 6,
+}
+
+// Closed application domains retain their original storage while legacy models are zero-allocated.
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(u32)]
+pub enum BorderStyle {
+    #[default]
+    None = 0,
+    Pixel = 1,
+    Normal = 2,
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(u32)]
+pub enum Orientation {
+    #[default]
+    None = 0,
+    Horizontal = 1,
+    Vertical = 2,
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(u32)]
+pub enum Direction {
+    #[default]
+    Left = 0,
+    Right = 1,
+    Up = 2,
+    Down = 3,
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(u32)]
+pub enum Position {
+    #[default]
+    Before = 0,
+    After = 1,
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(u32)]
+pub enum InputType {
+    #[default]
+    Keyboard = 0,
+    Mouse = 1,
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(u32)]
+pub enum ConfigLoad {
+    #[default]
+    Validate = 0,
+    Load = 1,
+    Reload = 2,
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(u32)]
+pub enum ShutdownReason {
+    #[default]
+    Restart = 0,
+    Exit = 1,
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(u32)]
+pub enum KillWindow {
+    #[default]
+    DontKill = 0,
+    Window = 1,
+    Client = 2,
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(u32)]
+pub enum MarkMode {
+    #[default]
+    Replace = 0,
+    Add = 1,
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(u32)]
+pub enum ClickDestination {
+    #[default]
+    Border = 0,
+    Decoration = 1,
+    Inside = 2,
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(u32)]
+pub enum OutputSelection {
+    #[default]
+    Closest = 0,
+    Farthest = 1,
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(u32)]
+pub enum DragResult {
+    #[default]
+    Dragging = 0,
+    Success = 1,
+    Revert = 2,
+    Abort = 3,
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(u32)]
+pub enum DropType {
+    #[default]
+    Sibling = 0,
+    Center = 1,
+    Parent = 2,
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(u32)]
+pub enum JsonContent {
+    #[default]
+    Unknown = 0,
+    Container = 1,
+    Workspace = 2,
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(i32)]
+pub enum ParseFileResult {
+    Failed = -1,
+    #[default]
+    Success = 0,
+    ConfigErrors = 1,
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(u32)]
+pub enum SmartGaps {
+    #[default]
+    Off = 0,
+    On = 1,
+    InverseOuter = 2,
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(u32)]
+pub enum Warping {
+    #[default]
+    Output = 0,
+    None = 1,
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(u32)]
+pub enum FocusWrapping {
+    #[default]
+    Off = 0,
+    On = 1,
+    Force = 2,
+    Workspace = 3,
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(u32)]
+pub enum BindingRelease {
+    #[default]
+    KeyPress = 0,
+    KeyRelease = 1,
+    KeyReleaseIgnoreMods = 2,
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(u32)]
+pub enum ScratchpadState {
+    #[default]
+    None = 0,
+    Fresh = 1,
+    Changed = 2,
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(u32)]
+pub enum FloatingState {
+    #[default]
+    AutoOff = 0,
+    UserOff = 1,
+    AutoOn = 2,
+    UserOn = 3,
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(u32)]
+pub enum WindowMode {
+    #[default]
+    Any = 0,
+    TilingAuto = 1,
+    TilingUser = 2,
+    Tiling = 3,
+    FloatingAuto = 4,
+    FloatingUser = 5,
+    Floating = 6,
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(i32)]
+pub enum UrgencyMatch {
+    DontCheck = -1,
+    #[default]
+    Latest = 0,
+    Oldest = 1,
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(u32)]
+pub enum WindowDock {
+    #[default]
+    None = 0,
+    Top = 1,
+    Bottom = 2,
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(u32)]
+pub enum PopupDuringFullscreen {
+    #[default]
+    Smart = 0,
+    LeaveFullscreen = 1,
+    Ignore = 2,
+    All = 3,
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(u32)]
+pub enum TitleAlign {
+    #[default]
+    Left = 0,
+    Center = 1,
+    Right = 2,
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(u32)]
+pub enum FocusActivation {
+    #[default]
+    Smart = 0,
+    Urgent = 1,
+    Focus = 2,
+    None = 3,
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(u32)]
+pub enum BarMode {
+    #[default]
+    Dock = 0,
+    Hide = 1,
+    Invisible = 2,
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(u32)]
+pub enum BarHiddenState {
+    #[default]
+    Hide = 0,
+    Show = 1,
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(u32)]
+pub enum BarPosition {
+    #[default]
+    Bottom = 0,
+    Top = 1,
+}
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct Assignment {
@@ -71,18 +361,18 @@ pub struct Con {
     pub swallow_head: crate::types::swallow_head,
     pub fullscreen_mode: ::core::ffi::c_uint,
     pub sticky: bool,
-    pub layout: ::core::ffi::c_uint,
-    pub last_split_layout: ::core::ffi::c_uint,
-    pub workspace_layout: ::core::ffi::c_uint,
-    pub border_style: ::core::ffi::c_uint,
-    pub max_user_border_style: ::core::ffi::c_uint,
-    pub floating: ::core::ffi::c_uint,
+    pub layout: Layout,
+    pub last_split_layout: Layout,
+    pub workspace_layout: Layout,
+    pub border_style: BorderStyle,
+    pub max_user_border_style: BorderStyle,
+    pub floating: FloatingState,
     pub nodes: crate::types::ConNodes,
     pub focused: crate::types::ConFocused,
     pub all_cons: crate::types::ConAllCons,
     pub floating_windows: crate::types::ConFloatingWindows,
     pub on_remove_child: Option<unsafe fn(*mut crate::types::Con) -> ()>,
-    pub scratchpad_state: ::core::ffi::c_uint,
+    pub scratchpad_state: ScratchpadState,
     pub old_id: ::core::ffi::c_int,
     pub depth: u16,
     pub colormap: xcb_sys::xcb_colormap_t,
@@ -123,27 +413,27 @@ pub struct Config {
     pub font: i3_common::font::Font,
     pub ipc_socket_path: *mut ::core::ffi::c_char,
     pub restart_state_path: *mut ::core::ffi::c_char,
-    pub default_layout: ::core::ffi::c_uint,
+    pub default_layout: Layout,
     pub container_stack_limit: ::core::ffi::c_int,
     pub container_stack_limit_value: ::core::ffi::c_int,
     pub default_border_width: ::core::ffi::c_int,
     pub default_floating_border_width: ::core::ffi::c_int,
-    pub default_orientation: ::core::ffi::c_int,
+    pub default_orientation: Orientation,
     pub disable_focus_follows_mouse: bool,
-    pub mouse_warping: ::core::ffi::c_uint,
+    pub mouse_warping: Warping,
     pub hide_edge_borders: ::core::ffi::c_uint,
     pub disable_workspace_bar: bool,
-    pub focus_wrapping: ::core::ffi::c_uint,
+    pub focus_wrapping: FocusWrapping,
     pub force_xinerama: bool,
     pub disable_randr15: bool,
     pub fake_outputs: *mut ::core::ffi::c_char,
     pub workspace_auto_back_and_forth: bool,
     pub workspace_urgency_timer: ::core::ffi::c_float,
-    pub focus_on_window_activation: ::core::ffi::c_uint,
+    pub focus_on_window_activation: FocusActivation,
     pub show_marks: bool,
-    pub title_align: ::core::ffi::c_uint,
-    pub default_border: ::core::ffi::c_uint,
-    pub default_floating_border: ::core::ffi::c_uint,
+    pub title_align: TitleAlign,
+    pub default_border: BorderStyle,
+    pub default_floating_border: BorderStyle,
     pub floating_modifier: u32,
     pub swap_modifier: u32,
     pub floating_maximum_width: i32,
@@ -152,11 +442,11 @@ pub struct Config {
     pub floating_minimum_height: i32,
     pub client: crate::types::config_client,
     pub bar: crate::types::config_bar,
-    pub popup_during_fullscreen: ::core::ffi::c_uint,
+    pub popup_during_fullscreen: PopupDuringFullscreen,
     pub number_barconfigs: ::core::ffi::c_int,
     pub tiling_drag: ::core::ffi::c_uint,
     pub gaps: crate::types::gaps_t,
-    pub smart_gaps: ::core::ffi::c_uint,
+    pub smart_gaps: SmartGaps,
 }
 
 #[derive(Copy, Clone)]
@@ -179,10 +469,10 @@ pub struct Match {
     pub workspace: *mut crate::regex::Regex,
     pub machine: *mut crate::regex::Regex,
     pub window_type: xcb_sys::xcb_atom_t,
-    pub urgent: ::core::ffi::c_int,
+    pub urgent: UrgencyMatch,
     pub dock: ::core::ffi::c_int,
     pub id: xcb_sys::xcb_window_t,
-    pub window_mode: ::core::ffi::c_uint,
+    pub window_mode: WindowMode,
     pub con_id: *mut crate::types::Con,
     pub match_all_windows: bool,
     pub insert_where: ::core::ffi::c_uint,
@@ -231,7 +521,7 @@ pub struct Window {
     pub doesnt_accept_focus: bool,
     pub window_type: xcb_sys::xcb_atom_t,
     pub wm_desktop: u32,
-    pub dock: ::core::ffi::c_uint,
+    pub dock: WindowDock,
     pub urgent: libc::timeval,
     pub reserved: crate::types::reservedpx,
     pub depth: u16,
@@ -284,12 +574,12 @@ pub struct config_client {
 #[repr(C)]
 pub struct deco_render_params {
     pub color: *mut crate::types::Colortriple,
-    pub border_style: ::core::ffi::c_int,
+    pub border_style: BorderStyle,
     pub con_rect: crate::types::width_height,
     pub con_window_rect: crate::types::width_height,
     pub con_deco_rect: crate::types::Rect,
     pub background: i3_common::draw_util::color_t,
-    pub parent_layout: ::core::ffi::c_uint,
+    pub parent_layout: Layout,
     pub con_is_leaf: bool,
 }
 
@@ -386,4 +676,35 @@ pub struct xoutput {
     pub con: *mut crate::types::Con,
     pub rect: crate::types::Rect,
     pub outputs: crate::types::XoutputOutputs,
+}
+
+impl BorderStyle {
+    pub fn next(self) -> Self {
+        match self {
+            Self::None => Self::Pixel,
+            Self::Pixel => Self::Normal,
+            Self::Normal => Self::None,
+        }
+    }
+}
+impl FloatingState {
+    pub fn is_floating(self) -> bool {
+        matches!(self, Self::AutoOn | Self::UserOn)
+    }
+}
+impl BarMode {
+    pub fn toggled(self) -> Self {
+        match self {
+            Self::Dock | Self::Invisible => Self::Hide,
+            Self::Hide => Self::Dock,
+        }
+    }
+}
+impl BarHiddenState {
+    pub fn toggled(self) -> Self {
+        match self {
+            Self::Hide => Self::Show,
+            Self::Show => Self::Hide,
+        }
+    }
 }

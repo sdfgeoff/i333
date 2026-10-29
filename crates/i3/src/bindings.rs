@@ -3,6 +3,8 @@ use crate::commands_parser::parse_command;
 use crate::config::modes;
 use crate::ipc::ipc_send_binding_event;
 use crate::tree::all_cons;
+use crate::types::BindingRelease;
+use crate::types::InputType;
 use i3_common::safewrappers::sasprintf;
 /*
  * vim:ts=4:sw=4:expandtab
@@ -20,123 +22,44 @@ extern "C" {
     fn ceil(__x: ::core::ffi::c_double) -> ::core::ffi::c_double;
 
 }
-pub type size_t = usize;
-pub type __uint8_t = u8;
-pub type __int16_t = i16;
-pub type __uint16_t = u16;
-pub type __int32_t = i32;
-pub type __uint32_t = u32;
-pub type __pid_t = ::core::ffi::c_int;
-pub type __time_t = ::core::ffi::c_long;
-pub type __suseconds_t = ::core::ffi::c_long;
-pub type pid_t = __pid_t;
-pub type time_t = __time_t;
-pub type int16_t = __int16_t;
-pub type int32_t = __int32_t;
-
-pub type __compar_fn_t = Option<
-    unsafe extern "C" fn(
-        *const ::core::ffi::c_void,
-        *const ::core::ffi::c_void,
-    ) -> ::core::ffi::c_int,
->;
-pub type uint8_t = __uint8_t;
-pub type uint16_t = __uint16_t;
-pub type uint32_t = __uint32_t;
 
 pub type i3String = _i3String;
 
-pub type C2RustUnnamed_1 = ::core::ffi::c_uint;
-pub const FONT_TYPE_PANGO: C2RustUnnamed_1 = 2;
-pub const FONT_TYPE_XCB: C2RustUnnamed_1 = 1;
-pub const FONT_TYPE_NONE: C2RustUnnamed_1 = 0;
 pub type i3Font = Font;
 
 pub use crate::application::Binding;
 pub use crate::application::Binding_Keycode;
-pub type i3_event_state_mask_t = uint32_t;
-pub type C2RustUnnamed_4 = ::core::ffi::c_uint;
-pub const B_UPON_KEYRELEASE_IGNORE_MODS: C2RustUnnamed_4 = 2;
-pub const B_UPON_KEYRELEASE: C2RustUnnamed_4 = 1;
-pub const B_UPON_KEYPRESS: C2RustUnnamed_4 = 0;
-pub type input_type_t = ::core::ffi::c_uint;
-pub const B_MOUSE: input_type_t = 1;
-pub const B_KEYBOARD: input_type_t = 0;
+pub type i3_event_state_mask_t = u32;
 
-pub type C2RustUnnamed_5 = ::core::ffi::c_uint;
-pub const SCRATCHPAD_CHANGED: C2RustUnnamed_5 = 2;
-pub const SCRATCHPAD_FRESH: C2RustUnnamed_5 = 1;
-pub const SCRATCHPAD_NONE: C2RustUnnamed_5 = 0;
-
-pub type C2RustUnnamed_10 = ::core::ffi::c_uint;
-pub const FLOATING_USER_ON: C2RustUnnamed_10 = 3;
-pub const FLOATING_AUTO_ON: C2RustUnnamed_10 = 2;
-pub const FLOATING_USER_OFF: C2RustUnnamed_10 = 1;
-pub const FLOATING_AUTO_OFF: C2RustUnnamed_10 = 0;
-pub type border_style_t = ::core::ffi::c_uint;
-pub const BS_NORMAL: border_style_t = 2;
-pub const BS_PIXEL: border_style_t = 1;
-pub const BS_NONE: border_style_t = 0;
-pub type layout_t = ::core::ffi::c_uint;
-pub const L_SPLITH: layout_t = 6;
-pub const L_SPLITV: layout_t = 5;
-pub const L_OUTPUT: layout_t = 4;
-pub const L_DOCKAREA: layout_t = 3;
-pub const L_TABBED: layout_t = 2;
-pub const L_STACKED: layout_t = 1;
-pub const L_DEFAULT: layout_t = 0;
 pub type fullscreen_mode_t = ::core::ffi::c_uint;
 pub const CF_GLOBAL: fullscreen_mode_t = 2;
 pub const CF_OUTPUT: fullscreen_mode_t = 1;
 pub const CF_NONE: fullscreen_mode_t = 0;
 
-pub type C2RustUnnamed_12 = ::core::ffi::c_uint;
-pub const M_BELOW: C2RustUnnamed_12 = 2;
-pub const M_ASSIGN_WS: C2RustUnnamed_12 = 1;
-pub const M_HERE: C2RustUnnamed_12 = 0;
-pub type C2RustUnnamed_13 = ::core::ffi::c_uint;
-pub const WM_FLOATING: C2RustUnnamed_13 = 6;
-pub const WM_FLOATING_USER: C2RustUnnamed_13 = 5;
-pub const WM_FLOATING_AUTO: C2RustUnnamed_13 = 4;
-pub const WM_TILING: C2RustUnnamed_13 = 3;
-pub const WM_TILING_USER: C2RustUnnamed_13 = 2;
-pub const WM_TILING_AUTO: C2RustUnnamed_13 = 1;
-pub const WM_ANY: C2RustUnnamed_13 = 0;
-pub type C2RustUnnamed_14 = ::core::ffi::c_int;
-pub const M_DOCK_BOTTOM: C2RustUnnamed_14 = 3;
-pub const M_DOCK_TOP: C2RustUnnamed_14 = 2;
-pub const M_DOCK_ANY: C2RustUnnamed_14 = 1;
-pub const M_NODOCK: C2RustUnnamed_14 = 0;
-pub const M_DONTCHECK: C2RustUnnamed_14 = -1;
-pub type C2RustUnnamed_15 = ::core::ffi::c_int;
-pub const U_OLDEST: C2RustUnnamed_15 = 1;
-pub const U_LATEST: C2RustUnnamed_15 = 0;
-pub const U_DONTCHECK: C2RustUnnamed_15 = -1;
+pub const M_BELOW: ::core::ffi::c_uint = 2;
+pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
+pub const M_HERE: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_16 = ::core::ffi::c_uint;
-pub const W_DOCK_BOTTOM: C2RustUnnamed_16 = 2;
-pub const W_DOCK_TOP: C2RustUnnamed_16 = 1;
-pub const W_NODOCK: C2RustUnnamed_16 = 0;
+pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
+pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
+pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
+pub const M_NODOCK: ::core::ffi::c_int = 0;
+pub const M_DONTCHECK: ::core::ffi::c_int = -1;
 
-pub type C2RustUnnamed_19 = ::core::ffi::c_uint;
-pub const A_TO_OUTPUT: C2RustUnnamed_19 = 16;
-pub const A_TO_WORKSPACE_NUMBER: C2RustUnnamed_19 = 8;
-pub const A_NO_FOCUS: C2RustUnnamed_19 = 4;
-pub const A_TO_WORKSPACE: C2RustUnnamed_19 = 2;
-pub const A_COMMAND: C2RustUnnamed_19 = 1;
-pub const A_ANY: C2RustUnnamed_19 = 0;
+pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
+pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
+pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
+pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
+pub const A_COMMAND: ::core::ffi::c_uint = 1;
+pub const A_ANY: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_21 = ::core::ffi::c_uint;
-pub const CT_DOCKAREA: C2RustUnnamed_21 = 5;
-pub const CT_WORKSPACE: C2RustUnnamed_21 = 4;
-pub const CT_FLOATING_CON: C2RustUnnamed_21 = 3;
-pub const CT_CON: C2RustUnnamed_21 = 2;
-pub const CT_OUTPUT: C2RustUnnamed_21 = 1;
-pub const CT_ROOT: C2RustUnnamed_21 = 0;
-pub type smart_gaps_t = ::core::ffi::c_uint;
-pub const SMART_GAPS_INVERSE_OUTER: smart_gaps_t = 2;
-pub const SMART_GAPS_ON: smart_gaps_t = 1;
-pub const SMART_GAPS_OFF: smart_gaps_t = 0;
+pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
+pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
+pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
+pub const CT_CON: ::core::ffi::c_uint = 2;
+pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
+pub const CT_ROOT: ::core::ffi::c_uint = 0;
+
 pub type hide_edge_borders_mode_t = ::core::ffi::c_uint;
 pub const HEBM_SMART_NO_GAPS: hide_edge_borders_mode_t = 64;
 pub const HEBM_SMART: hide_edge_borders_mode_t = 32;
@@ -144,20 +67,12 @@ pub const HEBM_BOTH: hide_edge_borders_mode_t = 23;
 pub const HEBM_HORIZONTAL: hide_edge_borders_mode_t = 20;
 pub const HEBM_VERTICAL: hide_edge_borders_mode_t = 3;
 pub const HEBM_NONE: hide_edge_borders_mode_t = 0;
-pub type C2RustUnnamed_22 = ::core::ffi::c_uint;
-pub const I3_XKB_GROUP_MASK_4: C2RustUnnamed_22 = 8;
-pub const I3_XKB_GROUP_MASK_3: C2RustUnnamed_22 = 4;
-pub const I3_XKB_GROUP_MASK_2: C2RustUnnamed_22 = 2;
-pub const I3_XKB_GROUP_MASK_1: C2RustUnnamed_22 = 1;
-pub const I3_XKB_GROUP_MASK_ANY: C2RustUnnamed_22 = 0;
-pub type warping_t = ::core::ffi::c_uint;
-pub const POINTER_WARPING_NONE: warping_t = 1;
-pub const POINTER_WARPING_OUTPUT: warping_t = 0;
-pub type focus_wrapping_t = ::core::ffi::c_uint;
-pub const FOCUS_WRAPPING_WORKSPACE: focus_wrapping_t = 3;
-pub const FOCUS_WRAPPING_FORCE: focus_wrapping_t = 2;
-pub const FOCUS_WRAPPING_ON: focus_wrapping_t = 1;
-pub const FOCUS_WRAPPING_OFF: focus_wrapping_t = 0;
+
+pub const I3_XKB_GROUP_MASK_4: ::core::ffi::c_uint = 8;
+pub const I3_XKB_GROUP_MASK_3: ::core::ffi::c_uint = 4;
+pub const I3_XKB_GROUP_MASK_2: ::core::ffi::c_uint = 2;
+pub const I3_XKB_GROUP_MASK_1: ::core::ffi::c_uint = 1;
+pub const I3_XKB_GROUP_MASK_ANY: ::core::ffi::c_uint = 0;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -172,21 +87,6 @@ pub const TILING_DRAG_TITLEBAR: tiling_drag_t = 2;
 pub const TILING_DRAG_MODIFIER: tiling_drag_t = 1;
 pub const TILING_DRAG_OFF: tiling_drag_t = 0;
 
-pub type C2RustUnnamed_23 = ::core::ffi::c_uint;
-pub const PDF_ALL: C2RustUnnamed_23 = 3;
-pub const PDF_IGNORE: C2RustUnnamed_23 = 2;
-pub const PDF_LEAVE_FULLSCREEN: C2RustUnnamed_23 = 1;
-pub const PDF_SMART: C2RustUnnamed_23 = 0;
-
-pub type C2RustUnnamed_24 = ::core::ffi::c_uint;
-pub const ALIGN_RIGHT: C2RustUnnamed_24 = 2;
-pub const ALIGN_CENTER: C2RustUnnamed_24 = 1;
-pub const ALIGN_LEFT: C2RustUnnamed_24 = 0;
-pub type C2RustUnnamed_25 = ::core::ffi::c_uint;
-pub const FOWA_NONE: C2RustUnnamed_25 = 3;
-pub const FOWA_FOCUS: C2RustUnnamed_25 = 2;
-pub const FOWA_URGENT: C2RustUnnamed_25 = 1;
-pub const FOWA_SMART: C2RustUnnamed_25 = 0;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct modes_head {
@@ -248,7 +148,7 @@ pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::
 static mut xkb_context: *mut xkb_context = ::core::ptr::null::<xkb_context>() as *mut xkb_context;
 static mut xkb_keymap: *mut xkb_keymap = ::core::ptr::null::<xkb_keymap>() as *mut xkb_keymap;
 
-pub static mut command_error_nagbar_pid: pid_t = -(1 as pid_t);
+pub static mut command_error_nagbar_pid: libc::pid_t = -(1 as libc::pid_t);
 
 pub static mut DEFAULT_BINDING_MODE: *const ::core::ffi::c_char = c"default".as_ptr();
 unsafe fn mode_from_name(name: *const ::core::ffi::c_char, pango_markup: bool) -> *mut Mode {
@@ -260,13 +160,11 @@ unsafe fn mode_from_name(name: *const ::core::ffi::c_char, pango_markup: bool) -
         }
         mode = (*mode).modes.sle_next;
     }
-    mode = scalloc(1 as size_t, ::core::mem::size_of::<Mode>() as size_t) as *mut Mode;
+    mode = scalloc(1 as usize, ::core::mem::size_of::<Mode>() as usize) as *mut Mode;
     (*mode).name = sstrdup(name);
     (*mode).pango_markup = pango_markup;
-    (*mode).bindings = scalloc(
-        1 as size_t,
-        ::core::mem::size_of::<bindings_head>() as size_t,
-    ) as *mut bindings_head;
+    (*mode).bindings =
+        scalloc(1 as usize, ::core::mem::size_of::<bindings_head>() as usize) as *mut bindings_head;
     (*(*mode).bindings).tqh_first = ::core::ptr::null_mut::<Binding>();
     (*(*mode).bindings).tqh_last = &raw mut (*(*mode).bindings).tqh_first;
     (*mode).modes.sle_next = modes.slh_first as *mut Mode;
@@ -287,7 +185,7 @@ pub unsafe fn configure_binding(
     pango_markup: bool,
 ) -> *mut Binding {
     let mut new_binding: *mut Binding =
-        scalloc(1 as size_t, ::core::mem::size_of::<Binding>() as size_t) as *mut Binding;
+        scalloc(1 as usize, ::core::mem::size_of::<Binding>() as usize) as *mut Binding;
     debuglog(
         c"%s:%s:%d - Binding %p bindtype %s, modifiers %s, input code %s, release %s\n"
             .as_ptr()
@@ -301,26 +199,25 @@ pub unsafe fn configure_binding(
         input_code,
         release,
     );
-    (*new_binding).release = (if !release.is_null() {
-        B_UPON_KEYRELEASE as ::core::ffi::c_int
+    (*new_binding).release = if !release.is_null() {
+        BindingRelease::KeyRelease
     } else {
-        B_UPON_KEYPRESS as ::core::ffi::c_int
-    }) as C2RustUnnamed_4;
+        BindingRelease::KeyPress
+    };
     (*new_binding).border = !border.is_null();
     (*new_binding).whole_window = !whole_window.is_null();
     (*new_binding).exclude_titlebar = !exclude_titlebar.is_null();
     if strcmp(bindtype, c"bindsym".as_ptr()) == 0 as ::core::ffi::c_int {
-        (*new_binding).input_type = (if strncasecmp(
+        (*new_binding).input_type = if strncasecmp(
             input_code,
             c"button".as_ptr(),
-            (::core::mem::size_of::<[::core::ffi::c_char; 7]>() as size_t)
-                .wrapping_sub(1 as size_t),
+            (::core::mem::size_of::<[::core::ffi::c_char; 7]>() as usize).wrapping_sub(1 as usize),
         ) == 0 as ::core::ffi::c_int
         {
-            B_MOUSE as ::core::ffi::c_int
+            InputType::Mouse
         } else {
-            B_KEYBOARD as ::core::ffi::c_int
-        }) as input_type_t;
+            InputType::Keyboard
+        };
         (*new_binding).symbol = sstrdup(input_code);
     } else {
         let mut keycode: ::core::ffi::c_long = 0;
@@ -335,8 +232,8 @@ pub unsafe fn configure_binding(
             new_binding = ::core::ptr::null_mut::<Binding>();
             return ::core::ptr::null_mut::<Binding>();
         }
-        (*new_binding).keycode = keycode as uint32_t;
-        (*new_binding).input_type = B_KEYBOARD;
+        (*new_binding).keycode = keycode as u32;
+        (*new_binding).input_type = InputType::Keyboard;
     }
     (*new_binding).command = sstrdup(command);
     (*new_binding).event_state_mask = event_state_from_str(modifiers);
@@ -418,7 +315,7 @@ unsafe fn binding_in_current_group(bind: *const Binding) -> bool {
 unsafe fn grab_keycode_for_binding(
     conn_0: *mut xcb_connection_t,
     bind: *mut Binding,
-    keycode: uint32_t,
+    keycode: u32,
 ) {
     let mods: ::core::ffi::c_int =
         ((*bind).event_state_mask & 0xffff as i3_event_state_mask_t) as ::core::ffi::c_int;
@@ -436,41 +333,41 @@ unsafe fn grab_keycode_for_binding(
     );
     xcb_grab_key(
         conn_0,
-        0 as uint8_t,
+        0 as u8,
         root,
-        mods as uint16_t,
+        mods as u16,
         keycode as xcb_keycode_t,
-        XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as uint8_t,
-        XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as uint8_t,
+        XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as u8,
+        XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as u8,
     );
     xcb_grab_key(
         conn_0,
-        0 as uint8_t,
+        0 as u8,
         root,
-        (mods as ::core::ffi::c_uint | xcb_numlock_mask) as uint16_t,
+        (mods as ::core::ffi::c_uint | xcb_numlock_mask) as u16,
         keycode as xcb_keycode_t,
-        XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as uint8_t,
-        XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as uint8_t,
+        XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as u8,
+        XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as u8,
     );
     xcb_grab_key(
         conn_0,
-        0 as uint8_t,
+        0 as u8,
         root,
-        (mods | XCB_MOD_MASK_LOCK as ::core::ffi::c_int) as uint16_t,
+        (mods | XCB_MOD_MASK_LOCK as ::core::ffi::c_int) as u16,
         keycode as xcb_keycode_t,
-        XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as uint8_t,
-        XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as uint8_t,
+        XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as u8,
+        XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as u8,
     );
     xcb_grab_key(
         conn_0,
-        0 as uint8_t,
+        0 as u8,
         root,
         (mods as ::core::ffi::c_uint
             | xcb_numlock_mask
-            | XCB_MOD_MASK_LOCK as ::core::ffi::c_int as ::core::ffi::c_uint) as uint16_t,
+            | XCB_MOD_MASK_LOCK as ::core::ffi::c_int as ::core::ffi::c_uint) as u16,
         keycode as xcb_keycode_t,
-        XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as uint8_t,
-        XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as uint8_t,
+        XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as u8,
+        XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as u8,
     );
 }
 
@@ -478,11 +375,9 @@ pub unsafe fn grab_all_keys(conn_0: *mut xcb_connection_t) {
     let mut bind: *mut Binding = ::core::ptr::null_mut::<Binding>();
     bind = (*bindings).tqh_first as *mut Binding;
     while !bind.is_null() {
-        if !((*bind).input_type as ::core::ffi::c_uint
-            != B_KEYBOARD as ::core::ffi::c_int as ::core::ffi::c_uint)
-        {
+        if !((*bind).input_type != InputType::Keyboard) {
             if binding_in_current_group(bind) {
-                if (*bind).keycode > 0 as uint32_t {
+                if (*bind).keycode > 0 as u32 {
                     grab_keycode_for_binding(conn_0, bind, (*bind).keycode);
                 } else {
                     let mut binding_keycode: *mut Binding_Keycode =
@@ -507,12 +402,12 @@ pub unsafe fn grab_all_keys(conn_0: *mut xcb_connection_t) {
                         );
                         xcb_grab_key(
                             conn_0,
-                            0 as uint8_t,
+                            0 as u8,
                             root,
-                            mods as uint16_t,
+                            mods as u16,
                             keycode as xcb_keycode_t,
-                            XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as uint8_t,
-                            XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as uint8_t,
+                            XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as u8,
+                            XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as u8,
                         );
                         binding_keycode = (*binding_keycode).keycodes.tqe_next;
                     }
@@ -532,9 +427,9 @@ pub unsafe fn regrab_all_buttons(conn_0: *mut xcb_connection_t) {
         if !(*con).window.is_null() {
             xcb_ungrab_button(
                 conn_0,
-                XCB_BUTTON_INDEX_ANY as ::core::ffi::c_int as uint8_t,
+                XCB_BUTTON_INDEX_ANY as ::core::ffi::c_int as u8,
                 (*(*con).window).id,
-                XCB_BUTTON_MASK_ANY as ::core::ffi::c_int as uint16_t,
+                XCB_BUTTON_MASK_ANY as ::core::ffi::c_int as u16,
             );
             xcb_grab_buttons(conn_0, (*(*con).window).id, buttons);
         }
@@ -547,32 +442,29 @@ pub unsafe fn regrab_all_buttons(conn_0: *mut xcb_connection_t) {
 unsafe fn get_binding(
     state_filtered: i3_event_state_mask_t,
     is_release: bool,
-    input_code: uint16_t,
-    input_type: input_type_t,
+    input_code: u16,
+    input_type: InputType,
 ) -> *mut Binding {
     let mut bind: *mut Binding = ::core::ptr::null_mut::<Binding>();
     let mut result: *mut Binding = ::core::ptr::null_mut::<Binding>();
     if !is_release {
         bind = (*bindings).tqh_first as *mut Binding;
         while !bind.is_null() {
-            if !((*bind).input_type as ::core::ffi::c_uint != input_type as ::core::ffi::c_uint) {
-                if (*bind).release as ::core::ffi::c_uint
-                    == B_UPON_KEYRELEASE_IGNORE_MODS as ::core::ffi::c_int as ::core::ffi::c_uint
-                {
-                    (*bind).release = B_UPON_KEYRELEASE;
+            if !((*bind).input_type != input_type) {
+                if (*bind).release == BindingRelease::KeyReleaseIgnoreMods {
+                    (*bind).release = BindingRelease::KeyRelease;
                 }
             }
             bind = (*bind).bindings.tqe_next as *mut Binding;
         }
     }
-    let xkb_group_state: uint32_t = state_filtered as uint32_t & 0xffff0000 as uint32_t;
-    let modifiers_state: uint32_t = state_filtered as uint32_t & 0xffff as uint32_t;
+    let xkb_group_state: u32 = state_filtered as u32 & 0xffff0000 as u32;
+    let modifiers_state: u32 = state_filtered as u32 & 0xffff as u32;
     let mut current_block_25: u64;
     bind = (*bindings).tqh_first as *mut Binding;
     while !bind.is_null() {
-        if !((*bind).input_type as ::core::ffi::c_uint != input_type as ::core::ffi::c_uint) {
-            let xkb_group_mask: uint32_t =
-                (*bind).event_state_mask as uint32_t & 0xffff0000 as uint32_t;
+        if !((*bind).input_type != input_type) {
+            let xkb_group_mask: u32 = (*bind).event_state_mask as u32 & 0xffff0000 as u32;
             let groups_match: bool = xkb_group_state & xkb_group_mask == xkb_group_mask;
             if !groups_match {
                 debuglog(
@@ -586,17 +478,14 @@ unsafe fn get_binding(
                 );
             } else {
                 let mut found_keycode: bool = false_0 != 0;
-                if input_type as ::core::ffi::c_uint
-                    == B_KEYBOARD as ::core::ffi::c_int as ::core::ffi::c_uint
-                    && !(*bind).symbol.is_null()
-                {
+                if input_type == InputType::Keyboard && !(*bind).symbol.is_null() {
                     let input_keycode: xcb_keycode_t = input_code as xcb_keycode_t;
                     let mut binding_keycode: *mut Binding_Keycode =
                         ::core::ptr::null_mut::<Binding_Keycode>();
                     binding_keycode = (*bind).keycodes_head.tqh_first;
                     while !binding_keycode.is_null() {
-                        let modifiers_mask: uint32_t =
-                            (*binding_keycode).modifiers as uint32_t & 0xffff as uint32_t;
+                        let modifiers_mask: u32 =
+                            (*binding_keycode).modifiers as u32 & 0xffff as u32;
                         let mods_match: bool = modifiers_mask == modifiers_state;
                         debuglog(
                             c"%s:%s:%d - binding_keycode->modifiers = %d, modifiers_mask = %d, modifiers_state = %d, mods_match = %s\n".as_ptr().cast_mut(),
@@ -615,9 +504,7 @@ unsafe fn get_binding(
                         if (*binding_keycode).keycode as ::core::ffi::c_int
                             == input_keycode as ::core::ffi::c_int
                             && (mods_match as ::core::ffi::c_int != 0
-                                || (*bind).release as ::core::ffi::c_uint
-                                    == B_UPON_KEYRELEASE_IGNORE_MODS as ::core::ffi::c_int
-                                        as ::core::ffi::c_uint
+                                || (*bind).release == BindingRelease::KeyReleaseIgnoreMods
                                     && is_release as ::core::ffi::c_int != 0)
                         {
                             found_keycode = true_0 != 0;
@@ -627,15 +514,15 @@ unsafe fn get_binding(
                         }
                     }
                     current_block_25 = 14136749492126903395;
-                } else if (*bind).keycode != input_code as uint32_t {
+                } else if (*bind).keycode != input_code as u32 {
                     current_block_25 = 2868539653012386629;
                 } else {
                     let mut binding_keycode_0: *mut Binding_Keycode =
                         ::core::ptr::null_mut::<Binding_Keycode>();
                     binding_keycode_0 = (*bind).keycodes_head.tqh_first;
                     while !binding_keycode_0.is_null() {
-                        let modifiers_mask_0: uint32_t =
-                            (*binding_keycode_0).modifiers as uint32_t & 0xffff as uint32_t;
+                        let modifiers_mask_0: u32 =
+                            (*binding_keycode_0).modifiers as u32 & 0xffff as u32;
                         let mods_match_0: bool = modifiers_mask_0 == modifiers_state;
                         debuglog(
                             c"%s:%s:%d - binding_keycode->modifiers = %d, modifiers_mask = %d, modifiers_state = %d, mods_match = %s\n".as_ptr().cast_mut(),
@@ -652,9 +539,7 @@ unsafe fn get_binding(
                             },
                         );
                         if mods_match_0 as ::core::ffi::c_int != 0
-                            || (*bind).release as ::core::ffi::c_uint
-                                == B_UPON_KEYRELEASE_IGNORE_MODS as ::core::ffi::c_int
-                                    as ::core::ffi::c_uint
+                            || (*bind).release == BindingRelease::KeyReleaseIgnoreMods
                                 && is_release as ::core::ffi::c_int != 0
                         {
                             found_keycode = true_0 != 0;
@@ -669,11 +554,8 @@ unsafe fn get_binding(
                     2868539653012386629 => {}
                     _ => {
                         if found_keycode {
-                            if (*bind).release as ::core::ffi::c_uint
-                                == B_UPON_KEYRELEASE as ::core::ffi::c_int as ::core::ffi::c_uint
-                                && !is_release
-                            {
-                                (*bind).release = B_UPON_KEYRELEASE_IGNORE_MODS;
+                            if (*bind).release == BindingRelease::KeyRelease && !is_release {
+                                (*bind).release = BindingRelease::KeyReleaseIgnoreMods;
                                 debuglog(
                                     c"%s:%s:%d - marked bind %p as B_UPON_KEYRELEASE_IGNORE_MODS\n"
                                         .as_ptr()
@@ -686,8 +568,7 @@ unsafe fn get_binding(
                                 if !result.is_null() {
                                     break;
                                 }
-                            } else if !((*bind).release as ::core::ffi::c_uint
-                                == B_UPON_KEYPRESS as ::core::ffi::c_int as ::core::ffi::c_uint
+                            } else if !((*bind).release == BindingRelease::KeyPress
                                 && is_release as ::core::ffi::c_int != 0)
                             {
                                 if is_release {
@@ -709,16 +590,16 @@ unsafe fn get_binding(
 pub unsafe fn get_binding_from_xcb_event(event: *mut xcb_generic_event_t) -> *mut Binding {
     let is_release: bool = (*event).response_type as ::core::ffi::c_int == XCB_KEY_RELEASE
         || (*event).response_type as ::core::ffi::c_int == XCB_BUTTON_RELEASE;
-    let input_type: input_type_t = (if (*event).response_type as ::core::ffi::c_int
+    let input_type: InputType = if (*event).response_type as ::core::ffi::c_int
         == XCB_BUTTON_RELEASE
         || (*event).response_type as ::core::ffi::c_int == XCB_BUTTON_PRESS
     {
-        B_MOUSE as ::core::ffi::c_int
+        InputType::Mouse
     } else {
-        B_KEYBOARD as ::core::ffi::c_int
-    }) as input_type_t;
-    let event_state: uint16_t = (*(event as *mut xcb_key_press_event_t)).state;
-    let event_detail: uint16_t = (*(event as *mut xcb_key_press_event_t)).detail as uint16_t;
+        InputType::Keyboard
+    };
+    let event_state: u16 = (*(event as *mut xcb_key_press_event_t)).state;
+    let event_detail: u16 = (*(event as *mut xcb_key_press_event_t)).detail as u16;
     let mut state_filtered: i3_event_state_mask_t = (event_state as ::core::ffi::c_int
         & !(XCB_MOD_MASK_LOCK as ::core::ffi::c_int))
         as i3_event_state_mask_t;
@@ -792,7 +673,7 @@ unsafe extern "C" fn add_keycode_if_matches(
     }
     let bind: *mut Binding = (*resolving).bind;
     let binding_keycode: *mut Binding_Keycode =
-        smalloc(::core::mem::size_of::<Binding_Keycode>() as size_t) as *mut Binding_Keycode;
+        smalloc(::core::mem::size_of::<Binding_Keycode>() as usize) as *mut Binding_Keycode;
     (*binding_keycode).modifiers = (*bind).event_state_mask;
     (*binding_keycode).keycode = key as xcb_keycode_t;
     (*binding_keycode).keycodes.tqe_next = ::core::ptr::null_mut::<Binding_Keycode>();
@@ -800,7 +681,7 @@ unsafe extern "C" fn add_keycode_if_matches(
     *(*bind).keycodes_head.tqh_last = binding_keycode;
     (*bind).keycodes_head.tqh_last = &raw mut (*binding_keycode).keycodes.tqe_next;
     let binding_keycode_0: *mut Binding_Keycode =
-        smalloc(::core::mem::size_of::<Binding_Keycode>() as size_t) as *mut Binding_Keycode;
+        smalloc(::core::mem::size_of::<Binding_Keycode>() as usize) as *mut Binding_Keycode;
     (*binding_keycode_0).modifiers =
         (*bind).event_state_mask | XCB_MOD_MASK_LOCK as ::core::ffi::c_int as i3_event_state_mask_t;
     (*binding_keycode_0).keycode = key as xcb_keycode_t;
@@ -814,8 +695,7 @@ unsafe extern "C" fn add_keycode_if_matches(
         let sym_numlock: xkb_keysym_t = xkb_state_key_get_one_sym(numlock_state, key);
         if sym_numlock == (*resolving).keysym {
             let binding_keycode_1: *mut Binding_Keycode =
-                smalloc(::core::mem::size_of::<Binding_Keycode>() as size_t)
-                    as *mut Binding_Keycode;
+                smalloc(::core::mem::size_of::<Binding_Keycode>() as usize) as *mut Binding_Keycode;
             (*binding_keycode_1).modifiers =
                 (*bind).event_state_mask | xcb_numlock_mask as i3_event_state_mask_t;
             (*binding_keycode_1).keycode = key as xcb_keycode_t;
@@ -824,8 +704,7 @@ unsafe extern "C" fn add_keycode_if_matches(
             *(*bind).keycodes_head.tqh_last = binding_keycode_1;
             (*bind).keycodes_head.tqh_last = &raw mut (*binding_keycode_1).keycodes.tqe_next;
             let binding_keycode_2: *mut Binding_Keycode =
-                smalloc(::core::mem::size_of::<Binding_Keycode>() as size_t)
-                    as *mut Binding_Keycode;
+                smalloc(::core::mem::size_of::<Binding_Keycode>() as usize) as *mut Binding_Keycode;
             (*binding_keycode_2).modifiers = (*bind).event_state_mask
                 | xcb_numlock_mask as i3_event_state_mask_t
                 | XCB_MOD_MASK_LOCK as ::core::ffi::c_int as i3_event_state_mask_t;
@@ -878,9 +757,7 @@ pub unsafe fn translate_keysyms() {
         bind = ::core::ptr::null_mut::<Binding>();
         bind = (*bindings).tqh_first as *mut Binding;
         while !bind.is_null() {
-            if (*bind).input_type as ::core::ffi::c_uint
-                == B_MOUSE as ::core::ffi::c_int as ::core::ffi::c_uint
-            {
+            if (*bind).input_type == InputType::Mouse {
                 let mut button: ::core::ffi::c_long = 0;
                 if !parse_long(
                     (*bind).symbol.offset(
@@ -898,7 +775,7 @@ pub unsafe fn translate_keysyms() {
                     );
                 }
                 let key: xcb_keycode_t = button as xcb_keycode_t;
-                (*bind).keycode = key as uint32_t;
+                (*bind).keycode = key as u32;
                 debuglog(
                     c"%s:%s:%d - Binding Mouse button, Keycode = %d\n"
                         .as_ptr()
@@ -1000,7 +877,7 @@ pub unsafe fn translate_keysyms() {
                 0 as xkb_layout_index_t,
                 group,
             );
-            if (*bind).keycode > 0 as uint32_t {
+            if (*bind).keycode > 0 as u32 {
                 while !(*bind).keycodes_head.tqh_first.is_null() {
                     let mut first: *mut Binding_Keycode = (*bind).keycodes_head.tqh_first;
                     if !(*first).keycodes.tqe_next.is_null() {
@@ -1014,7 +891,7 @@ pub unsafe fn translate_keysyms() {
                     first = ::core::ptr::null_mut::<Binding_Keycode>();
                 }
                 let binding_keycode: *mut Binding_Keycode =
-                    smalloc(::core::mem::size_of::<Binding_Keycode>() as size_t)
+                    smalloc(::core::mem::size_of::<Binding_Keycode>() as usize)
                         as *mut Binding_Keycode;
                 (*binding_keycode).modifiers = (*bind).event_state_mask;
                 (*binding_keycode).keycode = (*bind).keycode as xcb_keycode_t;
@@ -1023,7 +900,7 @@ pub unsafe fn translate_keysyms() {
                 *(*bind).keycodes_head.tqh_last = binding_keycode;
                 (*bind).keycodes_head.tqh_last = &raw mut (*binding_keycode).keycodes.tqe_next;
                 let binding_keycode_0: *mut Binding_Keycode =
-                    smalloc(::core::mem::size_of::<Binding_Keycode>() as size_t)
+                    smalloc(::core::mem::size_of::<Binding_Keycode>() as usize)
                         as *mut Binding_Keycode;
                 (*binding_keycode_0).modifiers = (*bind).event_state_mask
                     | XCB_MOD_MASK_LOCK as ::core::ffi::c_int as i3_event_state_mask_t;
@@ -1043,7 +920,7 @@ pub unsafe fn translate_keysyms() {
                     );
                     if sym == sym_numlock {
                         let binding_keycode_1: *mut Binding_Keycode =
-                            smalloc(::core::mem::size_of::<Binding_Keycode>() as size_t)
+                            smalloc(::core::mem::size_of::<Binding_Keycode>() as usize)
                                 as *mut Binding_Keycode;
                         (*binding_keycode_1).modifiers =
                             (*bind).event_state_mask | xcb_numlock_mask as i3_event_state_mask_t;
@@ -1055,7 +932,7 @@ pub unsafe fn translate_keysyms() {
                         (*bind).keycodes_head.tqh_last =
                             &raw mut (*binding_keycode_1).keycodes.tqe_next;
                         let binding_keycode_2: *mut Binding_Keycode =
-                            smalloc(::core::mem::size_of::<Binding_Keycode>() as size_t)
+                            smalloc(::core::mem::size_of::<Binding_Keycode>() as usize)
                                 as *mut Binding_Keycode;
                         (*binding_keycode_2).modifiers = (*bind).event_state_mask
                             | xcb_numlock_mask as i3_event_state_mask_t
@@ -1141,8 +1018,7 @@ pub unsafe fn translate_keysyms() {
                         while !check.is_null() {
                             if !(check == bind) {
                                 if (*check).symbol.is_null() {
-                                    if !((*check).keycode
-                                        != (*binding_keycode_3).keycode as uint32_t
+                                    if !((*check).keycode != (*binding_keycode_3).keycode as u32
                                         || (*check).event_state_mask
                                             != (*binding_keycode_3).modifiers
                                         || (*check).release as ::core::ffi::c_uint
@@ -1213,10 +1089,8 @@ pub unsafe fn switch_mode(new_mode: *const ::core::ffi::c_char) {
             let mut bind: *mut Binding = ::core::ptr::null_mut::<Binding>();
             bind = (*bindings).tqh_first as *mut Binding;
             while !bind.is_null() {
-                if (*bind).release as ::core::ffi::c_uint
-                    == B_UPON_KEYRELEASE_IGNORE_MODS as ::core::ffi::c_int as ::core::ffi::c_uint
-                {
-                    (*bind).release = B_UPON_KEYRELEASE;
+                if (*bind).release == BindingRelease::KeyReleaseIgnoreMods {
+                    (*bind).release = BindingRelease::KeyRelease;
                 }
                 bind = (*bind).bindings.tqe_next as *mut Binding;
             }
@@ -1232,7 +1106,7 @@ pub unsafe fn switch_mode(new_mode: *const ::core::ffi::c_char) {
                     c"false".as_ptr()
                 },
             );
-            ipc_send_event(c"mode".as_ptr(), I3_IPC_EVENT_MODE as uint32_t, event_msg);
+            ipc_send_event(c"mode".as_ptr(), I3_IPC_EVENT_MODE as u32, event_msg);
             free(event_msg as *mut ::core::ffi::c_void);
             event_msg = ::core::ptr::null_mut::<::core::ffi::c_char>();
             return;
@@ -1262,10 +1136,8 @@ unsafe fn reorder_bindings_of_mode(mode: *mut Mode) {
         n += 1;
         current = (*current).bindings.tqe_next as *mut Binding;
     }
-    let tmp: *mut *mut Binding = scalloc(
-        n as size_t,
-        ::core::mem::size_of::<*mut Binding>() as size_t,
-    ) as *mut *mut Binding;
+    let tmp: *mut *mut Binding =
+        scalloc(n as usize, ::core::mem::size_of::<*mut Binding>() as usize) as *mut *mut Binding;
     n = 0 as ::core::ffi::c_int;
     current = (*(*mode).bindings).tqh_first as *mut Binding;
     while !current.is_null() {
@@ -1277,8 +1149,8 @@ unsafe fn reorder_bindings_of_mode(mode: *mut Mode) {
     }
     qsort(
         tmp as *mut ::core::ffi::c_void,
-        n as size_t,
-        ::core::mem::size_of::<*mut Binding>() as size_t,
+        n as usize,
+        ::core::mem::size_of::<*mut Binding>() as usize,
         Some(
             reorder_binding_cmp
                 as unsafe extern "C" fn(
@@ -1287,10 +1159,8 @@ unsafe fn reorder_bindings_of_mode(mode: *mut Mode) {
                 ) -> ::core::ffi::c_int,
         ),
     );
-    let reordered: *mut bindings_head = scalloc(
-        1 as size_t,
-        ::core::mem::size_of::<bindings_head>() as size_t,
-    ) as *mut bindings_head;
+    let reordered: *mut bindings_head =
+        scalloc(1 as usize, ::core::mem::size_of::<bindings_head>() as usize) as *mut bindings_head;
     (*reordered).tqh_first = ::core::ptr::null_mut::<Binding>();
     (*reordered).tqh_last = &raw mut (*reordered).tqh_first;
     let mut i: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
@@ -1337,7 +1207,7 @@ pub unsafe fn reorder_bindings() {
     }
 }
 unsafe fn binding_same_key(a: *mut Binding, b: *mut Binding) -> bool {
-    if (*a).input_type as ::core::ffi::c_uint != (*b).input_type as ::core::ffi::c_uint {
+    if (*a).input_type != (*b).input_type {
         return false_0 != 0;
     }
     if (*a).symbol.is_null() && !(*b).symbol.is_null()
@@ -1369,7 +1239,7 @@ pub unsafe fn check_for_duplicate_bindings(context: *mut context) {
             }
             if binding_same_key(bind, current) {
                 (*context).has_errors = true_0 != 0;
-                if (*current).keycode != 0 as uint32_t {
+                if (*current).keycode != 0 as u32 {
                     errorlog(
                         c"ERROR: Duplicate keybinding in config file:\n  state mask 0x%x with keycode %d, command \"%s\"\n".as_ptr().cast_mut(),
                         (*current).event_state_mask,
@@ -1391,7 +1261,7 @@ pub unsafe fn check_for_duplicate_bindings(context: *mut context) {
     }
 }
 unsafe fn binding_copy(bind: *mut Binding) -> *mut Binding {
-    let ret: *mut Binding = smalloc(::core::mem::size_of::<Binding>() as size_t) as *mut Binding;
+    let ret: *mut Binding = smalloc(::core::mem::size_of::<Binding>() as usize) as *mut Binding;
     *ret = *bind;
     if !(*bind).symbol.is_null() {
         (*ret).symbol = sstrdup((*bind).symbol);
@@ -1405,7 +1275,7 @@ unsafe fn binding_copy(bind: *mut Binding) -> *mut Binding {
     binding_keycode = (*bind).keycodes_head.tqh_first;
     while !binding_keycode.is_null() {
         let ret_binding_keycode: *mut Binding_Keycode =
-            smalloc(::core::mem::size_of::<Binding_Keycode>() as size_t) as *mut Binding_Keycode;
+            smalloc(::core::mem::size_of::<Binding_Keycode>() as usize) as *mut Binding_Keycode;
         *ret_binding_keycode = *binding_keycode;
         (*ret_binding_keycode).keycodes.tqe_next = ::core::ptr::null_mut::<Binding_Keycode>();
         (*ret_binding_keycode).keycodes.tqe_prev = (*ret).keycodes_head.tqh_last;
@@ -1498,13 +1368,13 @@ pub unsafe fn run_binding(bind: *mut Binding, con: *mut Con) -> *mut CommandResu
     result
 }
 unsafe fn fill_rmlvo_from_root(xkb_names: *mut xkb_rule_names) -> ::core::ffi::c_int {
-    let mut content_max_words: size_t = 256 as size_t;
+    let mut content_max_words: usize = 256 as usize;
     let atom_reply: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
         conn,
         xcb_intern_atom(
             conn,
-            0 as uint8_t,
-            strlen(c"_XKB_RULES_NAMES".as_ptr()) as uint16_t,
+            0 as u8,
+            strlen(c"_XKB_RULES_NAMES".as_ptr()) as u16,
             c"_XKB_RULES_NAMES".as_ptr(),
         ),
         ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
@@ -1514,12 +1384,12 @@ unsafe fn fill_rmlvo_from_root(xkb_names: *mut xkb_rule_names) -> ::core::ffi::c
     }
     let mut prop_cookie: xcb_get_property_cookie_t = xcb_get_property_unchecked(
         conn,
-        false_0 as uint8_t,
+        false_0 as u8,
         root,
         (*atom_reply).atom,
         XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-        0 as uint32_t,
-        content_max_words as uint32_t,
+        0 as u32,
+        content_max_words as u32,
     );
     let mut prop_reply: *mut xcb_get_property_reply_t = xcb_get_property_reply(
         conn,
@@ -1531,20 +1401,20 @@ unsafe fn fill_rmlvo_from_root(xkb_names: *mut xkb_rule_names) -> ::core::ffi::c
         return -(1 as ::core::ffi::c_int);
     }
     if xcb_get_property_value_length(prop_reply) > 0 as ::core::ffi::c_int
-        && (*prop_reply).bytes_after > 0 as uint32_t
+        && (*prop_reply).bytes_after > 0 as u32
     {
         content_max_words = (content_max_words as ::core::ffi::c_double
             + ceil((*prop_reply).bytes_after as ::core::ffi::c_double / 4.0f64))
-            as size_t;
+            as usize;
         free(prop_reply as *mut ::core::ffi::c_void);
         prop_cookie = xcb_get_property_unchecked(
             conn,
-            false_0 as uint8_t,
+            false_0 as u8,
             root,
             (*atom_reply).atom,
             XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-            0 as uint32_t,
-            content_max_words as uint32_t,
+            0 as u32,
+            content_max_words as u32,
         );
         prop_reply = xcb_get_property_reply(
             conn,
@@ -1566,7 +1436,7 @@ unsafe fn fill_rmlvo_from_root(xkb_names: *mut xkb_rule_names) -> ::core::ffi::c
     let mut remaining: ::core::ffi::c_int = xcb_get_property_value_length(prop_reply);
     let mut i: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
     while i < 5 as ::core::ffi::c_int && remaining > 0 as ::core::ffi::c_int {
-        let len: ::core::ffi::c_int = strnlen(walk, remaining as size_t) as ::core::ffi::c_int;
+        let len: ::core::ffi::c_int = strnlen(walk, remaining as usize) as ::core::ffi::c_int;
         match i {
             0 => {
                 sasprintf(
@@ -1643,10 +1513,10 @@ pub unsafe fn load_keymap() -> bool {
         }
     }
     let mut new_keymap: *mut xkb_keymap = ::core::ptr::null_mut::<xkb_keymap>();
-    let mut device_id: int32_t = 0;
+    let mut device_id: i32 = 0;
     if xkb_supported as ::core::ffi::c_int != 0 && {
         device_id = xkb_x11_get_core_keyboard_device_id(conn);
-        device_id > -(1 as int32_t)
+        device_id > -(1 as i32)
     } {
         new_keymap = xkb_x11_keymap_new_from_device(
             xkb_context,
@@ -1721,10 +1591,7 @@ pub unsafe fn bindings_get_buttons_to_grab() -> *mut ::core::ffi::c_int {
         if num + 1 as ::core::ffi::c_int == num_max {
             break;
         }
-        if !((*bind).input_type as ::core::ffi::c_uint
-            != B_MOUSE as ::core::ffi::c_int as ::core::ffi::c_uint
-            || !(*bind).whole_window)
-        {
+        if !((*bind).input_type != InputType::Mouse || !(*bind).whole_window) {
             let mut button: ::core::ffi::c_long = 0;
             if !parse_long(
                 (*bind).symbol.offset(
@@ -1761,13 +1628,13 @@ pub unsafe fn bindings_get_buttons_to_grab() -> *mut ::core::ffi::c_int {
     num = num + 1;
     *buffer.as_mut_ptr().offset(fresh4 as isize) = 0 as ::core::ffi::c_int;
     let buttons: *mut ::core::ffi::c_int = scalloc(
-        num as size_t,
-        ::core::mem::size_of::<::core::ffi::c_int>() as size_t,
+        num as usize,
+        ::core::mem::size_of::<::core::ffi::c_int>() as usize,
     ) as *mut ::core::ffi::c_int;
     memcpy(
         buttons as *mut ::core::ffi::c_void,
         buffer.as_mut_ptr() as *const ::core::ffi::c_void,
-        (num as size_t).wrapping_mul(::core::mem::size_of::<::core::ffi::c_int>() as size_t),
+        (num as usize).wrapping_mul(::core::mem::size_of::<::core::ffi::c_int>() as usize),
     );
     buttons
 }

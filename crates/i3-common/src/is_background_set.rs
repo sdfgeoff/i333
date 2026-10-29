@@ -7,21 +7,13 @@
  */
 // Mechanical file-by-file Rust translation of libi3/is_background_set.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
-pub type __uint8_t = u8;
-pub type __int16_t = i16;
-pub type __uint16_t = u16;
-pub type __uint32_t = u32;
-pub type int16_t = __int16_t;
-pub type uint8_t = __uint8_t;
-pub type uint16_t = __uint16_t;
-pub type uint32_t = __uint32_t;
 
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 unsafe fn unobscured_region(
     conn: *mut xcb_connection_t,
     window: xcb_window_t,
-    window_width: uint16_t,
-    window_height: uint16_t,
+    window_width: u16,
+    window_height: u16,
 ) -> *mut cairo_region_t {
     let mut rectangle: cairo_rectangle_int_t = cairo_rectangle_int_t {
         x: 0,
@@ -43,7 +35,7 @@ unsafe fn unobscured_region(
     if tree.is_null() {
         return region;
     }
-    let n_children: uint16_t = (*tree).children_len;
+    let n_children: u16 = (*tree).children_len;
     let children: *mut xcb_window_t = xcb_query_tree_children(tree);
     let vla = n_children as usize;
     let mut geometries: Vec<xcb_get_geometry_cookie_t> =
@@ -92,10 +84,10 @@ unsafe fn unobscured_region(
 unsafe fn find_unobscured_pixel(
     conn: *mut xcb_connection_t,
     window: xcb_window_t,
-    window_width: uint16_t,
-    window_height: uint16_t,
-    x: *mut uint16_t,
-    y: *mut uint16_t,
+    window_width: u16,
+    window_height: u16,
+    x: *mut u16,
+    y: *mut u16,
 ) {
     let region: *mut cairo_region_t = unobscured_region(conn, window, window_width, window_height);
     if cairo_region_num_rectangles(region) > 0 as ::core::ffi::c_int {
@@ -106,48 +98,42 @@ unsafe fn find_unobscured_pixel(
             height: 0,
         };
         cairo_region_get_rectangle(region, 0 as ::core::ffi::c_int, &raw mut rect);
-        *x = rect.x as uint16_t;
-        *y = rect.y as uint16_t;
+        *x = rect.x as u16;
+        *y = rect.y as u16;
     } else {
-        *x = 0 as uint16_t;
-        *y = 0 as uint16_t;
+        *x = 0 as u16;
+        *y = 0 as u16;
     }
     cairo_region_destroy(region);
 }
 unsafe fn flicker_window_at(
     conn: *mut xcb_connection_t,
     screen: *mut xcb_screen_t,
-    x: int16_t,
-    y: int16_t,
+    x: i16,
+    y: i16,
     window: xcb_window_t,
-    pixel: uint32_t,
-) -> uint32_t {
-    let mut fresh0: [uint32_t; 2] = [pixel, 1 as ::core::ffi::c_int as uint32_t];
+    pixel: u32,
+) -> u32 {
+    let mut fresh0: [u32; 2] = [pixel, 1 as ::core::ffi::c_int as u32];
     xcb_create_window(
         conn,
-        XCB_COPY_FROM_PARENT as uint8_t,
+        XCB_COPY_FROM_PARENT as u8,
         window,
         (*screen).root,
         x,
         y,
-        10 as uint16_t,
-        10 as uint16_t,
-        0 as uint16_t,
-        XCB_WINDOW_CLASS_INPUT_OUTPUT as ::core::ffi::c_int as uint16_t,
+        10 as u16,
+        10 as u16,
+        0 as u16,
+        XCB_WINDOW_CLASS_INPUT_OUTPUT as ::core::ffi::c_int as u16,
         XCB_COPY_FROM_PARENT as xcb_visualid_t,
         (XCB_CW_BACK_PIXEL as ::core::ffi::c_int | XCB_CW_OVERRIDE_REDIRECT as ::core::ffi::c_int)
-            as uint32_t,
-        &raw mut fresh0 as *mut uint32_t as *const ::core::ffi::c_void,
+            as u32,
+        &raw mut fresh0 as *mut u32 as *const ::core::ffi::c_void,
     );
     xcb_map_window(conn, window);
     xcb_clear_area(
-        conn,
-        0 as uint8_t,
-        window,
-        0 as int16_t,
-        0 as int16_t,
-        0 as uint16_t,
-        0 as uint16_t,
+        conn, 0 as u8, window, 0 as i16, 0 as i16, 0 as u16, 0 as u16,
     );
     xcb_aux_sync(conn);
     xcb_destroy_window(conn, window);
@@ -155,20 +141,20 @@ unsafe fn flicker_window_at(
         conn,
         xcb_get_image_unchecked(
             conn,
-            XCB_IMAGE_FORMAT_Z_PIXMAP as ::core::ffi::c_int as uint8_t,
+            XCB_IMAGE_FORMAT_Z_PIXMAP as ::core::ffi::c_int as u8,
             (*screen).root as xcb_drawable_t,
             x,
             y,
-            1 as uint16_t,
-            1 as uint16_t,
-            !(0 as ::core::ffi::c_int) as uint32_t,
+            1 as u16,
+            1 as u16,
+            !(0 as ::core::ffi::c_int) as u32,
         ),
         ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
     );
-    let mut result: uint32_t = 0 as uint32_t;
+    let mut result: u32 = 0 as u32;
     if !img.is_null() {
-        let data: *mut uint8_t = xcb_get_image_data(img);
-        let depth: uint8_t = (*img).depth;
+        let data: *mut u8 = xcb_get_image_data(img);
+        let depth: u8 = (*img).depth;
         let mut i: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
         while i
             < (if (depth as ::core::ffi::c_int) < 4 as ::core::ffi::c_int {
@@ -177,7 +163,7 @@ unsafe fn flicker_window_at(
                 4 as ::core::ffi::c_int
             })
         {
-            result = result << 8 as ::core::ffi::c_int | *data.offset(i as isize) as uint32_t;
+            result = result << 8 as ::core::ffi::c_int | *data.offset(i as isize) as u32;
             i += 1;
         }
         free(img as *mut ::core::ffi::c_void);
@@ -186,8 +172,8 @@ unsafe fn flicker_window_at(
 }
 
 pub unsafe fn is_background_set(conn: *mut xcb_connection_t, screen: *mut xcb_screen_t) -> bool {
-    let mut x: uint16_t = 0;
-    let mut y: uint16_t = 0;
+    let mut x: u16 = 0;
+    let mut y: u16 = 0;
     find_unobscured_pixel(
         conn,
         (*screen).root,
@@ -197,19 +183,19 @@ pub unsafe fn is_background_set(conn: *mut xcb_connection_t, screen: *mut xcb_sc
         &raw mut y,
     );
     let window: xcb_window_t = xcb_generate_id(conn) as xcb_window_t;
-    let pixel1: uint32_t = flicker_window_at(
+    let pixel1: u32 = flicker_window_at(
         conn,
         screen,
-        x as int16_t,
-        y as int16_t,
+        x as i16,
+        y as i16,
         window,
         (*screen).black_pixel,
     );
-    let pixel2: uint32_t = flicker_window_at(
+    let pixel2: u32 = flicker_window_at(
         conn,
         screen,
-        x as int16_t,
-        y as int16_t,
+        x as i16,
+        y as i16,
         window,
         (*screen).white_pixel,
     );

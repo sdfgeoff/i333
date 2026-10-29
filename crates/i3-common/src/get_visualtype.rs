@@ -7,12 +7,6 @@
  */
 // Mechanical file-by-file Rust translation of libi3/get_visualtype.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
-pub type __uint8_t = u8;
-pub type __uint16_t = u16;
-pub type __uint32_t = u32;
-pub type uint8_t = __uint8_t;
-pub type uint16_t = __uint16_t;
-pub type uint32_t = __uint32_t;
 
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 

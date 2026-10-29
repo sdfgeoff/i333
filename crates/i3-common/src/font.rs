@@ -7,27 +7,12 @@
  */
 // Mechanical file-by-file Rust translation of libi3/font.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
-pub type size_t = usize;
-pub type __uint8_t = u8;
-pub type __int16_t = i16;
-pub type __uint16_t = u16;
-pub type __int32_t = i32;
-pub type __uint32_t = u32;
-pub type __uint64_t = u64;
-pub type __off_t = ::core::ffi::c_long;
-pub type __off64_t = ::core::ffi::c_long;
-pub type int16_t = __int16_t;
-pub type int32_t = __int32_t;
-
-pub type uint8_t = __uint8_t;
-pub type uint16_t = __uint16_t;
-pub type uint32_t = __uint32_t;
 
 pub type i3String = _i3String;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct Font {
-    pub type_0: C2RustUnnamed_1,
+    pub type_0: FontType,
     pub height: ::core::ffi::c_int,
     pub pattern: *mut ::core::ffi::c_char,
     pub specific: C2RustUnnamed,
@@ -45,10 +30,7 @@ pub struct C2RustUnnamed_0 {
     pub info: *mut xcb_query_font_reply_t,
     pub table: *mut xcb_charinfo_t,
 }
-pub type C2RustUnnamed_1 = ::core::ffi::c_uint;
-pub const FONT_TYPE_PANGO: C2RustUnnamed_1 = 2;
-pub const FONT_TYPE_XCB: C2RustUnnamed_1 = 1;
-pub const FONT_TYPE_NONE: C2RustUnnamed_1 = 0;
+
 pub type i3Font = Font;
 
 pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
@@ -116,12 +98,12 @@ unsafe fn load_pango_font(font: *mut i3Font, desc: *const ::core::ffi::c_char) -
     g_object_unref(layout.cast());
     cairo_destroy(cr);
     cairo_surface_destroy(surface);
-    (*font).type_0 = FONT_TYPE_PANGO;
+    (*font).type_0 = FontType::Pango;
     true_0 != 0
 }
 unsafe fn draw_text_pango(
     text: *const ::core::ffi::c_char,
-    text_len: size_t,
+    text_len: usize,
     drawable: xcb_drawable_t,
     surface: *mut cairo_surface_t,
     x: ::core::ffi::c_int,
@@ -169,7 +151,7 @@ unsafe fn draw_text_pango(
 }
 unsafe fn predict_text_width_pango(
     text: *const ::core::ffi::c_char,
-    text_len: size_t,
+    text_len: usize,
     pango_markup: bool,
 ) -> ::core::ffi::c_int {
     let crate::display::DisplayContext {
@@ -213,7 +195,7 @@ pub unsafe fn load_font(mut pattern: *const ::core::ffi::c_char, fallback: bool)
 
     free_font();
     let mut font: i3Font = Font {
-        type_0: FONT_TYPE_NONE,
+        type_0: FontType::None,
         height: 0,
         pattern: ::core::ptr::null_mut::<::core::ffi::c_char>(),
         specific: C2RustUnnamed {
@@ -224,7 +206,7 @@ pub unsafe fn load_font(mut pattern: *const ::core::ffi::c_char, fallback: bool)
             },
         },
     };
-    font.type_0 = FONT_TYPE_NONE;
+    font.type_0 = FontType::None;
     font.pattern = ::core::ptr::null_mut::<::core::ffi::c_char>();
     if conn.is_null() {
         return font;
@@ -249,12 +231,8 @@ pub unsafe fn load_font(mut pattern: *const ::core::ffi::c_char, fallback: bool)
         }
     }
     font.specific.xcb.id = xcb_generate_id(conn) as xcb_font_t;
-    let mut font_cookie: xcb_void_cookie_t = xcb_open_font_checked(
-        conn,
-        font.specific.xcb.id,
-        strlen(pattern) as uint16_t,
-        pattern,
-    );
+    let mut font_cookie: xcb_void_cookie_t =
+        xcb_open_font_checked(conn, font.specific.xcb.id, strlen(pattern) as u16, pattern);
     let mut info_cookie: xcb_query_font_cookie_t =
         xcb_query_font(conn, font.specific.xcb.id as xcb_fontable_t);
     let mut error: *mut xcb_generic_error_t = ::core::ptr::null_mut::<xcb_generic_error_t>();
@@ -268,12 +246,8 @@ pub unsafe fn load_font(mut pattern: *const ::core::ffi::c_char, fallback: bool)
             (*error).error_code as ::core::ffi::c_int,
         );
         pattern = c"fixed".as_ptr();
-        font_cookie = xcb_open_font_checked(
-            conn,
-            font.specific.xcb.id,
-            strlen(pattern) as uint16_t,
-            pattern,
-        );
+        font_cookie =
+            xcb_open_font_checked(conn, font.specific.xcb.id, strlen(pattern) as u16, pattern);
         info_cookie = xcb_query_font(conn, font.specific.xcb.id as xcb_fontable_t);
         free(error as *mut ::core::ffi::c_void);
         error = xcb_request_check(conn, font_cookie);
@@ -284,18 +258,14 @@ pub unsafe fn load_font(mut pattern: *const ::core::ffi::c_char, fallback: bool)
                     .cast_mut(),
             );
             pattern = c"-misc-*".as_ptr();
-            font_cookie = xcb_open_font_checked(
-                conn,
-                font.specific.xcb.id,
-                strlen(pattern) as uint16_t,
-                pattern,
-            );
+            font_cookie =
+                xcb_open_font_checked(conn, font.specific.xcb.id, strlen(pattern) as u16, pattern);
             info_cookie = xcb_query_font(conn, font.specific.xcb.id as xcb_fontable_t);
             free(error as *mut ::core::ffi::c_void);
             error = xcb_request_check(conn, font_cookie);
             if !error.is_null() {
                 errx(
-                    EXIT_FAILURE,
+                    libc::EXIT_FAILURE,
                     c"Could open neither requested font nor fallbacks (fixed or -misc-*): X11 error %d".as_ptr(),
                     (*error).error_code as ::core::ffi::c_int,
                 );
@@ -317,7 +287,7 @@ pub unsafe fn load_font(mut pattern: *const ::core::ffi::c_char, fallback: bool)
     );
     if font.specific.xcb.info.is_null() {
         errx(
-            EXIT_FAILURE,
+            libc::EXIT_FAILURE,
             c"Could not load font \"%s\"".as_ptr(),
             pattern,
         );
@@ -329,7 +299,7 @@ pub unsafe fn load_font(mut pattern: *const ::core::ffi::c_char, fallback: bool)
     }
     font.height = (*font.specific.xcb.info).font_ascent as ::core::ffi::c_int
         + (*font.specific.xcb.info).font_descent as ::core::ffi::c_int;
-    font.type_0 = FONT_TYPE_XCB;
+    font.type_0 = FontType::Xcb;
     font
 }
 
@@ -346,15 +316,15 @@ pub unsafe fn free_font() {
         return;
     }
     free((*savedFont).pattern as *mut ::core::ffi::c_void);
-    match (*savedFont).type_0 as ::core::ffi::c_uint {
-        1 => {
+    match (*savedFont).type_0 {
+        FontType::Xcb => {
             xcb_close_font(conn, (*savedFont).specific.xcb.id);
             free((*savedFont).specific.xcb.info as *mut ::core::ffi::c_void);
         }
-        2 => {
+        FontType::Pango => {
             pango_font_description_free((*savedFont).specific.pango_desc);
         }
-        0 | _ => {}
+        FontType::None => {}
     }
     savedFont = ::core::ptr::null::<i3Font>();
 }
@@ -373,12 +343,12 @@ pub unsafe fn set_font_colors(gc: xcb_gcontext_t, foreground: color_t, backgroun
             c"void set_font_colors(xcb_gcontext_t, color_t, color_t)".as_ptr(),
         );
     };
-    match (*savedFont).type_0 as ::core::ffi::c_uint {
-        1 => {
-            let mask: uint32_t = (XCB_GC_FOREGROUND as ::core::ffi::c_int
+    match (*savedFont).type_0 {
+        FontType::Xcb => {
+            let mask: u32 = (XCB_GC_FOREGROUND as ::core::ffi::c_int
                 | XCB_GC_BACKGROUND as ::core::ffi::c_int
-                | XCB_GC_FONT as ::core::ffi::c_int) as uint32_t;
-            let mut values: [uint32_t; 3] = [
+                | XCB_GC_FONT as ::core::ffi::c_int) as u32;
+            let mut values: [u32; 3] = [
                 foreground.colorpixel,
                 background.colorpixel,
                 (*savedFont).specific.xcb.id,
@@ -387,26 +357,25 @@ pub unsafe fn set_font_colors(gc: xcb_gcontext_t, foreground: color_t, backgroun
                 conn,
                 gc,
                 mask,
-                &raw mut values as *mut uint32_t as *const ::core::ffi::c_void,
+                &raw mut values as *mut u32 as *const ::core::ffi::c_void,
             );
         }
-        2 => {
+        FontType::Pango => {
             pango_font_red = foreground.red;
             pango_font_green = foreground.green;
             pango_font_blue = foreground.blue;
             pango_font_alpha = foreground.alpha;
         }
-        0 | _ => {}
+        FontType::None => {}
     };
 }
 
 pub unsafe fn font_is_pango() -> bool {
-    (*savedFont).type_0 as ::core::ffi::c_uint
-        == FONT_TYPE_PANGO as ::core::ffi::c_int as ::core::ffi::c_uint
+    (*savedFont).type_0 == FontType::Pango
 }
 unsafe fn draw_text_xcb(
     text: *const xcb_char2b_t,
-    mut text_len: size_t,
+    mut text_len: usize,
     drawable: xcb_drawable_t,
     gc: xcb_gcontext_t,
     mut x: ::core::ffi::c_int,
@@ -420,27 +389,27 @@ unsafe fn draw_text_xcb(
         y + (*(*savedFont).specific.xcb.info).font_ascent as ::core::ffi::c_int;
     let mut offset: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
     loop {
-        let chunk_size: ::core::ffi::c_int = (if text_len > 255 as size_t {
-            255 as size_t
+        let chunk_size: ::core::ffi::c_int = (if text_len > 255 as usize {
+            255 as usize
         } else {
             text_len
         }) as ::core::ffi::c_int;
         let chunk: *const xcb_char2b_t = text.offset(offset as isize);
         xcb_image_text_16(
             conn,
-            chunk_size as uint8_t,
+            chunk_size as u8,
             drawable,
             gc,
-            x as int16_t,
-            pos_y as int16_t,
+            x as i16,
+            pos_y as i16,
             chunk,
         );
         offset += chunk_size;
-        text_len = text_len.wrapping_sub(chunk_size as size_t);
-        if text_len == 0 as size_t {
+        text_len = text_len.wrapping_sub(chunk_size as usize);
+        if text_len == 0 as usize {
             break;
         }
-        x += predict_text_width_xcb(chunk, chunk_size as size_t);
+        x += predict_text_width_xcb(chunk, chunk_size as usize);
     }
 }
 
@@ -462,9 +431,9 @@ pub unsafe fn draw_text(
             c"void draw_text(i3String *, xcb_drawable_t, xcb_gcontext_t, cairo_surface_t *, int, int, int)".as_ptr(),
         );
     };
-    match (*savedFont).type_0 as ::core::ffi::c_uint {
-        0 => (),
-        1 => {
+    match (*savedFont).type_0 {
+        FontType::None => (),
+        FontType::Xcb => {
             draw_text_xcb(
                 i3string_as_ucs2(text).cast(),
                 i3string_get_num_glyphs(text),
@@ -474,7 +443,7 @@ pub unsafe fn draw_text(
                 y,
             );
         }
-        2 => {
+        FontType::Pango => {
             draw_text_pango(
                 i3string_as_utf8(text),
                 i3string_get_num_bytes(text),
@@ -486,10 +455,9 @@ pub unsafe fn draw_text(
                 i3string_is_markup(text),
             );
         }
-        _ => {}
     }
 }
-unsafe fn xcb_query_text_width(text: *const xcb_char2b_t, text_len: size_t) -> ::core::ffi::c_int {
+unsafe fn xcb_query_text_width(text: *const xcb_char2b_t, text_len: usize) -> ::core::ffi::c_int {
     let crate::display::DisplayContext {
         connection: conn, ..
     } = crate::display::context();
@@ -503,7 +471,7 @@ unsafe fn xcb_query_text_width(text: *const xcb_char2b_t, text_len: size_t) -> :
     let cookie: xcb_query_text_extents_cookie_t = xcb_query_text_extents(
         conn,
         (*savedFont).specific.xcb.id as xcb_fontable_t,
-        text_len as uint32_t,
+        text_len as u32,
         text as *mut xcb_char2b_t,
     );
     let reply: *mut xcb_query_text_extents_reply_t =
@@ -515,7 +483,7 @@ unsafe fn xcb_query_text_width(text: *const xcb_char2b_t, text_len: size_t) -> :
             (*error).error_code as ::core::ffi::c_int,
         );
         free(error as *mut ::core::ffi::c_void);
-        return ((*(*savedFont).specific.xcb.info).max_bounds.character_width as size_t)
+        return ((*(*savedFont).specific.xcb.info).max_bounds.character_width as usize)
             .wrapping_mul(text_len) as ::core::ffi::c_int;
     }
     let width: ::core::ffi::c_int = (*reply).overall_width as ::core::ffi::c_int;
@@ -524,9 +492,9 @@ unsafe fn xcb_query_text_width(text: *const xcb_char2b_t, text_len: size_t) -> :
 }
 unsafe fn predict_text_width_xcb(
     input: *const xcb_char2b_t,
-    text_len: size_t,
+    text_len: usize,
 ) -> ::core::ffi::c_int {
-    if text_len == 0 as size_t {
+    if text_len == 0 as usize {
         return 0 as ::core::ffi::c_int;
     }
     let mut width: ::core::ffi::c_int = 0;
@@ -536,7 +504,7 @@ unsafe fn predict_text_width_xcb(
         let font_info: *mut xcb_query_font_reply_t = (*savedFont).specific.xcb.info;
         let font_table: *mut xcb_charinfo_t = (*savedFont).specific.xcb.table;
         width = 0 as ::core::ffi::c_int;
-        let mut i: size_t = 0 as size_t;
+        let mut i: usize = 0 as usize;
         while i < text_len {
             let mut info: *mut xcb_charinfo_t = ::core::ptr::null_mut::<xcb_charinfo_t>();
             let row: ::core::ffi::c_int = (*input.offset(i as isize)).byte1 as ::core::ffi::c_int;
@@ -580,35 +548,18 @@ pub unsafe fn predict_text_width(text: *mut i3String) -> ::core::ffi::c_int {
             c"int predict_text_width(i3String *)".as_ptr(),
         );
     };
-    match (*savedFont).type_0 as ::core::ffi::c_uint {
-        0 => return 0 as ::core::ffi::c_int,
-        1 => {
-            return predict_text_width_xcb(
-                i3string_as_ucs2(text).cast(),
-                i3string_get_num_glyphs(text),
-            );
+    match (*savedFont).type_0 {
+        FontType::None => 0,
+        FontType::Xcb => {
+            predict_text_width_xcb(i3string_as_ucs2(text).cast(), i3string_get_num_glyphs(text))
         }
-        2 => {
-            return predict_text_width_pango(
-                i3string_as_utf8(text),
-                i3string_get_num_bytes(text),
-                i3string_is_markup(text),
-            );
-        }
-        _ => {}
+        FontType::Pango => predict_text_width_pango(
+            i3string_as_utf8(text),
+            i3string_get_num_bytes(text),
+            i3string_is_markup(text),
+        ),
     }
-    if 0 as ::core::ffi::c_int != 0 {
-    } else {
-        __assert_fail(
-            c"false".as_ptr(),
-            c"../libi3/font.c".as_ptr(),
-            480 as ::core::ffi::c_uint,
-            c"int predict_text_width(i3String *)".as_ptr(),
-        );
-    };
-    panic!("Reached end of non-void function without returning");
 }
-pub const EXIT_FAILURE: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 
 // Internal helpers use Rust linkage rather than foreign symbol lookup.
 use crate::dpi::get_dpi_value;
@@ -658,3 +609,11 @@ use crate::string::i3string_get_num_glyphs;
 use crate::string::i3string_is_markup;
 
 use crate::string::i3string_as_ucs2;
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[repr(u32)]
+pub enum FontType {
+    None = 0,
+    Xcb = 1,
+    Pango = 2,
+}

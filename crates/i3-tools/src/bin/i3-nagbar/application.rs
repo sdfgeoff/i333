@@ -28,33 +28,11 @@ use i3_common::get_exe_path::get_exe_path;
 use i3_common::i333_va_list;
 use i3_common::safewrappers::sstrdup;
 
-pub type __builtin_va_list = [__va_list_tag; 1];
-pub use i3_common::safewrappers::__va_list_tag;
-pub type size_t = usize;
-pub type __uint8_t = u8;
-pub type __int16_t = i16;
-pub type __uint16_t = u16;
-pub type __uint32_t = u32;
-pub type __uint64_t = u64;
-pub type __off_t = ::core::ffi::c_long;
-pub type __off64_t = ::core::ffi::c_long;
-pub type __pid_t = ::core::ffi::c_int;
-pub type int16_t = __int16_t;
-pub type __gnuc_va_list = __builtin_va_list;
-pub type va_list = __gnuc_va_list;
-
-pub type uint8_t = __uint8_t;
-pub type uint16_t = __uint16_t;
-pub type uint32_t = __uint32_t;
-
 pub type i3String = _i3String;
 pub use i3_common::font::C2RustUnnamed;
 pub use i3_common::font::C2RustUnnamed_0;
 pub use i3_common::font::Font;
-pub type C2RustUnnamed_1 = ::core::ffi::c_uint;
-pub const FONT_TYPE_PANGO: C2RustUnnamed_1 = 2;
-pub const FONT_TYPE_XCB: C2RustUnnamed_1 = 1;
-pub const FONT_TYPE_NONE: C2RustUnnamed_1 = 0;
+
 pub type i3Font = Font;
 pub use i3_common::draw_util::color_t;
 pub use i3_common::draw_util::surface_t;
@@ -67,40 +45,32 @@ pub type Window = XID;
 pub struct button_t {
     pub label: *mut i3String,
     pub action: *mut ::core::ffi::c_char,
-    pub x: int16_t,
-    pub width: uint16_t,
+    pub x: i16,
+    pub width: u16,
     pub terminal: bool,
 }
 #[derive(Copy, Clone)]
 #[repr(C, packed)]
 pub struct C2RustUnnamed_2 {
-    pub left: uint32_t,
-    pub right: uint32_t,
-    pub top: uint32_t,
-    pub bottom: uint32_t,
-    pub left_start_y: uint32_t,
-    pub left_end_y: uint32_t,
-    pub right_start_y: uint32_t,
-    pub right_end_y: uint32_t,
-    pub top_start_x: uint32_t,
-    pub top_end_x: uint32_t,
-    pub bottom_start_x: uint32_t,
-    pub bottom_end_x: uint32_t,
+    pub left: u32,
+    pub right: u32,
+    pub top: u32,
+    pub bottom: u32,
+    pub left_start_y: u32,
+    pub left_end_y: u32,
+    pub right_start_y: u32,
+    pub right_end_y: u32,
+    pub top_start_x: u32,
+    pub top_end_x: u32,
+    pub bottom_start_x: u32,
+    pub bottom_end_x: u32,
 }
-pub const TYPE_ERROR: C2RustUnnamed_3 = 0;
-pub type C2RustUnnamed_3 = ::core::ffi::c_uint;
-pub const TYPE_WARNING: C2RustUnnamed_3 = 1;
+
 pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-pub const __S_IREAD: ::core::ffi::c_int = 0o400 as ::core::ffi::c_int;
-pub const __S_IWRITE: ::core::ffi::c_int = 0o200 as ::core::ffi::c_int;
 
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
-pub const O_WRONLY: ::core::ffi::c_int = 0o1 as ::core::ffi::c_int;
-pub const O_CREAT: ::core::ffi::c_int = 0o100 as ::core::ffi::c_int;
-pub const O_TRUNC: ::core::ffi::c_int = 0o1000 as ::core::ffi::c_int;
-pub const S_IRUSR: ::core::ffi::c_int = __S_IREAD;
-pub const S_IWUSR: ::core::ffi::c_int = __S_IWRITE;
+
 pub const _PATH_BSHELL: [::core::ffi::c_char; 8] =
     unsafe { ::core::mem::transmute::<[u8; 8], [::core::ffi::c_char; 8]>(*b"/bin/sh\0") };
 
@@ -131,7 +101,7 @@ static mut bar: surface_t = surface_t {
     cr: ::core::ptr::null::<cairo_t>() as *mut cairo_t,
 };
 static mut font: i3Font = Font {
-    type_0: FONT_TYPE_NONE,
+    type_0: i3_common::font::FontType::None,
     height: 0,
     pattern: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
     specific: C2RustUnnamed {
@@ -221,13 +191,13 @@ unsafe fn start_application(command: *const ::core::ffi::c_char) {
                 command,
                 NULL,
             );
-            err(EXIT_FAILURE, c"execl return".as_ptr());
+            err(libc::EXIT_FAILURE, c"execl return".as_ptr());
         }
         exit(0 as ::core::ffi::c_int);
     }
     wait(::core::ptr::null_mut::<::core::ffi::c_int>());
 }
-unsafe fn get_button_at(x: int16_t, y: int16_t) -> *mut button_t {
+unsafe fn get_button_at(x: i16, y: i16) -> *mut button_t {
     let mut c: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
     while c < buttoncnt {
         if x as ::core::ffi::c_int >= (*buttons.offset(c as isize)).x as ::core::ffi::c_int
@@ -268,7 +238,11 @@ unsafe fn handle_button_release(
         return;
     }
     let script_path: *mut ::core::ffi::c_char = get_process_filename(c"nagbar-cmd".as_ptr());
-    let fd: ::core::ffi::c_int = open(script_path, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+    let fd: ::core::ffi::c_int = open(
+        script_path,
+        libc::O_WRONLY | libc::O_CREAT | libc::O_TRUNC,
+        libc::S_IRUSR | libc::S_IWUSR,
+    );
     if fd == -(1 as ::core::ffi::c_int) {
         warn(c"Could not create temporary script to store the nagbar command".as_ptr());
         return;
@@ -291,7 +265,7 @@ unsafe fn handle_button_release(
     sasprintf(&raw mut link_path, c"%s.nagbar_cmd".as_ptr(), script_path);
     if symlink(exe_path, link_path) == -(1 as ::core::ffi::c_int) {
         err(
-            EXIT_FAILURE,
+            libc::EXIT_FAILURE,
             c"Failed to symlink %s to %s".as_ptr(),
             link_path,
             exe_path,
@@ -320,8 +294,8 @@ unsafe fn button_draw(button: *mut button_t, position: ::core::ffi::c_int) -> ::
     (*button).width = (text_width
         + 2 as ::core::ffi::c_int * logical_px(3 as ::core::ffi::c_int)
         + 2 as ::core::ffi::c_int * logical_px(3 as ::core::ffi::c_int))
-        as uint16_t;
-    (*button).x = (position - (*button).width as ::core::ffi::c_int) as int16_t;
+        as u16;
+    (*button).x = (position - (*button).width as ::core::ffi::c_int) as i16;
     draw_util_rectangle(
         &raw mut bar,
         color_border,
@@ -603,9 +577,9 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
     let pattern = settings.font.as_ptr();
     let position_on_primary = settings.primary;
     let bar_type = if settings.warning {
-        TYPE_WARNING
+        MessageType::Warning
     } else {
-        TYPE_ERROR
+        MessageType::Error
     };
     let mut text = NagbarText {
         message: i3string_from_utf8(settings.message.as_ptr()),
@@ -636,42 +610,42 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
     let mut screens: ::core::ffi::c_int = 0;
     conn = xcb_connect(::core::ptr::null::<::core::ffi::c_char>(), &raw mut screens);
     if conn.is_null() || xcb_connection_has_error(conn) != 0 {
-        errx(EXIT_FAILURE, c"Cannot open display".as_ptr());
+        errx(libc::EXIT_FAILURE, c"Cannot open display".as_ptr());
     }
     let mut _NET_WM_WINDOW_TYPE_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
         conn,
-        0 as uint8_t,
-        strlen(c"_NET_WM_WINDOW_TYPE".as_ptr()) as uint16_t,
+        0 as u8,
+        strlen(c"_NET_WM_WINDOW_TYPE".as_ptr()) as u16,
         c"_NET_WM_WINDOW_TYPE".as_ptr(),
     );
     let mut _NET_WM_WINDOW_TYPE_DOCK_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
         conn,
-        0 as uint8_t,
-        strlen(c"_NET_WM_WINDOW_TYPE_DOCK".as_ptr()) as uint16_t,
+        0 as u8,
+        strlen(c"_NET_WM_WINDOW_TYPE_DOCK".as_ptr()) as u16,
         c"_NET_WM_WINDOW_TYPE_DOCK".as_ptr(),
     );
     let mut _NET_WM_STRUT_PARTIAL_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
         conn,
-        0 as uint8_t,
-        strlen(c"_NET_WM_STRUT_PARTIAL".as_ptr()) as uint16_t,
+        0 as u8,
+        strlen(c"_NET_WM_STRUT_PARTIAL".as_ptr()) as u16,
         c"_NET_WM_STRUT_PARTIAL".as_ptr(),
     );
     let I3_SOCKET_PATH_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
         conn,
-        0 as uint8_t,
-        strlen(c"I3_SOCKET_PATH".as_ptr()) as uint16_t,
+        0 as u8,
+        strlen(c"I3_SOCKET_PATH".as_ptr()) as u16,
         c"I3_SOCKET_PATH".as_ptr(),
     );
     let ATOM_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
         conn,
-        0 as uint8_t,
-        strlen(c"ATOM".as_ptr()) as uint16_t,
+        0 as u8,
+        strlen(c"ATOM".as_ptr()) as u16,
         c"ATOM".as_ptr(),
     );
     let CARDINAL_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
         conn,
-        0 as uint8_t,
-        strlen(c"CARDINAL".as_ptr()) as uint16_t,
+        0 as u8,
+        strlen(c"CARDINAL".as_ptr()) as u16,
         c"CARDINAL".as_ptr(),
     );
     let sndisplay: *mut SnDisplay = sn_xcb_display_new(conn, None, None);
@@ -680,7 +654,7 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
     sn_display_unref(sndisplay);
     root_screen = xcb_aux_get_screen(conn, screens);
     root = (*root_screen).root;
-    if bar_type as ::core::ffi::c_uint == TYPE_ERROR as ::core::ffi::c_int as ::core::ffi::c_uint {
+    if bar_type == MessageType::Error {
         color_button_background = draw_util_hex_to_color(c"#680a0a".as_ptr());
         color_background = draw_util_hex_to_color(c"#900000".as_ptr());
         color_text = draw_util_hex_to_color(c"#ffffff".as_ptr());
@@ -697,12 +671,12 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
     font = load_font(pattern, true_0 != 0);
     set_font(&raw mut font);
     let mut win_pos: xcb_rectangle_t = xcb_rectangle_t {
-        x: 50 as int16_t,
-        y: 50 as int16_t,
-        width: 500 as uint16_t,
+        x: 50 as i16,
+        y: 50 as i16,
+        width: 500 as u16,
         height: (font.height
             + 2 as ::core::ffi::c_int * logical_px(8 as ::core::ffi::c_int)
-            + logical_px(2 as ::core::ffi::c_int)) as uint16_t,
+            + logical_px(2 as ::core::ffi::c_int)) as u16,
     };
     if position_on_primary {
         set_window_position_primary(&raw mut win_pos);
@@ -711,35 +685,38 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
     }
     let mut cursor_ctx: *mut xcb_cursor_context_t = ::core::ptr::null_mut::<xcb_cursor_context_t>();
     if xcb_cursor_context_new(conn, root_screen, &raw mut cursor_ctx) < 0 as ::core::ffi::c_int {
-        errx(EXIT_FAILURE, c"Cannot allocate xcursor context".as_ptr());
+        errx(
+            libc::EXIT_FAILURE,
+            c"Cannot allocate xcursor context".as_ptr(),
+        );
     }
     let cursor: xcb_cursor_t = xcb_cursor_load_cursor(cursor_ctx, c"left_ptr".as_ptr());
     xcb_cursor_context_free(cursor_ctx);
     win = xcb_generate_id(conn) as xcb_window_t;
-    let mut fresh2: [uint32_t; 3] = [
-        0 as ::core::ffi::c_int as uint32_t,
+    let mut fresh2: [u32; 3] = [
+        0 as ::core::ffi::c_int as u32,
         (XCB_EVENT_MASK_EXPOSURE as ::core::ffi::c_int
             | XCB_EVENT_MASK_STRUCTURE_NOTIFY as ::core::ffi::c_int
             | XCB_EVENT_MASK_BUTTON_PRESS as ::core::ffi::c_int
-            | XCB_EVENT_MASK_BUTTON_RELEASE as ::core::ffi::c_int) as uint32_t,
+            | XCB_EVENT_MASK_BUTTON_RELEASE as ::core::ffi::c_int) as u32,
         cursor,
     ];
     xcb_create_window(
         conn,
-        XCB_COPY_FROM_PARENT as uint8_t,
+        XCB_COPY_FROM_PARENT as u8,
         win,
         root,
         win_pos.x,
         win_pos.y,
         win_pos.width,
         win_pos.height,
-        0 as uint16_t,
-        XCB_WINDOW_CLASS_INPUT_OUTPUT as ::core::ffi::c_int as uint16_t,
+        0 as u16,
+        XCB_WINDOW_CLASS_INPUT_OUTPUT as ::core::ffi::c_int as u16,
         XCB_WINDOW_CLASS_COPY_FROM_PARENT as ::core::ffi::c_int as xcb_visualid_t,
         (XCB_CW_BACK_PIXEL as ::core::ffi::c_int
             | XCB_CW_EVENT_MASK as ::core::ffi::c_int
-            | XCB_CW_CURSOR as ::core::ffi::c_int) as uint32_t,
-        &raw mut fresh2 as *mut uint32_t as *const ::core::ffi::c_void,
+            | XCB_CW_CURSOR as ::core::ffi::c_int) as u32,
+        &raw mut fresh2 as *mut u32 as *const ::core::ffi::c_void,
     );
     if !sncontext.is_null() {
         sn_launchee_context_setup_window(sncontext, win as Window);
@@ -752,7 +729,7 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
     );
     if reply.is_null() {
         errx(
-            EXIT_FAILURE,
+            libc::EXIT_FAILURE,
             c"Could not get atom _NET_WM_WINDOW_TYPE".as_ptr(),
         );
     }
@@ -765,7 +742,7 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
     );
     if reply_0.is_null() {
         errx(
-            EXIT_FAILURE,
+            libc::EXIT_FAILURE,
             c"Could not get atom _NET_WM_WINDOW_TYPE_DOCK".as_ptr(),
         );
     }
@@ -778,7 +755,7 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
     );
     if reply_1.is_null() {
         errx(
-            EXIT_FAILURE,
+            libc::EXIT_FAILURE,
             c"Could not get atom _NET_WM_STRUT_PARTIAL".as_ptr(),
         );
     }
@@ -790,7 +767,10 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
         ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
     );
     if reply_2.is_null() {
-        errx(EXIT_FAILURE, c"Could not get atom I3_SOCKET_PATH".as_ptr());
+        errx(
+            libc::EXIT_FAILURE,
+            c"Could not get atom I3_SOCKET_PATH".as_ptr(),
+        );
     }
     A_I3_SOCKET_PATH = (*reply_2).atom;
     free(reply_2 as *mut ::core::ffi::c_void);
@@ -800,7 +780,7 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
         ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
     );
     if reply_3.is_null() {
-        errx(EXIT_FAILURE, c"Could not get atom ATOM".as_ptr());
+        errx(libc::EXIT_FAILURE, c"Could not get atom ATOM".as_ptr());
     }
     A_ATOM = (*reply_3).atom;
     free(reply_3 as *mut ::core::ffi::c_void);
@@ -810,18 +790,18 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
         ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
     );
     if reply_4.is_null() {
-        errx(EXIT_FAILURE, c"Could not get atom CARDINAL".as_ptr());
+        errx(libc::EXIT_FAILURE, c"Could not get atom CARDINAL".as_ptr());
     }
     A_CARDINAL = (*reply_4).atom;
     free(reply_4 as *mut ::core::ffi::c_void);
     xcb_change_property(
         conn,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as uint8_t,
+        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
         win,
         A__NET_WM_WINDOW_TYPE,
         A_ATOM,
-        32 as uint8_t,
-        1 as uint32_t,
+        32 as u8,
+        1 as u32,
         &raw mut A__NET_WM_WINDOW_TYPE_DOCK as *mut ::core::ffi::c_uchar
             as *const ::core::ffi::c_void,
     );
@@ -842,19 +822,19 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
     memset(
         &raw mut strut_partial as *mut ::core::ffi::c_void,
         0 as ::core::ffi::c_int,
-        ::core::mem::size_of::<C2RustUnnamed_2>() as size_t,
+        ::core::mem::size_of::<C2RustUnnamed_2>() as usize,
     );
-    strut_partial.top = (font.height + logical_px(6 as ::core::ffi::c_int)) as uint32_t;
-    strut_partial.top_start_x = 0 as uint32_t;
-    strut_partial.top_end_x = 800 as uint32_t;
+    strut_partial.top = (font.height + logical_px(6 as ::core::ffi::c_int)) as u32;
+    strut_partial.top_start_x = 0 as u32;
+    strut_partial.top_end_x = 800 as u32;
     xcb_change_property(
         conn,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as uint8_t,
+        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
         win,
         A__NET_WM_STRUT_PARTIAL,
         A_CARDINAL,
-        32 as uint8_t,
-        12 as uint32_t,
+        32 as u8,
+        12 as u32,
         &raw mut strut_partial as *const ::core::ffi::c_void,
     );
     draw_util_surface_init(
@@ -921,7 +901,7 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
     draw_util_surface_free(conn, &raw mut bar);
     0 as ::core::ffi::c_int
 }
-pub const EXIT_FAILURE: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
+
 pub fn main() {
     use i3_common::cli::{Item, Parser};
     use std::os::unix::ffi::{OsStrExt, OsStringExt};
@@ -1058,3 +1038,10 @@ use i3_common::get_process_filename::get_process_filename;
 use i3_common::get_visualtype::get_visualtype;
 
 pub use i3_common::string::I3String as _i3String;
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[repr(u32)]
+pub enum MessageType {
+    Error = 0,
+    Warning = 1,
+}

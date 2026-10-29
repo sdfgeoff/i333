@@ -8,21 +8,21 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 16 wallclock secs ( 0.59 usr +  0.06 sys =  0.65 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 15 wallclock secs ( 0.67 usr +  0.06 sys =  0.73 CPU)\nResult: PASS",
     "profile": "release",
     "build": "cargo build --workspace --release --locked",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "6ec111445787ad424919acf2263d61c717a24fff91cb08809a927dac7a3bcd97",
-    "i3bar": "144cdc0ee885ee1d0486026e6327586f6de37f3a2c49d68cbea33ecddf9ace7d",
-    "i3-config-wizard": "b69518a5c469c9833f22caff56ee89934e963fabec2e76b3e90ef6a47642fecd",
-    "i3-dump-log": "52d4c9062e380591d6d93ac143463aed60ee101b95f11f1adc2f2c4458d1e1fb",
-    "i3-input": "4f14dbb7d98ffa1898b5f222e93e38e9274dacf059e6d49dbf47a624238c7e27",
-    "i3-msg": "904afc4712341e6d4305ab040703e4f1ad03665ec14283c143efe9dc6b59b0d9",
-    "i3-nagbar": "ed2b3669b60a5cf4f7bc0078d450cfb177ec59585cb84456fecb02016097ce97"
+    "i3": "2012636872c329aa7362617df339710a1fa1b685dde4e2247b15a2fe737a0e17",
+    "i3bar": "5b28e9c3b1689757d0bdd616f8d4b09f06f6291fcd224b736740fd1848751ceb",
+    "i3-config-wizard": "a3476325948e81b4d61c30e183f3b70dfb27581f0865cfae51ea5ef582f321d0",
+    "i3-dump-log": "a30ccc3af72353e62e0a410719b17290fb8e73589c8590a12fcbc5c2a46ee094",
+    "i3-input": "e8a1c8032ba2fdde433754bbfcbdd421e0519336833a55f8f593b1c5ead76d16",
+    "i3-msg": "c8f5eb1247c42b08ff56bc8adf913bd7fde074c1c4b9962e0401cce760ef06c1",
+    "i3-nagbar": "b4f65a2a325fc079a734813e86e9aee2d1b57620272a67c42754b93e686aa42e"
   },
-  "note": "Nine-member Cargo workspace after file-by-file Rust modernization. Exact release hashes above passed the complete upstream suite, IPC16, CLI30 and headless52 checks. Both supported compilers pass99 workspace tests and fresh guarded Rust-only builds. Native callbacks, intrusive window-tree pointers and legacy allocation adapters remain unsafe; Linux x86_64 GNU ABI only. One loaded parallel run lost the test555 tee logfile; the isolated test and complete final rerun passed.",
+  "note": "Nine-member Cargo workspace after generated scalar alias cleanup and closed application enum conversion. Exact release hashes above passed the complete upstream suite, IPC16, CLI30 and headless52 external C comparisons. Both supported compilers pass99 workspace tests without warnings and fresh guarded Rust-only builds. Native callbacks, intrusive window-tree pointers and legacy allocation adapters remain unsafe; Linux x86_64 GNU ABI only. External C reference version stamp was matched to the candidate for CLI comparisons.",
   "reproduce": "python scripts/test-upstream-headless.py --release --reference-build .work/c-reference --perl-lib .work/recovery/i333-perl/lib/perl5 --xvfb-dir .work/recovery/i333-xvfb/usr/bin --xephyr-dir .work/recovery/i333-xephyr/usr/bin",
   "additional_checks": {
     "headless_c_rust_state_comparisons": 52,
@@ -121,6 +121,27 @@
     "xkb": "maintained xkbcommon bindings",
     "internal_no_mangle_exports": 0,
     "remaining_unsafe": "Native FFI/callbacks, intrusive window-tree ownership, legacy allocation and JSON pointer adapters",
-    "scratch_directory": ".work/tmp (gitignored, TMPDIR override supported)"
+    "scratch_directory": ".work/tmp (gitignored, TMPDIR override supported)",
+    "scalar_aliases": "Generated fixed-width, size, platform-internal and anonymous scalar typedefs removed; direct Rust primitives or maintained libc types at use sites. Semantic native/flag aliases retained.",
+    "application_enums": {
+      "audit_baseline_revision": "7912a9ab4517f9f9910770f0f016b5f81faeec18",
+      "audited_alias_associated_family_occurrences": 874,
+      "unique_constant_families": 102,
+      "closed_application_families_converted": 42,
+      "owner_specific_enum_definitions": 47,
+      "core_enum_definitions": 35,
+      "common_bar_and_tools_enum_definitions": 12,
+      "remaining_legacy_closed_constant_groups": 0,
+      "retained_application_flags_or_mixed_domains": 7,
+      "retained_raw_json_numeric_domains": 4,
+      "native_protocol_and_flag_families": 43,
+      "copied_libc_header_families_replaced": 6,
+      "parser_states": {
+        "command": 78,
+        "config": 118,
+        "wizard_config": 118
+      },
+      "compatibility": "Original discriminants and representation preserved; zero remains valid for models using legacy zero allocation. Table length sentinels remain separate from valid enum variants. Flags, native numeric protocols and unchecked JSON numeric domains are not converted to invalid closed enum values."
+    }
   }
 }

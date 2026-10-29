@@ -34,22 +34,6 @@ pub use libev_sys::{
     EV_READ, EV__IOFDSET,
 };
 
-pub type __builtin_va_list = [__va_list_tag; 1];
-pub use i3_common::safewrappers::__va_list_tag;
-pub type size_t = usize;
-pub type __uint32_t = u32;
-pub type __uint64_t = u64;
-pub type __off_t = ::core::ffi::c_long;
-pub type __off64_t = ::core::ffi::c_long;
-pub type __pid_t = ::core::ffi::c_int;
-pub type pid_t = __pid_t;
-pub type ssize_t = isize;
-pub type __gnuc_va_list = __builtin_va_list;
-pub type va_list = __gnuc_va_list;
-
-pub type uint32_t = __uint32_t;
-pub type uintptr_t = usize;
-
 pub type i3String = _i3String;
 pub use i3_common::draw_util::surface_t;
 #[derive(Copy, Clone)]
@@ -61,16 +45,13 @@ pub struct rect_t {
     pub h: ::core::ffi::c_int,
 }
 pub type rect = rect_t;
-pub type blockalign_t = ::core::ffi::c_uint;
-pub const ALIGN_RIGHT: blockalign_t = 2;
-pub const ALIGN_CENTER: blockalign_t = 1;
-pub const ALIGN_LEFT: blockalign_t = 0;
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct status_block_render_desc {
-    pub width: uint32_t,
-    pub x_offset: uint32_t,
-    pub x_append: uint32_t,
+    pub width: u32,
+    pub x_offset: u32,
+    pub x_append: u32,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -78,21 +59,21 @@ pub struct status_block {
     pub full_text: *mut i3String,
     pub short_text: *mut i3String,
     pub use_short: bool,
-    pub render_length: uint32_t,
+    pub render_length: u32,
     pub color: *mut ::core::ffi::c_char,
     pub background: *mut ::core::ffi::c_char,
     pub border: *mut ::core::ffi::c_char,
-    pub min_width: uint32_t,
+    pub min_width: u32,
     pub min_width_str: *mut ::core::ffi::c_char,
-    pub align: blockalign_t,
+    pub align: crate::child::BlockAlign,
     pub urgent: bool,
     pub no_separator: bool,
-    pub border_top: uint32_t,
-    pub border_right: uint32_t,
-    pub border_bottom: uint32_t,
-    pub border_left: uint32_t,
+    pub border_top: u32,
+    pub border_right: u32,
+    pub border_bottom: u32,
+    pub border_left: u32,
     pub pango_markup: bool,
-    pub sep_block_width: uint32_t,
+    pub sep_block_width: u32,
     pub full_render: status_block_render_desc,
     pub short_render: status_block_render_desc,
     pub name: *mut ::core::ffi::c_char,
@@ -115,8 +96,8 @@ pub struct statusline_head {
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct i3bar_child {
-    pub pid: pid_t,
-    pub version: uint32_t,
+    pub pid: libc::pid_t,
+    pub version: u32,
     pub stopped: bool,
     pub stop_signal: ::core::ffi::c_int,
     pub cont_signal: ::core::ffi::c_int,
@@ -127,22 +108,11 @@ pub struct i3bar_child {
     pub stdin_fd: ::core::ffi::c_int,
     pub pending_line: *mut ::core::ffi::c_char,
 }
-pub type C2RustUnnamed_1 = ::core::ffi::c_uint;
-pub const S_SHOW: C2RustUnnamed_1 = 1;
-pub const S_HIDE: C2RustUnnamed_1 = 0;
-pub type bar_display_mode_t = ::core::ffi::c_uint;
-pub const M_INVISIBLE: bar_display_mode_t = 2;
-pub const M_HIDE: bar_display_mode_t = 1;
-pub const M_DOCK: bar_display_mode_t = 0;
 
-pub type position_t = ::core::ffi::c_uint;
-pub const POS_BOT: position_t = 2;
-pub const POS_TOP: position_t = 1;
-pub const POS_NONE: position_t = 0;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct i3_ws {
-    pub id: uintptr_t,
+    pub id: usize,
     pub num: ::core::ffi::c_int,
     pub canonical_name: *mut ::core::ffi::c_char,
     pub name: *mut i3String,
@@ -214,7 +184,7 @@ pub struct ws_head {
 pub struct outputs_head {
     pub slh_first: *mut i3_output,
 }
-pub const _ISspace: C2RustUnnamed_7 = 8192;
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct parser_ctx {
@@ -223,35 +193,18 @@ pub struct parser_ctx {
     pub block: status_block,
 }
 
-pub type C2RustUnnamed_7 = ::core::ffi::c_uint;
-pub const _ISalnum: C2RustUnnamed_7 = 8;
-pub const _ISpunct: C2RustUnnamed_7 = 4;
-pub const _IScntrl: C2RustUnnamed_7 = 2;
-pub const _ISblank: C2RustUnnamed_7 = 1;
-pub const _ISgraph: C2RustUnnamed_7 = 32768;
-pub const _ISprint: C2RustUnnamed_7 = 16384;
-pub const _ISxdigit: C2RustUnnamed_7 = 4096;
-pub const _ISdigit: C2RustUnnamed_7 = 2048;
-pub const _ISalpha: C2RustUnnamed_7 = 1024;
-pub const _ISlower: C2RustUnnamed_7 = 512;
-pub const _ISupper: C2RustUnnamed_7 = 256;
 pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-pub const SIGTERM: ::core::ffi::c_int = 15 as ::core::ffi::c_int;
-pub const SIGSTOP: ::core::ffi::c_int = 19 as ::core::ffi::c_int;
-pub const SIGCONT: ::core::ffi::c_int = 18 as ::core::ffi::c_int;
-pub const STDIN_FILENO: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-pub const STDOUT_FILENO: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
+
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
-pub const EAGAIN: ::core::ffi::c_int = 11 as ::core::ffi::c_int;
+
 pub const STDIN_CHUNK_SIZE: ::core::ffi::c_int = 1024 as ::core::ffi::c_int;
-pub const O_NONBLOCK: ::core::ffi::c_int = 0o4000 as ::core::ffi::c_int;
-pub const F_SETFL: ::core::ffi::c_int = 4 as ::core::ffi::c_int;
+
 pub const _PATH_BSHELL: [::core::ffi::c_char; 8] =
     unsafe { ::core::mem::transmute::<[u8; 8], [::core::ffi::c_char; 8]>(*b"/bin/sh\0") };
 
 pub static mut status_child: i3bar_child = i3bar_child {
-    pid: 0 as pid_t,
+    pid: 0 as libc::pid_t,
     version: 0,
     stopped: false,
     stop_signal: 0,
@@ -265,7 +218,7 @@ pub static mut status_child: i3bar_child = i3bar_child {
 };
 
 pub static mut ws_child: i3bar_child = i3bar_child {
-    pid: 0 as pid_t,
+    pid: 0 as libc::pid_t,
     version: 0,
     stopped: false,
     stop_signal: 0,
@@ -295,7 +248,7 @@ pub static mut parser_context: parser_ctx = parser_ctx {
         border: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
         min_width: 0,
         min_width_str: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        align: ALIGN_LEFT,
+        align: crate::child::BlockAlign::Left,
         urgent: false,
         no_separator: false,
         border_top: 0,
@@ -371,11 +324,11 @@ unsafe fn copy_statusline(from: *mut statusline_head, to: *mut statusline_head) 
     current = (*from).tqh_first;
     while !current.is_null() {
         let new_block: *mut status_block =
-            smalloc(::core::mem::size_of::<status_block>() as size_t) as *mut status_block;
+            smalloc(::core::mem::size_of::<status_block>() as usize) as *mut status_block;
         memcpy(
             new_block as *mut ::core::ffi::c_void,
             current as *const ::core::ffi::c_void,
-            ::core::mem::size_of::<status_block>() as size_t,
+            ::core::mem::size_of::<status_block>() as usize,
         );
         (*new_block).blocks.tqe_next = ::core::ptr::null_mut::<status_block>();
         (*new_block).blocks.tqe_prev = (*to).tqh_last;
@@ -392,18 +345,14 @@ unsafe extern "C" fn set_statusline_error(format: *const ::core::ffi::c_char, ar
     let mut args_0;
     args_0 = args.clone();
     if !(vasprintf(&raw mut message, format, i333_va_list!(args_0)) == -(1 as ::core::ffi::c_int)) {
-        err_block = scalloc(
-            1 as size_t,
-            ::core::mem::size_of::<status_block>() as size_t,
-        ) as *mut status_block;
+        err_block = scalloc(1 as usize, ::core::mem::size_of::<status_block>() as usize)
+            as *mut status_block;
         (*err_block).full_text = i3string_from_utf8(c"Error: ".as_ptr());
         (*err_block).name = sstrdup(c"error".as_ptr());
         (*err_block).color = sstrdup(c"#ff0000".as_ptr());
         (*err_block).no_separator = true_0 != 0;
-        message_block = scalloc(
-            1 as size_t,
-            ::core::mem::size_of::<status_block>() as size_t,
-        ) as *mut status_block;
+        message_block = scalloc(1 as usize, ::core::mem::size_of::<status_block>() as usize)
+            as *mut status_block;
         (*message_block).full_text = i3string_from_utf8(message);
         (*message_block).name = sstrdup(c"error_message".as_ptr());
         (*message_block).color = sstrdup(c"#ff0000".as_ptr());
@@ -498,7 +447,7 @@ unsafe fn cleanup(c: *mut i3bar_child) {
     memset(
         c as *mut ::core::ffi::c_void,
         0 as ::core::ffi::c_int,
-        ::core::mem::size_of::<i3bar_child>() as size_t,
+        ::core::mem::size_of::<i3bar_child>() as usize,
     );
 }
 unsafe fn stdin_start_array(context: *mut ::core::ffi::c_void) -> ::core::ffi::c_int {
@@ -510,24 +459,24 @@ unsafe fn stdin_start_map(context: *mut ::core::ffi::c_void) -> ::core::ffi::c_i
     memset(
         &raw mut (*ctx).block as *mut ::core::ffi::c_void,
         '\0' as i32,
-        ::core::mem::size_of::<status_block>() as size_t,
+        ::core::mem::size_of::<status_block>() as usize,
     );
     if config.separator_symbol.is_null() {
-        (*ctx).block.sep_block_width = logical_px(9 as ::core::ffi::c_int) as uint32_t;
+        (*ctx).block.sep_block_width = logical_px(9 as ::core::ffi::c_int) as u32;
     } else {
         (*ctx).block.sep_block_width =
-            (logical_px(8 as ::core::ffi::c_int) + separator_symbol_width) as uint32_t;
+            (logical_px(8 as ::core::ffi::c_int) + separator_symbol_width) as u32;
     }
-    (*ctx).block.border_top = 1 as uint32_t;
-    (*ctx).block.border_right = 1 as uint32_t;
-    (*ctx).block.border_bottom = 1 as uint32_t;
-    (*ctx).block.border_left = 1 as uint32_t;
+    (*ctx).block.border_top = 1 as u32;
+    (*ctx).block.border_right = 1 as u32;
+    (*ctx).block.border_bottom = 1 as u32;
+    (*ctx).block.border_left = 1 as u32;
     1 as ::core::ffi::c_int
 }
 unsafe fn stdin_map_key(
     context: *mut ::core::ffi::c_void,
     key: *const ::core::ffi::c_uchar,
-    len: size_t,
+    len: usize,
 ) -> ::core::ffi::c_int {
     let ctx: *mut parser_ctx = context as *mut parser_ctx;
     free((*ctx).last_map_key as *mut ::core::ffi::c_void);
@@ -561,7 +510,7 @@ unsafe fn stdin_boolean(
 unsafe fn stdin_string(
     context: *mut ::core::ffi::c_void,
     val: *const ::core::ffi::c_uchar,
-    len: size_t,
+    len: usize,
 ) -> ::core::ffi::c_int {
     let ctx: *mut parser_ctx = context as *mut parser_ctx;
     if (*ctx).last_map_key.is_null() {
@@ -621,7 +570,7 @@ unsafe fn stdin_string(
                 strlen(c"center".as_ptr()),
             ) == 0
         {
-            (*ctx).block.align = ALIGN_CENTER;
+            (*ctx).block.align = crate::child::BlockAlign::Center;
         } else if len == strlen(c"right".as_ptr())
             && strncmp(
                 val as *const ::core::ffi::c_char,
@@ -629,9 +578,9 @@ unsafe fn stdin_string(
                 strlen(c"right".as_ptr()),
             ) == 0
         {
-            (*ctx).block.align = ALIGN_RIGHT;
+            (*ctx).block.align = crate::child::BlockAlign::Right;
         } else {
-            (*ctx).block.align = ALIGN_LEFT;
+            (*ctx).block.align = crate::child::BlockAlign::Left;
         }
         return 1 as ::core::ffi::c_int;
     }
@@ -673,28 +622,28 @@ unsafe fn stdin_integer(
         return 0 as ::core::ffi::c_int;
     }
     if strcasecmp((*ctx).last_map_key, c"min_width".as_ptr()) == 0 as ::core::ffi::c_int {
-        (*ctx).block.min_width = val as uint32_t;
+        (*ctx).block.min_width = val as u32;
         return 1 as ::core::ffi::c_int;
     }
     if strcasecmp((*ctx).last_map_key, c"separator_block_width".as_ptr()) == 0 as ::core::ffi::c_int
     {
-        (*ctx).block.sep_block_width = val as uint32_t;
+        (*ctx).block.sep_block_width = val as u32;
         return 1 as ::core::ffi::c_int;
     }
     if strcasecmp((*ctx).last_map_key, c"border_top".as_ptr()) == 0 as ::core::ffi::c_int {
-        (*ctx).block.border_top = val as uint32_t;
+        (*ctx).block.border_top = val as u32;
         return 1 as ::core::ffi::c_int;
     }
     if strcasecmp((*ctx).last_map_key, c"border_right".as_ptr()) == 0 as ::core::ffi::c_int {
-        (*ctx).block.border_right = val as uint32_t;
+        (*ctx).block.border_right = val as u32;
         return 1 as ::core::ffi::c_int;
     }
     if strcasecmp((*ctx).last_map_key, c"border_bottom".as_ptr()) == 0 as ::core::ffi::c_int {
-        (*ctx).block.border_bottom = val as uint32_t;
+        (*ctx).block.border_bottom = val as u32;
         return 1 as ::core::ffi::c_int;
     }
     if strcasecmp((*ctx).last_map_key, c"border_left".as_ptr()) == 0 as ::core::ffi::c_int {
-        (*ctx).block.border_left = val as uint32_t;
+        (*ctx).block.border_left = val as u32;
         return 1 as ::core::ffi::c_int;
     }
     1 as ::core::ffi::c_int
@@ -702,11 +651,11 @@ unsafe fn stdin_integer(
 unsafe fn stdin_end_map(context: *mut ::core::ffi::c_void) -> ::core::ffi::c_int {
     let ctx: *mut parser_ctx = context as *mut parser_ctx;
     let new_block: *mut status_block =
-        smalloc(::core::mem::size_of::<status_block>() as size_t) as *mut status_block;
+        smalloc(::core::mem::size_of::<status_block>() as usize) as *mut status_block;
     memcpy(
         new_block as *mut ::core::ffi::c_void,
         &raw mut (*ctx).block as *const ::core::ffi::c_void,
-        ::core::mem::size_of::<status_block>() as size_t,
+        ::core::mem::size_of::<status_block>() as usize,
     );
     if (*new_block).full_text.is_null() {
         (*new_block).full_text = i3string_from_utf8(c"SPEC VIOLATION: full_text is NULL!".as_ptr());
@@ -717,7 +666,7 @@ unsafe fn stdin_end_map(context: *mut ::core::ffi::c_void) -> ::core::ffi::c_int
     if !(*new_block).min_width_str.is_null() {
         let text: *mut i3String = i3string_from_utf8((*new_block).min_width_str);
         i3string_set_markup(text, (*new_block).pango_markup);
-        (*new_block).min_width = predict_text_width(text) as uint32_t;
+        (*new_block).min_width = predict_text_width(text) as u32;
         i3string_free(text);
     }
     i3string_set_markup((*new_block).full_text, (*new_block).pango_markup);
@@ -797,16 +746,16 @@ unsafe fn get_buffer(
     let mut rec: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
     let mut buffer_len: ::core::ffi::c_int = STDIN_CHUNK_SIZE;
     let mut buffer: *mut ::core::ffi::c_uchar =
-        smalloc((buffer_len + 1 as ::core::ffi::c_int) as size_t) as *mut ::core::ffi::c_uchar;
+        smalloc((buffer_len + 1 as ::core::ffi::c_int) as usize) as *mut ::core::ffi::c_uchar;
     *buffer.offset(0 as ::core::ffi::c_int as isize) = '\0' as i32 as ::core::ffi::c_uchar;
     loop {
-        let n: ssize_t = read(
+        let n: isize = read(
             fd,
             buffer.offset(rec as isize) as *mut ::core::ffi::c_void,
-            (buffer_len - rec) as size_t,
-        ) as ssize_t;
-        if n == -(1 as ::core::ffi::c_int) as ssize_t {
-            if *__errno_location() == EAGAIN {
+            (buffer_len - rec) as usize,
+        ) as isize;
+        if n == -(1 as ::core::ffi::c_int) as isize {
+            if *__errno_location() == libc::EAGAIN {
                 break;
             }
             fprintf(
@@ -818,9 +767,9 @@ unsafe fn get_buffer(
             );
             free(buffer as *mut ::core::ffi::c_void);
             buffer = ::core::ptr::null_mut::<::core::ffi::c_uchar>();
-            exit(EXIT_FAILURE);
+            exit(libc::EXIT_FAILURE);
         } else {
-            if n == 0 as ssize_t {
+            if n == 0 as isize {
                 fprintf(
                     stderr,
                     c"[%s:%d] ERROR: stdin: received EOF\n".as_ptr(),
@@ -832,12 +781,12 @@ unsafe fn get_buffer(
                 *ret_buffer_len = -(1 as ::core::ffi::c_int);
                 return ::core::ptr::null_mut::<::core::ffi::c_uchar>();
             }
-            rec = (rec as ssize_t + n) as ::core::ffi::c_int;
+            rec = (rec as isize + n) as ::core::ffi::c_int;
             if rec == buffer_len {
                 buffer_len += STDIN_CHUNK_SIZE;
                 buffer = srealloc(
                     buffer as *mut ::core::ffi::c_void,
-                    (buffer_len + 1 as ::core::ffi::c_int) as size_t,
+                    (buffer_len + 1 as ::core::ffi::c_int) as usize,
                 ) as *mut ::core::ffi::c_uchar;
             }
         }
@@ -868,17 +817,17 @@ unsafe fn read_flat_input(buffer: *mut ::core::ffi::c_char, length: ::core::ffi:
     (*first).full_text = i3string_from_utf8(buffer);
 }
 unsafe fn read_json_input(input: *mut ::core::ffi::c_uchar, length: ::core::ffi::c_int) -> bool {
-    let status: yajl_status = yajl_parse(parser, input, length as size_t);
+    let status: yajl_status = yajl_parse(parser, input, length as usize);
     let mut has_urgent: bool = false_0 != 0;
     if status as ::core::ffi::c_uint != yajl_status_ok as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         let message: *mut ::core::ffi::c_char =
-            yajl_get_error(parser, 0 as ::core::ffi::c_int, input, length as size_t)
+            yajl_get_error(parser, 0 as ::core::ffi::c_int, input, length as usize)
                 as *mut ::core::ffi::c_char;
-        if *message.offset(strlen(message).wrapping_sub(1 as size_t) as isize) as ::core::ffi::c_int
+        if *message.offset(strlen(message).wrapping_sub(1 as usize) as isize) as ::core::ffi::c_int
             == '\n' as i32
         {
-            *message.offset(strlen(message).wrapping_sub(1 as size_t) as isize) =
+            *message.offset(strlen(message).wrapping_sub(1 as usize) as isize) =
                 '\0' as i32 as ::core::ffi::c_char;
         }
         fprintf(
@@ -904,7 +853,7 @@ unsafe fn stdin_io_cb(fd: ::core::ffi::c_int) {
         return;
     }
     let mut has_urgent: bool = false_0 != 0;
-    if status_child.version > 0 as uint32_t {
+    if status_child.version > 0 as u32 {
         has_urgent = read_json_input(buffer, rec);
     } else {
         read_flat_input(buffer as *mut ::core::ffi::c_char, rec);
@@ -929,8 +878,8 @@ unsafe fn stdin_io_first_line_cb(fd: ::core::ffi::c_int) {
     }
     let mut consumed: ::core::ffi::c_uint = 0 as ::core::ffi::c_uint;
     parse_json_header(&raw mut status_child, buffer, rec, &raw mut consumed);
-    if status_child.version > 0 as uint32_t {
-        if config.hide_on_modifier as u64 != 0 {
+    if status_child.version > 0 as u32 {
+        if config.hide_on_modifier != crate::application::BarDisplayMode::Dock {
             stop_children();
         }
         draw_bars(read_json_input(
@@ -938,10 +887,9 @@ unsafe fn stdin_io_first_line_cb(fd: ::core::ffi::c_int) {
             (rec as ::core::ffi::c_uint).wrapping_sub(consumed) as ::core::ffi::c_int,
         ));
     } else {
-        let new_block: *mut status_block = scalloc(
-            1 as size_t,
-            ::core::mem::size_of::<status_block>() as size_t,
-        ) as *mut status_block;
+        let new_block: *mut status_block =
+            scalloc(1 as usize, ::core::mem::size_of::<status_block>() as usize)
+                as *mut status_block;
         (*new_block).blocks.tqe_next = ::core::ptr::null_mut::<status_block>();
         (*new_block).blocks.tqe_prev = statusline_head.tqh_last;
         *statusline_head.tqh_last = new_block;
@@ -954,7 +902,8 @@ unsafe fn isempty(mut s: *mut ::core::ffi::c_char) -> bool {
     while *s as ::core::ffi::c_int != '\0' as i32 {
         if *(*__ctype_b_loc()).offset(*s as ::core::ffi::c_uchar as ::core::ffi::c_int as isize)
             as ::core::ffi::c_int
-            & _ISspace as ::core::ffi::c_int as ::core::ffi::c_ushort as ::core::ffi::c_int
+            & i3_common::native_stdio::CTYPE_SPACE as ::core::ffi::c_int as ::core::ffi::c_ushort
+                as ::core::ffi::c_int
             == 0
         {
             return false_0 != 0;
@@ -1018,7 +967,7 @@ unsafe extern "C" fn common_stdin_cb(
     revents: ::core::ffi::c_int,
 ) {
     if watcher == status_child.stdin_io {
-        if status_child.version == -(1 as ::core::ffi::c_int) as uint32_t {
+        if status_child.version == -(1 as ::core::ffi::c_int) as u32 {
             stdin_io_first_line_cb((*watcher).fd);
         } else {
             stdin_io_cb((*watcher).fd);
@@ -1069,7 +1018,7 @@ pub unsafe fn set_workspace_button_error(message: *const ::core::ffi::c_char) {
     output = (*outputs).slh_first as *mut i3_output;
     while !output.is_null() {
         let fake_ws: *mut i3_ws =
-            scalloc(1 as size_t, ::core::mem::size_of::<i3_ws>() as size_t) as *mut i3_ws;
+            scalloc(1 as usize, ::core::mem::size_of::<i3_ws>() as usize) as *mut i3_ws;
         (*fake_ws).name = i3string_from_utf8(name);
         (*fake_ws).name_width = predict_text_width((*fake_ws).name);
         (*fake_ws).num = -(1 as ::core::ffi::c_int);
@@ -1207,19 +1156,19 @@ unsafe extern "C" fn child_sig_cb(
 unsafe fn child_write_output() {
     if status_child.click_events {
         let mut output: *const ::core::ffi::c_uchar = ::core::ptr::null::<::core::ffi::c_uchar>();
-        let mut size: size_t = 0;
-        let mut n: ssize_t = 0;
+        let mut size: usize = 0;
+        let mut n: isize = 0;
         yajl_gen_get_buf(gen, &raw mut output, &raw mut size);
         n = writeall(child_stdin, output as *const ::core::ffi::c_void, size);
-        if n != -(1 as ::core::ffi::c_int) as ssize_t {
+        if n != -(1 as ::core::ffi::c_int) as isize {
             n = writeall(
                 child_stdin,
                 c"\n".as_ptr() as *const ::core::ffi::c_void,
-                1 as size_t,
+                1 as usize,
             );
         }
         yajl_gen_clear(gen);
-        if n == -(1 as ::core::ffi::c_int) as ssize_t {
+        if n == -(1 as ::core::ffi::c_int) as isize {
             status_child.click_events = false_0 != 0;
             kill_child();
             set_statusline_error(c"child_write_output failed".as_ptr());
@@ -1227,8 +1176,8 @@ unsafe fn child_write_output() {
         }
     }
 }
-unsafe fn sfork() -> pid_t {
-    let pid: pid_t = fork() as pid_t;
+unsafe fn sfork() -> libc::pid_t {
+    let pid: libc::pid_t = fork() as libc::pid_t;
     if pid == -(1 as ::core::ffi::c_int) {
         fprintf(
             stderr,
@@ -1237,13 +1186,13 @@ unsafe fn sfork() -> pid_t {
             724 as ::core::ffi::c_int,
             strerror(*__errno_location()),
         );
-        exit(EXIT_FAILURE);
+        exit(libc::EXIT_FAILURE);
     }
     pid
 }
 unsafe fn spipe(pipedes: *mut ::core::ffi::c_int) {
     if pipe(pipedes) == -(1 as ::core::ffi::c_int) {
-        err(EXIT_FAILURE, c"pipe(pipe_in)".as_ptr());
+        err(libc::EXIT_FAILURE, c"pipe(pipe_in)".as_ptr());
     }
 }
 unsafe fn exec_shell(command: *mut ::core::ffi::c_char) {
@@ -1254,11 +1203,11 @@ unsafe fn exec_shell(command: *mut ::core::ffi::c_char) {
         command,
         NULL as *mut ::core::ffi::c_char,
     );
-    err(EXIT_FAILURE, c"execl return".as_ptr());
+    err(libc::EXIT_FAILURE, c"execl return".as_ptr());
 }
 unsafe fn setup_child_cb(child: *mut i3bar_child) {
-    fcntl((*child).stdin_fd, F_SETFL, O_NONBLOCK);
-    (*child).stdin_io = smalloc(::core::mem::size_of::<ev_io>() as size_t) as *mut ev_io;
+    fcntl((*child).stdin_fd, libc::F_SETFL, libc::O_NONBLOCK);
+    (*child).stdin_io = smalloc(::core::mem::size_of::<ev_io>() as usize) as *mut ev_io;
     let ref mut fresh0 =
         (*((*child).stdin_io as *mut ::core::ffi::c_void as *mut ev_watcher)).pending;
     *fresh0 = 0 as ::core::ffi::c_int;
@@ -1274,12 +1223,12 @@ unsafe fn setup_child_cb(child: *mut i3bar_child) {
         &raw mut (*(*child).stdin_io).cb as *const ::core::ffi::c_void,
         ::core::mem::size_of::<
             Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_io, ::core::ffi::c_int) -> ()>,
-        >() as size_t,
+        >() as usize,
     );
     (*(*child).stdin_io).fd = (*child).stdin_fd;
     (*(*child).stdin_io).events = EV_READ as ::core::ffi::c_int | EV__IOFDSET as ::core::ffi::c_int;
     ev_io_start(main_loop as *mut ev_loop, (*child).stdin_io);
-    (*child).child_sig = smalloc(::core::mem::size_of::<ev_child>() as size_t) as *mut ev_child;
+    (*child).child_sig = smalloc(::core::mem::size_of::<ev_child>() as usize) as *mut ev_child;
     let ref mut fresh1 =
         (*((*child).child_sig as *mut ::core::ffi::c_void as *mut ev_watcher)).pending;
     *fresh1 = 0 as ::core::ffi::c_int;
@@ -1295,7 +1244,7 @@ unsafe fn setup_child_cb(child: *mut i3bar_child) {
         &raw mut (*(*child).child_sig).cb as *const ::core::ffi::c_void,
         ::core::mem::size_of::<
             Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_child, ::core::ffi::c_int) -> ()>,
-        >() as size_t,
+        >() as usize,
     );
     (*(*child).child_sig).pid = (*child).pid as ::core::ffi::c_int;
     (*(*child).child_sig).flags = (0 as ::core::ffi::c_int != 0) as ::core::ffi::c_int;
@@ -1384,7 +1333,7 @@ pub unsafe fn start_child(command: *mut ::core::ffi::c_char) {
                     as unsafe fn(
                         *mut ::core::ffi::c_void,
                         *const ::core::ffi::c_uchar,
-                        size_t,
+                        usize,
                     ) -> ::core::ffi::c_int,
             ),
             yajl_start_map: Some(
@@ -1395,7 +1344,7 @@ pub unsafe fn start_child(command: *mut ::core::ffi::c_char) {
                     as unsafe fn(
                         *mut ::core::ffi::c_void,
                         *const ::core::ffi::c_uchar,
-                        size_t,
+                        usize,
                     ) -> ::core::ffi::c_int,
             ),
             yajl_end_map: Some(
@@ -1423,9 +1372,15 @@ pub unsafe fn start_child(command: *mut ::core::ffi::c_char) {
     if status_child.pid == 0 as ::core::ffi::c_int {
         close(pipe_in[0 as ::core::ffi::c_int as usize]);
         close(pipe_out[1 as ::core::ffi::c_int as usize]);
-        dup2(pipe_in[1 as ::core::ffi::c_int as usize], STDOUT_FILENO);
-        dup2(pipe_out[0 as ::core::ffi::c_int as usize], STDIN_FILENO);
-        setpgid(status_child.pid as __pid_t, 0 as __pid_t);
+        dup2(
+            pipe_in[1 as ::core::ffi::c_int as usize],
+            libc::STDOUT_FILENO,
+        );
+        dup2(
+            pipe_out[0 as ::core::ffi::c_int as usize],
+            libc::STDIN_FILENO,
+        );
+        setpgid(status_child.pid as libc::pid_t, 0 as libc::pid_t);
         exec_shell(command);
         return;
     }
@@ -1433,7 +1388,7 @@ pub unsafe fn start_child(command: *mut ::core::ffi::c_char) {
     close(pipe_out[0 as ::core::ffi::c_int as usize]);
     status_child.stdin_fd = pipe_in[0 as ::core::ffi::c_int as usize];
     child_stdin = pipe_out[1 as ::core::ffi::c_int as usize];
-    status_child.version = -(1 as ::core::ffi::c_int) as uint32_t;
+    status_child.version = -(1 as ::core::ffi::c_int) as u32;
     setup_child_cb(&raw mut status_child);
 }
 
@@ -1441,15 +1396,18 @@ pub unsafe fn start_ws_child(command: *mut ::core::ffi::c_char) {
     if command.is_null() {
         return;
     }
-    ws_child.stop_signal = SIGSTOP;
-    ws_child.cont_signal = SIGCONT;
+    ws_child.stop_signal = libc::SIGSTOP;
+    ws_child.cont_signal = libc::SIGCONT;
     let mut pipe_in: [::core::ffi::c_int; 2] = [0; 2];
     spipe(&raw mut pipe_in as *mut ::core::ffi::c_int);
     ws_child.pid = sfork();
     if ws_child.pid == 0 as ::core::ffi::c_int {
         close(pipe_in[0 as ::core::ffi::c_int as usize]);
-        dup2(pipe_in[1 as ::core::ffi::c_int as usize], STDOUT_FILENO);
-        setpgid(ws_child.pid as __pid_t, 0 as __pid_t);
+        dup2(
+            pipe_in[1 as ::core::ffi::c_int as usize],
+            libc::STDOUT_FILENO,
+        );
+        setpgid(ws_child.pid as libc::pid_t, 0 as libc::pid_t);
         exec_shell(command);
     }
     close(pipe_in[1 as ::core::ffi::c_int as usize]);
@@ -1790,10 +1748,10 @@ pub extern "C" fn kill_children_at_exit() {
         }
         cont_children();
         if is_alive(&raw mut status_child) {
-            killpg(status_child.pid as __pid_t, SIGTERM);
+            killpg(status_child.pid as libc::pid_t, libc::SIGTERM);
         }
         if is_alive(&raw mut ws_child) {
-            killpg(ws_child.pid as __pid_t, SIGTERM);
+            killpg(ws_child.pid as libc::pid_t, libc::SIGTERM);
         }
     }
 }
@@ -1803,7 +1761,7 @@ unsafe fn cont_child(c: *mut i3bar_child) {
         && (*c).stopped as ::core::ffi::c_int != 0
     {
         (*c).stopped = false_0 != 0;
-        killpg((*c).pid as __pid_t, (*c).cont_signal);
+        killpg((*c).pid as libc::pid_t, (*c).cont_signal);
     }
 }
 unsafe fn kill_and_wait(c: *mut i3bar_child) {
@@ -1865,10 +1823,10 @@ unsafe fn kill_and_wait(c: *mut i3bar_child) {
         return;
     }
     cont_child(c);
-    killpg((*c).pid as __pid_t, SIGTERM);
+    killpg((*c).pid as libc::pid_t, libc::SIGTERM);
     let mut status: ::core::ffi::c_int = 0;
     waitpid(
-        (*c).pid as __pid_t,
+        (*c).pid as libc::pid_t,
         &raw mut status,
         0 as ::core::ffi::c_int,
     );
@@ -1885,7 +1843,7 @@ pub unsafe fn kill_ws_child() {
 unsafe fn stop_child(c: *mut i3bar_child) {
     if (*c).stop_signal > 0 as ::core::ffi::c_int && !(*c).stopped {
         (*c).stopped = true_0 != 0;
-        killpg((*c).pid as __pid_t, (*c).stop_signal);
+        killpg((*c).pid as libc::pid_t, (*c).stop_signal);
     }
 }
 
@@ -2118,7 +2076,7 @@ pub unsafe fn cont_children() {
 pub unsafe fn child_want_click_events() -> bool {
     status_child.click_events
 }
-pub const EXIT_FAILURE: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
+
 unsafe extern "C" fn run_static_initializers() {
     statusline_head = statusline_head {
         tqh_first: ::core::ptr::null_mut::<status_block>(),
@@ -2166,3 +2124,11 @@ use crate::application::main_loop;
 use crate::xcb::separator_symbol_width;
 
 pub use i3_common::string::I3String as _i3String;
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[repr(u32)]
+pub enum BlockAlign {
+    Left = 0,
+    Center = 1,
+    Right = 2,
+}

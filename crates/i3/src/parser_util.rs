@@ -10,14 +10,16 @@ use i3_common::safewrappers::sasprintf;
  */
 // Mechanical file-by-file Rust translation of src/parser_util.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
-pub type __uint64_t = u64;
-pub type __off_t = ::core::ffi::c_long;
-pub type __off64_t = ::core::ffi::c_long;
 
 pub use crate::commands::stack_entry;
-pub type C2RustUnnamed_0 = ::core::ffi::c_uint;
-pub const STACK_LONG: C2RustUnnamed_0 = 1;
-pub const STACK_STR: C2RustUnnamed_0 = 0;
+
+/// The initialized payload held by a parser stack entry.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(u32)]
+pub enum StackValueKind {
+    String = 0,
+    Long = 1,
+}
 pub use crate::commands::stack;
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 
@@ -36,7 +38,7 @@ pub unsafe fn parser_push_string(
             if (*stack).stack[c as usize].identifier.is_null() {
                 (*stack).stack[c as usize].identifier = identifier;
                 (*stack).stack[c as usize].val.str_0 = sstrdup(str);
-                (*stack).stack[c as usize].type_0 = STACK_STR;
+                (*stack).stack[c as usize].type_0 = StackValueKind::String;
             } else {
                 let prev: *mut ::core::ffi::c_char = (*stack).stack[c as usize].val.str_0;
                 sasprintf(
@@ -71,7 +73,7 @@ pub unsafe fn parser_push_long(
         } else {
             (*stack).stack[c as usize].identifier = identifier;
             (*stack).stack[c as usize].val.num = num;
-            (*stack).stack[c as usize].type_0 = STACK_LONG;
+            (*stack).stack[c as usize].type_0 = StackValueKind::Long;
             return;
         }
     }
@@ -119,9 +121,7 @@ pub unsafe fn parser_get_long(
 pub unsafe fn parser_clear_stack(stack: *mut stack) {
     let mut c: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
     while c < 10 as ::core::ffi::c_int {
-        if (*stack).stack[c as usize].type_0 as ::core::ffi::c_uint
-            == STACK_STR as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
+        if (*stack).stack[c as usize].type_0 == StackValueKind::String {
             free((*stack).stack[c as usize].val.str_0 as *mut ::core::ffi::c_void);
         }
         (*stack).stack[c as usize].identifier = ::core::ptr::null::<::core::ffi::c_char>();

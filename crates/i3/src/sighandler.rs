@@ -1,4 +1,5 @@
 use crate::randr::outputs;
+use crate::xcursor::Cursor;
 use i3_common::draw_util::draw_util_text;
 use i3_common::safewrappers::sasprintf;
 /*
@@ -10,112 +11,44 @@ use i3_common::safewrappers::sasprintf;
  */
 // Mechanical file-by-file Rust translation of src/sighandler.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
-pub type size_t = usize;
-pub type __uint8_t = u8;
-pub type __int16_t = i16;
-pub type __uint16_t = u16;
-pub type __int32_t = i32;
-pub type __uint32_t = u32;
-pub type __uid_t = ::core::ffi::c_uint;
-pub type __pid_t = ::core::ffi::c_int;
-pub type __clock_t = ::core::ffi::c_long;
-pub type __time_t = ::core::ffi::c_long;
-pub type __suseconds_t = ::core::ffi::c_long;
-pub type pid_t = __pid_t;
-pub type time_t = __time_t;
-pub type int16_t = __int16_t;
-pub type int32_t = __int32_t;
-
-pub type uint8_t = __uint8_t;
-pub type uint16_t = __uint16_t;
-pub type uint32_t = __uint32_t;
 
 pub use libc::sighandler_t as __sighandler_t;
 
 pub type i3String = _i3String;
 
-pub type C2RustUnnamed_12 = ::core::ffi::c_uint;
-pub const FONT_TYPE_PANGO: C2RustUnnamed_12 = 2;
-pub const FONT_TYPE_XCB: C2RustUnnamed_12 = 1;
-pub const FONT_TYPE_NONE: C2RustUnnamed_12 = 0;
 pub type i3Font = Font;
 
-pub type C2RustUnnamed_14 = ::core::ffi::c_uint;
-pub const SCRATCHPAD_CHANGED: C2RustUnnamed_14 = 2;
-pub const SCRATCHPAD_FRESH: C2RustUnnamed_14 = 1;
-pub const SCRATCHPAD_NONE: C2RustUnnamed_14 = 0;
-
-pub type C2RustUnnamed_19 = ::core::ffi::c_uint;
-pub const FLOATING_USER_ON: C2RustUnnamed_19 = 3;
-pub const FLOATING_AUTO_ON: C2RustUnnamed_19 = 2;
-pub const FLOATING_USER_OFF: C2RustUnnamed_19 = 1;
-pub const FLOATING_AUTO_OFF: C2RustUnnamed_19 = 0;
-pub type border_style_t = ::core::ffi::c_uint;
-pub const BS_NORMAL: border_style_t = 2;
-pub const BS_PIXEL: border_style_t = 1;
-pub const BS_NONE: border_style_t = 0;
-pub type layout_t = ::core::ffi::c_uint;
-pub const L_SPLITH: layout_t = 6;
-pub const L_SPLITV: layout_t = 5;
-pub const L_OUTPUT: layout_t = 4;
-pub const L_DOCKAREA: layout_t = 3;
-pub const L_TABBED: layout_t = 2;
-pub const L_STACKED: layout_t = 1;
-pub const L_DEFAULT: layout_t = 0;
 pub type fullscreen_mode_t = ::core::ffi::c_uint;
 pub const CF_GLOBAL: fullscreen_mode_t = 2;
 pub const CF_OUTPUT: fullscreen_mode_t = 1;
 pub const CF_NONE: fullscreen_mode_t = 0;
 
-pub type C2RustUnnamed_21 = ::core::ffi::c_uint;
-pub const M_BELOW: C2RustUnnamed_21 = 2;
-pub const M_ASSIGN_WS: C2RustUnnamed_21 = 1;
-pub const M_HERE: C2RustUnnamed_21 = 0;
-pub type C2RustUnnamed_22 = ::core::ffi::c_uint;
-pub const WM_FLOATING: C2RustUnnamed_22 = 6;
-pub const WM_FLOATING_USER: C2RustUnnamed_22 = 5;
-pub const WM_FLOATING_AUTO: C2RustUnnamed_22 = 4;
-pub const WM_TILING: C2RustUnnamed_22 = 3;
-pub const WM_TILING_USER: C2RustUnnamed_22 = 2;
-pub const WM_TILING_AUTO: C2RustUnnamed_22 = 1;
-pub const WM_ANY: C2RustUnnamed_22 = 0;
-pub type C2RustUnnamed_23 = ::core::ffi::c_int;
-pub const M_DOCK_BOTTOM: C2RustUnnamed_23 = 3;
-pub const M_DOCK_TOP: C2RustUnnamed_23 = 2;
-pub const M_DOCK_ANY: C2RustUnnamed_23 = 1;
-pub const M_NODOCK: C2RustUnnamed_23 = 0;
-pub const M_DONTCHECK: C2RustUnnamed_23 = -1;
-pub type C2RustUnnamed_24 = ::core::ffi::c_int;
-pub const U_OLDEST: C2RustUnnamed_24 = 1;
-pub const U_LATEST: C2RustUnnamed_24 = 0;
-pub const U_DONTCHECK: C2RustUnnamed_24 = -1;
+pub const M_BELOW: ::core::ffi::c_uint = 2;
+pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
+pub const M_HERE: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_25 = ::core::ffi::c_uint;
-pub const W_DOCK_BOTTOM: C2RustUnnamed_25 = 2;
-pub const W_DOCK_TOP: C2RustUnnamed_25 = 1;
-pub const W_NODOCK: C2RustUnnamed_25 = 0;
+pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
+pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
+pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
+pub const M_NODOCK: ::core::ffi::c_int = 0;
+pub const M_DONTCHECK: ::core::ffi::c_int = -1;
 
-pub type C2RustUnnamed_28 = ::core::ffi::c_uint;
-pub const A_TO_OUTPUT: C2RustUnnamed_28 = 16;
-pub const A_TO_WORKSPACE_NUMBER: C2RustUnnamed_28 = 8;
-pub const A_NO_FOCUS: C2RustUnnamed_28 = 4;
-pub const A_TO_WORKSPACE: C2RustUnnamed_28 = 2;
-pub const A_COMMAND: C2RustUnnamed_28 = 1;
-pub const A_ANY: C2RustUnnamed_28 = 0;
+pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
+pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
+pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
+pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
+pub const A_COMMAND: ::core::ffi::c_uint = 1;
+pub const A_ANY: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_30 = ::core::ffi::c_uint;
-pub const CT_DOCKAREA: C2RustUnnamed_30 = 5;
-pub const CT_WORKSPACE: C2RustUnnamed_30 = 4;
-pub const CT_FLOATING_CON: C2RustUnnamed_30 = 3;
-pub const CT_CON: C2RustUnnamed_30 = 2;
-pub const CT_OUTPUT: C2RustUnnamed_30 = 1;
-pub const CT_ROOT: C2RustUnnamed_30 = 0;
+pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
+pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
+pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
+pub const CT_CON: ::core::ffi::c_uint = 2;
+pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
+pub const CT_ROOT: ::core::ffi::c_uint = 0;
 
 pub type Output = xoutput;
-pub type smart_gaps_t = ::core::ffi::c_uint;
-pub const SMART_GAPS_INVERSE_OUTER: smart_gaps_t = 2;
-pub const SMART_GAPS_ON: smart_gaps_t = 1;
-pub const SMART_GAPS_OFF: smart_gaps_t = 0;
+
 pub type hide_edge_borders_mode_t = ::core::ffi::c_uint;
 pub const HEBM_SMART_NO_GAPS: hide_edge_borders_mode_t = 64;
 pub const HEBM_SMART: hide_edge_borders_mode_t = 32;
@@ -123,46 +56,13 @@ pub const HEBM_BOTH: hide_edge_borders_mode_t = 23;
 pub const HEBM_HORIZONTAL: hide_edge_borders_mode_t = 20;
 pub const HEBM_VERTICAL: hide_edge_borders_mode_t = 3;
 pub const HEBM_NONE: hide_edge_borders_mode_t = 0;
-pub type warping_t = ::core::ffi::c_uint;
-pub const POINTER_WARPING_NONE: warping_t = 1;
-pub const POINTER_WARPING_OUTPUT: warping_t = 0;
-pub type focus_wrapping_t = ::core::ffi::c_uint;
-pub const FOCUS_WRAPPING_WORKSPACE: focus_wrapping_t = 3;
-pub const FOCUS_WRAPPING_FORCE: focus_wrapping_t = 2;
-pub const FOCUS_WRAPPING_ON: focus_wrapping_t = 1;
-pub const FOCUS_WRAPPING_OFF: focus_wrapping_t = 0;
+
 pub type tiling_drag_t = ::core::ffi::c_uint;
 pub const TILING_DRAG_MODIFIER_OR_TITLEBAR: tiling_drag_t = 3;
 pub const TILING_DRAG_TITLEBAR: tiling_drag_t = 2;
 pub const TILING_DRAG_MODIFIER: tiling_drag_t = 1;
 pub const TILING_DRAG_OFF: tiling_drag_t = 0;
 
-pub type C2RustUnnamed_32 = ::core::ffi::c_uint;
-pub const PDF_ALL: C2RustUnnamed_32 = 3;
-pub const PDF_IGNORE: C2RustUnnamed_32 = 2;
-pub const PDF_LEAVE_FULLSCREEN: C2RustUnnamed_32 = 1;
-pub const PDF_SMART: C2RustUnnamed_32 = 0;
-
-pub type C2RustUnnamed_33 = ::core::ffi::c_uint;
-pub const ALIGN_RIGHT: C2RustUnnamed_33 = 2;
-pub const ALIGN_CENTER: C2RustUnnamed_33 = 1;
-pub const ALIGN_LEFT: C2RustUnnamed_33 = 0;
-pub type C2RustUnnamed_34 = ::core::ffi::c_uint;
-pub const FOWA_NONE: C2RustUnnamed_34 = 3;
-pub const FOWA_FOCUS: C2RustUnnamed_34 = 2;
-pub const FOWA_URGENT: C2RustUnnamed_34 = 1;
-pub const FOWA_SMART: C2RustUnnamed_34 = 0;
-pub type xcursor_cursor_t = ::core::ffi::c_uint;
-pub const XCURSOR_CURSOR_MAX: xcursor_cursor_t = 9;
-pub const XCURSOR_CURSOR_MOVE: xcursor_cursor_t = 8;
-pub const XCURSOR_CURSOR_WATCH: xcursor_cursor_t = 7;
-pub const XCURSOR_CURSOR_BOTTOM_RIGHT_CORNER: xcursor_cursor_t = 6;
-pub const XCURSOR_CURSOR_BOTTOM_LEFT_CORNER: xcursor_cursor_t = 5;
-pub const XCURSOR_CURSOR_TOP_RIGHT_CORNER: xcursor_cursor_t = 4;
-pub const XCURSOR_CURSOR_TOP_LEFT_CORNER: xcursor_cursor_t = 3;
-pub const XCURSOR_CURSOR_RESIZE_VERTICAL: xcursor_cursor_t = 2;
-pub const XCURSOR_CURSOR_RESIZE_HORIZONTAL: xcursor_cursor_t = 1;
-pub const XCURSOR_CURSOR_POINTER: xcursor_cursor_t = 0;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct dialog_t {
@@ -221,7 +121,7 @@ unsafe fn sighandler_backtrace() -> ::core::ffi::c_int {
     if tmpdir.is_null() {
         tmpdir = c"/tmp".as_ptr().cast_mut();
     }
-    let pid_parent: pid_t = getpid() as pid_t;
+    let pid_parent: libc::pid_t = getpid() as libc::pid_t;
     let mut filename: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
     let mut suffix: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
     loop {
@@ -239,7 +139,7 @@ unsafe fn sighandler_backtrace() -> ::core::ffi::c_int {
             break;
         }
     }
-    let pid_gdb: pid_t = fork() as pid_t;
+    let pid_gdb: libc::pid_t = fork() as libc::pid_t;
     if pid_gdb < 0 as ::core::ffi::c_int {
         debuglog(
             c"%s:%s:%d - Failed to fork for GDB\n".as_ptr().cast_mut(),
@@ -297,7 +197,11 @@ unsafe fn sighandler_backtrace() -> ::core::ffi::c_int {
         err(EXIT_FAILURE, c"execvp(gdb)".as_ptr());
     }
     let mut status: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    waitpid(pid_gdb as __pid_t, &raw mut status, 0 as ::core::ffi::c_int);
+    waitpid(
+        pid_gdb as libc::pid_t,
+        &raw mut status,
+        0 as ::core::ffi::c_int,
+    );
     if !(status & 0x7f as ::core::ffi::c_int == 0 as ::core::ffi::c_int)
         || (status & 0xff00 as ::core::ffi::c_int) >> 8 as ::core::ffi::c_int
             != 0 as ::core::ffi::c_int
@@ -351,67 +255,67 @@ unsafe fn sighandler_create_dialogs() {
     while !output.is_null() {
         if (*output).active {
             let dialog: *mut dialog_t =
-                scalloc(1 as size_t, ::core::mem::size_of::<dialog_t>() as size_t) as *mut dialog_t;
+                scalloc(1 as usize, ::core::mem::size_of::<dialog_t>() as usize) as *mut dialog_t;
             (*dialog).dialogs.tqe_next = ::core::ptr::null_mut::<dialog_t>();
             (*dialog).dialogs.tqe_prev = dialogs.tqh_last;
             *dialogs.tqh_last = dialog as *mut dialog_t;
             dialogs.tqh_last = &raw mut (*dialog).dialogs.tqe_next;
-            let visual: xcb_visualid_t = get_visualid_by_depth(root_depth as uint16_t);
+            let visual: xcb_visualid_t = get_visualid_by_depth(root_depth as u16);
             (*dialog).colormap = xcb_generate_id(conn) as xcb_colormap_t;
             xcb_create_colormap(
                 conn,
-                XCB_COLORMAP_ALLOC_NONE as ::core::ffi::c_int as uint8_t,
+                XCB_COLORMAP_ALLOC_NONE as ::core::ffi::c_int as u8,
                 (*dialog).colormap,
                 root,
                 visual,
             );
-            let mut mask: uint32_t = 0 as uint32_t;
-            let mut values: [uint32_t; 4] = [0; 4];
+            let mut mask: u32 = 0 as u32;
+            let mut values: [u32; 4] = [0; 4];
             let mut i: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-            mask |= XCB_CW_BACK_PIXEL as ::core::ffi::c_int as uint32_t;
+            mask |= XCB_CW_BACK_PIXEL as ::core::ffi::c_int as u32;
             let fresh0 = i;
             i = i + 1;
             values[fresh0 as usize] = (*root_screen).black_pixel;
-            mask |= XCB_CW_BORDER_PIXEL as ::core::ffi::c_int as uint32_t;
+            mask |= XCB_CW_BORDER_PIXEL as ::core::ffi::c_int as u32;
             let fresh1 = i;
             i = i + 1;
             values[fresh1 as usize] = (*root_screen).black_pixel;
-            mask |= XCB_CW_OVERRIDE_REDIRECT as ::core::ffi::c_int as uint32_t;
+            mask |= XCB_CW_OVERRIDE_REDIRECT as ::core::ffi::c_int as u32;
             let fresh2 = i;
             i = i + 1;
-            values[fresh2 as usize] = 1 as uint32_t;
-            mask |= XCB_CW_COLORMAP as ::core::ffi::c_int as uint32_t;
+            values[fresh2 as usize] = 1 as u32;
+            mask |= XCB_CW_COLORMAP as ::core::ffi::c_int as u32;
             let fresh3 = i;
             i = i + 1;
-            values[fresh3 as usize] = (*dialog).colormap as uint32_t;
+            values[fresh3 as usize] = (*dialog).colormap as u32;
             (*dialog).dims.x = (*output)
                 .rect
                 .x
-                .wrapping_add((*output).rect.width.wrapping_div(2 as uint32_t));
+                .wrapping_add((*output).rect.width.wrapping_div(2 as u32));
             (*dialog).dims.y = (*output)
                 .rect
                 .y
-                .wrapping_add((*output).rect.height.wrapping_div(2 as uint32_t));
-            (*dialog).dims.width = dialog_width as uint32_t;
-            (*dialog).dims.height = dialog_height as uint32_t;
+                .wrapping_add((*output).rect.height.wrapping_div(2 as u32));
+            (*dialog).dims.width = dialog_width as u32;
+            (*dialog).dims.height = dialog_height as u32;
             (*dialog).dims.x = (*dialog)
                 .dims
                 .x
-                .wrapping_sub((*dialog).dims.width.wrapping_div(2 as uint32_t));
+                .wrapping_sub((*dialog).dims.width.wrapping_div(2 as u32));
             (*dialog).dims.y = (*dialog)
                 .dims
                 .y
-                .wrapping_sub((*dialog).dims.height.wrapping_div(2 as uint32_t));
+                .wrapping_sub((*dialog).dims.height.wrapping_div(2 as u32));
             (*dialog).id = create_window(
                 conn,
                 (*dialog).dims,
-                root_depth as uint16_t,
+                root_depth as u16,
                 visual,
-                XCB_WINDOW_CLASS_INPUT_OUTPUT as ::core::ffi::c_int as uint16_t,
-                XCURSOR_CURSOR_POINTER,
+                XCB_WINDOW_CLASS_INPUT_OUTPUT as ::core::ffi::c_int as u16,
+                Cursor::Pointer,
                 true_0 != 0,
                 mask,
-                &raw mut values as *mut uint32_t,
+                &raw mut values as *mut u32,
             );
             draw_util_surface_init(
                 conn,
@@ -423,19 +327,19 @@ unsafe fn sighandler_create_dialogs() {
             );
             xcb_grab_keyboard(
                 conn,
-                false_0 as uint8_t,
+                false_0 as u8,
                 (*dialog).id,
                 XCB_CURRENT_TIME as xcb_timestamp_t,
-                XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as uint8_t,
-                XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as uint8_t,
+                XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as u8,
+                XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as u8,
             );
             xcb_grab_pointer(
                 conn,
-                false_0 as uint8_t,
+                false_0 as u8,
                 (*dialog).id,
-                XCB_NONE as uint16_t,
-                XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as uint8_t,
-                XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as uint8_t,
+                XCB_NONE as u16,
+                XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as u8,
+                XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as u8,
                 (*dialog).id,
                 XCB_NONE as xcb_cursor_t,
                 XCB_CURRENT_TIME as xcb_timestamp_t,
@@ -484,12 +388,12 @@ unsafe fn sighandler_draw_dialog(dialog: *mut dialog_t) {
         (*dialog)
             .dims
             .width
-            .wrapping_sub((2 as ::core::ffi::c_int * border_width) as uint32_t)
+            .wrapping_sub((2 as ::core::ffi::c_int * border_width) as u32)
             as ::core::ffi::c_double,
         (*dialog)
             .dims
             .height
-            .wrapping_sub((2 as ::core::ffi::c_int * border_width) as uint32_t)
+            .wrapping_sub((2 as ::core::ffi::c_int * border_width) as u32)
             as ::core::ffi::c_double,
     );
     let mut y: ::core::ffi::c_int = border_width + margin;
@@ -497,7 +401,7 @@ unsafe fn sighandler_draw_dialog(dialog: *mut dialog_t) {
     let max_width: ::core::ffi::c_int = (*dialog)
         .dims
         .width
-        .wrapping_sub((2 as ::core::ffi::c_int * x) as uint32_t)
+        .wrapping_sub((2 as ::core::ffi::c_int * x) as u32)
         as ::core::ffi::c_int;
     draw_util_text(
         message_intro,
@@ -557,8 +461,8 @@ unsafe fn sighandler_draw_dialog(dialog: *mut dialog_t) {
     y += config.font.height;
 }
 unsafe fn sighandler_handle_key_press(event: *mut xcb_key_press_event_t) {
-    let mut state: uint16_t = (*event).state;
-    state = (state as ::core::ffi::c_uint & !xcb_numlock_mask) as uint16_t;
+    let mut state: u16 = (*event).state;
+    state = (state as ::core::ffi::c_uint & !xcb_numlock_mask) as u16;
     let sym: xcb_keysym_t =
         xcb_key_press_lookup_keysym(keysyms, event, state as ::core::ffi::c_int);
     if sym == 'b' as i32 as xcb_keysym_t {

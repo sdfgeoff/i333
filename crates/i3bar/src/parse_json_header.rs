@@ -15,38 +15,24 @@ pub use i3_json::compat::{
     yajl_alloc_funcs, yajl_allow_trailing_garbage, yajl_callbacks, yajl_handle, yajl_status,
     yajl_status_ok,
 };
-pub type size_t = usize;
-pub type __uint32_t = u32;
-pub type __pid_t = ::core::ffi::c_int;
-pub type pid_t = __pid_t;
-pub type uint32_t = __uint32_t;
 
 pub use crate::child::i3bar_child;
 
-pub type C2RustUnnamed = ::core::ffi::c_uint;
-pub const NO_KEY: C2RustUnnamed = 4;
-pub const KEY_CLICK_EVENTS: C2RustUnnamed = 3;
-pub const KEY_CONT_SIGNAL: C2RustUnnamed = 2;
-pub const KEY_STOP_SIGNAL: C2RustUnnamed = 1;
-pub const KEY_VERSION: C2RustUnnamed = 0;
-
-pub const SIGSTOP: ::core::ffi::c_int = 19 as ::core::ffi::c_int;
-pub const SIGCONT: ::core::ffi::c_int = 18 as ::core::ffi::c_int;
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
-static mut current_key: C2RustUnnamed = KEY_VERSION;
+static mut current_key: HeaderKey = HeaderKey::Version;
 unsafe fn header_integer(
     ctx: *mut ::core::ffi::c_void,
     val: ::core::ffi::c_longlong,
 ) -> ::core::ffi::c_int {
     let child: *mut i3bar_child = ctx as *mut i3bar_child;
-    match current_key as ::core::ffi::c_uint {
-        0 => {
-            (*child).version = val as uint32_t;
+    match current_key {
+        HeaderKey::Version => {
+            (*child).version = val as u32;
         }
-        1 => {
+        HeaderKey::StopSignal => {
             (*child).stop_signal = val as ::core::ffi::c_int;
         }
-        2 => {
+        HeaderKey::ContSignal => {
             (*child).cont_signal = val as ::core::ffi::c_int;
         }
         _ => {}
@@ -58,8 +44,8 @@ unsafe fn header_boolean(
     val: ::core::ffi::c_int,
 ) -> ::core::ffi::c_int {
     let child: *mut i3bar_child = ctx as *mut i3bar_child;
-    match current_key as ::core::ffi::c_uint {
-        3 => {
+    match current_key {
+        HeaderKey::ClickEvents => {
             (*child).click_events = val != 0;
         }
         _ => {}
@@ -69,7 +55,7 @@ unsafe fn header_boolean(
 unsafe fn header_map_key(
     ctx: *mut ::core::ffi::c_void,
     stringval: *const ::core::ffi::c_uchar,
-    stringlen: size_t,
+    stringlen: usize,
 ) -> ::core::ffi::c_int {
     if stringlen == strlen(c"version".as_ptr())
         && (stringlen >= strlen(c"version".as_ptr())
@@ -79,7 +65,7 @@ unsafe fn header_map_key(
                 strlen(c"version".as_ptr()),
             ) == 0 as ::core::ffi::c_int)
     {
-        current_key = KEY_VERSION;
+        current_key = HeaderKey::Version;
     } else if stringlen == strlen(c"stop_signal".as_ptr())
         && (stringlen >= strlen(c"stop_signal".as_ptr())
             && strncasecmp(
@@ -88,7 +74,7 @@ unsafe fn header_map_key(
                 strlen(c"stop_signal".as_ptr()),
             ) == 0 as ::core::ffi::c_int)
     {
-        current_key = KEY_STOP_SIGNAL;
+        current_key = HeaderKey::StopSignal;
     } else if stringlen == strlen(c"cont_signal".as_ptr())
         && (stringlen >= strlen(c"cont_signal".as_ptr())
             && strncasecmp(
@@ -97,7 +83,7 @@ unsafe fn header_map_key(
                 strlen(c"cont_signal".as_ptr()),
             ) == 0 as ::core::ffi::c_int)
     {
-        current_key = KEY_CONT_SIGNAL;
+        current_key = HeaderKey::ContSignal;
     } else if stringlen == strlen(c"click_events".as_ptr())
         && (stringlen >= strlen(c"click_events".as_ptr())
             && strncasecmp(
@@ -106,14 +92,14 @@ unsafe fn header_map_key(
                 strlen(c"click_events".as_ptr()),
             ) == 0 as ::core::ffi::c_int)
     {
-        current_key = KEY_CLICK_EVENTS;
+        current_key = HeaderKey::ClickEvents;
     }
     1 as ::core::ffi::c_int
 }
 unsafe fn child_init(child: *mut i3bar_child) {
-    (*child).version = 0 as uint32_t;
-    (*child).stop_signal = SIGSTOP;
-    (*child).cont_signal = SIGCONT;
+    (*child).version = 0 as u32;
+    (*child).stop_signal = libc::SIGSTOP;
+    (*child).cont_signal = libc::SIGCONT;
 }
 
 pub unsafe fn parse_json_header(
@@ -148,7 +134,7 @@ pub unsafe fn parse_json_header(
                     as unsafe fn(
                         *mut ::core::ffi::c_void,
                         *const ::core::ffi::c_uchar,
-                        size_t,
+                        usize,
                     ) -> ::core::ffi::c_int,
             ),
             yajl_end_map: None,
@@ -157,14 +143,14 @@ pub unsafe fn parse_json_header(
         }
     };
     child_init(child);
-    current_key = NO_KEY;
+    current_key = HeaderKey::None;
     let handle: yajl_handle = yajl_alloc(
         &raw mut version_callbacks,
         ::core::ptr::null_mut::<yajl_alloc_funcs>(),
         child as *mut ::core::ffi::c_void,
     );
     yajl_config(handle, yajl_allow_trailing_garbage, 1 as ::core::ffi::c_int);
-    let state: yajl_status = yajl_parse(handle, buffer, length as size_t);
+    let state: yajl_status = yajl_parse(handle, buffer, length as usize);
     if state as ::core::ffi::c_uint != yajl_status_ok as ::core::ffi::c_int as ::core::ffi::c_uint {
         child_init(child);
         if !consumed.is_null() {
@@ -177,3 +163,13 @@ pub unsafe fn parse_json_header(
 }
 
 pub use libc::{strlen, strncasecmp};
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[repr(u32)]
+pub enum HeaderKey {
+    Version = 0,
+    StopSignal = 1,
+    ContSignal = 2,
+    ClickEvents = 3,
+    None = 4,
+}

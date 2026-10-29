@@ -21,14 +21,6 @@ use i3_common::string::i3string_get_num_glyphs;
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 use i3_json::compat::{yajl_alloc, yajl_free, yajl_free_error, yajl_get_error, yajl_parse};
 pub use i3_json::compat::{yajl_alloc_funcs, yajl_callbacks, yajl_handle, yajl_status};
-pub type size_t = usize;
-pub type __uint32_t = u32;
-pub type __uint64_t = u64;
-pub type __off_t = ::core::ffi::c_long;
-pub type __off64_t = ::core::ffi::c_long;
-
-pub type uint32_t = __uint32_t;
-pub type uintptr_t = usize;
 
 pub type i3String = _i3String;
 pub use crate::child::rect_t;
@@ -45,19 +37,6 @@ pub struct workspaces_json_params {
     pub need_output: bool,
     pub parsing_rect: bool,
 }
-
-pub type C2RustUnnamed_2 = ::core::ffi::c_uint;
-pub const S_SHOW: C2RustUnnamed_2 = 1;
-pub const S_HIDE: C2RustUnnamed_2 = 0;
-pub type bar_display_mode_t = ::core::ffi::c_uint;
-pub const M_INVISIBLE: bar_display_mode_t = 2;
-pub const M_HIDE: bar_display_mode_t = 1;
-pub const M_DOCK: bar_display_mode_t = 0;
-
-pub type position_t = ::core::ffi::c_uint;
-pub const POS_BOT: position_t = 2;
-pub const POS_TOP: position_t = 1;
-pub const POS_NONE: position_t = 0;
 
 pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
@@ -95,7 +74,7 @@ unsafe fn workspaces_integer_cb(
 ) -> ::core::ffi::c_int {
     let params: *mut workspaces_json_params = params_ as *mut workspaces_json_params;
     if strcmp((*params).cur_key, c"id".as_ptr()) == 0 {
-        (*(*params).workspaces_walk).id = val as uintptr_t;
+        (*(*params).workspaces_walk).id = val as usize;
         free((*params).cur_key as *mut ::core::ffi::c_void);
         (*params).cur_key = ::core::ptr::null_mut::<::core::ffi::c_char>();
         return 1 as ::core::ffi::c_int;
@@ -133,7 +112,7 @@ unsafe fn workspaces_integer_cb(
 unsafe fn workspaces_string_cb(
     params_: *mut ::core::ffi::c_void,
     val: *const ::core::ffi::c_uchar,
-    len: size_t,
+    len: usize,
 ) -> ::core::ffi::c_int {
     let params: *mut workspaces_json_params = params_ as *mut workspaces_json_params;
     if strcmp((*params).cur_key, c"name".as_ptr()) == 0 {
@@ -146,14 +125,14 @@ unsafe fn workspaces_string_cb(
             static mut ws_num: [::core::ffi::c_char; 32] = [0; 32];
             snprintf(
                 &raw mut ws_num as *mut ::core::ffi::c_char,
-                ::core::mem::size_of::<[::core::ffi::c_char; 32]>() as size_t,
+                ::core::mem::size_of::<[::core::ffi::c_char; 32]>() as usize,
                 c"%d".as_ptr(),
                 (*(*params).workspaces_walk).num,
             );
-            let mut offset: size_t =
-                strspn(ws_name, &raw mut ws_num as *mut ::core::ffi::c_char) as size_t;
+            let mut offset: usize =
+                strspn(ws_name, &raw mut ws_num as *mut ::core::ffi::c_char) as usize;
             if offset != 0 && *ws_name.offset(offset as isize) as ::core::ffi::c_int == ':' as i32 {
-                offset = offset.wrapping_add(1 as size_t);
+                offset = offset.wrapping_add(1 as usize);
             }
             if config.strip_ws_numbers {
                 (*(*params).workspaces_walk).name = if offset < len {
@@ -220,7 +199,7 @@ unsafe fn workspaces_start_map_cb(params_: *mut ::core::ffi::c_void) -> ::core::
     let params: *mut workspaces_json_params = params_ as *mut workspaces_json_params;
     if (*params).cur_key.is_null() {
         let new_workspace: *mut i3_ws =
-            scalloc(1 as size_t, ::core::mem::size_of::<i3_ws>() as size_t) as *mut i3_ws;
+            scalloc(1 as usize, ::core::mem::size_of::<i3_ws>() as usize) as *mut i3_ws;
         (*new_workspace).num = -(1 as ::core::ffi::c_int);
         (*params).workspaces_walk = new_workspace;
         (*params).need_output = true_0 != 0;
@@ -271,7 +250,7 @@ unsafe fn workspaces_end_map_cb(params_: *mut ::core::ffi::c_void) -> ::core::ff
 unsafe fn workspaces_map_key_cb(
     params_: *mut ::core::ffi::c_void,
     keyVal: *const ::core::ffi::c_uchar,
-    keyLen: size_t,
+    keyLen: usize,
 ) -> ::core::ffi::c_int {
     let params: *mut workspaces_json_params = params_ as *mut workspaces_json_params;
     free((*params).cur_key as *mut ::core::ffi::c_void);
@@ -305,7 +284,7 @@ static mut workspaces_callbacks: yajl_callbacks = unsafe {
                 as unsafe fn(
                     *mut ::core::ffi::c_void,
                     *const ::core::ffi::c_uchar,
-                    size_t,
+                    usize,
                 ) -> ::core::ffi::c_int,
         ),
         yajl_start_map: Some(
@@ -316,7 +295,7 @@ static mut workspaces_callbacks: yajl_callbacks = unsafe {
                 as unsafe fn(
                     *mut ::core::ffi::c_void,
                     *const ::core::ffi::c_uchar,
-                    size_t,
+                    usize,
                 ) -> ::core::ffi::c_int,
         ),
         yajl_end_map: Some(
@@ -327,7 +306,7 @@ static mut workspaces_callbacks: yajl_callbacks = unsafe {
     }
 };
 
-pub unsafe fn parse_workspaces_json(json: *const ::core::ffi::c_uchar, size: size_t) {
+pub unsafe fn parse_workspaces_json(json: *const ::core::ffi::c_uchar, size: usize) {
     free_workspaces();
     let mut params: workspaces_json_params = workspaces_json_params {
         workspaces: ::core::ptr::null_mut::<ws_head>(),
@@ -360,7 +339,7 @@ pub unsafe fn parse_workspaces_json(json: *const ::core::ffi::c_uchar, size: siz
                 kill_ws_child();
                 set_workspace_button_error(c"Could not parse workspace_command's JSON".as_ptr());
             } else {
-                exit(EXIT_FAILURE);
+                exit(libc::EXIT_FAILURE);
             }
         }
         0 | _ => {}
@@ -413,7 +392,6 @@ pub unsafe fn free_workspaces() {
         outputs_walk = (*outputs_walk).slist.sle_next as *mut i3_output;
     }
 }
-pub const EXIT_FAILURE: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 
 // Internal helpers use Rust linkage rather than foreign symbol lookup.
 use crate::child::kill_ws_child;

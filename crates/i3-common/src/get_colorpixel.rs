@@ -7,19 +7,12 @@
  */
 // Mechanical file-by-file Rust translation of libi3/get_colorpixel.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
-pub type size_t = usize;
-pub type __uint8_t = u8;
-pub type __uint16_t = u16;
-pub type __uint32_t = u32;
-pub type uint8_t = __uint8_t;
-pub type uint16_t = __uint16_t;
-pub type uint32_t = __uint32_t;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct Colorpixel {
     pub hex: [::core::ffi::c_char; 8],
-    pub pixel: uint32_t,
+    pub pixel: u32,
     pub colorpixels: C2RustUnnamed,
 }
 #[derive(Copy, Clone)]
@@ -38,7 +31,7 @@ pub static mut colorpixels: colorpixel_head = colorpixel_head {
     slh_first: ::core::ptr::null::<Colorpixel>() as *mut Colorpixel,
 };
 
-pub unsafe fn get_colorpixel(hex: *const ::core::ffi::c_char) -> uint32_t {
+pub unsafe fn get_colorpixel(hex: *const ::core::ffi::c_char) -> u32 {
     let crate::display::DisplayContext {
         connection: conn,
         root_screen,
@@ -75,38 +68,38 @@ pub unsafe fn get_colorpixel(hex: *const ::core::ffi::c_char) -> uint32_t {
             '\0' as i32 as ::core::ffi::c_char,
         ],
     ];
-    let r: uint8_t = strtol(
+    let r: u8 = strtol(
         &raw mut *(&raw mut strgroups as *mut [::core::ffi::c_char; 3])
             .offset(0 as ::core::ffi::c_int as isize) as *mut ::core::ffi::c_char,
         ::core::ptr::null_mut::<*mut ::core::ffi::c_char>(),
         16 as ::core::ffi::c_int,
-    ) as uint8_t;
-    let g: uint8_t = strtol(
+    ) as u8;
+    let g: u8 = strtol(
         &raw mut *(&raw mut strgroups as *mut [::core::ffi::c_char; 3])
             .offset(1 as ::core::ffi::c_int as isize) as *mut ::core::ffi::c_char,
         ::core::ptr::null_mut::<*mut ::core::ffi::c_char>(),
         16 as ::core::ffi::c_int,
-    ) as uint8_t;
-    let b: uint8_t = strtol(
+    ) as u8;
+    let b: u8 = strtol(
         &raw mut *(&raw mut strgroups as *mut [::core::ffi::c_char; 3])
             .offset(2 as ::core::ffi::c_int as isize) as *mut ::core::ffi::c_char,
         ::core::ptr::null_mut::<*mut ::core::ffi::c_char>(),
         16 as ::core::ffi::c_int,
-    ) as uint8_t;
-    let a: uint8_t = strtol(
+    ) as u8;
+    let a: u8 = strtol(
         &raw mut *(&raw mut strgroups as *mut [::core::ffi::c_char; 3])
             .offset(3 as ::core::ffi::c_int as isize) as *mut ::core::ffi::c_char,
         ::core::ptr::null_mut::<*mut ::core::ffi::c_char>(),
         16 as ::core::ffi::c_int,
-    ) as uint8_t;
+    ) as u8;
     if root_screen.is_null()
         || (*root_screen).root_depth as ::core::ffi::c_int == 24 as ::core::ffi::c_int
         || (*root_screen).root_depth as ::core::ffi::c_int == 32 as ::core::ffi::c_int
     {
-        return (a as uint32_t) << 24 as ::core::ffi::c_int
-            | (r as uint32_t) << 16 as ::core::ffi::c_int
-            | (g as uint32_t) << 8 as ::core::ffi::c_int
-            | b as uint32_t;
+        return (a as u32) << 24 as ::core::ffi::c_int
+            | (r as u32) << 16 as ::core::ffi::c_int
+            | (g as u32) << 8 as ::core::ffi::c_int
+            | b as u32;
     }
     let mut colorpixel: *mut Colorpixel = ::core::ptr::null_mut::<Colorpixel>();
     colorpixel = colorpixels.slh_first;
@@ -134,9 +127,9 @@ pub unsafe fn get_colorpixel(hex: *const ::core::ffi::c_char) -> uint32_t {
         xcb_alloc_color(
             conn,
             (*root_screen).default_colormap,
-            r16 as uint16_t,
-            g16 as uint16_t,
-            b16 as uint16_t,
+            r16 as u16,
+            g16 as u16,
+            b16 as u16,
         ),
         ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
     );
@@ -148,14 +141,14 @@ pub unsafe fn get_colorpixel(hex: *const ::core::ffi::c_char) -> uint32_t {
         );
         exit(1 as ::core::ffi::c_int);
     }
-    let pixel: uint32_t = (*reply).pixel;
+    let pixel: u32 = (*reply).pixel;
     free(reply as *mut ::core::ffi::c_void);
     let cache_pixel: *mut Colorpixel =
-        scalloc(1 as size_t, ::core::mem::size_of::<Colorpixel>() as size_t) as *mut Colorpixel;
+        scalloc(1 as usize, ::core::mem::size_of::<Colorpixel>() as usize) as *mut Colorpixel;
     strncpy(
         &raw mut (*cache_pixel).hex as *mut ::core::ffi::c_char,
         hex,
-        7 as size_t,
+        7 as usize,
     );
     (*cache_pixel).hex[7 as ::core::ffi::c_int as usize] = '\0' as i32 as ::core::ffi::c_char;
     (*cache_pixel).pixel = pixel;

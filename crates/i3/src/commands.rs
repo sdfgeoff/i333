@@ -1,7 +1,22 @@
+use crate::commands_parser::CommandParserState;
 use crate::config::barconfigs;
 use crate::ipc::ipc_send_barconfig_update_event;
+use crate::parser_util::StackValueKind;
 use crate::randr::outputs;
 use crate::tree::all_cons;
+use crate::types::BarHiddenState;
+use crate::types::BarMode;
+use crate::types::BorderStyle;
+use crate::types::ConfigLoad;
+use crate::types::Direction;
+use crate::types::JsonContent;
+use crate::types::KillWindow;
+use crate::types::Layout;
+use crate::types::MarkMode;
+use crate::types::Orientation;
+use crate::types::Position;
+use crate::types::ScratchpadState;
+use crate::types::ShutdownReason;
 use i3_common::safewrappers::sasprintf;
 /*
  * vim:ts=4:sw=4:expandtab
@@ -18,127 +33,43 @@ pub use i3_json::compat::yajl_gen;
 use i3_json::compat::{
     yajl_gen_bool, yajl_gen_integer, yajl_gen_map_close, yajl_gen_map_open, yajl_gen_string,
 };
-pub type size_t = usize;
-pub type __uint8_t = u8;
-pub type __int16_t = i16;
-pub type __uint16_t = u16;
-pub type __int32_t = i32;
-pub type __uint32_t = u32;
-pub type __pid_t = ::core::ffi::c_int;
-pub type __time_t = ::core::ffi::c_long;
-pub type __suseconds_t = ::core::ffi::c_long;
-pub type pid_t = __pid_t;
-pub type ssize_t = isize;
-pub type time_t = __time_t;
-pub type int16_t = __int16_t;
-pub type int32_t = __int32_t;
-
-pub type uint8_t = __uint8_t;
-pub type uint16_t = __uint16_t;
-pub type uint32_t = __uint32_t;
-pub type uintptr_t = usize;
 
 pub type i3String = _i3String;
 
-pub type C2RustUnnamed_1 = ::core::ffi::c_uint;
-pub const FONT_TYPE_PANGO: C2RustUnnamed_1 = 2;
-pub const FONT_TYPE_XCB: C2RustUnnamed_1 = 1;
-pub const FONT_TYPE_NONE: C2RustUnnamed_1 = 0;
 pub type i3Font = Font;
 
-pub type C2RustUnnamed_3 = ::core::ffi::c_uint;
-pub const SCRATCHPAD_CHANGED: C2RustUnnamed_3 = 2;
-pub const SCRATCHPAD_FRESH: C2RustUnnamed_3 = 1;
-pub const SCRATCHPAD_NONE: C2RustUnnamed_3 = 0;
-
-pub type C2RustUnnamed_8 = ::core::ffi::c_uint;
-pub const FLOATING_USER_ON: C2RustUnnamed_8 = 3;
-pub const FLOATING_AUTO_ON: C2RustUnnamed_8 = 2;
-pub const FLOATING_USER_OFF: C2RustUnnamed_8 = 1;
-pub const FLOATING_AUTO_OFF: C2RustUnnamed_8 = 0;
-pub type border_style_t = ::core::ffi::c_uint;
-pub const BS_NORMAL: border_style_t = 2;
-pub const BS_PIXEL: border_style_t = 1;
-pub const BS_NONE: border_style_t = 0;
-pub type layout_t = ::core::ffi::c_uint;
-pub const L_SPLITH: layout_t = 6;
-pub const L_SPLITV: layout_t = 5;
-pub const L_OUTPUT: layout_t = 4;
-pub const L_DOCKAREA: layout_t = 3;
-pub const L_TABBED: layout_t = 2;
-pub const L_STACKED: layout_t = 1;
-pub const L_DEFAULT: layout_t = 0;
 pub type fullscreen_mode_t = ::core::ffi::c_uint;
 pub const CF_GLOBAL: fullscreen_mode_t = 2;
 pub const CF_OUTPUT: fullscreen_mode_t = 1;
 pub const CF_NONE: fullscreen_mode_t = 0;
 
-pub type C2RustUnnamed_10 = ::core::ffi::c_uint;
-pub const M_BELOW: C2RustUnnamed_10 = 2;
-pub const M_ASSIGN_WS: C2RustUnnamed_10 = 1;
-pub const M_HERE: C2RustUnnamed_10 = 0;
-pub type C2RustUnnamed_11 = ::core::ffi::c_uint;
-pub const WM_FLOATING: C2RustUnnamed_11 = 6;
-pub const WM_FLOATING_USER: C2RustUnnamed_11 = 5;
-pub const WM_FLOATING_AUTO: C2RustUnnamed_11 = 4;
-pub const WM_TILING: C2RustUnnamed_11 = 3;
-pub const WM_TILING_USER: C2RustUnnamed_11 = 2;
-pub const WM_TILING_AUTO: C2RustUnnamed_11 = 1;
-pub const WM_ANY: C2RustUnnamed_11 = 0;
-pub type C2RustUnnamed_12 = ::core::ffi::c_int;
-pub const M_DOCK_BOTTOM: C2RustUnnamed_12 = 3;
-pub const M_DOCK_TOP: C2RustUnnamed_12 = 2;
-pub const M_DOCK_ANY: C2RustUnnamed_12 = 1;
-pub const M_NODOCK: C2RustUnnamed_12 = 0;
-pub const M_DONTCHECK: C2RustUnnamed_12 = -1;
-pub type C2RustUnnamed_13 = ::core::ffi::c_int;
-pub const U_OLDEST: C2RustUnnamed_13 = 1;
-pub const U_LATEST: C2RustUnnamed_13 = 0;
-pub const U_DONTCHECK: C2RustUnnamed_13 = -1;
+pub const M_BELOW: ::core::ffi::c_uint = 2;
+pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
+pub const M_HERE: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_14 = ::core::ffi::c_uint;
-pub const W_DOCK_BOTTOM: C2RustUnnamed_14 = 2;
-pub const W_DOCK_TOP: C2RustUnnamed_14 = 1;
-pub const W_NODOCK: C2RustUnnamed_14 = 0;
+pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
+pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
+pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
+pub const M_NODOCK: ::core::ffi::c_int = 0;
+pub const M_DONTCHECK: ::core::ffi::c_int = -1;
 
-pub type C2RustUnnamed_17 = ::core::ffi::c_uint;
-pub const A_TO_OUTPUT: C2RustUnnamed_17 = 16;
-pub const A_TO_WORKSPACE_NUMBER: C2RustUnnamed_17 = 8;
-pub const A_NO_FOCUS: C2RustUnnamed_17 = 4;
-pub const A_TO_WORKSPACE: C2RustUnnamed_17 = 2;
-pub const A_COMMAND: C2RustUnnamed_17 = 1;
-pub const A_ANY: C2RustUnnamed_17 = 0;
+pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
+pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
+pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
+pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
+pub const A_COMMAND: ::core::ffi::c_uint = 1;
+pub const A_ANY: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_19 = ::core::ffi::c_uint;
-pub const CT_DOCKAREA: C2RustUnnamed_19 = 5;
-pub const CT_WORKSPACE: C2RustUnnamed_19 = 4;
-pub const CT_FLOATING_CON: C2RustUnnamed_19 = 3;
-pub const CT_CON: C2RustUnnamed_19 = 2;
-pub const CT_OUTPUT: C2RustUnnamed_19 = 1;
-pub const CT_ROOT: C2RustUnnamed_19 = 0;
+pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
+pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
+pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
+pub const CT_CON: ::core::ffi::c_uint = 2;
+pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
+pub const CT_ROOT: ::core::ffi::c_uint = 0;
 
 pub type Output = xoutput;
 pub type i3Window = Window;
-pub type direction_t = ::core::ffi::c_uint;
-pub const D_DOWN: direction_t = 3;
-pub const D_UP: direction_t = 2;
-pub const D_RIGHT: direction_t = 1;
-pub const D_LEFT: direction_t = 0;
-pub type orientation_t = ::core::ffi::c_uint;
-pub const VERT: orientation_t = 2;
-pub const HORIZ: orientation_t = 1;
-pub const NO_ORIENTATION: orientation_t = 0;
-pub type position_t = ::core::ffi::c_uint;
-pub const AFTER: position_t = 1;
-pub const BEFORE: position_t = 0;
-pub type kill_window_t = ::core::ffi::c_uint;
-pub const KILL_CLIENT: kill_window_t = 2;
-pub const KILL_WINDOW: kill_window_t = 1;
-pub const DONT_KILL_WINDOW: kill_window_t = 0;
-pub type smart_gaps_t = ::core::ffi::c_uint;
-pub const SMART_GAPS_INVERSE_OUTER: smart_gaps_t = 2;
-pub const SMART_GAPS_ON: smart_gaps_t = 1;
-pub const SMART_GAPS_OFF: smart_gaps_t = 0;
+
 pub type hide_edge_borders_mode_t = ::core::ffi::c_uint;
 pub const HEBM_SMART_NO_GAPS: hide_edge_borders_mode_t = 64;
 pub const HEBM_SMART: hide_edge_borders_mode_t = 32;
@@ -146,17 +77,6 @@ pub const HEBM_BOTH: hide_edge_borders_mode_t = 23;
 pub const HEBM_HORIZONTAL: hide_edge_borders_mode_t = 20;
 pub const HEBM_VERTICAL: hide_edge_borders_mode_t = 3;
 pub const HEBM_NONE: hide_edge_borders_mode_t = 0;
-pub type mark_mode_t = ::core::ffi::c_uint;
-pub const MM_ADD: mark_mode_t = 1;
-pub const MM_REPLACE: mark_mode_t = 0;
-pub type warping_t = ::core::ffi::c_uint;
-pub const POINTER_WARPING_NONE: warping_t = 1;
-pub const POINTER_WARPING_OUTPUT: warping_t = 0;
-pub type focus_wrapping_t = ::core::ffi::c_uint;
-pub const FOCUS_WRAPPING_WORKSPACE: focus_wrapping_t = 3;
-pub const FOCUS_WRAPPING_FORCE: focus_wrapping_t = 2;
-pub const FOCUS_WRAPPING_ON: focus_wrapping_t = 1;
-pub const FOCUS_WRAPPING_OFF: focus_wrapping_t = 0;
 
 pub type tiling_drag_t = ::core::ffi::c_uint;
 pub const TILING_DRAG_MODIFIER_OR_TITLEBAR: tiling_drag_t = 3;
@@ -164,49 +84,15 @@ pub const TILING_DRAG_TITLEBAR: tiling_drag_t = 2;
 pub const TILING_DRAG_MODIFIER: tiling_drag_t = 1;
 pub const TILING_DRAG_OFF: tiling_drag_t = 0;
 
-pub type C2RustUnnamed_21 = ::core::ffi::c_uint;
-pub const PDF_ALL: C2RustUnnamed_21 = 3;
-pub const PDF_IGNORE: C2RustUnnamed_21 = 2;
-pub const PDF_LEAVE_FULLSCREEN: C2RustUnnamed_21 = 1;
-pub const PDF_SMART: C2RustUnnamed_21 = 0;
-
-pub type C2RustUnnamed_22 = ::core::ffi::c_uint;
-pub const ALIGN_RIGHT: C2RustUnnamed_22 = 2;
-pub const ALIGN_CENTER: C2RustUnnamed_22 = 1;
-pub const ALIGN_LEFT: C2RustUnnamed_22 = 0;
-pub type C2RustUnnamed_23 = ::core::ffi::c_uint;
-pub const FOWA_NONE: C2RustUnnamed_23 = 3;
-pub const FOWA_FOCUS: C2RustUnnamed_23 = 2;
-pub const FOWA_URGENT: C2RustUnnamed_23 = 1;
-pub const FOWA_SMART: C2RustUnnamed_23 = 0;
 pub use crate::application::Barconfig;
-pub type C2RustUnnamed_25 = ::core::ffi::c_uint;
-pub const P_TOP: C2RustUnnamed_25 = 1;
-pub const P_BOTTOM: C2RustUnnamed_25 = 0;
-pub type C2RustUnnamed_27 = ::core::ffi::c_uint;
-pub const S_SHOW: C2RustUnnamed_27 = 1;
-pub const S_HIDE: C2RustUnnamed_27 = 0;
-pub type C2RustUnnamed_28 = ::core::ffi::c_uint;
-pub const M_INVISIBLE: C2RustUnnamed_28 = 2;
-pub const M_HIDE: C2RustUnnamed_28 = 1;
-pub const M_DOCK: C2RustUnnamed_28 = 0;
-pub type config_load_t = ::core::ffi::c_uint;
-pub const C_RELOAD: config_load_t = 2;
-pub const C_LOAD: config_load_t = 1;
-pub const C_VALIDATE: config_load_t = 0;
+
 pub use crate::application::ipc_client;
-pub type shutdown_reason_t = ::core::ffi::c_uint;
-pub const SHUTDOWN_REASON_EXIT: shutdown_reason_t = 1;
-pub const SHUTDOWN_REASON_RESTART: shutdown_reason_t = 0;
-pub type json_content_t = ::core::ffi::c_uint;
-pub const JSON_CONTENT_WORKSPACE: json_content_t = 2;
-pub const JSON_CONTENT_CON: json_content_t = 1;
-pub const JSON_CONTENT_UNKNOWN: json_content_t = 0;
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct stack_entry {
     pub identifier: *const ::core::ffi::c_char,
-    pub type_0: C2RustUnnamed_32,
+    pub type_0: StackValueKind,
     pub val: C2RustUnnamed_31,
 }
 #[derive(Copy, Clone)]
@@ -215,9 +101,7 @@ pub union C2RustUnnamed_31 {
     pub str_0: *mut ::core::ffi::c_char,
     pub num: ::core::ffi::c_long,
 }
-pub type C2RustUnnamed_32 = ::core::ffi::c_uint;
-pub const STACK_LONG: C2RustUnnamed_32 = 1;
-pub const STACK_STR: C2RustUnnamed_32 = 0;
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct stack {
@@ -241,13 +125,13 @@ pub struct CommandResultIR {
     pub ctx: *mut cmd_parser_ctx,
     pub json_gen: yajl_gen,
     pub client: *mut ipc_client,
-    pub next_state: ::core::ffi::c_int,
+    pub next_state: CommandParserState,
     pub needs_tree_render: bool,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct cmd_parser_ctx {
-    pub state: ::core::ffi::c_int,
+    pub state: CommandParserState,
     pub current_match: Match,
     pub stack: stack,
     pub owindows: owindows_head,
@@ -486,7 +370,7 @@ pub unsafe fn cmd_criteria_match_windows(
                                         (*con).name,
                                     );
                                     let ow_0: *mut owindow =
-                                        smalloc(::core::mem::size_of::<owindow>() as size_t)
+                                        smalloc(::core::mem::size_of::<owindow>() as usize)
                                             as *mut owindow;
                                     (*ow_0).con = con;
                                     (*ow_0).owindows.tqe_next = ::core::ptr::null_mut::<owindow>();
@@ -605,7 +489,7 @@ pub unsafe fn cmd_move_con_to_workspace(
             free(ow as *mut ::core::ffi::c_void);
         }
         let ow_0: *mut owindow =
-            smalloc(::core::mem::size_of::<owindow>() as size_t) as *mut owindow;
+            smalloc(::core::mem::size_of::<owindow>() as usize) as *mut owindow;
         (*ow_0).con = focused;
         (*(*cmd_output).ctx).owindows.tqh_first = ::core::ptr::null_mut::<owindow>();
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
@@ -931,7 +815,7 @@ pub unsafe fn cmd_move_con_to_workspace_back_and_forth(
             free(ow as *mut ::core::ffi::c_void);
         }
         let ow_0: *mut owindow =
-            smalloc(::core::mem::size_of::<owindow>() as size_t) as *mut owindow;
+            smalloc(::core::mem::size_of::<owindow>() as usize) as *mut owindow;
         (*ow_0).con = focused;
         (*(*cmd_output).ctx).owindows.tqh_first = ::core::ptr::null_mut::<owindow>();
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
@@ -1082,7 +966,7 @@ pub unsafe fn cmd_move_con_to_workspace_name(
             free(ow as *mut ::core::ffi::c_void);
         }
         let ow_0: *mut owindow =
-            smalloc(::core::mem::size_of::<owindow>() as size_t) as *mut owindow;
+            smalloc(::core::mem::size_of::<owindow>() as usize) as *mut owindow;
         (*ow_0).con = focused;
         (*(*cmd_output).ctx).owindows.tqh_first = ::core::ptr::null_mut::<owindow>();
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
@@ -1309,7 +1193,7 @@ pub unsafe fn cmd_move_con_to_workspace_number(
             free(ow as *mut ::core::ffi::c_void);
         }
         let ow_0: *mut owindow =
-            smalloc(::core::mem::size_of::<owindow>() as size_t) as *mut owindow;
+            smalloc(::core::mem::size_of::<owindow>() as usize) as *mut owindow;
         (*ow_0).con = focused;
         (*(*cmd_output).ctx).owindows.tqh_first = ::core::ptr::null_mut::<owindow>();
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
@@ -1527,18 +1411,18 @@ pub unsafe fn cmd_move_con_to_workspace_number(
         };
     }
 }
-unsafe fn parse_direction(str: *const ::core::ffi::c_char) -> direction_t {
+unsafe fn parse_direction(str: *const ::core::ffi::c_char) -> Direction {
     if strcmp(str, c"left".as_ptr()) == 0 as ::core::ffi::c_int {
-        return D_LEFT;
+        return Direction::Left;
     }
     if strcmp(str, c"right".as_ptr()) == 0 as ::core::ffi::c_int {
-        return D_RIGHT;
+        return Direction::Right;
     }
     if strcmp(str, c"up".as_ptr()) == 0 as ::core::ffi::c_int {
-        return D_UP;
+        return Direction::Up;
     }
     if strcmp(str, c"down".as_ptr()) == 0 as ::core::ffi::c_int {
-        return D_DOWN;
+        return Direction::Down;
     }
     errorlog(
         c"ERROR: Invalid direction. This is a parser bug.\n"
@@ -1565,18 +1449,18 @@ unsafe fn cmd_resize_floating(
 ) {
     let old_rect: Rect = (*floating_con).rect as Rect;
     let focused_con: *const Con = con_descend_focused(floating_con);
-    let mut direction: direction_t = D_LEFT;
+    let mut direction: Direction = Direction::Left;
     if strcmp(direction_str, c"height".as_ptr()) == 0 as ::core::ffi::c_int {
-        direction = D_DOWN;
+        direction = Direction::Down;
     } else if strcmp(direction_str, c"width".as_ptr()) == 0 as ::core::ffi::c_int {
-        direction = D_RIGHT;
+        direction = Direction::Right;
     } else {
         direction = parse_direction(direction_str);
     }
-    let orientation: orientation_t = orientation_from_direction(direction) as orientation_t;
+    let orientation: Orientation = orientation_from_direction(direction);
     let window: *const i3Window = (*focused_con).window;
     if !window.is_null() {
-        if orientation as ::core::ffi::c_uint == VERT as ::core::ffi::c_int as ::core::ffi::c_uint {
+        if orientation == Orientation::Vertical {
             if px < 0 as ::core::ffi::c_int {
                 px = if -px < (*window).height_increment {
                     -(*window).height_increment
@@ -1604,35 +1488,28 @@ unsafe fn cmd_resize_floating(
             };
         }
     }
-    if orientation as ::core::ffi::c_uint == VERT as ::core::ffi::c_int as ::core::ffi::c_uint {
-        (*floating_con).rect.height = (*floating_con).rect.height.wrapping_add(px as uint32_t);
+    if orientation == Orientation::Vertical {
+        (*floating_con).rect.height = (*floating_con).rect.height.wrapping_add(px as u32);
     } else {
-        (*floating_con).rect.width = (*floating_con).rect.width.wrapping_add(px as uint32_t);
+        (*floating_con).rect.width = (*floating_con).rect.width.wrapping_add(px as u32);
     }
-    floating_check_size(
-        floating_con,
-        orientation as ::core::ffi::c_uint == VERT as ::core::ffi::c_int as ::core::ffi::c_uint,
-    );
+    floating_check_size(floating_con, orientation == Orientation::Vertical);
     if rect_equals(old_rect, (*floating_con).rect as Rect) {
         return;
     }
-    if direction as ::core::ffi::c_uint == D_UP as ::core::ffi::c_int as ::core::ffi::c_uint {
+    if direction == Direction::Up {
         (*floating_con).rect.y = (*floating_con)
             .rect
             .y
             .wrapping_sub((*floating_con).rect.height.wrapping_sub(old_rect.height));
-    } else if direction as ::core::ffi::c_uint
-        == D_LEFT as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    } else if direction == Direction::Left {
         (*floating_con).rect.x = (*floating_con)
             .rect
             .x
             .wrapping_sub((*floating_con).rect.width.wrapping_sub(old_rect.width));
     }
-    if (*floating_con).scratchpad_state as ::core::ffi::c_uint
-        == SCRATCHPAD_FRESH as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
-        (*floating_con).scratchpad_state = SCRATCHPAD_CHANGED;
+    if (*floating_con).scratchpad_state == ScratchpadState::Fresh {
+        (*floating_con).scratchpad_state = ScratchpadState::Changed;
     }
 }
 unsafe fn cmd_resize_tiling_direction(
@@ -1645,7 +1522,7 @@ unsafe fn cmd_resize_tiling_direction(
 ) -> bool {
     let mut second: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut first: *mut Con = current;
-    let search_direction: direction_t = parse_direction(direction) as direction_t;
+    let search_direction: Direction = parse_direction(direction);
     let res: bool = resize_find_tiling_participants(
         &raw mut first,
         &raw mut second,
@@ -1715,12 +1592,12 @@ unsafe fn cmd_resize_tiling_width_height(
 ) -> bool {
     verboselog(c"width/height resize\n".as_ptr().cast_mut());
     let mut dummy: *mut Con = ::core::ptr::null_mut::<Con>();
-    let search_direction: direction_t =
-        (if strcmp(direction, c"width".as_ptr()) == 0 as ::core::ffi::c_int {
-            D_LEFT as ::core::ffi::c_int
+    let search_direction: Direction =
+        if strcmp(direction, c"width".as_ptr()) == 0 as ::core::ffi::c_int {
+            Direction::Left
         } else {
-            D_DOWN as ::core::ffi::c_int
-        }) as direction_t;
+            Direction::Down
+        };
     let search_result: bool = resize_find_tiling_participants(
         &raw mut current,
         &raw mut dummy,
@@ -2022,7 +1899,7 @@ pub unsafe fn cmd_resize(
             free(ow as *mut ::core::ffi::c_void);
         }
         let ow_0: *mut owindow =
-            smalloc(::core::mem::size_of::<owindow>() as size_t) as *mut owindow;
+            smalloc(::core::mem::size_of::<owindow>() as usize) as *mut owindow;
         (*ow_0).con = focused;
         (*(*cmd_output).ctx).owindows.tqh_first = ::core::ptr::null_mut::<owindow>();
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
@@ -2196,19 +2073,17 @@ unsafe fn resize_set_tiling(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
     mut target: *mut Con,
-    resize_orientation: orientation_t,
+    resize_orientation: Orientation,
     is_ppt: bool,
     target_size: ::core::ffi::c_long,
 ) -> bool {
-    let mut search_direction: direction_t = D_LEFT;
+    let mut search_direction: Direction = Direction::Left;
     let mut mode: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    if resize_orientation as ::core::ffi::c_uint
-        == HORIZ as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
-        search_direction = D_LEFT;
+    if resize_orientation == Orientation::Horizontal {
+        search_direction = Direction::Left;
         mode = c"width".as_ptr().cast_mut();
     } else {
-        search_direction = D_DOWN;
+        search_direction = Direction::Down;
         mode = c"height".as_ptr().cast_mut();
     }
     let mut dummy: *mut Con = ::core::ptr::null_mut::<Con>();
@@ -2224,9 +2099,7 @@ unsafe fn resize_set_tiling(
         ppt = target_size as ::core::ffi::c_double / 100.0f64 - (*target).percent;
     } else {
         px = (target_size
-            - (if resize_orientation as ::core::ffi::c_uint
-                == HORIZ as ::core::ffi::c_int as ::core::ffi::c_uint
-            {
+            - (if resize_orientation == Orientation::Horizontal {
                 (*target).rect.width
             } else {
                 (*target).rect.height
@@ -2361,7 +2234,7 @@ pub unsafe fn cmd_resize_set(
             free(ow as *mut ::core::ffi::c_void);
         }
         let ow_0: *mut owindow =
-            smalloc(::core::mem::size_of::<owindow>() as size_t) as *mut owindow;
+            smalloc(::core::mem::size_of::<owindow>() as usize) as *mut owindow;
         (*ow_0).con = focused;
         (*(*cmd_output).ctx).owindows.tqh_first = ::core::ptr::null_mut::<owindow>();
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
@@ -2396,7 +2269,7 @@ pub unsafe fn cmd_resize_set(
                     * (cheight as ::core::ffi::c_double / 100.0f64))
                     as ::core::ffi::c_long;
             }
-            floating_resize(floating_con, cwidth as uint32_t, cheight as uint32_t);
+            floating_resize(floating_con, cwidth as u32, cheight as u32);
         } else if !(*(*current).con).window.is_null()
             && (*(*(*current).con).window).dock as ::core::ffi::c_uint != 0
         {
@@ -2418,7 +2291,7 @@ pub unsafe fn cmd_resize_set(
                         current_match,
                         cmd_output,
                         (*current).con,
-                        HORIZ,
+                        Orientation::Horizontal,
                         is_ppt,
                         cwidth,
                     ) as ::core::ffi::c_int)
@@ -2432,7 +2305,7 @@ pub unsafe fn cmd_resize_set(
                         current_match,
                         cmd_output,
                         (*current).con,
-                        VERT,
+                        Orientation::Vertical,
                         is_ppt_0,
                         cheight,
                     ) as ::core::ffi::c_int)
@@ -2466,36 +2339,27 @@ pub unsafe fn cmd_resize_set(
     }
 }
 unsafe fn border_width_from_style(
-    border_style: border_style_t,
+    border_style: BorderStyle,
     border_width: ::core::ffi::c_long,
     con: *mut Con,
 ) -> ::core::ffi::c_int {
-    if border_style as ::core::ffi::c_uint == BS_NONE as ::core::ffi::c_int as ::core::ffi::c_uint {
+    if border_style == BorderStyle::None {
         return 0 as ::core::ffi::c_int;
     }
     if border_width >= 0 as ::core::ffi::c_long {
         return logical_px(border_width as ::core::ffi::c_int);
     }
     let is_floating: bool = !con_inside_floating(con).is_null();
-    if is_floating as ::core::ffi::c_int != 0
-        && border_style as ::core::ffi::c_uint
-            == config.default_floating_border as ::core::ffi::c_uint
-    {
+    if is_floating as ::core::ffi::c_int != 0 && border_style == config.default_floating_border {
         config.default_floating_border_width
-    } else if !is_floating
-        && border_style as ::core::ffi::c_uint == config.default_border as ::core::ffi::c_uint
-    {
+    } else if !is_floating && border_style == config.default_border {
         config.default_border_width
     } else {
-        logical_px(
-            if border_style as ::core::ffi::c_uint
-                == BS_NORMAL as ::core::ffi::c_int as ::core::ffi::c_uint
-            {
-                2 as ::core::ffi::c_int
-            } else {
-                1 as ::core::ffi::c_int
-            },
-        )
+        logical_px(if border_style == BorderStyle::Normal {
+            2 as ::core::ffi::c_int
+        } else {
+            1 as ::core::ffi::c_int
+        })
     }
 }
 
@@ -2577,7 +2441,7 @@ pub unsafe fn cmd_border(
             free(ow as *mut ::core::ffi::c_void);
         }
         let ow_0: *mut owindow =
-            smalloc(::core::mem::size_of::<owindow>() as size_t) as *mut owindow;
+            smalloc(::core::mem::size_of::<owindow>() as usize) as *mut owindow;
         (*ow_0).con = focused;
         (*(*cmd_output).ctx).owindows.tqh_first = ::core::ptr::null_mut::<owindow>();
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
@@ -2596,18 +2460,15 @@ pub unsafe fn cmd_border(
             (*current).con,
             (*(*current).con).name,
         );
-        let mut border_style: border_style_t = BS_NONE;
+        let mut border_style: BorderStyle = BorderStyle::None;
         if strcmp(border_style_str, c"toggle".as_ptr()) == 0 as ::core::ffi::c_int {
-            border_style = ((*(*current).con).border_style as ::core::ffi::c_uint)
-                .wrapping_add(1 as ::core::ffi::c_uint)
-                .wrapping_rem(3 as ::core::ffi::c_uint)
-                as border_style_t;
+            border_style = (*(*current).con).border_style.next();
         } else if strcmp(border_style_str, c"normal".as_ptr()) == 0 as ::core::ffi::c_int {
-            border_style = BS_NORMAL;
+            border_style = BorderStyle::Normal;
         } else if strcmp(border_style_str, c"pixel".as_ptr()) == 0 as ::core::ffi::c_int {
-            border_style = BS_PIXEL;
+            border_style = BorderStyle::Pixel;
         } else if strcmp(border_style_str, c"none".as_ptr()) == 0 as ::core::ffi::c_int {
-            border_style = BS_NONE;
+            border_style = BorderStyle::None;
         } else {
             if !(*cmd_output).json_gen.is_null() {
                 let mut message_0: *mut ::core::ffi::c_char =
@@ -2734,15 +2595,15 @@ pub unsafe fn cmd_append_layout(
     cmd_output: *mut CommandResultIR,
     cpath: *const ::core::ffi::c_char,
 ) {
-    let mut content: json_content_t = JSON_CONTENT_UNKNOWN;
+    let mut content: JsonContent = JsonContent::Unknown;
     let mut parent: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut errormsg: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
     verboselog(c"Appending layout \"%s\"\n".as_ptr().cast_mut(), cpath);
     let path: *mut ::core::ffi::c_char = resolve_tilde(cpath);
     let mut buf: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    let mut len: ssize_t = 0;
+    let mut len: isize = 0;
     len = slurp(path, &raw mut buf);
-    if len < 0 as ssize_t {
+    if len < 0 as isize {
         if !(*cmd_output).json_gen.is_null() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
@@ -2785,7 +2646,7 @@ pub unsafe fn cmd_append_layout(
             };
             free(message as *mut ::core::ffi::c_void);
         }
-    } else if !json_validate(buf, len as size_t) {
+    } else if !json_validate(buf, len as usize) {
         errorlog(
             c"ERROR: Could not parse \"%s\" as JSON, not loading.\n"
                 .as_ptr()
@@ -2839,14 +2700,12 @@ pub unsafe fn cmd_append_layout(
             free(message_0 as *mut ::core::ffi::c_void);
         }
     } else {
-        content = json_determine_content(buf, len as size_t) as json_content_t;
+        content = json_determine_content(buf, len as usize);
         verboselog(
             c"JSON content = %d\n".as_ptr().cast_mut(),
             content as ::core::ffi::c_uint,
         );
-        if content as ::core::ffi::c_uint
-            == JSON_CONTENT_UNKNOWN as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
+        if content == JsonContent::Unknown {
             errorlog(
                 c"ERROR: Could not determine the contents of \"%s\", not loading.\n"
                     .as_ptr()
@@ -2901,9 +2760,7 @@ pub unsafe fn cmd_append_layout(
             }
         } else {
             parent = focused;
-            if content as ::core::ffi::c_uint
-                == JSON_CONTENT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-            {
+            if content == JsonContent::Workspace {
                 parent = output_get_content(con_get_output(parent));
             } else {
                 while (*parent).type_0 as ::core::ffi::c_uint
@@ -2924,7 +2781,7 @@ pub unsafe fn cmd_append_layout(
                 focused,
             );
             errormsg = ::core::ptr::null_mut::<::core::ffi::c_char>();
-            tree_append_json(parent, buf, len as size_t, &raw mut errormsg);
+            tree_append_json(parent, buf, len as usize, &raw mut errormsg);
             if !errormsg.is_null() {
                 if !(*cmd_output).json_gen.is_null() {
                     let mut message_2: *mut ::core::ffi::c_char =
@@ -2993,9 +2850,7 @@ pub unsafe fn cmd_append_layout(
             }
             render_con(croot);
             restore_open_placeholder_windows(parent);
-            if content as ::core::ffi::c_uint
-                == JSON_CONTENT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-            {
+            if content == JsonContent::Workspace {
                 ipc_send_workspace_event(
                     c"restored".as_ptr(),
                     parent,
@@ -3474,7 +3329,7 @@ pub unsafe fn cmd_mark(
             free(ow as *mut ::core::ffi::c_void);
         }
         let ow_0: *mut owindow =
-            smalloc(::core::mem::size_of::<owindow>() as size_t) as *mut owindow;
+            smalloc(::core::mem::size_of::<owindow>() as usize) as *mut owindow;
         (*ow_0).con = focused;
         (*(*cmd_output).ctx).owindows.tqh_first = ::core::ptr::null_mut::<owindow>();
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
@@ -3591,12 +3446,12 @@ pub unsafe fn cmd_mark(
         (*current).con,
         (*(*current).con).name,
     );
-    let mark_mode: mark_mode_t =
-        (if mode.is_null() || strcmp(mode, c"--replace".as_ptr()) == 0 as ::core::ffi::c_int {
-            MM_REPLACE as ::core::ffi::c_int
+    let mark_mode: MarkMode =
+        if mode.is_null() || strcmp(mode, c"--replace".as_ptr()) == 0 as ::core::ffi::c_int {
+            MarkMode::Replace
         } else {
-            MM_ADD as ::core::ffi::c_int
-        }) as mark_mode_t;
+            MarkMode::Add
+        };
     if !toggle.is_null() {
         con_mark_toggle((*current).con, mark, mark_mode);
     } else {
@@ -3718,8 +3573,8 @@ unsafe fn user_output_names_add(
                 && (*output).primary as ::core::ffi::c_int != 0)
             {
                 let co: *mut user_output_name = scalloc(
-                    ::core::mem::size_of::<user_output_name>() as size_t,
-                    1 as size_t,
+                    ::core::mem::size_of::<user_output_name>() as usize,
+                    1 as usize,
                 ) as *mut user_output_name;
                 (*co).name = sstrdup(output_primary_name(output));
                 (*co).user_output_names.tqe_next = ::core::ptr::null_mut::<user_output_name>();
@@ -3732,8 +3587,8 @@ unsafe fn user_output_names_add(
         return;
     }
     let co_0: *mut user_output_name = scalloc(
-        ::core::mem::size_of::<user_output_name>() as size_t,
-        1 as size_t,
+        ::core::mem::size_of::<user_output_name>() as usize,
+        1 as usize,
     ) as *mut user_output_name;
     (*co_0).name = sstrdup(name);
     (*co_0).user_output_names.tqe_next = ::core::ptr::null_mut::<user_output_name>();
@@ -3857,7 +3712,7 @@ pub unsafe fn cmd_move_con_to_output(
             free(ow as *mut ::core::ffi::c_void);
         }
         let ow_0: *mut owindow =
-            smalloc(::core::mem::size_of::<owindow>() as size_t) as *mut owindow;
+            smalloc(::core::mem::size_of::<owindow>() as usize) as *mut owindow;
         (*ow_0).con = focused;
         (*(*cmd_output).ctx).owindows.tqh_first = ::core::ptr::null_mut::<owindow>();
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
@@ -4078,7 +3933,7 @@ pub unsafe fn cmd_move_con_to_mark(
             free(ow as *mut ::core::ffi::c_void);
         }
         let ow_0: *mut owindow =
-            smalloc(::core::mem::size_of::<owindow>() as size_t) as *mut owindow;
+            smalloc(::core::mem::size_of::<owindow>() as usize) as *mut owindow;
         (*ow_0).con = focused;
         (*(*cmd_output).ctx).owindows.tqh_first = ::core::ptr::null_mut::<owindow>();
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
@@ -4215,7 +4070,7 @@ pub unsafe fn cmd_floating(
             free(ow as *mut ::core::ffi::c_void);
         }
         let ow_0: *mut owindow =
-            smalloc(::core::mem::size_of::<owindow>() as size_t) as *mut owindow;
+            smalloc(::core::mem::size_of::<owindow>() as usize) as *mut owindow;
         (*ow_0).con = focused;
         (*(*cmd_output).ctx).owindows.tqh_first = ::core::ptr::null_mut::<owindow>();
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
@@ -4351,7 +4206,7 @@ pub unsafe fn cmd_split(
             free(ow as *mut ::core::ffi::c_void);
         }
         let ow_0: *mut owindow =
-            smalloc(::core::mem::size_of::<owindow>() as size_t) as *mut owindow;
+            smalloc(::core::mem::size_of::<owindow>() as usize) as *mut owindow;
         (*ow_0).con = focused;
         (*(*cmd_output).ctx).owindows.tqh_first = ::core::ptr::null_mut::<owindow>();
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
@@ -4385,7 +4240,7 @@ pub unsafe fn cmd_split(
             if *direction.offset(0 as ::core::ffi::c_int as isize) as ::core::ffi::c_int
                 == 't' as i32
             {
-                let mut current_layout: layout_t = L_DEFAULT;
+                let mut current_layout: Layout = Layout::Default;
                 if (*(*current).con).type_0 as ::core::ffi::c_uint
                     == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
                 {
@@ -4393,23 +4248,21 @@ pub unsafe fn cmd_split(
                 } else {
                     current_layout = (*(*(*current).con).parent).layout;
                 }
-                if current_layout as ::core::ffi::c_uint
-                    == L_SPLITH as ::core::ffi::c_int as ::core::ffi::c_uint
-                {
-                    tree_split((*current).con, VERT);
+                if current_layout == Layout::SplitH {
+                    tree_split((*current).con, Orientation::Vertical);
                 } else {
-                    tree_split((*current).con, HORIZ);
+                    tree_split((*current).con, Orientation::Horizontal);
                 }
             } else {
                 tree_split(
                     (*current).con,
-                    (if *direction.offset(0 as ::core::ffi::c_int as isize) as ::core::ffi::c_int
+                    if *direction.offset(0 as ::core::ffi::c_int as isize) as ::core::ffi::c_int
                         == 'v' as i32
                     {
-                        VERT as ::core::ffi::c_int
+                        Orientation::Vertical
                     } else {
-                        HORIZ as ::core::ffi::c_int
-                    }) as orientation_t,
+                        Orientation::Horizontal
+                    },
                 );
             }
         }
@@ -4455,11 +4308,11 @@ pub unsafe fn cmd_kill(
         1218 as ::core::ffi::c_int,
         kill_mode_str,
     );
-    let mut kill_mode: ::core::ffi::c_int = 0;
+    let mut kill_mode: KillWindow = KillWindow::DontKill;
     if strcmp(kill_mode_str, c"window".as_ptr()) == 0 as ::core::ffi::c_int {
-        kill_mode = KILL_WINDOW as ::core::ffi::c_int;
+        kill_mode = KillWindow::Window;
     } else if strcmp(kill_mode_str, c"client".as_ptr()) == 0 as ::core::ffi::c_int {
-        kill_mode = KILL_CLIENT as ::core::ffi::c_int;
+        kill_mode = KillWindow::Client;
     } else {
         if !(*cmd_output).json_gen.is_null() {
             let mut message: *mut ::core::ffi::c_char =
@@ -4570,7 +4423,7 @@ pub unsafe fn cmd_kill(
             free(ow as *mut ::core::ffi::c_void);
         }
         let ow_0: *mut owindow =
-            smalloc(::core::mem::size_of::<owindow>() as size_t) as *mut owindow;
+            smalloc(::core::mem::size_of::<owindow>() as usize) as *mut owindow;
         (*ow_0).con = focused;
         (*(*cmd_output).ctx).owindows.tqh_first = ::core::ptr::null_mut::<owindow>();
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
@@ -4582,7 +4435,7 @@ pub unsafe fn cmd_kill(
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
     current = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
     while !current.is_null() {
-        con_close((*current).con, kill_mode as kill_window_t);
+        con_close((*current).con, kill_mode);
         current = (*current).owindows.tqe_next as *mut owindow;
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
@@ -4678,7 +4531,7 @@ pub unsafe fn cmd_exec(
             free(ow as *mut ::core::ffi::c_void);
         }
         let ow_0: *mut owindow =
-            smalloc(::core::mem::size_of::<owindow>() as size_t) as *mut owindow;
+            smalloc(::core::mem::size_of::<owindow>() as usize) as *mut owindow;
         (*ow_0).con = focused;
         (*(*cmd_output).ctx).owindows.tqh_first = ::core::ptr::null_mut::<owindow>();
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
@@ -4813,7 +4666,7 @@ pub unsafe fn cmd_focus_direction(
             free(ow as *mut ::core::ffi::c_void);
         }
         let ow_0: *mut owindow =
-            smalloc(::core::mem::size_of::<owindow>() as size_t) as *mut owindow;
+            smalloc(::core::mem::size_of::<owindow>() as usize) as *mut owindow;
         (*ow_0).con = focused;
         (*(*cmd_output).ctx).owindows.tqh_first = ::core::ptr::null_mut::<owindow>();
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
@@ -4835,13 +4688,13 @@ pub unsafe fn cmd_focus_direction(
             count,
         );
     }
-    let mut direction: direction_t = D_LEFT;
-    let mut position: position_t = BEFORE;
+    let mut direction: Direction = Direction::Left;
+    let mut position: Position = Position::Before;
     let mut auto_direction: bool = true_0 != 0;
     if strcmp(direction_str, c"prev".as_ptr()) == 0 as ::core::ffi::c_int {
-        position = BEFORE;
+        position = Position::Before;
     } else if strcmp(direction_str, c"next".as_ptr()) == 0 as ::core::ffi::c_int {
-        position = AFTER;
+        position = Position::After;
     } else {
         auto_direction = false_0 != 0;
         direction = parse_direction(direction_str);
@@ -4852,8 +4705,7 @@ pub unsafe fn cmd_focus_direction(
         let ws: *mut Con = con_get_workspace((*current_0).con);
         if !(ws.is_null() || con_is_internal(ws) as ::core::ffi::c_int != 0) {
             if auto_direction {
-                let o: orientation_t =
-                    con_orientation((*(*current_0).con).parent as *mut Con) as orientation_t;
+                let o: Orientation = con_orientation((*(*current_0).con).parent as *mut Con);
                 direction = direction_from_orientation_position(o, position);
             }
             tree_next((*current_0).con, direction);
@@ -4951,7 +4803,7 @@ pub unsafe fn cmd_focus_sibling(
             free(ow as *mut ::core::ffi::c_void);
         }
         let ow_0: *mut owindow =
-            smalloc(::core::mem::size_of::<owindow>() as size_t) as *mut owindow;
+            smalloc(::core::mem::size_of::<owindow>() as usize) as *mut owindow;
         (*ow_0).con = focused;
         (*(*cmd_output).ctx).owindows.tqh_first = ::core::ptr::null_mut::<owindow>();
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
@@ -4973,14 +4825,14 @@ pub unsafe fn cmd_focus_sibling(
             count,
         );
     }
-    let direction: position_t =
-        (if strncasecmp(direction_str, c"prev".as_ptr(), strlen(c"prev".as_ptr()))
+    let direction: Position =
+        if strncasecmp(direction_str, c"prev".as_ptr(), strlen(c"prev".as_ptr()))
             == 0 as ::core::ffi::c_int
         {
-            BEFORE as ::core::ffi::c_int
+            Position::Before
         } else {
-            AFTER as ::core::ffi::c_int
-        }) as position_t;
+            Position::After
+        };
     let mut current_0: *mut owindow = ::core::ptr::null_mut::<owindow>();
     current_0 = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
     while !current_0.is_null() {
@@ -5460,7 +5312,7 @@ pub unsafe fn cmd_fullscreen(
             free(ow as *mut ::core::ffi::c_void);
         }
         let ow_0: *mut owindow =
-            smalloc(::core::mem::size_of::<owindow>() as size_t) as *mut owindow;
+            smalloc(::core::mem::size_of::<owindow>() as usize) as *mut owindow;
         (*ow_0).con = focused;
         (*(*cmd_output).ctx).owindows.tqh_first = ::core::ptr::null_mut::<owindow>();
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
@@ -5586,7 +5438,7 @@ pub unsafe fn cmd_sticky(
             free(ow as *mut ::core::ffi::c_void);
         }
         let ow_0: *mut owindow =
-            smalloc(::core::mem::size_of::<owindow>() as size_t) as *mut owindow;
+            smalloc(::core::mem::size_of::<owindow>() as usize) as *mut owindow;
         (*ow_0).con = focused;
         (*(*cmd_output).ctx).owindows.tqh_first = ::core::ptr::null_mut::<owindow>();
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
@@ -5725,7 +5577,7 @@ pub unsafe fn cmd_move_direction(
             free(ow as *mut ::core::ffi::c_void);
         }
         let ow_0: *mut owindow =
-            smalloc(::core::mem::size_of::<owindow>() as size_t) as *mut owindow;
+            smalloc(::core::mem::size_of::<owindow>() as usize) as *mut owindow;
         (*ow_0).con = focused;
         (*(*cmd_output).ctx).owindows.tqh_first = ::core::ptr::null_mut::<owindow>();
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
@@ -5734,7 +5586,7 @@ pub unsafe fn cmd_move_direction(
         *(*(*cmd_output).ctx).owindows.tqh_last = ow_0 as *mut owindow;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
-    let direction: direction_t = parse_direction(direction_str) as direction_t;
+    let direction: Direction = parse_direction(direction_str);
     let is_ppt: bool = !mode.is_null() && strcmp(mode, c"ppt".as_ptr()) == 0 as ::core::ffi::c_int;
     debuglog(
         c"%s:%s:%d - moving in direction %s, %ld %s\n"
@@ -5762,44 +5614,43 @@ pub unsafe fn cmd_move_direction(
             );
             let mut newrect: Rect = (*(*(*current).con).parent).rect as Rect;
             let output: *const Con = con_get_output((*current).con);
-            match direction as ::core::ffi::c_uint {
-                0 => {
+            match direction {
+                Direction::Left => {
                     newrect.x = (newrect.x as ::core::ffi::c_double
                         - if is_ppt as ::core::ffi::c_int != 0 {
                             (*output).rect.width as ::core::ffi::c_double
                                 * (amount as ::core::ffi::c_double / 100.0f64)
                         } else {
                             amount as ::core::ffi::c_double
-                        }) as uint32_t;
+                        }) as u32;
                 }
-                1 => {
+                Direction::Right => {
                     newrect.x = (newrect.x as ::core::ffi::c_double
                         + if is_ppt as ::core::ffi::c_int != 0 {
                             (*output).rect.width as ::core::ffi::c_double
                                 * (amount as ::core::ffi::c_double / 100.0f64)
                         } else {
                             amount as ::core::ffi::c_double
-                        }) as uint32_t;
+                        }) as u32;
                 }
-                2 => {
+                Direction::Up => {
                     newrect.y = (newrect.y as ::core::ffi::c_double
                         - if is_ppt as ::core::ffi::c_int != 0 {
                             (*output).rect.height as ::core::ffi::c_double
                                 * (amount as ::core::ffi::c_double / 100.0f64)
                         } else {
                             amount as ::core::ffi::c_double
-                        }) as uint32_t;
+                        }) as u32;
                 }
-                3 => {
+                Direction::Down => {
                     newrect.y = (newrect.y as ::core::ffi::c_double
                         + if is_ppt as ::core::ffi::c_int != 0 {
                             (*output).rect.height as ::core::ffi::c_double
                                 * (amount as ::core::ffi::c_double / 100.0f64)
                         } else {
                             amount as ::core::ffi::c_double
-                        }) as uint32_t;
+                        }) as u32;
                 }
-                _ => {}
             }
             (*cmd_output).needs_tree_render =
                 floating_reposition((*(*current).con).parent as *mut Con, newrect);
@@ -5899,7 +5750,7 @@ pub unsafe fn cmd_layout(
             free(ow as *mut ::core::ffi::c_void);
         }
         let ow_0: *mut owindow =
-            smalloc(::core::mem::size_of::<owindow>() as size_t) as *mut owindow;
+            smalloc(::core::mem::size_of::<owindow>() as usize) as *mut owindow;
         (*ow_0).con = focused;
         (*(*cmd_output).ctx).owindows.tqh_first = ::core::ptr::null_mut::<owindow>();
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
@@ -5908,7 +5759,7 @@ pub unsafe fn cmd_layout(
         *(*(*cmd_output).ctx).owindows.tqh_last = ow_0 as *mut owindow;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
-    let mut layout: layout_t = L_DEFAULT;
+    let mut layout: Layout = Layout::Default;
     if !layout_from_name(layout_str, &raw mut layout) {
         if !(*cmd_output).json_gen.is_null() {
             let mut message_0: *mut ::core::ffi::c_char =
@@ -6084,9 +5935,12 @@ pub unsafe fn cmd_reload(current_match: *mut Match, cmd_output: *mut CommandResu
     verboselog(c"reloading\n".as_ptr().cast_mut());
     kill_nagbar(config_error_nagbar_pid, false_0 != 0);
     kill_nagbar(command_error_nagbar_pid, false_0 != 0);
-    command_error_nagbar_pid = -(1 as ::core::ffi::c_int) as pid_t;
+    command_error_nagbar_pid = -(1 as ::core::ffi::c_int) as libc::pid_t;
     config_error_nagbar_pid = command_error_nagbar_pid;
-    load_configuration(::core::ptr::null::<::core::ffi::c_char>(), C_RELOAD);
+    load_configuration(
+        ::core::ptr::null::<::core::ffi::c_char>(),
+        ConfigLoad::Reload,
+    );
     x_set_i3_atoms();
     ipc_send_workspace_event(
         c"reload".as_ptr(),
@@ -6150,7 +6004,7 @@ pub unsafe fn cmd_restart(current_match: *mut Match, cmd_output: *mut CommandRes
         sasprintf(&raw mut fdstr, c"%d".as_ptr(), exempt_fd);
         setenv(c"_I3_RESTART_FD".as_ptr(), fdstr, 1 as ::core::ffi::c_int);
     }
-    ipc_shutdown(SHUTDOWN_REASON_RESTART, exempt_fd);
+    ipc_shutdown(ShutdownReason::Restart, exempt_fd);
     unlink(config.ipc_socket_path);
     if !current_log_stream_socket_path.is_null() {
         unlink(current_log_stream_socket_path);
@@ -6174,7 +6028,7 @@ pub unsafe fn cmd_open(current_match: *mut Match, cmd_output: *mut CommandResult
         ::core::ptr::null_mut::<Con>(),
         ::core::ptr::null_mut::<i3Window>(),
     );
-    (*con).layout = L_SPLITH;
+    (*con).layout = Layout::SplitH;
     con_activate(con);
     if !(*cmd_output).json_gen.is_null() {
         yajl_gen_map_open((*cmd_output).json_gen);
@@ -6203,7 +6057,7 @@ pub unsafe fn cmd_open(current_match: *mut Match, cmd_output: *mut CommandResult
     if !(*cmd_output).json_gen.is_null() {
         yajl_gen_integer(
             (*cmd_output).json_gen,
-            con as uintptr_t as ::core::ffi::c_longlong,
+            con as usize as ::core::ffi::c_longlong,
         );
     } else {
     };
@@ -6332,7 +6186,7 @@ pub unsafe fn cmd_focus_output(
             free(ow as *mut ::core::ffi::c_void);
         }
         let ow_0: *mut owindow =
-            smalloc(::core::mem::size_of::<owindow>() as size_t) as *mut owindow;
+            smalloc(::core::mem::size_of::<owindow>() as usize) as *mut owindow;
         (*ow_0).con = focused;
         (*(*cmd_output).ctx).owindows.tqh_first = ::core::ptr::null_mut::<owindow>();
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
@@ -6591,7 +6445,7 @@ pub unsafe fn cmd_move_window_to_position(
             free(ow as *mut ::core::ffi::c_void);
         }
         let ow_0: *mut owindow =
-            smalloc(::core::mem::size_of::<owindow>() as size_t) as *mut owindow;
+            smalloc(::core::mem::size_of::<owindow>() as usize) as *mut owindow;
         (*ow_0).con = focused;
         (*(*cmd_output).ctx).owindows.tqh_first = ::core::ptr::null_mut::<owindow>();
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
@@ -6667,7 +6521,7 @@ pub unsafe fn cmd_move_window_to_position(
                     * (x as ::core::ffi::c_double / 100.0f64)
             } else {
                 x as ::core::ffi::c_double
-            }) as uint32_t;
+            }) as u32;
             newrect.y = (if !mode_y.is_null()
                 && strcmp(mode_y, c"ppt".as_ptr()) == 0 as ::core::ffi::c_int
             {
@@ -6675,7 +6529,7 @@ pub unsafe fn cmd_move_window_to_position(
                     * (y as ::core::ffi::c_double / 100.0f64)
             } else {
                 y as ::core::ffi::c_double
-            }) as uint32_t;
+            }) as u32;
             debuglog(
                 c"%s:%s:%d - moving to position %d %s %d %s\n"
                     .as_ptr()
@@ -6832,7 +6686,7 @@ pub unsafe fn cmd_move_window_to_center(
             free(ow as *mut ::core::ffi::c_void);
         }
         let ow_0: *mut owindow =
-            smalloc(::core::mem::size_of::<owindow>() as size_t) as *mut owindow;
+            smalloc(::core::mem::size_of::<owindow>() as usize) as *mut owindow;
         (*ow_0).con = focused;
         (*(*cmd_output).ctx).owindows.tqh_first = ::core::ptr::null_mut::<owindow>();
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
@@ -7023,7 +6877,7 @@ pub unsafe fn cmd_move_window_to_mouse(
             free(ow as *mut ::core::ffi::c_void);
         }
         let ow_0: *mut owindow =
-            smalloc(::core::mem::size_of::<owindow>() as size_t) as *mut owindow;
+            smalloc(::core::mem::size_of::<owindow>() as usize) as *mut owindow;
         (*ow_0).con = focused;
         (*(*cmd_output).ctx).owindows.tqh_first = ::core::ptr::null_mut::<owindow>();
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
@@ -7158,7 +7012,7 @@ pub unsafe fn cmd_move_scratchpad(current_match: *mut Match, cmd_output: *mut Co
             free(ow as *mut ::core::ffi::c_void);
         }
         let ow_0: *mut owindow =
-            smalloc(::core::mem::size_of::<owindow>() as size_t) as *mut owindow;
+            smalloc(::core::mem::size_of::<owindow>() as usize) as *mut owindow;
         (*ow_0).con = focused;
         (*(*cmd_output).ctx).owindows.tqh_first = ::core::ptr::null_mut::<owindow>();
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
@@ -7327,7 +7181,7 @@ pub unsafe fn cmd_swap(
             free(ow as *mut ::core::ffi::c_void);
         }
         let ow_0: *mut owindow =
-            smalloc(::core::mem::size_of::<owindow>() as size_t) as *mut owindow;
+            smalloc(::core::mem::size_of::<owindow>() as usize) as *mut owindow;
         (*ow_0).con = focused;
         (*(*cmd_output).ctx).owindows.tqh_first = ::core::ptr::null_mut::<owindow>();
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
@@ -7753,7 +7607,7 @@ pub unsafe fn cmd_title_format(
             free(ow as *mut ::core::ffi::c_void);
         }
         let ow_0: *mut owindow =
-            smalloc(::core::mem::size_of::<owindow>() as size_t) as *mut owindow;
+            smalloc(::core::mem::size_of::<owindow>() as usize) as *mut owindow;
         (*ow_0).con = focused;
         (*(*cmd_output).ctx).owindows.tqh_first = ::core::ptr::null_mut::<owindow>();
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
@@ -7909,7 +7763,7 @@ pub unsafe fn cmd_title_window_icon(
             free(ow as *mut ::core::ffi::c_void);
         }
         let ow_0: *mut owindow =
-            smalloc(::core::mem::size_of::<owindow>() as size_t) as *mut owindow;
+            smalloc(::core::mem::size_of::<owindow>() as usize) as *mut owindow;
         (*ow_0).con = focused;
         (*(*cmd_output).ctx).owindows.tqh_first = ::core::ptr::null_mut::<owindow>();
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
@@ -8248,14 +8102,14 @@ pub unsafe fn cmd_bar_mode(
     bar_mode: *const ::core::ffi::c_char,
     bar_id: *const ::core::ffi::c_char,
 ) {
-    let mut mode: ::core::ffi::c_int = M_DOCK as ::core::ffi::c_int;
+    let mut mode: BarMode = BarMode::Dock;
     let mut toggle: bool = false_0 != 0;
     if strcmp(bar_mode, c"dock".as_ptr()) == 0 as ::core::ffi::c_int {
-        mode = M_DOCK as ::core::ffi::c_int;
+        mode = BarMode::Dock;
     } else if strcmp(bar_mode, c"hide".as_ptr()) == 0 as ::core::ffi::c_int {
-        mode = M_HIDE as ::core::ffi::c_int;
+        mode = BarMode::Hide;
     } else if strcmp(bar_mode, c"invisible".as_ptr()) == 0 as ::core::ffi::c_int {
-        mode = M_INVISIBLE as ::core::ffi::c_int;
+        mode = BarMode::Invisible;
     } else if strcmp(bar_mode, c"toggle".as_ptr()) == 0 as ::core::ffi::c_int {
         toggle = true_0 != 0;
     } else {
@@ -8326,10 +8180,7 @@ pub unsafe fn cmd_bar_mode(
     while !current.is_null() {
         if !(!bar_id.is_null() && strcmp((*current).id, bar_id) != 0 as ::core::ffi::c_int) {
             if toggle {
-                mode = ((*current).mode as ::core::ffi::c_uint)
-                    .wrapping_add(1 as ::core::ffi::c_uint)
-                    .wrapping_rem(2 as ::core::ffi::c_uint)
-                    as ::core::ffi::c_int;
+                mode = (*current).mode.toggled();
             }
             debuglog(
                 c"%s:%s:%d - Changing bar mode of bar_id '%s' from '%d' to '%s (%d)'\n"
@@ -8341,10 +8192,10 @@ pub unsafe fn cmd_bar_mode(
                 (*current).id,
                 (*current).mode as ::core::ffi::c_uint,
                 bar_mode,
-                mode,
+                (mode) as u32,
             );
-            if (*current).mode as ::core::ffi::c_int != mode {
-                (*current).mode = mode as C2RustUnnamed_28;
+            if (*current).mode != mode {
+                (*current).mode = mode;
                 ipc_send_barconfig_update_event(current);
             }
             if !bar_id.is_null() {
@@ -8452,12 +8303,12 @@ pub unsafe fn cmd_bar_hidden_state(
     bar_hidden_state: *const ::core::ffi::c_char,
     bar_id: *const ::core::ffi::c_char,
 ) {
-    let mut hidden_state: ::core::ffi::c_int = S_SHOW as ::core::ffi::c_int;
+    let mut hidden_state: BarHiddenState = BarHiddenState::Show;
     let mut toggle: bool = false_0 != 0;
     if strcmp(bar_hidden_state, c"hide".as_ptr()) == 0 as ::core::ffi::c_int {
-        hidden_state = S_HIDE as ::core::ffi::c_int;
+        hidden_state = BarHiddenState::Hide;
     } else if strcmp(bar_hidden_state, c"show".as_ptr()) == 0 as ::core::ffi::c_int {
-        hidden_state = S_SHOW as ::core::ffi::c_int;
+        hidden_state = BarHiddenState::Show;
     } else if strcmp(bar_hidden_state, c"toggle".as_ptr()) == 0 as ::core::ffi::c_int {
         toggle = true_0 != 0;
     } else {
@@ -8527,10 +8378,7 @@ pub unsafe fn cmd_bar_hidden_state(
     while !current.is_null() {
         if !(!bar_id.is_null() && strcmp((*current).id, bar_id) != 0 as ::core::ffi::c_int) {
             if toggle {
-                hidden_state = ((*current).hidden_state as ::core::ffi::c_uint)
-                    .wrapping_add(1 as ::core::ffi::c_uint)
-                    .wrapping_rem(2 as ::core::ffi::c_uint)
-                    as ::core::ffi::c_int;
+                hidden_state = (*current).hidden_state.toggled();
             }
             debuglog(
                 c"%s:%s:%d - Changing bar hidden_state of bar_id '%s' from '%d' to '%s (%d)'\n"
@@ -8542,10 +8390,10 @@ pub unsafe fn cmd_bar_hidden_state(
                 (*current).id,
                 (*current).hidden_state as ::core::ffi::c_uint,
                 bar_hidden_state,
-                hidden_state,
+                (hidden_state) as u32,
             );
-            if (*current).hidden_state as ::core::ffi::c_int != hidden_state {
-                (*current).hidden_state = hidden_state as C2RustUnnamed_27;
+            if (*current).hidden_state != hidden_state {
+                (*current).hidden_state = hidden_state;
                 ipc_send_barconfig_update_event(current);
             }
             if !bar_id.is_null() {

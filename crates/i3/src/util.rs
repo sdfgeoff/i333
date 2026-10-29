@@ -1,3 +1,8 @@
+use crate::types::Direction;
+use crate::types::Layout;
+use crate::types::Orientation;
+use crate::types::Position;
+use crate::types::ShutdownReason;
 use i3_common::mkdirp::mkdirp;
 use i3_common::safewrappers::sasprintf;
 /*
@@ -15,134 +20,40 @@ use i3_common::safewrappers::sasprintf;
 pub use i3_json::compat::{yajl_alloc_funcs, yajl_gen};
 use i3_json::compat::{yajl_gen_alloc, yajl_gen_free, yajl_gen_get_buf};
 pub use libev_sys::{ev_child, ev_child_start, ev_child_stop, ev_loop, ev_watcher};
-pub type size_t = usize;
-pub type __uint8_t = u8;
-pub type __int16_t = i16;
-pub type __uint16_t = u16;
-pub type __int32_t = i32;
-pub type __uint32_t = u32;
-pub type __int64_t = i64;
-pub type __uint64_t = u64;
-pub type __dev_t = ::core::ffi::c_ulong;
-pub type __uid_t = ::core::ffi::c_uint;
-pub type __gid_t = ::core::ffi::c_uint;
-pub type __ino_t = ::core::ffi::c_ulong;
-pub type __mode_t = ::core::ffi::c_uint;
-pub type __nlink_t = ::core::ffi::c_ulong;
-pub type __off_t = ::core::ffi::c_long;
-pub type __off64_t = ::core::ffi::c_long;
-pub type __pid_t = ::core::ffi::c_int;
-pub type __time_t = ::core::ffi::c_long;
-pub type __suseconds_t = ::core::ffi::c_long;
-pub type __blksize_t = ::core::ffi::c_long;
-pub type __blkcnt_t = ::core::ffi::c_long;
-pub type __syscall_slong_t = ::core::ffi::c_long;
-pub type mode_t = __mode_t;
-pub type pid_t = __pid_t;
-pub type ssize_t = isize;
-pub type time_t = __time_t;
-pub type int16_t = __int16_t;
-pub type int32_t = __int32_t;
-pub type int64_t = __int64_t;
-
-pub type uint8_t = __uint8_t;
-pub type uint16_t = __uint16_t;
-pub type uint32_t = __uint32_t;
 
 pub type i3String = _i3String;
 
-pub type C2RustUnnamed_1 = ::core::ffi::c_uint;
-pub const FONT_TYPE_PANGO: C2RustUnnamed_1 = 2;
-pub const FONT_TYPE_XCB: C2RustUnnamed_1 = 1;
-pub const FONT_TYPE_NONE: C2RustUnnamed_1 = 0;
 pub type i3Font = Font;
 
-pub type C2RustUnnamed_2 = ::core::ffi::c_uint;
-pub const SCRATCHPAD_CHANGED: C2RustUnnamed_2 = 2;
-pub const SCRATCHPAD_FRESH: C2RustUnnamed_2 = 1;
-pub const SCRATCHPAD_NONE: C2RustUnnamed_2 = 0;
-
-pub type C2RustUnnamed_7 = ::core::ffi::c_uint;
-pub const FLOATING_USER_ON: C2RustUnnamed_7 = 3;
-pub const FLOATING_AUTO_ON: C2RustUnnamed_7 = 2;
-pub const FLOATING_USER_OFF: C2RustUnnamed_7 = 1;
-pub const FLOATING_AUTO_OFF: C2RustUnnamed_7 = 0;
-pub type border_style_t = ::core::ffi::c_uint;
-pub const BS_NORMAL: border_style_t = 2;
-pub const BS_PIXEL: border_style_t = 1;
-pub const BS_NONE: border_style_t = 0;
-pub type layout_t = ::core::ffi::c_uint;
-pub const L_SPLITH: layout_t = 6;
-pub const L_SPLITV: layout_t = 5;
-pub const L_OUTPUT: layout_t = 4;
-pub const L_DOCKAREA: layout_t = 3;
-pub const L_TABBED: layout_t = 2;
-pub const L_STACKED: layout_t = 1;
-pub const L_DEFAULT: layout_t = 0;
 pub type fullscreen_mode_t = ::core::ffi::c_uint;
 pub const CF_GLOBAL: fullscreen_mode_t = 2;
 pub const CF_OUTPUT: fullscreen_mode_t = 1;
 pub const CF_NONE: fullscreen_mode_t = 0;
 
-pub type C2RustUnnamed_9 = ::core::ffi::c_uint;
-pub const M_BELOW: C2RustUnnamed_9 = 2;
-pub const M_ASSIGN_WS: C2RustUnnamed_9 = 1;
-pub const M_HERE: C2RustUnnamed_9 = 0;
-pub type C2RustUnnamed_10 = ::core::ffi::c_uint;
-pub const WM_FLOATING: C2RustUnnamed_10 = 6;
-pub const WM_FLOATING_USER: C2RustUnnamed_10 = 5;
-pub const WM_FLOATING_AUTO: C2RustUnnamed_10 = 4;
-pub const WM_TILING: C2RustUnnamed_10 = 3;
-pub const WM_TILING_USER: C2RustUnnamed_10 = 2;
-pub const WM_TILING_AUTO: C2RustUnnamed_10 = 1;
-pub const WM_ANY: C2RustUnnamed_10 = 0;
-pub type C2RustUnnamed_11 = ::core::ffi::c_int;
-pub const M_DOCK_BOTTOM: C2RustUnnamed_11 = 3;
-pub const M_DOCK_TOP: C2RustUnnamed_11 = 2;
-pub const M_DOCK_ANY: C2RustUnnamed_11 = 1;
-pub const M_NODOCK: C2RustUnnamed_11 = 0;
-pub const M_DONTCHECK: C2RustUnnamed_11 = -1;
-pub type C2RustUnnamed_12 = ::core::ffi::c_int;
-pub const U_OLDEST: C2RustUnnamed_12 = 1;
-pub const U_LATEST: C2RustUnnamed_12 = 0;
-pub const U_DONTCHECK: C2RustUnnamed_12 = -1;
+pub const M_BELOW: ::core::ffi::c_uint = 2;
+pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
+pub const M_HERE: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_13 = ::core::ffi::c_uint;
-pub const W_DOCK_BOTTOM: C2RustUnnamed_13 = 2;
-pub const W_DOCK_TOP: C2RustUnnamed_13 = 1;
-pub const W_NODOCK: C2RustUnnamed_13 = 0;
+pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
+pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
+pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
+pub const M_NODOCK: ::core::ffi::c_int = 0;
+pub const M_DONTCHECK: ::core::ffi::c_int = -1;
 
-pub type C2RustUnnamed_16 = ::core::ffi::c_uint;
-pub const A_TO_OUTPUT: C2RustUnnamed_16 = 16;
-pub const A_TO_WORKSPACE_NUMBER: C2RustUnnamed_16 = 8;
-pub const A_NO_FOCUS: C2RustUnnamed_16 = 4;
-pub const A_TO_WORKSPACE: C2RustUnnamed_16 = 2;
-pub const A_COMMAND: C2RustUnnamed_16 = 1;
-pub const A_ANY: C2RustUnnamed_16 = 0;
+pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
+pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
+pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
+pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
+pub const A_COMMAND: ::core::ffi::c_uint = 1;
+pub const A_ANY: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_18 = ::core::ffi::c_uint;
-pub const CT_DOCKAREA: C2RustUnnamed_18 = 5;
-pub const CT_WORKSPACE: C2RustUnnamed_18 = 4;
-pub const CT_FLOATING_CON: C2RustUnnamed_18 = 3;
-pub const CT_CON: C2RustUnnamed_18 = 2;
-pub const CT_OUTPUT: C2RustUnnamed_18 = 1;
-pub const CT_ROOT: C2RustUnnamed_18 = 0;
-pub type direction_t = ::core::ffi::c_uint;
-pub const D_DOWN: direction_t = 3;
-pub const D_UP: direction_t = 2;
-pub const D_RIGHT: direction_t = 1;
-pub const D_LEFT: direction_t = 0;
-pub type orientation_t = ::core::ffi::c_uint;
-pub const VERT: orientation_t = 2;
-pub const HORIZ: orientation_t = 1;
-pub const NO_ORIENTATION: orientation_t = 0;
-pub type position_t = ::core::ffi::c_uint;
-pub const AFTER: position_t = 1;
-pub const BEFORE: position_t = 0;
-pub type smart_gaps_t = ::core::ffi::c_uint;
-pub const SMART_GAPS_INVERSE_OUTER: smart_gaps_t = 2;
-pub const SMART_GAPS_ON: smart_gaps_t = 1;
-pub const SMART_GAPS_OFF: smart_gaps_t = 0;
+pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
+pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
+pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
+pub const CT_CON: ::core::ffi::c_uint = 2;
+pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
+pub const CT_ROOT: ::core::ffi::c_uint = 0;
+
 pub type hide_edge_borders_mode_t = ::core::ffi::c_uint;
 pub const HEBM_SMART_NO_GAPS: hide_edge_borders_mode_t = 64;
 pub const HEBM_SMART: hide_edge_borders_mode_t = 32;
@@ -150,53 +61,13 @@ pub const HEBM_BOTH: hide_edge_borders_mode_t = 23;
 pub const HEBM_HORIZONTAL: hide_edge_borders_mode_t = 20;
 pub const HEBM_VERTICAL: hide_edge_borders_mode_t = 3;
 pub const HEBM_NONE: hide_edge_borders_mode_t = 0;
-pub type warping_t = ::core::ffi::c_uint;
-pub const POINTER_WARPING_NONE: warping_t = 1;
-pub const POINTER_WARPING_OUTPUT: warping_t = 0;
-pub type focus_wrapping_t = ::core::ffi::c_uint;
-pub const FOCUS_WRAPPING_WORKSPACE: focus_wrapping_t = 3;
-pub const FOCUS_WRAPPING_FORCE: focus_wrapping_t = 2;
-pub const FOCUS_WRAPPING_ON: focus_wrapping_t = 1;
-pub const FOCUS_WRAPPING_OFF: focus_wrapping_t = 0;
-pub const _ISdigit: C2RustUnnamed_22 = 2048;
 
 pub type tiling_drag_t = ::core::ffi::c_uint;
 pub const TILING_DRAG_MODIFIER_OR_TITLEBAR: tiling_drag_t = 3;
 pub const TILING_DRAG_TITLEBAR: tiling_drag_t = 2;
 pub const TILING_DRAG_MODIFIER: tiling_drag_t = 1;
 pub const TILING_DRAG_OFF: tiling_drag_t = 0;
-pub type C2RustUnnamed_19 = ::core::ffi::c_uint;
-pub const PDF_ALL: C2RustUnnamed_19 = 3;
-pub const PDF_IGNORE: C2RustUnnamed_19 = 2;
-pub const PDF_LEAVE_FULLSCREEN: C2RustUnnamed_19 = 1;
-pub const PDF_SMART: C2RustUnnamed_19 = 0;
 
-pub type C2RustUnnamed_20 = ::core::ffi::c_uint;
-pub const ALIGN_RIGHT: C2RustUnnamed_20 = 2;
-pub const ALIGN_CENTER: C2RustUnnamed_20 = 1;
-pub const ALIGN_LEFT: C2RustUnnamed_20 = 0;
-pub type C2RustUnnamed_21 = ::core::ffi::c_uint;
-pub const FOWA_NONE: C2RustUnnamed_21 = 3;
-pub const FOWA_FOCUS: C2RustUnnamed_21 = 2;
-pub const FOWA_URGENT: C2RustUnnamed_21 = 1;
-pub const FOWA_SMART: C2RustUnnamed_21 = 0;
-
-pub type shutdown_reason_t = ::core::ffi::c_uint;
-pub const SHUTDOWN_REASON_EXIT: shutdown_reason_t = 1;
-pub const SHUTDOWN_REASON_RESTART: shutdown_reason_t = 0;
-
-pub type C2RustUnnamed_22 = ::core::ffi::c_uint;
-pub const _ISalnum: C2RustUnnamed_22 = 8;
-pub const _ISpunct: C2RustUnnamed_22 = 4;
-pub const _IScntrl: C2RustUnnamed_22 = 2;
-pub const _ISblank: C2RustUnnamed_22 = 1;
-pub const _ISgraph: C2RustUnnamed_22 = 32768;
-pub const _ISprint: C2RustUnnamed_22 = 16384;
-pub const _ISspace: C2RustUnnamed_22 = 8192;
-pub const _ISxdigit: C2RustUnnamed_22 = 4096;
-pub const _ISalpha: C2RustUnnamed_22 = 1024;
-pub const _ISlower: C2RustUnnamed_22 = 512;
-pub const _ISupper: C2RustUnnamed_22 = 256;
 pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 pub const __S_IREAD: ::core::ffi::c_int = 0o400 as ::core::ffi::c_int;
@@ -237,7 +108,7 @@ pub unsafe fn max(a: ::core::ffi::c_int, b: ::core::ffi::c_int) -> ::core::ffi::
     }
 }
 
-pub unsafe fn rect_contains(rect: Rect, x: uint32_t, y: uint32_t) -> bool {
+pub unsafe fn rect_contains(rect: Rect, x: u32, y: u32) -> bool {
     x >= rect.x
         && x <= rect.x.wrapping_add(rect.width)
         && y >= rect.y
@@ -263,13 +134,13 @@ pub unsafe fn rect_sub(a: Rect, b: Rect) -> Rect {
 }
 
 pub unsafe fn rect_sanitize_dimensions(mut rect: Rect) -> Rect {
-    rect.width = if rect.width as int32_t <= 0 as int32_t {
-        1 as uint32_t
+    rect.width = if rect.width as i32 <= 0 as i32 {
+        1 as u32
     } else {
         rect.width
     };
-    rect.height = if rect.height as int32_t <= 0 as int32_t {
-        1 as uint32_t
+    rect.height = if rect.height as i32 <= 0 as i32 {
+        1 as u32
     } else {
         rect.height
     };
@@ -281,12 +152,13 @@ pub unsafe fn rect_equals(a: Rect, b: Rect) -> bool {
 }
 
 pub unsafe fn name_is_digits(name: *const ::core::ffi::c_char) -> bool {
-    let mut i: size_t = 0 as size_t;
+    let mut i: usize = 0 as usize;
     while i < strlen(name) {
         if *(*__ctype_b_loc())
             .offset(*name.offset(i as isize) as ::core::ffi::c_uchar as ::core::ffi::c_int as isize)
             as ::core::ffi::c_int
-            & _ISdigit as ::core::ffi::c_int as ::core::ffi::c_ushort as ::core::ffi::c_int
+            & i3_common::native_stdio::CTYPE_DIGIT as ::core::ffi::c_int as ::core::ffi::c_ushort
+                as ::core::ffi::c_int
             == 0
         {
             return false_0 != 0;
@@ -296,27 +168,27 @@ pub unsafe fn name_is_digits(name: *const ::core::ffi::c_char) -> bool {
     true_0 != 0
 }
 
-pub unsafe fn layout_from_name(layout_str: *const ::core::ffi::c_char, out: *mut layout_t) -> bool {
+pub unsafe fn layout_from_name(layout_str: *const ::core::ffi::c_char, out: *mut Layout) -> bool {
     if strcmp(layout_str, c"default".as_ptr()) == 0 as ::core::ffi::c_int {
-        *out = L_DEFAULT;
+        *out = Layout::Default;
         return true_0 != 0;
     }
     if strcasecmp(layout_str, c"stacked".as_ptr()) == 0 as ::core::ffi::c_int
         || strcasecmp(layout_str, c"stacking".as_ptr()) == 0 as ::core::ffi::c_int
     {
-        *out = L_STACKED;
+        *out = Layout::Stacked;
         return true_0 != 0;
     }
     if strcasecmp(layout_str, c"tabbed".as_ptr()) == 0 as ::core::ffi::c_int {
-        *out = L_TABBED;
+        *out = Layout::Tabbed;
         return true_0 != 0;
     }
     if strcasecmp(layout_str, c"splitv".as_ptr()) == 0 as ::core::ffi::c_int {
-        *out = L_SPLITV;
+        *out = Layout::SplitV;
         return true_0 != 0;
     }
     if strcasecmp(layout_str, c"splith".as_ptr()) == 0 as ::core::ffi::c_int {
-        *out = L_SPLITH;
+        *out = Layout::SplitH;
         return true_0 != 0;
     }
     false_0 != 0
@@ -337,8 +209,8 @@ pub unsafe fn ws_name_to_number(name: *const ::core::ffi::c_char) -> ::core::ffi
     parsed_num as ::core::ffi::c_int
 }
 
-pub unsafe fn update_if_necessary(destination: *mut uint32_t, new_value: uint32_t) -> bool {
-    let old_value: uint32_t = *destination;
+pub unsafe fn update_if_necessary(destination: *mut u32, new_value: u32) -> bool {
+    let old_value: u32 = *destination;
     *destination = new_value;
     *destination != old_value
 }
@@ -359,8 +231,8 @@ pub unsafe fn exec_i3_utility(name: *mut ::core::ffi::c_char, argv: *mut *mut ::
     if readlink(
         c"/proc/self/exe".as_ptr(),
         &raw mut buffer as *mut ::core::ffi::c_char,
-        BUFSIZ as size_t,
-    ) == -(1 as ::core::ffi::c_int) as ssize_t
+        BUFSIZ as usize,
+    ) == -(1 as ::core::ffi::c_int) as isize
     {
         warn(c"could not read /proc/self/exe".as_ptr());
         _exit(EXIT_FAILURE);
@@ -385,8 +257,8 @@ unsafe fn add_argument(
         num_args += 1;
     }
     let result: *mut *mut ::core::ffi::c_char = scalloc(
-        (num_args + 3 as ::core::ffi::c_int) as size_t,
-        ::core::mem::size_of::<*mut ::core::ffi::c_char>() as size_t,
+        (num_args + 3 as ::core::ffi::c_int) as usize,
+        ::core::mem::size_of::<*mut ::core::ffi::c_char>() as usize,
     ) as *mut *mut ::core::ffi::c_char;
     let mut write_index: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
     let mut skip_next: bool = false_0 != 0;
@@ -427,7 +299,7 @@ unsafe fn store_restart_layout() -> *mut ::core::ffi::c_char {
     setlocale(LC_NUMERIC, prev_locale);
     free(prev_locale as *mut ::core::ffi::c_void);
     let mut payload: *const ::core::ffi::c_uchar = ::core::ptr::null::<::core::ffi::c_uchar>();
-    let mut length: size_t = 0;
+    let mut length: usize = 0;
     yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
     let mut filename: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
     if config.restart_state_path.is_null() {
@@ -449,7 +321,7 @@ unsafe fn store_restart_layout() -> *mut ::core::ffi::c_char {
         253 as ::core::ffi::c_int,
         base,
     );
-    if mkdirp(base, DEFAULT_DIR_MODE as mode_t) != 0 as ::core::ffi::c_int {
+    if mkdirp(base, DEFAULT_DIR_MODE as libc::mode_t) != 0 as ::core::ffi::c_int {
         errorlog(
             c"ERROR: Could not create \"%s\" for storing the restart layout, layout will be lost.\n".as_ptr().cast_mut(),
             base,
@@ -463,7 +335,7 @@ unsafe fn store_restart_layout() -> *mut ::core::ffi::c_char {
         return ::core::ptr::null_mut::<::core::ffi::c_char>();
     }
     if writeall(fd, payload as *const ::core::ffi::c_void, length)
-        == -(1 as ::core::ffi::c_int) as ssize_t
+        == -(1 as ::core::ffi::c_int) as isize
     {
         errorlog(
             c"ERROR: Could not write restart layout to \"%s\", layout will be lost: %s\n"
@@ -477,7 +349,7 @@ unsafe fn store_restart_layout() -> *mut ::core::ffi::c_char {
         return ::core::ptr::null_mut::<::core::ffi::c_char>();
     }
     close(fd);
-    if length > 0 as size_t {
+    if length > 0 as usize {
         debuglog(
             c"%s:%s:%d - layout: %.*s\n".as_ptr().cast_mut(),
             c"../src/util.c".as_ptr(),
@@ -500,7 +372,7 @@ pub unsafe fn i3_restart(forget_layout: bool) {
     kill_nagbar(config_error_nagbar_pid, true_0 != 0);
     kill_nagbar(command_error_nagbar_pid, true_0 != 0);
     restore_geometry();
-    ipc_shutdown(SHUTDOWN_REASON_RESTART, -(1 as ::core::ffi::c_int));
+    ipc_shutdown(ShutdownReason::Restart, -(1 as ::core::ffi::c_int));
     verboselog(
         c"restarting \"%s\"...\n".as_ptr().cast_mut(),
         *start_argv.offset(0 as ::core::ffi::c_int as isize),
@@ -585,13 +457,13 @@ unsafe extern "C" fn nagbar_exited(
             exitcode,
         );
     }
-    let nagbar_pid: *mut pid_t = (*watcher).data as *mut pid_t;
+    let nagbar_pid: *mut libc::pid_t = (*watcher).data as *mut libc::pid_t;
     if *nagbar_pid == (*watcher).pid {
-        *nagbar_pid = -(1 as ::core::ffi::c_int) as pid_t;
+        *nagbar_pid = -(1 as ::core::ffi::c_int) as libc::pid_t;
     }
 }
 
-pub unsafe fn start_nagbar(nagbar_pid: *mut pid_t, argv: *mut *mut ::core::ffi::c_char) {
+pub unsafe fn start_nagbar(nagbar_pid: *mut libc::pid_t, argv: *mut *mut ::core::ffi::c_char) {
     if *nagbar_pid != -(1 as ::core::ffi::c_int) {
         debuglog(
             c"%s:%s:%d - i3-nagbar already running (PID %d), not starting again.\n"
@@ -604,7 +476,7 @@ pub unsafe fn start_nagbar(nagbar_pid: *mut pid_t, argv: *mut *mut ::core::ffi::
         );
         return;
     }
-    *nagbar_pid = fork() as pid_t;
+    *nagbar_pid = fork() as libc::pid_t;
     if *nagbar_pid == -(1 as ::core::ffi::c_int) {
         warn(c"Could not fork()".as_ptr());
         return;
@@ -622,7 +494,7 @@ pub unsafe fn start_nagbar(nagbar_pid: *mut pid_t, argv: *mut *mut ::core::ffi::
         *nagbar_pid,
     );
     let child: *mut ev_child =
-        smalloc(::core::mem::size_of::<ev_child>() as size_t) as *mut ev_child;
+        smalloc(::core::mem::size_of::<ev_child>() as usize) as *mut ev_child;
     let ref mut fresh8 = (*(child as *mut ::core::ffi::c_void as *mut ev_watcher)).pending;
     *fresh8 = 0 as ::core::ffi::c_int;
     (*(child as *mut ::core::ffi::c_void as *mut ev_watcher)).active = *fresh8;
@@ -637,7 +509,7 @@ pub unsafe fn start_nagbar(nagbar_pid: *mut pid_t, argv: *mut *mut ::core::ffi::
         &raw mut (*child).cb as *const ::core::ffi::c_void,
         ::core::mem::size_of::<
             Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_child, ::core::ffi::c_int) -> ()>,
-        >() as size_t,
+        >() as usize,
     );
     (*child).pid = *nagbar_pid as ::core::ffi::c_int;
     (*child).flags = (0 as ::core::ffi::c_int != 0) as ::core::ffi::c_int;
@@ -645,18 +517,18 @@ pub unsafe fn start_nagbar(nagbar_pid: *mut pid_t, argv: *mut *mut ::core::ffi::
     ev_child_start(main_loop, child);
 }
 
-pub unsafe fn kill_nagbar(nagbar_pid: pid_t, wait_for_it: bool) {
+pub unsafe fn kill_nagbar(nagbar_pid: libc::pid_t, wait_for_it: bool) {
     if nagbar_pid == -(1 as ::core::ffi::c_int) {
         return;
     }
-    if kill(nagbar_pid as __pid_t, SIGTERM) == -(1 as ::core::ffi::c_int) {
+    if kill(nagbar_pid as libc::pid_t, SIGTERM) == -(1 as ::core::ffi::c_int) {
         warn(c"kill(configerror_nagbar) failed".as_ptr());
     }
     if !wait_for_it {
         return;
     }
     waitpid(
-        nagbar_pid as __pid_t,
+        nagbar_pid as libc::pid_t,
         ::core::ptr::null_mut::<::core::ffi::c_int>(),
         0 as ::core::ffi::c_int,
     );
@@ -681,10 +553,7 @@ pub unsafe fn parse_long(
     true_0 != 0
 }
 
-pub unsafe fn slurp(
-    path: *const ::core::ffi::c_char,
-    buf: *mut *mut ::core::ffi::c_char,
-) -> ssize_t {
+pub unsafe fn slurp(path: *const ::core::ffi::c_char, buf: *mut *mut ::core::ffi::c_char) -> isize {
     let mut f: *mut FILE = ::core::ptr::null_mut::<FILE>();
     f = fopen(path, c"r".as_ptr()) as *mut FILE;
     if f.is_null() {
@@ -693,7 +562,7 @@ pub unsafe fn slurp(
             path,
             strerror(*__errno_location()),
         );
-        return -(1 as ::core::ffi::c_int) as ssize_t;
+        return -(1 as ::core::ffi::c_int) as isize;
     }
     let mut stbuf: stat = ::core::mem::zeroed();
     if fstat(fileno(f), &raw mut stbuf) != 0 as ::core::ffi::c_int {
@@ -703,91 +572,73 @@ pub unsafe fn slurp(
             strerror(*__errno_location()),
         );
         fclose(f);
-        return -(1 as ::core::ffi::c_int) as ssize_t;
+        return -(1 as ::core::ffi::c_int) as isize;
     }
-    *buf =
-        scalloc((stbuf.st_size + 1 as __off_t) as size_t, 1 as size_t) as *mut ::core::ffi::c_char;
-    let n: size_t = fread(
+    *buf = scalloc((stbuf.st_size + 1 as libc::off_t) as usize, 1 as usize)
+        as *mut ::core::ffi::c_char;
+    let n: usize = fread(
         *buf as *mut ::core::ffi::c_void,
-        1 as size_t,
-        stbuf.st_size as size_t,
+        1 as usize,
+        stbuf.st_size as usize,
         f,
-    ) as size_t;
+    ) as usize;
     fclose(f);
-    if n as ssize_t != stbuf.st_size as ssize_t {
+    if n as isize != stbuf.st_size as isize {
         errorlog(
             c"ERROR: File \"%s\" could not be read entirely: got %zd, want %li\n"
                 .as_ptr()
                 .cast_mut(),
             path,
             n,
-            stbuf.st_size as int64_t,
+            stbuf.st_size as i64,
         );
         free(*buf as *mut ::core::ffi::c_void);
         *buf = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        return -(1 as ::core::ffi::c_int) as ssize_t;
+        return -(1 as ::core::ffi::c_int) as isize;
     }
-    n as ssize_t
+    n as isize
 }
 
-pub unsafe fn orientation_from_direction(direction: direction_t) -> orientation_t {
-    (if direction as ::core::ffi::c_uint == D_LEFT as ::core::ffi::c_int as ::core::ffi::c_uint
-        || direction as ::core::ffi::c_uint == D_RIGHT as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
-        HORIZ as ::core::ffi::c_int
-    } else {
-        VERT as ::core::ffi::c_int
-    }) as orientation_t
-}
-
-pub unsafe fn position_from_direction(direction: direction_t) -> position_t {
-    (if direction as ::core::ffi::c_uint == D_LEFT as ::core::ffi::c_int as ::core::ffi::c_uint
-        || direction as ::core::ffi::c_uint == D_UP as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
-        BEFORE as ::core::ffi::c_int
-    } else {
-        AFTER as ::core::ffi::c_int
-    }) as position_t
-}
-
-pub unsafe fn direction_from_orientation_position(
-    orientation: orientation_t,
-    position: position_t,
-) -> direction_t {
-    if orientation as ::core::ffi::c_uint == HORIZ as ::core::ffi::c_int as ::core::ffi::c_uint {
-        ((if position as ::core::ffi::c_uint == BEFORE as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
-            D_LEFT as ::core::ffi::c_int
-        } else {
-            D_RIGHT as ::core::ffi::c_int
-        }) as direction_t)
-    } else {
-        (if position as ::core::ffi::c_uint == BEFORE as ::core::ffi::c_int as ::core::ffi::c_uint {
-            D_UP as ::core::ffi::c_int
-        } else {
-            D_DOWN as ::core::ffi::c_int
-        }) as direction_t
+pub fn orientation_from_direction(direction: Direction) -> Orientation {
+    match direction {
+        Direction::Left | Direction::Right => Orientation::Horizontal,
+        Direction::Up | Direction::Down => Orientation::Vertical,
     }
 }
 
-pub unsafe fn direction_to_string(direction: direction_t) -> *const ::core::ffi::c_char {
-    match direction as ::core::ffi::c_uint {
-        0 => return c"left".as_ptr(),
-        1 => return c"right".as_ptr(),
-        2 => return c"up".as_ptr(),
-        3 => return c"down".as_ptr(),
-        _ => {}
+pub fn position_from_direction(direction: Direction) -> Position {
+    match direction {
+        Direction::Left | Direction::Up => Position::Before,
+        Direction::Right | Direction::Down => Position::After,
     }
-    c"invalid".as_ptr()
 }
 
-pub unsafe fn position_to_string(position: position_t) -> *const ::core::ffi::c_char {
-    match position as ::core::ffi::c_uint {
-        0 => return c"before".as_ptr(),
-        1 => return c"after".as_ptr(),
-        _ => {}
+pub fn direction_from_orientation_position(
+    orientation: Orientation,
+    position: Position,
+) -> Direction {
+    match (orientation, position) {
+        (Orientation::Horizontal, Position::Before) => Direction::Left,
+        (Orientation::Horizontal, Position::After) => Direction::Right,
+        (Orientation::None | Orientation::Vertical, Position::Before) => Direction::Up,
+        (Orientation::None | Orientation::Vertical, Position::After) => Direction::Down,
     }
-    c"invalid".as_ptr()
+}
+
+pub fn direction_to_string(direction: Direction) -> *const ::core::ffi::c_char {
+    match direction {
+        Direction::Left => c"left".as_ptr(),
+        Direction::Right => c"right".as_ptr(),
+        Direction::Up => c"up".as_ptr(),
+        Direction::Down => c"down".as_ptr(),
+    }
+}
+
+pub fn position_to_string(position: Position) -> *const ::core::ffi::c_char {
+    match position {
+        Position::Before => c"before".as_ptr(),
+        Position::After => c"after".as_ptr(),
+    }
 }
 pub const EXIT_FAILURE: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 pub const LONG_MAX: ::core::ffi::c_long = __LONG_MAX__;

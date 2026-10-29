@@ -7,16 +7,10 @@
  */
 // Mechanical file-by-file Rust translation of libi3/get_mod_mask.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
-pub type __uint8_t = u8;
-pub type __uint16_t = u16;
-pub type __uint32_t = u32;
-pub type uint8_t = __uint8_t;
-pub type uint16_t = __uint16_t;
-pub type uint32_t = __uint32_t;
 
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 
-pub unsafe fn aio_get_mod_mask_for(keysym: uint32_t, symbols: *mut xcb_key_symbols_t) -> uint32_t {
+pub unsafe fn aio_get_mod_mask_for(keysym: u32, symbols: *mut xcb_key_symbols_t) -> u32 {
     let crate::display::DisplayContext {
         connection: conn, ..
     } = crate::display::context();
@@ -33,25 +27,25 @@ pub unsafe fn aio_get_mod_mask_for(keysym: uint32_t, symbols: *mut xcb_key_symbo
         ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
     );
     if modmap_r.is_null() {
-        return 0 as uint32_t;
+        return 0 as u32;
     }
-    let result: uint32_t = get_mod_mask_for(keysym, symbols, modmap_r);
+    let result: u32 = get_mod_mask_for(keysym, symbols, modmap_r);
     free(modmap_r as *mut ::core::ffi::c_void);
     result
 }
 
 pub unsafe fn get_mod_mask_for(
-    keysym: uint32_t,
+    keysym: u32,
     symbols: *mut xcb_key_symbols_t,
     modmap_reply: *mut xcb_get_modifier_mapping_reply_t,
-) -> uint32_t {
+) -> u32 {
     let mut codes: *mut xcb_keycode_t = ::core::ptr::null_mut::<xcb_keycode_t>();
     let mut modmap: *mut xcb_keycode_t = ::core::ptr::null_mut::<xcb_keycode_t>();
     let mut mod_code: xcb_keycode_t = 0;
     modmap = xcb_get_modifier_mapping_keycodes(modmap_reply);
     codes = xcb_key_symbols_get_keycode(symbols, keysym as xcb_keysym_t);
     if codes.is_null() {
-        return 0 as uint32_t;
+        return 0 as u32;
     }
     let mut mod_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
     while mod_0 < 8 as ::core::ffi::c_int {
@@ -66,14 +60,14 @@ pub unsafe fn get_mod_mask_for(
                     code = code.offset(1);
                 } else {
                     free(codes as *mut ::core::ffi::c_void);
-                    return ((1 as ::core::ffi::c_int) << mod_0) as uint32_t;
+                    return ((1 as ::core::ffi::c_int) << mod_0) as u32;
                 }
             }
             j += 1;
         }
         mod_0 += 1;
     }
-    0 as uint32_t
+    0 as u32
 }
 
 use xcb_sys::{

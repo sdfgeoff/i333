@@ -14,14 +14,6 @@ use i3_common::safewrappers::sasprintf;
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 use i3_json::compat::{yajl_alloc, yajl_free, yajl_parse};
 pub use i3_json::compat::{yajl_alloc_funcs, yajl_callbacks, yajl_handle, yajl_status};
-pub type size_t = usize;
-pub type __uint32_t = u32;
-pub type __uint64_t = u64;
-pub type __off_t = ::core::ffi::c_long;
-pub type __off64_t = ::core::ffi::c_long;
-
-pub type uint32_t = __uint32_t;
-pub type uintptr_t = usize;
 
 pub type i3String = _i3String;
 pub use crate::child::rect_t;
@@ -40,19 +32,6 @@ pub struct outputs_json_params {
     pub cur_key: *mut ::core::ffi::c_char,
     pub in_rect: bool,
 }
-
-pub type C2RustUnnamed_2 = ::core::ffi::c_uint;
-pub const S_SHOW: C2RustUnnamed_2 = 1;
-pub const S_HIDE: C2RustUnnamed_2 = 0;
-pub type bar_display_mode_t = ::core::ffi::c_uint;
-pub const M_INVISIBLE: bar_display_mode_t = 2;
-pub const M_HIDE: bar_display_mode_t = 1;
-pub const M_DOCK: bar_display_mode_t = 0;
-
-pub type position_t = ::core::ffi::c_uint;
-pub const POS_BOT: position_t = 2;
-pub const POS_TOP: position_t = 1;
-pub const POS_NONE: position_t = 0;
 
 pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
@@ -122,7 +101,7 @@ unsafe fn outputs_integer_cb(
 unsafe fn outputs_string_cb(
     params_: *mut ::core::ffi::c_void,
     val: *const ::core::ffi::c_uchar,
-    len: size_t,
+    len: usize,
 ) -> ::core::ffi::c_int {
     let params: *mut outputs_json_params = params_ as *mut outputs_json_params;
     if strcmp((*params).cur_key, c"current_workspace".as_ptr()) == 0 {
@@ -164,7 +143,7 @@ unsafe fn outputs_start_map_cb(params_: *mut ::core::ffi::c_void) -> ::core::ffi
     let params: *mut outputs_json_params = params_ as *mut outputs_json_params;
     let mut new_output: *mut i3_output = ::core::ptr::null_mut::<i3_output>();
     if (*params).cur_key.is_null() {
-        new_output = smalloc(::core::mem::size_of::<i3_output>() as size_t) as *mut i3_output;
+        new_output = smalloc(::core::mem::size_of::<i3_output>() as usize) as *mut i3_output;
         (*new_output).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
         (*new_output).active = false_0 != 0;
         (*new_output).primary = false_0 != 0;
@@ -174,29 +153,29 @@ unsafe fn outputs_start_map_cb(params_: *mut ::core::ffi::c_void) -> ::core::ffi
         memset(
             &raw mut (*new_output).rect as *mut ::core::ffi::c_void,
             0 as ::core::ffi::c_int,
-            ::core::mem::size_of::<rect>() as size_t,
+            ::core::mem::size_of::<rect>() as usize,
         );
         memset(
             &raw mut (*new_output).bar as *mut ::core::ffi::c_void,
             0 as ::core::ffi::c_int,
-            ::core::mem::size_of::<surface_t>() as size_t,
+            ::core::mem::size_of::<surface_t>() as usize,
         );
         memset(
             &raw mut (*new_output).buffer as *mut ::core::ffi::c_void,
             0 as ::core::ffi::c_int,
-            ::core::mem::size_of::<surface_t>() as size_t,
+            ::core::mem::size_of::<surface_t>() as usize,
         );
         memset(
             &raw mut (*new_output).statusline_buffer as *mut ::core::ffi::c_void,
             0 as ::core::ffi::c_int,
-            ::core::mem::size_of::<surface_t>() as size_t,
+            ::core::mem::size_of::<surface_t>() as usize,
         );
         (*new_output).workspaces =
-            smalloc(::core::mem::size_of::<ws_head>() as size_t) as *mut ws_head;
+            smalloc(::core::mem::size_of::<ws_head>() as usize) as *mut ws_head;
         (*(*new_output).workspaces).tqh_first = ::core::ptr::null_mut::<i3_ws>();
         (*(*new_output).workspaces).tqh_last = &raw mut (*(*new_output).workspaces).tqh_first;
         (*new_output).trayclients =
-            smalloc(::core::mem::size_of::<tc_head>() as size_t) as *mut tc_head;
+            smalloc(::core::mem::size_of::<tc_head>() as usize) as *mut tc_head;
         (*(*new_output).trayclients).tqh_first = ::core::ptr::null_mut::<trayclient>();
         (*(*new_output).trayclients).tqh_last = &raw mut (*(*new_output).trayclients).tqh_first;
         (*params).outputs_walk = new_output;
@@ -278,7 +257,7 @@ unsafe fn outputs_end_map_cb(params_: *mut ::core::ffi::c_void) -> ::core::ffi::
 unsafe fn outputs_map_key_cb(
     params_: *mut ::core::ffi::c_void,
     keyVal: *const ::core::ffi::c_uchar,
-    keyLen: size_t,
+    keyLen: usize,
 ) -> ::core::ffi::c_int {
     let params: *mut outputs_json_params = params_ as *mut outputs_json_params;
     free((*params).cur_key as *mut ::core::ffi::c_void);
@@ -314,7 +293,7 @@ static mut outputs_callbacks: yajl_callbacks = unsafe {
                 as unsafe fn(
                     *mut ::core::ffi::c_void,
                     *const ::core::ffi::c_uchar,
-                    size_t,
+                    usize,
                 ) -> ::core::ffi::c_int,
         ),
         yajl_start_map: Some(
@@ -325,7 +304,7 @@ static mut outputs_callbacks: yajl_callbacks = unsafe {
                 as unsafe fn(
                     *mut ::core::ffi::c_void,
                     *const ::core::ffi::c_uchar,
-                    size_t,
+                    usize,
                 ) -> ::core::ffi::c_int,
         ),
         yajl_end_map: Some(
@@ -340,11 +319,11 @@ pub static mut outputs: *mut outputs_head =
     ::core::ptr::null::<outputs_head>() as *mut outputs_head;
 
 pub unsafe fn init_outputs() {
-    outputs = smalloc(::core::mem::size_of::<outputs_head>() as size_t) as *mut outputs_head;
+    outputs = smalloc(::core::mem::size_of::<outputs_head>() as usize) as *mut outputs_head;
     (*outputs).slh_first = ::core::ptr::null_mut::<i3_output>();
 }
 
-pub unsafe fn parse_outputs_json(json: *const ::core::ffi::c_uchar, size: size_t) {
+pub unsafe fn parse_outputs_json(json: *const ::core::ffi::c_uchar, size: usize) {
     let mut params: outputs_json_params = outputs_json_params {
         outputs_walk: ::core::ptr::null_mut::<i3_output>(),
         cur_key: ::core::ptr::null_mut::<::core::ffi::c_char>(),
@@ -367,7 +346,7 @@ pub unsafe fn parse_outputs_json(json: *const ::core::ffi::c_uchar, size: size_t
                 c"../i3bar/src/outputs.c".as_ptr(),
                 282 as ::core::ffi::c_int,
             );
-            exit(EXIT_FAILURE);
+            exit(libc::EXIT_FAILURE);
         }
         0 | _ => {}
     }
@@ -450,7 +429,6 @@ pub unsafe fn output_has_focus(output: *mut i3_output) -> bool {
     }
     false_0 != 0
 }
-pub const EXIT_FAILURE: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 
 // Internal helpers use Rust linkage rather than foreign symbol lookup.
 use crate::workspaces::free_workspaces;

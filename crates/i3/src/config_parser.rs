@@ -80,6 +80,8 @@ use crate::parser_util::parser_get_long;
 use crate::parser_util::parser_get_string;
 use crate::parser_util::parser_push_long;
 use crate::parser_util::parser_push_string;
+use crate::parser_util::StackValueKind;
+use crate::types::ParseFileResult;
 use i3_common::safewrappers::sasprintf;
 /*
  * vim:ts=4:sw=4:expandtab
@@ -108,119 +110,40 @@ use i3_common::safewrappers::sasprintf;
  */
 // Mechanical file-by-file Rust translation of src/config_parser.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
-pub type size_t = usize;
-pub type __uint8_t = u8;
-pub type __int16_t = i16;
-pub type __uint16_t = u16;
-pub type __int32_t = i32;
-pub type __uint32_t = u32;
-pub type __uint64_t = u64;
-pub type __dev_t = ::core::ffi::c_ulong;
-pub type __uid_t = ::core::ffi::c_uint;
-pub type __gid_t = ::core::ffi::c_uint;
-pub type __ino_t = ::core::ffi::c_ulong;
-pub type __mode_t = ::core::ffi::c_uint;
-pub type __nlink_t = ::core::ffi::c_ulong;
-pub type __off_t = ::core::ffi::c_long;
-pub type __off64_t = ::core::ffi::c_long;
-pub type __pid_t = ::core::ffi::c_int;
-pub type __time_t = ::core::ffi::c_long;
-pub type __suseconds_t = ::core::ffi::c_long;
-pub type __blksize_t = ::core::ffi::c_long;
-pub type __blkcnt_t = ::core::ffi::c_long;
-pub type __syscall_slong_t = ::core::ffi::c_long;
-pub type pid_t = __pid_t;
-pub type ssize_t = isize;
-pub type time_t = __time_t;
-pub type int16_t = __int16_t;
-pub type int32_t = __int32_t;
-
-pub type uint8_t = __uint8_t;
-pub type uint16_t = __uint16_t;
-pub type uint32_t = __uint32_t;
 
 pub type i3String = _i3String;
 
-pub type C2RustUnnamed_1 = ::core::ffi::c_uint;
-pub const FONT_TYPE_PANGO: C2RustUnnamed_1 = 2;
-pub const FONT_TYPE_XCB: C2RustUnnamed_1 = 1;
-pub const FONT_TYPE_NONE: C2RustUnnamed_1 = 0;
 pub type i3Font = Font;
 
-pub type C2RustUnnamed_2 = ::core::ffi::c_uint;
-pub const SCRATCHPAD_CHANGED: C2RustUnnamed_2 = 2;
-pub const SCRATCHPAD_FRESH: C2RustUnnamed_2 = 1;
-pub const SCRATCHPAD_NONE: C2RustUnnamed_2 = 0;
-
-pub type C2RustUnnamed_7 = ::core::ffi::c_uint;
-pub const FLOATING_USER_ON: C2RustUnnamed_7 = 3;
-pub const FLOATING_AUTO_ON: C2RustUnnamed_7 = 2;
-pub const FLOATING_USER_OFF: C2RustUnnamed_7 = 1;
-pub const FLOATING_AUTO_OFF: C2RustUnnamed_7 = 0;
-pub type border_style_t = ::core::ffi::c_uint;
-pub const BS_NORMAL: border_style_t = 2;
-pub const BS_PIXEL: border_style_t = 1;
-pub const BS_NONE: border_style_t = 0;
-pub type layout_t = ::core::ffi::c_uint;
-pub const L_SPLITH: layout_t = 6;
-pub const L_SPLITV: layout_t = 5;
-pub const L_OUTPUT: layout_t = 4;
-pub const L_DOCKAREA: layout_t = 3;
-pub const L_TABBED: layout_t = 2;
-pub const L_STACKED: layout_t = 1;
-pub const L_DEFAULT: layout_t = 0;
 pub type fullscreen_mode_t = ::core::ffi::c_uint;
 pub const CF_GLOBAL: fullscreen_mode_t = 2;
 pub const CF_OUTPUT: fullscreen_mode_t = 1;
 pub const CF_NONE: fullscreen_mode_t = 0;
 
-pub type C2RustUnnamed_9 = ::core::ffi::c_uint;
-pub const M_BELOW: C2RustUnnamed_9 = 2;
-pub const M_ASSIGN_WS: C2RustUnnamed_9 = 1;
-pub const M_HERE: C2RustUnnamed_9 = 0;
-pub type C2RustUnnamed_10 = ::core::ffi::c_uint;
-pub const WM_FLOATING: C2RustUnnamed_10 = 6;
-pub const WM_FLOATING_USER: C2RustUnnamed_10 = 5;
-pub const WM_FLOATING_AUTO: C2RustUnnamed_10 = 4;
-pub const WM_TILING: C2RustUnnamed_10 = 3;
-pub const WM_TILING_USER: C2RustUnnamed_10 = 2;
-pub const WM_TILING_AUTO: C2RustUnnamed_10 = 1;
-pub const WM_ANY: C2RustUnnamed_10 = 0;
-pub type C2RustUnnamed_11 = ::core::ffi::c_int;
-pub const M_DOCK_BOTTOM: C2RustUnnamed_11 = 3;
-pub const M_DOCK_TOP: C2RustUnnamed_11 = 2;
-pub const M_DOCK_ANY: C2RustUnnamed_11 = 1;
-pub const M_NODOCK: C2RustUnnamed_11 = 0;
-pub const M_DONTCHECK: C2RustUnnamed_11 = -1;
-pub type C2RustUnnamed_12 = ::core::ffi::c_int;
-pub const U_OLDEST: C2RustUnnamed_12 = 1;
-pub const U_LATEST: C2RustUnnamed_12 = 0;
-pub const U_DONTCHECK: C2RustUnnamed_12 = -1;
+pub const M_BELOW: ::core::ffi::c_uint = 2;
+pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
+pub const M_HERE: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_13 = ::core::ffi::c_uint;
-pub const W_DOCK_BOTTOM: C2RustUnnamed_13 = 2;
-pub const W_DOCK_TOP: C2RustUnnamed_13 = 1;
-pub const W_NODOCK: C2RustUnnamed_13 = 0;
+pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
+pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
+pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
+pub const M_NODOCK: ::core::ffi::c_int = 0;
+pub const M_DONTCHECK: ::core::ffi::c_int = -1;
 
-pub type C2RustUnnamed_16 = ::core::ffi::c_uint;
-pub const A_TO_OUTPUT: C2RustUnnamed_16 = 16;
-pub const A_TO_WORKSPACE_NUMBER: C2RustUnnamed_16 = 8;
-pub const A_NO_FOCUS: C2RustUnnamed_16 = 4;
-pub const A_TO_WORKSPACE: C2RustUnnamed_16 = 2;
-pub const A_COMMAND: C2RustUnnamed_16 = 1;
-pub const A_ANY: C2RustUnnamed_16 = 0;
+pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
+pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
+pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
+pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
+pub const A_COMMAND: ::core::ffi::c_uint = 1;
+pub const A_ANY: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_18 = ::core::ffi::c_uint;
-pub const CT_DOCKAREA: C2RustUnnamed_18 = 5;
-pub const CT_WORKSPACE: C2RustUnnamed_18 = 4;
-pub const CT_FLOATING_CON: C2RustUnnamed_18 = 3;
-pub const CT_CON: C2RustUnnamed_18 = 2;
-pub const CT_OUTPUT: C2RustUnnamed_18 = 1;
-pub const CT_ROOT: C2RustUnnamed_18 = 0;
-pub type smart_gaps_t = ::core::ffi::c_uint;
-pub const SMART_GAPS_INVERSE_OUTER: smart_gaps_t = 2;
-pub const SMART_GAPS_ON: smart_gaps_t = 1;
-pub const SMART_GAPS_OFF: smart_gaps_t = 0;
+pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
+pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
+pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
+pub const CT_CON: ::core::ffi::c_uint = 2;
+pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
+pub const CT_ROOT: ::core::ffi::c_uint = 0;
+
 pub type hide_edge_borders_mode_t = ::core::ffi::c_uint;
 pub const HEBM_SMART_NO_GAPS: hide_edge_borders_mode_t = 64;
 pub const HEBM_SMART: hide_edge_borders_mode_t = 32;
@@ -228,14 +151,7 @@ pub const HEBM_BOTH: hide_edge_borders_mode_t = 23;
 pub const HEBM_HORIZONTAL: hide_edge_borders_mode_t = 20;
 pub const HEBM_VERTICAL: hide_edge_borders_mode_t = 3;
 pub const HEBM_NONE: hide_edge_borders_mode_t = 0;
-pub type warping_t = ::core::ffi::c_uint;
-pub const POINTER_WARPING_NONE: warping_t = 1;
-pub const POINTER_WARPING_OUTPUT: warping_t = 0;
-pub type focus_wrapping_t = ::core::ffi::c_uint;
-pub const FOCUS_WRAPPING_WORKSPACE: focus_wrapping_t = 3;
-pub const FOCUS_WRAPPING_FORCE: focus_wrapping_t = 2;
-pub const FOCUS_WRAPPING_ON: focus_wrapping_t = 1;
-pub const FOCUS_WRAPPING_OFF: focus_wrapping_t = 0;
+
 pub type tiling_drag_t = ::core::ffi::c_uint;
 pub const TILING_DRAG_MODIFIER_OR_TITLEBAR: tiling_drag_t = 3;
 pub const TILING_DRAG_TITLEBAR: tiling_drag_t = 2;
@@ -243,158 +159,32 @@ pub const TILING_DRAG_MODIFIER: tiling_drag_t = 1;
 pub const TILING_DRAG_OFF: tiling_drag_t = 0;
 pub use crate::config::IncludedFile;
 
-pub type C2RustUnnamed_20 = ::core::ffi::c_uint;
-pub const PDF_ALL: C2RustUnnamed_20 = 3;
-pub const PDF_IGNORE: C2RustUnnamed_20 = 2;
-pub const PDF_LEAVE_FULLSCREEN: C2RustUnnamed_20 = 1;
-pub const PDF_SMART: C2RustUnnamed_20 = 0;
-
-pub type C2RustUnnamed_21 = ::core::ffi::c_uint;
-pub const ALIGN_RIGHT: C2RustUnnamed_21 = 2;
-pub const ALIGN_CENTER: C2RustUnnamed_21 = 1;
-pub const ALIGN_LEFT: C2RustUnnamed_21 = 0;
-pub type C2RustUnnamed_22 = ::core::ffi::c_uint;
-pub const FOWA_NONE: C2RustUnnamed_22 = 3;
-pub const FOWA_FOCUS: C2RustUnnamed_22 = 2;
-pub const FOWA_URGENT: C2RustUnnamed_22 = 1;
-pub const FOWA_SMART: C2RustUnnamed_22 = 0;
 pub use crate::bindings::context;
 pub use crate::config::Variable;
-pub type C2RustUnnamed_25 = ::core::ffi::c_uint;
-pub const STACK_LONG: C2RustUnnamed_25 = 1;
-pub const STACK_STR: C2RustUnnamed_25 = 0;
+
 pub use crate::commands::stack;
 pub use crate::config::parser_ctx;
 pub use crate::config::variables_head;
 pub use crate::config_directives::ConfigResultIR;
-pub type parse_file_result_t = ::core::ffi::c_int;
-pub const PARSE_FILE_CONFIG_ERRORS: parse_file_result_t = 1;
-pub const PARSE_FILE_SUCCESS: parse_file_result_t = 0;
-pub const PARSE_FILE_FAILED: parse_file_result_t = -1;
+
 pub type cmdp_token = token;
-pub use crate::commands_parser::token;
+#[derive(Clone, Copy)]
+#[repr(C)]
+pub struct token {
+    pub name: *mut ::core::ffi::c_char,
+    pub identifier: *mut ::core::ffi::c_char,
+    pub next_state: ConfigParserState,
+    pub extra: C2RustUnnamed_26,
+}
 pub use crate::commands_parser::C2RustUnnamed_20 as C2RustUnnamed_26;
-pub type cmdp_state = ::core::ffi::c_uint;
-pub const __CALL: cmdp_state = 117;
-pub const BAR: cmdp_state = 116;
-pub const MODE: cmdp_state = 115;
-pub const GAPS: cmdp_state = 114;
-pub const FONT: cmdp_state = 113;
-pub const EXEC: cmdp_state = 112;
-pub const BAR_ID: cmdp_state = 111;
-pub const ASSIGN: cmdp_state = 110;
-pub const INITIAL: cmdp_state = 109;
-pub const INCLUDE: cmdp_state = 108;
-pub const BINDING: cmdp_state = 107;
-pub const NO_FOCUS: cmdp_state = 106;
-pub const MODENAME: cmdp_state = 105;
-pub const GAPS_END: cmdp_state = 104;
-pub const CRITERIA: cmdp_state = 103;
-pub const BAR_MODE: cmdp_state = 102;
-pub const BAR_FONT: cmdp_state = 101;
-pub const BARBRACE: cmdp_state = 100;
-pub const WORKSPACE: cmdp_state = 99;
-pub const MODEBRACE: cmdp_state = 98;
-pub const CRITERION: cmdp_state = 97;
-pub const SMART_GAPS: cmdp_state = 96;
-pub const SHOW_MARKS: cmdp_state = 95;
-pub const IPC_SOCKET: cmdp_state = 94;
-pub const FOR_WINDOW: cmdp_state = 93;
-pub const COLOR_TEXT: cmdp_state = 92;
-pub const BAR_OUTPUT: cmdp_state = 91;
-pub const BAR_HEIGHT: cmdp_state = 90;
-pub const BAR_COLORS: cmdp_state = 89;
-pub const TITLE_ALIGN: cmdp_state = 88;
-pub const TILING_DRAG: cmdp_state = 87;
-pub const IGNORE_LINE: cmdp_state = 86;
-pub const BINDCOMMAND: cmdp_state = 85;
-pub const BAR_VERBOSE: cmdp_state = 84;
-pub const BAR_PADDING: cmdp_state = 83;
-pub const BAR_BINDSYM: cmdp_state = 82;
-pub const NO_FOCUS_END: cmdp_state = 81;
-pub const MODE_BINDING: cmdp_state = 80;
-pub const FAKE_OUTPUTS: cmdp_state = 79;
-pub const COLOR_SINGLE: cmdp_state = 78;
-pub const COLOR_BORDER: cmdp_state = 77;
-pub const BAR_POSITION: cmdp_state = 76;
-pub const BAR_MODIFIER: cmdp_state = 75;
-pub const SMART_BORDERS: cmdp_state = 74;
-pub const RESTART_STATE: cmdp_state = 73;
-pub const MOUSE_WARPING: cmdp_state = 72;
-pub const CRITERION_STR: cmdp_state = 71;
-pub const ASSIGN_OUTPUT: cmdp_state = 70;
-pub const FORCE_XINERAMA: cmdp_state = 69;
-pub const FOCUS_WRAPPING: cmdp_state = 68;
-pub const DEFAULT_BORDER: cmdp_state = 67;
-pub const CRITERION_FROM: cmdp_state = 66;
-pub const GAPS_WITH_SCOPE: cmdp_state = 65;
-pub const DISABLE_RANDR15: cmdp_state = 64;
-pub const COLOR_INDICATOR: cmdp_state = 63;
-pub const BAR_TRAY_OUTPUT: cmdp_state = 62;
-pub const BAR_SOCKET_PATH: cmdp_state = 61;
-pub const BAR_PADDING_TOP: cmdp_state = 60;
-pub const BAR_IGNORE_LINE: cmdp_state = 59;
-pub const BAR_COLORS_TEXT: cmdp_state = 58;
-pub const BAR_BAR_COMMAND: cmdp_state = 57;
-pub const WORKSPACE_LAYOUT: cmdp_state = 56;
-pub const TILING_DRAG_MODE: cmdp_state = 55;
-pub const MODE_IGNORE_LINE: cmdp_state = 54;
-pub const MODE_BINDCOMMAND: cmdp_state = 53;
-pub const IPC_KILL_TIMEOUT: cmdp_state = 52;
-pub const COLOR_BACKGROUND: cmdp_state = 51;
-pub const BAR_WHEEL_UP_CMD: cmdp_state = 50;
-pub const BAR_TRAY_PADDING: cmdp_state = 49;
-pub const BAR_PADDING_LEFT: cmdp_state = 48;
-pub const BAR_HIDDEN_STATE: cmdp_state = 47;
-pub const BAR_COLORS_BRACE: cmdp_state = 46;
-pub const ASSIGN_WORKSPACE: cmdp_state = 45;
-pub const WORKSPACE_COMMAND: cmdp_state = 44;
-pub const HIDE_EDGE_BORDERS: cmdp_state = 43;
-pub const FLOATING_MODIFIER: cmdp_state = 42;
-pub const BAR_PADDING_RIGHT: cmdp_state = 41;
-pub const BAR_COLORS_SINGLE: cmdp_state = 40;
-pub const BAR_COLORS_BORDER: cmdp_state = 39;
-pub const FOR_WINDOW_COMMAND: cmdp_state = 38;
-pub const CRITERION_FROM_STR: cmdp_state = 37;
-pub const COLOR_CHILD_BORDER: cmdp_state = 36;
-pub const BAR_WHEEL_DOWN_CMD: cmdp_state = 35;
-pub const BAR_STATUS_COMMAND: cmdp_state = 34;
-pub const BAR_PADDING_BOTTOM: cmdp_state = 33;
-pub const FOCUS_FOLLOWS_MOUSE: cmdp_state = 32;
-pub const DEFAULT_ORIENTATION: cmdp_state = 31;
-pub const BAR_TRAY_PADDING_PX: cmdp_state = 30;
-pub const BAR_BINDSYM_COMMAND: cmdp_state = 29;
-pub const FORCE_FOCUS_WRAPPING: cmdp_state = 28;
-pub const BAR_SEPARATOR_SYMBOL: cmdp_state = 27;
-pub const WORKSPACE_OUTPUT_WORD: cmdp_state = 26;
-pub const DEFAULT_BORDER_PIXELS: cmdp_state = 25;
-pub const BAR_WORKSPACE_COMMAND: cmdp_state = 24;
-pub const BAR_WORKSPACE_BUTTONS: cmdp_state = 23;
-pub const BAR_COLORS_BACKGROUND: cmdp_state = 22;
-pub const CRITERION_FROM_STR_END: cmdp_state = 21;
-pub const BAR_COLORS_IGNORE_LINE: cmdp_state = 20;
-pub const POPUP_DURING_FULLSCREEN: cmdp_state = 19;
-pub const FLOATING_MINIMUM_SIZE_X: cmdp_state = 18;
-pub const FLOATING_MAXIMUM_SIZE_X: cmdp_state = 17;
-pub const BAR_WORKSPACE_MIN_WIDTH: cmdp_state = 16;
-pub const ASSIGN_WORKSPACE_NUMBER: cmdp_state = 15;
-pub const WORKSPACE_BACK_AND_FORTH: cmdp_state = 14;
-pub const DEFAULT_BORDER_PIXELS_PX: cmdp_state = 13;
-pub const CRITERION_FROM_STR_START: cmdp_state = 12;
-pub const BAR_STRIP_WORKSPACE_NAME: cmdp_state = 11;
-pub const TILING_DRAG_SWAP_MODIFIER: cmdp_state = 10;
-pub const FORCE_DISPLAY_URGENCY_HINT: cmdp_state = 9;
-pub const FOCUS_ON_WINDOW_ACTIVATION: cmdp_state = 8;
-pub const BAR_WORKSPACE_MIN_WIDTH_PX: cmdp_state = 7;
-pub const BAR_BINDING_MODE_INDICATOR: cmdp_state = 6;
-pub const FLOATING_MINIMUM_SIZE_WIDTH: cmdp_state = 5;
-pub const FLOATING_MAXIMUM_SIZE_WIDTH: cmdp_state = 4;
-pub const BAR_STRIP_WORKSPACE_NUMBERS: cmdp_state = 3;
-pub const FLOATING_MINIMUM_SIZE_HEIGHT: cmdp_state = 2;
-pub const FLOATING_MAXIMUM_SIZE_HEIGHT: cmdp_state = 1;
-pub const FORCE_DISPLAY_URGENCY_HINT_MS: cmdp_state = 0;
+
 pub type cmdp_token_ptr = tokenptr;
-pub use crate::commands_parser::tokenptr;
+#[derive(Clone, Copy)]
+#[repr(C)]
+pub struct tokenptr {
+    pub array: *mut cmdp_token,
+    pub n: ::core::ffi::c_int,
+}
 pub const LONG_MAX: ::core::ffi::c_long = __LONG_MAX__;
 pub const LONG_MIN: ::core::ffi::c_long = -__LONG_MAX__ - 1 as ::core::ffi::c_long;
 pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
@@ -405,220 +195,220 @@ pub const O_RDONLY: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 pub static mut database: *mut xcb_xrm_database_t =
     ::core::ptr::null::<xcb_xrm_database_t>() as *mut xcb_xrm_database_t;
 
-pub static mut config_error_nagbar_pid: pid_t = -(1 as pid_t);
+pub static mut config_error_nagbar_pid: libc::pid_t = -(1 as libc::pid_t);
 static mut tokens_FORCE_DISPLAY_URGENCY_HINT_MS: [cmdp_token; 2] = [
     token {
         name: c"'ms".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: FORCE_DISPLAY_URGENCY_HINT_MS,
+        next_state: ConfigParserState::ForceDisplayUrgencyHintMs,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"end".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
 ];
 static mut tokens_FLOATING_MAXIMUM_SIZE_HEIGHT: [cmdp_token; 1] = [token {
     name: c"number".as_ptr().cast_mut(),
     identifier: c"height".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 1 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 1 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_FLOATING_MINIMUM_SIZE_HEIGHT: [cmdp_token; 1] = [token {
     name: c"number".as_ptr().cast_mut(),
     identifier: c"height".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 2 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 2 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_BAR_STRIP_WORKSPACE_NUMBERS: [cmdp_token; 1] = [token {
     name: c"word".as_ptr().cast_mut(),
     identifier: c"value".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 3 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 3 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_FLOATING_MAXIMUM_SIZE_WIDTH: [cmdp_token; 1] = [token {
     name: c"number".as_ptr().cast_mut(),
     identifier: c"width".as_ptr().cast_mut(),
-    next_state: FLOATING_MAXIMUM_SIZE_X,
+    next_state: ConfigParserState::FloatingMaximumSizeX,
     extra: C2RustUnnamed_26 {
-        call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 0 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_FLOATING_MINIMUM_SIZE_WIDTH: [cmdp_token; 1] = [token {
     name: c"number".as_ptr().cast_mut(),
     identifier: c"width".as_ptr().cast_mut(),
-    next_state: FLOATING_MINIMUM_SIZE_X,
+    next_state: ConfigParserState::FloatingMinimumSizeX,
     extra: C2RustUnnamed_26 {
-        call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 0 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_BAR_BINDING_MODE_INDICATOR: [cmdp_token; 1] = [token {
     name: c"word".as_ptr().cast_mut(),
     identifier: c"value".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 4 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 4 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_BAR_WORKSPACE_MIN_WIDTH_PX: [cmdp_token; 2] = [
     token {
         name: c"'px".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_WORKSPACE_MIN_WIDTH_PX,
+        next_state: ConfigParserState::BarWorkspaceMinWidthPx,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"end".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 5 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 5 as ::core::ffi::c_int as u16,
         },
     },
 ];
 static mut tokens_FOCUS_ON_WINDOW_ACTIVATION: [cmdp_token; 1] = [token {
     name: c"word".as_ptr().cast_mut(),
     identifier: c"mode".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 6 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 6 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_FORCE_DISPLAY_URGENCY_HINT: [cmdp_token; 1] = [token {
     name: c"number".as_ptr().cast_mut(),
     identifier: c"duration_ms".as_ptr().cast_mut(),
-    next_state: FORCE_DISPLAY_URGENCY_HINT_MS,
+    next_state: ConfigParserState::ForceDisplayUrgencyHintMs,
     extra: C2RustUnnamed_26 {
-        call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 0 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_TILING_DRAG_SWAP_MODIFIER: [cmdp_token; 10] = [
     token {
         name: c"'Mod1".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: TILING_DRAG_SWAP_MODIFIER,
+        next_state: ConfigParserState::TilingDragSwapModifier,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Mod2".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: TILING_DRAG_SWAP_MODIFIER,
+        next_state: ConfigParserState::TilingDragSwapModifier,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Mod3".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: TILING_DRAG_SWAP_MODIFIER,
+        next_state: ConfigParserState::TilingDragSwapModifier,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Mod4".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: TILING_DRAG_SWAP_MODIFIER,
+        next_state: ConfigParserState::TilingDragSwapModifier,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Mod5".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: TILING_DRAG_SWAP_MODIFIER,
+        next_state: ConfigParserState::TilingDragSwapModifier,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Shift".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: TILING_DRAG_SWAP_MODIFIER,
+        next_state: ConfigParserState::TilingDragSwapModifier,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Control".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: TILING_DRAG_SWAP_MODIFIER,
+        next_state: ConfigParserState::TilingDragSwapModifier,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Ctrl".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: TILING_DRAG_SWAP_MODIFIER,
+        next_state: ConfigParserState::TilingDragSwapModifier,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'+".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: TILING_DRAG_SWAP_MODIFIER,
+        next_state: ConfigParserState::TilingDragSwapModifier,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"end".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 7 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 7 as ::core::ffi::c_int as u16,
         },
     },
 ];
 static mut tokens_BAR_STRIP_WORKSPACE_NAME: [cmdp_token; 1] = [token {
     name: c"word".as_ptr().cast_mut(),
     identifier: c"value".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 8 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 8 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_CRITERION_FROM_STR_START: [cmdp_token; 3] = [
     token {
         name: c"'\"".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: CRITERION_FROM_STR,
+        next_state: ConfigParserState::CriterionFromStr,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'auto".as_ptr().cast_mut(),
         identifier: c"kind".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 9 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 9 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'user".as_ptr().cast_mut(),
         identifier: c"kind".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 10 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 10 as ::core::ffi::c_int as u16,
         },
     },
 ];
@@ -626,149 +416,149 @@ static mut tokens_DEFAULT_BORDER_PIXELS_PX: [cmdp_token; 2] = [
     token {
         name: c"'px".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: DEFAULT_BORDER_PIXELS_PX,
+        next_state: ConfigParserState::DefaultBorderPixelsPx,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"end".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 11 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 11 as ::core::ffi::c_int as u16,
         },
     },
 ];
 static mut tokens_WORKSPACE_BACK_AND_FORTH: [cmdp_token; 1] = [token {
     name: c"word".as_ptr().cast_mut(),
     identifier: c"value".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 12 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 12 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_ASSIGN_WORKSPACE_NUMBER: [cmdp_token; 1] = [token {
     name: c"string".as_ptr().cast_mut(),
     identifier: c"number".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 13 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 13 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_BAR_WORKSPACE_MIN_WIDTH: [cmdp_token; 1] = [token {
     name: c"number".as_ptr().cast_mut(),
     identifier: c"width".as_ptr().cast_mut(),
-    next_state: BAR_WORKSPACE_MIN_WIDTH_PX,
+    next_state: ConfigParserState::BarWorkspaceMinWidthPx,
     extra: C2RustUnnamed_26 {
-        call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 0 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_FLOATING_MAXIMUM_SIZE_X: [cmdp_token; 1] = [token {
     name: c"'x".as_ptr().cast_mut(),
     identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-    next_state: FLOATING_MAXIMUM_SIZE_HEIGHT,
+    next_state: ConfigParserState::FloatingMaximumSizeHeight,
     extra: C2RustUnnamed_26 {
-        call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 0 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_FLOATING_MINIMUM_SIZE_X: [cmdp_token; 1] = [token {
     name: c"'x".as_ptr().cast_mut(),
     identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-    next_state: FLOATING_MINIMUM_SIZE_HEIGHT,
+    next_state: ConfigParserState::FloatingMinimumSizeHeight,
     extra: C2RustUnnamed_26 {
-        call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 0 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_POPUP_DURING_FULLSCREEN: [cmdp_token; 4] = [
     token {
         name: c"'ignore".as_ptr().cast_mut(),
         identifier: c"value".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 14 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 14 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'leave_fullscreen".as_ptr().cast_mut(),
         identifier: c"value".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 15 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 15 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'all".as_ptr().cast_mut(),
         identifier: c"value".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 16 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 16 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'smart".as_ptr().cast_mut(),
         identifier: c"value".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 17 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 17 as ::core::ffi::c_int as u16,
         },
     },
 ];
 static mut tokens_BAR_COLORS_IGNORE_LINE: [cmdp_token; 1] = [token {
     name: c"line".as_ptr().cast_mut(),
     identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-    next_state: BAR_COLORS,
+    next_state: ConfigParserState::BarColors,
     extra: C2RustUnnamed_26 {
-        call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 0 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_CRITERION_FROM_STR_END: [cmdp_token; 1] = [token {
     name: c"'\"".as_ptr().cast_mut(),
     identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 18 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 18 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_BAR_COLORS_BACKGROUND: [cmdp_token; 1] = [token {
     name: c"word".as_ptr().cast_mut(),
     identifier: c"background".as_ptr().cast_mut(),
-    next_state: BAR_COLORS_TEXT,
+    next_state: ConfigParserState::BarColorsText,
     extra: C2RustUnnamed_26 {
-        call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 0 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_BAR_WORKSPACE_BUTTONS: [cmdp_token; 1] = [token {
     name: c"word".as_ptr().cast_mut(),
     identifier: c"value".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 19 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 19 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_BAR_WORKSPACE_COMMAND: [cmdp_token; 1] = [token {
     name: c"string".as_ptr().cast_mut(),
     identifier: c"command".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 20 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 20 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_DEFAULT_BORDER_PIXELS: [cmdp_token; 2] = [
     token {
         name: c"end".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 21 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 21 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"number".as_ptr().cast_mut(),
         identifier: c"width".as_ptr().cast_mut(),
-        next_state: DEFAULT_BORDER_PIXELS_PX,
+        next_state: ConfigParserState::DefaultBorderPixelsPx,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
 ];
@@ -776,51 +566,51 @@ static mut tokens_WORKSPACE_OUTPUT_WORD: [cmdp_token; 2] = [
     token {
         name: c"word".as_ptr().cast_mut(),
         identifier: c"output".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 22 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 22 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"end".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: INITIAL,
+        next_state: ConfigParserState::Initial,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
 ];
 static mut tokens_BAR_SEPARATOR_SYMBOL: [cmdp_token; 1] = [token {
     name: c"string".as_ptr().cast_mut(),
     identifier: c"separator".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 23 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 23 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_FORCE_FOCUS_WRAPPING: [cmdp_token; 1] = [token {
     name: c"word".as_ptr().cast_mut(),
     identifier: c"value".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 24 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 24 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_BAR_BINDSYM_COMMAND: [cmdp_token; 2] = [
     token {
         name: c"'--release".as_ptr().cast_mut(),
         identifier: c"release".as_ptr().cast_mut(),
-        next_state: BAR_BINDSYM_COMMAND,
+        next_state: ConfigParserState::BarBindsymCommand,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"string".as_ptr().cast_mut(),
         identifier: c"command".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 25 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 25 as ::core::ffi::c_int as u16,
         },
     },
 ];
@@ -828,17 +618,17 @@ static mut tokens_BAR_TRAY_PADDING_PX: [cmdp_token; 2] = [
     token {
         name: c"'px".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_TRAY_PADDING_PX,
+        next_state: ConfigParserState::BarTrayPaddingPx,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"end".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 26 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 26 as ::core::ffi::c_int as u16,
         },
     },
 ];
@@ -846,93 +636,93 @@ static mut tokens_DEFAULT_ORIENTATION: [cmdp_token; 3] = [
     token {
         name: c"'horizontal".as_ptr().cast_mut(),
         identifier: c"orientation".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 27 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 27 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'vertical".as_ptr().cast_mut(),
         identifier: c"orientation".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 28 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 28 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'auto".as_ptr().cast_mut(),
         identifier: c"orientation".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 29 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 29 as ::core::ffi::c_int as u16,
         },
     },
 ];
 static mut tokens_FOCUS_FOLLOWS_MOUSE: [cmdp_token; 1] = [token {
     name: c"word".as_ptr().cast_mut(),
     identifier: c"value".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 30 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 30 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_BAR_PADDING_BOTTOM: [cmdp_token; 3] = [
     token {
         name: c"'px".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_PADDING_BOTTOM,
+        next_state: ConfigParserState::BarPaddingBottom,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"number".as_ptr().cast_mut(),
         identifier: c"left".as_ptr().cast_mut(),
-        next_state: BAR_PADDING_LEFT,
+        next_state: ConfigParserState::BarPaddingLeft,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"end".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 31 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 31 as ::core::ffi::c_int as u16,
         },
     },
 ];
 static mut tokens_BAR_STATUS_COMMAND: [cmdp_token; 1] = [token {
     name: c"string".as_ptr().cast_mut(),
     identifier: c"command".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 32 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 32 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_BAR_WHEEL_DOWN_CMD: [cmdp_token; 1] = [token {
     name: c"string".as_ptr().cast_mut(),
     identifier: c"command".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 33 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 33 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_COLOR_CHILD_BORDER: [cmdp_token; 2] = [
     token {
         name: c"word".as_ptr().cast_mut(),
         identifier: c"child_border".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 34 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 34 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"end".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 35 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 35 as ::core::ffi::c_int as u16,
         },
     },
 ];
@@ -940,67 +730,67 @@ static mut tokens_CRITERION_FROM_STR: [cmdp_token; 2] = [
     token {
         name: c"'auto".as_ptr().cast_mut(),
         identifier: c"kind".as_ptr().cast_mut(),
-        next_state: CRITERION_FROM_STR_END,
+        next_state: ConfigParserState::CriterionFromStrEnd,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'user".as_ptr().cast_mut(),
         identifier: c"kind".as_ptr().cast_mut(),
-        next_state: CRITERION_FROM_STR_END,
+        next_state: ConfigParserState::CriterionFromStrEnd,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
 ];
 static mut tokens_FOR_WINDOW_COMMAND: [cmdp_token; 1] = [token {
     name: c"string".as_ptr().cast_mut(),
     identifier: c"command".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 36 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 36 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_BAR_COLORS_BORDER: [cmdp_token; 1] = [token {
     name: c"word".as_ptr().cast_mut(),
     identifier: c"border".as_ptr().cast_mut(),
-    next_state: BAR_COLORS_BACKGROUND,
+    next_state: ConfigParserState::BarColorsBackground,
     extra: C2RustUnnamed_26 {
-        call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 0 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_BAR_COLORS_SINGLE: [cmdp_token; 1] = [token {
     name: c"word".as_ptr().cast_mut(),
     identifier: c"color".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 37 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 37 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_BAR_PADDING_RIGHT: [cmdp_token; 3] = [
     token {
         name: c"'px".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_PADDING_RIGHT,
+        next_state: ConfigParserState::BarPaddingRight,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"number".as_ptr().cast_mut(),
         identifier: c"bottom".as_ptr().cast_mut(),
-        next_state: BAR_PADDING_BOTTOM,
+        next_state: ConfigParserState::BarPaddingBottom,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"end".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 38 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 38 as ::core::ffi::c_int as u16,
         },
     },
 ];
@@ -1008,81 +798,81 @@ static mut tokens_FLOATING_MODIFIER: [cmdp_token; 10] = [
     token {
         name: c"'Mod1".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: FLOATING_MODIFIER,
+        next_state: ConfigParserState::FloatingModifier,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Mod2".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: FLOATING_MODIFIER,
+        next_state: ConfigParserState::FloatingModifier,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Mod3".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: FLOATING_MODIFIER,
+        next_state: ConfigParserState::FloatingModifier,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Mod4".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: FLOATING_MODIFIER,
+        next_state: ConfigParserState::FloatingModifier,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Mod5".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: FLOATING_MODIFIER,
+        next_state: ConfigParserState::FloatingModifier,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Shift".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: FLOATING_MODIFIER,
+        next_state: ConfigParserState::FloatingModifier,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Control".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: FLOATING_MODIFIER,
+        next_state: ConfigParserState::FloatingModifier,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Ctrl".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: FLOATING_MODIFIER,
+        next_state: ConfigParserState::FloatingModifier,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'+".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: FLOATING_MODIFIER,
+        next_state: ConfigParserState::FloatingModifier,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"end".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 39 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 39 as ::core::ffi::c_int as u16,
         },
     },
 ];
@@ -1090,97 +880,97 @@ static mut tokens_HIDE_EDGE_BORDERS: [cmdp_token; 12] = [
     token {
         name: c"'none".as_ptr().cast_mut(),
         identifier: c"hide_borders".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 40 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 40 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'vertical".as_ptr().cast_mut(),
         identifier: c"hide_borders".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 41 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 41 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'horizontal".as_ptr().cast_mut(),
         identifier: c"hide_borders".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 42 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 42 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'both".as_ptr().cast_mut(),
         identifier: c"hide_borders".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 43 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 43 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'smart_no_gaps".as_ptr().cast_mut(),
         identifier: c"hide_borders".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 44 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 44 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'smart".as_ptr().cast_mut(),
         identifier: c"hide_borders".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 45 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 45 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'1".as_ptr().cast_mut(),
         identifier: c"hide_borders".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 46 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 46 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'yes".as_ptr().cast_mut(),
         identifier: c"hide_borders".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 47 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 47 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'true".as_ptr().cast_mut(),
         identifier: c"hide_borders".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 48 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 48 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'on".as_ptr().cast_mut(),
         identifier: c"hide_borders".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 49 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 49 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'enable".as_ptr().cast_mut(),
         identifier: c"hide_borders".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 50 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 50 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'active".as_ptr().cast_mut(),
         identifier: c"hide_borders".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 51 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 51 as ::core::ffi::c_int as u16,
         },
     },
 ];
@@ -1188,17 +978,17 @@ static mut tokens_WORKSPACE_COMMAND: [cmdp_token; 2] = [
     token {
         name: c"'output".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: WORKSPACE_OUTPUT_WORD,
+        next_state: ConfigParserState::WorkspaceOutputWord,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'gaps".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: GAPS,
+        next_state: ConfigParserState::Gaps,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
 ];
@@ -1206,41 +996,41 @@ static mut tokens_ASSIGN_WORKSPACE: [cmdp_token; 5] = [
     token {
         name: c"'→".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: ASSIGN_WORKSPACE,
+        next_state: ConfigParserState::AssignWorkspace,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'output".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: ASSIGN_OUTPUT,
+        next_state: ConfigParserState::AssignOutput,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'workspace".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: ASSIGN_WORKSPACE,
+        next_state: ConfigParserState::AssignWorkspace,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'number".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: ASSIGN_WORKSPACE_NUMBER,
+        next_state: ConfigParserState::AssignWorkspaceNumber,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"string".as_ptr().cast_mut(),
         identifier: c"workspace".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 52 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 52 as ::core::ffi::c_int as u16,
         },
     },
 ];
@@ -1248,17 +1038,17 @@ static mut tokens_BAR_COLORS_BRACE: [cmdp_token; 2] = [
     token {
         name: c"end".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_COLORS_BRACE,
+        next_state: ConfigParserState::BarColorsBrace,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'{".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_COLORS,
+        next_state: ConfigParserState::BarColors,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
 ];
@@ -1266,17 +1056,17 @@ static mut tokens_BAR_HIDDEN_STATE: [cmdp_token; 2] = [
     token {
         name: c"'hide".as_ptr().cast_mut(),
         identifier: c"hidden_state".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 53 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 53 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'show".as_ptr().cast_mut(),
         identifier: c"hidden_state".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 54 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 54 as ::core::ffi::c_int as u16,
         },
     },
 ];
@@ -1284,125 +1074,125 @@ static mut tokens_BAR_PADDING_LEFT: [cmdp_token; 2] = [
     token {
         name: c"'px".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_PADDING_LEFT,
+        next_state: ConfigParserState::BarPaddingLeft,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"end".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 55 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 55 as ::core::ffi::c_int as u16,
         },
     },
 ];
 static mut tokens_BAR_TRAY_PADDING: [cmdp_token; 1] = [token {
     name: c"number".as_ptr().cast_mut(),
     identifier: c"padding_px".as_ptr().cast_mut(),
-    next_state: BAR_TRAY_PADDING_PX,
+    next_state: ConfigParserState::BarTrayPaddingPx,
     extra: C2RustUnnamed_26 {
-        call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 0 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_BAR_WHEEL_UP_CMD: [cmdp_token; 1] = [token {
     name: c"string".as_ptr().cast_mut(),
     identifier: c"command".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 56 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 56 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_COLOR_BACKGROUND: [cmdp_token; 1] = [token {
     name: c"word".as_ptr().cast_mut(),
     identifier: c"background".as_ptr().cast_mut(),
-    next_state: COLOR_TEXT,
+    next_state: ConfigParserState::ColorText,
     extra: C2RustUnnamed_26 {
-        call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 0 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_IPC_KILL_TIMEOUT: [cmdp_token; 1] = [token {
     name: c"number".as_ptr().cast_mut(),
     identifier: c"timeout".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 57 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 57 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_MODE_BINDCOMMAND: [cmdp_token; 5] = [
     token {
         name: c"'--release".as_ptr().cast_mut(),
         identifier: c"release".as_ptr().cast_mut(),
-        next_state: MODE_BINDCOMMAND,
+        next_state: ConfigParserState::ModeBindcommand,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'--border".as_ptr().cast_mut(),
         identifier: c"border".as_ptr().cast_mut(),
-        next_state: MODE_BINDCOMMAND,
+        next_state: ConfigParserState::ModeBindcommand,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'--whole-window".as_ptr().cast_mut(),
         identifier: c"whole_window".as_ptr().cast_mut(),
-        next_state: MODE_BINDCOMMAND,
+        next_state: ConfigParserState::ModeBindcommand,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'--exclude-titlebar".as_ptr().cast_mut(),
         identifier: c"exclude_titlebar".as_ptr().cast_mut(),
-        next_state: MODE_BINDCOMMAND,
+        next_state: ConfigParserState::ModeBindcommand,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"string".as_ptr().cast_mut(),
         identifier: c"command".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 58 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 58 as ::core::ffi::c_int as u16,
         },
     },
 ];
 static mut tokens_MODE_IGNORE_LINE: [cmdp_token; 1] = [token {
     name: c"line".as_ptr().cast_mut(),
     identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-    next_state: MODE,
+    next_state: ConfigParserState::Mode,
     extra: C2RustUnnamed_26 {
-        call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 0 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_TILING_DRAG_MODE: [cmdp_token; 3] = [
     token {
         name: c"'modifier".as_ptr().cast_mut(),
         identifier: c"value".as_ptr().cast_mut(),
-        next_state: TILING_DRAG_MODE,
+        next_state: ConfigParserState::TilingDragMode,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'titlebar".as_ptr().cast_mut(),
         identifier: c"value".as_ptr().cast_mut(),
-        next_state: TILING_DRAG_MODE,
+        next_state: ConfigParserState::TilingDragMode,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"end".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 59 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 59 as ::core::ffi::c_int as u16,
         },
     },
 ];
@@ -1410,185 +1200,185 @@ static mut tokens_WORKSPACE_LAYOUT: [cmdp_token; 4] = [
     token {
         name: c"'default".as_ptr().cast_mut(),
         identifier: c"layout".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 60 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 60 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'stacking".as_ptr().cast_mut(),
         identifier: c"layout".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 61 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 61 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'stacked".as_ptr().cast_mut(),
         identifier: c"layout".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 62 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 62 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'tabbed".as_ptr().cast_mut(),
         identifier: c"layout".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 63 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 63 as ::core::ffi::c_int as u16,
         },
     },
 ];
 static mut tokens_BAR_BAR_COMMAND: [cmdp_token; 1] = [token {
     name: c"string".as_ptr().cast_mut(),
     identifier: c"command".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 64 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 64 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_BAR_COLORS_TEXT: [cmdp_token; 2] = [
     token {
         name: c"end".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 65 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 65 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"word".as_ptr().cast_mut(),
         identifier: c"text".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 66 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 66 as ::core::ffi::c_int as u16,
         },
     },
 ];
 static mut tokens_BAR_IGNORE_LINE: [cmdp_token; 1] = [token {
     name: c"line".as_ptr().cast_mut(),
     identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-    next_state: BAR,
+    next_state: ConfigParserState::Bar,
     extra: C2RustUnnamed_26 {
-        call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 0 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_BAR_PADDING_TOP: [cmdp_token; 3] = [
     token {
         name: c"'px".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_PADDING_TOP,
+        next_state: ConfigParserState::BarPaddingTop,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"number".as_ptr().cast_mut(),
         identifier: c"right_or_right_and_left".as_ptr().cast_mut(),
-        next_state: BAR_PADDING_RIGHT,
+        next_state: ConfigParserState::BarPaddingRight,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"end".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 67 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 67 as ::core::ffi::c_int as u16,
         },
     },
 ];
 static mut tokens_BAR_SOCKET_PATH: [cmdp_token; 1] = [token {
     name: c"string".as_ptr().cast_mut(),
     identifier: c"path".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 68 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 68 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_BAR_TRAY_OUTPUT: [cmdp_token; 1] = [token {
     name: c"word".as_ptr().cast_mut(),
     identifier: c"output".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 69 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 69 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_COLOR_INDICATOR: [cmdp_token; 2] = [
     token {
         name: c"word".as_ptr().cast_mut(),
         identifier: c"indicator".as_ptr().cast_mut(),
-        next_state: COLOR_CHILD_BORDER,
+        next_state: ConfigParserState::ColorChildBorder,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"end".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 70 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 70 as ::core::ffi::c_int as u16,
         },
     },
 ];
 static mut tokens_DISABLE_RANDR15: [cmdp_token; 1] = [token {
     name: c"word".as_ptr().cast_mut(),
     identifier: c"value".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 71 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 71 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_GAPS_WITH_SCOPE: [cmdp_token; 1] = [token {
     name: c"number".as_ptr().cast_mut(),
     identifier: c"value".as_ptr().cast_mut(),
-    next_state: GAPS_END,
+    next_state: ConfigParserState::GapsEnd,
     extra: C2RustUnnamed_26 {
-        call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 0 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_CRITERION_FROM: [cmdp_token; 1] = [token {
     name: c"'=".as_ptr().cast_mut(),
     identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-    next_state: CRITERION_FROM_STR_START,
+    next_state: ConfigParserState::CriterionFromStrStart,
     extra: C2RustUnnamed_26 {
-        call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 0 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_DEFAULT_BORDER: [cmdp_token; 4] = [
     token {
         name: c"'normal".as_ptr().cast_mut(),
         identifier: c"border".as_ptr().cast_mut(),
-        next_state: DEFAULT_BORDER_PIXELS,
+        next_state: ConfigParserState::DefaultBorderPixels,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'pixel".as_ptr().cast_mut(),
         identifier: c"border".as_ptr().cast_mut(),
-        next_state: DEFAULT_BORDER_PIXELS,
+        next_state: ConfigParserState::DefaultBorderPixels,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'1pixel".as_ptr().cast_mut(),
         identifier: c"border".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 72 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 72 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'none".as_ptr().cast_mut(),
         identifier: c"border".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 73 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 73 as ::core::ffi::c_int as u16,
         },
     },
 ];
@@ -1596,221 +1386,221 @@ static mut tokens_FOCUS_WRAPPING: [cmdp_token; 14] = [
     token {
         name: c"'1".as_ptr().cast_mut(),
         identifier: c"value".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 74 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 74 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'yes".as_ptr().cast_mut(),
         identifier: c"value".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 75 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 75 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'true".as_ptr().cast_mut(),
         identifier: c"value".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 76 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 76 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'on".as_ptr().cast_mut(),
         identifier: c"value".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 77 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 77 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'enable".as_ptr().cast_mut(),
         identifier: c"value".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 78 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 78 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'active".as_ptr().cast_mut(),
         identifier: c"value".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 79 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 79 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'0".as_ptr().cast_mut(),
         identifier: c"value".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 80 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 80 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'no".as_ptr().cast_mut(),
         identifier: c"value".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 81 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 81 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'false".as_ptr().cast_mut(),
         identifier: c"value".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 82 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 82 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'off".as_ptr().cast_mut(),
         identifier: c"value".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 83 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 83 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'disable".as_ptr().cast_mut(),
         identifier: c"value".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 84 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 84 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'inactive".as_ptr().cast_mut(),
         identifier: c"value".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 85 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 85 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'force".as_ptr().cast_mut(),
         identifier: c"value".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 86 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 86 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'workspace".as_ptr().cast_mut(),
         identifier: c"value".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 87 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 87 as ::core::ffi::c_int as u16,
         },
     },
 ];
 static mut tokens_FORCE_XINERAMA: [cmdp_token; 1] = [token {
     name: c"word".as_ptr().cast_mut(),
     identifier: c"value".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 88 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 88 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_ASSIGN_OUTPUT: [cmdp_token; 1] = [token {
     name: c"string".as_ptr().cast_mut(),
     identifier: c"output".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 89 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 89 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_CRITERION_STR: [cmdp_token; 1] = [token {
     name: c"word".as_ptr().cast_mut(),
     identifier: c"cvalue".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 90 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 90 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_MOUSE_WARPING: [cmdp_token; 2] = [
     token {
         name: c"'none".as_ptr().cast_mut(),
         identifier: c"value".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 91 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 91 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'output".as_ptr().cast_mut(),
         identifier: c"value".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 92 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 92 as ::core::ffi::c_int as u16,
         },
     },
 ];
 static mut tokens_RESTART_STATE: [cmdp_token; 1] = [token {
     name: c"string".as_ptr().cast_mut(),
     identifier: c"path".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 93 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 93 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_SMART_BORDERS: [cmdp_token; 7] = [
     token {
         name: c"'1".as_ptr().cast_mut(),
         identifier: c"enabled".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 94 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 94 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'yes".as_ptr().cast_mut(),
         identifier: c"enabled".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 95 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 95 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'true".as_ptr().cast_mut(),
         identifier: c"enabled".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 96 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 96 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'on".as_ptr().cast_mut(),
         identifier: c"enabled".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 97 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 97 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'enable".as_ptr().cast_mut(),
         identifier: c"enabled".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 98 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 98 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'active".as_ptr().cast_mut(),
         identifier: c"enabled".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 99 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 99 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'no_gaps".as_ptr().cast_mut(),
         identifier: c"enabled".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 100 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 100 as ::core::ffi::c_int as u16,
         },
     },
 ];
@@ -1818,97 +1608,97 @@ static mut tokens_BAR_MODIFIER: [cmdp_token; 12] = [
     token {
         name: c"'off".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 101 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 101 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'none".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 102 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 102 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Mod1".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: BAR_MODIFIER,
+        next_state: ConfigParserState::BarModifier,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Mod2".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: BAR_MODIFIER,
+        next_state: ConfigParserState::BarModifier,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Mod3".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: BAR_MODIFIER,
+        next_state: ConfigParserState::BarModifier,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Mod4".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: BAR_MODIFIER,
+        next_state: ConfigParserState::BarModifier,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Mod5".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: BAR_MODIFIER,
+        next_state: ConfigParserState::BarModifier,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Shift".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: BAR_MODIFIER,
+        next_state: ConfigParserState::BarModifier,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Control".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: BAR_MODIFIER,
+        next_state: ConfigParserState::BarModifier,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Ctrl".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: BAR_MODIFIER,
+        next_state: ConfigParserState::BarModifier,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'+".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_MODIFIER,
+        next_state: ConfigParserState::BarModifier,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"end".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 103 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 103 as ::core::ffi::c_int as u16,
         },
     },
 ];
@@ -1916,369 +1706,369 @@ static mut tokens_BAR_POSITION: [cmdp_token; 2] = [
     token {
         name: c"'top".as_ptr().cast_mut(),
         identifier: c"position".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 104 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 104 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'bottom".as_ptr().cast_mut(),
         identifier: c"position".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 105 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 105 as ::core::ffi::c_int as u16,
         },
     },
 ];
 static mut tokens_COLOR_BORDER: [cmdp_token; 1] = [token {
     name: c"word".as_ptr().cast_mut(),
     identifier: c"border".as_ptr().cast_mut(),
-    next_state: COLOR_BACKGROUND,
+    next_state: ConfigParserState::ColorBackground,
     extra: C2RustUnnamed_26 {
-        call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 0 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_COLOR_SINGLE: [cmdp_token; 1] = [token {
     name: c"word".as_ptr().cast_mut(),
     identifier: c"color".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 106 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 106 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_FAKE_OUTPUTS: [cmdp_token; 1] = [token {
     name: c"string".as_ptr().cast_mut(),
     identifier: c"outputs".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 107 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 107 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_MODE_BINDING: [cmdp_token; 20] = [
     token {
         name: c"'--release".as_ptr().cast_mut(),
         identifier: c"release".as_ptr().cast_mut(),
-        next_state: MODE_BINDING,
+        next_state: ConfigParserState::ModeBinding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'--border".as_ptr().cast_mut(),
         identifier: c"border".as_ptr().cast_mut(),
-        next_state: MODE_BINDING,
+        next_state: ConfigParserState::ModeBinding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'--whole-window".as_ptr().cast_mut(),
         identifier: c"whole_window".as_ptr().cast_mut(),
-        next_state: MODE_BINDING,
+        next_state: ConfigParserState::ModeBinding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'--exclude-titlebar".as_ptr().cast_mut(),
         identifier: c"exclude_titlebar".as_ptr().cast_mut(),
-        next_state: MODE_BINDING,
+        next_state: ConfigParserState::ModeBinding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Mod1".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: MODE_BINDING,
+        next_state: ConfigParserState::ModeBinding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Mod2".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: MODE_BINDING,
+        next_state: ConfigParserState::ModeBinding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Mod3".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: MODE_BINDING,
+        next_state: ConfigParserState::ModeBinding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Mod4".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: MODE_BINDING,
+        next_state: ConfigParserState::ModeBinding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Mod5".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: MODE_BINDING,
+        next_state: ConfigParserState::ModeBinding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Shift".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: MODE_BINDING,
+        next_state: ConfigParserState::ModeBinding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Control".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: MODE_BINDING,
+        next_state: ConfigParserState::ModeBinding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Ctrl".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: MODE_BINDING,
+        next_state: ConfigParserState::ModeBinding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Mode_switch".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: MODE_BINDING,
+        next_state: ConfigParserState::ModeBinding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Group1".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: MODE_BINDING,
+        next_state: ConfigParserState::ModeBinding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Group2".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: MODE_BINDING,
+        next_state: ConfigParserState::ModeBinding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Group3".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: MODE_BINDING,
+        next_state: ConfigParserState::ModeBinding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Group4".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: MODE_BINDING,
+        next_state: ConfigParserState::ModeBinding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'$mod".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: MODE_BINDING,
+        next_state: ConfigParserState::ModeBinding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'+".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: MODE_BINDING,
+        next_state: ConfigParserState::ModeBinding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"word".as_ptr().cast_mut(),
         identifier: c"key".as_ptr().cast_mut(),
-        next_state: MODE_BINDCOMMAND,
+        next_state: ConfigParserState::ModeBindcommand,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
 ];
 static mut tokens_NO_FOCUS_END: [cmdp_token; 1] = [token {
     name: c"end".as_ptr().cast_mut(),
     identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 108 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 108 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_BAR_BINDSYM: [cmdp_token; 2] = [
     token {
         name: c"'--release".as_ptr().cast_mut(),
         identifier: c"release".as_ptr().cast_mut(),
-        next_state: BAR_BINDSYM,
+        next_state: ConfigParserState::BarBindsym,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"word".as_ptr().cast_mut(),
         identifier: c"button".as_ptr().cast_mut(),
-        next_state: BAR_BINDSYM_COMMAND,
+        next_state: ConfigParserState::BarBindsymCommand,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
 ];
 static mut tokens_BAR_PADDING: [cmdp_token; 1] = [token {
     name: c"number".as_ptr().cast_mut(),
     identifier: c"top_or_all".as_ptr().cast_mut(),
-    next_state: BAR_PADDING_TOP,
+    next_state: ConfigParserState::BarPaddingTop,
     extra: C2RustUnnamed_26 {
-        call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 0 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_BAR_VERBOSE: [cmdp_token; 1] = [token {
     name: c"word".as_ptr().cast_mut(),
     identifier: c"value".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 109 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 109 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_BINDCOMMAND: [cmdp_token; 5] = [
     token {
         name: c"'--release".as_ptr().cast_mut(),
         identifier: c"release".as_ptr().cast_mut(),
-        next_state: BINDCOMMAND,
+        next_state: ConfigParserState::Bindcommand,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'--border".as_ptr().cast_mut(),
         identifier: c"border".as_ptr().cast_mut(),
-        next_state: BINDCOMMAND,
+        next_state: ConfigParserState::Bindcommand,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'--whole-window".as_ptr().cast_mut(),
         identifier: c"whole_window".as_ptr().cast_mut(),
-        next_state: BINDCOMMAND,
+        next_state: ConfigParserState::Bindcommand,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'--exclude-titlebar".as_ptr().cast_mut(),
         identifier: c"exclude_titlebar".as_ptr().cast_mut(),
-        next_state: BINDCOMMAND,
+        next_state: ConfigParserState::Bindcommand,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"string".as_ptr().cast_mut(),
         identifier: c"command".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 110 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 110 as ::core::ffi::c_int as u16,
         },
     },
 ];
 static mut tokens_IGNORE_LINE: [cmdp_token; 1] = [token {
     name: c"line".as_ptr().cast_mut(),
     identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-    next_state: INITIAL,
+    next_state: ConfigParserState::Initial,
     extra: C2RustUnnamed_26 {
-        call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 0 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_TILING_DRAG: [cmdp_token; 9] = [
     token {
         name: c"'0".as_ptr().cast_mut(),
         identifier: c"off".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 111 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 111 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'no".as_ptr().cast_mut(),
         identifier: c"off".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 112 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 112 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'false".as_ptr().cast_mut(),
         identifier: c"off".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 113 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 113 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'off".as_ptr().cast_mut(),
         identifier: c"off".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 114 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 114 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'disable".as_ptr().cast_mut(),
         identifier: c"off".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 115 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 115 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'inactive".as_ptr().cast_mut(),
         identifier: c"off".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 116 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 116 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'swap_modifier".as_ptr().cast_mut(),
         identifier: c"swap_modifier".as_ptr().cast_mut(),
-        next_state: TILING_DRAG_SWAP_MODIFIER,
+        next_state: ConfigParserState::TilingDragSwapModifier,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'modifier".as_ptr().cast_mut(),
         identifier: c"value".as_ptr().cast_mut(),
-        next_state: TILING_DRAG_MODE,
+        next_state: ConfigParserState::TilingDragMode,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'titlebar".as_ptr().cast_mut(),
         identifier: c"value".as_ptr().cast_mut(),
-        next_state: TILING_DRAG_MODE,
+        next_state: ConfigParserState::TilingDragMode,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
 ];
@@ -2286,25 +2076,25 @@ static mut tokens_TITLE_ALIGN: [cmdp_token; 3] = [
     token {
         name: c"'left".as_ptr().cast_mut(),
         identifier: c"alignment".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 117 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 117 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'center".as_ptr().cast_mut(),
         identifier: c"alignment".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 118 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 118 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'right".as_ptr().cast_mut(),
         identifier: c"alignment".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 119 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 119 as ::core::ffi::c_int as u16,
         },
     },
 ];
@@ -2312,361 +2102,361 @@ static mut tokens_BAR_COLORS: [cmdp_token; 15] = [
     token {
         name: c"end".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_COLORS,
+        next_state: ConfigParserState::BarColors,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'#".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_COLORS_IGNORE_LINE,
+        next_state: ConfigParserState::BarColorsIgnoreLine,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'set".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_COLORS_IGNORE_LINE,
+        next_state: ConfigParserState::BarColorsIgnoreLine,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'background".as_ptr().cast_mut(),
         identifier: c"colorclass".as_ptr().cast_mut(),
-        next_state: BAR_COLORS_SINGLE,
+        next_state: ConfigParserState::BarColorsSingle,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'statusline".as_ptr().cast_mut(),
         identifier: c"colorclass".as_ptr().cast_mut(),
-        next_state: BAR_COLORS_SINGLE,
+        next_state: ConfigParserState::BarColorsSingle,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'separator".as_ptr().cast_mut(),
         identifier: c"colorclass".as_ptr().cast_mut(),
-        next_state: BAR_COLORS_SINGLE,
+        next_state: ConfigParserState::BarColorsSingle,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'focused_background".as_ptr().cast_mut(),
         identifier: c"colorclass".as_ptr().cast_mut(),
-        next_state: BAR_COLORS_SINGLE,
+        next_state: ConfigParserState::BarColorsSingle,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'focused_statusline".as_ptr().cast_mut(),
         identifier: c"colorclass".as_ptr().cast_mut(),
-        next_state: BAR_COLORS_SINGLE,
+        next_state: ConfigParserState::BarColorsSingle,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'focused_separator".as_ptr().cast_mut(),
         identifier: c"colorclass".as_ptr().cast_mut(),
-        next_state: BAR_COLORS_SINGLE,
+        next_state: ConfigParserState::BarColorsSingle,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'focused_workspace".as_ptr().cast_mut(),
         identifier: c"colorclass".as_ptr().cast_mut(),
-        next_state: BAR_COLORS_BORDER,
+        next_state: ConfigParserState::BarColorsBorder,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'active_workspace".as_ptr().cast_mut(),
         identifier: c"colorclass".as_ptr().cast_mut(),
-        next_state: BAR_COLORS_BORDER,
+        next_state: ConfigParserState::BarColorsBorder,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'inactive_workspace".as_ptr().cast_mut(),
         identifier: c"colorclass".as_ptr().cast_mut(),
-        next_state: BAR_COLORS_BORDER,
+        next_state: ConfigParserState::BarColorsBorder,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'urgent_workspace".as_ptr().cast_mut(),
         identifier: c"colorclass".as_ptr().cast_mut(),
-        next_state: BAR_COLORS_BORDER,
+        next_state: ConfigParserState::BarColorsBorder,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'binding_mode".as_ptr().cast_mut(),
         identifier: c"colorclass".as_ptr().cast_mut(),
-        next_state: BAR_COLORS_BORDER,
+        next_state: ConfigParserState::BarColorsBorder,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'}".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR,
+        next_state: ConfigParserState::Bar,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
 ];
 static mut tokens_BAR_HEIGHT: [cmdp_token; 1] = [token {
     name: c"number".as_ptr().cast_mut(),
     identifier: c"value".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 120 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 120 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_BAR_OUTPUT: [cmdp_token; 1] = [token {
     name: c"word".as_ptr().cast_mut(),
     identifier: c"output".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 121 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 121 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_COLOR_TEXT: [cmdp_token; 1] = [token {
     name: c"word".as_ptr().cast_mut(),
     identifier: c"text".as_ptr().cast_mut(),
-    next_state: COLOR_INDICATOR,
+    next_state: ConfigParserState::ColorIndicator,
     extra: C2RustUnnamed_26 {
-        call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 0 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_FOR_WINDOW: [cmdp_token; 1] = [token {
     name: c"'[".as_ptr().cast_mut(),
     identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 122 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 122 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_IPC_SOCKET: [cmdp_token; 1] = [token {
     name: c"string".as_ptr().cast_mut(),
     identifier: c"path".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 123 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 123 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_SHOW_MARKS: [cmdp_token; 1] = [token {
     name: c"word".as_ptr().cast_mut(),
     identifier: c"value".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 124 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 124 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_SMART_GAPS: [cmdp_token; 13] = [
     token {
         name: c"'1".as_ptr().cast_mut(),
         identifier: c"enabled".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 125 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 125 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'yes".as_ptr().cast_mut(),
         identifier: c"enabled".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 126 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 126 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'true".as_ptr().cast_mut(),
         identifier: c"enabled".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 127 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 127 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'on".as_ptr().cast_mut(),
         identifier: c"enabled".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 128 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 128 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'enable".as_ptr().cast_mut(),
         identifier: c"enabled".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 129 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 129 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'active".as_ptr().cast_mut(),
         identifier: c"enabled".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 130 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 130 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'0".as_ptr().cast_mut(),
         identifier: c"enabled".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 131 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 131 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'no".as_ptr().cast_mut(),
         identifier: c"enabled".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 132 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 132 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'false".as_ptr().cast_mut(),
         identifier: c"enabled".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 133 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 133 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'off".as_ptr().cast_mut(),
         identifier: c"enabled".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 134 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 134 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'disable".as_ptr().cast_mut(),
         identifier: c"enabled".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 135 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 135 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'inactive".as_ptr().cast_mut(),
         identifier: c"enabled".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 136 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 136 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'inverse_outer".as_ptr().cast_mut(),
         identifier: c"enabled".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 137 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 137 as ::core::ffi::c_int as u16,
         },
     },
 ];
 static mut tokens_CRITERION: [cmdp_token; 1] = [token {
     name: c"'=".as_ptr().cast_mut(),
     identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-    next_state: CRITERION_STR,
+    next_state: ConfigParserState::CriterionStr,
     extra: C2RustUnnamed_26 {
-        call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 0 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_MODEBRACE: [cmdp_token; 2] = [
     token {
         name: c"end".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: MODEBRACE,
+        next_state: ConfigParserState::Modebrace,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'{".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: MODE,
+        next_state: ConfigParserState::Mode,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
 ];
 static mut tokens_WORKSPACE: [cmdp_token; 1] = [token {
     name: c"word".as_ptr().cast_mut(),
     identifier: c"workspace".as_ptr().cast_mut(),
-    next_state: WORKSPACE_COMMAND,
+    next_state: ConfigParserState::WorkspaceCommand,
     extra: C2RustUnnamed_26 {
-        call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 0 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_BARBRACE: [cmdp_token; 2] = [
     token {
         name: c"end".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BARBRACE,
+        next_state: ConfigParserState::Barbrace,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'{".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 138 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 138 as ::core::ffi::c_int as u16,
         },
     },
 ];
 static mut tokens_BAR_FONT: [cmdp_token; 1] = [token {
     name: c"string".as_ptr().cast_mut(),
     identifier: c"font".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 139 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 139 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_BAR_MODE: [cmdp_token; 3] = [
     token {
         name: c"'dock".as_ptr().cast_mut(),
         identifier: c"mode".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 140 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 140 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'hide".as_ptr().cast_mut(),
         identifier: c"mode".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 141 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 141 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'invisible".as_ptr().cast_mut(),
         identifier: c"mode".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 142 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 142 as ::core::ffi::c_int as u16,
         },
     },
 ];
@@ -2674,137 +2464,137 @@ static mut tokens_CRITERIA: [cmdp_token; 17] = [
     token {
         name: c"'class".as_ptr().cast_mut(),
         identifier: c"ctype".as_ptr().cast_mut(),
-        next_state: CRITERION,
+        next_state: ConfigParserState::Criterion,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'instance".as_ptr().cast_mut(),
         identifier: c"ctype".as_ptr().cast_mut(),
-        next_state: CRITERION,
+        next_state: ConfigParserState::Criterion,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'window_role".as_ptr().cast_mut(),
         identifier: c"ctype".as_ptr().cast_mut(),
-        next_state: CRITERION,
+        next_state: ConfigParserState::Criterion,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'con_id".as_ptr().cast_mut(),
         identifier: c"ctype".as_ptr().cast_mut(),
-        next_state: CRITERION,
+        next_state: ConfigParserState::Criterion,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'id".as_ptr().cast_mut(),
         identifier: c"ctype".as_ptr().cast_mut(),
-        next_state: CRITERION,
+        next_state: ConfigParserState::Criterion,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'window_type".as_ptr().cast_mut(),
         identifier: c"ctype".as_ptr().cast_mut(),
-        next_state: CRITERION,
+        next_state: ConfigParserState::Criterion,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'con_mark".as_ptr().cast_mut(),
         identifier: c"ctype".as_ptr().cast_mut(),
-        next_state: CRITERION,
+        next_state: ConfigParserState::Criterion,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'title".as_ptr().cast_mut(),
         identifier: c"ctype".as_ptr().cast_mut(),
-        next_state: CRITERION,
+        next_state: ConfigParserState::Criterion,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'urgent".as_ptr().cast_mut(),
         identifier: c"ctype".as_ptr().cast_mut(),
-        next_state: CRITERION,
+        next_state: ConfigParserState::Criterion,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'workspace".as_ptr().cast_mut(),
         identifier: c"ctype".as_ptr().cast_mut(),
-        next_state: CRITERION,
+        next_state: ConfigParserState::Criterion,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'machine".as_ptr().cast_mut(),
         identifier: c"ctype".as_ptr().cast_mut(),
-        next_state: CRITERION,
+        next_state: ConfigParserState::Criterion,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'floating_from".as_ptr().cast_mut(),
         identifier: c"ctype".as_ptr().cast_mut(),
-        next_state: CRITERION_FROM,
+        next_state: ConfigParserState::CriterionFrom,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'tiling_from".as_ptr().cast_mut(),
         identifier: c"ctype".as_ptr().cast_mut(),
-        next_state: CRITERION_FROM,
+        next_state: ConfigParserState::CriterionFrom,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'tiling".as_ptr().cast_mut(),
         identifier: c"ctype".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 143 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 143 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'floating".as_ptr().cast_mut(),
         identifier: c"ctype".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 144 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 144 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'all".as_ptr().cast_mut(),
         identifier: c"ctype".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 145 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 145 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"']".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 146 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 146 as ::core::ffi::c_int as u16,
         },
     },
 ];
@@ -2812,17 +2602,17 @@ static mut tokens_GAPS_END: [cmdp_token; 2] = [
     token {
         name: c"'px".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: GAPS_END,
+        next_state: ConfigParserState::GapsEnd,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"end".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 147 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 147 as ::core::ffi::c_int as u16,
         },
     },
 ];
@@ -2830,785 +2620,785 @@ static mut tokens_MODENAME: [cmdp_token; 2] = [
     token {
         name: c"'--pango_markup".as_ptr().cast_mut(),
         identifier: c"pango_markup".as_ptr().cast_mut(),
-        next_state: MODENAME,
+        next_state: ConfigParserState::Modename,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"word".as_ptr().cast_mut(),
         identifier: c"modename".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 148 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 148 as ::core::ffi::c_int as u16,
         },
     },
 ];
 static mut tokens_NO_FOCUS: [cmdp_token; 1] = [token {
     name: c"'[".as_ptr().cast_mut(),
     identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 149 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 149 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_BINDING: [cmdp_token; 20] = [
     token {
         name: c"'--release".as_ptr().cast_mut(),
         identifier: c"release".as_ptr().cast_mut(),
-        next_state: BINDING,
+        next_state: ConfigParserState::Binding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'--border".as_ptr().cast_mut(),
         identifier: c"border".as_ptr().cast_mut(),
-        next_state: BINDING,
+        next_state: ConfigParserState::Binding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'--whole-window".as_ptr().cast_mut(),
         identifier: c"whole_window".as_ptr().cast_mut(),
-        next_state: BINDING,
+        next_state: ConfigParserState::Binding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'--exclude-titlebar".as_ptr().cast_mut(),
         identifier: c"exclude_titlebar".as_ptr().cast_mut(),
-        next_state: BINDING,
+        next_state: ConfigParserState::Binding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Mod1".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: BINDING,
+        next_state: ConfigParserState::Binding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Mod2".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: BINDING,
+        next_state: ConfigParserState::Binding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Mod3".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: BINDING,
+        next_state: ConfigParserState::Binding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Mod4".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: BINDING,
+        next_state: ConfigParserState::Binding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Mod5".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: BINDING,
+        next_state: ConfigParserState::Binding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Shift".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: BINDING,
+        next_state: ConfigParserState::Binding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Control".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: BINDING,
+        next_state: ConfigParserState::Binding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Ctrl".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: BINDING,
+        next_state: ConfigParserState::Binding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Mode_switch".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: BINDING,
+        next_state: ConfigParserState::Binding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Group1".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: BINDING,
+        next_state: ConfigParserState::Binding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Group2".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: BINDING,
+        next_state: ConfigParserState::Binding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Group3".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: BINDING,
+        next_state: ConfigParserState::Binding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'Group4".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: BINDING,
+        next_state: ConfigParserState::Binding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'$mod".as_ptr().cast_mut(),
         identifier: c"modifiers".as_ptr().cast_mut(),
-        next_state: BINDING,
+        next_state: ConfigParserState::Binding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'+".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BINDING,
+        next_state: ConfigParserState::Binding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"word".as_ptr().cast_mut(),
         identifier: c"key".as_ptr().cast_mut(),
-        next_state: BINDCOMMAND,
+        next_state: ConfigParserState::Bindcommand,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
 ];
 static mut tokens_INCLUDE: [cmdp_token; 1] = [token {
     name: c"string".as_ptr().cast_mut(),
     identifier: c"pattern".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 150 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 150 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_INITIAL: [cmdp_token; 60] = [
     token {
         name: c"end".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: INITIAL,
+        next_state: ConfigParserState::Initial,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"error".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: INITIAL,
+        next_state: ConfigParserState::Initial,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'#".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: IGNORE_LINE,
+        next_state: ConfigParserState::IgnoreLine,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'set ".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: IGNORE_LINE,
+        next_state: ConfigParserState::IgnoreLine,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'set\t".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: IGNORE_LINE,
+        next_state: ConfigParserState::IgnoreLine,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'set_from_resource".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: IGNORE_LINE,
+        next_state: ConfigParserState::IgnoreLine,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'include".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: INCLUDE,
+        next_state: ConfigParserState::Include,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'bindsym".as_ptr().cast_mut(),
         identifier: c"bindtype".as_ptr().cast_mut(),
-        next_state: BINDING,
+        next_state: ConfigParserState::Binding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'bindcode".as_ptr().cast_mut(),
         identifier: c"bindtype".as_ptr().cast_mut(),
-        next_state: BINDING,
+        next_state: ConfigParserState::Binding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'bind".as_ptr().cast_mut(),
         identifier: c"bindtype".as_ptr().cast_mut(),
-        next_state: BINDING,
+        next_state: ConfigParserState::Binding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'bar".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BARBRACE,
+        next_state: ConfigParserState::Barbrace,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'font".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: FONT,
+        next_state: ConfigParserState::Font,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'mode".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: MODENAME,
+        next_state: ConfigParserState::Modename,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'gaps".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: GAPS,
+        next_state: ConfigParserState::Gaps,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'smart_borders".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: SMART_BORDERS,
+        next_state: ConfigParserState::SmartBorders,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'smart_gaps".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: SMART_GAPS,
+        next_state: ConfigParserState::SmartGaps,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'floating_minimum_size".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: FLOATING_MINIMUM_SIZE_WIDTH,
+        next_state: ConfigParserState::FloatingMinimumSizeWidth,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'floating_maximum_size".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: FLOATING_MAXIMUM_SIZE_WIDTH,
+        next_state: ConfigParserState::FloatingMaximumSizeWidth,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'floating_modifier".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: FLOATING_MODIFIER,
+        next_state: ConfigParserState::FloatingModifier,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'default_orientation".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: DEFAULT_ORIENTATION,
+        next_state: ConfigParserState::DefaultOrientation,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'workspace_layout".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: WORKSPACE_LAYOUT,
+        next_state: ConfigParserState::WorkspaceLayout,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'default_border".as_ptr().cast_mut(),
         identifier: c"windowtype".as_ptr().cast_mut(),
-        next_state: DEFAULT_BORDER,
+        next_state: ConfigParserState::DefaultBorder,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'new_window".as_ptr().cast_mut(),
         identifier: c"windowtype".as_ptr().cast_mut(),
-        next_state: DEFAULT_BORDER,
+        next_state: ConfigParserState::DefaultBorder,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'default_floating_border".as_ptr().cast_mut(),
         identifier: c"windowtype".as_ptr().cast_mut(),
-        next_state: DEFAULT_BORDER,
+        next_state: ConfigParserState::DefaultBorder,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'new_float".as_ptr().cast_mut(),
         identifier: c"windowtype".as_ptr().cast_mut(),
-        next_state: DEFAULT_BORDER,
+        next_state: ConfigParserState::DefaultBorder,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'hide_edge_borders".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: HIDE_EDGE_BORDERS,
+        next_state: ConfigParserState::HideEdgeBorders,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'for_window".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: FOR_WINDOW,
+        next_state: ConfigParserState::ForWindow,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'assign".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: ASSIGN,
+        next_state: ConfigParserState::Assign,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'no_focus".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: NO_FOCUS,
+        next_state: ConfigParserState::NoFocus,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'focus_follows_mouse".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: FOCUS_FOLLOWS_MOUSE,
+        next_state: ConfigParserState::FocusFollowsMouse,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'mouse_warping".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: MOUSE_WARPING,
+        next_state: ConfigParserState::MouseWarping,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'focus_wrapping".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: FOCUS_WRAPPING,
+        next_state: ConfigParserState::FocusWrapping,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'force_focus_wrapping".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: FORCE_FOCUS_WRAPPING,
+        next_state: ConfigParserState::ForceFocusWrapping,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'force_xinerama".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: FORCE_XINERAMA,
+        next_state: ConfigParserState::ForceXinerama,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'force-xinerama".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: FORCE_XINERAMA,
+        next_state: ConfigParserState::ForceXinerama,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'disable_randr15".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: DISABLE_RANDR15,
+        next_state: ConfigParserState::DisableRandr15,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'disable-randr15".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: DISABLE_RANDR15,
+        next_state: ConfigParserState::DisableRandr15,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'workspace_auto_back_and_forth".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: WORKSPACE_BACK_AND_FORTH,
+        next_state: ConfigParserState::WorkspaceBackAndForth,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'fake_outputs".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: FAKE_OUTPUTS,
+        next_state: ConfigParserState::FakeOutputs,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'fake-outputs".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: FAKE_OUTPUTS,
+        next_state: ConfigParserState::FakeOutputs,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'force_display_urgency_hint".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: FORCE_DISPLAY_URGENCY_HINT,
+        next_state: ConfigParserState::ForceDisplayUrgencyHint,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'focus_on_window_activation".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: FOCUS_ON_WINDOW_ACTIVATION,
+        next_state: ConfigParserState::FocusOnWindowActivation,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'title_align".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: TITLE_ALIGN,
+        next_state: ConfigParserState::TitleAlign,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'show_marks".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: SHOW_MARKS,
+        next_state: ConfigParserState::ShowMarks,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'workspace".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: WORKSPACE,
+        next_state: ConfigParserState::Workspace,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'ipc_socket".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: IPC_SOCKET,
+        next_state: ConfigParserState::IpcSocket,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'ipc-socket".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: IPC_SOCKET,
+        next_state: ConfigParserState::IpcSocket,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'ipc_kill_timeout".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: IPC_KILL_TIMEOUT,
+        next_state: ConfigParserState::IpcKillTimeout,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'restart_state".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: RESTART_STATE,
+        next_state: ConfigParserState::RestartState,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'popup_during_fullscreen".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: POPUP_DURING_FULLSCREEN,
+        next_state: ConfigParserState::PopupDuringFullscreen,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'tiling_drag".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: TILING_DRAG,
+        next_state: ConfigParserState::TilingDrag,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'exec_always".as_ptr().cast_mut(),
         identifier: c"exectype".as_ptr().cast_mut(),
-        next_state: EXEC,
+        next_state: ConfigParserState::Exec,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'exec".as_ptr().cast_mut(),
         identifier: c"exectype".as_ptr().cast_mut(),
-        next_state: EXEC,
+        next_state: ConfigParserState::Exec,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'client.background".as_ptr().cast_mut(),
         identifier: c"colorclass".as_ptr().cast_mut(),
-        next_state: COLOR_SINGLE,
+        next_state: ConfigParserState::ColorSingle,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'client.focused_inactive".as_ptr().cast_mut(),
         identifier: c"colorclass".as_ptr().cast_mut(),
-        next_state: COLOR_BORDER,
+        next_state: ConfigParserState::ColorBorder,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'client.focused_tab_title".as_ptr().cast_mut(),
         identifier: c"colorclass".as_ptr().cast_mut(),
-        next_state: COLOR_BORDER,
+        next_state: ConfigParserState::ColorBorder,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'client.focused".as_ptr().cast_mut(),
         identifier: c"colorclass".as_ptr().cast_mut(),
-        next_state: COLOR_BORDER,
+        next_state: ConfigParserState::ColorBorder,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'client.unfocused".as_ptr().cast_mut(),
         identifier: c"colorclass".as_ptr().cast_mut(),
-        next_state: COLOR_BORDER,
+        next_state: ConfigParserState::ColorBorder,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'client.urgent".as_ptr().cast_mut(),
         identifier: c"colorclass".as_ptr().cast_mut(),
-        next_state: COLOR_BORDER,
+        next_state: ConfigParserState::ColorBorder,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'client.placeholder".as_ptr().cast_mut(),
         identifier: c"colorclass".as_ptr().cast_mut(),
-        next_state: COLOR_BORDER,
+        next_state: ConfigParserState::ColorBorder,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
 ];
 static mut tokens_ASSIGN: [cmdp_token; 1] = [token {
     name: c"'[".as_ptr().cast_mut(),
     identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 151 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 151 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_BAR_ID: [cmdp_token; 1] = [token {
     name: c"word".as_ptr().cast_mut(),
     identifier: c"bar_id".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 152 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 152 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_EXEC: [cmdp_token; 2] = [
     token {
         name: c"'--no-startup-id".as_ptr().cast_mut(),
         identifier: c"no_startup_id".as_ptr().cast_mut(),
-        next_state: EXEC,
+        next_state: ConfigParserState::Exec,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"string".as_ptr().cast_mut(),
         identifier: c"command".as_ptr().cast_mut(),
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 153 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 153 as ::core::ffi::c_int as u16,
         },
     },
 ];
 static mut tokens_FONT: [cmdp_token; 1] = [token {
     name: c"string".as_ptr().cast_mut(),
     identifier: c"font".as_ptr().cast_mut(),
-    next_state: __CALL,
+    next_state: ConfigParserState::Call,
     extra: C2RustUnnamed_26 {
-        call_identifier: 154 as ::core::ffi::c_int as uint16_t,
+        call_identifier: 154 as ::core::ffi::c_int as u16,
     },
 }];
 static mut tokens_GAPS: [cmdp_token; 8] = [
     token {
         name: c"'inner".as_ptr().cast_mut(),
         identifier: c"scope".as_ptr().cast_mut(),
-        next_state: GAPS_WITH_SCOPE,
+        next_state: ConfigParserState::GapsWithScope,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'outer".as_ptr().cast_mut(),
         identifier: c"scope".as_ptr().cast_mut(),
-        next_state: GAPS_WITH_SCOPE,
+        next_state: ConfigParserState::GapsWithScope,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'horizontal".as_ptr().cast_mut(),
         identifier: c"scope".as_ptr().cast_mut(),
-        next_state: GAPS_WITH_SCOPE,
+        next_state: ConfigParserState::GapsWithScope,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'vertical".as_ptr().cast_mut(),
         identifier: c"scope".as_ptr().cast_mut(),
-        next_state: GAPS_WITH_SCOPE,
+        next_state: ConfigParserState::GapsWithScope,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'top".as_ptr().cast_mut(),
         identifier: c"scope".as_ptr().cast_mut(),
-        next_state: GAPS_WITH_SCOPE,
+        next_state: ConfigParserState::GapsWithScope,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'right".as_ptr().cast_mut(),
         identifier: c"scope".as_ptr().cast_mut(),
-        next_state: GAPS_WITH_SCOPE,
+        next_state: ConfigParserState::GapsWithScope,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'bottom".as_ptr().cast_mut(),
         identifier: c"scope".as_ptr().cast_mut(),
-        next_state: GAPS_WITH_SCOPE,
+        next_state: ConfigParserState::GapsWithScope,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'left".as_ptr().cast_mut(),
         identifier: c"scope".as_ptr().cast_mut(),
-        next_state: GAPS_WITH_SCOPE,
+        next_state: ConfigParserState::GapsWithScope,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
 ];
@@ -3616,65 +3406,65 @@ static mut tokens_MODE: [cmdp_token; 8] = [
     token {
         name: c"end".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: MODE,
+        next_state: ConfigParserState::Mode,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"error".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: MODE,
+        next_state: ConfigParserState::Mode,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'#".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: MODE_IGNORE_LINE,
+        next_state: ConfigParserState::ModeIgnoreLine,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'set".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: MODE_IGNORE_LINE,
+        next_state: ConfigParserState::ModeIgnoreLine,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'bindsym".as_ptr().cast_mut(),
         identifier: c"bindtype".as_ptr().cast_mut(),
-        next_state: MODE_BINDING,
+        next_state: ConfigParserState::ModeBinding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'bindcode".as_ptr().cast_mut(),
         identifier: c"bindtype".as_ptr().cast_mut(),
-        next_state: MODE_BINDING,
+        next_state: ConfigParserState::ModeBinding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'bind".as_ptr().cast_mut(),
         identifier: c"bindtype".as_ptr().cast_mut(),
-        next_state: MODE_BINDING,
+        next_state: ConfigParserState::ModeBinding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'}".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: INITIAL,
+        next_state: ConfigParserState::Initial,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
 ];
@@ -3682,249 +3472,249 @@ static mut tokens_BAR: [cmdp_token; 31] = [
     token {
         name: c"end".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR,
+        next_state: ConfigParserState::Bar,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"error".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR,
+        next_state: ConfigParserState::Bar,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'#".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_IGNORE_LINE,
+        next_state: ConfigParserState::BarIgnoreLine,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'set".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_IGNORE_LINE,
+        next_state: ConfigParserState::BarIgnoreLine,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'i3bar_command".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_BAR_COMMAND,
+        next_state: ConfigParserState::BarBarCommand,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'status_command".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_STATUS_COMMAND,
+        next_state: ConfigParserState::BarStatusCommand,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'workspace_command".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_WORKSPACE_COMMAND,
+        next_state: ConfigParserState::BarWorkspaceCommand,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'socket_path".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_SOCKET_PATH,
+        next_state: ConfigParserState::BarSocketPath,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'mode".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_MODE,
+        next_state: ConfigParserState::BarMode,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'hidden_state".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_HIDDEN_STATE,
+        next_state: ConfigParserState::BarHiddenState,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'id".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_ID,
+        next_state: ConfigParserState::BarId,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'modifier".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_MODIFIER,
+        next_state: ConfigParserState::BarModifier,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'wheel_up_cmd".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_WHEEL_UP_CMD,
+        next_state: ConfigParserState::BarWheelUpCmd,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'wheel_down_cmd".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_WHEEL_DOWN_CMD,
+        next_state: ConfigParserState::BarWheelDownCmd,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'bindsym".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_BINDSYM,
+        next_state: ConfigParserState::BarBindsym,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'position".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_POSITION,
+        next_state: ConfigParserState::BarPosition,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'output".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_OUTPUT,
+        next_state: ConfigParserState::BarOutput,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'tray_output".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_TRAY_OUTPUT,
+        next_state: ConfigParserState::BarTrayOutput,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'tray_padding".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_TRAY_PADDING,
+        next_state: ConfigParserState::BarTrayPadding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'font".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_FONT,
+        next_state: ConfigParserState::BarFont,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'separator_symbol".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_SEPARATOR_SYMBOL,
+        next_state: ConfigParserState::BarSeparatorSymbol,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'binding_mode_indicator".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_BINDING_MODE_INDICATOR,
+        next_state: ConfigParserState::BarBindingModeIndicator,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'workspace_buttons".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_WORKSPACE_BUTTONS,
+        next_state: ConfigParserState::BarWorkspaceButtons,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'workspace_min_width".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_WORKSPACE_MIN_WIDTH,
+        next_state: ConfigParserState::BarWorkspaceMinWidth,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'strip_workspace_numbers".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_STRIP_WORKSPACE_NUMBERS,
+        next_state: ConfigParserState::BarStripWorkspaceNumbers,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'strip_workspace_name".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_STRIP_WORKSPACE_NAME,
+        next_state: ConfigParserState::BarStripWorkspaceName,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'verbose".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_VERBOSE,
+        next_state: ConfigParserState::BarVerbose,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'height".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_HEIGHT,
+        next_state: ConfigParserState::BarHeight,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'padding".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_PADDING,
+        next_state: ConfigParserState::BarPadding,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'colors".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: BAR_COLORS_BRACE,
+        next_state: ConfigParserState::BarColorsBrace,
         extra: C2RustUnnamed_26 {
-            call_identifier: 0 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 0 as ::core::ffi::c_int as u16,
         },
     },
     token {
         name: c"'}".as_ptr().cast_mut(),
         identifier: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        next_state: __CALL,
+        next_state: ConfigParserState::Call,
         extra: C2RustUnnamed_26 {
-            call_identifier: 155 as ::core::ffi::c_int as uint16_t,
+            call_identifier: 155 as ::core::ffi::c_int as u16,
         },
     },
 ];
@@ -4408,7 +4198,7 @@ unsafe fn GENERATED_call(
 ) {
     match call_identifier {
         0 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_force_display_urgency_hint(
                 current_match,
                 result,
@@ -4416,7 +4206,7 @@ unsafe fn GENERATED_call(
             );
         }
         1 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_floating_maximum_size(
                 current_match,
                 result,
@@ -4425,7 +4215,7 @@ unsafe fn GENERATED_call(
             );
         }
         2 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_floating_minimum_size(
                 current_match,
                 result,
@@ -4434,7 +4224,7 @@ unsafe fn GENERATED_call(
             );
         }
         3 => {
-            (*result).next_state = BAR as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Bar;
             cfg_bar_strip_workspace_numbers(
                 current_match,
                 result,
@@ -4442,7 +4232,7 @@ unsafe fn GENERATED_call(
             );
         }
         4 => {
-            (*result).next_state = BAR as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Bar;
             cfg_bar_binding_mode_indicator(
                 current_match,
                 result,
@@ -4450,7 +4240,7 @@ unsafe fn GENERATED_call(
             );
         }
         5 => {
-            (*result).next_state = BAR as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Bar;
             cfg_bar_workspace_min_width(
                 current_match,
                 result,
@@ -4458,7 +4248,7 @@ unsafe fn GENERATED_call(
             );
         }
         6 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_focus_on_window_activation(
                 current_match,
                 result,
@@ -4466,7 +4256,7 @@ unsafe fn GENERATED_call(
             );
         }
         7 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_tiling_drag_swap_modifier(
                 current_match,
                 result,
@@ -4474,7 +4264,7 @@ unsafe fn GENERATED_call(
             );
         }
         8 => {
-            (*result).next_state = BAR as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Bar;
             cfg_bar_strip_workspace_name(
                 current_match,
                 result,
@@ -4482,7 +4272,7 @@ unsafe fn GENERATED_call(
             );
         }
         9 => {
-            (*result).next_state = CRITERIA as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Criteria;
             cfg_criteria_add(
                 current_match,
                 result,
@@ -4491,7 +4281,7 @@ unsafe fn GENERATED_call(
             );
         }
         10 => {
-            (*result).next_state = CRITERIA as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Criteria;
             cfg_criteria_add(
                 current_match,
                 result,
@@ -4500,7 +4290,7 @@ unsafe fn GENERATED_call(
             );
         }
         11 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_default_border(
                 current_match,
                 result,
@@ -4510,7 +4300,7 @@ unsafe fn GENERATED_call(
             );
         }
         12 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_workspace_back_and_forth(
                 current_match,
                 result,
@@ -4518,7 +4308,7 @@ unsafe fn GENERATED_call(
             );
         }
         13 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_assign(
                 current_match,
                 result,
@@ -4527,7 +4317,7 @@ unsafe fn GENERATED_call(
             );
         }
         14 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_popup_during_fullscreen(
                 current_match,
                 result,
@@ -4535,7 +4325,7 @@ unsafe fn GENERATED_call(
             );
         }
         15 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_popup_during_fullscreen(
                 current_match,
                 result,
@@ -4543,7 +4333,7 @@ unsafe fn GENERATED_call(
             );
         }
         16 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_popup_during_fullscreen(
                 current_match,
                 result,
@@ -4551,7 +4341,7 @@ unsafe fn GENERATED_call(
             );
         }
         17 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_popup_during_fullscreen(
                 current_match,
                 result,
@@ -4559,7 +4349,7 @@ unsafe fn GENERATED_call(
             );
         }
         18 => {
-            (*result).next_state = CRITERIA as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Criteria;
             cfg_criteria_add(
                 current_match,
                 result,
@@ -4568,7 +4358,7 @@ unsafe fn GENERATED_call(
             );
         }
         19 => {
-            (*result).next_state = BAR as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Bar;
             cfg_bar_workspace_buttons(
                 current_match,
                 result,
@@ -4576,7 +4366,7 @@ unsafe fn GENERATED_call(
             );
         }
         20 => {
-            (*result).next_state = BAR as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Bar;
             cfg_bar_workspace_command(
                 current_match,
                 result,
@@ -4584,7 +4374,7 @@ unsafe fn GENERATED_call(
             );
         }
         21 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_default_border(
                 current_match,
                 result,
@@ -4594,7 +4384,7 @@ unsafe fn GENERATED_call(
             );
         }
         22 => {
-            (*result).next_state = WORKSPACE_OUTPUT_WORD as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::WorkspaceOutputWord;
             cfg_workspace(
                 current_match,
                 result,
@@ -4603,7 +4393,7 @@ unsafe fn GENERATED_call(
             );
         }
         23 => {
-            (*result).next_state = BAR as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Bar;
             cfg_bar_separator_symbol(
                 current_match,
                 result,
@@ -4611,7 +4401,7 @@ unsafe fn GENERATED_call(
             );
         }
         24 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_force_focus_wrapping(
                 current_match,
                 result,
@@ -4619,7 +4409,7 @@ unsafe fn GENERATED_call(
             );
         }
         25 => {
-            (*result).next_state = BAR as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Bar;
             cfg_bar_bindsym(
                 current_match,
                 result,
@@ -4629,7 +4419,7 @@ unsafe fn GENERATED_call(
             );
         }
         26 => {
-            (*result).next_state = BAR as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Bar;
             cfg_bar_tray_padding(
                 current_match,
                 result,
@@ -4637,7 +4427,7 @@ unsafe fn GENERATED_call(
             );
         }
         27 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_default_orientation(
                 current_match,
                 result,
@@ -4645,7 +4435,7 @@ unsafe fn GENERATED_call(
             );
         }
         28 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_default_orientation(
                 current_match,
                 result,
@@ -4653,7 +4443,7 @@ unsafe fn GENERATED_call(
             );
         }
         29 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_default_orientation(
                 current_match,
                 result,
@@ -4661,7 +4451,7 @@ unsafe fn GENERATED_call(
             );
         }
         30 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_focus_follows_mouse(
                 current_match,
                 result,
@@ -4669,7 +4459,7 @@ unsafe fn GENERATED_call(
             );
         }
         31 => {
-            (*result).next_state = BAR as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Bar;
             cfg_bar_padding_three(
                 current_match,
                 result,
@@ -4679,7 +4469,7 @@ unsafe fn GENERATED_call(
             );
         }
         32 => {
-            (*result).next_state = BAR as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Bar;
             cfg_bar_status_command(
                 current_match,
                 result,
@@ -4687,7 +4477,7 @@ unsafe fn GENERATED_call(
             );
         }
         33 => {
-            (*result).next_state = BAR as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Bar;
             cfg_bar_wheel_down_cmd(
                 current_match,
                 result,
@@ -4695,7 +4485,7 @@ unsafe fn GENERATED_call(
             );
         }
         34 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_color(
                 current_match,
                 result,
@@ -4708,7 +4498,7 @@ unsafe fn GENERATED_call(
             );
         }
         35 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_color(
                 current_match,
                 result,
@@ -4721,7 +4511,7 @@ unsafe fn GENERATED_call(
             );
         }
         36 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_for_window(
                 current_match,
                 result,
@@ -4729,7 +4519,7 @@ unsafe fn GENERATED_call(
             );
         }
         37 => {
-            (*result).next_state = BAR_COLORS as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::BarColors;
             cfg_bar_color_single(
                 current_match,
                 result,
@@ -4738,7 +4528,7 @@ unsafe fn GENERATED_call(
             );
         }
         38 => {
-            (*result).next_state = BAR as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Bar;
             cfg_bar_padding_two(
                 current_match,
                 result,
@@ -4747,7 +4537,7 @@ unsafe fn GENERATED_call(
             );
         }
         39 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_floating_modifier(
                 current_match,
                 result,
@@ -4755,7 +4545,7 @@ unsafe fn GENERATED_call(
             );
         }
         40 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_hide_edge_borders(
                 current_match,
                 result,
@@ -4763,7 +4553,7 @@ unsafe fn GENERATED_call(
             );
         }
         41 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_hide_edge_borders(
                 current_match,
                 result,
@@ -4771,7 +4561,7 @@ unsafe fn GENERATED_call(
             );
         }
         42 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_hide_edge_borders(
                 current_match,
                 result,
@@ -4779,7 +4569,7 @@ unsafe fn GENERATED_call(
             );
         }
         43 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_hide_edge_borders(
                 current_match,
                 result,
@@ -4787,7 +4577,7 @@ unsafe fn GENERATED_call(
             );
         }
         44 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_hide_edge_borders(
                 current_match,
                 result,
@@ -4795,7 +4585,7 @@ unsafe fn GENERATED_call(
             );
         }
         45 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_hide_edge_borders(
                 current_match,
                 result,
@@ -4803,7 +4593,7 @@ unsafe fn GENERATED_call(
             );
         }
         46 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_hide_edge_borders(
                 current_match,
                 result,
@@ -4811,7 +4601,7 @@ unsafe fn GENERATED_call(
             );
         }
         47 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_hide_edge_borders(
                 current_match,
                 result,
@@ -4819,7 +4609,7 @@ unsafe fn GENERATED_call(
             );
         }
         48 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_hide_edge_borders(
                 current_match,
                 result,
@@ -4827,7 +4617,7 @@ unsafe fn GENERATED_call(
             );
         }
         49 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_hide_edge_borders(
                 current_match,
                 result,
@@ -4835,7 +4625,7 @@ unsafe fn GENERATED_call(
             );
         }
         50 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_hide_edge_borders(
                 current_match,
                 result,
@@ -4843,7 +4633,7 @@ unsafe fn GENERATED_call(
             );
         }
         51 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_hide_edge_borders(
                 current_match,
                 result,
@@ -4851,7 +4641,7 @@ unsafe fn GENERATED_call(
             );
         }
         52 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_assign(
                 current_match,
                 result,
@@ -4860,7 +4650,7 @@ unsafe fn GENERATED_call(
             );
         }
         53 => {
-            (*result).next_state = BAR as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Bar;
             cfg_bar_hidden_state(
                 current_match,
                 result,
@@ -4868,7 +4658,7 @@ unsafe fn GENERATED_call(
             );
         }
         54 => {
-            (*result).next_state = BAR as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Bar;
             cfg_bar_hidden_state(
                 current_match,
                 result,
@@ -4876,7 +4666,7 @@ unsafe fn GENERATED_call(
             );
         }
         55 => {
-            (*result).next_state = BAR as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Bar;
             cfg_bar_padding_four(
                 current_match,
                 result,
@@ -4887,7 +4677,7 @@ unsafe fn GENERATED_call(
             );
         }
         56 => {
-            (*result).next_state = BAR as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Bar;
             cfg_bar_wheel_up_cmd(
                 current_match,
                 result,
@@ -4895,7 +4685,7 @@ unsafe fn GENERATED_call(
             );
         }
         57 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_ipc_kill_timeout(
                 current_match,
                 result,
@@ -4903,7 +4693,7 @@ unsafe fn GENERATED_call(
             );
         }
         58 => {
-            (*result).next_state = MODE as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Mode;
             cfg_mode_binding(
                 current_match,
                 result,
@@ -4918,7 +4708,7 @@ unsafe fn GENERATED_call(
             );
         }
         59 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_tiling_drag(
                 current_match,
                 result,
@@ -4926,7 +4716,7 @@ unsafe fn GENERATED_call(
             );
         }
         60 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_workspace_layout(
                 current_match,
                 result,
@@ -4934,7 +4724,7 @@ unsafe fn GENERATED_call(
             );
         }
         61 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_workspace_layout(
                 current_match,
                 result,
@@ -4942,7 +4732,7 @@ unsafe fn GENERATED_call(
             );
         }
         62 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_workspace_layout(
                 current_match,
                 result,
@@ -4950,7 +4740,7 @@ unsafe fn GENERATED_call(
             );
         }
         63 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_workspace_layout(
                 current_match,
                 result,
@@ -4958,7 +4748,7 @@ unsafe fn GENERATED_call(
             );
         }
         64 => {
-            (*result).next_state = BAR as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Bar;
             cfg_bar_i3bar_command(
                 current_match,
                 result,
@@ -4966,7 +4756,7 @@ unsafe fn GENERATED_call(
             );
         }
         65 => {
-            (*result).next_state = BAR_COLORS as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::BarColors;
             cfg_bar_color(
                 current_match,
                 result,
@@ -4977,7 +4767,7 @@ unsafe fn GENERATED_call(
             );
         }
         66 => {
-            (*result).next_state = BAR_COLORS as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::BarColors;
             cfg_bar_color(
                 current_match,
                 result,
@@ -4988,7 +4778,7 @@ unsafe fn GENERATED_call(
             );
         }
         67 => {
-            (*result).next_state = BAR as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Bar;
             cfg_bar_padding_one(
                 current_match,
                 result,
@@ -4996,7 +4786,7 @@ unsafe fn GENERATED_call(
             );
         }
         68 => {
-            (*result).next_state = BAR as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Bar;
             cfg_bar_socket_path(
                 current_match,
                 result,
@@ -5004,7 +4794,7 @@ unsafe fn GENERATED_call(
             );
         }
         69 => {
-            (*result).next_state = BAR as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Bar;
             cfg_bar_tray_output(
                 current_match,
                 result,
@@ -5012,7 +4802,7 @@ unsafe fn GENERATED_call(
             );
         }
         70 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_color(
                 current_match,
                 result,
@@ -5025,7 +4815,7 @@ unsafe fn GENERATED_call(
             );
         }
         71 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_disable_randr15(
                 current_match,
                 result,
@@ -5033,7 +4823,7 @@ unsafe fn GENERATED_call(
             );
         }
         72 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_default_border(
                 current_match,
                 result,
@@ -5043,7 +4833,7 @@ unsafe fn GENERATED_call(
             );
         }
         73 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_default_border(
                 current_match,
                 result,
@@ -5053,7 +4843,7 @@ unsafe fn GENERATED_call(
             );
         }
         74 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_focus_wrapping(
                 current_match,
                 result,
@@ -5061,7 +4851,7 @@ unsafe fn GENERATED_call(
             );
         }
         75 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_focus_wrapping(
                 current_match,
                 result,
@@ -5069,7 +4859,7 @@ unsafe fn GENERATED_call(
             );
         }
         76 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_focus_wrapping(
                 current_match,
                 result,
@@ -5077,7 +4867,7 @@ unsafe fn GENERATED_call(
             );
         }
         77 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_focus_wrapping(
                 current_match,
                 result,
@@ -5085,7 +4875,7 @@ unsafe fn GENERATED_call(
             );
         }
         78 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_focus_wrapping(
                 current_match,
                 result,
@@ -5093,7 +4883,7 @@ unsafe fn GENERATED_call(
             );
         }
         79 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_focus_wrapping(
                 current_match,
                 result,
@@ -5101,7 +4891,7 @@ unsafe fn GENERATED_call(
             );
         }
         80 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_focus_wrapping(
                 current_match,
                 result,
@@ -5109,7 +4899,7 @@ unsafe fn GENERATED_call(
             );
         }
         81 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_focus_wrapping(
                 current_match,
                 result,
@@ -5117,7 +4907,7 @@ unsafe fn GENERATED_call(
             );
         }
         82 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_focus_wrapping(
                 current_match,
                 result,
@@ -5125,7 +4915,7 @@ unsafe fn GENERATED_call(
             );
         }
         83 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_focus_wrapping(
                 current_match,
                 result,
@@ -5133,7 +4923,7 @@ unsafe fn GENERATED_call(
             );
         }
         84 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_focus_wrapping(
                 current_match,
                 result,
@@ -5141,7 +4931,7 @@ unsafe fn GENERATED_call(
             );
         }
         85 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_focus_wrapping(
                 current_match,
                 result,
@@ -5149,7 +4939,7 @@ unsafe fn GENERATED_call(
             );
         }
         86 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_focus_wrapping(
                 current_match,
                 result,
@@ -5157,7 +4947,7 @@ unsafe fn GENERATED_call(
             );
         }
         87 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_focus_wrapping(
                 current_match,
                 result,
@@ -5165,7 +4955,7 @@ unsafe fn GENERATED_call(
             );
         }
         88 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_force_xinerama(
                 current_match,
                 result,
@@ -5173,7 +4963,7 @@ unsafe fn GENERATED_call(
             );
         }
         89 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_assign_output(
                 current_match,
                 result,
@@ -5181,7 +4971,7 @@ unsafe fn GENERATED_call(
             );
         }
         90 => {
-            (*result).next_state = CRITERIA as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Criteria;
             cfg_criteria_add(
                 current_match,
                 result,
@@ -5190,7 +4980,7 @@ unsafe fn GENERATED_call(
             );
         }
         91 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_mouse_warping(
                 current_match,
                 result,
@@ -5198,7 +4988,7 @@ unsafe fn GENERATED_call(
             );
         }
         92 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_mouse_warping(
                 current_match,
                 result,
@@ -5206,7 +4996,7 @@ unsafe fn GENERATED_call(
             );
         }
         93 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_restart_state(
                 current_match,
                 result,
@@ -5214,7 +5004,7 @@ unsafe fn GENERATED_call(
             );
         }
         94 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_smart_borders(
                 current_match,
                 result,
@@ -5222,7 +5012,7 @@ unsafe fn GENERATED_call(
             );
         }
         95 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_smart_borders(
                 current_match,
                 result,
@@ -5230,7 +5020,7 @@ unsafe fn GENERATED_call(
             );
         }
         96 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_smart_borders(
                 current_match,
                 result,
@@ -5238,7 +5028,7 @@ unsafe fn GENERATED_call(
             );
         }
         97 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_smart_borders(
                 current_match,
                 result,
@@ -5246,7 +5036,7 @@ unsafe fn GENERATED_call(
             );
         }
         98 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_smart_borders(
                 current_match,
                 result,
@@ -5254,7 +5044,7 @@ unsafe fn GENERATED_call(
             );
         }
         99 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_smart_borders(
                 current_match,
                 result,
@@ -5262,7 +5052,7 @@ unsafe fn GENERATED_call(
             );
         }
         100 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_smart_borders(
                 current_match,
                 result,
@@ -5270,7 +5060,7 @@ unsafe fn GENERATED_call(
             );
         }
         101 => {
-            (*result).next_state = BAR as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Bar;
             cfg_bar_modifier(
                 current_match,
                 result,
@@ -5278,7 +5068,7 @@ unsafe fn GENERATED_call(
             );
         }
         102 => {
-            (*result).next_state = BAR as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Bar;
             cfg_bar_modifier(
                 current_match,
                 result,
@@ -5286,7 +5076,7 @@ unsafe fn GENERATED_call(
             );
         }
         103 => {
-            (*result).next_state = BAR as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Bar;
             cfg_bar_modifier(
                 current_match,
                 result,
@@ -5294,7 +5084,7 @@ unsafe fn GENERATED_call(
             );
         }
         104 => {
-            (*result).next_state = BAR as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Bar;
             cfg_bar_position(
                 current_match,
                 result,
@@ -5302,7 +5092,7 @@ unsafe fn GENERATED_call(
             );
         }
         105 => {
-            (*result).next_state = BAR as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Bar;
             cfg_bar_position(
                 current_match,
                 result,
@@ -5310,7 +5100,7 @@ unsafe fn GENERATED_call(
             );
         }
         106 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_color_single(
                 current_match,
                 result,
@@ -5319,7 +5109,7 @@ unsafe fn GENERATED_call(
             );
         }
         107 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_fake_outputs(
                 current_match,
                 result,
@@ -5327,11 +5117,11 @@ unsafe fn GENERATED_call(
             );
         }
         108 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_no_focus(current_match, result);
         }
         109 => {
-            (*result).next_state = BAR as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Bar;
             cfg_bar_verbose(
                 current_match,
                 result,
@@ -5339,7 +5129,7 @@ unsafe fn GENERATED_call(
             );
         }
         110 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_binding(
                 current_match,
                 result,
@@ -5354,7 +5144,7 @@ unsafe fn GENERATED_call(
             );
         }
         111 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_tiling_drag(
                 current_match,
                 result,
@@ -5362,7 +5152,7 @@ unsafe fn GENERATED_call(
             );
         }
         112 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_tiling_drag(
                 current_match,
                 result,
@@ -5370,7 +5160,7 @@ unsafe fn GENERATED_call(
             );
         }
         113 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_tiling_drag(
                 current_match,
                 result,
@@ -5378,7 +5168,7 @@ unsafe fn GENERATED_call(
             );
         }
         114 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_tiling_drag(
                 current_match,
                 result,
@@ -5386,7 +5176,7 @@ unsafe fn GENERATED_call(
             );
         }
         115 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_tiling_drag(
                 current_match,
                 result,
@@ -5394,7 +5184,7 @@ unsafe fn GENERATED_call(
             );
         }
         116 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_tiling_drag(
                 current_match,
                 result,
@@ -5402,7 +5192,7 @@ unsafe fn GENERATED_call(
             );
         }
         117 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_title_align(
                 current_match,
                 result,
@@ -5410,7 +5200,7 @@ unsafe fn GENERATED_call(
             );
         }
         118 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_title_align(
                 current_match,
                 result,
@@ -5418,7 +5208,7 @@ unsafe fn GENERATED_call(
             );
         }
         119 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_title_align(
                 current_match,
                 result,
@@ -5426,7 +5216,7 @@ unsafe fn GENERATED_call(
             );
         }
         120 => {
-            (*result).next_state = BAR as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Bar;
             cfg_bar_height(
                 current_match,
                 result,
@@ -5434,7 +5224,7 @@ unsafe fn GENERATED_call(
             );
         }
         121 => {
-            (*result).next_state = BAR as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Bar;
             cfg_bar_output(
                 current_match,
                 result,
@@ -5442,11 +5232,11 @@ unsafe fn GENERATED_call(
             );
         }
         122 => {
-            (*result).next_state = CRITERIA as ::core::ffi::c_int;
-            cfg_criteria_init(current_match, result, 38 as ::core::ffi::c_int);
+            (*result).next_state = ConfigParserState::Criteria;
+            cfg_criteria_init(current_match, result, ConfigParserState::ForWindowCommand);
         }
         123 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_ipc_socket(
                 current_match,
                 result,
@@ -5454,7 +5244,7 @@ unsafe fn GENERATED_call(
             );
         }
         124 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_show_marks(
                 current_match,
                 result,
@@ -5462,7 +5252,7 @@ unsafe fn GENERATED_call(
             );
         }
         125 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_smart_gaps(
                 current_match,
                 result,
@@ -5470,7 +5260,7 @@ unsafe fn GENERATED_call(
             );
         }
         126 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_smart_gaps(
                 current_match,
                 result,
@@ -5478,7 +5268,7 @@ unsafe fn GENERATED_call(
             );
         }
         127 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_smart_gaps(
                 current_match,
                 result,
@@ -5486,7 +5276,7 @@ unsafe fn GENERATED_call(
             );
         }
         128 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_smart_gaps(
                 current_match,
                 result,
@@ -5494,7 +5284,7 @@ unsafe fn GENERATED_call(
             );
         }
         129 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_smart_gaps(
                 current_match,
                 result,
@@ -5502,7 +5292,7 @@ unsafe fn GENERATED_call(
             );
         }
         130 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_smart_gaps(
                 current_match,
                 result,
@@ -5510,7 +5300,7 @@ unsafe fn GENERATED_call(
             );
         }
         131 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_smart_gaps(
                 current_match,
                 result,
@@ -5518,7 +5308,7 @@ unsafe fn GENERATED_call(
             );
         }
         132 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_smart_gaps(
                 current_match,
                 result,
@@ -5526,7 +5316,7 @@ unsafe fn GENERATED_call(
             );
         }
         133 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_smart_gaps(
                 current_match,
                 result,
@@ -5534,7 +5324,7 @@ unsafe fn GENERATED_call(
             );
         }
         134 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_smart_gaps(
                 current_match,
                 result,
@@ -5542,7 +5332,7 @@ unsafe fn GENERATED_call(
             );
         }
         135 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_smart_gaps(
                 current_match,
                 result,
@@ -5550,7 +5340,7 @@ unsafe fn GENERATED_call(
             );
         }
         136 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_smart_gaps(
                 current_match,
                 result,
@@ -5558,7 +5348,7 @@ unsafe fn GENERATED_call(
             );
         }
         137 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_smart_gaps(
                 current_match,
                 result,
@@ -5566,11 +5356,11 @@ unsafe fn GENERATED_call(
             );
         }
         138 => {
-            (*result).next_state = BAR as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Bar;
             cfg_bar_start(current_match, result);
         }
         139 => {
-            (*result).next_state = BAR as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Bar;
             cfg_bar_font(
                 current_match,
                 result,
@@ -5578,7 +5368,7 @@ unsafe fn GENERATED_call(
             );
         }
         140 => {
-            (*result).next_state = BAR as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Bar;
             cfg_bar_mode(
                 current_match,
                 result,
@@ -5586,7 +5376,7 @@ unsafe fn GENERATED_call(
             );
         }
         141 => {
-            (*result).next_state = BAR as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Bar;
             cfg_bar_mode(
                 current_match,
                 result,
@@ -5594,7 +5384,7 @@ unsafe fn GENERATED_call(
             );
         }
         142 => {
-            (*result).next_state = BAR as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Bar;
             cfg_bar_mode(
                 current_match,
                 result,
@@ -5602,7 +5392,7 @@ unsafe fn GENERATED_call(
             );
         }
         143 => {
-            (*result).next_state = CRITERIA as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Criteria;
             cfg_criteria_add(
                 current_match,
                 result,
@@ -5611,7 +5401,7 @@ unsafe fn GENERATED_call(
             );
         }
         144 => {
-            (*result).next_state = CRITERIA as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Criteria;
             cfg_criteria_add(
                 current_match,
                 result,
@@ -5620,7 +5410,7 @@ unsafe fn GENERATED_call(
             );
         }
         145 => {
-            (*result).next_state = CRITERIA as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Criteria;
             cfg_criteria_add(
                 current_match,
                 result,
@@ -5629,11 +5419,11 @@ unsafe fn GENERATED_call(
             );
         }
         146 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_criteria_pop_state(current_match, result);
         }
         147 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_gaps(
                 current_match,
                 result,
@@ -5643,7 +5433,7 @@ unsafe fn GENERATED_call(
             );
         }
         148 => {
-            (*result).next_state = MODEBRACE as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Modebrace;
             cfg_enter_mode(
                 current_match,
                 result,
@@ -5652,11 +5442,11 @@ unsafe fn GENERATED_call(
             );
         }
         149 => {
-            (*result).next_state = CRITERIA as ::core::ffi::c_int;
-            cfg_criteria_init(current_match, result, 81 as ::core::ffi::c_int);
+            (*result).next_state = ConfigParserState::Criteria;
+            cfg_criteria_init(current_match, result, ConfigParserState::NoFocusEnd);
         }
         150 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_include(
                 current_match,
                 result,
@@ -5664,11 +5454,11 @@ unsafe fn GENERATED_call(
             );
         }
         151 => {
-            (*result).next_state = CRITERIA as ::core::ffi::c_int;
-            cfg_criteria_init(current_match, result, 45 as ::core::ffi::c_int);
+            (*result).next_state = ConfigParserState::Criteria;
+            cfg_criteria_init(current_match, result, ConfigParserState::AssignWorkspace);
         }
         152 => {
-            (*result).next_state = BAR as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Bar;
             cfg_bar_id(
                 current_match,
                 result,
@@ -5676,7 +5466,7 @@ unsafe fn GENERATED_call(
             );
         }
         153 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_exec(
                 current_match,
                 result,
@@ -5686,7 +5476,7 @@ unsafe fn GENERATED_call(
             );
         }
         154 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_font(
                 current_match,
                 result,
@@ -5694,7 +5484,7 @@ unsafe fn GENERATED_call(
             );
         }
         155 => {
-            (*result).next_state = INITIAL as ::core::ffi::c_int;
+            (*result).next_state = ConfigParserState::Initial;
             cfg_bar_finish(current_match, result);
         }
         _ => {
@@ -5712,13 +5502,11 @@ unsafe fn GENERATED_call(
     };
 }
 unsafe fn next_state(token: *const cmdp_token, ctx: *mut parser_ctx) {
-    let mut _next_state: cmdp_state = (*token).next_state;
-    if (*token).next_state as ::core::ffi::c_uint
-        == __CALL as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    let mut _next_state: ConfigParserState = (*token).next_state;
+    if (*token).next_state == ConfigParserState::Call {
         let mut subcommand_output: ConfigResultIR = ConfigResultIR {
             ctx,
-            next_state: 0,
+            next_state: ConfigParserState::ForceDisplayUrgencyHintMs,
             has_errors: false,
         };
         GENERATED_call(
@@ -5730,18 +5518,16 @@ unsafe fn next_state(token: *const cmdp_token, ctx: *mut parser_ctx) {
         if subcommand_output.has_errors {
             (*ctx).has_errors = true_0 != 0;
         }
-        _next_state = subcommand_output.next_state as cmdp_state;
+        _next_state = subcommand_output.next_state;
         parser_clear_stack((*ctx).stack);
     }
-    (*ctx).state = _next_state as ::core::ffi::c_int;
-    if (*ctx).state == INITIAL as ::core::ffi::c_int {
+    (*ctx).state = _next_state;
+    if (*ctx).state == ConfigParserState::Initial {
         parser_clear_stack((*ctx).stack);
     }
     let mut i: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
     while i < (*ctx).statelist_idx {
-        if (*ctx).statelist[i as usize] as cmdp_state as ::core::ffi::c_uint
-            != _next_state as ::core::ffi::c_uint
-        {
+        if (*ctx).statelist[i as usize] != _next_state {
             i += 1;
         } else {
             (*ctx).statelist_idx = i + 1 as ::core::ffi::c_int;
@@ -5750,7 +5536,7 @@ unsafe fn next_state(token: *const cmdp_token, ctx: *mut parser_ctx) {
     }
     let fresh7 = (*ctx).statelist_idx;
     (*ctx).statelist_idx = (*ctx).statelist_idx + 1;
-    (*ctx).statelist[fresh7 as usize] = _next_state as ::core::ffi::c_int;
+    (*ctx).statelist[fresh7 as usize] = _next_state;
 }
 unsafe fn start_of_line(
     mut walk: *const ::core::ffi::c_char,
@@ -5805,30 +5591,30 @@ unsafe fn parse_config(
             break;
         }
     }
-    (*ctx).state = INITIAL as ::core::ffi::c_int;
+    (*ctx).state = ConfigParserState::Initial;
     let mut i: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
     while i < 10 as ::core::ffi::c_int {
-        (*ctx).statelist[i as usize] = INITIAL as ::core::ffi::c_int;
+        (*ctx).statelist[i as usize] = ConfigParserState::Initial;
         i += 1;
     }
     (*ctx).statelist_idx = 1 as ::core::ffi::c_int;
     let mut walk: *const ::core::ffi::c_char = input;
-    let len: size_t = strlen(input) as size_t;
+    let len: usize = strlen(input) as usize;
     let mut c: ::core::ffi::c_int = 0;
     let mut token: *const cmdp_token = ::core::ptr::null::<cmdp_token>();
     let mut token_handled: bool = false;
     linecnt = 1 as ::core::ffi::c_int;
     let mut subcommand_output: ConfigResultIR = ConfigResultIR {
         ctx,
-        next_state: 0,
+        next_state: ConfigParserState::ForceDisplayUrgencyHintMs,
         has_errors: false,
     };
     cfg_criteria_init(
         &raw mut (*ctx).current_match,
         &raw mut subcommand_output,
-        INITIAL as ::core::ffi::c_int,
+        ConfigParserState::Initial,
     );
-    while walk.offset_from(input) as ::core::ffi::c_long as size_t <= len {
+    while walk.offset_from(input) as ::core::ffi::c_long as usize <= len {
         while (*walk as ::core::ffi::c_int == ' ' as i32
             || *walk as ::core::ffi::c_int == '\t' as i32)
             && *walk as ::core::ffi::c_int != '\0' as i32
@@ -5848,7 +5634,7 @@ unsafe fn parse_config(
                 if strncasecmp(
                     walk,
                     (*token).name.offset(1 as ::core::ffi::c_int as isize),
-                    strlen((*token).name).wrapping_sub(1 as size_t),
+                    strlen((*token).name).wrapping_sub(1 as usize),
                 ) == 0 as ::core::ffi::c_int
                 {
                     if !(*token).identifier.is_null() {
@@ -5858,7 +5644,7 @@ unsafe fn parse_config(
                             (*token).name.offset(1 as ::core::ffi::c_int as isize),
                         );
                     }
-                    walk = walk.offset(strlen((*token).name).wrapping_sub(1 as size_t) as isize);
+                    walk = walk.offset(strlen((*token).name).wrapping_sub(1 as usize) as isize);
                     next_state(token, ctx);
                     token_handled = true_0 != 0;
                     break;
@@ -5925,8 +5711,8 @@ unsafe fn parse_config(
                     if walk != beginning {
                         let str: *mut ::core::ffi::c_char = scalloc(
                             (walk.offset_from(beginning) as ::core::ffi::c_long
-                                + 1 as ::core::ffi::c_long) as size_t,
-                            1 as size_t,
+                                + 1 as ::core::ffi::c_long) as usize,
+                            1 as usize,
                         )
                             as *mut ::core::ffi::c_char;
                         let mut inpos: ::core::ffi::c_int = 0;
@@ -5982,7 +5768,7 @@ unsafe fn parse_config(
                         cfg_criteria_init(
                             &raw mut (*ctx).current_match,
                             &raw mut subcommand_output,
-                            INITIAL as ::core::ffi::c_int,
+                            ConfigParserState::Initial,
                         );
                         linecnt += 1;
                         walk = walk.offset(1);
@@ -5996,7 +5782,7 @@ unsafe fn parse_config(
             let mut tokenlen: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
             c = 0 as ::core::ffi::c_int;
             while c < (*ptr).n {
-                tokenlen = (tokenlen as size_t).wrapping_add(
+                tokenlen = (tokenlen as usize).wrapping_add(
                     strlen((*(*ptr).array.offset(c as isize)).name)
                         .wrapping_add(strlen(c"'', ".as_ptr())),
                 ) as ::core::ffi::c_int as ::core::ffi::c_int;
@@ -6005,7 +5791,7 @@ unsafe fn parse_config(
             let mut errormessage: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             let possible_tokens: *mut ::core::ffi::c_char =
-                smalloc((tokenlen + 1 as ::core::ffi::c_int) as size_t) as *mut ::core::ffi::c_char;
+                smalloc((tokenlen + 1 as ::core::ffi::c_int) as usize) as *mut ::core::ffi::c_char;
             let mut tokenwalk: *mut ::core::ffi::c_char = possible_tokens;
             let mut current_block_96: u64;
             c = 0 as ::core::ffi::c_int;
@@ -6065,7 +5851,7 @@ unsafe fn parse_config(
             free(possible_tokens as *mut ::core::ffi::c_void);
             let mut error_line: *const ::core::ffi::c_char = start_of_line(walk, input);
             let position: *mut ::core::ffi::c_char =
-                scalloc(strlen(error_line).wrapping_add(1 as size_t), 1 as size_t)
+                scalloc(strlen(error_line).wrapping_add(1 as usize), 1 as usize)
                     as *mut ::core::ffi::c_char;
             let mut copywalk: *const ::core::ffi::c_char =
                 ::core::ptr::null::<::core::ffi::c_char>();
@@ -6149,7 +5935,7 @@ unsafe fn parse_config(
                 i_0 += 1;
             }
             (*context).has_errors = true_0 != 0;
-            while walk.offset_from(input) as ::core::ffi::c_long as size_t <= len
+            while walk.offset_from(input) as ::core::ffi::c_long as usize <= len
                 && *walk as ::core::ffi::c_int != '\n' as i32
             {
                 walk = walk.offset(1);
@@ -6160,10 +5946,9 @@ unsafe fn parse_config(
             let mut error_token_found: bool = false_0 != 0;
             let mut i_1: ::core::ffi::c_int = (*ctx).statelist_idx - 1 as ::core::ffi::c_int;
             while i_1 >= 0 as ::core::ffi::c_int && !error_token_found {
-                let errptr: *const cmdp_token_ptr = (&raw mut tokens as *mut cmdp_token_ptr).offset(
-                    *(&raw mut (*ctx).statelist as *mut ::core::ffi::c_int).offset(i_1 as isize)
-                        as isize,
-                ) as *mut cmdp_token_ptr;
+                let errptr: *const cmdp_token_ptr = (&raw mut tokens as *mut cmdp_token_ptr)
+                    .offset((*ctx).statelist[i_1 as usize] as isize)
+                    as *mut cmdp_token_ptr;
                 let mut j: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
                 while j < (*errptr).n {
                     if strcmp(
@@ -6290,7 +6075,7 @@ unsafe fn upsert_variable(
         value,
     );
     let new: *mut Variable =
-        scalloc(1 as size_t, ::core::mem::size_of::<Variable>() as size_t) as *mut Variable;
+        scalloc(1 as usize, ::core::mem::size_of::<Variable>() as usize) as *mut Variable;
     let mut test: *mut Variable = ::core::ptr::null_mut::<Variable>();
     let mut loc: *mut Variable = ::core::ptr::null_mut::<Variable>();
     (*new).key = sstrdup(key);
@@ -6378,37 +6163,37 @@ unsafe fn parse_file_inner(
     ctx: *mut parser_ctx,
     f: *const ::core::ffi::c_char,
     included_file: *mut IncludedFile,
-) -> parse_file_result_t {
+) -> ParseFileResult {
     if !try_chdir(f) {
-        return PARSE_FILE_FAILED;
+        return ParseFileResult::Failed;
     }
     let mut fd: ::core::ffi::c_int = 0;
     fd = open(f, O_RDONLY);
     if fd == -(1 as ::core::ffi::c_int) {
-        return PARSE_FILE_FAILED;
+        return ParseFileResult::Failed;
     }
     let mut stbuf: stat = ::core::mem::zeroed();
     if fstat(fd, &raw mut stbuf) == -(1 as ::core::ffi::c_int) {
         close(fd);
-        return PARSE_FILE_FAILED;
+        return ParseFileResult::Failed;
     }
     let mut fstr: *mut FILE = ::core::ptr::null_mut::<FILE>();
     fstr = fdopen(fd, c"r".as_ptr());
     if fstr.is_null() {
-        return PARSE_FILE_FAILED;
+        return ParseFileResult::Failed;
     }
-    (*included_file).raw_contents =
-        scalloc((stbuf.st_size + 1 as __off_t) as size_t, 1 as size_t) as *mut ::core::ffi::c_char;
+    (*included_file).raw_contents = scalloc((stbuf.st_size + 1 as libc::off_t) as usize, 1 as usize)
+        as *mut ::core::ffi::c_char;
     if fread(
         (*included_file).raw_contents as *mut ::core::ffi::c_void,
-        1 as size_t,
-        stbuf.st_size as size_t,
+        1 as usize,
+        stbuf.st_size as usize,
         fstr,
-    ) as ssize_t
-        != stbuf.st_size as ssize_t
+    ) as isize
+        != stbuf.st_size as isize
     {
         fclose(fstr);
-        return PARSE_FILE_FAILED;
+        return ParseFileResult::Failed;
     }
     rewind(fstr);
     let mut buffer: [::core::ffi::c_char; 4096] = [0; 4096];
@@ -6417,7 +6202,8 @@ unsafe fn parse_file_inner(
     let mut continuation: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
     let mut invalid_sets: bool = false_0 != 0;
     let buf: *mut ::core::ffi::c_char =
-        scalloc((stbuf.st_size + 1 as __off_t) as size_t, 1 as size_t) as *mut ::core::ffi::c_char;
+        scalloc((stbuf.st_size + 1 as libc::off_t) as usize, 1 as usize)
+            as *mut ::core::ffi::c_char;
     while feof(fstr) == 0 {
         if continuation.is_null() {
             continuation = &raw mut buffer as *mut ::core::ffi::c_char;
@@ -6436,9 +6222,9 @@ unsafe fn parse_file_inner(
                 break;
             }
             fclose(fstr);
-            return PARSE_FILE_FAILED;
+            return ParseFileResult::Failed;
         } else {
-            if buffer[strlen(&raw mut buffer as *mut ::core::ffi::c_char).wrapping_sub(1 as size_t)
+            if buffer[strlen(&raw mut buffer as *mut ::core::ffi::c_char).wrapping_sub(1 as usize)
                 as usize] as ::core::ffi::c_int
                 != '\n' as i32
                 && feof(fstr) == 0
@@ -6457,7 +6243,7 @@ unsafe fn parse_file_inner(
                 &raw mut key as *mut ::core::ffi::c_char,
                 &raw mut value as *mut ::core::ffi::c_char,
             ) < 1 as ::core::ffi::c_int
-                || strlen(&raw mut key as *mut ::core::ffi::c_char) < 3 as size_t;
+                || strlen(&raw mut key as *mut ::core::ffi::c_char) < 3 as usize;
             let comment: bool =
                 key[0 as ::core::ffi::c_int as usize] as ::core::ffi::c_int == '#' as i32;
             value[4095 as ::core::ffi::c_int as usize] = '\n' as i32 as ::core::ffi::c_char;
@@ -15327,8 +15113,8 @@ unsafe fn parse_file_inner(
     bufcopy = ::core::ptr::null_mut::<::core::ffi::c_char>();
     let mut walk: *const ::core::ffi::c_char = buf;
     let new: *mut ::core::ffi::c_char = scalloc(
-        (stbuf.st_size + extra_bytes as __off_t + 1 as __off_t) as size_t,
-        1 as size_t,
+        (stbuf.st_size + extra_bytes as libc::off_t + 1 as libc::off_t) as usize,
+        1 as usize,
     ) as *mut ::core::ffi::c_char;
     let mut destwalk: *mut ::core::ffi::c_char = new;
     while walk < buf.offset(stbuf.st_size as isize) as *const ::core::ffi::c_char {
@@ -15357,23 +15143,23 @@ unsafe fn parse_file_inner(
                 destwalk,
                 walk,
                 buf.offset(stbuf.st_size as isize).offset_from(walk) as ::core::ffi::c_long
-                    as size_t,
+                    as usize,
             );
             destwalk = destwalk.offset(buf.offset(stbuf.st_size as isize).offset_from(walk)
                 as ::core::ffi::c_long as isize);
             *destwalk = '\0' as i32 as ::core::ffi::c_char;
             break;
         } else {
-            strncpy(destwalk, walk, distance as size_t);
+            strncpy(destwalk, walk, distance as usize);
             strcpy(destwalk.offset(distance as isize), (*nearest).value);
-            walk = walk.offset((distance as size_t).wrapping_add(strlen((*nearest).key)) as isize);
+            walk = walk.offset((distance as usize).wrapping_add(strlen((*nearest).key)) as isize);
             destwalk = destwalk
-                .offset((distance as size_t).wrapping_add(strlen((*nearest).value)) as isize);
+                .offset((distance as usize).wrapping_add(strlen((*nearest).value)) as isize);
         }
     }
     (*included_file).variable_replaced_contents = sstrdup(new);
     let context: *mut context =
-        scalloc(1 as size_t, ::core::mem::size_of::<context>() as size_t) as *mut context;
+        scalloc(1 as usize, ::core::mem::size_of::<context>() as usize) as *mut context;
     (*context).filename = f;
     parse_config(ctx, new, context);
     if (*ctx).has_errors {
@@ -15404,26 +15190,26 @@ unsafe fn parse_file_inner(
     free(new as *mut ::core::ffi::c_void);
     free(buf as *mut ::core::ffi::c_void);
     if has_errors {
-        return PARSE_FILE_CONFIG_ERRORS;
+        return ParseFileResult::ConfigErrors;
     }
-    PARSE_FILE_SUCCESS
+    ParseFileResult::Success
 }
 
 pub unsafe fn parse_file(
     ctx: *mut parser_ctx,
     f: *const ::core::ffi::c_char,
     included_file: *mut IncludedFile,
-) -> parse_file_result_t {
+) -> ParseFileResult {
     let old_dir: *mut ::core::ffi::c_char =
-        getcwd(::core::ptr::null_mut::<::core::ffi::c_char>(), 0 as size_t);
-    let mut result: parse_file_result_t = parse_file_inner(ctx, f, included_file);
+        getcwd(::core::ptr::null_mut::<::core::ffi::c_char>(), 0 as usize);
+    let mut result: ParseFileResult = parse_file_inner(ctx, f, included_file);
     if chdir(old_dir) == -(1 as ::core::ffi::c_int) {
         errorlog(
             c"ERROR: chdir(%s) failed: %s\n".as_ptr().cast_mut(),
             old_dir,
             strerror(*__errno_location()),
         );
-        result = PARSE_FILE_FAILED;
+        result = ParseFileResult::Failed;
     }
     free(old_dir as *mut ::core::ffi::c_void);
     result
@@ -15466,3 +15252,127 @@ use crate::application::conn;
 use crate::config::config;
 use crate::log::errorfilename;
 use crate::version::i3_version;
+
+/// A valid state in the generated configuration parser table.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(u32)]
+pub enum ConfigParserState {
+    Call = 117,
+    Bar = 116,
+    Mode = 115,
+    Gaps = 114,
+    Font = 113,
+    Exec = 112,
+    BarId = 111,
+    Assign = 110,
+    Initial = 109,
+    Include = 108,
+    Binding = 107,
+    NoFocus = 106,
+    Modename = 105,
+    GapsEnd = 104,
+    Criteria = 103,
+    BarMode = 102,
+    BarFont = 101,
+    Barbrace = 100,
+    Workspace = 99,
+    Modebrace = 98,
+    Criterion = 97,
+    SmartGaps = 96,
+    ShowMarks = 95,
+    IpcSocket = 94,
+    ForWindow = 93,
+    ColorText = 92,
+    BarOutput = 91,
+    BarHeight = 90,
+    BarColors = 89,
+    TitleAlign = 88,
+    TilingDrag = 87,
+    IgnoreLine = 86,
+    Bindcommand = 85,
+    BarVerbose = 84,
+    BarPadding = 83,
+    BarBindsym = 82,
+    NoFocusEnd = 81,
+    ModeBinding = 80,
+    FakeOutputs = 79,
+    ColorSingle = 78,
+    ColorBorder = 77,
+    BarPosition = 76,
+    BarModifier = 75,
+    SmartBorders = 74,
+    RestartState = 73,
+    MouseWarping = 72,
+    CriterionStr = 71,
+    AssignOutput = 70,
+    ForceXinerama = 69,
+    FocusWrapping = 68,
+    DefaultBorder = 67,
+    CriterionFrom = 66,
+    GapsWithScope = 65,
+    DisableRandr15 = 64,
+    ColorIndicator = 63,
+    BarTrayOutput = 62,
+    BarSocketPath = 61,
+    BarPaddingTop = 60,
+    BarIgnoreLine = 59,
+    BarColorsText = 58,
+    BarBarCommand = 57,
+    WorkspaceLayout = 56,
+    TilingDragMode = 55,
+    ModeIgnoreLine = 54,
+    ModeBindcommand = 53,
+    IpcKillTimeout = 52,
+    ColorBackground = 51,
+    BarWheelUpCmd = 50,
+    BarTrayPadding = 49,
+    BarPaddingLeft = 48,
+    BarHiddenState = 47,
+    BarColorsBrace = 46,
+    AssignWorkspace = 45,
+    WorkspaceCommand = 44,
+    HideEdgeBorders = 43,
+    FloatingModifier = 42,
+    BarPaddingRight = 41,
+    BarColorsSingle = 40,
+    BarColorsBorder = 39,
+    ForWindowCommand = 38,
+    CriterionFromStr = 37,
+    ColorChildBorder = 36,
+    BarWheelDownCmd = 35,
+    BarStatusCommand = 34,
+    BarPaddingBottom = 33,
+    FocusFollowsMouse = 32,
+    DefaultOrientation = 31,
+    BarTrayPaddingPx = 30,
+    BarBindsymCommand = 29,
+    ForceFocusWrapping = 28,
+    BarSeparatorSymbol = 27,
+    WorkspaceOutputWord = 26,
+    DefaultBorderPixels = 25,
+    BarWorkspaceCommand = 24,
+    BarWorkspaceButtons = 23,
+    BarColorsBackground = 22,
+    CriterionFromStrEnd = 21,
+    BarColorsIgnoreLine = 20,
+    PopupDuringFullscreen = 19,
+    FloatingMinimumSizeX = 18,
+    FloatingMaximumSizeX = 17,
+    BarWorkspaceMinWidth = 16,
+    AssignWorkspaceNumber = 15,
+    WorkspaceBackAndForth = 14,
+    DefaultBorderPixelsPx = 13,
+    CriterionFromStrStart = 12,
+    BarStripWorkspaceName = 11,
+    TilingDragSwapModifier = 10,
+    ForceDisplayUrgencyHint = 9,
+    FocusOnWindowActivation = 8,
+    BarWorkspaceMinWidthPx = 7,
+    BarBindingModeIndicator = 6,
+    FloatingMinimumSizeWidth = 5,
+    FloatingMaximumSizeWidth = 4,
+    BarStripWorkspaceNumbers = 3,
+    FloatingMinimumSizeHeight = 2,
+    FloatingMaximumSizeHeight = 1,
+    ForceDisplayUrgencyHintMs = 0,
+}

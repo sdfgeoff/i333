@@ -1,3 +1,8 @@
+use crate::types::Direction;
+use crate::types::Layout;
+use crate::types::Orientation;
+use crate::types::OutputSelection;
+use crate::types::Position;
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -9,107 +14,41 @@
  */
 // Mechanical file-by-file Rust translation of src/move.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
-pub type __uint8_t = u8;
-pub type __uint16_t = u16;
-pub type __uint32_t = u32;
-pub type __time_t = ::core::ffi::c_long;
-pub type __suseconds_t = ::core::ffi::c_long;
-pub type time_t = __time_t;
-
-pub type uint8_t = __uint8_t;
-pub type uint16_t = __uint16_t;
-pub type uint32_t = __uint32_t;
 
 pub type i3String = _i3String;
 
-pub type C2RustUnnamed_0 = ::core::ffi::c_uint;
-pub const SCRATCHPAD_CHANGED: C2RustUnnamed_0 = 2;
-pub const SCRATCHPAD_FRESH: C2RustUnnamed_0 = 1;
-pub const SCRATCHPAD_NONE: C2RustUnnamed_0 = 0;
-
-pub type C2RustUnnamed_5 = ::core::ffi::c_uint;
-pub const FLOATING_USER_ON: C2RustUnnamed_5 = 3;
-pub const FLOATING_AUTO_ON: C2RustUnnamed_5 = 2;
-pub const FLOATING_USER_OFF: C2RustUnnamed_5 = 1;
-pub const FLOATING_AUTO_OFF: C2RustUnnamed_5 = 0;
-pub type border_style_t = ::core::ffi::c_uint;
-pub const BS_NORMAL: border_style_t = 2;
-pub const BS_PIXEL: border_style_t = 1;
-pub const BS_NONE: border_style_t = 0;
-pub type layout_t = ::core::ffi::c_uint;
-pub const L_SPLITH: layout_t = 6;
-pub const L_SPLITV: layout_t = 5;
-pub const L_OUTPUT: layout_t = 4;
-pub const L_DOCKAREA: layout_t = 3;
-pub const L_TABBED: layout_t = 2;
-pub const L_STACKED: layout_t = 1;
-pub const L_DEFAULT: layout_t = 0;
 pub type fullscreen_mode_t = ::core::ffi::c_uint;
 pub const CF_GLOBAL: fullscreen_mode_t = 2;
 pub const CF_OUTPUT: fullscreen_mode_t = 1;
 pub const CF_NONE: fullscreen_mode_t = 0;
 
-pub type C2RustUnnamed_7 = ::core::ffi::c_uint;
-pub const M_BELOW: C2RustUnnamed_7 = 2;
-pub const M_ASSIGN_WS: C2RustUnnamed_7 = 1;
-pub const M_HERE: C2RustUnnamed_7 = 0;
-pub type C2RustUnnamed_8 = ::core::ffi::c_uint;
-pub const WM_FLOATING: C2RustUnnamed_8 = 6;
-pub const WM_FLOATING_USER: C2RustUnnamed_8 = 5;
-pub const WM_FLOATING_AUTO: C2RustUnnamed_8 = 4;
-pub const WM_TILING: C2RustUnnamed_8 = 3;
-pub const WM_TILING_USER: C2RustUnnamed_8 = 2;
-pub const WM_TILING_AUTO: C2RustUnnamed_8 = 1;
-pub const WM_ANY: C2RustUnnamed_8 = 0;
-pub type C2RustUnnamed_9 = ::core::ffi::c_int;
-pub const M_DOCK_BOTTOM: C2RustUnnamed_9 = 3;
-pub const M_DOCK_TOP: C2RustUnnamed_9 = 2;
-pub const M_DOCK_ANY: C2RustUnnamed_9 = 1;
-pub const M_NODOCK: C2RustUnnamed_9 = 0;
-pub const M_DONTCHECK: C2RustUnnamed_9 = -1;
-pub type C2RustUnnamed_10 = ::core::ffi::c_int;
-pub const U_OLDEST: C2RustUnnamed_10 = 1;
-pub const U_LATEST: C2RustUnnamed_10 = 0;
-pub const U_DONTCHECK: C2RustUnnamed_10 = -1;
+pub const M_BELOW: ::core::ffi::c_uint = 2;
+pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
+pub const M_HERE: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_11 = ::core::ffi::c_uint;
-pub const W_DOCK_BOTTOM: C2RustUnnamed_11 = 2;
-pub const W_DOCK_TOP: C2RustUnnamed_11 = 1;
-pub const W_NODOCK: C2RustUnnamed_11 = 0;
+pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
+pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
+pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
+pub const M_NODOCK: ::core::ffi::c_int = 0;
+pub const M_DONTCHECK: ::core::ffi::c_int = -1;
 
-pub type C2RustUnnamed_14 = ::core::ffi::c_uint;
-pub const A_TO_OUTPUT: C2RustUnnamed_14 = 16;
-pub const A_TO_WORKSPACE_NUMBER: C2RustUnnamed_14 = 8;
-pub const A_NO_FOCUS: C2RustUnnamed_14 = 4;
-pub const A_TO_WORKSPACE: C2RustUnnamed_14 = 2;
-pub const A_COMMAND: C2RustUnnamed_14 = 1;
-pub const A_ANY: C2RustUnnamed_14 = 0;
+pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
+pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
+pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
+pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
+pub const A_COMMAND: ::core::ffi::c_uint = 1;
+pub const A_ANY: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_16 = ::core::ffi::c_uint;
-pub const CT_DOCKAREA: C2RustUnnamed_16 = 5;
-pub const CT_WORKSPACE: C2RustUnnamed_16 = 4;
-pub const CT_FLOATING_CON: C2RustUnnamed_16 = 3;
-pub const CT_CON: C2RustUnnamed_16 = 2;
-pub const CT_OUTPUT: C2RustUnnamed_16 = 1;
-pub const CT_ROOT: C2RustUnnamed_16 = 0;
+pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
+pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
+pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
+pub const CT_CON: ::core::ffi::c_uint = 2;
+pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
+pub const CT_ROOT: ::core::ffi::c_uint = 0;
 
 pub type Output = xoutput;
 pub type i3Window = Window;
-pub type direction_t = ::core::ffi::c_uint;
-pub const D_DOWN: direction_t = 3;
-pub const D_UP: direction_t = 2;
-pub const D_RIGHT: direction_t = 1;
-pub const D_LEFT: direction_t = 0;
-pub type orientation_t = ::core::ffi::c_uint;
-pub const VERT: orientation_t = 2;
-pub const HORIZ: orientation_t = 1;
-pub const NO_ORIENTATION: orientation_t = 0;
-pub type position_t = ::core::ffi::c_uint;
-pub const AFTER: position_t = 1;
-pub const BEFORE: position_t = 0;
-pub type output_close_far_t = ::core::ffi::c_uint;
-pub const FARTHEST_OUTPUT: output_close_far_t = 1;
-pub const CLOSEST_OUTPUT: output_close_far_t = 0;
+
 pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
@@ -172,7 +111,7 @@ unsafe fn is_focused_descendant(con: *mut Con, ancestor: *mut Con) -> bool {
     true_0 != 0
 }
 
-pub unsafe fn insert_con_into(mut con: *mut Con, target: *mut Con, position: position_t) {
+pub unsafe fn insert_con_into(mut con: *mut Con, target: *mut Con, position: Position) {
     let parent: *mut Con = (*target).parent as *mut Con;
     let old_parent: *mut Con = (*con).parent as *mut Con;
     let lca: *mut Con = lowest_common_ancestor(con, parent);
@@ -304,13 +243,12 @@ pub unsafe fn insert_con_into(mut con: *mut Con, target: *mut Con, position: pos
         *(*parent).focus_head.tqh_last = con as *mut Con;
         (*parent).focus_head.tqh_last = &raw mut (*con).focused.tqe_next;
     }
-    if position as ::core::ffi::c_uint == BEFORE as ::core::ffi::c_int as ::core::ffi::c_uint {
+    if position == Position::Before {
         (*con).nodes.tqe_prev = (*target).nodes.tqe_prev;
         (*con).nodes.tqe_next = target as *mut Con;
         *(*target).nodes.tqe_prev = con as *mut Con;
         (*target).nodes.tqe_prev = &raw mut (*con).nodes.tqe_next;
-    } else if position as ::core::ffi::c_uint == AFTER as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    } else if position == Position::After {
         (*con).nodes.tqe_next = (*target).nodes.tqe_next;
         if !(*con).nodes.tqe_next.is_null() {
             (*(*con).nodes.tqe_next).nodes.tqe_prev = &raw mut (*con).nodes.tqe_next;
@@ -326,13 +264,11 @@ pub unsafe fn insert_con_into(mut con: *mut Con, target: *mut Con, position: pos
         .on_remove_child
         .expect("non-null function pointer")(old_parent);
 }
-unsafe fn attach_to_workspace(con: *mut Con, ws: *mut Con, direction: direction_t) {
+unsafe fn attach_to_workspace(con: *mut Con, ws: *mut Con, direction: Direction) {
     con_detach(con);
     let old_parent: *mut Con = (*con).parent as *mut Con;
     (*con).parent = ws as *mut Con;
-    if direction as ::core::ffi::c_uint == D_RIGHT as ::core::ffi::c_int as ::core::ffi::c_uint
-        || direction as ::core::ffi::c_uint == D_DOWN as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if direction == Direction::Right || direction == Direction::Down {
         (*con).nodes.tqe_next = (*ws).nodes_head.tqh_first;
         if !(*con).nodes.tqe_next.is_null() {
             (*(*ws).nodes_head.tqh_first).nodes.tqe_prev = &raw mut (*con).nodes.tqe_next;
@@ -358,9 +294,9 @@ unsafe fn attach_to_workspace(con: *mut Con, ws: *mut Con, direction: direction_
         .on_remove_child
         .expect("non-null function pointer")(old_parent);
 }
-unsafe fn move_to_output_directed(con: *mut Con, direction: direction_t) {
+unsafe fn move_to_output_directed(con: *mut Con, direction: Direction) {
     let current_output: *mut Output = get_output_for_con(con);
-    let output: *mut Output = get_output_next(direction, current_output, CLOSEST_OUTPUT);
+    let output: *mut Output = get_output_next(direction, current_output, OutputSelection::Closest);
     if output.is_null() {
         debuglog(
             c"%s:%s:%d - No output in this direction found. Not moving.\n"
@@ -415,11 +351,11 @@ unsafe fn move_to_output_directed(con: *mut Con, direction: direction_t) {
     ewmh_update_wm_desktop();
 }
 
-pub unsafe fn tree_move(con: *mut Con, direction: direction_t) {
+pub unsafe fn tree_move(con: *mut Con, direction: Direction) {
     let mut above: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut next: *mut Con = ::core::ptr::null_mut::<Con>();
     let current_block: u64;
-    let mut position: position_t = BEFORE;
+    let mut position: Position = Position::Before;
     let mut target: *mut Con = ::core::ptr::null_mut::<Con>();
     debuglog(
         c"%s:%s:%d - Moving in direction %d\n".as_ptr().cast_mut(),
@@ -461,7 +397,7 @@ pub unsafe fn tree_move(con: *mut Con, direction: direction_t) {
         move_to_output_directed(con, direction);
         return;
     }
-    let o: orientation_t = orientation_from_direction(direction);
+    let o: Orientation = orientation_from_direction(direction);
     let mut same_orientation: *mut Con = con_parent_with_orientation(con, o);
     loop {
         if same_orientation.is_null() {
@@ -496,11 +432,7 @@ pub unsafe fn tree_move(con: *mut Con, direction: direction_t) {
             }
         }
         if same_orientation == (*con).parent {
-            let swap: *mut Con = if direction as ::core::ffi::c_uint
-                == D_LEFT as ::core::ffi::c_int as ::core::ffi::c_uint
-                || direction as ::core::ffi::c_uint
-                    == D_UP as ::core::ffi::c_int as ::core::ffi::c_uint
-            {
+            let swap: *mut Con = if direction == Direction::Left || direction == Direction::Up {
                 *(*((*con).nodes.tqe_prev as *mut nodes_head)).tqh_last
             } else {
                 (*con).nodes.tqe_next as *mut Con
@@ -516,18 +448,14 @@ pub unsafe fn tree_move(con: *mut Con, direction: direction_t) {
                         317 as ::core::ffi::c_int,
                     );
                     target = con_descend_direction(swap, direction);
-                    position = (if con_orientation((*target).parent as *mut Con)
-                        as ::core::ffi::c_uint
-                        != o as ::core::ffi::c_uint
-                        || direction as ::core::ffi::c_uint
-                            == D_UP as ::core::ffi::c_int as ::core::ffi::c_uint
-                        || direction as ::core::ffi::c_uint
-                            == D_LEFT as ::core::ffi::c_int as ::core::ffi::c_uint
+                    position = if con_orientation((*target).parent as *mut Con) != o
+                        || direction == Direction::Up
+                        || direction == Direction::Left
                     {
-                        AFTER as ::core::ffi::c_int
+                        Position::After
                     } else {
-                        BEFORE as ::core::ffi::c_int
-                    }) as position_t;
+                        Position::Before
+                    };
                     insert_con_into(con, target, position);
                     current_block = 11393196477283502759;
                     break;
@@ -538,11 +466,7 @@ pub unsafe fn tree_move(con: *mut Con, direction: direction_t) {
                         c"tree_move".as_ptr(),
                         328 as ::core::ffi::c_int,
                     );
-                    if direction as ::core::ffi::c_uint
-                        == D_LEFT as ::core::ffi::c_int as ::core::ffi::c_uint
-                        || direction as ::core::ffi::c_uint
-                            == D_UP as ::core::ffi::c_int as ::core::ffi::c_uint
-                    {
+                    if direction == Direction::Left || direction == Direction::Up {
                         *(*swap).nodes.tqe_prev = con as *mut Con;
                         (*con).nodes.tqe_prev = (*swap).nodes.tqe_prev;
                         (*swap).nodes.tqe_prev = &raw mut (*con).nodes.tqe_next;
@@ -608,11 +532,7 @@ pub unsafe fn tree_move(con: *mut Con, direction: direction_t) {
                 369 as ::core::ffi::c_int,
                 above,
             );
-            next = if direction as ::core::ffi::c_uint
-                == D_UP as ::core::ffi::c_int as ::core::ffi::c_uint
-                || direction as ::core::ffi::c_uint
-                    == D_LEFT as ::core::ffi::c_int as ::core::ffi::c_uint
-            {
+            next = if direction == Direction::Up || direction == Direction::Left {
                 *(*((*above).nodes.tqe_prev as *mut nodes_head)).tqh_last
             } else {
                 (*above).nodes.tqe_next as *mut Con
@@ -627,23 +547,19 @@ pub unsafe fn tree_move(con: *mut Con, direction: direction_t) {
                     374 as ::core::ffi::c_int,
                 );
                 target = con_descend_direction(next, direction);
-                position = (if con_orientation((*target).parent as *mut Con) as ::core::ffi::c_uint
-                    != o as ::core::ffi::c_uint
-                    || direction as ::core::ffi::c_uint
-                        == D_UP as ::core::ffi::c_int as ::core::ffi::c_uint
-                    || direction as ::core::ffi::c_uint
-                        == D_LEFT as ::core::ffi::c_int as ::core::ffi::c_uint
+                position = if con_orientation((*target).parent as *mut Con) != o
+                    || direction == Direction::Up
+                    || direction == Direction::Left
                 {
-                    AFTER as ::core::ffi::c_int
+                    Position::After
                 } else {
-                    BEFORE as ::core::ffi::c_int
-                }) as position_t;
+                    Position::Before
+                };
                 insert_con_into(con, target, position);
             } else if next.is_null()
                 && (*(*(*con).parent).parent).type_0 as ::core::ffi::c_uint
                     == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-                && (*(*con).parent).layout as ::core::ffi::c_uint
-                    != L_DEFAULT as ::core::ffi::c_int as ::core::ffi::c_uint
+                && (*(*con).parent).layout != Layout::Default
                 && con_num_children((*con).parent as *mut Con) == 1 as ::core::ffi::c_int
             {
                 debuglog(
@@ -663,15 +579,11 @@ pub unsafe fn tree_move(con: *mut Con, direction: direction_t) {
                     c"tree_move".as_ptr(),
                     393 as ::core::ffi::c_int,
                 );
-                position = (if direction as ::core::ffi::c_uint
-                    == D_UP as ::core::ffi::c_int as ::core::ffi::c_uint
-                    || direction as ::core::ffi::c_uint
-                        == D_LEFT as ::core::ffi::c_int as ::core::ffi::c_uint
-                {
-                    BEFORE as ::core::ffi::c_int
+                position = if direction == Direction::Up || direction == Direction::Left {
+                    Position::Before
                 } else {
-                    AFTER as ::core::ffi::c_int
-                }) as position_t;
+                    Position::After
+                };
                 insert_con_into(con, above, position);
             }
         }

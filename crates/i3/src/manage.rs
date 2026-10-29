@@ -1,4 +1,8 @@
 use crate::tree::all_cons;
+use crate::types::BorderStyle;
+use crate::types::FloatingState;
+use crate::types::PopupDuringFullscreen;
+use crate::types::WindowDock;
 use i3_common::safewrappers::sasprintf;
 /*
  * vim:ts=4:sw=4:expandtab
@@ -11,109 +15,43 @@ use i3_common::safewrappers::sasprintf;
  */
 // Mechanical file-by-file Rust translation of src/manage.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
-pub type size_t = usize;
-pub type __uint8_t = u8;
-pub type __int16_t = i16;
-pub type __uint16_t = u16;
-pub type __int32_t = i32;
-pub type __uint32_t = u32;
-pub type __uint64_t = u64;
-pub type __time_t = ::core::ffi::c_long;
-pub type __suseconds_t = ::core::ffi::c_long;
-pub type time_t = __time_t;
-pub type int16_t = __int16_t;
-pub type int32_t = __int32_t;
-
-pub type uint8_t = __uint8_t;
-pub type uint16_t = __uint16_t;
-pub type uint32_t = __uint32_t;
-pub type uint64_t = __uint64_t;
 
 pub type i3String = _i3String;
 
-pub type C2RustUnnamed_1 = ::core::ffi::c_uint;
-pub const FONT_TYPE_PANGO: C2RustUnnamed_1 = 2;
-pub const FONT_TYPE_XCB: C2RustUnnamed_1 = 1;
-pub const FONT_TYPE_NONE: C2RustUnnamed_1 = 0;
 pub type i3Font = Font;
 
-pub type C2RustUnnamed_3 = ::core::ffi::c_uint;
-pub const SCRATCHPAD_CHANGED: C2RustUnnamed_3 = 2;
-pub const SCRATCHPAD_FRESH: C2RustUnnamed_3 = 1;
-pub const SCRATCHPAD_NONE: C2RustUnnamed_3 = 0;
-
-pub type C2RustUnnamed_8 = ::core::ffi::c_uint;
-pub const FLOATING_USER_ON: C2RustUnnamed_8 = 3;
-pub const FLOATING_AUTO_ON: C2RustUnnamed_8 = 2;
-pub const FLOATING_USER_OFF: C2RustUnnamed_8 = 1;
-pub const FLOATING_AUTO_OFF: C2RustUnnamed_8 = 0;
-pub type border_style_t = ::core::ffi::c_uint;
-pub const BS_NORMAL: border_style_t = 2;
-pub const BS_PIXEL: border_style_t = 1;
-pub const BS_NONE: border_style_t = 0;
-pub type layout_t = ::core::ffi::c_uint;
-pub const L_SPLITH: layout_t = 6;
-pub const L_SPLITV: layout_t = 5;
-pub const L_OUTPUT: layout_t = 4;
-pub const L_DOCKAREA: layout_t = 3;
-pub const L_TABBED: layout_t = 2;
-pub const L_STACKED: layout_t = 1;
-pub const L_DEFAULT: layout_t = 0;
 pub type fullscreen_mode_t = ::core::ffi::c_uint;
 pub const CF_GLOBAL: fullscreen_mode_t = 2;
 pub const CF_OUTPUT: fullscreen_mode_t = 1;
 pub const CF_NONE: fullscreen_mode_t = 0;
 
-pub type C2RustUnnamed_10 = ::core::ffi::c_uint;
-pub const M_BELOW: C2RustUnnamed_10 = 2;
-pub const M_ASSIGN_WS: C2RustUnnamed_10 = 1;
-pub const M_HERE: C2RustUnnamed_10 = 0;
-pub type C2RustUnnamed_11 = ::core::ffi::c_uint;
-pub const WM_FLOATING: C2RustUnnamed_11 = 6;
-pub const WM_FLOATING_USER: C2RustUnnamed_11 = 5;
-pub const WM_FLOATING_AUTO: C2RustUnnamed_11 = 4;
-pub const WM_TILING: C2RustUnnamed_11 = 3;
-pub const WM_TILING_USER: C2RustUnnamed_11 = 2;
-pub const WM_TILING_AUTO: C2RustUnnamed_11 = 1;
-pub const WM_ANY: C2RustUnnamed_11 = 0;
-pub type C2RustUnnamed_12 = ::core::ffi::c_int;
-pub const M_DOCK_BOTTOM: C2RustUnnamed_12 = 3;
-pub const M_DOCK_TOP: C2RustUnnamed_12 = 2;
-pub const M_DOCK_ANY: C2RustUnnamed_12 = 1;
-pub const M_NODOCK: C2RustUnnamed_12 = 0;
-pub const M_DONTCHECK: C2RustUnnamed_12 = -1;
-pub type C2RustUnnamed_13 = ::core::ffi::c_int;
-pub const U_OLDEST: C2RustUnnamed_13 = 1;
-pub const U_LATEST: C2RustUnnamed_13 = 0;
-pub const U_DONTCHECK: C2RustUnnamed_13 = -1;
+pub const M_BELOW: ::core::ffi::c_uint = 2;
+pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
+pub const M_HERE: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_14 = ::core::ffi::c_uint;
-pub const W_DOCK_BOTTOM: C2RustUnnamed_14 = 2;
-pub const W_DOCK_TOP: C2RustUnnamed_14 = 1;
-pub const W_NODOCK: C2RustUnnamed_14 = 0;
+pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
+pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
+pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
+pub const M_NODOCK: ::core::ffi::c_int = 0;
+pub const M_DONTCHECK: ::core::ffi::c_int = -1;
 
-pub type C2RustUnnamed_17 = ::core::ffi::c_uint;
-pub const A_TO_OUTPUT: C2RustUnnamed_17 = 16;
-pub const A_TO_WORKSPACE_NUMBER: C2RustUnnamed_17 = 8;
-pub const A_NO_FOCUS: C2RustUnnamed_17 = 4;
-pub const A_TO_WORKSPACE: C2RustUnnamed_17 = 2;
-pub const A_COMMAND: C2RustUnnamed_17 = 1;
-pub const A_ANY: C2RustUnnamed_17 = 0;
+pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
+pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
+pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
+pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
+pub const A_COMMAND: ::core::ffi::c_uint = 1;
+pub const A_ANY: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_19 = ::core::ffi::c_uint;
-pub const CT_DOCKAREA: C2RustUnnamed_19 = 5;
-pub const CT_WORKSPACE: C2RustUnnamed_19 = 4;
-pub const CT_FLOATING_CON: C2RustUnnamed_19 = 3;
-pub const CT_CON: C2RustUnnamed_19 = 2;
-pub const CT_OUTPUT: C2RustUnnamed_19 = 1;
-pub const CT_ROOT: C2RustUnnamed_19 = 0;
+pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
+pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
+pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
+pub const CT_CON: ::core::ffi::c_uint = 2;
+pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
+pub const CT_ROOT: ::core::ffi::c_uint = 0;
 
 pub type Output = xoutput;
 pub type i3Window = Window;
-pub type smart_gaps_t = ::core::ffi::c_uint;
-pub const SMART_GAPS_INVERSE_OUTER: smart_gaps_t = 2;
-pub const SMART_GAPS_ON: smart_gaps_t = 1;
-pub const SMART_GAPS_OFF: smart_gaps_t = 0;
+
 pub type hide_edge_borders_mode_t = ::core::ffi::c_uint;
 pub const HEBM_SMART_NO_GAPS: hide_edge_borders_mode_t = 64;
 pub const HEBM_SMART: hide_edge_borders_mode_t = 32;
@@ -121,14 +59,6 @@ pub const HEBM_BOTH: hide_edge_borders_mode_t = 23;
 pub const HEBM_HORIZONTAL: hide_edge_borders_mode_t = 20;
 pub const HEBM_VERTICAL: hide_edge_borders_mode_t = 3;
 pub const HEBM_NONE: hide_edge_borders_mode_t = 0;
-pub type warping_t = ::core::ffi::c_uint;
-pub const POINTER_WARPING_NONE: warping_t = 1;
-pub const POINTER_WARPING_OUTPUT: warping_t = 0;
-pub type focus_wrapping_t = ::core::ffi::c_uint;
-pub const FOCUS_WRAPPING_WORKSPACE: focus_wrapping_t = 3;
-pub const FOCUS_WRAPPING_FORCE: focus_wrapping_t = 2;
-pub const FOCUS_WRAPPING_ON: focus_wrapping_t = 1;
-pub const FOCUS_WRAPPING_OFF: focus_wrapping_t = 0;
 
 pub type tiling_drag_t = ::core::ffi::c_uint;
 pub const TILING_DRAG_MODIFIER_OR_TITLEBAR: tiling_drag_t = 3;
@@ -136,21 +66,6 @@ pub const TILING_DRAG_TITLEBAR: tiling_drag_t = 2;
 pub const TILING_DRAG_MODIFIER: tiling_drag_t = 1;
 pub const TILING_DRAG_OFF: tiling_drag_t = 0;
 
-pub type C2RustUnnamed_21 = ::core::ffi::c_uint;
-pub const PDF_ALL: C2RustUnnamed_21 = 3;
-pub const PDF_IGNORE: C2RustUnnamed_21 = 2;
-pub const PDF_LEAVE_FULLSCREEN: C2RustUnnamed_21 = 1;
-pub const PDF_SMART: C2RustUnnamed_21 = 0;
-
-pub type C2RustUnnamed_22 = ::core::ffi::c_uint;
-pub const ALIGN_RIGHT: C2RustUnnamed_22 = 2;
-pub const ALIGN_CENTER: C2RustUnnamed_22 = 1;
-pub const ALIGN_LEFT: C2RustUnnamed_22 = 0;
-pub type C2RustUnnamed_23 = ::core::ffi::c_uint;
-pub const FOWA_NONE: C2RustUnnamed_23 = 3;
-pub const FOWA_FOCUS: C2RustUnnamed_23 = 2;
-pub const FOWA_URGENT: C2RustUnnamed_23 = 1;
-pub const FOWA_SMART: C2RustUnnamed_23 = 0;
 pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 
@@ -192,8 +107,8 @@ pub unsafe fn manage_existing_windows(root_0: xcb_window_t) {
     }
     let len: ::core::ffi::c_int = xcb_query_tree_children_length(reply);
     let cookies: *mut xcb_get_window_attributes_cookie_t = smalloc(
-        (len as size_t)
-            .wrapping_mul(::core::mem::size_of::<xcb_get_window_attributes_cookie_t>() as size_t),
+        (len as usize)
+            .wrapping_mul(::core::mem::size_of::<xcb_get_window_attributes_cookie_t>() as usize),
     )
         as *mut xcb_get_window_attributes_cookie_t;
     let children: *mut xcb_window_t = xcb_query_tree_children(reply);
@@ -238,11 +153,11 @@ pub unsafe fn restore_geometry() {
             (*con).window_rect.width = (*con)
                 .window_rect
                 .width
-                .wrapping_add((2 as ::core::ffi::c_int * (*con).border_width) as uint32_t);
+                .wrapping_add((2 as ::core::ffi::c_int * (*con).border_width) as u32);
             (*con).window_rect.height = (*con)
                 .window_rect
                 .height
-                .wrapping_add((2 as ::core::ffi::c_int * (*con).border_width) as uint32_t);
+                .wrapping_add((2 as ::core::ffi::c_int * (*con).border_width) as u32);
             xcb_set_window_rect(conn, (*(*con).window).id, (*con).window_rect as Rect);
             debuglog(
                 c"%s:%s:%d - placing window %08x at %d %d\n"
@@ -259,19 +174,18 @@ pub unsafe fn restore_geometry() {
                 conn,
                 (*(*con).window).id,
                 root,
-                (*con).rect.x as int16_t,
-                (*con).rect.y as int16_t,
+                (*con).rect.x as i16,
+                (*con).rect.y as i16,
             );
         }
         con = (*con).all_cons.tqe_next as *mut Con;
     }
-    let mut fresh0: [uint32_t; 1] =
-        [XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT as ::core::ffi::c_int as uint32_t];
+    let mut fresh0: [u32; 1] = [XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT as ::core::ffi::c_int as u32];
     xcb_change_window_attributes(
         conn,
         root,
-        XCB_CW_EVENT_MASK as ::core::ffi::c_int as uint32_t,
-        &raw mut fresh0 as *mut uint32_t as *const ::core::ffi::c_void,
+        XCB_CW_EVENT_MASK as ::core::ffi::c_int as u32,
+        &raw mut fresh0 as *mut u32 as *const ::core::ffi::c_void,
     );
     xcb_aux_sync(conn);
 }
@@ -281,12 +195,12 @@ pub unsafe fn manage_window(
     cookie: xcb_get_window_attributes_cookie_t,
     needs_to_be_mapped: bool,
 ) {
-    let mut values: [uint32_t; 1] = [0; 1];
+    let mut values: [u32; 1] = [0; 1];
     let mut event_mask_cookie: xcb_void_cookie_t = xcb_void_cookie_t { sequence: 0 };
     let mut cwindow: *mut i3Window = ::core::ptr::null_mut::<i3Window>();
     let mut buttons: *mut ::core::ffi::c_int = ::core::ptr::null_mut::<::core::ffi::c_int>();
     let mut urgency_hint: bool = false;
-    let mut motif_border_style: border_style_t = BS_NONE;
+    let mut motif_border_style: BorderStyle = BorderStyle::None;
     let mut has_mwm_hints: bool = false;
     let mut type_reply: *mut xcb_get_property_reply_t =
         ::core::ptr::null_mut::<xcb_get_property_reply_t>();
@@ -393,15 +307,14 @@ pub unsafe fn manage_window(
             );
         } else {
             values = [0; 1];
-            values[0 as ::core::ffi::c_int as usize] = (XCB_EVENT_MASK_PROPERTY_CHANGE
-                as ::core::ffi::c_int
-                | XCB_EVENT_MASK_STRUCTURE_NOTIFY as ::core::ffi::c_int)
-                as uint32_t;
+            values[0 as ::core::ffi::c_int as usize] =
+                (XCB_EVENT_MASK_PROPERTY_CHANGE as ::core::ffi::c_int
+                    | XCB_EVENT_MASK_STRUCTURE_NOTIFY as ::core::ffi::c_int) as u32;
             event_mask_cookie = xcb_change_window_attributes_checked(
                 conn,
                 window,
-                XCB_CW_EVENT_MASK as ::core::ffi::c_int as uint32_t,
-                &raw mut values as *mut uint32_t as *const ::core::ffi::c_void,
+                XCB_CW_EVENT_MASK as ::core::ffi::c_int as u32,
+                &raw mut values as *mut u32 as *const ::core::ffi::c_void,
             );
             if !xcb_request_check(conn, event_mask_cookie).is_null() {
                 verboselog(
@@ -412,142 +325,142 @@ pub unsafe fn manage_window(
             } else {
                 wm_type_cookie = xcb_get_property(
                     conn,
-                    false_0 as uint8_t,
+                    false_0 as u8,
                     window,
                     A__NET_WM_WINDOW_TYPE,
                     XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-                    0 as uint32_t,
-                    4294967295 as uint32_t,
+                    0 as u32,
+                    4294967295 as u32,
                 );
                 strut_cookie = xcb_get_property(
                     conn,
-                    false_0 as uint8_t,
+                    false_0 as u8,
                     window,
                     A__NET_WM_STRUT_PARTIAL,
                     XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-                    0 as uint32_t,
-                    4294967295 as uint32_t,
+                    0 as u32,
+                    4294967295 as u32,
                 );
                 state_cookie = xcb_get_property(
                     conn,
-                    false_0 as uint8_t,
+                    false_0 as u8,
                     window,
                     A__NET_WM_STATE,
                     XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-                    0 as uint32_t,
-                    4294967295 as uint32_t,
+                    0 as u32,
+                    4294967295 as u32,
                 );
                 utf8_title_cookie = xcb_get_property(
                     conn,
-                    false_0 as uint8_t,
+                    false_0 as u8,
                     window,
                     A__NET_WM_NAME,
                     XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-                    0 as uint32_t,
-                    128 as uint32_t,
+                    0 as u32,
+                    128 as u32,
                 );
                 leader_cookie = xcb_get_property(
                     conn,
-                    false_0 as uint8_t,
+                    false_0 as u8,
                     window,
                     A_WM_CLIENT_LEADER,
                     XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-                    0 as uint32_t,
-                    4294967295 as uint32_t,
+                    0 as u32,
+                    4294967295 as u32,
                 );
                 transient_cookie = xcb_get_property(
                     conn,
-                    false_0 as uint8_t,
+                    false_0 as u8,
                     window,
                     XCB_ATOM_WM_TRANSIENT_FOR as ::core::ffi::c_int as xcb_atom_t,
                     XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-                    0 as uint32_t,
-                    4294967295 as uint32_t,
+                    0 as u32,
+                    4294967295 as u32,
                 );
                 title_cookie = xcb_get_property(
                     conn,
-                    false_0 as uint8_t,
+                    false_0 as u8,
                     window,
                     XCB_ATOM_WM_NAME as ::core::ffi::c_int as xcb_atom_t,
                     XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-                    0 as uint32_t,
-                    128 as uint32_t,
+                    0 as u32,
+                    128 as u32,
                 );
                 class_cookie = xcb_get_property(
                     conn,
-                    false_0 as uint8_t,
+                    false_0 as u8,
                     window,
                     XCB_ATOM_WM_CLASS as ::core::ffi::c_int as xcb_atom_t,
                     XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-                    0 as uint32_t,
-                    128 as uint32_t,
+                    0 as u32,
+                    128 as u32,
                 );
                 role_cookie = xcb_get_property(
                     conn,
-                    false_0 as uint8_t,
+                    false_0 as u8,
                     window,
                     A_WM_WINDOW_ROLE,
                     XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-                    0 as uint32_t,
-                    128 as uint32_t,
+                    0 as u32,
+                    128 as u32,
                 );
                 startup_id_cookie = xcb_get_property(
                     conn,
-                    false_0 as uint8_t,
+                    false_0 as u8,
                     window,
                     A__NET_STARTUP_ID,
                     XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-                    0 as uint32_t,
-                    512 as uint32_t,
+                    0 as u32,
+                    512 as u32,
                 );
                 wm_hints_cookie = xcb_icccm_get_wm_hints(conn, window);
                 wm_normal_hints_cookie = xcb_icccm_get_wm_normal_hints(conn, window);
                 motif_wm_hints_cookie = xcb_get_property(
                     conn,
-                    false_0 as uint8_t,
+                    false_0 as u8,
                     window,
                     A__MOTIF_WM_HINTS,
                     XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-                    0 as uint32_t,
-                    5_usize.wrapping_mul(::core::mem::size_of::<uint64_t>() as usize) as uint32_t,
+                    0 as u32,
+                    5_usize.wrapping_mul(::core::mem::size_of::<u64>() as usize) as u32,
                 );
                 wm_user_time_cookie = xcb_get_property(
                     conn,
-                    false_0 as uint8_t,
+                    false_0 as u8,
                     window,
                     A__NET_WM_USER_TIME,
                     XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-                    0 as uint32_t,
-                    4294967295 as uint32_t,
+                    0 as u32,
+                    4294967295 as u32,
                 );
                 wm_desktop_cookie = xcb_get_property(
                     conn,
-                    false_0 as uint8_t,
+                    false_0 as u8,
                     window,
                     A__NET_WM_DESKTOP,
                     XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-                    0 as uint32_t,
-                    4294967295 as uint32_t,
+                    0 as u32,
+                    4294967295 as u32,
                 );
                 wm_machine_cookie = xcb_get_property(
                     conn,
-                    false_0 as uint8_t,
+                    false_0 as u8,
                     window,
                     XCB_ATOM_WM_CLIENT_MACHINE as ::core::ffi::c_int as xcb_atom_t,
                     XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-                    0 as uint32_t,
-                    4294967295 as uint32_t,
+                    0 as u32,
+                    4294967295 as u32,
                 );
                 wm_icon_cookie = xcb_get_property(
                     conn,
-                    false_0 as uint8_t,
+                    false_0 as u8,
                     window,
                     A__NET_WM_ICON,
                     XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-                    0 as uint32_t,
-                    4294967295 as uint32_t,
+                    0 as u32,
+                    4294967295 as u32,
                 );
-                cwindow = scalloc(1 as size_t, ::core::mem::size_of::<i3Window>() as size_t)
+                cwindow = scalloc(1 as usize, ::core::mem::size_of::<i3Window>() as usize)
                     as *mut i3Window;
                 (*cwindow).id = window;
                 (*cwindow).depth = get_visual_depth((*attr).visual);
@@ -629,7 +542,7 @@ pub unsafe fn manage_window(
                     ),
                     &raw mut urgency_hint,
                 );
-                motif_border_style = BS_NONE;
+                motif_border_style = BorderStyle::None;
                 has_mwm_hints = window_update_motif_hints(
                     cwindow,
                     xcb_get_property_reply(
@@ -686,14 +599,14 @@ pub unsafe fn manage_window(
                     wm_desktop_cookie,
                     ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
                 );
-                (*cwindow).wm_desktop = NET_WM_DESKTOP_NONE as uint32_t;
+                (*cwindow).wm_desktop = NET_WM_DESKTOP_NONE as u32;
                 if !wm_desktop_reply.is_null()
                     && xcb_get_property_value_length(wm_desktop_reply) != 0 as ::core::ffi::c_int
                 {
-                    let wm_desktops: *mut uint32_t =
-                        xcb_get_property_value(wm_desktop_reply) as *mut uint32_t;
-                    (*cwindow).wm_desktop = *wm_desktops.offset(0 as ::core::ffi::c_int as isize)
-                        as int32_t as uint32_t;
+                    let wm_desktops: *mut u32 =
+                        xcb_get_property_value(wm_desktop_reply) as *mut u32;
+                    (*cwindow).wm_desktop =
+                        *wm_desktops.offset(0 as ::core::ffi::c_int as isize) as i32 as u32;
                 }
                 free(wm_desktop_reply as *mut ::core::ffi::c_void);
                 wm_desktop_reply = ::core::ptr::null_mut::<xcb_get_property_reply_t>();
@@ -719,8 +632,7 @@ pub unsafe fn manage_window(
                         );
                         search_at = (*output).con;
                     }
-                    if (*cwindow).reserved.top > 0 as uint32_t
-                        && (*cwindow).reserved.bottom == 0 as uint32_t
+                    if (*cwindow).reserved.top > 0 as u32 && (*cwindow).reserved.bottom == 0 as u32
                     {
                         debuglog(
                             c"%s:%s:%d - Top dock client\n".as_ptr().cast_mut(),
@@ -728,9 +640,9 @@ pub unsafe fn manage_window(
                             c"manage_window".as_ptr(),
                             258 as ::core::ffi::c_int,
                         );
-                        (*cwindow).dock = W_DOCK_TOP;
-                    } else if (*cwindow).reserved.top == 0 as uint32_t
-                        && (*cwindow).reserved.bottom > 0 as uint32_t
+                        (*cwindow).dock = WindowDock::Top;
+                    } else if (*cwindow).reserved.top == 0 as u32
+                        && (*cwindow).reserved.bottom > 0 as u32
                     {
                         debuglog(
                             c"%s:%s:%d - Bottom dock client\n".as_ptr().cast_mut(),
@@ -738,7 +650,7 @@ pub unsafe fn manage_window(
                             c"manage_window".as_ptr(),
                             261 as ::core::ffi::c_int,
                         );
-                        (*cwindow).dock = W_DOCK_BOTTOM;
+                        (*cwindow).dock = WindowDock::Bottom;
                     } else {
                         debuglog(
                             c"%s:%s:%d - Ignoring invalid reserved edges (_NET_WM_STRUT_PARTIAL), using position as fallback:\n".as_ptr().cast_mut(),
@@ -747,7 +659,7 @@ pub unsafe fn manage_window(
                             264 as ::core::ffi::c_int,
                         );
                         if ((*geom).y as ::core::ffi::c_int)
-                            < (*search_at).rect.height.wrapping_div(2 as uint32_t) as int16_t
+                            < (*search_at).rect.height.wrapping_div(2 as u32) as i16
                                 as ::core::ffi::c_int
                         {
                             debuglog(
@@ -756,9 +668,9 @@ pub unsafe fn manage_window(
                                 c"manage_window".as_ptr(),
                                 267 as ::core::ffi::c_int,
                                 (*geom).y as ::core::ffi::c_int,
-                                (*search_at).rect.height.wrapping_div(2 as uint32_t),
+                                (*search_at).rect.height.wrapping_div(2 as u32),
                             );
-                            (*cwindow).dock = W_DOCK_TOP;
+                            (*cwindow).dock = WindowDock::Top;
                         } else {
                             debuglog(
                                 c"%s:%s:%d - geom->y = %d >= rect.height / 2 = %d, it is a bottom dock client\n".as_ptr().cast_mut(),
@@ -766,9 +678,9 @@ pub unsafe fn manage_window(
                                 c"manage_window".as_ptr(),
                                 271 as ::core::ffi::c_int,
                                 (*geom).y as ::core::ffi::c_int,
-                                (*search_at).rect.height.wrapping_div(2 as uint32_t),
+                                (*search_at).rect.height.wrapping_div(2 as u32),
                             );
-                            (*cwindow).dock = W_DOCK_BOTTOM;
+                            (*cwindow).dock = WindowDock::Bottom;
                         }
                     }
                 }
@@ -840,8 +752,8 @@ pub unsafe fn manage_window(
                         if !workspace_is_visible(assigned_ws) {
                             urgency_hint = true_0 != 0;
                         }
-                    } else if (*cwindow).wm_desktop != NET_WM_DESKTOP_NONE as uint32_t
-                        && (*cwindow).wm_desktop != NET_WM_DESKTOP_ALL as uint32_t
+                    } else if (*cwindow).wm_desktop != NET_WM_DESKTOP_NONE as u32
+                        && (*cwindow).wm_desktop != NET_WM_DESKTOP_ALL as u32
                         && {
                             wm_desktop_ws = ewmh_get_workspace_by_index((*cwindow).wm_desktop);
                             !wm_desktop_ws.is_null()
@@ -986,10 +898,10 @@ pub unsafe fn manage_window(
                 if xcb_reply_contains_atom(state_reply, A__NET_WM_STATE_FULLSCREEN) {
                     if fs != nc {
                         let output_0: *mut Output = get_output_with_dimensions(Rect {
-                            x: (*geom).x as uint32_t,
-                            y: (*geom).y as uint32_t,
-                            width: (*geom).width as uint32_t,
-                            height: (*geom).height as uint32_t,
+                            x: (*geom).x as u32,
+                            y: (*geom).y as u32,
+                            width: (*geom).width as u32,
+                            height: (*geom).height as u32,
                         });
                         if !output_0.is_null() {
                             con_move_to_output(nc, output_0, false_0 != 0);
@@ -1108,7 +1020,7 @@ pub unsafe fn manage_window(
                 if xcb_reply_contains_atom(state_reply, A__NET_WM_STATE_STICKY) {
                     (*nc).sticky = true_0 != 0;
                 }
-                if (*cwindow).wm_desktop == NET_WM_DESKTOP_ALL as uint32_t
+                if (*cwindow).wm_desktop == NET_WM_DESKTOP_ALL as u32
                     && (ws.is_null() || !con_is_internal(ws))
                 {
                     debuglog(
@@ -1136,8 +1048,7 @@ pub unsafe fn manage_window(
                         496 as ::core::ffi::c_int,
                     );
                     want_floating = true_0 != 0;
-                    if config.popup_during_fullscreen as ::core::ffi::c_uint
-                        == PDF_LEAVE_FULLSCREEN as ::core::ffi::c_int as ::core::ffi::c_uint
+                    if config.popup_during_fullscreen == PopupDuringFullscreen::LeaveFullscreen
                         && !fs.is_null()
                     {
                         debuglog(
@@ -1149,8 +1060,7 @@ pub unsafe fn manage_window(
                             501 as ::core::ffi::c_int,
                         );
                         con_disable_fullscreen(fs);
-                    } else if config.popup_during_fullscreen as ::core::ffi::c_uint
-                        == PDF_SMART as ::core::ffi::c_int as ::core::ffi::c_uint
+                    } else if config.popup_during_fullscreen == PopupDuringFullscreen::Smart
                         && !fs.is_null()
                         && !(*fs).window.is_null()
                     {
@@ -1160,16 +1070,15 @@ pub unsafe fn manage_window(
                 if (*cwindow).dock as u64 != 0 {
                     want_floating = false_0 != 0;
                 }
-                if (*nc).geometry.width == 0 as uint32_t {
+                if (*nc).geometry.width == 0 as u32 {
                     (*nc).geometry = Rect {
-                        x: (*geom).x as uint32_t,
-                        y: (*geom).y as uint32_t,
-                        width: (*geom).width as uint32_t,
-                        height: (*geom).height as uint32_t,
+                        x: (*geom).x as u32,
+                        y: (*geom).y as u32,
+                        width: (*geom).width as u32,
+                        height: (*geom).height as u32,
                     } as Rect;
                 }
-                if config.popup_during_fullscreen as ::core::ffi::c_uint
-                    == PDF_ALL as ::core::ffi::c_int as ::core::ffi::c_uint
+                if config.popup_during_fullscreen == PopupDuringFullscreen::All
                     && want_floating as ::core::ffi::c_int != 0
                     && !fs.is_null()
                 {
@@ -1185,7 +1094,7 @@ pub unsafe fn manage_window(
                         (*nc).geometry.height,
                     );
                     if floating_enable(nc, true_0 != 0) {
-                        (*nc).floating = FLOATING_AUTO_ON;
+                        (*nc).floating = FloatingState::AutoOn;
                     }
                 }
                 if has_mwm_hints {
@@ -1215,19 +1124,19 @@ pub unsafe fn manage_window(
                         config.default_border_width
                     };
                 }
-                values[0 as ::core::ffi::c_int as usize] = XCB_NONE as uint32_t;
+                values[0 as ::core::ffi::c_int as usize] = XCB_NONE as u32;
                 xcb_change_window_attributes(
                     conn,
                     window,
-                    XCB_CW_EVENT_MASK as ::core::ffi::c_int as uint32_t,
-                    &raw mut values as *mut uint32_t as *const ::core::ffi::c_void,
+                    XCB_CW_EVENT_MASK as ::core::ffi::c_int as u32,
+                    &raw mut values as *mut u32 as *const ::core::ffi::c_void,
                 );
                 rcookie = xcb_reparent_window_checked(
                     conn,
                     window,
                     (*nc).frame.id as xcb_window_t,
-                    0 as int16_t,
-                    0 as int16_t,
+                    0 as i16,
+                    0 as i16,
                 );
                 if !xcb_request_check(conn, rcookie).is_null() {
                     verboselog(
@@ -1241,21 +1150,21 @@ pub unsafe fn manage_window(
                         | XCB_EVENT_MASK_STRUCTURE_NOTIFY as ::core::ffi::c_int
                         | XCB_EVENT_MASK_FOCUS_CHANGE as ::core::ffi::c_int)
                         & !(XCB_EVENT_MASK_ENTER_WINDOW as ::core::ffi::c_int))
-                        as uint32_t;
+                        as u32;
                     xcb_change_window_attributes(
                         conn,
                         window,
-                        XCB_CW_EVENT_MASK as ::core::ffi::c_int as uint32_t,
-                        &raw mut values as *mut uint32_t as *const ::core::ffi::c_void,
+                        XCB_CW_EVENT_MASK as ::core::ffi::c_int as u32,
+                        &raw mut values as *mut u32 as *const ::core::ffi::c_void,
                     );
                     xcb_flush(conn);
                     xcb_change_save_set(
                         conn,
-                        XCB_SET_MODE_INSERT as ::core::ffi::c_int as uint8_t,
+                        XCB_SET_MODE_INSERT as ::core::ffi::c_int as u8,
                         window,
                     );
                     if shape_supported {
-                        xcb_shape_select_input(conn, window, true_0 as uint8_t);
+                        xcb_shape_select_input(conn, window, true_0 as u8);
                         let cookie_0: xcb_shape_query_extents_cookie_t =
                             xcb_shape_query_extents(conn, window);
                         let mut reply: *mut xcb_shape_query_extents_reply_t =
@@ -1278,7 +1187,7 @@ pub unsafe fn manage_window(
                         set_focus = false_0 != 0;
                     }
                     render_con(croot);
-                    (*cwindow).managed_since = time(::core::ptr::null_mut::<time_t>());
+                    (*cwindow).managed_since = time(::core::ptr::null_mut::<libc::time_t>());
                     ipc_send_window_event(c"new".as_ptr(), nc);
                     if set_focus as ::core::ffi::c_int != 0
                         && !assignment_for(cwindow, A_NO_FOCUS as ::core::ffi::c_int).is_null()
@@ -1313,7 +1222,7 @@ pub unsafe fn manage_window(
                             634 as ::core::ffi::c_int,
                             nc,
                         );
-                        let mut wm_user_time: *mut uint32_t = ::core::ptr::null_mut::<uint32_t>();
+                        let mut wm_user_time: *mut u32 = ::core::ptr::null_mut::<u32>();
                         let mut wm_user_time_reply: *mut xcb_get_property_reply_t =
                             xcb_get_property_reply(
                                 conn,
@@ -1325,11 +1234,10 @@ pub unsafe fn manage_window(
                                 != 0 as ::core::ffi::c_int
                             && {
                                 wm_user_time =
-                                    xcb_get_property_value(wm_user_time_reply) as *mut uint32_t;
+                                    xcb_get_property_value(wm_user_time_reply) as *mut u32;
                                 !wm_user_time.is_null()
                             }
-                            && *wm_user_time.offset(0 as ::core::ffi::c_int as isize)
-                                == 0 as uint32_t
+                            && *wm_user_time.offset(0 as ::core::ffi::c_int as isize) == 0 as u32
                         {
                             debuglog(
                                 c"%s:%s:%d - _NET_WM_USER_TIME set to 0, not focusing con = %p.\n"
@@ -1368,7 +1276,7 @@ pub unsafe fn manage_window(
                         xcb_destroy_window(conn, old_frame);
                     }
                     con_set_urgency(nc, urgency_hint);
-                    (*cwindow).wm_desktop = NET_WM_DESKTOP_NONE as uint32_t;
+                    (*cwindow).wm_desktop = NET_WM_DESKTOP_NONE as u32;
                     ewmh_update_wm_desktop();
                     output_push_sticky_windows(focused);
                 }

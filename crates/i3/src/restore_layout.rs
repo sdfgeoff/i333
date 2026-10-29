@@ -1,3 +1,4 @@
+use crate::xcursor::Cursor;
 use i3_common::draw_util::draw_util_text;
 use i3_common::safewrappers::sasprintf;
 /*
@@ -17,104 +18,40 @@ pub use libev_sys::{
     ev_io, ev_io_start, ev_io_stop, ev_loop, ev_prepare, ev_prepare_start, ev_prepare_stop,
     ev_watcher, EV_READ, EV__IOFDSET,
 };
-pub type size_t = usize;
-pub type __uint8_t = u8;
-pub type __int16_t = i16;
-pub type __uint16_t = u16;
-pub type __int32_t = i32;
-pub type __uint32_t = u32;
-pub type __time_t = ::core::ffi::c_long;
-pub type __suseconds_t = ::core::ffi::c_long;
-pub type time_t = __time_t;
-pub type int16_t = __int16_t;
-pub type int32_t = __int32_t;
-
-pub type uint8_t = __uint8_t;
-pub type uint16_t = __uint16_t;
-pub type uint32_t = __uint32_t;
 
 pub type i3String = _i3String;
 
-pub type C2RustUnnamed_1 = ::core::ffi::c_uint;
-pub const FONT_TYPE_PANGO: C2RustUnnamed_1 = 2;
-pub const FONT_TYPE_XCB: C2RustUnnamed_1 = 1;
-pub const FONT_TYPE_NONE: C2RustUnnamed_1 = 0;
 pub type i3Font = Font;
 
-pub type C2RustUnnamed_2 = ::core::ffi::c_uint;
-pub const SCRATCHPAD_CHANGED: C2RustUnnamed_2 = 2;
-pub const SCRATCHPAD_FRESH: C2RustUnnamed_2 = 1;
-pub const SCRATCHPAD_NONE: C2RustUnnamed_2 = 0;
-
-pub type C2RustUnnamed_7 = ::core::ffi::c_uint;
-pub const FLOATING_USER_ON: C2RustUnnamed_7 = 3;
-pub const FLOATING_AUTO_ON: C2RustUnnamed_7 = 2;
-pub const FLOATING_USER_OFF: C2RustUnnamed_7 = 1;
-pub const FLOATING_AUTO_OFF: C2RustUnnamed_7 = 0;
-pub type border_style_t = ::core::ffi::c_uint;
-pub const BS_NORMAL: border_style_t = 2;
-pub const BS_PIXEL: border_style_t = 1;
-pub const BS_NONE: border_style_t = 0;
-pub type layout_t = ::core::ffi::c_uint;
-pub const L_SPLITH: layout_t = 6;
-pub const L_SPLITV: layout_t = 5;
-pub const L_OUTPUT: layout_t = 4;
-pub const L_DOCKAREA: layout_t = 3;
-pub const L_TABBED: layout_t = 2;
-pub const L_STACKED: layout_t = 1;
-pub const L_DEFAULT: layout_t = 0;
 pub type fullscreen_mode_t = ::core::ffi::c_uint;
 pub const CF_GLOBAL: fullscreen_mode_t = 2;
 pub const CF_OUTPUT: fullscreen_mode_t = 1;
 pub const CF_NONE: fullscreen_mode_t = 0;
 
-pub type C2RustUnnamed_9 = ::core::ffi::c_uint;
-pub const M_BELOW: C2RustUnnamed_9 = 2;
-pub const M_ASSIGN_WS: C2RustUnnamed_9 = 1;
-pub const M_HERE: C2RustUnnamed_9 = 0;
-pub type C2RustUnnamed_10 = ::core::ffi::c_uint;
-pub const WM_FLOATING: C2RustUnnamed_10 = 6;
-pub const WM_FLOATING_USER: C2RustUnnamed_10 = 5;
-pub const WM_FLOATING_AUTO: C2RustUnnamed_10 = 4;
-pub const WM_TILING: C2RustUnnamed_10 = 3;
-pub const WM_TILING_USER: C2RustUnnamed_10 = 2;
-pub const WM_TILING_AUTO: C2RustUnnamed_10 = 1;
-pub const WM_ANY: C2RustUnnamed_10 = 0;
-pub type C2RustUnnamed_11 = ::core::ffi::c_int;
-pub const M_DOCK_BOTTOM: C2RustUnnamed_11 = 3;
-pub const M_DOCK_TOP: C2RustUnnamed_11 = 2;
-pub const M_DOCK_ANY: C2RustUnnamed_11 = 1;
-pub const M_NODOCK: C2RustUnnamed_11 = 0;
-pub const M_DONTCHECK: C2RustUnnamed_11 = -1;
-pub type C2RustUnnamed_12 = ::core::ffi::c_int;
-pub const U_OLDEST: C2RustUnnamed_12 = 1;
-pub const U_LATEST: C2RustUnnamed_12 = 0;
-pub const U_DONTCHECK: C2RustUnnamed_12 = -1;
+pub const M_BELOW: ::core::ffi::c_uint = 2;
+pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
+pub const M_HERE: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_13 = ::core::ffi::c_uint;
-pub const W_DOCK_BOTTOM: C2RustUnnamed_13 = 2;
-pub const W_DOCK_TOP: C2RustUnnamed_13 = 1;
-pub const W_NODOCK: C2RustUnnamed_13 = 0;
+pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
+pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
+pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
+pub const M_NODOCK: ::core::ffi::c_int = 0;
+pub const M_DONTCHECK: ::core::ffi::c_int = -1;
 
-pub type C2RustUnnamed_16 = ::core::ffi::c_uint;
-pub const A_TO_OUTPUT: C2RustUnnamed_16 = 16;
-pub const A_TO_WORKSPACE_NUMBER: C2RustUnnamed_16 = 8;
-pub const A_NO_FOCUS: C2RustUnnamed_16 = 4;
-pub const A_TO_WORKSPACE: C2RustUnnamed_16 = 2;
-pub const A_COMMAND: C2RustUnnamed_16 = 1;
-pub const A_ANY: C2RustUnnamed_16 = 0;
+pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
+pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
+pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
+pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
+pub const A_COMMAND: ::core::ffi::c_uint = 1;
+pub const A_ANY: ::core::ffi::c_uint = 0;
 
-pub type C2RustUnnamed_18 = ::core::ffi::c_uint;
-pub const CT_DOCKAREA: C2RustUnnamed_18 = 5;
-pub const CT_WORKSPACE: C2RustUnnamed_18 = 4;
-pub const CT_FLOATING_CON: C2RustUnnamed_18 = 3;
-pub const CT_CON: C2RustUnnamed_18 = 2;
-pub const CT_OUTPUT: C2RustUnnamed_18 = 1;
-pub const CT_ROOT: C2RustUnnamed_18 = 0;
-pub type smart_gaps_t = ::core::ffi::c_uint;
-pub const SMART_GAPS_INVERSE_OUTER: smart_gaps_t = 2;
-pub const SMART_GAPS_ON: smart_gaps_t = 1;
-pub const SMART_GAPS_OFF: smart_gaps_t = 0;
+pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
+pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
+pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
+pub const CT_CON: ::core::ffi::c_uint = 2;
+pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
+pub const CT_ROOT: ::core::ffi::c_uint = 0;
+
 pub type hide_edge_borders_mode_t = ::core::ffi::c_uint;
 pub const HEBM_SMART_NO_GAPS: hide_edge_borders_mode_t = 64;
 pub const HEBM_SMART: hide_edge_borders_mode_t = 32;
@@ -122,14 +59,6 @@ pub const HEBM_BOTH: hide_edge_borders_mode_t = 23;
 pub const HEBM_HORIZONTAL: hide_edge_borders_mode_t = 20;
 pub const HEBM_VERTICAL: hide_edge_borders_mode_t = 3;
 pub const HEBM_NONE: hide_edge_borders_mode_t = 0;
-pub type warping_t = ::core::ffi::c_uint;
-pub const POINTER_WARPING_NONE: warping_t = 1;
-pub const POINTER_WARPING_OUTPUT: warping_t = 0;
-pub type focus_wrapping_t = ::core::ffi::c_uint;
-pub const FOCUS_WRAPPING_WORKSPACE: focus_wrapping_t = 3;
-pub const FOCUS_WRAPPING_FORCE: focus_wrapping_t = 2;
-pub const FOCUS_WRAPPING_ON: focus_wrapping_t = 1;
-pub const FOCUS_WRAPPING_OFF: focus_wrapping_t = 0;
 
 pub type tiling_drag_t = ::core::ffi::c_uint;
 pub const TILING_DRAG_MODIFIER_OR_TITLEBAR: tiling_drag_t = 3;
@@ -137,32 +66,6 @@ pub const TILING_DRAG_TITLEBAR: tiling_drag_t = 2;
 pub const TILING_DRAG_MODIFIER: tiling_drag_t = 1;
 pub const TILING_DRAG_OFF: tiling_drag_t = 0;
 
-pub type C2RustUnnamed_20 = ::core::ffi::c_uint;
-pub const PDF_ALL: C2RustUnnamed_20 = 3;
-pub const PDF_IGNORE: C2RustUnnamed_20 = 2;
-pub const PDF_LEAVE_FULLSCREEN: C2RustUnnamed_20 = 1;
-pub const PDF_SMART: C2RustUnnamed_20 = 0;
-
-pub type C2RustUnnamed_21 = ::core::ffi::c_uint;
-pub const ALIGN_RIGHT: C2RustUnnamed_21 = 2;
-pub const ALIGN_CENTER: C2RustUnnamed_21 = 1;
-pub const ALIGN_LEFT: C2RustUnnamed_21 = 0;
-pub type C2RustUnnamed_22 = ::core::ffi::c_uint;
-pub const FOWA_NONE: C2RustUnnamed_22 = 3;
-pub const FOWA_FOCUS: C2RustUnnamed_22 = 2;
-pub const FOWA_URGENT: C2RustUnnamed_22 = 1;
-pub const FOWA_SMART: C2RustUnnamed_22 = 0;
-pub type xcursor_cursor_t = ::core::ffi::c_uint;
-pub const XCURSOR_CURSOR_MAX: xcursor_cursor_t = 9;
-pub const XCURSOR_CURSOR_MOVE: xcursor_cursor_t = 8;
-pub const XCURSOR_CURSOR_WATCH: xcursor_cursor_t = 7;
-pub const XCURSOR_CURSOR_BOTTOM_RIGHT_CORNER: xcursor_cursor_t = 6;
-pub const XCURSOR_CURSOR_BOTTOM_LEFT_CORNER: xcursor_cursor_t = 5;
-pub const XCURSOR_CURSOR_TOP_RIGHT_CORNER: xcursor_cursor_t = 4;
-pub const XCURSOR_CURSOR_TOP_LEFT_CORNER: xcursor_cursor_t = 3;
-pub const XCURSOR_CURSOR_RESIZE_VERTICAL: xcursor_cursor_t = 2;
-pub const XCURSOR_CURSOR_RESIZE_HORIZONTAL: xcursor_cursor_t = 1;
-pub const XCURSOR_CURSOR_POINTER: xcursor_cursor_t = 0;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct placeholder_state {
@@ -272,9 +175,9 @@ pub unsafe fn restore_connect() {
         }
         errx(EXIT_FAILURE, c"Cannot open display".as_ptr());
     }
-    xcb_watcher = scalloc(1 as size_t, ::core::mem::size_of::<ev_io>() as size_t) as *mut ev_io;
+    xcb_watcher = scalloc(1 as usize, ::core::mem::size_of::<ev_io>() as usize) as *mut ev_io;
     xcb_prepare =
-        scalloc(1 as size_t, ::core::mem::size_of::<ev_prepare>() as size_t) as *mut ev_prepare;
+        scalloc(1 as usize, ::core::mem::size_of::<ev_prepare>() as usize) as *mut ev_prepare;
     let ref mut fresh0 = (*(xcb_watcher as *mut ::core::ffi::c_void as *mut ev_watcher)).pending;
     *fresh0 = 0 as ::core::ffi::c_int;
     (*(xcb_watcher as *mut ::core::ffi::c_void as *mut ev_watcher)).active = *fresh0;
@@ -290,7 +193,7 @@ pub unsafe fn restore_connect() {
         &raw mut (*xcb_watcher).cb as *const ::core::ffi::c_void,
         ::core::mem::size_of::<
             Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_io, ::core::ffi::c_int) -> ()>,
-        >() as size_t,
+        >() as usize,
     );
     (*xcb_watcher).fd = xcb_get_file_descriptor(restore_conn);
     (*xcb_watcher).events = EV_READ as ::core::ffi::c_int | EV__IOFDSET as ::core::ffi::c_int;
@@ -310,7 +213,7 @@ pub unsafe fn restore_connect() {
         &raw mut (*xcb_prepare).cb as *const ::core::ffi::c_void,
         ::core::mem::size_of::<
             Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_prepare, ::core::ffi::c_int) -> ()>,
-        >() as size_t,
+        >() as usize,
     );
     ev_prepare_start(main_loop, xcb_prepare);
 }
@@ -455,7 +358,7 @@ unsafe fn update_placeholder_contents(state: *mut placeholder_state) {
                 n * (config.font.height + logical_px(2 as ::core::ffi::c_int))
                     + logical_px(2 as ::core::ffi::c_int),
                 (*state).rect.width.wrapping_sub(
-                    (2 as ::core::ffi::c_int * logical_px(2 as ::core::ffi::c_int)) as uint32_t,
+                    (2 as ::core::ffi::c_int * logical_px(2 as ::core::ffi::c_int)) as u32,
                 ) as ::core::ffi::c_int,
             );
             i3string_free(str);
@@ -469,14 +372,14 @@ unsafe fn update_placeholder_contents(state: *mut placeholder_state) {
     let x: ::core::ffi::c_int = (*state)
         .rect
         .width
-        .wrapping_div(2 as uint32_t)
-        .wrapping_sub((text_width / 2 as ::core::ffi::c_int) as uint32_t)
+        .wrapping_div(2 as u32)
+        .wrapping_sub((text_width / 2 as ::core::ffi::c_int) as u32)
         as ::core::ffi::c_int;
     let y: ::core::ffi::c_int = (*state)
         .rect
         .height
-        .wrapping_div(2 as uint32_t)
-        .wrapping_sub((config.font.height / 2 as ::core::ffi::c_int) as uint32_t)
+        .wrapping_div(2 as u32)
+        .wrapping_sub((config.font.height / 2 as ::core::ffi::c_int) as u32)
         as ::core::ffi::c_int;
     draw_util_text(
         line,
@@ -497,22 +400,22 @@ unsafe fn open_placeholder_window(con: *mut Con) {
         && (*con).type_0 as ::core::ffi::c_uint
             == CT_CON as ::core::ffi::c_int as ::core::ffi::c_uint
     {
-        let mut fresh2: [uint32_t; 2] = [
+        let mut fresh2: [u32; 2] = [
             config.client.placeholder.background.colorpixel,
             (XCB_EVENT_MASK_EXPOSURE as ::core::ffi::c_int
-                | XCB_EVENT_MASK_STRUCTURE_NOTIFY as ::core::ffi::c_int) as uint32_t,
+                | XCB_EVENT_MASK_STRUCTURE_NOTIFY as ::core::ffi::c_int) as u32,
         ];
         let placeholder: xcb_window_t = create_window(
             restore_conn,
             (*con).rect as Rect,
-            XCB_COPY_FROM_PARENT as uint16_t,
+            XCB_COPY_FROM_PARENT as u16,
             XCB_COPY_FROM_PARENT as xcb_visualid_t,
-            XCB_WINDOW_CLASS_INPUT_OUTPUT as ::core::ffi::c_int as uint16_t,
-            XCURSOR_CURSOR_POINTER,
+            XCB_WINDOW_CLASS_INPUT_OUTPUT as ::core::ffi::c_int as u16,
+            Cursor::Pointer,
             true_0 != 0,
             (XCB_CW_BACK_PIXEL as ::core::ffi::c_int | XCB_CW_EVENT_MASK as ::core::ffi::c_int)
-                as uint32_t,
-            &raw mut fresh2 as *mut uint32_t,
+                as u32,
+            &raw mut fresh2 as *mut u32,
         );
         let mut hints: xcb_icccm_wm_hints_t = xcb_icccm_wm_hints_t {
             flags: 0,
@@ -526,17 +429,17 @@ unsafe fn open_placeholder_window(con: *mut Con) {
             window_group: 0,
         };
         xcb_icccm_wm_hints_set_none(&raw mut hints);
-        xcb_icccm_wm_hints_set_input(&raw mut hints, 0 as uint8_t);
+        xcb_icccm_wm_hints_set_input(&raw mut hints, 0 as u8);
         xcb_icccm_set_wm_hints(restore_conn, placeholder, &raw mut hints);
         if !(*con).name.is_null() {
             xcb_change_property(
                 restore_conn,
-                XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as uint8_t,
+                XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
                 placeholder,
                 A__NET_WM_NAME,
                 A_UTF8_STRING,
-                8 as uint8_t,
-                strlen((*con).name) as uint32_t,
+                8 as u8,
+                strlen((*con).name) as u32,
                 (*con).name as *const ::core::ffi::c_void,
             );
         }
@@ -552,8 +455,8 @@ unsafe fn open_placeholder_window(con: *mut Con) {
             (*con).name,
         );
         let state: *mut placeholder_state = scalloc(
-            1 as size_t,
-            ::core::mem::size_of::<placeholder_state>() as size_t,
+            1 as usize,
+            ::core::mem::size_of::<placeholder_state>() as usize,
         ) as *mut placeholder_state;
         (*state).window = placeholder;
         (*state).con = con;
@@ -571,7 +474,7 @@ unsafe fn open_placeholder_window(con: *mut Con) {
         (*state).state.tqe_prev = state_head.tqh_last;
         *state_head.tqh_last = state as *mut placeholder_state;
         state_head.tqh_last = &raw mut (*state).state.tqe_next;
-        let temp_id: *mut Match = smalloc(::core::mem::size_of::<Match>() as size_t) as *mut Match;
+        let temp_id: *mut Match = smalloc(::core::mem::size_of::<Match>() as usize) as *mut Match;
         match_init(temp_id);
         (*temp_id).dock = M_DONTCHECK;
         (*temp_id).id = placeholder;
@@ -699,8 +602,8 @@ unsafe fn configure_notify(event: *mut xcb_configure_notify_event_t) {
                 (*event).height as ::core::ffi::c_int,
                 (*state).con,
             );
-            (*state).rect.width = (*event).width as uint32_t;
-            (*state).rect.height = (*event).height as uint32_t;
+            (*state).rect.width = (*event).width as u32;
+            (*state).rect.height = (*event).height as u32;
             draw_util_surface_set_size(
                 &raw mut (*state).surface,
                 (*state).rect.width as ::core::ffi::c_int,
