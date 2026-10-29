@@ -76,8 +76,9 @@
     "compile_only": true,
     "all_unit_and_integration_test_targets_compiled": true,
     "automatic_after_each_source_edit": false,
-    "last_verification_environment": "Local fresh-source structural feature; cargo test -p i3-test-support --features clean-source-check",
-    "last_verified_batch": 8
+    "last_verification_environment": "GitHub Actions Ubuntu24; final source checkpoint structural clean-source feature",
+    "last_verified_batch": 9,
+    "last_verified_commit": "aa823afeecdf0b106300604917c4438da61f0ce7"
   },
   "repository_cleanup": {
     "obsolete_files_removed": 216,
@@ -133,13 +134,13 @@
     },
     "cargo_fmt_check": true,
     "debug_build": true,
-    "release_build": null,
+    "release_build": true,
     "unit_tests_total_including_integration_checks": 331,
     "test_command": "cargo test",
     "clean_source_command": "cargo test -p i3-test-support --features clean-source-check",
     "test_support": "development-only process capture, failure propagation and isolated regression orchestration",
-    "release_build_note": "Current review wave uses default debug Cargo tests; preceding e18708e1 release passed on Ubuntu CI.",
-    "last_release_build_verified_commit": "e18708e1556a8cac1838c3f1b296f46f6d5de26d"
+    "release_build_note": "Final code checkpoint aa823afe passed full Ubuntu CI: formatting, cargo test --locked, release build and structural clean-source check. Subsequent completion metadata changes are documentation only.",
+    "last_release_build_verified_commit": "aa823afeecdf0b106300604917c4438da61f0ce7"
   },
   "modernization": {
     "yajl_product_dependency": false,
@@ -533,7 +534,8 @@
       "total": 66,
       "completed": 66,
       "remaining": 0,
-      "method": "Three subagents at a time; individual source review, meaningful native/value tests, full Cargo validation and pushed checkpoints. Review does not imply elimination of required native/graph unsafe contracts."
+      "method": "Three subagents at a time; individual source review, meaningful native/value tests, full Cargo validation and pushed checkpoints. Review does not imply elimination of required native/graph unsafe contracts.",
+      "result": "Complete: all66 individual reviews validated,37modernized,28accepted idiomatic/native boundaries,1unused source removed."
     }
   },
   "ci_dependency_preparation": {
@@ -543,8 +545,8 @@
     "subsequent_failure": "d6401e98 CI dependency preparation passed; formatting failed because direct rustfmt used edition2024 rather than workspace edition2021. Scoped import formatting corrected in batch4."
   },
   "last_observed_green_ci": {
-    "commit": "e18708e1556a8cac1838c3f1b296f46f6d5de26d",
-    "url": "https://github.com/sdfgeoff/i333/actions/runs/40939397998",
+    "commit": "aa823afeecdf0b106300604917c4438da61f0ce7",
+    "url": "https://github.com/sdfgeoff/i333/actions/runs/40946740571",
     "conclusion": "success"
   },
   "ci_diagnostics": {
@@ -552,6 +554,6 @@
     "original_exit_status_preserved": true,
     "full_log": ".work/cargo-tests/full-cargo.log",
     "bounded_public_failure_annotation": true,
-    "wrapper_validation": "Fake Cargo statuses0,7,101; exact output/one invocation and escaped bounded UTF8 tail verified. Prior13f451ce CI test failure pending diagnosis; latest local source passes331 Rust-reported tests and all runtime/native suites."
+    "wrapper_validation": "Fake Cargo statuses0,7,101 preserve one invocation, exact output, original exit status and escaped bounded tail. Final aa823afe GitHub Actions workflow fully succeeded; prior13f451ce test failure is superseded by this verified source checkpoint."
   }
 }
