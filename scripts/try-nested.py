@@ -10,7 +10,7 @@ from pathlib import Path
 import select
 import shutil
 import subprocess
-import tempfile
+from workspace_temp import temporary_directory
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -38,7 +38,7 @@ def main():
         parser.error(f'Requires Cargo-built Rust i3 ({binary}), Xephyr and alacritty; run cargo build first')
     if not os.environ.get('DISPLAY'):
         parser.error('Run this from a terminal in your desktop X session')
-    with tempfile.TemporaryDirectory(prefix='i333-nested-') as temporary:
+    with temporary_directory(prefix='i333-nested-') as temporary:
         work = Path(temporary)
         config = work / 'config'
         config.write_text(f'''font pango:monospace 8

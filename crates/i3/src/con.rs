@@ -1,3 +1,6 @@
+use crate::tree::all_cons;
+use i3_common::format_placeholders::format_placeholders;
+use i3_common::safewrappers::sasprintf;
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -10,138 +13,9 @@
  *
  */
 // Mechanical file-by-file Rust translation of src/con.c.
-// Generated with C2Rust 0.22.1; C ABI and original ownership retained.
-extern "C" {
-    pub type xcb_connection_t;
-    pub type _PangoFontDescription;
-    pub type _cairo;
-    pub type _cairo_surface;
-    pub type _i3String;
-    pub type pcre2_real_code_8;
-    pub type ev_loop;
-    pub type yajl_gen_t;
-    fn __assert_fail(
-        __assertion: *const ::core::ffi::c_char,
-        __file: *const ::core::ffi::c_char,
-        __line: ::core::ffi::c_uint,
-        __function: *const ::core::ffi::c_char,
-    ) -> !;
-    fn __assert_single_arg(_: bool) -> bool;
-    fn free(__ptr: *mut ::core::ffi::c_void);
-    static mut conn: *mut xcb_connection_t;
-    fn verboselog(fmt: *mut ::core::ffi::c_char, ...);
-    fn errorlog(fmt: *mut ::core::ffi::c_char, ...);
-    fn debuglog(fmt: *mut ::core::ffi::c_char, ...);
-    fn smalloc(size: size_t) -> *mut ::core::ffi::c_void;
-    fn scalloc(num: size_t, size: size_t) -> *mut ::core::ffi::c_void;
-    fn sstrdup(str: *const ::core::ffi::c_char) -> *mut ::core::ffi::c_char;
-    fn sasprintf(
-        strp: *mut *mut ::core::ffi::c_char,
-        fmt: *const ::core::ffi::c_char,
-        ...
-    ) -> ::core::ffi::c_int;
-    fn strcasecmp_nullable(
-        a: *const ::core::ffi::c_char,
-        b: *const ::core::ffi::c_char,
-    ) -> ::core::ffi::c_int;
-    fn i3string_from_utf8(from_utf8: *const ::core::ffi::c_char) -> *mut i3String;
-    fn i3string_as_utf8(str: *mut i3String) -> *const ::core::ffi::c_char;
-    fn i3string_set_markup(str: *mut i3String, pango_markup: bool);
-    fn font_is_pango() -> bool;
-    fn format_placeholders(
-        format: *mut ::core::ffi::c_char,
-        placeholders: *mut placeholder_t,
-        num: ::core::ffi::c_int,
-    ) -> *mut ::core::ffi::c_char;
-    fn gettimeofday(__tv: *mut timeval, __tz: *mut ::core::ffi::c_void) -> ::core::ffi::c_int;
-    fn max(a: ::core::ffi::c_int, b: ::core::ffi::c_int) -> ::core::ffi::c_int;
-    fn rect_add(a: Rect, b: Rect) -> Rect;
-    fn rect_sub(a: Rect, b: Rect) -> Rect;
-    fn layout_from_name(layout_str: *const ::core::ffi::c_char, out: *mut layout_t) -> bool;
-    fn pango_escape_markup(input: *mut ::core::ffi::c_char) -> *mut ::core::ffi::c_char;
-    fn yajl_gen_free(handle: yajl_gen);
-    fn yajl_gen_get_buf(
-        hand: yajl_gen,
-        buf: *mut *const ::core::ffi::c_uchar,
-        len: *mut size_t,
-    ) -> yajl_gen_status;
-    static mut croot: *mut Con;
-    static mut focused: *mut Con;
-    static mut all_cons: all_cons_head;
-    fn tree_close_internal(
-        con: *mut Con,
-        kill_window: kill_window_t,
-        dont_kill_parent: bool,
-    ) -> bool;
-    fn tree_flatten(child: *mut Con);
-    static mut root_depth: uint8_t;
-    static mut config: Config;
-    fn ipc_send_event(
-        event: *const ::core::ffi::c_char,
-        message_type: uint32_t,
-        payload: *const ::core::ffi::c_char,
-    );
-    fn ipc_marshal_workspace_event(
-        change: *const ::core::ffi::c_char,
-        current: *mut Con,
-        old: *mut Con,
-    ) -> yajl_gen;
-    fn ipc_send_window_event(property: *const ::core::ffi::c_char, con: *mut Con);
-    static mut A__NET_WM_STATE: xcb_atom_t;
-    static mut A__NET_WM_STATE_FULLSCREEN: xcb_atom_t;
-    fn xcb_add_property_atom(
-        conn_0: *mut xcb_connection_t,
-        window: xcb_window_t,
-        property: xcb_atom_t,
-        atom: xcb_atom_t,
-    );
-    fn xcb_remove_property_atom(
-        conn_0: *mut xcb_connection_t,
-        window: xcb_window_t,
-        property: xcb_atom_t,
-        atom: xcb_atom_t,
-    );
-    fn workspace_get(num: *const ::core::ffi::c_char) -> *mut Con;
-    fn workspace_is_visible(ws: *mut Con) -> bool;
-    fn workspace_show(ws: *mut Con);
-    fn workspace_update_urgent_flag(ws: *mut Con);
-    fn workspace_attach_to(ws: *mut Con) -> *mut Con;
-    fn workspace_encapsulate(ws: *mut Con) -> *mut Con;
-    fn x_con_init(con: *mut Con);
-    fn x_set_warp_to(rect: *mut Rect);
-    fn floating_raise_con(con: *mut Con);
-    fn floating_fix_coordinates(con: *mut Con, old_rect: *mut Rect, new_rect: *mut Rect);
-    fn calculate_effective_gaps(con: *mut Con) -> gaps_t;
-    fn render_deco_height() -> ::core::ffi::c_int;
-    fn match_matches_window(match_0: *mut Match, window: *mut i3Window) -> bool;
-    fn match_free(match_0: *mut Match);
-    fn output_get_content(output: *mut Con) -> *mut Con;
-    fn get_output_from_string(
-        current_output: *mut Output,
-        output_str: *const ::core::ffi::c_char,
-    ) -> *mut Output;
-    fn output_primary_name(output: *mut Output) -> *mut ::core::ffi::c_char;
-    fn get_output_for_con(con: *mut Con) -> *mut Output;
-    fn ewmh_update_wm_desktop();
-    fn startup_sequence_delete_by_window(win: *const i3Window);
-    fn scratchpad_move(con: *mut Con);
-    fn strcmp(
-        __s1: *const ::core::ffi::c_char,
-        __s2: *const ::core::ffi::c_char,
-    ) -> ::core::ffi::c_int;
-    fn strstr(
-        __haystack: *const ::core::ffi::c_char,
-        __needle: *const ::core::ffi::c_char,
-    ) -> *mut ::core::ffi::c_char;
-    fn strtok(
-        __s: *mut ::core::ffi::c_char,
-        __delim: *const ::core::ffi::c_char,
-    ) -> *mut ::core::ffi::c_char;
-    fn strcasecmp(
-        __s1: *const ::core::ffi::c_char,
-        __s2: *const ::core::ffi::c_char,
-    ) -> ::core::ffi::c_int;
-}
+// Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
+pub use i3_json::compat::yajl_gen;
+use i3_json::compat::{yajl_gen_free, yajl_gen_get_buf};
 pub type size_t = usize;
 pub type __uint8_t = u8;
 pub type __int16_t = i16;
@@ -156,217 +30,22 @@ pub type uint8_t = __uint8_t;
 pub type uint16_t = __uint16_t;
 pub type uint32_t = __uint32_t;
 pub type time_t = __time_t;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct timeval {
-    pub tv_sec: __time_t,
-    pub tv_usec: __suseconds_t,
-}
-pub type xcb_window_t = uint32_t;
-pub type xcb_font_t = uint32_t;
-pub type xcb_gcontext_t = uint32_t;
-pub type xcb_colormap_t = uint32_t;
-pub type xcb_atom_t = uint32_t;
-pub type xcb_drawable_t = uint32_t;
-pub type xcb_window_enum_t = ::core::ffi::c_uint;
-pub const XCB_WINDOW_NONE: xcb_window_enum_t = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_charinfo_t {
-    pub left_side_bearing: int16_t,
-    pub right_side_bearing: int16_t,
-    pub character_width: int16_t,
-    pub ascent: int16_t,
-    pub descent: int16_t,
-    pub attributes: uint16_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_query_font_reply_t {
-    pub response_type: uint8_t,
-    pub pad0: uint8_t,
-    pub sequence: uint16_t,
-    pub length: uint32_t,
-    pub min_bounds: xcb_charinfo_t,
-    pub pad1: [uint8_t; 4],
-    pub max_bounds: xcb_charinfo_t,
-    pub pad2: [uint8_t; 4],
-    pub min_char_or_byte2: uint16_t,
-    pub max_char_or_byte2: uint16_t,
-    pub default_char: uint16_t,
-    pub properties_len: uint16_t,
-    pub draw_direction: uint8_t,
-    pub min_byte1: uint8_t,
-    pub max_byte1: uint8_t,
-    pub all_chars_exist: uint8_t,
-    pub font_ascent: int16_t,
-    pub font_descent: int16_t,
-    pub char_infos_len: uint32_t,
-}
-pub type PangoFontDescription = _PangoFontDescription;
-pub type cairo_t = _cairo;
-pub type cairo_surface_t = _cairo_surface;
+
 pub type i3String = _i3String;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Font {
-    pub type_0: C2RustUnnamed_1,
-    pub height: ::core::ffi::c_int,
-    pub pattern: *mut ::core::ffi::c_char,
-    pub specific: C2RustUnnamed,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub union C2RustUnnamed {
-    pub xcb: C2RustUnnamed_0,
-    pub pango_desc: *mut PangoFontDescription,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_0 {
-    pub id: xcb_font_t,
-    pub info: *mut xcb_query_font_reply_t,
-    pub table: *mut xcb_charinfo_t,
-}
+
 pub type C2RustUnnamed_1 = ::core::ffi::c_uint;
 pub const FONT_TYPE_PANGO: C2RustUnnamed_1 = 2;
 pub const FONT_TYPE_XCB: C2RustUnnamed_1 = 1;
 pub const FONT_TYPE_NONE: C2RustUnnamed_1 = 0;
 pub type i3Font = Font;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct color_t {
-    pub red: ::core::ffi::c_double,
-    pub green: ::core::ffi::c_double,
-    pub blue: ::core::ffi::c_double,
-    pub alpha: ::core::ffi::c_double,
-    pub colorpixel: uint32_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct placeholder_t {
-    pub name: *const ::core::ffi::c_char,
-    pub value: *const ::core::ffi::c_char,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct surface_t {
-    pub id: xcb_drawable_t,
-    pub gc: xcb_gcontext_t,
-    pub owns_gc: bool,
-    pub width: ::core::ffi::c_int,
-    pub height: ::core::ffi::c_int,
-    pub surface: *mut cairo_surface_t,
-    pub cr: *mut cairo_t,
-}
-pub type xcb_randr_output_t = uint32_t;
-pub type pcre2_code_8 = pcre2_real_code_8;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Rect {
-    pub x: uint32_t,
-    pub y: uint32_t,
-    pub width: uint32_t,
-    pub height: uint32_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xoutput {
-    pub id: xcb_randr_output_t,
-    pub active: bool,
-    pub changed: bool,
-    pub to_be_disabled: bool,
-    pub primary: bool,
-    pub names_head: names_head,
-    pub con: *mut Con,
-    pub rect: Rect,
-    pub outputs: C2RustUnnamed_2,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_2 {
-    pub tqe_next: *mut xoutput,
-    pub tqe_prev: *mut *mut xoutput,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Con {
-    pub mapped: bool,
-    pub urgent: bool,
-    pub ignore_unmap: uint8_t,
-    pub frame: surface_t,
-    pub frame_buffer: surface_t,
-    pub pixmap_recreated: bool,
-    pub type_0: C2RustUnnamed_19,
-    pub num: ::core::ffi::c_int,
-    pub gaps: gaps_t,
-    pub parent: *mut Con,
-    pub rect: Rect,
-    pub window_rect: Rect,
-    pub deco_rect: Rect,
-    pub geometry: Rect,
-    pub name: *mut ::core::ffi::c_char,
-    pub title_format: *mut ::core::ffi::c_char,
-    pub window_icon_padding: ::core::ffi::c_int,
-    pub sticky_group: *mut ::core::ffi::c_char,
-    pub marks_head: marks_head,
-    pub mark_changed: bool,
-    pub percent: ::core::ffi::c_double,
-    pub border_width: ::core::ffi::c_int,
-    pub current_border_width: ::core::ffi::c_int,
-    pub window: *mut Window,
-    pub urgency_timer: *mut ev_timer,
-    pub deco_render_params: *mut deco_render_params,
-    pub floating_head: floating_head,
-    pub nodes_head: nodes_head,
-    pub focus_head: focus_head,
-    pub swallow_head: swallow_head,
-    pub fullscreen_mode: fullscreen_mode_t,
-    pub sticky: bool,
-    pub layout: layout_t,
-    pub last_split_layout: layout_t,
-    pub workspace_layout: layout_t,
-    pub border_style: border_style_t,
-    pub max_user_border_style: border_style_t,
-    pub floating: C2RustUnnamed_8,
-    pub nodes: C2RustUnnamed_7,
-    pub focused: C2RustUnnamed_6,
-    pub all_cons: C2RustUnnamed_5,
-    pub floating_windows: C2RustUnnamed_4,
-    pub on_remove_child: Option<unsafe extern "C" fn(*mut Con) -> ()>,
-    pub scratchpad_state: C2RustUnnamed_3,
-    pub old_id: ::core::ffi::c_int,
-    pub depth: uint16_t,
-    pub colormap: xcb_colormap_t,
-}
+
+pub use i3_common::format_placeholders::placeholder_t;
+
 pub type C2RustUnnamed_3 = ::core::ffi::c_uint;
 pub const SCRATCHPAD_CHANGED: C2RustUnnamed_3 = 2;
 pub const SCRATCHPAD_FRESH: C2RustUnnamed_3 = 1;
 pub const SCRATCHPAD_NONE: C2RustUnnamed_3 = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_4 {
-    pub tqe_next: *mut Con,
-    pub tqe_prev: *mut *mut Con,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_5 {
-    pub tqe_next: *mut Con,
-    pub tqe_prev: *mut *mut Con,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_6 {
-    pub tqe_next: *mut Con,
-    pub tqe_prev: *mut *mut Con,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_7 {
-    pub tqe_next: *mut Con,
-    pub tqe_prev: *mut *mut Con,
-}
+
 pub type C2RustUnnamed_8 = ::core::ffi::c_uint;
 pub const FLOATING_USER_ON: C2RustUnnamed_8 = 3;
 pub const FLOATING_AUTO_ON: C2RustUnnamed_8 = 2;
@@ -388,41 +67,7 @@ pub type fullscreen_mode_t = ::core::ffi::c_uint;
 pub const CF_GLOBAL: fullscreen_mode_t = 2;
 pub const CF_OUTPUT: fullscreen_mode_t = 1;
 pub const CF_NONE: fullscreen_mode_t = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct swallow_head {
-    pub tqh_first: *mut Match,
-    pub tqh_last: *mut *mut Match,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Match {
-    pub error: *mut ::core::ffi::c_char,
-    pub title: *mut regex,
-    pub application: *mut regex,
-    pub class: *mut regex,
-    pub instance: *mut regex,
-    pub mark: *mut regex,
-    pub window_role: *mut regex,
-    pub workspace: *mut regex,
-    pub machine: *mut regex,
-    pub window_type: xcb_atom_t,
-    pub urgent: C2RustUnnamed_13,
-    pub dock: C2RustUnnamed_12,
-    pub id: xcb_window_t,
-    pub window_mode: C2RustUnnamed_11,
-    pub con_id: *mut Con,
-    pub match_all_windows: bool,
-    pub insert_where: C2RustUnnamed_10,
-    pub matches: C2RustUnnamed_9,
-    pub restart_mode: bool,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_9 {
-    pub tqe_next: *mut Match,
-    pub tqe_prev: *mut *mut Match,
-}
+
 pub type C2RustUnnamed_10 = ::core::ffi::c_uint;
 pub const M_BELOW: C2RustUnnamed_10 = 2;
 pub const M_ASSIGN_WS: C2RustUnnamed_10 = 1;
@@ -445,141 +90,12 @@ pub type C2RustUnnamed_13 = ::core::ffi::c_int;
 pub const U_OLDEST: C2RustUnnamed_13 = 1;
 pub const U_LATEST: C2RustUnnamed_13 = 0;
 pub const U_DONTCHECK: C2RustUnnamed_13 = -1;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct regex {
-    pub pattern: *mut ::core::ffi::c_char,
-    pub regex: *mut pcre2_code_8,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct focus_head {
-    pub tqh_first: *mut Con,
-    pub tqh_last: *mut *mut Con,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct nodes_head {
-    pub tqh_first: *mut Con,
-    pub tqh_last: *mut *mut Con,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct floating_head {
-    pub tqh_first: *mut Con,
-    pub tqh_last: *mut *mut Con,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct deco_render_params {
-    pub color: *mut Colortriple,
-    pub border_style: ::core::ffi::c_int,
-    pub con_rect: width_height,
-    pub con_window_rect: width_height,
-    pub con_deco_rect: Rect,
-    pub background: color_t,
-    pub parent_layout: layout_t,
-    pub con_is_leaf: bool,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct width_height {
-    pub w: uint32_t,
-    pub h: uint32_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Colortriple {
-    pub border: color_t,
-    pub background: color_t,
-    pub text: color_t,
-    pub indicator: color_t,
-    pub child_border: color_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct ev_timer {
-    pub active: ::core::ffi::c_int,
-    pub pending: ::core::ffi::c_int,
-    pub priority: ::core::ffi::c_int,
-    pub data: *mut ::core::ffi::c_void,
-    pub cb: Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_timer, ::core::ffi::c_int) -> ()>,
-    pub at: ev_tstamp,
-    pub repeat: ev_tstamp,
-}
-pub type ev_tstamp = ::core::ffi::c_double;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Window {
-    pub id: xcb_window_t,
-    pub leader: xcb_window_t,
-    pub transient_for: xcb_window_t,
-    pub nr_assignments: uint32_t,
-    pub ran_assignments: *mut *mut Assignment,
-    pub class_class: *mut ::core::ffi::c_char,
-    pub class_instance: *mut ::core::ffi::c_char,
-    pub name: *mut i3String,
-    pub role: *mut ::core::ffi::c_char,
-    pub machine: *mut ::core::ffi::c_char,
-    pub name_x_changed: bool,
-    pub uses_net_wm_name: bool,
-    pub needs_take_focus: bool,
-    pub doesnt_accept_focus: bool,
-    pub window_type: xcb_atom_t,
-    pub wm_desktop: uint32_t,
-    pub dock: C2RustUnnamed_14,
-    pub urgent: timeval,
-    pub reserved: reservedpx,
-    pub depth: uint16_t,
-    pub base_width: ::core::ffi::c_int,
-    pub base_height: ::core::ffi::c_int,
-    pub width_increment: ::core::ffi::c_int,
-    pub height_increment: ::core::ffi::c_int,
-    pub min_width: ::core::ffi::c_int,
-    pub min_height: ::core::ffi::c_int,
-    pub max_width: ::core::ffi::c_int,
-    pub max_height: ::core::ffi::c_int,
-    pub min_aspect_ratio: ::core::ffi::c_double,
-    pub max_aspect_ratio: ::core::ffi::c_double,
-    pub icon: *mut cairo_surface_t,
-    pub shaped: bool,
-    pub input_shaped: bool,
-    pub managed_since: time_t,
-    pub swallowed: bool,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct reservedpx {
-    pub left: uint32_t,
-    pub right: uint32_t,
-    pub top: uint32_t,
-    pub bottom: uint32_t,
-}
+
 pub type C2RustUnnamed_14 = ::core::ffi::c_uint;
 pub const W_DOCK_BOTTOM: C2RustUnnamed_14 = 2;
 pub const W_DOCK_TOP: C2RustUnnamed_14 = 1;
 pub const W_NODOCK: C2RustUnnamed_14 = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Assignment {
-    pub type_0: C2RustUnnamed_17,
-    pub match_0: Match,
-    pub dest: C2RustUnnamed_16,
-    pub assignments: C2RustUnnamed_15,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_15 {
-    pub tqe_next: *mut Assignment,
-    pub tqe_prev: *mut *mut Assignment,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub union C2RustUnnamed_16 {
-    pub command: *mut ::core::ffi::c_char,
-    pub workspace: *mut ::core::ffi::c_char,
-    pub output: *mut ::core::ffi::c_char,
-}
+
 pub type C2RustUnnamed_17 = ::core::ffi::c_uint;
 pub const A_TO_OUTPUT: C2RustUnnamed_17 = 16;
 pub const A_TO_WORKSPACE_NUMBER: C2RustUnnamed_17 = 8;
@@ -587,33 +103,7 @@ pub const A_NO_FOCUS: C2RustUnnamed_17 = 4;
 pub const A_TO_WORKSPACE: C2RustUnnamed_17 = 2;
 pub const A_COMMAND: C2RustUnnamed_17 = 1;
 pub const A_ANY: C2RustUnnamed_17 = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct marks_head {
-    pub tqh_first: *mut mark_t,
-    pub tqh_last: *mut *mut mark_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct mark_t {
-    pub name: *mut ::core::ffi::c_char,
-    pub marks: C2RustUnnamed_18,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_18 {
-    pub tqe_next: *mut mark_t,
-    pub tqe_prev: *mut *mut mark_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct gaps_t {
-    pub inner: ::core::ffi::c_int,
-    pub top: ::core::ffi::c_int,
-    pub right: ::core::ffi::c_int,
-    pub bottom: ::core::ffi::c_int,
-    pub left: ::core::ffi::c_int,
-}
+
 pub type C2RustUnnamed_19 = ::core::ffi::c_uint;
 pub const CT_DOCKAREA: C2RustUnnamed_19 = 5;
 pub const CT_WORKSPACE: C2RustUnnamed_19 = 4;
@@ -621,22 +111,7 @@ pub const CT_FLOATING_CON: C2RustUnnamed_19 = 3;
 pub const CT_CON: C2RustUnnamed_19 = 2;
 pub const CT_OUTPUT: C2RustUnnamed_19 = 1;
 pub const CT_ROOT: C2RustUnnamed_19 = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct names_head {
-    pub slh_first: *mut output_name,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct output_name {
-    pub name: *mut ::core::ffi::c_char,
-    pub names: C2RustUnnamed_20,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_20 {
-    pub sle_next: *mut output_name,
-}
+
 pub type Output = xoutput;
 pub type i3Window = Window;
 pub type direction_t = ::core::ffi::c_uint;
@@ -680,93 +155,19 @@ pub const FOCUS_WRAPPING_WORKSPACE: focus_wrapping_t = 3;
 pub const FOCUS_WRAPPING_FORCE: focus_wrapping_t = 2;
 pub const FOCUS_WRAPPING_ON: focus_wrapping_t = 1;
 pub const FOCUS_WRAPPING_OFF: focus_wrapping_t = 0;
-pub type yajl_gen_status = ::core::ffi::c_uint;
-pub const yajl_gen_invalid_string: yajl_gen_status = 7;
-pub const yajl_gen_no_buf: yajl_gen_status = 6;
-pub const yajl_gen_invalid_number: yajl_gen_status = 5;
-pub const yajl_gen_generation_complete: yajl_gen_status = 4;
-pub const yajl_gen_in_error_state: yajl_gen_status = 3;
-pub const yajl_max_depth_exceeded: yajl_gen_status = 2;
-pub const yajl_gen_keys_must_be_strings: yajl_gen_status = 1;
-pub const yajl_gen_status_ok: yajl_gen_status = 0;
-pub type yajl_gen = *mut yajl_gen_t;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct all_cons_head {
-    pub tqh_first: *mut Con,
-    pub tqh_last: *mut *mut Con,
-}
+
 pub type tiling_drag_t = ::core::ffi::c_uint;
 pub const TILING_DRAG_MODIFIER_OR_TITLEBAR: tiling_drag_t = 3;
 pub const TILING_DRAG_TITLEBAR: tiling_drag_t = 2;
 pub const TILING_DRAG_MODIFIER: tiling_drag_t = 1;
 pub const TILING_DRAG_OFF: tiling_drag_t = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Config {
-    pub terminal: *const ::core::ffi::c_char,
-    pub font: i3Font,
-    pub ipc_socket_path: *mut ::core::ffi::c_char,
-    pub restart_state_path: *mut ::core::ffi::c_char,
-    pub default_layout: layout_t,
-    pub container_stack_limit: ::core::ffi::c_int,
-    pub container_stack_limit_value: ::core::ffi::c_int,
-    pub default_border_width: ::core::ffi::c_int,
-    pub default_floating_border_width: ::core::ffi::c_int,
-    pub default_orientation: ::core::ffi::c_int,
-    pub disable_focus_follows_mouse: bool,
-    pub mouse_warping: warping_t,
-    pub hide_edge_borders: hide_edge_borders_mode_t,
-    pub disable_workspace_bar: bool,
-    pub focus_wrapping: focus_wrapping_t,
-    pub force_xinerama: bool,
-    pub disable_randr15: bool,
-    pub fake_outputs: *mut ::core::ffi::c_char,
-    pub workspace_auto_back_and_forth: bool,
-    pub workspace_urgency_timer: ::core::ffi::c_float,
-    pub focus_on_window_activation: C2RustUnnamed_23,
-    pub show_marks: bool,
-    pub title_align: C2RustUnnamed_22,
-    pub default_border: border_style_t,
-    pub default_floating_border: border_style_t,
-    pub floating_modifier: uint32_t,
-    pub swap_modifier: uint32_t,
-    pub floating_maximum_width: int32_t,
-    pub floating_maximum_height: int32_t,
-    pub floating_minimum_width: int32_t,
-    pub floating_minimum_height: int32_t,
-    pub client: config_client,
-    pub bar: config_bar,
-    pub popup_during_fullscreen: C2RustUnnamed_21,
-    pub number_barconfigs: ::core::ffi::c_int,
-    pub tiling_drag: tiling_drag_t,
-    pub gaps: gaps_t,
-    pub smart_gaps: smart_gaps_t,
-}
+
 pub type C2RustUnnamed_21 = ::core::ffi::c_uint;
 pub const PDF_ALL: C2RustUnnamed_21 = 3;
 pub const PDF_IGNORE: C2RustUnnamed_21 = 2;
 pub const PDF_LEAVE_FULLSCREEN: C2RustUnnamed_21 = 1;
 pub const PDF_SMART: C2RustUnnamed_21 = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct config_bar {
-    pub focused: Colortriple,
-    pub unfocused: Colortriple,
-    pub urgent: Colortriple,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct config_client {
-    pub background: color_t,
-    pub focused: Colortriple,
-    pub focused_inactive: Colortriple,
-    pub focused_tab_title: Colortriple,
-    pub unfocused: Colortriple,
-    pub urgent: Colortriple,
-    pub placeholder: Colortriple,
-    pub got_focused_tab_title: bool,
-}
+
 pub type C2RustUnnamed_22 = ::core::ffi::c_uint;
 pub const ALIGN_RIGHT: C2RustUnnamed_22 = 2;
 pub const ALIGN_CENTER: C2RustUnnamed_22 = 1;
@@ -797,14 +198,14 @@ pub struct bfs_head {
 }
 pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-pub const XCB_NONE: ::core::ffi::c_long = 0 as ::core::ffi::c_long;
+
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 pub const I3_IPC_EVENT_MASK: ::core::ffi::c_ulong =
     (1 as ::core::ffi::c_ulong) << 31 as ::core::ffi::c_int;
 pub const I3_IPC_EVENT_WORKSPACE: ::core::ffi::c_ulong =
     I3_IPC_EVENT_MASK | 0 as ::core::ffi::c_ulong;
-#[no_mangle]
-pub unsafe extern "C" fn con_force_split_parents_redraw(mut con: *mut Con) {
+
+pub unsafe fn con_force_split_parents_redraw(con: *mut Con) {
     let mut parent: *mut Con = con;
     while !parent.is_null()
         && (*parent).type_0 as ::core::ffi::c_uint
@@ -819,15 +220,11 @@ pub unsafe extern "C" fn con_force_split_parents_redraw(mut con: *mut Con) {
         parent = (*parent).parent as *mut Con;
     }
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_new_skeleton(
-    mut parent: *mut Con,
-    mut window: *mut i3Window,
-) -> *mut Con {
-    let mut new: *mut Con =
-        scalloc(1 as size_t, ::core::mem::size_of::<Con>() as size_t) as *mut Con;
-    (*new).on_remove_child = Some(con_on_remove_child as unsafe extern "C" fn(*mut Con) -> ())
-        as Option<unsafe extern "C" fn(*mut Con) -> ()>;
+
+pub unsafe fn con_new_skeleton(parent: *mut Con, window: *mut i3Window) -> *mut Con {
+    let new: *mut Con = scalloc(1 as size_t, ::core::mem::size_of::<Con>() as size_t) as *mut Con;
+    (*new).on_remove_child =
+        Some(con_on_remove_child as unsafe fn(*mut Con) -> ()) as Option<unsafe fn(*mut Con) -> ()>;
     (*new).all_cons.tqe_next = ::core::ptr::null_mut::<Con>();
     (*new).all_cons.tqe_prev = all_cons.tqh_last;
     *all_cons.tqh_last = new as *mut Con;
@@ -844,10 +241,9 @@ pub unsafe extern "C" fn con_new_skeleton(
         (*new).depth = root_depth as uint16_t;
     }
     debuglog(
-        b"%s:%s:%d - opening window\n\0" as *const u8 as *const ::core::ffi::c_char
-            as *mut ::core::ffi::c_char,
-        b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"con_new_skeleton\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - opening window\n".as_ptr().cast_mut(),
+        c"../src/con.c".as_ptr(),
+        c"con_new_skeleton".as_ptr(),
         52 as ::core::ffi::c_int,
     );
     (*new).floating_head.tqh_first = ::core::ptr::null_mut::<Con>();
@@ -863,16 +259,16 @@ pub unsafe extern "C" fn con_new_skeleton(
     if !parent.is_null() {
         con_attach(new, parent, false_0 != 0);
     }
-    return new;
+    new
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_new(mut parent: *mut Con, mut window: *mut i3Window) -> *mut Con {
-    let mut new: *mut Con = con_new_skeleton(parent, window);
+
+pub unsafe fn con_new(parent: *mut Con, window: *mut i3Window) -> *mut Con {
+    let new: *mut Con = con_new_skeleton(parent, window);
     x_con_init(new);
-    return new;
+    new
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_free(mut con: *mut Con) {
+
+pub unsafe fn con_free(con: *mut Con) {
     free((*con).name as *mut ::core::ffi::c_void);
     free((*con).deco_render_params as *mut ::core::ffi::c_void);
     (*con).deco_render_params = ::core::ptr::null_mut::<deco_render_params>();
@@ -883,7 +279,7 @@ pub unsafe extern "C" fn con_free(mut con: *mut Con) {
     }
     *(*con).all_cons.tqe_prev = (*con).all_cons.tqe_next;
     while !(*con).swallow_head.tqh_first.is_null() {
-        let mut match_0: *mut Match = (*con).swallow_head.tqh_first as *mut Match;
+        let match_0: *mut Match = (*con).swallow_head.tqh_first as *mut Match;
         if !(*match_0).matches.tqe_next.is_null() {
             (*(*match_0).matches.tqe_next).matches.tqe_prev = (*match_0).matches.tqe_prev;
         } else {
@@ -907,21 +303,15 @@ pub unsafe extern "C" fn con_free(mut con: *mut Con) {
         mark = ::core::ptr::null_mut::<mark_t>();
     }
     debuglog(
-        b"%s:%s:%d - con %p freed\n\0" as *const u8 as *const ::core::ffi::c_char
-            as *mut ::core::ffi::c_char,
-        b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"con_free\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - con %p freed\n".as_ptr().cast_mut(),
+        c"../src/con.c".as_ptr(),
+        c"con_free".as_ptr(),
         96 as ::core::ffi::c_int,
         con,
     );
     free(con as *mut ::core::ffi::c_void);
 }
-unsafe extern "C" fn _con_attach(
-    mut con: *mut Con,
-    mut parent: *mut Con,
-    mut previous: *mut Con,
-    mut ignore_focus: bool,
-) {
+unsafe fn _con_attach(con: *mut Con, parent: *mut Con, previous: *mut Con, ignore_focus: bool) {
     (*con).parent = parent as *mut Con;
     let mut loop_0: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut current: *mut Con = previous;
@@ -931,10 +321,11 @@ unsafe extern "C" fn _con_attach(
         == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         debuglog(
-            b"%s:%s:%d - it's a workspace. num = %d\n\0" as *const u8 as *const ::core::ffi::c_char
-                as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"_con_attach\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - it's a workspace. num = %d\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"_con_attach".as_ptr(),
             110 as ::core::ffi::c_int,
             (*con).num,
         );
@@ -1014,10 +405,11 @@ unsafe extern "C" fn _con_attach(
         == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         debuglog(
-            b"%s:%s:%d - Inserting into floating containers\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"_con_attach\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - Inserting into floating containers\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"_con_attach".as_ptr(),
             162 as ::core::ffi::c_int,
         );
         (*con).floating_windows.tqe_next = ::core::ptr::null_mut::<Con>();
@@ -1045,22 +437,22 @@ unsafe extern "C" fn _con_attach(
                 != L_DEFAULT as ::core::ffi::c_int as ::core::ffi::c_uint
         {
             debuglog(
-                b"%s:%s:%d - Parent is a workspace. Applying default layout...\n\0" as *const u8
-                    as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-                b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-                b"_con_attach\0" as *const u8 as *const ::core::ffi::c_char,
+                c"%s:%s:%d - Parent is a workspace. Applying default layout...\n"
+                    .as_ptr()
+                    .cast_mut(),
+                c"../src/con.c".as_ptr(),
+                c"_con_attach".as_ptr(),
                 186 as ::core::ffi::c_int,
             );
-            let mut target: *mut Con = workspace_attach_to(parent);
+            let target: *mut Con = workspace_attach_to(parent);
             nodes_head = &raw mut (*target).nodes_head as *mut nodes_head;
             focus_head = &raw mut (*target).focus_head as *mut focus_head;
             (*con).parent = target as *mut Con;
             current = ::core::ptr::null_mut::<Con>();
             debuglog(
-                b"%s:%s:%d - done\n\0" as *const u8 as *const ::core::ffi::c_char
-                    as *mut ::core::ffi::c_char,
-                b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-                b"_con_attach\0" as *const u8 as *const ::core::ffi::c_char,
+                c"%s:%s:%d - done\n".as_ptr().cast_mut(),
+                c"../src/con.c".as_ptr(),
+                c"_con_attach".as_ptr(),
                 195 as ::core::ffi::c_int,
             );
         }
@@ -1069,10 +461,11 @@ unsafe extern "C" fn _con_attach(
                 != CT_OUTPUT as ::core::ffi::c_int as ::core::ffi::c_uint
         {
             debuglog(
-                b"%s:%s:%d - Inserting con = %p after con %p\n\0" as *const u8
-                    as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-                b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-                b"_con_attach\0" as *const u8 as *const ::core::ffi::c_char,
+                c"%s:%s:%d - Inserting con = %p after con %p\n"
+                    .as_ptr()
+                    .cast_mut(),
+                c"../src/con.c".as_ptr(),
+                c"_con_attach".as_ptr(),
                 201 as ::core::ffi::c_int,
                 con,
                 current,
@@ -1098,16 +491,12 @@ unsafe extern "C" fn _con_attach(
     (*focus_head).tqh_last = &raw mut (*con).focused.tqe_next;
     con_force_split_parents_redraw(con);
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_attach(
-    mut con: *mut Con,
-    mut parent: *mut Con,
-    mut ignore_focus: bool,
-) {
+
+pub unsafe fn con_attach(con: *mut Con, parent: *mut Con, ignore_focus: bool) {
     _con_attach(con, parent, ::core::ptr::null_mut::<Con>(), ignore_focus);
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_detach(mut con: *mut Con) {
+
+pub unsafe fn con_detach(con: *mut Con) {
     con_force_split_parents_redraw(con);
     if (*con).type_0 as ::core::ffi::c_uint
         == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
@@ -1141,22 +530,21 @@ pub unsafe extern "C" fn con_detach(mut con: *mut Con) {
         *(*con).focused.tqe_prev = (*con).focused.tqe_next;
     };
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_focus(mut con: *mut Con) {
+
+pub unsafe fn con_focus(con: *mut Con) {
     if con != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Con {
     } else {
         __assert_fail(
-            b"con != NULL\0" as *const u8 as *const ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
+            c"con != NULL".as_ptr(),
+            c"../src/con.c".as_ptr(),
             251 as ::core::ffi::c_uint,
-            b"void con_focus(Con *)\0" as *const u8 as *const ::core::ffi::c_char,
+            c"void con_focus(Con *)".as_ptr(),
         );
     };
     debuglog(
-        b"%s:%s:%d - con_focus = %p\n\0" as *const u8 as *const ::core::ffi::c_char
-            as *mut ::core::ffi::c_char,
-        b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"con_focus\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - con_focus = %p\n".as_ptr().cast_mut(),
+        c"../src/con.c".as_ptr(),
+        c"con_focus".as_ptr(),
         252 as ::core::ffi::c_int,
         con,
     );
@@ -1183,25 +571,25 @@ pub unsafe extern "C" fn con_focus(mut con: *mut Con) {
         con_set_urgency(con, false_0 != 0);
         con_update_parents_urgency(con);
         workspace_update_urgent_flag(con_get_workspace(con));
-        ipc_send_window_event(b"urgent\0" as *const u8 as *const ::core::ffi::c_char, con);
+        ipc_send_window_event(c"urgent".as_ptr(), con);
     }
 }
-unsafe extern "C" fn con_raise(mut con: *mut Con) {
-    let mut floating: *mut Con = con_inside_floating(con);
+unsafe fn con_raise(con: *mut Con) {
+    let floating: *mut Con = con_inside_floating(con);
     if !floating.is_null() {
         floating_raise_con(floating);
     }
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_activate(mut con: *mut Con) {
+
+pub unsafe fn con_activate(con: *mut Con) {
     con_focus(con);
     con_raise(con);
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_activate_unblock(mut con: *mut Con) {
-    let mut ws: *mut Con = con_get_workspace(con);
-    let mut previous_focus: *mut Con = focused;
-    let mut fullscreen_on_ws: *mut Con = con_get_fullscreen_covering_ws(ws);
+
+pub unsafe fn con_activate_unblock(con: *mut Con) {
+    let ws: *mut Con = con_get_workspace(con);
+    let previous_focus: *mut Con = focused;
+    let fullscreen_on_ws: *mut Con = con_get_fullscreen_covering_ws(ws);
     if !fullscreen_on_ws.is_null()
         && fullscreen_on_ws != con
         && !con_has_parent(con, fullscreen_on_ws)
@@ -1215,22 +603,21 @@ pub unsafe extern "C" fn con_activate_unblock(mut con: *mut Con) {
         con_activate(con);
     }
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_close(mut con: *mut Con, mut kill_window: kill_window_t) {
+
+pub unsafe fn con_close(con: *mut Con, kill_window: kill_window_t) {
     if con != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Con {
     } else {
         __assert_fail(
-            b"con != NULL\0" as *const u8 as *const ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
+            c"con != NULL".as_ptr(),
+            c"../src/con.c".as_ptr(),
             337 as ::core::ffi::c_uint,
-            b"void con_close(Con *, kill_window_t)\0" as *const u8 as *const ::core::ffi::c_char,
+            c"void con_close(Con *, kill_window_t)".as_ptr(),
         );
     };
     debuglog(
-        b"%s:%s:%d - Closing con = %p.\n\0" as *const u8 as *const ::core::ffi::c_char
-            as *mut ::core::ffi::c_char,
-        b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"con_close\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - Closing con = %p.\n".as_ptr().cast_mut(),
+        c"../src/con.c".as_ptr(),
+        c"con_close".as_ptr(),
         338 as ::core::ffi::c_int,
         con,
     );
@@ -1240,10 +627,11 @@ pub unsafe extern "C" fn con_close(mut con: *mut Con, mut kill_window: kill_wind
             == CT_ROOT as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         debuglog(
-            b"%s:%s:%d - con = %p is of type %d, not closing anything.\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_close\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - con = %p is of type %d, not closing anything.\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_close".as_ptr(),
             342 as ::core::ffi::c_int,
             con,
             (*con).type_0 as ::core::ffi::c_uint,
@@ -1254,21 +642,21 @@ pub unsafe extern "C" fn con_close(mut con: *mut Con, mut kill_window: kill_wind
         == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         debuglog(
-            b"%s:%s:%d - con = %p is a workspace, closing all children instead.\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_close\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - con = %p is a workspace, closing all children instead.\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_close".as_ptr(),
             347 as ::core::ffi::c_int,
             con,
         );
         let mut child: *mut Con = (*con).focus_head.tqh_first as *mut Con;
         while !child.is_null() {
-            let mut next_child: *mut Con = (*child).focused.tqe_next as *mut Con;
+            let next_child: *mut Con = (*child).focused.tqe_next as *mut Con;
             debuglog(
-                b"%s:%s:%d - killing child = %p.\n\0" as *const u8 as *const ::core::ffi::c_char
-                    as *mut ::core::ffi::c_char,
-                b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-                b"con_close\0" as *const u8 as *const ::core::ffi::c_char,
+                c"%s:%s:%d - killing child = %p.\n".as_ptr().cast_mut(),
+                c"../src/con.c".as_ptr(),
+                c"con_close".as_ptr(),
                 350 as ::core::ffi::c_int,
                 child,
             );
@@ -1279,39 +667,39 @@ pub unsafe extern "C" fn con_close(mut con: *mut Con, mut kill_window: kill_wind
     }
     tree_close_internal(con, kill_window, false_0 != 0);
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_is_leaf(mut con: *mut Con) -> bool {
-    return (*con).nodes_head.tqh_first.is_null();
+
+pub unsafe fn con_is_leaf(con: *mut Con) -> bool {
+    (*con).nodes_head.tqh_first.is_null()
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_has_managed_window(mut con: *mut Con) -> bool {
-    return !con.is_null()
+
+pub unsafe fn con_has_managed_window(con: *mut Con) -> bool {
+    !con.is_null()
         && !(*con).window.is_null()
         && (*(*con).window).id != XCB_WINDOW_NONE as ::core::ffi::c_int as xcb_window_t
-        && !con_get_workspace(con).is_null();
+        && !con_get_workspace(con).is_null()
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_has_children(mut con: *mut Con) -> bool {
-    return !con_is_leaf(con) || !(*con).floating_head.tqh_first.is_null();
+
+pub unsafe fn con_has_children(con: *mut Con) -> bool {
+    !con_is_leaf(con) || !(*con).floating_head.tqh_first.is_null()
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_is_split(mut con: *mut Con) -> bool {
+
+pub unsafe fn con_is_split(con: *mut Con) -> bool {
     if con_is_leaf(con) {
         return false_0 != 0;
     }
     match (*con).layout as ::core::ffi::c_uint {
-        3 | 4 => return false_0 != 0,
-        _ => return true_0 != 0,
-    };
+        3 | 4 => false_0 != 0,
+        _ => true_0 != 0,
+    }
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_is_hidden(mut con: *mut Con) -> bool {
+
+pub unsafe fn con_is_hidden(con: *mut Con) -> bool {
     let mut current: *mut Con = con;
     while !current.is_null()
         && (*current).type_0 as ::core::ffi::c_uint
             != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
     {
-        let mut parent: *mut Con = (*current).parent as *mut Con;
+        let parent: *mut Con = (*current).parent as *mut Con;
         if !parent.is_null()
             && ((*parent).layout as ::core::ffi::c_uint
                 == L_TABBED as ::core::ffi::c_int as ::core::ffi::c_uint
@@ -1324,13 +712,10 @@ pub unsafe extern "C" fn con_is_hidden(mut con: *mut Con) -> bool {
         }
         current = parent;
     }
-    return false_0 != 0;
+    false_0 != 0
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_is_maximized(
-    mut con: *mut Con,
-    mut orientation: orientation_t,
-) -> bool {
+
+pub unsafe fn con_is_maximized(con: *mut Con, orientation: orientation_t) -> bool {
     if (*con).fullscreen_mode as ::core::ffi::c_uint
         != CF_NONE as ::core::ffi::c_int as ::core::ffi::c_uint
     {
@@ -1348,18 +733,17 @@ pub unsafe extern "C" fn con_is_maximized(
             if 0 as ::core::ffi::c_int != 0 {
             } else {
                 __assert_fail(
-                    b"false\0" as *const u8 as *const ::core::ffi::c_char,
-                    b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
+                    c"false".as_ptr(),
+                    c"../src/con.c".as_ptr(),
                     458 as ::core::ffi::c_uint,
-                    b"_Bool con_is_maximized(Con *, orientation_t)\0" as *const u8
-                        as *const ::core::ffi::c_char,
+                    c"_Bool con_is_maximized(Con *, orientation_t)".as_ptr(),
                 );
             };
         }
     }
     let mut current: *mut Con = con;
     loop {
-        let mut parent: *mut Con = (*current).parent as *mut Con;
+        let parent: *mut Con = (*current).parent as *mut Con;
         if parent.is_null()
             || (*current).type_0 as ::core::ffi::c_uint
                 == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
@@ -1379,8 +763,8 @@ pub unsafe extern "C" fn con_is_maximized(
         current = parent;
     }
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_is_sticky(mut con: *mut Con) -> bool {
+
+pub unsafe fn con_is_sticky(con: *mut Con) -> bool {
     if (*con).sticky {
         return true_0 != 0;
     }
@@ -1392,10 +776,10 @@ pub unsafe extern "C" fn con_is_sticky(mut con: *mut Con) -> bool {
         }
         child = (*child).nodes.tqe_next as *mut Con;
     }
-    return false_0 != 0;
+    false_0 != 0
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_accepts_window(mut con: *mut Con) -> bool {
+
+pub unsafe fn con_accepts_window(con: *mut Con) -> bool {
     if (*con).type_0 as ::core::ffi::c_uint
         == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
     {
@@ -1403,19 +787,20 @@ pub unsafe extern "C" fn con_accepts_window(mut con: *mut Con) -> bool {
     }
     if con_is_split(con) {
         debuglog(
-            b"%s:%s:%d - container %p does not accept windows, it is a split container.\n\0"
-                as *const u8 as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_accepts_window\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - container %p does not accept windows, it is a split container.\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_accepts_window".as_ptr(),
             518 as ::core::ffi::c_int,
             con,
         );
         return false_0 != 0;
     }
-    return (*con).window.is_null();
+    (*con).window.is_null()
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_get_output(mut con: *mut Con) -> *mut Con {
+
+pub unsafe fn con_get_output(con: *mut Con) -> *mut Con {
     let mut result: *mut Con = con;
     while !result.is_null()
         && (*result).type_0 as ::core::ffi::c_uint
@@ -1426,16 +811,16 @@ pub unsafe extern "C" fn con_get_output(mut con: *mut Con) -> *mut Con {
     if result != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Con {
     } else {
         __assert_fail(
-            b"result != NULL\0" as *const u8 as *const ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
+            c"result != NULL".as_ptr(),
+            c"../src/con.c".as_ptr(),
             538 as ::core::ffi::c_uint,
-            b"Con *con_get_output(Con *)\0" as *const u8 as *const ::core::ffi::c_char,
+            c"Con *con_get_output(Con *)".as_ptr(),
         );
     };
-    return result;
+    result
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_get_workspace(mut con: *mut Con) -> *mut Con {
+
+pub unsafe fn con_get_workspace(con: *mut Con) -> *mut Con {
     let mut result: *mut Con = con;
     while !result.is_null()
         && (*result).type_0 as ::core::ffi::c_uint
@@ -1443,18 +828,16 @@ pub unsafe extern "C" fn con_get_workspace(mut con: *mut Con) -> *mut Con {
     {
         result = (*result).parent as *mut Con;
     }
-    return result;
+    result
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_parent_with_orientation(
-    mut con: *mut Con,
-    mut orientation: orientation_t,
-) -> *mut Con {
+
+pub unsafe fn con_parent_with_orientation(con: *mut Con, orientation: orientation_t) -> *mut Con {
     debuglog(
-        b"%s:%s:%d - Searching for parent of Con %p with orientation %d\n\0" as *const u8
-            as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-        b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"con_parent_with_orientation\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - Searching for parent of Con %p with orientation %d\n"
+            .as_ptr()
+            .cast_mut(),
+        c"../src/con.c".as_ptr(),
+        c"con_parent_with_orientation".as_ptr(),
         560 as ::core::ffi::c_int,
         con,
         orientation as ::core::ffi::c_uint,
@@ -1467,10 +850,11 @@ pub unsafe extern "C" fn con_parent_with_orientation(
     }
     while con_orientation(parent) as ::core::ffi::c_uint != orientation as ::core::ffi::c_uint {
         debuglog(
-            b"%s:%s:%d - Need to go one level further up\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_parent_with_orientation\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - Need to go one level further up\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_parent_with_orientation".as_ptr(),
             566 as ::core::ffi::c_int,
         );
         parent = (*parent).parent as *mut Con;
@@ -1490,19 +874,18 @@ pub unsafe extern "C" fn con_parent_with_orientation(
         }
     }
     debuglog(
-        b"%s:%s:%d - Result: %p\n\0" as *const u8 as *const ::core::ffi::c_char
-            as *mut ::core::ffi::c_char,
-        b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"con_parent_with_orientation\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - Result: %p\n".as_ptr().cast_mut(),
+        c"../src/con.c".as_ptr(),
+        c"con_parent_with_orientation".as_ptr(),
         579 as ::core::ffi::c_int,
         parent,
     );
-    return parent;
+    parent
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_get_fullscreen_con(
-    mut con: *mut Con,
-    mut fullscreen_mode: fullscreen_mode_t,
+
+pub unsafe fn con_get_fullscreen_con(
+    con: *mut Con,
+    fullscreen_mode: fullscreen_mode_t,
 ) -> *mut Con {
     let mut bfs_head_0: bfs_head = bfs_head {
         tqh_first: ::core::ptr::null_mut::<bfs_entry>(),
@@ -1521,7 +904,7 @@ pub unsafe extern "C" fn con_get_fullscreen_con(
     bfs_head_0.tqh_last = &raw mut (*entry).entries.tqe_next;
     while !bfs_head_0.tqh_first.is_null() {
         entry = bfs_head_0.tqh_first;
-        let mut current: *mut Con = (*entry).con;
+        let current: *mut Con = (*entry).con;
         if current != con
             && (*current).fullscreen_mode as ::core::ffi::c_uint
                 == fullscreen_mode as ::core::ffi::c_uint
@@ -1567,42 +950,40 @@ pub unsafe extern "C" fn con_get_fullscreen_con(
             child = (*child).floating_windows.tqe_next as *mut Con;
         }
     }
-    return ::core::ptr::null_mut::<Con>();
+    ::core::ptr::null_mut::<Con>()
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_get_fullscreen_covering_ws(mut ws: *mut Con) -> *mut Con {
+
+pub unsafe fn con_get_fullscreen_covering_ws(ws: *mut Con) -> *mut Con {
     if ws.is_null() {
         return ::core::ptr::null_mut::<Con>();
     }
-    let mut fs: *mut Con = con_get_fullscreen_con(croot, CF_GLOBAL);
+    let fs: *mut Con = con_get_fullscreen_con(croot, CF_GLOBAL);
     if fs.is_null() {
         return con_get_fullscreen_con(ws, CF_OUTPUT);
     }
-    return fs;
+    fs
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_is_internal(mut con: *mut Con) -> bool {
-    return *(*con).name.offset(0 as ::core::ffi::c_int as isize) as ::core::ffi::c_int
-        == '_' as i32
-        && *(*con).name.offset(1 as ::core::ffi::c_int as isize) as ::core::ffi::c_int
-            == '_' as i32;
+
+pub unsafe fn con_is_internal(con: *mut Con) -> bool {
+    *(*con).name.offset(0 as ::core::ffi::c_int as isize) as ::core::ffi::c_int == '_' as i32
+        && *(*con).name.offset(1 as ::core::ffi::c_int as isize) as ::core::ffi::c_int == '_' as i32
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_is_floating(mut con: *mut Con) -> bool {
+
+pub unsafe fn con_is_floating(con: *mut Con) -> bool {
     if con != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Con {
     } else {
         __assert_fail(
-            b"con != NULL\0" as *const u8 as *const ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
+            c"con != NULL".as_ptr(),
+            c"../src/con.c".as_ptr(),
             669 as ::core::ffi::c_uint,
-            b"_Bool con_is_floating(Con *)\0" as *const u8 as *const ::core::ffi::c_char,
+            c"_Bool con_is_floating(Con *)".as_ptr(),
         );
     };
-    return (*con).floating as ::core::ffi::c_uint
-        >= FLOATING_AUTO_ON as ::core::ffi::c_int as ::core::ffi::c_uint;
+    (*con).floating as ::core::ffi::c_uint
+        >= FLOATING_AUTO_ON as ::core::ffi::c_int as ::core::ffi::c_uint
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_is_docked(mut con: *mut Con) -> bool {
+
+pub unsafe fn con_is_docked(con: *mut Con) -> bool {
     if (*con).parent.is_null() {
         return false_0 != 0;
     }
@@ -1611,10 +992,10 @@ pub unsafe extern "C" fn con_is_docked(mut con: *mut Con) -> bool {
     {
         return true_0 != 0;
     }
-    return con_is_docked((*con).parent as *mut Con);
+    con_is_docked((*con).parent as *mut Con)
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_inside_floating(mut con: *mut Con) -> *mut Con {
+
+pub unsafe fn con_inside_floating(con: *mut Con) -> *mut Con {
     if con.is_null() {
         return ::core::ptr::null_mut::<Con>();
     }
@@ -1635,31 +1016,31 @@ pub unsafe extern "C" fn con_inside_floating(mut con: *mut Con) -> *mut Con {
     {
         return ::core::ptr::null_mut::<Con>();
     }
-    return con_inside_floating((*con).parent as *mut Con);
+    con_inside_floating((*con).parent as *mut Con)
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_inside_focused(mut con: *mut Con) -> bool {
+
+pub unsafe fn con_inside_focused(con: *mut Con) -> bool {
     if con == focused {
         return true_0 != 0;
     }
     if (*con).parent.is_null() {
         return false_0 != 0;
     }
-    return con_inside_focused((*con).parent as *mut Con);
+    con_inside_focused((*con).parent as *mut Con)
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_has_parent(mut con: *mut Con, mut parent: *mut Con) -> bool {
-    let mut current: *mut Con = (*con).parent as *mut Con;
+
+pub unsafe fn con_has_parent(con: *mut Con, parent: *mut Con) -> bool {
+    let current: *mut Con = (*con).parent as *mut Con;
     if current.is_null() {
         return false_0 != 0;
     }
     if current == parent {
         return true_0 != 0;
     }
-    return con_has_parent(current, parent);
+    con_has_parent(current, parent)
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_by_window_id(mut window: xcb_window_t) -> *mut Con {
+
+pub unsafe fn con_by_window_id(window: xcb_window_t) -> *mut Con {
     let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
     con = all_cons.tqh_first as *mut Con;
     while !con.is_null() {
@@ -1668,10 +1049,10 @@ pub unsafe extern "C" fn con_by_window_id(mut window: xcb_window_t) -> *mut Con 
         }
         con = (*con).all_cons.tqe_next as *mut Con;
     }
-    return ::core::ptr::null_mut::<Con>();
+    ::core::ptr::null_mut::<Con>()
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_by_con_id(mut target: ::core::ffi::c_long) -> *mut Con {
+
+pub unsafe fn con_by_con_id(target: ::core::ffi::c_long) -> *mut Con {
     let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
     con = all_cons.tqh_first as *mut Con;
     while !con.is_null() {
@@ -1680,14 +1061,14 @@ pub unsafe extern "C" fn con_by_con_id(mut target: ::core::ffi::c_long) -> *mut 
         }
         con = (*con).all_cons.tqe_next as *mut Con;
     }
-    return ::core::ptr::null_mut::<Con>();
+    ::core::ptr::null_mut::<Con>()
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_exists(mut con: *mut Con) -> bool {
-    return !con_by_con_id(con as ::core::ffi::c_long).is_null();
+
+pub unsafe fn con_exists(con: *mut Con) -> bool {
+    !con_by_con_id(con as ::core::ffi::c_long).is_null()
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_by_frame_id(mut frame: xcb_window_t) -> *mut Con {
+
+pub unsafe fn con_by_frame_id(frame: xcb_window_t) -> *mut Con {
     let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
     con = all_cons.tqh_first as *mut Con;
     while !con.is_null() {
@@ -1696,10 +1077,10 @@ pub unsafe extern "C" fn con_by_frame_id(mut frame: xcb_window_t) -> *mut Con {
         }
         con = (*con).all_cons.tqe_next as *mut Con;
     }
-    return ::core::ptr::null_mut::<Con>();
+    ::core::ptr::null_mut::<Con>()
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_by_mark(mut mark: *const ::core::ffi::c_char) -> *mut Con {
+
+pub unsafe fn con_by_mark(mark: *const ::core::ffi::c_char) -> *mut Con {
     let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
     con = all_cons.tqh_first as *mut Con;
     while !con.is_null() {
@@ -1708,13 +1089,10 @@ pub unsafe extern "C" fn con_by_mark(mut mark: *const ::core::ffi::c_char) -> *m
         }
         con = (*con).all_cons.tqe_next as *mut Con;
     }
-    return ::core::ptr::null_mut::<Con>();
+    ::core::ptr::null_mut::<Con>()
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_find_transient_for_window(
-    mut start: *mut Con,
-    mut target: xcb_window_t,
-) -> bool {
+
+pub unsafe fn con_find_transient_for_window(start: *mut Con, target: xcb_window_t) -> bool {
     let mut transient_con: *mut Con = start;
     let mut count: ::core::ffi::c_int = con_num_windows(croot);
     while !transient_con.is_null()
@@ -1722,11 +1100,9 @@ pub unsafe extern "C" fn con_find_transient_for_window(
         && (*(*transient_con).window).transient_for as ::core::ffi::c_long != XCB_NONE
     {
         debuglog(
-            b"%s:%s:%d - transient_con = 0x%08x, transient_con->window->transient_for = 0x%08x, target = 0x%08x\n\0"
-                as *const u8 as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_find_transient_for_window\0" as *const u8
-                as *const ::core::ffi::c_char,
+            c"%s:%s:%d - transient_con = 0x%08x, transient_con->window->transient_for = 0x%08x, target = 0x%08x\n".as_ptr().cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_find_transient_for_window".as_ptr(),
             829 as ::core::ffi::c_int,
             (*(*transient_con).window).id,
             (*(*transient_con).window).transient_for,
@@ -1735,8 +1111,7 @@ pub unsafe extern "C" fn con_find_transient_for_window(
         if (*(*transient_con).window).transient_for == target {
             return true_0 != 0;
         }
-        let mut next_transient: *mut Con =
-            con_by_window_id((*(*transient_con).window).transient_for);
+        let next_transient: *mut Con = con_by_window_id((*(*transient_con).window).transient_for);
         if next_transient.is_null() {
             break;
         }
@@ -1750,13 +1125,10 @@ pub unsafe extern "C" fn con_find_transient_for_window(
             break;
         }
     }
-    return false_0 != 0;
+    false_0 != 0
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_has_mark(
-    mut con: *mut Con,
-    mut mark: *const ::core::ffi::c_char,
-) -> bool {
+
+pub unsafe fn con_has_mark(con: *mut Con, mark: *const ::core::ffi::c_char) -> bool {
     let mut current: *mut mark_t = ::core::ptr::null_mut::<mark_t>();
     current = (*con).marks_head.tqh_first as *mut mark_t;
     while !current.is_null() {
@@ -1765,29 +1137,25 @@ pub unsafe extern "C" fn con_has_mark(
         }
         current = (*current).marks.tqe_next as *mut mark_t;
     }
-    return false_0 != 0;
+    false_0 != 0
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_mark_toggle(
-    mut con: *mut Con,
-    mut mark: *const ::core::ffi::c_char,
-    mut mode: mark_mode_t,
-) {
+
+pub unsafe fn con_mark_toggle(con: *mut Con, mark: *const ::core::ffi::c_char, mode: mark_mode_t) {
     if con != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Con {
     } else {
         __assert_fail(
-            b"con != NULL\0" as *const u8 as *const ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
+            c"con != NULL".as_ptr(),
+            c"../src/con.c".as_ptr(),
             873 as ::core::ffi::c_uint,
-            b"void con_mark_toggle(Con *, const char *, mark_mode_t)\0" as *const u8
-                as *const ::core::ffi::c_char,
+            c"void con_mark_toggle(Con *, const char *, mark_mode_t)".as_ptr(),
         );
     };
     debuglog(
-        b"%s:%s:%d - Toggling mark \"%s\" on con = %p.\n\0" as *const u8
-            as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-        b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"con_mark_toggle\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - Toggling mark \"%s\" on con = %p.\n"
+            .as_ptr()
+            .cast_mut(),
+        c"../src/con.c".as_ptr(),
+        c"con_mark_toggle".as_ptr(),
         874 as ::core::ffi::c_int,
         mark,
         con,
@@ -1798,27 +1166,23 @@ pub unsafe extern "C" fn con_mark_toggle(
         con_mark(con, mark, mode);
     };
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_mark(
-    mut con: *mut Con,
-    mut mark: *const ::core::ffi::c_char,
-    mut mode: mark_mode_t,
-) {
+
+pub unsafe fn con_mark(con: *mut Con, mark: *const ::core::ffi::c_char, mode: mark_mode_t) {
     if con != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Con {
     } else {
         __assert_fail(
-            b"con != NULL\0" as *const u8 as *const ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
+            c"con != NULL".as_ptr(),
+            c"../src/con.c".as_ptr(),
             888 as ::core::ffi::c_uint,
-            b"void con_mark(Con *, const char *, mark_mode_t)\0" as *const u8
-                as *const ::core::ffi::c_char,
+            c"void con_mark(Con *, const char *, mark_mode_t)".as_ptr(),
         );
     };
     debuglog(
-        b"%s:%s:%d - Setting mark \"%s\" on con = %p.\n\0" as *const u8
-            as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-        b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"con_mark\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - Setting mark \"%s\" on con = %p.\n"
+            .as_ptr()
+            .cast_mut(),
+        c"../src/con.c".as_ptr(),
+        c"con_mark".as_ptr(),
         889 as ::core::ffi::c_int,
         mark,
         con,
@@ -1826,37 +1190,39 @@ pub unsafe extern "C" fn con_mark(
     con_unmark(::core::ptr::null_mut::<Con>(), mark);
     if mode as ::core::ffi::c_uint == MM_REPLACE as ::core::ffi::c_int as ::core::ffi::c_uint {
         debuglog(
-            b"%s:%s:%d - Removing all existing marks on con = %p.\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_mark\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - Removing all existing marks on con = %p.\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_mark".as_ptr(),
             893 as ::core::ffi::c_int,
             con,
         );
         while !(*con).marks_head.tqh_first.is_null() {
-            let mut current: *const mark_t = (*con).marks_head.tqh_first;
+            let current: *const mark_t = (*con).marks_head.tqh_first;
             con_unmark(con, (*current).name);
         }
     }
-    let mut new: *mut mark_t =
+    let new: *mut mark_t =
         scalloc(1 as size_t, ::core::mem::size_of::<mark_t>() as size_t) as *mut mark_t;
     (*new).name = sstrdup(mark);
     (*new).marks.tqe_next = ::core::ptr::null_mut::<mark_t>();
     (*new).marks.tqe_prev = (*con).marks_head.tqh_last;
     *(*con).marks_head.tqh_last = new as *mut mark_t;
     (*con).marks_head.tqh_last = &raw mut (*new).marks.tqe_next;
-    ipc_send_window_event(b"mark\0" as *const u8 as *const ::core::ffi::c_char, con);
+    ipc_send_window_event(c"mark".as_ptr(), con);
     (*con).mark_changed = true_0 != 0;
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_unmark(mut con: *mut Con, mut name: *const ::core::ffi::c_char) {
+
+pub unsafe fn con_unmark(con: *mut Con, name: *const ::core::ffi::c_char) {
     let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
     if name.is_null() {
         debuglog(
-            b"%s:%s:%d - Unmarking all containers.\n\0" as *const u8 as *const ::core::ffi::c_char
-                as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_unmark\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - Unmarking all containers.\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_unmark".as_ptr(),
             919 as ::core::ffi::c_int,
         );
         current = all_cons.tqh_first as *mut Con;
@@ -1875,10 +1241,7 @@ pub unsafe extern "C" fn con_unmark(mut con: *mut Con, mut name: *const ::core::
                         *(*mark).marks.tqe_prev = (*mark).marks.tqe_next;
                         free(mark as *mut ::core::ffi::c_void);
                         mark = ::core::ptr::null_mut::<mark_t>();
-                        ipc_send_window_event(
-                            b"mark\0" as *const u8 as *const ::core::ffi::c_char,
-                            current,
-                        );
+                        ipc_send_window_event(c"mark".as_ptr(), current);
                     }
                     (*current).mark_changed = true_0 != 0;
                 }
@@ -1887,10 +1250,9 @@ pub unsafe extern "C" fn con_unmark(mut con: *mut Con, mut name: *const ::core::
         }
     } else {
         debuglog(
-            b"%s:%s:%d - Removing mark \"%s\".\n\0" as *const u8 as *const ::core::ffi::c_char
-                as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_unmark\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - Removing mark \"%s\".\n".as_ptr().cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_unmark".as_ptr(),
             941 as ::core::ffi::c_int,
             name,
         );
@@ -1901,20 +1263,21 @@ pub unsafe extern "C" fn con_unmark(mut con: *mut Con, mut name: *const ::core::
         };
         if current.is_null() {
             debuglog(
-                b"%s:%s:%d - No container found with this mark, so there is nothing to do.\n\0"
-                    as *const u8 as *const ::core::ffi::c_char
-                    as *mut ::core::ffi::c_char,
-                b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-                b"con_unmark\0" as *const u8 as *const ::core::ffi::c_char,
+                c"%s:%s:%d - No container found with this mark, so there is nothing to do.\n"
+                    .as_ptr()
+                    .cast_mut(),
+                c"../src/con.c".as_ptr(),
+                c"con_unmark".as_ptr(),
                 944 as ::core::ffi::c_int,
             );
             return;
         }
         debuglog(
-            b"%s:%s:%d - Found mark on con = %p. Removing it now.\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_unmark\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - Found mark on con = %p. Removing it now.\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_unmark".as_ptr(),
             948 as ::core::ffi::c_int,
             current,
         );
@@ -1935,20 +1298,17 @@ pub unsafe extern "C" fn con_unmark(mut con: *mut Con, mut name: *const ::core::
                 *(*mark_0).marks.tqe_prev = (*mark_0).marks.tqe_next;
                 free(mark_0 as *mut ::core::ffi::c_void);
                 mark_0 = ::core::ptr::null_mut::<mark_t>();
-                ipc_send_window_event(
-                    b"mark\0" as *const u8 as *const ::core::ffi::c_char,
-                    current,
-                );
+                ipc_send_window_event(c"mark".as_ptr(), current);
                 break;
             }
         }
     };
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_for_window(
-    mut con: *mut Con,
-    mut window: *mut i3Window,
-    mut store_match: *mut *mut Match,
+
+pub unsafe fn con_for_window(
+    con: *mut Con,
+    window: *mut i3Window,
+    store_match: *mut *mut Match,
 ) -> *mut Con {
     let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut match_0: *mut Match = ::core::ptr::null_mut::<Match>();
@@ -1965,7 +1325,7 @@ pub unsafe extern "C" fn con_for_window(
                 return child;
             }
         }
-        let mut result: *mut Con = con_for_window(child, window, store_match);
+        let result: *mut Con = con_for_window(child, window, store_match);
         if !result.is_null() {
             return result;
         }
@@ -1984,15 +1344,15 @@ pub unsafe extern "C" fn con_for_window(
                 return child;
             }
         }
-        let mut result_0: *mut Con = con_for_window(child, window, store_match);
+        let result_0: *mut Con = con_for_window(child, window, store_match);
         if !result_0.is_null() {
             return result_0;
         }
         child = (*child).floating_windows.tqe_next as *mut Con;
     }
-    return ::core::ptr::null_mut::<Con>();
+    ::core::ptr::null_mut::<Con>()
 }
-unsafe extern "C" fn num_focus_heads(mut con: *mut Con) -> ::core::ffi::c_int {
+unsafe fn num_focus_heads(con: *mut Con) -> ::core::ffi::c_int {
     let mut focus_heads: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
     let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
     current = (*con).focus_head.tqh_first as *mut Con;
@@ -2000,12 +1360,12 @@ unsafe extern "C" fn num_focus_heads(mut con: *mut Con) -> ::core::ffi::c_int {
         focus_heads += 1;
         current = (*current).focused.tqe_next as *mut Con;
     }
-    return focus_heads;
+    focus_heads
 }
-#[no_mangle]
-pub unsafe extern "C" fn get_focus_order(mut con: *mut Con) -> *mut *mut Con {
+
+pub unsafe fn get_focus_order(con: *mut Con) -> *mut *mut Con {
     let focus_heads: ::core::ffi::c_int = num_focus_heads(con) as ::core::ffi::c_int;
-    let mut focus_order: *mut *mut Con =
+    let focus_order: *mut *mut Con =
         smalloc((focus_heads as size_t).wrapping_mul(::core::mem::size_of::<*mut Con>() as size_t))
             as *mut *mut Con;
     let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
@@ -2015,10 +1375,10 @@ pub unsafe extern "C" fn get_focus_order(mut con: *mut Con) -> *mut *mut Con {
         if idx < focus_heads {
         } else {
             __assert_fail(
-                b"idx < focus_heads\0" as *const u8 as *const ::core::ffi::c_char,
-                b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
+                c"idx < focus_heads".as_ptr(),
+                c"../src/con.c".as_ptr(),
                 1033 as ::core::ffi::c_uint,
-                b"Con **get_focus_order(Con *)\0" as *const u8 as *const ::core::ffi::c_char,
+                c"Con **get_focus_order(Con *)".as_ptr(),
             );
         };
         let fresh1 = idx;
@@ -2027,13 +1387,13 @@ pub unsafe extern "C" fn get_focus_order(mut con: *mut Con) -> *mut *mut Con {
         *fresh2 = current;
         current = (*current).focused.tqe_next as *mut Con;
     }
-    return focus_order;
+    focus_order
 }
-#[no_mangle]
-pub unsafe extern "C" fn set_focus_order(mut con: *mut Con, mut focus_order: *mut *mut Con) {
+
+pub unsafe fn set_focus_order(con: *mut Con, focus_order: *mut *mut Con) {
     let mut focus_heads: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
     while !(*con).focus_head.tqh_first.is_null() {
-        let mut current: *mut Con = (*con).focus_head.tqh_first as *mut Con;
+        let current: *mut Con = (*con).focus_head.tqh_first as *mut Con;
         if !(*current).focused.tqe_next.is_null() {
             (*(*current).focused.tqe_next).focused.tqe_prev = (*current).focused.tqe_prev;
         } else {
@@ -2061,8 +1421,8 @@ pub unsafe extern "C" fn set_focus_order(mut con: *mut Con, mut focus_order: *mu
         idx += 1;
     }
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_num_children(mut con: *mut Con) -> ::core::ffi::c_int {
+
+pub unsafe fn con_num_children(con: *mut Con) -> ::core::ffi::c_int {
     let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut children: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
     child = (*con).nodes_head.tqh_first as *mut Con;
@@ -2070,10 +1430,10 @@ pub unsafe extern "C" fn con_num_children(mut con: *mut Con) -> ::core::ffi::c_i
         children += 1;
         child = (*child).nodes.tqe_next as *mut Con;
     }
-    return children;
+    children
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_num_visible_children(mut con: *mut Con) -> ::core::ffi::c_int {
+
+pub unsafe fn con_num_visible_children(con: *mut Con) -> ::core::ffi::c_int {
     if con.is_null() {
         return 0 as ::core::ffi::c_int;
     }
@@ -2088,10 +1448,10 @@ pub unsafe extern "C" fn con_num_visible_children(mut con: *mut Con) -> ::core::
         }
         current = (*current).nodes.tqe_next as *mut Con;
     }
-    return children;
+    children
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_num_windows(mut con: *mut Con) -> ::core::ffi::c_int {
+
+pub unsafe fn con_num_windows(con: *mut Con) -> ::core::ffi::c_int {
     if con.is_null() {
         return 0 as ::core::ffi::c_int;
     }
@@ -2110,12 +1470,12 @@ pub unsafe extern "C" fn con_num_windows(mut con: *mut Con) -> ::core::ffi::c_in
         num += con_num_windows(current);
         current = (*current).floating_windows.tqe_next as *mut Con;
     }
-    return num;
+    num
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_fix_percent(mut con: *mut Con) {
+
+pub unsafe fn con_fix_percent(con: *mut Con) {
     let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-    let mut children: ::core::ffi::c_int = con_num_children(con);
+    let children: ::core::ffi::c_int = con_num_children(con);
     let mut total: ::core::ffi::c_double = 0.0f64;
     let mut children_with_percent: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
     child = (*con).nodes_head.tqh_first as *mut Con;
@@ -2155,28 +1515,27 @@ pub unsafe extern "C" fn con_fix_percent(mut con: *mut Con) {
         }
     }
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_toggle_fullscreen(
-    mut con: *mut Con,
-    mut fullscreen_mode: ::core::ffi::c_int,
-) {
+
+pub unsafe fn con_toggle_fullscreen(con: *mut Con, fullscreen_mode: ::core::ffi::c_int) {
     if (*con).type_0 as ::core::ffi::c_uint
         == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         debuglog(
-            b"%s:%s:%d - You cannot make a workspace fullscreen.\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_toggle_fullscreen\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - You cannot make a workspace fullscreen.\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_toggle_fullscreen".as_ptr(),
             1190 as ::core::ffi::c_int,
         );
         return;
     }
     debuglog(
-        b"%s:%s:%d - toggling fullscreen for %p / %s\n\0" as *const u8 as *const ::core::ffi::c_char
-            as *mut ::core::ffi::c_char,
-        b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"con_toggle_fullscreen\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - toggling fullscreen for %p / %s\n"
+            .as_ptr()
+            .cast_mut(),
+        c"../src/con.c".as_ptr(),
+        c"con_toggle_fullscreen".as_ptr(),
         1194 as ::core::ffi::c_int,
         con,
         (*con).name,
@@ -2189,23 +1548,16 @@ pub unsafe extern "C" fn con_toggle_fullscreen(
         con_disable_fullscreen(con);
     };
 }
-unsafe extern "C" fn con_set_fullscreen_mode(
-    mut con: *mut Con,
-    mut fullscreen_mode: fullscreen_mode_t,
-) {
+unsafe fn con_set_fullscreen_mode(con: *mut Con, fullscreen_mode: fullscreen_mode_t) {
     (*con).fullscreen_mode = fullscreen_mode;
     debuglog(
-        b"%s:%s:%d - mode now: %d\n\0" as *const u8 as *const ::core::ffi::c_char
-            as *mut ::core::ffi::c_char,
-        b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"con_set_fullscreen_mode\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - mode now: %d\n".as_ptr().cast_mut(),
+        c"../src/con.c".as_ptr(),
+        c"con_set_fullscreen_mode".as_ptr(),
         1212 as ::core::ffi::c_int,
         (*con).fullscreen_mode as ::core::ffi::c_uint,
     );
-    ipc_send_window_event(
-        b"fullscreen_mode\0" as *const u8 as *const ::core::ffi::c_char,
-        con,
-    );
+    ipc_send_window_event(c"fullscreen_mode".as_ptr(), con);
     if (*con).window.is_null() {
         return;
     }
@@ -2213,10 +1565,11 @@ unsafe extern "C" fn con_set_fullscreen_mode(
         != CF_NONE as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         debuglog(
-            b"%s:%s:%d - Setting _NET_WM_STATE_FULLSCREEN for con = %p / window = %d.\n\0"
-                as *const u8 as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_set_fullscreen_mode\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - Setting _NET_WM_STATE_FULLSCREEN for con = %p / window = %d.\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_set_fullscreen_mode".as_ptr(),
             1225 as ::core::ffi::c_int,
             con,
             (*(*con).window).id,
@@ -2229,10 +1582,11 @@ unsafe extern "C" fn con_set_fullscreen_mode(
         );
     } else {
         debuglog(
-            b"%s:%s:%d - Removing _NET_WM_STATE_FULLSCREEN for con = %p / window = %d.\n\0"
-                as *const u8 as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_set_fullscreen_mode\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - Removing _NET_WM_STATE_FULLSCREEN for con = %p / window = %d.\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_set_fullscreen_mode".as_ptr(),
             1228 as ::core::ffi::c_int,
             con,
             (*(*con).window).id,
@@ -2245,19 +1599,17 @@ unsafe extern "C" fn con_set_fullscreen_mode(
         );
     };
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_enable_fullscreen(
-    mut con: *mut Con,
-    mut fullscreen_mode: fullscreen_mode_t,
-) {
+
+pub unsafe fn con_enable_fullscreen(con: *mut Con, fullscreen_mode: fullscreen_mode_t) {
     if (*con).type_0 as ::core::ffi::c_uint
         == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         debuglog(
-            b"%s:%s:%d - You cannot make a workspace fullscreen.\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_enable_fullscreen\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - You cannot make a workspace fullscreen.\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_enable_fullscreen".as_ptr(),
             1246 as ::core::ffi::c_int,
         );
         return;
@@ -2269,32 +1621,32 @@ pub unsafe extern "C" fn con_enable_fullscreen(
     {
     } else {
         __assert_fail(
-            b"fullscreen_mode == CF_GLOBAL || fullscreen_mode == CF_OUTPUT\0" as *const u8
-                as *const ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
+            c"fullscreen_mode == CF_GLOBAL || fullscreen_mode == CF_OUTPUT".as_ptr(),
+            c"../src/con.c".as_ptr(),
             1250 as ::core::ffi::c_uint,
-            b"void con_enable_fullscreen(Con *, fullscreen_mode_t)\0" as *const u8
-                as *const ::core::ffi::c_char,
+            c"void con_enable_fullscreen(Con *, fullscreen_mode_t)".as_ptr(),
         );
     };
     if fullscreen_mode as ::core::ffi::c_uint
         == CF_GLOBAL as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         debuglog(
-            b"%s:%s:%d - enabling global fullscreen for %p / %s\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_enable_fullscreen\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - enabling global fullscreen for %p / %s\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_enable_fullscreen".as_ptr(),
             1253 as ::core::ffi::c_int,
             con,
             (*con).name,
         );
     } else {
         debuglog(
-            b"%s:%s:%d - enabling fullscreen for %p / %s\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_enable_fullscreen\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - enabling fullscreen for %p / %s\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_enable_fullscreen".as_ptr(),
             1255 as ::core::ffi::c_int,
             con,
             (*con).name,
@@ -2302,17 +1654,18 @@ pub unsafe extern "C" fn con_enable_fullscreen(
     }
     if (*con).fullscreen_mode as ::core::ffi::c_uint == fullscreen_mode as ::core::ffi::c_uint {
         debuglog(
-            b"%s:%s:%d - fullscreen already enabled for %p / %s\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_enable_fullscreen\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - fullscreen already enabled for %p / %s\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_enable_fullscreen".as_ptr(),
             1259 as ::core::ffi::c_int,
             con,
             (*con).name,
         );
         return;
     }
-    let mut con_ws: *mut Con = con_get_workspace(con);
+    let con_ws: *mut Con = con_get_workspace(con);
     let mut fullscreen: *mut Con = con_get_fullscreen_con(croot, CF_GLOBAL);
     if fullscreen.is_null() {
         fullscreen = con_get_fullscreen_con(con_ws, CF_OUTPUT);
@@ -2320,8 +1673,8 @@ pub unsafe extern "C" fn con_enable_fullscreen(
     if !fullscreen.is_null() {
         con_disable_fullscreen(fullscreen);
     }
-    let mut cur_ws: *mut Con = con_get_workspace(focused);
-    let mut old_focused: *mut Con = focused;
+    let cur_ws: *mut Con = con_get_workspace(focused);
+    let old_focused: *mut Con = focused;
     if fullscreen_mode as ::core::ffi::c_uint
         == CF_GLOBAL as ::core::ffi::c_int as ::core::ffi::c_uint
         && cur_ws != con_ws
@@ -2337,25 +1690,27 @@ pub unsafe extern "C" fn con_enable_fullscreen(
     }
     con_set_fullscreen_mode(con, fullscreen_mode);
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_disable_fullscreen(mut con: *mut Con) {
+
+pub unsafe fn con_disable_fullscreen(con: *mut Con) {
     if (*con).type_0 as ::core::ffi::c_uint
         == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         debuglog(
-            b"%s:%s:%d - You cannot make a workspace fullscreen.\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_disable_fullscreen\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - You cannot make a workspace fullscreen.\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_disable_fullscreen".as_ptr(),
             1297 as ::core::ffi::c_int,
         );
         return;
     }
     debuglog(
-        b"%s:%s:%d - disabling fullscreen for %p / %s\n\0" as *const u8
-            as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-        b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"con_disable_fullscreen\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - disabling fullscreen for %p / %s\n"
+            .as_ptr()
+            .cast_mut(),
+        c"../src/con.c".as_ptr(),
+        c"con_disable_fullscreen".as_ptr(),
         1301 as ::core::ffi::c_int,
         con,
         (*con).name,
@@ -2364,10 +1719,11 @@ pub unsafe extern "C" fn con_disable_fullscreen(mut con: *mut Con) {
         == CF_NONE as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         debuglog(
-            b"%s:%s:%d - fullscreen already disabled for %p / %s\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_disable_fullscreen\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - fullscreen already disabled for %p / %s\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_disable_fullscreen".as_ptr(),
             1304 as ::core::ffi::c_int,
             con,
             (*con).name,
@@ -2376,40 +1732,42 @@ pub unsafe extern "C" fn con_disable_fullscreen(mut con: *mut Con) {
     }
     con_set_fullscreen_mode(con, CF_NONE);
 }
-unsafe extern "C" fn _con_move_to_con(
+unsafe fn _con_move_to_con(
     mut con: *mut Con,
     mut target: *mut Con,
-    mut behind_focused: bool,
-    mut fix_coordinates: bool,
-    mut dont_warp: bool,
-    mut ignore_focus: bool,
-    mut fix_percentage: bool,
+    behind_focused: bool,
+    fix_coordinates: bool,
+    dont_warp: bool,
+    ignore_focus: bool,
+    fix_percentage: bool,
 ) -> bool {
     let mut orig_target: *mut Con = target;
-    let mut target_ws: *mut Con = con_get_workspace(target);
+    let target_ws: *mut Con = con_get_workspace(target);
     if !ignore_focus && !con_fullscreen_permits_focusing(target_ws) {
         verboselog(
-            b"Cannot move out of a fullscreen container.\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
+            c"Cannot move out of a fullscreen container.\n"
+                .as_ptr()
+                .cast_mut(),
         );
         return false_0 != 0;
     }
     if con_is_floating(con) {
         debuglog(
-            b"%s:%s:%d - Container is floating, using parent instead.\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"_con_move_to_con\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - Container is floating, using parent instead.\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"_con_move_to_con".as_ptr(),
             1322 as ::core::ffi::c_int,
         );
         con = (*con).parent as *mut Con;
     }
-    let mut source_ws: *mut Con = con_get_workspace(con);
+    let source_ws: *mut Con = con_get_workspace(con);
     if (*con).type_0 as ::core::ffi::c_uint
         == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         while !(*source_ws).floating_head.tqh_first.is_null() {
-            let mut child: *mut Con = (*source_ws).floating_head.tqh_first as *mut Con;
+            let child: *mut Con = (*source_ws).floating_head.tqh_first as *mut Con;
             con_move_to_workspace(child, target_ws, true_0 != 0, true_0 != 0, false_0 != 0);
         }
         if con_is_leaf(con) {
@@ -2418,16 +1776,17 @@ unsafe extern "C" fn _con_move_to_con(
         con = workspace_encapsulate(con);
         if con.is_null() {
             errorlog(
-                b"ERROR: Workspace failed to move its contents into a container!\n\0" as *const u8
-                    as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
+                c"ERROR: Workspace failed to move its contents into a container!\n"
+                    .as_ptr()
+                    .cast_mut(),
             );
             return false_0 != 0;
         }
     }
-    let mut urgent: bool = (*con).urgent;
-    let mut current_ws: *mut Con = con_get_workspace(focused);
-    let mut source_output: *mut Con = con_get_output(con);
-    let mut dest_output: *mut Con = con_get_output(target_ws);
+    let urgent: bool = (*con).urgent;
+    let current_ws: *mut Con = con_get_workspace(focused);
+    let source_output: *mut Con = con_get_output(con);
+    let dest_output: *mut Con = con_get_output(target_ws);
     let mut focus_next: *mut Con = ::core::ptr::null_mut::<Con>();
     if !ignore_focus && source_ws == current_ws && target_ws != source_ws {
         focus_next = con_descend_focused(source_ws);
@@ -2439,10 +1798,11 @@ unsafe extern "C" fn _con_move_to_con(
         != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         debuglog(
-            b"%s:%s:%d - target originally = %p / %s / type %d\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"_con_move_to_con\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - target originally = %p / %s / type %d\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"_con_move_to_con".as_ptr(),
             1369 as ::core::ffi::c_int,
             target,
             (*target).name,
@@ -2454,10 +1814,11 @@ unsafe extern "C" fn _con_move_to_con(
         == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         debuglog(
-            b"%s:%s:%d - floatingcon, going up even further\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"_con_move_to_con\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - floatingcon, going up even further\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"_con_move_to_con".as_ptr(),
             1377 as ::core::ffi::c_int,
         );
         orig_target = target;
@@ -2466,12 +1827,13 @@ unsafe extern "C" fn _con_move_to_con(
     if (*con).type_0 as ::core::ffi::c_uint
         == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
     {
-        let mut ws: *mut Con = con_get_workspace(target);
+        let ws: *mut Con = con_get_workspace(target);
         debuglog(
-            b"%s:%s:%d - This is a floating window, using workspace %p / %s\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"_con_move_to_con\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - This is a floating window, using workspace %p / %s\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"_con_move_to_con".as_ptr(),
             1384 as ::core::ffi::c_int,
             ws,
             (*ws).name,
@@ -2490,10 +1852,11 @@ unsafe extern "C" fn _con_move_to_con(
             );
         } else {
             debuglog(
-                b"%s:%s:%d - Not fixing coordinates, fix_coordinates flag = %d\n\0" as *const u8
-                    as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-                b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-                b"_con_move_to_con\0" as *const u8 as *const ::core::ffi::c_char,
+                c"%s:%s:%d - Not fixing coordinates, fix_coordinates flag = %d\n"
+                    .as_ptr()
+                    .cast_mut(),
+                c"../src/con.c".as_ptr(),
+                c"_con_move_to_con".as_ptr(),
                 1394 as ::core::ffi::c_int,
                 fix_coordinates as ::core::ffi::c_int,
             );
@@ -2509,15 +1872,16 @@ unsafe extern "C" fn _con_move_to_con(
         fullscreen = ::core::ptr::null_mut::<Con>();
     }
     debuglog(
-        b"%s:%s:%d - Re-attaching container to %p / %s\n\0" as *const u8
-            as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-        b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"_con_move_to_con\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - Re-attaching container to %p / %s\n"
+            .as_ptr()
+            .cast_mut(),
+        c"../src/con.c".as_ptr(),
+        c"_con_move_to_con".as_ptr(),
         1414 as ::core::ffi::c_int,
         target,
         (*target).name,
     );
-    let mut parent: *mut Con = (*con).parent as *mut Con;
+    let parent: *mut Con = (*con).parent as *mut Con;
     con_detach(con);
     _con_attach(
         con,
@@ -2535,9 +1899,9 @@ unsafe extern "C" fn _con_move_to_con(
         con_fix_percent(target);
     }
     if !ignore_focus && !con_is_internal(target_ws) && fullscreen.is_null() {
-        let mut old_focus_ws: *mut Con =
+        let old_focus_ws: *mut Con =
             (*output_get_content(dest_output)).focus_head.tqh_first as *mut Con;
-        let mut old_focus: *mut Con = focused;
+        let old_focus: *mut Con = focused;
         con_activate(con_descend_focused(con));
         if old_focus_ws == current_ws
             && (*old_focus).type_0 as ::core::ffi::c_uint
@@ -2552,10 +1916,11 @@ unsafe extern "C" fn _con_move_to_con(
         workspace_show(current_ws);
         if dont_warp {
             debuglog(
-                b"%s:%s:%d - x_set_warp_to(NULL) because dont_warp is set\n\0" as *const u8
-                    as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-                b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-                b"_con_move_to_con\0" as *const u8 as *const ::core::ffi::c_char,
+                c"%s:%s:%d - x_set_warp_to(NULL) because dont_warp is set\n"
+                    .as_ptr()
+                    .cast_mut(),
+                c"../src/con.c".as_ptr(),
+                c"_con_move_to_con".as_ptr(),
                 1455 as ::core::ffi::c_int,
             );
             x_set_warp_to(::core::ptr::null_mut::<Rect>());
@@ -2586,20 +1951,19 @@ unsafe extern "C" fn _con_move_to_con(
     (*parent)
         .on_remove_child
         .expect("non-null function pointer")(parent);
-    ipc_send_window_event(b"move\0" as *const u8 as *const ::core::ffi::c_char, con);
+    ipc_send_window_event(c"move".as_ptr(), con);
     ewmh_update_wm_desktop();
-    return true_0 != 0;
+    true_0 != 0
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_move_to_target(mut con: *mut Con, mut target: *mut Con) -> bool {
-    if con_get_workspace(target)
-        == workspace_get(b"__i3_scratch\0" as *const u8 as *const ::core::ffi::c_char)
-    {
+
+pub unsafe fn con_move_to_target(con: *mut Con, mut target: *mut Con) -> bool {
+    if con_get_workspace(target) == workspace_get(c"__i3_scratch".as_ptr()) {
         debuglog(
-            b"%s:%s:%d - target container is in the scratchpad, moving container to scratchpad.\n\0"
-                as *const u8 as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_move_to_target\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - target container is in the scratchpad, moving container to scratchpad.\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_move_to_target".as_ptr(),
             1501 as ::core::ffi::c_int,
         );
         scratchpad_move(con);
@@ -2607,10 +1971,11 @@ pub unsafe extern "C" fn con_move_to_target(mut con: *mut Con, mut target: *mut 
     }
     if con_is_floating(target) {
         debuglog(
-            b"%s:%s:%d - target container is floating, moving container to target's workspace.\n\0"
-                as *const u8 as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_move_to_target\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - target container is floating, moving container to target's workspace.\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_move_to_target".as_ptr(),
             1508 as ::core::ffi::c_int,
         );
         con_move_to_workspace(
@@ -2627,10 +1992,9 @@ pub unsafe extern "C" fn con_move_to_target(mut con: *mut Con, mut target: *mut 
         && con_is_leaf(target) as ::core::ffi::c_int != 0
     {
         debuglog(
-            b"%s:%s:%d - target container is an empty workspace, simply moving the container there.\n\0"
-                as *const u8 as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_move_to_target\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - target container is an empty workspace, simply moving the container there.\n".as_ptr().cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_move_to_target".as_ptr(),
             1514 as ::core::ffi::c_int,
         );
         con_move_to_workspace(con, target, true_0 != 0, false_0 != 0, false_0 != 0);
@@ -2638,25 +2002,27 @@ pub unsafe extern "C" fn con_move_to_target(mut con: *mut Con, mut target: *mut 
     }
     if con_is_split(target) {
         debuglog(
-            b"%s:%s:%d - target is a split container, descending to the currently focused child.\n\0"
-                as *const u8 as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_move_to_target\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - target is a split container, descending to the currently focused child.\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_move_to_target".as_ptr(),
             1523 as ::core::ffi::c_int,
         );
         target = (*target).focus_head.tqh_first as *mut Con;
     }
     if con == target || con_has_parent(target, con) as ::core::ffi::c_int != 0 {
         debuglog(
-            b"%s:%s:%d - cannot move the container to or inside itself, aborting.\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_move_to_target\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - cannot move the container to or inside itself, aborting.\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_move_to_target".as_ptr(),
             1528 as ::core::ffi::c_int,
         );
         return false_0 != 0;
     }
-    return _con_move_to_con(
+    _con_move_to_con(
         con,
         target,
         false_0 != 0,
@@ -2664,59 +2030,57 @@ pub unsafe extern "C" fn con_move_to_target(mut con: *mut Con, mut target: *mut 
         false_0 != 0,
         false_0 != 0,
         true_0 != 0,
-    );
+    )
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_move_to_mark(
-    mut con: *mut Con,
-    mut mark: *const ::core::ffi::c_char,
-) -> bool {
-    let mut target: *mut Con = con_by_mark(mark);
+
+pub unsafe fn con_move_to_mark(con: *mut Con, mark: *const ::core::ffi::c_char) -> bool {
+    let target: *mut Con = con_by_mark(mark);
     if target.is_null() {
         debuglog(
-            b"%s:%s:%d - found no container with mark \"%s\"\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_move_to_mark\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - found no container with mark \"%s\"\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_move_to_mark".as_ptr(),
             1542 as ::core::ffi::c_int,
             mark,
         );
         return false_0 != 0;
     }
-    return con_move_to_target(con, target);
+    con_move_to_target(con, target)
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_move_to_workspace(
-    mut con: *mut Con,
-    mut workspace: *mut Con,
-    mut fix_coordinates: bool,
-    mut dont_warp: bool,
-    mut ignore_focus: bool,
+
+pub unsafe fn con_move_to_workspace(
+    con: *mut Con,
+    workspace: *mut Con,
+    fix_coordinates: bool,
+    dont_warp: bool,
+    ignore_focus: bool,
 ) {
     if (*workspace).type_0 as ::core::ffi::c_uint
         == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
     {
     } else {
         __assert_fail(
-            b"workspace->type == CT_WORKSPACE\0" as *const u8 as *const ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
+            c"workspace->type == CT_WORKSPACE".as_ptr(),
+            c"../src/con.c".as_ptr(),
             1570 as ::core::ffi::c_uint,
-            b"void con_move_to_workspace(Con *, Con *, _Bool, _Bool, _Bool)\0" as *const u8
-                as *const ::core::ffi::c_char,
+            c"void con_move_to_workspace(Con *, Con *, _Bool, _Bool, _Bool)".as_ptr(),
         );
     };
-    let mut source_ws: *mut Con = con_get_workspace(con);
+    let source_ws: *mut Con = con_get_workspace(con);
     if workspace == source_ws {
         debuglog(
-            b"%s:%s:%d - Not moving, already there\n\0" as *const u8 as *const ::core::ffi::c_char
-                as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_move_to_workspace\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - Not moving, already there\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_move_to_workspace".as_ptr(),
             1574 as ::core::ffi::c_int,
         );
         return;
     }
-    let mut target: *mut Con = con_descend_focused(workspace);
+    let target: *mut Con = con_descend_focused(workspace);
     _con_move_to_con(
         con,
         target,
@@ -2727,12 +2091,8 @@ pub unsafe extern "C" fn con_move_to_workspace(
         true_0 != 0,
     );
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_move_to_output(
-    mut con: *mut Con,
-    mut output: *mut Output,
-    mut fix_coordinates: bool,
-) {
+
+pub unsafe fn con_move_to_output(con: *mut Con, output: *mut Output, fix_coordinates: bool) {
     let mut ws: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut child: *mut Con = -(1 as ::core::ffi::c_int) as *mut Con;
     while child == -(1 as ::core::ffi::c_int) as *mut Con && {
@@ -2752,63 +2112,59 @@ pub unsafe extern "C" fn con_move_to_output(
     if ws != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Con {
     } else {
         __assert_fail(
-            b"ws != NULL\0" as *const u8 as *const ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
+            c"ws != NULL".as_ptr(),
+            c"../src/con.c".as_ptr(),
             1590 as ::core::ffi::c_uint,
-            b"void con_move_to_output(Con *, Output *, _Bool)\0" as *const u8
-                as *const ::core::ffi::c_char,
+            c"void con_move_to_output(Con *, Output *, _Bool)".as_ptr(),
         );
     };
     debuglog(
-        b"%s:%s:%d - Moving con %p to output %s\n\0" as *const u8 as *const ::core::ffi::c_char
-            as *mut ::core::ffi::c_char,
-        b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"con_move_to_output\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - Moving con %p to output %s\n"
+            .as_ptr()
+            .cast_mut(),
+        c"../src/con.c".as_ptr(),
+        c"con_move_to_output".as_ptr(),
         1591 as ::core::ffi::c_int,
         con,
         output_primary_name(output),
     );
     con_move_to_workspace(con, ws, fix_coordinates, false_0 != 0, false_0 != 0);
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_move_to_output_name(
-    mut con: *mut Con,
-    mut name: *const ::core::ffi::c_char,
-    mut fix_coordinates: bool,
+
+pub unsafe fn con_move_to_output_name(
+    con: *mut Con,
+    name: *const ::core::ffi::c_char,
+    fix_coordinates: bool,
 ) -> bool {
-    let mut current_output: *mut Output = get_output_for_con(con);
-    let mut output: *mut Output = get_output_from_string(current_output, name);
+    let current_output: *mut Output = get_output_for_con(con);
+    let output: *mut Output = get_output_from_string(current_output, name);
     if output.is_null() {
         errorlog(
-            b"ERROR: Could not find output \"%s\"\n\0" as *const u8 as *const ::core::ffi::c_char
-                as *mut ::core::ffi::c_char,
+            c"ERROR: Could not find output \"%s\"\n".as_ptr().cast_mut(),
             name,
         );
         return false_0 != 0;
     }
     con_move_to_output(con, output, fix_coordinates);
-    return true_0 != 0;
+    true_0 != 0
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_orientation(mut con: *mut Con) -> orientation_t {
-    let mut current_block_5: u64;
+
+pub unsafe fn con_orientation(con: *mut Con) -> orientation_t {
+    let current_block_5: u64;
     match (*con).layout as ::core::ffi::c_uint {
         5 | 1 => return VERT,
         6 | 2 => return HORIZ,
         0 => {
             errorlog(
-                b"ERROR: Someone called con_orientation() on a con with L_DEFAULT, this is a bug in the code.\n\0"
-                    as *const u8 as *const ::core::ffi::c_char
-                    as *mut ::core::ffi::c_char,
+                c"ERROR: Someone called con_orientation() on a con with L_DEFAULT, this is a bug in the code.\n".as_ptr().cast_mut(),
             );
             if 0 as ::core::ffi::c_int != 0 {
             } else {
                 __assert_fail(
-                    b"false\0" as *const u8 as *const ::core::ffi::c_char,
-                    b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
+                    c"false".as_ptr(),
+                    c"../src/con.c".as_ptr(),
                     1634 as ::core::ffi::c_uint,
-                    b"orientation_t con_orientation(Con *)\0" as *const u8
-                        as *const ::core::ffi::c_char,
+                    c"orientation_t con_orientation(Con *)".as_ptr(),
                 );
             };
             current_block_5 = 10837979787936441410;
@@ -2823,20 +2179,19 @@ pub unsafe extern "C" fn con_orientation(mut con: *mut Con) -> orientation_t {
     match current_block_5 {
         10837979787936441410 => {
             errorlog(
-                b"ERROR: con_orientation() called on dockarea/output (%d) container %p\n\0"
-                    as *const u8 as *const ::core::ffi::c_char
-                    as *mut ::core::ffi::c_char,
+                c"ERROR: con_orientation() called on dockarea/output (%d) container %p\n"
+                    .as_ptr()
+                    .cast_mut(),
                 (*con).layout as ::core::ffi::c_uint,
                 con,
             );
             if 0 as ::core::ffi::c_int != 0 {
             } else {
                 __assert_fail(
-                    b"false\0" as *const u8 as *const ::core::ffi::c_char,
-                    b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
+                    c"false".as_ptr(),
+                    c"../src/con.c".as_ptr(),
                     1639 as ::core::ffi::c_uint,
-                    b"orientation_t con_orientation(Con *)\0" as *const u8
-                        as *const ::core::ffi::c_char,
+                    c"orientation_t con_orientation(Con *)".as_ptr(),
                 );
             };
         }
@@ -2845,24 +2200,25 @@ pub unsafe extern "C" fn con_orientation(mut con: *mut Con) -> orientation_t {
     if 0 as ::core::ffi::c_int != 0 {
     } else {
         __assert_fail(
-            b"false\0" as *const u8 as *const ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
+            c"false".as_ptr(),
+            c"../src/con.c".as_ptr(),
             1642 as ::core::ffi::c_uint,
-            b"orientation_t con_orientation(Con *)\0" as *const u8 as *const ::core::ffi::c_char,
+            c"orientation_t con_orientation(Con *)".as_ptr(),
         );
     };
     panic!("Reached end of non-void function without returning");
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_next_focused(mut con: *mut Con) -> *mut Con {
+
+pub unsafe fn con_next_focused(mut con: *mut Con) -> *mut Con {
     if (*(*con).parent).type_0 as ::core::ffi::c_uint
         == CT_DOCKAREA as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         debuglog(
-            b"%s:%s:%d - selecting workspace for dock client\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_next_focused\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - selecting workspace for dock client\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_next_focused".as_ptr(),
             1654 as ::core::ffi::c_int,
         );
         return con_descend_focused(output_get_content((*(*con).parent).parent as *mut Con));
@@ -2873,10 +2229,9 @@ pub unsafe extern "C" fn con_next_focused(mut con: *mut Con) -> *mut Con {
     let mut next: *mut Con = (*(*con).parent).focus_head.tqh_first as *mut Con;
     if next != con {
         debuglog(
-            b"%s:%s:%d - Using first entry %p\n\0" as *const u8 as *const ::core::ffi::c_char
-                as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_next_focused\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - Using first entry %p\n".as_ptr().cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_next_focused".as_ptr(),
             1665 as ::core::ffi::c_int,
             next,
         );
@@ -2895,18 +2250,18 @@ pub unsafe extern "C" fn con_next_focused(mut con: *mut Con) -> *mut Con {
     {
         next = con_descend_focused(next);
     }
-    return next;
+    next
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_descend_focused(mut con: *mut Con) -> *mut Con {
+
+pub unsafe fn con_descend_focused(con: *mut Con) -> *mut Con {
     let mut next: *mut Con = con;
     while next != focused && !(*next).focus_head.tqh_first.is_null() {
         next = (*next).focus_head.tqh_first as *mut Con;
     }
-    return next;
+    next
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_descend_tiling_focused(mut con: *mut Con) -> *mut Con {
+
+pub unsafe fn con_descend_tiling_focused(con: *mut Con) -> *mut Con {
     let mut next: *mut Con = con;
     let mut before: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
@@ -2930,21 +2285,19 @@ pub unsafe extern "C" fn con_descend_tiling_focused(mut con: *mut Con) -> *mut C
             break;
         }
     }
-    return next;
+    next
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_descend_direction(
-    mut con: *mut Con,
-    mut direction: direction_t,
-) -> *mut Con {
+
+pub unsafe fn con_descend_direction(con: *mut Con, direction: direction_t) -> *mut Con {
     let mut most: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
-    let mut orientation: ::core::ffi::c_int = con_orientation(con) as ::core::ffi::c_int;
+    let orientation: ::core::ffi::c_int = con_orientation(con) as ::core::ffi::c_int;
     debuglog(
-        b"%s:%s:%d - con_descend_direction(%p, orientation %d, direction %d)\n\0" as *const u8
-            as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-        b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"con_descend_direction\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - con_descend_direction(%p, orientation %d, direction %d)\n"
+            .as_ptr()
+            .cast_mut(),
+        c"../src/con.c".as_ptr(),
+        c"con_descend_direction".as_ptr(),
         1741 as ::core::ffi::c_int,
         con,
         orientation,
@@ -3006,25 +2359,25 @@ pub unsafe extern "C" fn con_descend_direction(
     if most.is_null() {
         return con;
     }
-    return con_descend_direction(most, direction);
+    con_descend_direction(most, direction)
 }
-unsafe extern "C" fn has_outer_gaps(mut gaps: gaps_t) -> bool {
-    return gaps.top > 0 as ::core::ffi::c_int
+unsafe fn has_outer_gaps(gaps: gaps_t) -> bool {
+    gaps.top > 0 as ::core::ffi::c_int
         || gaps.right > 0 as ::core::ffi::c_int
         || gaps.bottom > 0 as ::core::ffi::c_int
-        || gaps.left > 0 as ::core::ffi::c_int;
+        || gaps.left > 0 as ::core::ffi::c_int
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_draw_decoration_into_frame(mut con: *mut Con) -> bool {
-    return con_is_leaf(con) as ::core::ffi::c_int != 0
+
+pub unsafe fn con_draw_decoration_into_frame(con: *mut Con) -> bool {
+    con_is_leaf(con) as ::core::ffi::c_int != 0
         && con_border_style(con) == BS_NORMAL as ::core::ffi::c_int
         && ((*con).parent.is_null()
             || (*(*con).parent).layout as ::core::ffi::c_uint
                 != L_TABBED as ::core::ffi::c_int as ::core::ffi::c_uint
                 && (*(*con).parent).layout as ::core::ffi::c_uint
-                    != L_STACKED as ::core::ffi::c_int as ::core::ffi::c_uint);
+                    != L_STACKED as ::core::ffi::c_int as ::core::ffi::c_uint)
 }
-unsafe extern "C" fn con_border_style_rect_without_title(mut con: *mut Con) -> Rect {
+unsafe fn con_border_style_rect_without_title(con: *mut Con) -> Rect {
     if config.hide_edge_borders as ::core::ffi::c_uint
         == HEBM_SMART as ::core::ffi::c_int as ::core::ffi::c_uint
         && con_num_visible_children(con_get_workspace(con)) <= 1 as ::core::ffi::c_int
@@ -3045,10 +2398,11 @@ unsafe extern "C" fn con_border_style_rect_without_title(mut con: *mut Con) -> R
     let mut borders_to_hide: adjacent_t = ADJ_NONE;
     let mut border_width: ::core::ffi::c_int = (*con).current_border_width;
     debuglog(
-        b"%s:%s:%d - The border width for con is set to: %d\n\0" as *const u8
-            as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-        b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"con_border_style_rect_without_title\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - The border width for con is set to: %d\n"
+            .as_ptr()
+            .cast_mut(),
+        c"../src/con.c".as_ptr(),
+        c"con_border_style_rect_without_title".as_ptr(),
         1831 as ::core::ffi::c_int,
         (*con).current_border_width,
     );
@@ -3066,14 +2420,15 @@ unsafe extern "C" fn con_border_style_rect_without_title(mut con: *mut Con) -> R
         }
     }
     debuglog(
-        b"%s:%s:%d - Effective border width is set to: %d\n\0" as *const u8
-            as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-        b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"con_border_style_rect_without_title\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - Effective border width is set to: %d\n"
+            .as_ptr()
+            .cast_mut(),
+        c"../src/con.c".as_ptr(),
+        c"con_border_style_rect_without_title".as_ptr(),
         1840 as ::core::ffi::c_int,
         border_width,
     );
-    let mut border_style: ::core::ffi::c_int = con_border_style(con);
+    let border_style: ::core::ffi::c_int = con_border_style(con);
     if border_style == BS_NONE as ::core::ffi::c_int {
         return Rect {
             x: 0 as uint32_t,
@@ -3135,10 +2490,10 @@ unsafe extern "C" fn con_border_style_rect_without_title(mut con: *mut Con) -> R
     {
         result.height = result.height.wrapping_add(border_width as uint32_t);
     }
-    return result;
+    result
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_border_style_rect(mut con: *mut Con) -> Rect {
+
+pub unsafe fn con_border_style_rect(con: *mut Con) -> Rect {
     let mut result: Rect = con_border_style_rect_without_title(con);
     if con_border_style(con) == BS_NORMAL as ::core::ffi::c_int
         && con_draw_decoration_into_frame(con) as ::core::ffi::c_int != 0
@@ -3147,15 +2502,15 @@ pub unsafe extern "C" fn con_border_style_rect(mut con: *mut Con) -> Rect {
         result.y = result.y.wrapping_add(deco_height as uint32_t);
         result.height = result.height.wrapping_sub(deco_height as uint32_t);
     }
-    return result;
+    result
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_adjacent_borders(mut con: *mut Con) -> adjacent_t {
+
+pub unsafe fn con_adjacent_borders(con: *mut Con) -> adjacent_t {
     let mut result: adjacent_t = ADJ_NONE;
     if con_is_floating(con) {
         return result;
     }
-    let mut workspace: *mut Con = con_get_workspace(con);
+    let workspace: *mut Con = con_get_workspace(con);
     if (*con).rect.x == (*workspace).rect.x {
         result = ::core::mem::transmute::<::core::ffi::c_uint, adjacent_t>(
             result as ::core::ffi::c_uint
@@ -3184,20 +2539,21 @@ pub unsafe extern "C" fn con_adjacent_borders(mut con: *mut Con) -> adjacent_t {
                 | ADJ_LOWER_SCREEN_EDGE as ::core::ffi::c_int as ::core::ffi::c_uint,
         );
     }
-    return result;
+    result
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_border_style(mut con: *mut Con) -> ::core::ffi::c_int {
+
+pub unsafe fn con_border_style(con: *mut Con) -> ::core::ffi::c_int {
     if (*con).fullscreen_mode as ::core::ffi::c_uint
         == CF_OUTPUT as ::core::ffi::c_int as ::core::ffi::c_uint
         || (*con).fullscreen_mode as ::core::ffi::c_uint
             == CF_GLOBAL as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         debuglog(
-            b"%s:%s:%d - this one is fullscreen! overriding BS_NONE\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_border_style\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - this one is fullscreen! overriding BS_NONE\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_border_style".as_ptr(),
             1933 as ::core::ffi::c_int,
         );
         return BS_NONE as ::core::ffi::c_int;
@@ -3229,13 +2585,13 @@ pub unsafe extern "C" fn con_border_style(mut con: *mut Con) -> ::core::ffi::c_i
             return BS_NONE as ::core::ffi::c_int;
         }
     }
-    return (*con).border_style as ::core::ffi::c_int;
+    (*con).border_style as ::core::ffi::c_int
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_set_border_style(
-    mut con: *mut Con,
+
+pub unsafe fn con_set_border_style(
+    con: *mut Con,
     mut border_style: border_style_t,
-    mut border_width: ::core::ffi::c_int,
+    border_width: ::core::ffi::c_int,
 ) {
     if border_style as ::core::ffi::c_uint > (*con).max_user_border_style as ::core::ffi::c_uint {
         border_style = (*con).max_user_border_style;
@@ -3245,7 +2601,7 @@ pub unsafe extern "C" fn con_set_border_style(
         (*con).current_border_width = border_width;
         return;
     }
-    let mut parent: *mut Con = (*con).parent as *mut Con;
+    let parent: *mut Con = (*con).parent as *mut Con;
     let mut bsr: Rect = con_border_style_rect(con);
     (*con).rect = rect_add((*con).rect as Rect, bsr) as Rect;
     (*parent).rect = rect_add((*parent).rect as Rect, bsr) as Rect;
@@ -3255,13 +2611,14 @@ pub unsafe extern "C" fn con_set_border_style(
     (*con).rect = rect_sub((*con).rect as Rect, bsr) as Rect;
     (*parent).rect = rect_sub((*parent).rect as Rect, bsr) as Rect;
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_set_layout(mut con: *mut Con, mut layout: layout_t) {
+
+pub unsafe fn con_set_layout(mut con: *mut Con, layout: layout_t) {
     debuglog(
-        b"%s:%s:%d - con_set_layout(%p, %d), con->type = %d\n\0" as *const u8
-            as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-        b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"con_set_layout\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - con_set_layout(%p, %d), con->type = %d\n"
+            .as_ptr()
+            .cast_mut(),
+        c"../src/con.c".as_ptr(),
+        c"con_set_layout".as_ptr(),
         1999 as ::core::ffi::c_int,
         con,
         layout as ::core::ffi::c_uint,
@@ -3282,7 +2639,7 @@ pub unsafe extern "C" fn con_set_layout(mut con: *mut Con, mut layout: layout_t)
         == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         if con_num_children(con) == 0 as ::core::ffi::c_int {
-            let mut ws_layout: layout_t = (if layout as ::core::ffi::c_uint
+            let ws_layout: layout_t = (if layout as ::core::ffi::c_uint
                 == L_STACKED as ::core::ffi::c_int as ::core::ffi::c_uint
                 || layout as ::core::ffi::c_uint
                     == L_TABBED as ::core::ffi::c_int as ::core::ffi::c_uint
@@ -3292,19 +2649,19 @@ pub unsafe extern "C" fn con_set_layout(mut con: *mut Con, mut layout: layout_t)
                 L_DEFAULT as ::core::ffi::c_int as ::core::ffi::c_uint
             }) as layout_t;
             debuglog(
-                b"%s:%s:%d - Setting workspace_layout to %d\n\0" as *const u8
-                    as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-                b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-                b"con_set_layout\0" as *const u8 as *const ::core::ffi::c_char,
+                c"%s:%s:%d - Setting workspace_layout to %d\n"
+                    .as_ptr()
+                    .cast_mut(),
+                c"../src/con.c".as_ptr(),
+                c"con_set_layout".as_ptr(),
                 2022 as ::core::ffi::c_int,
                 ws_layout as ::core::ffi::c_uint,
             );
             (*con).workspace_layout = ws_layout;
             debuglog(
-                b"%s:%s:%d - Setting layout to %d\n\0" as *const u8 as *const ::core::ffi::c_char
-                    as *mut ::core::ffi::c_char,
-                b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-                b"con_set_layout\0" as *const u8 as *const ::core::ffi::c_char,
+                c"%s:%s:%d - Setting layout to %d\n".as_ptr().cast_mut(),
+                c"../src/con.c".as_ptr(),
+                c"con_set_layout".as_ptr(),
                 2024 as ::core::ffi::c_int,
                 layout as ::core::ffi::c_uint,
             );
@@ -3319,39 +2676,40 @@ pub unsafe extern "C" fn con_set_layout(mut con: *mut Con, mut layout: layout_t)
                 == L_SPLITH as ::core::ffi::c_int as ::core::ffi::c_uint
         {
             debuglog(
-                b"%s:%s:%d - Creating new split container\n\0" as *const u8
-                    as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-                b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-                b"con_set_layout\0" as *const u8 as *const ::core::ffi::c_char,
+                c"%s:%s:%d - Creating new split container\n"
+                    .as_ptr()
+                    .cast_mut(),
+                c"../src/con.c".as_ptr(),
+                c"con_set_layout".as_ptr(),
                 2027 as ::core::ffi::c_int,
             );
-            let mut new: *mut Con = con_new(
+            let new: *mut Con = con_new(
                 ::core::ptr::null_mut::<Con>(),
                 ::core::ptr::null_mut::<i3Window>(),
             );
             (*new).parent = con as *mut Con;
             (*new).layout = layout;
             (*new).last_split_layout = (*con).last_split_layout;
-            let mut focus_order: *mut *mut Con = get_focus_order(con);
+            let focus_order: *mut *mut Con = get_focus_order(con);
             debuglog(
-                b"%s:%s:%d - Moving cons\n\0" as *const u8 as *const ::core::ffi::c_char
-                    as *mut ::core::ffi::c_char,
-                b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-                b"con_set_layout\0" as *const u8 as *const ::core::ffi::c_char,
+                c"%s:%s:%d - Moving cons\n".as_ptr().cast_mut(),
+                c"../src/con.c".as_ptr(),
+                c"con_set_layout".as_ptr(),
                 2040 as ::core::ffi::c_int,
             );
             while !(*con).nodes_head.tqh_first.is_null() {
-                let mut child: *mut Con = (*con).nodes_head.tqh_first as *mut Con;
+                let child: *mut Con = (*con).nodes_head.tqh_first as *mut Con;
                 con_detach(child);
                 con_attach(child, new, true_0 != 0);
             }
             set_focus_order(new, focus_order);
             free(focus_order as *mut ::core::ffi::c_void);
             debuglog(
-                b"%s:%s:%d - Attaching new split to ws\n\0" as *const u8
-                    as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-                b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-                b"con_set_layout\0" as *const u8 as *const ::core::ffi::c_char,
+                c"%s:%s:%d - Attaching new split to ws\n"
+                    .as_ptr()
+                    .cast_mut(),
+                c"../src/con.c".as_ptr(),
+                c"con_set_layout".as_ptr(),
                 2051 as ::core::ffi::c_int,
             );
             con_attach(new, con, false_0 != 0);
@@ -3367,8 +2725,8 @@ pub unsafe extern "C" fn con_set_layout(mut con: *mut Con, mut layout: layout_t)
         && con_num_children(con) == 1 as ::core::ffi::c_int
         && con_num_children((*con).parent as *mut Con) == 1 as ::core::ffi::c_int
     {
-        let mut parent: *mut Con = (*con).parent as *mut Con;
-        let mut child_0: *mut Con = (*con).nodes_head.tqh_first as *mut Con;
+        let parent: *mut Con = (*con).parent as *mut Con;
+        let child_0: *mut Con = (*con).nodes_head.tqh_first as *mut Con;
         con_detach(child_0);
         con_attach(child_0, parent, true_0 != 0);
         (*parent).last_split_layout = (*con).last_split_layout;
@@ -3387,11 +2745,8 @@ pub unsafe extern "C" fn con_set_layout(mut con: *mut Con, mut layout: layout_t)
     }
     con_force_split_parents_redraw(con);
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_toggle_layout(
-    mut con: *mut Con,
-    mut toggle_mode: *const ::core::ffi::c_char,
-) {
+
+pub unsafe fn con_toggle_layout(con: *mut Con, toggle_mode: *const ::core::ffi::c_char) {
     let mut parent: *mut Con = con;
     if (*con).type_0 as ::core::ffi::c_uint
         != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
@@ -3399,10 +2754,11 @@ pub unsafe extern "C" fn con_toggle_layout(
         parent = (*con).parent as *mut Con;
     }
     debuglog(
-        b"%s:%s:%d - con_toggle_layout(%p, %s), parent = %p\n\0" as *const u8
-            as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-        b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"con_toggle_layout\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - con_toggle_layout(%p, %s), parent = %p\n"
+            .as_ptr()
+            .cast_mut(),
+        c"../src/con.c".as_ptr(),
+        c"con_toggle_layout".as_ptr(),
         2117 as ::core::ffi::c_int,
         con,
         toggle_mode,
@@ -3410,25 +2766,18 @@ pub unsafe extern "C" fn con_toggle_layout(
     );
     let delim: [::core::ffi::c_char; 2] =
         ::core::mem::transmute::<[u8; 2], [::core::ffi::c_char; 2]>(*b" \0");
-    if strcasecmp(
-        toggle_mode,
-        b"split\0" as *const u8 as *const ::core::ffi::c_char,
-    ) == 0 as ::core::ffi::c_int
+    if strcasecmp(toggle_mode, c"split".as_ptr()) == 0 as ::core::ffi::c_int
         || !strstr(toggle_mode, &raw const delim as *const ::core::ffi::c_char).is_null()
     {
         let mut new_layout: layout_t = L_DEFAULT;
         let mut current_layout_found: bool = false_0 != 0;
-        let mut tm_dup: *mut ::core::ffi::c_char = sstrdup(toggle_mode);
+        let tm_dup: *mut ::core::ffi::c_char = sstrdup(toggle_mode);
         let mut cur_tok: *mut ::core::ffi::c_char =
             strtok(tm_dup, &raw const delim as *const ::core::ffi::c_char);
         let mut current_block_20: u64;
         let mut layout: layout_t = L_DEFAULT;
         while !cur_tok.is_null() {
-            if strcasecmp(
-                cur_tok,
-                b"split\0" as *const u8 as *const ::core::ffi::c_char,
-            ) == 0 as ::core::ffi::c_int
-            {
+            if strcasecmp(cur_tok, c"split".as_ptr()) == 0 as ::core::ffi::c_int {
                 if (*parent).layout as ::core::ffi::c_uint
                     != L_SPLITH as ::core::ffi::c_int as ::core::ffi::c_uint
                     && (*parent).layout as ::core::ffi::c_uint
@@ -3451,15 +2800,15 @@ pub unsafe extern "C" fn con_toggle_layout(
                 }
                 current_block_20 = 6057473163062296781;
             } else {
-                let mut success: bool = layout_from_name(cur_tok, &raw mut layout);
+                let success: bool = layout_from_name(cur_tok, &raw mut layout);
                 if !success
                     || layout as ::core::ffi::c_uint
                         == L_DEFAULT as ::core::ffi::c_int as ::core::ffi::c_uint
                 {
                     errorlog(
-                        b"ERROR: The token '%s' was not recognized and has been skipped.\n\0"
-                            as *const u8 as *const ::core::ffi::c_char
-                            as *mut ::core::ffi::c_char,
+                        c"ERROR: The token '%s' was not recognized and has been skipped.\n"
+                            .as_ptr()
+                            .cast_mut(),
                         cur_tok,
                     );
                     current_block_20 = 4906268039856690917;
@@ -3496,14 +2845,8 @@ pub unsafe extern "C" fn con_toggle_layout(
         {
             con_set_layout(con, new_layout);
         }
-    } else if strcasecmp(
-        toggle_mode,
-        b"all\0" as *const u8 as *const ::core::ffi::c_char,
-    ) == 0 as ::core::ffi::c_int
-        || strcasecmp(
-            toggle_mode,
-            b"default\0" as *const u8 as *const ::core::ffi::c_char,
-        ) == 0 as ::core::ffi::c_int
+    } else if strcasecmp(toggle_mode, c"all".as_ptr()) == 0 as ::core::ffi::c_int
+        || strcasecmp(toggle_mode, c"default".as_ptr()) == 0 as ::core::ffi::c_int
     {
         if (*parent).layout as ::core::ffi::c_uint
             == L_STACKED as ::core::ffi::c_int as ::core::ffi::c_uint
@@ -3512,11 +2855,7 @@ pub unsafe extern "C" fn con_toggle_layout(
         } else if (*parent).layout as ::core::ffi::c_uint
             == L_TABBED as ::core::ffi::c_int as ::core::ffi::c_uint
         {
-            if strcasecmp(
-                toggle_mode,
-                b"all\0" as *const u8 as *const ::core::ffi::c_char,
-            ) == 0 as ::core::ffi::c_int
-            {
+            if strcasecmp(toggle_mode, c"all".as_ptr()) == 0 as ::core::ffi::c_int {
                 con_set_layout(con, L_SPLITH);
             } else {
                 con_set_layout(con, (*parent).last_split_layout);
@@ -3526,11 +2865,7 @@ pub unsafe extern "C" fn con_toggle_layout(
             || (*parent).layout as ::core::ffi::c_uint
                 == L_SPLITV as ::core::ffi::c_int as ::core::ffi::c_uint
         {
-            if strcasecmp(
-                toggle_mode,
-                b"all\0" as *const u8 as *const ::core::ffi::c_char,
-            ) == 0 as ::core::ffi::c_int
-            {
+            if strcasecmp(toggle_mode, c"all".as_ptr()) == 0 as ::core::ffi::c_int {
                 if (*parent).layout as ::core::ffi::c_uint
                     == L_SPLITH as ::core::ffi::c_int as ::core::ffi::c_uint
                 {
@@ -3544,12 +2879,11 @@ pub unsafe extern "C" fn con_toggle_layout(
         }
     }
 }
-unsafe extern "C" fn con_on_remove_child(mut con: *mut Con) {
+unsafe fn con_on_remove_child(con: *mut Con) {
     debuglog(
-        b"%s:%s:%d - on_remove_child\n\0" as *const u8 as *const ::core::ffi::c_char
-            as *mut ::core::ffi::c_char,
-        b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"con_on_remove_child\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - on_remove_child\n".as_ptr().cast_mut(),
+        c"../src/con.c".as_ptr(),
+        c"con_on_remove_child".as_ptr(),
         2206 as ::core::ffi::c_int,
     );
     if (*con).type_0 as ::core::ffi::c_uint
@@ -3563,10 +2897,11 @@ unsafe extern "C" fn con_on_remove_child(mut con: *mut Con) {
                 == CT_OUTPUT as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         debuglog(
-            b"%s:%s:%d - not handling, type = %d, name = %s\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_on_remove_child\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - not handling, type = %d, name = %s\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_on_remove_child".as_ptr(),
             2214 as ::core::ffi::c_int,
             (*con).type_0 as ::core::ffi::c_uint,
             (*con).name,
@@ -3578,23 +2913,21 @@ unsafe extern "C" fn con_on_remove_child(mut con: *mut Con) {
     {
         if (*con).focus_head.tqh_first.is_null() && !workspace_is_visible(con) {
             verboselog(
-                b"Closing old workspace (%p / %s), it is empty\n\0" as *const u8
-                    as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
+                c"Closing old workspace (%p / %s), it is empty\n"
+                    .as_ptr()
+                    .cast_mut(),
                 con,
                 (*con).name,
             );
-            let mut gen: yajl_gen = ipc_marshal_workspace_event(
-                b"empty\0" as *const u8 as *const ::core::ffi::c_char,
-                con,
-                ::core::ptr::null_mut::<Con>(),
-            );
+            let gen: yajl_gen =
+                ipc_marshal_workspace_event(c"empty".as_ptr(), con, ::core::ptr::null_mut::<Con>());
             tree_close_internal(con, DONT_KILL_WINDOW, false_0 != 0);
             let mut payload: *const ::core::ffi::c_uchar =
                 ::core::ptr::null::<::core::ffi::c_uchar>();
             let mut length: ylength = 0;
             yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
             ipc_send_event(
-                b"workspace\0" as *const u8 as *const ::core::ffi::c_char,
+                c"workspace".as_ptr(),
                 I3_IPC_EVENT_WORKSPACE as uint32_t,
                 payload as *const ::core::ffi::c_char,
             );
@@ -3605,34 +2938,35 @@ unsafe extern "C" fn con_on_remove_child(mut con: *mut Con) {
     con_force_split_parents_redraw(con);
     (*con).urgent = con_has_urgent_child(con);
     con_update_parents_urgency(con);
-    let mut children: ::core::ffi::c_int = con_num_children(con);
+    let children: ::core::ffi::c_int = con_num_children(con);
     if children == 0 as ::core::ffi::c_int {
         debuglog(
-            b"%s:%s:%d - Container empty, closing\n\0" as *const u8 as *const ::core::ffi::c_char
-                as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_on_remove_child\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - Container empty, closing\n".as_ptr().cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_on_remove_child".as_ptr(),
             2243 as ::core::ffi::c_int,
         );
         tree_close_internal(con, DONT_KILL_WINDOW, false_0 != 0);
     }
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_minimum_size(mut con: *mut Con) -> Rect {
+
+pub unsafe fn con_minimum_size(con: *mut Con) -> Rect {
     debuglog(
-        b"%s:%s:%d - Determining minimum size for con %p\n\0" as *const u8
-            as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-        b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"con_minimum_size\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - Determining minimum size for con %p\n"
+            .as_ptr()
+            .cast_mut(),
+        c"../src/con.c".as_ptr(),
+        c"con_minimum_size".as_ptr(),
         2254 as ::core::ffi::c_int,
         con,
     );
     if con_is_leaf(con) {
         debuglog(
-            b"%s:%s:%d - leaf node, returning 75x50\n\0" as *const u8 as *const ::core::ffi::c_char
-                as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_minimum_size\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - leaf node, returning 75x50\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_minimum_size".as_ptr(),
             2257 as ::core::ffi::c_int,
         );
         return Rect {
@@ -3646,13 +2980,12 @@ pub unsafe extern "C" fn con_minimum_size(mut con: *mut Con) -> Rect {
         == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         debuglog(
-            b"%s:%s:%d - floating con\n\0" as *const u8 as *const ::core::ffi::c_char
-                as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_minimum_size\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - floating con\n".as_ptr().cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_minimum_size".as_ptr(),
             2262 as ::core::ffi::c_int,
         );
-        let mut child: *mut Con = (*con).nodes_head.tqh_first as *mut Con;
+        let child: *mut Con = (*con).nodes_head.tqh_first as *mut Con;
         return con_minimum_size(child);
     }
     if (*con).layout as ::core::ffi::c_uint
@@ -3666,7 +2999,7 @@ pub unsafe extern "C" fn con_minimum_size(mut con: *mut Con) -> Rect {
         let mut child_0: *mut Con = ::core::ptr::null_mut::<Con>();
         child_0 = (*con).nodes_head.tqh_first as *mut Con;
         while !child_0.is_null() {
-            let mut min: Rect = con_minimum_size(child_0);
+            let min: Rect = con_minimum_size(child_0);
             deco_height = deco_height.wrapping_add((*child_0).deco_rect.height);
             max_width = max(
                 max_width as ::core::ffi::c_int,
@@ -3679,10 +3012,11 @@ pub unsafe extern "C" fn con_minimum_size(mut con: *mut Con) -> Rect {
             child_0 = (*child_0).nodes.tqe_next as *mut Con;
         }
         debuglog(
-            b"%s:%s:%d - stacked/tabbed now, returning %d x %d + deco_rect = %d\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_minimum_size\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - stacked/tabbed now, returning %d x %d + deco_rect = %d\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_minimum_size".as_ptr(),
             2277 as ::core::ffi::c_int,
             max_width,
             max_height,
@@ -3701,7 +3035,7 @@ pub unsafe extern "C" fn con_minimum_size(mut con: *mut Con) -> Rect {
         let mut child_1: *mut Con = ::core::ptr::null_mut::<Con>();
         child_1 = (*con).nodes_head.tqh_first as *mut Con;
         while !child_1.is_null() {
-            let mut min_0: Rect = con_minimum_size(child_1);
+            let min_0: Rect = con_minimum_size(child_1);
             if (*con).layout as ::core::ffi::c_uint
                 == L_SPLITH as ::core::ffi::c_int as ::core::ffi::c_uint
             {
@@ -3720,10 +3054,11 @@ pub unsafe extern "C" fn con_minimum_size(mut con: *mut Con) -> Rect {
             child_1 = (*child_1).nodes.tqe_next as *mut Con;
         }
         debuglog(
-            b"%s:%s:%d - split container, returning width = %d x height = %d\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_minimum_size\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - split container, returning width = %d x height = %d\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_minimum_size".as_ptr(),
             2297 as ::core::ffi::c_int,
             width,
             height,
@@ -3731,13 +3066,14 @@ pub unsafe extern "C" fn con_minimum_size(mut con: *mut Con) -> Rect {
         return Rect {
             x: 0 as uint32_t,
             y: 0 as uint32_t,
-            width: width,
-            height: height,
+            width,
+            height,
         };
     }
     errorlog(
-        b"ERROR: Unhandled case, type = %d, layout = %d, split = %d\n\0" as *const u8
-            as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
+        c"ERROR: Unhandled case, type = %d, layout = %d, split = %d\n"
+            .as_ptr()
+            .cast_mut(),
         (*con).type_0 as ::core::ffi::c_uint,
         (*con).layout as ::core::ffi::c_uint,
         con_is_split(con) as ::core::ffi::c_int,
@@ -3745,16 +3081,16 @@ pub unsafe extern "C" fn con_minimum_size(mut con: *mut Con) -> Rect {
     if 0 as ::core::ffi::c_int != 0 {
     } else {
         __assert_fail(
-            b"false\0" as *const u8 as *const ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
+            c"false".as_ptr(),
+            c"../src/con.c".as_ptr(),
             2303 as ::core::ffi::c_uint,
-            b"Rect con_minimum_size(Con *)\0" as *const u8 as *const ::core::ffi::c_char,
+            c"Rect con_minimum_size(Con *)".as_ptr(),
         );
     };
     panic!("Reached end of non-void function without returning");
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_fullscreen_permits_focusing(mut con: *mut Con) -> bool {
+
+pub unsafe fn con_fullscreen_permits_focusing(con: *mut Con) -> bool {
     if focused.is_null() {
         return true_0 != 0;
     }
@@ -3768,11 +3104,10 @@ pub unsafe extern "C" fn con_fullscreen_permits_focusing(mut con: *mut Con) -> b
     if fs != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Con {
     } else {
         __assert_fail(
-            b"fs != NULL\0" as *const u8 as *const ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
+            c"fs != NULL".as_ptr(),
+            c"../src/con.c".as_ptr(),
             2341 as ::core::ffi::c_uint,
-            b"_Bool con_fullscreen_permits_focusing(Con *)\0" as *const u8
-                as *const ::core::ffi::c_char,
+            c"_Bool con_fullscreen_permits_focusing(Con *)".as_ptr(),
         );
     };
     if (*fs).fullscreen_mode as ::core::ffi::c_uint
@@ -3780,11 +3115,10 @@ pub unsafe extern "C" fn con_fullscreen_permits_focusing(mut con: *mut Con) -> b
     {
     } else {
         __assert_fail(
-            b"fs->fullscreen_mode != CF_NONE\0" as *const u8 as *const ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
+            c"fs->fullscreen_mode != CF_NONE".as_ptr(),
+            c"../src/con.c".as_ptr(),
             2344 as ::core::ffi::c_uint,
-            b"_Bool con_fullscreen_permits_focusing(Con *)\0" as *const u8
-                as *const ::core::ffi::c_char,
+            c"_Bool con_fullscreen_permits_focusing(Con *)".as_ptr(),
         );
     };
     if (*fs).type_0 as ::core::ffi::c_uint
@@ -3801,10 +3135,10 @@ pub unsafe extern "C" fn con_fullscreen_permits_focusing(mut con: *mut Con) -> b
     {
         return true_0 != 0;
     }
-    return con_has_parent(con, fs);
+    con_has_parent(con, fs)
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_has_urgent_child(mut con: *mut Con) -> bool {
+
+pub unsafe fn con_has_urgent_child(con: *mut Con) -> bool {
     let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
     if con_is_leaf(con) {
         return (*con).urgent;
@@ -3816,17 +3150,17 @@ pub unsafe extern "C" fn con_has_urgent_child(mut con: *mut Con) -> bool {
         }
         child = (*child).nodes.tqe_next as *mut Con;
     }
-    return false_0 != 0;
+    false_0 != 0
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_update_parents_urgency(mut con: *mut Con) {
+
+pub unsafe fn con_update_parents_urgency(con: *mut Con) {
     let mut parent: *mut Con = (*con).parent as *mut Con;
     if (*con).type_0 as ::core::ffi::c_uint
         == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         return;
     }
-    let mut new_urgency_value: bool = (*con).urgent;
+    let new_urgency_value: bool = (*con).urgent;
     while !parent.is_null()
         && (*parent).type_0 as ::core::ffi::c_uint
             != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
@@ -3841,14 +3175,15 @@ pub unsafe extern "C" fn con_update_parents_urgency(mut con: *mut Con) {
         parent = (*parent).parent as *mut Con;
     }
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_set_urgency(mut con: *mut Con, mut urgent: bool) {
+
+pub unsafe fn con_set_urgency(con: *mut Con, urgent: bool) {
     if urgent as ::core::ffi::c_int != 0 && focused == con {
         debuglog(
-            b"%s:%s:%d - Ignoring urgency flag for current client\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_set_urgency\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - Ignoring urgency flag for current client\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_set_urgency".as_ptr(),
             2426 as ::core::ffi::c_int,
         );
         return;
@@ -3858,16 +3193,17 @@ pub unsafe extern "C" fn con_set_urgency(mut con: *mut Con, mut urgent: bool) {
         (*con).urgent = urgent;
     } else {
         debuglog(
-            b"%s:%s:%d - Discarding urgency WM_HINT because timer is running\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_set_urgency\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - Discarding urgency WM_HINT because timer is running\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_set_urgency".as_ptr(),
             2435 as ::core::ffi::c_int,
         );
     }
     if !(*con).window.is_null() {
         if (*con).urgent {
-            gettimeofday(&raw mut (*(*con).window).urgent, NULL);
+            gettimeofday(&raw mut (*(*con).window).urgent, ::core::ptr::null_mut());
         } else {
             (*(*con).window).urgent.tv_sec = 0 as __time_t;
             (*(*con).window).urgent.tv_usec = 0 as __suseconds_t;
@@ -3881,23 +3217,20 @@ pub unsafe extern "C" fn con_set_urgency(mut con: *mut Con, mut urgent: bool) {
     }
     if (*con).urgent as ::core::ffi::c_int != old_urgent as ::core::ffi::c_int {
         verboselog(
-            b"Urgency flag changed to %d\n\0" as *const u8 as *const ::core::ffi::c_char
-                as *mut ::core::ffi::c_char,
+            c"Urgency flag changed to %d\n".as_ptr().cast_mut(),
             (*con).urgent as ::core::ffi::c_int,
         );
-        ipc_send_window_event(b"urgent\0" as *const u8 as *const ::core::ffi::c_char, con);
+        ipc_send_window_event(c"urgent".as_ptr(), con);
     }
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_get_tree_representation(
-    mut con: *mut Con,
-) -> *mut ::core::ffi::c_char {
+
+pub unsafe fn con_get_tree_representation(con: *mut Con) -> *mut ::core::ffi::c_char {
     if con_is_leaf(con) {
         if (*con).window.is_null() {
-            return sstrdup(b"nowin\0" as *const u8 as *const ::core::ffi::c_char);
+            return sstrdup(c"nowin".as_ptr());
         }
         if (*(*con).window).class_instance.is_null() {
-            return sstrdup(b"noinstance\0" as *const u8 as *const ::core::ffi::c_char);
+            return sstrdup(c"noinstance".as_ptr());
         }
         return sstrdup((*(*con).window).class_instance);
     }
@@ -3905,52 +3238,52 @@ pub unsafe extern "C" fn con_get_tree_representation(
     if (*con).layout as ::core::ffi::c_uint
         == L_DEFAULT as ::core::ffi::c_int as ::core::ffi::c_uint
     {
-        buf = sstrdup(b"D[\0" as *const u8 as *const ::core::ffi::c_char);
+        buf = sstrdup(c"D[".as_ptr());
     } else if (*con).layout as ::core::ffi::c_uint
         == L_SPLITV as ::core::ffi::c_int as ::core::ffi::c_uint
     {
-        buf = sstrdup(b"V[\0" as *const u8 as *const ::core::ffi::c_char);
+        buf = sstrdup(c"V[".as_ptr());
     } else if (*con).layout as ::core::ffi::c_uint
         == L_SPLITH as ::core::ffi::c_int as ::core::ffi::c_uint
     {
-        buf = sstrdup(b"H[\0" as *const u8 as *const ::core::ffi::c_char);
+        buf = sstrdup(c"H[".as_ptr());
     } else if (*con).layout as ::core::ffi::c_uint
         == L_TABBED as ::core::ffi::c_int as ::core::ffi::c_uint
     {
-        buf = sstrdup(b"T[\0" as *const u8 as *const ::core::ffi::c_char);
+        buf = sstrdup(c"T[".as_ptr());
     } else if (*con).layout as ::core::ffi::c_uint
         == L_STACKED as ::core::ffi::c_int as ::core::ffi::c_uint
     {
-        buf = sstrdup(b"S[\0" as *const u8 as *const ::core::ffi::c_char);
+        buf = sstrdup(c"S[".as_ptr());
     } else {
         errorlog(
-            b"ERROR: BUG: Code not updated to account for new layout type\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
+            c"ERROR: BUG: Code not updated to account for new layout type\n"
+                .as_ptr()
+                .cast_mut(),
         );
         if 0 as ::core::ffi::c_int != 0 {
         } else {
             __assert_fail(
-                b"false\0" as *const u8 as *const ::core::ffi::c_char,
-                b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
+                c"false".as_ptr(),
+                c"../src/con.c".as_ptr(),
                 2503 as ::core::ffi::c_uint,
-                b"char *con_get_tree_representation(Con *)\0" as *const u8
-                    as *const ::core::ffi::c_char,
+                c"char *con_get_tree_representation(Con *)".as_ptr(),
             );
         };
     }
     let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
     child = (*con).nodes_head.tqh_first as *mut Con;
     while !child.is_null() {
-        let mut child_txt: *mut ::core::ffi::c_char = con_get_tree_representation(child);
+        let child_txt: *mut ::core::ffi::c_char = con_get_tree_representation(child);
         let mut tmp_buf: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
         sasprintf(
             &raw mut tmp_buf,
-            b"%s%s%s\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s%s%s".as_ptr(),
             buf,
             if (*con).nodes_head.tqh_first == child {
-                b"\0" as *const u8 as *const ::core::ffi::c_char
+                c"".as_ptr()
             } else {
-                b" \0" as *const u8 as *const ::core::ffi::c_char
+                c" ".as_ptr()
             },
             child_txt,
         );
@@ -3960,28 +3293,24 @@ pub unsafe extern "C" fn con_get_tree_representation(
         child = (*child).nodes.tqe_next as *mut Con;
     }
     let mut complete_buf: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    sasprintf(
-        &raw mut complete_buf,
-        b"%s]\0" as *const u8 as *const ::core::ffi::c_char,
-        buf,
-    );
+    sasprintf(&raw mut complete_buf, c"%s]".as_ptr(), buf);
     free(buf as *mut ::core::ffi::c_void);
-    return complete_buf;
+    complete_buf
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_parse_title_format(mut con: *mut Con) -> *mut i3String {
+
+pub unsafe fn con_parse_title_format(con: *mut Con) -> *mut i3String {
     if (*con).title_format
         != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut ::core::ffi::c_char
     {
     } else {
         __assert_fail(
-            b"con->title_format != NULL\0" as *const u8 as *const ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
+            c"con->title_format != NULL".as_ptr(),
+            c"../src/con.c".as_ptr(),
             2532 as ::core::ffi::c_uint,
-            b"i3String *con_parse_title_format(Con *)\0" as *const u8 as *const ::core::ffi::c_char,
+            c"i3String *con_parse_title_format(Con *)".as_ptr(),
         );
     };
-    let mut win: *mut i3Window = (*con).window as *mut i3Window;
+    let win: *mut i3Window = (*con).window as *mut i3Window;
     let pango_markup: bool = font_is_pango() as bool;
     let mut title: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
     let mut class: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
@@ -3989,90 +3318,91 @@ pub unsafe extern "C" fn con_parse_title_format(mut con: *mut Con) -> *mut i3Str
     let mut machine: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
     if win.is_null() {
         title = pango_escape_markup(con_get_tree_representation(con));
-        class = sstrdup(b"i3-frame\0" as *const u8 as *const ::core::ffi::c_char);
-        instance = sstrdup(b"i3-frame\0" as *const u8 as *const ::core::ffi::c_char);
-        machine = sstrdup(b"\0" as *const u8 as *const ::core::ffi::c_char);
+        class = sstrdup(c"i3-frame".as_ptr());
+        instance = sstrdup(c"i3-frame".as_ptr());
+        machine = sstrdup(c"".as_ptr());
     } else {
         title = pango_escape_markup(sstrdup(if (*win).name.is_null() {
-            b"\0" as *const u8 as *const ::core::ffi::c_char
+            c"".as_ptr()
         } else {
             i3string_as_utf8((*win).name)
         }));
         class = pango_escape_markup(sstrdup(if (*win).class_class.is_null() {
-            b"\0" as *const u8 as *const ::core::ffi::c_char
+            c"".as_ptr()
         } else {
             (*win).class_class as *const ::core::ffi::c_char
         }));
         instance = pango_escape_markup(sstrdup(if (*win).class_instance.is_null() {
-            b"\0" as *const u8 as *const ::core::ffi::c_char
+            c"".as_ptr()
         } else {
             (*win).class_instance as *const ::core::ffi::c_char
         }));
         machine = pango_escape_markup(sstrdup(if (*win).machine.is_null() {
-            b"\0" as *const u8 as *const ::core::ffi::c_char
+            c"".as_ptr()
         } else {
             (*win).machine as *const ::core::ffi::c_char
         }));
     }
     let mut placeholders: [placeholder_t; 4] = [
         placeholder_t {
-            name: b"%title\0" as *const u8 as *const ::core::ffi::c_char,
+            name: c"%title".as_ptr(),
             value: title,
         },
         placeholder_t {
-            name: b"%class\0" as *const u8 as *const ::core::ffi::c_char,
+            name: c"%class".as_ptr(),
             value: class,
         },
         placeholder_t {
-            name: b"%instance\0" as *const u8 as *const ::core::ffi::c_char,
+            name: c"%instance".as_ptr(),
             value: instance,
         },
         placeholder_t {
-            name: b"%machine\0" as *const u8 as *const ::core::ffi::c_char,
+            name: c"%machine".as_ptr(),
             value: machine,
         },
     ];
     let num: size_t = (::core::mem::size_of::<[placeholder_t; 4]>() as size_t)
         .wrapping_div(::core::mem::size_of::<placeholder_t>() as size_t);
-    let mut formatted_str: *mut ::core::ffi::c_char = format_placeholders(
+    let formatted_str: *mut ::core::ffi::c_char = format_placeholders(
         (*con).title_format,
         (&raw mut placeholders as *mut placeholder_t).offset(0 as ::core::ffi::c_int as isize)
             as *mut placeholder_t,
         num as ::core::ffi::c_int,
     );
-    let mut formatted: *mut i3String = i3string_from_utf8(formatted_str);
+    let formatted: *mut i3String = i3string_from_utf8(formatted_str);
     i3string_set_markup(formatted, pango_markup);
     free(formatted_str as *mut ::core::ffi::c_void);
     free(title as *mut ::core::ffi::c_void);
     free(class as *mut ::core::ffi::c_void);
     free(instance as *mut ::core::ffi::c_void);
-    return formatted;
+    formatted
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_swap(mut first: *mut Con, mut second: *mut Con) -> bool {
+
+pub unsafe fn con_swap(first: *mut Con, second: *mut Con) -> bool {
     if first != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Con {
     } else {
         __assert_fail(
-            b"first != NULL\0" as *const u8 as *const ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
+            c"first != NULL".as_ptr(),
+            c"../src/con.c".as_ptr(),
             2581 as ::core::ffi::c_uint,
-            b"_Bool con_swap(Con *, Con *)\0" as *const u8 as *const ::core::ffi::c_char,
+            c"_Bool con_swap(Con *, Con *)".as_ptr(),
         );
     };
     if second != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Con {
     } else {
         __assert_fail(
-            b"second != NULL\0" as *const u8 as *const ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
+            c"second != NULL".as_ptr(),
+            c"../src/con.c".as_ptr(),
             2582 as ::core::ffi::c_uint,
-            b"_Bool con_swap(Con *, Con *)\0" as *const u8 as *const ::core::ffi::c_char,
+            c"_Bool con_swap(Con *, Con *)".as_ptr(),
         );
     };
     debuglog(
-        b"%s:%s:%d - Swapping containers %p / %p\n\0" as *const u8 as *const ::core::ffi::c_char
-            as *mut ::core::ffi::c_char,
-        b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"con_swap\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - Swapping containers %p / %p\n"
+            .as_ptr()
+            .cast_mut(),
+        c"../src/con.c".as_ptr(),
+        c"con_swap".as_ptr(),
         2583 as ::core::ffi::c_int,
         first,
         second,
@@ -4080,8 +3410,9 @@ pub unsafe extern "C" fn con_swap(mut first: *mut Con, mut second: *mut Con) -> 
     if (*first).type_0 as ::core::ffi::c_uint != CT_CON as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         errorlog(
-            b"ERROR: Only regular containers can be swapped, but found con = %p with type = %d.\n\0"
-                as *const u8 as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
+            c"ERROR: Only regular containers can be swapped, but found con = %p with type = %d.\n"
+                .as_ptr()
+                .cast_mut(),
             first,
             (*first).type_0 as ::core::ffi::c_uint,
         );
@@ -4091,8 +3422,9 @@ pub unsafe extern "C" fn con_swap(mut first: *mut Con, mut second: *mut Con) -> 
         != CT_CON as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         errorlog(
-            b"ERROR: Only regular containers can be swapped, but found con = %p with type = %d.\n\0"
-                as *const u8 as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
+            c"ERROR: Only regular containers can be swapped, but found con = %p with type = %d.\n"
+                .as_ptr()
+                .cast_mut(),
             second,
             (*second).type_0 as ::core::ffi::c_uint,
         );
@@ -4100,10 +3432,11 @@ pub unsafe extern "C" fn con_swap(mut first: *mut Con, mut second: *mut Con) -> 
     }
     if first == second {
         debuglog(
-            b"%s:%s:%d - Swapping container %p with itself, nothing to do.\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/con.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"con_swap\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - Swapping container %p with itself, nothing to do.\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/con.c".as_ptr(),
+            c"con_swap".as_ptr(),
             2596 as ::core::ffi::c_int,
             first,
         );
@@ -4113,15 +3446,14 @@ pub unsafe extern "C" fn con_swap(mut first: *mut Con, mut second: *mut Con) -> 
         || con_has_parent(second, first) as ::core::ffi::c_int != 0
     {
         errorlog(
-            b"ERROR: Cannot swap containers %p and %p because they are in a parent-child relationship.\n\0"
-                as *const u8 as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
+            c"ERROR: Cannot swap containers %p and %p because they are in a parent-child relationship.\n".as_ptr().cast_mut(),
             first,
             second,
         );
         return false_0 != 0;
     }
-    let mut ws1: *mut Con = con_get_workspace(first);
-    let mut ws2: *mut Con = con_get_workspace(second);
+    let ws1: *mut Con = con_get_workspace(first);
+    let ws2: *mut Con = con_get_workspace(second);
     let mut restore_focus: *mut Con = ::core::ptr::null_mut::<Con>();
     if ws1 == ws2 && ws1 == con_get_workspace(focused) {
         restore_focus = focused;
@@ -4130,10 +3462,10 @@ pub unsafe extern "C" fn con_swap(mut first: *mut Con, mut second: *mut Con) -> 
     } else if second == focused || con_has_parent(focused, second) as ::core::ffi::c_int != 0 {
         restore_focus = first;
     }
-    let mut head1: *mut nodes_head = &raw mut (*(*first).parent).nodes_head;
-    let mut head2: *mut nodes_head = &raw mut (*(*second).parent).nodes_head;
-    let mut first_prev: *mut Con = *(*((*first).nodes.tqe_prev as *mut nodes_head)).tqh_last;
-    let mut second_prev: *mut Con = *(*((*second).nodes.tqe_prev as *mut nodes_head)).tqh_last;
+    let head1: *mut nodes_head = &raw mut (*(*first).parent).nodes_head;
+    let head2: *mut nodes_head = &raw mut (*(*second).parent).nodes_head;
+    let first_prev: *mut Con = *(*((*first).nodes.tqe_prev as *mut nodes_head)).tqh_last;
+    let second_prev: *mut Con = *(*((*second).nodes.tqe_prev as *mut nodes_head)).tqh_last;
     if second_prev == first {
         *(*first).nodes.tqe_prev = second as *mut Con;
         (*second).nodes.tqe_prev = (*first).nodes.tqe_prev;
@@ -4210,10 +3542,10 @@ pub unsafe extern "C" fn con_swap(mut first: *mut Con, mut second: *mut Con) -> 
             (*second).nodes.tqe_prev = &raw mut (*first_prev).nodes.tqe_next;
         }
     }
-    let mut head1_0: *mut focus_head = &raw mut (*(*first).parent).focus_head;
-    let mut head2_0: *mut focus_head = &raw mut (*(*second).parent).focus_head;
-    let mut first_prev_0: *mut Con = *(*((*first).focused.tqe_prev as *mut focus_head)).tqh_last;
-    let mut second_prev_0: *mut Con = *(*((*second).focused.tqe_prev as *mut focus_head)).tqh_last;
+    let head1_0: *mut focus_head = &raw mut (*(*first).parent).focus_head;
+    let head2_0: *mut focus_head = &raw mut (*(*second).parent).focus_head;
+    let first_prev_0: *mut Con = *(*((*first).focused.tqe_prev as *mut focus_head)).tqh_last;
+    let second_prev_0: *mut Con = *(*((*second).focused.tqe_prev as *mut focus_head)).tqh_last;
     if second_prev_0 == first {
         *(*first).focused.tqe_prev = second as *mut Con;
         (*second).focused.tqe_prev = (*first).focused.tqe_prev;
@@ -4291,19 +3623,19 @@ pub unsafe extern "C" fn con_swap(mut first: *mut Con, mut second: *mut Con) -> 
             (*second).focused.tqe_prev = &raw mut (*first_prev_0).focused.tqe_next;
         }
     }
-    let mut tmp_SWAP: *mut Con = (*first).parent as *mut Con;
+    let tmp_SWAP: *mut Con = (*first).parent as *mut Con;
     (*first).parent = (*second).parent;
     (*second).parent = tmp_SWAP as *mut Con;
-    let mut tmp_SWAP_0: ::core::ffi::c_int = (*first).floating as ::core::ffi::c_int;
+    let tmp_SWAP_0: ::core::ffi::c_int = (*first).floating as ::core::ffi::c_int;
     (*first).floating = (*second).floating;
     (*second).floating = tmp_SWAP_0 as C2RustUnnamed_8;
-    let mut tmp_SWAP_1: Rect = (*first).rect as Rect;
+    let tmp_SWAP_1: Rect = (*first).rect as Rect;
     (*first).rect = (*second).rect;
     (*second).rect = tmp_SWAP_1 as Rect;
-    let mut tmp_SWAP_2: Rect = (*first).window_rect as Rect;
+    let tmp_SWAP_2: Rect = (*first).window_rect as Rect;
     (*first).window_rect = (*second).window_rect;
     (*second).window_rect = tmp_SWAP_2 as Rect;
-    let mut tmp_SWAP_3: ::core::ffi::c_double = (*first).percent;
+    let tmp_SWAP_3: ::core::ffi::c_double = (*first).percent;
     (*first).percent = (*second).percent;
     (*second).percent = tmp_SWAP_3;
     if !restore_focus.is_null() {
@@ -4311,7 +3643,7 @@ pub unsafe extern "C" fn con_swap(mut first: *mut Con, mut second: *mut Con) -> 
     }
     con_set_urgency(first, (*first).urgent);
     con_set_urgency(second, (*second).urgent);
-    let mut second_fullscreen_mode: fullscreen_mode_t = (*second).fullscreen_mode;
+    let second_fullscreen_mode: fullscreen_mode_t = (*second).fullscreen_mode;
     if (*first).fullscreen_mode as ::core::ffi::c_uint
         == CF_NONE as ::core::ffi::c_int as ::core::ffi::c_uint
     {
@@ -4334,20 +3666,20 @@ pub unsafe extern "C" fn con_swap(mut first: *mut Con, mut second: *mut Con) -> 
     (*second).deco_render_params = ::core::ptr::null_mut::<deco_render_params>();
     con_force_split_parents_redraw(first);
     con_force_split_parents_redraw(second);
-    return true_0 != 0;
+    true_0 != 0
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_rect_size_in_orientation(mut con: *mut Con) -> uint32_t {
-    return if con_orientation(con) as ::core::ffi::c_uint
+
+pub unsafe fn con_rect_size_in_orientation(con: *mut Con) -> uint32_t {
+    if con_orientation(con) as ::core::ffi::c_uint
         == HORIZ as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         (*con).rect.width
     } else {
         (*con).rect.height
-    };
+    }
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_merge_into(mut old: *mut Con, mut new: *mut Con) {
+
+pub unsafe fn con_merge_into(old: *mut Con, new: *mut Con) {
     (*new).window = (*old).window;
     (*old).window = ::core::ptr::null_mut::<Window>();
     if !(*old).title_format.is_null() {
@@ -4371,7 +3703,7 @@ pub unsafe extern "C" fn con_merge_into(mut old: *mut Con, mut new: *mut Con) {
         (*mark).marks.tqe_prev = (*new).marks_head.tqh_last;
         *(*new).marks_head.tqh_last = mark as *mut mark_t;
         (*new).marks_head.tqh_last = &raw mut (*mark).marks.tqe_next;
-        ipc_send_window_event(b"mark\0" as *const u8 as *const ::core::ffi::c_char, new);
+        ipc_send_window_event(c"mark".as_ptr(), new);
         mark = (*mark).marks.tqe_next as *mut mark_t;
     }
     (*new).mark_changed = !(*old).marks_head.tqh_first.is_null();
@@ -4379,8 +3711,8 @@ pub unsafe extern "C" fn con_merge_into(mut old: *mut Con, mut new: *mut Con) {
     (*old).marks_head.tqh_last = &raw mut (*old).marks_head.tqh_first;
     tree_close_internal(old, DONT_KILL_WINDOW, false_0 != 0);
 }
-#[no_mangle]
-pub unsafe extern "C" fn con_inside_stacked_or_tabbed(mut con: *mut Con) -> bool {
+
+pub unsafe fn con_inside_stacked_or_tabbed(con: *mut Con) -> bool {
     if (*con).parent.is_null() {
         return false_0 != 0;
     }
@@ -4391,5 +3723,83 @@ pub unsafe extern "C" fn con_inside_stacked_or_tabbed(mut con: *mut Con) -> bool
     {
         return true_0 != 0;
     }
-    return con_inside_stacked_or_tabbed((*con).parent as *mut Con);
+    con_inside_stacked_or_tabbed((*con).parent as *mut Con)
 }
+
+// Internal helpers use Rust linkage rather than foreign symbol lookup.
+use crate::ewmh::ewmh_update_wm_desktop;
+use crate::ipc::ipc_send_event;
+use crate::render::render_deco_height;
+use crate::util::layout_from_name;
+use crate::util::max;
+use crate::util::pango_escape_markup;
+use i3_common::font::font_is_pango;
+use i3_common::safewrappers::scalloc;
+use i3_common::safewrappers::smalloc;
+use i3_common::safewrappers::sstrdup;
+use i3_common::safewrappers::strcasecmp_nullable;
+
+// Canonical Cairo backend ABI; renderer logic remains local.
+
+// Canonical Pango backend ABI; font policy remains local.
+
+use xcb_sys::{xcb_window_t, XCB_NONE, XCB_WINDOW_NONE};
+
+pub use libc::{free, gettimeofday, strcasecmp, strcmp, strstr, strtok};
+
+use i3_common::native_stdio::__assert_fail;
+
+use crate::log::{debuglog, errorlog, verboselog};
+
+// Shared model types retain field layout while using one Rust identity.
+pub use crate::types::deco_render_params;
+pub use crate::types::focus_head;
+pub use crate::types::gaps_t;
+pub use crate::types::mark_t;
+pub use crate::types::nodes_head;
+pub use crate::types::xoutput;
+pub use crate::types::Con;
+pub use crate::types::Match;
+pub use crate::types::Rect;
+pub use crate::types::Window;
+pub use i3_common::font::Font;
+pub use i3_common::string::I3String as _i3String;
+
+// Internal calls and globals use canonical Rust identities.
+use crate::application::conn;
+use crate::application::root_depth;
+use crate::application::A__NET_WM_STATE;
+use crate::application::A__NET_WM_STATE_FULLSCREEN;
+use crate::config::config;
+use crate::floating::floating_fix_coordinates;
+use crate::floating::floating_raise_con;
+use crate::gaps::calculate_effective_gaps;
+use crate::ipc::ipc_marshal_workspace_event;
+use crate::ipc::ipc_send_window_event;
+use crate::output::get_output_for_con;
+use crate::output::get_output_from_string;
+use crate::output::output_get_content;
+use crate::output::output_primary_name;
+use crate::r#match::match_free;
+use crate::r#match::match_matches_window;
+use crate::scratchpad::scratchpad_move;
+use crate::startup::startup_sequence_delete_by_window;
+use crate::tree::croot;
+use crate::tree::focused;
+use crate::tree::tree_close_internal;
+use crate::tree::tree_flatten;
+use crate::util::rect_add;
+use crate::util::rect_sub;
+use crate::workspace::workspace_attach_to;
+use crate::workspace::workspace_encapsulate;
+use crate::workspace::workspace_get;
+use crate::workspace::workspace_is_visible;
+use crate::workspace::workspace_show;
+use crate::workspace::workspace_update_urgent_flag;
+use crate::x::x_con_init;
+use crate::x::x_set_warp_to;
+use crate::xcb::xcb_add_property_atom;
+use crate::xcb::xcb_remove_property_atom;
+use i3_common::string::i3string_as_utf8;
+use i3_common::string::i3string_from_utf8;
+use i3_common::string::i3string_set_markup;

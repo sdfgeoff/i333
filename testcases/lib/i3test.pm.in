@@ -1,5 +1,6 @@
 package i3test;
 # vim:ts=4:sw=4:expandtab
+use File::Spec;
 use strict; use warnings;
 
 use File::Temp qw(tmpnam tempfile tempdir);
@@ -126,7 +127,7 @@ END {
     # When measuring code coverage, try to exit i3 cleanly (otherwise, .gcda
     # files are not written)
     if ($ENV{COVERAGE} || $ENV{VALGRIND}) {
-        exit_gracefully($i3_pid, "/tmp/nested-$ENV{DISPLAY}");
+        exit_gracefully($i3_pid, File::Spec->catfile(File::Spec->tmpdir(), "nested-$ENV{DISPLAY}"));
 
     } else {
         kill(-9, $i3_pid)
@@ -837,7 +838,7 @@ sub exit_gracefully {
             or $tester->BAIL_OUT("could not kill i3: $!");
     }
 
-    if ($socketpath =~ m,^/tmp/i3-test-socket-,) {
+    if (index($socketpath, File::Spec->catfile(File::Spec->tmpdir(), "i3-test-socket-")) == 0) {
         unlink($socketpath);
     }
 
@@ -936,7 +937,7 @@ tests which test specific config file directives.
 sub launch_with_config {
     my ($config, %args) = @_;
 
-    $tmp_socket_path = "/tmp/nested-$ENV{DISPLAY}";
+    $tmp_socket_path = File::Spec->catfile(File::Spec->tmpdir(), "nested-$ENV{DISPLAY}");
 
     $args{dont_create_temp_dir} //= 0;
     $args{validate_config} //= 0;

@@ -1,6 +1,7 @@
 package i3test::Util;
 # vim:ts=4:sw=4:expandtab
 
+use File::Spec;
 use strict;
 use warnings;
 use v5.10;
@@ -55,7 +56,7 @@ sub get_socket_path {
     my $cookie = $x->get_property(0, $x->get_root_window(), $atom->id, GET_PROPERTY_TYPE_ANY, 0, 256);
     my $reply = $x->get_property_reply($cookie->{sequence});
     my $socketpath = $reply->{value};
-    if ($socketpath eq "/tmp/nested-$ENV{DISPLAY}") {
+    if ($socketpath eq File::Spec->catfile(File::Spec->tmpdir(), "nested-$ENV{DISPLAY}")) {
         $socketpath .= '-activation';
     }
     return $socketpath;

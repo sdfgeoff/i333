@@ -15,7 +15,7 @@ from pathlib import Path
 import socket
 import struct
 import subprocess
-import tempfile
+from workspace_temp import temporary_directory
 import threading
 import unittest
 
@@ -63,7 +63,7 @@ def invoke(executable, arguments, expected_request=None, response=b"", fragmente
         result = subprocess.run([str(executable), *arguments], env=ENV, capture_output=True, timeout=TIMEOUT)
         return normalize(result, executable)
 
-    with tempfile.TemporaryDirectory(prefix="i333-ipc-") as directory:
+    with temporary_directory(prefix="i333-ipc-") as directory:
         path = directory + "/ipc"
         errors = []
         listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)

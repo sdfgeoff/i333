@@ -1,20 +1,19 @@
-// i3 - an improved tiling window manager
 // Copyright © 2009 Michael Stapelberg and contributors (see LICENSE).
-// Direct translation of libi3/boolstr.c; C ABI and allocation ownership are preserved.
 
-use libc::c_char;
+/// Whether a configuration value names an enabled state. Whitespace is significant.
+pub fn is_enabled(value: impl AsRef<[u8]>) -> bool {
+    const ENABLED: [&[u8]; 6] = [b"1", b"yes", b"true", b"on", b"enable", b"active"];
+    ENABLED
+        .iter()
+        .any(|word| value.as_ref().eq_ignore_ascii_case(word))
+}
 
+/// Legacy ABI adapter for callers that have not migrated to [`is_enabled`].
+///
 /// # Safety
-/// `string` must point to a live NUL-terminated C string.
-#[no_mangle]
-pub unsafe extern "C" fn boolstr(string: *const c_char) -> bool {
-    // SAFETY: The caller supplies a C string and every comparison is NUL-terminated.
-    unsafe {
-        libc::strcasecmp(string, c"1".as_ptr()) == 0
-            || libc::strcasecmp(string, c"yes".as_ptr()) == 0
-            || libc::strcasecmp(string, c"true".as_ptr()) == 0
-            || libc::strcasecmp(string, c"on".as_ptr()) == 0
-            || libc::strcasecmp(string, c"enable".as_ptr()) == 0
-            || libc::strcasecmp(string, c"active".as_ptr()) == 0
-    }
+/// `value` must point to a live NUL-terminated C string.
+
+pub unsafe fn boolstr(value: *const libc::c_char) -> bool {
+    // SAFETY: The caller guarantees a valid C string for the duration of this call.
+    is_enabled(unsafe { std::ffi::CStr::from_ptr(value) }.to_bytes())
 }

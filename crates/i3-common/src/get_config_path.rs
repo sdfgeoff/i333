@@ -1,103 +1,115 @@
-/*
- * vim:ts=4:sw=4:expandtab
- *
- * i3 - an improved tiling window manager
- * © 2009 Michael Stapelberg and contributors (see also: LICENSE)
- *
- */
-// Mechanical file-by-file Rust translation of libi3/get_config_path.c.
-// Generated with C2Rust 0.22.1; C ABI and original ownership retained.
-extern "C" {
-    fn sstrdup(str: *const ::core::ffi::c_char) -> *mut ::core::ffi::c_char;
-    fn sasprintf(
-        strp: *mut *mut ::core::ffi::c_char,
-        fmt: *const ::core::ffi::c_char,
-        ...
-    ) -> ::core::ffi::c_int;
-    fn resolve_tilde(path: *const ::core::ffi::c_char) -> *mut ::core::ffi::c_char;
-    fn path_exists(path: *const ::core::ffi::c_char) -> bool;
-    fn strtok(
-        __s: *mut ::core::ffi::c_char,
-        __delim: *const ::core::ffi::c_char,
-    ) -> *mut ::core::ffi::c_char;
-    fn free(__ptr: *mut ::core::ffi::c_void);
-    fn getenv(__name: *const ::core::ffi::c_char) -> *mut ::core::ffi::c_char;
+// Copyright © 2009 Michael Stapelberg and contributors (see LICENSE).
+
+use std::ffi::OsString;
+use std::io;
+use std::path::{Path, PathBuf};
+
+/// Configuration search inputs, separate from process environment for callers
+/// that manage their own configuration or need deterministic discovery.
+#[derive(Debug, Clone)]
+pub struct ConfigSearch {
+    pub config_home: PathBuf,
+    pub legacy_config: PathBuf,
+    pub system_dirs: Vec<PathBuf>,
+    pub system_config: PathBuf,
 }
-pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
-#[no_mangle]
-pub unsafe extern "C" fn get_config_path(
-    mut override_configpath: *const ::core::ffi::c_char,
-    mut use_system_paths: bool,
-) -> *mut ::core::ffi::c_char {
-    let mut xdg_config_home: *mut ::core::ffi::c_char =
-        ::core::ptr::null_mut::<::core::ffi::c_char>();
-    let mut xdg_config_dirs: *mut ::core::ffi::c_char =
-        ::core::ptr::null_mut::<::core::ffi::c_char>();
-    let mut config_path: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    static mut saved_configpath: *const ::core::ffi::c_char =
-        ::core::ptr::null::<::core::ffi::c_char>();
-    if !override_configpath.is_null() {
-        saved_configpath = override_configpath;
-        return sstrdup(saved_configpath);
-    }
-    if !saved_configpath.is_null() {
-        return sstrdup(saved_configpath);
-    }
-    xdg_config_home = getenv(b"XDG_CONFIG_HOME\0" as *const u8 as *const ::core::ffi::c_char);
-    if xdg_config_home.is_null() {
-        xdg_config_home =
-            b"~/.config\0" as *const u8 as *const ::core::ffi::c_char as *mut ::core::ffi::c_char;
-    }
-    xdg_config_home = resolve_tilde(xdg_config_home);
-    sasprintf(
-        &raw mut config_path,
-        b"%s/i3/config\0" as *const u8 as *const ::core::ffi::c_char,
-        xdg_config_home,
-    );
-    free(xdg_config_home as *mut ::core::ffi::c_void);
-    if path_exists(config_path) {
-        return config_path;
-    }
-    free(config_path as *mut ::core::ffi::c_void);
-    config_path = resolve_tilde(b"~/.i3/config\0" as *const u8 as *const ::core::ffi::c_char);
-    if path_exists(config_path) {
-        return config_path;
-    }
-    free(config_path as *mut ::core::ffi::c_void);
-    if !use_system_paths {
-        return ::core::ptr::null_mut::<::core::ffi::c_char>();
-    }
-    xdg_config_dirs = getenv(b"XDG_CONFIG_DIRS\0" as *const u8 as *const ::core::ffi::c_char);
-    if xdg_config_dirs.is_null() {
-        xdg_config_dirs = b"/usr/local/etc/xdg\0" as *const u8 as *const ::core::ffi::c_char
-            as *mut ::core::ffi::c_char;
-    }
-    let mut buf: *mut ::core::ffi::c_char = sstrdup(xdg_config_dirs);
-    let mut tok: *mut ::core::ffi::c_char =
-        strtok(buf, b":\0" as *const u8 as *const ::core::ffi::c_char);
-    while !tok.is_null() {
-        tok = resolve_tilde(tok);
-        sasprintf(
-            &raw mut config_path,
-            b"%s/i3/config\0" as *const u8 as *const ::core::ffi::c_char,
-            tok,
-        );
-        free(tok as *mut ::core::ffi::c_void);
-        if path_exists(config_path) {
-            free(buf as *mut ::core::ffi::c_void);
-            return config_path;
+
+impl ConfigSearch {
+    pub fn from_environment() -> Self {
+        let dirs = std::env::var_os("XDG_CONFIG_DIRS")
+            .unwrap_or_else(|| OsString::from("/usr/local/etc/xdg"));
+        Self {
+            config_home: std::env::var_os("XDG_CONFIG_HOME")
+                .unwrap_or_else(|| OsString::from("~/.config"))
+                .into(),
+            legacy_config: "~/.i3/config".into(),
+            // strtok skipped empty components; preserve that behavior explicitly.
+            system_dirs: std::env::split_paths(&dirs)
+                .filter(|path| !path.as_os_str().is_empty())
+                .collect(),
+            system_config: "/usr/local/etc/i3/config".into(),
         }
-        free(config_path as *mut ::core::ffi::c_void);
-        tok = strtok(
-            ::core::ptr::null_mut::<::core::ffi::c_char>(),
-            b":\0" as *const u8 as *const ::core::ffi::c_char,
-        );
     }
-    free(buf as *mut ::core::ffi::c_void);
-    config_path = b"/usr/local/etc/i3/config\0" as *const u8 as *const ::core::ffi::c_char
-        as *mut ::core::ffi::c_char;
-    if path_exists(config_path) {
-        return sstrdup(config_path);
+
+    pub fn find(&self, use_system_paths: bool) -> io::Result<Option<PathBuf>> {
+        let config_home = append_config(crate::resolve_tilde::resolve(&self.config_home)?);
+        if crate::path_exists::exists(&config_home) {
+            return Ok(Some(config_home));
+        }
+        let legacy = crate::resolve_tilde::resolve(&self.legacy_config)?;
+        if crate::path_exists::exists(&legacy) {
+            return Ok(Some(legacy));
+        }
+        if use_system_paths {
+            for directory in &self.system_dirs {
+                let candidate = append_config(crate::resolve_tilde::resolve(directory)?);
+                if crate::path_exists::exists(&candidate) {
+                    return Ok(Some(candidate));
+                }
+            }
+            if crate::path_exists::exists(&self.system_config) {
+                return Ok(Some(self.system_config.clone()));
+            }
+        }
+        Ok(None)
     }
-    return ::core::ptr::null_mut::<::core::ffi::c_char>();
 }
+
+fn append_config(directory: PathBuf) -> PathBuf {
+    // String-style append preserves the old meaning of an explicitly empty
+    // XDG directory ("/i3/config") and repeated/trailing separators.
+    let mut path = directory.into_os_string();
+    path.push("/i3/config");
+    path.into()
+}
+
+/// An explicit path is returned as given, even if it does not currently exist.
+pub fn find_config_path(
+    explicit: Option<&Path>,
+    use_system_paths: bool,
+) -> io::Result<Option<PathBuf>> {
+    if let Some(path) = explicit {
+        return Ok(Some(path.to_owned()));
+    }
+    ConfigSearch::from_environment().find(use_system_paths)
+}
+
+mod legacy {
+    use super::*;
+    use std::ffi::CStr;
+    use std::os::unix::ffi::OsStrExt;
+    use std::sync::Mutex;
+    static OVERRIDE: Mutex<Option<PathBuf>> = Mutex::new(None);
+
+    /// # Safety
+    /// `override_path` is null or a live C string. Returned storage belongs to free.
+
+    pub unsafe fn get_config_path(
+        override_path: *const libc::c_char,
+        use_system_paths: bool,
+    ) -> *mut libc::c_char {
+        let cached = {
+            let mut cached = OVERRIDE
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            if !override_path.is_null() {
+                // SAFETY: Copy the caller's string so the remembered override
+                // does not borrow an argv/config allocation that might be freed.
+                let bytes = unsafe { CStr::from_ptr(override_path) }.to_bytes();
+                *cached = Some(PathBuf::from(std::ffi::OsStr::from_bytes(bytes)));
+            }
+            cached.clone()
+        };
+        let found = find_config_path(cached.as_deref(), use_system_paths)
+            .unwrap_or_else(|error| crate::resolve_tilde::abort(error));
+        match found {
+            None => std::ptr::null_mut(),
+            Some(path) => {
+                let bytes = path.as_os_str().as_bytes();
+                // SAFETY: Preserve malloc/free ownership for existing callers.
+                unsafe { crate::safewrappers::sstrndup(bytes.as_ptr().cast(), bytes.len()) }
+            }
+        }
+    }
+}
+pub use legacy::get_config_path;

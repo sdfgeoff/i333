@@ -1,3 +1,5 @@
+use crate::config::included_files;
+use i3_common::safewrappers::sasprintf;
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -9,104 +11,11 @@
  *
  */
 // Mechanical file-by-file Rust translation of src/display_version.c.
-// Generated with C2Rust 0.22.1; C ABI and original ownership retained.
-use ::c2rust_bitfields;
-extern "C" {
-    pub type _IO_wide_data;
-    pub type _IO_codecvt;
-    pub type _IO_marker;
-    pub type xcb_connection_t;
-    pub type yajl_handle_t;
-    fn err(__status: ::core::ffi::c_int, __format: *const ::core::ffi::c_char, ...) -> !;
-    fn errx(__status: ::core::ffi::c_int, __format: *const ::core::ffi::c_char, ...) -> !;
-    static mut stdout: *mut FILE;
-    static mut stderr: *mut FILE;
-    fn fflush(__stream: *mut FILE) -> ::core::ffi::c_int;
-    fn fprintf(
-        __stream: *mut FILE,
-        __format: *const ::core::ffi::c_char,
-        ...
-    ) -> ::core::ffi::c_int;
-    fn printf(__format: *const ::core::ffi::c_char, ...) -> ::core::ffi::c_int;
-    fn stat(__file: *const ::core::ffi::c_char, __buf: *mut stat) -> ::core::ffi::c_int;
-    fn time(__timer: *mut time_t) -> time_t;
-    fn difftime(__time1: time_t, __time0: time_t) -> ::core::ffi::c_double;
-    fn strftime(
-        __s: *mut ::core::ffi::c_char,
-        __maxsize: size_t,
-        __format: *const ::core::ffi::c_char,
-        __tp: *const tm,
-    ) -> size_t;
-    fn localtime(__timer: *const time_t) -> *mut tm;
-    fn close(__fd: ::core::ffi::c_int) -> ::core::ffi::c_int;
-    fn read(__fd: ::core::ffi::c_int, __buf: *mut ::core::ffi::c_void, __nbytes: size_t)
-        -> ssize_t;
-    fn getpid() -> __pid_t;
-    fn readlink(
-        __path: *const ::core::ffi::c_char,
-        __buf: *mut ::core::ffi::c_char,
-        __len: size_t,
-    ) -> ssize_t;
-    static mut conn: *mut xcb_connection_t;
-    fn errorlog(fmt: *mut ::core::ffi::c_char, ...);
-    fn root_atom_contents(
-        atomname: *const ::core::ffi::c_char,
-        provided_conn: *mut xcb_connection_t,
-        screen: ::core::ffi::c_int,
-    ) -> *mut ::core::ffi::c_char;
-    fn smalloc(size: size_t) -> *mut ::core::ffi::c_void;
-    fn scalloc(num: size_t, size: size_t) -> *mut ::core::ffi::c_void;
-    fn srealloc(ptr: *mut ::core::ffi::c_void, size: size_t) -> *mut ::core::ffi::c_void;
-    fn sasprintf(
-        strp: *mut *mut ::core::ffi::c_char,
-        fmt: *const ::core::ffi::c_char,
-        ...
-    ) -> ::core::ffi::c_int;
-    fn ipc_connect(socket_path: *const ::core::ffi::c_char) -> ::core::ffi::c_int;
-    fn ipc_send_message(
-        sockfd: ::core::ffi::c_int,
-        message_size: uint32_t,
-        message_type: uint32_t,
-        payload: *const uint8_t,
-    ) -> ::core::ffi::c_int;
-    fn ipc_recv_message(
-        sockfd: ::core::ffi::c_int,
-        message_type: *mut uint32_t,
-        reply_length: *mut uint32_t,
-        reply: *mut *mut uint8_t,
-    ) -> ::core::ffi::c_int;
-    fn yajl_alloc(
-        callbacks: *const yajl_callbacks,
-        afs: *mut yajl_alloc_funcs,
-        ctx: *mut ::core::ffi::c_void,
-    ) -> yajl_handle;
-    fn yajl_free(handle: yajl_handle);
-    fn yajl_parse(
-        hand: yajl_handle,
-        jsonText: *const ::core::ffi::c_uchar,
-        jsonTextLength: size_t,
-    ) -> yajl_status;
-    static mut conn_screen: ::core::ffi::c_int;
-    static mut included_files: includedfiles_head;
-    fn open(
-        __file: *const ::core::ffi::c_char,
-        __oflag: ::core::ffi::c_int,
-        ...
-    ) -> ::core::ffi::c_int;
-    fn strncmp(
-        __s1: *const ::core::ffi::c_char,
-        __s2: *const ::core::ffi::c_char,
-        __n: size_t,
-    ) -> ::core::ffi::c_int;
-    fn strstr(
-        __haystack: *const ::core::ffi::c_char,
-        __needle: *const ::core::ffi::c_char,
-    ) -> *mut ::core::ffi::c_char;
-    fn strlen(__s: *const ::core::ffi::c_char) -> size_t;
-    fn free(__ptr: *mut ::core::ffi::c_void);
-    fn exit(__status: ::core::ffi::c_int) -> !;
-    fn getenv(__name: *const ::core::ffi::c_char) -> *mut ::core::ffi::c_char;
-}
+// Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
+use i3_json::compat::{yajl_alloc, yajl_free, yajl_parse};
+pub use i3_json::compat::{
+    yajl_alloc_funcs, yajl_callbacks, yajl_handle, yajl_status, yajl_status_ok,
+};
 pub type size_t = usize;
 pub type __uint8_t = u8;
 pub type __uint32_t = u32;
@@ -126,176 +35,11 @@ pub type __blkcnt_t = ::core::ffi::c_long;
 pub type __syscall_slong_t = ::core::ffi::c_long;
 pub type ssize_t = isize;
 pub type time_t = __time_t;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct timespec {
-    pub tv_sec: __time_t,
-    pub tv_nsec: __syscall_slong_t,
-}
-#[derive(Copy, Clone, BitfieldStruct)]
-#[repr(C)]
-pub struct _IO_FILE {
-    pub _flags: ::core::ffi::c_int,
-    pub _IO_read_ptr: *mut ::core::ffi::c_char,
-    pub _IO_read_end: *mut ::core::ffi::c_char,
-    pub _IO_read_base: *mut ::core::ffi::c_char,
-    pub _IO_write_base: *mut ::core::ffi::c_char,
-    pub _IO_write_ptr: *mut ::core::ffi::c_char,
-    pub _IO_write_end: *mut ::core::ffi::c_char,
-    pub _IO_buf_base: *mut ::core::ffi::c_char,
-    pub _IO_buf_end: *mut ::core::ffi::c_char,
-    pub _IO_save_base: *mut ::core::ffi::c_char,
-    pub _IO_backup_base: *mut ::core::ffi::c_char,
-    pub _IO_save_end: *mut ::core::ffi::c_char,
-    pub _markers: *mut _IO_marker,
-    pub _chain: *mut _IO_FILE,
-    pub _fileno: ::core::ffi::c_int,
-    #[bitfield(name = "_flags2", ty = "::core::ffi::c_int", bits = "0..=23")]
-    pub _flags2: [u8; 3],
-    pub _short_backupbuf: [::core::ffi::c_char; 1],
-    pub _old_offset: __off_t,
-    pub _cur_column: ::core::ffi::c_ushort,
-    pub _vtable_offset: ::core::ffi::c_schar,
-    pub _shortbuf: [::core::ffi::c_char; 1],
-    pub _lock: *mut ::core::ffi::c_void,
-    pub _offset: __off64_t,
-    pub _codecvt: *mut _IO_codecvt,
-    pub _wide_data: *mut _IO_wide_data,
-    pub _freeres_list: *mut _IO_FILE,
-    pub _freeres_buf: *mut ::core::ffi::c_void,
-    pub _prevchain: *mut *mut _IO_FILE,
-    pub _mode: ::core::ffi::c_int,
-    pub _unused3: ::core::ffi::c_int,
-    pub _total_written: __uint64_t,
-    pub _unused2: [::core::ffi::c_char; 8],
-}
-pub type _IO_lock_t = ();
-pub type FILE = _IO_FILE;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct tm {
-    pub tm_sec: ::core::ffi::c_int,
-    pub tm_min: ::core::ffi::c_int,
-    pub tm_hour: ::core::ffi::c_int,
-    pub tm_mday: ::core::ffi::c_int,
-    pub tm_mon: ::core::ffi::c_int,
-    pub tm_year: ::core::ffi::c_int,
-    pub tm_wday: ::core::ffi::c_int,
-    pub tm_yday: ::core::ffi::c_int,
-    pub tm_isdst: ::core::ffi::c_int,
-    pub tm_gmtoff: ::core::ffi::c_long,
-    pub tm_zone: *const ::core::ffi::c_char,
-}
+
 pub type uint8_t = __uint8_t;
 pub type uint32_t = __uint32_t;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct stat {
-    pub st_dev: __dev_t,
-    pub st_ino: __ino_t,
-    pub st_nlink: __nlink_t,
-    pub st_mode: __mode_t,
-    pub st_uid: __uid_t,
-    pub st_gid: __gid_t,
-    pub __pad0: ::core::ffi::c_int,
-    pub st_rdev: __dev_t,
-    pub st_size: __off_t,
-    pub st_blksize: __blksize_t,
-    pub st_blocks: __blkcnt_t,
-    pub st_atim: timespec,
-    pub st_mtim: timespec,
-    pub st_ctim: timespec,
-    pub __glibc_reserved: [__syscall_slong_t; 3],
-}
-pub type yajl_malloc_func =
-    Option<unsafe extern "C" fn(*mut ::core::ffi::c_void, size_t) -> *mut ::core::ffi::c_void>;
-pub type yajl_free_func =
-    Option<unsafe extern "C" fn(*mut ::core::ffi::c_void, *mut ::core::ffi::c_void) -> ()>;
-pub type yajl_realloc_func = Option<
-    unsafe extern "C" fn(
-        *mut ::core::ffi::c_void,
-        *mut ::core::ffi::c_void,
-        size_t,
-    ) -> *mut ::core::ffi::c_void,
->;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct yajl_alloc_funcs {
-    pub malloc: yajl_malloc_func,
-    pub realloc: yajl_realloc_func,
-    pub free: yajl_free_func,
-    pub ctx: *mut ::core::ffi::c_void,
-}
-pub type yajl_status = ::core::ffi::c_uint;
-pub const yajl_status_error: yajl_status = 2;
-pub const yajl_status_client_canceled: yajl_status = 1;
-pub const yajl_status_ok: yajl_status = 0;
-pub type yajl_handle = *mut yajl_handle_t;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct yajl_callbacks {
-    pub yajl_null: Option<unsafe extern "C" fn(*mut ::core::ffi::c_void) -> ::core::ffi::c_int>,
-    pub yajl_boolean: Option<
-        unsafe extern "C" fn(*mut ::core::ffi::c_void, ::core::ffi::c_int) -> ::core::ffi::c_int,
-    >,
-    pub yajl_integer: Option<
-        unsafe extern "C" fn(
-            *mut ::core::ffi::c_void,
-            ::core::ffi::c_longlong,
-        ) -> ::core::ffi::c_int,
-    >,
-    pub yajl_double: Option<
-        unsafe extern "C" fn(*mut ::core::ffi::c_void, ::core::ffi::c_double) -> ::core::ffi::c_int,
-    >,
-    pub yajl_number: Option<
-        unsafe extern "C" fn(
-            *mut ::core::ffi::c_void,
-            *const ::core::ffi::c_char,
-            size_t,
-        ) -> ::core::ffi::c_int,
-    >,
-    pub yajl_string: Option<
-        unsafe extern "C" fn(
-            *mut ::core::ffi::c_void,
-            *const ::core::ffi::c_uchar,
-            size_t,
-        ) -> ::core::ffi::c_int,
-    >,
-    pub yajl_start_map:
-        Option<unsafe extern "C" fn(*mut ::core::ffi::c_void) -> ::core::ffi::c_int>,
-    pub yajl_map_key: Option<
-        unsafe extern "C" fn(
-            *mut ::core::ffi::c_void,
-            *const ::core::ffi::c_uchar,
-            size_t,
-        ) -> ::core::ffi::c_int,
-    >,
-    pub yajl_end_map: Option<unsafe extern "C" fn(*mut ::core::ffi::c_void) -> ::core::ffi::c_int>,
-    pub yajl_start_array:
-        Option<unsafe extern "C" fn(*mut ::core::ffi::c_void) -> ::core::ffi::c_int>,
-    pub yajl_end_array:
-        Option<unsafe extern "C" fn(*mut ::core::ffi::c_void) -> ::core::ffi::c_int>,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct IncludedFile {
-    pub path: *mut ::core::ffi::c_char,
-    pub raw_contents: *mut ::core::ffi::c_char,
-    pub variable_replaced_contents: *mut ::core::ffi::c_char,
-    pub files: C2RustUnnamed,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed {
-    pub tqe_next: *mut IncludedFile,
-    pub tqe_prev: *mut *mut IncludedFile,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct includedfiles_head {
-    pub tqh_first: *mut IncludedFile,
-    pub tqh_last: *mut *mut IncludedFile,
-}
+
+pub use crate::config::IncludedFile;
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 pub const I3_IPC_MESSAGE_TYPE_GET_VERSION: ::core::ffi::c_int = 7 as ::core::ffi::c_int;
 pub const O_RDONLY: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
@@ -306,15 +50,15 @@ static mut human_readable_version: *mut ::core::ffi::c_char =
     ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char;
 static mut loaded_config_file_name: *mut ::core::ffi::c_char =
     ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char;
-unsafe extern "C" fn version_string(
-    mut ctx: *mut ::core::ffi::c_void,
-    mut val: *const ::core::ffi::c_uchar,
-    mut len: size_t,
+unsafe fn version_string(
+    ctx: *mut ::core::ffi::c_void,
+    val: *const ::core::ffi::c_uchar,
+    len: size_t,
 ) -> ::core::ffi::c_int {
     if human_readable_key {
         sasprintf(
             &raw mut human_readable_version,
-            b"%.*s\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%.*s".as_ptr(),
             len as ::core::ffi::c_int,
             val,
         );
@@ -322,19 +66,19 @@ unsafe extern "C" fn version_string(
     if loaded_config_file_name_key {
         sasprintf(
             &raw mut loaded_config_file_name,
-            b"%.*s\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%.*s".as_ptr(),
             len as ::core::ffi::c_int,
             val,
         );
     }
     if included_config_file_names {
-        let mut file: *mut IncludedFile = scalloc(
+        let file: *mut IncludedFile = scalloc(
             1 as size_t,
             ::core::mem::size_of::<IncludedFile>() as size_t,
         ) as *mut IncludedFile;
         sasprintf(
             &raw mut (*file).path,
-            b"%.*s\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%.*s".as_ptr(),
             len as ::core::ffi::c_int,
             val,
         );
@@ -343,35 +87,32 @@ unsafe extern "C" fn version_string(
         *included_files.tqh_last = file as *mut IncludedFile;
         included_files.tqh_last = &raw mut (*file).files.tqe_next;
     }
-    return 1 as ::core::ffi::c_int;
+    1 as ::core::ffi::c_int
 }
-unsafe extern "C" fn version_map_key(
-    mut ctx: *mut ::core::ffi::c_void,
-    mut stringval: *const ::core::ffi::c_uchar,
-    mut stringlen: size_t,
+unsafe fn version_map_key(
+    ctx: *mut ::core::ffi::c_void,
+    stringval: *const ::core::ffi::c_uchar,
+    stringlen: size_t,
 ) -> ::core::ffi::c_int {
-    human_readable_key = stringlen
-        == strlen(b"human_readable\0" as *const u8 as *const ::core::ffi::c_char)
+    human_readable_key = stringlen == strlen(c"human_readable".as_ptr())
         && strncmp(
             stringval as *const ::core::ffi::c_char,
-            b"human_readable\0" as *const u8 as *const ::core::ffi::c_char,
-            strlen(b"human_readable\0" as *const u8 as *const ::core::ffi::c_char),
+            c"human_readable".as_ptr(),
+            strlen(c"human_readable".as_ptr()),
         ) == 0 as ::core::ffi::c_int;
-    loaded_config_file_name_key = stringlen
-        == strlen(b"loaded_config_file_name\0" as *const u8 as *const ::core::ffi::c_char)
+    loaded_config_file_name_key = stringlen == strlen(c"loaded_config_file_name".as_ptr())
         && strncmp(
             stringval as *const ::core::ffi::c_char,
-            b"loaded_config_file_name\0" as *const u8 as *const ::core::ffi::c_char,
-            strlen(b"loaded_config_file_name\0" as *const u8 as *const ::core::ffi::c_char),
+            c"loaded_config_file_name".as_ptr(),
+            strlen(c"loaded_config_file_name".as_ptr()),
         ) == 0 as ::core::ffi::c_int;
-    included_config_file_names = stringlen
-        == strlen(b"included_config_file_names\0" as *const u8 as *const ::core::ffi::c_char)
+    included_config_file_names = stringlen == strlen(c"included_config_file_names".as_ptr())
         && strncmp(
             stringval as *const ::core::ffi::c_char,
-            b"included_config_file_names\0" as *const u8 as *const ::core::ffi::c_char,
-            strlen(b"included_config_file_names\0" as *const u8 as *const ::core::ffi::c_char),
+            c"included_config_file_names".as_ptr(),
+            strlen(c"included_config_file_names".as_ptr()),
         ) == 0 as ::core::ffi::c_int;
-    return 1 as ::core::ffi::c_int;
+    1 as ::core::ffi::c_int
 }
 static mut version_callbacks: yajl_callbacks = unsafe {
     yajl_callbacks {
@@ -382,7 +123,7 @@ static mut version_callbacks: yajl_callbacks = unsafe {
         yajl_number: None,
         yajl_string: Some(
             version_string
-                as unsafe extern "C" fn(
+                as unsafe fn(
                     *mut ::core::ffi::c_void,
                     *const ::core::ffi::c_uchar,
                     size_t,
@@ -391,7 +132,7 @@ static mut version_callbacks: yajl_callbacks = unsafe {
         yajl_start_map: None,
         yajl_map_key: Some(
             version_map_key
-                as unsafe extern "C" fn(
+                as unsafe fn(
                     *mut ::core::ffi::c_void,
                     *const ::core::ffi::c_uchar,
                     size_t,
@@ -402,110 +143,65 @@ static mut version_callbacks: yajl_callbacks = unsafe {
         yajl_end_array: None,
     }
 };
-unsafe extern "C" fn print_config_path(
-    mut path: *const ::core::ffi::c_char,
-    mut role: *const ::core::ffi::c_char,
-) {
-    let mut sb: stat = stat {
-        st_dev: 0,
-        st_ino: 0,
-        st_nlink: 0,
-        st_mode: 0,
-        st_uid: 0,
-        st_gid: 0,
-        __pad0: 0,
-        st_rdev: 0,
-        st_size: 0,
-        st_blksize: 0,
-        st_blocks: 0,
-        st_atim: timespec {
-            tv_sec: 0,
-            tv_nsec: 0,
-        },
-        st_mtim: timespec {
-            tv_sec: 0,
-            tv_nsec: 0,
-        },
-        st_ctim: timespec {
-            tv_sec: 0,
-            tv_nsec: 0,
-        },
-        __glibc_reserved: [0; 3],
-    };
+unsafe fn print_config_path(path: *const ::core::ffi::c_char, role: *const ::core::ffi::c_char) {
+    let mut sb: stat = ::core::mem::zeroed();
     let mut now: time_t = 0;
     let mut mtime: [::core::ffi::c_char; 64] = [0; 64];
-    printf(
-        b"  %s (%s)\0" as *const u8 as *const ::core::ffi::c_char,
-        path,
-        role,
-    );
+    printf(c"  %s (%s)".as_ptr(), path, role);
     if stat(path, &raw mut sb) == -(1 as ::core::ffi::c_int) {
-        printf(b"\n\0" as *const u8 as *const ::core::ffi::c_char);
+        printf(c"\n".as_ptr());
         errorlog(
-            b"ERROR: Cannot stat config file \"%s\"\n\0" as *const u8 as *const ::core::ffi::c_char
-                as *mut ::core::ffi::c_char,
+            c"ERROR: Cannot stat config file \"%s\"\n"
+                .as_ptr()
+                .cast_mut(),
             path,
         );
     } else {
         strftime(
             &raw mut mtime as *mut ::core::ffi::c_char,
             ::core::mem::size_of::<[::core::ffi::c_char; 64]>() as size_t,
-            b"%c\0" as *const u8 as *const ::core::ffi::c_char,
-            localtime(&raw mut sb.st_mtim.tv_sec),
+            c"%c".as_ptr(),
+            localtime(&raw mut sb.st_mtime),
         );
         time(&raw mut now);
         printf(
-            b" (last modified: %s, %.f seconds ago)\n\0" as *const u8 as *const ::core::ffi::c_char,
+            c" (last modified: %s, %.f seconds ago)\n".as_ptr(),
             &raw mut mtime as *mut ::core::ffi::c_char,
-            difftime(now, sb.st_mtim.tv_sec as time_t),
+            difftime(now, sb.st_mtime as time_t),
         );
     };
 }
-#[no_mangle]
-pub unsafe extern "C" fn display_running_version() {
-    if getenv(b"DISPLAY\0" as *const u8 as *const ::core::ffi::c_char).is_null() {
+
+pub unsafe fn display_running_version() {
+    if getenv(c"DISPLAY".as_ptr()).is_null() {
         fprintf(
             stderr,
-            b"\nYour DISPLAY environment variable is not set.\n\0" as *const u8
-                as *const ::core::ffi::c_char,
+            c"\nYour DISPLAY environment variable is not set.\n".as_ptr(),
         );
         fprintf(
             stderr,
-            b"Are you running i3 via SSH or on a virtual console?\n\0" as *const u8
-                as *const ::core::ffi::c_char,
+            c"Are you running i3 via SSH or on a virtual console?\n".as_ptr(),
         );
-        fprintf(
-            stderr,
-            b"Try DISPLAY=:0 i3 --moreversion\n\0" as *const u8 as *const ::core::ffi::c_char,
-        );
+        fprintf(stderr, c"Try DISPLAY=:0 i3 --moreversion\n".as_ptr());
         exit(EXIT_FAILURE);
     }
-    let mut pid_from_atom: *mut ::core::ffi::c_char = root_atom_contents(
-        b"I3_PID\0" as *const u8 as *const ::core::ffi::c_char,
-        conn,
-        conn_screen,
-    );
+    let pid_from_atom: *mut ::core::ffi::c_char =
+        root_atom_contents(c"I3_PID".as_ptr(), conn, conn_screen);
     if pid_from_atom.is_null() {
-        printf(b"\nRunning version: < 4.2-200\n\0" as *const u8 as *const ::core::ffi::c_char);
+        printf(c"\nRunning version: < 4.2-200\n".as_ptr());
         exit(EXIT_SUCCESS);
     }
-    printf(
-        b"(Getting version from running i3, press ctrl-c to abort\xE2\x80\xA6)\0" as *const u8
-            as *const ::core::ffi::c_char,
-    );
+    printf(c"(Getting version from running i3, press ctrl-c to abort…)".as_ptr());
     fflush(stdout);
-    let mut sockfd: ::core::ffi::c_int = ipc_connect(::core::ptr::null::<::core::ffi::c_char>());
+    let sockfd: ::core::ffi::c_int = ipc_connect(::core::ptr::null::<::core::ffi::c_char>());
     if ipc_send_message(
         sockfd,
         0 as uint32_t,
         I3_IPC_MESSAGE_TYPE_GET_VERSION as uint32_t,
-        b"\0" as *const u8 as *const ::core::ffi::c_char as *mut uint8_t,
+        c"".as_ptr() as *mut uint8_t,
     ) == -(1 as ::core::ffi::c_int)
     {
-        err(
-            EXIT_FAILURE,
-            b"IPC: write()\0" as *const u8 as *const ::core::ffi::c_char,
-        );
+        err(EXIT_FAILURE, c"IPC: write()".as_ptr());
     }
     let mut reply_length: uint32_t = 0;
     let mut reply_type: uint32_t = 0;
@@ -519,57 +215,46 @@ pub unsafe extern "C" fn display_running_version() {
     );
     if ret != 0 as ::core::ffi::c_int {
         if ret == -(1 as ::core::ffi::c_int) {
-            err(
-                EXIT_FAILURE,
-                b"IPC: read()\0" as *const u8 as *const ::core::ffi::c_char,
-            );
+            err(EXIT_FAILURE, c"IPC: read()".as_ptr());
         }
         exit(EXIT_FAILURE);
     }
     if reply_type != I3_IPC_MESSAGE_TYPE_GET_VERSION as uint32_t {
         errx(
             EXIT_FAILURE,
-            b"Got reply type %d, but expected %d (GET_VERSION)\0" as *const u8
-                as *const ::core::ffi::c_char,
+            c"Got reply type %d, but expected %d (GET_VERSION)".as_ptr(),
             reply_type,
             I3_IPC_MESSAGE_TYPE_GET_VERSION,
         );
     }
-    let mut handle: yajl_handle = yajl_alloc(
+    let handle: yajl_handle = yajl_alloc(
         &raw mut version_callbacks,
         ::core::ptr::null_mut::<yajl_alloc_funcs>(),
         NULL,
     );
-    let mut state: yajl_status =
+    let state: yajl_status =
         yajl_parse(handle, reply, reply_length as ::core::ffi::c_int as size_t);
     if state as ::core::ffi::c_uint != yajl_status_ok as ::core::ffi::c_int as ::core::ffi::c_uint {
         errx(
             EXIT_FAILURE,
-            b"Could not parse my own reply. That's weird. reply is %.*s\0" as *const u8
-                as *const ::core::ffi::c_char,
+            c"Could not parse my own reply. That's weird. reply is %.*s".as_ptr(),
             reply_length as ::core::ffi::c_int,
             reply,
         );
     }
-    printf(b"\r\x1B[K\0" as *const u8 as *const ::core::ffi::c_char);
+    printf(c"\r\u{1b}[K".as_ptr());
     printf(
-        b"Running i3 version: %s (pid %s)\n\0" as *const u8 as *const ::core::ffi::c_char,
+        c"Running i3 version: %s (pid %s)\n".as_ptr(),
         human_readable_version,
         pid_from_atom,
     );
     if !loaded_config_file_name.is_null() {
-        printf(b"Loaded i3 config:\n\0" as *const u8 as *const ::core::ffi::c_char);
-        print_config_path(
-            loaded_config_file_name,
-            b"main\0" as *const u8 as *const ::core::ffi::c_char,
-        );
+        printf(c"Loaded i3 config:\n".as_ptr());
+        print_config_path(loaded_config_file_name, c"main".as_ptr());
         let mut file: *mut IncludedFile = ::core::ptr::null_mut::<IncludedFile>();
         file = included_files.tqh_first as *mut IncludedFile;
         while !file.is_null() {
-            print_config_path(
-                (*file).path,
-                b"included\0" as *const u8 as *const ::core::ffi::c_char,
-            );
+            print_config_path((*file).path, c"included".as_ptr());
             file = (*file).files.tqe_next as *mut IncludedFile;
         }
     }
@@ -577,11 +262,7 @@ pub unsafe extern "C" fn display_running_version() {
     let mut linksize: ssize_t = 0;
     let mut exepath: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
     let mut destpath: *mut ::core::ffi::c_char = smalloc(destpath_size) as *mut ::core::ffi::c_char;
-    sasprintf(
-        &raw mut exepath,
-        b"/proc/%d/exe\0" as *const u8 as *const ::core::ffi::c_char,
-        getpid(),
-    );
+    sasprintf(&raw mut exepath, c"/proc/%d/exe".as_ptr(), getpid());
     loop {
         linksize = readlink(exepath, destpath, destpath_size);
         if !(linksize == destpath_size as ssize_t) {
@@ -592,24 +273,13 @@ pub unsafe extern "C" fn display_running_version() {
             as *mut ::core::ffi::c_char;
     }
     if linksize == -(1 as ::core::ffi::c_int) as ssize_t {
-        err(
-            EXIT_FAILURE,
-            b"readlink(%s)\0" as *const u8 as *const ::core::ffi::c_char,
-            exepath,
-        );
+        err(EXIT_FAILURE, c"readlink(%s)".as_ptr(), exepath);
     }
     *destpath.offset(linksize as isize) = '\0' as i32 as ::core::ffi::c_char;
-    printf(b"\n\0" as *const u8 as *const ::core::ffi::c_char);
-    printf(
-        b"The i3 binary you just called: %s\n\0" as *const u8 as *const ::core::ffi::c_char,
-        destpath,
-    );
+    printf(c"\n".as_ptr());
+    printf(c"The i3 binary you just called: %s\n".as_ptr(), destpath);
     free(exepath as *mut ::core::ffi::c_void);
-    sasprintf(
-        &raw mut exepath,
-        b"/proc/%s/exe\0" as *const u8 as *const ::core::ffi::c_char,
-        pid_from_atom,
-    );
+    sasprintf(&raw mut exepath, c"/proc/%s/exe".as_ptr(), pid_from_atom);
     loop {
         linksize = readlink(exepath, destpath, destpath_size);
         if !(linksize == destpath_size as ssize_t) {
@@ -620,38 +290,22 @@ pub unsafe extern "C" fn display_running_version() {
             as *mut ::core::ffi::c_char;
     }
     if linksize == -(1 as ::core::ffi::c_int) as ssize_t {
-        err(
-            EXIT_FAILURE,
-            b"readlink(%s)\0" as *const u8 as *const ::core::ffi::c_char,
-            exepath,
-        );
+        err(EXIT_FAILURE, c"readlink(%s)".as_ptr(), exepath);
     }
     *destpath.offset(linksize as isize) = '\0' as i32 as ::core::ffi::c_char;
-    if !strstr(
-        destpath,
-        b"(deleted)\0" as *const u8 as *const ::core::ffi::c_char,
-    )
-    .is_null()
-    {
-        printf(
-            b"RUNNING BINARY DIFFERENT FROM BINARY ON DISK!\n\0" as *const u8
-                as *const ::core::ffi::c_char,
-        );
+    if !strstr(destpath, c"(deleted)".as_ptr()).is_null() {
+        printf(c"RUNNING BINARY DIFFERENT FROM BINARY ON DISK!\n".as_ptr());
     }
     free(exepath as *mut ::core::ffi::c_void);
     sasprintf(
         &raw mut exepath,
-        b"/proc/%s/cmdline\0" as *const u8 as *const ::core::ffi::c_char,
+        c"/proc/%s/cmdline".as_ptr(),
         pid_from_atom,
     );
     let mut fd: ::core::ffi::c_int = 0;
     fd = open(exepath, O_RDONLY);
     if fd == -(1 as ::core::ffi::c_int) {
-        err(
-            EXIT_FAILURE,
-            b"open(%s)\0" as *const u8 as *const ::core::ffi::c_char,
-            exepath,
-        );
+        err(EXIT_FAILURE, c"open(%s)".as_ptr(), exepath);
     }
     if read(
         fd,
@@ -659,17 +313,10 @@ pub unsafe extern "C" fn display_running_version() {
         ::core::mem::size_of::<*mut ::core::ffi::c_char>() as size_t,
     ) == -(1 as ::core::ffi::c_int) as ssize_t
     {
-        err(
-            EXIT_FAILURE,
-            b"read(%s)\0" as *const u8 as *const ::core::ffi::c_char,
-            exepath,
-        );
+        err(EXIT_FAILURE, c"read(%s)".as_ptr(), exepath);
     }
     close(fd);
-    printf(
-        b"The i3 binary you are running: %s\n\0" as *const u8 as *const ::core::ffi::c_char,
-        destpath,
-    );
+    printf(c"The i3 binary you are running: %s\n".as_ptr(), destpath);
     free(exepath as *mut ::core::ffi::c_void);
     free(destpath as *mut ::core::ffi::c_void);
     yajl_free(handle);
@@ -678,3 +325,25 @@ pub unsafe extern "C" fn display_running_version() {
 }
 pub const EXIT_FAILURE: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 pub const EXIT_SUCCESS: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
+
+// Internal helpers use Rust linkage rather than foreign symbol lookup.
+use i3_common::safewrappers::scalloc;
+use i3_common::safewrappers::smalloc;
+use i3_common::safewrappers::srealloc;
+
+pub use libc::{
+    close, difftime, exit, fflush, fprintf, free, getenv, getpid, localtime, open, printf, read,
+    readlink, stat, strftime, strlen, strncmp, strstr, time,
+};
+
+use i3_common::native_stdio::{err, errx, stderr, stdout};
+
+use crate::log::errorlog;
+
+// Internal calls and globals use canonical Rust identities.
+use crate::application::conn;
+use crate::application::conn_screen;
+use i3_common::ipc_connect::ipc_connect;
+use i3_common::ipc_recv_message::ipc_recv_message;
+use i3_common::ipc_send_message::ipc_send_message;
+use i3_common::root_atom_contents::root_atom_contents;

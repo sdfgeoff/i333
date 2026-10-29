@@ -1,3 +1,5 @@
+use crate::randr::outputs;
+use i3_common::safewrappers::sasprintf;
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -10,58 +12,7 @@
  *
  */
 // Mechanical file-by-file Rust translation of src/xinerama.c.
-// Generated with C2Rust 0.22.1; C ABI and original ownership retained.
-extern "C" {
-    pub type xcb_connection_t;
-    pub type xcb_extension_t;
-    pub type _cairo;
-    pub type _cairo_surface;
-    pub type _i3String;
-    pub type pcre2_real_code_8;
-    pub type ev_loop;
-    fn xcb_get_extension_data(
-        c: *mut xcb_connection_t,
-        ext: *mut xcb_extension_t,
-    ) -> *const xcb_query_extension_reply_t;
-    static mut conn: *mut xcb_connection_t;
-    fn errorlog(fmt: *mut ::core::ffi::c_char, ...);
-    fn debuglog(fmt: *mut ::core::ffi::c_char, ...);
-    fn scalloc(num: size_t, size: size_t) -> *mut ::core::ffi::c_void;
-    fn sasprintf(
-        strp: *mut *mut ::core::ffi::c_char,
-        fmt: *const ::core::ffi::c_char,
-        ...
-    ) -> ::core::ffi::c_int;
-    fn min(a: ::core::ffi::c_int, b: ::core::ffi::c_int) -> ::core::ffi::c_int;
-    static mut outputs: outputs_head;
-    fn output_init_con(output: *mut Output);
-    fn init_ws_for_output(output: *mut Output);
-    fn create_root_output(conn_0: *mut xcb_connection_t) -> *mut Output;
-    fn output_primary_name(output: *mut Output) -> *mut ::core::ffi::c_char;
-    static mut xcb_xinerama_id: xcb_extension_t;
-    fn xcb_xinerama_is_active(c: *mut xcb_connection_t) -> xcb_xinerama_is_active_cookie_t;
-    fn xcb_xinerama_is_active_reply(
-        c: *mut xcb_connection_t,
-        cookie: xcb_xinerama_is_active_cookie_t,
-        e: *mut *mut xcb_generic_error_t,
-    ) -> *mut xcb_xinerama_is_active_reply_t;
-    fn xcb_xinerama_query_screens_unchecked(
-        c: *mut xcb_connection_t,
-    ) -> xcb_xinerama_query_screens_cookie_t;
-    fn xcb_xinerama_query_screens_screen_info(
-        R: *const xcb_xinerama_query_screens_reply_t,
-    ) -> *mut xcb_xinerama_screen_info_t;
-    fn xcb_xinerama_query_screens_screen_info_length(
-        R: *const xcb_xinerama_query_screens_reply_t,
-    ) -> ::core::ffi::c_int;
-    fn xcb_xinerama_query_screens_reply(
-        c: *mut xcb_connection_t,
-        cookie: xcb_xinerama_query_screens_cookie_t,
-        e: *mut *mut xcb_generic_error_t,
-    ) -> *mut xcb_xinerama_query_screens_reply_t;
-    fn free(__ptr: *mut ::core::ffi::c_void);
-    fn exit(__status: ::core::ffi::c_int) -> !;
-}
+// Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 pub type size_t = usize;
 pub type __uint8_t = u8;
 pub type __int16_t = i16;
@@ -71,176 +22,18 @@ pub type __time_t = ::core::ffi::c_long;
 pub type __suseconds_t = ::core::ffi::c_long;
 pub type time_t = __time_t;
 pub type int16_t = __int16_t;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct timeval {
-    pub tv_sec: __time_t,
-    pub tv_usec: __suseconds_t,
-}
+
 pub type uint8_t = __uint8_t;
 pub type uint16_t = __uint16_t;
 pub type uint32_t = __uint32_t;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_generic_error_t {
-    pub response_type: uint8_t,
-    pub error_code: uint8_t,
-    pub sequence: uint16_t,
-    pub resource_id: uint32_t,
-    pub minor_code: uint16_t,
-    pub major_code: uint8_t,
-    pub pad0: uint8_t,
-    pub pad: [uint32_t; 5],
-    pub full_sequence: uint32_t,
-}
-pub type xcb_window_t = uint32_t;
-pub type xcb_gcontext_t = uint32_t;
-pub type xcb_colormap_t = uint32_t;
-pub type xcb_atom_t = uint32_t;
-pub type xcb_drawable_t = uint32_t;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_query_extension_reply_t {
-    pub response_type: uint8_t,
-    pub pad0: uint8_t,
-    pub sequence: uint16_t,
-    pub length: uint32_t,
-    pub present: uint8_t,
-    pub major_opcode: uint8_t,
-    pub first_event: uint8_t,
-    pub first_error: uint8_t,
-}
-pub type cairo_t = _cairo;
-pub type cairo_surface_t = _cairo_surface;
+
 pub type i3String = _i3String;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct color_t {
-    pub red: ::core::ffi::c_double,
-    pub green: ::core::ffi::c_double,
-    pub blue: ::core::ffi::c_double,
-    pub alpha: ::core::ffi::c_double,
-    pub colorpixel: uint32_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct surface_t {
-    pub id: xcb_drawable_t,
-    pub gc: xcb_gcontext_t,
-    pub owns_gc: bool,
-    pub width: ::core::ffi::c_int,
-    pub height: ::core::ffi::c_int,
-    pub surface: *mut cairo_surface_t,
-    pub cr: *mut cairo_t,
-}
-pub type xcb_randr_output_t = uint32_t;
-pub type pcre2_code_8 = pcre2_real_code_8;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Rect {
-    pub x: uint32_t,
-    pub y: uint32_t,
-    pub width: uint32_t,
-    pub height: uint32_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xoutput {
-    pub id: xcb_randr_output_t,
-    pub active: bool,
-    pub changed: bool,
-    pub to_be_disabled: bool,
-    pub primary: bool,
-    pub names_head: names_head,
-    pub con: *mut Con,
-    pub rect: Rect,
-    pub outputs: C2RustUnnamed,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed {
-    pub tqe_next: *mut xoutput,
-    pub tqe_prev: *mut *mut xoutput,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Con {
-    pub mapped: bool,
-    pub urgent: bool,
-    pub ignore_unmap: uint8_t,
-    pub frame: surface_t,
-    pub frame_buffer: surface_t,
-    pub pixmap_recreated: bool,
-    pub type_0: C2RustUnnamed_16,
-    pub num: ::core::ffi::c_int,
-    pub gaps: gaps_t,
-    pub parent: *mut Con,
-    pub rect: Rect,
-    pub window_rect: Rect,
-    pub deco_rect: Rect,
-    pub geometry: Rect,
-    pub name: *mut ::core::ffi::c_char,
-    pub title_format: *mut ::core::ffi::c_char,
-    pub window_icon_padding: ::core::ffi::c_int,
-    pub sticky_group: *mut ::core::ffi::c_char,
-    pub marks_head: marks_head,
-    pub mark_changed: bool,
-    pub percent: ::core::ffi::c_double,
-    pub border_width: ::core::ffi::c_int,
-    pub current_border_width: ::core::ffi::c_int,
-    pub window: *mut Window,
-    pub urgency_timer: *mut ev_timer,
-    pub deco_render_params: *mut deco_render_params,
-    pub floating_head: floating_head,
-    pub nodes_head: nodes_head,
-    pub focus_head: focus_head,
-    pub swallow_head: swallow_head,
-    pub fullscreen_mode: fullscreen_mode_t,
-    pub sticky: bool,
-    pub layout: layout_t,
-    pub last_split_layout: layout_t,
-    pub workspace_layout: layout_t,
-    pub border_style: border_style_t,
-    pub max_user_border_style: border_style_t,
-    pub floating: C2RustUnnamed_5,
-    pub nodes: C2RustUnnamed_4,
-    pub focused: C2RustUnnamed_3,
-    pub all_cons: C2RustUnnamed_2,
-    pub floating_windows: C2RustUnnamed_1,
-    pub on_remove_child: Option<unsafe extern "C" fn(*mut Con) -> ()>,
-    pub scratchpad_state: C2RustUnnamed_0,
-    pub old_id: ::core::ffi::c_int,
-    pub depth: uint16_t,
-    pub colormap: xcb_colormap_t,
-}
+
 pub type C2RustUnnamed_0 = ::core::ffi::c_uint;
 pub const SCRATCHPAD_CHANGED: C2RustUnnamed_0 = 2;
 pub const SCRATCHPAD_FRESH: C2RustUnnamed_0 = 1;
 pub const SCRATCHPAD_NONE: C2RustUnnamed_0 = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_1 {
-    pub tqe_next: *mut Con,
-    pub tqe_prev: *mut *mut Con,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_2 {
-    pub tqe_next: *mut Con,
-    pub tqe_prev: *mut *mut Con,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_3 {
-    pub tqe_next: *mut Con,
-    pub tqe_prev: *mut *mut Con,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_4 {
-    pub tqe_next: *mut Con,
-    pub tqe_prev: *mut *mut Con,
-}
+
 pub type C2RustUnnamed_5 = ::core::ffi::c_uint;
 pub const FLOATING_USER_ON: C2RustUnnamed_5 = 3;
 pub const FLOATING_AUTO_ON: C2RustUnnamed_5 = 2;
@@ -262,41 +55,7 @@ pub type fullscreen_mode_t = ::core::ffi::c_uint;
 pub const CF_GLOBAL: fullscreen_mode_t = 2;
 pub const CF_OUTPUT: fullscreen_mode_t = 1;
 pub const CF_NONE: fullscreen_mode_t = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct swallow_head {
-    pub tqh_first: *mut Match,
-    pub tqh_last: *mut *mut Match,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Match {
-    pub error: *mut ::core::ffi::c_char,
-    pub title: *mut regex,
-    pub application: *mut regex,
-    pub class: *mut regex,
-    pub instance: *mut regex,
-    pub mark: *mut regex,
-    pub window_role: *mut regex,
-    pub workspace: *mut regex,
-    pub machine: *mut regex,
-    pub window_type: xcb_atom_t,
-    pub urgent: C2RustUnnamed_10,
-    pub dock: C2RustUnnamed_9,
-    pub id: xcb_window_t,
-    pub window_mode: C2RustUnnamed_8,
-    pub con_id: *mut Con,
-    pub match_all_windows: bool,
-    pub insert_where: C2RustUnnamed_7,
-    pub matches: C2RustUnnamed_6,
-    pub restart_mode: bool,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_6 {
-    pub tqe_next: *mut Match,
-    pub tqe_prev: *mut *mut Match,
-}
+
 pub type C2RustUnnamed_7 = ::core::ffi::c_uint;
 pub const M_BELOW: C2RustUnnamed_7 = 2;
 pub const M_ASSIGN_WS: C2RustUnnamed_7 = 1;
@@ -319,141 +78,12 @@ pub type C2RustUnnamed_10 = ::core::ffi::c_int;
 pub const U_OLDEST: C2RustUnnamed_10 = 1;
 pub const U_LATEST: C2RustUnnamed_10 = 0;
 pub const U_DONTCHECK: C2RustUnnamed_10 = -1;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct regex {
-    pub pattern: *mut ::core::ffi::c_char,
-    pub regex: *mut pcre2_code_8,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct focus_head {
-    pub tqh_first: *mut Con,
-    pub tqh_last: *mut *mut Con,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct nodes_head {
-    pub tqh_first: *mut Con,
-    pub tqh_last: *mut *mut Con,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct floating_head {
-    pub tqh_first: *mut Con,
-    pub tqh_last: *mut *mut Con,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct deco_render_params {
-    pub color: *mut Colortriple,
-    pub border_style: ::core::ffi::c_int,
-    pub con_rect: width_height,
-    pub con_window_rect: width_height,
-    pub con_deco_rect: Rect,
-    pub background: color_t,
-    pub parent_layout: layout_t,
-    pub con_is_leaf: bool,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct width_height {
-    pub w: uint32_t,
-    pub h: uint32_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Colortriple {
-    pub border: color_t,
-    pub background: color_t,
-    pub text: color_t,
-    pub indicator: color_t,
-    pub child_border: color_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct ev_timer {
-    pub active: ::core::ffi::c_int,
-    pub pending: ::core::ffi::c_int,
-    pub priority: ::core::ffi::c_int,
-    pub data: *mut ::core::ffi::c_void,
-    pub cb: Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_timer, ::core::ffi::c_int) -> ()>,
-    pub at: ev_tstamp,
-    pub repeat: ev_tstamp,
-}
-pub type ev_tstamp = ::core::ffi::c_double;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Window {
-    pub id: xcb_window_t,
-    pub leader: xcb_window_t,
-    pub transient_for: xcb_window_t,
-    pub nr_assignments: uint32_t,
-    pub ran_assignments: *mut *mut Assignment,
-    pub class_class: *mut ::core::ffi::c_char,
-    pub class_instance: *mut ::core::ffi::c_char,
-    pub name: *mut i3String,
-    pub role: *mut ::core::ffi::c_char,
-    pub machine: *mut ::core::ffi::c_char,
-    pub name_x_changed: bool,
-    pub uses_net_wm_name: bool,
-    pub needs_take_focus: bool,
-    pub doesnt_accept_focus: bool,
-    pub window_type: xcb_atom_t,
-    pub wm_desktop: uint32_t,
-    pub dock: C2RustUnnamed_11,
-    pub urgent: timeval,
-    pub reserved: reservedpx,
-    pub depth: uint16_t,
-    pub base_width: ::core::ffi::c_int,
-    pub base_height: ::core::ffi::c_int,
-    pub width_increment: ::core::ffi::c_int,
-    pub height_increment: ::core::ffi::c_int,
-    pub min_width: ::core::ffi::c_int,
-    pub min_height: ::core::ffi::c_int,
-    pub max_width: ::core::ffi::c_int,
-    pub max_height: ::core::ffi::c_int,
-    pub min_aspect_ratio: ::core::ffi::c_double,
-    pub max_aspect_ratio: ::core::ffi::c_double,
-    pub icon: *mut cairo_surface_t,
-    pub shaped: bool,
-    pub input_shaped: bool,
-    pub managed_since: time_t,
-    pub swallowed: bool,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct reservedpx {
-    pub left: uint32_t,
-    pub right: uint32_t,
-    pub top: uint32_t,
-    pub bottom: uint32_t,
-}
+
 pub type C2RustUnnamed_11 = ::core::ffi::c_uint;
 pub const W_DOCK_BOTTOM: C2RustUnnamed_11 = 2;
 pub const W_DOCK_TOP: C2RustUnnamed_11 = 1;
 pub const W_NODOCK: C2RustUnnamed_11 = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Assignment {
-    pub type_0: C2RustUnnamed_14,
-    pub match_0: Match,
-    pub dest: C2RustUnnamed_13,
-    pub assignments: C2RustUnnamed_12,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_12 {
-    pub tqe_next: *mut Assignment,
-    pub tqe_prev: *mut *mut Assignment,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub union C2RustUnnamed_13 {
-    pub command: *mut ::core::ffi::c_char,
-    pub workspace: *mut ::core::ffi::c_char,
-    pub output: *mut ::core::ffi::c_char,
-}
+
 pub type C2RustUnnamed_14 = ::core::ffi::c_uint;
 pub const A_TO_OUTPUT: C2RustUnnamed_14 = 16;
 pub const A_TO_WORKSPACE_NUMBER: C2RustUnnamed_14 = 8;
@@ -461,33 +91,7 @@ pub const A_NO_FOCUS: C2RustUnnamed_14 = 4;
 pub const A_TO_WORKSPACE: C2RustUnnamed_14 = 2;
 pub const A_COMMAND: C2RustUnnamed_14 = 1;
 pub const A_ANY: C2RustUnnamed_14 = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct marks_head {
-    pub tqh_first: *mut mark_t,
-    pub tqh_last: *mut *mut mark_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct mark_t {
-    pub name: *mut ::core::ffi::c_char,
-    pub marks: C2RustUnnamed_15,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_15 {
-    pub tqe_next: *mut mark_t,
-    pub tqe_prev: *mut *mut mark_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct gaps_t {
-    pub inner: ::core::ffi::c_int,
-    pub top: ::core::ffi::c_int,
-    pub right: ::core::ffi::c_int,
-    pub bottom: ::core::ffi::c_int,
-    pub left: ::core::ffi::c_int,
-}
+
 pub type C2RustUnnamed_16 = ::core::ffi::c_uint;
 pub const CT_DOCKAREA: C2RustUnnamed_16 = 5;
 pub const CT_WORKSPACE: C2RustUnnamed_16 = 4;
@@ -495,73 +99,13 @@ pub const CT_FLOATING_CON: C2RustUnnamed_16 = 3;
 pub const CT_CON: C2RustUnnamed_16 = 2;
 pub const CT_OUTPUT: C2RustUnnamed_16 = 1;
 pub const CT_ROOT: C2RustUnnamed_16 = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct names_head {
-    pub slh_first: *mut output_name,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct output_name {
-    pub name: *mut ::core::ffi::c_char,
-    pub names: C2RustUnnamed_17,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_17 {
-    pub sle_next: *mut output_name,
-}
+
 pub type Output = xoutput;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct outputs_head {
-    pub tqh_first: *mut xoutput,
-    pub tqh_last: *mut *mut xoutput,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_xinerama_is_active_reply_t {
-    pub response_type: uint8_t,
-    pub pad0: uint8_t,
-    pub sequence: uint16_t,
-    pub length: uint32_t,
-    pub state: uint32_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_xinerama_is_active_cookie_t {
-    pub sequence: ::core::ffi::c_uint,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_xinerama_query_screens_reply_t {
-    pub response_type: uint8_t,
-    pub pad0: uint8_t,
-    pub sequence: uint16_t,
-    pub length: uint32_t,
-    pub number: uint32_t,
-    pub pad1: [uint8_t; 20],
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_xinerama_query_screens_cookie_t {
-    pub sequence: ::core::ffi::c_uint,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_xinerama_screen_info_t {
-    pub x_org: int16_t,
-    pub y_org: int16_t,
-    pub width: uint16_t,
-    pub height: uint16_t,
-}
+
 pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 static mut num_screens: ::core::ffi::c_int = 0;
-unsafe extern "C" fn get_screen_at(
-    mut x: ::core::ffi::c_uint,
-    mut y: ::core::ffi::c_uint,
-) -> *mut Output {
+unsafe fn get_screen_at(x: ::core::ffi::c_uint, y: ::core::ffi::c_uint) -> *mut Output {
     let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
     output = outputs.tqh_first as *mut Output;
     while !output.is_null() {
@@ -570,24 +114,25 @@ unsafe extern "C" fn get_screen_at(
         }
         output = (*output).outputs.tqe_next as *mut Output;
     }
-    return ::core::ptr::null_mut::<Output>();
+    ::core::ptr::null_mut::<Output>()
 }
-unsafe extern "C" fn query_screens(mut conn_0: *mut xcb_connection_t) {
-    let mut reply: *mut xcb_xinerama_query_screens_reply_t = xcb_xinerama_query_screens_reply(
+unsafe fn query_screens(conn_0: *mut xcb_connection_t) {
+    let reply: *mut xcb_xinerama_query_screens_reply_t = xcb_xinerama_query_screens_reply(
         conn_0,
         xcb_xinerama_query_screens_unchecked(conn_0),
         ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
     );
     if reply.is_null() {
         errorlog(
-            b"ERROR: Couldn't get Xinerama screens\n\0" as *const u8 as *const ::core::ffi::c_char
-                as *mut ::core::ffi::c_char,
+            c"ERROR: Couldn't get Xinerama screens\n"
+                .as_ptr()
+                .cast_mut(),
         );
         return;
     }
-    let mut screen_info: *const xcb_xinerama_screen_info_t =
+    let screen_info: *const xcb_xinerama_screen_info_t =
         xcb_xinerama_query_screens_screen_info(reply);
-    let mut screens: ::core::ffi::c_int = xcb_xinerama_query_screens_screen_info_length(reply);
+    let screens: ::core::ffi::c_int = xcb_xinerama_query_screens_screen_info_length(reply);
     let mut screen: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
     while screen < screens {
         let mut s: *mut Output = get_screen_at(
@@ -596,10 +141,11 @@ unsafe extern "C" fn query_screens(mut conn_0: *mut xcb_connection_t) {
         );
         if !s.is_null() {
             debuglog(
-                b"%s:%s:%d - Re-used old Xinerama screen %p\n\0" as *const u8
-                    as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-                b"../src/xinerama.c\0" as *const u8 as *const ::core::ffi::c_char,
-                b"query_screens\0" as *const u8 as *const ::core::ffi::c_char,
+                c"%s:%s:%d - Re-used old Xinerama screen %p\n"
+                    .as_ptr()
+                    .cast_mut(),
+                c"../src/xinerama.c".as_ptr(),
+                c"query_screens".as_ptr(),
                 50 as ::core::ffi::c_int,
                 s,
             );
@@ -613,22 +159,23 @@ unsafe extern "C" fn query_screens(mut conn_0: *mut xcb_connection_t) {
             ) as uint32_t;
         } else {
             s = scalloc(1 as size_t, ::core::mem::size_of::<Output>() as size_t) as *mut Output;
-            let mut output_name: *mut output_name =
+            let output_name: *mut output_name =
                 scalloc(1 as size_t, ::core::mem::size_of::<output_name>() as size_t)
                     as *mut output_name;
             sasprintf(
                 &raw mut (*output_name).name,
-                b"xinerama-%d\0" as *const u8 as *const ::core::ffi::c_char,
+                c"xinerama-%d".as_ptr(),
                 num_screens,
             );
             (*s).names_head.slh_first = ::core::ptr::null_mut::<output_name>();
             (*output_name).names.sle_next = (*s).names_head.slh_first;
             (*s).names_head.slh_first = output_name;
             debuglog(
-                b"%s:%s:%d - Created new Xinerama screen %s (%p)\n\0" as *const u8
-                    as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-                b"../src/xinerama.c\0" as *const u8 as *const ::core::ffi::c_char,
-                b"query_screens\0" as *const u8 as *const ::core::ffi::c_char,
+                c"%s:%s:%d - Created new Xinerama screen %s (%p)\n"
+                    .as_ptr()
+                    .cast_mut(),
+                c"../src/xinerama.c".as_ptr(),
+                c"query_screens".as_ptr(),
                 61 as ::core::ffi::c_int,
                 output_primary_name(s),
                 s,
@@ -658,10 +205,11 @@ unsafe extern "C" fn query_screens(mut conn_0: *mut xcb_connection_t) {
             num_screens += 1;
         }
         debuglog(
-            b"%s:%s:%d - found Xinerama screen: %d x %d at %d x %d\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/xinerama.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"query_screens\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - found Xinerama screen: %d x %d at %d x %d\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/xinerama.c".as_ptr(),
+            c"query_screens".as_ptr(),
             80 as ::core::ffi::c_int,
             (*screen_info.offset(screen as isize)).width as ::core::ffi::c_int,
             (*screen_info.offset(screen as isize)).height as ::core::ffi::c_int,
@@ -673,14 +221,15 @@ unsafe extern "C" fn query_screens(mut conn_0: *mut xcb_connection_t) {
     free(reply as *mut ::core::ffi::c_void);
     if num_screens == 0 as ::core::ffi::c_int {
         errorlog(
-            b"ERROR: No screens found. Please fix your setup. i3 will exit now.\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
+            c"ERROR: No screens found. Please fix your setup. i3 will exit now.\n"
+                .as_ptr()
+                .cast_mut(),
         );
         exit(EXIT_SUCCESS);
     }
 }
-unsafe extern "C" fn use_root_output(mut conn_0: *mut xcb_connection_t) {
-    let mut s: *mut Output = create_root_output(conn_0);
+unsafe fn use_root_output(conn_0: *mut xcb_connection_t) {
+    let s: *mut Output = create_root_output(conn_0);
     (*s).active = true_0 != 0;
     (*s).outputs.tqe_next = ::core::ptr::null_mut::<xoutput>();
     (*s).outputs.tqe_prev = outputs.tqh_last;
@@ -689,14 +238,15 @@ unsafe extern "C" fn use_root_output(mut conn_0: *mut xcb_connection_t) {
     output_init_con(s);
     init_ws_for_output(s);
 }
-#[no_mangle]
-pub unsafe extern "C" fn xinerama_init() {
+
+pub unsafe fn xinerama_init() {
     if (*xcb_get_extension_data(conn, &raw mut xcb_xinerama_id)).present == 0 {
         debuglog(
-            b"%s:%s:%d - Xinerama extension not found, using root output.\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/xinerama.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"xinerama_init\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - Xinerama extension not found, using root output.\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/xinerama.c".as_ptr(),
+            c"xinerama_init".as_ptr(),
             111 as ::core::ffi::c_int,
         );
         use_root_output(conn);
@@ -708,11 +258,11 @@ pub unsafe extern "C" fn xinerama_init() {
         );
         if reply.is_null() || (*reply).state == 0 {
             debuglog(
-                b"%s:%s:%d - Xinerama is not active (in your X-Server), using root output.\n\0"
-                    as *const u8 as *const ::core::ffi::c_char
-                    as *mut ::core::ffi::c_char,
-                b"../src/xinerama.c\0" as *const u8 as *const ::core::ffi::c_char,
-                b"xinerama_init\0" as *const u8 as *const ::core::ffi::c_char,
+                c"%s:%s:%d - Xinerama is not active (in your X-Server), using root output.\n"
+                    .as_ptr()
+                    .cast_mut(),
+                c"../src/xinerama.c".as_ptr(),
+                c"xinerama_init".as_ptr(),
                 117 as ::core::ffi::c_int,
             );
             use_root_output(conn);
@@ -724,3 +274,33 @@ pub unsafe extern "C" fn xinerama_init() {
     };
 }
 pub const EXIT_SUCCESS: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
+
+// Internal helpers use Rust linkage rather than foreign symbol lookup.
+use crate::util::min;
+use i3_common::safewrappers::scalloc;
+
+// Canonical Cairo backend ABI; renderer logic remains local.
+
+use xcb_sys::{
+    xcb_connection_t, xcb_generic_error_t, xcb_get_extension_data, xcb_xinerama_id,
+    xcb_xinerama_is_active, xcb_xinerama_is_active_reply, xcb_xinerama_is_active_reply_t,
+    xcb_xinerama_query_screens_reply, xcb_xinerama_query_screens_reply_t,
+    xcb_xinerama_query_screens_screen_info, xcb_xinerama_query_screens_screen_info_length,
+    xcb_xinerama_query_screens_unchecked, xcb_xinerama_screen_info_t,
+};
+
+pub use libc::{exit, free};
+
+use crate::log::{debuglog, errorlog};
+
+// Shared model types retain field layout while using one Rust identity.
+pub use crate::types::output_name;
+pub use crate::types::xoutput;
+pub use i3_common::string::I3String as _i3String;
+
+// Internal calls and globals use canonical Rust identities.
+use crate::application::conn;
+use crate::output::output_primary_name;
+use crate::randr::create_root_output;
+use crate::randr::init_ws_for_output;
+use crate::randr::output_init_con;

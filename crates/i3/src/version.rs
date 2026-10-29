@@ -9,8 +9,8 @@
  *
  */
 // Mechanical file-by-file Rust translation of src/version.c.
-// Generated with C2Rust 0.22.1; C ABI and original ownership retained.
+// Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 pub const I3_VERSION: &[u8] = concat!(env!("I3_VERSION"), "\0").as_bytes();
-#[no_mangle]
+
 pub static mut i3_version: *const ::core::ffi::c_char =
     I3_VERSION.as_ptr().cast::<::core::ffi::c_char>();

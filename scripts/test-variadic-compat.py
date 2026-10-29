@@ -3,34 +3,33 @@
 
     python scripts/test-variadic-compat.py --toolchain nightly --toolchain esp
 
-Compiles only Rust into temporary files. No Cargo, C compiler, X connection or
-window manager is used. Strings, floating arguments and spilled integer args
-exercise the same printf ABI used by i3's logging and allocation helpers.
+Compiles a temporary Cargo probe using only Rust and the cached libc crate.
+No C compiler, X connection or window manager is used. Strings, floating
+arguments and spilled integer args exercise the same printf ABI used by i3's logging and allocation helpers.
 """
 import argparse
 import json
 from pathlib import Path
 import re
 import subprocess
-import tempfile
+from workspace_temp import temporary_directory
+import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = r'''
 #![feature(c_variadic)]
 #![allow(dead_code, unused_mut, unused_assignments, non_camel_case_types,
          non_upper_case_globals, stable_features)]
-// Mirror the common crate's exported macro namespace without linking a second
-// copy of its C symbols into this focused standalone ABI fixture.
+// Include the actual forwarding modules without building graphical dependencies.
 extern crate self as i3_common;
 #[path = VARIADIC_COMPAT_PATH]
 mod variadic_compat;
 #[path = SAFETYWRAPPERS_PATH]
 mod safewrappers;
-extern "C" {
-    fn vasprintf(out: *mut *mut core::ffi::c_char, format: *const core::ffi::c_char,
-                 arguments: core::ffi::VaList) -> core::ffi::c_int;
-    fn free(ptr: *mut core::ffi::c_void);
-}
+#[path = NATIVE_STDIO_PATH]
+mod native_stdio;
+use native_stdio::vasprintf;
+use libc::free;
 
 unsafe extern "C" fn copy_twice(format: *const core::ffi::c_char, mut args: ...) {
     let mut cursor = args.clone();
@@ -73,22 +72,31 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--toolchain', action='append', default=[])
     args = parser.parse_args()
-    with tempfile.TemporaryDirectory(prefix='i333-variadic-compat-') as work:
+    with temporary_directory(prefix='i333-variadic-compat-') as work:
         work = Path(work)
         source = work / 'check.rs'
+        libc_version = tomllib.loads((ROOT / 'Cargo.toml').read_text())['workspace']['dependencies']['libc']
+        (work / 'Cargo.toml').write_text(
+            '[package]\nname = "i333-variadic-probe"\nversion = "0.0.0"\nedition = "2021"\n'
+            '[workspace]\n[dependencies]\nlibc = ' + json.dumps(libc_version) + '\n'
+            '[[bin]]\nname = "check"\npath = "check.rs"\n')
         source.write_text(SOURCE.replace('SAFETYWRAPPERS_PATH', json.dumps(
             str(ROOT / 'crates/i3-common/src/safewrappers.rs'))).replace('VARIADIC_COMPAT_PATH',
-            json.dumps(str(ROOT / 'crates/i3-common/src/variadic_compat.rs'))))
+            json.dumps(str(ROOT / 'crates/i3-common/src/variadic_compat.rs'))).replace(
+            'NATIVE_STDIO_PATH', json.dumps(str(ROOT / 'crates/i3-common/src/native_stdio.rs'))))
         for toolchain in args.toolchain or [None]:
             rustc = ['rustc'] + ([f'+{toolchain}'] if toolchain else [])
             version = subprocess.check_output([*rustc, '--version'], text=True)
             minor = int(re.match(r'rustc 1\.(\d+)', version)[1])
-            command = [*rustc, '--edition=2021', '--check-cfg=cfg(i333_new_va_list)',
-                       str(source), '-o', str(work / 'check')]
+            cargo = ['cargo'] + ([f'+{toolchain}'] if toolchain else [])
+            target = work / ('target-' + (toolchain or 'default'))
+            command = [*cargo, 'rustc', '--offline', '--manifest-path',
+                       str(work / 'Cargo.toml'), '--target-dir', str(target),
+                       '--bin', 'check', '--', '--check-cfg=cfg(i333_new_va_list)']
             if minor >= 99:
                 command.extend(['--cfg', 'i333_new_va_list'])
             subprocess.run(command, check=True)
-            subprocess.run([str(work / 'check')], check=True)
+            subprocess.run([str(target / 'debug/check')], check=True)
             print(version.strip(), flush=True)
 
 

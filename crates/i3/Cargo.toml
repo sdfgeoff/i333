@@ -6,9 +6,17 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+startup-notification-sys.workspace = true
+xkbcommon.workspace = true
+xcb-sys.workspace = true
 libc.workspace = true
 c2rust-bitfields.workspace = true
 i3-common.workspace = true
+i3-json.workspace = true
+pcre2.workspace = true
+libev-sys.workspace = true
+cairo-sys.workspace = true
+pango-sys.workspace = true
 
 [build-dependencies]
 i3-build.workspace = true
@@ -16,5 +24,5 @@ i3-build.workspace = true
 [[bin]]
 name = "i3"
 path = "src/main.rs"
-test = false
+test = true
 bench = false

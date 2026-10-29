@@ -25,7 +25,7 @@ use v5.10;
 sub migrate_config {
     my ($config) = @_;
 
-    my ($fh, $tmpfile) = tempfile('/tmp/i3-migrate-cfg.XXXXXX', UNLINK => 1);
+    my ($fh, $tmpfile) = tempfile('i3-migrate-cfg.XXXXXX', TMPDIR => 1, UNLINK => 1);
     print $fh $config;
     close($fh);
 

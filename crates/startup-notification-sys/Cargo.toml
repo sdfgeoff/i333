@@ -1,0 +1,14 @@
+[package]
+name = "startup-notification-sys"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+links = "startup-notification-1"
+description = "Native startup-notification boundary for i3"
+
+[dependencies]
+xcb-sys.workspace = true
+
+[build-dependencies]
+pkg-config.workspace = true

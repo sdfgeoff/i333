@@ -1,0 +1,15 @@
+[package]
+name = "xcb-sys"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+links = "i3-xcb"
+description = "Shared native XCB protocol boundary for i3"
+
+[dependencies]
+xcb.workspace = true
+as-raw-xcb-connection.workspace = true
+
+[build-dependencies]
+pkg-config.workspace = true

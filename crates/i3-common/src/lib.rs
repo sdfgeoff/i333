@@ -1,4 +1,4 @@
-#![feature(c_variadic, extern_types)]
+#![feature(c_variadic)]
 #![allow(
     dead_code,
     unused_imports,
@@ -20,6 +20,7 @@ extern crate c2rust_bitfields;
 
 pub mod boolstr;
 pub mod create_socket;
+pub mod display;
 pub mod dpi;
 pub mod draw_util;
 pub mod fake_configure_notify;
@@ -37,7 +38,9 @@ pub mod ipc_recv_message;
 pub mod ipc_send_message;
 pub mod is_background_set;
 pub mod is_debug_build;
+pub mod logging;
 pub mod mkdirp;
+pub mod native_stdio;
 pub mod nonblock;
 pub mod path_exists;
 pub mod resolve_tilde;
@@ -50,3 +53,6 @@ mod variadic_compat;
 
 #[cfg(test)]
 mod tests;
+
+/// Owned, byte-preserving command-line parsing shared by the executables.
+pub mod cli;

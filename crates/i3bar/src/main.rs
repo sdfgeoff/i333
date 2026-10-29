@@ -1,4 +1,4 @@
-#![feature(c_variadic, extern_types)]
+#![feature(c_variadic)]
 #![allow(
     dead_code,
     unused_imports,
@@ -31,5 +31,43 @@ mod workspaces;
 mod xcb;
 
 fn main() {
+    i3_common::display::set_provider(common_display_context);
+    i3_common::logging::set_sink(common_log_sink);
     application::main();
+}
+
+fn common_log_sink(level: i3_common::logging::Level, message: &[u8]) {
+    use i3_common::logging::Level;
+    let length = message.len().min(i32::MAX as usize) as i32;
+    // A constant format prevents diagnostic bytes from becoming conversions.
+    unsafe {
+        match level {
+            Level::Error => application::errorlog(
+                c"%.*s".as_ptr().cast_mut(),
+                length,
+                message.as_ptr().cast::<libc::c_char>(),
+            ),
+            Level::Verbose => application::verboselog(
+                c"%.*s".as_ptr().cast_mut(),
+                length,
+                message.as_ptr().cast::<libc::c_char>(),
+            ),
+            Level::Debug => application::debuglog(
+                c"%.*s".as_ptr().cast_mut(),
+                length,
+                message.as_ptr().cast::<libc::c_char>(),
+            ),
+        }
+    }
+}
+
+fn common_display_context() -> i3_common::display::DisplayContext {
+    // These pointers remain owned by the program and are read on its event thread.
+    unsafe {
+        i3_common::display::DisplayContext {
+            connection: xcb::conn,
+            root_screen: xcb::root_screen,
+            visual_type: xcb::visual_type,
+        }
+    }
 }

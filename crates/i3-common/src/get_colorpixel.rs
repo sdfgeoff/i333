@@ -6,43 +6,7 @@
  *
  */
 // Mechanical file-by-file Rust translation of libi3/get_colorpixel.c.
-// Generated with C2Rust 0.22.1; C ABI and original ownership retained.
-extern "C" {
-    pub type xcb_connection_t;
-    fn xcb_alloc_color(
-        c: *mut xcb_connection_t,
-        cmap: xcb_colormap_t,
-        red: uint16_t,
-        green: uint16_t,
-        blue: uint16_t,
-    ) -> xcb_alloc_color_cookie_t;
-    fn xcb_alloc_color_reply(
-        c: *mut xcb_connection_t,
-        cookie: xcb_alloc_color_cookie_t,
-        e: *mut *mut xcb_generic_error_t,
-    ) -> *mut xcb_alloc_color_reply_t;
-    static mut conn: *mut xcb_connection_t;
-    static mut root_screen: *mut xcb_screen_t;
-    fn verboselog(fmt: *mut ::core::ffi::c_char, ...);
-    fn scalloc(num: size_t, size: size_t) -> *mut ::core::ffi::c_void;
-    fn strncpy(
-        __dest: *mut ::core::ffi::c_char,
-        __src: *const ::core::ffi::c_char,
-        __n: size_t,
-    ) -> *mut ::core::ffi::c_char;
-    fn strcmp(
-        __s1: *const ::core::ffi::c_char,
-        __s2: *const ::core::ffi::c_char,
-    ) -> ::core::ffi::c_int;
-    fn strlen(__s: *const ::core::ffi::c_char) -> size_t;
-    fn strtol(
-        __nptr: *const ::core::ffi::c_char,
-        __endptr: *mut *mut ::core::ffi::c_char,
-        __base: ::core::ffi::c_int,
-    ) -> ::core::ffi::c_long;
-    fn free(__ptr: *mut ::core::ffi::c_void);
-    fn exit(__status: ::core::ffi::c_int) -> !;
-}
+// Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 pub type size_t = usize;
 pub type __uint8_t = u8;
 pub type __uint16_t = u16;
@@ -50,60 +14,7 @@ pub type __uint32_t = u32;
 pub type uint8_t = __uint8_t;
 pub type uint16_t = __uint16_t;
 pub type uint32_t = __uint32_t;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_generic_error_t {
-    pub response_type: uint8_t,
-    pub error_code: uint8_t,
-    pub sequence: uint16_t,
-    pub resource_id: uint32_t,
-    pub minor_code: uint16_t,
-    pub major_code: uint8_t,
-    pub pad0: uint8_t,
-    pub pad: [uint32_t; 5],
-    pub full_sequence: uint32_t,
-}
-pub type xcb_window_t = uint32_t;
-pub type xcb_colormap_t = uint32_t;
-pub type xcb_visualid_t = uint32_t;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_screen_t {
-    pub root: xcb_window_t,
-    pub default_colormap: xcb_colormap_t,
-    pub white_pixel: uint32_t,
-    pub black_pixel: uint32_t,
-    pub current_input_masks: uint32_t,
-    pub width_in_pixels: uint16_t,
-    pub height_in_pixels: uint16_t,
-    pub width_in_millimeters: uint16_t,
-    pub height_in_millimeters: uint16_t,
-    pub min_installed_maps: uint16_t,
-    pub max_installed_maps: uint16_t,
-    pub root_visual: xcb_visualid_t,
-    pub backing_stores: uint8_t,
-    pub save_unders: uint8_t,
-    pub root_depth: uint8_t,
-    pub allowed_depths_len: uint8_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_alloc_color_cookie_t {
-    pub sequence: ::core::ffi::c_uint,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_alloc_color_reply_t {
-    pub response_type: uint8_t,
-    pub pad0: uint8_t,
-    pub sequence: uint16_t,
-    pub length: uint32_t,
-    pub red: uint16_t,
-    pub green: uint16_t,
-    pub blue: uint16_t,
-    pub pad1: [uint8_t; 2],
-    pub pixel: uint32_t,
-}
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct Colorpixel {
@@ -122,14 +33,20 @@ pub struct colorpixel_head {
     pub slh_first: *mut Colorpixel,
 }
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
-#[no_mangle]
+
 pub static mut colorpixels: colorpixel_head = colorpixel_head {
     slh_first: ::core::ptr::null::<Colorpixel>() as *mut Colorpixel,
 };
-#[no_mangle]
-pub unsafe extern "C" fn get_colorpixel(mut hex: *const ::core::ffi::c_char) -> uint32_t {
+
+pub unsafe fn get_colorpixel(hex: *const ::core::ffi::c_char) -> uint32_t {
+    let crate::display::DisplayContext {
+        connection: conn,
+        root_screen,
+        ..
+    } = crate::display::context();
+
     let mut alpha: [::core::ffi::c_char; 2] = [0; 2];
-    if strlen(hex) == strlen(b"#rrggbbaa\0" as *const u8 as *const ::core::ffi::c_char) {
+    if strlen(hex) == strlen(c"#rrggbbaa".as_ptr()) {
         alpha[0 as ::core::ffi::c_int as usize] = *hex.offset(7 as ::core::ffi::c_int as isize);
         alpha[1 as ::core::ffi::c_int as usize] = *hex.offset(8 as ::core::ffi::c_int as isize);
     } else {
@@ -158,25 +75,25 @@ pub unsafe extern "C" fn get_colorpixel(mut hex: *const ::core::ffi::c_char) -> 
             '\0' as i32 as ::core::ffi::c_char,
         ],
     ];
-    let mut r: uint8_t = strtol(
+    let r: uint8_t = strtol(
         &raw mut *(&raw mut strgroups as *mut [::core::ffi::c_char; 3])
             .offset(0 as ::core::ffi::c_int as isize) as *mut ::core::ffi::c_char,
         ::core::ptr::null_mut::<*mut ::core::ffi::c_char>(),
         16 as ::core::ffi::c_int,
     ) as uint8_t;
-    let mut g: uint8_t = strtol(
+    let g: uint8_t = strtol(
         &raw mut *(&raw mut strgroups as *mut [::core::ffi::c_char; 3])
             .offset(1 as ::core::ffi::c_int as isize) as *mut ::core::ffi::c_char,
         ::core::ptr::null_mut::<*mut ::core::ffi::c_char>(),
         16 as ::core::ffi::c_int,
     ) as uint8_t;
-    let mut b: uint8_t = strtol(
+    let b: uint8_t = strtol(
         &raw mut *(&raw mut strgroups as *mut [::core::ffi::c_char; 3])
             .offset(2 as ::core::ffi::c_int as isize) as *mut ::core::ffi::c_char,
         ::core::ptr::null_mut::<*mut ::core::ffi::c_char>(),
         16 as ::core::ffi::c_int,
     ) as uint8_t;
-    let mut a: uint8_t = strtol(
+    let a: uint8_t = strtol(
         &raw mut *(&raw mut strgroups as *mut [::core::ffi::c_char; 3])
             .offset(3 as ::core::ffi::c_int as isize) as *mut ::core::ffi::c_char,
         ::core::ptr::null_mut::<*mut ::core::ffi::c_char>(),
@@ -201,13 +118,13 @@ pub unsafe extern "C" fn get_colorpixel(mut hex: *const ::core::ffi::c_char) -> 
         }
         colorpixel = (*colorpixel).colorpixels.sle_next;
     }
-    let mut r16: ::core::ffi::c_int = 65535 as ::core::ffi::c_int
+    let r16: ::core::ffi::c_int = 65535 as ::core::ffi::c_int
         * (r as ::core::ffi::c_int & 0xff as ::core::ffi::c_int)
         / 255 as ::core::ffi::c_int;
-    let mut g16: ::core::ffi::c_int = 65535 as ::core::ffi::c_int
+    let g16: ::core::ffi::c_int = 65535 as ::core::ffi::c_int
         * (g as ::core::ffi::c_int & 0xff as ::core::ffi::c_int)
         / 255 as ::core::ffi::c_int;
-    let mut b16: ::core::ffi::c_int = 65535 as ::core::ffi::c_int
+    let b16: ::core::ffi::c_int = 65535 as ::core::ffi::c_int
         * (b as ::core::ffi::c_int & 0xff as ::core::ffi::c_int)
         / 255 as ::core::ffi::c_int;
     let mut reply: *mut xcb_alloc_color_reply_t =
@@ -225,14 +142,15 @@ pub unsafe extern "C" fn get_colorpixel(mut hex: *const ::core::ffi::c_char) -> 
     );
     if reply.is_null() {
         verboselog(
-            b"[libi3] ../libi3/get_colorpixel.c Could not allocate color\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
+            c"[libi3] ../libi3/get_colorpixel.c Could not allocate color\n"
+                .as_ptr()
+                .cast_mut(),
         );
         exit(1 as ::core::ffi::c_int);
     }
-    let mut pixel: uint32_t = (*reply).pixel;
+    let pixel: uint32_t = (*reply).pixel;
     free(reply as *mut ::core::ffi::c_void);
-    let mut cache_pixel: *mut Colorpixel =
+    let cache_pixel: *mut Colorpixel =
         scalloc(1 as size_t, ::core::mem::size_of::<Colorpixel>() as size_t) as *mut Colorpixel;
     strncpy(
         &raw mut (*cache_pixel).hex as *mut ::core::ffi::c_char,
@@ -243,5 +161,16 @@ pub unsafe extern "C" fn get_colorpixel(mut hex: *const ::core::ffi::c_char) -> 
     (*cache_pixel).pixel = pixel;
     (*cache_pixel).colorpixels.sle_next = colorpixels.slh_first;
     colorpixels.slh_first = cache_pixel;
-    return pixel;
+    pixel
 }
+
+// Internal helpers use Rust linkage rather than foreign symbol lookup.
+use crate::safewrappers::scalloc;
+
+use xcb_sys::{
+    xcb_alloc_color, xcb_alloc_color_reply, xcb_alloc_color_reply_t, xcb_generic_error_t,
+};
+
+pub use libc::{exit, free, strcmp, strlen, strncpy, strtol};
+
+use crate::logging::verboselog;

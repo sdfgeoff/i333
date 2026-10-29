@@ -19,7 +19,7 @@ import shutil
 import socket
 import struct
 import subprocess
-import tempfile
+from workspace_temp import temporary_directory, make_tempdir
 import time
 
 from Xlib import X, display
@@ -92,7 +92,7 @@ def count_windows(node):
 
 @contextlib.contextmanager
 def session(binary, xvfb):
-    with tempfile.TemporaryDirectory(prefix="i333-headless-") as temporary:
+    with temporary_directory(prefix="i333-headless-") as temporary:
         work = Path(temporary)
         env = {k: v for k, v in os.environ.items()
                if k not in ("DISPLAY", "I3SOCK", "WAYLAND_DISPLAY", "XAUTHORITY")}
@@ -233,7 +233,7 @@ def main():
     for (label, expected), (other_label, actual) in zip(reference, candidate, strict=True):
         assert label == other_label
         if expected != actual:
-            artifacts = Path(tempfile.mkdtemp(prefix="i333-parity-diff-"))
+            artifacts = Path(make_tempdir(prefix="i333-parity-diff-"))
             (artifacts / "expected.json").write_text(json.dumps(expected, indent=2))
             (artifacts / "actual.json").write_text(json.dumps(actual, indent=2))
             raise AssertionError(f"Behavior differs after {label}; see {artifacts}")

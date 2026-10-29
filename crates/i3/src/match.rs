@@ -1,3 +1,4 @@
+use crate::tree::all_cons;
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -12,68 +13,7 @@
  *
  */
 // Mechanical file-by-file Rust translation of src/match.c.
-// Generated with C2Rust 0.22.1; C ABI and original ownership retained.
-extern "C" {
-    pub type _cairo;
-    pub type _cairo_surface;
-    pub type _i3String;
-    pub type pcre2_real_code_8;
-    pub type ev_loop;
-    fn __assert_fail(
-        __assertion: *const ::core::ffi::c_char,
-        __file: *const ::core::ffi::c_char,
-        __line: ::core::ffi::c_uint,
-        __function: *const ::core::ffi::c_char,
-    ) -> !;
-    fn __assert_single_arg(_: bool) -> bool;
-    fn verboselog(fmt: *mut ::core::ffi::c_char, ...);
-    fn errorlog(fmt: *mut ::core::ffi::c_char, ...);
-    fn debuglog(fmt: *mut ::core::ffi::c_char, ...);
-    fn sstrdup(str: *const ::core::ffi::c_char) -> *mut ::core::ffi::c_char;
-    fn i3string_as_utf8(str: *mut i3String) -> *const ::core::ffi::c_char;
-    fn parse_long(
-        str: *const ::core::ffi::c_char,
-        out: *mut ::core::ffi::c_long,
-        base: ::core::ffi::c_int,
-    ) -> bool;
-    static mut focused: *mut Con;
-    static mut all_cons: all_cons_head;
-    static mut A__NET_WM_WINDOW_TYPE_NORMAL: xcb_atom_t;
-    static mut A__NET_WM_WINDOW_TYPE_DIALOG: xcb_atom_t;
-    static mut A__NET_WM_WINDOW_TYPE_UTILITY: xcb_atom_t;
-    static mut A__NET_WM_WINDOW_TYPE_TOOLBAR: xcb_atom_t;
-    static mut A__NET_WM_WINDOW_TYPE_SPLASH: xcb_atom_t;
-    static mut A__NET_WM_WINDOW_TYPE_MENU: xcb_atom_t;
-    static mut A__NET_WM_WINDOW_TYPE_DROPDOWN_MENU: xcb_atom_t;
-    static mut A__NET_WM_WINDOW_TYPE_POPUP_MENU: xcb_atom_t;
-    static mut A__NET_WM_WINDOW_TYPE_TOOLTIP: xcb_atom_t;
-    static mut A__NET_WM_WINDOW_TYPE_NOTIFICATION: xcb_atom_t;
-    fn con_get_workspace(con: *mut Con) -> *mut Con;
-    fn con_inside_floating(con: *mut Con) -> *mut Con;
-    fn con_by_window_id(window: xcb_window_t) -> *mut Con;
-    fn regex_new(pattern: *const ::core::ffi::c_char) -> *mut regex;
-    fn regex_free(regex: *mut regex);
-    fn regex_matches(regex: *const regex, input: *const ::core::ffi::c_char) -> bool;
-    fn memcpy(
-        __dest: *mut ::core::ffi::c_void,
-        __src: *const ::core::ffi::c_void,
-        __n: size_t,
-    ) -> *mut ::core::ffi::c_void;
-    fn memset(
-        __s: *mut ::core::ffi::c_void,
-        __c: ::core::ffi::c_int,
-        __n: size_t,
-    ) -> *mut ::core::ffi::c_void;
-    fn strcmp(
-        __s1: *const ::core::ffi::c_char,
-        __s2: *const ::core::ffi::c_char,
-    ) -> ::core::ffi::c_int;
-    fn strcasecmp(
-        __s1: *const ::core::ffi::c_char,
-        __s2: *const ::core::ffi::c_char,
-    ) -> ::core::ffi::c_int;
-    fn free(__ptr: *mut ::core::ffi::c_void);
-}
+// Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 pub type size_t = usize;
 pub type __uint8_t = u8;
 pub type __uint16_t = u16;
@@ -81,131 +21,18 @@ pub type __uint32_t = u32;
 pub type __time_t = ::core::ffi::c_long;
 pub type __suseconds_t = ::core::ffi::c_long;
 pub type time_t = __time_t;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct timeval {
-    pub tv_sec: __time_t,
-    pub tv_usec: __suseconds_t,
-}
+
 pub type uint8_t = __uint8_t;
 pub type uint16_t = __uint16_t;
 pub type uint32_t = __uint32_t;
-pub type xcb_window_t = uint32_t;
-pub type xcb_gcontext_t = uint32_t;
-pub type xcb_colormap_t = uint32_t;
-pub type xcb_atom_t = uint32_t;
-pub type xcb_drawable_t = uint32_t;
-pub type cairo_t = _cairo;
-pub type cairo_surface_t = _cairo_surface;
+
 pub type i3String = _i3String;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct color_t {
-    pub red: ::core::ffi::c_double,
-    pub green: ::core::ffi::c_double,
-    pub blue: ::core::ffi::c_double,
-    pub alpha: ::core::ffi::c_double,
-    pub colorpixel: uint32_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct surface_t {
-    pub id: xcb_drawable_t,
-    pub gc: xcb_gcontext_t,
-    pub owns_gc: bool,
-    pub width: ::core::ffi::c_int,
-    pub height: ::core::ffi::c_int,
-    pub surface: *mut cairo_surface_t,
-    pub cr: *mut cairo_t,
-}
-pub type pcre2_code_8 = pcre2_real_code_8;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Rect {
-    pub x: uint32_t,
-    pub y: uint32_t,
-    pub width: uint32_t,
-    pub height: uint32_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Con {
-    pub mapped: bool,
-    pub urgent: bool,
-    pub ignore_unmap: uint8_t,
-    pub frame: surface_t,
-    pub frame_buffer: surface_t,
-    pub pixmap_recreated: bool,
-    pub type_0: C2RustUnnamed_15,
-    pub num: ::core::ffi::c_int,
-    pub gaps: gaps_t,
-    pub parent: *mut Con,
-    pub rect: Rect,
-    pub window_rect: Rect,
-    pub deco_rect: Rect,
-    pub geometry: Rect,
-    pub name: *mut ::core::ffi::c_char,
-    pub title_format: *mut ::core::ffi::c_char,
-    pub window_icon_padding: ::core::ffi::c_int,
-    pub sticky_group: *mut ::core::ffi::c_char,
-    pub marks_head: marks_head,
-    pub mark_changed: bool,
-    pub percent: ::core::ffi::c_double,
-    pub border_width: ::core::ffi::c_int,
-    pub current_border_width: ::core::ffi::c_int,
-    pub window: *mut Window,
-    pub urgency_timer: *mut ev_timer,
-    pub deco_render_params: *mut deco_render_params,
-    pub floating_head: floating_head,
-    pub nodes_head: nodes_head,
-    pub focus_head: focus_head,
-    pub swallow_head: swallow_head,
-    pub fullscreen_mode: fullscreen_mode_t,
-    pub sticky: bool,
-    pub layout: layout_t,
-    pub last_split_layout: layout_t,
-    pub workspace_layout: layout_t,
-    pub border_style: border_style_t,
-    pub max_user_border_style: border_style_t,
-    pub floating: C2RustUnnamed_4,
-    pub nodes: C2RustUnnamed_3,
-    pub focused: C2RustUnnamed_2,
-    pub all_cons: C2RustUnnamed_1,
-    pub floating_windows: C2RustUnnamed_0,
-    pub on_remove_child: Option<unsafe extern "C" fn(*mut Con) -> ()>,
-    pub scratchpad_state: C2RustUnnamed,
-    pub old_id: ::core::ffi::c_int,
-    pub depth: uint16_t,
-    pub colormap: xcb_colormap_t,
-}
+
 pub type C2RustUnnamed = ::core::ffi::c_uint;
 pub const SCRATCHPAD_CHANGED: C2RustUnnamed = 2;
 pub const SCRATCHPAD_FRESH: C2RustUnnamed = 1;
 pub const SCRATCHPAD_NONE: C2RustUnnamed = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_0 {
-    pub tqe_next: *mut Con,
-    pub tqe_prev: *mut *mut Con,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_1 {
-    pub tqe_next: *mut Con,
-    pub tqe_prev: *mut *mut Con,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_2 {
-    pub tqe_next: *mut Con,
-    pub tqe_prev: *mut *mut Con,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_3 {
-    pub tqe_next: *mut Con,
-    pub tqe_prev: *mut *mut Con,
-}
+
 pub type C2RustUnnamed_4 = ::core::ffi::c_uint;
 pub const FLOATING_USER_ON: C2RustUnnamed_4 = 3;
 pub const FLOATING_AUTO_ON: C2RustUnnamed_4 = 2;
@@ -227,41 +54,7 @@ pub type fullscreen_mode_t = ::core::ffi::c_uint;
 pub const CF_GLOBAL: fullscreen_mode_t = 2;
 pub const CF_OUTPUT: fullscreen_mode_t = 1;
 pub const CF_NONE: fullscreen_mode_t = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct swallow_head {
-    pub tqh_first: *mut Match,
-    pub tqh_last: *mut *mut Match,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Match {
-    pub error: *mut ::core::ffi::c_char,
-    pub title: *mut regex,
-    pub application: *mut regex,
-    pub class: *mut regex,
-    pub instance: *mut regex,
-    pub mark: *mut regex,
-    pub window_role: *mut regex,
-    pub workspace: *mut regex,
-    pub machine: *mut regex,
-    pub window_type: xcb_atom_t,
-    pub urgent: C2RustUnnamed_9,
-    pub dock: C2RustUnnamed_8,
-    pub id: xcb_window_t,
-    pub window_mode: C2RustUnnamed_7,
-    pub con_id: *mut Con,
-    pub match_all_windows: bool,
-    pub insert_where: C2RustUnnamed_6,
-    pub matches: C2RustUnnamed_5,
-    pub restart_mode: bool,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_5 {
-    pub tqe_next: *mut Match,
-    pub tqe_prev: *mut *mut Match,
-}
+
 pub type C2RustUnnamed_6 = ::core::ffi::c_uint;
 pub const M_BELOW: C2RustUnnamed_6 = 2;
 pub const M_ASSIGN_WS: C2RustUnnamed_6 = 1;
@@ -284,141 +77,12 @@ pub type C2RustUnnamed_9 = ::core::ffi::c_int;
 pub const U_OLDEST: C2RustUnnamed_9 = 1;
 pub const U_LATEST: C2RustUnnamed_9 = 0;
 pub const U_DONTCHECK: C2RustUnnamed_9 = -1;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct regex {
-    pub pattern: *mut ::core::ffi::c_char,
-    pub regex: *mut pcre2_code_8,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct focus_head {
-    pub tqh_first: *mut Con,
-    pub tqh_last: *mut *mut Con,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct nodes_head {
-    pub tqh_first: *mut Con,
-    pub tqh_last: *mut *mut Con,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct floating_head {
-    pub tqh_first: *mut Con,
-    pub tqh_last: *mut *mut Con,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct deco_render_params {
-    pub color: *mut Colortriple,
-    pub border_style: ::core::ffi::c_int,
-    pub con_rect: width_height,
-    pub con_window_rect: width_height,
-    pub con_deco_rect: Rect,
-    pub background: color_t,
-    pub parent_layout: layout_t,
-    pub con_is_leaf: bool,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct width_height {
-    pub w: uint32_t,
-    pub h: uint32_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Colortriple {
-    pub border: color_t,
-    pub background: color_t,
-    pub text: color_t,
-    pub indicator: color_t,
-    pub child_border: color_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct ev_timer {
-    pub active: ::core::ffi::c_int,
-    pub pending: ::core::ffi::c_int,
-    pub priority: ::core::ffi::c_int,
-    pub data: *mut ::core::ffi::c_void,
-    pub cb: Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_timer, ::core::ffi::c_int) -> ()>,
-    pub at: ev_tstamp,
-    pub repeat: ev_tstamp,
-}
-pub type ev_tstamp = ::core::ffi::c_double;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Window {
-    pub id: xcb_window_t,
-    pub leader: xcb_window_t,
-    pub transient_for: xcb_window_t,
-    pub nr_assignments: uint32_t,
-    pub ran_assignments: *mut *mut Assignment,
-    pub class_class: *mut ::core::ffi::c_char,
-    pub class_instance: *mut ::core::ffi::c_char,
-    pub name: *mut i3String,
-    pub role: *mut ::core::ffi::c_char,
-    pub machine: *mut ::core::ffi::c_char,
-    pub name_x_changed: bool,
-    pub uses_net_wm_name: bool,
-    pub needs_take_focus: bool,
-    pub doesnt_accept_focus: bool,
-    pub window_type: xcb_atom_t,
-    pub wm_desktop: uint32_t,
-    pub dock: C2RustUnnamed_10,
-    pub urgent: timeval,
-    pub reserved: reservedpx,
-    pub depth: uint16_t,
-    pub base_width: ::core::ffi::c_int,
-    pub base_height: ::core::ffi::c_int,
-    pub width_increment: ::core::ffi::c_int,
-    pub height_increment: ::core::ffi::c_int,
-    pub min_width: ::core::ffi::c_int,
-    pub min_height: ::core::ffi::c_int,
-    pub max_width: ::core::ffi::c_int,
-    pub max_height: ::core::ffi::c_int,
-    pub min_aspect_ratio: ::core::ffi::c_double,
-    pub max_aspect_ratio: ::core::ffi::c_double,
-    pub icon: *mut cairo_surface_t,
-    pub shaped: bool,
-    pub input_shaped: bool,
-    pub managed_since: time_t,
-    pub swallowed: bool,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct reservedpx {
-    pub left: uint32_t,
-    pub right: uint32_t,
-    pub top: uint32_t,
-    pub bottom: uint32_t,
-}
+
 pub type C2RustUnnamed_10 = ::core::ffi::c_uint;
 pub const W_DOCK_BOTTOM: C2RustUnnamed_10 = 2;
 pub const W_DOCK_TOP: C2RustUnnamed_10 = 1;
 pub const W_NODOCK: C2RustUnnamed_10 = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Assignment {
-    pub type_0: C2RustUnnamed_13,
-    pub match_0: Match,
-    pub dest: C2RustUnnamed_12,
-    pub assignments: C2RustUnnamed_11,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_11 {
-    pub tqe_next: *mut Assignment,
-    pub tqe_prev: *mut *mut Assignment,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub union C2RustUnnamed_12 {
-    pub command: *mut ::core::ffi::c_char,
-    pub workspace: *mut ::core::ffi::c_char,
-    pub output: *mut ::core::ffi::c_char,
-}
+
 pub type C2RustUnnamed_13 = ::core::ffi::c_uint;
 pub const A_TO_OUTPUT: C2RustUnnamed_13 = 16;
 pub const A_TO_WORKSPACE_NUMBER: C2RustUnnamed_13 = 8;
@@ -426,33 +90,7 @@ pub const A_NO_FOCUS: C2RustUnnamed_13 = 4;
 pub const A_TO_WORKSPACE: C2RustUnnamed_13 = 2;
 pub const A_COMMAND: C2RustUnnamed_13 = 1;
 pub const A_ANY: C2RustUnnamed_13 = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct marks_head {
-    pub tqh_first: *mut mark_t,
-    pub tqh_last: *mut *mut mark_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct mark_t {
-    pub name: *mut ::core::ffi::c_char,
-    pub marks: C2RustUnnamed_14,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_14 {
-    pub tqe_next: *mut mark_t,
-    pub tqe_prev: *mut *mut mark_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct gaps_t {
-    pub inner: ::core::ffi::c_int,
-    pub top: ::core::ffi::c_int,
-    pub right: ::core::ffi::c_int,
-    pub bottom: ::core::ffi::c_int,
-    pub left: ::core::ffi::c_int,
-}
+
 pub type C2RustUnnamed_15 = ::core::ffi::c_uint;
 pub const CT_DOCKAREA: C2RustUnnamed_15 = 5;
 pub const CT_WORKSPACE: C2RustUnnamed_15 = 4;
@@ -461,19 +99,13 @@ pub const CT_CON: C2RustUnnamed_15 = 2;
 pub const CT_OUTPUT: C2RustUnnamed_15 = 1;
 pub const CT_ROOT: C2RustUnnamed_15 = 0;
 pub type i3Window = Window;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct all_cons_head {
-    pub tqh_first: *mut Con,
-    pub tqh_last: *mut *mut Con,
-}
 pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 pub const UINT32_MAX: ::core::ffi::c_uint = 4294967295 as ::core::ffi::c_uint;
-pub const XCB_NONE: ::core::ffi::c_long = 0 as ::core::ffi::c_long;
+
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
-#[no_mangle]
-pub unsafe extern "C" fn match_init(mut match_0: *mut Match) {
+
+pub unsafe fn match_init(match_0: *mut Match) {
     memset(
         match_0 as *mut ::core::ffi::c_void,
         0 as ::core::ffi::c_int,
@@ -483,9 +115,9 @@ pub unsafe extern "C" fn match_init(mut match_0: *mut Match) {
     (*match_0).window_mode = WM_ANY;
     (*match_0).window_type = UINT32_MAX as xcb_atom_t;
 }
-#[no_mangle]
-pub unsafe extern "C" fn match_is_empty(mut match_0: *mut Match) -> bool {
-    return (*match_0).title.is_null()
+
+pub unsafe fn match_is_empty(match_0: *mut Match) -> bool {
+    (*match_0).title.is_null()
         && (*match_0).mark.is_null()
         && (*match_0).application.is_null()
         && (*match_0).class.is_null()
@@ -500,10 +132,10 @@ pub unsafe extern "C" fn match_is_empty(mut match_0: *mut Match) -> bool {
         && (*match_0).dock as ::core::ffi::c_int == M_NODOCK as ::core::ffi::c_int
         && (*match_0).window_mode as ::core::ffi::c_uint
             == WM_ANY as ::core::ffi::c_int as ::core::ffi::c_uint
-        && (*match_0).match_all_windows as ::core::ffi::c_int == false_0;
+        && (*match_0).match_all_windows as ::core::ffi::c_int == false_0
 }
-#[no_mangle]
-pub unsafe extern "C" fn match_copy(mut dest: *mut Match, mut src: *mut Match) {
+
+pub unsafe fn match_copy(dest: *mut Match, src: *mut Match) {
     memcpy(
         dest as *mut ::core::ffi::c_void,
         src as *const ::core::ffi::c_void,
@@ -534,40 +166,29 @@ pub unsafe extern "C" fn match_copy(mut dest: *mut Match, mut src: *mut Match) {
         (*dest).machine = regex_new((*(*src).machine).pattern);
     }
 }
-#[no_mangle]
-pub unsafe extern "C" fn match_matches_window(
-    mut match_0: *mut Match,
-    mut window: *mut i3Window,
-) -> bool {
+
+pub unsafe fn match_matches_window(match_0: *mut Match, window: *mut i3Window) -> bool {
     verboselog(
-        b"Checking window 0x%08x (class %s)\n\0" as *const u8 as *const ::core::ffi::c_char
-            as *mut ::core::ffi::c_char,
+        c"Checking window 0x%08x (class %s)\n".as_ptr().cast_mut(),
         (*window).id,
         (*window).class_class,
     );
     if !(*match_0).class.is_null() {
-        let mut window_field_str: *const ::core::ffi::c_char = if (*window).class_class.is_null() {
-            b"\0" as *const u8 as *const ::core::ffi::c_char
+        let window_field_str: *const ::core::ffi::c_char = if (*window).class_class.is_null() {
+            c"".as_ptr()
         } else {
             (*window).class_class as *const ::core::ffi::c_char
         };
-        if strcmp(
-            (*(*match_0).class).pattern,
-            b"__focused__\0" as *const u8 as *const ::core::ffi::c_char,
-        ) == 0 as ::core::ffi::c_int
+        if strcmp((*(*match_0).class).pattern, c"__focused__".as_ptr()) == 0 as ::core::ffi::c_int
             && !focused.is_null()
             && !(*focused).window.is_null()
             && !(*(*focused).window).class_class.is_null()
             && strcmp(window_field_str, (*(*focused).window).class_class) == 0 as ::core::ffi::c_int
         {
-            verboselog(
-                b"window class matches focused window\n\0" as *const u8
-                    as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            );
+            verboselog(c"window class matches focused window\n".as_ptr().cast_mut());
         } else if regex_matches((*match_0).class, window_field_str) {
             verboselog(
-                b"window class matches (%s)\n\0" as *const u8 as *const ::core::ffi::c_char
-                    as *mut ::core::ffi::c_char,
+                c"window class matches (%s)\n".as_ptr().cast_mut(),
                 window_field_str,
             );
         } else {
@@ -575,16 +196,13 @@ pub unsafe extern "C" fn match_matches_window(
         }
     }
     if !(*match_0).instance.is_null() {
-        let mut window_field_str_0: *const ::core::ffi::c_char =
-            if (*window).class_instance.is_null() {
-                b"\0" as *const u8 as *const ::core::ffi::c_char
-            } else {
-                (*window).class_instance as *const ::core::ffi::c_char
-            };
-        if strcmp(
-            (*(*match_0).instance).pattern,
-            b"__focused__\0" as *const u8 as *const ::core::ffi::c_char,
-        ) == 0 as ::core::ffi::c_int
+        let window_field_str_0: *const ::core::ffi::c_char = if (*window).class_instance.is_null() {
+            c"".as_ptr()
+        } else {
+            (*window).class_instance as *const ::core::ffi::c_char
+        };
+        if strcmp((*(*match_0).instance).pattern, c"__focused__".as_ptr())
+            == 0 as ::core::ffi::c_int
             && !focused.is_null()
             && !(*focused).window.is_null()
             && !(*(*focused).window).class_instance.is_null()
@@ -592,13 +210,13 @@ pub unsafe extern "C" fn match_matches_window(
                 == 0 as ::core::ffi::c_int
         {
             verboselog(
-                b"window instance matches focused window\n\0" as *const u8
-                    as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
+                c"window instance matches focused window\n"
+                    .as_ptr()
+                    .cast_mut(),
             );
         } else if regex_matches((*match_0).instance, window_field_str_0) {
             verboselog(
-                b"window instance matches (%s)\n\0" as *const u8 as *const ::core::ffi::c_char
-                    as *mut ::core::ffi::c_char,
+                c"window instance matches (%s)\n".as_ptr().cast_mut(),
                 window_field_str_0,
             );
         } else {
@@ -608,28 +226,21 @@ pub unsafe extern "C" fn match_matches_window(
     if (*match_0).id as ::core::ffi::c_long != XCB_NONE {
         if (*window).id == (*match_0).id {
             verboselog(
-                b"match made by window id (%d)\n\0" as *const u8 as *const ::core::ffi::c_char
-                    as *mut ::core::ffi::c_char,
+                c"match made by window id (%d)\n".as_ptr().cast_mut(),
                 (*window).id,
             );
         } else {
-            verboselog(
-                b"window id does not match\n\0" as *const u8 as *const ::core::ffi::c_char
-                    as *mut ::core::ffi::c_char,
-            );
+            verboselog(c"window id does not match\n".as_ptr().cast_mut());
             return false_0 != 0;
         }
     }
     if !(*match_0).title.is_null() {
-        let mut window_field_str_1: *const ::core::ffi::c_char = if (*window).name.is_null() {
-            b"\0" as *const u8 as *const ::core::ffi::c_char
+        let window_field_str_1: *const ::core::ffi::c_char = if (*window).name.is_null() {
+            c"".as_ptr()
         } else {
             i3string_as_utf8((*window).name)
         };
-        if strcmp(
-            (*(*match_0).title).pattern,
-            b"__focused__\0" as *const u8 as *const ::core::ffi::c_char,
-        ) == 0 as ::core::ffi::c_int
+        if strcmp((*(*match_0).title).pattern, c"__focused__".as_ptr()) == 0 as ::core::ffi::c_int
             && !focused.is_null()
             && !(*focused).window.is_null()
             && !(*(*focused).window).name.is_null()
@@ -638,14 +249,10 @@ pub unsafe extern "C" fn match_matches_window(
                 i3string_as_utf8((*(*focused).window).name),
             ) == 0 as ::core::ffi::c_int
         {
-            verboselog(
-                b"window title matches focused window\n\0" as *const u8
-                    as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            );
+            verboselog(c"window title matches focused window\n".as_ptr().cast_mut());
         } else if regex_matches((*match_0).title, window_field_str_1) {
             verboselog(
-                b"window title matches (%s)\n\0" as *const u8 as *const ::core::ffi::c_char
-                    as *mut ::core::ffi::c_char,
+                c"window title matches (%s)\n".as_ptr().cast_mut(),
                 window_field_str_1,
             );
         } else {
@@ -653,28 +260,26 @@ pub unsafe extern "C" fn match_matches_window(
         }
     }
     if !(*match_0).window_role.is_null() {
-        let mut window_field_str_2: *const ::core::ffi::c_char = if (*window).role.is_null() {
-            b"\0" as *const u8 as *const ::core::ffi::c_char
+        let window_field_str_2: *const ::core::ffi::c_char = if (*window).role.is_null() {
+            c"".as_ptr()
         } else {
             (*window).role as *const ::core::ffi::c_char
         };
-        if strcmp(
-            (*(*match_0).window_role).pattern,
-            b"__focused__\0" as *const u8 as *const ::core::ffi::c_char,
-        ) == 0 as ::core::ffi::c_int
+        if strcmp((*(*match_0).window_role).pattern, c"__focused__".as_ptr())
+            == 0 as ::core::ffi::c_int
             && !focused.is_null()
             && !(*focused).window.is_null()
             && !(*(*focused).window).role.is_null()
             && strcmp(window_field_str_2, (*(*focused).window).role) == 0 as ::core::ffi::c_int
         {
             verboselog(
-                b"window window_role matches focused window\n\0" as *const u8
-                    as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
+                c"window window_role matches focused window\n"
+                    .as_ptr()
+                    .cast_mut(),
             );
         } else if regex_matches((*match_0).window_role, window_field_str_2) {
             verboselog(
-                b"window window_role matches (%s)\n\0" as *const u8 as *const ::core::ffi::c_char
-                    as *mut ::core::ffi::c_char,
+                c"window window_role matches (%s)\n".as_ptr().cast_mut(),
                 window_field_str_2,
             );
         } else {
@@ -684,8 +289,7 @@ pub unsafe extern "C" fn match_matches_window(
     if (*match_0).window_type != UINT32_MAX as xcb_atom_t {
         if (*window).window_type == (*match_0).window_type {
             verboselog(
-                b"window_type matches (%i)\n\0" as *const u8 as *const ::core::ffi::c_char
-                    as *mut ::core::ffi::c_char,
+                c"window_type matches (%i)\n".as_ptr().cast_mut(),
                 (*match_0).window_type,
             );
         } else {
@@ -693,28 +297,25 @@ pub unsafe extern "C" fn match_matches_window(
         }
     }
     if !(*match_0).machine.is_null() {
-        let mut window_field_str_3: *const ::core::ffi::c_char = if (*window).machine.is_null() {
-            b"\0" as *const u8 as *const ::core::ffi::c_char
+        let window_field_str_3: *const ::core::ffi::c_char = if (*window).machine.is_null() {
+            c"".as_ptr()
         } else {
             (*window).machine as *const ::core::ffi::c_char
         };
-        if strcmp(
-            (*(*match_0).machine).pattern,
-            b"__focused__\0" as *const u8 as *const ::core::ffi::c_char,
-        ) == 0 as ::core::ffi::c_int
+        if strcmp((*(*match_0).machine).pattern, c"__focused__".as_ptr()) == 0 as ::core::ffi::c_int
             && !focused.is_null()
             && !(*focused).window.is_null()
             && !(*(*focused).window).machine.is_null()
             && strcmp(window_field_str_3, (*(*focused).window).machine) == 0 as ::core::ffi::c_int
         {
             verboselog(
-                b"window machine matches focused window\n\0" as *const u8
-                    as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
+                c"window machine matches focused window\n"
+                    .as_ptr()
+                    .cast_mut(),
             );
         } else if regex_matches((*match_0).machine, window_field_str_3) {
             verboselog(
-                b"window machine matches (%s)\n\0" as *const u8 as *const ::core::ffi::c_char
-                    as *mut ::core::ffi::c_char,
+                c"window machine matches (%s)\n".as_ptr().cast_mut(),
                 window_field_str_3,
             );
         } else {
@@ -740,10 +341,7 @@ pub unsafe extern "C" fn match_matches_window(
             }
             con = (*con).all_cons.tqe_next as *mut Con;
         }
-        verboselog(
-            b"urgent matches latest\n\0" as *const u8 as *const ::core::ffi::c_char
-                as *mut ::core::ffi::c_char,
-        );
+        verboselog(c"urgent matches latest\n".as_ptr().cast_mut());
     }
     if (*match_0).urgent as ::core::ffi::c_int == U_OLDEST as ::core::ffi::c_int {
         if (*window).urgent.tv_sec == 0 as __time_t {
@@ -764,36 +362,24 @@ pub unsafe extern "C" fn match_matches_window(
             }
             con = (*con).all_cons.tqe_next as *mut Con;
         }
-        verboselog(
-            b"urgent matches oldest\n\0" as *const u8 as *const ::core::ffi::c_char
-                as *mut ::core::ffi::c_char,
-        );
+        verboselog(c"urgent matches oldest\n".as_ptr().cast_mut());
     }
     if !(*match_0).workspace.is_null() {
         con = con_by_window_id((*window).id);
         if con.is_null() {
             return false_0 != 0;
         }
-        let mut ws: *mut Con = con_get_workspace(con);
+        let ws: *mut Con = con_get_workspace(con);
         if ws.is_null() {
             return false_0 != 0;
         }
-        if strcmp(
-            (*(*match_0).workspace).pattern,
-            b"__focused__\0" as *const u8 as *const ::core::ffi::c_char,
-        ) == 0 as ::core::ffi::c_int
+        if strcmp((*(*match_0).workspace).pattern, c"__focused__".as_ptr())
+            == 0 as ::core::ffi::c_int
             && strcmp((*ws).name, (*con_get_workspace(focused)).name) == 0 as ::core::ffi::c_int
         {
-            verboselog(
-                b"workspace matches focused workspace\n\0" as *const u8
-                    as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            );
+            verboselog(c"workspace matches focused workspace\n".as_ptr().cast_mut());
         } else if regex_matches((*match_0).workspace, (*ws).name) {
-            verboselog(
-                b"workspace matches (%s)\n\0" as *const u8 as *const ::core::ffi::c_char
-                    as *mut ::core::ffi::c_char,
-                (*ws).name,
-            );
+            verboselog(c"workspace matches (%s)\n".as_ptr().cast_mut(), (*ws).name);
         } else {
             return false_0 != 0;
         }
@@ -814,15 +400,9 @@ pub unsafe extern "C" fn match_matches_window(
                 == W_NODOCK as ::core::ffi::c_int as ::core::ffi::c_uint
                 && (*match_0).dock as ::core::ffi::c_int == M_NODOCK as ::core::ffi::c_int
         {
-            verboselog(
-                b"dock status matches\n\0" as *const u8 as *const ::core::ffi::c_char
-                    as *mut ::core::ffi::c_char,
-            );
+            verboselog(c"dock status matches\n".as_ptr().cast_mut());
         } else {
-            verboselog(
-                b"dock status does not match\n\0" as *const u8 as *const ::core::ffi::c_char
-                    as *mut ::core::ffi::c_char,
-            );
+            verboselog(c"dock status does not match\n".as_ptr().cast_mut());
             return false_0 != 0;
         }
     }
@@ -843,15 +423,9 @@ pub unsafe extern "C" fn match_matches_window(
             }
         }
         if matched {
-            verboselog(
-                b"mark matches\n\0" as *const u8 as *const ::core::ffi::c_char
-                    as *mut ::core::ffi::c_char,
-            );
+            verboselog(c"mark matches\n".as_ptr().cast_mut());
         } else {
-            verboselog(
-                b"mark does not match\n\0" as *const u8 as *const ::core::ffi::c_char
-                    as *mut ::core::ffi::c_char,
-            );
+            verboselog(c"mark does not match\n".as_ptr().cast_mut());
             return false_0 != 0;
         }
     }
@@ -905,25 +479,21 @@ pub unsafe extern "C" fn match_matches_window(
                 if 0 as ::core::ffi::c_int != 0 {
                 } else {
                     __assert_fail(
-                        b"false\0" as *const u8 as *const ::core::ffi::c_char,
-                        b"../src/match.c\0" as *const u8 as *const ::core::ffi::c_char,
+                        c"false".as_ptr(),
+                        c"../src/match.c".as_ptr(),
                         262 as ::core::ffi::c_uint,
-                        b"_Bool match_matches_window(Match *, i3Window *)\0" as *const u8
-                            as *const ::core::ffi::c_char,
+                        c"_Bool match_matches_window(Match *, i3Window *)".as_ptr(),
                     );
                 };
             }
             _ => {}
         }
-        verboselog(
-            b"window_mode matches\n\0" as *const u8 as *const ::core::ffi::c_char
-                as *mut ::core::ffi::c_char,
-        );
+        verboselog(c"window_mode matches\n".as_ptr().cast_mut());
     }
-    return true_0 != 0;
+    true_0 != 0
 }
-#[no_mangle]
-pub unsafe extern "C" fn match_free(mut match_0: *mut Match) {
+
+pub unsafe fn match_free(match_0: *mut Match) {
     free((*match_0).error as *mut ::core::ffi::c_void);
     (*match_0).error = ::core::ptr::null_mut::<::core::ffi::c_char>();
     regex_free((*match_0).title);
@@ -935,324 +505,237 @@ pub unsafe extern "C" fn match_free(mut match_0: *mut Match) {
     regex_free((*match_0).workspace);
     regex_free((*match_0).machine);
 }
-#[no_mangle]
-pub unsafe extern "C" fn match_parse_property(
-    mut match_0: *mut Match,
-    mut ctype: *const ::core::ffi::c_char,
-    mut cvalue: *const ::core::ffi::c_char,
+
+pub unsafe fn match_parse_property(
+    match_0: *mut Match,
+    ctype: *const ::core::ffi::c_char,
+    cvalue: *const ::core::ffi::c_char,
 ) {
     if match_0 != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Match {
     } else {
         __assert_fail(
-            b"match != NULL\0" as *const u8 as *const ::core::ffi::c_char,
-            b"../src/match.c\0" as *const u8 as *const ::core::ffi::c_char,
+            c"match != NULL".as_ptr(),
+            c"../src/match.c".as_ptr(),
             296 as ::core::ffi::c_uint,
-            b"void match_parse_property(Match *, const char *, const char *)\0" as *const u8
-                as *const ::core::ffi::c_char,
+            c"void match_parse_property(Match *, const char *, const char *)".as_ptr(),
         );
     };
     debuglog(
-        b"%s:%s:%d - ctype=*%s*, cvalue=*%s*\n\0" as *const u8 as *const ::core::ffi::c_char
-            as *mut ::core::ffi::c_char,
-        b"../src/match.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"match_parse_property\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - ctype=*%s*, cvalue=*%s*\n".as_ptr().cast_mut(),
+        c"../src/match.c".as_ptr(),
+        c"match_parse_property".as_ptr(),
         297 as ::core::ffi::c_int,
         ctype,
         cvalue,
     );
-    if strcmp(ctype, b"class\0" as *const u8 as *const ::core::ffi::c_char)
-        == 0 as ::core::ffi::c_int
-    {
+    if strcmp(ctype, c"class".as_ptr()) == 0 as ::core::ffi::c_int {
         regex_free((*match_0).class);
         (*match_0).class = regex_new(cvalue);
         return;
     }
-    if strcmp(
-        ctype,
-        b"instance\0" as *const u8 as *const ::core::ffi::c_char,
-    ) == 0 as ::core::ffi::c_int
-    {
+    if strcmp(ctype, c"instance".as_ptr()) == 0 as ::core::ffi::c_int {
         regex_free((*match_0).instance);
         (*match_0).instance = regex_new(cvalue);
         return;
     }
-    if strcmp(
-        ctype,
-        b"window_role\0" as *const u8 as *const ::core::ffi::c_char,
-    ) == 0 as ::core::ffi::c_int
-    {
+    if strcmp(ctype, c"window_role".as_ptr()) == 0 as ::core::ffi::c_int {
         regex_free((*match_0).window_role);
         (*match_0).window_role = regex_new(cvalue);
         return;
     }
-    if strcmp(
-        ctype,
-        b"con_id\0" as *const u8 as *const ::core::ffi::c_char,
-    ) == 0 as ::core::ffi::c_int
-    {
-        if strcmp(
-            cvalue,
-            b"__focused__\0" as *const u8 as *const ::core::ffi::c_char,
-        ) == 0 as ::core::ffi::c_int
-        {
+    if strcmp(ctype, c"con_id".as_ptr()) == 0 as ::core::ffi::c_int {
+        if strcmp(cvalue, c"__focused__".as_ptr()) == 0 as ::core::ffi::c_int {
             (*match_0).con_id = focused;
             return;
         }
         let mut parsed: ::core::ffi::c_long = 0;
         if !parse_long(cvalue, &raw mut parsed, 0 as ::core::ffi::c_int) {
             errorlog(
-                b"ERROR: Could not parse con id \"%s\"\n\0" as *const u8
-                    as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
+                c"ERROR: Could not parse con id \"%s\"\n"
+                    .as_ptr()
+                    .cast_mut(),
                 cvalue,
             );
-            (*match_0).error =
-                sstrdup(b"invalid con_id\0" as *const u8 as *const ::core::ffi::c_char);
+            (*match_0).error = sstrdup(c"invalid con_id".as_ptr());
         } else {
             (*match_0).con_id = parsed as *mut Con;
             debuglog(
-                b"%s:%s:%d - id as int = %p\n\0" as *const u8 as *const ::core::ffi::c_char
-                    as *mut ::core::ffi::c_char,
-                b"../src/match.c\0" as *const u8 as *const ::core::ffi::c_char,
-                b"match_parse_property\0" as *const u8 as *const ::core::ffi::c_char,
+                c"%s:%s:%d - id as int = %p\n".as_ptr().cast_mut(),
+                c"../src/match.c".as_ptr(),
+                c"match_parse_property".as_ptr(),
                 329 as ::core::ffi::c_int,
                 (*match_0).con_id,
             );
         }
         return;
     }
-    if strcmp(ctype, b"id\0" as *const u8 as *const ::core::ffi::c_char) == 0 as ::core::ffi::c_int
-    {
+    if strcmp(ctype, c"id".as_ptr()) == 0 as ::core::ffi::c_int {
         let mut parsed_0: ::core::ffi::c_long = 0;
         if !parse_long(cvalue, &raw mut parsed_0, 0 as ::core::ffi::c_int) {
             errorlog(
-                b"ERROR: Could not parse window id \"%s\"\n\0" as *const u8
-                    as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
+                c"ERROR: Could not parse window id \"%s\"\n"
+                    .as_ptr()
+                    .cast_mut(),
                 cvalue,
             );
-            (*match_0).error = sstrdup(b"invalid id\0" as *const u8 as *const ::core::ffi::c_char);
+            (*match_0).error = sstrdup(c"invalid id".as_ptr());
         } else {
             (*match_0).id = parsed_0 as xcb_window_t;
             debuglog(
-                b"%s:%s:%d - window id as int = %d\n\0" as *const u8 as *const ::core::ffi::c_char
-                    as *mut ::core::ffi::c_char,
-                b"../src/match.c\0" as *const u8 as *const ::core::ffi::c_char,
-                b"match_parse_property\0" as *const u8 as *const ::core::ffi::c_char,
+                c"%s:%s:%d - window id as int = %d\n".as_ptr().cast_mut(),
+                c"../src/match.c".as_ptr(),
+                c"match_parse_property".as_ptr(),
                 341 as ::core::ffi::c_int,
                 (*match_0).id,
             );
         }
         return;
     }
-    if strcmp(
-        ctype,
-        b"window_type\0" as *const u8 as *const ::core::ffi::c_char,
-    ) == 0 as ::core::ffi::c_int
-    {
-        if strcasecmp(
-            cvalue,
-            b"normal\0" as *const u8 as *const ::core::ffi::c_char,
-        ) == 0 as ::core::ffi::c_int
-        {
+    if strcmp(ctype, c"window_type".as_ptr()) == 0 as ::core::ffi::c_int {
+        if strcasecmp(cvalue, c"normal".as_ptr()) == 0 as ::core::ffi::c_int {
             (*match_0).window_type = A__NET_WM_WINDOW_TYPE_NORMAL;
-        } else if strcasecmp(
-            cvalue,
-            b"dialog\0" as *const u8 as *const ::core::ffi::c_char,
-        ) == 0 as ::core::ffi::c_int
-        {
+        } else if strcasecmp(cvalue, c"dialog".as_ptr()) == 0 as ::core::ffi::c_int {
             (*match_0).window_type = A__NET_WM_WINDOW_TYPE_DIALOG;
-        } else if strcasecmp(
-            cvalue,
-            b"utility\0" as *const u8 as *const ::core::ffi::c_char,
-        ) == 0 as ::core::ffi::c_int
-        {
+        } else if strcasecmp(cvalue, c"utility".as_ptr()) == 0 as ::core::ffi::c_int {
             (*match_0).window_type = A__NET_WM_WINDOW_TYPE_UTILITY;
-        } else if strcasecmp(
-            cvalue,
-            b"toolbar\0" as *const u8 as *const ::core::ffi::c_char,
-        ) == 0 as ::core::ffi::c_int
-        {
+        } else if strcasecmp(cvalue, c"toolbar".as_ptr()) == 0 as ::core::ffi::c_int {
             (*match_0).window_type = A__NET_WM_WINDOW_TYPE_TOOLBAR;
-        } else if strcasecmp(
-            cvalue,
-            b"splash\0" as *const u8 as *const ::core::ffi::c_char,
-        ) == 0 as ::core::ffi::c_int
-        {
+        } else if strcasecmp(cvalue, c"splash".as_ptr()) == 0 as ::core::ffi::c_int {
             (*match_0).window_type = A__NET_WM_WINDOW_TYPE_SPLASH;
-        } else if strcasecmp(cvalue, b"menu\0" as *const u8 as *const ::core::ffi::c_char)
-            == 0 as ::core::ffi::c_int
-        {
+        } else if strcasecmp(cvalue, c"menu".as_ptr()) == 0 as ::core::ffi::c_int {
             (*match_0).window_type = A__NET_WM_WINDOW_TYPE_MENU;
-        } else if strcasecmp(
-            cvalue,
-            b"dropdown_menu\0" as *const u8 as *const ::core::ffi::c_char,
-        ) == 0 as ::core::ffi::c_int
-        {
+        } else if strcasecmp(cvalue, c"dropdown_menu".as_ptr()) == 0 as ::core::ffi::c_int {
             (*match_0).window_type = A__NET_WM_WINDOW_TYPE_DROPDOWN_MENU;
-        } else if strcasecmp(
-            cvalue,
-            b"popup_menu\0" as *const u8 as *const ::core::ffi::c_char,
-        ) == 0 as ::core::ffi::c_int
-        {
+        } else if strcasecmp(cvalue, c"popup_menu".as_ptr()) == 0 as ::core::ffi::c_int {
             (*match_0).window_type = A__NET_WM_WINDOW_TYPE_POPUP_MENU;
-        } else if strcasecmp(
-            cvalue,
-            b"tooltip\0" as *const u8 as *const ::core::ffi::c_char,
-        ) == 0 as ::core::ffi::c_int
-        {
+        } else if strcasecmp(cvalue, c"tooltip".as_ptr()) == 0 as ::core::ffi::c_int {
             (*match_0).window_type = A__NET_WM_WINDOW_TYPE_TOOLTIP;
-        } else if strcasecmp(
-            cvalue,
-            b"notification\0" as *const u8 as *const ::core::ffi::c_char,
-        ) == 0 as ::core::ffi::c_int
-        {
+        } else if strcasecmp(cvalue, c"notification".as_ptr()) == 0 as ::core::ffi::c_int {
             (*match_0).window_type = A__NET_WM_WINDOW_TYPE_NOTIFICATION;
         } else {
             errorlog(
-                b"ERROR: unknown window_type value \"%s\"\n\0" as *const u8
-                    as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
+                c"ERROR: unknown window_type value \"%s\"\n"
+                    .as_ptr()
+                    .cast_mut(),
                 cvalue,
             );
-            (*match_0).error =
-                sstrdup(b"unknown window_type value\0" as *const u8 as *const ::core::ffi::c_char);
+            (*match_0).error = sstrdup(c"unknown window_type value".as_ptr());
         }
         return;
     }
-    if strcmp(
-        ctype,
-        b"con_mark\0" as *const u8 as *const ::core::ffi::c_char,
-    ) == 0 as ::core::ffi::c_int
-    {
+    if strcmp(ctype, c"con_mark".as_ptr()) == 0 as ::core::ffi::c_int {
         regex_free((*match_0).mark);
         (*match_0).mark = regex_new(cvalue);
         return;
     }
-    if strcmp(ctype, b"title\0" as *const u8 as *const ::core::ffi::c_char)
-        == 0 as ::core::ffi::c_int
-    {
+    if strcmp(ctype, c"title".as_ptr()) == 0 as ::core::ffi::c_int {
         regex_free((*match_0).title);
         (*match_0).title = regex_new(cvalue);
         return;
     }
-    if strcmp(
-        ctype,
-        b"urgent\0" as *const u8 as *const ::core::ffi::c_char,
-    ) == 0 as ::core::ffi::c_int
-    {
-        if strcasecmp(
-            cvalue,
-            b"latest\0" as *const u8 as *const ::core::ffi::c_char,
-        ) == 0 as ::core::ffi::c_int
-            || strcasecmp(
-                cvalue,
-                b"newest\0" as *const u8 as *const ::core::ffi::c_char,
-            ) == 0 as ::core::ffi::c_int
-            || strcasecmp(
-                cvalue,
-                b"recent\0" as *const u8 as *const ::core::ffi::c_char,
-            ) == 0 as ::core::ffi::c_int
-            || strcasecmp(cvalue, b"last\0" as *const u8 as *const ::core::ffi::c_char)
-                == 0 as ::core::ffi::c_int
+    if strcmp(ctype, c"urgent".as_ptr()) == 0 as ::core::ffi::c_int {
+        if strcasecmp(cvalue, c"latest".as_ptr()) == 0 as ::core::ffi::c_int
+            || strcasecmp(cvalue, c"newest".as_ptr()) == 0 as ::core::ffi::c_int
+            || strcasecmp(cvalue, c"recent".as_ptr()) == 0 as ::core::ffi::c_int
+            || strcasecmp(cvalue, c"last".as_ptr()) == 0 as ::core::ffi::c_int
         {
             (*match_0).urgent = U_LATEST;
-        } else if strcasecmp(
-            cvalue,
-            b"oldest\0" as *const u8 as *const ::core::ffi::c_char,
-        ) == 0 as ::core::ffi::c_int
-            || strcasecmp(
-                cvalue,
-                b"first\0" as *const u8 as *const ::core::ffi::c_char,
-            ) == 0 as ::core::ffi::c_int
+        } else if strcasecmp(cvalue, c"oldest".as_ptr()) == 0 as ::core::ffi::c_int
+            || strcasecmp(cvalue, c"first".as_ptr()) == 0 as ::core::ffi::c_int
         {
             (*match_0).urgent = U_OLDEST;
         }
         return;
     }
-    if strcmp(
-        ctype,
-        b"workspace\0" as *const u8 as *const ::core::ffi::c_char,
-    ) == 0 as ::core::ffi::c_int
-    {
+    if strcmp(ctype, c"workspace".as_ptr()) == 0 as ::core::ffi::c_int {
         regex_free((*match_0).workspace);
         (*match_0).workspace = regex_new(cvalue);
         return;
     }
-    if strcmp(
-        ctype,
-        b"machine\0" as *const u8 as *const ::core::ffi::c_char,
-    ) == 0 as ::core::ffi::c_int
-    {
+    if strcmp(ctype, c"machine".as_ptr()) == 0 as ::core::ffi::c_int {
         regex_free((*match_0).machine);
         (*match_0).machine = regex_new(cvalue);
         return;
     }
-    if strcmp(
-        ctype,
-        b"tiling\0" as *const u8 as *const ::core::ffi::c_char,
-    ) == 0 as ::core::ffi::c_int
-    {
+    if strcmp(ctype, c"tiling".as_ptr()) == 0 as ::core::ffi::c_int {
         (*match_0).window_mode = WM_TILING;
         return;
     }
-    if strcmp(
-        ctype,
-        b"tiling_from\0" as *const u8 as *const ::core::ffi::c_char,
-    ) == 0 as ::core::ffi::c_int
+    if strcmp(ctype, c"tiling_from".as_ptr()) == 0 as ::core::ffi::c_int
         && !cvalue.is_null()
-        && strcmp(cvalue, b"auto\0" as *const u8 as *const ::core::ffi::c_char)
-            == 0 as ::core::ffi::c_int
+        && strcmp(cvalue, c"auto".as_ptr()) == 0 as ::core::ffi::c_int
     {
         (*match_0).window_mode = WM_TILING_AUTO;
         return;
     }
-    if strcmp(
-        ctype,
-        b"tiling_from\0" as *const u8 as *const ::core::ffi::c_char,
-    ) == 0 as ::core::ffi::c_int
+    if strcmp(ctype, c"tiling_from".as_ptr()) == 0 as ::core::ffi::c_int
         && !cvalue.is_null()
-        && strcmp(cvalue, b"user\0" as *const u8 as *const ::core::ffi::c_char)
-            == 0 as ::core::ffi::c_int
+        && strcmp(cvalue, c"user".as_ptr()) == 0 as ::core::ffi::c_int
     {
         (*match_0).window_mode = WM_TILING_USER;
         return;
     }
-    if strcmp(
-        ctype,
-        b"floating\0" as *const u8 as *const ::core::ffi::c_char,
-    ) == 0 as ::core::ffi::c_int
-    {
+    if strcmp(ctype, c"floating".as_ptr()) == 0 as ::core::ffi::c_int {
         (*match_0).window_mode = WM_FLOATING;
         return;
     }
-    if strcmp(
-        ctype,
-        b"floating_from\0" as *const u8 as *const ::core::ffi::c_char,
-    ) == 0 as ::core::ffi::c_int
+    if strcmp(ctype, c"floating_from".as_ptr()) == 0 as ::core::ffi::c_int
         && !cvalue.is_null()
-        && strcmp(cvalue, b"auto\0" as *const u8 as *const ::core::ffi::c_char)
-            == 0 as ::core::ffi::c_int
+        && strcmp(cvalue, c"auto".as_ptr()) == 0 as ::core::ffi::c_int
     {
         (*match_0).window_mode = WM_FLOATING_AUTO;
         return;
     }
-    if strcmp(
-        ctype,
-        b"floating_from\0" as *const u8 as *const ::core::ffi::c_char,
-    ) == 0 as ::core::ffi::c_int
+    if strcmp(ctype, c"floating_from".as_ptr()) == 0 as ::core::ffi::c_int
         && !cvalue.is_null()
-        && strcmp(cvalue, b"user\0" as *const u8 as *const ::core::ffi::c_char)
-            == 0 as ::core::ffi::c_int
+        && strcmp(cvalue, c"user".as_ptr()) == 0 as ::core::ffi::c_int
     {
         (*match_0).window_mode = WM_FLOATING_USER;
         return;
     }
-    if strcmp(ctype, b"all\0" as *const u8 as *const ::core::ffi::c_char) == 0 as ::core::ffi::c_int
-    {
+    if strcmp(ctype, c"all".as_ptr()) == 0 as ::core::ffi::c_int {
         (*match_0).match_all_windows = true_0 != 0;
         return;
     }
-    errorlog(
-        b"ERROR: Unknown criterion: %s\n\0" as *const u8 as *const ::core::ffi::c_char
-            as *mut ::core::ffi::c_char,
-        ctype,
-    );
+    errorlog(c"ERROR: Unknown criterion: %s\n".as_ptr().cast_mut(), ctype);
 }
+
+use crate::regex::{regex_free, regex_matches, regex_new};
+
+// Internal helpers use Rust linkage rather than foreign symbol lookup.
+use crate::util::parse_long;
+use i3_common::safewrappers::sstrdup;
+
+// Canonical Cairo backend ABI; renderer logic remains local.
+
+use xcb_sys::{xcb_atom_t, xcb_window_t, XCB_NONE};
+
+pub use libc::{free, memcpy, memset, strcasecmp, strcmp};
+
+use i3_common::native_stdio::__assert_fail;
+
+use crate::log::{debuglog, errorlog, verboselog};
+
+// Shared model types retain field layout while using one Rust identity.
+pub use crate::types::mark_t;
+pub use crate::types::Con;
+pub use crate::types::Match;
+pub use crate::types::Window;
+pub use i3_common::string::I3String as _i3String;
+
+// Internal calls and globals use canonical Rust identities.
+use crate::application::A__NET_WM_WINDOW_TYPE_DIALOG;
+use crate::application::A__NET_WM_WINDOW_TYPE_DROPDOWN_MENU;
+use crate::application::A__NET_WM_WINDOW_TYPE_MENU;
+use crate::application::A__NET_WM_WINDOW_TYPE_NORMAL;
+use crate::application::A__NET_WM_WINDOW_TYPE_NOTIFICATION;
+use crate::application::A__NET_WM_WINDOW_TYPE_POPUP_MENU;
+use crate::application::A__NET_WM_WINDOW_TYPE_SPLASH;
+use crate::application::A__NET_WM_WINDOW_TYPE_TOOLBAR;
+use crate::application::A__NET_WM_WINDOW_TYPE_TOOLTIP;
+use crate::application::A__NET_WM_WINDOW_TYPE_UTILITY;
+use crate::con::con_by_window_id;
+use crate::con::con_get_workspace;
+use crate::con::con_inside_floating;
+use crate::tree::focused;
+use i3_common::string::i3string_as_utf8;

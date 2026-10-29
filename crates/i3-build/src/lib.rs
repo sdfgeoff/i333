@@ -1,7 +1,7 @@
 //! Build-script support shared by the workspace members.
 //!
 //! Each member calls [`configure`] for its own compiler cfgs and version.
-//! Only the common native-backend crate calls [`link_native_libraries`].
+//! The common crate calls [`link_platform_libraries`] for platform libraries.
 
 use std::env;
 use std::fs;
@@ -132,37 +132,10 @@ fn git_version(root: &Path) -> Option<String> {
         .then(|| String::from_utf8_lossy(&output.stdout).trim().to_owned())
 }
 
-/// Locate and link the unchanged native backends for the common crate.
-///
-/// This discovers installed libraries; it compiles no C source or bindings.
-pub fn link_native_libraries() {
-    for package in [
-        "libstartup-notification-1.0",
-        "xcb",
-        "xcb-xkb",
-        "xcb-xinerama",
-        "xcb-randr",
-        "xcb-shape",
-        "xcb-util",
-        "xcb-cursor",
-        "xcb-keysyms",
-        "xcb-icccm",
-        "xcb-xrm",
-        "xkbcommon",
-        "xkbcommon-x11",
-        "yajl",
-        "libpcre2-8",
-        "cairo",
-        "pangocairo",
-        "glib-2.0",
-        "gobject-2.0",
-    ] {
-        pkg_config::Config::new().probe(package).unwrap_or_else(|error| {
-            panic!("Native dependency {package} is unavailable. Install its development package and pkg-config.\n{error}")
-        });
-    }
-    // libev has no .pc file on some distributions.
-    for library in ["ev", "m", "rt"] {
+/// Link platform libraries used directly by the translated Linux backend.
+/// Native binding crates own discovery and version checks for their libraries.
+pub fn link_platform_libraries() {
+    for library in ["m", "rt"] {
         println!("cargo:rustc-link-lib={library}");
     }
 }

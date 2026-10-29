@@ -27,7 +27,7 @@ my $i3 = i3(get_socket_path());
 
 my $tmp = tmpnam();
 mkfifo($tmp, 0600) or die "Could not create FIFO in $tmp";
-my ($outfh, $outname) = tempfile('/tmp/i3-ls-output.XXXXXX', UNLINK => 1);
+my ($outfh, $outname) = tempfile('i3-ls-output.XXXXXX', TMPDIR => 1, UNLINK => 1);
 
 # Get fds from a clean shell
 my $shoutput = `sh -c "ls -l /proc/self/fd"`;

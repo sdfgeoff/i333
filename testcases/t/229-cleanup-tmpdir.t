@@ -110,7 +110,7 @@ if (-d $new_tmpdir) {
 # temp directory from the socket path (which we explicitly set).
 $ENV{XDG_RUNTIME_DIR} = tempdir(CLEANUP => 1);
 
-my ($outfh, $outname) = tempfile('/tmp/i3-socket.XXXXXX', UNLINK => 1);
+my ($outfh, $outname) = tempfile('i3-socket.XXXXXX', TMPDIR => 1, UNLINK => 1);
 $config = <<EOT;
 font -misc-fixed-medium-r-normal--13-120-75-75-C-70-iso10646-1
 
@@ -127,7 +127,7 @@ sub get_config_path {
     return $reply->{value};
 }
 
-my ($outfh2, $outname2) = tempfile('/tmp/i3-socket.XXXXXX', UNLINK => 1);
+my ($outfh2, $outname2) = tempfile('i3-socket.XXXXXX', TMPDIR => 1, UNLINK => 1);
 my $config_path = get_config_path();
 open(my $configfh, '>', $config_path);
 say $configfh <<EOT;

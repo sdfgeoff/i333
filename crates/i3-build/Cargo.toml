@@ -5,6 +5,3 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "Shared build configuration for the i3 Rust workspace"
-
-[dependencies]
-pkg-config.workspace = true

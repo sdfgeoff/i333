@@ -6,28 +6,9 @@
  *
  */
 // Mechanical file-by-file Rust translation of libi3/safewrappers.c.
-// Generated with C2Rust 0.22.1; C ABI and original ownership retained.
+// Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 use crate::i333_va_list;
 
-extern "C" {
-    fn vasprintf(
-        __ptr: *mut *mut ::core::ffi::c_char,
-        __f: *const ::core::ffi::c_char,
-        __arg: ::core::ffi::VaList,
-    ) -> ::core::ffi::c_int;
-    fn write(__fd: ::core::ffi::c_int, __buf: *const ::core::ffi::c_void, __n: size_t) -> ssize_t;
-    fn __errno_location() -> *mut ::core::ffi::c_int;
-    fn err(__status: ::core::ffi::c_int, __format: *const ::core::ffi::c_char, ...) -> !;
-    fn strdup(__s: *const ::core::ffi::c_char) -> *mut ::core::ffi::c_char;
-    fn strndup(__string: *const ::core::ffi::c_char, __n: size_t) -> *mut ::core::ffi::c_char;
-    fn strcasecmp(
-        __s1: *const ::core::ffi::c_char,
-        __s2: *const ::core::ffi::c_char,
-    ) -> ::core::ffi::c_int;
-    fn malloc(__size: size_t) -> *mut ::core::ffi::c_void;
-    fn calloc(__nmemb: size_t, __size: size_t) -> *mut ::core::ffi::c_void;
-    fn realloc(__ptr: *mut ::core::ffi::c_void, __size: size_t) -> *mut ::core::ffi::c_void;
-}
 pub type __builtin_va_list = [__va_list_tag; 1];
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -44,95 +25,66 @@ pub type va_list = __gnuc_va_list;
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 pub const EINTR: ::core::ffi::c_int = 4 as ::core::ffi::c_int;
 pub const EAGAIN: ::core::ffi::c_int = 11 as ::core::ffi::c_int;
-#[no_mangle]
-pub unsafe extern "C" fn smalloc(mut size: size_t) -> *mut ::core::ffi::c_void {
-    let mut result: *mut ::core::ffi::c_void = malloc(size);
+
+pub unsafe fn smalloc(size: size_t) -> *mut ::core::ffi::c_void {
+    let result: *mut ::core::ffi::c_void = malloc(size);
     if result.is_null() {
-        err(
-            EXIT_FAILURE,
-            b"malloc(%zd)\0" as *const u8 as *const ::core::ffi::c_char,
-            size,
-        );
+        err(EXIT_FAILURE, c"malloc(%zd)".as_ptr(), size);
     }
-    return result;
+    result
 }
-#[no_mangle]
-pub unsafe extern "C" fn scalloc(mut num: size_t, mut size: size_t) -> *mut ::core::ffi::c_void {
-    let mut result: *mut ::core::ffi::c_void = calloc(num, size);
+
+pub unsafe fn scalloc(num: size_t, size: size_t) -> *mut ::core::ffi::c_void {
+    let result: *mut ::core::ffi::c_void = calloc(num, size);
     if result.is_null() {
-        err(
-            EXIT_FAILURE,
-            b"calloc(%zd, %zd)\0" as *const u8 as *const ::core::ffi::c_char,
-            num,
-            size,
-        );
+        err(EXIT_FAILURE, c"calloc(%zd, %zd)".as_ptr(), num, size);
     }
-    return result;
+    result
 }
-#[no_mangle]
-pub unsafe extern "C" fn srealloc(
-    mut ptr: *mut ::core::ffi::c_void,
-    mut size: size_t,
-) -> *mut ::core::ffi::c_void {
-    let mut result: *mut ::core::ffi::c_void = realloc(ptr, size);
+
+pub unsafe fn srealloc(ptr: *mut ::core::ffi::c_void, size: size_t) -> *mut ::core::ffi::c_void {
+    let result: *mut ::core::ffi::c_void = realloc(ptr, size);
     if result.is_null() && size > 0 as size_t {
-        err(
-            EXIT_FAILURE,
-            b"realloc(%zd)\0" as *const u8 as *const ::core::ffi::c_char,
-            size,
-        );
+        err(EXIT_FAILURE, c"realloc(%zd)".as_ptr(), size);
     }
-    return result;
+    result
 }
-#[no_mangle]
-pub unsafe extern "C" fn sstrdup(mut str: *const ::core::ffi::c_char) -> *mut ::core::ffi::c_char {
-    let mut result: *mut ::core::ffi::c_char = strdup(str);
+
+pub unsafe fn sstrdup(str: *const ::core::ffi::c_char) -> *mut ::core::ffi::c_char {
+    let result: *mut ::core::ffi::c_char = strdup(str);
     if result.is_null() {
-        err(
-            EXIT_FAILURE,
-            b"strdup()\0" as *const u8 as *const ::core::ffi::c_char,
-        );
+        err(EXIT_FAILURE, c"strdup()".as_ptr());
     }
-    return result;
+    result
 }
-#[no_mangle]
-pub unsafe extern "C" fn sstrndup(
-    mut str: *const ::core::ffi::c_char,
-    mut size: size_t,
-) -> *mut ::core::ffi::c_char {
-    let mut result: *mut ::core::ffi::c_char = strndup(str, size);
+
+pub unsafe fn sstrndup(str: *const ::core::ffi::c_char, size: size_t) -> *mut ::core::ffi::c_char {
+    let result: *mut ::core::ffi::c_char = strndup(str, size);
     if result.is_null() {
-        err(
-            EXIT_FAILURE,
-            b"strndup()\0" as *const u8 as *const ::core::ffi::c_char,
-        );
+        err(EXIT_FAILURE, c"strndup()".as_ptr());
     }
-    return result;
+    result
 }
-#[no_mangle]
+
 pub unsafe extern "C" fn sasprintf(
-    mut strp: *mut *mut ::core::ffi::c_char,
-    mut fmt: *const ::core::ffi::c_char,
-    mut args: ...
+    strp: *mut *mut ::core::ffi::c_char,
+    fmt: *const ::core::ffi::c_char,
+    args: ...
 ) -> ::core::ffi::c_int {
     let mut args_0;
     let mut result: ::core::ffi::c_int = 0;
     args_0 = args.clone();
     result = vasprintf(strp, fmt, i333_va_list!(args_0));
     if result == -(1 as ::core::ffi::c_int) {
-        err(
-            EXIT_FAILURE,
-            b"asprintf(%s)\0" as *const u8 as *const ::core::ffi::c_char,
-            fmt,
-        );
+        err(EXIT_FAILURE, c"asprintf(%s)".as_ptr(), fmt);
     }
-    return result;
+    result
 }
-#[no_mangle]
-pub unsafe extern "C" fn writeall(
-    mut fd: ::core::ffi::c_int,
-    mut buf: *const ::core::ffi::c_void,
-    mut count: size_t,
+
+pub unsafe fn writeall(
+    fd: ::core::ffi::c_int,
+    buf: *const ::core::ffi::c_void,
+    count: size_t,
 ) -> ssize_t {
     let mut written: size_t = 0 as size_t;
     while written < count {
@@ -151,13 +103,13 @@ pub unsafe extern "C" fn writeall(
             written = written.wrapping_add(n as size_t);
         }
     }
-    return written as ssize_t;
+    written as ssize_t
 }
-#[no_mangle]
-pub unsafe extern "C" fn writeall_nonblock(
-    mut fd: ::core::ffi::c_int,
-    mut buf: *const ::core::ffi::c_void,
-    mut count: size_t,
+
+pub unsafe fn writeall_nonblock(
+    fd: ::core::ffi::c_int,
+    buf: *const ::core::ffi::c_void,
+    count: size_t,
 ) -> ssize_t {
     let mut written: size_t = 0 as size_t;
     while written < count {
@@ -180,30 +132,26 @@ pub unsafe extern "C" fn writeall_nonblock(
             written = written.wrapping_add(n as size_t);
         }
     }
-    return written as ssize_t;
+    written as ssize_t
 }
-#[no_mangle]
-pub unsafe extern "C" fn swrite(
-    mut fd: ::core::ffi::c_int,
-    mut buf: *const ::core::ffi::c_void,
-    mut count: size_t,
+
+pub unsafe fn swrite(
+    fd: ::core::ffi::c_int,
+    buf: *const ::core::ffi::c_void,
+    count: size_t,
 ) -> ssize_t {
     let mut n: ssize_t = 0;
     n = writeall(fd, buf, count);
     if n == -(1 as ::core::ffi::c_int) as ssize_t {
-        err(
-            EXIT_FAILURE,
-            b"Failed to write %d\0" as *const u8 as *const ::core::ffi::c_char,
-            fd,
-        );
+        err(EXIT_FAILURE, c"Failed to write %d".as_ptr(), fd);
     } else {
-        return n;
-    };
+        n
+    }
 }
-#[no_mangle]
-pub unsafe extern "C" fn strcasecmp_nullable(
-    mut a: *const ::core::ffi::c_char,
-    mut b: *const ::core::ffi::c_char,
+
+pub unsafe fn strcasecmp_nullable(
+    a: *const ::core::ffi::c_char,
+    b: *const ::core::ffi::c_char,
 ) -> ::core::ffi::c_int {
     if a == b {
         return 0 as ::core::ffi::c_int;
@@ -214,6 +162,13 @@ pub unsafe extern "C" fn strcasecmp_nullable(
     if b.is_null() {
         return 1 as ::core::ffi::c_int;
     }
-    return strcasecmp(a, b);
+    strcasecmp(a, b)
 }
 pub const EXIT_FAILURE: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
+
+// Internal helpers use Rust linkage rather than foreign symbol lookup.
+use libc::strndup;
+
+pub use libc::{__errno_location, calloc, malloc, realloc, strcasecmp, strdup, write};
+
+use crate::native_stdio::{err, vasprintf};

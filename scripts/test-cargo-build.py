@@ -17,16 +17,16 @@ from pathlib import Path
 import shutil
 import stat
 import subprocess
-import tempfile
+from workspace_temp import temporary_directory
 
 ROOT = Path(__file__).resolve().parents[1]
 BINARIES = ('i3', 'i3bar', 'i3-config-wizard', 'i3-dump-log', 'i3-input',
             'i3-msg', 'i3-nagbar')
-SKIP_DIRS = {'.git', '.agents', '.aws', '.codex', '.venv', '__pycache__',
+SKIP_DIRS = {'.work', '.git', '.agents', '.aws', '.codex', '.venv', '__pycache__',
              'build', 'target'}
 CONFIG_ASSETS = ('I3_VERSION', 'etc/config', 'etc/config.keycodes')
 NATIVE_SOURCE_SUFFIXES = {'.c', '.h', '.cc', '.cpp', '.cxx', '.hh', '.hpp', '.hxx'}
-CACHE_DIRS = {'.git', '.agents', '.aws', '.codex', '.venv', '.cache',
+CACHE_DIRS = {'.work', '.git', '.agents', '.aws', '.codex', '.venv', '.cache',
               '__pycache__', 'target'}
 
 
@@ -112,7 +112,7 @@ def main():
     parser.add_argument('--toolchain', help='override the copied rust-toolchain.toml')
     args = parser.parse_args()
     assert_rust_only_repository()
-    with tempfile.TemporaryDirectory(prefix='i333-clean-cargo-') as scratch:
+    with temporary_directory(prefix='i333-clean-cargo-') as scratch:
         scratch = Path(scratch)
         source = scratch / 'source'
         source.mkdir()

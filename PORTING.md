@@ -1,9 +1,12 @@
 # i3 Rust port
 
-1. **Compatibility first.** The port preserves upstream function names, control
-   flow, C ABI, struct layouts, globals, callbacks and allocation ownership.
-   XCB, libev, Cairo, Pango, YAJL and PCRE2 remain native backends. Architecture
-   and ownership cleanup are separate work.
+1. **Compatibility first.** Files continue to follow upstream behavior and names
+   while internal functions use Rust linkage and shared model definitions. Rust
+   owns text, CLI arguments, paths, IPC buffers and JSON streaming state. Native
+   XCB, libev, GTK rendering, XKB and PCRE2 boundaries remain explicit. Unsafe
+   window-tree pointers, intrusive lists and legacy allocation adapters remain;
+   this is not yet a complete ownership redesign. See
+   [repository details](docs/development.md) for maintained bindings and limits.
 2. **Provenance.** The baseline is upstream
    [`be04c853ee7fa01a82a0c81f8217565395e2627c`](https://github.com/i3/i3/tree/be04c853ee7fa01a82a0c81f8217565395e2627c).
    All 90 product C files were translated, with 89 translation units configured
@@ -21,11 +24,11 @@
    [repository details](docs/development.md) are required. All parser tables are
    checked into Rust. Cargo does not invoke Meson, Perl, C2Rust or a C compiler
    to compile project sources. A C compiler driver may still invoke the native
-   linker. The workspace separates the window manager (`i3`), shared native-ABI
+   linker. The workspace separates the window manager (`i3`), shared Rust
    helper library (`i3-common`), bar (`i3bar`), five utility binaries
-   (`i3-tools`) and centralized build configuration (`i3-build`). Standard module
-   declarations keep source inside each crate; native link discovery runs once
-   through the shared library build script.
+   (`i3-tools`), build configuration (`i3-build`), Rust JSON (`i3-json`) and
+   dedicated native boundaries. Standard module declarations keep source inside
+   each crate; native binding crates own their linking metadata.
 5. **Test isolation.** Never replace, restart, signal, or send commands to the
    user's running i3. Never move the pointer or inject input on their display.
    Runtime tests require a separate headless X server, private IPC socket,

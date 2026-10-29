@@ -1,83 +1,90 @@
-// i3 - an improved tiling window manager
 // Copyright © 2009 Michael Stapelberg and contributors (see LICENSE).
-// Direct translation of libi3/format_placeholders.c; C ABI and allocation ownership are preserved.
 
-use libc::{c_char, c_int};
-unsafe extern "C" {
-    fn sstrdup(string: *const c_char) -> *mut c_char;
+use std::ffi::{CStr, CString};
+
+/// Expand '%' placeholders in order, leaving unknown tokens unchanged.
+/// The first matching nonempty '%' name wins when names share a prefix.
+pub fn expand(format: &str, placeholders: &[(&str, &str)]) -> String {
+    let entries: Vec<_> = placeholders
+        .iter()
+        .map(|(name, value)| (name.as_bytes(), value.as_bytes()))
+        .collect();
+    // Matching complete UTF-8 names in a UTF-8 format preserves UTF-8 boundaries.
+    String::from_utf8(expand_bytes(format.as_bytes(), &entries))
+        .expect("UTF-8 placeholder expansion")
 }
 
+/// Byte-preserving expansion for C strings, without a raw pointer interface.
+pub fn expand_cstr(format: &CStr, placeholders: &[(&CStr, &CStr)]) -> CString {
+    let entries: Vec<_> = placeholders
+        .iter()
+        .map(|(name, value)| (name.to_bytes(), value.to_bytes()))
+        .collect();
+    CString::new(expand_bytes(format.to_bytes(), &entries))
+        .expect("C string inputs contain no embedded NUL")
+}
+
+fn expand_bytes(format: &[u8], placeholders: &[(&[u8], &[u8])]) -> Vec<u8> {
+    let mut output = Vec::with_capacity(format.len());
+    let mut remaining = format;
+    while let Some((&first, tail)) = remaining.split_first() {
+        let replacement = if first == b'%' {
+            placeholders
+                .iter()
+                .find(|(name, _)| name.starts_with(b"%") && remaining.starts_with(name))
+        } else {
+            None
+        };
+        if let Some((name, value)) = replacement {
+            output.extend_from_slice(value);
+            remaining = &remaining[name.len()..];
+        } else {
+            output.push(first);
+            remaining = tail;
+        }
+    }
+    output
+}
+
+/// Legacy pointer layouts and allocation boundary, pending caller migration.
 #[allow(non_camel_case_types)]
 #[repr(C)]
 pub struct placeholder_t {
-    pub name: *const c_char,
-    pub value: *const c_char,
+    pub name: *const libc::c_char,
+    pub value: *const libc::c_char,
 }
 
+/// Legacy ABI adapter for [`expand_cstr`]. Returned storage belongs to free().
+///
 /// # Safety
-/// `format` is null or a live C string. `placeholders` has `num` entries whose
-/// name/value pointers reference C strings. Placeholder names are nonempty and
-/// start with '%', as required by upstream's sizing and replacement passes.
-#[no_mangle]
-pub unsafe extern "C" fn format_placeholders(
-    format: *mut c_char,
+/// `format` is null or a live C string. `placeholders` contains `num` entries,
+/// each with live C-string name/value pointers. Nonpositive num means no entries.
+
+pub unsafe fn format_placeholders(
+    format: *mut libc::c_char,
     placeholders: *mut placeholder_t,
-    num: c_int,
-) -> *mut c_char {
+    num: libc::c_int,
+) -> *mut libc::c_char {
     if format.is_null() {
-        return core::ptr::null_mut();
+        return std::ptr::null_mut();
     }
-    // SAFETY: Both scans only advance through caller-provided C strings. The
-    // first pass computes storage for the second pass, matching upstream's VLA.
-    unsafe {
-        let mut buffer_len = (libc::strlen(format) + 1) as c_int;
-        let mut walk = format;
-        while *walk != 0 {
-            for i in 0..num {
-                let placeholder = &*placeholders.add(i as usize);
-                if libc::strncmp(walk, placeholder.name, libc::strlen(placeholder.name)) != 0 {
-                    continue;
-                }
-                buffer_len = (buffer_len as usize)
-                    .wrapping_sub(libc::strlen(placeholder.name))
-                    .wrapping_add(libc::strlen(placeholder.value))
-                    as c_int;
-                walk = walk.add(libc::strlen(placeholder.name) - 1);
-                break;
-            }
-            walk = walk.add(1);
-        }
-        // PORT NOTE: Vec supplies the variable-size scratch buffer formerly a C
-        // VLA; returned storage still comes from sstrdup, with identical ownership.
-        let mut buffer = vec![0 as c_char; buffer_len as usize];
-        let mut outwalk = buffer.as_mut_ptr();
-        walk = format;
-        while *walk != 0 {
-            if *walk != b'%' as c_char {
-                *outwalk = *walk;
-                outwalk = outwalk.add(1);
-                walk = walk.add(1);
-                continue;
-            }
-            let mut matched = false;
-            for i in 0..num {
-                let placeholder = &*placeholders.add(i as usize);
-                if libc::strncmp(walk, placeholder.name, libc::strlen(placeholder.name)) != 0 {
-                    continue;
-                }
-                matched = true;
-                outwalk =
-                    outwalk.add(libc::sprintf(outwalk, c"%s".as_ptr(), placeholder.value) as usize);
-                walk = walk.add(libc::strlen(placeholder.name) - 1);
-                break;
-            }
-            if !matched {
-                *outwalk = *walk;
-                outwalk = outwalk.add(1);
-            }
-            walk = walk.add(1);
-        }
-        *outwalk = 0;
-        sstrdup(buffer.as_ptr())
-    }
+    let count = usize::try_from(num).unwrap_or(0);
+    let entries = if count == 0 {
+        &[]
+    } else {
+        // SAFETY: The caller supplies count live placeholder records.
+        unsafe { std::slice::from_raw_parts(placeholders, count) }
+    };
+    let entries: Vec<_> = entries
+        .iter()
+        .map(|entry| {
+            // SAFETY: Names and values follow the caller's C-string contract.
+            unsafe { (CStr::from_ptr(entry.name), CStr::from_ptr(entry.value)) }
+        })
+        .collect();
+    // SAFETY: format is nonnull and follows the caller's C-string contract.
+    let expanded = expand_cstr(unsafe { CStr::from_ptr(format) }, &entries);
+    // SAFETY: Duplicate the result into the existing malloc allocator boundary;
+    // returning CString::into_raw would be incompatible with callers using free.
+    unsafe { crate::safewrappers::sstrndup(expanded.as_ptr(), expanded.as_bytes().len()) }
 }

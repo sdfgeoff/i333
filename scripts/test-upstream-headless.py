@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Run i3's complete upstream suite on private headless X servers.
 
-Example (all dependencies remain in /tmp):
+Example (all dependencies remain in .work):
     python scripts/test-upstream-headless.py \
         --reference-build /path/to/external/i3-test-helpers \
-        --perl-lib /tmp/i333-perl/lib/perl5 \
-        --xvfb-dir /tmp/i333-xvfb/usr/bin \
-        --xephyr-dir /tmp/i333-xephyr/usr/bin
+        --perl-lib .work/i333-perl/lib/perl5 \
+        --xvfb-dir .work/i333-xvfb/usr/bin \
+        --xephyr-dir .work/i333-xephyr/usr/bin
 Run cargo build first; Rust products default to target/debug (or target/release
 with --release). Override with --rust-bin-dir. --reference-build must explicitly
 point to three external precompiled test helpers: test.commands_parser,
@@ -15,23 +15,25 @@ from retained templates; it needs no C sources, headers, or build system in this
 checkout. Add --baseline to use external C products from that directory too.
 The Perl Inline::C test fixtures compile only inside the private temporary suite;
 they need a C compiler and system XCB/libstartup-notification development headers.
-The suite copy and full logs are preserved in a fresh /tmp/i333-suite-* directory.
+The suite copy and full logs are preserved in a fresh .work/tmp/i333-suite-* directory (or under TMPDIR).
 
 Dependency bootstrap used for the initial validation (no global installation):
-    curl -sS -L https://cpanmin.us -o /tmp/i333-cpanm
-    PERL_CPANM_HOME=/tmp/i333-cpanm-cache perl /tmp/i333-cpanm \
-        --local-lib-contained /tmp/i333-perl --notest \
+    mkdir -p .work/tmp
+    export TMPDIR="$PWD/.work/tmp"
+    curl -sS -L https://cpanmin.us -o .work/i333-cpanm
+    PERL_CPANM_HOME=.work/i333-cpanm-cache perl .work/i333-cpanm \
+        --local-lib-contained .work/i333-perl --notest \
         --mirror https://cpan.metacpan.org --mirror-only \
         AnyEvent JSON::XS X11::XCB Inline Inline::C ExtUtils::PkgConfig IPC::Run
-    mkdir -p /tmp/i333-perl/lib/perl5/AnyEvent
-    cp AnyEvent-I3/lib/AnyEvent/I3.pm /tmp/i333-perl/lib/perl5/AnyEvent/I3.pm
+    mkdir -p .work/i333-perl/lib/perl5/AnyEvent
+    cp AnyEvent-I3/lib/AnyEvent/I3.pm .work/i333-perl/lib/perl5/AnyEvent/I3.pm
 Arch X-server extraction commands (use the archive if the mirror rotates):
-    curl -sS -L https://geo.mirror.pkgbuild.com/extra/os/x86_64/xorg-server-xvfb-21.1.25-2-x86_64.pkg.tar.zst -o /tmp/i333-xvfb.pkg.tar.zst
-    mkdir -p /tmp/i333-xvfb
-    tar -xf /tmp/i333-xvfb.pkg.tar.zst -C /tmp/i333-xvfb
-    curl -sS -L https://geo.mirror.pkgbuild.com/extra/os/x86_64/xorg-server-xephyr-21.1.25-2-x86_64.pkg.tar.zst -o /tmp/i333-xephyr.pkg.tar.zst
-    mkdir -p /tmp/i333-xephyr
-    tar -xf /tmp/i333-xephyr.pkg.tar.zst -C /tmp/i333-xephyr
+    curl -sS -L https://geo.mirror.pkgbuild.com/extra/os/x86_64/xorg-server-xvfb-21.1.25-2-x86_64.pkg.tar.zst -o .work/i333-xvfb.pkg.tar.zst
+    mkdir -p .work/i333-xvfb
+    tar -xf .work/i333-xvfb.pkg.tar.zst -C .work/i333-xvfb
+    curl -sS -L https://geo.mirror.pkgbuild.com/extra/os/x86_64/xorg-server-xephyr-21.1.25-2-x86_64.pkg.tar.zst -o .work/i333-xephyr.pkg.tar.zst
+    mkdir -p .work/i333-xephyr
+    tar -xf .work/i333-xephyr.pkg.tar.zst -C .work/i333-xephyr
 Supply installed binaries with the directory options or PATH on other systems.
 They require matching X11 runtime libraries, xauth, xkbcomp and keyboard data.
 
@@ -46,7 +48,7 @@ import re
 import shutil
 import signal
 import subprocess
-import tempfile
+from workspace_temp import make_tempdir, temporary_root
 
 ROOT = Path(__file__).resolve().parent.parent
 PRODUCTS = ["i3", "i3bar", "i3-config-wizard", "i3-dump-log", "i3-input", "i3-msg", "i3-nagbar"]
@@ -73,6 +75,7 @@ def run_suite(args):
     rust_bin = (args.rust_bin_dir or cargo_bin_dir(args.release)).resolve()
     env = {key: value for key, value in os.environ.items()
            if key not in {"DISPLAY", "I3SOCK", "WAYLAND_DISPLAY", "XAUTHORITY", "DBUS_SESSION_BUS_ADDRESS"}}
+    env["TMPDIR"] = str(temporary_root())
     if args.perl_lib:
         env["PERL5LIB"] = str(args.perl_lib.resolve())
     directories = [str(p.resolve()) for p in [args.xvfb_dir, args.xephyr_dir] if p]
@@ -94,7 +97,7 @@ def run_suite(args):
         if not source.is_file():
             raise SystemExit(f"Missing retained Perl suite template {source}")
 
-    suite = Path(tempfile.mkdtemp(prefix="i333-suite-c-" if args.baseline else "i333-suite-rust-"))
+    suite = Path(make_tempdir(prefix="i333-suite-c-" if args.baseline else "i333-suite-rust-"))
     for name, source in templates.items():
         text = source.read_text().replace("@abs_top_builddir@", str(suite)).replace("@abs_top_srcdir@", str(ROOT))
         (suite / name).write_text(text)

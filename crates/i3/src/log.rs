@@ -1,3 +1,4 @@
+use i3_common::safewrappers::sasprintf;
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -8,138 +9,12 @@
  *
  */
 // Mechanical file-by-file Rust translation of src/log.c.
-// Generated with C2Rust 0.22.1; C ABI and original ownership retained.
-use ::c2rust_bitfields;
+// Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 use i3_common::i333_va_list;
+pub use libev_sys::{ev_io, ev_loop};
 
-extern "C" {
-    pub type _IO_wide_data;
-    pub type _IO_codecvt;
-    pub type _IO_marker;
-    pub type ev_loop;
-    pub type sockaddr_x25;
-    pub type sockaddr_ns;
-    pub type sockaddr_iso;
-    pub type sockaddr_ipx;
-    pub type sockaddr_inarp;
-    pub type sockaddr_in6;
-    pub type sockaddr_in;
-    pub type sockaddr_eon;
-    pub type sockaddr_dl;
-    pub type sockaddr_ax25;
-    pub type sockaddr_at;
-    fn __errno_location() -> *mut ::core::ffi::c_int;
-    static mut stdout: *mut FILE;
-    static mut stderr: *mut FILE;
-    fn fflush(__stream: *mut FILE) -> ::core::ffi::c_int;
-    fn fopen(
-        __filename: *const ::core::ffi::c_char,
-        __modes: *const ::core::ffi::c_char,
-    ) -> *mut FILE;
-    fn fprintf(
-        __stream: *mut FILE,
-        __format: *const ::core::ffi::c_char,
-        ...
-    ) -> ::core::ffi::c_int;
-    fn printf(__format: *const ::core::ffi::c_char, ...) -> ::core::ffi::c_int;
-    fn vfprintf(
-        __s: *mut FILE,
-        __format: *const ::core::ffi::c_char,
-        __arg: ::core::ffi::VaList,
-    ) -> ::core::ffi::c_int;
-    fn vprintf(
-        __format: *const ::core::ffi::c_char,
-        __arg: ::core::ffi::VaList,
-    ) -> ::core::ffi::c_int;
-    fn vsnprintf(
-        __s: *mut ::core::ffi::c_char,
-        __maxlen: size_t,
-        __format: *const ::core::ffi::c_char,
-        __arg: ::core::ffi::VaList,
-    ) -> ::core::ffi::c_int;
-    fn fwrite(
-        __ptr: *const ::core::ffi::c_void,
-        __size: size_t,
-        __n: size_t,
-        __s: *mut FILE,
-    ) -> ::core::ffi::c_ulong;
-    fn perror(__s: *const ::core::ffi::c_char);
-    fn fileno(__stream: *mut FILE) -> ::core::ffi::c_int;
-    fn stat(__file: *const ::core::ffi::c_char, __buf: *mut stat) -> ::core::ffi::c_int;
-    fn time(__timer: *mut time_t) -> time_t;
-    fn strftime(
-        __s: *mut ::core::ffi::c_char,
-        __maxsize: size_t,
-        __format: *const ::core::ffi::c_char,
-        __tp: *const tm,
-    ) -> size_t;
-    fn localtime_r(__timer: *const time_t, __tp: *mut tm) -> *mut tm;
-    fn close(__fd: ::core::ffi::c_int) -> ::core::ffi::c_int;
-    fn sysconf(__name: ::core::ffi::c_int) -> ::core::ffi::c_long;
-    fn getpid() -> __pid_t;
-    fn unlink(__name: *const ::core::ffi::c_char) -> ::core::ffi::c_int;
-    fn rmdir(__path: *const ::core::ffi::c_char) -> ::core::ffi::c_int;
-    fn scalloc(num: size_t, size: size_t) -> *mut ::core::ffi::c_void;
-    fn sasprintf(
-        strp: *mut *mut ::core::ffi::c_char,
-        fmt: *const ::core::ffi::c_char,
-        ...
-    ) -> ::core::ffi::c_int;
-    fn writeall(fd: ::core::ffi::c_int, buf: *const ::core::ffi::c_void, count: size_t) -> ssize_t;
-    fn get_process_filename(prefix: *const ::core::ffi::c_char) -> *mut ::core::ffi::c_char;
-    fn set_nonblock(sockfd: ::core::ffi::c_int);
-    fn accept(
-        __fd: ::core::ffi::c_int,
-        __addr: __SOCKADDR_ARG,
-        __addr_len: *mut socklen_t,
-    ) -> ::core::ffi::c_int;
-    fn fcntl(__fd: ::core::ffi::c_int, __cmd: ::core::ffi::c_int, ...) -> ::core::ffi::c_int;
-    fn posix_fallocate(
-        __fd: ::core::ffi::c_int,
-        __offset: __off64_t,
-        __len: __off64_t,
-    ) -> ::core::ffi::c_int;
-    fn mmap(
-        __addr: *mut ::core::ffi::c_void,
-        __len: size_t,
-        __prot: ::core::ffi::c_int,
-        __flags: ::core::ffi::c_int,
-        __fd: ::core::ffi::c_int,
-        __offset: __off64_t,
-    ) -> *mut ::core::ffi::c_void;
-    fn shm_open(
-        __name: *const ::core::ffi::c_char,
-        __oflag: ::core::ffi::c_int,
-        __mode: mode_t,
-    ) -> ::core::ffi::c_int;
-    fn shm_unlink(__name: *const ::core::ffi::c_char) -> ::core::ffi::c_int;
-    fn memset(
-        __s: *mut ::core::ffi::c_void,
-        __c: ::core::ffi::c_int,
-        __n: size_t,
-    ) -> *mut ::core::ffi::c_void;
-    fn strncpy(
-        __dest: *mut ::core::ffi::c_char,
-        __src: *const ::core::ffi::c_char,
-        __n: size_t,
-    ) -> *mut ::core::ffi::c_char;
-    fn strrchr(
-        __s: *const ::core::ffi::c_char,
-        __c: ::core::ffi::c_int,
-    ) -> *mut ::core::ffi::c_char;
-    fn strerror(__errnum: ::core::ffi::c_int) -> *mut ::core::ffi::c_char;
-    fn free(__ptr: *mut ::core::ffi::c_void);
-    fn atexit(__func: Option<unsafe extern "C" fn() -> ()>) -> ::core::ffi::c_int;
-}
 pub type __builtin_va_list = [__va_list_tag; 1];
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct __va_list_tag {
-    pub gp_offset: ::core::ffi::c_uint,
-    pub fp_offset: ::core::ffi::c_uint,
-    pub overflow_arg_area: *mut ::core::ffi::c_void,
-    pub reg_save_area: *mut ::core::ffi::c_void,
-}
+pub use i3_common::safewrappers::__va_list_tag;
 pub type size_t = usize;
 pub type __uint32_t = u32;
 pub type __uint64_t = u64;
@@ -160,88 +35,12 @@ pub type __socklen_t = ::core::ffi::c_uint;
 pub type mode_t = __mode_t;
 pub type ssize_t = isize;
 pub type time_t = __time_t;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct timespec {
-    pub tv_sec: __time_t,
-    pub tv_nsec: __syscall_slong_t,
-}
+
 pub type __gnuc_va_list = __builtin_va_list;
 pub type va_list = __gnuc_va_list;
-#[derive(Copy, Clone, BitfieldStruct)]
-#[repr(C)]
-pub struct _IO_FILE {
-    pub _flags: ::core::ffi::c_int,
-    pub _IO_read_ptr: *mut ::core::ffi::c_char,
-    pub _IO_read_end: *mut ::core::ffi::c_char,
-    pub _IO_read_base: *mut ::core::ffi::c_char,
-    pub _IO_write_base: *mut ::core::ffi::c_char,
-    pub _IO_write_ptr: *mut ::core::ffi::c_char,
-    pub _IO_write_end: *mut ::core::ffi::c_char,
-    pub _IO_buf_base: *mut ::core::ffi::c_char,
-    pub _IO_buf_end: *mut ::core::ffi::c_char,
-    pub _IO_save_base: *mut ::core::ffi::c_char,
-    pub _IO_backup_base: *mut ::core::ffi::c_char,
-    pub _IO_save_end: *mut ::core::ffi::c_char,
-    pub _markers: *mut _IO_marker,
-    pub _chain: *mut _IO_FILE,
-    pub _fileno: ::core::ffi::c_int,
-    #[bitfield(name = "_flags2", ty = "::core::ffi::c_int", bits = "0..=23")]
-    pub _flags2: [u8; 3],
-    pub _short_backupbuf: [::core::ffi::c_char; 1],
-    pub _old_offset: __off_t,
-    pub _cur_column: ::core::ffi::c_ushort,
-    pub _vtable_offset: ::core::ffi::c_schar,
-    pub _shortbuf: [::core::ffi::c_char; 1],
-    pub _lock: *mut ::core::ffi::c_void,
-    pub _offset: __off64_t,
-    pub _codecvt: *mut _IO_codecvt,
-    pub _wide_data: *mut _IO_wide_data,
-    pub _freeres_list: *mut _IO_FILE,
-    pub _freeres_buf: *mut ::core::ffi::c_void,
-    pub _prevchain: *mut *mut _IO_FILE,
-    pub _mode: ::core::ffi::c_int,
-    pub _unused3: ::core::ffi::c_int,
-    pub _total_written: __uint64_t,
-    pub _unused2: [::core::ffi::c_char; 8],
-}
-pub type _IO_lock_t = ();
-pub type FILE = _IO_FILE;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct tm {
-    pub tm_sec: ::core::ffi::c_int,
-    pub tm_min: ::core::ffi::c_int,
-    pub tm_hour: ::core::ffi::c_int,
-    pub tm_mday: ::core::ffi::c_int,
-    pub tm_mon: ::core::ffi::c_int,
-    pub tm_year: ::core::ffi::c_int,
-    pub tm_wday: ::core::ffi::c_int,
-    pub tm_yday: ::core::ffi::c_int,
-    pub tm_isdst: ::core::ffi::c_int,
-    pub tm_gmtoff: ::core::ffi::c_long,
-    pub tm_zone: *const ::core::ffi::c_char,
-}
+
 pub type uint32_t = __uint32_t;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct stat {
-    pub st_dev: __dev_t,
-    pub st_ino: __ino_t,
-    pub st_nlink: __nlink_t,
-    pub st_mode: __mode_t,
-    pub st_uid: __uid_t,
-    pub st_gid: __gid_t,
-    pub __pad0: ::core::ffi::c_int,
-    pub st_rdev: __dev_t,
-    pub st_size: __off_t,
-    pub st_blksize: __blksize_t,
-    pub st_blocks: __blkcnt_t,
-    pub st_atim: timespec,
-    pub st_mtim: timespec,
-    pub st_ctim: timespec,
-    pub __glibc_reserved: [__syscall_slong_t; 3],
-}
+
 pub type socklen_t = __socklen_t;
 pub type C2RustUnnamed = ::core::ffi::c_uint;
 pub const _SC_SIGSTKSZ: C2RustUnnamed = 250;
@@ -487,59 +286,9 @@ pub struct i3_shmlog_header {
     pub size: uint32_t,
     pub wrap_count: uint32_t,
 }
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct ev_watcher_list {
-    pub active: ::core::ffi::c_int,
-    pub pending: ::core::ffi::c_int,
-    pub priority: ::core::ffi::c_int,
-    pub data: *mut ::core::ffi::c_void,
-    pub cb:
-        Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_watcher_list, ::core::ffi::c_int) -> ()>,
-    pub next: *mut ev_watcher_list,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct ev_io {
-    pub active: ::core::ffi::c_int,
-    pub pending: ::core::ffi::c_int,
-    pub priority: ::core::ffi::c_int,
-    pub data: *mut ::core::ffi::c_void,
-    pub cb: Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_io, ::core::ffi::c_int) -> ()>,
-    pub next: *mut ev_watcher_list,
-    pub fd: ::core::ffi::c_int,
-    pub events: ::core::ffi::c_int,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct sockaddr_un {
-    pub sun_family: sa_family_t,
-    pub sun_path: [::core::ffi::c_char; 108],
-}
+
 pub type sa_family_t = ::core::ffi::c_ushort;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct sockaddr {
-    pub sa_family: sa_family_t,
-    pub sa_data: [::core::ffi::c_char; 14],
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub union __SOCKADDR_ARG {
-    pub __sockaddr__: *mut sockaddr,
-    pub __sockaddr_at__: *mut sockaddr_at,
-    pub __sockaddr_ax25__: *mut sockaddr_ax25,
-    pub __sockaddr_dl__: *mut sockaddr_dl,
-    pub __sockaddr_eon__: *mut sockaddr_eon,
-    pub __sockaddr_in__: *mut sockaddr_in,
-    pub __sockaddr_in6__: *mut sockaddr_in6,
-    pub __sockaddr_inarp__: *mut sockaddr_inarp,
-    pub __sockaddr_ipx__: *mut sockaddr_ipx,
-    pub __sockaddr_iso__: *mut sockaddr_iso,
-    pub __sockaddr_ns__: *mut sockaddr_ns,
-    pub __sockaddr_un__: *mut sockaddr_un,
-    pub __sockaddr_x25__: *mut sockaddr_x25,
-}
+
 pub const EINTR: ::core::ffi::c_int = 4 as ::core::ffi::c_int;
 pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
@@ -562,13 +311,12 @@ pub const MAP_FAILED: *mut ::core::ffi::c_void =
 static mut debug_logging: bool = false_0 != 0;
 static mut verbose: bool = false_0 != 0;
 static mut errorfile: *mut FILE = ::core::ptr::null::<FILE>() as *mut FILE;
-#[no_mangle]
+
 pub static mut errorfilename: *mut ::core::ffi::c_char =
     ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char;
-#[no_mangle]
-pub static mut shmlogname: *mut ::core::ffi::c_char =
-    b"\0" as *const u8 as *const ::core::ffi::c_char as *mut ::core::ffi::c_char;
-#[no_mangle]
+
+pub static mut shmlogname: *mut ::core::ffi::c_char = c"".as_ptr().cast_mut();
+
 pub static mut shmlog_size: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 static mut logbuffer: *mut ::core::ffi::c_char =
     ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char;
@@ -581,46 +329,34 @@ static mut loglastwrap: *mut ::core::ffi::c_char =
 static mut logbuffer_size: ::core::ffi::c_int = 0;
 static mut logbuffer_shm: ::core::ffi::c_int = 0;
 static mut physical_mem_bytes: ::core::ffi::c_longlong = 0;
-#[no_mangle]
+
 pub static mut log_clients: log_client_head = log_client_head {
     tqh_first: ::core::ptr::null::<log_client>() as *mut log_client,
     tqh_last: ::core::ptr::null::<*mut log_client>() as *mut *mut log_client,
 };
-unsafe extern "C" fn store_log_markers() {
+unsafe fn store_log_markers() {
     (*header).offset_next_write = logwalk.offset_from(logbuffer) as ::core::ffi::c_long as uint32_t;
     (*header).offset_last_wrap =
         loglastwrap.offset_from(logbuffer) as ::core::ffi::c_long as uint32_t;
     (*header).size = logbuffer_size as uint32_t;
 }
-#[no_mangle]
-pub unsafe extern "C" fn init_logging() {
+
+pub unsafe fn init_logging() {
     if errorfilename.is_null() {
-        errorfilename =
-            get_process_filename(b"errorlog\0" as *const u8 as *const ::core::ffi::c_char);
+        errorfilename = get_process_filename(c"errorlog".as_ptr());
         if errorfilename.is_null() {
-            fprintf(
-                stderr,
-                b"Could not initialize errorlog\n\0" as *const u8 as *const ::core::ffi::c_char,
-            );
+            fprintf(stderr, c"Could not initialize errorlog\n".as_ptr());
         } else {
-            errorfile = fopen(
-                errorfilename,
-                b"w\0" as *const u8 as *const ::core::ffi::c_char,
-            ) as *mut FILE;
+            errorfile = fopen(errorfilename, c"w".as_ptr()) as *mut FILE;
             if errorfile.is_null() {
                 fprintf(
                     stderr,
-                    b"Could not initialize errorlog on %s: %s\n\0" as *const u8
-                        as *const ::core::ffi::c_char,
+                    c"Could not initialize errorlog on %s: %s\n".as_ptr(),
                     errorfilename,
                     strerror(*__errno_location()),
                 );
             } else if fcntl(fileno(errorfile), F_SETFD, FD_CLOEXEC) != 0 {
-                fprintf(
-                    stderr,
-                    b"Could not set close-on-exec flag\n\0" as *const u8
-                        as *const ::core::ffi::c_char,
-                );
+                fprintf(stderr, c"Could not set close-on-exec flag\n".as_ptr());
             }
         }
     }
@@ -634,10 +370,10 @@ pub unsafe extern "C" fn init_logging() {
     } else if shmlog_size <= 0 as ::core::ffi::c_int && !logbuffer.is_null() {
         close_logbuffer();
     }
-    atexit(Some(purge_zerobyte_logfile as unsafe extern "C" fn() -> ()));
+    atexit(purge_zerobyte_logfile);
 }
-#[no_mangle]
-pub unsafe extern "C" fn open_logbuffer() {
+
+pub unsafe fn open_logbuffer() {
     logbuffer_size = shmlog_size;
     if physical_mem_bytes as ::core::ffi::c_double * 0.01f64
         < shmlog_size as ::core::ffi::c_longlong as ::core::ffi::c_double
@@ -645,17 +381,12 @@ pub unsafe extern "C" fn open_logbuffer() {
         logbuffer_size =
             (physical_mem_bytes as ::core::ffi::c_double * 0.01f64) as ::core::ffi::c_int;
     }
-    sasprintf(
-        &raw mut shmlogname,
-        b"/i3-log-%d\0" as *const u8 as *const ::core::ffi::c_char,
-        getpid(),
-    );
+    sasprintf(&raw mut shmlogname, c"/i3-log-%d".as_ptr(), getpid());
     logbuffer_shm = shm_open(shmlogname, O_RDWR | O_CREAT, (S_IREAD | S_IWRITE) as mode_t);
     if logbuffer_shm == -(1 as ::core::ffi::c_int) {
         fprintf(
             stderr,
-            b"Could not shm_open SHM segment for the i3 log: %s\n\0" as *const u8
-                as *const ::core::ffi::c_char,
+            c"Could not shm_open SHM segment for the i3 log: %s\n".as_ptr(),
             strerror(*__errno_location()),
         );
         return;
@@ -665,8 +396,7 @@ pub unsafe extern "C" fn open_logbuffer() {
     if ret != 0 as ::core::ffi::c_int {
         fprintf(
             stderr,
-            b"Could not ftruncate SHM segment for the i3 log: %s\n\0" as *const u8
-                as *const ::core::ffi::c_char,
+            c"Could not ftruncate SHM segment for the i3 log: %s\n".as_ptr(),
             strerror(ret),
         );
         close(logbuffer_shm);
@@ -685,8 +415,7 @@ pub unsafe extern "C" fn open_logbuffer() {
         close_logbuffer();
         fprintf(
             stderr,
-            b"Could not mmap SHM segment for the i3 log: %s\n\0" as *const u8
-                as *const ::core::ffi::c_char,
+            c"Could not mmap SHM segment for the i3 log: %s\n".as_ptr(),
             strerror(*__errno_location()),
         );
         return;
@@ -701,31 +430,27 @@ pub unsafe extern "C" fn open_logbuffer() {
     loglastwrap = logbuffer.offset(logbuffer_size as isize);
     store_log_markers();
 }
-#[no_mangle]
-pub unsafe extern "C" fn close_logbuffer() {
+
+pub unsafe fn close_logbuffer() {
     close(logbuffer_shm);
     shm_unlink(shmlogname);
     free(shmlogname as *mut ::core::ffi::c_void);
     logbuffer = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    shmlogname = b"\0" as *const u8 as *const ::core::ffi::c_char as *mut ::core::ffi::c_char;
+    shmlogname = c"".as_ptr().cast_mut();
 }
-#[no_mangle]
-pub unsafe extern "C" fn set_verbosity(mut _verbose: bool) {
+
+pub unsafe fn set_verbosity(mut _verbose: bool) {
     verbose = _verbose;
 }
-#[no_mangle]
-pub unsafe extern "C" fn get_debug_logging() -> bool {
-    return debug_logging;
+
+pub unsafe fn get_debug_logging() -> bool {
+    debug_logging
 }
-#[no_mangle]
-pub unsafe extern "C" fn set_debug_logging(_debug_logging: bool) {
+
+pub unsafe fn set_debug_logging(_debug_logging: bool) {
     debug_logging = _debug_logging;
 }
-unsafe extern "C" fn vlog(
-    print: bool,
-    mut fmt: *const ::core::ffi::c_char,
-    mut args: ::core::ffi::VaList,
-) {
+unsafe fn vlog(print: bool, fmt: *const ::core::ffi::c_char, mut args: ::core::ffi::VaList) {
     static mut message: [::core::ffi::c_char; 4096] = [0; 4096];
     static mut result: tm = tm {
         tm_sec: 0,
@@ -748,14 +473,11 @@ unsafe extern "C" fn vlog(
     len = strftime(
         &raw mut message as *mut ::core::ffi::c_char,
         ::core::mem::size_of::<[::core::ffi::c_char; 4096]>() as size_t,
-        b"%x %X - \0" as *const u8 as *const ::core::ffi::c_char,
+        c"%x %X - ".as_ptr(),
         tmp,
     );
     if logbuffer.is_null() {
-        printf(
-            b"%s\0" as *const u8 as *const ::core::ffi::c_char,
-            &raw mut message as *mut ::core::ffi::c_char,
-        );
+        printf(c"%s".as_ptr(), &raw mut message as *mut ::core::ffi::c_char);
         vprintf(fmt, i333_va_list!(args));
     } else {
         len = len.wrapping_add(vsnprintf(
@@ -765,12 +487,9 @@ unsafe extern "C" fn vlog(
             i333_va_list!(args),
         ) as size_t);
         if len >= ::core::mem::size_of::<[::core::ffi::c_char; 4096]>() as usize {
-            fprintf(
-                stderr,
-                b"BUG: single log message > 4k\n\0" as *const u8 as *const ::core::ffi::c_char,
-            );
+            fprintf(stderr, c"BUG: single log message > 4k\n".as_ptr());
             len = ::core::mem::size_of::<[::core::ffi::c_char; 4096]>() as usize as size_t;
-            message[len.wrapping_sub(2 as size_t) as usize] = '\n' as i32 as ::core::ffi::c_char;
+            message[len.wrapping_sub(2 as size_t)] = '\n' as i32 as ::core::ffi::c_char;
         }
         if len
             >= (logbuffer_size as ::core::ffi::c_long
@@ -796,8 +515,8 @@ unsafe extern "C" fn vlog(
         log_broadcast_to_clients(&raw mut message as *mut ::core::ffi::c_char, len);
     };
 }
-#[no_mangle]
-pub unsafe extern "C" fn verboselog(mut fmt: *mut ::core::ffi::c_char, mut args: ...) {
+
+pub unsafe extern "C" fn verboselog(fmt: *mut ::core::ffi::c_char, args: ...) {
     let mut args_0;
     if logbuffer.is_null() && !verbose {
         return;
@@ -805,8 +524,8 @@ pub unsafe extern "C" fn verboselog(mut fmt: *mut ::core::ffi::c_char, mut args:
     args_0 = args.clone();
     vlog(verbose, fmt, i333_va_list!(args_0));
 }
-#[no_mangle]
-pub unsafe extern "C" fn errorlog(mut fmt: *mut ::core::ffi::c_char, mut args: ...) {
+
+pub unsafe extern "C" fn errorlog(fmt: *mut ::core::ffi::c_char, args: ...) {
     let mut args_0;
     args_0 = args.clone();
     vlog(true_0 != 0, fmt, i333_va_list!(args_0));
@@ -817,8 +536,8 @@ pub unsafe extern "C" fn errorlog(mut fmt: *mut ::core::ffi::c_char, mut args: .
     vfprintf(errorfile, fmt, i333_va_list!(args_0));
     fflush(errorfile);
 }
-#[no_mangle]
-pub unsafe extern "C" fn debuglog(mut fmt: *mut ::core::ffi::c_char, mut args: ...) {
+
+pub unsafe extern "C" fn debuglog(fmt: *mut ::core::ffi::c_char, args: ...) {
     let mut args_0;
     if logbuffer.is_null() && !debug_logging {
         return;
@@ -826,58 +545,37 @@ pub unsafe extern "C" fn debuglog(mut fmt: *mut ::core::ffi::c_char, mut args: .
     args_0 = args.clone();
     vlog(debug_logging, fmt, i333_va_list!(args_0));
 }
-#[no_mangle]
-pub unsafe extern "C" fn purge_zerobyte_logfile() {
-    let mut st: stat = stat {
-        st_dev: 0,
-        st_ino: 0,
-        st_nlink: 0,
-        st_mode: 0,
-        st_uid: 0,
-        st_gid: 0,
-        __pad0: 0,
-        st_rdev: 0,
-        st_size: 0,
-        st_blksize: 0,
-        st_blocks: 0,
-        st_atim: timespec {
-            tv_sec: 0,
-            tv_nsec: 0,
-        },
-        st_mtim: timespec {
-            tv_sec: 0,
-            tv_nsec: 0,
-        },
-        st_ctim: timespec {
-            tv_sec: 0,
-            tv_nsec: 0,
-        },
-        __glibc_reserved: [0; 3],
-    };
-    let mut slash: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    if errorfilename.is_null() {
-        return;
-    }
-    if stat(errorfilename, &raw mut st) == -(1 as ::core::ffi::c_int) || st.st_size > 0 as __off_t {
-        return;
-    }
-    if unlink(errorfilename) == -(1 as ::core::ffi::c_int) {
-        return;
-    }
-    slash = strrchr(errorfilename, '/' as i32);
-    if !slash.is_null() {
-        *slash = '\0' as i32 as ::core::ffi::c_char;
-        rmdir(errorfilename);
+
+pub extern "C" fn purge_zerobyte_logfile() {
+    unsafe {
+        let mut st: stat = ::core::mem::zeroed();
+        let mut slash: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
+        if errorfilename.is_null() {
+            return;
+        }
+        if stat(errorfilename, &raw mut st) == -(1 as ::core::ffi::c_int)
+            || st.st_size > 0 as __off_t
+        {
+            return;
+        }
+        if unlink(errorfilename) == -(1 as ::core::ffi::c_int) {
+            return;
+        }
+        slash = strrchr(errorfilename, '/' as i32);
+        if !slash.is_null() {
+            *slash = '\0' as i32 as ::core::ffi::c_char;
+            rmdir(errorfilename);
+        }
     }
 }
-#[no_mangle]
+
 pub static mut current_log_stream_socket_path: *mut ::core::ffi::c_char =
     ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char;
-#[no_mangle]
+
 pub unsafe extern "C" fn log_new_client(
-    mut loop_0: *mut ev_loop,
-    mut w: *mut ev_io,
-    mut revents: ::core::ffi::c_int,
+    loop_0: *mut ev_loop,
+    w: *mut ev_io,
+    revents: ::core::ffi::c_int,
 ) {
     let mut peer: sockaddr_un = sockaddr_un {
         sun_family: 0,
@@ -885,22 +583,16 @@ pub unsafe extern "C" fn log_new_client(
     };
     let mut len: socklen_t = ::core::mem::size_of::<sockaddr_un>() as socklen_t;
     let mut fd: ::core::ffi::c_int = 0;
-    fd = accept(
-        (*w).fd,
-        __SOCKADDR_ARG {
-            __sockaddr__: &raw mut peer as *mut sockaddr,
-        },
-        &raw mut len,
-    );
+    fd = accept((*w).fd, &raw mut peer as *mut sockaddr, &raw mut len);
     if fd < 0 as ::core::ffi::c_int {
         if *__errno_location() != EINTR {
-            perror(b"accept()\0" as *const u8 as *const ::core::ffi::c_char);
+            perror(c"accept()".as_ptr());
         }
         return;
     }
     fcntl(fd, F_SETFD, FD_CLOEXEC);
     set_nonblock(fd);
-    let mut client: *mut log_client =
+    let client: *mut log_client =
         scalloc(1 as size_t, ::core::mem::size_of::<log_client>() as size_t) as *mut log_client;
     (*client).fd = fd;
     (*client).clients.tqe_next = ::core::ptr::null_mut::<log_client>();
@@ -908,23 +600,21 @@ pub unsafe extern "C" fn log_new_client(
     *log_clients.tqh_last = client as *mut log_client;
     log_clients.tqh_last = &raw mut (*client).clients.tqe_next;
     debuglog(
-        b"%s:%s:%d - log: new client connected on fd %d\n\0" as *const u8
-            as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-        b"../src/log.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"log_new_client\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - log: new client connected on fd %d\n"
+            .as_ptr()
+            .cast_mut(),
+        c"../src/log.c".as_ptr(),
+        c"log_new_client".as_ptr(),
         419 as ::core::ffi::c_int,
         fd,
     );
 }
-#[no_mangle]
-pub unsafe extern "C" fn log_broadcast_to_clients(
-    mut message: *const ::core::ffi::c_char,
-    mut len: size_t,
-) {
+
+pub unsafe fn log_broadcast_to_clients(message: *const ::core::ffi::c_char, len: size_t) {
     let mut current: *mut log_client = log_clients.tqh_first as *mut log_client;
     while !current.is_null() {
-        let mut n: ssize_t = writeall((*current).fd, message as *const ::core::ffi::c_void, len);
-        let mut previous: *mut log_client = current;
+        let n: ssize_t = writeall((*current).fd, message as *const ::core::ffi::c_void, len);
+        let previous: *mut log_client = current;
         current = (*current).clients.tqe_next as *mut log_client;
         if n < 0 as ssize_t {
             if !(*previous).clients.tqe_next.is_null() {
@@ -948,3 +638,20 @@ unsafe extern "C" fn run_static_initializers() {
 #[cfg_attr(target_os = "windows", link_section = ".CRT$XIB")]
 #[cfg_attr(target_os = "macos", link_section = "__DATA,__mod_init_func")]
 static INIT_ARRAY: [unsafe extern "C" fn(); 1] = [run_static_initializers];
+
+// Internal helpers use Rust linkage rather than foreign symbol lookup.
+use i3_common::safewrappers::scalloc;
+use i3_common::safewrappers::writeall;
+
+pub use libc::{
+    __errno_location, accept, atexit, close, fcntl, fflush, fileno, fopen, fprintf, free, fwrite,
+    getpid, localtime_r, memset, mmap, perror, posix_fallocate, printf, rmdir, shm_open,
+    shm_unlink, sockaddr, sockaddr_un, stat, strerror, strftime, strncpy, strrchr, sysconf, time,
+    tm, unlink, FILE,
+};
+
+use i3_common::native_stdio::{stderr, stdout, vfprintf, vprintf, vsnprintf};
+
+// Internal calls and globals use canonical Rust identities.
+use i3_common::get_process_filename::get_process_filename;
+use i3_common::nonblock::set_nonblock;

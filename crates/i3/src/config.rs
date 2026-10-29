@@ -1,3 +1,10 @@
+use crate::application::assignments;
+use crate::application::bindings;
+use crate::application::ws_assignments;
+use crate::bindings::binding_free;
+use crate::config_parser::free_variables;
+use crate::config_parser::parse_file;
+use crate::tree::all_cons;
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -9,79 +16,7 @@
  *
  */
 // Mechanical file-by-file Rust translation of src/config.c.
-// Generated with C2Rust 0.22.1; C ABI and original ownership retained.
-extern "C" {
-    pub type xcb_connection_t;
-    pub type _PangoFontDescription;
-    pub type _cairo;
-    pub type _cairo_surface;
-    pub type _i3String;
-    pub type pcre2_real_code_8;
-    pub type ev_loop;
-    fn __assert_fail(
-        __assertion: *const ::core::ffi::c_char,
-        __file: *const ::core::ffi::c_char,
-        __line: ::core::ffi::c_uint,
-        __function: *const ::core::ffi::c_char,
-    ) -> !;
-    fn __assert_single_arg(_: bool) -> bool;
-    fn errx(__status: ::core::ffi::c_int, __format: *const ::core::ffi::c_char, ...) -> !;
-    fn __errno_location() -> *mut ::core::ffi::c_int;
-    fn xcb_ungrab_key(
-        c: *mut xcb_connection_t,
-        key: xcb_keycode_t,
-        grab_window: xcb_window_t,
-        modifiers: uint16_t,
-    ) -> xcb_void_cookie_t;
-    static mut conn: *mut xcb_connection_t;
-    fn verboselog(fmt: *mut ::core::ffi::c_char, ...);
-    fn errorlog(fmt: *mut ::core::ffi::c_char, ...);
-    fn debuglog(fmt: *mut ::core::ffi::c_char, ...);
-    fn scalloc(num: size_t, size: size_t) -> *mut ::core::ffi::c_void;
-    fn sstrdup(str: *const ::core::ffi::c_char) -> *mut ::core::ffi::c_char;
-    fn load_font(pattern: *const ::core::ffi::c_char, fallback: bool) -> i3Font;
-    fn set_font(font: *mut i3Font);
-    fn free_font();
-    fn logical_px(logical: ::core::ffi::c_int) -> ::core::ffi::c_int;
-    fn get_config_path(
-        override_configpath: *const ::core::ffi::c_char,
-        use_system_paths: bool,
-    ) -> *mut ::core::ffi::c_char;
-    fn draw_util_hex_to_color(color: *const ::core::ffi::c_char) -> color_t;
-    static mut all_cons: all_cons_head;
-    fn tree_render();
-    static mut bindings: *mut bindings_head;
-    static mut current_binding_mode: *const ::core::ffi::c_char;
-    static mut ws_assignments: ws_assignments_head;
-    static mut assignments: assignments_head;
-    static mut root: xcb_window_t;
-    fn extract_workspace_names_from_bindings();
-    fn gaps_reapply_workspace_assignments();
-    fn match_free(match_0: *mut Match);
-    fn grab_all_keys(conn_0: *mut xcb_connection_t);
-    fn regrab_all_buttons(conn_0: *mut xcb_connection_t);
-    fn translate_keysyms();
-    fn switch_mode(new_mode: *const ::core::ffi::c_char);
-    fn reorder_bindings();
-    fn binding_free(bind: *mut Binding);
-    fn free_variables(ctx: *mut parser_ctx);
-    fn parse_file(
-        ctx: *mut parser_ctx,
-        f: *const ::core::ffi::c_char,
-        included_file: *mut IncludedFile,
-    ) -> parse_file_result_t;
-    fn memset(
-        __s: *mut ::core::ffi::c_void,
-        __c: ::core::ffi::c_int,
-        __n: size_t,
-    ) -> *mut ::core::ffi::c_void;
-    fn strerror(__errnum: ::core::ffi::c_int) -> *mut ::core::ffi::c_char;
-    fn free(__ptr: *mut ::core::ffi::c_void);
-    fn realpath(
-        __name: *const ::core::ffi::c_char,
-        __resolved: *mut ::core::ffi::c_char,
-    ) -> *mut ::core::ffi::c_char;
-}
+// Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 pub type size_t = usize;
 pub type __uint8_t = u8;
 pub type __int16_t = i16;
@@ -93,174 +28,20 @@ pub type __suseconds_t = ::core::ffi::c_long;
 pub type time_t = __time_t;
 pub type int16_t = __int16_t;
 pub type int32_t = __int32_t;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct timeval {
-    pub tv_sec: __time_t,
-    pub tv_usec: __suseconds_t,
-}
+
 pub type uint8_t = __uint8_t;
 pub type uint16_t = __uint16_t;
 pub type uint32_t = __uint32_t;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_void_cookie_t {
-    pub sequence: ::core::ffi::c_uint,
-}
-pub type xcb_window_t = uint32_t;
-pub type xcb_font_t = uint32_t;
-pub type xcb_gcontext_t = uint32_t;
-pub type xcb_colormap_t = uint32_t;
-pub type xcb_atom_t = uint32_t;
-pub type xcb_drawable_t = uint32_t;
-pub type xcb_keycode_t = uint8_t;
-pub type xcb_key_but_mask_t = ::core::ffi::c_uint;
-pub const XCB_KEY_BUT_MASK_BUTTON_5: xcb_key_but_mask_t = 4096;
-pub const XCB_KEY_BUT_MASK_BUTTON_4: xcb_key_but_mask_t = 2048;
-pub const XCB_KEY_BUT_MASK_BUTTON_3: xcb_key_but_mask_t = 1024;
-pub const XCB_KEY_BUT_MASK_BUTTON_2: xcb_key_but_mask_t = 512;
-pub const XCB_KEY_BUT_MASK_BUTTON_1: xcb_key_but_mask_t = 256;
-pub const XCB_KEY_BUT_MASK_MOD_5: xcb_key_but_mask_t = 128;
-pub const XCB_KEY_BUT_MASK_MOD_4: xcb_key_but_mask_t = 64;
-pub const XCB_KEY_BUT_MASK_MOD_3: xcb_key_but_mask_t = 32;
-pub const XCB_KEY_BUT_MASK_MOD_2: xcb_key_but_mask_t = 16;
-pub const XCB_KEY_BUT_MASK_MOD_1: xcb_key_but_mask_t = 8;
-pub const XCB_KEY_BUT_MASK_CONTROL: xcb_key_but_mask_t = 4;
-pub const XCB_KEY_BUT_MASK_LOCK: xcb_key_but_mask_t = 2;
-pub const XCB_KEY_BUT_MASK_SHIFT: xcb_key_but_mask_t = 1;
-pub type xcb_button_mask_t = ::core::ffi::c_uint;
-pub const XCB_BUTTON_MASK_ANY: xcb_button_mask_t = 32768;
-pub const XCB_BUTTON_MASK_5: xcb_button_mask_t = 4096;
-pub const XCB_BUTTON_MASK_4: xcb_button_mask_t = 2048;
-pub const XCB_BUTTON_MASK_3: xcb_button_mask_t = 1024;
-pub const XCB_BUTTON_MASK_2: xcb_button_mask_t = 512;
-pub const XCB_BUTTON_MASK_1: xcb_button_mask_t = 256;
-pub type xcb_grab_t = ::core::ffi::c_uint;
-pub const XCB_GRAB_ANY: xcb_grab_t = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_charinfo_t {
-    pub left_side_bearing: int16_t,
-    pub right_side_bearing: int16_t,
-    pub character_width: int16_t,
-    pub ascent: int16_t,
-    pub descent: int16_t,
-    pub attributes: uint16_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_query_font_reply_t {
-    pub response_type: uint8_t,
-    pub pad0: uint8_t,
-    pub sequence: uint16_t,
-    pub length: uint32_t,
-    pub min_bounds: xcb_charinfo_t,
-    pub pad1: [uint8_t; 4],
-    pub max_bounds: xcb_charinfo_t,
-    pub pad2: [uint8_t; 4],
-    pub min_char_or_byte2: uint16_t,
-    pub max_char_or_byte2: uint16_t,
-    pub default_char: uint16_t,
-    pub properties_len: uint16_t,
-    pub draw_direction: uint8_t,
-    pub min_byte1: uint8_t,
-    pub max_byte1: uint8_t,
-    pub all_chars_exist: uint8_t,
-    pub font_ascent: int16_t,
-    pub font_descent: int16_t,
-    pub char_infos_len: uint32_t,
-}
-pub type PangoFontDescription = _PangoFontDescription;
-pub type cairo_t = _cairo;
-pub type cairo_surface_t = _cairo_surface;
+
 pub type i3String = _i3String;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Font {
-    pub type_0: C2RustUnnamed_1,
-    pub height: ::core::ffi::c_int,
-    pub pattern: *mut ::core::ffi::c_char,
-    pub specific: C2RustUnnamed,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub union C2RustUnnamed {
-    pub xcb: C2RustUnnamed_0,
-    pub pango_desc: *mut PangoFontDescription,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_0 {
-    pub id: xcb_font_t,
-    pub info: *mut xcb_query_font_reply_t,
-    pub table: *mut xcb_charinfo_t,
-}
+
 pub type C2RustUnnamed_1 = ::core::ffi::c_uint;
 pub const FONT_TYPE_PANGO: C2RustUnnamed_1 = 2;
 pub const FONT_TYPE_XCB: C2RustUnnamed_1 = 1;
 pub const FONT_TYPE_NONE: C2RustUnnamed_1 = 0;
 pub type i3Font = Font;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct color_t {
-    pub red: ::core::ffi::c_double,
-    pub green: ::core::ffi::c_double,
-    pub blue: ::core::ffi::c_double,
-    pub alpha: ::core::ffi::c_double,
-    pub colorpixel: uint32_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct surface_t {
-    pub id: xcb_drawable_t,
-    pub gc: xcb_gcontext_t,
-    pub owns_gc: bool,
-    pub width: ::core::ffi::c_int,
-    pub height: ::core::ffi::c_int,
-    pub surface: *mut cairo_surface_t,
-    pub cr: *mut cairo_t,
-}
-pub type pcre2_code_8 = pcre2_real_code_8;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Binding {
-    pub input_type: input_type_t,
-    pub release: C2RustUnnamed_4,
-    pub border: bool,
-    pub whole_window: bool,
-    pub exclude_titlebar: bool,
-    pub keycode: uint32_t,
-    pub event_state_mask: i3_event_state_mask_t,
-    pub symbol: *mut ::core::ffi::c_char,
-    pub keycodes_head: keycodes_head,
-    pub command: *mut ::core::ffi::c_char,
-    pub bindings: C2RustUnnamed_2,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_2 {
-    pub tqe_next: *mut Binding,
-    pub tqe_prev: *mut *mut Binding,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct keycodes_head {
-    pub tqh_first: *mut Binding_Keycode,
-    pub tqh_last: *mut *mut Binding_Keycode,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Binding_Keycode {
-    pub keycode: xcb_keycode_t,
-    pub modifiers: i3_event_state_mask_t,
-    pub keycodes: C2RustUnnamed_3,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_3 {
-    pub tqe_next: *mut Binding_Keycode,
-    pub tqe_prev: *mut *mut Binding_Keycode,
-}
+
+pub use crate::application::Binding;
 pub type i3_event_state_mask_t = uint32_t;
 pub type C2RustUnnamed_4 = ::core::ffi::c_uint;
 pub const B_UPON_KEYRELEASE_IGNORE_MODS: C2RustUnnamed_4 = 2;
@@ -269,93 +50,12 @@ pub const B_UPON_KEYPRESS: C2RustUnnamed_4 = 0;
 pub type input_type_t = ::core::ffi::c_uint;
 pub const B_MOUSE: input_type_t = 1;
 pub const B_KEYBOARD: input_type_t = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Rect {
-    pub x: uint32_t,
-    pub y: uint32_t,
-    pub width: uint32_t,
-    pub height: uint32_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Con {
-    pub mapped: bool,
-    pub urgent: bool,
-    pub ignore_unmap: uint8_t,
-    pub frame: surface_t,
-    pub frame_buffer: surface_t,
-    pub pixmap_recreated: bool,
-    pub type_0: C2RustUnnamed_21,
-    pub num: ::core::ffi::c_int,
-    pub gaps: gaps_t,
-    pub parent: *mut Con,
-    pub rect: Rect,
-    pub window_rect: Rect,
-    pub deco_rect: Rect,
-    pub geometry: Rect,
-    pub name: *mut ::core::ffi::c_char,
-    pub title_format: *mut ::core::ffi::c_char,
-    pub window_icon_padding: ::core::ffi::c_int,
-    pub sticky_group: *mut ::core::ffi::c_char,
-    pub marks_head: marks_head,
-    pub mark_changed: bool,
-    pub percent: ::core::ffi::c_double,
-    pub border_width: ::core::ffi::c_int,
-    pub current_border_width: ::core::ffi::c_int,
-    pub window: *mut Window,
-    pub urgency_timer: *mut ev_timer,
-    pub deco_render_params: *mut deco_render_params,
-    pub floating_head: floating_head,
-    pub nodes_head: nodes_head,
-    pub focus_head: focus_head,
-    pub swallow_head: swallow_head,
-    pub fullscreen_mode: fullscreen_mode_t,
-    pub sticky: bool,
-    pub layout: layout_t,
-    pub last_split_layout: layout_t,
-    pub workspace_layout: layout_t,
-    pub border_style: border_style_t,
-    pub max_user_border_style: border_style_t,
-    pub floating: C2RustUnnamed_10,
-    pub nodes: C2RustUnnamed_9,
-    pub focused: C2RustUnnamed_8,
-    pub all_cons: C2RustUnnamed_7,
-    pub floating_windows: C2RustUnnamed_6,
-    pub on_remove_child: Option<unsafe extern "C" fn(*mut Con) -> ()>,
-    pub scratchpad_state: C2RustUnnamed_5,
-    pub old_id: ::core::ffi::c_int,
-    pub depth: uint16_t,
-    pub colormap: xcb_colormap_t,
-}
+
 pub type C2RustUnnamed_5 = ::core::ffi::c_uint;
 pub const SCRATCHPAD_CHANGED: C2RustUnnamed_5 = 2;
 pub const SCRATCHPAD_FRESH: C2RustUnnamed_5 = 1;
 pub const SCRATCHPAD_NONE: C2RustUnnamed_5 = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_6 {
-    pub tqe_next: *mut Con,
-    pub tqe_prev: *mut *mut Con,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_7 {
-    pub tqe_next: *mut Con,
-    pub tqe_prev: *mut *mut Con,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_8 {
-    pub tqe_next: *mut Con,
-    pub tqe_prev: *mut *mut Con,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_9 {
-    pub tqe_next: *mut Con,
-    pub tqe_prev: *mut *mut Con,
-}
+
 pub type C2RustUnnamed_10 = ::core::ffi::c_uint;
 pub const FLOATING_USER_ON: C2RustUnnamed_10 = 3;
 pub const FLOATING_AUTO_ON: C2RustUnnamed_10 = 2;
@@ -377,41 +77,7 @@ pub type fullscreen_mode_t = ::core::ffi::c_uint;
 pub const CF_GLOBAL: fullscreen_mode_t = 2;
 pub const CF_OUTPUT: fullscreen_mode_t = 1;
 pub const CF_NONE: fullscreen_mode_t = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct swallow_head {
-    pub tqh_first: *mut Match,
-    pub tqh_last: *mut *mut Match,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Match {
-    pub error: *mut ::core::ffi::c_char,
-    pub title: *mut regex,
-    pub application: *mut regex,
-    pub class: *mut regex,
-    pub instance: *mut regex,
-    pub mark: *mut regex,
-    pub window_role: *mut regex,
-    pub workspace: *mut regex,
-    pub machine: *mut regex,
-    pub window_type: xcb_atom_t,
-    pub urgent: C2RustUnnamed_15,
-    pub dock: C2RustUnnamed_14,
-    pub id: xcb_window_t,
-    pub window_mode: C2RustUnnamed_13,
-    pub con_id: *mut Con,
-    pub match_all_windows: bool,
-    pub insert_where: C2RustUnnamed_12,
-    pub matches: C2RustUnnamed_11,
-    pub restart_mode: bool,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_11 {
-    pub tqe_next: *mut Match,
-    pub tqe_prev: *mut *mut Match,
-}
+
 pub type C2RustUnnamed_12 = ::core::ffi::c_uint;
 pub const M_BELOW: C2RustUnnamed_12 = 2;
 pub const M_ASSIGN_WS: C2RustUnnamed_12 = 1;
@@ -434,141 +100,13 @@ pub type C2RustUnnamed_15 = ::core::ffi::c_int;
 pub const U_OLDEST: C2RustUnnamed_15 = 1;
 pub const U_LATEST: C2RustUnnamed_15 = 0;
 pub const U_DONTCHECK: C2RustUnnamed_15 = -1;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct regex {
-    pub pattern: *mut ::core::ffi::c_char,
-    pub regex: *mut pcre2_code_8,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct focus_head {
-    pub tqh_first: *mut Con,
-    pub tqh_last: *mut *mut Con,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct nodes_head {
-    pub tqh_first: *mut Con,
-    pub tqh_last: *mut *mut Con,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct floating_head {
-    pub tqh_first: *mut Con,
-    pub tqh_last: *mut *mut Con,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct deco_render_params {
-    pub color: *mut Colortriple,
-    pub border_style: ::core::ffi::c_int,
-    pub con_rect: width_height,
-    pub con_window_rect: width_height,
-    pub con_deco_rect: Rect,
-    pub background: color_t,
-    pub parent_layout: layout_t,
-    pub con_is_leaf: bool,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct width_height {
-    pub w: uint32_t,
-    pub h: uint32_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Colortriple {
-    pub border: color_t,
-    pub background: color_t,
-    pub text: color_t,
-    pub indicator: color_t,
-    pub child_border: color_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct ev_timer {
-    pub active: ::core::ffi::c_int,
-    pub pending: ::core::ffi::c_int,
-    pub priority: ::core::ffi::c_int,
-    pub data: *mut ::core::ffi::c_void,
-    pub cb: Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_timer, ::core::ffi::c_int) -> ()>,
-    pub at: ev_tstamp,
-    pub repeat: ev_tstamp,
-}
-pub type ev_tstamp = ::core::ffi::c_double;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Window {
-    pub id: xcb_window_t,
-    pub leader: xcb_window_t,
-    pub transient_for: xcb_window_t,
-    pub nr_assignments: uint32_t,
-    pub ran_assignments: *mut *mut Assignment,
-    pub class_class: *mut ::core::ffi::c_char,
-    pub class_instance: *mut ::core::ffi::c_char,
-    pub name: *mut i3String,
-    pub role: *mut ::core::ffi::c_char,
-    pub machine: *mut ::core::ffi::c_char,
-    pub name_x_changed: bool,
-    pub uses_net_wm_name: bool,
-    pub needs_take_focus: bool,
-    pub doesnt_accept_focus: bool,
-    pub window_type: xcb_atom_t,
-    pub wm_desktop: uint32_t,
-    pub dock: C2RustUnnamed_16,
-    pub urgent: timeval,
-    pub reserved: reservedpx,
-    pub depth: uint16_t,
-    pub base_width: ::core::ffi::c_int,
-    pub base_height: ::core::ffi::c_int,
-    pub width_increment: ::core::ffi::c_int,
-    pub height_increment: ::core::ffi::c_int,
-    pub min_width: ::core::ffi::c_int,
-    pub min_height: ::core::ffi::c_int,
-    pub max_width: ::core::ffi::c_int,
-    pub max_height: ::core::ffi::c_int,
-    pub min_aspect_ratio: ::core::ffi::c_double,
-    pub max_aspect_ratio: ::core::ffi::c_double,
-    pub icon: *mut cairo_surface_t,
-    pub shaped: bool,
-    pub input_shaped: bool,
-    pub managed_since: time_t,
-    pub swallowed: bool,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct reservedpx {
-    pub left: uint32_t,
-    pub right: uint32_t,
-    pub top: uint32_t,
-    pub bottom: uint32_t,
-}
+pub use crate::regex::Regex as regex;
+
 pub type C2RustUnnamed_16 = ::core::ffi::c_uint;
 pub const W_DOCK_BOTTOM: C2RustUnnamed_16 = 2;
 pub const W_DOCK_TOP: C2RustUnnamed_16 = 1;
 pub const W_NODOCK: C2RustUnnamed_16 = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Assignment {
-    pub type_0: C2RustUnnamed_19,
-    pub match_0: Match,
-    pub dest: C2RustUnnamed_18,
-    pub assignments: C2RustUnnamed_17,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_17 {
-    pub tqe_next: *mut Assignment,
-    pub tqe_prev: *mut *mut Assignment,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub union C2RustUnnamed_18 {
-    pub command: *mut ::core::ffi::c_char,
-    pub workspace: *mut ::core::ffi::c_char,
-    pub output: *mut ::core::ffi::c_char,
-}
+
 pub type C2RustUnnamed_19 = ::core::ffi::c_uint;
 pub const A_TO_OUTPUT: C2RustUnnamed_19 = 16;
 pub const A_TO_WORKSPACE_NUMBER: C2RustUnnamed_19 = 8;
@@ -576,33 +114,7 @@ pub const A_NO_FOCUS: C2RustUnnamed_19 = 4;
 pub const A_TO_WORKSPACE: C2RustUnnamed_19 = 2;
 pub const A_COMMAND: C2RustUnnamed_19 = 1;
 pub const A_ANY: C2RustUnnamed_19 = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct marks_head {
-    pub tqh_first: *mut mark_t,
-    pub tqh_last: *mut *mut mark_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct mark_t {
-    pub name: *mut ::core::ffi::c_char,
-    pub marks: C2RustUnnamed_20,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_20 {
-    pub tqe_next: *mut mark_t,
-    pub tqe_prev: *mut *mut mark_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct gaps_t {
-    pub inner: ::core::ffi::c_int,
-    pub top: ::core::ffi::c_int,
-    pub right: ::core::ffi::c_int,
-    pub bottom: ::core::ffi::c_int,
-    pub left: ::core::ffi::c_int,
-}
+
 pub type C2RustUnnamed_21 = ::core::ffi::c_uint;
 pub const CT_DOCKAREA: C2RustUnnamed_21 = 5;
 pub const CT_WORKSPACE: C2RustUnnamed_21 = 4;
@@ -642,45 +154,8 @@ pub const FOCUS_WRAPPING_WORKSPACE: focus_wrapping_t = 3;
 pub const FOCUS_WRAPPING_FORCE: focus_wrapping_t = 2;
 pub const FOCUS_WRAPPING_ON: focus_wrapping_t = 1;
 pub const FOCUS_WRAPPING_OFF: focus_wrapping_t = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Workspace_Assignment {
-    pub name: *mut ::core::ffi::c_char,
-    pub output: *mut ::core::ffi::c_char,
-    pub gaps: gaps_t,
-    pub gaps_mask: gaps_mask_t,
-    pub ws_assignments: C2RustUnnamed_23,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_23 {
-    pub tqe_next: *mut Workspace_Assignment,
-    pub tqe_prev: *mut *mut Workspace_Assignment,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct all_cons_head {
-    pub tqh_first: *mut Con,
-    pub tqh_last: *mut *mut Con,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct bindings_head {
-    pub tqh_first: *mut Binding,
-    pub tqh_last: *mut *mut Binding,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct ws_assignments_head {
-    pub tqh_first: *mut Workspace_Assignment,
-    pub tqh_last: *mut *mut Workspace_Assignment,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct assignments_head {
-    pub tqh_first: *mut Assignment,
-    pub tqh_last: *mut *mut Assignment,
-}
+pub use crate::application::bindings_head;
+pub use crate::application::Workspace_Assignment;
 pub type tiling_drag_t = ::core::ffi::c_uint;
 pub const TILING_DRAG_MODIFIER_OR_TITLEBAR: tiling_drag_t = 3;
 pub const TILING_DRAG_TITLEBAR: tiling_drag_t = 2;
@@ -700,72 +175,13 @@ pub struct C2RustUnnamed_24 {
     pub tqe_next: *mut IncludedFile,
     pub tqe_prev: *mut *mut IncludedFile,
 }
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Config {
-    pub terminal: *const ::core::ffi::c_char,
-    pub font: i3Font,
-    pub ipc_socket_path: *mut ::core::ffi::c_char,
-    pub restart_state_path: *mut ::core::ffi::c_char,
-    pub default_layout: layout_t,
-    pub container_stack_limit: ::core::ffi::c_int,
-    pub container_stack_limit_value: ::core::ffi::c_int,
-    pub default_border_width: ::core::ffi::c_int,
-    pub default_floating_border_width: ::core::ffi::c_int,
-    pub default_orientation: ::core::ffi::c_int,
-    pub disable_focus_follows_mouse: bool,
-    pub mouse_warping: warping_t,
-    pub hide_edge_borders: hide_edge_borders_mode_t,
-    pub disable_workspace_bar: bool,
-    pub focus_wrapping: focus_wrapping_t,
-    pub force_xinerama: bool,
-    pub disable_randr15: bool,
-    pub fake_outputs: *mut ::core::ffi::c_char,
-    pub workspace_auto_back_and_forth: bool,
-    pub workspace_urgency_timer: ::core::ffi::c_float,
-    pub focus_on_window_activation: C2RustUnnamed_27,
-    pub show_marks: bool,
-    pub title_align: C2RustUnnamed_26,
-    pub default_border: border_style_t,
-    pub default_floating_border: border_style_t,
-    pub floating_modifier: uint32_t,
-    pub swap_modifier: uint32_t,
-    pub floating_maximum_width: int32_t,
-    pub floating_maximum_height: int32_t,
-    pub floating_minimum_width: int32_t,
-    pub floating_minimum_height: int32_t,
-    pub client: config_client,
-    pub bar: config_bar,
-    pub popup_during_fullscreen: C2RustUnnamed_25,
-    pub number_barconfigs: ::core::ffi::c_int,
-    pub tiling_drag: tiling_drag_t,
-    pub gaps: gaps_t,
-    pub smart_gaps: smart_gaps_t,
-}
+
 pub type C2RustUnnamed_25 = ::core::ffi::c_uint;
 pub const PDF_ALL: C2RustUnnamed_25 = 3;
 pub const PDF_IGNORE: C2RustUnnamed_25 = 2;
 pub const PDF_LEAVE_FULLSCREEN: C2RustUnnamed_25 = 1;
 pub const PDF_SMART: C2RustUnnamed_25 = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct config_bar {
-    pub focused: Colortriple,
-    pub unfocused: Colortriple,
-    pub urgent: Colortriple,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct config_client {
-    pub background: color_t,
-    pub focused: Colortriple,
-    pub focused_inactive: Colortriple,
-    pub focused_tab_title: Colortriple,
-    pub unfocused: Colortriple,
-    pub urgent: Colortriple,
-    pub placeholder: Colortriple,
-    pub got_focused_tab_title: bool,
-}
+
 pub type C2RustUnnamed_26 = ::core::ffi::c_uint;
 pub const ALIGN_RIGHT: C2RustUnnamed_26 = 2;
 pub const ALIGN_CENTER: C2RustUnnamed_26 = 1;
@@ -775,90 +191,11 @@ pub const FOWA_NONE: C2RustUnnamed_27 = 3;
 pub const FOWA_FOCUS: C2RustUnnamed_27 = 2;
 pub const FOWA_URGENT: C2RustUnnamed_27 = 1;
 pub const FOWA_SMART: C2RustUnnamed_27 = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Barconfig {
-    pub id: *mut ::core::ffi::c_char,
-    pub num_outputs: ::core::ffi::c_int,
-    pub outputs: *mut *mut ::core::ffi::c_char,
-    pub tray_outputs: tray_outputs_head,
-    pub tray_padding: ::core::ffi::c_int,
-    pub socket_path: *mut ::core::ffi::c_char,
-    pub mode: C2RustUnnamed_32,
-    pub hidden_state: C2RustUnnamed_31,
-    pub modifier: uint32_t,
-    pub bar_bindings: bar_bindings_head,
-    pub position: C2RustUnnamed_29,
-    pub i3bar_command: *mut ::core::ffi::c_char,
-    pub status_command: *mut ::core::ffi::c_char,
-    pub workspace_command: *mut ::core::ffi::c_char,
-    pub font: *mut ::core::ffi::c_char,
-    pub separator_symbol: *mut ::core::ffi::c_char,
-    pub hide_workspace_buttons: bool,
-    pub workspace_min_width: ::core::ffi::c_int,
-    pub strip_workspace_numbers: bool,
-    pub strip_workspace_name: bool,
-    pub hide_binding_mode_indicator: bool,
-    pub verbose: bool,
-    pub bar_height: uint32_t,
-    pub padding: Rect,
-    pub colors: bar_colors,
-    pub configs: C2RustUnnamed_28,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_28 {
-    pub tqe_next: *mut Barconfig,
-    pub tqe_prev: *mut *mut Barconfig,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct bar_colors {
-    pub background: *mut ::core::ffi::c_char,
-    pub statusline: *mut ::core::ffi::c_char,
-    pub separator: *mut ::core::ffi::c_char,
-    pub focused_background: *mut ::core::ffi::c_char,
-    pub focused_statusline: *mut ::core::ffi::c_char,
-    pub focused_separator: *mut ::core::ffi::c_char,
-    pub focused_workspace_border: *mut ::core::ffi::c_char,
-    pub focused_workspace_bg: *mut ::core::ffi::c_char,
-    pub focused_workspace_text: *mut ::core::ffi::c_char,
-    pub active_workspace_border: *mut ::core::ffi::c_char,
-    pub active_workspace_bg: *mut ::core::ffi::c_char,
-    pub active_workspace_text: *mut ::core::ffi::c_char,
-    pub inactive_workspace_border: *mut ::core::ffi::c_char,
-    pub inactive_workspace_bg: *mut ::core::ffi::c_char,
-    pub inactive_workspace_text: *mut ::core::ffi::c_char,
-    pub urgent_workspace_border: *mut ::core::ffi::c_char,
-    pub urgent_workspace_bg: *mut ::core::ffi::c_char,
-    pub urgent_workspace_text: *mut ::core::ffi::c_char,
-    pub binding_mode_border: *mut ::core::ffi::c_char,
-    pub binding_mode_bg: *mut ::core::ffi::c_char,
-    pub binding_mode_text: *mut ::core::ffi::c_char,
-}
+pub use crate::application::Barconfig;
 pub type C2RustUnnamed_29 = ::core::ffi::c_uint;
 pub const P_TOP: C2RustUnnamed_29 = 1;
 pub const P_BOTTOM: C2RustUnnamed_29 = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct bar_bindings_head {
-    pub tqh_first: *mut Barbinding,
-    pub tqh_last: *mut *mut Barbinding,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Barbinding {
-    pub input_code: ::core::ffi::c_int,
-    pub command: *mut ::core::ffi::c_char,
-    pub release: bool,
-    pub bindings: C2RustUnnamed_30,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_30 {
-    pub tqe_next: *mut Barbinding,
-    pub tqe_prev: *mut *mut Barbinding,
-}
+pub use crate::application::Barbinding;
 pub type C2RustUnnamed_31 = ::core::ffi::c_uint;
 pub const S_SHOW: C2RustUnnamed_31 = 1;
 pub const S_HIDE: C2RustUnnamed_31 = 0;
@@ -866,48 +203,10 @@ pub type C2RustUnnamed_32 = ::core::ffi::c_uint;
 pub const M_INVISIBLE: C2RustUnnamed_32 = 2;
 pub const M_HIDE: C2RustUnnamed_32 = 1;
 pub const M_DOCK: C2RustUnnamed_32 = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct tray_outputs_head {
-    pub tqh_first: *mut tray_output_t,
-    pub tqh_last: *mut *mut tray_output_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct tray_output_t {
-    pub output: *mut ::core::ffi::c_char,
-    pub tray_outputs: C2RustUnnamed_33,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_33 {
-    pub tqe_next: *mut tray_output_t,
-    pub tqe_prev: *mut *mut tray_output_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct modes_head {
-    pub slh_first: *mut Mode,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Mode {
-    pub name: *mut ::core::ffi::c_char,
-    pub pango_markup: bool,
-    pub bindings: *mut bindings_head,
-    pub modes: C2RustUnnamed_34,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_34 {
-    pub sle_next: *mut Mode,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct barconfig_head {
-    pub tqh_first: *mut Barconfig,
-    pub tqh_last: *mut *mut Barconfig,
-}
+pub use crate::application::barconfig_head;
+pub use crate::application::tray_output_t;
+pub use crate::bindings::modes_head;
+pub use crate::bindings::Mode;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct includedfiles_head {
@@ -952,24 +251,9 @@ pub struct parser_ctx {
 pub struct variables_head {
     pub slh_first: *mut Variable,
 }
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct stack {
-    pub stack: [stack_entry; 10],
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct stack_entry {
-    pub identifier: *const ::core::ffi::c_char,
-    pub type_0: C2RustUnnamed_37,
-    pub val: C2RustUnnamed_36,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub union C2RustUnnamed_36 {
-    pub str_0: *mut ::core::ffi::c_char,
-    pub num: ::core::ffi::c_long,
-}
+pub use crate::commands::stack;
+pub use crate::commands::stack_entry;
+pub use crate::commands::C2RustUnnamed_31 as C2RustUnnamed_36;
 pub type C2RustUnnamed_37 = ::core::ffi::c_uint;
 pub const STACK_LONG: C2RustUnnamed_37 = 1;
 pub const STACK_STR: C2RustUnnamed_37 = 0;
@@ -981,10 +265,10 @@ pub const __ASSERT_FUNCTION: [::core::ffi::c_char; 30] = unsafe {
 pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
-#[no_mangle]
+
 pub static mut current_configpath: *mut ::core::ffi::c_char =
     ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char;
-#[no_mangle]
+
 pub static mut config: Config = Config {
     terminal: ::core::ptr::null::<::core::ffi::c_char>(),
     font: Font {
@@ -1385,27 +669,26 @@ pub static mut config: Config = Config {
     },
     smart_gaps: SMART_GAPS_OFF,
 };
-#[no_mangle]
+
 pub static mut modes: modes_head = modes_head {
     slh_first: ::core::ptr::null::<Mode>() as *mut Mode,
 };
-#[no_mangle]
+
 pub static mut barconfigs: barconfig_head = barconfig_head {
     tqh_first: ::core::ptr::null::<Barconfig>() as *mut Barconfig,
     tqh_last: ::core::ptr::null::<*mut Barconfig>() as *mut *mut Barconfig,
 };
-#[no_mangle]
+
 pub static mut included_files: includedfiles_head = includedfiles_head {
     tqh_first: ::core::ptr::null::<IncludedFile>() as *mut IncludedFile,
     tqh_last: ::core::ptr::null::<*mut IncludedFile>() as *mut *mut IncludedFile,
 };
-#[no_mangle]
-pub unsafe extern "C" fn ungrab_all_keys(mut conn_0: *mut xcb_connection_t) {
+
+pub unsafe fn ungrab_all_keys(conn_0: *mut xcb_connection_t) {
     debuglog(
-        b"%s:%s:%d - Ungrabbing all keys\n\0" as *const u8 as *const ::core::ffi::c_char
-            as *mut ::core::ffi::c_char,
-        b"../src/config.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"ungrab_all_keys\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - Ungrabbing all keys\n".as_ptr().cast_mut(),
+        c"../src/config.c".as_ptr(),
+        c"ungrab_all_keys".as_ptr(),
         28 as ::core::ffi::c_int,
     );
     xcb_ungrab_key(
@@ -1415,24 +698,24 @@ pub unsafe extern "C" fn ungrab_all_keys(mut conn_0: *mut xcb_connection_t) {
         XCB_BUTTON_MASK_ANY as ::core::ffi::c_int as uint16_t,
     );
 }
-unsafe extern "C" fn free_configuration() {
+unsafe fn free_configuration() {
     if conn != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut xcb_connection_t {
     } else {
         __assert_fail(
-            b"conn != NULL\0" as *const u8 as *const ::core::ffi::c_char,
-            b"../src/config.c\0" as *const u8 as *const ::core::ffi::c_char,
+            c"conn != NULL".as_ptr(),
+            c"../src/config.c".as_ptr(),
             33 as ::core::ffi::c_uint,
             __ASSERT_FUNCTION.as_ptr(),
         );
     };
-    switch_mode(b"default\0" as *const u8 as *const ::core::ffi::c_char);
+    switch_mode(c"default".as_ptr());
     ungrab_all_keys(conn);
     while !modes.slh_first.is_null() {
         let mut mode: *mut Mode = modes.slh_first as *mut Mode;
         free((*mode).name as *mut ::core::ffi::c_void);
         (*mode).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
         while !(*(*mode).bindings).tqh_first.is_null() {
-            let mut bind: *mut Binding = (*(*mode).bindings).tqh_first as *mut Binding;
+            let bind: *mut Binding = (*(*mode).bindings).tqh_first as *mut Binding;
             if !(*bind).bindings.tqe_next.is_null() {
                 (*(*bind).bindings.tqe_next).bindings.tqe_prev = (*bind).bindings.tqe_prev;
             } else {
@@ -1626,18 +909,18 @@ unsafe extern "C" fn free_configuration() {
     free(config.restart_state_path as *mut ::core::ffi::c_void);
     free(config.fake_outputs as *mut ::core::ffi::c_void);
 }
-#[no_mangle]
-pub unsafe extern "C" fn load_configuration(
-    mut override_configpath: *const ::core::ffi::c_char,
-    mut load_type: config_load_t,
+
+pub unsafe fn load_configuration(
+    override_configpath: *const ::core::ffi::c_char,
+    load_type: config_load_t,
 ) -> bool {
     if load_type as ::core::ffi::c_uint == C_RELOAD as ::core::ffi::c_int as ::core::ffi::c_uint {
         free_configuration();
     }
     modes.slh_first = ::core::ptr::null_mut::<Mode>();
-    let mut default_mode: *mut Mode =
+    let default_mode: *mut Mode =
         scalloc(1 as size_t, ::core::mem::size_of::<Mode>() as size_t) as *mut Mode;
-    (*default_mode).name = sstrdup(b"default\0" as *const u8 as *const ::core::ffi::c_char);
+    (*default_mode).name = sstrdup(c"default".as_ptr());
     (*default_mode).bindings = scalloc(
         1 as size_t,
         ::core::mem::size_of::<bindings_head>() as size_t,
@@ -1653,89 +936,48 @@ pub unsafe extern "C" fn load_configuration(
         0 as ::core::ffi::c_int,
         ::core::mem::size_of::<Config>() as size_t,
     );
-    config.client.background =
-        draw_util_hex_to_color(b"#000000\0" as *const u8 as *const ::core::ffi::c_char);
-    config.client.focused.border =
-        draw_util_hex_to_color(b"#4c7899\0" as *const u8 as *const ::core::ffi::c_char);
-    config.client.focused.background =
-        draw_util_hex_to_color(b"#285577\0" as *const u8 as *const ::core::ffi::c_char);
-    config.client.focused.text =
-        draw_util_hex_to_color(b"#ffffff\0" as *const u8 as *const ::core::ffi::c_char);
-    config.client.focused.indicator =
-        draw_util_hex_to_color(b"#2e9ef4\0" as *const u8 as *const ::core::ffi::c_char);
-    config.client.focused.child_border =
-        draw_util_hex_to_color(b"#285577\0" as *const u8 as *const ::core::ffi::c_char);
-    config.client.focused_inactive.border =
-        draw_util_hex_to_color(b"#333333\0" as *const u8 as *const ::core::ffi::c_char);
-    config.client.focused_inactive.background =
-        draw_util_hex_to_color(b"#5f676a\0" as *const u8 as *const ::core::ffi::c_char);
-    config.client.focused_inactive.text =
-        draw_util_hex_to_color(b"#ffffff\0" as *const u8 as *const ::core::ffi::c_char);
-    config.client.focused_inactive.indicator =
-        draw_util_hex_to_color(b"#484e50\0" as *const u8 as *const ::core::ffi::c_char);
-    config.client.focused_inactive.child_border =
-        draw_util_hex_to_color(b"#5f676a\0" as *const u8 as *const ::core::ffi::c_char);
-    config.client.unfocused.border =
-        draw_util_hex_to_color(b"#333333\0" as *const u8 as *const ::core::ffi::c_char);
-    config.client.unfocused.background =
-        draw_util_hex_to_color(b"#222222\0" as *const u8 as *const ::core::ffi::c_char);
-    config.client.unfocused.text =
-        draw_util_hex_to_color(b"#888888\0" as *const u8 as *const ::core::ffi::c_char);
-    config.client.unfocused.indicator =
-        draw_util_hex_to_color(b"#292d2e\0" as *const u8 as *const ::core::ffi::c_char);
-    config.client.unfocused.child_border =
-        draw_util_hex_to_color(b"#222222\0" as *const u8 as *const ::core::ffi::c_char);
-    config.client.urgent.border =
-        draw_util_hex_to_color(b"#2f343a\0" as *const u8 as *const ::core::ffi::c_char);
-    config.client.urgent.background =
-        draw_util_hex_to_color(b"#900000\0" as *const u8 as *const ::core::ffi::c_char);
-    config.client.urgent.text =
-        draw_util_hex_to_color(b"#ffffff\0" as *const u8 as *const ::core::ffi::c_char);
-    config.client.urgent.indicator =
-        draw_util_hex_to_color(b"#900000\0" as *const u8 as *const ::core::ffi::c_char);
-    config.client.urgent.child_border =
-        draw_util_hex_to_color(b"#900000\0" as *const u8 as *const ::core::ffi::c_char);
+    config.client.background = draw_util_hex_to_color(c"#000000".as_ptr());
+    config.client.focused.border = draw_util_hex_to_color(c"#4c7899".as_ptr());
+    config.client.focused.background = draw_util_hex_to_color(c"#285577".as_ptr());
+    config.client.focused.text = draw_util_hex_to_color(c"#ffffff".as_ptr());
+    config.client.focused.indicator = draw_util_hex_to_color(c"#2e9ef4".as_ptr());
+    config.client.focused.child_border = draw_util_hex_to_color(c"#285577".as_ptr());
+    config.client.focused_inactive.border = draw_util_hex_to_color(c"#333333".as_ptr());
+    config.client.focused_inactive.background = draw_util_hex_to_color(c"#5f676a".as_ptr());
+    config.client.focused_inactive.text = draw_util_hex_to_color(c"#ffffff".as_ptr());
+    config.client.focused_inactive.indicator = draw_util_hex_to_color(c"#484e50".as_ptr());
+    config.client.focused_inactive.child_border = draw_util_hex_to_color(c"#5f676a".as_ptr());
+    config.client.unfocused.border = draw_util_hex_to_color(c"#333333".as_ptr());
+    config.client.unfocused.background = draw_util_hex_to_color(c"#222222".as_ptr());
+    config.client.unfocused.text = draw_util_hex_to_color(c"#888888".as_ptr());
+    config.client.unfocused.indicator = draw_util_hex_to_color(c"#292d2e".as_ptr());
+    config.client.unfocused.child_border = draw_util_hex_to_color(c"#222222".as_ptr());
+    config.client.urgent.border = draw_util_hex_to_color(c"#2f343a".as_ptr());
+    config.client.urgent.background = draw_util_hex_to_color(c"#900000".as_ptr());
+    config.client.urgent.text = draw_util_hex_to_color(c"#ffffff".as_ptr());
+    config.client.urgent.indicator = draw_util_hex_to_color(c"#900000".as_ptr());
+    config.client.urgent.child_border = draw_util_hex_to_color(c"#900000".as_ptr());
     config.client.got_focused_tab_title = false_0 != 0;
-    config.client.placeholder.border =
-        draw_util_hex_to_color(b"#000000\0" as *const u8 as *const ::core::ffi::c_char);
-    config.client.placeholder.background =
-        draw_util_hex_to_color(b"#0c0c0c\0" as *const u8 as *const ::core::ffi::c_char);
-    config.client.placeholder.text =
-        draw_util_hex_to_color(b"#ffffff\0" as *const u8 as *const ::core::ffi::c_char);
-    config.client.placeholder.indicator =
-        draw_util_hex_to_color(b"#000000\0" as *const u8 as *const ::core::ffi::c_char);
-    config.client.placeholder.child_border =
-        draw_util_hex_to_color(b"#0c0c0c\0" as *const u8 as *const ::core::ffi::c_char);
-    config.bar.focused.border =
-        draw_util_hex_to_color(b"#4c7899\0" as *const u8 as *const ::core::ffi::c_char);
-    config.bar.focused.background =
-        draw_util_hex_to_color(b"#285577\0" as *const u8 as *const ::core::ffi::c_char);
-    config.bar.focused.text =
-        draw_util_hex_to_color(b"#ffffff\0" as *const u8 as *const ::core::ffi::c_char);
-    config.bar.focused.indicator =
-        draw_util_hex_to_color(b"#000000\0" as *const u8 as *const ::core::ffi::c_char);
-    config.bar.focused.child_border =
-        draw_util_hex_to_color(b"#285577\0" as *const u8 as *const ::core::ffi::c_char);
-    config.bar.unfocused.border =
-        draw_util_hex_to_color(b"#333333\0" as *const u8 as *const ::core::ffi::c_char);
-    config.bar.unfocused.background =
-        draw_util_hex_to_color(b"#222222\0" as *const u8 as *const ::core::ffi::c_char);
-    config.bar.unfocused.text =
-        draw_util_hex_to_color(b"#888888\0" as *const u8 as *const ::core::ffi::c_char);
-    config.bar.unfocused.indicator =
-        draw_util_hex_to_color(b"#000000\0" as *const u8 as *const ::core::ffi::c_char);
-    config.bar.unfocused.child_border =
-        draw_util_hex_to_color(b"#222222\0" as *const u8 as *const ::core::ffi::c_char);
-    config.bar.urgent.border =
-        draw_util_hex_to_color(b"#2f343a\0" as *const u8 as *const ::core::ffi::c_char);
-    config.bar.urgent.background =
-        draw_util_hex_to_color(b"#900000\0" as *const u8 as *const ::core::ffi::c_char);
-    config.bar.urgent.text =
-        draw_util_hex_to_color(b"#ffffff\0" as *const u8 as *const ::core::ffi::c_char);
-    config.bar.urgent.indicator =
-        draw_util_hex_to_color(b"#000000\0" as *const u8 as *const ::core::ffi::c_char);
-    config.bar.urgent.child_border =
-        draw_util_hex_to_color(b"#900000\0" as *const u8 as *const ::core::ffi::c_char);
+    config.client.placeholder.border = draw_util_hex_to_color(c"#000000".as_ptr());
+    config.client.placeholder.background = draw_util_hex_to_color(c"#0c0c0c".as_ptr());
+    config.client.placeholder.text = draw_util_hex_to_color(c"#ffffff".as_ptr());
+    config.client.placeholder.indicator = draw_util_hex_to_color(c"#000000".as_ptr());
+    config.client.placeholder.child_border = draw_util_hex_to_color(c"#0c0c0c".as_ptr());
+    config.bar.focused.border = draw_util_hex_to_color(c"#4c7899".as_ptr());
+    config.bar.focused.background = draw_util_hex_to_color(c"#285577".as_ptr());
+    config.bar.focused.text = draw_util_hex_to_color(c"#ffffff".as_ptr());
+    config.bar.focused.indicator = draw_util_hex_to_color(c"#000000".as_ptr());
+    config.bar.focused.child_border = draw_util_hex_to_color(c"#285577".as_ptr());
+    config.bar.unfocused.border = draw_util_hex_to_color(c"#333333".as_ptr());
+    config.bar.unfocused.background = draw_util_hex_to_color(c"#222222".as_ptr());
+    config.bar.unfocused.text = draw_util_hex_to_color(c"#888888".as_ptr());
+    config.bar.unfocused.indicator = draw_util_hex_to_color(c"#000000".as_ptr());
+    config.bar.unfocused.child_border = draw_util_hex_to_color(c"#222222".as_ptr());
+    config.bar.urgent.border = draw_util_hex_to_color(c"#2f343a".as_ptr());
+    config.bar.urgent.background = draw_util_hex_to_color(c"#900000".as_ptr());
+    config.bar.urgent.text = draw_util_hex_to_color(c"#ffffff".as_ptr());
+    config.bar.urgent.indicator = draw_util_hex_to_color(c"#000000".as_ptr());
+    config.bar.urgent.child_border = draw_util_hex_to_color(c"#900000".as_ptr());
     config.show_marks = true_0 != 0;
     config.default_border = BS_NORMAL;
     config.default_floating_border = BS_NORMAL;
@@ -1759,8 +1001,7 @@ pub unsafe extern "C" fn load_configuration(
     if current_configpath.is_null() {
         errx(
             EXIT_FAILURE,
-            b"Unable to find the configuration file (looked at $XDG_CONFIG_HOME/i3/config, ~/.i3/config, $XDG_CONFIG_DIRS/i3/config and /usr/local/etc/i3/config)\0"
-                as *const u8 as *const ::core::ffi::c_char,
+            c"Unable to find the configuration file (looked at $XDG_CONFIG_HOME/i3/config, ~/.i3/config, $XDG_CONFIG_DIRS/i3/config and /usr/local/etc/i3/config)".as_ptr(),
         );
     }
     let mut file: *mut IncludedFile = ::core::ptr::null_mut::<IncludedFile>();
@@ -5887,7 +5128,7 @@ pub unsafe extern "C" fn load_configuration(
     {
         errx(
             EXIT_FAILURE,
-            b"realpath(%s): %s\0" as *const u8 as *const ::core::ffi::c_char,
+            c"realpath(%s): %s".as_ptr(),
             current_configpath,
             strerror(*__errno_location()),
         );
@@ -5902,8 +5143,7 @@ pub unsafe extern "C" fn load_configuration(
     *included_files.tqh_last = file as *mut IncludedFile;
     included_files.tqh_last = &raw mut (*file).files.tqe_next;
     verboselog(
-        b"Parsing configfile %s\n\0" as *const u8 as *const ::core::ffi::c_char
-            as *mut ::core::ffi::c_char,
+        c"Parsing configfile %s\n".as_ptr().cast_mut(),
         &raw mut resolved_path as *mut ::core::ffi::c_char,
     );
     let mut stack: stack = stack {
@@ -6026,7 +5266,7 @@ pub unsafe extern "C" fn load_configuration(
     if result == -(1 as ::core::ffi::c_int) {
         errx(
             EXIT_FAILURE,
-            b"Could not open configuration file: %s\n\0" as *const u8 as *const ::core::ffi::c_char,
+            c"Could not open configuration file: %s\n".as_ptr(),
             strerror(*__errno_location()),
         );
     }
@@ -6038,13 +5278,11 @@ pub unsafe extern "C" fn load_configuration(
             != C_VALIDATE as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         errorlog(
-            b"ERROR: You did not specify required configuration option \"font\"\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
+            c"ERROR: You did not specify required configuration option \"font\"\n"
+                .as_ptr()
+                .cast_mut(),
         );
-        config.font = load_font(
-            b"fixed\0" as *const u8 as *const ::core::ffi::c_char,
-            true_0 != 0,
-        );
+        config.font = load_font(c"fixed".as_ptr(), true_0 != 0);
         set_font(&raw mut config.font);
     }
     if load_type as ::core::ffi::c_uint != C_VALIDATE as ::core::ffi::c_int as ::core::ffi::c_uint {
@@ -6064,7 +5302,7 @@ pub unsafe extern "C" fn load_configuration(
         gaps_reapply_workspace_assignments();
         tree_render();
     }
-    return result == 0 as ::core::ffi::c_int;
+    result == 0 as ::core::ffi::c_int
 }
 pub const EXIT_FAILURE: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 unsafe extern "C" fn run_static_initializers() {
@@ -6082,3 +5320,59 @@ unsafe extern "C" fn run_static_initializers() {
 #[cfg_attr(target_os = "windows", link_section = ".CRT$XIB")]
 #[cfg_attr(target_os = "macos", link_section = "__DATA,__mod_init_func")]
 static INIT_ARRAY: [unsafe extern "C" fn(); 1] = [run_static_initializers];
+
+// Internal helpers use Rust linkage rather than foreign symbol lookup.
+use crate::bindings::reorder_bindings;
+use crate::bindings::switch_mode;
+use crate::bindings::translate_keysyms;
+use crate::gaps::gaps_reapply_workspace_assignments;
+use crate::tree::tree_render;
+use crate::workspace::extract_workspace_names_from_bindings;
+use i3_common::dpi::logical_px;
+use i3_common::font::free_font;
+use i3_common::safewrappers::scalloc;
+use i3_common::safewrappers::sstrdup;
+
+// Canonical Cairo backend ABI; renderer logic remains local.
+
+// Canonical Pango backend ABI; font policy remains local.
+
+use xcb_sys::{
+    xcb_charinfo_t, xcb_connection_t, xcb_keycode_t, xcb_query_font_reply_t, xcb_ungrab_key,
+    XCB_BUTTON_MASK_ANY, XCB_GRAB_ANY, XCB_KEY_BUT_MASK_SHIFT,
+};
+
+pub use libc::{__errno_location, free, memset, realpath, strerror};
+
+use i3_common::native_stdio::{__assert_fail, errx};
+
+use crate::log::{debuglog, errorlog, verboselog};
+
+// Shared model types retain field layout while using one Rust identity.
+pub use crate::types::config_bar;
+pub use crate::types::config_client;
+pub use crate::types::deco_render_params;
+pub use crate::types::gaps_t;
+pub use crate::types::Assignment;
+pub use crate::types::Colortriple;
+pub use crate::types::Con;
+pub use crate::types::Config;
+pub use crate::types::Match;
+pub use crate::types::MatchMatches as C2RustUnnamed_11;
+pub use i3_common::draw_util::color_t;
+pub use i3_common::font::C2RustUnnamed;
+pub use i3_common::font::C2RustUnnamed_0;
+pub use i3_common::font::Font;
+pub use i3_common::string::I3String as _i3String;
+
+// Internal calls and globals use canonical Rust identities.
+use crate::application::conn;
+use crate::application::current_binding_mode;
+use crate::application::root;
+use crate::bindings::grab_all_keys;
+use crate::bindings::regrab_all_buttons;
+use crate::r#match::match_free;
+use i3_common::draw_util::draw_util_hex_to_color;
+use i3_common::font::load_font;
+use i3_common::font::set_font;
+use i3_common::get_config_path::get_config_path;

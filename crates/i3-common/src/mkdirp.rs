@@ -1,71 +1,66 @@
-// i3 - an improved tiling window manager
 // Copyright © 2009 Michael Stapelberg and contributors (see LICENSE).
-// Direct translation of libi3/mkdirp.c; C ABI and allocation ownership are preserved.
 
-use libc::{c_char, c_int, mode_t};
-unsafe extern "C" {
-    fn sstrdup(string: *const c_char) -> *mut c_char;
-    fn errorlog(fmt: *const c_char, ...);
+use std::io;
+use std::os::unix::fs::DirBuilderExt;
+use std::path::Path;
+
+/// Create missing parent directories using the supplied mode and process umask.
+/// Existing directories retain their permissions; an empty path is an error.
+pub fn create_dir_all(path: impl AsRef<Path>, mode: u32) -> io::Result<()> {
+    let path = path.as_ref();
+    if path.as_os_str().is_empty() {
+        return Err(io::Error::from_raw_os_error(libc::ENOENT));
+    }
+    std::fs::DirBuilder::new()
+        .recursive(true)
+        .mode(mode)
+        .create(path)
 }
 
-// Compile this fallback only on targets where HAVE_MKDIRP is false, as in C.
-/// # Safety
-/// `path` must point to a live NUL-terminated C string.
-#[no_mangle]
-pub unsafe extern "C" fn mkdirp(path: *const c_char, mode: mode_t) -> c_int {
-    // SAFETY: C strings are valid by contract; copy is malloc-owned and writable.
-    // stat's output is read only when the call succeeds.
-    unsafe {
-        if libc::mkdir(path, mode) == 0 {
-            return 0;
-        }
-        let errno = *libc::__errno_location();
-        if errno == libc::EEXIST {
-            let mut st = core::mem::MaybeUninit::<libc::stat>::uninit();
-            if libc::stat(path, st.as_mut_ptr()) != 0 {
-                errorlog(
-                    c"[libi3] ERROR: stat(%s) failed: %s\n".as_ptr(),
-                    path,
-                    libc::strerror(*libc::__errno_location()),
-                );
-                return -1;
+mod legacy {
+    use super::*;
+    use std::ffi::CStr;
+    use std::os::unix::ffi::OsStrExt;
+
+    /// # Safety
+    /// `path` is a live C string. This adapter retains integer/errno diagnostics.
+
+    pub unsafe fn mkdirp(path: *const libc::c_char, mode: libc::mode_t) -> libc::c_int {
+        // SAFETY: The caller provides a borrowed C string.
+        let raw = unsafe { CStr::from_ptr(path) };
+        let target = Path::new(std::ffi::OsStr::from_bytes(raw.to_bytes()));
+        match create_dir_all(target, mode) {
+            Ok(()) => 0,
+            Err(error) => {
+                let code = error.raw_os_error().unwrap_or(libc::EIO);
+                let mut display_code = code;
+                let mut format = c"[libi3] ERROR: mkdir(%s) failed: %s\n";
+                if code == libc::EEXIST {
+                    match std::fs::metadata(target) {
+                        Ok(metadata) if !metadata.is_dir() => display_code = libc::ENOTDIR,
+                        Err(stat_error) => {
+                            display_code = stat_error.raw_os_error().unwrap_or(libc::EIO);
+                            format = c"[libi3] ERROR: stat(%s) failed: %s\n";
+                        }
+                        _ => {}
+                    }
+                }
+                // SAFETY: raw and the static format are valid C strings. strerror
+                // returns borrowed error text; errno retains the original failure.
+                unsafe {
+                    errorlog(format.as_ptr(), raw.as_ptr(), libc::strerror(display_code));
+                    *libc::__errno_location() = if format == c"[libi3] ERROR: stat(%s) failed: %s\n"
+                    {
+                        display_code
+                    } else {
+                        code
+                    };
+                }
+                -1
             }
-            if st.assume_init().st_mode & libc::S_IFMT != libc::S_IFDIR {
-                errorlog(
-                    c"[libi3] ERROR: mkdir(%s) failed: %s\n".as_ptr(),
-                    path,
-                    libc::strerror(libc::ENOTDIR),
-                );
-                return -1;
-            }
-            return 0;
-        } else if errno != libc::ENOENT {
-            errorlog(
-                c"[libi3] ERROR: mkdir(%s) failed: %s\n".as_ptr(),
-                path,
-                libc::strerror(errno),
-            );
-            return -1;
         }
-        let copy = sstrdup(path);
-        // For ENOENT, upstream strips trailing slashes before finding the parent.
-        // An empty path has no parent; avoid the C implementation's underflow.
-        let mut len = libc::strlen(copy);
-        while len > 0 && *copy.add(len - 1) == b'/' as c_char {
-            len -= 1;
-            *copy.add(len) = 0;
-        }
-        let sep = libc::strrchr(copy, b'/' as c_int);
-        if sep.is_null() {
-            libc::free(copy.cast());
-            return -1;
-        }
-        *sep = 0;
-        let mut result = -1;
-        if mkdirp(copy, mode) == 0 {
-            result = mkdirp(path, mode);
-        }
-        libc::free(copy.cast());
-        result
     }
 }
+pub use legacy::mkdirp;
+
+use crate::logging::errorlog;

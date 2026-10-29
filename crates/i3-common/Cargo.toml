@@ -6,8 +6,13 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+xcb-sys.workspace = true
 libc.workspace = true
 c2rust-bitfields.workspace = true
+cairo-sys.workspace = true
+pango-sys.workspace = true
+pangocairo-sys.workspace = true
+gobject-sys.workspace = true
 
 [build-dependencies]
 i3-build.workspace = true

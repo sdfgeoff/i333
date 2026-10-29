@@ -1,147 +1,188 @@
-/*
- * vim:ts=4:sw=4:expandtab
- *
- * i3 - an improved tiling window manager
- * © 2009 Michael Stapelberg and contributors (see also: LICENSE)
- *
- */
-// Mechanical file-by-file Rust translation of libi3/ucs2_conversion.c.
-// Generated with C2Rust 0.22.1; C ABI and original ownership retained.
-extern "C" {
-    fn perror(__s: *const ::core::ffi::c_char);
-    fn smalloc(size: size_t) -> *mut ::core::ffi::c_void;
-    fn scalloc(num: size_t, size: size_t) -> *mut ::core::ffi::c_void;
-    fn srealloc(ptr: *mut ::core::ffi::c_void, size: size_t) -> *mut ::core::ffi::c_void;
-    fn err(__status: ::core::ffi::c_int, __format: *const ::core::ffi::c_char, ...) -> !;
-    fn iconv_open(
-        __tocode: *const ::core::ffi::c_char,
-        __fromcode: *const ::core::ffi::c_char,
-    ) -> iconv_t;
-    fn iconv(
-        __cd: iconv_t,
-        __inbuf: *mut *mut ::core::ffi::c_char,
-        __inbytesleft: *mut size_t,
-        __outbuf: *mut *mut ::core::ffi::c_char,
-        __outbytesleft: *mut size_t,
-    ) -> size_t;
-    fn strlen(__s: *const ::core::ffi::c_char) -> size_t;
-    fn free(__ptr: *mut ::core::ffi::c_void);
-}
-pub type size_t = usize;
-pub type __uint8_t = u8;
-pub type uint8_t = __uint8_t;
-#[derive(Copy, Clone)]
+// Copyright © 2009 Michael Stapelberg and contributors (see LICENSE).
+
+use std::fmt;
+
+/// X core fonts use big-endian UCS-2 code units, not UTF-16 surrogate pairs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
-pub struct xcb_char2b_t {
-    pub byte1: uint8_t,
-    pub byte2: uint8_t,
+pub struct Ucs2Char {
+    pub byte1: u8,
+    pub byte2: u8,
 }
-pub type iconv_t = *mut ::core::ffi::c_void;
-pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
-static mut utf8_conversion_descriptor: iconv_t = unsafe { -(1 as ::core::ffi::c_int) as iconv_t };
-static mut ucs2_conversion_descriptor: iconv_t = unsafe { -(1 as ::core::ffi::c_int) as iconv_t };
-#[no_mangle]
-pub unsafe extern "C" fn convert_ucs2_to_utf8(
-    mut text: *mut xcb_char2b_t,
-    mut num_glyphs: size_t,
-) -> *mut ::core::ffi::c_char {
-    let mut buffer_size: size_t = num_glyphs
-        .wrapping_mul(4 as size_t)
-        .wrapping_add(1 as size_t);
-    let mut buffer: *mut ::core::ffi::c_char =
-        scalloc(buffer_size, 1 as size_t) as *mut ::core::ffi::c_char;
-    let mut output: *mut ::core::ffi::c_char = buffer;
-    let mut output_size: size_t = buffer_size.wrapping_sub(1 as size_t);
-    if utf8_conversion_descriptor == -(1 as ::core::ffi::c_int) as iconv_t {
-        utf8_conversion_descriptor = iconv_open(
-            b"UTF-8\0" as *const u8 as *const ::core::ffi::c_char,
-            b"UCS-2BE\0" as *const u8 as *const ::core::ffi::c_char,
-        );
-        if utf8_conversion_descriptor == -(1 as ::core::ffi::c_int) as iconv_t {
-            err(
-                EXIT_FAILURE,
-                b"Error opening the conversion context\0" as *const u8
-                    as *const ::core::ffi::c_char,
-            );
-        }
-    } else {
-        iconv(
-            utf8_conversion_descriptor,
-            ::core::ptr::null_mut::<*mut ::core::ffi::c_char>(),
-            ::core::ptr::null_mut::<size_t>(),
-            ::core::ptr::null_mut::<*mut ::core::ffi::c_char>(),
-            ::core::ptr::null_mut::<size_t>(),
-        );
+impl From<u16> for Ucs2Char {
+    fn from(value: u16) -> Self {
+        let [byte1, byte2] = value.to_be_bytes();
+        Self { byte1, byte2 }
     }
-    let mut input_len: size_t =
-        num_glyphs.wrapping_mul(::core::mem::size_of::<xcb_char2b_t>() as size_t);
-    let mut rc: size_t = iconv(
-        utf8_conversion_descriptor,
-        &raw mut text as *mut *mut ::core::ffi::c_char,
-        &raw mut input_len,
-        &raw mut output,
-        &raw mut output_size,
-    );
-    if rc == -(1 as ::core::ffi::c_int) as size_t {
-        perror(b"Converting to UTF-8 failed\0" as *const u8 as *const ::core::ffi::c_char);
-        free(buffer as *mut ::core::ffi::c_void);
-        return ::core::ptr::null_mut::<::core::ffi::c_char>();
-    }
-    return buffer;
 }
-#[no_mangle]
-pub unsafe extern "C" fn convert_utf8_to_ucs2(
-    mut input: *mut ::core::ffi::c_char,
-    mut real_strlen: *mut size_t,
-) -> *mut xcb_char2b_t {
-    let mut input_size: size_t = strlen(input);
-    let mut buffer_size: size_t =
-        input_size.wrapping_mul(::core::mem::size_of::<xcb_char2b_t>() as size_t);
-    let mut buffer: *mut xcb_char2b_t = smalloc(buffer_size) as *mut xcb_char2b_t;
-    let mut output_bytes_left: size_t = buffer_size;
-    let mut output: *mut xcb_char2b_t = buffer;
-    if ucs2_conversion_descriptor == -(1 as ::core::ffi::c_int) as iconv_t {
-        ucs2_conversion_descriptor = iconv_open(
-            b"UCS-2BE//IGNORE\0" as *const u8 as *const ::core::ffi::c_char,
-            b"UTF-8\0" as *const u8 as *const ::core::ffi::c_char,
-        );
-        if ucs2_conversion_descriptor == -(1 as ::core::ffi::c_int) as iconv_t {
-            ucs2_conversion_descriptor = iconv_open(
-                b"UCS-2BE\0" as *const u8 as *const ::core::ffi::c_char,
-                b"UTF-8\0" as *const u8 as *const ::core::ffi::c_char,
-            );
-        }
-        if ucs2_conversion_descriptor == -(1 as ::core::ffi::c_int) as iconv_t {
-            err(
-                EXIT_FAILURE,
-                b"Error opening the conversion context\0" as *const u8
-                    as *const ::core::ffi::c_char,
-            );
-        }
-    } else {
-        iconv(
-            ucs2_conversion_descriptor,
-            ::core::ptr::null_mut::<*mut ::core::ffi::c_char>(),
-            ::core::ptr::null_mut::<size_t>(),
-            ::core::ptr::null_mut::<*mut ::core::ffi::c_char>(),
-            ::core::ptr::null_mut::<size_t>(),
-        );
+impl Ucs2Char {
+    pub fn code_unit(self) -> u16 {
+        u16::from_be_bytes([self.byte1, self.byte2])
     }
-    let mut rc: size_t = iconv(
-        ucs2_conversion_descriptor,
-        &raw mut input,
-        &raw mut input_size,
-        &raw mut output as *mut *mut ::core::ffi::c_char,
-        &raw mut output_bytes_left,
-    );
-    if rc == -(1 as ::core::ffi::c_int) as size_t {
-        perror(b"Converting to UCS-2 failed\0" as *const u8 as *const ::core::ffi::c_char);
-    }
-    buffer_size = buffer_size.wrapping_sub(output_bytes_left);
-    buffer = srealloc(buffer as *mut ::core::ffi::c_void, buffer_size) as *mut xcb_char2b_t;
-    if !real_strlen.is_null() {
-        *real_strlen = buffer_size.wrapping_div(::core::mem::size_of::<xcb_char2b_t>() as size_t);
-    }
-    return buffer;
 }
-pub const EXIT_FAILURE: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
+pub type xcb_char2b_t = Ucs2Char;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConversionIssue {
+    InvalidSequence,
+    IncompleteSequence,
+}
+impl fmt::Display for ConversionIssue {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(match self {
+            Self::InvalidSequence => "invalid or unrepresentable UCS-2 character",
+            Self::IncompleteSequence => "incomplete UTF-8 sequence",
+        })
+    }
+}
+impl std::error::Error for ConversionIssue {}
+
+/// GNU iconv's //IGNORE behavior, or the historical strict fallback policy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EncodingPolicy {
+    Ignore,
+    Strict,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EncodedUcs2 {
+    pub glyphs: Vec<Ucs2Char>,
+    pub issue: Option<ConversionIssue>,
+}
+
+/// Encode without UTF-16 surrogate substitution. Ignore skips invalid UTF-8 and
+/// non-BMP scalars and continues; incomplete tails stop conversion. Strict stops
+/// at the first invalid/unrepresentable scalar. Both retain the converted prefix.
+pub fn encode_ucs2(input: &[u8], policy: EncodingPolicy) -> EncodedUcs2 {
+    let mut result = EncodedUcs2 {
+        glyphs: Vec::new(),
+        issue: None,
+    };
+    let mut remaining = input;
+    while !remaining.is_empty() {
+        let (valid, error) = match std::str::from_utf8(remaining) {
+            Ok(valid) => (valid, None),
+            Err(error) => (
+                std::str::from_utf8(&remaining[..error.valid_up_to()]).unwrap(),
+                Some(error),
+            ),
+        };
+        for scalar in valid.chars() {
+            if let Ok(code_unit) = u16::try_from(scalar as u32) {
+                result.glyphs.push(code_unit.into());
+            } else {
+                result.issue = Some(ConversionIssue::InvalidSequence);
+                if policy == EncodingPolicy::Strict {
+                    return result;
+                }
+            }
+        }
+        let Some(error) = error else {
+            break;
+        };
+        match error.error_len() {
+            None => {
+                result.issue = Some(ConversionIssue::IncompleteSequence);
+                break;
+            }
+            Some(length) => {
+                result.issue = Some(ConversionIssue::InvalidSequence);
+                if policy == EncodingPolicy::Strict {
+                    break;
+                }
+                remaining = &remaining[error.valid_up_to() + length..];
+            }
+        }
+    }
+    result
+}
+
+/// Decode UCS-2 strictly. Any surrogate code unit rejects the whole conversion;
+/// adjacent surrogate units must never be combined into a supplementary scalar.
+pub fn decode_ucs2(input: &[Ucs2Char]) -> Result<String, ConversionIssue> {
+    input
+        .iter()
+        .map(|glyph| {
+            char::from_u32(glyph.code_unit() as u32).ok_or(ConversionIssue::InvalidSequence)
+        })
+        .collect()
+}
+
+/// Remaining malloc/free and errno adapters. Conversion itself is pure Rust.
+pub(crate) mod legacy {
+    use super::*;
+    use std::ffi::CStr;
+
+    pub(crate) fn report(issue: ConversionIssue, message: &CStr) {
+        // SAFETY: Static/borrowed C text is valid; errno is thread-local on this
+        // Linux target. These diagnostics preserve the old iconv error wording.
+        unsafe {
+            *libc::__errno_location() = match issue {
+                ConversionIssue::InvalidSequence => libc::EILSEQ,
+                ConversionIssue::IncompleteSequence => libc::EINVAL,
+            };
+            libc::perror(message.as_ptr());
+        }
+    }
+
+    /// # Safety
+    /// `text` contains `count` readable UCS-2 units, or may be null for count zero.
+
+    pub unsafe fn convert_ucs2_to_utf8(text: *mut Ucs2Char, count: usize) -> *mut libc::c_char {
+        let glyphs = if count == 0 {
+            &[]
+        } else {
+            // SAFETY: The caller supplies count readable units.
+            unsafe { std::slice::from_raw_parts(text, count) }
+        };
+        match decode_ucs2(glyphs) {
+            Err(issue) => {
+                report(issue, c"Converting to UTF-8 failed");
+                std::ptr::null_mut()
+            }
+            Ok(text) => {
+                let bytes = text.as_bytes();
+                // SAFETY: Preserve all encoded bytes, including data after a NUL
+                // code unit, and append the malloc-owned C terminator.
+                unsafe {
+                    let result = crate::safewrappers::scalloc(bytes.len() + 1, 1).cast::<u8>();
+                    std::ptr::copy_nonoverlapping(bytes.as_ptr(), result, bytes.len());
+                    result.cast()
+                }
+            }
+        }
+    }
+
+    /// # Safety
+    /// `input` is a live C string; `length` is null or writable. Returned storage
+    /// belongs to free(). An empty conversion returns null and length zero.
+
+    pub unsafe fn convert_utf8_to_ucs2(
+        input: *mut libc::c_char,
+        length: *mut usize,
+    ) -> *mut Ucs2Char {
+        // SAFETY: The caller supplies a valid C string.
+        let input = unsafe { CStr::from_ptr(input) };
+        // Linux's original preferred backend is UCS-2BE//IGNORE. Pure Rust needs
+        // no charset-open fallback; Strict remains available as an explicit policy.
+        let encoded = encode_ucs2(input.to_bytes(), EncodingPolicy::Ignore);
+        if let Some(issue) = encoded.issue {
+            report(issue, c"Converting to UCS-2 failed");
+        }
+        // SAFETY: Output is writable when supplied; preserve the original empty
+        // realloc(0) result, and malloc ownership for nonempty converted buffers.
+        unsafe {
+            if !length.is_null() {
+                *length = encoded.glyphs.len();
+            }
+            if encoded.glyphs.is_empty() {
+                return std::ptr::null_mut();
+            }
+            let output =
+                crate::safewrappers::smalloc(std::mem::size_of_val(encoded.glyphs.as_slice()))
+                    .cast::<Ucs2Char>();
+            std::ptr::copy_nonoverlapping(encoded.glyphs.as_ptr(), output, encoded.glyphs.len());
+            output
+        }
+    }
+}
+pub use legacy::{convert_ucs2_to_utf8, convert_utf8_to_ucs2};

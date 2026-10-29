@@ -1,6 +1,7 @@
 package SocketActivation;
 # vim:ts=4:sw=4:expandtab
 
+use File::Spec;
 use strict;
 use warnings;
 use IO::Socket::UNIX; # core
@@ -63,7 +64,7 @@ sub activate_i3 {
         # “set-option -g default-shell "/usr/bin/fish"” in ~/.tmux.conf
         delete $ENV{SHELL};
         unless ($args{dont_create_temp_dir}) {
-            $ENV{XDG_RUNTIME_DIR} = '/tmp/i3-testsuite/';
+            $ENV{XDG_RUNTIME_DIR} = File::Spec->catdir(File::Spec->tmpdir(), 'i3-testsuite');
             mkdir $ENV{XDG_RUNTIME_DIR};
         }
         $ENV{DISPLAY} = $args{display};

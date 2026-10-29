@@ -1,0 +1,11 @@
+[package]
+name = "i3-json"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Rust JSON generation and incremental event parsing for i3"
+
+[dependencies]
+serde.workspace = true
+serde_json = { workspace = true, features = ["arbitrary_precision"] }

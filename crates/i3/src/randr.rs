@@ -1,3 +1,7 @@
+use crate::application::ws_assignments;
+use crate::tree::all_cons;
+use crate::workspace::output_triggers_assignment;
+use i3_common::safewrappers::sasprintf;
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -10,193 +14,7 @@
  *
  */
 // Mechanical file-by-file Rust translation of src/randr.c.
-// Generated with C2Rust 0.22.1; C ABI and original ownership retained.
-extern "C" {
-    pub type xcb_connection_t;
-    pub type xcb_extension_t;
-    pub type _PangoFontDescription;
-    pub type _cairo;
-    pub type _cairo_surface;
-    pub type _i3String;
-    pub type pcre2_real_code_8;
-    pub type ev_loop;
-    fn __assert_fail(
-        __assertion: *const ::core::ffi::c_char,
-        __file: *const ::core::ffi::c_char,
-        __line: ::core::ffi::c_uint,
-        __function: *const ::core::ffi::c_char,
-    ) -> !;
-    fn __assert_single_arg(_: bool) -> bool;
-    fn errx(__status: ::core::ffi::c_int, __format: *const ::core::ffi::c_char, ...) -> !;
-    fn xcb_get_atom_name(c: *mut xcb_connection_t, atom: xcb_atom_t) -> xcb_get_atom_name_cookie_t;
-    fn xcb_get_atom_name_name(R: *const xcb_get_atom_name_reply_t) -> *mut ::core::ffi::c_char;
-    fn xcb_get_atom_name_name_length(R: *const xcb_get_atom_name_reply_t) -> ::core::ffi::c_int;
-    fn xcb_get_atom_name_reply(
-        c: *mut xcb_connection_t,
-        cookie: xcb_get_atom_name_cookie_t,
-        e: *mut *mut xcb_generic_error_t,
-    ) -> *mut xcb_get_atom_name_reply_t;
-    fn xcb_flush(c: *mut xcb_connection_t) -> ::core::ffi::c_int;
-    fn xcb_get_extension_data(
-        c: *mut xcb_connection_t,
-        ext: *mut xcb_extension_t,
-    ) -> *const xcb_query_extension_reply_t;
-    static mut conn: *mut xcb_connection_t;
-    static mut root_screen: *mut xcb_screen_t;
-    fn verboselog(fmt: *mut ::core::ffi::c_char, ...);
-    fn errorlog(fmt: *mut ::core::ffi::c_char, ...);
-    fn debuglog(fmt: *mut ::core::ffi::c_char, ...);
-    fn scalloc(num: size_t, size: size_t) -> *mut ::core::ffi::c_void;
-    fn sstrdup(str: *const ::core::ffi::c_char) -> *mut ::core::ffi::c_char;
-    fn sasprintf(
-        strp: *mut *mut ::core::ffi::c_char,
-        fmt: *const ::core::ffi::c_char,
-        ...
-    ) -> ::core::ffi::c_int;
-    static mut xcb_randr_id: xcb_extension_t;
-    fn xcb_randr_query_version(
-        c: *mut xcb_connection_t,
-        major_version: uint32_t,
-        minor_version: uint32_t,
-    ) -> xcb_randr_query_version_cookie_t;
-    fn xcb_randr_query_version_reply(
-        c: *mut xcb_connection_t,
-        cookie: xcb_randr_query_version_cookie_t,
-        e: *mut *mut xcb_generic_error_t,
-    ) -> *mut xcb_randr_query_version_reply_t;
-    fn xcb_randr_select_input(
-        c: *mut xcb_connection_t,
-        window: xcb_window_t,
-        enable: uint16_t,
-    ) -> xcb_void_cookie_t;
-    fn xcb_randr_get_output_info(
-        c: *mut xcb_connection_t,
-        output: xcb_randr_output_t,
-        config_timestamp: xcb_timestamp_t,
-    ) -> xcb_randr_get_output_info_cookie_t;
-    fn xcb_randr_get_output_info_name(R: *const xcb_randr_get_output_info_reply_t) -> *mut uint8_t;
-    fn xcb_randr_get_output_info_name_length(
-        R: *const xcb_randr_get_output_info_reply_t,
-    ) -> ::core::ffi::c_int;
-    fn xcb_randr_get_output_info_reply(
-        c: *mut xcb_connection_t,
-        cookie: xcb_randr_get_output_info_cookie_t,
-        e: *mut *mut xcb_generic_error_t,
-    ) -> *mut xcb_randr_get_output_info_reply_t;
-    fn xcb_randr_get_crtc_info(
-        c: *mut xcb_connection_t,
-        crtc: xcb_randr_crtc_t,
-        config_timestamp: xcb_timestamp_t,
-    ) -> xcb_randr_get_crtc_info_cookie_t;
-    fn xcb_randr_get_crtc_info_reply(
-        c: *mut xcb_connection_t,
-        cookie: xcb_randr_get_crtc_info_cookie_t,
-        e: *mut *mut xcb_generic_error_t,
-    ) -> *mut xcb_randr_get_crtc_info_reply_t;
-    fn xcb_randr_get_screen_resources_current(
-        c: *mut xcb_connection_t,
-        window: xcb_window_t,
-    ) -> xcb_randr_get_screen_resources_current_cookie_t;
-    fn xcb_randr_get_screen_resources_current_outputs(
-        R: *const xcb_randr_get_screen_resources_current_reply_t,
-    ) -> *mut xcb_randr_output_t;
-    fn xcb_randr_get_screen_resources_current_outputs_length(
-        R: *const xcb_randr_get_screen_resources_current_reply_t,
-    ) -> ::core::ffi::c_int;
-    fn xcb_randr_get_screen_resources_current_reply(
-        c: *mut xcb_connection_t,
-        cookie: xcb_randr_get_screen_resources_current_cookie_t,
-        e: *mut *mut xcb_generic_error_t,
-    ) -> *mut xcb_randr_get_screen_resources_current_reply_t;
-    fn xcb_randr_get_output_primary(
-        c: *mut xcb_connection_t,
-        window: xcb_window_t,
-    ) -> xcb_randr_get_output_primary_cookie_t;
-    fn xcb_randr_get_output_primary_reply(
-        c: *mut xcb_connection_t,
-        cookie: xcb_randr_get_output_primary_cookie_t,
-        e: *mut *mut xcb_generic_error_t,
-    ) -> *mut xcb_randr_get_output_primary_reply_t;
-    fn xcb_randr_monitor_info_outputs(
-        R: *const xcb_randr_monitor_info_t,
-    ) -> *mut xcb_randr_output_t;
-    fn xcb_randr_monitor_info_outputs_length(
-        R: *const xcb_randr_monitor_info_t,
-    ) -> ::core::ffi::c_int;
-    fn xcb_randr_monitor_info_next(i: *mut xcb_randr_monitor_info_iterator_t);
-    fn xcb_randr_get_monitors(
-        c: *mut xcb_connection_t,
-        window: xcb_window_t,
-        get_active: uint8_t,
-    ) -> xcb_randr_get_monitors_cookie_t;
-    fn xcb_randr_get_monitors_monitors_length(
-        R: *const xcb_randr_get_monitors_reply_t,
-    ) -> ::core::ffi::c_int;
-    fn xcb_randr_get_monitors_monitors_iterator(
-        R: *const xcb_randr_get_monitors_reply_t,
-    ) -> xcb_randr_monitor_info_iterator_t;
-    fn xcb_randr_get_monitors_reply(
-        c: *mut xcb_connection_t,
-        cookie: xcb_randr_get_monitors_cookie_t,
-        e: *mut *mut xcb_generic_error_t,
-    ) -> *mut xcb_randr_get_monitors_reply_t;
-    fn min(a: ::core::ffi::c_int, b: ::core::ffi::c_int) -> ::core::ffi::c_int;
-    fn max(a: ::core::ffi::c_int, b: ::core::ffi::c_int) -> ::core::ffi::c_int;
-    fn update_if_necessary(destination: *mut uint32_t, new_value: uint32_t) -> bool;
-    static mut croot: *mut Con;
-    static mut focused: *mut Con;
-    static mut all_cons: all_cons_head;
-    fn tree_render();
-    fn tree_close_internal(
-        con: *mut Con,
-        kill_window: kill_window_t,
-        dont_kill_parent: bool,
-    ) -> bool;
-    static mut ws_assignments: ws_assignments_head;
-    static mut root: xcb_window_t;
-    static mut config: Config;
-    fn get_assigned_output(
-        name: *const ::core::ffi::c_char,
-        parsed_num: ::core::ffi::c_long,
-    ) -> *mut Con;
-    fn output_triggers_assignment(
-        output: *mut Output,
-        assignment: *mut Workspace_Assignment,
-    ) -> bool;
-    fn create_workspace_on_output(output: *mut Output, content: *mut Con) -> *mut Con;
-    fn workspace_show(ws: *mut Con);
-    fn workspace_show_by_name(num: *const ::core::ffi::c_char);
-    fn workspace_move_to_output(ws: *mut Con, output: *mut Output);
-    fn x_set_name(con: *mut Con, name: *const ::core::ffi::c_char);
-    fn floating_fix_coordinates(con: *mut Con, old_rect: *mut Rect, new_rect: *mut Rect);
-    fn con_new(parent: *mut Con, window: *mut i3Window) -> *mut Con;
-    fn con_focus(con: *mut Con);
-    fn con_get_workspace(con: *mut Con) -> *mut Con;
-    fn con_is_internal(con: *mut Con) -> bool;
-    fn con_for_window(
-        con: *mut Con,
-        window: *mut i3Window,
-        store_match: *mut *mut Match,
-    ) -> *mut Con;
-    fn con_num_children(con: *mut Con) -> ::core::ffi::c_int;
-    fn con_attach(con: *mut Con, parent: *mut Con, ignore_focus: bool);
-    fn con_detach(con: *mut Con);
-    fn con_fix_percent(con: *mut Con);
-    fn match_init(match_0: *mut Match);
-    fn output_get_content(output: *mut Con) -> *mut Con;
-    fn output_primary_name(output: *mut Output) -> *mut ::core::ffi::c_char;
-    fn get_output_for_con(con: *mut Con) -> *mut Output;
-    fn ewmh_update_desktop_properties();
-    fn strcmp(
-        __s1: *const ::core::ffi::c_char,
-        __s2: *const ::core::ffi::c_char,
-    ) -> ::core::ffi::c_int;
-    fn strcasecmp(
-        __s1: *const ::core::ffi::c_char,
-        __s2: *const ::core::ffi::c_char,
-    ) -> ::core::ffi::c_int;
-    fn free(__ptr: *mut ::core::ffi::c_void);
-}
+// Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 pub type size_t = usize;
 pub type __uint8_t = u8;
 pub type __int16_t = i16;
@@ -208,425 +26,24 @@ pub type __suseconds_t = ::core::ffi::c_long;
 pub type time_t = __time_t;
 pub type int16_t = __int16_t;
 pub type int32_t = __int32_t;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct timeval {
-    pub tv_sec: __time_t,
-    pub tv_usec: __suseconds_t,
-}
+
 pub type uint8_t = __uint8_t;
 pub type uint16_t = __uint16_t;
 pub type uint32_t = __uint32_t;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_generic_error_t {
-    pub response_type: uint8_t,
-    pub error_code: uint8_t,
-    pub sequence: uint16_t,
-    pub resource_id: uint32_t,
-    pub minor_code: uint16_t,
-    pub major_code: uint8_t,
-    pub pad0: uint8_t,
-    pub pad: [uint32_t; 5],
-    pub full_sequence: uint32_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_void_cookie_t {
-    pub sequence: ::core::ffi::c_uint,
-}
-pub type xcb_window_t = uint32_t;
-pub type xcb_font_t = uint32_t;
-pub type xcb_gcontext_t = uint32_t;
-pub type xcb_colormap_t = uint32_t;
-pub type xcb_atom_t = uint32_t;
-pub type xcb_drawable_t = uint32_t;
-pub type xcb_visualid_t = uint32_t;
-pub type xcb_timestamp_t = uint32_t;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_screen_t {
-    pub root: xcb_window_t,
-    pub default_colormap: xcb_colormap_t,
-    pub white_pixel: uint32_t,
-    pub black_pixel: uint32_t,
-    pub current_input_masks: uint32_t,
-    pub width_in_pixels: uint16_t,
-    pub height_in_pixels: uint16_t,
-    pub width_in_millimeters: uint16_t,
-    pub height_in_millimeters: uint16_t,
-    pub min_installed_maps: uint16_t,
-    pub max_installed_maps: uint16_t,
-    pub root_visual: xcb_visualid_t,
-    pub backing_stores: uint8_t,
-    pub save_unders: uint8_t,
-    pub root_depth: uint8_t,
-    pub allowed_depths_len: uint8_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_get_atom_name_cookie_t {
-    pub sequence: ::core::ffi::c_uint,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_get_atom_name_reply_t {
-    pub response_type: uint8_t,
-    pub pad0: uint8_t,
-    pub sequence: uint16_t,
-    pub length: uint32_t,
-    pub name_len: uint16_t,
-    pub pad1: [uint8_t; 22],
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_charinfo_t {
-    pub left_side_bearing: int16_t,
-    pub right_side_bearing: int16_t,
-    pub character_width: int16_t,
-    pub ascent: int16_t,
-    pub descent: int16_t,
-    pub attributes: uint16_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_query_font_reply_t {
-    pub response_type: uint8_t,
-    pub pad0: uint8_t,
-    pub sequence: uint16_t,
-    pub length: uint32_t,
-    pub min_bounds: xcb_charinfo_t,
-    pub pad1: [uint8_t; 4],
-    pub max_bounds: xcb_charinfo_t,
-    pub pad2: [uint8_t; 4],
-    pub min_char_or_byte2: uint16_t,
-    pub max_char_or_byte2: uint16_t,
-    pub default_char: uint16_t,
-    pub properties_len: uint16_t,
-    pub draw_direction: uint8_t,
-    pub min_byte1: uint8_t,
-    pub max_byte1: uint8_t,
-    pub all_chars_exist: uint8_t,
-    pub font_ascent: int16_t,
-    pub font_descent: int16_t,
-    pub char_infos_len: uint32_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_query_extension_reply_t {
-    pub response_type: uint8_t,
-    pub pad0: uint8_t,
-    pub sequence: uint16_t,
-    pub length: uint32_t,
-    pub present: uint8_t,
-    pub major_opcode: uint8_t,
-    pub first_event: uint8_t,
-    pub first_error: uint8_t,
-}
-pub type PangoFontDescription = _PangoFontDescription;
-pub type cairo_t = _cairo;
-pub type cairo_surface_t = _cairo_surface;
+
 pub type i3String = _i3String;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Font {
-    pub type_0: C2RustUnnamed_1,
-    pub height: ::core::ffi::c_int,
-    pub pattern: *mut ::core::ffi::c_char,
-    pub specific: C2RustUnnamed,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub union C2RustUnnamed {
-    pub xcb: C2RustUnnamed_0,
-    pub pango_desc: *mut PangoFontDescription,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_0 {
-    pub id: xcb_font_t,
-    pub info: *mut xcb_query_font_reply_t,
-    pub table: *mut xcb_charinfo_t,
-}
+
 pub type C2RustUnnamed_1 = ::core::ffi::c_uint;
 pub const FONT_TYPE_PANGO: C2RustUnnamed_1 = 2;
 pub const FONT_TYPE_XCB: C2RustUnnamed_1 = 1;
 pub const FONT_TYPE_NONE: C2RustUnnamed_1 = 0;
 pub type i3Font = Font;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct color_t {
-    pub red: ::core::ffi::c_double,
-    pub green: ::core::ffi::c_double,
-    pub blue: ::core::ffi::c_double,
-    pub alpha: ::core::ffi::c_double,
-    pub colorpixel: uint32_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct surface_t {
-    pub id: xcb_drawable_t,
-    pub gc: xcb_gcontext_t,
-    pub owns_gc: bool,
-    pub width: ::core::ffi::c_int,
-    pub height: ::core::ffi::c_int,
-    pub surface: *mut cairo_surface_t,
-    pub cr: *mut cairo_t,
-}
-pub type xcb_randr_mode_t = uint32_t;
-pub type xcb_randr_crtc_t = uint32_t;
-pub type xcb_randr_output_t = uint32_t;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_randr_query_version_cookie_t {
-    pub sequence: ::core::ffi::c_uint,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_randr_query_version_reply_t {
-    pub response_type: uint8_t,
-    pub pad0: uint8_t,
-    pub sequence: uint16_t,
-    pub length: uint32_t,
-    pub major_version: uint32_t,
-    pub minor_version: uint32_t,
-    pub pad1: [uint8_t; 16],
-}
-pub type xcb_randr_notify_mask_t = ::core::ffi::c_uint;
-pub const XCB_RANDR_NOTIFY_MASK_LEASE: xcb_randr_notify_mask_t = 128;
-pub const XCB_RANDR_NOTIFY_MASK_RESOURCE_CHANGE: xcb_randr_notify_mask_t = 64;
-pub const XCB_RANDR_NOTIFY_MASK_PROVIDER_PROPERTY: xcb_randr_notify_mask_t = 32;
-pub const XCB_RANDR_NOTIFY_MASK_PROVIDER_CHANGE: xcb_randr_notify_mask_t = 16;
-pub const XCB_RANDR_NOTIFY_MASK_OUTPUT_PROPERTY: xcb_randr_notify_mask_t = 8;
-pub const XCB_RANDR_NOTIFY_MASK_OUTPUT_CHANGE: xcb_randr_notify_mask_t = 4;
-pub const XCB_RANDR_NOTIFY_MASK_CRTC_CHANGE: xcb_randr_notify_mask_t = 2;
-pub const XCB_RANDR_NOTIFY_MASK_SCREEN_CHANGE: xcb_randr_notify_mask_t = 1;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_randr_get_output_info_cookie_t {
-    pub sequence: ::core::ffi::c_uint,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_randr_get_output_info_reply_t {
-    pub response_type: uint8_t,
-    pub status: uint8_t,
-    pub sequence: uint16_t,
-    pub length: uint32_t,
-    pub timestamp: xcb_timestamp_t,
-    pub crtc: xcb_randr_crtc_t,
-    pub mm_width: uint32_t,
-    pub mm_height: uint32_t,
-    pub connection: uint8_t,
-    pub subpixel_order: uint8_t,
-    pub num_crtcs: uint16_t,
-    pub num_modes: uint16_t,
-    pub num_preferred: uint16_t,
-    pub num_clones: uint16_t,
-    pub name_len: uint16_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_randr_get_crtc_info_cookie_t {
-    pub sequence: ::core::ffi::c_uint,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_randr_get_crtc_info_reply_t {
-    pub response_type: uint8_t,
-    pub status: uint8_t,
-    pub sequence: uint16_t,
-    pub length: uint32_t,
-    pub timestamp: xcb_timestamp_t,
-    pub x: int16_t,
-    pub y: int16_t,
-    pub width: uint16_t,
-    pub height: uint16_t,
-    pub mode: xcb_randr_mode_t,
-    pub rotation: uint16_t,
-    pub rotations: uint16_t,
-    pub num_outputs: uint16_t,
-    pub num_possible_outputs: uint16_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_randr_get_screen_resources_current_cookie_t {
-    pub sequence: ::core::ffi::c_uint,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_randr_get_screen_resources_current_reply_t {
-    pub response_type: uint8_t,
-    pub pad0: uint8_t,
-    pub sequence: uint16_t,
-    pub length: uint32_t,
-    pub timestamp: xcb_timestamp_t,
-    pub config_timestamp: xcb_timestamp_t,
-    pub num_crtcs: uint16_t,
-    pub num_outputs: uint16_t,
-    pub num_modes: uint16_t,
-    pub names_len: uint16_t,
-    pub pad1: [uint8_t; 8],
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_randr_get_output_primary_cookie_t {
-    pub sequence: ::core::ffi::c_uint,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_randr_get_output_primary_reply_t {
-    pub response_type: uint8_t,
-    pub pad0: uint8_t,
-    pub sequence: uint16_t,
-    pub length: uint32_t,
-    pub output: xcb_randr_output_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_randr_monitor_info_t {
-    pub name: xcb_atom_t,
-    pub primary: uint8_t,
-    pub automatic: uint8_t,
-    pub nOutput: uint16_t,
-    pub x: int16_t,
-    pub y: int16_t,
-    pub width: uint16_t,
-    pub height: uint16_t,
-    pub width_in_millimeters: uint32_t,
-    pub height_in_millimeters: uint32_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_randr_monitor_info_iterator_t {
-    pub data: *mut xcb_randr_monitor_info_t,
-    pub rem: ::core::ffi::c_int,
-    pub index: ::core::ffi::c_int,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_randr_get_monitors_cookie_t {
-    pub sequence: ::core::ffi::c_uint,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xcb_randr_get_monitors_reply_t {
-    pub response_type: uint8_t,
-    pub pad0: uint8_t,
-    pub sequence: uint16_t,
-    pub length: uint32_t,
-    pub timestamp: xcb_timestamp_t,
-    pub nMonitors: uint32_t,
-    pub nOutputs: uint32_t,
-    pub pad1: [uint8_t; 12],
-}
-pub type pcre2_code_8 = pcre2_real_code_8;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Rect {
-    pub x: uint32_t,
-    pub y: uint32_t,
-    pub width: uint32_t,
-    pub height: uint32_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct xoutput {
-    pub id: xcb_randr_output_t,
-    pub active: bool,
-    pub changed: bool,
-    pub to_be_disabled: bool,
-    pub primary: bool,
-    pub names_head: names_head,
-    pub con: *mut Con,
-    pub rect: Rect,
-    pub outputs: C2RustUnnamed_2,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_2 {
-    pub tqe_next: *mut xoutput,
-    pub tqe_prev: *mut *mut xoutput,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Con {
-    pub mapped: bool,
-    pub urgent: bool,
-    pub ignore_unmap: uint8_t,
-    pub frame: surface_t,
-    pub frame_buffer: surface_t,
-    pub pixmap_recreated: bool,
-    pub type_0: C2RustUnnamed_19,
-    pub num: ::core::ffi::c_int,
-    pub gaps: gaps_t,
-    pub parent: *mut Con,
-    pub rect: Rect,
-    pub window_rect: Rect,
-    pub deco_rect: Rect,
-    pub geometry: Rect,
-    pub name: *mut ::core::ffi::c_char,
-    pub title_format: *mut ::core::ffi::c_char,
-    pub window_icon_padding: ::core::ffi::c_int,
-    pub sticky_group: *mut ::core::ffi::c_char,
-    pub marks_head: marks_head,
-    pub mark_changed: bool,
-    pub percent: ::core::ffi::c_double,
-    pub border_width: ::core::ffi::c_int,
-    pub current_border_width: ::core::ffi::c_int,
-    pub window: *mut Window,
-    pub urgency_timer: *mut ev_timer,
-    pub deco_render_params: *mut deco_render_params,
-    pub floating_head: floating_head,
-    pub nodes_head: nodes_head,
-    pub focus_head: focus_head,
-    pub swallow_head: swallow_head,
-    pub fullscreen_mode: fullscreen_mode_t,
-    pub sticky: bool,
-    pub layout: layout_t,
-    pub last_split_layout: layout_t,
-    pub workspace_layout: layout_t,
-    pub border_style: border_style_t,
-    pub max_user_border_style: border_style_t,
-    pub floating: C2RustUnnamed_8,
-    pub nodes: C2RustUnnamed_7,
-    pub focused: C2RustUnnamed_6,
-    pub all_cons: C2RustUnnamed_5,
-    pub floating_windows: C2RustUnnamed_4,
-    pub on_remove_child: Option<unsafe extern "C" fn(*mut Con) -> ()>,
-    pub scratchpad_state: C2RustUnnamed_3,
-    pub old_id: ::core::ffi::c_int,
-    pub depth: uint16_t,
-    pub colormap: xcb_colormap_t,
-}
+
 pub type C2RustUnnamed_3 = ::core::ffi::c_uint;
 pub const SCRATCHPAD_CHANGED: C2RustUnnamed_3 = 2;
 pub const SCRATCHPAD_FRESH: C2RustUnnamed_3 = 1;
 pub const SCRATCHPAD_NONE: C2RustUnnamed_3 = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_4 {
-    pub tqe_next: *mut Con,
-    pub tqe_prev: *mut *mut Con,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_5 {
-    pub tqe_next: *mut Con,
-    pub tqe_prev: *mut *mut Con,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_6 {
-    pub tqe_next: *mut Con,
-    pub tqe_prev: *mut *mut Con,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_7 {
-    pub tqe_next: *mut Con,
-    pub tqe_prev: *mut *mut Con,
-}
+
 pub type C2RustUnnamed_8 = ::core::ffi::c_uint;
 pub const FLOATING_USER_ON: C2RustUnnamed_8 = 3;
 pub const FLOATING_AUTO_ON: C2RustUnnamed_8 = 2;
@@ -648,41 +65,7 @@ pub type fullscreen_mode_t = ::core::ffi::c_uint;
 pub const CF_GLOBAL: fullscreen_mode_t = 2;
 pub const CF_OUTPUT: fullscreen_mode_t = 1;
 pub const CF_NONE: fullscreen_mode_t = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct swallow_head {
-    pub tqh_first: *mut Match,
-    pub tqh_last: *mut *mut Match,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Match {
-    pub error: *mut ::core::ffi::c_char,
-    pub title: *mut regex,
-    pub application: *mut regex,
-    pub class: *mut regex,
-    pub instance: *mut regex,
-    pub mark: *mut regex,
-    pub window_role: *mut regex,
-    pub workspace: *mut regex,
-    pub machine: *mut regex,
-    pub window_type: xcb_atom_t,
-    pub urgent: C2RustUnnamed_13,
-    pub dock: C2RustUnnamed_12,
-    pub id: xcb_window_t,
-    pub window_mode: C2RustUnnamed_11,
-    pub con_id: *mut Con,
-    pub match_all_windows: bool,
-    pub insert_where: C2RustUnnamed_10,
-    pub matches: C2RustUnnamed_9,
-    pub restart_mode: bool,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_9 {
-    pub tqe_next: *mut Match,
-    pub tqe_prev: *mut *mut Match,
-}
+
 pub type C2RustUnnamed_10 = ::core::ffi::c_uint;
 pub const M_BELOW: C2RustUnnamed_10 = 2;
 pub const M_ASSIGN_WS: C2RustUnnamed_10 = 1;
@@ -705,141 +88,12 @@ pub type C2RustUnnamed_13 = ::core::ffi::c_int;
 pub const U_OLDEST: C2RustUnnamed_13 = 1;
 pub const U_LATEST: C2RustUnnamed_13 = 0;
 pub const U_DONTCHECK: C2RustUnnamed_13 = -1;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct regex {
-    pub pattern: *mut ::core::ffi::c_char,
-    pub regex: *mut pcre2_code_8,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct focus_head {
-    pub tqh_first: *mut Con,
-    pub tqh_last: *mut *mut Con,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct nodes_head {
-    pub tqh_first: *mut Con,
-    pub tqh_last: *mut *mut Con,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct floating_head {
-    pub tqh_first: *mut Con,
-    pub tqh_last: *mut *mut Con,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct deco_render_params {
-    pub color: *mut Colortriple,
-    pub border_style: ::core::ffi::c_int,
-    pub con_rect: width_height,
-    pub con_window_rect: width_height,
-    pub con_deco_rect: Rect,
-    pub background: color_t,
-    pub parent_layout: layout_t,
-    pub con_is_leaf: bool,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct width_height {
-    pub w: uint32_t,
-    pub h: uint32_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Colortriple {
-    pub border: color_t,
-    pub background: color_t,
-    pub text: color_t,
-    pub indicator: color_t,
-    pub child_border: color_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct ev_timer {
-    pub active: ::core::ffi::c_int,
-    pub pending: ::core::ffi::c_int,
-    pub priority: ::core::ffi::c_int,
-    pub data: *mut ::core::ffi::c_void,
-    pub cb: Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_timer, ::core::ffi::c_int) -> ()>,
-    pub at: ev_tstamp,
-    pub repeat: ev_tstamp,
-}
-pub type ev_tstamp = ::core::ffi::c_double;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Window {
-    pub id: xcb_window_t,
-    pub leader: xcb_window_t,
-    pub transient_for: xcb_window_t,
-    pub nr_assignments: uint32_t,
-    pub ran_assignments: *mut *mut Assignment,
-    pub class_class: *mut ::core::ffi::c_char,
-    pub class_instance: *mut ::core::ffi::c_char,
-    pub name: *mut i3String,
-    pub role: *mut ::core::ffi::c_char,
-    pub machine: *mut ::core::ffi::c_char,
-    pub name_x_changed: bool,
-    pub uses_net_wm_name: bool,
-    pub needs_take_focus: bool,
-    pub doesnt_accept_focus: bool,
-    pub window_type: xcb_atom_t,
-    pub wm_desktop: uint32_t,
-    pub dock: C2RustUnnamed_14,
-    pub urgent: timeval,
-    pub reserved: reservedpx,
-    pub depth: uint16_t,
-    pub base_width: ::core::ffi::c_int,
-    pub base_height: ::core::ffi::c_int,
-    pub width_increment: ::core::ffi::c_int,
-    pub height_increment: ::core::ffi::c_int,
-    pub min_width: ::core::ffi::c_int,
-    pub min_height: ::core::ffi::c_int,
-    pub max_width: ::core::ffi::c_int,
-    pub max_height: ::core::ffi::c_int,
-    pub min_aspect_ratio: ::core::ffi::c_double,
-    pub max_aspect_ratio: ::core::ffi::c_double,
-    pub icon: *mut cairo_surface_t,
-    pub shaped: bool,
-    pub input_shaped: bool,
-    pub managed_since: time_t,
-    pub swallowed: bool,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct reservedpx {
-    pub left: uint32_t,
-    pub right: uint32_t,
-    pub top: uint32_t,
-    pub bottom: uint32_t,
-}
+
 pub type C2RustUnnamed_14 = ::core::ffi::c_uint;
 pub const W_DOCK_BOTTOM: C2RustUnnamed_14 = 2;
 pub const W_DOCK_TOP: C2RustUnnamed_14 = 1;
 pub const W_NODOCK: C2RustUnnamed_14 = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Assignment {
-    pub type_0: C2RustUnnamed_17,
-    pub match_0: Match,
-    pub dest: C2RustUnnamed_16,
-    pub assignments: C2RustUnnamed_15,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_15 {
-    pub tqe_next: *mut Assignment,
-    pub tqe_prev: *mut *mut Assignment,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub union C2RustUnnamed_16 {
-    pub command: *mut ::core::ffi::c_char,
-    pub workspace: *mut ::core::ffi::c_char,
-    pub output: *mut ::core::ffi::c_char,
-}
+
 pub type C2RustUnnamed_17 = ::core::ffi::c_uint;
 pub const A_TO_OUTPUT: C2RustUnnamed_17 = 16;
 pub const A_TO_WORKSPACE_NUMBER: C2RustUnnamed_17 = 8;
@@ -847,33 +101,7 @@ pub const A_NO_FOCUS: C2RustUnnamed_17 = 4;
 pub const A_TO_WORKSPACE: C2RustUnnamed_17 = 2;
 pub const A_COMMAND: C2RustUnnamed_17 = 1;
 pub const A_ANY: C2RustUnnamed_17 = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct marks_head {
-    pub tqh_first: *mut mark_t,
-    pub tqh_last: *mut *mut mark_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct mark_t {
-    pub name: *mut ::core::ffi::c_char,
-    pub marks: C2RustUnnamed_18,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_18 {
-    pub tqe_next: *mut mark_t,
-    pub tqe_prev: *mut *mut mark_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct gaps_t {
-    pub inner: ::core::ffi::c_int,
-    pub top: ::core::ffi::c_int,
-    pub right: ::core::ffi::c_int,
-    pub bottom: ::core::ffi::c_int,
-    pub left: ::core::ffi::c_int,
-}
+
 pub type C2RustUnnamed_19 = ::core::ffi::c_uint;
 pub const CT_DOCKAREA: C2RustUnnamed_19 = 5;
 pub const CT_WORKSPACE: C2RustUnnamed_19 = 4;
@@ -881,22 +109,7 @@ pub const CT_FLOATING_CON: C2RustUnnamed_19 = 3;
 pub const CT_CON: C2RustUnnamed_19 = 2;
 pub const CT_OUTPUT: C2RustUnnamed_19 = 1;
 pub const CT_ROOT: C2RustUnnamed_19 = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct names_head {
-    pub slh_first: *mut output_name,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct output_name {
-    pub name: *mut ::core::ffi::c_char,
-    pub names: C2RustUnnamed_20,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_20 {
-    pub sle_next: *mut output_name,
-}
+
 pub type Output = xoutput;
 pub type i3Window = Window;
 pub type direction_t = ::core::ffi::c_uint;
@@ -940,104 +153,19 @@ pub const FOCUS_WRAPPING_WORKSPACE: focus_wrapping_t = 3;
 pub const FOCUS_WRAPPING_FORCE: focus_wrapping_t = 2;
 pub const FOCUS_WRAPPING_ON: focus_wrapping_t = 1;
 pub const FOCUS_WRAPPING_OFF: focus_wrapping_t = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Workspace_Assignment {
-    pub name: *mut ::core::ffi::c_char,
-    pub output: *mut ::core::ffi::c_char,
-    pub gaps: gaps_t,
-    pub gaps_mask: gaps_mask_t,
-    pub ws_assignments: C2RustUnnamed_22,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_22 {
-    pub tqe_next: *mut Workspace_Assignment,
-    pub tqe_prev: *mut *mut Workspace_Assignment,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct all_cons_head {
-    pub tqh_first: *mut Con,
-    pub tqh_last: *mut *mut Con,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct ws_assignments_head {
-    pub tqh_first: *mut Workspace_Assignment,
-    pub tqh_last: *mut *mut Workspace_Assignment,
-}
+pub use crate::application::Workspace_Assignment;
 pub type tiling_drag_t = ::core::ffi::c_uint;
 pub const TILING_DRAG_MODIFIER_OR_TITLEBAR: tiling_drag_t = 3;
 pub const TILING_DRAG_TITLEBAR: tiling_drag_t = 2;
 pub const TILING_DRAG_MODIFIER: tiling_drag_t = 1;
 pub const TILING_DRAG_OFF: tiling_drag_t = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Config {
-    pub terminal: *const ::core::ffi::c_char,
-    pub font: i3Font,
-    pub ipc_socket_path: *mut ::core::ffi::c_char,
-    pub restart_state_path: *mut ::core::ffi::c_char,
-    pub default_layout: layout_t,
-    pub container_stack_limit: ::core::ffi::c_int,
-    pub container_stack_limit_value: ::core::ffi::c_int,
-    pub default_border_width: ::core::ffi::c_int,
-    pub default_floating_border_width: ::core::ffi::c_int,
-    pub default_orientation: ::core::ffi::c_int,
-    pub disable_focus_follows_mouse: bool,
-    pub mouse_warping: warping_t,
-    pub hide_edge_borders: hide_edge_borders_mode_t,
-    pub disable_workspace_bar: bool,
-    pub focus_wrapping: focus_wrapping_t,
-    pub force_xinerama: bool,
-    pub disable_randr15: bool,
-    pub fake_outputs: *mut ::core::ffi::c_char,
-    pub workspace_auto_back_and_forth: bool,
-    pub workspace_urgency_timer: ::core::ffi::c_float,
-    pub focus_on_window_activation: C2RustUnnamed_25,
-    pub show_marks: bool,
-    pub title_align: C2RustUnnamed_24,
-    pub default_border: border_style_t,
-    pub default_floating_border: border_style_t,
-    pub floating_modifier: uint32_t,
-    pub swap_modifier: uint32_t,
-    pub floating_maximum_width: int32_t,
-    pub floating_maximum_height: int32_t,
-    pub floating_minimum_width: int32_t,
-    pub floating_minimum_height: int32_t,
-    pub client: config_client,
-    pub bar: config_bar,
-    pub popup_during_fullscreen: C2RustUnnamed_23,
-    pub number_barconfigs: ::core::ffi::c_int,
-    pub tiling_drag: tiling_drag_t,
-    pub gaps: gaps_t,
-    pub smart_gaps: smart_gaps_t,
-}
+
 pub type C2RustUnnamed_23 = ::core::ffi::c_uint;
 pub const PDF_ALL: C2RustUnnamed_23 = 3;
 pub const PDF_IGNORE: C2RustUnnamed_23 = 2;
 pub const PDF_LEAVE_FULLSCREEN: C2RustUnnamed_23 = 1;
 pub const PDF_SMART: C2RustUnnamed_23 = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct config_bar {
-    pub focused: Colortriple,
-    pub unfocused: Colortriple,
-    pub urgent: Colortriple,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct config_client {
-    pub background: color_t,
-    pub focused: Colortriple,
-    pub focused_inactive: Colortriple,
-    pub focused_tab_title: Colortriple,
-    pub unfocused: Colortriple,
-    pub urgent: Colortriple,
-    pub placeholder: Colortriple,
-    pub got_focused_tab_title: bool,
-}
+
 pub type C2RustUnnamed_24 = ::core::ffi::c_uint;
 pub const ALIGN_RIGHT: C2RustUnnamed_24 = 2;
 pub const ALIGN_CENTER: C2RustUnnamed_24 = 1;
@@ -1047,33 +175,26 @@ pub const FOWA_NONE: C2RustUnnamed_25 = 3;
 pub const FOWA_FOCUS: C2RustUnnamed_25 = 2;
 pub const FOWA_URGENT: C2RustUnnamed_25 = 1;
 pub const FOWA_SMART: C2RustUnnamed_25 = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct outputs_head {
-    pub tqh_first: *mut xoutput,
-    pub tqh_last: *mut *mut xoutput,
-}
+pub use crate::application::outputs_head;
 pub type output_close_far_t = ::core::ffi::c_uint;
 pub const FARTHEST_OUTPUT: output_close_far_t = 1;
 pub const CLOSEST_OUTPUT: output_close_far_t = 0;
 pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-pub const XCB_NONE: ::core::ffi::c_long = 0 as ::core::ffi::c_long;
+
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
-pub const XCB_RANDR_MAJOR_VERSION: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const XCB_RANDR_MINOR_VERSION: ::core::ffi::c_int = 6 as ::core::ffi::c_int;
-#[no_mangle]
+
 pub static mut primary: *mut xcb_randr_get_output_primary_reply_t =
     ::core::ptr::null::<xcb_randr_get_output_primary_reply_t>()
         as *mut xcb_randr_get_output_primary_reply_t;
-#[no_mangle]
+
 pub static mut outputs: outputs_head = outputs_head {
     tqh_first: ::core::ptr::null::<xoutput>() as *mut xoutput,
     tqh_last: ::core::ptr::null::<*mut xoutput>() as *mut *mut xoutput,
 };
 static mut root_output: *mut Output = ::core::ptr::null::<Output>() as *mut Output;
 static mut has_randr_1_5: bool = false_0 != 0;
-unsafe extern "C" fn get_output_by_id(mut id: xcb_randr_output_t) -> *mut Output {
+unsafe fn get_output_by_id(id: xcb_randr_output_t) -> *mut Output {
     let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
     output = outputs.tqh_first as *mut Output;
     while !output.is_null() {
@@ -1082,21 +203,15 @@ unsafe extern "C" fn get_output_by_id(mut id: xcb_randr_output_t) -> *mut Output
         }
         output = (*output).outputs.tqe_next as *mut Output;
     }
-    return ::core::ptr::null_mut::<Output>();
+    ::core::ptr::null_mut::<Output>()
 }
-#[no_mangle]
-pub unsafe extern "C" fn get_output_by_name(
-    mut name: *const ::core::ffi::c_char,
+
+pub unsafe fn get_output_by_name(
+    name: *const ::core::ffi::c_char,
     require_active: bool,
 ) -> *mut Output {
-    let get_primary: bool = strcasecmp(
-        b"primary\0" as *const u8 as *const ::core::ffi::c_char,
-        name,
-    ) == 0 as ::core::ffi::c_int;
-    let get_non_primary: bool = strcasecmp(
-        b"nonprimary\0" as *const u8 as *const ::core::ffi::c_char,
-        name,
-    ) == 0 as ::core::ffi::c_int;
+    let get_primary: bool = strcasecmp(c"primary".as_ptr(), name) == 0 as ::core::ffi::c_int;
+    let get_non_primary: bool = strcasecmp(c"nonprimary".as_ptr(), name) == 0 as ::core::ffi::c_int;
     let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
     output = outputs.tqh_first as *mut Output;
     while !output.is_null() {
@@ -1120,10 +235,10 @@ pub unsafe extern "C" fn get_output_by_name(
         }
         output = (*output).outputs.tqe_next as *mut Output;
     }
-    return ::core::ptr::null_mut::<Output>();
+    ::core::ptr::null_mut::<Output>()
 }
-#[no_mangle]
-pub unsafe extern "C" fn get_first_output() -> *mut Output {
+
+pub unsafe fn get_first_output() -> *mut Output {
     let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
     let mut result: *mut Output = ::core::ptr::null_mut::<Output>();
     output = outputs.tqh_first as *mut Output;
@@ -1141,12 +256,9 @@ pub unsafe extern "C" fn get_first_output() -> *mut Output {
     if !result.is_null() {
         return result;
     }
-    errx(
-        EXIT_FAILURE,
-        b"No usable outputs available.\n\0" as *const u8 as *const ::core::ffi::c_char,
-    );
+    errx(EXIT_FAILURE, c"No usable outputs available.\n".as_ptr());
 }
-unsafe extern "C" fn any_randr_output_active() -> bool {
+unsafe fn any_randr_output_active() -> bool {
     let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
     output = outputs.tqh_first as *mut Output;
     while !output.is_null() {
@@ -1158,23 +270,20 @@ unsafe extern "C" fn any_randr_output_active() -> bool {
         }
         output = (*output).outputs.tqe_next as *mut Output;
     }
-    return false_0 != 0;
+    false_0 != 0
 }
-#[no_mangle]
-pub unsafe extern "C" fn get_output_containing(
-    mut x: ::core::ffi::c_uint,
-    mut y: ::core::ffi::c_uint,
-) -> *mut Output {
+
+pub unsafe fn get_output_containing(x: ::core::ffi::c_uint, y: ::core::ffi::c_uint) -> *mut Output {
     let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
     output = outputs.tqh_first as *mut Output;
     while !output.is_null() {
         if (*output).active {
             debuglog(
-                b"%s:%s:%d - comparing x=%d y=%d with x=%d and y=%d width %d height %d\n\0"
-                    as *const u8 as *const ::core::ffi::c_char
-                    as *mut ::core::ffi::c_char,
-                b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-                b"get_output_containing\0" as *const u8 as *const ::core::ffi::c_char,
+                c"%s:%s:%d - comparing x=%d y=%d with x=%d and y=%d width %d height %d\n"
+                    .as_ptr()
+                    .cast_mut(),
+                c"../src/randr.c".as_ptr(),
+                c"get_output_containing".as_ptr(),
                 129 as ::core::ffi::c_int,
                 x,
                 y,
@@ -1193,32 +302,33 @@ pub unsafe extern "C" fn get_output_containing(
         }
         output = (*output).outputs.tqe_next as *mut Output;
     }
-    return ::core::ptr::null_mut::<Output>();
+    ::core::ptr::null_mut::<Output>()
 }
-#[no_mangle]
-pub unsafe extern "C" fn get_output_from_rect(mut rect: Rect) -> *mut Output {
-    let mut mid_x: ::core::ffi::c_uint = (rect.x as ::core::ffi::c_uint)
+
+pub unsafe fn get_output_from_rect(rect: Rect) -> *mut Output {
+    let mid_x: ::core::ffi::c_uint = (rect.x as ::core::ffi::c_uint)
         .wrapping_add((rect.width as ::core::ffi::c_uint).wrapping_div(2 as ::core::ffi::c_uint));
-    let mut mid_y: ::core::ffi::c_uint = (rect.y as ::core::ffi::c_uint)
+    let mid_y: ::core::ffi::c_uint = (rect.y as ::core::ffi::c_uint)
         .wrapping_add((rect.height as ::core::ffi::c_uint).wrapping_div(2 as ::core::ffi::c_uint));
-    let mut output: *mut Output = get_output_containing(mid_x, mid_y);
-    return if !output.is_null() {
+    let output: *mut Output = get_output_containing(mid_x, mid_y);
+    if !output.is_null() {
         output
     } else {
         output_containing_rect(rect)
-    };
+    }
 }
-#[no_mangle]
-pub unsafe extern "C" fn get_output_with_dimensions(mut rect: Rect) -> *mut Output {
+
+pub unsafe fn get_output_with_dimensions(rect: Rect) -> *mut Output {
     let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
     output = outputs.tqh_first as *mut Output;
     while !output.is_null() {
         if (*output).active {
             debuglog(
-                b"%s:%s:%d - comparing x=%d y=%d %dx%d with x=%d and y=%d %dx%d\n\0" as *const u8
-                    as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-                b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-                b"get_output_with_dimensions\0" as *const u8 as *const ::core::ffi::c_char,
+                c"%s:%s:%d - comparing x=%d y=%d %dx%d with x=%d and y=%d %dx%d\n"
+                    .as_ptr()
+                    .cast_mut(),
+                c"../src/randr.c".as_ptr(),
+                c"get_output_with_dimensions".as_ptr(),
                 166 as ::core::ffi::c_int,
                 rect.x,
                 rect.y,
@@ -1239,10 +349,10 @@ pub unsafe extern "C" fn get_output_with_dimensions(mut rect: Rect) -> *mut Outp
         }
         output = (*output).outputs.tqe_next as *mut Output;
     }
-    return ::core::ptr::null_mut::<Output>();
+    ::core::ptr::null_mut::<Output>()
 }
-#[no_mangle]
-pub unsafe extern "C" fn output_containing_rect(mut rect: Rect) -> *mut Output {
+
+pub unsafe fn output_containing_rect(rect: Rect) -> *mut Output {
     let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
     let lx: ::core::ffi::c_int = rect.x as ::core::ffi::c_int;
     let uy: ::core::ffi::c_int = rect.y as ::core::ffi::c_int;
@@ -1259,11 +369,11 @@ pub unsafe extern "C" fn output_containing_rect(mut rect: Rect) -> *mut Output {
             let by_o: ::core::ffi::c_int =
                 (*output).rect.y.wrapping_add((*output).rect.height) as ::core::ffi::c_int;
             debuglog(
-                b"%s:%s:%d - comparing x=%d y=%d with x=%d and y=%d width %d height %d\n\0"
-                    as *const u8 as *const ::core::ffi::c_char
-                    as *mut ::core::ffi::c_char,
-                b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-                b"output_containing_rect\0" as *const u8 as *const ::core::ffi::c_char,
+                c"%s:%s:%d - comparing x=%d y=%d with x=%d and y=%d width %d height %d\n"
+                    .as_ptr()
+                    .cast_mut(),
+                c"../src/randr.c".as_ptr(),
+                c"output_containing_rect".as_ptr(),
                 199 as ::core::ffi::c_int,
                 rect.x,
                 rect.y,
@@ -1287,13 +397,10 @@ pub unsafe extern "C" fn output_containing_rect(mut rect: Rect) -> *mut Output {
         }
         output = (*output).outputs.tqe_next as *mut Output;
     }
-    return result;
+    result
 }
-#[no_mangle]
-pub unsafe extern "C" fn get_output_next_wrap(
-    mut direction: direction_t,
-    mut current: *mut Output,
-) -> *mut Output {
+
+pub unsafe fn get_output_next_wrap(direction: direction_t, current: *mut Output) -> *mut Output {
     let mut best: *mut Output = get_output_next(direction, current, CLOSEST_OUTPUT);
     if best.is_null() {
         let mut opposite: direction_t = D_LEFT;
@@ -1317,30 +424,29 @@ pub unsafe extern "C" fn get_output_next_wrap(
         best = current;
     }
     debuglog(
-        b"%s:%s:%d - current = %s, best = %s\n\0" as *const u8 as *const ::core::ffi::c_char
-            as *mut ::core::ffi::c_char,
-        b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"get_output_next_wrap\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - current = %s, best = %s\n".as_ptr().cast_mut(),
+        c"../src/randr.c".as_ptr(),
+        c"get_output_next_wrap".as_ptr(),
         244 as ::core::ffi::c_int,
         output_primary_name(current),
         output_primary_name(best),
     );
-    return best;
+    best
 }
-#[no_mangle]
-pub unsafe extern "C" fn get_output_next(
+
+pub unsafe fn get_output_next(
     direction: direction_t,
-    mut current: *mut Output,
-    mut close_far: output_close_far_t,
+    current: *mut Output,
+    close_far: output_close_far_t,
 ) -> *mut Output {
-    let mut cur: *const Rect = &raw mut (*current).rect;
+    let cur: *const Rect = &raw mut (*current).rect;
     let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
     let mut best: *mut Output = ::core::ptr::null_mut::<Output>();
     let mut current_block_3: u64;
     output = outputs.tqh_first as *mut Output;
     while !output.is_null() {
         if (*output).active {
-            let mut other: *const Rect = &raw mut (*output).rect;
+            let other: *const Rect = &raw mut (*output).rect;
             if direction as ::core::ffi::c_uint
                 == D_RIGHT as ::core::ffi::c_int as ::core::ffi::c_uint
                 && (*other).x > (*cur).x
@@ -1416,48 +522,45 @@ pub unsafe extern "C" fn get_output_next(
         output = (*output).outputs.tqe_next as *mut Output;
     }
     debuglog(
-        b"%s:%s:%d - current = %s, best = %s\n\0" as *const u8 as *const ::core::ffi::c_char
-            as *mut ::core::ffi::c_char,
-        b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"get_output_next\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - current = %s, best = %s\n".as_ptr().cast_mut(),
+        c"../src/randr.c".as_ptr(),
+        c"get_output_next".as_ptr(),
         317 as ::core::ffi::c_int,
         output_primary_name(current),
         if !best.is_null() {
             output_primary_name(best) as *const ::core::ffi::c_char
         } else {
-            b"NULL\0" as *const u8 as *const ::core::ffi::c_char
+            c"NULL".as_ptr()
         },
     );
-    return best;
+    best
 }
-#[no_mangle]
-pub unsafe extern "C" fn create_root_output(mut conn_0: *mut xcb_connection_t) -> *mut Output {
-    let mut s: *mut Output =
+
+pub unsafe fn create_root_output(conn_0: *mut xcb_connection_t) -> *mut Output {
+    let s: *mut Output =
         scalloc(1 as size_t, ::core::mem::size_of::<Output>() as size_t) as *mut Output;
     (*s).active = false_0 != 0;
     (*s).rect.x = 0 as uint32_t;
     (*s).rect.y = 0 as uint32_t;
     (*s).rect.width = (*root_screen).width_in_pixels as uint32_t;
     (*s).rect.height = (*root_screen).height_in_pixels as uint32_t;
-    let mut output_name: *mut output_name =
+    let output_name: *mut output_name =
         scalloc(1 as size_t, ::core::mem::size_of::<output_name>() as size_t) as *mut output_name;
-    (*output_name).name =
-        b"xroot-0\0" as *const u8 as *const ::core::ffi::c_char as *mut ::core::ffi::c_char;
+    (*output_name).name = c"xroot-0".as_ptr().cast_mut();
     (*s).names_head.slh_first = ::core::ptr::null_mut::<output_name>();
     (*output_name).names.sle_next = (*s).names_head.slh_first;
     (*s).names_head.slh_first = output_name;
-    return s;
+    s
 }
-#[no_mangle]
-pub unsafe extern "C" fn output_init_con(mut output: *mut Output) {
+
+pub unsafe fn output_init_con(output: *mut Output) {
     let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut reused: bool = false_0 != 0;
     debuglog(
-        b"%s:%s:%d - init_con for output %s\n\0" as *const u8 as *const ::core::ffi::c_char
-            as *mut ::core::ffi::c_char,
-        b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"output_init_con\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - init_con for output %s\n".as_ptr().cast_mut(),
+        c"../src/randr.c".as_ptr(),
+        c"output_init_con".as_ptr(),
         351 as ::core::ffi::c_int,
         output_primary_name(output),
     );
@@ -1469,10 +572,11 @@ pub unsafe extern "C" fn output_init_con(mut output: *mut Output) {
             con = current;
             reused = true_0 != 0;
             debuglog(
-                b"%s:%s:%d - Using existing con %p / %s\n\0" as *const u8
-                    as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-                b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-                b"output_init_con\0" as *const u8 as *const ::core::ffi::c_char,
+                c"%s:%s:%d - Using existing con %p / %s\n"
+                    .as_ptr()
+                    .cast_mut(),
+                c"../src/randr.c".as_ptr(),
+                c"output_init_con".as_ptr(),
                 362 as ::core::ffi::c_int,
                 con,
                 (*con).name,
@@ -1492,32 +596,30 @@ pub unsafe extern "C" fn output_init_con(mut output: *mut Output) {
     (*con).rect = (*output).rect as Rect;
     (*output).con = con;
     let mut name: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    sasprintf(
-        &raw mut name,
-        b"[i3 con] output %s\0" as *const u8 as *const ::core::ffi::c_char,
-        (*con).name,
-    );
+    sasprintf(&raw mut name, c"[i3 con] output %s".as_ptr(), (*con).name);
     x_set_name(con, name);
     free(name as *mut ::core::ffi::c_void);
     name = ::core::ptr::null_mut::<::core::ffi::c_char>();
     if reused {
         debuglog(
-            b"%s:%s:%d - Not adding workspace, this was a reused con\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"output_init_con\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - Not adding workspace, this was a reused con\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/randr.c".as_ptr(),
+            c"output_init_con".as_ptr(),
             383 as ::core::ffi::c_int,
         );
         return;
     }
     debuglog(
-        b"%s:%s:%d - Changing layout, adding top/bottom dockarea\n\0" as *const u8
-            as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-        b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"output_init_con\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - Changing layout, adding top/bottom dockarea\n"
+            .as_ptr()
+            .cast_mut(),
+        c"../src/randr.c".as_ptr(),
+        c"output_init_con".as_ptr(),
         387 as ::core::ffi::c_int,
     );
-    let mut topdock: *mut Con = con_new(
+    let topdock: *mut Con = con_new(
         ::core::ptr::null_mut::<Con>(),
         ::core::ptr::null_mut::<i3Window>(),
     );
@@ -1534,31 +636,31 @@ pub unsafe extern "C" fn output_init_con(mut output: *mut Output) {
     (*topdock).swallow_head.tqh_last = &raw mut (*match_0).matches.tqe_next;
     free((*topdock).name as *mut ::core::ffi::c_void);
     (*topdock).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    (*topdock).name = sstrdup(b"topdock\0" as *const u8 as *const ::core::ffi::c_char);
+    (*topdock).name = sstrdup(c"topdock".as_ptr());
     sasprintf(
         &raw mut name,
-        b"[i3 con] top dockarea %s\0" as *const u8 as *const ::core::ffi::c_char,
+        c"[i3 con] top dockarea %s".as_ptr(),
         (*con).name,
     );
     x_set_name(topdock, name);
     free(name as *mut ::core::ffi::c_void);
     name = ::core::ptr::null_mut::<::core::ffi::c_char>();
     debuglog(
-        b"%s:%s:%d - attaching\n\0" as *const u8 as *const ::core::ffi::c_char
-            as *mut ::core::ffi::c_char,
-        b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"output_init_con\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - attaching\n".as_ptr().cast_mut(),
+        c"../src/randr.c".as_ptr(),
+        c"output_init_con".as_ptr(),
         404 as ::core::ffi::c_int,
     );
     con_attach(topdock, con, false_0 != 0);
     debuglog(
-        b"%s:%s:%d - adding main content container\n\0" as *const u8 as *const ::core::ffi::c_char
-            as *mut ::core::ffi::c_char,
-        b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"output_init_con\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - adding main content container\n"
+            .as_ptr()
+            .cast_mut(),
+        c"../src/randr.c".as_ptr(),
+        c"output_init_con".as_ptr(),
         409 as ::core::ffi::c_int,
     );
-    let mut content: *mut Con = con_new(
+    let content: *mut Con = con_new(
         ::core::ptr::null_mut::<Con>(),
         ::core::ptr::null_mut::<i3Window>(),
     );
@@ -1566,17 +668,13 @@ pub unsafe extern "C" fn output_init_con(mut output: *mut Output) {
     (*content).layout = L_SPLITH;
     free((*content).name as *mut ::core::ffi::c_void);
     (*content).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    (*content).name = sstrdup(b"content\0" as *const u8 as *const ::core::ffi::c_char);
-    sasprintf(
-        &raw mut name,
-        b"[i3 con] content %s\0" as *const u8 as *const ::core::ffi::c_char,
-        (*con).name,
-    );
+    (*content).name = sstrdup(c"content".as_ptr());
+    sasprintf(&raw mut name, c"[i3 con] content %s".as_ptr(), (*con).name);
     x_set_name(content, name);
     free(name as *mut ::core::ffi::c_void);
     name = ::core::ptr::null_mut::<::core::ffi::c_char>();
     con_attach(content, con, false_0 != 0);
-    let mut bottomdock: *mut Con = con_new(
+    let bottomdock: *mut Con = con_new(
         ::core::ptr::null_mut::<Con>(),
         ::core::ptr::null_mut::<i3Window>(),
     );
@@ -1592,20 +690,19 @@ pub unsafe extern "C" fn output_init_con(mut output: *mut Output) {
     (*bottomdock).swallow_head.tqh_last = &raw mut (*match_0).matches.tqe_next;
     free((*bottomdock).name as *mut ::core::ffi::c_void);
     (*bottomdock).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    (*bottomdock).name = sstrdup(b"bottomdock\0" as *const u8 as *const ::core::ffi::c_char);
+    (*bottomdock).name = sstrdup(c"bottomdock".as_ptr());
     sasprintf(
         &raw mut name,
-        b"[i3 con] bottom dockarea %s\0" as *const u8 as *const ::core::ffi::c_char,
+        c"[i3 con] bottom dockarea %s".as_ptr(),
         (*con).name,
     );
     x_set_name(bottomdock, name);
     free(name as *mut ::core::ffi::c_void);
     name = ::core::ptr::null_mut::<::core::ffi::c_char>();
     debuglog(
-        b"%s:%s:%d - attaching\n\0" as *const u8 as *const ::core::ffi::c_char
-            as *mut ::core::ffi::c_char,
-        b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"output_init_con\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - attaching\n".as_ptr().cast_mut(),
+        c"../src/randr.c".as_ptr(),
+        c"output_init_con".as_ptr(),
         438 as ::core::ffi::c_int,
     );
     con_attach(bottomdock, con, false_0 != 0);
@@ -1624,12 +721,12 @@ pub unsafe extern "C" fn output_init_con(mut output: *mut Output) {
     (*con).focus_head.tqh_first = content as *mut Con;
     (*content).focused.tqe_prev = &raw mut (*con).focus_head.tqh_first;
 }
-#[no_mangle]
-pub unsafe extern "C" fn init_ws_for_output(mut output: *mut Output) {
+
+pub unsafe fn init_ws_for_output(output: *mut Output) {
     let mut assignment: *mut Workspace_Assignment = ::core::ptr::null_mut::<Workspace_Assignment>();
-    let mut current_block: u64;
-    let mut content: *mut Con = output_get_content((*output).con);
-    let mut previous_focus: *mut Con = con_get_workspace(focused);
+    let current_block: u64;
+    let content: *mut Con = output_get_content((*output).con);
+    let previous_focus: *mut Con = con_get_workspace(focused);
     let mut workspace: *mut Con = ::core::ptr::null_mut::<Con>();
     workspace = all_cons.tqh_first as *mut Con;
     while !workspace.is_null() {
@@ -1637,15 +734,13 @@ pub unsafe extern "C" fn init_ws_for_output(mut output: *mut Output) {
             != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
             || con_is_internal(workspace) as ::core::ffi::c_int != 0)
         {
-            let mut workspace_out: *mut Con =
+            let workspace_out: *mut Con =
                 get_assigned_output((*workspace).name, (*workspace).num as ::core::ffi::c_long);
             if !((*output).con != workspace_out) {
                 debuglog(
-                    b"%s:%s:%d - Moving workspace \"%s\" from output \"%s\" to \"%s\" due to assignment\n\0"
-                        as *const u8 as *const ::core::ffi::c_char
-                        as *mut ::core::ffi::c_char,
-                    b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-                    b"init_ws_for_output\0" as *const u8 as *const ::core::ffi::c_char,
+                    c"%s:%s:%d - Moving workspace \"%s\" from output \"%s\" to \"%s\" due to assignment\n".as_ptr().cast_mut(),
+                    c"../src/randr.c".as_ptr(),
+                    c"init_ws_for_output".as_ptr(),
                     479 as ::core::ffi::c_int,
                     (*workspace).name,
                     output_primary_name(get_output_for_con(workspace)),
@@ -1693,9 +788,9 @@ pub unsafe extern "C" fn init_ws_for_output(mut output: *mut Output) {
                 assignment = (*assignment).ws_assignments.tqe_next;
             } else {
                 verboselog(
-                    b"Initializing first assigned workspace \"%s\" for output \"%s\"\n\0"
-                        as *const u8 as *const ::core::ffi::c_char
-                        as *mut ::core::ffi::c_char,
+                    c"Initializing first assigned workspace \"%s\" for output \"%s\"\n"
+                        .as_ptr()
+                        .cast_mut(),
                     (*assignment).name,
                     (*assignment).output,
                 );
@@ -1708,11 +803,9 @@ pub unsafe extern "C" fn init_ws_for_output(mut output: *mut Output) {
             4825863742504697761 => {}
             _ => {
                 debuglog(
-                    b"%s:%s:%d - Now adding a workspace\n\0" as *const u8
-                        as *const ::core::ffi::c_char
-                        as *mut ::core::ffi::c_char,
-                    b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-                    b"init_ws_for_output\0" as *const u8 as *const ::core::ffi::c_char,
+                    c"%s:%s:%d - Now adding a workspace\n".as_ptr().cast_mut(),
+                    c"../src/randr.c".as_ptr(),
+                    c"init_ws_for_output".as_ptr(),
                     518 as ::core::ffi::c_int,
                 );
                 workspace_show(create_workspace_on_output(output, content));
@@ -1723,31 +816,28 @@ pub unsafe extern "C" fn init_ws_for_output(mut output: *mut Output) {
         workspace_show(previous_focus);
     }
 }
-unsafe extern "C" fn output_change_mode(
-    mut conn_0: *mut xcb_connection_t,
-    mut output: *mut Output,
-) {
+unsafe fn output_change_mode(conn_0: *mut xcb_connection_t, output: *mut Output) {
     debuglog(
-        b"%s:%s:%d - Output mode changed, updating rect\n\0" as *const u8
-            as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-        b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"output_change_mode\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - Output mode changed, updating rect\n"
+            .as_ptr()
+            .cast_mut(),
+        c"../src/randr.c".as_ptr(),
+        c"output_change_mode".as_ptr(),
         539 as ::core::ffi::c_int,
     );
     if (*output).con != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Con {
     } else {
         __assert_fail(
-            b"output->con != NULL\0" as *const u8 as *const ::core::ffi::c_char,
-            b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
+            c"output->con != NULL".as_ptr(),
+            c"../src/randr.c".as_ptr(),
             540 as ::core::ffi::c_uint,
-            b"void output_change_mode(xcb_connection_t *, Output *)\0" as *const u8
-                as *const ::core::ffi::c_char,
+            c"void output_change_mode(xcb_connection_t *, Output *)".as_ptr(),
         );
     };
     (*(*output).con).rect = (*output).rect as Rect;
     let mut workspace: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-    let mut content: *const Con = output_get_content((*output).con);
+    let content: *const Con = output_get_content((*output).con);
     workspace = (*content).nodes_head.tqh_first as *mut Con;
     while !workspace.is_null() {
         child = (*workspace).floating_head.tqh_first as *mut Con;
@@ -1771,11 +861,11 @@ unsafe extern "C" fn output_change_mode(
                     L_SPLITH as ::core::ffi::c_int
                 }) as layout_t;
                 debuglog(
-                    b"%s:%s:%d - Setting workspace [%d,%s]'s layout to %d.\n\0" as *const u8
-                        as *const ::core::ffi::c_char
-                        as *mut ::core::ffi::c_char,
-                    b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-                    b"output_change_mode\0" as *const u8 as *const ::core::ffi::c_char,
+                    c"%s:%s:%d - Setting workspace [%d,%s]'s layout to %d.\n"
+                        .as_ptr()
+                        .cast_mut(),
+                    c"../src/randr.c".as_ptr(),
+                    c"output_change_mode".as_ptr(),
                     568 as ::core::ffi::c_int,
                     (*workspace).num,
                     (*workspace).name,
@@ -1791,11 +881,11 @@ unsafe extern "C" fn output_change_mode(
                         (*child).layout = (*workspace).layout;
                     }
                     debuglog(
-                        b"%s:%s:%d - Setting child [%d,%s]'s layout to %d.\n\0" as *const u8
-                            as *const ::core::ffi::c_char
-                            as *mut ::core::ffi::c_char,
-                        b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-                        b"output_change_mode\0" as *const u8 as *const ::core::ffi::c_char,
+                        c"%s:%s:%d - Setting child [%d,%s]'s layout to %d.\n"
+                            .as_ptr()
+                            .cast_mut(),
+                        c"../src/randr.c".as_ptr(),
+                        c"output_change_mode".as_ptr(),
                         573 as ::core::ffi::c_int,
                         (*child).num,
                         (*child).name,
@@ -1807,27 +897,29 @@ unsafe extern "C" fn output_change_mode(
         }
     }
 }
-unsafe extern "C" fn randr_query_outputs_15() -> bool {
+unsafe fn randr_query_outputs_15() -> bool {
     if !has_randr_1_5 {
         return false_0 != 0;
     }
     debuglog(
-        b"%s:%s:%d - Querying outputs using RandR 1.5\n\0" as *const u8
-            as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-        b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"randr_query_outputs_15\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - Querying outputs using RandR 1.5\n"
+            .as_ptr()
+            .cast_mut(),
+        c"../src/randr.c".as_ptr(),
+        c"randr_query_outputs_15".as_ptr(),
         593 as ::core::ffi::c_int,
     );
     let mut err: *mut xcb_generic_error_t = ::core::ptr::null_mut::<xcb_generic_error_t>();
-    let mut monitors: *mut xcb_randr_get_monitors_reply_t = xcb_randr_get_monitors_reply(
+    let monitors: *mut xcb_randr_get_monitors_reply_t = xcb_randr_get_monitors_reply(
         conn,
         xcb_randr_get_monitors(conn, root, true_0 as uint8_t),
         &raw mut err,
     );
     if !err.is_null() {
         errorlog(
-            b"ERROR: Could not get RandR monitors: X11 error code %d\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
+            c"ERROR: Could not get RandR monitors: X11 error code %d\n"
+                .as_ptr()
+                .cast_mut(),
             (*err).error_code as ::core::ffi::c_int,
         );
         free(err as *mut ::core::ffi::c_void);
@@ -1842,10 +934,11 @@ unsafe extern "C" fn randr_query_outputs_15() -> bool {
         output = (*output).outputs.tqe_next as *mut Output;
     }
     debuglog(
-        b"%s:%s:%d - %d RandR monitors found (timestamp %d)\n\0" as *const u8
-            as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-        b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"randr_query_outputs_15\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - %d RandR monitors found (timestamp %d)\n"
+            .as_ptr()
+            .cast_mut(),
+        c"../src/randr.c".as_ptr(),
+        c"randr_query_outputs_15".as_ptr(),
         616 as ::core::ffi::c_int,
         xcb_randr_get_monitors_monitors_length(monitors),
         (*monitors).timestamp,
@@ -1857,16 +950,17 @@ unsafe extern "C" fn randr_query_outputs_15() -> bool {
     };
     iter = xcb_randr_get_monitors_monitors_iterator(monitors);
     while iter.rem != 0 {
-        let mut monitor_info: *const xcb_randr_monitor_info_t = iter.data;
-        let mut atom_reply: *mut xcb_get_atom_name_reply_t = xcb_get_atom_name_reply(
+        let monitor_info: *const xcb_randr_monitor_info_t = iter.data;
+        let atom_reply: *mut xcb_get_atom_name_reply_t = xcb_get_atom_name_reply(
             conn,
             xcb_get_atom_name(conn, (*monitor_info).name),
             &raw mut err,
         );
         if !err.is_null() {
             errorlog(
-                b"ERROR: Could not get RandR monitor name: X11 error code %d\n\0" as *const u8
-                    as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
+                c"ERROR: Could not get RandR monitor name: X11 error code %d\n"
+                    .as_ptr()
+                    .cast_mut(),
                 (*err).error_code as ::core::ffi::c_int,
             );
             free(err as *mut ::core::ffi::c_void);
@@ -1874,7 +968,7 @@ unsafe extern "C" fn randr_query_outputs_15() -> bool {
             let mut name: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
                 &raw mut name,
-                b"%.*s\0" as *const u8 as *const ::core::ffi::c_char,
+                c"%.*s".as_ptr(),
                 xcb_get_atom_name_name_length(atom_reply),
                 xcb_get_atom_name_name(atom_reply),
             );
@@ -1884,13 +978,13 @@ unsafe extern "C" fn randr_query_outputs_15() -> bool {
                 new =
                     scalloc(1 as size_t, ::core::mem::size_of::<Output>() as size_t) as *mut Output;
                 (*new).names_head.slh_first = ::core::ptr::null_mut::<output_name>();
-                let mut randr_outputs: *mut xcb_randr_output_t =
+                let randr_outputs: *mut xcb_randr_output_t =
                     xcb_randr_monitor_info_outputs(monitor_info);
-                let mut randr_output_len: ::core::ffi::c_int =
+                let randr_output_len: ::core::ffi::c_int =
                     xcb_randr_monitor_info_outputs_length(monitor_info);
                 let mut i: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
                 while i < randr_output_len {
-                    let mut randr_output: xcb_randr_output_t = *randr_outputs.offset(i as isize);
+                    let randr_output: xcb_randr_output_t = *randr_outputs.offset(i as isize);
                     let mut info: *mut xcb_randr_get_output_info_reply_t =
                         xcb_randr_get_output_info_reply(
                             conn,
@@ -1902,12 +996,12 @@ unsafe extern "C" fn randr_query_outputs_15() -> bool {
                             ::core::ptr::null_mut::<::core::ffi::c_char>();
                         sasprintf(
                             &raw mut oname,
-                            b"%.*s\0" as *const u8 as *const ::core::ffi::c_char,
+                            c"%.*s".as_ptr(),
                             xcb_randr_get_output_info_name_length(info),
                             xcb_randr_get_output_info_name(info),
                         );
                         if strcmp(name, oname) != 0 as ::core::ffi::c_int {
-                            let mut output_name: *mut output_name = scalloc(
+                            let output_name: *mut output_name = scalloc(
                                 1 as size_t,
                                 ::core::mem::size_of::<output_name>() as size_t,
                             )
@@ -1922,7 +1016,7 @@ unsafe extern "C" fn randr_query_outputs_15() -> bool {
                     info = ::core::ptr::null_mut::<xcb_randr_get_output_info_reply_t>();
                     i += 1;
                 }
-                let mut output_name_0: *mut output_name =
+                let output_name_0: *mut output_name =
                     scalloc(1 as size_t, ::core::mem::size_of::<output_name>() as size_t)
                         as *mut output_name;
                 (*output_name_0).name = sstrdup(name);
@@ -1964,11 +1058,9 @@ unsafe extern "C" fn randr_query_outputs_15() -> bool {
                 || update_w as ::core::ffi::c_int != 0
                 || update_h as ::core::ffi::c_int != 0;
             debuglog(
-                b"%s:%s:%d - name %s, x %d, y %d, width %d px, height %d px, width %d mm, height %d mm, primary %d, automatic %d\n\0"
-                    as *const u8 as *const ::core::ffi::c_char
-                    as *mut ::core::ffi::c_char,
-                b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-                b"randr_query_outputs_15\0" as *const u8 as *const ::core::ffi::c_char,
+                c"%s:%s:%d - name %s, x %d, y %d, width %d px, height %d px, width %d mm, height %d mm, primary %d, automatic %d\n".as_ptr().cast_mut(),
+                c"../src/randr.c".as_ptr(),
+                c"randr_query_outputs_15".as_ptr(),
                 699 as ::core::ffi::c_int,
                 name,
                 (*monitor_info).x as ::core::ffi::c_int,
@@ -1985,19 +1077,19 @@ unsafe extern "C" fn randr_query_outputs_15() -> bool {
         xcb_randr_monitor_info_next(&raw mut iter);
     }
     free(monitors as *mut ::core::ffi::c_void);
-    return true_0 != 0;
+    true_0 != 0
 }
-unsafe extern "C" fn handle_output(
-    mut conn_0: *mut xcb_connection_t,
-    mut id: xcb_randr_output_t,
-    mut output: *mut xcb_randr_get_output_info_reply_t,
-    mut cts: xcb_timestamp_t,
-    mut res: *mut xcb_randr_get_screen_resources_current_reply_t,
+unsafe fn handle_output(
+    conn_0: *mut xcb_connection_t,
+    id: xcb_randr_output_t,
+    output: *mut xcb_randr_get_output_info_reply_t,
+    cts: xcb_timestamp_t,
+    res: *mut xcb_randr_get_screen_resources_current_reply_t,
 ) {
     let mut crtc: *mut xcb_randr_get_crtc_info_reply_t =
         ::core::ptr::null_mut::<xcb_randr_get_crtc_info_reply_t>();
     let mut new: *mut Output = get_output_by_id(id);
-    let mut existing: bool = !new.is_null();
+    let existing: bool = !new.is_null();
     if !existing {
         new = scalloc(1 as size_t, ::core::mem::size_of::<Output>() as size_t) as *mut Output;
         (*new).names_head.slh_first = ::core::ptr::null_mut::<output_name>();
@@ -2012,21 +1104,22 @@ unsafe extern "C" fn handle_output(
         free(old_head as *mut ::core::ffi::c_void);
         old_head = ::core::ptr::null_mut::<output_name>();
     }
-    let mut output_name: *mut output_name =
+    let output_name: *mut output_name =
         scalloc(1 as size_t, ::core::mem::size_of::<output_name>() as size_t) as *mut output_name;
     sasprintf(
         &raw mut (*output_name).name,
-        b"%.*s\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%.*s".as_ptr(),
         xcb_randr_get_output_info_name_length(output),
         xcb_randr_get_output_info_name(output),
     );
     (*output_name).names.sle_next = (*new).names_head.slh_first;
     (*new).names_head.slh_first = output_name;
     debuglog(
-        b"%s:%s:%d - found output with name %s\n\0" as *const u8 as *const ::core::ffi::c_char
-            as *mut ::core::ffi::c_char,
-        b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"handle_output\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - found output with name %s\n"
+            .as_ptr()
+            .cast_mut(),
+        c"../src/randr.c".as_ptr(),
+        c"handle_output".as_ptr(),
         742 as ::core::ffi::c_int,
         output_primary_name(new),
     );
@@ -2061,10 +1154,11 @@ unsafe extern "C" fn handle_output(
     );
     if crtc.is_null() {
         debuglog(
-            b"%s:%s:%d - Skipping output %s: could not get CRTC (%p)\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"handle_output\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - Skipping output %s: could not get CRTC (%p)\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/randr.c".as_ptr(),
+            c"handle_output".as_ptr(),
             763 as ::core::ffi::c_int,
             output_primary_name(new),
             crtc,
@@ -2085,19 +1179,19 @@ unsafe extern "C" fn handle_output(
     (*new).active = (*new).rect.width != 0 as uint32_t && (*new).rect.height != 0 as uint32_t;
     if !(*new).active {
         debuglog(
-            b"%s:%s:%d - width/height 0/0, disabling output\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"handle_output\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - width/height 0/0, disabling output\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/randr.c".as_ptr(),
+            c"handle_output".as_ptr(),
             775 as ::core::ffi::c_int,
         );
         return;
     }
     debuglog(
-        b"%s:%s:%d - mode: %dx%d+%d+%d\n\0" as *const u8 as *const ::core::ffi::c_char
-            as *mut ::core::ffi::c_char,
-        b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"handle_output\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - mode: %dx%d+%d+%d\n".as_ptr().cast_mut(),
+        c"../src/randr.c".as_ptr(),
+        c"handle_output".as_ptr(),
         780 as ::core::ffi::c_int,
         (*new).rect.width,
         (*new).rect.height,
@@ -2126,12 +1220,13 @@ unsafe extern "C" fn handle_output(
     }
     (*new).changed = true_0 != 0;
 }
-unsafe extern "C" fn randr_query_outputs_14() {
+unsafe fn randr_query_outputs_14() {
     debuglog(
-        b"%s:%s:%d - Querying outputs using RandR \xE2\x89\xA4 1.4\n\0" as *const u8
-            as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-        b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"randr_query_outputs_14\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - Querying outputs using RandR ≤ 1.4\n"
+            .as_ptr()
+            .cast_mut(),
+        c"../src/randr.c".as_ptr(),
+        c"randr_query_outputs_14".as_ptr(),
         804 as ::core::ffi::c_int,
     );
     let rcookie: xcb_randr_get_screen_resources_current_cookie_t =
@@ -2146,15 +1241,15 @@ unsafe extern "C" fn randr_query_outputs_14() {
     );
     if primary.is_null() {
         errorlog(
-            b"ERROR: Could not get RandR primary output\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
+            c"ERROR: Could not get RandR primary output\n"
+                .as_ptr()
+                .cast_mut(),
         );
     } else {
         debuglog(
-            b"%s:%s:%d - primary output is %08x\n\0" as *const u8 as *const ::core::ffi::c_char
-                as *mut ::core::ffi::c_char,
-            b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"randr_query_outputs_14\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - primary output is %08x\n".as_ptr().cast_mut(),
+            c"../src/randr.c".as_ptr(),
+            c"randr_query_outputs_14".as_ptr(),
             813 as ::core::ffi::c_int,
             (*primary).output,
         );
@@ -2167,15 +1262,16 @@ unsafe extern "C" fn randr_query_outputs_14() {
         );
     if res.is_null() {
         errorlog(
-            b"ERROR: Could not query screen resources.\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
+            c"ERROR: Could not query screen resources.\n"
+                .as_ptr()
+                .cast_mut(),
         );
         return;
     }
     let cts: xcb_timestamp_t = (*res).config_timestamp;
     let len: ::core::ffi::c_int =
         xcb_randr_get_screen_resources_current_outputs_length(res) as ::core::ffi::c_int;
-    let mut randr_outputs: *mut xcb_randr_output_t =
+    let randr_outputs: *mut xcb_randr_output_t =
         xcb_randr_get_screen_resources_current_outputs(res);
     let vla = len as usize;
     let mut ocookie: Vec<xcb_randr_get_output_info_cookie_t> =
@@ -2204,19 +1300,20 @@ unsafe extern "C" fn randr_query_outputs_14() {
     free(res as *mut ::core::ffi::c_void);
     res = ::core::ptr::null_mut::<xcb_randr_get_screen_resources_current_reply_t>();
 }
-unsafe extern "C" fn move_content(mut con: *mut Con) {
-    let mut first: *mut Con = (*get_first_output()).con;
-    let mut first_content: *mut Con = output_get_content(first);
-    let mut next: *mut Con = focused;
-    let mut old_content: *const Con = output_get_content(con);
+unsafe fn move_content(con: *mut Con) {
+    let first: *mut Con = (*get_first_output()).con;
+    let first_content: *mut Con = output_get_content(first);
+    let next: *mut Con = focused;
+    let old_content: *const Con = output_get_content(con);
     while !(*old_content).nodes_head.tqh_first.is_null() {
-        let mut current: *mut Con = (*old_content).nodes_head.tqh_first as *mut Con;
+        let current: *mut Con = (*old_content).nodes_head.tqh_first as *mut Con;
         if current != next && (*current).focus_head.tqh_first.is_null() {
             debuglog(
-                b"%s:%s:%d - Getting rid of current = %p / %s (empty, unfocused)\n\0" as *const u8
-                    as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-                b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-                b"move_content\0" as *const u8 as *const ::core::ffi::c_char,
+                c"%s:%s:%d - Getting rid of current = %p / %s (empty, unfocused)\n"
+                    .as_ptr()
+                    .cast_mut(),
+                c"../src/randr.c".as_ptr(),
+                c"move_content".as_ptr(),
                 875 as ::core::ffi::c_int,
                 current,
                 (*current).name,
@@ -2224,30 +1321,33 @@ unsafe extern "C" fn move_content(mut con: *mut Con) {
             tree_close_internal(current, DONT_KILL_WINDOW, false_0 != 0);
         } else {
             debuglog(
-                b"%s:%s:%d - Detaching current = %p / %s\n\0" as *const u8
-                    as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-                b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-                b"move_content\0" as *const u8 as *const ::core::ffi::c_char,
+                c"%s:%s:%d - Detaching current = %p / %s\n"
+                    .as_ptr()
+                    .cast_mut(),
+                c"../src/randr.c".as_ptr(),
+                c"move_content".as_ptr(),
                 879 as ::core::ffi::c_int,
                 current,
                 (*current).name,
             );
             con_detach(current);
             debuglog(
-                b"%s:%s:%d - Re-attaching current = %p / %s\n\0" as *const u8
-                    as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-                b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-                b"move_content\0" as *const u8 as *const ::core::ffi::c_char,
+                c"%s:%s:%d - Re-attaching current = %p / %s\n"
+                    .as_ptr()
+                    .cast_mut(),
+                c"../src/randr.c".as_ptr(),
+                c"move_content".as_ptr(),
                 881 as ::core::ffi::c_int,
                 current,
                 (*current).name,
             );
             con_attach(current, first_content, false_0 != 0);
             debuglog(
-                b"%s:%s:%d - Fixing the coordinates of floating containers\n\0" as *const u8
-                    as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-                b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-                b"move_content\0" as *const u8 as *const ::core::ffi::c_char,
+                c"%s:%s:%d - Fixing the coordinates of floating containers\n"
+                    .as_ptr()
+                    .cast_mut(),
+                c"../src/randr.c".as_ptr(),
+                c"move_content".as_ptr(),
                 883 as ::core::ffi::c_int,
             );
             let mut floating_con: *mut Con = ::core::ptr::null_mut::<Con>();
@@ -2264,10 +1364,9 @@ unsafe extern "C" fn move_content(mut con: *mut Con) {
     }
     if !next.is_null() {
         debuglog(
-            b"%s:%s:%d - now focusing next = %p\n\0" as *const u8 as *const ::core::ffi::c_char
-                as *mut ::core::ffi::c_char,
-            b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"move_content\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - now focusing next = %p\n".as_ptr().cast_mut(),
+            c"../src/randr.c".as_ptr(),
+            c"move_content".as_ptr(),
             892 as ::core::ffi::c_int,
             next,
         );
@@ -2281,42 +1380,39 @@ unsafe extern "C" fn move_content(mut con: *mut Con) {
             != CT_DOCKAREA as ::core::ffi::c_int as ::core::ffi::c_uint)
         {
             debuglog(
-                b"%s:%s:%d - Handling dock con %p\n\0" as *const u8 as *const ::core::ffi::c_char
-                    as *mut ::core::ffi::c_char,
-                b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-                b"move_content\0" as *const u8 as *const ::core::ffi::c_char,
+                c"%s:%s:%d - Handling dock con %p\n".as_ptr().cast_mut(),
+                c"../src/randr.c".as_ptr(),
+                c"move_content".as_ptr(),
                 903 as ::core::ffi::c_int,
                 child,
             );
             while !(*child).nodes_head.tqh_first.is_null() {
                 let mut match_0: *mut Match = ::core::ptr::null_mut::<Match>();
-                let mut dock: *mut Con = (*child).nodes_head.tqh_first as *mut Con;
-                let mut nc: *mut Con =
+                let dock: *mut Con = (*child).nodes_head.tqh_first as *mut Con;
+                let nc: *mut Con =
                     con_for_window(first, (*dock).window as *mut i3Window, &raw mut match_0);
                 debuglog(
-                    b"%s:%s:%d - Moving dock client %p to nc %p\n\0" as *const u8
-                        as *const ::core::ffi::c_char
-                        as *mut ::core::ffi::c_char,
-                    b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-                    b"move_content\0" as *const u8 as *const ::core::ffi::c_char,
+                    c"%s:%s:%d - Moving dock client %p to nc %p\n"
+                        .as_ptr()
+                        .cast_mut(),
+                    c"../src/randr.c".as_ptr(),
+                    c"move_content".as_ptr(),
                     908 as ::core::ffi::c_int,
                     dock,
                     nc,
                 );
                 con_detach(dock);
                 debuglog(
-                    b"%s:%s:%d - Re-attaching\n\0" as *const u8 as *const ::core::ffi::c_char
-                        as *mut ::core::ffi::c_char,
-                    b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-                    b"move_content\0" as *const u8 as *const ::core::ffi::c_char,
+                    c"%s:%s:%d - Re-attaching\n".as_ptr().cast_mut(),
+                    c"../src/randr.c".as_ptr(),
+                    c"move_content".as_ptr(),
                     910 as ::core::ffi::c_int,
                 );
                 con_attach(dock, nc, false_0 != 0);
                 debuglog(
-                    b"%s:%s:%d - Done\n\0" as *const u8 as *const ::core::ffi::c_char
-                        as *mut ::core::ffi::c_char,
-                    b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-                    b"move_content\0" as *const u8 as *const ::core::ffi::c_char,
+                    c"%s:%s:%d - Done\n".as_ptr().cast_mut(),
+                    c"../src/randr.c".as_ptr(),
+                    c"move_content".as_ptr(),
                     912 as ::core::ffi::c_int,
                 );
             }
@@ -2324,26 +1420,28 @@ unsafe extern "C" fn move_content(mut con: *mut Con) {
         child = (*child).nodes.tqe_next as *mut Con;
     }
     debuglog(
-        b"%s:%s:%d - Destroying disappearing con %p\n\0" as *const u8 as *const ::core::ffi::c_char
-            as *mut ::core::ffi::c_char,
-        b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"move_content\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - Destroying disappearing con %p\n"
+            .as_ptr()
+            .cast_mut(),
+        c"../src/randr.c".as_ptr(),
+        c"move_content".as_ptr(),
         916 as ::core::ffi::c_int,
         con,
     );
     tree_close_internal(con, DONT_KILL_WINDOW, true_0 != 0);
 }
-#[no_mangle]
-pub unsafe extern "C" fn randr_query_outputs() {
+
+pub unsafe fn randr_query_outputs() {
     if !randr_query_outputs_15() {
         randr_query_outputs_14();
     }
     if any_randr_output_active() {
         debuglog(
-            b"%s:%s:%d - Active RandR output found. Disabling root output.\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"randr_query_outputs\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - Active RandR output found. Disabling root output.\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/randr.c".as_ptr(),
+            c"randr_query_outputs".as_ptr(),
             933 as ::core::ffi::c_int,
         );
         if !root_output.is_null() && (*root_output).active as ::core::ffi::c_int != 0 {
@@ -2351,10 +1449,11 @@ pub unsafe extern "C" fn randr_query_outputs() {
         }
     } else {
         debuglog(
-            b"%s:%s:%d - No active RandR output found. Enabling root output.\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"randr_query_outputs\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - No active RandR output found. Enabling root output.\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/randr.c".as_ptr(),
+            c"randr_query_outputs".as_ptr(),
             938 as ::core::ffi::c_int,
         );
         (*root_output).active = true_0 != 0;
@@ -2364,11 +1463,11 @@ pub unsafe extern "C" fn randr_query_outputs() {
     while !output.is_null() {
         if !(!(*output).active || (*output).to_be_disabled as ::core::ffi::c_int != 0) {
             debuglog(
-                b"%s:%s:%d - output %p / %s, position (%d, %d), checking for clones\n\0"
-                    as *const u8 as *const ::core::ffi::c_char
-                    as *mut ::core::ffi::c_char,
-                b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-                b"randr_query_outputs\0" as *const u8 as *const ::core::ffi::c_char,
+                c"%s:%s:%d - output %p / %s, position (%d, %d), checking for clones\n"
+                    .as_ptr()
+                    .cast_mut(),
+                c"../src/randr.c".as_ptr(),
+                c"randr_query_outputs".as_ptr(),
                 950 as ::core::ffi::c_int,
                 output,
                 output_primary_name(output),
@@ -2384,22 +1483,21 @@ pub unsafe extern "C" fn randr_query_outputs() {
                     if !((*other).rect.x != (*output).rect.x || (*other).rect.y != (*output).rect.y)
                     {
                         debuglog(
-                            b"%s:%s:%d - output %p has the same position, its mode = %d x %d\n\0"
-                                as *const u8
-                                as *const ::core::ffi::c_char
-                                as *mut ::core::ffi::c_char,
-                            b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-                            b"randr_query_outputs\0" as *const u8 as *const ::core::ffi::c_char,
+                            c"%s:%s:%d - output %p has the same position, its mode = %d x %d\n"
+                                .as_ptr()
+                                .cast_mut(),
+                            c"../src/randr.c".as_ptr(),
+                            c"randr_query_outputs".as_ptr(),
                             965 as ::core::ffi::c_int,
                             other,
                             (*other).rect.width,
                             (*other).rect.height,
                         );
-                        let mut width: uint32_t = min(
+                        let width: uint32_t = min(
                             (*other).rect.width as ::core::ffi::c_int,
                             (*output).rect.width as ::core::ffi::c_int,
                         ) as uint32_t;
-                        let mut height: uint32_t = min(
+                        let height: uint32_t = min(
                             (*other).rect.height as ::core::ffi::c_int,
                             (*output).rect.height as ::core::ffi::c_int,
                         ) as uint32_t;
@@ -2415,23 +1513,20 @@ pub unsafe extern "C" fn randr_query_outputs() {
                         update_if_necessary(&raw mut (*other).rect.width, width);
                         update_if_necessary(&raw mut (*other).rect.height, height);
                         debuglog(
-                            b"%s:%s:%d - disabling output %p (%s)\n\0" as *const u8
-                                as *const ::core::ffi::c_char
-                                as *mut ::core::ffi::c_char,
-                            b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-                            b"randr_query_outputs\0" as *const u8 as *const ::core::ffi::c_char,
+                            c"%s:%s:%d - disabling output %p (%s)\n".as_ptr().cast_mut(),
+                            c"../src/randr.c".as_ptr(),
+                            c"randr_query_outputs".as_ptr(),
                             978 as ::core::ffi::c_int,
                             other,
                             output_primary_name(other),
                         );
                         (*other).to_be_disabled = true_0 != 0;
                         debuglog(
-                            b"%s:%s:%d - new output mode %d x %d, other mode %d x %d\n\0"
-                                as *const u8
-                                as *const ::core::ffi::c_char
-                                as *mut ::core::ffi::c_char,
-                            b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-                            b"randr_query_outputs\0" as *const u8 as *const ::core::ffi::c_char,
+                            c"%s:%s:%d - new output mode %d x %d, other mode %d x %d\n"
+                                .as_ptr()
+                                .cast_mut(),
+                            c"../src/randr.c".as_ptr(),
+                            c"randr_query_outputs".as_ptr(),
                             983 as ::core::ffi::c_int,
                             (*output).rect.width,
                             (*output).rect.height,
@@ -2449,10 +1544,11 @@ pub unsafe extern "C" fn randr_query_outputs() {
     while !output.is_null() {
         if (*output).active as ::core::ffi::c_int != 0 && (*output).con.is_null() {
             debuglog(
-                b"%s:%s:%d - Need to initialize a Con for output %s\n\0" as *const u8
-                    as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-                b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-                b"randr_query_outputs\0" as *const u8 as *const ::core::ffi::c_char,
+                c"%s:%s:%d - Need to initialize a Con for output %s\n"
+                    .as_ptr()
+                    .cast_mut(),
+                c"../src/randr.c".as_ptr(),
+                c"randr_query_outputs".as_ptr(),
                 993 as ::core::ffi::c_int,
                 output_primary_name(output),
             );
@@ -2463,14 +1559,14 @@ pub unsafe extern "C" fn randr_query_outputs() {
     }
     let mut con: *mut Con = (*croot).nodes_head.tqh_first as *mut Con;
     while !con.is_null() {
-        let mut next: *mut Con = (*con).nodes.tqe_next as *mut Con;
+        let next: *mut Con = (*con).nodes.tqe_next as *mut Con;
         if !con_is_internal(con) && get_output_by_name((*con).name, true_0 != 0).is_null() {
             debuglog(
-                b"%s:%s:%d - No output %s found, moving its old content to first output\n\0"
-                    as *const u8 as *const ::core::ffi::c_char
-                    as *mut ::core::ffi::c_char,
-                b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-                b"randr_query_outputs\0" as *const u8 as *const ::core::ffi::c_char,
+                c"%s:%s:%d - No output %s found, moving its old content to first output\n"
+                    .as_ptr()
+                    .cast_mut(),
+                c"../src/randr.c".as_ptr(),
+                c"randr_query_outputs".as_ptr(),
                 1007 as ::core::ffi::c_int,
                 (*con).name,
             );
@@ -2492,14 +1588,14 @@ pub unsafe extern "C" fn randr_query_outputs() {
     output = outputs.tqh_first as *mut Output;
     while !output.is_null() {
         if (*output).active {
-            let mut content: *mut Con = output_get_content((*output).con);
+            let content: *mut Con = output_get_content((*output).con);
             if (*content).nodes_head.tqh_first.is_null() {
                 debuglog(
-                    b"%s:%s:%d - Should add ws for output %s\n\0" as *const u8
-                        as *const ::core::ffi::c_char
-                        as *mut ::core::ffi::c_char,
-                    b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-                    b"randr_query_outputs\0" as *const u8 as *const ::core::ffi::c_char,
+                    c"%s:%s:%d - Should add ws for output %s\n"
+                        .as_ptr()
+                        .cast_mut(),
+                    c"../src/randr.c".as_ptr(),
+                    c"randr_query_outputs".as_ptr(),
                     1035 as ::core::ffi::c_int,
                     output_primary_name(output),
                 );
@@ -2512,15 +1608,16 @@ pub unsafe extern "C" fn randr_query_outputs() {
     while !output.is_null() {
         if !(!(*output).primary || (*output).con.is_null()) {
             debuglog(
-                b"%s:%s:%d - Focusing primary output %s\n\0" as *const u8
-                    as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-                b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-                b"randr_query_outputs\0" as *const u8 as *const ::core::ffi::c_char,
+                c"%s:%s:%d - Focusing primary output %s\n"
+                    .as_ptr()
+                    .cast_mut(),
+                c"../src/randr.c".as_ptr(),
+                c"randr_query_outputs".as_ptr(),
                 1045 as ::core::ffi::c_int,
                 output_primary_name(output),
             );
-            let mut content_0: *mut Con = output_get_content((*output).con);
-            let mut ws: *mut Con = (*content_0).focus_head.tqh_first as *mut Con;
+            let content_0: *mut Con = output_get_content((*output).con);
+            let ws: *mut Con = (*content_0).focus_head.tqh_first as *mut Con;
             workspace_show(ws);
         }
         output = (*output).outputs.tqe_next as *mut Output;
@@ -2530,64 +1627,63 @@ pub unsafe extern "C" fn randr_query_outputs() {
     free(primary as *mut ::core::ffi::c_void);
     primary = ::core::ptr::null_mut::<xcb_randr_get_output_primary_reply_t>();
 }
-#[no_mangle]
-pub unsafe extern "C" fn randr_disable_output(mut output: *mut Output) {
+
+pub unsafe fn randr_disable_output(output: *mut Output) {
     if (*output).to_be_disabled as ::core::ffi::c_int != 0 {
     } else {
         __assert_fail(
-            b"output->to_be_disabled\0" as *const u8 as *const ::core::ffi::c_char,
-            b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
+            c"output->to_be_disabled".as_ptr(),
+            c"../src/randr.c".as_ptr(),
             1063 as ::core::ffi::c_uint,
-            b"void randr_disable_output(Output *)\0" as *const u8 as *const ::core::ffi::c_char,
+            c"void randr_disable_output(Output *)".as_ptr(),
         );
     };
     (*output).active = false_0 != 0;
     debuglog(
-        b"%s:%s:%d - Output %s disabled, re-assigning workspaces/docks\n\0" as *const u8
-            as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-        b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-        b"randr_disable_output\0" as *const u8 as *const ::core::ffi::c_char,
+        c"%s:%s:%d - Output %s disabled, re-assigning workspaces/docks\n"
+            .as_ptr()
+            .cast_mut(),
+        c"../src/randr.c".as_ptr(),
+        c"randr_disable_output".as_ptr(),
         1066 as ::core::ffi::c_int,
         output_primary_name(output),
     );
     if !(*output).con.is_null() {
-        let mut con: *mut Con = (*output).con;
+        let con: *mut Con = (*output).con;
         (*output).con = ::core::ptr::null_mut::<Con>();
         move_content(con);
     }
     (*output).to_be_disabled = false_0 != 0;
     (*output).changed = false_0 != 0;
 }
-unsafe extern "C" fn fallback_to_root_output() {
+unsafe fn fallback_to_root_output() {
     (*root_output).active = true_0 != 0;
     output_init_con(root_output);
     init_ws_for_output(root_output);
 }
-#[no_mangle]
-pub unsafe extern "C" fn randr_init(
-    mut event_base: *mut ::core::ffi::c_int,
-    disable_randr15: bool,
-) {
+
+pub unsafe fn randr_init(event_base: *mut ::core::ffi::c_int, disable_randr15: bool) {
     root_output = create_root_output(conn);
     (*root_output).outputs.tqe_next = ::core::ptr::null_mut::<xoutput>();
     (*root_output).outputs.tqe_prev = outputs.tqh_last;
     *outputs.tqh_last = root_output as *mut xoutput;
     outputs.tqh_last = &raw mut (*root_output).outputs.tqe_next;
-    let mut extension_reply: *const xcb_query_extension_reply_t =
+    let extension_reply: *const xcb_query_extension_reply_t =
         xcb_get_extension_data(conn, &raw mut xcb_randr_id) as *const xcb_query_extension_reply_t;
     if (*extension_reply).present == 0 {
         debuglog(
-            b"%s:%s:%d - RandR is not present, activating root output.\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
-            b"../src/randr.c\0" as *const u8 as *const ::core::ffi::c_char,
-            b"randr_init\0" as *const u8 as *const ::core::ffi::c_char,
+            c"%s:%s:%d - RandR is not present, activating root output.\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/randr.c".as_ptr(),
+            c"randr_init".as_ptr(),
             1096 as ::core::ffi::c_int,
         );
         fallback_to_root_output();
         return;
     }
     let mut err: *mut xcb_generic_error_t = ::core::ptr::null_mut::<xcb_generic_error_t>();
-    let mut randr_version: *mut xcb_randr_query_version_reply_t = xcb_randr_query_version_reply(
+    let randr_version: *mut xcb_randr_query_version_reply_t = xcb_randr_query_version_reply(
         conn,
         xcb_randr_query_version(
             conn,
@@ -2598,8 +1694,9 @@ pub unsafe extern "C" fn randr_init(
     );
     if !err.is_null() {
         errorlog(
-            b"ERROR: Could not query RandR version: X11 error code %d\n\0" as *const u8
-                as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
+            c"ERROR: Could not query RandR version: X11 error code %d\n"
+                .as_ptr()
+                .cast_mut(),
             (*err).error_code as ::core::ffi::c_int,
         );
         free(err as *mut ::core::ffi::c_void);
@@ -2636,3 +1733,87 @@ unsafe extern "C" fn run_static_initializers() {
 #[cfg_attr(target_os = "windows", link_section = ".CRT$XIB")]
 #[cfg_attr(target_os = "macos", link_section = "__DATA,__mod_init_func")]
 static INIT_ARRAY: [unsafe extern "C" fn(); 1] = [run_static_initializers];
+
+// Internal helpers use Rust linkage rather than foreign symbol lookup.
+use crate::ewmh::ewmh_update_desktop_properties;
+use crate::tree::tree_render;
+use crate::util::max;
+use crate::util::min;
+use crate::util::update_if_necessary;
+use crate::workspace::workspace_show_by_name;
+use i3_common::safewrappers::scalloc;
+use i3_common::safewrappers::sstrdup;
+
+// Canonical Cairo backend ABI; renderer logic remains local.
+
+// Canonical Pango backend ABI; font policy remains local.
+
+use xcb_sys::{
+    xcb_connection_t, xcb_flush, xcb_generic_error_t, xcb_get_atom_name, xcb_get_atom_name_name,
+    xcb_get_atom_name_name_length, xcb_get_atom_name_reply, xcb_get_atom_name_reply_t,
+    xcb_get_extension_data, xcb_query_extension_reply_t, xcb_randr_get_crtc_info,
+    xcb_randr_get_crtc_info_cookie_t, xcb_randr_get_crtc_info_reply,
+    xcb_randr_get_crtc_info_reply_t, xcb_randr_get_monitors,
+    xcb_randr_get_monitors_monitors_iterator, xcb_randr_get_monitors_monitors_length,
+    xcb_randr_get_monitors_reply, xcb_randr_get_monitors_reply_t, xcb_randr_get_output_info,
+    xcb_randr_get_output_info_cookie_t, xcb_randr_get_output_info_name,
+    xcb_randr_get_output_info_name_length, xcb_randr_get_output_info_reply,
+    xcb_randr_get_output_info_reply_t, xcb_randr_get_output_primary,
+    xcb_randr_get_output_primary_cookie_t, xcb_randr_get_output_primary_reply,
+    xcb_randr_get_output_primary_reply_t, xcb_randr_get_screen_resources_current,
+    xcb_randr_get_screen_resources_current_cookie_t,
+    xcb_randr_get_screen_resources_current_outputs,
+    xcb_randr_get_screen_resources_current_outputs_length,
+    xcb_randr_get_screen_resources_current_reply, xcb_randr_get_screen_resources_current_reply_t,
+    xcb_randr_id, xcb_randr_monitor_info_iterator_t, xcb_randr_monitor_info_next,
+    xcb_randr_monitor_info_outputs, xcb_randr_monitor_info_outputs_length,
+    xcb_randr_monitor_info_t, xcb_randr_output_t, xcb_randr_query_version,
+    xcb_randr_query_version_reply, xcb_randr_query_version_reply_t, xcb_randr_select_input,
+    xcb_timestamp_t, XCB_NONE, XCB_RANDR_MAJOR_VERSION, XCB_RANDR_MINOR_VERSION,
+    XCB_RANDR_NOTIFY_MASK_CRTC_CHANGE, XCB_RANDR_NOTIFY_MASK_OUTPUT_CHANGE,
+    XCB_RANDR_NOTIFY_MASK_OUTPUT_PROPERTY, XCB_RANDR_NOTIFY_MASK_SCREEN_CHANGE,
+};
+
+pub use libc::{free, strcasecmp, strcmp};
+
+use i3_common::native_stdio::{__assert_fail, errx};
+
+use crate::log::{debuglog, errorlog, verboselog};
+
+// Shared model types retain field layout while using one Rust identity.
+pub use crate::types::output_name;
+pub use crate::types::xoutput;
+pub use crate::types::Con;
+pub use crate::types::Match;
+pub use crate::types::Rect;
+pub use crate::types::Window;
+pub use i3_common::font::Font;
+pub use i3_common::string::I3String as _i3String;
+
+// Internal calls and globals use canonical Rust identities.
+use crate::application::conn;
+use crate::application::root;
+use crate::application::root_screen;
+use crate::con::con_attach;
+use crate::con::con_detach;
+use crate::con::con_fix_percent;
+use crate::con::con_focus;
+use crate::con::con_for_window;
+use crate::con::con_get_workspace;
+use crate::con::con_is_internal;
+use crate::con::con_new;
+use crate::con::con_num_children;
+use crate::config::config;
+use crate::floating::floating_fix_coordinates;
+use crate::output::get_output_for_con;
+use crate::output::output_get_content;
+use crate::output::output_primary_name;
+use crate::r#match::match_init;
+use crate::tree::croot;
+use crate::tree::focused;
+use crate::tree::tree_close_internal;
+use crate::workspace::create_workspace_on_output;
+use crate::workspace::get_assigned_output;
+use crate::workspace::workspace_move_to_output;
+use crate::workspace::workspace_show;
+use crate::x::x_set_name;

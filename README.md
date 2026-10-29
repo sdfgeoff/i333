@@ -1,8 +1,8 @@
 # i3 Rust port
 
 A file-by-file Rust port of i3, preserving its original interfaces and
-behavior. A five-member Cargo workspace shares native helpers through one Rust
-library. All seven product executables build from Rust. Native X11 and
+behavior. A Cargo workspace shares Rust helpers, JSON streaming and native library
+boundaries. All seven product executables build from Rust. Native X11 and
 rendering libraries remain dependencies; C sources, headers and the Meson build
 have been removed from this tree.
 
@@ -21,6 +21,8 @@ manuals and session resources remain available for packaging. See
 [PORTING.md](PORTING.md) for compatibility and isolated regression testing, and
 [recorded validation](docs/validation.json) for test evidence.
 
-The port currently supports Linux x86_64 with glibc and retains unsafe C ownership
-patterns. This project derives from [i3](https://i3wm.org/); original copyright
-and license notices remain in the Rust sources and [LICENSE](LICENSE).
+Shared helpers now own text, paths and IPC messages through Rust APIs. JSON uses
+`serde_json`; maintained GTK and XKB bindings handle native interoperability. The
+window tree still retains unsafe pointers, intrusive lists and legacy allocation
+contracts. The port currently supports Linux x86_64 with glibc. This project
+derives from [i3](https://i3wm.org/); original copyright and license notices remain in the Rust sources and [LICENSE](LICENSE).

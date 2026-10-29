@@ -6,9 +6,16 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+startup-notification-sys.workspace = true
+xkbcommon.workspace = true
+xcb-sys.workspace = true
 libc.workspace = true
 c2rust-bitfields.workspace = true
 i3-common.workspace = true
+serde_json.workspace = true
+x11rb.workspace = true
+cairo-sys.workspace = true
+pango-sys.workspace = true
 
 [build-dependencies]
 i3-build.workspace = true
@@ -16,19 +23,19 @@ i3-build.workspace = true
 [[bin]]
 name = "i3-msg"
 path = "src/bin/i3-msg/main.rs"
-test = false
+test = true
 bench = false
 
 [[bin]]
 name = "i3-dump-log"
 path = "src/bin/i3-dump-log/main.rs"
-test = false
+test = true
 bench = false
 
 [[bin]]
 name = "i3-input"
 path = "src/bin/i3-input/main.rs"
-test = false
+test = true
 bench = false
 
 [[bin]]
