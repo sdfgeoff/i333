@@ -1,3 +1,8 @@
+NOTE: This is historical documentation for the upstream C implementation.
+For the current Rust build and development workflow, see README.md, PORTING.md
+and .github/CONTRIBUTING.md. C source paths and Meson commands below describe
+the upstream baseline, not files or build steps in this repository.
+
 Hacking i3: How To
 ==================
 Michael Stapelberg <michael@i3wm.org>

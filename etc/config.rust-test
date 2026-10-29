@@ -1,0 +1,38 @@
+# Separate-TTY test session. No desktop startup scripts are run.
+font pango:monospace 10
+set $mod Mod4
+focus_follows_mouse no
+mouse_warping none
+floating_modifier $mod
+default_border pixel 2
+
+bindsym $mod+Return exec alacritty
+bindsym $mod+Shift+q kill
+bindsym $mod+h split h
+bindsym $mod+v split v
+bindsym $mod+f fullscreen toggle
+bindsym $mod+s layout stacking
+bindsym $mod+w layout tabbed
+bindsym $mod+e layout toggle split
+bindsym $mod+Shift+space floating toggle
+bindsym $mod+space focus mode_toggle
+bindsym $mod+Left focus left
+bindsym $mod+Right focus right
+bindsym $mod+Up focus up
+bindsym $mod+Down focus down
+bindsym $mod+Shift+Left move left
+bindsym $mod+Shift+Right move right
+bindsym $mod+Shift+Up move up
+bindsym $mod+Shift+Down move down
+bindsym $mod+1 workspace 1
+bindsym $mod+2 workspace 2
+bindsym $mod+3 workspace 3
+bindsym $mod+Shift+1 move container to workspace 1
+bindsym $mod+Shift+2 move container to workspace 2
+bindsym $mod+Shift+3 move container to workspace 3
+bindsym $mod+Shift+minus move scratchpad
+bindsym $mod+minus scratchpad show
+bindsym $mod+Shift+c reload
+bindsym $mod+Shift+r restart
+# Exit only this test X session; return to the original desktop with Ctrl+Alt+F1.
+bindsym $mod+Shift+e exit

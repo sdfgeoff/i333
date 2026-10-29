@@ -21,13 +21,13 @@ By submitting such a contribution, you represent that:
 
 Here are a few examples for illustration:
 
-* A purely AI-generated pull request (“vibe-coded”) cannot be accepted, because
+1. A purely AI-generated pull request (“vibe-coded”) cannot be accepted, because
   the copyright status of such output is uncertain and you may not be able to
   license it under BSD-3-Clause.
-* It is considered impolite to send an LLM’s writing (posting “slop” issues). We
+2. It is considered impolite to send an LLM’s writing (posting “slop” issues). We
   want to hear your own voice and see that you have spent enough thoughts and
   time to write us a message.
-* It can be very effective to ask a coding assistant to confirm and explain a
+3. It can be very effective to ask a coding assistant to confirm and explain a
   bug, but then verify correctness of the generated explanation by implementing
   and testing your own solution. This process saves you time for the mechanical
   steps, but ensures you understood the problem and solution.
@@ -60,30 +60,19 @@ Here are a few examples for illustration:
 4. Consider whether the feature could instead be implemented using the
    [IPC](https://i3wm.org/docs/ipc.html) or other external tooling.
 
-## Pull requests
+## Working on the Rust port
 
-* Before sending a pull request for new features, please check with us that the
-  feature is something we want to see in i3 by opening an issue which has
-  ”feature request” or ”enhancement” in its title.
-* Use the `next` branch for developing and sending your pull request.
-* Use `clang-format` to format your code.
-* Run the [testsuite](https://i3wm.org/docs/testsuite.html)
-* When giving your commit a title, do not use Conventional Commits (“refactor: …”),
-  instead prefix the commit with the scope of what it changes (“pointer warping: …”):
-  https://sumnerevans.com/posts/software-engineering/stop-using-conventional-commits/
-* If your changes should be reported on the next release's changelog, also
-  add a small single-line file starting with a number (see examples) containing
-  a short explanation of your change either in the
-  [changes](../release-notes/changes) or the
-  [bugfixes](../release-notes/bugfixes/) folder. Example of changes that should
-  be reported are bug fixes present in the latest stable version of i3 and new
-  enhancements. Example of changes that should not be reported are minor code
-  improvements, documentation, regression and fixes for bugs that were
-  introduced in the `next` branch.
-
-## Finding something to do
-
-* Find a [reproducible bug](https://github.com/i3/i3/issues?utf8=%E2%9C%93&q=is%3Aopen+label%3Areproducible+label%3Abug+) from the issue tracker. These issues have been reviewed and confirmed by a project contributor.
-* Find an [accepted enhancement](https://github.com/i3/i3/issues?utf8=%E2%9C%93&q=is%3Aopen+label%3Aaccepted+label%3Aenhancement) from the issue tracker. These have been approved and are ok to start working on.
-
-There's an [overview of the codebase](https://i3wm.org/docs/hacking-howto.html) available to get you started.
+1. Build with `cargo build --locked` and `cargo build --locked --release`.
+   See [repository details](../rust/REPOSITORY.md) for native dependencies.
+2. Preserve i3 behavior, existing function boundaries, native layouts and FFI
+   ownership contracts. Explain intentional behavior changes in the pull request.
+3. Run `python3 scripts/test-cargo-build.py` to verify a fresh standalone build.
+   Add focused regression coverage for behavior changes; use the IPC/headless
+   runners described in [PORTING.md](../PORTING.md).
+4. Runtime tests must use private sockets and headless X servers. Never restart
+   or send commands/input to a developer's active desktop session.
+5. C sources and build files are no longer maintained in this checkout. Use the
+   exact upstream revision in the porting notes for external source comparisons
+   or regression helpers. Retain original copyright and license notices.
+6. Describe the problem, resulting behavior and validation. Keep architecture
+   changes separate from compatibility fixes where practical.

@@ -1,15 +1,24 @@
-![Logo](docs/logo-30.png) i3: A tiling window manager
-=====================================================
+# i3 Rust port
 
-[![Build Status](https://github.com/i3/i3/actions/workflows/main.yml/badge.svg)](https://github.com/i3/i3/actions/workflows/main.yml)
-[![Issue Stats](https://img.shields.io/github/issues/i3/i3.svg)](https://github.com/i3/i3/issues)
-[![Pull Request Stats](https://img.shields.io/github/issues-pr/i3/i3.svg)](https://github.com/i3/i3/pulls)
+A file-by-file Rust port of i3, preserving its original interfaces and
+architecture. All seven product executables build from Rust. Native X11 and
+rendering libraries remain dependencies; C sources, headers and the Meson build
+have been removed from this tree.
 
-[![Packages](https://repology.org/badge/latest-versions/i3.svg)](https://repology.org/metapackage/i3/versions)
-[![Packages](https://repology.org/badge/tiny-repos/i3.svg)](https://repology.org/metapackage/i3/versions)
+1. Install nightly Rust, a native linker, `pkg-config`, and the native development
+   libraries listed in [repository details](rust/REPOSITORY.md).
+2. Run `cargo build --locked`. Binaries appear in `target/debug/`: `i3`, `i3bar`,
+   `i3-msg`, `i3-input`, `i3-nagbar`, `i3-config-wizard` and `i3-dump-log`.
+3. Run `cargo build --locked --release` for optimized binaries in `target/release/`.
+4. Run `python3 scripts/test-cargo-build.py` to verify a fresh build with C
+   compilation and legacy build tools blocked. It checks version output without
+   connecting to a desktop session.
 
-i3 is a tiling window manager for X11.
+Building does not install or launch a window manager. Configuration, helpers,
+manuals and session resources remain available for packaging. See
+[PORTING.md](PORTING.md) for compatibility and isolated regression testing, and
+[recorded validation](rust/VALIDATION.json) for test evidence.
 
-For more information about i3, please see [the project's website](https://i3wm.org/) and [online documentation](https://i3wm.org/docs/).
-
-For information about contributing to i3, please see [CONTRIBUTING.md](.github/CONTRIBUTING.md).
+The port currently supports Linux x86_64 with glibc and retains unsafe C ownership
+patterns. This project derives from [i3](https://i3wm.org/); original copyright
+and license notices remain in the Rust sources and [LICENSE](LICENSE).
