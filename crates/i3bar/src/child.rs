@@ -116,23 +116,7 @@ pub struct C2RustUnnamed_4 {
     pub tqe_next: *mut i3_ws,
     pub tqe_prev: *mut *mut i3_ws,
 }
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct i3_output {
-    pub name: *mut ::core::ffi::c_char,
-    pub active: bool,
-    pub primary: bool,
-    pub visible: bool,
-    pub ws: ::core::ffi::c_int,
-    pub rect: rect,
-    pub buffer: surface_t,
-    pub statusline_buffer: surface_t,
-    pub statusline_width: ::core::ffi::c_int,
-    pub bar: surface_t,
-    pub workspaces: *mut ws_head,
-    pub trayclients: *mut tc_head,
-    pub slist: C2RustUnnamed_5,
-}
+pub use crate::outputs::Output as i3_output;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct C2RustUnnamed_5 {

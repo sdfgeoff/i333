@@ -656,7 +656,7 @@ unsafe fn unhide_bars() {
                     c"[%s:%d] Reconfiguring window for output %s to %d,%d\n".as_ptr(),
                     c"../i3bar/src/xcb.c".as_ptr(),
                     435 as ::core::ffi::c_int,
-                    (*walk).name,
+                    (*walk).name_ptr(),
                     values[0 as ::core::ffi::c_int as usize],
                     values[1 as ::core::ffi::c_int as usize],
                 );
@@ -2768,7 +2768,8 @@ unsafe fn get_tray_output() -> *mut i3_output {
         output = (*outputs).slh_first as *mut i3_output;
         while !output.is_null() {
             if (*output).active as ::core::ffi::c_int != 0
-                && (strcasecmp((*output).name, (*tray_output).output) == 0 as ::core::ffi::c_int
+                && (strcasecmp((*output).name_ptr(), (*tray_output).output)
+                    == 0 as ::core::ffi::c_int
                     || strcasecmp((*tray_output).output, c"primary".as_ptr())
                         == 0 as ::core::ffi::c_int
                         && (*output).primary as ::core::ffi::c_int != 0)
@@ -2794,7 +2795,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                     c"[%s:%d] Destroying window for output %s\n".as_ptr(),
                     c"../i3bar/src/xcb.c".as_ptr(),
                     1857 as ::core::ffi::c_int,
-                    (*walk).name,
+                    (*walk).name_ptr(),
                 );
             }
             destroy_window(walk);
@@ -2804,7 +2805,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                     c"[%s:%d] Creating window for output %s\n".as_ptr(),
                     c"../i3bar/src/xcb.c".as_ptr(),
                     1862 as ::core::ffi::c_int,
-                    (*walk).name,
+                    (*walk).name_ptr(),
                 );
             }
             let bar_id: xcb_window_t = xcb_generate_id(xcb_connection) as xcb_window_t;
@@ -2890,7 +2891,11 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
             );
             free(class as *mut ::core::ffi::c_void);
             let mut name: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(&raw mut name, c"i3bar for output %s".as_ptr(), (*walk).name);
+            sasprintf(
+                &raw mut name,
+                c"i3bar for output %s".as_ptr(),
+                (*walk).name_ptr(),
+            );
             let mut name_cookie: xcb_void_cookie_t = xcb_void_cookie_t { sequence: 0 };
             name_cookie = xcb_change_property(
                 xcb_connection,
@@ -3011,7 +3016,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                     c"[%s:%d] Reconfiguring strut partial property for output %s\n".as_ptr(),
                     c"../i3bar/src/xcb.c".as_ptr(),
                     1998 as ::core::ffi::c_int,
-                    (*walk).name,
+                    (*walk).name_ptr(),
                 );
             }
             let strut_cookie_0: xcb_void_cookie_t = config_strut_partial(walk);
@@ -3020,7 +3025,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                     c"[%s:%d] Destroying buffer for output %s\n".as_ptr(),
                     c"../i3bar/src/xcb.c".as_ptr(),
                     2001 as ::core::ffi::c_int,
-                    (*walk).name,
+                    (*walk).name_ptr(),
                 );
             }
             xcb_free_pixmap(xcb_connection, (*walk).buffer.id as xcb_pixmap_t);
@@ -3029,7 +3034,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                     c"[%s:%d] Destroying statusline buffer for output %s\n".as_ptr(),
                     c"../i3bar/src/xcb.c".as_ptr(),
                     2004 as ::core::ffi::c_int,
-                    (*walk).name,
+                    (*walk).name_ptr(),
                 );
             }
             xcb_free_pixmap(xcb_connection, (*walk).statusline_buffer.id as xcb_pixmap_t);
@@ -3038,7 +3043,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                     c"[%s:%d] Reconfiguring window for output %s to %d,%d\n".as_ptr(),
                     c"../i3bar/src/xcb.c".as_ptr(),
                     2007 as ::core::ffi::c_int,
-                    (*walk).name,
+                    (*walk).name_ptr(),
                     values[0 as ::core::ffi::c_int as usize],
                     values[1 as ::core::ffi::c_int as usize],
                 );
@@ -3062,7 +3067,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                         .as_ptr(),
                     c"../i3bar/src/xcb.c".as_ptr(),
                     2015 as ::core::ffi::c_int,
-                    (*walk).name,
+                    (*walk).name_ptr(),
                     values[0 as ::core::ffi::c_int as usize],
                 );
             }
@@ -3077,7 +3082,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                     c"[%s:%d] Recreating buffer for output %s\n".as_ptr(),
                     c"../i3bar/src/xcb.c".as_ptr(),
                     2021 as ::core::ffi::c_int,
-                    (*walk).name,
+                    (*walk).name_ptr(),
                 );
             }
             let pm_cookie_0: xcb_void_cookie_t = xcb_create_pixmap_checked(
@@ -3093,7 +3098,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                     c"[%s:%d] Recreating statusline buffer for output %s\n".as_ptr(),
                     c"../i3bar/src/xcb.c".as_ptr(),
                     2029 as ::core::ffi::c_int,
-                    (*walk).name,
+                    (*walk).name_ptr(),
                 );
             }
             let slpm_cookie_0: xcb_void_cookie_t = xcb_create_pixmap_checked(
@@ -3269,7 +3274,7 @@ pub unsafe fn draw_bars(mut unhide: bool) {
                     c"[%s:%d] Output %s inactive, skipping...\n".as_ptr(),
                     c"../i3bar/src/xcb.c".as_ptr(),
                     2121 as ::core::ffi::c_int,
-                    (*outputs_walk).name,
+                    (*outputs_walk).name_ptr(),
                 );
             }
         } else {

@@ -1,443 +1,447 @@
+/* i3bar - Maintaining the outputs list. See LICENSE. */
+//! JSON parsing owns its records. Native windows and intrusive lists are
+//! modified only at the explicitly unsafe event-thread boundary.
+use crate::child::{i3_ws, outputs_head, rect_t, tc_head, trayclient, ws_head, C2RustUnnamed_5};
 use crate::config::config;
+use crate::workspaces::free_workspaces;
 use crate::xcb::destroy_window;
-use i3_common::safewrappers::sasprintf;
-/*
- * vim:ts=4:sw=4:expandtab
- *
- * i3bar - an xcb-based status- and ws-bar for i3
- * © 2010 Axel Wagner and contributors (see also: LICENSE)
- *
- * outputs.c: Maintaining the outputs list
- *
- */
-// Mechanical file-by-file Rust translation of i3bar/src/outputs.c.
-// Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
-use i3_json::compat::{yajl_alloc, yajl_free, yajl_parse};
-pub use i3_json::compat::{yajl_alloc_funcs, yajl_callbacks, yajl_handle, yajl_status};
+use i3_common::draw_util::surface_t;
+use i3_json::{Event, EventHandler, ParseError, Parser};
+use std::cell::RefCell;
+use std::ffi::{CStr, CString};
+use std::ptr;
+use std::rc::Rc;
 
-pub type i3String = _i3String;
-pub use crate::child::rect_t;
-pub use i3_common::draw_util::surface_t;
-pub type rect = rect_t;
-pub use crate::child::i3_output;
-pub use crate::child::i3_ws;
-pub use crate::child::outputs_head;
-pub use crate::child::tc_head;
-pub use crate::child::trayclient;
-pub use crate::child::ws_head;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct outputs_json_params {
-    pub outputs_walk: *mut i3_output,
-    pub cur_key: *mut ::core::ffi::c_char,
-    pub in_rect: bool,
+/// Box-owned node in the event-thread output list. The head owners keep their
+/// addresses stable; public raw aliases are only for legacy native callers.
+/// No Drop traverses those forgeable raw links or releases native resources.
+pub struct Output {
+    pub name: CString,
+    pub active: bool,
+    pub primary: bool,
+    pub visible: bool,
+    pub ws: i32,
+    pub rect: rect_t,
+    pub buffer: surface_t,
+    pub statusline_buffer: surface_t,
+    pub statusline_width: i32,
+    pub bar: surface_t,
+    pub workspaces: *mut ws_head,
+    pub trayclients: *mut tc_head,
+    pub slist: C2RustUnnamed_5,
+    _workspace_head: Box<ws_head>,
+    _trayclient_head: Box<tc_head>,
 }
-
-pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
-unsafe fn outputs_null_cb(params_: *mut ::core::ffi::c_void) -> ::core::ffi::c_int {
-    let params: *mut outputs_json_params = params_ as *mut outputs_json_params;
-    free((*params).cur_key as *mut ::core::ffi::c_void);
-    (*params).cur_key = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    1 as ::core::ffi::c_int
-}
-unsafe fn outputs_boolean_cb(
-    params_: *mut ::core::ffi::c_void,
-    val: ::core::ffi::c_int,
-) -> ::core::ffi::c_int {
-    let params: *mut outputs_json_params = params_ as *mut outputs_json_params;
-    if strcmp((*params).cur_key, c"active".as_ptr()) == 0 {
-        (*(*params).outputs_walk).active = val != 0;
-        free((*params).cur_key as *mut ::core::ffi::c_void);
-        (*params).cur_key = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        return 1 as ::core::ffi::c_int;
-    }
-    if strcmp((*params).cur_key, c"primary".as_ptr()) == 0 {
-        (*(*params).outputs_walk).primary = val != 0;
-        free((*params).cur_key as *mut ::core::ffi::c_void);
-        (*params).cur_key = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        return 1 as ::core::ffi::c_int;
-    }
-    0 as ::core::ffi::c_int
-}
-unsafe fn outputs_integer_cb(
-    params_: *mut ::core::ffi::c_void,
-    val: ::core::ffi::c_longlong,
-) -> ::core::ffi::c_int {
-    let params: *mut outputs_json_params = params_ as *mut outputs_json_params;
-    if strcmp((*params).cur_key, c"current_workspace".as_ptr()) == 0 {
-        (*(*params).outputs_walk).ws = val as ::core::ffi::c_int;
-        free((*params).cur_key as *mut ::core::ffi::c_void);
-        (*params).cur_key = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        return 1 as ::core::ffi::c_int;
-    }
-    if strcmp((*params).cur_key, c"x".as_ptr()) == 0 {
-        (*(*params).outputs_walk).rect.x = val as ::core::ffi::c_int;
-        free((*params).cur_key as *mut ::core::ffi::c_void);
-        (*params).cur_key = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        return 1 as ::core::ffi::c_int;
-    }
-    if strcmp((*params).cur_key, c"y".as_ptr()) == 0 {
-        (*(*params).outputs_walk).rect.y = val as ::core::ffi::c_int;
-        free((*params).cur_key as *mut ::core::ffi::c_void);
-        (*params).cur_key = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        return 1 as ::core::ffi::c_int;
-    }
-    if strcmp((*params).cur_key, c"width".as_ptr()) == 0 {
-        (*(*params).outputs_walk).rect.w = val as ::core::ffi::c_int;
-        free((*params).cur_key as *mut ::core::ffi::c_void);
-        (*params).cur_key = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        return 1 as ::core::ffi::c_int;
-    }
-    if strcmp((*params).cur_key, c"height".as_ptr()) == 0 {
-        (*(*params).outputs_walk).rect.h = val as ::core::ffi::c_int;
-        free((*params).cur_key as *mut ::core::ffi::c_void);
-        (*params).cur_key = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        return 1 as ::core::ffi::c_int;
-    }
-    0 as ::core::ffi::c_int
-}
-unsafe fn outputs_string_cb(
-    params_: *mut ::core::ffi::c_void,
-    val: *const ::core::ffi::c_uchar,
-    len: usize,
-) -> ::core::ffi::c_int {
-    let params: *mut outputs_json_params = params_ as *mut outputs_json_params;
-    if strcmp((*params).cur_key, c"current_workspace".as_ptr()) == 0 {
-        let mut copy: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        sasprintf(
-            &raw mut copy,
-            c"%.*s".as_ptr(),
-            len as ::core::ffi::c_int,
-            val,
-        );
-        let mut end: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        *__errno_location() = 0 as ::core::ffi::c_int;
-        let parsed_num: ::core::ffi::c_long = strtol(copy, &raw mut end, 10 as ::core::ffi::c_int);
-        if *__errno_location() == 0 as ::core::ffi::c_int
-            && (!end.is_null() && *end as ::core::ffi::c_int == '\0' as i32)
-        {
-            (*(*params).outputs_walk).ws = parsed_num as ::core::ffi::c_int;
+impl Output {
+    pub fn new(name: CString) -> Self {
+        let mut workspace_head = Box::new(ws_head {
+            tqh_first: ptr::null_mut(),
+            tqh_last: ptr::null_mut(),
+        });
+        workspace_head.tqh_last = &raw mut workspace_head.tqh_first;
+        let mut trayclient_head = Box::new(tc_head {
+            tqh_first: ptr::null_mut(),
+            tqh_last: ptr::null_mut(),
+        });
+        trayclient_head.tqh_last = &raw mut trayclient_head.tqh_first;
+        let empty_surface = surface_t {
+            id: 0,
+            gc: 0,
+            owns_gc: false,
+            width: 0,
+            height: 0,
+            surface: ptr::null_mut(),
+            cr: ptr::null_mut(),
+        };
+        Self {
+            name,
+            active: false,
+            primary: false,
+            visible: false,
+            ws: 0,
+            rect: rect_t {
+                x: 0,
+                y: 0,
+                w: 0,
+                h: 0,
+            },
+            buffer: empty_surface,
+            statusline_buffer: empty_surface,
+            statusline_width: 0,
+            bar: empty_surface,
+            workspaces: &raw mut *workspace_head,
+            trayclients: &raw mut *trayclient_head,
+            slist: C2RustUnnamed_5 {
+                sle_next: ptr::null_mut(),
+            },
+            _workspace_head: workspace_head,
+            _trayclient_head: trayclient_head,
         }
-        free(copy as *mut ::core::ffi::c_void);
-        copy = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        free((*params).cur_key as *mut ::core::ffi::c_void);
-        (*params).cur_key = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        return 1 as ::core::ffi::c_int;
     }
-    if strcmp((*params).cur_key, c"name".as_ptr()) != 0 {
-        return 0 as ::core::ffi::c_int;
+    /// Borrowed native view; callers must neither free nor retain it.
+    pub fn name_ptr(&self) -> *const libc::c_char {
+        self.name.as_ptr()
     }
-    sasprintf(
-        &raw mut (*(*params).outputs_walk).name,
-        c"%.*s".as_ptr(),
-        len as ::core::ffi::c_int,
-        val,
-    );
-    free((*params).cur_key as *mut ::core::ffi::c_void);
-    (*params).cur_key = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    1 as ::core::ffi::c_int
 }
-unsafe fn outputs_start_map_cb(params_: *mut ::core::ffi::c_void) -> ::core::ffi::c_int {
-    let params: *mut outputs_json_params = params_ as *mut outputs_json_params;
-    let mut new_output: *mut i3_output = ::core::ptr::null_mut::<i3_output>();
-    if (*params).cur_key.is_null() {
-        new_output = smalloc(::core::mem::size_of::<i3_output>() as usize) as *mut i3_output;
-        (*new_output).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        (*new_output).active = false_0 != 0;
-        (*new_output).primary = false_0 != 0;
-        (*new_output).visible = false_0 != 0;
-        (*new_output).ws = 0 as ::core::ffi::c_int;
-        (*new_output).statusline_width = 0 as ::core::ffi::c_int;
-        memset(
-            &raw mut (*new_output).rect as *mut ::core::ffi::c_void,
-            0 as ::core::ffi::c_int,
-            ::core::mem::size_of::<rect>() as usize,
-        );
-        memset(
-            &raw mut (*new_output).bar as *mut ::core::ffi::c_void,
-            0 as ::core::ffi::c_int,
-            ::core::mem::size_of::<surface_t>() as usize,
-        );
-        memset(
-            &raw mut (*new_output).buffer as *mut ::core::ffi::c_void,
-            0 as ::core::ffi::c_int,
-            ::core::mem::size_of::<surface_t>() as usize,
-        );
-        memset(
-            &raw mut (*new_output).statusline_buffer as *mut ::core::ffi::c_void,
-            0 as ::core::ffi::c_int,
-            ::core::mem::size_of::<surface_t>() as usize,
-        );
-        (*new_output).workspaces =
-            smalloc(::core::mem::size_of::<ws_head>() as usize) as *mut ws_head;
-        (*(*new_output).workspaces).tqh_first = ::core::ptr::null_mut::<i3_ws>();
-        (*(*new_output).workspaces).tqh_last = &raw mut (*(*new_output).workspaces).tqh_first;
-        (*new_output).trayclients =
-            smalloc(::core::mem::size_of::<tc_head>() as usize) as *mut tc_head;
-        (*(*new_output).trayclients).tqh_first = ::core::ptr::null_mut::<trayclient>();
-        (*(*new_output).trayclients).tqh_last = &raw mut (*(*new_output).trayclients).tqh_first;
-        (*params).outputs_walk = new_output;
-        return 1 as ::core::ffi::c_int;
-    }
-    if strcmp((*params).cur_key, c"rect".as_ptr()) == 0 {
-        (*params).in_rect = true_0 != 0;
-    }
-    1 as ::core::ffi::c_int
+
+#[derive(Default)]
+struct OutputRecord {
+    name: Option<CString>,
+    active: bool,
+    primary: bool,
+    ws: i32,
+    rect: [i32; 4],
 }
-unsafe fn clear_output(output: *mut i3_output) {
-    free((*output).name as *mut ::core::ffi::c_void);
-    (*output).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    free((*output).workspaces as *mut ::core::ffi::c_void);
-    (*output).workspaces = ::core::ptr::null_mut::<ws_head>();
-    free((*output).trayclients as *mut ::core::ffi::c_void);
-    (*output).trayclients = ::core::ptr::null_mut::<tc_head>();
+#[derive(Default)]
+struct OutputReader {
+    key: Option<Vec<u8>>,
+    current: Option<OutputRecord>,
+    records: Vec<OutputRecord>,
+    in_rect: bool,
 }
-unsafe fn outputs_end_map_cb(params_: *mut ::core::ffi::c_void) -> ::core::ffi::c_int {
-    let params: *mut outputs_json_params = params_ as *mut outputs_json_params;
-    if (*params).in_rect {
-        (*params).in_rect = false_0 != 0;
-        return 1 as ::core::ffi::c_int;
+struct SharedReader(Rc<RefCell<OutputReader>>);
+fn prefix(bytes: &[u8]) -> &[u8] {
+    bytes.split(|byte| *byte == 0).next().unwrap()
+}
+
+// The string form historically uses locale-sensitive strtol, accepting empty
+// strings as zero and wrapping the final C-int conversion. A bounded owned C
+// string replaces printf/strlen storage, while retaining those exact rules.
+fn workspace_number(value: &[u8]) -> Option<i32> {
+    let value = CString::new(prefix(value)).expect("NUL-free prefix");
+    let mut end = ptr::null_mut();
+    // SAFETY: value is a terminated owned string; end and errno are thread-local
+    // writable native storage, and strtol's returned end stays inside value.
+    unsafe {
+        *libc::__errno_location() = 0;
+        let number = libc::strtol(value.as_ptr(), &raw mut end, 10);
+        (*libc::__errno_location() == 0 && !end.is_null() && *end == 0).then_some(number as i32)
     }
-    if config.num_outputs > 0 as ::core::ffi::c_int {
-        let is_primary: bool = (*(*params).outputs_walk).primary;
-        let mut handle_output: bool = false_0 != 0;
-        let mut c: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-        while c < config.num_outputs {
-            if strcasecmp(
-                (*(*params).outputs_walk).name,
-                *config.outputs.offset(c as isize),
-            ) == 0 as ::core::ffi::c_int
-                || strcasecmp(*config.outputs.offset(c as isize), c"primary".as_ptr())
-                    == 0 as ::core::ffi::c_int
-                    && is_primary as ::core::ffi::c_int != 0
-                || strcasecmp(*config.outputs.offset(c as isize), c"nonprimary".as_ptr())
-                    == 0 as ::core::ffi::c_int
-                    && !is_primary
-            {
-                handle_output = true_0 != 0;
-                break;
-            } else {
-                c += 1;
+}
+impl EventHandler for SharedReader {
+    fn on_event(&mut self, event: Event<'_>) -> bool {
+        let mut reader = self.0.borrow_mut();
+        match event {
+            Event::MapKey(key) => reader.key = Some(prefix(key).to_vec()),
+            Event::StartMap if reader.key.is_none() => {
+                reader.current = Some(OutputRecord::default())
             }
-        }
-        if !handle_output {
-            if config.verbose {
-                printf(
-                    c"[%s:%d] Ignoring output \"%s\", not configured to handle it.\n".as_ptr(),
-                    c"../i3bar/src/outputs.c".as_ptr(),
-                    205 as ::core::ffi::c_int,
-                    (*(*params).outputs_walk).name,
-                );
+            Event::StartMap => {
+                if reader.key.as_deref() == Some(b"rect") {
+                    reader.in_rect = true;
+                }
             }
-            clear_output((*params).outputs_walk);
-            free((*params).outputs_walk as *mut ::core::ffi::c_void);
-            (*params).outputs_walk = ::core::ptr::null_mut::<i3_output>();
-            free((*params).cur_key as *mut ::core::ffi::c_void);
-            (*params).cur_key = ::core::ptr::null_mut::<::core::ffi::c_char>();
-            return 1 as ::core::ffi::c_int;
+            Event::EndMap if reader.in_rect => reader.in_rect = false,
+            Event::EndMap => {
+                let Some(record) = reader.current.take() else {
+                    return false;
+                };
+                // Missing names formerly reached strcmp(NULL), never a valid output.
+                if record.name.is_none() {
+                    return false;
+                }
+                reader.records.push(record);
+            }
+            Event::Null => reader.key = None,
+            Event::Boolean(value) => {
+                let key = reader.key.take();
+                let Some(record) = reader.current.as_mut() else {
+                    return false;
+                };
+                match key.as_deref() {
+                    Some(b"active") => record.active = value,
+                    Some(b"primary") => record.primary = value,
+                    _ => return false,
+                }
+            }
+            Event::Number(value) if !value.contains(['.', 'e', 'E']) => {
+                let Ok(value) = value.parse::<i64>() else {
+                    return false;
+                };
+                if value == i64::MIN {
+                    return false;
+                }
+                let key = reader.key.take();
+                let Some(record) = reader.current.as_mut() else {
+                    return false;
+                };
+                let value = value as i32;
+                match key.as_deref() {
+                    Some(b"current_workspace") => record.ws = value,
+                    Some(b"x") => record.rect[0] = value,
+                    Some(b"y") => record.rect[1] = value,
+                    Some(b"width") => record.rect[2] = value,
+                    Some(b"height") => record.rect[3] = value,
+                    _ => return false,
+                }
+            }
+            Event::String(value) => {
+                let key = reader.key.take();
+                let Some(record) = reader.current.as_mut() else {
+                    return false;
+                };
+                match key.as_deref() {
+                    Some(b"name") => {
+                        record.name = Some(CString::new(prefix(value)).expect("NUL-free prefix"))
+                    }
+                    Some(b"current_workspace") => {
+                        if let Some(value) = workspace_number(value) {
+                            record.ws = value;
+                        }
+                    }
+                    _ => return false,
+                }
+            }
+            _ => {}
         }
+        true
     }
-    let target: *mut i3_output = get_output_by_name((*(*params).outputs_walk).name);
-    if target.is_null() {
-        (*(*params).outputs_walk).slist.sle_next = (*outputs).slh_first;
-        (*outputs).slh_first = (*params).outputs_walk as *mut i3_output;
-    } else {
-        (*target).active = (*(*params).outputs_walk).active;
-        (*target).primary = (*(*params).outputs_walk).primary;
-        (*target).ws = (*(*params).outputs_walk).ws;
-        (*target).rect = (*(*params).outputs_walk).rect;
-        clear_output((*params).outputs_walk);
-        free((*params).outputs_walk as *mut ::core::ffi::c_void);
-        (*params).outputs_walk = ::core::ptr::null_mut::<i3_output>();
-    }
-    1 as ::core::ffi::c_int
 }
-unsafe fn outputs_map_key_cb(
-    params_: *mut ::core::ffi::c_void,
-    keyVal: *const ::core::ffi::c_uchar,
-    keyLen: usize,
-) -> ::core::ffi::c_int {
-    let params: *mut outputs_json_params = params_ as *mut outputs_json_params;
-    free((*params).cur_key as *mut ::core::ffi::c_void);
-    (*params).cur_key = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    sasprintf(
-        &raw mut (*params).cur_key,
-        c"%.*s".as_ptr(),
-        keyLen as ::core::ffi::c_int,
-        keyVal,
-    );
-    1 as ::core::ffi::c_int
+fn read_outputs(json: &[u8]) -> Result<Vec<OutputRecord>, ParseError> {
+    let reader = Rc::new(RefCell::new(OutputReader::default()));
+    let mut parser = Parser::new(SharedReader(Rc::clone(&reader)));
+    parser.options_mut().allow_legacy_whitespace = true;
+    // A complete output is published even if the outer array is unfinished;
+    // an incomplete output itself is never published.
+    parser.parse(json)?;
+    drop(parser);
+    Ok(Rc::try_unwrap(reader)
+        .ok()
+        .expect("parser released reader")
+        .into_inner()
+        .records)
 }
-static mut outputs_callbacks: yajl_callbacks = unsafe {
-    yajl_callbacks {
-        yajl_null: Some(
-            outputs_null_cb as unsafe fn(*mut ::core::ffi::c_void) -> ::core::ffi::c_int,
-        ),
-        yajl_boolean: Some(
-            outputs_boolean_cb
-                as unsafe fn(*mut ::core::ffi::c_void, ::core::ffi::c_int) -> ::core::ffi::c_int,
-        ),
-        yajl_integer: Some(
-            outputs_integer_cb
-                as unsafe fn(
-                    *mut ::core::ffi::c_void,
-                    ::core::ffi::c_longlong,
-                ) -> ::core::ffi::c_int,
-        ),
-        yajl_double: None,
-        yajl_number: None,
-        yajl_string: Some(
-            outputs_string_cb
-                as unsafe fn(
-                    *mut ::core::ffi::c_void,
-                    *const ::core::ffi::c_uchar,
-                    usize,
-                ) -> ::core::ffi::c_int,
-        ),
-        yajl_start_map: Some(
-            outputs_start_map_cb as unsafe fn(*mut ::core::ffi::c_void) -> ::core::ffi::c_int,
-        ),
-        yajl_map_key: Some(
-            outputs_map_key_cb
-                as unsafe fn(
-                    *mut ::core::ffi::c_void,
-                    *const ::core::ffi::c_uchar,
-                    usize,
-                ) -> ::core::ffi::c_int,
-        ),
-        yajl_end_map: Some(
-            outputs_end_map_cb as unsafe fn(*mut ::core::ffi::c_void) -> ::core::ffi::c_int,
-        ),
-        yajl_start_array: None,
-        yajl_end_array: None,
-    }
-};
 
-pub static mut outputs: *mut outputs_head =
-    ::core::ptr::null::<outputs_head>() as *mut outputs_head;
-
+pub static mut outputs: *mut outputs_head = ptr::null_mut();
+/// # Safety
+/// Called once by the event thread before any output-list use.
 pub unsafe fn init_outputs() {
-    outputs = smalloc(::core::mem::size_of::<outputs_head>() as usize) as *mut outputs_head;
-    (*outputs).slh_first = ::core::ptr::null_mut::<i3_output>();
+    outputs = Box::into_raw(Box::new(outputs_head {
+        slh_first: ptr::null_mut(),
+    }));
 }
 
-pub unsafe fn parse_outputs_json(json: *const ::core::ffi::c_uchar, size: usize) {
-    let mut params: outputs_json_params = outputs_json_params {
-        outputs_walk: ::core::ptr::null_mut::<i3_output>(),
-        cur_key: ::core::ptr::null_mut::<::core::ffi::c_char>(),
-        in_rect: false,
-    };
-    params.outputs_walk = ::core::ptr::null_mut::<i3_output>();
-    params.cur_key = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    params.in_rect = false_0 != 0;
-    let handle: yajl_handle = yajl_alloc(
-        &raw mut outputs_callbacks,
-        ::core::ptr::null_mut::<yajl_alloc_funcs>(),
-        &raw mut params as *mut ::core::ffi::c_void,
-    );
-    let state: yajl_status = yajl_parse(handle, json, size);
-    match state as ::core::ffi::c_uint {
-        1 | 2 => {
-            fprintf(
-                stderr,
-                c"[%s:%d] ERROR: Could not parse outputs reply!\n".as_ptr(),
-                c"../i3bar/src/outputs.c".as_ptr(),
-                282 as ::core::ffi::c_int,
-            );
-            exit(libc::EXIT_FAILURE);
+/// # Safety
+/// The initialized event-thread graph is exclusively modified by this call.
+unsafe fn apply_outputs(records: Vec<OutputRecord>) {
+    for record in records {
+        let mut record = record;
+        let name = record.name.take().expect("reader checked name");
+        if config.num_outputs > 0 {
+            let accepted = (0..config.num_outputs).any(|index| {
+                let requested = *config.outputs.offset(index as isize);
+                libc::strcasecmp(name.as_ptr(), requested) == 0
+                    || libc::strcasecmp(requested, c"primary".as_ptr()) == 0 && record.primary
+                    || libc::strcasecmp(requested, c"nonprimary".as_ptr()) == 0 && !record.primary
+            });
+            if !accepted {
+                if config.verbose {
+                    libc::printf(c"[../i3bar/src/outputs.c:205] Ignoring output \"%s\", not configured to handle it.\n".as_ptr(), name.as_ptr());
+                }
+                continue;
+            }
         }
-        0 | _ => {}
+        publish_output(outputs, record, name);
     }
-    yajl_free(handle);
-    free(params.cur_key as *mut ::core::ffi::c_void);
 }
 
+// head owns distinct Output boxes and is exclusively accessed on this thread.
+unsafe fn publish_output(head: *mut outputs_head, record: OutputRecord, name: CString) {
+    let existing = find_output(head, name.as_c_str());
+    let target = if existing.is_null() {
+        let mut output = Box::new(Output::new(name));
+        output.slist.sle_next = (*head).slh_first;
+        let output = Box::into_raw(output);
+        (*head).slh_first = output;
+        output
+    } else {
+        existing
+    };
+    (*target).active = record.active;
+    (*target).primary = record.primary;
+    (*target).ws = record.ws;
+    let [x, y, w, h] = record.rect;
+    (*target).rect = rect_t { x, y, w, h };
+}
+
+/// # Safety
+/// json points to size readable bytes. The initialized native output graph and
+/// configuration belong to this event thread and have no concurrent borrowers.
+pub unsafe fn parse_outputs_json(json: *const u8, size: usize) {
+    let json = if size == 0 {
+        &[]
+    } else {
+        std::slice::from_raw_parts(json, size)
+    };
+    match read_outputs(json) {
+        Ok(records) => apply_outputs(records),
+        Err(_) => {
+            eprintln!("[../i3bar/src/outputs.c:282] ERROR: Could not parse outputs reply!");
+            libc::exit(libc::EXIT_FAILURE);
+        }
+    }
+}
+
+/// # Safety
+/// Each output is a distinct Box transferred by apply_outputs. Workspace and
+/// tray lists are valid acyclic event-thread allocations. No native operation
+/// or iterator retains a node; native window destruction is allowed here.
 pub unsafe fn free_outputs() {
     free_workspaces();
-    let mut outputs_walk: *mut i3_output = ::core::ptr::null_mut::<i3_output>();
     if outputs.is_null() {
         return;
     }
-    outputs_walk = (*outputs).slh_first as *mut i3_output;
-    while !outputs_walk.is_null() {
-        destroy_window(outputs_walk);
-        if !(*outputs_walk).trayclients.is_null()
-            && !(*(*outputs_walk).trayclients).tqh_first.is_null()
-        {
-            let mut walk: *mut trayclient =
-                (*(*outputs_walk).trayclients).tqh_first as *mut trayclient;
-            while !(*(*outputs_walk).trayclients).tqh_first.is_null() {
-                if !(*(*(*outputs_walk).trayclients).tqh_first)
-                    .tailq
-                    .tqe_next
-                    .is_null()
-                {
-                    (*(*(*(*outputs_walk).trayclients).tqh_first).tailq.tqe_next)
-                        .tailq
-                        .tqe_prev = (*(*(*outputs_walk).trayclients).tqh_first).tailq.tqe_prev;
-                } else {
-                    (*(*outputs_walk).trayclients).tqh_last =
-                        (*(*(*outputs_walk).trayclients).tqh_first).tailq.tqe_prev;
-                }
-                *(*(*(*outputs_walk).trayclients).tqh_first).tailq.tqe_prev =
-                    (*(*(*outputs_walk).trayclients).tqh_first).tailq.tqe_next;
-                free(walk as *mut ::core::ffi::c_void);
-                walk = ::core::ptr::null_mut::<trayclient>();
-                walk = (*(*outputs_walk).trayclients).tqh_first as *mut trayclient;
+    // Tray teardown sends native notifications that consult the complete
+    // output graph. Keep every node live until all native windows are closed.
+    let mut output = (*outputs).slh_first;
+    while !output.is_null() {
+        destroy_window(output);
+        output = (*output).slist.sle_next;
+    }
+    output = (*outputs).slh_first;
+    (*outputs).slh_first = ptr::null_mut();
+    while !output.is_null() {
+        let next = (*output).slist.sle_next;
+        let head = (*output).trayclients;
+        if !head.is_null() {
+            let mut client = (*head).tqh_first;
+            (*head).tqh_first = ptr::null_mut();
+            (*head).tqh_last = &raw mut (*head).tqh_first;
+            while !client.is_null() {
+                let next = (*client).tailq.tqe_next;
+                libc::free((*client).class_class.cast());
+                libc::free((*client).class_instance.cast());
+                libc::free(client.cast());
+                client = next;
             }
         }
-        clear_output(outputs_walk);
-        outputs_walk = (*outputs_walk).slist.sle_next as *mut i3_output;
-    }
-    let mut walk_0: *mut i3_output = (*outputs).slh_first as *mut i3_output;
-    while !(*outputs).slh_first.is_null() {
-        (*outputs).slh_first = (*(*outputs).slh_first).slist.sle_next;
-        free(walk_0 as *mut ::core::ffi::c_void);
-        walk_0 = ::core::ptr::null_mut::<i3_output>();
-        walk_0 = (*outputs).slh_first as *mut i3_output;
+        drop(Box::from_raw(output));
+        output = next;
     }
 }
 
-pub unsafe fn get_output_by_name(name: *mut ::core::ffi::c_char) -> *mut i3_output {
-    if name.is_null() {
-        return ::core::ptr::null_mut::<i3_output>();
+/// # Safety
+/// name is a live terminated string or null. The initialized event-thread
+/// output graph stays live and unmodified while searching.
+pub unsafe fn get_output_by_name(name: *mut libc::c_char) -> *mut Output {
+    if name.is_null() || outputs.is_null() {
+        return ptr::null_mut();
     }
-    let is_primary: bool = strcasecmp(name, c"primary".as_ptr()) == 0;
-    let mut walk: *mut i3_output = ::core::ptr::null_mut::<i3_output>();
-    walk = (*outputs).slh_first as *mut i3_output;
-    while !walk.is_null() {
-        if is_primary as ::core::ffi::c_int != 0 && (*walk).primary as ::core::ffi::c_int != 0
-            || strcmp((*walk).name, name) == 0
-        {
+    find_output(outputs, CStr::from_ptr(name))
+}
+
+// head and its names are live, acyclic, and unmodified during this search.
+unsafe fn find_output(head: *mut outputs_head, name: &CStr) -> *mut Output {
+    let primary = libc::strcasecmp(name.as_ptr(), c"primary".as_ptr()) == 0;
+    let mut output = (*head).slh_first;
+    while !output.is_null() {
+        if primary && (*output).primary || (*output).name.as_c_str() == name {
             break;
         }
-        walk = (*walk).slist.sle_next as *mut i3_output;
+        output = (*output).slist.sle_next;
     }
-    walk
+    output
 }
 
-pub unsafe fn output_has_focus(output: *mut i3_output) -> bool {
-    let mut ws_walk: *mut i3_ws = ::core::ptr::null_mut::<i3_ws>();
-    ws_walk = (*(*output).workspaces).tqh_first as *mut i3_ws;
-    while !ws_walk.is_null() {
-        if (*ws_walk).focused {
-            return true_0 != 0;
+/// # Safety
+/// output and its workspace list are live on the event thread, with no mutation.
+pub unsafe fn output_has_focus(output: *mut Output) -> bool {
+    let mut workspace = (*(*output).workspaces).tqh_first;
+    while !workspace.is_null() {
+        if (*workspace).focused {
+            return true;
         }
-        ws_walk = (*ws_walk).tailq.tqe_next as *mut i3_ws;
+        workspace = (*workspace).tailq.tqe_next;
     }
-    false_0 != 0
+    false
 }
 
-// Internal helpers use Rust linkage rather than foreign symbol lookup.
-use crate::workspaces::free_workspaces;
-use i3_common::safewrappers::smalloc;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-// Canonical Cairo backend ABI; renderer logic remains local.
+    #[test]
+    fn only_complete_records_publish_and_names_own_nul_prefixes() {
+        let input = br#"[{"name\u0000ignored":"DP-1\u0000ignored","active":true,"rect":{"x":-8,"y":4,"width":1920,"height":1080}},{"name":"partial""#.to_vec();
+        let records = read_outputs(&input).unwrap();
+        drop(input);
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].name.as_deref(), Some(c"DP-1"));
+        assert_eq!(records[0].rect, [-8, 4, 1920, 1080]);
+        assert!(records[0].active);
+        assert!(read_outputs(br#"[{"name":"partial""#).unwrap().is_empty());
+    }
 
-pub use libc::{__errno_location, exit, fprintf, free, memset, printf, strcasecmp, strcmp, strtol};
+    #[test]
+    fn numeric_callbacks_retain_bounds_wrapping_and_ignored_floats() {
+        let records = read_outputs(br#"[{"name":"x","current_workspace":4294967297,"rect":{"x":4294967295,"width":2.5},"ignored":null}]"#).unwrap();
+        assert_eq!(records[0].ws, 1);
+        assert_eq!(records[0].rect, [-1, 0, 0, 0]);
+        for input in [
+            br#"[{"name":"x","current_workspace":9223372036854775808}]"#.as_slice(),
+            br#"[{"name":"x","current_workspace":-9223372036854775808}]"#,
+            br#"[{"name":"x","unknown":1}]"#,
+            br#"[{"name":"x","unknown":true}]"#,
+            br#"[{"name":"x","unknown":"value"}]"#,
+            br#"[{}]"#,
+        ] {
+            assert!(read_outputs(input).is_err(), "{input:?}");
+        }
+    }
 
-use i3_common::native_stdio::stderr;
+    #[test]
+    fn string_workspace_numbers_preserve_strtol_rules_and_failed_updates() {
+        for (value, expected) in [
+            (b"".as_slice(), Some(0)),
+            (b" \t+12", Some(12)),
+            (b"12 ", None),
+            (b"word", None),
+            (b"4294967297", Some(1)),
+            (b"9223372036854775808", None),
+            (b"9\0ignored", Some(9)),
+        ] {
+            assert_eq!(workspace_number(value), expected);
+        }
+        let records =
+            read_outputs(br#"[{"name":"x","current_workspace":7,"current_workspace":"invalid"}]"#)
+                .unwrap();
+        assert_eq!(records[0].ws, 7);
+    }
 
-pub use i3_common::string::I3String as _i3String;
+    #[test]
+    fn updates_preserve_node_identity_order_and_owned_head_addresses() {
+        let mut head = outputs_head {
+            slh_first: ptr::null_mut(),
+        };
+        let records = read_outputs(br#"[{"name":"one","primary":true},{"name":"two"},{"name":"one","active":true,"current_workspace":3}]"#).unwrap();
+        unsafe {
+            let mut first_node: *mut Output = ptr::null_mut();
+            for mut record in records {
+                let name = record.name.take().unwrap();
+                publish_output(&raw mut head, record, name);
+                if first_node.is_null() {
+                    first_node = head.slh_first;
+                }
+            }
+            let two = head.slh_first;
+            assert_eq!((*two).name.as_c_str(), c"two");
+            assert_eq!((*two).slist.sle_next, first_node);
+            assert!((*first_node).active);
+            assert!(!(*first_node).primary);
+            assert_eq!((*first_node).ws, 3);
+            // Moving the Output box or owner never moves either head allocation.
+            assert_eq!((*two).workspaces, &raw mut *(*two)._workspace_head);
+            assert_eq!(
+                (*(*two).workspaces).tqh_last,
+                &raw mut (*(*two).workspaces).tqh_first
+            );
+            assert_eq!((*two).trayclients, &raw mut *(*two)._trayclient_head);
+            assert_eq!(
+                (*(*two).trayclients).tqh_last,
+                &raw mut (*(*two).trayclients).tqh_first
+            );
+            drop(Box::from_raw(two));
+            drop(Box::from_raw(first_node));
+        }
+    }
+}

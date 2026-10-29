@@ -8,26 +8,26 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 17 wallclock secs ( 0.74 usr +  0.07 sys =  0.81 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 16 wallclock secs ( 0.63 usr +  0.06 sys =  0.69 CPU)\nResult: PASS",
     "profile": "debug",
     "build": "cargo test",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "3c7d0992c61dbcfbdcad3270ac6403e7e11f4027c00cf2a93b96b41e0ac7fc3b",
-    "i3bar": "e856f8a3fec9d0a90d9c56037784b8c37054d1775d2e1ac2abb88d7960911a4d",
-    "i3-config-wizard": "3c9182a6ff68806df6efaaae2540c42873cdd83a71f98970d9aa8d8805ba879c",
-    "i3-dump-log": "10f8eb605ec446542efd8ebcf3b5ea643d494b235ef4890014659aed7e6e7a22",
-    "i3-input": "3ec3498e0c15a243b6166d54b78e0a48405a015df65c231dfed69af47a8fbbd8",
-    "i3-msg": "38913a9354ae409eff80793d881d8b08f56c685cde38915cad99f76fdafa8de8",
-    "i3-nagbar": "fba26a7ee4b366e1129a6f1362c16da0ca4a771613d0f2b06fcb4f043f21a7f2"
+    "i3": "b7dda6601ef010611b21bba9d3047d68df94fc09d62063ab9a5da12bd00354cd",
+    "i3bar": "e11fd8b2d76827f32aaa50e3d89136fa9d73b272856ef1ddd576caffab9e443b",
+    "i3-config-wizard": "9540e55ae354120f9d7935cfd8ee28dda6a51bb1c3118c06fdaac8b904df7d3b",
+    "i3-dump-log": "68c474060fbd1933e43e0b42ca10fd04dda67783a716f86b5404d5f2d447da02",
+    "i3-input": "fc120c440217f3390cacf7423ab9dd3855160f53195d9e9819afbafd059aa30a",
+    "i3-msg": "4122c0206fc8c0eb548f17544c972869c987194673dfdd8a54c495ced17a2e92",
+    "i3-nagbar": "8aac77781ba095dd491ec2e7b8109bdc717007c8731ce2d36db19a3cfccc81bd"
   },
-  "note": "Ten-member Cargo workspace. Plain cargo test passed150 Rust-reported tests, native oracles, external C IPC/CLI/headless/input comparisons, and all4205 upstream assertions. Exact debug hashes above match this Cargo-driven run. Routine validation uses the repository nightly; worker checks are targeted. Clean-source verification is reserved for structural changes and was last verified at checkpoint2f4becb5. Native tree/global rendering boundaries remain unsafe; Linux x86_64 GNU ABI only.",
+  "note": "Ten-member Cargo workspace. Plain cargo test passed164 Rust-reported tests, native oracles, external C IPC/CLI/headless/input comparisons, and all4205 upstream assertions. Exact debug hashes above match this Cargo-driven run. Routine validation uses one repository-nightly pass per batch. Native/global tree and rendering ownership boundaries remain explicitly unsafe; Linux x86_64 GNU ABI only.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
   "additional_checks": {
     "headless_c_rust_state_comparisons": 52,
     "ipc_client_test_groups": 16,
-    "workspace_unit_tests": 150,
+    "workspace_unit_tests": 164,
     "core_and_bar_cli_comparisons": 30,
     "pcre2_compile_match_error_comparisons": 4620,
     "json_oracle_cases": 2218,
@@ -70,7 +70,8 @@
     "compile_only": true,
     "all_unit_and_integration_test_targets_compiled": true,
     "automatic_after_each_source_edit": false,
-    "last_verified_commit": "2f4becb5fae89c3e70b3f67b1c989f8ee0289d4c"
+    "last_verified_commit": "e86badf8f9e7dda68b0f3cf22ba4d1b26855f777",
+    "last_verification_environment": "GitHub Actions Ubuntu24; structural clean-source feature"
   },
   "repository_cleanup": {
     "obsolete_files_removed": 216,
@@ -106,10 +107,10 @@
     "binary_count": 7,
     "native_library_discovery": "maintained native binding build scripts and dedicated sys crates; i3-build links only platform m/rt",
     "unit_tests": {
-      "i3": 26,
+      "i3": 33,
       "xkb_integration": 1,
       "i3-build": 3,
-      "i3-common": 52,
+      "i3-common": 55,
       "native_graphics": 5,
       "i3-json": 16,
       "i3-dump-log": 5,
@@ -118,18 +119,19 @@
       "startup-notification-sys": 1,
       "xcb-sys": 2,
       "libev-sys": 2,
-      "i3bar": 14,
+      "i3bar": 18,
       "cargo_regression_wrappers": 5,
       "binary_artifact_checks": 2
     },
     "cargo_fmt_check": true,
     "debug_build": true,
     "release_build": null,
-    "unit_tests_total_including_integration_checks": 150,
+    "unit_tests_total_including_integration_checks": 164,
     "test_command": "cargo test",
     "clean_source_command": "cargo test -p i3-test-support --features clean-source-check",
     "test_support": "development-only process capture, failure propagation and isolated regression orchestration",
-    "release_build_note": "Release build last verified at checkpoint2f4becb5; routine batch2 ran the complete default Cargo test suite."
+    "release_build_note": "Current batch uses default debug Cargo tests. Prior checkpoint e86badf8 release and structural builds passed on Ubuntu CI.",
+    "last_release_build_verified_commit": "e86badf8f9e7dda68b0f3cf22ba4d1b26855f777"
   },
   "modernization": {
     "yajl_product_dependency": false,
@@ -210,12 +212,43 @@
           "Duplicate workspace output targets cannot cycle lists or double-free nodes"
         ],
         "validation": "Default cargo test passed150 Rust-reported tests plus all external suites; 65536 native color and1552 native geometry comparisons run inside unit tests."
+      },
+      {
+        "batch": 3,
+        "files": [
+          "crates/i3-common/src/is_background_set.rs",
+          "crates/i3-common/src/screenshot_wallpaper.rs",
+          "crates/i3bar/src/outputs.rs",
+          "crates/i3/src/match.rs",
+          "crates/i3/src/sync.rs",
+          "crates/i3/src/key_press.rs",
+          "crates/i3/src/xcursor.rs"
+        ],
+        "improvements": [
+          "Owned native replies and Cairo regions; checked child/image payloads",
+          "Box-owned output nodes, CString names and stable owned list heads",
+          "Typed borrowed window/criteria views and safe matching decisions",
+          "Stack-owned32-byte sync packets",
+          "Short-lived validated key-event borrows and RAII cursor contexts"
+        ],
+        "safety_fixes": [
+          "Malformed short native payloads no longer permit out-of-bounds reads",
+          "Copied match errors own independent allocations and cannot double-free",
+          "Cursor contexts are released after loading connection-owned cursor IDs"
+        ],
+        "remaining_boundaries": "Legacy tree/global mutation, raw mapped native handles and event-thread resource lifetimes stay unsafe by contract. No owned Rust references escape those borrows.",
+        "validation": "One default cargo test passed164 Rust-reported tests and all external suites."
       }
     ]
   },
   "ci_dependency_preparation": {
     "confirmed_previous_failure": "X11::XCB required missing xcb-composite.pc and protocol XML metadata",
     "fix": "Install libxcb-composite0-dev and xcb-proto; preflight now identifies missing modules/XML and surfaces nested CPAN build logs",
-    "reproduction": "Ubuntu24 exact CPAN configure failed before the fix, succeeded afterward; fresh44-distribution CPAN install and required module imports passed. Full remote CI result remains pending the next push."
+    "reproduction": "Ubuntu24 exact CPAN configure failed before the fix, succeeded afterward; fresh44-distribution CPAN install and module imports passed. Full e86badf8 GitHub Actions workflow subsequently succeeded."
+  },
+  "last_observed_green_ci": {
+    "commit": "e86badf8f9e7dda68b0f3cf22ba4d1b26855f777",
+    "url": "https://github.com/sdfgeoff/i333/actions/runs/40850349641",
+    "conclusion": "success"
   }
 }

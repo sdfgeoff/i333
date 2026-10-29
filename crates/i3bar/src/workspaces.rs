@@ -553,15 +553,8 @@ mod tests {
 
     #[test]
     fn intrusive_lists_detach_then_drop_owned_nodes_and_can_be_cleared_twice() {
-        // The output model still contains only native handles, scalars and raw
-        // list heads; Workspace itself is always constructed with Box::new.
-        let mut output = Box::new(unsafe { std::mem::zeroed::<i3_output>() });
-        let mut head = Box::new(crate::child::ws_head {
-            tqh_first: ptr::null_mut(),
-            tqh_last: ptr::null_mut(),
-        });
-        head.tqh_last = &raw mut head.tqh_first;
-        output.workspaces = &raw mut *head;
+        let mut output = Box::new(i3_output::new(c"test".to_owned()));
+        let head = output.workspaces;
         unsafe {
             append_workspace(
                 &raw mut *output,
@@ -571,15 +564,17 @@ mod tests {
                 &raw mut *output,
                 Box::new(Workspace::error(I3String::new("two"), 3)),
             );
-            let first = head.tqh_first;
+            let first = (*head).tqh_first;
             let second = (*first).tailq.tqe_next;
             assert_eq!((*first).name.as_str().unwrap(), "one");
             assert_eq!((*second).name.as_str().unwrap(), "two");
             assert_eq!((*second).tailq.tqe_prev, &raw mut (*first).tailq.tqe_next);
-            clear_workspace_head(&mut head);
-            clear_workspace_head(&mut head);
+            clear_workspace_head(&mut *head);
+            clear_workspace_head(&mut *head);
         }
-        assert!(head.tqh_first.is_null());
-        assert_eq!(head.tqh_last, &raw mut head.tqh_first);
+        unsafe {
+            assert!((*head).tqh_first.is_null());
+            assert_eq!((*head).tqh_last, &raw mut (*head).tqh_first);
+        }
     }
 }
