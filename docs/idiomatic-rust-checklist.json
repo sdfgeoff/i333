@@ -1,0 +1,664 @@
+{
+  "baseline_commit": "7fbc34467b752f6dbe4783c973d6c397d9e727c8",
+  "scope": "All 66 files remaining at the start of this pass. Each receives an individual source review; compatible Rust/native boundaries are retained deliberately.",
+  "files": [
+    {
+      "number": 1,
+      "path": "crates/i3/build.rs",
+      "status": "reviewed_idiomatic",
+      "result": "Read individually: Rust main delegates to shared i3_build::configure; no native source compilation, duplicated parser generator, pointer algorithm or allocation ownership.",
+      "tests": [
+        "PASS shared i3-build helper unit tests; existing Cargo member build contracts retained",
+        "Root final full Cargo/clean-source barrier validates member script execution"
+      ],
+      "remaining_boundaries": [
+        "Shared build support publishes member compiler cfg/version"
+      ],
+      "review_wave": 7
+    },
+    {
+      "number": 2,
+      "path": "crates/i3/src/application.rs",
+      "status": "pending",
+      "result": null
+    },
+    {
+      "number": 3,
+      "path": "crates/i3/src/bindings.rs",
+      "status": "pending",
+      "result": null
+    },
+    {
+      "number": 4,
+      "path": "crates/i3/src/click.rs",
+      "status": "pending",
+      "result": null
+    },
+    {
+      "number": 5,
+      "path": "crates/i3/src/commands.rs",
+      "status": "pending",
+      "result": null
+    },
+    {
+      "number": 6,
+      "path": "crates/i3/src/commands_parser.rs",
+      "status": "pending",
+      "result": null
+    },
+    {
+      "number": 7,
+      "path": "crates/i3/src/con.rs",
+      "status": "pending",
+      "result": null
+    },
+    {
+      "number": 8,
+      "path": "crates/i3/src/config.rs",
+      "status": "pending",
+      "result": null
+    },
+    {
+      "number": 9,
+      "path": "crates/i3/src/config_directives.rs",
+      "status": "pending",
+      "result": null
+    },
+    {
+      "number": 10,
+      "path": "crates/i3/src/config_parser.rs",
+      "status": "pending",
+      "result": null
+    },
+    {
+      "number": 11,
+      "path": "crates/i3/src/drag.rs",
+      "status": "pending",
+      "result": null
+    },
+    {
+      "number": 12,
+      "path": "crates/i3/src/floating.rs",
+      "status": "pending",
+      "result": null
+    },
+    {
+      "number": 13,
+      "path": "crates/i3/src/handlers.rs",
+      "status": "pending",
+      "result": null
+    },
+    {
+      "number": 14,
+      "path": "crates/i3/src/ipc.rs",
+      "status": "pending",
+      "result": null
+    },
+    {
+      "number": 15,
+      "path": "crates/i3/src/load_layout.rs",
+      "status": "pending",
+      "result": null
+    },
+    {
+      "number": 16,
+      "path": "crates/i3/src/main.rs",
+      "status": "reviewed_native",
+      "result": "Read complete module registry, main installation and both shared callbacks. They are small Rust adapters over the live native event-thread graph and variadic logger, with constant printf format and bounded message precision. Clarified callback-interface thread safety assumptions.",
+      "tests": [
+        "Compiled by scoped i3 unit and xkb integration checks"
+      ],
+      "remaining_boundaries": [
+        "Private display provider reads legacy mutable application pointers; shared callback interface does not enforce event-thread access.",
+        "Variadic logging is confined to explicit unsafe block; graph/thread ownership migration would require coordinated application changes."
+      ],
+      "review_wave": 7
+    },
+    {
+      "number": 17,
+      "path": "crates/i3/src/manage.rs",
+      "status": "pending",
+      "result": null
+    },
+    {
+      "number": 18,
+      "path": "crates/i3/src/move.rs",
+      "status": "pending",
+      "result": null
+    },
+    {
+      "number": 19,
+      "path": "crates/i3/src/parser_util.rs",
+      "status": "pending",
+      "result": null
+    },
+    {
+      "number": 20,
+      "path": "crates/i3/src/randr.rs",
+      "status": "pending",
+      "result": null
+    },
+    {
+      "number": 21,
+      "path": "crates/i3/src/regex.rs",
+      "status": "reviewed_idiomatic",
+      "result": "Read complete owned pcre2 Regex/PatternState API, compile error offsets, UCP directive rationale and UTF validation. Full PCRE behavior remains delegated to maintained pcre2, without pattern rewriting. Hardened native compatibility diagnostics to borrow the owned pattern CString instead of the legacy raw alias.",
+      "tests": [
+        "cargo +nightly test -p i3 --bin i3 regex:: (8 passed)",
+        ".work/idiomatic-system/wave7-regex.log"
+      ],
+      "remaining_boundaries": [
+        "Legacy raw pattern alias remains for ipc/restore_layout consumers; callers must not mutate/free it.",
+        "regex_new/free/matches require live native strings and unique Box ownership; core compile/match APIs are safe Rust."
+      ],
+      "review_wave": 7
+    },
+    {
+      "number": 22,
+      "path": "crates/i3/src/render.rs",
+      "status": "pending",
+      "result": null
+    },
+    {
+      "number": 23,
+      "path": "crates/i3/src/resize.rs",
+      "status": "pending",
+      "result": null
+    },
+    {
+      "number": 24,
+      "path": "crates/i3/src/restore_layout.rs",
+      "status": "pending",
+      "result": null
+    },
+    {
+      "number": 25,
+      "path": "crates/i3/src/scratchpad.rs",
+      "status": "pending",
+      "result": null
+    },
+    {
+      "number": 26,
+      "path": "crates/i3/src/sighandler.rs",
+      "status": "pending",
+      "result": null
+    },
+    {
+      "number": 27,
+      "path": "crates/i3/src/startup.rs",
+      "status": "pending",
+      "result": null
+    },
+    {
+      "number": 28,
+      "path": "crates/i3/src/tiling_drag.rs",
+      "status": "pending",
+      "result": null
+    },
+    {
+      "number": 29,
+      "path": "crates/i3/src/tree.rs",
+      "status": "pending",
+      "result": null
+    },
+    {
+      "number": 30,
+      "path": "crates/i3/src/types.rs",
+      "status": "reviewed_native",
+      "result": "Read all enums, unions, shared POD records, intrusive-list links and typed enum helper methods. Kept repr and allocation ABI unchanged. Documented that Copy does not own/duplicate resources, enum initialization must be valid, raw graph lifetimes end at owning-module mutation and open bitmask/protocol domains remain integers. No translated algorithms hidden here.",
+      "tests": [
+        "Compiled by scoped i3 unit and xkb integration checks"
+      ],
+      "remaining_boundaries": [
+        "Con/Window/Config/Match and list records retain raw malloc/Box/native handles and intrusive ownership, without Drop.",
+        "AssignmentDest union and open integer domains require producer/discriminator contracts; coordinated model ownership redesign is outside file-by-file ABI-compatible scope."
+      ],
+      "review_wave": 7
+    },
+    {
+      "number": 31,
+      "path": "crates/i3/src/util.rs",
+      "status": "modernized",
+      "result": "Safe wrapping rectangle/value helpers; bounded locale-sensitive name/layout parsing; owned restart argument editing and byte-preserving POSIX utility paths; prepare exec candidates/readlink in parent before fork, keeping child native-only and deferred diagnostic order; RAII numeric-locale restoration, Box-owned Rust JSON generator, File handles and malloc export buffers; bounded stat-sized snapshot reads; typed ev_child constructor and callback-owned watcher cleanup. Removes temporary argv arrays, restart generator/name/fd failure leaks and the unterminated fixed readlink buffer.",
+      "tests": [
+        "cargo +nightly test -p i3 --bin i3 util:: (6 passed)",
+        ".work/idiomatic-system/wave7-util.log"
+      ],
+      "remaining_boundaries": [
+        "Live event-thread tree/IPC restart and raw Window/Con callbacks remain unsafe.",
+        "Process locale mutation requires external serialization with native locale users; libc strtol/strtoll/strcasecmp/ctype semantics intentionally retained.",
+        "Native argv/exec/fork/PID and malloc-output adapters retain explicit ownership/lifetime contracts. Utility exec preparation is parent-only; child uses argv stores, native execvp and native warn/_exit.",
+        "Libev watcher is Box-owned until its registered completion callback. Manual waitpid/reap cancellation coordination remains the existing event-loop/process contract.",
+        "On exec failure the original startup argv owner remains unchanged; temporary restart options are reclaimed instead of replacing/leaking the global pointer array."
+      ],
+      "review_wave": 7
+    },
+    {
+      "number": 32,
+      "path": "crates/i3/src/version.rs",
+      "status": "modernized",
+      "result": "Verified every use is a read of process-lifetime build metadata; replaced unnecessary mutable version pointer static with an immutable constant, preserving byte string and native caller spelling.",
+      "tests": [
+        "Compiled by scoped i3 unit and xkb integration checks"
+      ],
+      "remaining_boundaries": [
+        "Compatibility pointer is raw but immutable and backed by process-lifetime terminated build metadata."
+      ],
+      "review_wave": 7
+    },
+    {
+      "number": 33,
+      "path": "crates/i3/src/workspace.rs",
+      "status": "pending",
+      "result": null
+    },
+    {
+      "number": 34,
+      "path": "crates/i3/src/x.rs",
+      "status": "pending",
+      "result": null
+    },
+    {
+      "number": 35,
+      "path": "crates/i3/src/xcb.rs",
+      "status": "pending",
+      "result": null
+    },
+    {
+      "number": 36,
+      "path": "crates/i3/tests/xkb_native.rs",
+      "status": "modernized",
+      "result": "Replaced manual raw context allocation/unref and C name buffer with maintained xkb Context and keysym APIs. Context is released on assertion failure. Still runs without an X server or input operations.",
+      "tests": [
+        "cargo +nightly test -p i3 --test xkb_native (1 passed)",
+        ".work/idiomatic-system/wave7-xkb.log"
+      ],
+      "remaining_boundaries": [],
+      "review_wave": 7
+    },
+    {
+      "number": 37,
+      "path": "crates/i3-build/src/lib.rs",
+      "status": "reviewed_idiomatic",
+      "result": "Read complete file: safe Command/env/fs/PathBuf build support with checked compiler version, target guard, explicit archive/worktree Git version lookup, clean Cargo rerun directives and owned test fixtures. No translated algorithm/ownership issue remains.",
+      "tests": [
+        "PASS three i3-build tests: compiler VaList versions, archive workspace discovery, worktree Git path",
+        ".work/all-files-wave7-sys-tests.log"
+      ],
+      "remaining_boundaries": [
+        "Intentional build-time external rustc/git subprocess discovery; explicit x86_64 Linux ABI support assertion"
+      ],
+      "review_wave": 7
+    },
+    {
+      "number": 38,
+      "path": "crates/i3-common/src/safewrappers.rs",
+      "status": "modernized",
+      "result": "Replaced translated raw-offset write loops with safe &[u8]/RawFd write_all/write_available and one checked progress loop. Native adapters create slices under explicit buffer contracts and restore errno. EINTR/EAGAIN policy, partial results, zero-progress retries, zero-byte no-call behavior, native fatal exit, allocator/printf/locale ABI and VaList clone semantics retained. Removed dead NULL and redundant translated locals/types; unsafe_op_in_unsafe_fn is denied. smalloc/scalloc are now safe integer-size allocation APIs: dereferencing/freeing their raw outputs remains a separate caller obligation; realloc and caller-pointer/variadic APIs remain unsafe.",
+      "tests": [
+        "PASS five focused write tests: injected EINTR/EAGAIN/zero/short writes, partial-vs-error distinction, binary socket/raw adapters/empty-null, full nonblocking socket errno/ownership, isolated swrite fatal-exit child",
+        "PASS native variadic formatting/independent cursor integration driver",
+        ".work/all-files-wave7-common-tests.log",
+        ".work/all-files-wave7-native-tests.log"
+      ],
+      "remaining_boundaries": [
+        "Native malloc/calloc/realloc/strdup/strndup ownership ABI and failure diagnostics",
+        "Native C variadic printf promoted types, locale-sensitive strcasecmp, libc descriptor I/O",
+        "Unsafe legacy pointer adapters retain caller-readable-buffer contracts; safe writes own no descriptor"
+      ],
+      "review_wave": 7
+    },
+    {
+      "number": 39,
+      "path": "crates/i3-common/src/strndup.rs",
+      "status": "removed",
+      "result": "Deleted orphan fallback after confirming no lib.rs module, include, source/build/script reference or caller; supported Linux product uses libc::strndup. No compiled behavior removed.",
+      "tests": [
+        "Repository rg reference audit found no module/include/path references",
+        "PASS common library focused tests and native variadic target after removal"
+      ],
+      "remaining_boundaries": [],
+      "review_wave": 7
+    },
+    {
+      "number": 40,
+      "path": "crates/i3-json/src/compat.rs",
+      "status": "reviewed_native",
+      "result": "Read all scalar/generator/parser adapters, callback-number precedence, cancellation/error handling and allocator policy. Already a narrow Rust Box/CString/raw-context bridge to owned Generator/Parser, with no native YAJL library. Added concrete handle ownership, exclusive/reentrant borrow, byte-span and output-pointer invalidation safety contracts.",
+      "tests": [
+        "cargo +nightly test -p i3-json --lib (16 passed, including 2 compat tests)",
+        ".work/idiomatic-system/wave7-json.log"
+      ],
+      "remaining_boundaries": [
+        "Unsafe legacy callers own raw handles and callback contexts; same-handle reentrant mutation/free is prohibited.",
+        "Callbacks and borrowed output buffers cannot outlive their synchronous scope; custom allocators intentionally unsupported."
+      ],
+      "review_wave": 7
+    },
+    {
+      "number": 41,
+      "path": "crates/i3-json/src/generator.rs",
+      "status": "reviewed_idiomatic",
+      "result": "Read complete streaming state machine and tests. Safe Vec-owned buffers, typed frame/error enums, serde scalar encoding, explicit depth bound, key order and retryable errors; no unsafe or mechanical C allocation remains. Existing implementation retained.",
+      "tests": [
+        "cargo +nightly test -p i3-json --lib (16 passed, including 4 generator tests)",
+        ".work/idiomatic-system/wave7-json.log"
+      ],
+      "remaining_boundaries": [],
+      "review_wave": 7
+    },
+    {
+      "number": 42,
+      "path": "crates/i3-json/src/lib.rs",
+      "status": "reviewed_idiomatic",
+      "result": "Read complete crate root: module declarations and explicit safe Parser/Generator/event/error reexports. No runtime algorithm or unsafe boundary to port.",
+      "tests": [
+        "cargo +nightly test -p i3-json --lib (16 passed)"
+      ],
+      "remaining_boundaries": [],
+      "review_wave": 7
+    },
+    {
+      "number": 43,
+      "path": "crates/i3-json/src/parser.rs",
+      "status": "reviewed_idiomatic",
+      "result": "Read all incremental lexer/grammar, owned handler/pending buffer/stack, consumed-byte accounting, cancellation/error policies, serde string/number validation and tests. Entire implementation is safe Rust with typed states; open status streams discard completed input. Existing YAJL legacy whitespace/partial/multiple-root behavior retained.",
+      "tests": [
+        "cargo +nightly test -p i3-json --lib (16 passed, including 10 parser tests)",
+        ".work/idiomatic-system/wave7-json.log"
+      ],
+      "remaining_boundaries": [],
+      "review_wave": 7
+    },
+    {
+      "number": 44,
+      "path": "crates/i3-tools/build.rs",
+      "status": "reviewed_idiomatic",
+      "result": "Read individually: Rust main delegates to shared i3_build::configure; no native source compilation, duplicated parser generator, pointer algorithm or allocation ownership.",
+      "tests": [
+        "PASS shared i3-build helper unit tests; existing Cargo member build contracts retained",
+        "Root final full Cargo/clean-source barrier validates member script execution"
+      ],
+      "remaining_boundaries": [
+        "Shared build support publishes member compiler cfg/version"
+      ],
+      "review_wave": 7
+    },
+    {
+      "number": 45,
+      "path": "crates/i3-tools/src/bin/i3-config-wizard/application.rs",
+      "status": "modernized",
+      "result": "Replaced global union captures, fixed parser/history arrays and raw input walking with local owned captures, bounded byte parser and byte-exact binding/template formatting. Wizard step/modifier/paths/keycodes are owned session values; native events/replies/startup context/XKB context/descriptors have scoped owners, and session cleanup releases font/surface/key/window/connection resources on completion or Escape. Removed unused copied aliases and manual string allocation. Generated grammar tables preserved. Malformed bindings now fail boundedly instead of stalling or leaving captures behind.",
+      "tests": [
+        "5 wizard unit tests pass: real generated grammar, release/raw-byte formatting, malformed input isolation, template first-NUL/indent/warning semantics, modifier inclusive boundaries",
+        "5 private Xvfb workflow/config cases match external C, with fixture-only equal-length template-path replacement and fake reload IPC; .work/all-files-wave7-input/harness-rust.log"
+      ],
+      "remaining_boundaries": [
+        "Generated raw-pointer grammar tables are read only through an unsafe owned-token snapshot adapter",
+        "XCB/XKB calls and legacy display-provider globals require sole event-thread access",
+        "Font/surface storage remains stable native global POD owned by WizardResources; it is outside WizardUi mutable borrows",
+        "Legacy native configuration-path detection, directory/probe diagnostics and IPC adapter retain their native contracts"
+      ],
+      "review_wave": 7
+    },
+    {
+      "number": 46,
+      "path": "crates/i3-tools/src/bin/i3-config-wizard/main.rs",
+      "status": "reviewed_native",
+      "result": "Read the complete entrypoint and all logging/display-provider callbacks; removed unused translated c2rust macro bootstrap. Registration is Rust code; raw display context and variadic log dispatch are real native adapter boundaries.",
+      "tests": [
+        "cargo +nightly test -p i3-tools --bins --offline: all 29 tool tests pass"
+      ],
+      "remaining_boundaries": [
+        "C variadic native diagnostic dispatch",
+        "Display provider borrows the application-owned connection/screen/visual only on the event thread"
+      ],
+      "review_wave": 7
+    },
+    {
+      "number": 47,
+      "path": "crates/i3-tools/src/bin/i3-dump-log/application.rs",
+      "status": "reviewed_idiomatic",
+      "result": "Read all option, owned X11 property, SHM snapshot/ring validation, output/follow and EnabledLog restoration paths. Existing implementation uses owned buffers, checked ring offsets, std File/UnixStream and maintained x11rb; no translated algorithm remains to port.",
+      "tests": [
+        "5 existing dump-log unit tests pass in targeted tools test run"
+      ],
+      "remaining_boundaries": [
+        "shm_open scalar syscall transfers a new descriptor immediately into File",
+        "SHM ring snapshot can reflect concurrent writer progress; owned bytes avoid Rust aliases to writer memory"
+      ],
+      "review_wave": 7
+    },
+    {
+      "number": 48,
+      "path": "crates/i3-tools/src/bin/i3-dump-log/main.rs",
+      "status": "reviewed_idiomatic",
+      "result": "Read complete safe Rust bootstrap: selects common stderr logger and returns typed ExitCode from application result. No raw pointers, manual allocation or translated control flow.",
+      "tests": [
+        "dump-log binary compiled and 5 tests pass"
+      ],
+      "remaining_boundaries": [],
+      "review_wave": 7
+    },
+    {
+      "number": 49,
+      "path": "crates/i3-tools/src/bin/i3-input/keysym2ucs.rs",
+      "status": "reviewed_idiomatic",
+      "result": "Audited immutable legacy mapping table and safe binary-search/Unicode direct mapping. Retains historical 24-bit protocol range rather than imposing char scalar validity.",
+      "tests": [
+        "3 keysym tests pass: 739-entry checksum/order, exhaustive u16 domain and direct-UCS boundary behavior"
+      ],
+      "remaining_boundaries": [],
+      "review_wave": 7
+    },
+    {
+      "number": 50,
+      "path": "crates/i3-tools/src/bin/i3-input/main.rs",
+      "status": "reviewed_native",
+      "result": "Read the complete entrypoint and all logging/display-provider callbacks; removed unused translated c2rust macro bootstrap. Registration is Rust code; raw display context and variadic log dispatch are real native adapter boundaries.",
+      "tests": [
+        "cargo +nightly test -p i3-tools --bins --offline: all 29 tool tests pass"
+      ],
+      "remaining_boundaries": [
+        "C variadic native diagnostic dispatch",
+        "Display provider borrows the application-owned connection/screen/visual only on the event thread"
+      ],
+      "review_wave": 7
+    },
+    {
+      "number": 51,
+      "path": "crates/i3-tools/src/bin/i3-msg/application.rs",
+      "status": "reviewed_idiomatic",
+      "result": "Read complete byte-preserving option parser, IPC framing/response dispatch, command diagnostics, monitor/config behavior and output/error handling. Existing safe owned Rust implementation needs no cosmetic rewrite.",
+      "tests": [
+        "8 existing i3-msg unit tests pass in targeted tools test run"
+      ],
+      "remaining_boundaries": [],
+      "review_wave": 7
+    },
+    {
+      "number": 52,
+      "path": "crates/i3-tools/src/bin/i3-msg/main.rs",
+      "status": "reviewed_idiomatic",
+      "result": "Read complete safe Rust logging/ExitCode bootstrap; no translated algorithm or unsafe code.",
+      "tests": [
+        "i3-msg binary compiled and 8 tests pass"
+      ],
+      "remaining_boundaries": [],
+      "review_wave": 7
+    },
+    {
+      "number": 53,
+      "path": "crates/i3-tools/src/bin/i3-nagbar/main.rs",
+      "status": "reviewed_native",
+      "result": "Read the complete entrypoint and all logging/display-provider callbacks; removed unused translated c2rust macro bootstrap. Registration is Rust code; raw display context and variadic log dispatch are real native adapter boundaries.",
+      "tests": [
+        "cargo +nightly test -p i3-tools --bins --offline: all 29 tool tests pass"
+      ],
+      "remaining_boundaries": [
+        "C variadic native diagnostic dispatch",
+        "Display provider borrows the application-owned connection/screen/visual only on the event thread"
+      ],
+      "review_wave": 7
+    },
+    {
+      "number": 54,
+      "path": "crates/i3bar/build.rs",
+      "status": "reviewed_idiomatic",
+      "result": "Read individually: Rust main delegates to shared i3_build::configure; no native source compilation, duplicated parser generator, pointer algorithm or allocation ownership.",
+      "tests": [
+        "PASS shared i3-build helper unit tests; existing Cargo member build contracts retained",
+        "Root final full Cargo/clean-source barrier validates member script execution"
+      ],
+      "remaining_boundaries": [
+        "Shared build support publishes member compiler cfg/version"
+      ],
+      "review_wave": 7
+    },
+    {
+      "number": 55,
+      "path": "crates/i3bar/src/application.rs",
+      "status": "pending",
+      "result": null
+    },
+    {
+      "number": 56,
+      "path": "crates/i3bar/src/child.rs",
+      "status": "pending",
+      "result": null
+    },
+    {
+      "number": 57,
+      "path": "crates/i3bar/src/main.rs",
+      "status": "pending",
+      "result": null
+    },
+    {
+      "number": 58,
+      "path": "crates/i3bar/src/xcb.rs",
+      "status": "pending",
+      "result": null
+    },
+    {
+      "number": 59,
+      "path": "crates/libev-sys/build.rs",
+      "status": "reviewed_idiomatic",
+      "result": "Read complete file: safe target-layout assertion plus pkg-config discovery with deliberate -lev fallback for distributions that do not ship libev.pc.",
+      "tests": [
+        "PASS libev-sys compile and its two unit tests",
+        ".work/all-files-wave7-sys-tests.log"
+      ],
+      "remaining_boundaries": [
+        "Discovery/linking of actual native libev; x86_64 layout guard"
+      ],
+      "review_wave": 7
+    },
+    {
+      "number": 60,
+      "path": "crates/libev-sys/src/lib.rs",
+      "status": "reviewed_native",
+      "result": "Read all351 lines: canonical repr(C) watcher layouts/native integer masks and C callbacks; safe constructors produce inactive movable values, while start/run/stop helpers retain genuine unsafe stable-address/event-thread contracts. No product algorithm hidden among declarations.",
+      "tests": [
+        "PASS watcher size/offset ABI assertions",
+        "PASS real one-shot timer callback on a new private EVFLAG_NOENV loop",
+        ".work/all-files-wave7-sys-tests.log"
+      ],
+      "remaining_boundaries": [
+        "Native watcher pinning/stable addresses and callback data lifetimes while active",
+        "External libev loop/watcher ownership and C callback ABI"
+      ],
+      "review_wave": 7
+    },
+    {
+      "number": 61,
+      "path": "crates/startup-notification-sys/build.rs",
+      "status": "reviewed_idiomatic",
+      "result": "Read complete file: minimal safe pkg-config discovery with actionable missing-native-development-library error; no generated C build or translated logic.",
+      "tests": [
+        "PASS native startup allocator integration test",
+        ".work/all-files-wave7-sys-tests.log"
+      ],
+      "remaining_boundaries": [
+        "pkg-config discovery of libstartup-notification-1.0"
+      ],
+      "review_wave": 7
+    },
+    {
+      "number": 62,
+      "path": "crates/startup-notification-sys/src/lib.rs",
+      "status": "reviewed_native",
+      "result": "Read all111 lines: opaque native object types, integer enum values, callback ABIs and external reference-count/allocator/XCB entry points. Converting raw native declarations into faux-safe methods would obscure required display/resource contracts; maintained caller ownership stays outside the sys crate.",
+      "tests": [
+        "PASS real native allocator zero/resize/data preservation test",
+        ".work/all-files-wave7-sys-tests.log"
+      ],
+      "remaining_boundaries": [
+        "Native opaque object/refcount ownership, startup sequence/callback display lifetimes",
+        "C ABI allocator and external callback entry points"
+      ],
+      "review_wave": 7
+    },
+    {
+      "number": 63,
+      "path": "crates/startup-notification-sys/tests/native.rs",
+      "status": "reviewed_native",
+      "result": "Read entire native-only ABI oracle: exercises actual library allocation/zeroing/reallocation/data retention/free without opening a display or launching applications. Raw operations are deliberate independent test probes.",
+      "tests": [
+        "PASS native_allocator_preserves_bytes_when_resized",
+        ".work/all-files-wave7-sys-tests.log"
+      ],
+      "remaining_boundaries": [
+        "Deliberate native allocator calls and borrowed raw byte inspection in ABI test"
+      ],
+      "review_wave": 7
+    },
+    {
+      "number": 64,
+      "path": "crates/xcb-sys/build.rs",
+      "status": "reviewed_idiomatic",
+      "result": "Read complete file: safe Rust iteration probes each required XCB core/extension/util library, preserving individual diagnostic names and native link metadata.",
+      "tests": [
+        "PASS xcb-sys compile and two native integration tests",
+        ".work/all-files-wave7-sys-tests.log"
+      ],
+      "remaining_boundaries": [
+        "Native XCB extension/util library discovery remains required"
+      ],
+      "review_wave": 7
+    },
+    {
+      "number": 65,
+      "path": "crates/xcb-sys/src/lib.rs",
+      "status": "reviewed_native",
+      "result": "Read all2299 lines individually in contiguous ranges (including declarations and final reexports): protocol constants, repr(C) wire records/unions, native pointer iterators and unsafe external XCB extension APIs. Maintained as-raw-xcb-connection/xcb ABI types are already reused where exposed. No translated executable algorithm to modernize; native-open integer masks/enums remain ABI-compatible.",
+      "tests": [
+        "PASS native protocol size/offset assertions and malformed-display failed-connection cleanup",
+        ".work/all-files-wave7-sys-tests.log",
+        "Existing repository native header oracle remains part of root Cargo barrier"
+      ],
+      "remaining_boundaries": [
+        "External connection/reply/event ownership and payload bounds are caller obligations at native API calls",
+        "Wire layouts, variable-length native iterator records, masks and C unions must remain compatible",
+        "Native XCB functions require real extern C declarations; no pointer-to-safe-wrapper laundering"
+      ],
+      "review_wave": 7
+    },
+    {
+      "number": 66,
+      "path": "crates/xcb-sys/tests/native.rs",
+      "status": "reviewed_native",
+      "result": "Read entire native ABI test: asserts sizes/offsets and verifies malformed display parsing returns an owned failed connection that is disconnected. It never contacts a desktop display.",
+      "tests": [
+        "PASS native_protocol_layouts",
+        "PASS malformed_display_returns_owned_failed_connection",
+        ".work/all-files-wave7-sys-tests.log"
+      ],
+      "remaining_boundaries": [
+        "Deliberate raw native connection failure-path probe and explicit disconnect"
+      ],
+      "review_wave": 7
+    }
+  ],
+  "completed": 33,
+  "remaining": 33
+}

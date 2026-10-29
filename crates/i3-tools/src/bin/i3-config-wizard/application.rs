@@ -7,9 +7,7 @@ use i3_common::font::load_font;
 use i3_common::font::predict_text_width;
 use i3_common::font::set_font;
 use i3_common::mkdirp::mkdirp;
-use i3_common::safewrappers::sasprintf;
-use i3_common::string::i3string_free;
-use i3_common::string::i3string_from_utf8;
+use std::ffi::{CStr, CString};
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -24,20 +22,13 @@ use i3_common::string::i3string_from_utf8;
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 use i3_common::dpi::{init_dpi, logical_px};
 use i3_common::i333_va_list;
-use i3_common::safewrappers::{scalloc, sstrdup};
 
-pub type i3String = _i3String;
 pub use i3_common::font::C2RustUnnamed;
 pub use i3_common::font::C2RustUnnamed_0;
 pub use i3_common::font::Font;
 
-pub type i3Font = Font;
 pub use i3_common::draw_util::color_t;
 pub use i3_common::draw_util::surface_t;
-
-pub type XID = ::core::ffi::c_ulong;
-pub type Window = XID;
-pub type KeySym = XID;
 
 pub type cmdp_token = token;
 #[derive(Copy, Clone)]
@@ -54,20 +45,6 @@ pub union C2RustUnnamed_5 {
     pub call_identifier: u16,
 }
 
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub union C2RustUnnamed_6 {
-    pub str_0: *mut ::core::ffi::c_char,
-    pub num: ::core::ffi::c_long,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct stack_entry {
-    pub identifier: *const ::core::ffi::c_char,
-    pub type_0: StackValueKind,
-    pub val: C2RustUnnamed_6,
-}
-
 pub type cmdp_token_ptr = tokenptr;
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -75,8 +52,6 @@ pub struct tokenptr {
     pub array: *mut cmdp_token,
     pub n: ::core::ffi::c_int,
 }
-
-pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 
 pub const DEFAULT_DIR_MODE: libc::mode_t =
     libc::S_IRWXU | libc::S_IRGRP | libc::S_IXGRP | libc::S_IROTH | libc::S_IXOTH;
@@ -102,11 +77,6 @@ pub static mut A__NET_WM_WINDOW_TYPE_DIALOG: xcb_atom_t = 0;
 pub static mut visual_type: *mut xcb_visualtype_t =
     ::core::ptr::null::<xcb_visualtype_t>() as *mut xcb_visualtype_t;
 
-pub static mut current_step: WizardStep = WizardStep::Welcome;
-
-pub static mut modifier: WizardModifier = WizardModifier::Win;
-static mut config_path: *mut ::core::ffi::c_char =
-    ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char;
 static mut xcb_numlock_mask: u32 = 0;
 
 pub static mut conn: *mut xcb_connection_t =
@@ -116,10 +86,7 @@ static mut keysyms: *mut xcb_key_symbols_t =
 
 pub static mut root_screen: *mut xcb_screen_t =
     ::core::ptr::null::<xcb_screen_t>() as *mut xcb_screen_t;
-static mut modmap_reply: *mut xcb_get_modifier_mapping_reply_t =
-    ::core::ptr::null::<xcb_get_modifier_mapping_reply_t>()
-        as *mut xcb_get_modifier_mapping_reply_t;
-static mut font: i3Font = Font {
+static mut font: Font = Font {
     type_0: i3_common::font::FontType::None,
     height: 0,
     pattern: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
@@ -131,7 +98,7 @@ static mut font: i3Font = Font {
         },
     },
 };
-static mut bold_font: i3Font = Font {
+static mut bold_font: Font = Font {
     type_0: i3_common::font::FontType::None,
     height: 0,
     pattern: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
@@ -144,8 +111,6 @@ static mut bold_font: i3Font = Font {
     },
 };
 static mut char_width: ::core::ffi::c_int = 0;
-static mut socket_path: *mut ::core::ffi::c_char =
-    ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char;
 static mut win: xcb_window_t = 0;
 static mut surface: surface_t = surface_t {
     id: 0,
@@ -4157,408 +4122,308 @@ static mut tokens: [cmdp_token_ptr; 117] = unsafe {
         },
     ]
 };
-static mut state: ParserState = ParserState::ForceDisplayUrgencyHintMs;
-static mut statelist: [ParserState; 10] = [
-    ParserState::Initial,
-    ParserState::ForceDisplayUrgencyHintMs,
-    ParserState::ForceDisplayUrgencyHintMs,
-    ParserState::ForceDisplayUrgencyHintMs,
-    ParserState::ForceDisplayUrgencyHintMs,
-    ParserState::ForceDisplayUrgencyHintMs,
-    ParserState::ForceDisplayUrgencyHintMs,
-    ParserState::ForceDisplayUrgencyHintMs,
-    ParserState::ForceDisplayUrgencyHintMs,
-    ParserState::ForceDisplayUrgencyHintMs,
-];
-static mut statelist_idx: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-static mut stack: [stack_entry; 10] = [stack_entry {
-    identifier: ::core::ptr::null::<::core::ffi::c_char>(),
-    type_0: StackValueKind::String,
-    val: C2RustUnnamed_6 {
-        str_0: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-    },
-}; 10];
-unsafe fn push_string(identifier: *const ::core::ffi::c_char, str: *const ::core::ffi::c_char) {
-    let mut c: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    while c < 10 as ::core::ffi::c_int {
-        if !stack[c as usize].identifier.is_null()
-            && strcmp(stack[c as usize].identifier, identifier) != 0 as ::core::ffi::c_int
+#[derive(Clone)]
+struct ParserToken {
+    name: Vec<u8>,
+    identifier: Option<Vec<u8>>,
+    next: ParserState,
+}
+
+// Generated tables are immutable in operation, despite their legacy raw-pointer
+// representation. Only this adapter touches their pointers; parser state/captures
+// and input positions are local owned Rust values.
+unsafe fn parser_tokens(state: ParserState) -> Vec<ParserToken> {
+    assert!((state as usize) < 117);
+    let entry = (&raw const tokens)
+        .cast::<tokenptr>()
+        .add(state as usize)
+        .read();
+    std::slice::from_raw_parts(entry.array, entry.n as usize)
+        .iter()
+        .map(|token| ParserToken {
+            name: CStr::from_ptr(token.name).to_bytes().to_vec(),
+            identifier: (!token.identifier.is_null())
+                .then(|| CStr::from_ptr(token.identifier).to_bytes().to_vec()),
+            next: token.next_state,
+        })
+        .collect()
+}
+
+#[derive(Debug)]
+enum CapturedValue {
+    String(Vec<u8>),
+    Number(libc::c_long),
+}
+#[derive(Default)]
+struct Captures(Vec<(Vec<u8>, CapturedValue)>);
+impl Captures {
+    fn string(&mut self, identifier: &[u8], value: Vec<u8>) -> Option<()> {
+        if let Some((_, previous)) = self.0.iter_mut().find(|(key, _)| key == identifier) {
+            let CapturedValue::String(previous) = previous else {
+                return None;
+            };
+            previous.push(b',');
+            previous.extend(value);
+        } else {
+            self.0
+                .push((identifier.to_vec(), CapturedValue::String(value)));
+        }
+        Some(())
+    }
+    fn get(&self, identifier: &[u8]) -> Option<&[u8]> {
+        self.0.iter().find_map(|(key, value)| match value {
+            CapturedValue::String(bytes) if key == identifier => Some(bytes.as_slice()),
+            _ => None,
+        })
+    }
+}
+#[derive(Debug, PartialEq, Eq)]
+struct BindingFields {
+    modifiers: Option<Vec<u8>>,
+    key: Vec<u8>,
+    release: Option<Vec<u8>>,
+    command: Vec<u8>,
+}
+impl BindingFields {
+    fn from_captures(captures: Captures) -> Option<Self> {
+        Some(Self {
+            modifiers: captures.get(b"modifiers").map(Vec::from),
+            key: captures.get(b"key")?.to_vec(),
+            release: captures.get(b"release").map(Vec::from),
+            command: captures.get(b"command")?.to_vec(),
+        })
+    }
+}
+fn case_prefix(input: &[u8], word: &[u8]) -> bool {
+    input.len() >= word.len()
+        && input.iter().zip(word).all(|(&a, &b)| {
+            // SAFETY: unsigned-byte inputs satisfy tolower's scalar precondition.
+            // Keep locale-sensitive strncasecmp behavior, including raw byte input.
+            unsafe { libc::tolower(i32::from(a)) == libc::tolower(i32::from(b)) }
+        })
+}
+fn decimal_prefix(input: &[u8]) -> Option<(libc::c_long, usize)> {
+    let string = CString::new(input).ok()?;
+    let mut end = std::ptr::null_mut();
+    // SAFETY: the temporary C string is live, and end is a writable pointer.
+    let number = unsafe {
+        *libc::__errno_location() = 0;
+        let number = libc::strtol(string.as_ptr(), &mut end, 10);
+        let errno = *libc::__errno_location();
+        if errno == libc::ERANGE && (number == libc::c_long::MIN || number == libc::c_long::MAX)
+            || errno != 0 && number == 0
         {
-            c += 1;
-        } else {
-            if stack[c as usize].identifier.is_null() {
-                stack[c as usize].identifier = identifier;
-                stack[c as usize].val.str_0 = sstrdup(str);
-                stack[c as usize].type_0 = StackValueKind::String;
-            } else {
-                let prev: *mut ::core::ffi::c_char = stack[c as usize].val.str_0;
-                sasprintf(
-                    &raw mut (*(&raw mut stack as *mut stack_entry).offset(c as isize))
-                        .val
-                        .str_0,
-                    c"%s,%s".as_ptr(),
-                    prev,
-                    str,
-                );
-                free(prev as *mut ::core::ffi::c_void);
-            }
-            return;
+            return None;
         }
-    }
-    fprintf(
-        stderr,
-        c"BUG: commands_parser stack full. This means either a bug in the code, or a new command which contains more than 10 identified tokens.\n".as_ptr(),
-    );
-    exit(1 as ::core::ffi::c_int);
+        number
+    };
+    // SAFETY: strtol's end pointer belongs to this same C-string allocation.
+    let consumed = unsafe { end.offset_from(string.as_ptr()) } as usize;
+    (consumed != 0).then_some((number, consumed))
 }
-unsafe fn push_long(identifier: *const ::core::ffi::c_char, num: ::core::ffi::c_long) {
-    let mut c: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    while c < 10 as ::core::ffi::c_int {
-        if !stack[c as usize].identifier.is_null() {
-            c += 1;
+fn scan_string(input: &[u8], whole_line: bool) -> Option<(Vec<u8>, usize)> {
+    let quoted = input.first() == Some(&b'"');
+    let beginning = usize::from(quoted);
+    let mut end = beginning;
+    while let Some(&byte) = input.get(end) {
+        let stop = if quoted {
+            byte == b'"' && input[end - 1] != b'\\'
+        } else if whole_line {
+            matches!(byte, b'\r' | b'\n')
         } else {
-            stack[c as usize].identifier = identifier;
-            stack[c as usize].val.num = num;
-            stack[c as usize].type_0 = StackValueKind::Number;
-            return;
-        }
-    }
-    fprintf(
-        stderr,
-        c"BUG: commands_parser stack full. This means either a bug in the code, or a new command which contains more than 10 identified tokens.\n".as_ptr(),
-    );
-    exit(1 as ::core::ffi::c_int);
-}
-unsafe fn get_string(identifier: *const ::core::ffi::c_char) -> *const ::core::ffi::c_char {
-    let mut c: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    while c < 10 as ::core::ffi::c_int {
-        if stack[c as usize].identifier.is_null() {
+            matches!(byte, b' ' | b'\t' | b']' | b',' | b';' | b'\r' | b'\n')
+        };
+        if stop {
             break;
         }
-        if strcmp(identifier, stack[c as usize].identifier) == 0 as ::core::ffi::c_int {
-            return stack[c as usize].val.str_0;
-        }
-        c += 1;
+        end += 1;
     }
-    ::core::ptr::null::<::core::ffi::c_char>()
-}
-unsafe fn clear_stack() {
-    let mut c: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    while c < 10 as ::core::ffi::c_int {
-        if stack[c as usize].type_0 == StackValueKind::String {
-            free(stack[c as usize].val.str_0 as *mut ::core::ffi::c_void);
-        }
-        stack[c as usize].identifier = ::core::ptr::null::<::core::ffi::c_char>();
-        stack[c as usize].val.str_0 = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        stack[c as usize].val.num = 0 as ::core::ffi::c_long;
-        c += 1;
+    if end == beginning {
+        return None;
     }
+    let mut value = Vec::new();
+    let mut at = beginning;
+    while at < end {
+        if input[at] == b'\\' && input.get(at + 1) == Some(&b'"') {
+            at += 1;
+        }
+        value.push(input[at]);
+        at += 1;
+    }
+    let consumed = end + usize::from(input.get(end) == Some(&b'"'));
+    Some((value, consumed))
 }
-unsafe fn keysym_used_on_other_key(sym: KeySym, except_keycode: xcb_keycode_t) -> bool {
-    let mut i: xcb_keycode_t = 0;
-    let min_keycode: xcb_keycode_t = (*xcb_get_setup(conn)).min_keycode;
-    let max_keycode: xcb_keycode_t = (*xcb_get_setup(conn)).max_keycode;
-    i = min_keycode;
-    while i as ::core::ffi::c_int != 0
-        && i as ::core::ffi::c_int <= max_keycode as ::core::ffi::c_int
-    {
-        if !(i as ::core::ffi::c_int == except_keycode as ::core::ffi::c_int) {
-            let mut level: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-            while level < 4 as ::core::ffi::c_int {
-                if xcb_key_symbols_get_keysym(keysyms, i, level) as KeySym != sym {
-                    level += 1;
-                } else {
-                    return true_0 != 0;
+fn parse_binding(
+    input: &CStr,
+    mut table: impl FnMut(ParserState) -> Vec<ParserToken>,
+) -> Option<BindingFields> {
+    let input = input.to_bytes();
+    let mut offset = 0;
+    let mut state = ParserState::Initial;
+    let mut captures = Captures::default();
+    while offset <= input.len() {
+        while matches!(input.get(offset), Some(b' ' | b'\t')) {
+            offset += 1;
+        }
+        let rest = &input[offset..];
+        let mut matched = false;
+        for token in table(state) {
+            let mut captured = None;
+            let consumed = if token.name.first() == Some(&b'\'') {
+                let literal = &token.name[1..];
+                if !case_prefix(rest, literal) {
+                    continue;
+                }
+                captured = Some(CapturedValue::String(literal.to_vec()));
+                literal.len()
+            } else if token.name == b"number" {
+                let Some((number, count)) = decimal_prefix(rest) else {
+                    continue;
+                };
+                captured = Some(CapturedValue::Number(number));
+                count
+            } else if token.name == b"string" || token.name == b"word" {
+                let Some((value, count)) = scan_string(rest, token.name == b"string") else {
+                    continue;
+                };
+                captured = Some(CapturedValue::String(value));
+                count
+            } else if token.name == b"end" && matches!(rest.first(), None | Some(b'\n' | b'\r')) {
+                1
+            } else {
+                continue;
+            };
+            if let (Some(identifier), Some(value)) = (token.identifier, captured) {
+                match value {
+                    CapturedValue::String(value) => captures.string(&identifier, value)?,
+                    CapturedValue::Number(number) => {
+                        captures.0.push((identifier, CapturedValue::Number(number)))
+                    }
                 }
             }
+            if token.next == ParserState::Call {
+                return BindingFields::from_captures(captures);
+            }
+            state = token.next;
+            offset += consumed;
+            matched = true;
+            break;
         }
-        i = i.wrapping_add(1);
+        // Invalid input used to stall forever while walking raw pointers. A
+        // failed rewrite is now bounded and cannot contaminate the next line.
+        if !matched {
+            return None;
+        }
     }
-    false_0 != 0
+    None
 }
-unsafe fn next_state(token: *const cmdp_token) -> *mut ::core::ffi::c_char {
-    let mut _next_state: ParserState = (*token).next_state;
-    if (*token).next_state as ::core::ffi::c_uint
-        == ParserState::Call as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
-        let modifiers: *const ::core::ffi::c_char = get_string(c"modifiers".as_ptr());
-        let keycode: ::core::ffi::c_int = atoi(get_string(c"key".as_ptr()));
-        let mut level: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-        if !modifiers.is_null() && !strstr(modifiers, c"Shift".as_ptr()).is_null() {
-            level = 1 as ::core::ffi::c_int;
-            let mut syms: *const xkb_keysym_t = ::core::ptr::null::<xkb_keysym_t>();
-            let num: ::core::ffi::c_int = xkb_keymap_key_get_syms_by_level(
-                xkb_keymap,
-                keycode as xkb_keycode_t,
-                0 as xkb_layout_index_t,
-                0 as xkb_level_index_t,
-                &raw mut syms,
-            );
-            if num == 0 as ::core::ffi::c_int {
-                errx(
-                    1 as ::core::ffi::c_int,
-                    c"xkb_keymap_key_get_syms_by_level returned no symbols for keycode %d".as_ptr(),
-                    keycode,
-                );
-            }
-            if !keysym_used_on_other_key(
-                *syms.offset(0 as ::core::ffi::c_int as isize) as KeySym,
-                keycode as xcb_keycode_t,
-            ) {
-                level = 0 as ::core::ffi::c_int;
-            }
-        }
-        let mut syms_0: *const xkb_keysym_t = ::core::ptr::null::<xkb_keysym_t>();
-        let num_0: ::core::ffi::c_int = xkb_keymap_key_get_syms_by_level(
+
+fn format_binding(binding: &BindingFields, keysym: &CStr) -> CString {
+    let mut bytes = b"bindsym ".to_vec();
+    if let Some(modifiers) = &binding.modifiers {
+        bytes.extend(
+            modifiers
+                .iter()
+                .map(|&byte| if byte == b',' { b'+' } else { byte }),
+        );
+        bytes.push(b'+');
+    }
+    bytes.extend_from_slice(keysym.to_bytes());
+    bytes.push(b' ');
+    if let Some(release) = &binding.release {
+        bytes.extend(release);
+    }
+    bytes.extend(&binding.command);
+    bytes.push(b'\n');
+    CString::new(bytes).expect("binding fields originated from C strings")
+}
+
+/// Native key symbols borrow the initialized connection's setup/key table.
+/// Requires sole event-thread access to those resources for this query.
+unsafe fn keysym_used_on_other_key(sym: libc::c_ulong, except_keycode: xcb_keycode_t) -> bool {
+    let (minimum, maximum) = {
+        let setup = &*xcb_get_setup(conn);
+        (setup.min_keycode, setup.max_keycode)
+    };
+    // Preserve the old zero-start sentinel while eliminating u8 wraparound
+    // control flow for the full 1..=255 native keycode range.
+    minimum != 0
+        && (minimum..=maximum)
+            .filter(|&code| code != except_keycode)
+            .any(|code| {
+                (0..4).any(|level| {
+                    xcb_key_symbols_get_keysym(keysyms, code, level) as libc::c_ulong == sym
+                })
+            })
+}
+// The parser and formatting own their data. Only keysym lookup and malloc ABI
+// handoff require the initialized event-thread XKB/key-symbol native resources.
+unsafe fn rewrite_binding(input: &CStr) -> Option<CString> {
+    let binding = parse_binding(input, |state| parser_tokens(state))?;
+    let modifiers = binding.modifiers.as_deref();
+    let key = CString::new(binding.key.clone()).expect("key has no NUL");
+    let keycode = atoi(key.as_ptr());
+    let mut level: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
+    if modifiers.is_some_and(|bytes| bytes.windows(5).any(|part| part == b"Shift")) {
+        level = 1 as ::core::ffi::c_int;
+        let mut syms: *const xkb_keysym_t = ::core::ptr::null::<xkb_keysym_t>();
+        let num: ::core::ffi::c_int = xkb_keymap_key_get_syms_by_level(
             xkb_keymap,
             keycode as xkb_keycode_t,
             0 as xkb_layout_index_t,
-            level as xkb_level_index_t,
-            &raw mut syms_0,
+            0 as xkb_level_index_t,
+            &raw mut syms,
         );
-        if num_0 == 0 as ::core::ffi::c_int {
+        if num == 0 as ::core::ffi::c_int {
             errx(
                 1 as ::core::ffi::c_int,
                 c"xkb_keymap_key_get_syms_by_level returned no symbols for keycode %d".as_ptr(),
                 keycode,
             );
         }
-        if num_0 > 1 as ::core::ffi::c_int {
-            printf(
+        if !keysym_used_on_other_key(
+            *syms.offset(0 as ::core::ffi::c_int as isize) as libc::c_ulong,
+            keycode as xcb_keycode_t,
+        ) {
+            level = 0 as ::core::ffi::c_int;
+        }
+    }
+    let mut syms_0: *const xkb_keysym_t = ::core::ptr::null::<xkb_keysym_t>();
+    let num_0: ::core::ffi::c_int = xkb_keymap_key_get_syms_by_level(
+        xkb_keymap,
+        keycode as xkb_keycode_t,
+        0 as xkb_layout_index_t,
+        level as xkb_level_index_t,
+        &raw mut syms_0,
+    );
+    if num_0 == 0 as ::core::ffi::c_int {
+        errx(
+            1 as ::core::ffi::c_int,
+            c"xkb_keymap_key_get_syms_by_level returned no symbols for keycode %d".as_ptr(),
+            keycode,
+        );
+    }
+    if num_0 > 1 as ::core::ffi::c_int {
+        printf(
                 c"xkb_keymap_key_get_syms_by_level (keycode = %d) returned %d symbolsinstead of 1, using only the first one.\n".as_ptr(),
                 keycode,
                 num_0,
             );
-        }
-        let mut str: [::core::ffi::c_char; 4096] = [0; 4096];
-        if xkb_keysym_get_name(
+    }
+    let mut str: [::core::ffi::c_char; 4096] = [0; 4096];
+    if xkb_keysym_get_name(
+        *syms_0.offset(0 as ::core::ffi::c_int as isize),
+        &raw mut str as *mut ::core::ffi::c_char,
+        ::core::mem::size_of::<[::core::ffi::c_char; 4096]>() as usize,
+    ) == -(1 as ::core::ffi::c_int)
+    {
+        errx(
+            libc::EXIT_FAILURE,
+            c"xkb_keysym_get_name(%u) failed".as_ptr(),
             *syms_0.offset(0 as ::core::ffi::c_int as isize),
-            &raw mut str as *mut ::core::ffi::c_char,
-            ::core::mem::size_of::<[::core::ffi::c_char; 4096]>() as usize,
-        ) == -(1 as ::core::ffi::c_int)
-        {
-            errx(
-                libc::EXIT_FAILURE,
-                c"xkb_keysym_get_name(%u) failed".as_ptr(),
-                *syms_0.offset(0 as ::core::ffi::c_int as isize),
-            );
-        }
-        let release: *const ::core::ffi::c_char = get_string(c"release".as_ptr());
-        let mut res: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        let modrep: *mut ::core::ffi::c_char = if modifiers.is_null() {
-            sstrdup(c"".as_ptr())
-        } else {
-            sstrdup(modifiers)
-        };
-        let mut comma: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        loop {
-            comma = strchr(modrep, ',' as i32);
-            if comma.is_null() {
-                break;
-            }
-            *comma = '+' as i32 as ::core::ffi::c_char;
-        }
-        sasprintf(
-            &raw mut res,
-            c"bindsym %s%s%s %s%s\n".as_ptr(),
-            if modifiers.is_null() {
-                c"".as_ptr()
-            } else {
-                modrep as *const ::core::ffi::c_char
-            },
-            if modifiers.is_null() {
-                c"".as_ptr()
-            } else {
-                c"+".as_ptr()
-            },
-            &raw mut str as *mut ::core::ffi::c_char,
-            if release.is_null() {
-                c"".as_ptr()
-            } else {
-                release
-            },
-            get_string(c"command".as_ptr()),
         );
-        clear_stack();
-        free(modrep as *mut ::core::ffi::c_void);
-        return res;
     }
-    state = _next_state;
-    let mut i: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    while i < statelist_idx {
-        if statelist[i as usize] as ::core::ffi::c_uint != _next_state as ::core::ffi::c_uint {
-            i += 1;
-        } else {
-            statelist_idx = i + 1 as ::core::ffi::c_int;
-            return ::core::ptr::null_mut::<::core::ffi::c_char>();
-        }
-    }
-    let fresh0 = statelist_idx;
-    statelist_idx = statelist_idx + 1;
-    statelist[fresh0 as usize] = _next_state;
-    ::core::ptr::null_mut::<::core::ffi::c_char>()
-}
-unsafe fn rewrite_binding(input: *const ::core::ffi::c_char) -> *mut ::core::ffi::c_char {
-    state = ParserState::Initial;
-    statelist_idx = 1 as ::core::ffi::c_int;
-    let mut walk: *const ::core::ffi::c_char = input;
-    let len: usize = strlen(input) as usize;
-    let mut c: ::core::ffi::c_int = 0;
-    let mut token: *const cmdp_token = ::core::ptr::null::<cmdp_token>();
-    let mut result: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    while walk.offset_from(input) as ::core::ffi::c_long as usize <= len {
-        while (*walk as ::core::ffi::c_int == ' ' as i32
-            || *walk as ::core::ffi::c_int == '\t' as i32)
-            && *walk as ::core::ffi::c_int != '\0' as i32
-        {
-            walk = walk.offset(1);
-        }
-        let ptr: *mut cmdp_token_ptr =
-            (&raw mut tokens as *mut cmdp_token_ptr).offset(state as isize) as *mut cmdp_token_ptr;
-        c = 0 as ::core::ffi::c_int;
-        while c < (*ptr).n {
-            token = (*ptr).array.offset(c as isize) as *mut cmdp_token;
-            if *(*token).name.offset(0 as ::core::ffi::c_int as isize) as ::core::ffi::c_int
-                == '\'' as i32
-            {
-                if strncasecmp(
-                    walk,
-                    (*token).name.offset(1 as ::core::ffi::c_int as isize),
-                    strlen((*token).name).wrapping_sub(1 as usize),
-                ) == 0 as ::core::ffi::c_int
-                {
-                    if !(*token).identifier.is_null() {
-                        push_string(
-                            (*token).identifier,
-                            (*token).name.offset(1 as ::core::ffi::c_int as isize),
-                        );
-                    }
-                    walk = walk.offset(strlen((*token).name).wrapping_sub(1 as usize) as isize);
-                    result = next_state(token);
-                    if !result.is_null() {
-                        return result;
-                    }
-                    break;
-                }
-            } else if strcmp((*token).name, c"number".as_ptr()) == 0 as ::core::ffi::c_int {
-                let mut end: *mut ::core::ffi::c_char =
-                    ::core::ptr::null_mut::<::core::ffi::c_char>();
-                *__errno_location() = 0 as ::core::ffi::c_int;
-                let num: ::core::ffi::c_long = strtol(walk, &raw mut end, 10 as ::core::ffi::c_int);
-                if !(*__errno_location() == libc::ERANGE
-                    && (num == ::core::ffi::c_long::MIN || num == ::core::ffi::c_long::MAX)
-                    || *__errno_location() != 0 as ::core::ffi::c_int
-                        && num == 0 as ::core::ffi::c_long)
-                {
-                    if !(end == walk as *mut ::core::ffi::c_char) {
-                        if !(*token).identifier.is_null() {
-                            push_long((*token).identifier, num);
-                        }
-                        walk = end;
-                        result = next_state(token);
-                        if !result.is_null() {
-                            return result;
-                        }
-                        break;
-                    }
-                }
-            } else {
-                if strcmp((*token).name, c"string".as_ptr()) == 0 as ::core::ffi::c_int
-                    || strcmp((*token).name, c"word".as_ptr()) == 0 as ::core::ffi::c_int
-                {
-                    let mut beginning: *const ::core::ffi::c_char = walk;
-                    if *walk as ::core::ffi::c_int == '"' as i32 {
-                        beginning = beginning.offset(1);
-                        walk = walk.offset(1);
-                        while *walk as ::core::ffi::c_int != '\0' as i32
-                            && (*walk as ::core::ffi::c_int != '"' as i32
-                                || *walk.offset(-(1 as ::core::ffi::c_int as isize))
-                                    as ::core::ffi::c_int
-                                    == '\\' as i32)
-                        {
-                            walk = walk.offset(1);
-                        }
-                    } else if *(*token).name.offset(0 as ::core::ffi::c_int as isize)
-                        as ::core::ffi::c_int
-                        == 's' as i32
-                    {
-                        while *walk as ::core::ffi::c_int != '\0' as i32
-                            && *walk as ::core::ffi::c_int != '\r' as i32
-                            && *walk as ::core::ffi::c_int != '\n' as i32
-                        {
-                            walk = walk.offset(1);
-                        }
-                    } else {
-                        while *walk as ::core::ffi::c_int != ' ' as i32
-                            && *walk as ::core::ffi::c_int != '\t' as i32
-                            && *walk as ::core::ffi::c_int != ']' as i32
-                            && *walk as ::core::ffi::c_int != ',' as i32
-                            && *walk as ::core::ffi::c_int != ';' as i32
-                            && *walk as ::core::ffi::c_int != '\r' as i32
-                            && *walk as ::core::ffi::c_int != '\n' as i32
-                            && *walk as ::core::ffi::c_int != '\0' as i32
-                        {
-                            walk = walk.offset(1);
-                        }
-                    }
-                    if walk != beginning {
-                        let str: *mut ::core::ffi::c_char = scalloc(
-                            (walk.offset_from(beginning) as ::core::ffi::c_long
-                                + 1 as ::core::ffi::c_long) as usize,
-                            1 as usize,
-                        )
-                            as *mut ::core::ffi::c_char;
-                        let mut inpos: ::core::ffi::c_int = 0;
-                        let mut outpos: ::core::ffi::c_int = 0;
-                        inpos = 0 as ::core::ffi::c_int;
-                        outpos = 0 as ::core::ffi::c_int;
-                        while (inpos as ::core::ffi::c_long)
-                            < walk.offset_from(beginning) as ::core::ffi::c_long
-                        {
-                            if *beginning.offset(inpos as isize) as ::core::ffi::c_int
-                                == '\\' as i32
-                                && *beginning.offset((inpos + 1 as ::core::ffi::c_int) as isize)
-                                    as ::core::ffi::c_int
-                                    == '"' as i32
-                            {
-                                inpos += 1;
-                            }
-                            *str.offset(outpos as isize) = *beginning.offset(inpos as isize);
-                            inpos += 1;
-                            outpos += 1;
-                        }
-                        if !(*token).identifier.is_null() {
-                            push_string((*token).identifier, str);
-                        }
-                        free(str as *mut ::core::ffi::c_void);
-                        if *walk as ::core::ffi::c_int == '"' as i32 {
-                            walk = walk.offset(1);
-                        }
-                        result = next_state(token);
-                        if !result.is_null() {
-                            return result;
-                        }
-                        break;
-                    }
-                }
-                if strcmp((*token).name, c"end".as_ptr()) == 0 as ::core::ffi::c_int {
-                    if *walk as ::core::ffi::c_int == '\0' as i32
-                        || *walk as ::core::ffi::c_int == '\n' as i32
-                        || *walk as ::core::ffi::c_int == '\r' as i32
-                    {
-                        result = next_state(token);
-                        if !result.is_null() {
-                            return result;
-                        }
-                        walk = walk.offset(1);
-                        break;
-                    }
-                }
-            }
-            c += 1;
-        }
-    }
-    ::core::ptr::null_mut::<::core::ffi::c_char>()
+    Some(format_binding(&binding, CStr::from_ptr(str.as_ptr())))
 }
 
 pub unsafe extern "C" fn verboselog(fmt: *mut ::core::ffi::c_char, args: ...) {
@@ -4574,6 +4439,132 @@ pub unsafe extern "C" fn errorlog(fmt: *mut ::core::ffi::c_char, args: ...) {
 }
 
 pub unsafe extern "C" fn debuglog(fmt: *mut ::core::ffi::c_char, args: ...) {}
+struct WizardUi {
+    step: WizardStep,
+    modifier: WizardModifier,
+    config_path: CString,
+    socket: Option<CString>,
+    modifier_codes: [Vec<u8>; 2],
+}
+fn clicked_modifier(
+    x: i16,
+    y: i16,
+    glyph_width: i32,
+    font_height: i32,
+    margin: i32,
+) -> Option<WizardModifier> {
+    let (x, y, w, h, margin) = (
+        i64::from(x),
+        i64::from(y),
+        i64::from(glyph_width),
+        i64::from(font_height),
+        i64::from(margin),
+    );
+    if x < 4 * w + margin || x > 9 * w + margin {
+        return None;
+    }
+    // Shared boundary belongs to Alt: the original two independent ifs chose
+    // Win first and then Alt when the rows touched.
+    if y >= 4 * h + margin && y <= 5 * h + margin {
+        Some(WizardModifier::Alt)
+    } else if y >= 3 * h + margin && y <= 4 * h + margin {
+        Some(WizardModifier::Win)
+    } else {
+        None
+    }
+}
+
+struct Native<T>(std::ptr::NonNull<T>);
+impl<T> Native<T> {
+    /// The pointer transfers a unique complete malloc-backed XCB allocation.
+    unsafe fn take(pointer: *mut T) -> Option<Self> {
+        std::ptr::NonNull::new(pointer).map(Self)
+    }
+    fn raw(&self) -> *mut T {
+        self.0.as_ptr()
+    }
+}
+impl<T> Drop for Native<T> {
+    fn drop(&mut self) {
+        unsafe {
+            free(self.raw().cast());
+        }
+    }
+}
+
+// Session ownership for the native renderer globals. Fonts remain at static
+// stable addresses because the shared backend borrows the selected Font POD.
+struct StartupContext(*mut SnLauncheeContext);
+impl Drop for StartupContext {
+    fn drop(&mut self) {
+        if !self.0.is_null() {
+            unsafe {
+                sn_launchee_context_unref(self.0);
+            }
+        }
+    }
+}
+struct WizardResources {
+    connection: std::ptr::NonNull<xcb_connection_t>,
+    fonts: bool,
+    surface: bool,
+}
+impl Drop for WizardResources {
+    fn drop(&mut self) {
+        // SAFETY: the event loop/borrowed events have ended on their owning
+        // thread. Release render/font/key resources before clearing provider
+        // borrows and closing this session's uniquely owned connection.
+        unsafe {
+            if self.surface {
+                draw_util_surface_free(self.connection.as_ptr(), &raw mut surface);
+            }
+            if self.fonts {
+                set_font(&raw mut bold_font);
+                i3_common::font::free_font();
+                set_font(&raw mut font);
+                i3_common::font::free_font();
+            }
+            if !xkb_keymap.is_null() {
+                xkb_keymap_unref(xkb_keymap);
+                xkb_keymap = std::ptr::null_mut();
+            }
+            if !symbols.is_null() {
+                xcb_sys::xcb_key_symbols_free(symbols);
+                symbols = std::ptr::null_mut();
+            }
+            if !keysyms.is_null() {
+                xcb_sys::xcb_key_symbols_free(keysyms);
+                keysyms = std::ptr::null_mut();
+            }
+            if win != 0 {
+                xcb_sys::xcb_destroy_window(self.connection.as_ptr(), win);
+                win = 0;
+            }
+            root_screen = std::ptr::null_mut();
+            visual_type = std::ptr::null_mut();
+            root = 0;
+            conn = std::ptr::null_mut();
+            xcb_sys::xcb_disconnect(self.connection.as_ptr());
+        }
+    }
+}
+unsafe fn take_cstring(pointer: *mut libc::c_char) -> CString {
+    let owned = CStr::from_ptr(pointer).to_owned();
+    free(pointer.cast());
+    owned
+}
+unsafe fn atom_reply(cookie: xcb_intern_atom_cookie_t, name: &CStr) -> xcb_atom_t {
+    let Some(reply) = Native::take(xcb_intern_atom_reply(conn, cookie, std::ptr::null_mut()))
+    else {
+        errx(
+            libc::EXIT_FAILURE,
+            c"Could not get atom %s".as_ptr(),
+            name.as_ptr(),
+        );
+    };
+    (*reply.raw()).atom
+}
+
 unsafe fn txt(
     col: ::core::ffi::c_int,
     row: ::core::ffi::c_int,
@@ -4585,9 +4576,9 @@ unsafe fn txt(
         (col - 1 as ::core::ffi::c_int) * char_width + logical_px(4 as ::core::ffi::c_int);
     let y: ::core::ffi::c_int =
         (row - 1 as ::core::ffi::c_int) * font.height + logical_px(4 as ::core::ffi::c_int);
-    let string: *mut i3String = i3string_from_utf8(text);
+    let mut string = i3_common::string::I3String::from_cstr(CStr::from_ptr(text));
     draw_util_text(
-        string,
+        &mut string,
         &raw mut surface,
         fg,
         bg,
@@ -4595,16 +4586,15 @@ unsafe fn txt(
         y,
         logical_px(300 as ::core::ffi::c_int) - x - logical_px(4 as ::core::ffi::c_int),
     );
-    i3string_free(string);
 }
-unsafe fn handle_expose() -> ::core::ffi::c_int {
+unsafe fn handle_expose(ui: &WizardUi) -> ::core::ffi::c_int {
     let black: color_t = draw_util_hex_to_color(c"#000000".as_ptr()) as color_t;
     let white: color_t = draw_util_hex_to_color(c"#FFFFFF".as_ptr()) as color_t;
     let green: color_t = draw_util_hex_to_color(c"#00FF00".as_ptr()) as color_t;
     let red: color_t = draw_util_hex_to_color(c"#FF0000".as_ptr()) as color_t;
     draw_util_clear_surface(&raw mut surface, black);
     set_font(&raw mut font);
-    if current_step == WizardStep::Welcome {
+    if ui.step == WizardStep::Welcome {
         txt(
             2 as ::core::ffi::c_int,
             2 as ::core::ffi::c_int,
@@ -4621,16 +4611,17 @@ unsafe fn handle_expose() -> ::core::ffi::c_int {
             white,
             black,
         );
-        let mut msg: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        sasprintf(&raw mut msg, c"%s?".as_ptr(), config_path);
+        let mut message = ui.config_path.to_bytes().to_vec();
+        message.push(b'?');
+        let msg = CString::new(message).expect("path contains no NUL");
         txt(
             2 as ::core::ffi::c_int,
             4 as ::core::ffi::c_int,
-            msg,
+            msg.as_ptr().cast_mut(),
             white,
             black,
         );
-        free(msg as *mut ::core::ffi::c_void);
+
         txt(
             13 as ::core::ffi::c_int,
             6 as ::core::ffi::c_int,
@@ -4660,7 +4651,7 @@ unsafe fn handle_expose() -> ::core::ffi::c_int {
             black,
         );
     }
-    if current_step == WizardStep::Generate {
+    if ui.step == WizardStep::Generate {
         txt(
             2 as ::core::ffi::c_int,
             2 as ::core::ffi::c_int,
@@ -4703,7 +4694,7 @@ unsafe fn handle_expose() -> ::core::ffi::c_int {
             white,
             black,
         );
-        if modifier == WizardModifier::Win {
+        if ui.modifier == WizardModifier::Win {
             txt(
                 5 as ::core::ffi::c_int,
                 5 as ::core::ffi::c_int,
@@ -4721,7 +4712,7 @@ unsafe fn handle_expose() -> ::core::ffi::c_int {
             );
         }
         set_font(&raw mut bold_font);
-        if modifier == WizardModifier::Win {
+        if ui.modifier == WizardModifier::Win {
             txt(
                 2 as ::core::ffi::c_int,
                 4 as ::core::ffi::c_int,
@@ -4758,10 +4749,10 @@ unsafe fn handle_expose() -> ::core::ffi::c_int {
     1 as ::core::ffi::c_int
 }
 unsafe fn handle_key_press(
-    ignored: *mut ::core::ffi::c_void,
+    ui: &mut WizardUi,
     conn_0: *mut xcb_connection_t,
     event: *mut xcb_key_press_event_t,
-) -> ::core::ffi::c_int {
+) -> bool {
     printf(
         c"Keypress %d, state raw = %d\n".as_ptr(),
         (*event).detail as ::core::ffi::c_int,
@@ -4775,8 +4766,8 @@ unsafe fn handle_key_press(
         xcb_key_press_lookup_keysym(symbols, event, state_filtered as ::core::ffi::c_int);
     printf(c"sym = %c (%d)\n".as_ptr(), sym, sym);
     if sym == XK_Return as xcb_keysym_t || sym == XK_KP_Enter as xcb_keysym_t {
-        if current_step == WizardStep::Welcome {
-            current_step = WizardStep::Generate;
+        if ui.step == WizardStep::Welcome {
+            ui.step = WizardStep::Generate;
             xcb_change_property(
                 conn_0,
                 XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
@@ -4789,213 +4780,179 @@ unsafe fn handle_key_press(
             );
             xcb_flush(conn_0);
         } else {
-            finish();
+            finish(ui);
+            return true;
         }
     }
     if sym == XK_Up as xcb_keysym_t || sym == XK_Down as xcb_keysym_t {
-        modifier = if modifier == WizardModifier::Alt {
+        ui.modifier = if ui.modifier == WizardModifier::Alt {
             WizardModifier::Win
         } else {
             WizardModifier::Alt
         };
-        handle_expose();
+        handle_expose(ui);
     }
     if sym == XK_Escape as xcb_keysym_t {
-        exit(0 as ::core::ffi::c_int);
+        return true;
     }
-    let modmap: *mut xcb_keycode_t = xcb_get_modifier_mapping_keycodes(modmap_reply);
-    let mut mask: ::core::ffi::c_int = 3 as ::core::ffi::c_int;
-    let mut i: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    while i < (*modmap_reply).keycodes_per_modifier as ::core::ffi::c_int {
-        let code: xcb_keycode_t = *modmap.offset(
-            (mask * (*modmap_reply).keycodes_per_modifier as ::core::ffi::c_int + i) as isize,
-        );
-        if !(code as ::core::ffi::c_long == XCB_NONE) {
+    for (index, label, selected) in [
+        (0usize, c"Mod1", WizardModifier::Alt),
+        (1, c"Mod4", WizardModifier::Win),
+    ] {
+        for &code in &ui.modifier_codes[index] {
+            if code == 0 {
+                continue;
+            }
             printf(
-                c"Modifier keycode for Mod1: 0x%02x\n".as_ptr(),
-                code as ::core::ffi::c_int,
+                c"Modifier keycode for %s: 0x%02x\n".as_ptr(),
+                label.as_ptr(),
+                i32::from(code),
             );
-            if code as ::core::ffi::c_int == (*event).detail as ::core::ffi::c_int {
-                modifier = WizardModifier::Alt;
-                printf(c"This is Mod1!\n".as_ptr());
+            if code == (*event).detail {
+                ui.modifier = selected;
+                printf(c"This is %s!\n".as_ptr(), label.as_ptr());
             }
         }
-        i += 1;
     }
-    mask = 6 as ::core::ffi::c_int;
-    let mut i_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    while i_0 < (*modmap_reply).keycodes_per_modifier as ::core::ffi::c_int {
-        let code_0: xcb_keycode_t = *modmap.offset(
-            (mask * (*modmap_reply).keycodes_per_modifier as ::core::ffi::c_int + i_0) as isize,
-        );
-        if !(code_0 as ::core::ffi::c_long == XCB_NONE) {
-            printf(
-                c"Modifier keycode for Mod4: 0x%02x\n".as_ptr(),
-                code_0 as ::core::ffi::c_int,
-            );
-            if code_0 as ::core::ffi::c_int == (*event).detail as ::core::ffi::c_int {
-                modifier = WizardModifier::Win;
-                printf(c"This is Mod4!\n".as_ptr());
-            }
-        }
-        i_0 += 1;
-    }
-    handle_expose();
-    1 as ::core::ffi::c_int
+    handle_expose(ui);
+    false
 }
-unsafe fn handle_button_press(event: *mut xcb_button_press_event_t) {
-    if current_step != WizardStep::Generate {
+unsafe fn handle_button_press(ui: &mut WizardUi, event: &xcb_button_press_event_t) {
+    if ui.step != WizardStep::Generate {
         return;
     }
-    if ((*event).event_x as ::core::ffi::c_int)
-        < (5 as ::core::ffi::c_int - 1 as ::core::ffi::c_int) * char_width
-            + logical_px(4 as ::core::ffi::c_int)
-        || (*event).event_x as ::core::ffi::c_int
-            > (10 as ::core::ffi::c_int - 1 as ::core::ffi::c_int) * char_width
-                + logical_px(4 as ::core::ffi::c_int)
-    {
-        return;
-    }
-    if (*event).event_y as ::core::ffi::c_int
-        >= (4 as ::core::ffi::c_int - 1 as ::core::ffi::c_int) * font.height
-            + logical_px(4 as ::core::ffi::c_int)
-        && (*event).event_y as ::core::ffi::c_int
-            <= (4 as ::core::ffi::c_int - 1 as ::core::ffi::c_int) * font.height
-                + logical_px(4 as ::core::ffi::c_int)
-                + font.height
-    {
-        modifier = WizardModifier::Win;
-        handle_expose();
-    }
-    if (*event).event_y as ::core::ffi::c_int
-        >= (5 as ::core::ffi::c_int - 1 as ::core::ffi::c_int) * font.height
-            + logical_px(4 as ::core::ffi::c_int)
-        && (*event).event_y as ::core::ffi::c_int
-            <= (5 as ::core::ffi::c_int - 1 as ::core::ffi::c_int) * font.height
-                + logical_px(4 as ::core::ffi::c_int)
-                + font.height
-    {
-        modifier = WizardModifier::Alt;
-        handle_expose();
+    if let Some(modifier) = clicked_modifier(
+        event.event_x,
+        event.event_y,
+        char_width,
+        font.height,
+        logical_px(4),
+    ) {
+        ui.modifier = modifier;
+        handle_expose(ui);
     }
 }
-unsafe fn finish() {
-    printf(c"creating \"%s\"...\n".as_ptr(), config_path);
-    let mut xkb_context: *mut xkb_context = ::core::ptr::null_mut::<xkb_context>();
-    xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
-    if xkb_context.is_null() {
-        errx(
-            1 as ::core::ffi::c_int,
-            c"could not create xkbcommon context".as_ptr(),
-        );
-    }
-    let device_id: i32 = xkb_x11_get_core_keyboard_device_id(conn);
-    xkb_keymap =
-        xkb_x11_keymap_new_from_device(xkb_context, conn, device_id, XKB_KEYMAP_COMPILE_NO_FLAGS);
-    if xkb_keymap.is_null() {
-        errx(
-            1 as ::core::ffi::c_int,
-            c"xkb_x11_keymap_new_from_device failed".as_ptr(),
-        );
-    }
-    let kc_config: *mut FILE =
-        fopen(c"/usr/local/etc/i3/config.keycodes".as_ptr(), c"r".as_ptr()) as *mut FILE;
-    if kc_config.is_null() {
-        err(
-            1 as ::core::ffi::c_int,
-            c"Could not open input file \"%s\"".as_ptr(),
-            c"/usr/local/etc/i3/config.keycodes".as_ptr(),
-        );
-    }
-    let ks_config: *mut FILE = fopen(config_path, c"w".as_ptr()) as *mut FILE;
-    if ks_config.is_null() {
-        err(
-            1 as ::core::ffi::c_int,
-            c"Could not open output config file \"%s\"".as_ptr(),
-            config_path,
-        );
-    }
-    free(config_path as *mut ::core::ffi::c_void);
-    let mut line: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    let mut len: usize = 0 as usize;
-    let mut read: isize = 0;
-    let mut head_of_file: bool = true_0 != 0;
-    fputs(
-        c"# This file has been auto-generated by i3-config-wizard(1).\n".as_ptr(),
-        ks_config,
-    );
-    fputs(
-        c"# It will not be overwritten, so edit it as you like.\n".as_ptr(),
-        ks_config,
-    );
-    fputs(c"#\n".as_ptr(), ks_config);
-    fputs(
-        c"# Should you change your keyboard layout some time, delete\n".as_ptr(),
-        ks_config,
-    );
-    fputs(
-        c"# this file and re-run i3-config-wizard(1).\n".as_ptr(),
-        ks_config,
-    );
-    fputs(c"#\n".as_ptr(), ks_config);
-    let mut linecap: usize = 0 as usize;
-    loop {
-        read = getline(&raw mut line, &raw mut linecap, kc_config) as isize;
-        if !(read != -(1 as ::core::ffi::c_int) as isize) {
-            break;
+const CONFIG_TEMPLATE: &CStr = c"/usr/local/etc/i3/config.keycodes";
+const CONFIG_HEADER: &[u8] = b"# This file has been auto-generated by i3-config-wizard(1).\n# It will not be overwritten, so edit it as you like.\n#\n# Should you change your keyboard layout some time, delete\n# this file and re-run i3-config-wizard(1).\n#\n";
+
+struct TemplateLines {
+    head: bool,
+}
+impl TemplateLines {
+    fn rewrite(
+        &mut self,
+        line: &[u8],
+        modifier: WizardModifier,
+        mut binding: impl FnMut(&CStr) -> Option<CString>,
+    ) -> Result<Option<Vec<u8>>, ()> {
+        let line = line.split(|byte| *byte == 0).next().unwrap_or_default();
+        if self.head && line.starts_with(b"# WARNING") {
+            return Ok(None);
         }
-        len = strlen(line);
-        if head_of_file as ::core::ffi::c_int != 0
-            && strncmp(c"# WARNING".as_ptr(), line, strlen(c"# WARNING".as_ptr()))
-                == 0 as ::core::ffi::c_int
-        {
-            continue;
-        }
-        head_of_file = false_0 != 0;
-        let mut walk: *mut ::core::ffi::c_char = line;
-        while *(*__ctype_b_loc())
-            .offset(*walk as ::core::ffi::c_uchar as ::core::ffi::c_int as isize)
-            as ::core::ffi::c_int
-            & i3_common::native_stdio::CTYPE_SPACE as ::core::ffi::c_int as ::core::ffi::c_ushort
-                as ::core::ffi::c_int
-            != 0
-            && walk < line.offset(len as isize)
-        {
-            fputc(*walk as ::core::ffi::c_int, ks_config);
-            walk = walk.offset(1);
-        }
-        if strncmp(walk, c"set $mod ".as_ptr(), strlen(c"set $mod ".as_ptr()))
-            == 0 as ::core::ffi::c_int
-        {
-            if modifier == WizardModifier::Alt {
-                fputs(c"set $mod Mod1\n".as_ptr(), ks_config);
+        self.head = false;
+        let indentation = line
+            .iter()
+            .take_while(|&&byte| {
+                // SAFETY: isspace accepts every unsigned-char value.
+                unsafe { libc::isspace(i32::from(byte)) != 0 }
+            })
+            .count();
+        let (indent, rest) = line.split_at(indentation);
+        let mut output = indent.to_vec();
+        if rest.starts_with(b"set $mod ") {
+            output.extend_from_slice(if modifier == WizardModifier::Alt {
+                b"set $mod Mod1\n"
             } else {
-                fputs(c"set $mod Mod4\n".as_ptr(), ks_config);
-            }
-        } else if strncmp(walk, c"bindcode".as_ptr(), strlen(c"bindcode".as_ptr()))
-            != 0 as ::core::ffi::c_int
-        {
-            fputs(walk, ks_config);
+                b"set $mod Mod4\n"
+            });
+        } else if rest.starts_with(b"bindcode") {
+            let input = CString::new(rest).expect("first-NUL projection contains no NUL");
+            output.extend_from_slice(binding(&input).ok_or(())?.to_bytes());
         } else {
-            let result: *mut ::core::ffi::c_char = rewrite_binding(walk);
-            fputs(result, ks_config);
-            free(result as *mut ::core::ffi::c_void);
+            output.extend_from_slice(rest);
+        }
+        Ok(Some(output))
+    }
+}
+struct XkbContext(std::ptr::NonNull<xkb_context>);
+impl Drop for XkbContext {
+    fn drop(&mut self) {
+        unsafe {
+            xkb_context_unref(self.0.as_ptr());
         }
     }
-    fflush(ks_config);
-    fsync(fileno(ks_config));
-    free(line as *mut ::core::ffi::c_void);
-    fclose(kc_config);
-    fclose(ks_config);
-    let sockfd: ::core::ffi::c_int = ipc_connect(socket_path);
-    ipc_send_message(
-        sockfd,
-        strlen(c"reload".as_ptr()) as u32,
-        0 as u32,
-        c"reload".as_ptr() as *mut u8,
+}
+
+// Paths, file buffers and output bytes are owned locally. Only the initialized
+// display/XKB state and retained legacy IPC adapter remain native boundaries.
+unsafe fn finish(ui: &WizardUi) {
+    use std::fs::File;
+    use std::io::{BufRead, BufReader, Write};
+    use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
+    use std::os::unix::ffi::OsStrExt;
+    printf(c"creating \"%s\"...\n".as_ptr(), ui.config_path.as_ptr());
+    let Some(context) = std::ptr::NonNull::new(xkb_context_new(XKB_CONTEXT_NO_FLAGS)) else {
+        errx(1, c"could not create xkbcommon context".as_ptr());
+    };
+    let context = XkbContext(context);
+    let device_id = xkb_x11_get_core_keyboard_device_id(conn);
+    xkb_keymap = xkb_x11_keymap_new_from_device(
+        context.0.as_ptr(),
+        conn,
+        device_id,
+        XKB_KEYMAP_COMPILE_NO_FLAGS,
     );
-    close(sockfd);
-    exit(0 as ::core::ffi::c_int);
+    if xkb_keymap.is_null() {
+        errx(1, c"xkb_x11_keymap_new_from_device failed".as_ptr());
+    }
+    let input = File::open(std::ffi::OsStr::from_bytes(CONFIG_TEMPLATE.to_bytes())).unwrap_or_else(
+        |error| {
+            *__errno_location() = error.raw_os_error().unwrap_or(libc::EIO);
+            err(
+                1,
+                c"Could not open input file \"%s\"".as_ptr(),
+                CONFIG_TEMPLATE.as_ptr(),
+            );
+        },
+    );
+    let mut output = File::create(std::ffi::OsStr::from_bytes(ui.config_path.to_bytes()))
+        .unwrap_or_else(|error| {
+            *__errno_location() = error.raw_os_error().unwrap_or(libc::EIO);
+            err(
+                1,
+                c"Could not open output config file \"%s\"".as_ptr(),
+                ui.config_path.as_ptr(),
+            );
+        });
+    let mut input = BufReader::new(input);
+    let _ = output.write_all(CONFIG_HEADER);
+    let mut template = TemplateLines { head: true };
+    let mut line = Vec::new();
+    loop {
+        line.clear();
+        match input.read_until(b'\n', &mut line) {
+            Ok(0) | Err(_) => break, // getline historically stops on read failure
+            Ok(_) => {}
+        }
+        match template.rewrite(&line, ui.modifier, |input| rewrite_binding(input)) {
+            Ok(Some(bytes)) => {
+                let _ = output.write_all(&bytes);
+            }
+            Ok(None) => {}
+            Err(()) => errx(1, c"Could not rewrite config binding".as_ptr()),
+        }
+    }
+    let _ = output.flush();
+    let _ = output.sync_all();
+    drop(output);
+    // ipc_connect returns a new uniquely owned socket (or exits). The borrowed
+    // descriptor stays open until the original reload adapter has sent its frame.
+    let descriptor = OwnedFd::from_raw_fd(ipc_connect(
+        ui.socket
+            .as_ref()
+            .map_or(std::ptr::null(), |path| path.as_ptr()),
+    ));
+    ipc_send_message(descriptor.as_raw_fd(), 6, 0, c"reload".as_ptr().cast());
 }
 #[derive(Clone, Copy)]
 enum ModifierKey {
@@ -5021,19 +4978,13 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
     let mut xdg_config_home: *mut ::core::ffi::c_char = std::ptr::null_mut();
     let pattern = c"pango:monospace 8".as_ptr();
     let patternbold = c"pango:monospace bold 8".as_ptr();
-    socket_path = settings
-        .socket
-        .as_ref()
-        .map_or(std::ptr::null_mut(), |socket| socket.as_ptr().cast_mut());
     let headless_run = settings.modifier.is_some();
-    if let Some(key) = settings.modifier {
-        modifier = match key {
-            ModifierKey::Alt => WizardModifier::Alt,
-            ModifierKey::Win => WizardModifier::Win,
-        };
-    }
+    let selected_modifier = match settings.modifier {
+        Some(ModifierKey::Alt) => WizardModifier::Alt,
+        _ => WizardModifier::Win,
+    };
     let path: *mut ::core::ffi::c_char =
-        get_config_path(::core::ptr::null::<::core::ffi::c_char>(), false_0 != 0);
+        get_config_path(::core::ptr::null::<::core::ffi::c_char>(), false);
     if !path.is_null() {
         printf(
             c"The config file \"%s\" already exists. Exiting.\n".as_ptr(),
@@ -5046,47 +4997,56 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
     if xdg_config_home.is_null() {
         xdg_config_home = c"~/.config".as_ptr().cast_mut();
     }
-    xdg_config_home = resolve_tilde(xdg_config_home);
-    sasprintf(
-        &raw mut config_path,
-        c"%s/i3/config".as_ptr(),
-        xdg_config_home,
-    );
-    let mut config_dir: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
+    let base = take_cstring(resolve_tilde(xdg_config_home));
+    let mut directory = base.to_bytes().to_vec();
+    directory.extend_from_slice(b"/i3");
+    let config_dir = CString::new(directory).expect("base path has no NUL");
+    let mut path = config_dir.to_bytes().to_vec();
+    path.extend_from_slice(b"/config");
+    let config_path = CString::new(path).expect("base path has no NUL");
     let mut stbuf: stat = ::core::mem::zeroed();
-    sasprintf(&raw mut config_dir, c"%s/i3".as_ptr(), xdg_config_home);
-    if stat(config_dir, &raw mut stbuf) != 0 as ::core::ffi::c_int {
-        if mkdirp(config_dir, DEFAULT_DIR_MODE as libc::mode_t) != 0 as ::core::ffi::c_int {
+    if stat(config_dir.as_ptr(), &raw mut stbuf) != 0 {
+        if mkdirp(config_dir.as_ptr(), DEFAULT_DIR_MODE) != 0 {
             err(
                 libc::EXIT_FAILURE,
                 c"mkdirp(%s) failed".as_ptr(),
-                config_dir,
+                config_dir.as_ptr(),
             );
         }
     }
-    free(config_dir as *mut ::core::ffi::c_void);
-    free(xdg_config_home as *mut ::core::ffi::c_void);
     let mut fd: ::core::ffi::c_int = 0;
     fd = open(
-        config_path,
+        config_path.as_ptr(),
         libc::O_CREAT | libc::O_RDWR,
         0o644 as ::core::ffi::c_int,
     );
     if fd == -(1 as ::core::ffi::c_int) {
         printf(
             c"Cannot open file \"%s\" for writing: %s. Exiting.\n".as_ptr(),
-            config_path,
+            config_path.as_ptr(),
             strerror(*__errno_location()),
         );
         return 0 as ::core::ffi::c_int;
     }
     close(fd);
-    unlink(config_path);
+    unlink(config_path.as_ptr());
+    let mut ui = WizardUi {
+        step: WizardStep::Welcome,
+        modifier: selected_modifier,
+        config_path,
+        socket: settings.socket,
+        modifier_codes: [Vec::new(), Vec::new()],
+    };
     let mut screen: ::core::ffi::c_int = 0;
     conn = xcb_connect(::core::ptr::null::<::core::ffi::c_char>(), &raw mut screen);
     if conn.is_null() || xcb_connection_has_error(conn) != 0 {
         errx(1 as ::core::ffi::c_int, c"Cannot open display".as_ptr());
     }
+    let mut resources = WizardResources {
+        connection: std::ptr::NonNull::new(conn).unwrap(),
+        fonts: false,
+        surface: false,
+    };
     if xkb_x11_setup_xkb_extension(
         conn,
         XKB_X11_MIN_MAJOR_XKB_VERSION as u16,
@@ -5108,8 +5068,11 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
         xcb_get_modifier_mapping_cookie_t { sequence: 0 };
     modmap_cookie = xcb_get_modifier_mapping(conn);
     symbols = xcb_key_symbols_alloc(conn);
+    if symbols.is_null() || keysyms.is_null() {
+        errx(1, c"Could not allocate key symbols".as_ptr());
+    }
     if headless_run {
-        finish();
+        finish(&ui);
         return 0 as ::core::ffi::c_int;
     }
     let mut _NET_WM_NAME_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
@@ -5151,26 +5114,47 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
     let sndisplay: *mut SnDisplay = sn_xcb_display_new(conn, None, None);
     let sncontext: *mut SnLauncheeContext =
         sn_launchee_context_new_from_environment(sndisplay, screen);
+    let startup = StartupContext(sncontext);
     sn_display_unref(sndisplay);
     root_screen = xcb_aux_get_screen(conn, screen);
+    if root_screen.is_null() {
+        errx(1, c"Cannot find display screen".as_ptr());
+    }
     root = (*root_screen).root;
-    modmap_reply = xcb_get_modifier_mapping_reply(
+    let Some(modmap) = Native::take(xcb_get_modifier_mapping_reply(
         conn,
         modmap_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if modmap_reply.is_null() {
+        std::ptr::null_mut(),
+    )) else {
+        errx(
+            libc::EXIT_FAILURE,
+            c"Could not get modifier mapping".as_ptr(),
+        );
+    };
+    let count = usize::from((*modmap.raw()).keycodes_per_modifier);
+    let available = ((*modmap.raw()).length as usize)
+        .checked_mul(4)
+        .unwrap_or(0);
+    if count * 8 > available {
         errx(
             libc::EXIT_FAILURE,
             c"Could not get modifier mapping".as_ptr(),
         );
     }
-    xcb_numlock_mask = get_mod_mask_for(XCB_NUM_LOCK as u32, symbols, modmap_reply);
+    let codes =
+        std::slice::from_raw_parts(xcb_get_modifier_mapping_keycodes(modmap.raw()), count * 8);
+    ui.modifier_codes = [
+        codes[count * 3..count * 4].to_vec(),
+        codes[count * 6..count * 7].to_vec(),
+    ];
+    xcb_numlock_mask = get_mod_mask_for(XCB_NUM_LOCK as u32, symbols, modmap.raw());
     init_dpi();
-    font = load_font(pattern, true_0 != 0);
-    bold_font = load_font(patternbold, true_0 != 0);
+    font = load_font(pattern, true);
+    bold_font = load_font(patternbold, true);
+    resources.fonts = true;
     set_font(&raw mut font);
-    char_width = predict_text_width(i3string_from_utf8(c"a".as_ptr()));
+    let mut letter = i3_common::string::I3String::new("a");
+    char_width = predict_text_width(&mut letter);
     win = xcb_generate_id(conn) as xcb_window_t;
     let mut fresh1: [u32; 2] = [
         0 as ::core::ffi::c_int as u32,
@@ -5193,81 +5177,18 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
         &raw mut fresh1 as *mut u32 as *const ::core::ffi::c_void,
     );
     if !sncontext.is_null() {
-        sn_launchee_context_setup_window(sncontext, win as Window);
+        sn_launchee_context_setup_window(sncontext, win as libc::c_ulong);
     }
     xcb_map_window(conn, win);
-    let reply: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_WM_NAME_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply.is_null() {
-        errx(
-            libc::EXIT_FAILURE,
-            c"Could not get atom _NET_WM_NAME".as_ptr(),
-        );
-    }
-    A__NET_WM_NAME = (*reply).atom;
-    free(reply as *mut ::core::ffi::c_void);
-    let reply_0: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_WM_WINDOW_TYPE_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_0.is_null() {
-        errx(
-            libc::EXIT_FAILURE,
-            c"Could not get atom _NET_WM_WINDOW_TYPE".as_ptr(),
-        );
-    }
-    A__NET_WM_WINDOW_TYPE = (*reply_0).atom;
-    free(reply_0 as *mut ::core::ffi::c_void);
-    let reply_1: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
+    A__NET_WM_NAME = atom_reply(_NET_WM_NAME_cookie, c"_NET_WM_NAME");
+    A__NET_WM_WINDOW_TYPE = atom_reply(_NET_WM_WINDOW_TYPE_cookie, c"_NET_WM_WINDOW_TYPE");
+    A__NET_WM_WINDOW_TYPE_DIALOG = atom_reply(
         _NET_WM_WINDOW_TYPE_DIALOG_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
+        c"_NET_WM_WINDOW_TYPE_DIALOG",
     );
-    if reply_1.is_null() {
-        errx(
-            libc::EXIT_FAILURE,
-            c"Could not get atom _NET_WM_WINDOW_TYPE_DIALOG".as_ptr(),
-        );
-    }
-    A__NET_WM_WINDOW_TYPE_DIALOG = (*reply_1).atom;
-    free(reply_1 as *mut ::core::ffi::c_void);
-    let reply_2: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        ATOM_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_2.is_null() {
-        errx(libc::EXIT_FAILURE, c"Could not get atom ATOM".as_ptr());
-    }
-    A_ATOM = (*reply_2).atom;
-    free(reply_2 as *mut ::core::ffi::c_void);
-    let reply_3: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        CARDINAL_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_3.is_null() {
-        errx(libc::EXIT_FAILURE, c"Could not get atom CARDINAL".as_ptr());
-    }
-    A_CARDINAL = (*reply_3).atom;
-    free(reply_3 as *mut ::core::ffi::c_void);
-    let reply_4: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        UTF8_STRING_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_4.is_null() {
-        errx(
-            libc::EXIT_FAILURE,
-            c"Could not get atom UTF8_STRING".as_ptr(),
-        );
-    }
-    A_UTF8_STRING = (*reply_4).atom;
-    free(reply_4 as *mut ::core::ffi::c_void);
+    A_ATOM = atom_reply(ATOM_cookie, c"ATOM");
+    A_CARDINAL = atom_reply(CARDINAL_cookie, c"CARDINAL");
+    A_UTF8_STRING = atom_reply(UTF8_STRING_cookie, c"UTF8_STRING");
     xcb_change_property(
         conn,
         XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
@@ -5298,52 +5219,45 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
         15 as ::core::ffi::c_int * font.height + logical_px(4 as ::core::ffi::c_int),
     );
     xcb_flush(conn);
-    let mut cookie: xcb_grab_keyboard_cookie_t = xcb_grab_keyboard_cookie_t { sequence: 0 };
-    let mut reply_5: *mut xcb_grab_keyboard_reply_t =
-        ::core::ptr::null_mut::<xcb_grab_keyboard_reply_t>();
-    let mut count: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    while (reply_5.is_null()
-        || (*reply_5).status as ::core::ffi::c_int != XCB_GRAB_STATUS_SUCCESS as ::core::ffi::c_int)
-        && {
-            let fresh2 = count;
-            count = count + 1;
-            fresh2 < 500 as ::core::ffi::c_int
+    resources.surface = true;
+    let mut status = None;
+    for _ in 0..500 {
+        let reply = Native::take(xcb_grab_keyboard_reply(
+            conn,
+            xcb_grab_keyboard(
+                conn,
+                0,
+                win,
+                XCB_CURRENT_TIME as xcb_timestamp_t,
+                XCB_GRAB_MODE_ASYNC as u8,
+                XCB_GRAB_MODE_ASYNC as u8,
+            ),
+            std::ptr::null_mut(),
+        ));
+        status = reply.as_ref().map(|reply| (*reply.raw()).status);
+        usleep(1000);
+        if status == Some(XCB_GRAB_STATUS_SUCCESS as u8) {
+            break;
         }
-    {
-        cookie = xcb_grab_keyboard(
-            conn,
-            false_0 as u8,
-            win,
-            XCB_CURRENT_TIME as xcb_timestamp_t,
-            XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as u8,
-            XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as u8,
-        );
-        reply_5 = xcb_grab_keyboard_reply(
-            conn,
-            cookie,
-            ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-        );
-        usleep(1000 as libc::useconds_t);
     }
-    if (*reply_5).status as ::core::ffi::c_int != XCB_GRAB_STATUS_SUCCESS as ::core::ffi::c_int {
+    if status != Some(XCB_GRAB_STATUS_SUCCESS as u8) {
         fprintf(
             stderr,
             c"Could not grab keyboard, status = %d\n".as_ptr(),
-            (*reply_5).status as ::core::ffi::c_int,
+            status.map_or(-1, i32::from),
         );
-        exit(-(1 as ::core::ffi::c_int));
+        return -1;
     }
     if !sncontext.is_null() {
         sn_launchee_context_complete(sncontext);
-        sn_launchee_context_unref(sncontext);
     }
+    drop(startup);
     xcb_flush(conn);
-    let mut event: *mut xcb_generic_event_t = ::core::ptr::null_mut::<xcb_generic_event_t>();
     loop {
-        event = xcb_wait_for_event(conn);
-        if event.is_null() {
+        let Some(event_owner) = Native::take(xcb_wait_for_event(conn)) else {
             break;
-        }
+        };
+        let event = event_owner.raw();
         if (*event).response_type as ::core::ffi::c_int == 0 as ::core::ffi::c_int {
             fprintf(
                 stderr,
@@ -5355,29 +5269,27 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
                 (*event).response_type as ::core::ffi::c_int & 0x7f as ::core::ffi::c_int;
             match type_0 {
                 XCB_KEY_PRESS => {
-                    handle_key_press(NULL, conn, event as *mut xcb_key_press_event_t);
+                    if handle_key_press(&mut ui, conn, event.cast()) {
+                        return 0;
+                    }
                 }
                 XCB_BUTTON_PRESS => {
-                    handle_button_press(event as *mut xcb_button_press_event_t);
+                    handle_button_press(&mut ui, &*event.cast::<xcb_button_press_event_t>());
                 }
                 XCB_EXPOSE => {
                     if (*(event as *mut xcb_expose_event_t)).count as ::core::ffi::c_int
                         == 0 as ::core::ffi::c_int
                     {
-                        handle_expose();
+                        handle_expose(&ui);
                     }
                 }
                 _ => {}
             }
-            free(event as *mut ::core::ffi::c_void);
         }
     }
-    draw_util_surface_free(conn, &raw mut surface);
+
     0 as ::core::ffi::c_int
 }
-
-pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 
 pub fn main() {
     use i3_common::cli::{Item, Parser};
@@ -5471,13 +5383,12 @@ use startup_notification_sys::{
     SnLauncheeContext,
 };
 
-pub use libc::{
-    __errno_location, atoi, close, exit, fclose, fflush, fileno, fopen, fprintf, fputc, fputs,
-    free, fsync, getenv, getline, open, printf, stat, strchr, strcmp, strerror, strlen,
-    strncasecmp, strncmp, strstr, strtol, unlink, usleep, FILE,
+use libc::{
+    __errno_location, atoi, close, fprintf, free, getenv, open, printf, stat, strerror, strlen,
+    unlink, usleep,
 };
 
-use i3_common::native_stdio::{__ctype_b_loc, err, errx, stderr, stdout, vfprintf};
+use i3_common::native_stdio::{err, errx, stderr, stdout, vfprintf};
 
 // Internal calls and globals use canonical Rust identities.
 use i3_common::get_config_path::get_config_path;
@@ -5486,8 +5397,6 @@ use i3_common::get_visualtype::get_visualtype;
 use i3_common::ipc_connect::ipc_connect;
 use i3_common::ipc_send_message::ipc_send_message;
 use i3_common::resolve_tilde::resolve_tilde;
-
-pub use i3_common::string::I3String as _i3String;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u32)]
@@ -5501,13 +5410,6 @@ pub enum WizardStep {
 pub enum WizardModifier {
     Alt = 0,
     Win = 1,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-#[repr(u32)]
-pub enum StackValueKind {
-    String = 0,
-    Number = 1,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -5631,4 +5533,175 @@ pub enum ParserState {
     FloatingMinimumSizeHeight = 2,
     FloatingMaximumSizeHeight = 1,
     ForceDisplayUrgencyHintMs = 0,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parse(input: &CStr) -> Option<BindingFields> {
+        // Generated grammar is immutable and this local parser never touches X.
+        parse_binding(input, |state| unsafe { parser_tokens(state) })
+    }
+
+    #[test]
+    fn binding_parser_keeps_modifiers_commands_release_and_raw_bytes() {
+        let binding = parse(c"bindcode $mod+Shift+36 exec terminal\n").unwrap();
+        assert_eq!(binding.modifiers.as_deref(), Some(&b"$mod,Shift"[..]));
+        assert_eq!(binding.key, b"36");
+        assert_eq!(binding.command, b"exec terminal");
+        assert_eq!(
+            format_binding(&binding, c"Return").to_bytes(),
+            b"bindsym $mod+Shift+Return exec terminal\n"
+        );
+        let binding = parse(c"BiNdCoDe --release 36 exec raw\xff\n").unwrap();
+        assert_eq!(binding.release.as_deref(), Some(&b"--release"[..]));
+        // Keep the historical no-space concatenation of release and command.
+        assert_eq!(
+            format_binding(&binding, c"Return").to_bytes(),
+            b"bindsym Return --releaseexec raw\xff\n"
+        );
+        let quoted = parse(c"bindcode \"36\" \"exec \\\"quoted\\\"\"\n").unwrap();
+        assert_eq!(quoted.key, b"36");
+        assert_eq!(quoted.command, b"exec \"quoted\"");
+    }
+
+    #[test]
+    fn malformed_lines_are_bounded_and_captures_do_not_leak_between_lines() {
+        for line in [
+            c"",
+            c"bindcode",
+            c"bindcode 36",
+            c"bindcode 36 \"\"",
+            c"not_a_binding 36 exec x",
+        ] {
+            assert!(parse(line).is_none(), "{line:?}");
+        }
+        let first = parse(c"bindcode Mod4+36 exec x").unwrap();
+        let second = parse(c"bindcode 37 exec y").unwrap();
+        assert!(first.modifiers.is_some());
+        assert!(second.modifiers.is_none());
+        let mut input = b"bindcode ".to_vec();
+        for _ in 0..100 {
+            input.extend_from_slice(b"Shift+");
+        }
+        input.extend_from_slice(b"36 exec done");
+        let parsed = parse(&CString::new(input).unwrap()).unwrap();
+        assert_eq!(
+            parsed
+                .modifiers
+                .unwrap()
+                .split(|byte| *byte == b',')
+                .count(),
+            100
+        );
+    }
+
+    #[test]
+    fn token_scanning_matches_legacy_quoting_whitespace_and_number_prefixes() {
+        assert_eq!(
+            scan_string(b"\"a\\\"b\" trailing", false),
+            Some((b"a\"b".to_vec(), 6))
+        );
+        assert_eq!(
+            scan_string(b"unclosed", true),
+            Some((b"unclosed".to_vec(), 8))
+        );
+        assert_eq!(
+            scan_string(b"word,next", false),
+            Some((b"word".to_vec(), 4))
+        );
+        assert_eq!(
+            scan_string(b"exec one; exec two\rnext", true),
+            Some((b"exec one; exec two".to_vec(), 18))
+        );
+        assert_eq!(decimal_prefix(b" -123suffix"), Some((-123, 5)));
+        assert!(decimal_prefix(b"+").is_none());
+        assert!(decimal_prefix(b"999999999999999999999999999999999").is_none());
+    }
+
+    #[test]
+    fn template_output_preserves_warning_header_indent_nuls_and_modifier_choice() {
+        let mut lines = TemplateLines { head: true };
+        assert_eq!(
+            lines
+                .rewrite(b"# WARNING skip\n", WizardModifier::Win, |_| unreachable!())
+                .unwrap(),
+            None
+        );
+        assert_eq!(
+            lines
+                .rewrite(b"\n", WizardModifier::Win, |_| unreachable!())
+                .unwrap(),
+            Some(b"\n".to_vec())
+        );
+        assert_eq!(
+            lines
+                .rewrite(
+                    b"# WARNING retained\n",
+                    WizardModifier::Win,
+                    |_| unreachable!()
+                )
+                .unwrap(),
+            Some(b"# WARNING retained\n".to_vec())
+        );
+        assert_eq!(
+            lines
+                .rewrite(
+                    b" \tset $mod Mod4\n",
+                    WizardModifier::Alt,
+                    |_| unreachable!()
+                )
+                .unwrap(),
+            Some(b" \tset $mod Mod1\n".to_vec())
+        );
+        assert_eq!(
+            lines
+                .rewrite(
+                    b"raw\xff\0ignored\n",
+                    WizardModifier::Alt,
+                    |_| unreachable!()
+                )
+                .unwrap(),
+            Some(b"raw\xff".to_vec())
+        );
+        let output = lines
+            .rewrite(
+                b"\tbindcode $mod+36 exec x\n",
+                WizardModifier::Win,
+                |input| Some(format_binding(&parse(input).unwrap(), c"Return")),
+            )
+            .unwrap();
+        assert_eq!(output, Some(b"\tbindsym $mod+Return exec x\n".to_vec()));
+        assert!(lines
+            .rewrite(b"bindcode invalid", WizardModifier::Win, |_| None)
+            .is_err());
+    }
+
+    #[test]
+    fn modifier_hit_test_keeps_inclusive_edges_and_alt_wins_shared_row() {
+        assert_eq!(
+            clicked_modifier(44, 34, 10, 10, 4),
+            Some(WizardModifier::Win)
+        );
+        assert_eq!(
+            clicked_modifier(94, 43, 10, 10, 4),
+            Some(WizardModifier::Win)
+        );
+        assert_eq!(
+            clicked_modifier(44, 44, 10, 10, 4),
+            Some(WizardModifier::Alt)
+        );
+        assert_eq!(
+            clicked_modifier(94, 54, 10, 10, 4),
+            Some(WizardModifier::Alt)
+        );
+        assert_eq!(clicked_modifier(43, 40, 10, 10, 4), None);
+        assert_eq!(clicked_modifier(95, 40, 10, 10, 4), None);
+        assert_eq!(clicked_modifier(44, 55, 10, 10, 4), None);
+        assert_eq!(
+            clicked_modifier(i16::MIN, i16::MAX, i32::MAX, i32::MAX, i32::MIN),
+            None
+        );
+    }
 }

@@ -8,9 +8,8 @@
  * and used dynamically without recompiling every object file.
  *
  */
-// Mechanical file-by-file Rust translation of src/version.c.
-// Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 pub const I3_VERSION: &[u8] = concat!(env!("I3_VERSION"), "\0").as_bytes();
 
-pub static mut i3_version: *const ::core::ffi::c_char =
+// Immutable compatibility pointer into process-lifetime build metadata.
+pub const i3_version: *const ::core::ffi::c_char =
     I3_VERSION.as_ptr().cast::<::core::ffi::c_char>();

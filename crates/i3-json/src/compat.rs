@@ -3,6 +3,20 @@
 //! These are ordinary Rust functions, not native-library bindings. New callers
 //! should own [`Generator`] or [`Parser`] directly. Pointer/context invariants
 //! are confined here while existing application files migrate independently.
+//!
+//! # Safety of the pointer adapters
+//!
+//! A handle is an owned Box from the corresponding allocator, not an external
+//! YAJL allocation. Free it exactly once with its matching free function. Each
+//! mutating operation requires an exclusive borrow for the whole call. Parser
+//! callbacks must not free, reconfigure, or recursively parse the same handle;
+//! callbacks can operate on separate handles. Borrowed output pointers expire
+//! on the next mutation/free. Input/output pointer spans must be initialized,
+//! correctly aligned for their type, and not alias a mutable handle or output.
+//! Zero-length byte inputs may be null. Callback byte spans last only for the
+//! callback and need not be NUL-terminated. Contexts must satisfy each callback's
+//! own lifetime/aliasing requirements. These contracts remain explicitly unsafe
+//! until each caller owns its Parser/Generator directly.
 #![allow(non_camel_case_types, non_upper_case_globals)]
 use crate::{Event, EventHandler, GenerateError, Generator, ParseErrorKind, Parser};
 use std::{
@@ -154,6 +168,7 @@ fn generate_status(result: Result<(), GenerateError>) -> yajl_gen_status {
 }
 
 /// # Safety
+/// A non-null callbacks pointer must be readable for one callback table.
 /// Callback context and any references used by callbacks must remain live until
 /// `yajl_free`. Non-null custom allocators are unsupported by the Rust backend.
 pub unsafe fn yajl_alloc(
@@ -187,7 +202,8 @@ pub unsafe fn yajl_free(handle: yajl_handle) {
     }
 }
 /// # Safety
-/// Handle and input are live; input has `length` initialized bytes.
+/// Handle is exclusively borrowed for this call (including callbacks); input
+/// has `length` initialized bytes and cannot alias mutable parser state.
 pub unsafe fn yajl_parse(handle: yajl_handle, input: *const u8, length: usize) -> yajl_status {
     let input = if length == 0 {
         &[]

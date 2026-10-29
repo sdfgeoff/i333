@@ -13,7 +13,7 @@ from workspace_temp import temporary_root
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--suite', required=True, choices=('ipc', 'cli', 'headless', 'input', 'nagbar', 'upstream'))
+    parser.add_argument('--suite', required=True, choices=('ipc', 'cli', 'headless', 'input', 'nagbar', 'wizard', 'upstream'))
     parser.add_argument('--bin-dir', required=True, type=Path,
                         help='Directory of regular executables supplied by Cargo integration tests')
     args = parser.parse_args()
@@ -31,12 +31,15 @@ def main():
     elif args.suite == 'cli':
         script = 'test-main-cli.py'
         flags = ['--candidate-dir', str(directory), '--reference-dir', str(reference)]
-    elif args.suite in ('headless', 'input', 'nagbar'):
+    elif args.suite in ('headless', 'input', 'nagbar', 'wizard'):
         interpreter = find_python()
         xvfb = find_xserver('Xvfb')
         if args.suite == 'headless':
             script = 'test-headless-parity.py'
             flags = ['--rust-bin-dir', str(directory), '--reference', str(reference / 'i3')]
+        elif args.suite == 'wizard':
+            script = 'test-wizard-parity.py'
+            flags = ['--rust-bin-dir', str(directory), '--reference', str(reference / 'i3-config-wizard')]
         elif args.suite == 'nagbar':
             script = 'test-nagbar-parity.py'
             flags = ['--rust-bin-dir', str(directory), '--reference', str(reference / 'i3-nagbar')]

@@ -74,6 +74,8 @@ fn main() {
     application::main();
 }
 
+// Private adapters installed for the event-thread application. The legacy
+// logger/tree globals are not made thread-safe by the shared callback interface.
 fn common_log_sink(level: i3_common::logging::Level, message: &[u8]) {
     use i3_common::logging::Level;
     let length = message.len().min(i32::MAX as usize) as i32;

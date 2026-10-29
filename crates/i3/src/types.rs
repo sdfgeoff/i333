@@ -1,6 +1,13 @@
 // Copyright © 2009 Michael Stapelberg and contributors (see LICENSE).
-// Shared model representations extracted from con.rs; implementations stay in their files.
-// Anonymous C2Rust names are mapped through their owning field paths, not numeric suffixes.
+//! Shared layout-compatible model records, not owners of their raw fields.
+//!
+//! `Copy` duplicates links and native handles; it does not transfer allocations
+//! or permit freeing both copies. Graph mutation/freeing belongs to the owning
+//! event-thread modules. No whole-record Rust borrow may span their reentrant
+//! callbacks. Enum fields require valid discriminants even in native allocations;
+//! zero-filled constructors are valid only because their defaults are zero.
+//! Open integer domains (bit masks, unions selected by another field, protocol
+//! values) intentionally remain integers until all producers migrate together.
 
 /// The layout of a container or the default layout for a workspace.
 ///

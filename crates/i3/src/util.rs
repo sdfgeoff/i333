@@ -1,121 +1,91 @@
-use crate::types::Direction;
-use crate::types::Layout;
-use crate::types::Orientation;
-use crate::types::Position;
-use crate::types::ShutdownReason;
+// Copyright © 2009 Michael Stapelberg and contributors (see LICENSE).
+//! Value utilities and explicit boundaries into i3's live tree and native APIs.
+use crate::application::{main_loop, start_argv};
+use crate::bindings::command_error_nagbar_pid;
+use crate::config::config;
+use crate::config_parser::config_error_nagbar_pid;
+use crate::ipc::{dump_node, ipc_shutdown};
+use crate::log::{debuglog, errorlog, get_debug_logging, verboselog};
+use crate::manage::restore_geometry;
+use crate::tree::croot;
+pub use crate::types::Rect;
+use crate::types::{Direction, Layout, Orientation, Position, ShutdownReason};
+use i3_common::font::font_is_pango;
+use i3_common::get_process_filename::get_process_filename;
 use i3_common::mkdirp::mkdirp;
-use i3_common::safewrappers::sasprintf;
-/*
- * vim:ts=4:sw=4:expandtab
- *
- * i3 - an improved tiling window manager
- * © 2009 Michael Stapelberg and contributors (see also: LICENSE)
- *
- * util.c: Utility functions, which can be useful everywhere within i3 (see
- *         also libi3).
- *
- */
-// Mechanical file-by-file Rust translation of src/util.c.
-// Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
-pub use i3_json::compat::{yajl_alloc_funcs, yajl_gen};
-use i3_json::compat::{yajl_gen_alloc, yajl_gen_free, yajl_gen_get_buf};
-pub use libev_sys::{ev_child, ev_child_start, ev_child_stop, ev_loop, ev_watcher};
+use i3_common::native_stdio::{__ctype_b_loc, warn};
+use i3_common::resolve_tilde::resolve_tilde;
+use i3_common::safewrappers::smalloc;
+use libc::{
+    __errno_location, _exit, execvp, fork, free, kill, perror, setlocale, strcasecmp, strcmp,
+    strerror, strtol, strtoll, waitpid,
+};
+use libev_sys::{ev_child, ev_child_start, ev_child_stop, ev_loop};
+use std::ffi::{CStr, CString};
+use std::io::{Read, Write};
+use std::os::unix::ffi::OsStrExt;
+use std::os::unix::fs::OpenOptionsExt;
+use std::ptr::NonNull;
+const DEFAULT_DIR_MODE: libc::mode_t = 0o755;
+const INT32_MAX: i32 = i32::MAX;
+const LONG_MIN: libc::c_long = libc::c_long::MIN;
+const LONG_MAX: libc::c_long = libc::c_long::MAX;
+const true_0: i32 = 1;
+const false_0: i32 = 0;
 
-pub type i3String = _i3String;
-
-pub type i3Font = Font;
-
-pub type fullscreen_mode_t = ::core::ffi::c_uint;
-pub const CF_GLOBAL: fullscreen_mode_t = 2;
-pub const CF_OUTPUT: fullscreen_mode_t = 1;
-pub const CF_NONE: fullscreen_mode_t = 0;
-
-pub const M_BELOW: ::core::ffi::c_uint = 2;
-pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
-pub const M_HERE: ::core::ffi::c_uint = 0;
-
-pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
-pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
-pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
-pub const M_NODOCK: ::core::ffi::c_int = 0;
-pub const M_DONTCHECK: ::core::ffi::c_int = -1;
-
-pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
-pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
-pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
-pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
-pub const A_COMMAND: ::core::ffi::c_uint = 1;
-pub const A_ANY: ::core::ffi::c_uint = 0;
-
-pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
-pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
-pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
-pub const CT_CON: ::core::ffi::c_uint = 2;
-pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
-pub const CT_ROOT: ::core::ffi::c_uint = 0;
-
-pub type hide_edge_borders_mode_t = ::core::ffi::c_uint;
-pub const HEBM_SMART_NO_GAPS: hide_edge_borders_mode_t = 64;
-pub const HEBM_SMART: hide_edge_borders_mode_t = 32;
-pub const HEBM_BOTH: hide_edge_borders_mode_t = 23;
-pub const HEBM_HORIZONTAL: hide_edge_borders_mode_t = 20;
-pub const HEBM_VERTICAL: hide_edge_borders_mode_t = 3;
-pub const HEBM_NONE: hide_edge_borders_mode_t = 0;
-
-pub type tiling_drag_t = ::core::ffi::c_uint;
-pub const TILING_DRAG_MODIFIER_OR_TITLEBAR: tiling_drag_t = 3;
-pub const TILING_DRAG_TITLEBAR: tiling_drag_t = 2;
-pub const TILING_DRAG_MODIFIER: tiling_drag_t = 1;
-pub const TILING_DRAG_OFF: tiling_drag_t = 0;
-
-pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-pub const __S_IREAD: ::core::ffi::c_int = 0o400 as ::core::ffi::c_int;
-pub const __S_IWRITE: ::core::ffi::c_int = 0o200 as ::core::ffi::c_int;
-pub const __S_IEXEC: ::core::ffi::c_int = 0o100 as ::core::ffi::c_int;
-pub const INT32_MAX: ::core::ffi::c_int = 2147483647 as ::core::ffi::c_int;
-pub const BUFSIZ: ::core::ffi::c_int = 8192 as ::core::ffi::c_int;
-pub const SIGTERM: ::core::ffi::c_int = 15 as ::core::ffi::c_int;
-pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
-pub const __LC_NUMERIC: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const DEFAULT_DIR_MODE: ::core::ffi::c_int = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH;
-pub const O_WRONLY: ::core::ffi::c_int = 0o1 as ::core::ffi::c_int;
-pub const O_CREAT: ::core::ffi::c_int = 0o100 as ::core::ffi::c_int;
-pub const O_TRUNC: ::core::ffi::c_int = 0o1000 as ::core::ffi::c_int;
-pub const S_IRUSR: ::core::ffi::c_int = __S_IREAD;
-pub const S_IWUSR: ::core::ffi::c_int = __S_IWRITE;
-pub const S_IXUSR: ::core::ffi::c_int = __S_IEXEC;
-pub const S_IRWXU: ::core::ffi::c_int = __S_IREAD | __S_IWRITE | __S_IEXEC;
-pub const S_IRGRP: ::core::ffi::c_int = S_IRUSR >> 3 as ::core::ffi::c_int;
-pub const S_IXGRP: ::core::ffi::c_int = S_IXUSR >> 3 as ::core::ffi::c_int;
-pub const S_IROTH: ::core::ffi::c_int = S_IRGRP >> 3 as ::core::ffi::c_int;
-pub const S_IXOTH: ::core::ffi::c_int = S_IXGRP >> 3 as ::core::ffi::c_int;
-pub const LC_NUMERIC: ::core::ffi::c_int = __LC_NUMERIC;
-
-pub unsafe fn min(a: ::core::ffi::c_int, b: ::core::ffi::c_int) -> ::core::ffi::c_int {
-    if a < b {
-        a
-    } else {
-        b
+/// Final buffers exported to still-native malloc/free callers. Rust temporary
+/// strings/vectors never cross that allocation boundary.
+struct MallocBuffer(NonNull<libc::c_char>);
+impl MallocBuffer {
+    fn copy(bytes: &[u8]) -> Self {
+        let size = bytes
+            .len()
+            .checked_add(1)
+            .expect("native buffer size overflow");
+        let ptr = unsafe { smalloc(size) }.cast::<libc::c_char>();
+        unsafe {
+            std::ptr::copy_nonoverlapping(bytes.as_ptr(), ptr.cast(), bytes.len());
+            ptr.add(bytes.len()).write(0);
+        }
+        Self(NonNull::new(ptr).expect("smalloc returns nonnull"))
+    }
+    /// ptr must transfer a uniquely owned malloc buffer containing a NUL.
+    unsafe fn take(ptr: *mut libc::c_char) -> Option<Self> {
+        NonNull::new(ptr).map(Self)
+    }
+    fn as_cstr(&self) -> &CStr {
+        unsafe { CStr::from_ptr(self.0.as_ptr()) }
+    }
+    fn into_raw(self) -> *mut libc::c_char {
+        let ptr = self.0.as_ptr();
+        std::mem::forget(self);
+        ptr
+    }
+}
+impl Drop for MallocBuffer {
+    fn drop(&mut self) {
+        unsafe {
+            free(self.0.as_ptr().cast());
+        }
     }
 }
 
-pub unsafe fn max(a: ::core::ffi::c_int, b: ::core::ffi::c_int) -> ::core::ffi::c_int {
-    if a > b {
-        a
-    } else {
-        b
-    }
+pub fn min(a: ::core::ffi::c_int, b: ::core::ffi::c_int) -> ::core::ffi::c_int {
+    a.min(b)
 }
 
-pub unsafe fn rect_contains(rect: Rect, x: u32, y: u32) -> bool {
+pub fn max(a: ::core::ffi::c_int, b: ::core::ffi::c_int) -> ::core::ffi::c_int {
+    a.max(b)
+}
+
+pub fn rect_contains(rect: Rect, x: u32, y: u32) -> bool {
     x >= rect.x
         && x <= rect.x.wrapping_add(rect.width)
         && y >= rect.y
         && y <= rect.y.wrapping_add(rect.height)
 }
 
-pub unsafe fn rect_add(a: Rect, b: Rect) -> Rect {
+pub fn rect_add(a: Rect, b: Rect) -> Rect {
     Rect {
         x: a.x.wrapping_add(b.x),
         y: a.y.wrapping_add(b.y),
@@ -124,7 +94,7 @@ pub unsafe fn rect_add(a: Rect, b: Rect) -> Rect {
     }
 }
 
-pub unsafe fn rect_sub(a: Rect, b: Rect) -> Rect {
+pub fn rect_sub(a: Rect, b: Rect) -> Rect {
     Rect {
         x: a.x.wrapping_sub(b.x),
         y: a.y.wrapping_sub(b.y),
@@ -133,7 +103,7 @@ pub unsafe fn rect_sub(a: Rect, b: Rect) -> Rect {
     }
 }
 
-pub unsafe fn rect_sanitize_dimensions(mut rect: Rect) -> Rect {
+pub fn rect_sanitize_dimensions(mut rect: Rect) -> Rect {
     rect.width = if rect.width as i32 <= 0 as i32 {
         1 as u32
     } else {
@@ -147,53 +117,50 @@ pub unsafe fn rect_sanitize_dimensions(mut rect: Rect) -> Rect {
     rect
 }
 
-pub unsafe fn rect_equals(a: Rect, b: Rect) -> bool {
+pub fn rect_equals(a: Rect, b: Rect) -> bool {
     a.x == b.x && a.y == b.y && a.width == b.width && a.height == b.height
 }
 
+/// name must be a live C string; libc locale changes must be serialized.
 pub unsafe fn name_is_digits(name: *const ::core::ffi::c_char) -> bool {
-    let mut i: usize = 0 as usize;
-    while i < strlen(name) {
-        if *(*__ctype_b_loc())
-            .offset(*name.offset(i as isize) as ::core::ffi::c_uchar as ::core::ffi::c_int as isize)
-            as ::core::ffi::c_int
-            & i3_common::native_stdio::CTYPE_DIGIT as ::core::ffi::c_int as ::core::ffi::c_ushort
-                as ::core::ffi::c_int
-            == 0
-        {
-            return false_0 != 0;
-        }
-        i = i.wrapping_add(1);
-    }
-    true_0 != 0
+    // Snapshot locale-sensitive classification, then use a bounded CStr walk.
+    // Do not substitute Unicode/ASCII classification for the libc locale table.
+    let digits = unsafe { *__ctype_b_loc() };
+    unsafe { CStr::from_ptr(name) }
+        .to_bytes()
+        .iter()
+        .all(|byte| unsafe {
+            *digits.add(*byte as usize) & i3_common::native_stdio::CTYPE_DIGIT as u16 != 0
+        })
 }
 
+/// Input is a live C string, out is writable; locale changes must be serialized.
 pub unsafe fn layout_from_name(layout_str: *const ::core::ffi::c_char, out: *mut Layout) -> bool {
-    if strcmp(layout_str, c"default".as_ptr()) == 0 as ::core::ffi::c_int {
-        *out = Layout::Default;
-        return true_0 != 0;
+    let name = CStr::from_ptr(layout_str);
+    let layout = if name == c"default" {
+        Some(Layout::Default)
+    } else {
+        [
+            (c"stacked", Layout::Stacked),
+            (c"stacking", Layout::Stacked),
+            (c"tabbed", Layout::Tabbed),
+            (c"splitv", Layout::SplitV),
+            (c"splith", Layout::SplitH),
+        ]
+        .into_iter()
+        .find_map(|(candidate, layout)| {
+            (strcasecmp(name.as_ptr(), candidate.as_ptr()) == 0).then_some(layout)
+        })
+    };
+    if let Some(layout) = layout {
+        *out = layout;
+        true
+    } else {
+        false
     }
-    if strcasecmp(layout_str, c"stacked".as_ptr()) == 0 as ::core::ffi::c_int
-        || strcasecmp(layout_str, c"stacking".as_ptr()) == 0 as ::core::ffi::c_int
-    {
-        *out = Layout::Stacked;
-        return true_0 != 0;
-    }
-    if strcasecmp(layout_str, c"tabbed".as_ptr()) == 0 as ::core::ffi::c_int {
-        *out = Layout::Tabbed;
-        return true_0 != 0;
-    }
-    if strcasecmp(layout_str, c"splitv".as_ptr()) == 0 as ::core::ffi::c_int {
-        *out = Layout::SplitV;
-        return true_0 != 0;
-    }
-    if strcasecmp(layout_str, c"splith".as_ptr()) == 0 as ::core::ffi::c_int {
-        *out = Layout::SplitH;
-        return true_0 != 0;
-    }
-    false_0 != 0
 }
 
+/// Input is a live C string. Retains libc prefix/whitespace/errno semantics.
 pub unsafe fn ws_name_to_number(name: *const ::core::ffi::c_char) -> ::core::ffi::c_int {
     let mut endptr: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
     *__errno_location() = 0 as ::core::ffi::c_int;
@@ -209,203 +176,244 @@ pub unsafe fn ws_name_to_number(name: *const ::core::ffi::c_char) -> ::core::ffi
     parsed_num as ::core::ffi::c_int
 }
 
+/// destination must be live and writable for this event-thread update.
 pub unsafe fn update_if_necessary(destination: *mut u32, new_value: u32) -> bool {
     let old_value: u32 = *destination;
     *destination = new_value;
     *destination != old_value
 }
 
-pub unsafe fn exec_i3_utility(name: *mut ::core::ffi::c_char, argv: *mut *mut ::core::ffi::c_char) {
-    let mut binary: *mut ::core::ffi::c_char = name;
-    let ref mut fresh0 = *argv.offset(0 as ::core::ffi::c_int as isize);
-    *fresh0 = binary;
-    execvp(binary, argv as *const *const ::core::ffi::c_char);
-    let pathbuf: *mut ::core::ffi::c_char =
-        sstrdup(*start_argv.offset(0 as ::core::ffi::c_int as isize));
-    let mut dir: *mut ::core::ffi::c_char = dirname(pathbuf);
-    sasprintf(&raw mut binary, c"%s/%s".as_ptr(), dir, name);
-    let ref mut fresh1 = *argv.offset(0 as ::core::ffi::c_int as isize);
-    *fresh1 = binary;
-    execvp(binary, argv as *const *const ::core::ffi::c_char);
-    let mut buffer: [::core::ffi::c_char; 8192] = [0; 8192];
-    if readlink(
-        c"/proc/self/exe".as_ptr(),
-        &raw mut buffer as *mut ::core::ffi::c_char,
-        BUFSIZ as usize,
-    ) == -(1 as ::core::ffi::c_int) as isize
-    {
-        warn(c"could not read /proc/self/exe".as_ptr());
-        _exit(EXIT_FAILURE);
-    }
-    dir = dirname(&raw mut buffer as *mut ::core::ffi::c_char);
-    sasprintf(&raw mut binary, c"%s/%s".as_ptr(), dir, name);
-    let ref mut fresh2 = *argv.offset(0 as ::core::ffi::c_int as isize);
-    *fresh2 = binary;
-    execvp(binary, argv as *const *const ::core::ffi::c_char);
-    warn(c"Could not start %s".as_ptr(), name);
-    _exit(2 as ::core::ffi::c_int);
+// POSIX dirname handles bare names, roots and trailing slashes differently from
+// Path::parent. Keep its byte semantics on an owned writable buffer.
+fn parent_directory(path: &CStr) -> CString {
+    let mut bytes = path.to_bytes_with_nul().to_vec();
+    unsafe { CStr::from_ptr(libc::dirname(bytes.as_mut_ptr().cast())) }.to_owned()
 }
-unsafe fn add_argument(
-    original: *mut *mut ::core::ffi::c_char,
-    opt_char: *mut ::core::ffi::c_char,
-    opt_arg: *mut ::core::ffi::c_char,
-    opt_name: *mut ::core::ffi::c_char,
-) -> *mut *mut ::core::ffi::c_char {
-    let mut num_args: ::core::ffi::c_int = 0;
-    num_args = 0 as ::core::ffi::c_int;
-    while !(*original.offset(num_args as isize)).is_null() {
-        num_args += 1;
+fn utility_path(directory: &CStr, name: &CStr) -> CString {
+    let mut bytes = directory.to_bytes().to_vec();
+    bytes.push(b'/');
+    bytes.extend_from_slice(name.to_bytes());
+    CString::new(bytes).expect("CStr components contain no NUL")
+}
+
+/// Prepared only in the parent: no Rust allocation/filesystem operation is
+/// introduced into the fork child's exec path. A readlink failure is deferred
+/// until both earlier exec attempts fail, preserving diagnostic order.
+struct PreparedUtility {
+    name: CString,
+    startup_sibling: CString,
+    proc_sibling: Result<CString, i32>,
+}
+impl PreparedUtility {
+    fn new(name: &CStr, startup: &CStr) -> Self {
+        let proc_sibling = std::fs::read_link("/proc/self/exe")
+            .map_err(|error| error.raw_os_error().unwrap_or(libc::EIO))
+            .map(|path| {
+                let executable =
+                    CString::new(path.as_os_str().as_bytes()).expect("OS path contains no NUL");
+                utility_path(&parent_directory(&executable), name)
+            });
+        Self {
+            name: name.to_owned(),
+            startup_sibling: utility_path(&parent_directory(startup), name),
+            proc_sibling,
+        }
     }
-    let result: *mut *mut ::core::ffi::c_char = scalloc(
-        (num_args + 3 as ::core::ffi::c_int) as usize,
-        ::core::mem::size_of::<*mut ::core::ffi::c_char>() as usize,
-    ) as *mut *mut ::core::ffi::c_char;
-    let mut write_index: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    let mut skip_next: bool = false_0 != 0;
-    let mut i: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    while i < num_args {
-        if skip_next {
-            skip_next = false_0 != 0;
-        } else if strcmp(*original.offset(i as isize), opt_char) == 0
-            || !opt_name.is_null() && strcmp(*original.offset(i as isize), opt_name) == 0
-        {
-            if !opt_arg.is_null() {
-                skip_next = true_0 != 0;
+}
+/// argv is writable and NUL-terminated, with live C strings. prepared remains
+/// live in the fork child through _exit/exec. Only native exec/failure operations
+/// happen here; preparation and allocation were completed before the fork.
+unsafe fn exec_i3_utility(prepared: &PreparedUtility, argv: *mut *mut libc::c_char) -> ! {
+    argv.write(prepared.name.as_ptr().cast_mut());
+    execvp(prepared.name.as_ptr(), argv.cast());
+    argv.write(prepared.startup_sibling.as_ptr().cast_mut());
+    execvp(prepared.startup_sibling.as_ptr(), argv.cast());
+    match &prepared.proc_sibling {
+        Ok(sibling) => {
+            argv.write(sibling.as_ptr().cast_mut());
+            execvp(sibling.as_ptr(), argv.cast());
+        }
+        Err(errno) => {
+            *__errno_location() = *errno;
+            warn(c"could not read /proc/self/exe".as_ptr());
+            _exit(libc::EXIT_FAILURE);
+        }
+    }
+    warn(c"Could not start %s".as_ptr(), prepared.name.as_ptr());
+    _exit(2);
+}
+
+fn replace_argument(
+    arguments: &mut Vec<CString>,
+    option: &CStr,
+    value: Option<&CStr>,
+    alias: Option<&CStr>,
+) {
+    let mut original = std::mem::take(arguments).into_iter();
+    while let Some(argument) = original.next() {
+        if argument.as_c_str() == option || alias == Some(argument.as_c_str()) {
+            if value.is_some() {
+                let _ = original.next();
             }
         } else {
-            let fresh3 = write_index;
-            write_index = write_index + 1;
-            let ref mut fresh4 = *result.offset(fresh3 as isize);
-            *fresh4 = *original.offset(i as isize);
+            arguments.push(argument);
         }
-        i += 1;
     }
-    let fresh5 = write_index;
-    write_index = write_index + 1;
-    let ref mut fresh6 = *result.offset(fresh5 as isize);
-    *fresh6 = opt_char;
-    let ref mut fresh7 = *result.offset(write_index as isize);
-    *fresh7 = opt_arg;
-    result
+    arguments.push(option.to_owned());
+    if let Some(value) = value {
+        arguments.push(value.to_owned());
+    }
 }
-unsafe fn store_restart_layout() -> *mut ::core::ffi::c_char {
-    let prev_locale: *mut ::core::ffi::c_char = sstrdup(setlocale(
-        LC_NUMERIC,
-        ::core::ptr::null::<::core::ffi::c_char>(),
-    ));
-    setlocale(LC_NUMERIC, c"C".as_ptr());
-    let gen: yajl_gen = yajl_gen_alloc(::core::ptr::null::<yajl_alloc_funcs>());
-    dump_node(gen, croot, true_0 != 0);
-    setlocale(LC_NUMERIC, prev_locale);
-    free(prev_locale as *mut ::core::ffi::c_void);
-    let mut payload: *const ::core::ffi::c_uchar = ::core::ptr::null::<::core::ffi::c_uchar>();
-    let mut length: usize = 0;
-    yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
-    let mut filename: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    if config.restart_state_path.is_null() {
-        filename = get_process_filename(c"restart-state".as_ptr());
-        if filename.is_null() {
-            return ::core::ptr::null_mut::<::core::ffi::c_char>();
-        }
-    } else {
-        filename = resolve_tilde(config.restart_state_path);
+/// Clone a native argument array before any tree/shutdown callbacks. The caller
+/// supplies a live terminated array and terminated strings through this read.
+unsafe fn copy_arguments(mut argv: *const *mut libc::c_char) -> Vec<CString> {
+    let mut arguments = Vec::new();
+    while !unsafe { *argv }.is_null() {
+        arguments.push(unsafe { CStr::from_ptr(*argv) }.to_owned());
+        argv = unsafe { argv.add(1) };
     }
-    let filenamecopy: *mut ::core::ffi::c_char = sstrdup(filename);
-    let base: *mut ::core::ffi::c_char = dirname(filenamecopy);
+    arguments
+}
+
+struct NumericLocale(CString);
+impl NumericLocale {
+    /// Global locale mutation requires external serialization with native
+    /// locale users, exactly as the existing restart dump requires.
+    unsafe fn c() -> Option<Self> {
+        let locale = unsafe { setlocale(libc::LC_NUMERIC, std::ptr::null()) };
+        if locale.is_null() {
+            return None;
+        }
+        let previous = unsafe { CStr::from_ptr(locale) }.to_owned();
+        unsafe {
+            setlocale(libc::LC_NUMERIC, c"C".as_ptr());
+        }
+        Some(Self(previous))
+    }
+}
+impl Drop for NumericLocale {
+    fn drop(&mut self) {
+        unsafe {
+            setlocale(libc::LC_NUMERIC, self.0.as_ptr());
+        }
+    }
+}
+/// Live event-thread tree and serialized process-locale contract. dump_node only
+/// borrows the generator for its call; Box keeps its native adapter address stable.
+unsafe fn restart_layout_payload() -> Vec<u8> {
+    let mut generator = Box::new(i3_json::Generator::new());
+    {
+        let _locale = NumericLocale::c();
+        dump_node(
+            (&mut *generator as *mut i3_json::Generator).cast(),
+            croot,
+            true,
+        );
+    }
+    generator.bytes().to_vec()
+}
+unsafe fn store_restart_layout() -> *mut libc::c_char {
+    let payload = restart_layout_payload();
+    let filename = if config.restart_state_path.is_null() {
+        get_process_filename(c"restart-state".as_ptr())
+    } else {
+        resolve_tilde(config.restart_state_path)
+    };
+    let Some(filename) = MallocBuffer::take(filename) else {
+        return std::ptr::null_mut();
+    };
+    let base = parent_directory(filename.as_cstr());
     debuglog(
         c"%s:%s:%d - Creating \"%s\" for storing the restart layout\n"
             .as_ptr()
             .cast_mut(),
         c"../src/util.c".as_ptr(),
         c"store_restart_layout".as_ptr(),
-        253 as ::core::ffi::c_int,
-        base,
+        253 as libc::c_int,
+        base.as_ptr(),
     );
-    if mkdirp(base, DEFAULT_DIR_MODE as libc::mode_t) != 0 as ::core::ffi::c_int {
-        errorlog(
-            c"ERROR: Could not create \"%s\" for storing the restart layout, layout will be lost.\n".as_ptr().cast_mut(),
-            base,
-        );
+    if mkdirp(base.as_ptr(), DEFAULT_DIR_MODE) != 0 {
+        errorlog(c"ERROR: Could not create \"%s\" for storing the restart layout, layout will be lost.\n".as_ptr().cast_mut(),base.as_ptr());
     }
-    free(filenamecopy as *mut ::core::ffi::c_void);
-    let fd: ::core::ffi::c_int = open(filename, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
-    if fd == -(1 as ::core::ffi::c_int) {
-        perror(c"open()".as_ptr());
-        free(filename as *mut ::core::ffi::c_void);
-        return ::core::ptr::null_mut::<::core::ffi::c_char>();
-    }
-    if writeall(fd, payload as *const ::core::ffi::c_void, length)
-        == -(1 as ::core::ffi::c_int) as isize
+    let path = std::path::Path::new(std::ffi::OsStr::from_bytes(filename.as_cstr().to_bytes()));
+    let mut file = match std::fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .mode(0o600)
+        .open(path)
     {
+        Ok(file) => file,
+        Err(error) => {
+            *__errno_location() = error.raw_os_error().unwrap_or(libc::EIO);
+            perror(c"open()".as_ptr());
+            return std::ptr::null_mut();
+        }
+    };
+    if let Err(error) = file.write_all(&payload) {
         errorlog(
             c"ERROR: Could not write restart layout to \"%s\", layout will be lost: %s\n"
                 .as_ptr()
                 .cast_mut(),
-            filename,
-            strerror(*__errno_location()),
+            filename.as_cstr().as_ptr(),
+            strerror(error.raw_os_error().unwrap_or(libc::EIO)),
         );
-        free(filename as *mut ::core::ffi::c_void);
-        close(fd);
-        return ::core::ptr::null_mut::<::core::ffi::c_char>();
+        return std::ptr::null_mut();
     }
-    close(fd);
-    if length > 0 as usize {
+    drop(file);
+    if !payload.is_empty() {
         debuglog(
             c"%s:%s:%d - layout: %.*s\n".as_ptr().cast_mut(),
             c"../src/util.c".as_ptr(),
             c"store_restart_layout".as_ptr(),
-            276 as ::core::ffi::c_int,
-            length as ::core::ffi::c_int,
-            payload,
+            276 as libc::c_int,
+            payload.len() as libc::c_int,
+            payload.as_ptr(),
         );
     }
-    yajl_gen_free(gen);
-    filename
+    filename.into_raw()
 }
 
+/// Live event-thread graph/process boundary. Never call this against a desktop
+/// being used for testing: it shuts down IPC, restores geometry and execs i3.
 pub unsafe fn i3_restart(forget_layout: bool) {
-    let restart_filename: *mut ::core::ffi::c_char = if forget_layout as ::core::ffi::c_int != 0 {
-        ::core::ptr::null_mut::<::core::ffi::c_char>()
+    let mut arguments = copy_arguments(start_argv);
+    let restart_filename = if forget_layout {
+        None
     } else {
-        store_restart_layout()
+        MallocBuffer::take(store_restart_layout())
     };
-    kill_nagbar(config_error_nagbar_pid, true_0 != 0);
-    kill_nagbar(command_error_nagbar_pid, true_0 != 0);
+    kill_nagbar(config_error_nagbar_pid, true);
+    kill_nagbar(command_error_nagbar_pid, true);
     restore_geometry();
-    ipc_shutdown(ShutdownReason::Restart, -(1 as ::core::ffi::c_int));
+    ipc_shutdown(ShutdownReason::Restart, -1);
     verboselog(
         c"restarting \"%s\"...\n".as_ptr().cast_mut(),
-        *start_argv.offset(0 as ::core::ffi::c_int as isize),
+        arguments[0].as_ptr(),
     );
-    start_argv = add_argument(
-        start_argv,
-        c"-a".as_ptr().cast_mut(),
-        ::core::ptr::null_mut::<::core::ffi::c_char>(),
-        ::core::ptr::null_mut::<::core::ffi::c_char>(),
-    );
+    replace_argument(&mut arguments, c"-a", None, None);
     if get_debug_logging() {
-        start_argv = add_argument(
-            start_argv,
-            c"-d".as_ptr().cast_mut(),
-            c"all".as_ptr().cast_mut(),
-            ::core::ptr::null_mut::<::core::ffi::c_char>(),
+        replace_argument(&mut arguments, c"-d", Some(c"all"), None);
+    }
+    if let Some(filename) = restart_filename.as_ref() {
+        replace_argument(
+            &mut arguments,
+            c"--restart",
+            Some(filename.as_cstr()),
+            Some(c"-r"),
         );
     }
-    if !restart_filename.is_null() {
-        start_argv = add_argument(
-            start_argv,
-            c"--restart".as_ptr().cast_mut(),
-            restart_filename,
-            c"-r".as_ptr().cast_mut(),
-        );
-    }
-    execvp(
-        *start_argv.offset(0 as ::core::ffi::c_int as isize),
-        start_argv as *const *const ::core::ffi::c_char,
-    );
+    let mut pointers: Vec<_> = arguments.iter().map(|argument| argument.as_ptr()).collect();
+    pointers.push(std::ptr::null());
+    // The startup owner keeps start_argv unchanged. These temporary argv buffers
+    // transfer to exec only; on exec failure they are reclaimed without leaving
+    // globals pointing into freed storage or leaking intermediate pointer arrays.
+    execvp(pointers[0], pointers.as_ptr());
 }
 
-pub unsafe fn pango_escape_markup(mut input: *mut ::core::ffi::c_char) -> *mut ::core::ffi::c_char {
+/// input is null or a uniquely owned malloc-compatible C string. The return
+/// value transfers that ownership to the caller, including the non-Pango path.
+pub unsafe fn pango_escape_markup(input: *mut ::core::ffi::c_char) -> *mut ::core::ffi::c_char {
     if !font_is_pango() {
         return input;
     }
@@ -420,8 +428,7 @@ pub unsafe fn pango_escape_markup(mut input: *mut ::core::ffi::c_char) -> *mut :
         i3_common::string::escape_markup(text.as_str().expect("UTF-8 source is initialized"));
     let escaped =
         i3_common::safewrappers::sstrndup(escaped_text.as_ptr().cast(), escaped_text.len());
-    free(input as *mut ::core::ffi::c_void);
-    input = ::core::ptr::null_mut::<::core::ffi::c_char>();
+    free(input.cast());
     escaped
 }
 unsafe extern "C" fn nagbar_exited(
@@ -429,10 +436,12 @@ unsafe extern "C" fn nagbar_exited(
     watcher: *mut ev_child,
     revents: ::core::ffi::c_int,
 ) {
+    // Only start_nagbar installs this callback. Stop before taking ownership:
+    // libev must no longer retain the stable allocation when it is dropped.
     ev_child_stop(loop_0, watcher);
-    let exitcode: ::core::ffi::c_int =
-        ((*watcher).rstatus & 0xff00 as ::core::ffi::c_int) >> 8 as ::core::ffi::c_int;
-    if !((*watcher).rstatus & 0x7f as ::core::ffi::c_int == 0 as ::core::ffi::c_int) {
+    let watcher = Box::from_raw(watcher);
+    let exitcode = libc::WEXITSTATUS(watcher.rstatus);
+    if !libc::WIFEXITED(watcher.rstatus) {
         errorlog(
             c"ERROR: i3-nagbar (%d) did not exit normally. This is not an error if the config was reloaded while a nagbar was active.\n".as_ptr().cast_mut(),
             (*watcher).pid,
@@ -463,6 +472,8 @@ unsafe extern "C" fn nagbar_exited(
     }
 }
 
+/// Event-thread only; nagbar_pid must outlive its registered child watcher.
+/// argv is a writable, terminated native argument array valid through exec.
 pub unsafe fn start_nagbar(nagbar_pid: *mut libc::pid_t, argv: *mut *mut ::core::ffi::c_char) {
     if *nagbar_pid != -(1 as ::core::ffi::c_int) {
         debuglog(
@@ -476,13 +487,14 @@ pub unsafe fn start_nagbar(nagbar_pid: *mut libc::pid_t, argv: *mut *mut ::core:
         );
         return;
     }
+    let prepared = PreparedUtility::new(c"i3-nagbar", CStr::from_ptr(*start_argv));
     *nagbar_pid = fork() as libc::pid_t;
     if *nagbar_pid == -(1 as ::core::ffi::c_int) {
         warn(c"Could not fork()".as_ptr());
         return;
     }
     if *nagbar_pid == 0 as ::core::ffi::c_int {
-        exec_i3_utility(c"i3-nagbar".as_ptr().cast_mut(), argv);
+        exec_i3_utility(&prepared, argv);
     }
     debuglog(
         c"%s:%s:%d - Starting i3-nagbar with PID %d\n"
@@ -493,35 +505,18 @@ pub unsafe fn start_nagbar(nagbar_pid: *mut libc::pid_t, argv: *mut *mut ::core:
         383 as ::core::ffi::c_int,
         *nagbar_pid,
     );
-    let child: *mut ev_child =
-        smalloc(::core::mem::size_of::<ev_child>() as usize) as *mut ev_child;
-    let ref mut fresh8 = (*(child as *mut ::core::ffi::c_void as *mut ev_watcher)).pending;
-    *fresh8 = 0 as ::core::ffi::c_int;
-    (*(child as *mut ::core::ffi::c_void as *mut ev_watcher)).active = *fresh8;
-    (*(child as *mut ::core::ffi::c_void as *mut ev_watcher)).priority = 0 as ::core::ffi::c_int;
-    (*child).cb = Some(
-        nagbar_exited
-            as unsafe extern "C" fn(*mut ev_loop, *mut ev_child, ::core::ffi::c_int) -> (),
-    )
-        as Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_child, ::core::ffi::c_int) -> ()>;
-    memmove(
-        &raw mut (*(child as *mut ev_watcher)).cb as *mut ::core::ffi::c_void,
-        &raw mut (*child).cb as *const ::core::ffi::c_void,
-        ::core::mem::size_of::<
-            Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_child, ::core::ffi::c_int) -> ()>,
-        >() as usize,
-    );
-    (*child).pid = *nagbar_pid as ::core::ffi::c_int;
-    (*child).flags = (0 as ::core::ffi::c_int != 0) as ::core::ffi::c_int;
-    (*child).data = nagbar_pid as *mut ::core::ffi::c_void;
+    let mut child = Box::new(ev_child::new(*nagbar_pid, false, nagbar_exited));
+    child.data = nagbar_pid.cast();
+    let child = Box::into_raw(child);
     ev_child_start(main_loop, child);
 }
 
+/// The caller owns this child PID and any concurrent wait/reap coordination.
 pub unsafe fn kill_nagbar(nagbar_pid: libc::pid_t, wait_for_it: bool) {
     if nagbar_pid == -(1 as ::core::ffi::c_int) {
         return;
     }
-    if kill(nagbar_pid as libc::pid_t, SIGTERM) == -(1 as ::core::ffi::c_int) {
+    if kill(nagbar_pid as libc::pid_t, libc::SIGTERM) == -(1 as ::core::ffi::c_int) {
         warn(c"kill(configerror_nagbar) failed".as_ptr());
     }
     if !wait_for_it {
@@ -534,6 +529,8 @@ pub unsafe fn kill_nagbar(nagbar_pid: libc::pid_t, wait_for_it: bool) {
     );
 }
 
+/// Input is a terminated C string, out is writable. Intentionally keeps
+/// strtol's locale/base rules, empty-string acceptance and LONG_MIN/MAX rejection.
 pub unsafe fn parse_long(
     str: *const ::core::ffi::c_char,
     out: *mut ::core::ffi::c_long,
@@ -553,50 +550,80 @@ pub unsafe fn parse_long(
     true_0 != 0
 }
 
-pub unsafe fn slurp(path: *const ::core::ffi::c_char, buf: *mut *mut ::core::ffi::c_char) -> isize {
-    let mut f: *mut FILE = ::core::ptr::null_mut::<FILE>();
-    f = fopen(path, c"r".as_ptr()) as *mut FILE;
-    if f.is_null() {
-        errorlog(
-            c"ERROR: Cannot open file \"%s\": %s\n".as_ptr().cast_mut(),
-            path,
-            strerror(*__errno_location()),
-        );
-        return -(1 as ::core::ffi::c_int) as isize;
+#[derive(Debug)]
+enum SlurpFailure {
+    Open(std::io::Error),
+    Metadata(std::io::Error),
+    Short { got: usize, want: usize },
+}
+fn read_sized(reader: &mut impl Read, size: usize) -> Result<Vec<u8>, usize> {
+    let mut bytes = vec![0; size];
+    let mut count = 0;
+    while count < size {
+        match reader.read(&mut bytes[count..]) {
+            Ok(0) => break,
+            Ok(n) => count += n,
+            Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(_) => break,
+        }
     }
-    let mut stbuf: stat = ::core::mem::zeroed();
-    if fstat(fileno(f), &raw mut stbuf) != 0 as ::core::ffi::c_int {
-        errorlog(
-            c"ERROR: Cannot fstat() \"%s\": %s\n".as_ptr().cast_mut(),
-            path,
-            strerror(*__errno_location()),
-        );
-        fclose(f);
-        return -(1 as ::core::ffi::c_int) as isize;
+    if count == size {
+        Ok(bytes)
+    } else {
+        Err(count)
     }
-    *buf = scalloc((stbuf.st_size + 1 as libc::off_t) as usize, 1 as usize)
-        as *mut ::core::ffi::c_char;
-    let n: usize = fread(
-        *buf as *mut ::core::ffi::c_void,
-        1 as usize,
-        stbuf.st_size as usize,
-        f,
-    ) as usize;
-    fclose(f);
-    if n as isize != stbuf.st_size as isize {
-        errorlog(
-            c"ERROR: File \"%s\" could not be read entirely: got %zd, want %li\n"
-                .as_ptr()
-                .cast_mut(),
-            path,
-            n,
-            stbuf.st_size as i64,
-        );
-        free(*buf as *mut ::core::ffi::c_void);
-        *buf = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        return -(1 as ::core::ffi::c_int) as isize;
+}
+fn slurp_file(path: &std::path::Path) -> Result<Vec<u8>, SlurpFailure> {
+    let mut file = std::fs::File::open(path).map_err(SlurpFailure::Open)?;
+    let metadata = file.metadata().map_err(SlurpFailure::Metadata)?;
+    // Keep the old stat-sized snapshot (including empty procfs files), rather
+    // than reading a growing file indefinitely. Reject unrepresentable lengths.
+    let size = usize::try_from(metadata.len())
+        .ok()
+        .filter(|size| *size < isize::MAX as usize)
+        .ok_or_else(|| SlurpFailure::Metadata(std::io::Error::from_raw_os_error(libc::EFBIG)))?;
+    read_sized(&mut file, size).map_err(|got| SlurpFailure::Short { got, want: size })
+}
+/// path is a terminated C string and buf is writable. Success transfers a native
+/// malloc-owned, NUL-terminated allocation (its payload may contain NULs). As in
+/// the original API, open/stat failure leaves buf untouched; short reads clear it.
+pub unsafe fn slurp(path: *const libc::c_char, buf: *mut *mut libc::c_char) -> isize {
+    let name = CStr::from_ptr(path);
+    let path_view = std::path::Path::new(std::ffi::OsStr::from_bytes(name.to_bytes()));
+    match slurp_file(path_view) {
+        Ok(bytes) => {
+            *buf = MallocBuffer::copy(&bytes).into_raw();
+            bytes.len() as isize
+        }
+        Err(SlurpFailure::Open(error)) => {
+            errorlog(
+                c"ERROR: Cannot open file \"%s\": %s\n".as_ptr().cast_mut(),
+                path,
+                strerror(error.raw_os_error().unwrap_or(libc::EIO)),
+            );
+            -1
+        }
+        Err(SlurpFailure::Metadata(error)) => {
+            errorlog(
+                c"ERROR: Cannot fstat() \"%s\": %s\n".as_ptr().cast_mut(),
+                path,
+                strerror(error.raw_os_error().unwrap_or(libc::EIO)),
+            );
+            -1
+        }
+        Err(SlurpFailure::Short { got, want }) => {
+            errorlog(
+                c"ERROR: File \"%s\" could not be read entirely: got %zd, want %li\n"
+                    .as_ptr()
+                    .cast_mut(),
+                path,
+                got,
+                want as libc::c_long,
+            );
+            *buf = std::ptr::null_mut();
+            -1
+        }
     }
-    n as isize
 }
 
 pub fn orientation_from_direction(direction: Direction) -> Orientation {
@@ -640,47 +667,223 @@ pub fn position_to_string(position: Position) -> *const ::core::ffi::c_char {
         Position::After => c"after".as_ptr(),
     }
 }
-pub const EXIT_FAILURE: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const LONG_MAX: ::core::ffi::c_long = __LONG_MAX__;
-pub const LONG_MIN: ::core::ffi::c_long = -__LONG_MAX__ - 1 as ::core::ffi::c_long;
-pub const __LONG_MAX__: ::core::ffi::c_long = 9223372036854775807 as ::core::ffi::c_long;
 
-// Internal helpers use Rust linkage rather than foreign symbol lookup.
-use crate::ipc::ipc_shutdown;
-use crate::log::get_debug_logging;
-use crate::manage::restore_geometry;
-use i3_common::font::font_is_pango;
-use i3_common::safewrappers::scalloc;
-use i3_common::safewrappers::smalloc;
-use i3_common::safewrappers::sstrdup;
-use i3_common::safewrappers::writeall;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-// Canonical Cairo backend ABI; renderer logic remains local.
+    fn args(values: &[&str]) -> Vec<CString> {
+        values
+            .iter()
+            .map(|value| CString::new(*value).unwrap())
+            .collect()
+    }
+    fn bytes(values: &[CString]) -> Vec<&[u8]> {
+        values.iter().map(|value| value.to_bytes()).collect()
+    }
 
-// Canonical Pango backend ABI; font policy remains local.
+    #[test]
+    fn restart_options_keep_original_order_remove_aliases_and_deduplicate() {
+        let mut arguments = args(&[
+            "i3",
+            "-r",
+            "old",
+            "--restart",
+            "older",
+            "-a",
+            "--other",
+            "x",
+        ]);
+        replace_argument(&mut arguments, c"--restart", Some(c"new"), Some(c"-r"));
+        replace_argument(&mut arguments, c"-a", None, None);
+        assert_eq!(
+            bytes(&arguments),
+            [
+                b"i3".as_slice(),
+                b"--other",
+                b"x",
+                b"--restart",
+                b"new",
+                b"-a"
+            ]
+        );
+        let mut arguments = args(&["i3", "-d", "all", "--debug=all", "-d"]);
+        replace_argument(&mut arguments, c"-d", Some(c"new"), None);
+        assert_eq!(
+            bytes(&arguments),
+            [b"i3".as_slice(), b"--debug=all", b"-d", b"new"]
+        );
+        let mut arguments = vec![CString::new(b"i3\xff".as_slice()).unwrap()];
+        replace_argument(&mut arguments, c"-a", None, None);
+        assert_eq!(arguments[0].to_bytes(), b"i3\xff");
+        let pointers = [
+            arguments[0].as_ptr().cast_mut(),
+            arguments[1].as_ptr().cast_mut(),
+            std::ptr::null_mut(),
+        ];
+        let copied = unsafe { copy_arguments(pointers.as_ptr()) };
+        drop(arguments);
+        assert_eq!(bytes(&copied), [b"i3\xff".as_slice(), b"-a"]);
+    }
 
-pub use libc::{
-    __errno_location, _exit, close, dirname, execvp, fclose, fileno, fopen, fork, fread, free,
-    fstat, kill, memmove, open, perror, readlink, setlocale, stat, strcasecmp, strcmp, strerror,
-    strlen, strtol, strtoll, waitpid, FILE,
-};
+    #[test]
+    fn utility_paths_preserve_posix_dirname_and_non_utf8_bytes() {
+        for (path, expected) in [
+            (c"i3", c"."),
+            (c"/", c"/"),
+            (c"//", c"//"),
+            (c"///", c"/"),
+            (c"foo/", c"."),
+            (c"foo//bar//", c"foo"),
+            (c"/x\xff/i3", c"/x\xff"),
+        ] {
+            assert_eq!(parent_directory(path).as_c_str(), expected);
+        }
+        assert_eq!(
+            utility_path(c"/x\xff", c"i3\xfe").to_bytes(),
+            b"/x\xff/i3\xfe"
+        );
+        assert_eq!(utility_path(c".", c"/absolute").to_bytes(), b".//absolute");
+    }
 
-use i3_common::native_stdio::{__ctype_b_loc, warn};
+    #[test]
+    fn rectangle_value_helpers_retain_wrapping_and_signed_dimension_rules() {
+        let a = Rect {
+            x: u32::MAX,
+            y: 2,
+            width: 0x8000_0000,
+            height: 0,
+        };
+        let b = Rect {
+            x: 1,
+            y: 3,
+            width: 1,
+            height: 2,
+        };
+        let added = rect_add(a, b);
+        assert_eq!(
+            (added.x, added.y, added.width, added.height),
+            (0, 5, 0x8000_0001, 2)
+        );
+        assert!(rect_equals(rect_sub(added, b), a));
+        let sane = rect_sanitize_dimensions(a);
+        assert_eq!((sane.width, sane.height), (1, 1));
+        let bounds = Rect {
+            x: 10,
+            y: 20,
+            width: 3,
+            height: 4,
+        };
+        assert!(rect_contains(bounds, 13, 24));
+        assert!(!rect_contains(bounds, 14, 24));
+        assert!(!rect_contains(a, u32::MAX, 2)); // wrapped right edge stays wrapped
+    }
 
-use crate::log::{debuglog, errorlog, verboselog};
+    #[test]
+    fn native_numeric_helpers_retain_prefix_empty_extrema_and_locale_rules() {
+        unsafe {
+            for (name, expected) in [
+                (c"", -1),
+                (c" +3: work", 3),
+                (c"-0", 0),
+                (c"2147483647 tail", i32::MAX),
+                (c"2147483648", -1),
+                (c"-1", -1),
+                (c"999999999999999999999999", -1),
+            ] {
+                assert_eq!(ws_name_to_number(name.as_ptr()), expected);
+            }
+            for (name, expected, value) in [
+                (c"", true, 0),
+                (c"  +42", true, 42),
+                (c"42 ", false, 42),
+                (c"-1", false, -1),
+                (c"9223372036854775807", false, libc::c_long::MAX),
+                (c"0x10", true, 16),
+            ] {
+                let mut output = -9;
+                assert_eq!(parse_long(name.as_ptr(), &mut output, 0), expected);
+                assert_eq!(output, value);
+            }
+            assert!(name_is_digits(c"".as_ptr()));
+            assert!(name_is_digits(c"123".as_ptr()));
+            for byte in 1..=255u8 {
+                let value = CString::new([byte]).unwrap();
+                assert_eq!(
+                    name_is_digits(value.as_ptr()),
+                    libc::isdigit(byte as i32) != 0
+                );
+            }
+            let mut layout = Layout::Output;
+            assert!(!layout_from_name(c"DEFAULT".as_ptr(), &mut layout));
+            assert_eq!(layout, Layout::Output);
+            assert!(layout_from_name(c"StAcKiNg".as_ptr(), &mut layout));
+            assert_eq!(layout, Layout::Stacked);
+        }
+    }
 
-// Shared model types retain field layout while using one Rust identity.
-pub use crate::types::Rect;
-pub use i3_common::font::Font;
-pub use i3_common::string::I3String as _i3String;
+    #[test]
+    fn sized_reads_retry_interrupts_preserve_embedded_nuls_and_reject_short_data() {
+        struct Chunks {
+            calls: usize,
+            input: std::io::Cursor<Vec<u8>>,
+        }
+        impl Read for Chunks {
+            fn read(&mut self, output: &mut [u8]) -> std::io::Result<usize> {
+                self.calls += 1;
+                if self.calls == 1 {
+                    return Err(std::io::ErrorKind::Interrupted.into());
+                }
+                let count = output.len().min(2);
+                self.input.read(&mut output[..count])
+            }
+        }
+        let mut input = Chunks {
+            calls: 0,
+            input: std::io::Cursor::new(b"a\0bcdEXTRA".to_vec()),
+        };
+        assert_eq!(read_sized(&mut input, 5).unwrap(), b"a\0bcd");
+        assert_eq!(read_sized(&mut input, 6).unwrap_err(), 5);
+        assert_eq!(read_sized(&mut input, 0).unwrap(), b"");
+        let native = MallocBuffer::copy(b"a\0b");
+        unsafe {
+            assert_eq!(
+                std::slice::from_raw_parts(native.0.as_ptr().cast::<u8>(), 4),
+                b"a\0b\0"
+            );
+        }
+    }
 
-// Internal calls and globals use canonical Rust identities.
-use crate::application::main_loop;
-use crate::application::start_argv;
-use crate::bindings::command_error_nagbar_pid;
-use crate::config::config;
-use crate::config_parser::config_error_nagbar_pid;
-use crate::ipc::dump_node;
-use crate::tree::croot;
-use i3_common::get_process_filename::get_process_filename;
-use i3_common::resolve_tilde::resolve_tilde;
+    #[test]
+    fn file_snapshot_uses_owned_file_and_native_buffer_boundary() {
+        let directory = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.work/tmp");
+        std::fs::create_dir_all(&directory).unwrap();
+        let path = directory.join(format!(
+            "util-slurp-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        struct Remove(std::path::PathBuf);
+        impl Drop for Remove {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_file(&self.0);
+            }
+        }
+        let _remove = Remove(path.clone());
+        std::fs::write(&path, b"layout\0bytes").unwrap();
+        assert_eq!(slurp_file(&path).unwrap(), b"layout\0bytes");
+        let path = CString::new(path.as_os_str().as_bytes()).unwrap();
+        let mut buffer = std::ptr::null_mut();
+        unsafe {
+            assert_eq!(slurp(path.as_ptr(), &mut buffer), 12);
+            let buffer = MallocBuffer::take(buffer).unwrap();
+            assert_eq!(
+                std::slice::from_raw_parts(buffer.0.as_ptr().cast::<u8>(), 13),
+                b"layout\0bytes\0"
+            );
+        }
+    }
+}

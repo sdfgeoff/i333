@@ -186,7 +186,7 @@ pub unsafe fn regex_matches(regex: *const Regex, input: *const c_char) -> bool {
             unsafe {
                 verboselog(
                     c"Regular expression \"%s\" %s \"%s\"\n".as_ptr().cast_mut(),
-                    expression.pattern,
+                    expression.pattern().as_ptr(),
                     verb.as_ptr(),
                     input,
                 )
@@ -196,7 +196,7 @@ pub unsafe fn regex_matches(regex: *const Regex, input: *const c_char) -> bool {
         Err(error) => {
             unsafe {
                 errorlog(c"ERROR: PCRE error %d while trying to use regular expression \"%s\" on input \"%s\", see pcreapi(3)\n".as_ptr().cast_mut(),
-                error.code(), expression.pattern, input)
+                error.code(), expression.pattern().as_ptr(), input)
             };
             false
         }

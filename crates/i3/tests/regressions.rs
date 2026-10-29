@@ -41,3 +41,8 @@ fn upstream_285_files_4205_assertions() {
 fn nagbar_4_private_render_and_close_checks() {
     suite("nagbar");
 }
+
+#[test]
+fn wizard_5_private_workflow_and_config_checks() {
+    suite("wizard");
+}

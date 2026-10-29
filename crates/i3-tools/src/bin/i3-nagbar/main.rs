@@ -15,9 +15,6 @@
     stable_features,
     ambiguous_wide_pointer_comparisons
 )]
-#[macro_use]
-extern crate c2rust_bitfields;
-
 use i3_common as _;
 mod application;
 
