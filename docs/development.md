@@ -11,6 +11,7 @@
    | `i3-tools` | `i3-msg`, `i3-dump-log`, `i3-input`, `i3-nagbar`, `i3-config-wizard` |
    | `i3-build` | Shared version, target and compiler configuration |
    | `i3-json` | Rust streaming JSON parser/generator using `serde_json` |
+   | `i3-test-support` | Development-only Cargo regression orchestration and captured logs |
    | `libev-sys` | Canonical native event-loop handles and watcher layouts |
    | `xcb-sys` | Shared XCB protocol and extension boundary |
    | `startup-notification-sys` | Native startup-notification handles and callbacks |
@@ -22,12 +23,21 @@
    discovery belongs to each native boundary crate and the maintained binding
    dependencies; Cargo propagates their native linking metadata. The common
    build script adds only the platform `m` and `rt` libraries.
-2. **Build and unit tests.** Nightly Rust is selected by `rust-toolchain.toml`.
-   Run `cargo build --workspace --locked`,
-   `cargo build --workspace --locked --release`, and
-   `cargo test --workspace --locked`. All seven binary names remain unchanged
-   in `target/debug/` or `target/release/`. A native linker and the libraries below
-   are required. Builds and unit tests do not install files or launch X.
+2. **Build and tests.** Nightly Rust is selected by `rust-toolchain.toml`.
+   `cargo build --workspace --locked` builds all seven binaries in `target/debug/`;
+   add `--release` for `target/release/`. Building installs nothing and opens no
+   display. After the one-time regression setup below, **`cargo test`** is the
+   complete test command: workspace unit tests, native JSON/regex/variadic
+   compatibility checks, 602 status-header comparisons, 16 IPC groups, 30 CLI cases, 52 headless state
+   comparisons, 17 input cases and all 4,205 retained upstream assertions.
+   Cargo supplies the actual executable paths, so custom target directories and
+   test profiles use the products from that invocation. Runtime checks use only
+   private sockets and X servers. Successful child output is captured; failures
+   fail Cargo and identify retained logs under `.work/cargo-tests/` or `.work/tmp/`.
+   One standard nightly run is sufficient; older-toolchain compatibility is a
+   separate explicit check. If the shell sets `RUSTUP_TOOLCHAIN`, that overrides
+   the repository file. Use `env -u RUSTUP_TOOLCHAIN cargo test` to select this
+   repository's nightly without changing global Rust configuration.
 3. **Native dependencies.** Workspace and maintained binding build scripts
    discover these installed libraries through pkg-config:
 
@@ -45,8 +55,10 @@
    linked. Install the corresponding development packages. The Ubuntu package
    list is maintained in [the Cargo CI workflow](../.github/workflows/main.yml).
    `pkg-config` discovers libraries; it generates no bindings or project code.
-   YAJL is not a build or runtime dependency. Its optional test oracle needs only
-   the host YAJL shared library, without headers or generated bindings.
+   Rust products neither build nor link YAJL. Complete test preparation needs
+   its development package for the pinned external C reference; the default
+   native JSON oracle uses only its shared library. These are test prerequisites,
+   not a Rust product dependency.
 4. **Parser tables.** Token tables, enums and dispatch routines are compiled
    into `crates/i3/src/commands_parser.rs`,
    `crates/i3/src/config_parser.rs` and
@@ -65,17 +77,56 @@
    descriptors in `share/`, manuals and assets remain distribution resources.
    Packaging must arrange configuration, helper search paths and session
    registration. Perl may be needed by a runtime helper independently of Cargo.
-6. **Source history and regression tests.** C sources, headers and the old build
-   system have been removed. Rust modules retain source-path provenance and
-   copyright/license comments. [The porting notes](../PORTING.md) identify the
-   exact upstream baseline; Git history or an external upstream clone supplies
-   source references and C regression fixtures. Regression scripts accept
-   external reference paths and use private sockets/headless displays. Test
-   scripts keep scratch files and logs under the ignored `.work/` directory;
-   set `TMPDIR` to override the default `.work/tmp` scratch location.
-   `python3 scripts/test-cargo-build.py` separately verifies a clean workspace
-   build without C sources or existing project build outputs. Never send
-   commands or input to the developer's active i3/display during testing.
+6. **One-time regression setup.** Run this once after installing native build
+   dependencies, and again if the prepared test tools are removed:
+
+   ```sh
+   python3 scripts/prepare-tests.py
+   cargo test
+   ```
+
+   Setup is explicit: it may download dependencies and compile the external C
+   reference. It installs nothing globally, opens no display and keeps its cache
+   and environment manifest in `.work/test-deps/`. Routine Cargo tests never run
+   package managers, download tools or invoke Cargo recursively. Missing
+   prerequisites fail with this setup command rather than silently skipping tests.
+
+   The extra test prerequisites are Python 3, Perl, a C compiler, `pkg-config`,
+   Ninja, Xvfb (including `xvfb-run`), Xephyr, `xauth`, `xkbcomp`, YAJL headers,
+   and XCB XTEST development headers. Python needs venv/pip support or `uv`.
+   Perl XS module builds also need Perl and Expat development headers. On Ubuntu,
+   the additional packages include `python3-venv`, `perl`, `libperl-dev`,
+   `libexpat1-dev`, `ninja-build`, `xvfb`, `xserver-xephyr`, `xauth`,
+   `x11-xkb-utils`, `libxcb-xtest0-dev` and `libyajl-dev`. On Arch, setup can
+   extract pinned Xvfb/Xephyr packages into `.work` when those executables are
+   absent; their matching native runtime libraries must already be available.
+
+   Setup reuses valid existing tools, installs `python-xlib==0.33` in a local
+   interpreter when needed, and prepares the required Perl modules locally. It
+   extracts upstream revision `be04c853ee7fa01a82a0c81f8217565395e2627c` from Git
+   history or a cached download and builds its seven reference executables and
+   three parser/RandR helpers once. C sources, Meson and headers stay outside the
+   product tree in `.work`. Unchanged Inline::C fixtures share a persistent cache;
+   new or changed fixture source compiles locally on first use. C/Rust comparisons
+   normalize only human-readable build stamps, not numeric IPC version fields or
+   behavior. The cached reference therefore needs no rebuild after each commit.
+
+   `python3 scripts/prepare-tests.py --offline` verifies/reuses prepared tools;
+   `--rebuild-reference` explicitly rebuilds the pinned C fixture. The resulting
+   `.work/test-deps/environment.json` records paths. `I333_TEST_ENVIRONMENT`
+   selects another manifest, and `I333_TEST_REFERENCE_BUILD`, `I333_TEST_PERL_LIB`,
+   `I333_TEST_XVFB`, `I333_TEST_XEPHYR` and `I333_TEST_PYTHON` override individual
+   paths. Direct Python runners retain their explicit executable/path options.
+   Test artifacts default to `.work/tmp`; `TMPDIR` overrides that location.
+
+   The slower structural audit is maintenance-only:
+   `cargo test --features i3-test-support/clean-source-check`, or
+   `python3 scripts/test-cargo-build.py`. It builds a fresh Rust-only copy with
+   C compilation and legacy tools blocked, compiles all test targets with
+   `cargo test --no-run`, and checks seven version outputs. It never recursively
+   executes the regression suite. Ordinary `cargo test` already runs all actual
+   tests. Runtime helpers/assets remain packaging resources; Git history retains
+   the C migration baseline. Never send commands or input to the active desktop.
 7. **Platform scope.** Build support currently accepts
    `x86_64-unknown-linux-gnu`. Structs and native calls reflect that ABI. Version
    strings come from `I3_VERSION`, workspace Git metadata when available, or the
@@ -137,10 +188,11 @@
    adapters in `i3_json::compat`; these are Rust functions without YAJL linking.
    New code can use `Parser` and `Generator` directly.
 
-   Run `python3 scripts/test-json-parity.py --offline` for an optional independent
-   ctypes comparison with installed YAJL. `--require-oracle` makes a missing
-   library fail; `--report PATH` writes detailed counterexamples. The probe is a
-   temporary Rust package and opens no display. It covers byte boundaries,
+   Cargo runs the JSON/PCRE/variadic compatibility drivers using already-built
+   Rust probe executables. Their Python code uses ctypes only for independent
+   native oracles and opens no display. Missing required oracle libraries fail
+   the Cargo run; no nested Cargo builds occur. The direct Python driver options
+   and `--report PATH` remain useful when investigating counterexamples. It covers byte boundaries,
    streaming updates, flags, cancellation, overflow and generation. Separate
    report categories identify invalid-input diagnostic progress, deliberate
    rejection of malformed Unicode accepted by YAJL, and equivalent floating
@@ -152,6 +204,5 @@
    non-JSON vertical-tab/form-feed whitespace; the compatibility adapter enables
    YAJL's legacy whitespace behavior.
 
-   `python3 scripts/test-regex-parity.py --offline` similarly compares the owned
-   regex wrapper with the installed PCRE2 library. Neither oracle becomes a
-   dependency of the Rust executables.
+   The regex driver compares the owned wrapper with the installed PCRE2 library.
+   Neither oracle becomes a dependency of the Rust executables.

@@ -26,3 +26,11 @@ name = "i3"
 path = "src/main.rs"
 test = true
 bench = false
+
+[dev-dependencies]
+i3-test-support.workspace = true
+
+[[test]]
+name = "native_regex_oracle"
+path = "tests/native_regex_oracle.rs"
+harness = false

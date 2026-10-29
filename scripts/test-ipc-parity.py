@@ -11,6 +11,7 @@ socket path, and a bounded timeout. Server failures propagate to the test runner
 """
 import argparse
 import os
+import re
 from pathlib import Path
 import socket
 import struct
@@ -48,11 +49,16 @@ def receive_exact(connection, size):
     return bytes(result)
 
 
-def normalize(result, executable):
+def normalize(result, executable, version_output=False):
     # err(3) includes the executable name; fixture paths also vary by invocation.
+    output = result.stdout
+    if version_output:
+        # The pinned C reference is built once. Its human-readable build stamp
+        # differs from Cargo's Git stamp; retain every other byte of help output.
+        output = re.sub(rb'^(i3-msg )[^\n]+(\n)', rb'\1<BUILD>\2', output, count=1)
     return (
         result.returncode,
-        result.stdout,
+        output,
         result.stderr.replace(str(executable).encode(), b"i3-msg").replace(executable.name.encode(), b"i3-msg"),
     )
 
@@ -61,7 +67,8 @@ def invoke(executable, arguments, expected_request=None, response=b"", fragmente
     """Return exit status/stdout/stderr and propagate private server exceptions."""
     if expected_request is None:
         result = subprocess.run([str(executable), *arguments], env=ENV, capture_output=True, timeout=TIMEOUT)
-        return normalize(result, executable)
+        return normalize(result, executable,
+                         version_output=arguments in (['--help'], ['--version'], ['-h'], ['-v']))
 
     with temporary_directory(prefix="i333-ipc-") as directory:
         path = directory + "/ipc"

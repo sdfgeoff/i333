@@ -158,6 +158,7 @@ dependencies = [
  "i3-build",
  "i3-common",
  "i3-json",
+ "i3-test-support",
  "libc",
  "libev-sys",
  "pango-sys",
@@ -179,6 +180,7 @@ dependencies = [
  "cairo-sys-rs",
  "gobject-sys",
  "i3-build",
+ "i3-test-support",
  "libc",
  "pango-sys",
  "pangocairo-sys",
@@ -189,9 +191,14 @@ dependencies = [
 name = "i3-json"
 version = "4.25.0"
 dependencies = [
+ "i3-test-support",
  "serde",
  "serde_json",
 ]
+
+[[package]]
+name = "i3-test-support"
+version = "4.25.0"
 
 [[package]]
 name = "i3-tools"
@@ -219,6 +226,7 @@ dependencies = [
  "i3-build",
  "i3-common",
  "i3-json",
+ "i3-test-support",
  "libc",
  "libev-sys",
  "pango-sys",

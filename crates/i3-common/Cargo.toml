@@ -16,3 +16,11 @@ gobject-sys.workspace = true
 
 [build-dependencies]
 i3-build.workspace = true
+
+[dev-dependencies]
+i3-test-support.workspace = true
+
+[[test]]
+name = "variadic_compat"
+path = "tests/variadic_compat.rs"
+harness = false

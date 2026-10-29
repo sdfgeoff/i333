@@ -9,34 +9,73 @@ permissions:
 
 jobs:
   cargo:
-    name: Cargo and clean-source verification
+    name: Cargo tests and release build
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - name: Install native development libraries
+        with:
+          # The pinned external regression reference is archived from this history.
+          fetch-depth: 0
+      - name: Install build and regression prerequisites
         run: |
           sudo apt-get update
-          # libyajl2 is used only by the optional compatibility oracle.
+          # YAJL headers build only the external C test reference. Rust products
+          # use serde; the installed library also supplies the native oracles.
           sudo apt-get install -y --no-install-recommends \
-            build-essential pkg-config python3 \
+            build-essential pkg-config git curl perl libperl-dev libexpat1-dev \
+            python3 python3-venv meson ninja-build \
+            xvfb xserver-xephyr xauth x11-xkb-utils xkb-data xfonts-base \
             libstartup-notification0-dev \
             libxcb1-dev libxcb-xkb-dev libxcb-xinerama0-dev libxcb-randr0-dev \
             libxcb-shape0-dev libxcb-util0-dev libxcb-cursor-dev \
             libxcb-keysyms1-dev libxcb-icccm4-dev libxcb-xrm-dev \
+            libxcb-xtest0-dev libx11-xcb-dev \
             libxkbcommon-dev libxkbcommon-x11-dev \
-            libyajl2 libpcre2-dev libcairo2-dev libpango1.0-dev \
+            libyajl-dev libpcre2-dev libcairo2-dev libpango1.0-dev \
             libglib2.0-dev libev-dev
+      - name: Cache prepared regression dependencies
+        uses: actions/cache@v4
+        with:
+          path: .work/test-deps
+          key: regression-fixtures-${{ runner.os }}-${{ runner.arch }}-ubuntu24-be04c853-${{ hashFiles('scripts/prepare-tests.py', 'scripts/regression_environment.py') }}
+      - name: Prepare regression dependencies once
+        run: python3 scripts/prepare-tests.py
       - name: Install nightly Rust
-        run: rustup toolchain install nightly --profile minimal
-      - name: Build debug binaries
-        run: cargo build --workspace --locked
+        run: rustup toolchain install nightly --profile minimal --component rustfmt
+      - name: Check formatting
+        run: cargo +nightly fmt --all -- --check
+      - name: Run all tests
+        run: cargo +nightly test --locked
       - name: Build release binaries
-        run: cargo build --workspace --locked --release
-      - name: Test workspace
-        run: cargo test --workspace --locked
-      - name: Compare optional native compatibility oracles
+        run: cargo +nightly build --workspace --locked --release
+      - name: Detect build-structure changes
+        id: structural
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
-          python3 scripts/test-json-parity.py --offline --require-oracle
-          python3 scripts/test-regex-parity.py --offline
-      - name: Verify clean standalone build
-        run: python3 scripts/test-cargo-build.py --offline
+          if [ -z "$BASE_SHA" ] || ! git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
+            echo 'run=true' >> "$GITHUB_OUTPUT"
+          elif git diff --quiet "$BASE_SHA" HEAD -- Cargo.toml Cargo.lock rust-toolchain.toml .cargo \
+            ':(glob)crates/*/Cargo.toml' ':(glob)crates/*/build.rs' ':(glob)crates/*-sys/src/**' \
+            crates/i3-build crates/i3-test-support scripts/test-cargo-build.py .github/workflows \
+            ':(glob)**/*.c' ':(glob)**/*.h' ':(glob)**/*.cpp' ':(glob)**/*.hpp' \
+            ':(glob)**/meson.build' ':(glob)**/meson_options.txt'; then
+            echo 'run=false' >> "$GITHUB_OUTPUT"
+          else
+            echo 'run=true' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Verify structural build isolation
+        if: steps.structural.outputs.run == 'true'
+        run: cargo +nightly test --locked -p i3-test-support --features clean-source-check --test clean_source
+      - name: Preserve failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-test-failure-logs
+          if-no-files-found: ignore
+          retention-days: 7
+          path: |
+            .work/cargo-tests/
+            .work/test-deps/prepare.log
+            .work/tmp/i333-suite-*/runner.log
+            .work/tmp/i333-suite-*/testsuite-*/complete-run.log

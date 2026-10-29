@@ -51,7 +51,7 @@ pub use crate::child::i3_ws;
 pub use crate::child::tc_head;
 pub use crate::child::trayclient;
 pub use crate::child::ws_head;
-pub use crate::mode::mode;
+pub use crate::mode::Mode;
 
 pub use crate::application::tray_output_t;
 
@@ -139,8 +139,8 @@ pub static mut xcb_prep: *mut ev_prepare = ::core::ptr::null::<ev_prepare>() as 
 pub static mut xcb_io: *mut ev_io = ::core::ptr::null::<ev_io>() as *mut ev_io;
 
 pub static mut xkb_io: *mut ev_io = ::core::ptr::null::<ev_io>() as *mut ev_io;
-static mut binding: mode = mode {
-    name: ::core::ptr::null::<i3String>() as *mut i3String,
+static mut binding: Mode = Mode {
+    name: None,
     name_width: 0,
 };
 
@@ -3345,7 +3345,11 @@ pub unsafe fn draw_bars(mut unhide: bool) {
                     ws_walk = (*ws_walk).tailq.tqe_next as *mut i3_ws;
                 }
             }
-            if !binding.name.is_null() && !config.disable_binding_mode_indicator {
+            if let Some(mode_name) = binding
+                .name
+                .as_ref()
+                .filter(|_| !config.disable_binding_mode_indicator)
+            {
                 workspace_width += logical_px(ws_spacing_px);
                 let w_0: ::core::ffi::c_int = predict_button_width(binding.name_width);
                 draw_button(
@@ -3356,7 +3360,7 @@ pub unsafe fn draw_bars(mut unhide: bool) {
                     workspace_width,
                     w_0,
                     binding.name_width,
-                    binding.name,
+                    (mode_name as *const i3String).cast_mut(),
                 );
                 unhide = true_0 != 0;
                 workspace_width += w_0;
@@ -3450,11 +3454,13 @@ pub unsafe fn redraw_bars() {
     }
 }
 
-pub unsafe fn set_current_mode(current: *mut mode) {
-    i3string_free(binding.name);
-    binding.name = ::core::ptr::null_mut::<i3String>();
-    binding = *current as mode;
-    activated_mode = !binding.name.is_null();
+/// Replace the event-thread's owned mode text, releasing the previous value.
+///
+/// # Safety
+/// Call only on the bar event thread, with no outstanding borrow of binding.
+pub unsafe fn set_current_mode(current: Mode) {
+    activated_mode = current.name.is_some();
+    binding = current;
 }
 
 pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;

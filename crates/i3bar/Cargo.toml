@@ -21,5 +21,13 @@ i3-build.workspace = true
 [[bin]]
 name = "i3bar"
 path = "src/main.rs"
-test = false
+test = true
 bench = false
+
+[dev-dependencies]
+i3-test-support.workspace = true
+
+[[test]]
+name = "native_header"
+path = "tests/native_header.rs"
+harness = false

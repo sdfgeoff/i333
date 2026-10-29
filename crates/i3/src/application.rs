@@ -3174,7 +3174,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         ev_io_start(main_loop, log_io);
     }
     let mut socket_ipc_io: *mut ev_io = ::core::ptr::null_mut::<ev_io>();
-    listen_fds = sd_listen_fds(0 as ::core::ffi::c_int);
+    listen_fds = crate::sd_daemon::listen_fds();
     if listen_fds < 0 as ::core::ffi::c_int {
         errorlog(
             c"ERROR: socket activation: Error in sd_listen_fds\n"
@@ -3460,7 +3460,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     }
     atexit(i3_exit);
     raise(SIGCHLD);
-    sd_notify(1 as ::core::ffi::c_int, c"READY=1".as_ptr());
+    sd_notify(1 as ::core::ffi::c_int, c"READY=1");
     ev_loop(main_loop, 0 as ::core::ffi::c_int);
     free(ipc_io as *mut ::core::ffi::c_void);
     ipc_io = ::core::ptr::null_mut::<ev_io>();
@@ -3521,7 +3521,6 @@ use crate::manage::manage_existing_windows;
 use crate::randr::randr_init;
 use crate::restore_layout::restore_connect;
 use crate::scratchpad::scratchpad_fix_resolution;
-use crate::sd_daemon::sd_listen_fds;
 use crate::sd_daemon::sd_notify;
 use crate::sighandler::setup_signal_handler;
 use crate::startup::start_application;

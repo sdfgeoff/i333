@@ -876,15 +876,22 @@ unsafe fn stdin_io_first_line_cb(fd: ::core::ffi::c_int) {
             buffer,
         );
     }
-    let mut consumed: ::core::ffi::c_uint = 0 as ::core::ffi::c_uint;
-    parse_json_header(&raw mut status_child, buffer, rec, &raw mut consumed);
+    // get_buffer owns rec initialized bytes until the matching free below.
+    let header = parse_json_header(std::slice::from_raw_parts(buffer, rec as usize));
+    status_child.version = header.version;
+    status_child.stop_signal = header.stop_signal;
+    status_child.cont_signal = header.cont_signal;
+    if let Some(click_events) = header.click_events {
+        status_child.click_events = click_events;
+    }
+    let consumed = header.consumed;
     if status_child.version > 0 as u32 {
         if config.hide_on_modifier != crate::application::BarDisplayMode::Dock {
             stop_children();
         }
         draw_bars(read_json_input(
             buffer.offset(consumed as isize),
-            (rec as ::core::ffi::c_uint).wrapping_sub(consumed) as ::core::ffi::c_int,
+            (rec as usize - consumed) as ::core::ffi::c_int,
         ));
     } else {
         let new_block: *mut status_block =

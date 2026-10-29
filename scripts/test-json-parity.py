@@ -2,7 +2,8 @@
 """Optional JSON compatibility oracle using the host YAJL library, without X.
 
 The Rust products do not use or link YAJL. This test-only Python ctypes oracle
-compares the safe Rust parser/generator through a temporary Cargo probe. Legacy
+compares the actual Rust parser/generator through a Cargo integration probe.
+Plain cargo test requires this oracle; standalone runs can use --require-oracle. Legacy
 whitespace and typed callback limits are enabled explicitly. The report separates
 malformed-Unicode strictness, invalid-input diagnostics and numeric spellings. Missing
 libyajl skips the oracle; --require-oracle turns that skip into an error.
@@ -14,38 +15,10 @@ import json
 import random
 from pathlib import Path
 import subprocess
-from workspace_temp import temporary_directory
+from cargo_probe import build_probe
 
 ROOT = Path(__file__).resolve().parents[1]
-PROBE = r'''
-use i3_json::{Event,EventHandler,Parser,ParserOptions,ParseError,ParseErrorKind,Generator};
-use serde_json::{json,Value};
-use std::{io::{self,BufRead},cell::RefCell,rc::Rc};
-fn unhex(s:&str)->Vec<u8>{s.as_bytes().chunks(2).map(|v|u8::from_str_radix(std::str::from_utf8(v).unwrap(),16).unwrap()).collect()}
-fn hex(b:&[u8])->String{b.iter().map(|b|format!("{b:02x}")).collect()}
-struct Recorder{events:Rc<RefCell<Vec<Value>>>,mode:String,error:Option<String>,cancel:usize}
-impl EventHandler for Recorder{
- fn on_event(&mut self,e:Event<'_>)->bool{
-  let v=match e{Event::Null=>json!(["null"]),Event::Boolean(v)=>json!(["bool",v]),Event::String(v)=>json!(["string",hex(v)]),Event::MapKey(v)=>json!(["key",hex(v)]),Event::StartMap=>json!(["map"]),Event::EndMap=>json!(["end_map"]),Event::StartArray=>json!(["array"]),Event::EndArray=>json!(["end_array"]),Event::Number(v)=>{
-    if self.mode=="none"{return true}
-    if self.mode=="raw"{json!(["number",v])}else if v.contains(['.','e','E']){match v.parse::<f64>(){Ok(n)if n.is_finite()=>json!(["double",n]),_=>{self.error=Some("numeric overflow".into());return false}}}else{match v.parse::<i64>(){Ok(n)if n!=i64::MIN=>json!(["integer",n]),_=>{self.error=Some("integer overflow".into());return false}}}
-  }};
-  self.events.borrow_mut().push(v);self.events.borrow().len()!=self.cancel
- }
- fn error_message(&self)->Option<&str>{self.error.as_deref()}
-}
-fn status(r:Result<(),ParseError>)->u32{match r{Ok(())=>0,Err(e)if e.kind==ParseErrorKind::Canceled=>1,_=>2}}
-fn parse(v:&Value)->Value{
- let events=Rc::new(RefCell::new(vec![]));let rec=Recorder{events:events.clone(),mode:v["mode"].as_str().unwrap_or("raw").into(),error:None,cancel:v["cancel"].as_u64().unwrap_or(0)as usize};let mut p=Parser::new(rec);
- let flags=v["flags"].as_u64().unwrap_or(0);*p.options_mut()=ParserOptions{allow_comments:flags&1!=0,allow_invalid_utf8:flags&2!=0,allow_trailing_garbage:flags&4!=0,allow_multiple_values:flags&8!=0,allow_legacy_whitespace:true,allow_partial_values:flags&16!=0};
- let mut steps=vec![];let mut last=0;for chunk in v["chunks"].as_array().unwrap(){last=status(p.parse(&unhex(chunk.as_str().unwrap())));steps.push(json!({"status":last,"consumed":p.bytes_consumed(),"events":events.borrow().clone()}));if last!=0{break}}
- let finish=if v["finish"].as_bool().unwrap_or(true){status(p.finish())}else{last};json!({"steps":steps,"finish":finish,"events":events.borrow().clone()})
-}
-fn generate(v:&Value)->Value{
- let mut g=Generator::new();let mut states=vec![];for op in v["ops"].as_array().unwrap(){let name=op[0].as_str().unwrap();let r=match name{"array"=>g.start_array(),"end_array"=>g.end_array(),"map"=>g.start_object(),"end_map"=>g.end_object(),"null"=>g.null(),"bool"=>g.boolean(op[1].as_bool().unwrap()),"integer"=>g.integer(op[1].as_i64().unwrap()),"double"=>g.double(op[1].as_str().unwrap().parse().unwrap()),"string"=>g.string(op[1].as_str().unwrap()),"clear"=>{g.clear();Ok(())},_=>panic!()};let status=match r{Ok(())=>0,Err(i3_json::GenerateError::KeysMustBeStrings)=>1,Err(i3_json::GenerateError::DepthExceeded)=>2,Err(i3_json::GenerateError::InvalidState)=>3,Err(i3_json::GenerateError::Complete)=>4,Err(i3_json::GenerateError::InvalidNumber)=>5,Err(i3_json::GenerateError::InvalidString)=>7};states.push(json!({"status":status,"bytes":hex(g.bytes())}));}json!(states)
-}
-fn main(){for line in io::stdin().lock().lines(){let v:Value=serde_json::from_str(&line.unwrap()).unwrap();let out=if v.get("ops").is_some(){generate(&v)}else{parse(&v)};println!("{out}");}}
-'''
+
 
 CB0 = c.CFUNCTYPE(c.c_int, c.c_void_p)
 CBINT = c.CFUNCTYPE(c.c_int, c.c_void_p, c.c_longlong)
@@ -192,11 +165,14 @@ def main():
     parser.add_argument("--offline",action="store_true")
     parser.add_argument("--require-oracle",action="store_true")
     parser.add_argument("--report",type=Path)
+    parser.add_argument("--probe", type=Path, help="Use a Cargo-built native_json_oracle executable; do not invoke Cargo")
     args=parser.parse_args()
     library=ctypes.util.find_library("yajl")
     if not library:
+        if args.require_oracle:
+            raise SystemExit("libyajl is required for JSON compatibility tests; install the native test oracle dependency")
         print("SKIP: optional libyajl oracle is not installed")
-        return int(args.require_oracle)
+        return 0
     oracle=Oracle(library)
     parse_cases=list(cases())
     gen_cases=[dict(name="generator-stream",ops=[["array"],["clear"],["map"],["string","x"],["string","a\n\t\0😀"],["end_map"],["clear"],["map"],["string","n"],["integer",-42],["end_map"],["end_array"]]),
@@ -206,14 +182,8 @@ def main():
                *[dict(name="generator-double-"+v,ops=[["double",v]]) for v in ["0.0","-0.0","0.1","0.3333333333333333","1e100","1e-100","1.7976931348623157e308"]],
                *[dict(name="generator-nonfinite-"+v,ops=[["double",v]]) for v in ["NaN","inf","-inf"]]]
     all_cases=parse_cases+gen_cases
-    with temporary_directory(prefix="i333-json-oracle-") as directory:
-        directory=Path(directory);(directory/"src").mkdir()
-        (directory/"Cargo.toml").write_text('[package]\nname="i333-json-oracle"\nversion="0.0.0"\nedition="2021"\n[workspace]\n[dependencies]\ni3-json={path='+json.dumps(str(ROOT/"crates/i3-json"))+'}\nserde_json="=1.0.154"\n')
-        (directory/"src/main.rs").write_text(PROBE)
-        command=["cargo","build","--quiet","--manifest-path",str(directory/"Cargo.toml")]
-        if args.offline:command.append("--offline")
-        subprocess.run(command,check=True,cwd=ROOT)
-        run=subprocess.run([str(directory/"target/debug/i333-json-oracle")],input=''.join(json.dumps(case)+'\n' for case in all_cases),text=True,capture_output=True,check=True)
+    probe = args.probe.resolve() if args.probe else build_probe("i3-json", "native_json_oracle", args.offline)
+    run=subprocess.run([str(probe), "--probe"],input=''.join(json.dumps(case)+'\n' for case in all_cases),text=True,capture_output=True,check=True,timeout=60)
     outputs=[json.loads(line) for line in run.stdout.splitlines()]
     differences=[]
     diagnostics=[]

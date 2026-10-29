@@ -10,13 +10,19 @@ have been removed from this tree.
    libraries listed in [repository details](docs/development.md).
 2. Run `cargo build --workspace --locked`. Binaries appear in `target/debug/`: `i3`, `i3bar`,
    `i3-msg`, `i3-input`, `i3-nagbar`, `i3-config-wizard` and `i3-dump-log`.
-3. Run `cargo build --workspace --locked --release` for optimized binaries in `target/release/`.
-4. Run `cargo test --workspace --locked` for workspace unit tests.
-5. Run `python3 scripts/test-cargo-build.py` to verify a fresh build with C
-   compilation and legacy build tools blocked. It checks version output without
-   connecting to a desktop session.
+3. Prepare regression dependencies once: `python3 scripts/prepare-tests.py`.
+   It keeps the pinned C test reference, Perl/Python modules and cached tools in
+   `.work/`; see [one-time prerequisites](docs/development.md).
+4. Run **`cargo test`**. This builds all seven binaries and runs unit tests,
+   native compatibility oracles, status-header and IPC/CLI comparisons, private-display checks and
+   all 4,205 upstream assertions. Any failure fails the Cargo command; detailed
+   logs remain in `.work/`. Normal test runs need no network or setup commands.
+5. Run `cargo build --workspace --locked --release` for optimized binaries in
+   `target/release/`. The slower fresh-source build audit is optional:
+   `cargo test --features i3-test-support/clean-source-check`.
 
-Building does not install or launch a window manager. Configuration, helpers,
+Building does not install or launch a window manager. Tests launch private X
+servers and isolated window managers; they never replace your active desktop. Configuration, helpers,
 manuals and session resources remain available for packaging. See
 [PORTING.md](PORTING.md) for compatibility and isolated regression testing, and
 [recorded validation](docs/validation.json) for test evidence.

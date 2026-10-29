@@ -95,7 +95,9 @@ def session(binary, xvfb):
     with temporary_directory(prefix="i333-headless-") as temporary:
         work = Path(temporary)
         env = {k: v for k, v in os.environ.items()
-               if k not in ("DISPLAY", "I3SOCK", "WAYLAND_DISPLAY", "XAUTHORITY")}
+               if k not in ("DISPLAY", "I3SOCK", "WAYLAND_DISPLAY", "XAUTHORITY",
+                            "DBUS_SESSION_BUS_ADDRESS", "NOTIFY_SOCKET", "LISTEN_PID",
+                            "LISTEN_FDS", "LISTEN_FDNAMES")}
         env.update(HOME=str(work), XDG_CONFIG_HOME=str(work), XDG_RUNTIME_DIR=str(work))
         pipe_read, pipe_write = os.pipe()
         with (work / "xvfb.log").open("wb") as xlog, (work / "wm.log").open("wb") as log:
@@ -198,8 +200,13 @@ def exercise(binary, xvfb):
         snapshots.append(("marks", request(ipc, 5)))
         snapshots.append(("binding_modes", request(ipc, 8)))
         snapshots.append(("binding_state", request(ipc, 12)))
-        snapshots.append(("version", {k: v for k, v in request(ipc, 7).items()
-                                       if k != "loaded_config_file_name"}))
+        version = {key: value for key, value in request(ipc, 7).items()
+                   if key != "loaded_config_file_name"}
+        # Only the human-readable Git/build stamp differs for the cached C
+        # reference. Numeric major/minor/patch and all other fields stay exact.
+        if isinstance(version.get("human_readable"), str):
+            version["human_readable"] = "<BUILD>"
+        snapshots.append(("version", version))
         for index, window in enumerate(windows):
             window.destroy()
             connection.sync()

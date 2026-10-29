@@ -9,3 +9,11 @@ description = "Rust JSON generation and incremental event parsing for i3"
 [dependencies]
 serde.workspace = true
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
+
+[dev-dependencies]
+i3-test-support.workspace = true
+
+[[test]]
+name = "native_json_oracle"
+path = "tests/native_json_oracle.rs"
+harness = false

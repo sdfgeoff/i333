@@ -206,7 +206,31 @@ unsafe extern "C" fn got_mode_event(event: *const ::core::ffi::c_uchar, size: us
             188 as ::core::ffi::c_int,
         );
     }
-    parse_mode_json(event, size);
+    // IPC dispatch guarantees size initialized bytes for this callback.
+    let payload = std::slice::from_raw_parts(event, size);
+    let parsed = match parse_mode_json(payload) {
+        Ok(parsed) => parsed,
+        Err(_) => {
+            fprintf(
+                stderr,
+                c"[%s:%d] ERROR: Could not parse mode event!\n".as_ptr(),
+                c"../i3bar/src/mode.c".as_ptr(),
+                116,
+            );
+            exit(libc::EXIT_FAILURE);
+        }
+    };
+    let current = parsed.into_mode(
+        |name| {
+            // Font measurement reads a live, owned string. Its legacy pointer
+            // API only changes interior text caches; ownership stays here.
+            i3_common::font::predict_text_width(
+                (name as *const i3_common::string::I3String).cast_mut(),
+            )
+        },
+        config.verbose,
+    );
+    crate::xcb::set_current_mode(current);
     draw_bars(false_0 != 0);
 }
 unsafe fn strings_differ(a: *mut ::core::ffi::c_char, b: *mut ::core::ffi::c_char) -> bool {

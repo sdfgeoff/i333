@@ -7,26 +7,12 @@ use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 
 /// Read a root-window property with the existing X11 backend. No connection or
-/// returned allocation escapes this safe boundary. Missing properties and an
+/// C-owned allocation escapes this safe boundary. Missing properties and an
 /// unavailable display both return None, matching the backend's current API.
 ///
 /// This opens the configured X display; tests should prefer explicit IPC paths.
 pub fn root_property(atom: &CStr) -> Option<Vec<u8>> {
-    // SAFETY: atom is a borrowed C string; null requests a temporary connection.
-    // The backend returns either null or a malloc-owned NUL-terminated string.
-    let value = unsafe {
-        crate::root_atom_contents::root_atom_contents(atom.as_ptr(), std::ptr::null_mut(), 0)
-    };
-    if value.is_null() {
-        return None;
-    }
-    // SAFETY: Copy the C-owned property before freeing its original allocation.
-    let result = unsafe {
-        let result = CStr::from_ptr(value).to_bytes().to_vec();
-        libc::free(value.cast());
-        result
-    };
-    Some(result)
+    crate::root_atom_contents::read_root_property(atom).map(|value| value.into_bytes())
 }
 
 /// Resolve explicit path, I3SOCK, then I3_SOCKET_PATH on the X root window.

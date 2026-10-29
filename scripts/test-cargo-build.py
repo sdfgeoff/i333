@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build and test the Rust workspace from a clean source copy without C or Meson.
+"""Build the Rust workspace and all test targets from a clean copy without C or Meson.
 
 Run after Cargo support is ready:
     python scripts/test-cargo-build.py
@@ -152,7 +152,7 @@ def main():
                 if 'bin' in target['kind']:
                     binary_targets.add(target['name'])
         assert binary_targets == set(BINARIES), binary_targets
-        for action, extra in [('build', ['--bins']), ('test', [])]:
+        for action, extra in [('build', ['--bins']), ('test', ['--no-run'])]:
             command = ['cargo', action, '--workspace', '--locked', *extra, '-j4']
             if args.offline:
                 command.append('--offline')
@@ -166,7 +166,7 @@ def main():
             assert name.encode() in result.stdout, (name, result.stdout)
             assert not result.stderr, (name, result.stderr)
             print(result.stdout.decode().strip(), flush=True)
-        print(f'Clean Cargo workspace build/test passed: {count} Rust files, seven binaries, '
+        print(f'Clean Cargo workspace build/test-target compilation passed: {count} Rust files, seven binaries, '
               'no C sources/objects, Meson, Perl, or existing build directory.')
 
 

@@ -1,44 +1,15 @@
 #!/usr/bin/env python3
-"""Run i3's complete upstream suite on private headless X servers.
+"""Run the complete upstream suite on private X servers.
 
-Example (all dependencies remain in .work):
-    python scripts/test-upstream-headless.py \
-        --reference-build /path/to/external/i3-test-helpers \
-        --perl-lib .work/i333-perl/lib/perl5 \
-        --xvfb-dir .work/i333-xvfb/usr/bin \
-        --xephyr-dir .work/i333-xephyr/usr/bin
-Run cargo build first; Rust products default to target/debug (or target/release
-with --release). Override with --rust-bin-dir. --reference-build must explicitly
-point to three external precompiled test helpers: test.commands_parser,
-test.config_parser, and test.inject_randr15. The runner generates its Perl files
-from retained templates; it needs no C sources, headers, or build system in this
-checkout. Add --baseline to use external C products from that directory too.
-The Perl Inline::C test fixtures compile only inside the private temporary suite;
-they need a C compiler and system XCB/libstartup-notification development headers.
-The suite copy and full logs are preserved in a fresh .work/tmp/i333-suite-* directory (or under TMPDIR).
+cargo test runs this automatically using prepared dependencies. Prepare them
+once with python3 scripts/prepare-tests.py; normal tests never download tools or
+rebuild the external C reference. Direct invocation accepts --rust-bin-dir,
+--reference-build, --perl-lib, --xvfb-dir and --xephyr-dir overrides. --baseline
+uses external C products as well as the three native test helpers.
 
-Dependency bootstrap used for the initial validation (no global installation):
-    mkdir -p .work/tmp
-    export TMPDIR="$PWD/.work/tmp"
-    curl -sS -L https://cpanmin.us -o .work/i333-cpanm
-    PERL_CPANM_HOME=.work/i333-cpanm-cache perl .work/i333-cpanm \
-        --local-lib-contained .work/i333-perl --notest \
-        --mirror https://cpan.metacpan.org --mirror-only \
-        AnyEvent JSON::XS X11::XCB Inline Inline::C ExtUtils::PkgConfig IPC::Run
-    mkdir -p .work/i333-perl/lib/perl5/AnyEvent
-    cp AnyEvent-I3/lib/AnyEvent/I3.pm .work/i333-perl/lib/perl5/AnyEvent/I3.pm
-Arch X-server extraction commands (use the archive if the mirror rotates):
-    curl -sS -L https://geo.mirror.pkgbuild.com/extra/os/x86_64/xorg-server-xvfb-21.1.25-2-x86_64.pkg.tar.zst -o .work/i333-xvfb.pkg.tar.zst
-    mkdir -p .work/i333-xvfb
-    tar -xf .work/i333-xvfb.pkg.tar.zst -C .work/i333-xvfb
-    curl -sS -L https://geo.mirror.pkgbuild.com/extra/os/x86_64/xorg-server-xephyr-21.1.25-2-x86_64.pkg.tar.zst -o .work/i333-xephyr.pkg.tar.zst
-    mkdir -p .work/i333-xephyr
-    tar -xf .work/i333-xephyr.pkg.tar.zst -C .work/i333-xephyr
-Supply installed binaries with the directory options or PATH on other systems.
-They require matching X11 runtime libraries, xauth, xkbcomp and keyboard data.
-
-Never uses the desktop DISPLAY or I3SOCK. Xvfb is mandatory, never optional.
-Cleanup on interruption/timeout signals only this runner's child process group.
+The retained Inline::C fixtures use a persistent .work/test-deps/inline cache;
+only new or changed fixture source is compiled. Each suite's logs and validation
+hashes remain in .work/tmp (or TMPDIR). Never uses the desktop DISPLAY/I3SOCK.
 """
 import argparse
 import json
@@ -49,6 +20,8 @@ import shutil
 import signal
 import subprocess
 from workspace_temp import make_tempdir, temporary_root
+from regression_environment import (DEPS, MissingTestDependency, find_reference, find_perl_lib,
+                                    find_xserver, native_fixture_tools)
 
 ROOT = Path(__file__).resolve().parent.parent
 PRODUCTS = ["i3", "i3bar", "i3-config-wizard", "i3-dump-log", "i3-input", "i3-msg", "i3-nagbar"]
@@ -71,18 +44,33 @@ def executable(name, directory, env):
 
 
 def run_suite(args):
-    reference = args.reference_build.resolve()
+    reference = (args.reference_build or find_reference()).resolve()
+    if args.perl_lib is None:
+        args.perl_lib = find_perl_lib()
+    if args.xvfb_dir is None:
+        args.xvfb_dir = find_xserver('Xvfb').parent
+    if args.xephyr_dir is None:
+        args.xephyr_dir = find_xserver('Xephyr').parent
+    native_fixture_tools()
     rust_bin = (args.rust_bin_dir or cargo_bin_dir(args.release)).resolve()
     env = {key: value for key, value in os.environ.items()
-           if key not in {"DISPLAY", "I3SOCK", "WAYLAND_DISPLAY", "XAUTHORITY", "DBUS_SESSION_BUS_ADDRESS"}}
+           if key not in {"DISPLAY", "I3SOCK", "WAYLAND_DISPLAY", "XAUTHORITY",
+                          "DBUS_SESSION_BUS_ADDRESS", "NOTIFY_SOCKET", "LISTEN_PID",
+                          "LISTEN_FDS", "LISTEN_FDNAMES"}}
     env["TMPDIR"] = str(temporary_root())
+    # Inline hashes source/configuration itself. Persist unchanged native fixture
+    # modules instead of recompiling them in every fresh suite directory.
+    inline_cache = DEPS / 'inline'
+    inline_cache.mkdir(parents=True, exist_ok=True)
+    env['PERL_INLINE_DIRECTORY'] = str(inline_cache)
+    env.pop('PERL5LIB', None)
     if args.perl_lib:
         env["PERL5LIB"] = str(args.perl_lib.resolve())
     directories = [str(p.resolve()) for p in [args.xvfb_dir, args.xephyr_dir] if p]
     env["PATH"] = os.pathsep.join([*directories, env.get("PATH", "/usr/bin:/bin")])
     # Verify before copying or starting anything. complete-run.pl checks xvfb-run
     # even though it directly launches its private Xvfb parent server afterward.
-    for name, directory in [("Xvfb", args.xvfb_dir), ("xvfb-run", args.xvfb_dir),
+    for name, directory in [("Xvfb", args.xvfb_dir), ("xvfb-run", None),
                             ("Xephyr", args.xephyr_dir), ("perl", None), ("xauth", None)]:
         executable(name, directory, env)
     for name in [*PRODUCTS, *HELPERS]:
@@ -149,7 +137,7 @@ def run_suite(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--reference-build", type=Path, required=True,
+    parser.add_argument("--reference-build", type=Path,
                         help="External directory containing the three precompiled upstream test helpers")
     parser.add_argument("--rust-bin-dir", type=Path, help="Directory containing Cargo-built products")
     parser.add_argument("--release", action="store_true", help="Use Cargo target/release instead of target/debug")
@@ -163,4 +151,7 @@ if __name__ == "__main__":
     arguments = parser.parse_args()
     if arguments.parallel < 1 or arguments.timeout < 1:
         parser.error("parallelism and timeout must be positive")
-    raise SystemExit(run_suite(arguments))
+    try:
+        raise SystemExit(run_suite(arguments))
+    except MissingTestDependency as error:
+        parser.exit(2, f'Regression prerequisites failed: {error}\n')

@@ -40,7 +40,7 @@ def invoke(executable, arguments, env):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--candidate-dir', type=Path)
+    parser.add_argument('--candidate-dir', '--rust-bin-dir', dest='candidate_dir', type=Path)
     parser.add_argument('--reference-dir', type=Path)
     parser.add_argument('--release', action='store_true')
     args = parser.parse_args()
@@ -53,6 +53,7 @@ def main():
     env = {key: value for key, value in os.environ.items() if key not in {
         'DISPLAY', 'I3SOCK', 'WAYLAND_DISPLAY', 'XAUTHORITY', 'DBUS_SESSION_BUS_ADDRESS',
         'DESKTOP_STARTUP_ID', 'POSIXLY_CORRECT',
+        'NOTIFY_SOCKET', 'LISTEN_PID', 'LISTEN_FDS', 'LISTEN_FDNAMES',
     }}
     env['LC_ALL'] = 'C'
     checked = 0

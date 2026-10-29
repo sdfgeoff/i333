@@ -8,37 +8,41 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 15 wallclock secs ( 0.67 usr +  0.06 sys =  0.73 CPU)\nResult: PASS",
-    "profile": "release",
-    "build": "cargo build --workspace --release --locked",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 27 wallclock secs ( 0.90 usr +  0.10 sys =  1.00 CPU)\nResult: PASS",
+    "profile": "debug",
+    "build": "cargo test",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "2012636872c329aa7362617df339710a1fa1b685dde4e2247b15a2fe737a0e17",
-    "i3bar": "5b28e9c3b1689757d0bdd616f8d4b09f06f6291fcd224b736740fd1848751ceb",
-    "i3-config-wizard": "a3476325948e81b4d61c30e183f3b70dfb27581f0865cfae51ea5ef582f321d0",
-    "i3-dump-log": "a30ccc3af72353e62e0a410719b17290fb8e73589c8590a12fcbc5c2a46ee094",
-    "i3-input": "e8a1c8032ba2fdde433754bbfcbdd421e0519336833a55f8f593b1c5ead76d16",
-    "i3-msg": "c8f5eb1247c42b08ff56bc8adf913bd7fde074c1c4b9962e0401cce760ef06c1",
-    "i3-nagbar": "b4f65a2a325fc079a734813e86e9aee2d1b57620272a67c42754b93e686aa42e"
+    "i3": "0dbec9ca2ce1cdb0c985da4b0c992ce0b32e8448981b0534631ac22eaefd4de2",
+    "i3bar": "e6628b69bc3a90435bcb72f17941d52b762d050ec356df21f319e91f401497e4",
+    "i3-config-wizard": "1a5243a9f87168a8de59aaca00a9e09df7c34853889814281d8db7f94a6077f0",
+    "i3-dump-log": "078444b945f1f7f5e8e62d1212fd8a238dd79b3bb9ba37ef5609e4e4ad688d05",
+    "i3-input": "7a6cf99ae0115c4a6613e21da863db0b75fe4342399ebf842f592c8a43987c95",
+    "i3-msg": "d53e872d4ccd8a2903be44dcc922b221416f09db976f15898754ad23a26d1f73",
+    "i3-nagbar": "6e0a3fdf046bca8d22dab80448ad3d6289652e005d6acdf4c9439af096c67df2"
   },
-  "note": "Nine-member Cargo workspace after generated scalar alias cleanup and closed application enum conversion. Exact release hashes above passed the complete upstream suite, IPC16, CLI30 and headless52 external C comparisons. Both supported compilers pass99 workspace tests without warnings and fresh guarded Rust-only builds. Native callbacks, intrusive window-tree pointers and legacy allocation adapters remain unsafe; Linux x86_64 GNU ABI only. External C reference version stamp was matched to the candidate for CLI comparisons.",
-  "reproduce": "python scripts/test-upstream-headless.py --release --reference-build .work/c-reference --perl-lib .work/recovery/i333-perl/lib/perl5 --xvfb-dir .work/recovery/i333-xvfb/usr/bin --xephyr-dir .work/recovery/i333-xephyr/usr/bin",
+  "note": "Ten-member Cargo workspace. One plain cargo test invocation passed130 Rust-reported tests, all native oracles, external C IPC/CLI/headless/input comparisons, and the complete upstream suite. Exact debug hashes above match that Cargo-driven upstream run. Optional clean-source verification compiled all products and test targets from fresh Rust-only inputs with C compilation/generators blocked. Routine validation uses the repository nightly; ESP is not an additional required pass. Unsafe native callbacks, intrusive tree ownership and legacy adapters remain; Linux x86_64 GNU ABI only.",
+  "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
   "additional_checks": {
     "headless_c_rust_state_comparisons": 52,
     "ipc_client_test_groups": 16,
-    "helper_differential_and_behavior_checks": 81,
-    "all_seven_version_outputs_match_c": true,
-    "variadic_formatting_and_cursor_copy_both_toolchains": true,
-    "workspace_unit_tests": 99,
+    "workspace_unit_tests": 130,
     "core_and_bar_cli_comparisons": 30,
     "pcre2_compile_match_error_comparisons": 4620,
-    "additional_pcre2_directive_comparisons": 1056,
     "json_oracle_cases": 2218,
     "json_unexpected_differences": 0,
     "json_malformed_input_diagnostic_differences": 115,
     "json_deliberate_unicode_strictness_cases": 132,
-    "json_equivalent_number_encodings": 5
+    "json_equivalent_number_encodings": 5,
+    "workspace_rust_tests_include_integration_wrappers": true,
+    "input_private_display_cases": 17,
+    "header_native_yajl_comparisons": 602,
+    "sd_activation_native_parser_comparisons": 765,
+    "single_cargo_test_entrypoint": true,
+    "nonzero_child_failure_makes_cargo_fail": true,
+    "all_seven_cargo_binaries_version_smoke": true,
+    "variadic_formatting_and_cursor_copy_current_nightly": true
   },
   "toolchain": {
     "rustc": "rustc 1.99.0-nightly (11177f223 2026-08-02)",
@@ -50,18 +54,19 @@
   "clean_cargo_build": {
     "passed": true,
     "product_binaries": 7,
-    "rust_sources": 124,
+    "rust_sources": 133,
     "fresh_source_and_target_directories": true,
     "c_sources_headers_and_objects_present": false,
     "meson_ninja_perl_invocations": false,
     "compiler_toolchains_tested": [
-      "Rust 1.92.0-nightly (esp)",
-      "Rust 1.99.0-nightly (2026-08-03)"
+      "Rust 1.99.0-nightly (repository nightly)"
     ],
     "standard_nightly_requires_custom_flags": false,
-    "workspace_packages": 9,
-    "workspace_unit_tests": 99,
-    "old_root_source_wiring_present": false
+    "workspace_packages": 10,
+    "old_root_source_wiring_present": false,
+    "compile_only": true,
+    "all_unit_and_integration_test_targets_compiled": true,
+    "automatic_after_each_source_edit": false
   },
   "repository_cleanup": {
     "obsolete_files_removed": 216,
@@ -90,28 +95,36 @@
       "i3-json",
       "libev-sys",
       "xcb-sys",
-      "startup-notification-sys"
+      "startup-notification-sys",
+      "i3-test-support"
     ],
     "shared_helpers": "i3-common rlib; direct Rust imports and canonical shared model definitions",
     "binary_count": 7,
     "native_library_discovery": "maintained native binding build scripts and dedicated sys crates; i3-build links only platform m/rt",
     "unit_tests": {
-      "i3": 10,
+      "i3": 18,
       "xkb_integration": 1,
       "i3-build": 3,
-      "i3-common": 43,
+      "i3-common": 47,
       "native_graphics": 5,
       "i3-json": 16,
       "i3-dump-log": 5,
-      "i3-input": 3,
+      "i3-input": 8,
       "i3-msg": 8,
       "startup-notification-sys": 1,
       "xcb-sys": 2,
-      "libev-sys": 2
+      "libev-sys": 2,
+      "i3bar": 7,
+      "cargo_regression_wrappers": 5,
+      "binary_artifact_checks": 2
     },
     "cargo_fmt_check": true,
     "debug_build": true,
-    "release_build": true
+    "release_build": true,
+    "unit_tests_total_including_integration_checks": 130,
+    "test_command": "cargo test",
+    "clean_source_command": "cargo test -p i3-test-support --features clean-source-check",
+    "test_support": "development-only process capture, failure propagation and isolated regression orchestration"
   },
   "modernization": {
     "yajl_product_dependency": false,
@@ -142,6 +155,34 @@
         "wizard_config": 118
       },
       "compatibility": "Original discriminants and representation preserved; zero remains valid for models using legacy zero allocation. Table length sentinels remain separate from valid enum variants. Flags, native numeric protocols and unchecked JSON numeric domains are not converted to invalid closed enum values."
-    }
+    },
+    "file_by_file_batches": [
+      {
+        "batch": 1,
+        "files": [
+          "crates/i3-common/src/root_atom_contents.rs",
+          "crates/i3-common/src/get_mod_mask.rs",
+          "crates/i3-common/src/get_visualtype.rs",
+          "crates/i3bar/src/parse_json_header.rs",
+          "crates/i3bar/src/mode.rs",
+          "crates/i3/src/sd_daemon.rs",
+          "crates/i3-tools/src/bin/i3-input/application.rs"
+        ],
+        "improvements": [
+          "Owned property CStrings and native reply/connection RAII",
+          "Checked modifier and setup-buffer views; unmatched keycode allocation released",
+          "Owned bar header/mode state and automatic mode-text lifetime",
+          "Owned Unix notifications, checked address buffers and explicit unsafe environment contracts",
+          "Owned dynamic input glyphs, prompt, format and native resource guards"
+        ],
+        "safety_fixes": [
+          "Malformed missing-name mode event returns error instead of dereferencing null",
+          "Input beyond512 glyphs no longer overruns fixed storage",
+          "Empty input format no longer underflows allocation arithmetic",
+          "Null keyboard-grab replies and short native properties are checked"
+        ],
+        "validation": "cargo test plus optional structural clean-source feature passed"
+      }
+    ]
   }
 }

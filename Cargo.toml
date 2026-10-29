@@ -6,6 +6,7 @@ members = [
     "crates/i3bar",
     "crates/i3-tools",
     "crates/i3-build",
+    "crates/i3-test-support",
     "crates/i3-json",
     "crates/libev-sys",
     "crates/xcb-sys",
@@ -24,6 +25,7 @@ c2rust-bitfields = "=0.22.1"
 pkg-config = "=0.3.34"
 i3-common = { path = "crates/i3-common" }
 i3-build = { path = "crates/i3-build" }
+i3-test-support = { path = "crates/i3-test-support" }
 i3-json = { path = "crates/i3-json" }
 serde = "=1.0.229"
 serde_json = "=1.0.154"

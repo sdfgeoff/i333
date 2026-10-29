@@ -4,18 +4,17 @@
     python scripts/test-regex-parity.py --offline
 
 The optional oracle uses the host PCRE2 shared library through Python ctypes;
-this adds no native declarations or oracle dependency to the project. A tiny
-Rust probe includes the real regex.rs in an isolated temporary Cargo package.
+this adds no native declarations to the products. Plain cargo test includes
+the oracle using a prebuilt integration probe that includes the real regex.rs.
+Standalone runs build that same integration target when --probe is absent.
 No X server, window manager, input devices or session IPC sockets are used.
 """
 import argparse
 import ctypes as c
 import ctypes.util
-import json
-import os
 from pathlib import Path
 import subprocess
-from workspace_temp import temporary_directory
+from cargo_probe import build_probe
 
 ROOT = Path(__file__).resolve().parents[1]
 # Same compile flags used by upstream src/regex.c. Constants come from pcre2.h.
@@ -50,43 +49,14 @@ SUBJECTS = [
 ]
 INVALID_SUBJECTS = [b'\xff', b'A\xff', b'\x80', b'\xc0\xaf', b'\xed\xa0\x80',
                     b'\xf4\x90\x80\x80', b'\xe2\x82', b'\xf0\x9f\x98']
-PROBE = r'''
-#![feature(c_variadic)]
-#![allow(dead_code, stable_features)]
-#[path = REGEX_PATH]
-mod regex;
-mod log {
-    pub unsafe extern "C" fn errorlog(_: *mut core::ffi::c_char, _: ...) {}
-    pub unsafe extern "C" fn verboselog(_: *mut core::ffi::c_char, _: ...) {}
-}
-fn unhex(value: &str) -> Vec<u8> {
-    (0..value.len()).step_by(2).map(|i| u8::from_str_radix(&value[i..i+2], 16).unwrap()).collect()
-}
-fn hex(value: &[u8]) -> String { value.iter().map(|byte| format!("{byte:02x}")).collect() }
-fn main() {
-    use std::io::BufRead;
-    for line in std::io::stdin().lock().lines() {
-        let line = line.unwrap();
-        let (pattern, subject) = line.split_once('\t').unwrap();
-        match regex::Regex::compile_bytes(&unhex(pattern)) {
-            Err(error) => println!("compile_error\t{}\t{}\t{}", error.offset,
-                error.code.map(|code|code.to_string()).unwrap_or_else(||"none".to_owned()),
-                hex(error.message.as_bytes())),
-            Ok(expression) => match expression.is_match_bytes(&unhex(subject)) {
-                Ok(matched) => println!("match\t{}", u8::from(matched)),
-                Err(error) => println!("match_error\t{}", error.code()),
-            }
-        }
-    }
-}
-'''
+
 
 
 class Oracle:
     def __init__(self):
         library = ctypes.util.find_library('pcre2-8')
         if not library:
-            raise SystemExit('PCRE2 shared library is required for this optional differential test')
+            raise SystemExit('PCRE2 shared library is required for native regex compatibility tests')
         self.lib = c.CDLL(library)
         signatures = {
             'pcre2_compile_8': ([c.c_void_p, c.c_size_t, c.c_uint,
@@ -138,34 +108,20 @@ class Oracle:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--offline', action='store_true', help='use cached Cargo dependencies only')
+    parser.add_argument('--probe', type=Path, help='Use a Cargo-built native_regex_oracle executable; do not invoke Cargo')
     args = parser.parse_args()
     oracle = Oracle()
     subjects = [text.encode() for text in SUBJECTS] + INVALID_SUBJECTS
     cases = [(pattern.encode(), subject) for pattern in PATTERNS for subject in subjects]
-    with temporary_directory(prefix='i333-regex-parity-') as work:
-        work = Path(work)
-        (work / 'src').mkdir()
-        (work / 'Cargo.toml').write_text('[package]\nname="i333-regex-probe"\nversion="0.0.0"\n'
-            'edition="2021"\n[workspace]\n[dependencies]\npcre2="=0.2.11"\n')
-        (work / 'src/main.rs').write_text(PROBE.replace('REGEX_PATH',
-            json.dumps(str(ROOT / 'crates/i3/src/regex.rs'))))
-        command = ['cargo', '+nightly', 'build', '--quiet', '-j4']
-        if args.offline:
-            command.append('--offline')
-        env = os.environ.copy()
-        env['CARGO_TARGET_DIR'] = str(work / 'target')
-        for name in ['RUSTFLAGS', 'CARGO_ENCODED_RUSTFLAGS']:
-            env.pop(name, None)
-        subprocess.run(command, cwd=work, env=env, check=True)
-        probe = work / 'target/debug/i333-regex-probe'
-        results = subprocess.run([str(probe)], input=''.join(
-            pattern.hex() + '\t' + subject.hex() + '\n' for pattern, subject in cases),
-            capture_output=True, text=True, check=True, timeout=60).stdout.splitlines()
-        assert len(results) == len(cases), (len(results), len(cases))
-        for (pattern, subject), result in zip(cases, results):
-            expected = oracle.evaluate(pattern, subject)
-            actual = tuple(result.split('\t'))
-            assert actual == expected, (pattern, subject, actual, expected)
+    probe = args.probe.resolve() if args.probe else build_probe("i3", "native_regex_oracle", args.offline)
+    results = subprocess.run([str(probe), "--probe"], input=''.join(
+        pattern.hex() + '\t' + subject.hex() + '\n' for pattern, subject in cases),
+        capture_output=True, text=True, check=True, timeout=60).stdout.splitlines()
+    assert len(results) == len(cases), (len(results), len(cases))
+    for (pattern, subject), result in zip(cases, results):
+        expected = oracle.evaluate(pattern, subject)
+        actual = tuple(result.split('\t'))
+        assert actual == expected, (pattern, subject, actual, expected)
     print(f'{len(cases)} regex compile/match/error comparisons passed against PCRE2 {oracle.version()}')
 
 
