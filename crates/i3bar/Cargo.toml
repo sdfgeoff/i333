@@ -1,0 +1,20 @@
+[package]
+name = "i3bar"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+libc.workspace = true
+c2rust-bitfields.workspace = true
+i3-common.workspace = true
+
+[build-dependencies]
+i3-build.workspace = true
+
+[[bin]]
+name = "i3bar"
+path = "src/main.rs"
+test = false
+bench = false

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Build all seven Rust binaries from a clean source copy without C or Meson.
+"""Build and test the Rust workspace from a clean source copy without C or Meson.
 
 Run after Cargo support is ready:
     python scripts/test-cargo-build.py
 
-Only Cargo manifests/build.rs, Rust sources and explicitly listed configuration
-assets are copied. A fresh target directory prevents reuse of project objects.
+Workspace and member Cargo manifests/build.rs files, Rust sources and explicitly
+listed configuration assets are copied. A fresh target directory prevents reuse of project objects.
 Compiler wrappers allow native linking but reject C compilation; build-system
 and parser-generator wrappers fail if invoked. Version checks run without any
 DISPLAY, WAYLAND_DISPLAY or I3SOCK and never connect to the user's desktop.
@@ -47,12 +47,11 @@ def assert_rust_only_repository():
 
 
 def copy_clean_sources(destination):
-    for name in ('Cargo.toml', 'Cargo.lock', 'build.rs'):
-        source = ROOT / name
-        if not source.is_file():
-            raise SystemExit(f'{name} is missing; Cargo support is not ready')
-        shutil.copy2(source, destination / name)
-    for name in ('rust-toolchain.toml', 'rust-toolchain', *CONFIG_ASSETS):
+    for name in ('Cargo.toml', 'Cargo.lock'):
+        if not (ROOT / name).is_file():
+            raise SystemExit(f'{name} is missing; workspace Cargo support is not ready')
+    for name in ('rust-toolchain.toml', 'rust-toolchain', '.cargo/config.toml',
+                 '.cargo/config', *CONFIG_ASSETS):
         source = ROOT / name
         if source.is_file():
             target = destination / name
@@ -62,15 +61,16 @@ def copy_clean_sources(destination):
     for directory, folders, files in os.walk(ROOT):
         folders[:] = [name for name in folders if name not in SKIP_DIRS]
         for name in files:
-            if not name.endswith('.rs'):
+            if not name.endswith('.rs') and name not in {'Cargo.toml', 'Cargo.lock'}:
                 continue
             source = Path(directory) / name
+            assert source.resolve().is_relative_to(ROOT), source
             target = destination / source.relative_to(ROOT)
             target.parent.mkdir(parents=True, exist_ok=True)
             if str(ROOT) in source.read_text():
-                raise AssertionError(f'Rust source contains original absolute path: {source}')
+                raise AssertionError(f'Cargo input contains original absolute path: {source}')
             shutil.copy2(source, target)
-            count += 1
+            count += name.endswith('.rs')
     forbidden = [path for path in destination.rglob('*')
                  if path.suffix in {'.c', '.h', '.pl', '.a', '.o'}]
     assert not forbidden, forbidden
@@ -140,14 +140,23 @@ def main():
             cwd=source, env=env, text=True,
         )
         metadata = json.loads(metadata)
+        assert Path(metadata['workspace_root']) == source, metadata['workspace_root']
+        binary_targets = set()
         for package in metadata['packages']:
             assert Path(package['manifest_path']).is_relative_to(source), package
+            for dependency in package['dependencies']:
+                if dependency.get('path'):
+                    assert Path(dependency['path']).is_relative_to(source), dependency
             for target in package['targets']:
                 assert Path(target['src_path']).is_relative_to(source), target
-        command = ['cargo', 'build', '--locked', '--bins', '-j4']
-        if args.offline:
-            command.append('--offline')
-        subprocess.run(command, cwd=source, env=env, check=True)
+                if 'bin' in target['kind']:
+                    binary_targets.add(target['name'])
+        assert binary_targets == set(BINARIES), binary_targets
+        for action, extra in [('build', ['--bins']), ('test', [])]:
+            command = ['cargo', action, '--workspace', '--locked', *extra, '-j4']
+            if args.offline:
+                command.append('--offline')
+            subprocess.run(command, cwd=source, env=env, check=True)
         for name in BINARIES:
             binary = scratch / 'target' / 'debug' / name
             assert binary.is_file(), f'Cargo did not build {name}'
@@ -157,7 +166,7 @@ def main():
             assert name.encode() in result.stdout, (name, result.stdout)
             assert not result.stderr, (name, result.stderr)
             print(result.stdout.decode().strip(), flush=True)
-        print(f'Clean Cargo build passed: {count} Rust files, seven binaries, '
+        print(f'Clean Cargo workspace build/test passed: {count} Rust files, seven binaries, '
               'no C sources/objects, Meson, Perl, or existing build directory.')
 
 

@@ -62,11 +62,12 @@ Here are a few examples for illustration:
 
 ## Working on the Rust port
 
-1. Build with `cargo build --locked` and `cargo build --locked --release`.
-   See [repository details](../rust/REPOSITORY.md) for native dependencies.
+1. Build with `cargo build --workspace --locked` and `cargo build --workspace --locked --release`.
+   See [repository details](../docs/development.md) for native dependencies.
 2. Preserve i3 behavior, existing function boundaries, native layouts and FFI
    ownership contracts. Explain intentional behavior changes in the pull request.
-3. Run `python3 scripts/test-cargo-build.py` to verify a fresh standalone build.
+3. Run `cargo test --workspace --locked`, then
+   `python3 scripts/test-cargo-build.py` to verify a fresh standalone build.
    Add focused regression coverage for behavior changes; use the IPC/headless
    runners described in [PORTING.md](../PORTING.md).
 4. Runtime tests must use private sockets and headless X servers. Never restart

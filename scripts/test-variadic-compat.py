@@ -19,9 +19,13 @@ SOURCE = r'''
 #![feature(c_variadic)]
 #![allow(dead_code, unused_mut, unused_assignments, non_camel_case_types,
          non_upper_case_globals, stable_features)]
+// Mirror the common crate's exported macro namespace without linking a second
+// copy of its C symbols into this focused standalone ABI fixture.
+extern crate self as i3_common;
+#[path = VARIADIC_COMPAT_PATH]
+mod variadic_compat;
 #[path = SAFETYWRAPPERS_PATH]
 mod safewrappers;
-include!(VARIADIC_COMPAT_PATH);
 extern "C" {
     fn vasprintf(out: *mut *mut core::ffi::c_char, format: *const core::ffi::c_char,
                  arguments: core::ffi::VaList) -> core::ffi::c_int;
@@ -73,8 +77,8 @@ def main():
         work = Path(work)
         source = work / 'check.rs'
         source.write_text(SOURCE.replace('SAFETYWRAPPERS_PATH', json.dumps(
-            str(ROOT / 'libi3/safewrappers.rs'))).replace('VARIADIC_COMPAT_PATH',
-            json.dumps(str(ROOT / 'rust/variadic-compat.rs'))))
+            str(ROOT / 'crates/i3-common/src/safewrappers.rs'))).replace('VARIADIC_COMPAT_PATH',
+            json.dumps(str(ROOT / 'crates/i3-common/src/variadic_compat.rs'))))
         for toolchain in args.toolchain or [None]:
             rustc = ['rustc'] + ([f'+{toolchain}'] if toolchain else [])
             version = subprocess.check_output([*rustc, '--version'], text=True)

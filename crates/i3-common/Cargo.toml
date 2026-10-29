@@ -1,0 +1,13 @@
+[package]
+name = "i3-common"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+libc.workspace = true
+c2rust-bitfields.workspace = true
+
+[build-dependencies]
+i3-build.workspace = true

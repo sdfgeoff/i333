@@ -1,0 +1,94 @@
+{
+  "date": "2026-10-29",
+  "upstream_revision": "be04c853ee7fa01a82a0c81f8217565395e2627c",
+  "method": "Upstream complete-run.pl; four private Xephyr workers beneath private Xvfb; copied Rust product executables and rewritten embedded build paths; DISPLAY/I3SOCK/WAYLAND_DISPLAY/XAUTHORITY/DBUS_SESSION_BUS_ADDRESS removed before invocation.",
+  "c_baseline": {
+    "return_code": 0,
+    "summary": "All tests successful. Files=285, Tests=4205, 16 wallclock secs. Result: PASS"
+  },
+  "rust": {
+    "return_code": 0,
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 23 wallclock secs ( 1.55 usr +  0.13 sys =  1.68 CPU)\nResult: PASS",
+    "profile": "release",
+    "build": "cargo build --workspace --release --locked",
+    "original_i3_c_archive_linked": false
+  },
+  "tested_rust_product_sha256": {
+    "i3": "15e0f6f96c42544bc717a34fc891512363b037e06f48e6001ac14b073598e452",
+    "i3bar": "15d21e44ec13f9c3960d144727648774afa1f582ec3171973ad7616b1f5925f1",
+    "i3-config-wizard": "e317d5da66ecb4f4695551dba5d5578fcdb04b4d8a09eec5628087893c672292",
+    "i3-dump-log": "a534d84c7359849e8a37462f0380fa87dcf521635dcbf12713e0465050f9e0de",
+    "i3-input": "75cd4668f797a8a67e91f1dfa8c6676498f1364a013649a587f6bede8f242ab5",
+    "i3-msg": "1c1761bf67f5306e53023eef9f9ce10e1da2f95bd06f4f893346c03be010abf0",
+    "i3-nagbar": "8869206f2f85d2d1bd660cbc09b3fd57734912dfc9822975071311fef17f6482"
+  },
+  "note": "Five-member Cargo workspace. Exact release hashes above passed the full upstream suite with external test helpers, 16 IPC fixture groups and 52 headless checkpoints. Workspace unit tests and formatting pass. Clean source-only workspace builds/tests passed on both documented compiler versions without C sources, headers, generators or existing artifacts. Native interfaces retain their original allocation and ownership contracts; Linux x86_64 GNU ABI only.",
+  "reproduce": "python scripts/test-upstream-headless.py --perl-lib /tmp/i333-perl/lib/perl5 --xvfb-dir /tmp/i333-xvfb/usr/bin --xephyr-dir /tmp/i333-xephyr/usr/bin (add --baseline for C)",
+  "additional_checks": {
+    "headless_c_rust_state_comparisons": 52,
+    "ipc_client_test_groups": 16,
+    "helper_differential_and_behavior_checks": 81,
+    "all_seven_version_outputs_match_c": true,
+    "variadic_formatting_and_cursor_copy_both_toolchains": true,
+    "workspace_unit_tests": 15
+  },
+  "toolchain": {
+    "rustc": "rustc 1.99.0-nightly (11177f223 2026-08-02)",
+    "cargo": "cargo 1.99.0-nightly (7c83d4cc0 2026-07-29)",
+    "c2rust": "0.22.1",
+    "llvm": "21"
+  },
+  "platform": "Linux x86_64",
+  "clean_cargo_build": {
+    "passed": true,
+    "product_binaries": 7,
+    "rust_sources": 105,
+    "fresh_source_and_target_directories": true,
+    "c_sources_headers_and_objects_present": false,
+    "meson_ninja_perl_invocations": false,
+    "compiler_toolchains_tested": [
+      "Rust 1.92.0-nightly (esp)",
+      "Rust 1.99.0-nightly (2026-08-03)"
+    ],
+    "standard_nightly_requires_custom_flags": false,
+    "workspace_packages": 5,
+    "workspace_unit_tests": 15,
+    "old_root_source_wiring_present": false
+  },
+  "repository_cleanup": {
+    "obsolete_files_removed": 216,
+    "c_and_header_source_files_remaining": 0,
+    "meson_files_remaining": 0,
+    "legacy_build_directory_present": false,
+    "clean_cargo_build_after_removal": true,
+    "normal_cargo_build_after_removal": true,
+    "ipc_test_groups": 16,
+    "headless_checkpoints": 52,
+    "upstream_suite": {
+      "files": 285,
+      "tests": 4205,
+      "result": "PASS",
+      "external_test_helpers_required": true
+    },
+    "runtime_assets_and_useful_perl_test_fixtures_retained": true
+  },
+  "workspace": {
+    "members": [
+      "i3",
+      "i3-common",
+      "i3bar",
+      "i3-tools",
+      "i3-build"
+    ],
+    "shared_helpers": "i3-common rlib compiled once per build profile",
+    "binary_count": 7,
+    "native_library_discovery": "i3-common build script via i3-build",
+    "unit_tests": {
+      "i3-common": 12,
+      "i3-build": 3
+    },
+    "cargo_fmt_check": true,
+    "debug_build": true,
+    "release_build": true
+  }
+}

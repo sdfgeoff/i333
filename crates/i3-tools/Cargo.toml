@@ -1,0 +1,44 @@
+[package]
+name = "i3-tools"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+libc.workspace = true
+c2rust-bitfields.workspace = true
+i3-common.workspace = true
+
+[build-dependencies]
+i3-build.workspace = true
+
+[[bin]]
+name = "i3-msg"
+path = "src/bin/i3-msg/main.rs"
+test = false
+bench = false
+
+[[bin]]
+name = "i3-dump-log"
+path = "src/bin/i3-dump-log/main.rs"
+test = false
+bench = false
+
+[[bin]]
+name = "i3-input"
+path = "src/bin/i3-input/main.rs"
+test = false
+bench = false
+
+[[bin]]
+name = "i3-nagbar"
+path = "src/bin/i3-nagbar/main.rs"
+test = false
+bench = false
+
+[[bin]]
+name = "i3-config-wizard"
+path = "src/bin/i3-config-wizard/main.rs"
+test = false
+bench = false

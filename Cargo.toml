@@ -1,63 +1,28 @@
-[package]
-name = "i333"
+[workspace]
+resolver = "2"
+members = [
+    "crates/i3",
+    "crates/i3-common",
+    "crates/i3bar",
+    "crates/i3-tools",
+    "crates/i3-build",
+]
+
+[workspace.package]
 version = "4.25.0"
 edition = "2021"
 license = "BSD-3-Clause"
-description = "A file-by-file Rust port of the i3 X11 window manager"
-autobins = false
-build = "build.rs"
+repository = "https://github.com/sdfgeoff/i333"
 
-[dependencies]
+[workspace.dependencies]
 libc = "=0.2.191"
 c2rust-bitfields = "=0.22.1"
-
-[build-dependencies]
 pkg-config = "=0.3.34"
+i3-common = { path = "crates/i3-common" }
+i3-build = { path = "crates/i3-build" }
 
 [profile.dev]
 panic = "abort"
 
 [profile.release]
 panic = "abort"
-
-[[bin]]
-name = "i3"
-path = "rust/i3.rs"
-test = false
-bench = false
-
-[[bin]]
-name = "i3-msg"
-path = "rust/i3-msg.rs"
-test = false
-bench = false
-
-[[bin]]
-name = "i3-dump-log"
-path = "rust/i3-dump-log.rs"
-test = false
-bench = false
-
-[[bin]]
-name = "i3bar"
-path = "rust/i3bar.rs"
-test = false
-bench = false
-
-[[bin]]
-name = "i3-input"
-path = "rust/i3-input.rs"
-test = false
-bench = false
-
-[[bin]]
-name = "i3-nagbar"
-path = "rust/i3-nagbar.rs"
-test = false
-bench = false
-
-[[bin]]
-name = "i3-config-wizard"
-path = "rust/i3-config-wizard.rs"
-test = false
-bench = false

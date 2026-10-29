@@ -16,18 +16,23 @@
    guided the translation, with compilation and validation following separately.
    Most files were translated mechanically using C2Rust 0.22.1 and LLVM 21;
    unsafe pointers deliberately retain the original ownership contracts.
-4. **Build.** Use `cargo build --locked` or `cargo build --locked --release`.
+4. **Build.** Use `cargo build --workspace --locked` or `cargo build --workspace --locked --release`.
    Nightly Rust, a native linker, `pkg-config` and the development libraries in
-   [repository details](rust/REPOSITORY.md) are required. All parser tables are
+   [repository details](docs/development.md) are required. All parser tables are
    checked into Rust. Cargo does not invoke Meson, Perl, C2Rust or a C compiler
    to compile project sources. A C compiler driver may still invoke the native
-   linker.
+   linker. The workspace separates the window manager (`i3`), shared native-ABI
+   helper library (`i3-common`), bar (`i3bar`), five utility binaries
+   (`i3-tools`) and centralized build configuration (`i3-build`). Standard module
+   declarations keep source inside each crate; native link discovery runs once
+   through the shared library build script.
 5. **Test isolation.** Never replace, restart, signal, or send commands to the
    user's running i3. Never move the pointer or inject input on their display.
    Runtime tests require a separate headless X server, private IPC socket,
    private configuration and scoped environment. Building and CI must not
    install the binaries into a desktop session.
-6. **Regression reference.** `scripts/test-cargo-build.py` verifies a fresh Rust
+6. **Regression reference.** `cargo test --workspace --locked` runs workspace
+   unit tests. `scripts/test-cargo-build.py` verifies a fresh Rust
    source copy with C compilation and old generators blocked. Differential
    IPC and headless runners exercise Rust directly; `--reference` optionally
    supplies an external upstream executable for differential checks. The full
@@ -37,7 +42,7 @@
    build dependencies.
 7. **Recorded validation.** The complete upstream suite passed for both C and
    Rust: 285 files and 4,205 assertions. Helper, IPC and headless comparisons are
-   recorded in [rust/VALIDATION.json](rust/VALIDATION.json), with tested binary
+   recorded in [docs/validation.json](docs/validation.json), with tested binary
    hashes and profiles. Historical validation does not prove every behavior or
    validate a new build automatically.
 8. **Limits.** Current ABI definitions target Linux x86_64 with glibc, expanded

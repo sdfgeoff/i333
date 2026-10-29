@@ -24,12 +24,49 @@ dependencies = [
 ]
 
 [[package]]
-name = "i333"
+name = "i3"
 version = "4.25.0"
 dependencies = [
  "c2rust-bitfields",
+ "i3-build",
+ "i3-common",
  "libc",
+]
+
+[[package]]
+name = "i3-build"
+version = "4.25.0"
+dependencies = [
  "pkg-config",
+]
+
+[[package]]
+name = "i3-common"
+version = "4.25.0"
+dependencies = [
+ "c2rust-bitfields",
+ "i3-build",
+ "libc",
+]
+
+[[package]]
+name = "i3-tools"
+version = "4.25.0"
+dependencies = [
+ "c2rust-bitfields",
+ "i3-build",
+ "i3-common",
+ "libc",
+]
+
+[[package]]
+name = "i3bar"
+version = "4.25.0"
+dependencies = [
+ "c2rust-bitfields",
+ "i3-build",
+ "i3-common",
+ "libc",
 ]
 
 [[package]]
