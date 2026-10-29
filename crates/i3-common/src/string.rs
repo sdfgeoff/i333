@@ -34,6 +34,16 @@ impl I3String {
             originated_as_ucs2: false,
         }
     }
+    /// Preserve the historical explicit-length font view while owning repaired
+    /// text. Legacy rendering asks for the input byte count, even when replacing
+    /// invalid bytes or NUL expands the stored UTF-8 buffer. The caller cannot
+    /// supply an arbitrary length: repair never makes this view exceed storage.
+    pub fn from_bytes_with_legacy_length(bytes: &[u8]) -> Self {
+        let text = Self::from_bytes(bytes);
+        text.legacy_num_bytes.set(bytes.len());
+        text
+    }
+
     pub fn from_cstr(text: &CStr) -> Self {
         Self::from_bytes(text.to_bytes())
     }
@@ -326,3 +336,21 @@ mod legacy {
     }
 }
 pub use legacy::*;
+
+#[cfg(test)]
+mod owned_length_tests {
+    use super::I3String;
+
+    #[test]
+    fn legacy_length_keeps_the_input_count_after_nul_and_invalid_byte_repair() {
+        let input = b"a\0\xff";
+        let text = I3String::from_bytes_with_legacy_length(input);
+        assert_eq!(text.as_str().unwrap(), "a\u{fffd}\u{fffd}");
+        assert_eq!(text.legacy_num_bytes.get(), input.len());
+        assert!(text.byte_len().unwrap() > input.len());
+        assert_eq!(
+            I3String::from_bytes(input).legacy_num_bytes.get(),
+            text.byte_len().unwrap()
+        );
+    }
+}

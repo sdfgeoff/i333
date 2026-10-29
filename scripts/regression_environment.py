@@ -126,8 +126,21 @@ def native_fixture_tools():
     missing = [name for name in ('perl', 'cc', 'pkg-config', 'xauth', 'xkbcomp') if not shutil.which(name)]
     if missing:
         raise setup_error('Missing upstream fixture tools: ' + ', '.join(missing))
-    packages = ('xcb-xtest', 'xcb-xkb', 'xcb-util', 'libstartup-notification-1.0')
-    if subprocess.run(['pkg-config', '--exists', *packages], stdout=subprocess.DEVNULL,
-                      stderr=subprocess.DEVNULL).returncode:
-        raise setup_error('Missing native headers for the retained Inline::C test fixtures: '
-                          + ', '.join(packages))
+    # X11::XCB checks these libraries at configure time, then generates XS from
+    # xcb-proto XML files. Check all of them before starting a CPAN build.
+    packages = ('xcb', 'xcb-composite', 'xcb-icccm', 'xcb-randr', 'xcb-util',
+                'xcb-xinerama', 'xcb-xkb', 'xcb-proto', 'xcb-xtest',
+                'libstartup-notification-1.0')
+    missing = [name for name in packages if subprocess.run(
+        ['pkg-config', '--exists', name], stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL).returncode]
+    if missing:
+        raise setup_error('Missing native pkg-config dependencies for Perl/XCB test fixtures: '
+                          + ', '.join(missing))
+    xml_directory = subprocess.check_output(
+        ['pkg-config', '--variable=xcbincludedir', 'xcb-proto'], text=True).strip()
+    xml_files = ('xproto.xml', 'xinerama.xml', 'randr.xml', 'xkb.xml', 'composite.xml')
+    missing_xml = [name for name in xml_files if not (Path(xml_directory) / name).is_file()]
+    if not xml_directory or missing_xml:
+        raise setup_error('xcb-proto protocol XML files are missing from '
+                          + repr(xml_directory) + ': ' + ', '.join(missing_xml))

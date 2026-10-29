@@ -14,6 +14,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import time
 import urllib.request
 
 from regression_environment import (ROOT, DEPS, ENVIRONMENT, PRODUCTS, HELPERS,
@@ -31,14 +32,31 @@ class PreparationError(RuntimeError):
     pass
 
 
-def run(arguments, *, env=None, cwd=None):
+def run(arguments, *, env=None, cwd=None, failure_logs=None):
+    started = time.time()
     print('Preparing: ' + ' '.join(map(str, arguments)), flush=True)
     with LOG.open('ab') as log:
         log.write(('\n$ ' + ' '.join(map(str, arguments)) + '\n').encode())
         result = subprocess.run(list(map(str, arguments)), env=env, cwd=cwd,
                                 stdout=log, stderr=subprocess.STDOUT)
     if result.returncode:
+        # cpanm writes the useful configure/compiler error to a separate log,
+        # while its stdout usually contains only a request to inspect that file.
+        # Include current-attempt logs directly in both CI output and prepare.log.
+        details = []
+        if failure_logs is not None:
+            logs = sorted(failure_logs.glob('work/*/build.log'),
+                          key=lambda path: path.stat().st_mtime, reverse=True)
+            for path in logs[:3]:
+                if path.stat().st_mtime >= started - 2:
+                    details.append(f'\nNested build log: {path}\n'
+                                   + path.read_text(errors='replace')[-12000:])
         tail = LOG.read_text(errors='replace')[-6000:]
+        if details:
+            nested = ''.join(details)
+            with LOG.open('a') as log:
+                log.write(nested)
+            tail += nested
         raise PreparationError(f'Command failed ({result.returncode}); log: {LOG}\n{tail}')
 
 
@@ -170,7 +188,8 @@ def prepare_perl(env, offline):
         # CPAN dependencies are cached under PERL_CPANM_HOME after initial setup.
         raise PreparationError('Perl modules are not prepared. Run setup once without --offline; '
                                'routine tests and subsequent prepared setup are offline.')
-    run([*command, *PERL_PACKAGES], env=env)
+    run([*command, *PERL_PACKAGES], env=env,
+        failure_logs=Path(env['PERL_CPANM_HOME']))
     directory = prefix / 'lib/perl5'
     if not perl_ready(directory):
         raise PreparationError(f'Installed Perl modules failed to load from {directory}; inspect {LOG}.')

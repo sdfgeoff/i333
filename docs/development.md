@@ -97,8 +97,10 @@
    Perl XS module builds also need Perl and Expat development headers. On Ubuntu,
    the additional packages include `python3-venv`, `perl`, `libperl-dev`,
    `libexpat1-dev`, `ninja-build`, `xvfb`, `xserver-xephyr`, `xauth`,
-   `x11-xkb-utils`, `libxcb-xtest0-dev` and `libyajl-dev`. On Arch, setup can
-   extract pinned Xvfb/Xephyr packages into `.work` when those executables are
+   `x11-xkb-utils`, `libxcb-xtest0-dev`, `libxcb-composite0-dev`, `xcb-proto`
+   and `libyajl-dev`. The Perl XCB fixture needs the composite development
+   library and xcb-proto XML metadata even though Rust products do not. On Arch,
+   setup can extract pinned Xvfb/Xephyr packages into `.work` when those executables are
    absent; their matching native runtime libraries must already be available.
 
    Setup reuses valid existing tools, installs `python-xlib==0.33` in a local

@@ -8,26 +8,26 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 27 wallclock secs ( 0.90 usr +  0.10 sys =  1.00 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 17 wallclock secs ( 0.74 usr +  0.07 sys =  0.81 CPU)\nResult: PASS",
     "profile": "debug",
     "build": "cargo test",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "0dbec9ca2ce1cdb0c985da4b0c992ce0b32e8448981b0534631ac22eaefd4de2",
-    "i3bar": "e6628b69bc3a90435bcb72f17941d52b762d050ec356df21f319e91f401497e4",
-    "i3-config-wizard": "1a5243a9f87168a8de59aaca00a9e09df7c34853889814281d8db7f94a6077f0",
-    "i3-dump-log": "078444b945f1f7f5e8e62d1212fd8a238dd79b3bb9ba37ef5609e4e4ad688d05",
-    "i3-input": "7a6cf99ae0115c4a6613e21da863db0b75fe4342399ebf842f592c8a43987c95",
-    "i3-msg": "d53e872d4ccd8a2903be44dcc922b221416f09db976f15898754ad23a26d1f73",
-    "i3-nagbar": "6e0a3fdf046bca8d22dab80448ad3d6289652e005d6acdf4c9439af096c67df2"
+    "i3": "3c7d0992c61dbcfbdcad3270ac6403e7e11f4027c00cf2a93b96b41e0ac7fc3b",
+    "i3bar": "e856f8a3fec9d0a90d9c56037784b8c37054d1775d2e1ac2abb88d7960911a4d",
+    "i3-config-wizard": "3c9182a6ff68806df6efaaae2540c42873cdd83a71f98970d9aa8d8805ba879c",
+    "i3-dump-log": "10f8eb605ec446542efd8ebcf3b5ea643d494b235ef4890014659aed7e6e7a22",
+    "i3-input": "3ec3498e0c15a243b6166d54b78e0a48405a015df65c231dfed69af47a8fbbd8",
+    "i3-msg": "38913a9354ae409eff80793d881d8b08f56c685cde38915cad99f76fdafa8de8",
+    "i3-nagbar": "fba26a7ee4b366e1129a6f1362c16da0ca4a771613d0f2b06fcb4f043f21a7f2"
   },
-  "note": "Ten-member Cargo workspace. One plain cargo test invocation passed130 Rust-reported tests, all native oracles, external C IPC/CLI/headless/input comparisons, and the complete upstream suite. Exact debug hashes above match that Cargo-driven upstream run. Optional clean-source verification compiled all products and test targets from fresh Rust-only inputs with C compilation/generators blocked. Routine validation uses the repository nightly; ESP is not an additional required pass. Unsafe native callbacks, intrusive tree ownership and legacy adapters remain; Linux x86_64 GNU ABI only.",
+  "note": "Ten-member Cargo workspace. Plain cargo test passed150 Rust-reported tests, native oracles, external C IPC/CLI/headless/input comparisons, and all4205 upstream assertions. Exact debug hashes above match this Cargo-driven run. Routine validation uses the repository nightly; worker checks are targeted. Clean-source verification is reserved for structural changes and was last verified at checkpoint2f4becb5. Native tree/global rendering boundaries remain unsafe; Linux x86_64 GNU ABI only.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
   "additional_checks": {
     "headless_c_rust_state_comparisons": 52,
     "ipc_client_test_groups": 16,
-    "workspace_unit_tests": 130,
+    "workspace_unit_tests": 150,
     "core_and_bar_cli_comparisons": 30,
     "pcre2_compile_match_error_comparisons": 4620,
     "json_oracle_cases": 2218,
@@ -42,7 +42,10 @@
     "single_cargo_test_entrypoint": true,
     "nonzero_child_failure_makes_cargo_fail": true,
     "all_seven_cargo_binaries_version_smoke": true,
-    "variadic_formatting_and_cursor_copy_current_nightly": true
+    "variadic_formatting_and_cursor_copy_current_nightly": true,
+    "color_channel_native_strtol_comparisons": 65536,
+    "fake_output_native_sscanf_comparisons": 1552,
+    "ubuntu_fresh_perl_install_distributions": 44
   },
   "toolchain": {
     "rustc": "rustc 1.99.0-nightly (11177f223 2026-08-02)",
@@ -66,7 +69,8 @@
     "old_root_source_wiring_present": false,
     "compile_only": true,
     "all_unit_and_integration_test_targets_compiled": true,
-    "automatic_after_each_source_edit": false
+    "automatic_after_each_source_edit": false,
+    "last_verified_commit": "2f4becb5fae89c3e70b3f67b1c989f8ee0289d4c"
   },
   "repository_cleanup": {
     "obsolete_files_removed": 216,
@@ -102,10 +106,10 @@
     "binary_count": 7,
     "native_library_discovery": "maintained native binding build scripts and dedicated sys crates; i3-build links only platform m/rt",
     "unit_tests": {
-      "i3": 18,
+      "i3": 26,
       "xkb_integration": 1,
       "i3-build": 3,
-      "i3-common": 47,
+      "i3-common": 52,
       "native_graphics": 5,
       "i3-json": 16,
       "i3-dump-log": 5,
@@ -114,17 +118,18 @@
       "startup-notification-sys": 1,
       "xcb-sys": 2,
       "libev-sys": 2,
-      "i3bar": 7,
+      "i3bar": 14,
       "cargo_regression_wrappers": 5,
       "binary_artifact_checks": 2
     },
     "cargo_fmt_check": true,
     "debug_build": true,
-    "release_build": true,
-    "unit_tests_total_including_integration_checks": 130,
+    "release_build": null,
+    "unit_tests_total_including_integration_checks": 150,
     "test_command": "cargo test",
     "clean_source_command": "cargo test -p i3-test-support --features clean-source-check",
-    "test_support": "development-only process capture, failure propagation and isolated regression orchestration"
+    "test_support": "development-only process capture, failure propagation and isolated regression orchestration",
+    "release_build_note": "Release build last verified at checkpoint2f4becb5; routine batch2 ran the complete default Cargo test suite."
   },
   "modernization": {
     "yajl_product_dependency": false,
@@ -182,7 +187,35 @@
           "Null keyboard-grab replies and short native properties are checked"
         ],
         "validation": "cargo test plus optional structural clean-source feature passed"
+      },
+      {
+        "batch": 2,
+        "files": [
+          "crates/i3-common/src/fake_configure_notify.rs",
+          "crates/i3-common/src/get_colorpixel.rs",
+          "crates/i3/src/display_version.rs",
+          "crates/i3bar/src/workspaces.rs",
+          "crates/i3/src/fake_outputs.rs"
+        ],
+        "improvements": [
+          "Initialized stack-owned ConfigureNotify wire bytes",
+          "Bounded color channels and owned colormap cache",
+          "Owned version JSON, IPC, paths and local include lists; bounded timestamp FFI",
+          "Box-owned workspace nodes and automatic canonical/display text cleanup",
+          "Borrowed fake-output geometry parser and explicit native graph mutation boundary"
+        ],
+        "safety_fixes": [
+          "Short malformed color inputs no longer read past their terminator",
+          "Version diagnostics read complete argv0 and avoid stale/readlink buffers",
+          "Duplicate workspace output targets cannot cycle lists or double-free nodes"
+        ],
+        "validation": "Default cargo test passed150 Rust-reported tests plus all external suites; 65536 native color and1552 native geometry comparisons run inside unit tests."
       }
     ]
+  },
+  "ci_dependency_preparation": {
+    "confirmed_previous_failure": "X11::XCB required missing xcb-composite.pc and protocol XML metadata",
+    "fix": "Install libxcb-composite0-dev and xcb-proto; preflight now identifies missing modules/XML and surfaces nested CPAN build logs",
+    "reproduction": "Ubuntu24 exact CPAN configure failed before the fix, succeeded afterward; fresh44-distribution CPAN install and required module imports passed. Full remote CI result remains pending the next push."
   }
 }

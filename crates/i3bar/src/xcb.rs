@@ -917,10 +917,10 @@ unsafe extern "C" fn focus_workspace(ws: *mut i3_ws) {
             (*ws).id,
         );
     } else {
-        if (*ws).canonical_name.is_null() {
+        let Some(name) = (*ws).canonical_name.as_deref() else {
             return;
-        }
-        buffer = quote_workspace_name((*ws).canonical_name);
+        };
+        buffer = quote_workspace_name(name.as_ptr());
     }
     i3_send_msg(I3_IPC_MESSAGE_TYPE_RUN_COMMAND as u32, buffer);
     free(buffer as *mut ::core::ffi::c_void);
@@ -3294,7 +3294,11 @@ pub unsafe fn draw_bars(mut unhide: bool) {
                             c"[%s:%d] Drawing button for WS %s at x = %d, len = %d\n".as_ptr(),
                             c"../i3bar/src/xcb.c".as_ptr(),
                             2138 as ::core::ffi::c_int,
-                            i3string_as_utf8((*ws_walk).name),
+                            (*ws_walk)
+                                .name
+                                .as_cstr()
+                                .expect("workspace text is UTF-8")
+                                .as_ptr(),
                             workspace_width,
                             (*ws_walk).name_width,
                         );
@@ -3319,7 +3323,11 @@ pub unsafe fn draw_bars(mut unhide: bool) {
                                 c"[%s:%d] WS %s is urgent!\n".as_ptr(),
                                 c"../i3bar/src/xcb.c".as_ptr(),
                                 2154 as ::core::ffi::c_int,
-                                i3string_as_utf8((*ws_walk).name),
+                                (*ws_walk)
+                                    .name
+                                    .as_cstr()
+                                    .expect("workspace text is UTF-8")
+                                    .as_ptr(),
                             );
                         }
                         fg_color = colors.urgent_ws_fg;
@@ -3336,7 +3344,7 @@ pub unsafe fn draw_bars(mut unhide: bool) {
                         workspace_width,
                         w,
                         (*ws_walk).name_width,
-                        (*ws_walk).name,
+                        (*ws_walk).name_ptr(),
                     );
                     workspace_width += w;
                     if !(*ws_walk).tailq.tqe_next.is_null() {

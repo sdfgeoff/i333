@@ -54,7 +54,10 @@
    ownership, widths, native-endian IPC, nulls and error codes across FFI.
 9. **Small safety changes.** `mkdirp` accepts an empty path without reading a
    preceding byte; `i3-dump-log` omits an unused out-of-bounds NUL write after a
-   full read. Normal outputs and return values match the reference cases.
+   full read. `--moreversion` uses owned executable paths and reads the complete
+   first `/proc/PID/cmdline` argument, fixing its former eight-byte read over a
+   stale path buffer. Custom `argv[0]` diagnostics therefore report the actual
+   first argument. Normal outputs and return values match the reference cases.
 10. **Types and enums.** Generated scalar typedef chains now use Rust primitives
     or maintained `libc` types directly. Closed application choices use named
     Rust enums in their fields, parser state, comparisons and matches. Original

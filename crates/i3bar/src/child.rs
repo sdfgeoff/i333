@@ -109,20 +109,7 @@ pub struct i3bar_child {
     pub pending_line: *mut ::core::ffi::c_char,
 }
 
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct i3_ws {
-    pub id: usize,
-    pub num: ::core::ffi::c_int,
-    pub canonical_name: *mut ::core::ffi::c_char,
-    pub name: *mut i3String,
-    pub name_width: ::core::ffi::c_int,
-    pub visible: bool,
-    pub focused: bool,
-    pub urgent: bool,
-    pub output: *mut i3_output,
-    pub tailq: C2RustUnnamed_4,
-}
+pub use crate::workspaces::Workspace as i3_ws;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct C2RustUnnamed_4 {
@@ -1019,26 +1006,16 @@ unsafe extern "C" fn set_workspace_button_error_f(format: *const ::core::ffi::c_
 
 pub unsafe fn set_workspace_button_error(message: *const ::core::ffi::c_char) {
     free_workspaces();
-    let mut name: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    sasprintf(&raw mut name, c"Error: %s".as_ptr(), message);
-    let mut output: *mut i3_output = ::core::ptr::null_mut::<i3_output>();
-    output = (*outputs).slh_first as *mut i3_output;
+    let mut text = b"Error: ".to_vec();
+    text.extend_from_slice(std::ffi::CStr::from_ptr(message).to_bytes());
+    let name = i3_common::string::I3String::from_bytes(&text);
+    let mut output = (*outputs).slh_first;
     while !output.is_null() {
-        let fake_ws: *mut i3_ws =
-            scalloc(1 as usize, ::core::mem::size_of::<i3_ws>() as usize) as *mut i3_ws;
-        (*fake_ws).name = i3string_from_utf8(name);
-        (*fake_ws).name_width = predict_text_width((*fake_ws).name);
-        (*fake_ws).num = -(1 as ::core::ffi::c_int);
-        (*fake_ws).visible = true_0 != 0;
-        (*fake_ws).urgent = (*fake_ws).visible;
-        (*fake_ws).output = output as *mut i3_output;
-        (*fake_ws).tailq.tqe_next = ::core::ptr::null_mut::<i3_ws>();
-        (*fake_ws).tailq.tqe_prev = (*(*output).workspaces).tqh_last;
-        *(*(*output).workspaces).tqh_last = fake_ws as *mut i3_ws;
-        (*(*output).workspaces).tqh_last = &raw mut (*fake_ws).tailq.tqe_next;
-        output = (*output).slist.sle_next as *mut i3_output;
+        let text = name.clone();
+        let width = predict_text_width((&text as *const i3_common::string::I3String).cast_mut());
+        crate::workspaces::append_workspace(output, Box::new(i3_ws::error(text, width)));
+        output = (*output).slist.sle_next;
     }
-    free(name as *mut ::core::ffi::c_void);
 }
 unsafe extern "C" fn child_sig_cb(
     loop_0: *mut ev_loop,

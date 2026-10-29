@@ -1,408 +1,585 @@
-use crate::config::config;
-use crate::outputs::get_output_by_name;
-use crate::outputs::outputs;
-use i3_common::font::predict_text_width;
-use i3_common::safewrappers::sasprintf;
-use i3_common::string::i3string_as_utf8;
-use i3_common::string::i3string_free;
-use i3_common::string::i3string_from_markup;
-use i3_common::string::i3string_from_markup_with_length;
-use i3_common::string::i3string_get_num_glyphs;
 /*
- * vim:ts=4:sw=4:expandtab
- *
  * i3bar - an xcb-based status- and ws-bar for i3
- * © 2010 Axel Wagner and contributors (see also: LICENSE)
+ * © 2010 Axel Wagner and contributors (see LICENSE).
  *
  * workspaces.c: Maintaining the workspace lists
- *
  */
-// Mechanical file-by-file Rust translation of i3bar/src/workspaces.c.
-// Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
-use i3_json::compat::{yajl_alloc, yajl_free, yajl_free_error, yajl_get_error, yajl_parse};
-pub use i3_json::compat::{yajl_alloc_funcs, yajl_callbacks, yajl_handle, yajl_status};
+//! Workspace JSON is staged in owned records before touching the event-thread
+//! output graph. Its intrusive lists own Box<Workspace> nodes, whose text drops
+//! automatically when the lists are detached.
 
-pub type i3String = _i3String;
-pub use crate::child::rect_t;
-pub type rect = rect_t;
-pub use crate::child::i3_output;
-pub use crate::child::i3_ws;
-pub use crate::child::ws_head;
-#[derive(Copy, Clone)]
+use crate::child::{i3_output, C2RustUnnamed_4};
+use crate::config::config;
+use crate::outputs::{get_output_by_name, outputs};
+use i3_common::font::predict_text_width;
+use i3_common::string::I3String;
+use i3_json::{Event, EventHandler, ParseError, Parser};
+use std::cell::RefCell;
+use std::ffi::{CStr, CString};
+use std::io::Write;
+use std::ptr;
+use std::rc::Rc;
+
+/// A node owned by exactly one output list. Only append_workspace transfers a
+/// Box into that list; free_workspaces takes each Box back after detaching it.
 #[repr(C)]
-pub struct workspaces_json_params {
-    pub workspaces: *mut ws_head,
-    pub workspaces_walk: *mut i3_ws,
-    pub cur_key: *mut ::core::ffi::c_char,
-    pub need_output: bool,
-    pub parsing_rect: bool,
+pub struct Workspace {
+    pub id: usize,
+    pub num: i32,
+    pub canonical_name: Option<CString>,
+    pub name: I3String,
+    pub name_width: i32,
+    pub visible: bool,
+    pub focused: bool,
+    pub urgent: bool,
+    pub output: *mut i3_output,
+    pub tailq: C2RustUnnamed_4,
 }
 
-pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
-unsafe fn workspaces_boolean_cb(
-    params_: *mut ::core::ffi::c_void,
-    val: ::core::ffi::c_int,
-) -> ::core::ffi::c_int {
-    let params: *mut workspaces_json_params = params_ as *mut workspaces_json_params;
-    if strcmp((*params).cur_key, c"visible".as_ptr()) == 0 {
-        (*(*params).workspaces_walk).visible = val != 0;
-        free((*params).cur_key as *mut ::core::ffi::c_void);
-        (*params).cur_key = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        return 1 as ::core::ffi::c_int;
+impl Workspace {
+    pub fn error(name: I3String, name_width: i32) -> Self {
+        Self {
+            id: 0,
+            num: -1,
+            canonical_name: None,
+            name,
+            name_width,
+            visible: true,
+            focused: false,
+            urgent: true,
+            output: ptr::null_mut(),
+            tailq: C2RustUnnamed_4 {
+                tqe_next: ptr::null_mut(),
+                tqe_prev: ptr::null_mut(),
+            },
+        }
     }
-    if strcmp((*params).cur_key, c"focused".as_ptr()) == 0 {
-        (*(*params).workspaces_walk).focused = val != 0;
-        free((*params).cur_key as *mut ::core::ffi::c_void);
-        (*params).cur_key = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        return 1 as ::core::ffi::c_int;
+
+    /// Borrowed text for the remaining synchronous native text APIs. The
+    /// pointer must not be freed or retained after this workspace is removed.
+    pub fn name_ptr(&self) -> *mut I3String {
+        (&self.name as *const I3String).cast_mut()
     }
-    if strcmp((*params).cur_key, c"urgent".as_ptr()) == 0 {
-        (*(*params).workspaces_walk).urgent = val != 0;
-        free((*params).cur_key as *mut ::core::ffi::c_void);
-        (*params).cur_key = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        return 1 as ::core::ffi::c_int;
-    }
-    free((*params).cur_key as *mut ::core::ffi::c_void);
-    (*params).cur_key = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    0 as ::core::ffi::c_int
 }
-unsafe fn workspaces_integer_cb(
-    params_: *mut ::core::ffi::c_void,
-    val: ::core::ffi::c_longlong,
-) -> ::core::ffi::c_int {
-    let params: *mut workspaces_json_params = params_ as *mut workspaces_json_params;
-    if strcmp((*params).cur_key, c"id".as_ptr()) == 0 {
-        (*(*params).workspaces_walk).id = val as usize;
-        free((*params).cur_key as *mut ::core::ffi::c_void);
-        (*params).cur_key = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        return 1 as ::core::ffi::c_int;
-    }
-    if strcmp((*params).cur_key, c"num".as_ptr()) == 0 {
-        (*(*params).workspaces_walk).num = val as ::core::ffi::c_int;
-        free((*params).cur_key as *mut ::core::ffi::c_void);
-        (*params).cur_key = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        return 1 as ::core::ffi::c_int;
-    }
-    if strcmp((*params).cur_key, c"x".as_ptr()) == 0 {
-        free((*params).cur_key as *mut ::core::ffi::c_void);
-        (*params).cur_key = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        return 1 as ::core::ffi::c_int;
-    }
-    if strcmp((*params).cur_key, c"y".as_ptr()) == 0 {
-        free((*params).cur_key as *mut ::core::ffi::c_void);
-        (*params).cur_key = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        return 1 as ::core::ffi::c_int;
-    }
-    if strcmp((*params).cur_key, c"width".as_ptr()) == 0 {
-        free((*params).cur_key as *mut ::core::ffi::c_void);
-        (*params).cur_key = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        return 1 as ::core::ffi::c_int;
-    }
-    if strcmp((*params).cur_key, c"height".as_ptr()) == 0 {
-        free((*params).cur_key as *mut ::core::ffi::c_void);
-        (*params).cur_key = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        return 1 as ::core::ffi::c_int;
-    }
-    free((*params).cur_key as *mut ::core::ffi::c_void);
-    (*params).cur_key = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    0 as ::core::ffi::c_int
+
+#[derive(Clone, Copy, Default)]
+struct NameOptions {
+    strip_numbers: bool,
+    strip_name: bool,
 }
-unsafe fn workspaces_string_cb(
-    params_: *mut ::core::ffi::c_void,
-    val: *const ::core::ffi::c_uchar,
-    len: usize,
-) -> ::core::ffi::c_int {
-    let params: *mut workspaces_json_params = params_ as *mut workspaces_json_params;
-    if strcmp((*params).cur_key, c"name".as_ptr()) == 0 {
-        let ws_name: *const ::core::ffi::c_char = val as *const ::core::ffi::c_char;
-        (*(*params).workspaces_walk).canonical_name = sstrndup(ws_name, len);
-        if (config.strip_ws_numbers as ::core::ffi::c_int != 0
-            || config.strip_ws_name as ::core::ffi::c_int != 0)
-            && (*(*params).workspaces_walk).num >= 0 as ::core::ffi::c_int
-        {
-            static mut ws_num: [::core::ffi::c_char; 32] = [0; 32];
-            snprintf(
-                &raw mut ws_num as *mut ::core::ffi::c_char,
-                ::core::mem::size_of::<[::core::ffi::c_char; 32]>() as usize,
-                c"%d".as_ptr(),
-                (*(*params).workspaces_walk).num,
-            );
-            let mut offset: usize =
-                strspn(ws_name, &raw mut ws_num as *mut ::core::ffi::c_char) as usize;
-            if offset != 0 && *ws_name.offset(offset as isize) as ::core::ffi::c_int == ':' as i32 {
-                offset = offset.wrapping_add(1 as usize);
-            }
-            if config.strip_ws_numbers {
-                (*(*params).workspaces_walk).name = if offset < len {
-                    i3string_from_markup_with_length(
-                        ws_name.offset(offset as isize),
-                        len.wrapping_sub(offset),
-                    )
-                } else {
-                    i3string_from_markup(&raw mut ws_num as *mut ::core::ffi::c_char)
-                };
-            } else {
-                (*(*params).workspaces_walk).name =
-                    i3string_from_markup(&raw mut ws_num as *mut ::core::ffi::c_char);
-            }
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct NameSnapshot {
+    canonical: CString,
+    display: Vec<u8>,
+    explicit_length: bool,
+}
+
+fn c_prefix(bytes: &[u8]) -> &[u8] {
+    bytes.split(|byte| *byte == 0).next().unwrap()
+}
+
+fn name_snapshot(bytes: &[u8], num: i32, options: NameOptions) -> NameSnapshot {
+    let canonical = CString::new(c_prefix(bytes)).expect("prefix contains no NUL");
+    let (display, explicit_length) = if (options.strip_numbers || options.strip_name) && num >= 0 {
+        let number = num.to_string();
+        // Upstream uses strspn, not a numeric-prefix comparison: every leading
+        // byte belonging to the workspace number's digit set is stripped.
+        let mut offset = bytes
+            .iter()
+            .take_while(|byte| **byte != 0 && number.as_bytes().contains(byte))
+            .count();
+        if offset != 0 && bytes.get(offset) == Some(&b':') {
+            offset += 1;
+        }
+        if options.strip_numbers && offset < bytes.len() {
+            (bytes[offset..].to_vec(), true)
         } else {
-            (*(*params).workspaces_walk).name = i3string_from_markup_with_length(ws_name, len);
+            (number.into_bytes(), false)
         }
-        (*(*params).workspaces_walk).name_width =
-            predict_text_width((*(*params).workspaces_walk).name);
-        if config.verbose {
-            printf(
-                c"[%s:%d] Got workspace canonical: %s, name: '%s', name_width: %d, glyphs: %zu\n"
-                    .as_ptr(),
-                c"../i3bar/src/workspaces.c".as_ptr(),
-                146 as ::core::ffi::c_int,
-                (*(*params).workspaces_walk).canonical_name,
-                i3string_as_utf8((*(*params).workspaces_walk).name),
-                (*(*params).workspaces_walk).name_width,
-                i3string_get_num_glyphs((*(*params).workspaces_walk).name),
-            );
-        }
-        free((*params).cur_key as *mut ::core::ffi::c_void);
-        (*params).cur_key = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        return 1 as ::core::ffi::c_int;
-    }
-    if strcmp((*params).cur_key, c"output".as_ptr()) == 0 {
-        let mut output_name: *mut ::core::ffi::c_char =
-            ::core::ptr::null_mut::<::core::ffi::c_char>();
-        sasprintf(
-            &raw mut output_name,
-            c"%.*s".as_ptr(),
-            len as ::core::ffi::c_int,
-            val,
-        );
-        let target: *mut i3_output = get_output_by_name(output_name);
-        let ws: *mut i3_ws = (*params).workspaces_walk;
-        if !target.is_null() {
-            (*ws).output = target as *mut i3_output;
-            (*ws).tailq.tqe_next = ::core::ptr::null_mut::<i3_ws>();
-            (*ws).tailq.tqe_prev = (*(*(*ws).output).workspaces).tqh_last;
-            *(*(*(*ws).output).workspaces).tqh_last = ws as *mut i3_ws;
-            (*(*(*ws).output).workspaces).tqh_last = &raw mut (*ws).tailq.tqe_next;
-        }
-        (*params).need_output = false_0 != 0;
-        free(output_name as *mut ::core::ffi::c_void);
-        output_name = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        free((*params).cur_key as *mut ::core::ffi::c_void);
-        (*params).cur_key = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        return 1 as ::core::ffi::c_int;
-    }
-    0 as ::core::ffi::c_int
-}
-unsafe fn workspaces_start_map_cb(params_: *mut ::core::ffi::c_void) -> ::core::ffi::c_int {
-    let params: *mut workspaces_json_params = params_ as *mut workspaces_json_params;
-    if (*params).cur_key.is_null() {
-        let new_workspace: *mut i3_ws =
-            scalloc(1 as usize, ::core::mem::size_of::<i3_ws>() as usize) as *mut i3_ws;
-        (*new_workspace).num = -(1 as ::core::ffi::c_int);
-        (*params).workspaces_walk = new_workspace;
-        (*params).need_output = true_0 != 0;
-        (*params).parsing_rect = false_0 != 0;
     } else {
-        (*params).parsing_rect = true_0 != 0;
-    }
-    1 as ::core::ffi::c_int
-}
-unsafe fn workspaces_end_map_cb(params_: *mut ::core::ffi::c_void) -> ::core::ffi::c_int {
-    let params: *mut workspaces_json_params = params_ as *mut workspaces_json_params;
-    if (*params).parsing_rect {
-        (*params).parsing_rect = false_0 != 0;
-        return 1 as ::core::ffi::c_int;
-    }
-    let ws: *mut i3_ws = (*params).workspaces_walk;
-    if ws.is_null() || !(*ws).output.is_null() {
-        return 1 as ::core::ffi::c_int;
-    }
-    if !(*params).need_output {
-        i3string_free((*ws).name);
-        (*ws).name = ::core::ptr::null_mut::<i3String>();
-        free((*ws).canonical_name as *mut ::core::ffi::c_void);
-        (*ws).canonical_name = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        free((*params).workspaces_walk as *mut ::core::ffi::c_void);
-        (*params).workspaces_walk = ::core::ptr::null_mut::<i3_ws>();
-        return 1 as ::core::ffi::c_int;
-    }
-    if (*ws).name.is_null() || (*outputs).slh_first.is_null() {
-        i3string_free((*ws).name);
-        (*ws).name = ::core::ptr::null_mut::<i3String>();
-        free((*ws).canonical_name as *mut ::core::ffi::c_void);
-        (*ws).canonical_name = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        free((*params).workspaces_walk as *mut ::core::ffi::c_void);
-        (*params).workspaces_walk = ::core::ptr::null_mut::<i3_ws>();
-        return 1 as ::core::ffi::c_int;
-    }
-    (*ws).output = get_output_by_name(c"primary".as_ptr().cast_mut()) as *mut i3_output;
-    if (*ws).output.is_null() {
-        (*ws).output = (*outputs).slh_first;
-    }
-    (*ws).tailq.tqe_next = ::core::ptr::null_mut::<i3_ws>();
-    (*ws).tailq.tqe_prev = (*(*(*ws).output).workspaces).tqh_last;
-    *(*(*(*ws).output).workspaces).tqh_last = ws as *mut i3_ws;
-    (*(*(*ws).output).workspaces).tqh_last = &raw mut (*ws).tailq.tqe_next;
-    1 as ::core::ffi::c_int
-}
-unsafe fn workspaces_map_key_cb(
-    params_: *mut ::core::ffi::c_void,
-    keyVal: *const ::core::ffi::c_uchar,
-    keyLen: usize,
-) -> ::core::ffi::c_int {
-    let params: *mut workspaces_json_params = params_ as *mut workspaces_json_params;
-    free((*params).cur_key as *mut ::core::ffi::c_void);
-    (*params).cur_key = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    sasprintf(
-        &raw mut (*params).cur_key,
-        c"%.*s".as_ptr(),
-        keyLen as ::core::ffi::c_int,
-        keyVal,
-    );
-    1 as ::core::ffi::c_int
-}
-static mut workspaces_callbacks: yajl_callbacks = unsafe {
-    yajl_callbacks {
-        yajl_null: None,
-        yajl_boolean: Some(
-            workspaces_boolean_cb
-                as unsafe fn(*mut ::core::ffi::c_void, ::core::ffi::c_int) -> ::core::ffi::c_int,
-        ),
-        yajl_integer: Some(
-            workspaces_integer_cb
-                as unsafe fn(
-                    *mut ::core::ffi::c_void,
-                    ::core::ffi::c_longlong,
-                ) -> ::core::ffi::c_int,
-        ),
-        yajl_double: None,
-        yajl_number: None,
-        yajl_string: Some(
-            workspaces_string_cb
-                as unsafe fn(
-                    *mut ::core::ffi::c_void,
-                    *const ::core::ffi::c_uchar,
-                    usize,
-                ) -> ::core::ffi::c_int,
-        ),
-        yajl_start_map: Some(
-            workspaces_start_map_cb as unsafe fn(*mut ::core::ffi::c_void) -> ::core::ffi::c_int,
-        ),
-        yajl_map_key: Some(
-            workspaces_map_key_cb
-                as unsafe fn(
-                    *mut ::core::ffi::c_void,
-                    *const ::core::ffi::c_uchar,
-                    usize,
-                ) -> ::core::ffi::c_int,
-        ),
-        yajl_end_map: Some(
-            workspaces_end_map_cb as unsafe fn(*mut ::core::ffi::c_void) -> ::core::ffi::c_int,
-        ),
-        yajl_start_array: None,
-        yajl_end_array: None,
-    }
-};
-
-pub unsafe fn parse_workspaces_json(json: *const ::core::ffi::c_uchar, size: usize) {
-    free_workspaces();
-    let mut params: workspaces_json_params = workspaces_json_params {
-        workspaces: ::core::ptr::null_mut::<ws_head>(),
-        workspaces_walk: ::core::ptr::null_mut::<i3_ws>(),
-        cur_key: ::core::ptr::null_mut::<::core::ffi::c_char>(),
-        need_output: false,
-        parsing_rect: false,
+        (bytes.to_vec(), true)
     };
-    let handle: yajl_handle = yajl_alloc(
-        &raw mut workspaces_callbacks,
-        ::core::ptr::null_mut::<yajl_alloc_funcs>(),
-        &raw mut params as *mut ::core::ffi::c_void,
-    ) as yajl_handle;
-    let state: yajl_status = yajl_parse(handle, json, size) as yajl_status;
-    match state as ::core::ffi::c_uint {
-        1 | 2 => {
-            let err: *mut ::core::ffi::c_uchar =
-                yajl_get_error(handle, 1 as ::core::ffi::c_int, json, size);
-            fprintf(
-                stderr,
-                c"[%s:%d] ERROR: Could not parse workspaces reply, error:\n%s\njson:---%s---\n"
-                    .as_ptr(),
-                c"../i3bar/src/workspaces.c".as_ptr(),
-                275 as ::core::ffi::c_int,
-                err as *mut ::core::ffi::c_char,
-                json as *mut ::core::ffi::c_char,
-            );
-            yajl_free_error(handle, err);
-            if !config.workspace_command.is_null() {
-                kill_ws_child();
-                set_workspace_button_error(c"Could not parse workspace_command's JSON".as_ptr());
-            } else {
-                exit(libc::EXIT_FAILURE);
-            }
-        }
-        0 | _ => {}
+    NameSnapshot {
+        canonical,
+        display,
+        explicit_length,
     }
-    yajl_free(handle);
-    free(params.cur_key as *mut ::core::ffi::c_void);
-    params.cur_key = ::core::ptr::null_mut::<::core::ffi::c_char>();
 }
 
-pub unsafe fn free_workspaces() {
-    if outputs.is_null() {
-        return;
+#[derive(Debug)]
+struct WorkspaceRecord {
+    id: usize,
+    num: i32,
+    names: Vec<NameSnapshot>,
+    visible: bool,
+    focused: bool,
+    urgent: bool,
+    output_names: Vec<CString>,
+    completed: bool,
+}
+
+impl Default for WorkspaceRecord {
+    fn default() -> Self {
+        Self {
+            id: 0,
+            num: -1,
+            names: Vec::new(),
+            visible: false,
+            focused: false,
+            urgent: false,
+            output_names: Vec::new(),
+            completed: false,
+        }
     }
-    let mut outputs_walk: *mut i3_output = ::core::ptr::null_mut::<i3_output>();
-    outputs_walk = (*outputs).slh_first as *mut i3_output;
-    while !outputs_walk.is_null() {
-        if !(*outputs_walk).workspaces.is_null()
-            && !(*(*outputs_walk).workspaces).tqh_first.is_null()
-        {
-            let mut ws_walk: *mut i3_ws = ::core::ptr::null_mut::<i3_ws>();
-            ws_walk = (*(*outputs_walk).workspaces).tqh_first as *mut i3_ws;
-            while !ws_walk.is_null() {
-                i3string_free((*ws_walk).name);
-                (*ws_walk).name = ::core::ptr::null_mut::<i3String>();
-                free((*ws_walk).canonical_name as *mut ::core::ffi::c_void);
-                (*ws_walk).canonical_name = ::core::ptr::null_mut::<::core::ffi::c_char>();
-                ws_walk = (*ws_walk).tailq.tqe_next as *mut i3_ws;
-            }
-            let mut walk: *mut i3_ws = (*(*outputs_walk).workspaces).tqh_first as *mut i3_ws;
-            while !(*(*outputs_walk).workspaces).tqh_first.is_null() {
-                if !(*(*(*outputs_walk).workspaces).tqh_first)
-                    .tailq
-                    .tqe_next
-                    .is_null()
-                {
-                    (*(*(*(*outputs_walk).workspaces).tqh_first).tailq.tqe_next)
-                        .tailq
-                        .tqe_prev = (*(*(*outputs_walk).workspaces).tqh_first).tailq.tqe_prev;
-                } else {
-                    (*(*outputs_walk).workspaces).tqh_last =
-                        (*(*(*outputs_walk).workspaces).tqh_first).tailq.tqe_prev;
+}
+
+struct WorkspaceReader {
+    options: NameOptions,
+    key: Option<Vec<u8>>,
+    current: Option<WorkspaceRecord>,
+    records: Vec<WorkspaceRecord>,
+    parsing_rect: bool,
+    error: Option<&'static str>,
+}
+struct SharedReader(Rc<RefCell<WorkspaceReader>>);
+
+impl EventHandler for SharedReader {
+    fn on_event(&mut self, event: Event<'_>) -> bool {
+        let mut reader = self.0.borrow_mut();
+        match event {
+            Event::MapKey(key) => reader.key = Some(c_prefix(key).to_vec()),
+            Event::StartMap if reader.key.is_none() => {
+                if let Some(previous) = reader.current.take() {
+                    reader.records.push(previous);
                 }
-                *(*(*(*outputs_walk).workspaces).tqh_first).tailq.tqe_prev =
-                    (*(*(*outputs_walk).workspaces).tqh_first).tailq.tqe_next;
-                free(walk as *mut ::core::ffi::c_void);
-                walk = ::core::ptr::null_mut::<i3_ws>();
-                walk = (*(*outputs_walk).workspaces).tqh_first as *mut i3_ws;
+                reader.current = Some(WorkspaceRecord::default());
+                reader.parsing_rect = false;
             }
+            Event::StartMap => reader.parsing_rect = true,
+            Event::EndMap => {
+                if reader.parsing_rect {
+                    reader.parsing_rect = false;
+                } else if let Some(workspace) = reader.current.as_mut() {
+                    workspace.completed = true;
+                }
+            }
+            Event::Boolean(value) => {
+                let key = reader.key.take();
+                let Some(workspace) = reader.current.as_mut() else {
+                    return false;
+                };
+                match key.as_deref() {
+                    Some(b"visible") => workspace.visible = value,
+                    Some(b"focused") => workspace.focused = value,
+                    Some(b"urgent") => workspace.urgent = value,
+                    _ => return false,
+                }
+            }
+            Event::Number(number) if !number.contains(['.', 'e', 'E']) => {
+                let value = match number.parse::<i64>() {
+                    Ok(value) if value != i64::MIN => value,
+                    _ => {
+                        reader.error = Some("parse error: integer overflow");
+                        return false;
+                    }
+                };
+                let key = reader.key.take();
+                let Some(workspace) = reader.current.as_mut() else {
+                    return false;
+                };
+                match key.as_deref() {
+                    // Narrowing deliberately retains the upstream numeric
+                    // projections after its signed-64 callback range check.
+                    Some(b"id") => workspace.id = value as usize,
+                    Some(b"num") => workspace.num = value as i32,
+                    Some(b"x" | b"y" | b"width" | b"height") => {}
+                    _ => return false,
+                }
+            }
+            Event::String(value) => {
+                let key = reader.key.take();
+                let options = reader.options;
+                let Some(workspace) = reader.current.as_mut() else {
+                    return false;
+                };
+                match key.as_deref() {
+                    Some(b"name") => {
+                        workspace
+                            .names
+                            .push(name_snapshot(value, workspace.num, options))
+                    }
+                    Some(b"output") => workspace
+                        .output_names
+                        .push(CString::new(c_prefix(value)).expect("prefix contains no NUL")),
+                    _ => return false,
+                }
+            }
+            _ => {}
         }
-        outputs_walk = (*outputs_walk).slist.sle_next as *mut i3_output;
+        true
+    }
+
+    fn error_message(&self) -> Option<&str> {
+        self.0.borrow().error
     }
 }
 
-// Internal helpers use Rust linkage rather than foreign symbol lookup.
-use crate::child::kill_ws_child;
-use crate::child::set_workspace_button_error;
-use i3_common::safewrappers::scalloc;
-use i3_common::safewrappers::sstrndup;
+fn read_workspaces(json: &[u8], options: NameOptions) -> Result<Vec<WorkspaceRecord>, ParseError> {
+    let reader = Rc::new(RefCell::new(WorkspaceReader {
+        options,
+        key: None,
+        current: None,
+        records: Vec::new(),
+        parsing_rect: false,
+        error: None,
+    }));
+    let mut parser = Parser::new(SharedReader(Rc::clone(&reader)));
+    parser.options_mut().allow_legacy_whitespace = true;
+    // Do not call finish: workspace_command and upstream's callback parser
+    // accept a completed workspace before the outer array has closed.
+    parser.parse(json)?;
+    drop(parser);
+    let mut reader = Rc::try_unwrap(reader)
+        .ok()
+        .expect("parser released its reader")
+        .into_inner();
+    if let Some(current) = reader.current.take() {
+        reader.records.push(current);
+    }
+    Ok(reader.records)
+}
 
-// Canonical Cairo backend ABI; renderer logic remains local.
+fn output_targets<T: Copy + PartialEq>(
+    workspace: &WorkspaceRecord,
+    mut lookup: impl FnMut(&CStr) -> Option<T>,
+    fallback: Option<T>,
+) -> Vec<T> {
+    if workspace.output_names.is_empty() {
+        return if workspace.completed {
+            fallback.into_iter().collect()
+        } else {
+            Vec::new()
+        };
+    }
+    let mut targets = Vec::new();
+    for name in &workspace.output_names {
+        if let Some(output) = lookup(name) {
+            if !targets.contains(&output) {
+                targets.push(output);
+            }
+        }
+    }
+    // A later unknown output does not erase an earlier known one. Repeated
+    // known outputs used to insert the same node twice, forming cycles or
+    // double frees. Independent nodes per distinct output keep the visible
+    // result without reproducing that ownership corruption.
+    targets
+}
 
-pub use libc::{exit, fprintf, free, printf, snprintf, strcmp, strspn};
+/// # Safety
+/// output and its workspace head are live event-thread allocations, and no
+/// iterator or draw operation is borrowing the output list during this call.
+pub unsafe fn append_workspace(output: *mut i3_output, mut workspace: Box<Workspace>) {
+    // SAFETY: The caller supplies the live, uniquely modified output list.
+    unsafe {
+        let head = (*output).workspaces;
+        assert!(!head.is_null(), "output workspace head is initialized");
+        workspace.output = output;
+        workspace.tailq.tqe_next = ptr::null_mut();
+        workspace.tailq.tqe_prev = (*head).tqh_last;
+        let workspace = Box::into_raw(workspace);
+        *(*head).tqh_last = workspace;
+        (*head).tqh_last = &raw mut (*workspace).tailq.tqe_next;
+    }
+}
 
-use i3_common::native_stdio::stderr;
+/// # Safety
+/// Called on the bar event thread with live output graph and configured font.
+unsafe fn apply_workspaces(records: Vec<WorkspaceRecord>) {
+    unsafe {
+        let fallback = if outputs.is_null() || (*outputs).slh_first.is_null() {
+            None
+        } else {
+            let primary = get_output_by_name(c"primary".as_ptr().cast_mut());
+            Some(if primary.is_null() {
+                (*outputs).slh_first
+            } else {
+                primary
+            })
+        };
+        for record in records {
+            let Some(snapshot) = record.names.last() else {
+                continue;
+            };
+            let mut last_name = None;
+            for snapshot in &record.names {
+                let name = if snapshot.explicit_length {
+                    I3String::from_bytes_with_legacy_length(&snapshot.display)
+                } else {
+                    I3String::from_bytes(&snapshot.display)
+                };
+                name.set_markup(true);
+                // Native font helpers only read the owned text and its interior
+                // caches; ownership stays with this record until list transfer.
+                let text = (&name as *const I3String).cast_mut();
+                let width = predict_text_width(text);
+                if config.verbose {
+                    let _ = writeln!(std::io::stdout().lock(), "[../i3bar/src/workspaces.c:146] Got workspace canonical: {}, name: '{}', name_width: {}, glyphs: {}", snapshot.canonical.to_string_lossy(), name.as_str().expect("workspace text is UTF-8"), width, i3_common::string::i3string_get_num_glyphs(text));
+                }
+                last_name = Some((name, width));
+            }
+            let (name, width) = last_name.expect("workspace has a name snapshot");
+            let targets = output_targets(
+                &record,
+                |name| {
+                    if fallback.is_none() {
+                        return None;
+                    }
+                    let output = get_output_by_name(name.as_ptr().cast_mut());
+                    (!output.is_null()).then_some(output)
+                },
+                fallback,
+            );
+            for output in targets {
+                append_workspace(
+                    output,
+                    Box::new(Workspace {
+                        id: record.id,
+                        num: record.num,
+                        canonical_name: Some(snapshot.canonical.clone()),
+                        name: name.clone(),
+                        name_width: width,
+                        visible: record.visible,
+                        focused: record.focused,
+                        urgent: record.urgent,
+                        output: ptr::null_mut(),
+                        tailq: C2RustUnnamed_4 {
+                            tqe_next: ptr::null_mut(),
+                            tqe_prev: ptr::null_mut(),
+                        },
+                    }),
+                );
+            }
+        }
+    }
+}
 
-pub use i3_common::string::I3String as _i3String;
+/// # Safety
+/// json is readable for size bytes, and the caller owns the bar event thread's
+/// output graph. All nodes on existing workspace lists were Box-allocated here.
+pub unsafe fn parse_workspaces_json(json: *const u8, size: usize) {
+    unsafe {
+        let input = if size == 0 {
+            &[]
+        } else {
+            std::slice::from_raw_parts(json, size)
+        };
+        let options = NameOptions {
+            strip_numbers: config.strip_ws_numbers,
+            strip_name: config.strip_ws_name,
+        };
+        free_workspaces();
+        match read_workspaces(input, options) {
+            Ok(records) => apply_workspaces(records),
+            Err(error) => {
+                let mut stderr = std::io::stderr().lock();
+                let _ = write!(stderr, "[../i3bar/src/workspaces.c:275] ERROR: Could not parse workspaces reply, error:\n{error}\n\njson:---");
+                let _ = stderr.write_all(c_prefix(input));
+                let _ = stderr.write_all(b"---\n");
+                drop(stderr);
+                if !config.workspace_command.is_null() {
+                    crate::child::kill_ws_child();
+                    crate::child::set_workspace_button_error(
+                        c"Could not parse workspace_command's JSON".as_ptr(),
+                    );
+                } else {
+                    std::process::exit(libc::EXIT_FAILURE);
+                }
+            }
+        }
+    }
+}
+
+/// # Safety
+/// The caller exclusively owns the live event-thread output graph. Every node
+/// belongs to exactly one list and was transferred by append_workspace.
+pub unsafe fn free_workspaces() {
+    unsafe {
+        if outputs.is_null() {
+            return;
+        }
+        let mut output = (*outputs).slh_first;
+        while !output.is_null() {
+            let head = (*output).workspaces;
+            if !head.is_null() {
+                clear_workspace_head(&mut *head);
+            }
+            output = (*output).slist.sle_next;
+        }
+    }
+}
+
+/// # Safety
+/// The head exclusively owns an acyclic list of nodes transferred by
+/// append_workspace. No borrowed node pointer is used after this call.
+unsafe fn clear_workspace_head(head: &mut crate::child::ws_head) {
+    let mut workspace = head.tqh_first;
+    head.tqh_first = ptr::null_mut();
+    head.tqh_last = &raw mut head.tqh_first;
+    while !workspace.is_null() {
+        // SAFETY: Each detached node is a distinct live Box; next is copied
+        // before its predecessor is released, and text drops with the node.
+        unsafe {
+            let next = (*workspace).tailq.tqe_next;
+            drop(Box::from_raw(workspace));
+            workspace = next;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn records(json: &[u8], options: NameOptions) -> Vec<WorkspaceRecord> {
+        read_workspaces(json, options).unwrap()
+    }
+
+    #[test]
+    fn names_keep_strspn_digit_set_and_field_order_behavior() {
+        let options = NameOptions {
+            strip_numbers: true,
+            strip_name: false,
+        };
+        let parsed = records(br#"[{"num":12,"name":"2112:editor"},{"name":"12:early","num":12},{"num":12,"name":"12:"}]"#, options);
+        assert_eq!(parsed[0].names[0].display, b"editor");
+        assert_eq!(parsed[1].names[0].display, b"12:early");
+        assert_eq!(parsed[2].names[0].display, b"12");
+        let parsed = records(
+            br#"[{"num":12,"name":"letters"}]"#,
+            NameOptions {
+                strip_numbers: false,
+                strip_name: true,
+            },
+        );
+        assert_eq!(parsed[0].names[0].display, b"12");
+    }
+
+    #[test]
+    fn owned_names_and_keys_preserve_nul_prefix_rules() {
+        let json = br#"[{"visible\u0000ignored":true,"num":1,"name":"1:one\u0000rest","output":"primary\u0000ignored"}]"#.to_vec();
+        let parsed = records(
+            &json,
+            NameOptions {
+                strip_numbers: true,
+                strip_name: false,
+            },
+        );
+        drop(json);
+        assert!(parsed[0].visible);
+        assert_eq!(parsed[0].names[0].canonical.to_bytes(), b"1:one");
+        assert_eq!(parsed[0].names[0].display, b"one\0rest");
+        assert!(parsed[0].names[0].explicit_length);
+        assert_eq!(parsed[0].output_names[0].to_bytes(), b"primary");
+    }
+
+    #[test]
+    fn rect_fields_unknown_types_and_legacy_integer_ranges_are_distinct() {
+        let parsed = records(br#"[{"rect":{"x":1,"y":2,"width":3,"height":4},"id":-1,"num":4294967297,"name":"one","unknown":null}]"#, NameOptions::default());
+        assert_eq!(parsed[0].id, usize::MAX);
+        assert_eq!(parsed[0].num, 1);
+        assert!(parsed[0].completed);
+        for value in ["true", "1", "\"text\""] {
+            let json = format!(r#"[{{"name":"one","unknown":{value}}}]"#);
+            assert!(read_workspaces(json.as_bytes(), NameOptions::default()).is_err());
+        }
+        for value in ["9223372036854775808", "-9223372036854775808"] {
+            let json = format!(r#"[{{"name":"one","id":{value}}}]"#);
+            let error = read_workspaces(json.as_bytes(), NameOptions::default()).unwrap_err();
+            assert_eq!(error.message, "parse error: integer overflow");
+        }
+        let parsed = records(
+            br#"[{"num":1.5,"name":"one","unknown":1e999}]"#,
+            NameOptions::default(),
+        );
+        assert_eq!(parsed[0].num, -1);
+    }
+
+    #[test]
+    fn output_mentions_keep_prior_matches_without_reusing_owned_nodes() {
+        let parsed = records(br#"[{"name":"one","output":"a","output":"missing","output":"a","output":"b"},{"name":"two","output":"missing"},{"name":"fallback"}]"#, NameOptions::default());
+        let lookup = |name: &CStr| match name.to_bytes() {
+            b"a" => Some(1),
+            b"b" => Some(2),
+            _ => None,
+        };
+        assert_eq!(output_targets(&parsed[0], lookup, Some(9)), vec![1, 2]);
+        assert!(output_targets(&parsed[1], lookup, Some(9)).is_empty());
+        assert_eq!(output_targets(&parsed[2], lookup, Some(9)), vec![9]);
+    }
+
+    #[test]
+    fn partial_records_only_publish_when_upstream_had_an_output_attachment() {
+        let parsed = records(
+            br#"[{"name":"one","output":"known","#,
+            NameOptions::default(),
+        );
+        assert!(!parsed[0].completed);
+        assert_eq!(output_targets(&parsed[0], |_| Some(1), Some(9)), vec![1]);
+        let parsed = records(br#"[{"name":"one","#, NameOptions::default());
+        assert!(output_targets(&parsed[0], |_| Some(1), Some(9)).is_empty());
+    }
+
+    #[test]
+    fn duplicate_names_keep_each_formatting_snapshot_but_last_text_wins() {
+        let parsed = records(
+            br#"[{"num":1,"name":"1:first","num":2,"name":"2:last"}]"#,
+            NameOptions {
+                strip_numbers: true,
+                strip_name: false,
+            },
+        );
+        assert_eq!(
+            parsed[0]
+                .names
+                .iter()
+                .map(|name| name.display.as_slice())
+                .collect::<Vec<_>>(),
+            vec![b"first".as_slice(), b"last"]
+        );
+        assert_eq!(parsed[0].num, 2);
+    }
+
+    #[test]
+    fn intrusive_lists_detach_then_drop_owned_nodes_and_can_be_cleared_twice() {
+        // The output model still contains only native handles, scalars and raw
+        // list heads; Workspace itself is always constructed with Box::new.
+        let mut output = Box::new(unsafe { std::mem::zeroed::<i3_output>() });
+        let mut head = Box::new(crate::child::ws_head {
+            tqh_first: ptr::null_mut(),
+            tqh_last: ptr::null_mut(),
+        });
+        head.tqh_last = &raw mut head.tqh_first;
+        output.workspaces = &raw mut *head;
+        unsafe {
+            append_workspace(
+                &raw mut *output,
+                Box::new(Workspace::error(I3String::new("one"), 3)),
+            );
+            append_workspace(
+                &raw mut *output,
+                Box::new(Workspace::error(I3String::new("two"), 3)),
+            );
+            let first = head.tqh_first;
+            let second = (*first).tailq.tqe_next;
+            assert_eq!((*first).name.as_str().unwrap(), "one");
+            assert_eq!((*second).name.as_str().unwrap(), "two");
+            assert_eq!((*second).tailq.tqe_prev, &raw mut (*first).tailq.tqe_next);
+            clear_workspace_head(&mut head);
+            clear_workspace_head(&mut head);
+        }
+        assert!(head.tqh_first.is_null());
+        assert_eq!(head.tqh_last, &raw mut head.tqh_first);
+    }
+}

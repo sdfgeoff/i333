@@ -1092,7 +1092,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
             b'c' => { free(override_configpath.cast()); override_configpath = sstrdup(value.as_ref().unwrap().as_ptr()); },
             b'C' => { verboselog(c"Checking configuration file only (-C)\n".as_ptr().cast_mut()); only_check_config = true; },
             b'v' => { printf(c"i3 version %s © 2009 Michael Stapelberg and contributors\n".as_ptr(), i3_version); return EXIT_SUCCESS; },
-            b'm' => { printf(c"Binary i3 version:  %s © 2009 Michael Stapelberg and contributors\n".as_ptr(), i3_version); display_running_version(); return EXIT_SUCCESS; },
+            b'm' => { printf(c"Binary i3 version:  %s © 2009 Michael Stapelberg and contributors\n".as_ptr(), i3_version); return display_running_version(); },
             b'V' => set_verbosity(true),
             b'd' => { verboselog(c"Enabling debug logging\n".as_ptr().cast_mut()); set_debug_logging(true); },
             b'l' => {},
