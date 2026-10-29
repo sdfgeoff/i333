@@ -1,5 +1,5 @@
 {
-  "date": "2026-10-29",
+  "date": "2026-10-30",
   "upstream_revision": "be04c853ee7fa01a82a0c81f8217565395e2627c",
   "method": "Upstream complete-run.pl; four private Xephyr workers beneath private Xvfb; copied Rust product executables and rewritten embedded build paths; DISPLAY/I3SOCK/WAYLAND_DISPLAY/XAUTHORITY/DBUS_SESSION_BUS_ADDRESS removed before invocation.",
   "c_baseline": {
@@ -8,26 +8,26 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 16 wallclock secs ( 0.55 usr +  0.07 sys =  0.62 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 30 wallclock secs ( 1.69 usr +  0.13 sys =  1.82 CPU)\nResult: PASS",
     "profile": "debug",
-    "build": "cargo test",
+    "build": "cargo test --locked",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "6395835078c9215e018577e6ce5058b1eab876d1c03dd100aa51f88077b61200",
-    "i3bar": "6d1ddee2844f517590f4b4ea961e6272aec79bf5d3c0a874bd9f512f605045c1",
-    "i3-config-wizard": "8d402cf27f8092235d7e4a1135ed7f70b3dfd2b56b0684247a3441f51c33158f",
-    "i3-dump-log": "0352c9d04eff4a06f616aea0daa4340226d54e73aaea9bcba16d5b844f150ed1",
-    "i3-input": "215d1edee641ffcc657b4b92bb645046c1992953dcbcbe015546a530612d755e",
-    "i3-msg": "acd02228030561948f3ffbfe075f8276baee233c6ec764c551b9ec2390273dde",
-    "i3-nagbar": "9c0ae58d421f7bcc3e66321900df631cf81084b6364c521a163b1419664e0683"
+    "i3": "1c39ea4446f22d1d43869084d70b431f1cc055c1d69948c906902990d66b954f",
+    "i3bar": "1c5bfc2bfa80fcb706b561b1bdec3611ef5a6e643ccd512b7b08cd74032a573a",
+    "i3-config-wizard": "e97b680ab88a41fb3714b659934901c614f4fc619c91cfb8d818c8bc4b444c3a",
+    "i3-dump-log": "02ae0fb4f9741158d6f54a2c717703bb4d668ddfc1194ffb0e6b921293c4e610",
+    "i3-input": "6774e0ea073c3e090734bcd796e63f6076663f80828674462fd86da6322a9ba1",
+    "i3-msg": "8fa9145c8bbdb6dce95ddfbe0fa4705987e492b6b5c2edbec57b8e87683cf2fe",
+    "i3-nagbar": "77fbe0a47d7841330933dfdcc1bc0b4fd7501a36024ad3e3aacc053bc844d6e4"
   },
-  "note": "Ten-member Cargo workspace. Plain cargo test passed 185 Rust-reported tests, native oracles, external C IPC/CLI/headless/input/nagbar comparisons, and all 4205 upstream assertions. Exact debug hashes above match this Cargo-driven run. Routine validation uses one repository-nightly pass per batch. Native/global tree, shared-memory and rendering boundaries remain explicitly unsafe; Linux x86_64 GNU ABI only.",
+  "note": "Ten-member Cargo workspace. Plain cargo test passed 204 Rust-reported tests, native oracles, external C IPC/CLI/headless/input/nagbar comparisons, and all 4205 upstream assertions. Exact debug hashes above match this Cargo-driven run. Routine validation uses one repository-nightly pass per batch. Native/global tree, shared-memory and rendering boundaries remain explicitly unsafe; Linux x86_64 GNU ABI only.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
   "additional_checks": {
     "headless_c_rust_state_comparisons": 52,
     "ipc_client_test_groups": 16,
-    "workspace_unit_tests": 185,
+    "workspace_unit_tests": 204,
     "core_and_bar_cli_comparisons": 30,
     "pcre2_compile_match_error_comparisons": 4620,
     "json_oracle_cases": 2218,
@@ -46,7 +46,8 @@
     "color_channel_native_strtol_comparisons": 65536,
     "fake_output_native_sscanf_comparisons": 1552,
     "ubuntu_fresh_perl_install_distributions": 44,
-    "nagbar_private_render_and_close_cases": 4
+    "nagbar_private_render_and_close_cases": 4,
+    "pango_native_measurement_and_rendering_cases": 18
   },
   "toolchain": {
     "rustc": "rustc 1.99.0-nightly (11177f223 2026-08-02)",
@@ -72,7 +73,7 @@
     "all_unit_and_integration_test_targets_compiled": true,
     "automatic_after_each_source_edit": false,
     "last_verification_environment": "Local fresh-source structural feature; cargo test -p i3-test-support --features clean-source-check",
-    "last_verified_batch": 4
+    "last_verified_batch": 5
   },
   "repository_cleanup": {
     "obsolete_files_removed": 216,
@@ -108,10 +109,10 @@
     "binary_count": 7,
     "native_library_discovery": "maintained native binding build scripts and dedicated sys crates; i3-build links only platform m/rt",
     "unit_tests": {
-      "i3": 39,
+      "i3": 52,
       "xkb_integration": 1,
       "i3-build": 3,
-      "i3-common": 59,
+      "i3-common": 65,
       "native_graphics": 5,
       "i3-json": 16,
       "i3-dump-log": 5,
@@ -128,18 +129,18 @@
     "cargo_fmt_check": true,
     "debug_build": true,
     "release_build": null,
-    "unit_tests_total_including_integration_checks": 185,
+    "unit_tests_total_including_integration_checks": 204,
     "test_command": "cargo test",
     "clean_source_command": "cargo test -p i3-test-support --features clean-source-check",
     "test_support": "development-only process capture, failure propagation and isolated regression orchestration",
-    "release_build_note": "Current batch uses default debug Cargo tests. Prior checkpoint e86badf8 release and structural builds passed on Ubuntu CI.",
-    "last_release_build_verified_commit": "e86badf8f9e7dda68b0f3cf22ba4d1b26855f777"
+    "release_build_note": "Current batch uses default debug Cargo tests. Prior checkpoint 919a58c7 release and structural builds passed on Ubuntu CI.",
+    "last_release_build_verified_commit": "919a58c790d530429cbb5387b76d285bb6bce792"
   },
   "modernization": {
     "yajl_product_dependency": false,
     "json": "serde/serde_json with incremental stream parser and Rust compatibility adapters",
     "regex": "maintained pcre2 safe wrapper, preserving full PCRE semantics",
-    "graphics": "Maintained cairo-rs borrowed context/surface APIs for drawing; cairo-sys-rs, pango-sys, pangocairo-sys and gobject-sys at remaining native boundaries",
+    "graphics": "Maintained cairo-rs, pango, pangocairo and glib owners/borrowed APIs for drawing and fonts; maintained sys bindings retain explicit native text byte-count and XCB surface boundaries",
     "xkb": "maintained xkbcommon bindings",
     "internal_no_mangle_exports": 0,
     "remaining_unsafe": "Native FFI/callbacks, intrusive window-tree ownership, legacy allocation and JSON pointer adapters",
@@ -262,6 +263,29 @@
         ],
         "remaining_boundaries": "Global zero-initialized configuration and reload command strings preserve their existing ABI; shared-memory writes use raw pointers; native event/tree and fork-child contracts remain explicit.",
         "validation": "cargo test passed 185 Rust-reported tests and all external suites, including four new private-display nagbar C render/close comparisons."
+      },
+      {
+        "batch": 5,
+        "files": [
+          "crates/i3-common/src/font.rs",
+          "crates/i3/src/ewmh.rs",
+          "crates/i3/src/gaps.rs",
+          "crates/i3/src/assignments.rs"
+        ],
+        "improvements": [
+          "Maintained Pango/Cairo layout and description ownership with explicit transfer into the existing raw Font record",
+          "Bounded XCB glyph metrics, slice chunks and native reply/error resource guards",
+          "Owned EWMH name/viewport payloads with bounded native setters and safe workspace index/cache decisions",
+          "Safe smart-gap/inset/fullscreen decisions and ordered workspace gap assignment resolution",
+          "Owned byte-preserving assignment commands and scoped parser results; short ran-assignment borrows before callbacks"
+        ],
+        "safety_fixes": [
+          "Missing XCB extents replies without error objects no longer dereference null",
+          "Glyph-table views check complete native reply bounds including property prefix",
+          "Ran-assignment count/allocation calculations reject overflow instead of wrapping"
+        ],
+        "remaining_boundaries": "Font remains a raw POD record selected by an event-thread global; display and intrusive tree access and command callback/reload invalidation stay explicitly unsafe. Explicit native Pango byte counts preserve embedded NUL and truncated UTF-8 behavior.",
+        "validation": "cargo test --locked passed 204 Rust-reported tests and all external suites; six font, five EWMH, five gaps and three assignment tests added; EWMH/gaps cross-reviewed."
       }
     ]
   },
@@ -272,8 +296,8 @@
     "subsequent_failure": "d6401e98 CI dependency preparation passed; formatting failed because direct rustfmt used edition2024 rather than workspace edition2021. Scoped import formatting corrected in batch4."
   },
   "last_observed_green_ci": {
-    "commit": "e86badf8f9e7dda68b0f3cf22ba4d1b26855f777",
-    "url": "https://github.com/sdfgeoff/i333/actions/runs/40850349641",
+    "commit": "919a58c790d530429cbb5387b76d285bb6bce792",
+    "url": "https://github.com/sdfgeoff/i333/actions/runs/40858779735",
     "conclusion": "success"
   }
 }

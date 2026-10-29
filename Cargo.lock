@@ -43,6 +43,7 @@ checksum = "b01fe135c0bd16afe262b6dea349bd5ea30e6de50708cec639aae7c5c14cc7e4"
 dependencies = [
  "bitflags",
  "cairo-sys-rs",
+ "glib",
  "libc",
 ]
 
@@ -52,6 +53,7 @@ version = "0.21.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06c28280c6b12055b5e39e4554271ae4e6630b27c0da9148c4cf6485fc6d245c"
 dependencies = [
+ "glib-sys",
  "libc",
  "system-deps",
 ]
@@ -107,6 +109,68 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1c66915cc5391097de7a2b0b972e8505aa33c0df401fd3a6811dbdb32881ba48"
 
 [[package]]
+name = "futures-channel"
+version = "0.3.34"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1f9e3d69d39e4862ffed03ed071a76f9a13ba1d9109d355b0f0aa6b15e393c4"
+dependencies = [
+ "futures-core",
+]
+
+[[package]]
+name = "futures-core"
+version = "0.3.34"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "92d699e522242e69e3003b94ecc1f960f3a5e015aa7c5d7486e65ad01dd94f5e"
+
+[[package]]
+name = "futures-executor"
+version = "0.3.34"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "031b47cf1a3c6cc8bc2fc76cd437f521619387907d469316e7c0bc278f1f5432"
+dependencies = [
+ "futures-core",
+ "futures-task",
+ "futures-util",
+]
+
+[[package]]
+name = "futures-io"
+version = "0.3.34"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "53c0fa8157de1303bfffdaa1cc2a673bfffb60102f76b0ef4441659124373fed"
+
+[[package]]
+name = "futures-macro"
+version = "0.3.34"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9fb9654ba8355388abeb8dcb4fc62f511300867002afc858860463bdd9fe0c44"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.9",
+]
+
+[[package]]
+name = "futures-task"
+version = "0.3.34"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cd417de3d1d015fc3bfd2b1ea46dfc7bab72ef86f1cc7cc9c78e728b34a6d1fd"
+
+[[package]]
+name = "futures-util"
+version = "0.3.34"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0d50a92467f8ba5dd6e3ee5d4bd04d73ab2e4e1c44474a0674821dfce14b79bc"
+dependencies = [
+ "futures-core",
+ "futures-macro",
+ "futures-task",
+ "pin-project-lite",
+ "slab",
+]
+
+[[package]]
 name = "gethostname"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -125,6 +189,70 @@ dependencies = [
  "cfg-if",
  "libc",
  "r-efi",
+]
+
+[[package]]
+name = "gio"
+version = "0.21.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c5ff48bf600c68b476e61dc6b7c762f2f4eb91deef66583ba8bb815c30b5811a"
+dependencies = [
+ "futures-channel",
+ "futures-core",
+ "futures-io",
+ "futures-util",
+ "gio-sys",
+ "glib",
+ "libc",
+ "pin-project-lite",
+ "smallvec",
+]
+
+[[package]]
+name = "gio-sys"
+version = "0.21.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0071fe88dba8e40086c8ff9bbb62622999f49628344b1d1bf490a48a29d80f22"
+dependencies = [
+ "glib-sys",
+ "gobject-sys",
+ "libc",
+ "system-deps",
+ "windows-sys",
+]
+
+[[package]]
+name = "glib"
+version = "0.21.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "16de123c2e6c90ce3b573b7330de19be649080ec612033d397d72da265f1bd8b"
+dependencies = [
+ "bitflags",
+ "futures-channel",
+ "futures-core",
+ "futures-executor",
+ "futures-task",
+ "futures-util",
+ "gio-sys",
+ "glib-macros",
+ "glib-sys",
+ "gobject-sys",
+ "libc",
+ "memchr",
+ "smallvec",
+]
+
+[[package]]
+name = "glib-macros"
+version = "0.21.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf59b675301228a696fe01c3073974643365080a76cc3ed5bc2cbc466ad87f17"
+dependencies = [
+ "heck",
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.106",
 ]
 
 [[package]]
@@ -190,11 +318,14 @@ dependencies = [
  "c2rust-bitfields",
  "cairo-rs",
  "cairo-sys-rs",
+ "glib",
  "gobject-sys",
  "i3-build",
  "i3-test-support",
  "libc",
+ "pango",
  "pango-sys",
+ "pangocairo",
  "pangocairo-sys",
  "xcb-sys",
 ]
@@ -303,6 +434,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 
 [[package]]
+name = "pango"
+version = "0.21.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "52d1d85e2078077a065bb7fc072783d5bcd4e51b379f22d67107d0a16937eb69"
+dependencies = [
+ "gio",
+ "glib",
+ "libc",
+ "pango-sys",
+]
+
+[[package]]
 name = "pango-sys"
 version = "0.21.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -312,6 +455,19 @@ dependencies = [
  "gobject-sys",
  "libc",
  "system-deps",
+]
+
+[[package]]
+name = "pangocairo"
+version = "0.21.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b36c5c84304072939d860595d9bda2a797d3bd6f7215e20b8ccd0e72d84da8c8"
+dependencies = [
+ "cairo-rs",
+ "glib",
+ "libc",
+ "pango",
+ "pangocairo-sys",
 ]
 
 [[package]]
@@ -350,10 +506,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "pin-project-lite"
+version = "0.2.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
+
+[[package]]
 name = "pkg-config"
 version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f6b464fbc74e149a392436b17d523f769e057cb6877f6a5c4618bc6f11800548"
+
+[[package]]
+name = "proc-macro-crate"
+version = "3.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e67ba7e9b2b56446f1d419b1d807906278ffa1a658a8a5d8a39dcb1f5a78614f"
+dependencies = [
+ "toml_edit",
+]
 
 [[package]]
 name = "proc-macro2"
@@ -459,6 +630,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 
 [[package]]
+name = "slab"
+version = "0.4.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
+
+[[package]]
 name = "smallvec"
 version = "1.16.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -538,6 +715,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "toml_edit"
+version = "0.25.17+spec-1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e3641d5bbb5349a79e1020a242d251efbc546ad8048d133958323ce9c40a9c9c"
+dependencies = [
+ "indexmap",
+ "toml_datetime",
+ "toml_parser",
+ "winnow",
+]
+
+[[package]]
 name = "toml_parser"
 version = "1.1.5+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -584,6 +773,9 @@ name = "winnow"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "23b97319f7b8343df12cc98938e5c3eb436064524c8d2b4e30a1d3a36eecdf81"
+dependencies = [
+ "memchr",
+]
 
 [[package]]
 name = "x11rb"

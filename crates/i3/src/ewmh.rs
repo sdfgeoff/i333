@@ -1,348 +1,323 @@
-/*
- * vim:ts=4:sw=4:expandtab
- *
- * i3 - an improved tiling window manager
- * © 2009 Michael Stapelberg and contributors (see also: LICENSE)
- *
- * ewmh.c: Get/set certain EWMH properties easily.
- *
- */
-// Mechanical file-by-file Rust translation of src/ewmh.c.
-// Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
+/* i3 - EWMH property updates. See LICENSE. */
+//! Property payloads and index decisions use owned Rust values. The native
+//! setters and tree traversals remain explicit event-thread unsafe boundaries.
+use std::ffi::CStr;
+use std::ptr;
 
-pub type i3String = _i3String;
-
-pub type fullscreen_mode_t = ::core::ffi::c_uint;
-pub const CF_GLOBAL: fullscreen_mode_t = 2;
-pub const CF_OUTPUT: fullscreen_mode_t = 1;
-pub const CF_NONE: fullscreen_mode_t = 0;
-
-pub const M_BELOW: ::core::ffi::c_uint = 2;
-pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
-pub const M_HERE: ::core::ffi::c_uint = 0;
-
-pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
-pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
-pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
-pub const M_NODOCK: ::core::ffi::c_int = 0;
-pub const M_DONTCHECK: ::core::ffi::c_int = -1;
-
-pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
-pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
-pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
-pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
-pub const A_COMMAND: ::core::ffi::c_uint = 1;
-pub const A_ANY: ::core::ffi::c_uint = 0;
-
-pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
-pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
-pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
-pub const CT_CON: ::core::ffi::c_uint = 2;
-pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
-pub const CT_ROOT: ::core::ffi::c_uint = 0;
-
-pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
-pub const NET_WM_DESKTOP_NONE: ::core::ffi::c_uint = 0xfffffff0 as ::core::ffi::c_uint;
-pub const NET_WM_DESKTOP_ALL: ::core::ffi::c_uint = 0xffffffff as ::core::ffi::c_uint;
-
+pub const NET_WM_DESKTOP_NONE: u32 = 0xfffffff0;
+pub const NET_WM_DESKTOP_ALL: u32 = u32::MAX;
 pub static mut ewmh_window: xcb_window_t = 0;
+const WORKSPACE: u32 = 4;
 
-pub unsafe fn ewmh_update_current_desktop() {
-    static mut old_idx: u32 = NET_WM_DESKTOP_NONE as u32;
-    let idx: u32 = ewmh_get_workspace_index(focused) as u32;
-    if idx == old_idx || idx == NET_WM_DESKTOP_NONE as u32 {
-        return;
+struct WorkspaceEntry {
+    con: *mut Con,
+    internal: bool,
+    viewport: [u32; 2],
+}
+
+/// # Safety
+/// The event thread owns a live, stable container graph. Native helper calls
+/// must not remove its nodes during traversal. No borrowed graph data escapes.
+unsafe fn workspace_entries() -> Vec<WorkspaceEntry> {
+    let mut entries = Vec::new();
+    let mut output = (*croot).nodes_head.tqh_first;
+    while !output.is_null() {
+        let mut workspace = (*output_get_content(output)).nodes_head.tqh_first;
+        while !workspace.is_null() {
+            entries.push(WorkspaceEntry {
+                con: workspace,
+                internal: con_is_internal(workspace),
+                viewport: [(*output).rect.x, (*output).rect.y],
+            });
+            workspace = (*workspace).nodes.tqe_next;
+        }
+        output = (*output).nodes.tqe_next;
     }
-    old_idx = idx;
+    entries
+}
+
+fn public_workspace_index<T: PartialEq>(
+    entries: impl IntoIterator<Item = (T, bool)>,
+    target: T,
+) -> u32 {
+    let mut index = 0u32;
+    for (workspace, internal) in entries {
+        if !internal {
+            if workspace == target {
+                return index;
+            }
+            index = index.wrapping_add(1);
+        }
+    }
+    NET_WM_DESKTOP_NONE
+}
+fn public_workspace_at<T>(entries: impl IntoIterator<Item = (T, bool)>, index: u32) -> Option<T> {
+    if index == NET_WM_DESKTOP_NONE {
+        return None;
+    }
+    let mut current = 0u32;
+    for (workspace, internal) in entries {
+        if !internal {
+            if current == index {
+                return Some(workspace);
+            }
+            current = current.wrapping_add(1);
+        }
+    }
+    None
+}
+// Internal workspaces are updated at the current index without consuming it.
+fn workspace_desktop_indices<T>(entries: impl IntoIterator<Item = (T, bool)>) -> Vec<(T, u32)> {
+    let mut index = 0u32;
+    entries
+        .into_iter()
+        .map(|(workspace, internal)| {
+            let current = index;
+            if !internal {
+                index = index.wrapping_add(1);
+            }
+            (workspace, current)
+        })
+        .collect()
+}
+fn desktop_names<'a>(names: impl IntoIterator<Item = &'a CStr>) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    for name in names {
+        bytes.extend_from_slice(name.to_bytes_with_nul());
+    }
+    bytes
+}
+fn desktop_viewports(origins: impl IntoIterator<Item = [u32; 2]>) -> Vec<u32> {
+    let mut words = Vec::new();
+    for origin in origins {
+        words.extend_from_slice(&origin);
+    }
+    words
+}
+fn current_desktop_changed(previous: u32, desktop: u32) -> bool {
+    desktop != previous && desktop != NET_WM_DESKTOP_NONE
+}
+#[derive(Debug, PartialEq, Eq)]
+enum DesktopProperty {
+    Set(u32),
+    Delete,
+}
+fn window_desktop(desktop: u32, sticky: bool, floating: bool, internal: bool) -> u32 {
+    if sticky && floating || internal {
+        NET_WM_DESKTOP_ALL
+    } else {
+        desktop
+    }
+}
+fn desktop_property_change(previous: u32, desktop: u32) -> Option<DesktopProperty> {
+    if previous == desktop {
+        None
+    } else if desktop == NET_WM_DESKTOP_NONE {
+        Some(DesktopProperty::Delete)
+    } else {
+        Some(DesktopProperty::Set(desktop))
+    }
+}
+
+/// # Safety
+/// conn is this event thread's live XCB connection. XCB copies the bounded
+/// payload synchronously; neither pointer nor graph references are retained.
+unsafe fn set_bytes(window: xcb_window_t, property: xcb_atom_t, type_: xcb_atom_t, bytes: &[u8]) {
+    let length = u32::try_from(bytes.len()).expect("EWMH byte payload exceeds X11 property limit");
     xcb_change_property(
         conn,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
-        root,
-        A__NET_CURRENT_DESKTOP,
-        XCB_ATOM_CARDINAL as ::core::ffi::c_int as xcb_atom_t,
-        32 as u8,
-        1 as u32,
-        &raw const idx as *const ::core::ffi::c_void,
+        XCB_PROP_MODE_REPLACE as u8,
+        window,
+        property,
+        type_,
+        8,
+        length,
+        bytes.as_ptr().cast(),
     );
+}
+/// # Safety
+/// Same connection/lifetime contract as set_bytes. Words use native u32 layout:
+/// XCB serializes them according to the connection's negotiated byte order.
+unsafe fn set_words(window: xcb_window_t, property: xcb_atom_t, type_: xcb_atom_t, words: &[u32]) {
+    let length = u32::try_from(words.len()).expect("EWMH word payload exceeds X11 property limit");
+    xcb_change_property(
+        conn,
+        XCB_PROP_MODE_REPLACE as u8,
+        window,
+        property,
+        type_,
+        32,
+        length,
+        words.as_ptr().cast(),
+    );
+}
+
+/// # Safety
+/// Called by the native event thread with a live connection and focused tree.
+pub unsafe fn ewmh_update_current_desktop() {
+    static mut PREVIOUS: u32 = NET_WM_DESKTOP_NONE;
+    let index = ewmh_get_workspace_index(focused);
+    if current_desktop_changed(PREVIOUS, index) {
+        PREVIOUS = index;
+        set_words(root, A__NET_CURRENT_DESKTOP, XCB_ATOM_CARDINAL, &[index]);
+    }
 }
 unsafe fn ewmh_update_number_of_desktops() {
-    let mut output: *mut Con = ::core::ptr::null_mut::<Con>();
-    let mut ws: *mut Con = ::core::ptr::null_mut::<Con>();
-    static mut old_idx: u32 = 0 as u32;
-    let mut idx: u32 = 0 as u32;
-    output = (*croot).nodes_head.tqh_first as *mut Con;
-    while !output.is_null() {
-        ws = (*output_get_content(output)).nodes_head.tqh_first as *mut Con;
-        while !ws.is_null() {
-            if !con_is_internal(ws) {
-                idx = idx.wrapping_add(1);
-            }
-            ws = (*ws).nodes.tqe_next as *mut Con;
-        }
-        output = (*output).nodes.tqe_next as *mut Con;
+    static mut PREVIOUS: u32 = 0;
+    let count = workspace_entries()
+        .iter()
+        .filter(|workspace| !workspace.internal)
+        .fold(0u32, |count, _| count.wrapping_add(1));
+    if count != PREVIOUS {
+        PREVIOUS = count;
+        set_words(root, A__NET_NUMBER_OF_DESKTOPS, XCB_ATOM_CARDINAL, &[count]);
     }
-    if idx == old_idx {
-        return;
-    }
-    old_idx = idx;
-    xcb_change_property(
-        conn,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
-        root,
-        A__NET_NUMBER_OF_DESKTOPS,
-        XCB_ATOM_CARDINAL as ::core::ffi::c_int as xcb_atom_t,
-        32 as u8,
-        1 as u32,
-        &raw mut idx as *const ::core::ffi::c_void,
-    );
 }
 unsafe fn ewmh_update_desktop_names() {
-    let mut output: *mut Con = ::core::ptr::null_mut::<Con>();
-    let mut ws: *mut Con = ::core::ptr::null_mut::<Con>();
-    let mut msg_length: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    output = (*croot).nodes_head.tqh_first as *mut Con;
-    while !output.is_null() {
-        ws = (*output_get_content(output)).nodes_head.tqh_first as *mut Con;
-        while !ws.is_null() {
-            if !con_is_internal(ws) {
-                msg_length = (msg_length as usize)
-                    .wrapping_add(strlen((*ws).name).wrapping_add(1 as usize))
-                    as ::core::ffi::c_int as ::core::ffi::c_int;
-            }
-            ws = (*ws).nodes.tqe_next as *mut Con;
-        }
-        output = (*output).nodes.tqe_next as *mut Con;
-    }
-    let vla = msg_length as usize;
-    let mut desktop_names: Vec<::core::ffi::c_char> = ::std::vec::from_elem(0, vla);
-    let mut current_position: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    output = (*croot).nodes_head.tqh_first as *mut Con;
-    while !output.is_null() {
-        ws = (*output_get_content(output)).nodes_head.tqh_first as *mut Con;
-        while !ws.is_null() {
-            if !con_is_internal(ws) {
-                let mut i: usize = 0 as usize;
-                while i < strlen((*ws).name).wrapping_add(1 as usize) {
-                    let fresh0 = current_position;
-                    current_position = current_position + 1;
-                    *desktop_names.as_mut_ptr().offset(fresh0 as isize) =
-                        *(*ws).name.offset(i as isize);
-                    i = i.wrapping_add(1);
-                }
-            }
-            ws = (*ws).nodes.tqe_next as *mut Con;
-        }
-        output = (*output).nodes.tqe_next as *mut Con;
-    }
-    xcb_change_property(
-        conn,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
-        root,
-        A__NET_DESKTOP_NAMES,
-        A_UTF8_STRING,
-        8 as u8,
-        msg_length as u32,
-        desktop_names.as_mut_ptr() as *const ::core::ffi::c_void,
-    );
+    // Copy native names before submitting the property; preserve raw bytes and
+    // one NUL per name, including an empty name and the last name.
+    let names: Vec<_> = workspace_entries()
+        .into_iter()
+        .filter(|workspace| !workspace.internal)
+        .map(|workspace| CStr::from_ptr((*workspace.con).name).to_owned())
+        .collect();
+    let payload = desktop_names(names.iter().map(|name| name.as_c_str()));
+    set_bytes(root, A__NET_DESKTOP_NAMES, A_UTF8_STRING, &payload);
 }
 unsafe fn ewmh_update_desktop_viewport() {
-    let mut output: *mut Con = ::core::ptr::null_mut::<Con>();
-    let mut ws: *mut Con = ::core::ptr::null_mut::<Con>();
-    let mut num_desktops: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    output = (*croot).nodes_head.tqh_first as *mut Con;
-    while !output.is_null() {
-        ws = (*output_get_content(output)).nodes_head.tqh_first as *mut Con;
-        while !ws.is_null() {
-            if !con_is_internal(ws) {
-                num_desktops += 1;
-            }
-            ws = (*ws).nodes.tqe_next as *mut Con;
-        }
-        output = (*output).nodes.tqe_next as *mut Con;
-    }
-    let vla = (num_desktops * 2 as ::core::ffi::c_int) as usize;
-    let mut viewports: Vec<u32> = ::std::vec::from_elem(0, vla);
-    let mut current_position: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    output = (*croot).nodes_head.tqh_first as *mut Con;
-    while !output.is_null() {
-        ws = (*output_get_content(output)).nodes_head.tqh_first as *mut Con;
-        while !ws.is_null() {
-            if !con_is_internal(ws) {
-                let fresh1 = current_position;
-                current_position = current_position + 1;
-                *viewports.as_mut_ptr().offset(fresh1 as isize) = (*output).rect.x;
-                let fresh2 = current_position;
-                current_position = current_position + 1;
-                *viewports.as_mut_ptr().offset(fresh2 as isize) = (*output).rect.y;
-            }
-            ws = (*ws).nodes.tqe_next as *mut Con;
-        }
-        output = (*output).nodes.tqe_next as *mut Con;
-    }
-    xcb_change_property(
-        conn,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
-        root,
-        A__NET_DESKTOP_VIEWPORT,
-        XCB_ATOM_CARDINAL as ::core::ffi::c_int as xcb_atom_t,
-        32 as u8,
-        current_position as u32,
-        viewports.as_mut_ptr() as *const ::core::ffi::c_void,
+    let payload = desktop_viewports(
+        workspace_entries()
+            .into_iter()
+            .filter(|workspace| !workspace.internal)
+            .map(|workspace| workspace.viewport),
     );
+    set_words(root, A__NET_DESKTOP_VIEWPORT, XCB_ATOM_CARDINAL, &payload);
 }
-
+/// # Safety
+/// The event thread owns the live tree and connection throughout all updates.
 pub unsafe fn ewmh_update_desktop_properties() {
+    // Keep request order and independent cache updates identical to upstream.
     ewmh_update_number_of_desktops();
     ewmh_update_desktop_viewport();
     ewmh_update_current_desktop();
     ewmh_update_desktop_names();
     ewmh_update_wm_desktop();
 }
+
+/// # Safety
+/// con is a live graph node on the event thread. Traversal, cached window
+/// mutation, and XCB submission are exclusive; logging must not mutate the tree.
 unsafe fn ewmh_update_wm_desktop_recursively(con: *mut Con, desktop: u32) {
-    let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-    child = (*con).nodes_head.tqh_first as *mut Con;
+    let mut child = (*con).nodes_head.tqh_first;
     while !child.is_null() {
         ewmh_update_wm_desktop_recursively(child, desktop);
-        child = (*child).nodes.tqe_next as *mut Con;
+        child = (*child).nodes.tqe_next;
     }
-    if (*con).type_0 as ::core::ffi::c_uint
-        == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
-        child = (*con).floating_head.tqh_first as *mut Con;
+    if (*con).type_0 == WORKSPACE {
+        child = (*con).floating_head.tqh_first;
         while !child.is_null() {
             ewmh_update_wm_desktop_recursively(child, desktop);
-            child = (*child).floating_windows.tqe_next as *mut Con;
+            child = (*child).floating_windows.tqe_next;
         }
     }
     if !con_has_managed_window(con) {
         return;
     }
-    let mut wm_desktop: u32 = desktop;
-    if con_is_sticky(con) as ::core::ffi::c_int != 0
-        && con_is_floating(con) as ::core::ffi::c_int != 0
-    {
-        wm_desktop = NET_WM_DESKTOP_ALL as u32;
-    }
-    let ws: *mut Con = con_get_workspace(con);
-    if !ws.is_null() && con_is_internal(ws) as ::core::ffi::c_int != 0 {
-        wm_desktop = NET_WM_DESKTOP_ALL as u32;
-    }
-    if (*(*con).window).wm_desktop == wm_desktop {
-        return;
-    }
-    (*(*con).window).wm_desktop = wm_desktop;
-    let window: xcb_window_t = (*(*con).window).id;
-    if wm_desktop != NET_WM_DESKTOP_NONE as u32 {
-        debuglog(
-            c"%s:%s:%d - Setting _NET_WM_DESKTOP = %d for window 0x%08x.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/ewmh.c".as_ptr(),
-            c"ewmh_update_wm_desktop_recursively".as_ptr(),
-            171 as ::core::ffi::c_int,
-            wm_desktop,
-            window,
-        );
-        xcb_change_property(
-            conn,
-            XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
-            window,
-            A__NET_WM_DESKTOP,
-            XCB_ATOM_CARDINAL as ::core::ffi::c_int as xcb_atom_t,
-            32 as u8,
-            1 as u32,
-            &raw mut wm_desktop as *const ::core::ffi::c_void,
-        );
-    } else {
-        errorlog(
-            c"ERROR: Failed to determine the proper EWMH desktop index for window 0x%08x, deleting _NET_WM_DESKTOP.\n".as_ptr().cast_mut(),
-            window,
-        );
-        xcb_delete_property(conn, window, A__NET_WM_DESKTOP);
-    };
-}
-
-pub unsafe fn ewmh_update_wm_desktop() {
-    let mut desktop: u32 = 0 as u32;
-    let mut output: *mut Con = ::core::ptr::null_mut::<Con>();
-    output = (*croot).nodes_head.tqh_first as *mut Con;
-    while !output.is_null() {
-        let mut workspace: *mut Con = ::core::ptr::null_mut::<Con>();
-        workspace = (*output_get_content(output)).nodes_head.tqh_first as *mut Con;
-        while !workspace.is_null() {
-            ewmh_update_wm_desktop_recursively(workspace, desktop);
-            if !con_is_internal(workspace) {
-                desktop = desktop.wrapping_add(1);
-            }
-            workspace = (*workspace).nodes.tqe_next as *mut Con;
-        }
-        output = (*output).nodes.tqe_next as *mut Con;
-    }
-}
-
-pub unsafe fn ewmh_update_active_window(mut window: xcb_window_t) {
-    xcb_change_property(
-        conn,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
-        root,
-        A__NET_ACTIVE_WINDOW,
-        XCB_ATOM_WINDOW as ::core::ffi::c_int as xcb_atom_t,
-        32 as u8,
-        1 as u32,
-        &raw mut window as *const ::core::ffi::c_void,
+    let workspace = con_get_workspace(con);
+    let sticky = con_is_sticky(con);
+    let floating = sticky && con_is_floating(con);
+    let desktop = window_desktop(
+        desktop,
+        sticky,
+        floating,
+        !workspace.is_null() && con_is_internal(workspace),
     );
+    let Some(change) = desktop_property_change((*(*con).window).wm_desktop, desktop) else {
+        return;
+    };
+    // Cache before issuing the native request, including the deletion sentinel.
+    (*(*con).window).wm_desktop = desktop;
+    let window = (*(*con).window).id;
+    match change {
+        DesktopProperty::Set(desktop) => {
+            debuglog(
+                c"%s:%s:%d - Setting _NET_WM_DESKTOP = %d for window 0x%08x.\n"
+                    .as_ptr()
+                    .cast_mut(),
+                c"../src/ewmh.c".as_ptr(),
+                c"ewmh_update_wm_desktop_recursively".as_ptr(),
+                171i32,
+                desktop,
+                window,
+            );
+            set_words(window, A__NET_WM_DESKTOP, XCB_ATOM_CARDINAL, &[desktop]);
+        }
+        DesktopProperty::Delete => {
+            errorlog(c"ERROR: Failed to determine the proper EWMH desktop index for window 0x%08x, deleting _NET_WM_DESKTOP.\n".as_ptr().cast_mut(),window);
+            xcb_delete_property(conn, window, A__NET_WM_DESKTOP);
+        }
+    }
 }
-
-pub unsafe fn ewmh_update_visible_name(window: xcb_window_t, name: *const ::core::ffi::c_char) {
-    if !name.is_null() {
-        xcb_change_property(
-            conn,
-            XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
+/// # Safety
+/// The event thread owns the live workspace graph and native connection.
+pub unsafe fn ewmh_update_wm_desktop() {
+    let entries = workspace_entries()
+        .into_iter()
+        .map(|entry| (entry.con, entry.internal));
+    for (workspace, desktop) in workspace_desktop_indices(entries) {
+        ewmh_update_wm_desktop_recursively(workspace, desktop);
+    }
+}
+/// # Safety
+/// conn/root are live native event-thread resources.
+pub unsafe fn ewmh_update_active_window(window: xcb_window_t) {
+    set_words(root, A__NET_ACTIVE_WINDOW, XCB_ATOM_WINDOW, &[window]);
+}
+/// # Safety
+/// name is null or a readable terminated string; conn is the event thread's
+/// live XCB connection. The borrowed name is copied synchronously by XCB.
+pub unsafe fn ewmh_update_visible_name(window: xcb_window_t, name: *const libc::c_char) {
+    if name.is_null() {
+        xcb_delete_property(conn, window, A__NET_WM_VISIBLE_NAME);
+    } else {
+        set_bytes(
             window,
             A__NET_WM_VISIBLE_NAME,
             A_UTF8_STRING,
-            8 as u8,
-            strlen(name) as u32,
-            name as *const ::core::ffi::c_void,
+            CStr::from_ptr(name).to_bytes(),
         );
-    } else {
-        xcb_delete_property(conn, window, A__NET_WM_VISIBLE_NAME);
-    };
+    }
 }
-
+/// # Safety
+/// conn/root are live native event-thread resources.
 pub unsafe fn ewmh_update_workarea() {
     xcb_delete_property(conn, root, A__NET_WORKAREA);
 }
-
-pub unsafe fn ewmh_update_client_list(list: *mut xcb_window_t, num_windows: ::core::ffi::c_int) {
-    xcb_change_property(
-        conn,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
-        root,
-        A__NET_CLIENT_LIST,
-        XCB_ATOM_WINDOW as ::core::ffi::c_int as xcb_atom_t,
-        32 as u8,
-        num_windows as u32,
-        list as *const ::core::ffi::c_void,
-    );
+/// # Safety
+/// list points to num_windows readable window IDs when nonzero. The count is
+/// nonnegative; null is permitted for zero. conn/root belong to this thread.
+pub unsafe fn ewmh_update_client_list(list: *mut xcb_window_t, num_windows: i32) {
+    let length = usize::try_from(num_windows).expect("negative EWMH client count");
+    let windows = if length == 0 {
+        &[]
+    } else {
+        std::slice::from_raw_parts(list, length)
+    };
+    set_words(root, A__NET_CLIENT_LIST, XCB_ATOM_WINDOW, windows);
 }
-
-pub unsafe fn ewmh_update_client_list_stacking(
-    stack: *mut xcb_window_t,
-    num_windows: ::core::ffi::c_int,
-) {
-    xcb_change_property(
-        conn,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
-        root,
-        A__NET_CLIENT_LIST_STACKING,
-        XCB_ATOM_WINDOW as ::core::ffi::c_int as xcb_atom_t,
-        32 as u8,
-        num_windows as u32,
-        stack as *const ::core::ffi::c_void,
-    );
+/// # Safety
+/// Same readable-span/count/connection contract as ewmh_update_client_list.
+pub unsafe fn ewmh_update_client_list_stacking(stack: *mut xcb_window_t, num_windows: i32) {
+    let length = usize::try_from(num_windows).expect("negative EWMH stacking count");
+    let windows = if length == 0 {
+        &[]
+    } else {
+        std::slice::from_raw_parts(stack, length)
+    };
+    set_words(root, A__NET_CLIENT_LIST_STACKING, XCB_ATOM_WINDOW, windows);
 }
-
+/// # Safety
+/// conn and the requested window belong to the native event thread.
 pub unsafe fn ewmh_update_sticky(window: xcb_window_t, sticky: bool) {
     if sticky {
         debuglog(
@@ -369,6 +344,8 @@ pub unsafe fn ewmh_update_sticky(window: xcb_window_t, sticky: bool) {
     };
 }
 
+/// # Safety
+/// conn and the requested window belong to the native event thread.
 pub unsafe fn ewmh_update_focused(window: xcb_window_t, is_focused: bool) {
     if is_focused {
         debuglog(
@@ -395,8 +372,10 @@ pub unsafe fn ewmh_update_focused(window: xcb_window_t, is_focused: bool) {
     };
 }
 
+/// # Safety
+/// The event thread owns initialized atoms, root and conn. Called during setup.
 pub unsafe fn ewmh_setup_hints() {
-    let mut supported_atoms: [xcb_atom_t; 37] = [
+    let supported_atoms: [xcb_atom_t; 37] = [
         A__NET_SUPPORTED,
         A__NET_SUPPORTING_WM_CHECK,
         A__NET_WM_NAME,
@@ -435,132 +414,69 @@ pub unsafe fn ewmh_setup_hints() {
         A__NET_CLOSE_WINDOW,
         A__NET_MOVERESIZE_WINDOW,
     ];
-    ewmh_window = xcb_generate_id(conn) as xcb_window_t;
-    let mut fresh3: [u32; 1] = [1 as ::core::ffi::c_int as u32];
+    ewmh_window = xcb_generate_id(conn);
+    let window = ewmh_window;
+    let override_redirect = [1u32];
     xcb_create_window(
         conn,
         XCB_COPY_FROM_PARENT as u8,
-        ewmh_window,
+        window,
         root,
-        -(1 as ::core::ffi::c_int) as i16,
-        -(1 as ::core::ffi::c_int) as i16,
-        1 as u16,
-        1 as u16,
-        0 as u16,
-        XCB_WINDOW_CLASS_INPUT_ONLY as ::core::ffi::c_int as u16,
+        -1,
+        -1,
+        1,
+        1,
+        0,
+        XCB_WINDOW_CLASS_INPUT_ONLY as u16,
         XCB_COPY_FROM_PARENT as xcb_visualid_t,
-        XCB_CW_OVERRIDE_REDIRECT as ::core::ffi::c_int as u32,
-        &raw mut fresh3 as *mut u32 as *const ::core::ffi::c_void,
+        XCB_CW_OVERRIDE_REDIRECT as u32,
+        override_redirect.as_ptr().cast(),
     );
-    xcb_change_property(
-        conn,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
-        ewmh_window,
+    set_words(
+        window,
         A__NET_SUPPORTING_WM_CHECK,
-        XCB_ATOM_WINDOW as ::core::ffi::c_int as xcb_atom_t,
-        32 as u8,
-        1 as u32,
-        &raw mut ewmh_window as *const ::core::ffi::c_void,
+        XCB_ATOM_WINDOW,
+        &[window],
     );
-    xcb_change_property(
-        conn,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
-        ewmh_window,
-        A__NET_WM_NAME,
-        A_UTF8_STRING,
-        8 as u8,
-        strlen(c"i3".as_ptr()) as u32,
-        c"i3".as_ptr() as *const ::core::ffi::c_void,
-    );
-    xcb_change_property(
-        conn,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
-        root,
-        A__NET_SUPPORTING_WM_CHECK,
-        XCB_ATOM_WINDOW as ::core::ffi::c_int as xcb_atom_t,
-        32 as u8,
-        1 as u32,
-        &raw mut ewmh_window as *const ::core::ffi::c_void,
-    );
-    xcb_change_property(
-        conn,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
-        root,
-        A__NET_WM_NAME,
-        A_UTF8_STRING,
-        8 as u8,
-        strlen(c"i3".as_ptr()) as u32,
-        c"i3".as_ptr() as *const ::core::ffi::c_void,
-    );
-    xcb_change_property(
-        conn,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
-        root,
-        A__NET_SUPPORTED,
-        XCB_ATOM_ATOM as ::core::ffi::c_int as xcb_atom_t,
-        32 as u8,
-        (::core::mem::size_of::<[xcb_atom_t; 37]>() as usize)
-            .wrapping_div(::core::mem::size_of::<xcb_atom_t>() as usize) as u32,
-        &raw mut supported_atoms as *mut xcb_atom_t as *const ::core::ffi::c_void,
-    );
-    xcb_map_window(conn, ewmh_window);
-    let mut fresh4: [u32; 1] = [XCB_STACK_MODE_BELOW as ::core::ffi::c_int as u32];
+    set_bytes(window, A__NET_WM_NAME, A_UTF8_STRING, b"i3");
+    set_words(root, A__NET_SUPPORTING_WM_CHECK, XCB_ATOM_WINDOW, &[window]);
+    set_bytes(root, A__NET_WM_NAME, A_UTF8_STRING, b"i3");
+    set_words(root, A__NET_SUPPORTED, XCB_ATOM_ATOM, &supported_atoms);
+    xcb_map_window(conn, window);
+    let stack_mode = [XCB_STACK_MODE_BELOW as u32];
     xcb_configure_window(
         conn,
-        ewmh_window,
-        XCB_CONFIG_WINDOW_STACK_MODE as ::core::ffi::c_int as u16,
-        &raw mut fresh4 as *mut u32 as *const ::core::ffi::c_void,
+        window,
+        XCB_CONFIG_WINDOW_STACK_MODE as u16,
+        stack_mode.as_ptr().cast(),
     );
 }
-
-pub unsafe fn ewmh_get_workspace_by_index(idx: u32) -> *mut Con {
-    if idx == NET_WM_DESKTOP_NONE as u32 {
-        return ::core::ptr::null_mut::<Con>();
+/// # Safety
+/// The event thread owns a stable workspace graph. Returned pointer is borrowed
+/// and must not be used after a subsequent tree mutation removes its node.
+pub unsafe fn ewmh_get_workspace_by_index(index: u32) -> *mut Con {
+    if index == NET_WM_DESKTOP_NONE {
+        return ptr::null_mut();
     }
-    let mut current_index: u32 = 0 as u32;
-    let mut output: *mut Con = ::core::ptr::null_mut::<Con>();
-    let mut ws: *mut Con = ::core::ptr::null_mut::<Con>();
-    output = (*croot).nodes_head.tqh_first as *mut Con;
-    while !output.is_null() {
-        ws = (*output_get_content(output)).nodes_head.tqh_first as *mut Con;
-        while !ws.is_null() {
-            if !con_is_internal(ws) {
-                if current_index == idx {
-                    return ws;
-                }
-                current_index = current_index.wrapping_add(1);
-            }
-            ws = (*ws).nodes.tqe_next as *mut Con;
-        }
-        output = (*output).nodes.tqe_next as *mut Con;
-    }
-    ::core::ptr::null_mut::<Con>()
+    public_workspace_at(
+        workspace_entries()
+            .into_iter()
+            .map(|entry| (entry.con, entry.internal)),
+        index,
+    )
+    .unwrap_or(ptr::null_mut())
 }
-
+/// # Safety
+/// con belongs to the event thread's stable tree (as required by con_get_workspace).
 pub unsafe fn ewmh_get_workspace_index(con: *mut Con) -> u32 {
-    let mut index: u32 = 0 as u32;
-    let target_workspace: *mut Con = con_get_workspace(con);
-    let mut output: *mut Con = ::core::ptr::null_mut::<Con>();
-    let mut ws: *mut Con = ::core::ptr::null_mut::<Con>();
-    output = (*croot).nodes_head.tqh_first as *mut Con;
-    while !output.is_null() {
-        ws = (*output_get_content(output)).nodes_head.tqh_first as *mut Con;
-        while !ws.is_null() {
-            if !con_is_internal(ws) {
-                if ws == target_workspace {
-                    return index;
-                }
-                index = index.wrapping_add(1);
-            }
-            ws = (*ws).nodes.tqe_next as *mut Con;
-        }
-        output = (*output).nodes.tqe_next as *mut Con;
-    }
-    NET_WM_DESKTOP_NONE as u32
+    let target = con_get_workspace(con);
+    public_workspace_index(
+        workspace_entries()
+            .into_iter()
+            .map(|entry| (entry.con, entry.internal)),
+        target,
+    )
 }
-
-// Canonical Cairo backend ABI; renderer logic remains local.
-
 use xcb_sys::{
     xcb_atom_t, xcb_change_property, xcb_configure_window, xcb_create_window, xcb_delete_property,
     xcb_generate_id, xcb_map_window, xcb_visualid_t, xcb_window_t, XCB_ATOM_ATOM,
@@ -569,13 +485,10 @@ use xcb_sys::{
     XCB_WINDOW_CLASS_INPUT_ONLY,
 };
 
-pub use libc::strlen;
-
 use crate::log::{debuglog, errorlog};
 
 // Shared model types retain field layout while using one Rust identity.
-pub use crate::types::Con;
-pub use i3_common::string::I3String as _i3String;
+use crate::types::Con;
 
 // Internal calls and globals use canonical Rust identities.
 use crate::application::conn;
@@ -629,3 +542,105 @@ use crate::tree::croot;
 use crate::tree::focused;
 use crate::xcb::xcb_add_property_atom;
 use crate::xcb::xcb_remove_property_atom;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn desktop_name_payload_preserves_raw_bytes_empty_names_and_final_nul() {
+        let names = [
+            c"1: web",
+            c"",
+            CStr::from_bytes_with_nul(b"\xff\xfe\0").unwrap(),
+        ];
+        assert_eq!(desktop_names(names), b"1: web\0\0\xff\xfe\0");
+        assert!(desktop_names(std::iter::empty()).is_empty());
+    }
+
+    #[test]
+    fn viewports_keep_output_order_and_unsigned_negative_coordinate_bits() {
+        let viewports = desktop_viewports([[(-1920i32) as u32, 0], [0, (-720i32) as u32], [0, 0]]);
+        assert_eq!(viewports, [0xfffff880, 0, 0, 0xfffffd30, 0, 0]);
+        // These are 32-bit CARDINAL elements, not a byte count or a packed
+        // machine-sized integer array. XCB consumes native-endian words.
+        let wire_bytes: Vec<_> = viewports
+            .iter()
+            .flat_map(|word| word.to_ne_bytes())
+            .collect();
+        assert_eq!(wire_bytes.len(), 24);
+        assert_eq!(&wire_bytes[..4], &0xfffff880u32.to_ne_bytes());
+        assert!(desktop_viewports([]).is_empty());
+    }
+
+    #[test]
+    fn internal_workspaces_are_updated_but_do_not_consume_public_indices() {
+        let entries = [
+            ("scratch", true),
+            ("one", false),
+            ("internal", true),
+            ("two", false),
+        ];
+        assert_eq!(
+            workspace_desktop_indices(entries),
+            [("scratch", 0), ("one", 0), ("internal", 1), ("two", 1)]
+        );
+        assert_eq!(public_workspace_index(entries, "one"), 0);
+        assert_eq!(public_workspace_index(entries, "two"), 1);
+        assert_eq!(
+            public_workspace_index(entries, "scratch"),
+            NET_WM_DESKTOP_NONE
+        );
+        assert_eq!(
+            public_workspace_index(entries, "missing"),
+            NET_WM_DESKTOP_NONE
+        );
+        assert_eq!(public_workspace_at(entries, 0), Some("one"));
+        assert_eq!(public_workspace_at(entries, 1), Some("two"));
+        assert_eq!(public_workspace_at(entries, 2), None);
+        assert_eq!(public_workspace_at(entries, NET_WM_DESKTOP_NONE), None);
+        assert_eq!(public_workspace_at(entries, NET_WM_DESKTOP_ALL), None);
+    }
+
+    #[test]
+    fn missing_current_desktop_retains_cache_but_missing_window_desktop_deletes() {
+        assert!(!current_desktop_changed(3, 3));
+        assert!(!current_desktop_changed(3, NET_WM_DESKTOP_NONE));
+        assert!(current_desktop_changed(NET_WM_DESKTOP_NONE, 0));
+        assert_eq!(
+            desktop_property_change(3, NET_WM_DESKTOP_NONE),
+            Some(DesktopProperty::Delete)
+        );
+        assert_eq!(
+            desktop_property_change(NET_WM_DESKTOP_NONE, NET_WM_DESKTOP_NONE),
+            None
+        );
+        assert_eq!(
+            desktop_property_change(NET_WM_DESKTOP_NONE, 0),
+            Some(DesktopProperty::Set(0))
+        );
+        assert_eq!(
+            desktop_property_change(NET_WM_DESKTOP_ALL, NET_WM_DESKTOP_ALL),
+            None
+        );
+    }
+
+    #[test]
+    fn sticky_requires_floating_and_internal_workspaces_always_use_all_desktops() {
+        assert_eq!(window_desktop(4, true, false, false), 4);
+        assert_eq!(window_desktop(4, false, true, false), 4);
+        assert_eq!(window_desktop(4, true, true, false), NET_WM_DESKTOP_ALL);
+        assert_eq!(
+            window_desktop(NET_WM_DESKTOP_NONE, false, false, true),
+            NET_WM_DESKTOP_ALL
+        );
+        assert_eq!(
+            desktop_property_change(4, window_desktop(4, true, true, false)),
+            Some(DesktopProperty::Set(NET_WM_DESKTOP_ALL))
+        );
+        assert_eq!(
+            desktop_property_change(NET_WM_DESKTOP_ALL, window_desktop(4, false, true, false)),
+            Some(DesktopProperty::Set(4))
+        );
+    }
+}
