@@ -19,74 +19,17 @@ use crate::types::WindowDock;
 
 pub type i3String = _i3String;
 
-pub type i3Font = Font;
-
 pub type fullscreen_mode_t = ::core::ffi::c_uint;
-pub const CF_GLOBAL: fullscreen_mode_t = 2;
 pub const CF_OUTPUT: fullscreen_mode_t = 1;
 pub const CF_NONE: fullscreen_mode_t = 0;
 
-pub const M_BELOW: ::core::ffi::c_uint = 2;
-pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
-pub const M_HERE: ::core::ffi::c_uint = 0;
-
-pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
-pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
-pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
-pub const M_NODOCK: ::core::ffi::c_int = 0;
-pub const M_DONTCHECK: ::core::ffi::c_int = -1;
-
-pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
-pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
-pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
-pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
-pub const A_COMMAND: ::core::ffi::c_uint = 1;
-pub const A_ANY: ::core::ffi::c_uint = 0;
-
 pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
-pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
-pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
-pub const CT_CON: ::core::ffi::c_uint = 2;
-pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
-pub const CT_ROOT: ::core::ffi::c_uint = 0;
 
 pub type Output = xoutput;
 pub type i3Window = Window;
 
-pub type hide_edge_borders_mode_t = ::core::ffi::c_uint;
-pub const HEBM_SMART_NO_GAPS: hide_edge_borders_mode_t = 64;
-pub const HEBM_SMART: hide_edge_borders_mode_t = 32;
-pub const HEBM_BOTH: hide_edge_borders_mode_t = 23;
-pub const HEBM_HORIZONTAL: hide_edge_borders_mode_t = 20;
-pub const HEBM_VERTICAL: hide_edge_borders_mode_t = 3;
-pub const HEBM_NONE: hide_edge_borders_mode_t = 0;
-
 pub use crate::application::ignore_event_sequence_t;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Ignore_Event {
-    pub sequence: ignore_event_sequence_t,
-    pub response_type: ::core::ffi::c_int,
-    pub added: libc::time_t,
-    pub ignore_events: C2RustUnnamed_22,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_22 {
-    pub sle_next: *mut Ignore_Event,
-}
 
-pub type tiling_drag_t = ::core::ffi::c_uint;
-pub const TILING_DRAG_MODIFIER_OR_TITLEBAR: tiling_drag_t = 3;
-pub const TILING_DRAG_TITLEBAR: tiling_drag_t = 2;
-pub const TILING_DRAG_MODIFIER: tiling_drag_t = 1;
-pub const TILING_DRAG_OFF: tiling_drag_t = 0;
-
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct ignore_head {
-    pub slh_first: *mut Ignore_Event,
-}
 pub type cb_property_handler_t = Option<unsafe fn(*mut Con, *mut xcb_get_property_reply_t) -> bool>;
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -122,61 +65,48 @@ pub static mut xkb_base: ::core::ffi::c_int = -(1 as ::core::ffi::c_int);
 pub static mut xkb_current_group: ::core::ffi::c_int = 0;
 
 pub static mut shape_base: ::core::ffi::c_int = -(1 as ::core::ffi::c_int);
-static mut ignore_events: ignore_head = ignore_head {
-    slh_first: ::core::ptr::null::<Ignore_Event>() as *mut Ignore_Event,
-};
-
-pub unsafe fn add_ignore_event(
-    sequence: ignore_event_sequence_t,
-    response_type: ::core::ffi::c_int,
-) {
-    let event: *mut Ignore_Event =
-        smalloc(::core::mem::size_of::<Ignore_Event>() as usize) as *mut Ignore_Event;
-    (*event).sequence = sequence;
-    (*event).response_type = response_type;
-    (*event).added = time(::core::ptr::null_mut::<libc::time_t>());
-    (*event).ignore_events.sle_next = ignore_events.slh_first;
-    ignore_events.slh_first = event;
+struct IgnoredEvent {
+    sequence: u32,
+    response: i32,
+    added: libc::time_t,
 }
+#[derive(Default)]
+struct IgnoredEvents(Vec<IgnoredEvent>);
+impl IgnoredEvents {
+    fn add(&mut self, sequence: u32, response: i32, now: libc::time_t) {
+        self.0.insert(
+            0,
+            IgnoredEvent {
+                sequence,
+                response,
+                added: now,
+            },
+        );
+    }
+    fn contains(&mut self, sequence: u32, response: i32, now: libc::time_t) -> bool {
+        // Preserve wall-clock seconds, backward-clock behavior, and strict >5.
+        self.0.retain(|event| now.wrapping_sub(event.added) <= 5);
+        self.0.iter().any(|event| {
+            event.sequence == sequence && (event.response == -1 || event.response == response)
+        })
+    }
+}
+static IGNORED_EVENTS: std::sync::Mutex<IgnoredEvents> =
+    std::sync::Mutex::new(IgnoredEvents(Vec::new()));
 
-pub unsafe fn event_is_ignored(
-    sequence: ignore_event_sequence_t,
-    response_type: ::core::ffi::c_int,
-) -> bool {
-    let mut event: *mut Ignore_Event = ::core::ptr::null_mut::<Ignore_Event>();
-    let now: libc::time_t = time(::core::ptr::null_mut::<libc::time_t>());
-    event = ignore_events.slh_first;
-    while !event.is_null() {
-        if now - (*event).added > 5 as libc::time_t {
-            let save: *mut Ignore_Event = event;
-            event = (*event).ignore_events.sle_next;
-            if ignore_events.slh_first == save {
-                ignore_events.slh_first = (*ignore_events.slh_first).ignore_events.sle_next;
-            } else {
-                let mut curelm: *mut Ignore_Event = ignore_events.slh_first;
-                while (*curelm).ignore_events.sle_next != save {
-                    curelm = (*curelm).ignore_events.sle_next;
-                }
-                (*curelm).ignore_events.sle_next =
-                    (*(*curelm).ignore_events.sle_next).ignore_events.sle_next;
-            }
-            free(save as *mut ::core::ffi::c_void);
-        } else {
-            event = (*event).ignore_events.sle_next;
-        }
-    }
-    event = ignore_events.slh_first;
-    while !event.is_null() {
-        if !((*event).sequence.value != sequence.value) {
-            if !((*event).response_type != -(1 as ::core::ffi::c_int)
-                && (*event).response_type != response_type)
-            {
-                return true_0 != 0;
-            }
-        }
-        event = (*event).ignore_events.sle_next;
-    }
-    false_0 != 0
+pub fn add_ignore_event(sequence: ignore_event_sequence_t, response_type: i32) {
+    let now = unsafe { time(std::ptr::null_mut()) };
+    IGNORED_EVENTS
+        .lock()
+        .unwrap()
+        .add(sequence.value, response_type, now);
+}
+pub fn event_is_ignored(sequence: ignore_event_sequence_t, response_type: i32) -> bool {
+    let now = unsafe { time(std::ptr::null_mut()) };
+    IGNORED_EVENTS
+        .lock()
+        .unwrap()
+        .contains(sequence.value, response_type, now)
 }
 unsafe fn check_crossing_screen_boundary(x: u32, y: u32) {
     let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
@@ -252,11 +182,11 @@ unsafe fn handle_enter_notify(event: *mut xcb_enter_notify_event_t, full_sequenc
         );
         return;
     }
-    let mut enter_child: bool = false_0 != 0;
+    let mut enter_child: bool = false;
     con = con_by_frame_id((*event).event);
     if con.is_null() {
         con = con_by_window_id((*event).event);
-        enter_child = true_0 != 0;
+        enter_child = true;
     }
     if con.is_null()
         || (*(*con).parent).type_0 as ::core::ffi::c_uint
@@ -413,8 +343,31 @@ unsafe fn handle_map_request(event: *const xcb_map_request_event_t, full_sequenc
         },
         -(1 as ::core::ffi::c_int),
     );
-    manage_window((*event).window, cookie, false_0 != 0);
+    manage_window((*event).window, cookie, false);
 }
+fn configure_values(event: xcb_configure_request_event_t) -> (u16, Vec<u32>) {
+    let mut mask = 0;
+    let mut values = Vec::with_capacity(7);
+    for (bit, value) in [
+        (XCB_CONFIG_WINDOW_X, event.x as u32),
+        (XCB_CONFIG_WINDOW_Y, event.y as u32),
+        (XCB_CONFIG_WINDOW_WIDTH, u32::from(event.width)),
+        (XCB_CONFIG_WINDOW_HEIGHT, u32::from(event.height)),
+        (
+            XCB_CONFIG_WINDOW_BORDER_WIDTH,
+            u32::from(event.border_width),
+        ),
+        (XCB_CONFIG_WINDOW_SIBLING, event.sibling),
+        (XCB_CONFIG_WINDOW_STACK_MODE, u32::from(event.stack_mode)),
+    ] {
+        if event.value_mask & bit as u16 != 0 {
+            mask |= bit as u16;
+            values.push(value);
+        }
+    }
+    (mask, values)
+}
+
 unsafe fn handle_configure_request(event: *mut xcb_configure_request_event_t) {
     let mut fullscreen: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
@@ -441,75 +394,8 @@ unsafe fn handle_configure_request(event: *mut xcb_configure_request_event_t) {
             c"handle_configure_request".as_ptr(),
             309 as ::core::ffi::c_int,
         );
-        let mut mask: u32 = 0 as u32;
-        let mut values: [u32; 7] = [0; 7];
-        let mut c: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-        if (*event).value_mask as ::core::ffi::c_int & XCB_CONFIG_WINDOW_X as ::core::ffi::c_int
-            != 0
-        {
-            mask |= XCB_CONFIG_WINDOW_X as ::core::ffi::c_int as u32;
-            let fresh0 = c;
-            c = c + 1;
-            values[fresh0 as usize] = (*event).x as u32;
-        }
-        if (*event).value_mask as ::core::ffi::c_int & XCB_CONFIG_WINDOW_Y as ::core::ffi::c_int
-            != 0
-        {
-            mask |= XCB_CONFIG_WINDOW_Y as ::core::ffi::c_int as u32;
-            let fresh1 = c;
-            c = c + 1;
-            values[fresh1 as usize] = (*event).y as u32;
-        }
-        if (*event).value_mask as ::core::ffi::c_int & XCB_CONFIG_WINDOW_WIDTH as ::core::ffi::c_int
-            != 0
-        {
-            mask |= XCB_CONFIG_WINDOW_WIDTH as ::core::ffi::c_int as u32;
-            let fresh2 = c;
-            c = c + 1;
-            values[fresh2 as usize] = (*event).width as u32;
-        }
-        if (*event).value_mask as ::core::ffi::c_int
-            & XCB_CONFIG_WINDOW_HEIGHT as ::core::ffi::c_int
-            != 0
-        {
-            mask |= XCB_CONFIG_WINDOW_HEIGHT as ::core::ffi::c_int as u32;
-            let fresh3 = c;
-            c = c + 1;
-            values[fresh3 as usize] = (*event).height as u32;
-        }
-        if (*event).value_mask as ::core::ffi::c_int
-            & XCB_CONFIG_WINDOW_BORDER_WIDTH as ::core::ffi::c_int
-            != 0
-        {
-            mask |= XCB_CONFIG_WINDOW_BORDER_WIDTH as ::core::ffi::c_int as u32;
-            let fresh4 = c;
-            c = c + 1;
-            values[fresh4 as usize] = (*event).border_width as u32;
-        }
-        if (*event).value_mask as ::core::ffi::c_int
-            & XCB_CONFIG_WINDOW_SIBLING as ::core::ffi::c_int
-            != 0
-        {
-            mask |= XCB_CONFIG_WINDOW_SIBLING as ::core::ffi::c_int as u32;
-            let fresh5 = c;
-            c = c + 1;
-            values[fresh5 as usize] = (*event).sibling as u32;
-        }
-        if (*event).value_mask as ::core::ffi::c_int
-            & XCB_CONFIG_WINDOW_STACK_MODE as ::core::ffi::c_int
-            != 0
-        {
-            mask |= XCB_CONFIG_WINDOW_STACK_MODE as ::core::ffi::c_int as u32;
-            let fresh6 = c;
-            c = c + 1;
-            values[fresh6 as usize] = (*event).stack_mode as u32;
-        }
-        xcb_configure_window(
-            conn,
-            (*event).window,
-            mask as u16,
-            &raw mut values as *mut u32 as *const ::core::ffi::c_void,
-        );
+        let (mask, values) = configure_values(*event);
+        xcb_configure_window(conn, (*event).window, mask, values.as_ptr().cast());
         xcb_flush(conn);
         return;
     }
@@ -703,7 +589,7 @@ unsafe fn handle_configure_request(event: *mut xcb_configure_request_event_t) {
                         nc,
                     );
                     con_detach(con);
-                    con_attach(con, nc, false_0 != 0);
+                    con_attach(con, nc, false);
                     tree_render();
                 } else {
                     debuglog(
@@ -782,7 +668,7 @@ unsafe fn handle_configure_request(event: *mut xcb_configure_request_event_t) {
                     436 as ::core::ffi::c_int,
                     con,
                 );
-                con_set_urgency(con, true_0 != 0);
+                con_set_urgency(con, true);
                 con = remanage_window(con);
                 tree_render();
             } else {
@@ -895,7 +781,7 @@ unsafe fn handle_unmap_notify_event(event: *mut xcb_unmap_notify_event_t, full_s
         } else {
             xcb_delete_property(conn, (*event).window, A__NET_WM_DESKTOP);
             xcb_delete_property(conn, (*event).window, A__NET_WM_STATE);
-            tree_close_internal(con, KillWindow::DontKill, false_0 != 0);
+            tree_close_internal(con, KillWindow::DontKill, false);
             tree_render();
         }
     }
@@ -936,57 +822,43 @@ unsafe fn handle_destroy_notify_event(event: *mut xcb_destroy_notify_event_t, fu
     unmap.window = (*event).window;
     handle_unmap_notify_event(&raw mut unmap, full_sequence);
 }
-unsafe fn window_name_changed(window: *mut i3Window, old_name: *mut ::core::ffi::c_char) -> bool {
-    if old_name.is_null() && (*window).name.is_null() {
-        return false_0 != 0;
-    }
-    if (old_name == NULL as *mut ::core::ffi::c_char) as ::core::ffi::c_int
-        ^ ((*window).name == NULL as *mut i3String) as ::core::ffi::c_int
-        != 0
-    {
-        return true_0 != 0;
-    }
-    strcmp(old_name, i3string_as_utf8((*window).name)) != 0 as ::core::ffi::c_int
+/// Copy only the native first-NUL text view before property/remanage callbacks
+/// can replace/free the original Window or its string.
+unsafe fn window_name_snapshot(window: *mut i3Window) -> Option<Vec<u8>> {
+    let name = (*window).name;
+    (!name.is_null()).then(|| {
+        std::ffi::CStr::from_ptr(i3string_as_utf8(name))
+            .to_bytes()
+            .to_vec()
+    })
 }
 unsafe fn handle_windowname_change(mut con: *mut Con, prop: *mut xcb_get_property_reply_t) -> bool {
-    let mut old_name: *mut ::core::ffi::c_char = if !(*(*con).window).name.is_null() {
-        sstrdup(i3string_as_utf8((*(*con).window).name))
-    } else {
-        ::core::ptr::null_mut::<::core::ffi::c_char>()
-    };
-    window_update_name((*con).window as *mut i3Window, prop);
+    let old_name = window_name_snapshot((*con).window);
+    window_update_name((*con).window, prop);
     con = remanage_window(con);
     x_push_changes(croot);
-    if window_name_changed((*con).window as *mut i3Window, old_name) {
+    if old_name != window_name_snapshot((*con).window) {
         ipc_send_window_event(c"title".as_ptr(), con);
     }
-    free(old_name as *mut ::core::ffi::c_void);
-    old_name = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    true_0 != 0
+    true
 }
 unsafe fn handle_windowname_change_legacy(
     mut con: *mut Con,
     prop: *mut xcb_get_property_reply_t,
 ) -> bool {
-    let mut old_name: *mut ::core::ffi::c_char = if !(*(*con).window).name.is_null() {
-        sstrdup(i3string_as_utf8((*(*con).window).name))
-    } else {
-        ::core::ptr::null_mut::<::core::ffi::c_char>()
-    };
-    window_update_name_legacy((*con).window as *mut i3Window, prop);
+    let old_name = window_name_snapshot((*con).window);
+    window_update_name_legacy((*con).window, prop);
     con = remanage_window(con);
     x_push_changes(croot);
-    if window_name_changed((*con).window as *mut i3Window, old_name) {
+    if old_name != window_name_snapshot((*con).window) {
         ipc_send_window_event(c"title".as_ptr(), con);
     }
-    free(old_name as *mut ::core::ffi::c_void);
-    old_name = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    true_0 != 0
+    true
 }
 unsafe fn handle_windowrole_change(con: *mut Con, prop: *mut xcb_get_property_reply_t) -> bool {
     window_update_role((*con).window as *mut i3Window, prop);
     remanage_window(con);
-    true_0 != 0
+    true
 }
 unsafe fn handle_expose_event(event: *mut xcb_expose_event_t) {
     let mut parent: *mut Con = ::core::ptr::null_mut::<Con>();
@@ -1018,8 +890,6 @@ unsafe fn handle_expose_event(event: *mut xcb_expose_event_t) {
     );
     xcb_flush(conn);
 }
-pub const _NET_WM_MOVERESIZE_SIZE_TOPLEFT: u32 = 0 as u32;
-pub const _NET_WM_MOVERESIZE_MOVE: u32 = 8 as u32;
 pub const _NET_MOVERESIZE_WINDOW_X: ::core::ffi::c_int =
     (1 as ::core::ffi::c_int) << 8 as ::core::ffi::c_int;
 pub const _NET_MOVERESIZE_WINDOW_Y: ::core::ffi::c_int =
@@ -1076,10 +946,10 @@ unsafe fn handle_net_wm_state_change(mut con: *mut Con, change: u32, atom: u32) 
             debug_change,
         );
         if change == _NET_WM_STATE_ADD as u32 {
-            con_set_urgency(con, true_0 != 0);
+            con_set_urgency(con, true);
             con = remanage_window(con);
         } else if change == _NET_WM_STATE_REMOVE as u32 {
-            con_set_urgency(con, false_0 != 0);
+            con_set_urgency(con, false);
             con = remanage_window(con);
         } else if change == _NET_WM_STATE_TOGGLE as u32 {
             con_set_urgency(con, !(*con).urgent);
@@ -1096,9 +966,9 @@ unsafe fn handle_net_wm_state_change(mut con: *mut Con, change: u32, atom: u32) 
             debug_change,
         );
         if change == _NET_WM_STATE_ADD as u32 {
-            (*con).sticky = true_0 != 0;
+            (*con).sticky = true;
         } else if change == _NET_WM_STATE_REMOVE as u32 {
-            (*con).sticky = false_0 != 0;
+            (*con).sticky = false;
         } else if change == _NET_WM_STATE_TOGGLE as u32 {
             (*con).sticky = !(*con).sticky;
         }
@@ -1275,7 +1145,7 @@ unsafe fn handle_client_message(event: *mut xcb_client_message_event_t) {
                     804 as ::core::ffi::c_int,
                     con_0,
                 );
-                con_set_urgency(con_0, true_0 != 0);
+                con_set_urgency(con_0, true);
                 con_0 = remanage_window(con_0);
             } else {
                 debuglog(
@@ -1423,10 +1293,10 @@ unsafe fn handle_client_message(event: *mut xcb_client_message_event_t) {
                 c"handle_client_message".as_ptr(),
                 888 as ::core::ffi::c_int,
             );
-            if floating_enable(con_1, false_0 != 0) {
+            if floating_enable(con_1, false) {
                 (*con_1).floating = FloatingState::AutoOn;
-                (*con_1).sticky = true_0 != 0;
-                ewmh_update_sticky((*(*con_1).window).id, true_0 != 0);
+                (*con_1).sticky = true;
+                ewmh_update_sticky((*(*con_1).window).id, true);
                 output_push_sticky_windows(focused);
                 run_assignments((*con_1).window as *mut i3Window);
             }
@@ -1440,7 +1310,7 @@ unsafe fn handle_client_message(event: *mut xcb_client_message_event_t) {
                 );
                 return;
             }
-            con_move_to_workspace(con_1, ws_1, true_0 != 0, false_0 != 0, false_0 != 0);
+            con_move_to_workspace(con_1, ws_1, true, false, false);
         }
         tree_render();
         ewmh_update_wm_desktop();
@@ -1460,7 +1330,7 @@ unsafe fn handle_client_message(event: *mut xcb_client_message_event_t) {
                 last_timestamp =
                     (*event).data.data32[0 as ::core::ffi::c_int as usize] as xcb_timestamp_t;
             }
-            tree_close_internal(con_2, KillWindow::Window, false_0 != 0);
+            tree_close_internal(con_2, KillWindow::Window, false);
             tree_render();
         } else {
             debuglog(
@@ -1515,10 +1385,10 @@ unsafe fn handle_client_message(event: *mut xcb_client_message_event_t) {
         };
         match direction {
             8 => {
-                floating_drag_window((*con_3).parent as *mut Con, &raw mut fake, false_0 != 0);
+                floating_drag_window((*con_3).parent as *mut Con, &raw mut fake, false);
             }
             0 => {
-                floating_resize_window((*con_3).parent as *mut Con, false_0 != 0, &raw mut fake);
+                floating_resize_window((*con_3).parent as *mut Con, false, &raw mut fake);
             }
             _ => {
                 debuglog(
@@ -1598,7 +1468,7 @@ unsafe fn handle_client_message(event: *mut xcb_client_message_event_t) {
 }
 unsafe fn handle_window_type(con: *mut Con, reply: *mut xcb_get_property_reply_t) -> bool {
     window_update_type((*con).window as *mut i3Window, reply);
-    true_0 != 0
+    true
 }
 unsafe fn handle_normal_hints(con: *mut Con, mut reply: *mut xcb_get_property_reply_t) -> bool {
     let changed: bool = window_update_normal_hints(
@@ -1609,13 +1479,13 @@ unsafe fn handle_normal_hints(con: *mut Con, mut reply: *mut xcb_get_property_re
     if changed {
         let floating: *mut Con = con_inside_floating(con);
         if !floating.is_null() {
-            floating_check_size(con, false_0 != 0);
+            floating_check_size(con, false);
             tree_render();
         }
     }
     free(reply as *mut ::core::ffi::c_void);
     reply = ::core::ptr::null_mut::<xcb_get_property_reply_t>();
-    true_0 != 0
+    true
 }
 unsafe fn handle_hints(con: *mut Con, reply: *mut xcb_get_property_reply_t) -> bool {
     let mut urgency_hint: bool = false;
@@ -1623,15 +1493,15 @@ unsafe fn handle_hints(con: *mut Con, reply: *mut xcb_get_property_reply_t) -> b
     con_set_urgency(con, urgency_hint);
     remanage_window(con);
     tree_render();
-    true_0 != 0
+    true
 }
 unsafe fn handle_transient_for(con: *mut Con, prop: *mut xcb_get_property_reply_t) -> bool {
     window_update_transient_for((*con).window as *mut i3Window, prop);
-    true_0 != 0
+    true
 }
 unsafe fn handle_clientleader_change(con: *mut Con, prop: *mut xcb_get_property_reply_t) -> bool {
     window_update_leader((*con).window as *mut i3Window, prop);
-    true_0 != 0
+    true
 }
 unsafe fn handle_focus_in(event: *mut xcb_focus_in_event_t) {
     debuglog(
@@ -1853,12 +1723,12 @@ unsafe fn handle_selection_clear(event: *mut xcb_selection_clear_event_t) {
 unsafe fn handle_class_change(mut con: *mut Con, prop: *mut xcb_get_property_reply_t) -> bool {
     window_update_class((*con).window as *mut i3Window, prop);
     con = remanage_window(con);
-    true_0 != 0
+    true
 }
 unsafe fn handle_machine_change(mut con: *mut Con, prop: *mut xcb_get_property_reply_t) -> bool {
     window_update_machine((*con).window as *mut i3Window, prop);
     con = remanage_window(con);
-    true_0 != 0
+    true
 }
 unsafe fn handle_motif_hints_change(con: *mut Con, prop: *mut xcb_get_property_reply_t) -> bool {
     let mut motif_border_style: BorderStyle = BorderStyle::None;
@@ -1881,7 +1751,7 @@ unsafe fn handle_motif_hints_change(con: *mut Con, prop: *mut xcb_get_property_r
         con_set_border_style(con, motif_border_style, (*con).current_border_width);
         x_push_changes(croot);
     }
-    true_0 != 0
+    true
 }
 unsafe fn handle_strut_partial_change(con: *mut Con, prop: *mut xcb_get_property_reply_t) -> bool {
     window_update_strut_partial((*con).window as *mut i3Window, prop);
@@ -1889,7 +1759,7 @@ unsafe fn handle_strut_partial_change(con: *mut Con, prop: *mut xcb_get_property
         || (*(*con).parent).type_0 as ::core::ffi::c_uint
             != CT_DOCKAREA as ::core::ffi::c_int as ::core::ffi::c_uint
     {
-        return true_0 != 0;
+        return true;
     }
     let mut search_at: *mut Con = croot;
     let output: *mut Con = con_get_output(con);
@@ -1971,14 +1841,14 @@ unsafe fn handle_strut_partial_change(con: *mut Con, prop: *mut xcb_get_property
         );
     };
     con_detach(con);
-    con_attach(con, dockarea, true_0 != 0);
+    con_attach(con, dockarea, true);
     tree_render();
-    true_0 != 0
+    true
 }
 unsafe fn handle_windowicon_change(con: *mut Con, prop: *mut xcb_get_property_reply_t) -> bool {
     window_update_icon((*con).window as *mut i3Window, prop);
     x_push_changes(croot);
-    true_0 != 0
+    true
 }
 static mut property_handlers: [property_handler_t; 13] = [property_handler_t {
     atom: 0,
@@ -2019,25 +1889,46 @@ pub unsafe fn property_handlers_init() {
     property_handlers[11 as ::core::ffi::c_int as usize].atom = A__MOTIF_WM_HINTS;
     property_handlers[12 as ::core::ffi::c_int as usize].atom = A__NET_WM_ICON;
 }
-unsafe fn property_notify(state: u8, window: xcb_window_t, atom: xcb_atom_t) {
-    let mut handler: *mut property_handler_t = ::core::ptr::null_mut::<property_handler_t>();
-    let mut propr: *mut xcb_get_property_reply_t =
-        ::core::ptr::null_mut::<xcb_get_property_reply_t>();
-    let mut err: *mut xcb_generic_error_t = ::core::ptr::null_mut::<xcb_generic_error_t>();
-    let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
-    let mut c: usize = 0 as usize;
-    while c < NUM_HANDLERS {
-        if property_handlers[c as usize].atom != atom {
-            c = c.wrapping_add(1);
-        } else {
-            handler = (&raw mut property_handlers as *mut property_handler_t).offset(c as isize)
-                as *mut property_handler_t;
-            break;
+struct PropertyAllocation(*mut xcb_get_property_reply_t);
+impl PropertyAllocation {
+    /// The callback receives a live reply (or null for deletion) and an event-
+    /// thread Con. It may consume the reply before returning or unwinding; only
+    /// a normal false return promises that ownership remains with this caller.
+    unsafe fn dispatch(
+        mut self,
+        callback: unsafe fn(*mut Con, *mut xcb_get_property_reply_t) -> bool,
+        con: *mut Con,
+    ) {
+        let reply = std::mem::replace(&mut self.0, std::ptr::null_mut());
+        if !callback(con, reply) {
+            self.0 = reply;
         }
     }
-    if handler.is_null() {
-        return;
+}
+impl Drop for PropertyAllocation {
+    fn drop(&mut self) {
+        unsafe { libc::free(self.0.cast()) };
     }
+}
+struct PropertyError(*mut xcb_generic_error_t);
+impl Drop for PropertyError {
+    fn drop(&mut self) {
+        unsafe { libc::free(self.0.cast()) };
+    }
+}
+
+unsafe fn property_notify(state: u8, window: xcb_window_t, atom: xcb_atom_t) {
+    // Snapshot metadata; callback dispatch never retains a table borrow.
+    let handler = (0..NUM_HANDLERS).find_map(|index| {
+        let handler = property_handlers[index];
+        (handler.atom == atom).then_some(handler)
+    });
+    let Some(handler) = handler else {
+        return;
+    };
+    let mut propr = PropertyAllocation(std::ptr::null_mut());
+    let mut err = std::ptr::null_mut();
+    let con;
     con = con_by_window_id(window);
     if con.is_null() || (*con).window.is_null() {
         debuglog(
@@ -2059,9 +1950,10 @@ unsafe fn property_notify(state: u8, window: xcb_window_t, atom: xcb_atom_t) {
             atom,
             XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
             0 as u32,
-            (*handler).long_len,
+            handler.long_len,
         );
-        propr = xcb_get_property_reply(conn, cookie, &raw mut err);
+        propr.0 = xcb_get_property_reply(conn, cookie, &raw mut err);
+        let _error_owner = PropertyError(err);
         if !err.is_null() {
             debuglog(
                 c"%s:%s:%d - got error %d when getting property of atom %d\n"
@@ -2073,15 +1965,12 @@ unsafe fn property_notify(state: u8, window: xcb_window_t, atom: xcb_atom_t) {
                 (*err).error_code as ::core::ffi::c_int,
                 atom,
             );
-            free(err as *mut ::core::ffi::c_void);
-            err = ::core::ptr::null_mut::<xcb_generic_error_t>();
             return;
         }
     }
-    if !(*handler).cb.expect("non-null function pointer")(con, propr) {
-        free(propr as *mut ::core::ffi::c_void);
-        propr = ::core::ptr::null_mut::<xcb_get_property_reply_t>();
-    }
+    // Release before dispatch: a consuming handler can free/retain the reply
+    // and then unwind during assignments or another Rust graph callback.
+    propr.dispatch(handler.cb.expect("non-null function pointer"), con);
 }
 
 pub unsafe fn handle_event(type_0: ::core::ffi::c_int, event: *mut xcb_generic_event_t) {
@@ -2420,8 +2309,6 @@ use crate::scratchpad::scratchpad_fix_resolution;
 use crate::sync::sync_respond;
 use crate::tree::tree_render;
 use i3_common::safewrappers::scalloc;
-use i3_common::safewrappers::smalloc;
-use i3_common::safewrappers::sstrdup;
 
 // Canonical Cairo backend ABI; renderer logic remains local.
 
@@ -2475,7 +2362,6 @@ pub use crate::types::Con;
 pub use crate::types::Match;
 pub use crate::types::Rect;
 pub use crate::types::Window;
-pub use i3_common::font::Font;
 pub use i3_common::string::I3String as _i3String;
 
 // Internal calls and globals use canonical Rust identities.
@@ -2580,3 +2466,98 @@ use i3_common::get_mod_mask::aio_get_mod_mask_for;
 use i3_common::string::i3string_as_utf8;
 
 use crate::xcb::xcb_numlock_mask;
+
+#[cfg(test)]
+mod owned_event_tests {
+    use super::*;
+    #[test]
+    fn property_dispatch_releases_ownership_before_a_consuming_callback_unwinds() {
+        unsafe fn consume_then_panic(_: *mut Con, reply: *mut xcb_get_property_reply_t) -> bool {
+            unsafe { libc::free(reply.cast()) };
+            panic!("callback unwound after consuming its reply");
+        }
+        let reply: *mut xcb_get_property_reply_t =
+            unsafe { libc::calloc(1, std::mem::size_of::<xcb_get_property_reply_t>()) }.cast();
+        assert!(!reply.is_null());
+        let result = std::panic::catch_unwind(|| unsafe {
+            PropertyAllocation(reply).dispatch(consume_then_panic, std::ptr::null_mut());
+        });
+        assert!(result.is_err());
+    }
+    #[test]
+    fn configure_packets_keep_mask_order_signed_positions_and_ignored_bits() {
+        let mut event: xcb_configure_request_event_t = unsafe { std::mem::zeroed() };
+        event.x = -3;
+        event.y = -2;
+        event.width = 640;
+        event.height = 480;
+        event.border_width = 2;
+        event.sibling = 99;
+        event.stack_mode = 4;
+        event.value_mask = u16::MAX;
+        assert_eq!(
+            configure_values(event),
+            (
+                127,
+                vec![(-3i32) as u32, (-2i32) as u32, 640, 480, 2, 99, 4]
+            )
+        );
+        event.value_mask = (XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_SIBLING) as u16;
+        assert_eq!(
+            configure_values(event),
+            (event.value_mask, vec![(-2i32) as u32, 99])
+        );
+        event.value_mask = 0x8000;
+        assert_eq!(configure_values(event), (0, vec![]));
+    }
+    #[test]
+    fn name_snapshot_outlives_replaced_native_text_and_preserves_repaired_native_view() {
+        let mut window: Box<i3Window> = Box::new(unsafe { std::mem::zeroed() });
+        window.name = Box::into_raw(Box::new(i3_common::string::I3String::from_bytes(
+            b"first\0ignored",
+        )));
+        unsafe {
+            let snapshot = window_name_snapshot(&raw mut *window);
+            i3_common::string::i3string_free(window.name);
+            window.name =
+                Box::into_raw(Box::new(i3_common::string::I3String::from_bytes(b"second")));
+            assert_eq!(snapshot.as_deref(), Some("first�ignored".as_bytes()));
+            assert_ne!(snapshot, window_name_snapshot(&raw mut *window));
+            i3_common::string::i3string_free(window.name);
+            window.name = std::ptr::null_mut();
+            assert_eq!(window_name_snapshot(&raw mut *window), None);
+        }
+    }
+    #[test]
+    fn ignored_events_keep_strict_ttl_wildcards_duplicates_and_backward_clock() {
+        let mut events = IgnoredEvents::default();
+        events.add(7, 2, 100);
+        events.add(7, -1, 101);
+        assert!(events.contains(7, 99, 106));
+        assert_eq!(events.0.len(), 1);
+        assert!(!events.contains(7, 99, 107));
+        events.add(8, 3, 200);
+        assert!(events.contains(8, 3, 190));
+        assert!(!events.contains(8, 4, 190));
+        assert_eq!(events.0.len(), 1);
+    }
+    #[test]
+    fn ignored_events_remain_newest_first_without_consuming_matches() {
+        let mut events = IgnoredEvents::default();
+        events.add(1, 2, 0);
+        events.add(1, 3, 1);
+        events.add(2, -1, 2);
+        assert_eq!(
+            events
+                .0
+                .iter()
+                .map(|event| (event.sequence, event.response))
+                .collect::<Vec<_>>(),
+            [(2, -1), (1, 3), (1, 2)]
+        );
+        assert!(events.contains(1, 2, 5));
+        assert!(events.contains(1, 2, 5));
+        assert!(events.contains(1, 3, 6));
+        assert!(!events.contains(1, 2, 6));
+    }
+}

@@ -8,26 +8,26 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 38 wallclock secs ( 1.55 usr +  0.15 sys =  1.70 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 26 wallclock secs ( 1.47 usr +  0.12 sys =  1.59 CPU)\nResult: PASS",
     "profile": "debug",
     "build": "cargo test --locked",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "e60113786bb904fd2b911cdba3e33e1f6b5303c05c0df0c840dc209446de8f0b",
-    "i3bar": "0f25aa509151263ad3c9dc9b91b6aa5fbb164238ed68cb8b54cd39bb180251fa",
-    "i3-config-wizard": "bd2fd7704e986dfb8d6594c0419edf8bb24f4d595d88bca243d41c402983995b",
-    "i3-dump-log": "e32b0bae25bd3fd7ddba6f030f5c6357ad6b867e3651da85a7ef6e2100617986",
-    "i3-input": "5da273dc6e5fd95a6a5fd44277d4722d5439a4613189f535515a5b76be420be7",
-    "i3-msg": "39bd389a025a36d2745d2a737b7a128009b9f341637e5eb5aa6985cf1fe8013b",
-    "i3-nagbar": "67b3480bed7fe7e2549390add48f25ff0a06c23bd17244db7ab105e9f8df3aa5"
+    "i3": "621b8fc42120fad8b68a33568a83539280fee94bea13ca76156c6a5fa9b58ac2",
+    "i3bar": "20eb76d7b96bdf85a27d11cc1522f37a4420966e27cf8f8f7c960670996d4d0d",
+    "i3-config-wizard": "862cf72762dc949abf334d65fd2adcf1b306dd107b18ff0895e87fc2246921ef",
+    "i3-dump-log": "63ffc8005c7041a64c14772b51877719340a9c655240e5355516c23e10ddcd10",
+    "i3-input": "35e630d7305e39ad605e6ea20043edec454b0f5a8eb60e0317de991d120ef565",
+    "i3-msg": "62e1e4bbd44833a3027ccf75c6a04538a21aadfe7b3545d78d9e0eb4ff14f437",
+    "i3-nagbar": "ba2627207f2680f808d40695ca6386cb8d433c098750a4f2f9c719c036650a5d"
   },
-  "note": "Ten-member Cargo workspace. cargo test --locked passed 288 Rust-reported tests, all native compatibility comparisons, all private-display runtime suites and all 4205 upstream assertions. Exact debug hashes match this Cargo-driven run. File-by-file review progress is recorded in docs/idiomatic-rust-checklist.json. Native graph, display, callback, shared-memory and allocator contracts remain explicit; Linux x86_64 GNU ABI only.",
+  "note": "Ten-member Cargo workspace. cargo test --locked passed 331 Rust-reported tests, all native compatibility comparisons, all private-display runtime suites and all 4205 upstream assertions. Exact debug hashes match this Cargo-driven run. File-by-file review progress is recorded in docs/idiomatic-rust-checklist.json. Native graph, display, callback, shared-memory and allocator contracts remain explicit; Linux x86_64 GNU ABI only.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
   "additional_checks": {
     "headless_c_rust_state_comparisons": 54,
     "ipc_client_test_groups": 16,
-    "workspace_unit_tests": 288,
+    "workspace_unit_tests": 331,
     "core_and_bar_cli_comparisons": 39,
     "pcre2_compile_match_error_comparisons": 4620,
     "json_oracle_cases": 2218,
@@ -113,7 +113,7 @@
     "binary_count": 7,
     "native_library_discovery": "maintained native binding build scripts and dedicated sys crates; i3-build links only platform m/rt",
     "unit_tests": {
-      "i3": 105,
+      "i3": 148,
       "cargo_regression_wrappers": 8,
       "xkb_integration": 1,
       "i3-build": 3,
@@ -134,7 +134,7 @@
     "cargo_fmt_check": true,
     "debug_build": true,
     "release_build": null,
-    "unit_tests_total_including_integration_checks": 288,
+    "unit_tests_total_including_integration_checks": 331,
     "test_command": "cargo test",
     "clean_source_command": "cargo test -p i3-test-support --features clean-source-check",
     "test_support": "development-only process capture, failure propagation and isolated regression orchestration",
@@ -361,6 +361,29 @@
         "files_reviewed": 18,
         "removed": [],
         "validation": "cargo test --locked passed 288 Rust-reported tests, native oracles, private runtime comparisons and all4205 upstream assertions. Per-file findings/tests are in the numbered checklist JSON."
+      },
+      {
+        "batch": 9,
+        "files": [
+          "crates/i3/src/con.rs",
+          "crates/i3/src/tree.rs",
+          "crates/i3/src/workspace.rs",
+          "crates/i3/src/handlers.rs",
+          "crates/i3/src/manage.rs",
+          "crates/i3/src/bindings.rs",
+          "crates/i3/src/click.rs",
+          "crates/i3/src/drag.rs",
+          "crates/i3/src/tiling_drag.rs",
+          "crates/i3/src/floating.rs",
+          "crates/i3/src/move.rs",
+          "crates/i3/src/resize.rs",
+          "crates/i3/src/render.rs",
+          "crates/i3/src/scratchpad.rs",
+          "crates/i3/src/x.rs"
+        ],
+        "files_reviewed": 15,
+        "removed": [],
+        "validation": "cargo test --locked passed 331 Rust-reported tests, native oracles, private runtime comparisons and all4205 upstream assertions. Per-file findings/tests are in the numbered checklist JSON."
       }
     ],
     "common_utility_audit": {
@@ -508,8 +531,8 @@
     "remaining_file_review": {
       "checklist": "docs/idiomatic-rust-checklist.json",
       "total": 66,
-      "completed": 51,
-      "remaining": 15,
+      "completed": 66,
+      "remaining": 0,
       "method": "Three subagents at a time; individual source review, meaningful native/value tests, full Cargo validation and pushed checkpoints. Review does not imply elimination of required native/graph unsafe contracts."
     }
   },
@@ -523,5 +546,12 @@
     "commit": "e18708e1556a8cac1838c3f1b296f46f6d5de26d",
     "url": "https://github.com/sdfgeoff/i333/actions/runs/40939397998",
     "conclusion": "success"
+  },
+  "ci_diagnostics": {
+    "cargo_invocations": 1,
+    "original_exit_status_preserved": true,
+    "full_log": ".work/cargo-tests/full-cargo.log",
+    "bounded_public_failure_annotation": true,
+    "wrapper_validation": "Fake Cargo statuses0,7,101; exact output/one invocation and escaped bounded UTF8 tail verified. Prior13f451ce CI test failure pending diagnosis; latest local source passes331 Rust-reported tests and all runtime/native suites."
   }
 }

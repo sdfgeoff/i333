@@ -1,3 +1,10 @@
+use crate::con::{CF_NONE, CT_CON, CT_FLOATING_CON, CT_WORKSPACE};
+pub use crate::types::xoutput as Output;
+
+const BORDER_LEFT: u32 = 1;
+const BORDER_RIGHT: u32 = 2;
+const BORDER_TOP: u32 = 4;
+const BORDER_BOTTOM: u32 = 8;
 use crate::randr::outputs;
 use crate::types::DragResult;
 use crate::types::FloatingState;
@@ -6,7 +13,7 @@ use crate::types::Layout;
 use crate::types::Position;
 use crate::types::ScratchpadState;
 use crate::xcursor::Cursor;
-use i3_common::safewrappers::sasprintf;
+
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -16,95 +23,17 @@ use i3_common::safewrappers::sasprintf;
  * floating.c: Floating windows.
  *
  */
-// Mechanical file-by-file Rust translation of src/floating.c.
-// Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
-extern "C" {
+// Geometry and size constraints consume copied values; native tree/list/display
+// operations require the exclusive event thread. No graph borrow crosses a
+// focus/move/render callback or the synchronous nested drag loop.
 
-    fn round(__x: ::core::ffi::c_double) -> ::core::ffi::c_double;
-
-}
-
-pub type i3String = _i3String;
-
-pub type i3Font = Font;
-
-pub type fullscreen_mode_t = ::core::ffi::c_uint;
-pub const CF_GLOBAL: fullscreen_mode_t = 2;
-pub const CF_OUTPUT: fullscreen_mode_t = 1;
-pub const CF_NONE: fullscreen_mode_t = 0;
-
-pub const M_BELOW: ::core::ffi::c_uint = 2;
-pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
-pub const M_HERE: ::core::ffi::c_uint = 0;
-
-pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
-pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
-pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
-pub const M_NODOCK: ::core::ffi::c_int = 0;
-pub const M_DONTCHECK: ::core::ffi::c_int = -1;
-
-pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
-pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
-pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
-pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
-pub const A_COMMAND: ::core::ffi::c_uint = 1;
-pub const A_ANY: ::core::ffi::c_uint = 0;
-
-pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
-pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
-pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
-pub const CT_CON: ::core::ffi::c_uint = 2;
-pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
-pub const CT_ROOT: ::core::ffi::c_uint = 0;
-
-pub type Output = xoutput;
-pub type i3Window = Window;
-
-pub type hide_edge_borders_mode_t = ::core::ffi::c_uint;
-pub const HEBM_SMART_NO_GAPS: hide_edge_borders_mode_t = 64;
-pub const HEBM_SMART: hide_edge_borders_mode_t = 32;
-pub const HEBM_BOTH: hide_edge_borders_mode_t = 23;
-pub const HEBM_HORIZONTAL: hide_edge_borders_mode_t = 20;
-pub const HEBM_VERTICAL: hide_edge_borders_mode_t = 3;
-pub const HEBM_NONE: hide_edge_borders_mode_t = 0;
-
-pub type tiling_drag_t = ::core::ffi::c_uint;
-pub const TILING_DRAG_MODIFIER_OR_TITLEBAR: tiling_drag_t = 3;
-pub const TILING_DRAG_TITLEBAR: tiling_drag_t = 2;
-pub const TILING_DRAG_MODIFIER: tiling_drag_t = 1;
-pub const TILING_DRAG_OFF: tiling_drag_t = 0;
-
-pub type border_t = ::core::ffi::c_uint;
-pub const BORDER_BOTTOM: border_t = 8;
-pub const BORDER_TOP: border_t = 4;
-pub const BORDER_RIGHT: border_t = 2;
-pub const BORDER_LEFT: border_t = 1;
-
-pub type callback_t = Option<
-    unsafe fn(
-        *mut Con,
-        *mut Rect,
-        u32,
-        u32,
-        *const xcb_button_press_event_t,
-        *const ::core::ffi::c_void,
-    ) -> (),
->;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct resize_window_callback_params {
-    pub corner: border_t,
+struct ResizeParameters {
+    pub corner: u32,
     pub proportional: bool,
 }
-pub const __ASSERT_FUNCTION: [::core::ffi::c_char; 37] = unsafe {
-    ::core::mem::transmute::<[u8; 37], [::core::ffi::c_char; 37]>(
-        *b"void floating_move_to_pointer(Con *)\0",
-    )
-};
 
-pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 unsafe fn total_outputs_dimensions() -> Rect {
     if outputs.tqh_first.is_null() {
         return Rect {
@@ -147,10 +76,10 @@ unsafe fn floating_set_hint_atom(con: *mut Con, floating: bool) {
         let mut val: u32 = 1 as u32;
         xcb_change_property(
             conn,
-            XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
+            XCB_PROP_MODE_REPLACE as i32 as u8,
             (*(*con).window).id,
             A_I3_FLOATING_WINDOW,
-            XCB_ATOM_CARDINAL as ::core::ffi::c_int as xcb_atom_t,
+            XCB_ATOM_CARDINAL as i32 as xcb_atom_t,
             32 as u8,
             1 as u32,
             &raw mut val as *const ::core::ffi::c_void,
@@ -161,235 +90,221 @@ unsafe fn floating_set_hint_atom(con: *mut Con, floating: bool) {
     xcb_flush(conn);
 }
 
-pub unsafe fn floating_check_size(floating_con: *mut Con, prefer_height: bool) {
-    let floating_sane_min_height: ::core::ffi::c_int = 50 as ::core::ffi::c_int;
-    let floating_sane_min_width: ::core::ffi::c_int = 75 as ::core::ffi::c_int;
-    let focused_con: *mut Con = con_descend_focused(floating_con);
-    debuglog(
-        c"%s:%s:%d - deco_rect.height = %d\n".as_ptr().cast_mut(),
-        c"../src/floating.c".as_ptr(),
-        c"floating_check_size".as_ptr(),
-        82 as ::core::ffi::c_int,
-        (*focused_con).deco_rect.height,
-    );
-    let mut border_rect: Rect = con_border_style_rect(focused_con);
-    border_rect.width = border_rect.width.wrapping_neg();
-    border_rect.height = border_rect.height.wrapping_neg();
-    border_rect.width = border_rect
-        .width
-        .wrapping_add((2 as ::core::ffi::c_int * (*focused_con).border_width) as u32);
-    border_rect.height = border_rect
-        .height
-        .wrapping_add((2 as ::core::ffi::c_int * (*focused_con).border_width) as u32);
-    debuglog(
-        c"%s:%s:%d - floating_check_size, want min width %d, min height %d, border extra: w=%d, h=%d\n".as_ptr().cast_mut(),
-        c"../src/floating.c".as_ptr(),
-        c"floating_check_size".as_ptr(),
-        97 as ::core::ffi::c_int,
-        floating_sane_min_width,
-        floating_sane_min_height,
-        border_rect.width,
-        border_rect.height,
-    );
-    let window: *mut i3Window = (*focused_con).window as *mut i3Window;
-    if !window.is_null() {
-        let min_width: ::core::ffi::c_int = if (*window).min_width != 0 {
-            (*window).min_width
+// Safe copied values never borrow Window/Con/config across native operations.
+#[derive(Clone, Copy, Default)]
+struct SizeHints {
+    min_width: i32,
+    min_height: i32,
+    base_width: i32,
+    base_height: i32,
+    max_width: i32,
+    max_height: i32,
+    width_increment: i32,
+    height_increment: i32,
+    min_aspect_ratio: f64,
+    max_aspect_ratio: f64,
+}
+#[derive(Clone, Copy)]
+struct SizeLimits {
+    minimum_width: i32,
+    minimum_height: i32,
+    maximum_width: i32,
+    maximum_height: i32,
+}
+fn constrained_size(
+    mut rect: Rect,
+    border_rect: Rect,
+    hints: Option<SizeHints>,
+    limits: SizeLimits,
+    output_dimensions: Rect,
+    fullscreen: bool,
+    prefer_height: bool,
+) -> Rect {
+    let floating_sane_min_height = 50;
+    let floating_sane_min_width = 75;
+
+    if let Some(window) = hints {
+        let min_width: i32 = if window.min_width != 0 {
+            window.min_width
         } else {
-            (*window).base_width
+            window.base_width
         };
-        let min_height: ::core::ffi::c_int = if (*window).min_height != 0 {
-            (*window).min_height
+        let min_height: i32 = if window.min_height != 0 {
+            window.min_height
         } else {
-            (*window).base_height
+            window.base_height
         };
-        let base_width: ::core::ffi::c_int = if (*window).base_width != 0 {
-            (*window).base_width
+        let base_width: i32 = if window.base_width != 0 {
+            window.base_width
         } else {
-            (*window).min_width
+            window.min_width
         };
-        let base_height: ::core::ffi::c_int = if (*window).base_height != 0 {
-            (*window).base_height
+        let base_height: i32 = if window.base_height != 0 {
+            window.base_height
         } else {
-            (*window).min_height
+            window.min_height
         };
         if min_width != 0 {
-            (*floating_con).rect.width = (*floating_con).rect.width.wrapping_sub(border_rect.width);
-            (*floating_con).rect.width =
-                max((*floating_con).rect.width as ::core::ffi::c_int, min_width) as u32;
-            (*floating_con).rect.width = (*floating_con).rect.width.wrapping_add(border_rect.width);
+            rect.width = rect.width.wrapping_sub(border_rect.width);
+            rect.width = max(rect.width as i32, min_width) as u32;
+            rect.width = rect.width.wrapping_add(border_rect.width);
         }
         if min_height != 0 {
-            (*floating_con).rect.height =
-                (*floating_con).rect.height.wrapping_sub(border_rect.height);
-            (*floating_con).rect.height = max(
-                (*floating_con).rect.height as ::core::ffi::c_int,
-                min_height,
-            ) as u32;
-            (*floating_con).rect.height =
-                (*floating_con).rect.height.wrapping_add(border_rect.height);
+            rect.height = rect.height.wrapping_sub(border_rect.height);
+            rect.height = max(rect.height as i32, min_height) as u32;
+            rect.height = rect.height.wrapping_add(border_rect.height);
         }
-        if (*window).max_width != 0 {
-            (*floating_con).rect.width = (*floating_con).rect.width.wrapping_sub(border_rect.width);
-            (*floating_con).rect.width = min(
-                (*floating_con).rect.width as ::core::ffi::c_int,
-                (*window).max_width,
-            ) as u32;
-            (*floating_con).rect.width = (*floating_con).rect.width.wrapping_add(border_rect.width);
+        if window.max_width != 0 {
+            rect.width = rect.width.wrapping_sub(border_rect.width);
+            rect.width = min(rect.width as i32, window.max_width) as u32;
+            rect.width = rect.width.wrapping_add(border_rect.width);
         }
-        if (*window).max_height != 0 {
-            (*floating_con).rect.height =
-                (*floating_con).rect.height.wrapping_sub(border_rect.height);
-            (*floating_con).rect.height = min(
-                (*floating_con).rect.height as ::core::ffi::c_int,
-                (*window).max_height,
-            ) as u32;
-            (*floating_con).rect.height =
-                (*floating_con).rect.height.wrapping_add(border_rect.height);
+        if window.max_height != 0 {
+            rect.height = rect.height.wrapping_sub(border_rect.height);
+            rect.height = min(rect.height as i32, window.max_height) as u32;
+            rect.height = rect.height.wrapping_add(border_rect.height);
         }
-        let min_ar: ::core::ffi::c_double = (*window).min_aspect_ratio;
-        let max_ar: ::core::ffi::c_double = (*window).max_aspect_ratio;
-        if (*floating_con).fullscreen_mode as ::core::ffi::c_uint
-            == CF_NONE as ::core::ffi::c_int as ::core::ffi::c_uint
-            && (min_ar > 0 as ::core::ffi::c_int as ::core::ffi::c_double
-                || max_ar > 0 as ::core::ffi::c_int as ::core::ffi::c_double)
-        {
-            let mut width: ::core::ffi::c_double = (*floating_con)
-                .rect
+        let min_ar: f64 = window.min_aspect_ratio;
+        let max_ar: f64 = window.max_aspect_ratio;
+        if !fullscreen && (min_ar > 0.0 || max_ar > 0.0) {
+            let mut width: f64 = rect
                 .width
-                .wrapping_sub((*window).base_width as u32)
-                .wrapping_sub(border_rect.width)
-                as ::core::ffi::c_double;
-            let mut height: ::core::ffi::c_double = (*floating_con)
-                .rect
+                .wrapping_sub(window.base_width as u32)
+                .wrapping_sub(border_rect.width) as f64;
+            let mut height: f64 = rect
                 .height
-                .wrapping_sub((*window).base_height as u32)
-                .wrapping_sub(border_rect.height)
-                as ::core::ffi::c_double;
-            let ar: ::core::ffi::c_double = width / height;
-            let mut new_ar: ::core::ffi::c_double =
-                -(1 as ::core::ffi::c_int) as ::core::ffi::c_double;
-            if min_ar > 0 as ::core::ffi::c_int as ::core::ffi::c_double && ar < min_ar {
+                .wrapping_sub(window.base_height as u32)
+                .wrapping_sub(border_rect.height) as f64;
+            let ar: f64 = width / height;
+            let mut new_ar: f64 = -(1) as f64;
+            if min_ar > 0.0 && ar < min_ar {
                 new_ar = min_ar;
-            } else if max_ar > 0 as ::core::ffi::c_int as ::core::ffi::c_double && ar > max_ar {
+            } else if max_ar > 0.0 && ar > max_ar {
                 new_ar = max_ar;
             }
-            if new_ar > 0 as ::core::ffi::c_int as ::core::ffi::c_double {
+            if new_ar > 0.0 {
                 if prefer_height {
-                    width = round(height * new_ar);
-                    height = round(width / new_ar);
+                    width = (height * new_ar).round();
+                    height = (width / new_ar).round();
                 } else {
-                    height = round(width / new_ar);
-                    width = round(height * new_ar);
+                    height = (width / new_ar).round();
+                    width = (height * new_ar).round();
                 }
-                (*floating_con).rect.width = (width
-                    + (*window).base_width as ::core::ffi::c_double
-                    + border_rect.width as ::core::ffi::c_double)
-                    as u32;
-                (*floating_con).rect.height = (height
-                    + (*window).base_height as ::core::ffi::c_double
-                    + border_rect.height as ::core::ffi::c_double)
-                    as u32;
+                rect.width = (width + window.base_width as f64 + border_rect.width as f64) as u32;
+                rect.height =
+                    (height + window.base_height as f64 + border_rect.height as f64) as u32;
             }
         }
-        if (*window).height_increment != 0
-            && (*floating_con).rect.height >= (base_height as u32).wrapping_add(border_rect.height)
+        if window.height_increment != 0
+            && rect.height >= (base_height as u32).wrapping_add(border_rect.height)
         {
-            (*floating_con).rect.height = (*floating_con)
-                .rect
+            rect.height = rect
                 .height
                 .wrapping_sub((base_height as u32).wrapping_add(border_rect.height));
-            (*floating_con).rect.height = (*floating_con).rect.height.wrapping_sub(
-                (*floating_con)
-                    .rect
-                    .height
-                    .wrapping_rem((*window).height_increment as u32),
-            );
-            (*floating_con).rect.height = (*floating_con)
-                .rect
+            rect.height = rect
+                .height
+                .wrapping_sub(rect.height.wrapping_rem(window.height_increment as u32));
+            rect.height = rect
                 .height
                 .wrapping_add((base_height as u32).wrapping_add(border_rect.height));
         }
-        if (*window).width_increment != 0
-            && (*floating_con).rect.width >= (base_width as u32).wrapping_add(border_rect.width)
+        if window.width_increment != 0
+            && rect.width >= (base_width as u32).wrapping_add(border_rect.width)
         {
-            (*floating_con).rect.width = (*floating_con)
-                .rect
+            rect.width = rect
                 .width
                 .wrapping_sub((base_width as u32).wrapping_add(border_rect.width));
-            (*floating_con).rect.width = (*floating_con).rect.width.wrapping_sub(
-                (*floating_con)
-                    .rect
-                    .width
-                    .wrapping_rem((*window).width_increment as u32),
-            );
-            (*floating_con).rect.width = (*floating_con)
-                .rect
+            rect.width = rect
+                .width
+                .wrapping_sub(rect.width.wrapping_rem(window.width_increment as u32));
+            rect.width = rect
                 .width
                 .wrapping_add((base_width as u32).wrapping_add(border_rect.width));
         }
     }
-    if config.floating_minimum_height != -(1 as i32) {
-        (*floating_con).rect.height = (*floating_con).rect.height.wrapping_sub(border_rect.height);
-        if config.floating_minimum_height == 0 as i32 {
-            (*floating_con).rect.height = max(
-                (*floating_con).rect.height as ::core::ffi::c_int,
-                floating_sane_min_height,
+    if limits.minimum_height != -(1) {
+        rect.height = rect.height.wrapping_sub(border_rect.height);
+        if limits.minimum_height == 0 {
+            rect.height = max(rect.height as i32, floating_sane_min_height) as u32;
+        } else {
+            rect.height = max(rect.height as i32, limits.minimum_height as i32) as u32;
+        }
+        rect.height = rect.height.wrapping_add(border_rect.height);
+    }
+    if limits.minimum_width != -(1) {
+        rect.width = rect.width.wrapping_sub(border_rect.width);
+        if limits.minimum_width == 0 {
+            rect.width = max(rect.width as i32, floating_sane_min_width) as u32;
+        } else {
+            rect.width = max(rect.width as i32, limits.minimum_width as i32) as u32;
+        }
+        rect.width = rect.width.wrapping_add(border_rect.width);
+    }
+    let floating_sane_max_dimensions = output_dimensions;
+    if limits.maximum_height != -(1) {
+        rect.height = rect.height.wrapping_sub(border_rect.height);
+        if limits.maximum_height == 0 {
+            rect.height = min(
+                rect.height as i32,
+                floating_sane_max_dimensions.height as i32,
             ) as u32;
         } else {
-            (*floating_con).rect.height = max(
-                (*floating_con).rect.height as ::core::ffi::c_int,
-                config.floating_minimum_height as ::core::ffi::c_int,
-            ) as u32;
+            rect.height = min(rect.height as i32, limits.maximum_height as i32) as u32;
         }
-        (*floating_con).rect.height = (*floating_con).rect.height.wrapping_add(border_rect.height);
+        rect.height = rect.height.wrapping_add(border_rect.height);
     }
-    if config.floating_minimum_width != -(1 as i32) {
-        (*floating_con).rect.width = (*floating_con).rect.width.wrapping_sub(border_rect.width);
-        if config.floating_minimum_width == 0 as i32 {
-            (*floating_con).rect.width = max(
-                (*floating_con).rect.width as ::core::ffi::c_int,
-                floating_sane_min_width,
-            ) as u32;
+    if limits.maximum_width != -(1) {
+        rect.width = rect.width.wrapping_sub(border_rect.width);
+        if limits.maximum_width == 0 {
+            rect.width = min(rect.width as i32, floating_sane_max_dimensions.width as i32) as u32;
         } else {
-            (*floating_con).rect.width = max(
-                (*floating_con).rect.width as ::core::ffi::c_int,
-                config.floating_minimum_width as ::core::ffi::c_int,
-            ) as u32;
+            rect.width = min(rect.width as i32, limits.maximum_width as i32) as u32;
         }
-        (*floating_con).rect.width = (*floating_con).rect.width.wrapping_add(border_rect.width);
+        rect.width = rect.width.wrapping_add(border_rect.width);
     }
-    let floating_sane_max_dimensions: Rect = total_outputs_dimensions();
-    if config.floating_maximum_height != -(1 as i32) {
-        (*floating_con).rect.height = (*floating_con).rect.height.wrapping_sub(border_rect.height);
-        if config.floating_maximum_height == 0 as i32 {
-            (*floating_con).rect.height = min(
-                (*floating_con).rect.height as ::core::ffi::c_int,
-                floating_sane_max_dimensions.height as ::core::ffi::c_int,
-            ) as u32;
-        } else {
-            (*floating_con).rect.height = min(
-                (*floating_con).rect.height as ::core::ffi::c_int,
-                config.floating_maximum_height as ::core::ffi::c_int,
-            ) as u32;
-        }
-        (*floating_con).rect.height = (*floating_con).rect.height.wrapping_add(border_rect.height);
-    }
-    if config.floating_maximum_width != -(1 as i32) {
-        (*floating_con).rect.width = (*floating_con).rect.width.wrapping_sub(border_rect.width);
-        if config.floating_maximum_width == 0 as i32 {
-            (*floating_con).rect.width = min(
-                (*floating_con).rect.width as ::core::ffi::c_int,
-                floating_sane_max_dimensions.width as ::core::ffi::c_int,
-            ) as u32;
-        } else {
-            (*floating_con).rect.width = min(
-                (*floating_con).rect.width as ::core::ffi::c_int,
-                config.floating_maximum_width as ::core::ffi::c_int,
-            ) as u32;
-        }
-        (*floating_con).rect.width = (*floating_con).rect.width.wrapping_add(border_rect.width);
-    }
+    rect
+}
+
+/// Requires a live event-thread-owned floating tree and initialized display/config.
+/// Copy all hint/policy inputs before computing; no graph borrow escapes the adapter.
+pub unsafe fn floating_check_size(floating_con: *mut Con, prefer_height: bool) {
+    let focused_con = con_descend_focused(floating_con);
+    let mut border = con_border_style_rect(focused_con);
+    border.width = border
+        .width
+        .wrapping_neg()
+        .wrapping_add((2 * (*focused_con).border_width) as u32);
+    border.height = border
+        .height
+        .wrapping_neg()
+        .wrapping_add((2 * (*focused_con).border_width) as u32);
+    let hints = (*focused_con).window.as_ref().map(|w| SizeHints {
+        min_width: w.min_width,
+        min_height: w.min_height,
+        base_width: w.base_width,
+        base_height: w.base_height,
+        max_width: w.max_width,
+        max_height: w.max_height,
+        width_increment: w.width_increment,
+        height_increment: w.height_increment,
+        min_aspect_ratio: w.min_aspect_ratio,
+        max_aspect_ratio: w.max_aspect_ratio,
+    });
+    let limits = SizeLimits {
+        minimum_width: config.floating_minimum_width,
+        minimum_height: config.floating_minimum_height,
+        maximum_width: config.floating_maximum_width,
+        maximum_height: config.floating_maximum_height,
+    };
+    (*floating_con).rect = constrained_size(
+        (*floating_con).rect,
+        border,
+        hints,
+        limits,
+        total_outputs_dimensions(),
+        (*floating_con).fullscreen_mode != CF_NONE,
+        prefer_height,
+    );
 }
 
 pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
@@ -400,7 +315,7 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
                 .as_ptr()
                 .cast_mut(),
         );
-        return false_0 != 0;
+        return false;
     }
     if con_is_floating(con) {
         verboselog(
@@ -408,27 +323,23 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
                 .as_ptr()
                 .cast_mut(),
         );
-        return false_0 != 0;
+        return false;
     }
-    if (*con).type_0 as ::core::ffi::c_uint
-        == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if (*con).type_0 as u32 == CT_WORKSPACE as i32 as u32 {
         verboselog(
             c"Container is a workspace, not enabling floating mode.\n"
                 .as_ptr()
                 .cast_mut(),
         );
-        return false_0 != 0;
+        return false;
     }
     let mut focus_head_placeholder: *mut Con = ::core::ptr::null_mut::<Con>();
-    let mut focus_before_parent: bool = true_0 != 0;
+    let mut focus_before_parent: bool = true;
     if !set_focus {
         let mut ancestor: *mut Con = con;
-        while (*(*ancestor).parent).type_0 as ::core::ffi::c_uint
-            != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
-            focus_before_parent = (focus_before_parent as ::core::ffi::c_int
-                & ((*(*ancestor).parent).focus_head.tqh_first == ancestor) as ::core::ffi::c_int)
+        while (*(*ancestor).parent).type_0 as u32 != CT_WORKSPACE as i32 as u32 {
+            focus_before_parent = (focus_before_parent as i32
+                & ((*(*ancestor).parent).focus_head.tqh_first == ancestor) as i32)
                 != 0;
             ancestor = (*ancestor).parent as *mut Con;
         }
@@ -443,7 +354,7 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
     con_fix_percent((*con).parent as *mut Con);
     let nc: *mut Con = con_new(
         ::core::ptr::null_mut::<Con>(),
-        ::core::ptr::null_mut::<i3Window>(),
+        ::core::ptr::null_mut::<Window>(),
     );
     let ws: *mut Con = con_get_workspace(con);
     (*nc).parent = ws as *mut Con;
@@ -490,11 +401,9 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
         *(*fh).tqh_last = nc as *mut Con;
         (*fh).tqh_last = &raw mut (*nc).focused.tqe_next;
     }
-    if ((*(*con).parent).type_0 as ::core::ffi::c_uint
-        == CT_CON as ::core::ffi::c_int as ::core::ffi::c_uint
-        || (*(*con).parent).type_0 as ::core::ffi::c_uint
-            == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint)
-        && con_num_children((*con).parent as *mut Con) == 0 as ::core::ffi::c_int
+    if ((*(*con).parent).type_0 as u32 == CT_CON as i32 as u32
+        || (*(*con).parent).type_0 as u32 == CT_FLOATING_CON as i32 as u32)
+        && con_num_children((*con).parent as *mut Con) == 0
     {
         debuglog(
             c"%s:%s:%d - Old container empty after setting this child to floating, closing\n"
@@ -502,27 +411,21 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
                 .cast_mut(),
             c"../src/floating.c".as_ptr(),
             c"floating_enable".as_ptr(),
-            316 as ::core::ffi::c_int,
+            316,
         );
         let parent: *mut Con = (*con).parent as *mut Con;
         (*con).parent = ::core::ptr::null_mut::<Con>();
-        tree_close_internal(parent, KillWindow::DontKill, false_0 != 0);
+        tree_close_internal(parent, KillWindow::DontKill, false);
     }
-    let mut name: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    sasprintf(
-        &raw mut name,
-        c"[i3 con] floatingcon around %p".as_ptr(),
-        con,
-    );
-    x_set_name(nc, name);
-    free(name as *mut ::core::ffi::c_void);
+    let name = std::ffi::CString::new(format!("[i3 con] floatingcon around {con:p}")).unwrap();
+    x_set_name(nc, name.as_ptr());
     debuglog(
         c"%s:%s:%d - Original rect: (%d, %d) with %d x %d\n"
             .as_ptr()
             .cast_mut(),
         c"../src/floating.c".as_ptr(),
         c"floating_enable".as_ptr(),
-        328 as ::core::ffi::c_int,
+        328,
         (*con).rect.x,
         (*con).rect.y,
         (*con).rect.width,
@@ -534,7 +437,7 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
             .cast_mut(),
         c"../src/floating.c".as_ptr(),
         c"floating_enable".as_ptr(),
-        329 as ::core::ffi::c_int,
+        329,
         (*con).geometry.x,
         (*con).geometry.y,
         (*con).geometry.width,
@@ -542,7 +445,7 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
     );
     (*nc).rect = (*con).geometry;
     if rect_equals(
-        (*nc).rect as Rect,
+        (*nc).rect,
         Rect {
             x: 0 as u32,
             y: 0 as u32,
@@ -556,7 +459,7 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
                 .cast_mut(),
             c"../src/floating.c".as_ptr(),
             c"floating_enable".as_ptr(),
-            334 as ::core::ffi::c_int,
+            334,
         );
         let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
         child = (*con).nodes_head.tqh_first as *mut Con;
@@ -565,15 +468,13 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
                 c"%s:%s:%d - child geometry: %d x %d\n".as_ptr().cast_mut(),
                 c"../src/floating.c".as_ptr(),
                 c"floating_enable".as_ptr(),
-                337 as ::core::ffi::c_int,
+                337,
                 (*child).geometry.width,
                 (*child).geometry.height,
             );
             (*nc).rect.width = (*nc).rect.width.wrapping_add((*child).geometry.width);
-            (*nc).rect.height = max(
-                (*nc).rect.height as ::core::ffi::c_int,
-                (*child).geometry.height as ::core::ffi::c_int,
-            ) as u32;
+            (*nc).rect.height =
+                max((*nc).rect.height as i32, (*child).geometry.height as i32) as u32;
             child = (*child).nodes.tqe_next as *mut Con;
         }
     }
@@ -598,12 +499,12 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
     (*nc).rect.height = (*nc)
         .rect
         .height
-        .wrapping_add(((*con).border_width * 2 as ::core::ffi::c_int) as u32);
+        .wrapping_add(((*con).border_width * 2) as u32);
     (*nc).rect.width = (*nc)
         .rect
         .width
-        .wrapping_add(((*con).border_width * 2 as ::core::ffi::c_int) as u32);
-    floating_check_size(nc, false_0 != 0);
+        .wrapping_add(((*con).border_width * 2) as u32);
+    floating_check_size(nc, false);
     if (*nc).rect.x == 0 as u32 && (*nc).rect.y == 0 as u32 {
         let mut leader: *mut Con = ::core::ptr::null_mut::<Con>();
         if !(*con).window.is_null()
@@ -618,21 +519,21 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
                 c"%s:%s:%d - Centering above leader\n".as_ptr().cast_mut(),
                 c"../src/floating.c".as_ptr(),
                 c"floating_enable".as_ptr(),
-                377 as ::core::ffi::c_int,
+                377,
             );
-            floating_center(nc, (*leader).rect as Rect);
+            floating_center(nc, (*leader).rect);
         } else {
-            floating_center(nc, (*ws).rect as Rect);
+            floating_center(nc, (*ws).rect);
         }
     }
-    let mut current_output: *mut Output = get_output_from_rect((*nc).rect as Rect);
+    let mut current_output: *mut Output = get_output_from_rect((*nc).rect);
     let correct_output: *mut Con = con_get_output(ws);
     if current_output.is_null() || (*current_output).con != correct_output {
         debuglog(
             c"%s:%s:%d - This floating window is on the wrong output, fixing coordinates (currently (%d, %d))\n".as_ptr().cast_mut(),
             c"../src/floating.c".as_ptr(),
             c"floating_enable".as_ptr(),
-            391 as ::core::ffi::c_int,
+            391,
             (*nc).rect.x,
             (*nc).rect.y,
         );
@@ -642,10 +543,10 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
                 &raw mut (*(*current_output).con).rect,
                 &raw mut (*correct_output).rect,
             );
-            current_output = get_output_from_rect((*nc).rect as Rect);
+            current_output = get_output_from_rect((*nc).rect);
         }
         if current_output.is_null() || (*current_output).con != correct_output {
-            floating_center(nc, (*ws).rect as Rect);
+            floating_center(nc, (*ws).rect);
         }
     }
     debuglog(
@@ -654,7 +555,7 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
             .cast_mut(),
         c"../src/floating.c".as_ptr(),
         c"floating_enable".as_ptr(),
-        405 as ::core::ffi::c_int,
+        405,
         (*nc).rect.x,
         (*nc).rect.y,
         (*nc).rect.width,
@@ -664,9 +565,9 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
     if set_focus {
         con_activate(con);
     }
-    floating_set_hint_atom(nc, true_0 != 0);
+    floating_set_hint_atom(nc, true);
     ipc_send_window_event(c"floating".as_ptr(), con);
-    true_0 != 0
+    true
 }
 
 pub unsafe fn floating_disable(con: *mut Con) {
@@ -688,28 +589,24 @@ pub unsafe fn floating_disable(con: *mut Con) {
         return;
     }
     let tiling_focused: *mut Con = con_descend_tiling_focused(ws);
-    if (*tiling_focused).type_0 as ::core::ffi::c_uint
-        == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if (*tiling_focused).type_0 as u32 == CT_WORKSPACE as i32 as u32 {
         let parent: *mut Con = (*con).parent as *mut Con;
         con_detach(con);
         (*con).parent = ::core::ptr::null_mut::<Con>();
-        tree_close_internal(parent, KillWindow::DontKill, true_0 != 0);
-        con_attach(con, tiling_focused, false_0 != 0);
+        tree_close_internal(parent, KillWindow::DontKill, true);
+        con_attach(con, tiling_focused, false);
         (*con).percent = 0.0f64;
         con_fix_percent((*con).parent as *mut Con);
     } else {
         insert_con_into(con, tiling_focused, Position::After);
     }
     (*con).floating = FloatingState::UserOff;
-    floating_set_hint_atom(con, false_0 != 0);
+    floating_set_hint_atom(con, false);
     ipc_send_window_event(c"floating".as_ptr(), con);
 }
 
 pub unsafe fn toggle_floating_mode(con: *mut Con, automatic: bool) {
-    if (*con).type_0 as ::core::ffi::c_uint
-        == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if (*con).type_0 as u32 == CT_FLOATING_CON as i32 as u32 {
         errorlog(
             c"ERROR: Cannot toggle floating mode on con = %p because it is of type CT_FLOATING_CON.\n".as_ptr().cast_mut(),
             con,
@@ -735,7 +632,7 @@ pub unsafe fn floating_raise_con(con: *mut Con) {
             .cast_mut(),
         c"../src/floating.c".as_ptr(),
         c"floating_raise_con".as_ptr(),
-        479 as ::core::ffi::c_int,
+        479,
         con,
         (*con).name,
     );
@@ -761,33 +658,33 @@ pub unsafe fn floating_maybe_reassign_ws(con: *mut Con) -> bool {
                 .cast_mut(),
             c"../src/floating.c".as_ptr(),
             c"floating_maybe_reassign_ws".as_ptr(),
-            491 as ::core::ffi::c_int,
+            491,
         );
-        return false_0 != 0;
+        return false;
     }
-    let output: *mut Output = get_output_from_rect((*con).rect as Rect);
+    let output: *mut Output = get_output_from_rect((*con).rect);
     if output.is_null() {
         errorlog(
             c"ERROR: No output found at destination coordinates?\n"
                 .as_ptr()
                 .cast_mut(),
         );
-        return false_0 != 0;
+        return false;
     }
     if con_get_output(con) == (*output).con {
         debuglog(
             c"%s:%s:%d - still the same ws\n".as_ptr().cast_mut(),
             c"../src/floating.c".as_ptr(),
             c"floating_maybe_reassign_ws".as_ptr(),
-            503 as ::core::ffi::c_int,
+            503,
         );
-        return false_0 != 0;
+        return false;
     }
     debuglog(
         c"%s:%s:%d - Need to re-assign!\n".as_ptr().cast_mut(),
         c"../src/floating.c".as_ptr(),
         c"floating_maybe_reassign_ws".as_ptr(),
-        507 as ::core::ffi::c_int,
+        507,
     );
     let content: *mut Con = output_get_content((*output).con);
     let ws: *mut Con = (*content).focus_head.tqh_first as *mut Con;
@@ -797,7 +694,7 @@ pub unsafe fn floating_maybe_reassign_ws(con: *mut Con) -> bool {
             .cast_mut(),
         c"../src/floating.c".as_ptr(),
         c"floating_maybe_reassign_ws".as_ptr(),
-        511 as ::core::ffi::c_int,
+        511,
         con,
         (*con).name,
         ws,
@@ -807,35 +704,38 @@ pub unsafe fn floating_maybe_reassign_ws(con: *mut Con) -> bool {
     if !con_inside_focused(needs_focus) {
         needs_focus = ::core::ptr::null_mut::<Con>();
     }
-    con_move_to_workspace(con, ws, false_0 != 0, true_0 != 0, false_0 != 0);
+    con_move_to_workspace(con, ws, false, true, false);
     if !needs_focus.is_null() {
         workspace_show(ws);
         con_activate(needs_focus);
     }
-    true_0 != 0
+    true
 }
 
-pub unsafe fn floating_center(con: *mut Con, rect: Rect) {
-    (*con).rect.x = rect
+fn centered(mut target: Rect, rect: Rect) -> Rect {
+    target.x = rect
         .x
         .wrapping_add(rect.width.wrapping_div(2 as u32))
-        .wrapping_sub((*con).rect.width.wrapping_div(2 as u32));
-    (*con).rect.y = rect
+        .wrapping_sub(target.width.wrapping_div(2 as u32));
+    target.y = rect
         .y
         .wrapping_add(rect.height.wrapping_div(2 as u32))
-        .wrapping_sub((*con).rect.height.wrapping_div(2 as u32));
+        .wrapping_sub(target.height.wrapping_div(2 as u32));
+
+    target
+}
+pub unsafe fn floating_center(con: *mut Con, rect: Rect) {
+    (*con).rect = centered((*con).rect, rect);
 }
 
 pub unsafe fn floating_move_to_pointer(con: *mut Con) {
-    if (*con).type_0 as ::core::ffi::c_uint
-        == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if (*con).type_0 as u32 == CT_FLOATING_CON as i32 as u32 {
     } else {
         __assert_fail(
             c"con->type == CT_FLOATING_CON".as_ptr(),
             c"../src/floating.c".as_ptr(),
-            538 as ::core::ffi::c_uint,
-            __ASSERT_FUNCTION.as_ptr(),
+            538 as u32,
+            c"void floating_move_to_pointer(Con *)".as_ptr(),
         );
     };
     let mut reply: *mut xcb_query_pointer_reply_t = xcb_query_pointer_reply(
@@ -851,10 +751,9 @@ pub unsafe fn floating_move_to_pointer(con: *mut Con) {
         );
         return;
     }
-    let output: *mut Output = get_output_containing(
-        (*reply).root_x as ::core::ffi::c_uint,
-        (*reply).root_y as ::core::ffi::c_uint,
-    );
+    let pointer = ((*reply).root_x as u32, (*reply).root_y as u32);
+    free(reply.cast());
+    let output = get_output_containing(pointer.0, pointer.1);
     if output.is_null() {
         errorlog(
             c"ERROR: The pointer is not on any output, cannot move the container here.\n"
@@ -863,49 +762,8 @@ pub unsafe fn floating_move_to_pointer(con: *mut Con) {
         );
         return;
     }
-    let mut x: i32 =
-        ((*reply).root_x as u32).wrapping_sub((*con).rect.width.wrapping_div(2 as u32)) as i32;
-    let mut y: i32 =
-        ((*reply).root_y as u32).wrapping_sub((*con).rect.height.wrapping_div(2 as u32)) as i32;
-    free(reply as *mut ::core::ffi::c_void);
-    reply = ::core::ptr::null_mut::<xcb_query_pointer_reply_t>();
-    x = if x > (*output).rect.x as i32 {
-        x
-    } else {
-        (*output).rect.x as i32
-    };
-    y = if y > (*output).rect.y as i32 {
-        y
-    } else {
-        (*output).rect.y as i32
-    };
-    if (x as u32).wrapping_add((*con).rect.width)
-        > (*output).rect.x.wrapping_add((*output).rect.width)
-    {
-        x = (*output)
-            .rect
-            .x
-            .wrapping_add((*output).rect.width)
-            .wrapping_sub((*con).rect.width) as i32;
-    }
-    if (y as u32).wrapping_add((*con).rect.height)
-        > (*output).rect.y.wrapping_add((*output).rect.height)
-    {
-        y = (*output)
-            .rect
-            .y
-            .wrapping_add((*output).rect.height)
-            .wrapping_sub((*con).rect.height) as i32;
-    }
-    floating_reposition(
-        con,
-        Rect {
-            x: x as u32,
-            y: y as u32,
-            width: (*con).rect.width,
-            height: (*con).rect.height,
-        },
-    );
+    let destination = pointer_placement((*con).rect, (*output).rect, pointer);
+    floating_reposition(con, destination);
 }
 unsafe fn drag_window_callback(
     con: *mut Con,
@@ -940,10 +798,10 @@ pub unsafe fn floating_drag_window(
         c"%s:%s:%d - floating_drag_window\n".as_ptr().cast_mut(),
         c"../src/floating.c".as_ptr(),
         c"floating_drag_window".as_ptr(),
-        595 as ::core::ffi::c_int,
+        595,
     );
     tree_render();
-    let initial_rect: Rect = (*con).rect as Rect;
+    let initial_rect: Rect = (*con).rect;
     let drag_result: DragResult = drag_pointer(
         con,
         event,
@@ -970,7 +828,7 @@ pub unsafe fn floating_drag_window(
                 .cast_mut(),
             c"../src/floating.c".as_ptr(),
             c"floating_drag_window".as_ptr(),
-            608 as ::core::ffi::c_int,
+            608,
         );
         return;
     }
@@ -991,61 +849,31 @@ unsafe fn resize_window_callback(
     event: *const xcb_button_press_event_t,
     extra: *const ::core::ffi::c_void,
 ) {
-    let params: *const resize_window_callback_params =
-        extra as *const resize_window_callback_params;
-    let corner: border_t = (*params).corner;
+    let params: *const ResizeParameters = extra as *const ResizeParameters;
+    let corner: u32 = (*params).corner;
     let mut dest_x: i32 = (*con).rect.x as i32;
     let mut dest_y: i32 = (*con).rect.y as i32;
-    let mut dest_width: u32 = 0;
-    let mut dest_height: u32 = 0;
-    let ratio: ::core::ffi::c_double =
-        (*old_rect).width as ::core::ffi::c_double / (*old_rect).height as ::core::ffi::c_double;
-    if corner as ::core::ffi::c_uint & BORDER_LEFT as ::core::ffi::c_int as ::core::ffi::c_uint != 0
-    {
-        dest_width = (*old_rect)
-            .width
-            .wrapping_sub(new_x.wrapping_sub((*event).root_x as u32));
-    } else {
-        dest_width = (*old_rect)
-            .width
-            .wrapping_add(new_x.wrapping_sub((*event).root_x as u32));
-    }
-    if corner as ::core::ffi::c_uint & BORDER_TOP as ::core::ffi::c_int as ::core::ffi::c_uint != 0
-    {
-        dest_height = (*old_rect)
-            .height
-            .wrapping_sub(new_y.wrapping_sub((*event).root_y as u32));
-    } else {
-        dest_height = (*old_rect)
-            .height
-            .wrapping_add(new_y.wrapping_sub((*event).root_y as u32));
-    }
-    if (*params).proportional {
-        dest_width = max(
-            dest_width as ::core::ffi::c_int,
-            (dest_height as ::core::ffi::c_double * ratio) as ::core::ffi::c_int,
-        ) as u32;
-        dest_height = max(
-            dest_height as ::core::ffi::c_int,
-            (dest_width as ::core::ffi::c_double / ratio) as ::core::ffi::c_int,
-        ) as u32;
-    }
+    let (dest_width, dest_height) = dragged_size(
+        *old_rect,
+        corner,
+        (*params).proportional,
+        (new_x, new_y),
+        ((*event).root_x as u32, (*event).root_y as u32),
+    );
     (*con).rect = Rect {
         x: dest_x as u32,
         y: dest_y as u32,
         width: dest_width,
         height: dest_height,
-    } as Rect;
-    floating_check_size(con, false_0 != 0);
-    if corner as ::core::ffi::c_uint & BORDER_LEFT as ::core::ffi::c_int as ::core::ffi::c_uint != 0
-    {
+    };
+    floating_check_size(con, false);
+    if corner as u32 & BORDER_LEFT as i32 as u32 != 0 {
         dest_x = (*old_rect)
             .x
             .wrapping_add((*old_rect).width.wrapping_sub((*con).rect.width))
             as i32;
     }
-    if corner as ::core::ffi::c_uint & BORDER_TOP as ::core::ffi::c_int as ::core::ffi::c_uint != 0
-    {
+    if corner as u32 & BORDER_TOP as i32 as u32 != 0 {
         dest_y = (*old_rect)
             .y
             .wrapping_add((*old_rect).height.wrapping_sub((*con).rect.height))
@@ -1066,63 +894,21 @@ pub unsafe fn floating_resize_window(
         c"%s:%s:%d - floating_resize_window\n".as_ptr().cast_mut(),
         c"../src/floating.c".as_ptr(),
         c"floating_resize_window".as_ptr(),
-        699 as ::core::ffi::c_int,
+        699,
     );
     tree_render();
-    let mut corner: border_t = 0 as border_t;
-    if (*event).event_x as ::core::ffi::c_int
-        <= (*con).rect.width.wrapping_div(2 as u32) as i16 as ::core::ffi::c_int
-    {
-        corner = ::core::mem::transmute::<::core::ffi::c_uint, border_t>(
-            corner as ::core::ffi::c_uint
-                | BORDER_LEFT as ::core::ffi::c_int as ::core::ffi::c_uint,
-        );
-    } else {
-        corner = ::core::mem::transmute::<::core::ffi::c_uint, border_t>(
-            corner as ::core::ffi::c_uint
-                | BORDER_RIGHT as ::core::ffi::c_int as ::core::ffi::c_uint,
-        );
-    }
-    let mut cursor: Cursor = Cursor::Pointer;
-    if (*event).event_y as ::core::ffi::c_int
-        <= (*con).rect.height.wrapping_div(2 as u32) as i16 as ::core::ffi::c_int
-    {
-        corner = ::core::mem::transmute::<::core::ffi::c_uint, border_t>(
-            corner as ::core::ffi::c_uint | BORDER_TOP as ::core::ffi::c_int as ::core::ffi::c_uint,
-        );
-        cursor = if corner as ::core::ffi::c_uint
-            & BORDER_LEFT as ::core::ffi::c_int as ::core::ffi::c_uint
-            != 0
-        {
-            Cursor::TopLeftCorner
-        } else {
-            Cursor::TopRightCorner
-        };
-    } else {
-        corner = ::core::mem::transmute::<::core::ffi::c_uint, border_t>(
-            corner as ::core::ffi::c_uint
-                | BORDER_BOTTOM as ::core::ffi::c_int as ::core::ffi::c_uint,
-        );
-        cursor = if corner as ::core::ffi::c_uint
-            & BORDER_LEFT as ::core::ffi::c_int as ::core::ffi::c_uint
-            != 0
-        {
-            Cursor::BottomLeftCorner
-        } else {
-            Cursor::BottomRightCorner
-        };
-    }
-    let mut params: resize_window_callback_params = resize_window_callback_params {
+    let (corner, cursor) = resize_corner((*con).rect, (*event).event_x, (*event).event_y);
+    let mut params: ResizeParameters = ResizeParameters {
         corner,
         proportional,
     };
-    let initial_rect: Rect = (*con).rect as Rect;
+    let initial_rect: Rect = (*con).rect;
     let drag_result: DragResult = drag_pointer(
         con,
         event,
         XCB_NONE as xcb_window_t,
         cursor,
-        false_0 != 0,
+        false,
         Some(
             resize_window_callback
                 as unsafe fn(
@@ -1143,7 +929,7 @@ pub unsafe fn floating_resize_window(
                 .cast_mut(),
             c"../src/floating.c".as_ptr(),
             c"floating_resize_window".as_ptr(),
-            732 as ::core::ffi::c_int,
+            732,
         );
         return;
     }
@@ -1162,15 +948,15 @@ pub unsafe fn floating_reposition(con: *mut Con, newrect: Rect) -> bool {
                 .as_ptr()
                 .cast_mut(),
         );
-        return false_0 != 0;
+        return false;
     }
-    (*con).rect = newrect as Rect;
+    (*con).rect = newrect;
     floating_maybe_reassign_ws(con);
     if (*con).scratchpad_state == ScratchpadState::Fresh {
         (*con).scratchpad_state = ScratchpadState::Changed;
     }
     tree_render();
-    true_0 != 0
+    true
 }
 
 pub unsafe fn floating_resize(floating_con: *mut Con, x: u32, y: u32) {
@@ -1180,7 +966,7 @@ pub unsafe fn floating_resize(floating_con: *mut Con, x: u32, y: u32) {
             .cast_mut(),
         c"../src/floating.c".as_ptr(),
         c"floating_resize".as_ptr(),
-        783 as ::core::ffi::c_int,
+        783,
         x,
         y,
     );
@@ -1193,125 +979,52 @@ pub unsafe fn floating_resize(floating_con: *mut Con, x: u32, y: u32) {
                 .cast_mut(),
             c"../src/floating.c".as_ptr(),
             c"floating_resize".as_ptr(),
-            787 as ::core::ffi::c_int,
+            787,
         );
         return;
     }
-    let wi: ::core::ffi::c_int = (*(*focused_con).window).width_increment;
-    let hi: ::core::ffi::c_int = (*(*focused_con).window).height_increment;
+    let wi: i32 = (*(*focused_con).window).width_increment;
+    let hi: i32 = (*(*focused_con).window).height_increment;
     let prefer_height: bool = (*rect).width == x;
     (*rect).width = x;
     (*rect).height = y;
-    if wi != 0 {
-        (*rect).width = (*rect).width.wrapping_add(
-            ((wi - 1 as ::core::ffi::c_int) as u32)
-                .wrapping_sub((*rect).width)
-                .wrapping_rem(wi as u32),
-        );
-    }
-    if hi != 0 {
-        (*rect).height = (*rect).height.wrapping_add(
-            ((hi - 1 as ::core::ffi::c_int) as u32)
-                .wrapping_sub((*rect).height)
-                .wrapping_rem(hi as u32),
-        );
-    }
+    (*rect).width = increment_up((*rect).width, wi);
+    (*rect).height = increment_up((*rect).height, hi);
     floating_check_size(floating_con, prefer_height);
     if (*floating_con).scratchpad_state == ScratchpadState::Fresh {
         (*floating_con).scratchpad_state = ScratchpadState::Changed;
     }
 }
 
-pub unsafe fn floating_fix_coordinates(con: *mut Con, old_rect: *mut Rect, new_rect: *mut Rect) {
-    debuglog(
-        c"%s:%s:%d - Fixing coordinates of floating window %p (rect (%d, %d), %d x %d)\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/floating.c".as_ptr(),
-        c"floating_fix_coordinates".as_ptr(),
-        817 as ::core::ffi::c_int,
-        con,
-        (*con).rect.x,
-        (*con).rect.y,
-        (*con).rect.width,
-        (*con).rect.height,
-    );
-    debuglog(
-        c"%s:%s:%d - old_rect = (%d, %d), %d x %d\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/floating.c".as_ptr(),
-        c"floating_fix_coordinates".as_ptr(),
-        819 as ::core::ffi::c_int,
-        (*old_rect).x,
-        (*old_rect).y,
-        (*old_rect).width,
-        (*old_rect).height,
-    );
-    debuglog(
-        c"%s:%s:%d - new_rect = (%d, %d), %d x %d\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/floating.c".as_ptr(),
-        c"floating_fix_coordinates".as_ptr(),
-        821 as ::core::ffi::c_int,
-        (*new_rect).x,
-        (*new_rect).y,
-        (*new_rect).width,
-        (*new_rect).height,
-    );
-    let rel_x: i32 = (*con)
-        .rect
+fn remapped(mut target: Rect, old_rect: Rect, new_rect: Rect) -> Rect {
+    let rel_x: i32 = target
         .x
-        .wrapping_sub((*old_rect).x)
-        .wrapping_add((*con).rect.width.wrapping_div(2 as u32) as i32 as u32)
+        .wrapping_sub(old_rect.x)
+        .wrapping_add(target.width.wrapping_div(2 as u32) as i32 as u32)
         as i32;
-    let rel_y: i32 = (*con)
-        .rect
+    let rel_y: i32 = target
         .y
-        .wrapping_sub((*old_rect).y)
-        .wrapping_add((*con).rect.height.wrapping_div(2 as u32) as i32 as u32)
+        .wrapping_sub(old_rect.y)
+        .wrapping_add(target.height.wrapping_div(2 as u32) as i32 as u32)
         as i32;
-    debuglog(
-        c"%s:%s:%d - rel_x = %d, rel_y = %d, fraction_x = %f, fraction_y = %f, output->w = %d, output->h = %d\n".as_ptr().cast_mut(),
-        c"../src/floating.c".as_ptr(),
-        c"floating_fix_coordinates".as_ptr(),
-        830 as ::core::ffi::c_int,
-        rel_x,
-        rel_y,
-        rel_x as ::core::ffi::c_double / (*old_rect).width as ::core::ffi::c_double,
-        rel_y as ::core::ffi::c_double / (*old_rect).height as ::core::ffi::c_double,
-        (*old_rect).width,
-        (*old_rect).height,
-    );
-    (*con).rect.x = ((*new_rect).x as i32 as ::core::ffi::c_double
-        + (rel_x * (*new_rect).width as i32) as ::core::ffi::c_double
-            / (*old_rect).width as i32 as ::core::ffi::c_double
-        - (*con).rect.width.wrapping_div(2 as u32) as i32 as ::core::ffi::c_double)
-        as u32;
-    (*con).rect.y = ((*new_rect).y as i32 as ::core::ffi::c_double
-        + (rel_y * (*new_rect).height as i32) as ::core::ffi::c_double
-            / (*old_rect).height as i32 as ::core::ffi::c_double
-        - (*con).rect.height.wrapping_div(2 as u32) as i32 as ::core::ffi::c_double)
-        as u32;
-    debuglog(
-        c"%s:%s:%d - Resulting coordinates: x = %d, y = %d\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/floating.c".as_ptr(),
-        c"floating_fix_coordinates".as_ptr(),
-        834 as ::core::ffi::c_int,
-        (*con).rect.x,
-        (*con).rect.y,
-    );
+
+    target.x = (new_rect.x as i32 as f64
+        + (rel_x * new_rect.width as i32) as f64 / old_rect.width as i32 as f64
+        - target.width.wrapping_div(2 as u32) as i32 as f64) as u32;
+    target.y = (new_rect.y as i32 as f64
+        + (rel_y * new_rect.height as i32) as f64 / old_rect.height as i32 as f64
+        - target.height.wrapping_div(2 as u32) as i32 as f64) as u32;
+
+    target
+}
+pub unsafe fn floating_fix_coordinates(con: *mut Con, old_rect: *mut Rect, new_rect: *mut Rect) {
+    (*con).rect = remapped((*con).rect, *old_rect, *new_rect);
 }
 
 // Internal helpers use Rust linkage rather than foreign symbol lookup.
 use crate::tree::tree_render;
 use crate::util::max;
 use crate::util::min;
-
-// Canonical Cairo backend ABI; renderer logic remains local.
 
 // Canonical Pango backend ABI; font policy remains local.
 
@@ -1333,8 +1046,6 @@ pub use crate::types::xoutput;
 pub use crate::types::Con;
 pub use crate::types::Rect;
 pub use crate::types::Window;
-pub use i3_common::font::Font;
-pub use i3_common::string::I3String as _i3String;
 
 // Internal calls and globals use canonical Rust identities.
 use crate::application::conn;
@@ -1378,3 +1089,206 @@ use crate::x::x_push_changes;
 use crate::x::x_push_node;
 use crate::x::x_set_name;
 use crate::x::x_set_warp_to;
+
+fn resize_corner(rect: Rect, x: i16, y: i16) -> (u32, Cursor) {
+    let left = x <= (rect.width / 2) as i16;
+    let top = y <= (rect.height / 2) as i16;
+    (
+        (if left { BORDER_LEFT } else { BORDER_RIGHT })
+            | (if top { BORDER_TOP } else { BORDER_BOTTOM }),
+        match (left, top) {
+            (true, true) => Cursor::TopLeftCorner,
+            (false, true) => Cursor::TopRightCorner,
+            (true, false) => Cursor::BottomLeftCorner,
+            (false, false) => Cursor::BottomRightCorner,
+        },
+    )
+}
+
+fn dragged_size(
+    old: Rect,
+    corner: u32,
+    proportional: bool,
+    new: (u32, u32),
+    origin: (u32, u32),
+) -> (u32, u32) {
+    let dx = new.0.wrapping_sub(origin.0);
+    let dy = new.1.wrapping_sub(origin.1);
+    let mut width = if corner & BORDER_LEFT != 0 {
+        old.width.wrapping_sub(dx)
+    } else {
+        old.width.wrapping_add(dx)
+    };
+    let mut height = if corner & BORDER_TOP != 0 {
+        old.height.wrapping_sub(dy)
+    } else {
+        old.height.wrapping_add(dy)
+    };
+    if proportional {
+        let ratio = f64::from(old.width) / f64::from(old.height);
+        width = (width as i32).max((f64::from(height) * ratio) as i32) as u32;
+        height = (height as i32).max((f64::from(width) / ratio) as i32) as u32;
+    }
+    (width, height)
+}
+fn pointer_placement(mut rect: Rect, output: Rect, pointer: (u32, u32)) -> Rect {
+    let mut x = (pointer.0.wrapping_sub(rect.width / 2) as i32).max(output.x as i32);
+    let mut y = (pointer.1.wrapping_sub(rect.height / 2) as i32).max(output.y as i32);
+    if (x as u32).wrapping_add(rect.width) > output.x.wrapping_add(output.width) {
+        x = output.x.wrapping_add(output.width).wrapping_sub(rect.width) as i32;
+    }
+    if (y as u32).wrapping_add(rect.height) > output.y.wrapping_add(output.height) {
+        y = output
+            .y
+            .wrapping_add(output.height)
+            .wrapping_sub(rect.height) as i32;
+    }
+    rect.x = x as u32;
+    rect.y = y as u32;
+    rect
+}
+fn increment_up(value: u32, increment: i32) -> u32 {
+    if increment == 0 {
+        value
+    } else {
+        value.wrapping_add(
+            ((increment - 1) as u32)
+                .wrapping_sub(value)
+                .wrapping_rem(increment as u32),
+        )
+    }
+}
+#[cfg(test)]
+mod owned_tests {
+    use super::*;
+    fn rect(w: u32, h: u32) -> Rect {
+        Rect {
+            x: 0,
+            y: 0,
+            width: w,
+            height: h,
+        }
+    }
+    fn unlimited() -> SizeLimits {
+        SizeLimits {
+            minimum_width: -1,
+            minimum_height: -1,
+            maximum_width: -1,
+            maximum_height: -1,
+        }
+    }
+    #[test]
+    fn client_constraints_keep_aspect_base_increment_and_config_order() {
+        let hints = SizeHints {
+            base_width: 10,
+            base_height: 10,
+            min_width: 40,
+            min_height: 30,
+            max_width: 200,
+            max_height: 200,
+            width_increment: 7,
+            height_increment: 3,
+            min_aspect_ratio: 2.,
+            ..SizeHints::default()
+        };
+        let result = constrained_size(
+            rect(41, 80),
+            rect(2, 4),
+            Some(hints),
+            unlimited(),
+            rect(1000, 1000),
+            false,
+            true,
+        );
+        assert_eq!((result.width, result.height), (138, 80));
+        let full = constrained_size(
+            rect(41, 80),
+            rect(2, 4),
+            Some(hints),
+            unlimited(),
+            rect(1000, 1000),
+            true,
+            true,
+        );
+        assert_eq!((full.width, full.height), (40, 80));
+        let limits = SizeLimits {
+            minimum_width: 0,
+            minimum_height: 0,
+            maximum_width: 100,
+            maximum_height: 40,
+        };
+        let clipped = constrained_size(
+            rect(1, 1),
+            rect(2, 4),
+            None,
+            limits,
+            rect(1000, 1000),
+            false,
+            false,
+        );
+        assert_eq!((clipped.width, clipped.height), (77, 44));
+    }
+    #[test]
+    fn geometry_keeps_odd_centering_signed_corner_cast_and_wrapping_drag() {
+        let centered = centered(
+            rect(5, 7),
+            Rect {
+                x: 10,
+                y: 20,
+                width: 10,
+                height: 10,
+            },
+        );
+        assert_eq!((centered.x, centered.y), (13, 22));
+        let (corner, _) = resize_corner(rect(131072, 100), 1, 50);
+        assert_eq!(corner, BORDER_RIGHT | BORDER_TOP);
+        assert_eq!(
+            dragged_size(
+                rect(100, 50),
+                BORDER_LEFT | BORDER_TOP,
+                false,
+                (5, 10),
+                (10, 20)
+            ),
+            (105, 60)
+        );
+        assert_eq!(
+            dragged_size(
+                rect(100, 50),
+                BORDER_RIGHT | BORDER_BOTTOM,
+                true,
+                (10, 10),
+                (0, 0)
+            ),
+            (120, 60)
+        );
+        let placed = pointer_placement(rect(120, 120), rect(100, 100), (50, 50));
+        assert_eq!((placed.x, placed.y), (u32::MAX - 19, u32::MAX - 19));
+        assert_eq!(increment_up(10, 3), 12); // Historical unsigned (inc-1-value) remainder.
+        assert_eq!(increment_up(0, 0), 0);
+    }
+    #[test]
+    fn coordinate_remap_keeps_signed_relative_center_and_truncation() {
+        let mapped = remapped(
+            Rect {
+                x: 110,
+                y: 60,
+                width: 20,
+                height: 10,
+            },
+            Rect {
+                x: 100,
+                y: 50,
+                width: 100,
+                height: 100,
+            },
+            Rect {
+                x: 0,
+                y: 0,
+                width: 200,
+                height: 50,
+            },
+        );
+        assert_eq!((mapped.x, mapped.y), (30, 2));
+    }
+}

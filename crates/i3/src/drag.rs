@@ -9,44 +9,14 @@ use crate::xcursor::Cursor;
  * drag.c: click and drag.
  *
  */
-// Mechanical file-by-file Rust translation of src/drag.c.
-// Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
+// Event/grab ownership is scoped to this synchronous nested loop. Con/event/
+// extra pointers are borrowed by contract until drag_pointer returns; callbacks
+// may mutate/free graph nodes, so no graph references cross their invocation.
 pub use libev_sys::{
-    ev_break, ev_loop, ev_prepare, ev_prepare_start, ev_prepare_stop, ev_watcher, EVBREAK_ONE,
+    ev_break, ev_loop, ev_prepare, ev_prepare_start, ev_prepare_stop, EVBREAK_ONE,
 };
 
-pub type i3String = _i3String;
-
-pub type fullscreen_mode_t = ::core::ffi::c_uint;
-pub const CF_GLOBAL: fullscreen_mode_t = 2;
-pub const CF_OUTPUT: fullscreen_mode_t = 1;
-pub const CF_NONE: fullscreen_mode_t = 0;
-
-pub const M_BELOW: ::core::ffi::c_uint = 2;
-pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
-pub const M_HERE: ::core::ffi::c_uint = 0;
-
-pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
-pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
-pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
-pub const M_NODOCK: ::core::ffi::c_int = 0;
-pub const M_DONTCHECK: ::core::ffi::c_int = -1;
-
-pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
-pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
-pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
-pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
-pub const A_COMMAND: ::core::ffi::c_uint = 1;
-pub const A_ANY: ::core::ffi::c_uint = 0;
-
-pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
-pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
-pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
-pub const CT_CON: ::core::ffi::c_uint = 2;
-pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
-pub const CT_ROOT: ::core::ffi::c_uint = 0;
-
-pub type callback_t = Option<
+pub type DragCallback = Option<
     unsafe fn(
         *mut Con,
         *mut Rect,
@@ -59,52 +29,45 @@ pub type callback_t = Option<
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct drag_x11_cb {
+struct DragState {
     pub prepare: ev_prepare,
     pub result: DragResult,
     pub con: *mut Con,
     pub event: *const xcb_button_press_event_t,
     pub old_rect: Rect,
-    pub callback: callback_t,
+    pub callback: DragCallback,
     pub threshold_exceeded: bool,
     pub xcursor: xcb_cursor_t,
     pub extra: *const ::core::ffi::c_void,
 }
-pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 
-pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
-
-unsafe fn threshold_exceeded(x1: u32, y1: u32, x2: u32, y2: u32) -> bool {
-    let threshold: u32 = logical_px(15 as ::core::ffi::c_int) as u32;
+fn threshold_exceeded(x1: u32, y1: u32, x2: u32, y2: u32, threshold: u32) -> bool {
     x1.wrapping_sub(x2)
         .wrapping_mul(x1.wrapping_sub(x2))
         .wrapping_add(y1.wrapping_sub(y2).wrapping_mul(y1.wrapping_sub(y2)))
         > threshold.wrapping_mul(threshold)
 }
-unsafe fn drain_drag_events(loop_0: *mut ev_loop, dragloop: *mut drag_x11_cb) -> bool {
-    let mut last_motion_notify: *mut xcb_motion_notify_event_t =
-        ::core::ptr::null_mut::<xcb_motion_notify_event_t>();
+unsafe fn drain_drag_events(loop_0: *mut ev_loop, dragloop: *mut DragState) -> bool {
+    let mut pending_motion: Option<xcb_motion_notify_event_t> = None;
     let mut event: *mut xcb_generic_event_t = ::core::ptr::null_mut::<xcb_generic_event_t>();
     loop {
         event = xcb_poll_for_event(conn);
         if event.is_null() {
             break;
         }
-        if (*event).response_type as ::core::ffi::c_int == 0 as ::core::ffi::c_int {
+        let _event_owner = Native::take(event);
+        if (*event).response_type as i32 == 0 {
             let error: *mut xcb_generic_error_t = event as *mut xcb_generic_error_t;
             debuglog(
                 c"%s:%s:%d - X11 Error received (probably harmless)! sequence 0x%x, error_code = %d\n".as_ptr().cast_mut(),
                 c"../src/drag.c".as_ptr(),
                 c"drain_drag_events".as_ptr(),
-                58 as ::core::ffi::c_int,
-                (*error).sequence as ::core::ffi::c_int,
-                (*error).error_code as ::core::ffi::c_int,
+                58,
+                (*error).sequence as i32,
+                error.as_ref().map_or(0,|error|i32::from(error.error_code)),
             );
-            free(event as *mut ::core::ffi::c_void);
         } else {
-            let type_0: ::core::ffi::c_int =
-                (*event).response_type as ::core::ffi::c_int & 0x7f as ::core::ffi::c_int;
+            let type_0: i32 = (*event).response_type as i32 & 0x7f as i32;
             match type_0 {
                 XCB_BUTTON_PRESS => {
                     let press: *const xcb_button_press_event_t =
@@ -115,28 +78,24 @@ unsafe fn drain_drag_events(loop_0: *mut ev_loop, dragloop: *mut drag_x11_cb) ->
                             .cast_mut(),
                         c"../src/drag.c".as_ptr(),
                         c"drain_drag_events".as_ptr(),
-                        70 as ::core::ffi::c_int,
-                        (*press).detail as ::core::ffi::c_int,
-                        (*(*dragloop).event).detail as ::core::ffi::c_int,
+                        70,
+                        (*press).detail as i32,
+                        (*(*dragloop).event).detail as i32,
                     );
                 }
                 XCB_BUTTON_RELEASE => {
                     let release: *const xcb_button_release_event_t =
                         event as *mut xcb_button_release_event_t;
-                    if (*(*dragloop).event).detail as ::core::ffi::c_int
-                        == XCB_BUTTON_INDEX_ANY as ::core::ffi::c_int
-                        || (*release).detail as ::core::ffi::c_int
-                            == (*(*dragloop).event).detail as ::core::ffi::c_int
-                    {
+                    if released_drag_button((*(*dragloop).event).detail, (*release).detail) {
                         debuglog(
                             c"%s:%s:%d - Button %d released, ending drag initiated by button %d\n"
                                 .as_ptr()
                                 .cast_mut(),
                             c"../src/drag.c".as_ptr(),
                             c"drain_drag_events".as_ptr(),
-                            79 as ::core::ffi::c_int,
-                            (*release).detail as ::core::ffi::c_int,
-                            (*(*dragloop).event).detail as ::core::ffi::c_int,
+                            79,
+                            (*release).detail as i32,
+                            (*(*dragloop).event).detail as i32,
                         );
                         (*dragloop).result = DragResult::Success;
                     } else {
@@ -144,9 +103,9 @@ unsafe fn drain_drag_events(loop_0: *mut ev_loop, dragloop: *mut drag_x11_cb) ->
                             c"%s:%s:%d - Ignoring button %d release during drag initiated by button %d\n".as_ptr().cast_mut(),
                             c"../src/drag.c".as_ptr(),
                             c"drain_drag_events".as_ptr(),
-                            83 as ::core::ffi::c_int,
-                            (*release).detail as ::core::ffi::c_int,
-                            (*(*dragloop).event).detail as ::core::ffi::c_int,
+                            83,
+                            (*release).detail as i32,
+                            (*(*dragloop).event).detail as i32,
                         );
                     }
                 }
@@ -157,7 +116,7 @@ unsafe fn drain_drag_events(loop_0: *mut ev_loop, dragloop: *mut drag_x11_cb) ->
                             .cast_mut(),
                         c"../src/drag.c".as_ptr(),
                         c"drain_drag_events".as_ptr(),
-                        89 as ::core::ffi::c_int,
+                        89,
                     );
                     (*dragloop).result = DragResult::Revert;
                     handle_event(type_0, event);
@@ -173,7 +132,7 @@ unsafe fn drain_drag_events(loop_0: *mut ev_loop, dragloop: *mut drag_x11_cb) ->
                                 .cast_mut(),
                             c"../src/drag.c".as_ptr(),
                             c"drain_drag_events".as_ptr(),
-                            99 as ::core::ffi::c_int,
+                            99,
                             (*unmap_event).window,
                             con,
                         );
@@ -182,7 +141,7 @@ unsafe fn drain_drag_events(loop_0: *mut ev_loop, dragloop: *mut drag_x11_cb) ->
                                 c"%s:%s:%d - UnmapNotify for a managed window on the current workspace, aborting\n".as_ptr().cast_mut(),
                                 c"../src/drag.c".as_ptr(),
                                 c"drain_drag_events".as_ptr(),
-                                102 as ::core::ffi::c_int,
+                                102,
                             );
                             (*dragloop).result = DragResult::Abort;
                         }
@@ -190,9 +149,7 @@ unsafe fn drain_drag_events(loop_0: *mut ev_loop, dragloop: *mut drag_x11_cb) ->
                     handle_event(type_0, event);
                 }
                 XCB_MOTION_NOTIFY => {
-                    free(last_motion_notify as *mut ::core::ffi::c_void);
-                    last_motion_notify = ::core::ptr::null_mut::<xcb_motion_notify_event_t>();
-                    last_motion_notify = event as *mut xcb_motion_notify_event_t;
+                    pending_motion = Some(*(event as *const xcb_motion_notify_event_t));
                 }
                 XCB_CLIENT_MESSAGE => {
                     let client_message: *const xcb_client_message_event_t =
@@ -202,11 +159,11 @@ unsafe fn drain_drag_events(loop_0: *mut ev_loop, dragloop: *mut drag_x11_cb) ->
                             c"%s:%s:%d - Ignoring _NET_WM_MOVERESIZE request during active drag (window = 0x%08x, direction = %d)\n".as_ptr().cast_mut(),
                             c"../src/drag.c".as_ptr(),
                             c"drain_drag_events".as_ptr(),
-                            122 as ::core::ffi::c_int,
+                            122,
                             (*client_message).window,
                             (*client_message)
                                 .data
-                                .data32[2 as ::core::ffi::c_int as usize],
+                                .data32[2 as usize],
                         );
                     } else {
                         handle_event(type_0, event);
@@ -219,35 +176,32 @@ unsafe fn drain_drag_events(loop_0: *mut ev_loop, dragloop: *mut drag_x11_cb) ->
                             .cast_mut(),
                         c"../src/drag.c".as_ptr(),
                         c"drain_drag_events".as_ptr(),
-                        131 as ::core::ffi::c_int,
+                        131,
                     );
                     handle_event(type_0, event);
                 }
             }
-            if last_motion_notify != event as *mut xcb_motion_notify_event_t {
-                free(event as *mut ::core::ffi::c_void);
-            }
             if !((*dragloop).result != DragResult::Dragging) {
                 continue;
             }
-            ev_break(loop_0, EVBREAK_ONE as ::core::ffi::c_int);
+            ev_break(loop_0, EVBREAK_ONE as i32);
             if (*dragloop).result == DragResult::Success {
                 break;
             }
-            free(last_motion_notify as *mut ::core::ffi::c_void);
-            return true_0 != 0;
+            return true;
         }
     }
-    if last_motion_notify.is_null() {
-        return true_0 != 0;
-    }
+    let Some(last_motion_notify) = pending_motion else {
+        return true;
+    };
     if !(*dragloop).threshold_exceeded
         && threshold_exceeded(
-            (*last_motion_notify).root_x as u32,
-            (*last_motion_notify).root_y as u32,
+            last_motion_notify.root_x as u32,
+            last_motion_notify.root_y as u32,
             (*(*dragloop).event).root_x as u32,
             (*(*dragloop).event).root_y as u32,
-        ) as ::core::ffi::c_int
+            logical_px(15) as u32,
+        ) as i32
             != 0
     {
         if (*dragloop).xcursor as ::core::ffi::c_long != XCB_NONE {
@@ -255,35 +209,29 @@ unsafe fn drain_drag_events(loop_0: *mut ev_loop, dragloop: *mut drag_x11_cb) ->
                 conn,
                 (*dragloop).xcursor,
                 XCB_CURRENT_TIME as xcb_timestamp_t,
-                (XCB_EVENT_MASK_BUTTON_RELEASE as ::core::ffi::c_int
-                    | XCB_EVENT_MASK_POINTER_MOTION as ::core::ffi::c_int) as u16,
+                (XCB_EVENT_MASK_BUTTON_RELEASE as i32 | XCB_EVENT_MASK_POINTER_MOTION as i32)
+                    as u16,
             );
         }
-        (*dragloop).threshold_exceeded = true_0 != 0;
+        (*dragloop).threshold_exceeded = true;
     }
-    if (*dragloop).threshold_exceeded as ::core::ffi::c_int != 0
-        && ((*dragloop).con.is_null() || con_exists((*dragloop).con) as ::core::ffi::c_int != 0)
+    if (*dragloop).threshold_exceeded as i32 != 0
+        && ((*dragloop).con.is_null() || con_exists((*dragloop).con) as i32 != 0)
     {
         (*dragloop).callback.expect("non-null function pointer")(
             (*dragloop).con,
             &raw mut (*dragloop).old_rect,
-            (*last_motion_notify).root_x as u32,
-            (*last_motion_notify).root_y as u32,
+            last_motion_notify.root_x as u32,
+            last_motion_notify.root_y as u32,
             (*dragloop).event,
             (*dragloop).extra,
         );
     }
-    free(last_motion_notify as *mut ::core::ffi::c_void);
-    last_motion_notify = ::core::ptr::null_mut::<xcb_motion_notify_event_t>();
     xcb_flush(conn);
     (*dragloop).result != DragResult::Dragging
 }
-unsafe extern "C" fn xcb_drag_prepare_cb(
-    loop_0: *mut ev_loop,
-    w: *mut ev_prepare,
-    revents: ::core::ffi::c_int,
-) {
-    let dragloop: *mut drag_x11_cb = (*w).data as *mut drag_x11_cb;
+unsafe extern "C" fn xcb_drag_prepare_cb(loop_0: *mut ev_loop, w: *mut ev_prepare, revents: i32) {
+    let dragloop: *mut DragState = (*w).data as *mut DragState;
     while !drain_drag_events(loop_0, dragloop) {}
 }
 
@@ -293,7 +241,7 @@ pub unsafe fn drag_pointer(
     confine_to: xcb_window_t,
     cursor: Cursor,
     use_threshold: bool,
-    callback: callback_t,
+    callback: DragCallback,
     extra: *const ::core::ffi::c_void,
 ) -> DragResult {
     let xcursor: xcb_cursor_t = (if cursor != Cursor::Pointer {
@@ -306,14 +254,13 @@ pub unsafe fn drag_pointer(
     let mut error: *mut xcb_generic_error_t = ::core::ptr::null_mut::<xcb_generic_error_t>();
     let cookie: xcb_grab_pointer_cookie_t = xcb_grab_pointer(
         conn,
-        false_0 as u8,
+        0u8,
         root,
-        (XCB_EVENT_MASK_BUTTON_RELEASE as ::core::ffi::c_int
-            | XCB_EVENT_MASK_POINTER_MOTION as ::core::ffi::c_int) as u16,
-        XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as u8,
-        XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as u8,
+        (XCB_EVENT_MASK_BUTTON_RELEASE as i32 | XCB_EVENT_MASK_POINTER_MOTION as i32) as u16,
+        XCB_GRAB_MODE_ASYNC as i32 as u8,
+        XCB_GRAB_MODE_ASYNC as i32 as u8,
         confine_to,
-        (if use_threshold as ::core::ffi::c_int != 0 {
+        (if use_threshold {
             XCB_NONE
         } else {
             xcursor as ::core::ffi::c_long
@@ -321,81 +268,89 @@ pub unsafe fn drag_pointer(
         XCB_CURRENT_TIME as xcb_timestamp_t,
     );
     reply = xcb_grab_pointer_reply(conn, cookie, &raw mut error);
+    let pointer_reply = Native::take(reply);
+    let pointer_error = Native::take(error);
     if reply.is_null() {
         errorlog(
             c"ERROR: Could not grab pointer (error_code = %d)\n"
                 .as_ptr()
                 .cast_mut(),
-            (*error).error_code as ::core::ffi::c_int,
+            error
+                .as_ref()
+                .map_or(0, |error| i32::from(error.error_code)),
         );
-        free(error as *mut ::core::ffi::c_void);
+
         return DragResult::Abort;
     }
-    if (*reply).status as ::core::ffi::c_int != XCB_GRAB_STATUS_SUCCESS as ::core::ffi::c_int {
+    if (*reply).status as i32 != XCB_GRAB_STATUS_SUCCESS as i32 {
         errorlog(
             c"ERROR: Could not grab pointer (status = %d)\n"
                 .as_ptr()
                 .cast_mut(),
-            (*reply).status as ::core::ffi::c_int,
+            (*reply).status as i32,
         );
-        free(reply as *mut ::core::ffi::c_void);
+
         return DragResult::Abort;
     }
     debuglog(
         c"%s:%s:%d - Pointer grab successful\n".as_ptr().cast_mut(),
         c"../src/drag.c".as_ptr(),
         c"drag_pointer".as_ptr(),
-        238 as ::core::ffi::c_int,
+        238,
     );
-    free(reply as *mut ::core::ffi::c_void);
+    drop(pointer_reply);
+    drop(pointer_error);
+    let mut grabs = InputGrabs {
+        connection: conn,
+        keyboard: false,
+    };
     let mut keyb_reply: *mut xcb_grab_keyboard_reply_t =
         ::core::ptr::null_mut::<xcb_grab_keyboard_reply_t>();
     let keyb_cookie: xcb_grab_keyboard_cookie_t = xcb_grab_keyboard(
         conn,
-        false_0 as u8,
+        0u8,
         root,
         XCB_CURRENT_TIME as xcb_timestamp_t,
-        XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as u8,
-        XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as u8,
+        XCB_GRAB_MODE_ASYNC as i32 as u8,
+        XCB_GRAB_MODE_ASYNC as i32 as u8,
     );
+    error = std::ptr::null_mut();
     keyb_reply = xcb_grab_keyboard_reply(conn, keyb_cookie, &raw mut error);
+    let keyboard_reply = Native::take(keyb_reply);
+    let keyboard_error = Native::take(error);
     if keyb_reply.is_null() {
         errorlog(
             c"ERROR: Could not grab keyboard (error_code = %d)\n"
                 .as_ptr()
                 .cast_mut(),
-            (*error).error_code as ::core::ffi::c_int,
+            error
+                .as_ref()
+                .map_or(0, |error| i32::from(error.error_code)),
         );
-        free(error as *mut ::core::ffi::c_void);
-        xcb_ungrab_pointer(conn, XCB_CURRENT_TIME as xcb_timestamp_t);
+
         return DragResult::Abort;
     }
-    if (*keyb_reply).status as ::core::ffi::c_int != XCB_GRAB_STATUS_SUCCESS as ::core::ffi::c_int {
+    if (*keyb_reply).status as i32 != XCB_GRAB_STATUS_SUCCESS as i32 {
         errorlog(
             c"ERROR: Could not grab keyboard (status = %d)\n"
                 .as_ptr()
                 .cast_mut(),
-            (*keyb_reply).status as ::core::ffi::c_int,
+            (*keyb_reply).status as i32,
         );
-        free(keyb_reply as *mut ::core::ffi::c_void);
-        xcb_ungrab_pointer(conn, XCB_CURRENT_TIME as xcb_timestamp_t);
+
         return DragResult::Abort;
     }
     debuglog(
         c"%s:%s:%d - Keyboard grab successful\n".as_ptr().cast_mut(),
         c"../src/drag.c".as_ptr(),
         c"drag_pointer".as_ptr(),
-        266 as ::core::ffi::c_int,
+        266,
     );
-    free(keyb_reply as *mut ::core::ffi::c_void);
-    let mut loop_0: drag_x11_cb = drag_x11_cb {
-        prepare: ev_prepare {
-            active: 0,
-            pending: 0,
-            priority: 0,
-            data: ::core::ptr::null_mut::<::core::ffi::c_void>(),
-            cb: None,
-        },
+    drop(keyboard_reply);
+    drop(keyboard_error);
+    grabs.keyboard = true;
+    let mut loop_0: DragState = DragState {
+        prepare: ev_prepare::new(xcb_drag_prepare_cb),
         result: DragResult::Dragging,
         con,
         event,
@@ -412,26 +367,10 @@ pub unsafe fn drag_pointer(
     };
     let prepare: *mut ev_prepare = &raw mut loop_0.prepare;
     if !con.is_null() {
-        loop_0.old_rect = (*con).rect as Rect;
+        loop_0.old_rect = (*con).rect;
     }
-    let ref mut fresh0 = (*(prepare as *mut ::core::ffi::c_void as *mut ev_watcher)).pending;
-    *fresh0 = 0 as ::core::ffi::c_int;
-    (*(prepare as *mut ::core::ffi::c_void as *mut ev_watcher)).active = *fresh0;
-    (*(prepare as *mut ::core::ffi::c_void as *mut ev_watcher)).priority = 0 as ::core::ffi::c_int;
-    (*prepare).cb = Some(
-        xcb_drag_prepare_cb
-            as unsafe extern "C" fn(*mut ev_loop, *mut ev_prepare, ::core::ffi::c_int) -> (),
-    )
-        as Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_prepare, ::core::ffi::c_int) -> ()>;
-    memmove(
-        &raw mut (*(prepare as *mut ev_watcher)).cb as *mut ::core::ffi::c_void,
-        &raw mut (*prepare).cb as *const ::core::ffi::c_void,
-        ::core::mem::size_of::<
-            Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_prepare, ::core::ffi::c_int) -> ()>,
-        >() as usize,
-    );
     (*prepare).data = &raw mut loop_0 as *mut ::core::ffi::c_void;
-    main_set_x11_cb(false_0 != 0);
+    main_set_x11_cb(false);
     ev_prepare_start(main_loop, prepare);
     debuglog(
         c"%s:%s:%d - Entering drag loop (con = %p, button = %d)\n"
@@ -439,26 +378,25 @@ pub unsafe fn drag_pointer(
             .cast_mut(),
         c"../src/drag.c".as_ptr(),
         c"drag_pointer".as_ptr(),
-        288 as ::core::ffi::c_int,
+        288,
         con,
-        (*event).detail as ::core::ffi::c_int,
+        (*event).detail as i32,
     );
-    ev_loop(main_loop, 0 as ::core::ffi::c_int);
+    ev_loop(main_loop, 0);
     debuglog(
         c"%s:%s:%d - Leaving drag loop (con = %p, button = %d, result = %d)\n"
             .as_ptr()
             .cast_mut(),
         c"../src/drag.c".as_ptr(),
         c"drag_pointer".as_ptr(),
-        291 as ::core::ffi::c_int,
+        291,
         con,
-        (*event).detail as ::core::ffi::c_int,
-        loop_0.result as ::core::ffi::c_uint,
+        (*event).detail as i32,
+        loop_0.result as u32,
     );
     ev_prepare_stop(main_loop, prepare);
-    main_set_x11_cb(true_0 != 0);
-    xcb_ungrab_keyboard(conn, XCB_CURRENT_TIME as xcb_timestamp_t);
-    xcb_ungrab_pointer(conn, XCB_CURRENT_TIME as xcb_timestamp_t);
+    main_set_x11_cb(true);
+    drop(grabs);
     xcb_flush(conn);
     loop_0.result
 }
@@ -468,12 +406,10 @@ use crate::application::main_set_x11_cb;
 use crate::xcursor::xcursor_get_cursor;
 use i3_common::dpi::logical_px;
 
-// Canonical Cairo backend ABI; renderer logic remains local.
-
 use xcb_sys::{
     xcb_button_press_event_t, xcb_button_release_event_t, xcb_change_active_pointer_grab,
-    xcb_client_message_event_t, xcb_cursor_t, xcb_flush, xcb_generic_error_t, xcb_generic_event_t,
-    xcb_grab_keyboard, xcb_grab_keyboard_cookie_t, xcb_grab_keyboard_reply,
+    xcb_client_message_event_t, xcb_connection_t, xcb_cursor_t, xcb_flush, xcb_generic_error_t,
+    xcb_generic_event_t, xcb_grab_keyboard, xcb_grab_keyboard_cookie_t, xcb_grab_keyboard_reply,
     xcb_grab_keyboard_reply_t, xcb_grab_pointer, xcb_grab_pointer_cookie_t, xcb_grab_pointer_reply,
     xcb_grab_pointer_reply_t, xcb_motion_notify_event_t, xcb_poll_for_event, xcb_timestamp_t,
     xcb_ungrab_keyboard, xcb_ungrab_pointer, xcb_unmap_notify_event_t, xcb_window_t,
@@ -483,14 +419,13 @@ use xcb_sys::{
     XCB_UNMAP_NOTIFY,
 };
 
-pub use libc::{free, memmove};
+use libc::free;
 
 use crate::log::{debuglog, errorlog};
 
 // Shared model types retain field layout while using one Rust identity.
 pub use crate::types::Con;
 pub use crate::types::Rect;
-pub use i3_common::string::I3String as _i3String;
 
 // Internal calls and globals use canonical Rust identities.
 use crate::application::conn;
@@ -502,3 +437,47 @@ use crate::con::con_exists;
 use crate::con::con_get_workspace;
 use crate::handlers::handle_event;
 use crate::tree::focused;
+
+struct Native<T>(std::ptr::NonNull<T>);
+impl<T> Native<T> {
+    /// Takes exclusive ownership of a malloc allocation or null from XCB.
+    unsafe fn take(pointer: *mut T) -> Option<Self> {
+        std::ptr::NonNull::new(pointer).map(Self)
+    }
+}
+impl<T> Drop for Native<T> {
+    fn drop(&mut self) {
+        unsafe { free(self.0.as_ptr().cast()) }
+    }
+}
+struct InputGrabs {
+    connection: *mut xcb_connection_t,
+    keyboard: bool,
+}
+impl Drop for InputGrabs {
+    fn drop(&mut self) {
+        unsafe {
+            if self.keyboard {
+                xcb_ungrab_keyboard(self.connection, XCB_CURRENT_TIME as u32);
+            }
+            xcb_ungrab_pointer(self.connection, XCB_CURRENT_TIME as u32);
+        }
+    }
+}
+fn released_drag_button(initiator: u8, released: u8) -> bool {
+    initiator == XCB_BUTTON_INDEX_ANY as u8 || initiator == released
+}
+#[cfg(test)]
+mod owned_tests {
+    use super::*;
+    #[test]
+    fn threshold_and_button_policy_keep_strict_distance_wrapping_and_any_button() {
+        assert!(!threshold_exceeded(15, 0, 0, 0, 15));
+        assert!(threshold_exceeded(16, 0, 0, 0, 15));
+        assert!(!threshold_exceeded(u32::MAX, 0, 0, 0, 15));
+        assert!(!threshold_exceeded(65536, 0, 0, 0, 15)); // u32 squared wraps exactly.
+        assert!(released_drag_button(0, 5));
+        assert!(released_drag_button(3, 3));
+        assert!(!released_drag_button(3, 1));
+    }
+}

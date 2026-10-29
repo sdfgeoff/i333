@@ -16,60 +16,25 @@ use i3_common::safewrappers::sasprintf;
 // Mechanical file-by-file Rust translation of src/manage.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 
-pub type i3String = _i3String;
-
-pub type i3Font = Font;
-
 pub type fullscreen_mode_t = ::core::ffi::c_uint;
-pub const CF_GLOBAL: fullscreen_mode_t = 2;
 pub const CF_OUTPUT: fullscreen_mode_t = 1;
-pub const CF_NONE: fullscreen_mode_t = 0;
 
 pub const M_BELOW: ::core::ffi::c_uint = 2;
-pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
-pub const M_HERE: ::core::ffi::c_uint = 0;
-
-pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
-pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
-pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
-pub const M_NODOCK: ::core::ffi::c_int = 0;
-pub const M_DONTCHECK: ::core::ffi::c_int = -1;
 
 pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
 pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
 pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
 pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
-pub const A_COMMAND: ::core::ffi::c_uint = 1;
-pub const A_ANY: ::core::ffi::c_uint = 0;
 
-pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
 pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
-pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
 pub const CT_CON: ::core::ffi::c_uint = 2;
-pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
-pub const CT_ROOT: ::core::ffi::c_uint = 0;
 
 pub type Output = xoutput;
 pub type i3Window = Window;
 
-pub type hide_edge_borders_mode_t = ::core::ffi::c_uint;
-pub const HEBM_SMART_NO_GAPS: hide_edge_borders_mode_t = 64;
-pub const HEBM_SMART: hide_edge_borders_mode_t = 32;
-pub const HEBM_BOTH: hide_edge_borders_mode_t = 23;
-pub const HEBM_HORIZONTAL: hide_edge_borders_mode_t = 20;
-pub const HEBM_VERTICAL: hide_edge_borders_mode_t = 3;
-pub const HEBM_NONE: hide_edge_borders_mode_t = 0;
-
-pub type tiling_drag_t = ::core::ffi::c_uint;
-pub const TILING_DRAG_MODIFIER_OR_TITLEBAR: tiling_drag_t = 3;
-pub const TILING_DRAG_TITLEBAR: tiling_drag_t = 2;
-pub const TILING_DRAG_MODIFIER: tiling_drag_t = 1;
-pub const TILING_DRAG_OFF: tiling_drag_t = 0;
-
 pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 
-pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 pub const NET_WM_DESKTOP_NONE: ::core::ffi::c_uint = 0xfffffff0 as ::core::ffi::c_uint;
 pub const NET_WM_DESKTOP_ALL: ::core::ffi::c_uint = 0xffffffff as ::core::ffi::c_uint;
 unsafe fn _match_depth(win: *mut i3Window, con: *mut Con) -> xcb_window_t {
@@ -95,39 +60,68 @@ unsafe fn _remove_matches(con: *mut Con) {
     }
 }
 
+/// Uniquely owned native reply/error allocation; no graph ownership is implied.
+struct NativeReply<T>(*mut T);
+impl<T> Drop for NativeReply<T> {
+    fn drop(&mut self) {
+        unsafe { libc::free(self.0.cast()) };
+    }
+}
+
+fn tree_child_count(children: u16, wire_words: u32) -> Option<usize> {
+    let count = usize::from(children);
+    (count <= wire_words as usize).then_some(count)
+}
+
+/// Root and connection are valid native XCB objects on the event thread.
 pub unsafe fn manage_existing_windows(root_0: xcb_window_t) {
-    let mut reply: *mut xcb_query_tree_reply_t = ::core::ptr::null_mut::<xcb_query_tree_reply_t>();
-    reply = xcb_query_tree_reply(
+    let reply = NativeReply(xcb_query_tree_reply(
         conn,
         xcb_query_tree(conn, root_0),
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply.is_null() {
+        std::ptr::null_mut(),
+    ));
+    if reply.0.is_null() {
         return;
     }
-    let len: ::core::ffi::c_int = xcb_query_tree_children_length(reply);
-    let cookies: *mut xcb_get_window_attributes_cookie_t = smalloc(
-        (len as usize)
-            .wrapping_mul(::core::mem::size_of::<xcb_get_window_attributes_cookie_t>() as usize),
-    )
-        as *mut xcb_get_window_attributes_cookie_t;
-    let children: *mut xcb_window_t = xcb_query_tree_children(reply);
-    let mut i: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    while i < len {
-        *cookies.offset(i as isize) = xcb_get_window_attributes(conn, *children.offset(i as isize));
-        i += 1;
+    let Some(count) = tree_child_count((*reply.0).children_len, (*reply.0).length) else {
+        return;
+    };
+    let children = std::slice::from_raw_parts(xcb_query_tree_children(reply.0), count).to_vec();
+    // Preserve request pipelining: issue every attribute query before managing
+    // any child (which can invoke graph callbacks/native round trips).
+    let cookies: Vec<_> = children
+        .iter()
+        .map(|&child| xcb_get_window_attributes(conn, child))
+        .collect();
+    drop(reply);
+    for (child, cookie) in children.into_iter().zip(cookies) {
+        manage_window(child, cookie, true);
     }
-    let mut i_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    while i_0 < len {
-        manage_window(
-            *children.offset(i_0 as isize),
-            *cookies.offset(i_0 as isize),
-            true_0 != 0,
-        );
-        i_0 += 1;
+}
+
+/// Native complete reply allocation, borrowed only for this copied first word.
+/// The original accepted any format/type with at least one byte; reject only
+/// undersized payloads that previously triggered an out-of-bounds u32 read.
+unsafe fn first_property_word(reply: *const xcb_get_property_reply_t) -> Option<u32> {
+    let header = reply.as_ref()?;
+    let bytes = usize::try_from(header.value_len)
+        .ok()?
+        .checked_mul(usize::from(header.format / 8))?;
+    if bytes < 4 || header.length == 0 {
+        return None;
     }
-    free(reply as *mut ::core::ffi::c_void);
-    free(cookies as *mut ::core::ffi::c_void);
+    let pointer = xcb_get_property_value(reply.cast_mut()).cast::<u8>();
+    if pointer.is_null() {
+        return None;
+    }
+    Some(u32::from_ne_bytes(
+        std::slice::from_raw_parts(pointer, 4).try_into().unwrap(),
+    ))
+}
+
+unsafe fn request_failed(cookie: xcb_void_cookie_t) -> bool {
+    let error = NativeReply(xcb_request_check(conn, cookie));
+    !error.0.is_null()
 }
 
 pub unsafe fn restore_geometry() {
@@ -209,8 +203,6 @@ pub unsafe fn manage_window(
     let mut startup_id_reply: *mut xcb_get_property_reply_t =
         ::core::ptr::null_mut::<xcb_get_property_reply_t>();
     let mut startup_ws: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    let mut wm_desktop_reply: *mut xcb_get_property_reply_t =
-        ::core::ptr::null_mut::<xcb_get_property_reply_t>();
     let mut search_at: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut match_0: *mut Match = ::core::ptr::null_mut::<Match>();
     let mut nc: *mut Con = ::core::ptr::null_mut::<Con>();
@@ -265,6 +257,7 @@ pub unsafe fn manage_window(
         cookie,
         ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
     );
+    let _attribute_owner = NativeReply(attr);
     if attr.is_null() {
         debuglog(
             c"%s:%s:%d - Could not get attributes\n".as_ptr().cast_mut(),
@@ -298,6 +291,7 @@ pub unsafe fn manage_window(
             geomc,
             ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
         );
+        let _geometry_owner = NativeReply(geom);
         if geom.is_null() {
             debuglog(
                 c"%s:%s:%d - could not get geometry\n".as_ptr().cast_mut(),
@@ -316,7 +310,7 @@ pub unsafe fn manage_window(
                 XCB_CW_EVENT_MASK as ::core::ffi::c_int as u32,
                 &raw mut values as *mut u32 as *const ::core::ffi::c_void,
             );
-            if !xcb_request_check(conn, event_mask_cookie).is_null() {
+            if request_failed(event_mask_cookie) {
                 verboselog(
                     c"Could not change event mask, the window probably already disappeared.\n"
                         .as_ptr()
@@ -592,23 +586,16 @@ pub unsafe fn manage_window(
                     227 as ::core::ffi::c_int,
                     startup_ws,
                 );
-                wm_desktop_reply = ::core::ptr::null_mut::<xcb_get_property_reply_t>();
-                wm_desktop_reply = xcb_get_property_reply(
+                let wm_desktop_reply = xcb_get_property_reply(
                     conn,
                     wm_desktop_cookie,
                     ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
                 );
+                let _desktop_owner = NativeReply(wm_desktop_reply);
                 (*cwindow).wm_desktop = NET_WM_DESKTOP_NONE as u32;
-                if !wm_desktop_reply.is_null()
-                    && xcb_get_property_value_length(wm_desktop_reply) != 0 as ::core::ffi::c_int
-                {
-                    let wm_desktops: *mut u32 =
-                        xcb_get_property_value(wm_desktop_reply) as *mut u32;
-                    (*cwindow).wm_desktop =
-                        *wm_desktops.offset(0 as ::core::ffi::c_int as isize) as i32 as u32;
+                if let Some(desktop) = first_property_word(wm_desktop_reply) {
+                    (*cwindow).wm_desktop = desktop;
                 }
-                free(wm_desktop_reply as *mut ::core::ffi::c_void);
-                wm_desktop_reply = ::core::ptr::null_mut::<xcb_get_property_reply_t>();
                 (*cwindow).needs_take_focus =
                     window_supports_protocol((*cwindow).id, A_WM_TAKE_FOCUS);
                 (*cwindow).window_type = xcb_get_preferred_window_type(type_reply);
@@ -695,7 +682,7 @@ pub unsafe fn manage_window(
                     (*geom).width as ::core::ffi::c_int,
                     (*geom).height as ::core::ffi::c_int,
                 );
-                (*cwindow).swallowed = false_0 != 0;
+                (*cwindow).swallowed = false;
                 match_0 = ::core::ptr::null_mut::<Match>();
                 nc = con_for_window(search_at, cwindow, &raw mut match_0);
                 match_from_restart_mode =
@@ -749,7 +736,7 @@ pub unsafe fn manage_window(
                             nc = tree_open_con((*nc).parent as *mut Con, cwindow);
                         }
                         if !workspace_is_visible(assigned_ws) {
-                            urgency_hint = true_0 != 0;
+                            urgency_hint = true;
                         }
                     } else if (*cwindow).wm_desktop != NET_WM_DESKTOP_NONE as u32
                         && (*cwindow).wm_desktop != NET_WM_DESKTOP_ALL as u32
@@ -821,7 +808,7 @@ pub unsafe fn manage_window(
                     }
                     assignment = assignment_for(cwindow, A_TO_OUTPUT as ::core::ffi::c_int);
                     if !assignment.is_null() {
-                        con_move_to_output_name(nc, (*assignment).dest.output, true_0 != 0);
+                        con_move_to_output_name(nc, (*assignment).dest.output, true);
                     }
                 } else {
                     if !match_0.is_null()
@@ -855,7 +842,7 @@ pub unsafe fn manage_window(
                         free(match_0 as *mut ::core::ffi::c_void);
                         match_0 = ::core::ptr::null_mut::<Match>();
                     }
-                    (*cwindow).swallowed = true_0 != 0;
+                    (*cwindow).swallowed = true;
                 }
                 debuglog(
                     c"%s:%s:%d - new container = %p\n".as_ptr().cast_mut(),
@@ -903,13 +890,13 @@ pub unsafe fn manage_window(
                             height: (*geom).height as u32,
                         });
                         if !output_0.is_null() {
-                            con_move_to_output(nc, output_0, false_0 != 0);
+                            con_move_to_output(nc, output_0, false);
                         }
                         con_toggle_fullscreen(nc, CF_OUTPUT as ::core::ffi::c_int);
                     }
                     fs = ::core::ptr::null_mut::<Con>();
                 }
-                set_focus = false_0 != 0;
+                set_focus = false;
                 if fs.is_null() {
                     debuglog(
                         c"%s:%s:%d - Not in fullscreen mode, focusing\n"
@@ -926,7 +913,7 @@ pub unsafe fn manage_window(
                             && current_output == target_output
                         {
                             if !match_from_restart_mode {
-                                set_focus = true_0 != 0;
+                                set_focus = true;
                             } else {
                                 debuglog(
                                     c"%s:%s:%d - not focusing, matched with restart_mode == true\n"
@@ -985,7 +972,7 @@ pub unsafe fn manage_window(
                         (*nc).focused.tqe_prev = &raw mut (*first).focused.tqe_next;
                     }
                 }
-                want_floating = false_0 != 0;
+                want_floating = false;
                 if xcb_reply_contains_atom(type_reply, A__NET_WM_WINDOW_TYPE_DIALOG)
                     as ::core::ffi::c_int
                     != 0
@@ -1014,10 +1001,10 @@ pub unsafe fn manage_window(
                             .as_ptr()
                             .cast_mut(),
                     );
-                    want_floating = true_0 != 0;
+                    want_floating = true;
                 }
                 if xcb_reply_contains_atom(state_reply, A__NET_WM_STATE_STICKY) {
-                    (*nc).sticky = true_0 != 0;
+                    (*nc).sticky = true;
                 }
                 if (*cwindow).wm_desktop == NET_WM_DESKTOP_ALL as u32
                     && (ws.is_null() || !con_is_internal(ws))
@@ -1028,8 +1015,8 @@ pub unsafe fn manage_window(
                         c"manage_window".as_ptr(),
                         484 as ::core::ffi::c_int,
                     );
-                    (*nc).sticky = true_0 != 0;
-                    want_floating = true_0 != 0;
+                    (*nc).sticky = true;
+                    want_floating = true;
                 }
                 free(state_reply as *mut ::core::ffi::c_void);
                 state_reply = ::core::ptr::null_mut::<xcb_get_property_reply_t>();
@@ -1046,7 +1033,7 @@ pub unsafe fn manage_window(
                         c"manage_window".as_ptr(),
                         496 as ::core::ffi::c_int,
                     );
-                    want_floating = true_0 != 0;
+                    want_floating = true;
                     if config.popup_during_fullscreen == PopupDuringFullscreen::LeaveFullscreen
                         && !fs.is_null()
                     {
@@ -1067,7 +1054,7 @@ pub unsafe fn manage_window(
                     }
                 }
                 if (*cwindow).dock as u64 != 0 {
-                    want_floating = false_0 != 0;
+                    want_floating = false;
                 }
                 if (*nc).geometry.width == 0 as u32 {
                     (*nc).geometry = Rect {
@@ -1081,7 +1068,7 @@ pub unsafe fn manage_window(
                     && want_floating as ::core::ffi::c_int != 0
                     && !fs.is_null()
                 {
-                    set_focus = true_0 != 0;
+                    set_focus = true;
                 }
                 if want_floating {
                     debuglog(
@@ -1092,7 +1079,7 @@ pub unsafe fn manage_window(
                         (*nc).geometry.width,
                         (*nc).geometry.height,
                     );
-                    if floating_enable(nc, true_0 != 0) {
+                    if floating_enable(nc, true) {
                         (*nc).floating = FloatingState::AutoOn;
                     }
                 }
@@ -1137,7 +1124,7 @@ pub unsafe fn manage_window(
                     0 as i16,
                     0 as i16,
                 );
-                if !xcb_request_check(conn, rcookie).is_null() {
+                if request_failed(rcookie) {
                     verboselog(
                         c"Could not reparent the window, aborting\n"
                             .as_ptr()
@@ -1173,7 +1160,7 @@ pub unsafe fn manage_window(
                                 ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
                             );
                         if !reply.is_null() && (*reply).bounding_shaped as ::core::ffi::c_int != 0 {
-                            (*cwindow).shaped = true_0 != 0;
+                            (*cwindow).shaped = true;
                         }
                         free(reply as *mut ::core::ffi::c_void);
                         reply = ::core::ptr::null_mut::<xcb_shape_query_extents_reply_t>();
@@ -1183,7 +1170,7 @@ pub unsafe fn manage_window(
                     if !ws.is_null() && !workspace_is_visible(ws) {
                         (*ws).rect = (*(*ws).parent).rect;
                         render_con(ws);
-                        set_focus = false_0 != 0;
+                        set_focus = false;
                     }
                     render_con(croot);
                     (*cwindow).managed_since = time(::core::ptr::null_mut::<libc::time_t>());
@@ -1208,7 +1195,7 @@ pub unsafe fn manage_window(
                                 628 as ::core::ffi::c_int,
                                 nc,
                             );
-                            set_focus = false_0 != 0;
+                            set_focus = false;
                         }
                     }
                     if set_focus {
@@ -1221,23 +1208,14 @@ pub unsafe fn manage_window(
                             634 as ::core::ffi::c_int,
                             nc,
                         );
-                        let mut wm_user_time: *mut u32 = ::core::ptr::null_mut::<u32>();
-                        let mut wm_user_time_reply: *mut xcb_get_property_reply_t =
+                        let wm_user_time_reply: *mut xcb_get_property_reply_t =
                             xcb_get_property_reply(
                                 conn,
                                 wm_user_time_cookie,
                                 ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
                             );
-                        if !wm_user_time_reply.is_null()
-                            && xcb_get_property_value_length(wm_user_time_reply)
-                                != 0 as ::core::ffi::c_int
-                            && {
-                                wm_user_time =
-                                    xcb_get_property_value(wm_user_time_reply) as *mut u32;
-                                !wm_user_time.is_null()
-                            }
-                            && *wm_user_time.offset(0 as ::core::ffi::c_int as isize) == 0 as u32
-                        {
+                        let _time_owner = NativeReply(wm_user_time_reply);
+                        if first_property_word(wm_user_time_reply) == Some(0) {
                             debuglog(
                                 c"%s:%s:%d - _NET_WM_USER_TIME set to 0, not focusing con = %p.\n"
                                     .as_ptr()
@@ -1247,17 +1225,15 @@ pub unsafe fn manage_window(
                                 641 as ::core::ffi::c_int,
                                 nc,
                             );
-                            set_focus = false_0 != 0;
+                            set_focus = false;
                         }
-                        free(wm_user_time_reply as *mut ::core::ffi::c_void);
-                        wm_user_time_reply = ::core::ptr::null_mut::<xcb_get_property_reply_t>();
                     } else {
                         xcb_discard_reply(conn, wm_user_time_cookie.sequence);
                     }
                     if (*(*nc).window).doesnt_accept_focus as ::core::ffi::c_int != 0
                         && !(*(*nc).window).needs_take_focus
                     {
-                        set_focus = false_0 != 0;
+                        set_focus = false;
                     }
                     if set_focus as ::core::ffi::c_int != 0
                         && (*nc).mapped as ::core::ffi::c_int != 0
@@ -1279,11 +1255,9 @@ pub unsafe fn manage_window(
                     ewmh_update_wm_desktop();
                     output_push_sticky_windows(focused);
                 }
-                free(geom as *mut ::core::ffi::c_void);
             }
         }
     }
-    free(attr as *mut ::core::ffi::c_void);
 }
 unsafe fn placeholder_for_con(con: *mut Con) -> *mut Con {
     if (*(*con).window).swallowed {
@@ -1329,7 +1303,7 @@ pub unsafe fn remanage_window(con: *mut Con) -> *mut Con {
         startup_sequence_delete_by_window((*nc).window);
         ewmh_update_wm_desktop();
     }
-    (*(*nc).window).swallowed = true_0 != 0;
+    (*(*nc).window).swallowed = true;
     nc
 }
 
@@ -1342,7 +1316,6 @@ use crate::util::ws_name_to_number;
 use crate::x::window_supports_protocol;
 use i3_common::draw_util::get_visual_depth;
 use i3_common::safewrappers::scalloc;
-use i3_common::safewrappers::smalloc;
 
 // Canonical Cairo backend ABI; renderer logic remains local.
 
@@ -1354,11 +1327,10 @@ use xcb_sys::{
     xcb_flush, xcb_generic_error_t, xcb_get_geometry, xcb_get_geometry_cookie_t,
     xcb_get_geometry_reply, xcb_get_geometry_reply_t, xcb_get_property, xcb_get_property_cookie_t,
     xcb_get_property_reply, xcb_get_property_reply_t, xcb_get_property_value,
-    xcb_get_property_value_length, xcb_get_window_attributes, xcb_get_window_attributes_cookie_t,
-    xcb_get_window_attributes_reply, xcb_get_window_attributes_reply_t, xcb_icccm_get_wm_hints,
-    xcb_icccm_get_wm_normal_hints, xcb_query_tree, xcb_query_tree_children,
-    xcb_query_tree_children_length, xcb_query_tree_reply, xcb_query_tree_reply_t,
-    xcb_reparent_window, xcb_reparent_window_checked, xcb_request_check, xcb_shape_query_extents,
+    xcb_get_window_attributes, xcb_get_window_attributes_cookie_t, xcb_get_window_attributes_reply,
+    xcb_get_window_attributes_reply_t, xcb_icccm_get_wm_hints, xcb_icccm_get_wm_normal_hints,
+    xcb_query_tree, xcb_query_tree_children, xcb_query_tree_reply, xcb_reparent_window,
+    xcb_reparent_window_checked, xcb_request_check, xcb_shape_query_extents,
     xcb_shape_query_extents_cookie_t, xcb_shape_query_extents_reply,
     xcb_shape_query_extents_reply_t, xcb_shape_select_input, xcb_void_cookie_t, xcb_window_t,
     XCB_ATOM_WM_CLASS, XCB_ATOM_WM_CLIENT_MACHINE, XCB_ATOM_WM_NAME, XCB_ATOM_WM_TRANSIENT_FOR,
@@ -1379,7 +1351,6 @@ pub use crate::types::Con;
 pub use crate::types::Match;
 pub use crate::types::Rect;
 pub use crate::types::Window;
-pub use i3_common::font::Font;
 pub use i3_common::string::I3String as _i3String;
 
 // Internal calls and globals use canonical Rust identities.
@@ -1466,3 +1437,47 @@ use crate::xcb::xcb_get_preferred_window_type;
 use crate::xcb::xcb_grab_buttons;
 use crate::xcb::xcb_reply_contains_atom;
 use crate::xcb::xcb_set_window_rect;
+
+#[cfg(test)]
+mod owned_reply_tests {
+    use super::*;
+    #[test]
+    fn tree_child_count_is_limited_by_native_wire_allocation() {
+        assert_eq!(tree_child_count(0, 0), Some(0));
+        assert_eq!(tree_child_count(2, 2), Some(2));
+        assert_eq!(tree_child_count(2, 1), None);
+        assert_eq!(
+            tree_child_count(u16::MAX, u32::MAX),
+            Some(u16::MAX as usize)
+        );
+    }
+    #[test]
+    fn first_property_word_checks_complete_bytes_and_retains_native_formats() {
+        // u32 storage gives the native header its required alignment; payload
+        // bytes are read by copy, without assuming a u32-aligned value view.
+        let mut storage = vec![0u32; 9];
+        let reply = storage.as_mut_ptr().cast::<xcb_get_property_reply_t>();
+        unsafe {
+            (*reply).length = 1;
+            (*reply).format = 8;
+            (*reply).value_len = 3;
+            std::ptr::copy_nonoverlapping(
+                [0x12u8, 0x34, 0x56, 0x78].as_ptr(),
+                reply.add(1).cast(),
+                4,
+            );
+            assert_eq!(first_property_word(reply), None);
+            (*reply).value_len = 4;
+            assert_eq!(
+                first_property_word(reply),
+                Some(u32::from_ne_bytes([0x12, 0x34, 0x56, 0x78]))
+            );
+            (*reply).format = 32;
+            (*reply).value_len = 1;
+            assert!(first_property_word(reply).is_some());
+            (*reply).length = 0;
+            assert_eq!(first_property_word(reply), None);
+            assert_eq!(first_property_word(std::ptr::null()), None);
+        }
+    }
+}

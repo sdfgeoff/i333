@@ -1,43 +1,43 @@
 # Remaining-file Rust review
 
-51 of 66 files reviewed; 15 remain.
+66 of 66 files reviewed; 0 remain.
 
 Checked entries were individually reviewed and modernized where needed. Native ABI and intrusive-tree boundaries remain explicit. Detailed findings and tests are in `idiomatic-rust-checklist.json`.
 
 1. [x] `crates/i3/build.rs` — reviewed idiomatic
 2. [x] `crates/i3/src/application.rs` — modernized
-3. [ ] `crates/i3/src/bindings.rs` — pending
-4. [ ] `crates/i3/src/click.rs` — pending
+3. [x] `crates/i3/src/bindings.rs` — modernized
+4. [x] `crates/i3/src/click.rs` — modernized
 5. [x] `crates/i3/src/commands.rs` — modernized
 6. [x] `crates/i3/src/commands_parser.rs` — modernized
-7. [ ] `crates/i3/src/con.rs` — pending
+7. [x] `crates/i3/src/con.rs` — modernized
 8. [x] `crates/i3/src/config.rs` — modernized
 9. [x] `crates/i3/src/config_directives.rs` — modernized
 10. [x] `crates/i3/src/config_parser.rs` — modernized
-11. [ ] `crates/i3/src/drag.rs` — pending
-12. [ ] `crates/i3/src/floating.rs` — pending
-13. [ ] `crates/i3/src/handlers.rs` — pending
+11. [x] `crates/i3/src/drag.rs` — modernized
+12. [x] `crates/i3/src/floating.rs` — modernized
+13. [x] `crates/i3/src/handlers.rs` — modernized
 14. [x] `crates/i3/src/ipc.rs` — modernized
 15. [x] `crates/i3/src/load_layout.rs` — modernized
 16. [x] `crates/i3/src/main.rs` — reviewed native
-17. [ ] `crates/i3/src/manage.rs` — pending
-18. [ ] `crates/i3/src/move.rs` — pending
+17. [x] `crates/i3/src/manage.rs` — modernized
+18. [x] `crates/i3/src/move.rs` — modernized
 19. [x] `crates/i3/src/parser_util.rs` — modernized
 20. [x] `crates/i3/src/randr.rs` — modernized
 21. [x] `crates/i3/src/regex.rs` — reviewed idiomatic
-22. [ ] `crates/i3/src/render.rs` — pending
-23. [ ] `crates/i3/src/resize.rs` — pending
+22. [x] `crates/i3/src/render.rs` — modernized
+23. [x] `crates/i3/src/resize.rs` — modernized
 24. [x] `crates/i3/src/restore_layout.rs` — modernized
-25. [ ] `crates/i3/src/scratchpad.rs` — pending
+25. [x] `crates/i3/src/scratchpad.rs` — modernized
 26. [x] `crates/i3/src/sighandler.rs` — modernized
 27. [x] `crates/i3/src/startup.rs` — modernized
-28. [ ] `crates/i3/src/tiling_drag.rs` — pending
-29. [ ] `crates/i3/src/tree.rs` — pending
+28. [x] `crates/i3/src/tiling_drag.rs` — modernized
+29. [x] `crates/i3/src/tree.rs` — modernized
 30. [x] `crates/i3/src/types.rs` — reviewed native
 31. [x] `crates/i3/src/util.rs` — modernized
 32. [x] `crates/i3/src/version.rs` — modernized
-33. [ ] `crates/i3/src/workspace.rs` — pending
-34. [ ] `crates/i3/src/x.rs` — pending
+33. [x] `crates/i3/src/workspace.rs` — modernized
+34. [x] `crates/i3/src/x.rs` — modernized
 35. [x] `crates/i3/src/xcb.rs` — modernized
 36. [x] `crates/i3/tests/xkb_native.rs` — modernized
 37. [x] `crates/i3-build/src/lib.rs` — reviewed idiomatic

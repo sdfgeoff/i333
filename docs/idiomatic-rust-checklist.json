@@ -36,14 +36,20 @@
     {
       "number": 3,
       "path": "crates/i3/src/bindings.rs",
-      "status": "pending",
-      "result": null
+      "status": "modernized",
+      "result": "Safe copied group/modifier/grab/release policy and simplified ordered binding lookup; bounded owned 24-button sentinel vector, owned native-qsort scratch; scoped RMLVO reply/CString fields and XKB temporary states; initialized malloc keycode append; scoped command/mode/deep-copy binding snapshots and server grab. Removed dead header copies, private Resolve and named ModeLinks retain actual native layouts.",
+      "tests": "4 new tests PASS: group/capslock/release interactions; local native queue press/release pair selection, modifier-loss release/rearming/group/inputtype behavior; RMLVO empty/missing/unterminated fields; button limit and LP64 truncation/duplicate semantics.",
+      "remaining_boundaries": "Actual shared malloc Binding/Mode/keycode queues, global XKB context/keymap, native keymap callbacks and command/display actions remain explicit unsafe event-thread boundaries. Native qsort retained for existing tie behavior; mode JSON event formatting unchanged. Temporary snapshots survive parse/reload callbacks; no graph references cross them.",
+      "review_wave": 9
     },
     {
       "number": 4,
       "path": "crates/i3/src/click.rs",
-      "status": "pending",
-      "result": null
+      "status": "modernized",
+      "result": "Safe copied nearest-edge/border hit, modifier and binding-destination policies; preserved top/left/right/bottom precedence, strict nearest-edge ties and signed wrapping comparisons; eliminated unused enum/header aliases and generated assertion-byte transmute.",
+      "tests": "2 new tests PASS: edge ties/negative/border precedence/decor threshold and modifier/highbits/destination interaction.",
+      "remaining_boundaries": "Native event adapter, reverse graph traversal, focus/workspace/action dispatch and replay/drag order remain unsafe event-thread operations. No borrowed graph values survive nested graphical callbacks.",
+      "review_wave": 9
     },
     {
       "number": 5,
@@ -88,8 +94,20 @@
     {
       "number": 7,
       "path": "crates/i3/src/con.rs",
-      "status": "pending",
-      "result": null
+      "status": "modernized",
+      "result": "Owned VecDeque BFS replaces allocated intrusive traversal records, root excluded and tiling-before-floating order preserved. Focus snapshots now Vec and bounded slices at every local/workspace caller; raw pointers represent identities only. Percentage normalization is safe copied-value arithmetic retaining sequential growing total, NaN predicates and normalization order. Layout toggle parsing uses borrowed CStr and owned tokens, safe policy selection, native locale/name parsing, no strtok/global cursor/current-block tags. Tree text uses owned byte buffers with malloc-compatible public adapter. Title captures and placeholder expansion are owned CString values, fixing the machine capture leak and retaining markup repair/escaping. Border geometry and adjacent masks use safe Rect/scalar helpers with unsigned wrapping. Removed unused copied declarations/imports; shared Con layout remains unchanged.",
+      "tests": [
+        "7 focused tests: BFS root exclusion/order, bounded focus restoration/floating filtering, sequential percentage and NaN cases, tree byte assembly/malloc transfer, title repair/escaping/placeholders, toggle aliases/errors/space-only tokenization/wrap, border offsets/edge masks",
+        "cargo +nightly test -p i3 --bin i3: PASS147 Rust tests, 17 added in these five files (.work/wave9-common-tests.log)",
+        "Scoped rustfmt +nightly --edition 2021 and git diff --check: PASS",
+        "All source review and tests are display-free; no current desktop interaction"
+      ],
+      "remaining_boundaries": [
+        "Intrusive Con graph traversal/mutation remains unsafe under event-thread/live-node/callback lifetime contracts; owned focus snapshots do not own their nodes",
+        "Native locale-sensitive layout parsing and C strings are explicit adapters; public tree text remains free-compatible, title remains Box<I3String> compatible",
+        "Con creation/free still uses unchanged POD/native allocation ownership shared across core modules"
+      ],
+      "review_wave": 9
     },
     {
       "number": 8,
@@ -152,20 +170,39 @@
     {
       "number": 11,
       "path": "crates/i3/src/drag.rs",
-      "status": "pending",
-      "result": null
+      "status": "modernized",
+      "result": "Owned malloc event/reply/error guards with copied coalesced pending motion; safe modulo squared-distance and initiating-button decisions; scoped acquired pointer/keyboard grabs release keyboard then pointer, null transport errors handled without dereference; typed stable prepare initialization replaces cast/memmove scaffolding.",
+      "tests": "1 new test PASS: strict threshold, modulo square overflow/negative-bit delta, ANY button and mismatched-release behavior.",
+      "remaining_boundaries": "Synchronous nested libev loop, original-event/extra raw callback contract and live global graph/native dispatch remain explicit unsafe; callbacks may mutate/free Con. Prepare stopped and regular X11 handler restored before grab release. No host display/input exercised.",
+      "review_wave": 9
     },
     {
       "number": 12,
       "path": "crates/i3/src/floating.rs",
-      "status": "pending",
-      "result": null
+      "status": "modernized",
+      "result": "Complete size constraints now safe copied SizeHints/SizeLimits algorithm, preserving client/base/max/aspect/increment/config ordering; native round replaced f64.round; safe centering, pointer placement, corner/cursor, drag/proportional dimensions, increment and output remap helpers; QueryPointer bytes copied/freed before fallback returns, owned container name. Removed dead copied headers/transmutes and private callback aliases.",
+      "tests": "3 new tests PASS: aspect/fullscreen/base/increment/config interaction; odd centering/i16 corner cast/wrapping drag/proportional resize/pointer bounds/increment policy; signed relative-center remap and float truncation. Parent independently cross-reviewed constraint extraction vs HEAD with no actionable findings.",
+      "remaining_boundaries": "Live Con/Window/config snapshots, native property/update/move/focus/raise and shared malloc graph mutation remain explicit unsafe adapters. Preserve ordinary signed overflow debug/release policy and unsigned modulo operations; no shared POD layout changes or graph borrows across callbacks.",
+      "review_wave": 9
     },
     {
       "number": 13,
       "path": "crates/i3/src/handlers.rs",
-      "status": "pending",
-      "result": null
+      "status": "modernized",
+      "result": "Private ignored-event linked list becomes owned Mutex<Vec> records with newest-first insertion, strict age>5 expiry, wall-clock/backward-clock behavior, duplicate sequences and wildcard response -1. Name changes own byte snapshots across window update/remanage/X callbacks. Configure-request values are safely packed from a copied event in native mask order with signed coordinate wrapping. Property handler metadata is copied before callback; RAII reply/error owners preserve error+reply cleanup; dispatch releases reply ownership before the callback and re-adopts only after a normal false return, preserving true=handler consumes while preventing double-free if a consuming callback unwinds. Dead copied declarations/imports removed.",
+      "tests": [
+        "5 focused tests: TTL/wildcard/backward clock, newest-first duplicates/nonconsuming matches, native name snapshot after source replacement, all/sparse/unknown configure mask bits and signed positions, real callback frees reply then panics under catch_unwind without double-free",
+        "cargo +nightly test -p i3 --bin i3: PASS147 Rust tests, 17 added in these five files (.work/wave9-common-tests.log)",
+        "Scoped rustfmt +nightly --edition 2021 and git diff --check: PASS",
+        "All source review and tests are display-free; no current desktop interaction",
+        "Post-review targeted handlers test group: PASS5 (.work/wave9-property-unwind-tests.log); total own tests now18"
+      ],
+      "remaining_boundaries": [
+        "Native XCB/libev/startup callbacks receive raw native events and shared Con/Window graphs; dispatch/mutation order stays explicit unsafe",
+        "Property callback true consumes/frees/retains reply, so ownership is released before dispatch and re-adopted only on normal false return; deletion still dispatches null",
+        "Ignored-event cache owns scalar records only and releases its lock before event dispatch/callbacks"
+      ],
+      "review_wave": 9
     },
     {
       "number": 14,
@@ -220,14 +257,36 @@
     {
       "number": 17,
       "path": "crates/i3/src/manage.rs",
-      "status": "pending",
-      "result": null
+      "status": "modernized",
+      "result": "Query-tree child views now validate children_len against reply wire length, copy identities into Vec and own pipelined attribute cookies. Reply is freed before graph callbacks while all attribute requests still precede all manage calls. First property words use complete bounded byte copies instead of unchecked u32 dereferences, retaining format/type compatibility while rejecting undersized payloads. Attribute/geometry/desktop/user-time replies and request-check errors have scoped native owners; both previously leaked request-check errors are released. Removed copied declarations/imports and bool scaffolding; Con/Window adoption and callback order unchanged.",
+      "tests": [
+        "2 focused tests: query-tree count/wire limits and complete first-word/native format/zero-length/null property payload cases",
+        "cargo +nightly test -p i3 --bin i3: PASS147 Rust tests, 17 added in these five files (.work/wave9-common-tests.log)",
+        "Scoped rustfmt +nightly --edition 2021 and git diff --check: PASS",
+        "All source review and tests are display-free; no current desktop interaction"
+      ],
+      "remaining_boundaries": [
+        "Manage/remanage operations still transfer native Window/Con ownership into the intrusive graph; no Drop wrapper owns an adopted window",
+        "Native XCB query/reply allocation contract supplies a complete reply of header.length; bounded slices never exceed needed native payload",
+        "Mapping/focus/swallow/assignment callbacks retain raw event-thread graph identities and existing sequencing"
+      ],
+      "review_wave": 9
     },
     {
       "number": 18,
       "path": "crates/i3/src/move.rs",
-      "status": "pending",
-      "result": null
+      "status": "modernized",
+      "result": "Reviewed all movement/ancestry/focus and list mutation paths. Safe slice algorithms over owned opaque ancestor/focus paths replace repeated raw ancestry/order searching; direction/branch placement is a pure value decision. Numeric goto blocks and fake -1 pointer iteration become structured control flow; copied header constants/type aliases/bool scaffolding removed. Preserved nearest common ancestor, first matching focus order, native swap/detach/attach/callback/IPC/flatten order and fullscreen/output rules.",
+      "tests": [
+        "cargo +nightly test -p i3 --bin i3: 147 passed, 0 failed; includes 13 new tests in these five files",
+        ".work/idiomatic-system/wave9-core-tests.log",
+        "Scoped rustfmt +nightly --edition 2021 and git diff --check passed"
+      ],
+      "remaining_boundaries": [
+        "Intrusive Con graph traversal, list rewiring and callback mutations remain explicit unsafe event-thread boundaries. Snapshot pointers are opaque identities, never safe dereference permissions, and are consumed before mutation.",
+        "Native public pointer entrypoints retain caller lifetime/attachment preconditions. Shared graph ABI is unchanged."
+      ],
+      "review_wave": 9
     },
     {
       "number": 19,
@@ -275,14 +334,35 @@
     {
       "number": 22,
       "path": "crates/i3/src/render.rs",
-      "status": "pending",
-      "result": null
+      "status": "modernized",
+      "result": "Owned RenderParams/Vec replaces malloc/free raw size buffers. Safe split sizing preserves native libm lround semantics and ordered cyclic remainder allocation; safe local geometry covers split, stack, tab, dock, workspace/inner-gap insets, window borders, decoration height and fullscreen popup policy. Preserved f32 tab division before floor, last-tab remainder, single-child border exceptions, signed coordinates and unsigned wrapping. Removed copied headers and raw private parameter API.",
+      "tests": [
+        "cargo +nightly test -p i3 --bin i3: 147 passed, 0 failed; includes 13 new tests in these five files",
+        ".work/idiomatic-system/wave9-core-tests.log",
+        "Scoped rustfmt +nightly --edition 2021 and git diff --check passed"
+      ],
+      "remaining_boundaries": [
+        "Native intrusive graph probes/commits, recursive traversal and X raise/drawing calls retain explicit unsafe event-thread contracts.",
+        "A narrow libm lround call remains intentionally native to preserve exceptional floating conversion results, rather than substitute saturating Rust casts.",
+        "Shared Con/Config layouts are unchanged; local RenderParams borrows never represent graph exclusivity."
+      ],
+      "review_wave": 9
     },
     {
       "number": 23,
       "path": "crates/i3/src/resize.rs",
-      "status": "pending",
-      "result": null
+      "status": "modernized",
+      "result": "Safe percentage/minimum-share proposal, divider geometry and inclusive threshold algorithms operate on copied numeric/Rect values. One typed synchronous DragState owns position/threshold fields instead of separate stack pointers. Temporary helper/grab windows have connection-bound cleanup, retaining help-then-grab destruction and flush before revert handling. Removed copied headers/unsafe assertion scaffolding; retained signed versus unsigned parent-size conversions, IEEE NaN/infinity comparisons, native coordinate wrap and wire narrowing.",
+      "tests": [
+        "cargo +nightly test -p i3 --bin i3: 147 passed, 0 failed; includes 13 new tests in these five files",
+        ".work/idiomatic-system/wave9-core-tests.log",
+        "Scoped rustfmt +nightly --edition 2021 and git diff --check passed"
+      ],
+      "remaining_boundaries": [
+        "Native display/grabs, callback raw context, intrusive participant search and final graph percentage writes remain explicit unsafe.",
+        "drag_pointer consumes the stack context synchronously; native graph/connection handles must remain live through that operation. No whole-node references span tree_render/drag callbacks."
+      ],
+      "review_wave": 9
     },
     {
       "number": 24,
@@ -303,8 +383,18 @@
     {
       "number": 25,
       "path": "crates/i3/src/scratchpad.rs",
-      "status": "pending",
-      "result": null
+      "status": "modernized",
+      "result": "Safe iterative GCD/LCM resolution fold and fresh scratchpad dimensions replace recursive unsafe numeric routines. Candidate policy operates on copied ScratchpadState/focus values; bool/cast/copied header scaffolding removed. Preserved -1 resolution sentinel, native signed low-bit arithmetic, half/three-quarter truncation and existing workspace/candidate search/move/focus/coordinate-remap order.",
+      "tests": [
+        "cargo +nightly test -p i3 --bin i3: 147 passed, 0 failed; includes 13 new tests in these five files",
+        ".work/idiomatic-system/wave9-core-tests.log",
+        "Scoped rustfmt +nightly --edition 2021 and git diff --check passed"
+      ],
+      "remaining_boundaries": [
+        "Native workspace lookup, intrusive global/workspace searches, move/floating/focus callbacks and geometry commits remain explicit unsafe.",
+        "Zero-by-zero output dimensions remain invalid and now fail with a clear assertion; wrapping multiplication/division makes prior C overflow/translation debug-overflow edges explicit, with ordinary output resolutions unchanged."
+      ],
+      "review_wave": 9
     },
     {
       "number": 26,
@@ -343,14 +433,28 @@
     {
       "number": 28,
       "path": "crates/i3/src/tiling_drag.rs",
-      "status": "pending",
-      "result": null
+      "status": "modernized",
+      "result": "Safe indicator size/direction/strip geometry preserves signed-min and float cast/tie/wrapping behavior; scoped drag-indicator native window, simplified generated visible-workspace traversal and removed dead copied headers; local DropParameters retain synchronous raw field contract.",
+      "tests": "2 new tests PASS: left/up/right/down tie order, outside signed distance, tiny parent/sibling limits and oversized strip wrap.",
+      "remaining_boundaries": "Actual drop-target tree predicates, graph moves/swaps/fullscreen/focus restoration and native indicator calls remain event-thread unsafe. Legacy Abort/Revert post-drag decisions preserved; target validity rechecked after nested loop. No graph references span callbacks.",
+      "review_wave": 9
     },
     {
       "number": 29,
       "path": "crates/i3/src/tree.rs",
-      "status": "pending",
-      "result": null
+      "status": "modernized",
+      "result": "Restore path and slurp buffers now have scoped native owners on all paths, while partial graph effects remain unchanged. Geometry conversion and flatten-layout policy are safe copied-value helpers. Removed artificial Con*-1 workspace loop sentinel in favor of ordinary raw traversal; removed dead translated declarations/imports and boolean scaffolding. Split/flatten/close retain original graph and callback mutation ordering.",
+      "tests": [
+        "2 focused tests: signed coordinate/wire dimension conversion and opposite-split/matching-parent flatten policy",
+        "cargo +nightly test -p i3 --bin i3: PASS147 Rust tests, 17 added in these five files (.work/wave9-common-tests.log)",
+        "Scoped rustfmt +nightly --edition 2021 and git diff --check: PASS",
+        "All source review and tests are display-free; no current desktop interaction"
+      ],
+      "remaining_boundaries": [
+        "Tree nodes/all_cons/croot/focused remain shared native intrusive graph identities; no owning Con copy or long-lived Rust graph reference crosses callbacks",
+        "Restore uses native resolve_tilde/slurp and preserves explicit file-byte count and partial parsed-tree effects; native allocation owners do not roll back graph state"
+      ],
+      "review_wave": 9
     },
     {
       "number": 30,
@@ -400,14 +504,37 @@
     {
       "number": 33,
       "path": "crates/i3/src/workspace.rs",
-      "status": "pending",
-      "result": null
+      "status": "modernized",
+      "result": "Private binding-name cache now owns Vec<CString> and snapshots it before graph/callback operations, preserving declaration order, duplicates and native assignment selection. Binding argument decisions use safe byte ranges/native bounded locale prefix matching and the production command lexer; empty quoted names retain rejection. Workspace creation reads live owned snapshot strings; migrated both focus snapshot callers to Vec/slices. Shared previous_workspace_name malloc ABI retained; dead copied declarations/imports and translated bool scaffolding removed.",
+      "tests": [
+        "2 focused tests: command prefixes/modifiers/quotes/non-UTF8/first-NUL projection/empty-name rejection and duplicate-preserving ordered extraction",
+        "cargo +nightly test -p i3 --bin i3: PASS147 Rust tests, 17 added in these five files (.work/wave9-common-tests.log)",
+        "Scoped rustfmt +nightly --edition 2021 and git diff --check: PASS",
+        "All source review and tests are display-free; no current desktop interaction"
+      ],
+      "remaining_boundaries": [
+        "Workspace/output assignment, focus/sticky/urgency and move mutations retain unsafe event-thread intrusive graph contracts and callback order",
+        "Native locale assignment/name-number rules remain; previous_workspace_name remains malloc-compatible because commands/ipc/load_layout also own/read it"
+      ],
+      "review_wave": 9
     },
     {
       "number": 34,
       "path": "crates/i3/src/x.rs",
-      "status": "pending",
-      "result": null
+      "status": "modernized",
+      "result": "Private FrameState uses stable Box::into_raw ownership and Option<CString> pending names, unlinked from all native lists before destruction; all allocation/destruction sites migrated together. Native protocol/pointer replies are scope-owned; protocol atom reads bounded by reply payload. Static realloc client-list scratch replaced by local Vec preserving stacking/mapping order. WM_DELETE uses initialized 32-byte stack packet. Owned byte-preserving mark/title text replaces sasprintf/free chains. Safe border/title/cache/pixmap/frame-extents/reshape/focus/warp calculations replace raw buffer arithmetic; cache compares actual field bits (including NaN/signed zero), never padding, and allocates shared native POD only when changed. Rect memcpy/memset, anonymous link names, copied headers/bool scaffolding and init-array removed.",
+      "tests": [
+        "cargo +nightly test -p i3 --bin i3: 147 passed, 0 failed; includes 13 new tests in these five files",
+        ".work/idiomatic-system/wave9-core-tests.log",
+        "Scoped rustfmt +nightly --edition 2021 and git diff --check passed"
+      ],
+      "remaining_boundaries": [
+        "Display calls, frame/pixmap/surface lifecycles, global graph/state list wiring and callback ordering remain explicit unsafe event-thread boundaries. Published FrameState handles come directly from Box::into_raw, not writable pointers derived from shared references.",
+        "Con.deco_render_params remains malloc/free POD because other graph modules release it. Public shared Con/Window/Config ABI is unchanged.",
+        "Pending warp intentionally retains the borrowed live Rect pointer until x_push_changes: copying at request time would change behavior when geometry moves before push. Caller must keep that rectangle alive.",
+        "Borrowed window title remains graph-owned; generated/formatted titles and native tree representation allocations have scoped owners. Native Cairo/X draw adapters remain genuine display boundaries."
+      ],
+      "review_wave": 9
     },
     {
       "number": 35,
@@ -835,6 +962,6 @@
       "review_wave": 7
     }
   ],
-  "completed": 51,
-  "remaining": 15
+  "completed": 66,
+  "remaining": 0
 }

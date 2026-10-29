@@ -6,8 +6,6 @@ use crate::types::KillWindow;
 use crate::types::Layout;
 use crate::types::MarkMode;
 use crate::types::Orientation;
-use i3_common::format_placeholders::format_placeholders;
-use i3_common::safewrappers::sasprintf;
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -26,31 +24,12 @@ use i3_json::compat::{yajl_gen_free, yajl_gen_get_buf};
 
 pub type i3String = _i3String;
 
-pub type i3Font = Font;
-
-pub use i3_common::format_placeholders::placeholder_t;
-
 pub type fullscreen_mode_t = ::core::ffi::c_uint;
 pub const CF_GLOBAL: fullscreen_mode_t = 2;
 pub const CF_OUTPUT: fullscreen_mode_t = 1;
 pub const CF_NONE: fullscreen_mode_t = 0;
 
 pub const M_BELOW: ::core::ffi::c_uint = 2;
-pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
-pub const M_HERE: ::core::ffi::c_uint = 0;
-
-pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
-pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
-pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
-pub const M_NODOCK: ::core::ffi::c_int = 0;
-pub const M_DONTCHECK: ::core::ffi::c_int = -1;
-
-pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
-pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
-pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
-pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
-pub const A_COMMAND: ::core::ffi::c_uint = 1;
-pub const A_ANY: ::core::ffi::c_uint = 0;
 
 pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
 pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
@@ -72,36 +51,14 @@ pub const ADJ_NONE: adjacent_t = 0;
 pub type hide_edge_borders_mode_t = ::core::ffi::c_uint;
 pub const HEBM_SMART_NO_GAPS: hide_edge_borders_mode_t = 64;
 pub const HEBM_SMART: hide_edge_borders_mode_t = 32;
-pub const HEBM_BOTH: hide_edge_borders_mode_t = 23;
-pub const HEBM_HORIZONTAL: hide_edge_borders_mode_t = 20;
-pub const HEBM_VERTICAL: hide_edge_borders_mode_t = 3;
 pub const HEBM_NONE: hide_edge_borders_mode_t = 0;
 
 pub type tiling_drag_t = ::core::ffi::c_uint;
 pub const TILING_DRAG_MODIFIER_OR_TITLEBAR: tiling_drag_t = 3;
 pub const TILING_DRAG_TITLEBAR: tiling_drag_t = 2;
 pub const TILING_DRAG_MODIFIER: tiling_drag_t = 1;
-pub const TILING_DRAG_OFF: tiling_drag_t = 0;
 
 pub type ylength = usize;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct bfs_entry {
-    pub con: *mut Con,
-    pub entries: C2RustUnnamed_24,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_24 {
-    pub tqe_next: *mut bfs_entry,
-    pub tqe_prev: *mut *mut bfs_entry,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct bfs_head {
-    pub tqh_first: *mut bfs_entry,
-    pub tqh_last: *mut *mut bfs_entry,
-}
 pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 
@@ -163,7 +120,7 @@ pub unsafe fn con_new_skeleton(parent: *mut Con, window: *mut i3Window) -> *mut 
     (*new).marks_head.tqh_first = ::core::ptr::null_mut::<mark_t>();
     (*new).marks_head.tqh_last = &raw mut (*new).marks_head.tqh_first;
     if !parent.is_null() {
-        con_attach(new, parent, false_0 != 0);
+        con_attach(new, parent, false);
     }
     new
 }
@@ -472,8 +429,8 @@ pub unsafe fn con_focus(con: *mut Con) {
         con_focus((*con).parent as *mut Con);
     }
     focused = con;
-    if (*con).urgent as ::core::ffi::c_int != 0 && con_is_leaf(con) as ::core::ffi::c_int != 0 {
-        con_set_urgency(con, false_0 != 0);
+    if (*con).urgent as ::core::ffi::c_int != 0 && con_is_leaf(con) {
+        con_set_urgency(con, false);
         con_update_parents_urgency(con);
         workspace_update_urgent_flag(con_get_workspace(con));
         ipc_send_window_event(c"urgent".as_ptr(), con);
@@ -565,12 +522,12 @@ pub unsafe fn con_close(con: *mut Con, kill_window: KillWindow) {
                 350 as ::core::ffi::c_int,
                 child,
             );
-            tree_close_internal(child, kill_window, false_0 != 0);
+            tree_close_internal(child, kill_window, false);
             child = next_child;
         }
         return;
     }
-    tree_close_internal(con, kill_window, false_0 != 0);
+    tree_close_internal(con, kill_window, false);
 }
 
 pub unsafe fn con_is_leaf(con: *mut Con) -> bool {
@@ -590,12 +547,12 @@ pub unsafe fn con_has_children(con: *mut Con) -> bool {
 
 pub unsafe fn con_is_split(con: *mut Con) -> bool {
     if con_is_leaf(con) {
-        return false_0 != 0;
+        return false;
     }
     match (*con).layout {
-        Layout::DockArea | Layout::Output => false_0 != 0,
+        Layout::DockArea | Layout::Output => false,
         Layout::Default | Layout::Stacked | Layout::Tabbed | Layout::SplitV | Layout::SplitH => {
-            true_0 != 0
+            true
         }
     }
 }
@@ -611,19 +568,19 @@ pub unsafe fn con_is_hidden(con: *mut Con) -> bool {
             && ((*parent).layout == Layout::Tabbed || (*parent).layout == Layout::Stacked)
         {
             if (*parent).focus_head.tqh_first != current {
-                return true_0 != 0;
+                return true;
             }
         }
         current = parent;
     }
-    false_0 != 0
+    false
 }
 
 pub unsafe fn con_is_maximized(con: *mut Con, orientation: Orientation) -> bool {
     if (*con).fullscreen_mode as ::core::ffi::c_uint
         != CF_NONE as ::core::ffi::c_int as ::core::ffi::c_uint
     {
-        return true_0 != 0;
+        return true;
     }
     let mut layout: Layout = Layout::Default;
     match orientation {
@@ -652,15 +609,15 @@ pub unsafe fn con_is_maximized(con: *mut Con, orientation: Orientation) -> bool 
             || (*current).type_0 as ::core::ffi::c_uint
                 == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
         {
-            return true_0 != 0;
+            return true;
         }
         if (*parent).layout == layout && con_num_children(parent) > 1 as ::core::ffi::c_int {
-            return false_0 != 0;
+            return false;
         }
         if (*parent).type_0 as ::core::ffi::c_uint
             == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
         {
-            return false_0 != 0;
+            return false;
         }
         current = parent;
     }
@@ -668,24 +625,24 @@ pub unsafe fn con_is_maximized(con: *mut Con, orientation: Orientation) -> bool 
 
 pub unsafe fn con_is_sticky(con: *mut Con) -> bool {
     if (*con).sticky {
-        return true_0 != 0;
+        return true;
     }
     let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
     child = (*con).nodes_head.tqh_first as *mut Con;
     while !child.is_null() {
         if con_is_sticky(child) {
-            return true_0 != 0;
+            return true;
         }
         child = (*child).nodes.tqe_next as *mut Con;
     }
-    false_0 != 0
+    false
 }
 
 pub unsafe fn con_accepts_window(con: *mut Con) -> bool {
     if (*con).type_0 as ::core::ffi::c_uint
         == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
     {
-        return false_0 != 0;
+        return false;
     }
     if con_is_split(con) {
         debuglog(
@@ -697,7 +654,7 @@ pub unsafe fn con_accepts_window(con: *mut Con) -> bool {
             518 as ::core::ffi::c_int,
             con,
         );
-        return false_0 != 0;
+        return false;
     }
     (*con).window.is_null()
 }
@@ -785,74 +742,28 @@ pub unsafe fn con_parent_with_orientation(con: *mut Con, orientation: Orientatio
     parent
 }
 
+/// The event-thread graph rooted at `con` must remain live throughout traversal.
 pub unsafe fn con_get_fullscreen_con(
     con: *mut Con,
     fullscreen_mode: fullscreen_mode_t,
 ) -> *mut Con {
-    let mut bfs_head_0: bfs_head = bfs_head {
-        tqh_first: ::core::ptr::null_mut::<bfs_entry>(),
-        tqh_last: ::core::ptr::null_mut::<*mut bfs_entry>(),
-    };
-    bfs_head_0 = bfs_head {
-        tqh_first: ::core::ptr::null_mut::<bfs_entry>(),
-        tqh_last: &raw mut bfs_head_0.tqh_first,
-    };
-    let mut entry: *mut bfs_entry =
-        smalloc(::core::mem::size_of::<bfs_entry>() as usize) as *mut bfs_entry;
-    (*entry).con = con;
-    (*entry).entries.tqe_next = ::core::ptr::null_mut::<bfs_entry>();
-    (*entry).entries.tqe_prev = bfs_head_0.tqh_last;
-    *bfs_head_0.tqh_last = entry;
-    bfs_head_0.tqh_last = &raw mut (*entry).entries.tqe_next;
-    while !bfs_head_0.tqh_first.is_null() {
-        entry = bfs_head_0.tqh_first;
-        let current: *mut Con = (*entry).con;
-        if current != con
-            && (*current).fullscreen_mode as ::core::ffi::c_uint
-                == fullscreen_mode as ::core::ffi::c_uint
-        {
-            while !bfs_head_0.tqh_first.is_null() {
-                entry = bfs_head_0.tqh_first;
-                if !(*entry).entries.tqe_next.is_null() {
-                    (*(*entry).entries.tqe_next).entries.tqe_prev = (*entry).entries.tqe_prev;
-                } else {
-                    bfs_head_0.tqh_last = (*entry).entries.tqe_prev;
-                }
-                *(*entry).entries.tqe_prev = (*entry).entries.tqe_next;
-                free(entry as *mut ::core::ffi::c_void);
-            }
+    let mut pending = std::collections::VecDeque::from([con]);
+    while let Some(current) = pending.pop_front() {
+        if current != con && (*current).fullscreen_mode == fullscreen_mode {
             return current;
         }
-        if !(*entry).entries.tqe_next.is_null() {
-            (*(*entry).entries.tqe_next).entries.tqe_prev = (*entry).entries.tqe_prev;
-        } else {
-            bfs_head_0.tqh_last = (*entry).entries.tqe_prev;
-        }
-        *(*entry).entries.tqe_prev = (*entry).entries.tqe_next;
-        free(entry as *mut ::core::ffi::c_void);
-        let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-        child = (*current).nodes_head.tqh_first as *mut Con;
+        let mut child = (*current).nodes_head.tqh_first;
         while !child.is_null() {
-            entry = smalloc(::core::mem::size_of::<bfs_entry>() as usize) as *mut bfs_entry;
-            (*entry).con = child;
-            (*entry).entries.tqe_next = ::core::ptr::null_mut::<bfs_entry>();
-            (*entry).entries.tqe_prev = bfs_head_0.tqh_last;
-            *bfs_head_0.tqh_last = entry;
-            bfs_head_0.tqh_last = &raw mut (*entry).entries.tqe_next;
-            child = (*child).nodes.tqe_next as *mut Con;
+            pending.push_back(child);
+            child = (*child).nodes.tqe_next;
         }
-        child = (*current).floating_head.tqh_first as *mut Con;
+        child = (*current).floating_head.tqh_first;
         while !child.is_null() {
-            entry = smalloc(::core::mem::size_of::<bfs_entry>() as usize) as *mut bfs_entry;
-            (*entry).con = child;
-            (*entry).entries.tqe_next = ::core::ptr::null_mut::<bfs_entry>();
-            (*entry).entries.tqe_prev = bfs_head_0.tqh_last;
-            *bfs_head_0.tqh_last = entry;
-            bfs_head_0.tqh_last = &raw mut (*entry).entries.tqe_next;
-            child = (*child).floating_windows.tqe_next as *mut Con;
+            pending.push_back(child);
+            child = (*child).floating_windows.tqe_next;
         }
     }
-    ::core::ptr::null_mut::<Con>()
+    std::ptr::null_mut()
 }
 
 pub unsafe fn con_get_fullscreen_covering_ws(ws: *mut Con) -> *mut Con {
@@ -867,8 +778,9 @@ pub unsafe fn con_get_fullscreen_covering_ws(ws: *mut Con) -> *mut Con {
 }
 
 pub unsafe fn con_is_internal(con: *mut Con) -> bool {
-    *(*con).name.offset(0 as ::core::ffi::c_int as isize) as ::core::ffi::c_int == '_' as i32
-        && *(*con).name.offset(1 as ::core::ffi::c_int as isize) as ::core::ffi::c_int == '_' as i32
+    std::ffi::CStr::from_ptr((*con).name)
+        .to_bytes()
+        .starts_with(b"__")
 }
 
 pub unsafe fn con_is_floating(con: *mut Con) -> bool {
@@ -886,12 +798,12 @@ pub unsafe fn con_is_floating(con: *mut Con) -> bool {
 
 pub unsafe fn con_is_docked(con: *mut Con) -> bool {
     if (*con).parent.is_null() {
-        return false_0 != 0;
+        return false;
     }
     if (*(*con).parent).type_0 as ::core::ffi::c_uint
         == CT_DOCKAREA as ::core::ffi::c_int as ::core::ffi::c_uint
     {
-        return true_0 != 0;
+        return true;
     }
     con_is_docked((*con).parent as *mut Con)
 }
@@ -920,10 +832,10 @@ pub unsafe fn con_inside_floating(con: *mut Con) -> *mut Con {
 
 pub unsafe fn con_inside_focused(con: *mut Con) -> bool {
     if con == focused {
-        return true_0 != 0;
+        return true;
     }
     if (*con).parent.is_null() {
-        return false_0 != 0;
+        return false;
     }
     con_inside_focused((*con).parent as *mut Con)
 }
@@ -931,10 +843,10 @@ pub unsafe fn con_inside_focused(con: *mut Con) -> bool {
 pub unsafe fn con_has_parent(con: *mut Con, parent: *mut Con) -> bool {
     let current: *mut Con = (*con).parent as *mut Con;
     if current.is_null() {
-        return false_0 != 0;
+        return false;
     }
     if current == parent {
-        return true_0 != 0;
+        return true;
     }
     con_has_parent(current, parent)
 }
@@ -1008,7 +920,7 @@ pub unsafe fn con_find_transient_for_window(start: *mut Con, target: xcb_window_
             target,
         );
         if (*(*transient_con).window).transient_for == target {
-            return true_0 != 0;
+            return true;
         }
         let next_transient: *mut Con = con_by_window_id((*(*transient_con).window).transient_for);
         if next_transient.is_null() {
@@ -1024,7 +936,7 @@ pub unsafe fn con_find_transient_for_window(start: *mut Con, target: xcb_window_
             break;
         }
     }
-    false_0 != 0
+    false
 }
 
 pub unsafe fn con_has_mark(con: *mut Con, mark: *const ::core::ffi::c_char) -> bool {
@@ -1032,11 +944,11 @@ pub unsafe fn con_has_mark(con: *mut Con, mark: *const ::core::ffi::c_char) -> b
     current = (*con).marks_head.tqh_first as *mut mark_t;
     while !current.is_null() {
         if strcmp((*current).name, mark) == 0 as ::core::ffi::c_int {
-            return true_0 != 0;
+            return true;
         }
         current = (*current).marks.tqe_next as *mut mark_t;
     }
-    false_0 != 0
+    false
 }
 
 pub unsafe fn con_mark_toggle(con: *mut Con, mark: *const ::core::ffi::c_char, mode: MarkMode) {
@@ -1110,7 +1022,7 @@ pub unsafe fn con_mark(con: *mut Con, mark: *const ::core::ffi::c_char, mode: Ma
     *(*con).marks_head.tqh_last = new as *mut mark_t;
     (*con).marks_head.tqh_last = &raw mut (*new).marks.tqe_next;
     ipc_send_window_event(c"mark".as_ptr(), con);
-    (*con).mark_changed = true_0 != 0;
+    (*con).mark_changed = true;
 }
 
 pub unsafe fn con_unmark(con: *mut Con, name: *const ::core::ffi::c_char) {
@@ -1142,7 +1054,7 @@ pub unsafe fn con_unmark(con: *mut Con, name: *const ::core::ffi::c_char) {
                         mark = ::core::ptr::null_mut::<mark_t>();
                         ipc_send_window_event(c"mark".as_ptr(), current);
                     }
-                    (*current).mark_changed = true_0 != 0;
+                    (*current).mark_changed = true;
                 }
             }
             current = (*current).all_cons.tqe_next as *mut Con;
@@ -1180,7 +1092,7 @@ pub unsafe fn con_unmark(con: *mut Con, name: *const ::core::ffi::c_char) {
             948 as ::core::ffi::c_int,
             current,
         );
-        (*current).mark_changed = true_0 != 0;
+        (*current).mark_changed = true;
         let mut mark_0: *mut mark_t = ::core::ptr::null_mut::<mark_t>();
         mark_0 = (*current).marks_head.tqh_first as *mut mark_t;
         while !mark_0.is_null() {
@@ -1251,74 +1163,48 @@ pub unsafe fn con_for_window(
     }
     ::core::ptr::null_mut::<Con>()
 }
-unsafe fn num_focus_heads(con: *mut Con) -> ::core::ffi::c_int {
-    let mut focus_heads: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
-    current = (*con).focus_head.tqh_first as *mut Con;
+/// Snapshot identities, not ownership; the graph and every returned node must
+/// remain live until the caller has finished restoring the focus order.
+pub unsafe fn get_focus_order(con: *mut Con) -> Vec<*mut Con> {
+    let mut order = Vec::new();
+    let mut current = (*con).focus_head.tqh_first;
     while !current.is_null() {
-        focus_heads += 1;
-        current = (*current).focused.tqe_next as *mut Con;
+        order.push(current);
+        current = (*current).focused.tqe_next;
     }
-    focus_heads
+    order
 }
 
-pub unsafe fn get_focus_order(con: *mut Con) -> *mut *mut Con {
-    let focus_heads: ::core::ffi::c_int = num_focus_heads(con) as ::core::ffi::c_int;
-    let focus_order: *mut *mut Con =
-        smalloc((focus_heads as usize).wrapping_mul(::core::mem::size_of::<*mut Con>() as usize))
-            as *mut *mut Con;
-    let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
-    let mut idx: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    current = (*con).focus_head.tqh_first as *mut Con;
-    while !current.is_null() {
-        if idx < focus_heads {
-        } else {
-            __assert_fail(
-                c"idx < focus_heads".as_ptr(),
-                c"../src/con.c".as_ptr(),
-                1033 as ::core::ffi::c_uint,
-                c"Con **get_focus_order(Con *)".as_ptr(),
-            );
-        };
-        let fresh1 = idx;
-        idx = idx + 1;
-        let ref mut fresh2 = *focus_order.offset(fresh1 as isize);
-        *fresh2 = current;
-        current = (*current).focused.tqe_next as *mut Con;
-    }
-    focus_order
-}
-
-pub unsafe fn set_focus_order(con: *mut Con, focus_order: *mut *mut Con) {
-    let mut focus_heads: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
+/// All snapshot nodes remain live; the retained nodes belong to `con`. Graph
+/// mutation remains exclusive to the event thread and invokes no callbacks here.
+pub unsafe fn set_focus_order(con: *mut Con, focus_order: &[*mut Con]) {
+    let mut count = 0;
     while !(*con).focus_head.tqh_first.is_null() {
-        let current: *mut Con = (*con).focus_head.tqh_first as *mut Con;
+        let current = (*con).focus_head.tqh_first;
         if !(*current).focused.tqe_next.is_null() {
             (*(*current).focused.tqe_next).focused.tqe_prev = (*current).focused.tqe_prev;
         } else {
             (*con).focus_head.tqh_last = (*current).focused.tqe_prev;
         }
         *(*current).focused.tqe_prev = (*current).focused.tqe_next;
-        focus_heads += 1;
+        count += 1;
     }
-    let mut idx: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    while idx < focus_heads {
-        if (*con).type_0 as ::core::ffi::c_uint
-            != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-            && !con_inside_floating(*focus_order.offset(idx as isize)).is_null()
-        {
-            focus_heads += 1;
-        } else {
-            let ref mut fresh3 = (**focus_order.offset(idx as isize)).focused.tqe_next;
-            *fresh3 = ::core::ptr::null_mut::<Con>();
-            let ref mut fresh4 = (**focus_order.offset(idx as isize)).focused.tqe_prev;
-            *fresh4 = (*con).focus_head.tqh_last;
-            *(*con).focus_head.tqh_last = *focus_order.offset(idx as isize) as *mut Con;
-            (*con).focus_head.tqh_last =
-                &raw mut (**focus_order.offset(idx as isize)).focused.tqe_next;
+    // The old pointer walk extended its bound for skipped floating nodes. A
+    // bounded snapshot expresses the same selection without reading past it.
+    for &current in focus_order {
+        if count == 0 {
+            break;
         }
-        idx += 1;
+        if (*con).type_0 != CT_WORKSPACE && !con_inside_floating(current).is_null() {
+            continue;
+        }
+        (*current).focused.tqe_next = std::ptr::null_mut();
+        (*current).focused.tqe_prev = (*con).focus_head.tqh_last;
+        *(*con).focus_head.tqh_last = current;
+        (*con).focus_head.tqh_last = &raw mut (*current).focused.tqe_next;
+        count -= 1;
     }
+    assert_eq!(count, 0, "focus snapshot must contain every retained child");
 }
 
 pub unsafe fn con_num_children(con: *mut Con) -> ::core::ffi::c_int {
@@ -1372,46 +1258,50 @@ pub unsafe fn con_num_windows(con: *mut Con) -> ::core::ffi::c_int {
     num
 }
 
-pub unsafe fn con_fix_percent(con: *mut Con) {
-    let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-    let children: ::core::ffi::c_int = con_num_children(con);
-    let mut total: ::core::ffi::c_double = 0.0f64;
-    let mut children_with_percent: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    child = (*con).nodes_head.tqh_first as *mut Con;
-    while !child.is_null() {
-        if (*child).percent > 0.0f64 {
-            total += (*child).percent;
-            children_with_percent += 1;
+fn normalize_percentages(percentages: &mut [f64]) {
+    let mut total = 0.0;
+    let mut positive = 0;
+    for &percent in percentages.iter() {
+        if percent > 0.0 {
+            total += percent;
+            positive += 1;
         }
-        child = (*child).nodes.tqe_next as *mut Con;
     }
-    if children_with_percent != children {
-        child = (*con).nodes_head.tqh_first as *mut Con;
-        while !child.is_null() {
-            if (*child).percent <= 0.0f64 {
-                if children_with_percent == 0 as ::core::ffi::c_int {
-                    (*child).percent = 1.0f64;
-                    total += (*child).percent;
+    if positive != percentages.len() {
+        for percent in percentages.iter_mut() {
+            if *percent <= 0.0 {
+                *percent = if positive == 0 {
+                    1.0
                 } else {
-                    (*child).percent = total / children_with_percent as ::core::ffi::c_double;
-                    total += (*child).percent;
-                }
+                    total / positive as f64
+                };
+                total += *percent;
             }
-            child = (*child).nodes.tqe_next as *mut Con;
         }
     }
-    if total == 0.0f64 {
-        child = (*con).nodes_head.tqh_first as *mut Con;
-        while !child.is_null() {
-            (*child).percent = 1.0f64 / children as ::core::ffi::c_double;
-            child = (*child).nodes.tqe_next as *mut Con;
+    if total == 0.0 {
+        let equal = 1.0 / percentages.len() as f64;
+        percentages.fill(equal);
+    } else if total != 1.0 {
+        for percent in percentages {
+            *percent /= total;
         }
-    } else if total != 1.0f64 {
-        child = (*con).nodes_head.tqh_first as *mut Con;
-        while !child.is_null() {
-            (*child).percent /= total;
-            child = (*child).nodes.tqe_next as *mut Con;
-        }
+    }
+}
+
+/// Requires the live event-thread child queue; no callbacks occur while its
+/// copied percentages are normalized and written back in their original order.
+pub unsafe fn con_fix_percent(con: *mut Con) {
+    let mut children = Vec::new();
+    let mut child = (*con).nodes_head.tqh_first;
+    while !child.is_null() {
+        children.push(child);
+        child = (*child).nodes.tqe_next;
+    }
+    let mut percentages: Vec<_> = children.iter().map(|&child| (*child).percent).collect();
+    normalize_percentages(&mut percentages);
+    for (child, percent) in children.into_iter().zip(percentages) {
+        (*child).percent = percent;
     }
 }
 
@@ -1648,7 +1538,7 @@ unsafe fn _con_move_to_con(
                 .as_ptr()
                 .cast_mut(),
         );
-        return false_0 != 0;
+        return false;
     }
     if con_is_floating(con) {
         debuglog(
@@ -1667,10 +1557,10 @@ unsafe fn _con_move_to_con(
     {
         while !(*source_ws).floating_head.tqh_first.is_null() {
             let child: *mut Con = (*source_ws).floating_head.tqh_first as *mut Con;
-            con_move_to_workspace(child, target_ws, true_0 != 0, true_0 != 0, false_0 != 0);
+            con_move_to_workspace(child, target_ws, true, true, false);
         }
         if con_is_leaf(con) {
-            return false_0 != 0;
+            return false;
         }
         con = workspace_encapsulate(con);
         if con.is_null() {
@@ -1679,7 +1569,7 @@ unsafe fn _con_move_to_con(
                     .as_ptr()
                     .cast_mut(),
             );
-            return false_0 != 0;
+            return false;
         }
     }
     let urgent: bool = (*con).urgent;
@@ -1843,7 +1733,7 @@ unsafe fn _con_move_to_con(
     }
     if urgent {
         workspace_update_urgent_flag(source_ws);
-        con_set_urgency(con, true_0 != 0);
+        con_set_urgency(con, true);
     }
     free((*con).deco_render_params as *mut ::core::ffi::c_void);
     (*con).deco_render_params = ::core::ptr::null_mut::<deco_render_params>();
@@ -1852,7 +1742,7 @@ unsafe fn _con_move_to_con(
         .expect("non-null function pointer")(parent);
     ipc_send_window_event(c"move".as_ptr(), con);
     ewmh_update_wm_desktop();
-    true_0 != 0
+    true
 }
 
 pub unsafe fn con_move_to_target(con: *mut Con, mut target: *mut Con) -> bool {
@@ -1866,7 +1756,7 @@ pub unsafe fn con_move_to_target(con: *mut Con, mut target: *mut Con) -> bool {
             1501 as ::core::ffi::c_int,
         );
         scratchpad_move(con);
-        return true_0 != 0;
+        return true;
     }
     if con_is_floating(target) {
         debuglog(
@@ -1877,14 +1767,8 @@ pub unsafe fn con_move_to_target(con: *mut Con, mut target: *mut Con) -> bool {
             c"con_move_to_target".as_ptr(),
             1508 as ::core::ffi::c_int,
         );
-        con_move_to_workspace(
-            con,
-            con_get_workspace(target),
-            true_0 != 0,
-            false_0 != 0,
-            false_0 != 0,
-        );
-        return true_0 != 0;
+        con_move_to_workspace(con, con_get_workspace(target), true, false, false);
+        return true;
     }
     if (*target).type_0 as ::core::ffi::c_uint
         == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
@@ -1896,8 +1780,8 @@ pub unsafe fn con_move_to_target(con: *mut Con, mut target: *mut Con) -> bool {
             c"con_move_to_target".as_ptr(),
             1514 as ::core::ffi::c_int,
         );
-        con_move_to_workspace(con, target, true_0 != 0, false_0 != 0, false_0 != 0);
-        return true_0 != 0;
+        con_move_to_workspace(con, target, true, false, false);
+        return true;
     }
     if con_is_split(target) {
         debuglog(
@@ -1919,17 +1803,9 @@ pub unsafe fn con_move_to_target(con: *mut Con, mut target: *mut Con) -> bool {
             c"con_move_to_target".as_ptr(),
             1528 as ::core::ffi::c_int,
         );
-        return false_0 != 0;
+        return false;
     }
-    _con_move_to_con(
-        con,
-        target,
-        false_0 != 0,
-        true_0 != 0,
-        false_0 != 0,
-        false_0 != 0,
-        true_0 != 0,
-    )
+    _con_move_to_con(con, target, false, true, false, false, true)
 }
 
 pub unsafe fn con_move_to_mark(con: *mut Con, mark: *const ::core::ffi::c_char) -> bool {
@@ -1944,7 +1820,7 @@ pub unsafe fn con_move_to_mark(con: *mut Con, mark: *const ::core::ffi::c_char) 
             1542 as ::core::ffi::c_int,
             mark,
         );
-        return false_0 != 0;
+        return false;
     }
     con_move_to_target(con, target)
 }
@@ -1983,11 +1859,11 @@ pub unsafe fn con_move_to_workspace(
     _con_move_to_con(
         con,
         target,
-        true_0 != 0,
+        true,
         fix_coordinates,
         dont_warp,
         ignore_focus,
-        true_0 != 0,
+        true,
     );
 }
 
@@ -1996,7 +1872,7 @@ pub unsafe fn con_move_to_output(con: *mut Con, output: *mut Output, fix_coordin
     let mut child: *mut Con = -(1 as ::core::ffi::c_int) as *mut Con;
     while child == -(1 as ::core::ffi::c_int) as *mut Con && {
         child = ::core::ptr::null_mut::<Con>();
-        true_0 != 0
+        true
     } {
         child = (*output_get_content((*output).con)).nodes_head.tqh_first as *mut Con;
         while !child.is_null() {
@@ -2027,7 +1903,7 @@ pub unsafe fn con_move_to_output(con: *mut Con, output: *mut Output, fix_coordin
         con,
         output_primary_name(output),
     );
-    con_move_to_workspace(con, ws, fix_coordinates, false_0 != 0, false_0 != 0);
+    con_move_to_workspace(con, ws, fix_coordinates, false, false);
 }
 
 pub unsafe fn con_move_to_output_name(
@@ -2042,10 +1918,10 @@ pub unsafe fn con_move_to_output_name(
             c"ERROR: Could not find output \"%s\"\n".as_ptr().cast_mut(),
             name,
         );
-        return false_0 != 0;
+        return false;
     }
     con_move_to_output(con, output, fix_coordinates);
-    true_0 != 0
+    true
 }
 
 pub unsafe fn con_orientation(con: *mut Con) -> Orientation {
@@ -2226,7 +2102,7 @@ pub unsafe fn con_descend_direction(con: *mut Con, direction: Direction) -> *mut
     }
     con_descend_direction(most, direction)
 }
-unsafe fn has_outer_gaps(gaps: gaps_t) -> bool {
+fn has_outer_gaps(gaps: gaps_t) -> bool {
     gaps.top > 0 as ::core::ffi::c_int
         || gaps.right > 0 as ::core::ffi::c_int
         || gaps.bottom > 0 as ::core::ffi::c_int
@@ -2234,12 +2110,70 @@ unsafe fn has_outer_gaps(gaps: gaps_t) -> bool {
 }
 
 pub unsafe fn con_draw_decoration_into_frame(con: *mut Con) -> bool {
-    con_is_leaf(con) as ::core::ffi::c_int != 0
+    con_is_leaf(con)
         && con_border_style(con) == BorderStyle::Normal
         && ((*con).parent.is_null()
             || (*(*con).parent).layout != Layout::Tabbed
                 && (*(*con).parent).layout != Layout::Stacked)
 }
+fn border_rect(style: BorderStyle, width: i32, hidden: adjacent_t) -> Rect {
+    if style == BorderStyle::None {
+        return Rect {
+            x: 0,
+            y: 0,
+            width: 0,
+            height: 0,
+        };
+    }
+    let width = width as u32;
+    let doubled = width.wrapping_mul(2).wrapping_neg();
+    let mut rect = Rect {
+        x: width,
+        y: if style == BorderStyle::Normal {
+            0
+        } else {
+            width
+        },
+        width: doubled,
+        height: if style == BorderStyle::Normal {
+            width.wrapping_neg()
+        } else {
+            doubled
+        },
+    };
+    if hidden & ADJ_LEFT_SCREEN_EDGE != 0 {
+        rect.x = rect.x.wrapping_sub(width);
+        rect.width = rect.width.wrapping_add(width);
+    }
+    if hidden & ADJ_RIGHT_SCREEN_EDGE != 0 {
+        rect.width = rect.width.wrapping_add(width);
+    }
+    if hidden & ADJ_UPPER_SCREEN_EDGE != 0 && style != BorderStyle::Normal {
+        rect.y = rect.y.wrapping_sub(width);
+        rect.height = rect.height.wrapping_add(width);
+    }
+    if hidden & ADJ_LOWER_SCREEN_EDGE != 0 {
+        rect.height = rect.height.wrapping_add(width);
+    }
+    rect
+}
+fn adjacent_borders(rect: Rect, workspace: Rect) -> adjacent_t {
+    let mut result = ADJ_NONE;
+    if rect.x == workspace.x {
+        result |= ADJ_LEFT_SCREEN_EDGE;
+    }
+    if rect.x.wrapping_add(rect.width) == workspace.x.wrapping_add(workspace.width) {
+        result |= ADJ_RIGHT_SCREEN_EDGE;
+    }
+    if rect.y == workspace.y {
+        result |= ADJ_UPPER_SCREEN_EDGE;
+    }
+    if rect.y.wrapping_add(rect.height) == workspace.y.wrapping_add(workspace.height) {
+        result |= ADJ_LOWER_SCREEN_EDGE;
+    }
+    result
+}
+
 unsafe fn con_border_style_rect_without_title(con: *mut Con) -> Rect {
     if config.hide_edge_borders as ::core::ffi::c_uint
         == HEBM_SMART as ::core::ffi::c_int as ::core::ffi::c_uint
@@ -2258,7 +2192,6 @@ unsafe fn con_border_style_rect_without_title(con: *mut Con) -> Rect {
             };
         }
     }
-    let mut borders_to_hide: adjacent_t = ADJ_NONE;
     let mut border_width: ::core::ffi::c_int = (*con).current_border_width;
     debuglog(
         c"%s:%s:%d - The border width for con is set to: %d\n"
@@ -2269,12 +2202,6 @@ unsafe fn con_border_style_rect_without_title(con: *mut Con) -> Rect {
         1831 as ::core::ffi::c_int,
         (*con).current_border_width,
     );
-    let mut result: Rect = Rect {
-        x: 0,
-        y: 0,
-        width: 0,
-        height: 0,
-    };
     if (*con).current_border_width < 0 as ::core::ffi::c_int {
         if con_is_floating(con) {
             border_width = config.default_floating_border_width;
@@ -2293,74 +2220,20 @@ unsafe fn con_border_style_rect_without_title(con: *mut Con) -> Rect {
     );
     let border_style: BorderStyle = con_border_style(con);
     if border_style == BorderStyle::None {
-        return Rect {
-            x: 0 as u32,
-            y: 0 as u32,
-            width: 0 as u32,
-            height: 0 as u32,
-        };
+        return border_rect(border_style, border_width, ADJ_NONE);
     }
-    if border_style == BorderStyle::Normal {
-        result = Rect {
-            x: border_width as u32,
-            y: 0 as u32,
-            width: -(2 as ::core::ffi::c_int * border_width) as u32,
-            height: -border_width as u32,
-        };
+    let mask = if config.hide_edge_borders == HEBM_SMART_NO_GAPS {
+        HEBM_NONE
     } else {
-        result = Rect {
-            x: border_width as u32,
-            y: border_width as u32,
-            width: -(2 as ::core::ffi::c_int * border_width) as u32,
-            height: -(2 as ::core::ffi::c_int * border_width) as u32,
-        };
-    }
-    if config.hide_edge_borders as ::core::ffi::c_uint
-        == HEBM_SMART_NO_GAPS as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
-        borders_to_hide = (con_adjacent_borders(con) as ::core::ffi::c_uint
-            & HEBM_NONE as ::core::ffi::c_int as ::core::ffi::c_uint)
-            as adjacent_t;
-    } else {
-        borders_to_hide = (con_adjacent_borders(con) as ::core::ffi::c_uint
-            & config.hide_edge_borders as ::core::ffi::c_uint)
-            as adjacent_t;
-    }
-    if borders_to_hide as ::core::ffi::c_uint
-        & ADJ_LEFT_SCREEN_EDGE as ::core::ffi::c_int as ::core::ffi::c_uint
-        != 0
-    {
-        result.x = result.x.wrapping_sub(border_width as u32);
-        result.width = result.width.wrapping_add(border_width as u32);
-    }
-    if borders_to_hide as ::core::ffi::c_uint
-        & ADJ_RIGHT_SCREEN_EDGE as ::core::ffi::c_int as ::core::ffi::c_uint
-        != 0
-    {
-        result.width = result.width.wrapping_add(border_width as u32);
-    }
-    if borders_to_hide as ::core::ffi::c_uint
-        & ADJ_UPPER_SCREEN_EDGE as ::core::ffi::c_int as ::core::ffi::c_uint
-        != 0
-        && border_style != BorderStyle::Normal
-    {
-        result.y = result.y.wrapping_sub(border_width as u32);
-        result.height = result.height.wrapping_add(border_width as u32);
-    }
-    if borders_to_hide as ::core::ffi::c_uint
-        & ADJ_LOWER_SCREEN_EDGE as ::core::ffi::c_int as ::core::ffi::c_uint
-        != 0
-    {
-        result.height = result.height.wrapping_add(border_width as u32);
-    }
-    result
+        config.hide_edge_borders
+    };
+    let hidden = con_adjacent_borders(con) & mask;
+    border_rect(border_style, border_width, hidden)
 }
 
 pub unsafe fn con_border_style_rect(con: *mut Con) -> Rect {
     let mut result: Rect = con_border_style_rect_without_title(con);
-    if con_border_style(con) == BorderStyle::Normal
-        && con_draw_decoration_into_frame(con) as ::core::ffi::c_int != 0
-    {
+    if con_border_style(con) == BorderStyle::Normal && con_draw_decoration_into_frame(con) {
         let deco_height: ::core::ffi::c_int = render_deco_height() as ::core::ffi::c_int;
         result.y = result.y.wrapping_add(deco_height as u32);
         result.height = result.height.wrapping_sub(deco_height as u32);
@@ -2369,40 +2242,11 @@ pub unsafe fn con_border_style_rect(con: *mut Con) -> Rect {
 }
 
 pub unsafe fn con_adjacent_borders(con: *mut Con) -> adjacent_t {
-    let mut result: adjacent_t = ADJ_NONE;
     if con_is_floating(con) {
-        return result;
+        return ADJ_NONE;
     }
-    let workspace: *mut Con = con_get_workspace(con);
-    if (*con).rect.x == (*workspace).rect.x {
-        result = ::core::mem::transmute::<::core::ffi::c_uint, adjacent_t>(
-            result as ::core::ffi::c_uint
-                | ADJ_LEFT_SCREEN_EDGE as ::core::ffi::c_int as ::core::ffi::c_uint,
-        );
-    }
-    if (*con).rect.x.wrapping_add((*con).rect.width)
-        == (*workspace).rect.x.wrapping_add((*workspace).rect.width)
-    {
-        result = ::core::mem::transmute::<::core::ffi::c_uint, adjacent_t>(
-            result as ::core::ffi::c_uint
-                | ADJ_RIGHT_SCREEN_EDGE as ::core::ffi::c_int as ::core::ffi::c_uint,
-        );
-    }
-    if (*con).rect.y == (*workspace).rect.y {
-        result = ::core::mem::transmute::<::core::ffi::c_uint, adjacent_t>(
-            result as ::core::ffi::c_uint
-                | ADJ_UPPER_SCREEN_EDGE as ::core::ffi::c_int as ::core::ffi::c_uint,
-        );
-    }
-    if (*con).rect.y.wrapping_add((*con).rect.height)
-        == (*workspace).rect.y.wrapping_add((*workspace).rect.height)
-    {
-        result = ::core::mem::transmute::<::core::ffi::c_uint, adjacent_t>(
-            result as ::core::ffi::c_uint
-                | ADJ_LOWER_SCREEN_EDGE as ::core::ffi::c_int as ::core::ffi::c_uint,
-        );
-    }
-    result
+    let workspace = con_get_workspace(con);
+    adjacent_borders((*con).rect, (*workspace).rect)
 }
 
 pub unsafe fn con_border_style(con: *mut Con) -> BorderStyle {
@@ -2536,7 +2380,7 @@ pub unsafe fn con_set_layout(mut con: *mut Con, layout: Layout) {
             (*new).parent = con as *mut Con;
             (*new).layout = layout;
             (*new).last_split_layout = (*con).last_split_layout;
-            let focus_order: *mut *mut Con = get_focus_order(con);
+            let focus_order = get_focus_order(con);
             debuglog(
                 c"%s:%s:%d - Moving cons\n".as_ptr().cast_mut(),
                 c"../src/con.c".as_ptr(),
@@ -2546,10 +2390,9 @@ pub unsafe fn con_set_layout(mut con: *mut Con, layout: Layout) {
             while !(*con).nodes_head.tqh_first.is_null() {
                 let child: *mut Con = (*con).nodes_head.tqh_first as *mut Con;
                 con_detach(child);
-                con_attach(child, new, true_0 != 0);
+                con_attach(child, new, true);
             }
-            set_focus_order(new, focus_order);
-            free(focus_order as *mut ::core::ffi::c_void);
+            set_focus_order(new, &focus_order);
             debuglog(
                 c"%s:%s:%d - Attaching new split to ws\n"
                     .as_ptr()
@@ -2558,7 +2401,7 @@ pub unsafe fn con_set_layout(mut con: *mut Con, layout: Layout) {
                 c"con_set_layout".as_ptr(),
                 2051 as ::core::ffi::c_int,
             );
-            con_attach(new, con, false_0 != 0);
+            con_attach(new, con, false);
             tree_flatten(croot);
             con_force_split_parents_redraw(con);
             return;
@@ -2574,9 +2417,9 @@ pub unsafe fn con_set_layout(mut con: *mut Con, layout: Layout) {
         let parent: *mut Con = (*con).parent as *mut Con;
         let child_0: *mut Con = (*con).nodes_head.tqh_first as *mut Con;
         con_detach(child_0);
-        con_attach(child_0, parent, true_0 != 0);
+        con_attach(child_0, parent, true);
         (*parent).last_split_layout = (*con).last_split_layout;
-        tree_close_internal(con, KillWindow::DontKill, true_0 != 0);
+        tree_close_internal(con, KillWindow::DontKill, true);
         con = parent;
     }
     if layout == Layout::Default {
@@ -2590,112 +2433,104 @@ pub unsafe fn con_set_layout(mut con: *mut Con, layout: Layout) {
     con_force_split_parents_redraw(con);
 }
 
-pub unsafe fn con_toggle_layout(con: *mut Con, toggle_mode: *const ::core::ffi::c_char) {
-    let mut parent: *mut Con = con;
-    if (*con).type_0 as ::core::ffi::c_uint
-        != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
-        parent = (*con).parent as *mut Con;
+fn layout_toggle(
+    mode: &std::ffi::CStr,
+    current: Layout,
+    last_split: Layout,
+) -> (Option<Layout>, Vec<std::ffi::CString>) {
+    let equals = |left: &std::ffi::CStr, right: &std::ffi::CStr| unsafe {
+        libc::strcasecmp(left.as_ptr(), right.as_ptr()) == 0
+    };
+    let mut invalid = Vec::new();
+    if equals(mode, c"split") || mode.to_bytes().contains(&b' ') {
+        let mut next = None;
+        let mut found = false;
+        for bytes in mode
+            .to_bytes()
+            .split(|&byte| byte == b' ')
+            .filter(|bytes| !bytes.is_empty())
+        {
+            let token = std::ffi::CString::new(bytes).unwrap();
+            let layout = if equals(&token, c"split") {
+                match current {
+                    Layout::SplitH => Layout::SplitV,
+                    Layout::SplitV => Layout::SplitH,
+                    _ if last_split == Layout::Default => Layout::SplitH,
+                    _ => last_split,
+                }
+            } else {
+                let mut layout = Layout::Default;
+                // Live CStr and initialized scalar output satisfy this legacy
+                // helper's native string adapter contract, without graph access.
+                if !unsafe { layout_from_name(token.as_ptr(), &raw mut layout) }
+                    || layout == Layout::Default
+                {
+                    invalid.push(token);
+                    continue;
+                }
+                layout
+            };
+            if next.is_none() {
+                next = Some(layout);
+            }
+            if found {
+                next = Some(layout);
+                break;
+            }
+            if current == layout {
+                found = true;
+            }
+        }
+        (next, invalid)
+    } else {
+        let all = equals(mode, c"all");
+        let next = if all || equals(mode, c"default") {
+            match current {
+                Layout::Stacked => Some(Layout::Tabbed),
+                Layout::Tabbed => Some(if all { Layout::SplitH } else { last_split }),
+                Layout::SplitH if all => Some(Layout::SplitV),
+                Layout::SplitH | Layout::SplitV => Some(Layout::Stacked),
+                _ => None,
+            }
+        } else {
+            None
+        };
+        (next, invalid)
     }
+}
+
+pub unsafe fn con_toggle_layout(con: *mut Con, toggle_mode: *const ::core::ffi::c_char) {
+    let parent = if (*con).type_0 == CT_WORKSPACE {
+        con
+    } else {
+        (*con).parent
+    };
     debuglog(
         c"%s:%s:%d - con_toggle_layout(%p, %s), parent = %p\n"
             .as_ptr()
             .cast_mut(),
         c"../src/con.c".as_ptr(),
         c"con_toggle_layout".as_ptr(),
-        2117 as ::core::ffi::c_int,
+        2117i32,
         con,
         toggle_mode,
         parent,
     );
-    let delim: [::core::ffi::c_char; 2] =
-        ::core::mem::transmute::<[u8; 2], [::core::ffi::c_char; 2]>(*b" \0");
-    if strcasecmp(toggle_mode, c"split".as_ptr()) == 0 as ::core::ffi::c_int
-        || !strstr(toggle_mode, &raw const delim as *const ::core::ffi::c_char).is_null()
-    {
-        let mut new_layout: Layout = Layout::Default;
-        let mut current_layout_found: bool = false_0 != 0;
-        let tm_dup: *mut ::core::ffi::c_char = sstrdup(toggle_mode);
-        let mut cur_tok: *mut ::core::ffi::c_char =
-            strtok(tm_dup, &raw const delim as *const ::core::ffi::c_char);
-        let mut current_block_20: u64;
-        let mut layout: Layout = Layout::Default;
-        while !cur_tok.is_null() {
-            if strcasecmp(cur_tok, c"split".as_ptr()) == 0 as ::core::ffi::c_int {
-                if (*parent).layout != Layout::SplitH && (*parent).layout != Layout::SplitV {
-                    layout = (*parent).last_split_layout;
-                    if layout == Layout::Default {
-                        layout = Layout::SplitH;
-                    }
-                } else {
-                    layout = if (*parent).layout == Layout::SplitH {
-                        Layout::SplitV
-                    } else {
-                        Layout::SplitH
-                    };
-                }
-                current_block_20 = 6057473163062296781;
-            } else {
-                let success: bool = layout_from_name(cur_tok, &raw mut layout);
-                if !success || layout == Layout::Default {
-                    errorlog(
-                        c"ERROR: The token '%s' was not recognized and has been skipped.\n"
-                            .as_ptr()
-                            .cast_mut(),
-                        cur_tok,
-                    );
-                    current_block_20 = 4906268039856690917;
-                } else {
-                    current_block_20 = 6057473163062296781;
-                }
-            }
-            match current_block_20 {
-                6057473163062296781 => {
-                    if new_layout == Layout::Default {
-                        new_layout = layout;
-                    }
-                    if current_layout_found {
-                        new_layout = layout;
-                        break;
-                    } else if (*parent).layout == layout {
-                        current_layout_found = true_0 != 0;
-                    }
-                }
-                _ => {}
-            }
-            cur_tok = strtok(
-                ::core::ptr::null_mut::<::core::ffi::c_char>(),
-                &raw const delim as *const ::core::ffi::c_char,
-            );
-        }
-        free(tm_dup as *mut ::core::ffi::c_void);
-        if new_layout != Layout::Default {
-            con_set_layout(con, new_layout);
-        }
-    } else if strcasecmp(toggle_mode, c"all".as_ptr()) == 0 as ::core::ffi::c_int
-        || strcasecmp(toggle_mode, c"default".as_ptr()) == 0 as ::core::ffi::c_int
-    {
-        if (*parent).layout == Layout::Stacked {
-            con_set_layout(con, Layout::Tabbed);
-        } else if (*parent).layout == Layout::Tabbed {
-            if strcasecmp(toggle_mode, c"all".as_ptr()) == 0 as ::core::ffi::c_int {
-                con_set_layout(con, Layout::SplitH);
-            } else {
-                con_set_layout(con, (*parent).last_split_layout);
-            }
-        } else if (*parent).layout == Layout::SplitH || (*parent).layout == Layout::SplitV {
-            if strcasecmp(toggle_mode, c"all".as_ptr()) == 0 as ::core::ffi::c_int {
-                if (*parent).layout == Layout::SplitH {
-                    con_set_layout(con, Layout::SplitV);
-                } else {
-                    con_set_layout(con, Layout::Stacked);
-                }
-            } else {
-                con_set_layout(con, Layout::Stacked);
-            }
-        }
+    let mode = std::ffi::CStr::from_ptr(toggle_mode);
+    let (next, invalid) = layout_toggle(mode, (*parent).layout, (*parent).last_split_layout);
+    for token in invalid {
+        errorlog(
+            c"ERROR: The token '%s' was not recognized and has been skipped.\n"
+                .as_ptr()
+                .cast_mut(),
+            token.as_ptr(),
+        );
+    }
+    if let Some(next) = next {
+        con_set_layout(con, next);
     }
 }
+
 unsafe fn con_on_remove_child(con: *mut Con) {
     debuglog(
         c"%s:%s:%d - on_remove_child\n".as_ptr().cast_mut(),
@@ -2738,7 +2573,7 @@ unsafe fn con_on_remove_child(con: *mut Con) {
             );
             let gen: yajl_gen =
                 ipc_marshal_workspace_event(c"empty".as_ptr(), con, ::core::ptr::null_mut::<Con>());
-            tree_close_internal(con, KillWindow::DontKill, false_0 != 0);
+            tree_close_internal(con, KillWindow::DontKill, false);
             let mut payload: *const ::core::ffi::c_uchar =
                 ::core::ptr::null::<::core::ffi::c_uchar>();
             let mut length: ylength = 0;
@@ -2763,7 +2598,7 @@ unsafe fn con_on_remove_child(con: *mut Con) {
             c"con_on_remove_child".as_ptr(),
             2243 as ::core::ffi::c_int,
         );
-        tree_close_internal(con, KillWindow::DontKill, false_0 != 0);
+        tree_close_internal(con, KillWindow::DontKill, false);
     }
 }
 
@@ -2903,7 +2738,7 @@ pub unsafe fn con_minimum_size(con: *mut Con) -> Rect {
 
 pub unsafe fn con_fullscreen_permits_focusing(con: *mut Con) -> bool {
     if focused.is_null() {
-        return true_0 != 0;
+        return true;
     }
     let mut fs: *mut Con = focused;
     while !fs.is_null()
@@ -2935,16 +2770,16 @@ pub unsafe fn con_fullscreen_permits_focusing(con: *mut Con) -> bool {
     if (*fs).type_0 as ::core::ffi::c_uint
         == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
     {
-        return true_0 != 0;
+        return true;
     }
     if con == fs {
-        return true_0 != 0;
+        return true;
     }
     if (*fs).fullscreen_mode as ::core::ffi::c_uint
         == CF_OUTPUT as ::core::ffi::c_int as ::core::ffi::c_uint
         && con_get_workspace(con) != con_get_workspace(fs)
     {
-        return true_0 != 0;
+        return true;
     }
     con_has_parent(con, fs)
 }
@@ -2957,11 +2792,11 @@ pub unsafe fn con_has_urgent_child(con: *mut Con) -> bool {
     child = (*con).nodes_head.tqh_first as *mut Con;
     while !child.is_null() {
         if con_has_urgent_child(child) {
-            return true_0 != 0;
+            return true;
         }
         child = (*child).nodes.tqe_next as *mut Con;
     }
-    false_0 != 0
+    false
 }
 
 pub unsafe fn con_update_parents_urgency(con: *mut Con) {
@@ -2979,16 +2814,16 @@ pub unsafe fn con_update_parents_urgency(con: *mut Con) {
             != CT_DOCKAREA as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         if new_urgency_value {
-            (*parent).urgent = true_0 != 0;
+            (*parent).urgent = true;
         } else if !con_has_urgent_child(parent) {
-            (*parent).urgent = false_0 != 0;
+            (*parent).urgent = false;
         }
         parent = (*parent).parent as *mut Con;
     }
 }
 
 pub unsafe fn con_set_urgency(con: *mut Con, urgent: bool) {
-    if urgent as ::core::ffi::c_int != 0 && focused == con {
+    if urgent && focused == con {
         debuglog(
             c"%s:%s:%d - Ignoring urgency flag for current client\n"
                 .as_ptr()
@@ -3026,7 +2861,7 @@ pub unsafe fn con_set_urgency(con: *mut Con, urgent: bool) {
     if !ws.is_null() {
         workspace_update_urgent_flag(ws);
     }
-    if (*con).urgent as ::core::ffi::c_int != old_urgent as ::core::ffi::c_int {
+    if (*con).urgent != old_urgent {
         verboselog(
             c"Urgency flag changed to %d\n".as_ptr().cast_mut(),
             (*con).urgent as ::core::ffi::c_int,
@@ -3035,147 +2870,110 @@ pub unsafe fn con_set_urgency(con: *mut Con, urgent: bool) {
     }
 }
 
-pub unsafe fn con_get_tree_representation(con: *mut Con) -> *mut ::core::ffi::c_char {
+/// Borrowed graph names are copied before returning; the native adapter below
+/// retains the existing malloc ownership contract used by diagnostics/title code.
+unsafe fn tree_representation(con: *mut Con) -> Vec<u8> {
     if con_is_leaf(con) {
-        if (*con).window.is_null() {
-            return sstrdup(c"nowin".as_ptr());
-        }
-        if (*(*con).window).class_instance.is_null() {
-            return sstrdup(c"noinstance".as_ptr());
-        }
-        return sstrdup((*(*con).window).class_instance);
-    }
-    let mut buf: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    if (*con).layout == Layout::Default {
-        buf = sstrdup(c"D[".as_ptr());
-    } else if (*con).layout == Layout::SplitV {
-        buf = sstrdup(c"V[".as_ptr());
-    } else if (*con).layout == Layout::SplitH {
-        buf = sstrdup(c"H[".as_ptr());
-    } else if (*con).layout == Layout::Tabbed {
-        buf = sstrdup(c"T[".as_ptr());
-    } else if (*con).layout == Layout::Stacked {
-        buf = sstrdup(c"S[".as_ptr());
-    } else {
-        errorlog(
-            c"ERROR: BUG: Code not updated to account for new layout type\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        if 0 as ::core::ffi::c_int != 0 {
+        let name = if (*con).window.is_null() {
+            c"nowin".as_ptr()
+        } else if (*(*con).window).class_instance.is_null() {
+            c"noinstance".as_ptr()
         } else {
+            (*(*con).window).class_instance
+        };
+        return std::ffi::CStr::from_ptr(name).to_bytes().to_vec();
+    }
+    let label = match (*con).layout {
+        Layout::Default => b'D',
+        Layout::SplitV => b'V',
+        Layout::SplitH => b'H',
+        Layout::Tabbed => b'T',
+        Layout::Stacked => b'S',
+        _ => {
+            errorlog(
+                c"ERROR: BUG: Code not updated to account for new layout type\n"
+                    .as_ptr()
+                    .cast_mut(),
+            );
             __assert_fail(
                 c"false".as_ptr(),
                 c"../src/con.c".as_ptr(),
-                2503 as ::core::ffi::c_uint,
+                2503,
                 c"char *con_get_tree_representation(Con *)".as_ptr(),
             );
-        };
-    }
-    let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-    child = (*con).nodes_head.tqh_first as *mut Con;
+        }
+    };
+    let mut text = vec![label, b'['];
+    let mut child = (*con).nodes_head.tqh_first;
     while !child.is_null() {
-        let child_txt: *mut ::core::ffi::c_char = con_get_tree_representation(child);
-        let mut tmp_buf: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        sasprintf(
-            &raw mut tmp_buf,
-            c"%s%s%s".as_ptr(),
-            buf,
-            if (*con).nodes_head.tqh_first == child {
-                c"".as_ptr()
-            } else {
-                c" ".as_ptr()
-            },
-            child_txt,
-        );
-        free(buf as *mut ::core::ffi::c_void);
-        buf = tmp_buf;
-        free(child_txt as *mut ::core::ffi::c_void);
-        child = (*child).nodes.tqe_next as *mut Con;
+        if child != (*con).nodes_head.tqh_first {
+            text.push(b' ');
+        }
+        text.extend(tree_representation(child));
+        child = (*child).nodes.tqe_next;
     }
-    let mut complete_buf: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    sasprintf(&raw mut complete_buf, c"%s]".as_ptr(), buf);
-    free(buf as *mut ::core::ffi::c_void);
-    complete_buf
+    text.push(b']');
+    text
 }
 
-pub unsafe fn con_parse_title_format(con: *mut Con) -> *mut i3String {
-    if (*con).title_format
-        != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut ::core::ffi::c_char
-    {
+pub unsafe fn con_get_tree_representation(con: *mut Con) -> *mut ::core::ffi::c_char {
+    let text = tree_representation(con);
+    i3_common::safewrappers::sstrndup(text.as_ptr().cast(), text.len())
+}
+
+fn title_capture(bytes: &[u8], markup: bool) -> std::ffi::CString {
+    if markup {
+        let text = i3_common::string::I3String::from_bytes(bytes);
+        std::ffi::CString::new(i3_common::string::escape_markup(text.as_str().unwrap())).unwrap()
     } else {
-        __assert_fail(
-            c"con->title_format != NULL".as_ptr(),
-            c"../src/con.c".as_ptr(),
-            2532 as ::core::ffi::c_uint,
-            c"i3String *con_parse_title_format(Con *)".as_ptr(),
-        );
-    };
-    let win: *mut i3Window = (*con).window as *mut i3Window;
-    let pango_markup: bool = font_is_pango() as bool;
-    let mut title: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    let mut class: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    let mut instance: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    let mut machine: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    if win.is_null() {
-        title = pango_escape_markup(con_get_tree_representation(con));
-        class = sstrdup(c"i3-frame".as_ptr());
-        instance = sstrdup(c"i3-frame".as_ptr());
-        machine = sstrdup(c"".as_ptr());
-    } else {
-        title = pango_escape_markup(sstrdup(if (*win).name.is_null() {
-            c"".as_ptr()
-        } else {
-            i3string_as_utf8((*win).name)
-        }));
-        class = pango_escape_markup(sstrdup(if (*win).class_class.is_null() {
-            c"".as_ptr()
-        } else {
-            (*win).class_class as *const ::core::ffi::c_char
-        }));
-        instance = pango_escape_markup(sstrdup(if (*win).class_instance.is_null() {
-            c"".as_ptr()
-        } else {
-            (*win).class_instance as *const ::core::ffi::c_char
-        }));
-        machine = pango_escape_markup(sstrdup(if (*win).machine.is_null() {
-            c"".as_ptr()
-        } else {
-            (*win).machine as *const ::core::ffi::c_char
-        }));
+        std::ffi::CString::new(bytes).expect("borrowed C string contains no NUL")
     }
-    let mut placeholders: [placeholder_t; 4] = [
-        placeholder_t {
-            name: c"%title".as_ptr(),
-            value: title,
-        },
-        placeholder_t {
-            name: c"%class".as_ptr(),
-            value: class,
-        },
-        placeholder_t {
-            name: c"%instance".as_ptr(),
-            value: instance,
-        },
-        placeholder_t {
-            name: c"%machine".as_ptr(),
-            value: machine,
-        },
-    ];
-    let num: usize = (::core::mem::size_of::<[placeholder_t; 4]>() as usize)
-        .wrapping_div(::core::mem::size_of::<placeholder_t>() as usize);
-    let formatted_str: *mut ::core::ffi::c_char = format_placeholders(
-        (*con).title_format,
-        (&raw mut placeholders as *mut placeholder_t).offset(0 as ::core::ffi::c_int as isize)
-            as *mut placeholder_t,
-        num as ::core::ffi::c_int,
+}
+
+/// `con`, its optional window, title format and borrowed string fields are live
+/// event-thread data throughout this call; no graph callbacks occur here.
+pub unsafe fn con_parse_title_format(con: *mut Con) -> *mut i3String {
+    assert!(!(*con).title_format.is_null());
+    let win = (*con).window;
+    let markup = font_is_pango();
+    let capture = |pointer: *const libc::c_char| {
+        let bytes = if pointer.is_null() {
+            &[][..]
+        } else {
+            std::ffi::CStr::from_ptr(pointer).to_bytes()
+        };
+        title_capture(bytes, markup)
+    };
+    let (title, class, instance, machine) = if win.is_null() {
+        (
+            title_capture(&tree_representation(con), markup),
+            c"i3-frame".to_owned(),
+            c"i3-frame".to_owned(),
+            c"".to_owned(),
+        )
+    } else {
+        (
+            capture(if (*win).name.is_null() {
+                std::ptr::null()
+            } else {
+                i3string_as_utf8((*win).name)
+            }),
+            capture((*win).class_class),
+            capture((*win).class_instance),
+            capture((*win).machine),
+        )
+    };
+    let expanded = i3_common::format_placeholders::expand_cstr(
+        std::ffi::CStr::from_ptr((*con).title_format),
+        &[
+            (c"%title", &title),
+            (c"%class", &class),
+            (c"%instance", &instance),
+            (c"%machine", &machine),
+        ],
     );
-    let formatted: *mut i3String = i3string_from_utf8(formatted_str);
-    i3string_set_markup(formatted, pango_markup);
-    free(formatted_str as *mut ::core::ffi::c_void);
-    free(title as *mut ::core::ffi::c_void);
-    free(class as *mut ::core::ffi::c_void);
-    free(instance as *mut ::core::ffi::c_void);
+    let formatted = i3string_from_utf8(expanded.as_ptr());
+    i3string_set_markup(formatted, markup);
     formatted
 }
 
@@ -3217,7 +3015,7 @@ pub unsafe fn con_swap(first: *mut Con, second: *mut Con) -> bool {
             first,
             (*first).type_0 as ::core::ffi::c_uint,
         );
-        return false_0 != 0;
+        return false;
     }
     if (*second).type_0 as ::core::ffi::c_uint
         != CT_CON as ::core::ffi::c_int as ::core::ffi::c_uint
@@ -3229,7 +3027,7 @@ pub unsafe fn con_swap(first: *mut Con, second: *mut Con) -> bool {
             second,
             (*second).type_0 as ::core::ffi::c_uint,
         );
-        return false_0 != 0;
+        return false;
     }
     if first == second {
         debuglog(
@@ -3241,7 +3039,7 @@ pub unsafe fn con_swap(first: *mut Con, second: *mut Con) -> bool {
             2596 as ::core::ffi::c_int,
             first,
         );
-        return false_0 != 0;
+        return false;
     }
     if con_has_parent(first, second) as ::core::ffi::c_int != 0
         || con_has_parent(second, first) as ::core::ffi::c_int != 0
@@ -3251,7 +3049,7 @@ pub unsafe fn con_swap(first: *mut Con, second: *mut Con) -> bool {
             first,
             second,
         );
-        return false_0 != 0;
+        return false;
     }
     let ws1: *mut Con = con_get_workspace(first);
     let ws2: *mut Con = con_get_workspace(second);
@@ -3467,7 +3265,7 @@ pub unsafe fn con_swap(first: *mut Con, second: *mut Con) -> bool {
     (*second).deco_render_params = ::core::ptr::null_mut::<deco_render_params>();
     con_force_split_parents_redraw(first);
     con_force_split_parents_redraw(second);
-    true_0 != 0
+    true
 }
 
 pub unsafe fn con_rect_size_in_orientation(con: *mut Con) -> u32 {
@@ -3508,15 +3306,15 @@ pub unsafe fn con_merge_into(old: *mut Con, new: *mut Con) {
     (*new).mark_changed = !(*old).marks_head.tqh_first.is_null();
     (*old).marks_head.tqh_first = ::core::ptr::null_mut::<mark_t>();
     (*old).marks_head.tqh_last = &raw mut (*old).marks_head.tqh_first;
-    tree_close_internal(old, KillWindow::DontKill, false_0 != 0);
+    tree_close_internal(old, KillWindow::DontKill, false);
 }
 
 pub unsafe fn con_inside_stacked_or_tabbed(con: *mut Con) -> bool {
     if (*con).parent.is_null() {
-        return false_0 != 0;
+        return false;
     }
     if (*(*con).parent).layout == Layout::Stacked || (*(*con).parent).layout == Layout::Tabbed {
-        return true_0 != 0;
+        return true;
     }
     con_inside_stacked_or_tabbed((*con).parent as *mut Con)
 }
@@ -3527,10 +3325,8 @@ use crate::ipc::ipc_send_event;
 use crate::render::render_deco_height;
 use crate::util::layout_from_name;
 use crate::util::max;
-use crate::util::pango_escape_markup;
 use i3_common::font::font_is_pango;
 use i3_common::safewrappers::scalloc;
-use i3_common::safewrappers::smalloc;
 use i3_common::safewrappers::sstrdup;
 use i3_common::safewrappers::strcasecmp_nullable;
 
@@ -3540,7 +3336,7 @@ use i3_common::safewrappers::strcasecmp_nullable;
 
 use xcb_sys::{xcb_window_t, XCB_NONE, XCB_WINDOW_NONE};
 
-pub use libc::{free, gettimeofday, strcasecmp, strcmp, strstr, strtok};
+pub use libc::{free, gettimeofday, strcasecmp, strcmp};
 
 use i3_common::native_stdio::__assert_fail;
 
@@ -3557,7 +3353,6 @@ pub use crate::types::Con;
 pub use crate::types::Match;
 pub use crate::types::Rect;
 pub use crate::types::Window;
-pub use i3_common::font::Font;
 pub use i3_common::string::I3String as _i3String;
 
 // Internal calls and globals use canonical Rust identities.
@@ -3598,3 +3393,196 @@ use crate::xcb::xcb_remove_property_atom;
 use i3_common::string::i3string_as_utf8;
 use i3_common::string::i3string_from_utf8;
 use i3_common::string::i3string_set_markup;
+
+#[cfg(test)]
+mod owned_graph_tests {
+    use super::*;
+    // Con remains a native POD: its enum zero discriminants and null resource
+    // fields are valid. These synthetic nodes never enter the global graph.
+    fn node() -> Box<Con> {
+        Box::new(unsafe { std::mem::zeroed() })
+    }
+    #[test]
+    fn border_geometry_preserves_wrapping_normal_title_edge_and_adjacency_masks() {
+        let all = ADJ_LEFT_SCREEN_EDGE
+            | ADJ_RIGHT_SCREEN_EDGE
+            | ADJ_UPPER_SCREEN_EDGE
+            | ADJ_LOWER_SCREEN_EDGE;
+        let plain = border_rect(BorderStyle::Pixel, 2, ADJ_NONE);
+        assert_eq!(
+            (plain.x, plain.y, plain.width, plain.height),
+            (2, 2, (-4i32) as u32, (-4i32) as u32)
+        );
+        let hidden = border_rect(BorderStyle::Pixel, 2, all);
+        assert_eq!(
+            (hidden.x, hidden.y, hidden.width, hidden.height),
+            (0, 0, 0, 0)
+        );
+        let normal = border_rect(BorderStyle::Normal, 2, all);
+        assert_eq!(
+            (normal.x, normal.y, normal.width, normal.height),
+            (0, 0, 0, 0)
+        );
+        let normal = border_rect(BorderStyle::Normal, 2, ADJ_UPPER_SCREEN_EDGE);
+        assert_eq!((normal.y, normal.height), (0, (-2i32) as u32));
+        let wrapped = Rect {
+            x: u32::MAX,
+            y: 2,
+            width: 3,
+            height: 4,
+        };
+        assert_eq!(adjacent_borders(wrapped, wrapped), all);
+        let right = Rect {
+            x: 1,
+            y: 9,
+            width: 1,
+            height: 3,
+        };
+        assert_eq!(adjacent_borders(right, wrapped), ADJ_RIGHT_SCREEN_EDGE);
+    }
+    #[test]
+    fn percentages_preserve_sequential_assignment_and_nan_comparisons() {
+        let mut values = [0.5, 0.0, 0.0];
+        normalize_percentages(&mut values);
+        assert_eq!(values, [0.25, 0.25, 0.5]);
+        let mut values = [-1.0, 0.0];
+        normalize_percentages(&mut values);
+        assert_eq!(values, [0.5, 0.5]);
+        let mut values = [f64::NAN, 0.0];
+        normalize_percentages(&mut values);
+        assert!(values[0].is_nan());
+        assert_eq!(values[1], 1.0);
+        let mut values = [f64::NAN];
+        normalize_percentages(&mut values);
+        assert_eq!(values, [1.0]);
+        normalize_percentages(&mut []);
+    }
+    #[test]
+    fn fullscreen_breadth_first_excludes_root_and_enqueues_floating_last() {
+        let (mut root, mut tiling, mut floating, mut grandchild) = (node(), node(), node(), node());
+        root.fullscreen_mode = CF_OUTPUT;
+        root.nodes_head.tqh_first = &raw mut *tiling;
+        root.floating_head.tqh_first = &raw mut *floating;
+        tiling.nodes_head.tqh_first = &raw mut *grandchild;
+        floating.fullscreen_mode = CF_OUTPUT;
+        grandchild.fullscreen_mode = CF_OUTPUT;
+        unsafe {
+            assert_eq!(
+                con_get_fullscreen_con(&raw mut *root, CF_OUTPUT),
+                &raw mut *floating
+            );
+            tiling.fullscreen_mode = CF_OUTPUT;
+            assert_eq!(
+                con_get_fullscreen_con(&raw mut *root, CF_OUTPUT),
+                &raw mut *tiling
+            );
+            tiling.fullscreen_mode = CF_NONE;
+            floating.fullscreen_mode = CF_NONE;
+            grandchild.fullscreen_mode = CF_NONE;
+            assert!(con_get_fullscreen_con(&raw mut *root, CF_OUTPUT).is_null());
+        }
+    }
+    #[test]
+    fn focus_snapshot_is_bounded_and_filters_workspace_floating_nodes() {
+        let (mut workspace, mut split, mut first, mut second, mut floating) =
+            (node(), node(), node(), node(), node());
+        workspace.type_0 = CT_WORKSPACE;
+        split.type_0 = CT_CON;
+        split.parent = &raw mut *workspace;
+        first.parent = &raw mut *split;
+        second.parent = &raw mut *split;
+        floating.type_0 = CT_FLOATING_CON;
+        first.focused.tqe_next = &raw mut *second;
+        first.focused.tqe_prev = &raw mut split.focus_head.tqh_first;
+        second.focused.tqe_prev = &raw mut first.focused.tqe_next;
+        split.focus_head.tqh_first = &raw mut *first;
+        split.focus_head.tqh_last = &raw mut second.focused.tqe_next;
+        unsafe {
+            assert_eq!(
+                get_focus_order(&raw mut *split),
+                vec![&raw mut *first, &raw mut *second]
+            );
+            set_focus_order(
+                &raw mut *split,
+                &[&raw mut *floating, &raw mut *second, &raw mut *first],
+            );
+            assert_eq!(
+                get_focus_order(&raw mut *split),
+                vec![&raw mut *second, &raw mut *first]
+            );
+            assert_eq!(first.focused.tqe_prev, &raw mut second.focused.tqe_next);
+            assert_eq!(split.focus_head.tqh_last, &raw mut first.focused.tqe_next);
+        }
+    }
+    #[test]
+    fn tree_text_owns_ordered_bytes_and_malloc_adapter() {
+        let (mut root, mut first, mut second) = (node(), node(), node());
+        root.layout = Layout::SplitH;
+        root.nodes_head.tqh_first = &raw mut *first;
+        first.nodes.tqe_next = &raw mut *second;
+        unsafe {
+            assert_eq!(tree_representation(&raw mut *root), b"H[nowin nowin]");
+            let text = con_get_tree_representation(&raw mut *root);
+            assert_eq!(std::ffi::CStr::from_ptr(text).to_bytes(), b"H[nowin nowin]");
+            libc::free(text.cast());
+        }
+    }
+    #[test]
+    fn layout_toggle_retains_space_only_tokenization_aliases_errors_and_wrap() {
+        assert_eq!(
+            layout_toggle(c"split", Layout::Tabbed, Layout::Default).0,
+            Some(Layout::SplitH)
+        );
+        assert_eq!(
+            layout_toggle(c"split", Layout::SplitH, Layout::Default).0,
+            Some(Layout::SplitV)
+        );
+        assert_eq!(
+            layout_toggle(c"all", Layout::SplitV, Layout::SplitH).0,
+            Some(Layout::Stacked)
+        );
+        assert_eq!(
+            layout_toggle(c"default", Layout::Tabbed, Layout::SplitV).0,
+            Some(Layout::SplitV)
+        );
+        let (next, invalid) = layout_toggle(
+            c"  nonsense stacked invalid tabbed splitv",
+            Layout::Stacked,
+            Layout::SplitH,
+        );
+        assert_eq!(next, Some(Layout::Tabbed));
+        assert_eq!(
+            invalid
+                .iter()
+                .map(|token| token.as_bytes())
+                .collect::<Vec<_>>(),
+            [b"nonsense".as_slice(), b"invalid"]
+        );
+        assert_eq!(
+            layout_toggle(c"stacked tabbed", Layout::Tabbed, Layout::SplitH).0,
+            Some(Layout::Stacked)
+        );
+        assert_eq!(
+            layout_toggle(c"stacked\ttabbed", Layout::SplitH, Layout::SplitH).0,
+            None
+        );
+        let (next, invalid) = layout_toggle(c"default bad", Layout::SplitH, Layout::SplitH);
+        assert_eq!(next, None);
+        assert_eq!(invalid.len(), 2);
+    }
+    #[test]
+    fn title_captures_escape_and_repair_only_for_markup() {
+        assert_eq!(title_capture(b"<&\xff", false).as_bytes(), b"<&\xff");
+        assert_eq!(
+            title_capture(b"<&\xff", true).as_bytes(),
+            "&lt;&amp;�".as_bytes()
+        );
+        let title = title_capture(b"title", false);
+        let machine = title_capture(b"host<&", true);
+        let text = i3_common::format_placeholders::expand_cstr(
+            c"%machine:%title:%unknown",
+            &[(c"%title", &title), (c"%machine", &machine)],
+        );
+        assert_eq!(text.as_bytes(), b"host&lt;&amp;:title:%unknown");
+    }
+}

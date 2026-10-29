@@ -45,7 +45,28 @@ jobs:
       - name: Check formatting
         run: cargo +nightly fmt --all -- --check
       - name: Run all tests
-        run: cargo +nightly test --locked
+        run: |
+          mkdir -p .work/cargo-tests
+          # Keep the complete output in the failure artifact and preserve Cargo's
+          # status independently of tee and the diagnostic annotation below.
+          set +e
+          cargo +nightly test --locked 2>&1 | tee .work/cargo-tests/full-cargo.log
+          cargo_status=${PIPESTATUS[0]}
+          set -e
+          if [ "$cargo_status" -ne 0 ]; then
+            python3 - <<'PY' || true
+          from pathlib import Path
+
+          tail = Path(".work/cargo-tests/full-cargo.log").read_bytes()[-32000:].decode("utf-8", errors="replace")
+          while True:
+              escaped = tail.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+              if len(escaped.encode("utf-8")) <= 40000:
+                  break
+              tail = tail[max(1, len(tail) // 8):]
+          print("::error title=Cargo test failed::Final Cargo output (full log in failure artifact):%0A" + escaped)
+          PY
+          fi
+          exit "$cargo_status"
       - name: Build release binaries
         run: cargo +nightly build --workspace --locked --release
       - name: Detect build-structure changes

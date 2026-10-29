@@ -19,31 +19,10 @@ use crate::types::Position;
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 pub use libev_sys::{ev_timer, ev_timer_stop};
 
-pub type i3String = _i3String;
-
-pub type i3Font = Font;
-
 pub type fullscreen_mode_t = ::core::ffi::c_uint;
 pub const CF_GLOBAL: fullscreen_mode_t = 2;
 pub const CF_OUTPUT: fullscreen_mode_t = 1;
 pub const CF_NONE: fullscreen_mode_t = 0;
-
-pub const M_BELOW: ::core::ffi::c_uint = 2;
-pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
-pub const M_HERE: ::core::ffi::c_uint = 0;
-
-pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
-pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
-pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
-pub const M_NODOCK: ::core::ffi::c_int = 0;
-pub const M_DONTCHECK: ::core::ffi::c_int = -1;
-
-pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
-pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
-pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
-pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
-pub const A_COMMAND: ::core::ffi::c_uint = 1;
-pub const A_ANY: ::core::ffi::c_uint = 0;
 
 pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
 pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
@@ -55,22 +34,8 @@ pub const CT_ROOT: ::core::ffi::c_uint = 0;
 pub type Output = xoutput;
 pub type i3Window = Window;
 
-pub type hide_edge_borders_mode_t = ::core::ffi::c_uint;
-pub const HEBM_SMART_NO_GAPS: hide_edge_borders_mode_t = 64;
-pub const HEBM_SMART: hide_edge_borders_mode_t = 32;
-pub const HEBM_BOTH: hide_edge_borders_mode_t = 23;
-pub const HEBM_HORIZONTAL: hide_edge_borders_mode_t = 20;
-pub const HEBM_VERTICAL: hide_edge_borders_mode_t = 3;
-pub const HEBM_NONE: hide_edge_borders_mode_t = 0;
-
 pub use crate::application::ignore_event_sequence_t;
 pub use crate::bindings::all_cons_head;
-
-pub type tiling_drag_t = ::core::ffi::c_uint;
-pub const TILING_DRAG_MODIFIER_OR_TITLEBAR: tiling_drag_t = 3;
-pub const TILING_DRAG_TITLEBAR: tiling_drag_t = 2;
-pub const TILING_DRAG_MODIFIER: tiling_drag_t = 1;
-pub const TILING_DRAG_OFF: tiling_drag_t = 0;
 
 pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
@@ -114,7 +79,7 @@ unsafe fn _create___i3() -> *mut Con {
     (*content).name = sstrdup(c"content".as_ptr());
     (*content).layout = Layout::SplitH;
     x_set_name(content, c"[i3 con] content __i3".as_ptr());
-    con_attach(content, __i3, false_0 != 0);
+    con_attach(content, __i3, false);
     let ws: *mut Con = con_new(
         ::core::ptr::null_mut::<Con>(),
         ::core::ptr::null_mut::<i3Window>(),
@@ -123,21 +88,46 @@ unsafe fn _create___i3() -> *mut Con {
     (*ws).num = -(1 as ::core::ffi::c_int);
     (*ws).name = sstrdup(c"__i3_scratch".as_ptr());
     (*ws).layout = Layout::SplitH;
-    con_attach(ws, content, false_0 != 0);
+    con_attach(ws, content, false);
     x_set_name(ws, c"[i3 con] workspace __i3_scratch".as_ptr());
     (*ws).fullscreen_mode = CF_OUTPUT;
     __i3
+}
+
+/// A uniquely owned malloc buffer returned by resolve_tilde/slurp. Tree parsing
+/// may retain partial graph effects, but never borrows these file bytes afterward.
+struct RestoreBuffer(*mut libc::c_char);
+impl Drop for RestoreBuffer {
+    fn drop(&mut self) {
+        unsafe { libc::free(self.0.cast()) };
+    }
+}
+
+fn geometry_rect(x: i16, y: i16, width: u16, height: u16) -> Rect {
+    Rect {
+        x: x as u32,
+        y: y as u32,
+        width: u32::from(width),
+        height: u32::from(height),
+    }
+}
+fn flatten_layouts(con: Layout, child: Layout, parent: Orientation) -> bool {
+    match (con, child) {
+        (Layout::SplitH, Layout::SplitV) => parent == Orientation::Vertical,
+        (Layout::SplitV, Layout::SplitH) => parent == Orientation::Horizontal,
+        _ => false,
+    }
 }
 
 pub unsafe fn tree_restore(
     path: *const ::core::ffi::c_char,
     geometry: *mut xcb_get_geometry_reply_t,
 ) -> bool {
-    let mut len: isize = 0;
     let mut out: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut ws: *mut Con = ::core::ptr::null_mut::<Con>();
-    let mut result: bool = false_0 != 0;
-    let globbed: *mut ::core::ffi::c_char = resolve_tilde(path);
+    let mut result: bool = false;
+    let path_owner = RestoreBuffer(resolve_tilde(path));
+    let globbed = path_owner.0;
     let mut buf: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
     if !path_exists(globbed) {
         verboselog(
@@ -147,19 +137,19 @@ pub unsafe fn tree_restore(
             globbed,
         );
     } else {
-        len = 0;
-        len = slurp(globbed, &raw mut buf);
+        let len = slurp(globbed, &raw mut buf);
+        let _buffer_owner = RestoreBuffer(buf);
         if !(len < 0 as isize) {
             croot = con_new(
                 ::core::ptr::null_mut::<Con>(),
                 ::core::ptr::null_mut::<i3Window>(),
             );
-            (*croot).rect = Rect {
-                x: (*geometry).x as u32,
-                y: (*geometry).y as u32,
-                width: (*geometry).width as u32,
-                height: (*geometry).height as u32,
-            } as Rect;
+            (*croot).rect = geometry_rect(
+                (*geometry).x,
+                (*geometry).y,
+                (*geometry).width,
+                (*geometry).height,
+            );
             focused = croot;
             tree_append_json(
                 focused,
@@ -227,12 +217,10 @@ pub unsafe fn tree_restore(
                     (*__i3).nodes.tqe_prev = &raw mut (*croot).nodes_head.tqh_first;
                 }
                 restore_open_placeholder_windows(croot);
-                result = true_0 != 0;
+                result = true;
             }
         }
     }
-    free(globbed as *mut ::core::ffi::c_void);
-    free(buf as *mut ::core::ffi::c_void);
     result
 }
 
@@ -246,12 +234,12 @@ pub unsafe fn tree_init(geometry: *mut xcb_get_geometry_reply_t) {
     (*croot).name = c"root".as_ptr().cast_mut();
     (*croot).type_0 = CT_ROOT;
     (*croot).layout = Layout::SplitH;
-    (*croot).rect = Rect {
-        x: (*geometry).x as u32,
-        y: (*geometry).y as u32,
-        width: (*geometry).width as u32,
-        height: (*geometry).height as u32,
-    } as Rect;
+    (*croot).rect = geometry_rect(
+        (*geometry).x,
+        (*geometry).y,
+        (*geometry).width,
+        (*geometry).height,
+    );
     _create___i3();
 }
 
@@ -305,7 +293,7 @@ pub unsafe fn tree_close_internal(
 ) -> bool {
     let parent: *mut Con = (*con).parent as *mut Con;
     if (*con).urgent {
-        con_set_urgency(con, false_0 != 0);
+        con_set_urgency(con, false);
         con_update_parents_urgency(con);
         workspace_update_urgent_flag(con_get_workspace(con));
     }
@@ -319,7 +307,7 @@ pub unsafe fn tree_close_internal(
         con,
         kill_window as ::core::ffi::c_uint,
     );
-    let mut abort_kill: bool = false_0 != 0;
+    let mut abort_kill: bool = false;
     let mut child: *mut Con = (*con).nodes_head.tqh_first as *mut Con;
     while !child.is_null() {
         let next_child: *mut Con = (*child).nodes.tqe_next as *mut Con;
@@ -330,8 +318,8 @@ pub unsafe fn tree_close_internal(
             208 as ::core::ffi::c_int,
             child,
         );
-        if !tree_close_internal(child, kill_window, true_0 != 0) {
-            abort_kill = true_0 != 0;
+        if !tree_close_internal(child, kill_window, true) {
+            abort_kill = true;
         }
         child = next_child;
     }
@@ -342,12 +330,12 @@ pub unsafe fn tree_close_internal(
             c"tree_close_internal".as_ptr(),
             216 as ::core::ffi::c_int,
         );
-        return false_0 != 0;
+        return false;
     }
     if !(*con).window.is_null() {
         if kill_window != KillWindow::DontKill {
             x_window_kill((*(*con).window).id, kill_window);
-            return false_0 != 0;
+            return false;
         }
         let mut fresh0: [u32; 1] = [XCB_NONE as u32];
         xcb_change_window_attributes(
@@ -471,7 +459,7 @@ pub unsafe fn tree_close_internal(
             .on_remove_child
             .expect("non-null function pointer")(parent);
     }
-    true_0 != 0
+    true
 }
 
 pub unsafe fn tree_split(mut con: *mut Con, orientation: Orientation) {
@@ -576,7 +564,7 @@ pub unsafe fn tree_split(mut con: *mut Con, orientation: Orientation) {
     };
     (*new).percent = (*con).percent;
     (*con).percent = 0.0f64;
-    con_attach(con, new, false_0 != 0);
+    con_attach(con, new, false);
 }
 
 pub unsafe fn level_up() -> bool {
@@ -584,7 +572,7 @@ pub unsafe fn level_up() -> bool {
         == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         con_activate((*(*focused).parent).parent as *mut Con);
-        return true_0 != 0;
+        return true;
     }
     if (*(*focused).parent).type_0 as ::core::ffi::c_uint
         != CT_CON as ::core::ffi::c_int as ::core::ffi::c_uint
@@ -596,10 +584,10 @@ pub unsafe fn level_up() -> bool {
         errorlog(
             c"ERROR: 'focus parent': Focus is already on the workspace, cannot go higher than that.\n".as_ptr().cast_mut(),
         );
-        return false_0 != 0;
+        return false;
     }
     con_activate((*focused).parent as *mut Con);
-    true_0 != 0
+    true
 }
 
 pub unsafe fn level_down() -> bool {
@@ -611,7 +599,7 @@ pub unsafe fn level_down() -> bool {
             c"level_down".as_ptr(),
             413 as ::core::ffi::c_int,
         );
-        return false_0 != 0;
+        return false;
     } else if (*next).type_0 as ::core::ffi::c_uint
         == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
     {
@@ -623,17 +611,17 @@ pub unsafe fn level_down() -> bool {
                 c"level_down".as_ptr(),
                 420 as ::core::ffi::c_int,
             );
-            return false_0 != 0;
+            return false;
         } else {
             next = (*next).focus_head.tqh_first as *mut Con;
         }
     }
     con_activate(next);
-    true_0 != 0
+    true
 }
 unsafe fn mark_unmapped(con: *mut Con) {
     let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
-    (*con).mapped = false_0 != 0;
+    (*con).mapped = false;
     current = (*con).nodes_head.tqh_first as *mut Con;
     while !current.is_null() {
         mark_unmapped(current);
@@ -661,7 +649,7 @@ pub unsafe fn tree_render() {
         457 as ::core::ffi::c_int,
     );
     mark_unmapped(croot);
-    (*croot).mapped = true_0 != 0;
+    (*croot).mapped = true;
     render_con(croot);
     x_push_changes(croot);
     debuglog(
@@ -715,26 +703,18 @@ unsafe fn get_tree_next_workspace(con: *mut Con, direction: Direction) -> *mut C
         489 as ::core::ffi::c_int,
         output_primary_name(next_output),
     );
-    let mut workspace: *mut Con = ::core::ptr::null_mut::<Con>();
-    let mut child: *mut Con = -(1 as ::core::ffi::c_int) as *mut Con;
-    while child == -(1 as ::core::ffi::c_int) as *mut Con && {
-        child = ::core::ptr::null_mut::<Con>();
-        true_0 != 0
-    } {
-        child = (*output_get_content((*next_output).con))
-            .nodes_head
-            .tqh_first as *mut Con;
-        while !child.is_null() {
-            if !workspace_is_visible(child) {
-                child = (*child).nodes.tqe_next as *mut Con;
-            } else {
-                workspace = child;
-                break;
-            }
+    let mut child = (*output_get_content((*next_output).con))
+        .nodes_head
+        .tqh_first;
+    while !child.is_null() {
+        if workspace_is_visible(child) {
+            return child;
         }
+        child = (*child).nodes.tqe_next;
     }
-    workspace
+    std::ptr::null_mut()
 }
+
 unsafe fn get_tree_next(mut con: *mut Con, direction: Direction) -> *mut Con {
     let previous: bool = position_from_direction(direction) == Position::Before;
     let orientation: Orientation = orientation_from_direction(direction);
@@ -950,12 +930,9 @@ pub unsafe fn tree_flatten(con: *mut Con) {
                 con,
                 parent,
             );
-            if !(!con_is_split(con)
-                || !con_is_split(child)
-                || (*con).layout != Layout::SplitH && (*con).layout != Layout::SplitV
-                || (*child).layout != Layout::SplitH && (*child).layout != Layout::SplitV
-                || con_orientation(con) == con_orientation(child)
-                || con_orientation(child) != con_orientation(parent))
+            if con_is_split(con)
+                && con_is_split(child)
+                && flatten_layouts((*con).layout, (*child).layout, con_orientation(parent))
             {
                 debuglog(
                     c"%s:%s:%d - Alright, I have to flatten this situation now. Stay calm.\n"
@@ -1053,7 +1030,7 @@ pub unsafe fn tree_flatten(con: *mut Con) {
                     c"tree_flatten".as_ptr(),
                     720 as ::core::ffi::c_int,
                 );
-                tree_close_internal(con, KillWindow::DontKill, true_0 != 0);
+                tree_close_internal(con, KillWindow::DontKill, true);
                 return;
             }
         }
@@ -1116,7 +1093,6 @@ pub use crate::types::xoutput;
 pub use crate::types::Con;
 pub use crate::types::Rect;
 pub use crate::types::Window;
-pub use i3_common::font::Font;
 pub use i3_common::string::I3String as _i3String;
 
 // Internal calls and globals use canonical Rust identities.
@@ -1163,3 +1139,43 @@ use crate::x::x_push_changes;
 use crate::x::x_set_name;
 use crate::x::x_set_warp_to;
 use i3_common::resolve_tilde::resolve_tilde;
+
+#[cfg(test)]
+mod owned_policy_tests {
+    use super::*;
+    #[test]
+    fn restore_geometry_keeps_native_signed_coordinate_wrapping() {
+        let rect = geometry_rect(-1, -32768, 65535, 0);
+        assert_eq!(
+            (rect.x, rect.y, rect.width, rect.height),
+            (u32::MAX, (-32768i32) as u32, 65535, 0)
+        );
+    }
+    #[test]
+    fn flatten_requires_opposite_split_and_matching_parent_orientation() {
+        assert!(flatten_layouts(
+            Layout::SplitH,
+            Layout::SplitV,
+            Orientation::Vertical
+        ));
+        assert!(flatten_layouts(
+            Layout::SplitV,
+            Layout::SplitH,
+            Orientation::Horizontal
+        ));
+        for con in [
+            Layout::SplitH,
+            Layout::SplitV,
+            Layout::Tabbed,
+            Layout::Stacked,
+        ] {
+            assert!(!flatten_layouts(con, con, Orientation::Horizontal));
+            assert!(!flatten_layouts(con, Layout::Tabbed, Orientation::Vertical));
+        }
+        assert!(!flatten_layouts(
+            Layout::SplitH,
+            Layout::SplitV,
+            Orientation::Horizontal
+        ));
+    }
+}

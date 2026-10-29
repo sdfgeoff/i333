@@ -9,47 +9,48 @@ use crate::types::ScratchpadState;
  * scratchpad.c: Moving windows to the scratchpad and making them visible again.
  *
  */
-// Mechanical file-by-file Rust translation of src/scratchpad.c.
-// Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
+// Local policy and temporary values use owned Rust storage. Native entrypoints
+// require live event-thread graph handles and a live display; callbacks may mutate
+// the graph, so node references must never span those calls.
 
-pub type i3String = _i3String;
+const CF_NONE: u32 = 0;
+const CF_OUTPUT: u32 = 1;
+const CT_WORKSPACE: u32 = 4;
 
-pub type fullscreen_mode_t = ::core::ffi::c_uint;
-pub const CF_GLOBAL: fullscreen_mode_t = 2;
-pub const CF_OUTPUT: fullscreen_mode_t = 1;
-pub const CF_NONE: fullscreen_mode_t = 0;
+fn greatest_common_divisor(mut first: i32, mut second: i32) -> i32 {
+    while second != 0 {
+        (first, second) = (second, first.wrapping_rem(second));
+    }
+    first
+}
 
-pub const M_BELOW: ::core::ffi::c_uint = 2;
-pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
-pub const M_HERE: ::core::ffi::c_uint = 0;
+fn common_resolution(current: Option<(i32, i32)>, width: u32, height: u32) -> (i32, i32) {
+    fn lcm(first: i32, second: i32) -> i32 {
+        // Match the native signed arithmetic's low bits. Zero-by-zero was an
+        // invalid resolution in the original routine too, not a usable output.
+        let divisor = greatest_common_divisor(first, second);
+        assert_ne!(divisor, 0, "zero output resolution");
+        first.wrapping_mul(second).wrapping_div(divisor)
+    }
+    match current {
+        None => (width as i32, height as i32),
+        Some((first, second)) => (lcm(first, width as i32), lcm(second, height as i32)),
+    }
+}
 
-pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
-pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
-pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
-pub const M_NODOCK: ::core::ffi::c_int = 0;
-pub const M_DONTCHECK: ::core::ffi::c_int = -1;
+fn fresh_dimensions(output: Rect) -> (u32, u32) {
+    (
+        (output.width as f64 * 0.5) as u32,
+        (output.height as f64 * 0.75) as u32,
+    )
+}
 
-pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
-pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
-pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
-pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
-pub const A_COMMAND: ::core::ffi::c_uint = 1;
-pub const A_ANY: ::core::ffi::c_uint = 0;
-
-pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
-pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
-pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
-pub const CT_CON: ::core::ffi::c_uint = 2;
-pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
-pub const CT_ROOT: ::core::ffi::c_uint = 0;
-pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
+fn can_focus_visible(state: ScratchpadState, is_focused: bool) -> bool {
+    state != ScratchpadState::None && !is_focused
+}
 
 pub unsafe fn scratchpad_move(mut con: *mut Con) {
-    if (*con).type_0 as ::core::ffi::c_uint
-        == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if (*con).type_0 as u32 == CT_WORKSPACE {
         verboselog(
             c"'move scratchpad' used on a workspace \"%s\". Calling it recursively on all windows on this workspace.\n".as_ptr().cast_mut(),
             (*con).name,
@@ -68,7 +69,7 @@ pub unsafe fn scratchpad_move(mut con: *mut Con) {
             .cast_mut(),
         c"../src/scratchpad.c".as_ptr(),
         c"scratchpad_move".as_ptr(),
-        32 as ::core::ffi::c_int,
+        32,
         con,
     );
     let mut __i3_scratch: *mut Con = workspace_get(c"__i3_scratch".as_ptr());
@@ -79,19 +80,19 @@ pub unsafe fn scratchpad_move(mut con: *mut Con) {
                 .cast_mut(),
             c"../src/scratchpad.c".as_ptr(),
             c"scratchpad_move".as_ptr(),
-            36 as ::core::ffi::c_int,
+            36,
         );
         return;
     }
     con_disable_fullscreen(con);
     let maybe_floating_con: *mut Con = con_inside_floating(con);
     if maybe_floating_con.is_null() {
-        floating_enable(con, false_0 != 0);
+        floating_enable(con, false);
         con = (*con).parent as *mut Con;
     } else {
         con = maybe_floating_con;
     }
-    con_move_to_workspace(con, __i3_scratch, true_0 != 0, true_0 != 0, false_0 != 0);
+    con_move_to_workspace(con, __i3_scratch, true, true, false);
     if (*con).scratchpad_state == ScratchpadState::None {
         debuglog(
             c"%s:%s:%d - This window was never used as a scratchpad before.\n"
@@ -99,7 +100,7 @@ pub unsafe fn scratchpad_move(mut con: *mut Con) {
                 .cast_mut(),
             c"../src/scratchpad.c".as_ptr(),
             c"scratchpad_move".as_ptr(),
-            64 as ::core::ffi::c_int,
+            64,
         );
         if con == maybe_floating_con {
             debuglog(
@@ -108,7 +109,7 @@ pub unsafe fn scratchpad_move(mut con: *mut Con) {
                     .cast_mut(),
                 c"../src/scratchpad.c".as_ptr(),
                 c"scratchpad_move".as_ptr(),
-                66 as ::core::ffi::c_int,
+                66,
             );
             (*con).scratchpad_state = ScratchpadState::Changed;
         } else {
@@ -118,7 +119,7 @@ pub unsafe fn scratchpad_move(mut con: *mut Con) {
                     .cast_mut(),
                 c"../src/scratchpad.c".as_ptr(),
                 c"scratchpad_move".as_ptr(),
-                69 as ::core::ffi::c_int,
+                69,
             );
             (*con).scratchpad_state = ScratchpadState::Fresh;
         }
@@ -132,7 +133,7 @@ pub unsafe fn scratchpad_show(mut con: *mut Con) -> bool {
             .cast_mut(),
         c"../src/scratchpad.c".as_ptr(),
         c"scratchpad_show".as_ptr(),
-        85 as ::core::ffi::c_int,
+        85,
         con,
     );
     let mut __i3_scratch: *mut Con = workspace_get(c"__i3_scratch".as_ptr());
@@ -150,23 +151,17 @@ pub unsafe fn scratchpad_show(mut con: *mut Con) -> bool {
                 .cast_mut(),
             c"../src/scratchpad.c".as_ptr(),
             c"scratchpad_show".as_ptr(),
-            95 as ::core::ffi::c_int,
+            95,
         );
         scratchpad_move(focused);
-        return true_0 != 0;
+        return true;
     }
     let mut fs: *mut Con = focused;
-    while !fs.is_null()
-        && (*fs).fullscreen_mode as ::core::ffi::c_uint
-            == CF_NONE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    while !fs.is_null() && (*fs).fullscreen_mode as u32 == CF_NONE {
         fs = (*fs).parent as *mut Con;
     }
-    if !fs.is_null()
-        && (*fs).type_0 as ::core::ffi::c_uint
-            != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
-        con_toggle_fullscreen(fs, CF_OUTPUT as ::core::ffi::c_int);
+    if !fs.is_null() && (*fs).type_0 as u32 != CT_WORKSPACE {
+        con_toggle_fullscreen(fs, CF_OUTPUT as i32);
     }
     let mut walk_con: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut focused_ws: *mut Con = con_get_workspace(focused);
@@ -177,8 +172,10 @@ pub unsafe fn scratchpad_show(mut con: *mut Con) -> bool {
                 floating = con_inside_floating(walk_con);
                 !floating.is_null()
             }
-            && (*floating).scratchpad_state != ScratchpadState::None
-            && floating != con_inside_floating(focused)
+            && can_focus_visible(
+                (*floating).scratchpad_state,
+                floating == con_inside_floating(focused),
+            )
         {
             debuglog(
                 c"%s:%s:%d - Found an unfocused scratchpad window on this workspace\n"
@@ -186,17 +183,17 @@ pub unsafe fn scratchpad_show(mut con: *mut Con) -> bool {
                     .cast_mut(),
                 c"../src/scratchpad.c".as_ptr(),
                 c"scratchpad_show".as_ptr(),
-                119 as ::core::ffi::c_int,
+                119,
             );
             debuglog(
                 c"%s:%s:%d - Focusing it: %p\n".as_ptr().cast_mut(),
                 c"../src/scratchpad.c".as_ptr(),
                 c"scratchpad_show".as_ptr(),
-                120 as ::core::ffi::c_int,
+                120,
                 walk_con,
             );
             con_activate(con_descend_tiling_focused(walk_con));
-            return true_0 != 0;
+            return true;
         }
         walk_con = (*walk_con).floating_windows.tqe_next as *mut Con;
     }
@@ -220,7 +217,7 @@ pub unsafe fn scratchpad_show(mut con: *mut Con) -> bool {
                     .cast_mut(),
                 c"../src/scratchpad.c".as_ptr(),
                 c"scratchpad_show".as_ptr(),
-                139 as ::core::ffi::c_int,
+                139,
             );
             debuglog(
                 c"%s:%s:%d - moving it to this workspace: con = %p\n"
@@ -228,18 +225,12 @@ pub unsafe fn scratchpad_show(mut con: *mut Con) -> bool {
                     .cast_mut(),
                 c"../src/scratchpad.c".as_ptr(),
                 c"scratchpad_show".as_ptr(),
-                140 as ::core::ffi::c_int,
+                140,
                 walk_con,
             );
-            con_move_to_workspace(
-                floating,
-                focused_ws,
-                true_0 != 0,
-                false_0 != 0,
-                false_0 != 0,
-            );
+            con_move_to_workspace(floating, focused_ws, true, false, false);
             con_activate(con_descend_focused(walk_con));
-            return true_0 != 0;
+            return true;
         }
         walk_con = (*walk_con).all_cons.tqe_next as *mut Con;
     }
@@ -250,9 +241,9 @@ pub unsafe fn scratchpad_show(mut con: *mut Con) -> bool {
                 .cast_mut(),
             c"../src/scratchpad.c".as_ptr(),
             c"scratchpad_show".as_ptr(),
-            150 as ::core::ffi::c_int,
+            150,
         );
-        return false_0 != 0;
+        return false;
     }
     let active: *mut Con = con_get_workspace(focused);
     let current: *mut Con = con_get_workspace(con);
@@ -271,10 +262,10 @@ pub unsafe fn scratchpad_show(mut con: *mut Con) -> bool {
                     .cast_mut(),
                 c"../src/scratchpad.c".as_ptr(),
                 c"scratchpad_show".as_ptr(),
-                165 as ::core::ffi::c_int,
+                165,
             );
             scratchpad_move(con);
-            return true_0 != 0;
+            return true;
         }
     }
     if con.is_null() {
@@ -290,12 +281,12 @@ pub unsafe fn scratchpad_show(mut con: *mut Con) -> bool {
                     .as_ptr()
                     .cast_mut(),
             );
-            return false_0 != 0;
+            return false;
         }
     } else {
         con = con_inside_floating(con);
     }
-    con_move_to_workspace(con, active, true_0 != 0, false_0 != 0, false_0 != 0);
+    con_move_to_workspace(con, active, true, false, false);
     if (*con).scratchpad_state == ScratchpadState::Fresh {
         debuglog(
             c"%s:%s:%d - Adjusting size of this window.\n"
@@ -303,31 +294,21 @@ pub unsafe fn scratchpad_show(mut con: *mut Con) -> bool {
                 .cast_mut(),
             c"../src/scratchpad.c".as_ptr(),
             c"scratchpad_show".as_ptr(),
-            193 as ::core::ffi::c_int,
+            193,
         );
         let output: *mut Con = con_get_output(con);
-        (*con).rect.width = ((*output).rect.width as ::core::ffi::c_double * 0.5f64) as u32;
-        (*con).rect.height = ((*output).rect.height as ::core::ffi::c_double * 0.75f64) as u32;
-        floating_check_size(con, false_0 != 0);
+        let (width, height) = fresh_dimensions((*output).rect);
+        (*con).rect.width = width;
+        (*con).rect.height = height;
+        floating_check_size(con, false);
         floating_center(con, (*con_get_workspace(con)).rect as Rect);
     }
     if current != active {
         workspace_show(active);
     }
     con_activate(con_descend_focused(con));
-    true_0 != 0
+    true
 }
-unsafe fn _gcd(m: ::core::ffi::c_int, n: ::core::ffi::c_int) -> ::core::ffi::c_int {
-    if n == 0 as ::core::ffi::c_int {
-        return m;
-    }
-    _gcd(n, m % n)
-}
-unsafe fn _lcm(m: ::core::ffi::c_int, n: ::core::ffi::c_int) -> ::core::ffi::c_int {
-    let o: ::core::ffi::c_int = _gcd(m, n) as ::core::ffi::c_int;
-    m * n / o
-}
-
 pub unsafe fn scratchpad_fix_resolution() {
     let mut __i3_scratch: *mut Con = workspace_get(c"__i3_scratch".as_ptr());
     let mut __i3_output: *mut Con = con_get_output(__i3_scratch);
@@ -337,15 +318,15 @@ pub unsafe fn scratchpad_fix_resolution() {
             .cast_mut(),
         c"../src/scratchpad.c".as_ptr(),
         c"scratchpad_fix_resolution".as_ptr(),
-        253 as ::core::ffi::c_int,
+        253,
         (*__i3_output).rect.x,
         (*__i3_output).rect.y,
         (*__i3_output).rect.width,
         (*__i3_output).rect.height,
     );
     let mut output: *mut Con = ::core::ptr::null_mut::<Con>();
-    let mut new_width: ::core::ffi::c_int = -(1 as ::core::ffi::c_int);
-    let mut new_height: ::core::ffi::c_int = -(1 as ::core::ffi::c_int);
+    let mut new_width: i32 = -(1);
+    let mut new_height: i32 = -(1);
     output = (*croot).nodes_head.tqh_first as *mut Con;
     while !output.is_null() {
         if !(output == __i3_output) {
@@ -355,19 +336,22 @@ pub unsafe fn scratchpad_fix_resolution() {
                     .cast_mut(),
                 c"../src/scratchpad.c".as_ptr(),
                 c"scratchpad_fix_resolution".as_ptr(),
-                263 as ::core::ffi::c_int,
+                263,
                 (*output).name,
                 (*output).rect.x,
                 (*output).rect.y,
                 (*output).rect.width,
                 (*output).rect.height,
             );
-            if new_width == -(1 as ::core::ffi::c_int) {
-                new_width = (*output).rect.width as ::core::ffi::c_int;
-                new_height = (*output).rect.height as ::core::ffi::c_int;
+            if new_width == -(1) {
+                (new_width, new_height) =
+                    common_resolution(None, (*output).rect.width, (*output).rect.height);
             } else {
-                new_width = _lcm(new_width, (*output).rect.width as ::core::ffi::c_int);
-                new_height = _lcm(new_height, (*output).rect.height as ::core::ffi::c_int);
+                (new_width, new_height) = common_resolution(
+                    Some((new_width, new_height)),
+                    (*output).rect.width,
+                    (*output).rect.height,
+                );
             }
         }
         output = (*output).nodes.tqe_next as *mut Con;
@@ -379,7 +363,7 @@ pub unsafe fn scratchpad_fix_resolution() {
             .cast_mut(),
         c"../src/scratchpad.c".as_ptr(),
         c"scratchpad_fix_resolution".as_ptr(),
-        276 as ::core::ffi::c_int,
+        276,
         new_width,
         new_height,
     );
@@ -393,7 +377,7 @@ pub unsafe fn scratchpad_fix_resolution() {
                 .cast_mut(),
             c"../src/scratchpad.c".as_ptr(),
             c"scratchpad_fix_resolution".as_ptr(),
-            283 as ::core::ffi::c_int,
+            283,
         );
         return;
     }
@@ -403,7 +387,7 @@ pub unsafe fn scratchpad_fix_resolution() {
             .cast_mut(),
         c"../src/scratchpad.c".as_ptr(),
         c"scratchpad_fix_resolution".as_ptr(),
-        287 as ::core::ffi::c_int,
+        287,
     );
     let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
     con = (*__i3_scratch).floating_head.tqh_first as *mut Con;
@@ -418,9 +402,8 @@ pub unsafe fn scratchpad_fix_resolution() {
 use crate::log::{debuglog, verboselog};
 
 // Shared model types retain field layout while using one Rust identity.
-pub use crate::types::Con;
-pub use crate::types::Rect;
-pub use i3_common::string::I3String as _i3String;
+use crate::types::Con;
+use crate::types::Rect;
 
 // Internal calls and globals use canonical Rust identities.
 use crate::con::con_activate;
@@ -442,3 +425,34 @@ use crate::tree::focused;
 use crate::util::rect_equals;
 use crate::workspace::workspace_get;
 use crate::workspace::workspace_show;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn resolution_and_fresh_dimensions_preserve_integer_rounding() {
+        assert_eq!(common_resolution(None, 1920, 1080), (1920, 1080));
+        assert_eq!(
+            common_resolution(Some((1920, 1080)), 1280, 1024),
+            (3840, 138240)
+        );
+        assert_eq!(common_resolution(None, u32::MAX, 1), (-1, 1));
+        assert_eq!(
+            fresh_dimensions(Rect {
+                x: 0,
+                y: 0,
+                width: 101,
+                height: 103
+            }),
+            (50, 77)
+        );
+        assert_eq!(greatest_common_divisor(1920, 1280), 640);
+    }
+    #[test]
+    fn visible_candidate_policy_preserves_scratchpad_and_focus_state() {
+        assert!(can_focus_visible(ScratchpadState::Fresh, false));
+        assert!(can_focus_visible(ScratchpadState::Changed, false));
+        assert!(!can_focus_visible(ScratchpadState::None, false));
+        assert!(!can_focus_visible(ScratchpadState::Changed, true));
+    }
+}

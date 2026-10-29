@@ -23,75 +23,20 @@ pub use libev_sys::{
     ev_watcher_time,
 };
 
-pub type i3String = _i3String;
-
-pub type i3Font = Font;
-
-pub use crate::application::Binding;
-pub type i3_event_state_mask_t = u32;
-
 pub type fullscreen_mode_t = ::core::ffi::c_uint;
-pub const CF_GLOBAL: fullscreen_mode_t = 2;
 pub const CF_OUTPUT: fullscreen_mode_t = 1;
 pub const CF_NONE: fullscreen_mode_t = 0;
 
-pub const M_BELOW: ::core::ffi::c_uint = 2;
-pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
-pub const M_HERE: ::core::ffi::c_uint = 0;
-
-pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
-pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
-pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
-pub const M_NODOCK: ::core::ffi::c_int = 0;
-pub const M_DONTCHECK: ::core::ffi::c_int = -1;
-
-pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
-pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
-pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
-pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
-pub const A_COMMAND: ::core::ffi::c_uint = 1;
-pub const A_ANY: ::core::ffi::c_uint = 0;
-
-pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
 pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
-pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
-pub const CT_CON: ::core::ffi::c_uint = 2;
-pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
-pub const CT_ROOT: ::core::ffi::c_uint = 0;
 
 pub type Output = xoutput;
 pub type i3Window = Window;
 
-pub type hide_edge_borders_mode_t = ::core::ffi::c_uint;
-pub const HEBM_SMART_NO_GAPS: hide_edge_borders_mode_t = 64;
-pub const HEBM_SMART: hide_edge_borders_mode_t = 32;
-pub const HEBM_BOTH: hide_edge_borders_mode_t = 23;
-pub const HEBM_HORIZONTAL: hide_edge_borders_mode_t = 20;
-pub const HEBM_VERTICAL: hide_edge_borders_mode_t = 3;
-pub const HEBM_NONE: hide_edge_borders_mode_t = 0;
-
-pub type gaps_mask_t = ::core::ffi::c_uint;
-pub const GAPS_OUTER: gaps_mask_t = 30;
-pub const GAPS_HORIZONTAL: gaps_mask_t = 20;
-pub const GAPS_VERTICAL: gaps_mask_t = 10;
-pub const GAPS_LEFT: gaps_mask_t = 16;
-pub const GAPS_BOTTOM: gaps_mask_t = 8;
-pub const GAPS_RIGHT: gaps_mask_t = 4;
-pub const GAPS_TOP: gaps_mask_t = 2;
-pub const GAPS_INNER: gaps_mask_t = 1;
-
 pub use crate::application::Workspace_Assignment;
-
-pub type tiling_drag_t = ::core::ffi::c_uint;
-pub const TILING_DRAG_MODIFIER_OR_TITLEBAR: tiling_drag_t = 3;
-pub const TILING_DRAG_TITLEBAR: tiling_drag_t = 2;
-pub const TILING_DRAG_MODIFIER: tiling_drag_t = 1;
-pub const TILING_DRAG_OFF: tiling_drag_t = 0;
 
 pub type ylength = usize;
 pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 pub const I3_IPC_EVENT_MASK: ::core::ffi::c_ulong =
     (1 as ::core::ffi::c_ulong) << 31 as ::core::ffi::c_int;
 pub const I3_IPC_EVENT_WORKSPACE: ::core::ffi::c_ulong =
@@ -99,8 +44,8 @@ pub const I3_IPC_EVENT_WORKSPACE: ::core::ffi::c_ulong =
 
 pub static mut previous_workspace_name: *mut ::core::ffi::c_char =
     ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char;
-static mut binding_workspace_names: *mut *mut ::core::ffi::c_char =
-    ::core::ptr::null::<*mut ::core::ffi::c_char>() as *mut *mut ::core::ffi::c_char;
+static BINDING_WORKSPACE_NAMES: std::sync::Mutex<Vec<std::ffi::CString>> =
+    std::sync::Mutex::new(Vec::new());
 
 pub unsafe fn get_existing_workspace_by_name(name: *const ::core::ffi::c_char) -> *mut Con {
     let mut output: *mut Con = ::core::ptr::null_mut::<Con>();
@@ -110,7 +55,7 @@ pub unsafe fn get_existing_workspace_by_name(name: *const ::core::ffi::c_char) -
         let mut child: *mut Con = -(1 as ::core::ffi::c_int) as *mut Con;
         while child == -(1 as ::core::ffi::c_int) as *mut Con && {
             child = ::core::ptr::null_mut::<Con>();
-            true_0 != 0
+            true
         } {
             child = (*output_get_content(output)).nodes_head.tqh_first as *mut Con;
             while !child.is_null() {
@@ -135,7 +80,7 @@ pub unsafe fn get_existing_workspace_by_num(num: ::core::ffi::c_int) -> *mut Con
         let mut child: *mut Con = -(1 as ::core::ffi::c_int) as *mut Con;
         while child == -(1 as ::core::ffi::c_int) as *mut Con && {
             child = ::core::ptr::null_mut::<Con>();
-            true_0 != 0
+            true
         } {
             child = (*output_get_content(output)).nodes_head.tqh_first as *mut Con;
             while !child.is_null() {
@@ -200,8 +145,7 @@ pub unsafe fn get_assigned_output(
                     name,
                     (*assignment).output,
                 );
-                let assigned_by_name: *mut Output =
-                    get_output_by_name((*assignment).output, true_0 != 0);
+                let assigned_by_name: *mut Output = get_output_by_name((*assignment).output, true);
                 if !assigned_by_name.is_null() {
                     return (*assigned_by_name).con;
                 }
@@ -220,8 +164,7 @@ pub unsafe fn get_assigned_output(
                     parsed_num,
                     (*assignment).output,
                 );
-                let assigned_by_num: *mut Output =
-                    get_output_by_name((*assignment).output, true_0 != 0);
+                let assigned_by_num: *mut Output = get_output_by_name((*assignment).output, true);
                 if !assigned_by_num.is_null() {
                     output = (*assigned_by_num).con;
                 }
@@ -269,158 +212,92 @@ pub unsafe fn workspace_get(num: *const ::core::ffi::c_char) -> *mut Con {
     (*workspace).num = parsed_num;
     (*workspace).type_0 = CT_WORKSPACE;
     (*workspace).gaps = gaps_for_workspace(workspace);
-    con_attach(workspace, output_get_content(output), false_0 != 0);
+    con_attach(workspace, output_get_content(output), false);
     _workspace_apply_default_orientation(workspace);
     ipc_send_workspace_event(c"init".as_ptr(), workspace, ::core::ptr::null_mut::<Con>());
     ewmh_update_desktop_properties();
     workspace
 }
 
+fn command_prefix(input: &[u8], prefix: &[u8]) -> bool {
+    input.len() >= prefix.len()
+        && unsafe {
+            // Native locale case matching, bounded by both borrowed byte buffers.
+            libc::strncasecmp(input.as_ptr().cast(), prefix.as_ptr().cast(), prefix.len()) == 0
+        }
+}
+fn workspace_binding_name(command: &[u8]) -> Option<std::ffi::CString> {
+    if command.len() < b"workspace ".len() || !command_prefix(command, b"workspace") {
+        return None;
+    }
+    let trim = |bytes: &[u8]| {
+        bytes
+            .iter()
+            .position(|&byte| byte != b' ' && byte != b'\t')
+            .unwrap_or(bytes.len())
+    };
+    let mut target = &command[b"workspace ".len()..];
+    target = &target[trim(target)..];
+    if [
+        b"next".as_slice(),
+        b"prev",
+        b"next_on_output",
+        b"prev_on_output",
+        b"back_and_forth",
+        b"current",
+    ]
+    .iter()
+    .any(|prefix| command_prefix(target, prefix))
+    {
+        return None;
+    }
+    for prefix in [b"--no-auto-back-and-forth".as_slice(), b"number"] {
+        if command_prefix(target, prefix) {
+            target = &target[prefix.len()..];
+            target = &target[trim(target)..];
+        }
+    }
+    let name =
+        crate::parser_util::lex_string(target, false, crate::parser_util::StringGrammar::Command)
+            .bytes?;
+    Some(std::ffi::CString::new(name).expect("command lexer projects first NUL"))
+}
+
+/// Bindings and command strings are borrowed from the live event-thread config.
+/// Build owned names before publishing, retaining declaration order/duplicates.
 pub unsafe fn extract_workspace_names_from_bindings() {
-    let mut bind: *mut Binding = ::core::ptr::null_mut::<Binding>();
-    let mut n: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    if !binding_workspace_names.is_null() {
-        let mut i: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-        while !(*binding_workspace_names.offset(i as isize)).is_null() {
-            free(*binding_workspace_names.offset(i as isize) as *mut ::core::ffi::c_void);
-            i += 1;
-        }
-        free(binding_workspace_names as *mut ::core::ffi::c_void);
-        binding_workspace_names = ::core::ptr::null_mut::<*mut ::core::ffi::c_char>();
-    }
-    bind = (*bindings).tqh_first as *mut Binding;
-    while !bind.is_null() {
-        debuglog(
-            c"%s:%s:%d - binding with command %s\n".as_ptr().cast_mut(),
-            c"../src/workspace.c".as_ptr(),
-            c"extract_workspace_names_from_bindings".as_ptr(),
-            191 as ::core::ffi::c_int,
-            (*bind).command,
-        );
-        if !(strlen((*bind).command) < strlen(c"workspace ".as_ptr())
-            || strncasecmp(
-                (*bind).command,
-                c"workspace".as_ptr(),
-                strlen(c"workspace".as_ptr()),
-            ) != 0 as ::core::ffi::c_int)
-        {
-            debuglog(
-                c"%s:%s:%d - relevant command = %s\n".as_ptr().cast_mut(),
-                c"../src/workspace.c".as_ptr(),
-                c"extract_workspace_names_from_bindings".as_ptr(),
-                196 as ::core::ffi::c_int,
-                (*bind).command,
-            );
-            let mut target: *const ::core::ffi::c_char = (*bind)
-                .command
-                .offset(strlen(c"workspace ".as_ptr()) as isize);
-            while *target as ::core::ffi::c_int == ' ' as i32
-                || *target as ::core::ffi::c_int == '\t' as i32
-            {
-                target = target.offset(1);
-            }
-            if !(strncasecmp(target, c"next".as_ptr(), strlen(c"next".as_ptr()))
-                == 0 as ::core::ffi::c_int
-                || strncasecmp(target, c"prev".as_ptr(), strlen(c"prev".as_ptr()))
-                    == 0 as ::core::ffi::c_int
-                || strncasecmp(
-                    target,
-                    c"next_on_output".as_ptr(),
-                    strlen(c"next_on_output".as_ptr()),
-                ) == 0 as ::core::ffi::c_int
-                || strncasecmp(
-                    target,
-                    c"prev_on_output".as_ptr(),
-                    strlen(c"prev_on_output".as_ptr()),
-                ) == 0 as ::core::ffi::c_int
-                || strncasecmp(
-                    target,
-                    c"back_and_forth".as_ptr(),
-                    strlen(c"back_and_forth".as_ptr()),
-                ) == 0 as ::core::ffi::c_int
-                || strncasecmp(target, c"current".as_ptr(), strlen(c"current".as_ptr()))
-                    == 0 as ::core::ffi::c_int)
-            {
-                if strncasecmp(
-                    target,
-                    c"--no-auto-back-and-forth".as_ptr(),
-                    strlen(c"--no-auto-back-and-forth".as_ptr()),
-                ) == 0 as ::core::ffi::c_int
-                {
-                    target = target.offset(strlen(c"--no-auto-back-and-forth".as_ptr()) as isize);
-                    while *target as ::core::ffi::c_int == ' ' as i32
-                        || *target as ::core::ffi::c_int == '\t' as i32
-                    {
-                        target = target.offset(1);
-                    }
-                }
-                if strncasecmp(target, c"number".as_ptr(), strlen(c"number".as_ptr()))
-                    == 0 as ::core::ffi::c_int
-                {
-                    target = target.offset(strlen(c"number".as_ptr()) as isize);
-                    while *target as ::core::ffi::c_int == ' ' as i32
-                        || *target as ::core::ffi::c_int == '\t' as i32
-                    {
-                        target = target.offset(1);
-                    }
-                }
-                let target_name: *mut ::core::ffi::c_char =
-                    parse_string(&raw mut target, false_0 != 0);
-                if !target_name.is_null() {
-                    if strncasecmp(target_name, c"__".as_ptr(), strlen(c"__".as_ptr()))
-                        == 0 as ::core::ffi::c_int
-                    {
-                        verboselog(
-                            c"Cannot create workspace \"%s\". Names starting with __ are i3-internal.\n".as_ptr().cast_mut(),
-                            target,
-                        );
-                        free(target_name as *mut ::core::ffi::c_void);
-                    } else {
-                        debuglog(
-                            c"%s:%s:%d - Saving workspace name \"%s\"\n"
-                                .as_ptr()
-                                .cast_mut(),
-                            c"../src/workspace.c".as_ptr(),
-                            c"extract_workspace_names_from_bindings".as_ptr(),
-                            235 as ::core::ffi::c_int,
-                            target_name,
-                        );
-                        n += 1;
-                        binding_workspace_names = srealloc(
-                            binding_workspace_names as *mut ::core::ffi::c_void,
-                            (n as usize).wrapping_mul(
-                                ::core::mem::size_of::<*mut ::core::ffi::c_char>() as usize,
-                            ),
-                        )
-                            as *mut *mut ::core::ffi::c_char;
-                        let ref mut fresh0 =
-                            *binding_workspace_names.offset((n - 1 as ::core::ffi::c_int) as isize);
-                        *fresh0 = target_name;
-                    }
-                }
+    let mut names = Vec::new();
+    let mut binding = (*bindings).tqh_first;
+    while !binding.is_null() {
+        let command = std::ffi::CStr::from_ptr((*binding).command);
+        if let Some(name) = workspace_binding_name(command.to_bytes()) {
+            if name.as_bytes().starts_with(b"__") {
+                verboselog(
+                    c"Cannot create workspace \"%s\". Names starting with __ are i3-internal.\n"
+                        .as_ptr()
+                        .cast_mut(),
+                    name.as_ptr(),
+                );
+            } else {
+                names.push(name);
             }
         }
-        bind = (*bind).bindings.tqe_next as *mut Binding;
+        binding = (*binding).bindings.tqe_next;
     }
-    n += 1;
-    binding_workspace_names = srealloc(
-        binding_workspace_names as *mut ::core::ffi::c_void,
-        (n as usize).wrapping_mul(::core::mem::size_of::<*mut ::core::ffi::c_char>() as usize),
-    ) as *mut *mut ::core::ffi::c_char;
-    let ref mut fresh1 = *binding_workspace_names.offset((n - 1 as ::core::ffi::c_int) as isize);
-    *fresh1 = ::core::ptr::null_mut::<::core::ffi::c_char>();
+    *BINDING_WORKSPACE_NAMES.lock().unwrap() = names;
 }
 
 pub unsafe fn create_workspace_on_output(output: *mut Output, content: *mut Con) -> *mut Con {
-    let mut exists: bool = true_0 != 0;
+    let mut exists: bool = true;
     let ws: *mut Con = con_new(
         ::core::ptr::null_mut::<Con>(),
         ::core::ptr::null_mut::<i3Window>(),
     );
     (*ws).type_0 = CT_WORKSPACE;
-    let mut n: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    while !(*binding_workspace_names.offset(n as isize)).is_null() {
-        let target_name: *mut ::core::ffi::c_char = *binding_workspace_names.offset(n as isize);
+    // Release the cache lock before querying/creating graph state or callbacks.
+    let binding_names = BINDING_WORKSPACE_NAMES.lock().unwrap().clone();
+    for name in &binding_names {
+        let target_name = name.as_ptr();
         let assigned: *mut Con = get_assigned_output(
             target_name,
             -(1 as ::core::ffi::c_int) as ::core::ffi::c_long,
@@ -449,7 +326,6 @@ pub unsafe fn create_workspace_on_output(output: *mut Output, content: *mut Con)
                 break;
             }
         }
-        n += 1;
     }
     if exists {
         debuglog(
@@ -483,7 +359,7 @@ pub unsafe fn create_workspace_on_output(output: *mut Output, content: *mut Con)
         (*ws).num = c;
         sasprintf(&raw mut (*ws).name, c"%d".as_ptr(), c);
     }
-    con_attach(ws, content, false_0 != 0);
+    con_attach(ws, content, false);
     let mut name: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
     sasprintf(&raw mut name, c"[i3 con] workspace %s".as_ptr(), (*ws).name);
     x_set_name(ws, name);
@@ -499,7 +375,7 @@ pub unsafe fn create_workspace_on_output(output: *mut Output, content: *mut Con)
 pub unsafe fn workspace_is_visible(ws: *mut Con) -> bool {
     let output: *mut Con = con_get_output(ws);
     if output.is_null() {
-        return false_0 != 0;
+        return false;
     }
     let fs: *mut Con = con_get_fullscreen_con(output, CF_OUTPUT);
     fs == ws
@@ -566,9 +442,9 @@ unsafe fn workspace_reassign_sticky(con: *mut Con) {
             } else {
                 x_move_win(src, current);
                 (*current).window = (*src).window;
-                (*current).mapped = true_0 != 0;
+                (*current).mapped = true;
                 (*src).window = ::core::ptr::null_mut::<Window>();
-                (*src).mapped = false_0 != 0;
+                (*src).mapped = false;
                 x_reparent_child(current, src);
                 verboselog(
                     c"re-assigned window from src %p to dest %p\n"
@@ -606,7 +482,7 @@ unsafe extern "C" fn workspace_defer_update_urgent_hint_cb(
             425 as ::core::ffi::c_int,
             con,
         );
-        con_set_urgency(con, false_0 != 0);
+        con_set_urgency(con, false);
         con_update_parents_urgency(con);
         workspace_update_urgent_flag(con_get_workspace(con));
         ipc_send_window_event(c"urgent".as_ptr(), con);
@@ -678,10 +554,10 @@ pub unsafe fn workspace_show(workspace: *mut Con) {
             as ::core::ffi::c_int
             > 0 as ::core::ffi::c_int
     {
-        (*next).urgent = false_0 != 0;
+        (*next).urgent = false;
         con_focus(next);
-        (*focused).urgent = true_0 != 0;
-        (*workspace).urgent = true_0 != 0;
+        (*focused).urgent = true;
+        (*workspace).urgent = true;
         if (*focused).urgency_timer.is_null() {
             debuglog(
                 c"%s:%s:%d - Deferring reset of urgency flag of con %p on newly shown workspace %p\n".as_ptr().cast_mut(),
@@ -766,7 +642,7 @@ pub unsafe fn workspace_show(workspace: *mut Con) {
             );
             let gen: yajl_gen =
                 ipc_marshal_workspace_event(c"empty".as_ptr(), old, ::core::ptr::null_mut::<Con>());
-            tree_close_internal(old, KillWindow::DontKill, false_0 != 0);
+            tree_close_internal(old, KillWindow::DontKill, false);
             let mut payload: *const ::core::ffi::c_uchar =
                 ::core::ptr::null::<::core::ffi::c_uchar>();
             let mut length: ylength = 0;
@@ -812,14 +688,14 @@ pub unsafe fn workspace_next() -> *mut Con {
         if !next.is_null() {
             return next;
         }
-        let mut found_current: bool = false_0 != 0;
+        let mut found_current: bool = false;
         output = (*croot).nodes_head.tqh_first as *mut Con;
         while !output.is_null() {
             if !con_is_internal(output) {
                 let mut child: *mut Con = -(1 as ::core::ffi::c_int) as *mut Con;
                 while child == -(1 as ::core::ffi::c_int) as *mut Con && {
                     child = ::core::ptr::null_mut::<Con>();
-                    true_0 != 0
+                    true
                 } {
                     child = (*output_get_content(output)).nodes_head.tqh_first as *mut Con;
                     while !child.is_null() {
@@ -836,7 +712,7 @@ pub unsafe fn workspace_next() -> *mut Con {
                                 first_opposite = child;
                             }
                             if child == current {
-                                found_current = true_0 != 0;
+                                found_current = true;
                             } else if (*child).num == -(1 as ::core::ffi::c_int)
                                 && found_current as ::core::ffi::c_int != 0
                             {
@@ -851,14 +727,14 @@ pub unsafe fn workspace_next() -> *mut Con {
             output = (*output).nodes.tqe_next as *mut Con;
         }
     } else {
-        let mut found_current_0: bool = false_0 != 0;
+        let mut found_current_0: bool = false;
         output = (*croot).nodes_head.tqh_first as *mut Con;
         while !output.is_null() {
             if !con_is_internal(output) {
                 let mut child_0: *mut Con = -(1 as ::core::ffi::c_int) as *mut Con;
                 while child_0 == -(1 as ::core::ffi::c_int) as *mut Con && {
                     child_0 = ::core::ptr::null_mut::<Con>();
-                    true_0 != 0
+                    true
                 } {
                     child_0 = (*output_get_content(output)).nodes_head.tqh_first as *mut Con;
                     while !child_0.is_null() {
@@ -885,7 +761,7 @@ pub unsafe fn workspace_next() -> *mut Con {
                                 next = child_0;
                             }
                             if child_0 == current {
-                                found_current_0 = true_0 != 0;
+                                found_current_0 = true;
                             } else if found_current_0 as ::core::ffi::c_int != 0
                                 && (*current).num == (*child_0).num
                             {
@@ -921,14 +797,14 @@ pub unsafe fn workspace_prev() -> *mut Con {
             prev = ::core::ptr::null_mut::<Con>();
         }
         if prev.is_null() {
-            let mut found_current: bool = false_0 != 0;
+            let mut found_current: bool = false;
             output = *(*((*croot).nodes_head.tqh_last as *mut nodes_head)).tqh_last as *mut Con;
             while !output.is_null() {
                 if !con_is_internal(output) {
                     let mut child: *mut Con = -(1 as ::core::ffi::c_int) as *mut Con;
                     while child == -(1 as ::core::ffi::c_int) as *mut Con && {
                         child = ::core::ptr::null_mut::<Con>();
-                        true_0 != 0
+                        true
                     } {
                         child = *(*((*output_get_content(output)).nodes_head.tqh_last
                             as *mut nodes_head))
@@ -947,7 +823,7 @@ pub unsafe fn workspace_prev() -> *mut Con {
                                     first_opposite = child;
                                 }
                                 if child == current {
-                                    found_current = true_0 != 0;
+                                    found_current = true;
                                 } else if (*child).num == -(1 as ::core::ffi::c_int)
                                     && found_current as ::core::ffi::c_int != 0
                                 {
@@ -964,14 +840,14 @@ pub unsafe fn workspace_prev() -> *mut Con {
             }
         }
     } else {
-        let mut found_current_0: bool = false_0 != 0;
+        let mut found_current_0: bool = false;
         output = *(*((*croot).nodes_head.tqh_last as *mut nodes_head)).tqh_last as *mut Con;
         while !output.is_null() {
             if !con_is_internal(output) {
                 let mut child_0: *mut Con = -(1 as ::core::ffi::c_int) as *mut Con;
                 while child_0 == -(1 as ::core::ffi::c_int) as *mut Con && {
                     child_0 = ::core::ptr::null_mut::<Con>();
-                    true_0 != 0
+                    true
                 } {
                     child_0 = *(*((*output_get_content(output)).nodes_head.tqh_last
                         as *mut nodes_head))
@@ -998,7 +874,7 @@ pub unsafe fn workspace_prev() -> *mut Con {
                                     prev = child_0;
                                 }
                                 if child_0 == current {
-                                    found_current_0 = true_0 != 0;
+                                    found_current_0 = true;
                                 } else if found_current_0 as ::core::ffi::c_int != 0
                                     && (*current).num == (*child_0).num
                                 {
@@ -1032,11 +908,11 @@ pub unsafe fn workspace_next_on_output() -> *mut Con {
     if (*current).num == -(1 as ::core::ffi::c_int) {
         next = (*current).nodes.tqe_next as *mut Con;
     } else {
-        let mut found_current: bool = false_0 != 0;
+        let mut found_current: bool = false;
         let mut child: *mut Con = -(1 as ::core::ffi::c_int) as *mut Con;
         while child == -(1 as ::core::ffi::c_int) as *mut Con && {
             child = ::core::ptr::null_mut::<Con>();
-            true_0 != 0
+            true
         } {
             child = (*output_get_content(output)).nodes_head.tqh_first as *mut Con;
             while !child.is_null() {
@@ -1052,7 +928,7 @@ pub unsafe fn workspace_next_on_output() -> *mut Con {
                         next = child;
                     }
                     if child == current {
-                        found_current = true_0 != 0;
+                        found_current = true;
                     } else if found_current as ::core::ffi::c_int != 0
                         && (*current).num == (*child).num
                     {
@@ -1064,12 +940,12 @@ pub unsafe fn workspace_next_on_output() -> *mut Con {
         }
     }
     if next.is_null() {
-        let mut found_current_0: bool = false_0 != 0;
+        let mut found_current_0: bool = false;
         let mut child_0: *mut Con = -(1 as ::core::ffi::c_int) as *mut Con;
         's_105: loop {
             if !(child_0 == -(1 as ::core::ffi::c_int) as *mut Con && {
                 child_0 = ::core::ptr::null_mut::<Con>();
-                true_0 != 0
+                true
             }) {
                 current_block = 17281240262373992796;
                 break;
@@ -1080,7 +956,7 @@ pub unsafe fn workspace_next_on_output() -> *mut Con {
                     != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint)
                 {
                     if child_0 == current {
-                        found_current_0 = true_0 != 0;
+                        found_current_0 = true;
                     } else if (*child_0).num == -(1 as ::core::ffi::c_int)
                         && ((*current).num != -(1 as ::core::ffi::c_int)
                             || found_current_0 as ::core::ffi::c_int != 0)
@@ -1102,7 +978,7 @@ pub unsafe fn workspace_next_on_output() -> *mut Con {
                 let mut child_1: *mut Con = -(1 as ::core::ffi::c_int) as *mut Con;
                 while child_1 == -(1 as ::core::ffi::c_int) as *mut Con && {
                     child_1 = ::core::ptr::null_mut::<Con>();
-                    true_0 != 0
+                    true
                 } {
                     child_1 = (*output_get_content(output)).nodes_head.tqh_first as *mut Con;
                     while !child_1.is_null() {
@@ -1144,11 +1020,11 @@ pub unsafe fn workspace_prev_on_output() -> *mut Con {
             prev = ::core::ptr::null_mut::<Con>();
         }
     } else {
-        let mut found_current: bool = false_0 != 0;
+        let mut found_current: bool = false;
         let mut child: *mut Con = -(1 as ::core::ffi::c_int) as *mut Con;
         while child == -(1 as ::core::ffi::c_int) as *mut Con && {
             child = ::core::ptr::null_mut::<Con>();
-            true_0 != 0
+            true
         } {
             child = *(*((*output_get_content(output)).nodes_head.tqh_last as *mut nodes_head))
                 .tqh_last as *mut Con;
@@ -1163,7 +1039,7 @@ pub unsafe fn workspace_prev_on_output() -> *mut Con {
                         prev = child;
                     }
                     if child == current {
-                        found_current = true_0 != 0;
+                        found_current = true;
                     } else if found_current as ::core::ffi::c_int != 0
                         && (*current).num == (*child).num
                     {
@@ -1175,12 +1051,12 @@ pub unsafe fn workspace_prev_on_output() -> *mut Con {
         }
     }
     if prev.is_null() {
-        let mut found_current_0: bool = false_0 != 0;
+        let mut found_current_0: bool = false;
         let mut child_0: *mut Con = -(1 as ::core::ffi::c_int) as *mut Con;
         's_113: loop {
             if !(child_0 == -(1 as ::core::ffi::c_int) as *mut Con && {
                 child_0 = ::core::ptr::null_mut::<Con>();
-                true_0 != 0
+                true
             }) {
                 current_block = 11913429853522160501;
                 break;
@@ -1192,7 +1068,7 @@ pub unsafe fn workspace_prev_on_output() -> *mut Con {
                     != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint)
                 {
                     if child_0 == current {
-                        found_current_0 = true_0 != 0;
+                        found_current_0 = true;
                     } else if (*child_0).num == -(1 as ::core::ffi::c_int)
                         && ((*current).num != -(1 as ::core::ffi::c_int)
                             || found_current_0 as ::core::ffi::c_int != 0)
@@ -1214,7 +1090,7 @@ pub unsafe fn workspace_prev_on_output() -> *mut Con {
                 let mut child_1: *mut Con = -(1 as ::core::ffi::c_int) as *mut Con;
                 while child_1 == -(1 as ::core::ffi::c_int) as *mut Con && {
                     child_1 = ::core::ptr::null_mut::<Con>();
-                    true_0 != 0
+                    true
                 } {
                     child_1 = *(*((*output_get_content(output)).nodes_head.tqh_last
                         as *mut nodes_head))
@@ -1274,7 +1150,7 @@ unsafe fn get_urgency_flag(con: *mut Con) -> bool {
         if (*child).urgent as ::core::ffi::c_int != 0
             || get_urgency_flag(child) as ::core::ffi::c_int != 0
         {
-            return true_0 != 0;
+            return true;
         }
         child = (*child).nodes.tqe_next as *mut Con;
     }
@@ -1283,11 +1159,11 @@ unsafe fn get_urgency_flag(con: *mut Con) -> bool {
         if (*child).urgent as ::core::ffi::c_int != 0
             || get_urgency_flag(child) as ::core::ffi::c_int != 0
         {
-            return true_0 != 0;
+            return true;
         }
         child = (*child).floating_windows.tqe_next as *mut Con;
     }
-    false_0 != 0
+    false
 }
 
 pub unsafe fn workspace_update_urgent_flag(ws: *mut Con) {
@@ -1315,7 +1191,7 @@ pub unsafe fn ws_force_orientation(ws: *mut Con, orientation: Orientation) {
     );
     (*split).parent = ws as *mut Con;
     (*split).layout = (*ws).layout;
-    let focus_order: *mut *mut Con = get_focus_order(ws);
+    let focus_order = get_focus_order(ws);
     debuglog(
         c"%s:%s:%d - Moving cons\n".as_ptr().cast_mut(),
         c"../src/workspace.c".as_ptr(),
@@ -1325,10 +1201,9 @@ pub unsafe fn ws_force_orientation(ws: *mut Con, orientation: Orientation) {
     while !(*ws).nodes_head.tqh_first.is_null() {
         let child: *mut Con = (*ws).nodes_head.tqh_first as *mut Con;
         con_detach(child);
-        con_attach(child, split, true_0 != 0);
+        con_attach(child, split, true);
     }
-    set_focus_order(split, focus_order);
-    free(focus_order as *mut ::core::ffi::c_void);
+    set_focus_order(split, &focus_order);
     (*ws).layout = if orientation == Orientation::Horizontal {
         Layout::SplitH
     } else {
@@ -1354,7 +1229,7 @@ pub unsafe fn ws_force_orientation(ws: *mut Con, orientation: Orientation) {
         split,
         ws,
     );
-    con_attach(split, ws, false_0 != 0);
+    con_attach(split, ws, false);
     con_fix_percent(ws);
 }
 
@@ -1404,7 +1279,7 @@ pub unsafe fn workspace_attach_to(ws: *mut Con) -> *mut Con {
         new,
         ws,
     );
-    con_attach(new, ws, false_0 != 0);
+    con_attach(new, ws, false);
     con_fix_percent(ws);
     new
 }
@@ -1426,7 +1301,7 @@ pub unsafe fn workspace_encapsulate(ws: *mut Con) -> *mut Con {
     );
     (*new).parent = ws as *mut Con;
     (*new).layout = (*ws).layout;
-    let focus_order: *mut *mut Con = get_focus_order(ws);
+    let focus_order = get_focus_order(ws);
     debuglog(
         c"%s:%s:%d - Moving children of workspace %p / %s into container %p\n"
             .as_ptr()
@@ -1441,11 +1316,10 @@ pub unsafe fn workspace_encapsulate(ws: *mut Con) -> *mut Con {
     while !(*ws).nodes_head.tqh_first.is_null() {
         let child: *mut Con = (*ws).nodes_head.tqh_first as *mut Con;
         con_detach(child);
-        con_attach(child, new, true_0 != 0);
+        con_attach(child, new, true);
     }
-    set_focus_order(new, focus_order);
-    free(focus_order as *mut ::core::ffi::c_void);
-    con_attach(new, ws, true_0 != 0);
+    set_focus_order(new, &focus_order);
+    con_attach(new, ws, true);
     new
 }
 
@@ -1518,7 +1392,7 @@ pub unsafe fn workspace_move_to_output(mut ws: *mut Con, output: *mut Output) {
             1080 as ::core::ffi::c_int,
             (*ws).name,
         );
-        let mut used_assignment: bool = false_0 != 0;
+        let mut used_assignment: bool = false;
         let mut assignment: *mut Workspace_Assignment =
             ::core::ptr::null_mut::<Workspace_Assignment>();
         assignment = ws_assignments.tqh_first;
@@ -1543,7 +1417,7 @@ pub unsafe fn workspace_move_to_output(mut ws: *mut Con, output: *mut Output) {
                         (*assignment).name,
                     );
                     workspace_get((*assignment).name);
-                    used_assignment = true_0 != 0;
+                    used_assignment = true;
                     break;
                 }
             }
@@ -1575,7 +1449,7 @@ pub unsafe fn workspace_move_to_output(mut ws: *mut Con, output: *mut Output) {
         );
         workspace_show(focus_ws);
     }
-    con_attach(ws, content, false_0 != 0);
+    con_attach(ws, content, false);
     let mut floating_con: *mut Con = ::core::ptr::null_mut::<Con>();
     floating_con = (*ws).floating_head.tqh_first as *mut Con;
     while !floating_con.is_null() {
@@ -1608,7 +1482,6 @@ pub unsafe fn workspace_move_to_output(mut ws: *mut Con, output: *mut Output) {
 }
 
 // Internal helpers use Rust linkage rather than foreign symbol lookup.
-use crate::commands_parser::parse_string;
 use crate::ewmh::ewmh_update_current_desktop;
 use crate::ewmh::ewmh_update_desktop_properties;
 use crate::ipc::ipc_send_event;
@@ -1616,14 +1489,13 @@ use crate::tree::tree_render;
 use crate::util::name_is_digits;
 use crate::util::ws_name_to_number;
 use i3_common::safewrappers::scalloc;
-use i3_common::safewrappers::srealloc;
 use i3_common::safewrappers::sstrdup;
 
 // Canonical Cairo backend ABI; renderer logic remains local.
 
 // Canonical Pango backend ABI; font policy remains local.
 
-pub use libc::{free, memmove, strcasecmp, strcmp, strlen, strncasecmp};
+pub use libc::{free, memmove, strcasecmp, strcmp, strncasecmp};
 
 use crate::log::{debuglog, errorlog, verboselog};
 
@@ -1632,7 +1504,6 @@ pub use crate::types::nodes_head;
 pub use crate::types::xoutput;
 pub use crate::types::Con;
 pub use crate::types::Window;
-pub use i3_common::font::Font;
 pub use i3_common::string::I3String as _i3String;
 
 // Internal calls and globals use canonical Rust identities.
@@ -1670,3 +1541,53 @@ use crate::x::x_move_win;
 use crate::x::x_reparent_child;
 use crate::x::x_set_name;
 use crate::x::x_set_warp_to;
+
+#[cfg(test)]
+mod owned_binding_tests {
+    use super::*;
+    #[test]
+    fn workspace_commands_preserve_prefix_modifiers_and_command_quoting() {
+        for (command, name) in [
+            (&b"workspace  4: www"[..], &b"4: www"[..]),
+            (
+                b"WORKSPACE\t--no-auto-back-and-forth number \"3: web\"; focus left",
+                b"3: web",
+            ),
+            (b"workspace number7", b"7"),
+            (b"workspace \"a\\\"b\"", b"a\"b"),
+            (b"workspace bad\xff\0ignored", b"bad\xff"),
+        ] {
+            assert_eq!(workspace_binding_name(command).unwrap().as_bytes(), name);
+        }
+        for command in [
+            b"workspace next".as_slice(),
+            b"workspace prev-name",
+            b"workspace current",
+            b"workspace \"\"",
+            b"workspace",
+            b"exec workspace one",
+        ] {
+            assert!(workspace_binding_name(command).is_none());
+        }
+    }
+    #[test]
+    fn binding_names_remain_owned_ordered_and_duplicate_preserving() {
+        let names: Vec<_> = [
+            b"workspace one".as_slice(),
+            b"workspace two",
+            b"workspace one",
+        ]
+        .into_iter()
+        .filter_map(workspace_binding_name)
+        .collect();
+        let snapshot = names.clone();
+        drop(names);
+        assert_eq!(
+            snapshot
+                .iter()
+                .map(|name| name.as_bytes())
+                .collect::<Vec<_>>(),
+            [b"one".as_slice(), b"two", b"one"]
+        );
+    }
+}

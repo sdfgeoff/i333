@@ -12,92 +12,130 @@ use crate::types::PopupDuringFullscreen;
  *           various rects. Needs to be pushed to X11 (see x.c) to be visible.
  *
  */
-// Mechanical file-by-file Rust translation of src/render.c.
-// Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
+// Local policy and temporary values use owned Rust storage. Native entrypoints
+// require live event-thread graph handles and a live display; callbacks may mutate
+// the graph, so node references must never span those calls.
+const CF_GLOBAL: u32 = 2;
+const CF_OUTPUT: u32 = 1;
+const CF_NONE: u32 = 0;
+const CT_WORKSPACE: u32 = 4;
+const CT_OUTPUT: u32 = 1;
+const CT_ROOT: u32 = 0;
+const CT_CON: u32 = 2;
+const CT_DOCKAREA: u32 = 5;
+type fullscreen_mode_t = u32;
 extern "C" {
-
-    fn floor(__x: ::core::ffi::c_double) -> ::core::ffi::c_double;
-    fn lround(__x: ::core::ffi::c_double) -> ::core::ffi::c_long;
-
+    fn lround(value: f64) -> libc::c_long;
+}
+// The graph is owned by the event thread. Local layout values and sizing buffers
+// are ordinary Rust values; no node reference is held across recursive rendering.
+struct RenderParams {
+    x: i32,
+    y: i32,
+    deco_height: i32,
+    rect: Rect,
+    children: i32,
+    sizes: Vec<i32>,
 }
 
-pub type i3String = _i3String;
-
-pub type i3Font = Font;
-
-pub type fullscreen_mode_t = ::core::ffi::c_uint;
-pub const CF_GLOBAL: fullscreen_mode_t = 2;
-pub const CF_OUTPUT: fullscreen_mode_t = 1;
-pub const CF_NONE: fullscreen_mode_t = 0;
-
-pub const M_BELOW: ::core::ffi::c_uint = 2;
-pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
-pub const M_HERE: ::core::ffi::c_uint = 0;
-
-pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
-pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
-pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
-pub const M_NODOCK: ::core::ffi::c_int = 0;
-pub const M_DONTCHECK: ::core::ffi::c_int = -1;
-
-pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
-pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
-pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
-pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
-pub const A_COMMAND: ::core::ffi::c_uint = 1;
-pub const A_ANY: ::core::ffi::c_uint = 0;
-
-pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
-pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
-pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
-pub const CT_CON: ::core::ffi::c_uint = 2;
-pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
-pub const CT_ROOT: ::core::ffi::c_uint = 0;
-
-pub type hide_edge_borders_mode_t = ::core::ffi::c_uint;
-pub const HEBM_SMART_NO_GAPS: hide_edge_borders_mode_t = 64;
-pub const HEBM_SMART: hide_edge_borders_mode_t = 32;
-pub const HEBM_BOTH: hide_edge_borders_mode_t = 23;
-pub const HEBM_HORIZONTAL: hide_edge_borders_mode_t = 20;
-pub const HEBM_VERTICAL: hide_edge_borders_mode_t = 3;
-pub const HEBM_NONE: hide_edge_borders_mode_t = 0;
-
-pub type tiling_drag_t = ::core::ffi::c_uint;
-pub const TILING_DRAG_MODIFIER_OR_TITLEBAR: tiling_drag_t = 3;
-pub const TILING_DRAG_TITLEBAR: tiling_drag_t = 2;
-pub const TILING_DRAG_MODIFIER: tiling_drag_t = 1;
-pub const TILING_DRAG_OFF: tiling_drag_t = 0;
-
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct render_params {
-    pub x: ::core::ffi::c_int,
-    pub y: ::core::ffi::c_int,
-    pub deco_height: ::core::ffi::c_int,
-    pub rect: Rect,
-    pub children: ::core::ffi::c_int,
-    pub sizes: *mut ::core::ffi::c_int,
+fn decoration_height(font_height: i32) -> i32 {
+    font_height.wrapping_add(4).wrapping_add(font_height & 1)
 }
-pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 
-pub unsafe fn render_deco_height() -> ::core::ffi::c_int {
-    let mut deco_height: ::core::ffi::c_int = config.font.height + 4 as ::core::ffi::c_int;
-    if config.font.height & 0x1 as ::core::ffi::c_int != 0 {
-        deco_height += 1;
+fn split_sizes(total: i32, percentages: &[f64]) -> Vec<i32> {
+    let children = percentages.len() as i32;
+    if children == 0 {
+        return Vec::new();
     }
-    deco_height
+    let mut sizes: Vec<i32> = percentages
+        .iter()
+        .map(|&percent| {
+            let percentage = if percent > 0.0 {
+                percent
+            } else {
+                1.0 / children as f64
+            };
+            // libm defines the platform's floating conversion (including exceptional
+            // values); it has no pointer/lifetime requirements. Keep its native result.
+            unsafe { lround(percentage * total as f64) as i32 }
+        })
+        .collect();
+    let mut assigned = sizes.iter().copied().fold(0i32, i32::wrapping_add);
+    assert!(
+        assigned == total
+            || assigned.wrapping_sub(total).unsigned_abs() <= children.wrapping_mul(2) as u32,
+        "split percentages do not sum to the container size"
+    );
+    let increment = if assigned < total { 1 } else { -1 };
+    while assigned != total {
+        for size in &mut sizes {
+            if assigned == total {
+                break;
+            }
+            *size = size.wrapping_add(increment);
+            assigned = assigned.wrapping_add(increment);
+        }
+    }
+    sizes
+}
+
+fn workspace_inset(gaps: gaps_t) -> Rect {
+    Rect {
+        x: gaps.left as u32,
+        y: gaps.top as u32,
+        width: gaps.left.wrapping_add(gaps.right).wrapping_neg() as u32,
+        height: gaps.top.wrapping_add(gaps.bottom).wrapping_neg() as u32,
+    }
+}
+fn inner_inset(inner: i32, adjacent: [bool; 4]) -> Rect {
+    let amounts = adjacent.map(|adjacent| if adjacent { inner / 2 } else { inner });
+    Rect {
+        x: amounts[0] as u32,
+        y: amounts[1] as u32,
+        width: amounts[2].wrapping_neg().wrapping_sub(amounts[0]) as u32,
+        height: amounts[3].wrapping_neg().wrapping_sub(amounts[1]) as u32,
+    }
+}
+fn window_geometry(rect: Rect, border: Option<Rect>, border_width: i32) -> Rect {
+    let mut result = Rect {
+        x: 0,
+        y: 0,
+        width: rect.width,
+        height: rect.height,
+    };
+    if let Some(border) = border {
+        result = rect_add(result, border);
+    }
+    let native_border = 2i32.wrapping_mul(border_width) as u32;
+    result.width = result.width.wrapping_sub(native_border);
+    result.height = result.height.wrapping_sub(native_border);
+    rect_sanitize_dimensions(result)
+}
+fn popup_blocked(
+    policy: PopupDuringFullscreen,
+    has_window: bool,
+    transient: bool,
+    ancestor: bool,
+) -> bool {
+    match policy {
+        PopupDuringFullscreen::LeaveFullscreen | PopupDuringFullscreen::Ignore => true,
+        PopupDuringFullscreen::Smart => !has_window || !transient,
+        PopupDuringFullscreen::All => ancestor,
+    }
+}
+
+pub unsafe fn render_deco_height() -> i32 {
+    decoration_height(config.font.height)
 }
 
 pub unsafe fn render_con(con: *mut Con) {
-    let mut params: render_params = render_params {
-        x: (*con).rect.x as ::core::ffi::c_int,
-        y: (*con).rect.y as ::core::ffi::c_int,
+    let mut params: RenderParams = RenderParams {
+        x: (*con).rect.x as i32,
+        y: (*con).rect.y as i32,
         deco_height: 0,
         rect: (*con).rect as Rect,
         children: con_num_children(con),
-        sizes: ::core::ptr::null_mut::<::core::ffi::c_int>(),
+        sizes: Vec::new(),
     };
     debuglog(
         c"%s:%s:%d - Rendering node %p / %s / layout %d / children %d\n"
@@ -105,113 +143,54 @@ pub unsafe fn render_con(con: *mut Con) {
             .cast_mut(),
         c"../src/render.c".as_ptr(),
         c"render_con".as_ptr(),
-        51 as ::core::ffi::c_int,
+        51,
         con,
         (*con).name,
-        (*con).layout as ::core::ffi::c_uint,
+        (*con).layout as u32,
         params.children,
     );
-    if (*con).type_0 as ::core::ffi::c_uint
-        == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if (*con).type_0 as u32 == CT_WORKSPACE {
         let gaps: gaps_t = calculate_effective_gaps(con);
-        let inset: Rect = Rect {
-            x: gaps.left as u32,
-            y: gaps.top as u32,
-            width: -(gaps.left + gaps.right) as u32,
-            height: -(gaps.top + gaps.bottom) as u32,
-        };
+        let inset = workspace_inset(gaps);
         (*con).rect = rect_add((*con).rect as Rect, inset) as Rect;
         params.rect = rect_add(params.rect, inset);
-        params.x += gaps.left;
-        params.y += gaps.top;
+        params.x = params.x.wrapping_add(gaps.left);
+        params.y = params.y.wrapping_add(gaps.top);
     }
     if gaps_should_inset_con(con, params.children) {
         let gaps_0: gaps_t = calculate_effective_gaps(con);
-        let mut inset_0: Rect = Rect {
-            x: (if gaps_has_adjacent_container(con, Direction::Left) as ::core::ffi::c_int != 0 {
-                gaps_0.inner / 2 as ::core::ffi::c_int
-            } else {
-                gaps_0.inner
-            }) as u32,
-            y: (if gaps_has_adjacent_container(con, Direction::Up) as ::core::ffi::c_int != 0 {
-                gaps_0.inner / 2 as ::core::ffi::c_int
-            } else {
-                gaps_0.inner
-            }) as u32,
-            width: (if gaps_has_adjacent_container(con, Direction::Right) as ::core::ffi::c_int != 0
-            {
-                -(gaps_0.inner / 2 as ::core::ffi::c_int)
-            } else {
-                -gaps_0.inner
-            }) as u32,
-            height: (if gaps_has_adjacent_container(con, Direction::Down) as ::core::ffi::c_int != 0
-            {
-                -(gaps_0.inner / 2 as ::core::ffi::c_int)
-            } else {
-                -gaps_0.inner
-            }) as u32,
-        };
-        inset_0.width = inset_0.width.wrapping_sub(inset_0.x);
-        inset_0.height = inset_0.height.wrapping_sub(inset_0.y);
-        if (*con).fullscreen_mode as ::core::ffi::c_uint
-            == CF_NONE as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
+        let inset_0 = inner_inset(
+            gaps_0.inner,
+            [
+                gaps_has_adjacent_container(con, Direction::Left),
+                gaps_has_adjacent_container(con, Direction::Up),
+                gaps_has_adjacent_container(con, Direction::Right),
+                gaps_has_adjacent_container(con, Direction::Down),
+            ],
+        );
+        if (*con).fullscreen_mode as u32 == CF_NONE {
             params.rect = rect_add(params.rect, inset_0);
             (*con).rect = rect_add((*con).rect as Rect, inset_0) as Rect;
         }
-        inset_0.height = 0 as u32;
-        params.x = (*con).rect.x as ::core::ffi::c_int;
-        params.y = (*con).rect.y as ::core::ffi::c_int;
+        params.x = (*con).rect.x as i32;
+        params.y = (*con).rect.y as i32;
     }
-    (*con).mapped = true_0 != 0;
+    (*con).mapped = true;
     if !(*con).window.is_null() {
-        let mut inset_1: Rect = Rect {
-            x: 0 as u32,
-            y: 0 as u32,
-            width: (*con).rect.width,
-            height: (*con).rect.height,
+        let border = if (*con).fullscreen_mode as u32 == CF_NONE {
+            Some(con_border_style_rect(con))
+        } else {
+            None
         };
-        if (*con).fullscreen_mode as ::core::ffi::c_uint
-            == CF_NONE as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
-            debuglog(
-                c"%s:%s:%d - deco_rect.height = %d\n".as_ptr().cast_mut(),
-                c"../src/render.c".as_ptr(),
-                c"render_con".as_ptr(),
-                101 as ::core::ffi::c_int,
-                (*con).deco_rect.height,
-            );
-            let bsr: Rect = con_border_style_rect(con);
-            debuglog(
-                c"%s:%s:%d - bsr at %dx%d with size %dx%d\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/render.c".as_ptr(),
-                c"render_con".as_ptr(),
-                104 as ::core::ffi::c_int,
-                bsr.x,
-                bsr.y,
-                bsr.width,
-                bsr.height,
-            );
-            inset_1 = rect_add(inset_1, bsr);
-        }
-        inset_1.width = inset_1
-            .width
-            .wrapping_sub((2 as ::core::ffi::c_int * (*con).border_width) as u32);
-        inset_1.height = inset_1
-            .height
-            .wrapping_sub((2 as ::core::ffi::c_int * (*con).border_width) as u32);
-        inset_1 = rect_sanitize_dimensions(inset_1);
-        (*con).window_rect = inset_1 as Rect;
+        let inset_1 = window_geometry((*con).rect, border, (*con).border_width);
+        (*con).window_rect = inset_1;
         debuglog(
             c"%s:%s:%d - child will be at %dx%d with size %dx%d\n"
                 .as_ptr()
                 .cast_mut(),
             c"../src/render.c".as_ptr(),
             c"render_con".as_ptr(),
-            123 as ::core::ffi::c_int,
+            123,
             inset_1.x,
             inset_1.y,
             inset_1.width,
@@ -219,17 +198,13 @@ pub unsafe fn render_con(con: *mut Con) {
         );
     }
     let mut fullscreen: *mut Con = ::core::ptr::null_mut::<Con>();
-    if (*con).type_0 as ::core::ffi::c_uint
-        != CT_OUTPUT as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if (*con).type_0 as u32 != CT_OUTPUT {
         fullscreen = con_get_fullscreen_con(
             con,
-            (if (*con).type_0 as ::core::ffi::c_uint
-                == CT_ROOT as ::core::ffi::c_int as ::core::ffi::c_uint
-            {
-                CF_GLOBAL as ::core::ffi::c_int
+            (if (*con).type_0 as u32 == CT_ROOT {
+                CF_GLOBAL as i32
             } else {
-                CF_OUTPUT as ::core::ffi::c_int
+                CF_OUTPUT as i32
             }) as fullscreen_mode_t,
         );
     }
@@ -237,44 +212,41 @@ pub unsafe fn render_con(con: *mut Con) {
         (*fullscreen).rect = params.rect as Rect;
         x_raise_con(fullscreen);
         render_con(fullscreen);
-        if (*con).type_0 as ::core::ffi::c_uint
-            != CT_ROOT as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
+        if (*con).type_0 as u32 != CT_ROOT {
             return;
         }
     }
     params.deco_height = render_deco_height();
-    params.sizes = precalculate_sizes(con, &raw mut params);
+    params.sizes = precalculate_sizes(con, params.children);
     if (*con).layout == Layout::Output {
         if !con_is_internal(con) {
             render_output(con);
         }
-    } else if (*con).type_0 as ::core::ffi::c_uint
-        == CT_ROOT as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    } else if (*con).type_0 as u32 == CT_ROOT {
         render_root(con, fullscreen);
     } else {
-        let mut i: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
+        let mut i: i32 = 0;
         let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
         child = (*con).nodes_head.tqh_first as *mut Con;
         while !child.is_null() {
-            if params.children > 0 as ::core::ffi::c_int {
+            if params.children > 0 {
             } else {
                 __assert_fail(
                     c"params.children > 0".as_ptr(),
                     c"../src/render.c".as_ptr(),
-                    164 as ::core::ffi::c_uint,
+                    164 as u32,
                     c"void render_con(Con *)".as_ptr(),
                 );
             };
-            if (*con).layout == Layout::SplitH || (*con).layout == Layout::SplitV {
-                render_con_split(con, child, &raw mut params, i);
-            } else if (*con).layout == Layout::Stacked {
-                render_con_stacked(con, child, &raw mut params, i);
-            } else if (*con).layout == Layout::Tabbed {
-                render_con_tabbed(con, child, &raw mut params, i);
-            } else if (*con).layout == Layout::DockArea {
-                render_con_dockarea(con, child, &raw mut params);
+            if matches!(
+                (*con).layout,
+                Layout::SplitH
+                    | Layout::SplitV
+                    | Layout::Stacked
+                    | Layout::Tabbed
+                    | Layout::DockArea
+            ) {
+                render_child_geometry(con, child, &mut params, i);
             }
             (*child).rect = rect_sanitize_dimensions((*child).rect as Rect) as Rect;
             debuglog(
@@ -283,7 +255,7 @@ pub unsafe fn render_con(con: *mut Con) {
                     .cast_mut(),
                 c"../src/render.c".as_ptr(),
                 c"render_con".as_ptr(),
-                179 as ::core::ffi::c_int,
+                179,
                 (*child).rect.x,
                 (*child).rect.y,
                 (*child).rect.width,
@@ -311,93 +283,36 @@ pub unsafe fn render_con(con: *mut Con) {
             if !child.is_null() {
                 render_con(child);
             }
-            if params.children != 1 as ::core::ffi::c_int {
+            if params.children != 1 {
                 x_raise_con(con);
             }
         }
     }
-    free(params.sizes as *mut ::core::ffi::c_void);
-    params.sizes = ::core::ptr::null_mut::<::core::ffi::c_int>();
 }
-unsafe fn precalculate_sizes(con: *mut Con, p: *mut render_params) -> *mut ::core::ffi::c_int {
-    if (*con).layout != Layout::SplitH && (*con).layout != Layout::SplitV
-        || (*p).children <= 0 as ::core::ffi::c_int
-    {
-        return ::core::ptr::null_mut::<::core::ffi::c_int>();
+unsafe fn precalculate_sizes(con: *mut Con, children: i32) -> Vec<i32> {
+    if !matches!((*con).layout, Layout::SplitH | Layout::SplitV) || children <= 0 {
+        return Vec::new();
     }
-    let sizes: *mut ::core::ffi::c_int = smalloc(
-        ((*p).children as usize)
-            .wrapping_mul(::core::mem::size_of::<::core::ffi::c_int>() as usize),
-    ) as *mut ::core::ffi::c_int;
-    if !(*con).nodes_head.tqh_first.is_null() as ::core::ffi::c_int != 0 {
-    } else {
-        __assert_fail(
-            c"!TAILQ_EMPTY(&con->nodes_head)".as_ptr(),
-            c"../src/render.c".as_ptr(),
-            230 as ::core::ffi::c_uint,
-            c"int *precalculate_sizes(Con *, render_params *)".as_ptr(),
-        );
-    };
-    let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-    let mut i: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    let mut assigned: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    let total: ::core::ffi::c_int = con_rect_size_in_orientation(con) as ::core::ffi::c_int;
-    child = (*con).nodes_head.tqh_first as *mut Con;
+    let mut percentages = Vec::with_capacity(children as usize);
+    let mut child = (*con).nodes_head.tqh_first;
     while !child.is_null() {
-        let percentage: ::core::ffi::c_double = if (*child).percent > 0.0f64 {
-            (*child).percent
-        } else {
-            1.0f64 / (*p).children as ::core::ffi::c_double
-        };
-        let fresh0 = i;
-        i = i + 1;
-        let ref mut fresh1 = *sizes.offset(fresh0 as isize);
-        *fresh1 = lround(percentage * total as ::core::ffi::c_double) as ::core::ffi::c_int;
-        assigned += *fresh1;
-        child = (*child).nodes.tqe_next as *mut Con;
+        percentages.push((*child).percent);
+        child = (*child).nodes.tqe_next;
     }
-    if assigned == total
-        || assigned > total && assigned - total <= (*p).children * 2 as ::core::ffi::c_int
-        || assigned < total && total - assigned <= (*p).children * 2 as ::core::ffi::c_int
-    {
-    } else {
-        __assert_fail(
-            c"assigned == total || (assigned > total && assigned - total <= p->children * 2) || (assigned < total && total - assigned <= p->children * 2)".as_ptr(),
-            c"../src/render.c".as_ptr(),
-            241 as ::core::ffi::c_uint,
-            c"int *precalculate_sizes(Con *, render_params *)".as_ptr(),
-        );
-    };
-    let signal: ::core::ffi::c_int = if assigned < total {
-        1 as ::core::ffi::c_int
-    } else {
-        -(1 as ::core::ffi::c_int)
-    };
-    while assigned != total {
-        i = 0 as ::core::ffi::c_int;
-        while i < (*p).children && assigned != total {
-            *sizes.offset(i as isize) += signal;
-            assigned += signal;
-            i += 1;
-        }
-    }
-    sizes
+    assert_eq!(percentages.len(), children as usize);
+    split_sizes(con_rect_size_in_orientation(con) as i32, &percentages)
 }
 unsafe fn fullscreen_blocks_floating_render(fullscreen: *mut Con, floating: *mut Con) -> bool {
     if fullscreen.is_null() {
-        return false_0 != 0;
+        return false;
     }
-    match config.popup_during_fullscreen {
-        PopupDuringFullscreen::LeaveFullscreen | PopupDuringFullscreen::Ignore => true,
-        PopupDuringFullscreen::Smart => {
-            (*fullscreen).window.is_null()
-                || !con_find_transient_for_window(
-                    con_descend_focused(floating),
-                    (*(*fullscreen).window).id,
-                )
-        }
-        PopupDuringFullscreen::All => con_has_parent(fullscreen, floating),
-    }
+    let policy = config.popup_during_fullscreen;
+    let has_window = !(*fullscreen).window.is_null();
+    let transient = policy == PopupDuringFullscreen::Smart
+        && has_window
+        && con_find_transient_for_window(con_descend_focused(floating), (*(*fullscreen).window).id);
+    let ancestor = policy == PopupDuringFullscreen::All && con_has_parent(fullscreen, floating);
+    popup_blocked(policy, has_window, transient, ancestor)
 }
 unsafe fn render_root(con: *mut Con, fullscreen: *mut Con) {
     let mut output: *mut Con = ::core::ptr::null_mut::<Con>();
@@ -414,7 +329,7 @@ unsafe fn render_root(con: *mut Con, fullscreen: *mut Con) {
             .cast_mut(),
         c"../src/render.c".as_ptr(),
         c"render_root".as_ptr(),
-        285 as ::core::ffi::c_int,
+        285,
     );
     output = (*con).nodes_head.tqh_first as *mut Con;
     while !output.is_null() {
@@ -427,7 +342,7 @@ unsafe fn render_root(con: *mut Con, fullscreen: *mut Con) {
                         .cast_mut(),
                     c"../src/render.c".as_ptr(),
                     c"render_root".as_ptr(),
-                    293 as ::core::ffi::c_int,
+                    293,
                 );
             } else {
                 let workspace: *mut Con = (*content).focus_head.tqh_first as *mut Con;
@@ -442,7 +357,7 @@ unsafe fn render_root(con: *mut Con, fullscreen: *mut Con) {
                                 .cast_mut(),
                             c"../src/render.c".as_ptr(),
                             c"render_root".as_ptr(),
-                            304 as ::core::ffi::c_int,
+                            304,
                             (*child).rect.x,
                             (*child).rect.y,
                             (*child).rect.width,
@@ -461,15 +376,13 @@ unsafe fn render_root(con: *mut Con, fullscreen: *mut Con) {
 unsafe fn render_output(con: *mut Con) {
     let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut dockchild: *mut Con = ::core::ptr::null_mut::<Con>();
-    let x: ::core::ffi::c_int = (*con).rect.x as ::core::ffi::c_int;
-    let mut y: ::core::ffi::c_int = (*con).rect.y as ::core::ffi::c_int;
-    let mut height: ::core::ffi::c_int = (*con).rect.height as ::core::ffi::c_int;
+    let x: i32 = (*con).rect.x as i32;
+    let mut y: i32 = (*con).rect.y as i32;
+    let mut height: i32 = (*con).rect.height as i32;
     let mut content: *mut Con = ::core::ptr::null_mut::<Con>();
     child = (*con).nodes_head.tqh_first as *mut Con;
     while !child.is_null() {
-        if (*child).type_0 as ::core::ffi::c_uint
-            == CT_CON as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
+        if (*child).type_0 as u32 == CT_CON {
             if !content.is_null() {
                 debuglog(
                     c"%s:%s:%d - More than one CT_CON on output container\n"
@@ -477,38 +390,36 @@ unsafe fn render_output(con: *mut Con) {
                         .cast_mut(),
                     c"../src/render.c".as_ptr(),
                     c"render_output".as_ptr(),
-                    329 as ::core::ffi::c_int,
+                    329,
                 );
-                if 0 as ::core::ffi::c_int != 0 {
+                if 0 != 0 {
                 } else {
                     __assert_fail(
                         c"false".as_ptr(),
                         c"../src/render.c".as_ptr(),
-                        330 as ::core::ffi::c_uint,
+                        330 as u32,
                         c"void render_output(Con *)".as_ptr(),
                     );
                 };
             }
             content = child;
-        } else if (*child).type_0 as ::core::ffi::c_uint
-            != CT_DOCKAREA as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
+        } else if (*child).type_0 as u32 != CT_DOCKAREA {
             debuglog(
                 c"%s:%s:%d - Child %p of type %d is inside the OUTPUT con\n"
                     .as_ptr()
                     .cast_mut(),
                 c"../src/render.c".as_ptr(),
                 c"render_output".as_ptr(),
-                334 as ::core::ffi::c_int,
+                334,
                 child,
-                (*child).type_0 as ::core::ffi::c_uint,
+                (*child).type_0 as u32,
             );
-            if 0 as ::core::ffi::c_int != 0 {
+            if 0 != 0 {
             } else {
                 __assert_fail(
                     c"false".as_ptr(),
                     c"../src/render.c".as_ptr(),
-                    335 as ::core::ffi::c_uint,
+                    335 as u32,
                     c"void render_output(Con *)".as_ptr(),
                 );
             };
@@ -522,7 +433,7 @@ unsafe fn render_output(con: *mut Con) {
                 .cast_mut(),
             c"../src/render.c".as_ptr(),
             c"render_output".as_ptr(),
-            340 as ::core::ffi::c_int,
+            340,
         );
         return;
     }
@@ -534,7 +445,7 @@ unsafe fn render_output(con: *mut Con) {
                 .cast_mut(),
             c"../src/render.c".as_ptr(),
             c"render_output".as_ptr(),
-            349 as ::core::ffi::c_int,
+            349,
         );
         return;
     }
@@ -547,9 +458,7 @@ unsafe fn render_output(con: *mut Con) {
     }
     child = (*con).nodes_head.tqh_first as *mut Con;
     while !child.is_null() {
-        if !((*child).type_0 as ::core::ffi::c_uint
-            != CT_DOCKAREA as ::core::ffi::c_int as ::core::ffi::c_uint)
-        {
+        if !((*child).type_0 as u32 != CT_DOCKAREA) {
             (*child).rect.height = 0 as u32;
             dockchild = (*child).nodes_head.tqh_first as *mut Con;
             while !dockchild.is_null() {
@@ -559,16 +468,13 @@ unsafe fn render_output(con: *mut Con) {
                     .wrapping_add((*dockchild).geometry.height);
                 dockchild = (*dockchild).nodes.tqe_next as *mut Con;
             }
-            height = (height as u32).wrapping_sub((*child).rect.height) as ::core::ffi::c_int
-                as ::core::ffi::c_int;
+            height = (height as u32).wrapping_sub((*child).rect.height) as i32 as i32;
         }
         child = (*child).nodes.tqe_next as *mut Con;
     }
     child = (*con).nodes_head.tqh_first as *mut Con;
     while !child.is_null() {
-        if (*child).type_0 as ::core::ffi::c_uint
-            == CT_CON as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
+        if (*child).type_0 as u32 == CT_CON {
             (*child).rect.x = x as u32;
             (*child).rect.y = y as u32;
             (*child).rect.width = (*con).rect.width;
@@ -581,15 +487,14 @@ unsafe fn render_output(con: *mut Con) {
         (*child).deco_rect.y = 0 as u32;
         (*child).deco_rect.width = 0 as u32;
         (*child).deco_rect.height = 0 as u32;
-        y = (y as u32).wrapping_add((*child).rect.height) as ::core::ffi::c_int
-            as ::core::ffi::c_int;
+        y = (y as u32).wrapping_add((*child).rect.height) as i32 as i32;
         debuglog(
             c"%s:%s:%d - child at (%d, %d) with (%d x %d)\n"
                 .as_ptr()
                 .cast_mut(),
             c"../src/render.c".as_ptr(),
             c"render_output".as_ptr(),
-            396 as ::core::ffi::c_int,
+            396,
             (*child).rect.x,
             (*child).rect.y,
             (*child).rect.width,
@@ -600,174 +505,134 @@ unsafe fn render_output(con: *mut Con) {
         child = (*child).nodes.tqe_next as *mut Con;
     }
 }
-unsafe fn render_con_split(
-    con: *mut Con,
-    child: *mut Con,
-    p: *mut render_params,
-    i: ::core::ffi::c_int,
-) {
-    if (*con).layout == Layout::SplitH || (*con).layout == Layout::SplitV {
-    } else {
-        __assert_fail(
-            c"con->layout == L_SPLITH || con->layout == L_SPLITV".as_ptr(),
-            c"../src/render.c".as_ptr(),
-            403 as ::core::ffi::c_uint,
-            c"void render_con_split(Con *, Con *, render_params *, int)".as_ptr(),
-        );
+fn child_geometry(
+    layout: Layout,
+    border: BorderStyle,
+    leaf: bool,
+    parent: Rect,
+    p: &mut RenderParams,
+    index: i32,
+    dock_height: u32,
+) -> (Rect, Option<Rect>) {
+    let mut rect = Rect {
+        x: p.x as u32,
+        y: p.y as u32,
+        width: p.rect.width,
+        height: p.rect.height,
     };
-    if (*con).layout == Layout::SplitH {
-        (*child).rect.x = (*p).x as u32;
-        (*child).rect.y = (*p).y as u32;
-        (*child).rect.width = *(*p).sizes.offset(i as isize) as u32;
-        (*child).rect.height = (*p).rect.height;
-        (*p).x = ((*p).x as u32).wrapping_add((*child).rect.width) as ::core::ffi::c_int
-            as ::core::ffi::c_int;
-    } else {
-        (*child).rect.x = (*p).x as u32;
-        (*child).rect.y = (*p).y as u32;
-        (*child).rect.width = (*p).rect.width;
-        (*child).rect.height = *(*p).sizes.offset(i as isize) as u32;
-        (*p).y = ((*p).y as u32).wrapping_add((*child).rect.height) as ::core::ffi::c_int
-            as ::core::ffi::c_int;
-    }
-    if con_is_leaf(child) {
-        if (*child).border_style == BorderStyle::Normal {
-            (*child).deco_rect.x = 0 as u32;
-            (*child).deco_rect.y = 0 as u32;
-            (*child).deco_rect.width = (*child).rect.width;
-            (*child).deco_rect.height = (*p).deco_height as u32;
-        } else {
-            (*child).deco_rect.x = 0 as u32;
-            (*child).deco_rect.y = 0 as u32;
-            (*child).deco_rect.width = 0 as u32;
-            (*child).deco_rect.height = 0 as u32;
+    let empty = Rect {
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+    };
+    let deco = match layout {
+        Layout::SplitH | Layout::SplitV => {
+            if layout == Layout::SplitH {
+                rect.width = p.sizes[index as usize] as u32;
+                p.x = (p.x as u32).wrapping_add(rect.width) as i32;
+            } else {
+                rect.height = p.sizes[index as usize] as u32;
+                p.y = (p.y as u32).wrapping_add(rect.height) as i32;
+            }
+            if leaf {
+                Some(if border == BorderStyle::Normal {
+                    Rect {
+                        width: rect.width,
+                        height: p.deco_height as u32,
+                        ..empty
+                    }
+                } else {
+                    empty
+                })
+            } else {
+                None
+            }
         }
-    }
-}
-unsafe fn render_con_stacked(
-    con: *mut Con,
-    child: *mut Con,
-    p: *mut render_params,
-    i: ::core::ffi::c_int,
-) {
-    if (*con).layout == Layout::Stacked {
-    } else {
-        __assert_fail(
-            c"con->layout == L_STACKED".as_ptr(),
-            c"../src/render.c".as_ptr(),
-            438 as ::core::ffi::c_uint,
-            c"void render_con_stacked(Con *, Con *, render_params *, int)".as_ptr(),
-        );
+        Layout::Stacked => {
+            let deco = Rect {
+                x: rect.x.wrapping_sub(parent.x),
+                y: rect
+                    .y
+                    .wrapping_sub(parent.y)
+                    .wrapping_add(index.wrapping_mul(p.deco_height) as u32),
+                width: rect.width,
+                height: p.deco_height as u32,
+            };
+            if p.children > 1 || !matches!(border, BorderStyle::Pixel | BorderStyle::None) {
+                let offset = p.deco_height.wrapping_mul(p.children) as u32;
+                rect.y = rect.y.wrapping_add(offset);
+                rect.height = rect.height.wrapping_sub(offset);
+            }
+            Some(deco)
+        }
+        Layout::Tabbed => {
+            // Preserve the native float (not double) division before floor.
+            let width = ((rect.width as f32 / p.children as f32) as f64).floor() as u32;
+            let x = rect
+                .x
+                .wrapping_sub(parent.x)
+                .wrapping_add((index as u32).wrapping_mul(width));
+            let mut deco = Rect {
+                x,
+                y: rect.y.wrapping_sub(parent.y),
+                width: if index == p.children - 1 {
+                    rect.width.wrapping_sub(x)
+                } else {
+                    width
+                },
+                height: 0,
+            };
+            if p.children > 1 || !matches!(border, BorderStyle::Pixel | BorderStyle::None) {
+                rect.y = rect.y.wrapping_add(p.deco_height as u32);
+                rect.height = rect.height.wrapping_sub(p.deco_height as u32);
+                deco.height = p.deco_height as u32;
+            } else {
+                deco.height = u32::from(border == BorderStyle::Pixel);
+            }
+            Some(deco)
+        }
+        Layout::DockArea => {
+            rect.height = dock_height;
+            p.y = (p.y as u32).wrapping_add(rect.height) as i32;
+            Some(empty)
+        }
+        _ => unreachable!("unsupported child layout"),
     };
-    (*child).rect.x = (*p).x as u32;
-    (*child).rect.y = (*p).y as u32;
-    (*child).rect.width = (*p).rect.width;
-    (*child).rect.height = (*p).rect.height;
-    (*child).deco_rect.x = ((*p).x as u32).wrapping_sub((*con).rect.x);
-    (*child).deco_rect.y = ((*p).y as u32)
-        .wrapping_sub((*con).rect.y)
-        .wrapping_add((i * (*p).deco_height) as u32);
-    (*child).deco_rect.width = (*child).rect.width;
-    (*child).deco_rect.height = (*p).deco_height as u32;
-    if (*p).children > 1 as ::core::ffi::c_int
-        || (*child).border_style != BorderStyle::Pixel && (*child).border_style != BorderStyle::None
-    {
-        (*child).rect.y = (*child)
-            .rect
-            .y
-            .wrapping_add(((*p).deco_height * (*p).children) as u32);
-        (*child).rect.height = (*child)
-            .rect
-            .height
-            .wrapping_sub(((*p).deco_height * (*p).children) as u32);
-    }
-}
-unsafe fn render_con_tabbed(
-    con: *mut Con,
-    child: *mut Con,
-    p: *mut render_params,
-    i: ::core::ffi::c_int,
-) {
-    if (*con).layout == Layout::Tabbed {
-    } else {
-        __assert_fail(
-            c"con->layout == L_TABBED".as_ptr(),
-            c"../src/render.c".as_ptr(),
-            457 as ::core::ffi::c_uint,
-            c"void render_con_tabbed(Con *, Con *, render_params *, int)".as_ptr(),
-        );
-    };
-    (*child).rect.x = (*p).x as u32;
-    (*child).rect.y = (*p).y as u32;
-    (*child).rect.width = (*p).rect.width;
-    (*child).rect.height = (*p).rect.height;
-    (*child).deco_rect.width = floor(
-        ((*child).rect.width as ::core::ffi::c_float / (*p).children as ::core::ffi::c_float)
-            as ::core::ffi::c_double,
-    ) as u32;
-    (*child).deco_rect.x = ((*p).x as u32)
-        .wrapping_sub((*con).rect.x)
-        .wrapping_add((i as u32).wrapping_mul((*child).deco_rect.width));
-    (*child).deco_rect.y = ((*p).y as u32).wrapping_sub((*con).rect.y);
-    if i == (*p).children - 1 as ::core::ffi::c_int {
-        (*child).deco_rect.width = (*child).rect.width.wrapping_sub((*child).deco_rect.x);
-    }
-    if (*p).children > 1 as ::core::ffi::c_int
-        || (*child).border_style != BorderStyle::Pixel && (*child).border_style != BorderStyle::None
-    {
-        (*child).rect.y = (*child).rect.y.wrapping_add((*p).deco_height as u32);
-        (*child).rect.height = (*child).rect.height.wrapping_sub((*p).deco_height as u32);
-        (*child).deco_rect.height = (*p).deco_height as u32;
-    } else {
-        (*child).deco_rect.height = (if (*child).border_style == BorderStyle::Pixel {
-            1 as ::core::ffi::c_int
-        } else {
-            0 as ::core::ffi::c_int
-        }) as u32;
-    };
-}
-unsafe fn render_con_dockarea(con: *mut Con, child: *mut Con, p: *mut render_params) {
-    if (*con).layout == Layout::DockArea {
-    } else {
-        __assert_fail(
-            c"con->layout == L_DOCKAREA".as_ptr(),
-            c"../src/render.c".as_ptr(),
-            484 as ::core::ffi::c_uint,
-            c"void render_con_dockarea(Con *, Con *, render_params *)".as_ptr(),
-        );
-    };
-    (*child).rect.x = (*p).x as u32;
-    (*child).rect.y = (*p).y as u32;
-    (*child).rect.width = (*p).rect.width;
-    (*child).rect.height = (*child).geometry.height;
-    (*child).deco_rect.x = 0 as u32;
-    (*child).deco_rect.y = 0 as u32;
-    (*child).deco_rect.width = 0 as u32;
-    (*child).deco_rect.height = 0 as u32;
-    (*p).y = ((*p).y as u32).wrapping_add((*child).rect.height) as ::core::ffi::c_int
-        as ::core::ffi::c_int;
+    (rect, deco)
 }
 
+unsafe fn render_child_geometry(con: *mut Con, child: *mut Con, p: &mut RenderParams, index: i32) {
+    let (rect, deco) = child_geometry(
+        (*con).layout,
+        (*child).border_style,
+        con_is_leaf(child),
+        (*con).rect,
+        p,
+        index,
+        (*child).geometry.height,
+    );
+    (*child).rect = rect;
+    if let Some(deco) = deco {
+        (*child).deco_rect = deco;
+    }
+}
 // Internal helpers use Rust linkage rather than foreign symbol lookup.
-use i3_common::safewrappers::smalloc;
 
 // Canonical Cairo backend ABI; renderer logic remains local.
 
 // Canonical Pango backend ABI; font policy remains local.
-
-pub use libc::free;
 
 use i3_common::native_stdio::__assert_fail;
 
 use crate::log::debuglog;
 
 // Shared model types retain field layout while using one Rust identity.
-pub use crate::types::focus_head;
-pub use crate::types::gaps_t;
-pub use crate::types::Con;
-pub use crate::types::Rect;
-pub use i3_common::font::Font;
-pub use i3_common::string::I3String as _i3String;
+use crate::types::focus_head;
+use crate::types::gaps_t;
+use crate::types::Con;
+use crate::types::Rect;
+use i3_common::string::I3String as _i3String;
 
 // Internal calls and globals use canonical Rust identities.
 use crate::con::con_border_style_rect;
@@ -788,3 +653,139 @@ use crate::output::output_get_content;
 use crate::util::rect_add;
 use crate::util::rect_sanitize_dimensions;
 use crate::x::x_raise_con;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn split_rounding_and_remainders_follow_child_order() {
+        assert_eq!(split_sizes(5, &[0.5, 0.5]), [2, 3]);
+        assert_eq!(split_sizes(5, &[0.0, 0.0, 0.0]), [1, 2, 2]);
+        assert_eq!(split_sizes(-5, &[0.5, 0.5]), [-2, -3]);
+        assert_eq!(split_sizes(7, &[f64::NAN, 0.0]), [3, 4]);
+        assert_eq!(decoration_height(13), 18);
+    }
+    #[test]
+    fn gaps_and_window_insets_preserve_odd_halves_and_wrapping() {
+        let gap = gaps_t {
+            inner: 5,
+            left: 3,
+            right: 7,
+            top: 11,
+            bottom: 13,
+        };
+        let outer = workspace_inset(gap);
+        assert_eq!(
+            (outer.x, outer.y, outer.width, outer.height),
+            (3, 11, (-10i32) as u32, (-24i32) as u32)
+        );
+        let inset = inner_inset(5, [true, false, false, true]);
+        assert_eq!(
+            (inset.x, inset.y, inset.width, inset.height),
+            (2, 5, (-7i32) as u32, (-7i32) as u32)
+        );
+        let window = window_geometry(
+            Rect {
+                x: 0,
+                y: 0,
+                width: 100,
+                height: 80,
+            },
+            Some(Rect {
+                x: 2,
+                y: 18,
+                width: (-4i32) as u32,
+                height: (-20i32) as u32,
+            }),
+            1,
+        );
+        assert_eq!(
+            (window.x, window.y, window.width, window.height),
+            (2, 18, 94, 58)
+        );
+        assert!(popup_blocked(
+            PopupDuringFullscreen::Smart,
+            false,
+            true,
+            false
+        ));
+        assert!(!popup_blocked(
+            PopupDuringFullscreen::Smart,
+            true,
+            true,
+            false
+        ));
+        assert!(!popup_blocked(
+            PopupDuringFullscreen::All,
+            false,
+            false,
+            false
+        ));
+    }
+    #[test]
+    fn layout_geometry_preserves_offsets_and_single_child_borders() {
+        let parent = Rect {
+            x: (-10i32) as u32,
+            y: 20,
+            width: 101,
+            height: 80,
+        };
+        let mut p = RenderParams {
+            x: -8,
+            y: 22,
+            rect: Rect {
+                width: 99,
+                height: 78,
+                ..parent
+            },
+            children: 3,
+            deco_height: 18,
+            sizes: vec![33, 33, 33],
+        };
+        let (r, d) = child_geometry(
+            Layout::Tabbed,
+            BorderStyle::Normal,
+            true,
+            parent,
+            &mut p,
+            2,
+            0,
+        );
+        let d = d.unwrap();
+        assert_eq!(
+            (r.x, r.y, r.height, d.x, d.width),
+            ((-8i32) as u32, 40, 60, 68, 31)
+        );
+        p.children = 1;
+        let (r, d) = child_geometry(
+            Layout::Stacked,
+            BorderStyle::Pixel,
+            true,
+            parent,
+            &mut p,
+            0,
+            0,
+        );
+        assert_eq!((r.y, r.height, d.unwrap().height), (22, 78, 18));
+        let (_, d) = child_geometry(
+            Layout::Tabbed,
+            BorderStyle::Pixel,
+            true,
+            parent,
+            &mut p,
+            0,
+            0,
+        );
+        assert_eq!(d.unwrap().height, 1);
+        let (r, d) = child_geometry(
+            Layout::DockArea,
+            BorderStyle::None,
+            true,
+            parent,
+            &mut p,
+            0,
+            17,
+        );
+        assert_eq!((r.height, p.y, d.unwrap().height), (17, 39, 0));
+    }
+}
