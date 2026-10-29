@@ -14,8 +14,6 @@ pub use libev_sys::{
     ev_watcher, EVBREAK_ALL,
 };
 
-pub type i3String = _i3String;
-
 pub use crate::config::Binding as binding_t;
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -58,7 +56,7 @@ pub struct config_t {
     pub command: *mut ::core::ffi::c_char,
     pub workspace_command: *mut ::core::ffi::c_char,
     pub fontname: *mut ::core::ffi::c_char,
-    pub separator_symbol: *mut i3String,
+    pub separator_symbol: *mut I3String,
     pub tray_outputs: tray_outputs_head,
     pub tray_padding: ::core::ffi::c_int,
     pub num_outputs: ::core::ffi::c_int,
@@ -80,10 +78,6 @@ pub struct bindings_head {
     pub tqh_last: *mut *mut binding_t,
 }
 
-pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-
-pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
-
 pub const I3_IPC_MESSAGE_TYPE_GET_BAR_CONFIG: ::core::ffi::c_int = 6 as ::core::ffi::c_int;
 
 pub static mut main_loop: *mut ev_loop = ::core::ptr::null::<ev_loop>() as *mut ev_loop;
@@ -101,31 +95,66 @@ pub unsafe extern "C" fn errorlog(fmt: *mut ::core::ffi::c_char, args: ...) {
 }
 
 pub unsafe extern "C" fn debuglog(fmt: *mut ::core::ffi::c_char, args: ...) {}
-unsafe fn expand_path(path: *mut ::core::ffi::c_char) -> *mut ::core::ffi::c_char {
-    static mut globbuf: glob_t = unsafe { ::core::mem::zeroed() };
-    if glob(
-        path,
-        libc::GLOB_NOCHECK | libc::GLOB_TILDE,
-        None,
-        &raw mut globbuf,
-    ) < 0 as ::core::ffi::c_int
-    {
-        fprintf(
-            stderr,
-            c"[%s:%d] ERROR: glob() failed\n".as_ptr(),
-            c"../i3bar/src/main.c".as_ptr(),
-            50 as ::core::ffi::c_int,
-        );
-        exit(libc::EXIT_FAILURE);
+struct GlobPaths(libc::glob_t);
+impl Drop for GlobPaths {
+    fn drop(&mut self) {
+        unsafe {
+            globfree(&mut self.0);
+        }
     }
-    let result: *mut ::core::ffi::c_char = sstrdup(if globbuf.gl_pathc > 0 as usize {
-        *globbuf.gl_pathv.offset(0 as ::core::ffi::c_int as isize)
-    } else {
-        path
-    });
-    globfree(&raw mut globbuf);
-    result
 }
+fn expand_path(path: &std::ffi::CStr) -> std::ffi::CString {
+    let mut paths = GlobPaths(unsafe { std::mem::zeroed() });
+    // SAFETY: glob borrows the C string and writes only its initialized out
+    // structure. Preserve the native flags and first-match/error policy.
+    unsafe {
+        if glob(
+            path.as_ptr(),
+            libc::GLOB_NOCHECK | libc::GLOB_TILDE,
+            None,
+            &mut paths.0,
+        ) < 0
+        {
+            fprintf(
+                stderr,
+                c"[%s:%d] ERROR: glob() failed\n".as_ptr(),
+                c"../i3bar/src/main.c".as_ptr(),
+                50i32,
+            );
+            exit(libc::EXIT_FAILURE);
+        }
+        if paths.0.gl_pathc > 0 {
+            std::ffi::CStr::from_ptr(*paths.0.gl_pathv).to_owned()
+        } else {
+            path.to_owned()
+        }
+    }
+}
+unsafe fn take_string(pointer: *mut libc::c_char) -> Option<std::ffi::CString> {
+    if pointer.is_null() {
+        None
+    } else {
+        let string = std::ffi::CStr::from_ptr(pointer).to_owned();
+        free(pointer.cast());
+        Some(string)
+    }
+}
+struct SignalWatchers {
+    loop_: *mut ev_loop,
+    watchers: Vec<Box<ev_signal>>,
+}
+impl Drop for SignalWatchers {
+    fn drop(&mut self) {
+        // SAFETY: boxes retain stable registered addresses. The owning event
+        // loop is live until after stop clears pending callbacks and boxes drop.
+        unsafe {
+            for watcher in &mut self.watchers {
+                libev_sys::ev_signal_stop(self.loop_, &mut **watcher);
+            }
+        }
+    }
+}
+
 fn print_usage(program: &std::ffi::OsStr) {
     use std::io::Write;
     use std::os::unix::ffi::OsStrExt;
@@ -184,12 +213,10 @@ unsafe fn run(arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     use std::os::unix::ffi::OsStrExt;
     let mut arguments = arguments.into_iter();
     let program = arguments.next().unwrap_or_else(|| "i3bar".into());
-    let mut socket_path: *mut ::core::ffi::c_char = std::ptr::null_mut();
-    memset(
-        &raw mut config as *mut ::core::ffi::c_void,
-        0,
-        ::core::mem::size_of::<config_t>(),
-    );
+    let mut socket_path: Option<std::ffi::CString> = None;
+    // Shared config remains its canonical zero-valid native POD; owned option
+    // strings stay local until their specific native handoff.
+    config = std::mem::zeroed();
     for item in Parser::new(
         arguments,
         BAR_OPTIONS,
@@ -222,8 +249,7 @@ unsafe fn run(arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
                     if short == b's' {
                         // Native initialization still owns/frees the expanded
                         // socket path. Never give libc a Rust allocation.
-                        free(socket_path.cast());
-                        socket_path = expand_path(value.as_ptr().cast_mut());
+                        socket_path = Some(expand_path(&value));
                     } else {
                         free(config.bar_id.cast());
                         config.bar_id = sstrdup(value.as_ptr());
@@ -243,96 +269,47 @@ unsafe fn run(arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         .as_ptr() as *const u8 as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
     );
     main_loop = ev_default_loop(0 as ::core::ffi::c_uint);
-    let atom_sock_path: *mut ::core::ffi::c_char = init_xcb_early();
-    if socket_path.is_null() {
-        socket_path = getenv(c"I3SOCK".as_ptr());
-        if !socket_path.is_null() {
-            socket_path = sstrdup(socket_path);
-        }
+    let atom_socket = take_string(init_xcb_early());
+    if socket_path.is_none() {
+        socket_path = std::env::var_os("I3SOCK")
+            .map(|value| std::ffi::CString::new(value.as_bytes()).expect("environment has no NUL"));
     }
-    if socket_path.is_null() {
-        socket_path = atom_sock_path;
-    } else {
-        free(atom_sock_path as *mut ::core::ffi::c_void);
+    if socket_path.is_none() {
+        socket_path = atom_socket;
     }
-    if socket_path.is_null() {
-        let i3_default_sock_path: *mut ::core::ffi::c_char =
-            c"/tmp/i3-ipc.sock".as_ptr().cast_mut();
+    if socket_path.is_none() {
         fprintf(
             stderr,
             c"[%s:%d] ERROR: No socket path specified, default to %s\n".as_ptr(),
             c"../i3bar/src/main.c".as_ptr(),
-            157 as ::core::ffi::c_int,
-            i3_default_sock_path,
+            157i32,
+            c"/tmp/i3-ipc.sock".as_ptr(),
         );
-        socket_path = sstrdup(i3_default_sock_path);
+        socket_path = Some(c"/tmp/i3-ipc.sock".to_owned());
     }
     init_dpi();
     init_outputs();
-    init_connection(socket_path);
+    init_connection(socket_path.as_ref().unwrap().as_ptr());
     i3_send_msg(I3_IPC_MESSAGE_TYPE_GET_BAR_CONFIG as u32, config.bar_id);
-    free(socket_path as *mut ::core::ffi::c_void);
-    let sig_term: *mut ev_signal =
-        smalloc(::core::mem::size_of::<ev_signal>() as usize) as *mut ev_signal;
-    let sig_int: *mut ev_signal =
-        smalloc(::core::mem::size_of::<ev_signal>() as usize) as *mut ev_signal;
-    let sig_hup: *mut ev_signal =
-        smalloc(::core::mem::size_of::<ev_signal>() as usize) as *mut ev_signal;
-    let ref mut fresh0 = (*(sig_term as *mut ::core::ffi::c_void as *mut ev_watcher)).pending;
-    *fresh0 = 0 as ::core::ffi::c_int;
-    (*(sig_term as *mut ::core::ffi::c_void as *mut ev_watcher)).active = *fresh0;
-    (*(sig_term as *mut ::core::ffi::c_void as *mut ev_watcher)).priority = 0 as ::core::ffi::c_int;
-    (*sig_term).cb = Some(
-        sig_cb as unsafe extern "C" fn(*mut ev_loop, *mut ev_signal, ::core::ffi::c_int) -> (),
-    )
-        as Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_signal, ::core::ffi::c_int) -> ()>;
-    memmove(
-        &raw mut (*(sig_term as *mut ev_watcher)).cb as *mut ::core::ffi::c_void,
-        &raw mut (*sig_term).cb as *const ::core::ffi::c_void,
-        ::core::mem::size_of::<
-            Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_signal, ::core::ffi::c_int) -> ()>,
-        >() as usize,
-    );
-    (*sig_term).signum = 15 as ::core::ffi::c_int;
-    let ref mut fresh1 = (*(sig_int as *mut ::core::ffi::c_void as *mut ev_watcher)).pending;
-    *fresh1 = 0 as ::core::ffi::c_int;
-    (*(sig_int as *mut ::core::ffi::c_void as *mut ev_watcher)).active = *fresh1;
-    (*(sig_int as *mut ::core::ffi::c_void as *mut ev_watcher)).priority = 0 as ::core::ffi::c_int;
-    (*sig_int).cb = Some(
-        sig_cb as unsafe extern "C" fn(*mut ev_loop, *mut ev_signal, ::core::ffi::c_int) -> (),
-    )
-        as Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_signal, ::core::ffi::c_int) -> ()>;
-    memmove(
-        &raw mut (*(sig_int as *mut ev_watcher)).cb as *mut ::core::ffi::c_void,
-        &raw mut (*sig_int).cb as *const ::core::ffi::c_void,
-        ::core::mem::size_of::<
-            Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_signal, ::core::ffi::c_int) -> ()>,
-        >() as usize,
-    );
-    (*sig_int).signum = 2 as ::core::ffi::c_int;
-    let ref mut fresh2 = (*(sig_hup as *mut ::core::ffi::c_void as *mut ev_watcher)).pending;
-    *fresh2 = 0 as ::core::ffi::c_int;
-    (*(sig_hup as *mut ::core::ffi::c_void as *mut ev_watcher)).active = *fresh2;
-    (*(sig_hup as *mut ::core::ffi::c_void as *mut ev_watcher)).priority = 0 as ::core::ffi::c_int;
-    (*sig_hup).cb = Some(
-        sig_cb as unsafe extern "C" fn(*mut ev_loop, *mut ev_signal, ::core::ffi::c_int) -> (),
-    )
-        as Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_signal, ::core::ffi::c_int) -> ()>;
-    memmove(
-        &raw mut (*(sig_hup as *mut ev_watcher)).cb as *mut ::core::ffi::c_void,
-        &raw mut (*sig_hup).cb as *const ::core::ffi::c_void,
-        ::core::mem::size_of::<
-            Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_signal, ::core::ffi::c_int) -> ()>,
-        >() as usize,
-    );
-    (*sig_hup).signum = 1 as ::core::ffi::c_int;
-    ev_signal_start(main_loop, sig_term);
-    ev_signal_start(main_loop, sig_int);
-    ev_signal_start(main_loop, sig_hup);
+    drop(socket_path);
+    let mut signals = SignalWatchers {
+        loop_: main_loop,
+        watchers: vec![
+            Box::new(ev_signal::new(libc::SIGTERM, sig_cb)),
+            Box::new(ev_signal::new(libc::SIGINT, sig_cb)),
+            Box::new(ev_signal::new(libc::SIGHUP, sig_cb)),
+        ],
+    };
+    for watcher in &mut signals.watchers {
+        ev_signal_start(main_loop, &mut **watcher);
+    }
     atexit(kill_children_at_exit);
     ev_loop(main_loop, 0 as ::core::ffi::c_int);
     clean_xcb();
+    crate::ipc::destroy_connection();
+    drop(signals);
     ev_default_destroy();
+    main_loop = std::ptr::null_mut();
     0 as ::core::ffi::c_int
 }
 
@@ -397,7 +374,7 @@ mod cli_tests {
     }
 }
 
-pub use i3_common::string::I3String as _i3String;
+use i3_common::string::I3String;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u32)]
@@ -420,4 +397,16 @@ pub enum BarDisplayMode {
 pub enum HiddenState {
     Hide = 0,
     Show = 1,
+}
+
+#[cfg(test)]
+mod path_tests {
+    use super::*;
+    #[test]
+    fn native_glob_keeps_unmatched_raw_path_spelling_and_first_result_policy() {
+        let path =
+            std::ffi::CString::new(b"/i333-nonexistent-parent/raw-\xff.sock".as_slice()).unwrap();
+        assert_eq!(expand_path(&path), path);
+        assert_eq!(expand_path(c""), c"".to_owned());
+    }
 }

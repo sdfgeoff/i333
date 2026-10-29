@@ -1,4 +1,6 @@
 use crate::application::ws_assignments;
+use crate::con::M_BELOW;
+use crate::r#match::{M_DOCK_BOTTOM, M_DOCK_TOP};
 use crate::tree::all_cons;
 use crate::types::Direction;
 use crate::types::KillWindow;
@@ -18,77 +20,15 @@ use i3_common::safewrappers::sasprintf;
  * (take your time to read it completely, it answers all questions).
  *
  */
-// Mechanical file-by-file Rust translation of src/randr.c.
-// Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
+// Copied geometry/query decoding is safe Rust. Public raw graph operations
+// require exclusive event-thread ownership of initialized output/Con/config
+// queues and a live display; queue nodes keep their native malloc ABI. Native
+// move/focus/render callbacks may mutate graphs, so never retain graph borrows
+// across those calls. All reply byte views borrow complete XCB allocations.
 
-pub type i3String = _i3String;
-
-pub type i3Font = Font;
-
-pub type fullscreen_mode_t = ::core::ffi::c_uint;
-pub const CF_GLOBAL: fullscreen_mode_t = 2;
-pub const CF_OUTPUT: fullscreen_mode_t = 1;
-pub const CF_NONE: fullscreen_mode_t = 0;
-
-pub const M_BELOW: ::core::ffi::c_uint = 2;
-pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
-pub const M_HERE: ::core::ffi::c_uint = 0;
-
-pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
-pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
-pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
-pub const M_NODOCK: ::core::ffi::c_int = 0;
-pub const M_DONTCHECK: ::core::ffi::c_int = -1;
-
-pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
-pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
-pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
-pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
-pub const A_COMMAND: ::core::ffi::c_uint = 1;
-pub const A_ANY: ::core::ffi::c_uint = 0;
-
-pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
-pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
-pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
-pub const CT_CON: ::core::ffi::c_uint = 2;
-pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
-pub const CT_ROOT: ::core::ffi::c_uint = 0;
-
-pub type Output = xoutput;
-pub type i3Window = Window;
-
-pub type hide_edge_borders_mode_t = ::core::ffi::c_uint;
-pub const HEBM_SMART_NO_GAPS: hide_edge_borders_mode_t = 64;
-pub const HEBM_SMART: hide_edge_borders_mode_t = 32;
-pub const HEBM_BOTH: hide_edge_borders_mode_t = 23;
-pub const HEBM_HORIZONTAL: hide_edge_borders_mode_t = 20;
-pub const HEBM_VERTICAL: hide_edge_borders_mode_t = 3;
-pub const HEBM_NONE: hide_edge_borders_mode_t = 0;
-
-pub type gaps_mask_t = ::core::ffi::c_uint;
-pub const GAPS_OUTER: gaps_mask_t = 30;
-pub const GAPS_HORIZONTAL: gaps_mask_t = 20;
-pub const GAPS_VERTICAL: gaps_mask_t = 10;
-pub const GAPS_LEFT: gaps_mask_t = 16;
-pub const GAPS_BOTTOM: gaps_mask_t = 8;
-pub const GAPS_RIGHT: gaps_mask_t = 4;
-pub const GAPS_TOP: gaps_mask_t = 2;
-pub const GAPS_INNER: gaps_mask_t = 1;
-
-pub use crate::application::Workspace_Assignment;
-pub type tiling_drag_t = ::core::ffi::c_uint;
-pub const TILING_DRAG_MODIFIER_OR_TITLEBAR: tiling_drag_t = 3;
-pub const TILING_DRAG_TITLEBAR: tiling_drag_t = 2;
-pub const TILING_DRAG_MODIFIER: tiling_drag_t = 1;
-pub const TILING_DRAG_OFF: tiling_drag_t = 0;
-
-pub use crate::application::outputs_head;
-
-pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-
-pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
-
+use crate::application::{outputs_head, Workspace_Assignment};
+use crate::con::{CF_OUTPUT, CT_CON, CT_DOCKAREA, CT_OUTPUT, CT_WORKSPACE};
+pub use crate::types::xoutput as Output;
 pub static mut primary: *mut xcb_randr_get_output_primary_reply_t =
     ::core::ptr::null::<xcb_randr_get_output_primary_reply_t>()
         as *mut xcb_randr_get_output_primary_reply_t;
@@ -98,7 +38,192 @@ pub static mut outputs: outputs_head = outputs_head {
     tqh_last: ::core::ptr::null::<*mut xoutput>() as *mut *mut xoutput,
 };
 static mut root_output: *mut Output = ::core::ptr::null::<Output>() as *mut Output;
-static mut has_randr_1_5: bool = false_0 != 0;
+static mut has_randr_1_5: bool = false;
+// Native queries/queues are event-thread owned. Helpers below consume copied
+// values or bounded byte slices; they never promise safe access to raw graphs.
+#[derive(Default)]
+struct NativeReplies(Vec<std::ptr::NonNull<libc::c_void>>);
+impl NativeReplies {
+    /// Transfer unique malloc ownership of a complete native reply or null.
+    unsafe fn take<T>(&mut self, pointer: *mut T) -> *mut T {
+        if let Some(pointer) = std::ptr::NonNull::new(pointer) {
+            self.0.push(pointer.cast());
+        }
+        pointer
+    }
+}
+impl Drop for NativeReplies {
+    fn drop(&mut self) {
+        for pointer in self.0.drain(..) {
+            unsafe {
+                free(pointer.as_ptr());
+            }
+        }
+    }
+}
+
+fn contains_point(rect: Rect, x: u32, y: u32) -> bool {
+    x >= rect.x
+        && x < rect.x.wrapping_add(rect.width)
+        && y >= rect.y
+        && y < rect.y.wrapping_add(rect.height)
+}
+fn midpoint(rect: Rect) -> (u32, u32) {
+    (
+        rect.x.wrapping_add(rect.width / 2),
+        rect.y.wrapping_add(rect.height / 2),
+    )
+}
+fn positive_overlap(rect: Rect, other: Rect) -> bool {
+    let left = (rect.x as i32).max(other.x as i32);
+    let right =
+        (rect.x.wrapping_add(rect.width) as i32).min(other.x.wrapping_add(other.width) as i32);
+    let top = (rect.y as i32).max(other.y as i32);
+    let bottom =
+        (rect.y.wrapping_add(rect.height) as i32).min(other.y.wrapping_add(other.height) as i32);
+    // Preserve original signed arithmetic and its debug/release overflow policy.
+    // Original max_area resets per candidate, so last positive overlap wins.
+    left < right && bottom > top && (right - left) * (bottom - top) > 0
+}
+fn directional_candidate(direction: Direction, current: Rect, other: Rect) -> bool {
+    match direction {
+        Direction::Right | Direction::Left => {
+            (if direction == Direction::Right {
+                other.x > current.x
+            } else {
+                other.x < current.x
+            }) && other.y.wrapping_add(other.height) > current.y
+                && current.y.wrapping_add(current.height) > other.y
+        }
+        Direction::Down | Direction::Up => {
+            (if direction == Direction::Down {
+                other.y > current.y
+            } else {
+                other.y < current.y
+            }) && other.x.wrapping_add(other.width) > current.x
+                && current.x.wrapping_add(current.width) > other.x
+        }
+    }
+}
+fn better_candidate(
+    direction: Direction,
+    choice: OutputSelection,
+    other: Rect,
+    best: Rect,
+) -> bool {
+    let closest = choice == OutputSelection::Closest;
+    match direction {
+        Direction::Right => {
+            if closest {
+                other.x < best.x
+            } else {
+                other.x > best.x
+            }
+        }
+        Direction::Left => {
+            if closest {
+                other.x > best.x
+            } else {
+                other.x < best.x
+            }
+        }
+        Direction::Down => {
+            if closest {
+                other.y < best.y
+            } else {
+                other.y > best.y
+            }
+        }
+        Direction::Up => {
+            if closest {
+                other.y > best.y
+            } else {
+                other.y < best.y
+            }
+        }
+    }
+}
+fn randr15_version(major: u32, minor: u32, disabled: bool) -> bool {
+    major >= 1 && minor >= 5 && !disabled
+}
+
+unsafe fn native_span<'a, T>(
+    reply: *const T,
+    length: u32,
+    offset: usize,
+    count: usize,
+) -> Option<&'a [u8]> {
+    let total = (length as usize).checked_mul(4)?.checked_add(32)?;
+    if offset.checked_add(count)? > total || total > isize::MAX as usize {
+        return None;
+    }
+    Some(std::slice::from_raw_parts(
+        reply.cast::<u8>().add(offset),
+        count,
+    ))
+}
+fn word(bytes: &[u8], offset: usize) -> Option<u32> {
+    Some(u32::from_ne_bytes(
+        bytes.get(offset..offset.checked_add(4)?)?.try_into().ok()?,
+    ))
+}
+fn short(bytes: &[u8], offset: usize) -> Option<u16> {
+    Some(u16::from_ne_bytes(
+        bytes.get(offset..offset.checked_add(2)?)?.try_into().ok()?,
+    ))
+}
+fn c_name(bytes: &[u8]) -> std::ffi::CString {
+    std::ffi::CString::new(bytes.split(|&byte| byte == 0).next().unwrap_or_default()).unwrap()
+}
+struct MonitorSnapshot {
+    info: xcb_randr_monitor_info_t,
+    outputs: Vec<u32>,
+}
+fn monitor_snapshots(mut bytes: &[u8], count: u32) -> Option<Vec<MonitorSnapshot>> {
+    let mut monitors = Vec::new();
+    for _ in 0..count {
+        let header = bytes.get(..24)?;
+        let output_count = usize::from(short(header, 6)?);
+        let length = output_count.checked_mul(4)?.checked_add(24)?;
+        let record = bytes.get(..length)?;
+        monitors.push(MonitorSnapshot {
+            info: xcb_randr_monitor_info_t {
+                name: word(header, 0)?,
+                primary: header[4],
+                automatic: header[5],
+                nOutput: output_count as u16,
+                x: short(header, 8)? as i16,
+                y: short(header, 10)? as i16,
+                width: short(header, 12)?,
+                height: short(header, 14)?,
+                width_in_millimeters: word(header, 16)?,
+                height_in_millimeters: word(header, 20)?,
+            },
+            outputs: record[24..]
+                .chunks_exact(4)
+                .map(|part| u32::from_ne_bytes(part.try_into().unwrap()))
+                .collect(),
+        });
+        bytes = &bytes[length..];
+    }
+    Some(monitors)
+}
+unsafe fn output_info_name(
+    reply: *const xcb_randr_get_output_info_reply_t,
+) -> Option<std::ffi::CString> {
+    let reply_ref = reply.as_ref()?;
+    let arrays = usize::from(reply_ref.num_crtcs)
+        .checked_add(usize::from(reply_ref.num_modes))?
+        .checked_add(usize::from(reply_ref.num_clones))?;
+    let offset = 36usize.checked_add(arrays.checked_mul(4)?)?;
+    Some(c_name(native_span(
+        reply,
+        reply_ref.length,
+        offset,
+        usize::from(reply_ref.name_len),
+    )?))
+}
+
 unsafe fn get_output_by_id(id: xcb_randr_output_t) -> *mut Output {
     let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
     output = outputs.tqh_first as *mut Output;
@@ -171,11 +296,11 @@ unsafe fn any_randr_output_active() -> bool {
             && !(*output).to_be_disabled
             && (*output).active as ::core::ffi::c_int != 0
         {
-            return true_0 != 0;
+            return true;
         }
         output = (*output).outputs.tqe_next as *mut Output;
     }
-    false_0 != 0
+    false
 }
 
 pub unsafe fn get_output_containing(x: ::core::ffi::c_uint, y: ::core::ffi::c_uint) -> *mut Output {
@@ -197,11 +322,7 @@ pub unsafe fn get_output_containing(x: ::core::ffi::c_uint, y: ::core::ffi::c_ui
                 (*output).rect.width,
                 (*output).rect.height,
             );
-            if x as u32 >= (*output).rect.x
-                && (x as u32) < (*output).rect.x.wrapping_add((*output).rect.width)
-                && y as u32 >= (*output).rect.y
-                && (y as u32) < (*output).rect.y.wrapping_add((*output).rect.height)
-            {
+            if contains_point((*output).rect, x, y) {
                 return output;
             }
         }
@@ -211,10 +332,7 @@ pub unsafe fn get_output_containing(x: ::core::ffi::c_uint, y: ::core::ffi::c_ui
 }
 
 pub unsafe fn get_output_from_rect(rect: Rect) -> *mut Output {
-    let mid_x: ::core::ffi::c_uint = (rect.x as ::core::ffi::c_uint)
-        .wrapping_add((rect.width as ::core::ffi::c_uint).wrapping_div(2 as ::core::ffi::c_uint));
-    let mid_y: ::core::ffi::c_uint = (rect.y as ::core::ffi::c_uint)
-        .wrapping_add((rect.height as ::core::ffi::c_uint).wrapping_div(2 as ::core::ffi::c_uint));
+    let (mid_x, mid_y) = midpoint(rect);
     let output: *mut Output = get_output_containing(mid_x, mid_y);
     if !output.is_null() {
         output
@@ -259,20 +377,10 @@ pub unsafe fn get_output_with_dimensions(rect: Rect) -> *mut Output {
 
 pub unsafe fn output_containing_rect(rect: Rect) -> *mut Output {
     let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
-    let lx: ::core::ffi::c_int = rect.x as ::core::ffi::c_int;
-    let uy: ::core::ffi::c_int = rect.y as ::core::ffi::c_int;
-    let rx: ::core::ffi::c_int = rect.x.wrapping_add(rect.width) as ::core::ffi::c_int;
-    let by: ::core::ffi::c_int = rect.y.wrapping_add(rect.height) as ::core::ffi::c_int;
     let mut result: *mut Output = ::core::ptr::null_mut::<Output>();
     output = outputs.tqh_first as *mut Output;
     while !output.is_null() {
         if (*output).active {
-            let lx_o: ::core::ffi::c_int = (*output).rect.x as ::core::ffi::c_int;
-            let uy_o: ::core::ffi::c_int = (*output).rect.y as ::core::ffi::c_int;
-            let rx_o: ::core::ffi::c_int =
-                (*output).rect.x.wrapping_add((*output).rect.width) as ::core::ffi::c_int;
-            let by_o: ::core::ffi::c_int =
-                (*output).rect.y.wrapping_add((*output).rect.height) as ::core::ffi::c_int;
             debuglog(
                 c"%s:%s:%d - comparing x=%d y=%d with x=%d and y=%d width %d height %d\n"
                     .as_ptr()
@@ -287,17 +395,8 @@ pub unsafe fn output_containing_rect(rect: Rect) -> *mut Output {
                 (*output).rect.width,
                 (*output).rect.height,
             );
-            let left: ::core::ffi::c_int = max(lx, lx_o) as ::core::ffi::c_int;
-            let right: ::core::ffi::c_int = min(rx, rx_o) as ::core::ffi::c_int;
-            let bottom: ::core::ffi::c_int = min(by, by_o) as ::core::ffi::c_int;
-            let top: ::core::ffi::c_int = max(uy, uy_o) as ::core::ffi::c_int;
-            if left < right && bottom > top {
-                let max_area: ::core::ffi::c_long = 0 as ::core::ffi::c_long;
-                let area: ::core::ffi::c_long =
-                    ((right - left) * (bottom - top)) as ::core::ffi::c_long;
-                if area > max_area {
-                    result = output;
-                }
+            if positive_overlap(rect, (*output).rect) {
+                result = output;
             }
         }
         output = (*output).outputs.tqe_next as *mut Output;
@@ -339,61 +438,18 @@ pub unsafe fn get_output_next(
     current: *mut Output,
     close_far: OutputSelection,
 ) -> *mut Output {
-    let cur: *const Rect = &raw mut (*current).rect;
-    let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
-    let mut best: *mut Output = ::core::ptr::null_mut::<Output>();
-    let mut current_block_3: u64;
-    output = outputs.tqh_first as *mut Output;
+    let current_rect = (*current).rect;
+    let mut best: *mut Output = std::ptr::null_mut();
+    let mut output = outputs.tqh_first;
     while !output.is_null() {
-        if (*output).active {
-            let other: *const Rect = &raw mut (*output).rect;
-            if direction == Direction::Right && (*other).x > (*cur).x
-                || direction == Direction::Left && (*other).x < (*cur).x
-            {
-                if (*other).y.wrapping_add((*other).height) <= (*cur).y
-                    || (*cur).y.wrapping_add((*cur).height) <= (*other).y
-                {
-                    current_block_3 = 16668937799742929182;
-                } else {
-                    current_block_3 = 11650488183268122163;
-                }
-            } else if direction == Direction::Down && (*other).y > (*cur).y
-                || direction == Direction::Up && (*other).y < (*cur).y
-            {
-                if (*other).x.wrapping_add((*other).width) <= (*cur).x
-                    || (*cur).x.wrapping_add((*cur).width) <= (*other).x
-                {
-                    current_block_3 = 16668937799742929182;
-                } else {
-                    current_block_3 = 11650488183268122163;
-                }
-            } else {
-                current_block_3 = 16668937799742929182;
-            }
-            match current_block_3 {
-                16668937799742929182 => {}
-                _ => {
-                    if best.is_null() {
-                        best = output;
-                    } else if close_far == OutputSelection::Closest {
-                        if direction == Direction::Right && (*other).x < (*best).rect.x
-                            || direction == Direction::Left && (*other).x > (*best).rect.x
-                            || direction == Direction::Down && (*other).y < (*best).rect.y
-                            || direction == Direction::Up && (*other).y > (*best).rect.y
-                        {
-                            best = output;
-                        }
-                    } else if direction == Direction::Right && (*other).x > (*best).rect.x
-                        || direction == Direction::Left && (*other).x < (*best).rect.x
-                        || direction == Direction::Down && (*other).y > (*best).rect.y
-                        || direction == Direction::Up && (*other).y < (*best).rect.y
-                    {
-                        best = output;
-                    }
-                }
-            }
+        let rect = (*output).rect;
+        if (*output).active
+            && directional_candidate(direction, current_rect, rect)
+            && (best.is_null() || better_candidate(direction, close_far, rect, (*best).rect))
+        {
+            best = output;
         }
-        output = (*output).outputs.tqe_next as *mut Output;
+        output = (*output).outputs.tqe_next;
     }
     debuglog(
         c"%s:%s:%d - current = %s, best = %s\n".as_ptr().cast_mut(),
@@ -413,7 +469,7 @@ pub unsafe fn get_output_next(
 pub unsafe fn create_root_output(conn_0: *mut xcb_connection_t) -> *mut Output {
     let s: *mut Output =
         scalloc(1 as usize, ::core::mem::size_of::<Output>() as usize) as *mut Output;
-    (*s).active = false_0 != 0;
+    (*s).active = false;
     (*s).rect.x = 0 as u32;
     (*s).rect.y = 0 as u32;
     (*s).rect.width = (*root_screen).width_in_pixels as u32;
@@ -430,7 +486,7 @@ pub unsafe fn create_root_output(conn_0: *mut xcb_connection_t) -> *mut Output {
 pub unsafe fn output_init_con(output: *mut Output) {
     let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
-    let mut reused: bool = false_0 != 0;
+    let mut reused: bool = false;
     debuglog(
         c"%s:%s:%d - init_con for output %s\n".as_ptr().cast_mut(),
         c"../src/randr.c".as_ptr(),
@@ -444,7 +500,7 @@ pub unsafe fn output_init_con(output: *mut Output) {
             current = (*current).nodes.tqe_next as *mut Con;
         } else {
             con = current;
-            reused = true_0 != 0;
+            reused = true;
             debuglog(
                 c"%s:%s:%d - Using existing con %p / %s\n"
                     .as_ptr()
@@ -459,7 +515,7 @@ pub unsafe fn output_init_con(output: *mut Output) {
         }
     }
     if con.is_null() {
-        con = con_new(croot, ::core::ptr::null_mut::<i3Window>());
+        con = con_new(croot, ::core::ptr::null_mut::<Window>());
         free((*con).name as *mut ::core::ffi::c_void);
         (*con).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
         (*con).name = sstrdup(output_primary_name(output));
@@ -495,7 +551,7 @@ pub unsafe fn output_init_con(output: *mut Output) {
     );
     let topdock: *mut Con = con_new(
         ::core::ptr::null_mut::<Con>(),
-        ::core::ptr::null_mut::<i3Window>(),
+        ::core::ptr::null_mut::<Window>(),
     );
     (*topdock).type_0 = CT_DOCKAREA;
     (*topdock).layout = Layout::DockArea;
@@ -525,7 +581,7 @@ pub unsafe fn output_init_con(output: *mut Output) {
         c"output_init_con".as_ptr(),
         404 as ::core::ffi::c_int,
     );
-    con_attach(topdock, con, false_0 != 0);
+    con_attach(topdock, con, false);
     debuglog(
         c"%s:%s:%d - adding main content container\n"
             .as_ptr()
@@ -536,7 +592,7 @@ pub unsafe fn output_init_con(output: *mut Output) {
     );
     let content: *mut Con = con_new(
         ::core::ptr::null_mut::<Con>(),
-        ::core::ptr::null_mut::<i3Window>(),
+        ::core::ptr::null_mut::<Window>(),
     );
     (*content).type_0 = CT_CON;
     (*content).layout = Layout::SplitH;
@@ -547,10 +603,10 @@ pub unsafe fn output_init_con(output: *mut Output) {
     x_set_name(content, name);
     free(name as *mut ::core::ffi::c_void);
     name = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    con_attach(content, con, false_0 != 0);
+    con_attach(content, con, false);
     let bottomdock: *mut Con = con_new(
         ::core::ptr::null_mut::<Con>(),
-        ::core::ptr::null_mut::<i3Window>(),
+        ::core::ptr::null_mut::<Window>(),
     );
     (*bottomdock).type_0 = CT_DOCKAREA;
     (*bottomdock).layout = Layout::DockArea;
@@ -579,7 +635,7 @@ pub unsafe fn output_init_con(output: *mut Output) {
         c"output_init_con".as_ptr(),
         438 as ::core::ffi::c_int,
     );
-    con_attach(bottomdock, con, false_0 != 0);
+    con_attach(bottomdock, con, false);
     if !(*content).focused.tqe_next.is_null() {
         (*(*content).focused.tqe_next).focused.tqe_prev = (*content).focused.tqe_prev;
     } else {
@@ -632,7 +688,7 @@ pub unsafe fn init_ws_for_output(output: *mut Output) {
         let mut child: *mut Con = -(1 as ::core::ffi::c_int) as *mut Con;
         while child == -(1 as ::core::ffi::c_int) as *mut Con && {
             child = ::core::ptr::null_mut::<Con>();
-            true_0 != 0
+            true
         } {
             child = (*content).nodes_head.tqh_first as *mut Con;
             while !child.is_null() {
@@ -768,8 +824,9 @@ unsafe fn output_change_mode(conn_0: *mut xcb_connection_t, output: *mut Output)
     }
 }
 unsafe fn randr_query_outputs_15() -> bool {
+    let mut replies = NativeReplies::default();
     if !has_randr_1_5 {
-        return false_0 != 0;
+        return false;
     }
     debuglog(
         c"%s:%s:%d - Querying outputs using RandR 1.5\n"
@@ -780,11 +837,11 @@ unsafe fn randr_query_outputs_15() -> bool {
         593 as ::core::ffi::c_int,
     );
     let mut err: *mut xcb_generic_error_t = ::core::ptr::null_mut::<xcb_generic_error_t>();
-    let monitors: *mut xcb_randr_get_monitors_reply_t = xcb_randr_get_monitors_reply(
+    let monitors: *mut xcb_randr_get_monitors_reply_t = replies.take(xcb_randr_get_monitors_reply(
         conn,
-        xcb_randr_get_monitors(conn, root, true_0 as u8),
+        xcb_randr_get_monitors(conn, root, 1),
         &raw mut err,
-    );
+    ));
     if !err.is_null() {
         errorlog(
             c"ERROR: Could not get RandR monitors: X11 error code %d\n"
@@ -793,13 +850,16 @@ unsafe fn randr_query_outputs_15() -> bool {
             (*err).error_code as ::core::ffi::c_int,
         );
         free(err as *mut ::core::ffi::c_void);
-        return false_0 != 0;
+        return false;
+    }
+    if monitors.is_null() {
+        return false;
     }
     let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
     output = outputs.tqh_first as *mut Output;
     while !output.is_null() {
         if output != root_output {
-            (*output).to_be_disabled = true_0 != 0;
+            (*output).to_be_disabled = true;
         }
         output = (*output).outputs.tqe_next as *mut Output;
     }
@@ -813,19 +873,27 @@ unsafe fn randr_query_outputs_15() -> bool {
         xcb_randr_get_monitors_monitors_length(monitors),
         (*monitors).timestamp,
     );
-    let mut iter: xcb_randr_monitor_info_iterator_t = xcb_randr_monitor_info_iterator_t {
-        data: ::core::ptr::null_mut::<xcb_randr_monitor_info_t>(),
-        rem: 0,
-        index: 0,
+    if monitors.is_null() {
+        return false;
+    }
+    let Some(body) = native_span(
+        monitors,
+        (*monitors).length,
+        32,
+        (*monitors).length as usize * 4,
+    ) else {
+        return false;
     };
-    iter = xcb_randr_get_monitors_monitors_iterator(monitors);
-    while iter.rem != 0 {
-        let monitor_info: *const xcb_randr_monitor_info_t = iter.data;
-        let atom_reply: *mut xcb_get_atom_name_reply_t = xcb_get_atom_name_reply(
+    let Some(snapshot) = monitor_snapshots(body, (*monitors).nMonitors) else {
+        return false;
+    };
+    for monitor in snapshot {
+        let monitor_info = &monitor.info as *const xcb_randr_monitor_info_t;
+        let atom_reply: *mut xcb_get_atom_name_reply_t = replies.take(xcb_get_atom_name_reply(
             conn,
             xcb_get_atom_name(conn, (*monitor_info).name),
             &raw mut err,
-        );
+        ));
         if !err.is_null() {
             errorlog(
                 c"ERROR: Could not get RandR monitor name: X11 error code %d\n"
@@ -835,40 +903,40 @@ unsafe fn randr_query_outputs_15() -> bool {
             );
             free(err as *mut ::core::ffi::c_void);
         } else {
-            let mut name: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut name,
-                c"%.*s".as_ptr(),
-                xcb_get_atom_name_name_length(atom_reply),
-                xcb_get_atom_name_name(atom_reply),
-            );
-            free(atom_reply as *mut ::core::ffi::c_void);
-            let mut new: *mut Output = get_output_by_name(name, false_0 != 0);
+            if atom_reply.is_null() {
+                continue;
+            }
+            let Some(bytes) = native_span(
+                atom_reply,
+                (*atom_reply).length,
+                32,
+                usize::from((*atom_reply).name_len),
+            ) else {
+                continue;
+            };
+            let name_owned = c_name(bytes);
+            let name = name_owned.as_ptr();
+            let mut new: *mut Output = get_output_by_name(name, false);
             if new.is_null() {
                 new = scalloc(1 as usize, ::core::mem::size_of::<Output>() as usize) as *mut Output;
                 (*new).names_head.slh_first = ::core::ptr::null_mut::<output_name>();
-                let randr_outputs: *mut xcb_randr_output_t =
-                    xcb_randr_monitor_info_outputs(monitor_info);
-                let randr_output_len: ::core::ffi::c_int =
-                    xcb_randr_monitor_info_outputs_length(monitor_info);
+                let randr_outputs = monitor.outputs.as_ptr();
+                let randr_output_len = monitor.outputs.len() as i32;
                 let mut i: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
                 while i < randr_output_len {
                     let randr_output: xcb_randr_output_t = *randr_outputs.offset(i as isize);
                     let mut info: *mut xcb_randr_get_output_info_reply_t =
-                        xcb_randr_get_output_info_reply(
+                        replies.take(xcb_randr_get_output_info_reply(
                             conn,
                             xcb_randr_get_output_info(conn, randr_output, (*monitors).timestamp),
                             ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-                        );
+                        ));
                     if !info.is_null() && (*info).crtc as ::core::ffi::c_long != XCB_NONE {
-                        let mut oname: *mut ::core::ffi::c_char =
-                            ::core::ptr::null_mut::<::core::ffi::c_char>();
-                        sasprintf(
-                            &raw mut oname,
-                            c"%.*s".as_ptr(),
-                            xcb_randr_get_output_info_name_length(info),
-                            xcb_randr_get_output_info_name(info),
-                        );
+                        let Some(oname_owned) = output_info_name(info) else {
+                            i += 1;
+                            continue;
+                        };
+                        let oname = oname_owned.as_ptr();
                         if strcmp(name, oname) != 0 as ::core::ffi::c_int {
                             let output_name: *mut output_name =
                                 scalloc(1 as usize, ::core::mem::size_of::<output_name>() as usize)
@@ -877,9 +945,7 @@ unsafe fn randr_query_outputs_15() -> bool {
                             (*output_name).names.sle_next = (*new).names_head.slh_first;
                             (*new).names_head.slh_first = output_name;
                         }
-                        free(oname as *mut ::core::ffi::c_void);
                     }
-                    free(info as *mut ::core::ffi::c_void);
                     info = ::core::ptr::null_mut::<xcb_randr_get_output_info_reply_t>();
                     i += 1;
                 }
@@ -905,8 +971,8 @@ unsafe fn randr_query_outputs_15() -> bool {
                     outputs.tqh_last = &raw mut (*new).outputs.tqe_next;
                 }
             }
-            (*new).active = true_0 != 0;
-            (*new).to_be_disabled = false_0 != 0;
+            (*new).active = true;
+            (*new).to_be_disabled = false;
             (*new).primary = (*monitor_info).primary != 0;
             let update_x: bool =
                 update_if_necessary(&raw mut (*new).rect.x, (*monitor_info).x as u32) as bool;
@@ -937,12 +1003,9 @@ unsafe fn randr_query_outputs_15() -> bool {
                 (*monitor_info).primary as ::core::ffi::c_int,
                 (*monitor_info).automatic as ::core::ffi::c_int,
             );
-            free(name as *mut ::core::ffi::c_void);
         }
-        xcb_randr_monitor_info_next(&raw mut iter);
     }
-    free(monitors as *mut ::core::ffi::c_void);
-    true_0 != 0
+    true
 }
 unsafe fn handle_output(
     conn_0: *mut xcb_connection_t,
@@ -951,6 +1014,10 @@ unsafe fn handle_output(
     cts: xcb_timestamp_t,
     res: *mut xcb_randr_get_screen_resources_current_reply_t,
 ) {
+    let mut replies = NativeReplies::default();
+    let Some(name) = output_info_name(output) else {
+        return;
+    };
     let mut crtc: *mut xcb_randr_get_crtc_info_reply_t =
         ::core::ptr::null_mut::<xcb_randr_get_crtc_info_reply_t>();
     let mut new: *mut Output = get_output_by_id(id);
@@ -971,12 +1038,7 @@ unsafe fn handle_output(
     }
     let output_name: *mut output_name =
         scalloc(1 as usize, ::core::mem::size_of::<output_name>() as usize) as *mut output_name;
-    sasprintf(
-        &raw mut (*output_name).name,
-        c"%.*s".as_ptr(),
-        xcb_randr_get_output_info_name_length(output),
-        xcb_randr_get_output_info_name(output),
-    );
+    (*output_name).name = sstrdup(name.as_ptr());
     (*output_name).names.sle_next = (*new).names_head.slh_first;
     (*new).names_head.slh_first = output_name;
     debuglog(
@@ -1006,17 +1068,17 @@ unsafe fn handle_output(
                 outputs.tqh_last = &raw mut (*new).outputs.tqe_next;
             }
         } else if (*new).active {
-            (*new).to_be_disabled = true_0 != 0;
+            (*new).to_be_disabled = true;
         }
         return;
     }
     let icookie: xcb_randr_get_crtc_info_cookie_t =
         xcb_randr_get_crtc_info(conn_0, (*output).crtc, cts) as xcb_randr_get_crtc_info_cookie_t;
-    crtc = xcb_randr_get_crtc_info_reply(
+    crtc = replies.take(xcb_randr_get_crtc_info_reply(
         conn_0,
         icookie,
         ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
+    ));
     if crtc.is_null() {
         debuglog(
             c"%s:%s:%d - Skipping output %s: could not get CRTC (%p)\n"
@@ -1040,7 +1102,6 @@ unsafe fn handle_output(
         || update_y as ::core::ffi::c_int != 0
         || update_w as ::core::ffi::c_int != 0
         || update_h as ::core::ffi::c_int != 0;
-    free(crtc as *mut ::core::ffi::c_void);
     (*new).active = (*new).rect.width != 0 as u32 && (*new).rect.height != 0 as u32;
     if !(*new).active {
         debuglog(
@@ -1083,9 +1144,10 @@ unsafe fn handle_output(
         }
         return;
     }
-    (*new).changed = true_0 != 0;
+    (*new).changed = true;
 }
 unsafe fn randr_query_outputs_14() {
+    let mut replies = NativeReplies::default();
     debuglog(
         c"%s:%s:%d - Querying outputs using RandR ≤ 1.4\n"
             .as_ptr()
@@ -1120,11 +1182,11 @@ unsafe fn randr_query_outputs_14() {
         );
     }
     let mut res: *mut xcb_randr_get_screen_resources_current_reply_t =
-        xcb_randr_get_screen_resources_current_reply(
+        replies.take(xcb_randr_get_screen_resources_current_reply(
             conn,
             rcookie,
             ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-        );
+        ));
     if res.is_null() {
         errorlog(
             c"ERROR: Could not query screen resources.\n"
@@ -1134,35 +1196,39 @@ unsafe fn randr_query_outputs_14() {
         return;
     }
     let cts: xcb_timestamp_t = (*res).config_timestamp;
-    let len: ::core::ffi::c_int =
-        xcb_randr_get_screen_resources_current_outputs_length(res) as ::core::ffi::c_int;
-    let randr_outputs: *mut xcb_randr_output_t =
-        xcb_randr_get_screen_resources_current_outputs(res);
-    let vla = len as usize;
-    let mut ocookie: Vec<xcb_randr_get_output_info_cookie_t> =
-        ::std::vec::from_elem(xcb_randr_get_output_info_cookie_t { sequence: 0 }, vla);
-    let mut i: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    while i < len {
-        *ocookie.as_mut_ptr().offset(i as isize) =
-            xcb_randr_get_output_info(conn, *randr_outputs.offset(i as isize), cts);
-        i += 1;
-    }
+    let offset = 32 + usize::from((*res).num_crtcs) * 4;
+    let Some(bytes) = native_span(
+        res,
+        (*res).length,
+        offset,
+        usize::from((*res).num_outputs) * 4,
+    ) else {
+        return;
+    };
+    let ids: Vec<_> = bytes
+        .chunks_exact(4)
+        .map(|word| u32::from_ne_bytes(word.try_into().unwrap()))
+        .collect();
+    let len = ids.len() as i32;
+    let randr_outputs = ids.as_ptr();
+    let ocookie: Vec<_> = ids
+        .iter()
+        .map(|&id| xcb_randr_get_output_info(conn, id, cts))
+        .collect();
     let mut i_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
     while i_0 < len {
         let mut output: *mut xcb_randr_get_output_info_reply_t =
             ::core::ptr::null_mut::<xcb_randr_get_output_info_reply_t>();
-        output = xcb_randr_get_output_info_reply(
+        output = replies.take(xcb_randr_get_output_info_reply(
             conn,
-            *ocookie.as_mut_ptr().offset(i_0 as isize),
+            ocookie[i_0 as usize],
             ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-        );
+        ));
         if !output.is_null() {
             handle_output(conn, *randr_outputs.offset(i_0 as isize), output, cts, res);
-            free(output as *mut ::core::ffi::c_void);
         }
         i_0 += 1;
     }
-    free(res as *mut ::core::ffi::c_void);
     res = ::core::ptr::null_mut::<xcb_randr_get_screen_resources_current_reply_t>();
 }
 unsafe fn move_content(con: *mut Con) {
@@ -1183,7 +1249,7 @@ unsafe fn move_content(con: *mut Con) {
                 current,
                 (*current).name,
             );
-            tree_close_internal(current, KillWindow::DontKill, false_0 != 0);
+            tree_close_internal(current, KillWindow::DontKill, false);
         } else {
             debuglog(
                 c"%s:%s:%d - Detaching current = %p / %s\n"
@@ -1206,7 +1272,7 @@ unsafe fn move_content(con: *mut Con) {
                 current,
                 (*current).name,
             );
-            con_attach(current, first_content, false_0 != 0);
+            con_attach(current, first_content, false);
             debuglog(
                 c"%s:%s:%d - Fixing the coordinates of floating containers\n"
                     .as_ptr()
@@ -1255,7 +1321,7 @@ unsafe fn move_content(con: *mut Con) {
                 let mut match_0: *mut Match = ::core::ptr::null_mut::<Match>();
                 let dock: *mut Con = (*child).nodes_head.tqh_first as *mut Con;
                 let nc: *mut Con =
-                    con_for_window(first, (*dock).window as *mut i3Window, &raw mut match_0);
+                    con_for_window(first, (*dock).window as *mut Window, &raw mut match_0);
                 debuglog(
                     c"%s:%s:%d - Moving dock client %p to nc %p\n"
                         .as_ptr()
@@ -1273,7 +1339,7 @@ unsafe fn move_content(con: *mut Con) {
                     c"move_content".as_ptr(),
                     910 as ::core::ffi::c_int,
                 );
-                con_attach(dock, nc, false_0 != 0);
+                con_attach(dock, nc, false);
                 debuglog(
                     c"%s:%s:%d - Done\n".as_ptr().cast_mut(),
                     c"../src/randr.c".as_ptr(),
@@ -1293,7 +1359,7 @@ unsafe fn move_content(con: *mut Con) {
         916 as ::core::ffi::c_int,
         con,
     );
-    tree_close_internal(con, KillWindow::DontKill, true_0 != 0);
+    tree_close_internal(con, KillWindow::DontKill, true);
 }
 
 pub unsafe fn randr_query_outputs() {
@@ -1310,7 +1376,7 @@ pub unsafe fn randr_query_outputs() {
             933 as ::core::ffi::c_int,
         );
         if !root_output.is_null() && (*root_output).active as ::core::ffi::c_int != 0 {
-            (*root_output).to_be_disabled = true_0 != 0;
+            (*root_output).to_be_disabled = true;
         }
     } else {
         debuglog(
@@ -1321,7 +1387,7 @@ pub unsafe fn randr_query_outputs() {
             c"randr_query_outputs".as_ptr(),
             938 as ::core::ffi::c_int,
         );
-        (*root_output).active = true_0 != 0;
+        (*root_output).active = true;
     }
     let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
     output = outputs.tqh_first as *mut Output;
@@ -1373,7 +1439,7 @@ pub unsafe fn randr_query_outputs() {
                         if update_w as ::core::ffi::c_int != 0
                             || update_h as ::core::ffi::c_int != 0
                         {
-                            (*output).changed = true_0 != 0;
+                            (*output).changed = true;
                         }
                         update_if_necessary(&raw mut (*other).rect.width, width);
                         update_if_necessary(&raw mut (*other).rect.height, height);
@@ -1385,7 +1451,7 @@ pub unsafe fn randr_query_outputs() {
                             other,
                             output_primary_name(other),
                         );
-                        (*other).to_be_disabled = true_0 != 0;
+                        (*other).to_be_disabled = true;
                         debuglog(
                             c"%s:%s:%d - new output mode %d x %d, other mode %d x %d\n"
                                 .as_ptr()
@@ -1418,14 +1484,14 @@ pub unsafe fn randr_query_outputs() {
                 output_primary_name(output),
             );
             output_init_con(output);
-            (*output).changed = false_0 != 0;
+            (*output).changed = false;
         }
         output = (*output).outputs.tqe_next as *mut Output;
     }
     let mut con: *mut Con = (*croot).nodes_head.tqh_first as *mut Con;
     while !con.is_null() {
         let next: *mut Con = (*con).nodes.tqe_next as *mut Con;
-        if !con_is_internal(con) && get_output_by_name((*con).name, true_0 != 0).is_null() {
+        if !con_is_internal(con) && get_output_by_name((*con).name, true).is_null() {
             debuglog(
                 c"%s:%s:%d - No output %s found, moving its old content to first output\n"
                     .as_ptr()
@@ -1446,7 +1512,7 @@ pub unsafe fn randr_query_outputs() {
         }
         if (*output).changed {
             output_change_mode(conn, output);
-            (*output).changed = false_0 != 0;
+            (*output).changed = false;
         }
         output = (*output).outputs.tqe_next as *mut Output;
     }
@@ -1503,7 +1569,7 @@ pub unsafe fn randr_disable_output(output: *mut Output) {
             c"void randr_disable_output(Output *)".as_ptr(),
         );
     };
-    (*output).active = false_0 != 0;
+    (*output).active = false;
     debuglog(
         c"%s:%s:%d - Output %s disabled, re-assigning workspaces/docks\n"
             .as_ptr()
@@ -1518,16 +1584,17 @@ pub unsafe fn randr_disable_output(output: *mut Output) {
         (*output).con = ::core::ptr::null_mut::<Con>();
         move_content(con);
     }
-    (*output).to_be_disabled = false_0 != 0;
-    (*output).changed = false_0 != 0;
+    (*output).to_be_disabled = false;
+    (*output).changed = false;
 }
 unsafe fn fallback_to_root_output() {
-    (*root_output).active = true_0 != 0;
+    (*root_output).active = true;
     output_init_con(root_output);
     init_ws_for_output(root_output);
 }
 
 pub unsafe fn randr_init(event_base: *mut ::core::ffi::c_int, disable_randr15: bool) {
+    let mut replies = NativeReplies::default();
     root_output = create_root_output(conn);
     (*root_output).outputs.tqe_next = ::core::ptr::null_mut::<xoutput>();
     (*root_output).outputs.tqe_prev = outputs.tqh_last;
@@ -1548,15 +1615,16 @@ pub unsafe fn randr_init(event_base: *mut ::core::ffi::c_int, disable_randr15: b
         return;
     }
     let mut err: *mut xcb_generic_error_t = ::core::ptr::null_mut::<xcb_generic_error_t>();
-    let randr_version: *mut xcb_randr_query_version_reply_t = xcb_randr_query_version_reply(
-        conn,
-        xcb_randr_query_version(
+    let randr_version: *mut xcb_randr_query_version_reply_t =
+        replies.take(xcb_randr_query_version_reply(
             conn,
-            XCB_RANDR_MAJOR_VERSION as u32,
-            XCB_RANDR_MINOR_VERSION as u32,
-        ),
-        &raw mut err,
-    );
+            xcb_randr_query_version(
+                conn,
+                XCB_RANDR_MAJOR_VERSION as u32,
+                XCB_RANDR_MINOR_VERSION as u32,
+            ),
+            &raw mut err,
+        ));
     if !err.is_null() {
         errorlog(
             c"ERROR: Could not query RandR version: X11 error code %d\n"
@@ -1568,10 +1636,15 @@ pub unsafe fn randr_init(event_base: *mut ::core::ffi::c_int, disable_randr15: b
         fallback_to_root_output();
         return;
     }
-    has_randr_1_5 = (*randr_version).major_version >= 1 as u32
-        && (*randr_version).minor_version >= 5 as u32
-        && !disable_randr15;
-    free(randr_version as *mut ::core::ffi::c_void);
+    if randr_version.is_null() {
+        fallback_to_root_output();
+        return;
+    }
+    has_randr_1_5 = randr15_version(
+        (*randr_version).major_version,
+        (*randr_version).minor_version,
+        disable_randr15,
+    );
     randr_query_outputs();
     if !event_base.is_null() {
         *event_base = (*extension_reply).first_event as ::core::ffi::c_int;
@@ -1652,8 +1725,6 @@ pub use crate::types::Con;
 pub use crate::types::Match;
 pub use crate::types::Rect;
 pub use crate::types::Window;
-pub use i3_common::font::Font;
-pub use i3_common::string::I3String as _i3String;
 
 // Internal calls and globals use canonical Rust identities.
 use crate::application::conn;
@@ -1682,3 +1753,110 @@ use crate::workspace::get_assigned_output;
 use crate::workspace::workspace_move_to_output;
 use crate::workspace::workspace_show;
 use crate::x::x_set_name;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn rect(x: i32, y: i32, width: u32, height: u32) -> Rect {
+        Rect {
+            x: x as u32,
+            y: y as u32,
+            width,
+            height,
+        }
+    }
+    #[test]
+    fn geometry_keeps_unsigned_containment_wrapping_and_last_positive_overlap() {
+        assert!(contains_point(rect(0, 0, 10, 10), 0, 9));
+        assert!(!contains_point(rect(0, 0, 10, 10), 10, 0));
+        // Negative-bit origins which wrap across zero retain the old unsigned test.
+        assert!(!contains_point(rect(-1, 0, 10, 10), u32::MAX, 0));
+        assert_eq!(midpoint(rect(-1, -1, 4, 4)), (1, 1));
+        let wanted = rect(-20, -10, 100, 100);
+        let candidates = [
+            rect(-100, -100, 100, 100),
+            rect(0, 0, 50, 50),
+            rect(70, 70, 1, 1),
+        ];
+        assert_eq!(
+            candidates
+                .iter()
+                .rposition(|&output| positive_overlap(wanted, output)),
+            Some(2)
+        );
+        assert!(!positive_overlap(rect(0, 0, 10, 10), rect(10, 0, 10, 10)));
+    }
+    #[test]
+    fn directional_candidates_require_cross_axis_overlap_and_preserve_ties() {
+        let current = rect(0, 0, 100, 100);
+        assert!(directional_candidate(
+            Direction::Right,
+            current,
+            rect(100, 50, 20, 20)
+        ));
+        assert!(!directional_candidate(
+            Direction::Right,
+            current,
+            rect(100, 100, 20, 20)
+        ));
+        assert!(directional_candidate(
+            Direction::Down,
+            current,
+            rect(50, 100, 20, 20)
+        ));
+        assert!(better_candidate(
+            Direction::Right,
+            OutputSelection::Closest,
+            rect(101, 0, 1, 1),
+            rect(102, 0, 1, 1)
+        ));
+        assert!(!better_candidate(
+            Direction::Right,
+            OutputSelection::Farthest,
+            rect(101, 0, 1, 1),
+            rect(102, 0, 1, 1)
+        ));
+        assert!(!better_candidate(
+            Direction::Left,
+            OutputSelection::Closest,
+            current,
+            current
+        ));
+    }
+    #[test]
+    fn monitor_wire_records_bound_nested_output_arrays_and_keep_order() {
+        let mut bytes = Vec::new();
+        bytes.extend(42u32.to_ne_bytes());
+        bytes.extend([1, 0]);
+        bytes.extend(2u16.to_ne_bytes());
+        for number in [(-1920i16) as u16, 0, 1920, 1080] {
+            bytes.extend(number.to_ne_bytes());
+        }
+        bytes.extend(500u32.to_ne_bytes());
+        bytes.extend(300u32.to_ne_bytes());
+        bytes.extend(9u32.to_ne_bytes());
+        bytes.extend(8u32.to_ne_bytes());
+        let snapshots = monitor_snapshots(&bytes, 1).unwrap();
+        assert_eq!(snapshots[0].outputs, [9, 8]);
+        assert_eq!(
+            (
+                snapshots[0].info.name,
+                snapshots[0].info.x,
+                snapshots[0].info.width
+            ),
+            (42, -1920, 1920)
+        );
+        for length in 0..bytes.len() {
+            assert!(monitor_snapshots(&bytes[..length], 1).is_none());
+        }
+        assert!(monitor_snapshots(&bytes, 2).is_none());
+        assert_eq!(c_name(b"raw\xff\0tail").to_bytes(), b"raw\xff");
+    }
+    #[test]
+    fn version_gate_keeps_the_existing_major_and_minor_policy() {
+        assert!(randr15_version(1, 5, false));
+        assert!(!randr15_version(1, 5, true));
+        assert!(!randr15_version(1, 4, false));
+        assert!(!randr15_version(2, 0, false));
+    }
+}

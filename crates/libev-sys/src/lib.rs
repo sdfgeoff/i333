@@ -149,6 +149,7 @@ unsafe extern "C" {
     );
     pub fn ev_io_start(loop_0: *mut ev_loop, w: *mut ev_io);
     pub fn ev_signal_start(loop_0: *mut ev_loop, w: *mut ev_signal);
+    pub fn ev_signal_stop(loop_0: *mut ev_loop, w: *mut ev_signal);
     pub fn ev_prepare_start(loop_0: *mut ev_loop, w: *mut ev_prepare);
     pub fn ev_prepare_stop(loop_0: *mut ev_loop, w: *mut ev_prepare);
     pub fn ev_break(loop_0: *mut ev_loop, how: ::core::ffi::c_int);

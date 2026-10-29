@@ -16,6 +16,11 @@ use crate::types::Orientation;
 use crate::types::ScratchpadState;
 use crate::types::ShutdownReason;
 use i3_common::safewrappers::sasprintf;
+use std::cell::RefCell;
+use std::ffi::{CStr, CString};
+use std::io::Read;
+use std::os::fd::{FromRawFd, IntoRawFd};
+use std::rc::Rc;
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -27,14 +32,11 @@ use i3_common::safewrappers::sasprintf;
  */
 // Mechanical file-by-file Rust translation of src/ipc.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
+pub use i3_json::compat::{yajl_alloc_funcs, yajl_gen};
 use i3_json::compat::{
-    yajl_alloc, yajl_free, yajl_free_error, yajl_gen_alloc, yajl_gen_array_close,
-    yajl_gen_array_open, yajl_gen_bool, yajl_gen_double, yajl_gen_free, yajl_gen_get_buf,
-    yajl_gen_integer, yajl_gen_map_close, yajl_gen_map_open, yajl_gen_null, yajl_gen_string,
-    yajl_get_error, yajl_parse,
-};
-pub use i3_json::compat::{
-    yajl_alloc_funcs, yajl_callbacks, yajl_gen, yajl_handle, yajl_status, yajl_status_ok,
+    yajl_gen_alloc, yajl_gen_array_close, yajl_gen_array_open, yajl_gen_bool, yajl_gen_double,
+    yajl_gen_free, yajl_gen_get_buf, yajl_gen_integer, yajl_gen_map_close, yajl_gen_map_open,
+    yajl_gen_null, yajl_gen_string,
 };
 pub use libev_sys::{
     ev_io, ev_io_start, ev_io_stop, ev_loop, ev_timer, ev_timer_start, ev_timer_stop, ev_tstamp,
@@ -108,13 +110,6 @@ pub struct ipc_client_head {
     pub tqh_last: *mut *mut ipc_client,
 }
 pub type ylength = usize;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct sync_state {
-    pub last_key: *mut ::core::ffi::c_char,
-    pub rnd: u32,
-    pub window: xcb_window_t,
-}
 pub use crate::assignments::CommandResult;
 
 pub const MAJOR_VERSION: ::core::ffi::c_int = 4 as ::core::ffi::c_int;
@@ -171,123 +166,133 @@ static mut kill_timeout: ev_tstamp = 10.0f64;
 pub unsafe fn ipc_set_kill_timeout(new: ev_tstamp) {
     kill_timeout = new;
 }
-unsafe fn ipc_push_pending(client: *mut ipc_client) {
-    let result: isize = writeall_nonblock(
-        (*client).fd,
-        (*client).buffer as *const ::core::ffi::c_void,
-        (*client).buffer_size,
-    ) as isize;
-    if result < 0 as isize {
-        return;
-    }
-    if result as usize == (*client).buffer_size {
-        free((*client).buffer as *mut ::core::ffi::c_void);
-        (*client).buffer = ::core::ptr::null_mut::<u8>();
-        (*client).buffer_size = 0 as usize;
-        if !(*client).timeout.is_null() {
-            ev_timer_stop(main_loop, (*client).timeout as *mut ev_timer);
-            free((*client).timeout as *mut ::core::ffi::c_void);
-            (*client).timeout = ::core::ptr::null_mut::<ev_timer>();
+struct NumericLocale(CString);
+impl NumericLocale {
+    /// Process-global native locale users must be externally serialized.
+    unsafe fn c() -> Option<Self> {
+        let ptr = setlocale(LC_NUMERIC, std::ptr::null());
+        if ptr.is_null() {
+            return None;
         }
-        ev_io_stop(main_loop, (*client).write_callback as *mut ev_io);
-        return;
+        let old = CStr::from_ptr(ptr).to_owned();
+        setlocale(LC_NUMERIC, c"C".as_ptr());
+        Some(Self(old))
     }
-    ev_io_start(main_loop, (*client).write_callback as *mut ev_io);
-    if (*client).timeout.is_null() {
-        let timeout: *mut ev_timer =
-            scalloc(1 as usize, ::core::mem::size_of::<ev_timer>() as usize) as *mut ev_timer;
-        let ref mut fresh2 = (*(timeout as *mut ::core::ffi::c_void as *mut ev_watcher)).pending;
-        *fresh2 = 0 as ::core::ffi::c_int;
-        (*(timeout as *mut ::core::ffi::c_void as *mut ev_watcher)).active = *fresh2;
-        (*(timeout as *mut ::core::ffi::c_void as *mut ev_watcher)).priority =
-            0 as ::core::ffi::c_int;
-        (*timeout).cb = Some(
-            ipc_client_timeout
-                as unsafe extern "C" fn(*mut ev_loop, *mut ev_timer, ::core::ffi::c_int) -> (),
-        )
-            as Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_timer, ::core::ffi::c_int) -> ()>;
-        memmove(
-            &raw mut (*(timeout as *mut ev_watcher)).cb as *mut ::core::ffi::c_void,
-            &raw mut (*timeout).cb as *const ::core::ffi::c_void,
-            ::core::mem::size_of::<
-                Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_timer, ::core::ffi::c_int) -> ()>,
-            >() as usize,
-        );
-        (*(timeout as *mut ev_watcher_time)).at = kill_timeout;
-        (*timeout).repeat = 0.0f64 as ev_tstamp;
-        (*timeout).data = client as *mut ::core::ffi::c_void;
-        (*client).timeout = timeout as *mut ev_timer;
-        (*(timeout as *mut ::core::ffi::c_void as *mut ev_watcher)).priority =
-            if 0x7f as ::core::ffi::c_int & 4 as ::core::ffi::c_int != 0 {
-                -(2 as ::core::ffi::c_int)
-            } else {
-                0 as ::core::ffi::c_int
-            };
-        ev_timer_start(main_loop, (*client).timeout as *mut ev_timer);
-    } else if result > 0 as isize {
-        ev_timer_stop(main_loop, (*client).timeout as *mut ev_timer);
-        (*((*client).timeout as *mut ev_watcher_time)).at = kill_timeout;
-        (*(*client).timeout).repeat = 0.0f64 as ev_tstamp;
-        ev_timer_start(main_loop, (*client).timeout as *mut ev_timer);
-    }
-    if result == 0 as isize {
-        return;
-    }
-    (*client).buffer_size = (*client).buffer_size.wrapping_sub(result as usize);
-    memmove(
-        (*client).buffer as *mut ::core::ffi::c_void,
-        (*client).buffer.offset(result as isize) as *const ::core::ffi::c_void,
-        (*client).buffer_size,
-    );
-    (*client).buffer = srealloc(
-        (*client).buffer as *mut ::core::ffi::c_void,
-        (*client).buffer_size,
-    ) as *mut u8;
 }
+impl Drop for NumericLocale {
+    fn drop(&mut self) {
+        unsafe {
+            setlocale(LC_NUMERIC, self.0.as_ptr());
+        }
+    }
+}
+struct JsonOwner(yajl_gen);
+impl JsonOwner {
+    fn new() -> Self {
+        Self(Box::into_raw(Box::new(i3_json::Generator::new())).cast())
+    }
+}
+impl Drop for JsonOwner {
+    fn drop(&mut self) {
+        unsafe {
+            yajl_gen_free(self.0);
+        }
+    }
+}
+static mut NEXT_CLIENT_GENERATION: u64 = 1;
+#[derive(Clone, Copy)]
+struct ClientToken {
+    pointer: *mut ipc_client,
+    generation: u64,
+}
+impl ClientToken {
+    unsafe fn capture(client: *mut ipc_client) -> Self {
+        Self {
+            pointer: client,
+            generation: (*client).generation,
+        }
+    }
+    unsafe fn live(self) -> bool {
+        let mut current = all_clients.tqh_first;
+        while !current.is_null() {
+            if current == self.pointer {
+                return (*current).generation == self.generation;
+            }
+            current = (*current).clients.tqe_next;
+        }
+        false
+    }
+}
+fn encode_frame(message_type: u32, payload: &[u8]) -> Vec<u8> {
+    let length = u32::try_from(payload.len()).expect("IPC payload exceeds u32 wire size");
+    let mut frame = Vec::with_capacity(
+        14usize
+            .checked_add(payload.len())
+            .expect("IPC frame size overflow"),
+    );
+    frame.extend_from_slice(b"i3-ipc");
+    frame.extend_from_slice(&length.to_ne_bytes());
+    frame.extend_from_slice(&message_type.to_ne_bytes());
+    frame.extend_from_slice(payload);
+    frame
+}
+unsafe fn ipc_push_pending(client: *mut ipc_client) {
+    // Move bytes out of the client slot before native IO; no client reference is
+    // held while callbacks/dispatch elsewhere can mutate client ownership.
+    let mut queue = std::mem::take(&mut (*client).buffer);
+    let result = writeall_nonblock((*client).fd, queue.as_ptr().cast(), queue.len());
+    if result < 0 {
+        (*client).buffer = queue;
+        return;
+    }
+    let count = result as usize;
+    assert!(count <= queue.len());
+    queue.drain(..count);
+    (*client).buffer = queue;
+    if (*client).buffer.is_empty() {
+        if !(*client).timeout.is_null() {
+            ev_timer_stop(main_loop, (*client).timeout);
+            drop(Box::from_raw((*client).timeout));
+            (*client).timeout = std::ptr::null_mut();
+        }
+        ev_io_stop(main_loop, (*client).write_callback);
+        return;
+    }
+    ev_io_start(main_loop, (*client).write_callback);
+    if (*client).timeout.is_null() {
+        let mut timer = Box::new(ev_timer::new(kill_timeout, 0.0, ipc_client_timeout));
+        timer.data = client.cast();
+        timer.priority = -2;
+        (*client).timeout = Box::into_raw(timer);
+        ev_timer_start(main_loop, (*client).timeout);
+    } else if count > 0 {
+        ev_timer_stop(main_loop, (*client).timeout);
+        (*(*client).timeout).at = kill_timeout;
+        (*(*client).timeout).repeat = 0.0;
+        ev_timer_start(main_loop, (*client).timeout);
+    }
+}
+/// Live event-thread client and readable payload span. No client borrow survives
+/// native IO or dispatch; the published client address stays stable until free.
 unsafe fn ipc_send_client_message(
     client: *mut ipc_client,
     size: usize,
     message_type: u32,
     payload: *const u8,
 ) {
-    let header: i3_ipc_header_t = i3_ipc_header {
-        magic: [
-            'i' as i32 as ::core::ffi::c_char,
-            '3' as i32 as ::core::ffi::c_char,
-            '-' as i32 as ::core::ffi::c_char,
-            'i' as i32 as ::core::ffi::c_char,
-            'p' as i32 as ::core::ffi::c_char,
-            'c' as i32 as ::core::ffi::c_char,
-        ],
-        size: size as u32,
-        type_0: message_type,
+    let payload = if size == 0 {
+        &[]
+    } else {
+        std::slice::from_raw_parts(payload, size)
     };
-    let header_size: usize = ::core::mem::size_of::<i3_ipc_header_t>() as usize;
-    let message_size: usize = header_size.wrapping_add(size);
-    let push_now: bool = (*client).buffer_size == 0 as usize;
-    (*client).buffer = srealloc(
-        (*client).buffer as *mut ::core::ffi::c_void,
-        (*client).buffer_size.wrapping_add(message_size),
-    ) as *mut u8;
-    memcpy(
-        (*client).buffer.offset((*client).buffer_size as isize) as *mut ::core::ffi::c_void,
-        &raw const header as *mut ::core::ffi::c_void,
-        header_size,
-    );
-    memcpy(
-        (*client)
-            .buffer
-            .offset((*client).buffer_size as isize)
-            .offset(header_size as isize) as *mut ::core::ffi::c_void,
-        payload as *const ::core::ffi::c_void,
-        size,
-    );
-    (*client).buffer_size = (*client).buffer_size.wrapping_add(message_size);
+    let frame = encode_frame(message_type, payload);
+    let push_now = (*client).buffer.is_empty();
+    (*client).buffer.extend_from_slice(&frame);
     if push_now {
         ipc_push_pending(client);
     }
 }
-unsafe fn free_ipc_client(client: *mut ipc_client, exempt_fd: ::core::ffi::c_int) {
+unsafe fn free_ipc_client(client: *mut ipc_client, exempt_fd: libc::c_int) {
     if (*client).fd != exempt_fd {
         debuglog(
             c"%s:%s:%d - Disconnecting client on fd %d\n"
@@ -295,60 +300,62 @@ unsafe fn free_ipc_client(client: *mut ipc_client, exempt_fd: ::core::ffi::c_int
                 .cast_mut(),
             c"../src/ipc.c".as_ptr(),
             c"free_ipc_client".as_ptr(),
-            119 as ::core::ffi::c_int,
+            119 as libc::c_int,
             (*client).fd,
         );
-        close((*client).fd);
     }
-    ev_io_stop(main_loop, (*client).read_callback as *mut ev_io);
-    free((*client).read_callback as *mut ::core::ffi::c_void);
-    (*client).read_callback = ::core::ptr::null_mut::<ev_io>();
-    ev_io_stop(main_loop, (*client).write_callback as *mut ev_io);
-    free((*client).write_callback as *mut ::core::ffi::c_void);
-    (*client).write_callback = ::core::ptr::null_mut::<ev_io>();
+    // Stop and unlink before dropping owned buffers/fd; native list edges are
+    // updated without a whole-client mutable reference spanning callbacks.
+    ev_io_stop(main_loop, (*client).read_callback);
+    ev_io_stop(main_loop, (*client).write_callback);
     if !(*client).timeout.is_null() {
-        ev_timer_stop(main_loop, (*client).timeout as *mut ev_timer);
-        free((*client).timeout as *mut ::core::ffi::c_void);
-        (*client).timeout = ::core::ptr::null_mut::<ev_timer>();
+        ev_timer_stop(main_loop, (*client).timeout);
+        drop(Box::from_raw((*client).timeout));
     }
-    free((*client).buffer as *mut ::core::ffi::c_void);
-    let mut i: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    while i < (*client).num_events {
-        free(*(*client).events.offset(i as isize) as *mut ::core::ffi::c_void);
-        i += 1;
-    }
-    free((*client).events as *mut ::core::ffi::c_void);
+    drop(Box::from_raw((*client).read_callback));
+    drop(Box::from_raw((*client).write_callback));
     if !(*client).clients.tqe_next.is_null() {
         (*(*client).clients.tqe_next).clients.tqe_prev = (*client).clients.tqe_prev;
     } else {
         all_clients.tqh_last = (*client).clients.tqe_prev;
     }
     *(*client).clients.tqe_prev = (*client).clients.tqe_next;
-    free(client as *mut ::core::ffi::c_void);
+    let mut owner = Box::from_raw(client);
+    if owner.fd == exempt_fd {
+        if let Some(fd) = owner.fd_owner.take() {
+            let _ = fd.into_raw_fd();
+        }
+    }
+    drop(owner);
 }
 
 pub unsafe fn ipc_send_event(
-    event: *const ::core::ffi::c_char,
+    event: *const libc::c_char,
     message_type: u32,
-    payload: *const ::core::ffi::c_char,
+    payload: *const libc::c_char,
 ) {
-    let mut current: *mut ipc_client = ::core::ptr::null_mut::<ipc_client>();
-    current = all_clients.tqh_first as *mut ipc_client;
+    let event = CStr::from_ptr(event);
+    let payload = CStr::from_ptr(payload).to_owned();
+    let mut current = all_clients.tqh_first;
     while !current.is_null() {
-        let mut i: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-        while i < (*current).num_events {
-            if strcasecmp(*(*current).events.offset(i as isize), event) == 0 as ::core::ffi::c_int {
-                ipc_send_client_message(current, strlen(payload), message_type, payload as *mut u8);
-                break;
-            } else {
-                i += 1;
-            }
+        let subscribed = (*current)
+            .events
+            .iter()
+            .any(|subscription| strcasecmp(subscription.as_ptr(), event.as_ptr()) == 0);
+        if subscribed {
+            ipc_send_client_message(
+                current,
+                payload.to_bytes().len(),
+                message_type,
+                payload.as_ptr().cast(),
+            );
         }
-        current = (*current).clients.tqe_next as *mut ipc_client;
+        current = (*current).clients.tqe_next;
     }
 }
 unsafe fn ipc_send_shutdown_event(reason: ShutdownReason) {
-    let gen: yajl_gen = yajl_gen_alloc(::core::ptr::null::<yajl_alloc_funcs>());
+    let generator_owner = JsonOwner::new();
+    let gen = generator_owner.0;
     yajl_gen_map_open(gen);
     yajl_gen_string(
         gen,
@@ -377,7 +384,6 @@ unsafe fn ipc_send_shutdown_event(reason: ShutdownReason) {
         I3_IPC_EVENT_SHUTDOWN as u32,
         payload as *const ::core::ffi::c_char,
     );
-    yajl_gen_free(gen);
 }
 
 pub unsafe fn ipc_shutdown(reason: ShutdownReason, exempt_fd: ::core::ffi::c_int) {
@@ -390,236 +396,130 @@ pub unsafe fn ipc_shutdown(reason: ShutdownReason, exempt_fd: ::core::ffi::c_int
         free_ipc_client(current, exempt_fd);
     }
 }
+struct CommandResultOwner(*mut CommandResult);
+impl Drop for CommandResultOwner {
+    fn drop(&mut self) {
+        unsafe {
+            command_result_free(self.0);
+        }
+    }
+}
 unsafe fn handle_run_command(
     client: *mut ipc_client,
     message: *mut u8,
-    size: ::core::ffi::c_int,
+    _: libc::c_int,
     message_size: u32,
-    message_type: u32,
+    _: u32,
 ) {
-    let command: *mut ::core::ffi::c_char =
-        sstrndup(message as *const ::core::ffi::c_char, message_size as usize);
-    verboselog(c"IPC: received: *%.4000s*\n".as_ptr().cast_mut(), command);
-    let gen: yajl_gen = yajl_gen_alloc(::core::ptr::null::<yajl_alloc_funcs>());
-    let result: *mut CommandResult = parse_command(command, gen, client);
-    free(command as *mut ::core::ffi::c_void);
-    if (*result).needs_tree_render {
+    let bytes = std::slice::from_raw_parts(message, message_size as usize);
+    let prefix = bytes.split(|byte| *byte == 0).next().unwrap();
+    let command = CString::new(prefix).unwrap();
+    let token = ClientToken::capture(client);
+    verboselog(
+        c"IPC: received: *%.4000s*\n".as_ptr().cast_mut(),
+        command.as_ptr(),
+    );
+    let generator_owner = JsonOwner::new();
+    let gen = generator_owner.0;
+    let result = CommandResultOwner(parse_command(command.as_ptr(), gen, client));
+    if (*result.0).needs_tree_render {
         tree_render();
     }
-    command_result_free(result);
-    let mut reply: *const ::core::ffi::c_uchar = ::core::ptr::null::<::core::ffi::c_uchar>();
-    let mut length: ylength = 0;
-    yajl_gen_get_buf(gen, &raw mut reply, &raw mut length);
-    ipc_send_client_message(
-        client,
-        length as usize,
-        I3_IPC_REPLY_TYPE_COMMAND as u32,
-        reply as *const u8,
-    );
-    yajl_gen_free(gen);
+    drop(result);
+    // Reload/restart/command callbacks can free this client, even if exec later
+    // fails. Pointer membership alone is insufficient if the address was reused.
+    if !token.live() {
+        return;
+    }
+    let mut reply = std::ptr::null();
+    let mut length = 0;
+    yajl_gen_get_buf(gen, &mut reply, &mut length);
+    ipc_send_client_message(client, length, I3_IPC_REPLY_TYPE_COMMAND as u32, reply);
 }
-unsafe fn dump_rect(gen: yajl_gen, name: *const ::core::ffi::c_char, r: Rect) {
-    yajl_gen_string(gen, name as *mut ::core::ffi::c_uchar, strlen(name));
-    yajl_gen_map_open(gen);
-    yajl_gen_string(
-        gen,
-        c"x".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"x".as_ptr()),
-    );
-    yajl_gen_integer(gen, r.x as i32 as ::core::ffi::c_longlong);
-    yajl_gen_string(
-        gen,
-        c"y".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"y".as_ptr()),
-    );
-    yajl_gen_integer(gen, r.y as i32 as ::core::ffi::c_longlong);
-    yajl_gen_string(
-        gen,
-        c"width".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"width".as_ptr()),
-    );
-    yajl_gen_integer(gen, r.width as ::core::ffi::c_longlong);
-    yajl_gen_string(
-        gen,
-        c"height".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"height".as_ptr()),
-    );
-    yajl_gen_integer(gen, r.height as ::core::ffi::c_longlong);
-    yajl_gen_map_close(gen);
+fn write_fields(
+    generator: &mut i3_json::Generator,
+    name: &str,
+    fields: &[(&str, i64)],
+) -> Result<(), i3_json::GenerateError> {
+    generator.string(name)?;
+    generator.start_object()?;
+    for (key, value) in fields {
+        generator.string(key)?;
+        generator.integer(*value)?;
+    }
+    generator.end_object()
 }
-unsafe fn dump_gaps(gen: yajl_gen, name: *const ::core::ffi::c_char, gaps: gaps_t) {
-    yajl_gen_string(gen, name as *mut ::core::ffi::c_uchar, strlen(name));
-    yajl_gen_map_open(gen);
-    yajl_gen_string(
-        gen,
-        c"inner".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"inner".as_ptr()),
+fn rect_fields(rect: Rect) -> [(&'static str, i64); 4] {
+    [
+        ("x", rect.x as i32 as i64),
+        ("y", rect.y as i32 as i64),
+        ("width", rect.width as i64),
+        ("height", rect.height as i64),
+    ]
+}
+fn gaps_fields(gaps: gaps_t) -> [(&'static str, i64); 6] {
+    [
+        ("inner", gaps.inner as i64),
+        ("outer", gaps.top as i64),
+        ("top", gaps.top as i64),
+        ("right", gaps.right as i64),
+        ("bottom", gaps.bottom as i64),
+        ("left", gaps.left as i64),
+    ]
+}
+/// Generator handles must be uniquely borrowed native adapters to a live Rust
+/// Generator. The owned-value encoder itself never touches graph pointers.
+unsafe fn dump_rect(gen: yajl_gen, name: *const libc::c_char, rect: Rect) {
+    let name = CStr::from_ptr(name)
+        .to_str()
+        .expect("internal rectangle field name");
+    let _ = write_fields(
+        &mut *gen.cast::<i3_json::Generator>(),
+        name,
+        &rect_fields(rect),
     );
-    yajl_gen_integer(gen, gaps.inner as ::core::ffi::c_longlong);
-    yajl_gen_string(
-        gen,
-        c"outer".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"outer".as_ptr()),
+}
+unsafe fn dump_gaps(gen: yajl_gen, name: *const libc::c_char, gaps: gaps_t) {
+    let name = CStr::from_ptr(name)
+        .to_str()
+        .expect("internal gaps field name");
+    let _ = write_fields(
+        &mut *gen.cast::<i3_json::Generator>(),
+        name,
+        &gaps_fields(gaps),
     );
-    yajl_gen_integer(gen, gaps.top as ::core::ffi::c_longlong);
-    yajl_gen_string(
-        gen,
-        c"top".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"top".as_ptr()),
-    );
-    yajl_gen_integer(gen, gaps.top as ::core::ffi::c_longlong);
-    yajl_gen_string(
-        gen,
-        c"right".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"right".as_ptr()),
-    );
-    yajl_gen_integer(gen, gaps.right as ::core::ffi::c_longlong);
-    yajl_gen_string(
-        gen,
-        c"bottom".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"bottom".as_ptr()),
-    );
-    yajl_gen_integer(gen, gaps.bottom as ::core::ffi::c_longlong);
-    yajl_gen_string(
-        gen,
-        c"left".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"left".as_ptr()),
-    );
-    yajl_gen_integer(gen, gaps.left as ::core::ffi::c_longlong);
-    yajl_gen_map_close(gen);
+}
+fn modifier_names(mask: u32) -> impl Iterator<Item = &'static str> {
+    [
+        (0, "shift"),
+        (1, "lock"),
+        (2, "ctrl"),
+        (3, "Mod1"),
+        (4, "Mod2"),
+        (5, "Mod3"),
+        (6, "Mod4"),
+        (7, "Mod5"),
+        (8, "Button1"),
+        (9, "Button2"),
+        (10, "Button3"),
+        (11, "Button4"),
+        (12, "Button5"),
+        (16, "Group1"),
+        (17, "Group2"),
+        (18, "Group3"),
+        (19, "Group4"),
+    ]
+    .into_iter()
+    .filter_map(move |(bit, name)| (mask & (1 << bit) != 0).then_some(name))
 }
 unsafe fn dump_event_state_mask(gen: yajl_gen, bind: *mut Binding) {
-    yajl_gen_array_open(gen);
-    let mut i: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    while i < 20 as ::core::ffi::c_int {
-        if (*bind).event_state_mask & ((1 as ::core::ffi::c_int) << i) as i3_event_state_mask_t != 0
-        {
-            match (1 as ::core::ffi::c_int) << i {
-                1 => {
-                    yajl_gen_string(
-                        gen,
-                        c"shift".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"shift".as_ptr()),
-                    );
-                }
-                2 => {
-                    yajl_gen_string(
-                        gen,
-                        c"lock".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"lock".as_ptr()),
-                    );
-                }
-                4 => {
-                    yajl_gen_string(
-                        gen,
-                        c"ctrl".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"ctrl".as_ptr()),
-                    );
-                }
-                8 => {
-                    yajl_gen_string(
-                        gen,
-                        c"Mod1".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"Mod1".as_ptr()),
-                    );
-                }
-                16 => {
-                    yajl_gen_string(
-                        gen,
-                        c"Mod2".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"Mod2".as_ptr()),
-                    );
-                }
-                32 => {
-                    yajl_gen_string(
-                        gen,
-                        c"Mod3".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"Mod3".as_ptr()),
-                    );
-                }
-                64 => {
-                    yajl_gen_string(
-                        gen,
-                        c"Mod4".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"Mod4".as_ptr()),
-                    );
-                }
-                128 => {
-                    yajl_gen_string(
-                        gen,
-                        c"Mod5".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"Mod5".as_ptr()),
-                    );
-                }
-                256 => {
-                    yajl_gen_string(
-                        gen,
-                        c"Button1".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"Button1".as_ptr()),
-                    );
-                }
-                512 => {
-                    yajl_gen_string(
-                        gen,
-                        c"Button2".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"Button2".as_ptr()),
-                    );
-                }
-                1024 => {
-                    yajl_gen_string(
-                        gen,
-                        c"Button3".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"Button3".as_ptr()),
-                    );
-                }
-                2048 => {
-                    yajl_gen_string(
-                        gen,
-                        c"Button4".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"Button4".as_ptr()),
-                    );
-                }
-                4096 => {
-                    yajl_gen_string(
-                        gen,
-                        c"Button5".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"Button5".as_ptr()),
-                    );
-                }
-                65536 => {
-                    yajl_gen_string(
-                        gen,
-                        c"Group1".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"Group1".as_ptr()),
-                    );
-                }
-                131072 => {
-                    yajl_gen_string(
-                        gen,
-                        c"Group2".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"Group2".as_ptr()),
-                    );
-                }
-                262144 => {
-                    yajl_gen_string(
-                        gen,
-                        c"Group3".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"Group3".as_ptr()),
-                    );
-                }
-                524288 => {
-                    yajl_gen_string(
-                        gen,
-                        c"Group4".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"Group4".as_ptr()),
-                    );
-                }
-                _ => {}
-            }
-        }
-        i += 1;
+    let mask = (*bind).event_state_mask;
+    let generator = &mut *gen.cast::<i3_json::Generator>();
+    let _ = generator.start_array();
+    for name in modifier_names(mask) {
+        let _ = generator.string(name);
     }
-    yajl_gen_array_close(gen);
+    let _ = generator.end_array();
 }
 unsafe fn dump_binding(gen: yajl_gen, bind: *mut Binding) {
     yajl_gen_map_open(gen);
@@ -1381,8 +1281,8 @@ pub unsafe fn dump_node(gen: yajl_gen, con: *mut Con, inplace_restart: bool) {
                 );
                 yajl_gen_string(
                     gen,
-                    (*(*match_0).class).pattern as *mut ::core::ffi::c_uchar,
-                    strlen((*(*match_0).class).pattern),
+                    (*(*match_0).class).pattern().as_ptr() as *mut ::core::ffi::c_uchar,
+                    strlen((*(*match_0).class).pattern().as_ptr()),
                 );
             }
             if !(*match_0).instance.is_null() {
@@ -1393,8 +1293,8 @@ pub unsafe fn dump_node(gen: yajl_gen, con: *mut Con, inplace_restart: bool) {
                 );
                 yajl_gen_string(
                     gen,
-                    (*(*match_0).instance).pattern as *mut ::core::ffi::c_uchar,
-                    strlen((*(*match_0).instance).pattern),
+                    (*(*match_0).instance).pattern().as_ptr() as *mut ::core::ffi::c_uchar,
+                    strlen((*(*match_0).instance).pattern().as_ptr()),
                 );
             }
             if !(*match_0).window_role.is_null() {
@@ -1405,8 +1305,8 @@ pub unsafe fn dump_node(gen: yajl_gen, con: *mut Con, inplace_restart: bool) {
                 );
                 yajl_gen_string(
                     gen,
-                    (*(*match_0).window_role).pattern as *mut ::core::ffi::c_uchar,
-                    strlen((*(*match_0).window_role).pattern),
+                    (*(*match_0).window_role).pattern().as_ptr() as *mut ::core::ffi::c_uchar,
+                    strlen((*(*match_0).window_role).pattern().as_ptr()),
                 );
             }
             if !(*match_0).title.is_null() {
@@ -1417,8 +1317,8 @@ pub unsafe fn dump_node(gen: yajl_gen, con: *mut Con, inplace_restart: bool) {
                 );
                 yajl_gen_string(
                     gen,
-                    (*(*match_0).title).pattern as *mut ::core::ffi::c_uchar,
-                    strlen((*(*match_0).title).pattern),
+                    (*(*match_0).title).pattern().as_ptr() as *mut ::core::ffi::c_uchar,
+                    strlen((*(*match_0).title).pattern().as_ptr()),
                 );
             }
             if !(*match_0).machine.is_null() {
@@ -1429,8 +1329,8 @@ pub unsafe fn dump_node(gen: yajl_gen, con: *mut Con, inplace_restart: bool) {
                 );
                 yajl_gen_string(
                     gen,
-                    (*(*match_0).machine).pattern as *mut ::core::ffi::c_uchar,
-                    strlen((*(*match_0).machine).pattern),
+                    (*(*match_0).machine).pattern().as_ptr() as *mut ::core::ffi::c_uchar,
+                    strlen((*(*match_0).machine).pattern().as_ptr()),
                 );
             }
             yajl_gen_map_close(gen);
@@ -2047,15 +1947,11 @@ unsafe fn handle_tree(
     message_size: u32,
     message_type: u32,
 ) {
-    let prev_locale: *mut ::core::ffi::c_char = sstrdup(setlocale(
-        LC_NUMERIC,
-        ::core::ptr::null::<::core::ffi::c_char>(),
-    ));
-    setlocale(LC_NUMERIC, c"C".as_ptr());
-    let gen: yajl_gen = yajl_gen_alloc(::core::ptr::null::<yajl_alloc_funcs>());
+    let locale = NumericLocale::c();
+    let generator_owner = JsonOwner::new();
+    let gen = generator_owner.0;
     dump_node(gen, croot, false_0 != 0);
-    setlocale(LC_NUMERIC, prev_locale);
-    free(prev_locale as *mut ::core::ffi::c_void);
+    drop(locale);
     let mut payload: *const ::core::ffi::c_uchar = ::core::ptr::null::<::core::ffi::c_uchar>();
     let mut length: ylength = 0;
     yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
@@ -2065,7 +1961,6 @@ unsafe fn handle_tree(
         I3_IPC_REPLY_TYPE_TREE as u32,
         payload as *const u8,
     );
-    yajl_gen_free(gen);
 }
 unsafe fn handle_get_workspaces(
     client: *mut ipc_client,
@@ -2074,7 +1969,8 @@ unsafe fn handle_get_workspaces(
     message_size: u32,
     message_type: u32,
 ) {
-    let gen: yajl_gen = yajl_gen_alloc(::core::ptr::null::<yajl_alloc_funcs>());
+    let generator_owner = JsonOwner::new();
+    let gen = generator_owner.0;
     yajl_gen_array_open(gen);
     let focused_ws: *mut Con = con_get_workspace(focused);
     let mut output: *mut Con = ::core::ptr::null_mut::<Con>();
@@ -2193,7 +2089,6 @@ unsafe fn handle_get_workspaces(
         I3_IPC_REPLY_TYPE_WORKSPACES as u32,
         payload as *const u8,
     );
-    yajl_gen_free(gen);
 }
 unsafe fn handle_get_outputs(
     client: *mut ipc_client,
@@ -2202,7 +2097,8 @@ unsafe fn handle_get_outputs(
     message_size: u32,
     message_type: u32,
 ) {
-    let gen: yajl_gen = yajl_gen_alloc(::core::ptr::null::<yajl_alloc_funcs>());
+    let generator_owner = JsonOwner::new();
+    let gen = generator_owner.0;
     yajl_gen_array_open(gen);
     let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
     output = outputs.tqh_first as *mut Output;
@@ -2292,7 +2188,6 @@ unsafe fn handle_get_outputs(
         I3_IPC_REPLY_TYPE_OUTPUTS as u32,
         payload as *const u8,
     );
-    yajl_gen_free(gen);
 }
 unsafe fn handle_get_marks(
     client: *mut ipc_client,
@@ -2301,7 +2196,8 @@ unsafe fn handle_get_marks(
     message_size: u32,
     message_type: u32,
 ) {
-    let gen: yajl_gen = yajl_gen_alloc(::core::ptr::null::<yajl_alloc_funcs>());
+    let generator_owner = JsonOwner::new();
+    let gen = generator_owner.0;
     yajl_gen_array_open(gen);
     let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
     con = all_cons.tqh_first as *mut Con;
@@ -2328,7 +2224,6 @@ unsafe fn handle_get_marks(
         I3_IPC_REPLY_TYPE_MARKS as u32,
         payload as *const u8,
     );
-    yajl_gen_free(gen);
 }
 unsafe fn handle_get_version(
     client: *mut ipc_client,
@@ -2337,7 +2232,8 @@ unsafe fn handle_get_version(
     message_size: u32,
     message_type: u32,
 ) {
-    let gen: yajl_gen = yajl_gen_alloc(::core::ptr::null::<yajl_alloc_funcs>());
+    let generator_owner = JsonOwner::new();
+    let gen = generator_owner.0;
     yajl_gen_map_open(gen);
     yajl_gen_string(
         gen,
@@ -2406,7 +2302,6 @@ unsafe fn handle_get_version(
         I3_IPC_REPLY_TYPE_VERSION as u32,
         payload as *const u8,
     );
-    yajl_gen_free(gen);
 }
 unsafe fn handle_get_bar_config(
     client: *mut ipc_client,
@@ -2415,7 +2310,8 @@ unsafe fn handle_get_bar_config(
     message_size: u32,
     message_type: u32,
 ) {
-    let gen: yajl_gen = yajl_gen_alloc(::core::ptr::null::<yajl_alloc_funcs>());
+    let generator_owner = JsonOwner::new();
+    let gen = generator_owner.0;
     if message_size == 0 as u32 {
         yajl_gen_array_open(gen);
         let mut current: *mut Barconfig = ::core::ptr::null_mut::<Barconfig>();
@@ -2438,11 +2334,12 @@ unsafe fn handle_get_bar_config(
             I3_IPC_REPLY_TYPE_BAR_CONFIG as u32,
             payload as *const u8,
         );
-        yajl_gen_free(gen);
+
         return;
     }
-    let mut bar_id: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    sasprintf(&raw mut bar_id, c"%.*s".as_ptr(), message_size, message);
+    let bar_bytes = std::slice::from_raw_parts(message, message_size as usize);
+    let bar_id_owner = CString::new(bar_bytes.split(|byte| *byte == 0).next().unwrap()).unwrap();
+    let bar_id = bar_id_owner.as_ptr();
     verboselog(
         c"IPC: looking for config for bar ID \"%s\"\n"
             .as_ptr()
@@ -2460,7 +2357,6 @@ unsafe fn handle_get_bar_config(
             break;
         }
     }
-    free(bar_id as *mut ::core::ffi::c_void);
     if config.is_null() {
         yajl_gen_map_open(gen);
         yajl_gen_string(
@@ -2482,7 +2378,6 @@ unsafe fn handle_get_bar_config(
         I3_IPC_REPLY_TYPE_BAR_CONFIG as u32,
         payload_0 as *const u8,
     );
-    yajl_gen_free(gen);
 }
 unsafe fn handle_get_binding_modes(
     client: *mut ipc_client,
@@ -2491,7 +2386,8 @@ unsafe fn handle_get_binding_modes(
     message_size: u32,
     message_type: u32,
 ) {
-    let gen: yajl_gen = yajl_gen_alloc(::core::ptr::null::<yajl_alloc_funcs>());
+    let generator_owner = JsonOwner::new();
+    let gen = generator_owner.0;
     yajl_gen_array_open(gen);
     let mut mode: *mut Mode = ::core::ptr::null_mut::<Mode>();
     mode = modes.slh_first as *mut Mode;
@@ -2513,150 +2409,71 @@ unsafe fn handle_get_binding_modes(
         I3_IPC_REPLY_TYPE_BINDING_MODES as u32,
         payload as *const u8,
     );
-    yajl_gen_free(gen);
 }
-unsafe fn add_subscription(
-    extra: *mut ::core::ffi::c_void,
-    s: *const ::core::ffi::c_uchar,
-    len: ylength,
-) -> ::core::ffi::c_int {
-    let client: *mut ipc_client = extra as *mut ipc_client;
-    debuglog(
-        c"%s:%s:%d - should add subscription to extra %p, sub %.*s\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/ipc.c".as_ptr(),
-        c"add_subscription".as_ptr(),
-        1214 as ::core::ffi::c_int,
-        client,
-        len as ::core::ffi::c_int,
-        s,
-    );
-    let event: ::core::ffi::c_int = (*client).num_events;
-    (*client).num_events += 1;
-    (*client).events = srealloc(
-        (*client).events as *mut ::core::ffi::c_void,
-        ((*client).num_events as usize)
-            .wrapping_mul(::core::mem::size_of::<*mut ::core::ffi::c_char>() as usize),
-    ) as *mut *mut ::core::ffi::c_char;
-    let ref mut fresh3 = *(*client).events.offset(event as isize);
-    *fresh3 =
-        scalloc((len as usize).wrapping_add(1 as usize), 1 as usize) as *mut ::core::ffi::c_char;
-    memcpy(
-        *(*client).events.offset(event as isize) as *mut ::core::ffi::c_void,
-        s as *const ::core::ffi::c_void,
-        len as usize,
-    );
-    debuglog(
-        c"%s:%s:%d - client is now subscribed to:\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/ipc.c".as_ptr(),
-        c"add_subscription".as_ptr(),
-        1224 as ::core::ffi::c_int,
-    );
-    let mut i: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    while i < (*client).num_events {
-        debuglog(
-            c"%s:%s:%d - event %s\n".as_ptr().cast_mut(),
-            c"../src/ipc.c".as_ptr(),
-            c"add_subscription".as_ptr(),
-            1226 as ::core::ffi::c_int,
-            *(*client).events.offset(i as isize),
-        );
-        i += 1;
-    }
-    debuglog(
-        c"%s:%s:%d - (done)\n".as_ptr().cast_mut(),
-        c"../src/ipc.c".as_ptr(),
-        c"add_subscription".as_ptr(),
-        1228 as ::core::ffi::c_int,
-    );
-    1 as ::core::ffi::c_int
+fn parse_subscriptions(message: &[u8]) -> (Vec<CString>, Result<(), i3_json::ParseError>) {
+    let events = Rc::new(RefCell::new(Vec::new()));
+    let output = events.clone();
+    let mut parser = i3_json::Parser::new(move |event: i3_json::Event<'_>| {
+        if let i3_json::Event::String(bytes) = event {
+            let prefix = &bytes[..bytes
+                .iter()
+                .position(|byte| *byte == 0)
+                .unwrap_or(bytes.len())];
+            output.borrow_mut().push(CString::new(prefix).unwrap());
+        }
+        true
+    });
+    parser.options_mut().allow_legacy_whitespace = true;
+    let result = parser.parse(message);
+    drop(parser);
+    (Rc::try_unwrap(events).unwrap().into_inner(), result)
 }
 unsafe fn handle_subscribe(
     client: *mut ipc_client,
     message: *mut u8,
-    size: ::core::ffi::c_int,
+    _: libc::c_int,
     message_size: u32,
-    message_type: u32,
+    _: u32,
 ) {
-    static mut callbacks: yajl_callbacks = unsafe {
-        yajl_callbacks {
-            yajl_null: None,
-            yajl_boolean: None,
-            yajl_integer: None,
-            yajl_double: None,
-            yajl_number: None,
-            yajl_string: Some(
-                add_subscription
-                    as unsafe fn(
-                        *mut ::core::ffi::c_void,
-                        *const ::core::ffi::c_uchar,
-                        ylength,
-                    ) -> ::core::ffi::c_int,
-            ),
-            yajl_start_map: None,
-            yajl_map_key: None,
-            yajl_end_map: None,
-            yajl_start_array: None,
-            yajl_end_array: None,
-        }
-    };
-    let p: yajl_handle = yajl_alloc(
-        &raw mut callbacks,
-        ::core::ptr::null_mut::<yajl_alloc_funcs>(),
-        client as *mut ::core::ffi::c_void,
-    ) as yajl_handle;
-    let stat: yajl_status = yajl_parse(p, message, message_size as usize) as yajl_status;
-    if stat as ::core::ffi::c_uint != yajl_status_ok as ::core::ffi::c_int as ::core::ffi::c_uint {
-        let err: *mut ::core::ffi::c_uchar =
-            yajl_get_error(p, true_0, message, message_size as usize);
-        errorlog(c"ERROR: YAJL parse error: %s\n".as_ptr().cast_mut(), err);
-        yajl_free_error(p, err);
-        let reply: *const ::core::ffi::c_char = c"{\"success\":false}".as_ptr();
+    let bytes = std::slice::from_raw_parts(message, message_size as usize);
+    let (mut events, result) = parse_subscriptions(bytes);
+    // Legacy subscription callbacks committed before a later parse error.
+    (*client).events.append(&mut events);
+    if let Err(error) = result {
+        let error = CString::new(format!("{error}\n")).unwrap();
+        errorlog(
+            c"ERROR: YAJL parse error: %s\n".as_ptr().cast_mut(),
+            error.as_ptr(),
+        );
         ipc_send_client_message(
             client,
-            strlen(reply),
+            17,
             I3_IPC_REPLY_TYPE_SUBSCRIBE as u32,
-            reply as *const u8,
+            b"{\"success\":false}".as_ptr(),
         );
-        yajl_free(p);
         return;
     }
-    yajl_free(p);
-    let reply_0: *const ::core::ffi::c_char = c"{\"success\":true}".as_ptr();
     ipc_send_client_message(
         client,
-        strlen(reply_0),
+        16,
         I3_IPC_REPLY_TYPE_SUBSCRIBE as u32,
-        reply_0 as *const u8,
+        b"{\"success\":true}".as_ptr(),
     );
-    if (*client).first_tick_sent {
-        return;
+    if !(*client).first_tick_sent
+        && (*client)
+            .events
+            .iter()
+            .any(|event| event.as_c_str() == c"tick")
+    {
+        (*client).first_tick_sent = true;
+        let payload = b"{\"first\":true,\"payload\":\"\"}";
+        ipc_send_client_message(
+            client,
+            payload.len(),
+            I3_IPC_EVENT_TICK as u32,
+            payload.as_ptr(),
+        );
     }
-    let mut is_tick: bool = false_0 != 0;
-    let mut i: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    while i < (*client).num_events {
-        if strcmp(*(*client).events.offset(i as isize), c"tick".as_ptr()) == 0 as ::core::ffi::c_int
-        {
-            is_tick = true_0 != 0;
-            break;
-        } else {
-            i += 1;
-        }
-    }
-    if !is_tick {
-        return;
-    }
-    (*client).first_tick_sent = true_0 != 0;
-    let payload: *const ::core::ffi::c_char = c"{\"first\":true,\"payload\":\"\"}".as_ptr();
-    ipc_send_client_message(
-        client,
-        strlen(payload),
-        I3_IPC_EVENT_TICK as u32,
-        payload as *const u8,
-    );
 }
 unsafe fn handle_get_config(
     client: *mut ipc_client,
@@ -2665,7 +2482,8 @@ unsafe fn handle_get_config(
     message_size: u32,
     message_type: u32,
 ) {
-    let gen: yajl_gen = yajl_gen_alloc(::core::ptr::null::<yajl_alloc_funcs>());
+    let generator_owner = JsonOwner::new();
+    let gen = generator_owner.0;
     yajl_gen_map_open(gen);
     yajl_gen_string(
         gen,
@@ -2731,7 +2549,6 @@ unsafe fn handle_get_config(
         I3_IPC_REPLY_TYPE_CONFIG as u32,
         payload as *const u8,
     );
-    yajl_gen_free(gen);
 }
 unsafe fn handle_send_tick(
     client: *mut ipc_client,
@@ -2740,7 +2557,8 @@ unsafe fn handle_send_tick(
     message_size: u32,
     message_type: u32,
 ) {
-    let gen: yajl_gen = yajl_gen_alloc(::core::ptr::null::<yajl_alloc_funcs>());
+    let generator_owner = JsonOwner::new();
+    let gen = generator_owner.0;
     yajl_gen_map_open(gen);
     yajl_gen_string(
         gen,
@@ -2767,7 +2585,7 @@ unsafe fn handle_send_tick(
         I3_IPC_EVENT_TICK as u32,
         payload as *const ::core::ffi::c_char,
     );
-    yajl_gen_free(gen);
+
     let reply: *const ::core::ffi::c_char = c"{\"success\":true}".as_ptr();
     ipc_send_client_message(
         client,
@@ -2782,116 +2600,90 @@ unsafe fn handle_send_tick(
         1342 as ::core::ffi::c_int,
     );
 }
-unsafe fn _sync_json_key(
-    extra: *mut ::core::ffi::c_void,
-    val: *const ::core::ffi::c_uchar,
-    len: usize,
-) -> ::core::ffi::c_int {
-    let state: *mut sync_state = extra as *mut sync_state;
-    free((*state).last_key as *mut ::core::ffi::c_void);
-    (*state).last_key = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    (*state).last_key =
-        scalloc(len.wrapping_add(1 as usize), 1 as usize) as *mut ::core::ffi::c_char;
-    memcpy(
-        (*state).last_key as *mut ::core::ffi::c_void,
-        val as *const ::core::ffi::c_void,
-        len,
-    );
-    1 as ::core::ffi::c_int
+#[derive(Clone, Copy, Default, Debug, PartialEq)]
+struct SyncRequest {
+    rnd: u32,
+    window: u32,
 }
-unsafe fn _sync_json_int(
-    extra: *mut ::core::ffi::c_void,
-    val: ::core::ffi::c_longlong,
-) -> ::core::ffi::c_int {
-    let state: *mut sync_state = extra as *mut sync_state;
-    if strcasecmp((*state).last_key, c"rnd".as_ptr()) == 0 as ::core::ffi::c_int {
-        (*state).rnd = val as u32;
-    } else if strcasecmp((*state).last_key, c"window".as_ptr()) == 0 as ::core::ffi::c_int {
-        (*state).window = val as xcb_window_t;
+struct SyncEvents {
+    key: CString,
+    state: Rc<RefCell<SyncRequest>>,
+    error: Option<String>,
+}
+impl i3_json::EventHandler for SyncEvents {
+    fn on_event(&mut self, event: i3_json::Event<'_>) -> bool {
+        match event {
+            i3_json::Event::MapKey(bytes) => {
+                self.key = CString::new(bytes.split(|byte| *byte == 0).next().unwrap()).unwrap()
+            }
+            i3_json::Event::Number(number) if !number.contains(['.', 'e', 'E']) => {
+                if let Ok(number) = number.parse::<i64>() {
+                    if number != i64::MIN {
+                        if unsafe { strcasecmp(self.key.as_ptr(), c"rnd".as_ptr()) == 0 } {
+                            self.state.borrow_mut().rnd = number as u32;
+                        } else if unsafe { strcasecmp(self.key.as_ptr(), c"window".as_ptr()) == 0 }
+                        {
+                            self.state.borrow_mut().window = number as u32;
+                        }
+                        return true;
+                    }
+                }
+                self.error = Some("parse error: integer overflow".into());
+                return false;
+            }
+            _ => {}
+        }
+        true
     }
-    1 as ::core::ffi::c_int
+    fn error_message(&self) -> Option<&str> {
+        self.error.as_deref()
+    }
+}
+fn parse_sync(message: &[u8]) -> Result<SyncRequest, i3_json::ParseError> {
+    let state = Rc::new(RefCell::new(SyncRequest::default()));
+    let mut parser = i3_json::Parser::new(SyncEvents {
+        key: CString::default(),
+        state: state.clone(),
+        error: None,
+    });
+    parser.options_mut().allow_legacy_whitespace = true;
+    parser.parse(message)?;
+    drop(parser);
+    Ok(Rc::try_unwrap(state).unwrap().into_inner())
 }
 unsafe fn handle_sync(
     client: *mut ipc_client,
     message: *mut u8,
-    size: ::core::ffi::c_int,
+    _: libc::c_int,
     message_size: u32,
-    message_type: u32,
+    _: u32,
 ) {
-    static mut callbacks: yajl_callbacks = unsafe {
-        yajl_callbacks {
-            yajl_null: None,
-            yajl_boolean: None,
-            yajl_integer: Some(
-                _sync_json_int
-                    as unsafe fn(
-                        *mut ::core::ffi::c_void,
-                        ::core::ffi::c_longlong,
-                    ) -> ::core::ffi::c_int,
-            ),
-            yajl_double: None,
-            yajl_number: None,
-            yajl_string: None,
-            yajl_start_map: None,
-            yajl_map_key: Some(
-                _sync_json_key
-                    as unsafe fn(
-                        *mut ::core::ffi::c_void,
-                        *const ::core::ffi::c_uchar,
-                        usize,
-                    ) -> ::core::ffi::c_int,
-            ),
-            yajl_end_map: None,
-            yajl_start_array: None,
-            yajl_end_array: None,
-        }
-    };
-    let mut state: sync_state = sync_state {
-        last_key: ::core::ptr::null_mut::<::core::ffi::c_char>(),
-        rnd: 0,
-        window: 0,
-    };
-    let p: yajl_handle = yajl_alloc(
-        &raw mut callbacks,
-        ::core::ptr::null_mut::<yajl_alloc_funcs>(),
-        &raw mut state as *mut ::core::ffi::c_void,
-    );
-    let stat: yajl_status = yajl_parse(p, message, message_size as usize);
-    free(state.last_key as *mut ::core::ffi::c_void);
-    state.last_key = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    if stat as ::core::ffi::c_uint != yajl_status_ok as ::core::ffi::c_int as ::core::ffi::c_uint {
-        let err: *mut ::core::ffi::c_uchar =
-            yajl_get_error(p, true_0, message, message_size as usize);
-        errorlog(c"ERROR: YAJL parse error: %s\n".as_ptr().cast_mut(), err);
-        yajl_free_error(p, err);
-        let reply: *const ::core::ffi::c_char = c"{\"success\":false}".as_ptr();
-        ipc_send_client_message(
-            client,
-            strlen(reply),
-            I3_IPC_REPLY_TYPE_SYNC as u32,
-            reply as *const u8,
+    let token = ClientToken::capture(client);
+    let parsed = parse_sync(std::slice::from_raw_parts(message, message_size as usize));
+    let success = if let Ok(state) = parsed {
+        sync_respond(state.window, state.rnd);
+        true
+    } else {
+        let error = CString::new(format!("{}\n", parsed.unwrap_err())).unwrap();
+        errorlog(
+            c"ERROR: YAJL parse error: %s\n".as_ptr().cast_mut(),
+            error.as_ptr(),
         );
-        yajl_free(p);
+        false
+    };
+    if !token.live() {
         return;
     }
-    yajl_free(p);
-    debuglog(
-        c"%s:%s:%d - received IPC sync request (rnd = %d, window = 0x%08x)\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/ipc.c".as_ptr(),
-        c"handle_sync".as_ptr(),
-        1392 as ::core::ffi::c_int,
-        state.rnd,
-        state.window,
-    );
-    sync_respond(state.window, state.rnd);
-    let reply_0: *const ::core::ffi::c_char = c"{\"success\":true}".as_ptr();
+    let reply: &[u8] = if success {
+        b"{\"success\":true}"
+    } else {
+        b"{\"success\":false}"
+    };
     ipc_send_client_message(
         client,
-        strlen(reply_0),
+        reply.len(),
         I3_IPC_REPLY_TYPE_SYNC as u32,
-        reply_0 as *const u8,
+        reply.as_ptr(),
     );
 }
 unsafe fn handle_get_binding_state(
@@ -2901,7 +2693,8 @@ unsafe fn handle_get_binding_state(
     message_size: u32,
     message_type: u32,
 ) {
-    let gen: yajl_gen = yajl_gen_alloc(::core::ptr::null::<yajl_alloc_funcs>());
+    let generator_owner = JsonOwner::new();
+    let gen = generator_owner.0;
     yajl_gen_map_open(gen);
     yajl_gen_string(
         gen,
@@ -2923,10 +2716,9 @@ unsafe fn handle_get_binding_state(
         I3_IPC_REPLY_TYPE_GET_BINDING_STATE as u32,
         payload as *const u8,
     );
-    yajl_gen_free(gen);
 }
 
-pub static mut handlers: [handler_t; 13] = unsafe {
+pub const handlers: [handler_t; 13] = unsafe {
     [
         Some(
             handle_run_command
@@ -2980,643 +2772,93 @@ pub static mut handlers: [handler_t; 13] = unsafe {
         ),
     ]
 };
-unsafe extern "C" fn ipc_receive_message(
-    loop_0: *mut ev_loop,
-    w: *mut ev_io,
-    revents: ::core::ffi::c_int,
-) {
-    let mut message_type: u32 = 0;
-    let mut message_length: u32 = 0;
-    let mut message: *mut u8 = ::core::ptr::null_mut::<u8>();
-    let client: *mut ipc_client = (*w).data as *mut ipc_client;
-    if (*client).fd == (*w).fd {
-    } else {
-        __assert_fail(
-            c"client->fd == w->fd".as_ptr(),
-            c"../src/ipc.c".as_ptr(),
-            1449 as ::core::ffi::c_uint,
-            c"void ipc_receive_message(struct ev_loop *, ev_io *, int)".as_ptr(),
-        );
-    };
-    let ret: ::core::ffi::c_int = ipc_recv_message(
-        (*w).fd,
-        &raw mut message_type,
-        &raw mut message_length,
-        &raw mut message,
-    );
-    if ret < 0 as ::core::ffi::c_int {
-        if ret == -(1 as ::core::ffi::c_int) && *__errno_location() == EAGAIN {
-            free(message as *mut ::core::ffi::c_void);
-            message = ::core::ptr::null_mut::<u8>();
-            return;
+struct ReceivedBytes(*mut u8);
+impl Drop for ReceivedBytes {
+    fn drop(&mut self) {
+        unsafe {
+            free(self.0.cast());
         }
-        free_ipc_client(client, -(1 as ::core::ffi::c_int));
-        free(message as *mut ::core::ffi::c_void);
-        message = ::core::ptr::null_mut::<u8>();
+    }
+}
+unsafe extern "C" fn ipc_receive_message(_: *mut ev_loop, w: *mut ev_io, _: libc::c_int) {
+    let client = (*w).data.cast::<ipc_client>();
+    assert_eq!((*client).fd, (*w).fd);
+    let mut message_type = 0;
+    let mut message_length = 0;
+    let mut message = std::ptr::null_mut();
+    let result = ipc_recv_message(
+        (*w).fd,
+        &mut message_type,
+        &mut message_length,
+        &mut message,
+    );
+    let message = ReceivedBytes(message);
+    if result < 0 {
+        if result != -1 || *__errno_location() != EAGAIN {
+            free_ipc_client(client, -1);
+        }
         return;
     }
-    if message_type as usize
-        >= (::core::mem::size_of::<[handler_t; 13]>() as usize)
-            .wrapping_div(::core::mem::size_of::<handler_t>() as usize)
-    {
+    if let Some(handler) = handlers.get(message_type as usize).copied().flatten() {
+        handler(client, message.0, 0, message_length, message_type);
+    } else {
         debuglog(
             c"%s:%s:%d - Unhandled message type: %d\n"
                 .as_ptr()
                 .cast_mut(),
             c"../src/ipc.c".as_ptr(),
             c"ipc_receive_message".as_ptr(),
-            1468 as ::core::ffi::c_int,
-            message_type,
-        );
-    } else {
-        let h: handler_t = handlers[message_type as usize];
-        h.expect("non-null function pointer")(
-            client,
-            message,
-            0 as ::core::ffi::c_int,
-            message_length,
+            1468 as libc::c_int,
             message_type,
         );
     }
-    free(message as *mut ::core::ffi::c_void);
-    message = ::core::ptr::null_mut::<u8>();
 }
-unsafe extern "C" fn ipc_client_timeout(
-    loop_0: *mut ev_loop,
-    w: *mut ev_timer,
-    revents: ::core::ffi::c_int,
-) {
-    let mut exepath: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    let mut fd: ::core::ffi::c_int = 0;
-    let mut buf: [::core::ffi::c_char; 512] = [0; 512];
-    let mut n: isize = 0;
-    let client: *mut ipc_client = (*w).data as *mut ipc_client;
-    let mut cmdline: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    let mut peercred: ucred = ucred {
-        pid: 0,
-        uid: 0,
-        gid: 0,
-    };
-    let mut so_len: libc::socklen_t = ::core::mem::size_of::<ucred>() as libc::socklen_t;
-    if !(getsockopt(
+fn diagnostic_cmdline(bytes: &[u8]) -> CString {
+    let mut bytes = bytes.to_vec();
+    let last = bytes.len().saturating_sub(1);
+    for byte in &mut bytes[..last] {
+        if *byte == 0 {
+            *byte = b' ';
+        }
+    }
+    // Bounded native diagnostic: full 512-byte records need an explicit NUL.
+    let length = bytes
+        .iter()
+        .position(|byte| *byte == 0)
+        .unwrap_or(bytes.len());
+    CString::new(&bytes[..length]).unwrap()
+}
+unsafe extern "C" fn ipc_client_timeout(_: *mut ev_loop, w: *mut ev_timer, _: libc::c_int) {
+    let client = (*w).data.cast::<ipc_client>();
+    let mut peercred: libc::ucred = std::mem::zeroed();
+    let mut length = std::mem::size_of_val(&peercred) as libc::socklen_t;
+    let mut identified = false;
+    if getsockopt(
         (*client).fd,
         SOL_SOCKET,
         SO_PEERCRED,
-        &raw mut peercred as *mut ::core::ffi::c_void,
-        &raw mut so_len,
-    ) != 0 as ::core::ffi::c_int)
+        (&mut peercred as *mut libc::ucred).cast(),
+        &mut length,
+    ) == 0
     {
-        exepath = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        sasprintf(&raw mut exepath, c"/proc/%d/cmdline".as_ptr(), peercred.pid);
-        fd = open(exepath, O_RDONLY);
-        free(exepath as *mut ::core::ffi::c_void);
-        if !(fd == -(1 as ::core::ffi::c_int)) {
-            buf = [
-                '\0' as i32 as ::core::ffi::c_char,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-            ];
-            n = read(
-                fd,
-                &raw mut buf as *mut ::core::ffi::c_char as *mut ::core::ffi::c_void,
-                ::core::mem::size_of::<[::core::ffi::c_char; 512]>() as usize,
-            ) as isize;
-            close(fd);
-            if !(n < 0 as isize) {
-                let mut walk: *mut ::core::ffi::c_char = &raw mut buf as *mut ::core::ffi::c_char;
-                while walk
-                    < (&raw mut buf as *mut ::core::ffi::c_char)
-                        .offset(n as isize)
-                        .offset(-(1 as ::core::ffi::c_int as isize))
-                {
-                    if *walk as ::core::ffi::c_int == '\0' as i32 {
-                        *walk = ' ' as i32 as ::core::ffi::c_char;
-                    }
-                    walk = walk.offset(1);
-                }
-                cmdline = &raw mut buf as *mut ::core::ffi::c_char;
-                if !cmdline.is_null() {
-                    errorlog(
-                        c"ERROR: client %p with pid %d and cmdline '%s' on fd %d timed out, killing\n".as_ptr().cast_mut(),
-                        client,
-                        peercred.pid,
-                        cmdline,
-                        (*client).fd,
-                    );
-                }
+        if let Ok(mut file) = std::fs::File::open(format!("/proc/{}/cmdline", peercred.pid)) {
+            let mut bytes = [0u8; 512];
+            if let Ok(count) = file.read(&mut bytes) {
+                let line = diagnostic_cmdline(&bytes[..count]);
+                identified = true;
+                errorlog(
+                    c"ERROR: client %p with pid %d and cmdline '%s' on fd %d timed out, killing\n"
+                        .as_ptr()
+                        .cast_mut(),
+                    client,
+                    peercred.pid,
+                    line.as_ptr(),
+                    (*client).fd,
+                );
             }
         }
     }
-    if cmdline.is_null() {
+    if !identified {
         errorlog(
             c"ERROR: client %p on fd %d timed out, killing\n"
                 .as_ptr()
@@ -3625,7 +2867,7 @@ unsafe extern "C" fn ipc_client_timeout(
             (*client).fd,
         );
     }
-    free_ipc_client(client, -(1 as ::core::ffi::c_int));
+    free_ipc_client(client, -1);
 }
 unsafe extern "C" fn ipc_socket_writeable_cb(
     loop_0: *mut ev_loop,
@@ -3674,76 +2916,37 @@ pub unsafe extern "C" fn ipc_new_client(
     ipc_new_client_on_fd(loop_0, fd);
 }
 
-pub unsafe fn ipc_new_client_on_fd(
-    loop_0: *mut ev_loop,
-    fd: ::core::ffi::c_int,
-) -> *mut ipc_client {
+/// fd transfers a valid owned descriptor. All clients are Box-allocated here;
+/// watcher pointers are stable Box allocations stopped before matching drops.
+pub unsafe fn ipc_new_client_on_fd(loop_: *mut ev_loop, fd: libc::c_int) -> *mut ipc_client {
     set_nonblock(fd);
-    let client: *mut ipc_client =
-        scalloc(1 as usize, ::core::mem::size_of::<ipc_client>() as usize) as *mut ipc_client;
-    (*client).fd = fd;
-    (*client).read_callback =
-        scalloc(1 as usize, ::core::mem::size_of::<ev_io>() as usize) as *mut ev_io;
-    (*(*client).read_callback).data = client as *mut ::core::ffi::c_void;
-    let ref mut fresh0 =
-        (*((*client).read_callback as *mut ::core::ffi::c_void as *mut ev_watcher)).pending;
-    *fresh0 = 0 as ::core::ffi::c_int;
-    (*((*client).read_callback as *mut ::core::ffi::c_void as *mut ev_watcher)).active = *fresh0;
-    (*((*client).read_callback as *mut ::core::ffi::c_void as *mut ev_watcher)).priority =
-        0 as ::core::ffi::c_int;
-    (*(*client).read_callback).cb = Some(
-        ipc_receive_message
-            as unsafe extern "C" fn(*mut ev_loop, *mut ev_io, ::core::ffi::c_int) -> (),
-    )
-        as Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_io, ::core::ffi::c_int) -> ()>;
-    memmove(
-        &raw mut (*((*client).read_callback as *mut ev_watcher)).cb as *mut ::core::ffi::c_void,
-        &raw mut (*(*client).read_callback).cb as *const ::core::ffi::c_void,
-        ::core::mem::size_of::<
-            Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_io, ::core::ffi::c_int) -> ()>,
-        >() as usize,
-    );
-    (*(*client).read_callback).fd = fd;
-    (*(*client).read_callback).events =
-        EV_READ as ::core::ffi::c_int | EV__IOFDSET as ::core::ffi::c_int;
-    ev_io_start(loop_0, (*client).read_callback as *mut ev_io);
-    (*client).write_callback =
-        scalloc(1 as usize, ::core::mem::size_of::<ev_io>() as usize) as *mut ev_io;
-    (*(*client).write_callback).data = client as *mut ::core::ffi::c_void;
-    let ref mut fresh1 =
-        (*((*client).write_callback as *mut ::core::ffi::c_void as *mut ev_watcher)).pending;
-    *fresh1 = 0 as ::core::ffi::c_int;
-    (*((*client).write_callback as *mut ::core::ffi::c_void as *mut ev_watcher)).active = *fresh1;
-    (*((*client).write_callback as *mut ::core::ffi::c_void as *mut ev_watcher)).priority =
-        0 as ::core::ffi::c_int;
-    (*(*client).write_callback).cb = Some(
-        ipc_socket_writeable_cb
-            as unsafe extern "C" fn(*mut ev_loop, *mut ev_io, ::core::ffi::c_int) -> (),
-    )
-        as Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_io, ::core::ffi::c_int) -> ()>;
-    memmove(
-        &raw mut (*((*client).write_callback as *mut ev_watcher)).cb as *mut ::core::ffi::c_void,
-        &raw mut (*(*client).write_callback).cb as *const ::core::ffi::c_void,
-        ::core::mem::size_of::<
-            Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_io, ::core::ffi::c_int) -> ()>,
-        >() as usize,
-    );
-    (*(*client).write_callback).fd = fd;
-    (*(*client).write_callback).events =
-        EV_WRITE as ::core::ffi::c_int | EV__IOFDSET as ::core::ffi::c_int;
-    debuglog(
-        c"%s:%s:%d - IPC: new client connected on fd %d\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/ipc.c".as_ptr(),
-        c"ipc_new_client_on_fd".as_ptr(),
-        1580 as ::core::ffi::c_int,
+    let owner = std::os::fd::OwnedFd::from_raw_fd(fd);
+    let read = Box::into_raw(Box::new(ev_io::new(fd, EV_READ, ipc_receive_message)));
+    let write = Box::into_raw(Box::new(ev_io::new(fd, EV_WRITE, ipc_socket_writeable_cb)));
+    let generation = NEXT_CLIENT_GENERATION;
+    NEXT_CLIENT_GENERATION = generation
+        .checked_add(1)
+        .expect("IPC client generation exhausted");
+    let client = Box::into_raw(Box::new(ipc_client {
         fd,
-    );
-    (*client).clients.tqe_next = ::core::ptr::null_mut::<ipc_client>();
-    (*client).clients.tqe_prev = all_clients.tqh_last;
-    *all_clients.tqh_last = client as *mut ipc_client;
+        generation,
+        fd_owner: Some(owner),
+        events: Vec::new(),
+        first_tick_sent: false,
+        read_callback: read,
+        write_callback: write,
+        timeout: std::ptr::null_mut(),
+        buffer: Vec::new(),
+        clients: crate::application::C2RustUnnamed_48 {
+            tqe_next: std::ptr::null_mut(),
+            tqe_prev: all_clients.tqh_last,
+        },
+    }));
+    (*read).data = client.cast();
+    (*write).data = client.cast();
+    *all_clients.tqh_last = client;
     all_clients.tqh_last = &raw mut (*client).clients.tqe_next;
+    ev_io_start(loop_, read);
     client
 }
 
@@ -3752,11 +2955,7 @@ pub unsafe fn ipc_marshal_workspace_event(
     current: *mut Con,
     old: *mut Con,
 ) -> yajl_gen {
-    let prev_locale: *mut ::core::ffi::c_char = sstrdup(setlocale(
-        LC_NUMERIC,
-        ::core::ptr::null::<::core::ffi::c_char>(),
-    ));
-    setlocale(LC_NUMERIC, c"C".as_ptr());
+    let locale = NumericLocale::c();
     let gen: yajl_gen = yajl_gen_alloc(::core::ptr::null::<yajl_alloc_funcs>());
     yajl_gen_map_open(gen);
     yajl_gen_string(
@@ -3786,8 +2985,7 @@ pub unsafe fn ipc_marshal_workspace_event(
         dump_node(gen, old, false_0 != 0);
     }
     yajl_gen_map_close(gen);
-    setlocale(LC_NUMERIC, prev_locale);
-    free(prev_locale as *mut ::core::ffi::c_void);
+    drop(locale);
     gen
 }
 
@@ -3805,7 +3003,7 @@ pub unsafe fn ipc_send_workspace_event(
         I3_IPC_EVENT_WORKSPACE as u32,
         payload as *const ::core::ffi::c_char,
     );
-    yajl_gen_free(gen);
+    drop(JsonOwner(gen));
 }
 
 pub unsafe fn ipc_send_window_event(property: *const ::core::ffi::c_char, con: *mut Con) {
@@ -3824,12 +3022,9 @@ pub unsafe fn ipc_send_window_event(property: *const ::core::ffi::c_char, con: *
             XCB_WINDOW_NONE as ::core::ffi::c_int as xcb_window_t
         },
     );
-    let prev_locale: *mut ::core::ffi::c_char = sstrdup(setlocale(
-        LC_NUMERIC,
-        ::core::ptr::null::<::core::ffi::c_char>(),
-    ));
-    setlocale(LC_NUMERIC, c"C".as_ptr());
-    let gen: yajl_gen = yajl_gen_alloc(::core::ptr::null::<yajl_alloc_funcs>());
+    let locale = NumericLocale::c();
+    let generator_owner = JsonOwner::new();
+    let gen = generator_owner.0;
     yajl_gen_map_open(gen);
     yajl_gen_string(
         gen,
@@ -3852,9 +3047,8 @@ pub unsafe fn ipc_send_window_event(property: *const ::core::ffi::c_char, con: *
         I3_IPC_EVENT_WINDOW as u32,
         payload as *const ::core::ffi::c_char,
     );
-    yajl_gen_free(gen);
-    setlocale(LC_NUMERIC, prev_locale);
-    free(prev_locale as *mut ::core::ffi::c_void);
+
+    drop(locale);
 }
 
 pub unsafe fn ipc_send_barconfig_update_event(barconfig: *mut Barconfig) {
@@ -3867,12 +3061,9 @@ pub unsafe fn ipc_send_barconfig_update_event(barconfig: *mut Barconfig) {
         1674 as ::core::ffi::c_int,
         (*barconfig).id,
     );
-    let prev_locale: *mut ::core::ffi::c_char = sstrdup(setlocale(
-        LC_NUMERIC,
-        ::core::ptr::null::<::core::ffi::c_char>(),
-    ));
-    setlocale(LC_NUMERIC, c"C".as_ptr());
-    let gen: yajl_gen = yajl_gen_alloc(::core::ptr::null::<yajl_alloc_funcs>());
+    let locale = NumericLocale::c();
+    let generator_owner = JsonOwner::new();
+    let gen = generator_owner.0;
     dump_bar_config(gen, barconfig);
     let mut payload: *const ::core::ffi::c_uchar = ::core::ptr::null::<::core::ffi::c_uchar>();
     let mut length: ylength = 0;
@@ -3882,9 +3073,8 @@ pub unsafe fn ipc_send_barconfig_update_event(barconfig: *mut Barconfig) {
         I3_IPC_EVENT_BARCONFIG_UPDATE as u32,
         payload as *const ::core::ffi::c_char,
     );
-    yajl_gen_free(gen);
-    setlocale(LC_NUMERIC, prev_locale);
-    free(prev_locale as *mut ::core::ffi::c_void);
+
+    drop(locale);
 }
 
 pub unsafe fn ipc_send_binding_event(
@@ -3903,12 +3093,9 @@ pub unsafe fn ipc_send_binding_event(
         (*bind).symbol,
         (*bind).keycode,
     );
-    let prev_locale: *mut ::core::ffi::c_char = sstrdup(setlocale(
-        LC_NUMERIC,
-        ::core::ptr::null::<::core::ffi::c_char>(),
-    ));
-    setlocale(LC_NUMERIC, c"C".as_ptr());
-    let gen: yajl_gen = yajl_gen_alloc(::core::ptr::null::<yajl_alloc_funcs>());
+    let locale = NumericLocale::c();
+    let generator_owner = JsonOwner::new();
+    let gen = generator_owner.0;
     yajl_gen_map_open(gen);
     yajl_gen_string(
         gen,
@@ -3949,9 +3136,8 @@ pub unsafe fn ipc_send_binding_event(
         I3_IPC_EVENT_BINDING as u32,
         payload as *const ::core::ffi::c_char,
     );
-    yajl_gen_free(gen);
-    setlocale(LC_NUMERIC, prev_locale);
-    free(prev_locale as *mut ::core::ffi::c_void);
+
+    drop(locale);
 }
 
 pub unsafe fn ipc_confirm_restart(client: *mut ipc_client) {
@@ -3964,7 +3150,7 @@ pub unsafe fn ipc_confirm_restart(client: *mut ipc_client) {
         1734 as ::core::ffi::c_int,
         (*client).fd,
     );
-    static mut reply: *const ::core::ffi::c_char = c"[{\"success\":true}]".as_ptr();
+    let reply = c"[{\"success\":true}]".as_ptr();
     ipc_send_client_message(
         client,
         strlen(reply),
@@ -4051,3 +3237,147 @@ use crate::workspace::workspace_is_visible;
 use i3_common::ipc_recv_message::ipc_recv_message;
 use i3_common::nonblock::set_nonblock;
 use i3_common::string::i3string_as_utf8;
+
+#[cfg(test)]
+mod owned_tests {
+    use super::*;
+    #[test]
+    fn wire_frame_is_native_endian_and_preserves_binary_payload() {
+        let frame = encode_frame(0x8000_0007, b"a\0\xff");
+        assert_eq!(&frame[..6], b"i3-ipc");
+        assert_eq!(&frame[6..10], &3u32.to_ne_bytes());
+        assert_eq!(&frame[10..14], &0x8000_0007u32.to_ne_bytes());
+        assert_eq!(&frame[14..], b"a\0\xff");
+    }
+    #[test]
+    fn subscriptions_commit_prefixes_nuls_empty_names_and_unfinished_arrays() {
+        let (events, status) = parse_subscriptions(br#"["","tick\u0000ignored","tick"] trailing"#);
+        assert!(status.is_err());
+        assert_eq!(
+            events
+                .iter()
+                .map(|event| event.to_bytes())
+                .collect::<Vec<_>>(),
+            [b"".as_slice(), b"tick", b"tick"]
+        );
+        let (events, status) = parse_subscriptions(br#"["workspace""#);
+        assert!(status.is_ok());
+        assert_eq!(events[0].as_c_str(), c"workspace");
+    }
+    #[test]
+    fn sync_values_keep_no_finish_key_projection_and_u32_casts() {
+        assert_eq!(
+            parse_sync(br#"{"rnd":-1,"WINDOW\u0000ignored":4294967297,"nested":{"rnd":2}}"#)
+                .unwrap(),
+            SyncRequest { rnd: 2, window: 1 }
+        );
+        assert_eq!(
+            parse_sync(br#"{"rnd":3,"window":4,"#).unwrap(),
+            SyncRequest { rnd: 3, window: 4 }
+        );
+        assert!(parse_sync(br#"{"rnd":9223372036854775808}"#).is_err());
+        assert!(parse_sync(br#"{"rnd":-9223372036854775808}"#).is_err());
+    }
+    #[test]
+    fn timeout_cmdline_handles_empty_embedded_and_full_buffers() {
+        assert_eq!(diagnostic_cmdline(b"").as_c_str(), c"");
+        assert_eq!(diagnostic_cmdline(b"a\0b\0").as_c_str(), c"a b");
+        assert_eq!(diagnostic_cmdline(&[b'x'; 512]).to_bytes().len(), 512);
+    }
+}
+
+#[cfg(test)]
+mod client_lifetime_tests {
+    use super::*;
+    use std::io::{Read, Write};
+    #[test]
+    fn client_generation_and_fd_exemption_survive_dispatch_cleanup() {
+        if std::env::var_os("I333_PRIVATE_IPC_PROBE").is_none() {
+            let mut child = std::process::Command::new(std::env::current_exe().unwrap());
+            child.args(["--exact","ipc::client_lifetime_tests::client_generation_and_fd_exemption_survive_dispatch_cleanup","--nocapture"])
+                .env("I333_PRIVATE_IPC_PROBE","1");
+            for key in [
+                "DISPLAY",
+                "WAYLAND_DISPLAY",
+                "I3SOCK",
+                "NOTIFY_SOCKET",
+                "LISTEN_PID",
+                "LISTEN_FDS",
+                "LISTEN_FDNAMES",
+                "LIBEV_FLAGS",
+            ] {
+                child.env_remove(key);
+            }
+            let output = child.output().unwrap();
+            assert!(
+                output.status.success(),
+                "{}\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            return;
+        }
+        unsafe {
+            let loop_ = libev_sys::ev_loop_new(0);
+            assert!(!loop_.is_null());
+            main_loop = loop_;
+            let (stream, mut peer) = std::os::unix::net::UnixStream::pair().unwrap();
+            let client = ipc_new_client_on_fd(loop_, stream.into_raw_fd());
+            let token = ClientToken::capture(client);
+            assert!(token.live());
+            free_ipc_client(client, -1);
+            assert!(!token.live());
+            let mut byte = [0];
+            assert_eq!(peer.read(&mut byte).unwrap(), 0);
+            let (stream, mut peer) = std::os::unix::net::UnixStream::pair().unwrap();
+            let fd = stream.into_raw_fd();
+            let replacement = ipc_new_client_on_fd(loop_, fd);
+            assert!(!ClientToken {
+                pointer: replacement,
+                generation: token.generation
+            }
+            .live());
+            free_ipc_client(replacement, fd);
+            let mut retained = std::os::unix::net::UnixStream::from_raw_fd(fd);
+            retained.write_all(b"x").unwrap();
+            peer.read_exact(&mut byte).unwrap();
+            assert_eq!(&byte, b"x");
+            drop(retained);
+            libev_sys::ev_loop_destroy(loop_);
+            main_loop = std::ptr::null_mut();
+        }
+    }
+    #[test]
+    fn value_serialization_keeps_signed_coordinates_gap_alias_and_modifier_order() {
+        let mut gen = i3_json::Generator::new();
+        gen.start_object().unwrap();
+        write_fields(
+            &mut gen,
+            "rect",
+            &rect_fields(Rect {
+                x: u32::MAX,
+                y: 0x8000_0000,
+                width: u32::MAX,
+                height: 1,
+            }),
+        )
+        .unwrap();
+        gen.end_object().unwrap();
+        assert_eq!(
+            gen.bytes(),
+            br#"{"rect":{"x":-1,"y":-2147483648,"width":4294967295,"height":1}}"#
+        );
+        let fields = gaps_fields(gaps_t {
+            inner: 1,
+            top: 2,
+            right: 3,
+            bottom: 4,
+            left: 5,
+        });
+        assert_eq!(fields[1], ("outer", 2));
+        assert_eq!(
+            modifier_names((1 << 19) | (1 << 13) | 1).collect::<Vec<_>>(),
+            ["shift", "Group4"]
+        );
+    }
+}

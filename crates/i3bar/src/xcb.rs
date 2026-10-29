@@ -11,7 +11,7 @@ use i3_common::draw_util::draw_util_text;
 use i3_common::font::load_font;
 use i3_common::font::predict_text_width;
 use i3_common::font::set_font;
-use i3_common::safewrappers::sasprintf;
+use i3_common::safewrappers::{sasprintf, sstrdup};
 use i3_common::string::i3string_as_utf8;
 use i3_common::string::i3string_free;
 use i3_common::string::i3string_get_num_bytes;
@@ -31,12 +31,10 @@ pub use libev_sys::{
     ev_watcher, EV_READ, EV__IOFDSET,
 };
 
-pub type i3String = _i3String;
 pub use i3_common::font::C2RustUnnamed;
 pub use i3_common::font::C2RustUnnamed_0;
 pub use i3_common::font::Font;
 
-pub type i3Font = Font;
 pub use crate::child::rect_t;
 pub use i3_common::draw_util::color_t;
 pub use i3_common::draw_util::surface_t;
@@ -57,26 +55,7 @@ pub use crate::application::tray_output_t;
 
 pub use crate::application::binding_t;
 
-#[derive(Copy, Clone)]
-#[repr(C, packed)]
-pub struct C2RustUnnamed_10 {
-    pub left: u32,
-    pub right: u32,
-    pub top: u32,
-    pub bottom: u32,
-    pub left_start_y: u32,
-    pub left_end_y: u32,
-    pub right_start_y: u32,
-    pub right_end_y: u32,
-    pub top_start_x: u32,
-    pub top_end_x: u32,
-    pub bottom_start_x: u32,
-    pub bottom_end_x: u32,
-}
-
 pub const NUM_ATOMS: usize = AtomIndex::COUNT;
-
-pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 
 pub const _NET_SYSTEM_TRAY_ORIENTATION_HORZ: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 pub const SYSTEM_TRAY_REQUEST_DOCK: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
@@ -106,7 +85,7 @@ static mut tray_reply: *mut xcb_intern_atom_reply_t =
 
 pub static mut conn: *mut xcb_connection_t =
     ::core::ptr::null::<xcb_connection_t>() as *mut xcb_connection_t;
-static mut font: i3Font = Font {
+static mut font: Font = Font {
     type_0: i3_common::font::FontType::None,
     height: 0,
     pattern: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
@@ -144,7 +123,7 @@ static mut binding: Mode = Mode {
     name_width: 0,
 };
 
-pub static mut activated_mode: bool = false_0 != 0;
+pub static mut activated_mode: bool = false;
 static mut output_for_tray: *mut i3_output = ::core::ptr::null::<i3_output>() as *mut i3_output;
 
 pub static mut colors: xcb_colors_t = xcb_colors_t {
@@ -305,50 +284,242 @@ static mut sep_voff_px: ::core::ffi::c_int = 4 as ::core::ffi::c_int;
 
 pub static mut separator_symbol_width: ::core::ffi::c_int = 0;
 
+// Native entry points require exclusive event-thread access to live display,
+// output/tray/status graphs. Owned scratch values never extend graph borrows
+// across native calls, drawing, reconfiguration, IPC or process callbacks.
+struct Native<T>(std::ptr::NonNull<T>);
+impl<T> Native<T> {
+    /// Transfers unique ownership of a complete malloc-backed native allocation.
+    unsafe fn take(pointer: *mut T) -> Option<Self> {
+        std::ptr::NonNull::new(pointer).map(Self)
+    }
+    fn raw(&self) -> *mut T {
+        self.0.as_ptr()
+    }
+}
+impl<T> Drop for Native<T> {
+    fn drop(&mut self) {
+        unsafe {
+            free(self.raw().cast());
+        }
+    }
+}
+#[derive(Default)]
+struct Replies(Vec<std::ptr::NonNull<libc::c_void>>);
+impl Replies {
+    unsafe fn take<T>(&mut self, pointer: *mut T) -> *mut T {
+        if let Some(pointer) = std::ptr::NonNull::new(pointer) {
+            self.0.push(pointer.cast());
+        }
+        pointer
+    }
+}
+impl Drop for Replies {
+    fn drop(&mut self) {
+        for pointer in self.0.drain(..) {
+            unsafe {
+                free(pointer.as_ptr());
+            }
+        }
+    }
+}
+unsafe fn property_bytes<'a>(reply: *const xcb_get_property_reply_t) -> Option<&'a [u8]> {
+    let reply = reply.as_ref()?;
+    let stride = match reply.format {
+        8 => 1,
+        16 => 2,
+        32 => 4,
+        _ => return None,
+    };
+    let length = (reply.value_len as usize).checked_mul(stride)?;
+    let available = (reply.length as usize).checked_mul(4)?;
+    if length > available || length > isize::MAX as usize {
+        return None;
+    }
+    Some(std::slice::from_raw_parts(
+        (reply as *const xcb_get_property_reply_t).add(1).cast(),
+        length,
+    ))
+}
+fn first_nul(bytes: &[u8]) -> &[u8] {
+    bytes.split(|&byte| byte == 0).next().unwrap_or_default()
+}
+fn class_parts(bytes: &[u8]) -> (&[u8], Option<&[u8]>) {
+    let instance = first_nul(bytes);
+    (
+        instance,
+        bytes
+            .get(instance.len() + 1..)
+            .filter(|rest| !rest.is_empty())
+            .map(first_nul),
+    )
+}
+fn xembed_words(bytes: &[u8]) -> Option<[u32; 2]> {
+    Some([
+        u32::from_ne_bytes(bytes.get(..4)?.try_into().ok()?),
+        u32::from_ne_bytes(bytes.get(4..8)?.try_into().ok()?),
+    ])
+}
+fn separator_offset(no_separator: bool, width: u32) -> u32 {
+    if no_separator {
+        0
+    } else {
+        width / 2 + width % 2
+    }
+}
+fn render_dimensions(
+    width: u32,
+    minimum: u32,
+    align: crate::child::BlockAlign,
+    previous: status_block_render_desc,
+) -> status_block_render_desc {
+    let mut result = status_block_render_desc { width, ..previous };
+    if minimum <= width {
+        result.x_offset = 0;
+        result.x_append = 0;
+    } else {
+        let padding = minimum - width;
+        // Left/right intentionally retain the other cached offset, matching the
+        // old renderer rather than silently normalizing state on each draw.
+        match align {
+            crate::child::BlockAlign::Left => result.x_append = padding,
+            crate::child::BlockAlign::Right => result.x_offset = padding,
+            crate::child::BlockAlign::Center => {
+                result.x_offset = padding / 2;
+                result.x_append = padding / 2 + padding % 2;
+            }
+        }
+    }
+    result
+}
+fn quote_workspace(name: &std::ffi::CStr) -> std::ffi::CString {
+    let mut bytes = b"workspace \"".to_vec();
+    for &byte in name.to_bytes() {
+        if matches!(byte, b'"' | b'\\') {
+            bytes.push(b'\\');
+        }
+        bytes.push(byte);
+    }
+    bytes.push(b'"');
+    std::ffi::CString::new(bytes).unwrap()
+}
+fn tray_width(mapped: usize, step: i32, left: i32) -> i32 {
+    let mut width = 0;
+    for _ in 0..mapped {
+        width += step;
+    }
+    if width > 0 {
+        width += left;
+    }
+    width
+}
+fn strut_values(
+    position: crate::application::BarPosition,
+    height: i32,
+    bounds: rect_t,
+) -> [u32; 12] {
+    let mut values = [0; 12];
+    match position {
+        crate::application::BarPosition::Top => {
+            values[2] = height as u32;
+            values[8] = bounds.x as u32;
+            values[9] = (bounds.x + bounds.w) as u32;
+        }
+        crate::application::BarPosition::Bottom => {
+            values[3] = height as u32;
+            values[10] = bounds.x as u32;
+            values[11] = (bounds.x + bounds.w) as u32;
+        }
+        crate::application::BarPosition::None => {}
+    }
+    values
+}
+fn client_message(window: u32, type_: u32, data: [u32; 5]) -> xcb_client_message_event_t {
+    xcb_client_message_event_t {
+        response_type: XCB_CLIENT_MESSAGE as u8,
+        format: 32,
+        sequence: 0,
+        window,
+        type_0: type_,
+        data: xcb_sys::xcb_client_message_data_t { data32: data },
+    }
+}
+#[repr(C)]
+struct DestroyMessage {
+    event: xcb_destroy_notify_event_t,
+    padding: [u8; 20],
+}
+fn destroy_message(window: u32) -> DestroyMessage {
+    DestroyMessage {
+        event: xcb_destroy_notify_event_t {
+            response_type: XCB_DESTROY_NOTIFY as u8,
+            pad0: 0,
+            sequence: 0,
+            event: window,
+            window,
+        },
+        padding: [0; 20],
+    }
+}
+const _: () = {
+    assert!(std::mem::size_of::<xcb_client_message_event_t>() == 32);
+    assert!(std::mem::size_of::<DestroyMessage>() == 32);
+};
+const ATOM_NAMES: [&std::ffi::CStr; 12] = [
+    c"_NET_WM_WINDOW_TYPE",
+    c"_NET_WM_WINDOW_TYPE_DOCK",
+    c"_NET_WM_STRUT_PARTIAL",
+    c"I3_SOCKET_PATH",
+    c"MANAGER",
+    c"_NET_SYSTEM_TRAY_ORIENTATION",
+    c"_NET_SYSTEM_TRAY_VISUAL",
+    c"_NET_SYSTEM_TRAY_OPCODE",
+    c"_NET_SYSTEM_TRAY_COLORS",
+    c"_XEMBED_INFO",
+    c"_XEMBED",
+    c"I3_SYNC",
+];
+
 pub unsafe fn _xcb_request_failed(
     cookie: xcb_void_cookie_t,
     err_msg: *mut ::core::ffi::c_char,
     line: ::core::ffi::c_int,
 ) -> ::core::ffi::c_int {
-    let mut err: *mut xcb_generic_error_t = ::core::ptr::null_mut::<xcb_generic_error_t>();
-    err = xcb_request_check(xcb_connection, cookie);
-    if !err.is_null() {
+    if let Some(error) = Native::take(xcb_request_check(xcb_connection, cookie)) {
+        let code = i32::from((*error.raw()).error_code);
         fprintf(
             stderr,
             c"[%s:%d] ERROR: %s. X Error Code: %d\n".as_ptr(),
             c"../i3bar/src/xcb.c".as_ptr(),
             line,
             err_msg,
-            (*err).error_code as ::core::ffi::c_int,
+            code,
         );
-        return (*err).error_code as ::core::ffi::c_int;
+        code
+    } else {
+        0
     }
-    0 as ::core::ffi::c_int
 }
+
 unsafe fn get_sep_offset(block: *mut status_block) -> u32 {
-    if !(*block).no_separator && (*block).sep_block_width > 0 as u32 {
-        return (*block)
-            .sep_block_width
-            .wrapping_div(2 as u32)
-            .wrapping_add((*block).sep_block_width.wrapping_rem(2 as u32));
-    }
-    0 as u32
+    separator_offset((*block).no_separator, (*block).sep_block_width)
 }
-unsafe fn get_tray_width(trayclients: *mut tc_head) -> ::core::ffi::c_int {
-    let mut trayclient: *mut trayclient = ::core::ptr::null_mut::<trayclient>();
-    let mut tray_width: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    trayclient = *(*((*trayclients).tqh_last as *mut tc_head)).tqh_last as *mut trayclient;
-    while !trayclient.is_null() {
-        if (*trayclient).mapped {
-            tray_width += icon_size + logical_px(config.tray_padding);
+unsafe fn get_tray_width(trayclients: *mut tc_head) -> i32 {
+    let mut count = 0;
+    let mut client = (*trayclients).tqh_first;
+    while !client.is_null() {
+        if (*client).mapped {
+            count += 1;
         }
-        trayclient = *(*((*trayclient).tailq.tqe_prev as *mut tc_head)).tqh_last as *mut trayclient;
+        client = (*client).tailq.tqe_next;
     }
-    if tray_width > 0 as ::core::ffi::c_int {
-        tray_width += logical_px(tray_loff_px);
-    }
-    tray_width
+    tray_width(
+        count,
+        icon_size + logical_px(config.tray_padding),
+        logical_px(tray_loff_px),
+    )
 }
+
 unsafe fn draw_separator(
     output: *mut i3_output,
     x: u32,
@@ -400,7 +571,7 @@ unsafe fn draw_separator(
     };
 }
 unsafe fn predict_block_length(block: *mut status_block) {
-    let mut text: *mut i3String = (*block).full_text;
+    let mut text: *mut I3String = (*block).full_text;
     let mut render: *mut status_block_render_desc = &raw mut (*block).full_render;
     if (*block).use_short as ::core::ffi::c_int != 0 && !(*block).short_text.is_null() {
         text = (*block).short_text;
@@ -416,26 +587,7 @@ unsafe fn predict_block_length(block: *mut status_block) {
             (*block).border_left.wrapping_add((*block).border_right) as ::core::ffi::c_int,
         ) as u32);
     }
-    if (*block).min_width <= (*render).width {
-        (*render).x_offset = 0 as u32;
-        (*render).x_append = 0 as u32;
-    } else {
-        let padding_width: u32 = (*block).min_width.wrapping_sub((*render).width);
-        match (*block).align {
-            crate::child::BlockAlign::Left => {
-                (*render).x_append = padding_width;
-            }
-            crate::child::BlockAlign::Right => {
-                (*render).x_offset = padding_width;
-            }
-            crate::child::BlockAlign::Center => {
-                (*render).x_offset = padding_width.wrapping_div(2 as u32);
-                (*render).x_append = padding_width
-                    .wrapping_div(2 as u32)
-                    .wrapping_add(padding_width.wrapping_rem(2 as u32));
-            }
-        }
-    }
+    *render = render_dimensions((*render).width, (*block).min_width, (*block).align, *render);
     (*block).render_length = (*render)
         .width
         .wrapping_add((*render).x_offset)
@@ -463,7 +615,7 @@ unsafe fn switch_block_to_short(block: *mut status_block) -> u32 {
         return 0 as u32;
     }
     let full: u32 = (*block).render_length;
-    (*block).use_short = true_0 != 0;
+    (*block).use_short = true;
     predict_block_length(block);
     full.wrapping_sub((*block).render_length)
 }
@@ -501,7 +653,7 @@ unsafe fn draw_statusline(output: *mut i3_output, clip_left: u32, use_focus_colo
     let mut x: u32 = (0 as u32).wrapping_sub(clip_left);
     block = statusline_head.tqh_first;
     while !block.is_null() {
-        let mut text: *mut i3String = (*block).full_text;
+        let mut text: *mut I3String = (*block).full_text;
         let mut render: *mut status_block_render_desc = &raw mut (*block).full_render;
         if (*block).use_short as ::core::ffi::c_int != 0 && !(*block).short_text.is_null() {
             text = (*block).short_text;
@@ -806,10 +958,10 @@ unsafe fn execute_custom_command(input_code: xcb_keycode_t, event_is_release: bo
                 I3_IPC_MESSAGE_TYPE_RUN_COMMAND as u32,
                 (*binding_0).command_ptr(),
             );
-            return true_0 != 0;
+            return true;
         }
     }
-    false_0 != 0
+    false
 }
 unsafe fn child_handle_button(
     event: *mut xcb_button_press_event_t,
@@ -824,7 +976,7 @@ unsafe fn child_handle_button(
     let mut block: *mut status_block = ::core::ptr::null_mut::<status_block>();
     block = statusline_head.tqh_first;
     while !block.is_null() {
-        let mut text: *mut i3String = ::core::ptr::null_mut::<i3String>();
+        let mut text: *mut I3String = ::core::ptr::null_mut::<I3String>();
         let mut render: *mut status_block_render_desc =
             ::core::ptr::null_mut::<status_block_render_desc>();
         if (*block).use_short as ::core::ffi::c_int != 0 && !(*block).short_text.is_null() {
@@ -881,53 +1033,18 @@ unsafe fn predict_button_width(name_width: ::core::ffi::c_int) -> ::core::ffi::c
         logical_px(config.ws_min_width)
     }
 }
-unsafe fn quote_workspace_name(in_0: *const ::core::ffi::c_char) -> *mut ::core::ffi::c_char {
-    let namelen: usize = strlen(in_0) as usize;
-    let len: usize = namelen
-        .wrapping_add(strlen(c"workspace \"\"".as_ptr()) as usize)
-        .wrapping_add(1 as usize);
-    let out: *mut ::core::ffi::c_char =
-        scalloc((2 as usize).wrapping_mul(len), 1 as usize) as *mut ::core::ffi::c_char;
-    memcpy(
-        out as *mut ::core::ffi::c_void,
-        c"workspace \"".as_ptr() as *const ::core::ffi::c_void,
-        strlen(c"workspace \"".as_ptr()),
-    );
-    let mut inpos: usize = 0;
-    let mut outpos: usize = 0;
-    inpos = 0 as usize;
-    outpos = strlen(c"workspace \"".as_ptr());
-    while inpos < namelen {
-        if *in_0.offset(inpos as isize) as ::core::ffi::c_int == '"' as i32
-            || *in_0.offset(inpos as isize) as ::core::ffi::c_int == '\\' as i32
-        {
-            *out.offset(outpos as isize) = '\\' as i32 as ::core::ffi::c_char;
-            outpos = outpos.wrapping_add(1);
-        }
-        *out.offset(outpos as isize) = *in_0.offset(inpos as isize);
-        inpos = inpos.wrapping_add(1);
-        outpos = outpos.wrapping_add(1);
-    }
-    *out.offset(outpos as isize) = '"' as i32 as ::core::ffi::c_char;
-    out
-}
 unsafe extern "C" fn focus_workspace(ws: *mut i3_ws) {
-    let mut buffer: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    if (*ws).id != 0 as usize {
-        sasprintf(
-            &raw mut buffer,
-            c"[con_id=%lu] focus workspace".as_ptr(),
-            (*ws).id,
-        );
+    let command = if (*ws).id != 0 {
+        std::ffi::CString::new(format!("[con_id={}] focus workspace", (*ws).id)).unwrap()
     } else {
         let Some(name) = (*ws).canonical_name.as_deref() else {
             return;
         };
-        buffer = quote_workspace_name(name.as_ptr());
-    }
-    i3_send_msg(I3_IPC_MESSAGE_TYPE_RUN_COMMAND as u32, buffer);
-    free(buffer as *mut ::core::ffi::c_void);
+        quote_workspace(name)
+    };
+    i3_send_msg(I3_IPC_MESSAGE_TYPE_RUN_COMMAND as u32, command.as_ptr());
 }
+
 unsafe fn handle_button(event: *mut xcb_button_press_event_t) {
     let mut walk: *mut i3_output = ::core::ptr::null_mut::<i3_output>();
     let bar: xcb_window_t = (*event).event;
@@ -1104,34 +1221,24 @@ unsafe fn configure_trayclients() {
                 }
                 client = (*client).tailq.tqe_next as *mut trayclient;
             }
-            let mut idx: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-            let trayclients: *mut *mut trayclient = smalloc(
-                (count as usize).wrapping_mul(::core::mem::size_of::<*mut trayclient>() as usize),
-            ) as *mut *mut trayclient;
-            client = (*(*output).trayclients).tqh_first as *mut trayclient;
+            let mut trayclients: Vec<*mut trayclient> = Vec::with_capacity(count as usize);
+            client = (*(*output).trayclients).tqh_first;
             while !client.is_null() {
                 if (*client).mapped {
-                    let fresh2 = idx;
-                    idx = idx + 1;
-                    let ref mut fresh3 = *trayclients.offset(fresh2 as isize);
-                    *fresh3 = client;
+                    trayclients.push(client);
                 }
-                client = (*client).tailq.tqe_next as *mut trayclient;
+                client = (*client).tailq.tqe_next;
             }
+            // Native comparator/tie semantics retained; Vec owns the bounded
+            // scratch array while qsort rearranges only Copy pointer values.
             qsort(
-                trayclients as *mut ::core::ffi::c_void,
-                count as usize,
-                ::core::mem::size_of::<*mut trayclient>() as usize,
-                Some(
-                    reorder_trayclients_cmp
-                        as unsafe extern "C" fn(
-                            *const ::core::ffi::c_void,
-                            *const ::core::ffi::c_void,
-                        ) -> ::core::ffi::c_int,
-                ),
+                trayclients.as_mut_ptr().cast(),
+                trayclients.len(),
+                std::mem::size_of::<*mut trayclient>(),
+                Some(reorder_trayclients_cmp),
             );
             let mut x: u32 = (*output).rect.w as u32;
-            idx = count;
+            let mut idx = count;
             while idx > 0 as ::core::ffi::c_int {
                 x = x.wrapping_sub((icon_size + logical_px(config.tray_padding)) as u32);
                 if config.verbose {
@@ -1139,19 +1246,18 @@ unsafe fn configure_trayclients() {
                         c"[%s:%d] Configuring tray window %08x to x=%d\n".as_ptr(),
                         c"../i3bar/src/xcb.c".as_ptr(),
                         819 as ::core::ffi::c_int,
-                        (**trayclients.offset((idx - 1 as ::core::ffi::c_int) as isize)).win,
+                        (*trayclients[(idx - 1) as usize]).win,
                         x,
                     );
                 }
                 xcb_configure_window(
                     xcb_connection,
-                    (**trayclients.offset((idx - 1 as ::core::ffi::c_int) as isize)).win,
+                    (*trayclients[(idx - 1) as usize]).win,
                     XCB_CONFIG_WINDOW_X as ::core::ffi::c_int as u16,
                     &raw mut x as *const ::core::ffi::c_void,
                 );
                 idx -= 1;
             }
-            free(trayclients as *mut ::core::ffi::c_void);
         }
         output = (*output).slist.sle_next as *mut i3_output;
     }
@@ -1184,11 +1290,12 @@ unsafe fn trayclient_from_window(win: xcb_window_t) -> *mut trayclient {
     trayclient_and_output_from_window(win, ::core::ptr::null_mut::<*mut i3_output>())
 }
 unsafe fn trayclient_update_class(client: *mut trayclient) {
-    let prop: *mut xcb_get_property_reply_t = xcb_get_property_reply(
+    let mut replies = Replies::default();
+    let prop: *mut xcb_get_property_reply_t = replies.take(xcb_get_property_reply(
         conn,
         xcb_get_property_unchecked(
             xcb_connection,
-            false_0 as u8,
+            0,
             (*client).win,
             XCB_ATOM_WM_CLASS as ::core::ffi::c_int as xcb_atom_t,
             XCB_ATOM_STRING as ::core::ffi::c_int as xcb_atom_t,
@@ -1196,7 +1303,7 @@ unsafe fn trayclient_update_class(client: *mut trayclient) {
             32 as u32,
         ),
         ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
+    ));
     if prop.is_null() || xcb_get_property_value_length(prop) == 0 as ::core::ffi::c_int {
         if config.verbose {
             printf(
@@ -1205,25 +1312,20 @@ unsafe fn trayclient_update_class(client: *mut trayclient) {
                 867 as ::core::ffi::c_int,
             );
         }
-        free(prop as *mut ::core::ffi::c_void);
         return;
     }
-    let prop_length: usize = xcb_get_property_value_length(prop) as usize;
-    let new_class: *mut ::core::ffi::c_char =
-        xcb_get_property_value(prop) as *mut ::core::ffi::c_char;
-    let class_class_index: usize =
-        (strnlen(new_class, prop_length) as usize).wrapping_add(1 as usize);
-    free((*client).class_instance as *mut ::core::ffi::c_void);
-    free((*client).class_class as *mut ::core::ffi::c_void);
-    (*client).class_instance = sstrndup(new_class, prop_length);
-    if class_class_index < prop_length {
-        (*client).class_class = sstrndup(
-            new_class.offset(class_class_index as isize),
-            prop_length.wrapping_sub(class_class_index),
-        );
-    } else {
-        (*client).class_class = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    }
+    let Some(bytes) = property_bytes(prop) else {
+        return;
+    };
+    let (instance, class) = class_parts(bytes);
+    let instance = std::ffi::CString::new(instance).unwrap();
+    let class = class.map(|bytes| std::ffi::CString::new(bytes).unwrap());
+    free((*client).class_instance.cast());
+    free((*client).class_class.cast());
+    (*client).class_instance = sstrdup(instance.as_ptr());
+    (*client).class_class = class
+        .as_ref()
+        .map_or(std::ptr::null_mut(), |class| sstrdup(class.as_ptr()));
     if config.verbose {
         printf(
             c"[%s:%d] WM_CLASS changed to %s (instance), %s (class)\n".as_ptr(),
@@ -1233,9 +1335,9 @@ unsafe fn trayclient_update_class(client: *mut trayclient) {
             (*client).class_class,
         );
     }
-    free(prop as *mut ::core::ffi::c_void);
 }
 unsafe fn handle_client_message(event: *mut xcb_client_message_event_t) {
+    let mut replies = Replies::default();
     if (*event).type_0 == atoms[AtomIndex::I3Sync as ::core::ffi::c_int as usize] {
         let window: xcb_window_t = (*event).data.data32[0 as ::core::ffi::c_int as usize];
         let rnd: u32 = (*event).data.data32[1 as ::core::ffi::c_int as usize];
@@ -1276,7 +1378,7 @@ unsafe fn handle_client_message(event: *mut xcb_client_message_event_t) {
                 mask,
                 &raw mut values as *mut u32 as *const ::core::ffi::c_void,
             );
-            let mut map_it: bool = true_0 != 0;
+            let mut map_it: bool = true;
             let mut xe_version: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
             let mut xembedc: xcb_get_property_cookie_t = xcb_get_property_cookie_t { sequence: 0 };
             let mut error: *mut xcb_generic_error_t =
@@ -1290,8 +1392,11 @@ unsafe fn handle_client_message(event: *mut xcb_client_message_event_t) {
                 0 as u32,
                 (2 as ::core::ffi::c_int * 32 as ::core::ffi::c_int) as u32,
             );
-            let xembedr: *mut xcb_get_property_reply_t =
-                xcb_get_property_reply(xcb_connection, xembedc, &raw mut error);
+            let xembedr: *mut xcb_get_property_reply_t = replies.take(xcb_get_property_reply(
+                xcb_connection,
+                xembedc,
+                &raw mut error,
+            ));
             if !error.is_null() {
                 fprintf(
                     stderr,
@@ -1313,13 +1418,15 @@ unsafe fn handle_client_message(event: *mut xcb_client_message_event_t) {
                         (*xembedr).length,
                     );
                 }
-                let xembed: *mut u32 = xcb_get_property_value(xembedr) as *mut u32;
+                let Some(xembed) = property_bytes(xembedr).and_then(xembed_words) else {
+                    return;
+                };
                 if config.verbose {
                     printf(
                         c"[%s:%d] xembed version = %d\n".as_ptr(),
                         c"../i3bar/src/xcb.c".as_ptr(),
                         957 as ::core::ffi::c_int,
-                        *xembed.offset(0 as ::core::ffi::c_int as isize),
+                        xembed[0],
                     );
                 }
                 if config.verbose {
@@ -1327,16 +1434,14 @@ unsafe fn handle_client_message(event: *mut xcb_client_message_event_t) {
                         c"[%s:%d] xembed flags = %d\n".as_ptr(),
                         c"../i3bar/src/xcb.c".as_ptr(),
                         958 as ::core::ffi::c_int,
-                        *xembed.offset(1 as ::core::ffi::c_int as isize),
+                        xembed[1],
                     );
                 }
-                map_it = *xembed.offset(1 as ::core::ffi::c_int as isize) & XEMBED_MAPPED as u32
-                    == XEMBED_MAPPED as u32;
-                xe_version = *xembed.offset(0 as ::core::ffi::c_int as isize) as ::core::ffi::c_int;
+                map_it = xembed[1] & XEMBED_MAPPED as u32 == XEMBED_MAPPED as u32;
+                xe_version = xembed[0] as ::core::ffi::c_int;
                 if xe_version > 1 as ::core::ffi::c_int {
                     xe_version = 1 as ::core::ffi::c_int;
                 }
-                free(xembedr as *mut ::core::ffi::c_void);
             } else {
                 fprintf(
                     stderr,
@@ -1390,24 +1495,24 @@ unsafe fn handle_client_message(event: *mut xcb_client_message_event_t) {
                 mask as u16,
                 &raw mut values as *mut u32 as *const ::core::ffi::c_void,
             );
-            let event_0: *mut ::core::ffi::c_void = scalloc(32 as usize, 1 as usize);
-            let ev: *mut xcb_client_message_event_t = event_0 as *mut xcb_client_message_event_t;
-            (*ev).response_type = XCB_CLIENT_MESSAGE as u8;
-            (*ev).window = client;
-            (*ev).type_0 = atoms[AtomIndex::Xembed as ::core::ffi::c_int as usize];
-            (*ev).format = 32 as u8;
-            (*ev).data.data32[0 as ::core::ffi::c_int as usize] = XCB_CURRENT_TIME as u32;
-            (*ev).data.data32[1 as ::core::ffi::c_int as usize] = XEMBED_EMBEDDED_NOTIFY as u32;
-            (*ev).data.data32[2 as ::core::ffi::c_int as usize] = (*output_for_tray).bar.id as u32;
-            (*ev).data.data32[3 as ::core::ffi::c_int as usize] = xe_version as u32;
+            let packet = client_message(
+                client,
+                atoms[AtomIndex::Xembed as usize],
+                [
+                    XCB_CURRENT_TIME as u32,
+                    XEMBED_EMBEDDED_NOTIFY as u32,
+                    (*output_for_tray).bar.id,
+                    xe_version as u32,
+                    0,
+                ],
+            );
             xcb_send_event(
                 xcb_connection,
-                0 as u8,
+                0,
                 client,
-                XCB_EVENT_MASK_NO_EVENT as ::core::ffi::c_int as u32,
-                ev as *mut ::core::ffi::c_char,
+                XCB_EVENT_MASK_NO_EVENT as u32,
+                (&raw const packet).cast(),
             );
-            free(event_0);
             xcb_change_save_set(
                 xcb_connection,
                 XCB_SET_MODE_INSERT as ::core::ffi::c_int as u8,
@@ -1418,7 +1523,7 @@ unsafe fn handle_client_message(event: *mut xcb_client_message_event_t) {
                     as *mut trayclient;
             (*tc).win = client;
             (*tc).xe_version = xe_version;
-            (*tc).mapped = false_0 != 0;
+            (*tc).mapped = false;
             (*tc).tailq.tqe_next = ::core::ptr::null_mut::<trayclient>();
             (*tc).tailq.tqe_prev = (*(*output_for_tray).trayclients).tqh_last;
             *(*(*output_for_tray).trayclients).tqh_last = tc as *mut trayclient;
@@ -1441,7 +1546,7 @@ unsafe fn handle_client_message(event: *mut xcb_client_message_event_t) {
                 );
             }
             configure_trayclients();
-            draw_bars(false_0 != 0);
+            draw_bars(false);
         }
     }
 }
@@ -1487,7 +1592,7 @@ unsafe fn handle_destroy_notify(event: *mut xcb_destroy_notify_event_t) {
     free(client as *mut ::core::ffi::c_void);
     client = ::core::ptr::null_mut::<trayclient>();
     configure_trayclients();
-    draw_bars(false_0 != 0);
+    draw_bars(false);
 }
 unsafe fn handle_map_notify(event: *mut xcb_map_notify_event_t) {
     if config.verbose {
@@ -1518,9 +1623,9 @@ unsafe fn handle_map_notify(event: *mut xcb_map_notify_event_t) {
             (*event).window,
         );
     }
-    (*client).mapped = true_0 != 0;
+    (*client).mapped = true;
     configure_trayclients();
-    draw_bars(false_0 != 0);
+    draw_bars(false);
 }
 unsafe fn handle_unmap_notify(event: *mut xcb_unmap_notify_event_t) {
     if config.verbose {
@@ -1551,11 +1656,12 @@ unsafe fn handle_unmap_notify(event: *mut xcb_unmap_notify_event_t) {
             (*event).window,
         );
     }
-    (*client).mapped = false_0 != 0;
+    (*client).mapped = false;
     configure_trayclients();
-    draw_bars(false_0 != 0);
+    draw_bars(false);
 }
 unsafe fn handle_property_notify(event: *mut xcb_property_notify_event_t) {
+    let mut replies = Replies::default();
     if config.verbose {
         printf(
             c"[%s:%d] PropertyNotify\n".as_ptr(),
@@ -1594,11 +1700,11 @@ unsafe fn handle_property_notify(event: *mut xcb_property_notify_event_t) {
             0 as u32,
             (2 as ::core::ffi::c_int * 32 as ::core::ffi::c_int) as u32,
         );
-        let xembedr: *mut xcb_get_property_reply_t = xcb_get_property_reply(
+        let xembedr: *mut xcb_get_property_reply_t = replies.take(xcb_get_property_reply(
             xcb_connection,
             xembedc,
             ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-        );
+        ));
         if xembedr.is_null() || (*xembedr).length == 0 as u32 {
             if config.verbose {
                 printf(
@@ -1618,13 +1724,15 @@ unsafe fn handle_property_notify(event: *mut xcb_property_notify_event_t) {
                 (*xembedr).length,
             );
         }
-        let xembed: *mut u32 = xcb_get_property_value(xembedr) as *mut u32;
+        let Some(xembed) = property_bytes(xembedr).and_then(xembed_words) else {
+            return;
+        };
         if config.verbose {
             printf(
                 c"[%s:%d] xembed version = %d\n".as_ptr(),
                 c"../i3bar/src/xcb.c".as_ptr(),
                 1153 as ::core::ffi::c_int,
-                *xembed.offset(0 as ::core::ffi::c_int as isize),
+                xembed[0],
             );
         }
         if config.verbose {
@@ -1632,11 +1740,10 @@ unsafe fn handle_property_notify(event: *mut xcb_property_notify_event_t) {
                 c"[%s:%d] xembed flags = %d\n".as_ptr(),
                 c"../i3bar/src/xcb.c".as_ptr(),
                 1154 as ::core::ffi::c_int,
-                *xembed.offset(1 as ::core::ffi::c_int as isize),
+                xembed[1],
             );
         }
-        let map_it: bool = *xembed.offset(1 as ::core::ffi::c_int as isize) & XEMBED_MAPPED as u32
-            == XEMBED_MAPPED as u32;
+        let map_it: bool = xembed[1] & XEMBED_MAPPED as u32 == XEMBED_MAPPED as u32;
         if config.verbose {
             printf(
                 c"[%s:%d] map state now %d\n".as_ptr(),
@@ -1650,7 +1757,6 @@ unsafe fn handle_property_notify(event: *mut xcb_property_notify_event_t) {
         } else if !(*client).mapped && map_it as ::core::ffi::c_int != 0 {
             xcb_map_window(xcb_connection, (*client).win);
         }
-        free(xembedr as *mut ::core::ffi::c_void);
     } else if (*event).atom == XCB_ATOM_WM_CLASS as ::core::ffi::c_int as xcb_atom_t {
         let client_0: *mut trayclient = trayclient_from_window((*event).window);
         if !client_0.is_null() {
@@ -1741,7 +1847,6 @@ unsafe extern "C" fn xcb_prep_cb(
     watcher: *mut ev_prepare,
     revents: ::core::ffi::c_int,
 ) {
-    let mut event: *mut xcb_generic_event_t = ::core::ptr::null_mut::<xcb_generic_event_t>();
     if xcb_connection_has_error(xcb_connection) != 0 {
         fprintf(
             stderr,
@@ -1752,10 +1857,10 @@ unsafe extern "C" fn xcb_prep_cb(
         exit(1 as ::core::ffi::c_int);
     }
     loop {
-        event = xcb_poll_for_event(xcb_connection);
-        if event.is_null() {
+        let Some(event_owner) = Native::take(xcb_poll_for_event(xcb_connection)) else {
             break;
-        }
+        };
+        let event = event_owner.raw();
         if (*event).response_type as ::core::ffi::c_int == 0 as ::core::ffi::c_int {
             let error: *mut xcb_generic_error_t = event as *mut xcb_generic_error_t;
             if config.verbose {
@@ -1767,7 +1872,6 @@ unsafe extern "C" fn xcb_prep_cb(
                     (*error).error_code as ::core::ffi::c_int,
                 );
             }
-            free(event as *mut ::core::ffi::c_void);
         } else {
             let type_0: ::core::ffi::c_int =
                 (*event).response_type as ::core::ffi::c_int & !(0x80 as ::core::ffi::c_int);
@@ -1790,14 +1894,13 @@ unsafe extern "C" fn xcb_prep_cb(
                         && config.modifier as ::core::ffi::c_long != XCB_NONE
                     {
                         if mod_pressed {
-                            activated_mode = false_0 != 0;
+                            activated_mode = false;
                             unhide_bars();
                         } else if !activated_mode {
                             hide_bars();
                         }
                     }
                 }
-                free(event as *mut ::core::ffi::c_void);
             } else {
                 match type_0 {
                     XCB_VISIBILITY_NOTIFY => {
@@ -1836,7 +1939,6 @@ unsafe extern "C" fn xcb_prep_cb(
                     }
                     _ => {}
                 }
-                free(event as *mut ::core::ffi::c_void);
             }
         }
     }
@@ -1868,79 +1970,14 @@ pub unsafe fn init_xcb_early() -> *mut ::core::ffi::c_char {
             1343 as ::core::ffi::c_int,
         );
     }
-    atom_cookies[AtomIndex::NetWmWindowType as ::core::ffi::c_int as usize] = xcb_intern_atom(
-        xcb_connection,
-        0 as u8,
-        strlen(c"_NET_WM_WINDOW_TYPE".as_ptr()) as u16,
-        c"_NET_WM_WINDOW_TYPE".as_ptr(),
-    );
-    atom_cookies[AtomIndex::NetWmWindowTypeDock as ::core::ffi::c_int as usize] = xcb_intern_atom(
-        xcb_connection,
-        0 as u8,
-        strlen(c"_NET_WM_WINDOW_TYPE_DOCK".as_ptr()) as u16,
-        c"_NET_WM_WINDOW_TYPE_DOCK".as_ptr(),
-    );
-    atom_cookies[AtomIndex::NetWmStrutPartial as ::core::ffi::c_int as usize] = xcb_intern_atom(
-        xcb_connection,
-        0 as u8,
-        strlen(c"_NET_WM_STRUT_PARTIAL".as_ptr()) as u16,
-        c"_NET_WM_STRUT_PARTIAL".as_ptr(),
-    );
-    atom_cookies[AtomIndex::I3SocketPath as ::core::ffi::c_int as usize] = xcb_intern_atom(
-        xcb_connection,
-        0 as u8,
-        strlen(c"I3_SOCKET_PATH".as_ptr()) as u16,
-        c"I3_SOCKET_PATH".as_ptr(),
-    );
-    atom_cookies[AtomIndex::Manager as ::core::ffi::c_int as usize] = xcb_intern_atom(
-        xcb_connection,
-        0 as u8,
-        strlen(c"MANAGER".as_ptr()) as u16,
-        c"MANAGER".as_ptr(),
-    );
-    atom_cookies[AtomIndex::NetSystemTrayOrientation as ::core::ffi::c_int as usize] =
-        xcb_intern_atom(
+    for (index, name) in ATOM_NAMES.iter().enumerate() {
+        atom_cookies[index] = xcb_intern_atom(
             xcb_connection,
-            0 as u8,
-            strlen(c"_NET_SYSTEM_TRAY_ORIENTATION".as_ptr()) as u16,
-            c"_NET_SYSTEM_TRAY_ORIENTATION".as_ptr(),
+            0,
+            name.to_bytes().len() as u16,
+            name.as_ptr(),
         );
-    atom_cookies[AtomIndex::NetSystemTrayVisual as ::core::ffi::c_int as usize] = xcb_intern_atom(
-        xcb_connection,
-        0 as u8,
-        strlen(c"_NET_SYSTEM_TRAY_VISUAL".as_ptr()) as u16,
-        c"_NET_SYSTEM_TRAY_VISUAL".as_ptr(),
-    );
-    atom_cookies[AtomIndex::NetSystemTrayOpcode as ::core::ffi::c_int as usize] = xcb_intern_atom(
-        xcb_connection,
-        0 as u8,
-        strlen(c"_NET_SYSTEM_TRAY_OPCODE".as_ptr()) as u16,
-        c"_NET_SYSTEM_TRAY_OPCODE".as_ptr(),
-    );
-    atom_cookies[AtomIndex::NetSystemTrayColors as ::core::ffi::c_int as usize] = xcb_intern_atom(
-        xcb_connection,
-        0 as u8,
-        strlen(c"_NET_SYSTEM_TRAY_COLORS".as_ptr()) as u16,
-        c"_NET_SYSTEM_TRAY_COLORS".as_ptr(),
-    );
-    atom_cookies[AtomIndex::XembedInfo as ::core::ffi::c_int as usize] = xcb_intern_atom(
-        xcb_connection,
-        0 as u8,
-        strlen(c"_XEMBED_INFO".as_ptr()) as u16,
-        c"_XEMBED_INFO".as_ptr(),
-    );
-    atom_cookies[AtomIndex::Xembed as ::core::ffi::c_int as usize] = xcb_intern_atom(
-        xcb_connection,
-        0 as u8,
-        strlen(c"_XEMBED".as_ptr()) as u16,
-        c"_XEMBED".as_ptr(),
-    );
-    atom_cookies[AtomIndex::I3Sync as ::core::ffi::c_int as usize] = xcb_intern_atom(
-        xcb_connection,
-        0 as u8,
-        strlen(c"I3_SYNC".as_ptr()) as u16,
-        c"I3_SYNC".as_ptr(),
-    );
+    }
     root_screen = xcb_aux_get_screen(xcb_connection, screen);
     xcb_root = (*root_screen).root;
     depth = (*root_screen).root_depth;
@@ -1980,40 +2017,14 @@ pub unsafe fn init_xcb_early() -> *mut ::core::ffi::c_char {
     }
     cursor = xcb_cursor_load_cursor(cursor_ctx, c"left_ptr".as_ptr());
     xcb_cursor_context_free(cursor_ctx);
-    xcb_io = smalloc(::core::mem::size_of::<ev_io>() as usize) as *mut ev_io;
-    xcb_prep = smalloc(::core::mem::size_of::<ev_prepare>() as usize) as *mut ev_prepare;
-    let ref mut fresh0 = (*(xcb_io as *mut ::core::ffi::c_void as *mut ev_watcher)).pending;
-    *fresh0 = 0 as ::core::ffi::c_int;
-    (*(xcb_io as *mut ::core::ffi::c_void as *mut ev_watcher)).active = *fresh0;
-    (*(xcb_io as *mut ::core::ffi::c_void as *mut ev_watcher)).priority = 0 as ::core::ffi::c_int;
-    (*xcb_io).cb =
-        Some(xcb_io_cb as unsafe extern "C" fn(*mut ev_loop, *mut ev_io, ::core::ffi::c_int) -> ())
-            as Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_io, ::core::ffi::c_int) -> ()>;
-    memmove(
-        &raw mut (*(xcb_io as *mut ev_watcher)).cb as *mut ::core::ffi::c_void,
-        &raw mut (*xcb_io).cb as *const ::core::ffi::c_void,
-        ::core::mem::size_of::<
-            Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_io, ::core::ffi::c_int) -> ()>,
-        >() as usize,
-    );
-    (*xcb_io).fd = xcb_get_file_descriptor(xcb_connection);
-    (*xcb_io).events = EV_READ as ::core::ffi::c_int | EV__IOFDSET as ::core::ffi::c_int;
-    let ref mut fresh1 = (*(xcb_prep as *mut ::core::ffi::c_void as *mut ev_watcher)).pending;
-    *fresh1 = 0 as ::core::ffi::c_int;
-    (*(xcb_prep as *mut ::core::ffi::c_void as *mut ev_watcher)).active = *fresh1;
-    (*(xcb_prep as *mut ::core::ffi::c_void as *mut ev_watcher)).priority = 0 as ::core::ffi::c_int;
-    (*xcb_prep).cb = Some(
-        xcb_prep_cb
-            as unsafe extern "C" fn(*mut ev_loop, *mut ev_prepare, ::core::ffi::c_int) -> (),
-    )
-        as Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_prepare, ::core::ffi::c_int) -> ()>;
-    memmove(
-        &raw mut (*(xcb_prep as *mut ev_watcher)).cb as *mut ::core::ffi::c_void,
-        &raw mut (*xcb_prep).cb as *const ::core::ffi::c_void,
-        ::core::mem::size_of::<
-            Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_prepare, ::core::ffi::c_int) -> ()>,
-        >() as usize,
-    );
+    xcb_io = smalloc(std::mem::size_of::<ev_io>()).cast();
+    xcb_io.write(ev_io::new(
+        xcb_get_file_descriptor(xcb_connection),
+        EV_READ,
+        xcb_io_cb,
+    ));
+    xcb_prep = smalloc(std::mem::size_of::<ev_prepare>()).cast();
+    xcb_prep.write(ev_prepare::new(xcb_prep_cb));
     ev_io_start(main_loop as *mut ev_loop, xcb_io);
     ev_prepare_start(main_loop as *mut ev_loop, xcb_prep);
     get_atoms();
@@ -2078,7 +2089,7 @@ pub unsafe fn init_xcb_late(mut fontname: *mut ::core::ffi::c_char) {
             .as_ptr()
             .cast_mut();
     }
-    font = load_font(fontname, true_0 != 0);
+    font = load_font(fontname, true);
     set_font(&raw mut font);
     if config.verbose {
         printf(
@@ -2129,58 +2140,22 @@ pub unsafe fn init_xcb_late(mut fontname: *mut ::core::ffi::c_char) {
     }
 }
 unsafe fn send_tray_clientmessage() {
-    let mut buffer: [u8; 32] = [
-        0 as ::core::ffi::c_int as u8,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-    ];
-    let ev: *mut xcb_client_message_event_t =
-        &raw mut buffer as *mut u8 as *mut xcb_client_message_event_t;
-    (*ev).response_type = XCB_CLIENT_MESSAGE as u8;
-    (*ev).window = xcb_root;
-    (*ev).type_0 = atoms[AtomIndex::Manager as ::core::ffi::c_int as usize];
-    (*ev).format = 32 as u8;
-    (*ev).data.data32[0 as ::core::ffi::c_int as usize] = XCB_CURRENT_TIME as u32;
-    (*ev).data.data32[1 as ::core::ffi::c_int as usize] = (*tray_reply).atom as u32;
-    (*ev).data.data32[2 as ::core::ffi::c_int as usize] = selwin as u32;
+    let packet = client_message(
+        xcb_root,
+        atoms[AtomIndex::Manager as usize],
+        [XCB_CURRENT_TIME as u32, (*tray_reply).atom, selwin, 0, 0],
+    );
     xcb_send_event(
         xcb_connection,
-        0 as u8,
+        0,
         xcb_root,
-        0xffffff as u32,
-        &raw mut buffer as *mut u8 as *mut ::core::ffi::c_char,
+        0xffffff,
+        (&raw const packet).cast(),
     );
 }
+
 unsafe fn init_tray() {
+    let mut replies = Replies::default();
     if config.verbose {
         printf(
             c"[%s:%d] Initializing system tray functionality\n".as_ptr(),
@@ -2283,11 +2258,11 @@ unsafe fn init_tray() {
     let mut selreply: *mut xcb_get_selection_owner_reply_t =
         ::core::ptr::null_mut::<xcb_get_selection_owner_reply_t>();
     selcookie = xcb_get_selection_owner(xcb_connection, (*tray_reply).atom);
-    selreply = xcb_get_selection_owner_reply(
+    selreply = replies.take(xcb_get_selection_owner_reply(
         xcb_connection,
         selcookie,
         ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
+    ));
     if selreply.is_null() {
         fprintf(
             stderr,
@@ -2306,10 +2281,8 @@ unsafe fn init_tray() {
             1588 as ::core::ffi::c_int,
             atomname.as_mut_ptr(),
         );
-        free(selreply as *mut ::core::ffi::c_void);
         return;
     }
-    free(selreply as *mut ::core::ffi::c_void);
     send_tray_clientmessage();
 }
 
@@ -2385,226 +2358,53 @@ pub unsafe fn init_tray_colors() {
 }
 
 pub unsafe fn clean_xcb() {
+    if xcb_connection.is_null() {
+        return;
+    }
     free_outputs();
     free_font();
     xcb_free_cursor(xcb_connection, cursor);
     xcb_aux_sync(xcb_connection);
-    xcb_disconnect(xcb_connection);
-    ev_prepare_stop(main_loop as *mut ev_loop, xcb_prep);
-    ev_io_stop(main_loop as *mut ev_loop, xcb_io);
-    free(xcb_prep as *mut ::core::ffi::c_void);
-    xcb_prep = ::core::ptr::null_mut::<ev_prepare>();
-    free(xcb_io as *mut ::core::ffi::c_void);
-    xcb_io = ::core::ptr::null_mut::<ev_io>();
+    if !xcb_prep.is_null() {
+        ev_prepare_stop(main_loop, xcb_prep);
+        free(xcb_prep.cast());
+        xcb_prep = std::ptr::null_mut();
+    }
+    if !xcb_io.is_null() {
+        ev_io_stop(main_loop, xcb_io);
+        free(xcb_io.cast());
+        xcb_io = std::ptr::null_mut();
+    }
+    if !tray_reply.is_null() {
+        free(tray_reply.cast());
+        tray_reply = std::ptr::null_mut();
+    }
+    let connection = xcb_connection;
+    root_screen = std::ptr::null_mut();
+    visual_type = std::ptr::null_mut();
+    conn = std::ptr::null_mut();
+    xcb_connection = std::ptr::null_mut();
+    xcb_disconnect(connection);
 }
 
 pub unsafe fn get_atoms() {
-    let mut reply: *mut xcb_intern_atom_reply_t =
-        ::core::ptr::null_mut::<xcb_intern_atom_reply_t>();
-    reply = xcb_intern_atom_reply(
-        xcb_connection,
-        atom_cookies[AtomIndex::NetWmWindowType as ::core::ffi::c_int as usize],
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply.is_null() {
-        fprintf(
-            stderr,
-            c"[%s:%d] ERROR: Could not get atom %s\n".as_ptr(),
-            c"../i3bar/include/xcb_atoms.def".as_ptr(),
-            1 as ::core::ffi::c_int,
-            c"_NET_WM_WINDOW_TYPE".as_ptr(),
-        );
-        exit(libc::EXIT_FAILURE);
+    for (index, name) in ATOM_NAMES.iter().enumerate() {
+        let Some(reply) = Native::take(xcb_intern_atom_reply(
+            xcb_connection,
+            atom_cookies[index],
+            std::ptr::null_mut(),
+        )) else {
+            fprintf(
+                stderr,
+                c"[%s:%d] ERROR: Could not get atom %s\n".as_ptr(),
+                c"../i3bar/include/xcb_atoms.def".as_ptr(),
+                index as i32 + 1,
+                name.as_ptr(),
+            );
+            exit(libc::EXIT_FAILURE);
+        };
+        atoms[index] = (*reply.raw()).atom;
     }
-    atoms[AtomIndex::NetWmWindowType as ::core::ffi::c_int as usize] = (*reply).atom;
-    free(reply as *mut ::core::ffi::c_void);
-    reply = xcb_intern_atom_reply(
-        xcb_connection,
-        atom_cookies[AtomIndex::NetWmWindowTypeDock as ::core::ffi::c_int as usize],
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply.is_null() {
-        fprintf(
-            stderr,
-            c"[%s:%d] ERROR: Could not get atom %s\n".as_ptr(),
-            c"../i3bar/include/xcb_atoms.def".as_ptr(),
-            2 as ::core::ffi::c_int,
-            c"_NET_WM_WINDOW_TYPE_DOCK".as_ptr(),
-        );
-        exit(libc::EXIT_FAILURE);
-    }
-    atoms[AtomIndex::NetWmWindowTypeDock as ::core::ffi::c_int as usize] = (*reply).atom;
-    free(reply as *mut ::core::ffi::c_void);
-    reply = xcb_intern_atom_reply(
-        xcb_connection,
-        atom_cookies[AtomIndex::NetWmStrutPartial as ::core::ffi::c_int as usize],
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply.is_null() {
-        fprintf(
-            stderr,
-            c"[%s:%d] ERROR: Could not get atom %s\n".as_ptr(),
-            c"../i3bar/include/xcb_atoms.def".as_ptr(),
-            3 as ::core::ffi::c_int,
-            c"_NET_WM_STRUT_PARTIAL".as_ptr(),
-        );
-        exit(libc::EXIT_FAILURE);
-    }
-    atoms[AtomIndex::NetWmStrutPartial as ::core::ffi::c_int as usize] = (*reply).atom;
-    free(reply as *mut ::core::ffi::c_void);
-    reply = xcb_intern_atom_reply(
-        xcb_connection,
-        atom_cookies[AtomIndex::I3SocketPath as ::core::ffi::c_int as usize],
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply.is_null() {
-        fprintf(
-            stderr,
-            c"[%s:%d] ERROR: Could not get atom %s\n".as_ptr(),
-            c"../i3bar/include/xcb_atoms.def".as_ptr(),
-            4 as ::core::ffi::c_int,
-            c"I3_SOCKET_PATH".as_ptr(),
-        );
-        exit(libc::EXIT_FAILURE);
-    }
-    atoms[AtomIndex::I3SocketPath as ::core::ffi::c_int as usize] = (*reply).atom;
-    free(reply as *mut ::core::ffi::c_void);
-    reply = xcb_intern_atom_reply(
-        xcb_connection,
-        atom_cookies[AtomIndex::Manager as ::core::ffi::c_int as usize],
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply.is_null() {
-        fprintf(
-            stderr,
-            c"[%s:%d] ERROR: Could not get atom %s\n".as_ptr(),
-            c"../i3bar/include/xcb_atoms.def".as_ptr(),
-            5 as ::core::ffi::c_int,
-            c"MANAGER".as_ptr(),
-        );
-        exit(libc::EXIT_FAILURE);
-    }
-    atoms[AtomIndex::Manager as ::core::ffi::c_int as usize] = (*reply).atom;
-    free(reply as *mut ::core::ffi::c_void);
-    reply = xcb_intern_atom_reply(
-        xcb_connection,
-        atom_cookies[AtomIndex::NetSystemTrayOrientation as ::core::ffi::c_int as usize],
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply.is_null() {
-        fprintf(
-            stderr,
-            c"[%s:%d] ERROR: Could not get atom %s\n".as_ptr(),
-            c"../i3bar/include/xcb_atoms.def".as_ptr(),
-            6 as ::core::ffi::c_int,
-            c"_NET_SYSTEM_TRAY_ORIENTATION".as_ptr(),
-        );
-        exit(libc::EXIT_FAILURE);
-    }
-    atoms[AtomIndex::NetSystemTrayOrientation as ::core::ffi::c_int as usize] = (*reply).atom;
-    free(reply as *mut ::core::ffi::c_void);
-    reply = xcb_intern_atom_reply(
-        xcb_connection,
-        atom_cookies[AtomIndex::NetSystemTrayVisual as ::core::ffi::c_int as usize],
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply.is_null() {
-        fprintf(
-            stderr,
-            c"[%s:%d] ERROR: Could not get atom %s\n".as_ptr(),
-            c"../i3bar/include/xcb_atoms.def".as_ptr(),
-            7 as ::core::ffi::c_int,
-            c"_NET_SYSTEM_TRAY_VISUAL".as_ptr(),
-        );
-        exit(libc::EXIT_FAILURE);
-    }
-    atoms[AtomIndex::NetSystemTrayVisual as ::core::ffi::c_int as usize] = (*reply).atom;
-    free(reply as *mut ::core::ffi::c_void);
-    reply = xcb_intern_atom_reply(
-        xcb_connection,
-        atom_cookies[AtomIndex::NetSystemTrayOpcode as ::core::ffi::c_int as usize],
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply.is_null() {
-        fprintf(
-            stderr,
-            c"[%s:%d] ERROR: Could not get atom %s\n".as_ptr(),
-            c"../i3bar/include/xcb_atoms.def".as_ptr(),
-            8 as ::core::ffi::c_int,
-            c"_NET_SYSTEM_TRAY_OPCODE".as_ptr(),
-        );
-        exit(libc::EXIT_FAILURE);
-    }
-    atoms[AtomIndex::NetSystemTrayOpcode as ::core::ffi::c_int as usize] = (*reply).atom;
-    free(reply as *mut ::core::ffi::c_void);
-    reply = xcb_intern_atom_reply(
-        xcb_connection,
-        atom_cookies[AtomIndex::NetSystemTrayColors as ::core::ffi::c_int as usize],
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply.is_null() {
-        fprintf(
-            stderr,
-            c"[%s:%d] ERROR: Could not get atom %s\n".as_ptr(),
-            c"../i3bar/include/xcb_atoms.def".as_ptr(),
-            9 as ::core::ffi::c_int,
-            c"_NET_SYSTEM_TRAY_COLORS".as_ptr(),
-        );
-        exit(libc::EXIT_FAILURE);
-    }
-    atoms[AtomIndex::NetSystemTrayColors as ::core::ffi::c_int as usize] = (*reply).atom;
-    free(reply as *mut ::core::ffi::c_void);
-    reply = xcb_intern_atom_reply(
-        xcb_connection,
-        atom_cookies[AtomIndex::XembedInfo as ::core::ffi::c_int as usize],
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply.is_null() {
-        fprintf(
-            stderr,
-            c"[%s:%d] ERROR: Could not get atom %s\n".as_ptr(),
-            c"../i3bar/include/xcb_atoms.def".as_ptr(),
-            10 as ::core::ffi::c_int,
-            c"_XEMBED_INFO".as_ptr(),
-        );
-        exit(libc::EXIT_FAILURE);
-    }
-    atoms[AtomIndex::XembedInfo as ::core::ffi::c_int as usize] = (*reply).atom;
-    free(reply as *mut ::core::ffi::c_void);
-    reply = xcb_intern_atom_reply(
-        xcb_connection,
-        atom_cookies[AtomIndex::Xembed as ::core::ffi::c_int as usize],
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply.is_null() {
-        fprintf(
-            stderr,
-            c"[%s:%d] ERROR: Could not get atom %s\n".as_ptr(),
-            c"../i3bar/include/xcb_atoms.def".as_ptr(),
-            11 as ::core::ffi::c_int,
-            c"_XEMBED".as_ptr(),
-        );
-        exit(libc::EXIT_FAILURE);
-    }
-    atoms[AtomIndex::Xembed as ::core::ffi::c_int as usize] = (*reply).atom;
-    free(reply as *mut ::core::ffi::c_void);
-    reply = xcb_intern_atom_reply(
-        xcb_connection,
-        atom_cookies[AtomIndex::I3Sync as ::core::ffi::c_int as usize],
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply.is_null() {
-        fprintf(
-            stderr,
-            c"[%s:%d] ERROR: Could not get atom %s\n".as_ptr(),
-            c"../i3bar/include/xcb_atoms.def".as_ptr(),
-            12 as ::core::ffi::c_int,
-            c"I3_SYNC".as_ptr(),
-        );
-        exit(libc::EXIT_FAILURE);
-    }
-    atoms[AtomIndex::I3Sync as ::core::ffi::c_int as usize] = (*reply).atom;
-    free(reply as *mut ::core::ffi::c_void);
     if config.verbose {
         printf(
             c"[%s:%d] Got atoms\n".as_ptr(),
@@ -2640,51 +2440,13 @@ pub unsafe fn kick_tray_clients(output: *mut i3_output) {
         free(trayclient as *mut ::core::ffi::c_void);
         trayclient = ::core::ptr::null_mut::<trayclient>();
     }
-    let mut buffer: [u8; 32] = [
-        0 as ::core::ffi::c_int as u8,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-    ];
-    let event: *mut xcb_destroy_notify_event_t =
-        &raw mut buffer as *mut u8 as *mut xcb_destroy_notify_event_t;
-    (*event).response_type = XCB_DESTROY_NOTIFY as u8;
-    (*event).event = selwin;
-    (*event).window = selwin;
+    let packet = destroy_message(selwin);
     xcb_send_event(
         conn,
-        false_0 as u8,
+        0,
         selwin,
-        XCB_EVENT_MASK_STRUCTURE_NOTIFY as ::core::ffi::c_int as u32,
-        event as *mut ::core::ffi::c_char,
+        XCB_EVENT_MASK_STRUCTURE_NOTIFY as u32,
+        (&raw const packet).cast(),
     );
     send_tray_clientmessage();
 }
@@ -2706,49 +2468,19 @@ pub unsafe fn destroy_window(output: *mut i3_output) {
     (*output).bar.id = XCB_NONE as xcb_drawable_t;
 }
 unsafe fn config_strut_partial(output: *mut i3_output) -> xcb_void_cookie_t {
-    let mut strut_partial: C2RustUnnamed_10 = C2RustUnnamed_10 {
-        left: 0,
-        right: 0,
-        top: 0,
-        bottom: 0,
-        left_start_y: 0,
-        left_end_y: 0,
-        right_start_y: 0,
-        right_end_y: 0,
-        top_start_x: 0,
-        top_end_x: 0,
-        bottom_start_x: 0,
-        bottom_end_x: 0,
-    };
-    memset(
-        &raw mut strut_partial as *mut ::core::ffi::c_void,
-        0 as ::core::ffi::c_int,
-        ::core::mem::size_of::<C2RustUnnamed_10>() as usize,
-    );
-    match config.position {
-        crate::application::BarPosition::Top => {
-            strut_partial.top = bar_height as u32;
-            strut_partial.top_start_x = (*output).rect.x as u32;
-            strut_partial.top_end_x = ((*output).rect.x + (*output).rect.w) as u32;
-        }
-        crate::application::BarPosition::Bottom => {
-            strut_partial.bottom = bar_height as u32;
-            strut_partial.bottom_start_x = (*output).rect.x as u32;
-            strut_partial.bottom_end_x = ((*output).rect.x + (*output).rect.w) as u32;
-        }
-        crate::application::BarPosition::None => {}
-    }
+    let values = strut_values(config.position, bar_height, (*output).rect);
     xcb_change_property(
         xcb_connection,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
-        (*output).bar.id as xcb_window_t,
-        atoms[AtomIndex::NetWmStrutPartial as ::core::ffi::c_int as usize],
-        XCB_ATOM_CARDINAL as ::core::ffi::c_int as xcb_atom_t,
-        32 as u8,
-        12 as u32,
-        &raw mut strut_partial as *const ::core::ffi::c_void,
+        XCB_PROP_MODE_REPLACE as u8,
+        (*output).bar.id,
+        atoms[AtomIndex::NetWmStrutPartial as usize],
+        XCB_ATOM_CARDINAL,
+        32,
+        12,
+        values.as_ptr().cast(),
     )
 }
+
 unsafe fn get_tray_output() -> *mut i3_output {
     let mut output: *mut i3_output = ::core::ptr::null_mut::<i3_output>();
     if config.tray_outputs.tqh_first.is_null() {
@@ -2839,7 +2571,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
             if config.hide_on_modifier == crate::application::BarDisplayMode::Dock {
                 values[3 as ::core::ffi::c_int as usize] |=
                     XCB_EVENT_MASK_VISIBILITY_CHANGE as ::core::ffi::c_int as u32;
-                (*walk).visible = true_0 != 0;
+                (*walk).visible = true;
             }
             values[4 as ::core::ffi::c_int as usize] = colormap as u32;
             values[5 as ::core::ffi::c_int as usize] = cursor as u32;
@@ -3227,7 +2959,7 @@ unsafe fn draw_button(
     x: ::core::ffi::c_int,
     width: ::core::ffi::c_int,
     text_width: ::core::ffi::c_int,
-    text: *mut i3String,
+    text: *mut I3String,
 ) {
     let height: ::core::ffi::c_int =
         bar_height - 2 as ::core::ffi::c_int * logical_px(1 as ::core::ffi::c_int);
@@ -3284,7 +3016,7 @@ pub unsafe fn draw_bars(mut unhide: bool) {
             }
         } else {
             if (*outputs_walk).bar.id as ::core::ffi::c_long == XCB_NONE {
-                reconfig_windows(false_0 != 0);
+                reconfig_windows(false);
             }
             let use_focus_colors: bool = output_has_focus(outputs_walk);
             draw_util_clear_surface(
@@ -3343,7 +3075,7 @@ pub unsafe fn draw_bars(mut unhide: bool) {
                         fg_color = colors.urgent_ws_fg;
                         bg_color = colors.urgent_ws_bg;
                         border_color = colors.urgent_ws_border;
-                        unhide = true_0 != 0;
+                        unhide = true;
                     }
                     let w: ::core::ffi::c_int = predict_button_width((*ws_walk).name_width);
                     draw_button(
@@ -3378,9 +3110,9 @@ pub unsafe fn draw_bars(mut unhide: bool) {
                     workspace_width,
                     w_0,
                     binding.name_width,
-                    (mode_name as *const i3String).cast_mut(),
+                    (mode_name as *const I3String).cast_mut(),
                 );
-                unhide = true_0 != 0;
+                unhide = true;
                 workspace_width += w_0;
             }
             if !statusline_head.tqh_first.is_null() {
@@ -3405,7 +3137,7 @@ pub unsafe fn draw_bars(mut unhide: bool) {
                 let mut block: *mut status_block = ::core::ptr::null_mut::<status_block>();
                 block = statusline_head.tqh_first;
                 while !block.is_null() {
-                    (*block).use_short = false_0 != 0;
+                    (*block).use_short = false;
                     block = (*block).blocks.tqe_next;
                 }
                 let statusline_width: u32 = adjust_statusline_length(max_statusline_width);
@@ -3480,9 +3212,6 @@ pub unsafe fn set_current_mode(current: Mode) {
     activated_mode = current.name.is_some();
     binding = current;
 }
-
-pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 
 // Internal helpers use Rust linkage rather than foreign symbol lookup.
 use crate::child::child_want_click_events;
@@ -3583,7 +3312,7 @@ use i3_common::fake_configure_notify::fake_configure_notify;
 use i3_common::get_visualtype::get_visualtype;
 use i3_common::root_atom_contents::root_atom_contents;
 
-pub use i3_common::string::I3String as _i3String;
+use i3_common::string::I3String;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u32)]
@@ -3604,4 +3333,102 @@ pub enum AtomIndex {
 
 impl AtomIndex {
     pub const COUNT: usize = 12;
+}
+
+#[cfg(test)]
+mod owned_tests {
+    use super::*;
+    #[test]
+    fn rendering_keeps_cached_alignment_offsets_separator_rounding_and_tray_arithmetic() {
+        let previous = status_block_render_desc {
+            width: 0,
+            x_offset: 5,
+            x_append: 7,
+        };
+        let left = render_dimensions(3, 10, crate::child::BlockAlign::Left, previous);
+        assert_eq!((left.width, left.x_offset, left.x_append), (3, 5, 7));
+        let right = render_dimensions(3, 10, crate::child::BlockAlign::Right, previous);
+        assert_eq!((right.x_offset, right.x_append), (7, 7));
+        let center = render_dimensions(3, 12, crate::child::BlockAlign::Center, previous);
+        assert_eq!((center.x_offset, center.x_append), (4, 5));
+        let full = render_dimensions(20, 10, crate::child::BlockAlign::Left, previous);
+        assert_eq!((full.x_offset, full.x_append), (0, 0));
+        assert_eq!(separator_offset(false, u32::MAX), 0x80000000);
+        assert_eq!(separator_offset(true, 9), 0);
+        assert_eq!(tray_width(3, 12, 2), 38);
+        assert_eq!(tray_width(0, 12, 2), 0);
+        assert_eq!(tray_width(3, -1, 2), -3);
+    }
+    #[test]
+    fn quoting_and_class_bytes_preserve_non_utf8_escapes_and_first_nul() {
+        let input = std::ffi::CStr::from_bytes_with_nul(b"raw\xff\"\\name\0").unwrap();
+        assert_eq!(
+            quote_workspace(input).to_bytes(),
+            b"workspace \"raw\xff\\\"\\\\name\""
+        );
+        assert_eq!(
+            class_parts(b"inst\0Class\0ignored"),
+            (&b"inst"[..], Some(&b"Class"[..]))
+        );
+        assert_eq!(class_parts(b"inst"), (&b"inst"[..], None));
+        assert_eq!(class_parts(b"inst\0"), (&b"inst"[..], None));
+        assert!(xembed_words(&[0; 7]).is_none());
+        let words = [7u32.to_ne_bytes(), 1u32.to_ne_bytes()].concat();
+        assert_eq!(xembed_words(&words), Some([7, 1]));
+    }
+    #[test]
+    fn struts_and_event_packets_keep_native_word_order_and_zero_unused_bytes() {
+        let bounds = rect_t {
+            x: -1920,
+            y: -10,
+            w: 1920,
+            h: 100,
+        };
+        let top = strut_values(crate::application::BarPosition::Top, 23, bounds);
+        assert_eq!((top[2], top[8], top[9]), (23, (-1920i32) as u32, 0));
+        let bottom = strut_values(crate::application::BarPosition::Bottom, 23, bounds);
+        assert_eq!(
+            (bottom[3], bottom[10], bottom[11]),
+            (23, (-1920i32) as u32, 0)
+        );
+        assert_eq!(
+            strut_values(crate::application::BarPosition::None, 23, bounds),
+            [0; 12]
+        );
+        let message = client_message(42, 99, [0, u32::MAX, 2, 3, 4]);
+        assert_eq!(
+            (
+                message.window,
+                message.type_0,
+                message.format,
+                message.sequence
+            ),
+            (42, 99, 32, 0)
+        );
+        assert_eq!(unsafe { message.data.data32 }, [0, u32::MAX, 2, 3, 4]);
+        let destroyed = destroy_message(42);
+        assert_eq!((destroyed.event.event, destroyed.event.window), (42, 42));
+        assert_eq!(destroyed.padding, [0; 20]);
+    }
+    #[test]
+    fn property_views_reject_overclaims_before_slice_creation() {
+        // Native malloc ownership matches the real reply adapter and destructor.
+        unsafe {
+            let pointer = libc::calloc(1, 40).cast::<xcb_get_property_reply_t>();
+            assert!(!pointer.is_null());
+            (*pointer).format = 32;
+            (*pointer).length = 2;
+            (*pointer).value_len = 2;
+            let owner = Native::take(pointer).unwrap();
+            let data = pointer.add(1).cast::<u32>();
+            data.write(7);
+            data.add(1).write(1);
+            assert_eq!(
+                property_bytes(owner.raw()).and_then(xembed_words),
+                Some([7, 1])
+            );
+            (*pointer).value_len = 3;
+            assert!(property_bytes(owner.raw()).is_none());
+        }
+    }
 }

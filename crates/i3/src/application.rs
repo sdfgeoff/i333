@@ -12,6 +12,10 @@ use crate::types::InputType;
 use crate::types::ShutdownReason;
 use crate::xcursor::Cursor;
 use i3_common::safewrappers::sasprintf;
+use std::ffi::{CStr, CString};
+use std::io::Read;
+use std::os::fd::{AsRawFd, FromRawFd};
+use std::ptr::NonNull;
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -305,18 +309,18 @@ pub struct barconfig_head {
     pub tqh_last: *mut *mut Barconfig,
 }
 
-#[derive(Copy, Clone)]
-#[repr(C)]
+// Rust-owned IPC storage. Only ipc.rs constructs/destroys these Box allocations;
+// other modules carry opaque pointers. Stable watcher/list addresses stay native.
 pub struct ipc_client {
-    pub fd: ::core::ffi::c_int,
-    pub num_events: ::core::ffi::c_int,
-    pub events: *mut *mut ::core::ffi::c_char,
+    pub fd: libc::c_int,
+    pub generation: u64,
+    pub fd_owner: Option<std::os::fd::OwnedFd>,
+    pub events: Vec<std::ffi::CString>,
     pub first_tick_sent: bool,
     pub read_callback: *mut ev_io,
     pub write_callback: *mut ev_io,
     pub timeout: *mut ev_timer,
-    pub buffer: *mut u8,
-    pub buffer_size: usize,
+    pub buffer: Vec<u8>,
     pub clients: C2RustUnnamed_48,
 }
 #[derive(Copy, Clone)]
@@ -564,6 +568,69 @@ pub static mut A__MOTIF_WM_HINTS: xcb_atom_t = 0;
 pub static mut A_WM_CHANGE_STATE: xcb_atom_t = 0;
 
 pub static mut A_MANAGER: xcb_atom_t = 0;
+// Native malloc ownership used only by normal startup/event callbacks, never
+// added to the actual signal handler. Global display resources retain atexit ABI.
+struct NativeAllocation<T>(NonNull<T>);
+impl<T> NativeAllocation<T> {
+    unsafe fn take(ptr: *mut T) -> Option<Self> {
+        NonNull::new(ptr).map(Self)
+    }
+    fn raw(&self) -> *mut T {
+        self.0.as_ptr()
+    }
+}
+impl<T> Drop for NativeAllocation<T> {
+    fn drop(&mut self) {
+        unsafe {
+            free(self.raw().cast());
+        }
+    }
+}
+struct MainWatchers {
+    io: Vec<NonNull<ev_io>>,
+}
+impl MainWatchers {
+    fn new() -> Self {
+        Self { io: Vec::new() }
+    }
+    unsafe fn add(
+        &mut self,
+        fd: i32,
+        callback: unsafe extern "C" fn(*mut ev_loop, *mut ev_io, i32),
+    ) -> *mut ev_io {
+        let raw = Box::into_raw(Box::new(ev_io::new(fd, EV_READ, callback)));
+        self.io.push(NonNull::new(raw).unwrap());
+        ev_io_start(main_loop, raw);
+        raw
+    }
+}
+impl Drop for MainWatchers {
+    fn drop(&mut self) {
+        unsafe {
+            for watcher in self.io.drain(..) {
+                libev_sys::ev_io_stop(main_loop, watcher.as_ptr());
+                drop(Box::from_raw(watcher.as_ptr()));
+            }
+        }
+    }
+}
+fn bar_command(program: &CStr, verbose: bool, id: &CStr, socket: &CStr) -> CString {
+    let mut bytes = program.to_bytes().to_vec();
+    bytes.push(b' ');
+    if verbose {
+        bytes.extend_from_slice(b"-V");
+    }
+    bytes.extend_from_slice(b" --bar_id=");
+    bytes.extend_from_slice(id.to_bytes());
+    bytes.extend_from_slice(b" --socket=\"");
+    bytes.extend_from_slice(socket.to_bytes());
+    bytes.push(b'"');
+    CString::new(bytes).unwrap()
+}
+fn owned_dirname(path: &CStr) -> CString {
+    let mut bytes = path.to_bytes_with_nul().to_vec();
+    unsafe { CStr::from_ptr(dirname(bytes.as_mut_ptr().cast())) }.to_owned()
+}
 unsafe extern "C" fn xcb_got_event(
     loop_0: *mut ev_loop,
     w: *mut ev_io,
@@ -577,10 +644,10 @@ unsafe extern "C" fn xcb_prepare_cb(
 ) {
     let mut event: *mut xcb_generic_event_t = ::core::ptr::null_mut::<xcb_generic_event_t>();
     loop {
-        event = xcb_poll_for_event(conn);
-        if event.is_null() {
+        let Some(owner) = NativeAllocation::take(xcb_poll_for_event(conn)) else {
             break;
-        }
+        };
+        event = owner.raw();
         if (*event).response_type as ::core::ffi::c_int == 0 as ::core::ffi::c_int {
             if event_is_ignored(
                 ignore_event_sequence_t {
@@ -608,12 +675,10 @@ unsafe extern "C" fn xcb_prepare_cb(
                     (*error).error_code as ::core::ffi::c_int,
                 );
             }
-            free(event as *mut ::core::ffi::c_void);
         } else {
             let type_0: ::core::ffi::c_int =
                 (*event).response_type as ::core::ffi::c_int & 0x7f as ::core::ffi::c_int;
             handle_event(type_0, event);
-            free(event as *mut ::core::ffi::c_void);
         }
     }
     xcb_flush(conn);
@@ -676,199 +741,13 @@ unsafe extern "C" fn handle_term_signal(
     exit(128 as ::core::ffi::c_int + (*signal_0).signum);
 }
 unsafe fn setup_term_handlers() {
-    static mut signal_watchers: [ev_signal; 6] = [ev_signal {
-        active: 0,
-        pending: 0,
-        priority: 0,
-        data: ::core::ptr::null::<::core::ffi::c_void>() as *mut ::core::ffi::c_void,
-        cb: None,
-        next: ::core::ptr::null::<ev_watcher_list>() as *mut ev_watcher_list,
-        signum: 0,
-    }; 6];
-    let num_watchers: usize = (::core::mem::size_of::<[ev_signal; 6]>() as usize)
-        .wrapping_div(::core::mem::size_of::<ev_signal>() as usize);
-    let ref mut fresh0 = (*((&raw mut signal_watchers as *mut ev_signal)
-        .offset(0 as ::core::ffi::c_int as isize) as *mut ev_signal
-        as *mut ::core::ffi::c_void as *mut ev_watcher))
-        .pending;
-    *fresh0 = 0 as ::core::ffi::c_int;
-    (*((&raw mut signal_watchers as *mut ev_signal).offset(0 as ::core::ffi::c_int as isize)
-        as *mut ev_signal as *mut ::core::ffi::c_void as *mut ev_watcher))
-        .active = *fresh0;
-    (*((&raw mut signal_watchers as *mut ev_signal).offset(0 as ::core::ffi::c_int as isize)
-        as *mut ev_signal as *mut ::core::ffi::c_void as *mut ev_watcher))
-        .priority = 0 as ::core::ffi::c_int;
-    signal_watchers[0 as ::core::ffi::c_int as usize].cb = Some(
-        handle_term_signal
-            as unsafe extern "C" fn(*mut ev_loop, *mut ev_signal, ::core::ffi::c_int) -> (),
-    )
-        as Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_signal, ::core::ffi::c_int) -> ()>;
-    memmove(
-        &raw mut (*((&raw mut signal_watchers as *mut ev_signal)
-            .offset(0 as ::core::ffi::c_int as isize) as *mut ev_signal
-            as *mut ev_watcher))
-            .cb as *mut ::core::ffi::c_void,
-        &raw mut (*(&raw mut signal_watchers as *mut ev_signal)
-            .offset(0 as ::core::ffi::c_int as isize))
-        .cb as *const ::core::ffi::c_void,
-        ::core::mem::size_of::<
-            Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_signal, ::core::ffi::c_int) -> ()>,
-        >() as usize,
-    );
-    signal_watchers[0 as ::core::ffi::c_int as usize].signum = 1 as ::core::ffi::c_int;
-    let ref mut fresh1 = (*((&raw mut signal_watchers as *mut ev_signal)
-        .offset(1 as ::core::ffi::c_int as isize) as *mut ev_signal
-        as *mut ::core::ffi::c_void as *mut ev_watcher))
-        .pending;
-    *fresh1 = 0 as ::core::ffi::c_int;
-    (*((&raw mut signal_watchers as *mut ev_signal).offset(1 as ::core::ffi::c_int as isize)
-        as *mut ev_signal as *mut ::core::ffi::c_void as *mut ev_watcher))
-        .active = *fresh1;
-    (*((&raw mut signal_watchers as *mut ev_signal).offset(1 as ::core::ffi::c_int as isize)
-        as *mut ev_signal as *mut ::core::ffi::c_void as *mut ev_watcher))
-        .priority = 0 as ::core::ffi::c_int;
-    signal_watchers[1 as ::core::ffi::c_int as usize].cb = Some(
-        handle_term_signal
-            as unsafe extern "C" fn(*mut ev_loop, *mut ev_signal, ::core::ffi::c_int) -> (),
-    )
-        as Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_signal, ::core::ffi::c_int) -> ()>;
-    memmove(
-        &raw mut (*((&raw mut signal_watchers as *mut ev_signal)
-            .offset(1 as ::core::ffi::c_int as isize) as *mut ev_signal
-            as *mut ev_watcher))
-            .cb as *mut ::core::ffi::c_void,
-        &raw mut (*(&raw mut signal_watchers as *mut ev_signal)
-            .offset(1 as ::core::ffi::c_int as isize))
-        .cb as *const ::core::ffi::c_void,
-        ::core::mem::size_of::<
-            Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_signal, ::core::ffi::c_int) -> ()>,
-        >() as usize,
-    );
-    signal_watchers[1 as ::core::ffi::c_int as usize].signum = 2 as ::core::ffi::c_int;
-    let ref mut fresh2 = (*((&raw mut signal_watchers as *mut ev_signal)
-        .offset(2 as ::core::ffi::c_int as isize) as *mut ev_signal
-        as *mut ::core::ffi::c_void as *mut ev_watcher))
-        .pending;
-    *fresh2 = 0 as ::core::ffi::c_int;
-    (*((&raw mut signal_watchers as *mut ev_signal).offset(2 as ::core::ffi::c_int as isize)
-        as *mut ev_signal as *mut ::core::ffi::c_void as *mut ev_watcher))
-        .active = *fresh2;
-    (*((&raw mut signal_watchers as *mut ev_signal).offset(2 as ::core::ffi::c_int as isize)
-        as *mut ev_signal as *mut ::core::ffi::c_void as *mut ev_watcher))
-        .priority = 0 as ::core::ffi::c_int;
-    signal_watchers[2 as ::core::ffi::c_int as usize].cb = Some(
-        handle_term_signal
-            as unsafe extern "C" fn(*mut ev_loop, *mut ev_signal, ::core::ffi::c_int) -> (),
-    )
-        as Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_signal, ::core::ffi::c_int) -> ()>;
-    memmove(
-        &raw mut (*((&raw mut signal_watchers as *mut ev_signal)
-            .offset(2 as ::core::ffi::c_int as isize) as *mut ev_signal
-            as *mut ev_watcher))
-            .cb as *mut ::core::ffi::c_void,
-        &raw mut (*(&raw mut signal_watchers as *mut ev_signal)
-            .offset(2 as ::core::ffi::c_int as isize))
-        .cb as *const ::core::ffi::c_void,
-        ::core::mem::size_of::<
-            Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_signal, ::core::ffi::c_int) -> ()>,
-        >() as usize,
-    );
-    signal_watchers[2 as ::core::ffi::c_int as usize].signum = 14 as ::core::ffi::c_int;
-    let ref mut fresh3 = (*((&raw mut signal_watchers as *mut ev_signal)
-        .offset(3 as ::core::ffi::c_int as isize) as *mut ev_signal
-        as *mut ::core::ffi::c_void as *mut ev_watcher))
-        .pending;
-    *fresh3 = 0 as ::core::ffi::c_int;
-    (*((&raw mut signal_watchers as *mut ev_signal).offset(3 as ::core::ffi::c_int as isize)
-        as *mut ev_signal as *mut ::core::ffi::c_void as *mut ev_watcher))
-        .active = *fresh3;
-    (*((&raw mut signal_watchers as *mut ev_signal).offset(3 as ::core::ffi::c_int as isize)
-        as *mut ev_signal as *mut ::core::ffi::c_void as *mut ev_watcher))
-        .priority = 0 as ::core::ffi::c_int;
-    signal_watchers[3 as ::core::ffi::c_int as usize].cb = Some(
-        handle_term_signal
-            as unsafe extern "C" fn(*mut ev_loop, *mut ev_signal, ::core::ffi::c_int) -> (),
-    )
-        as Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_signal, ::core::ffi::c_int) -> ()>;
-    memmove(
-        &raw mut (*((&raw mut signal_watchers as *mut ev_signal)
-            .offset(3 as ::core::ffi::c_int as isize) as *mut ev_signal
-            as *mut ev_watcher))
-            .cb as *mut ::core::ffi::c_void,
-        &raw mut (*(&raw mut signal_watchers as *mut ev_signal)
-            .offset(3 as ::core::ffi::c_int as isize))
-        .cb as *const ::core::ffi::c_void,
-        ::core::mem::size_of::<
-            Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_signal, ::core::ffi::c_int) -> ()>,
-        >() as usize,
-    );
-    signal_watchers[3 as ::core::ffi::c_int as usize].signum = 15 as ::core::ffi::c_int;
-    let ref mut fresh4 = (*((&raw mut signal_watchers as *mut ev_signal)
-        .offset(4 as ::core::ffi::c_int as isize) as *mut ev_signal
-        as *mut ::core::ffi::c_void as *mut ev_watcher))
-        .pending;
-    *fresh4 = 0 as ::core::ffi::c_int;
-    (*((&raw mut signal_watchers as *mut ev_signal).offset(4 as ::core::ffi::c_int as isize)
-        as *mut ev_signal as *mut ::core::ffi::c_void as *mut ev_watcher))
-        .active = *fresh4;
-    (*((&raw mut signal_watchers as *mut ev_signal).offset(4 as ::core::ffi::c_int as isize)
-        as *mut ev_signal as *mut ::core::ffi::c_void as *mut ev_watcher))
-        .priority = 0 as ::core::ffi::c_int;
-    signal_watchers[4 as ::core::ffi::c_int as usize].cb = Some(
-        handle_term_signal
-            as unsafe extern "C" fn(*mut ev_loop, *mut ev_signal, ::core::ffi::c_int) -> (),
-    )
-        as Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_signal, ::core::ffi::c_int) -> ()>;
-    memmove(
-        &raw mut (*((&raw mut signal_watchers as *mut ev_signal)
-            .offset(4 as ::core::ffi::c_int as isize) as *mut ev_signal
-            as *mut ev_watcher))
-            .cb as *mut ::core::ffi::c_void,
-        &raw mut (*(&raw mut signal_watchers as *mut ev_signal)
-            .offset(4 as ::core::ffi::c_int as isize))
-        .cb as *const ::core::ffi::c_void,
-        ::core::mem::size_of::<
-            Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_signal, ::core::ffi::c_int) -> ()>,
-        >() as usize,
-    );
-    signal_watchers[4 as ::core::ffi::c_int as usize].signum = 10 as ::core::ffi::c_int;
-    let ref mut fresh5 = (*((&raw mut signal_watchers as *mut ev_signal)
-        .offset(5 as ::core::ffi::c_int as isize) as *mut ev_signal
-        as *mut ::core::ffi::c_void as *mut ev_watcher))
-        .pending;
-    *fresh5 = 0 as ::core::ffi::c_int;
-    (*((&raw mut signal_watchers as *mut ev_signal).offset(5 as ::core::ffi::c_int as isize)
-        as *mut ev_signal as *mut ::core::ffi::c_void as *mut ev_watcher))
-        .active = *fresh5;
-    (*((&raw mut signal_watchers as *mut ev_signal).offset(5 as ::core::ffi::c_int as isize)
-        as *mut ev_signal as *mut ::core::ffi::c_void as *mut ev_watcher))
-        .priority = 0 as ::core::ffi::c_int;
-    signal_watchers[5 as ::core::ffi::c_int as usize].cb = Some(
-        handle_term_signal
-            as unsafe extern "C" fn(*mut ev_loop, *mut ev_signal, ::core::ffi::c_int) -> (),
-    )
-        as Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_signal, ::core::ffi::c_int) -> ()>;
-    memmove(
-        &raw mut (*((&raw mut signal_watchers as *mut ev_signal)
-            .offset(5 as ::core::ffi::c_int as isize) as *mut ev_signal
-            as *mut ev_watcher))
-            .cb as *mut ::core::ffi::c_void,
-        &raw mut (*(&raw mut signal_watchers as *mut ev_signal)
-            .offset(5 as ::core::ffi::c_int as isize))
-        .cb as *const ::core::ffi::c_void,
-        ::core::mem::size_of::<
-            Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_signal, ::core::ffi::c_int) -> ()>,
-        >() as usize,
-    );
-    signal_watchers[5 as ::core::ffi::c_int as usize].signum = 12 as ::core::ffi::c_int;
-    let mut i: usize = 0 as usize;
-    while i < num_watchers {
-        ev_signal_start(
-            main_loop,
-            (&raw mut signal_watchers as *mut ev_signal).offset(i as isize) as *mut ev_signal,
-        );
+    static mut WATCHERS: [std::mem::MaybeUninit<ev_signal>; 6] =
+        [std::mem::MaybeUninit::uninit(); 6];
+    for (index, signum) in [1, 2, 14, 15, 10, 12].into_iter().enumerate() {
+        let watcher = (&raw mut WATCHERS).cast::<ev_signal>().add(index);
+        watcher.write(ev_signal::new(signum, handle_term_signal));
+        ev_signal_start(main_loop, watcher);
         ev_unref(main_loop);
-        i = i.wrapping_add(1);
     }
 }
 unsafe fn parse_restart_fd() -> ::core::ffi::c_int {
@@ -1031,6 +910,9 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     #[used]
     static mut _i3_version: *const ::core::ffi::c_char =
         I3_VERSION.as_ptr().cast::<::core::ffi::c_char>();
+    let mut override_owner: Option<CString> = None;
+    let mut layout_owner: Option<CString> = None;
+    let mut fake_owner: Option<CString> = None;
     let mut override_configpath: *mut ::core::ffi::c_char =
         ::core::ptr::null_mut::<::core::ffi::c_char>();
     let mut autostart: bool = true_0 != 0;
@@ -1085,11 +967,11 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         match flag {
             b'a' => { verboselog(c"Autostart disabled using -a\n".as_ptr().cast_mut()); autostart = false; },
             b'L' | OPT_RESTART => {
-                free(layout_path.cast());
-                layout_path = sstrdup(value.as_ref().unwrap().as_ptr());
+                layout_owner=value.clone();
+                layout_path=layout_owner.as_ref().unwrap().as_ptr().cast_mut();
                 delete_layout_path = flag == OPT_RESTART;
             },
-            b'c' => { free(override_configpath.cast()); override_configpath = sstrdup(value.as_ref().unwrap().as_ptr()); },
+            b'c' => { override_owner=value.clone(); override_configpath=override_owner.as_ref().unwrap().as_ptr().cast_mut(); },
             b'C' => { verboselog(c"Checking configuration file only (-C)\n".as_ptr().cast_mut()); only_check_config = true; },
             b'v' => { printf(c"i3 version %s © 2009 Michael Stapelberg and contributors\n".as_ptr(), i3_version); return EXIT_SUCCESS; },
             b'm' => { printf(c"Binary i3 version:  %s © 2009 Michael Stapelberg and contributors\n".as_ptr(), i3_version); return display_running_version(); },
@@ -1119,8 +1001,8 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
             OPT_FAKE_OUTPUTS => {
                 let value = value.as_ref().unwrap();
                 verboselog(c"Initializing fake outputs: %s\n".as_ptr().cast_mut(), value.as_ptr());
-                free(fake_outputs.cast());
-                fake_outputs = sstrdup(value.as_ptr());
+                fake_owner=Some(value.clone());
+                fake_outputs=fake_owner.as_ref().unwrap().as_ptr().cast_mut();
             },
             OPT_OLD_PARSER => errorlog(c"ERROR: You are passing --force-old-config-parser-v4.4-only, but that flag was removed by now.\n".as_ptr().cast_mut()),
             _ => unreachable!(),
@@ -1183,6 +1065,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         if sockfd == -(1 as ::core::ffi::c_int) {
             err(EXIT_FAILURE, c"Could not create socket".as_ptr());
         }
+        let socket_owner = std::os::fd::OwnedFd::from_raw_fd(sockfd);
         let mut addr: sockaddr_un = sockaddr_un {
             sun_family: 0 as libc::sa_family_t,
             sun_path: [0; 108],
@@ -1223,6 +1106,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
             &raw mut reply_length,
             &raw mut reply,
         );
+        let reply_owner = NativeAllocation::take(reply);
         if ret != 0 as ::core::ffi::c_int {
             if ret == -(1 as ::core::ffi::c_int) {
                 err(EXIT_FAILURE, c"IPC: read()".as_ptr());
@@ -1242,8 +1126,9 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
             reply_length,
             reply as *mut ::core::ffi::c_char,
         );
-        free(reply as *mut ::core::ffi::c_void);
+        drop(reply_owner);
         reply = ::core::ptr::null_mut::<u8>();
+        drop(socket_owner);
         return 0 as ::core::ffi::c_int;
     }
     init_logging();
@@ -1267,28 +1152,15 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
             );
             free(cwd as *mut ::core::ffi::c_void);
         }
-        let buffer_size: usize = 1024 as usize;
-        let buffer: *mut ::core::ffi::c_char = scalloc(
-            buffer_size,
-            ::core::mem::size_of::<::core::ffi::c_char>() as usize,
-        ) as *mut ::core::ffi::c_char;
-        let mut patternfd: ::core::ffi::c_int = 0;
-        patternfd = open(c"/proc/sys/kernel/core_pattern".as_ptr(), O_RDONLY);
-        if patternfd >= 0 as ::core::ffi::c_int {
-            if read(
-                patternfd,
-                buffer as *mut ::core::ffi::c_void,
-                buffer_size.wrapping_sub(1 as usize),
-            ) > 0 as isize
-            {
+        if let Ok(mut file) = std::fs::File::open("/proc/sys/kernel/core_pattern") {
+            let mut buffer = [0u8; 1024];
+            if file.read(&mut buffer[..1023]).is_ok_and(|count| count > 0) {
                 verboselog(
                     c"CORE DUMPS: Your core_pattern is: %s".as_ptr().cast_mut(),
-                    buffer,
+                    buffer.as_ptr().cast::<libc::c_char>(),
                 );
             }
-            close(patternfd);
         }
-        free(buffer as *mut ::core::ffi::c_void);
     }
     verboselog(c"i3 %s starting\n".as_ptr().cast_mut(), _i3_version);
     conn = xcb_connect(
@@ -1333,366 +1205,132 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         0 as u32,
         c"".as_ptr() as *const ::core::ffi::c_void,
     );
-    let mut _NET_SUPPORTED_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_SUPPORTED".as_ptr()) as u16,
-        c"_NET_SUPPORTED".as_ptr(),
-    );
-    let mut _NET_SUPPORTING_WM_CHECK_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_SUPPORTING_WM_CHECK".as_ptr()) as u16,
-        c"_NET_SUPPORTING_WM_CHECK".as_ptr(),
-    );
-    let mut _NET_WM_NAME_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_WM_NAME".as_ptr()) as u16,
-        c"_NET_WM_NAME".as_ptr(),
-    );
-    let mut _NET_WM_VISIBLE_NAME_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_WM_VISIBLE_NAME".as_ptr()) as u16,
-        c"_NET_WM_VISIBLE_NAME".as_ptr(),
-    );
-    let mut _NET_WM_MOVERESIZE_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_WM_MOVERESIZE".as_ptr()) as u16,
-        c"_NET_WM_MOVERESIZE".as_ptr(),
-    );
-    let mut _NET_WM_STATE_STICKY_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_WM_STATE_STICKY".as_ptr()) as u16,
-        c"_NET_WM_STATE_STICKY".as_ptr(),
-    );
-    let mut _NET_WM_STATE_FULLSCREEN_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_WM_STATE_FULLSCREEN".as_ptr()) as u16,
-        c"_NET_WM_STATE_FULLSCREEN".as_ptr(),
-    );
-    let mut _NET_WM_STATE_DEMANDS_ATTENTION_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_WM_STATE_DEMANDS_ATTENTION".as_ptr()) as u16,
-        c"_NET_WM_STATE_DEMANDS_ATTENTION".as_ptr(),
-    );
-    let mut _NET_WM_STATE_MODAL_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_WM_STATE_MODAL".as_ptr()) as u16,
-        c"_NET_WM_STATE_MODAL".as_ptr(),
-    );
-    let mut _NET_WM_STATE_HIDDEN_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_WM_STATE_HIDDEN".as_ptr()) as u16,
-        c"_NET_WM_STATE_HIDDEN".as_ptr(),
-    );
-    let mut _NET_WM_STATE_FOCUSED_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_WM_STATE_FOCUSED".as_ptr()) as u16,
-        c"_NET_WM_STATE_FOCUSED".as_ptr(),
-    );
-    let mut _NET_WM_STATE_MAXIMIZED_VERT_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_WM_STATE_MAXIMIZED_VERT".as_ptr()) as u16,
-        c"_NET_WM_STATE_MAXIMIZED_VERT".as_ptr(),
-    );
-    let mut _NET_WM_STATE_MAXIMIZED_HORZ_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_WM_STATE_MAXIMIZED_HORZ".as_ptr()) as u16,
-        c"_NET_WM_STATE_MAXIMIZED_HORZ".as_ptr(),
-    );
-    let mut _NET_WM_STATE_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_WM_STATE".as_ptr()) as u16,
-        c"_NET_WM_STATE".as_ptr(),
-    );
-    let mut _NET_WM_WINDOW_TYPE_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_WM_WINDOW_TYPE".as_ptr()) as u16,
-        c"_NET_WM_WINDOW_TYPE".as_ptr(),
-    );
-    let mut _NET_WM_WINDOW_TYPE_NORMAL_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_WM_WINDOW_TYPE_NORMAL".as_ptr()) as u16,
-        c"_NET_WM_WINDOW_TYPE_NORMAL".as_ptr(),
-    );
-    let mut _NET_WM_WINDOW_TYPE_DOCK_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_WM_WINDOW_TYPE_DOCK".as_ptr()) as u16,
-        c"_NET_WM_WINDOW_TYPE_DOCK".as_ptr(),
-    );
-    let mut _NET_WM_WINDOW_TYPE_DIALOG_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_WM_WINDOW_TYPE_DIALOG".as_ptr()) as u16,
-        c"_NET_WM_WINDOW_TYPE_DIALOG".as_ptr(),
-    );
-    let mut _NET_WM_WINDOW_TYPE_UTILITY_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_WM_WINDOW_TYPE_UTILITY".as_ptr()) as u16,
-        c"_NET_WM_WINDOW_TYPE_UTILITY".as_ptr(),
-    );
-    let mut _NET_WM_WINDOW_TYPE_TOOLBAR_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_WM_WINDOW_TYPE_TOOLBAR".as_ptr()) as u16,
-        c"_NET_WM_WINDOW_TYPE_TOOLBAR".as_ptr(),
-    );
-    let mut _NET_WM_WINDOW_TYPE_SPLASH_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_WM_WINDOW_TYPE_SPLASH".as_ptr()) as u16,
-        c"_NET_WM_WINDOW_TYPE_SPLASH".as_ptr(),
-    );
-    let mut _NET_WM_WINDOW_TYPE_MENU_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_WM_WINDOW_TYPE_MENU".as_ptr()) as u16,
-        c"_NET_WM_WINDOW_TYPE_MENU".as_ptr(),
-    );
-    let mut _NET_WM_WINDOW_TYPE_DROPDOWN_MENU_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_WM_WINDOW_TYPE_DROPDOWN_MENU".as_ptr()) as u16,
-        c"_NET_WM_WINDOW_TYPE_DROPDOWN_MENU".as_ptr(),
-    );
-    let mut _NET_WM_WINDOW_TYPE_POPUP_MENU_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_WM_WINDOW_TYPE_POPUP_MENU".as_ptr()) as u16,
-        c"_NET_WM_WINDOW_TYPE_POPUP_MENU".as_ptr(),
-    );
-    let mut _NET_WM_WINDOW_TYPE_TOOLTIP_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_WM_WINDOW_TYPE_TOOLTIP".as_ptr()) as u16,
-        c"_NET_WM_WINDOW_TYPE_TOOLTIP".as_ptr(),
-    );
-    let mut _NET_WM_WINDOW_TYPE_NOTIFICATION_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_WM_WINDOW_TYPE_NOTIFICATION".as_ptr()) as u16,
-        c"_NET_WM_WINDOW_TYPE_NOTIFICATION".as_ptr(),
-    );
-    let mut _NET_WM_DESKTOP_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_WM_DESKTOP".as_ptr()) as u16,
-        c"_NET_WM_DESKTOP".as_ptr(),
-    );
-    let mut _NET_WM_STRUT_PARTIAL_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_WM_STRUT_PARTIAL".as_ptr()) as u16,
-        c"_NET_WM_STRUT_PARTIAL".as_ptr(),
-    );
-    let mut _NET_CLIENT_LIST_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_CLIENT_LIST".as_ptr()) as u16,
-        c"_NET_CLIENT_LIST".as_ptr(),
-    );
-    let mut _NET_CLIENT_LIST_STACKING_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_CLIENT_LIST_STACKING".as_ptr()) as u16,
-        c"_NET_CLIENT_LIST_STACKING".as_ptr(),
-    );
-    let mut _NET_CURRENT_DESKTOP_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_CURRENT_DESKTOP".as_ptr()) as u16,
-        c"_NET_CURRENT_DESKTOP".as_ptr(),
-    );
-    let mut _NET_NUMBER_OF_DESKTOPS_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_NUMBER_OF_DESKTOPS".as_ptr()) as u16,
-        c"_NET_NUMBER_OF_DESKTOPS".as_ptr(),
-    );
-    let mut _NET_DESKTOP_NAMES_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_DESKTOP_NAMES".as_ptr()) as u16,
-        c"_NET_DESKTOP_NAMES".as_ptr(),
-    );
-    let mut _NET_DESKTOP_VIEWPORT_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_DESKTOP_VIEWPORT".as_ptr()) as u16,
-        c"_NET_DESKTOP_VIEWPORT".as_ptr(),
-    );
-    let mut _NET_ACTIVE_WINDOW_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_ACTIVE_WINDOW".as_ptr()) as u16,
-        c"_NET_ACTIVE_WINDOW".as_ptr(),
-    );
-    let mut _NET_CLOSE_WINDOW_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_CLOSE_WINDOW".as_ptr()) as u16,
-        c"_NET_CLOSE_WINDOW".as_ptr(),
-    );
-    let mut _NET_MOVERESIZE_WINDOW_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_MOVERESIZE_WINDOW".as_ptr()) as u16,
-        c"_NET_MOVERESIZE_WINDOW".as_ptr(),
-    );
-    let mut _NET_WM_USER_TIME_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_WM_USER_TIME".as_ptr()) as u16,
-        c"_NET_WM_USER_TIME".as_ptr(),
-    );
-    let mut _NET_STARTUP_ID_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_STARTUP_ID".as_ptr()) as u16,
-        c"_NET_STARTUP_ID".as_ptr(),
-    );
-    let mut _NET_WORKAREA_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_WORKAREA".as_ptr()) as u16,
-        c"_NET_WORKAREA".as_ptr(),
-    );
-    let mut _NET_WM_ICON_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_WM_ICON".as_ptr()) as u16,
-        c"_NET_WM_ICON".as_ptr(),
-    );
-    let WM_PROTOCOLS_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"WM_PROTOCOLS".as_ptr()) as u16,
-        c"WM_PROTOCOLS".as_ptr(),
-    );
-    let WM_DELETE_WINDOW_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"WM_DELETE_WINDOW".as_ptr()) as u16,
-        c"WM_DELETE_WINDOW".as_ptr(),
-    );
-    let UTF8_STRING_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"UTF8_STRING".as_ptr()) as u16,
-        c"UTF8_STRING".as_ptr(),
-    );
-    let WM_STATE_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"WM_STATE".as_ptr()) as u16,
-        c"WM_STATE".as_ptr(),
-    );
-    let WM_CLIENT_LEADER_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"WM_CLIENT_LEADER".as_ptr()) as u16,
-        c"WM_CLIENT_LEADER".as_ptr(),
-    );
-    let WM_TAKE_FOCUS_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"WM_TAKE_FOCUS".as_ptr()) as u16,
-        c"WM_TAKE_FOCUS".as_ptr(),
-    );
-    let WM_WINDOW_ROLE_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"WM_WINDOW_ROLE".as_ptr()) as u16,
-        c"WM_WINDOW_ROLE".as_ptr(),
-    );
-    let I3_SOCKET_PATH_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"I3_SOCKET_PATH".as_ptr()) as u16,
-        c"I3_SOCKET_PATH".as_ptr(),
-    );
-    let I3_CONFIG_PATH_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"I3_CONFIG_PATH".as_ptr()) as u16,
-        c"I3_CONFIG_PATH".as_ptr(),
-    );
-    let I3_SYNC_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"I3_SYNC".as_ptr()) as u16,
-        c"I3_SYNC".as_ptr(),
-    );
-    let I3_SHMLOG_PATH_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"I3_SHMLOG_PATH".as_ptr()) as u16,
-        c"I3_SHMLOG_PATH".as_ptr(),
-    );
-    let I3_PID_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"I3_PID".as_ptr()) as u16,
-        c"I3_PID".as_ptr(),
-    );
-    let I3_LOG_STREAM_SOCKET_PATH_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"I3_LOG_STREAM_SOCKET_PATH".as_ptr()) as u16,
-        c"I3_LOG_STREAM_SOCKET_PATH".as_ptr(),
-    );
-    let I3_FLOATING_WINDOW_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"I3_FLOATING_WINDOW".as_ptr()) as u16,
-        c"I3_FLOATING_WINDOW".as_ptr(),
-    );
-    let mut _NET_REQUEST_FRAME_EXTENTS_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_REQUEST_FRAME_EXTENTS".as_ptr()) as u16,
-        c"_NET_REQUEST_FRAME_EXTENTS".as_ptr(),
-    );
-    let mut _NET_FRAME_EXTENTS_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_FRAME_EXTENTS".as_ptr()) as u16,
-        c"_NET_FRAME_EXTENTS".as_ptr(),
-    );
-    let mut _MOTIF_WM_HINTS_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_MOTIF_WM_HINTS".as_ptr()) as u16,
-        c"_MOTIF_WM_HINTS".as_ptr(),
-    );
-    let WM_CHANGE_STATE_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"WM_CHANGE_STATE".as_ptr()) as u16,
-        c"WM_CHANGE_STATE".as_ptr(),
-    );
-    let MANAGER_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"MANAGER".as_ptr()) as u16,
-        c"MANAGER".as_ptr(),
-    );
+    let atom_requests = [
+        (c"_NET_SUPPORTED", &raw mut A__NET_SUPPORTED),
+        (
+            c"_NET_SUPPORTING_WM_CHECK",
+            &raw mut A__NET_SUPPORTING_WM_CHECK,
+        ),
+        (c"_NET_WM_NAME", &raw mut A__NET_WM_NAME),
+        (c"_NET_WM_VISIBLE_NAME", &raw mut A__NET_WM_VISIBLE_NAME),
+        (c"_NET_WM_MOVERESIZE", &raw mut A__NET_WM_MOVERESIZE),
+        (c"_NET_WM_STATE_STICKY", &raw mut A__NET_WM_STATE_STICKY),
+        (
+            c"_NET_WM_STATE_FULLSCREEN",
+            &raw mut A__NET_WM_STATE_FULLSCREEN,
+        ),
+        (
+            c"_NET_WM_STATE_DEMANDS_ATTENTION",
+            &raw mut A__NET_WM_STATE_DEMANDS_ATTENTION,
+        ),
+        (c"_NET_WM_STATE_MODAL", &raw mut A__NET_WM_STATE_MODAL),
+        (c"_NET_WM_STATE_HIDDEN", &raw mut A__NET_WM_STATE_HIDDEN),
+        (c"_NET_WM_STATE_FOCUSED", &raw mut A__NET_WM_STATE_FOCUSED),
+        (
+            c"_NET_WM_STATE_MAXIMIZED_VERT",
+            &raw mut A__NET_WM_STATE_MAXIMIZED_VERT,
+        ),
+        (
+            c"_NET_WM_STATE_MAXIMIZED_HORZ",
+            &raw mut A__NET_WM_STATE_MAXIMIZED_HORZ,
+        ),
+        (c"_NET_WM_STATE", &raw mut A__NET_WM_STATE),
+        (c"_NET_WM_WINDOW_TYPE", &raw mut A__NET_WM_WINDOW_TYPE),
+        (
+            c"_NET_WM_WINDOW_TYPE_NORMAL",
+            &raw mut A__NET_WM_WINDOW_TYPE_NORMAL,
+        ),
+        (
+            c"_NET_WM_WINDOW_TYPE_DOCK",
+            &raw mut A__NET_WM_WINDOW_TYPE_DOCK,
+        ),
+        (
+            c"_NET_WM_WINDOW_TYPE_DIALOG",
+            &raw mut A__NET_WM_WINDOW_TYPE_DIALOG,
+        ),
+        (
+            c"_NET_WM_WINDOW_TYPE_UTILITY",
+            &raw mut A__NET_WM_WINDOW_TYPE_UTILITY,
+        ),
+        (
+            c"_NET_WM_WINDOW_TYPE_TOOLBAR",
+            &raw mut A__NET_WM_WINDOW_TYPE_TOOLBAR,
+        ),
+        (
+            c"_NET_WM_WINDOW_TYPE_SPLASH",
+            &raw mut A__NET_WM_WINDOW_TYPE_SPLASH,
+        ),
+        (
+            c"_NET_WM_WINDOW_TYPE_MENU",
+            &raw mut A__NET_WM_WINDOW_TYPE_MENU,
+        ),
+        (
+            c"_NET_WM_WINDOW_TYPE_DROPDOWN_MENU",
+            &raw mut A__NET_WM_WINDOW_TYPE_DROPDOWN_MENU,
+        ),
+        (
+            c"_NET_WM_WINDOW_TYPE_POPUP_MENU",
+            &raw mut A__NET_WM_WINDOW_TYPE_POPUP_MENU,
+        ),
+        (
+            c"_NET_WM_WINDOW_TYPE_TOOLTIP",
+            &raw mut A__NET_WM_WINDOW_TYPE_TOOLTIP,
+        ),
+        (
+            c"_NET_WM_WINDOW_TYPE_NOTIFICATION",
+            &raw mut A__NET_WM_WINDOW_TYPE_NOTIFICATION,
+        ),
+        (c"_NET_WM_DESKTOP", &raw mut A__NET_WM_DESKTOP),
+        (c"_NET_WM_STRUT_PARTIAL", &raw mut A__NET_WM_STRUT_PARTIAL),
+        (c"_NET_CLIENT_LIST", &raw mut A__NET_CLIENT_LIST),
+        (
+            c"_NET_CLIENT_LIST_STACKING",
+            &raw mut A__NET_CLIENT_LIST_STACKING,
+        ),
+        (c"_NET_CURRENT_DESKTOP", &raw mut A__NET_CURRENT_DESKTOP),
+        (
+            c"_NET_NUMBER_OF_DESKTOPS",
+            &raw mut A__NET_NUMBER_OF_DESKTOPS,
+        ),
+        (c"_NET_DESKTOP_NAMES", &raw mut A__NET_DESKTOP_NAMES),
+        (c"_NET_DESKTOP_VIEWPORT", &raw mut A__NET_DESKTOP_VIEWPORT),
+        (c"_NET_ACTIVE_WINDOW", &raw mut A__NET_ACTIVE_WINDOW),
+        (c"_NET_CLOSE_WINDOW", &raw mut A__NET_CLOSE_WINDOW),
+        (c"_NET_MOVERESIZE_WINDOW", &raw mut A__NET_MOVERESIZE_WINDOW),
+        (c"_NET_WM_USER_TIME", &raw mut A__NET_WM_USER_TIME),
+        (c"_NET_STARTUP_ID", &raw mut A__NET_STARTUP_ID),
+        (c"_NET_WORKAREA", &raw mut A__NET_WORKAREA),
+        (c"_NET_WM_ICON", &raw mut A__NET_WM_ICON),
+        (c"WM_PROTOCOLS", &raw mut A_WM_PROTOCOLS),
+        (c"WM_DELETE_WINDOW", &raw mut A_WM_DELETE_WINDOW),
+        (c"UTF8_STRING", &raw mut A_UTF8_STRING),
+        (c"WM_STATE", &raw mut A_WM_STATE),
+        (c"WM_CLIENT_LEADER", &raw mut A_WM_CLIENT_LEADER),
+        (c"WM_TAKE_FOCUS", &raw mut A_WM_TAKE_FOCUS),
+        (c"WM_WINDOW_ROLE", &raw mut A_WM_WINDOW_ROLE),
+        (c"I3_SOCKET_PATH", &raw mut A_I3_SOCKET_PATH),
+        (c"I3_CONFIG_PATH", &raw mut A_I3_CONFIG_PATH),
+        (c"I3_SYNC", &raw mut A_I3_SYNC),
+        (c"I3_SHMLOG_PATH", &raw mut A_I3_SHMLOG_PATH),
+        (c"I3_PID", &raw mut A_I3_PID),
+        (
+            c"I3_LOG_STREAM_SOCKET_PATH",
+            &raw mut A_I3_LOG_STREAM_SOCKET_PATH,
+        ),
+        (c"I3_FLOATING_WINDOW", &raw mut A_I3_FLOATING_WINDOW),
+        (
+            c"_NET_REQUEST_FRAME_EXTENTS",
+            &raw mut A__NET_REQUEST_FRAME_EXTENTS,
+        ),
+        (c"_NET_FRAME_EXTENTS", &raw mut A__NET_FRAME_EXTENTS),
+        (c"_MOTIF_WM_HINTS", &raw mut A__MOTIF_WM_HINTS),
+        (c"WM_CHANGE_STATE", &raw mut A_WM_CHANGE_STATE),
+        (c"MANAGER", &raw mut A_MANAGER),
+    ];
+    let atom_cookies: Vec<_> = atom_requests
+        .iter()
+        .map(|(name, _)| xcb_intern_atom(conn, 0, name.to_bytes().len() as u16, name.as_ptr()))
+        .collect();
     root_depth = (*root_screen).root_depth;
     colormap = (*root_screen).default_colormap;
     visual_type =
@@ -1764,16 +1402,14 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         660 as ::core::ffi::c_int,
     );
     loop {
-        event = xcb_wait_for_event(conn);
-        if event.is_null() {
+        let Some(owner) = NativeAllocation::take(xcb_wait_for_event(conn)) else {
             break;
-        }
+        };
+        event = owner.raw();
         if (*event).response_type as ::core::ffi::c_int == XCB_PROPERTY_NOTIFY {
             last_timestamp = (*(event as *mut xcb_property_notify_event_t)).time;
-            free(event as *mut ::core::ffi::c_void);
             break;
         } else {
-            free(event as *mut ::core::ffi::c_void);
         }
     }
     debuglog(
@@ -1783,890 +1419,25 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         669 as ::core::ffi::c_int,
         last_timestamp,
     );
-    let reply_0: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_SUPPORTED_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_0.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_SUPPORTED\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
+    for index in [
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+        25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47,
+        48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59,
+    ] {
+        let (name, target) = atom_requests[index];
+        let Some(reply) = NativeAllocation::take(xcb_intern_atom_reply(
+            conn,
+            atom_cookies[index],
+            std::ptr::null_mut(),
+        )) else {
+            errorlog(
+                c"ERROR: Could not get atom %s\n".as_ptr().cast_mut(),
+                name.as_ptr(),
+            );
+            exit(-1);
+        };
+        target.write((*reply.raw()).atom);
     }
-    A__NET_SUPPORTED = (*reply_0).atom;
-    free(reply_0 as *mut ::core::ffi::c_void);
-    let reply_1: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_SUPPORTING_WM_CHECK_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_1.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_SUPPORTING_WM_CHECK\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_SUPPORTING_WM_CHECK = (*reply_1).atom;
-    free(reply_1 as *mut ::core::ffi::c_void);
-    let reply_2: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_WM_NAME_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_2.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_WM_NAME\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_WM_NAME = (*reply_2).atom;
-    free(reply_2 as *mut ::core::ffi::c_void);
-    let reply_3: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_WM_VISIBLE_NAME_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_3.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_WM_VISIBLE_NAME\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_WM_VISIBLE_NAME = (*reply_3).atom;
-    free(reply_3 as *mut ::core::ffi::c_void);
-    let reply_4: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_WM_MOVERESIZE_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_4.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_WM_MOVERESIZE\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_WM_MOVERESIZE = (*reply_4).atom;
-    free(reply_4 as *mut ::core::ffi::c_void);
-    let reply_5: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_WM_STATE_STICKY_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_5.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_WM_STATE_STICKY\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_WM_STATE_STICKY = (*reply_5).atom;
-    free(reply_5 as *mut ::core::ffi::c_void);
-    let reply_6: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_WM_STATE_FULLSCREEN_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_6.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_WM_STATE_FULLSCREEN\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_WM_STATE_FULLSCREEN = (*reply_6).atom;
-    free(reply_6 as *mut ::core::ffi::c_void);
-    let reply_7: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_WM_STATE_DEMANDS_ATTENTION_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_7.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_WM_STATE_DEMANDS_ATTENTION\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_WM_STATE_DEMANDS_ATTENTION = (*reply_7).atom;
-    free(reply_7 as *mut ::core::ffi::c_void);
-    let reply_8: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_WM_STATE_MODAL_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_8.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_WM_STATE_MODAL\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_WM_STATE_MODAL = (*reply_8).atom;
-    free(reply_8 as *mut ::core::ffi::c_void);
-    let reply_9: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_WM_STATE_HIDDEN_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_9.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_WM_STATE_HIDDEN\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_WM_STATE_HIDDEN = (*reply_9).atom;
-    free(reply_9 as *mut ::core::ffi::c_void);
-    let reply_10: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_WM_STATE_FOCUSED_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_10.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_WM_STATE_FOCUSED\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_WM_STATE_FOCUSED = (*reply_10).atom;
-    free(reply_10 as *mut ::core::ffi::c_void);
-    let reply_11: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_WM_STATE_MAXIMIZED_VERT_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_11.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_WM_STATE_MAXIMIZED_VERT\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_WM_STATE_MAXIMIZED_VERT = (*reply_11).atom;
-    free(reply_11 as *mut ::core::ffi::c_void);
-    let reply_12: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_WM_STATE_MAXIMIZED_HORZ_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_12.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_WM_STATE_MAXIMIZED_HORZ\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_WM_STATE_MAXIMIZED_HORZ = (*reply_12).atom;
-    free(reply_12 as *mut ::core::ffi::c_void);
-    let reply_13: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_WM_STATE_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_13.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_WM_STATE\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_WM_STATE = (*reply_13).atom;
-    free(reply_13 as *mut ::core::ffi::c_void);
-    let reply_14: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_WM_WINDOW_TYPE_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_14.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_WM_WINDOW_TYPE\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_WM_WINDOW_TYPE = (*reply_14).atom;
-    free(reply_14 as *mut ::core::ffi::c_void);
-    let reply_15: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_WM_WINDOW_TYPE_NORMAL_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_15.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_WM_WINDOW_TYPE_NORMAL\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_WM_WINDOW_TYPE_NORMAL = (*reply_15).atom;
-    free(reply_15 as *mut ::core::ffi::c_void);
-    let reply_16: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_WM_WINDOW_TYPE_DOCK_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_16.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_WM_WINDOW_TYPE_DOCK\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_WM_WINDOW_TYPE_DOCK = (*reply_16).atom;
-    free(reply_16 as *mut ::core::ffi::c_void);
-    let reply_17: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_WM_WINDOW_TYPE_DIALOG_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_17.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_WM_WINDOW_TYPE_DIALOG\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_WM_WINDOW_TYPE_DIALOG = (*reply_17).atom;
-    free(reply_17 as *mut ::core::ffi::c_void);
-    let reply_18: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_WM_WINDOW_TYPE_UTILITY_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_18.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_WM_WINDOW_TYPE_UTILITY\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_WM_WINDOW_TYPE_UTILITY = (*reply_18).atom;
-    free(reply_18 as *mut ::core::ffi::c_void);
-    let reply_19: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_WM_WINDOW_TYPE_TOOLBAR_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_19.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_WM_WINDOW_TYPE_TOOLBAR\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_WM_WINDOW_TYPE_TOOLBAR = (*reply_19).atom;
-    free(reply_19 as *mut ::core::ffi::c_void);
-    let reply_20: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_WM_WINDOW_TYPE_SPLASH_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_20.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_WM_WINDOW_TYPE_SPLASH\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_WM_WINDOW_TYPE_SPLASH = (*reply_20).atom;
-    free(reply_20 as *mut ::core::ffi::c_void);
-    let reply_21: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_WM_WINDOW_TYPE_MENU_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_21.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_WM_WINDOW_TYPE_MENU\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_WM_WINDOW_TYPE_MENU = (*reply_21).atom;
-    free(reply_21 as *mut ::core::ffi::c_void);
-    let reply_22: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_WM_WINDOW_TYPE_DROPDOWN_MENU_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_22.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_WM_WINDOW_TYPE_DROPDOWN_MENU\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_WM_WINDOW_TYPE_DROPDOWN_MENU = (*reply_22).atom;
-    free(reply_22 as *mut ::core::ffi::c_void);
-    let reply_23: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_WM_WINDOW_TYPE_POPUP_MENU_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_23.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_WM_WINDOW_TYPE_POPUP_MENU\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_WM_WINDOW_TYPE_POPUP_MENU = (*reply_23).atom;
-    free(reply_23 as *mut ::core::ffi::c_void);
-    let reply_24: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_WM_WINDOW_TYPE_TOOLTIP_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_24.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_WM_WINDOW_TYPE_TOOLTIP\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_WM_WINDOW_TYPE_TOOLTIP = (*reply_24).atom;
-    free(reply_24 as *mut ::core::ffi::c_void);
-    let reply_25: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_WM_WINDOW_TYPE_NOTIFICATION_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_25.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_WM_WINDOW_TYPE_NOTIFICATION\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_WM_WINDOW_TYPE_NOTIFICATION = (*reply_25).atom;
-    free(reply_25 as *mut ::core::ffi::c_void);
-    let reply_26: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_WM_DESKTOP_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_26.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_WM_DESKTOP\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_WM_DESKTOP = (*reply_26).atom;
-    free(reply_26 as *mut ::core::ffi::c_void);
-    let reply_27: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_WM_STRUT_PARTIAL_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_27.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_WM_STRUT_PARTIAL\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_WM_STRUT_PARTIAL = (*reply_27).atom;
-    free(reply_27 as *mut ::core::ffi::c_void);
-    let reply_28: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_CLIENT_LIST_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_28.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_CLIENT_LIST\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_CLIENT_LIST = (*reply_28).atom;
-    free(reply_28 as *mut ::core::ffi::c_void);
-    let reply_29: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_CLIENT_LIST_STACKING_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_29.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_CLIENT_LIST_STACKING\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_CLIENT_LIST_STACKING = (*reply_29).atom;
-    free(reply_29 as *mut ::core::ffi::c_void);
-    let reply_30: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_CURRENT_DESKTOP_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_30.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_CURRENT_DESKTOP\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_CURRENT_DESKTOP = (*reply_30).atom;
-    free(reply_30 as *mut ::core::ffi::c_void);
-    let reply_31: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_NUMBER_OF_DESKTOPS_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_31.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_NUMBER_OF_DESKTOPS\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_NUMBER_OF_DESKTOPS = (*reply_31).atom;
-    free(reply_31 as *mut ::core::ffi::c_void);
-    let reply_32: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_DESKTOP_NAMES_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_32.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_DESKTOP_NAMES\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_DESKTOP_NAMES = (*reply_32).atom;
-    free(reply_32 as *mut ::core::ffi::c_void);
-    let reply_33: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_DESKTOP_VIEWPORT_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_33.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_DESKTOP_VIEWPORT\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_DESKTOP_VIEWPORT = (*reply_33).atom;
-    free(reply_33 as *mut ::core::ffi::c_void);
-    let reply_34: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_ACTIVE_WINDOW_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_34.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_ACTIVE_WINDOW\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_ACTIVE_WINDOW = (*reply_34).atom;
-    free(reply_34 as *mut ::core::ffi::c_void);
-    let reply_35: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_CLOSE_WINDOW_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_35.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_CLOSE_WINDOW\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_CLOSE_WINDOW = (*reply_35).atom;
-    free(reply_35 as *mut ::core::ffi::c_void);
-    let reply_36: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_MOVERESIZE_WINDOW_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_36.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_MOVERESIZE_WINDOW\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_MOVERESIZE_WINDOW = (*reply_36).atom;
-    free(reply_36 as *mut ::core::ffi::c_void);
-    let reply_37: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_WM_USER_TIME_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_37.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_WM_USER_TIME\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_WM_USER_TIME = (*reply_37).atom;
-    free(reply_37 as *mut ::core::ffi::c_void);
-    let reply_38: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_STARTUP_ID_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_38.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_STARTUP_ID\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_STARTUP_ID = (*reply_38).atom;
-    free(reply_38 as *mut ::core::ffi::c_void);
-    let reply_39: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_WORKAREA_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_39.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_WORKAREA\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_WORKAREA = (*reply_39).atom;
-    free(reply_39 as *mut ::core::ffi::c_void);
-    let reply_40: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_WM_ICON_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_40.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_WM_ICON\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_WM_ICON = (*reply_40).atom;
-    free(reply_40 as *mut ::core::ffi::c_void);
-    let reply_41: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        WM_PROTOCOLS_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_41.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom WM_PROTOCOLS\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A_WM_PROTOCOLS = (*reply_41).atom;
-    free(reply_41 as *mut ::core::ffi::c_void);
-    let reply_42: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        WM_DELETE_WINDOW_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_42.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom WM_DELETE_WINDOW\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A_WM_DELETE_WINDOW = (*reply_42).atom;
-    free(reply_42 as *mut ::core::ffi::c_void);
-    let reply_43: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        UTF8_STRING_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_43.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom UTF8_STRING\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A_UTF8_STRING = (*reply_43).atom;
-    free(reply_43 as *mut ::core::ffi::c_void);
-    let reply_44: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        WM_STATE_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_44.is_null() {
-        errorlog(c"ERROR: Could not get atom WM_STATE\n".as_ptr().cast_mut());
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A_WM_STATE = (*reply_44).atom;
-    free(reply_44 as *mut ::core::ffi::c_void);
-    let reply_45: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        WM_CLIENT_LEADER_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_45.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom WM_CLIENT_LEADER\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A_WM_CLIENT_LEADER = (*reply_45).atom;
-    free(reply_45 as *mut ::core::ffi::c_void);
-    let reply_46: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        WM_TAKE_FOCUS_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_46.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom WM_TAKE_FOCUS\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A_WM_TAKE_FOCUS = (*reply_46).atom;
-    free(reply_46 as *mut ::core::ffi::c_void);
-    let reply_47: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        WM_WINDOW_ROLE_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_47.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom WM_WINDOW_ROLE\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A_WM_WINDOW_ROLE = (*reply_47).atom;
-    free(reply_47 as *mut ::core::ffi::c_void);
-    let reply_48: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        I3_SOCKET_PATH_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_48.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom I3_SOCKET_PATH\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A_I3_SOCKET_PATH = (*reply_48).atom;
-    free(reply_48 as *mut ::core::ffi::c_void);
-    let reply_49: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        I3_CONFIG_PATH_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_49.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom I3_CONFIG_PATH\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A_I3_CONFIG_PATH = (*reply_49).atom;
-    free(reply_49 as *mut ::core::ffi::c_void);
-    let reply_50: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        I3_SYNC_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_50.is_null() {
-        errorlog(c"ERROR: Could not get atom I3_SYNC\n".as_ptr().cast_mut());
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A_I3_SYNC = (*reply_50).atom;
-    free(reply_50 as *mut ::core::ffi::c_void);
-    let reply_51: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        I3_SHMLOG_PATH_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_51.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom I3_SHMLOG_PATH\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A_I3_SHMLOG_PATH = (*reply_51).atom;
-    free(reply_51 as *mut ::core::ffi::c_void);
-    let reply_52: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        I3_PID_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_52.is_null() {
-        errorlog(c"ERROR: Could not get atom I3_PID\n".as_ptr().cast_mut());
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A_I3_PID = (*reply_52).atom;
-    free(reply_52 as *mut ::core::ffi::c_void);
-    let reply_53: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        I3_LOG_STREAM_SOCKET_PATH_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_53.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom I3_LOG_STREAM_SOCKET_PATH\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A_I3_LOG_STREAM_SOCKET_PATH = (*reply_53).atom;
-    free(reply_53 as *mut ::core::ffi::c_void);
-    let reply_54: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        I3_FLOATING_WINDOW_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_54.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom I3_FLOATING_WINDOW\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A_I3_FLOATING_WINDOW = (*reply_54).atom;
-    free(reply_54 as *mut ::core::ffi::c_void);
-    let reply_55: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_REQUEST_FRAME_EXTENTS_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_55.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_REQUEST_FRAME_EXTENTS\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_REQUEST_FRAME_EXTENTS = (*reply_55).atom;
-    free(reply_55 as *mut ::core::ffi::c_void);
-    let reply_56: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _NET_FRAME_EXTENTS_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_56.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _NET_FRAME_EXTENTS\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__NET_FRAME_EXTENTS = (*reply_56).atom;
-    free(reply_56 as *mut ::core::ffi::c_void);
-    let reply_57: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        _MOTIF_WM_HINTS_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_57.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom _MOTIF_WM_HINTS\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A__MOTIF_WM_HINTS = (*reply_57).atom;
-    free(reply_57 as *mut ::core::ffi::c_void);
-    let reply_58: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        WM_CHANGE_STATE_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_58.is_null() {
-        errorlog(
-            c"ERROR: Could not get atom WM_CHANGE_STATE\n"
-                .as_ptr()
-                .cast_mut(),
-        );
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A_WM_CHANGE_STATE = (*reply_58).atom;
-    free(reply_58 as *mut ::core::ffi::c_void);
-    let reply_59: *mut xcb_intern_atom_reply_t = xcb_intern_atom_reply(
-        conn,
-        MANAGER_cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply_59.is_null() {
-        errorlog(c"ERROR: Could not get atom MANAGER\n".as_ptr().cast_mut());
-        exit(-(1 as ::core::ffi::c_int));
-    }
-    A_MANAGER = (*reply_59).atom;
-    free(reply_59 as *mut ::core::ffi::c_void);
     load_configuration(override_configpath, ConfigLoad::Load);
     if config.ipc_socket_path.is_null() {
         config.ipc_socket_path = getenv(c"I3SOCK".as_ptr());
@@ -2723,6 +1494,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         xcb_get_selection_owner(conn, wm_sn),
         ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
     );
+    let selection_reply_owner = NativeAllocation::take(selection_reply);
     if !selection_reply.is_null()
         && (*selection_reply).owner as ::core::ffi::c_long != XCB_NONE
         && !replace_wm
@@ -2800,7 +1572,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
             }
         }
     }
-    free(selection_reply as *mut ::core::ffi::c_void);
+    drop(selection_reply_owner);
     let mut event_0: C2RustUnnamed_49 = C2RustUnnamed_49 {
         message: xcb_client_message_event_t {
             response_type: 0 as u8,
@@ -2855,6 +1627,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         gcookie,
         ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
     );
+    let greply_owner = NativeAllocation::take(greply);
     if greply.is_null() {
         errorlog(
             c"ERROR: Could not get geometry of the root window, exiting\n"
@@ -3019,22 +1792,31 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         needs_tree_init = !tree_restore(layout_path, greply);
         if delete_layout_path {
             unlink(layout_path);
-            let dir: *const ::core::ffi::c_char = dirname(layout_path);
-            rmdir(dir);
+            let dir = owned_dirname(CStr::from_ptr(layout_path));
+            rmdir(dir.as_ptr());
         }
     }
     if needs_tree_init {
         tree_init(greply);
     }
-    free(greply as *mut ::core::ffi::c_void);
-    if fake_outputs.is_null() && !config.fake_outputs.is_null() {
-        fake_outputs = config.fake_outputs;
+    drop(greply_owner);
+    let configured_fake = if fake_outputs.is_null() {
+        NativeAllocation::take(config.fake_outputs)
+    } else {
+        None
+    };
+    if let Some(owner) = configured_fake.as_ref() {
+        fake_outputs = owner.raw();
     }
     if !fake_outputs.is_null() {
         fake_outputs_init(fake_outputs);
-        free(fake_outputs as *mut ::core::ffi::c_void);
-        fake_outputs = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        config.fake_outputs = ::core::ptr::null_mut::<::core::ffi::c_char>();
+        if fake_owner.is_some() {
+            free(config.fake_outputs.cast());
+        }
+        config.fake_outputs = std::ptr::null_mut();
+        drop(fake_owner.take());
+        drop(configured_fake);
+        fake_outputs = std::ptr::null_mut();
     } else if force_xinerama {
         xinerama_init();
     } else {
@@ -3072,7 +1854,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
             con = (*con).nodes.tqe_next as *mut Con;
         }
     }
-    free(layout_path as *mut ::core::ffi::c_void);
+    drop(layout_owner.take());
     layout_path = ::core::ptr::null_mut::<::core::ffi::c_char>();
     scratchpad_fix_resolution();
     let mut output_0: *mut Output = ::core::ptr::null_mut::<Output>();
@@ -3081,6 +1863,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         pointercookie,
         ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
     );
+    let pointer_reply_owner = NativeAllocation::take(pointer_reply);
     if pointer_reply.is_null() {
         errorlog(
             c"ERROR: Could not query pointer position, using first screen\n"
@@ -3114,28 +1897,10 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         output_0 = get_first_output();
     }
     con_activate(con_descend_focused(output_get_content((*output_0).con)));
-    free(pointer_reply as *mut ::core::ffi::c_void);
+    drop(pointer_reply_owner);
     tree_render();
-    let mut ipc_io: *mut ev_io =
-        scalloc(1 as usize, ::core::mem::size_of::<ev_io>() as usize) as *mut ev_io;
-    let ref mut fresh9 = (*(ipc_io as *mut ::core::ffi::c_void as *mut ev_watcher)).pending;
-    *fresh9 = 0 as ::core::ffi::c_int;
-    (*(ipc_io as *mut ::core::ffi::c_void as *mut ev_watcher)).active = *fresh9;
-    (*(ipc_io as *mut ::core::ffi::c_void as *mut ev_watcher)).priority = 0 as ::core::ffi::c_int;
-    (*ipc_io).cb = Some(
-        ipc_new_client as unsafe extern "C" fn(*mut ev_loop, *mut ev_io, ::core::ffi::c_int) -> (),
-    )
-        as Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_io, ::core::ffi::c_int) -> ()>;
-    memmove(
-        &raw mut (*(ipc_io as *mut ev_watcher)).cb as *mut ::core::ffi::c_void,
-        &raw mut (*ipc_io).cb as *const ::core::ffi::c_void,
-        ::core::mem::size_of::<
-            Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_io, ::core::ffi::c_int) -> ()>,
-        >() as usize,
-    );
-    (*ipc_io).fd = ipc_socket;
-    (*ipc_io).events = EV_READ as ::core::ffi::c_int | EV__IOFDSET as ::core::ffi::c_int;
-    ev_io_start(main_loop, ipc_io);
+    let mut watchers = MainWatchers::new();
+    let ipc_io = watchers.add(ipc_socket, ipc_new_client);
     let log_stream_socket_path: *mut ::core::ffi::c_char =
         get_process_filename(c"log-stream-socket".as_ptr());
     let log_socket: ::core::ffi::c_int = create_socket(
@@ -3151,27 +1916,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
                 .cast_mut(),
         );
     } else {
-        log_io = scalloc(1 as usize, ::core::mem::size_of::<ev_io>() as usize) as *mut ev_io;
-        let ref mut fresh10 = (*(log_io as *mut ::core::ffi::c_void as *mut ev_watcher)).pending;
-        *fresh10 = 0 as ::core::ffi::c_int;
-        (*(log_io as *mut ::core::ffi::c_void as *mut ev_watcher)).active = *fresh10;
-        (*(log_io as *mut ::core::ffi::c_void as *mut ev_watcher)).priority =
-            0 as ::core::ffi::c_int;
-        (*log_io).cb = Some(
-            log_new_client
-                as unsafe extern "C" fn(*mut ev_loop, *mut ev_io, ::core::ffi::c_int) -> (),
-        )
-            as Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_io, ::core::ffi::c_int) -> ()>;
-        memmove(
-            &raw mut (*(log_io as *mut ev_watcher)).cb as *mut ::core::ffi::c_void,
-            &raw mut (*log_io).cb as *const ::core::ffi::c_void,
-            ::core::mem::size_of::<
-                Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_io, ::core::ffi::c_int) -> ()>,
-            >() as usize,
-        );
-        (*log_io).fd = log_socket;
-        (*log_io).events = EV_READ as ::core::ffi::c_int | EV__IOFDSET as ::core::ffi::c_int;
-        ev_io_start(main_loop, log_io);
+        log_io = watchers.add(log_socket, log_new_client);
     }
     let mut socket_ipc_io: *mut ev_io = ::core::ptr::null_mut::<ev_io>();
     listen_fds = crate::sd_daemon::listen_fds();
@@ -3214,32 +1959,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
                     fd,
                 );
             }
-            socket_ipc_io =
-                scalloc(1 as usize, ::core::mem::size_of::<ev_io>() as usize) as *mut ev_io;
-            let ref mut fresh11 =
-                (*(socket_ipc_io as *mut ::core::ffi::c_void as *mut ev_watcher)).pending;
-            *fresh11 = 0 as ::core::ffi::c_int;
-            (*(socket_ipc_io as *mut ::core::ffi::c_void as *mut ev_watcher)).active = *fresh11;
-            (*(socket_ipc_io as *mut ::core::ffi::c_void as *mut ev_watcher)).priority =
-                0 as ::core::ffi::c_int;
-            (*socket_ipc_io).cb = Some(
-                ipc_new_client
-                    as unsafe extern "C" fn(*mut ev_loop, *mut ev_io, ::core::ffi::c_int) -> (),
-            )
-                as Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_io, ::core::ffi::c_int) -> ()>;
-            memmove(
-                &raw mut (*(socket_ipc_io as *mut ev_watcher)).cb as *mut ::core::ffi::c_void,
-                &raw mut (*socket_ipc_io).cb as *const ::core::ffi::c_void,
-                ::core::mem::size_of::<
-                    Option<
-                        unsafe extern "C" fn(*mut ev_loop, *mut ev_io, ::core::ffi::c_int) -> (),
-                    >,
-                >() as usize,
-            );
-            (*socket_ipc_io).fd = fd;
-            (*socket_ipc_io).events =
-                EV_READ as ::core::ffi::c_int | EV__IOFDSET as ::core::ffi::c_int;
-            ev_io_start(main_loop, socket_ipc_io);
+            socket_ipc_io = watchers.add(fd, ipc_new_client);
             fd += 1;
         }
     }
@@ -3259,65 +1979,25 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     x_set_i3_atoms();
     ewmh_update_workarea();
     ewmh_update_desktop_properties();
-    let mut xcb_watcher: *mut ev_io =
-        scalloc(1 as usize, ::core::mem::size_of::<ev_io>() as usize) as *mut ev_io;
-    xcb_prepare =
-        scalloc(1 as usize, ::core::mem::size_of::<ev_prepare>() as usize) as *mut ev_prepare;
-    let ref mut fresh12 = (*(xcb_watcher as *mut ::core::ffi::c_void as *mut ev_watcher)).pending;
-    *fresh12 = 0 as ::core::ffi::c_int;
-    (*(xcb_watcher as *mut ::core::ffi::c_void as *mut ev_watcher)).active = *fresh12;
-    (*(xcb_watcher as *mut ::core::ffi::c_void as *mut ev_watcher)).priority =
-        0 as ::core::ffi::c_int;
-    (*xcb_watcher).cb = Some(
-        xcb_got_event as unsafe extern "C" fn(*mut ev_loop, *mut ev_io, ::core::ffi::c_int) -> (),
-    )
-        as Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_io, ::core::ffi::c_int) -> ()>;
-    memmove(
-        &raw mut (*(xcb_watcher as *mut ev_watcher)).cb as *mut ::core::ffi::c_void,
-        &raw mut (*xcb_watcher).cb as *const ::core::ffi::c_void,
-        ::core::mem::size_of::<
-            Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_io, ::core::ffi::c_int) -> ()>,
-        >() as usize,
-    );
-    (*xcb_watcher).fd = xcb_get_file_descriptor(conn);
-    (*xcb_watcher).events = EV_READ as ::core::ffi::c_int | EV__IOFDSET as ::core::ffi::c_int;
-    ev_io_start(main_loop, xcb_watcher);
-    let ref mut fresh13 = (*(xcb_prepare as *mut ::core::ffi::c_void as *mut ev_watcher)).pending;
-    *fresh13 = 0 as ::core::ffi::c_int;
-    (*(xcb_prepare as *mut ::core::ffi::c_void as *mut ev_watcher)).active = *fresh13;
-    (*(xcb_prepare as *mut ::core::ffi::c_void as *mut ev_watcher)).priority =
-        0 as ::core::ffi::c_int;
-    (*xcb_prepare).cb = Some(
-        xcb_prepare_cb
-            as unsafe extern "C" fn(*mut ev_loop, *mut ev_prepare, ::core::ffi::c_int) -> (),
-    )
-        as Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_prepare, ::core::ffi::c_int) -> ()>;
-    memmove(
-        &raw mut (*(xcb_prepare as *mut ev_watcher)).cb as *mut ::core::ffi::c_void,
-        &raw mut (*xcb_prepare).cb as *const ::core::ffi::c_void,
-        ::core::mem::size_of::<
-            Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_prepare, ::core::ffi::c_int) -> ()>,
-        >() as usize,
-    );
+    let xcb_watcher = watchers.add(xcb_get_file_descriptor(conn), xcb_got_event);
+    xcb_prepare = Box::into_raw(Box::new(ev_prepare::new(xcb_prepare_cb)));
     ev_prepare_start(main_loop, xcb_prepare);
     xcb_flush(conn);
     xcb_grab_server(conn);
     xcb_aux_sync(conn);
     let mut event_1: *mut xcb_generic_event_t = ::core::ptr::null_mut::<xcb_generic_event_t>();
     loop {
-        event_1 = xcb_poll_for_event(conn);
-        if event_1.is_null() {
+        let Some(owner) = NativeAllocation::take(xcb_poll_for_event(conn)) else {
             break;
-        }
+        };
+        event_1 = owner.raw();
         if (*event_1).response_type as ::core::ffi::c_int == 0 as ::core::ffi::c_int {
-            free(event_1 as *mut ::core::ffi::c_void);
         } else {
             let type_0: ::core::ffi::c_int =
                 (*event_1).response_type as ::core::ffi::c_int & 0x7f as ::core::ffi::c_int;
             if type_0 == XCB_MAP_REQUEST {
                 handle_event(type_0, event_1);
             }
-            free(event_1 as *mut ::core::ffi::c_void);
         }
     }
     manage_existing_windows(root);
@@ -3436,40 +2116,32 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     let mut barconfig: *mut Barconfig = ::core::ptr::null_mut::<Barconfig>();
     barconfig = barconfigs.tqh_first as *mut Barconfig;
     while !barconfig.is_null() {
-        let mut command: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        sasprintf(
-            &raw mut command,
-            c"%s %s --bar_id=%s --socket=\"%s\"".as_ptr(),
-            if !(*barconfig).i3bar_command.is_null() {
-                (*barconfig).i3bar_command as *const ::core::ffi::c_char
-            } else {
-                c"exec i3bar".as_ptr()
-            },
-            if (*barconfig).verbose as ::core::ffi::c_int != 0 {
-                c"-V".as_ptr()
-            } else {
-                c"".as_ptr()
-            },
-            (*barconfig).id,
-            current_socketpath,
+        let program = if (*barconfig).i3bar_command.is_null() {
+            c"exec i3bar"
+        } else {
+            CStr::from_ptr((*barconfig).i3bar_command)
+        };
+        let command = bar_command(
+            program,
+            (*barconfig).verbose,
+            CStr::from_ptr((*barconfig).id),
+            CStr::from_ptr(current_socketpath),
         );
-        verboselog(c"Starting bar process: %s\n".as_ptr().cast_mut(), command);
-        start_application(command, true_0 != 0, XCB_NONE as xcb_window_t);
-        free(command as *mut ::core::ffi::c_void);
+        verboselog(
+            c"Starting bar process: %s\n".as_ptr().cast_mut(),
+            command.as_ptr(),
+        );
+        start_application(command.as_ptr(), true, 0);
         barconfig = (*barconfig).configs.tqe_next as *mut Barconfig;
     }
     atexit(i3_exit);
     raise(SIGCHLD);
     sd_notify(1 as ::core::ffi::c_int, c"READY=1");
     ev_loop(main_loop, 0 as ::core::ffi::c_int);
-    free(ipc_io as *mut ::core::ffi::c_void);
-    ipc_io = ::core::ptr::null_mut::<ev_io>();
-    free(socket_ipc_io as *mut ::core::ffi::c_void);
-    socket_ipc_io = ::core::ptr::null_mut::<ev_io>();
-    free(log_io as *mut ::core::ffi::c_void);
-    log_io = ::core::ptr::null_mut::<ev_io>();
-    free(xcb_watcher as *mut ::core::ffi::c_void);
-    xcb_watcher = ::core::ptr::null_mut::<ev_io>();
+    ev_prepare_stop(main_loop, xcb_prepare);
+    drop(Box::from_raw(xcb_prepare));
+    xcb_prepare = std::ptr::null_mut();
+    drop(watchers);
     0
 }
 pub const EXIT_FAILURE: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
@@ -3708,3 +2380,20 @@ use i3_common::root_atom_contents::root_atom_contents;
 use i3_common::screenshot_wallpaper::set_screenshot_as_wallpaper;
 
 use crate::xcb::xcb_numlock_mask;
+
+#[cfg(test)]
+mod owned_startup_tests {
+    use super::*;
+    #[test]
+    fn bar_command_preserves_native_spaces_quotes_and_non_utf8() {
+        assert_eq!(
+            bar_command(c"exec i3bar", false, c"id\xff", c"/socket\xfe").to_bytes(),
+            b"exec i3bar  --bar_id=id\xff --socket=\"/socket\xfe\""
+        );
+        assert_eq!(
+            bar_command(c"custom", true, c"bar", c"/path").to_bytes(),
+            b"custom -V --bar_id=bar --socket=\"/path\""
+        );
+        assert_eq!(owned_dirname(c"relative/file").as_c_str(), c"relative");
+    }
+}

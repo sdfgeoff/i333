@@ -19,8 +19,19 @@
     {
       "number": 2,
       "path": "crates/i3/src/application.rs",
-      "status": "pending",
-      "result": null
+      "status": "modernized",
+      "result": "Reviewed module-owned declarations, CLI/run lifecycle, atom requests/replies, selection/extensions/tree startup, watchers, event loops and exit/signal boundaries. Coordinated sole owned IPC client factory schema with ipc.rs. Per-run CLI options/bar command bytes are owned; preserve dirname deletion via writable owned copy and explicit config fake-output handoff. Replaced 60 repeated atom request/reply blocks with a raw-target table, preserving original request order, separate response order and the intervening timestamp/visual setup. Typed stable watcher registry owns every activation watcher and stops before dropping; scoped normal X events, geometry/selection/pointer replies, operand IPC fd/reply and core_pattern File/stack buffer. Global graph/display/atexit POD ABI stays unchanged.",
+      "tests": [
+        "cargo +nightly test -p i3 --bin i3 (105 passed, including owned bar-format test and existing CLI tests)",
+        ".work/idiomatic-system/wave8-unit.log"
+      ],
+      "remaining_boundaries": [
+        "Global Config/Con/Window/atom/display exports, X extension borrowed replies, atexit ordering and native event dispatch stay explicit unsafe boundaries.",
+        "No global display/resource destructor was introduced into the actual signal path; ordinary run/event scopes own only their local resources.",
+        "Native operand Unix socket address truncation/full sockaddr and common IPC adapter diagnostic/errno behavior are deliberately preserved.",
+        "Open protocol/native-layout declarations shared with other files remain POD; no broad graph redesign or dependency change."
+      ],
+      "review_wave": 8
     },
     {
       "number": 3,
@@ -37,14 +48,42 @@
     {
       "number": 5,
       "path": "crates/i3/src/commands.rs",
-      "status": "pending",
-      "result": null
+      "status": "modernized",
+      "result": "Canonical stack ownership now reexports ParserStack and owning command context cannot be Copy. Persistent output-name accumulators now own CString vectors; add/query snapshots release locks before raw graph queries/callbacks and preserve multi-dispatch/error retention behavior. Removed raw list allocations/manual frees/init_array constructor. Direction decisions use a safe typed byte helper. Removed actually unreferenced copied constants/aliases after whole-repository reference checks; no command grammar/dispatch/PCRE semantics changed.",
+      "tests": [
+        "Exact direction keyword test",
+        "Owned output-name lifetime/snapshot/clear test",
+        "Core unit target PASS105",
+        "Root headless/upstream runtime suites will validate native graph commands at the full barrier",
+        "Final scoped rustfmt edition2021 and git diff --check PASS"
+      ],
+      "remaining_boundaries": [
+        "Window-manager command graph mutations traverse shared raw Con/Window/Output records under established event-thread lifetime contracts; this wave does not pretend those graphs are safe-owned Rust",
+        "Existing generated-handler parameters/native locale numeric comparisons and JSON compatibility pointers retain their documented raw caller contracts",
+        "Output-name persistence still spans multiple handler calls; no registry lock spans graph callbacks"
+      ],
+      "review_wave": 8
     },
     {
       "number": 6,
       "path": "crates/i3/src/commands_parser.rs",
-      "status": "pending",
-      "result": null
+      "status": "modernized",
+      "result": "Updated owning command-context stack factory and removed invalid Copy. String entry becomes thin malloc-compatible adapter to safe lexer. Both grammar-state and token indexing use checked immutable-by-contract views; diagnostics/carets use owned byte buffers. Generated tables and dispatch bodies are unchanged apart from formatting. CommandResult retains its required cross-caller malloc transfer and cleanup ABI.",
+      "tests": [
+        "Direct production parse_string adapter pointer-consumption/malloc release test",
+        "77 grammar states and all134 dispatch IDs validated",
+        "Generated table and dispatcher body source comparisons unchanged",
+        ".work/wave8-grammar-preservation.json",
+        ".work/wave8-cli-parity.log",
+        "Final scoped rustfmt edition2021 and git diff --check PASS"
+      ],
+      "remaining_boundaries": [
+        "Unsafe legacy parse entry and native locale-sensitive strtol/strncasecmp retain valid native input contracts",
+        "Raw graph callback context is self-referential and stays at one address; no mutable Rust borrow survives dispatch",
+        "Private generated raw metadata is immutable Rust storage, not external FFI; checked views encapsulate its initialization invariants",
+        "CommandResult malloc ownership remains shared with unchanged callers outside these six files"
+      ],
+      "review_wave": 8
     },
     {
       "number": 7,
@@ -55,20 +94,60 @@
     {
       "number": 8,
       "path": "crates/i3/src/config.rs",
-      "status": "pending",
-      "result": null
+      "status": "modernized",
+      "result": "Canonical parser variable storage is now Vec<Variable{CString,CString}>; parser context owns checked Vec state history rather than a ten-slot raw history. All parser factories initialize owned values normally and zeroed global Config remains unchanged POD. Expanded zero initializer blocks collapsed; dead copied declarations removed only after reference audit. Queue-head self pointers now use constant Rust static initialization, removing a translated extern-C init_array constructor.",
+      "tests": [
+        "Full core unit target PASS105",
+        "Actual Rust/C configuration validation fixtures: variables, includes, modes, error recovery and defaults (CLI39)",
+        "Search audit confirms owned capture/context/variable objects have no calloc/memset/memcpy factory",
+        "Final scoped rustfmt edition2021 and git diff --check PASS"
+      ],
+      "remaining_boundaries": [
+        "Global Config/Font/Con/Window and intrusive mode/binding/assignment/bar/included-file queues preserve their existing cross-module POD/malloc contracts",
+        "Reload/ungrab/regrab/render operations remain unsafe event-thread native graph commits; no owned Rust fields were installed in memset storage"
+      ],
+      "review_wave": 8
     },
     {
       "number": 9,
       "path": "crates/i3/src/config_directives.rs",
-      "status": "pending",
-      "result": null
+      "status": "modernized",
+      "result": "Include contexts move owned variable vectors into/out of child contexts, initialize owned stacks normally, and retain partial-error variable propagation. Native wordexp flags0/output order preserved under RAII; WRDE_NOSPACE partial output is released. Replaced private raw mode/workspace string caches with owned snapshots under Mutex and criteria state with a synchronized scalar, releasing locks before callbacks. Modifier substring decisions are safe byte operations preserving case, alias and first-NUL rules. Expanded zeros/dead header copies removed.",
+      "tests": [
+        "Modifier substring/case/group/first-NUL test",
+        "Actual C/Rust CLI mode/bar/include/recovery/continuation fixtures",
+        "Checked configure_binding/mode_from_name copies snapshots rather than retaining borrowed cache strings",
+        ".work/wave8-cli-parity.log",
+        "Final scoped rustfmt edition2021 and git diff --check PASS"
+      ],
+      "remaining_boundaries": [
+        "GNU wordexp flags0 intentionally retain shell expansion/command substitution behavior",
+        "Native canonical-path and global graph insertion/removal remain explicit unsafe operations",
+        "Raw current_bar is a borrowed graph node, not an internal owning string; Con/global Config ABI unchanged",
+        "Private mode/workspace/criteria state retains original cross-dispatch semantics, with no locks held over graph/native callbacks"
+      ],
+      "review_wave": 8
     },
     {
       "number": 10,
       "path": "crates/i3/src/config_parser.rs",
-      "status": "pending",
-      "result": null
+      "status": "modernized",
+      "result": "Config captures use separate safe byte-lexer rules, checked token views, owned expected-token/caret buffers and bounded line-context calculations. Parser variables are owned/sorted CString records with exact-key updates, longest-first/equal-length insertion order and native case-folded nonrecursive expansion. Removed raw two-pass sizing/strcpy/next_match linked-list scratch. FILE and Xrm lifetimes use RAII, fdopen failure closes fd, st_size allocation bounds are checked, buffer index no longer underflows for empty C-string projections, local diagnostic context avoids malloc. Restored original variable debug diagnostics/order. Cwd path owns its malloc reference while explicit restore error status is retained.",
+      "tests": [
+        "Variable case/update/longest-key/nonrecursive tests",
+        "Bounded first-line/CRLF/previous-line diagnostic tests",
+        "117 grammar states/all156 dispatch IDs validated and table/dispatch source body unchanged",
+        "Actual regular Rust/C configuration fixtures promoted into authoritative CLI suite (39 total cases)",
+        ".work/wave8-config-parity-result.json",
+        "Final scoped rustfmt edition2021 and git diff --check PASS"
+      ],
+      "remaining_boundaries": [
+        "Native FILE/fgets/sscanf compatibility preserves4096-byte continuation/field limits and first-NUL behavior; locale strcasestr remains a genuine native value operation",
+        "ParseFile temporarily changes process cwd on the event thread, retaining explicit restore failure behavior",
+        "IncludedFile payloads still transfer malloc buffers into the unchanged global intrusive list owner",
+        "Generated graph/directive callbacks retain raw contexts, but variables and captures are ordinary Rust-owned values"
+      ],
+      "review_wave": 8
     },
     {
       "number": 11,
@@ -91,14 +170,38 @@
     {
       "number": 14,
       "path": "crates/i3/src/ipc.rs",
-      "status": "pending",
-      "result": null
+      "status": "modernized",
+      "result": "Reviewed transport, handlers, schemas and event serialization. Coordinated client migration with application.rs: Box factory, owned descriptor/queue/subscription strings, typed stable watchers, explicit unlink/stop/drop and restart-fd exemption. Checked 14-byte frame encoder and owned-value rectangle/gaps/modifier serialization. Owned response generators/results/receive allocations, scoped numeric locale, per-request subscription/sync handlers, bounded timeout proc diagnostics. Reentrant command dispatch uses pointer+monotonic-generation membership checks after callbacks before replying.",
+      "tests": [
+        "cargo +nightly test -p i3 --bin i3 ipc:: (6 passed; includes scrubbed private subprocess/private socket pairs)",
+        "cargo +nightly test -p i3 --bin i3 (105 passed)",
+        ".work/idiomatic-system/wave8-ipc.log",
+        ".work/idiomatic-system/wave8-unit.log"
+      ],
+      "remaining_boundaries": [
+        "Tree/Barconfig/Binding intrusive graph walking and raw generator compatibility APIs remain explicitly unsafe; graph model POD layouts are unchanged.",
+        "Native callback/watch registration, global client-list mutation, borrowed native strings and serialized process locale remain event-thread contracts.",
+        "Common legacy receive adapter still supplies its established partial-header/errno behavior and malloc buffer; a local guard owns that boundary.",
+        "The private client factory is the only allocator; opaque client pointers cannot outlive free/restart. Descriptor exemption intentionally transfers back to the native restart boundary."
+      ],
+      "review_wave": 8
     },
     {
       "number": 15,
       "path": "crates/i3/src/load_layout.rs",
-      "status": "pending",
-      "result": null
+      "status": "modernized",
+      "result": "Reviewed every callback and entry point. Removed global parser/content/focus/mark state and native callback tables in favor of per-parse owned EventHandler state, owned key/value temporaries, Vec pending marks/focus IDs and safe Parser. Safe local rectangle/value/content decisions; raw graph commits remain unsafe. Preserved independent legacy parsing flags, first-NUL/raw-byte projection, integer narrowing/overflow policy, comments/multiple roots, canceled shallow content detection, accepted incomplete validation, partial container attachment/error cleanup and final scalar callbacks from ignored finish status. Duplicate native strings/regex fields now release old ownership.",
+      "tests": [
+        "cargo +nightly test -p i3 --bin i3 (105 passed, including 3 layout tests)",
+        ".work/idiomatic-system/wave8-unit.log"
+      ],
+      "remaining_boundaries": [
+        "Con construction/attach/free/mark/focus and native malloc field transfer remain event-thread raw graph operations, with no Con references across callbacks.",
+        "Native locale scope requires serialized external locale users.",
+        "Legacy finish-error semantics can leave an incomplete native graph fragment after syntactically unfinished input; this pass preserves that behavior rather than silently imposing transactional rollback/strict validation.",
+        "Malformed scalar swallow entries without a map are now rejected before null dereference."
+      ],
+      "review_wave": 8
     },
     {
       "number": 16,
@@ -129,14 +232,30 @@
     {
       "number": 19,
       "path": "crates/i3/src/parser_util.rs",
-      "status": "pending",
-      "result": null
+      "status": "modernized",
+      "result": "Replaced raw tagged union/fixed slots with normally constructed ParserStack owning Vec<Entry> and CString/Long captures. Identifiers and values are copied; duplicate string joins, duplicate long first-match lookup, null/zero missing results and fatal ten-entry limit preserved. Clear/drop own all resources, deny unsafe operations outside explicit blocks. Production byte lexing and expected-token formatting are safe indexed byte algorithms with distinct command/config escape modes.",
+      "tests": [
+        "Direct Rust capture ownership/join/reset test",
+        "Full ten captures plus isolated fatal eleventh-entry child; duplicateLong first-match check",
+        "Lexer matrix: first NUL, binary, empty/unterminated quotes, trailing slash, escaped quote/backslash, comma/newline distinctions and consumed offsets",
+        "Expected-token skipped-recovery delimiter bytes",
+        ".work/wave8-tests.log",
+        "Final scoped rustfmt edition2021 and git diff --check PASS"
+      ],
+      "remaining_boundaries": [
+        "Documented raw entry adapters borrow caller-owned normal Rust stack/C strings; capture pointers remain valid only until capture mutation/clear/drop",
+        "Native stderr/process-exit contract for full generated capture stack"
+      ],
+      "review_wave": 8
     },
     {
       "number": 20,
       "path": "crates/i3/src/randr.rs",
-      "status": "pending",
-      "result": null
+      "status": "modernized",
+      "result": "Owned query replies/cookie vectors; bounded monitor/output-name/resource decoding; safe copied containment/overlap/direction/version decisions; simplified directional queue traversal; dead header declarations removed.",
+      "tests": "4 RandR unit tests pass: negative/strict/wrapping geometry and last-positive-overlap, directional ties, bounded variable monitor records, historical version gate.",
+      "remaining_boundaries": "Actual Output/Con/global queues remain malloc-backed shared ABI; movement/focus callbacks retain raw traversal boundaries. Global primary reply ownership preserves outer-query lifecycle. No graph references span callbacks.",
+      "review_wave": 8
     },
     {
       "number": 21,
@@ -168,8 +287,18 @@
     {
       "number": 24,
       "path": "crates/i3/src/restore_layout.rs",
-      "status": "pending",
-      "result": null
+      "status": "modernized",
+      "result": "Reviewed connection/event loop, placeholder creation/freeing, drawing and traversal. Owned byte-preserving swallow display serialization replaces repeated printf/malloc temporaries; regex text uses the owned pattern getter. Safe local text/center geometry and owned I3String display values. Scoped native X events and typed watcher constructors; reconnect releases each placeholder surface before closing its old connection. Translation-numbered native link type renamed.",
+      "tests": [
+        "cargo +nightly test -p i3 --bin i3 restore_layout:: (2 passed)",
+        "cargo +nightly test -p i3 --bin i3 (105 passed)",
+        ".work/idiomatic-system/wave8-unit.log"
+      ],
+      "remaining_boundaries": [
+        "Placeholder windows/surfaces and intrusive state/Con links still use native event-thread ownership and stable malloc allocations.",
+        "Connection reconnect/graph traversal/native draw mutation remain unsafe; rendering snapshots contain owned text/scalar values rather than whole graph borrows."
+      ],
+      "review_wave": 8
     },
     {
       "number": 25,
@@ -180,14 +309,36 @@
     {
       "number": 26,
       "path": "crates/i3/src/sighandler.rs",
-      "status": "pending",
-      "result": null
+      "status": "modernized",
+      "result": "Reviewed all crash drawing, native event handling, backtrace/fork and signal setup paths. Added stack-only geometry/attribute/action/color/wait-status helpers; preallocated crash text during normal setup before installing handlers. Native GDB argv preparation now precedes fork, child uses native dup/exec only, and parent explicitly releases native argument/path/fd resources. Replaced child-only unconsumed batch stdout pipes with /dev/null: reports still use unchanged GDB logging-file commands; discarded duplicate stdout had no reader and could deadlock when its pipe filled. Native link type renamed; no new std allocation, lock or Drop introduced in signal/child execution.",
+      "tests": [
+        "cargo +nightly test -p i3 --bin i3 (105 passed, including 1 stack-value signal test)",
+        ".work/idiomatic-system/wave8-unit.log"
+      ],
+      "remaining_boundaries": [
+        "The legacy crash interaction still invokes native X11/render/log/restart operations that are not async-signal-safe; no safe-wrapper claim or signal-safe architecture redesign is made.",
+        "Actual signals/GDB/crash windows were not executed against any user process/display. Native signal globals/lists remain raw to avoid new allocator/borrow/destructor hazards.",
+        "Existing product TMPDIR fallback behavior is unchanged; all agent test/scratch artifacts use repository .work."
+      ],
+      "review_wave": 8
     },
     {
       "number": 27,
       "path": "crates/i3/src/startup.rs",
-      "status": "pending",
-      "result": null
+      "status": "modernized",
+      "result": "Reviewed every launcher/timer/sequence/fork/lookup path. Private sequence collection owns stable Box allocations through raw Box::into_raw provenance handles; owned CString IDs/workspaces and separate launcher-reference owners preserve sequence/timer refcounts. Typed timer owners reclaim completion storage and keep the launcher live through reentrant complete callbacks. Bounded reply ownership/byte projection, safe expiry/command preparation and signed-u32 XID formatting. All new Rust allocation and fallback preparation occur before fork; child only uses established native setup/environment/exec operations. Removed copied declarations/static intrusive initializer.",
+      "tests": [
+        "cargo +nightly test -p i3 --bin i3 startup:: (2 passed)",
+        "cargo +nightly test -p i3 --bin i3 (105 passed)",
+        ".work/idiomatic-system/wave8-unit.log"
+      ],
+      "remaining_boundaries": [
+        "SN display/context refs, XCB reply acquisition, timer registration and live Window/Con lookup remain event-thread native boundaries.",
+        "Returned workspace bytes borrow an owned sequence until its delete/workspace-rename; callers must not mutate CString bytes.",
+        "Published writable sequence pointers originate directly from Box::into_raw, never shared-reference casts.",
+        "Child environment/SN setup is retained native legacy behavior, not a new async-signal-safety claim."
+      ],
+      "review_wave": 8
     },
     {
       "number": 28,
@@ -261,8 +412,11 @@
     {
       "number": 35,
       "path": "crates/i3/src/xcb.rs",
-      "status": "pending",
-      "result": null
+      "status": "modernized",
+      "result": "Bounded copied property atoms; owned native replies/errors and server-grab scope; initialized stack32-byte TAKE_FOCUS event; copied wrapping configure geometry and explicit wire values; removed dead translated header copies.",
+      "tests": "3 XCB unit tests pass: packet layout, geometry wire truncation, property order/malformed lengths/removal.",
+      "remaining_boundaries": "Live XCB/visual iterators, legacy sentinel button list and native display/model mutation remain explicit unsafe event-thread APIs.",
+      "review_wave": 8
     },
     {
       "number": 36,
@@ -518,26 +672,38 @@
     {
       "number": 55,
       "path": "crates/i3bar/src/application.rs",
-      "status": "pending",
-      "result": null
+      "status": "modernized",
+      "result": "Owned socket CStrings and scoped glob storage, stable signal watcher Boxes with stop-before-drop, explicit idempotent XCB/IPC/event-loop cleanup, typed shared configuration initialization.",
+      "tests": "1 new path/glob test; all41 bar unit tests pass; private C/Rust startup/reload/normal EOF cleanup parity.",
+      "remaining_boundaries": "Native GTK/getopt/environment globals, provider-backed font/display and native libev entry callbacks remain explicit unsafe. Shared config layout unchanged.",
+      "review_wave": 8
     },
     {
       "number": 56,
       "path": "crates/i3bar/src/child.rs",
-      "status": "pending",
-      "result": null
+      "status": "modernized",
+      "result": "Owned incremental parser/status snapshots, workspace line cache and read-drain buffers replace raw callback state and manual allocation walkers; safe persistent click generator preserves legacy invalid-UTF8 behavior; frame state released before native rendering/install; native watcher constructors typed.",
+      "tests": "5 new unit tests cover every JSON fragmentation boundary, open outer array, integer errors, full-vs-firstNUL strings, workspace partials, EOF/EAGAIN/EINTR policy, click modifier/framing/invalidbytes; private C/Rust two-workflow parity includes fragmented JSON/shorttext/reload and flat CR/NUL.",
+      "remaining_boundaries": "Shared status/workspace/tray model nodes retain malloc ABI and explicit raw ownership handoff. Native fork/exec/processgroup and libev callbacks remain unsafe; no new std allocations/locks/destructors after fork. Urgency and last workspace frame deliberately retain historical persistence.",
+      "review_wave": 8
     },
     {
       "number": 57,
       "path": "crates/i3bar/src/main.rs",
-      "status": "pending",
-      "result": null
+      "status": "reviewed_native",
+      "result": "Audited logging and display-provider adapters; removed unused C2Rust macro bootstrap. Entrypoint already delegates to maintained Rust CLI and native display boundary.",
+      "tests": "Full bar41 tests and executable runtime parity pass.",
+      "remaining_boundaries": "Provider callbacks expose the actual initialized native connection/screen/visual globals; variadic logging ABI stays explicit.",
+      "review_wave": 8
     },
     {
       "number": 58,
       "path": "crates/i3bar/src/xcb.rs",
-      "status": "pending",
-      "result": null
+      "status": "modernized",
+      "result": "Scoped native replies/events, bounded WMCLASS/Xembed/property bytes, safe render/tray/separator/strut policy, owned workspace quoting and tray sort scratch, aligned initialized32-byte events, typed watcher initialization, idempotent native teardown; dead header copies removed.",
+      "tests": "4 new tests cover property overclaims, class/NUL and shell quoting, stale alignment offsets, signed tray arithmetic, strut words and event layout. Six exact private C/Rust raster+geometry snapshots and click bytes pass.",
+      "remaining_boundaries": "XCB calls/tray queues/output surface mutations remain native event-thread boundaries; native qsort preserves locale/tie semantics and shared malloc POD layouts remain intact.",
+      "review_wave": 8
     },
     {
       "number": 59,
@@ -567,7 +733,17 @@
         "Native watcher pinning/stable addresses and callback data lifetimes while active",
         "External libev loop/watcher ownership and C callback ABI"
       ],
-      "review_wave": 7
+      "review_wave": 7,
+      "followup_reviews": [
+        {
+          "wave": 8,
+          "path": "crates/libev-sys/src/lib.rs",
+          "status": "modernized",
+          "result": "Supporting declaration only: ev_signal_stop matching installed /usr/include/ev.h:781.",
+          "tests": "Bar startup/reload/EOF private runtime parity validates watcher teardown; parent structural checks required.",
+          "remaining_boundaries": "Native libev FFI."
+        }
+      ]
     },
     {
       "number": 61,
@@ -659,6 +835,6 @@
       "review_wave": 7
     }
   ],
-  "completed": 33,
-  "remaining": 33
+  "completed": 51,
+  "remaining": 15
 }

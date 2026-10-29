@@ -57,7 +57,6 @@ use crate::parser_util::parser_get_long;
 use crate::parser_util::parser_get_string;
 use crate::parser_util::parser_push_long;
 use crate::parser_util::parser_push_string;
-use crate::parser_util::StackValueKind;
 use crate::types::UrgencyMatch;
 use crate::types::WindowMode;
 use i3_common::safewrappers::sasprintf;
@@ -94,42 +93,13 @@ use i3_json::compat::{
     yajl_gen_map_open, yajl_gen_string,
 };
 
-pub type i3String = _i3String;
-
-pub type fullscreen_mode_t = ::core::ffi::c_uint;
-pub const CF_GLOBAL: fullscreen_mode_t = 2;
-pub const CF_OUTPUT: fullscreen_mode_t = 1;
-pub const CF_NONE: fullscreen_mode_t = 0;
-
-pub const M_BELOW: ::core::ffi::c_uint = 2;
-pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
 pub const M_HERE: ::core::ffi::c_uint = 0;
 
-pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
-pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
-pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
 pub const M_NODOCK: ::core::ffi::c_int = 0;
-pub const M_DONTCHECK: ::core::ffi::c_int = -1;
 
 pub use crate::regex::Regex as regex;
 
-pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
-pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
-pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
-pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
-pub const A_COMMAND: ::core::ffi::c_uint = 1;
-pub const A_ANY: ::core::ffi::c_uint = 0;
-
-pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
-pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
-pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
-pub const CT_CON: ::core::ffi::c_uint = 2;
-pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
-pub const CT_ROOT: ::core::ffi::c_uint = 0;
-
 pub use crate::application::ipc_client;
-pub use crate::commands::stack_entry;
-pub use crate::commands::C2RustUnnamed_31 as C2RustUnnamed_17;
 
 pub use crate::assignments::CommandResult;
 pub use crate::commands::cmd_parser_ctx;
@@ -168,7 +138,6 @@ pub const LONG_MAX: ::core::ffi::c_long = __LONG_MAX__;
 pub const LONG_MIN: ::core::ffi::c_long = -__LONG_MAX__ - 1 as ::core::ffi::c_long;
 pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 static mut tokens_RENAME_WORKSPACE_LIKELY_TO_NEW_NAME: [cmdp_token; 2] = [
     token {
         name: c"string".as_ptr().cast_mut(),
@@ -3952,6 +3921,21 @@ unsafe fn GENERATED_call(
         }
     };
 }
+// These private generated arrays are initialized once and never mutated. Only
+// the legacy metadata representation uses raw pointers; callers receive a
+// checked immutable view, and no user-supplied pointer enters this boundary.
+fn state_tokens(state: CommandParserState) -> &'static [cmdp_token] {
+    // SAFETY: schema-checked static token arrays have their declared lengths and
+    // remain alive/immutable for the process. State indexing is checked first.
+    unsafe {
+        let states = &*(&raw const tokens);
+        let entry = states
+            .get(state as usize)
+            .expect("grammar state has a token table");
+        std::slice::from_raw_parts(entry.array, entry.n as usize)
+    }
+}
+
 unsafe fn next_state(token: *const cmdp_token, cmd_ctx: *mut cmd_parser_ctx) {
     if (*token).next_state == CommandParserState::Call {
         (*cmd_ctx).subcommand_output.ctx = cmd_ctx as *mut cmd_parser_ctx;
@@ -3977,73 +3961,25 @@ unsafe fn next_state(token: *const cmdp_token, cmd_ctx: *mut cmd_parser_ctx) {
     }
 }
 
-pub unsafe fn parse_string(
-    walk: *mut *const ::core::ffi::c_char,
-    as_word: bool,
-) -> *mut ::core::ffi::c_char {
-    let mut beginning: *const ::core::ffi::c_char = *walk;
-    if **walk as ::core::ffi::c_int == '"' as i32 {
-        beginning = beginning.offset(1);
-        *walk = (*walk).offset(1);
-        while **walk as ::core::ffi::c_int != '\0' as i32
-            && **walk as ::core::ffi::c_int != '"' as i32
-        {
-            if **walk as ::core::ffi::c_int == '\\' as i32
-                && *(*walk).offset(1 as ::core::ffi::c_int as isize) as ::core::ffi::c_int
-                    != '\0' as i32
-            {
-                *walk = (*walk).offset(1);
-            }
-            *walk = (*walk).offset(1);
-        }
-    } else if !as_word {
-        while **walk as ::core::ffi::c_int != ';' as i32
-            && **walk as ::core::ffi::c_int != ',' as i32
-            && **walk as ::core::ffi::c_int != '\0' as i32
-            && **walk as ::core::ffi::c_int != '\r' as i32
-            && **walk as ::core::ffi::c_int != '\n' as i32
-        {
-            *walk = (*walk).offset(1);
-        }
-    } else {
-        while **walk as ::core::ffi::c_int != ' ' as i32
-            && **walk as ::core::ffi::c_int != '\t' as i32
-            && **walk as ::core::ffi::c_int != ']' as i32
-            && **walk as ::core::ffi::c_int != ',' as i32
-            && **walk as ::core::ffi::c_int != ';' as i32
-            && **walk as ::core::ffi::c_int != '\r' as i32
-            && **walk as ::core::ffi::c_int != '\n' as i32
-            && **walk as ::core::ffi::c_int != '\0' as i32
-        {
-            *walk = (*walk).offset(1);
-        }
-    }
-    if *walk == beginning {
-        return ::core::ptr::null_mut::<::core::ffi::c_char>();
-    }
-    let str: *mut ::core::ffi::c_char = scalloc(
-        ((*walk).offset_from(beginning) as ::core::ffi::c_long + 1 as ::core::ffi::c_long) as usize,
-        1 as usize,
-    ) as *mut ::core::ffi::c_char;
-    let mut inpos: ::core::ffi::c_int = 0;
-    let mut outpos: ::core::ffi::c_int = 0;
-    inpos = 0 as ::core::ffi::c_int;
-    outpos = 0 as ::core::ffi::c_int;
-    while (inpos as ::core::ffi::c_long) < (*walk).offset_from(beginning) as ::core::ffi::c_long {
-        if *beginning.offset(inpos as isize) as ::core::ffi::c_int == '\\' as i32
-            && (*beginning.offset((inpos + 1 as ::core::ffi::c_int) as isize) as ::core::ffi::c_int
-                == '"' as i32
-                || *beginning.offset((inpos + 1 as ::core::ffi::c_int) as isize)
-                    as ::core::ffi::c_int
-                    == '\\' as i32)
-        {
-            inpos += 1;
-        }
-        *str.offset(outpos as isize) = *beginning.offset(inpos as isize);
-        inpos += 1;
-        outpos += 1;
-    }
-    str
+/// # Safety
+/// walk is writable and points to a live NUL-terminated input cursor. Returned
+/// storage is malloc-owned; the updated cursor remains inside the original input.
+#[deny(unsafe_op_in_unsafe_fn)]
+pub unsafe fn parse_string(walk: *mut *const libc::c_char, as_word: bool) -> *mut libc::c_char {
+    // SAFETY: caller supplies readable terminated input and writable cursor storage.
+    let input = unsafe { std::ffi::CStr::from_ptr(*walk) };
+    let capture = crate::parser_util::lex_string(
+        input.to_bytes(),
+        as_word,
+        crate::parser_util::StringGrammar::Command,
+    );
+    // SAFETY: consumed is bounded by the original C string, including its terminator.
+    unsafe { *walk = (*walk).add(capture.consumed) };
+    capture.bytes.map_or(std::ptr::null_mut(), |bytes| {
+        // SAFETY: initialized bytes are readable for their bounded length; the
+        // native duplicate transfers independent malloc-compatible ownership.
+        unsafe { i3_common::safewrappers::sstrndup(bytes.as_ptr().cast(), bytes.len()) }
+    })
 }
 
 pub unsafe fn parse_command(
@@ -4084,15 +4020,7 @@ pub unsafe fn parse_command(
             },
             restart_mode: false,
         },
-        stack: stack {
-            stack: [stack_entry {
-                identifier: ::core::ptr::null::<::core::ffi::c_char>(),
-                type_0: StackValueKind::String,
-                val: C2RustUnnamed_17 {
-                    str_0: ::core::ptr::null_mut::<::core::ffi::c_char>(),
-                },
-            }; 10],
-        },
+        stack: stack::default(),
         owindows: owindows_head {
             tqh_first: ::core::ptr::null_mut::<owindow>(),
             tqh_last: ::core::ptr::null_mut::<*mut owindow>(),
@@ -4141,13 +4069,11 @@ pub unsafe fn parse_command(
         {
             walk = walk.offset(1);
         }
-        let ptr: *const cmdp_token_ptr = (&raw mut tokens as *mut cmdp_token_ptr)
-            .offset(cmd_ctx.state as isize)
-            as *mut cmdp_token_ptr;
+        let grammar = state_tokens(cmd_ctx.state);
         token_handled = false_0 != 0;
         c = 0 as ::core::ffi::c_int;
-        while c < (*ptr).n {
-            token = (*ptr).array.offset(c as isize) as *mut cmdp_token;
+        while c < grammar.len() as libc::c_int {
+            token = &grammar[c as usize] as *const cmdp_token;
             if *(*token).name.offset(0 as ::core::ffi::c_int as isize) as ::core::ffi::c_int
                 == '\'' as i32
             {
@@ -4237,79 +4163,21 @@ pub unsafe fn parse_command(
         if token_handled {
             continue;
         }
-        let mut tokenlen: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-        c = 0 as ::core::ffi::c_int;
-        while c < (*ptr).n {
-            tokenlen = (tokenlen as usize).wrapping_add(
-                strlen((*(*ptr).array.offset(c as isize)).name)
-                    .wrapping_add(strlen(c"'', ".as_ptr())),
-            ) as ::core::ffi::c_int as ::core::ffi::c_int;
-            c += 1;
-        }
-        let mut errormessage: *mut ::core::ffi::c_char =
-            ::core::ptr::null_mut::<::core::ffi::c_char>();
-        let possible_tokens: *mut ::core::ffi::c_char =
-            smalloc((tokenlen + 1 as ::core::ffi::c_int) as usize) as *mut ::core::ffi::c_char;
-        let mut tokenwalk: *mut ::core::ffi::c_char = possible_tokens;
-        c = 0 as ::core::ffi::c_int;
-        while c < (*ptr).n {
-            token = (*ptr).array.offset(c as isize) as *mut cmdp_token;
-            if *(*token).name.offset(0 as ::core::ffi::c_int as isize) as ::core::ffi::c_int
-                == '\'' as i32
-            {
-                let fresh0 = tokenwalk;
-                tokenwalk = tokenwalk.offset(1);
-                *fresh0 = '\'' as i32 as ::core::ffi::c_char;
-                strcpy(
-                    tokenwalk,
-                    (*token).name.offset(1 as ::core::ffi::c_int as isize),
-                );
-                tokenwalk = tokenwalk.offset(strlen(
-                    (*token).name.offset(1 as ::core::ffi::c_int as isize),
-                ) as isize);
-                let fresh1 = tokenwalk;
-                tokenwalk = tokenwalk.offset(1);
-                *fresh1 = '\'' as i32 as ::core::ffi::c_char;
-            } else {
-                let fresh2 = tokenwalk;
-                tokenwalk = tokenwalk.offset(1);
-                *fresh2 = '<' as i32 as ::core::ffi::c_char;
-                strcpy(tokenwalk, (*token).name);
-                tokenwalk = tokenwalk.offset(strlen((*token).name) as isize);
-                let fresh3 = tokenwalk;
-                tokenwalk = tokenwalk.offset(1);
-                *fresh3 = '>' as i32 as ::core::ffi::c_char;
-            }
-            if c < (*ptr).n - 1 as ::core::ffi::c_int {
-                let fresh4 = tokenwalk;
-                tokenwalk = tokenwalk.offset(1);
-                *fresh4 = ',' as i32 as ::core::ffi::c_char;
-                let fresh5 = tokenwalk;
-                tokenwalk = tokenwalk.offset(1);
-                *fresh5 = ' ' as i32 as ::core::ffi::c_char;
-            }
-            c += 1;
-        }
-        *tokenwalk = '\0' as i32 as ::core::ffi::c_char;
-        sasprintf(
-            &raw mut errormessage,
-            c"Expected one of these tokens: %s".as_ptr(),
-            possible_tokens,
-        );
-        free(possible_tokens as *mut ::core::ffi::c_void);
-        let position: *mut ::core::ffi::c_char =
-            smalloc(len.wrapping_add(1 as usize)) as *mut ::core::ffi::c_char;
-        let mut copywalk: *const ::core::ffi::c_char = input;
-        while *copywalk as ::core::ffi::c_int != '\0' as i32 {
-            *position.offset(copywalk.offset_from(input) as ::core::ffi::c_long as isize) =
-                (if copywalk >= walk {
-                    '^' as i32
-                } else {
-                    ' ' as i32
-                }) as ::core::ffi::c_char;
-            copywalk = copywalk.offset(1);
-        }
-        *position.offset(len as isize) = '\0' as i32 as ::core::ffi::c_char;
+        // Names are borrowed from immutable generated C-string literals.
+        let names: Vec<_> = grammar
+            .iter()
+            .map(|token| std::ffi::CStr::from_ptr(token.name))
+            .collect();
+        let mut message = b"Expected one of these tokens: ".to_vec();
+        message.extend_from_slice(&crate::parser_util::expected_tokens(&names, false));
+        let message = std::ffi::CString::new(message).expect("grammar names contain no NUL");
+        let errormessage =
+            i3_common::safewrappers::sstrndup(message.as_ptr(), message.as_bytes().len());
+        let offset = (walk.offset_from(input) as usize).min(len);
+        let mut caret = vec![b' '; len];
+        caret[offset..].fill(b'^');
+        let caret = std::ffi::CString::new(caret).expect("caret bytes contain no NUL");
+        let position = caret.as_ptr();
         errorlog(c"ERROR: %s\n".as_ptr().cast_mut(), errormessage);
         errorlog(c"ERROR: Your command: %s\n".as_ptr().cast_mut(), input);
         errorlog(c"ERROR:               %s\n".as_ptr().cast_mut(), position);
@@ -4395,7 +4263,6 @@ pub unsafe fn parse_command(
             yajl_gen_map_close(cmd_ctx.command_output.json_gen);
         } else {
         };
-        free(position as *mut ::core::ffi::c_void);
         parser_clear_stack(&raw mut cmd_ctx.stack);
         break;
     }
@@ -4529,4 +4396,49 @@ pub enum CommandParserState {
     RenameWorkspaceToNewName = 2,
     MoveWorkspaceToOutputWord = 1,
     RenameWorkspaceLikelyToNewName = 0,
+}
+
+#[cfg(test)]
+mod owned_parser_tests {
+    use super::*;
+    #[test]
+    fn legacy_string_entry_updates_cursor_and_keeps_malloc_ownership() {
+        let input = c"\"a\\\"b\"rest";
+        let mut cursor = input.as_ptr();
+        // SAFETY: cursor is writable, and input remains a valid native string.
+        unsafe {
+            let value = parse_string(&mut cursor, false);
+            assert_eq!(std::ffi::CStr::from_ptr(value), c"a\"b");
+            assert_eq!(cursor.offset_from(input.as_ptr()), 5);
+            libc::free(value.cast());
+            let mut empty = c"\"\"".as_ptr();
+            assert!(parse_string(&mut empty, false).is_null());
+            assert_eq!(*empty, b'"' as libc::c_char);
+        }
+    }
+    #[test]
+    fn generated_command_tables_keep_complete_states_and_dispatch_ids() {
+        // SAFETY: private immutable generated arrays remain initialized for this process.
+        let states = unsafe { &*(&raw const tokens) };
+        assert_eq!(states.len(), 77);
+        let mut calls = std::collections::BTreeSet::new();
+        for table in states {
+            assert!(table.n > 0);
+            let entries = unsafe { std::slice::from_raw_parts(table.array, table.n as usize) };
+            for entry in entries {
+                assert!(!unsafe { std::ffi::CStr::from_ptr(entry.name) }
+                    .to_bytes()
+                    .is_empty());
+                if entry.next_state == CommandParserState::Call {
+                    calls.insert(unsafe { entry.extra.call_identifier });
+                } else {
+                    assert!((entry.next_state as usize) < states.len());
+                }
+            }
+        }
+        assert_eq!(
+            calls.into_iter().collect::<Vec<_>>(),
+            (0..134).collect::<Vec<u16>>()
+        );
+    }
 }

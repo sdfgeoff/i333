@@ -1,7 +1,6 @@
 use crate::commands_parser::CommandParserState;
 use crate::config::barconfigs;
 use crate::ipc::ipc_send_barconfig_update_event;
-use crate::parser_util::StackValueKind;
 use crate::randr::outputs;
 use crate::tree::all_cons;
 use crate::types::BarHiddenState;
@@ -36,77 +35,21 @@ use i3_json::compat::{
 
 pub type i3String = _i3String;
 
-pub type i3Font = Font;
-
 pub type fullscreen_mode_t = ::core::ffi::c_uint;
 pub const CF_GLOBAL: fullscreen_mode_t = 2;
 pub const CF_OUTPUT: fullscreen_mode_t = 1;
-pub const CF_NONE: fullscreen_mode_t = 0;
 
-pub const M_BELOW: ::core::ffi::c_uint = 2;
-pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
-pub const M_HERE: ::core::ffi::c_uint = 0;
-
-pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
-pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
-pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
-pub const M_NODOCK: ::core::ffi::c_int = 0;
-pub const M_DONTCHECK: ::core::ffi::c_int = -1;
-
-pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
-pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
-pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
-pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
-pub const A_COMMAND: ::core::ffi::c_uint = 1;
-pub const A_ANY: ::core::ffi::c_uint = 0;
-
-pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
 pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
 pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
-pub const CT_CON: ::core::ffi::c_uint = 2;
-pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
-pub const CT_ROOT: ::core::ffi::c_uint = 0;
 
 pub type Output = xoutput;
 pub type i3Window = Window;
-
-pub type hide_edge_borders_mode_t = ::core::ffi::c_uint;
-pub const HEBM_SMART_NO_GAPS: hide_edge_borders_mode_t = 64;
-pub const HEBM_SMART: hide_edge_borders_mode_t = 32;
-pub const HEBM_BOTH: hide_edge_borders_mode_t = 23;
-pub const HEBM_HORIZONTAL: hide_edge_borders_mode_t = 20;
-pub const HEBM_VERTICAL: hide_edge_borders_mode_t = 3;
-pub const HEBM_NONE: hide_edge_borders_mode_t = 0;
-
-pub type tiling_drag_t = ::core::ffi::c_uint;
-pub const TILING_DRAG_MODIFIER_OR_TITLEBAR: tiling_drag_t = 3;
-pub const TILING_DRAG_TITLEBAR: tiling_drag_t = 2;
-pub const TILING_DRAG_MODIFIER: tiling_drag_t = 1;
-pub const TILING_DRAG_OFF: tiling_drag_t = 0;
 
 pub use crate::application::Barconfig;
 
 pub use crate::application::ipc_client;
 
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct stack_entry {
-    pub identifier: *const ::core::ffi::c_char,
-    pub type_0: StackValueKind,
-    pub val: C2RustUnnamed_31,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub union C2RustUnnamed_31 {
-    pub str_0: *mut ::core::ffi::c_char,
-    pub num: ::core::ffi::c_long,
-}
-
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct stack {
-    pub stack: [stack_entry; 10],
-}
+pub use crate::parser_util::ParserStack as stack;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct owindow {
@@ -128,7 +71,6 @@ pub struct CommandResultIR {
     pub next_state: CommandParserState,
     pub needs_tree_render: bool,
 }
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct cmd_parser_ctx {
     pub state: CommandParserState,
@@ -144,33 +86,10 @@ pub struct owindows_head {
     pub tqh_first: *mut owindow,
     pub tqh_last: *mut *mut owindow,
 }
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct user_output_names_head {
-    pub tqh_first: *mut user_output_name,
-    pub tqh_last: *mut *mut user_output_name,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct user_output_name {
-    pub name: *mut ::core::ffi::c_char,
-    pub user_output_names: C2RustUnnamed_34,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_34 {
-    pub tqe_next: *mut user_output_name,
-    pub tqe_prev: *mut *mut user_output_name,
-}
-pub type gap_accessor = Option<unsafe fn(*mut gaps_t) -> *mut ::core::ffi::c_int>;
-static mut names: user_output_names_head = user_output_names_head {
-    tqh_first: ::core::ptr::null::<user_output_name>() as *mut user_output_name,
-    tqh_last: ::core::ptr::null::<*mut user_output_name>() as *mut *mut user_output_name,
-};
-static mut names_global: user_output_names_head = user_output_names_head {
-    tqh_first: ::core::ptr::null::<user_output_name>() as *mut user_output_name,
-    tqh_last: ::core::ptr::null::<*mut user_output_name>() as *mut *mut user_output_name,
-};
+type OutputNames = std::sync::Mutex<Vec<std::ffi::CString>>;
+static names: OutputNames = std::sync::Mutex::new(Vec::new());
+static names_global: OutputNames = std::sync::Mutex::new(Vec::new());
+pub type gap_accessor = Option<unsafe fn(*mut gaps_t) -> *mut libc::c_int>;
 pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 
@@ -1411,18 +1330,19 @@ pub unsafe fn cmd_move_con_to_workspace_number(
         };
     }
 }
-unsafe fn parse_direction(str: *const ::core::ffi::c_char) -> Direction {
-    if strcmp(str, c"left".as_ptr()) == 0 as ::core::ffi::c_int {
-        return Direction::Left;
+fn direction_argument(value: &[u8]) -> Option<Direction> {
+    match value {
+        b"left" => Some(Direction::Left),
+        b"right" => Some(Direction::Right),
+        b"up" => Some(Direction::Up),
+        b"down" => Some(Direction::Down),
+        _ => None,
     }
-    if strcmp(str, c"right".as_ptr()) == 0 as ::core::ffi::c_int {
-        return Direction::Right;
-    }
-    if strcmp(str, c"up".as_ptr()) == 0 as ::core::ffi::c_int {
-        return Direction::Up;
-    }
-    if strcmp(str, c"down".as_ptr()) == 0 as ::core::ffi::c_int {
-        return Direction::Down;
+}
+
+unsafe fn parse_direction(value: *const libc::c_char) -> Direction {
+    if let Some(direction) = direction_argument(std::ffi::CStr::from_ptr(value).to_bytes()) {
+        return direction;
     }
     errorlog(
         c"ERROR: Invalid direction. This is a parser bug.\n"
@@ -3558,87 +3478,56 @@ pub unsafe fn cmd_mode(
         };
     }
 }
-unsafe fn user_output_names_add(
-    list: *mut user_output_names_head,
-    name: *const ::core::ffi::c_char,
-) {
-    let get_non_primary: bool = strcasecmp(c"nonprimary".as_ptr(), name) == 0 as ::core::ffi::c_int;
-    if get_non_primary as ::core::ffi::c_int != 0
-        || strcmp(name, c"next".as_ptr()) == 0 as ::core::ffi::c_int
-    {
-        let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
-        output = outputs.tqh_first as *mut Output;
+unsafe fn user_output_names_add(list: &OutputNames, name: *const libc::c_char) {
+    let get_non_primary = strcasecmp(c"nonprimary".as_ptr(), name) == 0;
+    let mut added = Vec::new();
+    if get_non_primary || strcmp(name, c"next".as_ptr()) == 0 {
+        let mut output = outputs.tqh_first;
         while !output.is_null() {
-            if !(get_non_primary as ::core::ffi::c_int != 0
-                && (*output).primary as ::core::ffi::c_int != 0)
-            {
-                let co: *mut user_output_name = scalloc(
-                    ::core::mem::size_of::<user_output_name>() as usize,
-                    1 as usize,
-                ) as *mut user_output_name;
-                (*co).name = sstrdup(output_primary_name(output));
-                (*co).user_output_names.tqe_next = ::core::ptr::null_mut::<user_output_name>();
-                (*co).user_output_names.tqe_prev = (*list).tqh_last;
-                *(*list).tqh_last = co as *mut user_output_name;
-                (*list).tqh_last = &raw mut (*co).user_output_names.tqe_next;
+            if !(get_non_primary && (*output).primary) {
+                added.push(std::ffi::CStr::from_ptr(output_primary_name(output)).to_owned());
             }
-            output = (*output).outputs.tqe_next as *mut Output;
+            output = (*output).outputs.tqe_next;
         }
-        return;
+    } else {
+        added.push(std::ffi::CStr::from_ptr(name).to_owned());
     }
-    let co_0: *mut user_output_name = scalloc(
-        ::core::mem::size_of::<user_output_name>() as usize,
-        1 as usize,
-    ) as *mut user_output_name;
-    (*co_0).name = sstrdup(name);
-    (*co_0).user_output_names.tqe_next = ::core::ptr::null_mut::<user_output_name>();
-    (*co_0).user_output_names.tqe_prev = (*list).tqh_last;
-    *(*list).tqh_last = co_0 as *mut user_output_name;
-    (*list).tqh_last = &raw mut (*co_0).user_output_names.tqe_next;
+    // No lock is held while querying native graphs or invoking callbacks.
+    list.lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .extend(added);
 }
+
 unsafe fn user_output_names_find_next(
-    names_0: *const user_output_names_head,
+    list: &OutputNames,
     current_output: *mut Output,
 ) -> *mut Output {
-    let mut target_output: *mut Output = ::core::ptr::null_mut::<Output>();
-    let mut uo: *mut user_output_name = ::core::ptr::null_mut::<user_output_name>();
-    uo = (*names_0).tqh_first as *mut user_output_name;
-    while !uo.is_null() {
-        if target_output.is_null() {
-            target_output = get_output_from_string(current_output, (*uo).name);
+    let snapshot = list
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .clone();
+    let mut target: *mut Output = std::ptr::null_mut();
+    for (index, name) in snapshot.iter().enumerate() {
+        if target.is_null() {
+            target = get_output_from_string(current_output, name.as_ptr());
         }
-        if strcasecmp(output_primary_name(current_output), (*uo).name) == 0 as ::core::ffi::c_int {
-            loop {
-                uo = (*uo).user_output_names.tqe_next as *mut user_output_name;
-                if uo.is_null() {
-                    break;
-                }
-                let out: *mut Output = get_output_from_string(current_output, (*uo).name);
-                if !out.is_null() {
-                    return out;
+        if strcasecmp(output_primary_name(current_output), name.as_ptr()) == 0 {
+            for next in &snapshot[index + 1..] {
+                let output = get_output_from_string(current_output, next.as_ptr());
+                if !output.is_null() {
+                    return output;
                 }
             }
             break;
-        } else {
-            uo = (*uo).user_output_names.tqe_next as *mut user_output_name;
         }
     }
-    target_output
+    target
 }
-unsafe fn user_output_names_free(names_0: *mut user_output_names_head) {
-    while !(*names_0).tqh_first.is_null() {
-        let uo: *mut user_output_name = (*names_0).tqh_first as *mut user_output_name;
-        free((*uo).name as *mut ::core::ffi::c_void);
-        if !(*uo).user_output_names.tqe_next.is_null() {
-            (*(*uo).user_output_names.tqe_next)
-                .user_output_names
-                .tqe_prev = (*uo).user_output_names.tqe_prev;
-        } else {
-            (*names_0).tqh_last = (*uo).user_output_names.tqe_prev;
-        }
-        *(*uo).user_output_names.tqe_prev = (*uo).user_output_names.tqe_next;
-        free(uo as *mut ::core::ffi::c_void);
-    }
+
+fn user_output_names_free(list: &OutputNames) {
+    list.lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .clear();
 }
 
 pub unsafe fn cmd_move_con_to_output(
@@ -3648,7 +3537,7 @@ pub unsafe fn cmd_move_con_to_output(
     move_workspace: bool,
 ) {
     if !name.is_null() {
-        user_output_names_add(&raw mut names, name);
+        user_output_names_add(&names, name);
         return;
     }
     if !(*current_match).error.is_null() {
@@ -3721,7 +3610,11 @@ pub unsafe fn cmd_move_con_to_output(
         *(*(*cmd_output).ctx).owindows.tqh_last = ow_0 as *mut owindow;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
-    if names.tqh_first.is_null() {
+    if names
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .is_empty()
+    {
         if !(*cmd_output).json_gen.is_null() {
             let mut message_0: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
@@ -3776,8 +3669,7 @@ pub unsafe fn cmd_move_con_to_output(
         let ws: *mut Con = con_get_workspace((*current).con);
         if !con_is_internal(ws) {
             let current_output: *mut Output = get_output_for_con(ws);
-            let target_output: *mut Output =
-                user_output_names_find_next(&raw mut names, current_output);
+            let target_output: *mut Output = user_output_names_find_next(&names, current_output);
             if !target_output.is_null() {
                 if move_workspace {
                     workspace_move_to_output(ws, target_output);
@@ -3789,7 +3681,7 @@ pub unsafe fn cmd_move_con_to_output(
         }
         current = (*current).owindows.tqe_next as *mut owindow;
     }
-    user_output_names_free(&raw mut names);
+    user_output_names_free(&names);
     (*cmd_output).needs_tree_render = success;
     if success {
         if !(*cmd_output).json_gen.is_null() {
@@ -6074,10 +5966,14 @@ pub unsafe fn cmd_focus_output(
     name: *const ::core::ffi::c_char,
 ) {
     if !name.is_null() {
-        user_output_names_add(&raw mut names_global, name);
+        user_output_names_add(&names_global, name);
         return;
     }
-    if names_global.tqh_first.is_null() {
+    if names_global
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .is_empty()
+    {
         if !(*cmd_output).json_gen.is_null() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
@@ -6232,9 +6128,8 @@ pub unsafe fn cmd_focus_output(
         }
     }
     let current_output: *mut Output = get_output_for_con(con);
-    let target_output: *const Output =
-        user_output_names_find_next(&raw mut names_global, current_output);
-    user_output_names_free(&raw mut names_global);
+    let target_output: *const Output = user_output_names_find_next(&names_global, current_output);
+    user_output_names_free(&names_global);
     let mut success: bool = false_0 != 0;
     if !target_output.is_null() {
         success = true_0 != 0;
@@ -8996,21 +8891,6 @@ pub unsafe fn cmd_gaps(
     }
 }
 pub const EXIT_SUCCESS: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-unsafe extern "C" fn run_static_initializers() {
-    names = user_output_names_head {
-        tqh_first: ::core::ptr::null::<user_output_name>() as *mut user_output_name,
-        tqh_last: &raw const names.tqh_first as *mut *mut user_output_name,
-    };
-    names_global = user_output_names_head {
-        tqh_first: ::core::ptr::null::<user_output_name>() as *mut user_output_name,
-        tqh_last: &raw const names_global.tqh_first as *mut *mut user_output_name,
-    };
-}
-#[used]
-#[cfg_attr(target_os = "linux", link_section = ".init_array")]
-#[cfg_attr(target_os = "windows", link_section = ".CRT$XIB")]
-#[cfg_attr(target_os = "macos", link_section = "__DATA,__mod_init_func")]
-static INIT_ARRAY: [unsafe extern "C" fn(); 1] = [run_static_initializers];
 
 use crate::regex::regex_matches;
 
@@ -9171,3 +9051,34 @@ use crate::workspace::workspace_show;
 use i3_common::resolve_tilde::resolve_tilde;
 use i3_common::string::i3string_as_utf8;
 use i3_common::string::i3string_free;
+
+#[cfg(test)]
+mod argument_tests {
+    use super::*;
+    #[test]
+    fn direction_arguments_remain_exact_case_sensitive_keywords() {
+        assert!(matches!(direction_argument(b"left"), Some(Direction::Left)));
+        assert!(matches!(
+            direction_argument(b"right"),
+            Some(Direction::Right)
+        ));
+        assert!(matches!(direction_argument(b"up"), Some(Direction::Up)));
+        assert!(matches!(direction_argument(b"down"), Some(Direction::Down)));
+        for invalid in [b"LEFT".as_slice(), b"leftward", b"", b"\xff"] {
+            assert!(direction_argument(invalid).is_none());
+        }
+    }
+    #[test]
+    fn output_name_accumulators_own_bytes_and_snapshot_without_holding_callback_locks() {
+        let accumulator = OutputNames::new(Vec::new());
+        let input = std::ffi::CString::new(b"HDMI-\xff".as_slice()).unwrap();
+        unsafe { user_output_names_add(&accumulator, input.as_ptr()) };
+        drop(input);
+        let snapshot = accumulator.lock().unwrap().clone();
+        assert_eq!(snapshot[0].as_bytes(), b"HDMI-\xff");
+        user_output_names_free(&accumulator);
+        user_output_names_free(&accumulator);
+        assert!(accumulator.lock().unwrap().is_empty());
+        assert_eq!(snapshot[0].as_bytes(), b"HDMI-\xff");
+    }
+}

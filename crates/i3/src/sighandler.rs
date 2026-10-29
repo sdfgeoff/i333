@@ -12,56 +12,12 @@ use i3_common::safewrappers::sasprintf;
 // Mechanical file-by-file Rust translation of src/sighandler.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 
-pub use libc::sighandler_t as __sighandler_t;
-
-pub type i3String = _i3String;
-
-pub type i3Font = Font;
-
-pub type fullscreen_mode_t = ::core::ffi::c_uint;
-pub const CF_GLOBAL: fullscreen_mode_t = 2;
-pub const CF_OUTPUT: fullscreen_mode_t = 1;
-pub const CF_NONE: fullscreen_mode_t = 0;
-
-pub const M_BELOW: ::core::ffi::c_uint = 2;
-pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
-pub const M_HERE: ::core::ffi::c_uint = 0;
-
-pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
-pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
-pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
-pub const M_NODOCK: ::core::ffi::c_int = 0;
-pub const M_DONTCHECK: ::core::ffi::c_int = -1;
-
-pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
-pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
-pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
-pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
-pub const A_COMMAND: ::core::ffi::c_uint = 1;
-pub const A_ANY: ::core::ffi::c_uint = 0;
-
-pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
-pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
-pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
-pub const CT_CON: ::core::ffi::c_uint = 2;
-pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
-pub const CT_ROOT: ::core::ffi::c_uint = 0;
-
-pub type Output = xoutput;
-
-pub type hide_edge_borders_mode_t = ::core::ffi::c_uint;
-pub const HEBM_SMART_NO_GAPS: hide_edge_borders_mode_t = 64;
-pub const HEBM_SMART: hide_edge_borders_mode_t = 32;
-pub const HEBM_BOTH: hide_edge_borders_mode_t = 23;
-pub const HEBM_HORIZONTAL: hide_edge_borders_mode_t = 20;
-pub const HEBM_VERTICAL: hide_edge_borders_mode_t = 3;
-pub const HEBM_NONE: hide_edge_borders_mode_t = 0;
-
-pub type tiling_drag_t = ::core::ffi::c_uint;
-pub const TILING_DRAG_MODIFIER_OR_TITLEBAR: tiling_drag_t = 3;
-pub const TILING_DRAG_TITLEBAR: tiling_drag_t = 2;
-pub const TILING_DRAG_MODIFIER: tiling_drag_t = 1;
-pub const TILING_DRAG_OFF: tiling_drag_t = 0;
+// The crash callback remains a legacy native signal edge: X11/rendering,
+// logging and restart are not claimed async-signal-safe. New helpers below are
+// stack-only; owned text is prepared before handlers are installed.
+use std::ffi::CStr;
+type i3String = i3_common::string::I3String;
+type Output = crate::types::xoutput;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -70,11 +26,11 @@ pub struct dialog_t {
     pub colormap: xcb_colormap_t,
     pub dims: Rect,
     pub surface: surface_t,
-    pub dialogs: C2RustUnnamed_35,
+    pub dialogs: DialogLinks,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed_35 {
+pub struct DialogLinks {
     pub tqe_next: *mut dialog_t,
     pub tqe_prev: *mut *mut dialog_t,
 }
@@ -87,7 +43,7 @@ pub struct dialogs_head {
 pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 
-pub const SIG_DFL: __sighandler_t = libc::SIG_DFL;
+pub const SIG_DFL: libc::sighandler_t = libc::SIG_DFL;
 pub const SIGILL: ::core::ffi::c_int = 4 as ::core::ffi::c_int;
 pub const SIGABRT: ::core::ffi::c_int = 6 as ::core::ffi::c_int;
 pub const SIGFPE: ::core::ffi::c_int = 8 as ::core::ffi::c_int;
@@ -139,80 +95,76 @@ unsafe fn sighandler_backtrace() -> ::core::ffi::c_int {
             break;
         }
     }
-    let pid_gdb: libc::pid_t = fork() as libc::pid_t;
-    if pid_gdb < 0 as ::core::ffi::c_int {
-        debuglog(
-            c"%s:%s:%d - Failed to fork for GDB\n".as_ptr().cast_mut(),
-            c"../src/sighandler.c".as_ptr(),
-            c"sighandler_backtrace".as_ptr(),
-            69 as ::core::ffi::c_int,
-        );
-        return -(1 as ::core::ffi::c_int);
-    } else if pid_gdb == 0 as ::core::ffi::c_int {
-        let mut stdin_pipe: [::core::ffi::c_int; 2] = [0; 2];
-        let mut stdout_pipe: [::core::ffi::c_int; 2] = [0; 2];
-        if pipe(&raw mut stdin_pipe as *mut ::core::ffi::c_int) == -(1 as ::core::ffi::c_int) {
-            errorlog(c"ERROR: Failed to init stdin_pipe\n".as_ptr().cast_mut());
-            return -(1 as ::core::ffi::c_int);
-        }
-        if pipe(&raw mut stdout_pipe as *mut ::core::ffi::c_int) == -(1 as ::core::ffi::c_int) {
-            errorlog(c"ERROR: Failed to init stdout_pipe\n".as_ptr().cast_mut());
-            return -(1 as ::core::ffi::c_int);
-        }
-        close(STDIN_FILENO);
-        close(STDOUT_FILENO);
+    let mut pid_s = std::ptr::null_mut();
+    let mut gdb_log_cmd = std::ptr::null_mut();
+    sasprintf(&raw mut pid_s, c"%d".as_ptr(), pid_parent);
+    sasprintf(
+        &raw mut gdb_log_cmd,
+        c"set logging file %s".as_ptr(),
+        filename,
+    );
+    let args = [
+        c"gdb".as_ptr(),
+        *start_argv,
+        c"-p".as_ptr(),
+        pid_s,
+        c"-batch".as_ptr(),
+        c"-nx".as_ptr(),
+        c"-ex".as_ptr(),
+        gdb_log_cmd,
+        c"-ex".as_ptr(),
+        c"set logging on".as_ptr(),
+        c"-ex".as_ptr(),
+        c"bt full".as_ptr(),
+        c"-ex".as_ptr(),
+        c"quit".as_ptr(),
+        std::ptr::null(),
+    ];
+    // GDB is batch-only: a null device supplies EOF and discards normal stdout.
+    // The old unconsumed pipes could block a large batch output indefinitely.
+    let null_fd = libc::open(c"/dev/null".as_ptr(), libc::O_RDWR);
+    if null_fd < 0 {
+        free(pid_s.cast());
+        free(gdb_log_cmd.cast());
+        free(filename.cast());
+        return -1;
+    }
+    let pid_gdb = fork();
+    if pid_gdb < 0 {
+        close(null_fd);
+        free(pid_s.cast());
+        free(gdb_log_cmd.cast());
+        free(filename.cast());
+        return -1;
+    }
+    if pid_gdb == 0 {
+        dup2(null_fd, STDIN_FILENO);
+        dup2(null_fd, STDOUT_FILENO);
         close(STDERR_FILENO);
-        dup2(stdin_pipe[0 as ::core::ffi::c_int as usize], STDIN_FILENO);
-        dup2(stdout_pipe[1 as ::core::ffi::c_int as usize], STDOUT_FILENO);
-        let mut pid_s: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        let mut gdb_log_cmd: *mut ::core::ffi::c_char =
-            ::core::ptr::null_mut::<::core::ffi::c_char>();
-        sasprintf(&raw mut pid_s, c"%d".as_ptr(), pid_parent);
-        sasprintf(
-            &raw mut gdb_log_cmd,
-            c"set logging file %s".as_ptr(),
-            filename,
-        );
-        let mut args: [*mut ::core::ffi::c_char; 15] = [
-            c"gdb".as_ptr().cast_mut(),
-            *start_argv.offset(0 as ::core::ffi::c_int as isize),
-            c"-p".as_ptr().cast_mut(),
-            pid_s,
-            c"-batch".as_ptr().cast_mut(),
-            c"-nx".as_ptr().cast_mut(),
-            c"-ex".as_ptr().cast_mut(),
-            gdb_log_cmd,
-            c"-ex".as_ptr().cast_mut(),
-            c"set logging on".as_ptr().cast_mut(),
-            c"-ex".as_ptr().cast_mut(),
-            c"bt full".as_ptr().cast_mut(),
-            c"-ex".as_ptr().cast_mut(),
-            c"quit".as_ptr().cast_mut(),
-            ::core::ptr::null_mut::<::core::ffi::c_char>(),
-        ];
-        execvp(
-            args[0 as ::core::ffi::c_int as usize],
-            &raw mut args as *mut *mut ::core::ffi::c_char as *const *const ::core::ffi::c_char,
-        );
+        if null_fd > STDERR_FILENO {
+            close(null_fd);
+        }
+        execvp(args[0], args.as_ptr());
         err(EXIT_FAILURE, c"execvp(gdb)".as_ptr());
     }
+    close(null_fd);
+    free(pid_s.cast());
+    free(gdb_log_cmd.cast());
     let mut status: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
     waitpid(
         pid_gdb as libc::pid_t,
         &raw mut status,
         0 as ::core::ffi::c_int,
     );
-    if !(status & 0x7f as ::core::ffi::c_int == 0 as ::core::ffi::c_int)
-        || (status & 0xff00 as ::core::ffi::c_int) >> 8 as ::core::ffi::c_int
-            != 0 as ::core::ffi::c_int
-    {
+    if !child_succeeded(status) {
         debuglog(
             c"%s:%s:%d - GDB did not run properly\n".as_ptr().cast_mut(),
             c"../src/sighandler.c".as_ptr(),
             c"sighandler_backtrace".as_ptr(),
             123 as ::core::ffi::c_int,
         );
-        return -(1 as ::core::ffi::c_int);
+        free(filename.cast());
+        return -1;
     } else if !path_exists(filename) {
         debuglog(
             c"%s:%s:%d - GDB executed successfully, but no backtrace was generated\n"
@@ -222,14 +174,13 @@ unsafe fn sighandler_backtrace() -> ::core::ffi::c_int {
             c"sighandler_backtrace".as_ptr(),
             126 as ::core::ffi::c_int,
         );
-        return -(1 as ::core::ffi::c_int);
+        free(filename.cast());
+        return -1;
     }
-    1 as ::core::ffi::c_int
+    free(filename.cast());
+    1
 }
-unsafe fn sighandler_setup() {
-    border_width = logical_px(border_width);
-    margin = logical_px(margin);
-    let num_lines: ::core::ffi::c_int = 5 as ::core::ffi::c_int;
+unsafe fn prepare_crash_messages() {
     message_intro =
         i3string_from_utf8(c"i3 has just crashed. Please report a bug for this.".as_ptr());
     message_intro2 = i3string_from_utf8(
@@ -241,6 +192,11 @@ unsafe fn sighandler_setup() {
     message_option_restart = i3string_from_utf8(c"- 'r' to restart i3 in-place".as_ptr());
     message_option_forget =
         i3string_from_utf8(c"- 'f' to forget the previous layout and restart i3".as_ptr());
+}
+unsafe fn sighandler_setup() {
+    border_width = logical_px(border_width);
+    margin = logical_px(margin);
+    let num_lines: ::core::ffi::c_int = 5 as ::core::ffi::c_int;
     let width_longest_message: ::core::ffi::c_int = predict_text_width(message_intro2);
     dialog_width = width_longest_message
         + 2 as ::core::ffi::c_int * border_width
@@ -248,6 +204,53 @@ unsafe fn sighandler_setup() {
     dialog_height = num_lines * config.font.height
         + 2 as ::core::ffi::c_int * border_width
         + 2 as ::core::ffi::c_int * margin;
+}
+fn dialog_geometry(output: Rect, width: i32, height: i32) -> Rect {
+    Rect {
+        x: output
+            .x
+            .wrapping_add(output.width / 2)
+            .wrapping_sub((width as u32) / 2),
+        y: output
+            .y
+            .wrapping_add(output.height / 2)
+            .wrapping_sub((height as u32) / 2),
+        width: width as u32,
+        height: height as u32,
+    }
+}
+fn dialog_attributes(black: u32, colormap: u32) -> (u32, [u32; 4]) {
+    (
+        (XCB_CW_BACK_PIXEL | XCB_CW_BORDER_PIXEL | XCB_CW_OVERRIDE_REDIRECT | XCB_CW_COLORMAP)
+            as u32,
+        [black, black, 1, colormap],
+    )
+}
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum CrashAction {
+    Backtrace,
+    Restart,
+    Forget,
+}
+fn crash_action(symbol: u32) -> Option<CrashAction> {
+    match symbol {
+        98 => Some(CrashAction::Backtrace),
+        114 => Some(CrashAction::Restart),
+        102 => Some(CrashAction::Forget),
+        _ => None,
+    }
+}
+fn backtrace_color(status: i32) -> &'static CStr {
+    if status < 0 {
+        c"#AA0000"
+    } else if status > 0 {
+        c"#00AA00"
+    } else {
+        c"#FFFFFF"
+    }
+}
+fn child_succeeded(status: i32) -> bool {
+    libc::WIFEXITED(status) && libc::WEXITSTATUS(status) == 0
 }
 unsafe fn sighandler_create_dialogs() {
     let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
@@ -269,43 +272,9 @@ unsafe fn sighandler_create_dialogs() {
                 root,
                 visual,
             );
-            let mut mask: u32 = 0 as u32;
-            let mut values: [u32; 4] = [0; 4];
-            let mut i: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-            mask |= XCB_CW_BACK_PIXEL as ::core::ffi::c_int as u32;
-            let fresh0 = i;
-            i = i + 1;
-            values[fresh0 as usize] = (*root_screen).black_pixel;
-            mask |= XCB_CW_BORDER_PIXEL as ::core::ffi::c_int as u32;
-            let fresh1 = i;
-            i = i + 1;
-            values[fresh1 as usize] = (*root_screen).black_pixel;
-            mask |= XCB_CW_OVERRIDE_REDIRECT as ::core::ffi::c_int as u32;
-            let fresh2 = i;
-            i = i + 1;
-            values[fresh2 as usize] = 1 as u32;
-            mask |= XCB_CW_COLORMAP as ::core::ffi::c_int as u32;
-            let fresh3 = i;
-            i = i + 1;
-            values[fresh3 as usize] = (*dialog).colormap as u32;
-            (*dialog).dims.x = (*output)
-                .rect
-                .x
-                .wrapping_add((*output).rect.width.wrapping_div(2 as u32));
-            (*dialog).dims.y = (*output)
-                .rect
-                .y
-                .wrapping_add((*output).rect.height.wrapping_div(2 as u32));
-            (*dialog).dims.width = dialog_width as u32;
-            (*dialog).dims.height = dialog_height as u32;
-            (*dialog).dims.x = (*dialog)
-                .dims
-                .x
-                .wrapping_sub((*dialog).dims.width.wrapping_div(2 as u32));
-            (*dialog).dims.y = (*dialog)
-                .dims
-                .y
-                .wrapping_sub((*dialog).dims.height.wrapping_div(2 as u32));
+            let (mask, mut values) =
+                dialog_attributes((*root_screen).black_pixel, (*dialog).colormap);
+            (*dialog).dims = dialog_geometry((*output).rect, dialog_width, dialog_height);
             (*dialog).id = create_window(
                 conn,
                 (*dialog).dims,
@@ -423,16 +392,11 @@ unsafe fn sighandler_draw_dialog(dialog: *mut dialog_t) {
         max_width,
     );
     y += config.font.height;
-    let mut bt_color: *mut ::core::ffi::c_char = c"#FFFFFF".as_ptr().cast_mut();
-    if backtrace_done < 0 as ::core::ffi::c_int {
-        bt_color = c"#AA0000".as_ptr().cast_mut();
-    } else if backtrace_done > 0 as ::core::ffi::c_int {
-        bt_color = c"#00AA00".as_ptr().cast_mut();
-    }
+    let bt_color = backtrace_color(backtrace_done);
     draw_util_text(
         message_option_backtrace,
         &raw mut (*dialog).surface,
-        draw_util_hex_to_color(bt_color),
+        draw_util_hex_to_color(bt_color.as_ptr()),
         black,
         x,
         y,
@@ -465,7 +429,7 @@ unsafe fn sighandler_handle_key_press(event: *mut xcb_key_press_event_t) {
     state = (state as ::core::ffi::c_uint & !xcb_numlock_mask) as u16;
     let sym: xcb_keysym_t =
         xcb_key_press_lookup_keysym(keysyms, event, state as ::core::ffi::c_int);
-    if sym == 'b' as i32 as xcb_keysym_t {
+    if crash_action(sym) == Some(CrashAction::Backtrace) {
         debuglog(
             c"%s:%s:%d - User issued core-dump command.\n"
                 .as_ptr()
@@ -476,10 +440,10 @@ unsafe fn sighandler_handle_key_press(event: *mut xcb_key_press_event_t) {
         );
         backtrace_done = sighandler_backtrace();
         sighandler_handle_expose();
-    } else if sym == 'r' as i32 as xcb_keysym_t {
+    } else if crash_action(sym) == Some(CrashAction::Restart) {
         sighandler_destroy_dialogs();
         i3_restart(false_0 != 0);
-    } else if sym == 'f' as i32 as xcb_keysym_t {
+    } else if crash_action(sym) == Some(CrashAction::Forget) {
         sighandler_destroy_dialogs();
         i3_restart(true_0 != 0);
     }
@@ -530,6 +494,7 @@ unsafe extern "C" fn handle_signal(
 }
 
 pub unsafe fn setup_signal_handler() {
+    prepare_crash_messages();
     let mut action: sigaction = ::core::mem::zeroed();
     action.sa_sigaction = handle_signal as *const () as usize;
     action.sa_flags = (SA_NODEFER as ::core::ffi::c_uint
@@ -639,3 +604,30 @@ use i3_common::font::predict_text_width;
 use i3_common::string::i3string_from_utf8;
 
 use crate::xcb::xcb_numlock_mask;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn crash_value_helpers_are_stack_only_and_preserve_native_projection() {
+        let r = dialog_geometry(
+            Rect {
+                x: 10,
+                y: 20,
+                width: 3,
+                height: 5,
+            },
+            8,
+            10,
+        );
+        assert_eq!((r.x, r.y, r.width, r.height), (7, 17, 8, 10));
+        assert_eq!(dialog_attributes(4, 7).1, [4, 4, 1, 7]);
+        assert_eq!(crash_action(b'b' as u32), Some(CrashAction::Backtrace));
+        assert_eq!(crash_action(b'B' as u32), None);
+        assert_eq!(backtrace_color(-1), c"#AA0000");
+        assert_eq!(backtrace_color(1), c"#00AA00");
+        assert!(child_succeeded(0));
+        assert!(!child_succeeded(256));
+        assert!(!child_succeeded(9));
+    }
+}

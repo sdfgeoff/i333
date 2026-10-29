@@ -16,6 +16,22 @@ from workspace_temp import temporary_directory
 ROOT = Path(__file__).resolve().parent.parent
 
 
+# Config fixtures run through the actual Cargo-built i3, rather than the external
+# C parser helper used by part of the upstream suite. Byte strings preserve native
+# quoting, malformed input and continuation rules.
+CONFIG_FIXTURES = [
+    ('variables', b'set $A 1\nset $a 2\nset $abc 9\ngaps inner $abc\ngaps outer $A\n', 0),
+    ('nonrecursive', b'set $one $two\nset $two 3\ngaps inner $one\n', 1),
+    ('quoted-mode', b'mode "resizer" {\n bindsym h resize shrink width 10 px or 10 ppt\n}\n', 0),
+    ('include', b'include ./child.conf\ninclude ./child.conf\nworkspace "one" output "HDMI-1" "DP-1"\n', 0),
+    ('bar', b'bar {\n status_command echo "one,two;three"\n bindsym button1 nop "hello"\n position top\n}\n', 0),
+    ('continuation', b'# comment continuation \\\nfont pango:monospace 8\nset $modifier Mod4\nbindsym $modifier+Return exec \\\n echo hello\n', 0),
+    ('first-line-error', b'invalid_directive\nfont pango:monospace 8\n', 1),
+    ('block-recovery', b'bar {\n invalid_directive\n position top\n}\n', 1),
+    ('binary-error', b'\xffinvalid\n', 1),
+]
+
+
 def candidate_directory(release):
     target = Path(os.environ.get('CARGO_TARGET_DIR', 'target'))
     if not target.is_absolute():
@@ -86,6 +102,11 @@ def main():
                 (['--verbose', '--version'], 0),
             ],
         }
+        (work / 'child.conf').write_bytes(b'set $child 4\ngaps inner $child\n')
+        for name, contents, status in CONFIG_FIXTURES:
+            fixture = work / (name + '.conf')
+            fixture.write_bytes(contents)
+            cases['i3'].append((['-C', '-c', str(fixture)], status))
         for name, entries in cases.items():
             for arguments, status in entries:
                 actual = invoke(candidates / name, arguments, env)

@@ -1,70 +1,16 @@
+// Copyright © 2009 Michael Stapelberg and contributors (see LICENSE).
+//! Native placeholder windows with owned display text and scoped event buffers.
 use crate::xcursor::Cursor;
 use i3_common::draw_util::draw_util_text;
-use i3_common::safewrappers::sasprintf;
-/*
- * vim:ts=4:sw=4:expandtab
- *
- * i3 - an improved tiling window manager
- * © 2009 Michael Stapelberg and contributors (see also: LICENSE)
- *
- * restore_layout.c: Everything for restored containers that is not pure state
- *                   parsing (which can be found in load_layout.c).
- *
- *
- */
-// Mechanical file-by-file Rust translation of src/restore_layout.c.
-// Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
-pub use libev_sys::{
-    ev_io, ev_io_start, ev_io_stop, ev_loop, ev_prepare, ev_prepare_start, ev_prepare_stop,
-    ev_watcher, EV_READ, EV__IOFDSET,
+use libev_sys::{
+    ev_io, ev_io_start, ev_io_stop, ev_loop, ev_prepare, ev_prepare_start, ev_prepare_stop, EV_READ,
 };
-
-pub type i3String = _i3String;
-
-pub type i3Font = Font;
-
-pub type fullscreen_mode_t = ::core::ffi::c_uint;
-pub const CF_GLOBAL: fullscreen_mode_t = 2;
-pub const CF_OUTPUT: fullscreen_mode_t = 1;
-pub const CF_NONE: fullscreen_mode_t = 0;
-
-pub const M_BELOW: ::core::ffi::c_uint = 2;
-pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
-pub const M_HERE: ::core::ffi::c_uint = 0;
-
-pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
-pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
-pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
-pub const M_NODOCK: ::core::ffi::c_int = 0;
-pub const M_DONTCHECK: ::core::ffi::c_int = -1;
-
-pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
-pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
-pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
-pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
-pub const A_COMMAND: ::core::ffi::c_uint = 1;
-pub const A_ANY: ::core::ffi::c_uint = 0;
-
-pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
-pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
-pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
-pub const CT_CON: ::core::ffi::c_uint = 2;
-pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
-pub const CT_ROOT: ::core::ffi::c_uint = 0;
-
-pub type hide_edge_borders_mode_t = ::core::ffi::c_uint;
-pub const HEBM_SMART_NO_GAPS: hide_edge_borders_mode_t = 64;
-pub const HEBM_SMART: hide_edge_borders_mode_t = 32;
-pub const HEBM_BOTH: hide_edge_borders_mode_t = 23;
-pub const HEBM_HORIZONTAL: hide_edge_borders_mode_t = 20;
-pub const HEBM_VERTICAL: hide_edge_borders_mode_t = 3;
-pub const HEBM_NONE: hide_edge_borders_mode_t = 0;
-
-pub type tiling_drag_t = ::core::ffi::c_uint;
-pub const TILING_DRAG_MODIFIER_OR_TITLEBAR: tiling_drag_t = 3;
-pub const TILING_DRAG_TITLEBAR: tiling_drag_t = 2;
-pub const TILING_DRAG_MODIFIER: tiling_drag_t = 1;
-pub const TILING_DRAG_OFF: tiling_drag_t = 0;
+use std::ffi::{CStr, CString};
+use std::ptr::NonNull;
+const true_0: i32 = 1;
+const false_0: i32 = 0;
+const CT_CON: u32 = 2;
+const M_DONTCHECK: i32 = -1;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -73,11 +19,11 @@ pub struct placeholder_state {
     pub con: *mut Con,
     pub rect: Rect,
     pub surface: surface_t,
-    pub state: C2RustUnnamed_23,
+    pub state: PlaceholderLinks,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed_23 {
+pub struct PlaceholderLinks {
     pub tqe_next: *mut placeholder_state,
     pub tqe_prev: *mut *mut placeholder_state,
 }
@@ -87,8 +33,6 @@ pub struct state_head {
     pub tqh_first: *mut placeholder_state,
     pub tqh_last: *mut *mut placeholder_state,
 }
-pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 static mut state_head: state_head = state_head {
@@ -99,6 +43,76 @@ static mut restore_conn: *mut xcb_connection_t =
     ::core::ptr::null::<xcb_connection_t>() as *mut xcb_connection_t;
 static mut xcb_watcher: *mut ev_io = ::core::ptr::null::<ev_io>() as *mut ev_io;
 static mut xcb_prepare: *mut ev_prepare = ::core::ptr::null::<ev_prepare>() as *mut ev_prepare;
+struct NativeEvent(NonNull<xcb_generic_event_t>);
+impl NativeEvent {
+    unsafe fn take(ptr: *mut xcb_generic_event_t) -> Option<Self> {
+        NonNull::new(ptr).map(Self)
+    }
+}
+impl Drop for NativeEvent {
+    fn drop(&mut self) {
+        unsafe {
+            free(self.0.as_ptr().cast());
+        }
+    }
+}
+fn serialize_swallow(fields: [Option<&CStr>; 5]) -> Option<CString> {
+    let mut output = Vec::new();
+    for (name, value) in [
+        b"class".as_slice(),
+        b"instance",
+        b"window_role",
+        b"title",
+        b"machine",
+    ]
+    .into_iter()
+    .zip(fields)
+    {
+        if let Some(value) = value {
+            output.push(if output.is_empty() { b'[' } else { b' ' });
+            output.extend_from_slice(name);
+            output.extend_from_slice(b"=\"");
+            output.extend_from_slice(value.to_bytes());
+            output.push(b'"');
+        }
+    }
+    if output.is_empty() {
+        None
+    } else {
+        output.push(b']');
+        Some(CString::new(output).unwrap())
+    }
+}
+/// Borrow only pattern values long enough to copy the display text; never keep
+/// a Match/Con reference across drawing/native callbacks.
+unsafe fn swallow_text(swallow: *const Match) -> Option<CString> {
+    let fields = unsafe {
+        [
+            (*swallow).class,
+            (*swallow).instance,
+            (*swallow).window_role,
+            (*swallow).title,
+            (*swallow).machine,
+        ]
+    };
+    serialize_swallow(fields.map(|field| unsafe { field.as_ref() }.map(|regex| regex.pattern())))
+}
+fn text_geometry(rect: Rect, font_height: i32, padding: i32, line: i32) -> (i32, i32, i32) {
+    (
+        padding,
+        line.wrapping_mul(font_height.wrapping_add(padding))
+            .wrapping_add(padding),
+        rect.width.wrapping_sub(padding.wrapping_mul(2) as u32) as i32,
+    )
+}
+fn centered_text(rect: Rect, width: i32, height: i32) -> (i32, i32) {
+    (
+        rect.width.wrapping_div(2).wrapping_sub((width / 2) as u32) as i32,
+        rect.height
+            .wrapping_div(2)
+            .wrapping_sub((height / 2) as u32) as i32,
+    )
+}
 unsafe extern "C" fn restore_xcb_got_event(
     loop_0: *mut ev_loop,
     w: *mut ev_io,
@@ -124,10 +138,10 @@ unsafe extern "C" fn restore_xcb_prepare_cb(
         return;
     }
     loop {
-        event = xcb_poll_for_event(restore_conn);
-        if event.is_null() {
+        let Some(owned_event) = NativeEvent::take(xcb_poll_for_event(restore_conn)) else {
             break;
-        }
+        };
+        event = owned_event.0.as_ptr();
         if (*event).response_type as ::core::ffi::c_int == 0 as ::core::ffi::c_int {
             let error: *mut xcb_generic_error_t = event as *mut xcb_generic_error_t;
             debuglog(
@@ -138,12 +152,10 @@ unsafe extern "C" fn restore_xcb_prepare_cb(
                 (*error).sequence as ::core::ffi::c_int,
                 (*error).error_code as ::core::ffi::c_int,
             );
-            free(event as *mut ::core::ffi::c_void);
         } else {
             let type_0: ::core::ffi::c_int =
                 (*event).response_type as ::core::ffi::c_int & 0x7f as ::core::ffi::c_int;
             restore_handle_event(type_0, event);
-            free(event as *mut ::core::ffi::c_void);
         }
     }
     xcb_flush(restore_conn);
@@ -161,6 +173,7 @@ pub unsafe fn restore_connect() {
                 state_head.tqh_last = (*state).state.tqe_prev;
             }
             *(*state).state.tqe_prev = (*state).state.tqe_next;
+            draw_util_surface_free(restore_conn, &raw mut (*state).surface);
             free(state as *mut ::core::ffi::c_void);
         }
         xcb_disconnect(restore_conn);
@@ -178,43 +191,13 @@ pub unsafe fn restore_connect() {
     xcb_watcher = scalloc(1 as usize, ::core::mem::size_of::<ev_io>() as usize) as *mut ev_io;
     xcb_prepare =
         scalloc(1 as usize, ::core::mem::size_of::<ev_prepare>() as usize) as *mut ev_prepare;
-    let ref mut fresh0 = (*(xcb_watcher as *mut ::core::ffi::c_void as *mut ev_watcher)).pending;
-    *fresh0 = 0 as ::core::ffi::c_int;
-    (*(xcb_watcher as *mut ::core::ffi::c_void as *mut ev_watcher)).active = *fresh0;
-    (*(xcb_watcher as *mut ::core::ffi::c_void as *mut ev_watcher)).priority =
-        0 as ::core::ffi::c_int;
-    (*xcb_watcher).cb = Some(
-        restore_xcb_got_event
-            as unsafe extern "C" fn(*mut ev_loop, *mut ev_io, ::core::ffi::c_int) -> (),
-    )
-        as Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_io, ::core::ffi::c_int) -> ()>;
-    memmove(
-        &raw mut (*(xcb_watcher as *mut ev_watcher)).cb as *mut ::core::ffi::c_void,
-        &raw mut (*xcb_watcher).cb as *const ::core::ffi::c_void,
-        ::core::mem::size_of::<
-            Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_io, ::core::ffi::c_int) -> ()>,
-        >() as usize,
-    );
-    (*xcb_watcher).fd = xcb_get_file_descriptor(restore_conn);
-    (*xcb_watcher).events = EV_READ as ::core::ffi::c_int | EV__IOFDSET as ::core::ffi::c_int;
+    xcb_watcher.write(ev_io::new(
+        xcb_get_file_descriptor(restore_conn),
+        EV_READ,
+        restore_xcb_got_event,
+    ));
     ev_io_start(main_loop, xcb_watcher);
-    let ref mut fresh1 = (*(xcb_prepare as *mut ::core::ffi::c_void as *mut ev_watcher)).pending;
-    *fresh1 = 0 as ::core::ffi::c_int;
-    (*(xcb_prepare as *mut ::core::ffi::c_void as *mut ev_watcher)).active = *fresh1;
-    (*(xcb_prepare as *mut ::core::ffi::c_void as *mut ev_watcher)).priority =
-        0 as ::core::ffi::c_int;
-    (*xcb_prepare).cb = Some(
-        restore_xcb_prepare_cb
-            as unsafe extern "C" fn(*mut ev_loop, *mut ev_prepare, ::core::ffi::c_int) -> (),
-    )
-        as Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_prepare, ::core::ffi::c_int) -> ()>;
-    memmove(
-        &raw mut (*(xcb_prepare as *mut ev_watcher)).cb as *mut ::core::ffi::c_void,
-        &raw mut (*xcb_prepare).cb as *const ::core::ffi::c_void,
-        ::core::mem::size_of::<
-            Option<unsafe extern "C" fn(*mut ev_loop, *mut ev_prepare, ::core::ffi::c_int) -> ()>,
-        >() as usize,
-    );
+    xcb_prepare.write(ev_prepare::new(restore_xcb_prepare_cb));
     ev_prepare_start(main_loop, xcb_prepare);
 }
 unsafe fn update_placeholder_contents(state: *mut placeholder_state) {
@@ -226,163 +209,49 @@ unsafe fn update_placeholder_contents(state: *mut placeholder_state) {
     let mut n: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
     swallows = (*(*state).con).swallow_head.tqh_first as *mut Match;
     while !swallows.is_null() {
-        let mut serialized: *mut ::core::ffi::c_char =
-            ::core::ptr::null_mut::<::core::ffi::c_char>();
-        if !(*swallows).class.is_null() {
-            let old_serialized: *mut ::core::ffi::c_char = serialized;
-            sasprintf(
-                &raw mut serialized,
-                c"%s%sclass=\"%s\"".as_ptr(),
-                if !serialized.is_null() {
-                    serialized as *const ::core::ffi::c_char
-                } else {
-                    c"[".as_ptr()
-                },
-                if !serialized.is_null() {
-                    c" ".as_ptr()
-                } else {
-                    c"".as_ptr()
-                },
-                (*(*swallows).class).pattern,
-            );
-            free(old_serialized as *mut ::core::ffi::c_void);
-        }
-        if !(*swallows).instance.is_null() {
-            let old_serialized_0: *mut ::core::ffi::c_char = serialized;
-            sasprintf(
-                &raw mut serialized,
-                c"%s%sinstance=\"%s\"".as_ptr(),
-                if !serialized.is_null() {
-                    serialized as *const ::core::ffi::c_char
-                } else {
-                    c"[".as_ptr()
-                },
-                if !serialized.is_null() {
-                    c" ".as_ptr()
-                } else {
-                    c"".as_ptr()
-                },
-                (*(*swallows).instance).pattern,
-            );
-            free(old_serialized_0 as *mut ::core::ffi::c_void);
-        }
-        if !(*swallows).window_role.is_null() {
-            let old_serialized_1: *mut ::core::ffi::c_char = serialized;
-            sasprintf(
-                &raw mut serialized,
-                c"%s%swindow_role=\"%s\"".as_ptr(),
-                if !serialized.is_null() {
-                    serialized as *const ::core::ffi::c_char
-                } else {
-                    c"[".as_ptr()
-                },
-                if !serialized.is_null() {
-                    c" ".as_ptr()
-                } else {
-                    c"".as_ptr()
-                },
-                (*(*swallows).window_role).pattern,
-            );
-            free(old_serialized_1 as *mut ::core::ffi::c_void);
-        }
-        if !(*swallows).title.is_null() {
-            let old_serialized_2: *mut ::core::ffi::c_char = serialized;
-            sasprintf(
-                &raw mut serialized,
-                c"%s%stitle=\"%s\"".as_ptr(),
-                if !serialized.is_null() {
-                    serialized as *const ::core::ffi::c_char
-                } else {
-                    c"[".as_ptr()
-                },
-                if !serialized.is_null() {
-                    c" ".as_ptr()
-                } else {
-                    c"".as_ptr()
-                },
-                (*(*swallows).title).pattern,
-            );
-            free(old_serialized_2 as *mut ::core::ffi::c_void);
-        }
-        if !(*swallows).machine.is_null() {
-            let old_serialized_3: *mut ::core::ffi::c_char = serialized;
-            sasprintf(
-                &raw mut serialized,
-                c"%s%smachine=\"%s\"".as_ptr(),
-                if !serialized.is_null() {
-                    serialized as *const ::core::ffi::c_char
-                } else {
-                    c"[".as_ptr()
-                },
-                if !serialized.is_null() {
-                    c" ".as_ptr()
-                } else {
-                    c"".as_ptr()
-                },
-                (*(*swallows).machine).pattern,
-            );
-            free(old_serialized_3 as *mut ::core::ffi::c_void);
-        }
-        if serialized.is_null() {
-            debuglog(
-                c"%s:%s:%d - This swallows specification is not serializable?!\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/restore_layout.c".as_ptr(),
-                c"update_placeholder_contents".as_ptr(),
-                159 as ::core::ffi::c_int,
-            );
-        } else {
-            let old_serialized_4: *mut ::core::ffi::c_char = serialized;
-            sasprintf(&raw mut serialized, c"%s]".as_ptr(), serialized);
-            free(old_serialized_4 as *mut ::core::ffi::c_void);
+        if let Some(serialized) = swallow_text(swallows) {
             debuglog(
                 c"%s:%s:%d - con %p (placeholder 0x%08x) line %d: %s\n"
                     .as_ptr()
                     .cast_mut(),
                 c"../src/restore_layout.c".as_ptr(),
                 c"update_placeholder_contents".as_ptr(),
-                166 as ::core::ffi::c_int,
+                166 as libc::c_int,
                 (*state).con,
                 (*state).window,
                 n,
-                serialized,
+                serialized.as_ptr(),
             );
-            let str: *mut i3String = i3string_from_utf8(serialized);
+            let text = i3_common::string::I3String::from_cstr(&serialized);
+            let (x, y, max_width) =
+                text_geometry((*state).rect, config.font.height, logical_px(2), n);
             draw_util_text(
-                str,
+                (&raw const text).cast_mut(),
                 &raw mut (*state).surface,
                 foreground,
                 background,
-                logical_px(2 as ::core::ffi::c_int),
-                n * (config.font.height + logical_px(2 as ::core::ffi::c_int))
-                    + logical_px(2 as ::core::ffi::c_int),
-                (*state).rect.width.wrapping_sub(
-                    (2 as ::core::ffi::c_int * logical_px(2 as ::core::ffi::c_int)) as u32,
-                ) as ::core::ffi::c_int,
+                x,
+                y,
+                max_width,
             );
-            i3string_free(str);
             n += 1;
-            free(serialized as *mut ::core::ffi::c_void);
+        } else {
+            debuglog(
+                c"%s:%s:%d - This swallows specification is not serializable?!\n"
+                    .as_ptr()
+                    .cast_mut(),
+                c"../src/restore_layout.c".as_ptr(),
+                c"update_placeholder_contents".as_ptr(),
+                159 as libc::c_int,
+            );
         }
         swallows = (*swallows).matches.tqe_next as *mut Match;
     }
-    let line: *mut i3String = i3string_from_utf8(c"⌚".as_ptr());
-    let text_width: ::core::ffi::c_int = predict_text_width(line);
-    let x: ::core::ffi::c_int = (*state)
-        .rect
-        .width
-        .wrapping_div(2 as u32)
-        .wrapping_sub((text_width / 2 as ::core::ffi::c_int) as u32)
-        as ::core::ffi::c_int;
-    let y: ::core::ffi::c_int = (*state)
-        .rect
-        .height
-        .wrapping_div(2 as u32)
-        .wrapping_sub((config.font.height / 2 as ::core::ffi::c_int) as u32)
-        as ::core::ffi::c_int;
+    let line = i3_common::string::I3String::new("⌚");
+    let text_width = predict_text_width((&raw const line).cast_mut());
+    let (x, y) = centered_text((*state).rect, text_width, config.font.height);
     draw_util_text(
-        line,
+        (&raw const line).cast_mut(),
         &raw mut (*state).surface,
         foreground,
         background,
@@ -390,7 +259,6 @@ unsafe fn update_placeholder_contents(state: *mut placeholder_state) {
         y,
         text_width,
     );
-    i3string_free(line);
     xcb_aux_sync(restore_conn);
 }
 unsafe fn open_placeholder_window(con: *mut Con) {
@@ -708,5 +576,29 @@ use i3_common::draw_util::draw_util_surface_init;
 use i3_common::draw_util::draw_util_surface_set_size;
 use i3_common::font::predict_text_width;
 use i3_common::get_visualtype::get_visualtype;
-use i3_common::string::i3string_free;
-use i3_common::string::i3string_from_utf8;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn swallow_display_retains_order_raw_bytes_quotes_and_empty_values() {
+        assert!(serialize_swallow([None; 5]).is_none());
+        assert_eq!(
+            serialize_swallow([Some(c"A\xff"), Some(c""), None, Some(c"q\"\\"), None])
+                .unwrap()
+                .to_bytes(),
+            b"[class=\"A\xff\" instance=\"\" title=\"q\"\\\"]"
+        );
+    }
+    #[test]
+    fn placeholder_geometry_preserves_unsigned_center_and_width_projection() {
+        let rect = Rect {
+            x: 0,
+            y: 0,
+            width: 3,
+            height: 5,
+        };
+        assert_eq!(text_geometry(rect, 10, 2, 3), (2, 38, -1));
+        assert_eq!(centered_text(rect, 8, 10), (-3, -3));
+    }
+}

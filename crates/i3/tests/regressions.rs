@@ -21,7 +21,7 @@ fn ipc_16_fixture_groups() {
     suite("ipc");
 }
 #[test]
-fn cli_30_core_and_bar_cases() {
+fn cli_39_core_and_bar_cases() {
     suite("cli");
 }
 #[test]
@@ -45,4 +45,9 @@ fn nagbar_4_private_render_and_close_checks() {
 #[test]
 fn wizard_5_private_workflow_and_config_checks() {
     suite("wizard");
+}
+
+#[test]
+fn bar_2_private_stream_workflows() {
+    suite("bar");
 }
