@@ -9,11 +9,11 @@
  */
 #![deny(unsafe_op_in_unsafe_fn)]
 
-use crate::application::{A_I3_SYNC, conn};
+use crate::application::{conn, A_I3_SYNC};
 use crate::log::debuglog;
 use xcb_sys::{
-    XCB_CLIENT_MESSAGE, XCB_EVENT_MASK_NO_EVENT, xcb_atom_t, xcb_client_message_data_t,
-    xcb_client_message_event_t, xcb_flush, xcb_send_event, xcb_window_t,
+    xcb_atom_t, xcb_client_message_data_t, xcb_client_message_event_t, xcb_flush, xcb_send_event,
+    xcb_window_t, XCB_CLIENT_MESSAGE, XCB_EVENT_MASK_NO_EVENT,
 };
 
 // SendEvent copies exactly 32 bytes. These assertions also exclude padding in

@@ -36,6 +36,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "cairo-rs"
+version = "0.21.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b01fe135c0bd16afe262b6dea349bd5ea30e6de50708cec639aae7c5c14cc7e4"
+dependencies = [
+ "bitflags",
+ "cairo-sys-rs",
+ "libc",
+]
+
+[[package]]
 name = "cairo-sys-rs"
 version = "0.21.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -177,6 +188,7 @@ name = "i3-common"
 version = "4.25.0"
 dependencies = [
  "c2rust-bitfields",
+ "cairo-rs",
  "cairo-sys-rs",
  "gobject-sys",
  "i3-build",

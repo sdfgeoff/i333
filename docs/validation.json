@@ -8,26 +8,26 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 16 wallclock secs ( 0.63 usr +  0.06 sys =  0.69 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 16 wallclock secs ( 0.55 usr +  0.07 sys =  0.62 CPU)\nResult: PASS",
     "profile": "debug",
     "build": "cargo test",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "b7dda6601ef010611b21bba9d3047d68df94fc09d62063ab9a5da12bd00354cd",
-    "i3bar": "e11fd8b2d76827f32aaa50e3d89136fa9d73b272856ef1ddd576caffab9e443b",
-    "i3-config-wizard": "9540e55ae354120f9d7935cfd8ee28dda6a51bb1c3118c06fdaac8b904df7d3b",
-    "i3-dump-log": "68c474060fbd1933e43e0b42ca10fd04dda67783a716f86b5404d5f2d447da02",
-    "i3-input": "fc120c440217f3390cacf7423ab9dd3855160f53195d9e9819afbafd059aa30a",
-    "i3-msg": "4122c0206fc8c0eb548f17544c972869c987194673dfdd8a54c495ced17a2e92",
-    "i3-nagbar": "8aac77781ba095dd491ec2e7b8109bdc717007c8731ce2d36db19a3cfccc81bd"
+    "i3": "6395835078c9215e018577e6ce5058b1eab876d1c03dd100aa51f88077b61200",
+    "i3bar": "6d1ddee2844f517590f4b4ea961e6272aec79bf5d3c0a874bd9f512f605045c1",
+    "i3-config-wizard": "8d402cf27f8092235d7e4a1135ed7f70b3dfd2b56b0684247a3441f51c33158f",
+    "i3-dump-log": "0352c9d04eff4a06f616aea0daa4340226d54e73aaea9bcba16d5b844f150ed1",
+    "i3-input": "215d1edee641ffcc657b4b92bb645046c1992953dcbcbe015546a530612d755e",
+    "i3-msg": "acd02228030561948f3ffbfe075f8276baee233c6ec764c551b9ec2390273dde",
+    "i3-nagbar": "9c0ae58d421f7bcc3e66321900df631cf81084b6364c521a163b1419664e0683"
   },
-  "note": "Ten-member Cargo workspace. Plain cargo test passed164 Rust-reported tests, native oracles, external C IPC/CLI/headless/input comparisons, and all4205 upstream assertions. Exact debug hashes above match this Cargo-driven run. Routine validation uses one repository-nightly pass per batch. Native/global tree and rendering ownership boundaries remain explicitly unsafe; Linux x86_64 GNU ABI only.",
+  "note": "Ten-member Cargo workspace. Plain cargo test passed 185 Rust-reported tests, native oracles, external C IPC/CLI/headless/input/nagbar comparisons, and all 4205 upstream assertions. Exact debug hashes above match this Cargo-driven run. Routine validation uses one repository-nightly pass per batch. Native/global tree, shared-memory and rendering boundaries remain explicitly unsafe; Linux x86_64 GNU ABI only.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
   "additional_checks": {
     "headless_c_rust_state_comparisons": 52,
     "ipc_client_test_groups": 16,
-    "workspace_unit_tests": 164,
+    "workspace_unit_tests": 185,
     "core_and_bar_cli_comparisons": 30,
     "pcre2_compile_match_error_comparisons": 4620,
     "json_oracle_cases": 2218,
@@ -45,7 +45,8 @@
     "variadic_formatting_and_cursor_copy_current_nightly": true,
     "color_channel_native_strtol_comparisons": 65536,
     "fake_output_native_sscanf_comparisons": 1552,
-    "ubuntu_fresh_perl_install_distributions": 44
+    "ubuntu_fresh_perl_install_distributions": 44,
+    "nagbar_private_render_and_close_cases": 4
   },
   "toolchain": {
     "rustc": "rustc 1.99.0-nightly (11177f223 2026-08-02)",
@@ -70,8 +71,8 @@
     "compile_only": true,
     "all_unit_and_integration_test_targets_compiled": true,
     "automatic_after_each_source_edit": false,
-    "last_verified_commit": "e86badf8f9e7dda68b0f3cf22ba4d1b26855f777",
-    "last_verification_environment": "GitHub Actions Ubuntu24; structural clean-source feature"
+    "last_verification_environment": "Local fresh-source structural feature; cargo test -p i3-test-support --features clean-source-check",
+    "last_verified_batch": 4
   },
   "repository_cleanup": {
     "obsolete_files_removed": 216,
@@ -107,10 +108,10 @@
     "binary_count": 7,
     "native_library_discovery": "maintained native binding build scripts and dedicated sys crates; i3-build links only platform m/rt",
     "unit_tests": {
-      "i3": 33,
+      "i3": 39,
       "xkb_integration": 1,
       "i3-build": 3,
-      "i3-common": 55,
+      "i3-common": 59,
       "native_graphics": 5,
       "i3-json": 16,
       "i3-dump-log": 5,
@@ -119,14 +120,15 @@
       "startup-notification-sys": 1,
       "xcb-sys": 2,
       "libev-sys": 2,
-      "i3bar": 18,
-      "cargo_regression_wrappers": 5,
-      "binary_artifact_checks": 2
+      "i3bar": 25,
+      "cargo_regression_wrappers": 6,
+      "binary_artifact_checks": 2,
+      "i3-nagbar": 3
     },
     "cargo_fmt_check": true,
     "debug_build": true,
     "release_build": null,
-    "unit_tests_total_including_integration_checks": 164,
+    "unit_tests_total_including_integration_checks": 185,
     "test_command": "cargo test",
     "clean_source_command": "cargo test -p i3-test-support --features clean-source-check",
     "test_support": "development-only process capture, failure propagation and isolated regression orchestration",
@@ -137,7 +139,7 @@
     "yajl_product_dependency": false,
     "json": "serde/serde_json with incremental stream parser and Rust compatibility adapters",
     "regex": "maintained pcre2 safe wrapper, preserving full PCRE semantics",
-    "graphics": "maintained cairo-sys-rs, pango-sys, pangocairo-sys and gobject-sys",
+    "graphics": "Maintained cairo-rs borrowed context/surface APIs for drawing; cairo-sys-rs, pango-sys, pangocairo-sys and gobject-sys at remaining native boundaries",
     "xkb": "maintained xkbcommon bindings",
     "internal_no_mangle_exports": 0,
     "remaining_unsafe": "Native FFI/callbacks, intrusive window-tree ownership, legacy allocation and JSON pointer adapters",
@@ -238,13 +240,36 @@
         ],
         "remaining_boundaries": "Legacy tree/global mutation, raw mapped native handles and event-thread resource lifetimes stay unsafe by contract. No owned Rust references escape those borrows.",
         "validation": "One default cargo test passed164 Rust-reported tests and all external suites."
+      },
+      {
+        "batch": 4,
+        "files": [
+          "crates/i3-common/src/draw_util.rs",
+          "crates/i3/src/log.rs",
+          "crates/i3bar/src/config.rs",
+          "crates/i3-tools/src/bin/i3-nagbar/application.rs"
+        ],
+        "improvements": [
+          "Maintained cairo-rs borrowed drawing wrappers and pixel/state tests",
+          "Owned log formatting and native shared-memory/fd resource guards with checked ring write planning",
+          "Safe owned bar configuration patches and Box-owned binding/tray nodes",
+          "Local owned nagbar state, text/buttons, native resource guards and parent-prepared action scripts"
+        ],
+        "safety_fixes": [
+          "Tiny shared-memory mappings rejected and ring truncation bounded",
+          "Failed log stream clients release file descriptors",
+          "Nagbar layout arithmetic is bounded and font address remains stable through teardown"
+        ],
+        "remaining_boundaries": "Global zero-initialized configuration and reload command strings preserve their existing ABI; shared-memory writes use raw pointers; native event/tree and fork-child contracts remain explicit.",
+        "validation": "cargo test passed 185 Rust-reported tests and all external suites, including four new private-display nagbar C render/close comparisons."
       }
     ]
   },
   "ci_dependency_preparation": {
     "confirmed_previous_failure": "X11::XCB required missing xcb-composite.pc and protocol XML metadata",
     "fix": "Install libxcb-composite0-dev and xcb-proto; preflight now identifies missing modules/XML and surfaces nested CPAN build logs",
-    "reproduction": "Ubuntu24 exact CPAN configure failed before the fix, succeeded afterward; fresh44-distribution CPAN install and module imports passed. Full e86badf8 GitHub Actions workflow subsequently succeeded."
+    "reproduction": "Ubuntu24 exact CPAN configure failed before the fix, succeeded afterward; fresh44-distribution CPAN install and module imports passed. Full e86badf8 GitHub Actions workflow subsequently succeeded.",
+    "subsequent_failure": "d6401e98 CI dependency preparation passed; formatting failed because direct rustfmt used edition2024 rather than workspace edition2021. Scoped import formatting corrected in batch4."
   },
   "last_observed_green_ci": {
     "commit": "e86badf8f9e7dda68b0f3cf22ba4d1b26855f777",

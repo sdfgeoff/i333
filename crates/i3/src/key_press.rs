@@ -13,7 +13,7 @@ use crate::application::last_timestamp;
 use crate::bindings::{get_binding_from_xcb_event, run_binding};
 use crate::commands_parser::command_result_free;
 use crate::log::debuglog;
-use xcb_sys::{XCB_KEY_RELEASE, xcb_generic_event_t, xcb_key_press_event_t};
+use xcb_sys::{xcb_generic_event_t, xcb_key_press_event_t, XCB_KEY_RELEASE};
 
 /// Dispatch a native key event against the current bindings.
 ///

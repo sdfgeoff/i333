@@ -802,7 +802,10 @@ unsafe fn execute_custom_command(input_code: xcb_keycode_t, event_is_release: bo
         {
             binding_0 = (*binding_0).bindings.tqe_next as *mut binding_t;
         } else {
-            i3_send_msg(I3_IPC_MESSAGE_TYPE_RUN_COMMAND as u32, (*binding_0).command);
+            i3_send_msg(
+                I3_IPC_MESSAGE_TYPE_RUN_COMMAND as u32,
+                (*binding_0).command_ptr(),
+            );
             return true_0 != 0;
         }
     }
@@ -2757,8 +2760,10 @@ unsafe fn get_tray_output() -> *mut i3_output {
             output = (*output).slist.sle_next as *mut i3_output;
         }
         return ::core::ptr::null_mut::<i3_output>();
-    } else if strcasecmp((*config.tray_outputs.tqh_first).output, c"none".as_ptr())
-        == 0 as ::core::ffi::c_int
+    } else if strcasecmp(
+        (*config.tray_outputs.tqh_first).output_ptr(),
+        c"none".as_ptr(),
+    ) == 0 as ::core::ffi::c_int
     {
         return ::core::ptr::null_mut::<i3_output>();
     }
@@ -2768,9 +2773,9 @@ unsafe fn get_tray_output() -> *mut i3_output {
         output = (*outputs).slh_first as *mut i3_output;
         while !output.is_null() {
             if (*output).active as ::core::ffi::c_int != 0
-                && (strcasecmp((*output).name_ptr(), (*tray_output).output)
+                && (strcasecmp((*output).name_ptr(), (*tray_output).output_ptr())
                     == 0 as ::core::ffi::c_int
-                    || strcasecmp((*tray_output).output, c"primary".as_ptr())
+                    || strcasecmp((*tray_output).output_ptr(), c"primary".as_ptr())
                         == 0 as ::core::ffi::c_int
                         && (*output).primary as ::core::ffi::c_int != 0)
             {

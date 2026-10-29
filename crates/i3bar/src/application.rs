@@ -16,26 +16,14 @@ pub use libev_sys::{
 
 pub type i3String = _i3String;
 
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct binding_t {
-    pub input_code: ::core::ffi::c_int,
-    pub command: *mut ::core::ffi::c_char,
-    pub release: bool,
-    pub bindings: C2RustUnnamed_0,
-}
+pub use crate::config::Binding as binding_t;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct C2RustUnnamed_0 {
     pub tqe_next: *mut binding_t,
     pub tqe_prev: *mut *mut binding_t,
 }
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct tray_output_t {
-    pub output: *mut ::core::ffi::c_char,
-    pub tray_outputs: C2RustUnnamed_1,
-}
+pub use crate::config::TrayOutput as tray_output_t;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct C2RustUnnamed_1 {

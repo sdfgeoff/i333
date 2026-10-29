@@ -6,10 +6,10 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 
 use xcb_sys::{
-    XCB_CW_BACK_PIXMAP, XCB_FILL_STYLE_SOLID, XCB_GC_FILL_STYLE, XCB_GC_FUNCTION,
-    XCB_GC_PLANE_MASK, XCB_GC_SUBWINDOW_MODE, XCB_GX_COPY, XCB_SUBWINDOW_MODE_INCLUDE_INFERIORS,
     xcb_change_window_attributes, xcb_connection_t, xcb_copy_area, xcb_create_gc,
     xcb_create_pixmap, xcb_flush, xcb_free_gc, xcb_free_pixmap, xcb_generate_id, xcb_screen_t,
+    XCB_CW_BACK_PIXMAP, XCB_FILL_STYLE_SOLID, XCB_GC_FILL_STYLE, XCB_GC_FUNCTION,
+    XCB_GC_PLANE_MASK, XCB_GC_SUBWINDOW_MODE, XCB_GX_COPY, XCB_SUBWINDOW_MODE_INCLUDE_INFERIORS,
 };
 
 /// Capture the screen, including child windows, without waiting for a helper process.

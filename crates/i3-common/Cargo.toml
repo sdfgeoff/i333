@@ -9,6 +9,7 @@ repository.workspace = true
 xcb-sys.workspace = true
 libc.workspace = true
 c2rust-bitfields.workspace = true
+cairo.workspace = true
 cairo-sys.workspace = true
 pango-sys.workspace = true
 pangocairo-sys.workspace = true

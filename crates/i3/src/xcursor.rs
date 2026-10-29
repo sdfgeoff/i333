@@ -14,8 +14,8 @@ use i3_common::native_stdio::errx;
 use std::ffi::CStr;
 use std::ptr::NonNull;
 use xcb_sys::{
-    XCB_CW_CURSOR, xcb_change_window_attributes, xcb_cursor_context_free, xcb_cursor_context_new,
-    xcb_cursor_context_t, xcb_cursor_load_cursor, xcb_cursor_t,
+    xcb_change_window_attributes, xcb_cursor_context_free, xcb_cursor_context_new,
+    xcb_cursor_context_t, xcb_cursor_load_cursor, xcb_cursor_t, XCB_CW_CURSOR,
 };
 
 /// An index into the cursor cache, separate from native XCB cursor IDs.

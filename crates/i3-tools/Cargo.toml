@@ -41,7 +41,7 @@ bench = false
 [[bin]]
 name = "i3-nagbar"
 path = "src/bin/i3-nagbar/main.rs"
-test = false
+test = true
 bench = false
 
 [[bin]]

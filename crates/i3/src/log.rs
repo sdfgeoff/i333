@@ -1,37 +1,25 @@
-use i3_common::safewrappers::sasprintf;
 /*
- * vim:ts=4:sw=4:expandtab
- *
  * i3 - an improved tiling window manager
  * © 2009 Michael Stapelberg and contributors (see also: LICENSE)
- *
- * log.c: Logging functions.
- *
+ * Logging and the shared-memory wire protocol consumed by i3-dump-log.
  */
-// Mechanical file-by-file Rust translation of src/log.c.
-// Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
+use std::ffi::{CStr, CString};
+use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
+use std::os::unix::ffi::OsStrExt;
+use std::ptr::NonNull;
+
+use i3_common::get_process_filename::get_process_filename;
 use i3_common::i333_va_list;
+use i3_common::native_stdio::{stderr, stdout, vfprintf, vprintf, vsnprintf};
+use i3_common::nonblock::set_nonblock;
+use i3_common::safewrappers::writeall;
+use libc::{
+    __errno_location, atexit, fcntl, fflush, fileno, fopen, fprintf, fwrite, localtime_r, perror,
+    strerror, strftime, sysconf, time, tm, FD_CLOEXEC, FILE, F_SETFD,
+};
 pub use libev_sys::{ev_io, ev_loop};
 
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct log_client {
-    pub fd: ::core::ffi::c_int,
-    pub clients: C2RustUnnamed_0,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct C2RustUnnamed_0 {
-    pub tqe_next: *mut log_client,
-    pub tqe_prev: *mut *mut log_client,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct log_client_head {
-    pub tqh_first: *mut log_client,
-    pub tqh_last: *mut *mut log_client,
-}
-#[derive(Copy, Clone)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(C)]
 pub struct i3_shmlog_header {
     pub offset_next_write: u32,
@@ -39,56 +27,217 @@ pub struct i3_shmlog_header {
     pub size: u32,
     pub wrap_count: u32,
 }
+const HEADER_SIZE: usize = size_of::<i3_shmlog_header>();
+const MESSAGE_CAPACITY: usize = 4096;
 
-pub const EINTR: ::core::ffi::c_int = 4 as ::core::ffi::c_int;
-pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-pub const __S_IREAD: ::core::ffi::c_int = 0o400 as ::core::ffi::c_int;
-pub const __S_IWRITE: ::core::ffi::c_int = 0o200 as ::core::ffi::c_int;
-pub const S_IREAD: ::core::ffi::c_int = S_IRUSR;
-pub const S_IWRITE: ::core::ffi::c_int = S_IWUSR;
-pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
-pub const O_RDWR: ::core::ffi::c_int = 0o2 as ::core::ffi::c_int;
-pub const O_CREAT: ::core::ffi::c_int = 0o100 as ::core::ffi::c_int;
-pub const F_SETFD: ::core::ffi::c_int = 2 as ::core::ffi::c_int;
-pub const FD_CLOEXEC: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const S_IRUSR: ::core::ffi::c_int = __S_IREAD;
-pub const S_IWUSR: ::core::ffi::c_int = __S_IWRITE;
-pub const PROT_READ: ::core::ffi::c_int = 0x1 as ::core::ffi::c_int;
-pub const PROT_WRITE: ::core::ffi::c_int = 0x2 as ::core::ffi::c_int;
-pub const MAP_SHARED: ::core::ffi::c_int = 0x1 as ::core::ffi::c_int;
-pub const MAP_FAILED: *mut ::core::ffi::c_void =
-    -(1 as ::core::ffi::c_int) as *mut ::core::ffi::c_void;
-static mut debug_logging: bool = false_0 != 0;
-static mut verbose: bool = false_0 != 0;
-static mut errorfile: *mut FILE = ::core::ptr::null::<FILE>() as *mut FILE;
+/// A checked operation on numeric offsets; it never borrows shared memory.
+#[derive(Debug, PartialEq, Eq)]
+struct RingWritePlan {
+    start: usize,
+    len: usize,
+    wrapped: bool,
+    next: i3_shmlog_header,
+}
+impl RingWritePlan {
+    fn new(old: i3_shmlog_header, message_len: usize) -> Option<Self> {
+        let size = old.size as usize;
+        let valid_offset = |offset: u32| (HEADER_SIZE..=size).contains(&(offset as usize));
+        if size <= HEADER_SIZE
+            || !valid_offset(old.offset_next_write)
+            || !valid_offset(old.offset_last_wrap)
+        {
+            return None;
+        }
+        let len = message_len.min(size - HEADER_SIZE);
+        let wrapped = len >= size - old.offset_next_write as usize;
+        let start = if wrapped {
+            HEADER_SIZE
+        } else {
+            old.offset_next_write as usize
+        };
+        Some(Self {
+            start,
+            len,
+            wrapped,
+            next: i3_shmlog_header {
+                offset_next_write: (start + len) as u32,
+                offset_last_wrap: if wrapped {
+                    old.offset_next_write
+                } else {
+                    old.offset_last_wrap
+                },
+                size: old.size,
+                wrap_count: old.wrap_count.wrapping_add(u32::from(wrapped)),
+            },
+        })
+    }
+    fn record(&self, message: &[u8]) -> Vec<u8> {
+        let mut record = message[..self.len].to_vec();
+        // Formerly an out-of-bounds write when a configured ring was too small.
+        if message.len() > self.len {
+            if self.len >= 2 {
+                record[self.len - 2] = b'\n';
+            }
+            if self.len > 0 {
+                record[self.len - 1] = 0;
+            }
+        }
+        // Preserve strncpy's padding, including embedded NULs in printf output.
+        if let Some(nul) = record.iter().position(|byte| *byte == 0) {
+            record[nul..].fill(0);
+        }
+        record
+    }
+}
 
-pub static mut errorfilename: *mut ::core::ffi::c_char =
-    ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char;
+/// The exported name remains malloc-compatible for the legacy application API.
+struct ShmFile {
+    fd: OwnedFd,
+    name: NonNull<libc::c_char>,
+}
+impl Drop for ShmFile {
+    fn drop(&mut self) {
+        unsafe {
+            libc::shm_unlink(self.name.as_ptr());
+            libc::free(self.name.as_ptr().cast());
+        }
+    }
+}
+struct MappedLog {
+    file: ShmFile,
+    base: NonNull<u8>,
+    cursor: i3_shmlog_header,
+}
+impl MappedLog {
+    /// The caller must prevent truncation of this SHM object while mapped and
+    /// serialize logger mutations on the event thread. Other processes may read
+    /// its bytes: no Rust reference to the mapping is ever constructed.
+    unsafe fn open(name: &CStr, size: usize) -> Result<Self, (&'static CStr, std::io::Error)> {
+        let failure = |stage| (stage, std::io::Error::last_os_error());
+        if size <= HEADER_SIZE || size > u32::MAX as usize {
+            return Err((
+                c"size SHM segment",
+                std::io::Error::from_raw_os_error(libc::EINVAL),
+            ));
+        }
+        let name = NonNull::new(unsafe { libc::strdup(name.as_ptr()) })
+            .ok_or_else(|| failure(c"allocate SHM name"))?;
+        let fd = unsafe { libc::shm_open(name.as_ptr(), libc::O_RDWR | libc::O_CREAT, 0o600) };
+        if fd < 0 {
+            let error = failure(c"shm_open SHM segment");
+            unsafe {
+                libc::free(name.as_ptr().cast());
+            }
+            return Err(error);
+        }
+        let file = ShmFile {
+            fd: unsafe { OwnedFd::from_raw_fd(fd) },
+            name,
+        };
+        let ret = unsafe { libc::posix_fallocate(fd, 0, size as libc::off_t) };
+        if ret != 0 {
+            return Err((
+                c"ftruncate SHM segment",
+                std::io::Error::from_raw_os_error(ret),
+            ));
+        }
+        let ptr = unsafe {
+            libc::mmap(
+                std::ptr::null_mut(),
+                size,
+                libc::PROT_READ | libc::PROT_WRITE,
+                libc::MAP_SHARED,
+                fd,
+                0,
+            )
+        };
+        if ptr == libc::MAP_FAILED {
+            return Err(failure(c"mmap SHM segment"));
+        }
+        let Some(base) = NonNull::new(ptr.cast::<u8>()) else {
+            unsafe {
+                libc::munmap(ptr, size);
+            }
+            return Err((
+                c"mmap SHM segment",
+                std::io::Error::from_raw_os_error(libc::ENOMEM),
+            ));
+        };
+        let log = Self {
+            file,
+            base,
+            cursor: i3_shmlog_header {
+                offset_next_write: HEADER_SIZE as u32,
+                offset_last_wrap: size as u32,
+                size: size as u32,
+                wrap_count: 0,
+            },
+        };
+        unsafe {
+            std::ptr::write_bytes(base.as_ptr(), 0, size);
+            log.publish(log.cursor);
+        }
+        Ok(log)
+    }
+    unsafe fn publish(&self, cursor: i3_shmlog_header) {
+        let header = self.base.as_ptr().cast::<i3_shmlog_header>();
+        // Raw field stores retain the wire layout without claiming exclusivity
+        // over memory read by dump-log in another process.
+        unsafe {
+            (&raw mut (*header).offset_next_write).write_volatile(cursor.offset_next_write);
+            (&raw mut (*header).offset_last_wrap).write_volatile(cursor.offset_last_wrap);
+            (&raw mut (*header).size).write_volatile(cursor.size);
+            (&raw mut (*header).wrap_count).write_volatile(cursor.wrap_count);
+        }
+    }
+    /// Requires the same mapping lifetime and event-thread contract as open.
+    unsafe fn write(&mut self, message: &[u8]) {
+        let plan = RingWritePlan::new(self.cursor, message.len())
+            .expect("owned ring cursor remains valid");
+        let record = plan.record(message);
+        unsafe {
+            if plan.wrapped {
+                self.publish(i3_shmlog_header {
+                    offset_next_write: HEADER_SIZE as u32,
+                    offset_last_wrap: self.cursor.offset_next_write,
+                    ..self.cursor
+                });
+                let header = self.base.as_ptr().cast::<i3_shmlog_header>();
+                (&raw mut (*header).wrap_count).write_volatile(plan.next.wrap_count);
+            }
+            std::ptr::copy_nonoverlapping(
+                record.as_ptr(),
+                self.base.as_ptr().add(plan.start),
+                record.len(),
+            );
+            self.publish(plan.next);
+        }
+        self.cursor = plan.next;
+    }
+}
+impl Drop for MappedLog {
+    fn drop(&mut self) {
+        unsafe {
+            libc::munmap(self.base.as_ptr().cast(), self.cursor.size as usize);
+        }
+    }
+}
 
-pub static mut shmlogname: *mut ::core::ffi::c_char = c"".as_ptr().cast_mut();
-
-pub static mut shmlog_size: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-static mut logbuffer: *mut ::core::ffi::c_char =
-    ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char;
-static mut logwalk: *mut ::core::ffi::c_char =
-    ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char;
-static mut header: *mut i3_shmlog_header =
-    ::core::ptr::null::<i3_shmlog_header>() as *mut i3_shmlog_header;
-static mut loglastwrap: *mut ::core::ffi::c_char =
-    ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char;
-static mut logbuffer_size: ::core::ffi::c_int = 0;
-static mut logbuffer_shm: ::core::ffi::c_int = 0;
-static mut physical_mem_bytes: ::core::ffi::c_longlong = 0;
-
-pub static mut log_clients: log_client_head = log_client_head {
-    tqh_first: ::core::ptr::null::<log_client>() as *mut log_client,
-    tqh_last: ::core::ptr::null::<*mut log_client>() as *mut *mut log_client,
-};
-unsafe fn store_log_markers() {
-    (*header).offset_next_write = logwalk.offset_from(logbuffer) as ::core::ffi::c_long as u32;
-    (*header).offset_last_wrap = loglastwrap.offset_from(logbuffer) as ::core::ffi::c_long as u32;
-    (*header).size = logbuffer_size as u32;
+// These globals are accessed only on i3's event thread. Native variadic entry
+// points additionally require valid printf arguments. Logging is not promised
+// async-signal-safe; no mutex or long-lived global mutable borrow is introduced.
+static mut LOG_BUFFER: Option<MappedLog> = None;
+static mut CLIENTS: Vec<OwnedFd> = Vec::new();
+static mut debug_logging: bool = false;
+static mut verbose: bool = false;
+static mut errorfile: *mut FILE = std::ptr::null_mut();
+pub static mut errorfilename: *mut libc::c_char = std::ptr::null_mut();
+pub static mut shmlogname: *mut libc::c_char = c"".as_ptr().cast_mut();
+pub static mut shmlog_size: libc::c_int = 0;
+static mut physical_mem_bytes: libc::c_longlong = 0;
+pub static mut current_log_stream_socket_path: *mut libc::c_char = std::ptr::null_mut();
+unsafe fn logbuffer_is_closed() -> bool {
+    unsafe { (*(&raw const LOG_BUFFER)).is_none() }
 }
 
 pub unsafe fn init_logging() {
@@ -115,168 +264,126 @@ pub unsafe fn init_logging() {
             as ::core::ffi::c_longlong
             * sysconf(libc::_SC_PAGESIZE as ::core::ffi::c_int) as ::core::ffi::c_longlong;
     }
-    if shmlog_size > 0 as ::core::ffi::c_int && logbuffer.is_null() {
+    if shmlog_size > 0 as ::core::ffi::c_int && logbuffer_is_closed() {
         open_logbuffer();
-    } else if shmlog_size <= 0 as ::core::ffi::c_int && !logbuffer.is_null() {
+    } else if shmlog_size <= 0 as ::core::ffi::c_int && !logbuffer_is_closed() {
         close_logbuffer();
     }
     atexit(purge_zerobyte_logfile);
 }
 
+/// Event-thread only; replaces any previous owned mapping and compatibility name.
 pub unsafe fn open_logbuffer() {
-    logbuffer_size = shmlog_size;
-    if physical_mem_bytes as ::core::ffi::c_double * 0.01f64
-        < shmlog_size as ::core::ffi::c_longlong as ::core::ffi::c_double
-    {
-        logbuffer_size =
-            (physical_mem_bytes as ::core::ffi::c_double * 0.01f64) as ::core::ffi::c_int;
+    let size = if physical_mem_bytes as f64 * 0.01 < shmlog_size as f64 {
+        (physical_mem_bytes as f64 * 0.01) as libc::c_int
+    } else {
+        shmlog_size
+    };
+    close_logbuffer();
+    let name = CString::new(format!("/i3-log-{}", std::process::id())).expect("numeric SHM name");
+    match MappedLog::open(&name, size.max(0) as usize) {
+        Ok(log) => {
+            shmlogname = log.file.name.as_ptr();
+            (&raw mut LOG_BUFFER).write(Some(log));
+        }
+        Err((stage, error)) => {
+            fprintf(
+                stderr,
+                c"Could not %s for the i3 log: %s\n".as_ptr(),
+                stage.as_ptr(),
+                strerror(error.raw_os_error().unwrap_or(libc::EINVAL)),
+            );
+        }
     }
-    sasprintf(&raw mut shmlogname, c"/i3-log-%d".as_ptr(), getpid());
-    logbuffer_shm = shm_open(
-        shmlogname,
-        O_RDWR | O_CREAT,
-        (S_IREAD | S_IWRITE) as libc::mode_t,
-    );
-    if logbuffer_shm == -(1 as ::core::ffi::c_int) {
-        fprintf(
-            stderr,
-            c"Could not shm_open SHM segment for the i3 log: %s\n".as_ptr(),
-            strerror(*__errno_location()),
-        );
-        return;
-    }
-    let mut ret: ::core::ffi::c_int = 0;
-    ret = posix_fallocate(
-        logbuffer_shm,
-        0 as libc::off64_t,
-        logbuffer_size as libc::off64_t,
-    );
-    if ret != 0 as ::core::ffi::c_int {
-        fprintf(
-            stderr,
-            c"Could not ftruncate SHM segment for the i3 log: %s\n".as_ptr(),
-            strerror(ret),
-        );
-        close(logbuffer_shm);
-        shm_unlink(shmlogname);
-        return;
-    }
-    logbuffer = mmap(
-        NULL,
-        logbuffer_size as usize,
-        PROT_READ | PROT_WRITE,
-        MAP_SHARED,
-        logbuffer_shm,
-        0 as libc::off64_t,
-    ) as *mut ::core::ffi::c_char;
-    if logbuffer == MAP_FAILED as *mut ::core::ffi::c_char {
-        close_logbuffer();
-        fprintf(
-            stderr,
-            c"Could not mmap SHM segment for the i3 log: %s\n".as_ptr(),
-            strerror(*__errno_location()),
-        );
-        return;
-    }
-    memset(
-        logbuffer as *mut ::core::ffi::c_void,
-        '\0' as i32,
-        logbuffer_size as usize,
-    );
-    header = logbuffer as *mut i3_shmlog_header;
-    logwalk = logbuffer.offset(::core::mem::size_of::<i3_shmlog_header>() as usize as isize);
-    loglastwrap = logbuffer.offset(logbuffer_size as isize);
-    store_log_markers();
 }
 
 pub unsafe fn close_logbuffer() {
-    close(logbuffer_shm);
-    shm_unlink(shmlogname);
-    free(shmlogname as *mut ::core::ffi::c_void);
-    logbuffer = ::core::ptr::null_mut::<::core::ffi::c_char>();
     shmlogname = c"".as_ptr().cast_mut();
+    drop((&raw mut LOG_BUFFER).replace(None));
 }
-
-pub unsafe fn set_verbosity(mut _verbose: bool) {
-    verbose = _verbose;
+pub unsafe fn set_verbosity(value: bool) {
+    verbose = value;
 }
-
 pub unsafe fn get_debug_logging() -> bool {
     debug_logging
 }
-
-pub unsafe fn set_debug_logging(_debug_logging: bool) {
-    debug_logging = _debug_logging;
+pub unsafe fn set_debug_logging(value: bool) {
+    debug_logging = value;
 }
-unsafe fn vlog(print: bool, fmt: *const ::core::ffi::c_char, mut args: ::core::ffi::VaList) {
-    static mut message: [::core::ffi::c_char; 4096] = [0; 4096];
-    static mut result: tm = tm {
-        tm_sec: 0,
-        tm_min: 0,
-        tm_hour: 0,
-        tm_mday: 0,
-        tm_mon: 0,
-        tm_year: 0,
-        tm_wday: 0,
-        tm_yday: 0,
-        tm_isdst: 0,
-        tm_gmtoff: 0,
-        tm_zone: ::core::ptr::null::<::core::ffi::c_char>(),
+
+fn timestamp() -> Vec<u8> {
+    let mut buffer = [0u8; MESSAGE_CAPACITY];
+    let mut result = std::mem::MaybeUninit::<tm>::uninit();
+    let len = unsafe {
+        let now = time(std::ptr::null_mut());
+        if localtime_r(&now, result.as_mut_ptr()).is_null() {
+            return Vec::new();
+        }
+        strftime(
+            buffer.as_mut_ptr().cast(),
+            buffer.len(),
+            c"%x %X - ".as_ptr(),
+            result.as_ptr(),
+        )
     };
-    static mut t: libc::time_t = 0;
-    static mut tmp: *mut tm = ::core::ptr::null::<tm>() as *mut tm;
-    static mut len: usize = 0;
-    t = time(::core::ptr::null_mut::<libc::time_t>());
-    tmp = localtime_r(&raw mut t, &raw mut result);
-    len = strftime(
-        &raw mut message as *mut ::core::ffi::c_char,
-        ::core::mem::size_of::<[::core::ffi::c_char; 4096]>() as usize,
-        c"%x %X - ".as_ptr(),
-        tmp,
-    );
-    if logbuffer.is_null() {
-        printf(c"%s".as_ptr(), &raw mut message as *mut ::core::ffi::c_char);
-        vprintf(fmt, i333_va_list!(args));
-    } else {
-        len = len.wrapping_add(vsnprintf(
-            (&raw mut message as *mut ::core::ffi::c_char).offset(len as isize),
-            (::core::mem::size_of::<[::core::ffi::c_char; 4096]>() as usize).wrapping_sub(len),
+    buffer[..len].to_vec()
+}
+
+/// fmt and args must satisfy printf's native variadic contract. The prefix
+/// comes from timestamp, which cannot exceed this record's fixed capacity.
+unsafe fn format_record(
+    prefix: &[u8],
+    fmt: *const libc::c_char,
+    mut args: std::ffi::VaList,
+) -> (Vec<u8>, bool) {
+    assert!(prefix.len() < MESSAGE_CAPACITY);
+    let mut message = vec![0u8; MESSAGE_CAPACITY];
+    message[..prefix.len()].copy_from_slice(prefix);
+    let needed = unsafe {
+        vsnprintf(
+            message.as_mut_ptr().add(prefix.len()).cast(),
+            message.len() - prefix.len(),
             fmt,
             i333_va_list!(args),
-        ) as usize);
-        if len >= ::core::mem::size_of::<[::core::ffi::c_char; 4096]>() as usize {
-            fprintf(stderr, c"BUG: single log message > 4k\n".as_ptr());
-            len = ::core::mem::size_of::<[::core::ffi::c_char; 4096]>() as usize as usize;
-            message[len.wrapping_sub(2 as usize)] = '\n' as i32 as ::core::ffi::c_char;
-        }
-        if len
-            >= (logbuffer_size as ::core::ffi::c_long
-                - logwalk.offset_from(logbuffer) as ::core::ffi::c_long) as usize
-        {
-            loglastwrap = logwalk;
-            logwalk =
-                logbuffer.offset(::core::mem::size_of::<i3_shmlog_header>() as usize as isize);
-            store_log_markers();
-            (*header).wrap_count = (*header).wrap_count.wrapping_add(1);
-        }
-        strncpy(logwalk, &raw mut message as *mut ::core::ffi::c_char, len);
-        logwalk = logwalk.offset(len as isize);
-        store_log_markers();
-        if print {
-            fwrite(
-                &raw mut message as *mut ::core::ffi::c_char as *const ::core::ffi::c_void,
-                len,
-                1 as usize,
-                stdout,
-            );
-        }
-        log_broadcast_to_clients(&raw mut message as *mut ::core::ffi::c_char, len);
+        )
     };
+    let len = prefix.len().wrapping_add(needed as usize);
+    let truncated = len >= message.len();
+    if truncated {
+        message[MESSAGE_CAPACITY - 2] = b'\n';
+    }
+    message.truncate(len.min(MESSAGE_CAPACITY));
+    (message, truncated)
+}
+
+unsafe fn vlog(print: bool, fmt: *const libc::c_char, mut args: std::ffi::VaList) {
+    let prefix = timestamp();
+    if logbuffer_is_closed() {
+        fwrite(prefix.as_ptr().cast(), prefix.len(), 1, stdout);
+        vprintf(fmt, i333_va_list!(args));
+        return;
+    }
+    let (message, truncated) = format_record(&prefix, fmt, i333_va_list!(args));
+    if truncated {
+        fprintf(stderr, c"BUG: single log message > 4k\n".as_ptr());
+    }
+    let message = message.as_slice();
+    // Release the global slot before native output. The owned mapping itself
+    // contains no references to shared bytes.
+    let mut log = (&raw mut LOG_BUFFER).replace(None);
+    if let Some(log) = log.as_mut() {
+        log.write(message);
+    }
+    (&raw mut LOG_BUFFER).write(log);
+    if print {
+        fwrite(message.as_ptr().cast(), message.len(), 1, stdout);
+    }
+    broadcast(message);
 }
 
 pub unsafe extern "C" fn verboselog(fmt: *mut ::core::ffi::c_char, args: ...) {
     let mut args_0;
-    if logbuffer.is_null() && !verbose {
+    if logbuffer_is_closed() && !verbose {
         return;
     }
     args_0 = args.clone();
@@ -286,7 +393,7 @@ pub unsafe extern "C" fn verboselog(fmt: *mut ::core::ffi::c_char, args: ...) {
 pub unsafe extern "C" fn errorlog(fmt: *mut ::core::ffi::c_char, args: ...) {
     let mut args_0;
     args_0 = args.clone();
-    vlog(true_0 != 0, fmt, i333_va_list!(args_0));
+    vlog(true, fmt, i333_va_list!(args_0));
     if errorfile.is_null() {
         return;
     }
@@ -297,7 +404,7 @@ pub unsafe extern "C" fn errorlog(fmt: *mut ::core::ffi::c_char, args: ...) {
 
 pub unsafe extern "C" fn debuglog(fmt: *mut ::core::ffi::c_char, args: ...) {
     let mut args_0;
-    if logbuffer.is_null() && !debug_logging {
+    if logbuffer_is_closed() && !debug_logging {
         return;
     }
     args_0 = args.clone();
@@ -305,111 +412,235 @@ pub unsafe extern "C" fn debuglog(fmt: *mut ::core::ffi::c_char, args: ...) {
 }
 
 pub extern "C" fn purge_zerobyte_logfile() {
-    unsafe {
-        let mut st: stat = ::core::mem::zeroed();
-        let mut slash: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
+    // atexit runs after event-thread logging has stopped; copy the legacy name
+    // before filesystem operations rather than modifying its parent separator.
+    let path = unsafe {
         if errorfilename.is_null() {
             return;
         }
-        if stat(errorfilename, &raw mut st) == -(1 as ::core::ffi::c_int)
-            || st.st_size > 0 as libc::off_t
-        {
-            return;
-        }
-        if unlink(errorfilename) == -(1 as ::core::ffi::c_int) {
-            return;
-        }
-        slash = strrchr(errorfilename, '/' as i32);
-        if !slash.is_null() {
-            *slash = '\0' as i32 as ::core::ffi::c_char;
-            rmdir(errorfilename);
+        std::path::PathBuf::from(std::ffi::OsStr::from_bytes(
+            CStr::from_ptr(errorfilename).to_bytes(),
+        ))
+    };
+    if std::fs::metadata(&path).is_ok_and(|metadata| metadata.len() == 0)
+        && std::fs::remove_file(&path).is_ok()
+    {
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::remove_dir(parent);
         }
     }
 }
 
-pub static mut current_log_stream_socket_path: *mut ::core::ffi::c_char =
-    ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char;
-
-pub unsafe extern "C" fn log_new_client(
-    loop_0: *mut ev_loop,
-    w: *mut ev_io,
-    revents: ::core::ffi::c_int,
-) {
-    let mut peer: sockaddr_un = sockaddr_un {
-        sun_family: 0,
-        sun_path: [0; 108],
-    };
-    let mut len: libc::socklen_t = ::core::mem::size_of::<sockaddr_un>() as libc::socklen_t;
-    let mut fd: ::core::ffi::c_int = 0;
-    fd = accept((*w).fd, &raw mut peer as *mut sockaddr, &raw mut len);
-    if fd < 0 as ::core::ffi::c_int {
-        if *__errno_location() != EINTR {
+/// The watcher must be live and event-thread serialized with logging callbacks.
+pub unsafe extern "C" fn log_new_client(_loop: *mut ev_loop, w: *mut ev_io, _events: libc::c_int) {
+    let fd = libc::accept((*w).fd, std::ptr::null_mut(), std::ptr::null_mut());
+    if fd < 0 {
+        if *__errno_location() != libc::EINTR {
             perror(c"accept()".as_ptr());
         }
         return;
     }
+    let client = OwnedFd::from_raw_fd(fd);
     fcntl(fd, F_SETFD, FD_CLOEXEC);
     set_nonblock(fd);
-    let client: *mut log_client =
-        scalloc(1 as usize, ::core::mem::size_of::<log_client>() as usize) as *mut log_client;
-    (*client).fd = fd;
-    (*client).clients.tqe_next = ::core::ptr::null_mut::<log_client>();
-    (*client).clients.tqe_prev = log_clients.tqh_last;
-    *log_clients.tqh_last = client as *mut log_client;
-    log_clients.tqh_last = &raw mut (*client).clients.tqe_next;
+    (*(&raw mut CLIENTS)).push(client);
     debuglog(
         c"%s:%s:%d - log: new client connected on fd %d\n"
             .as_ptr()
             .cast_mut(),
         c"../src/log.c".as_ptr(),
         c"log_new_client".as_ptr(),
-        419 as ::core::ffi::c_int,
+        419 as libc::c_int,
         fd,
     );
 }
+unsafe fn broadcast(message: &[u8]) {
+    let mut clients = (&raw mut CLIENTS).replace(Vec::new());
+    clients
+        .retain(|client| writeall(client.as_raw_fd(), message.as_ptr().cast(), message.len()) >= 0);
+    clients.append(&mut *(&raw mut CLIENTS));
+    (&raw mut CLIENTS).write(clients);
+}
 
-pub unsafe fn log_broadcast_to_clients(message: *const ::core::ffi::c_char, len: usize) {
-    let mut current: *mut log_client = log_clients.tqh_first as *mut log_client;
-    while !current.is_null() {
-        let n: isize = writeall((*current).fd, message as *const ::core::ffi::c_void, len);
-        let previous: *mut log_client = current;
-        current = (*current).clients.tqe_next as *mut log_client;
-        if n < 0 as isize {
-            if !(*previous).clients.tqe_next.is_null() {
-                (*(*previous).clients.tqe_next).clients.tqe_prev = (*previous).clients.tqe_prev;
-            } else {
-                log_clients.tqh_last = (*previous).clients.tqe_prev;
-            }
-            *(*previous).clients.tqe_prev = (*previous).clients.tqe_next;
-            free(previous as *mut ::core::ffi::c_void);
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::os::unix::fs::FileExt;
+
+    fn cursor(size: u32, next: u32) -> i3_shmlog_header {
+        i3_shmlog_header {
+            offset_next_write: next,
+            offset_last_wrap: size,
+            size,
+            wrap_count: 0,
         }
     }
+
+    #[test]
+    fn ring_wraps_on_exact_fit_and_wrap_counter_rolls_over() {
+        assert_eq!(HEADER_SIZE, 16);
+        let plan = RingWritePlan::new(cursor(64, 20), 43).unwrap();
+        assert_eq!(
+            (plan.start, plan.next.offset_next_write, plan.wrapped),
+            (20, 63, false)
+        );
+        let plan = RingWritePlan::new(cursor(64, 20), 44).unwrap();
+        assert_eq!(
+            (
+                plan.start,
+                plan.next.offset_next_write,
+                plan.next.offset_last_wrap
+            ),
+            (16, 60, 20)
+        );
+        assert_eq!(plan.next.wrap_count, 1);
+        let plan = RingWritePlan::new(
+            i3_shmlog_header {
+                wrap_count: u32::MAX,
+                ..cursor(64, 64)
+            },
+            1,
+        )
+        .unwrap();
+        assert_eq!(plan.next.wrap_count, 0);
+        assert_eq!(plan.next.offset_last_wrap, 64);
+    }
+
+    #[test]
+    fn ring_rejects_bad_headers_and_bounds_even_huge_messages() {
+        for size in 0..=16 {
+            assert!(RingWritePlan::new(cursor(size, 16), 1).is_none());
+        }
+        for next in [0, 15, 65, u32::MAX] {
+            assert!(RingWritePlan::new(cursor(64, next), 1).is_none());
+        }
+        assert!(RingWritePlan::new(
+            i3_shmlog_header {
+                offset_last_wrap: 65,
+                ..cursor(64, 16)
+            },
+            1
+        )
+        .is_none());
+        let plan = RingWritePlan::new(cursor(17, 16), usize::MAX).unwrap();
+        assert_eq!(
+            (plan.start, plan.len, plan.next.offset_next_write),
+            (16, 1, 17)
+        );
+        assert_eq!(plan.record(b"too big"), b"\0");
+    }
+
+    #[test]
+    fn ring_preserves_strncpy_padding_and_bounds_small_records() {
+        let plan = RingWritePlan::new(cursor(64, 16), 7).unwrap();
+        assert_eq!(plan.record(b"ab\0cdef"), b"ab\0\0\0\0\0");
+        let plan = RingWritePlan::new(cursor(20, 16), 7).unwrap();
+        assert_eq!(plan.record(b"abcdefg"), b"ab\n\0");
+        let mut legacy_truncation = vec![b'x'; MESSAGE_CAPACITY];
+        legacy_truncation[MESSAGE_CAPACITY - 2] = b'\n';
+        legacy_truncation[MESSAGE_CAPACITY - 1] = 0;
+        let plan = RingWritePlan::new(cursor(8192, 16), MESSAGE_CAPACITY).unwrap();
+        assert_eq!(plan.record(&legacy_truncation), legacy_truncation);
+    }
+
+    #[test]
+    fn private_shm_is_readable_as_dump_log_wire_bytes_and_unlinked_on_drop() {
+        let name = CString::new(format!(
+            "/i333-test-log-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ))
+        .unwrap();
+        // This test exclusively owns the fresh name and never truncates it.
+        let mut log = unsafe { MappedLog::open(&name, 64) }.unwrap();
+        let reader = std::fs::File::from(log.file.fd.try_clone().unwrap());
+        let snapshot = || {
+            let mut bytes = vec![0; 64];
+            reader.read_exact_at(&mut bytes, 0).unwrap();
+            let word = |offset| u32::from_ne_bytes(bytes[offset..offset + 4].try_into().unwrap());
+            let header = [word(0), word(4), word(8), word(12)];
+            (header, bytes)
+        };
+        assert_eq!(snapshot().0, [16, 64, 64, 0]);
+        unsafe {
+            log.write(b"first\n");
+        }
+        assert_eq!(snapshot().0, [22, 64, 64, 0]);
+        unsafe {
+            log.write(&[b'y'; 42]);
+        } // exact-fit wrap, leaving the old marker
+        let (header, bytes) = snapshot();
+        assert_eq!(header, [58, 22, 64, 1]);
+        assert_eq!(&bytes[16..58], &[b'y'; 42]);
+        unsafe {
+            log.write(&[b'z'; 100]);
+        } // oversized payload stays inside the mapping
+        let (header, bytes) = snapshot();
+        assert_eq!(header, [64, 58, 64, 2]);
+        assert_eq!(&bytes[62..64], b"\n\0");
+        drop(log);
+        // The duplicated reader still owns the file, but the public name is gone.
+        let fd = unsafe { libc::shm_open(name.as_ptr(), libc::O_RDONLY, 0) };
+        if fd >= 0 {
+            unsafe {
+                libc::close(fd);
+            }
+            panic!("dropped SHM name still exists");
+        }
+        assert_eq!(
+            std::io::Error::last_os_error().raw_os_error(),
+            Some(libc::ENOENT)
+        );
+        assert_eq!(snapshot().0, [64, 58, 64, 2]);
+    }
+
+    unsafe extern "C" fn render(output: *mut (Vec<u8>, bool), fmt: *const libc::c_char, args: ...) {
+        let mut args = args.clone();
+        unsafe {
+            *output = format_record(b"T - ", fmt, i333_va_list!(args));
+        }
+    }
+
+    #[test]
+    fn native_printf_records_keep_embedded_nuls_and_legacy_4k_truncation() {
+        let mut result = (Vec::new(), false);
+        unsafe {
+            render(
+                &mut result,
+                c"%s%cend".as_ptr(),
+                c"text".as_ptr(),
+                0 as libc::c_int,
+            );
+        }
+        assert_eq!(result, (b"T - text\0end".to_vec(), false));
+        let long = CString::new(vec![b'x'; 5000]).unwrap();
+        unsafe {
+            render(&mut result, c"%s".as_ptr(), long.as_ptr());
+        }
+        assert!(result.1);
+        assert_eq!(result.0.len(), MESSAGE_CAPACITY);
+        assert_eq!(&result.0[MESSAGE_CAPACITY - 2..], b"\n\0");
+        let limit = CString::new(vec![b'y'; MESSAGE_CAPACITY - 5]).unwrap();
+        unsafe {
+            render(&mut result, c"%s".as_ptr(), limit.as_ptr());
+        }
+        assert_eq!(result.0.len(), MESSAGE_CAPACITY - 1);
+        assert!(!result.1);
+        assert_eq!(result.0.last(), Some(&b'y'));
+    }
+
+    #[test]
+    fn tiny_shm_rejected_before_any_object_is_created() {
+        assert_eq!(
+            unsafe { MappedLog::open(c"/i333-invalid-test-size", HEADER_SIZE) }
+                .err()
+                .unwrap()
+                .1
+                .raw_os_error(),
+            Some(libc::EINVAL)
+        );
+    }
 }
-unsafe extern "C" fn run_static_initializers() {
-    log_clients = log_client_head {
-        tqh_first: ::core::ptr::null_mut::<log_client>(),
-        tqh_last: &raw mut log_clients.tqh_first,
-    };
-}
-#[used]
-#[cfg_attr(target_os = "linux", link_section = ".init_array")]
-#[cfg_attr(target_os = "windows", link_section = ".CRT$XIB")]
-#[cfg_attr(target_os = "macos", link_section = "__DATA,__mod_init_func")]
-static INIT_ARRAY: [unsafe extern "C" fn(); 1] = [run_static_initializers];
-
-// Internal helpers use Rust linkage rather than foreign symbol lookup.
-use i3_common::safewrappers::scalloc;
-use i3_common::safewrappers::writeall;
-
-pub use libc::{
-    __errno_location, accept, atexit, close, fcntl, fflush, fileno, fopen, fprintf, free, fwrite,
-    getpid, localtime_r, memset, mmap, perror, posix_fallocate, printf, rmdir, shm_open,
-    shm_unlink, sockaddr, sockaddr_un, stat, strerror, strftime, strncpy, strrchr, sysconf, time,
-    tm, unlink, FILE,
-};
-
-use i3_common::native_stdio::{stderr, stdout, vfprintf, vprintf, vsnprintf};
-
-// Internal calls and globals use canonical Rust identities.
-use i3_common::get_process_filename::get_process_filename;
-use i3_common::nonblock::set_nonblock;

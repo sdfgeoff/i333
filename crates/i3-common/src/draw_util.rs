@@ -41,17 +41,19 @@ pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
-unsafe fn surface_initialized(surface: *mut surface_t) -> bool {
-    if (*surface).id as ::core::ffi::c_long == XCB_NONE {
-        errorlog(
-            c"[libi3] ERROR: Surface %p is not initialized, skipping drawing.\n"
-                .as_ptr()
-                .cast_mut(),
-            surface,
+fn surface_initialized(surface: &surface_t) -> bool {
+    if surface.id == 0 {
+        crate::logging::emit(
+            crate::logging::Level::Error,
+            format!(
+                "[libi3] ERROR: Surface {:p} is not initialized, skipping drawing.\n",
+                surface
+            )
+            .as_bytes(),
         );
-        return false_0 != 0;
+        return false;
     }
-    true_0 != 0
+    true
 }
 unsafe fn get_gc(
     conn: *mut xcb_connection_t,
@@ -268,142 +270,217 @@ pub unsafe fn draw_util_hex_to_color(color: *const ::core::ffi::c_char) -> color
         colorpixel: get_colorpixel(color),
     }
 }
-unsafe fn draw_util_set_source_color(surface: *mut surface_t, color: color_t) {
-    if !surface_initialized(surface) {
-        return;
-    }
-    cairo_set_source_rgba(
-        (*surface).cr,
-        color.red,
-        color.green,
-        color.blue,
-        color.alpha,
-    );
+// These helpers work with real borrowed cairo-rs objects. The legacy surface
+// record keeps ownership; no reference is retained beyond the caller's operation.
+fn set_source_color(context: &cairo::Context, color: color_t) {
+    context.set_source_rgba(color.red, color.green, color.blue, color.alpha);
 }
 
+fn flush_twice(surface: &cairo::Surface) {
+    // Retain the historical flush ordering, including the redundant second call.
+    surface.flush();
+    surface.flush();
+}
+
+/// # Safety
+/// text must point to a live I3String; surface must point to a readable record.
+/// An initialized surface must contain live non-null Cairo objects and a valid
+/// drawable/GC, and the current font/display must remain valid during drawing.
+#[deny(unsafe_op_in_unsafe_fn)]
 pub unsafe fn draw_util_text(
     text: *mut i3String,
     surface: *mut surface_t,
     fg_color: color_t,
     bg_color: color_t,
-    x: ::core::ffi::c_int,
-    y: ::core::ffi::c_int,
-    max_width: ::core::ffi::c_int,
+    x: i32,
+    y: i32,
+    max_width: i32,
 ) {
+    // SAFETY: the caller keeps this record readable for the whole operation.
+    let surface = unsafe { &*surface };
     if !surface_initialized(surface) {
         return;
     }
-    cairo_surface_flush((*surface).surface);
-    cairo_surface_flush((*surface).surface);
-    set_font_colors((*surface).gc, fg_color, bg_color);
-    draw_text(
-        text,
-        (*surface).id,
-        (*surface).gc,
-        (*surface).surface,
-        x,
-        y,
-        max_width,
-    );
-    cairo_surface_mark_dirty((*surface).surface);
+    // SAFETY: an initialized record holds a live non-null surface. This wrapper
+    // borrows its reference, including error surfaces, and never outlives it.
+    let target = unsafe { cairo::Surface::from_raw_borrow(surface.surface) };
+    flush_twice(&target);
+    // SAFETY: text, font, drawable and GC validity are the caller's contract.
+    unsafe {
+        set_font_colors(surface.gc, fg_color, bg_color);
+        draw_text(
+            text,
+            surface.id,
+            surface.gc,
+            surface.surface,
+            x,
+            y,
+            max_width,
+        );
+    }
+    target.mark_dirty();
 }
 
+/// # Safety
+/// surface must point to a readable record with live non-null Cairo objects when
+/// initialized. image must be a live non-null Cairo surface for the entire call.
+#[deny(unsafe_op_in_unsafe_fn)]
 pub unsafe fn draw_util_image(
     image: *mut cairo_surface_t,
     surface: *mut surface_t,
-    x: ::core::ffi::c_int,
-    y: ::core::ffi::c_int,
-    width: ::core::ffi::c_int,
-    height: ::core::ffi::c_int,
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
 ) {
+    // SAFETY: the caller guarantees the record and its initialized native objects.
+    let surface = unsafe { &*surface };
     if !surface_initialized(surface) {
         return;
     }
-    cairo_save((*surface).cr);
-    cairo_translate(
-        (*surface).cr,
-        x as ::core::ffi::c_double,
-        y as ::core::ffi::c_double,
-    );
-    let src_width: ::core::ffi::c_int = cairo_image_surface_get_width(image) as ::core::ffi::c_int;
-    let src_height: ::core::ffi::c_int =
-        cairo_image_surface_get_height(image) as ::core::ffi::c_int;
-    let scale: ::core::ffi::c_double = if (width as ::core::ffi::c_double
-        / src_width as ::core::ffi::c_double)
-        < height as ::core::ffi::c_double / src_height as ::core::ffi::c_double
-    {
-        width as ::core::ffi::c_double / src_width as ::core::ffi::c_double
-    } else {
-        height as ::core::ffi::c_double / src_height as ::core::ffi::c_double
+    // SAFETY: both pointers remain live, including native error objects. Borrowed
+    // wrappers neither take ownership nor reject the native sticky error status.
+    let context = unsafe { cairo::Context::from_raw_borrow(surface.cr) };
+    let image_surface = unsafe { cairo::Surface::from_raw_borrow(image) };
+    let _ = context.save();
+    context.translate(x.into(), y.into());
+    // SAFETY: image is live. Keep the native getter behavior for non-image/error
+    // surfaces instead of introducing a typed ImageSurface conversion failure.
+    let (src_width, src_height) = unsafe {
+        (
+            cairo_image_surface_get_width(image),
+            cairo_image_surface_get_height(image),
+        )
     };
-    cairo_scale((*surface).cr, scale, scale);
-    cairo_set_source_surface(
-        (*surface).cr,
-        image,
-        0 as ::core::ffi::c_int as ::core::ffi::c_double,
-        0 as ::core::ffi::c_int as ::core::ffi::c_double,
-    );
-    cairo_paint((*surface).cr);
-    cairo_restore((*surface).cr);
+    let horizontal = f64::from(width) / f64::from(src_width);
+    let vertical = f64::from(height) / f64::from(src_height);
+    let scale = if horizontal < vertical {
+        horizontal
+    } else {
+        vertical
+    };
+    context.scale(scale, scale);
+    let _ = context.set_source_surface(&*image_surface, 0.0, 0.0);
+    let _ = context.paint();
+    let _ = context.restore();
 }
 
+fn rectangle(
+    context: &cairo::Context,
+    target: &cairo::Surface,
+    color: color_t,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+) {
+    // Native drawing historically ignores results and retains Cairo's sticky
+    // error status. Do not turn those errors into panics or early returns.
+    let _ = context.save();
+    context.set_operator(cairo::Operator::Source);
+    set_source_color(context, color);
+    context.rectangle(x, y, width, height);
+    let _ = context.fill();
+    flush_twice(target);
+    let _ = context.restore();
+}
+
+/// # Safety
+/// surface must point to a readable record. An initialized record must hold live
+/// non-null Cairo context/surface pointers throughout this call.
+#[deny(unsafe_op_in_unsafe_fn)]
 pub unsafe fn draw_util_rectangle(
     surface: *mut surface_t,
     color: color_t,
-    x: ::core::ffi::c_double,
-    y: ::core::ffi::c_double,
-    w: ::core::ffi::c_double,
-    h: ::core::ffi::c_double,
+    x: f64,
+    y: f64,
+    w: f64,
+    h: f64,
 ) {
+    // SAFETY: the caller keeps the record readable, and its native objects live.
+    let surface = unsafe { &*surface };
     if !surface_initialized(surface) {
         return;
     }
-    cairo_save((*surface).cr);
-    cairo_set_operator((*surface).cr, OPERATOR_SOURCE);
-    draw_util_set_source_color(surface, color);
-    cairo_rectangle((*surface).cr, x, y, w, h);
-    cairo_fill((*surface).cr);
-    cairo_surface_flush((*surface).surface);
-    cairo_surface_flush((*surface).surface);
-    cairo_restore((*surface).cr);
+    // SAFETY: both initialized object pointers remain live until these borrowed
+    // wrappers leave scope. Their original reference counts are unchanged.
+    let context = unsafe { cairo::Context::from_raw_borrow(surface.cr) };
+    let target = unsafe { cairo::Surface::from_raw_borrow(surface.surface) };
+    rectangle(&context, &target, color, x, y, w, h);
 }
 
+fn clear(context: &cairo::Context, target: &cairo::Surface, color: color_t) {
+    let _ = context.save();
+    context.set_operator(cairo::Operator::Source);
+    set_source_color(context, color);
+    let _ = context.paint();
+    flush_twice(target);
+    let _ = context.restore();
+}
+
+/// # Safety
+/// surface must point to a readable record. An initialized record must hold live
+/// non-null Cairo context/surface pointers throughout this call.
+#[deny(unsafe_op_in_unsafe_fn)]
 pub unsafe fn draw_util_clear_surface(surface: *mut surface_t, color: color_t) {
+    // SAFETY: the caller keeps the record readable and its native objects live.
+    let surface = unsafe { &*surface };
     if !surface_initialized(surface) {
         return;
     }
-    cairo_save((*surface).cr);
-    cairo_set_operator((*surface).cr, OPERATOR_SOURCE);
-    draw_util_set_source_color(surface, color);
-    cairo_paint((*surface).cr);
-    cairo_surface_flush((*surface).surface);
-    cairo_surface_flush((*surface).surface);
-    cairo_restore((*surface).cr);
+    // SAFETY: wrappers borrow live native objects without taking their references.
+    let context = unsafe { cairo::Context::from_raw_borrow(surface.cr) };
+    let target = unsafe { cairo::Surface::from_raw_borrow(surface.surface) };
+    clear(&context, &target, color);
 }
 
+fn copy_surface(
+    source: &cairo::Surface,
+    target: &cairo::Surface,
+    context: &cairo::Context,
+    src_x: f64,
+    src_y: f64,
+    dest_x: f64,
+    dest_y: f64,
+    width: f64,
+    height: f64,
+) {
+    let _ = context.save();
+    context.set_operator(cairo::Operator::Source);
+    let _ = context.set_source_surface(source, dest_x - src_x, dest_y - src_y);
+    context.rectangle(dest_x, dest_y, width, height);
+    let _ = context.fill();
+    flush_twice(source);
+    flush_twice(target);
+    let _ = context.restore();
+}
+
+/// # Safety
+/// src/dest must point to readable records. Initialized records must contain
+/// live non-null Cairo objects throughout the call. Aliasing src/dest is allowed.
+#[deny(unsafe_op_in_unsafe_fn)]
 pub unsafe fn draw_util_copy_surface(
     src: *mut surface_t,
     dest: *mut surface_t,
-    src_x: ::core::ffi::c_double,
-    src_y: ::core::ffi::c_double,
-    dest_x: ::core::ffi::c_double,
-    dest_y: ::core::ffi::c_double,
-    width: ::core::ffi::c_double,
-    height: ::core::ffi::c_double,
+    src_x: f64,
+    src_y: f64,
+    dest_x: f64,
+    dest_y: f64,
+    width: f64,
+    height: f64,
 ) {
+    // SAFETY: only shared record borrows are made, allowing legacy self copies.
+    let (src, dest) = unsafe { (&*src, &*dest) };
     if !surface_initialized(src) || !surface_initialized(dest) {
         return;
     }
-    cairo_save((*dest).cr);
-    cairo_set_operator((*dest).cr, OPERATOR_SOURCE);
-    cairo_set_source_surface((*dest).cr, (*src).surface, dest_x - src_x, dest_y - src_y);
-    cairo_rectangle((*dest).cr, dest_x, dest_y, width, height);
-    cairo_fill((*dest).cr);
-    cairo_surface_flush((*src).surface);
-    cairo_surface_flush((*src).surface);
-    cairo_surface_flush((*dest).surface);
-    cairo_surface_flush((*dest).surface);
-    cairo_restore((*dest).cr);
+    // SAFETY: each pointer is live for these local, non-owning Cairo borrows.
+    let context = unsafe { cairo::Context::from_raw_borrow(dest.cr) };
+    let source = unsafe { cairo::Surface::from_raw_borrow(src.surface) };
+    let target = unsafe { cairo::Surface::from_raw_borrow(dest.surface) };
+    copy_surface(
+        &source, &target, &context, src_x, src_y, dest_x, dest_y, width, height,
+    );
 }
 
 // Internal helpers use Rust linkage rather than foreign symbol lookup.
@@ -423,7 +500,7 @@ use xcb_sys::{
     xcb_connection_t, xcb_create_gc_checked, xcb_depth_iterator_t, xcb_depth_next, xcb_depth_t,
     xcb_depth_visuals_iterator, xcb_drawable_t, xcb_free_gc, xcb_gcontext_t, xcb_generate_id,
     xcb_generic_error_t, xcb_request_check, xcb_screen_allowed_depths_iterator, xcb_visualid_t,
-    xcb_visualtype_iterator_t, xcb_visualtype_next, xcb_visualtype_t, xcb_void_cookie_t, XCB_NONE,
+    xcb_visualtype_iterator_t, xcb_visualtype_next, xcb_visualtype_t, xcb_void_cookie_t,
 };
 
 pub use libc::{free, strlen, strtol};
@@ -434,3 +511,182 @@ use crate::logging::{errorlog, verboselog};
 use crate::font::set_font_colors;
 
 pub use crate::string::I3String as _i3String;
+
+#[cfg(test)]
+mod drawing_tests {
+    use super::*;
+    use cairo::{Context, Format, ImageSurface, Operator};
+
+    fn color(red: f64, green: f64, blue: f64, alpha: f64) -> color_t {
+        color_t {
+            red,
+            green,
+            blue,
+            alpha,
+            colorpixel: 0,
+        }
+    }
+
+    // This record only borrows the test's owning Cairo objects; it is never
+    // passed to the legacy ownership-transfer/free functions.
+    fn record(image: &ImageSurface, context: &Context) -> surface_t {
+        surface_t {
+            id: 1,
+            gc: 0,
+            owns_gc: false,
+            width: image.width(),
+            height: image.height(),
+            surface: image.to_raw_none(),
+            cr: context.to_raw_none(),
+        }
+    }
+
+    fn pixel(image: &ImageSurface, x: usize, y: usize) -> u32 {
+        let offset = y * image.stride() as usize + x * 4;
+        let mut pixel = 0;
+        image
+            .with_data(|bytes| {
+                pixel = u32::from_ne_bytes(bytes[offset..offset + 4].try_into().unwrap())
+            })
+            .unwrap();
+        pixel
+    }
+
+    fn references(image: &ImageSurface, context: &Context) -> (u32, u32) {
+        // SAFETY: test-owned image is live for this native reference-count query.
+        (
+            unsafe { cairo_sys::cairo_surface_get_reference_count(image.to_raw_none()) },
+            context.reference_count(),
+        )
+    }
+
+    #[test]
+    fn rectangle_and_clear_preserve_clip_source_state_and_references() {
+        let image = ImageSurface::create(Format::ARgb32, 4, 4).unwrap();
+        let context = Context::new(&image).unwrap();
+        let mut raw = record(&image, &context);
+        context.rectangle(1.0, 1.0, 2.0, 2.0);
+        context.clip();
+        context.set_source_rgb(0.0, 1.0, 0.0);
+        let before = references(&image, &context);
+        let matrix = context.matrix();
+        // SAFETY: raw borrows the live test-owned image/context.
+        unsafe {
+            draw_util_clear_surface(&mut raw, color(1.0, 0.0, 0.0, 1.0));
+            draw_util_rectangle(&mut raw, color(1.0, 0.0, 0.0, 0.5), 1.0, 1.0, 1.0, 1.0);
+        }
+        assert_eq!(pixel(&image, 0, 0), 0);
+        assert_eq!(pixel(&image, 1, 1), 0x80800000);
+        assert_eq!(pixel(&image, 2, 2), 0xFFFF0000);
+        assert_eq!(context.operator(), Operator::Over);
+        assert_eq!(context.matrix(), matrix);
+        assert_eq!(references(&image, &context), before);
+        context.paint().unwrap();
+        assert_eq!(pixel(&image, 1, 1), 0xFF00FF00);
+        assert_eq!(pixel(&image, 0, 0), 0);
+    }
+
+    #[test]
+    fn copy_uses_source_offset_and_clips_destination_without_retaining_source() {
+        let source = ImageSurface::create(Format::ARgb32, 4, 4).unwrap();
+        let source_context = Context::new(&source).unwrap();
+        let mut src = record(&source, &source_context);
+        let target = ImageSurface::create(Format::ARgb32, 5, 4).unwrap();
+        let target_context = Context::new(&target).unwrap();
+        let mut dest = record(&target, &target_context);
+        let before = (
+            references(&source, &source_context),
+            references(&target, &target_context),
+        );
+        // SAFETY: both records borrow live owning Cairo objects, including the
+        // aliasing self-copy path below; no Rust-exclusive native borrow is made.
+        unsafe {
+            draw_util_rectangle(&mut src, color(1.0, 0.0, 0.0, 1.0), 1.0, 1.0, 2.0, 2.0);
+            draw_util_copy_surface(&mut src, &mut dest, 1.0, 1.0, 2.0, 0.0, 2.0, 2.0);
+        }
+        assert_eq!(pixel(&target, 2, 0), 0xFFFF0000);
+        assert_eq!(pixel(&target, 3, 1), 0xFFFF0000);
+        assert_eq!(pixel(&target, 1, 0), 0);
+        assert_eq!(pixel(&target, 4, 0), 0);
+        assert_eq!(target_context.operator(), Operator::Over);
+        assert_eq!(
+            (
+                references(&source, &source_context),
+                references(&target, &target_context)
+            ),
+            before
+        );
+        // SAFETY: shared record/native object borrows permit aliasing src/dest.
+        unsafe { draw_util_copy_surface(&mut dest, &mut dest, 2.0, 0.0, 0.0, 2.0, 1.0, 1.0) };
+        assert_eq!(pixel(&target, 0, 2), 0xFFFF0000);
+    }
+
+    #[test]
+    fn image_draw_preserves_aspect_ratio_transform_and_borrowed_ownership() {
+        let source = ImageSurface::create(Format::ARgb32, 4, 2).unwrap();
+        let source_context = Context::new(&source).unwrap();
+        source_context.set_source_rgb(0.0, 0.0, 1.0);
+        source_context.paint().unwrap();
+        let target = ImageSurface::create(Format::ARgb32, 10, 10).unwrap();
+        let context = Context::new(&target).unwrap();
+        let mut dest = record(&target, &context);
+        let before = (
+            references(&source, &source_context),
+            references(&target, &context),
+        );
+        let matrix = context.matrix();
+        // SAFETY: source and destination objects remain owned by this test.
+        unsafe { draw_util_image(source.to_raw_none(), &mut dest, 1, 2, 8, 8) };
+        assert_eq!(pixel(&target, 4, 3), 0xFF0000FF);
+        assert_eq!(pixel(&target, 4, 8), 0);
+        assert_eq!(context.matrix(), matrix);
+        assert_eq!(
+            (
+                references(&source, &source_context),
+                references(&target, &context)
+            ),
+            before
+        );
+    }
+
+    #[test]
+    fn native_error_objects_remain_sticky_and_uninitialized_records_are_skipped() {
+        // SAFETY: Cairo returns a non-null error surface for invalid dimensions.
+        // from_raw_none keeps that object's error status rather than rejecting it.
+        let pointer =
+            unsafe { cairo_sys::cairo_image_surface_create(cairo_sys::FORMAT_A_RGB32, -1, -1) };
+        let surface = unsafe { cairo::Surface::from_raw_none(pointer) };
+        // SAFETY: release the original native reference; the wrapper owns its ref.
+        unsafe { cairo_sys::cairo_surface_destroy(pointer) };
+        // SAFETY: native cairo_create always supplies a non-null context, even
+        // when the target has an error. This owning wrapper preserves that error.
+        let context =
+            unsafe { Context::from_raw_full(cairo_sys::cairo_create(surface.to_raw_none())) };
+        let mut raw = surface_t {
+            id: 1,
+            gc: 0,
+            owns_gc: false,
+            width: -1,
+            height: -1,
+            surface: surface.to_raw_none(),
+            cr: context.to_raw_none(),
+        };
+        let before = context.status();
+        assert!(before.is_err());
+        // SAFETY: non-null native error objects remain live and support drawing
+        // no-ops. These calls must not convert their sticky error into a panic.
+        unsafe {
+            draw_util_clear_surface(&mut raw, color(1.0, 0.0, 0.0, 1.0));
+            draw_util_rectangle(&mut raw, color(1.0, 0.0, 0.0, 1.0), 0.0, 0.0, 1.0, 1.0);
+            draw_util_copy_surface(&mut raw, &mut raw, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0);
+            draw_util_image(surface.to_raw_none(), &mut raw, 0, 0, 1, 1);
+        }
+        assert_eq!(context.status(), before);
+        raw.id = 0;
+        raw.surface = std::ptr::null_mut();
+        raw.cr = std::ptr::null_mut();
+        // SAFETY: the zero id guard permits uninitialized null Cairo fields and
+        // skips drawing before attempting any native wrapper construction.
+        unsafe { draw_util_clear_surface(&mut raw, color(0.0, 0.0, 0.0, 0.0)) };
+    }
+}

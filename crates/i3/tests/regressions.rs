@@ -36,3 +36,8 @@ fn input_17_private_keyboard_checks() {
 fn upstream_285_files_4205_assertions() {
     suite("upstream");
 }
+
+#[test]
+fn nagbar_4_private_render_and_close_checks() {
+    suite("nagbar");
+}

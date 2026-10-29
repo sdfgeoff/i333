@@ -12,13 +12,13 @@ use cairo_sys::{
 };
 use std::{ops::Deref, ptr, ptr::NonNull, slice};
 use xcb_sys::{
+    xcb_aux_sync, xcb_clear_area, xcb_connection_t, xcb_create_window, xcb_destroy_window,
+    xcb_generate_id, xcb_get_geometry_reply, xcb_get_geometry_unchecked, xcb_get_image_data,
+    xcb_get_image_reply, xcb_get_image_unchecked, xcb_get_window_attributes_reply,
+    xcb_get_window_attributes_unchecked, xcb_map_window, xcb_query_tree_children,
+    xcb_query_tree_reply, xcb_query_tree_unchecked, xcb_screen_t, xcb_window_t,
     XCB_COPY_FROM_PARENT, XCB_CW_BACK_PIXEL, XCB_CW_OVERRIDE_REDIRECT, XCB_IMAGE_FORMAT_Z_PIXMAP,
-    XCB_MAP_STATE_VIEWABLE, XCB_WINDOW_CLASS_INPUT_OUTPUT, xcb_aux_sync, xcb_clear_area,
-    xcb_connection_t, xcb_create_window, xcb_destroy_window, xcb_generate_id,
-    xcb_get_geometry_reply, xcb_get_geometry_unchecked, xcb_get_image_data, xcb_get_image_reply,
-    xcb_get_image_unchecked, xcb_get_window_attributes_reply, xcb_get_window_attributes_unchecked,
-    xcb_map_window, xcb_query_tree_children, xcb_query_tree_reply, xcb_query_tree_unchecked,
-    xcb_screen_t, xcb_window_t,
+    XCB_MAP_STATE_VIEWABLE, XCB_WINDOW_CLASS_INPUT_OUTPUT,
 };
 
 /// An individually allocated XCB reply, including its trailing wire payload.
