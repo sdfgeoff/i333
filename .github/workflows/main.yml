@@ -57,13 +57,47 @@ jobs:
             python3 - <<'PY' || true
           from pathlib import Path
 
-          tail = Path(".work/cargo-tests/full-cargo.log").read_bytes()[-32000:].decode("utf-8", errors="replace")
-          while True:
-              escaped = tail.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
-              if len(escaped.encode("utf-8")) <= 40000:
-                  break
-              tail = tail[max(1, len(tail) // 8):]
-          print("::error title=Cargo test failed::Final Cargo output (full log in failure artifact):%0A" + escaped)
+          tail = Path(".work/cargo-tests/full-cargo.log").read_bytes()[-24000:].decode("utf-8", errors="replace")
+
+          def escape(text):
+              return text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+          # GitHub truncates individual annotations. Bound both decoded text and
+          # escaped command bytes, and preserve complete lines whenever they fit.
+          chunks = []
+          current = ""
+          size = encoded_size = 0
+          for line in tail.splitlines(keepends=True):
+              line_size = len(line.encode("utf-8"))
+              line_encoded_size = len(escape(line).encode("utf-8"))
+              if line_size <= 3500 and line_encoded_size <= 3700:
+                  if size + line_size > 3500 or encoded_size + line_encoded_size > 3700:
+                      chunks.append(current)
+                      current = ""
+                      size = encoded_size = 0
+                  current += line
+                  size += line_size
+                  encoded_size += line_encoded_size
+              else:
+                  if current:
+                      chunks.append(current)
+                      current = ""
+                      size = encoded_size = 0
+                  for character in line:
+                      width = len(character.encode("utf-8"))
+                      encoded_width = len(escape(character).encode("utf-8"))
+                      if size + width > 3500 or encoded_size + encoded_width > 3700:
+                          chunks.append(current)
+                          current = ""
+                          size = encoded_size = 0
+                      current += character
+                      size += width
+                      encoded_size += encoded_width
+          if current:
+              chunks.append(current)
+          # Emit decisive final output first; numbered titles retain reconstruction order.
+          for index in reversed(range(len(chunks))):
+              print(f"::error title=Cargo test failed part {index + 1}/{len(chunks)}::" + escape(chunks[index]))
           PY
           fi
           exit "$cargo_status"
