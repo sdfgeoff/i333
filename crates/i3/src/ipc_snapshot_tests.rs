@@ -216,18 +216,21 @@ unsafe fn collect() -> BTreeMap<String, String> {
     }
     // A real nested graph exercises streaming recursion instead of constructing
     // a recursively owned Serde DTO before the depth limit can be checked.
-    (*root).nodes_head.tqh_first = output;
-    (*output).nodes_head.tqh_first = workspace;
-    (*workspace).nodes_head.tqh_first = leaf;
+    nodes::append(identity(root).unwrap(), identity(output).unwrap()).unwrap();
+    nodes::append(identity(output).unwrap(), identity(workspace).unwrap()).unwrap();
+    nodes::append(identity(workspace).unwrap(), identity(leaf).unwrap()).unwrap();
     let mut parent = leaf;
     for _ in 0..70 {
         let child = node(&mut allocated, 2, parent);
-        (*parent).nodes_head.tqh_first = child;
+        nodes::append(identity(parent).unwrap(), identity(child).unwrap()).unwrap();
         parent = child;
     }
     result.insert("deep_graph".into(), node_bytes(root, false, 0, &allocated));
     for raw in &allocated {
-        (**raw).nodes_head.tqh_first = std::ptr::null_mut();
+        let owner = identity(*raw).unwrap();
+        while let Some(child) = nodes::first(owner) {
+            nodes::remove(owner, child).unwrap();
+        }
     }
     (*leaf).window = std::ptr::null_mut();
     for raw in allocated.into_iter().rev() {
@@ -329,3 +332,5 @@ fn production_node_restart_and_bar_outputs_match_baseline() {
         serde_json::from_str(include_str!("../tests/fixtures/ipc-output-baseline.json")).unwrap();
     assert_eq!(actual, expected);
 }
+
+use crate::con::arena::nodes;

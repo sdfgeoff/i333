@@ -229,7 +229,7 @@ pub unsafe fn render_con(con: *mut Con) {
     } else {
         let mut i: i32 = 0;
         let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-        child = (*con).nodes_head.tqh_first as *mut Con;
+        child = nodes::first_ptr(con);
         while !child.is_null() {
             if params.children > 0 {
             } else {
@@ -273,7 +273,7 @@ pub unsafe fn render_con(con: *mut Con) {
                 }
             }
             i += 1;
-            child = (*child).nodes.tqe_next as *mut Con;
+            child = nodes::next_ptr(child);
         }
         if (*con).layout == Layout::Stacked || (*con).layout == Layout::Tabbed {
             for id in focus::children_rev(identity(con).expect("live rendered focus owner")) {
@@ -296,10 +296,10 @@ unsafe fn precalculate_sizes(con: *mut Con, children: i32) -> Vec<i32> {
         return Vec::new();
     }
     let mut percentages = Vec::with_capacity(children as usize);
-    let mut child = (*con).nodes_head.tqh_first;
+    let mut child = nodes::first_ptr(con);
     while !child.is_null() {
         percentages.push((*child).percent);
-        child = (*child).nodes.tqe_next;
+        child = nodes::next_ptr(child);
     }
     assert_eq!(percentages.len(), children as usize);
     split_sizes(con_rect_size_in_orientation(con) as i32, &percentages)
@@ -319,10 +319,10 @@ unsafe fn fullscreen_blocks_floating_render(fullscreen: *mut Con, floating: *mut
 unsafe fn render_root(con: *mut Con, fullscreen: *mut Con) {
     let mut output: *mut Con = ::core::ptr::null_mut::<Con>();
     if fullscreen.is_null() {
-        output = (*con).nodes_head.tqh_first as *mut Con;
+        output = nodes::first_ptr(con);
         while !output.is_null() {
             render_con(output);
-            output = (*output).nodes.tqe_next as *mut Con;
+            output = nodes::next_ptr(output);
         }
     }
     debuglog(
@@ -333,7 +333,7 @@ unsafe fn render_root(con: *mut Con, fullscreen: *mut Con) {
         c"render_root".as_ptr(),
         285,
     );
-    output = (*con).nodes_head.tqh_first as *mut Con;
+    output = nodes::first_ptr(con);
     while !output.is_null() {
         if !con_is_internal(output) {
             let content: *mut Con = output_get_content(output);
@@ -374,7 +374,7 @@ unsafe fn render_root(con: *mut Con, fullscreen: *mut Con) {
                 }
             }
         }
-        output = (*output).nodes.tqe_next as *mut Con;
+        output = nodes::next_ptr(output);
     }
 }
 unsafe fn render_output(con: *mut Con) {
@@ -384,7 +384,7 @@ unsafe fn render_output(con: *mut Con) {
     let mut y: i32 = (*con).rect.y as i32;
     let mut height: i32 = (*con).rect.height as i32;
     let mut content: *mut Con = ::core::ptr::null_mut::<Con>();
-    child = (*con).nodes_head.tqh_first as *mut Con;
+    child = nodes::first_ptr(con);
     while !child.is_null() {
         if (*child).type_0 as u32 == CT_CON {
             if !content.is_null() {
@@ -428,7 +428,7 @@ unsafe fn render_output(con: *mut Con) {
                 );
             };
         }
-        child = (*child).nodes.tqe_next as *mut Con;
+        child = nodes::next_ptr(child);
     }
     if content.is_null() {
         debuglog(
@@ -460,23 +460,23 @@ unsafe fn render_output(con: *mut Con) {
         render_con(fullscreen);
         return;
     }
-    child = (*con).nodes_head.tqh_first as *mut Con;
+    child = nodes::first_ptr(con);
     while !child.is_null() {
         if !((*child).type_0 as u32 != CT_DOCKAREA) {
             (*child).rect.height = 0 as u32;
-            dockchild = (*child).nodes_head.tqh_first as *mut Con;
+            dockchild = nodes::first_ptr(child);
             while !dockchild.is_null() {
                 (*child).rect.height = (*child)
                     .rect
                     .height
                     .wrapping_add((*dockchild).geometry.height);
-                dockchild = (*dockchild).nodes.tqe_next as *mut Con;
+                dockchild = nodes::next_ptr(dockchild);
             }
             height = (height as u32).wrapping_sub((*child).rect.height) as i32 as i32;
         }
-        child = (*child).nodes.tqe_next as *mut Con;
+        child = nodes::next_ptr(child);
     }
-    child = (*con).nodes_head.tqh_first as *mut Con;
+    child = nodes::first_ptr(con);
     while !child.is_null() {
         if (*child).type_0 as u32 == CT_CON {
             (*child).rect.x = x as u32;
@@ -506,7 +506,7 @@ unsafe fn render_output(con: *mut Con) {
         );
         x_raise_con(child);
         render_con(child);
-        child = (*child).nodes.tqe_next as *mut Con;
+        child = nodes::next_ptr(child);
     }
 }
 fn child_geometry(
@@ -791,3 +791,5 @@ mod tests {
         assert_eq!((r.height, p.y, d.unwrap().height), (17, 39, 0));
     }
 }
+
+use crate::con::arena::nodes;

@@ -212,7 +212,7 @@ unsafe fn handle_enter_notify(event: *mut xcb_enter_notify_event_t, full_sequenc
     };
     if layout == Layout::Default {
         let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-        child = *(*((*con).nodes_head.tqh_last as *mut nodes_head)).tqh_last as *mut Con;
+        child = nodes::last_ptr(con);
         while !child.is_null() {
             if rect_contains(
                 (*child).deco_rect as Rect,
@@ -227,7 +227,7 @@ unsafe fn handle_enter_notify(event: *mut xcb_enter_notify_event_t, full_sequenc
                 con = child;
                 break;
             } else {
-                child = *(*((*child).nodes.tqe_prev as *mut nodes_head)).tqh_last as *mut Con;
+                child = nodes::previous_ptr(child);
             }
         }
     }
@@ -285,14 +285,14 @@ unsafe fn handle_motion_notify(event: *mut xcb_motion_notify_event_t) {
         }
     } else {
         let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
-        current = *(*((*con).nodes_head.tqh_last as *mut nodes_head)).tqh_last as *mut Con;
+        current = nodes::last_ptr(con);
         while !current.is_null() {
             if !rect_contains(
                 (*current).deco_rect as Rect,
                 (*event).event_x as u32,
                 (*event).event_y as u32,
             ) {
-                current = *(*((*current).nodes.tqe_prev as *mut nodes_head)).tqh_last as *mut Con;
+                current = nodes::previous_ptr(current);
             } else {
                 if focus::first_ptr(con) == current {
                     return;
@@ -2354,7 +2354,6 @@ use i3_common::native_stdio::__assert_fail;
 use crate::log::{debuglog, errorlog, verboselog};
 
 // Shared model types retain field layout while using one Rust identity.
-pub use crate::types::nodes_head;
 pub use crate::types::xoutput;
 pub use crate::types::Con;
 pub use crate::types::Match;
@@ -2552,3 +2551,5 @@ mod owned_event_tests {
         assert!(!events.contains(1, 2, 6));
     }
 }
+
+use crate::con::arena::nodes;

@@ -66,13 +66,13 @@ pub unsafe fn has_drop_targets() -> bool {
     while !output.is_null() {
         if !con_is_internal(output) {
             let mut visible_ws: *mut Con = ::core::ptr::null_mut::<Con>();
-            let mut child = (*output_get_content(output)).nodes_head.tqh_first;
+            let mut child = nodes::first_ptr(output_get_content(output));
             while !child.is_null() {
                 if workspace_is_visible(child) {
                     visible_ws = child;
                     break;
                 }
-                child = (*child).nodes.tqe_next;
+                child = nodes::next_ptr(child);
             }
             if !visible_ws.is_null() && con_num_children(visible_ws) == 0 {
                 drop_targets += 1;
@@ -408,10 +408,9 @@ pub unsafe fn tiling_drag(
             );
             if parent_tabbed_or_stacked {
                 if position == Position::Before {
-                    target = (*parent_ptr(target)).nodes_head.tqh_first as *mut Con;
+                    target = nodes::first_ptr(parent_ptr(target));
                 } else {
-                    target = *(*((*parent_ptr(target)).nodes_head.tqh_last as *mut nodes_head))
-                        .tqh_last as *mut Con;
+                    target = nodes::last_ptr(parent_ptr(target));
                 }
             }
             if con != target {
@@ -489,7 +488,6 @@ use i3_common::native_stdio::__assert_fail;
 use crate::log::{debuglog, errorlog};
 
 // Shared model types retain field layout while using one Rust identity.
-pub use crate::types::nodes_head;
 pub use crate::types::xoutput;
 pub use crate::types::Con;
 pub use crate::types::Rect;
@@ -640,3 +638,5 @@ mod owned_tests {
         assert_eq!((down.y, down.height), (17, 5));
     }
 }
+
+use crate::con::arena::nodes;

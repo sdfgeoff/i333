@@ -917,7 +917,7 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
         p.write(candidate);
         next = con;
         loop {
-            next = (*next).nodes.tqe_next as *mut Con;
+            next = nodes::next_ptr(next);
             if next.is_null() {
                 break;
             }
@@ -990,8 +990,8 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
                 );
             }
             let br: Rect = con_border_style_rect(con);
-            if (*con).nodes.tqe_next.is_null()
-                && (*(*((*con).nodes.tqe_prev as *mut nodes_head)).tqh_last).is_null()
+            if nodes::next_ptr(con).is_null()
+                && (nodes::previous_ptr(con)).is_null()
                 && (*parent_ptr(con)).type_0 as u32 != CT_FLOATING_CON
             {
                 if (*p).parent_layout == Layout::SplitH {
@@ -1051,7 +1051,7 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
             (*dest_surface).id,
         );
         if !((*dest_surface).id as ::core::ffi::c_long == XCB_NONE) {
-            if con == (*parent_ptr(con)).nodes_head.tqh_first {
+            if con == nodes::first_ptr(parent_ptr(con)) {
                 free((*parent_ptr(con)).deco_render_params as *mut ::core::ffi::c_void);
                 (*parent_ptr(con)).deco_render_params =
                     ::core::ptr::null_mut::<deco_render_params>();
@@ -1191,15 +1191,15 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
 }
 
 pub unsafe fn x_deco_recurse(con: *mut Con) {
-    let leaf: bool = (*con).nodes_head.tqh_first.is_null()
+    let leaf: bool = nodes::first_ptr(con).is_null()
         && floating::is_empty(identity(con).expect("live floating parent"));
     let state: *const FrameState = state_for_frame((*con).frame.id as xcb_window_t);
     if !leaf {
         let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
-        current = (*con).nodes_head.tqh_first as *mut Con;
+        current = nodes::first_ptr(con);
         while !current.is_null() {
             x_deco_recurse(current);
-            current = (*current).nodes.tqe_next as *mut Con;
+            current = nodes::next_ptr(current);
         }
         for floating_id in floating::children(identity(con).expect("live floating parent")) {
             let Some(current) = resolve(floating_id) else {
@@ -1457,14 +1457,14 @@ pub unsafe fn x_push_node(con: *mut Con) {
     {
         let mut max_y: u32 = 0 as u32;
         let mut max_height: u32 = 0 as u32;
-        current = (*con).nodes_head.tqh_first as *mut Con;
+        current = nodes::first_ptr(con);
         while !current.is_null() {
             let dr: *mut Rect = &raw mut (*current).deco_rect;
             if (*dr).y >= max_y && (*dr).height >= max_height {
                 max_y = (*dr).y;
                 max_height = (*dr).height;
             }
-            current = (*current).nodes.tqe_next as *mut Con;
+            current = nodes::next_ptr(current);
         }
         rect.height = max_y.wrapping_add(max_height);
         if rect.height == 0 as u32 {
@@ -1866,10 +1866,10 @@ unsafe fn x_push_node_unmaps(con: *mut Con) {
         }
         (*state).mapped = (*con).mapped;
     }
-    current = (*con).nodes_head.tqh_first as *mut Con;
+    current = nodes::first_ptr(con);
     while !current.is_null() {
         x_push_node_unmaps(current);
-        current = (*current).nodes.tqe_next as *mut Con;
+        current = nodes::next_ptr(current);
     }
     for floating_id in floating::children(identity(con).expect("live floating parent")) {
         let Some(current) = resolve(floating_id) else {
@@ -1883,12 +1883,12 @@ unsafe fn is_con_attached(con: *mut Con) -> bool {
         return false;
     }
     let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
-    current = (*parent_ptr(con)).nodes_head.tqh_first as *mut Con;
+    current = nodes::first_ptr(parent_ptr(con));
     while !current.is_null() {
         if current == con {
             return true;
         }
-        current = (*current).nodes.tqe_next as *mut Con;
+        current = nodes::next_ptr(current);
     }
     false
 }
@@ -2474,7 +2474,6 @@ use crate::log::{debuglog, errorlog, verboselog};
 
 // Shared model types retain field layout while using one Rust identity.
 use crate::types::deco_render_params;
-use crate::types::nodes_head;
 use crate::types::width_height;
 use crate::types::xoutput;
 use crate::types::Colortriple;
@@ -2698,3 +2697,5 @@ mod tests {
         ));
     }
 }
+
+use crate::con::arena::nodes;

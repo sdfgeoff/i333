@@ -1,5 +1,5 @@
 use crate::con::arena::parent::{parent_ptr, set_parent_ptr};
-use crate::con::arena::{focus, identity};
+use crate::con::arena::{focus, identity, nodes};
 use crate::types::Direction;
 use crate::types::Layout;
 use crate::types::Orientation;
@@ -170,20 +170,11 @@ pub unsafe fn insert_con_into(mut con: *mut Con, target: *mut Con, position: Pos
     } else {
         focus::append(owner, child).expect("detached focus insertion");
     }
+    let anchor = identity(target).expect("live tiling target");
     if position == Position::Before {
-        (*con).nodes.tqe_prev = (*target).nodes.tqe_prev;
-        (*con).nodes.tqe_next = target as *mut Con;
-        *(*target).nodes.tqe_prev = con as *mut Con;
-        (*target).nodes.tqe_prev = &raw mut (*con).nodes.tqe_next;
+        nodes::insert_before(owner, child, anchor).expect("detached tiling insertion");
     } else if position == Position::After {
-        (*con).nodes.tqe_next = (*target).nodes.tqe_next;
-        if !(*con).nodes.tqe_next.is_null() {
-            (*(*con).nodes.tqe_next).nodes.tqe_prev = &raw mut (*con).nodes.tqe_next;
-        } else {
-            (*parent).nodes_head.tqh_last = &raw mut (*con).nodes.tqe_next;
-        }
-        (*target).nodes.tqe_next = con as *mut Con;
-        (*con).nodes.tqe_prev = &raw mut (*target).nodes.tqe_next;
+        nodes::insert_after(owner, child, anchor).expect("detached tiling insertion");
     }
     (*con).percent = 0.0f64;
     con_fix_percent(parent);
@@ -195,20 +186,12 @@ unsafe fn attach_to_workspace(con: *mut Con, ws: *mut Con, direction: Direction)
     con_detach(con);
     let old_parent: *mut Con = parent_ptr(con);
     set_parent_ptr(con, ws as *mut Con).expect("live acyclic ancestry");
+    let owner = identity(ws).expect("live workspace tiling owner");
+    let child = identity(con).expect("live moved container");
     if direction == Direction::Right || direction == Direction::Down {
-        (*con).nodes.tqe_next = (*ws).nodes_head.tqh_first;
-        if !(*con).nodes.tqe_next.is_null() {
-            (*(*ws).nodes_head.tqh_first).nodes.tqe_prev = &raw mut (*con).nodes.tqe_next;
-        } else {
-            (*ws).nodes_head.tqh_last = &raw mut (*con).nodes.tqe_next;
-        }
-        (*ws).nodes_head.tqh_first = con as *mut Con;
-        (*con).nodes.tqe_prev = &raw mut (*ws).nodes_head.tqh_first;
+        nodes::prepend(owner, child).expect("detached tiling insertion");
     } else {
-        (*con).nodes.tqe_next = ::core::ptr::null_mut::<Con>();
-        (*con).nodes.tqe_prev = (*ws).nodes_head.tqh_last;
-        *(*ws).nodes_head.tqh_last = con as *mut Con;
-        (*ws).nodes_head.tqh_last = &raw mut (*con).nodes.tqe_next;
+        nodes::append(owner, child).expect("detached tiling insertion");
     }
     focus::append(
         identity(ws).expect("live workspace focus owner"),
@@ -237,13 +220,13 @@ unsafe fn move_to_output_directed(con: *mut Con, direction: Direction) {
         return;
     }
     let mut ws: *mut Con = ::core::ptr::null_mut::<Con>();
-    let mut child = (*output_get_content((*output).con)).nodes_head.tqh_first;
+    let mut child = nodes::first_ptr(output_get_content((*output).con));
     while !child.is_null() {
         if workspace_is_visible(child) {
             ws = child;
             break;
         }
-        child = (*child).nodes.tqe_next;
+        child = nodes::next_ptr(child);
     }
     if ws.is_null() {
         debuglog(
@@ -346,9 +329,9 @@ pub unsafe fn tree_move(con: *mut Con, direction: Direction) {
         }
         if same_orientation == parent_ptr(con) {
             let swap: *mut Con = if backward(direction) {
-                *(*((*con).nodes.tqe_prev as *mut nodes_head)).tqh_last
+                nodes::previous_ptr(con)
             } else {
-                (*con).nodes.tqe_next as *mut Con
+                nodes::next_ptr(con)
             };
             if !swap.is_null() {
                 if !con_is_leaf(swap) {
@@ -371,38 +354,11 @@ pub unsafe fn tree_move(con: *mut Con, direction: Direction) {
                         c"tree_move".as_ptr(),
                         328,
                     );
-                    if backward(direction) {
-                        *(*swap).nodes.tqe_prev = con as *mut Con;
-                        (*con).nodes.tqe_prev = (*swap).nodes.tqe_prev;
-                        (*swap).nodes.tqe_prev = &raw mut (*con).nodes.tqe_next;
-                        (*swap).nodes.tqe_next = (*con).nodes.tqe_next;
-                        if !(*con).nodes.tqe_next.is_null() {
-                            (*(*con).nodes.tqe_next).nodes.tqe_prev =
-                                &raw mut (*swap).nodes.tqe_next;
-                        }
-                        (*con).nodes.tqe_next = swap as *mut Con;
-                        if (*parent_ptr(swap)).nodes_head.tqh_last == &raw mut (*con).nodes.tqe_next
-                        {
-                            (*parent_ptr(swap)).nodes_head.tqh_last =
-                                &raw mut (*swap).nodes.tqe_next;
-                        }
-                    } else {
-                        *(*con).nodes.tqe_prev = swap as *mut Con;
-                        (*swap).nodes.tqe_prev = (*con).nodes.tqe_prev;
-                        (*con).nodes.tqe_prev = &raw mut (*swap).nodes.tqe_next;
-                        (*con).nodes.tqe_next = (*swap).nodes.tqe_next;
-                        if !(*swap).nodes.tqe_next.is_null() {
-                            (*(*swap).nodes.tqe_next).nodes.tqe_prev =
-                                &raw mut (*con).nodes.tqe_next;
-                        }
-                        (*swap).nodes.tqe_next = con as *mut Con;
-                        if (*parent_ptr(swap)).nodes_head.tqh_last
-                            == &raw mut (*swap).nodes.tqe_next
-                        {
-                            (*parent_ptr(swap)).nodes_head.tqh_last =
-                                &raw mut (*con).nodes.tqe_next;
-                        }
-                    }
+                    nodes::swap(
+                        identity(con).expect("live moved tiling child"),
+                        identity(swap).expect("live adjacent tiling child"),
+                    )
+                    .expect("adjacent tiling siblings");
                     con_force_split_parents_redraw(con);
                     ipc_send_window_event(c"move".as_ptr(), con);
                     return;
@@ -440,9 +396,9 @@ pub unsafe fn tree_move(con: *mut Con, direction: Direction) {
             above,
         );
         next = if backward(direction) {
-            *(*((*above).nodes.tqe_prev as *mut nodes_head)).tqh_last
+            nodes::previous_ptr(above)
         } else {
-            (*above).nodes.tqe_next as *mut Con
+            nodes::next_ptr(above)
         };
         if !next.is_null() && !con_is_leaf(next) {
             debuglog(
@@ -505,7 +461,6 @@ use crate::log::{debuglog, errorlog, verboselog};
 
 // Shared model types retain field layout while using one Rust identity.
 use crate::types::deco_render_params;
-use crate::types::nodes_head;
 use crate::types::xoutput;
 use crate::types::Con;
 use crate::types::Window;

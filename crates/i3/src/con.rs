@@ -1,3 +1,4 @@
+use crate::con::arena::nodes;
 use crate::con::arena::parent::{parent_ptr, set_parent_ptr};
 use crate::con::arena::{focus, ConId};
 pub(crate) mod arena;
@@ -160,7 +161,8 @@ unsafe fn _con_attach(con: *mut Con, parent: *mut Con, previous: *mut Con, ignor
     set_parent_ptr(con, parent as *mut Con).expect("live acyclic ancestry");
     let mut loop_0: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut current: *mut Con = previous;
-    let mut nodes_head: *mut nodes_head = &raw mut (*parent).nodes_head;
+    let mut node_owner = arena::identity(parent).expect("live child owner");
+    let child_id = arena::identity(con).expect("live child");
     let mut focus_parent = parent;
     if (*con).type_0 as ::core::ffi::c_uint
         == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
@@ -174,49 +176,38 @@ unsafe fn _con_attach(con: *mut Con, parent: *mut Con, previous: *mut Con, ignor
             110 as ::core::ffi::c_int,
             (*con).num,
         );
-        if (*con).num == -(1 as ::core::ffi::c_int) || (*nodes_head).tqh_first.is_null() {
-            (*con).nodes.tqe_next = ::core::ptr::null_mut::<Con>();
-            (*con).nodes.tqe_prev = (*nodes_head).tqh_last;
-            *(*nodes_head).tqh_last = con as *mut Con;
-            (*nodes_head).tqh_last = &raw mut (*con).nodes.tqe_next;
+        current = nodes::first(node_owner)
+            .and_then(arena::resolve)
+            .unwrap_or(std::ptr::null_mut());
+        if (*con).num == -1 || current.is_null() {
+            nodes::append(node_owner, child_id).expect("detached workspace");
+        } else if (*con).num < (*current).num {
+            nodes::prepend(node_owner, child_id).expect("detached workspace");
         } else {
-            current = (*nodes_head).tqh_first as *mut Con;
-            if (*con).num < (*current).num {
-                (*con).nodes.tqe_next = (*nodes_head).tqh_first;
-                if !(*con).nodes.tqe_next.is_null() {
-                    (*(*nodes_head).tqh_first).nodes.tqe_prev = &raw mut (*con).nodes.tqe_next;
-                } else {
-                    (*nodes_head).tqh_last = &raw mut (*con).nodes.tqe_next;
-                }
-                (*nodes_head).tqh_first = con as *mut Con;
-                (*con).nodes.tqe_prev = &raw mut (*nodes_head).tqh_first;
-            } else {
-                while (*current).num != -(1 as ::core::ffi::c_int) && (*con).num >= (*current).num {
-                    current = (*current).nodes.tqe_next as *mut Con;
-                    if !current.is_null() {
-                        continue;
-                    }
-                    current = ::core::ptr::null_mut::<Con>();
+            while (*current).num != -1 && (*con).num >= (*current).num {
+                current = nodes::next_ptr(current);
+                if current.is_null() {
                     break;
                 }
-                if !current.is_null() {
-                    (*con).nodes.tqe_prev = (*current).nodes.tqe_prev;
-                    (*con).nodes.tqe_next = current as *mut Con;
-                    *(*current).nodes.tqe_prev = con as *mut Con;
-                    (*current).nodes.tqe_prev = &raw mut (*con).nodes.tqe_next;
-                } else {
-                    (*con).nodes.tqe_next = ::core::ptr::null_mut::<Con>();
-                    (*con).nodes.tqe_prev = (*nodes_head).tqh_last;
-                    *(*nodes_head).tqh_last = con as *mut Con;
-                    (*nodes_head).tqh_last = &raw mut (*con).nodes.tqe_next;
-                }
+            }
+            if current.is_null() {
+                nodes::append(node_owner, child_id).expect("detached workspace");
+            } else {
+                nodes::insert_before(
+                    node_owner,
+                    child_id,
+                    arena::identity(current).expect("live workspace anchor"),
+                )
+                .expect("detached workspace");
             }
         }
     } else if (*parent).type_0 as ::core::ffi::c_uint
         == CT_DOCKAREA as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         current = ::core::ptr::null_mut::<Con>();
-        loop_0 = (*nodes_head).tqh_first as *mut Con;
+        loop_0 = nodes::first(node_owner)
+            .and_then(arena::resolve)
+            .unwrap_or(std::ptr::null_mut()) as *mut Con;
         while !loop_0.is_null() {
             let mut result: ::core::ffi::c_int = strcasecmp_nullable(
                 (*(*con).window).class_class,
@@ -232,19 +223,18 @@ unsafe fn _con_attach(con: *mut Con, parent: *mut Con, previous: *mut Con, ignor
                 current = loop_0;
                 break;
             } else {
-                loop_0 = (*loop_0).nodes.tqe_next as *mut Con;
+                loop_0 = nodes::next_ptr(loop_0) as *mut Con;
             }
         }
         if !current.is_null() {
-            (*con).nodes.tqe_prev = (*loop_0).nodes.tqe_prev;
-            (*con).nodes.tqe_next = loop_0 as *mut Con;
-            *(*loop_0).nodes.tqe_prev = con as *mut Con;
-            (*loop_0).nodes.tqe_prev = &raw mut (*con).nodes.tqe_next;
+            nodes::insert_before(
+                node_owner,
+                child_id,
+                arena::identity(current).expect("live dock anchor"),
+            )
+            .expect("detached dock child");
         } else {
-            (*con).nodes.tqe_next = ::core::ptr::null_mut::<Con>();
-            (*con).nodes.tqe_prev = (*nodes_head).tqh_last;
-            *(*nodes_head).tqh_last = con as *mut Con;
-            (*nodes_head).tqh_last = &raw mut (*con).nodes.tqe_next;
+            nodes::append(node_owner, child_id).expect("detached dock child");
         }
     } else if (*con).type_0 as ::core::ffi::c_uint
         == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
@@ -290,7 +280,7 @@ unsafe fn _con_attach(con: *mut Con, parent: *mut Con, previous: *mut Con, ignor
                 186 as ::core::ffi::c_int,
             );
             let target: *mut Con = workspace_attach_to(parent);
-            nodes_head = &raw mut (*target).nodes_head as *mut nodes_head;
+            node_owner = arena::identity(target).expect("live workspace split");
             focus_parent = target;
             set_parent_ptr(con, target as *mut Con).expect("live acyclic ancestry");
             current = ::core::ptr::null_mut::<Con>();
@@ -315,19 +305,14 @@ unsafe fn _con_attach(con: *mut Con, parent: *mut Con, previous: *mut Con, ignor
                 con,
                 current,
             );
-            (*con).nodes.tqe_next = (*current).nodes.tqe_next;
-            if !(*con).nodes.tqe_next.is_null() {
-                (*(*con).nodes.tqe_next).nodes.tqe_prev = &raw mut (*con).nodes.tqe_next;
-            } else {
-                (*nodes_head).tqh_last = &raw mut (*con).nodes.tqe_next;
-            }
-            (*current).nodes.tqe_next = con as *mut Con;
-            (*con).nodes.tqe_prev = &raw mut (*current).nodes.tqe_next;
+            nodes::insert_after(
+                node_owner,
+                child_id,
+                arena::identity(current).expect("live insertion anchor"),
+            )
+            .expect("detached child");
         } else {
-            (*con).nodes.tqe_next = ::core::ptr::null_mut::<Con>();
-            (*con).nodes.tqe_prev = (*nodes_head).tqh_last;
-            *(*nodes_head).tqh_last = con as *mut Con;
-            (*nodes_head).tqh_last = &raw mut (*con).nodes.tqe_next;
+            nodes::append(node_owner, child_id).expect("detached child");
         }
     }
     focus::append(
@@ -353,12 +338,11 @@ pub unsafe fn con_detach(con: *mut Con) {
         )
         .expect("attached floating child");
     } else {
-        if !(*con).nodes.tqe_next.is_null() {
-            (*(*con).nodes.tqe_next).nodes.tqe_prev = (*con).nodes.tqe_prev;
-        } else {
-            (*parent_ptr(con)).nodes_head.tqh_last = (*con).nodes.tqe_prev;
-        }
-        *(*con).nodes.tqe_prev = (*con).nodes.tqe_next;
+        nodes::remove(
+            arena::identity(parent_ptr(con)).expect("live child owner"),
+            arena::identity(con).expect("live child"),
+        )
+        .expect("attached child");
     };
     focus::remove(
         arena::identity(parent_ptr(con)).expect("live focus parent"),
@@ -498,8 +482,8 @@ pub unsafe fn con_close(con: *mut Con, kill_window: KillWindow) {
     tree_close_internal(con, kill_window, false);
 }
 
-pub unsafe fn con_is_leaf(con: *mut Con) -> bool {
-    (*con).nodes_head.tqh_first.is_null()
+pub fn con_is_leaf(con: *mut Con) -> bool {
+    nodes::first_ptr(con).is_null()
 }
 
 pub unsafe fn con_has_managed_window(con: *mut Con) -> bool {
@@ -596,12 +580,12 @@ pub unsafe fn con_is_sticky(con: *mut Con) -> bool {
         return true;
     }
     let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-    child = (*con).nodes_head.tqh_first as *mut Con;
+    child = nodes::first_ptr(con) as *mut Con;
     while !child.is_null() {
         if con_is_sticky(child) {
             return true;
         }
-        child = (*child).nodes.tqe_next as *mut Con;
+        child = nodes::next_ptr(child) as *mut Con;
     }
     false
 }
@@ -720,10 +704,10 @@ pub unsafe fn con_get_fullscreen_con(
         if current != con && (*current).fullscreen_mode == fullscreen_mode {
             return current;
         }
-        let mut child = (*current).nodes_head.tqh_first;
+        let mut child = nodes::first_ptr(current);
         while !child.is_null() {
             pending.push_back(child);
-            child = (*child).nodes.tqe_next;
+            child = nodes::next_ptr(child);
         }
         if let Some(parent) = arena::identity(current) {
             for id in arena::floating::children(parent) {
@@ -810,15 +794,18 @@ pub unsafe fn con_inside_focused(con: *mut Con) -> bool {
     con_inside_focused(parent_ptr(con) as *mut Con)
 }
 
-pub unsafe fn con_has_parent(con: *mut Con, parent: *mut Con) -> bool {
-    let current: *mut Con = parent_ptr(con) as *mut Con;
-    if current.is_null() {
+pub fn con_has_parent(con: *mut Con, parent: *mut Con) -> bool {
+    let Some(target) = arena::identity(parent) else {
         return false;
+    };
+    let mut current = arena::identity(con).and_then(arena::parent::parent);
+    while let Some(id) = current {
+        if id == target {
+            return true;
+        }
+        current = arena::parent::parent(id);
     }
-    if current == parent {
-        return true;
-    }
-    con_has_parent(current, parent)
+    false
 }
 
 pub unsafe fn con_by_window_id(window: xcb_window_t) -> *mut Con {
@@ -837,8 +824,8 @@ pub fn con_by_con_id(target: ::core::ffi::c_long) -> *mut Con {
     arena::lookup_address(target as usize)
 }
 
-pub unsafe fn con_exists(con: *mut Con) -> bool {
-    !con_by_con_id(con as ::core::ffi::c_long).is_null()
+pub fn con_exists(con: *mut Con) -> bool {
+    arena::identity(con).is_some()
 }
 
 pub unsafe fn con_by_frame_id(frame: xcb_window_t) -> *mut Con {
@@ -1085,7 +1072,7 @@ pub unsafe fn con_for_window(
 ) -> *mut Con {
     let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut match_0: *mut Match = ::core::ptr::null_mut::<Match>();
-    child = (*con).nodes_head.tqh_first as *mut Con;
+    child = nodes::first_ptr(con) as *mut Con;
     while !child.is_null() {
         match_0 = (*child).swallow_head.tqh_first as *mut Match;
         while !match_0.is_null() {
@@ -1102,7 +1089,7 @@ pub unsafe fn con_for_window(
         if !result.is_null() {
             return result;
         }
-        child = (*child).nodes.tqe_next as *mut Con;
+        child = nodes::next_ptr(child) as *mut Con;
     }
     for id in arena::identity(con)
         .into_iter()
@@ -1160,31 +1147,23 @@ pub unsafe fn set_focus_order(con: *mut Con, focus_order: &[ConId]) {
         .expect("focus snapshot must permute retained membership");
 }
 
-pub unsafe fn con_num_children(con: *mut Con) -> ::core::ffi::c_int {
-    let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-    let mut children: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    child = (*con).nodes_head.tqh_first as *mut Con;
-    while !child.is_null() {
-        children += 1;
-        child = (*child).nodes.tqe_next as *mut Con;
-    }
-    children
+pub fn con_num_children(con: *mut Con) -> ::core::ffi::c_int {
+    nodes::len_ptr(con) as ::core::ffi::c_int
 }
 
 pub unsafe fn con_num_visible_children(con: *mut Con) -> ::core::ffi::c_int {
     if con.is_null() {
-        return 0 as ::core::ffi::c_int;
+        return 0;
     }
-    let mut children: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
-    current = (*con).nodes_head.tqh_first as *mut Con;
+    let mut children = 0;
+    let mut current = nodes::first_ptr(con);
     while !current.is_null() {
-        if !con_is_hidden(current) && con_is_leaf(current) as ::core::ffi::c_int != 0 {
+        if !con_is_hidden(current) && con_is_leaf(current) {
             children += 1;
         } else {
             children += con_num_visible_children(current);
         }
-        current = (*current).nodes.tqe_next as *mut Con;
+        current = nodes::next_ptr(current);
     }
     children
 }
@@ -1198,10 +1177,10 @@ pub unsafe fn con_num_windows(con: *mut Con) -> ::core::ffi::c_int {
     }
     let mut num: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
     let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
-    current = (*con).nodes_head.tqh_first as *mut Con;
+    current = nodes::first_ptr(con) as *mut Con;
     while !current.is_null() {
         num += con_num_windows(current);
-        current = (*current).nodes.tqe_next as *mut Con;
+        current = nodes::next_ptr(current) as *mut Con;
     }
     for id in arena::identity(con)
         .into_iter()
@@ -1249,10 +1228,10 @@ fn normalize_percentages(percentages: &mut [f64]) {
 /// copied percentages are normalized and written back in their original order.
 pub unsafe fn con_fix_percent(con: *mut Con) {
     let mut children = Vec::new();
-    let mut child = (*con).nodes_head.tqh_first;
+    let mut child = nodes::first_ptr(con);
     while !child.is_null() {
         children.push(child);
-        child = (*child).nodes.tqe_next;
+        child = nodes::next_ptr(child);
     }
     let mut percentages: Vec<_> = children.iter().map(|&child| (*child).percent).collect();
     normalize_percentages(&mut percentages);
@@ -1675,12 +1654,12 @@ unsafe fn _con_move_to_con(
     }
     if !con_is_leaf(con) {
         let mut child_0: *mut Con = ::core::ptr::null_mut::<Con>();
-        child_0 = (*con).nodes_head.tqh_first as *mut Con;
+        child_0 = nodes::first_ptr(con) as *mut Con;
         while !child_0.is_null() {
             if !(*child_0).window.is_null() {
                 startup_sequence_delete_by_window((*child_0).window);
             }
-            child_0 = (*child_0).nodes.tqe_next as *mut Con;
+            child_0 = nodes::next_ptr(child_0) as *mut Con;
         }
     }
     if !(*con).window.is_null() {
@@ -1829,10 +1808,10 @@ pub unsafe fn con_move_to_output(con: *mut Con, output: *mut Output, fix_coordin
         child = ::core::ptr::null_mut::<Con>();
         true
     } {
-        child = (*output_get_content((*output).con)).nodes_head.tqh_first as *mut Con;
+        child = nodes::first_ptr(output_get_content((*output).con)) as *mut Con;
         while !child.is_null() {
             if !workspace_is_visible(child) {
-                child = (*child).nodes.tqe_next as *mut Con;
+                child = nodes::next_ptr(child) as *mut Con;
             } else {
                 ws = child;
                 break;
@@ -2009,9 +1988,9 @@ pub unsafe fn con_descend_direction(con: *mut Con, direction: Direction) -> *mut
     if direction == Direction::Left || direction == Direction::Right {
         if orientation == Orientation::Horizontal {
             if direction == Direction::Right {
-                most = (*con).nodes_head.tqh_first as *mut Con;
+                most = nodes::first_ptr(con) as *mut Con;
             } else {
-                most = *(*((*con).nodes_head.tqh_last as *mut nodes_head)).tqh_last as *mut Con;
+                most = nodes::last_ptr(con) as *mut Con;
             }
         } else if orientation == Orientation::Vertical {
             current = focus::first_ptr(con) as *mut Con;
@@ -2032,9 +2011,9 @@ pub unsafe fn con_descend_direction(con: *mut Con, direction: Direction) -> *mut
     if direction == Direction::Up || direction == Direction::Down {
         if orientation == Orientation::Vertical {
             if direction == Direction::Up {
-                most = *(*((*con).nodes_head.tqh_last as *mut nodes_head)).tqh_last as *mut Con;
+                most = nodes::last_ptr(con) as *mut Con;
             } else {
-                most = (*con).nodes_head.tqh_first as *mut Con;
+                most = nodes::first_ptr(con) as *mut Con;
             }
         } else if orientation == Orientation::Horizontal {
             current = focus::first_ptr(con) as *mut Con;
@@ -2343,8 +2322,8 @@ pub unsafe fn con_set_layout(mut con: *mut Con, layout: Layout) {
                 c"con_set_layout".as_ptr(),
                 2040 as ::core::ffi::c_int,
             );
-            while !(*con).nodes_head.tqh_first.is_null() {
-                let child: *mut Con = (*con).nodes_head.tqh_first as *mut Con;
+            while !nodes::first_ptr(con).is_null() {
+                let child: *mut Con = nodes::first_ptr(con) as *mut Con;
                 con_detach(child);
                 con_attach(child, new, true);
             }
@@ -2371,7 +2350,7 @@ pub unsafe fn con_set_layout(mut con: *mut Con, layout: Layout) {
         && con_num_children(parent_ptr(con) as *mut Con) == 1 as ::core::ffi::c_int
     {
         let parent: *mut Con = parent_ptr(con) as *mut Con;
-        let child_0: *mut Con = (*con).nodes_head.tqh_first as *mut Con;
+        let child_0: *mut Con = nodes::first_ptr(con) as *mut Con;
         con_detach(child_0);
         con_attach(child_0, parent, true);
         (*parent).last_split_layout = (*con).last_split_layout;
@@ -2588,7 +2567,7 @@ pub unsafe fn con_minimum_size(con: *mut Con) -> Rect {
             c"con_minimum_size".as_ptr(),
             2262 as ::core::ffi::c_int,
         );
-        let child: *mut Con = (*con).nodes_head.tqh_first as *mut Con;
+        let child: *mut Con = nodes::first_ptr(con) as *mut Con;
         return con_minimum_size(child);
     }
     if (*con).layout == Layout::Stacked || (*con).layout == Layout::Tabbed {
@@ -2596,7 +2575,7 @@ pub unsafe fn con_minimum_size(con: *mut Con) -> Rect {
         let mut max_height: u32 = 0 as u32;
         let mut deco_height: u32 = 0 as u32;
         let mut child_0: *mut Con = ::core::ptr::null_mut::<Con>();
-        child_0 = (*con).nodes_head.tqh_first as *mut Con;
+        child_0 = nodes::first_ptr(con) as *mut Con;
         while !child_0.is_null() {
             let min: Rect = con_minimum_size(child_0);
             deco_height = deco_height.wrapping_add((*child_0).deco_rect.height);
@@ -2608,7 +2587,7 @@ pub unsafe fn con_minimum_size(con: *mut Con) -> Rect {
                 max_height as ::core::ffi::c_int,
                 min.height as ::core::ffi::c_int,
             ) as u32;
-            child_0 = (*child_0).nodes.tqe_next as *mut Con;
+            child_0 = nodes::next_ptr(child_0) as *mut Con;
         }
         debuglog(
             c"%s:%s:%d - stacked/tabbed now, returning %d x %d + deco_rect = %d\n"
@@ -2632,7 +2611,7 @@ pub unsafe fn con_minimum_size(con: *mut Con) -> Rect {
         let mut width: u32 = 0 as u32;
         let mut height: u32 = 0 as u32;
         let mut child_1: *mut Con = ::core::ptr::null_mut::<Con>();
-        child_1 = (*con).nodes_head.tqh_first as *mut Con;
+        child_1 = nodes::first_ptr(con) as *mut Con;
         while !child_1.is_null() {
             let min_0: Rect = con_minimum_size(child_1);
             if (*con).layout == Layout::SplitH {
@@ -2648,7 +2627,7 @@ pub unsafe fn con_minimum_size(con: *mut Con) -> Rect {
                     min_0.width as ::core::ffi::c_int,
                 ) as u32;
             }
-            child_1 = (*child_1).nodes.tqe_next as *mut Con;
+            child_1 = nodes::next_ptr(child_1) as *mut Con;
         }
         debuglog(
             c"%s:%s:%d - split container, returning width = %d x height = %d\n"
@@ -2740,12 +2719,12 @@ pub unsafe fn con_has_urgent_child(con: *mut Con) -> bool {
     if con_is_leaf(con) {
         return (*con).urgent;
     }
-    child = (*con).nodes_head.tqh_first as *mut Con;
+    child = nodes::first_ptr(con) as *mut Con;
     while !child.is_null() {
         if con_has_urgent_child(child) {
             return true;
         }
-        child = (*child).nodes.tqe_next as *mut Con;
+        child = nodes::next_ptr(child) as *mut Con;
     }
     false
 }
@@ -2855,13 +2834,13 @@ unsafe fn tree_representation(con: *mut Con) -> Vec<u8> {
         }
     };
     let mut text = vec![label, b'['];
-    let mut child = (*con).nodes_head.tqh_first;
+    let mut child = nodes::first_ptr(con);
     while !child.is_null() {
-        if child != (*con).nodes_head.tqh_first {
+        if child != nodes::first_ptr(con) {
             text.push(b' ');
         }
         text.extend(tree_representation(child));
-        child = (*child).nodes.tqe_next;
+        child = nodes::next_ptr(child);
     }
     text.push(b']');
     text
@@ -3014,86 +2993,11 @@ pub unsafe fn con_swap(first: *mut Con, second: *mut Con) -> bool {
     } else if second == focused || con_has_parent(focused, second) as ::core::ffi::c_int != 0 {
         restore_focus = first;
     }
-    let head1: *mut nodes_head = &raw mut (*parent_ptr(first)).nodes_head;
-    let head2: *mut nodes_head = &raw mut (*parent_ptr(second)).nodes_head;
-    let first_prev: *mut Con = *(*((*first).nodes.tqe_prev as *mut nodes_head)).tqh_last;
-    let second_prev: *mut Con = *(*((*second).nodes.tqe_prev as *mut nodes_head)).tqh_last;
-    if second_prev == first {
-        *(*first).nodes.tqe_prev = second as *mut Con;
-        (*second).nodes.tqe_prev = (*first).nodes.tqe_prev;
-        (*first).nodes.tqe_prev = &raw mut (*second).nodes.tqe_next;
-        (*first).nodes.tqe_next = (*second).nodes.tqe_next;
-        if !(*second).nodes.tqe_next.is_null() {
-            (*(*second).nodes.tqe_next).nodes.tqe_prev = &raw mut (*first).nodes.tqe_next;
-        }
-        (*second).nodes.tqe_next = first as *mut Con;
-        if (*head1).tqh_last == &raw mut (*second).nodes.tqe_next {
-            (*head1).tqh_last = &raw mut (*first).nodes.tqe_next;
-        }
-    } else if first_prev == second {
-        *(*second).nodes.tqe_prev = first as *mut Con;
-        (*first).nodes.tqe_prev = (*second).nodes.tqe_prev;
-        (*second).nodes.tqe_prev = &raw mut (*first).nodes.tqe_next;
-        (*second).nodes.tqe_next = (*first).nodes.tqe_next;
-        if !(*first).nodes.tqe_next.is_null() {
-            (*(*first).nodes.tqe_next).nodes.tqe_prev = &raw mut (*second).nodes.tqe_next;
-        }
-        (*first).nodes.tqe_next = second as *mut Con;
-        if (*head1).tqh_last == &raw mut (*first).nodes.tqe_next {
-            (*head1).tqh_last = &raw mut (*second).nodes.tqe_next;
-        }
-    } else {
-        if !(*first).nodes.tqe_next.is_null() {
-            (*(*first).nodes.tqe_next).nodes.tqe_prev = (*first).nodes.tqe_prev;
-        } else {
-            (*head1).tqh_last = (*first).nodes.tqe_prev;
-        }
-        *(*first).nodes.tqe_prev = (*first).nodes.tqe_next;
-        if !(*second).nodes.tqe_next.is_null() {
-            (*(*second).nodes.tqe_next).nodes.tqe_prev = (*second).nodes.tqe_prev;
-        } else {
-            (*head2).tqh_last = (*second).nodes.tqe_prev;
-        }
-        *(*second).nodes.tqe_prev = (*second).nodes.tqe_next;
-        if second_prev.is_null() {
-            (*first).nodes.tqe_next = (*head2).tqh_first;
-            if !(*first).nodes.tqe_next.is_null() {
-                (*(*head2).tqh_first).nodes.tqe_prev = &raw mut (*first).nodes.tqe_next;
-            } else {
-                (*head2).tqh_last = &raw mut (*first).nodes.tqe_next;
-            }
-            (*head2).tqh_first = first as *mut Con;
-            (*first).nodes.tqe_prev = &raw mut (*head2).tqh_first;
-        } else {
-            (*first).nodes.tqe_next = (*second_prev).nodes.tqe_next;
-            if !(*first).nodes.tqe_next.is_null() {
-                (*(*first).nodes.tqe_next).nodes.tqe_prev = &raw mut (*first).nodes.tqe_next;
-            } else {
-                (*head2).tqh_last = &raw mut (*first).nodes.tqe_next;
-            }
-            (*second_prev).nodes.tqe_next = first as *mut Con;
-            (*first).nodes.tqe_prev = &raw mut (*second_prev).nodes.tqe_next;
-        }
-        if first_prev.is_null() {
-            (*second).nodes.tqe_next = (*head1).tqh_first;
-            if !(*second).nodes.tqe_next.is_null() {
-                (*(*head1).tqh_first).nodes.tqe_prev = &raw mut (*second).nodes.tqe_next;
-            } else {
-                (*head1).tqh_last = &raw mut (*second).nodes.tqe_next;
-            }
-            (*head1).tqh_first = second as *mut Con;
-            (*second).nodes.tqe_prev = &raw mut (*head1).tqh_first;
-        } else {
-            (*second).nodes.tqe_next = (*first_prev).nodes.tqe_next;
-            if !(*second).nodes.tqe_next.is_null() {
-                (*(*second).nodes.tqe_next).nodes.tqe_prev = &raw mut (*second).nodes.tqe_next;
-            } else {
-                (*head1).tqh_last = &raw mut (*second).nodes.tqe_next;
-            }
-            (*first_prev).nodes.tqe_next = second as *mut Con;
-            (*second).nodes.tqe_prev = &raw mut (*first_prev).nodes.tqe_next;
-        }
-    }
+    nodes::swap(
+        arena::identity(first).expect("live first child"),
+        arena::identity(second).expect("live second child"),
+    )
+    .expect("swappable child slots");
     focus::swap(
         arena::identity(first).expect("live first focus child"),
         arena::identity(second).expect("live second focus child"),
@@ -3219,11 +3123,10 @@ use i3_common::native_stdio::__assert_fail;
 
 use crate::log::{debuglog, errorlog, verboselog};
 
-// Shared model types retain field layout while using one Rust identity.
+// Shared Rust model payload types.
 pub use crate::types::deco_render_params;
 pub use crate::types::gaps_t;
 pub use crate::types::mark_t;
-pub use crate::types::nodes_head;
 pub use crate::types::xoutput;
 pub use crate::types::Con;
 pub use crate::types::Match;
@@ -3269,10 +3172,6 @@ use crate::xcb::xcb_remove_property_atom;
 #[cfg(test)]
 mod owned_graph_tests {
     use super::*;
-    // Synthetic nodes never enter the global graph or allocation registry.
-    fn node() -> Box<Con> {
-        Box::new(Con::empty())
-    }
     #[test]
     fn border_geometry_preserves_wrapping_normal_title_edge_and_adjacency_masks() {
         let all = ADJ_LEFT_SCREEN_EDGE
@@ -3341,8 +3240,16 @@ mod owned_graph_tests {
         .unwrap();
         unsafe {
             (*root).fullscreen_mode = CF_OUTPUT;
-            (*root).nodes_head.tqh_first = tiling;
-            (*tiling).nodes_head.tqh_first = grandchild;
+            nodes::append(
+                arena::identity(root).unwrap(),
+                arena::identity(tiling).unwrap(),
+            )
+            .unwrap();
+            nodes::append(
+                arena::identity(tiling).unwrap(),
+                arena::identity(grandchild).unwrap(),
+            )
+            .unwrap();
             (*floating).fullscreen_mode = CF_OUTPUT;
             (*grandchild).fullscreen_mode = CF_OUTPUT;
             assert_eq!(con_get_fullscreen_con(root, CF_OUTPUT), floating);
@@ -3386,15 +3293,28 @@ mod owned_graph_tests {
     }
     #[test]
     fn tree_text_owns_ordered_bytes_and_malloc_adapter() {
-        let (mut root, mut first, mut second) = (node(), node(), node());
-        root.layout = Layout::SplitH;
-        root.nodes_head.tqh_first = &raw mut *first;
-        first.nodes.tqe_next = &raw mut *second;
+        let root = arena::allocate(Con::empty());
+        let first = arena::allocate(Con::empty());
+        let second = arena::allocate(Con::empty());
+        nodes::append(
+            arena::identity(root).unwrap(),
+            arena::identity(first).unwrap(),
+        )
+        .unwrap();
+        nodes::append(
+            arena::identity(root).unwrap(),
+            arena::identity(second).unwrap(),
+        )
+        .unwrap();
         unsafe {
-            assert_eq!(tree_representation(&raw mut *root), b"H[nowin nowin]");
-            let text = con_get_tree_representation(&raw mut *root);
+            (*root).layout = Layout::SplitH;
+            assert_eq!(tree_representation(root), b"H[nowin nowin]");
+            let text = con_get_tree_representation(root);
             assert_eq!(std::ffi::CStr::from_ptr(text).to_bytes(), b"H[nowin nowin]");
             libc::free(text.cast());
+            for raw in [root, first, second] {
+                arena::release(raw);
+            }
         }
     }
     #[test]

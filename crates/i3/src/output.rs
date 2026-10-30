@@ -70,12 +70,12 @@ pub unsafe fn output_get_content(output: *mut Con) -> *mut Con {
     // SAFETY: the caller provides the stable intrusive queue. No references
     // into it are created or held across callbacks.
     unsafe {
-        let mut child = (*output).nodes_head.tqh_first;
+        let mut child = nodes::first_ptr(output);
         while !child.is_null() {
             if (*child).type_0 == CT_CON {
                 return child;
             }
-            child = (*child).nodes.tqe_next;
+            child = nodes::next_ptr(child);
         }
         std::ptr::null_mut()
     }
@@ -152,9 +152,9 @@ pub unsafe fn output_push_sticky_windows(old_focus: *mut Con) {
             };
             let content = output_get_content(output);
             let content_id = identity(content).expect("live output content");
-            let mut visible_ws = (*content).nodes_head.tqh_first;
+            let mut visible_ws = nodes::first_ptr(content);
             while !visible_ws.is_null() && !workspace_is_visible(visible_ws) {
-                visible_ws = (*visible_ws).nodes.tqe_next;
+                visible_ws = nodes::next_ptr(visible_ws);
             }
             let mut workspace = focus::first(content_id);
             while let Some(current_ws_id) = workspace {
@@ -236,3 +236,5 @@ mod tests {
         }
     }
 }
+
+use crate::con::arena::nodes;

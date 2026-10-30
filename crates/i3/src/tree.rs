@@ -1,4 +1,5 @@
 use crate::con::arena::focus;
+use crate::con::arena::nodes;
 use crate::con::arena::parent::{parent_ptr, set_parent_ptr};
 use crate::con::arena::{floating, identity, resolve};
 use crate::handlers::add_ignore_event;
@@ -163,7 +164,7 @@ pub unsafe fn tree_restore(
                 c"tree_restore".as_ptr(),
                 93 as ::core::ffi::c_int,
             );
-            croot = (*croot).nodes_head.tqh_first as *mut Con;
+            croot = nodes::first_ptr(croot) as *mut Con;
             if !croot.is_null() {
                 debuglog(
                     c"%s:%s:%d - new root = %p\n".as_ptr().cast_mut(),
@@ -172,7 +173,7 @@ pub unsafe fn tree_restore(
                     99 as ::core::ffi::c_int,
                     croot,
                 );
-                out = (*croot).nodes_head.tqh_first as *mut Con;
+                out = nodes::first_ptr(croot) as *mut Con;
                 debuglog(
                     c"%s:%s:%d - out = %p\n".as_ptr().cast_mut(),
                     c"../src/tree.c".as_ptr(),
@@ -180,7 +181,7 @@ pub unsafe fn tree_restore(
                     101 as ::core::ffi::c_int,
                     out,
                 );
-                ws = (*out).nodes_head.tqh_first as *mut Con;
+                ws = nodes::first_ptr(out) as *mut Con;
                 debuglog(
                     c"%s:%s:%d - ws = %p\n".as_ptr().cast_mut(),
                     c"../src/tree.c".as_ptr(),
@@ -198,21 +199,11 @@ pub unsafe fn tree_restore(
                         108 as ::core::ffi::c_int,
                     );
                     let mut __i3: *mut Con = _create___i3();
-                    if !(*__i3).nodes.tqe_next.is_null() {
-                        (*(*__i3).nodes.tqe_next).nodes.tqe_prev = (*__i3).nodes.tqe_prev;
-                    } else {
-                        (*croot).nodes_head.tqh_last = (*__i3).nodes.tqe_prev;
-                    }
-                    *(*__i3).nodes.tqe_prev = (*__i3).nodes.tqe_next;
-                    (*__i3).nodes.tqe_next = (*croot).nodes_head.tqh_first;
-                    if !(*__i3).nodes.tqe_next.is_null() {
-                        (*(*croot).nodes_head.tqh_first).nodes.tqe_prev =
-                            &raw mut (*__i3).nodes.tqe_next;
-                    } else {
-                        (*croot).nodes_head.tqh_last = &raw mut (*__i3).nodes.tqe_next;
-                    }
-                    (*croot).nodes_head.tqh_first = __i3 as *mut Con;
-                    (*__i3).nodes.tqe_prev = &raw mut (*croot).nodes_head.tqh_first;
+                    nodes::move_to_front(
+                        identity(croot).expect("live root"),
+                        identity(__i3).expect("live internal output"),
+                    )
+                    .expect("internal output child");
                 }
                 restore_open_placeholder_windows(croot);
                 result = true;
@@ -306,9 +297,11 @@ pub unsafe fn tree_close_internal(
         kill_window as ::core::ffi::c_uint,
     );
     let mut abort_kill: bool = false;
-    let mut child: *mut Con = (*con).nodes_head.tqh_first as *mut Con;
-    while !child.is_null() {
-        let next_child: *mut Con = (*child).nodes.tqe_next as *mut Con;
+    let owner_id = identity(con).expect("live closing container");
+    let mut child_id = nodes::first(owner_id);
+    while let Some(id) = child_id {
+        let next_child = nodes::next(owner_id, id);
+        let Some(child) = resolve(id) else { break };
         debuglog(
             c"%s:%s:%d - killing child=%p\n".as_ptr().cast_mut(),
             c"../src/tree.c".as_ptr(),
@@ -319,7 +312,7 @@ pub unsafe fn tree_close_internal(
         if !tree_close_internal(child, kill_window, true) {
             abort_kill = true;
         }
-        child = next_child;
+        child_id = next_child;
     }
     if abort_kill {
         debuglog(
@@ -541,14 +534,12 @@ pub unsafe fn tree_split(mut con: *mut Con, orientation: Orientation) {
         ::core::ptr::null_mut::<Con>(),
         ::core::ptr::null_mut::<i3Window>(),
     );
-    (*new).nodes.tqe_next = (*con).nodes.tqe_next;
-    if !(*new).nodes.tqe_next.is_null() {
-        (*(*new).nodes.tqe_next).nodes.tqe_prev = &raw mut (*new).nodes.tqe_next;
-    } else {
-        (*parent).nodes_head.tqh_last = &raw mut (*new).nodes.tqe_next;
-    }
-    (*new).nodes.tqe_prev = (*con).nodes.tqe_prev;
-    *(*new).nodes.tqe_prev = new as *mut Con;
+    nodes::replace(
+        identity(parent).expect("live parent"),
+        identity(con).expect("live split child"),
+        identity(new).expect("live split wrapper"),
+    )
+    .expect("replace child slot");
     focus::replace(
         identity(parent).expect("live focus parent"),
         identity(con).expect("live split child"),
@@ -621,10 +612,10 @@ pub unsafe fn level_down() -> bool {
 unsafe fn mark_unmapped(con: *mut Con) {
     let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
     (*con).mapped = false;
-    current = (*con).nodes_head.tqh_first as *mut Con;
+    current = nodes::first_ptr(con) as *mut Con;
     while !current.is_null() {
         mark_unmapped(current);
-        current = (*current).nodes.tqe_next as *mut Con;
+        current = nodes::next_ptr(current) as *mut Con;
     }
     if (*con).type_0 as ::core::ffi::c_uint
         == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
@@ -702,14 +693,12 @@ unsafe fn get_tree_next_workspace(con: *mut Con, direction: Direction) -> *mut C
         489 as ::core::ffi::c_int,
         output_primary_name(next_output),
     );
-    let mut child = (*output_get_content((*next_output).con))
-        .nodes_head
-        .tqh_first;
+    let mut child = nodes::first_ptr(output_get_content((*next_output).con));
     while !child.is_null() {
         if workspace_is_visible(child) {
             return child;
         }
-        child = (*child).nodes.tqe_next;
+        child = nodes::next_ptr(child);
     }
     std::ptr::null_mut()
 }
@@ -767,9 +756,9 @@ unsafe fn get_tree_next(mut con: *mut Con, direction: Direction) -> *mut Con {
                     && con_orientation(parent) == orientation
                 {
                     let next_0: *mut Con = if previous as ::core::ffi::c_int != 0 {
-                        *(*((*con).nodes.tqe_prev as *mut nodes_head)).tqh_last
+                        nodes::previous_ptr(con)
                     } else {
-                        (*con).nodes.tqe_next as *mut Con
+                        nodes::next_ptr(con) as *mut Con
                     };
                     if !next_0.is_null()
                         && con_fullscreen_permits_focusing(next_0) as ::core::ffi::c_int != 0
@@ -777,9 +766,9 @@ unsafe fn get_tree_next(mut con: *mut Con, direction: Direction) -> *mut Con {
                         return next_0;
                     }
                     let wrap: *mut Con = if previous as ::core::ffi::c_int != 0 {
-                        *(*((*parent).nodes_head.tqh_last as *mut nodes_head)).tqh_last
+                        nodes::last_ptr(parent)
                     } else {
-                        (*parent).nodes_head.tqh_first as *mut Con
+                        nodes::first_ptr(parent) as *mut Con
                     };
                     match config.focus_wrapping {
                         FocusWrapping::Workspace | FocusWrapping::On => {
@@ -867,9 +856,9 @@ pub unsafe fn tree_next(con: *mut Con, direction: Direction) {
 
 pub unsafe fn get_tree_next_sibling(con: *mut Con, direction: Position) -> *mut Con {
     let to_focus: *mut Con = if direction == Position::Before {
-        *(*((*con).nodes.tqe_prev as *mut nodes_head)).tqh_last
+        nodes::previous_ptr(con)
     } else {
-        (*con).nodes.tqe_next as *mut Con
+        nodes::next_ptr(con) as *mut Con
     };
     if !to_focus.is_null() && con_fullscreen_permits_focusing(to_focus) as ::core::ffi::c_int != 0 {
         return to_focus;
@@ -897,8 +886,8 @@ pub unsafe fn tree_flatten(con: *mut Con) {
         || (*parent).layout == Layout::Output
         || !(*con).window.is_null())
     {
-        child = (*con).nodes_head.tqh_first as *mut Con;
-        if !(child.is_null() || !(*child).nodes.tqe_next.is_null()) {
+        child = nodes::first_ptr(con) as *mut Con;
+        if !(child.is_null() || !nodes::next_ptr(child).is_null()) {
             debuglog(
                 c"%s:%s:%d - child = %p, con = %p, parent = %p\n"
                     .as_ptr()
@@ -929,8 +918,8 @@ pub unsafe fn tree_flatten(con: *mut Con) {
                     c"tree_flatten".as_ptr(),
                     691 as ::core::ffi::c_int,
                 );
-                while !(*child).nodes_head.tqh_first.is_null() {
-                    current = (*child).nodes_head.tqh_first as *mut Con;
+                while !nodes::first_ptr(child).is_null() {
+                    current = nodes::first_ptr(child) as *mut Con;
                     debuglog(
                         c"%s:%s:%d - detaching current=%p / %s\n"
                             .as_ptr()
@@ -949,10 +938,12 @@ pub unsafe fn tree_flatten(con: *mut Con) {
                         697 as ::core::ffi::c_int,
                     );
                     set_parent_ptr(current, parent as *mut Con).expect("live acyclic ancestry");
-                    (*current).nodes.tqe_prev = (*con).nodes.tqe_prev;
-                    (*current).nodes.tqe_next = con as *mut Con;
-                    *(*con).nodes.tqe_prev = current as *mut Con;
-                    (*con).nodes.tqe_prev = &raw mut (*current).nodes.tqe_next;
+                    nodes::insert_before(
+                        identity(parent).expect("live flatten parent"),
+                        identity(current).expect("live lifted child"),
+                        identity(con).expect("live obsolete wrapper"),
+                    )
+                    .expect("detached lifted child");
                     debuglog(
                         c"%s:%s:%d - attaching to focus list\n".as_ptr().cast_mut(),
                         c"../src/tree.c".as_ptr(),
@@ -1005,11 +996,15 @@ pub unsafe fn tree_flatten(con: *mut Con) {
             }
         }
     }
-    current = (*con).nodes_head.tqh_first as *mut Con;
-    while !current.is_null() {
-        let next: *mut Con = (*current).nodes.tqe_next as *mut Con;
-        tree_flatten(current);
-        current = next;
+    if let Some(owner_id) = identity(con) {
+        let mut current_id = nodes::first(owner_id);
+        while let Some(id) = current_id {
+            let next = nodes::next(owner_id, id);
+            if let Some(current) = resolve(id) {
+                tree_flatten(current);
+            }
+            current_id = next;
+        }
     }
     if let Some(parent_id) = identity(con) {
         let mut current = floating::first(parent_id);
@@ -1051,8 +1046,7 @@ use i3_common::native_stdio::__assert_fail;
 
 use crate::log::{debuglog, errorlog, verboselog};
 
-// Shared model types retain field layout while using one Rust identity.
-pub use crate::types::nodes_head;
+// Shared Rust model payload types.
 pub use crate::types::xoutput;
 pub use crate::types::Con;
 pub use crate::types::Rect;

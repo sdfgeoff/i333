@@ -227,14 +227,14 @@ pub unsafe fn resize_find_tiling_participants(
             first = parent_ptr(first);
         } else {
             if dir_backwards {
-                second = *(*((*first).nodes.tqe_prev as *mut nodes_head)).tqh_last as *mut Con;
+                second = nodes::previous_ptr(first);
                 if second.is_null() && both_sides {
-                    second = (*first).nodes.tqe_next as *mut Con;
+                    second = nodes::next_ptr(first);
                 }
             } else {
-                second = (*first).nodes.tqe_next as *mut Con;
+                second = nodes::next_ptr(first);
                 if second.is_null() && both_sides {
-                    second = *(*((*first).nodes.tqe_prev as *mut nodes_head)).tqh_last as *mut Con;
+                    second = nodes::previous_ptr(first);
                 }
             }
             if second.is_null() {
@@ -494,7 +494,6 @@ use xcb_sys::{
 use crate::log::debuglog;
 
 // Shared model types retain field layout while using one Rust identity.
-use crate::types::nodes_head;
 use crate::types::Con;
 use crate::types::Rect;
 
@@ -554,3 +553,5 @@ mod tests {
         assert_eq!(1u32.wrapping_sub(u32::MAX) as i32, 2);
     }
 }
+
+use crate::con::arena::nodes;

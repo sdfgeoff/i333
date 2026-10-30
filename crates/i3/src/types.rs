@@ -333,8 +333,11 @@ pub struct Colortriple {
     pub child_border: i3_common::draw_util::color_t,
 }
 
-/// Event-thread container, owned by the stable container arena.
-/// Links are borrowed identities; copying an entire container is invalid.
+/// Event-thread container payload, uniquely owned by the stable arena.
+/// Ancestry, global membership and floating/focus/non-floating child order live
+/// in arena metadata as generation-checked IDs. Marks/swallow lists and native
+/// graphics/window resources retain their explicit lifecycle contracts.
+/// Copying an entire container is invalid.
 #[repr(C)]
 pub struct Con {
     pub mapped: bool,
@@ -362,7 +365,6 @@ pub struct Con {
     pub window: *mut crate::types::Window,
     pub urgency_timer: *mut libev_sys::ev_timer,
     pub deco_render_params: *mut crate::types::deco_render_params,
-    pub nodes_head: crate::types::nodes_head,
     pub swallow_head: crate::types::swallow_head,
     pub fullscreen_mode: ::core::ffi::c_uint,
     pub sticky: bool,
@@ -372,7 +374,6 @@ pub struct Con {
     pub border_style: BorderStyle,
     pub max_user_border_style: BorderStyle,
     pub floating: FloatingState,
-    pub nodes: crate::types::ConNodes,
     pub on_remove_child: Option<unsafe fn(*mut crate::types::Con) -> ()>,
     pub scratchpad_state: ScratchpadState,
     pub old_id: ::core::ffi::c_int,
@@ -382,7 +383,7 @@ pub struct Con {
 
 impl Con {
     /// Construct detached storage without assuming that Rust owners are zeroable.
-    /// Self-referential queue tails are installed only after stable allocation.
+    /// Mark/swallow queue tails are installed only after stable allocation.
     pub fn empty() -> Self {
         use std::ptr::null_mut;
         let rect = Rect {
@@ -435,10 +436,6 @@ impl Con {
             window: null_mut(),
             urgency_timer: null_mut(),
             deco_render_params: null_mut(),
-            nodes_head: nodes_head {
-                tqh_first: null_mut(),
-                tqh_last: null_mut(),
-            },
             swallow_head: swallow_head {
                 tqh_first: null_mut(),
                 tqh_last: null_mut(),
@@ -451,10 +448,6 @@ impl Con {
             border_style: BorderStyle::None,
             max_user_border_style: BorderStyle::None,
             floating: FloatingState::default(),
-            nodes: ConNodes {
-                tqe_next: null_mut(),
-                tqe_prev: null_mut(),
-            },
             on_remove_child: None,
             scratchpad_state: ScratchpadState::default(),
             old_id: 0,
@@ -462,13 +455,6 @@ impl Con {
             colormap: 0,
         }
     }
-}
-
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct ConNodes {
-    pub tqe_next: *mut crate::types::Con,
-    pub tqe_prev: *mut *mut crate::types::Con,
 }
 
 #[derive(Copy, Clone)]
@@ -725,13 +711,6 @@ pub struct marks_head {
 #[repr(C)]
 pub struct names_head {
     pub slh_first: *mut crate::types::output_name,
-}
-
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct nodes_head {
-    pub tqh_first: *mut crate::types::Con,
-    pub tqh_last: *mut *mut crate::types::Con,
 }
 
 #[derive(Copy, Clone)]

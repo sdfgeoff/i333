@@ -8,26 +8,26 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 28 wallclock secs ( 1.29 usr +  0.13 sys =  1.42 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 33 wallclock secs ( 1.38 usr +  0.12 sys =  1.50 CPU)\nResult: PASS",
     "profile": "debug",
     "build": "cargo test --locked",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "7d7d68ba4118af852d8f1fbacc9c145de536b3f094074ba38e5499548f68d191",
-    "i3bar": "5fb4ba1387820be1493d7bbe611141e7dd762f5920facf65c49e987c01aa4348",
-    "i3-config-wizard": "32f6542c3296a617a7f5debc526d2d7318debca3ba3231b0401aa771d66911c6",
-    "i3-dump-log": "81b96e909f4b72db319e3ecb19e536c60284920bae5c9a27e1ae597b44166652",
-    "i3-input": "c50b3141ba344221d9b28d63ad4e5acdea06a5aef1e1d2889c49d6757c96fa83",
-    "i3-msg": "baa118f5cabf8479b80ab6ecc034f330b190da669a1ec826fc9a0ac091a27420",
-    "i3-nagbar": "04d4837c12b38a77adb8d56b5fca33b5f86b72857aead9b06e593e68961c70d2"
+    "i3": "5edc9f676de8838a5ce4816b13efefab9cb2ca6e46448148c1595c3de676841b",
+    "i3bar": "8ef8b4e0ca4ac3c3488bb7886c1c155d3de409f0e54275d409f9d60603d30e77",
+    "i3-config-wizard": "72355ae4e9e77ce31ba2deb0cacade9b4b7e93dd28cb37ede99ea2595712f56d",
+    "i3-dump-log": "b6f0622016875463383239f66f3edf130e9869d6e94772592b084dab99cc9bf6",
+    "i3-input": "2603f71f33f6ca9766c493ea0ecdc30ec4b4240b31b7f159d4b80019c25ec7da",
+    "i3-msg": "06d5e9ad3367a7a2fcb80695131ca62ef02ab9ed21c927701aef26fe9a81fe41",
+    "i3-nagbar": "52a99d99dd9015ec449025bd51fdd14cb6d63c43167b47d42d47395e7cbedeb6"
   },
-  "note": "Ten-member Cargo workspace. cargo test --locked passed 375 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug hashes match this Cargo-driven run. Owned rendering text, Serde command replies and stable Rust-owned container storage replace legacy allocation adapters. Remaining native callbacks and intrusive tiling-child links are explicit unsafe boundaries.",
+  "note": "Ten-member Cargo workspace. cargo test --locked passed386 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
   "additional_checks": {
     "headless_c_rust_state_comparisons": 54,
     "ipc_client_test_groups": 16,
-    "workspace_unit_tests": 375,
+    "workspace_unit_tests": 386,
     "core_and_bar_cli_comparisons": 39,
     "pcre2_compile_match_error_comparisons": 4620,
     "json_oracle_cases": 2218,
@@ -51,7 +51,8 @@
     "forced_xinerama_private_display_checkpoints": 2,
     "wizard_private_workflow_and_config_cases": 5,
     "bar_private_stream_workflows": 2,
-    "bar_private_raster_comparisons": 6
+    "bar_private_raster_comparisons": 6,
+    "ipc_production_output_golden_cases": 23
   },
   "toolchain": {
     "rustc": "rustc 1.99.0-nightly (11177f223 2026-08-02)",
@@ -115,7 +116,7 @@
     "binary_count": 7,
     "native_library_discovery": "maintained native binding build scripts and dedicated sys crates; i3-build links only platform m/rt",
     "unit_tests": {
-      "i3": 188,
+      "i3": 199,
       "cargo_regression_wrappers": 8,
       "xkb_integration": 1,
       "i3-build": 3,
@@ -136,21 +137,22 @@
     "cargo_fmt_check": true,
     "debug_build": true,
     "release_build": true,
-    "unit_tests_total_including_integration_checks": 375,
+    "unit_tests_total_including_integration_checks": 386,
     "test_command": "cargo test",
     "clean_source_command": "cargo test -p i3-test-support --features clean-source-check",
     "test_support": "development-only process capture, failure propagation and isolated regression orchestration",
-    "release_build_note": "Ownership checkpoint4 full CI passed, including fixed upstream555fixture and release build: https://github.com/sdfgeoff/i333/actions/runs/40994507756. Checkpoint5 locally passes full Cargo suite; CI follows commit.",
-    "last_release_build_verified_commit": "d83f5d71f030fcf0123f4f7709c8496ddf8d98ea"
+    "release_build_note": "Ownership checkpoint5 full CI passed375 Rust tests, upstream suite and release build: https://github.com/sdfgeoff/i333/actions/runs/40995352192. Final checkpoint6 source passes local full Cargo suite; final CI follows commit.",
+    "last_release_build_verified_commit": "9420896d0ba489838e7cdb3fd600bb660d614d65",
+    "rust_source_files": 139
   },
   "modernization": {
     "yajl_product_dependency": false,
-    "json": "serde/serde_json with incremental stream parser and Rust compatibility adapters",
+    "json": "Typed Serde IPC schemas and owned JSON storage; native YAJL compatibility module deleted. Incremental event parsing and open-array framing retained to preserve status/layout protocol behavior.",
     "regex": "maintained pcre2 safe wrapper, preserving full PCRE semantics",
     "graphics": "Maintained cairo-rs, pango, pangocairo and glib owners/borrowed APIs for drawing and fonts; maintained sys bindings retain explicit native text byte-count and XCB surface boundaries",
     "xkb": "maintained xkbcommon bindings",
     "internal_no_mangle_exports": 0,
-    "remaining_unsafe": "Native FFI/callbacks, borrowed raw access to live native graph values, remaining intrusive tiling-child relationships and auxiliary native lists. Parent/global/floating/focus relationships use owned generation-checked metadata.",
+    "remaining_unsafe": "Planned main graph ownership complete. Required native FFI, opaque callback payloads, borrowed raw access to container payload fields and auxiliary marks/swallow/native resource lifecycles remain explicit unsafe boundaries.",
     "scratch_directory": ".work/tmp (gitignored, TMPDIR override supported)",
     "scalar_aliases": "Generated fixed-width, size, platform-internal and anonymous scalar typedefs removed; direct Rust primitives or maintained libc types at use sites. Semantic native/flag aliases retained.",
     "application_enums": {
@@ -1836,8 +1838,258 @@
         "upstream_validation": ".work/tmp/i333-suite-rust-78iewlw5/validation.json",
         "remaining": "See per-stage reports: full typed-ID parent/child/focus migration is staged, not claimed complete.",
         "independent_review": "Ordered focus metadata, independent ownership, callback cursors and raw-free snapshots reviewed by second subagent. Original native debuglog restored."
+      },
+      {
+        "checkpoint": 6,
+        "status": "validated",
+        "rust_reported_tests": 386,
+        "upstream_assertions": 4205,
+        "reports": {
+          "ownership-wave6-serde-report": {
+            "status": "frozen_ready_for_root_final_validation",
+            "assigned_files": [
+              "randr.rs",
+              "manage.rs",
+              "render.rs",
+              "x.rs",
+              "click.rs",
+              "handlers.rs",
+              "commands.rs",
+              "ipc.rs",
+              "ipc_snapshot_tests.rs",
+              "resize.rs",
+              "scratchpad.rs",
+              "tiling_drag.rs",
+              "application.rs",
+              "ewmh.rs",
+              "gaps.rs",
+              "restore_layout.rs",
+              "output.rs"
+            ],
+            "modified_files": [
+              "randr.rs",
+              "render.rs",
+              "x.rs",
+              "click.rs",
+              "handlers.rs",
+              "commands.rs",
+              "ipc.rs",
+              "ipc_snapshot_tests.rs",
+              "resize.rs",
+              "scratchpad.rs",
+              "tiling_drag.rs",
+              "application.rs",
+              "ewmh.rs",
+              "gaps.rs",
+              "restore_layout.rs",
+              "output.rs"
+            ],
+            "changes": [
+              "All groupB native Con.nodes_head/Con.nodes queue references and nodes_head aliases deleted across16reader/fixturefiles; manage.rs hadzero tiling references and remains unchanged",
+              "Safe metadata first/last/next/previous_ptr adapters replace rawqueue macros; no registry storage borrow spans native graph callbacks",
+              "click/handlers preserve reverse physicaltiling-child hit-testing; resize retains requestedadjacent thenoppositeadjacent fallback when both_sides, no implicitwrap",
+              "X decorationcache invalidation still touches onlyFOLLOWINGsiblings; singlechild condition stillbothnext/previousabsent; recursiveproperty/unmap/shape traversals preserveorder",
+              "RandR destructiveoutputcleanup caches nextConId BEFORE move_content then resolvesatuse; othercursorpolicies preserved including repeated-firstchild drain with original native detach/attachcallbacks",
+              "Rendererpasses/childindices retainphysicaltilingorder, focusorder remains separatetyped relation; application/ewmh/gaps/output/restore readers use checkedmetadata queries",
+              "IPC/restart fieldschemas unchanged, tilingchildren outputorder preserved; native fixture links live registeredConIds viaappend and clearsmetadata viaremove before individualnativecleanup",
+              "Explicit .cast_mut() onlyat rawconstaddresslookup boundary; querybackend neverdereferencesinput and resolvedpointerprovenance comesfromArenaUnsafeCell; no sharedreference-to-mutablereference conversion",
+              "Removed redundant old as*mutCon casts after newquery functions and updated one staleintrusivequeuecomment"
+            ],
+            "tests": [
+              {
+                "command": "cargo check --locked -p i3",
+                "result": "passed",
+                "log": ".work/serde-protocol/wave6-check-final.log"
+              },
+              {
+                "command": "cargo test --locked -p i3 --bin i3",
+                "result": "188 passed including23 exactpre-migration productionJSONgoldens; coreworker additionalnodesbackendtests managedseparately",
+                "log": ".work/serde-protocol/wave6-core-tests.log"
+              },
+              {
+                "command": "git diff --check",
+                "result": "passed"
+              },
+              {
+                "command": "source scan all17assignedfiles nodes_head/ConNodes/.nodes",
+                "result": "zero remaining"
+              }
+            ],
+            "fixture_sha256": "500cc12300243a37fed449d230cd9ef34fdd4021399bcb5cd7e965c562654544",
+            "independent_review": "Read-only criticalreview requestedfrom owned_text_phase: RandRcache, Xcachefollowing/singleton, resizefallback, reversehit-test andIPCfixture; pending atreport time.",
+            "notes": "Initial coordinated check206unfinishedcore/constsites superseded bysuccessfulfreshcheck and188coreunits; rootfullsuite/finalbackendtests/CI requiredbeforecomplete.",
+            "safety": "No live desktop or existingnestedtestsession touched. No /tmp files; scratch .work only. No fullworkspace tests/commit/push byworker.",
+            "remaining": "Worker assigned scopecomplete; nativeCon data/surface/window adapters remain explicitlyunsafe bydesign; graphowner/membershiptraversal nowRustmetadata."
+          },
+          "ownership-wave6-readers-report": {
+            "status": "implemented, formatted and frozen; focused compile/tests passed",
+            "files": [
+              "crates/i3/src/move.rs",
+              "crates/i3/src/floating.rs",
+              "crates/i3/src/workspace.rs",
+              "crates/i3/src/load_layout.rs"
+            ],
+            "changes": {
+              "move.rs": [
+                "Detached before/after tiling insertion uses typed IDs after focus insertion, at the original native-link point.",
+                "Directed workspace movement preserves right/down prepend vs left/up append, then updates focus separately and retains native callbacks/percentages.",
+                "Adjacent sibling exchange is nodes::swap only; no focus/ancestry update added.",
+                "Output workspace lookup and next/previous sibling navigation query validated recorded membership."
+              ],
+              "floating.rs": [
+                "Hint and geometry child traversal remains live next-after-body.",
+                "Wrapped original child appends to wrapper tiling membership before focus membership and ancestry update as before."
+              ],
+              "workspace.rs": [
+                "56 forward/reverse head/tail/next/previous queries converted to safe metadata-only native adapters without changing numeric/named selection, comparisons, wrapping or output order.",
+                "Orientation and encapsulation drain source by repeated first(ownerID).and_then(resolve), invoking each original con_detach/con_attach and retaining focus snapshots; no bulk transfer hides callbacks.",
+                "Empty checks and workspace output-move followups use authoritative tiling collection."
+              ],
+              "load_layout.rs": [
+                "Geometry aggregation reads current typed tiling order and retains original signed/wrapping/max calculations and diagnostics."
+              ]
+            },
+            "focused_tests": [
+              {
+                "command": "env -u RUSTUP_TOOLCHAIN TMPDIR=$PWD/.work/tmp cargo test -p i3 --bin i3 'r#move::tests'",
+                "result": "2 passed; complete i3 unit target compiles",
+                "log": ".work/ownership-wave6-reader-test.log"
+              }
+            ],
+            "independent_reviews": {
+              "core": {
+                "files": [
+                  "crates/i3/src/con/arena/nodes.rs",
+                  "crates/i3/src/con/arena/ordered.rs",
+                  "crates/i3/src/con.rs",
+                  "crates/i3/src/tree.rs"
+                ],
+                "findings": "No actionable issues. Generation/singleowner/cycle/anchor/permutation checks precede mutation; reverse owner is independent of ancestry/focus; retire cleans forward/reverse membership; native adapters dereference no input. Numeric workspace insertion, locale dock sorting, default insertion, exact wrapper-slot replacement and sibling swap preserve policy. tree close/flatten cache successor before mutation and retain per-child callbacks."
+              },
+              "peer": {
+                "files": [
+                  "crates/i3/src/randr.rs",
+                  "crates/i3/src/x.rs",
+                  "crates/i3/src/resize.rs",
+                  "crates/i3/src/click.rs",
+                  "crates/i3/src/handlers.rs",
+                  "crates/i3/src/ipc_snapshot_tests.rs"
+                ],
+                "findings": "No actionable issues. RandR cleanup caches next ConId before move_content, X following-sibling cache invalidation/singleton checks preserve order, resize opposite-side fallback and reverse hit testing unchanged, typed IPC graph fixture appends/removes matching baseline traversal."
+              },
+              "diagnostic_literal_audit": "Compared C-string literal multisets in changed con/tree/move/floating/workspace/load_layout/randr/x/resize/click/handlers against HEAD: zero removals, preserving original diagnostic/assert text."
+            },
+            "fixtures": "Existing groupA tests use copied policy values, so no unregistered graph fixtures required migration here; authoritative backend/native suite and peer IPC goldens validate graph ownership.",
+            "remaining_boundaries": [
+              "Resolved raw Con pointers are still used by native X/event and scalar policy adapters under event-thread contracts.",
+              "Parent/focus/floating memberships remain independent authority domains during multi-step graph moves.",
+              "No Con tiling intrusive links remain in assigned files. Root full regression/CI remains final gate."
+            ],
+            "constraints": [
+              "No user desktop, nested session, test555 or scripts touched in thiswave",
+              "Scratch/logs only .work"
+            ]
+          },
+          "ownership-wave6-tree-report": {
+            "status": "complete_frozen_pending_root_full_validation",
+            "files": [
+              "crates/i3/src/con.rs",
+              "crates/i3/src/tree.rs",
+              "crates/i3/src/types.rs",
+              "crates/i3/src/con/arena.rs",
+              "crates/i3/src/con/arena/nodes.rs"
+            ],
+            "changes": [
+              "Deleted final native Con.nodes_head/nodes fields, nodes_head and ConNodes queue types. No duplicate/mirrored graph storage.",
+              "Private Entry nodes OrderedIds+nodes_owner is authoritative independent ancestry/focus/floating; reused pure OrderedIds without refactoring proven other relations.",
+              "Safe typed generation/owner/cycle checked insert/remove/reorder/replace/swap/permutation APIs validate before mutations; retirement cleans both membership directions.",
+              "Metadata-only native first/last/next/previous/len pointer adapters never dereference arbitrary input.",
+              "Core sorted workspace -1 sentinel/signed comparisons/stable equality and named tail preserved; dock native nullable locale casefold comparator remains native at caller.",
+              "Default tiling insertion honors remembered nonfloating focus or explicit previous anchor; focus append remains separate after tiling insertion.",
+              "Tree split/flatten exact slot replacement/lifted child insertion and typed successor prefetch before destructive recursion retained.",
+              "Workspace/dock move drains remain native per-child detach/attach, no transfer-all bypass.",
+              "Con_exists/con_has_parent/con_is_leaf/con_num_children are now safe metadata-only queries; ancestry iterative generation-checked walk replaces recursion.",
+              "Core graph fixtures now register IDs and typed child relationships; model docs accurately describe owned metadata and remaining native resources."
+            ],
+            "tests": {
+              "command": "cargo test --locked -p i3 --bin i3 con::",
+              "result": "47 passed (11 new nodes/metadata tests; existing36 pass)",
+              "log": ".work/ownership-wave6-tree-tests.log",
+              "duration": "0.26s test runtime",
+              "coverage": [
+                "Ordered relative insertion/move/permutation, same/cross-owner slot swaps and wrapper replacement",
+                "Atomic stale owner/child/anchor/wrong-owner/duplicate/self/cycle/invalid permutation failures",
+                "Live forward/reverse nested traversal, successor/current deletion, appends/fused exhaustion, prefetch",
+                "Retirement/stale allocator generation and metadata-only invalid address queries",
+                "Actual con_attach signed numeric workspace sorting/stable equals/named tail, independent focus order",
+                "Actual native nullable class then instance dock order/stable casefold ties",
+                "Actual ordinary attach remembered-focus and explicit previous-anchor order",
+                "Typed wrapper slot replacement plus actual child reattachment/detachment maintains all relationships",
+                "Safe exists/ancestry/childcount queries null/1/MAX and 1024-level ancestry; no deep recursion"
+              ]
+            },
+            "reviews": [
+              "Text peer independently reviewed typed node backend, transactionality and ownership independence; native con_attach sorting/default policy and tree slot/flatten/prefetch correct.",
+              "Text peer compared core C-string literal multisets against HEAD; no original logging/assert diagnostics dropped."
+            ],
+            "completed_graph_scope": [
+              "Stable Rust-owned Con allocation registry and generation IDs",
+              "Global live container membership",
+              "Typed ancestry",
+              "Owned floating order",
+              "Owned focus order",
+              "Owned nonfloating/root/output/workspace/dock/tiling child order"
+            ],
+            "precise_remaining_unsafe_boundaries": [
+              "Native XCB/Cairo/Pango/libev/startup-notification/event buffers and C strings at maintained-library boundaries.",
+              "Global croot/focused and native callback userdata retain raw borrowed stable arena addresses; dereference lifetime/callback contracts explicit.",
+              "Con payload native graphic/window resource pointers and explicit cleanup remain; ownership of major graph links is typed metadata, not complete removal of unsafe native actions.",
+              "Mark/swallow and some ancillary native queue records remain separate resource collections outside completed main graph relationships.",
+              "Low-level native child exec/signal handling and shared POD transport/union fields retain their established contracts."
+            ],
+            "no_desktop_changes": "No host display, current i3 process, mouse, TTY or existing nested interactive session touched. Final user must be told existing nested process remains old running build unless separately restarted on request."
+          }
+        },
+        "upstream_validation": ".work/tmp/i333-suite-rust-0xv35hld/validation.json",
+        "remaining": "Planned main graph ownership complete. Required native FFI, opaque callback payloads, borrowed raw access to container payload fields and auxiliary marks/swallow/native resource lifecycles remain explicit unsafe boundaries.",
+        "independent_review": {
+          "status": "independent_read_only_review_complete_no_actionable_findings",
+          "reviewed": [
+            "crates/i3/src/con/arena/nodes.rs",
+            "crates/i3/src/con/arena/ordered.rs",
+            "crates/i3/src/con/arena.rs lifecycle changes",
+            "crates/i3/src/con.rs finaltiling diff",
+            "crates/i3/src/tree.rs finaltiling diff"
+          ],
+          "findings": [],
+          "checked": [
+            "Nodes insert/move/replace/swap/orderrestore validate IDs/ownership/anchors/cycles beforewrites; sameowner swap exact indices, crossowner swap replacesbothindices thenupdatesreverseowners",
+            "Shared OrderedIds move_to accounts forremovalindexshift andselfanchor handlednop; boundaryqueries None andliveforward/reverse cursors withfusedend",
+            "Arena retirement removesfromactualrecordedowner and clears survivingchildreverseowners conditionally bygeneration; no nativepointerdereference inmetadata backend",
+            "_con_attach numeric workspace insertion preserves namednum-1tail, afterequalnumeric placement, beforelarger/beforenamed; docks compare class theninstance caseinsensitive and preserveequalstableorder",
+            "Defaultworkspace splitselects newnodeowner and focusparent after workspace_attach_to nativepolicy; no automaticancestry coupling bymembershipops",
+            "con_detach native redraw remainsbefore listremoval, tiling/floating then focus then retainedparent; tree split replaces oldslot in nodes andfocus before attaching undernewwrapper",
+            "con_swap validates native types/ancestrybeforemember swaps; nodes/focus swaps completebefore explicitparent swapsandnativefocus/fullscreen/urgencycallbacks, preservingoriginaltiming",
+            "tree_flatten drainsnative firstchild withcon_detach perchild and insertsliftedchildren immediatelyBEFOREobsoletewrapper, preservingorder andindependentfocusrestoration; no bulktransfer skippingcallbacks",
+            "tree_close_internal and recursive tree_flatten cache generationchecked nextID BEFOREcallback/recursion, resolveatuse, registryborrows endbeforecall",
+            "Con productfunction inventory compared HEAD vsfinal unchanged; only removedfn name is testhelper node. con_num_visible_children present withsamepredicate/countrecursion afterpriorrestore"
+          ],
+          "notes": "No productedits or testsreruns duringrootvalidation; backendfinaltests/fullregressionremainrootgate."
+        }
       }
-    ]
+    ],
+    "ownership_plan_status": "All four requested migration stages implemented; 386 Rust-reported tests plus all native/runtime/upstream gates pass locally; final source CI pending.",
+    "main_graph_relationships": {
+      "allocation": "Stable Box<UnsafeCell<Con>> exclusively owned by event-thread arena; native factory/destructor allocation removed",
+      "identity": "ConId validates allocation generation; IPC literal address IDs preserved",
+      "global_membership": "Live ordered generation index, no native all_cons list or constructor",
+      "parent": "Option<ConId> metadata with atomic stale/self/cycle validation",
+      "floating": "Owned ordered ConIds plus reverse membership",
+      "focus": "Owned ordered ConIds plus reverse membership; long-lived snapshots use IDs",
+      "tiling": "Owned ordered ConIds plus reverse membership; native child queue fields/types removed",
+      "native_boundary": "Address-only checked lookup adapters; using returned raw payload pointers remains an explicit unsafe event-thread lifetime contract",
+      "feature_changes": "No window-manager features intentionally removed; traversal/order/callback/numeric/native-byte quirks retained and compared"
+    }
   },
   "ci_dependency_preparation": {
     "confirmed_previous_failure": "X11::XCB required missing xcb-composite.pc and protocol XML metadata",

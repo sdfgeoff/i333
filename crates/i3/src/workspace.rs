@@ -1,7 +1,7 @@
 use crate::application::bindings;
 use crate::application::ws_assignments;
 use crate::con::arena::parent::{parent_ptr, set_parent_ptr};
-use crate::con::arena::{floating, focus, identity, resolve};
+use crate::con::arena::{floating, focus, identity, nodes, resolve};
 use crate::types::KillWindow;
 use crate::types::Layout;
 use crate::types::Orientation;
@@ -50,24 +50,24 @@ static BINDING_WORKSPACE_NAMES: std::sync::Mutex<Vec<std::ffi::CString>> =
 pub unsafe fn get_existing_workspace_by_name(name: *const ::core::ffi::c_char) -> *mut Con {
     let mut output: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut workspace: *mut Con = ::core::ptr::null_mut::<Con>();
-    output = (*croot).nodes_head.tqh_first as *mut Con;
+    output = nodes::first_ptr(croot);
     while !output.is_null() {
         let mut child: *mut Con = -(1 as ::core::ffi::c_int) as *mut Con;
         while child == -(1 as ::core::ffi::c_int) as *mut Con && {
             child = ::core::ptr::null_mut::<Con>();
             true
         } {
-            child = (*output_get_content(output)).nodes_head.tqh_first as *mut Con;
+            child = nodes::first_ptr(output_get_content(output));
             while !child.is_null() {
                 if strcasecmp((*child).name, name) != 0 {
-                    child = (*child).nodes.tqe_next as *mut Con;
+                    child = nodes::next_ptr(child);
                 } else {
                     workspace = child;
                     break;
                 }
             }
         }
-        output = (*output).nodes.tqe_next as *mut Con;
+        output = nodes::next_ptr(output);
     }
     workspace
 }
@@ -75,24 +75,24 @@ pub unsafe fn get_existing_workspace_by_name(name: *const ::core::ffi::c_char) -
 pub unsafe fn get_existing_workspace_by_num(num: ::core::ffi::c_int) -> *mut Con {
     let mut output: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut workspace: *mut Con = ::core::ptr::null_mut::<Con>();
-    output = (*croot).nodes_head.tqh_first as *mut Con;
+    output = nodes::first_ptr(croot);
     while !output.is_null() {
         let mut child: *mut Con = -(1 as ::core::ffi::c_int) as *mut Con;
         while child == -(1 as ::core::ffi::c_int) as *mut Con && {
             child = ::core::ptr::null_mut::<Con>();
             true
         } {
-            child = (*output_get_content(output)).nodes_head.tqh_first as *mut Con;
+            child = nodes::first_ptr(output_get_content(output));
             while !child.is_null() {
                 if !((*child).num == num) {
-                    child = (*child).nodes.tqe_next as *mut Con;
+                    child = nodes::next_ptr(child);
                 } else {
                     workspace = child;
                     break;
                 }
             }
         }
-        output = (*output).nodes.tqe_next as *mut Con;
+        output = nodes::next_ptr(output);
     }
     workspace
 }
@@ -386,7 +386,7 @@ unsafe fn _get_sticky(
     exclude: *mut Con,
 ) -> *mut Con {
     let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
-    current = (*con).nodes_head.tqh_first as *mut Con;
+    current = nodes::first_ptr(con);
     while !current.is_null() {
         if current != exclude
             && !(*current).sticky_group.is_null()
@@ -399,7 +399,7 @@ unsafe fn _get_sticky(
         if !recurse.is_null() {
             return recurse;
         }
-        current = (*current).nodes.tqe_next as *mut Con;
+        current = nodes::next_ptr(current);
     }
     for floating_id in floating::children(identity(con).expect("live floating parent")) {
         let Some(current) = resolve(floating_id) else {
@@ -421,7 +421,7 @@ unsafe fn _get_sticky(
 }
 unsafe fn workspace_reassign_sticky(con: *mut Con) {
     let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
-    current = (*con).nodes_head.tqh_first as *mut Con;
+    current = nodes::first_ptr(con);
     while !current.is_null() {
         if (*current).sticky_group.is_null() {
             workspace_reassign_sticky(current);
@@ -456,7 +456,7 @@ unsafe fn workspace_reassign_sticky(con: *mut Con) {
                 );
             }
         }
-        current = (*current).nodes.tqe_next as *mut Con;
+        current = nodes::next_ptr(current);
     }
     for floating_id in floating::children(identity(con).expect("live floating parent")) {
         let Some(current) = resolve(floating_id) else {
@@ -498,7 +498,7 @@ pub unsafe fn workspace_show(workspace: *mut Con) {
     if con_is_internal(workspace) {
         return;
     }
-    current = (*parent_ptr(workspace)).nodes_head.tqh_first as *mut Con;
+    current = nodes::first_ptr(parent_ptr(workspace));
     while !current.is_null() {
         if (*current).fullscreen_mode as ::core::ffi::c_uint
             == CF_OUTPUT as ::core::ffi::c_int as ::core::ffi::c_uint
@@ -506,7 +506,7 @@ pub unsafe fn workspace_show(workspace: *mut Con) {
             old = current;
         }
         (*current).fullscreen_mode = CF_NONE;
-        current = (*current).nodes.tqe_next as *mut Con;
+        current = nodes::next_ptr(current);
     }
     (*workspace).fullscreen_mode = CF_OUTPUT;
     current = con_get_workspace(focused);
@@ -631,7 +631,7 @@ pub unsafe fn workspace_show(workspace: *mut Con) {
         },
     );
     if !old.is_null()
-        && (*old).nodes_head.tqh_first.is_null()
+        && nodes::first_ptr(old).is_null()
         && floating::is_empty(identity(old).expect("live old workspace"))
     {
         if !workspace_is_visible(old) {
@@ -681,12 +681,12 @@ pub unsafe fn workspace_next() -> *mut Con {
     let mut first_opposite: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut output: *mut Con = ::core::ptr::null_mut::<Con>();
     if (*current).num == -(1 as ::core::ffi::c_int) {
-        next = (*current).nodes.tqe_next as *mut Con;
+        next = nodes::next_ptr(current);
         if !next.is_null() {
             return next;
         }
         let mut found_current: bool = false;
-        output = (*croot).nodes_head.tqh_first as *mut Con;
+        output = nodes::first_ptr(croot);
         while !output.is_null() {
             if !con_is_internal(output) {
                 let mut child: *mut Con = -(1 as ::core::ffi::c_int) as *mut Con;
@@ -694,7 +694,7 @@ pub unsafe fn workspace_next() -> *mut Con {
                     child = ::core::ptr::null_mut::<Con>();
                     true
                 } {
-                    child = (*output_get_content(output)).nodes_head.tqh_first as *mut Con;
+                    child = nodes::first_ptr(output_get_content(output));
                     while !child.is_null() {
                         if !((*child).type_0 as ::core::ffi::c_uint
                             != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint)
@@ -717,15 +717,15 @@ pub unsafe fn workspace_next() -> *mut Con {
                                 return next;
                             }
                         }
-                        child = (*child).nodes.tqe_next as *mut Con;
+                        child = nodes::next_ptr(child);
                     }
                 }
             }
-            output = (*output).nodes.tqe_next as *mut Con;
+            output = nodes::next_ptr(output);
         }
     } else {
         let mut found_current_0: bool = false;
-        output = (*croot).nodes_head.tqh_first as *mut Con;
+        output = nodes::first_ptr(croot);
         while !output.is_null() {
             if !con_is_internal(output) {
                 let mut child_0: *mut Con = -(1 as ::core::ffi::c_int) as *mut Con;
@@ -733,7 +733,7 @@ pub unsafe fn workspace_next() -> *mut Con {
                     child_0 = ::core::ptr::null_mut::<Con>();
                     true
                 } {
-                    child_0 = (*output_get_content(output)).nodes_head.tqh_first as *mut Con;
+                    child_0 = nodes::first_ptr(output_get_content(output));
                     while !child_0.is_null() {
                         if !((*child_0).type_0 as ::core::ffi::c_uint
                             != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint)
@@ -765,11 +765,11 @@ pub unsafe fn workspace_next() -> *mut Con {
                                 return child_0;
                             }
                         }
-                        child_0 = (*child_0).nodes.tqe_next as *mut Con;
+                        child_0 = nodes::next_ptr(child_0);
                     }
                 }
             }
-            output = (*output).nodes.tqe_next as *mut Con;
+            output = nodes::next_ptr(output);
         }
     }
     if next.is_null() {
@@ -789,13 +789,13 @@ pub unsafe fn workspace_prev() -> *mut Con {
     let mut last: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut output: *mut Con = ::core::ptr::null_mut::<Con>();
     if (*current).num == -(1 as ::core::ffi::c_int) {
-        prev = *(*((*current).nodes.tqe_prev as *mut nodes_head)).tqh_last as *mut Con;
+        prev = nodes::previous_ptr(current);
         if !prev.is_null() && (*prev).num != -(1 as ::core::ffi::c_int) {
             prev = ::core::ptr::null_mut::<Con>();
         }
         if prev.is_null() {
             let mut found_current: bool = false;
-            output = *(*((*croot).nodes_head.tqh_last as *mut nodes_head)).tqh_last as *mut Con;
+            output = nodes::last_ptr(croot);
             while !output.is_null() {
                 if !con_is_internal(output) {
                     let mut child: *mut Con = -(1 as ::core::ffi::c_int) as *mut Con;
@@ -803,9 +803,7 @@ pub unsafe fn workspace_prev() -> *mut Con {
                         child = ::core::ptr::null_mut::<Con>();
                         true
                     } {
-                        child = *(*((*output_get_content(output)).nodes_head.tqh_last
-                            as *mut nodes_head))
-                            .tqh_last as *mut Con;
+                        child = nodes::last_ptr(output_get_content(output));
                         while !child.is_null() {
                             if !((*child).type_0 as ::core::ffi::c_uint
                                 != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint)
@@ -828,17 +826,16 @@ pub unsafe fn workspace_prev() -> *mut Con {
                                     return prev;
                                 }
                             }
-                            child = *(*((*child).nodes.tqe_prev as *mut nodes_head)).tqh_last
-                                as *mut Con;
+                            child = nodes::previous_ptr(child);
                         }
                     }
                 }
-                output = *(*((*output).nodes.tqe_prev as *mut nodes_head)).tqh_last as *mut Con;
+                output = nodes::previous_ptr(output);
             }
         }
     } else {
         let mut found_current_0: bool = false;
-        output = *(*((*croot).nodes_head.tqh_last as *mut nodes_head)).tqh_last as *mut Con;
+        output = nodes::last_ptr(croot);
         while !output.is_null() {
             if !con_is_internal(output) {
                 let mut child_0: *mut Con = -(1 as ::core::ffi::c_int) as *mut Con;
@@ -846,9 +843,7 @@ pub unsafe fn workspace_prev() -> *mut Con {
                     child_0 = ::core::ptr::null_mut::<Con>();
                     true
                 } {
-                    child_0 = *(*((*output_get_content(output)).nodes_head.tqh_last
-                        as *mut nodes_head))
-                        .tqh_last as *mut Con;
+                    child_0 = nodes::last_ptr(output_get_content(output));
                     while !child_0.is_null() {
                         if !((*child_0).type_0 as ::core::ffi::c_uint
                             != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint)
@@ -879,12 +874,11 @@ pub unsafe fn workspace_prev() -> *mut Con {
                                 }
                             }
                         }
-                        child_0 =
-                            *(*((*child_0).nodes.tqe_prev as *mut nodes_head)).tqh_last as *mut Con;
+                        child_0 = nodes::previous_ptr(child_0);
                     }
                 }
             }
-            output = *(*((*output).nodes.tqe_prev as *mut nodes_head)).tqh_last as *mut Con;
+            output = nodes::previous_ptr(output);
         }
     }
     if prev.is_null() {
@@ -903,7 +897,7 @@ pub unsafe fn workspace_next_on_output() -> *mut Con {
     let mut next: *mut Con = ::core::ptr::null_mut::<Con>();
     let output: *mut Con = con_get_output(focused);
     if (*current).num == -(1 as ::core::ffi::c_int) {
-        next = (*current).nodes.tqe_next as *mut Con;
+        next = nodes::next_ptr(current);
     } else {
         let mut found_current: bool = false;
         let mut child: *mut Con = -(1 as ::core::ffi::c_int) as *mut Con;
@@ -911,7 +905,7 @@ pub unsafe fn workspace_next_on_output() -> *mut Con {
             child = ::core::ptr::null_mut::<Con>();
             true
         } {
-            child = (*output_get_content(output)).nodes_head.tqh_first as *mut Con;
+            child = nodes::first_ptr(output_get_content(output));
             while !child.is_null() {
                 if !((*child).type_0 as ::core::ffi::c_uint
                     != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint)
@@ -932,7 +926,7 @@ pub unsafe fn workspace_next_on_output() -> *mut Con {
                         return child;
                     }
                 }
-                child = (*child).nodes.tqe_next as *mut Con;
+                child = nodes::next_ptr(child);
             }
         }
     }
@@ -947,7 +941,7 @@ pub unsafe fn workspace_next_on_output() -> *mut Con {
                 current_block = 17281240262373992796;
                 break;
             }
-            child_0 = (*output_get_content(output)).nodes_head.tqh_first as *mut Con;
+            child_0 = nodes::first_ptr(output_get_content(output));
             while !child_0.is_null() {
                 if !((*child_0).type_0 as ::core::ffi::c_uint
                     != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint)
@@ -963,7 +957,7 @@ pub unsafe fn workspace_next_on_output() -> *mut Con {
                         break 's_105;
                     }
                 }
-                child_0 = (*child_0).nodes.tqe_next as *mut Con;
+                child_0 = nodes::next_ptr(child_0);
             }
         }
     } else {
@@ -977,7 +971,7 @@ pub unsafe fn workspace_next_on_output() -> *mut Con {
                     child_1 = ::core::ptr::null_mut::<Con>();
                     true
                 } {
-                    child_1 = (*output_get_content(output)).nodes_head.tqh_first as *mut Con;
+                    child_1 = nodes::first_ptr(output_get_content(output));
                     while !child_1.is_null() {
                         if !((*child_1).type_0 as ::core::ffi::c_uint
                             != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint)
@@ -989,7 +983,7 @@ pub unsafe fn workspace_next_on_output() -> *mut Con {
                                 next = child_1;
                             }
                         }
-                        child_1 = (*child_1).nodes.tqe_next as *mut Con;
+                        child_1 = nodes::next_ptr(child_1);
                     }
                 }
             }
@@ -1012,7 +1006,7 @@ pub unsafe fn workspace_prev_on_output() -> *mut Con {
         (*output).name,
     );
     if (*current).num == -(1 as ::core::ffi::c_int) {
-        prev = *(*((*current).nodes.tqe_prev as *mut nodes_head)).tqh_last as *mut Con;
+        prev = nodes::previous_ptr(current);
         if !prev.is_null() && (*prev).num != -(1 as ::core::ffi::c_int) {
             prev = ::core::ptr::null_mut::<Con>();
         }
@@ -1023,8 +1017,7 @@ pub unsafe fn workspace_prev_on_output() -> *mut Con {
             child = ::core::ptr::null_mut::<Con>();
             true
         } {
-            child = *(*((*output_get_content(output)).nodes_head.tqh_last as *mut nodes_head))
-                .tqh_last as *mut Con;
+            child = nodes::last_ptr(output_get_content(output));
             while !child.is_null() {
                 if !((*child).type_0 as ::core::ffi::c_uint
                     != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
@@ -1043,7 +1036,7 @@ pub unsafe fn workspace_prev_on_output() -> *mut Con {
                         return child;
                     }
                 }
-                child = *(*((*child).nodes.tqe_prev as *mut nodes_head)).tqh_last as *mut Con;
+                child = nodes::previous_ptr(child);
             }
         }
     }
@@ -1058,8 +1051,7 @@ pub unsafe fn workspace_prev_on_output() -> *mut Con {
                 current_block = 11913429853522160501;
                 break;
             }
-            child_0 = *(*((*output_get_content(output)).nodes_head.tqh_last as *mut nodes_head))
-                .tqh_last as *mut Con;
+            child_0 = nodes::last_ptr(output_get_content(output));
             while !child_0.is_null() {
                 if !((*child_0).type_0 as ::core::ffi::c_uint
                     != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint)
@@ -1075,7 +1067,7 @@ pub unsafe fn workspace_prev_on_output() -> *mut Con {
                         break 's_113;
                     }
                 }
-                child_0 = *(*((*child_0).nodes.tqe_prev as *mut nodes_head)).tqh_last as *mut Con;
+                child_0 = nodes::previous_ptr(child_0);
             }
         }
     } else {
@@ -1089,9 +1081,7 @@ pub unsafe fn workspace_prev_on_output() -> *mut Con {
                     child_1 = ::core::ptr::null_mut::<Con>();
                     true
                 } {
-                    child_1 = *(*((*output_get_content(output)).nodes_head.tqh_last
-                        as *mut nodes_head))
-                        .tqh_last as *mut Con;
+                    child_1 = nodes::last_ptr(output_get_content(output));
                     while !child_1.is_null() {
                         if !((*child_1).type_0 as ::core::ffi::c_uint
                             != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint)
@@ -1100,8 +1090,7 @@ pub unsafe fn workspace_prev_on_output() -> *mut Con {
                                 prev = child_1;
                             }
                         }
-                        child_1 =
-                            *(*((*child_1).nodes.tqe_prev as *mut nodes_head)).tqh_last as *mut Con;
+                        child_1 = nodes::previous_ptr(child_1);
                     }
                 }
             }
@@ -1142,14 +1131,14 @@ pub unsafe fn workspace_back_and_forth_get() -> *mut Con {
 }
 unsafe fn get_urgency_flag(con: *mut Con) -> bool {
     let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-    child = (*con).nodes_head.tqh_first as *mut Con;
+    child = nodes::first_ptr(con);
     while !child.is_null() {
         if (*child).urgent as ::core::ffi::c_int != 0
             || get_urgency_flag(child) as ::core::ffi::c_int != 0
         {
             return true;
         }
-        child = (*child).nodes.tqe_next as *mut Con;
+        child = nodes::next_ptr(child);
     }
     for floating_id in floating::children(identity(con).expect("live floating parent")) {
         let Some(child) = resolve(floating_id) else {
@@ -1196,8 +1185,8 @@ pub unsafe fn ws_force_orientation(ws: *mut Con, orientation: Orientation) {
         c"ws_force_orientation".as_ptr(),
         964 as ::core::ffi::c_int,
     );
-    while !(*ws).nodes_head.tqh_first.is_null() {
-        let child: *mut Con = (*ws).nodes_head.tqh_first as *mut Con;
+    let workspace_id = identity(ws).expect("live workspace tiling owner");
+    while let Some(child) = nodes::first(workspace_id).and_then(resolve) {
         con_detach(child);
         con_attach(child, split, true);
     }
@@ -1283,7 +1272,7 @@ pub unsafe fn workspace_attach_to(ws: *mut Con) -> *mut Con {
 }
 
 pub unsafe fn workspace_encapsulate(ws: *mut Con) -> *mut Con {
-    if (*ws).nodes_head.tqh_first.is_null() {
+    if nodes::first_ptr(ws).is_null() {
         errorlog(
             c"ERROR: Workspace %p / %s has no children to encapsulate\n"
                 .as_ptr()
@@ -1311,8 +1300,8 @@ pub unsafe fn workspace_encapsulate(ws: *mut Con) -> *mut Con {
         (*ws).name,
         new,
     );
-    while !(*ws).nodes_head.tqh_first.is_null() {
-        let child: *mut Con = (*ws).nodes_head.tqh_first as *mut Con;
+    let workspace_id = identity(ws).expect("live workspace tiling owner");
+    while let Some(child) = nodes::first(workspace_id).and_then(resolve) {
         con_detach(child);
         con_attach(child, new, true);
     }
@@ -1466,10 +1455,10 @@ pub unsafe fn workspace_move_to_output(mut ws: *mut Con, output: *mut Output) {
     if previously_visible_ws.is_null() {
         return;
     }
-    ws = (*content).nodes_head.tqh_first as *mut Con;
+    ws = nodes::first_ptr(content);
     while !ws.is_null() {
         if ws != previously_visible_ws {
-            ws = (*ws).nodes.tqe_next as *mut Con;
+            ws = nodes::next_ptr(ws);
         } else {
             (*previously_visible_ws)
                 .on_remove_child
@@ -1498,7 +1487,6 @@ pub use libc::{free, memmove, strcasecmp, strcmp, strncasecmp};
 use crate::log::{debuglog, errorlog, verboselog};
 
 // Shared model types retain field layout while using one Rust identity.
-pub use crate::types::nodes_head;
 pub use crate::types::xoutput;
 pub use crate::types::Con;
 pub use crate::types::Window;

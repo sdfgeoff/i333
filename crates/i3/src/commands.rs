@@ -991,7 +991,7 @@ unsafe fn cmd_resize_tiling_width_height(
     let percentage: ::core::ffi::c_double = 1.0f64 / children as ::core::ffi::c_double;
     verboselog(c"default percentage = %f\n".as_ptr().cast_mut(), percentage);
     let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-    child = (*parent_ptr(current)).nodes_head.tqh_first as *mut Con;
+    child = nodes::first_ptr(parent_ptr(current));
     while !child.is_null() {
         verboselog(
             c"child->percent = %f (child %p)\n".as_ptr().cast_mut(),
@@ -1001,7 +1001,7 @@ unsafe fn cmd_resize_tiling_width_height(
         if (*child).percent == 0.0f64 {
             (*child).percent = percentage;
         }
-        child = (*child).nodes.tqe_next as *mut Con;
+        child = nodes::next_ptr(child);
     }
     let mut new_current_percent: ::core::ffi::c_double = 0.;
     if ppt != 0.0f64 {
@@ -1038,7 +1038,7 @@ unsafe fn cmd_resize_tiling_width_height(
         subtract_percent,
     );
     if subtract_percent >= 0.0f64 {
-        child = (*parent_ptr(current)).nodes_head.tqh_first as *mut Con;
+        child = nodes::first_ptr(parent_ptr(current));
         while !child.is_null() {
             if !(child == current) {
                 if (*child).percent - subtract_percent < percent_for_1px(child) {
@@ -1060,7 +1060,7 @@ unsafe fn cmd_resize_tiling_width_height(
                     return false_0 != 0;
                 }
             }
-            child = (*child).nodes.tqe_next as *mut Con;
+            child = nodes::next_ptr(child);
         }
     }
     (*current).percent = new_current_percent;
@@ -1068,7 +1068,7 @@ unsafe fn cmd_resize_tiling_width_height(
         c"current->percent after = %f\n".as_ptr().cast_mut(),
         (*current).percent,
     );
-    child = (*parent_ptr(current)).nodes_head.tqh_first as *mut Con;
+    child = nodes::first_ptr(parent_ptr(current));
     while !child.is_null() {
         if !(child == current) {
             (*child).percent -= subtract_percent;
@@ -1078,7 +1078,7 @@ unsafe fn cmd_resize_tiling_width_height(
                 (*child).percent,
             );
         }
-        child = (*child).nodes.tqe_next as *mut Con;
+        child = nodes::next_ptr(child);
     }
     true_0 != 0
 }
@@ -3614,12 +3614,10 @@ pub unsafe fn cmd_focus_output(
             child = ::core::ptr::null_mut::<Con>();
             true_0 != 0
         } {
-            child = (*output_get_content((*target_output).con))
-                .nodes_head
-                .tqh_first as *mut Con;
+            child = nodes::first_ptr(output_get_content((*target_output).con));
             while !child.is_null() {
                 if !workspace_is_visible(child) {
-                    child = (*child).nodes.tqe_next as *mut Con;
+                    child = nodes::next_ptr(child);
                 } else {
                     ws = child;
                     break;
@@ -4572,10 +4570,10 @@ pub unsafe fn cmd_rename_workspace(
             child = ::core::ptr::null_mut::<Con>();
             true_0 != 0
         } {
-            child = (*previously_focused_content).nodes_head.tqh_first as *mut Con;
+            child = nodes::first_ptr(previously_focused_content.cast_mut());
             while !child.is_null() {
                 if !(child == previously_focused) {
-                    child = (*child).nodes.tqe_next as *mut Con;
+                    child = nodes::next_ptr(child);
                 } else {
                     ws = child;
                     break;
@@ -4966,11 +4964,11 @@ unsafe fn gaps_update(
     }
     if strcmp(scope, c"all".as_ptr()) == 0 as ::core::ffi::c_int {
         let mut output: *mut Con = ::core::ptr::null_mut::<Con>();
-        output = (*croot).nodes_head.tqh_first as *mut Con;
+        output = nodes::first_ptr(croot);
         while !output.is_null() {
             let mut cur_ws: *mut Con = ::core::ptr::null_mut::<Con>();
             let content: *const Con = output_get_content(output);
-            cur_ws = (*content).nodes_head.tqh_first as *mut Con;
+            cur_ws = nodes::first_ptr(content.cast_mut());
             while !cur_ws.is_null() {
                 let gaps_value: *mut ::core::ffi::c_int =
                     get.expect("non-null function pointer")(&raw mut (*cur_ws).gaps);
@@ -5001,9 +4999,9 @@ unsafe fn gaps_update(
                     2459 as ::core::ffi::c_int,
                     *gaps_value,
                 );
-                cur_ws = (*cur_ws).nodes.tqe_next as *mut Con;
+                cur_ws = nodes::next_ptr(cur_ws);
             }
-            output = (*output).nodes.tqe_next as *mut Con;
+            output = nodes::next_ptr(output);
         }
         *get.expect("non-null function pointer")(&raw mut config.gaps) = current_value;
         debuglog(
@@ -5380,3 +5378,5 @@ mod argument_tests {
         assert_eq!(snapshot[0].as_bytes(), b"HDMI-\xff");
     }
 }
+
+use crate::con::arena::nodes;

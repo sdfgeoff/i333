@@ -21,18 +21,18 @@ struct WorkspaceEntry {
 /// must not remove its nodes during traversal. No borrowed graph data escapes.
 unsafe fn workspace_entries() -> Vec<WorkspaceEntry> {
     let mut entries = Vec::new();
-    let mut output = (*croot).nodes_head.tqh_first;
+    let mut output = nodes::first_ptr(croot);
     while !output.is_null() {
-        let mut workspace = (*output_get_content(output)).nodes_head.tqh_first;
+        let mut workspace = nodes::first_ptr(output_get_content(output));
         while !workspace.is_null() {
             entries.push(WorkspaceEntry {
                 con: workspace,
                 internal: con_is_internal(workspace),
                 viewport: [(*output).rect.x, (*output).rect.y],
             });
-            workspace = (*workspace).nodes.tqe_next;
+            workspace = nodes::next_ptr(workspace);
         }
-        output = (*output).nodes.tqe_next;
+        output = nodes::next_ptr(output);
     }
     entries
 }
@@ -209,10 +209,10 @@ pub unsafe fn ewmh_update_desktop_properties() {
 /// con is a live graph node on the event thread. Traversal, cached window
 /// mutation, and XCB submission are exclusive; logging must not mutate the tree.
 unsafe fn ewmh_update_wm_desktop_recursively(con: *mut Con, desktop: u32) {
-    let mut child = (*con).nodes_head.tqh_first;
+    let mut child = nodes::first_ptr(con);
     while !child.is_null() {
         ewmh_update_wm_desktop_recursively(child, desktop);
-        child = (*child).nodes.tqe_next;
+        child = nodes::next_ptr(child);
     }
     if (*con).type_0 == WORKSPACE {
         for floating_id in floating::children(identity(con).expect("live floating parent")) {
@@ -646,3 +646,5 @@ mod tests {
         );
     }
 }
+
+use crate::con::arena::nodes;

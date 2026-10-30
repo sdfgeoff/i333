@@ -5,6 +5,7 @@
 //! from naming a different container. Registry borrows never cross callbacks.
 pub(crate) mod floating;
 pub(crate) mod focus;
+pub(crate) mod nodes;
 mod ordered;
 pub(crate) mod parent;
 
@@ -30,6 +31,8 @@ struct Entry {
     parent: Option<ConId>,
     focus: ordered::OrderedIds,
     focus_owner: Option<ConId>,
+    nodes: ordered::OrderedIds,
+    nodes_owner: Option<ConId>,
 }
 
 #[derive(Default)]
@@ -50,7 +53,6 @@ impl Arena {
         // SAFETY: The allocation is stable and unpublished. Queue tails point
         // into that allocation and remain valid until its owner is removed.
         unsafe {
-            (*raw).nodes_head.tqh_last = &raw mut (*raw).nodes_head.tqh_first;
             (*raw).swallow_head.tqh_last = &raw mut (*raw).swallow_head.tqh_first;
             (*raw).marks_head.tqh_last = &raw mut (*raw).marks_head.tqh_first;
         }
@@ -64,6 +66,8 @@ impl Arena {
                 parent: None,
                 focus: ordered::OrderedIds::default(),
                 focus_owner: None,
+                nodes: ordered::OrderedIds::default(),
+                nodes_owner: None,
             },
         );
         assert!(previous.is_none(), "duplicate live container address");
@@ -105,6 +109,7 @@ impl Arena {
         };
         self.floating_retire(id, entry.floating_owner, &entry.floating);
         self.focus_retire(id, entry.focus_owner, entry.focus.as_slice());
+        self.nodes_retire(id, entry.nodes_owner, entry.nodes.as_slice());
         Some(entry.storage)
     }
 }
@@ -298,10 +303,6 @@ mod tests {
         unsafe {
             assert_eq!((*first).num, 42);
             assert_eq!(
-                (*first).nodes_head.tqh_last,
-                &raw mut (*first).nodes_head.tqh_first
-            );
-            assert_eq!(
                 (*first).marks_head.tqh_last,
                 &raw mut (*first).marks_head.tqh_first
             );
@@ -340,31 +341,22 @@ mod tests {
             (*parent).type_0 = super::super::CT_WORKSPACE;
             set_parent_ptr(first, parent).expect("live acyclic ancestry");
             set_parent_ptr(second, parent).expect("live acyclic ancestry");
-            (*parent).nodes_head.tqh_first = first;
-            (*parent).nodes_head.tqh_last = &raw mut (*second).nodes.tqe_next;
-            (*first).nodes.tqe_prev = &raw mut (*parent).nodes_head.tqh_first;
-            (*first).nodes.tqe_next = second;
-            (*second).nodes.tqe_prev = &raw mut (*first).nodes.tqe_next;
+            nodes::append(identity(parent).unwrap(), first_id).unwrap();
+            nodes::append(identity(parent).unwrap(), second_id).unwrap();
             focus::append(identity(parent).unwrap(), second_id).unwrap();
             focus::append(identity(parent).unwrap(), first_id).unwrap();
             super::super::con_detach(first);
             release(first);
             assert!(resolve(first_id).is_none());
-            assert_eq!((*parent).nodes_head.tqh_first, second);
-            assert_eq!(
-                (*second).nodes.tqe_prev,
-                &raw mut (*parent).nodes_head.tqh_first
-            );
+            assert_eq!(nodes::first_ptr(parent), second);
+            assert!(nodes::previous_ptr(second).is_null());
             assert_eq!(focus::last_ptr(parent), second);
             super::super::con_detach(second);
             release(second);
             assert!(resolve(second_id).is_none());
-            assert!((*parent).nodes_head.tqh_first.is_null());
+            assert!(nodes::first_ptr(parent).is_null());
             assert!(focus::first_ptr(parent).is_null());
-            assert_eq!(
-                (*parent).nodes_head.tqh_last,
-                &raw mut (*parent).nodes_head.tqh_first
-            );
+            assert!(nodes::last_ptr(parent).is_null());
             assert!(focus::last_ptr(parent).is_null());
             release(parent);
         }

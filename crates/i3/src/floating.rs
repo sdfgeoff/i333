@@ -1,5 +1,5 @@
 use crate::con::arena::parent::{parent_ptr, set_parent_ptr};
-use crate::con::arena::{floating, focus, identity};
+use crate::con::arena::{floating, focus, identity, nodes};
 use crate::con::{CF_NONE, CT_CON, CT_FLOATING_CON, CT_WORKSPACE};
 pub use crate::types::xoutput as Output;
 
@@ -65,10 +65,10 @@ unsafe fn total_outputs_dimensions() -> Rect {
 unsafe fn floating_set_hint_atom(con: *mut Con, floating: bool) {
     if !con_is_leaf(con) {
         let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-        child = (*con).nodes_head.tqh_first as *mut Con;
+        child = nodes::first_ptr(con);
         while !child.is_null() {
             floating_set_hint_atom(child, floating);
-            child = (*child).nodes.tqe_next as *mut Con;
+            child = nodes::next_ptr(child);
         }
     }
     if (*con).window.is_null() {
@@ -440,7 +440,7 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
             334,
         );
         let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-        child = (*con).nodes_head.tqh_first as *mut Con;
+        child = nodes::first_ptr(con);
         while !child.is_null() {
             debuglog(
                 c"%s:%s:%d - child geometry: %d x %d\n".as_ptr().cast_mut(),
@@ -453,13 +453,14 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
             (*nc).rect.width = (*nc).rect.width.wrapping_add((*child).geometry.width);
             (*nc).rect.height =
                 max((*nc).rect.height as i32, (*child).geometry.height as i32) as u32;
-            child = (*child).nodes.tqe_next as *mut Con;
+            child = nodes::next_ptr(child);
         }
     }
-    (*con).nodes.tqe_next = ::core::ptr::null_mut::<Con>();
-    (*con).nodes.tqe_prev = (*nc).nodes_head.tqh_last;
-    *(*nc).nodes_head.tqh_last = con as *mut Con;
-    (*nc).nodes_head.tqh_last = &raw mut (*con).nodes.tqe_next;
+    nodes::append(
+        identity(nc).expect("live floating wrapper"),
+        identity(con).expect("live wrapped tiling child"),
+    )
+    .expect("detached wrapped tiling child");
     focus::append(
         identity(nc).expect("live floating wrapper"),
         identity(con).expect("live wrapped child"),

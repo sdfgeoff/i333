@@ -845,10 +845,10 @@ unsafe fn dump_node_stream(
         *compatibility = true;
     }
     if (*con).type_0 != CT_DOCKAREA as u32 || !restart {
-        let mut child = (*con).nodes_head.tqh_first;
+        let mut child = nodes::first_ptr(con);
         while !child.is_null() {
             dump_node_stream(output, child, restart, compatibility);
-            child = (*child).nodes.tqe_next;
+            child = nodes::next_ptr(child);
         }
     }
     let _ = output.end_array();
@@ -996,10 +996,10 @@ unsafe fn handle_get_workspaces(
 ) {
     let mut workspaces = Vec::new();
     let focused_workspace = con_get_workspace(focused);
-    let mut output = (*croot).nodes_head.tqh_first;
+    let mut output = nodes::first_ptr(croot);
     while !output.is_null() {
         if !con_is_internal(output) {
-            let mut workspace = (*output_get_content(output)).nodes_head.tqh_first;
+            let mut workspace = nodes::first_ptr(output_get_content(output));
             while !workspace.is_null() {
                 assert!(
                     (*workspace).type_0 == CT_WORKSPACE as u32,
@@ -1015,10 +1015,10 @@ unsafe fn handle_get_workspaces(
                     output: native_text((*output).name),
                     urgent: (*workspace).urgent,
                 });
-                workspace = (*workspace).nodes.tqe_next;
+                workspace = nodes::next_ptr(workspace);
             }
         }
-        output = (*output).nodes.tqe_next;
+        output = nodes::next_ptr(output);
     }
     send_typed_reply(client, I3_IPC_REPLY_TYPE_WORKSPACES as u32, &workspaces);
 }
@@ -2049,3 +2049,5 @@ mod typed_reply_tests {
 #[cfg(test)]
 #[path = "ipc_snapshot_tests.rs"]
 mod snapshot_tests;
+
+use crate::con::arena::nodes;

@@ -178,8 +178,8 @@ pub unsafe fn calculate_effective_gaps(con: *mut Con) -> gaps_t {
         } else {
             let children = con_num_children(workspace);
             let first_layout = if children == 1 {
-                // A consistent one-child intrusive queue contains a live node.
-                Some((*(*workspace).nodes_head.tqh_first).layout)
+                // A consistent one-child tiling list contains a live node.
+                Some((*nodes::first_ptr(workspace)).layout)
             } else {
                 None
             };
@@ -315,10 +315,10 @@ pub unsafe fn gaps_reapply_workspace_assignments() {
     // SAFETY: The caller provides the live, exclusive intrusive graph. Neither
     // gap resolution nor logging changes its queue topology.
     unsafe {
-        let mut output = (*croot).nodes_head.tqh_first;
+        let mut output = nodes::first_ptr(croot);
         while !output.is_null() {
             let content = output_get_content(output);
-            let mut workspace = (*content).nodes_head.tqh_first;
+            let mut workspace = nodes::first_ptr(content);
             while !workspace.is_null() {
                 debuglog(
                     c"%s:%s:%d - updating gap assignments for workspace %s\n"
@@ -330,9 +330,9 @@ pub unsafe fn gaps_reapply_workspace_assignments() {
                     (*workspace).name,
                 );
                 (*workspace).gaps = gaps_for_workspace(workspace);
-                workspace = (*workspace).nodes.tqe_next;
+                workspace = nodes::next_ptr(workspace);
             }
-            output = (*output).nodes.tqe_next;
+            output = nodes::next_ptr(output);
         }
     }
 }
@@ -578,3 +578,5 @@ mod tests {
         );
     }
 }
+
+use crate::con::arena::nodes;

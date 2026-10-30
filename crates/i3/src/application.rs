@@ -1832,7 +1832,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     }
     if !layout_path.is_null() && randr_base > -(1 as ::core::ffi::c_int) {
         let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
-        con = (*croot).nodes_head.tqh_first as *mut Con;
+        con = nodes::first_ptr(croot);
         while !con.is_null() {
             let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
             output = outputs.tqh_first as *mut Output;
@@ -1849,7 +1849,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
                 }
                 output = (*output).outputs.tqe_next as *mut Output;
             }
-            con = (*con).nodes.tqe_next as *mut Con;
+            con = nodes::next_ptr(con);
         }
     }
     drop(layout_owner.take());
@@ -2394,3 +2394,5 @@ mod owned_startup_tests {
         assert_eq!(owned_dirname(c"relative/file").as_c_str(), c"relative");
     }
 }
+
+use crate::con::arena::nodes;

@@ -335,7 +335,7 @@ pub unsafe fn scratchpad_fix_resolution() {
     let mut output: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut new_width: i32 = -(1);
     let mut new_height: i32 = -(1);
-    output = (*croot).nodes_head.tqh_first as *mut Con;
+    output = nodes::first_ptr(croot);
     while !output.is_null() {
         if !(output == __i3_output) {
             debuglog(
@@ -362,7 +362,7 @@ pub unsafe fn scratchpad_fix_resolution() {
                 );
             }
         }
-        output = (*output).nodes.tqe_next as *mut Con;
+        output = nodes::next_ptr(output);
     }
     let mut old_rect: Rect = (*__i3_output).rect as Rect;
     debuglog(
@@ -464,3 +464,5 @@ mod tests {
         assert!(!can_focus_visible(ScratchpadState::Changed, true));
     }
 }
+
+use crate::con::arena::nodes;

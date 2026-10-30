@@ -472,7 +472,7 @@ pub unsafe fn handle_button_press(event: *mut xcb_button_press_event_t) {
         }
         if (*event).event == root && (*event).response_type as i32 == XCB_BUTTON_PRESS {
             let mut output: *mut Con = ::core::ptr::null_mut::<Con>();
-            output = (*croot).nodes_head.tqh_first as *mut Con;
+            output = nodes::first_ptr(croot);
             while !output.is_null() {
                 if con_is_internal(output) as i32 != 0
                     || !rect_contains(
@@ -481,7 +481,7 @@ pub unsafe fn handle_button_press(event: *mut xcb_button_press_event_t) {
                         (*event).event_y as u32,
                     )
                 {
-                    output = (*output).nodes.tqe_next as *mut Con;
+                    output = nodes::next_ptr(output);
                 } else {
                     let ws: *mut Con = focus::first_ptr(output_get_content(output));
                     if ws != con_get_workspace(focused) {
@@ -513,14 +513,14 @@ pub unsafe fn handle_button_press(event: *mut xcb_button_press_event_t) {
         }
     } else {
         let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-        child = *(*((*con).nodes_head.tqh_last as *mut nodes_head)).tqh_last as *mut Con;
+        child = nodes::last_ptr(con);
         while !child.is_null() {
             if !rect_contains(
                 (*child).deco_rect,
                 (*event).event_x as u32,
                 (*event).event_y as u32,
             ) {
-                child = *(*((*child).nodes.tqe_prev as *mut nodes_head)).tqh_last as *mut Con;
+                child = nodes::previous_ptr(child);
             } else {
                 route_click(child, event, ClickDestination::Decoration);
                 return;
@@ -558,7 +558,6 @@ use i3_common::native_stdio::__assert_fail;
 use crate::log::{debuglog, errorlog};
 
 // Shared model types retain field layout while using one Rust identity.
-pub use crate::types::nodes_head;
 pub use crate::types::Con;
 pub use crate::types::Rect;
 
@@ -750,3 +749,5 @@ mod owned_tests {
         ));
     }
 }
+
+use crate::con::arena::nodes;

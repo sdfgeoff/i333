@@ -495,10 +495,10 @@ pub unsafe fn output_init_con(output: *mut Output) {
         351 as ::core::ffi::c_int,
         output_primary_name(output),
     );
-    current = (*croot).nodes_head.tqh_first as *mut Con;
+    current = nodes::first_ptr(croot);
     while !current.is_null() {
         if strcmp((*current).name, output_primary_name(output)) != 0 as ::core::ffi::c_int {
-            current = (*current).nodes.tqe_next as *mut Con;
+            current = nodes::next_ptr(current);
         } else {
             con = current;
             reused = true;
@@ -679,19 +679,19 @@ pub unsafe fn init_ws_for_output(output: *mut Output) {
         }
     }
     focused = content;
-    if !(*content).nodes_head.tqh_first.is_null() {
+    if !nodes::first_ptr(content).is_null() {
         let mut visible: *mut Con = ::core::ptr::null_mut::<Con>();
         let mut child: *mut Con = -(1 as ::core::ffi::c_int) as *mut Con;
         while child == -(1 as ::core::ffi::c_int) as *mut Con && {
             child = ::core::ptr::null_mut::<Con>();
             true
         } {
-            child = (*content).nodes_head.tqh_first as *mut Con;
+            child = nodes::first_ptr(content);
             while !child.is_null() {
                 if !((*child).fullscreen_mode as ::core::ffi::c_uint
                     == CF_OUTPUT as ::core::ffi::c_int as ::core::ffi::c_uint)
                 {
-                    child = (*child).nodes.tqe_next as *mut Con;
+                    child = nodes::next_ptr(child);
                 } else {
                     visible = child;
                     break;
@@ -699,7 +699,7 @@ pub unsafe fn init_ws_for_output(output: *mut Output) {
             }
         }
         if visible.is_null() {
-            visible = (*content).nodes_head.tqh_first as *mut Con;
+            visible = nodes::first_ptr(content);
             workspace_show(visible);
         }
     } else {
@@ -764,7 +764,7 @@ unsafe fn output_change_mode(conn_0: *mut xcb_connection_t, output: *mut Output)
     let mut workspace: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
     let content: *const Con = output_get_content((*output).con);
-    workspace = (*content).nodes_head.tqh_first as *mut Con;
+    workspace = nodes::first_ptr(content.cast_mut());
     while !workspace.is_null() {
         for id in floating::children(identity(workspace).expect("live workspace")) {
             let Some(child) = resolve(id) else { continue };
@@ -774,10 +774,10 @@ unsafe fn output_change_mode(conn_0: *mut xcb_connection_t, output: *mut Output)
                 &raw mut (*(*output).con).rect,
             );
         }
-        workspace = (*workspace).nodes.tqe_next as *mut Con;
+        workspace = nodes::next_ptr(workspace);
     }
     if config.default_orientation == Orientation::None {
-        workspace = (*content).nodes_head.tqh_first as *mut Con;
+        workspace = nodes::first_ptr(content.cast_mut());
         while !workspace.is_null() {
             if !(con_num_children(workspace) > 1 as ::core::ffi::c_int) {
                 (*workspace).layout = if (*output).rect.height > (*output).rect.width {
@@ -796,7 +796,7 @@ unsafe fn output_change_mode(conn_0: *mut xcb_connection_t, output: *mut Output)
                     (*workspace).name,
                     (*workspace).layout as ::core::ffi::c_uint,
                 );
-                child = (*workspace).nodes_head.tqh_first as *mut Con;
+                child = nodes::first_ptr(workspace);
                 if !child.is_null() {
                     if (*child).layout == Layout::SplitV || (*child).layout == Layout::SplitH {
                         (*child).layout = (*workspace).layout;
@@ -814,7 +814,7 @@ unsafe fn output_change_mode(conn_0: *mut xcb_connection_t, output: *mut Output)
                     );
                 }
             }
-            workspace = (*workspace).nodes.tqe_next as *mut Con;
+            workspace = nodes::next_ptr(workspace);
         }
     }
 }
@@ -1231,8 +1231,8 @@ unsafe fn move_content(con: *mut Con) {
     let first_content: *mut Con = output_get_content(first);
     let next: *mut Con = focused;
     let old_content: *const Con = output_get_content(con);
-    while !(*old_content).nodes_head.tqh_first.is_null() {
-        let current: *mut Con = (*old_content).nodes_head.tqh_first as *mut Con;
+    while !nodes::first_ptr(old_content.cast_mut()).is_null() {
+        let current: *mut Con = nodes::first_ptr(old_content.cast_mut());
         if current != next && focus::first_ptr(current).is_null() {
             debuglog(
                 c"%s:%s:%d - Getting rid of current = %p / %s (empty, unfocused)\n"
@@ -1300,7 +1300,7 @@ unsafe fn move_content(con: *mut Con) {
         workspace_show(con_get_workspace(next));
     }
     let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-    child = (*con).nodes_head.tqh_first as *mut Con;
+    child = nodes::first_ptr(con);
     while !child.is_null() {
         if !((*child).type_0 as ::core::ffi::c_uint
             != CT_DOCKAREA as ::core::ffi::c_int as ::core::ffi::c_uint)
@@ -1312,9 +1312,9 @@ unsafe fn move_content(con: *mut Con) {
                 903 as ::core::ffi::c_int,
                 child,
             );
-            while !(*child).nodes_head.tqh_first.is_null() {
+            while !nodes::first_ptr(child).is_null() {
                 let mut match_0: *mut Match = ::core::ptr::null_mut::<Match>();
-                let dock: *mut Con = (*child).nodes_head.tqh_first as *mut Con;
+                let dock: *mut Con = nodes::first_ptr(child);
                 let nc: *mut Con =
                     con_for_window(first, (*dock).window as *mut Window, &raw mut match_0);
                 debuglog(
@@ -1343,7 +1343,7 @@ unsafe fn move_content(con: *mut Con) {
                 );
             }
         }
-        child = (*child).nodes.tqe_next as *mut Con;
+        child = nodes::next_ptr(child);
     }
     debuglog(
         c"%s:%s:%d - Destroying disappearing con %p\n"
@@ -1483,9 +1483,13 @@ pub unsafe fn randr_query_outputs() {
         }
         output = (*output).outputs.tqe_next as *mut Output;
     }
-    let mut con: *mut Con = (*croot).nodes_head.tqh_first as *mut Con;
-    while !con.is_null() {
-        let next: *mut Con = (*con).nodes.tqe_next as *mut Con;
+    let owner = identity(croot).expect("live output tree");
+    let mut candidate = nodes::first(owner);
+    while let Some(id) = candidate {
+        // Preserve the native cursor saved BEFORE move_content can destroy the
+        // current output. A generation ID cannot reconnect a reused address.
+        candidate = nodes::next(owner, id);
+        let Some(con) = resolve(id) else { continue };
         if !con_is_internal(con) && get_output_by_name((*con).name, true).is_null() {
             debuglog(
                 c"%s:%s:%d - No output %s found, moving its old content to first output\n"
@@ -1498,7 +1502,6 @@ pub unsafe fn randr_query_outputs() {
             );
             move_content(con);
         }
-        con = next;
     }
     output = outputs.tqh_first as *mut Output;
     while !output.is_null() {
@@ -1515,7 +1518,7 @@ pub unsafe fn randr_query_outputs() {
     while !output.is_null() {
         if (*output).active {
             let content: *mut Con = output_get_content((*output).con);
-            if (*content).nodes_head.tqh_first.is_null() {
+            if nodes::first_ptr(content).is_null() {
                 debuglog(
                     c"%s:%s:%d - Should add ws for output %s\n"
                         .as_ptr()
@@ -1855,3 +1858,5 @@ mod tests {
         assert!(!randr15_version(2, 0, false));
     }
 }
+
+use crate::con::arena::nodes;

@@ -358,10 +358,10 @@ unsafe fn open_placeholder_window(con: *mut Con) {
         (*temp_id).matches.tqe_prev = &raw mut (*con).swallow_head.tqh_first;
     }
     let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-    child = (*con).nodes_head.tqh_first as *mut Con;
+    child = nodes::first_ptr(con);
     while !child.is_null() {
         open_placeholder_window(child);
-        child = (*child).nodes.tqe_next as *mut Con;
+        child = nodes::next_ptr(child);
     }
     for floating_id in floating::children(identity(con).expect("live floating parent")) {
         let Some(child) = resolve(floating_id) else {
@@ -373,10 +373,10 @@ unsafe fn open_placeholder_window(con: *mut Con) {
 
 pub unsafe fn restore_open_placeholder_windows(parent: *mut Con) {
     let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-    child = (*parent).nodes_head.tqh_first as *mut Con;
+    child = nodes::first_ptr(parent);
     while !child.is_null() {
         open_placeholder_window(child);
-        child = (*child).nodes.tqe_next as *mut Con;
+        child = nodes::next_ptr(child);
     }
     for floating_id in floating::children(identity(parent).expect("live floating parent")) {
         let Some(child) = resolve(floating_id) else {
@@ -604,3 +604,5 @@ mod tests {
         assert_eq!(centered_text(rect, 8, 10), (-3, -3));
     }
 }
+
+use crate::con::arena::nodes;

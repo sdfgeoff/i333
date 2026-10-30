@@ -1,5 +1,5 @@
 use crate::con::arena::parent::{parent_ptr, set_parent_ptr};
-use crate::con::arena::{focus, identity, resolve};
+use crate::con::arena::{focus, identity, nodes, resolve};
 use crate::regex::{regex_free, regex_new};
 use crate::types::BorderStyle;
 use crate::types::FloatingState;
@@ -280,7 +280,7 @@ impl LayoutState {
                         155 as ::core::ffi::c_int,
                     );
                     let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-                    child = (*self.json_node).nodes_head.tqh_first as *mut Con;
+                    child = nodes::first_ptr(self.json_node);
                     while !child.is_null() {
                         debuglog(
                             c"%s:%s:%d - child geometry: %d x %d\n".as_ptr().cast_mut(),
@@ -298,7 +298,7 @@ impl LayoutState {
                             (*self.json_node).rect.height as ::core::ffi::c_int,
                             (*child).geometry.height as ::core::ffi::c_int,
                         ) as u32;
-                        child = (*child).nodes.tqe_next as *mut Con;
+                        child = nodes::next_ptr(child);
                     }
                 }
                 floating_check_size(self.json_node, false);
