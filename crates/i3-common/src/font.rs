@@ -8,7 +8,7 @@
 // Mechanical file-by-file Rust translation of libi3/font.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 
-pub type i3String = _i3String;
+use crate::string::I3String;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct Font {
@@ -525,11 +525,11 @@ unsafe fn draw_text_xcb(
 }
 
 /// # Safety
-/// text must be a live I3String; the selected Font and display resources must
+/// The selected Font and display resources must
 /// remain live on the event thread. The requested backend's drawable/GC/Cairo
 /// surface must be valid during native drawing (including non-null error surfaces).
 pub unsafe fn draw_text(
-    text: *mut i3String,
+    text: &I3String,
     drawable: xcb_drawable_t,
     gc: xcb_gcontext_t,
     surface: *mut cairo_surface_t,
@@ -549,8 +549,8 @@ pub unsafe fn draw_text(
         FontType::None => {}
         FontType::Xcb => {
             draw_text_xcb(
-                i3string_as_ucs2(text).cast(),
-                i3string_get_num_glyphs(text),
+                text.rendering_glyphs().as_ptr().cast(),
+                text.rendering_glyphs().len(),
                 drawable,
                 gc,
                 x,
@@ -559,14 +559,15 @@ pub unsafe fn draw_text(
         }
         FontType::Pango => {
             draw_text_pango(
-                i3string_as_utf8(text),
-                i3string_get_num_bytes(text),
+                text.cstr_or_report()
+                    .map_or(std::ptr::null(), std::ffi::CStr::as_ptr),
+                text.rendering_byte_len(),
                 drawable,
                 surface,
                 x,
                 y,
                 max_width,
-                i3string_is_markup(text),
+                text.is_markup(),
             );
         }
     }
@@ -722,9 +723,9 @@ unsafe fn predict_text_width_xcb(input: *const xcb_char2b_t, text_len: usize) ->
 }
 
 /// # Safety
-/// text and the selected font (including its complete native query reply/table)
+/// The selected font (including its complete native query reply/table)
 /// must remain valid on the event thread for the duration of the measurement.
-pub unsafe fn predict_text_width(text: *mut i3String) -> i32 {
+pub unsafe fn predict_text_width(text: &I3String) -> i32 {
     if SAVED_FONT.is_null() {
         __assert_fail(
             c"savedFont != NULL".as_ptr(),
@@ -735,13 +736,15 @@ pub unsafe fn predict_text_width(text: *mut i3String) -> i32 {
     };
     match (*SAVED_FONT).type_0 {
         FontType::None => 0,
-        FontType::Xcb => {
-            predict_text_width_xcb(i3string_as_ucs2(text).cast(), i3string_get_num_glyphs(text))
-        }
+        FontType::Xcb => predict_text_width_xcb(
+            text.rendering_glyphs().as_ptr().cast(),
+            text.rendering_glyphs().len(),
+        ),
         FontType::Pango => predict_text_width_pango(
-            i3string_as_utf8(text),
-            i3string_get_num_bytes(text),
-            i3string_is_markup(text),
+            text.cstr_or_report()
+                .map_or(std::ptr::null(), std::ffi::CStr::as_ptr),
+            text.rendering_byte_len(),
+            text.is_markup(),
         ),
     }
 }
@@ -776,16 +779,9 @@ use crate::logging::{errorlog, verboselog};
 
 // Shared model types retain field layout while using one Rust identity.
 pub use crate::draw_util::color_t;
-pub use crate::string::I3String as _i3String;
 
 // Internal calls and globals use canonical Rust identities.
 use crate::get_visualtype::get_visualtype;
-use crate::string::i3string_as_utf8;
-use crate::string::i3string_get_num_bytes;
-use crate::string::i3string_get_num_glyphs;
-use crate::string::i3string_is_markup;
-
-use crate::string::i3string_as_ucs2;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u32)]

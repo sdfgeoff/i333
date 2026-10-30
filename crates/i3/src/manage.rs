@@ -454,8 +454,7 @@ pub unsafe fn manage_window(
                     0 as u32,
                     4294967295 as u32,
                 );
-                cwindow = scalloc(1 as usize, ::core::mem::size_of::<i3Window>() as usize)
-                    as *mut i3Window;
+                cwindow = Box::into_raw(Box::new(i3Window::default()));
                 (*cwindow).id = window;
                 (*cwindow).depth = get_visual_depth((*attr).visual);
                 buttons = bindings_get_buttons_to_grab();
@@ -1351,7 +1350,6 @@ pub use crate::types::Con;
 pub use crate::types::Match;
 pub use crate::types::Rect;
 pub use crate::types::Window;
-pub use i3_common::string::I3String as _i3String;
 
 // Internal calls and globals use canonical Rust identities.
 use crate::application::conn;

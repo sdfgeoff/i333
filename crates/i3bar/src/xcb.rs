@@ -12,9 +12,6 @@ use i3_common::font::load_font;
 use i3_common::font::predict_text_width;
 use i3_common::font::set_font;
 use i3_common::safewrappers::{sasprintf, sstrdup};
-use i3_common::string::i3string_as_utf8;
-use i3_common::string::i3string_free;
-use i3_common::string::i3string_get_num_bytes;
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -541,7 +538,7 @@ unsafe fn draw_separator(
         return;
     }
     let center_x: u32 = x.wrapping_sub(sep_offset);
-    if config.separator_symbol.is_null() {
+    if config.separator_symbol.is_none() {
         draw_util_rectangle(
             &raw mut (*output).statusline_buffer,
             sep_fg,
@@ -560,7 +557,7 @@ unsafe fn draw_separator(
             center_x.wrapping_sub((separator_symbol_width / 2 as ::core::ffi::c_int) as u32)
         };
         draw_util_text(
-            config.separator_symbol,
+            config.separator_symbol.as_ref().unwrap(),
             &raw mut (*output).statusline_buffer,
             sep_fg,
             bar_bg,
@@ -571,13 +568,13 @@ unsafe fn draw_separator(
     };
 }
 unsafe fn predict_block_length(block: *mut status_block) {
-    let mut text: *mut I3String = (*block).full_text;
+    let mut text = &(*block).full_text;
     let mut render: *mut status_block_render_desc = &raw mut (*block).full_render;
-    if (*block).use_short as ::core::ffi::c_int != 0 && !(*block).short_text.is_null() {
-        text = (*block).short_text;
+    if (*block).use_short as ::core::ffi::c_int != 0 && (*block).short_text.is_some() {
+        text = (*block).short_text.as_ref().unwrap();
         render = &raw mut (*block).short_render;
     }
-    if i3string_get_num_bytes(text) == 0 as usize {
+    if text.rendering_byte_len() == 0 as usize {
         (*block).render_length = 0 as u32;
         return;
     }
@@ -611,7 +608,7 @@ unsafe fn predict_statusline_length() -> u32 {
     width
 }
 unsafe fn switch_block_to_short(block: *mut status_block) -> u32 {
-    if (*block).short_text.is_null() || (*block).use_short as ::core::ffi::c_int != 0 {
+    if (*block).short_text.is_none() || (*block).use_short as ::core::ffi::c_int != 0 {
         return 0 as u32;
     }
     let full: u32 = (*block).render_length;
@@ -653,13 +650,13 @@ unsafe fn draw_statusline(output: *mut i3_output, clip_left: u32, use_focus_colo
     let mut x: u32 = (0 as u32).wrapping_sub(clip_left);
     block = statusline_head.tqh_first;
     while !block.is_null() {
-        let mut text: *mut I3String = (*block).full_text;
+        let mut text = &(*block).full_text;
         let mut render: *mut status_block_render_desc = &raw mut (*block).full_render;
-        if (*block).use_short as ::core::ffi::c_int != 0 && !(*block).short_text.is_null() {
-            text = (*block).short_text;
+        if (*block).use_short as ::core::ffi::c_int != 0 && (*block).short_text.is_some() {
+            text = (*block).short_text.as_ref().unwrap();
             render = &raw mut (*block).short_render;
         }
-        if !(i3string_get_num_bytes(text) == 0 as usize) {
+        if !(text.rendering_byte_len() == 0 as usize) {
             let mut fg_color: color_t = color_t {
                 red: 0.,
                 green: 0.,
@@ -976,17 +973,17 @@ unsafe fn child_handle_button(
     let mut block: *mut status_block = ::core::ptr::null_mut::<status_block>();
     block = statusline_head.tqh_first;
     while !block.is_null() {
-        let mut text: *mut I3String = ::core::ptr::null_mut::<I3String>();
+        let text: &I3String;
         let mut render: *mut status_block_render_desc =
             ::core::ptr::null_mut::<status_block_render_desc>();
-        if (*block).use_short as ::core::ffi::c_int != 0 && !(*block).short_text.is_null() {
-            text = (*block).short_text;
+        if (*block).use_short as ::core::ffi::c_int != 0 && (*block).short_text.is_some() {
+            text = (*block).short_text.as_ref().unwrap();
             render = &raw mut (*block).short_render;
         } else {
-            text = (*block).full_text;
+            text = &(*block).full_text;
             render = &raw mut (*block).full_render;
         }
-        if !(i3string_get_num_bytes(text) == 0 as usize) {
+        if !(text.rendering_byte_len() == 0 as usize) {
             let full_render_width: u32 = (*render)
                 .width
                 .wrapping_add((*render).x_offset)
@@ -2131,8 +2128,8 @@ pub unsafe fn init_xcb_late(mut fontname: *mut ::core::ffi::c_char) {
     }
     bar_height = default_px + padding_scaled;
     icon_size = bar_height - 2 as ::core::ffi::c_int * logical_px(config.tray_padding);
-    if !config.separator_symbol.is_null() {
-        separator_symbol_width = predict_text_width(config.separator_symbol);
+    if let Some(separator) = (&*(&raw const config.separator_symbol)).as_ref() {
+        separator_symbol_width = predict_text_width(separator);
     }
     xcb_flush(xcb_connection);
     if config.hide_on_modifier == crate::application::BarDisplayMode::Hide {
@@ -2959,7 +2956,7 @@ unsafe fn draw_button(
     x: ::core::ffi::c_int,
     width: ::core::ffi::c_int,
     text_width: ::core::ffi::c_int,
-    text: *mut I3String,
+    text: &I3String,
 ) {
     let height: ::core::ffi::c_int =
         bar_height - 2 as ::core::ffi::c_int * logical_px(1 as ::core::ffi::c_int);
@@ -3086,7 +3083,7 @@ pub unsafe fn draw_bars(mut unhide: bool) {
                         workspace_width,
                         w,
                         (*ws_walk).name_width,
-                        (*ws_walk).name_ptr(),
+                        &(*ws_walk).name,
                     );
                     workspace_width += w;
                     if !(*ws_walk).tailq.tqe_next.is_null() {
@@ -3110,7 +3107,7 @@ pub unsafe fn draw_bars(mut unhide: bool) {
                     workspace_width,
                     w_0,
                     binding.name_width,
-                    (mode_name as *const I3String).cast_mut(),
+                    mode_name,
                 );
                 unhide = true;
                 workspace_width += w_0;

@@ -7,7 +7,7 @@ use std::cell::{Cell, OnceCell};
 use std::ffi::{CStr, CString};
 
 /// Owned UI text with lazy X core-font encoding and a stable borrowed C view.
-/// The C callers treat this type as opaque; only i3string_free releases it.
+/// Rendering borrows this value; its cached native encodings live until it drops.
 #[derive(Debug, Clone)]
 pub struct I3String {
     utf8: OnceCell<CString>,
@@ -102,6 +102,49 @@ impl I3String {
     pub fn set_markup(&self, markup: bool) {
         self.markup.set(markup);
     }
+    /// The UTF-8 view used by legacy native rendering and diagnostic adapters.
+    /// Conversion failures retain the original diagnostic and null-view policy.
+    pub fn cstr_or_report(&self) -> Option<&CStr> {
+        match self.as_cstr() {
+            Ok(value) => Some(value),
+            Err(issue) => {
+                crate::ucs2_conversion::legacy::report(issue, c"Converting to UTF-8 failed");
+                None
+            }
+        }
+    }
+
+    /// Preserve explicit-input byte lengths, including repaired invalid bytes.
+    pub fn rendering_byte_len(&self) -> usize {
+        let _ = self.cstr_or_report();
+        self.legacy_num_bytes.get()
+    }
+
+    /// Borrow the core-font glyph cache while preserving conversion diagnostics.
+    pub fn rendering_glyphs(&self) -> &[Ucs2Char] {
+        let conversion_needed = self.ucs2.get().is_none()
+            || (!self.originated_as_ucs2
+                && self
+                    .ucs2
+                    .get()
+                    .is_some_and(|encoded| encoded.glyphs.is_empty()));
+        let glyphs = self.as_ucs2();
+        if conversion_needed {
+            if let Some(issue) = self.ucs2.get().unwrap().issue {
+                crate::ucs2_conversion::legacy::report(issue, c"Converting to UCS-2 failed");
+            }
+        }
+        glyphs
+    }
+
+    /// An independent UTF-8 copy, matching the old copy operation rather than
+    /// cloning a potentially different UCS-2 source/cache or legacy byte count.
+    pub fn copy_utf8(&self) -> Option<Self> {
+        let copy = Self::from_cstr(self.cstr_or_report()?);
+        copy.set_markup(self.is_markup());
+        Some(copy)
+    }
+
     pub fn escaped_markup(&self) -> Result<Self, ConversionIssue> {
         Ok(Self::new(escape_markup(self.as_str()?)))
     }
@@ -159,11 +202,10 @@ pub fn escape_markup(text: &str) -> String {
     output
 }
 
-// Legacy opaque names, retained only while program callers migrate.
-pub type i3String = I3String;
-pub type _i3String = I3String;
 pub use crate::ucs2_conversion::Ucs2Char as xcb_char2b_t;
 
+// Raw adapters remain solely as an oracle for the historical ownership API.
+#[cfg(test)]
 mod legacy {
     use super::*;
     fn boxed(text: I3String) -> *mut I3String {
@@ -175,28 +217,10 @@ mod legacy {
         unsafe { &*raw }
     }
     fn utf8(text: &I3String) -> Option<&CStr> {
-        match text.as_cstr() {
-            Ok(value) => Some(value),
-            Err(issue) => {
-                crate::ucs2_conversion::legacy::report(issue, c"Converting to UTF-8 failed");
-                None
-            }
-        }
+        text.cstr_or_report()
     }
     fn glyphs(text: &I3String) -> &[Ucs2Char] {
-        let legacy_conversion_needed = text.ucs2.get().is_none()
-            || (!text.originated_as_ucs2
-                && text
-                    .ucs2
-                    .get()
-                    .is_some_and(|encoded| encoded.glyphs.is_empty()));
-        let glyphs = text.as_ucs2();
-        if legacy_conversion_needed {
-            if let Some(issue) = text.ucs2.get().unwrap().issue {
-                crate::ucs2_conversion::legacy::report(issue, c"Converting to UCS-2 failed");
-            }
-        }
-        glyphs
+        text.rendering_glyphs()
     }
     /// # Safety
     /// Input is a live C string; release the returned box only with i3string_free.
@@ -335,6 +359,7 @@ mod legacy {
         }
     }
 }
+#[cfg(test)]
 pub use legacy::*;
 
 #[cfg(test)]
@@ -351,6 +376,37 @@ mod owned_length_tests {
         assert_eq!(
             I3String::from_bytes(input).legacy_num_bytes.get(),
             text.byte_len().unwrap()
+        );
+    }
+
+    #[test]
+    fn borrowed_render_views_and_utf8_copy_keep_distinct_length_contracts() {
+        let original = I3String::from_bytes_with_legacy_length(b"A\xff");
+        original.set_markup(true);
+        let address = original.cstr_or_report().unwrap().as_ptr();
+        assert_eq!(original.rendering_byte_len(), 2);
+        assert_eq!(original.rendering_glyphs(), &[0x41.into(), 0xfffd.into()]);
+        assert_eq!(original.cstr_or_report().unwrap().as_ptr(), address);
+        let copy = original.copy_utf8().unwrap();
+        assert_eq!(copy.as_str(), Ok("A�"));
+        assert_eq!(copy.rendering_byte_len(), 4);
+        assert!(copy.is_markup());
+        assert_ne!(copy.cstr_or_report().unwrap().as_ptr(), address);
+        original.set_markup(false);
+        assert!(copy.is_markup());
+    }
+
+    #[test]
+    fn core_font_rendering_preserves_embedded_nul_and_ucs2_source_after_utf8_projection() {
+        let glyphs = [0x41.into(), 0.into(), 0x42.into()];
+        let original = I3String::from_ucs2(&glyphs);
+        assert_eq!(original.rendering_glyphs(), glyphs);
+        assert_eq!(original.cstr_or_report().unwrap().to_bytes(), b"A");
+        assert_eq!(original.rendering_byte_len(), 1);
+        assert_eq!(original.rendering_glyphs(), glyphs);
+        assert_eq!(
+            original.copy_utf8().unwrap().rendering_glyphs(),
+            &[0x41.into()]
         );
     }
 }

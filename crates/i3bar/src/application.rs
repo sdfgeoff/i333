@@ -36,7 +36,6 @@ pub struct Rect {
     pub width: u32,
     pub height: u32,
 }
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct config_t {
     pub modifier: u32,
@@ -56,7 +55,7 @@ pub struct config_t {
     pub command: *mut ::core::ffi::c_char,
     pub workspace_command: *mut ::core::ffi::c_char,
     pub fontname: *mut ::core::ffi::c_char,
-    pub separator_symbol: *mut I3String,
+    pub separator_symbol: Option<I3String>,
     pub tray_outputs: tray_outputs_head,
     pub tray_padding: ::core::ffi::c_int,
     pub num_outputs: ::core::ffi::c_int,
@@ -214,9 +213,8 @@ unsafe fn run(arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     let mut arguments = arguments.into_iter();
     let program = arguments.next().unwrap_or_else(|| "i3bar".into());
     let mut socket_path: Option<std::ffi::CString> = None;
-    // Shared config remains its canonical zero-valid native POD; owned option
-    // strings stay local until their specific native handoff.
-    config = std::mem::zeroed();
+    // Construct owned rendering text normally; native list links start empty.
+    config = crate::config::empty_config();
     for item in Parser::new(
         arguments,
         BAR_OPTIONS,

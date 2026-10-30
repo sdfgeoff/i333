@@ -632,7 +632,6 @@ use crate::types::focus_head;
 use crate::types::gaps_t;
 use crate::types::Con;
 use crate::types::Rect;
-use i3_common::string::I3String as _i3String;
 
 // Internal calls and globals use canonical Rust identities.
 use crate::con::con_border_style_rect;

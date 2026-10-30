@@ -614,7 +614,14 @@
         "Unsafe legacy callers own raw handles and callback contexts; same-handle reentrant mutation/free is prohibited.",
         "Callbacks and borrowed output buffers cannot outlive their synchronous scope; custom allocators intentionally unsupported."
       ],
-      "review_wave": 7
+      "review_wave": 7,
+      "followup_reviews": [
+        {
+          "stage": "owned APIs",
+          "status": "removed",
+          "result": "Removed after all product generator/parser callers migrated to owned Rust APIs; native oracle uses owned API directly."
+        }
+      ]
     },
     {
       "number": 41,

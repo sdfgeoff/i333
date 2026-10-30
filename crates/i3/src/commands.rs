@@ -28,12 +28,7 @@ use i3_common::safewrappers::sasprintf;
  */
 // Mechanical file-by-file Rust translation of src/commands.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
-pub use i3_json::compat::yajl_gen;
-use i3_json::compat::{
-    yajl_gen_bool, yajl_gen_integer, yajl_gen_map_close, yajl_gen_map_open, yajl_gen_string,
-};
-
-pub type i3String = _i3String;
+use crate::ipc::{emit_command_reply, CommandReply};
 
 pub type fullscreen_mode_t = ::core::ffi::c_uint;
 pub const CF_GLOBAL: fullscreen_mode_t = 2;
@@ -66,13 +61,20 @@ pub struct C2RustUnnamed_33 {
 #[repr(C)]
 pub struct CommandResultIR {
     pub ctx: *mut cmd_parser_ctx,
-    pub json_gen: yajl_gen,
     pub client: *mut ipc_client,
     pub next_state: CommandParserState,
     pub needs_tree_render: bool,
 }
+impl CommandResultIR {
+    /// The parser owns the output for the complete dispatch; this is a short
+    /// read through its existing context handle, never a stored mutable borrow.
+    unsafe fn has_reply(&self) -> bool {
+        !self.ctx.is_null() && unsafe { (*self.ctx).json_output.is_some() }
+    }
+}
 #[repr(C)]
 pub struct cmd_parser_ctx {
+    pub json_output: Option<i3_json::Generator>,
     pub state: CommandParserState,
     pub current_match: Match,
     pub stack: stack,
@@ -348,7 +350,7 @@ pub unsafe fn cmd_move_con_to_workspace(
         which,
     );
     if !(*current_match).error.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -356,42 +358,10 @@ pub unsafe fn cmd_move_con_to_workspace(
                 c"Invalid match: %s".as_ptr(),
                 (*current_match).error,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return;
@@ -418,49 +388,17 @@ pub unsafe fn cmd_move_con_to_workspace(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
     if (*(*cmd_output).ctx).owindows.tqh_first.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message_0: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
                 &raw mut message_0,
                 c"Nothing to move: specified criteria don't match any window".as_ptr(),
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message_0 as *mut ::core::ffi::c_uchar,
-                    strlen(message_0),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+            );
             free(message_0 as *mut ::core::ffi::c_void);
         }
         return;
@@ -486,49 +424,17 @@ pub unsafe fn cmd_move_con_to_workspace(
             current = next;
         }
         if !found {
-            if !(*cmd_output).json_gen.is_null() {
+            if (*cmd_output).has_reply() {
                 let mut message_1: *mut ::core::ffi::c_char =
                     ::core::ptr::null_mut::<::core::ffi::c_char>();
                 sasprintf(
                     &raw mut message_1,
                     c"Nothing to move: workspace empty".as_ptr(),
                 );
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_map_open((*cmd_output).json_gen);
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_string(
-                        (*cmd_output).json_gen,
-                        c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"success".as_ptr()),
-                    );
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_bool((*cmd_output).json_gen, false_0);
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_string(
-                        (*cmd_output).json_gen,
-                        c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"error".as_ptr()),
-                    );
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_string(
-                        (*cmd_output).json_gen,
-                        message_1 as *mut ::core::ffi::c_uchar,
-                        strlen(message_1),
-                    );
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_map_close((*cmd_output).json_gen);
-                } else {
-                };
+                emit_command_reply(
+                    cmd_output,
+                    CommandReply::Error(std::ffi::CStr::from_ptr(message_1)),
+                );
                 free(message_1 as *mut ::core::ffi::c_void);
             }
             return;
@@ -546,7 +452,7 @@ pub unsafe fn cmd_move_con_to_workspace(
     } else if strcmp(which, c"current".as_ptr()) == 0 as ::core::ffi::c_int {
         ws = con_get_workspace(focused);
     } else {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message_2: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -554,69 +460,18 @@ pub unsafe fn cmd_move_con_to_workspace(
                 c"BUG: called with which=%s".as_ptr(),
                 which,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message_2 as *mut ::core::ffi::c_uchar,
-                    strlen(message_2),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_2)),
+            );
             free(message_2 as *mut ::core::ffi::c_void);
         }
         return;
     }
     move_matches_to_workspace(&raw mut (*(*cmd_output).ctx).owindows, ws);
     (*cmd_output).needs_tree_render = true_0 != 0;
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 
@@ -626,55 +481,23 @@ pub unsafe fn cmd_move_con_to_workspace_back_and_forth(
 ) {
     let ws: *mut Con = workspace_back_and_forth_get();
     if ws.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
                 &raw mut message,
                 c"No workspace was previously active.".as_ptr(),
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return;
     }
     if !(*current_match).error.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message_0: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -682,42 +505,10 @@ pub unsafe fn cmd_move_con_to_workspace_back_and_forth(
                 c"Invalid match: %s".as_ptr(),
                 (*current_match).error,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message_0 as *mut ::core::ffi::c_uchar,
-                    strlen(message_0),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+            );
             free(message_0 as *mut ::core::ffi::c_void);
         }
         return;
@@ -745,27 +536,8 @@ pub unsafe fn cmd_move_con_to_workspace_back_and_forth(
     }
     move_matches_to_workspace(&raw mut (*(*cmd_output).ctx).owindows, ws);
     (*cmd_output).needs_tree_render = true_0 != 0;
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 
@@ -776,7 +548,7 @@ pub unsafe fn cmd_move_con_to_workspace_name(
     no_auto_back_and_forth: *const ::core::ffi::c_char,
 ) {
     if strncasecmp(name, c"__".as_ptr(), strlen(c"__".as_ptr())) == 0 as ::core::ffi::c_int {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -784,48 +556,16 @@ pub unsafe fn cmd_move_con_to_workspace_name(
                 c"You cannot move containers to i3-internal workspaces (\"%s\").".as_ptr(),
                 name,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return;
     }
     if !(*current_match).error.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message_0: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -833,42 +573,10 @@ pub unsafe fn cmd_move_con_to_workspace_name(
                 c"Invalid match: %s".as_ptr(),
                 (*current_match).error,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message_0 as *mut ::core::ffi::c_uchar,
-                    strlen(message_0),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+            );
             free(message_0 as *mut ::core::ffi::c_void);
         }
         return;
@@ -895,49 +603,17 @@ pub unsafe fn cmd_move_con_to_workspace_name(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
     if (*(*cmd_output).ctx).owindows.tqh_first.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message_1: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
                 &raw mut message_1,
                 c"Nothing to move: specified criteria don't match any window".as_ptr(),
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message_1 as *mut ::core::ffi::c_uchar,
-                    strlen(message_1),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_1)),
+            );
             free(message_1 as *mut ::core::ffi::c_void);
         }
         return;
@@ -963,49 +639,17 @@ pub unsafe fn cmd_move_con_to_workspace_name(
             current = next;
         }
         if !found {
-            if !(*cmd_output).json_gen.is_null() {
+            if (*cmd_output).has_reply() {
                 let mut message_2: *mut ::core::ffi::c_char =
                     ::core::ptr::null_mut::<::core::ffi::c_char>();
                 sasprintf(
                     &raw mut message_2,
                     c"Nothing to move: workspace empty".as_ptr(),
                 );
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_map_open((*cmd_output).json_gen);
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_string(
-                        (*cmd_output).json_gen,
-                        c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"success".as_ptr()),
-                    );
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_bool((*cmd_output).json_gen, false_0);
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_string(
-                        (*cmd_output).json_gen,
-                        c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"error".as_ptr()),
-                    );
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_string(
-                        (*cmd_output).json_gen,
-                        message_2 as *mut ::core::ffi::c_uchar,
-                        strlen(message_2),
-                    );
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_map_close((*cmd_output).json_gen);
-                } else {
-                };
+                emit_command_reply(
+                    cmd_output,
+                    CommandReply::Error(std::ffi::CStr::from_ptr(message_2)),
+                );
                 free(message_2 as *mut ::core::ffi::c_void);
             }
             return;
@@ -1021,27 +665,8 @@ pub unsafe fn cmd_move_con_to_workspace_name(
     }
     move_matches_to_workspace(&raw mut (*(*cmd_output).ctx).owindows, ws);
     (*cmd_output).needs_tree_render = true_0 != 0;
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 
@@ -1052,7 +677,7 @@ pub unsafe fn cmd_move_con_to_workspace_number(
     no_auto_back_and_forth: *const ::core::ffi::c_char,
 ) {
     if !(*current_match).error.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -1060,42 +685,10 @@ pub unsafe fn cmd_move_con_to_workspace_number(
                 c"Invalid match: %s".as_ptr(),
                 (*current_match).error,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return;
@@ -1122,49 +715,17 @@ pub unsafe fn cmd_move_con_to_workspace_number(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
     if (*(*cmd_output).ctx).owindows.tqh_first.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message_0: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
                 &raw mut message_0,
                 c"Nothing to move: specified criteria don't match any window".as_ptr(),
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message_0 as *mut ::core::ffi::c_uchar,
-                    strlen(message_0),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+            );
             free(message_0 as *mut ::core::ffi::c_void);
         }
         return;
@@ -1190,49 +751,17 @@ pub unsafe fn cmd_move_con_to_workspace_number(
             current = next;
         }
         if !found {
-            if !(*cmd_output).json_gen.is_null() {
+            if (*cmd_output).has_reply() {
                 let mut message_1: *mut ::core::ffi::c_char =
                     ::core::ptr::null_mut::<::core::ffi::c_char>();
                 sasprintf(
                     &raw mut message_1,
                     c"Nothing to move: workspace empty".as_ptr(),
                 );
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_map_open((*cmd_output).json_gen);
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_string(
-                        (*cmd_output).json_gen,
-                        c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"success".as_ptr()),
-                    );
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_bool((*cmd_output).json_gen, false_0);
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_string(
-                        (*cmd_output).json_gen,
-                        c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"error".as_ptr()),
-                    );
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_string(
-                        (*cmd_output).json_gen,
-                        message_1 as *mut ::core::ffi::c_uchar,
-                        strlen(message_1),
-                    );
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_map_close((*cmd_output).json_gen);
-                } else {
-                };
+                emit_command_reply(
+                    cmd_output,
+                    CommandReply::Error(std::ffi::CStr::from_ptr(message_1)),
+                );
                 free(message_1 as *mut ::core::ffi::c_void);
             }
             return;
@@ -1250,7 +779,7 @@ pub unsafe fn cmd_move_con_to_workspace_number(
                 .cast_mut(),
             which,
         );
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message_2: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -1258,42 +787,10 @@ pub unsafe fn cmd_move_con_to_workspace_number(
                 c"Could not parse number \"%s\"".as_ptr(),
                 which,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message_2 as *mut ::core::ffi::c_uchar,
-                    strlen(message_2),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_2)),
+            );
             free(message_2 as *mut ::core::ffi::c_void);
         }
         return;
@@ -1307,27 +804,8 @@ pub unsafe fn cmd_move_con_to_workspace_number(
     }
     move_matches_to_workspace(&raw mut (*(*cmd_output).ctx).owindows, ws);
     (*cmd_output).needs_tree_render = true_0 != 0;
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 fn direction_argument(value: &[u8]) -> Option<Direction> {
@@ -1450,49 +928,17 @@ unsafe fn cmd_resize_tiling_direction(
         false_0 != 0,
     ) as bool;
     if !res {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
                 &raw mut message,
                 c"No second container found in this direction.".as_ptr(),
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return false_0 != 0;
@@ -1525,49 +971,17 @@ unsafe fn cmd_resize_tiling_width_height(
         true_0 != 0,
     ) as bool;
     if search_result as ::core::ffi::c_int == false_0 {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
                 &raw mut message,
                 c"Failed to find appropriate tiling containers for resize operation".as_ptr(),
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return false_0 != 0;
@@ -1601,49 +1015,17 @@ unsafe fn cmd_resize_tiling_width_height(
     let subtract_percent: ::core::ffi::c_double =
         ppt / (children - 1 as ::core::ffi::c_int) as ::core::ffi::c_double;
     if ppt < 0.0f64 && new_current_percent < percent_for_1px(current) {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message_0: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
                 &raw mut message_0,
                 c"Not resizing, container would end with less than 1px".as_ptr(),
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message_0 as *mut ::core::ffi::c_uchar,
-                    strlen(message_0),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+            );
             free(message_0 as *mut ::core::ffi::c_void);
         }
         return false_0 != 0;
@@ -1661,7 +1043,7 @@ unsafe fn cmd_resize_tiling_width_height(
         while !child.is_null() {
             if !(child == current) {
                 if (*child).percent - subtract_percent < percent_for_1px(child) {
-                    if !(*cmd_output).json_gen.is_null() {
+                    if (*cmd_output).has_reply() {
                         let mut message_1: *mut ::core::ffi::c_char =
                             ::core::ptr::null_mut::<::core::ffi::c_char>();
                         sasprintf(
@@ -1670,42 +1052,10 @@ unsafe fn cmd_resize_tiling_width_height(
                             child,
                             (*child).percent - subtract_percent,
                         );
-                        if !(*cmd_output).json_gen.is_null() {
-                            yajl_gen_map_open((*cmd_output).json_gen);
-                        } else {
-                        };
-                        if !(*cmd_output).json_gen.is_null() {
-                            yajl_gen_string(
-                                (*cmd_output).json_gen,
-                                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                                strlen(c"success".as_ptr()),
-                            );
-                        } else {
-                        };
-                        if !(*cmd_output).json_gen.is_null() {
-                            yajl_gen_bool((*cmd_output).json_gen, false_0);
-                        } else {
-                        };
-                        if !(*cmd_output).json_gen.is_null() {
-                            yajl_gen_string(
-                                (*cmd_output).json_gen,
-                                c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                                strlen(c"error".as_ptr()),
-                            );
-                        } else {
-                        };
-                        if !(*cmd_output).json_gen.is_null() {
-                            yajl_gen_string(
-                                (*cmd_output).json_gen,
-                                message_1 as *mut ::core::ffi::c_uchar,
-                                strlen(message_1),
-                            );
-                        } else {
-                        };
-                        if !(*cmd_output).json_gen.is_null() {
-                            yajl_gen_map_close((*cmd_output).json_gen);
-                        } else {
-                        };
+                        emit_command_reply(
+                            cmd_output,
+                            CommandReply::Error(std::ffi::CStr::from_ptr(message_1)),
+                        );
                         free(message_1 as *mut ::core::ffi::c_void);
                     }
                     return false_0 != 0;
@@ -1759,7 +1109,7 @@ pub unsafe fn cmd_resize(
         resize_ppt *= -(1 as ::core::ffi::c_int) as ::core::ffi::c_long;
     }
     if !(*current_match).error.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -1767,42 +1117,10 @@ pub unsafe fn cmd_resize(
                 c"Invalid match: %s".as_ptr(),
                 (*current_match).error,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return;
@@ -1866,46 +1184,14 @@ pub unsafe fn cmd_resize(
                     resize_px as ::core::ffi::c_int,
                     ppt,
                 ) {
-                    if !(*cmd_output).json_gen.is_null() {
+                    if (*cmd_output).has_reply() {
                         let mut message_0: *mut ::core::ffi::c_char =
                             ::core::ptr::null_mut::<::core::ffi::c_char>();
                         sasprintf(&raw mut message_0, c"Cannot resize.".as_ptr());
-                        if !(*cmd_output).json_gen.is_null() {
-                            yajl_gen_map_open((*cmd_output).json_gen);
-                        } else {
-                        };
-                        if !(*cmd_output).json_gen.is_null() {
-                            yajl_gen_string(
-                                (*cmd_output).json_gen,
-                                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                                strlen(c"success".as_ptr()),
-                            );
-                        } else {
-                        };
-                        if !(*cmd_output).json_gen.is_null() {
-                            yajl_gen_bool((*cmd_output).json_gen, false_0);
-                        } else {
-                        };
-                        if !(*cmd_output).json_gen.is_null() {
-                            yajl_gen_string(
-                                (*cmd_output).json_gen,
-                                c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                                strlen(c"error".as_ptr()),
-                            );
-                        } else {
-                        };
-                        if !(*cmd_output).json_gen.is_null() {
-                            yajl_gen_string(
-                                (*cmd_output).json_gen,
-                                message_0 as *mut ::core::ffi::c_uchar,
-                                strlen(message_0),
-                            );
-                        } else {
-                        };
-                        if !(*cmd_output).json_gen.is_null() {
-                            yajl_gen_map_close((*cmd_output).json_gen);
-                        } else {
-                        };
+                        emit_command_reply(
+                            cmd_output,
+                            CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+                        );
                         free(message_0 as *mut ::core::ffi::c_void);
                     }
                     return;
@@ -1918,46 +1204,14 @@ pub unsafe fn cmd_resize(
                 resize_px as ::core::ffi::c_int,
                 resize_ppt as ::core::ffi::c_int,
             ) {
-                if !(*cmd_output).json_gen.is_null() {
+                if (*cmd_output).has_reply() {
                     let mut message_1: *mut ::core::ffi::c_char =
                         ::core::ptr::null_mut::<::core::ffi::c_char>();
                     sasprintf(&raw mut message_1, c"Cannot resize.".as_ptr());
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_map_open((*cmd_output).json_gen);
-                    } else {
-                    };
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_string(
-                            (*cmd_output).json_gen,
-                            c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                            strlen(c"success".as_ptr()),
-                        );
-                    } else {
-                    };
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_bool((*cmd_output).json_gen, false_0);
-                    } else {
-                    };
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_string(
-                            (*cmd_output).json_gen,
-                            c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                            strlen(c"error".as_ptr()),
-                        );
-                    } else {
-                    };
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_string(
-                            (*cmd_output).json_gen,
-                            message_1 as *mut ::core::ffi::c_uchar,
-                            strlen(message_1),
-                        );
-                    } else {
-                    };
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_map_close((*cmd_output).json_gen);
-                    } else {
-                    };
+                    emit_command_reply(
+                        cmd_output,
+                        CommandReply::Error(std::ffi::CStr::from_ptr(message_1)),
+                    );
                     free(message_1 as *mut ::core::ffi::c_void);
                 }
                 return;
@@ -1966,27 +1220,8 @@ pub unsafe fn cmd_resize(
         current = (*current).owindows.tqe_next as *mut owindow;
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 unsafe fn resize_set_tiling(
@@ -2049,52 +1284,20 @@ pub unsafe fn cmd_resize_set(
         mode_height,
     );
     if cwidth < 0 as ::core::ffi::c_long || cheight < 0 as ::core::ffi::c_long {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(&raw mut message, c"Dimensions cannot be negative.".as_ptr());
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return;
     }
     if !(*current_match).error.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message_0: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -2102,42 +1305,10 @@ pub unsafe fn cmd_resize_set(
                 c"Invalid match: %s".as_ptr(),
                 (*current_match).error,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message_0 as *mut ::core::ffi::c_uchar,
-                    strlen(message_0),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+            );
             free(message_0 as *mut ::core::ffi::c_void);
         }
         return;
@@ -2235,27 +1406,8 @@ pub unsafe fn cmd_resize_set(
         current = (*current).owindows.tqe_next as *mut owindow;
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, success as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(success));
     }
 }
 unsafe fn border_width_from_style(
@@ -2301,7 +1453,7 @@ pub unsafe fn cmd_border(
     );
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
     if !(*current_match).error.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -2309,42 +1461,10 @@ pub unsafe fn cmd_border(
                 c"Invalid match: %s".as_ptr(),
                 (*current_match).error,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return;
@@ -2390,7 +1510,7 @@ pub unsafe fn cmd_border(
         } else if strcmp(border_style_str, c"none".as_ptr()) == 0 as ::core::ffi::c_int {
             border_style = BorderStyle::None;
         } else {
-            if !(*cmd_output).json_gen.is_null() {
+            if (*cmd_output).has_reply() {
                 let mut message_0: *mut ::core::ffi::c_char =
                     ::core::ptr::null_mut::<::core::ffi::c_char>();
                 sasprintf(
@@ -2398,42 +1518,10 @@ pub unsafe fn cmd_border(
                     c"BUG: called with border_style=%s".as_ptr(),
                     border_style_str,
                 );
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_map_open((*cmd_output).json_gen);
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_string(
-                        (*cmd_output).json_gen,
-                        c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"success".as_ptr()),
-                    );
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_bool((*cmd_output).json_gen, false_0);
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_string(
-                        (*cmd_output).json_gen,
-                        c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"error".as_ptr()),
-                    );
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_string(
-                        (*cmd_output).json_gen,
-                        message_0 as *mut ::core::ffi::c_uchar,
-                        strlen(message_0),
-                    );
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_map_close((*cmd_output).json_gen);
-                } else {
-                };
+                emit_command_reply(
+                    cmd_output,
+                    CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+                );
                 free(message_0 as *mut ::core::ffi::c_void);
             }
             return;
@@ -2446,27 +1534,8 @@ pub unsafe fn cmd_border(
         current = (*current).owindows.tqe_next as *mut owindow;
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 
@@ -2486,27 +1555,8 @@ pub unsafe fn cmd_nop(
             .as_ptr()
             .cast_mut(),
     );
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 
@@ -2524,46 +1574,14 @@ pub unsafe fn cmd_append_layout(
     let mut len: isize = 0;
     len = slurp(path, &raw mut buf);
     if len < 0 as isize {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(&raw mut message, c"Could not slurp \"%s\".".as_ptr(), path);
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
     } else if !json_validate(buf, len as usize) {
@@ -2573,7 +1591,7 @@ pub unsafe fn cmd_append_layout(
                 .cast_mut(),
             path,
         );
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message_0: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -2581,42 +1599,10 @@ pub unsafe fn cmd_append_layout(
                 c"Could not parse \"%s\" as JSON.".as_ptr(),
                 path,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message_0 as *mut ::core::ffi::c_uchar,
-                    strlen(message_0),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+            );
             free(message_0 as *mut ::core::ffi::c_void);
         }
     } else {
@@ -2632,7 +1618,7 @@ pub unsafe fn cmd_append_layout(
                     .cast_mut(),
                 path,
             );
-            if !(*cmd_output).json_gen.is_null() {
+            if (*cmd_output).has_reply() {
                 let mut message_1: *mut ::core::ffi::c_char =
                     ::core::ptr::null_mut::<::core::ffi::c_char>();
                 sasprintf(
@@ -2640,42 +1626,10 @@ pub unsafe fn cmd_append_layout(
                     c"Could not determine the contents of \"%s\".".as_ptr(),
                     path,
                 );
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_map_open((*cmd_output).json_gen);
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_string(
-                        (*cmd_output).json_gen,
-                        c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"success".as_ptr()),
-                    );
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_bool((*cmd_output).json_gen, false_0);
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_string(
-                        (*cmd_output).json_gen,
-                        c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"error".as_ptr()),
-                    );
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_string(
-                        (*cmd_output).json_gen,
-                        message_1 as *mut ::core::ffi::c_uchar,
-                        strlen(message_1),
-                    );
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_map_close((*cmd_output).json_gen);
-                } else {
-                };
+                emit_command_reply(
+                    cmd_output,
+                    CommandReply::Error(std::ffi::CStr::from_ptr(message_1)),
+                );
                 free(message_1 as *mut ::core::ffi::c_void);
             }
         } else {
@@ -2703,70 +1657,19 @@ pub unsafe fn cmd_append_layout(
             errormsg = ::core::ptr::null_mut::<::core::ffi::c_char>();
             tree_append_json(parent, buf, len as usize, &raw mut errormsg);
             if !errormsg.is_null() {
-                if !(*cmd_output).json_gen.is_null() {
+                if (*cmd_output).has_reply() {
                     let mut message_2: *mut ::core::ffi::c_char =
                         ::core::ptr::null_mut::<::core::ffi::c_char>();
                     sasprintf(&raw mut message_2, c"%s".as_ptr(), errormsg);
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_map_open((*cmd_output).json_gen);
-                    } else {
-                    };
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_string(
-                            (*cmd_output).json_gen,
-                            c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                            strlen(c"success".as_ptr()),
-                        );
-                    } else {
-                    };
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_bool((*cmd_output).json_gen, false_0);
-                    } else {
-                    };
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_string(
-                            (*cmd_output).json_gen,
-                            c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                            strlen(c"error".as_ptr()),
-                        );
-                    } else {
-                    };
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_string(
-                            (*cmd_output).json_gen,
-                            message_2 as *mut ::core::ffi::c_uchar,
-                            strlen(message_2),
-                        );
-                    } else {
-                    };
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_map_close((*cmd_output).json_gen);
-                    } else {
-                    };
+                    emit_command_reply(
+                        cmd_output,
+                        CommandReply::Error(std::ffi::CStr::from_ptr(message_2)),
+                    );
                     free(message_2 as *mut ::core::ffi::c_void);
                 }
                 free(errormsg as *mut ::core::ffi::c_void);
-            } else if !(*cmd_output).json_gen.is_null() {
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_map_open((*cmd_output).json_gen);
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_string(
-                        (*cmd_output).json_gen,
-                        c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"success".as_ptr()),
-                    );
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_map_close((*cmd_output).json_gen);
-                } else {
-                };
+            } else if (*cmd_output).has_reply() {
+                emit_command_reply(cmd_output, CommandReply::Success(true));
             }
             render_con(croot);
             restore_open_placeholder_windows(parent);
@@ -2813,7 +1716,7 @@ pub unsafe fn cmd_workspace(
     } else if strcmp(which, c"prev_on_output".as_ptr()) == 0 as ::core::ffi::c_int {
         ws = workspace_prev_on_output();
     } else {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -2821,69 +1724,18 @@ pub unsafe fn cmd_workspace(
                 c"BUG: called with which=%s".as_ptr(),
                 which,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return;
     }
     workspace_show(ws);
     (*cmd_output).needs_tree_render = true_0 != 0;
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 
@@ -2897,7 +1749,7 @@ pub unsafe fn cmd_workspace_number(
     disable_global_fullscreen();
     let parsed_num: ::core::ffi::c_long = ws_name_to_number(which) as ::core::ffi::c_long;
     if parsed_num == -(1 as ::core::ffi::c_int) as ::core::ffi::c_long {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -2905,42 +1757,10 @@ pub unsafe fn cmd_workspace_number(
                 c"Could not parse initial part of \"%s\" as a number.".as_ptr(),
                 which,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return;
@@ -2953,27 +1773,8 @@ pub unsafe fn cmd_workspace_number(
                 .cast_mut(),
             parsed_num,
         );
-        if !(*cmd_output).json_gen.is_null() {
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+        if (*cmd_output).has_reply() {
+            emit_command_reply(cmd_output, CommandReply::Success(true));
         }
         workspace_show_by_name(which);
         (*cmd_output).needs_tree_render = true_0 != 0;
@@ -2982,53 +1783,15 @@ pub unsafe fn cmd_workspace_number(
     if !no_auto_back_and_forth
         && maybe_back_and_forth(cmd_output, (*workspace).name) as ::core::ffi::c_int != 0
     {
-        if !(*cmd_output).json_gen.is_null() {
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+        if (*cmd_output).has_reply() {
+            emit_command_reply(cmd_output, CommandReply::Success(true));
         }
         return;
     }
     workspace_show(workspace);
     (*cmd_output).needs_tree_render = true_0 != 0;
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 
@@ -3039,27 +1802,8 @@ pub unsafe fn cmd_workspace_back_and_forth(
     disable_global_fullscreen();
     workspace_back_and_forth();
     (*cmd_output).needs_tree_render = true_0 != 0;
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 
@@ -3071,7 +1815,7 @@ pub unsafe fn cmd_workspace_name(
 ) {
     let no_auto_back_and_forth: bool = !no_auto_back_and_forth_str.is_null();
     if strncasecmp(name, c"__".as_ptr(), strlen(c"__".as_ptr())) == 0 as ::core::ffi::c_int {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -3079,42 +1823,10 @@ pub unsafe fn cmd_workspace_name(
                 c"You cannot switch to the i3-internal workspaces (\"%s\").".as_ptr(),
                 name,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return;
@@ -3131,53 +1843,15 @@ pub unsafe fn cmd_workspace_name(
     );
     if !no_auto_back_and_forth && maybe_back_and_forth(cmd_output, name) as ::core::ffi::c_int != 0
     {
-        if !(*cmd_output).json_gen.is_null() {
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+        if (*cmd_output).has_reply() {
+            emit_command_reply(cmd_output, CommandReply::Success(true));
         }
         return;
     }
     workspace_show_by_name(name);
     (*cmd_output).needs_tree_render = true_0 != 0;
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 
@@ -3189,7 +1863,7 @@ pub unsafe fn cmd_mark(
     toggle: *const ::core::ffi::c_char,
 ) {
     if !(*current_match).error.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -3197,42 +1871,10 @@ pub unsafe fn cmd_mark(
                 c"Invalid match: %s".as_ptr(),
                 (*current_match).error,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return;
@@ -3260,49 +1902,17 @@ pub unsafe fn cmd_mark(
     }
     let current: *const owindow = (*(*cmd_output).ctx).owindows.tqh_first;
     if current.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message_0: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
                 &raw mut message_0,
                 c"Given criteria don't match a window".as_ptr(),
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message_0 as *mut ::core::ffi::c_uchar,
-                    strlen(message_0),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+            );
             free(message_0 as *mut ::core::ffi::c_void);
         }
         return;
@@ -3311,49 +1921,17 @@ pub unsafe fn cmd_mark(
         != *(*((*(*cmd_output).ctx).owindows.tqh_last as *mut owindows_head)).tqh_last
             as *const owindow
     {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message_1: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
                 &raw mut message_1,
                 c"A mark must not be put onto more than one window".as_ptr(),
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message_1 as *mut ::core::ffi::c_uchar,
-                    strlen(message_1),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_1)),
+            );
             free(message_1 as *mut ::core::ffi::c_void);
         }
         return;
@@ -3378,27 +1956,8 @@ pub unsafe fn cmd_mark(
         con_mark((*current).con, mark, mark_mode);
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 
@@ -3418,27 +1977,8 @@ pub unsafe fn cmd_unmark(
         }
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 
@@ -3455,27 +1995,8 @@ pub unsafe fn cmd_mode(
         mode,
     );
     switch_mode(mode);
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 unsafe fn user_output_names_add(list: &OutputNames, name: *const libc::c_char) {
@@ -3541,7 +2062,7 @@ pub unsafe fn cmd_move_con_to_output(
         return;
     }
     if !(*current_match).error.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -3549,42 +2070,10 @@ pub unsafe fn cmd_move_con_to_output(
                 c"Invalid match: %s".as_ptr(),
                 (*current_match).error,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return;
@@ -3615,49 +2104,17 @@ pub unsafe fn cmd_move_con_to_output(
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .is_empty()
     {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message_0: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
                 &raw mut message_0,
                 c"At least one output must be specified".as_ptr(),
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message_0 as *mut ::core::ffi::c_uchar,
-                    strlen(message_0),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+            );
             free(message_0 as *mut ::core::ffi::c_void);
         }
         return;
@@ -3684,68 +2141,17 @@ pub unsafe fn cmd_move_con_to_output(
     user_output_names_free(&names);
     (*cmd_output).needs_tree_render = success;
     if success {
-        if !(*cmd_output).json_gen.is_null() {
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+        if (*cmd_output).has_reply() {
+            emit_command_reply(cmd_output, CommandReply::Success(true));
         }
-    } else if !(*cmd_output).json_gen.is_null() {
+    } else if (*cmd_output).has_reply() {
         let mut message_1: *mut ::core::ffi::c_char =
             ::core::ptr::null_mut::<::core::ffi::c_char>();
         sasprintf(&raw mut message_1, c"No output matched".as_ptr());
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, false_0);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"error".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                message_1 as *mut ::core::ffi::c_uchar,
-                strlen(message_1),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+        emit_command_reply(
+            cmd_output,
+            CommandReply::Error(std::ffi::CStr::from_ptr(message_1)),
+        );
         free(message_1 as *mut ::core::ffi::c_void);
     }
 }
@@ -3765,7 +2171,7 @@ pub unsafe fn cmd_move_con_to_mark(
         mark,
     );
     if !(*current_match).error.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -3773,42 +2179,10 @@ pub unsafe fn cmd_move_con_to_mark(
                 c"Invalid match: %s".as_ptr(),
                 (*current_match).error,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return;
@@ -3855,27 +2229,8 @@ pub unsafe fn cmd_move_con_to_mark(
         current = (*current).owindows.tqe_next as *mut owindow;
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, result as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success((result)));
     }
 }
 
@@ -3902,7 +2257,7 @@ pub unsafe fn cmd_floating(
         floating_mode,
     );
     if !(*current_match).error.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -3910,42 +2265,10 @@ pub unsafe fn cmd_floating(
                 c"Invalid match: %s".as_ptr(),
                 (*current_match).error,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return;
@@ -4008,27 +2331,8 @@ pub unsafe fn cmd_floating(
         current = (*current).owindows.tqe_next as *mut owindow;
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 
@@ -4038,7 +2342,7 @@ pub unsafe fn cmd_split(
     direction: *const ::core::ffi::c_char,
 ) {
     if !(*current_match).error.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -4046,42 +2350,10 @@ pub unsafe fn cmd_split(
                 c"Invalid match: %s".as_ptr(),
                 (*current_match).error,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return;
@@ -4161,27 +2433,8 @@ pub unsafe fn cmd_split(
         current = (*current).owindows.tqe_next as *mut owindow;
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 
@@ -4206,7 +2459,7 @@ pub unsafe fn cmd_kill(
     } else if strcmp(kill_mode_str, c"client".as_ptr()) == 0 as ::core::ffi::c_int {
         kill_mode = KillWindow::Client;
     } else {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -4214,48 +2467,16 @@ pub unsafe fn cmd_kill(
                 c"BUG: called with kill_mode=%s".as_ptr(),
                 kill_mode_str,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return;
     }
     if !(*current_match).error.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message_0: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -4263,42 +2484,10 @@ pub unsafe fn cmd_kill(
                 c"Invalid match: %s".as_ptr(),
                 (*current_match).error,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message_0 as *mut ::core::ffi::c_uchar,
-                    strlen(message_0),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+            );
             free(message_0 as *mut ::core::ffi::c_void);
         }
         return;
@@ -4331,27 +2520,8 @@ pub unsafe fn cmd_kill(
         current = (*current).owindows.tqe_next as *mut owindow;
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 
@@ -4363,7 +2533,7 @@ pub unsafe fn cmd_exec(
 ) {
     let no_startup_id: bool = !nosn.is_null();
     if !(*current_match).error.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -4371,42 +2541,10 @@ pub unsafe fn cmd_exec(
                 c"Invalid match: %s".as_ptr(),
                 (*current_match).error,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return;
@@ -4468,27 +2606,8 @@ pub unsafe fn cmd_exec(
         );
         current = (*current).owindows.tqe_next as *mut owindow;
     }
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 
@@ -4498,7 +2617,7 @@ pub unsafe fn cmd_focus_direction(
     direction_str: *const ::core::ffi::c_char,
 ) {
     if !(*current_match).error.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -4506,42 +2625,10 @@ pub unsafe fn cmd_focus_direction(
                 c"Invalid match: %s".as_ptr(),
                 (*current_match).error,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return;
@@ -4605,27 +2692,8 @@ pub unsafe fn cmd_focus_direction(
         current_0 = (*current_0).owindows.tqe_next as *mut owindow;
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 
@@ -4635,7 +2703,7 @@ pub unsafe fn cmd_focus_sibling(
     direction_str: *const ::core::ffi::c_char,
 ) {
     if !(*current_match).error.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -4643,42 +2711,10 @@ pub unsafe fn cmd_focus_sibling(
                 c"Invalid match: %s".as_ptr(),
                 (*current_match).error,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return;
@@ -4745,27 +2781,8 @@ pub unsafe fn cmd_focus_sibling(
         current_0 = (*current_0).owindows.tqe_next as *mut owindow;
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 
@@ -4810,29 +2827,10 @@ pub unsafe fn cmd_focus_window_mode(
     }
     if success {
         (*cmd_output).needs_tree_render = true_0 != 0;
-        if !(*cmd_output).json_gen.is_null() {
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+        if (*cmd_output).has_reply() {
+            emit_command_reply(cmd_output, CommandReply::Success(true));
         }
-    } else if !(*cmd_output).json_gen.is_null() {
+    } else if (*cmd_output).has_reply() {
         let mut message: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
         sasprintf(
             &raw mut message,
@@ -4843,42 +2841,10 @@ pub unsafe fn cmd_focus_window_mode(
                 c"tiling".as_ptr()
             },
         );
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, false_0);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"error".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                message as *mut ::core::ffi::c_uchar,
-                strlen(message),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+        emit_command_reply(
+            cmd_output,
+            CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+        );
         free(message as *mut ::core::ffi::c_void);
     }
 }
@@ -4912,27 +2878,8 @@ pub unsafe fn cmd_focus_level(
         success = level_down();
     }
     (*cmd_output).needs_tree_render = success;
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, success as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(success));
     }
 }
 
@@ -4959,96 +2906,32 @@ pub unsafe fn cmd_focus(
                 .as_ptr()
                 .cast_mut(),
         );
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
                 &raw mut message,
                 c"You have to specify which window/container should be focused".as_ptr(),
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return;
     } else if (*(*cmd_output).ctx).owindows.tqh_first.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message_0: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
                 &raw mut message_0,
                 c"No window matches given criteria".as_ptr(),
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message_0 as *mut ::core::ffi::c_uchar,
-                    strlen(message_0),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+            );
             free(message_0 as *mut ::core::ffi::c_void);
         }
         return;
@@ -5098,27 +2981,8 @@ pub unsafe fn cmd_focus(
         current_0 = (*current_0).owindows.tqe_next as *mut owindow;
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 
@@ -5144,7 +3008,7 @@ pub unsafe fn cmd_fullscreen(
     );
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
     if !(*current_match).error.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -5152,42 +3016,10 @@ pub unsafe fn cmd_fullscreen(
                 c"Invalid match: %s".as_ptr(),
                 (*current_match).error,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return;
@@ -5233,27 +3065,8 @@ pub unsafe fn cmd_fullscreen(
         current = (*current).owindows.tqe_next as *mut owindow;
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 
@@ -5270,7 +3083,7 @@ pub unsafe fn cmd_sticky(
         action,
     );
     if !(*current_match).error.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -5278,42 +3091,10 @@ pub unsafe fn cmd_sticky(
                 c"Invalid match: %s".as_ptr(),
                 (*current_match).error,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return;
@@ -5376,27 +3157,8 @@ pub unsafe fn cmd_sticky(
     output_push_sticky_windows(focused);
     ewmh_update_wm_desktop();
     (*cmd_output).needs_tree_render = true_0 != 0;
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 
@@ -5409,7 +3171,7 @@ pub unsafe fn cmd_move_direction(
 ) {
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
     if !(*current_match).error.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -5417,42 +3179,10 @@ pub unsafe fn cmd_move_direction(
                 c"Invalid match: %s".as_ptr(),
                 (*current_match).error,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return;
@@ -5552,27 +3282,8 @@ pub unsafe fn cmd_move_direction(
         }
         current = (*current).owindows.tqe_next as *mut owindow;
     }
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 
@@ -5582,7 +3293,7 @@ pub unsafe fn cmd_layout(
     layout_str: *const ::core::ffi::c_char,
 ) {
     if !(*current_match).error.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -5590,42 +3301,10 @@ pub unsafe fn cmd_layout(
                 c"Invalid match: %s".as_ptr(),
                 (*current_match).error,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return;
@@ -5653,7 +3332,7 @@ pub unsafe fn cmd_layout(
     }
     let mut layout: Layout = Layout::Default;
     if !layout_from_name(layout_str, &raw mut layout) {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message_0: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -5661,42 +3340,10 @@ pub unsafe fn cmd_layout(
                 c"Unknown layout \"%s\", this is a mismatch between code and parser spec.".as_ptr(),
                 layout_str,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message_0 as *mut ::core::ffi::c_uchar,
-                    strlen(message_0),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+            );
             free(message_0 as *mut ::core::ffi::c_void);
         }
         return;
@@ -5734,27 +3381,8 @@ pub unsafe fn cmd_layout(
         current = (*current).owindows.tqe_next as *mut owindow;
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 
@@ -5794,27 +3422,8 @@ pub unsafe fn cmd_layout_toggle(
         }
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 
@@ -5845,27 +3454,8 @@ pub unsafe fn cmd_reload(current_match: *mut Match, cmd_output: *mut CommandResu
         ipc_send_barconfig_update_event(current);
         current = (*current).configs.tqe_next as *mut Barconfig;
     }
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 
@@ -5922,41 +3512,10 @@ pub unsafe fn cmd_open(current_match: *mut Match, cmd_output: *mut CommandResult
     );
     (*con).layout = Layout::SplitH;
     con_activate(con);
-    if !(*cmd_output).json_gen.is_null() {
-        yajl_gen_map_open((*cmd_output).json_gen);
-    } else {
-    };
-    if !(*cmd_output).json_gen.is_null() {
-        yajl_gen_string(
-            (*cmd_output).json_gen,
-            c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"success".as_ptr()),
-        );
-    } else {
-    };
-    if !(*cmd_output).json_gen.is_null() {
-        yajl_gen_bool((*cmd_output).json_gen, true_0);
-    } else {
-    };
-    if !(*cmd_output).json_gen.is_null() {
-        yajl_gen_string(
-            (*cmd_output).json_gen,
-            c"id".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"id".as_ptr()),
-        );
-    } else {
-    };
-    if !(*cmd_output).json_gen.is_null() {
-        yajl_gen_integer(
-            (*cmd_output).json_gen,
-            con as usize as ::core::ffi::c_longlong,
-        );
-    } else {
-    };
-    if !(*cmd_output).json_gen.is_null() {
-        yajl_gen_map_close((*cmd_output).json_gen);
-    } else {
-    };
+    emit_command_reply(
+        cmd_output,
+        CommandReply::WithId(con as usize as ::core::ffi::c_longlong),
+    );
     (*cmd_output).needs_tree_render = true_0 != 0;
 }
 
@@ -5974,55 +3533,23 @@ pub unsafe fn cmd_focus_output(
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .is_empty()
     {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
                 &raw mut message,
                 c"At least one output must be specified".as_ptr(),
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return;
     }
     if !(*current_match).error.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message_0: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -6030,42 +3557,10 @@ pub unsafe fn cmd_focus_output(
                 c"Invalid match: %s".as_ptr(),
                 (*current_match).error,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message_0 as *mut ::core::ffi::c_uchar,
-                    strlen(message_0),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+            );
             free(message_0 as *mut ::core::ffi::c_void);
         }
         return;
@@ -6092,27 +3587,8 @@ pub unsafe fn cmd_focus_output(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
     if (*(*cmd_output).ctx).owindows.tqh_first.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+        if (*cmd_output).has_reply() {
+            emit_command_reply(cmd_output, CommandReply::Success(true));
         }
         return;
     }
@@ -6152,49 +3628,17 @@ pub unsafe fn cmd_focus_output(
             }
         }
         if ws.is_null() {
-            if !(*cmd_output).json_gen.is_null() {
+            if (*cmd_output).has_reply() {
                 let mut message_1: *mut ::core::ffi::c_char =
                     ::core::ptr::null_mut::<::core::ffi::c_char>();
                 sasprintf(
                     &raw mut message_1,
                     c"BUG: No workspace found on output.".as_ptr(),
                 );
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_map_open((*cmd_output).json_gen);
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_string(
-                        (*cmd_output).json_gen,
-                        c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"success".as_ptr()),
-                    );
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_bool((*cmd_output).json_gen, false_0);
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_string(
-                        (*cmd_output).json_gen,
-                        c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"error".as_ptr()),
-                    );
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_string(
-                        (*cmd_output).json_gen,
-                        message_1 as *mut ::core::ffi::c_uchar,
-                        strlen(message_1),
-                    );
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_map_close((*cmd_output).json_gen);
-                } else {
-                };
+                emit_command_reply(
+                    cmd_output,
+                    CommandReply::Error(std::ffi::CStr::from_ptr(message_1)),
+                );
                 free(message_1 as *mut ::core::ffi::c_void);
             }
             return;
@@ -6203,68 +3647,17 @@ pub unsafe fn cmd_focus_output(
     }
     (*cmd_output).needs_tree_render = success;
     if success {
-        if !(*cmd_output).json_gen.is_null() {
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+        if (*cmd_output).has_reply() {
+            emit_command_reply(cmd_output, CommandReply::Success(true));
         }
-    } else if !(*cmd_output).json_gen.is_null() {
+    } else if (*cmd_output).has_reply() {
         let mut message_2: *mut ::core::ffi::c_char =
             ::core::ptr::null_mut::<::core::ffi::c_char>();
         sasprintf(&raw mut message_2, c"No output matched".as_ptr());
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, false_0);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"error".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                message_2 as *mut ::core::ffi::c_uchar,
-                strlen(message_2),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+        emit_command_reply(
+            cmd_output,
+            CommandReply::Error(std::ffi::CStr::from_ptr(message_2)),
+        );
         free(message_2 as *mut ::core::ffi::c_void);
     }
 }
@@ -6280,7 +3673,7 @@ pub unsafe fn cmd_move_window_to_position(
     let mut has_error: bool = false_0 != 0;
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
     if !(*current_match).error.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -6288,42 +3681,10 @@ pub unsafe fn cmd_move_window_to_position(
                 c"Invalid match: %s".as_ptr(),
                 (*current_match).error,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return;
@@ -6358,7 +3719,7 @@ pub unsafe fn cmd_move_window_to_position(
                     .cast_mut(),
             );
             if !has_error {
-                if !(*cmd_output).json_gen.is_null() {
+                if (*cmd_output).has_reply() {
                     let mut message_0: *mut ::core::ffi::c_char =
                         ::core::ptr::null_mut::<::core::ffi::c_char>();
                     sasprintf(
@@ -6366,42 +3727,10 @@ pub unsafe fn cmd_move_window_to_position(
                         c"Cannot change position of a window/container because it is not floating."
                             .as_ptr(),
                     );
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_map_open((*cmd_output).json_gen);
-                    } else {
-                    };
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_string(
-                            (*cmd_output).json_gen,
-                            c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                            strlen(c"success".as_ptr()),
-                        );
-                    } else {
-                    };
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_bool((*cmd_output).json_gen, false_0);
-                    } else {
-                    };
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_string(
-                            (*cmd_output).json_gen,
-                            c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                            strlen(c"error".as_ptr()),
-                        );
-                    } else {
-                    };
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_string(
-                            (*cmd_output).json_gen,
-                            message_0 as *mut ::core::ffi::c_uchar,
-                            strlen(message_0),
-                        );
-                    } else {
-                    };
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_map_close((*cmd_output).json_gen);
-                    } else {
-                    };
+                    emit_command_reply(
+                        cmd_output,
+                        CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+                    );
                     free(message_0 as *mut ::core::ffi::c_void);
                 }
                 has_error = true_0 != 0;
@@ -6438,49 +3767,17 @@ pub unsafe fn cmd_move_window_to_position(
                 mode_y,
             );
             if !floating_reposition((*(*current).con).parent as *mut Con, newrect) {
-                if !(*cmd_output).json_gen.is_null() {
+                if (*cmd_output).has_reply() {
                     let mut message_1: *mut ::core::ffi::c_char =
                         ::core::ptr::null_mut::<::core::ffi::c_char>();
                     sasprintf(
                         &raw mut message_1,
                         c"Cannot move window/container out of bounds.".as_ptr(),
                     );
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_map_open((*cmd_output).json_gen);
-                    } else {
-                    };
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_string(
-                            (*cmd_output).json_gen,
-                            c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                            strlen(c"success".as_ptr()),
-                        );
-                    } else {
-                    };
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_bool((*cmd_output).json_gen, false_0);
-                    } else {
-                    };
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_string(
-                            (*cmd_output).json_gen,
-                            c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                            strlen(c"error".as_ptr()),
-                        );
-                    } else {
-                    };
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_string(
-                            (*cmd_output).json_gen,
-                            message_1 as *mut ::core::ffi::c_uchar,
-                            strlen(message_1),
-                        );
-                    } else {
-                    };
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_map_close((*cmd_output).json_gen);
-                    } else {
-                    };
+                    emit_command_reply(
+                        cmd_output,
+                        CommandReply::Error(std::ffi::CStr::from_ptr(message_1)),
+                    );
                     free(message_1 as *mut ::core::ffi::c_void);
                 }
                 has_error = true_0 != 0;
@@ -6489,27 +3786,8 @@ pub unsafe fn cmd_move_window_to_position(
         current = (*current).owindows.tqe_next as *mut owindow;
     }
     if !has_error {
-        if !(*cmd_output).json_gen.is_null() {
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+        if (*cmd_output).has_reply() {
+            emit_command_reply(cmd_output, CommandReply::Success(true));
         }
     }
 }
@@ -6521,7 +3799,7 @@ pub unsafe fn cmd_move_window_to_center(
 ) {
     let mut has_error: bool = false_0 != 0;
     if !(*current_match).error.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -6529,42 +3807,10 @@ pub unsafe fn cmd_move_window_to_center(
                 c"Invalid match: %s".as_ptr(),
                 (*current_match).error,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return;
@@ -6603,7 +3849,7 @@ pub unsafe fn cmd_move_window_to_center(
                 (*(*current).con).name,
             );
             if !has_error {
-                if !(*cmd_output).json_gen.is_null() {
+                if (*cmd_output).has_reply() {
                     let mut message_0: *mut ::core::ffi::c_char =
                         ::core::ptr::null_mut::<::core::ffi::c_char>();
                     sasprintf(
@@ -6611,42 +3857,10 @@ pub unsafe fn cmd_move_window_to_center(
                         c"Cannot change position of a window/container because it is not floating."
                             .as_ptr(),
                     );
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_map_open((*cmd_output).json_gen);
-                    } else {
-                    };
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_string(
-                            (*cmd_output).json_gen,
-                            c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                            strlen(c"success".as_ptr()),
-                        );
-                    } else {
-                    };
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_bool((*cmd_output).json_gen, false_0);
-                    } else {
-                    };
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_string(
-                            (*cmd_output).json_gen,
-                            c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                            strlen(c"error".as_ptr()),
-                        );
-                    } else {
-                    };
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_string(
-                            (*cmd_output).json_gen,
-                            message_0 as *mut ::core::ffi::c_uchar,
-                            strlen(message_0),
-                        );
-                    } else {
-                    };
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_map_close((*cmd_output).json_gen);
-                    } else {
-                    };
+                    emit_command_reply(
+                        cmd_output,
+                        CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+                    );
                     free(message_0 as *mut ::core::ffi::c_void);
                 }
                 has_error = true_0 != 0;
@@ -6682,27 +3896,8 @@ pub unsafe fn cmd_move_window_to_center(
         current = (*current).owindows.tqe_next as *mut owindow;
     }
     if !has_error {
-        if !(*cmd_output).json_gen.is_null() {
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+        if (*cmd_output).has_reply() {
+            emit_command_reply(cmd_output, CommandReply::Success(true));
         }
     }
 }
@@ -6712,7 +3907,7 @@ pub unsafe fn cmd_move_window_to_mouse(
     cmd_output: *mut CommandResultIR,
 ) {
     if !(*current_match).error.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -6720,42 +3915,10 @@ pub unsafe fn cmd_move_window_to_mouse(
                 c"Invalid match: %s".as_ptr(),
                 (*current_match).error,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return;
@@ -6812,27 +3975,8 @@ pub unsafe fn cmd_move_window_to_mouse(
         current = (*current).owindows.tqe_next as *mut owindow;
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 
@@ -6847,7 +3991,7 @@ pub unsafe fn cmd_move_scratchpad(current_match: *mut Match, cmd_output: *mut Co
     );
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
     if !(*current_match).error.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -6855,42 +3999,10 @@ pub unsafe fn cmd_move_scratchpad(current_match: *mut Match, cmd_output: *mut Co
                 c"Invalid match: %s".as_ptr(),
                 (*current_match).error,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return;
@@ -6930,27 +4042,8 @@ pub unsafe fn cmd_move_scratchpad(current_match: *mut Match, cmd_output: *mut Co
         current = (*current).owindows.tqe_next as *mut owindow;
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 
@@ -6985,27 +4078,8 @@ pub unsafe fn cmd_scratchpad_show(current_match: *mut Match, cmd_output: *mut Co
         }
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, result as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success((result)));
     }
 }
 
@@ -7016,7 +4090,7 @@ pub unsafe fn cmd_swap(
     arg: *const ::core::ffi::c_char,
 ) {
     if !(*current_match).error.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -7024,42 +4098,10 @@ pub unsafe fn cmd_swap(
                 c"Invalid match: %s".as_ptr(),
                 (*current_match).error,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return;
@@ -7087,52 +4129,20 @@ pub unsafe fn cmd_swap(
     }
     let match_0: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
     if match_0.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message_0: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(&raw mut message_0, c"No match found for swapping.".as_ptr());
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message_0 as *mut ::core::ffi::c_uchar,
-                    strlen(message_0),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+            );
             free(message_0 as *mut ::core::ffi::c_void);
         }
         return;
     }
     if (*match_0).con.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message_1: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -7140,42 +4150,10 @@ pub unsafe fn cmd_swap(
                 c"Match %p has no container.".as_ptr(),
                 match_0,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message_1 as *mut ::core::ffi::c_uchar,
-                    strlen(message_1),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_1)),
+            );
             free(message_1 as *mut ::core::ffi::c_void);
         }
         return;
@@ -7184,7 +4162,7 @@ pub unsafe fn cmd_swap(
     if strcmp(mode, c"id".as_ptr()) == 0 as ::core::ffi::c_int {
         let mut target: ::core::ffi::c_long = 0;
         if !parse_long(arg, &raw mut target, 0 as ::core::ffi::c_int) {
-            if !(*cmd_output).json_gen.is_null() {
+            if (*cmd_output).has_reply() {
                 let mut message_2: *mut ::core::ffi::c_char =
                     ::core::ptr::null_mut::<::core::ffi::c_char>();
                 sasprintf(
@@ -7192,42 +4170,10 @@ pub unsafe fn cmd_swap(
                     c"Failed to parse %s into a window id.".as_ptr(),
                     arg,
                 );
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_map_open((*cmd_output).json_gen);
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_string(
-                        (*cmd_output).json_gen,
-                        c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"success".as_ptr()),
-                    );
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_bool((*cmd_output).json_gen, false_0);
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_string(
-                        (*cmd_output).json_gen,
-                        c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"error".as_ptr()),
-                    );
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_string(
-                        (*cmd_output).json_gen,
-                        message_2 as *mut ::core::ffi::c_uchar,
-                        strlen(message_2),
-                    );
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_map_close((*cmd_output).json_gen);
-                } else {
-                };
+                emit_command_reply(
+                    cmd_output,
+                    CommandReply::Error(std::ffi::CStr::from_ptr(message_2)),
+                );
                 free(message_2 as *mut ::core::ffi::c_void);
             }
             return;
@@ -7236,7 +4182,7 @@ pub unsafe fn cmd_swap(
     } else if strcmp(mode, c"con_id".as_ptr()) == 0 as ::core::ffi::c_int {
         let mut target_0: ::core::ffi::c_long = 0;
         if !parse_long(arg, &raw mut target_0, 0 as ::core::ffi::c_int) {
-            if !(*cmd_output).json_gen.is_null() {
+            if (*cmd_output).has_reply() {
                 let mut message_3: *mut ::core::ffi::c_char =
                     ::core::ptr::null_mut::<::core::ffi::c_char>();
                 sasprintf(
@@ -7244,42 +4190,10 @@ pub unsafe fn cmd_swap(
                     c"Failed to parse %s into a container id.".as_ptr(),
                     arg,
                 );
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_map_open((*cmd_output).json_gen);
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_string(
-                        (*cmd_output).json_gen,
-                        c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"success".as_ptr()),
-                    );
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_bool((*cmd_output).json_gen, false_0);
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_string(
-                        (*cmd_output).json_gen,
-                        c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"error".as_ptr()),
-                    );
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_string(
-                        (*cmd_output).json_gen,
-                        message_3 as *mut ::core::ffi::c_uchar,
-                        strlen(message_3),
-                    );
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_map_close((*cmd_output).json_gen);
-                } else {
-                };
+                emit_command_reply(
+                    cmd_output,
+                    CommandReply::Error(std::ffi::CStr::from_ptr(message_3)),
+                );
                 free(message_3 as *mut ::core::ffi::c_void);
             }
             return;
@@ -7288,7 +4202,7 @@ pub unsafe fn cmd_swap(
     } else if strcmp(mode, c"mark".as_ptr()) == 0 as ::core::ffi::c_int {
         con = con_by_mark(arg);
     } else {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message_4: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -7296,48 +4210,16 @@ pub unsafe fn cmd_swap(
                 c"Unhandled swap mode \"%s\". This is a bug.".as_ptr(),
                 mode,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message_4 as *mut ::core::ffi::c_uchar,
-                    strlen(message_4),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_4)),
+            );
             free(message_4 as *mut ::core::ffi::c_void);
         }
         return;
     }
     if con.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message_5: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -7346,42 +4228,10 @@ pub unsafe fn cmd_swap(
                 mode,
                 arg,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message_5 as *mut ::core::ffi::c_uchar,
-                    strlen(message_5),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_5)),
+            );
             free(message_5 as *mut ::core::ffi::c_void);
         }
         return;
@@ -7403,27 +4253,8 @@ pub unsafe fn cmd_swap(
     );
     let result: bool = con_swap((*match_0).con, con) as bool;
     (*cmd_output).needs_tree_render = true_0 != 0;
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, result as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success((result)));
     }
 }
 
@@ -7442,7 +4273,7 @@ pub unsafe fn cmd_title_format(
         format,
     );
     if !(*current_match).error.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -7450,42 +4281,10 @@ pub unsafe fn cmd_title_format(
                 c"Invalid match: %s".as_ptr(),
                 (*current_match).error,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return;
@@ -7529,13 +4328,13 @@ pub unsafe fn cmd_title_format(
         if strcasecmp(format, c"%title".as_ptr()) != 0 as ::core::ffi::c_int {
             (*(*current).con).title_format = sstrdup(format);
             if !(*(*current).con).window.is_null() {
-                let mut formatted_title: *mut i3String = con_parse_title_format((*current).con);
+                let formatted_title = con_parse_title_format((*current).con);
                 ewmh_update_visible_name(
                     (*(*(*current).con).window).id,
-                    i3string_as_utf8(formatted_title),
+                    formatted_title
+                        .cstr_or_report()
+                        .map_or(std::ptr::null(), std::ffi::CStr::as_ptr),
                 );
-                i3string_free(formatted_title);
-                formatted_title = ::core::ptr::null_mut::<i3String>();
             }
         } else if !(*(*current).con).window.is_null() {
             ewmh_update_visible_name(
@@ -7552,27 +4351,8 @@ pub unsafe fn cmd_title_format(
         current = (*current).owindows.tqe_next as *mut owindow;
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 
@@ -7598,7 +4378,7 @@ pub unsafe fn cmd_title_window_icon(
         padding,
     );
     if !(*current_match).error.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -7606,42 +4386,10 @@ pub unsafe fn cmd_title_window_icon(
                 c"Invalid match: %s".as_ptr(),
                 (*current_match).error,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return;
@@ -7705,27 +4453,8 @@ pub unsafe fn cmd_title_window_icon(
         current = (*current).owindows.tqe_next as *mut owindow;
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 
@@ -7736,7 +4465,7 @@ pub unsafe fn cmd_rename_workspace(
     new_name: *const ::core::ffi::c_char,
 ) {
     if strncasecmp(new_name, c"__".as_ptr(), strlen(c"__".as_ptr())) == 0 as ::core::ffi::c_int {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -7745,42 +4474,10 @@ pub unsafe fn cmd_rename_workspace(
                     .as_ptr(),
                 new_name,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return;
@@ -7807,7 +4504,7 @@ pub unsafe fn cmd_rename_workspace(
         old_name = (*workspace).name;
     }
     if workspace.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message_0: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -7815,49 +4512,17 @@ pub unsafe fn cmd_rename_workspace(
                 c"Old workspace \"%s\" not found".as_ptr(),
                 old_name,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message_0 as *mut ::core::ffi::c_uchar,
-                    strlen(message_0),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+            );
             free(message_0 as *mut ::core::ffi::c_void);
         }
         return;
     }
     let check_dest: *const Con = get_existing_workspace_by_name(new_name);
     if !check_dest.is_null() && check_dest != workspace as *const Con {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message_1: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -7865,42 +4530,10 @@ pub unsafe fn cmd_rename_workspace(
                 c"New workspace \"%s\" already exists".as_ptr(),
                 new_name,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message_1 as *mut ::core::ffi::c_uchar,
-                    strlen(message_1),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_1)),
+            );
             free(message_1 as *mut ::core::ffi::c_void);
         }
         return;
@@ -7964,27 +4597,8 @@ pub unsafe fn cmd_rename_workspace(
         previous_workspace_name = sstrdup(new_name);
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
     ewmh_update_desktop_properties();
     startup_sequence_rename_workspace(old_name_copy, new_name);
@@ -8026,46 +4640,14 @@ pub unsafe fn cmd_bar_mode(
         };
     }
     if barconfigs.tqh_first.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(&raw mut message, c"No bars found\n".as_ptr());
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return;
@@ -8094,27 +4676,8 @@ pub unsafe fn cmd_bar_mode(
                 ipc_send_barconfig_update_event(current);
             }
             if !bar_id.is_null() {
-                if !(*cmd_output).json_gen.is_null() {
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_map_open((*cmd_output).json_gen);
-                    } else {
-                    };
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_string(
-                            (*cmd_output).json_gen,
-                            c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                            strlen(c"success".as_ptr()),
-                        );
-                    } else {
-                    };
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-                    } else {
-                    };
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_map_close((*cmd_output).json_gen);
-                    } else {
-                    };
+                if (*cmd_output).has_reply() {
+                    emit_command_reply(cmd_output, CommandReply::Success(true));
                 }
                 return;
             }
@@ -8122,7 +4685,7 @@ pub unsafe fn cmd_bar_mode(
         current = (*current).configs.tqe_next as *mut Barconfig;
     }
     if !bar_id.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message_0: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -8130,65 +4693,14 @@ pub unsafe fn cmd_bar_mode(
                 c"Changing bar mode of bar_id %s failed, bar_id not found.\n".as_ptr(),
                 bar_id,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message_0 as *mut ::core::ffi::c_uchar,
-                    strlen(message_0),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+            );
             free(message_0 as *mut ::core::ffi::c_void);
         }
-    } else if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    } else if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 
@@ -8224,46 +4736,14 @@ pub unsafe fn cmd_bar_hidden_state(
         };
     }
     if barconfigs.tqh_first.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(&raw mut message, c"No bars found\n".as_ptr());
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message as *mut ::core::ffi::c_uchar,
-                    strlen(message),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            );
             free(message as *mut ::core::ffi::c_void);
         }
         return;
@@ -8292,27 +4772,8 @@ pub unsafe fn cmd_bar_hidden_state(
                 ipc_send_barconfig_update_event(current);
             }
             if !bar_id.is_null() {
-                if !(*cmd_output).json_gen.is_null() {
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_map_open((*cmd_output).json_gen);
-                    } else {
-                    };
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_string(
-                            (*cmd_output).json_gen,
-                            c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                            strlen(c"success".as_ptr()),
-                        );
-                    } else {
-                    };
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-                    } else {
-                    };
-                    if !(*cmd_output).json_gen.is_null() {
-                        yajl_gen_map_close((*cmd_output).json_gen);
-                    } else {
-                    };
+                if (*cmd_output).has_reply() {
+                    emit_command_reply(cmd_output, CommandReply::Success(true));
                 }
                 return;
             }
@@ -8320,7 +4781,7 @@ pub unsafe fn cmd_bar_hidden_state(
         current = (*current).configs.tqe_next as *mut Barconfig;
     }
     if !bar_id.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
+        if (*cmd_output).has_reply() {
             let mut message_0: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -8328,65 +4789,14 @@ pub unsafe fn cmd_bar_hidden_state(
                 c"Changing bar hidden_state of bar_id %s failed, bar_id not found.\n".as_ptr(),
                 bar_id,
             );
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_open((*cmd_output).json_gen);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"success".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_bool((*cmd_output).json_gen, false_0);
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"error".as_ptr()),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_string(
-                    (*cmd_output).json_gen,
-                    message_0 as *mut ::core::ffi::c_uchar,
-                    strlen(message_0),
-                );
-            } else {
-            };
-            if !(*cmd_output).json_gen.is_null() {
-                yajl_gen_map_close((*cmd_output).json_gen);
-            } else {
-            };
+            emit_command_reply(
+                cmd_output,
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+            );
             free(message_0 as *mut ::core::ffi::c_void);
         }
-    } else if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    } else if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 
@@ -8408,7 +4818,7 @@ pub unsafe fn cmd_shmlog(
     } else {
         let mut new_size: ::core::ffi::c_long = 0 as ::core::ffi::c_long;
         if !parse_long(argument, &raw mut new_size, 0 as ::core::ffi::c_int) {
-            if !(*cmd_output).json_gen.is_null() {
+            if (*cmd_output).has_reply() {
                 let mut message: *mut ::core::ffi::c_char =
                     ::core::ptr::null_mut::<::core::ffi::c_char>();
                 sasprintf(
@@ -8416,42 +4826,10 @@ pub unsafe fn cmd_shmlog(
                     c"Failed to parse %s into a shmlog size.".as_ptr(),
                     argument,
                 );
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_map_open((*cmd_output).json_gen);
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_string(
-                        (*cmd_output).json_gen,
-                        c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"success".as_ptr()),
-                    );
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_bool((*cmd_output).json_gen, false_0);
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_string(
-                        (*cmd_output).json_gen,
-                        c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"error".as_ptr()),
-                    );
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_string(
-                        (*cmd_output).json_gen,
-                        message as *mut ::core::ffi::c_uchar,
-                        strlen(message),
-                    );
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_map_close((*cmd_output).json_gen);
-                } else {
-                };
+                emit_command_reply(
+                    cmd_output,
+                    CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                );
                 free(message as *mut ::core::ffi::c_void);
             }
             return;
@@ -8473,27 +4851,8 @@ pub unsafe fn cmd_shmlog(
     );
     init_logging();
     update_shmlog_atom();
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 
@@ -8520,27 +4879,8 @@ pub unsafe fn cmd_debuglog(
         verboselog(c"Disabling debug logging\n".as_ptr().cast_mut());
         set_debug_logging(false_0 != 0);
     }
-    if !(*cmd_output).json_gen.is_null() {
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_open((*cmd_output).json_gen);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_string(
-                (*cmd_output).json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-        } else {
-        };
-        if !(*cmd_output).json_gen.is_null() {
-            yajl_gen_map_close((*cmd_output).json_gen);
-        } else {
-        };
+    if (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 unsafe fn gaps_inner(gaps: *mut gaps_t) -> *mut ::core::ffi::c_int {
@@ -8840,52 +5180,14 @@ pub unsafe fn cmd_gaps(
     }
     match current_block {
         1063758793336646565 => {
-            if !(*cmd_output).json_gen.is_null() {
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_map_open((*cmd_output).json_gen);
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_string(
-                        (*cmd_output).json_gen,
-                        c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"success".as_ptr()),
-                    );
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_bool((*cmd_output).json_gen, 0 as ::core::ffi::c_int);
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_map_close((*cmd_output).json_gen);
-                } else {
-                };
+            if (*cmd_output).has_reply() {
+                emit_command_reply(cmd_output, CommandReply::Success(false));
             }
         }
         _ => {
             (*cmd_output).needs_tree_render = true_0 != 0;
-            if !(*cmd_output).json_gen.is_null() {
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_map_open((*cmd_output).json_gen);
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_string(
-                        (*cmd_output).json_gen,
-                        c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                        strlen(c"success".as_ptr()),
-                    );
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_bool((*cmd_output).json_gen, 1 as ::core::ffi::c_int);
-                } else {
-                };
-                if !(*cmd_output).json_gen.is_null() {
-                    yajl_gen_map_close((*cmd_output).json_gen);
-                } else {
-                };
+            if (*cmd_output).has_reply() {
+                emit_command_reply(cmd_output, CommandReply::Success(true));
             }
         }
     }
@@ -8952,7 +5254,6 @@ pub use crate::types::Match;
 pub use crate::types::Rect;
 pub use crate::types::Window;
 pub use i3_common::font::Font;
-pub use i3_common::string::I3String as _i3String;
 
 // Internal calls and globals use canonical Rust identities.
 use crate::application::default_shmlog_size;
@@ -9049,8 +5350,6 @@ use crate::workspace::workspace_prev;
 use crate::workspace::workspace_prev_on_output;
 use crate::workspace::workspace_show;
 use i3_common::resolve_tilde::resolve_tilde;
-use i3_common::string::i3string_as_utf8;
-use i3_common::string::i3string_free;
 
 #[cfg(test)]
 mod argument_tests {

@@ -1079,7 +1079,6 @@ pub use crate::types::Con;
 pub use crate::types::Match;
 pub use crate::types::Rect;
 pub use crate::types::Window;
-pub use i3_common::string::I3String as _i3String;
 
 // Internal calls and globals use canonical Rust identities.
 use crate::con::con_activate;

@@ -3,11 +3,6 @@ use crate::outputs::outputs;
 use crate::parse_json_header::parse_json_header;
 use i3_common::font::predict_text_width;
 use i3_common::safewrappers::sasprintf;
-use i3_common::string::i3string_as_utf8;
-use i3_common::string::i3string_free;
-use i3_common::string::i3string_from_markup_with_length;
-use i3_common::string::i3string_from_utf8;
-use i3_common::string::i3string_set_markup;
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -43,11 +38,10 @@ pub struct status_block_render_desc {
     pub x_offset: u32,
     pub x_append: u32,
 }
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct status_block {
-    pub full_text: *mut I3String,
-    pub short_text: *mut I3String,
+    pub full_text: I3String,
+    pub short_text: Option<I3String>,
     pub use_short: bool,
     pub render_length: u32,
     pub color: *mut ::core::ffi::c_char,
@@ -70,6 +64,64 @@ pub struct status_block {
     pub instance: *mut ::core::ffi::c_char,
     pub blocks: C2RustUnnamed,
 }
+impl Default for status_block {
+    fn default() -> Self {
+        Self {
+            full_text: I3String::new(""),
+            short_text: None,
+            use_short: Default::default(),
+            render_length: Default::default(),
+            color: std::ptr::null_mut(),
+            background: std::ptr::null_mut(),
+            border: std::ptr::null_mut(),
+            min_width: Default::default(),
+            min_width_str: std::ptr::null_mut(),
+            align: BlockAlign::Left,
+            urgent: Default::default(),
+            no_separator: Default::default(),
+            border_top: Default::default(),
+            border_right: Default::default(),
+            border_bottom: Default::default(),
+            border_left: Default::default(),
+            pango_markup: Default::default(),
+            sep_block_width: Default::default(),
+            full_render: status_block_render_desc {
+                width: 0,
+                x_offset: 0,
+                x_append: 0,
+            },
+            short_render: status_block_render_desc {
+                width: 0,
+                x_offset: 0,
+                x_append: 0,
+            },
+            name: std::ptr::null_mut(),
+            instance: std::ptr::null_mut(),
+            blocks: C2RustUnnamed {
+                tqe_next: std::ptr::null_mut(),
+                tqe_prev: std::ptr::null_mut(),
+            },
+        }
+    }
+}
+impl Drop for status_block {
+    fn drop(&mut self) {
+        // All native auxiliary strings are exclusively owned by this block.
+        for pointer in [
+            self.color,
+            self.name,
+            self.instance,
+            self.min_width_str,
+            self.background,
+            self.border,
+        ] {
+            unsafe {
+                libc::free(pointer.cast());
+            }
+        }
+    }
+}
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct C2RustUnnamed {
@@ -187,54 +239,34 @@ thread_local! {
 
 pub static mut child_stdin: ::core::ffi::c_int = 0;
 
-pub unsafe fn clear_statusline(head: *mut statusline_head, free_resources: bool) {
-    let mut first: *mut status_block = ::core::ptr::null_mut::<status_block>();
+/// Unlink each stable block before dropping its owned rendering text and strings.
+pub unsafe fn clear_statusline(head: *mut statusline_head) {
     while !(*head).tqh_first.is_null() {
-        first = (*head).tqh_first;
-        if free_resources {
-            i3string_free((*first).full_text);
-            (*first).full_text = ::core::ptr::null_mut::<I3String>();
-            i3string_free((*first).short_text);
-            (*first).short_text = ::core::ptr::null_mut::<I3String>();
-            free((*first).color as *mut ::core::ffi::c_void);
-            (*first).color = ::core::ptr::null_mut::<::core::ffi::c_char>();
-            free((*first).name as *mut ::core::ffi::c_void);
-            (*first).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
-            free((*first).instance as *mut ::core::ffi::c_void);
-            (*first).instance = ::core::ptr::null_mut::<::core::ffi::c_char>();
-            free((*first).min_width_str as *mut ::core::ffi::c_void);
-            (*first).min_width_str = ::core::ptr::null_mut::<::core::ffi::c_char>();
-            free((*first).background as *mut ::core::ffi::c_void);
-            (*first).background = ::core::ptr::null_mut::<::core::ffi::c_char>();
-            free((*first).border as *mut ::core::ffi::c_void);
-            (*first).border = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        }
+        let first = (*head).tqh_first;
         if !(*first).blocks.tqe_next.is_null() {
             (*(*first).blocks.tqe_next).blocks.tqe_prev = (*first).blocks.tqe_prev;
         } else {
             (*head).tqh_last = (*first).blocks.tqe_prev;
         }
         *(*first).blocks.tqe_prev = (*first).blocks.tqe_next;
-        free(first as *mut ::core::ffi::c_void);
+        drop(Box::from_raw(first));
     }
 }
 unsafe extern "C" fn set_statusline_error(format: *const ::core::ffi::c_char, args: ...) {
     let mut err_block: *mut status_block = ::core::ptr::null_mut::<status_block>();
     let mut message_block: *mut status_block = ::core::ptr::null_mut::<status_block>();
-    clear_statusline(&raw mut statusline_head, true);
+    clear_statusline(&raw mut statusline_head);
     let mut message: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
     let mut args_0;
     args_0 = args.clone();
     if !(vasprintf(&raw mut message, format, i333_va_list!(args_0)) == -(1 as ::core::ffi::c_int)) {
-        err_block = scalloc(1 as usize, ::core::mem::size_of::<status_block>() as usize)
-            as *mut status_block;
-        (*err_block).full_text = i3string_from_utf8(c"Error: ".as_ptr());
+        err_block = Box::into_raw(Box::new(status_block::default()));
+        (*err_block).full_text = I3String::new("Error: ");
         (*err_block).name = sstrdup(c"error".as_ptr());
         (*err_block).color = sstrdup(c"#ff0000".as_ptr());
         (*err_block).no_separator = true;
-        message_block = scalloc(1 as usize, ::core::mem::size_of::<status_block>() as usize)
-            as *mut status_block;
-        (*message_block).full_text = i3string_from_utf8(message);
+        message_block = Box::into_raw(Box::new(status_block::default()));
+        (*message_block).full_text = I3String::from_cstr(std::ffi::CStr::from_ptr(message));
         (*message_block).name = sstrdup(c"error_message".as_ptr());
         (*message_block).color = sstrdup(c"#ff0000".as_ptr());
         (*message_block).no_separator = true;
@@ -592,16 +624,17 @@ unsafe fn install_status_frame(frame: Vec<StatusValue>) {
             374i32,
         );
     }
-    clear_statusline(&raw mut statusline_head, true);
+    clear_statusline(&raw mut statusline_head);
     for value in frame {
-        let block = scalloc(1, std::mem::size_of::<status_block>()).cast::<status_block>();
+        let block = Box::into_raw(Box::new(status_block::default()));
         (*block).full_text = value.full.as_ref().map_or_else(
-            || i3string_from_utf8(c"SPEC VIOLATION: full_text is NULL!".as_ptr()),
-            |text| i3string_from_markup_with_length(text.as_ptr().cast(), text.len()),
+            || I3String::new("SPEC VIOLATION: full_text is NULL!"),
+            |text| I3String::from_bytes_with_legacy_length(text),
         );
-        (*block).short_text = value.short.as_ref().map_or(std::ptr::null_mut(), |text| {
-            i3string_from_markup_with_length(text.as_ptr().cast(), text.len())
-        });
+        (*block).short_text = value
+            .short
+            .as_ref()
+            .map(|text| I3String::from_bytes_with_legacy_length(text));
         for (slot, bytes) in [
             (&raw mut (*block).color, value.color),
             (&raw mut (*block).background, value.background),
@@ -626,14 +659,13 @@ unsafe fn install_status_frame(frame: Vec<StatusValue>) {
         (*block).border_left = value.borders[3];
         (*block).pango_markup = value.markup;
         if !(*block).min_width_str.is_null() {
-            let text = i3string_from_utf8((*block).min_width_str);
-            i3string_set_markup(text, value.markup);
-            (*block).min_width = predict_text_width(text) as u32;
-            i3string_free(text);
+            let text = I3String::from_cstr(std::ffi::CStr::from_ptr((*block).min_width_str));
+            text.set_markup(value.markup);
+            (*block).min_width = predict_text_width(&text) as u32;
         }
-        i3string_set_markup((*block).full_text, value.markup);
-        if !(*block).short_text.is_null() {
-            i3string_set_markup((*block).short_text, value.markup);
+        (*block).full_text.set_markup(value.markup);
+        if let Some(short) = (*block).short_text.as_ref() {
+            short.set_markup(value.markup);
         }
         (*block).blocks.tqe_next = std::ptr::null_mut();
         (*block).blocks.tqe_prev = statusline_head.tqh_last;
@@ -652,16 +684,23 @@ unsafe fn install_status_frame(frame: Vec<StatusValue>) {
                 c"[%s:%d] full_text = %s\n".as_ptr(),
                 c"../i3bar/src/child.c".as_ptr(),
                 381i32,
-                i3string_as_utf8((*current).full_text),
+                (*current)
+                    .full_text
+                    .cstr_or_report()
+                    .map_or(std::ptr::null(), std::ffi::CStr::as_ptr),
             );
             printf(
                 c"[%s:%d] short_text = %s\n".as_ptr(),
                 c"../i3bar/src/child.c".as_ptr(),
                 382i32,
-                if (*current).short_text.is_null() {
+                if (*current).short_text.is_none() {
                     std::ptr::null()
                 } else {
-                    i3string_as_utf8((*current).short_text)
+                    (*current)
+                        .short_text
+                        .as_ref()
+                        .and_then(I3String::cstr_or_report)
+                        .map_or(std::ptr::null(), std::ffi::CStr::as_ptr)
                 },
             );
             printf(
@@ -749,13 +788,10 @@ fn flat_text(bytes: &[u8]) -> &[u8] {
 }
 unsafe fn read_flat_input(bytes: &[u8]) {
     let first = statusline_head.tqh_first;
-    i3string_free((*first).full_text);
-    (*first).full_text = Box::into_raw(Box::new(i3_common::string::I3String::from_bytes(
-        flat_text(bytes),
-    )));
+    (*first).full_text = I3String::from_bytes(flat_text(bytes));
 }
 unsafe fn read_json_input(input: &[u8]) -> bool {
-    let separator = if config.separator_symbol.is_null() {
+    let separator = if config.separator_symbol.is_none() {
         logical_px(9)
     } else {
         logical_px(8) + separator_symbol_width
@@ -834,7 +870,7 @@ unsafe fn stdin_io_first_line_cb(fd: i32) {
         }
         draw_bars(read_json_input(&buffer[header.consumed..]));
     } else {
-        let block = scalloc(1, std::mem::size_of::<status_block>()).cast::<status_block>();
+        let block = Box::into_raw(Box::new(status_block::default()));
         (*block).blocks.tqe_next = std::ptr::null_mut();
         (*block).blocks.tqe_prev = statusline_head.tqh_last;
         *statusline_head.tqh_last = block;
@@ -907,7 +943,7 @@ pub unsafe fn set_workspace_button_error(message: *const ::core::ffi::c_char) {
     let mut output = (*outputs).slh_first;
     while !output.is_null() {
         let text = name.clone();
-        let width = predict_text_width((&text as *const i3_common::string::I3String).cast_mut());
+        let width = predict_text_width(&text);
         crate::workspaces::append_workspace(output, Box::new(i3_ws::error(text, width)));
         output = (*output).slist.sle_next;
     }
@@ -1873,6 +1909,36 @@ pub enum BlockAlign {
 #[cfg(test)]
 mod owned_tests {
     use super::*;
+    #[test]
+    fn owned_status_blocks_unlink_drop_and_allow_reuse_of_the_same_local_queue() {
+        let mut head = Box::new(statusline_head {
+            tqh_first: std::ptr::null_mut(),
+            tqh_last: std::ptr::null_mut(),
+        });
+        head.tqh_last = &raw mut head.tqh_first;
+        for _ in 0..2 {
+            for text in ["first", "second"] {
+                let block = Box::into_raw(Box::new(status_block {
+                    full_text: I3String::new(text),
+                    short_text: Some(I3String::new("short")),
+                    // Exercise the block's independent native-string ownership.
+                    color: unsafe { libc::strdup(c"#ff0000".as_ptr()) },
+                    ..status_block::default()
+                }));
+                unsafe {
+                    (*block).blocks.tqe_prev = head.tqh_last;
+                    *head.tqh_last = block;
+                    head.tqh_last = &raw mut (*block).blocks.tqe_next;
+                }
+            }
+            unsafe {
+                clear_statusline(&raw mut *head);
+            }
+            assert!(head.tqh_first.is_null());
+            assert_eq!(head.tqh_last, &raw mut head.tqh_first);
+        }
+    }
+
     #[test]
     fn open_status_array_handles_every_fragment_boundary_and_raw_string_distinctions() {
         let input = br#"[[{"full_text":"a\u0000b","name":"first\u0000ignored","urgent":true,"min_width":-1,"markup":"PaNgO","align":"RIGHT"}],[{"full_text":"second","full_text":"last"}]"#;

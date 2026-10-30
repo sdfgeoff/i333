@@ -4576,9 +4576,9 @@ unsafe fn txt(
         (col - 1 as ::core::ffi::c_int) * char_width + logical_px(4 as ::core::ffi::c_int);
     let y: ::core::ffi::c_int =
         (row - 1 as ::core::ffi::c_int) * font.height + logical_px(4 as ::core::ffi::c_int);
-    let mut string = i3_common::string::I3String::from_cstr(CStr::from_ptr(text));
+    let string = i3_common::string::I3String::from_cstr(CStr::from_ptr(text));
     draw_util_text(
-        &mut string,
+        &string,
         &raw mut surface,
         fg,
         bg,
@@ -5153,8 +5153,8 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
     bold_font = load_font(patternbold, true);
     resources.fonts = true;
     set_font(&raw mut font);
-    let mut letter = i3_common::string::I3String::new("a");
-    char_width = predict_text_width(&mut letter);
+    let letter = i3_common::string::I3String::new("a");
+    char_width = predict_text_width(&letter);
     win = xcb_generate_id(conn) as xcb_window_t;
     let mut fresh1: [u32; 2] = [
         0 as ::core::ffi::c_int as u32,

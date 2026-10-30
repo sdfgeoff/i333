@@ -15,8 +15,8 @@ use i3_common::safewrappers::sasprintf;
 // The crash callback remains a legacy native signal edge: X11/rendering,
 // logging and restart are not claimed async-signal-safe. New helpers below are
 // stack-only; owned text is prepared before handlers are installed.
+use i3_common::string::I3String;
 use std::ffi::CStr;
-type i3String = i3_common::string::I3String;
 type Output = crate::types::xoutput;
 
 #[derive(Copy, Clone)]
@@ -62,12 +62,11 @@ static mut dialogs: dialogs_head = dialogs_head {
 };
 static mut raised_signal: ::core::ffi::c_int = 0;
 static mut backtrace_done: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-static mut message_intro: *mut i3String = ::core::ptr::null::<i3String>() as *mut i3String;
-static mut message_intro2: *mut i3String = ::core::ptr::null::<i3String>() as *mut i3String;
-static mut message_option_backtrace: *mut i3String =
-    ::core::ptr::null::<i3String>() as *mut i3String;
-static mut message_option_restart: *mut i3String = ::core::ptr::null::<i3String>() as *mut i3String;
-static mut message_option_forget: *mut i3String = ::core::ptr::null::<i3String>() as *mut i3String;
+static mut message_intro: Option<I3String> = None;
+static mut message_intro2: Option<I3String> = None;
+static mut message_option_backtrace: Option<I3String> = None;
+static mut message_option_restart: Option<I3String> = None;
+static mut message_option_forget: Option<I3String> = None;
 static mut dialog_width: ::core::ffi::c_int = 0;
 static mut dialog_height: ::core::ffi::c_int = 0;
 static mut border_width: ::core::ffi::c_int = 2 as ::core::ffi::c_int;
@@ -181,23 +180,25 @@ unsafe fn sighandler_backtrace() -> ::core::ffi::c_int {
     1
 }
 unsafe fn prepare_crash_messages() {
-    message_intro =
-        i3string_from_utf8(c"i3 has just crashed. Please report a bug for this.".as_ptr());
-    message_intro2 = i3string_from_utf8(
-        c"To debug this problem, you can either attach gdb or choose from the following options:"
-            .as_ptr(),
-    );
-    message_option_backtrace =
-        i3string_from_utf8(c"- 'b' to save a backtrace (requires gdb)".as_ptr());
-    message_option_restart = i3string_from_utf8(c"- 'r' to restart i3 in-place".as_ptr());
-    message_option_forget =
-        i3string_from_utf8(c"- 'f' to forget the previous layout and restart i3".as_ptr());
+    message_intro = Some(I3String::new(
+        "i3 has just crashed. Please report a bug for this.",
+    ));
+    message_intro2 = Some(I3String::new(
+        "To debug this problem, you can either attach gdb or choose from the following options:",
+    ));
+    message_option_backtrace = Some(I3String::new("- 'b' to save a backtrace (requires gdb)"));
+    message_option_restart = Some(I3String::new("- 'r' to restart i3 in-place"));
+    message_option_forget = Some(I3String::new(
+        "- 'f' to forget the previous layout and restart i3",
+    ));
 }
+
 unsafe fn sighandler_setup() {
     border_width = logical_px(border_width);
     margin = logical_px(margin);
     let num_lines: ::core::ffi::c_int = 5 as ::core::ffi::c_int;
-    let width_longest_message: ::core::ffi::c_int = predict_text_width(message_intro2);
+    let width_longest_message: ::core::ffi::c_int =
+        predict_text_width((&*(&raw const message_intro2)).as_ref().unwrap());
     dialog_width = width_longest_message
         + 2 as ::core::ffi::c_int * border_width
         + 2 as ::core::ffi::c_int * margin;
@@ -373,7 +374,7 @@ unsafe fn sighandler_draw_dialog(dialog: *mut dialog_t) {
         .wrapping_sub((2 as ::core::ffi::c_int * x) as u32)
         as ::core::ffi::c_int;
     draw_util_text(
-        message_intro,
+        (&*(&raw const message_intro)).as_ref().unwrap(),
         &raw mut (*dialog).surface,
         white,
         black,
@@ -383,7 +384,7 @@ unsafe fn sighandler_draw_dialog(dialog: *mut dialog_t) {
     );
     y += config.font.height;
     draw_util_text(
-        message_intro2,
+        (&*(&raw const message_intro2)).as_ref().unwrap(),
         &raw mut (*dialog).surface,
         white,
         black,
@@ -394,7 +395,7 @@ unsafe fn sighandler_draw_dialog(dialog: *mut dialog_t) {
     y += config.font.height;
     let bt_color = backtrace_color(backtrace_done);
     draw_util_text(
-        message_option_backtrace,
+        (&*(&raw const message_option_backtrace)).as_ref().unwrap(),
         &raw mut (*dialog).surface,
         draw_util_hex_to_color(bt_color.as_ptr()),
         black,
@@ -404,7 +405,7 @@ unsafe fn sighandler_draw_dialog(dialog: *mut dialog_t) {
     );
     y += config.font.height;
     draw_util_text(
-        message_option_restart,
+        (&*(&raw const message_option_restart)).as_ref().unwrap(),
         &raw mut (*dialog).surface,
         white,
         black,
@@ -414,7 +415,7 @@ unsafe fn sighandler_draw_dialog(dialog: *mut dialog_t) {
     );
     y += config.font.height;
     draw_util_text(
-        message_option_forget,
+        (&*(&raw const message_option_forget)).as_ref().unwrap(),
         &raw mut (*dialog).surface,
         white,
         black,
@@ -583,7 +584,6 @@ pub use crate::types::Rect;
 pub use i3_common::draw_util::color_t;
 pub use i3_common::draw_util::surface_t;
 pub use i3_common::font::Font;
-pub use i3_common::string::I3String as _i3String;
 
 // Internal calls and globals use canonical Rust identities.
 use crate::application::conn;
@@ -601,7 +601,6 @@ use i3_common::draw_util::draw_util_rectangle;
 use i3_common::draw_util::draw_util_surface_free;
 use i3_common::draw_util::draw_util_surface_init;
 use i3_common::font::predict_text_width;
-use i3_common::string::i3string_from_utf8;
 
 use crate::xcb::xcb_numlock_mask;
 

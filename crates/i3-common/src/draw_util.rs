@@ -10,7 +10,7 @@ use crate::font::draw_text;
 // Mechanical file-by-file Rust translation of libi3/draw_util.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 
-pub type i3String = _i3String;
+use crate::string::I3String;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct color_t {
@@ -283,12 +283,12 @@ fn flush_twice(surface: &cairo::Surface) {
 }
 
 /// # Safety
-/// text must point to a live I3String; surface must point to a readable record.
+/// surface must point to a readable record.
 /// An initialized surface must contain live non-null Cairo objects and a valid
 /// drawable/GC, and the current font/display must remain valid during drawing.
 #[deny(unsafe_op_in_unsafe_fn)]
 pub unsafe fn draw_util_text(
-    text: *mut i3String,
+    text: &I3String,
     surface: *mut surface_t,
     fg_color: color_t,
     bg_color: color_t,
@@ -509,8 +509,6 @@ use crate::logging::{errorlog, verboselog};
 
 // Internal calls and globals use canonical Rust identities.
 use crate::font::set_font_colors;
-
-pub use crate::string::I3String as _i3String;
 
 #[cfg(test)]
 mod drawing_tests {

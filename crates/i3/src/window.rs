@@ -16,8 +16,9 @@ use cairo_sys::{
 };
 use i3_common::dpi::logical_px;
 use i3_common::safewrappers::smalloc;
-use i3_common::string::{i3string_as_utf8, i3string_free, I3String};
+use i3_common::string::I3String;
 use libc::free;
+use std::ffi::CStr;
 use std::ptr::NonNull;
 use xcb_sys::{
     xcb_generic_error_t, xcb_get_geometry_reply_t, xcb_get_property_reply_t,
@@ -169,10 +170,9 @@ pub unsafe fn window_free(win: *mut Window) {
     ] {
         free(text.cast());
     }
-    i3string_free((*win).name);
     cairo_surface_destroy((*win).icon);
     free((*win).ran_assignments.cast());
-    free(win.cast());
+    drop(Box::from_raw(win));
 }
 
 pub unsafe fn window_update_class(win: *mut Window, prop: *mut xcb_get_property_reply_t) {
@@ -195,14 +195,16 @@ pub unsafe fn window_update_class(win: *mut Window, prop: *mut xcb_get_property_
 }
 
 unsafe fn set_name(win: *mut Window, bytes: &[u8]) {
-    let name = Box::new(I3String::from_bytes(string_prefix(bytes)));
-    i3string_free((*win).name);
-    (*win).name = Box::into_raw(name);
+    (*win).name = Some(I3String::from_bytes(string_prefix(bytes)));
     let con = con_by_window_id((*win).id);
     if !con.is_null() && !(*con).title_format.is_null() {
         let formatted = con_parse_title_format(con);
-        ewmh_update_visible_name((*win).id, i3string_as_utf8(formatted));
-        i3string_free(formatted);
+        ewmh_update_visible_name(
+            (*win).id,
+            formatted
+                .cstr_or_report()
+                .map_or(std::ptr::null(), CStr::as_ptr),
+        );
     }
 }
 pub unsafe fn window_update_name(win: *mut Window, prop: *mut xcb_get_property_reply_t) {
@@ -219,7 +221,11 @@ pub unsafe fn window_update_name(win: *mut Window, prop: *mut xcb_get_property_r
     (*win).name_x_changed = true;
     verboselog(
         c"_NET_WM_NAME changed to \"%s\"\n".as_ptr().cast_mut(),
-        i3string_as_utf8((*win).name),
+        (*win)
+            .name
+            .as_ref()
+            .and_then(I3String::cstr_or_report)
+            .map_or(std::ptr::null(), CStr::as_ptr),
     );
     (*win).uses_net_wm_name = true;
 }
@@ -239,7 +245,11 @@ pub unsafe fn window_update_name_legacy(win: *mut Window, prop: *mut xcb_get_pro
     set_name(win, prop.view().bytes);
     verboselog(
         c"WM_NAME changed to \"%s\"\n".as_ptr().cast_mut(),
-        i3string_as_utf8((*win).name),
+        (*win)
+            .name
+            .as_ref()
+            .and_then(I3String::cstr_or_report)
+            .map_or(std::ptr::null(), CStr::as_ptr),
     );
     verboselog(c"Using legacy window title. Note that in order to get Unicode window titles in i3, the application has to set _NET_WM_NAME (UTF-8)\n".as_ptr().cast_mut());
     (*win).name_x_changed = true;

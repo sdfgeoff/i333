@@ -26,7 +26,6 @@ enum Frame {
 #[derive(Default)]
 pub struct Generator {
     buffer: Vec<u8>,
-    terminated: Vec<u8>,
     stack: Vec<Frame>,
     root_started: bool,
     error: Option<GenerateError>,
@@ -43,14 +42,6 @@ impl Generator {
     /// Discard emitted bytes without changing the enclosing stream structure.
     pub fn clear(&mut self) {
         self.buffer.clear();
-        self.terminated.clear();
-    }
-
-    pub(crate) fn terminated_bytes(&mut self) -> &[u8] {
-        self.terminated.clear();
-        self.terminated.extend_from_slice(&self.buffer);
-        self.terminated.push(0);
-        &self.terminated
     }
 
     fn fail<T>(&mut self, error: GenerateError) -> Result<T, GenerateError> {
@@ -90,6 +81,18 @@ impl Generator {
             None if self.root_started => return self.fail(GenerateError::Complete),
             None => self.root_started = true,
         }
+        Ok(())
+    }
+
+    /// Append a complete Serde value to the surrounding stream. Serialization
+    /// happens before changing framing, so rejected values leave it untouched.
+    pub fn serialized<T: serde::Serialize + ?Sized>(
+        &mut self,
+        value: &T,
+    ) -> Result<(), GenerateError> {
+        let bytes = serde_json::to_vec(value).map_err(|_| GenerateError::InvalidState)?;
+        self.before_value()?;
+        self.buffer.extend_from_slice(&bytes);
         Ok(())
     }
 
@@ -187,6 +190,29 @@ impl Generator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn serialized_values_share_stream_framing_without_consuming_rejected_values() {
+        struct Rejected;
+        impl serde::Serialize for Rejected {
+            fn serialize<S: serde::Serializer>(&self, _: S) -> Result<S::Ok, S::Error> {
+                Err(serde::ser::Error::custom("rejected value"))
+            }
+        }
+        let mut generator = Generator::new();
+        generator.start_array().unwrap();
+        assert_eq!(
+            generator.serialized(&Rejected),
+            Err(GenerateError::InvalidState)
+        );
+        assert_eq!(generator.bytes(), b"[");
+        generator
+            .serialized(&(true, "quoted \"value\"", -1_i64))
+            .unwrap();
+        generator.clear();
+        generator.serialized(&[1, 2]).unwrap();
+        generator.end_array().unwrap();
+        assert_eq!(generator.bytes(), b",[1,2]]");
+    }
     #[test]
     fn scalar_encoding_uses_serde_and_preserves_key_order() {
         let mut generator = Generator::new();

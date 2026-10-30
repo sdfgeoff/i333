@@ -1012,7 +1012,6 @@ pub use i3_common::draw_util::color_t;
 pub use i3_common::font::C2RustUnnamed;
 pub use i3_common::font::C2RustUnnamed_0;
 pub use i3_common::font::Font;
-pub use i3_common::string::I3String as _i3String;
 
 // Internal calls and globals use canonical Rust identities.
 use crate::application::conn;

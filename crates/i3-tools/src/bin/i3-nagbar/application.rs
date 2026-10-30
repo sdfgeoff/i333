@@ -174,7 +174,7 @@ unsafe fn handle_button_release(state: &NagbarState, event: &xcb_button_release_
 /// Native rendering requires the initialized event-thread display/font. All
 /// labels and layout values are borrowed from the owned session.
 unsafe fn button_draw(button: &mut Button, position: i32, render: &mut Renderer) -> i32 {
-    let text_width = predict_text_width(&mut button.label).max(0);
+    let text_width = predict_text_width(&button.label).max(0);
     let padding = logical_px(3).max(0);
     let top = logical_px(8);
     (button.x, button.width) = button_layout(text_width, padding, position);
@@ -195,7 +195,7 @@ unsafe fn button_draw(button: &mut Button, position: i32, render: &mut Renderer)
         f64::from(render.font.height.saturating_add(padding.saturating_mul(2))),
     );
     draw_util_text(
-        &mut button.label,
+        &button.label,
         &mut render.bar,
         render.color_text,
         render.color_button_background,
@@ -210,7 +210,7 @@ unsafe fn handle_expose(state: &mut NagbarState) {
     draw_util_clear_surface(&mut render.bar, render.color_background);
     let margin = logical_px(8);
     draw_util_text(
-        &mut state.message,
+        &state.message,
         &mut render.bar,
         render.color_text,
         render.color_background,

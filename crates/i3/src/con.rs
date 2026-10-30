@@ -1,3 +1,4 @@
+pub(crate) mod arena;
 use crate::tree::all_cons;
 use crate::types::BorderStyle;
 use crate::types::Direction;
@@ -19,10 +20,6 @@ use crate::types::Orientation;
  */
 // Mechanical file-by-file Rust translation of src/con.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
-pub use i3_json::compat::yajl_gen;
-use i3_json::compat::{yajl_gen_free, yajl_gen_get_buf};
-
-pub type i3String = _i3String;
 
 pub type fullscreen_mode_t = ::core::ffi::c_uint;
 pub const CF_GLOBAL: fullscreen_mode_t = 2;
@@ -85,7 +82,7 @@ pub unsafe fn con_force_split_parents_redraw(con: *mut Con) {
 }
 
 pub unsafe fn con_new_skeleton(parent: *mut Con, window: *mut i3Window) -> *mut Con {
-    let new: *mut Con = scalloc(1 as usize, ::core::mem::size_of::<Con>() as usize) as *mut Con;
+    let new = arena::allocate(Con::empty());
     (*new).on_remove_child =
         Some(con_on_remove_child as unsafe fn(*mut Con) -> ()) as Option<unsafe fn(*mut Con) -> ()>;
     (*new).all_cons.tqe_next = ::core::ptr::null_mut::<Con>();
@@ -109,16 +106,6 @@ pub unsafe fn con_new_skeleton(parent: *mut Con, window: *mut i3Window) -> *mut 
         c"con_new_skeleton".as_ptr(),
         52 as ::core::ffi::c_int,
     );
-    (*new).floating_head.tqh_first = ::core::ptr::null_mut::<Con>();
-    (*new).floating_head.tqh_last = &raw mut (*new).floating_head.tqh_first;
-    (*new).nodes_head.tqh_first = ::core::ptr::null_mut::<Con>();
-    (*new).nodes_head.tqh_last = &raw mut (*new).nodes_head.tqh_first;
-    (*new).focus_head.tqh_first = ::core::ptr::null_mut::<Con>();
-    (*new).focus_head.tqh_last = &raw mut (*new).focus_head.tqh_first;
-    (*new).swallow_head.tqh_first = ::core::ptr::null_mut::<Match>();
-    (*new).swallow_head.tqh_last = &raw mut (*new).swallow_head.tqh_first;
-    (*new).marks_head.tqh_first = ::core::ptr::null_mut::<mark_t>();
-    (*new).marks_head.tqh_last = &raw mut (*new).marks_head.tqh_first;
     if !parent.is_null() {
         con_attach(new, parent, false);
     }
@@ -172,7 +159,8 @@ pub unsafe fn con_free(con: *mut Con) {
         96 as ::core::ffi::c_int,
         con,
     );
-    free(con as *mut ::core::ffi::c_void);
+    // All graph links and native resources are released before Rust ownership.
+    arena::release(con);
 }
 unsafe fn _con_attach(con: *mut Con, parent: *mut Con, previous: *mut Con, ignore_focus: bool) {
     (*con).parent = parent as *mut Con;
@@ -863,16 +851,8 @@ pub unsafe fn con_by_window_id(window: xcb_window_t) -> *mut Con {
     ::core::ptr::null_mut::<Con>()
 }
 
-pub unsafe fn con_by_con_id(target: ::core::ffi::c_long) -> *mut Con {
-    let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
-    con = all_cons.tqh_first as *mut Con;
-    while !con.is_null() {
-        if con == target as *mut Con {
-            return con;
-        }
-        con = (*con).all_cons.tqe_next as *mut Con;
-    }
-    ::core::ptr::null_mut::<Con>()
+pub fn con_by_con_id(target: ::core::ffi::c_long) -> *mut Con {
+    arena::lookup_address(target as usize)
 }
 
 pub unsafe fn con_exists(con: *mut Con) -> bool {
@@ -2571,19 +2551,14 @@ unsafe fn con_on_remove_child(con: *mut Con) {
                 con,
                 (*con).name,
             );
-            let gen: yajl_gen =
+            let payload =
                 ipc_marshal_workspace_event(c"empty".as_ptr(), con, ::core::ptr::null_mut::<Con>());
             tree_close_internal(con, KillWindow::DontKill, false);
-            let mut payload: *const ::core::ffi::c_uchar =
-                ::core::ptr::null::<::core::ffi::c_uchar>();
-            let mut length: ylength = 0;
-            yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
             ipc_send_event(
                 c"workspace".as_ptr(),
                 I3_IPC_EVENT_WORKSPACE as u32,
-                payload as *const ::core::ffi::c_char,
+                payload.as_ptr(),
             );
-            yajl_gen_free(gen);
         }
         return;
     }
@@ -2932,7 +2907,7 @@ fn title_capture(bytes: &[u8], markup: bool) -> std::ffi::CString {
 
 /// `con`, its optional window, title format and borrowed string fields are live
 /// event-thread data throughout this call; no graph callbacks occur here.
-pub unsafe fn con_parse_title_format(con: *mut Con) -> *mut i3String {
+pub unsafe fn con_parse_title_format(con: *mut Con) -> i3_common::string::I3String {
     assert!(!(*con).title_format.is_null());
     let win = (*con).window;
     let markup = font_is_pango();
@@ -2953,11 +2928,13 @@ pub unsafe fn con_parse_title_format(con: *mut Con) -> *mut i3String {
         )
     } else {
         (
-            capture(if (*win).name.is_null() {
-                std::ptr::null()
-            } else {
-                i3string_as_utf8((*win).name)
-            }),
+            capture(
+                (*win)
+                    .name
+                    .as_ref()
+                    .and_then(|text| text.cstr_or_report())
+                    .map_or(std::ptr::null(), std::ffi::CStr::as_ptr),
+            ),
             capture((*win).class_class),
             capture((*win).class_instance),
             capture((*win).machine),
@@ -2972,8 +2949,8 @@ pub unsafe fn con_parse_title_format(con: *mut Con) -> *mut i3String {
             (c"%machine", &machine),
         ],
     );
-    let formatted = i3string_from_utf8(expanded.as_ptr());
-    i3string_set_markup(formatted, markup);
+    let formatted = i3_common::string::I3String::from_cstr(&expanded);
+    formatted.set_markup(markup);
     formatted
 }
 
@@ -3353,7 +3330,6 @@ pub use crate::types::Con;
 pub use crate::types::Match;
 pub use crate::types::Rect;
 pub use crate::types::Window;
-pub use i3_common::string::I3String as _i3String;
 
 // Internal calls and globals use canonical Rust identities.
 use crate::application::conn;
@@ -3390,17 +3366,13 @@ use crate::x::x_con_init;
 use crate::x::x_set_warp_to;
 use crate::xcb::xcb_add_property_atom;
 use crate::xcb::xcb_remove_property_atom;
-use i3_common::string::i3string_as_utf8;
-use i3_common::string::i3string_from_utf8;
-use i3_common::string::i3string_set_markup;
 
 #[cfg(test)]
 mod owned_graph_tests {
     use super::*;
-    // Con remains a native POD: its enum zero discriminants and null resource
-    // fields are valid. These synthetic nodes never enter the global graph.
+    // Synthetic nodes never enter the global graph or allocation registry.
     fn node() -> Box<Con> {
-        Box::new(unsafe { std::mem::zeroed() })
+        Box::new(Con::empty())
     }
     #[test]
     fn border_geometry_preserves_wrapping_normal_title_edge_and_adjacency_masks() {

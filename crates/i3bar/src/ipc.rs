@@ -210,11 +210,9 @@ unsafe fn got_mode_event(event: &[u8]) {
     };
     let current = parsed.into_mode(
         |name| {
-            // Font measurement reads a live, owned string. Its legacy pointer
-            // API only changes interior text caches; ownership stays here.
-            i3_common::font::predict_text_width(
-                (name as *const i3_common::string::I3String).cast_mut(),
-            )
+            // Font measurement borrows the owned string; only its interior
+            // encoding caches can change, and ownership stays here.
+            i3_common::font::predict_text_width(name)
         },
         config.verbose,
     );
@@ -247,7 +245,7 @@ unsafe fn got_bar_config_update(event: &[u8]) {
         optional_c_str(config.command),
     ) {
         kill_child();
-        clear_statusline(&raw mut statusline_head, true);
+        clear_statusline(&raw mut statusline_head);
         start_child(config.command);
     }
     drop(old_command);

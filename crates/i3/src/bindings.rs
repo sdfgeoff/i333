@@ -17,7 +17,6 @@ use i3_common::safewrappers::sasprintf;
 // Binding policy consumes copied values; legacy mode/keycode queues retain
 // malloc ownership. XKB/XCB and callbacks require the exclusive event thread;
 // temporary replies/states and RMLVO strings have scoped owners.
-pub use i3_json::compat::yajl_gen_t;
 
 pub use crate::application::Binding;
 pub use crate::application::Binding_Keycode;
@@ -1013,11 +1012,8 @@ pub unsafe fn run_binding(bind: *mut Binding, con: *mut Con) -> *mut CommandResu
     let binding_owner = BindingCopy(bind_cp);
     let mut modename: *mut ::core::ffi::c_char = sstrdup(current_binding_mode);
     let mode_owner = Native::take(modename);
-    let result: *mut CommandResult = parse_command(
-        command,
-        ::core::ptr::null_mut::<yajl_gen_t>(),
-        ::core::ptr::null_mut::<ipc_client>(),
-    );
+    let result: *mut CommandResult =
+        parse_command(command, None, ::core::ptr::null_mut::<ipc_client>());
     drop(command_owner);
     if (*result).needs_tree_render {
         tree_render();

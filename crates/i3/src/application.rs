@@ -34,8 +34,6 @@ pub use libev_sys::{
     ev_watcher_list, EV_READ, EV__IOFDSET,
 };
 
-pub type i3String = _i3String;
-
 pub type i3Font = Font;
 
 #[derive(Copy, Clone)]
@@ -2269,7 +2267,6 @@ pub use crate::types::Assignment;
 pub use crate::types::Con;
 pub use crate::types::Rect;
 pub use i3_common::font::Font;
-pub use i3_common::string::I3String as _i3String;
 
 #[cfg(test)]
 mod cli_tests {

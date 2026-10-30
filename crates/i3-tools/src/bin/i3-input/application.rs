@@ -279,7 +279,7 @@ unsafe fn handle_expose(
         (surface.height - 2 as ::core::ffi::c_int * logical_px(2 as ::core::ffi::c_int))
             as ::core::ffi::c_double,
     );
-    if let Some(prompt) = state.prompt.as_mut() {
+    if let Some(prompt) = state.prompt.as_ref() {
         draw_util_text(
             prompt,
             &raw mut surface,
@@ -292,9 +292,9 @@ unsafe fn handle_expose(
     }
     if !state.glyphs.is_empty() {
         let glyphs: Vec<_> = state.glyphs.iter().map(|glyph| glyph.ucs2).collect();
-        let mut input = I3String::from_ucs2(&glyphs);
+        let input = I3String::from_ucs2(&glyphs);
         draw_util_text(
-            &mut input,
+            &input,
             &raw mut surface,
             fg_color,
             bg_color,
@@ -609,7 +609,7 @@ unsafe fn run_window(settings: InputSettings) -> ::core::ffi::c_int {
     );
     resources.has_font = true;
     set_font(&raw mut font);
-    if let Some(prompt) = state.prompt.as_mut() {
+    if let Some(prompt) = state.prompt.as_ref() {
         state.prompt_offset = predict_text_width(prompt);
     }
     let win_pos: xcb_rectangle_t = get_window_position() as xcb_rectangle_t;

@@ -13,6 +13,8 @@ libc.workspace = true
 c2rust-bitfields.workspace = true
 i3-common.workspace = true
 i3-json.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
 pcre2.workspace = true
 libev-sys.workspace = true
 cairo-sys.workspace = true

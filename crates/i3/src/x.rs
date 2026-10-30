@@ -850,7 +850,6 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
     let mut deco_width: i32 = 0;
     let mut title_padding: i32 = 0;
     let mut mark_width: i32 = 0;
-    let mut title: *mut I3String = ::core::ptr::null_mut::<I3String>();
     let mut icon_size: i32 = 0;
     let mut has_icon: bool = false;
     let mut icon_offset_x: i32 = 0;
@@ -1096,8 +1095,8 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
                         mark = (*mark).marks.tqe_next;
                     }
                     if let Some(formatted_mark) = format_marks(marks.iter().map(Vec::as_slice)) {
-                        let mut mark_text = I3String::from_bytes(&formatted_mark);
-                        let mark_0 = &raw mut mark_text;
+                        let mark_text = I3String::from_bytes(&formatted_mark);
+                        let mark_0 = &mark_text;
                         mark_width = predict_text_width(mark_0);
                         let mark_offset_x: i32 = if config.title_align == TitleAlign::Right {
                             title_padding
@@ -1116,29 +1115,24 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
                         mark_width += title_padding;
                     }
                 }
-                let mut owned_title = if !(*con).title_format.is_null() {
-                    let parsed = con_parse_title_format(con);
-                    if parsed.is_null() {
-                        None
-                    } else {
-                        Some(Box::from_raw(parsed))
-                    }
+                let owned_title = if !(*con).title_format.is_null() {
+                    Some(con_parse_title_format(con))
                 } else if win.is_null() {
                     let tree = NativeReply(con_get_tree_representation(con));
                     let mut bytes = b"i3: ".to_vec();
                     bytes.extend_from_slice(CStr::from_ptr(tree.0).to_bytes());
-                    Some(Box::new(I3String::from_bytes(&bytes)))
+                    Some(I3String::from_bytes(&bytes))
                 } else {
                     None
                 };
-                title = if let Some(owned) = owned_title.as_mut() {
-                    &raw mut **owned
+                let title = if let Some(owned) = owned_title.as_ref() {
+                    Some(owned)
                 } else if !win.is_null() && (*con).title_format.is_null() {
-                    (*win).name
+                    (*win).name.as_ref()
                 } else {
-                    std::ptr::null_mut()
+                    None
                 };
-                if !title.is_null() {
+                if let Some(title) = title {
                     let placement = title_placement(
                         config.title_align,
                         deco_width,

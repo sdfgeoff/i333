@@ -396,6 +396,9 @@ pub unsafe fn tree_close_internal(
     } else {
         ::core::ptr::null_mut::<Con>()
     };
+    // Focus is deferred past teardown and its callbacks; generation checking
+    // prevents a deleted/reused address from becoming an unintended target.
+    let next_id = crate::con::arena::identity(next);
     debuglog(
         c"%s:%s:%d - next = %p, focused = %p\n".as_ptr().cast_mut(),
         c"../src/tree.c".as_ptr(),
@@ -442,7 +445,7 @@ pub unsafe fn tree_close_internal(
         ewmh_update_desktop_properties();
     }
     con_free(con);
-    if !next.is_null() {
+    if let Some(next) = next_id.and_then(crate::con::arena::resolve) {
         con_activate(next);
     } else {
         debuglog(
@@ -1093,7 +1096,6 @@ pub use crate::types::xoutput;
 pub use crate::types::Con;
 pub use crate::types::Rect;
 pub use crate::types::Window;
-pub use i3_common::string::I3String as _i3String;
 
 // Internal calls and globals use canonical Rust identities.
 use crate::application::conn;

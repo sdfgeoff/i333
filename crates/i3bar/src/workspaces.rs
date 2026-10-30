@@ -54,12 +54,6 @@ impl Workspace {
             },
         }
     }
-
-    /// Borrowed text for the remaining synchronous native text APIs. The
-    /// pointer must not be freed or retained after this workspace is removed.
-    pub fn name_ptr(&self) -> *mut I3String {
-        (&self.name as *const I3String).cast_mut()
-    }
 }
 
 #[derive(Clone, Copy, Default)]
@@ -322,10 +316,10 @@ unsafe fn apply_workspaces(records: Vec<WorkspaceRecord>) {
                 name.set_markup(true);
                 // Native font helpers only read the owned text and its interior
                 // caches; ownership stays with this record until list transfer.
-                let text = (&name as *const I3String).cast_mut();
+                let text = &name;
                 let width = predict_text_width(text);
                 if config.verbose {
-                    let _ = writeln!(std::io::stdout().lock(), "[../i3bar/src/workspaces.c:146] Got workspace canonical: {}, name: '{}', name_width: {}, glyphs: {}", snapshot.canonical.to_string_lossy(), name.as_str().expect("workspace text is UTF-8"), width, i3_common::string::i3string_get_num_glyphs(text));
+                    let _ = writeln!(std::io::stdout().lock(), "[../i3bar/src/workspaces.c:146] Got workspace canonical: {}, name: '{}', name_width: {}, glyphs: {}", snapshot.canonical.to_string_lossy(), name.as_str().expect("workspace text is UTF-8"), width, text.rendering_glyphs().len());
                 }
                 last_name = Some((name, width));
             }

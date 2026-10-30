@@ -16,8 +16,6 @@ use i3_common::safewrappers::sasprintf;
  */
 // Mechanical file-by-file Rust translation of src/workspace.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
-pub use i3_json::compat::yajl_gen;
-use i3_json::compat::{yajl_gen_free, yajl_gen_get_buf};
 pub use libev_sys::{
     ev_loop, ev_timer, ev_timer_again, ev_timer_start, ev_timer_stop, ev_tstamp, ev_watcher,
     ev_watcher_time,
@@ -640,19 +638,14 @@ pub unsafe fn workspace_show(workspace: *mut Con) {
                 old,
                 (*old).name,
             );
-            let gen: yajl_gen =
+            let payload =
                 ipc_marshal_workspace_event(c"empty".as_ptr(), old, ::core::ptr::null_mut::<Con>());
             tree_close_internal(old, KillWindow::DontKill, false);
-            let mut payload: *const ::core::ffi::c_uchar =
-                ::core::ptr::null::<::core::ffi::c_uchar>();
-            let mut length: ylength = 0;
-            yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
             ipc_send_event(
                 c"workspace".as_ptr(),
                 I3_IPC_EVENT_WORKSPACE as u32,
-                payload as *const ::core::ffi::c_char,
+                payload.as_ptr(),
             );
-            yajl_gen_free(gen);
             if old == old_focus {
                 old_focus = ::core::ptr::null_mut::<Con>();
             }
@@ -1504,7 +1497,6 @@ pub use crate::types::nodes_head;
 pub use crate::types::xoutput;
 pub use crate::types::Con;
 pub use crate::types::Window;
-pub use i3_common::string::I3String as _i3String;
 
 // Internal calls and globals use canonical Rust identities.
 use crate::application::main_loop;

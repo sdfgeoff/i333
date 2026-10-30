@@ -6,6 +6,5 @@
 mod generator;
 mod parser;
 
-pub mod compat;
 pub use generator::{GenerateError, Generator};
 pub use parser::{Event, EventHandler, ParseError, ParseErrorKind, Parser, ParserOptions};

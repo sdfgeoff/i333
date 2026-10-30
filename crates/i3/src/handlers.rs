@@ -17,8 +17,6 @@ use crate::types::WindowDock;
 // Mechanical file-by-file Rust translation of src/handlers.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 
-pub type i3String = _i3String;
-
 pub type fullscreen_mode_t = ::core::ffi::c_uint;
 pub const CF_OUTPUT: fullscreen_mode_t = 1;
 pub const CF_NONE: fullscreen_mode_t = 0;
@@ -825,12 +823,10 @@ unsafe fn handle_destroy_notify_event(event: *mut xcb_destroy_notify_event_t, fu
 /// Copy only the native first-NUL text view before property/remanage callbacks
 /// can replace/free the original Window or its string.
 unsafe fn window_name_snapshot(window: *mut i3Window) -> Option<Vec<u8>> {
-    let name = (*window).name;
-    (!name.is_null()).then(|| {
-        std::ffi::CStr::from_ptr(i3string_as_utf8(name))
-            .to_bytes()
-            .to_vec()
-    })
+    (*window)
+        .name
+        .as_ref()
+        .and_then(|name| name.cstr_or_report().map(|text| text.to_bytes().to_vec()))
 }
 unsafe fn handle_windowname_change(mut con: *mut Con, prop: *mut xcb_get_property_reply_t) -> bool {
     let old_name = window_name_snapshot((*con).window);
@@ -2362,7 +2358,6 @@ pub use crate::types::Con;
 pub use crate::types::Match;
 pub use crate::types::Rect;
 pub use crate::types::Window;
-pub use i3_common::string::I3String as _i3String;
 
 // Internal calls and globals use canonical Rust identities.
 use crate::application::conn;
@@ -2463,7 +2458,6 @@ use crate::x::x_set_shape;
 use crate::xcb::fake_absolute_configure_notify;
 use i3_common::draw_util::draw_util_copy_surface;
 use i3_common::get_mod_mask::aio_get_mod_mask_for;
-use i3_common::string::i3string_as_utf8;
 
 use crate::xcb::xcb_numlock_mask;
 
@@ -2512,19 +2506,14 @@ mod owned_event_tests {
     }
     #[test]
     fn name_snapshot_outlives_replaced_native_text_and_preserves_repaired_native_view() {
-        let mut window: Box<i3Window> = Box::new(unsafe { std::mem::zeroed() });
-        window.name = Box::into_raw(Box::new(i3_common::string::I3String::from_bytes(
-            b"first\0ignored",
-        )));
+        let mut window = Box::new(i3Window::default());
+        window.name = Some(i3_common::string::I3String::from_bytes(b"first\0ignored"));
         unsafe {
             let snapshot = window_name_snapshot(&raw mut *window);
-            i3_common::string::i3string_free(window.name);
-            window.name =
-                Box::into_raw(Box::new(i3_common::string::I3String::from_bytes(b"second")));
+            window.name = Some(i3_common::string::I3String::from_bytes(b"second"));
             assert_eq!(snapshot.as_deref(), Some("first�ignored".as_bytes()));
             assert_ne!(snapshot, window_name_snapshot(&raw mut *window));
-            i3_common::string::i3string_free(window.name);
-            window.name = std::ptr::null_mut();
+            window.name = None;
             assert_eq!(window_name_snapshot(&raw mut *window), None);
         }
     }

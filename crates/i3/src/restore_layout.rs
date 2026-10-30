@@ -226,7 +226,7 @@ unsafe fn update_placeholder_contents(state: *mut placeholder_state) {
             let (x, y, max_width) =
                 text_geometry((*state).rect, config.font.height, logical_px(2), n);
             draw_util_text(
-                (&raw const text).cast_mut(),
+                &text,
                 &raw mut (*state).surface,
                 foreground,
                 background,
@@ -248,10 +248,10 @@ unsafe fn update_placeholder_contents(state: *mut placeholder_state) {
         swallows = (*swallows).matches.tqe_next as *mut Match;
     }
     let line = i3_common::string::I3String::new("⌚");
-    let text_width = predict_text_width((&raw const line).cast_mut());
+    let text_width = predict_text_width(&line);
     let (x, y) = centered_text((*state).rect, text_width, config.font.height);
     draw_util_text(
-        (&raw const line).cast_mut(),
+        &line,
         &raw mut (*state).surface,
         foreground,
         background,
@@ -559,7 +559,6 @@ pub use crate::types::Rect;
 pub use i3_common::draw_util::color_t;
 pub use i3_common::draw_util::surface_t;
 pub use i3_common::font::Font;
-pub use i3_common::string::I3String as _i3String;
 
 // Internal calls and globals use canonical Rust identities.
 use crate::application::main_loop;

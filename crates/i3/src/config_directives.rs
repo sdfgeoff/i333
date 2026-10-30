@@ -1952,7 +1952,6 @@ pub use crate::types::Con;
 pub use crate::types::Match;
 pub use crate::types::MatchMatches as C2RustUnnamed_11;
 pub use i3_common::font::Font;
-pub use i3_common::string::I3String as _i3String;
 
 // Internal calls and globals use canonical Rust identities.
 use crate::bindings::DEFAULT_BINDING_MODE;

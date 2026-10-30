@@ -7,16 +7,15 @@ pub use crate::application::{
 use crate::application::{BarDisplayMode, BarPosition, HiddenState, Rect};
 use crate::application::{C2RustUnnamed_0, C2RustUnnamed_1};
 use i3_common::safewrappers::srealloc;
-use i3_common::string::{i3string_free, I3String};
+use i3_common::string::I3String;
 use i3_json::{Event, EventHandler, ParseError, ParseErrorKind, Parser};
+use libc::free;
 use std::cell::RefCell;
 use std::ffi::CString;
 use std::ptr;
 use std::rc::Rc;
 use std::sync::Mutex;
 use xcb_sys::xcb_color_strings_t;
-type i3String = I3String;
-use libc::free;
 
 /// Intrusive nodes are owned by exactly one configuration list. Only the
 /// explicit event-thread append/clear functions transfer or recover Boxes.
@@ -64,7 +63,7 @@ impl TrayOutput {
 }
 
 pub static mut config: config_t = empty_config();
-const fn empty_config() -> config_t {
+pub(crate) const fn empty_config() -> config_t {
     config_t {
         modifier: 0,
         bindings: bindings_head {
@@ -117,7 +116,7 @@ const fn empty_config() -> config_t {
         command: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
         workspace_command: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
         fontname: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        separator_symbol: ::core::ptr::null::<i3String>() as *mut i3String,
+        separator_symbol: None,
         tray_outputs: tray_outputs_head {
             tqh_first: ::core::ptr::null::<tray_output_t>() as *mut tray_output_t,
             tqh_last: ::core::ptr::null::<*mut tray_output_t>() as *mut *mut tray_output_t,
@@ -201,7 +200,7 @@ struct ReaderState {
     padding: bool,
 }
 // This state intentionally survives accepted partial replies, as the original
-// callback keys/flags did. It is separate from the memset-compatible transport.
+// callback keys/flags did. It is separate from the event-thread configuration.
 static READER_STATE: Mutex<ReaderState> = Mutex::new(ReaderState {
     key: Vec::new(),
     bindings: false,
@@ -738,8 +737,7 @@ unsafe fn apply_config(target: *mut config_t, updates: Vec<Update>) {
             Update::HiddenState(value) => (*target).hidden_state = value,
             Update::Position(value) => (*target).position = value,
             Update::Separator(value) => {
-                i3string_free((*target).separator_symbol);
-                (*target).separator_symbol = Box::into_raw(Box::new(value));
+                (*target).separator_symbol = Some(value);
             }
             Update::Binding(binding) => append_binding(target, binding),
             Update::Tray(output) => append_tray(target, output),
@@ -897,7 +895,7 @@ mod tests {
         free((*target).command.cast());
         free((*target).workspace_command.cast());
         free((*target).fontname.cast());
-        i3string_free((*target).separator_symbol);
+        (*target).separator_symbol = None;
         for index in 0..(*target).num_outputs {
             free((*(*target).outputs.add(index as usize)).cast());
         }
@@ -990,8 +988,11 @@ mod tests {
             assert_eq!(target.position, BarPosition::Bottom);
             assert_eq!(target.modifier, 64);
             assert_eq!(CStr::from_ptr(target.command), c"run");
-            assert_eq!((*target.separator_symbol).as_str().unwrap(), "a�b");
-            assert_eq!((*target.separator_symbol).byte_len(), Ok(5));
+            assert_eq!(
+                target.separator_symbol.as_ref().unwrap().as_str().unwrap(),
+                "a�b"
+            );
+            assert_eq!(target.separator_symbol.as_ref().unwrap().byte_len(), Ok(5));
             assert!(target.verbose);
             release(&raw mut target);
         }

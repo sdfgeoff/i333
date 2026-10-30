@@ -1,13 +1,13 @@
 // Copyright © 2009 Michael Stapelberg and contributors (see LICENSE).
-//! Shared layout-compatible model records, not owners of their raw fields.
+//! Shared event-thread model records and native layout-compatible values.
 //!
-//! `Copy` duplicates links and native handles; it does not transfer allocations
-//! or permit freeing both copies. Graph mutation/freeing belongs to the owning
-//! event-thread modules. No whole-record Rust borrow may span their reentrant
-//! callbacks. Enum fields require valid discriminants even in native allocations;
-//! zero-filled constructors are valid only because their defaults are zero.
-//! Open integer domains (bit masks, unions selected by another field, protocol
-//! values) intentionally remain integers until all producers migrate together.
+//! Containers and windows have unique Rust owners and must not be copied or
+//! zero-initialized. Remaining `Copy` records contain borrowed links/native
+//! handles; copying those values does not transfer resource ownership. Graph
+//! mutation/freeing belongs to the event-thread owner modules. No whole-record
+//! Rust borrow may span reentrant callbacks. Legacy zero-filled POD constructors
+//! require valid enum discriminants; their current defaults are zero. Open
+//! integer domains remain integers until all producers migrate together.
 
 /// The layout of a container or the default layout for a workspace.
 ///
@@ -333,7 +333,8 @@ pub struct Colortriple {
     pub child_border: i3_common::draw_util::color_t,
 }
 
-#[derive(Copy, Clone)]
+/// Event-thread container, owned by the stable container arena.
+/// Links are borrowed identities; copying an entire container is invalid.
 #[repr(C)]
 pub struct Con {
     pub mapped: bool,
@@ -383,6 +384,111 @@ pub struct Con {
     pub old_id: ::core::ffi::c_int,
     pub depth: u16,
     pub colormap: xcb_sys::xcb_colormap_t,
+}
+
+impl Con {
+    /// Construct detached storage without assuming that Rust owners are zeroable.
+    /// Self-referential queue tails are installed only after stable allocation.
+    pub fn empty() -> Self {
+        use std::ptr::null_mut;
+        let rect = Rect {
+            x: 0,
+            y: 0,
+            width: 0,
+            height: 0,
+        };
+        let surface = i3_common::draw_util::surface_t {
+            id: 0,
+            gc: 0,
+            owns_gc: false,
+            width: 0,
+            height: 0,
+            surface: null_mut(),
+            cr: null_mut(),
+        };
+        Self {
+            mapped: false,
+            urgent: false,
+            ignore_unmap: 0,
+            frame: surface,
+            frame_buffer: surface,
+            pixmap_recreated: false,
+            type_0: 0,
+            num: 0,
+            gaps: gaps_t {
+                inner: 0,
+                top: 0,
+                right: 0,
+                bottom: 0,
+                left: 0,
+            },
+            parent: null_mut(),
+            rect,
+            window_rect: rect,
+            deco_rect: rect,
+            geometry: rect,
+            name: null_mut(),
+            title_format: null_mut(),
+            window_icon_padding: 0,
+            sticky_group: null_mut(),
+            marks_head: marks_head {
+                tqh_first: null_mut(),
+                tqh_last: null_mut(),
+            },
+            mark_changed: false,
+            percent: 0.0,
+            border_width: 0,
+            current_border_width: 0,
+            window: null_mut(),
+            urgency_timer: null_mut(),
+            deco_render_params: null_mut(),
+            floating_head: floating_head {
+                tqh_first: null_mut(),
+                tqh_last: null_mut(),
+            },
+            nodes_head: nodes_head {
+                tqh_first: null_mut(),
+                tqh_last: null_mut(),
+            },
+            focus_head: focus_head {
+                tqh_first: null_mut(),
+                tqh_last: null_mut(),
+            },
+            swallow_head: swallow_head {
+                tqh_first: null_mut(),
+                tqh_last: null_mut(),
+            },
+            fullscreen_mode: 0,
+            sticky: false,
+            layout: Layout::Default,
+            last_split_layout: Layout::Default,
+            workspace_layout: Layout::Default,
+            border_style: BorderStyle::None,
+            max_user_border_style: BorderStyle::None,
+            floating: FloatingState::default(),
+            nodes: ConNodes {
+                tqe_next: null_mut(),
+                tqe_prev: null_mut(),
+            },
+            focused: ConFocused {
+                tqe_next: null_mut(),
+                tqe_prev: null_mut(),
+            },
+            all_cons: ConAllCons {
+                tqe_next: null_mut(),
+                tqe_prev: null_mut(),
+            },
+            floating_windows: ConFloatingWindows {
+                tqe_next: null_mut(),
+                tqe_prev: null_mut(),
+            },
+            on_remove_child: None,
+            scratchpad_state: ScratchpadState::default(),
+            old_id: 0,
+            depth: 0,
+            colormap: 0,
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -509,7 +615,6 @@ pub struct Rect {
     pub height: u32,
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct Window {
     pub id: xcb_sys::xcb_window_t,
@@ -519,7 +624,7 @@ pub struct Window {
     pub ran_assignments: *mut *mut crate::types::Assignment,
     pub class_class: *mut ::core::ffi::c_char,
     pub class_instance: *mut ::core::ffi::c_char,
-    pub name: *mut i3_common::string::I3String,
+    pub name: Option<i3_common::string::I3String>,
     pub role: *mut ::core::ffi::c_char,
     pub machine: *mut ::core::ffi::c_char,
     pub name_x_changed: bool,
@@ -547,6 +652,56 @@ pub struct Window {
     pub input_shaped: bool,
     pub managed_since: ::core::ffi::c_long,
     pub swallowed: bool,
+}
+
+impl Default for Window {
+    fn default() -> Self {
+        Self {
+            id: Default::default(),
+            leader: Default::default(),
+            transient_for: Default::default(),
+            nr_assignments: Default::default(),
+            ran_assignments: std::ptr::null_mut(),
+            class_class: std::ptr::null_mut(),
+            class_instance: std::ptr::null_mut(),
+            name: None,
+            role: std::ptr::null_mut(),
+            machine: std::ptr::null_mut(),
+            name_x_changed: Default::default(),
+            uses_net_wm_name: Default::default(),
+            needs_take_focus: Default::default(),
+            doesnt_accept_focus: Default::default(),
+            window_type: Default::default(),
+            wm_desktop: Default::default(),
+            dock: Default::default(),
+            urgent: libc::timeval {
+                tv_sec: 0,
+                tv_usec: 0,
+            },
+            reserved: reservedpx {
+                left: 0,
+                right: 0,
+                top: 0,
+                bottom: 0,
+            },
+            depth: Default::default(),
+            base_width: Default::default(),
+            base_height: Default::default(),
+            width_increment: Default::default(),
+            height_increment: Default::default(),
+            min_width: Default::default(),
+            min_height: Default::default(),
+            max_width: Default::default(),
+            max_height: Default::default(),
+            min_aspect_ratio: Default::default(),
+            max_aspect_ratio: Default::default(),
+            icon: std::ptr::null_mut(),
+            shaped: Default::default(),
+            input_shaped: Default::default(),
+            managed_since: Default::default(),
+            swallowed: Default::default(),
+        }
+    }
 }
 
 #[derive(Copy, Clone)]

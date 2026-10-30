@@ -32,18 +32,10 @@ use std::rc::Rc;
  */
 // Mechanical file-by-file Rust translation of src/ipc.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
-pub use i3_json::compat::{yajl_alloc_funcs, yajl_gen};
-use i3_json::compat::{
-    yajl_gen_alloc, yajl_gen_array_close, yajl_gen_array_open, yajl_gen_bool, yajl_gen_double,
-    yajl_gen_free, yajl_gen_get_buf, yajl_gen_integer, yajl_gen_map_close, yajl_gen_map_open,
-    yajl_gen_null, yajl_gen_string,
-};
 pub use libev_sys::{
     ev_io, ev_io_start, ev_io_stop, ev_loop, ev_timer, ev_timer_start, ev_timer_stop, ev_tstamp,
     ev_watcher, ev_watcher_time, EV_READ, EV_WRITE, EV__IOFDSET,
 };
-
-pub type i3String = _i3String;
 
 pub use crate::application::Binding;
 pub type i3_event_state_mask_t = u32;
@@ -183,19 +175,6 @@ impl Drop for NumericLocale {
     fn drop(&mut self) {
         unsafe {
             setlocale(LC_NUMERIC, self.0.as_ptr());
-        }
-    }
-}
-struct JsonOwner(yajl_gen);
-impl JsonOwner {
-    fn new() -> Self {
-        Self(Box::into_raw(Box::new(i3_json::Generator::new())).cast())
-    }
-}
-impl Drop for JsonOwner {
-    fn drop(&mut self) {
-        unsafe {
-            yajl_gen_free(self.0);
         }
     }
 }
@@ -354,35 +333,24 @@ pub unsafe fn ipc_send_event(
     }
 }
 unsafe fn ipc_send_shutdown_event(reason: ShutdownReason) {
-    let generator_owner = JsonOwner::new();
-    let gen = generator_owner.0;
-    yajl_gen_map_open(gen);
-    yajl_gen_string(
-        gen,
-        c"change".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"change".as_ptr()),
-    );
+    let mut generator = i3_json::Generator::new();
+    let gen = &mut generator;
+    let _ = gen.start_object();
+    write_cstr(gen, c"change");
     if reason == ShutdownReason::Restart {
-        yajl_gen_string(
-            gen,
-            c"restart".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"restart".as_ptr()),
-        );
+        write_cstr(gen, c"restart");
     } else if reason == ShutdownReason::Exit {
-        yajl_gen_string(
-            gen,
-            c"exit".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"exit".as_ptr()),
-        );
+        write_cstr(gen, c"exit");
     }
-    yajl_gen_map_close(gen);
-    let mut payload: *const ::core::ffi::c_uchar = ::core::ptr::null::<::core::ffi::c_uchar>();
-    let mut length: ylength = 0;
-    yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
+    let _ = gen.end_object();
+    let payload = gen.bytes();
+    let length = payload.len();
     ipc_send_event(
         c"shutdown".as_ptr(),
         I3_IPC_EVENT_SHUTDOWN as u32,
-        payload as *const ::core::ffi::c_char,
+        CString::new(payload)
+            .expect("JSON has no literal NUL")
+            .as_ptr(),
     );
 }
 
@@ -396,6 +364,111 @@ pub unsafe fn ipc_shutdown(reason: ShutdownReason, exempt_fd: ::core::ffi::c_int
         free_ipc_client(current, exempt_fd);
     }
 }
+/// Complete command response values. The parser owns their stream; command
+/// handlers borrow native message bytes only while appending one response.
+pub enum CommandReply<'a> {
+    Success(bool),
+    Error(&'a CStr),
+    WithId(i64),
+    ParseError {
+        error: &'a CStr,
+        input: &'a CStr,
+        position: &'a CStr,
+    },
+}
+#[derive(Clone, Copy)]
+enum ReplyField<'a> {
+    Bool(bool),
+    Integer(i64),
+    Text(&'a CStr),
+}
+impl serde::Serialize for ReplyField<'_> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            Self::Bool(value) => serializer.serialize_bool(*value),
+            Self::Integer(value) => serializer.serialize_i64(*value),
+            Self::Text(value) => {
+                serializer.serialize_str(value.to_str().map_err(serde::ser::Error::custom)?)
+            }
+        }
+    }
+}
+impl CommandReply<'_> {
+    fn fields(&self) -> Vec<(&'static str, ReplyField<'_>)> {
+        use ReplyField::*;
+        match self {
+            Self::Success(value) => vec![("success", Bool(*value))],
+            Self::Error(error) => vec![("success", Bool(false)), ("error", Text(error))],
+            Self::WithId(id) => vec![("success", Bool(true)), ("id", Integer(*id))],
+            Self::ParseError {
+                error,
+                input,
+                position,
+            } => vec![
+                ("success", Bool(false)),
+                ("parse_error", Bool(true)),
+                ("error", Text(error)),
+                ("input", Text(input)),
+                ("errorposition", Text(position)),
+            ],
+        }
+    }
+    fn write(&self, output: &mut i3_json::Generator) {
+        let fields = self.fields();
+        if fields
+            .iter()
+            .all(|(_, value)| !matches!(value, ReplyField::Text(text) if text.to_str().is_err()))
+        {
+            let _ = output.serialized(self);
+            return;
+        }
+        // Legacy generators reject invalid UTF-8 without consuming a value.
+        // Preserve the subsequent key/value state and partial output exactly;
+        // repairing native bytes or dropping the whole response changes IPC.
+        let _ = output.start_object();
+        for (key, value) in fields {
+            let _ = output.string(key);
+            match value {
+                ReplyField::Bool(value) => {
+                    let _ = output.boolean(value);
+                }
+                ReplyField::Integer(value) => {
+                    let _ = output.integer(value);
+                }
+                ReplyField::Text(value) => {
+                    if let Ok(value) = value.to_str() {
+                        let _ = output.string(value);
+                    }
+                }
+            }
+        }
+        let _ = output.end_object();
+    }
+}
+impl serde::Serialize for CommandReply<'_> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeMap;
+        let fields = self.fields();
+        let mut map = serializer.serialize_map(Some(fields.len()))?;
+        for (key, value) in fields {
+            map.serialize_entry(key, &value)?;
+        }
+        map.end()
+    }
+}
+/// # Safety
+/// `command` and its parser context are live for this synchronous dispatch.
+/// No references into either object survive the short append operation.
+pub unsafe fn emit_command_reply(
+    command: *mut crate::commands::CommandResultIR,
+    reply: CommandReply<'_>,
+) {
+    let context = unsafe { (*command).ctx };
+    if let Some(output) = unsafe { &mut (*context).json_output } {
+        reply.write(output);
+    }
+}
+
 struct CommandResultOwner(*mut CommandResult);
 impl Drop for CommandResultOwner {
     fn drop(&mut self) {
@@ -419,9 +492,8 @@ unsafe fn handle_run_command(
         c"IPC: received: *%.4000s*\n".as_ptr().cast_mut(),
         command.as_ptr(),
     );
-    let generator_owner = JsonOwner::new();
-    let gen = generator_owner.0;
-    let result = CommandResultOwner(parse_command(command.as_ptr(), gen, client));
+    let mut output = i3_json::Generator::new();
+    let result = CommandResultOwner(parse_command(command.as_ptr(), Some(&mut output), client));
     if (*result.0).needs_tree_render {
         tree_render();
     }
@@ -431,10 +503,23 @@ unsafe fn handle_run_command(
     if !token.live() {
         return;
     }
-    let mut reply = std::ptr::null();
-    let mut length = 0;
-    yajl_gen_get_buf(gen, &mut reply, &mut length);
-    ipc_send_client_message(client, length, I3_IPC_REPLY_TYPE_COMMAND as u32, reply);
+    let reply = output.bytes();
+    ipc_send_client_message(
+        client,
+        reply.len(),
+        I3_IPC_REPLY_TYPE_COMMAND as u32,
+        reply.as_ptr(),
+    );
+}
+// Rejected native strings consume no value in the compatibility stream. Keep
+// this behavior at the byte boundary while typed messages use Serde directly.
+fn write_bytes(generator: &mut i3_json::Generator, value: &[u8]) {
+    if let Ok(value) = std::str::from_utf8(value) {
+        let _ = generator.string(value);
+    }
+}
+fn write_cstr(generator: &mut i3_json::Generator, value: &CStr) {
+    write_bytes(generator, value.to_bytes());
 }
 fn write_fields(
     generator: &mut i3_json::Generator,
@@ -469,25 +554,17 @@ fn gaps_fields(gaps: gaps_t) -> [(&'static str, i64); 6] {
 }
 /// Generator handles must be uniquely borrowed native adapters to a live Rust
 /// Generator. The owned-value encoder itself never touches graph pointers.
-unsafe fn dump_rect(gen: yajl_gen, name: *const libc::c_char, rect: Rect) {
+unsafe fn dump_rect(gen: &mut i3_json::Generator, name: *const libc::c_char, rect: Rect) {
     let name = CStr::from_ptr(name)
         .to_str()
         .expect("internal rectangle field name");
-    let _ = write_fields(
-        &mut *gen.cast::<i3_json::Generator>(),
-        name,
-        &rect_fields(rect),
-    );
+    let _ = write_fields(gen, name, &rect_fields(rect));
 }
-unsafe fn dump_gaps(gen: yajl_gen, name: *const libc::c_char, gaps: gaps_t) {
+unsafe fn dump_gaps(gen: &mut i3_json::Generator, name: *const libc::c_char, gaps: gaps_t) {
     let name = CStr::from_ptr(name)
         .to_str()
         .expect("internal gaps field name");
-    let _ = write_fields(
-        &mut *gen.cast::<i3_json::Generator>(),
-        name,
-        &gaps_fields(gaps),
-    );
+    let _ = write_fields(gen, name, &gaps_fields(gaps));
 }
 fn modifier_names(mask: u32) -> impl Iterator<Item = &'static str> {
     [
@@ -512,249 +589,116 @@ fn modifier_names(mask: u32) -> impl Iterator<Item = &'static str> {
     .into_iter()
     .filter_map(move |(bit, name)| (mask & (1 << bit) != 0).then_some(name))
 }
-unsafe fn dump_event_state_mask(gen: yajl_gen, bind: *mut Binding) {
+unsafe fn dump_event_state_mask(gen: &mut i3_json::Generator, bind: *mut Binding) {
     let mask = (*bind).event_state_mask;
-    let generator = &mut *gen.cast::<i3_json::Generator>();
+    let generator = gen;
     let _ = generator.start_array();
     for name in modifier_names(mask) {
         let _ = generator.string(name);
     }
     let _ = generator.end_array();
 }
-unsafe fn dump_binding(gen: yajl_gen, bind: *mut Binding) {
-    yajl_gen_map_open(gen);
-    yajl_gen_string(
+unsafe fn dump_binding(gen: &mut i3_json::Generator, bind: *mut Binding) {
+    let _ = gen.start_object();
+    write_cstr(gen, c"input_code");
+    let _ = gen.integer((*bind).keycode as ::core::ffi::c_longlong);
+    write_cstr(gen, c"input_type");
+    write_cstr(
         gen,
-        c"input_code".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"input_code".as_ptr()),
-    );
-    yajl_gen_integer(gen, (*bind).keycode as ::core::ffi::c_longlong);
-    yajl_gen_string(
-        gen,
-        c"input_type".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"input_type".as_ptr()),
-    );
-    yajl_gen_string(
-        gen,
-        (if (*bind).input_type == InputType::Keyboard {
-            c"keyboard".as_ptr()
-        } else {
-            c"mouse".as_ptr()
-        }) as *mut ::core::ffi::c_uchar,
-        strlen(if (*bind).input_type == InputType::Keyboard {
+        CStr::from_ptr(if (*bind).input_type == InputType::Keyboard {
             c"keyboard".as_ptr()
         } else {
             c"mouse".as_ptr()
         }),
     );
-    yajl_gen_string(
-        gen,
-        c"symbol".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"symbol".as_ptr()),
-    );
+    write_cstr(gen, c"symbol");
     if (*bind).symbol.is_null() {
-        yajl_gen_null(gen);
+        let _ = gen.null();
     } else {
-        yajl_gen_string(
-            gen,
-            (*bind).symbol as *mut ::core::ffi::c_uchar,
-            strlen((*bind).symbol),
-        );
+        write_cstr(gen, CStr::from_ptr((*bind).symbol));
     }
-    yajl_gen_string(
-        gen,
-        c"command".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"command".as_ptr()),
-    );
-    yajl_gen_string(
-        gen,
-        (*bind).command as *mut ::core::ffi::c_uchar,
-        strlen((*bind).command),
-    );
-    yajl_gen_string(
-        gen,
-        c"mods".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"mods".as_ptr()),
-    );
+    write_cstr(gen, c"command");
+    write_cstr(gen, CStr::from_ptr((*bind).command));
+    write_cstr(gen, c"mods");
     dump_event_state_mask(gen, bind);
-    yajl_gen_string(
-        gen,
-        c"event_state_mask".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"event_state_mask".as_ptr()),
-    );
+    write_cstr(gen, c"event_state_mask");
     dump_event_state_mask(gen, bind);
-    yajl_gen_map_close(gen);
+    let _ = gen.end_object();
 }
 
-pub unsafe fn dump_node(gen: yajl_gen, con: *mut Con, inplace_restart: bool) {
-    yajl_gen_map_open(gen);
-    yajl_gen_string(
-        gen,
-        c"id".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"id".as_ptr()),
-    );
-    yajl_gen_integer(gen, con as usize as ::core::ffi::c_longlong);
-    yajl_gen_string(
-        gen,
-        c"type".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"type".as_ptr()),
-    );
+pub unsafe fn dump_node(gen: &mut i3_json::Generator, con: *mut Con, inplace_restart: bool) {
+    let _ = gen.start_object();
+    write_cstr(gen, c"id");
+    let _ = gen.integer(con as usize as ::core::ffi::c_longlong);
+    write_cstr(gen, c"type");
     match (*con).type_0 as ::core::ffi::c_uint {
         0 => {
-            yajl_gen_string(
-                gen,
-                c"root".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"root".as_ptr()),
-            );
+            write_cstr(gen, c"root");
         }
         1 => {
-            yajl_gen_string(
-                gen,
-                c"output".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"output".as_ptr()),
-            );
+            write_cstr(gen, c"output");
         }
         2 => {
-            yajl_gen_string(
-                gen,
-                c"con".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"con".as_ptr()),
-            );
+            write_cstr(gen, c"con");
         }
         3 => {
-            yajl_gen_string(
-                gen,
-                c"floating_con".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"floating_con".as_ptr()),
-            );
+            write_cstr(gen, c"floating_con");
         }
         4 => {
-            yajl_gen_string(
-                gen,
-                c"workspace".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"workspace".as_ptr()),
-            );
+            write_cstr(gen, c"workspace");
         }
         5 => {
-            yajl_gen_string(
-                gen,
-                c"dockarea".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"dockarea".as_ptr()),
-            );
+            write_cstr(gen, c"dockarea");
         }
         _ => {}
     }
-    yajl_gen_string(
-        gen,
-        c"orientation".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"orientation".as_ptr()),
-    );
+    write_cstr(gen, c"orientation");
     if !con_is_split(con) {
-        yajl_gen_string(
-            gen,
-            c"none".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"none".as_ptr()),
-        );
+        write_cstr(gen, c"none");
     } else if con_orientation(con) == Orientation::Horizontal {
-        yajl_gen_string(
-            gen,
-            c"horizontal".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"horizontal".as_ptr()),
-        );
+        write_cstr(gen, c"horizontal");
     } else {
-        yajl_gen_string(
-            gen,
-            c"vertical".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"vertical".as_ptr()),
-        );
+        write_cstr(gen, c"vertical");
     }
-    yajl_gen_string(
-        gen,
-        c"scratchpad_state".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"scratchpad_state".as_ptr()),
-    );
+    write_cstr(gen, c"scratchpad_state");
     match (*con).scratchpad_state {
         ScratchpadState::None => {
-            yajl_gen_string(
-                gen,
-                c"none".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"none".as_ptr()),
-            );
+            write_cstr(gen, c"none");
         }
         ScratchpadState::Fresh => {
-            yajl_gen_string(
-                gen,
-                c"fresh".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"fresh".as_ptr()),
-            );
+            write_cstr(gen, c"fresh");
         }
         ScratchpadState::Changed => {
-            yajl_gen_string(
-                gen,
-                c"changed".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"changed".as_ptr()),
-            );
+            write_cstr(gen, c"changed");
         }
     }
-    yajl_gen_string(
-        gen,
-        c"percent".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"percent".as_ptr()),
-    );
+    write_cstr(gen, c"percent");
     if (*con).percent == 0.0f64 {
-        yajl_gen_null(gen);
+        let _ = gen.null();
     } else {
-        yajl_gen_double(gen, (*con).percent);
+        let _ = gen.double((*con).percent);
     }
-    yajl_gen_string(
-        gen,
-        c"urgent".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"urgent".as_ptr()),
-    );
-    yajl_gen_bool(gen, (*con).urgent as ::core::ffi::c_int);
-    yajl_gen_string(
-        gen,
-        c"marks".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"marks".as_ptr()),
-    );
-    yajl_gen_array_open(gen);
+    write_cstr(gen, c"urgent");
+    let _ = gen.boolean(((*con).urgent as ::core::ffi::c_int) != 0);
+    write_cstr(gen, c"marks");
+    let _ = gen.start_array();
     let mut mark: *mut mark_t = ::core::ptr::null_mut::<mark_t>();
     mark = (*con).marks_head.tqh_first as *mut mark_t;
     while !mark.is_null() {
-        yajl_gen_string(
-            gen,
-            (*mark).name as *mut ::core::ffi::c_uchar,
-            strlen((*mark).name),
-        );
+        write_cstr(gen, CStr::from_ptr((*mark).name));
         mark = (*mark).marks.tqe_next as *mut mark_t;
     }
-    yajl_gen_array_close(gen);
-    yajl_gen_string(
-        gen,
-        c"focused".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"focused".as_ptr()),
-    );
-    yajl_gen_bool(gen, (con == focused) as ::core::ffi::c_int);
+    let _ = gen.end_array();
+    write_cstr(gen, c"focused");
+    let _ = gen.boolean(((con == focused) as ::core::ffi::c_int) != 0);
     if (*con).type_0 as ::core::ffi::c_uint != CT_ROOT as ::core::ffi::c_int as ::core::ffi::c_uint
         && (*con).type_0 as ::core::ffi::c_uint
             != CT_OUTPUT as ::core::ffi::c_int as ::core::ffi::c_uint
     {
-        yajl_gen_string(
-            gen,
-            c"output".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"output".as_ptr()),
-        );
-        yajl_gen_string(
-            gen,
-            (*con_get_output(con)).name as *mut ::core::ffi::c_uchar,
-            strlen((*con_get_output(con)).name),
-        );
+        write_cstr(gen, c"output");
+        write_cstr(gen, CStr::from_ptr((*con_get_output(con)).name));
     }
-    yajl_gen_string(
-        gen,
-        c"layout".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"layout".as_ptr()),
-    );
+    write_cstr(gen, c"layout");
     match (*con).layout {
         Layout::Default => {
             debuglog(
@@ -776,74 +720,34 @@ pub unsafe fn dump_node(gen: yajl_gen, con: *mut Con, inplace_restart: bool) {
             };
         }
         Layout::SplitV => {
-            yajl_gen_string(
-                gen,
-                c"splitv".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"splitv".as_ptr()),
-            );
+            write_cstr(gen, c"splitv");
         }
         Layout::SplitH => {
-            yajl_gen_string(
-                gen,
-                c"splith".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"splith".as_ptr()),
-            );
+            write_cstr(gen, c"splith");
         }
         Layout::Stacked => {
-            yajl_gen_string(
-                gen,
-                c"stacked".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"stacked".as_ptr()),
-            );
+            write_cstr(gen, c"stacked");
         }
         Layout::Tabbed => {
-            yajl_gen_string(
-                gen,
-                c"tabbed".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"tabbed".as_ptr()),
-            );
+            write_cstr(gen, c"tabbed");
         }
         Layout::DockArea => {
-            yajl_gen_string(
-                gen,
-                c"dockarea".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"dockarea".as_ptr()),
-            );
+            write_cstr(gen, c"dockarea");
         }
         Layout::Output => {
-            yajl_gen_string(
-                gen,
-                c"output".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"output".as_ptr()),
-            );
+            write_cstr(gen, c"output");
         }
     }
-    yajl_gen_string(
-        gen,
-        c"workspace_layout".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"workspace_layout".as_ptr()),
-    );
+    write_cstr(gen, c"workspace_layout");
     match (*con).workspace_layout {
         Layout::Default => {
-            yajl_gen_string(
-                gen,
-                c"default".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"default".as_ptr()),
-            );
+            write_cstr(gen, c"default");
         }
         Layout::Stacked => {
-            yajl_gen_string(
-                gen,
-                c"stacked".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"stacked".as_ptr()),
-            );
+            write_cstr(gen, c"stacked");
         }
         Layout::Tabbed => {
-            yajl_gen_string(
-                gen,
-                c"tabbed".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"tabbed".as_ptr()),
-            );
+            write_cstr(gen, c"tabbed");
         }
         Layout::DockArea | Layout::Output | Layout::SplitV | Layout::SplitH => {
             debuglog(
@@ -864,18 +768,10 @@ pub unsafe fn dump_node(gen: yajl_gen, con: *mut Con, inplace_restart: bool) {
             };
         }
     }
-    yajl_gen_string(
-        gen,
-        c"last_split_layout".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"last_split_layout".as_ptr()),
-    );
+    write_cstr(gen, c"last_split_layout");
     match (*con).layout {
         Layout::SplitV => {
-            yajl_gen_string(
-                gen,
-                c"splitv".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"splitv".as_ptr()),
-            );
+            write_cstr(gen, c"splitv");
         }
         Layout::Default
         | Layout::Stacked
@@ -883,47 +779,23 @@ pub unsafe fn dump_node(gen: yajl_gen, con: *mut Con, inplace_restart: bool) {
         | Layout::DockArea
         | Layout::Output
         | Layout::SplitH => {
-            yajl_gen_string(
-                gen,
-                c"splith".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"splith".as_ptr()),
-            );
+            write_cstr(gen, c"splith");
         }
     }
-    yajl_gen_string(
-        gen,
-        c"border".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"border".as_ptr()),
-    );
+    write_cstr(gen, c"border");
     match (*con).border_style {
         BorderStyle::Normal => {
-            yajl_gen_string(
-                gen,
-                c"normal".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"normal".as_ptr()),
-            );
+            write_cstr(gen, c"normal");
         }
         BorderStyle::None => {
-            yajl_gen_string(
-                gen,
-                c"none".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"none".as_ptr()),
-            );
+            write_cstr(gen, c"none");
         }
         BorderStyle::Pixel => {
-            yajl_gen_string(
-                gen,
-                c"pixel".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"pixel".as_ptr()),
-            );
+            write_cstr(gen, c"pixel");
         }
     }
-    yajl_gen_string(
-        gen,
-        c"current_border_width".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"current_border_width".as_ptr()),
-    );
-    yajl_gen_integer(gen, (*con).current_border_width as ::core::ffi::c_longlong);
+    write_cstr(gen, c"current_border_width");
+    let _ = gen.integer((*con).current_border_width as ::core::ffi::c_longlong);
     dump_rect(gen, c"rect".as_ptr(), (*con).rect as Rect);
     if con_draw_decoration_into_frame(con) {
         let mut simulated_deco_rect: Rect = (*con).deco_rect as Rect;
@@ -936,235 +808,108 @@ pub unsafe fn dump_node(gen: yajl_gen, con: *mut Con, inplace_restart: bool) {
     }
     dump_rect(gen, c"window_rect".as_ptr(), (*con).window_rect as Rect);
     dump_rect(gen, c"geometry".as_ptr(), (*con).geometry as Rect);
-    yajl_gen_string(
-        gen,
-        c"name".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"name".as_ptr()),
-    );
-    if !(*con).window.is_null() && !(*(*con).window).name.is_null() {
-        yajl_gen_string(
-            gen,
-            i3string_as_utf8((*(*con).window).name) as *mut ::core::ffi::c_uchar,
-            strlen(i3string_as_utf8((*(*con).window).name)),
-        );
+    write_cstr(gen, c"name");
+    if !(*con).window.is_null() && (*(*con).window).name.is_some() {
+        if let Some(name) = (*(*con).window)
+            .name
+            .as_ref()
+            .and_then(|name| name.cstr_or_report())
+        {
+            write_cstr(gen, name);
+        }
     } else if !(*con).name.is_null() {
-        yajl_gen_string(
-            gen,
-            (*con).name as *mut ::core::ffi::c_uchar,
-            strlen((*con).name),
-        );
+        write_cstr(gen, CStr::from_ptr((*con).name));
     } else {
-        yajl_gen_null(gen);
+        let _ = gen.null();
     }
     if !(*con).title_format.is_null() {
-        yajl_gen_string(
-            gen,
-            c"title_format".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"title_format".as_ptr()),
-        );
-        yajl_gen_string(
-            gen,
-            (*con).title_format as *mut ::core::ffi::c_uchar,
-            strlen((*con).title_format),
-        );
+        write_cstr(gen, c"title_format");
+        write_cstr(gen, CStr::from_ptr((*con).title_format));
     }
-    yajl_gen_string(
-        gen,
-        c"window_icon_padding".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"window_icon_padding".as_ptr()),
-    );
-    yajl_gen_integer(gen, (*con).window_icon_padding as ::core::ffi::c_longlong);
+    write_cstr(gen, c"window_icon_padding");
+    let _ = gen.integer((*con).window_icon_padding as ::core::ffi::c_longlong);
     if (*con).type_0 as ::core::ffi::c_uint
         == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
     {
-        yajl_gen_string(
-            gen,
-            c"num".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"num".as_ptr()),
-        );
-        yajl_gen_integer(gen, (*con).num as ::core::ffi::c_longlong);
+        write_cstr(gen, c"num");
+        let _ = gen.integer((*con).num as ::core::ffi::c_longlong);
         dump_gaps(gen, c"gaps".as_ptr(), (*con).gaps);
     }
-    yajl_gen_string(
-        gen,
-        c"window".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"window".as_ptr()),
-    );
+    write_cstr(gen, c"window");
     if !(*con).window.is_null() {
-        yajl_gen_integer(gen, (*(*con).window).id as ::core::ffi::c_longlong);
+        let _ = gen.integer((*(*con).window).id as ::core::ffi::c_longlong);
     } else {
-        yajl_gen_null(gen);
+        let _ = gen.null();
     }
-    yajl_gen_string(
-        gen,
-        c"window_type".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"window_type".as_ptr()),
-    );
+    write_cstr(gen, c"window_type");
     if !(*con).window.is_null() {
         if (*(*con).window).window_type == A__NET_WM_WINDOW_TYPE_NORMAL {
-            yajl_gen_string(
-                gen,
-                c"normal".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"normal".as_ptr()),
-            );
+            write_cstr(gen, c"normal");
         } else if (*(*con).window).window_type == A__NET_WM_WINDOW_TYPE_DOCK {
-            yajl_gen_string(
-                gen,
-                c"dock".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"dock".as_ptr()),
-            );
+            write_cstr(gen, c"dock");
         } else if (*(*con).window).window_type == A__NET_WM_WINDOW_TYPE_DIALOG {
-            yajl_gen_string(
-                gen,
-                c"dialog".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"dialog".as_ptr()),
-            );
+            write_cstr(gen, c"dialog");
         } else if (*(*con).window).window_type == A__NET_WM_WINDOW_TYPE_UTILITY {
-            yajl_gen_string(
-                gen,
-                c"utility".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"utility".as_ptr()),
-            );
+            write_cstr(gen, c"utility");
         } else if (*(*con).window).window_type == A__NET_WM_WINDOW_TYPE_TOOLBAR {
-            yajl_gen_string(
-                gen,
-                c"toolbar".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"toolbar".as_ptr()),
-            );
+            write_cstr(gen, c"toolbar");
         } else if (*(*con).window).window_type == A__NET_WM_WINDOW_TYPE_SPLASH {
-            yajl_gen_string(
-                gen,
-                c"splash".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"splash".as_ptr()),
-            );
+            write_cstr(gen, c"splash");
         } else if (*(*con).window).window_type == A__NET_WM_WINDOW_TYPE_MENU {
-            yajl_gen_string(
-                gen,
-                c"menu".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"menu".as_ptr()),
-            );
+            write_cstr(gen, c"menu");
         } else if (*(*con).window).window_type == A__NET_WM_WINDOW_TYPE_DROPDOWN_MENU {
-            yajl_gen_string(
-                gen,
-                c"dropdown_menu".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"dropdown_menu".as_ptr()),
-            );
+            write_cstr(gen, c"dropdown_menu");
         } else if (*(*con).window).window_type == A__NET_WM_WINDOW_TYPE_POPUP_MENU {
-            yajl_gen_string(
-                gen,
-                c"popup_menu".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"popup_menu".as_ptr()),
-            );
+            write_cstr(gen, c"popup_menu");
         } else if (*(*con).window).window_type == A__NET_WM_WINDOW_TYPE_TOOLTIP {
-            yajl_gen_string(
-                gen,
-                c"tooltip".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"tooltip".as_ptr()),
-            );
+            write_cstr(gen, c"tooltip");
         } else if (*(*con).window).window_type == A__NET_WM_WINDOW_TYPE_NOTIFICATION {
-            yajl_gen_string(
-                gen,
-                c"notification".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"notification".as_ptr()),
-            );
+            write_cstr(gen, c"notification");
         } else {
-            yajl_gen_string(
-                gen,
-                c"unknown".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"unknown".as_ptr()),
-            );
+            write_cstr(gen, c"unknown");
         }
     } else {
-        yajl_gen_null(gen);
+        let _ = gen.null();
     }
     if !(*con).window.is_null() && !inplace_restart {
-        yajl_gen_string(
-            gen,
-            c"window_properties".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"window_properties".as_ptr()),
-        );
-        yajl_gen_map_open(gen);
+        write_cstr(gen, c"window_properties");
+        let _ = gen.start_object();
         if !(*(*con).window).class_class.is_null() {
-            yajl_gen_string(
-                gen,
-                c"class".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"class".as_ptr()),
-            );
-            yajl_gen_string(
-                gen,
-                (*(*con).window).class_class as *mut ::core::ffi::c_uchar,
-                strlen((*(*con).window).class_class),
-            );
+            write_cstr(gen, c"class");
+            write_cstr(gen, CStr::from_ptr((*(*con).window).class_class));
         }
         if !(*(*con).window).class_instance.is_null() {
-            yajl_gen_string(
-                gen,
-                c"instance".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"instance".as_ptr()),
-            );
-            yajl_gen_string(
-                gen,
-                (*(*con).window).class_instance as *mut ::core::ffi::c_uchar,
-                strlen((*(*con).window).class_instance),
-            );
+            write_cstr(gen, c"instance");
+            write_cstr(gen, CStr::from_ptr((*(*con).window).class_instance));
         }
         if !(*(*con).window).role.is_null() {
-            yajl_gen_string(
-                gen,
-                c"window_role".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"window_role".as_ptr()),
-            );
-            yajl_gen_string(
-                gen,
-                (*(*con).window).role as *mut ::core::ffi::c_uchar,
-                strlen((*(*con).window).role),
-            );
+            write_cstr(gen, c"window_role");
+            write_cstr(gen, CStr::from_ptr((*(*con).window).role));
         }
         if !(*(*con).window).machine.is_null() {
-            yajl_gen_string(
-                gen,
-                c"machine".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"machine".as_ptr()),
-            );
-            yajl_gen_string(
-                gen,
-                (*(*con).window).machine as *mut ::core::ffi::c_uchar,
-                strlen((*(*con).window).machine),
-            );
+            write_cstr(gen, c"machine");
+            write_cstr(gen, CStr::from_ptr((*(*con).window).machine));
         }
-        if !(*(*con).window).name.is_null() {
-            yajl_gen_string(
-                gen,
-                c"title".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"title".as_ptr()),
-            );
-            yajl_gen_string(
-                gen,
-                i3string_as_utf8((*(*con).window).name) as *mut ::core::ffi::c_uchar,
-                strlen(i3string_as_utf8((*(*con).window).name)),
-            );
+        if (*(*con).window).name.is_some() {
+            write_cstr(gen, c"title");
+            if let Some(name) = (*(*con).window)
+                .name
+                .as_ref()
+                .and_then(|name| name.cstr_or_report())
+            {
+                write_cstr(gen, name);
+            }
         }
-        yajl_gen_string(
-            gen,
-            c"transient_for".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"transient_for".as_ptr()),
-        );
+        write_cstr(gen, c"transient_for");
         if (*(*con).window).transient_for as ::core::ffi::c_long == XCB_NONE {
-            yajl_gen_null(gen);
+            let _ = gen.null();
         } else {
-            yajl_gen_integer(
-                gen,
-                (*(*con).window).transient_for as ::core::ffi::c_longlong,
-            );
+            let _ = gen.integer((*(*con).window).transient_for as ::core::ffi::c_longlong);
         }
-        yajl_gen_map_close(gen);
+        let _ = gen.end_object();
     }
-    yajl_gen_string(
-        gen,
-        c"nodes".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"nodes".as_ptr()),
-    );
-    yajl_gen_array_open(gen);
+    write_cstr(gen, c"nodes");
+    let _ = gen.start_array();
     let mut node: *mut Con = ::core::ptr::null_mut::<Con>();
     if (*con).type_0 as ::core::ffi::c_uint
         != CT_DOCKAREA as ::core::ffi::c_int as ::core::ffi::c_uint
@@ -1176,252 +921,133 @@ pub unsafe fn dump_node(gen: yajl_gen, con: *mut Con, inplace_restart: bool) {
             node = (*node).nodes.tqe_next as *mut Con;
         }
     }
-    yajl_gen_array_close(gen);
-    yajl_gen_string(
-        gen,
-        c"floating_nodes".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"floating_nodes".as_ptr()),
-    );
-    yajl_gen_array_open(gen);
+    let _ = gen.end_array();
+    write_cstr(gen, c"floating_nodes");
+    let _ = gen.start_array();
     node = (*con).floating_head.tqh_first as *mut Con;
     while !node.is_null() {
         dump_node(gen, node, inplace_restart);
         node = (*node).floating_windows.tqe_next as *mut Con;
     }
-    yajl_gen_array_close(gen);
-    yajl_gen_string(
-        gen,
-        c"focus".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"focus".as_ptr()),
-    );
-    yajl_gen_array_open(gen);
+    let _ = gen.end_array();
+    write_cstr(gen, c"focus");
+    let _ = gen.start_array();
     node = (*con).focus_head.tqh_first as *mut Con;
     while !node.is_null() {
-        yajl_gen_integer(gen, node as usize as ::core::ffi::c_longlong);
+        let _ = gen.integer(node as usize as ::core::ffi::c_longlong);
         node = (*node).focused.tqe_next as *mut Con;
     }
-    yajl_gen_array_close(gen);
-    yajl_gen_string(
-        gen,
-        c"fullscreen_mode".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"fullscreen_mode".as_ptr()),
-    );
-    yajl_gen_integer(gen, (*con).fullscreen_mode as ::core::ffi::c_longlong);
-    yajl_gen_string(
-        gen,
-        c"sticky".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"sticky".as_ptr()),
-    );
-    yajl_gen_bool(gen, (*con).sticky as ::core::ffi::c_int);
-    yajl_gen_string(
-        gen,
-        c"floating".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"floating".as_ptr()),
-    );
+    let _ = gen.end_array();
+    write_cstr(gen, c"fullscreen_mode");
+    let _ = gen.integer((*con).fullscreen_mode as ::core::ffi::c_longlong);
+    write_cstr(gen, c"sticky");
+    let _ = gen.boolean(((*con).sticky as ::core::ffi::c_int) != 0);
+    write_cstr(gen, c"floating");
     match (*con).floating {
         FloatingState::AutoOff => {
-            yajl_gen_string(
-                gen,
-                c"auto_off".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"auto_off".as_ptr()),
-            );
+            write_cstr(gen, c"auto_off");
         }
         FloatingState::AutoOn => {
-            yajl_gen_string(
-                gen,
-                c"auto_on".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"auto_on".as_ptr()),
-            );
+            write_cstr(gen, c"auto_on");
         }
         FloatingState::UserOff => {
-            yajl_gen_string(
-                gen,
-                c"user_off".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"user_off".as_ptr()),
-            );
+            write_cstr(gen, c"user_off");
         }
         FloatingState::UserOn => {
-            yajl_gen_string(
-                gen,
-                c"user_on".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"user_on".as_ptr()),
-            );
+            write_cstr(gen, c"user_on");
         }
     }
-    yajl_gen_string(
-        gen,
-        c"swallows".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"swallows".as_ptr()),
-    );
-    yajl_gen_array_open(gen);
+    write_cstr(gen, c"swallows");
+    let _ = gen.start_array();
     let mut match_0: *mut Match = ::core::ptr::null_mut::<Match>();
     match_0 = (*con).swallow_head.tqh_first as *mut Match;
     while !match_0.is_null() {
         if !(*match_0).restart_mode {
-            yajl_gen_map_open(gen);
+            let _ = gen.start_object();
             if (*match_0).dock as ::core::ffi::c_int != M_DONTCHECK as ::core::ffi::c_int {
-                yajl_gen_string(
-                    gen,
-                    c"dock".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"dock".as_ptr()),
-                );
-                yajl_gen_integer(gen, (*match_0).dock as ::core::ffi::c_longlong);
-                yajl_gen_string(
-                    gen,
-                    c"insert_where".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"insert_where".as_ptr()),
-                );
-                yajl_gen_integer(gen, (*match_0).insert_where as ::core::ffi::c_longlong);
+                write_cstr(gen, c"dock");
+                let _ = gen.integer((*match_0).dock as ::core::ffi::c_longlong);
+                write_cstr(gen, c"insert_where");
+                let _ = gen.integer((*match_0).insert_where as ::core::ffi::c_longlong);
             }
             if !(*match_0).class.is_null() {
-                yajl_gen_string(
-                    gen,
-                    c"class".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"class".as_ptr()),
-                );
-                yajl_gen_string(
-                    gen,
-                    (*(*match_0).class).pattern().as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen((*(*match_0).class).pattern().as_ptr()),
-                );
+                write_cstr(gen, c"class");
+                write_cstr(gen, CStr::from_ptr((*(*match_0).class).pattern().as_ptr()));
             }
             if !(*match_0).instance.is_null() {
-                yajl_gen_string(
+                write_cstr(gen, c"instance");
+                write_cstr(
                     gen,
-                    c"instance".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"instance".as_ptr()),
-                );
-                yajl_gen_string(
-                    gen,
-                    (*(*match_0).instance).pattern().as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen((*(*match_0).instance).pattern().as_ptr()),
+                    CStr::from_ptr((*(*match_0).instance).pattern().as_ptr()),
                 );
             }
             if !(*match_0).window_role.is_null() {
-                yajl_gen_string(
+                write_cstr(gen, c"window_role");
+                write_cstr(
                     gen,
-                    c"window_role".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"window_role".as_ptr()),
-                );
-                yajl_gen_string(
-                    gen,
-                    (*(*match_0).window_role).pattern().as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen((*(*match_0).window_role).pattern().as_ptr()),
+                    CStr::from_ptr((*(*match_0).window_role).pattern().as_ptr()),
                 );
             }
             if !(*match_0).title.is_null() {
-                yajl_gen_string(
-                    gen,
-                    c"title".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"title".as_ptr()),
-                );
-                yajl_gen_string(
-                    gen,
-                    (*(*match_0).title).pattern().as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen((*(*match_0).title).pattern().as_ptr()),
-                );
+                write_cstr(gen, c"title");
+                write_cstr(gen, CStr::from_ptr((*(*match_0).title).pattern().as_ptr()));
             }
             if !(*match_0).machine.is_null() {
-                yajl_gen_string(
+                write_cstr(gen, c"machine");
+                write_cstr(
                     gen,
-                    c"machine".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"machine".as_ptr()),
-                );
-                yajl_gen_string(
-                    gen,
-                    (*(*match_0).machine).pattern().as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen((*(*match_0).machine).pattern().as_ptr()),
+                    CStr::from_ptr((*(*match_0).machine).pattern().as_ptr()),
                 );
             }
-            yajl_gen_map_close(gen);
+            let _ = gen.end_object();
         }
         match_0 = (*match_0).matches.tqe_next as *mut Match;
     }
     if inplace_restart {
         if !(*con).window.is_null() {
-            yajl_gen_map_open(gen);
-            yajl_gen_string(
-                gen,
-                c"id".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"id".as_ptr()),
-            );
-            yajl_gen_integer(gen, (*(*con).window).id as ::core::ffi::c_longlong);
-            yajl_gen_string(
-                gen,
-                c"restart_mode".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"restart_mode".as_ptr()),
-            );
-            yajl_gen_bool(gen, true_0);
-            yajl_gen_map_close(gen);
+            let _ = gen.start_object();
+            write_cstr(gen, c"id");
+            let _ = gen.integer((*(*con).window).id as ::core::ffi::c_longlong);
+            write_cstr(gen, c"restart_mode");
+            let _ = gen.boolean((true_0) != 0);
+            let _ = gen.end_object();
         }
     }
-    yajl_gen_array_close(gen);
+    let _ = gen.end_array();
     if inplace_restart as ::core::ffi::c_int != 0 && !(*con).window.is_null() {
-        yajl_gen_string(
-            gen,
-            c"depth".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"depth".as_ptr()),
-        );
-        yajl_gen_integer(gen, (*con).depth as ::core::ffi::c_longlong);
+        write_cstr(gen, c"depth");
+        let _ = gen.integer((*con).depth as ::core::ffi::c_longlong);
     }
     if inplace_restart as ::core::ffi::c_int != 0
         && (*con).type_0 as ::core::ffi::c_uint
             == CT_ROOT as ::core::ffi::c_int as ::core::ffi::c_uint
         && !previous_workspace_name.is_null()
     {
-        yajl_gen_string(
-            gen,
-            c"previous_workspace_name".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"previous_workspace_name".as_ptr()),
-        );
-        yajl_gen_string(
-            gen,
-            previous_workspace_name as *mut ::core::ffi::c_uchar,
-            strlen(previous_workspace_name),
-        );
+        write_cstr(gen, c"previous_workspace_name");
+        write_cstr(gen, CStr::from_ptr(previous_workspace_name));
     }
-    yajl_gen_map_close(gen);
+    let _ = gen.end_object();
 }
-unsafe fn dump_bar_bindings(gen: yajl_gen, config: *mut Barconfig) {
+unsafe fn dump_bar_bindings(gen: &mut i3_json::Generator, config: *mut Barconfig) {
     if (*config).bar_bindings.tqh_first.is_null() {
         return;
     }
-    yajl_gen_string(
-        gen,
-        c"bindings".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"bindings".as_ptr()),
-    );
-    yajl_gen_array_open(gen);
+    write_cstr(gen, c"bindings");
+    let _ = gen.start_array();
     let mut current: *mut Barbinding = ::core::ptr::null_mut::<Barbinding>();
     current = (*config).bar_bindings.tqh_first as *mut Barbinding;
     while !current.is_null() {
-        yajl_gen_map_open(gen);
-        yajl_gen_string(
-            gen,
-            c"input_code".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"input_code".as_ptr()),
-        );
-        yajl_gen_integer(gen, (*current).input_code as ::core::ffi::c_longlong);
-        yajl_gen_string(
-            gen,
-            c"command".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"command".as_ptr()),
-        );
-        yajl_gen_string(
-            gen,
-            (*current).command as *mut ::core::ffi::c_uchar,
-            strlen((*current).command),
-        );
-        yajl_gen_string(
-            gen,
-            c"release".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"release".as_ptr()),
-        );
-        yajl_gen_bool(gen, i32::from((*current).release));
-        yajl_gen_map_close(gen);
+        let _ = gen.start_object();
+        write_cstr(gen, c"input_code");
+        let _ = gen.integer((*current).input_code as ::core::ffi::c_longlong);
+        write_cstr(gen, c"command");
+        write_cstr(gen, CStr::from_ptr((*current).command));
+        write_cstr(gen, c"release");
+        let _ = gen.boolean((i32::from((*current).release)) != 0);
+        let _ = gen.end_object();
         current = (*current).bindings.tqe_next;
     }
-    yajl_gen_array_close(gen);
+    let _ = gen.end_array();
 }
 unsafe fn canonicalize_output_name(name: *mut ::core::ffi::c_char) -> *mut ::core::ffi::c_char {
     if strcasecmp(name, c"primary".as_ptr()) == 0 as ::core::ffi::c_int
@@ -1436,509 +1062,211 @@ unsafe fn canonicalize_output_name(name: *mut ::core::ffi::c_char) -> *mut ::cor
         name
     }
 }
-unsafe fn dump_bar_config(gen: yajl_gen, config: *mut Barconfig) {
-    yajl_gen_map_open(gen);
-    yajl_gen_string(
-        gen,
-        c"id".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"id".as_ptr()),
-    );
-    yajl_gen_string(
-        gen,
-        (*config).id as *mut ::core::ffi::c_uchar,
-        strlen((*config).id),
-    );
+unsafe fn dump_bar_config(gen: &mut i3_json::Generator, config: *mut Barconfig) {
+    let _ = gen.start_object();
+    write_cstr(gen, c"id");
+    write_cstr(gen, CStr::from_ptr((*config).id));
     if (*config).num_outputs > 0 as ::core::ffi::c_int {
-        yajl_gen_string(
-            gen,
-            c"outputs".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"outputs".as_ptr()),
-        );
-        yajl_gen_array_open(gen);
+        write_cstr(gen, c"outputs");
+        let _ = gen.start_array();
         let mut c: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
         while c < (*config).num_outputs {
-            yajl_gen_string(
+            write_cstr(
                 gen,
-                canonicalize_output_name(*(*config).outputs.offset(c as isize))
-                    as *mut ::core::ffi::c_uchar,
-                strlen(canonicalize_output_name(
+                CStr::from_ptr(canonicalize_output_name(
                     *(*config).outputs.offset(c as isize),
                 )),
             );
             c += 1;
         }
-        yajl_gen_array_close(gen);
+        let _ = gen.end_array();
     }
     if !(*config).tray_outputs.tqh_first.is_null() {
-        yajl_gen_string(
-            gen,
-            c"tray_outputs".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"tray_outputs".as_ptr()),
-        );
-        yajl_gen_array_open(gen);
+        write_cstr(gen, c"tray_outputs");
+        let _ = gen.start_array();
         let mut tray_output: *mut tray_output_t = ::core::ptr::null_mut::<tray_output_t>();
         tray_output = (*config).tray_outputs.tqh_first as *mut tray_output_t;
         while !tray_output.is_null() {
-            yajl_gen_string(
+            write_cstr(
                 gen,
-                canonicalize_output_name((*tray_output).output) as *mut ::core::ffi::c_uchar,
-                strlen(canonicalize_output_name((*tray_output).output)),
+                CStr::from_ptr(canonicalize_output_name((*tray_output).output)),
             );
             tray_output = (*tray_output).tray_outputs.tqe_next;
         }
-        yajl_gen_array_close(gen);
+        let _ = gen.end_array();
     }
-    yajl_gen_string(
-        gen,
-        c"tray_padding".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"tray_padding".as_ptr()),
-    );
-    yajl_gen_integer(gen, (*config).tray_padding as ::core::ffi::c_longlong);
+    write_cstr(gen, c"tray_padding");
+    let _ = gen.integer((*config).tray_padding as ::core::ffi::c_longlong);
     if !(*config).socket_path.is_null() {
-        yajl_gen_string(
-            gen,
-            c"socket_path".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"socket_path".as_ptr()),
-        );
-        yajl_gen_string(
-            gen,
-            (*config).socket_path as *mut ::core::ffi::c_uchar,
-            strlen((*config).socket_path),
-        );
+        write_cstr(gen, c"socket_path");
+        write_cstr(gen, CStr::from_ptr((*config).socket_path));
     }
-    yajl_gen_string(
-        gen,
-        c"mode".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"mode".as_ptr()),
-    );
+    write_cstr(gen, c"mode");
     match (*config).mode as ::core::ffi::c_uint {
         1 => {
-            yajl_gen_string(
-                gen,
-                c"hide".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"hide".as_ptr()),
-            );
+            write_cstr(gen, c"hide");
         }
         2 => {
-            yajl_gen_string(
-                gen,
-                c"invisible".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"invisible".as_ptr()),
-            );
+            write_cstr(gen, c"invisible");
         }
         0 | _ => {
-            yajl_gen_string(
-                gen,
-                c"dock".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"dock".as_ptr()),
-            );
+            write_cstr(gen, c"dock");
         }
     }
-    yajl_gen_string(
-        gen,
-        c"hidden_state".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"hidden_state".as_ptr()),
-    );
+    write_cstr(gen, c"hidden_state");
     match (*config).hidden_state {
         BarHiddenState::Show => {
-            yajl_gen_string(
-                gen,
-                c"show".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"show".as_ptr()),
-            );
+            write_cstr(gen, c"show");
         }
         BarHiddenState::Hide => {
-            yajl_gen_string(
-                gen,
-                c"hide".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"hide".as_ptr()),
-            );
+            write_cstr(gen, c"hide");
         }
     }
-    yajl_gen_string(
-        gen,
-        c"modifier".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"modifier".as_ptr()),
-    );
-    yajl_gen_integer(gen, (*config).modifier as ::core::ffi::c_longlong);
+    write_cstr(gen, c"modifier");
+    let _ = gen.integer((*config).modifier as ::core::ffi::c_longlong);
     dump_bar_bindings(gen, config);
-    yajl_gen_string(
-        gen,
-        c"position".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"position".as_ptr()),
-    );
+    write_cstr(gen, c"position");
     if (*config).position == BarPosition::Bottom {
-        yajl_gen_string(
-            gen,
-            c"bottom".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"bottom".as_ptr()),
-        );
+        write_cstr(gen, c"bottom");
     } else {
-        yajl_gen_string(
-            gen,
-            c"top".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"top".as_ptr()),
-        );
+        write_cstr(gen, c"top");
     }
     if !(*config).status_command.is_null() {
-        yajl_gen_string(
-            gen,
-            c"status_command".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"status_command".as_ptr()),
-        );
-        yajl_gen_string(
-            gen,
-            (*config).status_command as *mut ::core::ffi::c_uchar,
-            strlen((*config).status_command),
-        );
+        write_cstr(gen, c"status_command");
+        write_cstr(gen, CStr::from_ptr((*config).status_command));
     }
     if !(*config).workspace_command.is_null() {
-        yajl_gen_string(
-            gen,
-            c"workspace_command".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"workspace_command".as_ptr()),
-        );
-        yajl_gen_string(
-            gen,
-            (*config).workspace_command as *mut ::core::ffi::c_uchar,
-            strlen((*config).workspace_command),
-        );
+        write_cstr(gen, c"workspace_command");
+        write_cstr(gen, CStr::from_ptr((*config).workspace_command));
     }
     if !(*config).font.is_null() {
-        yajl_gen_string(
-            gen,
-            c"font".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"font".as_ptr()),
-        );
-        yajl_gen_string(
-            gen,
-            (*config).font as *mut ::core::ffi::c_uchar,
-            strlen((*config).font),
-        );
+        write_cstr(gen, c"font");
+        write_cstr(gen, CStr::from_ptr((*config).font));
     }
     if (*config).bar_height != 0 {
-        yajl_gen_string(
-            gen,
-            c"bar_height".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"bar_height".as_ptr()),
-        );
-        yajl_gen_integer(gen, (*config).bar_height as ::core::ffi::c_longlong);
+        write_cstr(gen, c"bar_height");
+        let _ = gen.integer((*config).bar_height as ::core::ffi::c_longlong);
     }
     dump_rect(gen, c"padding".as_ptr(), (*config).padding as Rect);
     if !(*config).separator_symbol.is_null() {
-        yajl_gen_string(
-            gen,
-            c"separator_symbol".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"separator_symbol".as_ptr()),
-        );
-        yajl_gen_string(
-            gen,
-            (*config).separator_symbol as *mut ::core::ffi::c_uchar,
-            strlen((*config).separator_symbol),
-        );
+        write_cstr(gen, c"separator_symbol");
+        write_cstr(gen, CStr::from_ptr((*config).separator_symbol));
     }
-    yajl_gen_string(
-        gen,
-        c"workspace_buttons".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"workspace_buttons".as_ptr()),
-    );
-    yajl_gen_bool(gen, !(*config).hide_workspace_buttons as ::core::ffi::c_int);
-    yajl_gen_string(
-        gen,
-        c"workspace_min_width".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"workspace_min_width".as_ptr()),
-    );
-    yajl_gen_integer(
-        gen,
-        (*config).workspace_min_width as ::core::ffi::c_longlong,
-    );
-    yajl_gen_string(
-        gen,
-        c"strip_workspace_numbers".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"strip_workspace_numbers".as_ptr()),
-    );
-    yajl_gen_bool(gen, (*config).strip_workspace_numbers as ::core::ffi::c_int);
-    yajl_gen_string(
-        gen,
-        c"strip_workspace_name".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"strip_workspace_name".as_ptr()),
-    );
-    yajl_gen_bool(gen, (*config).strip_workspace_name as ::core::ffi::c_int);
-    yajl_gen_string(
-        gen,
-        c"binding_mode_indicator".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"binding_mode_indicator".as_ptr()),
-    );
-    yajl_gen_bool(
-        gen,
-        !(*config).hide_binding_mode_indicator as ::core::ffi::c_int,
-    );
-    yajl_gen_string(
-        gen,
-        c"verbose".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"verbose".as_ptr()),
-    );
-    yajl_gen_bool(gen, (*config).verbose as ::core::ffi::c_int);
-    yajl_gen_string(
-        gen,
-        c"colors".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"colors".as_ptr()),
-    );
-    yajl_gen_map_open(gen);
+    write_cstr(gen, c"workspace_buttons");
+    let _ = gen.boolean((!(*config).hide_workspace_buttons as ::core::ffi::c_int) != 0);
+    write_cstr(gen, c"workspace_min_width");
+    let _ = gen.integer((*config).workspace_min_width as ::core::ffi::c_longlong);
+    write_cstr(gen, c"strip_workspace_numbers");
+    let _ = gen.boolean(((*config).strip_workspace_numbers as ::core::ffi::c_int) != 0);
+    write_cstr(gen, c"strip_workspace_name");
+    let _ = gen.boolean(((*config).strip_workspace_name as ::core::ffi::c_int) != 0);
+    write_cstr(gen, c"binding_mode_indicator");
+    let _ = gen.boolean((!(*config).hide_binding_mode_indicator as ::core::ffi::c_int) != 0);
+    write_cstr(gen, c"verbose");
+    let _ = gen.boolean(((*config).verbose as ::core::ffi::c_int) != 0);
+    write_cstr(gen, c"colors");
+    let _ = gen.start_object();
     if !(*config).colors.background.is_null() {
-        yajl_gen_string(
-            gen,
-            c"background".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"background".as_ptr()),
-        );
-        yajl_gen_string(
-            gen,
-            (*config).colors.background as *mut ::core::ffi::c_uchar,
-            strlen((*config).colors.background),
-        );
+        write_cstr(gen, c"background");
+        write_cstr(gen, CStr::from_ptr((*config).colors.background));
     }
     if !(*config).colors.statusline.is_null() {
-        yajl_gen_string(
-            gen,
-            c"statusline".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"statusline".as_ptr()),
-        );
-        yajl_gen_string(
-            gen,
-            (*config).colors.statusline as *mut ::core::ffi::c_uchar,
-            strlen((*config).colors.statusline),
-        );
+        write_cstr(gen, c"statusline");
+        write_cstr(gen, CStr::from_ptr((*config).colors.statusline));
     }
     if !(*config).colors.separator.is_null() {
-        yajl_gen_string(
-            gen,
-            c"separator".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"separator".as_ptr()),
-        );
-        yajl_gen_string(
-            gen,
-            (*config).colors.separator as *mut ::core::ffi::c_uchar,
-            strlen((*config).colors.separator),
-        );
+        write_cstr(gen, c"separator");
+        write_cstr(gen, CStr::from_ptr((*config).colors.separator));
     }
     if !(*config).colors.focused_background.is_null() {
-        yajl_gen_string(
-            gen,
-            c"focused_background".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"focused_background".as_ptr()),
-        );
-        yajl_gen_string(
-            gen,
-            (*config).colors.focused_background as *mut ::core::ffi::c_uchar,
-            strlen((*config).colors.focused_background),
-        );
+        write_cstr(gen, c"focused_background");
+        write_cstr(gen, CStr::from_ptr((*config).colors.focused_background));
     }
     if !(*config).colors.focused_statusline.is_null() {
-        yajl_gen_string(
-            gen,
-            c"focused_statusline".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"focused_statusline".as_ptr()),
-        );
-        yajl_gen_string(
-            gen,
-            (*config).colors.focused_statusline as *mut ::core::ffi::c_uchar,
-            strlen((*config).colors.focused_statusline),
-        );
+        write_cstr(gen, c"focused_statusline");
+        write_cstr(gen, CStr::from_ptr((*config).colors.focused_statusline));
     }
     if !(*config).colors.focused_separator.is_null() {
-        yajl_gen_string(
-            gen,
-            c"focused_separator".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"focused_separator".as_ptr()),
-        );
-        yajl_gen_string(
-            gen,
-            (*config).colors.focused_separator as *mut ::core::ffi::c_uchar,
-            strlen((*config).colors.focused_separator),
-        );
+        write_cstr(gen, c"focused_separator");
+        write_cstr(gen, CStr::from_ptr((*config).colors.focused_separator));
     }
     if !(*config).colors.focused_workspace_border.is_null() {
-        yajl_gen_string(
+        write_cstr(gen, c"focused_workspace_border");
+        write_cstr(
             gen,
-            c"focused_workspace_border".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"focused_workspace_border".as_ptr()),
-        );
-        yajl_gen_string(
-            gen,
-            (*config).colors.focused_workspace_border as *mut ::core::ffi::c_uchar,
-            strlen((*config).colors.focused_workspace_border),
+            CStr::from_ptr((*config).colors.focused_workspace_border),
         );
     }
     if !(*config).colors.focused_workspace_bg.is_null() {
-        yajl_gen_string(
-            gen,
-            c"focused_workspace_bg".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"focused_workspace_bg".as_ptr()),
-        );
-        yajl_gen_string(
-            gen,
-            (*config).colors.focused_workspace_bg as *mut ::core::ffi::c_uchar,
-            strlen((*config).colors.focused_workspace_bg),
-        );
+        write_cstr(gen, c"focused_workspace_bg");
+        write_cstr(gen, CStr::from_ptr((*config).colors.focused_workspace_bg));
     }
     if !(*config).colors.focused_workspace_text.is_null() {
-        yajl_gen_string(
-            gen,
-            c"focused_workspace_text".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"focused_workspace_text".as_ptr()),
-        );
-        yajl_gen_string(
-            gen,
-            (*config).colors.focused_workspace_text as *mut ::core::ffi::c_uchar,
-            strlen((*config).colors.focused_workspace_text),
-        );
+        write_cstr(gen, c"focused_workspace_text");
+        write_cstr(gen, CStr::from_ptr((*config).colors.focused_workspace_text));
     }
     if !(*config).colors.active_workspace_border.is_null() {
-        yajl_gen_string(
+        write_cstr(gen, c"active_workspace_border");
+        write_cstr(
             gen,
-            c"active_workspace_border".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"active_workspace_border".as_ptr()),
-        );
-        yajl_gen_string(
-            gen,
-            (*config).colors.active_workspace_border as *mut ::core::ffi::c_uchar,
-            strlen((*config).colors.active_workspace_border),
+            CStr::from_ptr((*config).colors.active_workspace_border),
         );
     }
     if !(*config).colors.active_workspace_bg.is_null() {
-        yajl_gen_string(
-            gen,
-            c"active_workspace_bg".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"active_workspace_bg".as_ptr()),
-        );
-        yajl_gen_string(
-            gen,
-            (*config).colors.active_workspace_bg as *mut ::core::ffi::c_uchar,
-            strlen((*config).colors.active_workspace_bg),
-        );
+        write_cstr(gen, c"active_workspace_bg");
+        write_cstr(gen, CStr::from_ptr((*config).colors.active_workspace_bg));
     }
     if !(*config).colors.active_workspace_text.is_null() {
-        yajl_gen_string(
-            gen,
-            c"active_workspace_text".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"active_workspace_text".as_ptr()),
-        );
-        yajl_gen_string(
-            gen,
-            (*config).colors.active_workspace_text as *mut ::core::ffi::c_uchar,
-            strlen((*config).colors.active_workspace_text),
-        );
+        write_cstr(gen, c"active_workspace_text");
+        write_cstr(gen, CStr::from_ptr((*config).colors.active_workspace_text));
     }
     if !(*config).colors.inactive_workspace_border.is_null() {
-        yajl_gen_string(
+        write_cstr(gen, c"inactive_workspace_border");
+        write_cstr(
             gen,
-            c"inactive_workspace_border".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"inactive_workspace_border".as_ptr()),
-        );
-        yajl_gen_string(
-            gen,
-            (*config).colors.inactive_workspace_border as *mut ::core::ffi::c_uchar,
-            strlen((*config).colors.inactive_workspace_border),
+            CStr::from_ptr((*config).colors.inactive_workspace_border),
         );
     }
     if !(*config).colors.inactive_workspace_bg.is_null() {
-        yajl_gen_string(
-            gen,
-            c"inactive_workspace_bg".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"inactive_workspace_bg".as_ptr()),
-        );
-        yajl_gen_string(
-            gen,
-            (*config).colors.inactive_workspace_bg as *mut ::core::ffi::c_uchar,
-            strlen((*config).colors.inactive_workspace_bg),
-        );
+        write_cstr(gen, c"inactive_workspace_bg");
+        write_cstr(gen, CStr::from_ptr((*config).colors.inactive_workspace_bg));
     }
     if !(*config).colors.inactive_workspace_text.is_null() {
-        yajl_gen_string(
+        write_cstr(gen, c"inactive_workspace_text");
+        write_cstr(
             gen,
-            c"inactive_workspace_text".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"inactive_workspace_text".as_ptr()),
-        );
-        yajl_gen_string(
-            gen,
-            (*config).colors.inactive_workspace_text as *mut ::core::ffi::c_uchar,
-            strlen((*config).colors.inactive_workspace_text),
+            CStr::from_ptr((*config).colors.inactive_workspace_text),
         );
     }
     if !(*config).colors.urgent_workspace_border.is_null() {
-        yajl_gen_string(
+        write_cstr(gen, c"urgent_workspace_border");
+        write_cstr(
             gen,
-            c"urgent_workspace_border".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"urgent_workspace_border".as_ptr()),
-        );
-        yajl_gen_string(
-            gen,
-            (*config).colors.urgent_workspace_border as *mut ::core::ffi::c_uchar,
-            strlen((*config).colors.urgent_workspace_border),
+            CStr::from_ptr((*config).colors.urgent_workspace_border),
         );
     }
     if !(*config).colors.urgent_workspace_bg.is_null() {
-        yajl_gen_string(
-            gen,
-            c"urgent_workspace_bg".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"urgent_workspace_bg".as_ptr()),
-        );
-        yajl_gen_string(
-            gen,
-            (*config).colors.urgent_workspace_bg as *mut ::core::ffi::c_uchar,
-            strlen((*config).colors.urgent_workspace_bg),
-        );
+        write_cstr(gen, c"urgent_workspace_bg");
+        write_cstr(gen, CStr::from_ptr((*config).colors.urgent_workspace_bg));
     }
     if !(*config).colors.urgent_workspace_text.is_null() {
-        yajl_gen_string(
-            gen,
-            c"urgent_workspace_text".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"urgent_workspace_text".as_ptr()),
-        );
-        yajl_gen_string(
-            gen,
-            (*config).colors.urgent_workspace_text as *mut ::core::ffi::c_uchar,
-            strlen((*config).colors.urgent_workspace_text),
-        );
+        write_cstr(gen, c"urgent_workspace_text");
+        write_cstr(gen, CStr::from_ptr((*config).colors.urgent_workspace_text));
     }
     if !(*config).colors.binding_mode_border.is_null() {
-        yajl_gen_string(
-            gen,
-            c"binding_mode_border".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"binding_mode_border".as_ptr()),
-        );
-        yajl_gen_string(
-            gen,
-            (*config).colors.binding_mode_border as *mut ::core::ffi::c_uchar,
-            strlen((*config).colors.binding_mode_border),
-        );
+        write_cstr(gen, c"binding_mode_border");
+        write_cstr(gen, CStr::from_ptr((*config).colors.binding_mode_border));
     }
     if !(*config).colors.binding_mode_bg.is_null() {
-        yajl_gen_string(
-            gen,
-            c"binding_mode_bg".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"binding_mode_bg".as_ptr()),
-        );
-        yajl_gen_string(
-            gen,
-            (*config).colors.binding_mode_bg as *mut ::core::ffi::c_uchar,
-            strlen((*config).colors.binding_mode_bg),
-        );
+        write_cstr(gen, c"binding_mode_bg");
+        write_cstr(gen, CStr::from_ptr((*config).colors.binding_mode_bg));
     }
     if !(*config).colors.binding_mode_text.is_null() {
-        yajl_gen_string(
-            gen,
-            c"binding_mode_text".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"binding_mode_text".as_ptr()),
-        );
-        yajl_gen_string(
-            gen,
-            (*config).colors.binding_mode_text as *mut ::core::ffi::c_uchar,
-            strlen((*config).colors.binding_mode_text),
-        );
+        write_cstr(gen, c"binding_mode_text");
+        write_cstr(gen, CStr::from_ptr((*config).colors.binding_mode_text));
     }
-    yajl_gen_map_close(gen);
-    yajl_gen_map_close(gen);
+    let _ = gen.end_object();
+    let _ = gen.end_object();
 }
 unsafe fn handle_tree(
     client: *mut ipc_client,
@@ -1948,18 +1276,17 @@ unsafe fn handle_tree(
     message_type: u32,
 ) {
     let locale = NumericLocale::c();
-    let generator_owner = JsonOwner::new();
-    let gen = generator_owner.0;
+    let mut generator = i3_json::Generator::new();
+    let gen = &mut generator;
     dump_node(gen, croot, false_0 != 0);
     drop(locale);
-    let mut payload: *const ::core::ffi::c_uchar = ::core::ptr::null::<::core::ffi::c_uchar>();
-    let mut length: ylength = 0;
-    yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
+    let payload = gen.bytes();
+    let length = payload.len();
     ipc_send_client_message(
         client,
         length as usize,
         I3_IPC_REPLY_TYPE_TREE as u32,
-        payload as *const u8,
+        payload.as_ptr(),
     );
 }
 unsafe fn handle_get_workspaces(
@@ -1969,9 +1296,9 @@ unsafe fn handle_get_workspaces(
     message_size: u32,
     message_type: u32,
 ) {
-    let generator_owner = JsonOwner::new();
-    let gen = generator_owner.0;
-    yajl_gen_array_open(gen);
+    let mut generator = i3_json::Generator::new();
+    let gen = &mut generator;
+    let _ = gen.start_array();
     let focused_ws: *mut Con = con_get_workspace(focused);
     let mut output: *mut Con = ::core::ptr::null_mut::<Con>();
     output = (*croot).nodes_head.tqh_first as *mut Con;
@@ -1991,103 +1318,46 @@ unsafe fn handle_get_workspaces(
                         c"void handle_get_workspaces(ipc_client *, uint8_t *, int, uint32_t, uint32_t)".as_ptr(),
                     );
                 };
-                yajl_gen_map_open(gen);
-                yajl_gen_string(
-                    gen,
-                    c"id".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"id".as_ptr()),
-                );
-                yajl_gen_integer(gen, ws as usize as ::core::ffi::c_longlong);
-                yajl_gen_string(
-                    gen,
-                    c"num".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"num".as_ptr()),
-                );
-                yajl_gen_integer(gen, (*ws).num as ::core::ffi::c_longlong);
-                yajl_gen_string(
-                    gen,
-                    c"name".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"name".as_ptr()),
-                );
-                yajl_gen_string(
-                    gen,
-                    (*ws).name as *mut ::core::ffi::c_uchar,
-                    strlen((*ws).name),
-                );
-                yajl_gen_string(
-                    gen,
-                    c"visible".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"visible".as_ptr()),
-                );
-                yajl_gen_bool(gen, workspace_is_visible(ws) as ::core::ffi::c_int);
-                yajl_gen_string(
-                    gen,
-                    c"focused".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"focused".as_ptr()),
-                );
-                yajl_gen_bool(gen, (ws == focused_ws) as ::core::ffi::c_int);
-                yajl_gen_string(
-                    gen,
-                    c"rect".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"rect".as_ptr()),
-                );
-                yajl_gen_map_open(gen);
-                yajl_gen_string(
-                    gen,
-                    c"x".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"x".as_ptr()),
-                );
-                yajl_gen_integer(gen, (*ws).rect.x as ::core::ffi::c_longlong);
-                yajl_gen_string(
-                    gen,
-                    c"y".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"y".as_ptr()),
-                );
-                yajl_gen_integer(gen, (*ws).rect.y as ::core::ffi::c_longlong);
-                yajl_gen_string(
-                    gen,
-                    c"width".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"width".as_ptr()),
-                );
-                yajl_gen_integer(gen, (*ws).rect.width as ::core::ffi::c_longlong);
-                yajl_gen_string(
-                    gen,
-                    c"height".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"height".as_ptr()),
-                );
-                yajl_gen_integer(gen, (*ws).rect.height as ::core::ffi::c_longlong);
-                yajl_gen_map_close(gen);
-                yajl_gen_string(
-                    gen,
-                    c"output".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"output".as_ptr()),
-                );
-                yajl_gen_string(
-                    gen,
-                    (*output).name as *mut ::core::ffi::c_uchar,
-                    strlen((*output).name),
-                );
-                yajl_gen_string(
-                    gen,
-                    c"urgent".as_ptr() as *mut ::core::ffi::c_uchar,
-                    strlen(c"urgent".as_ptr()),
-                );
-                yajl_gen_bool(gen, (*ws).urgent as ::core::ffi::c_int);
-                yajl_gen_map_close(gen);
+                let _ = gen.start_object();
+                write_cstr(gen, c"id");
+                let _ = gen.integer(ws as usize as ::core::ffi::c_longlong);
+                write_cstr(gen, c"num");
+                let _ = gen.integer((*ws).num as ::core::ffi::c_longlong);
+                write_cstr(gen, c"name");
+                write_cstr(gen, CStr::from_ptr((*ws).name));
+                write_cstr(gen, c"visible");
+                let _ = gen.boolean((workspace_is_visible(ws) as ::core::ffi::c_int) != 0);
+                write_cstr(gen, c"focused");
+                let _ = gen.boolean(((ws == focused_ws) as ::core::ffi::c_int) != 0);
+                write_cstr(gen, c"rect");
+                let _ = gen.start_object();
+                write_cstr(gen, c"x");
+                let _ = gen.integer((*ws).rect.x as ::core::ffi::c_longlong);
+                write_cstr(gen, c"y");
+                let _ = gen.integer((*ws).rect.y as ::core::ffi::c_longlong);
+                write_cstr(gen, c"width");
+                let _ = gen.integer((*ws).rect.width as ::core::ffi::c_longlong);
+                write_cstr(gen, c"height");
+                let _ = gen.integer((*ws).rect.height as ::core::ffi::c_longlong);
+                let _ = gen.end_object();
+                write_cstr(gen, c"output");
+                write_cstr(gen, CStr::from_ptr((*output).name));
+                write_cstr(gen, c"urgent");
+                let _ = gen.boolean(((*ws).urgent as ::core::ffi::c_int) != 0);
+                let _ = gen.end_object();
                 ws = (*ws).nodes.tqe_next as *mut Con;
             }
         }
         output = (*output).nodes.tqe_next as *mut Con;
     }
-    yajl_gen_array_close(gen);
-    let mut payload: *const ::core::ffi::c_uchar = ::core::ptr::null::<::core::ffi::c_uchar>();
-    let mut length: ylength = 0;
-    yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
+    let _ = gen.end_array();
+    let payload = gen.bytes();
+    let length = payload.len();
     ipc_send_client_message(
         client,
         length as usize,
         I3_IPC_REPLY_TYPE_WORKSPACES as u32,
-        payload as *const u8,
+        payload.as_ptr(),
     );
 }
 unsafe fn handle_get_outputs(
@@ -2097,96 +1367,51 @@ unsafe fn handle_get_outputs(
     message_size: u32,
     message_type: u32,
 ) {
-    let generator_owner = JsonOwner::new();
-    let gen = generator_owner.0;
-    yajl_gen_array_open(gen);
+    let mut generator = i3_json::Generator::new();
+    let gen = &mut generator;
+    let _ = gen.start_array();
     let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
     output = outputs.tqh_first as *mut Output;
     while !output.is_null() {
-        yajl_gen_map_open(gen);
-        yajl_gen_string(
-            gen,
-            c"name".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"name".as_ptr()),
-        );
-        yajl_gen_string(
-            gen,
-            output_primary_name(output) as *mut ::core::ffi::c_uchar,
-            strlen(output_primary_name(output)),
-        );
-        yajl_gen_string(
-            gen,
-            c"active".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"active".as_ptr()),
-        );
-        yajl_gen_bool(gen, (*output).active as ::core::ffi::c_int);
-        yajl_gen_string(
-            gen,
-            c"primary".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"primary".as_ptr()),
-        );
-        yajl_gen_bool(gen, (*output).primary as ::core::ffi::c_int);
-        yajl_gen_string(
-            gen,
-            c"rect".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"rect".as_ptr()),
-        );
-        yajl_gen_map_open(gen);
-        yajl_gen_string(
-            gen,
-            c"x".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"x".as_ptr()),
-        );
-        yajl_gen_integer(gen, (*output).rect.x as ::core::ffi::c_longlong);
-        yajl_gen_string(
-            gen,
-            c"y".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"y".as_ptr()),
-        );
-        yajl_gen_integer(gen, (*output).rect.y as ::core::ffi::c_longlong);
-        yajl_gen_string(
-            gen,
-            c"width".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"width".as_ptr()),
-        );
-        yajl_gen_integer(gen, (*output).rect.width as ::core::ffi::c_longlong);
-        yajl_gen_string(
-            gen,
-            c"height".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"height".as_ptr()),
-        );
-        yajl_gen_integer(gen, (*output).rect.height as ::core::ffi::c_longlong);
-        yajl_gen_map_close(gen);
-        yajl_gen_string(
-            gen,
-            c"current_workspace".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"current_workspace".as_ptr()),
-        );
+        let _ = gen.start_object();
+        write_cstr(gen, c"name");
+        write_cstr(gen, CStr::from_ptr(output_primary_name(output)));
+        write_cstr(gen, c"active");
+        let _ = gen.boolean(((*output).active as ::core::ffi::c_int) != 0);
+        write_cstr(gen, c"primary");
+        let _ = gen.boolean(((*output).primary as ::core::ffi::c_int) != 0);
+        write_cstr(gen, c"rect");
+        let _ = gen.start_object();
+        write_cstr(gen, c"x");
+        let _ = gen.integer((*output).rect.x as ::core::ffi::c_longlong);
+        write_cstr(gen, c"y");
+        let _ = gen.integer((*output).rect.y as ::core::ffi::c_longlong);
+        write_cstr(gen, c"width");
+        let _ = gen.integer((*output).rect.width as ::core::ffi::c_longlong);
+        write_cstr(gen, c"height");
+        let _ = gen.integer((*output).rect.height as ::core::ffi::c_longlong);
+        let _ = gen.end_object();
+        write_cstr(gen, c"current_workspace");
         let mut ws: *mut Con = ::core::ptr::null_mut::<Con>();
         if !(*output).con.is_null() && {
             ws = con_get_fullscreen_con((*output).con, CF_OUTPUT);
             !ws.is_null()
         } {
-            yajl_gen_string(
-                gen,
-                (*ws).name as *mut ::core::ffi::c_uchar,
-                strlen((*ws).name),
-            );
+            write_cstr(gen, CStr::from_ptr((*ws).name));
         } else {
-            yajl_gen_null(gen);
+            let _ = gen.null();
         }
-        yajl_gen_map_close(gen);
+        let _ = gen.end_object();
         output = (*output).outputs.tqe_next as *mut Output;
     }
-    yajl_gen_array_close(gen);
-    let mut payload: *const ::core::ffi::c_uchar = ::core::ptr::null::<::core::ffi::c_uchar>();
-    let mut length: ylength = 0;
-    yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
+    let _ = gen.end_array();
+    let payload = gen.bytes();
+    let length = payload.len();
     ipc_send_client_message(
         client,
         length as usize,
         I3_IPC_REPLY_TYPE_OUTPUTS as u32,
-        payload as *const u8,
+        payload.as_ptr(),
     );
 }
 unsafe fn handle_get_marks(
@@ -2196,33 +1421,28 @@ unsafe fn handle_get_marks(
     message_size: u32,
     message_type: u32,
 ) {
-    let generator_owner = JsonOwner::new();
-    let gen = generator_owner.0;
-    yajl_gen_array_open(gen);
+    let mut generator = i3_json::Generator::new();
+    let gen = &mut generator;
+    let _ = gen.start_array();
     let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
     con = all_cons.tqh_first as *mut Con;
     while !con.is_null() {
         let mut mark: *mut mark_t = ::core::ptr::null_mut::<mark_t>();
         mark = (*con).marks_head.tqh_first as *mut mark_t;
         while !mark.is_null() {
-            yajl_gen_string(
-                gen,
-                (*mark).name as *mut ::core::ffi::c_uchar,
-                strlen((*mark).name),
-            );
+            write_cstr(gen, CStr::from_ptr((*mark).name));
             mark = (*mark).marks.tqe_next as *mut mark_t;
         }
         con = (*con).all_cons.tqe_next as *mut Con;
     }
-    yajl_gen_array_close(gen);
-    let mut payload: *const ::core::ffi::c_uchar = ::core::ptr::null::<::core::ffi::c_uchar>();
-    let mut length: ylength = 0;
-    yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
+    let _ = gen.end_array();
+    let payload = gen.bytes();
+    let length = payload.len();
     ipc_send_client_message(
         client,
         length as usize,
         I3_IPC_REPLY_TYPE_MARKS as u32,
-        payload as *const u8,
+        payload.as_ptr(),
     );
 }
 unsafe fn handle_get_version(
@@ -2232,75 +1452,38 @@ unsafe fn handle_get_version(
     message_size: u32,
     message_type: u32,
 ) {
-    let generator_owner = JsonOwner::new();
-    let gen = generator_owner.0;
-    yajl_gen_map_open(gen);
-    yajl_gen_string(
-        gen,
-        c"major".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"major".as_ptr()),
-    );
-    yajl_gen_integer(gen, MAJOR_VERSION as ::core::ffi::c_longlong);
-    yajl_gen_string(
-        gen,
-        c"minor".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"minor".as_ptr()),
-    );
-    yajl_gen_integer(gen, MINOR_VERSION as ::core::ffi::c_longlong);
-    yajl_gen_string(
-        gen,
-        c"patch".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"patch".as_ptr()),
-    );
-    yajl_gen_integer(gen, PATCH_VERSION as ::core::ffi::c_longlong);
-    yajl_gen_string(
-        gen,
-        c"human_readable".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"human_readable".as_ptr()),
-    );
-    yajl_gen_string(
-        gen,
-        i3_version as *mut ::core::ffi::c_uchar,
-        strlen(i3_version),
-    );
-    yajl_gen_string(
-        gen,
-        c"loaded_config_file_name".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"loaded_config_file_name".as_ptr()),
-    );
-    yajl_gen_string(
-        gen,
-        current_configpath as *mut ::core::ffi::c_uchar,
-        strlen(current_configpath),
-    );
-    yajl_gen_string(
-        gen,
-        c"included_config_file_names".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"included_config_file_names".as_ptr()),
-    );
-    yajl_gen_array_open(gen);
+    let mut generator = i3_json::Generator::new();
+    let gen = &mut generator;
+    let _ = gen.start_object();
+    write_cstr(gen, c"major");
+    let _ = gen.integer(MAJOR_VERSION as ::core::ffi::c_longlong);
+    write_cstr(gen, c"minor");
+    let _ = gen.integer(MINOR_VERSION as ::core::ffi::c_longlong);
+    write_cstr(gen, c"patch");
+    let _ = gen.integer(PATCH_VERSION as ::core::ffi::c_longlong);
+    write_cstr(gen, c"human_readable");
+    write_cstr(gen, CStr::from_ptr(i3_version));
+    write_cstr(gen, c"loaded_config_file_name");
+    write_cstr(gen, CStr::from_ptr(current_configpath));
+    write_cstr(gen, c"included_config_file_names");
+    let _ = gen.start_array();
     let mut file: *mut IncludedFile = ::core::ptr::null_mut::<IncludedFile>();
     file = included_files.tqh_first as *mut IncludedFile;
     while !file.is_null() {
         if !(file == included_files.tqh_first) {
-            yajl_gen_string(
-                gen,
-                (*file).path as *mut ::core::ffi::c_uchar,
-                strlen((*file).path),
-            );
+            write_cstr(gen, CStr::from_ptr((*file).path));
         }
         file = (*file).files.tqe_next as *mut IncludedFile;
     }
-    yajl_gen_array_close(gen);
-    yajl_gen_map_close(gen);
-    let mut payload: *const ::core::ffi::c_uchar = ::core::ptr::null::<::core::ffi::c_uchar>();
-    let mut length: ylength = 0;
-    yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
+    let _ = gen.end_array();
+    let _ = gen.end_object();
+    let payload = gen.bytes();
+    let length = payload.len();
     ipc_send_client_message(
         client,
         length as usize,
         I3_IPC_REPLY_TYPE_VERSION as u32,
-        payload as *const u8,
+        payload.as_ptr(),
     );
 }
 unsafe fn handle_get_bar_config(
@@ -2310,29 +1493,24 @@ unsafe fn handle_get_bar_config(
     message_size: u32,
     message_type: u32,
 ) {
-    let generator_owner = JsonOwner::new();
-    let gen = generator_owner.0;
+    let mut generator = i3_json::Generator::new();
+    let gen = &mut generator;
     if message_size == 0 as u32 {
-        yajl_gen_array_open(gen);
+        let _ = gen.start_array();
         let mut current: *mut Barconfig = ::core::ptr::null_mut::<Barconfig>();
         current = barconfigs.tqh_first as *mut Barconfig;
         while !current.is_null() {
-            yajl_gen_string(
-                gen,
-                (*current).id as *mut ::core::ffi::c_uchar,
-                strlen((*current).id),
-            );
+            write_cstr(gen, CStr::from_ptr((*current).id));
             current = (*current).configs.tqe_next as *mut Barconfig;
         }
-        yajl_gen_array_close(gen);
-        let mut payload: *const ::core::ffi::c_uchar = ::core::ptr::null::<::core::ffi::c_uchar>();
-        let mut length: ylength = 0;
-        yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
+        let _ = gen.end_array();
+        let payload = gen.bytes();
+        let length = payload.len();
         ipc_send_client_message(
             client,
             length as usize,
             I3_IPC_REPLY_TYPE_BAR_CONFIG as u32,
-            payload as *const u8,
+            payload.as_ptr(),
         );
 
         return;
@@ -2358,25 +1536,20 @@ unsafe fn handle_get_bar_config(
         }
     }
     if config.is_null() {
-        yajl_gen_map_open(gen);
-        yajl_gen_string(
-            gen,
-            c"id".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"id".as_ptr()),
-        );
-        yajl_gen_null(gen);
-        yajl_gen_map_close(gen);
+        let _ = gen.start_object();
+        write_cstr(gen, c"id");
+        let _ = gen.null();
+        let _ = gen.end_object();
     } else {
         dump_bar_config(gen, config);
     }
-    let mut payload_0: *const ::core::ffi::c_uchar = ::core::ptr::null::<::core::ffi::c_uchar>();
-    let mut length_0: ylength = 0;
-    yajl_gen_get_buf(gen, &raw mut payload_0, &raw mut length_0);
+    let payload_0 = gen.bytes();
+    let length_0 = payload_0.len();
     ipc_send_client_message(
         client,
         length_0 as usize,
         I3_IPC_REPLY_TYPE_BAR_CONFIG as u32,
-        payload_0 as *const u8,
+        payload_0.as_ptr(),
     );
 }
 unsafe fn handle_get_binding_modes(
@@ -2386,28 +1559,23 @@ unsafe fn handle_get_binding_modes(
     message_size: u32,
     message_type: u32,
 ) {
-    let generator_owner = JsonOwner::new();
-    let gen = generator_owner.0;
-    yajl_gen_array_open(gen);
+    let mut generator = i3_json::Generator::new();
+    let gen = &mut generator;
+    let _ = gen.start_array();
     let mut mode: *mut Mode = ::core::ptr::null_mut::<Mode>();
     mode = modes.slh_first as *mut Mode;
     while !mode.is_null() {
-        yajl_gen_string(
-            gen,
-            (*mode).name as *mut ::core::ffi::c_uchar,
-            strlen((*mode).name),
-        );
+        write_cstr(gen, CStr::from_ptr((*mode).name));
         mode = (*mode).modes.sle_next;
     }
-    yajl_gen_array_close(gen);
-    let mut payload: *const ::core::ffi::c_uchar = ::core::ptr::null::<::core::ffi::c_uchar>();
-    let mut length: ylength = 0;
-    yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
+    let _ = gen.end_array();
+    let payload = gen.bytes();
+    let length = payload.len();
     ipc_send_client_message(
         client,
         length as usize,
         I3_IPC_REPLY_TYPE_BINDING_MODES as u32,
-        payload as *const u8,
+        payload.as_ptr(),
     );
 }
 fn parse_subscriptions(message: &[u8]) -> (Vec<CString>, Result<(), i3_json::ParseError>) {
@@ -2482,72 +1650,35 @@ unsafe fn handle_get_config(
     message_size: u32,
     message_type: u32,
 ) {
-    let generator_owner = JsonOwner::new();
-    let gen = generator_owner.0;
-    yajl_gen_map_open(gen);
-    yajl_gen_string(
-        gen,
-        c"config".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"config".as_ptr()),
-    );
+    let mut generator = i3_json::Generator::new();
+    let gen = &mut generator;
+    let _ = gen.start_object();
+    write_cstr(gen, c"config");
     let mut file: *mut IncludedFile = included_files.tqh_first as *mut IncludedFile;
-    yajl_gen_string(
-        gen,
-        (*file).raw_contents as *mut ::core::ffi::c_uchar,
-        strlen((*file).raw_contents),
-    );
-    yajl_gen_string(
-        gen,
-        c"included_configs".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"included_configs".as_ptr()),
-    );
-    yajl_gen_array_open(gen);
+    write_cstr(gen, CStr::from_ptr((*file).raw_contents));
+    write_cstr(gen, c"included_configs");
+    let _ = gen.start_array();
     file = included_files.tqh_first as *mut IncludedFile;
     while !file.is_null() {
-        yajl_gen_map_open(gen);
-        yajl_gen_string(
-            gen,
-            c"path".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"path".as_ptr()),
-        );
-        yajl_gen_string(
-            gen,
-            (*file).path as *mut ::core::ffi::c_uchar,
-            strlen((*file).path),
-        );
-        yajl_gen_string(
-            gen,
-            c"raw_contents".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"raw_contents".as_ptr()),
-        );
-        yajl_gen_string(
-            gen,
-            (*file).raw_contents as *mut ::core::ffi::c_uchar,
-            strlen((*file).raw_contents),
-        );
-        yajl_gen_string(
-            gen,
-            c"variable_replaced_contents".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"variable_replaced_contents".as_ptr()),
-        );
-        yajl_gen_string(
-            gen,
-            (*file).variable_replaced_contents as *mut ::core::ffi::c_uchar,
-            strlen((*file).variable_replaced_contents),
-        );
-        yajl_gen_map_close(gen);
+        let _ = gen.start_object();
+        write_cstr(gen, c"path");
+        write_cstr(gen, CStr::from_ptr((*file).path));
+        write_cstr(gen, c"raw_contents");
+        write_cstr(gen, CStr::from_ptr((*file).raw_contents));
+        write_cstr(gen, c"variable_replaced_contents");
+        write_cstr(gen, CStr::from_ptr((*file).variable_replaced_contents));
+        let _ = gen.end_object();
         file = (*file).files.tqe_next as *mut IncludedFile;
     }
-    yajl_gen_array_close(gen);
-    yajl_gen_map_close(gen);
-    let mut payload: *const ::core::ffi::c_uchar = ::core::ptr::null::<::core::ffi::c_uchar>();
-    let mut length: ylength = 0;
-    yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
+    let _ = gen.end_array();
+    let _ = gen.end_object();
+    let payload = gen.bytes();
+    let length = payload.len();
     ipc_send_client_message(
         client,
         length as usize,
         I3_IPC_REPLY_TYPE_CONFIG as u32,
-        payload as *const u8,
+        payload.as_ptr(),
     );
 }
 unsafe fn handle_send_tick(
@@ -2557,33 +1688,28 @@ unsafe fn handle_send_tick(
     message_size: u32,
     message_type: u32,
 ) {
-    let generator_owner = JsonOwner::new();
-    let gen = generator_owner.0;
-    yajl_gen_map_open(gen);
-    yajl_gen_string(
+    let mut generator = i3_json::Generator::new();
+    let gen = &mut generator;
+    let _ = gen.start_object();
+    write_cstr(gen, c"first");
+    let _ = gen.boolean((false_0) != 0);
+    write_cstr(gen, c"payload");
+    write_bytes(
         gen,
-        c"first".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"first".as_ptr()),
+        std::slice::from_raw_parts(
+            (message as *mut ::core::ffi::c_uchar).cast::<u8>(),
+            message_size as usize,
+        ),
     );
-    yajl_gen_bool(gen, false_0);
-    yajl_gen_string(
-        gen,
-        c"payload".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"payload".as_ptr()),
-    );
-    yajl_gen_string(
-        gen,
-        message as *mut ::core::ffi::c_uchar,
-        message_size as usize,
-    );
-    yajl_gen_map_close(gen);
-    let mut payload: *const ::core::ffi::c_uchar = ::core::ptr::null::<::core::ffi::c_uchar>();
-    let mut length: ylength = 0;
-    yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
+    let _ = gen.end_object();
+    let payload = gen.bytes();
+    let length = payload.len();
     ipc_send_event(
         c"tick".as_ptr(),
         I3_IPC_EVENT_TICK as u32,
-        payload as *const ::core::ffi::c_char,
+        CString::new(payload)
+            .expect("JSON has no literal NUL")
+            .as_ptr(),
     );
 
     let reply: *const ::core::ffi::c_char = c"{\"success\":true}".as_ptr();
@@ -2693,28 +1819,19 @@ unsafe fn handle_get_binding_state(
     message_size: u32,
     message_type: u32,
 ) {
-    let generator_owner = JsonOwner::new();
-    let gen = generator_owner.0;
-    yajl_gen_map_open(gen);
-    yajl_gen_string(
-        gen,
-        c"name".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"name".as_ptr()),
-    );
-    yajl_gen_string(
-        gen,
-        current_binding_mode as *mut ::core::ffi::c_uchar,
-        strlen(current_binding_mode),
-    );
-    yajl_gen_map_close(gen);
-    let mut payload: *const ::core::ffi::c_uchar = ::core::ptr::null::<::core::ffi::c_uchar>();
-    let mut length: ylength = 0;
-    yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
+    let mut generator = i3_json::Generator::new();
+    let gen = &mut generator;
+    let _ = gen.start_object();
+    write_cstr(gen, c"name");
+    write_cstr(gen, CStr::from_ptr(current_binding_mode));
+    let _ = gen.end_object();
+    let payload = gen.bytes();
+    let length = payload.len();
     ipc_send_client_message(
         client,
         length as usize,
         I3_IPC_REPLY_TYPE_GET_BINDING_STATE as u32,
-        payload as *const u8,
+        payload.as_ptr(),
     );
 }
 
@@ -2954,39 +2071,29 @@ pub unsafe fn ipc_marshal_workspace_event(
     change: *const ::core::ffi::c_char,
     current: *mut Con,
     old: *mut Con,
-) -> yajl_gen {
+) -> CString {
     let locale = NumericLocale::c();
-    let gen: yajl_gen = yajl_gen_alloc(::core::ptr::null::<yajl_alloc_funcs>());
-    yajl_gen_map_open(gen);
-    yajl_gen_string(
-        gen,
-        c"change".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"change".as_ptr()),
-    );
-    yajl_gen_string(gen, change as *mut ::core::ffi::c_uchar, strlen(change));
-    yajl_gen_string(
-        gen,
-        c"current".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"current".as_ptr()),
-    );
+    let mut generator = i3_json::Generator::new();
+    let gen = &mut generator;
+    let _ = gen.start_object();
+    write_cstr(gen, c"change");
+    write_cstr(gen, CStr::from_ptr(change));
+    write_cstr(gen, c"current");
     if current.is_null() {
-        yajl_gen_null(gen);
+        let _ = gen.null();
     } else {
         dump_node(gen, current, false_0 != 0);
     }
-    yajl_gen_string(
-        gen,
-        c"old".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"old".as_ptr()),
-    );
+    write_cstr(gen, c"old");
     if old.is_null() {
-        yajl_gen_null(gen);
+        let _ = gen.null();
     } else {
         dump_node(gen, old, false_0 != 0);
     }
-    yajl_gen_map_close(gen);
+    let _ = gen.end_object();
+    let payload = CString::new(gen.bytes()).expect("JSON has no literal NUL");
     drop(locale);
-    gen
+    payload
 }
 
 pub unsafe fn ipc_send_workspace_event(
@@ -2994,16 +2101,12 @@ pub unsafe fn ipc_send_workspace_event(
     current: *mut Con,
     old: *mut Con,
 ) {
-    let gen: yajl_gen = ipc_marshal_workspace_event(change, current, old);
-    let mut payload: *const ::core::ffi::c_uchar = ::core::ptr::null::<::core::ffi::c_uchar>();
-    let mut length: ylength = 0;
-    yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
+    let payload = ipc_marshal_workspace_event(change, current, old);
     ipc_send_event(
         c"workspace".as_ptr(),
         I3_IPC_EVENT_WORKSPACE as u32,
-        payload as *const ::core::ffi::c_char,
+        payload.as_ptr(),
     );
-    drop(JsonOwner(gen));
 }
 
 pub unsafe fn ipc_send_window_event(property: *const ::core::ffi::c_char, con: *mut Con) {
@@ -3023,29 +2126,22 @@ pub unsafe fn ipc_send_window_event(property: *const ::core::ffi::c_char, con: *
         },
     );
     let locale = NumericLocale::c();
-    let generator_owner = JsonOwner::new();
-    let gen = generator_owner.0;
-    yajl_gen_map_open(gen);
-    yajl_gen_string(
-        gen,
-        c"change".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"change".as_ptr()),
-    );
-    yajl_gen_string(gen, property as *mut ::core::ffi::c_uchar, strlen(property));
-    yajl_gen_string(
-        gen,
-        c"container".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"container".as_ptr()),
-    );
+    let mut generator = i3_json::Generator::new();
+    let gen = &mut generator;
+    let _ = gen.start_object();
+    write_cstr(gen, c"change");
+    write_cstr(gen, CStr::from_ptr(property));
+    write_cstr(gen, c"container");
     dump_node(gen, con, false_0 != 0);
-    yajl_gen_map_close(gen);
-    let mut payload: *const ::core::ffi::c_uchar = ::core::ptr::null::<::core::ffi::c_uchar>();
-    let mut length: ylength = 0;
-    yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
+    let _ = gen.end_object();
+    let payload = gen.bytes();
+    let length = payload.len();
     ipc_send_event(
         c"window".as_ptr(),
         I3_IPC_EVENT_WINDOW as u32,
-        payload as *const ::core::ffi::c_char,
+        CString::new(payload)
+            .expect("JSON has no literal NUL")
+            .as_ptr(),
     );
 
     drop(locale);
@@ -3062,16 +2158,17 @@ pub unsafe fn ipc_send_barconfig_update_event(barconfig: *mut Barconfig) {
         (*barconfig).id,
     );
     let locale = NumericLocale::c();
-    let generator_owner = JsonOwner::new();
-    let gen = generator_owner.0;
+    let mut generator = i3_json::Generator::new();
+    let gen = &mut generator;
     dump_bar_config(gen, barconfig);
-    let mut payload: *const ::core::ffi::c_uchar = ::core::ptr::null::<::core::ffi::c_uchar>();
-    let mut length: ylength = 0;
-    yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
+    let payload = gen.bytes();
+    let length = payload.len();
     ipc_send_event(
         c"barconfig_update".as_ptr(),
         I3_IPC_EVENT_BARCONFIG_UPDATE as u32,
-        payload as *const ::core::ffi::c_char,
+        CString::new(payload)
+            .expect("JSON has no literal NUL")
+            .as_ptr(),
     );
 
     drop(locale);
@@ -3094,47 +2191,28 @@ pub unsafe fn ipc_send_binding_event(
         (*bind).keycode,
     );
     let locale = NumericLocale::c();
-    let generator_owner = JsonOwner::new();
-    let gen = generator_owner.0;
-    yajl_gen_map_open(gen);
-    yajl_gen_string(
-        gen,
-        c"change".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"change".as_ptr()),
-    );
-    yajl_gen_string(
-        gen,
-        event_type as *mut ::core::ffi::c_uchar,
-        strlen(event_type),
-    );
-    yajl_gen_string(
-        gen,
-        c"mode".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"mode".as_ptr()),
-    );
+    let mut generator = i3_json::Generator::new();
+    let gen = &mut generator;
+    let _ = gen.start_object();
+    write_cstr(gen, c"change");
+    write_cstr(gen, CStr::from_ptr(event_type));
+    write_cstr(gen, c"mode");
     if modename.is_null() {
-        yajl_gen_string(
-            gen,
-            c"default".as_ptr() as *mut ::core::ffi::c_uchar,
-            strlen(c"default".as_ptr()),
-        );
+        write_cstr(gen, c"default");
     } else {
-        yajl_gen_string(gen, modename as *mut ::core::ffi::c_uchar, strlen(modename));
+        write_cstr(gen, CStr::from_ptr(modename));
     }
-    yajl_gen_string(
-        gen,
-        c"binding".as_ptr() as *mut ::core::ffi::c_uchar,
-        strlen(c"binding".as_ptr()),
-    );
+    write_cstr(gen, c"binding");
     dump_binding(gen, bind);
-    yajl_gen_map_close(gen);
-    let mut payload: *const ::core::ffi::c_uchar = ::core::ptr::null::<::core::ffi::c_uchar>();
-    let mut length: ylength = 0;
-    yajl_gen_get_buf(gen, &raw mut payload, &raw mut length);
+    let _ = gen.end_object();
+    let payload = gen.bytes();
+    let length = payload.len();
     ipc_send_event(
         c"binding".as_ptr(),
         I3_IPC_EVENT_BINDING as u32,
-        payload as *const ::core::ffi::c_char,
+        CString::new(payload)
+            .expect("JSON has no literal NUL")
+            .as_ptr(),
     );
 
     drop(locale);
@@ -3202,7 +2280,6 @@ pub use crate::types::xoutput;
 pub use crate::types::Con;
 pub use crate::types::Match;
 pub use crate::types::Rect;
-pub use i3_common::string::I3String as _i3String;
 
 // Internal calls and globals use canonical Rust identities.
 use crate::application::current_binding_mode;
@@ -3236,7 +2313,6 @@ use crate::workspace::previous_workspace_name;
 use crate::workspace::workspace_is_visible;
 use i3_common::ipc_recv_message::ipc_recv_message;
 use i3_common::nonblock::set_nonblock;
-use i3_common::string::i3string_as_utf8;
 
 #[cfg(test)]
 mod owned_tests {
@@ -3378,6 +2454,64 @@ mod client_lifetime_tests {
         assert_eq!(
             modifier_names((1 << 19) | (1 << 13) | 1).collect::<Vec<_>>(),
             ["shift", "Group4"]
+        );
+    }
+}
+
+#[cfg(test)]
+mod typed_reply_tests {
+    use super::*;
+    fn stream(replies: &[CommandReply<'_>]) -> Vec<u8> {
+        let mut output = i3_json::Generator::new();
+        output.start_array().unwrap();
+        for reply in replies {
+            reply.write(&mut output);
+        }
+        let _ = output.end_array();
+        output.bytes().to_vec()
+    }
+    #[test]
+    fn typed_command_replies_preserve_field_order_and_escaping() {
+        let reply = stream(&[
+            CommandReply::Success(true),
+            CommandReply::Success(false),
+            CommandReply::Error(c"quoted \"value\"\n雪"),
+            CommandReply::WithId(-1),
+            CommandReply::ParseError {
+                error: c"bad",
+                input: c"input",
+                position: c"  ^^^",
+            },
+        ]);
+        assert_eq!(reply, "[{\"success\":true},{\"success\":false},{\"success\":false,\"error\":\"quoted \\\"value\\\"\\n雪\"},{\"success\":true,\"id\":-1},{\"success\":false,\"parse_error\":true,\"error\":\"bad\",\"input\":\"input\",\"errorposition\":\"  ^^^\"}]".as_bytes());
+    }
+    #[test]
+    fn invalid_native_strings_preserve_rejected_value_and_partial_stream() {
+        let invalid = CStr::from_bytes_with_nul(b"\xff\0").unwrap();
+        assert_eq!(
+            stream(&[CommandReply::Error(invalid), CommandReply::Success(true)]),
+            br#"[{"success":false,"error""#
+        );
+        // Rejected input consumes no value: the next key becomes its value,
+        // exactly as before; the following text becomes an unmatched key.
+        assert_eq!(
+            stream(&[CommandReply::ParseError {
+                error: c"bad",
+                input: invalid,
+                position: c"^^"
+            }]),
+            br#"[{"success":false,"parse_error":true,"error":"bad","input":"errorposition","^^""#
+        );
+    }
+    #[test]
+    fn typed_container_ids_preserve_signed_pointer_cast_range() {
+        let mut output = i3_json::Generator::new();
+        output.start_array().unwrap();
+        CommandReply::WithId(i64::MIN).write(&mut output);
+        output.end_array().unwrap();
+        assert_eq!(
+            output.bytes(),
+            b"[{\"success\":true,\"id\":-9223372036854775808}]"
         );
     }
 }

@@ -6380,7 +6380,6 @@ use crate::log::{debuglog, errorlog, verboselog};
 // Shared model types retain field layout while using one Rust identity.
 pub use crate::types::Match;
 pub use i3_common::font::Font;
-pub use i3_common::string::I3String as _i3String;
 
 // Internal calls and globals use canonical Rust identities.
 use crate::application::conn;

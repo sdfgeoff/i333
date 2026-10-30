@@ -8,26 +8,26 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 26 wallclock secs ( 1.47 usr +  0.12 sys =  1.59 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 25 wallclock secs ( 1.43 usr +  0.14 sys =  1.57 CPU)\nResult: PASS",
     "profile": "debug",
     "build": "cargo test --locked",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "621b8fc42120fad8b68a33568a83539280fee94bea13ca76156c6a5fa9b58ac2",
-    "i3bar": "20eb76d7b96bdf85a27d11cc1522f37a4420966e27cf8f8f7c960670996d4d0d",
-    "i3-config-wizard": "862cf72762dc949abf334d65fd2adcf1b306dd107b18ff0895e87fc2246921ef",
-    "i3-dump-log": "63ffc8005c7041a64c14772b51877719340a9c655240e5355516c23e10ddcd10",
-    "i3-input": "35e630d7305e39ad605e6ea20043edec454b0f5a8eb60e0317de991d120ef565",
-    "i3-msg": "62e1e4bbd44833a3027ccf75c6a04538a21aadfe7b3545d78d9e0eb4ff14f437",
-    "i3-nagbar": "ba2627207f2680f808d40695ca6386cb8d433c098750a4f2f9c719c036650a5d"
+    "i3": "2ee2d5fc4f5d7f904cabd8f729cea7e1ca8ae9a162c3af09f87e63b3df292064",
+    "i3bar": "46b0b18b2ff300087d8f6566cf205a39ecda6ba55cb52e500fa6a50df8015e23",
+    "i3-config-wizard": "ce75c250cdcb4cd27ac9022a302f5c539e1202627a426172a7cd966a7b810d3c",
+    "i3-dump-log": "63fbdbb04ffd78ef420428eaed70a5a68f250d3f58a030cd7c33a9ae3bd7de84",
+    "i3-input": "f899e9c9e6f4e43fe0797c3e03dfee07f13ff7c2ee267c3fd3ec78c53761a135",
+    "i3-msg": "8eb5f47fe81fda3b96a3ed3bfa6705feb16efcf0681729bc30fe76b31cc21197",
+    "i3-nagbar": "66e18bdea5097b328b090e4fc87f3fc5edaf7894f1ad3c87a28e13684284d7ce"
   },
-  "note": "Ten-member Cargo workspace. cargo test --locked passed 331 Rust-reported tests, all native compatibility comparisons, all private-display runtime suites and all 4205 upstream assertions. Exact debug hashes match this Cargo-driven run. File-by-file review progress is recorded in docs/idiomatic-rust-checklist.json. Native graph, display, callback, shared-memory and allocator contracts remain explicit; Linux x86_64 GNU ABI only.",
+  "note": "Ten-member Cargo workspace. cargo test --locked passed 340 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug hashes match this Cargo-driven run. Owned rendering text, Serde command replies and stable Rust-owned container storage replace legacy allocation adapters. Remaining native callbacks and intrusive parent/child/focus graph links are explicit unsafe boundaries.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
   "additional_checks": {
     "headless_c_rust_state_comparisons": 54,
     "ipc_client_test_groups": 16,
-    "workspace_unit_tests": 331,
+    "workspace_unit_tests": 340,
     "core_and_bar_cli_comparisons": 39,
     "pcre2_compile_match_error_comparisons": 4620,
     "json_oracle_cases": 2218,
@@ -76,9 +76,10 @@
     "compile_only": true,
     "all_unit_and_integration_test_targets_compiled": true,
     "automatic_after_each_source_edit": false,
-    "last_verification_environment": "GitHub Actions Ubuntu24; final source checkpoint structural clean-source feature",
+    "last_verification_environment": "Local fresh-source check after ownership checkpoint1",
     "last_verified_batch": 9,
-    "last_verified_commit": "aa823afeecdf0b106300604917c4438da61f0ce7"
+    "last_verified_commit": "aa823afeecdf0b106300604917c4438da61f0ce7",
+    "last_verified_ownership_checkpoint": 1
   },
   "repository_cleanup": {
     "obsolete_files_removed": 216,
@@ -114,20 +115,20 @@
     "binary_count": 7,
     "native_library_discovery": "maintained native binding build scripts and dedicated sys crates; i3-build links only platform m/rt",
     "unit_tests": {
-      "i3": 148,
+      "i3": 155,
       "cargo_regression_wrappers": 8,
       "xkb_integration": 1,
       "i3-build": 3,
-      "i3-common": 73,
+      "i3-common": 75,
       "native_graphics": 5,
-      "i3-json": 16,
+      "i3-json": 15,
       "i3-config-wizard": 5,
       "i3-dump-log": 5,
       "i3-input": 8,
       "i3-msg": 8,
       "i3-nagbar": 3,
       "binary_artifact_checks": 2,
-      "i3bar": 41,
+      "i3bar": 42,
       "libev-sys": 2,
       "startup-notification-sys": 1,
       "xcb-sys": 2
@@ -135,7 +136,7 @@
     "cargo_fmt_check": true,
     "debug_build": true,
     "release_build": true,
-    "unit_tests_total_including_integration_checks": 331,
+    "unit_tests_total_including_integration_checks": 340,
     "test_command": "cargo test",
     "clean_source_command": "cargo test -p i3-test-support --features clean-source-check",
     "test_support": "development-only process capture, failure propagation and isolated regression orchestration",
@@ -149,7 +150,7 @@
     "graphics": "Maintained cairo-rs, pango, pangocairo and glib owners/borrowed APIs for drawing and fonts; maintained sys bindings retain explicit native text byte-count and XCB surface boundaries",
     "xkb": "maintained xkbcommon bindings",
     "internal_no_mangle_exports": 0,
-    "remaining_unsafe": "Native FFI/callbacks, intrusive window-tree ownership, legacy allocation and JSON pointer adapters",
+    "remaining_unsafe": "Native FFI/callbacks, borrowed raw graph links and remaining native resource/byte adapters; rendering text and generator storage use Rust ownership.",
     "scratch_directory": ".work/tmp (gitignored, TMPDIR override supported)",
     "scalar_aliases": "Generated fixed-width, size, platform-internal and anonymous scalar typedefs removed; direct Rust primitives or maintained libc types at use sites. Semantic native/flag aliases retained.",
     "application_enums": {
@@ -536,7 +537,187 @@
       "remaining": 0,
       "method": "Three subagents at a time; individual source review, meaningful native/value tests, full Cargo validation and pushed checkpoints. Review does not imply elimination of required native/graph unsafe contracts.",
       "result": "Complete: all66 individual reviews validated,37modernized,28accepted idiomatic/native boundaries,1unused source removed."
-    }
+    },
+    "ownership_migration_checkpoints": [
+      {
+        "checkpoint": 1,
+        "status": "validated",
+        "rust_reported_tests": 340,
+        "upstream_assertions": 4205,
+        "reports": {
+          "owned-text": {
+            "phase": "owned rendering text",
+            "status": "implemented; focused tests pass; awaiting root full regression checkpoint",
+            "changed_files": [
+              "crates/i3-common/src/string.rs",
+              "crates/i3-common/src/font.rs",
+              "crates/i3-common/src/draw_util.rs",
+              "crates/i3/src/types.rs",
+              "crates/i3/src/manage.rs",
+              "crates/i3/src/window.rs",
+              "crates/i3/src/handlers.rs",
+              "crates/i3/src/x.rs",
+              "crates/i3/src/restore_layout.rs",
+              "crates/i3/src/sighandler.rs",
+              "crates/i3/src/util.rs",
+              "crates/i3/src/assignments.rs",
+              "crates/i3/src/application.rs",
+              "crates/i3/src/config.rs",
+              "crates/i3/src/config_directives.rs",
+              "crates/i3/src/config_parser.rs",
+              "crates/i3/src/render.rs",
+              "crates/i3/src/load_layout.rs",
+              "crates/i3bar/src/application.rs",
+              "crates/i3bar/src/config.rs",
+              "crates/i3bar/src/child.rs",
+              "crates/i3bar/src/ipc.rs",
+              "crates/i3bar/src/workspaces.rs",
+              "crates/i3bar/src/xcb.rs",
+              "crates/i3-tools/src/bin/i3-input/application.rs",
+              "crates/i3-tools/src/bin/i3-nagbar/application.rs",
+              "crates/i3-tools/src/bin/i3-config-wizard/application.rs"
+            ],
+            "migrations": [
+              "font::draw_text/predict_text_width and draw_util_text borrow &I3String; ordinary callers no longer manufacture mutable raw text pointers",
+              "I3String safe rendering views preserve legacy explicit byte lengths, conversion diagnostics, UCS2 cache and UTF8 materialized-copy distinction",
+              "Window.name is Option<I3String>; Window cannot be Copy; sole production allocation uses Box::new(Window::default), destructor drops Box; no calloc of owned text",
+              "bar status_block owns full I3String and Option<I3String> short text; all four factories use normally initialized stable Boxes, queue clear unlinks then drops, Drop frees exclusive native auxiliary strings",
+              "bar config separator_symbol is Option<I3String>; explicit const config initializer used at both static and run reset; repeated updates drop old separator automatically",
+              "crash text held in owned statics initialized before signal installation; no signal-time allocation introduced",
+              "raw i3string_* module gated cfg(test) only; no product calls remain; dead aliases removed across callers",
+              "tree worker coordinated owned con_parse_title_format return; serde worker coordinated commands/IPC name readers; restart payload now uses stack Generator and borrowed dump_node"
+            ],
+            "focused_tests": [
+              {
+                "command": "env -u RUSTUP_TOOLCHAIN TMPDIR=$PWD/.work/tmp cargo test -p i3-common --lib",
+                "result": "75 passed",
+                "log": ".work/owned-text-common-test.log"
+              },
+              {
+                "command": "env -u RUSTUP_TOOLCHAIN TMPDIR=$PWD/.work/tmp cargo test -p i3bar --bin i3bar",
+                "result": "42 passed",
+                "log": ".work/owned-text-bar-test.log"
+              },
+              {
+                "command": "env -u RUSTUP_TOOLCHAIN TMPDIR=$PWD/.work/tmp cargo test -p i3-tools --bin i3-input",
+                "result": "8 passed",
+                "log": ".work/owned-text-input-test.log"
+              }
+            ],
+            "new_tests": [
+              "borrowed_render_views_and_utf8_copy_keep_distinct_length_contracts",
+              "core_font_rendering_preserves_embedded_nul_and_ucs2_source_after_utf8_projection",
+              "owned_status_blocks_unlink_drop_and_allow_reuse_of_the_same_local_queue"
+            ],
+            "updated_tests": [
+              "handlers Window name snapshot ownership regression",
+              "bar config embedded-NUL separator assertions now borrowed owned values"
+            ],
+            "remaining_boundaries": [
+              "native XCB/Cairo/font event-thread resource APIs still unsafe; text arguments themselves are borrowed Rust references",
+              "Window graph pointers and native property/auxiliary string fields remain legacy native interfaces; Window text ownership no longer raw",
+              "bar status queue links remain native intrusive pointers but each stable Box owns rendering text and auxiliary strings",
+              "signal handler still has preexisting native rendering/restart operations and is not claimed async-signal-safe",
+              "legacy raw string adapters exist solely under cfg(test) for historical oracle coverage"
+            ],
+            "notes": [
+              "No desktop input, process signals, or test-session changes",
+              "All scratch/logs remain .work; no /tmp artifacts",
+              "Last workspace check transiently failed solely pending JSON worker dump_node API, not text callsites; root full cargo test pending",
+              "Corrected five unrelated i3-input append test calls affected by overbroad &mut input replacement; audited all mutability changes in tools/font/draw/bar; only actual rendering borrows remain changed."
+            ]
+          },
+          "serde-protocol": {
+            "status": "frozen_for_root_checkpoint",
+            "files": [
+              "crates/i3/Cargo.toml",
+              "Cargo.lock",
+              "crates/i3-json/src/lib.rs",
+              "crates/i3-json/src/generator.rs",
+              "crates/i3-json/src/compat.rs (removed)",
+              "crates/i3/src/commands.rs",
+              "crates/i3/src/commands_parser.rs",
+              "crates/i3/src/ipc.rs",
+              "crates/i3/src/workspace.rs",
+              "crates/i3/src/bindings.rs"
+            ],
+            "changes": [
+              "138 repeated command-object builders migrated to typed borrowed CommandReply Serde serialization, preserving field order, signed IDs and escaping",
+              "cmd_parser_ctx owns Option<Generator>; CommandResultIR no generator pointer; parse_command takes Option<&mut Generator> and moves output into/out of owning context",
+              "395 IPC generator adapter calls migrated to owned stack Generator and borrowed &mut APIs; no generator Box/raw handle/free/output buffer lifetime",
+              "workspace events serialized into owned CString before tree close; con.rs caller coordinated with tree worker, util.rs direct borrowed dump_node and assignments None coordinated with text worker",
+              "Window name Option<I3String> and owned formatted title consumers migrated; obsolete i3String aliases removed",
+              "i3-json compat.rs deleted after all product callers migrated; native owned-API oracle unchanged; unused terminated buffer removed",
+              "Added generic Serde complete-value append with serialization before framing mutation; retained native string byte boundary preserving ignored invalid UTF8 values and subsequent partial generator state"
+            ],
+            "tests": [
+              {
+                "command": "cargo check -p i3 --locked",
+                "result": "passed",
+                "log": ".work/serde-protocol/check3.log"
+              },
+              {
+                "command": "cargo test --locked -p i3 --bin i3 typed_reply_tests",
+                "result": "3 passed",
+                "log": ".work/serde-protocol/reply-tests.log"
+              },
+              {
+                "command": "cargo test --locked -p i3-json --lib",
+                "result": "15 passed",
+                "log": ".work/serde-protocol/json-tests.log"
+              }
+            ],
+            "test_count_note": "Removed 2 obsolete compat adapter unit tests; added 1 owned generator unit test and3 typed IPC reply tests.",
+            "remaining": [
+              "Ordinary IPC node/bar/config/version replies now owned borrowed generators but not yet typed Serde DTOs (next checkpoint)",
+              "Incremental JSON parser and open-array framing retained for status/header/layout compatibility",
+              "Existing raw parser context self-pointer and shared graph handles remain; no new generator raw pointers",
+              "Generator.serialized used for shallow typed replies; arbitrary deeply nested Serialize values do not currently enforce generator nesting cap before appending"
+            ],
+            "safety": "No desktop operations, no current nested session operations; scratch only .work. No full cargo test by worker; root handles validation and commit/push."
+          },
+          "tree-ownership": {
+            "status": "complete_for_first_arena_stage_frozen",
+            "files": [
+              "crates/i3/src/con.rs",
+              "crates/i3/src/con/arena.rs",
+              "crates/i3/src/tree.rs",
+              "crates/i3/src/types.rs (Con portion and module docs)"
+            ],
+            "changes": [
+              "Non-Copy uniquely owned Con with explicit field constructor; no native calloc/free of container storage.",
+              "Stable Box<UnsafeCell<Con>> arena exclusively owns all production containers; native intrusive links remain borrowed.",
+              "Generation-checked ConId with active production deferred-focus capture/resolve and O(1) existing address-based con_id wire lookup.",
+              "Arena ownership only released after native resources/list unlink cleanup; no registry borrow spans callbacks or dropping storage.",
+              "con_parse_title_format returns owned rendering text; con.rs workspace event owns serialized CString before closing container."
+            ],
+            "tests": {
+              "target": "cargo test --locked -p i3 --bin i3 con::arena::tests",
+              "status": "passed 4/4",
+              "cases": [
+                "Stable storage/self-referential tails across registry growth",
+                "Stale ID invalidation and deterministic mismatched generation address-reuse check",
+                "Real con_detach repairs tiling/focus memberships before deleting owned child storage",
+                "Reentrant registry work after taking owner proves no RefCell borrow crosses teardown callback"
+              ],
+              "log": ".work/tree-arena-tests.log"
+            },
+            "remaining_boundaries": [
+              "Raw parent/child/focus/floating/all_cons intrusive relationships remain; full migration scope planned separately.",
+              "Native resources and raw string fields still explicitly cleaned by graph lifecycle.",
+              "Native callbacks still receive raw borrowed container identities; generation checks adopted only at current deferred-focus boundary."
+            ],
+            "next_plan": ".work/tree-link-migration-plan.json",
+            "review": {
+              "text_peer_cross_review": "No new actionable findings: Window sole Box factory/drop, status_block factories/unlink-before-Drop and unique aux text cleanup, bar config owned separator reset, borrowed title draw lifetime."
+            }
+          }
+        },
+        "upstream_validation": ".work/tmp/i333-suite-rust-kurj4atf/validation.json",
+        "remaining": "See per-stage reports: full typed-ID parent/child/focus migration is staged, not claimed complete.",
+        "clean_source_check": true
+      }
+    ]
   },
   "ci_dependency_preparation": {
     "confirmed_previous_failure": "X11::XCB required missing xcb-composite.pc and protocol XML metadata",

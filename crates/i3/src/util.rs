@@ -299,16 +299,12 @@ impl Drop for NumericLocale {
     }
 }
 /// Live event-thread tree and serialized process-locale contract. dump_node only
-/// borrows the generator for its call; Box keeps its native adapter address stable.
+/// borrows the stack-owned generator for its call; no raw adapter is published.
 unsafe fn restart_layout_payload() -> Vec<u8> {
-    let mut generator = Box::new(i3_json::Generator::new());
+    let mut generator = i3_json::Generator::new();
     {
         let _locale = NumericLocale::c();
-        dump_node(
-            (&mut *generator as *mut i3_json::Generator).cast(),
-            croot,
-            true,
-        );
+        dump_node(&mut generator, croot, true);
     }
     generator.bytes().to_vec()
 }

@@ -31,8 +31,7 @@ impl OwnedCommandResult {
     /// The parser mutates the live tree and can reload the assignment list.
     /// The caller must uphold parse_command's event-thread/tree contracts.
     unsafe fn execute(command: &CStr) -> Self {
-        let result =
-            unsafe { parse_command(command.as_ptr(), std::ptr::null_mut(), std::ptr::null_mut()) };
+        let result = unsafe { parse_command(command.as_ptr(), None, std::ptr::null_mut()) };
         Self(NonNull::new(result).expect("parse_command returns an allocated result"))
     }
     fn needs_tree_render(&self) -> bool {

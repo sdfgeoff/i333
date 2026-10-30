@@ -87,11 +87,7 @@ use i3_common::safewrappers::sasprintf;
  */
 // Mechanical file-by-file Rust translation of src/commands_parser.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
-pub use i3_json::compat::{yajl_gen, yajl_gen_t};
-use i3_json::compat::{
-    yajl_gen_array_close, yajl_gen_array_open, yajl_gen_bool, yajl_gen_map_close,
-    yajl_gen_map_open, yajl_gen_string,
-};
+use crate::ipc::{emit_command_reply, CommandReply};
 
 pub const M_HERE: ::core::ffi::c_uint = 0;
 
@@ -3939,7 +3935,6 @@ fn state_tokens(state: CommandParserState) -> &'static [cmdp_token] {
 unsafe fn next_state(token: *const cmdp_token, cmd_ctx: *mut cmd_parser_ctx) {
     if (*token).next_state == CommandParserState::Call {
         (*cmd_ctx).subcommand_output.ctx = cmd_ctx as *mut cmd_parser_ctx;
-        (*cmd_ctx).subcommand_output.json_gen = (*cmd_ctx).command_output.json_gen;
         (*cmd_ctx).subcommand_output.client = (*cmd_ctx).command_output.client;
         (*cmd_ctx).subcommand_output.needs_tree_render = false_0 != 0;
         GENERATED_call(
@@ -3984,7 +3979,7 @@ pub unsafe fn parse_string(walk: *mut *const libc::c_char, as_word: bool) -> *mu
 
 pub unsafe fn parse_command(
     input: *const ::core::ffi::c_char,
-    gen: yajl_gen,
+    output: Option<&mut i3_json::Generator>,
     client: *mut ipc_client,
 ) -> *mut CommandResult {
     debuglog(
@@ -3994,7 +3989,9 @@ pub unsafe fn parse_command(
         159 as ::core::ffi::c_int,
         input,
     );
+    let mut output = output;
     let mut cmd_ctx: cmd_parser_ctx = cmd_parser_ctx {
+        json_output: output.as_deref_mut().map(std::mem::take),
         state: CommandParserState::RenameWorkspaceLikelyToNewName,
         current_match: Match {
             error: ::core::ptr::null_mut::<::core::ffi::c_char>(),
@@ -4027,14 +4024,12 @@ pub unsafe fn parse_command(
         },
         subcommand_output: CommandResultIR {
             ctx: ::core::ptr::null_mut::<cmd_parser_ctx>(),
-            json_gen: ::core::ptr::null_mut::<yajl_gen_t>(),
             client: ::core::ptr::null_mut::<ipc_client>(),
             next_state: CommandParserState::RenameWorkspaceLikelyToNewName,
             needs_tree_render: false,
         },
         command_output: CommandResultIR {
             ctx: ::core::ptr::null_mut::<cmd_parser_ctx>(),
-            json_gen: ::core::ptr::null_mut::<yajl_gen_t>(),
             client: ::core::ptr::null_mut::<ipc_client>(),
             next_state: CommandParserState::RenameWorkspaceLikelyToNewName,
             needs_tree_render: false,
@@ -4045,11 +4040,9 @@ pub unsafe fn parse_command(
         scalloc(1 as usize, ::core::mem::size_of::<CommandResult>() as usize) as *mut CommandResult;
     cmd_ctx.command_output.ctx = &raw mut cmd_ctx as *mut cmd_parser_ctx;
     cmd_ctx.command_output.client = client;
-    cmd_ctx.command_output.json_gen = gen;
-    if !cmd_ctx.command_output.json_gen.is_null() {
-        yajl_gen_array_open(cmd_ctx.command_output.json_gen);
-    } else {
-    };
+    if let Some(generator) = &mut cmd_ctx.json_output {
+        let _ = generator.start_array();
+    }
     cmd_ctx.command_output.needs_tree_render = false_0 != 0;
     let mut walk: *const ::core::ffi::c_char = input;
     let len: usize = strlen(input) as usize;
@@ -4183,93 +4176,26 @@ pub unsafe fn parse_command(
         errorlog(c"ERROR:               %s\n".as_ptr().cast_mut(), position);
         (*result).parse_error = true_0 != 0;
         (*result).error_message = errormessage;
-        if !cmd_ctx.command_output.json_gen.is_null() {
-            yajl_gen_map_open(cmd_ctx.command_output.json_gen);
-        } else {
-        };
-        if !cmd_ctx.command_output.json_gen.is_null() {
-            yajl_gen_string(
-                cmd_ctx.command_output.json_gen,
-                c"success".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"success".as_ptr()),
-            );
-        } else {
-        };
-        if !cmd_ctx.command_output.json_gen.is_null() {
-            yajl_gen_bool(cmd_ctx.command_output.json_gen, false_0);
-        } else {
-        };
-        if !cmd_ctx.command_output.json_gen.is_null() {
-            yajl_gen_string(
-                cmd_ctx.command_output.json_gen,
-                c"parse_error".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"parse_error".as_ptr()),
-            );
-        } else {
-        };
-        if !cmd_ctx.command_output.json_gen.is_null() {
-            yajl_gen_bool(cmd_ctx.command_output.json_gen, true_0);
-        } else {
-        };
-        if !cmd_ctx.command_output.json_gen.is_null() {
-            yajl_gen_string(
-                cmd_ctx.command_output.json_gen,
-                c"error".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"error".as_ptr()),
-            );
-        } else {
-        };
-        if !cmd_ctx.command_output.json_gen.is_null() {
-            yajl_gen_string(
-                cmd_ctx.command_output.json_gen,
-                errormessage as *mut ::core::ffi::c_uchar,
-                strlen(errormessage),
-            );
-        } else {
-        };
-        if !cmd_ctx.command_output.json_gen.is_null() {
-            yajl_gen_string(
-                cmd_ctx.command_output.json_gen,
-                c"input".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"input".as_ptr()),
-            );
-        } else {
-        };
-        if !cmd_ctx.command_output.json_gen.is_null() {
-            yajl_gen_string(
-                cmd_ctx.command_output.json_gen,
-                input as *mut ::core::ffi::c_uchar,
-                strlen(input),
-            );
-        } else {
-        };
-        if !cmd_ctx.command_output.json_gen.is_null() {
-            yajl_gen_string(
-                cmd_ctx.command_output.json_gen,
-                c"errorposition".as_ptr() as *mut ::core::ffi::c_uchar,
-                strlen(c"errorposition".as_ptr()),
-            );
-        } else {
-        };
-        if !cmd_ctx.command_output.json_gen.is_null() {
-            yajl_gen_string(
-                cmd_ctx.command_output.json_gen,
-                position as *mut ::core::ffi::c_uchar,
-                strlen(position),
-            );
-        } else {
-        };
-        if !cmd_ctx.command_output.json_gen.is_null() {
-            yajl_gen_map_close(cmd_ctx.command_output.json_gen);
-        } else {
-        };
+        emit_command_reply(
+            &raw mut cmd_ctx.command_output,
+            CommandReply::ParseError {
+                error: std::ffi::CStr::from_ptr(errormessage),
+                input: std::ffi::CStr::from_ptr(input),
+                position: std::ffi::CStr::from_ptr(position),
+            },
+        );
         parser_clear_stack(&raw mut cmd_ctx.stack);
         break;
     }
-    if !cmd_ctx.command_output.json_gen.is_null() {
-        yajl_gen_array_close(cmd_ctx.command_output.json_gen);
-    } else {
-    };
+    if let Some(generator) = &mut cmd_ctx.json_output {
+        let _ = generator.end_array();
+    }
+    if let Some(output) = output {
+        *output = cmd_ctx
+            .json_output
+            .take()
+            .expect("requested command output");
+    }
     (*result).needs_tree_render = cmd_ctx.command_output.needs_tree_render;
     while !cmd_ctx.owindows.tqh_first.is_null() {
         let ow: *mut owindow = cmd_ctx.owindows.tqh_first;
@@ -4312,7 +4238,6 @@ use crate::log::{debuglog, errorlog};
 pub use crate::types::Con;
 pub use crate::types::Match;
 pub use crate::types::MatchMatches as C2RustUnnamed_5;
-pub use i3_common::string::I3String as _i3String;
 
 /// A valid state in the generated command parser table.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
