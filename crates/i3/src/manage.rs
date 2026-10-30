@@ -1,3 +1,4 @@
+use crate::con::arena::focus;
 use crate::con::arena::parent::parent_ptr;
 use crate::con::arena::{containers, resolve};
 use crate::types::BorderStyle;
@@ -951,23 +952,23 @@ pub unsafe fn manage_window(
                         fs,
                         ws,
                     );
-                    let first: *mut Con = (*parent_ptr(nc)).focus_head.tqh_first as *mut Con;
-                    if first != nc {
-                        if !(*nc).focused.tqe_next.is_null() {
-                            (*(*nc).focused.tqe_next).focused.tqe_prev = (*nc).focused.tqe_prev;
+                    let owner =
+                        crate::con::arena::identity(parent_ptr(nc)).expect("live managed parent");
+                    let member = crate::con::arena::identity(nc).expect("live managed child");
+                    let first = focus::first(owner).expect("nonempty managed focus order");
+                    if first != member {
+                        if focus::owner(member) == Some(owner) {
+                            focus::move_after(owner, member, first)
+                                .expect("existing managed focus member");
                         } else {
-                            (*parent_ptr(nc)).focus_head.tqh_last = (*nc).focused.tqe_prev;
+                            // Ancestry and focus membership are updated at
+                            // separate graph boundaries; preserve unlinking
+                            // from the actual owner before inserting here.
+                            let former = focus::owner(member).expect("managed focus membership");
+                            focus::remove(former, member).expect("live former focus owner");
+                            focus::insert_after(owner, member, first)
+                                .expect("managed focus insertion");
                         }
-                        *(*nc).focused.tqe_prev = (*nc).focused.tqe_next;
-                        (*nc).focused.tqe_next = (*first).focused.tqe_next;
-                        if !(*nc).focused.tqe_next.is_null() {
-                            (*(*nc).focused.tqe_next).focused.tqe_prev =
-                                &raw mut (*nc).focused.tqe_next;
-                        } else {
-                            (*parent_ptr(nc)).focus_head.tqh_last = &raw mut (*nc).focused.tqe_next;
-                        }
-                        (*first).focused.tqe_next = nc as *mut Con;
-                        (*nc).focused.tqe_prev = &raw mut (*first).focused.tqe_next;
                     }
                 }
                 want_floating = false;

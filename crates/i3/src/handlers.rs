@@ -1,3 +1,4 @@
+use crate::con::arena::focus;
 use crate::con::arena::parent::parent_ptr;
 use crate::types::BorderStyle;
 use crate::types::FloatingState;
@@ -276,7 +277,7 @@ unsafe fn handle_motion_notify(event: *mut xcb_motion_notify_event_t) {
             (*event).event_x as u32,
             (*event).event_y as u32,
         ) {
-            if (*parent_ptr(con)).focus_head.tqh_first == con {
+            if focus::first_ptr(parent_ptr(con)) == con {
                 return;
             }
             con_focus(con);
@@ -293,7 +294,7 @@ unsafe fn handle_motion_notify(event: *mut xcb_motion_notify_event_t) {
             ) {
                 current = *(*((*current).nodes.tqe_prev as *mut nodes_head)).tqh_last as *mut Con;
             } else {
-                if (*con).focus_head.tqh_first == current {
+                if focus::first_ptr(con) == current {
                     return;
                 }
                 con_focus(current);

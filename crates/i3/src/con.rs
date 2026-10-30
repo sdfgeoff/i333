@@ -1,4 +1,5 @@
 use crate::con::arena::parent::{parent_ptr, set_parent_ptr};
+use crate::con::arena::{focus, ConId};
 pub(crate) mod arena;
 use crate::types::BorderStyle;
 use crate::types::Direction;
@@ -160,7 +161,7 @@ unsafe fn _con_attach(con: *mut Con, parent: *mut Con, previous: *mut Con, ignor
     let mut loop_0: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut current: *mut Con = previous;
     let mut nodes_head: *mut nodes_head = &raw mut (*parent).nodes_head;
-    let mut focus_head: *mut focus_head = &raw mut (*parent).focus_head;
+    let mut focus_parent = parent;
     if (*con).type_0 as ::core::ffi::c_uint
         == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
     {
@@ -263,12 +264,12 @@ unsafe fn _con_attach(con: *mut Con, parent: *mut Con, previous: *mut Con, ignor
         .expect("detached floating child");
     } else {
         if !ignore_focus {
-            loop_0 = (*parent).focus_head.tqh_first as *mut Con;
+            loop_0 = focus::first_ptr(parent) as *mut Con;
             while !loop_0.is_null() {
                 if (*loop_0).type_0 as ::core::ffi::c_uint
                     == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
                 {
-                    loop_0 = (*loop_0).focused.tqe_next as *mut Con;
+                    loop_0 = focus::next_ptr(loop_0) as *mut Con;
                 } else {
                     current = loop_0;
                     break;
@@ -290,7 +291,7 @@ unsafe fn _con_attach(con: *mut Con, parent: *mut Con, previous: *mut Con, ignor
             );
             let target: *mut Con = workspace_attach_to(parent);
             nodes_head = &raw mut (*target).nodes_head as *mut nodes_head;
-            focus_head = &raw mut (*target).focus_head as *mut focus_head;
+            focus_parent = target;
             set_parent_ptr(con, target as *mut Con).expect("live acyclic ancestry");
             current = ::core::ptr::null_mut::<Con>();
             debuglog(
@@ -329,10 +330,11 @@ unsafe fn _con_attach(con: *mut Con, parent: *mut Con, previous: *mut Con, ignor
             (*nodes_head).tqh_last = &raw mut (*con).nodes.tqe_next;
         }
     }
-    (*con).focused.tqe_next = ::core::ptr::null_mut::<Con>();
-    (*con).focused.tqe_prev = (*focus_head).tqh_last;
-    *(*focus_head).tqh_last = con as *mut Con;
-    (*focus_head).tqh_last = &raw mut (*con).focused.tqe_next;
+    focus::append(
+        arena::identity(focus_parent).expect("live focus parent"),
+        arena::identity(con).expect("live focus child"),
+    )
+    .expect("detached focus child");
     con_force_split_parents_redraw(con);
 }
 
@@ -350,12 +352,6 @@ pub unsafe fn con_detach(con: *mut Con) {
             arena::identity(con).expect("live floating child"),
         )
         .expect("attached floating child");
-        if !(*con).focused.tqe_next.is_null() {
-            (*(*con).focused.tqe_next).focused.tqe_prev = (*con).focused.tqe_prev;
-        } else {
-            (*parent_ptr(con)).focus_head.tqh_last = (*con).focused.tqe_prev;
-        }
-        *(*con).focused.tqe_prev = (*con).focused.tqe_next;
     } else {
         if !(*con).nodes.tqe_next.is_null() {
             (*(*con).nodes.tqe_next).nodes.tqe_prev = (*con).nodes.tqe_prev;
@@ -363,13 +359,12 @@ pub unsafe fn con_detach(con: *mut Con) {
             (*parent_ptr(con)).nodes_head.tqh_last = (*con).nodes.tqe_prev;
         }
         *(*con).nodes.tqe_prev = (*con).nodes.tqe_next;
-        if !(*con).focused.tqe_next.is_null() {
-            (*(*con).focused.tqe_next).focused.tqe_prev = (*con).focused.tqe_prev;
-        } else {
-            (*parent_ptr(con)).focus_head.tqh_last = (*con).focused.tqe_prev;
-        }
-        *(*con).focused.tqe_prev = (*con).focused.tqe_next;
     };
+    focus::remove(
+        arena::identity(parent_ptr(con)).expect("live focus parent"),
+        arena::identity(con).expect("live focus child"),
+    )
+    .expect("attached focus child");
 }
 
 pub unsafe fn con_focus(con: *mut Con) {
@@ -389,21 +384,11 @@ pub unsafe fn con_focus(con: *mut Con) {
         252 as ::core::ffi::c_int,
         con,
     );
-    if !(*con).focused.tqe_next.is_null() {
-        (*(*con).focused.tqe_next).focused.tqe_prev = (*con).focused.tqe_prev;
-    } else {
-        (*parent_ptr(con)).focus_head.tqh_last = (*con).focused.tqe_prev;
-    }
-    *(*con).focused.tqe_prev = (*con).focused.tqe_next;
-    (*con).focused.tqe_next = (*parent_ptr(con)).focus_head.tqh_first;
-    if !(*con).focused.tqe_next.is_null() {
-        (*(*parent_ptr(con)).focus_head.tqh_first).focused.tqe_prev =
-            &raw mut (*con).focused.tqe_next;
-    } else {
-        (*parent_ptr(con)).focus_head.tqh_last = &raw mut (*con).focused.tqe_next;
-    }
-    (*parent_ptr(con)).focus_head.tqh_first = con as *mut Con;
-    (*con).focused.tqe_prev = &raw mut (*parent_ptr(con)).focus_head.tqh_first;
+    focus::move_to_front(
+        arena::identity(parent_ptr(con)).expect("live focus parent"),
+        arena::identity(con).expect("live focus child"),
+    )
+    .expect("attached focus child");
     if !parent_ptr(parent_ptr(con)).is_null() {
         con_focus(parent_ptr(con) as *mut Con);
     }
@@ -491,9 +476,13 @@ pub unsafe fn con_close(con: *mut Con, kill_window: KillWindow) {
             347 as ::core::ffi::c_int,
             con,
         );
-        let mut child: *mut Con = (*con).focus_head.tqh_first as *mut Con;
-        while !child.is_null() {
-            let next_child: *mut Con = (*child).focused.tqe_next as *mut Con;
+        let owner = arena::identity(con).expect("live closing workspace");
+        let mut child_id = focus::first(owner);
+        while let Some(id) = child_id {
+            let next_child = focus::next(owner, id);
+            let Some(child) = arena::resolve(id) else {
+                break;
+            };
             debuglog(
                 c"%s:%s:%d - killing child = %p.\n".as_ptr().cast_mut(),
                 c"../src/con.c".as_ptr(),
@@ -502,7 +491,7 @@ pub unsafe fn con_close(con: *mut Con, kill_window: KillWindow) {
                 child,
             );
             tree_close_internal(child, kill_window, false);
-            child = next_child;
+            child_id = next_child;
         }
         return;
     }
@@ -546,7 +535,7 @@ pub unsafe fn con_is_hidden(con: *mut Con) -> bool {
         if !parent.is_null()
             && ((*parent).layout == Layout::Tabbed || (*parent).layout == Layout::Stacked)
         {
-            if (*parent).focus_head.tqh_first != current {
+            if focus::first_ptr(parent) != current {
                 return true;
             }
         }
@@ -1142,46 +1131,33 @@ pub unsafe fn con_for_window(
 }
 /// Snapshot identities, not ownership; the graph and every returned node must
 /// remain live until the caller has finished restoring the focus order.
-pub unsafe fn get_focus_order(con: *mut Con) -> Vec<*mut Con> {
-    let mut order = Vec::new();
-    let mut current = (*con).focus_head.tqh_first;
-    while !current.is_null() {
-        order.push(current);
-        current = (*current).focused.tqe_next;
-    }
-    order
+pub fn get_focus_order(con: *mut Con) -> Vec<ConId> {
+    arena::identity(con).map_or_else(Vec::new, focus::snapshot)
 }
 
-/// All snapshot nodes remain live; the retained nodes belong to `con`. Graph
-/// mutation remains exclusive to the event thread and invokes no callbacks here.
-pub unsafe fn set_focus_order(con: *mut Con, focus_order: &[*mut Con]) {
-    let mut count = 0;
-    while !(*con).focus_head.tqh_first.is_null() {
-        let current = (*con).focus_head.tqh_first;
-        if !(*current).focused.tqe_next.is_null() {
-            (*(*current).focused.tqe_next).focused.tqe_prev = (*current).focused.tqe_prev;
-        } else {
-            (*con).focus_head.tqh_last = (*current).focused.tqe_prev;
-        }
-        *(*current).focused.tqe_prev = (*current).focused.tqe_next;
-        count += 1;
-    }
-    // The old pointer walk extended its bound for skipped floating nodes. A
-    // bounded snapshot expresses the same selection without reading past it.
-    for &current in focus_order {
-        if count == 0 {
+/// Restore the retained children from a pre-move snapshot. Native floating
+/// ancestry policy is evaluated before the atomic typed permutation update.
+pub unsafe fn set_focus_order(con: *mut Con, focus_order: &[ConId]) {
+    let owner = arena::identity(con).expect("live focus parent");
+    let count = focus::snapshot(owner).len();
+    let mut retained = Vec::with_capacity(count);
+    for &id in focus_order {
+        if retained.len() == count {
             break;
         }
+        let current = arena::resolve(id).expect("live focus snapshot child");
         if (*con).type_0 != CT_WORKSPACE && !con_inside_floating(current).is_null() {
             continue;
         }
-        (*current).focused.tqe_next = std::ptr::null_mut();
-        (*current).focused.tqe_prev = (*con).focus_head.tqh_last;
-        *(*con).focus_head.tqh_last = current;
-        (*con).focus_head.tqh_last = &raw mut (*current).focused.tqe_next;
-        count -= 1;
+        retained.push(id);
     }
-    assert_eq!(count, 0, "focus snapshot must contain every retained child");
+    assert_eq!(
+        retained.len(),
+        count,
+        "focus snapshot must contain every retained child"
+    );
+    focus::replace_order(owner, &retained)
+        .expect("focus snapshot must permute retained membership");
 }
 
 pub unsafe fn con_num_children(con: *mut Con) -> ::core::ffi::c_int {
@@ -1668,8 +1644,7 @@ unsafe fn _con_move_to_con(
         con_fix_percent(target);
     }
     if !ignore_focus && !con_is_internal(target_ws) && fullscreen.is_null() {
-        let old_focus_ws: *mut Con =
-            (*output_get_content(dest_output)).focus_head.tqh_first as *mut Con;
+        let old_focus_ws: *mut Con = focus::first_ptr(output_get_content(dest_output)) as *mut Con;
         let old_focus: *mut Con = focused;
         con_activate(con_descend_focused(con));
         if old_focus_ws == current_ws
@@ -1772,7 +1747,7 @@ pub unsafe fn con_move_to_target(con: *mut Con, mut target: *mut Con) -> bool {
             c"con_move_to_target".as_ptr(),
             1523 as ::core::ffi::c_int,
         );
-        target = (*target).focus_head.tqh_first as *mut Con;
+        target = focus::first_ptr(target) as *mut Con;
     }
     if con == target || con_has_parent(target, con) as ::core::ffi::c_int != 0 {
         debuglog(
@@ -1954,7 +1929,7 @@ pub unsafe fn con_next_focused(mut con: *mut Con) -> *mut Con {
     if con_is_floating(con) {
         con = parent_ptr(con) as *mut Con;
     }
-    let mut next: *mut Con = (*parent_ptr(con)).focus_head.tqh_first as *mut Con;
+    let mut next: *mut Con = focus::first_ptr(parent_ptr(con)) as *mut Con;
     if next != con {
         debuglog(
             c"%s:%s:%d - Using first entry %p\n".as_ptr().cast_mut(),
@@ -1964,13 +1939,13 @@ pub unsafe fn con_next_focused(mut con: *mut Con) -> *mut Con {
             next,
         );
     } else {
-        next = (*con).focused.tqe_next as *mut Con;
+        next = focus::next_ptr(con) as *mut Con;
         if next.is_null() {
             next = parent_ptr(con) as *mut Con;
         }
     }
-    while !(*next).focus_head.tqh_first.is_null() && (*next).focus_head.tqh_first != con {
-        next = (*next).focus_head.tqh_first as *mut Con;
+    while !focus::first_ptr(next).is_null() && focus::first_ptr(next) != con {
+        next = focus::first_ptr(next) as *mut Con;
     }
     if (*con).type_0 as ::core::ffi::c_uint
         == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
@@ -1983,8 +1958,8 @@ pub unsafe fn con_next_focused(mut con: *mut Con) -> *mut Con {
 
 pub unsafe fn con_descend_focused(con: *mut Con) -> *mut Con {
     let mut next: *mut Con = con;
-    while next != focused && !(*next).focus_head.tqh_first.is_null() {
-        next = (*next).focus_head.tqh_first as *mut Con;
+    while next != focused && !focus::first_ptr(next).is_null() {
+        next = focus::first_ptr(next) as *mut Con;
     }
     next
 }
@@ -1998,12 +1973,12 @@ pub unsafe fn con_descend_tiling_focused(con: *mut Con) -> *mut Con {
     }
     loop {
         before = next;
-        child = (*next).focus_head.tqh_first as *mut Con;
+        child = focus::first_ptr(next) as *mut Con;
         while !child.is_null() {
             if (*child).type_0 as ::core::ffi::c_uint
                 == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
             {
-                child = (*child).focused.tqe_next as *mut Con;
+                child = focus::next_ptr(child) as *mut Con;
             } else {
                 next = child;
                 break;
@@ -2039,7 +2014,7 @@ pub unsafe fn con_descend_direction(con: *mut Con, direction: Direction) -> *mut
                 most = *(*((*con).nodes_head.tqh_last as *mut nodes_head)).tqh_last as *mut Con;
             }
         } else if orientation == Orientation::Vertical {
-            current = (*con).focus_head.tqh_first as *mut Con;
+            current = focus::first_ptr(con) as *mut Con;
             while !current.is_null() {
                 if (*current).type_0 as ::core::ffi::c_uint
                     != CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
@@ -2047,7 +2022,7 @@ pub unsafe fn con_descend_direction(con: *mut Con, direction: Direction) -> *mut
                     most = current;
                     break;
                 } else {
-                    current = (*current).focused.tqe_next as *mut Con;
+                    current = focus::next_ptr(current) as *mut Con;
                 }
             }
         } else {
@@ -2062,7 +2037,7 @@ pub unsafe fn con_descend_direction(con: *mut Con, direction: Direction) -> *mut
                 most = (*con).nodes_head.tqh_first as *mut Con;
             }
         } else if orientation == Orientation::Horizontal {
-            current = (*con).focus_head.tqh_first as *mut Con;
+            current = focus::first_ptr(con) as *mut Con;
             while !current.is_null() {
                 if (*current).type_0 as ::core::ffi::c_uint
                     != CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
@@ -2070,7 +2045,7 @@ pub unsafe fn con_descend_direction(con: *mut Con, direction: Direction) -> *mut
                     most = current;
                     break;
                 } else {
-                    current = (*current).focused.tqe_next as *mut Con;
+                    current = focus::next_ptr(current) as *mut Con;
                 }
             }
         } else {
@@ -2544,7 +2519,7 @@ unsafe fn con_on_remove_child(con: *mut Con) {
     if (*con).type_0 as ::core::ffi::c_uint
         == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
     {
-        if (*con).focus_head.tqh_first.is_null() && !workspace_is_visible(con) {
+        if focus::first_ptr(con).is_null() && !workspace_is_visible(con) {
             verboselog(
                 c"Closing old workspace (%p / %s), it is empty\n"
                     .as_ptr()
@@ -3119,87 +3094,11 @@ pub unsafe fn con_swap(first: *mut Con, second: *mut Con) -> bool {
             (*second).nodes.tqe_prev = &raw mut (*first_prev).nodes.tqe_next;
         }
     }
-    let head1_0: *mut focus_head = &raw mut (*parent_ptr(first)).focus_head;
-    let head2_0: *mut focus_head = &raw mut (*parent_ptr(second)).focus_head;
-    let first_prev_0: *mut Con = *(*((*first).focused.tqe_prev as *mut focus_head)).tqh_last;
-    let second_prev_0: *mut Con = *(*((*second).focused.tqe_prev as *mut focus_head)).tqh_last;
-    if second_prev_0 == first {
-        *(*first).focused.tqe_prev = second as *mut Con;
-        (*second).focused.tqe_prev = (*first).focused.tqe_prev;
-        (*first).focused.tqe_prev = &raw mut (*second).focused.tqe_next;
-        (*first).focused.tqe_next = (*second).focused.tqe_next;
-        if !(*second).focused.tqe_next.is_null() {
-            (*(*second).focused.tqe_next).focused.tqe_prev = &raw mut (*first).focused.tqe_next;
-        }
-        (*second).focused.tqe_next = first as *mut Con;
-        if (*head1_0).tqh_last == &raw mut (*second).focused.tqe_next {
-            (*head1_0).tqh_last = &raw mut (*first).focused.tqe_next;
-        }
-    } else if first_prev_0 == second {
-        *(*second).focused.tqe_prev = first as *mut Con;
-        (*first).focused.tqe_prev = (*second).focused.tqe_prev;
-        (*second).focused.tqe_prev = &raw mut (*first).focused.tqe_next;
-        (*second).focused.tqe_next = (*first).focused.tqe_next;
-        if !(*first).focused.tqe_next.is_null() {
-            (*(*first).focused.tqe_next).focused.tqe_prev = &raw mut (*second).focused.tqe_next;
-        }
-        (*first).focused.tqe_next = second as *mut Con;
-        if (*head1_0).tqh_last == &raw mut (*first).focused.tqe_next {
-            (*head1_0).tqh_last = &raw mut (*second).focused.tqe_next;
-        }
-    } else {
-        if !(*first).focused.tqe_next.is_null() {
-            (*(*first).focused.tqe_next).focused.tqe_prev = (*first).focused.tqe_prev;
-        } else {
-            (*head1_0).tqh_last = (*first).focused.tqe_prev;
-        }
-        *(*first).focused.tqe_prev = (*first).focused.tqe_next;
-        if !(*second).focused.tqe_next.is_null() {
-            (*(*second).focused.tqe_next).focused.tqe_prev = (*second).focused.tqe_prev;
-        } else {
-            (*head2_0).tqh_last = (*second).focused.tqe_prev;
-        }
-        *(*second).focused.tqe_prev = (*second).focused.tqe_next;
-        if second_prev_0.is_null() {
-            (*first).focused.tqe_next = (*head2_0).tqh_first;
-            if !(*first).focused.tqe_next.is_null() {
-                (*(*head2_0).tqh_first).focused.tqe_prev = &raw mut (*first).focused.tqe_next;
-            } else {
-                (*head2_0).tqh_last = &raw mut (*first).focused.tqe_next;
-            }
-            (*head2_0).tqh_first = first as *mut Con;
-            (*first).focused.tqe_prev = &raw mut (*head2_0).tqh_first;
-        } else {
-            (*first).focused.tqe_next = (*second_prev_0).focused.tqe_next;
-            if !(*first).focused.tqe_next.is_null() {
-                (*(*first).focused.tqe_next).focused.tqe_prev = &raw mut (*first).focused.tqe_next;
-            } else {
-                (*head2_0).tqh_last = &raw mut (*first).focused.tqe_next;
-            }
-            (*second_prev_0).focused.tqe_next = first as *mut Con;
-            (*first).focused.tqe_prev = &raw mut (*second_prev_0).focused.tqe_next;
-        }
-        if first_prev_0.is_null() {
-            (*second).focused.tqe_next = (*head1_0).tqh_first;
-            if !(*second).focused.tqe_next.is_null() {
-                (*(*head1_0).tqh_first).focused.tqe_prev = &raw mut (*second).focused.tqe_next;
-            } else {
-                (*head1_0).tqh_last = &raw mut (*second).focused.tqe_next;
-            }
-            (*head1_0).tqh_first = second as *mut Con;
-            (*second).focused.tqe_prev = &raw mut (*head1_0).tqh_first;
-        } else {
-            (*second).focused.tqe_next = (*first_prev_0).focused.tqe_next;
-            if !(*second).focused.tqe_next.is_null() {
-                (*(*second).focused.tqe_next).focused.tqe_prev =
-                    &raw mut (*second).focused.tqe_next;
-            } else {
-                (*head1_0).tqh_last = &raw mut (*second).focused.tqe_next;
-            }
-            (*first_prev_0).focused.tqe_next = second as *mut Con;
-            (*second).focused.tqe_prev = &raw mut (*first_prev_0).focused.tqe_next;
-        }
-    }
+    focus::swap(
+        arena::identity(first).expect("live first focus child"),
+        arena::identity(second).expect("live second focus child"),
+    )
+    .expect("swappable focus members");
     let tmp_SWAP: *mut Con = parent_ptr(first) as *mut Con;
     set_parent_ptr(first, parent_ptr(second)).expect("live acyclic ancestry");
     set_parent_ptr(second, tmp_SWAP as *mut Con).expect("live acyclic ancestry");
@@ -3322,7 +3221,6 @@ use crate::log::{debuglog, errorlog, verboselog};
 
 // Shared model types retain field layout while using one Rust identity.
 pub use crate::types::deco_render_params;
-pub use crate::types::focus_head;
 pub use crate::types::gaps_t;
 pub use crate::types::mark_t;
 pub use crate::types::nodes_head;
@@ -3469,26 +3367,18 @@ mod owned_graph_tests {
         set_parent_ptr(split, workspace).unwrap();
         set_parent_ptr(first, split).unwrap();
         set_parent_ptr(second, split).unwrap();
+        let id = |raw| arena::identity(raw).unwrap();
+        focus::append(id(split), id(first)).unwrap();
+        focus::append(id(split), id(second)).unwrap();
         unsafe {
             (*workspace).type_0 = CT_WORKSPACE;
             (*split).type_0 = CT_CON;
             (*floating).type_0 = CT_FLOATING_CON;
-            (*first).focused.tqe_next = second;
-            (*first).focused.tqe_prev = &raw mut (*split).focus_head.tqh_first;
-            (*second).focused.tqe_prev = &raw mut (*first).focused.tqe_next;
-            (*split).focus_head.tqh_first = first;
-            (*split).focus_head.tqh_last = &raw mut (*second).focused.tqe_next;
-            assert_eq!(get_focus_order(split), vec![first, second]);
-            set_focus_order(split, &[floating, second, first]);
-            assert_eq!(get_focus_order(split), vec![second, first]);
-            assert_eq!(
-                (*first).focused.tqe_prev,
-                &raw mut (*second).focused.tqe_next
-            );
-            assert_eq!(
-                (*split).focus_head.tqh_last,
-                &raw mut (*first).focused.tqe_next
-            );
+            assert_eq!(get_focus_order(split), vec![id(first), id(second)]);
+            set_focus_order(split, &[id(floating), id(second), id(first)]);
+            assert_eq!(get_focus_order(split), vec![id(second), id(first)]);
+            assert_eq!(focus::previous_ptr(first), second);
+            assert_eq!(focus::last_ptr(split), first);
             for raw in [workspace, split, first, second, floating] {
                 arena::release(raw);
             }

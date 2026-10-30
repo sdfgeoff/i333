@@ -1,6 +1,7 @@
 use crate::bindings::get_binding_from_xcb_event;
 use crate::bindings::run_binding;
 use crate::commands_parser::command_result_free;
+use crate::con::arena::focus;
 use crate::con::arena::parent::parent_ptr;
 use crate::con::CT_DOCKAREA;
 use crate::con::{TILING_DRAG_MODIFIER, TILING_DRAG_MODIFIER_OR_TITLEBAR, TILING_DRAG_TITLEBAR};
@@ -252,9 +253,7 @@ unsafe fn route_click(con: *mut Con, event: *mut xcb_button_press_event_t, dest:
     let mut ws: *mut Con = con_get_workspace(con);
     let focused_workspace: *mut Con = con_get_workspace(focused);
     if ws.is_null() {
-        ws = (*output_get_content(con_get_output(con)))
-            .focus_head
-            .tqh_first as *mut Con;
+        ws = focus::first_ptr(output_get_content(con_get_output(con)));
         if ws.is_null() {
             allow_replay_pointer((*event).time);
             return;
@@ -283,7 +282,7 @@ unsafe fn route_click(con: *mut Con, event: *mut xcb_button_press_event_t, dest:
             234,
         );
         workspace_show(ws);
-        let current: *mut Con = (*parent_ptr(con)).focus_head.tqh_first as *mut Con;
+        let current: *mut Con = focus::first_ptr(parent_ptr(con));
         let direction: Position = if (*event).detail as i32 == XCB_BUTTON_INDEX_4 as i32
             || (*event).detail as i32 == XCB_BUTTON_SCROLL_LEFT
         {
@@ -315,8 +314,8 @@ unsafe fn route_click(con: *mut Con, event: *mut xcb_button_press_event_t, dest:
     let mut con_to_focus: *mut Con = con;
     if in_stacked && dest == ClickDestination::Decoration {
         if was_focused || !con_has_parent(focused, con) {
-            while !(*con_to_focus).focus_head.tqh_first.is_null() {
-                con_to_focus = (*con_to_focus).focus_head.tqh_first as *mut Con;
+            while !focus::first_ptr(con_to_focus).is_null() {
+                con_to_focus = focus::first_ptr(con_to_focus);
             }
         }
     }
@@ -484,8 +483,7 @@ pub unsafe fn handle_button_press(event: *mut xcb_button_press_event_t) {
                 {
                     output = (*output).nodes.tqe_next as *mut Con;
                 } else {
-                    let ws: *mut Con =
-                        (*output_get_content(output)).focus_head.tqh_first as *mut Con;
+                    let ws: *mut Con = focus::first_ptr(output_get_content(output));
                     if ws != con_get_workspace(focused) {
                         workspace_show(ws);
                         tree_render();

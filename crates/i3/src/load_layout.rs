@@ -1,4 +1,5 @@
 use crate::con::arena::parent::{parent_ptr, set_parent_ptr};
+use crate::con::arena::{focus, identity, resolve};
 use crate::regex::{regex_free, regex_new};
 use crate::types::BorderStyle;
 use crate::types::FloatingState;
@@ -363,30 +364,13 @@ impl LayoutState {
             self.parsing_marks = false;
         }
         if self.parsing_focus {
+            let owner = identity(self.json_node).expect("live parsed focus owner");
             for old_id in std::mem::take(&mut self.focus_mappings).into_iter().rev() {
-                let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
-                con = (*self.json_node).focus_head.tqh_first as *mut Con;
-                while !con.is_null() {
-                    if (*con).old_id != old_id {
-                        con = (*con).focused.tqe_next as *mut Con;
-                    } else {
+                for id in focus::children(owner) {
+                    let Some(con) = resolve(id) else { continue };
+                    if (*con).old_id == old_id {
                         verboselog(c"got it! %p\n".as_ptr().cast_mut(), con);
-                        if !(*con).focused.tqe_next.is_null() {
-                            (*(*con).focused.tqe_next).focused.tqe_prev = (*con).focused.tqe_prev;
-                        } else {
-                            (*self.json_node).focus_head.tqh_last = (*con).focused.tqe_prev;
-                        }
-                        *(*con).focused.tqe_prev = (*con).focused.tqe_next;
-                        (*con).focused.tqe_next = (*self.json_node).focus_head.tqh_first;
-                        if !(*con).focused.tqe_next.is_null() {
-                            (*(*self.json_node).focus_head.tqh_first).focused.tqe_prev =
-                                &raw mut (*con).focused.tqe_next;
-                        } else {
-                            (*self.json_node).focus_head.tqh_last =
-                                &raw mut (*con).focused.tqe_next;
-                        }
-                        (*self.json_node).focus_head.tqh_first = con as *mut Con;
-                        (*con).focused.tqe_prev = &raw mut (*self.json_node).focus_head.tqh_first;
+                        focus::move_to_front(owner, id).expect("existing parsed focus member");
                         break;
                     }
                 }

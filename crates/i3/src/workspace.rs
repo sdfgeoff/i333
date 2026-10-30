@@ -1,7 +1,7 @@
 use crate::application::bindings;
 use crate::application::ws_assignments;
 use crate::con::arena::parent::{parent_ptr, set_parent_ptr};
-use crate::con::arena::{floating, identity, resolve};
+use crate::con::arena::{floating, focus, identity, resolve};
 use crate::types::KillWindow;
 use crate::types::Layout;
 use crate::types::Orientation;
@@ -1357,7 +1357,7 @@ pub unsafe fn workspace_move_to_output(mut ws: *mut Con, output: *mut Output) {
         );
         return;
     }
-    let previously_visible_ws: *mut Con = (*content).focus_head.tqh_first as *mut Con;
+    let previously_visible_ws: *mut Con = focus::first_ptr(content);
     if !previously_visible_ws.is_null() {
         debuglog(
             c"%s:%s:%d - Previously visible workspace = %p / %s\n"
@@ -1434,7 +1434,7 @@ pub unsafe fn workspace_move_to_output(mut ws: *mut Con, output: *mut Output) {
     let old_content: *mut Con = parent_ptr(ws);
     con_detach(ws);
     if workspace_was_visible {
-        let focus_ws: *mut Con = (*old_content).focus_head.tqh_first as *mut Con;
+        let focus_ws: *mut Con = focus::first_ptr(old_content);
         debuglog(
             c"%s:%s:%d - workspace was visible, focusing %p / %s now\n"
                 .as_ptr()

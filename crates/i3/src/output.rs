@@ -10,6 +10,7 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 
 use crate::con::arena::parent::parent_ptr;
+use crate::con::arena::{focus, identity, resolve};
 use crate::con::{
     con_activate, con_descend_focused, con_get_output, con_get_workspace, con_is_sticky,
     con_move_to_workspace, CT_CON, CT_FLOATING_CON,
@@ -139,25 +140,35 @@ pub unsafe fn get_output_for_con(con: *mut Con) -> *mut Output {
 /// `old_focus` is null or a live node throughout the call. Native move/activation
 /// may mutate queues, so no other graph borrows may overlap this operation.
 pub unsafe fn output_push_sticky_windows(old_focus: *mut Con) {
-    // SAFETY: Traversal uses raw pointers under exclusive event-thread access.
+    // SAFETY: Traversal resolves IDs at native event-thread use boundaries.
     // Save workspace/window successors BEFORE moving nodes or activating focus;
     // no Rust references to graph nodes survive any of those callbacks.
     unsafe {
-        let mut output = (*croot).focus_head.tqh_first;
-        while !output.is_null() {
+        let root_id = identity(croot).expect("live root focus owner");
+        let mut output_id = focus::first(root_id);
+        while let Some(current_output) = output_id {
+            let Some(output) = resolve(current_output) else {
+                break;
+            };
             let content = output_get_content(output);
+            let content_id = identity(content).expect("live output content");
             let mut visible_ws = (*content).nodes_head.tqh_first;
             while !visible_ws.is_null() && !workspace_is_visible(visible_ws) {
                 visible_ws = (*visible_ws).nodes.tqe_next;
             }
-            let mut workspace = (*content).focus_head.tqh_first;
-            while !workspace.is_null() {
-                let current_ws = workspace;
-                workspace = (*workspace).focused.tqe_next;
-                let mut child = (*current_ws).focus_head.tqh_first;
-                while !child.is_null() {
-                    let current = child;
-                    child = (*child).focused.tqe_next;
+            let mut workspace = focus::first(content_id);
+            while let Some(current_ws_id) = workspace {
+                // These successors intentionally precede move/activation callbacks.
+                workspace = focus::next(content_id, current_ws_id);
+                if resolve(current_ws_id).is_none() {
+                    continue;
+                }
+                let mut child = focus::first(current_ws_id);
+                while let Some(current_id) = child {
+                    child = focus::next(current_ws_id, current_id);
+                    let Some(current) = resolve(current_id) else {
+                        continue;
+                    };
                     let floating = (*current).type_0 == CT_FLOATING_CON;
                     let sticky = floating && con_is_sticky(current);
                     let was_focused = floating
@@ -177,7 +188,9 @@ pub unsafe fn output_push_sticky_windows(old_focus: *mut Con) {
                     }
                 }
             }
-            output = (*output).focused.tqe_next;
+            // Output focus may reorder during activation: query its live
+            // successor only after completing this output's work.
+            output_id = focus::next(root_id, current_output);
         }
     }
 }

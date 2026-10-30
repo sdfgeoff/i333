@@ -1,3 +1,4 @@
+use crate::con::arena::focus;
 use crate::con::arena::parent::parent_ptr;
 use crate::con::arena::{floating, identity, resolve};
 use crate::types::BorderStyle;
@@ -875,7 +876,7 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
         &raw mut config.client.urgent as *mut Colortriple
     } else if con == focused || con_inside_focused(con) {
         &raw mut config.client.focused as *mut Colortriple
-    } else if con == (*parent).focus_head.tqh_first {
+    } else if con == focus::first_ptr(parent) {
         if config.client.got_focused_tab_title && !leaf && con_descend_focused(con) == focused {
             &raw mut config.client.focused_tab_title as *mut Colortriple
         } else {
@@ -1645,7 +1646,7 @@ pub unsafe fn x_push_node(con: *mut Con) {
             (*con).pixmap_recreated = true;
             if parent_ptr(con).is_null()
                 || (*parent_ptr(con)).layout != Layout::Stacked
-                || (*parent_ptr(con)).focus_head.tqh_first == con
+                || focus::first_ptr(parent_ptr(con)) == con
             {
                 x_deco_recurse(con);
             }
@@ -1810,10 +1811,10 @@ pub unsafe fn x_push_node(con: *mut Con) {
     }
     set_hidden_state(con);
     set_maximized_state(con);
-    current = (*con).focus_head.tqh_first as *mut Con;
+    current = focus::first_ptr(con);
     while !current.is_null() {
         x_push_node(current);
-        current = (*current).focused.tqe_next as *mut Con;
+        current = focus::next_ptr(current);
     }
 }
 unsafe fn x_push_node_unmaps(con: *mut Con) {

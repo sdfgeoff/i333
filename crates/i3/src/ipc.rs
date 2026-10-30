@@ -1,3 +1,4 @@
+use crate::con::arena::focus;
 use crate::con::arena::parent::parent_ptr;
 #[path = "ipc_messages.rs"]
 mod messages;
@@ -766,10 +767,10 @@ unsafe fn optional_pattern(
 unsafe fn snapshot_node_tail(con: *mut Con, restart: bool) -> messages::NodeTail {
     use messages::Omitted;
     let mut focus = Vec::new();
-    let mut child = (*con).focus_head.tqh_first;
-    while !child.is_null() {
-        focus.push(child as usize as i64);
-        child = (*child).focused.tqe_next;
+    for id in focus::children(identity(con).expect("live focus parent")) {
+        if let Some(child) = resolve(id) {
+            focus.push(child as usize as i64);
+        }
     }
     let mut swallows = Vec::new();
     let mut swallow = (*con).swallow_head.tqh_first;

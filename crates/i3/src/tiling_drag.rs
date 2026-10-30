@@ -1,3 +1,4 @@
+use crate::con::arena::focus;
 use crate::con::arena::parent::parent_ptr;
 use crate::con::arena::{containers, resolve};
 use crate::con::{CF_NONE, CF_OUTPUT, CT_WORKSPACE};
@@ -61,7 +62,7 @@ pub unsafe fn has_drop_targets() -> bool {
         }
     }
     let mut output: *mut Con = ::core::ptr::null_mut::<Con>();
-    output = (*croot).focus_head.tqh_first as *mut Con;
+    output = focus::first_ptr(croot);
     while !output.is_null() {
         if !con_is_internal(output) {
             let mut visible_ws: *mut Con = ::core::ptr::null_mut::<Con>();
@@ -77,7 +78,7 @@ pub unsafe fn has_drop_targets() -> bool {
                 drop_targets += 1;
             }
         }
-        output = (*output).focused.tqe_next as *mut Con;
+        output = focus::next_ptr(output);
     }
     drop_targets > 1
 }

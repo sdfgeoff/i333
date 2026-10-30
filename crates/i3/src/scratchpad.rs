@@ -1,3 +1,4 @@
+use crate::con::arena::focus;
 use crate::con::arena::parent::parent_ptr;
 use crate::con::arena::{containers, floating, identity, resolve};
 use crate::types::ScratchpadState;
@@ -56,11 +57,14 @@ pub unsafe fn scratchpad_move(mut con: *mut Con) {
             c"'move scratchpad' used on a workspace \"%s\". Calling it recursively on all windows on this workspace.\n".as_ptr().cast_mut(),
             (*con).name,
         );
-        let mut current: *mut Con = (*con).focus_head.tqh_first as *mut Con;
-        while !current.is_null() {
-            let next: *mut Con = (*current).focused.tqe_next as *mut Con;
-            scratchpad_move(current);
-            current = next;
+        let owner = crate::con::arena::identity(con).expect("live scratchpad workspace");
+        let mut current = focus::first(owner);
+        while let Some(id) = current {
+            // Save the generation-checked successor BEFORE moving this member.
+            current = focus::next(owner, id);
+            if let Some(raw) = crate::con::arena::resolve(id) {
+                scratchpad_move(raw);
+            }
         }
         return;
     }

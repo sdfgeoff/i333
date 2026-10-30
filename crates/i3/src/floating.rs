@@ -1,5 +1,5 @@
 use crate::con::arena::parent::{parent_ptr, set_parent_ptr};
-use crate::con::arena::{floating, identity};
+use crate::con::arena::{floating, focus, identity};
 use crate::con::{CF_NONE, CT_CON, CT_FLOATING_CON, CT_WORKSPACE};
 pub use crate::types::xoutput as Output;
 
@@ -335,22 +335,21 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
         );
         return false;
     }
-    let mut focus_head_placeholder: *mut Con = ::core::ptr::null_mut::<Con>();
+    let mut focus_placeholder = None;
     let mut focus_before_parent: bool = true;
     if !set_focus {
         let mut ancestor: *mut Con = con;
         while (*parent_ptr(ancestor)).type_0 as u32 != CT_WORKSPACE as i32 as u32 {
             focus_before_parent = (focus_before_parent as i32
-                & ((*parent_ptr(ancestor)).focus_head.tqh_first == ancestor) as i32)
+                & (focus::first_ptr(parent_ptr(ancestor)) == ancestor) as i32)
                 != 0;
             ancestor = parent_ptr(ancestor);
         }
-        if focus_before_parent {
-            focus_head_placeholder =
-                *(*((*ancestor).focused.tqe_prev as *mut focus_head)).tqh_last as *mut Con;
+        focus_placeholder = if focus_before_parent {
+            identity(focus::previous_ptr(ancestor))
         } else {
-            focus_head_placeholder = (*ancestor).focused.tqe_next as *mut Con;
-        }
+            identity(focus::next_ptr(ancestor))
+        };
     }
     con_detach(con);
     con_fix_percent(parent_ptr(con));
@@ -367,37 +366,18 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
         identity(nc).expect("live floating wrapper"),
     )
     .expect("new floating wrapper has no existing membership");
-    let fh: *mut focus_head = &raw mut (*ws).focus_head;
+    let focus_owner = identity(ws).expect("live workspace focus owner");
+    let wrapper_id = identity(nc).expect("live floating wrapper");
     if focus_before_parent {
-        if !focus_head_placeholder.is_null() {
-            (*nc).focused.tqe_next = (*focus_head_placeholder).focused.tqe_next;
-            if !(*nc).focused.tqe_next.is_null() {
-                (*(*nc).focused.tqe_next).focused.tqe_prev = &raw mut (*nc).focused.tqe_next;
-            } else {
-                (*fh).tqh_last = &raw mut (*nc).focused.tqe_next;
-            }
-            (*focus_head_placeholder).focused.tqe_next = nc as *mut Con;
-            (*nc).focused.tqe_prev = &raw mut (*focus_head_placeholder).focused.tqe_next;
+        if let Some(anchor) = focus_placeholder {
+            focus::insert_after(focus_owner, wrapper_id, anchor).expect("saved focus placeholder");
         } else {
-            (*nc).focused.tqe_next = (*fh).tqh_first;
-            if !(*nc).focused.tqe_next.is_null() {
-                (*(*fh).tqh_first).focused.tqe_prev = &raw mut (*nc).focused.tqe_next;
-            } else {
-                (*fh).tqh_last = &raw mut (*nc).focused.tqe_next;
-            }
-            (*fh).tqh_first = nc as *mut Con;
-            (*nc).focused.tqe_prev = &raw mut (*fh).tqh_first;
+            focus::prepend(focus_owner, wrapper_id).expect("new focus wrapper");
         }
-    } else if !focus_head_placeholder.is_null() {
-        (*nc).focused.tqe_prev = (*focus_head_placeholder).focused.tqe_prev;
-        (*nc).focused.tqe_next = focus_head_placeholder as *mut Con;
-        *(*focus_head_placeholder).focused.tqe_prev = nc as *mut Con;
-        (*focus_head_placeholder).focused.tqe_prev = &raw mut (*nc).focused.tqe_next;
+    } else if let Some(anchor) = focus_placeholder {
+        focus::insert_before(focus_owner, wrapper_id, anchor).expect("saved focus placeholder");
     } else {
-        (*nc).focused.tqe_next = ::core::ptr::null_mut::<Con>();
-        (*nc).focused.tqe_prev = (*fh).tqh_last;
-        *(*fh).tqh_last = nc as *mut Con;
-        (*fh).tqh_last = &raw mut (*nc).focused.tqe_next;
+        focus::append(focus_owner, wrapper_id).expect("new focus wrapper");
     }
     if ((*parent_ptr(con)).type_0 as u32 == CT_CON as i32 as u32
         || (*parent_ptr(con)).type_0 as u32 == CT_FLOATING_CON as i32 as u32)
@@ -480,10 +460,11 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
     (*con).nodes.tqe_prev = (*nc).nodes_head.tqh_last;
     *(*nc).nodes_head.tqh_last = con as *mut Con;
     (*nc).nodes_head.tqh_last = &raw mut (*con).nodes.tqe_next;
-    (*con).focused.tqe_next = ::core::ptr::null_mut::<Con>();
-    (*con).focused.tqe_prev = (*nc).focus_head.tqh_last;
-    *(*nc).focus_head.tqh_last = con as *mut Con;
-    (*nc).focus_head.tqh_last = &raw mut (*con).focused.tqe_next;
+    focus::append(
+        identity(nc).expect("live floating wrapper"),
+        identity(con).expect("live wrapped child"),
+    )
+    .expect("detached wrapped focus child");
     set_parent_ptr(con, nc as *mut Con).expect("live acyclic ancestry");
     (*con).percent = 1.0f64;
     (*con).floating = FloatingState::UserOn;
@@ -678,7 +659,7 @@ pub unsafe fn floating_maybe_reassign_ws(con: *mut Con) -> bool {
         507,
     );
     let content: *mut Con = output_get_content((*output).con);
-    let ws: *mut Con = (*content).focus_head.tqh_first as *mut Con;
+    let ws: *mut Con = focus::first_ptr(content);
     debuglog(
         c"%s:%s:%d - Moving con %p / %s to workspace %p / %s\n"
             .as_ptr()
@@ -1032,7 +1013,6 @@ use i3_common::native_stdio::__assert_fail;
 use crate::log::{debuglog, errorlog, verboselog};
 
 // Shared model types retain field layout while using one Rust identity.
-pub use crate::types::focus_head;
 pub use crate::types::xoutput;
 pub use crate::types::Con;
 pub use crate::types::Rect;

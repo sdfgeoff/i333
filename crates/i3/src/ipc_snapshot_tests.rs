@@ -179,14 +179,17 @@ unsafe fn collect() -> BTreeMap<String, String> {
         "workspace_floating".into(),
         node_bytes(workspace, false, 0, &allocated),
     );
-    (*workspace).focus_head.tqh_first = leaf;
-    (*leaf).focused.tqe_next = floating_child;
+    let focus_owner = identity(workspace).unwrap();
+    let leaf_id = identity(leaf).unwrap();
+    let floating_id = identity(floating_child).unwrap();
+    focus::append(focus_owner, leaf_id).unwrap();
+    focus::append(focus_owner, floating_id).unwrap();
     result.insert(
         "workspace_focus_order".into(),
         node_bytes(workspace, false, 0, &allocated),
     );
-    (*workspace).focus_head.tqh_first = std::ptr::null_mut();
-    (*leaf).focused.tqe_next = std::ptr::null_mut();
+    focus::remove(focus_owner, leaf_id).unwrap();
+    focus::remove(focus_owner, floating_id).unwrap();
     let mut pattern = Box::new(crate::regex::Regex::compile(c"^App$").unwrap());
     let mut swallow: Match = std::mem::zeroed();
     swallow.dock = 2;

@@ -1,3 +1,4 @@
+use crate::con::arena::focus;
 use crate::con::arena::{floating, identity, resolve};
 use crate::types::BorderStyle;
 use crate::types::Direction;
@@ -275,12 +276,12 @@ pub unsafe fn render_con(con: *mut Con) {
             child = (*child).nodes.tqe_next as *mut Con;
         }
         if (*con).layout == Layout::Stacked || (*con).layout == Layout::Tabbed {
-            child = *(*((*con).focus_head.tqh_last as *mut focus_head)).tqh_last as *mut Con;
-            while !child.is_null() {
-                x_raise_con(child);
-                child = *(*((*child).focused.tqe_prev as *mut focus_head)).tqh_last as *mut Con;
+            for id in focus::children_rev(identity(con).expect("live rendered focus owner")) {
+                if let Some(child) = resolve(id) {
+                    x_raise_con(child);
+                }
             }
-            child = (*con).focus_head.tqh_first as *mut Con;
+            child = focus::first_ptr(con);
             if !child.is_null() {
                 render_con(child);
             }
@@ -336,7 +337,7 @@ unsafe fn render_root(con: *mut Con, fullscreen: *mut Con) {
     while !output.is_null() {
         if !con_is_internal(output) {
             let content: *mut Con = output_get_content(output);
-            if content.is_null() || (*content).focus_head.tqh_first.is_null() {
+            if content.is_null() || focus::first_ptr(content).is_null() {
                 debuglog(
                     c"%s:%s:%d - Skipping this output because it is currently being destroyed.\n"
                         .as_ptr()
@@ -346,7 +347,7 @@ unsafe fn render_root(con: *mut Con, fullscreen: *mut Con) {
                     293,
                 );
             } else {
-                let workspace: *mut Con = (*content).focus_head.tqh_first as *mut Con;
+                let workspace: *mut Con = focus::first_ptr(content);
                 let fullscreen_0: *mut Con = con_get_fullscreen_covering_ws(workspace);
                 for floating_id in
                     floating::children(identity(workspace).expect("live floating parent"))
@@ -631,7 +632,6 @@ use i3_common::native_stdio::__assert_fail;
 use crate::log::debuglog;
 
 // Shared model types retain field layout while using one Rust identity.
-use crate::types::focus_head;
 use crate::types::gaps_t;
 use crate::types::Con;
 use crate::types::Rect;

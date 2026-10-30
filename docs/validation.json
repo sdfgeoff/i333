@@ -8,26 +8,26 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 30 wallclock secs ( 1.41 usr +  0.13 sys =  1.54 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 28 wallclock secs ( 1.29 usr +  0.13 sys =  1.42 CPU)\nResult: PASS",
     "profile": "debug",
     "build": "cargo test --locked",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "7e962614d74642522b40b3b5bdc5dbb3d79710d208979a2d7b306e8d386c618e",
-    "i3bar": "56f53be4f6923116958f7291403b8ec9cbe64a033d0fb03f7d94f80c336c5118",
-    "i3-config-wizard": "bc0d7e8b1658f11432984208dc486422c8e25dd51d401b14a17403bc31241c34",
-    "i3-dump-log": "e8867e3a9113ef3801638df467724484cf4546d6dba41ec827e161e006955196",
-    "i3-input": "fe6fb20a006c9ce2568bc98d29fcf8a249198b64cfb4a99f515fd7bbdc212c39",
-    "i3-msg": "d2f2e7083f9ec20081dafa76816416ed0a5e77bfae82d4dda420550a1506cbe7",
-    "i3-nagbar": "5e907e149ba3aa977afcadaf637e8b52e879992e29ff55ffc830a3cb8e984eb6"
+    "i3": "7d7d68ba4118af852d8f1fbacc9c145de536b3f094074ba38e5499548f68d191",
+    "i3bar": "5fb4ba1387820be1493d7bbe611141e7dd762f5920facf65c49e987c01aa4348",
+    "i3-config-wizard": "32f6542c3296a617a7f5debc526d2d7318debca3ba3231b0401aa771d66911c6",
+    "i3-dump-log": "81b96e909f4b72db319e3ecb19e536c60284920bae5c9a27e1ae597b44166652",
+    "i3-input": "c50b3141ba344221d9b28d63ad4e5acdea06a5aef1e1d2889c49d6757c96fa83",
+    "i3-msg": "baa118f5cabf8479b80ab6ecc034f330b190da669a1ec826fc9a0ac091a27420",
+    "i3-nagbar": "04d4837c12b38a77adb8d56b5fca33b5f86b72857aead9b06e593e68961c70d2"
   },
-  "note": "Ten-member Cargo workspace. cargo test --locked passed 367 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug hashes match this Cargo-driven run. Owned rendering text, Serde command replies and stable Rust-owned container storage replace legacy allocation adapters. Remaining native callbacks and intrusive tiling/focus graph links are explicit unsafe boundaries.",
+  "note": "Ten-member Cargo workspace. cargo test --locked passed 375 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug hashes match this Cargo-driven run. Owned rendering text, Serde command replies and stable Rust-owned container storage replace legacy allocation adapters. Remaining native callbacks and intrusive tiling-child links are explicit unsafe boundaries.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
   "additional_checks": {
     "headless_c_rust_state_comparisons": 54,
     "ipc_client_test_groups": 16,
-    "workspace_unit_tests": 367,
+    "workspace_unit_tests": 375,
     "core_and_bar_cli_comparisons": 39,
     "pcre2_compile_match_error_comparisons": 4620,
     "json_oracle_cases": 2218,
@@ -115,7 +115,7 @@
     "binary_count": 7,
     "native_library_discovery": "maintained native binding build scripts and dedicated sys crates; i3-build links only platform m/rt",
     "unit_tests": {
-      "i3": 180,
+      "i3": 188,
       "cargo_regression_wrappers": 8,
       "xkb_integration": 1,
       "i3-build": 3,
@@ -136,12 +136,12 @@
     "cargo_fmt_check": true,
     "debug_build": true,
     "release_build": true,
-    "unit_tests_total_including_integration_checks": 367,
+    "unit_tests_total_including_integration_checks": 375,
     "test_command": "cargo test",
     "clean_source_command": "cargo test -p i3-test-support --features clean-source-check",
     "test_support": "development-only process capture, failure propagation and isolated regression orchestration",
-    "release_build_note": "Ownership checkpoint2 CI passed formatting, full cargo test, release build and structural isolation: https://github.com/sdfgeoff/i333/actions/runs/40992071536. Checkpoint3 source changes pass local full Cargo suite; CI follows commit.",
-    "last_release_build_verified_commit": "01b7ac4d3d75d0b683b553ce0bcfa2201baabe79"
+    "release_build_note": "Ownership checkpoint4 full CI passed, including fixed upstream555fixture and release build: https://github.com/sdfgeoff/i333/actions/runs/40994507756. Checkpoint5 locally passes full Cargo suite; CI follows commit.",
+    "last_release_build_verified_commit": "d83f5d71f030fcf0123f4f7709c8496ddf8d98ea"
   },
   "modernization": {
     "yajl_product_dependency": false,
@@ -150,7 +150,7 @@
     "graphics": "Maintained cairo-rs, pango, pangocairo and glib owners/borrowed APIs for drawing and fonts; maintained sys bindings retain explicit native text byte-count and XCB surface boundaries",
     "xkb": "maintained xkbcommon bindings",
     "internal_no_mangle_exports": 0,
-    "remaining_unsafe": "Native FFI/callbacks, borrowed raw native graph access and remaining tiling/focus lists. Parent, floating and global relationships are owned generation-checked arena metadata; text and JSON APIs use Rust owners/borrows.",
+    "remaining_unsafe": "Native FFI/callbacks, borrowed raw access to live native graph values, remaining intrusive tiling-child relationships and auxiliary native lists. Parent/global/floating/focus relationships use owned generation-checked metadata.",
     "scratch_directory": ".work/tmp (gitignored, TMPDIR override supported)",
     "scalar_aliases": "Generated fixed-width, size, platform-internal and anonymous scalar typedefs removed; direct Rust primitives or maintained libc types at use sites. Semantic native/flag aliases retained.",
     "application_enums": {
@@ -1651,6 +1651,191 @@
         "upstream_validation": ".work/tmp/i333-suite-rust-q4mv612v/validation.json",
         "remaining": "See per-stage reports: full typed-ID parent/child/focus migration is staged, not claimed complete.",
         "independent_review": "Generation-checked parent metadata and native adapters independently reviewed; native graph consumer order preserved."
+      },
+      {
+        "checkpoint": 5,
+        "status": "validated",
+        "rust_reported_tests": 375,
+        "upstream_assertions": 4205,
+        "reports": {
+          "ownership-wave5-serde-report": {
+            "status": "frozen_ready_for_root_wave5_validation",
+            "assigned_files": [
+              "randr.rs",
+              "manage.rs",
+              "render.rs",
+              "x.rs",
+              "click.rs",
+              "handlers.rs",
+              "commands.rs",
+              "ipc.rs",
+              "ipc_snapshot_tests.rs",
+              "resize.rs",
+              "scratchpad.rs",
+              "tiling_drag.rs"
+            ],
+            "modified_files": [
+              "randr.rs",
+              "manage.rs",
+              "render.rs",
+              "x.rs",
+              "click.rs",
+              "handlers.rs",
+              "commands.rs",
+              "ipc.rs",
+              "ipc_snapshot_tests.rs",
+              "scratchpad.rs",
+              "tiling_drag.rs"
+            ],
+            "changes": [
+              "Deleted all native Con.focus_head/Con.focused reads and mutations from groupB; resize.rs had only unrelated native config.client.focused color and remains unchanged",
+              "Safe metadata-only focus first_ptr/next_ptr queries preserve native traversal/callback timing without holding Rust registry borrows",
+              "Renderer stacked/tabbed raises windows through live typed children_rev then renders front, preserving reversefocus stacking order",
+              "Managed new nonfocused window remains immediately AFTER focusfront; headnc no-op; uses actual focusowner to unlink/reinsert if ancestry and focusmetadata differ, no parent-equality backend rule",
+              "RandR content moves to outputfocusfront with independent focusowner membership handling",
+              "Scratchpad workspace traversal caches generation-checked next ID BEFORE moving each member; native recursion resolves each savedID at use",
+              "IPC focus snapshots traverse live ConIds then emit original resolved pointernumericIDs, never generations;23golden fixture bytes unchanged",
+              "Snapshot focusfixture creates/removes both entries through typed focusmetadata instead of constructing intrusive links",
+              "Removed redundant as*mutCon casts after safe raw focusqueries; non-Con native focused colorrecords preserved"
+            ],
+            "tests": [
+              {
+                "command": "cargo test --locked -p i3 --bin i3",
+                "result": "180passed including23 exactproductionJSONgoldens; coreworker additionalfocusbackendtests still being added separately",
+                "log": ".work/serde-protocol/wave5-core-tests.log"
+              },
+              {
+                "command": "git diff --check",
+                "result": "passed"
+              },
+              {
+                "command": "source scan groupB native focus_head/Con.focused",
+                "result": "zero remaining; exactly3 unrelated config.client.focused colorreferences preserved"
+              }
+            ],
+            "fixture_sha256": "500cc12300243a37fed449d230cd9ef34fdd4021399bcb5cd7e965c562654544",
+            "notes": "Initial cargo check during coordinated write had20 unfinished corecon/tree sites, zeroBgroup errors; later complete coreunit pass supersedes it. Root to run all backend/newtests and fullworkspace/runtime/upstream validation after corefreeze.",
+            "safety": "No live desktop/hostnested interaction; no /tmp; no fullworkspace tests/commits/pushes by worker. All scratch .work."
+          },
+          "ownership-wave5-readers-report": {
+            "status": "implemented, formatted, focused compile/tests passed; frozen for root integration",
+            "files": [
+              "crates/i3/src/move.rs",
+              "crates/i3/src/floating.rs",
+              "crates/i3/src/load_layout.rs",
+              "crates/i3/src/workspace.rs",
+              "crates/i3/src/output.rs"
+            ],
+            "changes": {
+              "move.rs": [
+                "Focus-ancestor first lookup and ordered first-match prefix scan use validated metadata queries.",
+                "Target ancestor reorders after previously saved predecessor or to front, before con_detach exactly as before.",
+                "Detached moved child uses insert_before/after at target when parent==LCA, otherwise prepend/append from preserved focus_before policy.",
+                "Directed workspace attachment appends focus after native tiling insertion and before percentages/remove-child callbacks."
+              ],
+              "floating.rs": [
+                "Saved previous/next focus placeholder is now Option<ConId>, captured before detaching original child.",
+                "Wrapper placed after saved predecessor/before saved successor, or prepended/appended when no placeholder, with same set_focus policy.",
+                "Wrapped original child appended to wrapper focus owner before ancestry setter at old native link insertion location.",
+                "Workspace reassignment selects first focus member through checked adapter."
+              ],
+              "load_layout.rs": [
+                "Reverse saved old_id mapping iteration retained; each entry scans current live focus order, moves first match to front then breaks. Unknown IDs remain ignored."
+              ],
+              "workspace.rs": [
+                "Workspace visibility reads use checked first_ptr. Existing move/encapsulation snapshots now infer Vec<ConId> from coordinated get_focus_order/set_focus_order API; no raw snapshot owners remain."
+              ],
+              "output.rs": [
+                "Root output, workspace and child cursors now store generation-checked IDs. Workspace and child successors are captured BEFORE move/activation callbacks; output successor queried AFTER completing output body.",
+                "Saved IDs resolved before native use, preventing stale-address reuse; native parent/focus ownership kept independent."
+              ]
+            },
+            "focused_tests": [
+              {
+                "command": "env -u RUSTUP_TOOLCHAIN TMPDIR=$PWD/.work/tmp cargo test -p i3 --bin i3 'r#move::tests'",
+                "result": "2 passed; entire i3 unit test target compiles",
+                "log": ".work/ownership-wave5-reader-test.log"
+              },
+              {
+                "command": "cargo test -p i3 --bin i3 con::",
+                "result": "36 passed (core worker executed; includes8 new focus tests)",
+                "note": "Final expanded error-atomicity rerun owned by core worker; parent full suite remains authoritative."
+              }
+            ],
+            "independent_review": {
+              "files": [
+                "crates/i3/src/con/arena/focus.rs",
+                "crates/i3/src/con/arena/ordered.rs",
+                "crates/i3/src/con.rs",
+                "crates/i3/src/tree.rs"
+              ],
+              "findings": [
+                "No structural correctness issues found: generation and membership checks precede all mutation, raw adapters follow recorded focus owner rather than ancestry, relative-index moves and replace/swap/permutation operations keep reverse ownership consistent, retire cleans both sides, and live/reverse iterators retain no borrow across body.",
+                "Coordinated focus snapshots filter retained native floating ancestry then atomically restore a validated permutation; tree_split exact focus-slot replacement and tree_flatten lift/restore placement preserved.",
+                "Restored-focus debug message compatibility issue reported; core worker confirmed original debuglog restored at716 after typed move_to_front."
+              ]
+            },
+            "remaining_boundaries": [
+              "Native tiling node order and X/event resource operations remain explicit unsafe interfaces.",
+              "Current live raw addresses are validated by metadata adapters; deferred cursors/saved placeholders now use ConId to retain generation checks.",
+              "All memberships are independent from retained native ancestry; no backend parent-equality assumptions introduced."
+            ],
+            "constraints": [
+              "No test555/script changes in this phase",
+              "No user desktop or nested test interaction; scratch/logs only .work"
+            ]
+          },
+          "ownership-wave5-tree-report": {
+            "status": "implemented_frozen_pending_root_full_suite",
+            "files": [
+              "crates/i3/src/con.rs",
+              "crates/i3/src/tree.rs",
+              "crates/i3/src/types.rs",
+              "crates/i3/src/con/arena.rs",
+              "crates/i3/src/con/arena/floating.rs fixtures",
+              "crates/i3/src/con/arena/focus.rs",
+              "crates/i3/src/con/arena/ordered.rs"
+            ],
+            "changes": [
+              "Deleted all native focus_head/ConFocused queue fields/types.",
+              "Authoritative Entry focus OrderedIds+focus_owner distinct from ancestry and floating membership.",
+              "Safe typed insert/remove/move/replace/swap/permutation APIs validate generation and ownership/cycles before all metadata changes.",
+              "OrderedIds pure identity order helper reusable for tiling, without refactoring stable floating.",
+              "Live forward/reverse iterators hold no borrow over callback body; native pointer lookup adapters never dereference raw input.",
+              "con_attach/con_detach/con_focus/split/flatten/slot swap migrated; native urgency/global focused remains at original callback positions.",
+              "Focus snapshots now Vec<ConId>; native floating-descendant filtering precedes exact retained-member permutation validation.",
+              "Con_close captures typed next ID before closing callbacks (final small safety change after focused tests; root full suite validates final source).",
+              "Retirement strips both directions of focus ownership before owner drops.",
+              "Original tree_flatten restored-focus diagnostic retained after independent review."
+            ],
+            "tests": {
+              "command": "cargo test --locked -p i3 --bin i3 con::",
+              "result": "36 passed;8new focus tests incl expanded atomic-failure coverage. Final source differs only by con_close raw-prefetch -> typed-prefetch/resolve guard, awaiting root full-suite validation.",
+              "log": ".work/ownership-wave5-tree-tests.log",
+              "coverage": [
+                "Relative insert/move order and self-relative no-op",
+                "Atomic stale owner/child/anchor/wrong-owner/duplicate/cycle/permutation/invalid replace/swap failures",
+                "Same/crossowner swap exact slots and wrapper replace slot",
+                "Forward/reverse live+nested iteration, deletion/appending/fused exhaustion and prefetched drain",
+                "Retirement/gen-address-reuse and reverse ownership",
+                "Address-only safe adapters null/1/MAX",
+                "Actual native attach/detach preserves ancestry and independent floating/focus",
+                "Actual con_focus recursive ancestor propagation in isolated displayless subprocess, global focused mutation confined child"
+              ]
+            },
+            "reviews": [
+              "Text peer backend transactionality/order/cycle/retire review no structuralissues; restored original omitted diagnostic.",
+              "Reader peers validate reverse render and callback prefetch semantics."
+            ],
+            "remaining": [
+              "Tiling nodes_head/ConNodes raw intrusive relation remains next final graph-list stage.",
+              "Global current focus/root raw identity and native resource/callback boundaries remain explicit."
+            ]
+          }
+        },
+        "upstream_validation": ".work/tmp/i333-suite-rust-78iewlw5/validation.json",
+        "remaining": "See per-stage reports: full typed-ID parent/child/focus migration is staged, not claimed complete.",
+        "independent_review": "Ordered focus metadata, independent ownership, callback cursors and raw-free snapshots reviewed by second subagent. Original native debuglog restored."
       }
     ]
   },

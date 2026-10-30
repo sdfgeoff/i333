@@ -1,3 +1,4 @@
+use crate::con::arena::focus;
 use crate::con::arena::parent::{parent_ptr, set_parent_ptr};
 use crate::con::arena::{floating, identity, resolve};
 use crate::handlers::add_ignore_event;
@@ -548,14 +549,12 @@ pub unsafe fn tree_split(mut con: *mut Con, orientation: Orientation) {
     }
     (*new).nodes.tqe_prev = (*con).nodes.tqe_prev;
     *(*new).nodes.tqe_prev = new as *mut Con;
-    (*new).focused.tqe_next = (*con).focused.tqe_next;
-    if !(*new).focused.tqe_next.is_null() {
-        (*(*new).focused.tqe_next).focused.tqe_prev = &raw mut (*new).focused.tqe_next;
-    } else {
-        (*parent).focus_head.tqh_last = &raw mut (*new).focused.tqe_next;
-    }
-    (*new).focused.tqe_prev = (*con).focused.tqe_prev;
-    *(*new).focused.tqe_prev = new as *mut Con;
+    focus::replace(
+        identity(parent).expect("live focus parent"),
+        identity(con).expect("live split child"),
+        identity(new).expect("live split wrapper"),
+    )
+    .expect("replace split focus slot");
     set_parent_ptr(new, parent as *mut Con).expect("live acyclic ancestry");
     (*new).layout = if orientation == Orientation::Horizontal {
         Layout::SplitH
@@ -591,7 +590,7 @@ pub unsafe fn level_up() -> bool {
 }
 
 pub unsafe fn level_down() -> bool {
-    let mut next: *mut Con = (*focused).focus_head.tqh_first as *mut Con;
+    let mut next: *mut Con = focus::first_ptr(focused) as *mut Con;
     if next.is_null() {
         debuglog(
             c"%s:%s:%d - cannot go down\n".as_ptr().cast_mut(),
@@ -603,7 +602,7 @@ pub unsafe fn level_down() -> bool {
     } else if (*next).type_0 as ::core::ffi::c_uint
         == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
     {
-        let child: *mut Con = (*next).focus_head.tqh_first as *mut Con;
+        let child: *mut Con = focus::first_ptr(next) as *mut Con;
         if child.is_null() {
             debuglog(
                 c"%s:%s:%d - cannot go down\n".as_ptr().cast_mut(),
@@ -613,7 +612,7 @@ pub unsafe fn level_down() -> bool {
             );
             return false;
         } else {
-            next = (*next).focus_head.tqh_first as *mut Con;
+            next = focus::first_ptr(next) as *mut Con;
         }
     }
     con_activate(next);
@@ -923,7 +922,7 @@ pub unsafe fn tree_flatten(con: *mut Con) {
                     c"tree_flatten".as_ptr(),
                     687 as ::core::ffi::c_int,
                 );
-                focus_next = (*child).focus_head.tqh_first as *mut Con;
+                focus_next = focus::first_ptr(child) as *mut Con;
                 debuglog(
                     c"%s:%s:%d - detaching...\n".as_ptr().cast_mut(),
                     c"../src/tree.c".as_ptr(),
@@ -960,10 +959,11 @@ pub unsafe fn tree_flatten(con: *mut Con) {
                         c"tree_flatten".as_ptr(),
                         704 as ::core::ffi::c_int,
                     );
-                    (*current).focused.tqe_next = ::core::ptr::null_mut::<Con>();
-                    (*current).focused.tqe_prev = (*parent).focus_head.tqh_last;
-                    *(*parent).focus_head.tqh_last = current as *mut Con;
-                    (*parent).focus_head.tqh_last = &raw mut (*current).focused.tqe_next;
+                    focus::append(
+                        identity(parent).expect("live focus parent"),
+                        identity(current).expect("live lifted child"),
+                    )
+                    .expect("detached lifted focus child");
                     (*current).percent = (*con).percent;
                 }
                 debuglog(
@@ -972,7 +972,7 @@ pub unsafe fn tree_flatten(con: *mut Con) {
                     c"tree_flatten".as_ptr(),
                     708 as ::core::ffi::c_int,
                 );
-                if !focus_next.is_null() && (*parent).focus_head.tqh_first == con {
+                if !focus_next.is_null() && focus::first_ptr(parent) == con {
                     debuglog(
                         c"%s:%s:%d - restoring focus to focus_next=%p\n"
                             .as_ptr()
@@ -982,22 +982,11 @@ pub unsafe fn tree_flatten(con: *mut Con) {
                         713 as ::core::ffi::c_int,
                         focus_next,
                     );
-                    if !(*focus_next).focused.tqe_next.is_null() {
-                        (*(*focus_next).focused.tqe_next).focused.tqe_prev =
-                            (*focus_next).focused.tqe_prev;
-                    } else {
-                        (*parent).focus_head.tqh_last = (*focus_next).focused.tqe_prev;
-                    }
-                    *(*focus_next).focused.tqe_prev = (*focus_next).focused.tqe_next;
-                    (*focus_next).focused.tqe_next = (*parent).focus_head.tqh_first;
-                    if !(*focus_next).focused.tqe_next.is_null() {
-                        (*(*parent).focus_head.tqh_first).focused.tqe_prev =
-                            &raw mut (*focus_next).focused.tqe_next;
-                    } else {
-                        (*parent).focus_head.tqh_last = &raw mut (*focus_next).focused.tqe_next;
-                    }
-                    (*parent).focus_head.tqh_first = focus_next as *mut Con;
-                    (*focus_next).focused.tqe_prev = &raw mut (*parent).focus_head.tqh_first;
+                    focus::move_to_front(
+                        identity(parent).expect("live focus parent"),
+                        identity(focus_next).expect("live remembered focus child"),
+                    )
+                    .expect("lifted focus child");
                     debuglog(
                         c"%s:%s:%d - restored focus.\n".as_ptr().cast_mut(),
                         c"../src/tree.c".as_ptr(),

@@ -1,4 +1,5 @@
 use crate::con::arena::parent::{parent_ptr, set_parent_ptr};
+use crate::con::arena::{focus, identity};
 use crate::types::Direction;
 use crate::types::Layout;
 use crate::types::Orientation;
@@ -71,7 +72,7 @@ unsafe fn is_focused_descendant(mut con: *mut Con, ancestor: *mut Con) -> bool {
             !parent.is_null(),
             "container must descend from focus ancestor"
         );
-        if (*parent).focus_head.tqh_first != con {
+        if focus::first_ptr(parent) != con {
             return false;
         }
         con = parent;
@@ -98,45 +99,24 @@ pub unsafe fn insert_con_into(mut con: *mut Con, target: *mut Con, position: Pos
         moves_focus_from_ancestor
     } else {
         let mut order = Vec::new();
-        let mut current = (*lca).focus_head.tqh_first;
+        let mut current = focus::first_ptr(lca);
         while !current.is_null() {
             order.push(current);
             if current == con_ancestor || current == target_ancestor {
                 break;
             }
-            current = (*current).focused.tqe_next;
+            current = focus::next_ptr(current);
         }
         focus_precedes(&order, con_ancestor, target_ancestor)
     };
     if moves_focus_from_ancestor && focus_before {
-        let place: *mut Con = *(*((*con_ancestor).focused.tqe_prev as *mut focus_head)).tqh_last;
-        if !(*target_ancestor).focused.tqe_next.is_null() {
-            (*(*target_ancestor).focused.tqe_next).focused.tqe_prev =
-                (*target_ancestor).focused.tqe_prev;
+        let owner = identity(lca).expect("live focus owner");
+        let moving = identity(target_ancestor).expect("live target ancestor");
+        let place = identity(focus::previous_ptr(con_ancestor));
+        if let Some(place) = place {
+            focus::move_after(owner, moving, place).expect("existing focus members");
         } else {
-            (*lca).focus_head.tqh_last = (*target_ancestor).focused.tqe_prev;
-        }
-        *(*target_ancestor).focused.tqe_prev = (*target_ancestor).focused.tqe_next;
-        if !place.is_null() {
-            (*target_ancestor).focused.tqe_next = (*place).focused.tqe_next;
-            if !(*target_ancestor).focused.tqe_next.is_null() {
-                (*(*target_ancestor).focused.tqe_next).focused.tqe_prev =
-                    &raw mut (*target_ancestor).focused.tqe_next;
-            } else {
-                (*lca).focus_head.tqh_last = &raw mut (*target_ancestor).focused.tqe_next;
-            }
-            (*place).focused.tqe_next = target_ancestor as *mut Con;
-            (*target_ancestor).focused.tqe_prev = &raw mut (*place).focused.tqe_next;
-        } else {
-            (*target_ancestor).focused.tqe_next = (*lca).focus_head.tqh_first;
-            if !(*target_ancestor).focused.tqe_next.is_null() {
-                (*(*lca).focus_head.tqh_first).focused.tqe_prev =
-                    &raw mut (*target_ancestor).focused.tqe_next;
-            } else {
-                (*lca).focus_head.tqh_last = &raw mut (*target_ancestor).focused.tqe_next;
-            }
-            (*lca).focus_head.tqh_first = target_ancestor as *mut Con;
-            (*target_ancestor).focused.tqe_prev = &raw mut (*lca).focus_head.tqh_first;
+            focus::move_to_front(owner, moving).expect("existing focus member");
         }
     }
     con_detach(con);
@@ -176,36 +156,19 @@ pub unsafe fn insert_con_into(mut con: *mut Con, target: *mut Con, position: Pos
         }
     }
     set_parent_ptr(con, parent as *mut Con).expect("live acyclic ancestry");
+    let owner = identity(parent).expect("live focus owner");
+    let child = identity(con).expect("live moved container");
     if parent == lca {
+        let target = identity(target).expect("live insertion target");
         if focus_before {
-            (*con).focused.tqe_prev = (*target).focused.tqe_prev;
-            (*con).focused.tqe_next = target as *mut Con;
-            *(*target).focused.tqe_prev = con as *mut Con;
-            (*target).focused.tqe_prev = &raw mut (*con).focused.tqe_next;
+            focus::insert_before(owner, child, target).expect("detached focus insertion");
         } else {
-            (*con).focused.tqe_next = (*target).focused.tqe_next;
-            if !(*con).focused.tqe_next.is_null() {
-                (*(*con).focused.tqe_next).focused.tqe_prev = &raw mut (*con).focused.tqe_next;
-            } else {
-                (*parent).focus_head.tqh_last = &raw mut (*con).focused.tqe_next;
-            }
-            (*target).focused.tqe_next = con as *mut Con;
-            (*con).focused.tqe_prev = &raw mut (*target).focused.tqe_next;
+            focus::insert_after(owner, child, target).expect("detached focus insertion");
         }
     } else if focus_before {
-        (*con).focused.tqe_next = (*parent).focus_head.tqh_first;
-        if !(*con).focused.tqe_next.is_null() {
-            (*(*parent).focus_head.tqh_first).focused.tqe_prev = &raw mut (*con).focused.tqe_next;
-        } else {
-            (*parent).focus_head.tqh_last = &raw mut (*con).focused.tqe_next;
-        }
-        (*parent).focus_head.tqh_first = con as *mut Con;
-        (*con).focused.tqe_prev = &raw mut (*parent).focus_head.tqh_first;
+        focus::prepend(owner, child).expect("detached focus insertion");
     } else {
-        (*con).focused.tqe_next = ::core::ptr::null_mut::<Con>();
-        (*con).focused.tqe_prev = (*parent).focus_head.tqh_last;
-        *(*parent).focus_head.tqh_last = con as *mut Con;
-        (*parent).focus_head.tqh_last = &raw mut (*con).focused.tqe_next;
+        focus::append(owner, child).expect("detached focus insertion");
     }
     if position == Position::Before {
         (*con).nodes.tqe_prev = (*target).nodes.tqe_prev;
@@ -247,10 +210,11 @@ unsafe fn attach_to_workspace(con: *mut Con, ws: *mut Con, direction: Direction)
         *(*ws).nodes_head.tqh_last = con as *mut Con;
         (*ws).nodes_head.tqh_last = &raw mut (*con).nodes.tqe_next;
     }
-    (*con).focused.tqe_next = ::core::ptr::null_mut::<Con>();
-    (*con).focused.tqe_prev = (*ws).focus_head.tqh_last;
-    *(*ws).focus_head.tqh_last = con as *mut Con;
-    (*ws).focus_head.tqh_last = &raw mut (*con).focused.tqe_next;
+    focus::append(
+        identity(ws).expect("live workspace focus owner"),
+        identity(con).expect("live moved container"),
+    )
+    .expect("detached focus insertion");
     (*con).percent = 0.0f64;
     con_fix_percent(ws);
     con_fix_percent(old_parent);
@@ -541,7 +505,6 @@ use crate::log::{debuglog, errorlog, verboselog};
 
 // Shared model types retain field layout while using one Rust identity.
 use crate::types::deco_render_params;
-use crate::types::focus_head;
 use crate::types::nodes_head;
 use crate::types::xoutput;
 use crate::types::Con;

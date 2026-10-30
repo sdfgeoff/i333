@@ -1,4 +1,5 @@
 use crate::application::ws_assignments;
+use crate::con::arena::focus;
 use crate::con::arena::{containers, floating, identity, resolve};
 use crate::con::M_BELOW;
 use crate::r#match::{M_DOCK_BOTTOM, M_DOCK_TOP};
@@ -636,20 +637,15 @@ pub unsafe fn output_init_con(output: *mut Output) {
         438 as ::core::ffi::c_int,
     );
     con_attach(bottomdock, con, false);
-    if !(*content).focused.tqe_next.is_null() {
-        (*(*content).focused.tqe_next).focused.tqe_prev = (*content).focused.tqe_prev;
+    let owner = identity(con).expect("live output focus owner");
+    let member = identity(content).expect("live output content");
+    if focus::owner(member) == Some(owner) {
+        focus::move_to_front(owner, member).expect("existing output content focus");
     } else {
-        (*con).focus_head.tqh_last = (*content).focused.tqe_prev;
+        let former = focus::owner(member).expect("output content focus membership");
+        focus::remove(former, member).expect("live former content focus owner");
+        focus::prepend(owner, member).expect("output content focus insertion");
     }
-    *(*content).focused.tqe_prev = (*content).focused.tqe_next;
-    (*content).focused.tqe_next = (*con).focus_head.tqh_first;
-    if !(*content).focused.tqe_next.is_null() {
-        (*(*con).focus_head.tqh_first).focused.tqe_prev = &raw mut (*content).focused.tqe_next;
-    } else {
-        (*con).focus_head.tqh_last = &raw mut (*content).focused.tqe_next;
-    }
-    (*con).focus_head.tqh_first = content as *mut Con;
-    (*content).focused.tqe_prev = &raw mut (*con).focus_head.tqh_first;
 }
 
 pub unsafe fn init_ws_for_output(output: *mut Output) {
@@ -1237,7 +1233,7 @@ unsafe fn move_content(con: *mut Con) {
     let old_content: *const Con = output_get_content(con);
     while !(*old_content).nodes_head.tqh_first.is_null() {
         let current: *mut Con = (*old_content).nodes_head.tqh_first as *mut Con;
-        if current != next && (*current).focus_head.tqh_first.is_null() {
+        if current != next && focus::first_ptr(current).is_null() {
             debuglog(
                 c"%s:%s:%d - Getting rid of current = %p / %s (empty, unfocused)\n"
                     .as_ptr()
@@ -1547,7 +1543,7 @@ pub unsafe fn randr_query_outputs() {
                 output_primary_name(output),
             );
             let content_0: *mut Con = output_get_content((*output).con);
-            let ws: *mut Con = (*content_0).focus_head.tqh_first as *mut Con;
+            let ws: *mut Con = focus::first_ptr(content_0);
             workspace_show(ws);
         }
         output = (*output).outputs.tqe_next as *mut Output;

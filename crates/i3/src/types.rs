@@ -363,7 +363,6 @@ pub struct Con {
     pub urgency_timer: *mut libev_sys::ev_timer,
     pub deco_render_params: *mut crate::types::deco_render_params,
     pub nodes_head: crate::types::nodes_head,
-    pub focus_head: crate::types::focus_head,
     pub swallow_head: crate::types::swallow_head,
     pub fullscreen_mode: ::core::ffi::c_uint,
     pub sticky: bool,
@@ -374,7 +373,6 @@ pub struct Con {
     pub max_user_border_style: BorderStyle,
     pub floating: FloatingState,
     pub nodes: crate::types::ConNodes,
-    pub focused: crate::types::ConFocused,
     pub on_remove_child: Option<unsafe fn(*mut crate::types::Con) -> ()>,
     pub scratchpad_state: ScratchpadState,
     pub old_id: ::core::ffi::c_int,
@@ -441,10 +439,6 @@ impl Con {
                 tqh_first: null_mut(),
                 tqh_last: null_mut(),
             },
-            focus_head: focus_head {
-                tqh_first: null_mut(),
-                tqh_last: null_mut(),
-            },
             swallow_head: swallow_head {
                 tqh_first: null_mut(),
                 tqh_last: null_mut(),
@@ -461,10 +455,6 @@ impl Con {
                 tqe_next: null_mut(),
                 tqe_prev: null_mut(),
             },
-            focused: ConFocused {
-                tqe_next: null_mut(),
-                tqe_prev: null_mut(),
-            },
             on_remove_child: None,
             scratchpad_state: ScratchpadState::default(),
             old_id: 0,
@@ -472,13 +462,6 @@ impl Con {
             colormap: 0,
         }
     }
-}
-
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct ConFocused {
-    pub tqe_next: *mut crate::types::Con,
-    pub tqe_prev: *mut *mut crate::types::Con,
 }
 
 #[derive(Copy, Clone)]
@@ -712,13 +695,6 @@ pub struct deco_render_params {
     pub background: i3_common::draw_util::color_t,
     pub parent_layout: Layout,
     pub con_is_leaf: bool,
-}
-
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct focus_head {
-    pub tqh_first: *mut crate::types::Con,
-    pub tqh_last: *mut *mut crate::types::Con,
 }
 
 #[derive(Copy, Clone)]

@@ -205,6 +205,7 @@ pub(crate) fn children(parent: ConId) -> FloatingChildren {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::con::arena::focus;
     use crate::con::arena::parent::{parent_ptr, set_parent_ptr};
     use crate::con::arena::{allocate, identity, release, resolve};
     use crate::types::Con;
@@ -488,10 +489,10 @@ mod tests {
             crate::con::con_attach(child, parent, false);
             assert_eq!(parent_ptr(child), parent);
             assert_eq!(first(parent_id), Some(child_id));
-            assert_eq!((*parent).focus_head.tqh_first, child);
+            assert_eq!(focus::first_ptr(parent), child);
             crate::con::con_detach(child);
             assert!(is_empty(parent_id));
-            assert!((*parent).focus_head.tqh_first.is_null());
+            assert!(focus::first_ptr(parent).is_null());
             assert_eq!(parent_ptr(child), parent);
             assert_eq!(resolve(child_id), Some(child));
             release(child);

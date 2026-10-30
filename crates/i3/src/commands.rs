@@ -1,4 +1,5 @@
 use crate::commands_parser::CommandParserState;
+use crate::con::arena::focus;
 use crate::con::arena::parent::parent_ptr;
 use crate::con::arena::{containers, resolve};
 use crate::config::barconfigs;
@@ -2807,7 +2808,7 @@ pub unsafe fn cmd_focus_window_mode(
     let ws: *const Con = con_get_workspace(focused);
     let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut success: bool = false_0 != 0;
-    current = (*ws).focus_head.tqh_first as *mut Con;
+    current = focus::first_ptr(ws.cast_mut());
     while !current.is_null() {
         if to_floating as ::core::ffi::c_int != 0
             && (*current).type_0 as ::core::ffi::c_uint
@@ -2816,7 +2817,7 @@ pub unsafe fn cmd_focus_window_mode(
                 && (*current).type_0 as ::core::ffi::c_uint
                     == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
         {
-            current = (*current).focused.tqe_next as *mut Con;
+            current = focus::next_ptr(current);
         } else {
             con_activate_unblock(con_descend_focused(current));
             success = true_0 != 0;
