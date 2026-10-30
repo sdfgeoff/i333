@@ -255,10 +255,11 @@ unsafe fn _con_attach(con: *mut Con, parent: *mut Con, previous: *mut Con, ignor
             c"_con_attach".as_ptr(),
             162 as ::core::ffi::c_int,
         );
-        (*con).floating_windows.tqe_next = ::core::ptr::null_mut::<Con>();
-        (*con).floating_windows.tqe_prev = (*parent).floating_head.tqh_last;
-        *(*parent).floating_head.tqh_last = con as *mut Con;
-        (*parent).floating_head.tqh_last = &raw mut (*con).floating_windows.tqe_next;
+        arena::floating::append(
+            arena::identity(parent).expect("live floating parent"),
+            arena::identity(con).expect("live floating child"),
+        )
+        .expect("detached floating child");
     } else {
         if !ignore_focus {
             loop_0 = (*parent).focus_head.tqh_first as *mut Con;
@@ -343,14 +344,11 @@ pub unsafe fn con_detach(con: *mut Con) {
     if (*con).type_0 as ::core::ffi::c_uint
         == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
     {
-        if !(*con).floating_windows.tqe_next.is_null() {
-            (*(*con).floating_windows.tqe_next)
-                .floating_windows
-                .tqe_prev = (*con).floating_windows.tqe_prev;
-        } else {
-            (*(*con).parent).floating_head.tqh_last = (*con).floating_windows.tqe_prev;
-        }
-        *(*con).floating_windows.tqe_prev = (*con).floating_windows.tqe_next;
+        arena::floating::remove(
+            arena::identity((*con).parent).expect("live floating parent"),
+            arena::identity(con).expect("live floating child"),
+        )
+        .expect("attached floating child");
         if !(*con).focused.tqe_next.is_null() {
             (*(*con).focused.tqe_next).focused.tqe_prev = (*con).focused.tqe_prev;
         } else {
@@ -522,7 +520,7 @@ pub unsafe fn con_has_managed_window(con: *mut Con) -> bool {
 }
 
 pub unsafe fn con_has_children(con: *mut Con) -> bool {
-    !con_is_leaf(con) || !(*con).floating_head.tqh_first.is_null()
+    !con_is_leaf(con) || arena::identity(con).is_some_and(|id| !arena::floating::is_empty(id))
 }
 
 pub unsafe fn con_is_split(con: *mut Con) -> bool {
@@ -737,10 +735,12 @@ pub unsafe fn con_get_fullscreen_con(
             pending.push_back(child);
             child = (*child).nodes.tqe_next;
         }
-        child = (*current).floating_head.tqh_first;
-        while !child.is_null() {
-            pending.push_back(child);
-            child = (*child).floating_windows.tqe_next;
+        if let Some(parent) = arena::identity(current) {
+            for id in arena::floating::children(parent) {
+                if let Some(child) = arena::resolve(id) {
+                    pending.push_back(child);
+                }
+            }
         }
     }
     std::ptr::null_mut()
@@ -1114,8 +1114,13 @@ pub unsafe fn con_for_window(
         }
         child = (*child).nodes.tqe_next as *mut Con;
     }
-    child = (*con).floating_head.tqh_first as *mut Con;
-    while !child.is_null() {
+    for id in arena::identity(con)
+        .into_iter()
+        .flat_map(arena::floating::children)
+    {
+        let Some(child) = arena::resolve(id) else {
+            continue;
+        };
         match_0 = (*child).swallow_head.tqh_first as *mut Match;
         while !match_0.is_null() {
             if !match_matches_window(match_0, window) {
@@ -1131,7 +1136,6 @@ pub unsafe fn con_for_window(
         if !result_0.is_null() {
             return result_0;
         }
-        child = (*child).floating_windows.tqe_next as *mut Con;
     }
     ::core::ptr::null_mut::<Con>()
 }
@@ -1222,10 +1226,13 @@ pub unsafe fn con_num_windows(con: *mut Con) -> ::core::ffi::c_int {
         num += con_num_windows(current);
         current = (*current).nodes.tqe_next as *mut Con;
     }
-    current = (*con).floating_head.tqh_first as *mut Con;
-    while !current.is_null() {
-        num += con_num_windows(current);
-        current = (*current).floating_windows.tqe_next as *mut Con;
+    for id in arena::identity(con)
+        .into_iter()
+        .flat_map(arena::floating::children)
+    {
+        if let Some(current) = arena::resolve(id) {
+            num += con_num_windows(current);
+        }
     }
     num
 }
@@ -1527,8 +1534,8 @@ unsafe fn _con_move_to_con(
     if (*con).type_0 as ::core::ffi::c_uint
         == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
     {
-        while !(*source_ws).floating_head.tqh_first.is_null() {
-            let child: *mut Con = (*source_ws).floating_head.tqh_first as *mut Con;
+        let source_id = arena::identity(source_ws).expect("live source workspace");
+        while let Some(child) = arena::floating::first(source_id).and_then(arena::resolve) {
             con_move_to_workspace(child, target_ws, true, true, false);
         }
         if con_is_leaf(con) {
@@ -3423,27 +3430,31 @@ mod owned_graph_tests {
     }
     #[test]
     fn fullscreen_breadth_first_excludes_root_and_enqueues_floating_last() {
-        let (mut root, mut tiling, mut floating, mut grandchild) = (node(), node(), node(), node());
-        root.fullscreen_mode = CF_OUTPUT;
-        root.nodes_head.tqh_first = &raw mut *tiling;
-        root.floating_head.tqh_first = &raw mut *floating;
-        tiling.nodes_head.tqh_first = &raw mut *grandchild;
-        floating.fullscreen_mode = CF_OUTPUT;
-        grandchild.fullscreen_mode = CF_OUTPUT;
+        let root = arena::allocate(Con::empty());
+        let tiling = arena::allocate(Con::empty());
+        let floating = arena::allocate(Con::empty());
+        let grandchild = arena::allocate(Con::empty());
+        arena::floating::append(
+            arena::identity(root).unwrap(),
+            arena::identity(floating).unwrap(),
+        )
+        .unwrap();
         unsafe {
-            assert_eq!(
-                con_get_fullscreen_con(&raw mut *root, CF_OUTPUT),
-                &raw mut *floating
-            );
-            tiling.fullscreen_mode = CF_OUTPUT;
-            assert_eq!(
-                con_get_fullscreen_con(&raw mut *root, CF_OUTPUT),
-                &raw mut *tiling
-            );
-            tiling.fullscreen_mode = CF_NONE;
-            floating.fullscreen_mode = CF_NONE;
-            grandchild.fullscreen_mode = CF_NONE;
-            assert!(con_get_fullscreen_con(&raw mut *root, CF_OUTPUT).is_null());
+            (*root).fullscreen_mode = CF_OUTPUT;
+            (*root).nodes_head.tqh_first = tiling;
+            (*tiling).nodes_head.tqh_first = grandchild;
+            (*floating).fullscreen_mode = CF_OUTPUT;
+            (*grandchild).fullscreen_mode = CF_OUTPUT;
+            assert_eq!(con_get_fullscreen_con(root, CF_OUTPUT), floating);
+            (*tiling).fullscreen_mode = CF_OUTPUT;
+            assert_eq!(con_get_fullscreen_con(root, CF_OUTPUT), tiling);
+            (*tiling).fullscreen_mode = CF_NONE;
+            (*floating).fullscreen_mode = CF_NONE;
+            (*grandchild).fullscreen_mode = CF_NONE;
+            assert!(con_get_fullscreen_con(root, CF_OUTPUT).is_null());
+            for con in [root, tiling, floating, grandchild] {
+                arena::release(con);
+            }
         }
     }
     #[test]

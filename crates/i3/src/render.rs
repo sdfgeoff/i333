@@ -1,3 +1,4 @@
+use crate::con::arena::{floating, identity, resolve};
 use crate::types::BorderStyle;
 use crate::types::Direction;
 use crate::types::Layout;
@@ -347,9 +348,12 @@ unsafe fn render_root(con: *mut Con, fullscreen: *mut Con) {
             } else {
                 let workspace: *mut Con = (*content).focus_head.tqh_first as *mut Con;
                 let fullscreen_0: *mut Con = con_get_fullscreen_covering_ws(workspace);
-                let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-                child = (*workspace).floating_head.tqh_first as *mut Con;
-                while !child.is_null() {
+                for floating_id in
+                    floating::children(identity(workspace).expect("live floating parent"))
+                {
+                    let Some(child) = resolve(floating_id) else {
+                        continue;
+                    };
                     if !fullscreen_blocks_floating_render(fullscreen_0, child) {
                         debuglog(
                             c"%s:%s:%d - floating child at (%d,%d) with %d x %d\n"
@@ -366,7 +370,6 @@ unsafe fn render_root(con: *mut Con, fullscreen: *mut Con) {
                         x_raise_con(child);
                         render_con(child);
                     }
-                    child = (*child).floating_windows.tqe_next as *mut Con;
                 }
             }
         }

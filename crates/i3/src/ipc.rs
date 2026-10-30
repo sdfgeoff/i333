@@ -2,7 +2,7 @@
 mod messages;
 use crate::commands_parser::command_result_free;
 use crate::commands_parser::parse_command;
-use crate::con::arena::{containers, resolve};
+use crate::con::arena::{containers, floating, identity, resolve};
 use crate::config::barconfigs;
 use crate::config::included_files;
 use crate::config::modes;
@@ -18,7 +18,7 @@ use crate::types::Orientation;
 use crate::types::ScratchpadState;
 use crate::types::ShutdownReason;
 use i3_common::safewrappers::sasprintf;
-use messages::WireValue;
+use messages::{WireFields, WireValue};
 use std::cell::RefCell;
 use std::ffi::{CStr, CString};
 use std::io::Read;
@@ -502,16 +502,6 @@ unsafe fn handle_run_command(
         reply.as_ptr(),
     );
 }
-// Rejected native strings consume no value in the compatibility stream. Keep
-// this behavior at the byte boundary while typed messages use Serde directly.
-fn write_bytes(generator: &mut i3_json::Generator, value: &[u8]) {
-    if let Ok(value) = std::str::from_utf8(value) {
-        let _ = generator.string(value);
-    }
-}
-fn write_cstr(generator: &mut i3_json::Generator, value: &CStr) {
-    write_bytes(generator, value.to_bytes());
-}
 unsafe fn native_text(value: *const libc::c_char) -> messages::NativeText {
     messages::NativeText::cstr(CStr::from_ptr(value))
 }
@@ -534,51 +524,6 @@ unsafe fn send_typed_event<T: WireValue>(name: &CStr, message_type: u32, value: 
     value.write(&mut output);
     let payload = CString::new(output.bytes()).expect("JSON has no literal NUL");
     ipc_send_event(name.as_ptr(), message_type, payload.as_ptr());
-}
-fn write_fields(
-    generator: &mut i3_json::Generator,
-    name: &str,
-    fields: &[(&str, i64)],
-) -> Result<(), i3_json::GenerateError> {
-    generator.string(name)?;
-    generator.start_object()?;
-    for (key, value) in fields {
-        generator.string(key)?;
-        generator.integer(*value)?;
-    }
-    generator.end_object()
-}
-fn rect_fields(rect: Rect) -> [(&'static str, i64); 4] {
-    [
-        ("x", rect.x as i32 as i64),
-        ("y", rect.y as i32 as i64),
-        ("width", rect.width as i64),
-        ("height", rect.height as i64),
-    ]
-}
-fn gaps_fields(gaps: gaps_t) -> [(&'static str, i64); 6] {
-    [
-        ("inner", gaps.inner as i64),
-        ("outer", gaps.top as i64),
-        ("top", gaps.top as i64),
-        ("right", gaps.right as i64),
-        ("bottom", gaps.bottom as i64),
-        ("left", gaps.left as i64),
-    ]
-}
-/// Generator handles must be uniquely borrowed native adapters to a live Rust
-/// Generator. The owned-value encoder itself never touches graph pointers.
-unsafe fn dump_rect(gen: &mut i3_json::Generator, name: *const libc::c_char, rect: Rect) {
-    let name = CStr::from_ptr(name)
-        .to_str()
-        .expect("internal rectangle field name");
-    let _ = write_fields(gen, name, &rect_fields(rect));
-}
-unsafe fn dump_gaps(gen: &mut i3_json::Generator, name: *const libc::c_char, gaps: gaps_t) {
-    let name = CStr::from_ptr(name)
-        .to_str()
-        .expect("internal gaps field name");
-    let _ = write_fields(gen, name, &gaps_fields(gaps));
 }
 fn modifier_names(mask: u32) -> impl Iterator<Item = &'static str> {
     [
@@ -619,79 +564,28 @@ unsafe fn snapshot_binding(binding: *mut Binding) -> messages::Binding {
     }
 }
 
-pub unsafe fn dump_node(gen: &mut i3_json::Generator, con: *mut Con, inplace_restart: bool) {
-    let _ = gen.start_object();
-    write_cstr(gen, c"id");
-    let _ = gen.integer(con as usize as ::core::ffi::c_longlong);
-    write_cstr(gen, c"type");
-    match (*con).type_0 as ::core::ffi::c_uint {
-        0 => {
-            write_cstr(gen, c"root");
-        }
-        1 => {
-            write_cstr(gen, c"output");
-        }
-        2 => {
-            write_cstr(gen, c"con");
-        }
-        3 => {
-            write_cstr(gen, c"floating_con");
-        }
-        4 => {
-            write_cstr(gen, c"workspace");
-        }
-        5 => {
-            write_cstr(gen, c"dockarea");
-        }
-        _ => {}
+fn signed_rect(rect: Rect) -> messages::Rectangle {
+    messages::Rectangle {
+        x: rect.x as i32 as i64,
+        y: rect.y as i32 as i64,
+        width: rect.width as i64,
+        height: rect.height as i64,
     }
-    write_cstr(gen, c"orientation");
-    if !con_is_split(con) {
-        write_cstr(gen, c"none");
-    } else if con_orientation(con) == Orientation::Horizontal {
-        write_cstr(gen, c"horizontal");
-    } else {
-        write_cstr(gen, c"vertical");
+}
+fn gap_values(gaps: gaps_t) -> messages::Gaps {
+    messages::Gaps {
+        inner: gaps.inner as i64,
+        outer: gaps.top as i64,
+        top: gaps.top as i64,
+        right: gaps.right as i64,
+        bottom: gaps.bottom as i64,
+        left: gaps.left as i64,
     }
-    write_cstr(gen, c"scratchpad_state");
-    match (*con).scratchpad_state {
-        ScratchpadState::None => {
-            write_cstr(gen, c"none");
-        }
-        ScratchpadState::Fresh => {
-            write_cstr(gen, c"fresh");
-        }
-        ScratchpadState::Changed => {
-            write_cstr(gen, c"changed");
-        }
-    }
-    write_cstr(gen, c"percent");
-    if (*con).percent == 0.0f64 {
-        let _ = gen.null();
-    } else {
-        let _ = gen.double((*con).percent);
-    }
-    write_cstr(gen, c"urgent");
-    let _ = gen.boolean(((*con).urgent as ::core::ffi::c_int) != 0);
-    write_cstr(gen, c"marks");
-    let _ = gen.start_array();
-    let mut mark: *mut mark_t = ::core::ptr::null_mut::<mark_t>();
-    mark = (*con).marks_head.tqh_first as *mut mark_t;
-    while !mark.is_null() {
-        write_cstr(gen, CStr::from_ptr((*mark).name));
-        mark = (*mark).marks.tqe_next as *mut mark_t;
-    }
-    let _ = gen.end_array();
-    write_cstr(gen, c"focused");
-    let _ = gen.boolean(((con == focused) as ::core::ffi::c_int) != 0);
-    if (*con).type_0 as ::core::ffi::c_uint != CT_ROOT as ::core::ffi::c_int as ::core::ffi::c_uint
-        && (*con).type_0 as ::core::ffi::c_uint
-            != CT_OUTPUT as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
-        write_cstr(gen, c"output");
-        write_cstr(gen, CStr::from_ptr((*con_get_output(con)).name));
-    }
-    write_cstr(gen, c"layout");
+}
+unsafe fn optional_text(value: *const libc::c_char) -> messages::Omitted<messages::NativeText> {
+    messages::Omitted((!value.is_null()).then(|| native_text(value)))
+}
+unsafe fn node_layout(con: *mut Con) -> &'static str {
     match (*con).layout {
         Layout::Default => {
             debuglog(
@@ -700,348 +594,275 @@ pub unsafe fn dump_node(gen: &mut i3_json::Generator, con: *mut Con, inplace_res
                     .cast_mut(),
                 c"../src/ipc.c".as_ptr(),
                 c"dump_node".as_ptr(),
-                442 as ::core::ffi::c_int,
+                442,
             );
-            if 0 as ::core::ffi::c_int != 0 {
-            } else {
-                __assert_fail(
-                    c"false".as_ptr(),
-                    c"../src/ipc.c".as_ptr(),
-                    443 as ::core::ffi::c_uint,
-                    c"void dump_node(yajl_gen, Con *, _Bool)".as_ptr(),
-                );
-            };
-        }
-        Layout::SplitV => {
-            write_cstr(gen, c"splitv");
-        }
-        Layout::SplitH => {
-            write_cstr(gen, c"splith");
-        }
-        Layout::Stacked => {
-            write_cstr(gen, c"stacked");
-        }
-        Layout::Tabbed => {
-            write_cstr(gen, c"tabbed");
-        }
-        Layout::DockArea => {
-            write_cstr(gen, c"dockarea");
-        }
-        Layout::Output => {
-            write_cstr(gen, c"output");
-        }
-    }
-    write_cstr(gen, c"workspace_layout");
-    match (*con).workspace_layout {
-        Layout::Default => {
-            write_cstr(gen, c"default");
-        }
-        Layout::Stacked => {
-            write_cstr(gen, c"stacked");
-        }
-        Layout::Tabbed => {
-            write_cstr(gen, c"tabbed");
-        }
-        Layout::DockArea | Layout::Output | Layout::SplitV | Layout::SplitH => {
-            debuglog(
-                c"%s:%s:%d - About to dump workspace_layout=%d (none of default/stacked/tabbed), this is a bug.\n".as_ptr().cast_mut(),
+            __assert_fail(
+                c"false".as_ptr(),
                 c"../src/ipc.c".as_ptr(),
-                c"dump_node".as_ptr(),
-                477 as ::core::ffi::c_int,
-                (*con).workspace_layout as ::core::ffi::c_uint,
+                443,
+                c"void dump_node(yajl_gen, Con *, _Bool)".as_ptr(),
             );
-            if 0 as ::core::ffi::c_int != 0 {
-            } else {
-                __assert_fail(
-                    c"false".as_ptr(),
-                    c"../src/ipc.c".as_ptr(),
-                    478 as ::core::ffi::c_uint,
-                    c"void dump_node(yajl_gen, Con *, _Bool)".as_ptr(),
-                );
-            };
         }
+        Layout::SplitV => "splitv",
+        Layout::SplitH => "splith",
+        Layout::Stacked => "stacked",
+        Layout::Tabbed => "tabbed",
+        Layout::DockArea => "dockarea",
+        Layout::Output => "output",
     }
-    write_cstr(gen, c"last_split_layout");
-    match (*con).layout {
-        Layout::SplitV => {
-            write_cstr(gen, c"splitv");
-        }
-        Layout::Default
-        | Layout::Stacked
-        | Layout::Tabbed
-        | Layout::DockArea
-        | Layout::Output
-        | Layout::SplitH => {
-            write_cstr(gen, c"splith");
-        }
-    }
-    write_cstr(gen, c"border");
-    match (*con).border_style {
-        BorderStyle::Normal => {
-            write_cstr(gen, c"normal");
-        }
-        BorderStyle::None => {
-            write_cstr(gen, c"none");
-        }
-        BorderStyle::Pixel => {
-            write_cstr(gen, c"pixel");
-        }
-    }
-    write_cstr(gen, c"current_border_width");
-    let _ = gen.integer((*con).current_border_width as ::core::ffi::c_longlong);
-    dump_rect(gen, c"rect".as_ptr(), (*con).rect as Rect);
-    if con_draw_decoration_into_frame(con) {
-        let mut simulated_deco_rect: Rect = (*con).deco_rect as Rect;
-        simulated_deco_rect.x = (*con).rect.x.wrapping_sub((*(*con).parent).rect.x);
-        simulated_deco_rect.y = (*con).rect.y.wrapping_sub((*(*con).parent).rect.y);
-        dump_rect(gen, c"deco_rect".as_ptr(), simulated_deco_rect);
-        dump_rect(gen, c"actual_deco_rect".as_ptr(), (*con).deco_rect as Rect);
-    } else {
-        dump_rect(gen, c"deco_rect".as_ptr(), (*con).deco_rect as Rect);
-    }
-    dump_rect(gen, c"window_rect".as_ptr(), (*con).window_rect as Rect);
-    dump_rect(gen, c"geometry".as_ptr(), (*con).geometry as Rect);
-    write_cstr(gen, c"name");
-    if !(*con).window.is_null() && (*(*con).window).name.is_some() {
-        if let Some(name) = (*(*con).window)
-            .name
-            .as_ref()
-            .and_then(|name| name.cstr_or_report())
-        {
-            write_cstr(gen, name);
-        }
-    } else if !(*con).name.is_null() {
-        write_cstr(gen, CStr::from_ptr((*con).name));
-    } else {
-        let _ = gen.null();
-    }
-    if !(*con).title_format.is_null() {
-        write_cstr(gen, c"title_format");
-        write_cstr(gen, CStr::from_ptr((*con).title_format));
-    }
-    write_cstr(gen, c"window_icon_padding");
-    let _ = gen.integer((*con).window_icon_padding as ::core::ffi::c_longlong);
-    if (*con).type_0 as ::core::ffi::c_uint
-        == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
-        write_cstr(gen, c"num");
-        let _ = gen.integer((*con).num as ::core::ffi::c_longlong);
-        dump_gaps(gen, c"gaps".as_ptr(), (*con).gaps);
-    }
-    write_cstr(gen, c"window");
-    if !(*con).window.is_null() {
-        let _ = gen.integer((*(*con).window).id as ::core::ffi::c_longlong);
-    } else {
-        let _ = gen.null();
-    }
-    write_cstr(gen, c"window_type");
-    if !(*con).window.is_null() {
-        if (*(*con).window).window_type == A__NET_WM_WINDOW_TYPE_NORMAL {
-            write_cstr(gen, c"normal");
-        } else if (*(*con).window).window_type == A__NET_WM_WINDOW_TYPE_DOCK {
-            write_cstr(gen, c"dock");
-        } else if (*(*con).window).window_type == A__NET_WM_WINDOW_TYPE_DIALOG {
-            write_cstr(gen, c"dialog");
-        } else if (*(*con).window).window_type == A__NET_WM_WINDOW_TYPE_UTILITY {
-            write_cstr(gen, c"utility");
-        } else if (*(*con).window).window_type == A__NET_WM_WINDOW_TYPE_TOOLBAR {
-            write_cstr(gen, c"toolbar");
-        } else if (*(*con).window).window_type == A__NET_WM_WINDOW_TYPE_SPLASH {
-            write_cstr(gen, c"splash");
-        } else if (*(*con).window).window_type == A__NET_WM_WINDOW_TYPE_MENU {
-            write_cstr(gen, c"menu");
-        } else if (*(*con).window).window_type == A__NET_WM_WINDOW_TYPE_DROPDOWN_MENU {
-            write_cstr(gen, c"dropdown_menu");
-        } else if (*(*con).window).window_type == A__NET_WM_WINDOW_TYPE_POPUP_MENU {
-            write_cstr(gen, c"popup_menu");
-        } else if (*(*con).window).window_type == A__NET_WM_WINDOW_TYPE_TOOLTIP {
-            write_cstr(gen, c"tooltip");
-        } else if (*(*con).window).window_type == A__NET_WM_WINDOW_TYPE_NOTIFICATION {
-            write_cstr(gen, c"notification");
-        } else {
-            write_cstr(gen, c"unknown");
-        }
-    } else {
-        let _ = gen.null();
-    }
-    if !(*con).window.is_null() && !inplace_restart {
-        write_cstr(gen, c"window_properties");
-        let _ = gen.start_object();
-        if !(*(*con).window).class_class.is_null() {
-            write_cstr(gen, c"class");
-            write_cstr(gen, CStr::from_ptr((*(*con).window).class_class));
-        }
-        if !(*(*con).window).class_instance.is_null() {
-            write_cstr(gen, c"instance");
-            write_cstr(gen, CStr::from_ptr((*(*con).window).class_instance));
-        }
-        if !(*(*con).window).role.is_null() {
-            write_cstr(gen, c"window_role");
-            write_cstr(gen, CStr::from_ptr((*(*con).window).role));
-        }
-        if !(*(*con).window).machine.is_null() {
-            write_cstr(gen, c"machine");
-            write_cstr(gen, CStr::from_ptr((*(*con).window).machine));
-        }
-        if (*(*con).window).name.is_some() {
-            write_cstr(gen, c"title");
-            if let Some(name) = (*(*con).window)
-                .name
-                .as_ref()
-                .and_then(|name| name.cstr_or_report())
-            {
-                write_cstr(gen, name);
-            }
-        }
-        write_cstr(gen, c"transient_for");
-        if (*(*con).window).transient_for as ::core::ffi::c_long == XCB_NONE {
-            let _ = gen.null();
-        } else {
-            let _ = gen.integer((*(*con).window).transient_for as ::core::ffi::c_longlong);
-        }
-        let _ = gen.end_object();
-    }
-    write_cstr(gen, c"nodes");
-    let _ = gen.start_array();
-    let mut node: *mut Con = ::core::ptr::null_mut::<Con>();
-    if (*con).type_0 as ::core::ffi::c_uint
-        != CT_DOCKAREA as ::core::ffi::c_int as ::core::ffi::c_uint
-        || !inplace_restart
-    {
-        node = (*con).nodes_head.tqh_first as *mut Con;
-        while !node.is_null() {
-            dump_node(gen, node, inplace_restart);
-            node = (*node).nodes.tqe_next as *mut Con;
-        }
-    }
-    let _ = gen.end_array();
-    write_cstr(gen, c"floating_nodes");
-    let _ = gen.start_array();
-    node = (*con).floating_head.tqh_first as *mut Con;
-    while !node.is_null() {
-        dump_node(gen, node, inplace_restart);
-        node = (*node).floating_windows.tqe_next as *mut Con;
-    }
-    let _ = gen.end_array();
-    write_cstr(gen, c"focus");
-    let _ = gen.start_array();
-    node = (*con).focus_head.tqh_first as *mut Con;
-    while !node.is_null() {
-        let _ = gen.integer(node as usize as ::core::ffi::c_longlong);
-        node = (*node).focused.tqe_next as *mut Con;
-    }
-    let _ = gen.end_array();
-    write_cstr(gen, c"fullscreen_mode");
-    let _ = gen.integer((*con).fullscreen_mode as ::core::ffi::c_longlong);
-    write_cstr(gen, c"sticky");
-    let _ = gen.boolean(((*con).sticky as ::core::ffi::c_int) != 0);
-    write_cstr(gen, c"floating");
-    match (*con).floating {
-        FloatingState::AutoOff => {
-            write_cstr(gen, c"auto_off");
-        }
-        FloatingState::AutoOn => {
-            write_cstr(gen, c"auto_on");
-        }
-        FloatingState::UserOff => {
-            write_cstr(gen, c"user_off");
-        }
-        FloatingState::UserOn => {
-            write_cstr(gen, c"user_on");
-        }
-    }
-    write_cstr(gen, c"swallows");
-    let _ = gen.start_array();
-    let mut match_0: *mut Match = ::core::ptr::null_mut::<Match>();
-    match_0 = (*con).swallow_head.tqh_first as *mut Match;
-    while !match_0.is_null() {
-        if !(*match_0).restart_mode {
-            let _ = gen.start_object();
-            if (*match_0).dock as ::core::ffi::c_int != M_DONTCHECK as ::core::ffi::c_int {
-                write_cstr(gen, c"dock");
-                let _ = gen.integer((*match_0).dock as ::core::ffi::c_longlong);
-                write_cstr(gen, c"insert_where");
-                let _ = gen.integer((*match_0).insert_where as ::core::ffi::c_longlong);
-            }
-            if !(*match_0).class.is_null() {
-                write_cstr(gen, c"class");
-                write_cstr(gen, CStr::from_ptr((*(*match_0).class).pattern().as_ptr()));
-            }
-            if !(*match_0).instance.is_null() {
-                write_cstr(gen, c"instance");
-                write_cstr(
-                    gen,
-                    CStr::from_ptr((*(*match_0).instance).pattern().as_ptr()),
-                );
-            }
-            if !(*match_0).window_role.is_null() {
-                write_cstr(gen, c"window_role");
-                write_cstr(
-                    gen,
-                    CStr::from_ptr((*(*match_0).window_role).pattern().as_ptr()),
-                );
-            }
-            if !(*match_0).title.is_null() {
-                write_cstr(gen, c"title");
-                write_cstr(gen, CStr::from_ptr((*(*match_0).title).pattern().as_ptr()));
-            }
-            if !(*match_0).machine.is_null() {
-                write_cstr(gen, c"machine");
-                write_cstr(
-                    gen,
-                    CStr::from_ptr((*(*match_0).machine).pattern().as_ptr()),
-                );
-            }
-            let _ = gen.end_object();
-        }
-        match_0 = (*match_0).matches.tqe_next as *mut Match;
-    }
-    if inplace_restart {
-        if !(*con).window.is_null() {
-            let _ = gen.start_object();
-            write_cstr(gen, c"id");
-            let _ = gen.integer((*(*con).window).id as ::core::ffi::c_longlong);
-            write_cstr(gen, c"restart_mode");
-            let _ = gen.boolean((true_0) != 0);
-            let _ = gen.end_object();
-        }
-    }
-    let _ = gen.end_array();
-    if inplace_restart as ::core::ffi::c_int != 0 && !(*con).window.is_null() {
-        write_cstr(gen, c"depth");
-        let _ = gen.integer((*con).depth as ::core::ffi::c_longlong);
-    }
-    if inplace_restart as ::core::ffi::c_int != 0
-        && (*con).type_0 as ::core::ffi::c_uint
-            == CT_ROOT as ::core::ffi::c_int as ::core::ffi::c_uint
-        && !previous_workspace_name.is_null()
-    {
-        write_cstr(gen, c"previous_workspace_name");
-        write_cstr(gen, CStr::from_ptr(previous_workspace_name));
-    }
-    let _ = gen.end_object();
 }
-unsafe fn dump_bar_bindings(gen: &mut i3_json::Generator, config: *mut Barconfig) {
-    if (*config).bar_bindings.tqh_first.is_null() {
-        return;
+unsafe fn node_workspace_layout(con: *mut Con) -> &'static str {
+    match (*con).workspace_layout {
+        Layout::Default => "default",
+        Layout::Stacked => "stacked",
+        Layout::Tabbed => "tabbed",
+        Layout::DockArea | Layout::Output | Layout::SplitV | Layout::SplitH => {
+            debuglog(c"%s:%s:%d - About to dump workspace_layout=%d (none of default/stacked/tabbed), this is a bug.\n".as_ptr().cast_mut(), c"../src/ipc.c".as_ptr(), c"dump_node".as_ptr(), 477, (*con).workspace_layout as u32);
+            __assert_fail(
+                c"false".as_ptr(),
+                c"../src/ipc.c".as_ptr(),
+                478,
+                c"void dump_node(yajl_gen, Con *, _Bool)".as_ptr(),
+            );
+        }
     }
-    write_cstr(gen, c"bindings");
-    let _ = gen.start_array();
-    let mut current: *mut Barbinding = ::core::ptr::null_mut::<Barbinding>();
-    current = (*config).bar_bindings.tqh_first as *mut Barbinding;
-    while !current.is_null() {
-        let _ = gen.start_object();
-        write_cstr(gen, c"input_code");
-        let _ = gen.integer((*current).input_code as ::core::ffi::c_longlong);
-        write_cstr(gen, c"command");
-        write_cstr(gen, CStr::from_ptr((*current).command));
-        write_cstr(gen, c"release");
-        let _ = gen.boolean((i32::from((*current).release)) != 0);
-        let _ = gen.end_object();
-        current = (*current).bindings.tqe_next;
-    }
-    let _ = gen.end_array();
 }
+unsafe fn window_kind(window: *mut crate::types::Window) -> &'static str {
+    [
+        (A__NET_WM_WINDOW_TYPE_NORMAL, "normal"),
+        (A__NET_WM_WINDOW_TYPE_DOCK, "dock"),
+        (A__NET_WM_WINDOW_TYPE_DIALOG, "dialog"),
+        (A__NET_WM_WINDOW_TYPE_UTILITY, "utility"),
+        (A__NET_WM_WINDOW_TYPE_TOOLBAR, "toolbar"),
+        (A__NET_WM_WINDOW_TYPE_SPLASH, "splash"),
+        (A__NET_WM_WINDOW_TYPE_MENU, "menu"),
+        (A__NET_WM_WINDOW_TYPE_DROPDOWN_MENU, "dropdown_menu"),
+        (A__NET_WM_WINDOW_TYPE_POPUP_MENU, "popup_menu"),
+        (A__NET_WM_WINDOW_TYPE_TOOLTIP, "tooltip"),
+        (A__NET_WM_WINDOW_TYPE_NOTIFICATION, "notification"),
+    ]
+    .into_iter()
+    .find_map(|(atom, name)| (atom == (*window).window_type).then_some(name))
+    .unwrap_or("unknown")
+}
+unsafe fn snapshot_node_header(con: *mut Con, restart: bool) -> messages::NodeHeader {
+    use messages::{NativeValue, Omitted};
+    let orientation = if !con_is_split(con) {
+        "none"
+    } else if con_orientation(con) == Orientation::Horizontal {
+        "horizontal"
+    } else {
+        "vertical"
+    };
+    let mut marks = Vec::new();
+    let mut mark = (*con).marks_head.tqh_first;
+    while !mark.is_null() {
+        marks.push(native_text((*mark).name));
+        mark = (*mark).marks.tqe_next;
+    }
+    let output = Omitted(
+        ((*con).type_0 != CT_ROOT as u32 && (*con).type_0 != CT_OUTPUT as u32)
+            .then(|| native_text((*con_get_output(con)).name)),
+    );
+    let layout = node_layout(con);
+    let workspace_layout = node_workspace_layout(con);
+    let decoration_in_frame = con_draw_decoration_into_frame(con);
+    let mut deco_rect = (*con).deco_rect;
+    if decoration_in_frame {
+        deco_rect.x = (*con).rect.x.wrapping_sub((*(*con).parent).rect.x);
+        deco_rect.y = (*con).rect.y.wrapping_sub((*(*con).parent).rect.y);
+    }
+    let window = (*con).window;
+    let window_title = (!window.is_null())
+        .then(|| (*window).name.as_ref())
+        .flatten();
+    let name = if let Some(title) = window_title {
+        match title.cstr_or_report() {
+            Some(title) => NativeValue::Value(Some(messages::NativeText::cstr(title))),
+            None => NativeValue::Rejected,
+        }
+    } else {
+        NativeValue::Value((!(*con).name.is_null()).then(|| native_text((*con).name)))
+    };
+    let properties = Omitted((!window.is_null() && !restart).then(|| {
+        messages::WindowProperties {
+            class: optional_text((*window).class_class),
+            instance: optional_text((*window).class_instance),
+            window_role: optional_text((*window).role),
+            machine: optional_text((*window).machine),
+            title: Omitted(
+                (*window)
+                    .name
+                    .as_ref()
+                    .map(|title| match title.cstr_or_report() {
+                        Some(title) => NativeValue::Value(messages::NativeText::cstr(title)),
+                        None => NativeValue::Rejected,
+                    }),
+            ),
+            transient_for: ((*window).transient_for as libc::c_long != XCB_NONE)
+                .then_some((*window).transient_for as i64),
+        }
+    }));
+    messages::NodeHeader {
+        id: con as usize as i64,
+        r#type: match (*con).type_0 {
+            0 => NativeValue::Value("root"),
+            1 => NativeValue::Value("output"),
+            2 => NativeValue::Value("con"),
+            3 => NativeValue::Value("floating_con"),
+            4 => NativeValue::Value("workspace"),
+            5 => NativeValue::Value("dockarea"),
+            _ => NativeValue::Rejected,
+        },
+        orientation,
+        scratchpad_state: match (*con).scratchpad_state {
+            ScratchpadState::None => "none",
+            ScratchpadState::Fresh => "fresh",
+            ScratchpadState::Changed => "changed",
+        },
+        percent: ((*con).percent != 0.0).then_some((*con).percent),
+        urgent: (*con).urgent,
+        marks,
+        focused: con == focused,
+        output,
+        layout,
+        workspace_layout,
+        // Upstream intentionally reports this from layout, not the similarly
+        // named last_split_layout member.
+        last_split_layout: if (*con).layout == Layout::SplitV {
+            "splitv"
+        } else {
+            "splith"
+        },
+        border: match (*con).border_style {
+            BorderStyle::Normal => "normal",
+            BorderStyle::None => "none",
+            BorderStyle::Pixel => "pixel",
+        },
+        current_border_width: (*con).current_border_width as i64,
+        rect: signed_rect((*con).rect),
+        deco_rect: signed_rect(deco_rect),
+        actual_deco_rect: Omitted(decoration_in_frame.then(|| signed_rect((*con).deco_rect))),
+        window_rect: signed_rect((*con).window_rect),
+        geometry: signed_rect((*con).geometry),
+        name,
+        title_format: optional_text((*con).title_format),
+        window_icon_padding: (*con).window_icon_padding as i64,
+        num: Omitted(((*con).type_0 == CT_WORKSPACE as u32).then_some((*con).num as i64)),
+        gaps: Omitted(((*con).type_0 == CT_WORKSPACE as u32).then_some(gap_values((*con).gaps))),
+        window: (!window.is_null()).then(|| (*window).id as i64),
+        window_type: (!window.is_null()).then(|| window_kind(window)),
+        window_properties: properties,
+    }
+}
+unsafe fn optional_pattern(
+    pattern: *mut crate::regex::Regex,
+) -> messages::Omitted<messages::NativeText> {
+    messages::Omitted(
+        (!pattern.is_null()).then(|| messages::NativeText::cstr((*pattern).pattern())),
+    )
+}
+unsafe fn snapshot_node_tail(con: *mut Con, restart: bool) -> messages::NodeTail {
+    use messages::Omitted;
+    let mut focus = Vec::new();
+    let mut child = (*con).focus_head.tqh_first;
+    while !child.is_null() {
+        focus.push(child as usize as i64);
+        child = (*child).focused.tqe_next;
+    }
+    let mut swallows = Vec::new();
+    let mut swallow = (*con).swallow_head.tqh_first;
+    while !swallow.is_null() {
+        if !(*swallow).restart_mode {
+            let dock = (*swallow).dock as libc::c_int != M_DONTCHECK as libc::c_int;
+            swallows.push(messages::Swallow {
+                dock: Omitted(dock.then_some((*swallow).dock as i64)),
+                insert_where: Omitted(dock.then_some((*swallow).insert_where as i64)),
+                class: optional_pattern((*swallow).class),
+                instance: optional_pattern((*swallow).instance),
+                window_role: optional_pattern((*swallow).window_role),
+                title: optional_pattern((*swallow).title),
+                machine: optional_pattern((*swallow).machine),
+                id: Omitted(None),
+                restart_mode: Omitted(None),
+            });
+        }
+        swallow = (*swallow).matches.tqe_next;
+    }
+    let window = (*con).window;
+    if restart && !window.is_null() {
+        swallows.push(messages::Swallow {
+            dock: Omitted(None),
+            insert_where: Omitted(None),
+            class: Omitted(None),
+            instance: Omitted(None),
+            window_role: Omitted(None),
+            title: Omitted(None),
+            machine: Omitted(None),
+            id: Omitted(Some((*window).id as i64)),
+            restart_mode: Omitted(Some(true)),
+        });
+    }
+    messages::NodeTail {
+        focus,
+        fullscreen_mode: (*con).fullscreen_mode as i64,
+        sticky: (*con).sticky,
+        floating: match (*con).floating {
+            FloatingState::AutoOff => "auto_off",
+            FloatingState::AutoOn => "auto_on",
+            FloatingState::UserOff => "user_off",
+            FloatingState::UserOn => "user_on",
+        },
+        swallows,
+        depth: Omitted((restart && !window.is_null()).then_some((*con).depth as i64)),
+        previous_workspace_name: Omitted(
+            (restart && (*con).type_0 == CT_ROOT as u32 && !previous_workspace_name.is_null())
+                .then(|| native_text(previous_workspace_name)),
+        ),
+    }
+}
+/// Native graph traversal remains streaming: Serde sees only bounded value
+/// segments, never a recursively constructed copy of the complete window tree.
+pub unsafe fn dump_node(output: &mut i3_json::Generator, con: *mut Con, restart: bool) {
+    let mut compatibility = false;
+    dump_node_stream(output, con, restart, &mut compatibility);
+}
+unsafe fn dump_node_stream(
+    output: &mut i3_json::Generator,
+    con: *mut Con,
+    restart: bool,
+    compatibility: &mut bool,
+) {
+    use messages::WireFields;
+    if output.start_object().is_err() {
+        *compatibility = true;
+    }
+    snapshot_node_header(con, restart).fields(output, compatibility);
+    let _ = output.string("nodes");
+    if output.start_array().is_err() {
+        *compatibility = true;
+    }
+    if (*con).type_0 != CT_DOCKAREA as u32 || !restart {
+        let mut child = (*con).nodes_head.tqh_first;
+        while !child.is_null() {
+            dump_node_stream(output, child, restart, compatibility);
+            child = (*child).nodes.tqe_next;
+        }
+    }
+    let _ = output.end_array();
+    let _ = output.string("floating_nodes");
+    if output.start_array().is_err() {
+        *compatibility = true;
+    }
+    for id in floating::children(identity(con).expect("live floating parent")) {
+        let Some(child) = resolve(id) else { continue };
+        dump_node_stream(output, child, restart, compatibility);
+    }
+    let _ = output.end_array();
+    snapshot_node_tail(con, restart).fields(output, compatibility);
+    let _ = output.end_object();
+}
+
 unsafe fn canonicalize_output_name(name: *mut ::core::ffi::c_char) -> *mut ::core::ffi::c_char {
     if strcasecmp(name, c"primary".as_ptr()) == 0 as ::core::ffi::c_int
         || strcasecmp(name, c"nonprimary".as_ptr()) == 0 as ::core::ffi::c_int
@@ -1055,212 +876,94 @@ unsafe fn canonicalize_output_name(name: *mut ::core::ffi::c_char) -> *mut ::cor
         name
     }
 }
-unsafe fn dump_bar_config(gen: &mut i3_json::Generator, config: *mut Barconfig) {
-    let _ = gen.start_object();
-    write_cstr(gen, c"id");
-    write_cstr(gen, CStr::from_ptr((*config).id));
-    if (*config).num_outputs > 0 as ::core::ffi::c_int {
-        write_cstr(gen, c"outputs");
-        let _ = gen.start_array();
-        let mut c: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-        while c < (*config).num_outputs {
-            write_cstr(
-                gen,
-                CStr::from_ptr(canonicalize_output_name(
-                    *(*config).outputs.offset(c as isize),
-                )),
-            );
-            c += 1;
-        }
-        let _ = gen.end_array();
+unsafe fn snapshot_bar_config(config: *mut Barconfig) -> messages::BarConfig {
+    use messages::Omitted;
+    let mut configured_outputs = Vec::new();
+    for index in 0..(*config).num_outputs.max(0) {
+        configured_outputs.push(native_text(canonicalize_output_name(
+            *(*config).outputs.add(index as usize),
+        )));
     }
-    if !(*config).tray_outputs.tqh_first.is_null() {
-        write_cstr(gen, c"tray_outputs");
-        let _ = gen.start_array();
-        let mut tray_output: *mut tray_output_t = ::core::ptr::null_mut::<tray_output_t>();
-        tray_output = (*config).tray_outputs.tqh_first as *mut tray_output_t;
-        while !tray_output.is_null() {
-            write_cstr(
-                gen,
-                CStr::from_ptr(canonicalize_output_name((*tray_output).output)),
-            );
-            tray_output = (*tray_output).tray_outputs.tqe_next;
-        }
-        let _ = gen.end_array();
+    let mut trays = Vec::new();
+    let mut tray = (*config).tray_outputs.tqh_first;
+    while !tray.is_null() {
+        trays.push(native_text(canonicalize_output_name((*tray).output)));
+        tray = (*tray).tray_outputs.tqe_next;
     }
-    write_cstr(gen, c"tray_padding");
-    let _ = gen.integer((*config).tray_padding as ::core::ffi::c_longlong);
-    if !(*config).socket_path.is_null() {
-        write_cstr(gen, c"socket_path");
-        write_cstr(gen, CStr::from_ptr((*config).socket_path));
+    let mut bindings = Vec::new();
+    let mut binding = (*config).bar_bindings.tqh_first;
+    while !binding.is_null() {
+        bindings.push(messages::BarBinding {
+            input_code: (*binding).input_code as i64,
+            command: native_text((*binding).command),
+            release: (*binding).release,
+        });
+        binding = (*binding).bindings.tqe_next;
     }
-    write_cstr(gen, c"mode");
-    match (*config).mode as ::core::ffi::c_uint {
-        1 => {
-            write_cstr(gen, c"hide");
-        }
-        2 => {
-            write_cstr(gen, c"invisible");
-        }
-        0 | _ => {
-            write_cstr(gen, c"dock");
-        }
+    let colors = messages::BarColors {
+        background: optional_text((*config).colors.background),
+        statusline: optional_text((*config).colors.statusline),
+        separator: optional_text((*config).colors.separator),
+        focused_background: optional_text((*config).colors.focused_background),
+        focused_statusline: optional_text((*config).colors.focused_statusline),
+        focused_separator: optional_text((*config).colors.focused_separator),
+        focused_workspace_border: optional_text((*config).colors.focused_workspace_border),
+        focused_workspace_bg: optional_text((*config).colors.focused_workspace_bg),
+        focused_workspace_text: optional_text((*config).colors.focused_workspace_text),
+        active_workspace_border: optional_text((*config).colors.active_workspace_border),
+        active_workspace_bg: optional_text((*config).colors.active_workspace_bg),
+        active_workspace_text: optional_text((*config).colors.active_workspace_text),
+        inactive_workspace_border: optional_text((*config).colors.inactive_workspace_border),
+        inactive_workspace_bg: optional_text((*config).colors.inactive_workspace_bg),
+        inactive_workspace_text: optional_text((*config).colors.inactive_workspace_text),
+        urgent_workspace_border: optional_text((*config).colors.urgent_workspace_border),
+        urgent_workspace_bg: optional_text((*config).colors.urgent_workspace_bg),
+        urgent_workspace_text: optional_text((*config).colors.urgent_workspace_text),
+        binding_mode_border: optional_text((*config).colors.binding_mode_border),
+        binding_mode_bg: optional_text((*config).colors.binding_mode_bg),
+        binding_mode_text: optional_text((*config).colors.binding_mode_text),
+    };
+    messages::BarConfig {
+        id: native_text((*config).id),
+        outputs: Omitted(((*config).num_outputs > 0).then_some(configured_outputs)),
+        tray_outputs: Omitted((!trays.is_empty()).then_some(trays)),
+        tray_padding: (*config).tray_padding as i64,
+        socket_path: optional_text((*config).socket_path),
+        mode: match (*config).mode as u32 {
+            1 => "hide",
+            2 => "invisible",
+            _ => "dock",
+        },
+        hidden_state: match (*config).hidden_state {
+            BarHiddenState::Show => "show",
+            BarHiddenState::Hide => "hide",
+        },
+        modifier: (*config).modifier as i64,
+        bindings: Omitted((!bindings.is_empty()).then_some(bindings)),
+        position: if (*config).position == BarPosition::Bottom {
+            "bottom"
+        } else {
+            "top"
+        },
+        status_command: optional_text((*config).status_command),
+        workspace_command: optional_text((*config).workspace_command),
+        font: optional_text((*config).font),
+        bar_height: Omitted(((*config).bar_height != 0).then_some((*config).bar_height as i64)),
+        padding: signed_rect((*config).padding),
+        separator_symbol: optional_text((*config).separator_symbol),
+        workspace_buttons: !(*config).hide_workspace_buttons,
+        workspace_min_width: (*config).workspace_min_width as i64,
+        strip_workspace_numbers: (*config).strip_workspace_numbers,
+        strip_workspace_name: (*config).strip_workspace_name,
+        binding_mode_indicator: !(*config).hide_binding_mode_indicator,
+        verbose: (*config).verbose,
+        colors,
     }
-    write_cstr(gen, c"hidden_state");
-    match (*config).hidden_state {
-        BarHiddenState::Show => {
-            write_cstr(gen, c"show");
-        }
-        BarHiddenState::Hide => {
-            write_cstr(gen, c"hide");
-        }
-    }
-    write_cstr(gen, c"modifier");
-    let _ = gen.integer((*config).modifier as ::core::ffi::c_longlong);
-    dump_bar_bindings(gen, config);
-    write_cstr(gen, c"position");
-    if (*config).position == BarPosition::Bottom {
-        write_cstr(gen, c"bottom");
-    } else {
-        write_cstr(gen, c"top");
-    }
-    if !(*config).status_command.is_null() {
-        write_cstr(gen, c"status_command");
-        write_cstr(gen, CStr::from_ptr((*config).status_command));
-    }
-    if !(*config).workspace_command.is_null() {
-        write_cstr(gen, c"workspace_command");
-        write_cstr(gen, CStr::from_ptr((*config).workspace_command));
-    }
-    if !(*config).font.is_null() {
-        write_cstr(gen, c"font");
-        write_cstr(gen, CStr::from_ptr((*config).font));
-    }
-    if (*config).bar_height != 0 {
-        write_cstr(gen, c"bar_height");
-        let _ = gen.integer((*config).bar_height as ::core::ffi::c_longlong);
-    }
-    dump_rect(gen, c"padding".as_ptr(), (*config).padding as Rect);
-    if !(*config).separator_symbol.is_null() {
-        write_cstr(gen, c"separator_symbol");
-        write_cstr(gen, CStr::from_ptr((*config).separator_symbol));
-    }
-    write_cstr(gen, c"workspace_buttons");
-    let _ = gen.boolean((!(*config).hide_workspace_buttons as ::core::ffi::c_int) != 0);
-    write_cstr(gen, c"workspace_min_width");
-    let _ = gen.integer((*config).workspace_min_width as ::core::ffi::c_longlong);
-    write_cstr(gen, c"strip_workspace_numbers");
-    let _ = gen.boolean(((*config).strip_workspace_numbers as ::core::ffi::c_int) != 0);
-    write_cstr(gen, c"strip_workspace_name");
-    let _ = gen.boolean(((*config).strip_workspace_name as ::core::ffi::c_int) != 0);
-    write_cstr(gen, c"binding_mode_indicator");
-    let _ = gen.boolean((!(*config).hide_binding_mode_indicator as ::core::ffi::c_int) != 0);
-    write_cstr(gen, c"verbose");
-    let _ = gen.boolean(((*config).verbose as ::core::ffi::c_int) != 0);
-    write_cstr(gen, c"colors");
-    let _ = gen.start_object();
-    if !(*config).colors.background.is_null() {
-        write_cstr(gen, c"background");
-        write_cstr(gen, CStr::from_ptr((*config).colors.background));
-    }
-    if !(*config).colors.statusline.is_null() {
-        write_cstr(gen, c"statusline");
-        write_cstr(gen, CStr::from_ptr((*config).colors.statusline));
-    }
-    if !(*config).colors.separator.is_null() {
-        write_cstr(gen, c"separator");
-        write_cstr(gen, CStr::from_ptr((*config).colors.separator));
-    }
-    if !(*config).colors.focused_background.is_null() {
-        write_cstr(gen, c"focused_background");
-        write_cstr(gen, CStr::from_ptr((*config).colors.focused_background));
-    }
-    if !(*config).colors.focused_statusline.is_null() {
-        write_cstr(gen, c"focused_statusline");
-        write_cstr(gen, CStr::from_ptr((*config).colors.focused_statusline));
-    }
-    if !(*config).colors.focused_separator.is_null() {
-        write_cstr(gen, c"focused_separator");
-        write_cstr(gen, CStr::from_ptr((*config).colors.focused_separator));
-    }
-    if !(*config).colors.focused_workspace_border.is_null() {
-        write_cstr(gen, c"focused_workspace_border");
-        write_cstr(
-            gen,
-            CStr::from_ptr((*config).colors.focused_workspace_border),
-        );
-    }
-    if !(*config).colors.focused_workspace_bg.is_null() {
-        write_cstr(gen, c"focused_workspace_bg");
-        write_cstr(gen, CStr::from_ptr((*config).colors.focused_workspace_bg));
-    }
-    if !(*config).colors.focused_workspace_text.is_null() {
-        write_cstr(gen, c"focused_workspace_text");
-        write_cstr(gen, CStr::from_ptr((*config).colors.focused_workspace_text));
-    }
-    if !(*config).colors.active_workspace_border.is_null() {
-        write_cstr(gen, c"active_workspace_border");
-        write_cstr(
-            gen,
-            CStr::from_ptr((*config).colors.active_workspace_border),
-        );
-    }
-    if !(*config).colors.active_workspace_bg.is_null() {
-        write_cstr(gen, c"active_workspace_bg");
-        write_cstr(gen, CStr::from_ptr((*config).colors.active_workspace_bg));
-    }
-    if !(*config).colors.active_workspace_text.is_null() {
-        write_cstr(gen, c"active_workspace_text");
-        write_cstr(gen, CStr::from_ptr((*config).colors.active_workspace_text));
-    }
-    if !(*config).colors.inactive_workspace_border.is_null() {
-        write_cstr(gen, c"inactive_workspace_border");
-        write_cstr(
-            gen,
-            CStr::from_ptr((*config).colors.inactive_workspace_border),
-        );
-    }
-    if !(*config).colors.inactive_workspace_bg.is_null() {
-        write_cstr(gen, c"inactive_workspace_bg");
-        write_cstr(gen, CStr::from_ptr((*config).colors.inactive_workspace_bg));
-    }
-    if !(*config).colors.inactive_workspace_text.is_null() {
-        write_cstr(gen, c"inactive_workspace_text");
-        write_cstr(
-            gen,
-            CStr::from_ptr((*config).colors.inactive_workspace_text),
-        );
-    }
-    if !(*config).colors.urgent_workspace_border.is_null() {
-        write_cstr(gen, c"urgent_workspace_border");
-        write_cstr(
-            gen,
-            CStr::from_ptr((*config).colors.urgent_workspace_border),
-        );
-    }
-    if !(*config).colors.urgent_workspace_bg.is_null() {
-        write_cstr(gen, c"urgent_workspace_bg");
-        write_cstr(gen, CStr::from_ptr((*config).colors.urgent_workspace_bg));
-    }
-    if !(*config).colors.urgent_workspace_text.is_null() {
-        write_cstr(gen, c"urgent_workspace_text");
-        write_cstr(gen, CStr::from_ptr((*config).colors.urgent_workspace_text));
-    }
-    if !(*config).colors.binding_mode_border.is_null() {
-        write_cstr(gen, c"binding_mode_border");
-        write_cstr(gen, CStr::from_ptr((*config).colors.binding_mode_border));
-    }
-    if !(*config).colors.binding_mode_bg.is_null() {
-        write_cstr(gen, c"binding_mode_bg");
-        write_cstr(gen, CStr::from_ptr((*config).colors.binding_mode_bg));
-    }
-    if !(*config).colors.binding_mode_text.is_null() {
-        write_cstr(gen, c"binding_mode_text");
-        write_cstr(gen, CStr::from_ptr((*config).colors.binding_mode_text));
-    }
-    let _ = gen.end_object();
-    let _ = gen.end_object();
 }
+unsafe fn dump_bar_config(output: &mut i3_json::Generator, config: *mut Barconfig) {
+    snapshot_bar_config(config).write(output);
+}
+
 unsafe fn handle_tree(
     client: *mut ipc_client,
     message: *mut u8,
@@ -1395,24 +1098,14 @@ unsafe fn handle_get_bar_config(
 ) {
     let mut generator = i3_json::Generator::new();
     let gen = &mut generator;
-    if message_size == 0 as u32 {
-        let _ = gen.start_array();
-        let mut current: *mut Barconfig = ::core::ptr::null_mut::<Barconfig>();
-        current = barconfigs.tqh_first as *mut Barconfig;
+    if message_size == 0 {
+        let mut names = Vec::new();
+        let mut current = barconfigs.tqh_first;
         while !current.is_null() {
-            write_cstr(gen, CStr::from_ptr((*current).id));
-            current = (*current).configs.tqe_next as *mut Barconfig;
+            names.push(native_text((*current).id));
+            current = (*current).configs.tqe_next;
         }
-        let _ = gen.end_array();
-        let payload = gen.bytes();
-        let length = payload.len();
-        ipc_send_client_message(
-            client,
-            length as usize,
-            I3_IPC_REPLY_TYPE_BAR_CONFIG as u32,
-            payload.as_ptr(),
-        );
-
+        send_typed_reply(client, I3_IPC_REPLY_TYPE_BAR_CONFIG as u32, &names);
         return;
     }
     let bar_bytes = std::slice::from_raw_parts(message, message_size as usize);
@@ -1436,10 +1129,7 @@ unsafe fn handle_get_bar_config(
         }
     }
     if config.is_null() {
-        let _ = gen.start_object();
-        write_cstr(gen, c"id");
-        let _ = gen.null();
-        let _ = gen.end_object();
+        messages::MissingBar { id: None }.write(gen);
     } else {
         dump_bar_config(gen, config);
     }
@@ -1926,20 +1616,23 @@ pub unsafe fn ipc_marshal_workspace_event(
     let locale = NumericLocale::c();
     let mut generator = i3_json::Generator::new();
     let gen = &mut generator;
+    let mut compatibility = false;
     let _ = gen.start_object();
-    write_cstr(gen, c"change");
-    write_cstr(gen, CStr::from_ptr(change));
-    write_cstr(gen, c"current");
+    messages::Change {
+        change: native_text(change),
+    }
+    .fields(gen, &mut compatibility);
+    let _ = gen.string("current");
     if current.is_null() {
         let _ = gen.null();
     } else {
-        dump_node(gen, current, false_0 != 0);
+        dump_node_stream(gen, current, false, &mut compatibility);
     }
-    write_cstr(gen, c"old");
+    let _ = gen.string("old");
     if old.is_null() {
         let _ = gen.null();
     } else {
-        dump_node(gen, old, false_0 != 0);
+        dump_node_stream(gen, old, false, &mut compatibility);
     }
     let _ = gen.end_object();
     let payload = CString::new(gen.bytes()).expect("JSON has no literal NUL");
@@ -1979,11 +1672,14 @@ pub unsafe fn ipc_send_window_event(property: *const ::core::ffi::c_char, con: *
     let locale = NumericLocale::c();
     let mut generator = i3_json::Generator::new();
     let gen = &mut generator;
+    let mut compatibility = false;
     let _ = gen.start_object();
-    write_cstr(gen, c"change");
-    write_cstr(gen, CStr::from_ptr(property));
-    write_cstr(gen, c"container");
-    dump_node(gen, con, false_0 != 0);
+    messages::Change {
+        change: native_text(property),
+    }
+    .fields(gen, &mut compatibility);
+    let _ = gen.string("container");
+    dump_node_stream(gen, con, false, &mut compatibility);
     let _ = gen.end_object();
     let payload = gen.bytes();
     let length = payload.len();
@@ -2262,30 +1958,27 @@ mod client_lifetime_tests {
     fn value_serialization_keeps_signed_coordinates_gap_alias_and_modifier_order() {
         let mut gen = i3_json::Generator::new();
         gen.start_object().unwrap();
-        write_fields(
-            &mut gen,
-            "rect",
-            &rect_fields(Rect {
-                x: u32::MAX,
-                y: 0x8000_0000,
-                width: u32::MAX,
-                height: 1,
-            }),
-        )
-        .unwrap();
+        gen.string("rect").unwrap();
+        signed_rect(Rect {
+            x: u32::MAX,
+            y: 0x8000_0000,
+            width: u32::MAX,
+            height: 1,
+        })
+        .write(&mut gen);
         gen.end_object().unwrap();
         assert_eq!(
             gen.bytes(),
             br#"{"rect":{"x":-1,"y":-2147483648,"width":4294967295,"height":1}}"#
         );
-        let fields = gaps_fields(gaps_t {
+        let gaps = gap_values(gaps_t {
             inner: 1,
             top: 2,
             right: 3,
             bottom: 4,
             left: 5,
         });
-        assert_eq!(fields[1], ("outer", 2));
+        assert_eq!(gaps.outer, 2);
         assert_eq!(
             modifier_names((1 << 19) | (1 << 13) | 1).collect::<Vec<_>>(),
             ["shift", "Group4"]
@@ -2350,3 +2043,7 @@ mod typed_reply_tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "ipc_snapshot_tests.rs"]
+mod snapshot_tests;

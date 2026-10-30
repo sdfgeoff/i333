@@ -1,4 +1,4 @@
-use crate::con::arena::{containers, resolve};
+use crate::con::arena::{containers, floating, identity, resolve};
 use crate::types::ScratchpadState;
 /*
  * vim:ts=4:sw=4:expandtab
@@ -163,10 +163,11 @@ pub unsafe fn scratchpad_show(mut con: *mut Con) -> bool {
     if !fs.is_null() && (*fs).type_0 as u32 != CT_WORKSPACE {
         con_toggle_fullscreen(fs, CF_OUTPUT as i32);
     }
-    let mut walk_con: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut focused_ws: *mut Con = con_get_workspace(focused);
-    walk_con = (*focused_ws).floating_head.tqh_first as *mut Con;
-    while !walk_con.is_null() {
+    for floating_id in floating::children(identity(focused_ws).expect("live floating parent")) {
+        let Some(walk_con) = resolve(floating_id) else {
+            continue;
+        };
         if con.is_null()
             && {
                 floating = con_inside_floating(walk_con);
@@ -195,7 +196,6 @@ pub unsafe fn scratchpad_show(mut con: *mut Con) -> bool {
             con_activate(con_descend_tiling_focused(walk_con));
             return true;
         }
-        walk_con = (*walk_con).floating_windows.tqe_next as *mut Con;
     }
     focused_ws = con_get_workspace(focused);
     for id in containers() {
@@ -270,7 +270,9 @@ pub unsafe fn scratchpad_show(mut con: *mut Con) -> bool {
         }
     }
     if con.is_null() {
-        con = (*__i3_scratch).floating_head.tqh_first as *mut Con;
+        con = floating::first(identity(__i3_scratch).expect("live scratchpad workspace"))
+            .and_then(resolve)
+            .unwrap_or(std::ptr::null_mut());
         if con.is_null() {
             verboselog(
                 c"You don't have any scratchpad windows yet.\n"
@@ -390,11 +392,11 @@ pub unsafe fn scratchpad_fix_resolution() {
         c"scratchpad_fix_resolution".as_ptr(),
         287,
     );
-    let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
-    con = (*__i3_scratch).floating_head.tqh_first as *mut Con;
-    while !con.is_null() {
+    for floating_id in floating::children(identity(__i3_scratch).expect("live floating parent")) {
+        let Some(con) = resolve(floating_id) else {
+            continue;
+        };
         floating_fix_coordinates(con, &raw mut old_rect, &raw mut new_rect);
-        con = (*con).floating_windows.tqe_next as *mut Con;
     }
 }
 

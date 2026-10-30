@@ -8,26 +8,26 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 32 wallclock secs ( 1.67 usr +  0.14 sys =  1.81 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 28 wallclock secs ( 1.38 usr +  0.10 sys =  1.48 CPU)\nResult: PASS",
     "profile": "debug",
     "build": "cargo test --locked",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "17a9f305c25812ffcec68ababc5f8fcc98d5bbd68f3f694620e97804a1fe0856",
-    "i3bar": "f921dad8ebecaa2b67ca882e7a5d9b511d693c747a86538da65ca1f43ac5db52",
-    "i3-config-wizard": "6ba03f406b104f1d427969ddcbaea3338b1daf4543f889f353612750ef856454",
-    "i3-dump-log": "e9bce8ebdadd274745718fea78f9eebbad6ad5d41eb402b078cf434458064586",
-    "i3-input": "950cdbb4cba732b8fedbf9e376c9e7adb4b4eec4c5c1a9368cb0b218bee5e4b6",
-    "i3-msg": "e52a1ff6ce04d6daee34553d6e834f13aa2a662d28b16f03addd80da32e68e9a",
-    "i3-nagbar": "5294a21467e8561812ca1aa98dc64f6f04fde3da6599d739f79e6e4775d2c117"
+    "i3": "90a61dd55f78766403fbd8ae9a41076ec553068d725afb92dd632d54a4169c02",
+    "i3bar": "3a1335f5bf394a63bb58eb929024ec6f2f178cbefbd05448d96706be561dc701",
+    "i3-config-wizard": "9e9d07613f21c20a39960c56333066774119b096b957498a73ed33f0ccadaf0d",
+    "i3-dump-log": "5dc6b5b823349722eddbaee940e574cdacfb6583cdfccaf22a71b001b1374a89",
+    "i3-input": "76aafdbb110d5907b96611326e5cf5e9e0730fdcf3de5f122ca003490130c2ac",
+    "i3-msg": "9f2ad67dda6f55906497261e71119496c34981dce2fa6f70bdbd72244e019795",
+    "i3-nagbar": "19075ddd7ce382ecf945ef25b201ef339ea23988e09f8b357e631ea2f89acba6"
   },
-  "note": "Ten-member Cargo workspace. cargo test --locked passed 351 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug hashes match this Cargo-driven run. Owned rendering text, Serde command replies and stable Rust-owned container storage replace legacy allocation adapters. Remaining native callbacks and intrusive parent/child/focus graph links are explicit unsafe boundaries.",
+  "note": "Ten-member Cargo workspace. cargo test --locked passed 361 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug hashes match this Cargo-driven run. Owned rendering text, Serde command replies and stable Rust-owned container storage replace legacy allocation adapters. Remaining native callbacks and intrusive parent/child/focus graph links are explicit unsafe boundaries.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
   "additional_checks": {
     "headless_c_rust_state_comparisons": 54,
     "ipc_client_test_groups": 16,
-    "workspace_unit_tests": 351,
+    "workspace_unit_tests": 361,
     "core_and_bar_cli_comparisons": 39,
     "pcre2_compile_match_error_comparisons": 4620,
     "json_oracle_cases": 2218,
@@ -115,7 +115,7 @@
     "binary_count": 7,
     "native_library_discovery": "maintained native binding build scripts and dedicated sys crates; i3-build links only platform m/rt",
     "unit_tests": {
-      "i3": 164,
+      "i3": 174,
       "cargo_regression_wrappers": 8,
       "xkb_integration": 1,
       "i3-build": 3,
@@ -136,12 +136,12 @@
     "cargo_fmt_check": true,
     "debug_build": true,
     "release_build": true,
-    "unit_tests_total_including_integration_checks": 351,
+    "unit_tests_total_including_integration_checks": 361,
     "test_command": "cargo test",
     "clean_source_command": "cargo test -p i3-test-support --features clean-source-check",
     "test_support": "development-only process capture, failure propagation and isolated regression orchestration",
-    "release_build_note": "Final code checkpoint aa823afe passed full Ubuntu CI: formatting, cargo test --locked, release build and structural clean-source check. Subsequent completion metadata changes are documentation only.",
-    "last_release_build_verified_commit": "aa823afeecdf0b106300604917c4438da61f0ce7"
+    "release_build_note": "Ownership checkpoint2 CI passed formatting, full cargo test, release build and structural isolation: https://github.com/sdfgeoff/i333/actions/runs/40992071536. Checkpoint3 source changes pass local full Cargo suite; CI follows commit.",
+    "last_release_build_verified_commit": "01b7ac4d3d75d0b683b553ce0bcfa2201baabe79"
   },
   "modernization": {
     "yajl_product_dependency": false,
@@ -150,7 +150,7 @@
     "graphics": "Maintained cairo-rs, pango, pangocairo and glib owners/borrowed APIs for drawing and fonts; maintained sys bindings retain explicit native text byte-count and XCB surface boundaries",
     "xkb": "maintained xkbcommon bindings",
     "internal_no_mangle_exports": 0,
-    "remaining_unsafe": "Native FFI/callbacks, borrowed raw graph links and remaining native resource/byte adapters; rendering text and generator storage use Rust ownership.",
+    "remaining_unsafe": "Native FFI/callbacks, raw ancestry and tiling/focus links, remaining native resource/byte adapters. Rendering text, JSON storage, global and floating container ownership use Rust values/checked IDs.",
     "scratch_directory": ".work/tmp (gitignored, TMPDIR override supported)",
     "scalar_aliases": "Generated fixed-width, size, platform-internal and anonymous scalar typedefs removed; direct Rust primitives or maintained libc types at use sites. Semantic native/flag aliases retained.",
     "application_enums": {
@@ -883,6 +883,176 @@
         "ci": "Wave1 Ubuntu run40991585580 passes compiler/unit/runtime checks except upstream suite (4188 assertions); diagnostic expansion and investigation active.",
         "latest_nightly_check": "cargo +nightly-2026-10-30 check --workspace --all-targets --locked passed (rustc1.101.0); repository nightly/default left unchanged",
         "diagnostics": "Failed upstream runs expose bounded TAP summary and failing assertion records; success output/status unchanged."
+      },
+      {
+        "checkpoint": 3,
+        "status": "validated",
+        "rust_reported_tests": 361,
+        "upstream_assertions": 4205,
+        "reports": {
+          "ownership-wave3-readers-report": {
+            "status": "implemented, formatted and frozen for root full validation",
+            "files": [
+              "crates/i3/src/floating.rs",
+              "crates/i3/src/workspace.rs",
+              "crates/i3/src/scratchpad.rs",
+              "crates/i3/src/ewmh.rs",
+              "crates/i3/src/render.rs",
+              "crates/i3/src/restore_layout.rs",
+              "crates/i3/src/x.rs"
+            ],
+            "changes": [
+              "floating_enable uses typed prepend at same point after wrapper parent/type/layout initialization and before focus-link insertion",
+              "floating_raise_con uses typed move_to_back, preserving order of all other members and retained raw parent",
+              "workspace sticky/urgency traversal, empty-workspace decision and workspace-move geometry use typed membership queries or live children iterators",
+              "scratchpad visible candidate iteration, hidden default selection and resolution geometry now resolve generation-checked floating IDs",
+              "EWMH, rendering, placeholder creation and X decoration/unmap traversals use typed floating membership and resolve each child before native raw-pointer use",
+              "All seven files have zero floating_head/floating_windows field/type references; no safe adapter dereferences arbitrary raw pointers",
+              "Window text and parent/focus/tiling relations unchanged"
+            ],
+            "iteration": "No fixed snapshots or premature successor caching. Ordinary live iterator computes next after body; early activation/move returns remain unchanged. No registry borrow or reference spans native callbacks.",
+            "focused_test": {
+              "command": "cargo test -p i3 --bin i3 con::arena",
+              "result": "15 passed (tree worker executed)",
+              "log": ".work/ownership-wave3-tree-tests.log",
+              "production_raise_test": "real_raise_moves_selected_to_back_without_rotating_other_members moved into arena tests to use private allocate/release and avoid skeleton factory reading config/root_depth globals. Actual production raise function tested middle3 ordering, repeated raise and parent retention; no X calls."
+            },
+            "test_global_audit": "Automated scan of cfg(test) source found no LOG_BUFFER/debug setters/config field/root_depth writes; production raise debuglog reads disabled logger state and returns. No global setters introduced.",
+            "review": {
+              "files": [
+                "crates/i3/src/con/arena/floating.rs",
+                "crates/i3/src/con/arena.rs",
+                "crates/i3/src/con.rs",
+                "crates/i3/src/tree.rs"
+              ],
+              "result": "No actionable correctness issues found. Typed module validates owner/child generations and single membership before mutation; cycle checks use safe reverse-owner metadata; registry retire removes both forward/reverse membership; owned Box remains alive during native teardown; lazy iterator releases registry borrow before body and stops on removed current/parent. Navigation first/last wrapping and cyclic rotate_after match old order. tree_flatten computes saved successor before recursive mutation; draining sites requery first."
+            },
+            "remaining_boundaries": [
+              "Con.parent remains raw intentionally: detached ancestry still used before reattach; focus/tiling relations await later migration.",
+              "IDs resolve to raw native/event-thread graph pointers at explicit unsafe caller boundaries.",
+              "Actual native window/session behavior delegated to parent full cargo test; no user desktop or nested test session interaction."
+            ]
+          },
+          "ownership-wave3-tree-report": {
+            "status": "complete_for_floating_relation_frozen_pending_full_validation",
+            "files": [
+              "crates/i3/src/con.rs",
+              "crates/i3/src/tree.rs",
+              "crates/i3/src/types.rs",
+              "crates/i3/src/con/arena.rs",
+              "crates/i3/src/con/arena/floating.rs"
+            ],
+            "ownership": [
+              "Deleted Con.floating_head/Con.floating_windows and both queue types; no mirror storage.",
+              "Private Arena Entry owns Vec<ConId> floating and reverse owner Option<ConId>.",
+              "Safe typed generation-checked API never dereferences native Con pointers; all queries/mutations return owned scalar IDs/results.",
+              "Transactional mutation rejects stale parent/child, wrong ownership, duplicates, self/cycles before updating.",
+              "Retirement removes member from typed owner and clears surviving child reverse owner; Con.parent remains unchanged in normal detach.",
+              "Iterators recompute successor after body from current identity, no callback-spanning registry borrow; explicit prefetched tree_flatten and requery-head workspace drain retain their original mutation order.",
+              "Floating navigation wraps previous/next first/last; tree_next uses rotate_after preserving cyclic order.",
+              "Core full-screen BFS fixture now registered IDs, root exclusion and tiling-before-floating retained."
+            ],
+            "api_reference": ".work/ownership-wave3-floating-api.json",
+            "tests": [
+              {
+                "command": "cargo test --locked -p i3 --bin i3 con::arena",
+                "result": "15 passed (7 existing arena+8 new floating relation/production tests)",
+                "log": ".work/ownership-wave3-tree-tests.log"
+              },
+              {
+                "command": "cargo test --locked -p i3 --bin i3 fullscreen_breadth_first",
+                "result": "1 passed",
+                "log": ".work/ownership-wave3-bfs-tests.log"
+              }
+            ],
+            "new_test_coverage": [
+              "Empty/singleton/ordered prepend/append/remove/reparent/siblings",
+              "Failed stale/wrong-owner/duplicate/self/cycle operations leave complete metadata state unchanged",
+              "Raise vs cyclic rotate_after first/middle/tail and singleton",
+              "Deletion and simulated allocator address reuse generation checks/reverse membership",
+              "Live append, successor deletion, current deletion, nested traversal, fused exhaustion",
+              "Explicit prefetched successor traversal and repeated head draining",
+              "Actual con_attach/con_detach updates floating+focus membership and preserves detached parent",
+              "Actual floating_raise_con moves middle to tail, preserves others and repeat idempotent; no con_new_skeleton/config/rootdepth factory globals used"
+            ],
+            "remaining_boundaries": [
+              "Raw Con.parent ancestry retained intentionally; next migration mapped read-only.",
+              "Intrusive tiling/focus lists remain separate future stages.",
+              "Raw pointers/ABI resources remain in native event/render adapters."
+            ],
+            "independent_review": "Text peer reviewed typed backend validation/transactionality/retire/live traversal/navigation/rotation/prefetch: no actionable findings."
+          },
+          "ownership-wave3-serde-report": {
+            "status": "frozen_ready_for_root_wave3_validation",
+            "files": [
+              "crates/i3/src/ipc.rs",
+              "crates/i3/src/ipc_messages.rs",
+              "crates/i3/src/ipc_snapshot_tests.rs",
+              "crates/i3/src/randr.rs",
+              "crates/i3/tests/fixtures/ipc-output-baseline.json"
+            ],
+            "changes": [
+              "IPC and two RandR floating traversals use live typed floating::children(ConId) and resolve; no raw floating fields/types remain in worker files",
+              "NodeHeader/NodeTail/WindowProperties/Gaps/Swallow typed Serde schemas around live native child traversal; no recursive owned JSON graph or recursive Serde graph encoding",
+              "Schema WireFields uses Serde for ordinary bounded values; one traversal-wide compatibility flag switches before rejected native/overdepth values and persists through children/siblings/parent tails, retaining historical shifted keys and matching/mismatched-close behavior",
+              "Owned native text snapshots keep no native storage borrow across recursive graph traversal or socket/event callbacks; safe message module forbids unsafe_code",
+              "Full typed BarConfig/BarColors/BarBinding schemas preserve all field order and omissions; bar ID list migrated to typed Vec<NativeText>",
+              "Ordinary event change scalars and missing-bar reply typed; removed obsolete manual byte/CStr/rect/gaps generator builders (native assertion diagnostic strings retained)",
+              "Numeric conventions preserved: signed node/deco/padding coordinates, unsigned workspaces/outputs, zero and negativezero percent null, nonfinite numbers rejected without consuming values, native type unknown emits no scalar",
+              "Node restart keeps dock-child suppression, window property omission, actual deco rect, pointer ID values/focus order, native swallow field order and appended restart window ID, depth and previous workspace name"
+            ],
+            "golden_baseline": {
+              "revision": "01b7ac4d (pre-schema product emitters)",
+              "capture_log": ".work/serde-protocol/wave3-record-baseline.log",
+              "focus_capture_log": ".work/serde-protocol/wave3-record-focus-baseline.log",
+              "focus_capture_provenance": "Temporary git-show01b7ac4d old dump_node emitter captured nonempty focus case;22 previously recorded cases verified unchanged; temporary old-emitter and recording branches removed afterward",
+              "fixture": "crates/i3/tests/fixtures/ipc-output-baseline.json",
+              "sha256": "500cc12300243a37fed449d230cd9ef34fdd4021399bcb5cd7e965c562654544",
+              "cases": 23,
+              "size_bytes": 62548,
+              "coverage": [
+                "plain node",
+                "workspace/gaps",
+                "window props and decoration geometry",
+                "restart and previous workspace",
+                "negative zero/NaN/infinity",
+                "invalid native class",
+                "unknown native type",
+                "floating child and nonempty focus order",
+                "native swallows and restart swallows",
+                "depth124/125/126/127/128 prefixes",
+                "70-level real native graph",
+                "sparse/full bar and invalid socket"
+              ],
+              "normalization": "Only complete numeric id values equal to actual container addresses and pointer values inside focus arrays; other geometry/window IDs/text unchanged; dedicated boundary test prevents prefix masking"
+            },
+            "tests": [
+              {
+                "command": "cargo test --locked -p i3 --bin i3 ipc::",
+                "result": "17 passed; includes privatechild23 production goldens",
+                "log": ".work/serde-protocol/wave3-ipc-tests.log"
+              },
+              {
+                "command": "git diff --check",
+                "result": "passed"
+              },
+              {
+                "command": "source rg for obsolete adapters/raw floating fields/testrecording code",
+                "result": "zero remaining references in worker files"
+              }
+            ],
+            "safety": "Production comparison child removes DISPLAY/WAYLAND_DISPLAY/I3SOCK/XAUTHORITY/DBUS/DESKTOP_STARTUP_ID/NOTIFY_SOCKET/LISTEN_*/LIBEV_FLAGS; uses only in-memory arena/native POD/PCRE fixtures, no X connection or desktop interaction; .work scratch only; no full cargo test/commit/push by worker.",
+            "remaining": [
+              "Incremental i3-json Parser and Generator frame compatibility retained intentionally for neverclosed status streams, permissive layouts and rejected native output; no native YAJL or compat adapter remains",
+              "Native node graph traversal/raw scalar snapshot boundary remains unsafe pending broader tree ownership migration",
+              "Floating metadata and Con ownership are typed Rust; parent/tiling/focus graph migrations coordinated by root in future checkpoint"
+            ],
+            "independent_review": "Requested read-only owned_text_phase review of snapshot/field fallback; pending at report time."
+          }
+        },
+        "upstream_validation": ".work/tmp/i333-suite-rust-k3tg47jo/validation.json",
+        "remaining": "See per-stage reports: full typed-ID parent/child/focus migration is staged, not claimed complete.",
+        "independent_review": "Owned floating relation and typed node/bar schema lifetimes/compatibility reviewed by a second subagent; no actionable findings."
       }
     ]
   },

@@ -1,5 +1,5 @@
 use crate::application::ws_assignments;
-use crate::con::arena::{containers, resolve};
+use crate::con::arena::{containers, floating, identity, resolve};
 use crate::con::M_BELOW;
 use crate::r#match::{M_DOCK_BOTTOM, M_DOCK_TOP};
 use crate::types::Direction;
@@ -770,14 +770,13 @@ unsafe fn output_change_mode(conn_0: *mut xcb_connection_t, output: *mut Output)
     let content: *const Con = output_get_content((*output).con);
     workspace = (*content).nodes_head.tqh_first as *mut Con;
     while !workspace.is_null() {
-        child = (*workspace).floating_head.tqh_first as *mut Con;
-        while !child.is_null() {
+        for id in floating::children(identity(workspace).expect("live workspace")) {
+            let Some(child) = resolve(id) else { continue };
             floating_fix_coordinates(
                 child,
                 &raw mut (*workspace).rect,
                 &raw mut (*(*output).con).rect,
             );
-            child = (*child).floating_windows.tqe_next as *mut Con;
         }
         workspace = (*workspace).nodes.tqe_next as *mut Con;
     }
@@ -1281,15 +1280,15 @@ unsafe fn move_content(con: *mut Con) {
                 c"move_content".as_ptr(),
                 883 as ::core::ffi::c_int,
             );
-            let mut floating_con: *mut Con = ::core::ptr::null_mut::<Con>();
-            floating_con = (*current).floating_head.tqh_first as *mut Con;
-            while !floating_con.is_null() {
+            for id in floating::children(identity(current).expect("live workspace")) {
+                let Some(floating_con) = resolve(id) else {
+                    continue;
+                };
                 floating_fix_coordinates(
                     floating_con,
                     &raw mut (*con).rect,
                     &raw mut (*first).rect,
                 );
-                floating_con = (*floating_con).floating_windows.tqe_next as *mut Con;
             }
         }
     }

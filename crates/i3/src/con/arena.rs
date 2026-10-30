@@ -3,6 +3,8 @@
 //! Existing graph links and IPC IDs borrow addresses. Internal deferred work can
 //! instead capture a generation-checked identity, preventing a reused address
 //! from naming a different container. Registry borrows never cross callbacks.
+pub(crate) mod floating;
+
 use crate::types::Con;
 use std::cell::{RefCell, UnsafeCell};
 use std::collections::{BTreeMap, HashMap};
@@ -20,6 +22,8 @@ struct Entry {
     // Mutation is performed by the event-thread graph functions through raw
     // links. UnsafeCell avoids deriving mutable storage from a shared Con borrow.
     storage: Box<UnsafeCell<Con>>,
+    floating: Vec<ConId>,
+    floating_owner: Option<ConId>,
 }
 
 #[derive(Default)]
@@ -40,7 +44,6 @@ impl Arena {
         // SAFETY: The allocation is stable and unpublished. Queue tails point
         // into that allocation and remain valid until its owner is removed.
         unsafe {
-            (*raw).floating_head.tqh_last = &raw mut (*raw).floating_head.tqh_first;
             (*raw).nodes_head.tqh_last = &raw mut (*raw).nodes_head.tqh_first;
             (*raw).focus_head.tqh_last = &raw mut (*raw).focus_head.tqh_first;
             (*raw).swallow_head.tqh_last = &raw mut (*raw).swallow_head.tqh_first;
@@ -51,6 +54,8 @@ impl Arena {
             Entry {
                 generation: self.generation,
                 storage,
+                floating: Vec::new(),
+                floating_owner: None,
             },
         );
         assert!(previous.is_none(), "duplicate live container address");
@@ -86,6 +91,11 @@ impl Arena {
     fn take(&mut self, raw: *mut Con) -> Option<Box<UnsafeCell<Con>>> {
         let entry = self.entries.remove(&(raw as usize))?;
         self.order.remove(&entry.generation);
+        let id = ConId {
+            address: raw as usize,
+            generation: entry.generation,
+        };
+        self.floating_retire(id, entry.floating_owner, &entry.floating);
         Some(entry.storage)
     }
 }

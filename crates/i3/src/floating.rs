@@ -1,3 +1,4 @@
+use crate::con::arena::{floating, identity};
 use crate::con::{CF_NONE, CT_CON, CT_FLOATING_CON, CT_WORKSPACE};
 pub use crate::types::xoutput as Output;
 
@@ -360,15 +361,11 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
     (*nc).parent = ws as *mut Con;
     (*nc).type_0 = CT_FLOATING_CON;
     (*nc).layout = Layout::SplitH;
-    (*nc).floating_windows.tqe_next = (*ws).floating_head.tqh_first;
-    if !(*nc).floating_windows.tqe_next.is_null() {
-        (*(*ws).floating_head.tqh_first).floating_windows.tqe_prev =
-            &raw mut (*nc).floating_windows.tqe_next;
-    } else {
-        (*ws).floating_head.tqh_last = &raw mut (*nc).floating_windows.tqe_next;
-    }
-    (*ws).floating_head.tqh_first = nc as *mut Con;
-    (*nc).floating_windows.tqe_prev = &raw mut (*ws).floating_head.tqh_first;
+    floating::prepend(
+        identity(ws).expect("live floating workspace"),
+        identity(nc).expect("live floating wrapper"),
+    )
+    .expect("new floating wrapper has no existing membership");
     let fh: *mut focus_head = &raw mut (*ws).focus_head;
     if focus_before_parent {
         if !focus_head_placeholder.is_null() {
@@ -636,18 +633,11 @@ pub unsafe fn floating_raise_con(con: *mut Con) {
         con,
         (*con).name,
     );
-    if !(*con).floating_windows.tqe_next.is_null() {
-        (*(*con).floating_windows.tqe_next)
-            .floating_windows
-            .tqe_prev = (*con).floating_windows.tqe_prev;
-    } else {
-        (*(*con).parent).floating_head.tqh_last = (*con).floating_windows.tqe_prev;
-    }
-    *(*con).floating_windows.tqe_prev = (*con).floating_windows.tqe_next;
-    (*con).floating_windows.tqe_next = ::core::ptr::null_mut::<Con>();
-    (*con).floating_windows.tqe_prev = (*(*con).parent).floating_head.tqh_last;
-    *(*(*con).parent).floating_head.tqh_last = con as *mut Con;
-    (*(*con).parent).floating_head.tqh_last = &raw mut (*con).floating_windows.tqe_next;
+    floating::move_to_back(
+        identity((*con).parent).expect("live floating parent"),
+        identity(con).expect("live floating wrapper"),
+    )
+    .expect("raised container belongs to its floating parent");
 }
 
 pub unsafe fn floating_maybe_reassign_ws(con: *mut Con) -> bool {

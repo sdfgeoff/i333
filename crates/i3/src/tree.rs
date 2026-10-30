@@ -1,3 +1,4 @@
+use crate::con::arena::{floating, identity, resolve};
 use crate::handlers::add_ignore_event;
 use crate::types::Direction;
 use crate::types::FocusWrapping;
@@ -628,10 +629,10 @@ unsafe fn mark_unmapped(con: *mut Con) {
     if (*con).type_0 as ::core::ffi::c_uint
         == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
     {
-        current = (*con).floating_head.tqh_first as *mut Con;
-        while !current.is_null() {
-            mark_unmapped(current);
-            current = (*current).floating_windows.tqe_next as *mut Con;
+        for id in identity(con).into_iter().flat_map(floating::children) {
+            if let Some(current) = resolve(id) {
+                mark_unmapped(current);
+            }
         }
     }
 }
@@ -741,18 +742,16 @@ unsafe fn get_tree_next(mut con: *mut Con, direction: Direction) -> *mut Con {
                     if orientation != Orientation::Horizontal {
                         return ::core::ptr::null_mut::<Con>();
                     }
-                    let mut next: *mut Con = if previous as ::core::ffi::c_int != 0 {
-                        *(*((*con).floating_windows.tqe_prev as *mut floating_head)).tqh_last
+                    let parent_id = identity(parent).expect("live floating parent");
+                    let child_id = identity(con).expect("live floating child");
+                    let next = if previous {
+                        floating::previous(parent_id, child_id)
+                            .or_else(|| floating::last(parent_id))
                     } else {
-                        (*con).floating_windows.tqe_next as *mut Con
-                    };
-                    if next.is_null() {
-                        next = (if previous as ::core::ffi::c_int != 0 {
-                            *(*((*parent).floating_head.tqh_last as *mut floating_head)).tqh_last
-                        } else {
-                            (*parent).floating_head.tqh_first
-                        }) as *mut Con;
+                        floating::next(parent_id, child_id).or_else(|| floating::first(parent_id))
                     }
+                    .and_then(resolve)
+                    .unwrap_or(std::ptr::null_mut());
                     if !next.is_null() {
                     } else {
                         __assert_fail(
@@ -856,28 +855,11 @@ pub unsafe fn tree_next(con: *mut Con, direction: Direction) {
         == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         let parent: *mut Con = (*next).parent as *mut Con;
-        while *(*((*parent).floating_head.tqh_last as *mut floating_head)).tqh_last != next {
-            let last: *mut Con =
-                *(*((*parent).floating_head.tqh_last as *mut floating_head)).tqh_last;
-            if !(*last).floating_windows.tqe_next.is_null() {
-                (*(*last).floating_windows.tqe_next)
-                    .floating_windows
-                    .tqe_prev = (*last).floating_windows.tqe_prev;
-            } else {
-                (*parent).floating_head.tqh_last = (*last).floating_windows.tqe_prev;
-            }
-            *(*last).floating_windows.tqe_prev = (*last).floating_windows.tqe_next;
-            (*last).floating_windows.tqe_next = (*parent).floating_head.tqh_first;
-            if !(*last).floating_windows.tqe_next.is_null() {
-                (*(*parent).floating_head.tqh_first)
-                    .floating_windows
-                    .tqe_prev = &raw mut (*last).floating_windows.tqe_next;
-            } else {
-                (*parent).floating_head.tqh_last = &raw mut (*last).floating_windows.tqe_next;
-            }
-            (*parent).floating_head.tqh_first = last as *mut Con;
-            (*last).floating_windows.tqe_prev = &raw mut (*parent).floating_head.tqh_first;
-        }
+        floating::rotate_after(
+            identity(parent).expect("live floating parent"),
+            identity(next).expect("live floating child"),
+        )
+        .expect("attached floating child");
     }
     workspace_show(con_get_workspace(next));
     con_activate(con_descend_focused(next));
@@ -1039,11 +1021,17 @@ pub unsafe fn tree_flatten(con: *mut Con) {
         tree_flatten(current);
         current = next;
     }
-    current = (*con).floating_head.tqh_first as *mut Con;
-    while !current.is_null() {
-        let next_0: *mut Con = (*current).floating_windows.tqe_next as *mut Con;
-        tree_flatten(current);
-        current = next_0;
+    if let Some(parent_id) = identity(con) {
+        let mut current = floating::first(parent_id);
+        while let Some(id) = current {
+            // This traversal intentionally captures the successor before
+            // recursion can flatten/delete/reparent the current container.
+            let next = floating::next(parent_id, id);
+            if let Some(con) = resolve(id) {
+                tree_flatten(con);
+            }
+            current = next;
+        }
     }
 }
 
@@ -1074,7 +1062,6 @@ use i3_common::native_stdio::__assert_fail;
 use crate::log::{debuglog, errorlog, verboselog};
 
 // Shared model types retain field layout while using one Rust identity.
-pub use crate::types::floating_head;
 pub use crate::types::nodes_head;
 pub use crate::types::xoutput;
 pub use crate::types::Con;

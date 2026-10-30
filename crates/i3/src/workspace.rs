@@ -1,5 +1,6 @@
 use crate::application::bindings;
 use crate::application::ws_assignments;
+use crate::con::arena::{floating, identity, resolve};
 use crate::types::KillWindow;
 use crate::types::Layout;
 use crate::types::Orientation;
@@ -399,8 +400,10 @@ unsafe fn _get_sticky(
         }
         current = (*current).nodes.tqe_next as *mut Con;
     }
-    current = (*con).floating_head.tqh_first as *mut Con;
-    while !current.is_null() {
+    for floating_id in floating::children(identity(con).expect("live floating parent")) {
+        let Some(current) = resolve(floating_id) else {
+            continue;
+        };
         if current != exclude
             && !(*current).sticky_group.is_null()
             && !(*current).window.is_null()
@@ -412,7 +415,6 @@ unsafe fn _get_sticky(
         if !recurse_0.is_null() {
             return recurse_0;
         }
-        current = (*current).floating_windows.tqe_next as *mut Con;
     }
     ::core::ptr::null_mut::<Con>()
 }
@@ -455,10 +457,11 @@ unsafe fn workspace_reassign_sticky(con: *mut Con) {
         }
         current = (*current).nodes.tqe_next as *mut Con;
     }
-    current = (*con).floating_head.tqh_first as *mut Con;
-    while !current.is_null() {
+    for floating_id in floating::children(identity(con).expect("live floating parent")) {
+        let Some(current) = resolve(floating_id) else {
+            continue;
+        };
         workspace_reassign_sticky(current);
-        current = (*current).floating_windows.tqe_next as *mut Con;
     }
 }
 unsafe extern "C" fn workspace_defer_update_urgent_hint_cb(
@@ -628,7 +631,7 @@ pub unsafe fn workspace_show(workspace: *mut Con) {
     );
     if !old.is_null()
         && (*old).nodes_head.tqh_first.is_null()
-        && (*old).floating_head.tqh_first.is_null()
+        && floating::is_empty(identity(old).expect("live old workspace"))
     {
         if !workspace_is_visible(old) {
             verboselog(
@@ -1147,14 +1150,15 @@ unsafe fn get_urgency_flag(con: *mut Con) -> bool {
         }
         child = (*child).nodes.tqe_next as *mut Con;
     }
-    child = (*con).floating_head.tqh_first as *mut Con;
-    while !child.is_null() {
+    for floating_id in floating::children(identity(con).expect("live floating parent")) {
+        let Some(child) = resolve(floating_id) else {
+            continue;
+        };
         if (*child).urgent as ::core::ffi::c_int != 0
             || get_urgency_flag(child) as ::core::ffi::c_int != 0
         {
             return true;
         }
-        child = (*child).floating_windows.tqe_next as *mut Con;
     }
     false
 }
@@ -1443,15 +1447,15 @@ pub unsafe fn workspace_move_to_output(mut ws: *mut Con, output: *mut Output) {
         workspace_show(focus_ws);
     }
     con_attach(ws, content, false);
-    let mut floating_con: *mut Con = ::core::ptr::null_mut::<Con>();
-    floating_con = (*ws).floating_head.tqh_first as *mut Con;
-    while !floating_con.is_null() {
+    for floating_id in floating::children(identity(ws).expect("live floating parent")) {
+        let Some(floating_con) = resolve(floating_id) else {
+            continue;
+        };
         floating_fix_coordinates(
             floating_con,
             &raw mut (*old_content).rect,
             &raw mut (*content).rect,
         );
-        floating_con = (*floating_con).floating_windows.tqe_next as *mut Con;
     }
     ipc_send_workspace_event(c"move".as_ptr(), ws, ::core::ptr::null_mut::<Con>());
     if workspace_was_visible {

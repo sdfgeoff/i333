@@ -363,7 +363,6 @@ pub struct Con {
     pub window: *mut crate::types::Window,
     pub urgency_timer: *mut libev_sys::ev_timer,
     pub deco_render_params: *mut crate::types::deco_render_params,
-    pub floating_head: crate::types::floating_head,
     pub nodes_head: crate::types::nodes_head,
     pub focus_head: crate::types::focus_head,
     pub swallow_head: crate::types::swallow_head,
@@ -377,7 +376,6 @@ pub struct Con {
     pub floating: FloatingState,
     pub nodes: crate::types::ConNodes,
     pub focused: crate::types::ConFocused,
-    pub floating_windows: crate::types::ConFloatingWindows,
     pub on_remove_child: Option<unsafe fn(*mut crate::types::Con) -> ()>,
     pub scratchpad_state: ScratchpadState,
     pub old_id: ::core::ffi::c_int,
@@ -441,10 +439,6 @@ impl Con {
             window: null_mut(),
             urgency_timer: null_mut(),
             deco_render_params: null_mut(),
-            floating_head: floating_head {
-                tqh_first: null_mut(),
-                tqh_last: null_mut(),
-            },
             nodes_head: nodes_head {
                 tqh_first: null_mut(),
                 tqh_last: null_mut(),
@@ -473,10 +467,6 @@ impl Con {
                 tqe_next: null_mut(),
                 tqe_prev: null_mut(),
             },
-            floating_windows: ConFloatingWindows {
-                tqe_next: null_mut(),
-                tqe_prev: null_mut(),
-            },
             on_remove_child: None,
             scratchpad_state: ScratchpadState::default(),
             old_id: 0,
@@ -484,13 +474,6 @@ impl Con {
             colormap: 0,
         }
     }
-}
-
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct ConFloatingWindows {
-    pub tqe_next: *mut crate::types::Con,
-    pub tqe_prev: *mut *mut crate::types::Con,
 }
 
 #[derive(Copy, Clone)]
@@ -731,13 +714,6 @@ pub struct deco_render_params {
     pub background: i3_common::draw_util::color_t,
     pub parent_layout: Layout,
     pub con_is_leaf: bool,
-}
-
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct floating_head {
-    pub tqh_first: *mut crate::types::Con,
-    pub tqh_last: *mut *mut crate::types::Con,
 }
 
 #[derive(Copy, Clone)]

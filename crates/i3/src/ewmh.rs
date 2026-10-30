@@ -1,6 +1,7 @@
 /* i3 - EWMH property updates. See LICENSE. */
 //! Property payloads and index decisions use owned Rust values. The native
 //! setters and tree traversals remain explicit event-thread unsafe boundaries.
+use crate::con::arena::{floating, identity, resolve};
 use std::ffi::CStr;
 use std::ptr;
 
@@ -214,10 +215,11 @@ unsafe fn ewmh_update_wm_desktop_recursively(con: *mut Con, desktop: u32) {
         child = (*child).nodes.tqe_next;
     }
     if (*con).type_0 == WORKSPACE {
-        child = (*con).floating_head.tqh_first;
-        while !child.is_null() {
+        for floating_id in floating::children(identity(con).expect("live floating parent")) {
+            let Some(child) = resolve(floating_id) else {
+                continue;
+            };
             ewmh_update_wm_desktop_recursively(child, desktop);
-            child = (*child).floating_windows.tqe_next;
         }
     }
     if !con_has_managed_window(con) {

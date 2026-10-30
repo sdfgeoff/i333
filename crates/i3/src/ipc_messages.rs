@@ -134,6 +134,45 @@ impl<T: WireValue> WireValue for Omitted<T> {
         self.0.legacy(output);
     }
 }
+/// A native getter can reject a scalar without emitting JSON null or text.
+/// This distinction matters when the next field fills the rejected value slot.
+pub(super) enum NativeValue<T> {
+    Value(T),
+    Rejected,
+}
+impl<T: Serialize> Serialize for NativeValue<T> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            Self::Value(value) => value.serialize(serializer),
+            Self::Rejected => Err(serde::ser::Error::custom("native scalar rejected")),
+        }
+    }
+}
+impl<T: WireValue> WireValue for NativeValue<T> {
+    fn valid(&self) -> bool {
+        match self {
+            Self::Value(value) => value.valid(),
+            Self::Rejected => false,
+        }
+    }
+    fn depth(&self) -> usize {
+        match self {
+            Self::Value(value) => value.depth(),
+            Self::Rejected => 0,
+        }
+    }
+    fn legacy(&self, output: &mut Generator) {
+        if let Self::Value(value) = self {
+            value.legacy(output);
+        }
+    }
+}
+/// Stream the fields of a bounded typed segment around separately traversed
+/// child arrays. Once native output becomes exceptional, retain event behavior
+/// for the rest of that traversal, including siblings and parent closing fields.
+pub(super) trait WireFields {
+    fn fields(&self, output: &mut Generator, compatibility: &mut bool);
+}
 // Each schema is declared once: Serde and the exceptional compatibility path
 // share field order and omission rules without a second hand-maintained builder.
 macro_rules! wire_object {
@@ -152,10 +191,24 @@ macro_rules! wire_object {
                 let _ = output.end_object();
             }
         }
+        impl WireFields for $name {
+            fn fields(&self, output: &mut Generator, compatibility: &mut bool) {
+                $(if !self.$field.omitted() {
+                    let _ = output.string(wire_object!(@key $field $(, $key)?));
+                    if !self.$field.valid() || output.nesting_depth().saturating_add(self.$field.depth()) > 128 {
+                        *compatibility = true;
+                    }
+                    if *compatibility { self.$field.legacy(output); }
+                    else { self.$field.write(output); }
+                })*
+            }
+        }
     };
     (@key $field:ident, $key:literal) => { $key };
     (@key $field:ident) => { stringify!($field).strip_prefix("r#").unwrap_or(stringify!($field)) };
 }
+wire_object!(Change { change: NativeText });
+wire_object!(MissingBar { id: Option<i64> });
 wire_object!(Shutdown { change: &'static str });
 wire_object!(BindingState { name: NativeText });
 wire_object!(Version {
@@ -212,6 +265,177 @@ wire_object!(IncludedConfig {
     variable_replaced_contents: NativeText,
 });
 wire_object!(Config { config: NativeText, included_configs: Vec<IncludedConfig> });
+
+wire_object!(Gaps {
+    inner: i64,
+    outer: i64,
+    top: i64,
+    right: i64,
+    bottom: i64,
+    left: i64
+});
+wire_object!(WindowProperties {
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    class: Omitted<NativeText>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    instance: Omitted<NativeText>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    window_role: Omitted<NativeText>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    machine: Omitted<NativeText>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    title: Omitted<NativeValue<NativeText>>,
+    transient_for: Option<i64>,
+});
+wire_object!(NodeHeader {
+    id: i64,
+    r#type: NativeValue<&'static str>,
+    orientation: &'static str,
+    scratchpad_state: &'static str,
+    percent: Option<f64>,
+    urgent: bool,
+    marks: Vec<NativeText>,
+    focused: bool,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    output: Omitted<NativeText>,
+    layout: &'static str,
+    workspace_layout: &'static str,
+    last_split_layout: &'static str,
+    border: &'static str,
+    current_border_width: i64,
+    rect: Rectangle,
+    deco_rect: Rectangle,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    actual_deco_rect: Omitted<Rectangle>,
+    window_rect: Rectangle,
+    geometry: Rectangle,
+    name: NativeValue<Option<NativeText>>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    title_format: Omitted<NativeText>,
+    window_icon_padding: i64,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    num: Omitted<i64>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    gaps: Omitted<Gaps>,
+    window: Option<i64>,
+    window_type: Option<&'static str>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    window_properties: Omitted<WindowProperties>,
+});
+wire_object!(Swallow {
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    dock: Omitted<i64>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    insert_where: Omitted<i64>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    class: Omitted<NativeText>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    instance: Omitted<NativeText>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    window_role: Omitted<NativeText>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    title: Omitted<NativeText>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    machine: Omitted<NativeText>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    id: Omitted<i64>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    restart_mode: Omitted<bool>,
+});
+wire_object!(NodeTail {
+    focus: Vec<i64>,
+    fullscreen_mode: i64,
+    sticky: bool,
+    floating: &'static str,
+    swallows: Vec<Swallow>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    depth: Omitted<i64>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    previous_workspace_name: Omitted<NativeText>,
+});
+wire_object!(BarBinding {
+    input_code: i64,
+    command: NativeText,
+    release: bool
+});
+wire_object!(BarColors {
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    background: Omitted<NativeText>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    statusline: Omitted<NativeText>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    separator: Omitted<NativeText>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    focused_background: Omitted<NativeText>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    focused_statusline: Omitted<NativeText>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    focused_separator: Omitted<NativeText>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    focused_workspace_border: Omitted<NativeText>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    focused_workspace_bg: Omitted<NativeText>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    focused_workspace_text: Omitted<NativeText>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    active_workspace_border: Omitted<NativeText>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    active_workspace_bg: Omitted<NativeText>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    active_workspace_text: Omitted<NativeText>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    inactive_workspace_border: Omitted<NativeText>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    inactive_workspace_bg: Omitted<NativeText>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    inactive_workspace_text: Omitted<NativeText>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    urgent_workspace_border: Omitted<NativeText>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    urgent_workspace_bg: Omitted<NativeText>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    urgent_workspace_text: Omitted<NativeText>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    binding_mode_border: Omitted<NativeText>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    binding_mode_bg: Omitted<NativeText>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    binding_mode_text: Omitted<NativeText>,
+});
+wire_object!(BarConfig {
+    id: NativeText,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    outputs: Omitted<Vec<NativeText>>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    tray_outputs: Omitted<Vec<NativeText>>,
+    tray_padding: i64,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    socket_path: Omitted<NativeText>,
+    mode: &'static str,
+    hidden_state: &'static str,
+    modifier: i64,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    bindings: Omitted<Vec<BarBinding>>,
+    position: &'static str,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    status_command: Omitted<NativeText>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    workspace_command: Omitted<NativeText>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    font: Omitted<NativeText>,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    bar_height: Omitted<i64>,
+    padding: Rectangle,
+    #[serde(skip_serializing_if = "Omitted::is_omitted")]
+    separator_symbol: Omitted<NativeText>,
+    workspace_buttons: bool,
+    workspace_min_width: i64,
+    strip_workspace_numbers: bool,
+    strip_workspace_name: bool,
+    binding_mode_indicator: bool,
+    verbose: bool,
+    colors: BarColors,
+});
 
 #[cfg(test)]
 mod tests {

@@ -1,5 +1,6 @@
 // Copyright © 2009 Michael Stapelberg and contributors (see LICENSE).
 //! Native placeholder windows with owned display text and scoped event buffers.
+use crate::con::arena::{floating, identity, resolve};
 use crate::xcursor::Cursor;
 use i3_common::draw_util::draw_util_text;
 use libev_sys::{
@@ -362,10 +363,11 @@ unsafe fn open_placeholder_window(con: *mut Con) {
         open_placeholder_window(child);
         child = (*child).nodes.tqe_next as *mut Con;
     }
-    child = (*con).floating_head.tqh_first as *mut Con;
-    while !child.is_null() {
+    for floating_id in floating::children(identity(con).expect("live floating parent")) {
+        let Some(child) = resolve(floating_id) else {
+            continue;
+        };
         open_placeholder_window(child);
-        child = (*child).floating_windows.tqe_next as *mut Con;
     }
 }
 
@@ -376,10 +378,11 @@ pub unsafe fn restore_open_placeholder_windows(parent: *mut Con) {
         open_placeholder_window(child);
         child = (*child).nodes.tqe_next as *mut Con;
     }
-    child = (*parent).floating_head.tqh_first as *mut Con;
-    while !child.is_null() {
+    for floating_id in floating::children(identity(parent).expect("live floating parent")) {
+        let Some(child) = resolve(floating_id) else {
+            continue;
+        };
         open_placeholder_window(child);
-        child = (*child).floating_windows.tqe_next as *mut Con;
     }
     xcb_flush(restore_conn);
 }

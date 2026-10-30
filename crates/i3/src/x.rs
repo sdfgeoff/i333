@@ -1,3 +1,4 @@
+use crate::con::arena::{floating, identity, resolve};
 use crate::types::BorderStyle;
 use crate::types::KillWindow;
 use crate::types::Layout;
@@ -1187,8 +1188,8 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
 }
 
 pub unsafe fn x_deco_recurse(con: *mut Con) {
-    let leaf: bool =
-        (*con).nodes_head.tqh_first.is_null() && (*con).floating_head.tqh_first.is_null();
+    let leaf: bool = (*con).nodes_head.tqh_first.is_null()
+        && floating::is_empty(identity(con).expect("live floating parent"));
     let state: *const FrameState = state_for_frame((*con).frame.id as xcb_window_t);
     if !leaf {
         let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
@@ -1197,10 +1198,11 @@ pub unsafe fn x_deco_recurse(con: *mut Con) {
             x_deco_recurse(current);
             current = (*current).nodes.tqe_next as *mut Con;
         }
-        current = (*con).floating_head.tqh_first as *mut Con;
-        while !current.is_null() {
+        for floating_id in floating::children(identity(con).expect("live floating parent")) {
+            let Some(current) = resolve(floating_id) else {
+                continue;
+            };
             x_deco_recurse(current);
-            current = (*current).floating_windows.tqe_next as *mut Con;
         }
         if (*state).mapped {
             draw_util_copy_surface(
@@ -1866,10 +1868,11 @@ unsafe fn x_push_node_unmaps(con: *mut Con) {
         x_push_node_unmaps(current);
         current = (*current).nodes.tqe_next as *mut Con;
     }
-    current = (*con).floating_head.tqh_first as *mut Con;
-    while !current.is_null() {
+    for floating_id in floating::children(identity(con).expect("live floating parent")) {
+        let Some(current) = resolve(floating_id) else {
+            continue;
+        };
         x_push_node_unmaps(current);
-        current = (*current).floating_windows.tqe_next as *mut Con;
     }
 }
 unsafe fn is_con_attached(con: *mut Con) -> bool {
