@@ -1,3 +1,4 @@
+use crate::con::arena::parent::parent_ptr;
 use crate::con::arena::{containers, floating, identity, resolve};
 use crate::types::ScratchpadState;
 /*
@@ -88,7 +89,7 @@ pub unsafe fn scratchpad_move(mut con: *mut Con) {
     let maybe_floating_con: *mut Con = con_inside_floating(con);
     if maybe_floating_con.is_null() {
         floating_enable(con, false);
-        con = (*con).parent as *mut Con;
+        con = parent_ptr(con);
     } else {
         con = maybe_floating_con;
     }
@@ -158,7 +159,7 @@ pub unsafe fn scratchpad_show(mut con: *mut Con) -> bool {
     }
     let mut fs: *mut Con = focused;
     while !fs.is_null() && (*fs).fullscreen_mode as u32 == CF_NONE {
-        fs = (*fs).parent as *mut Con;
+        fs = parent_ptr(fs);
     }
     if !fs.is_null() && (*fs).type_0 as u32 != CT_WORKSPACE {
         con_toggle_fullscreen(fs, CF_OUTPUT as i32);
@@ -235,7 +236,7 @@ pub unsafe fn scratchpad_show(mut con: *mut Con) -> bool {
             return true;
         }
     }
-    if !con.is_null() && (*(*con).parent).scratchpad_state == ScratchpadState::None {
+    if !con.is_null() && (*parent_ptr(con)).scratchpad_state == ScratchpadState::None {
         debuglog(
             c"%s:%s:%d - Window is not in the scratchpad, doing nothing.\n"
                 .as_ptr()

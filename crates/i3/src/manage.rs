@@ -1,3 +1,4 @@
+use crate::con::arena::parent::parent_ptr;
 use crate::con::arena::{containers, resolve};
 use crate::types::BorderStyle;
 use crate::types::FloatingState;
@@ -730,7 +731,7 @@ pub unsafe fn manage_window(
                         {
                             nc = tree_open_con(nc, cwindow);
                         } else {
-                            nc = tree_open_con((*nc).parent as *mut Con, cwindow);
+                            nc = tree_open_con(parent_ptr(nc), cwindow);
                         }
                         if !workspace_is_visible(assigned_ws) {
                             urgency_hint = true;
@@ -759,7 +760,7 @@ pub unsafe fn manage_window(
                         {
                             nc = tree_open_con(nc, cwindow);
                         } else {
-                            nc = tree_open_con((*nc).parent as *mut Con, cwindow);
+                            nc = tree_open_con(parent_ptr(nc), cwindow);
                         }
                     } else if !startup_ws.is_null() {
                         debuglog(
@@ -786,7 +787,7 @@ pub unsafe fn manage_window(
                         {
                             nc = tree_open_con(nc, cwindow);
                         } else {
-                            nc = tree_open_con((*nc).parent as *mut Con, cwindow);
+                            nc = tree_open_con(parent_ptr(nc), cwindow);
                         }
                     } else if (*focused).type_0 as ::core::ffi::c_uint
                         == CT_CON as ::core::ffi::c_int as ::core::ffi::c_uint
@@ -950,12 +951,12 @@ pub unsafe fn manage_window(
                         fs,
                         ws,
                     );
-                    let first: *mut Con = (*(*nc).parent).focus_head.tqh_first as *mut Con;
+                    let first: *mut Con = (*parent_ptr(nc)).focus_head.tqh_first as *mut Con;
                     if first != nc {
                         if !(*nc).focused.tqe_next.is_null() {
                             (*(*nc).focused.tqe_next).focused.tqe_prev = (*nc).focused.tqe_prev;
                         } else {
-                            (*(*nc).parent).focus_head.tqh_last = (*nc).focused.tqe_prev;
+                            (*parent_ptr(nc)).focus_head.tqh_last = (*nc).focused.tqe_prev;
                         }
                         *(*nc).focused.tqe_prev = (*nc).focused.tqe_next;
                         (*nc).focused.tqe_next = (*first).focused.tqe_next;
@@ -963,7 +964,7 @@ pub unsafe fn manage_window(
                             (*(*nc).focused.tqe_next).focused.tqe_prev =
                                 &raw mut (*nc).focused.tqe_next;
                         } else {
-                            (*(*nc).parent).focus_head.tqh_last = &raw mut (*nc).focused.tqe_next;
+                            (*parent_ptr(nc)).focus_head.tqh_last = &raw mut (*nc).focused.tqe_next;
                         }
                         (*first).focused.tqe_next = nc as *mut Con;
                         (*nc).focused.tqe_prev = &raw mut (*first).focused.tqe_next;
@@ -1165,7 +1166,7 @@ pub unsafe fn manage_window(
                     run_assignments(cwindow);
                     ws = con_get_workspace(nc);
                     if !ws.is_null() && !workspace_is_visible(ws) {
-                        (*ws).rect = (*(*ws).parent).rect;
+                        (*ws).rect = (*parent_ptr(ws)).rect;
                         render_con(ws);
                         set_focus = false;
                     }

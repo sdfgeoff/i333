@@ -1,3 +1,4 @@
+use crate::con::arena::parent::{parent_ptr, set_parent_ptr};
 use crate::con::arena::{floating, identity, resolve};
 use crate::handlers::add_ignore_event;
 use crate::types::Direction;
@@ -241,8 +242,8 @@ pub unsafe fn tree_init(geometry: *mut xcb_get_geometry_reply_t) {
 
 pub unsafe fn tree_open_con(mut con: *mut Con, window: *mut i3Window) -> *mut Con {
     if con.is_null() {
-        con = (*focused).parent as *mut Con;
-        if (*(*con).parent).type_0 as ::core::ffi::c_uint
+        con = parent_ptr(focused) as *mut Con;
+        if (*parent_ptr(con)).type_0 as ::core::ffi::c_uint
             == CT_OUTPUT as ::core::ffi::c_int as ::core::ffi::c_uint
             && (*con).type_0 as ::core::ffi::c_uint
                 != CT_DOCKAREA as ::core::ffi::c_int as ::core::ffi::c_uint
@@ -252,11 +253,11 @@ pub unsafe fn tree_open_con(mut con: *mut Con, window: *mut i3Window) -> *mut Co
         if (*con).type_0 as ::core::ffi::c_uint
             == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
         {
-            con = con_descend_tiling_focused((*con).parent as *mut Con);
+            con = con_descend_tiling_focused(parent_ptr(con) as *mut Con);
             if (*con).type_0 as ::core::ffi::c_uint
                 != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
             {
-                con = (*con).parent as *mut Con;
+                con = parent_ptr(con) as *mut Con;
             }
         }
         debuglog(
@@ -287,7 +288,7 @@ pub unsafe fn tree_close_internal(
     kill_window: KillWindow,
     dont_kill_parent: bool,
 ) -> bool {
-    let parent: *mut Con = (*con).parent as *mut Con;
+    let parent: *mut Con = parent_ptr(con) as *mut Con;
     if (*con).urgent {
         con_set_urgency(con, false);
         con_update_parents_urgency(con);
@@ -506,7 +507,7 @@ pub unsafe fn tree_split(mut con: *mut Con, orientation: Orientation) {
             con = workspace_encapsulate(con);
         }
     }
-    let parent: *mut Con = (*con).parent as *mut Con;
+    let parent: *mut Con = parent_ptr(con) as *mut Con;
     con_force_split_parents_redraw(con);
     if con_num_children(parent) == 1 as ::core::ffi::c_int
         && ((*parent).layout == Layout::SplitH || (*parent).layout == Layout::SplitV)
@@ -555,7 +556,7 @@ pub unsafe fn tree_split(mut con: *mut Con, orientation: Orientation) {
     }
     (*new).focused.tqe_prev = (*con).focused.tqe_prev;
     *(*new).focused.tqe_prev = new as *mut Con;
-    (*new).parent = parent as *mut Con;
+    set_parent_ptr(new, parent as *mut Con).expect("live acyclic ancestry");
     (*new).layout = if orientation == Orientation::Horizontal {
         Layout::SplitH
     } else {
@@ -567,15 +568,15 @@ pub unsafe fn tree_split(mut con: *mut Con, orientation: Orientation) {
 }
 
 pub unsafe fn level_up() -> bool {
-    if (*(*focused).parent).type_0 as ::core::ffi::c_uint
+    if (*parent_ptr(focused)).type_0 as ::core::ffi::c_uint
         == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
     {
-        con_activate((*(*focused).parent).parent as *mut Con);
+        con_activate(parent_ptr(parent_ptr(focused)) as *mut Con);
         return true;
     }
-    if (*(*focused).parent).type_0 as ::core::ffi::c_uint
+    if (*parent_ptr(focused)).type_0 as ::core::ffi::c_uint
         != CT_CON as ::core::ffi::c_int as ::core::ffi::c_uint
-        && (*(*focused).parent).type_0 as ::core::ffi::c_uint
+        && (*parent_ptr(focused)).type_0 as ::core::ffi::c_uint
             != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
         || (*focused).type_0 as ::core::ffi::c_uint
             == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
@@ -585,7 +586,7 @@ pub unsafe fn level_up() -> bool {
         );
         return false;
     }
-    con_activate((*focused).parent as *mut Con);
+    con_activate(parent_ptr(focused) as *mut Con);
     true
 }
 
@@ -735,7 +736,7 @@ unsafe fn get_tree_next(mut con: *mut Con, direction: Direction) -> *mut Con {
                 {
                     return first_wrap;
                 }
-                let parent: *mut Con = (*con).parent as *mut Con;
+                let parent: *mut Con = parent_ptr(con) as *mut Con;
                 if (*con).type_0 as ::core::ffi::c_uint
                     == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
                 {
@@ -854,7 +855,7 @@ pub unsafe fn tree_next(con: *mut Con, direction: Direction) {
     } else if (*next).type_0 as ::core::ffi::c_uint
         == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
     {
-        let parent: *mut Con = (*next).parent as *mut Con;
+        let parent: *mut Con = parent_ptr(next) as *mut Con;
         floating::rotate_after(
             identity(parent).expect("live floating parent"),
             identity(next).expect("live floating child"),
@@ -881,7 +882,7 @@ pub unsafe fn tree_flatten(con: *mut Con) {
     let mut focus_next: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-    let parent: *mut Con = (*con).parent as *mut Con;
+    let parent: *mut Con = parent_ptr(con) as *mut Con;
     debuglog(
         c"%s:%s:%d - Checking if I can flatten con = %p / %s\n"
             .as_ptr()
@@ -948,7 +949,7 @@ pub unsafe fn tree_flatten(con: *mut Con) {
                         c"tree_flatten".as_ptr(),
                         697 as ::core::ffi::c_int,
                     );
-                    (*current).parent = parent as *mut Con;
+                    set_parent_ptr(current, parent as *mut Con).expect("live acyclic ancestry");
                     (*current).nodes.tqe_prev = (*con).nodes.tqe_prev;
                     (*current).nodes.tqe_next = con as *mut Con;
                     *(*con).nodes.tqe_prev = current as *mut Con;

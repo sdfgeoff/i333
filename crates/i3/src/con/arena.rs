@@ -4,6 +4,7 @@
 //! instead capture a generation-checked identity, preventing a reused address
 //! from naming a different container. Registry borrows never cross callbacks.
 pub(crate) mod floating;
+pub(crate) mod parent;
 
 use crate::types::Con;
 use std::cell::{RefCell, UnsafeCell};
@@ -24,6 +25,7 @@ struct Entry {
     storage: Box<UnsafeCell<Con>>,
     floating: Vec<ConId>,
     floating_owner: Option<ConId>,
+    parent: Option<ConId>,
 }
 
 #[derive(Default)]
@@ -56,6 +58,7 @@ impl Arena {
                 storage,
                 floating: Vec::new(),
                 floating_owner: None,
+                parent: None,
             },
         );
         assert!(previous.is_none(), "duplicate live container address");
@@ -176,6 +179,7 @@ pub(super) unsafe fn release(raw: *mut Con) {
 
 #[cfg(test)]
 mod tests {
+    use super::parent::{parent_ptr, set_parent_ptr};
     use super::*;
 
     #[test]
@@ -324,17 +328,16 @@ mod tests {
 
     #[test]
     fn detaching_and_deleting_children_repairs_tiling_and_focus_memberships() {
-        let mut arena = Arena::default();
-        let parent = arena.insert(Con::empty());
-        let first = arena.insert(Con::empty());
-        let second = arena.insert(Con::empty());
-        let first_id = arena.identity(first).unwrap();
-        let second_id = arena.identity(second).unwrap();
+        let parent = allocate(Con::empty());
+        let first = allocate(Con::empty());
+        let second = allocate(Con::empty());
+        let first_id = identity(first).unwrap();
+        let second_id = identity(second).unwrap();
         unsafe {
             // A workspace stops redraw propagation without any X connection.
             (*parent).type_0 = super::super::CT_WORKSPACE;
-            (*first).parent = parent;
-            (*second).parent = parent;
+            set_parent_ptr(first, parent).expect("live acyclic ancestry");
+            set_parent_ptr(second, parent).expect("live acyclic ancestry");
             (*parent).nodes_head.tqh_first = first;
             (*parent).nodes_head.tqh_last = &raw mut (*second).nodes.tqe_next;
             (*first).nodes.tqe_prev = &raw mut (*parent).nodes_head.tqh_first;
@@ -346,8 +349,8 @@ mod tests {
             (*second).focused.tqe_next = first;
             (*first).focused.tqe_prev = &raw mut (*second).focused.tqe_next;
             super::super::con_detach(first);
-            drop(arena.take(first).unwrap());
-            assert!(arena.resolve(first_id).is_none());
+            release(first);
+            assert!(resolve(first_id).is_none());
             assert_eq!((*parent).nodes_head.tqh_first, second);
             assert_eq!(
                 (*second).nodes.tqe_prev,
@@ -358,8 +361,8 @@ mod tests {
                 &raw mut (*second).focused.tqe_next
             );
             super::super::con_detach(second);
-            drop(arena.take(second).unwrap());
-            assert!(arena.resolve(second_id).is_none());
+            release(second);
+            assert!(resolve(second_id).is_none());
             assert!((*parent).nodes_head.tqh_first.is_null());
             assert!((*parent).focus_head.tqh_first.is_null());
             assert_eq!(
@@ -370,6 +373,7 @@ mod tests {
                 (*parent).focus_head.tqh_last,
                 &raw mut (*parent).focus_head.tqh_first
             );
+            release(parent);
         }
     }
 

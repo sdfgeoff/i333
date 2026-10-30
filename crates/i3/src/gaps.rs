@@ -13,6 +13,7 @@
 use crate::application::{
     ws_assignments, GAPS_BOTTOM, GAPS_INNER, GAPS_LEFT, GAPS_RIGHT, GAPS_TOP,
 };
+use crate::con::arena::parent::parent_ptr;
 use crate::con::{
     con_get_fullscreen_con, con_get_workspace, con_has_parent, con_inside_floating,
     con_inside_stacked_or_tabbed, con_is_leaf, con_num_children, con_num_visible_children,
@@ -197,7 +198,7 @@ pub unsafe fn gaps_should_inset_con(con: *mut Con, _children: i32) -> bool {
     // SAFETY: Native graph access is confined to this adapter under the caller's
     // exclusive access contract; the decision helper receives no pointers.
     unsafe {
-        let parent = (*con).parent;
+        let parent = parent_ptr(con);
         if parent.is_null() {
             return false;
         }

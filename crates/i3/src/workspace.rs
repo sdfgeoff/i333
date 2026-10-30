@@ -1,5 +1,6 @@
 use crate::application::bindings;
 use crate::application::ws_assignments;
+use crate::con::arena::parent::{parent_ptr, set_parent_ptr};
 use crate::con::arena::{floating, identity, resolve};
 use crate::types::KillWindow;
 use crate::types::Layout;
@@ -497,7 +498,7 @@ pub unsafe fn workspace_show(workspace: *mut Con) {
     if con_is_internal(workspace) {
         return;
     }
-    current = (*(*workspace).parent).nodes_head.tqh_first as *mut Con;
+    current = (*parent_ptr(workspace)).nodes_head.tqh_first as *mut Con;
     while !current.is_null() {
         if (*current).fullscreen_mode as ::core::ffi::c_uint
             == CF_OUTPUT as ::core::ffi::c_int as ::core::ffi::c_uint
@@ -1186,7 +1187,7 @@ pub unsafe fn ws_force_orientation(ws: *mut Con, orientation: Orientation) {
         ::core::ptr::null_mut::<Con>(),
         ::core::ptr::null_mut::<i3Window>(),
     );
-    (*split).parent = ws as *mut Con;
+    set_parent_ptr(split, ws as *mut Con).expect("live acyclic ancestry");
     (*split).layout = (*ws).layout;
     let focus_order = get_focus_order(ws);
     debuglog(
@@ -1264,7 +1265,7 @@ pub unsafe fn workspace_attach_to(ws: *mut Con) -> *mut Con {
         ::core::ptr::null_mut::<Con>(),
         ::core::ptr::null_mut::<i3Window>(),
     );
-    (*new).parent = ws as *mut Con;
+    set_parent_ptr(new, ws as *mut Con).expect("live acyclic ancestry");
     (*new).layout = (*ws).workspace_layout;
     debuglog(
         c"%s:%s:%d - Attaching new split %p to workspace %p\n"
@@ -1296,7 +1297,7 @@ pub unsafe fn workspace_encapsulate(ws: *mut Con) -> *mut Con {
         ::core::ptr::null_mut::<Con>(),
         ::core::ptr::null_mut::<i3Window>(),
     );
-    (*new).parent = ws as *mut Con;
+    set_parent_ptr(new, ws as *mut Con).expect("live acyclic ancestry");
     (*new).layout = (*ws).layout;
     let focus_order = get_focus_order(ws);
     debuglog(
@@ -1345,7 +1346,7 @@ pub unsafe fn workspace_move_to_output(mut ws: *mut Con, output: *mut Output) {
         output,
         content,
     );
-    if (*ws).parent == content {
+    if parent_ptr(ws) == content {
         debuglog(
             c"%s:%s:%d - Nothing to do, workspace already there\n"
                 .as_ptr()
@@ -1379,7 +1380,7 @@ pub unsafe fn workspace_move_to_output(mut ws: *mut Con, output: *mut Output) {
         );
     }
     let workspace_was_visible: bool = workspace_is_visible(ws);
-    if con_num_children((*ws).parent as *mut Con) == 1 as ::core::ffi::c_int {
+    if con_num_children(parent_ptr(ws)) == 1 as ::core::ffi::c_int {
         debuglog(
             c"%s:%s:%d - Creating a new workspace to replace \"%s\" (last on its output).\n"
                 .as_ptr()
@@ -1421,7 +1422,7 @@ pub unsafe fn workspace_move_to_output(mut ws: *mut Con, output: *mut Output) {
             assignment = (*assignment).ws_assignments.tqe_next;
         }
         if !used_assignment {
-            create_workspace_on_output(current_output, (*ws).parent as *mut Con);
+            create_workspace_on_output(current_output, parent_ptr(ws));
         }
     }
     debuglog(
@@ -1430,7 +1431,7 @@ pub unsafe fn workspace_move_to_output(mut ws: *mut Con, output: *mut Output) {
         c"workspace_move_to_output".as_ptr(),
         1112 as ::core::ffi::c_int,
     );
-    let old_content: *mut Con = (*ws).parent as *mut Con;
+    let old_content: *mut Con = parent_ptr(ws);
     con_detach(ws);
     if workspace_was_visible {
         let focus_ws: *mut Con = (*old_content).focus_head.tqh_first as *mut Con;

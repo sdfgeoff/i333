@@ -134,8 +134,8 @@ impl Arena {
                 }
             }
         }
-        // Con.parent intentionally survives membership removal during this
-        // migration: native callers use detached ancestry before reattachment.
+        // Typed ancestry intentionally survives membership removal: native
+        // callers use the detached parent before reattachment.
     }
 }
 
@@ -205,6 +205,7 @@ pub(crate) fn children(parent: ConId) -> FloatingChildren {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::con::arena::parent::{parent_ptr, set_parent_ptr};
     use crate::con::arena::{allocate, identity, release, resolve};
     use crate::types::Con;
 
@@ -451,7 +452,7 @@ mod tests {
         let ids: Vec<_> = raws.iter().map(|&raw| identity(raw).unwrap()).collect();
         for (&raw, &id) in raws.iter().zip(&ids) {
             unsafe {
-                (*raw).parent = parent;
+                set_parent_ptr(raw, parent).expect("live acyclic ancestry");
                 (*raw).type_0 = crate::con::CT_FLOATING_CON;
             }
             append(parent_id, id).unwrap();
@@ -467,7 +468,7 @@ mod tests {
                 children(parent_id).collect::<Vec<_>>(),
                 vec![ids[0], ids[2], ids[1]]
             );
-            assert_eq!((*raws[1]).parent, parent);
+            assert_eq!(parent_ptr(raws[1]), parent);
             for raw in raws {
                 release(raw);
             }
@@ -485,13 +486,13 @@ mod tests {
             (*parent).type_0 = crate::con::CT_WORKSPACE;
             (*child).type_0 = crate::con::CT_FLOATING_CON;
             crate::con::con_attach(child, parent, false);
-            assert_eq!((*child).parent, parent);
+            assert_eq!(parent_ptr(child), parent);
             assert_eq!(first(parent_id), Some(child_id));
             assert_eq!((*parent).focus_head.tqh_first, child);
             crate::con::con_detach(child);
             assert!(is_empty(parent_id));
             assert!((*parent).focus_head.tqh_first.is_null());
-            assert_eq!((*child).parent, parent);
+            assert_eq!(parent_ptr(child), parent);
             assert_eq!(resolve(child_id), Some(child));
             release(child);
             release(parent);

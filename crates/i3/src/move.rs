@@ -1,3 +1,4 @@
+use crate::con::arena::parent::{parent_ptr, set_parent_ptr};
 use crate::types::Direction;
 use crate::types::Layout;
 use crate::types::Orientation;
@@ -53,7 +54,7 @@ unsafe fn ancestor_path(mut node: *mut Con) -> Vec<*mut Con> {
     let mut path = Vec::new();
     while !node.is_null() {
         path.push(node);
-        node = (*node).parent;
+        node = parent_ptr(node);
     }
     path
 }
@@ -65,7 +66,7 @@ unsafe fn child_containing_con_recursively(ancestor: *mut Con, con: *mut Con) ->
 }
 unsafe fn is_focused_descendant(mut con: *mut Con, ancestor: *mut Con) -> bool {
     while con != ancestor {
-        let parent = (*con).parent;
+        let parent = parent_ptr(con);
         assert!(
             !parent.is_null(),
             "container must descend from focus ancestor"
@@ -79,8 +80,8 @@ unsafe fn is_focused_descendant(mut con: *mut Con, ancestor: *mut Con) -> bool {
 }
 
 pub unsafe fn insert_con_into(mut con: *mut Con, target: *mut Con, position: Position) {
-    let parent: *mut Con = (*target).parent as *mut Con;
-    let old_parent: *mut Con = (*con).parent as *mut Con;
+    let parent: *mut Con = parent_ptr(target);
+    let old_parent: *mut Con = parent_ptr(con);
     let lca: *mut Con = lowest_common_ancestor(con, parent);
     if lca == con {
         errorlog(
@@ -139,7 +140,7 @@ pub unsafe fn insert_con_into(mut con: *mut Con, target: *mut Con, position: Pos
         }
     }
     con_detach(con);
-    con_fix_percent((*con).parent as *mut Con);
+    con_fix_percent(parent_ptr(con));
     if (*parent).type_0 as u32 == CT_WORKSPACE {
         let split: *mut Con = workspace_attach_to(parent);
         if split != parent {
@@ -151,7 +152,7 @@ pub unsafe fn insert_con_into(mut con: *mut Con, target: *mut Con, position: Pos
                 c"insert_con_into".as_ptr(),
                 126,
             );
-            (*con).parent = split as *mut Con;
+            set_parent_ptr(con, split as *mut Con).expect("live acyclic ancestry");
             con_attach(con, split, false);
             debuglog(
                 c"%s:%s:%d - attached\n".as_ptr().cast_mut(),
@@ -174,7 +175,7 @@ pub unsafe fn insert_con_into(mut con: *mut Con, target: *mut Con, position: Pos
             con_detach(con);
         }
     }
-    (*con).parent = parent as *mut Con;
+    set_parent_ptr(con, parent as *mut Con).expect("live acyclic ancestry");
     if parent == lca {
         if focus_before {
             (*con).focused.tqe_prev = (*target).focused.tqe_prev;
@@ -229,8 +230,8 @@ pub unsafe fn insert_con_into(mut con: *mut Con, target: *mut Con, position: Pos
 }
 unsafe fn attach_to_workspace(con: *mut Con, ws: *mut Con, direction: Direction) {
     con_detach(con);
-    let old_parent: *mut Con = (*con).parent as *mut Con;
-    (*con).parent = ws as *mut Con;
+    let old_parent: *mut Con = parent_ptr(con);
+    set_parent_ptr(con, ws as *mut Con).expect("live acyclic ancestry");
     if direction == Direction::Right || direction == Direction::Down {
         (*con).nodes.tqe_next = (*ws).nodes_head.tqh_first;
         if !(*con).nodes.tqe_next.is_null() {
@@ -340,8 +341,8 @@ pub unsafe fn tree_move(con: *mut Con, direction: Direction) {
         return;
     }
     if (*con).fullscreen_mode as u32 == CF_OUTPUT
-        || (*(*con).parent).type_0 as u32 == CT_WORKSPACE
-            && con_num_children((*con).parent as *mut Con) == 1
+        || (*parent_ptr(con)).type_0 as u32 == CT_WORKSPACE
+            && con_num_children(parent_ptr(con)) == 1
     {
         move_to_output_directed(con, direction);
         return;
@@ -379,7 +380,7 @@ pub unsafe fn tree_move(con: *mut Con, direction: Direction) {
                 same_orientation = con_parent_with_orientation(con, o);
             }
         }
-        if same_orientation == (*con).parent {
+        if same_orientation == parent_ptr(con) {
             let swap: *mut Con = if backward(direction) {
                 *(*((*con).nodes.tqe_prev as *mut nodes_head)).tqh_last
             } else {
@@ -396,7 +397,7 @@ pub unsafe fn tree_move(con: *mut Con, direction: Direction) {
                         317,
                     );
                     target = con_descend_direction(swap, direction);
-                    position = branch_position(direction, con_orientation((*target).parent) == o);
+                    position = branch_position(direction, con_orientation(parent_ptr(target)) == o);
                     insert_con_into(con, target, position);
                     break false;
                 } else {
@@ -416,8 +417,10 @@ pub unsafe fn tree_move(con: *mut Con, direction: Direction) {
                                 &raw mut (*swap).nodes.tqe_next;
                         }
                         (*con).nodes.tqe_next = swap as *mut Con;
-                        if (*(*swap).parent).nodes_head.tqh_last == &raw mut (*con).nodes.tqe_next {
-                            (*(*swap).parent).nodes_head.tqh_last = &raw mut (*swap).nodes.tqe_next;
+                        if (*parent_ptr(swap)).nodes_head.tqh_last == &raw mut (*con).nodes.tqe_next
+                        {
+                            (*parent_ptr(swap)).nodes_head.tqh_last =
+                                &raw mut (*swap).nodes.tqe_next;
                         }
                     } else {
                         *(*con).nodes.tqe_prev = swap as *mut Con;
@@ -429,9 +432,11 @@ pub unsafe fn tree_move(con: *mut Con, direction: Direction) {
                                 &raw mut (*con).nodes.tqe_next;
                         }
                         (*swap).nodes.tqe_next = con as *mut Con;
-                        if (*(*swap).parent).nodes_head.tqh_last == &raw mut (*swap).nodes.tqe_next
+                        if (*parent_ptr(swap)).nodes_head.tqh_last
+                            == &raw mut (*swap).nodes.tqe_next
                         {
-                            (*(*swap).parent).nodes_head.tqh_last = &raw mut (*con).nodes.tqe_next;
+                            (*parent_ptr(swap)).nodes_head.tqh_last =
+                                &raw mut (*con).nodes.tqe_next;
                         }
                     }
                     con_force_split_parents_redraw(con);
@@ -439,11 +444,11 @@ pub unsafe fn tree_move(con: *mut Con, direction: Direction) {
                     return;
                 }
             } else {
-                if (*con).parent == con_get_workspace(con) {
+                if parent_ptr(con) == con_get_workspace(con) {
                     move_to_output_directed(con, direction);
                     return;
                 }
-                same_orientation = con_parent_with_orientation((*con).parent as *mut Con, o);
+                same_orientation = con_parent_with_orientation(parent_ptr(con), o);
             }
         }
         if !same_orientation.is_null() {
@@ -452,10 +457,10 @@ pub unsafe fn tree_move(con: *mut Con, direction: Direction) {
     };
     if needs_ancestor_insert {
         above = con;
-        while (*above).parent != same_orientation {
-            above = (*above).parent as *mut Con;
+        while parent_ptr(above) != same_orientation {
+            above = parent_ptr(above);
         }
-        if !con_fullscreen_permits_focusing((*above).parent as *mut Con) {
+        if !con_fullscreen_permits_focusing(parent_ptr(above)) {
             verboselog(
                 c"Cannot move out of fullscreen container\n"
                     .as_ptr()
@@ -485,12 +490,12 @@ pub unsafe fn tree_move(con: *mut Con, direction: Direction) {
                 374,
             );
             target = con_descend_direction(next, direction);
-            position = branch_position(direction, con_orientation((*target).parent) == o);
+            position = branch_position(direction, con_orientation(parent_ptr(target)) == o);
             insert_con_into(con, target, position);
         } else if next.is_null()
-            && (*(*(*con).parent).parent).type_0 as u32 == CT_WORKSPACE
-            && (*(*con).parent).layout != Layout::Default
-            && con_num_children((*con).parent as *mut Con) == 1
+            && (*parent_ptr(parent_ptr(con))).type_0 as u32 == CT_WORKSPACE
+            && (*parent_ptr(con)).layout != Layout::Default
+            && con_num_children(parent_ptr(con)) == 1
         {
             debuglog(
                 c"%s:%s:%d - Grandparent is workspace\n".as_ptr().cast_mut(),

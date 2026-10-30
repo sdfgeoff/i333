@@ -1,3 +1,4 @@
+use crate::con::arena::parent::{parent_ptr, set_parent_ptr};
 pub(crate) mod arena;
 use crate::types::BorderStyle;
 use crate::types::Direction;
@@ -76,7 +77,7 @@ pub unsafe fn con_force_split_parents_redraw(con: *mut Con) {
             free((*parent).deco_render_params as *mut ::core::ffi::c_void);
             (*parent).deco_render_params = ::core::ptr::null_mut::<deco_render_params>();
         }
-        parent = (*parent).parent as *mut Con;
+        parent = parent_ptr(parent) as *mut Con;
     }
 }
 
@@ -155,7 +156,7 @@ pub unsafe fn con_free(con: *mut Con) {
     drop(owner);
 }
 unsafe fn _con_attach(con: *mut Con, parent: *mut Con, previous: *mut Con, ignore_focus: bool) {
-    (*con).parent = parent as *mut Con;
+    set_parent_ptr(con, parent as *mut Con).expect("live acyclic ancestry");
     let mut loop_0: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut current: *mut Con = previous;
     let mut nodes_head: *mut nodes_head = &raw mut (*parent).nodes_head;
@@ -290,7 +291,7 @@ unsafe fn _con_attach(con: *mut Con, parent: *mut Con, previous: *mut Con, ignor
             let target: *mut Con = workspace_attach_to(parent);
             nodes_head = &raw mut (*target).nodes_head as *mut nodes_head;
             focus_head = &raw mut (*target).focus_head as *mut focus_head;
-            (*con).parent = target as *mut Con;
+            set_parent_ptr(con, target as *mut Con).expect("live acyclic ancestry");
             current = ::core::ptr::null_mut::<Con>();
             debuglog(
                 c"%s:%s:%d - done\n".as_ptr().cast_mut(),
@@ -345,27 +346,27 @@ pub unsafe fn con_detach(con: *mut Con) {
         == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         arena::floating::remove(
-            arena::identity((*con).parent).expect("live floating parent"),
+            arena::identity(parent_ptr(con)).expect("live floating parent"),
             arena::identity(con).expect("live floating child"),
         )
         .expect("attached floating child");
         if !(*con).focused.tqe_next.is_null() {
             (*(*con).focused.tqe_next).focused.tqe_prev = (*con).focused.tqe_prev;
         } else {
-            (*(*con).parent).focus_head.tqh_last = (*con).focused.tqe_prev;
+            (*parent_ptr(con)).focus_head.tqh_last = (*con).focused.tqe_prev;
         }
         *(*con).focused.tqe_prev = (*con).focused.tqe_next;
     } else {
         if !(*con).nodes.tqe_next.is_null() {
             (*(*con).nodes.tqe_next).nodes.tqe_prev = (*con).nodes.tqe_prev;
         } else {
-            (*(*con).parent).nodes_head.tqh_last = (*con).nodes.tqe_prev;
+            (*parent_ptr(con)).nodes_head.tqh_last = (*con).nodes.tqe_prev;
         }
         *(*con).nodes.tqe_prev = (*con).nodes.tqe_next;
         if !(*con).focused.tqe_next.is_null() {
             (*(*con).focused.tqe_next).focused.tqe_prev = (*con).focused.tqe_prev;
         } else {
-            (*(*con).parent).focus_head.tqh_last = (*con).focused.tqe_prev;
+            (*parent_ptr(con)).focus_head.tqh_last = (*con).focused.tqe_prev;
         }
         *(*con).focused.tqe_prev = (*con).focused.tqe_next;
     };
@@ -391,20 +392,20 @@ pub unsafe fn con_focus(con: *mut Con) {
     if !(*con).focused.tqe_next.is_null() {
         (*(*con).focused.tqe_next).focused.tqe_prev = (*con).focused.tqe_prev;
     } else {
-        (*(*con).parent).focus_head.tqh_last = (*con).focused.tqe_prev;
+        (*parent_ptr(con)).focus_head.tqh_last = (*con).focused.tqe_prev;
     }
     *(*con).focused.tqe_prev = (*con).focused.tqe_next;
-    (*con).focused.tqe_next = (*(*con).parent).focus_head.tqh_first;
+    (*con).focused.tqe_next = (*parent_ptr(con)).focus_head.tqh_first;
     if !(*con).focused.tqe_next.is_null() {
-        (*(*(*con).parent).focus_head.tqh_first).focused.tqe_prev =
+        (*(*parent_ptr(con)).focus_head.tqh_first).focused.tqe_prev =
             &raw mut (*con).focused.tqe_next;
     } else {
-        (*(*con).parent).focus_head.tqh_last = &raw mut (*con).focused.tqe_next;
+        (*parent_ptr(con)).focus_head.tqh_last = &raw mut (*con).focused.tqe_next;
     }
-    (*(*con).parent).focus_head.tqh_first = con as *mut Con;
-    (*con).focused.tqe_prev = &raw mut (*(*con).parent).focus_head.tqh_first;
-    if !(*(*con).parent).parent.is_null() {
-        con_focus((*con).parent as *mut Con);
+    (*parent_ptr(con)).focus_head.tqh_first = con as *mut Con;
+    (*con).focused.tqe_prev = &raw mut (*parent_ptr(con)).focus_head.tqh_first;
+    if !parent_ptr(parent_ptr(con)).is_null() {
+        con_focus(parent_ptr(con) as *mut Con);
     }
     focused = con;
     if (*con).urgent as ::core::ffi::c_int != 0 && con_is_leaf(con) {
@@ -541,7 +542,7 @@ pub unsafe fn con_is_hidden(con: *mut Con) -> bool {
         && (*current).type_0 as ::core::ffi::c_uint
             != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
     {
-        let parent: *mut Con = (*current).parent as *mut Con;
+        let parent: *mut Con = parent_ptr(current) as *mut Con;
         if !parent.is_null()
             && ((*parent).layout == Layout::Tabbed || (*parent).layout == Layout::Stacked)
         {
@@ -582,7 +583,7 @@ pub unsafe fn con_is_maximized(con: *mut Con, orientation: Orientation) -> bool 
     }
     let mut current: *mut Con = con;
     loop {
-        let parent: *mut Con = (*current).parent as *mut Con;
+        let parent: *mut Con = parent_ptr(current) as *mut Con;
         if parent.is_null()
             || (*current).type_0 as ::core::ffi::c_uint
                 == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
@@ -643,7 +644,7 @@ pub unsafe fn con_get_output(con: *mut Con) -> *mut Con {
         && (*result).type_0 as ::core::ffi::c_uint
             != CT_OUTPUT as ::core::ffi::c_int as ::core::ffi::c_uint
     {
-        result = (*result).parent as *mut Con;
+        result = parent_ptr(result) as *mut Con;
     }
     if result != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Con {
     } else {
@@ -663,7 +664,7 @@ pub unsafe fn con_get_workspace(con: *mut Con) -> *mut Con {
         && (*result).type_0 as ::core::ffi::c_uint
             != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
     {
-        result = (*result).parent as *mut Con;
+        result = parent_ptr(result) as *mut Con;
     }
     result
 }
@@ -679,7 +680,7 @@ pub unsafe fn con_parent_with_orientation(con: *mut Con, orientation: Orientatio
         con,
         orientation as ::core::ffi::c_uint,
     );
-    let mut parent: *mut Con = (*con).parent as *mut Con;
+    let mut parent: *mut Con = parent_ptr(con) as *mut Con;
     if (*parent).type_0 as ::core::ffi::c_uint
         == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
     {
@@ -694,14 +695,14 @@ pub unsafe fn con_parent_with_orientation(con: *mut Con, orientation: Orientatio
             c"con_parent_with_orientation".as_ptr(),
             566 as ::core::ffi::c_int,
         );
-        parent = (*parent).parent as *mut Con;
+        parent = parent_ptr(parent) as *mut Con;
         if !parent.is_null()
             && ((*parent).type_0 as ::core::ffi::c_uint
                 == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
                 || (*parent).type_0 as ::core::ffi::c_uint
                     == CT_OUTPUT as ::core::ffi::c_int as ::core::ffi::c_uint
-                || !(*parent).parent.is_null()
-                    && (*(*parent).parent).type_0 as ::core::ffi::c_uint
+                || !parent_ptr(parent).is_null()
+                    && (*parent_ptr(parent)).type_0 as ::core::ffi::c_uint
                         == CT_OUTPUT as ::core::ffi::c_int as ::core::ffi::c_uint)
         {
             parent = ::core::ptr::null_mut::<Con>();
@@ -777,15 +778,15 @@ pub unsafe fn con_is_floating(con: *mut Con) -> bool {
 }
 
 pub unsafe fn con_is_docked(con: *mut Con) -> bool {
-    if (*con).parent.is_null() {
+    if parent_ptr(con).is_null() {
         return false;
     }
-    if (*(*con).parent).type_0 as ::core::ffi::c_uint
+    if (*parent_ptr(con)).type_0 as ::core::ffi::c_uint
         == CT_DOCKAREA as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         return true;
     }
-    con_is_docked((*con).parent as *mut Con)
+    con_is_docked(parent_ptr(con) as *mut Con)
 }
 
 pub unsafe fn con_inside_floating(con: *mut Con) -> *mut Con {
@@ -798,7 +799,7 @@ pub unsafe fn con_inside_floating(con: *mut Con) -> *mut Con {
         return con;
     }
     if ((*con).floating).is_floating() {
-        return (*con).parent as *mut Con;
+        return parent_ptr(con) as *mut Con;
     }
     if (*con).type_0 as ::core::ffi::c_uint
         == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
@@ -807,21 +808,21 @@ pub unsafe fn con_inside_floating(con: *mut Con) -> *mut Con {
     {
         return ::core::ptr::null_mut::<Con>();
     }
-    con_inside_floating((*con).parent as *mut Con)
+    con_inside_floating(parent_ptr(con) as *mut Con)
 }
 
 pub unsafe fn con_inside_focused(con: *mut Con) -> bool {
     if con == focused {
         return true;
     }
-    if (*con).parent.is_null() {
+    if parent_ptr(con).is_null() {
         return false;
     }
-    con_inside_focused((*con).parent as *mut Con)
+    con_inside_focused(parent_ptr(con) as *mut Con)
 }
 
 pub unsafe fn con_has_parent(con: *mut Con, parent: *mut Con) -> bool {
-    let current: *mut Con = (*con).parent as *mut Con;
+    let current: *mut Con = parent_ptr(con) as *mut Con;
     if current.is_null() {
         return false;
     }
@@ -1528,7 +1529,7 @@ unsafe fn _con_move_to_con(
             c"_con_move_to_con".as_ptr(),
             1322 as ::core::ffi::c_int,
         );
-        con = (*con).parent as *mut Con;
+        con = parent_ptr(con) as *mut Con;
     }
     let source_ws: *mut Con = con_get_workspace(con);
     if (*con).type_0 as ::core::ffi::c_uint
@@ -1576,7 +1577,7 @@ unsafe fn _con_move_to_con(
             (*target).name,
             (*target).type_0 as ::core::ffi::c_uint,
         );
-        target = (*target).parent as *mut Con;
+        target = parent_ptr(target) as *mut Con;
     }
     if (*target).type_0 as ::core::ffi::c_uint
         == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
@@ -1590,7 +1591,7 @@ unsafe fn _con_move_to_con(
             1377 as ::core::ffi::c_int,
         );
         orig_target = target;
-        target = (*target).parent as *mut Con;
+        target = parent_ptr(target) as *mut Con;
     }
     if (*con).type_0 as ::core::ffi::c_uint
         == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
@@ -1649,7 +1650,7 @@ unsafe fn _con_move_to_con(
         target,
         (*target).name,
     );
-    let parent: *mut Con = (*con).parent as *mut Con;
+    let parent: *mut Con = parent_ptr(con) as *mut Con;
     con_detach(con);
     _con_attach(
         con,
@@ -1937,7 +1938,7 @@ pub unsafe fn con_orientation(con: *mut Con) -> Orientation {
 }
 
 pub unsafe fn con_next_focused(mut con: *mut Con) -> *mut Con {
-    if (*(*con).parent).type_0 as ::core::ffi::c_uint
+    if (*parent_ptr(con)).type_0 as ::core::ffi::c_uint
         == CT_DOCKAREA as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         debuglog(
@@ -1948,12 +1949,12 @@ pub unsafe fn con_next_focused(mut con: *mut Con) -> *mut Con {
             c"con_next_focused".as_ptr(),
             1654 as ::core::ffi::c_int,
         );
-        return con_descend_focused(output_get_content((*(*con).parent).parent as *mut Con));
+        return con_descend_focused(output_get_content(parent_ptr(parent_ptr(con)) as *mut Con));
     }
     if con_is_floating(con) {
-        con = (*con).parent as *mut Con;
+        con = parent_ptr(con) as *mut Con;
     }
-    let mut next: *mut Con = (*(*con).parent).focus_head.tqh_first as *mut Con;
+    let mut next: *mut Con = (*parent_ptr(con)).focus_head.tqh_first as *mut Con;
     if next != con {
         debuglog(
             c"%s:%s:%d - Using first entry %p\n".as_ptr().cast_mut(),
@@ -1965,7 +1966,7 @@ pub unsafe fn con_next_focused(mut con: *mut Con) -> *mut Con {
     } else {
         next = (*con).focused.tqe_next as *mut Con;
         if next.is_null() {
-            next = (*con).parent as *mut Con;
+            next = parent_ptr(con) as *mut Con;
         }
     }
     while !(*next).focus_head.tqh_first.is_null() && (*next).focus_head.tqh_first != con {
@@ -1973,7 +1974,7 @@ pub unsafe fn con_next_focused(mut con: *mut Con) -> *mut Con {
     }
     if (*con).type_0 as ::core::ffi::c_uint
         == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
-        && next != (*con).parent
+        && next != parent_ptr(con)
     {
         next = con_descend_focused(next);
     }
@@ -2091,9 +2092,9 @@ fn has_outer_gaps(gaps: gaps_t) -> bool {
 pub unsafe fn con_draw_decoration_into_frame(con: *mut Con) -> bool {
     con_is_leaf(con)
         && con_border_style(con) == BorderStyle::Normal
-        && ((*con).parent.is_null()
-            || (*(*con).parent).layout != Layout::Tabbed
-                && (*(*con).parent).layout != Layout::Stacked)
+        && (parent_ptr(con).is_null()
+            || (*parent_ptr(con)).layout != Layout::Tabbed
+                && (*parent_ptr(con)).layout != Layout::Stacked)
 }
 fn border_rect(style: BorderStyle, width: i32, hidden: adjacent_t) -> Rect {
     if style == BorderStyle::None {
@@ -2244,22 +2245,23 @@ pub unsafe fn con_border_style(con: *mut Con) -> BorderStyle {
         );
         return BorderStyle::None;
     }
-    if !(*con).parent.is_null() {
-        if (*(*con).parent).layout == Layout::Stacked {
-            return if con_num_children((*con).parent as *mut Con) == 1 as ::core::ffi::c_int {
+    if !parent_ptr(con).is_null() {
+        if (*parent_ptr(con)).layout == Layout::Stacked {
+            return if con_num_children(parent_ptr(con) as *mut Con) == 1 as ::core::ffi::c_int {
                 (*con).border_style
             } else {
                 BorderStyle::Normal
             };
         }
-        if (*(*con).parent).layout == Layout::Tabbed && (*con).border_style != BorderStyle::Normal {
-            return if con_num_children((*con).parent as *mut Con) == 1 as ::core::ffi::c_int {
+        if (*parent_ptr(con)).layout == Layout::Tabbed && (*con).border_style != BorderStyle::Normal
+        {
+            return if con_num_children(parent_ptr(con) as *mut Con) == 1 as ::core::ffi::c_int {
                 (*con).border_style
             } else {
                 BorderStyle::Normal
             };
         }
-        if (*(*con).parent).type_0 as ::core::ffi::c_uint
+        if (*parent_ptr(con)).type_0 as ::core::ffi::c_uint
             == CT_DOCKAREA as ::core::ffi::c_int as ::core::ffi::c_uint
         {
             return BorderStyle::None;
@@ -2281,7 +2283,7 @@ pub unsafe fn con_set_border_style(
         (*con).current_border_width = border_width;
         return;
     }
-    let parent: *mut Con = (*con).parent as *mut Con;
+    let parent: *mut Con = parent_ptr(con) as *mut Con;
     let mut bsr: Rect = con_border_style_rect(con);
     (*con).rect = rect_add((*con).rect as Rect, bsr) as Rect;
     (*parent).rect = rect_add((*parent).rect as Rect, bsr) as Rect;
@@ -2307,7 +2309,7 @@ pub unsafe fn con_set_layout(mut con: *mut Con, layout: Layout) {
     if (*con).type_0 as ::core::ffi::c_uint
         != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
     {
-        con = (*con).parent as *mut Con;
+        con = parent_ptr(con) as *mut Con;
     }
     if (*con).layout == Layout::SplitH || (*con).layout == Layout::SplitV {
         (*con).last_split_layout = (*con).layout;
@@ -2356,7 +2358,7 @@ pub unsafe fn con_set_layout(mut con: *mut Con, layout: Layout) {
                 ::core::ptr::null_mut::<Con>(),
                 ::core::ptr::null_mut::<i3Window>(),
             );
-            (*new).parent = con as *mut Con;
+            set_parent_ptr(new, con as *mut Con).expect("live acyclic ancestry");
             (*new).layout = layout;
             (*new).last_split_layout = (*con).last_split_layout;
             let focus_order = get_focus_order(con);
@@ -2388,12 +2390,12 @@ pub unsafe fn con_set_layout(mut con: *mut Con, layout: Layout) {
     }
     if (*con).type_0 as ::core::ffi::c_uint
         != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-        && (*(*con).parent).type_0 as ::core::ffi::c_uint
+        && (*parent_ptr(con)).type_0 as ::core::ffi::c_uint
             != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
         && con_num_children(con) == 1 as ::core::ffi::c_int
-        && con_num_children((*con).parent as *mut Con) == 1 as ::core::ffi::c_int
+        && con_num_children(parent_ptr(con) as *mut Con) == 1 as ::core::ffi::c_int
     {
-        let parent: *mut Con = (*con).parent as *mut Con;
+        let parent: *mut Con = parent_ptr(con) as *mut Con;
         let child_0: *mut Con = (*con).nodes_head.tqh_first as *mut Con;
         con_detach(child_0);
         con_attach(child_0, parent, true);
@@ -2482,7 +2484,7 @@ pub unsafe fn con_toggle_layout(con: *mut Con, toggle_mode: *const ::core::ffi::
     let parent = if (*con).type_0 == CT_WORKSPACE {
         con
     } else {
-        (*con).parent
+        parent_ptr(con)
     };
     debuglog(
         c"%s:%s:%d - con_toggle_layout(%p, %s), parent = %p\n"
@@ -2523,8 +2525,8 @@ unsafe fn con_on_remove_child(con: *mut Con) {
             == CT_ROOT as ::core::ffi::c_int as ::core::ffi::c_uint
         || (*con).type_0 as ::core::ffi::c_uint
             == CT_DOCKAREA as ::core::ffi::c_int as ::core::ffi::c_uint
-        || !(*con).parent.is_null()
-            && (*(*con).parent).type_0 as ::core::ffi::c_uint
+        || !parent_ptr(con).is_null()
+            && (*parent_ptr(con)).type_0 as ::core::ffi::c_uint
                 == CT_OUTPUT as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         debuglog(
@@ -2719,7 +2721,7 @@ pub unsafe fn con_fullscreen_permits_focusing(con: *mut Con) -> bool {
         && (*fs).fullscreen_mode as ::core::ffi::c_uint
             == CF_NONE as ::core::ffi::c_int as ::core::ffi::c_uint
     {
-        fs = (*fs).parent as *mut Con;
+        fs = parent_ptr(fs) as *mut Con;
     }
     if fs != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Con {
     } else {
@@ -2774,7 +2776,7 @@ pub unsafe fn con_has_urgent_child(con: *mut Con) -> bool {
 }
 
 pub unsafe fn con_update_parents_urgency(con: *mut Con) {
-    let mut parent: *mut Con = (*con).parent as *mut Con;
+    let mut parent: *mut Con = parent_ptr(con) as *mut Con;
     if (*con).type_0 as ::core::ffi::c_uint
         == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
     {
@@ -2792,7 +2794,7 @@ pub unsafe fn con_update_parents_urgency(con: *mut Con) {
         } else if !con_has_urgent_child(parent) {
             (*parent).urgent = false;
         }
-        parent = (*parent).parent as *mut Con;
+        parent = parent_ptr(parent) as *mut Con;
     }
 }
 
@@ -3037,8 +3039,8 @@ pub unsafe fn con_swap(first: *mut Con, second: *mut Con) -> bool {
     } else if second == focused || con_has_parent(focused, second) as ::core::ffi::c_int != 0 {
         restore_focus = first;
     }
-    let head1: *mut nodes_head = &raw mut (*(*first).parent).nodes_head;
-    let head2: *mut nodes_head = &raw mut (*(*second).parent).nodes_head;
+    let head1: *mut nodes_head = &raw mut (*parent_ptr(first)).nodes_head;
+    let head2: *mut nodes_head = &raw mut (*parent_ptr(second)).nodes_head;
     let first_prev: *mut Con = *(*((*first).nodes.tqe_prev as *mut nodes_head)).tqh_last;
     let second_prev: *mut Con = *(*((*second).nodes.tqe_prev as *mut nodes_head)).tqh_last;
     if second_prev == first {
@@ -3117,8 +3119,8 @@ pub unsafe fn con_swap(first: *mut Con, second: *mut Con) -> bool {
             (*second).nodes.tqe_prev = &raw mut (*first_prev).nodes.tqe_next;
         }
     }
-    let head1_0: *mut focus_head = &raw mut (*(*first).parent).focus_head;
-    let head2_0: *mut focus_head = &raw mut (*(*second).parent).focus_head;
+    let head1_0: *mut focus_head = &raw mut (*parent_ptr(first)).focus_head;
+    let head2_0: *mut focus_head = &raw mut (*parent_ptr(second)).focus_head;
     let first_prev_0: *mut Con = *(*((*first).focused.tqe_prev as *mut focus_head)).tqh_last;
     let second_prev_0: *mut Con = *(*((*second).focused.tqe_prev as *mut focus_head)).tqh_last;
     if second_prev_0 == first {
@@ -3198,9 +3200,9 @@ pub unsafe fn con_swap(first: *mut Con, second: *mut Con) -> bool {
             (*second).focused.tqe_prev = &raw mut (*first_prev_0).focused.tqe_next;
         }
     }
-    let tmp_SWAP: *mut Con = (*first).parent as *mut Con;
-    (*first).parent = (*second).parent;
-    (*second).parent = tmp_SWAP as *mut Con;
+    let tmp_SWAP: *mut Con = parent_ptr(first) as *mut Con;
+    set_parent_ptr(first, parent_ptr(second)).expect("live acyclic ancestry");
+    set_parent_ptr(second, tmp_SWAP as *mut Con).expect("live acyclic ancestry");
     let tmp_SWAP_0: FloatingState = (*first).floating;
     (*first).floating = (*second).floating;
     (*second).floating = tmp_SWAP_0;
@@ -3233,8 +3235,8 @@ pub unsafe fn con_swap(first: *mut Con, second: *mut Con) -> bool {
     } else {
         con_enable_fullscreen(first, second_fullscreen_mode);
     }
-    con_fix_percent((*first).parent as *mut Con);
-    con_fix_percent((*second).parent as *mut Con);
+    con_fix_percent(parent_ptr(first) as *mut Con);
+    con_fix_percent(parent_ptr(second) as *mut Con);
     free((*first).deco_render_params as *mut ::core::ffi::c_void);
     (*first).deco_render_params = ::core::ptr::null_mut::<deco_render_params>();
     free((*second).deco_render_params as *mut ::core::ffi::c_void);
@@ -3286,13 +3288,13 @@ pub unsafe fn con_merge_into(old: *mut Con, new: *mut Con) {
 }
 
 pub unsafe fn con_inside_stacked_or_tabbed(con: *mut Con) -> bool {
-    if (*con).parent.is_null() {
+    if parent_ptr(con).is_null() {
         return false;
     }
-    if (*(*con).parent).layout == Layout::Stacked || (*(*con).parent).layout == Layout::Tabbed {
+    if (*parent_ptr(con)).layout == Layout::Stacked || (*parent_ptr(con)).layout == Layout::Tabbed {
         return true;
     }
-    con_inside_stacked_or_tabbed((*con).parent as *mut Con)
+    con_inside_stacked_or_tabbed(parent_ptr(con) as *mut Con)
 }
 
 // Internal helpers use Rust linkage rather than foreign symbol lookup.
@@ -3459,34 +3461,37 @@ mod owned_graph_tests {
     }
     #[test]
     fn focus_snapshot_is_bounded_and_filters_workspace_floating_nodes() {
-        let (mut workspace, mut split, mut first, mut second, mut floating) =
-            (node(), node(), node(), node(), node());
-        workspace.type_0 = CT_WORKSPACE;
-        split.type_0 = CT_CON;
-        split.parent = &raw mut *workspace;
-        first.parent = &raw mut *split;
-        second.parent = &raw mut *split;
-        floating.type_0 = CT_FLOATING_CON;
-        first.focused.tqe_next = &raw mut *second;
-        first.focused.tqe_prev = &raw mut split.focus_head.tqh_first;
-        second.focused.tqe_prev = &raw mut first.focused.tqe_next;
-        split.focus_head.tqh_first = &raw mut *first;
-        split.focus_head.tqh_last = &raw mut second.focused.tqe_next;
+        let workspace = arena::allocate(Con::empty());
+        let split = arena::allocate(Con::empty());
+        let first = arena::allocate(Con::empty());
+        let second = arena::allocate(Con::empty());
+        let floating = arena::allocate(Con::empty());
+        set_parent_ptr(split, workspace).unwrap();
+        set_parent_ptr(first, split).unwrap();
+        set_parent_ptr(second, split).unwrap();
         unsafe {
+            (*workspace).type_0 = CT_WORKSPACE;
+            (*split).type_0 = CT_CON;
+            (*floating).type_0 = CT_FLOATING_CON;
+            (*first).focused.tqe_next = second;
+            (*first).focused.tqe_prev = &raw mut (*split).focus_head.tqh_first;
+            (*second).focused.tqe_prev = &raw mut (*first).focused.tqe_next;
+            (*split).focus_head.tqh_first = first;
+            (*split).focus_head.tqh_last = &raw mut (*second).focused.tqe_next;
+            assert_eq!(get_focus_order(split), vec![first, second]);
+            set_focus_order(split, &[floating, second, first]);
+            assert_eq!(get_focus_order(split), vec![second, first]);
             assert_eq!(
-                get_focus_order(&raw mut *split),
-                vec![&raw mut *first, &raw mut *second]
-            );
-            set_focus_order(
-                &raw mut *split,
-                &[&raw mut *floating, &raw mut *second, &raw mut *first],
+                (*first).focused.tqe_prev,
+                &raw mut (*second).focused.tqe_next
             );
             assert_eq!(
-                get_focus_order(&raw mut *split),
-                vec![&raw mut *second, &raw mut *first]
+                (*split).focus_head.tqh_last,
+                &raw mut (*first).focused.tqe_next
             );
-            assert_eq!(first.focused.tqe_prev, &raw mut second.focused.tqe_next);
-            assert_eq!(split.focus_head.tqh_last, &raw mut first.focused.tqe_next);
+            for raw in [workspace, split, first, second, floating] {
+                arena::release(raw);
+            }
         }
     }
     #[test]

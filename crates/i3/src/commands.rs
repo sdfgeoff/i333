@@ -1,4 +1,5 @@
 use crate::commands_parser::CommandParserState;
+use crate::con::arena::parent::parent_ptr;
 use crate::con::arena::{containers, resolve};
 use crate::config::barconfigs;
 use crate::ipc::ipc_send_barconfig_update_event;
@@ -984,13 +985,12 @@ unsafe fn cmd_resize_tiling_width_height(
         }
         return false_0 != 0;
     }
-    let children: ::core::ffi::c_int =
-        con_num_children((*current).parent as *mut Con) as ::core::ffi::c_int;
+    let children: ::core::ffi::c_int = con_num_children(parent_ptr(current)) as ::core::ffi::c_int;
     verboselog(c"ins. %d children\n".as_ptr().cast_mut(), children);
     let percentage: ::core::ffi::c_double = 1.0f64 / children as ::core::ffi::c_double;
     verboselog(c"default percentage = %f\n".as_ptr().cast_mut(), percentage);
     let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-    child = (*(*current).parent).nodes_head.tqh_first as *mut Con;
+    child = (*parent_ptr(current)).nodes_head.tqh_first as *mut Con;
     while !child.is_null() {
         verboselog(
             c"child->percent = %f (child %p)\n".as_ptr().cast_mut(),
@@ -1007,7 +1007,7 @@ unsafe fn cmd_resize_tiling_width_height(
         new_current_percent = (*current).percent + ppt;
     } else {
         ppt = px as ::core::ffi::c_double
-            / con_rect_size_in_orientation((*current).parent as *mut Con) as ::core::ffi::c_double;
+            / con_rect_size_in_orientation(parent_ptr(current)) as ::core::ffi::c_double;
         new_current_percent = (*current).percent + ppt;
     }
     let subtract_percent: ::core::ffi::c_double =
@@ -1037,7 +1037,7 @@ unsafe fn cmd_resize_tiling_width_height(
         subtract_percent,
     );
     if subtract_percent >= 0.0f64 {
-        child = (*(*current).parent).nodes_head.tqh_first as *mut Con;
+        child = (*parent_ptr(current)).nodes_head.tqh_first as *mut Con;
         while !child.is_null() {
             if !(child == current) {
                 if (*child).percent - subtract_percent < percent_for_1px(child) {
@@ -1067,7 +1067,7 @@ unsafe fn cmd_resize_tiling_width_height(
         c"current->percent after = %f\n".as_ptr().cast_mut(),
         (*current).percent,
     );
-    child = (*(*current).parent).nodes_head.tqh_first as *mut Con;
+    child = (*parent_ptr(current)).nodes_head.tqh_first as *mut Con;
     while !child.is_null() {
         if !(child == current) {
             (*child).percent -= subtract_percent;
@@ -1639,7 +1639,7 @@ pub unsafe fn cmd_append_layout(
                     != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
                     && !con_accepts_window(parent)
                 {
-                    parent = (*parent).parent as *mut Con;
+                    parent = parent_ptr(parent);
                 }
             }
             debuglog(
@@ -2408,7 +2408,7 @@ pub unsafe fn cmd_split(
                 {
                     current_layout = (*(*current).con).layout;
                 } else {
-                    current_layout = (*(*(*current).con).parent).layout;
+                    current_layout = (*parent_ptr((*current).con)).layout;
                 }
                 if current_layout == Layout::SplitH {
                     tree_split((*current).con, Orientation::Vertical);
@@ -2682,7 +2682,7 @@ pub unsafe fn cmd_focus_direction(
         let ws: *mut Con = con_get_workspace((*current_0).con);
         if !(ws.is_null() || con_is_internal(ws) as ::core::ffi::c_int != 0) {
             if auto_direction {
-                let o: Orientation = con_orientation((*(*current_0).con).parent as *mut Con);
+                let o: Orientation = con_orientation(parent_ptr((*current_0).con));
                 direction = direction_from_orientation_position(o, position);
             }
             tree_next((*current_0).con, direction);
@@ -2861,8 +2861,8 @@ pub unsafe fn cmd_focus_level(
     );
     let mut success: bool = false_0 != 0;
     if strcmp(level, c"parent".as_ptr()) == 0 as ::core::ffi::c_int {
-        if !focused.is_null() && !(*focused).parent.is_null() {
-            if con_fullscreen_permits_focusing((*focused).parent as *mut Con) {
+        if !focused.is_null() && !parent_ptr(focused).is_null() {
+            if con_fullscreen_permits_focusing(parent_ptr(focused)) {
                 success = level_up();
             } else {
                 errorlog(
@@ -3232,7 +3232,7 @@ pub unsafe fn cmd_move_direction(
                 amount,
                 mode,
             );
-            let mut newrect: Rect = (*(*(*current).con).parent).rect as Rect;
+            let mut newrect: Rect = (*parent_ptr((*current).con)).rect as Rect;
             let output: *const Con = con_get_output((*current).con);
             match direction {
                 Direction::Left => {
@@ -3273,7 +3273,7 @@ pub unsafe fn cmd_move_direction(
                 }
             }
             (*cmd_output).needs_tree_render =
-                floating_reposition((*(*current).con).parent as *mut Con, newrect);
+                floating_reposition(parent_ptr((*current).con), newrect);
         } else {
             tree_move((*current).con, direction);
             (*cmd_output).needs_tree_render = true_0 != 0;
@@ -3734,7 +3734,7 @@ pub unsafe fn cmd_move_window_to_position(
                 has_error = true_0 != 0;
             }
         } else {
-            let mut newrect: Rect = (*(*(*current).con).parent).rect as Rect;
+            let mut newrect: Rect = (*parent_ptr((*current).con)).rect as Rect;
             let output: *const Con = con_get_output((*current).con);
             newrect.x = (if !mode_x.is_null()
                 && strcmp(mode_x, c"ppt".as_ptr()) == 0 as ::core::ffi::c_int
@@ -3764,7 +3764,7 @@ pub unsafe fn cmd_move_window_to_position(
                 newrect.y,
                 mode_y,
             );
-            if !floating_reposition((*(*current).con).parent as *mut Con, newrect) {
+            if !floating_reposition(parent_ptr((*current).con), newrect) {
                 if (*cmd_output).has_reply() {
                     let mut message_1: *mut ::core::ffi::c_char =
                         ::core::ptr::null_mut::<::core::ffi::c_char>();
@@ -4546,11 +4546,11 @@ pub unsafe fn cmd_rename_workspace(
     let previously_focused_content: *const Con = if (*focused).type_0 as ::core::ffi::c_uint
         == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
     {
-        (*focused).parent
+        parent_ptr(focused)
     } else {
         ::core::ptr::null_mut::<Con>()
     };
-    let parent: *mut Con = (*workspace).parent as *mut Con;
+    let parent: *mut Con = parent_ptr(workspace);
     con_detach(workspace);
     con_attach(workspace, parent, false_0 != 0);
     ipc_send_workspace_event(

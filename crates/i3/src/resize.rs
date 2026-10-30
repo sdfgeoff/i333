@@ -1,3 +1,4 @@
+use crate::con::arena::parent::parent_ptr;
 use crate::types::Direction;
 use crate::types::DragResult;
 use crate::types::Layout;
@@ -219,11 +220,11 @@ pub unsafe fn resize_find_tiling_participants(
         && (*first).type_0 as u32 != CT_FLOATING_CON
         && second.is_null()
     {
-        if con_orientation((*first).parent as *mut Con) != search_orientation
-            || (*(*first).parent).layout == Layout::Stacked
-            || (*(*first).parent).layout == Layout::Tabbed
+        if con_orientation(parent_ptr(first)) != search_orientation
+            || (*parent_ptr(first)).layout == Layout::Stacked
+            || (*parent_ptr(first)).layout == Layout::Tabbed
         {
-            first = (*first).parent as *mut Con;
+            first = parent_ptr(first);
         } else {
             if dir_backwards {
                 second = *(*((*first).nodes.tqe_prev as *mut nodes_head)).tqh_last as *mut Con;
@@ -243,7 +244,7 @@ pub unsafe fn resize_find_tiling_participants(
                     c"resize_find_tiling_participants".as_ptr(),
                     110,
                 );
-                first = (*first).parent as *mut Con;
+                first = parent_ptr(first);
             }
         }
     }
@@ -274,7 +275,7 @@ pub unsafe fn resize_find_tiling_participants(
 }
 
 pub unsafe fn percent_for_1px(con: *mut Con) -> f64 {
-    let parent = (*con).parent;
+    let parent = parent_ptr(con);
     minimum_share(
         con_rect_size_in_orientation(parent) as i32,
         con_orientation(parent) == Orientation::Horizontal,
@@ -288,7 +289,7 @@ pub unsafe fn resize_neighboring_cons(
     px: i32,
     ppt: i32,
 ) -> bool {
-    let parent = (*first).parent;
+    let parent = parent_ptr(first);
     let Some((new_first_percent, new_second_percent)) = proposed_shares(
         (*first).percent,
         (*second).percent,

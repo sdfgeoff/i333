@@ -1,3 +1,4 @@
+use crate::con::arena::parent::{parent_ptr, set_parent_ptr};
 use crate::regex::{regex_free, regex_new};
 use crate::types::BorderStyle;
 use crate::types::FloatingState;
@@ -135,7 +136,7 @@ impl LayoutState {
                     ::core::ptr::null_mut::<i3Window>(),
                 );
                 (*self.json_node).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
-                (*self.json_node).parent = ws as *mut Con;
+                set_parent_ptr(self.json_node, ws as *mut Con).expect("live acyclic ancestry");
                 debuglog(
                     c"%s:%s:%d - Parent is workspace = %p\n".as_ptr().cast_mut(),
                     c"../src/load_layout.c".as_ptr(),
@@ -150,7 +151,7 @@ impl LayoutState {
                     ::core::ptr::null_mut::<i3Window>(),
                 );
                 (*self.json_node).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
-                (*self.json_node).parent = parent as *mut Con;
+                set_parent_ptr(self.json_node, parent as *mut Con).expect("live acyclic ancestry");
             }
             self.incomplete += 1;
             debuglog(
@@ -252,11 +253,14 @@ impl LayoutState {
                     c"../src/load_layout.c".as_ptr(),
                     c"json_end_map".as_ptr(),
                     148 as ::core::ffi::c_int,
-                    (*self.json_node).parent,
-                    (*(*self.json_node).parent).name,
+                    parent_ptr(self.json_node),
+                    (*parent_ptr(self.json_node)).name,
                 );
-                (*self.json_node).parent =
-                    con_get_workspace((*self.json_node).parent as *mut Con) as *mut Con;
+                set_parent_ptr(
+                    self.json_node,
+                    con_get_workspace(parent_ptr(self.json_node)) as *mut Con,
+                )
+                .expect("live acyclic ancestry");
                 if rect_equals(
                     (*self.json_node).rect as Rect,
                     Rect {
@@ -302,12 +306,12 @@ impl LayoutState {
                 con_mark(con, mark.as_ptr(), MarkMode::Add);
             }
             verboselog(c"attaching\n".as_ptr().cast_mut());
-            con_attach(self.json_node, (*self.json_node).parent as *mut Con, true);
+            con_attach(self.json_node, parent_ptr(self.json_node), true);
             verboselog(c"Creating window\n".as_ptr().cast_mut());
             x_con_init(self.json_node);
             let old_floating_mode: FloatingState = (*self.json_node).floating;
             if (old_floating_mode).is_floating()
-                && (*(*self.json_node).parent).type_0 as ::core::ffi::c_uint
+                && (*parent_ptr(self.json_node)).type_0 as ::core::ffi::c_uint
                     != CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
             {
                 verboselog(
@@ -319,7 +323,7 @@ impl LayoutState {
                 floating_enable(self.json_node, false);
                 (*self.json_node).floating = old_floating_mode;
             }
-            self.json_node = (*self.json_node).parent as *mut Con;
+            self.json_node = parent_ptr(self.json_node);
             self.incomplete -= 1;
             debuglog(
                 c"%s:%s:%d - incomplete = %d\n".as_ptr().cast_mut(),
@@ -1037,7 +1041,7 @@ pub unsafe fn tree_append_json(
                 }
                 state.incomplete -= 1;
                 let node = state.json_node;
-                state.json_node = (*node).parent;
+                state.json_node = parent_ptr(node);
                 if node == state.to_focus {
                     state.to_focus = std::ptr::null_mut();
                 }

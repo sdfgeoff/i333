@@ -43,10 +43,13 @@ print $scriptfh <<"EOF";
 echo "---- DEBUG: i3bar wrapper ----"
 cat "$scriptfile"
 echo '---- DEBUG: i3bar wrapper ----'
-# Use tee so that the logs also end up in the testsuite log file.
-(i3bar -V "\$@" 2>&1 | tee "$logfile") &
-echo \$! > "$pidfile"
-wait
+# Track the actual bar, then forward its fully flushed log to the suite.
+# A background pipeline would instead expose its subshell PID via \$!.
+i3bar -V "\$@" > "$logfile" 2>&1 &
+bar_pid=\$!
+echo "\$bar_pid" > "$pidfile"
+wait "\$bar_pid"
+cat "$logfile"
 echo done > "$exitfifo"
 EOF
 close($scriptfh);

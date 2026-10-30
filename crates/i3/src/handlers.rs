@@ -1,3 +1,4 @@
+use crate::con::arena::parent::parent_ptr;
 use crate::types::BorderStyle;
 use crate::types::FloatingState;
 use crate::types::FocusActivation;
@@ -187,7 +188,7 @@ unsafe fn handle_enter_notify(event: *mut xcb_enter_notify_event_t, full_sequenc
         enter_child = true;
     }
     if con.is_null()
-        || (*(*con).parent).type_0 as ::core::ffi::c_uint
+        || (*parent_ptr(con)).type_0 as ::core::ffi::c_uint
             == CT_DOCKAREA as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         debuglog(
@@ -204,7 +205,7 @@ unsafe fn handle_enter_notify(event: *mut xcb_enter_notify_event_t, full_sequenc
         return;
     }
     let layout: Layout = if enter_child as ::core::ffi::c_int != 0 {
-        (*(*con).parent).layout
+        (*parent_ptr(con)).layout
     } else {
         (*con).layout
     };
@@ -275,7 +276,7 @@ unsafe fn handle_motion_notify(event: *mut xcb_motion_notify_event_t) {
             (*event).event_x as u32,
             (*event).event_y as u32,
         ) {
-            if (*(*con).parent).focus_head.tqh_first == con {
+            if (*parent_ptr(con)).focus_head.tqh_first == con {
                 return;
             }
             con_focus(con);
@@ -422,7 +423,7 @@ unsafe fn handle_configure_request(event: *mut xcb_configure_request_event_t) {
             && con_is_leaf(con) as ::core::ffi::c_int != 0
         {
             let bsr: Rect = con_border_style_rect(con);
-            let floatingcon: *mut Con = (*con).parent as *mut Con;
+            let floatingcon: *mut Con = parent_ptr(con);
             let mut newrect: Rect = (*floatingcon).rect as Rect;
             if (*event).value_mask as ::core::ffi::c_int & XCB_CONFIG_WINDOW_X as ::core::ffi::c_int
                 != 0
@@ -509,8 +510,8 @@ unsafe fn handle_configure_request(event: *mut xcb_configure_request_event_t) {
             floating_reposition(floatingcon, newrect);
             return;
         }
-        if !(*con).parent.is_null()
-            && (*(*con).parent).type_0 as ::core::ffi::c_uint
+        if !parent_ptr(con).is_null()
+            && (*parent_ptr(con)).type_0 as ::core::ffi::c_uint
                 == CT_DOCKAREA as ::core::ffi::c_int as ::core::ffi::c_uint
         {
             debuglog(
@@ -1381,10 +1382,10 @@ unsafe fn handle_client_message(event: *mut xcb_client_message_event_t) {
         };
         match direction {
             8 => {
-                floating_drag_window((*con_3).parent as *mut Con, &raw mut fake, false);
+                floating_drag_window(parent_ptr(con_3), &raw mut fake, false);
             }
             0 => {
-                floating_resize_window((*con_3).parent as *mut Con, false, &raw mut fake);
+                floating_resize_window(parent_ptr(con_3), false, &raw mut fake);
             }
             _ => {
                 debuglog(
@@ -1570,7 +1571,7 @@ unsafe fn handle_focus_in(event: *mut xcb_focus_in_event_t) {
         );
         return;
     }
-    if (*(*con).parent).type_0 as ::core::ffi::c_uint
+    if (*parent_ptr(con)).type_0 as ::core::ffi::c_uint
         == CT_DOCKAREA as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         debuglog(
@@ -1751,8 +1752,8 @@ unsafe fn handle_motif_hints_change(con: *mut Con, prop: *mut xcb_get_property_r
 }
 unsafe fn handle_strut_partial_change(con: *mut Con, prop: *mut xcb_get_property_reply_t) -> bool {
     window_update_strut_partial((*con).window as *mut i3Window, prop);
-    if (*con).parent.is_null()
-        || (*(*con).parent).type_0 as ::core::ffi::c_uint
+    if parent_ptr(con).is_null()
+        || (*parent_ptr(con)).type_0 as ::core::ffi::c_uint
             != CT_DOCKAREA as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         return true;

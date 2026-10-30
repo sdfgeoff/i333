@@ -9,6 +9,7 @@
  */
 #![deny(unsafe_op_in_unsafe_fn)]
 
+use crate::con::arena::parent::parent_ptr;
 use crate::con::{
     con_activate, con_descend_focused, con_get_output, con_get_workspace, con_is_sticky,
     con_move_to_workspace, CT_CON, CT_FLOATING_CON,
@@ -162,7 +163,7 @@ pub unsafe fn output_push_sticky_windows(old_focus: *mut Con) {
                     let was_focused = floating
                         && sticky
                         && !old_focus.is_null()
-                        && current == (*old_focus).parent;
+                        && current == parent_ptr(old_focus);
                     let StickyMove::Move { restore_focus } =
                         sticky_move(floating, sticky, was_focused)
                     else {

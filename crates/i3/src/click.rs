@@ -1,6 +1,7 @@
 use crate::bindings::get_binding_from_xcb_event;
 use crate::bindings::run_binding;
 use crate::commands_parser::command_result_free;
+use crate::con::arena::parent::parent_ptr;
 use crate::con::CT_DOCKAREA;
 use crate::con::{TILING_DRAG_MODIFIER, TILING_DRAG_MODIFIER_OR_TITLEBAR, TILING_DRAG_TITLEBAR};
 use crate::types::ClickDestination;
@@ -101,7 +102,7 @@ unsafe fn tiling_resize_for_border(
                 .as_ptr(),
         );
     };
-    if (*first).parent == (*second).parent {
+    if parent_ptr(first) == parent_ptr(second) {
     } else {
         __assert_fail(
             c"first->parent == second->parent".as_ptr(),
@@ -225,7 +226,7 @@ unsafe fn route_click(con: *mut Con, event: *mut xcb_button_press_event_t, dest:
         (*con).type_0 as u32,
         (*con).name,
     );
-    if (*(*con).parent).type_0 as u32 == CT_DOCKAREA as i32 as u32 {
+    if (*parent_ptr(con)).type_0 as u32 == CT_DOCKAREA as i32 as u32 {
         allow_replay_pointer((*event).time);
         return;
     }
@@ -263,7 +264,7 @@ unsafe fn route_click(con: *mut Con, event: *mut xcb_button_press_event_t, dest:
     let proportional: bool =
         (*event).state as i32 & XCB_KEY_BUT_MASK_SHIFT as i32 == XCB_KEY_BUT_MASK_SHIFT as i32;
     let in_stacked: bool =
-        (*(*con).parent).layout == Layout::Stacked || (*(*con).parent).layout == Layout::Tabbed;
+        (*parent_ptr(con)).layout == Layout::Stacked || (*parent_ptr(con)).layout == Layout::Tabbed;
     let was_focused: bool = focused == con;
     let is_left_click: bool = (*event).detail as i32 == XCB_BUTTON_INDEX_1 as i32;
     let is_right_click: bool = (*event).detail as i32 == XCB_BUTTON_INDEX_3 as i32;
@@ -282,7 +283,7 @@ unsafe fn route_click(con: *mut Con, event: *mut xcb_button_press_event_t, dest:
             234,
         );
         workspace_show(ws);
-        let current: *mut Con = (*(*con).parent).focus_head.tqh_first as *mut Con;
+        let current: *mut Con = (*parent_ptr(con)).focus_head.tqh_first as *mut Con;
         let direction: Position = if (*event).detail as i32 == XCB_BUTTON_INDEX_4 as i32
             || (*event).detail as i32 == XCB_BUTTON_SCROLL_LEFT
         {

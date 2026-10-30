@@ -1,5 +1,6 @@
 //! Golden bytes captured from the pre-schema production emitters at 01b7ac4d.
 use super::*;
+use crate::con::arena::parent::set_parent_ptr;
 use crate::types::Window;
 use std::collections::BTreeMap;
 
@@ -77,7 +78,7 @@ unsafe fn collect() -> BTreeMap<String, String> {
     unsafe fn node(all: &mut Vec<*mut Con>, kind: u32, parent: *mut Con) -> *mut Con {
         let raw = crate::con::con_new_skeleton(std::ptr::null_mut(), std::ptr::null_mut());
         (*raw).type_0 = kind;
-        (*raw).parent = parent;
+        set_parent_ptr(raw, parent).expect("registered fixture ancestry");
         (*raw).layout = Layout::SplitH;
         (*raw).workspace_layout = Layout::Default;
         (*raw).border_style = BorderStyle::Pixel;

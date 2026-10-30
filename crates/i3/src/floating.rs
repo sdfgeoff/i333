@@ -1,3 +1,4 @@
+use crate::con::arena::parent::{parent_ptr, set_parent_ptr};
 use crate::con::arena::{floating, identity};
 use crate::con::{CF_NONE, CT_CON, CT_FLOATING_CON, CT_WORKSPACE};
 pub use crate::types::xoutput as Output;
@@ -338,11 +339,11 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
     let mut focus_before_parent: bool = true;
     if !set_focus {
         let mut ancestor: *mut Con = con;
-        while (*(*ancestor).parent).type_0 as u32 != CT_WORKSPACE as i32 as u32 {
+        while (*parent_ptr(ancestor)).type_0 as u32 != CT_WORKSPACE as i32 as u32 {
             focus_before_parent = (focus_before_parent as i32
-                & ((*(*ancestor).parent).focus_head.tqh_first == ancestor) as i32)
+                & ((*parent_ptr(ancestor)).focus_head.tqh_first == ancestor) as i32)
                 != 0;
-            ancestor = (*ancestor).parent as *mut Con;
+            ancestor = parent_ptr(ancestor);
         }
         if focus_before_parent {
             focus_head_placeholder =
@@ -352,13 +353,13 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
         }
     }
     con_detach(con);
-    con_fix_percent((*con).parent as *mut Con);
+    con_fix_percent(parent_ptr(con));
     let nc: *mut Con = con_new(
         ::core::ptr::null_mut::<Con>(),
         ::core::ptr::null_mut::<Window>(),
     );
     let ws: *mut Con = con_get_workspace(con);
-    (*nc).parent = ws as *mut Con;
+    set_parent_ptr(nc, ws as *mut Con).expect("live acyclic ancestry");
     (*nc).type_0 = CT_FLOATING_CON;
     (*nc).layout = Layout::SplitH;
     floating::prepend(
@@ -398,9 +399,9 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
         *(*fh).tqh_last = nc as *mut Con;
         (*fh).tqh_last = &raw mut (*nc).focused.tqe_next;
     }
-    if ((*(*con).parent).type_0 as u32 == CT_CON as i32 as u32
-        || (*(*con).parent).type_0 as u32 == CT_FLOATING_CON as i32 as u32)
-        && con_num_children((*con).parent as *mut Con) == 0
+    if ((*parent_ptr(con)).type_0 as u32 == CT_CON as i32 as u32
+        || (*parent_ptr(con)).type_0 as u32 == CT_FLOATING_CON as i32 as u32)
+        && con_num_children(parent_ptr(con)) == 0
     {
         debuglog(
             c"%s:%s:%d - Old container empty after setting this child to floating, closing\n"
@@ -410,8 +411,8 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
             c"floating_enable".as_ptr(),
             316,
         );
-        let parent: *mut Con = (*con).parent as *mut Con;
-        (*con).parent = ::core::ptr::null_mut::<Con>();
+        let parent: *mut Con = parent_ptr(con);
+        set_parent_ptr(con, ::core::ptr::null_mut::<Con>()).expect("live acyclic ancestry");
         tree_close_internal(parent, KillWindow::DontKill, false);
     }
     let name = std::ffi::CString::new(format!("[i3 con] floatingcon around {con:p}")).unwrap();
@@ -483,7 +484,7 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
     (*con).focused.tqe_prev = (*nc).focus_head.tqh_last;
     *(*nc).focus_head.tqh_last = con as *mut Con;
     (*nc).focus_head.tqh_last = &raw mut (*con).focused.tqe_next;
-    (*con).parent = nc as *mut Con;
+    set_parent_ptr(con, nc as *mut Con).expect("live acyclic ancestry");
     (*con).percent = 1.0f64;
     (*con).floating = FloatingState::UserOn;
     if automatic {
@@ -587,13 +588,13 @@ pub unsafe fn floating_disable(con: *mut Con) {
     }
     let tiling_focused: *mut Con = con_descend_tiling_focused(ws);
     if (*tiling_focused).type_0 as u32 == CT_WORKSPACE as i32 as u32 {
-        let parent: *mut Con = (*con).parent as *mut Con;
+        let parent: *mut Con = parent_ptr(con);
         con_detach(con);
-        (*con).parent = ::core::ptr::null_mut::<Con>();
+        set_parent_ptr(con, ::core::ptr::null_mut::<Con>()).expect("live acyclic ancestry");
         tree_close_internal(parent, KillWindow::DontKill, true);
         con_attach(con, tiling_focused, false);
         (*con).percent = 0.0f64;
-        con_fix_percent((*con).parent as *mut Con);
+        con_fix_percent(parent_ptr(con));
     } else {
         insert_con_into(con, tiling_focused, Position::After);
     }
@@ -634,7 +635,7 @@ pub unsafe fn floating_raise_con(con: *mut Con) {
         (*con).name,
     );
     floating::move_to_back(
-        identity((*con).parent).expect("live floating parent"),
+        identity(parent_ptr(con)).expect("live floating parent"),
         identity(con).expect("live floating wrapper"),
     )
     .expect("raised container belongs to its floating parent");

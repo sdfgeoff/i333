@@ -8,26 +8,26 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 28 wallclock secs ( 1.38 usr +  0.10 sys =  1.48 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 30 wallclock secs ( 1.41 usr +  0.13 sys =  1.54 CPU)\nResult: PASS",
     "profile": "debug",
     "build": "cargo test --locked",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "90a61dd55f78766403fbd8ae9a41076ec553068d725afb92dd632d54a4169c02",
-    "i3bar": "3a1335f5bf394a63bb58eb929024ec6f2f178cbefbd05448d96706be561dc701",
-    "i3-config-wizard": "9e9d07613f21c20a39960c56333066774119b096b957498a73ed33f0ccadaf0d",
-    "i3-dump-log": "5dc6b5b823349722eddbaee940e574cdacfb6583cdfccaf22a71b001b1374a89",
-    "i3-input": "76aafdbb110d5907b96611326e5cf5e9e0730fdcf3de5f122ca003490130c2ac",
-    "i3-msg": "9f2ad67dda6f55906497261e71119496c34981dce2fa6f70bdbd72244e019795",
-    "i3-nagbar": "19075ddd7ce382ecf945ef25b201ef339ea23988e09f8b357e631ea2f89acba6"
+    "i3": "7e962614d74642522b40b3b5bdc5dbb3d79710d208979a2d7b306e8d386c618e",
+    "i3bar": "56f53be4f6923116958f7291403b8ec9cbe64a033d0fb03f7d94f80c336c5118",
+    "i3-config-wizard": "bc0d7e8b1658f11432984208dc486422c8e25dd51d401b14a17403bc31241c34",
+    "i3-dump-log": "e8867e3a9113ef3801638df467724484cf4546d6dba41ec827e161e006955196",
+    "i3-input": "fe6fb20a006c9ce2568bc98d29fcf8a249198b64cfb4a99f515fd7bbdc212c39",
+    "i3-msg": "d2f2e7083f9ec20081dafa76816416ed0a5e77bfae82d4dda420550a1506cbe7",
+    "i3-nagbar": "5e907e149ba3aa977afcadaf637e8b52e879992e29ff55ffc830a3cb8e984eb6"
   },
-  "note": "Ten-member Cargo workspace. cargo test --locked passed 361 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug hashes match this Cargo-driven run. Owned rendering text, Serde command replies and stable Rust-owned container storage replace legacy allocation adapters. Remaining native callbacks and intrusive parent/child/focus graph links are explicit unsafe boundaries.",
+  "note": "Ten-member Cargo workspace. cargo test --locked passed 367 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug hashes match this Cargo-driven run. Owned rendering text, Serde command replies and stable Rust-owned container storage replace legacy allocation adapters. Remaining native callbacks and intrusive tiling/focus graph links are explicit unsafe boundaries.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
   "additional_checks": {
     "headless_c_rust_state_comparisons": 54,
     "ipc_client_test_groups": 16,
-    "workspace_unit_tests": 361,
+    "workspace_unit_tests": 367,
     "core_and_bar_cli_comparisons": 39,
     "pcre2_compile_match_error_comparisons": 4620,
     "json_oracle_cases": 2218,
@@ -115,7 +115,7 @@
     "binary_count": 7,
     "native_library_discovery": "maintained native binding build scripts and dedicated sys crates; i3-build links only platform m/rt",
     "unit_tests": {
-      "i3": 174,
+      "i3": 180,
       "cargo_regression_wrappers": 8,
       "xkb_integration": 1,
       "i3-build": 3,
@@ -136,7 +136,7 @@
     "cargo_fmt_check": true,
     "debug_build": true,
     "release_build": true,
-    "unit_tests_total_including_integration_checks": 361,
+    "unit_tests_total_including_integration_checks": 367,
     "test_command": "cargo test",
     "clean_source_command": "cargo test -p i3-test-support --features clean-source-check",
     "test_support": "development-only process capture, failure propagation and isolated regression orchestration",
@@ -150,7 +150,7 @@
     "graphics": "Maintained cairo-rs, pango, pangocairo and glib owners/borrowed APIs for drawing and fonts; maintained sys bindings retain explicit native text byte-count and XCB surface boundaries",
     "xkb": "maintained xkbcommon bindings",
     "internal_no_mangle_exports": 0,
-    "remaining_unsafe": "Native FFI/callbacks, raw ancestry and tiling/focus links, remaining native resource/byte adapters. Rendering text, JSON storage, global and floating container ownership use Rust values/checked IDs.",
+    "remaining_unsafe": "Native FFI/callbacks, borrowed raw native graph access and remaining tiling/focus lists. Parent, floating and global relationships are owned generation-checked arena metadata; text and JSON APIs use Rust owners/borrows.",
     "scratch_directory": ".work/tmp (gitignored, TMPDIR override supported)",
     "scalar_aliases": "Generated fixed-width, size, platform-internal and anonymous scalar typedefs removed; direct Rust primitives or maintained libc types at use sites. Semantic native/flag aliases retained.",
     "application_enums": {
@@ -1053,6 +1053,604 @@
         "upstream_validation": ".work/tmp/i333-suite-rust-k3tg47jo/validation.json",
         "remaining": "See per-stage reports: full typed-ID parent/child/focus migration is staged, not claimed complete.",
         "independent_review": "Owned floating relation and typed node/bar schema lifetimes/compatibility reviewed by a second subagent; no actionable findings."
+      },
+      {
+        "checkpoint": 4,
+        "status": "validated",
+        "rust_reported_tests": 367,
+        "upstream_assertions": 4205,
+        "reports": {
+          "ownership-wave4-serde-report": {
+            "status": "frozen_ready_for_root_wave4_validation",
+            "assigned_files": [
+              "commands.rs",
+              "ipc.rs",
+              "ipc_snapshot_tests.rs",
+              "click.rs",
+              "handlers.rs",
+              "manage.rs",
+              "log.rs",
+              "render.rs",
+              "resize.rs",
+              "tiling_drag.rs",
+              "x.rs"
+            ],
+            "modified_files": [
+              "commands.rs",
+              "ipc.rs",
+              "ipc_snapshot_tests.rs",
+              "click.rs",
+              "handlers.rs",
+              "manage.rs",
+              "resize.rs",
+              "tiling_drag.rs",
+              "x.rs"
+            ],
+            "changes": [
+              "77 direct native Con.parent reads migrated to safe generation-checked arena::parent::parent_ptr adapter, with no registry borrow retained across native/callback work",
+              "IPC snapshot fixture parent construction uses set_parent_ptr(...).expect with already registered arena containers",
+              "Removed now-redundant as*mutCon casts following parent_ptr",
+              "Preserved non-Con Path.parent(),DragEdges.parent,spread ..parent and native decoration parent_layout fields; assigned log.rs/render.rs required no product changes",
+              "No JSON schema/fixture content changes: exact23 baseline cases retained byte-for-byte"
+            ],
+            "tests": [
+              {
+                "command": "cargo test --locked -p i3 --bin i3",
+                "result": "180 passed incl IPC23 exactproductiongoldens and parentbackend tests",
+                "log": ".work/serde-protocol/wave4-core-tests.log"
+              },
+              {
+                "command": "git diff --check",
+                "result": "passed"
+              },
+              {
+                "command": "source scan Con.parent reads/setter sites in assigned files",
+                "result": "zero raw Con.parent references; deliberate non-Con parent names preserved"
+              }
+            ],
+            "notes": "Initial cargo check ran during other workers writes and had152 unfinished otherscope sites, nonein groupB; complete core test build/pass supersedes initial check.",
+            "safety": "No live desktop/X/hostnested interaction, no /tmp files; scratch .work only; no full workspace regression/commit/push by worker."
+          },
+          "ownership-wave4-readers-report": {
+            "status": "implemented, formatted and frozen",
+            "files": [
+              "crates/i3/src/move.rs",
+              "crates/i3/src/floating.rs",
+              "crates/i3/src/workspace.rs",
+              "crates/i3/src/load_layout.rs",
+              "crates/i3/src/scratchpad.rs",
+              "crates/i3/src/output.rs",
+              "crates/i3/src/gaps.rs"
+            ],
+            "counts": {
+              "raw_parent_reads_replaced": 52,
+              "parent_writes_replaced": 13
+            },
+            "changes": [
+              "Parent access now uses validated metadata-only parent_ptr adapter; setters use set_parent_ptr and expect live acyclic ancestry at each original assignment point.",
+              "Explicit null ancestry before freeing floating wrappers retained; con_detach retains old ancestry until actual reattachment.",
+              "Move insertion saves old parent before graph mutation and preserves callback ordering. Workspace wrapper creation sets ancestry before moving children as before.",
+              "Layout parser unwind captures parent before con_free; floating JSON correction still resolves old workspace before setter.",
+              "Unrelated native parent, parent_layout and relationship fields untouched. Removed redundant casts on newly typed pointer reads."
+            ],
+            "focused_tests": [
+              {
+                "command": "env -u RUSTUP_TOOLCHAIN TMPDIR=$PWD/.work/tmp cargo test -p i3 --bin i3 'r#move::tests'",
+                "result": "2 passed; complete i3 unit target compiled",
+                "log": ".work/ownership-wave4-reader-test.log"
+              }
+            ],
+            "fixtures": "Existing groupA tests cover copied policy values; no unregistered parent fixtures needed migration here. Core peer tested registered graph operations.",
+            "independent_core_review": {
+              "files": [
+                "crates/i3/src/con/arena/parent.rs",
+                "crates/i3/src/con/arena.rs",
+                "crates/i3/src/con.rs",
+                "crates/i3/src/tree.rs"
+              ],
+              "findings": "No actionable issues. ID generations validated on child and parent; cycle/self/stale checks precede one owned metadata write. Null/stale queries return absence, raw adapters dereference no input pointers, and retired-parent addresses cannot reconnect old children through reuse. Registry borrows end before graph callbacks. con_attach, detach, focus recursion, ancestor navigation, wrapper changes and teardown preserve assignment/read timing. Native ordered membership remains independent from ancestry.",
+              "note": "Raw adapters accept current live addresses; deferred work must still use ConId for generation safety."
+            },
+            "remaining_boundaries": [
+              "Native graph callers still dereference resolved raw pointers under event-thread lifetime contracts.",
+              "Focus and tiling ordered links await subsequent coordinated migration."
+            ],
+            "constraints": [
+              "No user desktop or nested test interactions. Scratch/logs only .work."
+            ]
+          },
+          "ownership-wave4-tree-report": {
+            "status": "implemented_frozen_pending_full_validation",
+            "files": [
+              "crates/i3/src/con.rs",
+              "crates/i3/src/tree.rs",
+              "crates/i3/src/types.rs",
+              "crates/i3/src/con/arena.rs",
+              "crates/i3/src/con/arena/parent.rs",
+              "crates/i3/src/con/arena/floating.rs (registered fixtures/comments)"
+            ],
+            "changes": [
+              "Deleted native Con.parent field/initializer; sole ancestry source Arena Entry parent:Option<ConId>.",
+              "Safe typed parent/set_parent validate generation/self/ancestor cycles before exactly one metadata write, and allow detached nodes with no list membership.",
+              "Native parent_ptr/set_parent_ptr adapt validated identities and metadata only: no input-pointer dereference or returned graph references.",
+              "Retired parents generation-filter to None, including allocator address reuse; no inverse/parallel ancestry graph maintained.",
+              "Preserved con_detach retained ancestry, explicit None before floating wrapper deletion, swap two-step order, wrapper pre-parent assignment and malformed restore traversal timing.",
+              "Core/native ancestry readers/setters migrated; synthetic ancestry fixtures registered in TLS arena rather than unowned Box metadata.",
+              "Updated obsolete floating comment to typed ancestry."
+            ],
+            "tests": {
+              "command": "cargo test --locked -p i3 --bin i3 con::",
+              "result": "28 passed (6 new parent tests plus existing arena/graph tests); final null/1/MAX adapter assertions included",
+              "log": ".work/ownership-wave4-tree-tests.log",
+              "coverage": [
+                "Detached chains/no-op/clear/reparent without list membership",
+                "Atomic cycle/self/stale failures leave complete ancestry unchanged",
+                "Retired parent and deterministic reused-address generation cannot reconnect",
+                "Safe native adapters null/1/usize::MAX never dereference invalid addresses and return stale errors",
+                "Actual con_attach/detach/reattach changes membership while preserving detached ancestry",
+                "Valid two-step swap and new-wrapper assignment order remains cycle-free"
+              ]
+            },
+            "remaining": [
+              "Intrusive focus and tiling lists remain next staged migrations.",
+              "Native scalar/raw resource and callback pointers remain; adapter callers still obey unsafe lifetime contract."
+            ],
+            "review": "Independent text-peer parent core review requested; peerB180fullcore unit tests passed.",
+            "independent_review": "Text peer read-only core review: no actionable findings in transactionality, lazy generation filtering, raw-adapter address-only operations, detach/wrapper ordering."
+          },
+          "ownership-wave4-555-report": {
+            "status": "fixed and frozen",
+            "file": "testcases/t/555-i3bar-workspace-output-assignment.t",
+            "cause_proved": "The background grouped pipeline exposes its subshell PID through $!, not the i3bar PID. Killing that PID lets wrapper wait finish and FIFO signal done while actual bar remains alive with buffered logs. Deterministically reproduced with fully owned fakebar processes under both Bash and Ubuntu24.04 dash.",
+            "fix": "Launch actual bar directly with stdout/stderr redirected into its log, capture realPID, wait exact realPID, forward log to suite stdout after completed bar exit, then signal FIFO. All five assertions and workspace/input actions preserved.",
+            "evidence": {
+              "old_control": ".work/wrapper-pid-proof/results.json",
+              "fixed_control": ".work/wrapper-fixed-pid-proof/results.json",
+              "real_cases": {
+                "original-dash": [
+                  {
+                    "product": "c",
+                    "repetition": 1,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/original-dash-c-1.log"
+                  },
+                  {
+                    "product": "c",
+                    "repetition": 2,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/original-dash-c-2.log"
+                  },
+                  {
+                    "product": "rust",
+                    "repetition": 1,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/original-dash-rust-1.log"
+                  },
+                  {
+                    "product": "rust",
+                    "repetition": 2,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/original-dash-rust-2.log"
+                  }
+                ],
+                "fixed-dash": [
+                  {
+                    "product": "c",
+                    "repetition": 1,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-c-1.log"
+                  },
+                  {
+                    "product": "c",
+                    "repetition": 2,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-c-2.log"
+                  },
+                  {
+                    "product": "c",
+                    "repetition": 3,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-c-3.log"
+                  },
+                  {
+                    "product": "c",
+                    "repetition": 4,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-c-4.log"
+                  },
+                  {
+                    "product": "c",
+                    "repetition": 5,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-c-5.log"
+                  },
+                  {
+                    "product": "c",
+                    "repetition": 6,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-c-6.log"
+                  },
+                  {
+                    "product": "c",
+                    "repetition": 7,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-c-7.log"
+                  },
+                  {
+                    "product": "c",
+                    "repetition": 8,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-c-8.log"
+                  },
+                  {
+                    "product": "c",
+                    "repetition": 9,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-c-9.log"
+                  },
+                  {
+                    "product": "c",
+                    "repetition": 10,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-c-10.log"
+                  },
+                  {
+                    "product": "rust",
+                    "repetition": 1,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-rust-1.log"
+                  },
+                  {
+                    "product": "rust",
+                    "repetition": 2,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-rust-2.log"
+                  },
+                  {
+                    "product": "rust",
+                    "repetition": 3,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-rust-3.log"
+                  },
+                  {
+                    "product": "rust",
+                    "repetition": 4,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-rust-4.log"
+                  },
+                  {
+                    "product": "rust",
+                    "repetition": 5,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-rust-5.log"
+                  },
+                  {
+                    "product": "rust",
+                    "repetition": 6,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-rust-6.log"
+                  },
+                  {
+                    "product": "rust",
+                    "repetition": 7,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-rust-7.log"
+                  },
+                  {
+                    "product": "rust",
+                    "repetition": 8,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-rust-8.log"
+                  },
+                  {
+                    "product": "rust",
+                    "repetition": 9,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-rust-9.log"
+                  },
+                  {
+                    "product": "rust",
+                    "repetition": 10,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-rust-10.log"
+                  }
+                ],
+                "fixed-host": [
+                  {
+                    "product": "c",
+                    "repetition": 1,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-host-c-1.log"
+                  },
+                  {
+                    "product": "c",
+                    "repetition": 2,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-host-c-2.log"
+                  },
+                  {
+                    "product": "rust",
+                    "repetition": 1,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-host-rust-1.log"
+                  },
+                  {
+                    "product": "rust",
+                    "repetition": 2,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-host-rust-2.log"
+                  }
+                ]
+              }
+            },
+            "runtime_checks": {
+              "original_dash": "2 C +2 Rust all5assertions pass; original CI missing-draw failure not reproduced here.",
+              "fixed_dash": "10 C +10 Rust all5assertions pass",
+              "fixed_host_bash": "2 C +2 Rust all5assertions pass"
+            },
+            "shell": {
+              "binary": "/home/geoffrey/Reference/OffTopic/i333/.work/ci-dash/extracted/usr/bin/dash",
+              "source": "https://archive.ubuntu.com/ubuntu/pool/main/d/dash/dash_0.5.12-6ubuntu5_amd64.deb",
+              "package_sha256": "e97728d8deaa51300255f0572bbd68b9549e0894a184c056dc420fc4e0ba0781",
+              "install": "Extracted into .work/ci-dash only; no host shell/package/toolchain change."
+            },
+            "limitations": [
+              "Controlled experiment proves lifecycle/log-flush race; it does not independently establish the exact scheduling of the remote CI failure.",
+              "No missing-draw failure appeared in fixed repetitions, so no sleeps, assertion weakening, stdbuf dependency or additional event synchronization was introduced. Root full regression/CI still required."
+            ],
+            "constraints": [
+              "No product source edits for harness fix",
+              "Every signal targeted process owned by current private controlled test or private native suite",
+              "No user desktop/nested session interactions and no /tmp scratch files"
+            ]
+          },
+          "ownership-wave4-harness-report": {
+            "status": "fixed and frozen",
+            "file": "testcases/t/555-i3bar-workspace-output-assignment.t",
+            "cause_proved": "The background grouped pipeline exposes its subshell PID through $!, not the i3bar PID. Killing that PID lets wrapper wait finish and FIFO signal done while actual bar remains alive with buffered logs. Deterministically reproduced with fully owned fakebar processes under both Bash and Ubuntu24.04 dash.",
+            "fix": "Launch actual bar directly with stdout/stderr redirected into its log, capture realPID, wait exact realPID, forward log to suite stdout after completed bar exit, then signal FIFO. All five assertions and workspace/input actions preserved.",
+            "evidence": {
+              "old_control": ".work/wrapper-pid-proof/results.json",
+              "fixed_control": ".work/wrapper-fixed-pid-proof/results.json",
+              "real_cases": {
+                "original-dash": [
+                  {
+                    "product": "c",
+                    "repetition": 1,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/original-dash-c-1.log",
+                    "validation": "/home/geoffrey/Reference/OffTopic/i333/.work/tmp/i333-suite-c-oryq6mhw/validation.json"
+                  },
+                  {
+                    "product": "c",
+                    "repetition": 2,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/original-dash-c-2.log",
+                    "validation": "/home/geoffrey/Reference/OffTopic/i333/.work/tmp/i333-suite-c-s9vske7r/validation.json"
+                  },
+                  {
+                    "product": "rust",
+                    "repetition": 1,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/original-dash-rust-1.log",
+                    "validation": "/home/geoffrey/Reference/OffTopic/i333/.work/tmp/i333-suite-rust-q7ivan26/validation.json"
+                  },
+                  {
+                    "product": "rust",
+                    "repetition": 2,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/original-dash-rust-2.log",
+                    "validation": "/home/geoffrey/Reference/OffTopic/i333/.work/tmp/i333-suite-rust-suf53dkx/validation.json"
+                  }
+                ],
+                "fixed-dash": [
+                  {
+                    "product": "c",
+                    "repetition": 1,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-c-1.log",
+                    "validation": "/home/geoffrey/Reference/OffTopic/i333/.work/tmp/i333-suite-c-vhpjbt2u/validation.json"
+                  },
+                  {
+                    "product": "c",
+                    "repetition": 2,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-c-2.log",
+                    "validation": "/home/geoffrey/Reference/OffTopic/i333/.work/tmp/i333-suite-c-of8j7tfy/validation.json"
+                  },
+                  {
+                    "product": "c",
+                    "repetition": 3,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-c-3.log",
+                    "validation": "/home/geoffrey/Reference/OffTopic/i333/.work/tmp/i333-suite-c-nmrl6zj2/validation.json"
+                  },
+                  {
+                    "product": "c",
+                    "repetition": 4,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-c-4.log",
+                    "validation": "/home/geoffrey/Reference/OffTopic/i333/.work/tmp/i333-suite-c-k5hz1eui/validation.json"
+                  },
+                  {
+                    "product": "c",
+                    "repetition": 5,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-c-5.log",
+                    "validation": "/home/geoffrey/Reference/OffTopic/i333/.work/tmp/i333-suite-c-opbh6owg/validation.json"
+                  },
+                  {
+                    "product": "c",
+                    "repetition": 6,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-c-6.log",
+                    "validation": "/home/geoffrey/Reference/OffTopic/i333/.work/tmp/i333-suite-c-dbe97oxs/validation.json"
+                  },
+                  {
+                    "product": "c",
+                    "repetition": 7,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-c-7.log",
+                    "validation": "/home/geoffrey/Reference/OffTopic/i333/.work/tmp/i333-suite-c-cnwt8xrz/validation.json"
+                  },
+                  {
+                    "product": "c",
+                    "repetition": 8,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-c-8.log",
+                    "validation": "/home/geoffrey/Reference/OffTopic/i333/.work/tmp/i333-suite-c-3jkve_l2/validation.json"
+                  },
+                  {
+                    "product": "c",
+                    "repetition": 9,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-c-9.log",
+                    "validation": "/home/geoffrey/Reference/OffTopic/i333/.work/tmp/i333-suite-c-r12qqybd/validation.json"
+                  },
+                  {
+                    "product": "c",
+                    "repetition": 10,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-c-10.log",
+                    "validation": "/home/geoffrey/Reference/OffTopic/i333/.work/tmp/i333-suite-c-jni8m6p0/validation.json"
+                  },
+                  {
+                    "product": "rust",
+                    "repetition": 1,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-rust-1.log",
+                    "validation": "/home/geoffrey/Reference/OffTopic/i333/.work/tmp/i333-suite-rust-86mii3tn/validation.json"
+                  },
+                  {
+                    "product": "rust",
+                    "repetition": 2,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-rust-2.log",
+                    "validation": "/home/geoffrey/Reference/OffTopic/i333/.work/tmp/i333-suite-rust-9y6cfxqy/validation.json"
+                  },
+                  {
+                    "product": "rust",
+                    "repetition": 3,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-rust-3.log",
+                    "validation": "/home/geoffrey/Reference/OffTopic/i333/.work/tmp/i333-suite-rust-ktvp1vmz/validation.json"
+                  },
+                  {
+                    "product": "rust",
+                    "repetition": 4,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-rust-4.log",
+                    "validation": "/home/geoffrey/Reference/OffTopic/i333/.work/tmp/i333-suite-rust-m4k1m5rj/validation.json"
+                  },
+                  {
+                    "product": "rust",
+                    "repetition": 5,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-rust-5.log",
+                    "validation": "/home/geoffrey/Reference/OffTopic/i333/.work/tmp/i333-suite-rust-krir9pwl/validation.json"
+                  },
+                  {
+                    "product": "rust",
+                    "repetition": 6,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-rust-6.log",
+                    "validation": "/home/geoffrey/Reference/OffTopic/i333/.work/tmp/i333-suite-rust-b04x5jyt/validation.json"
+                  },
+                  {
+                    "product": "rust",
+                    "repetition": 7,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-rust-7.log",
+                    "validation": "/home/geoffrey/Reference/OffTopic/i333/.work/tmp/i333-suite-rust-3ax25btc/validation.json"
+                  },
+                  {
+                    "product": "rust",
+                    "repetition": 8,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-rust-8.log",
+                    "validation": "/home/geoffrey/Reference/OffTopic/i333/.work/tmp/i333-suite-rust-k72rigxf/validation.json"
+                  },
+                  {
+                    "product": "rust",
+                    "repetition": 9,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-rust-9.log",
+                    "validation": "/home/geoffrey/Reference/OffTopic/i333/.work/tmp/i333-suite-rust-vgtixk6h/validation.json"
+                  },
+                  {
+                    "product": "rust",
+                    "repetition": 10,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-dash-rust-10.log",
+                    "validation": "/home/geoffrey/Reference/OffTopic/i333/.work/tmp/i333-suite-rust-kty_p2hn/validation.json"
+                  }
+                ],
+                "fixed-host": [
+                  {
+                    "product": "c",
+                    "repetition": 1,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-host-c-1.log",
+                    "validation": "/home/geoffrey/Reference/OffTopic/i333/.work/tmp/i333-suite-c-r8u0tcun/validation.json"
+                  },
+                  {
+                    "product": "c",
+                    "repetition": 2,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-host-c-2.log",
+                    "validation": "/home/geoffrey/Reference/OffTopic/i333/.work/tmp/i333-suite-c-wzxkqost/validation.json"
+                  },
+                  {
+                    "product": "rust",
+                    "repetition": 1,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-host-rust-1.log",
+                    "validation": "/home/geoffrey/Reference/OffTopic/i333/.work/tmp/i333-suite-rust-ejk2idvx/validation.json"
+                  },
+                  {
+                    "product": "rust",
+                    "repetition": 2,
+                    "exit_code": 0,
+                    "log": "/home/geoffrey/Reference/OffTopic/i333/.work/555-private-repeats/fixed-host-rust-2.log",
+                    "validation": "/home/geoffrey/Reference/OffTopic/i333/.work/tmp/i333-suite-rust-nzh_ne6l/validation.json"
+                  }
+                ]
+              }
+            },
+            "runtime_checks": {
+              "original_dash": "2 C +2 Rust all5assertions pass; original CI missing-draw failure not reproduced here.",
+              "fixed_dash": "10 C +10 Rust all5assertions pass",
+              "fixed_host_bash": "2 C +2 Rust all5assertions pass"
+            },
+            "shell": {
+              "binary": "/home/geoffrey/Reference/OffTopic/i333/.work/ci-dash/extracted/usr/bin/dash",
+              "source": "https://archive.ubuntu.com/ubuntu/pool/main/d/dash/dash_0.5.12-6ubuntu5_amd64.deb",
+              "package_sha256": "e97728d8deaa51300255f0572bbd68b9549e0894a184c056dc420fc4e0ba0781",
+              "install": "Extracted into .work/ci-dash only; no host shell/package/toolchain change."
+            },
+            "limitations": [
+              "Controlled experiment proves lifecycle/log-flush race; it does not independently establish the exact scheduling of the remote CI failure.",
+              "No missing-draw failure appeared in fixed repetitions, so no sleeps, assertion weakening, stdbuf dependency or additional event synchronization was introduced. Root full regression/CI still required."
+            ],
+            "constraints": [
+              "No product source edits for harness fix",
+              "Every signal targeted process owned by current private controlled test or private native suite",
+              "No user desktop/nested session interactions and no /tmp scratch files"
+            ],
+            "assertions_literal_unchanged": [
+              "ok(1, 'i3bar present');",
+              "ok($con, 'i3bar appeared');",
+              "ok(defined($result), 'i3bar ended');",
+              "ok(scalar(@ws2_draws) > 0, \"Workspace 2 (on primary) is drawn in the bar\");",
+              "is(scalar(@ws1_draws), 0, \"Workspace 1 (on non-primary) should NOT be drawn on primary bar\");"
+            ],
+            "assertions_check": "Extracted every literal assertion line from HEAD and working source, exact lists identical. Runtime runs retain five assertions (including imported initial X11 check).",
+            "root_full_suite": "Parent running full cargo test wave4 after fixture freeze; no more process launches or product/fixture edits."
+          }
+        },
+        "upstream_validation": ".work/tmp/i333-suite-rust-q4mv612v/validation.json",
+        "remaining": "See per-stage reports: full typed-ID parent/child/focus migration is staged, not claimed complete.",
+        "independent_review": "Generation-checked parent metadata and native adapters independently reviewed; native graph consumer order preserved."
       }
     ]
   },

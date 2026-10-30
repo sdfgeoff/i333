@@ -1,3 +1,4 @@
+use crate::con::arena::parent::parent_ptr;
 use crate::con::arena::{floating, identity, resolve};
 use crate::types::BorderStyle;
 use crate::types::KillWindow;
@@ -807,7 +808,7 @@ unsafe fn x_draw_decoration_after_title(
     p: *mut deco_render_params,
     dest_surface: *mut surface_t,
 ) {
-    if (*con).parent != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Con {
+    if parent_ptr(con) != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Con {
     } else {
         __assert_fail(
             c"con->parent != NULL".as_ptr(),
@@ -855,7 +856,7 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
     let mut has_icon: bool = false;
     let mut icon_offset_x: i32 = 0;
     let mut title_offset_x: i32 = 0;
-    let parent: *mut Con = (*con).parent as *mut Con;
+    let parent: *mut Con = parent_ptr(con);
     let leaf: bool = con_is_leaf(con);
     if !leaf && (*parent).layout != Layout::Stacked && (*parent).layout != Layout::Tabbed
         || (*parent).type_0 as u32 == CT_OUTPUT
@@ -990,7 +991,7 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
             let br: Rect = con_border_style_rect(con);
             if (*con).nodes.tqe_next.is_null()
                 && (*(*((*con).nodes.tqe_prev as *mut nodes_head)).tqh_last).is_null()
-                && (*(*con).parent).type_0 as u32 != CT_FLOATING_CON
+                && (*parent_ptr(con)).type_0 as u32 != CT_FLOATING_CON
             {
                 if (*p).parent_layout == Layout::SplitH {
                     draw_util_rectangle(
@@ -1049,9 +1050,10 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
             (*dest_surface).id,
         );
         if !((*dest_surface).id as ::core::ffi::c_long == XCB_NONE) {
-            if con == (*(*con).parent).nodes_head.tqh_first {
-                free((*(*con).parent).deco_render_params as *mut ::core::ffi::c_void);
-                (*(*con).parent).deco_render_params = ::core::ptr::null_mut::<deco_render_params>();
+            if con == (*parent_ptr(con)).nodes_head.tqh_first {
+                free((*parent_ptr(con)).deco_render_params as *mut ::core::ffi::c_void);
+                (*parent_ptr(con)).deco_render_params =
+                    ::core::ptr::null_mut::<deco_render_params>();
             }
             if !((*p).border_style != BorderStyle::Normal
                 || (*con).deco_rect.width == 0 as u32
@@ -1641,9 +1643,9 @@ pub unsafe fn x_push_node(con: *mut Con) {
             );
             draw_util_surface_set_size(&raw mut (*con).frame, width, height);
             (*con).pixmap_recreated = true;
-            if (*con).parent.is_null()
-                || (*(*con).parent).layout != Layout::Stacked
-                || (*(*con).parent).focus_head.tqh_first == con
+            if parent_ptr(con).is_null()
+                || (*parent_ptr(con)).layout != Layout::Stacked
+                || (*parent_ptr(con)).focus_head.tqh_first == con
             {
                 x_deco_recurse(con);
             }
@@ -1876,11 +1878,11 @@ unsafe fn x_push_node_unmaps(con: *mut Con) {
     }
 }
 unsafe fn is_con_attached(con: *mut Con) -> bool {
-    if (*con).parent.is_null() {
+    if parent_ptr(con).is_null() {
         return false;
     }
     let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
-    current = (*(*con).parent).nodes_head.tqh_first as *mut Con;
+    current = (*parent_ptr(con)).nodes_head.tqh_first as *mut Con;
     while !current.is_null() {
         if current == con {
             return true;

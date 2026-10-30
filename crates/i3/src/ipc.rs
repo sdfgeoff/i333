@@ -1,3 +1,4 @@
+use crate::con::arena::parent::parent_ptr;
 #[path = "ipc_messages.rs"]
 mod messages;
 use crate::commands_parser::command_result_free;
@@ -669,8 +670,8 @@ unsafe fn snapshot_node_header(con: *mut Con, restart: bool) -> messages::NodeHe
     let decoration_in_frame = con_draw_decoration_into_frame(con);
     let mut deco_rect = (*con).deco_rect;
     if decoration_in_frame {
-        deco_rect.x = (*con).rect.x.wrapping_sub((*(*con).parent).rect.x);
-        deco_rect.y = (*con).rect.y.wrapping_sub((*(*con).parent).rect.y);
+        deco_rect.x = (*con).rect.x.wrapping_sub((*parent_ptr(con)).rect.x);
+        deco_rect.y = (*con).rect.y.wrapping_sub((*parent_ptr(con)).rect.y);
     }
     let window = (*con).window;
     let window_title = (!window.is_null())

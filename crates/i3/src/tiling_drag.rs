@@ -1,3 +1,4 @@
+use crate::con::arena::parent::parent_ptr;
 use crate::con::arena::{containers, resolve};
 use crate::con::{CF_NONE, CF_OUTPUT, CT_WORKSPACE};
 pub use crate::types::xoutput as Output;
@@ -135,10 +136,10 @@ unsafe fn con_on_side_of_parent(con: *mut Con, direction: Direction) -> bool {
             reverse_direction = Direction::Up;
         }
     }
-    con_orientation((*con).parent as *mut Con) != orientation
-        || (*(*con).parent).layout == Layout::Stacked
-        || (*(*con).parent).layout == Layout::Tabbed
-        || con_descend_direction((*con).parent as *mut Con, reverse_direction) == con
+    con_orientation(parent_ptr(con)) != orientation
+        || (*parent_ptr(con)).layout == Layout::Stacked
+        || (*parent_ptr(con)).layout == Layout::Tabbed
+        || con_descend_direction(parent_ptr(con), reverse_direction) == con
 }
 unsafe fn drag_callback(
     con: *mut Con,
@@ -191,13 +192,13 @@ unsafe fn drag_callback(
         } else {
             match drop_type {
                 DropType::Parent => {
-                    while (*(*target).parent).type_0 as u32 != CT_WORKSPACE as i32 as u32
-                        && con_on_side_of_parent((*target).parent as *mut Con, direction) as i32
-                            != 0
+                    while (*parent_ptr(target)).type_0 as u32 != CT_WORKSPACE as i32 as u32
+                        && con_on_side_of_parent(parent_ptr(target), direction) as i32 != 0
                     {
-                        target = (*target).parent as *mut Con;
+                        target = parent_ptr(target);
                     }
-                    rect = adjust_rect((*(*target).parent).rect, direction, parent_indicator_size);
+                    rect =
+                        adjust_rect((*parent_ptr(target)).rect, direction, parent_indicator_size);
                 }
                 DropType::Center => {
                     rect = (*target).rect;
@@ -375,11 +376,11 @@ pub unsafe fn tiling_drag(
                 position_to_string(position),
                 target,
             );
-            if con_orientation((*target).parent as *mut Con) != orientation {
-                if (*con).parent == (*target).parent
-                    && con_num_children((*target).parent as *mut Con) == 2
+            if con_orientation(parent_ptr(target)) != orientation {
+                if parent_ptr(con) == parent_ptr(target)
+                    && con_num_children(parent_ptr(target)) == 2
                 {
-                    (*(*target).parent).layout = layout;
+                    (*parent_ptr(target)).layout = layout;
                 } else {
                     tree_split(target, orientation);
                 }
@@ -388,8 +389,8 @@ pub unsafe fn tiling_drag(
             ipc_send_window_event(c"move".as_ptr(), con);
         }
         DropType::Parent => {
-            let parent_tabbed_or_stacked: bool = (*(*target).parent).layout == Layout::Tabbed
-                || (*(*target).parent).layout == Layout::Stacked;
+            let parent_tabbed_or_stacked: bool = (*parent_ptr(target)).layout == Layout::Tabbed
+                || (*parent_ptr(target)).layout == Layout::Stacked;
             debuglog(
                 c"%s:%s:%d - drop %s (%s) of %s%p\n".as_ptr().cast_mut(),
                 c"../src/tiling_drag.c".as_ptr(),
@@ -406,9 +407,9 @@ pub unsafe fn tiling_drag(
             );
             if parent_tabbed_or_stacked {
                 if position == Position::Before {
-                    target = (*(*target).parent).nodes_head.tqh_first as *mut Con;
+                    target = (*parent_ptr(target)).nodes_head.tqh_first as *mut Con;
                 } else {
-                    target = *(*((*(*target).parent).nodes_head.tqh_last as *mut nodes_head))
+                    target = *(*((*parent_ptr(target)).nodes_head.tqh_last as *mut nodes_head))
                         .tqh_last as *mut Con;
                 }
             }
