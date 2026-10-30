@@ -1,4 +1,4 @@
-use crate::tree::all_cons;
+use crate::con::arena::{containers, resolve};
 use crate::types::BorderStyle;
 use crate::types::FloatingState;
 use crate::types::PopupDuringFullscreen;
@@ -131,9 +131,8 @@ pub unsafe fn restore_geometry() {
         c"restore_geometry".as_ptr(),
         79 as ::core::ffi::c_int,
     );
-    let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
-    con = all_cons.tqh_first as *mut Con;
-    while !con.is_null() {
+    for id in containers() {
+        let Some(con) = resolve(id) else { continue };
         if !(*con).window.is_null() {
             debuglog(
                 c"%s:%s:%d - Re-adding X11 border of %d px\n"
@@ -172,7 +171,6 @@ pub unsafe fn restore_geometry() {
                 (*con).rect.y as i16,
             );
         }
-        con = (*con).all_cons.tqe_next as *mut Con;
     }
     let mut fresh0: [u32; 1] = [XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT as ::core::ffi::c_int as u32];
     xcb_change_window_attributes(

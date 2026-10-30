@@ -5,7 +5,8 @@
 //! from naming a different container. Registry borrows never cross callbacks.
 use crate::types::Con;
 use std::cell::{RefCell, UnsafeCell};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
+use std::ops::Bound::{Excluded, Unbounded};
 use std::ptr;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -24,6 +25,7 @@ struct Entry {
 #[derive(Default)]
 struct Arena {
     entries: HashMap<usize, Entry>,
+    order: BTreeMap<u64, usize>,
     generation: u64,
 }
 
@@ -52,6 +54,7 @@ impl Arena {
             },
         );
         assert!(previous.is_none(), "duplicate live container address");
+        self.order.insert(self.generation, raw as usize);
         raw
     }
 
@@ -70,15 +73,54 @@ impl Arena {
             .map(|entry| entry.storage.get())
     }
 
+    fn next_after(&self, generation: u64) -> Option<ConId> {
+        self.order
+            .range((Excluded(generation), Unbounded))
+            .next()
+            .map(|(&generation, &address)| ConId {
+                address,
+                generation,
+            })
+    }
+
     fn take(&mut self, raw: *mut Con) -> Option<Box<UnsafeCell<Con>>> {
-        self.entries
-            .remove(&(raw as usize))
-            .map(|entry| entry.storage)
+        let entry = self.entries.remove(&(raw as usize))?;
+        self.order.remove(&entry.generation);
+        Some(entry.storage)
     }
 }
 
 thread_local! {
     static CONTAINERS: RefCell<Arena> = RefCell::new(Arena::default());
+}
+
+/// A live creation-order traversal with no registry borrow across its body.
+/// Newly appended containers are visible before exhaustion; removed entries are
+/// skipped. After the first `None`, traversal remains exhausted.
+#[derive(Default)]
+pub(crate) struct Containers {
+    generation: u64,
+    finished: bool,
+}
+impl Iterator for Containers {
+    type Item = ConId;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.finished {
+            return None;
+        }
+        let next = CONTAINERS.with(|arena| arena.borrow().next_after(self.generation));
+        match next {
+            Some(id) => self.generation = id.generation,
+            None => self.finished = true,
+        }
+        next
+    }
+}
+impl std::iter::FusedIterator for Containers {}
+
+pub(crate) fn containers() -> Containers {
+    Containers::default()
 }
 
 pub(super) fn allocate(con: Con) -> *mut Con {
@@ -105,21 +147,121 @@ pub(super) fn lookup_address(address: usize) -> *mut Con {
     })
 }
 
+/// Remove graph-wide membership and retain ownership while native resources
+/// are cleaned up. The caller must finish using all raw links before dropping
+/// this owner. No registry borrow is held while that cleanup runs.
+pub(super) fn take_owner(raw: *mut Con) -> Box<UnsafeCell<Con>> {
+    CONTAINERS
+        .with(|arena| arena.borrow_mut().take(raw))
+        .expect("container ownership released twice or outside its arena")
+}
+
 /// # Safety
 /// The container was allocated here; all external graph memberships have been
 /// unlinked and native resources released. No callback may use its address again.
+#[cfg(test)]
 pub(super) unsafe fn release(raw: *mut Con) {
-    let storage = CONTAINERS
-        .with(|arena| arena.borrow_mut().take(raw))
-        .expect("container ownership released twice or outside its arena");
-    // Drop outside the registry borrow so future owned fields can safely run
-    // destructors that themselves interact with the event-thread registry.
-    drop(storage);
+    drop(take_owner(raw));
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn live_iterator_preserves_creation_order_through_removal_and_append() {
+        let first = allocate(Con::empty());
+        let second = allocate(Con::empty());
+        let third = allocate(Con::empty());
+        let first_id = identity(first).unwrap();
+        let second_id = identity(second).unwrap();
+        let third_id = identity(third).unwrap();
+        let mut iter = containers();
+        assert_eq!(iter.next(), Some(first_id));
+        // Removing both the current and next container never dereferences the
+        // deleted current link and must not lose the surviving later entry.
+        unsafe {
+            release(first);
+            release(second);
+        }
+        let appended = allocate(Con::empty());
+        let appended_id = identity(appended).unwrap();
+        assert!(resolve(first_id).is_none());
+        assert!(resolve(second_id).is_none());
+        assert_eq!(iter.next(), Some(third_id));
+        // A callback may start an independent traversal while the outer cursor
+        // is suspended, with neither traversal holding an arena borrow.
+        assert_eq!(
+            containers().collect::<Vec<_>>(),
+            vec![third_id, appended_id]
+        );
+        unsafe {
+            release(third);
+        }
+        assert_eq!(iter.next(), Some(appended_id));
+        unsafe {
+            release(appended);
+        }
+        assert_eq!(iter.next(), None);
+        let after_exhaustion = allocate(Con::empty());
+        assert_eq!(iter.next(), None);
+        assert_eq!(
+            containers().collect::<Vec<_>>(),
+            vec![identity(after_exhaustion).unwrap()]
+        );
+        unsafe {
+            release(after_exhaustion);
+        }
+    }
+
+    #[test]
+    fn retiring_owner_invalidates_traversal_and_identity_before_storage_drops() {
+        let raw = allocate(Con::empty());
+        let id = identity(raw).unwrap();
+        let owner = take_owner(raw);
+        assert!(resolve(id).is_none());
+        assert!(identity(raw).is_none());
+        assert!(!containers().any(|candidate| candidate == id));
+        // Native teardown still has valid stable storage, but callback lookups
+        // cannot rediscover an already retired container.
+        unsafe {
+            (*raw).num = 91;
+            assert_eq!((*owner.get()).num, 91);
+        }
+        let replacement = allocate(Con::empty());
+        assert_ne!(raw, replacement);
+        unsafe {
+            release(replacement);
+        }
+        drop(owner);
+    }
+
+    #[test]
+    fn production_lookups_choose_first_created_live_match() {
+        let mut first_window = Box::new(crate::types::Window::default());
+        let mut second_window = Box::new(crate::types::Window::default());
+        first_window.id = 0x123;
+        second_window.id = 0x123;
+        let mut first_value = Con::empty();
+        first_value.frame.id = 0x456;
+        first_value.window = &raw mut *first_window;
+        let first = allocate(first_value);
+        let mut second_value = Con::empty();
+        second_value.frame.id = 0x456;
+        second_value.window = &raw mut *second_window;
+        let second = allocate(second_value);
+        unsafe {
+            assert_eq!(super::super::con_by_window_id(0x123), first);
+            assert_eq!(super::super::con_by_frame_id(0x456), first);
+            assert_eq!(super::super::con_by_con_id(first as libc::c_long), first);
+            release(first);
+            assert!(super::super::con_by_con_id(first as libc::c_long).is_null());
+            assert_eq!(super::super::con_by_window_id(0x123), second);
+            assert_eq!(super::super::con_by_frame_id(0x456), second);
+            release(second);
+            assert!(super::super::con_by_window_id(0x123).is_null());
+        }
+    }
 
     #[test]
     fn stable_storage_survives_registry_growth_and_self_links_remain_valid() {

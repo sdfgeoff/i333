@@ -8,26 +8,26 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 25 wallclock secs ( 1.43 usr +  0.14 sys =  1.57 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 32 wallclock secs ( 1.67 usr +  0.14 sys =  1.81 CPU)\nResult: PASS",
     "profile": "debug",
     "build": "cargo test --locked",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "2ee2d5fc4f5d7f904cabd8f729cea7e1ca8ae9a162c3af09f87e63b3df292064",
-    "i3bar": "46b0b18b2ff300087d8f6566cf205a39ecda6ba55cb52e500fa6a50df8015e23",
-    "i3-config-wizard": "ce75c250cdcb4cd27ac9022a302f5c539e1202627a426172a7cd966a7b810d3c",
-    "i3-dump-log": "63fbdbb04ffd78ef420428eaed70a5a68f250d3f58a030cd7c33a9ae3bd7de84",
-    "i3-input": "f899e9c9e6f4e43fe0797c3e03dfee07f13ff7c2ee267c3fd3ec78c53761a135",
-    "i3-msg": "8eb5f47fe81fda3b96a3ed3bfa6705feb16efcf0681729bc30fe76b31cc21197",
-    "i3-nagbar": "66e18bdea5097b328b090e4fc87f3fc5edaf7894f1ad3c87a28e13684284d7ce"
+    "i3": "17a9f305c25812ffcec68ababc5f8fcc98d5bbd68f3f694620e97804a1fe0856",
+    "i3bar": "f921dad8ebecaa2b67ca882e7a5d9b511d693c747a86538da65ca1f43ac5db52",
+    "i3-config-wizard": "6ba03f406b104f1d427969ddcbaea3338b1daf4543f889f353612750ef856454",
+    "i3-dump-log": "e9bce8ebdadd274745718fea78f9eebbad6ad5d41eb402b078cf434458064586",
+    "i3-input": "950cdbb4cba732b8fedbf9e376c9e7adb4b4eec4c5c1a9368cb0b218bee5e4b6",
+    "i3-msg": "e52a1ff6ce04d6daee34553d6e834f13aa2a662d28b16f03addd80da32e68e9a",
+    "i3-nagbar": "5294a21467e8561812ca1aa98dc64f6f04fde3da6599d739f79e6e4775d2c117"
   },
-  "note": "Ten-member Cargo workspace. cargo test --locked passed 340 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug hashes match this Cargo-driven run. Owned rendering text, Serde command replies and stable Rust-owned container storage replace legacy allocation adapters. Remaining native callbacks and intrusive parent/child/focus graph links are explicit unsafe boundaries.",
+  "note": "Ten-member Cargo workspace. cargo test --locked passed 351 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug hashes match this Cargo-driven run. Owned rendering text, Serde command replies and stable Rust-owned container storage replace legacy allocation adapters. Remaining native callbacks and intrusive parent/child/focus graph links are explicit unsafe boundaries.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
   "additional_checks": {
     "headless_c_rust_state_comparisons": 54,
     "ipc_client_test_groups": 16,
-    "workspace_unit_tests": 340,
+    "workspace_unit_tests": 351,
     "core_and_bar_cli_comparisons": 39,
     "pcre2_compile_match_error_comparisons": 4620,
     "json_oracle_cases": 2218,
@@ -115,13 +115,13 @@
     "binary_count": 7,
     "native_library_discovery": "maintained native binding build scripts and dedicated sys crates; i3-build links only platform m/rt",
     "unit_tests": {
-      "i3": 155,
+      "i3": 164,
       "cargo_regression_wrappers": 8,
       "xkb_integration": 1,
       "i3-build": 3,
       "i3-common": 75,
       "native_graphics": 5,
-      "i3-json": 15,
+      "i3-json": 17,
       "i3-config-wizard": 5,
       "i3-dump-log": 5,
       "i3-input": 8,
@@ -136,7 +136,7 @@
     "cargo_fmt_check": true,
     "debug_build": true,
     "release_build": true,
-    "unit_tests_total_including_integration_checks": 340,
+    "unit_tests_total_including_integration_checks": 351,
     "test_command": "cargo test",
     "clean_source_command": "cargo test -p i3-test-support --features clean-source-check",
     "test_support": "development-only process capture, failure propagation and isolated regression orchestration",
@@ -716,6 +716,173 @@
         "upstream_validation": ".work/tmp/i333-suite-rust-kurj4atf/validation.json",
         "remaining": "See per-stage reports: full typed-ID parent/child/focus migration is staged, not claimed complete.",
         "clean_source_check": true
+      },
+      {
+        "checkpoint": 2,
+        "status": "validated",
+        "rust_reported_tests": 351,
+        "upstream_assertions": 4205,
+        "reports": {
+          "ownership-wave2-readers-report": {
+            "status": "implemented; frozen for root validation",
+            "files": [
+              "crates/i3/src/match.rs",
+              "crates/i3/src/manage.rs",
+              "crates/i3/src/scratchpad.rs",
+              "crates/i3/src/tiling_drag.rs",
+              "crates/i3/src/config.rs"
+            ],
+            "traversals": [
+              {
+                "file": "match.rs",
+                "function": "urgency_snapshot",
+                "behavior": "Resolve live creation-order IDs and copy only timestamp values; no reference escapes or callback overlap."
+              },
+              {
+                "file": "manage.rs",
+                "function": "restore_geometry",
+                "behavior": "Restore each current window in creation order; native XCB operations retain order and no next pointer cached."
+              },
+              {
+                "file": "config.rs",
+                "function": "free_configuration",
+                "behavior": "Reset assignment arrays and decoration caches for each live container; no owned registry borrow crosses cleanup."
+              },
+              {
+                "file": "scratchpad.rs",
+                "function": "scratchpad_show",
+                "behavior": "Creation-order cross-workspace search with same first-match move/focus/return behavior; preceding focused-workspace floating traversal retained."
+              },
+              {
+                "file": "tiling_drag.rs",
+                "function": "has_drop_targets",
+                "behavior": "Count same creation-order eligible targets, then existing output/workspace pass."
+              },
+              {
+                "file": "tiling_drag.rs",
+                "function": "find_drop_target",
+                "behavior": "Choose first creation-order hit, honoring fullscreen covering target and retaining output fallback."
+              }
+            ],
+            "tests": {
+              "new": "none: loop-body policy unchanged, arena worker owns live-order/removal/appending tests; existing urgency/scratchpad/drag/native regression checks cover consumers",
+              "format": "env -u RUSTUP_TOOLCHAIN rustfmt --edition2021 on5files passed",
+              "root_full_suite": "pending all reader migrations",
+              "peer_core_tests": "tree worker reports7/7 arena/lookup tests pass after all reader compile; root full suite pending"
+            },
+            "review": {
+              "files": [
+                "crates/i3/src/con/arena.rs",
+                "crates/i3/src/con.rs",
+                "crates/i3/src/tree.rs"
+              ],
+              "findings": "No actionable correctness issues found. Reviewed HashMap stable UnsafeCell ownership, BTreeMap monotonic generation ordering, ABA resolution, iterator registry borrow release, native cleanup owner lifetime, and registration/removal timing versus old global intrusive list. Requested focused iterator mutation/permanent-exhaustion tests from tree worker.",
+              "followup": "Tree worker added live mutation/exhaustion, retained-owner teardown and actual production lookup ordering tests. No further core findings."
+            },
+            "boundaries": [
+              "Raw Con pointers remain the graph/native API boundary after generation resolution. Parent/focus/floating intrusive links untouched in this stage.",
+              "No product generation snapshots, no premature next-pointer caches, no current desktop or nested-session interactions."
+            ]
+          },
+          "ownership-wave2-tree-report": {
+            "status": "complete_for_global_membership_stage_frozen",
+            "files": [
+              "crates/i3/src/con.rs",
+              "crates/i3/src/tree.rs",
+              "crates/i3/src/types.rs (Con link only)",
+              "crates/i3/src/con/arena.rs"
+            ],
+            "changes": [
+              "Removed global all_cons intrusive list and ConAllCons membership field/type; reader peer groups migrated separately.",
+              "Removed remaining tree.rs native init_array/static initializer, used only for global list.",
+              "Ordered BTreeMap generation index backs live insertion-order Containers iterator yielding generation checked ConId.",
+              "Iterator holds no registry borrow across loop body/callback, sees appends before first exhaustion, skips deleted members and remains fused after exhaustion.",
+              "con_free retires registry identity at old all_cons unlink point, retains Box owner through native cleanup, drops owner afterward.",
+              "Core window/frame/mark lookup and all-container unmark loops consume live typed registry iteration; address-based IPC IDs unchanged."
+            ],
+            "tests": {
+              "command": "env -u RUSTUP_TOOLCHAIN TMPDIR=\"$PWD/.work/tmp\" cargo test --locked -p i3 --bin i3 con::arena::tests",
+              "result": "7 passed, including final nested traversal assertion",
+              "log": ".work/ownership-wave2-tree-tests.log",
+              "cases": [
+                "Existing stable+selflink/storage growth tests",
+                "Existing stale-generation/address-reuse rejection tests",
+                "Existing real detach/delete repairs tiling/focus membership",
+                "Existing reentrant owner teardown",
+                "Live creation order/removal of current+next/append after last/fused exhaustion/nested independent traversal",
+                "Retire excludes identity+traversal before owner/native storage is dropped",
+                "Production first-match window/frame/con address lookup order and successor selection after delete"
+              ]
+            },
+            "remaining": "Parent/tiling/floating/focus intrusive lists and raw pointers still remain. This wave eliminates only global container membership; detailed next-stage facade/backend plan follows.",
+            "reviews": {
+              "reader_a_worker_review": "No actionable arena ownership/order/lookup findings."
+            }
+          },
+          "ownership-wave2-serde-report": {
+            "status": "frozen_ordinary_DTO_checkpoint",
+            "files": [
+              "crates/i3/src/ipc.rs",
+              "crates/i3/src/ipc_messages.rs",
+              "crates/i3/src/commands.rs",
+              "crates/i3/src/bindings.rs",
+              "crates/i3/src/randr.rs",
+              "crates/i3-json/src/generator.rs"
+            ],
+            "changes": [
+              "All4 reader_b global container traversals use live generational containers()/resolve() with no registry borrow across callbacks; removed obsolete bindings all_cons_head",
+              "Named Serde message structs: Shutdown,BindingState,Version,Tick,Binding,BindingEvent,Rectangle,Workspace,Output,IncludedConfig,Config; declaration fixes field order",
+              "NativeText owns bytes copied from native allocations; type is safe and forbids unsafe_code; native graph references do not survive socket/event callbacks",
+              "WireValue selects serde_json normal encoding or preflight compatibility event fallback for invalid UTF8/nonfinite/overdepth; no custom serde Serializer",
+              "Single schema macro generates Serialize struct and exceptional fallback order, explicit => renamed keys, raw r# identifiers and Omitted fields; nullable Option distinct from missing Omitted",
+              "Converted live message producers shutdown,binding state/version/tick/binding event/workspaces/outputs/config/marks/modes",
+              "Generator serialized validates existing state before invoking user serializer and checks byte structure depth against current frames; quoted brackets and escapes do not count"
+            ],
+            "tests": [
+              {
+                "command": "cargo check --locked -p i3",
+                "result": "passed",
+                "log": ".work/serde-protocol/wave2-check.log"
+              },
+              {
+                "command": "cargo test --locked -p i3 --bin i3 ipc::messages",
+                "result": "6 passed",
+                "log": ".work/serde-protocol/wave2-dto-tests.log"
+              },
+              {
+                "command": "cargo test --locked -p i3 --bin i3 ipc::typed_reply_tests",
+                "result": "3 passed",
+                "log": ".work/serde-protocol/wave2-reply-tests.log"
+              },
+              {
+                "command": "cargo test --locked -p i3-json --lib",
+                "result": "17 passed",
+                "log": ".work/serde-protocol/wave2-json-tests.log"
+              },
+              {
+                "command": "git diff --check",
+                "result": "passed"
+              }
+            ],
+            "tests_new": [
+              "6 typed DTO tests: exact order/null/unsigned rects, explicit tick NUL, invalid byte partial structures, duplicate strings, normal serde vs fallback, renamed/raw/omitted schema names, depth and NaN/Inf/-0.0",
+              "2 generator tests: depth127/128 structural boundary with quoted escaped brackets; impossible framing does not invoke serializer"
+            ],
+            "legacy_discovery": "Matching generator closes succeed even after sticky error and mismatched closes can replace it; typed fallback deliberately replays full old sequence to retain these unusual partial-output semantics.",
+            "remaining": [
+              "Node tree/in-place restart and bar configuration still use borrowed owned Generator and await typed snapshot serializers after this checkpoint",
+              "Bar ID string list still old safe generator (minor followup)",
+              "i3-json incremental parser/open-array stream framing retained for full compatibility",
+              "WireValue schema attrs limited to Omitted omission and explicit => rename conventions; arbitrary extra serde transformations would require matching fallback changes"
+            ],
+            "safety": "No live desktop/current nested session touched; no /tmp; no full cargo test by worker; awaiting root validation/commit before further product edits."
+          }
+        },
+        "upstream_validation": ".work/tmp/i333-suite-rust-9z2k3t6b/validation.json",
+        "remaining": "See per-stage reports: full typed-ID parent/child/focus migration is staged, not claimed complete.",
+        "ci": "Wave1 Ubuntu run40991585580 passes compiler/unit/runtime checks except upstream suite (4188 assertions); diagnostic expansion and investigation active.",
+        "latest_nightly_check": "cargo +nightly-2026-10-30 check --workspace --all-targets --locked passed (rustc1.101.0); repository nightly/default left unchanged",
+        "diagnostics": "Failed upstream runs expose bounded TAP summary and failing assertion records; success output/status unchanged."
       }
     ]
   },

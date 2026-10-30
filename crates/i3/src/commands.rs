@@ -1,8 +1,8 @@
 use crate::commands_parser::CommandParserState;
+use crate::con::arena::{containers, resolve};
 use crate::config::barconfigs;
 use crate::ipc::ipc_send_barconfig_update_event;
 use crate::randr::outputs;
-use crate::tree::all_cons;
 use crate::types::BarHiddenState;
 use crate::types::BarMode;
 use crate::types::BorderStyle;
@@ -181,10 +181,9 @@ pub unsafe fn cmd_criteria_match_windows(
     }
     (*(*cmd_output).ctx).owindows.tqh_first = ::core::ptr::null_mut::<owindow>();
     (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
-    let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut current_block_41: u64;
-    con = all_cons.tqh_first as *mut Con;
-    while !con.is_null() {
+    for id in containers() {
+        let Some(con) = resolve(id) else { continue };
         debuglog(
             c"%s:%s:%d - checking if con %p / %s matches\n"
                 .as_ptr()
@@ -308,7 +307,6 @@ pub unsafe fn cmd_criteria_match_windows(
             }
             _ => {}
         }
-        con = (*con).all_cons.tqe_next as *mut Con;
     }
 }
 

@@ -1,4 +1,4 @@
-use crate::tree::all_cons;
+use crate::con::arena::{containers, resolve};
 use crate::types::ScratchpadState;
 /*
  * vim:ts=4:sw=4:expandtab
@@ -198,8 +198,10 @@ pub unsafe fn scratchpad_show(mut con: *mut Con) -> bool {
         walk_con = (*walk_con).floating_windows.tqe_next as *mut Con;
     }
     focused_ws = con_get_workspace(focused);
-    walk_con = all_cons.tqh_first as *mut Con;
-    while !walk_con.is_null() {
+    for id in containers() {
+        let Some(walk_con) = resolve(id) else {
+            continue;
+        };
         let walk_ws: *mut Con = con_get_workspace(walk_con);
         if con.is_null()
             && !walk_ws.is_null()
@@ -232,7 +234,6 @@ pub unsafe fn scratchpad_show(mut con: *mut Con) -> bool {
             con_activate(con_descend_focused(walk_con));
             return true;
         }
-        walk_con = (*walk_con).all_cons.tqe_next as *mut Con;
     }
     if !con.is_null() && (*(*con).parent).scratchpad_state == ScratchpadState::None {
         debuglog(

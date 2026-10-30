@@ -1,4 +1,4 @@
-use crate::tree::all_cons;
+use crate::con::arena::{containers, resolve};
 use crate::types::FloatingState;
 use crate::types::UrgencyMatch;
 use crate::types::WindowDock;
@@ -460,12 +460,12 @@ unsafe fn borrowed_text<'a>(pointer: *const c_char) -> Option<&'a CStr> {
 /// not mutated during this traversal. Only value timestamps escape the boundary.
 unsafe fn urgency_snapshot() -> UrgencyRange {
     let mut range = UrgencyRange::default();
-    let mut con = unsafe { all_cons.tqh_first };
-    while let Some(container) = unsafe { con.as_ref() } {
+    for id in containers() {
+        let Some(con) = resolve(id) else { continue };
+        let container = unsafe { &*con };
         if let Some(window) = unsafe { container.window.as_ref() } {
             range.include((window.urgent.tv_sec, window.urgent.tv_usec));
         }
-        con = container.all_cons.tqe_next;
     }
     range
 }

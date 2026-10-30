@@ -377,7 +377,6 @@ pub struct Con {
     pub floating: FloatingState,
     pub nodes: crate::types::ConNodes,
     pub focused: crate::types::ConFocused,
-    pub all_cons: crate::types::ConAllCons,
     pub floating_windows: crate::types::ConFloatingWindows,
     pub on_remove_child: Option<unsafe fn(*mut crate::types::Con) -> ()>,
     pub scratchpad_state: ScratchpadState,
@@ -474,10 +473,6 @@ impl Con {
                 tqe_next: null_mut(),
                 tqe_prev: null_mut(),
             },
-            all_cons: ConAllCons {
-                tqe_next: null_mut(),
-                tqe_prev: null_mut(),
-            },
             floating_windows: ConFloatingWindows {
                 tqe_next: null_mut(),
                 tqe_prev: null_mut(),
@@ -489,13 +484,6 @@ impl Con {
             colormap: 0,
         }
     }
-}
-
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct ConAllCons {
-    pub tqe_next: *mut crate::types::Con,
-    pub tqe_prev: *mut *mut crate::types::Con,
 }
 
 #[derive(Copy, Clone)]

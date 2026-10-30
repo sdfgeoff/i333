@@ -1,5 +1,4 @@
 pub(crate) mod arena;
-use crate::tree::all_cons;
 use crate::types::BorderStyle;
 use crate::types::Direction;
 use crate::types::FloatingState;
@@ -85,10 +84,6 @@ pub unsafe fn con_new_skeleton(parent: *mut Con, window: *mut i3Window) -> *mut 
     let new = arena::allocate(Con::empty());
     (*new).on_remove_child =
         Some(con_on_remove_child as unsafe fn(*mut Con) -> ()) as Option<unsafe fn(*mut Con) -> ()>;
-    (*new).all_cons.tqe_next = ::core::ptr::null_mut::<Con>();
-    (*new).all_cons.tqe_prev = all_cons.tqh_last;
-    *all_cons.tqh_last = new as *mut Con;
-    all_cons.tqh_last = &raw mut (*new).all_cons.tqe_next;
     (*new).type_0 = CT_CON;
     (*new).window = window as *mut Window;
     (*new).max_user_border_style = config.default_border;
@@ -122,12 +117,9 @@ pub unsafe fn con_free(con: *mut Con) {
     free((*con).name as *mut ::core::ffi::c_void);
     free((*con).deco_render_params as *mut ::core::ffi::c_void);
     (*con).deco_render_params = ::core::ptr::null_mut::<deco_render_params>();
-    if !(*con).all_cons.tqe_next.is_null() {
-        (*(*con).all_cons.tqe_next).all_cons.tqe_prev = (*con).all_cons.tqe_prev;
-    } else {
-        all_cons.tqh_last = (*con).all_cons.tqe_prev;
-    }
-    *(*con).all_cons.tqe_prev = (*con).all_cons.tqe_next;
+    // Retire the identity before cleanup; the local owner keeps storage live
+    // until all native resources below have been released.
+    let owner = arena::take_owner(con);
     while !(*con).swallow_head.tqh_first.is_null() {
         let match_0: *mut Match = (*con).swallow_head.tqh_first as *mut Match;
         if !(*match_0).matches.tqe_next.is_null() {
@@ -160,7 +152,7 @@ pub unsafe fn con_free(con: *mut Con) {
         con,
     );
     // All graph links and native resources are released before Rust ownership.
-    arena::release(con);
+    drop(owner);
 }
 unsafe fn _con_attach(con: *mut Con, parent: *mut Con, previous: *mut Con, ignore_focus: bool) {
     (*con).parent = parent as *mut Con;
@@ -840,13 +832,13 @@ pub unsafe fn con_has_parent(con: *mut Con, parent: *mut Con) -> bool {
 }
 
 pub unsafe fn con_by_window_id(window: xcb_window_t) -> *mut Con {
-    let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
-    con = all_cons.tqh_first as *mut Con;
-    while !con.is_null() {
+    for id in arena::containers() {
+        let Some(con) = arena::resolve(id) else {
+            continue;
+        };
         if !(*con).window.is_null() && (*(*con).window).id == window {
             return con;
         }
-        con = (*con).all_cons.tqe_next as *mut Con;
     }
     ::core::ptr::null_mut::<Con>()
 }
@@ -860,25 +852,25 @@ pub unsafe fn con_exists(con: *mut Con) -> bool {
 }
 
 pub unsafe fn con_by_frame_id(frame: xcb_window_t) -> *mut Con {
-    let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
-    con = all_cons.tqh_first as *mut Con;
-    while !con.is_null() {
+    for id in arena::containers() {
+        let Some(con) = arena::resolve(id) else {
+            continue;
+        };
         if (*con).frame.id == frame {
             return con;
         }
-        con = (*con).all_cons.tqe_next as *mut Con;
     }
     ::core::ptr::null_mut::<Con>()
 }
 
 pub unsafe fn con_by_mark(mark: *const ::core::ffi::c_char) -> *mut Con {
-    let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
-    con = all_cons.tqh_first as *mut Con;
-    while !con.is_null() {
+    for id in arena::containers() {
+        let Some(con) = arena::resolve(id) else {
+            continue;
+        };
         if con_has_mark(con, mark) {
             return con;
         }
-        con = (*con).all_cons.tqe_next as *mut Con;
     }
     ::core::ptr::null_mut::<Con>()
 }
@@ -1006,7 +998,6 @@ pub unsafe fn con_mark(con: *mut Con, mark: *const ::core::ffi::c_char, mode: Ma
 }
 
 pub unsafe fn con_unmark(con: *mut Con, name: *const ::core::ffi::c_char) {
-    let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
     if name.is_null() {
         debuglog(
             c"%s:%s:%d - Unmarking all containers.\n"
@@ -1016,8 +1007,10 @@ pub unsafe fn con_unmark(con: *mut Con, name: *const ::core::ffi::c_char) {
             c"con_unmark".as_ptr(),
             919 as ::core::ffi::c_int,
         );
-        current = all_cons.tqh_first as *mut Con;
-        while !current.is_null() {
+        for id in arena::containers() {
+            let Some(current) = arena::resolve(id) else {
+                continue;
+            };
             if !(!con.is_null() && current != con) {
                 if !(*current).marks_head.tqh_first.is_null() {
                     while !(*current).marks_head.tqh_first.is_null() {
@@ -1037,7 +1030,6 @@ pub unsafe fn con_unmark(con: *mut Con, name: *const ::core::ffi::c_char) {
                     (*current).mark_changed = true;
                 }
             }
-            current = (*current).all_cons.tqe_next as *mut Con;
         }
     } else {
         debuglog(
@@ -1047,7 +1039,7 @@ pub unsafe fn con_unmark(con: *mut Con, name: *const ::core::ffi::c_char) {
             941 as ::core::ffi::c_int,
             name,
         );
-        current = if con.is_null() {
+        let current = if con.is_null() {
             con_by_mark(name)
         } else {
             con

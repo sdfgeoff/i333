@@ -1,5 +1,5 @@
+use crate::con::arena::{containers, resolve};
 use crate::con::{CF_NONE, CF_OUTPUT, CT_WORKSPACE};
-use crate::tree::all_cons;
 pub use crate::types::xoutput as Output;
 use crate::types::Direction;
 use crate::types::DragResult;
@@ -53,13 +53,11 @@ unsafe fn is_tiling_drop_target(con: *mut Con) -> bool {
 
 pub unsafe fn has_drop_targets() -> bool {
     let mut drop_targets: i32 = 0;
-    let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
-    con = all_cons.tqh_first as *mut Con;
-    while !con.is_null() {
+    for id in containers() {
+        let Some(con) = resolve(id) else { continue };
         if is_tiling_drop_target(con) {
             drop_targets += 1;
         }
-        con = (*con).all_cons.tqe_next as *mut Con;
     }
     let mut output: *mut Con = ::core::ptr::null_mut::<Con>();
     output = (*croot).focus_head.tqh_first as *mut Con;
@@ -83,12 +81,11 @@ pub unsafe fn has_drop_targets() -> bool {
     drop_targets > 1
 }
 unsafe fn find_drop_target(x: u32, y: u32) -> *mut Con {
-    let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
-    con = all_cons.tqh_first as *mut Con;
-    while !con.is_null() {
+    for id in containers() {
+        let Some(con) = resolve(id) else { continue };
         let rect: Rect = (*con).rect;
         if !rect_contains(rect, x, y) || !is_tiling_drop_target(con) {
-            con = (*con).all_cons.tqe_next as *mut Con;
+            continue;
         } else {
             let ws: *mut Con = con_get_workspace(con);
             let fs: *mut Con = con_get_fullscreen_covering_ws(ws);

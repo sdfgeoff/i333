@@ -35,7 +35,6 @@ pub type Output = xoutput;
 pub type i3Window = Window;
 
 pub use crate::application::ignore_event_sequence_t;
-pub use crate::bindings::all_cons_head;
 
 pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
@@ -46,10 +45,6 @@ pub static mut croot: *mut Con = ::core::ptr::null::<Con>() as *mut Con;
 
 pub static mut focused: *mut Con = ::core::ptr::null::<Con>() as *mut Con;
 
-pub static mut all_cons: all_cons_head = all_cons_head {
-    tqh_first: ::core::ptr::null::<Con>() as *mut Con,
-    tqh_last: ::core::ptr::null::<*mut Con>() as *mut *mut Con,
-};
 unsafe fn _create___i3() -> *mut Con {
     let mut __i3: *mut Con = con_new(croot, ::core::ptr::null_mut::<i3Window>());
     free((*__i3).name as *mut ::core::ffi::c_void);
@@ -1051,17 +1046,6 @@ pub unsafe fn tree_flatten(con: *mut Con) {
         current = next_0;
     }
 }
-unsafe extern "C" fn run_static_initializers() {
-    all_cons = all_cons_head {
-        tqh_first: ::core::ptr::null_mut::<Con>(),
-        tqh_last: &raw mut all_cons.tqh_first,
-    };
-}
-#[used]
-#[cfg_attr(target_os = "linux", link_section = ".init_array")]
-#[cfg_attr(target_os = "windows", link_section = ".CRT$XIB")]
-#[cfg_attr(target_os = "macos", link_section = "__DATA,__mod_init_func")]
-static INIT_ARRAY: [unsafe extern "C" fn(); 1] = [run_static_initializers];
 
 // Internal helpers use Rust linkage rather than foreign symbol lookup.
 use crate::ewmh::ewmh_update_desktop_properties;

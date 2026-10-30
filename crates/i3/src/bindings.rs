@@ -1,8 +1,8 @@
 use crate::application::bindings;
 use crate::commands_parser::parse_command;
+use crate::con::arena::{containers, resolve};
 use crate::config::modes;
 use crate::ipc::ipc_send_binding_event;
-use crate::tree::all_cons;
 use crate::types::BindingRelease;
 use crate::types::InputType;
 use i3_common::safewrappers::sasprintf;
@@ -25,12 +25,6 @@ pub const I3_XKB_GROUP_MASK_4: u32 = 8;
 pub const I3_XKB_GROUP_MASK_3: u32 = 4;
 pub const I3_XKB_GROUP_MASK_2: u32 = 2;
 
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct all_cons_head {
-    pub tqh_first: *mut Con,
-    pub tqh_last: *mut *mut Con,
-}
 pub use crate::application::bindings_head;
 
 #[derive(Copy, Clone)]
@@ -282,9 +276,8 @@ pub unsafe fn regrab_all_buttons(conn_0: *mut xcb_connection_t) {
     let buttons_owner = Native::take(buttons);
     xcb_grab_server(conn_0);
     let server_grab = ServerGrab(conn_0);
-    let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
-    con = all_cons.tqh_first as *mut Con;
-    while !con.is_null() {
+    for id in containers() {
+        let Some(con) = resolve(id) else { continue };
         if !(*con).window.is_null() {
             xcb_ungrab_button(
                 conn_0,
@@ -294,7 +287,6 @@ pub unsafe fn regrab_all_buttons(conn_0: *mut xcb_connection_t) {
             );
             xcb_grab_buttons(conn_0, (*(*con).window).id, buttons);
         }
-        con = (*con).all_cons.tqe_next as *mut Con;
     }
     drop(buttons_owner);
     drop(server_grab);

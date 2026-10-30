@@ -1,10 +1,12 @@
+#[path = "ipc_messages.rs"]
+mod messages;
 use crate::commands_parser::command_result_free;
 use crate::commands_parser::parse_command;
+use crate::con::arena::{containers, resolve};
 use crate::config::barconfigs;
 use crate::config::included_files;
 use crate::config::modes;
 use crate::randr::outputs;
-use crate::tree::all_cons;
 use crate::types::BarHiddenState;
 use crate::types::BarPosition;
 use crate::types::BindingRelease;
@@ -16,6 +18,7 @@ use crate::types::Orientation;
 use crate::types::ScratchpadState;
 use crate::types::ShutdownReason;
 use i3_common::safewrappers::sasprintf;
+use messages::WireValue;
 use std::cell::RefCell;
 use std::ffi::{CStr, CString};
 use std::io::Read;
@@ -333,25 +336,13 @@ pub unsafe fn ipc_send_event(
     }
 }
 unsafe fn ipc_send_shutdown_event(reason: ShutdownReason) {
-    let mut generator = i3_json::Generator::new();
-    let gen = &mut generator;
-    let _ = gen.start_object();
-    write_cstr(gen, c"change");
-    if reason == ShutdownReason::Restart {
-        write_cstr(gen, c"restart");
-    } else if reason == ShutdownReason::Exit {
-        write_cstr(gen, c"exit");
-    }
-    let _ = gen.end_object();
-    let payload = gen.bytes();
-    let length = payload.len();
-    ipc_send_event(
-        c"shutdown".as_ptr(),
-        I3_IPC_EVENT_SHUTDOWN as u32,
-        CString::new(payload)
-            .expect("JSON has no literal NUL")
-            .as_ptr(),
-    );
+    let event = messages::Shutdown {
+        change: match reason {
+            ShutdownReason::Restart => "restart",
+            ShutdownReason::Exit => "exit",
+        },
+    };
+    send_typed_event(c"shutdown", I3_IPC_EVENT_SHUTDOWN as u32, &event);
 }
 
 pub unsafe fn ipc_shutdown(reason: ShutdownReason, exempt_fd: ::core::ffi::c_int) {
@@ -521,6 +512,29 @@ fn write_bytes(generator: &mut i3_json::Generator, value: &[u8]) {
 fn write_cstr(generator: &mut i3_json::Generator, value: &CStr) {
     write_bytes(generator, value.to_bytes());
 }
+unsafe fn native_text(value: *const libc::c_char) -> messages::NativeText {
+    messages::NativeText::cstr(CStr::from_ptr(value))
+}
+fn unsigned_rect(rect: Rect) -> messages::Rectangle {
+    messages::Rectangle {
+        x: rect.x as i64,
+        y: rect.y as i64,
+        width: rect.width as i64,
+        height: rect.height as i64,
+    }
+}
+unsafe fn send_typed_reply<T: WireValue>(client: *mut ipc_client, message_type: u32, value: &T) {
+    let mut output = i3_json::Generator::new();
+    value.write(&mut output);
+    let payload = output.bytes();
+    ipc_send_client_message(client, payload.len(), message_type, payload.as_ptr());
+}
+unsafe fn send_typed_event<T: WireValue>(name: &CStr, message_type: u32, value: &T) {
+    let mut output = i3_json::Generator::new();
+    value.write(&mut output);
+    let payload = CString::new(output.bytes()).expect("JSON has no literal NUL");
+    ipc_send_event(name.as_ptr(), message_type, payload.as_ptr());
+}
 fn write_fields(
     generator: &mut i3_json::Generator,
     name: &str,
@@ -589,41 +603,20 @@ fn modifier_names(mask: u32) -> impl Iterator<Item = &'static str> {
     .into_iter()
     .filter_map(move |(bit, name)| (mask & (1 << bit) != 0).then_some(name))
 }
-unsafe fn dump_event_state_mask(gen: &mut i3_json::Generator, bind: *mut Binding) {
-    let mask = (*bind).event_state_mask;
-    let generator = gen;
-    let _ = generator.start_array();
-    for name in modifier_names(mask) {
-        let _ = generator.string(name);
-    }
-    let _ = generator.end_array();
-}
-unsafe fn dump_binding(gen: &mut i3_json::Generator, bind: *mut Binding) {
-    let _ = gen.start_object();
-    write_cstr(gen, c"input_code");
-    let _ = gen.integer((*bind).keycode as ::core::ffi::c_longlong);
-    write_cstr(gen, c"input_type");
-    write_cstr(
-        gen,
-        CStr::from_ptr(if (*bind).input_type == InputType::Keyboard {
-            c"keyboard".as_ptr()
+unsafe fn snapshot_binding(binding: *mut Binding) -> messages::Binding {
+    let modifiers: Vec<_> = modifier_names((*binding).event_state_mask).collect();
+    messages::Binding {
+        input_code: (*binding).keycode as i64,
+        input_type: if (*binding).input_type == InputType::Keyboard {
+            "keyboard"
         } else {
-            c"mouse".as_ptr()
-        }),
-    );
-    write_cstr(gen, c"symbol");
-    if (*bind).symbol.is_null() {
-        let _ = gen.null();
-    } else {
-        write_cstr(gen, CStr::from_ptr((*bind).symbol));
+            "mouse"
+        },
+        symbol: (!(*binding).symbol.is_null()).then(|| native_text((*binding).symbol)),
+        command: native_text((*binding).command),
+        mods: modifiers.clone(),
+        event_state_mask: modifiers,
     }
-    write_cstr(gen, c"command");
-    write_cstr(gen, CStr::from_ptr((*bind).command));
-    write_cstr(gen, c"mods");
-    dump_event_state_mask(gen, bind);
-    write_cstr(gen, c"event_state_mask");
-    dump_event_state_mask(gen, bind);
-    let _ = gen.end_object();
 }
 
 pub unsafe fn dump_node(gen: &mut i3_json::Generator, con: *mut Con, inplace_restart: bool) {
@@ -1296,69 +1289,33 @@ unsafe fn handle_get_workspaces(
     message_size: u32,
     message_type: u32,
 ) {
-    let mut generator = i3_json::Generator::new();
-    let gen = &mut generator;
-    let _ = gen.start_array();
-    let focused_ws: *mut Con = con_get_workspace(focused);
-    let mut output: *mut Con = ::core::ptr::null_mut::<Con>();
-    output = (*croot).nodes_head.tqh_first as *mut Con;
+    let mut workspaces = Vec::new();
+    let focused_workspace = con_get_workspace(focused);
+    let mut output = (*croot).nodes_head.tqh_first;
     while !output.is_null() {
         if !con_is_internal(output) {
-            let mut ws: *mut Con = ::core::ptr::null_mut::<Con>();
-            ws = (*output_get_content(output)).nodes_head.tqh_first as *mut Con;
-            while !ws.is_null() {
-                if (*ws).type_0 as ::core::ffi::c_uint
-                    == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-                {
-                } else {
-                    __assert_fail(
-                        c"ws->type == CT_WORKSPACE".as_ptr(),
-                        c"../src/ipc.c".as_ptr(),
-                        945 as ::core::ffi::c_uint,
-                        c"void handle_get_workspaces(ipc_client *, uint8_t *, int, uint32_t, uint32_t)".as_ptr(),
-                    );
-                };
-                let _ = gen.start_object();
-                write_cstr(gen, c"id");
-                let _ = gen.integer(ws as usize as ::core::ffi::c_longlong);
-                write_cstr(gen, c"num");
-                let _ = gen.integer((*ws).num as ::core::ffi::c_longlong);
-                write_cstr(gen, c"name");
-                write_cstr(gen, CStr::from_ptr((*ws).name));
-                write_cstr(gen, c"visible");
-                let _ = gen.boolean((workspace_is_visible(ws) as ::core::ffi::c_int) != 0);
-                write_cstr(gen, c"focused");
-                let _ = gen.boolean(((ws == focused_ws) as ::core::ffi::c_int) != 0);
-                write_cstr(gen, c"rect");
-                let _ = gen.start_object();
-                write_cstr(gen, c"x");
-                let _ = gen.integer((*ws).rect.x as ::core::ffi::c_longlong);
-                write_cstr(gen, c"y");
-                let _ = gen.integer((*ws).rect.y as ::core::ffi::c_longlong);
-                write_cstr(gen, c"width");
-                let _ = gen.integer((*ws).rect.width as ::core::ffi::c_longlong);
-                write_cstr(gen, c"height");
-                let _ = gen.integer((*ws).rect.height as ::core::ffi::c_longlong);
-                let _ = gen.end_object();
-                write_cstr(gen, c"output");
-                write_cstr(gen, CStr::from_ptr((*output).name));
-                write_cstr(gen, c"urgent");
-                let _ = gen.boolean(((*ws).urgent as ::core::ffi::c_int) != 0);
-                let _ = gen.end_object();
-                ws = (*ws).nodes.tqe_next as *mut Con;
+            let mut workspace = (*output_get_content(output)).nodes_head.tqh_first;
+            while !workspace.is_null() {
+                assert!(
+                    (*workspace).type_0 == CT_WORKSPACE as u32,
+                    "workspace type in output content"
+                );
+                workspaces.push(messages::Workspace {
+                    id: workspace as usize as i64,
+                    num: (*workspace).num as i64,
+                    name: native_text((*workspace).name),
+                    visible: workspace_is_visible(workspace),
+                    focused: workspace == focused_workspace,
+                    rect: unsigned_rect((*workspace).rect),
+                    output: native_text((*output).name),
+                    urgent: (*workspace).urgent,
+                });
+                workspace = (*workspace).nodes.tqe_next;
             }
         }
-        output = (*output).nodes.tqe_next as *mut Con;
+        output = (*output).nodes.tqe_next;
     }
-    let _ = gen.end_array();
-    let payload = gen.bytes();
-    let length = payload.len();
-    ipc_send_client_message(
-        client,
-        length as usize,
-        I3_IPC_REPLY_TYPE_WORKSPACES as u32,
-        payload.as_ptr(),
-    );
+    send_typed_reply(client, I3_IPC_REPLY_TYPE_WORKSPACES as u32, &workspaces);
 }
 unsafe fn handle_get_outputs(
     client: *mut ipc_client,
@@ -1367,52 +1324,24 @@ unsafe fn handle_get_outputs(
     message_size: u32,
     message_type: u32,
 ) {
-    let mut generator = i3_json::Generator::new();
-    let gen = &mut generator;
-    let _ = gen.start_array();
-    let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
-    output = outputs.tqh_first as *mut Output;
+    let mut result = Vec::new();
+    let mut output = outputs.tqh_first;
     while !output.is_null() {
-        let _ = gen.start_object();
-        write_cstr(gen, c"name");
-        write_cstr(gen, CStr::from_ptr(output_primary_name(output)));
-        write_cstr(gen, c"active");
-        let _ = gen.boolean(((*output).active as ::core::ffi::c_int) != 0);
-        write_cstr(gen, c"primary");
-        let _ = gen.boolean(((*output).primary as ::core::ffi::c_int) != 0);
-        write_cstr(gen, c"rect");
-        let _ = gen.start_object();
-        write_cstr(gen, c"x");
-        let _ = gen.integer((*output).rect.x as ::core::ffi::c_longlong);
-        write_cstr(gen, c"y");
-        let _ = gen.integer((*output).rect.y as ::core::ffi::c_longlong);
-        write_cstr(gen, c"width");
-        let _ = gen.integer((*output).rect.width as ::core::ffi::c_longlong);
-        write_cstr(gen, c"height");
-        let _ = gen.integer((*output).rect.height as ::core::ffi::c_longlong);
-        let _ = gen.end_object();
-        write_cstr(gen, c"current_workspace");
-        let mut ws: *mut Con = ::core::ptr::null_mut::<Con>();
-        if !(*output).con.is_null() && {
-            ws = con_get_fullscreen_con((*output).con, CF_OUTPUT);
-            !ws.is_null()
-        } {
-            write_cstr(gen, CStr::from_ptr((*ws).name));
+        let workspace = if (*output).con.is_null() {
+            std::ptr::null_mut()
         } else {
-            let _ = gen.null();
-        }
-        let _ = gen.end_object();
-        output = (*output).outputs.tqe_next as *mut Output;
+            con_get_fullscreen_con((*output).con, CF_OUTPUT)
+        };
+        result.push(messages::Output {
+            name: native_text(output_primary_name(output)),
+            active: (*output).active,
+            primary: (*output).primary,
+            rect: unsigned_rect((*output).rect),
+            current_workspace: (!workspace.is_null()).then(|| native_text((*workspace).name)),
+        });
+        output = (*output).outputs.tqe_next;
     }
-    let _ = gen.end_array();
-    let payload = gen.bytes();
-    let length = payload.len();
-    ipc_send_client_message(
-        client,
-        length as usize,
-        I3_IPC_REPLY_TYPE_OUTPUTS as u32,
-        payload.as_ptr(),
-    );
+    send_typed_reply(client, I3_IPC_REPLY_TYPE_OUTPUTS as u32, &result);
 }
 unsafe fn handle_get_marks(
     client: *mut ipc_client,
@@ -1421,29 +1350,16 @@ unsafe fn handle_get_marks(
     message_size: u32,
     message_type: u32,
 ) {
-    let mut generator = i3_json::Generator::new();
-    let gen = &mut generator;
-    let _ = gen.start_array();
-    let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
-    con = all_cons.tqh_first as *mut Con;
-    while !con.is_null() {
-        let mut mark: *mut mark_t = ::core::ptr::null_mut::<mark_t>();
-        mark = (*con).marks_head.tqh_first as *mut mark_t;
+    let mut marks = Vec::new();
+    for id in containers() {
+        let Some(con) = resolve(id) else { continue };
+        let mut mark = (*con).marks_head.tqh_first;
         while !mark.is_null() {
-            write_cstr(gen, CStr::from_ptr((*mark).name));
-            mark = (*mark).marks.tqe_next as *mut mark_t;
+            marks.push(native_text((*mark).name));
+            mark = (*mark).marks.tqe_next;
         }
-        con = (*con).all_cons.tqe_next as *mut Con;
     }
-    let _ = gen.end_array();
-    let payload = gen.bytes();
-    let length = payload.len();
-    ipc_send_client_message(
-        client,
-        length as usize,
-        I3_IPC_REPLY_TYPE_MARKS as u32,
-        payload.as_ptr(),
-    );
+    send_typed_reply(client, I3_IPC_REPLY_TYPE_MARKS as u32, &marks);
 }
 unsafe fn handle_get_version(
     client: *mut ipc_client,
@@ -1452,39 +1368,23 @@ unsafe fn handle_get_version(
     message_size: u32,
     message_type: u32,
 ) {
-    let mut generator = i3_json::Generator::new();
-    let gen = &mut generator;
-    let _ = gen.start_object();
-    write_cstr(gen, c"major");
-    let _ = gen.integer(MAJOR_VERSION as ::core::ffi::c_longlong);
-    write_cstr(gen, c"minor");
-    let _ = gen.integer(MINOR_VERSION as ::core::ffi::c_longlong);
-    write_cstr(gen, c"patch");
-    let _ = gen.integer(PATCH_VERSION as ::core::ffi::c_longlong);
-    write_cstr(gen, c"human_readable");
-    write_cstr(gen, CStr::from_ptr(i3_version));
-    write_cstr(gen, c"loaded_config_file_name");
-    write_cstr(gen, CStr::from_ptr(current_configpath));
-    write_cstr(gen, c"included_config_file_names");
-    let _ = gen.start_array();
-    let mut file: *mut IncludedFile = ::core::ptr::null_mut::<IncludedFile>();
-    file = included_files.tqh_first as *mut IncludedFile;
+    let mut included_config_file_names = Vec::new();
+    let mut file = included_files.tqh_first;
     while !file.is_null() {
-        if !(file == included_files.tqh_first) {
-            write_cstr(gen, CStr::from_ptr((*file).path));
+        if file != included_files.tqh_first {
+            included_config_file_names.push(native_text((*file).path));
         }
-        file = (*file).files.tqe_next as *mut IncludedFile;
+        file = (*file).files.tqe_next;
     }
-    let _ = gen.end_array();
-    let _ = gen.end_object();
-    let payload = gen.bytes();
-    let length = payload.len();
-    ipc_send_client_message(
-        client,
-        length as usize,
-        I3_IPC_REPLY_TYPE_VERSION as u32,
-        payload.as_ptr(),
-    );
+    let reply = messages::Version {
+        major: MAJOR_VERSION as i64,
+        minor: MINOR_VERSION as i64,
+        patch: PATCH_VERSION as i64,
+        human_readable: native_text(i3_version),
+        loaded_config_file_name: native_text(current_configpath),
+        included_config_file_names,
+    };
+    send_typed_reply(client, I3_IPC_REPLY_TYPE_VERSION as u32, &reply);
 }
 unsafe fn handle_get_bar_config(
     client: *mut ipc_client,
@@ -1559,24 +1459,13 @@ unsafe fn handle_get_binding_modes(
     message_size: u32,
     message_type: u32,
 ) {
-    let mut generator = i3_json::Generator::new();
-    let gen = &mut generator;
-    let _ = gen.start_array();
-    let mut mode: *mut Mode = ::core::ptr::null_mut::<Mode>();
-    mode = modes.slh_first as *mut Mode;
+    let mut names = Vec::new();
+    let mut mode = modes.slh_first;
     while !mode.is_null() {
-        write_cstr(gen, CStr::from_ptr((*mode).name));
+        names.push(native_text((*mode).name));
         mode = (*mode).modes.sle_next;
     }
-    let _ = gen.end_array();
-    let payload = gen.bytes();
-    let length = payload.len();
-    ipc_send_client_message(
-        client,
-        length as usize,
-        I3_IPC_REPLY_TYPE_BINDING_MODES as u32,
-        payload.as_ptr(),
-    );
+    send_typed_reply(client, I3_IPC_REPLY_TYPE_BINDING_MODES as u32, &names);
 }
 fn parse_subscriptions(message: &[u8]) -> (Vec<CString>, Result<(), i3_json::ParseError>) {
     let events = Rc::new(RefCell::new(Vec::new()));
@@ -1650,36 +1539,23 @@ unsafe fn handle_get_config(
     message_size: u32,
     message_type: u32,
 ) {
-    let mut generator = i3_json::Generator::new();
-    let gen = &mut generator;
-    let _ = gen.start_object();
-    write_cstr(gen, c"config");
-    let mut file: *mut IncludedFile = included_files.tqh_first as *mut IncludedFile;
-    write_cstr(gen, CStr::from_ptr((*file).raw_contents));
-    write_cstr(gen, c"included_configs");
-    let _ = gen.start_array();
-    file = included_files.tqh_first as *mut IncludedFile;
+    let mut configs = Vec::new();
+    let first = included_files.tqh_first;
+    let config = native_text((*first).raw_contents);
+    let mut file = first;
     while !file.is_null() {
-        let _ = gen.start_object();
-        write_cstr(gen, c"path");
-        write_cstr(gen, CStr::from_ptr((*file).path));
-        write_cstr(gen, c"raw_contents");
-        write_cstr(gen, CStr::from_ptr((*file).raw_contents));
-        write_cstr(gen, c"variable_replaced_contents");
-        write_cstr(gen, CStr::from_ptr((*file).variable_replaced_contents));
-        let _ = gen.end_object();
-        file = (*file).files.tqe_next as *mut IncludedFile;
+        configs.push(messages::IncludedConfig {
+            path: native_text((*file).path),
+            raw_contents: native_text((*file).raw_contents),
+            variable_replaced_contents: native_text((*file).variable_replaced_contents),
+        });
+        file = (*file).files.tqe_next;
     }
-    let _ = gen.end_array();
-    let _ = gen.end_object();
-    let payload = gen.bytes();
-    let length = payload.len();
-    ipc_send_client_message(
-        client,
-        length as usize,
-        I3_IPC_REPLY_TYPE_CONFIG as u32,
-        payload.as_ptr(),
-    );
+    let reply = messages::Config {
+        config,
+        included_configs: configs,
+    };
+    send_typed_reply(client, I3_IPC_REPLY_TYPE_CONFIG as u32, &reply);
 }
 unsafe fn handle_send_tick(
     client: *mut ipc_client,
@@ -1688,29 +1564,14 @@ unsafe fn handle_send_tick(
     message_size: u32,
     message_type: u32,
 ) {
-    let mut generator = i3_json::Generator::new();
-    let gen = &mut generator;
-    let _ = gen.start_object();
-    write_cstr(gen, c"first");
-    let _ = gen.boolean((false_0) != 0);
-    write_cstr(gen, c"payload");
-    write_bytes(
-        gen,
-        std::slice::from_raw_parts(
-            (message as *mut ::core::ffi::c_uchar).cast::<u8>(),
+    let event = messages::Tick {
+        first: false,
+        payload: messages::NativeText::bytes(std::slice::from_raw_parts(
+            message,
             message_size as usize,
-        ),
-    );
-    let _ = gen.end_object();
-    let payload = gen.bytes();
-    let length = payload.len();
-    ipc_send_event(
-        c"tick".as_ptr(),
-        I3_IPC_EVENT_TICK as u32,
-        CString::new(payload)
-            .expect("JSON has no literal NUL")
-            .as_ptr(),
-    );
+        )),
+    };
+    send_typed_event(c"tick", I3_IPC_EVENT_TICK as u32, &event);
 
     let reply: *const ::core::ffi::c_char = c"{\"success\":true}".as_ptr();
     ipc_send_client_message(
@@ -1819,20 +1680,10 @@ unsafe fn handle_get_binding_state(
     message_size: u32,
     message_type: u32,
 ) {
-    let mut generator = i3_json::Generator::new();
-    let gen = &mut generator;
-    let _ = gen.start_object();
-    write_cstr(gen, c"name");
-    write_cstr(gen, CStr::from_ptr(current_binding_mode));
-    let _ = gen.end_object();
-    let payload = gen.bytes();
-    let length = payload.len();
-    ipc_send_client_message(
-        client,
-        length as usize,
-        I3_IPC_REPLY_TYPE_GET_BINDING_STATE as u32,
-        payload.as_ptr(),
-    );
+    let reply = messages::BindingState {
+        name: native_text(current_binding_mode),
+    };
+    send_typed_reply(client, I3_IPC_REPLY_TYPE_GET_BINDING_STATE as u32, &reply);
 }
 
 pub const handlers: [handler_t; 13] = unsafe {
@@ -2190,32 +2041,16 @@ pub unsafe fn ipc_send_binding_event(
         (*bind).symbol,
         (*bind).keycode,
     );
-    let locale = NumericLocale::c();
-    let mut generator = i3_json::Generator::new();
-    let gen = &mut generator;
-    let _ = gen.start_object();
-    write_cstr(gen, c"change");
-    write_cstr(gen, CStr::from_ptr(event_type));
-    write_cstr(gen, c"mode");
-    if modename.is_null() {
-        write_cstr(gen, c"default");
-    } else {
-        write_cstr(gen, CStr::from_ptr(modename));
-    }
-    write_cstr(gen, c"binding");
-    dump_binding(gen, bind);
-    let _ = gen.end_object();
-    let payload = gen.bytes();
-    let length = payload.len();
-    ipc_send_event(
-        c"binding".as_ptr(),
-        I3_IPC_EVENT_BINDING as u32,
-        CString::new(payload)
-            .expect("JSON has no literal NUL")
-            .as_ptr(),
-    );
-
-    drop(locale);
+    let event = messages::BindingEvent {
+        change: native_text(event_type),
+        mode: native_text(if modename.is_null() {
+            c"default".as_ptr()
+        } else {
+            modename
+        }),
+        binding: snapshot_binding(bind),
+    };
+    send_typed_event(c"binding", I3_IPC_EVENT_BINDING as u32, &event);
 }
 
 pub unsafe fn ipc_confirm_restart(client: *mut ipc_client) {

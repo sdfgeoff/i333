@@ -2,10 +2,10 @@ use crate::application::assignments;
 use crate::application::bindings;
 use crate::application::ws_assignments;
 use crate::bindings::binding_free;
+use crate::con::arena::{containers, resolve};
 use crate::config_parser::free_variables;
 use crate::config_parser::parse_file;
 use crate::config_parser::ConfigParserState;
-use crate::tree::all_cons;
 use crate::types::BorderStyle;
 use crate::types::ConfigLoad;
 use crate::types::FocusActivation;
@@ -739,9 +739,8 @@ unsafe fn free_configuration() {
         free(barconfig as *mut ::core::ffi::c_void);
         barconfig = ::core::ptr::null_mut::<Barconfig>();
     }
-    let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
-    con = all_cons.tqh_first as *mut Con;
-    while !con.is_null() {
+    for id in containers() {
+        let Some(con) = resolve(id) else { continue };
         if !(*con).window.is_null() {
             (*(*con).window).nr_assignments = 0 as u32;
             free((*(*con).window).ran_assignments as *mut ::core::ffi::c_void);
@@ -749,7 +748,6 @@ unsafe fn free_configuration() {
         }
         free((*con).deco_render_params as *mut ::core::ffi::c_void);
         (*con).deco_render_params = ::core::ptr::null_mut::<deco_render_params>();
-        con = (*con).all_cons.tqe_next as *mut Con;
     }
     free_font();
     free(config.ipc_socket_path as *mut ::core::ffi::c_void);

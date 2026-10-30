@@ -39,6 +39,10 @@ impl Generator {
         &self.buffer
     }
 
+    pub fn nesting_depth(&self) -> usize {
+        self.stack.len()
+    }
+
     /// Discard emitted bytes without changing the enclosing stream structure.
     pub fn clear(&mut self) {
         self.buffer.clear();
@@ -90,7 +94,21 @@ impl Generator {
         &mut self,
         value: &T,
     ) -> Result<(), GenerateError> {
+        // Reject impossible framing before invoking user-provided Serialize.
+        if let Some(error) = self.error {
+            return Err(error);
+        }
+        match self.stack.last() {
+            Some(Frame::Object {
+                key_expected: true, ..
+            }) => return self.fail(GenerateError::KeysMustBeStrings),
+            None if self.root_started => return self.fail(GenerateError::Complete),
+            _ => {}
+        }
         let bytes = serde_json::to_vec(value).map_err(|_| GenerateError::InvalidState)?;
+        if self.stack.len().saturating_add(serialized_depth(&bytes)) > 128 {
+            return self.fail(GenerateError::DepthExceeded);
+        }
         self.before_value()?;
         self.buffer.extend_from_slice(&bytes);
         Ok(())
@@ -187,9 +205,78 @@ impl Generator {
     }
 }
 
+// Serde produced valid JSON; only quoted-string/escape state is needed to count
+// nesting. Brackets inside text do not contribute to the structural limit.
+fn serialized_depth(bytes: &[u8]) -> usize {
+    let mut depth = 0_usize;
+    let mut maximum = 0;
+    let mut quoted = false;
+    let mut escaped = false;
+    for byte in bytes {
+        if quoted {
+            if escaped {
+                escaped = false;
+            } else if *byte == b'\\' {
+                escaped = true;
+            } else if *byte == b'"' {
+                quoted = false;
+            }
+        } else {
+            match byte {
+                b'"' => quoted = true,
+                b'[' | b'{' => {
+                    depth += 1;
+                    maximum = maximum.max(depth);
+                }
+                b']' | b'}' => depth -= 1,
+                _ => {}
+            }
+        }
+    }
+    maximum
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn serialized_depth_counts_structure_and_respects_parent_frames() {
+        let mut output = Generator::new();
+        for _ in 0..127 {
+            output.start_array().unwrap();
+        }
+        output.serialized(&["[[[", "\\\"{}}]"]).unwrap();
+        assert_eq!(output.nesting_depth(), 127);
+        output.start_array().unwrap();
+        let before = output.bytes().to_vec();
+        assert_eq!(
+            output.serialized(&Vec::<u8>::new()),
+            Err(GenerateError::DepthExceeded)
+        );
+        assert_eq!(output.bytes(), before);
+        assert_eq!(output.boolean(true), Err(GenerateError::DepthExceeded));
+        assert_eq!(serialized_depth(br#"{"a":[["}\"[["]]}"#), 3);
+    }
+    #[test]
+    fn impossible_framing_does_not_invoke_serde() {
+        struct MustNotRun;
+        impl serde::Serialize for MustNotRun {
+            fn serialize<S: serde::Serializer>(&self, _: S) -> Result<S::Ok, S::Error> {
+                panic!("Serialize must not run for rejected framing")
+            }
+        }
+        let mut output = Generator::new();
+        output.start_object().unwrap();
+        assert_eq!(
+            output.serialized(&MustNotRun),
+            Err(GenerateError::KeysMustBeStrings)
+        );
+        output.string("key").unwrap();
+        output.boolean(true).unwrap();
+        output.end_object().unwrap();
+        assert_eq!(output.serialized(&MustNotRun), Err(GenerateError::Complete));
+        assert_eq!(output.serialized(&MustNotRun), Err(GenerateError::Complete));
+    }
     #[test]
     fn serialized_values_share_stream_framing_without_consuming_rejected_values() {
         struct Rejected;

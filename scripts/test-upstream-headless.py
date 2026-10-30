@@ -43,6 +43,46 @@ def executable(name, directory, env):
     return Path(path).resolve()
 
 
+def failure_details(suite, output, limit=12000):
+    """Surface failing TAP records without flooding Cargo/CI with passing tests."""
+    summary = re.search(r"Test Summary Report\n.*?Result: \w+", output, re.S)
+    failed = set(re.findall(r"^(.+?\.t) \(Wstat:", summary[0] if summary else "", re.M))
+    sections = []
+    if summary:
+        sections.append("Upstream failure summary:\n" + summary[0])
+    for path in sorted(suite.glob("testsuite-*/complete-run.log")):
+        try:
+            text = path.read_text(errors="replace")
+        except OSError as error:
+            sections.append(f"Could not read {path}: {error}")
+            continue
+        records = list(re.finditer(r"^output for (.+):\n", text, re.M))
+        for index, record in enumerate(records):
+            end = records[index + 1].start() if index + 1 < len(records) else len(text)
+            body = text[record.end():end]
+            markers = list(re.finditer(r"^(?:not ok\b(?![^\n]*#\s*(?:TODO|SKIP)\b)|Bail out!)", body, re.M | re.I))
+            if record[1] not in failed and (failed or not markers):
+                continue
+            # Include diagnostic lines after each failed assertion and nearby
+            # context. Aborted tests without an assertion retain their last lines.
+            excerpts = []
+            for marker in markers[:3]:
+                before = body.rfind("\n", 0, max(0, marker.start() - 1)) + 1
+                excerpt = "\n".join(body[before:].splitlines()[:24])
+                excerpts.append(excerpt[:2500])
+            if not excerpts:
+                excerpts.append(body[-3000:])
+            sections.append(f"Failing TAP record: {record[1]}\n" + "\n...\n".join(excerpts))
+    if len(sections) <= int(summary is not None):
+        sections.append("Runner output tail:\n" + output[-6000:])
+    report = "\n\n".join(sections)
+    encoded = report.encode("utf-8")
+    if len(encoded) > limit:
+        suffix = b"\n[Failure details truncated; full runner/TAP logs remain in the suite directory.]"
+        report = encoded[:max(0, limit - len(suffix))].decode("utf-8", errors="ignore") + suffix.decode()
+    return report
+
+
 def run_suite(args):
     reference = (args.reference_build or find_reference()).resolve()
     if args.perl_lib is None:
@@ -117,7 +157,10 @@ def run_suite(args):
             raise
     output = log_path.read_text(errors="replace")
     summary = re.search(r"(All tests successful\.\n)?Files=.+?\nResult: \w+", output)
-    print(summary[0] if summary else output[-6000:])
+    if return_code != 0:
+        print(failure_details(suite, output), flush=True)
+    else:
+        print(summary[0] if summary else output[-6000:])
     hashes = {}
     import hashlib
     for name in PRODUCTS:

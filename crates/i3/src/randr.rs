@@ -1,7 +1,7 @@
 use crate::application::ws_assignments;
+use crate::con::arena::{containers, resolve};
 use crate::con::M_BELOW;
 use crate::r#match::{M_DOCK_BOTTOM, M_DOCK_TOP};
-use crate::tree::all_cons;
 use crate::types::Direction;
 use crate::types::KillWindow;
 use crate::types::Layout;
@@ -657,9 +657,10 @@ pub unsafe fn init_ws_for_output(output: *mut Output) {
     let current_block: u64;
     let content: *mut Con = output_get_content((*output).con);
     let previous_focus: *mut Con = con_get_workspace(focused);
-    let mut workspace: *mut Con = ::core::ptr::null_mut::<Con>();
-    workspace = all_cons.tqh_first as *mut Con;
-    while !workspace.is_null() {
+    for id in containers() {
+        let Some(workspace) = resolve(id) else {
+            continue;
+        };
         if !((*workspace).type_0 as ::core::ffi::c_uint
             != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
             || con_is_internal(workspace) as ::core::ffi::c_int != 0)
@@ -680,7 +681,6 @@ pub unsafe fn init_ws_for_output(output: *mut Output) {
                 workspace_move_to_output(workspace, output);
             }
         }
-        workspace = (*workspace).all_cons.tqe_next as *mut Con;
     }
     focused = content;
     if !(*content).nodes_head.tqh_first.is_null() {
