@@ -77,10 +77,10 @@
     "compile_only": true,
     "all_unit_and_integration_test_targets_compiled": true,
     "automatic_after_each_source_edit": false,
-    "last_verification_environment": "Local fresh-source check after ownership checkpoint1",
+    "last_verification_environment": "Ubuntu24 GitHub Actions structural check at ownership checkpoint2; subsequent relationship batches change Rust sources only",
     "last_verified_batch": 9,
-    "last_verified_commit": "aa823afeecdf0b106300604917c4438da61f0ce7",
-    "last_verified_ownership_checkpoint": 1
+    "last_verified_commit": "01b7ac4d3d75d0b683b553ce0bcfa2201baabe79",
+    "last_verified_ownership_checkpoint": 2
   },
   "repository_cleanup": {
     "obsolete_files_removed": 216,
@@ -141,8 +141,8 @@
     "test_command": "cargo test",
     "clean_source_command": "cargo test -p i3-test-support --features clean-source-check",
     "test_support": "development-only process capture, failure propagation and isolated regression orchestration",
-    "release_build_note": "Ownership checkpoint5 full CI passed375 Rust tests, upstream suite and release build: https://github.com/sdfgeoff/i333/actions/runs/40995352192. Final checkpoint6 source passes local full Cargo suite; final CI follows commit.",
-    "last_release_build_verified_commit": "9420896d0ba489838e7cdb3fd600bb660d614d65",
+    "release_build_note": "Final ownership code checkpoint9e04d02a passed Ubuntu CI formatting, full cargo test --locked and release build. Subsequent completion record changes are documentation only.",
+    "last_release_build_verified_commit": "9e04d02a5c039a560d6eaff0b76515bbc7ca109c",
     "rust_source_files": 139
   },
   "modernization": {
@@ -882,7 +882,7 @@
         },
         "upstream_validation": ".work/tmp/i333-suite-rust-9z2k3t6b/validation.json",
         "remaining": "See per-stage reports: full typed-ID parent/child/focus migration is staged, not claimed complete.",
-        "ci": "Wave1 Ubuntu run40991585580 passes compiler/unit/runtime checks except upstream suite (4188 assertions); diagnostic expansion and investigation active.",
+        "ci": "Historical upstream-only CI failure was diagnosed as test555 wrapper PID/log completion race. Assertion-preserving harness correction passed24 private C/Rust checks; final source CI is green.",
         "latest_nightly_check": "cargo +nightly-2026-10-30 check --workspace --all-targets --locked passed (rustc1.101.0); repository nightly/default left unchanged",
         "diagnostics": "Failed upstream runs expose bounded TAP summary and failing assertion records; success output/status unchanged."
       },
@@ -1841,7 +1841,7 @@
       },
       {
         "checkpoint": 6,
-        "status": "validated",
+        "status": "complete",
         "rust_reported_tests": 386,
         "upstream_assertions": 4205,
         "reports": {
@@ -2075,10 +2075,16 @@
             "Con productfunction inventory compared HEAD vsfinal unchanged; only removedfn name is testhelper node. con_num_visible_children present withsamepredicate/countrecursion afterpriorrestore"
           ],
           "notes": "No productedits or testsreruns duringrootvalidation; backendfinaltests/fullregressionremainrootgate."
+        },
+        "ci": {
+          "commit": "9e04d02a5c039a560d6eaff0b76515bbc7ca109c",
+          "url": "https://github.com/sdfgeoff/i333/actions/runs/40996552213",
+          "conclusion": "success",
+          "release_build": true
         }
       }
     ],
-    "ownership_plan_status": "All four requested migration stages implemented; 386 Rust-reported tests plus all native/runtime/upstream gates pass locally; final source CI pending.",
+    "ownership_plan_status": "Complete: owned rendering text, typed Serde protocol output, obsolete YAJL pointer adapter removal, and arena-owned generation-checked parent/global/floating/focus/tiling relationships. All local full regressions and final source CI pass.",
     "main_graph_relationships": {
       "allocation": "Stable Box<UnsafeCell<Con>> exclusively owned by event-thread arena; native factory/destructor allocation removed",
       "identity": "ConId validates allocation generation; IPC literal address IDs preserved",
@@ -2098,8 +2104,8 @@
     "subsequent_failure": "d6401e98 CI dependency preparation passed; formatting failed because direct rustfmt used edition2024 rather than workspace edition2021. Scoped import formatting corrected in batch4."
   },
   "last_observed_green_ci": {
-    "commit": "aa823afeecdf0b106300604917c4438da61f0ce7",
-    "url": "https://github.com/sdfgeoff/i333/actions/runs/40946740571",
+    "commit": "9e04d02a5c039a560d6eaff0b76515bbc7ca109c",
+    "url": "https://github.com/sdfgeoff/i333/actions/runs/40996552213",
     "conclusion": "success"
   },
   "ci_diagnostics": {
@@ -2107,6 +2113,11 @@
     "original_exit_status_preserved": true,
     "full_log": ".work/cargo-tests/full-cargo.log",
     "bounded_public_failure_annotation": true,
-    "wrapper_validation": "Fake Cargo statuses0,7,101 preserve one invocation, exact output, original exit status and escaped bounded tail. Final aa823afe GitHub Actions workflow fully succeeded; prior13f451ce test failure is superseded by this verified source checkpoint."
+    "wrapper_validation": "Fake Cargo statuses0,7,101 plus long Unicode/percent/CR output verify single invocation, original exit status, complete artifact and exact reconstructable bounded annotations. Seven TAP-report fixtures verify actual failed test diagnostics. Final source CI passes.",
+    "failure_tail_bytes": 24000,
+    "maximum_decoded_chunk_bytes": 3500,
+    "maximum_escaped_chunk_bytes": 3700,
+    "final_chunk_emitted_first": true,
+    "upstream_failure_details_bytes": 12000
   }
 }
