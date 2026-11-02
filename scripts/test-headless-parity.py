@@ -16,13 +16,15 @@ import os
 from pathlib import Path
 import select
 import shutil
+import signal
 import socket
 import struct
 import subprocess
 from workspace_temp import temporary_directory, make_tempdir
 import time
 
-from Xlib import X, display
+from Xlib import X, XK, display
+from Xlib.protocol import event as wire_event
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -90,15 +92,20 @@ def count_windows(node):
         count_windows(child) for key in ("nodes", "floating_nodes") for child in node.get(key, []))
 
 
+def private_environment(work):
+    env = {key: value for key, value in os.environ.items()
+           if key not in ("DISPLAY", "I3SOCK", "WAYLAND_DISPLAY", "XAUTHORITY",
+                          "DBUS_SESSION_BUS_ADDRESS", "NOTIFY_SOCKET", "LISTEN_PID",
+                          "LISTEN_FDS", "LISTEN_FDNAMES")}
+    env.update(HOME=str(work), XDG_CONFIG_HOME=str(work), XDG_RUNTIME_DIR=str(work))
+    return env
+
+
 @contextlib.contextmanager
-def session(binary, xvfb, *, force_xinerama=False, disable_randr15=False):
+def session(binary, xvfb, *, force_xinerama=False, disable_randr15=False, with_process=False):
     with temporary_directory(prefix="i333-headless-") as temporary:
         work = Path(temporary)
-        env = {k: v for k, v in os.environ.items()
-               if k not in ("DISPLAY", "I3SOCK", "WAYLAND_DISPLAY", "XAUTHORITY",
-                            "DBUS_SESSION_BUS_ADDRESS", "NOTIFY_SOCKET", "LISTEN_PID",
-                            "LISTEN_FDS", "LISTEN_FDNAMES")}
-        env.update(HOME=str(work), XDG_CONFIG_HOME=str(work), XDG_RUNTIME_DIR=str(work))
+        env = private_environment(work)
         pipe_read, pipe_write = os.pipe()
         with (work / "xvfb.log").open("wb") as xlog, (work / "wm.log").open("wb") as log:
             server = subprocess.Popen([xvfb, "-displayfd", str(pipe_write), "-screen", "0",
@@ -134,7 +141,7 @@ gaps outer 3
                 if wm.poll() is not None:
                     raise RuntimeError("WM exited: " + (work / "wm.log").read_text())
                 connection = display.Display(env["DISPLAY"])
-                yield connection, ipc
+                yield (connection, ipc, wm) if with_process else (connection, ipc)
             except BaseException:
                 print((work / "wm.log").read_text(errors="replace")[-6000:])
                 raise
@@ -246,6 +253,125 @@ def exercise_output_backend(binary, xvfb, *, force_xinerama=False, disable_randr
     return snapshots
 
 
+def has_window(node, window):
+    return node.get("window") == window or any(
+        has_window(child, window)
+        for key in ("nodes", "floating_nodes") for child in node.get(key, []))
+
+
+def exercise_lifecycle(binary, xvfb):
+    """Probe WM ownership/recovery using only captured private child handles."""
+    snapshots = []
+    with session(binary, xvfb) as (connection, ipc):
+        # Socket creation precedes startup completion. A round trip proves the
+        # signal handler, keymap and event dispatcher have all been installed.
+        assert request(ipc, 7)["human_readable"]
+        work = ipc.parent
+        env = private_environment(work)
+        env["DISPLAY"] = connection.get_display_name()
+        root = connection.screen().root
+        client = root.create_window(40, 50, 240, 180, 0, connection.screen().root_depth)
+        client.set_wm_class("replacement-client", "ReplacementClient")
+        client.map()
+        connection.sync()
+        wait_for(lambda: has_window(request(ipc, 4), client.id), "initial private client")
+        selection = connection.intern_atom("WM_S" + str(connection.get_default_screen()))
+        owner = connection.get_selection_owner(selection)
+        assert owner is not None
+        wm_class = owner.get_full_property(connection.intern_atom("WM_CLASS"), X.AnyPropertyType)
+        assert wm_class is not None
+        assert bytes(wm_class.value) == b"i3-WM_Sn\0i3-WM_Sn\0"
+        snapshots.append(("selection-owner-class", list(wm_class.value)))
+
+        contender_ipc = work / "contender.sock"
+        config = work / "contender.config"
+        config.write_text((work / "config").read_text().replace(str(ipc), str(contender_ipc)))
+        rejected = subprocess.run([str(binary), "-a", "-c", str(config)], cwd=work, env=env,
+                                  stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=8)
+        assert rejected.returncode == 1, rejected.stdout.decode(errors="replace")
+        assert b"Another window manager is already running (WM_Sn is owned)" in rejected.stdout
+        refusal = {
+            "exit_code": rejected.returncode,
+            "owner_retained": connection.get_selection_owner(selection).id == owner.id,
+            "client_retained": has_window(request(ipc, 4), client.id),
+        }
+        assert refusal["owner_retained"] and refusal["client_retained"]
+        snapshots.append(("selection-owner-refusal", refusal))
+        replacement = None
+        with (work / "replacement.log").open("wb") as log:
+            try:
+                replacement = subprocess.Popen([str(binary), "-a", "--replace", "-c", str(config)],
+                                               cwd=work, env=env, stdout=log, stderr=log)
+
+                def replacement_ready():
+                    if replacement.poll() is not None:
+                        raise AssertionError((work / "replacement.log").read_text(errors="replace"))
+                    try:
+                        return has_window(request(contender_ipc, 4), client.id)
+                    except (OSError, RuntimeError):
+                        return False
+
+                wait_for(replacement_ready, "replacement WM to retain its private client")
+                client.get_geometry()
+                assert connection.get_selection_owner(selection).id != owner.id
+                assert request(contender_ipc, 7)["human_readable"]
+                snapshots.append(("selection-owner-replacement", normalize(request(contender_ipc, 4))))
+                client.destroy()
+                connection.sync()
+            finally:
+                # Only the Popen child created above is signalled.
+                if replacement is not None and replacement.poll() is None:
+                    replacement.terminate()
+                    try:
+                        replacement.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        replacement.kill()
+                        replacement.wait()
+
+    with session(binary, xvfb, with_process=True) as (connection, ipc, wm):
+        assert request(ipc, 7)["human_readable"]
+        root = connection.screen().root
+        initial = {window.id for window in root.query_tree().children}
+
+        def dialogs():
+            return [window for window in root.query_tree().children
+                    if window.id not in initial and window.get_attributes().override_redirect
+                    and window.get_attributes().map_state == X.IsViewable]
+
+        # Signal only the Popen handle returned by this private session. Never
+        # discover a process via desktop state, server atoms, or a process scan.
+        wm.send_signal(signal.SIGABRT)
+        wait_for(lambda: bool(dialogs()), "private crash dialog")
+        dialog = dialogs()[0]
+        dialog.send_event(wire_event.Expose(window=dialog, x=0, y=0, width=1, height=1, count=0),
+                          event_mask=0)
+        keycode = connection.keysym_to_keycode(XK.string_to_keysym("r"))
+        assert keycode
+        dialog.send_event(wire_event.KeyPress(time=X.CurrentTime, root=root, window=dialog,
+                                             child=X.NONE, root_x=0, root_y=0, event_x=0, event_y=0,
+                                             state=0, same_screen=1, detail=keycode), event_mask=0)
+        connection.sync()
+        wait_for(lambda: all(window.id != dialog.id for window in root.query_tree().children),
+                 "restart from private crash dialog")
+
+        def restarted_ipc_ready():
+            try:
+                return bool(request(ipc, 7)["human_readable"])
+            except (OSError, RuntimeError):
+                return False
+
+        wait_for(restarted_ipc_ready, "restarted private IPC socket")
+        assert wm.poll() is None
+        reply = request(ipc, 0, "nop after-crash-restart")
+        assert reply and all(item.get("success") for item in reply)
+        snapshots.append(("crash-dialog-restart", {
+            "wm_running": wm.poll() is None,
+            "ipc_command_succeeded": all(item.get("success") for item in reply),
+            "crash_dialog_removed": all(window.id != dialog.id for window in root.query_tree().children),
+        }))
+    return snapshots
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--xvfb", default=shutil.which("Xvfb"))
@@ -265,7 +391,8 @@ def main():
     def exercise_all(binary):
         return (exercise(binary, args.xvfb)
                 + exercise_output_backend(binary, args.xvfb, force_xinerama=True)
-                + exercise_output_backend(binary, args.xvfb, disable_randr15=True))
+                + exercise_output_backend(binary, args.xvfb, disable_randr15=True)
+                + exercise_lifecycle(binary, args.xvfb))
 
     candidate = exercise_all(args.candidate.resolve())
     if args.reference is None:
