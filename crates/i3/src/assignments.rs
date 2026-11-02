@@ -13,7 +13,6 @@ use crate::log::debuglog;
 use crate::r#match::match_matches_window;
 use crate::tree::tree_render;
 use crate::types::{Assignment, Window};
-use i3_common::safewrappers::srealloc;
 
 // Shared with the command parser and IPC; allocation remains malloc-compatible.
 #[derive(Copy, Clone)]
@@ -62,37 +61,17 @@ fn already_ran(ran: &[*mut Assignment], assignment: *mut Assignment) -> bool {
     ran.contains(&assignment)
 }
 
-/// window must be live on the event thread, with a malloc-compatible ran array
-/// containing nr_assignments entries. The slice exists only during this query;
-/// it cannot survive a matching callback or command that mutates the graph.
+/// The Window is live on the event thread; this borrowed slice never crosses
+/// matching/command callbacks. Entries identify global Assignment nodes only.
 unsafe fn window_already_ran(window: *const Window, assignment: *mut Assignment) -> bool {
-    let count = unsafe { (*window).nr_assignments as usize };
-    if count == 0 {
-        return false;
-    }
-    assert!(
-        std::alloc::Layout::array::<*mut Assignment>(count).is_ok(),
-        "assignment slice size exceeds Rust bounds"
-    );
-    let ran = unsafe { std::slice::from_raw_parts((*window).ran_assignments, count) };
-    already_ran(ran, assignment)
+    already_ran(unsafe { &(*window).ran_assignments }, assignment)
 }
 
-/// Same live-window/owned-array contract as window_already_ran. Allocation can
-/// move the array, so no reference to it escapes this operation.
+/// Record a borrowed node identity before any callback can reload configuration.
 unsafe fn remember_assignment(window: *mut Window, assignment: *mut Assignment) {
-    let old_count = unsafe { (*window).nr_assignments };
-    let count = old_count.checked_add(1).expect("assignment count overflow");
-    let bytes = std::alloc::Layout::array::<*mut Assignment>(count as usize)
-        .expect("assignment allocation size overflow")
-        .size();
-    let ran =
-        unsafe { srealloc((*window).ran_assignments.cast(), bytes) }.cast::<*mut Assignment>();
-    unsafe {
-        ran.add(old_count as usize).write(assignment);
-        (*window).ran_assignments = ran;
-        (*window).nr_assignments = count;
-    }
+    let ran = unsafe { &mut (*window).ran_assignments };
+    assert!(ran.len() < u32::MAX as usize, "assignment count overflow");
+    ran.push(assignment);
 }
 
 /// Operates on i3's live event-thread graph. Matching and parsing may call back

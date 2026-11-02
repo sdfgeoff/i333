@@ -714,9 +714,7 @@ unsafe fn free_configuration() {
     for id in containers() {
         let Some(con) = resolve(id) else { continue };
         if !(*con).window.is_null() {
-            (*(*con).window).nr_assignments = 0 as u32;
-            free((*(*con).window).ran_assignments as *mut ::core::ffi::c_void);
-            (*(*con).window).ran_assignments = ::core::ptr::null_mut::<*mut Assignment>();
+            (*(*con).window).ran_assignments.clear();
         }
         free((*con).deco_render_params as *mut ::core::ffi::c_void);
         (*con).deco_render_params = ::core::ptr::null_mut::<deco_render_params>();

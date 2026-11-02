@@ -693,10 +693,24 @@ unsafe fn snapshot_node_header(con: *mut Con, restart: bool) -> messages::NodeHe
     };
     let properties = Omitted((!window.is_null() && !restart).then(|| {
         messages::WindowProperties {
-            class: optional_text((*window).class_class),
-            instance: optional_text((*window).class_instance),
-            window_role: optional_text((*window).role),
-            machine: optional_text((*window).machine),
+            class: messages::Omitted(
+                (*window)
+                    .class_class
+                    .as_deref()
+                    .map(messages::NativeText::cstr),
+            ),
+            instance: messages::Omitted(
+                (*window)
+                    .class_instance
+                    .as_deref()
+                    .map(messages::NativeText::cstr),
+            ),
+            window_role: messages::Omitted(
+                (*window).role.as_deref().map(messages::NativeText::cstr),
+            ),
+            machine: messages::Omitted(
+                (*window).machine.as_deref().map(messages::NativeText::cstr),
+            ),
             title: Omitted(
                 (*window)
                     .name

@@ -628,18 +628,20 @@ pub struct Rect {
     pub height: u32,
 }
 
+/// Owned client properties and resource payload; graph links borrow its stable
+/// address from the manager's arena rather than owning or copying this value.
 #[repr(C)]
 pub struct Window {
     pub id: u32,
     pub leader: u32,
     pub transient_for: u32,
-    pub nr_assignments: u32,
-    pub ran_assignments: *mut *mut crate::types::Assignment,
-    pub class_class: *mut ::core::ffi::c_char,
-    pub class_instance: *mut ::core::ffi::c_char,
+    /// Borrowed global assignment identities, cleared on configuration reload.
+    pub ran_assignments: Vec<*mut crate::types::Assignment>,
+    pub class_class: Option<std::ffi::CString>,
+    pub class_instance: Option<std::ffi::CString>,
     pub name: Option<i3_common::string::I3String>,
-    pub role: *mut ::core::ffi::c_char,
-    pub machine: *mut ::core::ffi::c_char,
+    pub role: Option<std::ffi::CString>,
+    pub machine: Option<std::ffi::CString>,
     pub name_x_changed: bool,
     pub uses_net_wm_name: bool,
     pub needs_take_focus: bool,
@@ -673,13 +675,12 @@ impl Default for Window {
             id: Default::default(),
             leader: Default::default(),
             transient_for: Default::default(),
-            nr_assignments: Default::default(),
-            ran_assignments: std::ptr::null_mut(),
-            class_class: std::ptr::null_mut(),
-            class_instance: std::ptr::null_mut(),
+            ran_assignments: Vec::new(),
+            class_class: None,
+            class_instance: None,
             name: None,
-            role: std::ptr::null_mut(),
-            machine: std::ptr::null_mut(),
+            role: None,
+            machine: None,
             name_x_changed: Default::default(),
             uses_net_wm_name: Default::default(),
             needs_take_focus: Default::default(),
@@ -714,6 +715,30 @@ impl Default for Window {
             managed_since: Default::default(),
             swallowed: Default::default(),
         }
+    }
+}
+
+// Native logging/sort adapters borrow C views without exposing ownership.
+impl Window {
+    pub fn class_class_ptr(&self) -> *const ::core::ffi::c_char {
+        self.class_class
+            .as_ref()
+            .map_or(std::ptr::null(), |text| text.as_ptr())
+    }
+    pub fn class_instance_ptr(&self) -> *const ::core::ffi::c_char {
+        self.class_instance
+            .as_ref()
+            .map_or(std::ptr::null(), |text| text.as_ptr())
+    }
+    pub fn role_ptr(&self) -> *const ::core::ffi::c_char {
+        self.role
+            .as_ref()
+            .map_or(std::ptr::null(), |text| text.as_ptr())
+    }
+    pub fn machine_ptr(&self) -> *const ::core::ffi::c_char {
+        self.machine
+            .as_ref()
+            .map_or(std::ptr::null(), |text| text.as_ptr())
     }
 }
 

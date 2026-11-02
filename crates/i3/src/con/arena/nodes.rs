@@ -653,12 +653,8 @@ mod tests {
             (*raw_parent).type_0 = ContainerType::DockArea;
             for (class, instance) in &text {
                 let mut window = Box::new(crate::types::Window::default());
-                window.class_class = class
-                    .as_ref()
-                    .map_or(std::ptr::null_mut(), |text| text.as_ptr().cast_mut());
-                window.class_instance = instance
-                    .as_ref()
-                    .map_or(std::ptr::null_mut(), |text| text.as_ptr().cast_mut());
+                window.class_class = class.clone();
+                window.class_instance = instance.clone();
                 let raw = allocate(Con::empty());
                 (*raw).type_0 = ContainerType::Con;
                 (*raw).window = &raw mut *window;

@@ -362,16 +362,14 @@ fn criteria_view(value: &Match) -> Criteria<'_> {
     }
 }
 
-/// Every non-null field points to immutable text alive for the borrowed model.
-unsafe fn text_properties<'a>(window: &'a Window) -> TextProperties<'a> {
-    unsafe {
-        TextProperties {
-            class: borrowed_text(window.class_class),
-            instance: borrowed_text(window.class_instance),
-            title: window.name.as_ref(),
-            role: borrowed_text(window.role),
-            machine: borrowed_text(window.machine),
-        }
+/// Text views borrow their Window's owners and cannot outlive the model.
+fn text_properties(window: &Window) -> TextProperties<'_> {
+    TextProperties {
+        class: window.class_class.as_deref(),
+        instance: window.class_instance.as_deref(),
+        title: window.name.as_ref(),
+        role: window.role.as_deref(),
+        machine: window.machine.as_deref(),
     }
 }
 
@@ -407,7 +405,7 @@ pub unsafe fn match_matches_window(raw_match: *mut Match, raw_window: *mut Windo
     let criteria = unsafe { criteria_view(&*raw_match) };
     let window = unsafe { &*raw_window };
     let properties = WindowProperties {
-        text: unsafe { text_properties(window) },
+        text: text_properties(window),
         id: window.id,
         window_type: window.window_type,
         dock: window.dock,

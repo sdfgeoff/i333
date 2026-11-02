@@ -10,7 +10,7 @@ pub(crate) mod nodes;
 mod ordered;
 pub(crate) mod parent;
 
-use crate::types::Con;
+use crate::types::{Con, Window};
 use std::cell::{RefCell, UnsafeCell};
 use std::collections::{BTreeMap, HashMap};
 use std::ops::Bound::{Excluded, Unbounded};
@@ -41,12 +41,24 @@ struct Arena {
     entries: HashMap<usize, Entry>,
     order: BTreeMap<u64, usize>,
     generation: u64,
+    // Only manager-created Windows are owned here. Con.window remains a
+    // borrowed stable address, including externally owned fixture windows.
+    // Keep this last: rendering/container records drop before Window payloads.
+    windows: HashMap<usize, Box<UnsafeCell<Window>>>,
 }
 
 // Surface owners drop with each container, before C atexit releases display
 // and visual owners. Their destructors never consult the TLS arena registry.
 
 impl Arena {
+    fn insert_window(&mut self, window: Window) -> *mut Window {
+        let storage = Box::new(UnsafeCell::new(window));
+        let raw = storage.get();
+        let previous = self.windows.insert(raw as usize, storage);
+        assert!(previous.is_none(), "duplicate live window address");
+        raw
+    }
+
     fn insert(&mut self, con: Con) -> *mut Con {
         self.generation = self
             .generation
@@ -151,6 +163,20 @@ pub(crate) fn containers() -> Containers {
     Containers::default()
 }
 
+/// Publish a fully constructed manager-owned Window with a stable address.
+pub(crate) fn allocate_window(window: Window) -> *mut Window {
+    CONTAINERS.with(|arena| arena.borrow_mut().insert_window(window))
+}
+
+/// Remove the manager's unique owner without keeping a registry borrow through
+/// payload destruction. A foreign/unknown/already-released pointer is rejected;
+/// external fixture boxes must be dropped by their own owner instead.
+pub(crate) fn take_window(raw: *mut Window) -> Box<UnsafeCell<Window>> {
+    CONTAINERS
+        .with(|arena| arena.borrow_mut().windows.remove(&(raw as usize)))
+        .expect("managed window ownership released twice or foreign window pointer")
+}
+
 pub(super) fn allocate(con: Con) -> *mut Con {
     CONTAINERS.with(|arena| arena.borrow_mut().insert(con))
 }
@@ -196,6 +222,48 @@ pub(super) unsafe fn release(raw: *mut Con) {
 mod tests {
     use super::parent::{parent_ptr, set_parent_ptr};
     use super::*;
+
+    #[test]
+    fn managed_windows_have_stable_owners_and_release_payloads_at_arena_drop() {
+        unsafe {
+            let image = cairo_sys::cairo_image_surface_create(cairo_sys::FORMAT_A_RGB32, 1, 1);
+            let observer = cairo_sys::cairo_surface_reference(image);
+            let mut assignment = Box::new(crate::types::Assignment::new(
+                crate::flags::AssignmentKind::COMMAND,
+                crate::types::Match::empty(),
+            ));
+            let assignment_ptr = std::ptr::from_mut(&mut *assignment);
+            let mut window = Window::default();
+            window.class_class = Some(c"\xffClass".to_owned());
+            window.ran_assignments.push(assignment_ptr);
+            window.icon = Some(i3_common::draw_util::CairoSurface::from_raw_owned(image));
+            let mut arena = Arena::default();
+            let raw = arena.insert_window(window);
+            for _ in 0..256 {
+                arena.insert_window(Window::default());
+            }
+            assert_eq!((*raw).class_class.as_deref(), Some(c"\xffClass"));
+            assert_eq!((*raw).ran_assignments, [assignment_ptr]);
+            drop(arena);
+            // Window Drop reclaimed its icon; only our observer remains. The
+            // assignment identity was borrowed, so its separate owner survives.
+            assert_eq!(cairo_sys::cairo_surface_get_reference_count(observer), 1);
+            cairo_sys::cairo_surface_destroy(observer);
+            assert_eq!(assignment.type_0, crate::flags::AssignmentKind::COMMAND);
+        }
+    }
+
+    #[test]
+    fn removing_managed_window_owner_ends_registry_borrow_before_drop() {
+        let raw = allocate_window(Window::default());
+        let owner = take_window(raw);
+        CONTAINERS.with(|arena| assert!(arena.try_borrow_mut().is_ok()));
+        drop(owner);
+        let foreign = Box::new(Window::default());
+        let foreign_address = std::ptr::from_ref(&*foreign) as usize;
+        assert!(std::panic::catch_unwind(|| take_window(foreign_address as *mut Window)).is_err());
+        assert!(foreign.class_class.is_none());
+    }
 
     #[test]
     fn arena_drop_releases_both_graphics_records_before_container_storage() {

@@ -178,13 +178,13 @@ unsafe fn _con_attach(con: *mut Con, parent: *mut Con, previous: *mut Con, ignor
             .unwrap_or(std::ptr::null_mut()) as *mut Con;
         while !loop_0.is_null() {
             let mut result: ::core::ffi::c_int = strcasecmp_nullable(
-                (*(*con).window).class_class,
-                (*(*loop_0).window).class_class,
+                (*(*con).window).class_class_ptr(),
+                (*(*loop_0).window).class_class_ptr(),
             );
             if result == 0 as ::core::ffi::c_int {
                 result = strcasecmp_nullable(
-                    (*(*con).window).class_instance,
-                    (*(*loop_0).window).class_instance,
+                    (*(*con).window).class_instance_ptr(),
+                    (*(*loop_0).window).class_instance_ptr(),
                 );
             }
             if result < 0 as ::core::ffi::c_int {
@@ -2639,10 +2639,10 @@ unsafe fn tree_representation(con: *mut Con) -> Vec<u8> {
     if con_is_leaf(con) {
         let name = if (*con).window.is_null() {
             c"nowin".as_ptr()
-        } else if (*(*con).window).class_instance.is_null() {
+        } else if (*(*con).window).class_instance.is_none() {
             c"noinstance".as_ptr()
         } else {
-            (*(*con).window).class_instance
+            (*(*con).window).class_instance_ptr()
         };
         return std::ffi::CStr::from_ptr(name).to_bytes().to_vec();
     }
@@ -2723,9 +2723,27 @@ pub unsafe fn con_parse_title_format(con: *mut Con) -> i3_common::string::I3Stri
                     .and_then(|text| text.cstr_or_report())
                     .map_or(std::ptr::null(), std::ffi::CStr::as_ptr),
             ),
-            capture((*win).class_class),
-            capture((*win).class_instance),
-            capture((*win).machine),
+            title_capture(
+                (*win)
+                    .class_class
+                    .as_deref()
+                    .map_or(&[][..], std::ffi::CStr::to_bytes),
+                markup,
+            ),
+            title_capture(
+                (*win)
+                    .class_instance
+                    .as_deref()
+                    .map_or(&[][..], std::ffi::CStr::to_bytes),
+                markup,
+            ),
+            title_capture(
+                (*win)
+                    .machine
+                    .as_deref()
+                    .map_or(&[][..], std::ffi::CStr::to_bytes),
+                markup,
+            ),
         )
     };
     let expanded = i3_common::format_placeholders::expand_cstr(

@@ -140,10 +140,10 @@ unsafe fn collect() -> BTreeMap<String, String> {
     let mut window = Box::new(Window::default());
     window.id = 4242;
     window.name = Some(i3_common::string::I3String::new("quoted \"title\" 雪"));
-    window.class_class = c"App".as_ptr().cast_mut();
-    window.class_instance = c"".as_ptr().cast_mut();
-    window.role = c"dialog".as_ptr().cast_mut();
-    window.machine = c"host".as_ptr().cast_mut();
+    window.class_class = Some(c"App".to_owned());
+    window.class_instance = Some(c"".to_owned());
+    window.role = Some(c"dialog".to_owned());
+    window.machine = Some(c"host".to_owned());
     window.transient_for = 123;
     (*leaf).window = &mut *window;
     (*leaf).border_style = BorderStyle::Normal;
@@ -164,12 +164,12 @@ unsafe fn collect() -> BTreeMap<String, String> {
     }
     (*leaf).percent = 0.5;
     let invalid = CStr::from_bytes_with_nul(b"\xff\0").unwrap();
-    window.class_class = invalid.as_ptr().cast_mut();
+    window.class_class = Some(invalid.to_owned());
     result.insert(
         "invalid_class".into(),
         node_bytes(leaf, false, 0, &allocated),
     );
-    window.class_class = c"App".as_ptr().cast_mut();
+    window.class_class = Some(c"App".to_owned());
     (*leaf).type_0 = ContainerType::from_raw(42);
     result.insert(
         "unknown_type".into(),

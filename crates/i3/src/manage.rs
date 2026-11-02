@@ -380,7 +380,7 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                     0 as ::core::ffi::c_int as u32,
                     4294967295 as u32,
                 );
-                cwindow = Box::into_raw(Box::new(i3Window::default()));
+                cwindow = crate::con::arena::allocate_window(i3Window::default());
                 (*cwindow).id = window;
                 (*cwindow).depth = get_visual_depth(attr.visual());
                 buttons = bindings_get_buttons_to_grab();
