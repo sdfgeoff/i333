@@ -125,6 +125,8 @@ def cases():
                 yield dict(name=f"grammar-{count}",chunks=[s.hex() for s in chunks],mode=mode,strict_unicode=raw in [b'"\\uD800"',b'"\\uDC00"',b'"\\uD800x"',b'"\xc0\xaf"',b'"\xed\xa0\x80"'])
     special=[(b'/*c*/[1,//line\n2]',1,True),(b'//end',1,True),(b'/*unfinished',1,True),
              (b'null true {} [] 1',8,True),(b'nulltrue',8,True),(b'01',8,True),
+             (b'true01',8,True),(b'null01',8,True),(b'false-01',8,True),
+             (b'1true01',8,True),(b'0false01',8,True),
              (b'{"version":1}\n[[{"full_text":"a"}]]',4,False),
              (b'[[],[{"full_text":"a"}],[{"full_text":"b"}]',0,False),
              (b'[[],[{"full_text":"a"}],[{"full_text":"b"}]',16,True),

@@ -65,33 +65,6 @@ use serde::Deserialize;
 use std::cell::{Cell, RefCell};
 use std::io::{self, Read};
 
-#[derive(Debug, Clone)]
-enum OwnedEvent {
-    Null,
-    Boolean(bool),
-    Number(String),
-    String(Vec<u8>),
-    MapKey(Vec<u8>),
-    StartMap,
-    EndMap,
-    StartArray,
-    EndArray,
-}
-impl OwnedEvent {
-    fn borrowed(&self) -> Event<'_> {
-        match self {
-            Self::Null => Event::Null,
-            Self::Boolean(value) => Event::Boolean(*value),
-            Self::Number(value) => Event::Number(value),
-            Self::String(value) => Event::String(value),
-            Self::MapKey(value) => Event::MapKey(value),
-            Self::StartMap => Event::StartMap,
-            Self::EndMap => Event::EndMap,
-            Self::StartArray => Event::StartArray,
-            Self::EndArray => Event::EndArray,
-        }
-    }
-}
 #[derive(Clone, Copy, Debug)]
 enum Prefix {
     None,
@@ -121,10 +94,6 @@ struct Checkpoint {
     prefix: Prefix,
     roots: usize,
 }
-struct Stamped {
-    event: OwnedEvent,
-    end: usize,
-}
 struct Context<'a> {
     bytes: &'a [u8],
     position: Cell<usize>,
@@ -132,21 +101,32 @@ struct Context<'a> {
     invalid_utf8: bool,
     depth: Cell<usize>,
     incomplete_scalar: Cell<bool>,
-    events: RefCell<Vec<Stamped>>,
+    events: Cell<usize>,
+    last_end: Cell<usize>,
+    skip: usize,
+    canceled: Cell<bool>,
+    handler: RefCell<&'a mut dyn EventHandler>,
     checkpoint: Cell<Option<Checkpoint>>,
     roots: Cell<usize>,
 }
 impl Context<'_> {
-    fn emit(&self, event: OwnedEvent, end: usize) {
-        self.events.borrow_mut().push(Stamped { event, end });
+    fn emit<E: serde::de::Error>(&self, event: Event<'_>, end: usize) -> Result<(), E> {
+        let index = self.events.get();
+        self.events.set(index + 1);
+        self.last_end.set(end);
+        if index >= self.skip && !self.handler.borrow_mut().on_event(event) {
+            self.canceled.set(true);
+            return Err(E::custom("event callback canceled JSON input"));
+        }
+        Ok(())
     }
     fn last_end(&self) -> usize {
-        self.events.borrow().last().map_or(0, |event| event.end)
+        self.last_end.get()
     }
     fn checkpoint(&self, prefix: Prefix) {
         self.checkpoint.set(Some(Checkpoint {
             end: self.last_end(),
-            events: self.events.borrow().len(),
+            events: self.events.get(),
             prefix,
             roots: self.roots.get(),
         }));
@@ -204,8 +184,7 @@ impl<'de> DeserializeSeed<'de> for ValueSeed<'_, '_> {
             Some(b'-' | b'0'..=b'9') => {
                 let raw = Box::<serde_json::value::RawValue>::deserialize(deserializer)?;
                 let end = start + raw.get().len();
-                context.emit(OwnedEvent::Number(raw.get().to_owned()), end);
-                Ok(())
+                context.emit(Event::Number(raw.get()), end)
             }
             Some(b'"') if context.invalid_utf8 => deserializer.deserialize_bytes(ScalarVisitor {
                 context,
@@ -224,13 +203,13 @@ struct ScalarVisitor<'a, 'b> {
     key: bool,
 }
 impl ScalarVisitor<'_, '_> {
-    fn emit(&self, bytes: &[u8]) {
+    fn emit<E: serde::de::Error>(&self, bytes: &[u8]) -> Result<(), E> {
         let value = if self.key {
-            OwnedEvent::MapKey(bytes.to_vec())
+            Event::MapKey(bytes)
         } else {
-            OwnedEvent::String(bytes.to_vec())
+            Event::String(bytes)
         };
-        self.context.emit(value, self.context.position.get());
+        self.context.emit(value, self.context.position.get())
     }
 }
 impl<'de> Visitor<'de> for ScalarVisitor<'_, '_> {
@@ -239,15 +218,13 @@ impl<'de> Visitor<'de> for ScalarVisitor<'_, '_> {
         f.write_str("JSON text")
     }
     fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<(), E> {
-        self.emit(value.as_bytes());
-        Ok(())
+        self.emit(value.as_bytes())
     }
     fn visit_string<E: serde::de::Error>(self, value: String) -> Result<(), E> {
         self.visit_str(&value)
     }
     fn visit_bytes<E: serde::de::Error>(self, value: &[u8]) -> Result<(), E> {
-        self.emit(value);
-        Ok(())
+        self.emit(value)
     }
     fn visit_byte_buf<E: serde::de::Error>(self, value: Vec<u8>) -> Result<(), E> {
         self.visit_bytes(&value)
@@ -277,14 +254,11 @@ impl<'de> Visitor<'de> for ValueVisitor<'_, '_> {
         f.write_str("JSON value")
     }
     fn visit_unit<E: serde::de::Error>(self) -> Result<(), E> {
-        self.context
-            .emit(OwnedEvent::Null, self.context.position.get());
-        Ok(())
+        self.context.emit(Event::Null, self.context.position.get())
     }
     fn visit_bool<E: serde::de::Error>(self, value: bool) -> Result<(), E> {
         self.context
-            .emit(OwnedEvent::Boolean(value), self.context.position.get());
-        Ok(())
+            .emit(Event::Boolean(value), self.context.position.get())
     }
     fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<(), E> {
         ScalarVisitor {
@@ -298,7 +272,7 @@ impl<'de> Visitor<'de> for ValueVisitor<'_, '_> {
     }
     fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<(), A::Error> {
         let context = self.context;
-        context.emit(OwnedEvent::StartArray, context.position.get());
+        context.emit(Event::StartArray, context.position.get())?;
         let depth = context.depth.get();
         context.depth.set(depth + 1);
         while seq
@@ -312,13 +286,13 @@ impl<'de> Visitor<'de> for ValueVisitor<'_, '_> {
                 context.checkpoint(Prefix::Array);
             }
         }
-        context.emit(OwnedEvent::EndArray, context.position.get());
+        context.emit(Event::EndArray, context.position.get())?;
         context.depth.set(depth);
         Ok(())
     }
     fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<(), A::Error> {
         let context = self.context;
-        context.emit(OwnedEvent::StartMap, context.position.get());
+        context.emit(Event::StartMap, context.position.get())?;
         let depth = context.depth.get();
         context.depth.set(depth + 1);
         while map.next_key_seed(KeySeed(context))?.is_some() {
@@ -330,7 +304,7 @@ impl<'de> Visitor<'de> for ValueVisitor<'_, '_> {
                 context.checkpoint(Prefix::Map);
             }
         }
-        context.emit(OwnedEvent::EndMap, context.position.get());
+        context.emit(Event::EndMap, context.position.get())?;
         context.depth.set(depth);
         Ok(())
     }
@@ -339,18 +313,15 @@ struct Normalized {
     bytes: Vec<u8>,
     ends: Vec<usize>,
     unfinished_comment: bool,
-    max_depth: usize,
 }
 fn normalize(input: &[u8], options: ParserOptions) -> Normalized {
     let mut result = Normalized {
         bytes: Vec::with_capacity(input.len()),
         ends: vec![0],
         unfinished_comment: false,
-        max_depth: 0,
     };
     let mut quote = false;
     let mut escape = false;
-    let mut depth = 0_usize;
     let mut i = 0;
     let mut number_start = true;
     while i < input.len() {
@@ -416,12 +387,6 @@ fn normalize(input: &[u8], options: ParserOptions) -> Normalized {
             if byte == b'"' {
                 quote = true;
             }
-            if matches!(byte, b'[' | b'{') {
-                depth += 1;
-                result.max_depth = result.max_depth.max(depth);
-            } else if matches!(byte, b']' | b'}') {
-                depth = depth.saturating_sub(1);
-            }
             // YAJL accepts adjacent root numbers such as 01. A separating
             // space keeps its scalar boundary while Serde validates each value.
             if byte == b'0' && number_start && input.get(i + 1).is_some_and(u8::is_ascii_digit) {
@@ -431,7 +396,10 @@ fn normalize(input: &[u8], options: ParserOptions) -> Normalized {
             } else if byte == b'-' && number_start { /* signed number starts here */
             } else {
                 number_start = byte.is_ascii_whitespace()
-                    || matches!(byte, b'[' | b'{' | b']' | b'}' | b',' | b':');
+                    || matches!(byte, b'[' | b'{' | b']' | b'}' | b',' | b':')
+                    || input[..=i].ends_with(b"true")
+                    || input[..=i].ends_with(b"false")
+                    || input[..=i].ends_with(b"null");
             }
         }
         i += 1;
@@ -439,7 +407,7 @@ fn normalize(input: &[u8], options: ParserOptions) -> Normalized {
     result
 }
 struct Decoded {
-    events: Vec<Stamped>,
+    events: usize,
     checkpoint: Option<Checkpoint>,
     stopped: bool,
     error: Option<(ParseErrorKind, usize, String)>,
@@ -449,6 +417,8 @@ fn decode(
     options: ParserOptions,
     final_input: bool,
     roots_before: usize,
+    skip: usize,
+    handler: &mut dyn EventHandler,
 ) -> Decoded {
     let context = Context {
         bytes: &normalized.bytes,
@@ -457,7 +427,11 @@ fn decode(
         invalid_utf8: options.allow_invalid_utf8,
         depth: Cell::new(0),
         incomplete_scalar: Cell::new(false),
-        events: RefCell::new(Vec::new()),
+        events: Cell::new(0),
+        last_end: Cell::new(0),
+        skip,
+        canceled: Cell::new(false),
+        handler: RefCell::new(handler),
         checkpoint: Cell::new(None),
         roots: Cell::new(roots_before),
     };
@@ -496,6 +470,21 @@ fn decode(
                 }
             }
             Err(err) => {
+                if context.canceled.get() {
+                    let message = context.handler.borrow().error_message().map(str::to_owned);
+                    error = Some((
+                        if message.is_some() {
+                            ParseErrorKind::InvalidJson
+                        } else {
+                            ParseErrorKind::Canceled
+                        },
+                        context.last_end(),
+                        message.unwrap_or_else(|| {
+                            "parse error: client canceled parse via callback return value".into()
+                        }),
+                    ));
+                    break;
+                }
                 let incomplete =
                     err.is_eof() || err.io_error_kind() == Some(io::ErrorKind::WouldBlock);
                 if !incomplete || final_input {
@@ -518,7 +507,7 @@ fn decode(
         ));
     }
     Decoded {
-        events: context.events.into_inner(),
+        events: context.events.get(),
         checkpoint: context.checkpoint.get(),
         stopped,
         error,
@@ -585,47 +574,16 @@ impl Parser {
     }
     fn pump(&mut self, final_input: bool) -> Result<(), ParseError> {
         let normalized = normalize(&self.pending, self.options);
-        let decoded = if normalized.max_depth > 64 {
-            std::thread::scope(|scope| {
-                std::thread::Builder::new()
-                    .stack_size(
-                        normalized
-                            .max_depth
-                            .saturating_mul(16 * 1024)
-                            .saturating_add(2 * 1024 * 1024),
-                    )
-                    .spawn_scoped(scope, || {
-                        decode(&normalized, self.options, final_input, self.roots)
-                    })
-                    .expect("allocate JSON parsing stack")
-                    .join()
-                    .expect("Serde JSON visitor panicked")
-            })
-        } else {
-            decode(&normalized, self.options, final_input, self.roots)
-        };
+        let decoded = decode(
+            &normalized,
+            self.options,
+            final_input,
+            self.roots,
+            self.seen,
+            self.handler.as_mut(),
+        );
         let raw_end = |position: usize| normalized.ends[position.min(normalized.ends.len() - 1)];
-        for event in decoded.events.iter().skip(self.seen) {
-            if !self.handler.on_event(event.event.borrowed()) {
-                let message = self.handler.error_message().map(str::to_owned);
-                let error = ParseError {
-                    kind: if message.is_some() {
-                        ParseErrorKind::InvalidJson
-                    } else {
-                        ParseErrorKind::Canceled
-                    },
-                    offset: self.processed
-                        + raw_end(event.end).saturating_sub(self.prefix.bytes().len()),
-                    message: message.unwrap_or_else(|| {
-                        "parse error: client canceled parse via callback return value".into()
-                    }),
-                };
-                self.position = raw_end(event.end);
-                self.error = Some(error.clone());
-                return Err(error);
-            }
-        }
-        self.seen = decoded.events.len();
+        self.seen = decoded.events;
         self.stopped = decoded.stopped;
         if let Some((kind, position, message)) = decoded.error {
             let error = ParseError {
@@ -650,7 +608,7 @@ impl Parser {
                 .splice(..0, checkpoint.prefix.bytes().iter().copied());
             self.prefix = checkpoint.prefix;
             self.seen =
-                checkpoint.prefix.events() + decoded.events.len().saturating_sub(checkpoint.events);
+                checkpoint.prefix.events() + decoded.events.saturating_sub(checkpoint.events);
             self.roots = checkpoint.roots;
         }
         if self.stopped {
@@ -709,6 +667,40 @@ mod tests {
             true
         });
         (parser, events)
+    }
+    #[test]
+    fn cancellation_does_not_descend_into_the_remaining_input() {
+        let mut parser = Parser::new(|_: Event<'_>| false);
+        // Even a deeply nested future value must never reach Serde's recursive
+        // visitors after the callback rejects the first opening delimiter.
+        let input = vec![b'['; 32_768];
+        let error = parser.parse(&input).unwrap_err();
+        assert_eq!(error.kind, ParseErrorKind::Canceled);
+        assert_eq!(error.offset, 1);
+        assert_eq!(parser.bytes_consumed(), 1);
+    }
+    #[test]
+    fn literal_roots_preserve_following_adjacent_leading_zero_numbers() {
+        let (mut parser, events) = recorder();
+        parser.options_mut().allow_multiple_values = true;
+        for chunk in b"true01null01false-01".chunks(1) {
+            parser.parse(chunk).unwrap();
+        }
+        parser.finish().unwrap();
+        assert_eq!(
+            *events.borrow(),
+            [
+                "Boolean(true)",
+                "Number(\"0\")",
+                "Number(\"1\")",
+                "Null",
+                "Number(\"0\")",
+                "Number(\"1\")",
+                "Boolean(false)",
+                "Number(\"-0\")",
+                "Number(\"1\")",
+            ]
+        );
     }
     #[test]
     fn serde_private_number_key_is_an_ordinary_object() {
