@@ -10,7 +10,7 @@ use std::ptr;
 
 pub const NET_WM_DESKTOP_NONE: u32 = 0xfffffff0;
 pub const NET_WM_DESKTOP_ALL: u32 = u32::MAX;
-pub static mut ewmh_window: xcb_window_t = 0;
+pub static mut ewmh_window: u32 = 0;
 
 struct WorkspaceEntry {
     con: *mut Con,
@@ -125,7 +125,7 @@ fn desktop_property_change(previous: u32, desktop: u32) -> Option<DesktopPropert
 /// # Safety
 /// conn is this event thread's live XCB connection. XCB copies the bounded
 /// payload synchronously; neither pointer nor graph references are retained.
-unsafe fn set_bytes(window: xcb_window_t, property: xcb_atom_t, type_: xcb_atom_t, bytes: &[u8]) {
+unsafe fn set_bytes(window: u32, property: u32, type_: u32, bytes: &[u8]) {
     let _ = u32::try_from(bytes.len()).expect("EWMH byte payload exceeds X11 property limit");
     let Some(connection) = connection() else {
         return;
@@ -141,7 +141,7 @@ unsafe fn set_bytes(window: xcb_window_t, property: xcb_atom_t, type_: xcb_atom_
 /// # Safety
 /// Same connection/lifetime contract as set_bytes. Typed XCB serializes words
 /// according to the connection's negotiated byte order.
-unsafe fn set_words(window: xcb_window_t, property: xcb_atom_t, type_: xcb_atom_t, words: &[u32]) {
+unsafe fn set_words(window: u32, property: u32, type_: u32, words: &[u32]) {
     let _ = u32::try_from(words.len()).expect("EWMH word payload exceeds X11 property limit");
     let Some(connection) = connection() else {
         return;
@@ -156,7 +156,7 @@ unsafe fn set_words(window: xcb_window_t, property: xcb_atom_t, type_: xcb_atom_
 }
 /// # Safety
 /// The event thread owns the live connection and the supplied window.
-unsafe fn delete_property(window: xcb_window_t, property: xcb_atom_t) {
+unsafe fn delete_property(window: u32, property: u32) {
     let Some(connection) = connection() else {
         return;
     };
@@ -173,7 +173,12 @@ pub unsafe fn ewmh_update_current_desktop() {
     let index = ewmh_get_workspace_index(focused);
     if current_desktop_changed(PREVIOUS, index) {
         PREVIOUS = index;
-        set_words(root, A__NET_CURRENT_DESKTOP, XCB_ATOM_CARDINAL, &[index]);
+        set_words(
+            root,
+            A__NET_CURRENT_DESKTOP,
+            x::ATOM_CARDINAL.resource_id(),
+            &[index],
+        );
     }
 }
 unsafe fn ewmh_update_number_of_desktops() {
@@ -184,7 +189,12 @@ unsafe fn ewmh_update_number_of_desktops() {
         .fold(0u32, |count, _| count.wrapping_add(1));
     if count != PREVIOUS {
         PREVIOUS = count;
-        set_words(root, A__NET_NUMBER_OF_DESKTOPS, XCB_ATOM_CARDINAL, &[count]);
+        set_words(
+            root,
+            A__NET_NUMBER_OF_DESKTOPS,
+            x::ATOM_CARDINAL.resource_id(),
+            &[count],
+        );
     }
 }
 unsafe fn ewmh_update_desktop_names() {
@@ -205,7 +215,12 @@ unsafe fn ewmh_update_desktop_viewport() {
             .filter(|workspace| !workspace.internal)
             .map(|workspace| workspace.viewport),
     );
-    set_words(root, A__NET_DESKTOP_VIEWPORT, XCB_ATOM_CARDINAL, &payload);
+    set_words(
+        root,
+        A__NET_DESKTOP_VIEWPORT,
+        x::ATOM_CARDINAL.resource_id(),
+        &payload,
+    );
 }
 /// # Safety
 /// The event thread owns the live tree and connection throughout all updates.
@@ -265,7 +280,12 @@ unsafe fn ewmh_update_wm_desktop_recursively(con: *mut Con, desktop: u32) {
                 desktop,
                 window,
             );
-            set_words(window, A__NET_WM_DESKTOP, XCB_ATOM_CARDINAL, &[desktop]);
+            set_words(
+                window,
+                A__NET_WM_DESKTOP,
+                x::ATOM_CARDINAL.resource_id(),
+                &[desktop],
+            );
         }
         DesktopProperty::Delete => {
             errorlog(c"ERROR: Failed to determine the proper EWMH desktop index for window 0x%08x, deleting _NET_WM_DESKTOP.\n".as_ptr().cast_mut(),window);
@@ -285,13 +305,18 @@ pub unsafe fn ewmh_update_wm_desktop() {
 }
 /// # Safety
 /// conn/root are live native event-thread resources.
-pub unsafe fn ewmh_update_active_window(window: xcb_window_t) {
-    set_words(root, A__NET_ACTIVE_WINDOW, XCB_ATOM_WINDOW, &[window]);
+pub unsafe fn ewmh_update_active_window(window: u32) {
+    set_words(
+        root,
+        A__NET_ACTIVE_WINDOW,
+        x::ATOM_WINDOW.resource_id(),
+        &[window],
+    );
 }
 /// # Safety
 /// name is null or a readable terminated string; conn is the event thread's
 /// live XCB connection. The borrowed name is copied synchronously by XCB.
-pub unsafe fn ewmh_update_visible_name(window: xcb_window_t, name: *const libc::c_char) {
+pub unsafe fn ewmh_update_visible_name(window: u32, name: *const libc::c_char) {
     if name.is_null() {
         delete_property(window, A__NET_WM_VISIBLE_NAME);
     } else {
@@ -311,29 +336,39 @@ pub unsafe fn ewmh_update_workarea() {
 /// # Safety
 /// list points to num_windows readable window IDs when nonzero. The count is
 /// nonnegative; null is permitted for zero. conn/root belong to this thread.
-pub unsafe fn ewmh_update_client_list(list: *mut xcb_window_t, num_windows: i32) {
+pub unsafe fn ewmh_update_client_list(list: *mut u32, num_windows: i32) {
     let length = usize::try_from(num_windows).expect("negative EWMH client count");
     let windows = if length == 0 {
         &[]
     } else {
         std::slice::from_raw_parts(list, length)
     };
-    set_words(root, A__NET_CLIENT_LIST, XCB_ATOM_WINDOW, windows);
+    set_words(
+        root,
+        A__NET_CLIENT_LIST,
+        x::ATOM_WINDOW.resource_id(),
+        windows,
+    );
 }
 /// # Safety
 /// Same readable-span/count/connection contract as ewmh_update_client_list.
-pub unsafe fn ewmh_update_client_list_stacking(stack: *mut xcb_window_t, num_windows: i32) {
+pub unsafe fn ewmh_update_client_list_stacking(stack: *mut u32, num_windows: i32) {
     let length = usize::try_from(num_windows).expect("negative EWMH stacking count");
     let windows = if length == 0 {
         &[]
     } else {
         std::slice::from_raw_parts(stack, length)
     };
-    set_words(root, A__NET_CLIENT_LIST_STACKING, XCB_ATOM_WINDOW, windows);
+    set_words(
+        root,
+        A__NET_CLIENT_LIST_STACKING,
+        x::ATOM_WINDOW.resource_id(),
+        windows,
+    );
 }
 /// # Safety
 /// conn and the requested window belong to the native event thread.
-pub unsafe fn ewmh_update_sticky(window: xcb_window_t, sticky: bool) {
+pub unsafe fn ewmh_update_sticky(window: u32, sticky: bool) {
     if sticky {
         debuglog(
             c"%s:%s:%d - Setting _NET_WM_STATE_STICKY for window = %08x.\n"
@@ -361,7 +396,7 @@ pub unsafe fn ewmh_update_sticky(window: xcb_window_t, sticky: bool) {
 
 /// # Safety
 /// conn and the requested window belong to the native event thread.
-pub unsafe fn ewmh_update_focused(window: xcb_window_t, is_focused: bool) {
+pub unsafe fn ewmh_update_focused(window: u32, is_focused: bool) {
     if is_focused {
         debuglog(
             c"%s:%s:%d - Setting _NET_WM_STATE_FOCUSED for window = %08x.\n"
@@ -390,7 +425,7 @@ pub unsafe fn ewmh_update_focused(window: xcb_window_t, is_focused: bool) {
 /// # Safety
 /// The event thread owns initialized atoms, root and conn. Called during setup.
 pub unsafe fn ewmh_setup_hints() {
-    let supported_atoms: [xcb_atom_t; 37] = [
+    let supported_atoms: [u32; 37] = [
         A__NET_SUPPORTED,
         A__NET_SUPPORTING_WM_CHECK,
         A__NET_WM_NAME,
@@ -451,13 +486,23 @@ pub unsafe fn ewmh_setup_hints() {
     set_words(
         window,
         A__NET_SUPPORTING_WM_CHECK,
-        XCB_ATOM_WINDOW,
+        x::ATOM_WINDOW.resource_id(),
         &[window],
     );
     set_bytes(window, A__NET_WM_NAME, A_UTF8_STRING, b"i3");
-    set_words(root, A__NET_SUPPORTING_WM_CHECK, XCB_ATOM_WINDOW, &[window]);
+    set_words(
+        root,
+        A__NET_SUPPORTING_WM_CHECK,
+        x::ATOM_WINDOW.resource_id(),
+        &[window],
+    );
     set_bytes(root, A__NET_WM_NAME, A_UTF8_STRING, b"i3");
-    set_words(root, A__NET_SUPPORTED, XCB_ATOM_ATOM, &supported_atoms);
+    set_words(
+        root,
+        A__NET_SUPPORTED,
+        x::ATOM_ATOM.resource_id(),
+        &supported_atoms,
+    );
     connection.send_request(&x::MapWindow { window: wid });
     connection.send_request(&x::ConfigureWindow {
         window: wid,
@@ -490,7 +535,6 @@ pub unsafe fn ewmh_get_workspace_index(con: *mut Con) -> u32 {
         target,
     )
 }
-use xcb_sys::{xcb_atom_t, xcb_window_t, XCB_ATOM_ATOM, XCB_ATOM_CARDINAL, XCB_ATOM_WINDOW};
 
 use crate::log::{debuglog, errorlog};
 

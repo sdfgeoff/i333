@@ -42,27 +42,6 @@ static mut root_output: *mut Output = ::core::ptr::null::<Output>() as *mut Outp
 static mut has_randr_1_5: bool = false;
 // Native queries/queues are event-thread owned. Helpers below consume copied
 // values or bounded byte slices; they never promise safe access to raw graphs.
-#[derive(Default)]
-struct NativeReplies(Vec<std::ptr::NonNull<libc::c_void>>);
-impl NativeReplies {
-    /// Transfer unique malloc ownership of a complete native reply or null.
-    unsafe fn take<T>(&mut self, pointer: *mut T) -> *mut T {
-        if let Some(pointer) = std::ptr::NonNull::new(pointer) {
-            self.0.push(pointer.cast());
-        }
-        pointer
-    }
-}
-impl Drop for NativeReplies {
-    fn drop(&mut self) {
-        for pointer in self.0.drain(..) {
-            unsafe {
-                free(pointer.as_ptr());
-            }
-        }
-    }
-}
-
 fn contains_point(rect: Rect, x: u32, y: u32) -> bool {
     x >= rect.x
         && x < rect.x.wrapping_add(rect.width)
@@ -148,21 +127,6 @@ fn randr15_version(major: u32, minor: u32, disabled: bool) -> bool {
     major >= 1 && minor >= 5 && !disabled
 }
 
-unsafe fn native_span<'a, T>(
-    reply: *const T,
-    length: u32,
-    offset: usize,
-    count: usize,
-) -> Option<&'a [u8]> {
-    let total = (length as usize).checked_mul(4)?.checked_add(32)?;
-    if offset.checked_add(count)? > total || total > isize::MAX as usize {
-        return None;
-    }
-    Some(std::slice::from_raw_parts(
-        reply.cast::<u8>().add(offset),
-        count,
-    ))
-}
 fn word(bytes: &[u8], offset: usize) -> Option<u32> {
     Some(u32::from_ne_bytes(
         bytes.get(offset..offset.checked_add(4)?)?.try_into().ok()?,
@@ -214,6 +178,31 @@ fn monitor_snapshots(mut bytes: &[u8], count: u32) -> Option<Vec<MonitorSnapshot
     }
     Some(monitors)
 }
+fn monitor_count(reply: &randr::GetMonitorsReply) -> u32 {
+    // SAFETY: nMonitors is a scalar inside the owned fixed reply header. Its
+    // generated getter is private, and the generated iterator trusts this count.
+    unsafe { reply.as_raw().add(12).cast::<u32>().read_unaligned() }
+}
+fn owned_monitor_snapshots(reply: &randr::GetMonitorsReply) -> Option<Vec<MonitorSnapshot>> {
+    let length = (reply.length() as usize).checked_mul(4)?;
+    if length > isize::MAX as usize {
+        return None;
+    }
+    // SAFETY: the maintained owner retains its complete advertised payload.
+    // The Rust decoder bounds every monitor record and its nested output array.
+    let body = unsafe { std::slice::from_raw_parts(reply.as_raw().add(32), length) };
+    monitor_snapshots(body, monitor_count(reply))
+}
+fn atom_name(reply: &x::GetAtomNameReply) -> Option<std::ffi::CString> {
+    // SAFETY: name_len is inside the initialized 32-byte fixed reply header.
+    let length = usize::from(unsafe { reply.as_raw().add(8).cast::<u16>().read_unaligned() });
+    let available = (reply.length() as usize).checked_mul(4)?;
+    if length > available {
+        return None;
+    }
+    // The byte count is validated before the generated variable-length getter.
+    Some(c_name(reply.name().as_bytes()))
+}
 fn output_info_name(reply: &randr::GetOutputInfoReply) -> Option<std::ffi::CString> {
     let available = (reply.length() as usize).checked_mul(4)?.checked_add(32)?;
     // OutputInfo has four bytes of fixed fields beyond the ordinary header.
@@ -251,7 +240,7 @@ fn resource_outputs(reply: &randr::GetScreenResourcesCurrentReply) -> Option<Vec
     Some(reply.outputs().iter().map(Xid::resource_id).collect())
 }
 
-unsafe fn get_output_by_id(id: xcb_randr_output_t) -> *mut Output {
+unsafe fn get_output_by_id(id: u32) -> *mut Output {
     let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
     output = outputs.tqh_first as *mut Output;
     while !output.is_null() {
@@ -493,14 +482,26 @@ pub unsafe fn get_output_next(
     best
 }
 
-pub unsafe fn create_root_output(conn_0: *mut xcb_connection_t) -> *mut Output {
+pub unsafe fn create_root_output() -> *mut Output {
+    let dimensions = display::connection()
+        .and_then(|connection| {
+            let screen = connection
+                .get_setup()
+                .roots()
+                .nth(usize::try_from(conn_screen).ok()?)?;
+            Some((
+                u32::from(screen.width_in_pixels()),
+                u32::from(screen.height_in_pixels()),
+            ))
+        })
+        .unwrap_or_default();
     let s: *mut Output =
         scalloc(1 as usize, ::core::mem::size_of::<Output>() as usize) as *mut Output;
     (*s).active = false;
     (*s).rect.x = 0 as u32;
     (*s).rect.y = 0 as u32;
-    (*s).rect.width = (*root_screen).width_in_pixels as u32;
-    (*s).rect.height = (*root_screen).height_in_pixels as u32;
+    (*s).rect.width = dimensions.0;
+    (*s).rect.height = dimensions.1;
     let output_name: *mut output_name =
         scalloc(1 as usize, ::core::mem::size_of::<output_name>() as usize) as *mut output_name;
     (*output_name).name = c"xroot-0".as_ptr().cast_mut();
@@ -765,7 +766,7 @@ pub unsafe fn init_ws_for_output(output: *mut Output) {
         workspace_show(previous_focus);
     }
 }
-unsafe fn output_change_mode(conn_0: *mut xcb_connection_t, output: *mut Output) {
+unsafe fn output_change_mode(output: *mut Output) {
     debuglog(
         c"%s:%s:%d - Output mode changed, updating rect\n"
             .as_ptr()
@@ -842,7 +843,6 @@ unsafe fn output_change_mode(conn_0: *mut xcb_connection_t, output: *mut Output)
     }
 }
 unsafe fn randr_query_outputs_15() -> bool {
-    let mut replies = NativeReplies::default();
     if !has_randr_1_5 {
         return false;
     }
@@ -857,25 +857,24 @@ unsafe fn randr_query_outputs_15() -> bool {
         c"randr_query_outputs_15".as_ptr(),
         593 as ::core::ffi::c_int,
     );
-    let mut err: *mut xcb_generic_error_t = ::core::ptr::null_mut::<xcb_generic_error_t>();
-    let monitors: *mut xcb_randr_get_monitors_reply_t = replies.take(xcb_randr_get_monitors_reply(
-        conn,
-        xcb_randr_get_monitors(conn, root, 1),
-        &raw mut err,
-    ));
-    if !err.is_null() {
-        errorlog(
-            c"ERROR: Could not get RandR monitors: X11 error code %d\n"
-                .as_ptr()
-                .cast_mut(),
-            (*err).error_code as ::core::ffi::c_int,
-        );
-        free(err as *mut ::core::ffi::c_void);
-        return false;
-    }
-    if monitors.is_null() {
-        return false;
-    }
+    let cookie = connection.send_request(&randr::GetMonitors {
+        window: x::Window::new(root),
+        get_active: true,
+    });
+    let monitors = match connection.wait_for_reply(cookie) {
+        Ok(reply) => reply,
+        Err(error) => {
+            if let ::xcb::Error::Protocol(error) = error {
+                errorlog(
+                    c"ERROR: Could not get RandR monitors: X11 error code %d\n"
+                        .as_ptr()
+                        .cast_mut(),
+                    i32::from((*error.as_raw()).error_code),
+                );
+            }
+            return false;
+        }
+    };
     let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
     output = outputs.tqh_first as *mut Output;
     while !output.is_null() {
@@ -891,146 +890,124 @@ unsafe fn randr_query_outputs_15() -> bool {
         c"../src/randr.c".as_ptr(),
         c"randr_query_outputs_15".as_ptr(),
         616 as ::core::ffi::c_int,
-        xcb_randr_get_monitors_monitors_length(monitors),
-        (*monitors).timestamp,
+        monitor_count(&monitors) as i32,
+        monitors.timestamp(),
     );
-    if monitors.is_null() {
-        return false;
-    }
-    let Some(body) = native_span(
-        monitors,
-        (*monitors).length,
-        32,
-        (*monitors).length as usize * 4,
-    ) else {
-        return false;
-    };
-    let Some(snapshot) = monitor_snapshots(body, (*monitors).nMonitors) else {
+    let Some(snapshot) = owned_monitor_snapshots(&monitors) else {
         return false;
     };
     for monitor in snapshot {
-        let monitor_info = &monitor;
-        let atom_reply: *mut xcb_get_atom_name_reply_t = replies.take(xcb_get_atom_name_reply(
-            conn,
-            xcb_get_atom_name(conn, (*monitor_info).name),
-            &raw mut err,
-        ));
-        if !err.is_null() {
-            errorlog(
-                c"ERROR: Could not get RandR monitor name: X11 error code %d\n"
-                    .as_ptr()
-                    .cast_mut(),
-                (*err).error_code as ::core::ffi::c_int,
-            );
-            free(err as *mut ::core::ffi::c_void);
-        } else {
-            if atom_reply.is_null() {
+        let cookie = connection.send_request(&x::GetAtomName {
+            atom: x::Atom::new(monitor.name),
+        });
+        let atom_reply = match connection.wait_for_reply(cookie) {
+            Ok(reply) => reply,
+            Err(error) => {
+                if let ::xcb::Error::Protocol(error) = error {
+                    errorlog(
+                        c"ERROR: Could not get RandR monitor name: X11 error code %d\n"
+                            .as_ptr()
+                            .cast_mut(),
+                        i32::from((*error.as_raw()).error_code),
+                    );
+                }
                 continue;
             }
-            let Some(bytes) = native_span(
-                atom_reply,
-                (*atom_reply).length,
-                32,
-                usize::from((*atom_reply).name_len),
-            ) else {
-                continue;
-            };
-            let name_owned = c_name(bytes);
-            let name = name_owned.as_ptr();
-            let mut new: *mut Output = get_output_by_name(name, false);
-            if new.is_null() {
-                new = scalloc(1 as usize, ::core::mem::size_of::<Output>() as usize) as *mut Output;
-                (*new).names_head.slh_first = ::core::ptr::null_mut::<output_name>();
-                let randr_outputs = monitor.outputs.as_ptr();
-                let randr_output_len = monitor.outputs.len() as i32;
-                let mut i: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-                while i < randr_output_len {
-                    let randr_output: xcb_randr_output_t = *randr_outputs.offset(i as isize);
-                    let cookie = connection.send_request(&randr::GetOutputInfo {
-                        output: randr::Output::new(randr_output),
-                        config_timestamp: (*monitors).timestamp,
-                    });
-                    let info = connection.wait_for_reply(cookie).ok();
-                    if let Some(info) = info.as_ref().filter(|info| !info.crtc().is_none()) {
-                        let Some(oname_owned) = output_info_name(info) else {
-                            i += 1;
-                            continue;
-                        };
-                        let oname = oname_owned.as_ptr();
-                        if strcmp(name, oname) != 0 as ::core::ffi::c_int {
-                            let output_name: *mut output_name =
-                                scalloc(1 as usize, ::core::mem::size_of::<output_name>() as usize)
-                                    as *mut output_name;
-                            (*output_name).name = sstrdup(oname);
-                            (*output_name).names.sle_next = (*new).names_head.slh_first;
-                            (*new).names_head.slh_first = output_name;
-                        }
+        };
+        let Some(name_owned) = atom_name(&atom_reply) else {
+            continue;
+        };
+        let name = name_owned.as_ptr();
+        let mut new: *mut Output = get_output_by_name(name, false);
+        if new.is_null() {
+            new = scalloc(1 as usize, ::core::mem::size_of::<Output>() as usize) as *mut Output;
+            (*new).names_head.slh_first = ::core::ptr::null_mut::<output_name>();
+            let randr_outputs = monitor.outputs.as_ptr();
+            let randr_output_len = monitor.outputs.len() as i32;
+            let mut i: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
+            while i < randr_output_len {
+                let randr_output: u32 = *randr_outputs.offset(i as isize);
+                let cookie = connection.send_request(&randr::GetOutputInfo {
+                    output: randr::Output::new(randr_output),
+                    config_timestamp: monitors.timestamp(),
+                });
+                let info = connection.wait_for_reply(cookie).ok();
+                if let Some(info) = info.as_ref().filter(|info| !info.crtc().is_none()) {
+                    let Some(oname_owned) = output_info_name(info) else {
+                        i += 1;
+                        continue;
+                    };
+                    let oname = oname_owned.as_ptr();
+                    if strcmp(name, oname) != 0 as ::core::ffi::c_int {
+                        let output_name: *mut output_name =
+                            scalloc(1 as usize, ::core::mem::size_of::<output_name>() as usize)
+                                as *mut output_name;
+                        (*output_name).name = sstrdup(oname);
+                        (*output_name).names.sle_next = (*new).names_head.slh_first;
+                        (*new).names_head.slh_first = output_name;
                     }
-                    i += 1;
                 }
-                let output_name_0: *mut output_name =
-                    scalloc(1 as usize, ::core::mem::size_of::<output_name>() as usize)
-                        as *mut output_name;
-                (*output_name_0).name = sstrdup(name);
-                (*output_name_0).names.sle_next = (*new).names_head.slh_first;
-                (*new).names_head.slh_first = output_name_0;
-                if (*monitor_info).primary != 0 {
-                    (*new).outputs.tqe_next = outputs.tqh_first;
-                    if !(*new).outputs.tqe_next.is_null() {
-                        (*outputs.tqh_first).outputs.tqe_prev = &raw mut (*new).outputs.tqe_next;
-                    } else {
-                        outputs.tqh_last = &raw mut (*new).outputs.tqe_next;
-                    }
-                    outputs.tqh_first = new as *mut xoutput;
-                    (*new).outputs.tqe_prev = &raw mut outputs.tqh_first;
+                i += 1;
+            }
+            let output_name_0: *mut output_name =
+                scalloc(1 as usize, ::core::mem::size_of::<output_name>() as usize)
+                    as *mut output_name;
+            (*output_name_0).name = sstrdup(name);
+            (*output_name_0).names.sle_next = (*new).names_head.slh_first;
+            (*new).names_head.slh_first = output_name_0;
+            if monitor.primary != 0 {
+                (*new).outputs.tqe_next = outputs.tqh_first;
+                if !(*new).outputs.tqe_next.is_null() {
+                    (*outputs.tqh_first).outputs.tqe_prev = &raw mut (*new).outputs.tqe_next;
                 } else {
-                    (*new).outputs.tqe_next = ::core::ptr::null_mut::<xoutput>();
-                    (*new).outputs.tqe_prev = outputs.tqh_last;
-                    *outputs.tqh_last = new as *mut xoutput;
                     outputs.tqh_last = &raw mut (*new).outputs.tqe_next;
                 }
+                outputs.tqh_first = new as *mut xoutput;
+                (*new).outputs.tqe_prev = &raw mut outputs.tqh_first;
+            } else {
+                (*new).outputs.tqe_next = ::core::ptr::null_mut::<xoutput>();
+                (*new).outputs.tqe_prev = outputs.tqh_last;
+                *outputs.tqh_last = new as *mut xoutput;
+                outputs.tqh_last = &raw mut (*new).outputs.tqe_next;
             }
-            (*new).active = true;
-            (*new).to_be_disabled = false;
-            (*new).primary = (*monitor_info).primary != 0;
-            let update_x: bool =
-                update_if_necessary(&raw mut (*new).rect.x, (*monitor_info).x as u32) as bool;
-            let update_y: bool =
-                update_if_necessary(&raw mut (*new).rect.y, (*monitor_info).y as u32) as bool;
-            let update_w: bool =
-                update_if_necessary(&raw mut (*new).rect.width, (*monitor_info).width as u32)
-                    as bool;
-            let update_h: bool =
-                update_if_necessary(&raw mut (*new).rect.height, (*monitor_info).height as u32)
-                    as bool;
-            (*new).changed = update_x as ::core::ffi::c_int != 0
-                || update_y as ::core::ffi::c_int != 0
-                || update_w as ::core::ffi::c_int != 0
-                || update_h as ::core::ffi::c_int != 0;
-            debuglog(
+        }
+        (*new).active = true;
+        (*new).to_be_disabled = false;
+        (*new).primary = monitor.primary != 0;
+        let update_x: bool = update_if_necessary(&raw mut (*new).rect.x, monitor.x as u32) as bool;
+        let update_y: bool = update_if_necessary(&raw mut (*new).rect.y, monitor.y as u32) as bool;
+        let update_w: bool =
+            update_if_necessary(&raw mut (*new).rect.width, monitor.width as u32) as bool;
+        let update_h: bool =
+            update_if_necessary(&raw mut (*new).rect.height, monitor.height as u32) as bool;
+        (*new).changed = update_x as ::core::ffi::c_int != 0
+            || update_y as ::core::ffi::c_int != 0
+            || update_w as ::core::ffi::c_int != 0
+            || update_h as ::core::ffi::c_int != 0;
+        debuglog(
                 c"%s:%s:%d - name %s, x %d, y %d, width %d px, height %d px, width %d mm, height %d mm, primary %d, automatic %d\n".as_ptr().cast_mut(),
                 c"../src/randr.c".as_ptr(),
                 c"randr_query_outputs_15".as_ptr(),
                 699 as ::core::ffi::c_int,
                 name,
-                (*monitor_info).x as ::core::ffi::c_int,
-                (*monitor_info).y as ::core::ffi::c_int,
-                (*monitor_info).width as ::core::ffi::c_int,
-                (*monitor_info).height as ::core::ffi::c_int,
-                (*monitor_info).width_in_millimeters,
-                (*monitor_info).height_in_millimeters,
-                (*monitor_info).primary as ::core::ffi::c_int,
-                (*monitor_info).automatic as ::core::ffi::c_int,
+                monitor.x as ::core::ffi::c_int,
+                monitor.y as ::core::ffi::c_int,
+                monitor.width as ::core::ffi::c_int,
+                monitor.height as ::core::ffi::c_int,
+                monitor.width_in_millimeters,
+                monitor.height_in_millimeters,
+                monitor.primary as ::core::ffi::c_int,
+                monitor.automatic as ::core::ffi::c_int,
             );
-        }
     }
     true
 }
+
 unsafe fn handle_output(
     connection: &::xcb::Connection,
-    id: xcb_randr_output_t,
+    id: u32,
     output: &randr::GetOutputInfoReply,
-    cts: xcb_timestamp_t,
+    cts: x::Timestamp,
 ) {
     let Some(name) = output_info_name(output) else {
         return;
@@ -1506,7 +1483,7 @@ pub unsafe fn randr_query_outputs() {
             randr_disable_output(output);
         }
         if (*output).changed {
-            output_change_mode(conn, output);
+            output_change_mode(output);
             (*output).changed = false;
         }
         output = (*output).outputs.tqe_next as *mut Output;
@@ -1588,7 +1565,7 @@ unsafe fn fallback_to_root_output() {
 }
 
 pub unsafe fn randr_init(event_base: *mut ::core::ffi::c_int, disable_randr15: bool) {
-    root_output = create_root_output(conn);
+    root_output = create_root_output();
     (*root_output).outputs.tqe_next = ::core::ptr::null_mut::<xoutput>();
     (*root_output).outputs.tqe_prev = outputs.tqh_last;
     *outputs.tqh_last = root_output as *mut xoutput;
@@ -1681,13 +1658,6 @@ use i3_common::safewrappers::sstrdup;
 
 // Canonical Pango backend ABI; font policy remains local.
 
-use xcb_sys::{
-    xcb_connection_t, xcb_generic_error_t, xcb_get_atom_name, xcb_get_atom_name_reply,
-    xcb_get_atom_name_reply_t, xcb_randr_get_monitors, xcb_randr_get_monitors_monitors_length,
-    xcb_randr_get_monitors_reply, xcb_randr_get_monitors_reply_t, xcb_randr_output_t,
-    xcb_timestamp_t,
-};
-
 pub use libc::{free, strcasecmp, strcmp};
 
 use i3_common::native_stdio::{__assert_fail, errx};
@@ -1703,9 +1673,8 @@ pub use crate::types::Rect;
 pub use crate::types::Window;
 
 // Internal calls and globals use canonical Rust identities.
-use crate::application::conn;
+use crate::application::conn_screen;
 use crate::application::root;
-use crate::application::root_screen;
 use crate::con::con_attach;
 use crate::con::con_detach;
 use crate::con::con_fix_percent;
@@ -1756,6 +1725,75 @@ mod tests {
             R::from_raw(allocation)
         }
     }
+    #[test]
+    fn owned_monitor_replies_bound_count_and_nested_arrays_and_keep_open_values() {
+        let mut bytes = vec![0; 60];
+        bytes[12..16].copy_from_slice(&1u32.to_ne_bytes());
+        bytes[32..36].copy_from_slice(&u32::MAX.to_ne_bytes());
+        bytes[36] = 255;
+        bytes[37] = 254;
+        bytes[38..40].copy_from_slice(&1u16.to_ne_bytes());
+        bytes[56..60].copy_from_slice(&0x80000000u32.to_ne_bytes());
+        let reply: randr::GetMonitorsReply = owned_reply(bytes);
+        let snapshot = owned_monitor_snapshots(&reply).unwrap();
+        assert_eq!(
+            (snapshot[0].name, snapshot[0].primary, snapshot[0].automatic),
+            (u32::MAX, 255, 254)
+        );
+        assert_eq!(snapshot[0].outputs, [0x80000000]);
+        unsafe {
+            reply
+                .as_raw()
+                .add(12)
+                .cast_mut()
+                .cast::<u32>()
+                .write_unaligned(2)
+        };
+        assert!(owned_monitor_snapshots(&reply).is_none());
+        unsafe {
+            reply
+                .as_raw()
+                .add(12)
+                .cast_mut()
+                .cast::<u32>()
+                .write_unaligned(1);
+            reply
+                .as_raw()
+                .add(38)
+                .cast_mut()
+                .cast::<u16>()
+                .write_unaligned(2);
+        }
+        assert!(owned_monitor_snapshots(&reply).is_none());
+    }
+    #[test]
+    fn owned_atom_names_validate_length_and_preserve_native_bytes_and_nul_prefix() {
+        let name = b"m\xff\0tail";
+        let mut bytes = vec![0; 32 + name.len()];
+        bytes[8..10].copy_from_slice(&(name.len() as u16).to_ne_bytes());
+        bytes[32..].copy_from_slice(name);
+        let reply: x::GetAtomNameReply = owned_reply(bytes);
+        assert_eq!(atom_name(&reply).unwrap().to_bytes(), b"m\xff");
+        unsafe {
+            reply
+                .as_raw()
+                .add(8)
+                .cast_mut()
+                .cast::<u16>()
+                .write_unaligned(u16::MAX)
+        };
+        assert!(atom_name(&reply).is_none());
+        unsafe {
+            reply
+                .as_raw()
+                .add(8)
+                .cast_mut()
+                .cast::<u16>()
+                .write_unaligned(0)
+        };
+        assert_eq!(atom_name(&reply).unwrap().to_bytes(), b"");
+    }
+
     #[test]
     fn owned_output_names_check_fixed_and_nested_lengths_without_enum_decoding() {
         let name = b"DP\xff\0ignored";

@@ -11,7 +11,6 @@
  */
 #![deny(unsafe_op_in_unsafe_fn)]
 
-use crate::application::conn;
 use crate::log::{debuglog, errorlog};
 use crate::output::output_primary_name;
 use crate::randr::{create_root_output, init_ws_for_output, output_init_con, outputs};
@@ -22,7 +21,6 @@ use i3_common::display;
 use i3_common::safewrappers::{scalloc, sstrdup};
 use std::ffi::CString;
 use std::sync::atomic::{AtomicI32, Ordering};
-use xcb_sys::xcb_connection_t;
 
 // Survives repeated initialization calls, including clone-only queries.
 static NUM_SCREENS: AtomicI32 = AtomicI32::new(0);
@@ -218,11 +216,11 @@ unsafe fn query_screens(connection: &Connection) {
 }
 
 /// # Safety
-/// connection and output/render/workspace graphs are initialized and exclusively
+/// The display and output/render/workspace graphs are initialized and exclusively
 /// owned by this event thread. create_root_output uses the native allocator.
-unsafe fn use_root_output(connection: *mut xcb_connection_t) {
+unsafe fn use_root_output() {
     unsafe {
-        let output = create_root_output(connection);
+        let output = create_root_output();
         (*output).active = true;
         (*output).outputs.tqe_next = std::ptr::null_mut();
         (*output).outputs.tqe_prev = outputs.tqh_last;
@@ -242,7 +240,7 @@ pub unsafe fn xinerama_init() {
     unsafe {
         let connection = display::connection();
         let Some(connection) = connection else {
-            use_root_output(conn);
+            use_root_output();
             return;
         };
         // Query through the maintained API rather than its generated cached
@@ -274,7 +272,7 @@ pub unsafe fn xinerama_init() {
                     c"xinerama_init".as_ptr(),
                     111i32,
                 );
-                use_root_output(conn);
+                use_root_output();
             }
             ScreenSource::Inactive => {
                 debuglog(
@@ -285,7 +283,7 @@ pub unsafe fn xinerama_init() {
                     c"xinerama_init".as_ptr(),
                     117i32,
                 );
-                use_root_output(conn);
+                use_root_output();
             }
             ScreenSource::Xinerama => query_screens(&connection),
         }

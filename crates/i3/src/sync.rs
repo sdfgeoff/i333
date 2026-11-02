@@ -13,9 +13,8 @@ use crate::application::A_I3_SYNC;
 use crate::log::debuglog;
 use ::xcb::{x, XidNew};
 use i3_common::display::connection;
-use xcb_sys::{xcb_atom_t, xcb_window_t};
 
-fn sync_reply(window: xcb_window_t, random: u32, atom: xcb_atom_t) -> x::ClientMessageEvent {
+fn sync_reply(window: u32, random: u32, atom: u32) -> x::ClientMessageEvent {
     x::ClientMessageEvent::new(
         x::Window::new(window),
         x::Atom::new(atom),
@@ -28,7 +27,7 @@ fn sync_reply(window: xcb_window_t, random: u32, atom: xcb_atom_t) -> x::ClientM
 /// # Safety
 /// The caller must run on the display event thread with a live `conn` and
 /// initialized `A_I3_SYNC`, without concurrent mutation of those globals.
-pub unsafe fn sync_respond(window: xcb_window_t, rnd: u32) {
+pub unsafe fn sync_respond(window: u32, rnd: u32) {
     // SAFETY: The caller supplies exclusive display-thread access; the native
     // logging arguments match the format and SendEvent copies its borrowed event
     // synchronously before returning.
