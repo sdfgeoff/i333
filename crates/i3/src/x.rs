@@ -10,7 +10,7 @@ use crate::types::Orientation;
 use crate::types::TitleAlign;
 use crate::types::Warping;
 use crate::xcursor::Cursor;
-use ::xcb::{shape, x, XidNew};
+use ::xcb::{shape, x, Xid, XidNew};
 use i3_common::draw_util::draw_util_text;
 use std::ffi::{CStr, CString};
 /*
@@ -38,26 +38,23 @@ impl<T> Drop for NativeReply<T> {
         }
     }
 }
-struct ProtocolReply(xcb_icccm_get_wm_protocols_reply_t);
-impl Drop for ProtocolReply {
-    fn drop(&mut self) {
-        unsafe {
-            xcb_icccm_get_wm_protocols_reply_wipe(&raw mut self.0);
-        }
-    }
+fn delete_window_event(window: u32, protocols: u32, delete: u32) -> x::ClientMessageEvent {
+    x::ClientMessageEvent::new(
+        unsafe { x::Window::new(window) },
+        unsafe { x::Atom::new(protocols) },
+        x::ClientMessageData::Data32([delete, x::CURRENT_TIME, 0, 0, 0]),
+    )
 }
 
-fn delete_window_event(window: u32, protocols: u32, delete: u32) -> xcb_client_message_event_t {
-    xcb_client_message_event_t {
-        response_type: XCB_CLIENT_MESSAGE as u8,
-        format: 32,
-        sequence: 0,
-        window,
-        type_0: protocols,
-        data: xcb_sys::xcb_client_message_data_t {
-            data32: [delete, XCB_CURRENT_TIME as u32, 0, 0, 0],
-        },
-    }
+fn connection() -> std::rc::Rc<::xcb::Connection> {
+    i3_common::display::connection().expect("active XCB display")
+}
+
+// Preserve the native ICCCM parser's signed byte-length arithmetic and the
+// existing consumer's payload clamp, including malformed oversized counts.
+fn protocol_word_count(value_len: u32, reply_words: u32) -> usize {
+    let native_bytes = value_len.wrapping_mul(4) as i32;
+    ((native_bytes / 4) as u32 as usize).min(reply_words as usize)
 }
 
 fn format_marks<'a>(marks: impl IntoIterator<Item = &'a [u8]>) -> Option<Vec<u8>> {
@@ -432,19 +429,20 @@ unsafe fn change_ewmh_focus(new_focus: xcb_window_t, old_focus: xcb_window_t) {
 }
 
 pub unsafe fn x_con_init(con: *mut Con) {
+    let connection = connection();
     let mut mask: u32 = 0 as u32;
     let mut values: [u32; 5] = [0; 5];
     let visual: xcb_visualid_t = get_visualid_by_depth((*con).depth);
     let mut win_colormap: xcb_colormap_t = 0;
     if (*con).depth as i32 != root_depth as i32 {
-        win_colormap = xcb_generate_id(conn) as xcb_colormap_t;
-        xcb_create_colormap(
-            conn,
-            XCB_COLORMAP_ALLOC_NONE as i32 as u8,
-            win_colormap,
-            root,
+        let id = connection.generate_id::<x::Colormap>();
+        win_colormap = id.resource_id();
+        connection.send_request(&x::CreateColormap {
+            alloc: x::ColormapAlloc::None,
+            mid: id,
+            window: x::Window::new(root),
             visual,
-        );
+        });
         (*con).colormap = win_colormap;
     } else {
         win_colormap = colormap;
@@ -493,19 +491,13 @@ pub unsafe fn x_con_init(con: *mut Con) {
         dims.width as i32,
         dims.height as i32,
     );
-    xcb_change_property(
-        conn,
-        XCB_PROP_MODE_REPLACE as i32 as u8,
-        (*con).frame.id as xcb_window_t,
-        XCB_ATOM_WM_CLASS as i32 as xcb_atom_t,
-        XCB_ATOM_STRING as i32 as xcb_atom_t,
-        8 as u8,
-        strlen(c"i3-frame".as_ptr())
-            .wrapping_add(1 as usize)
-            .wrapping_mul(2 as usize) as u32,
-        b"i3-frame\0i3-frame\0\0" as *const u8 as *const ::core::ffi::c_char
-            as *const ::core::ffi::c_void,
-    );
+    connection.send_request(&x::ChangeProperty {
+        mode: x::PropMode::Replace,
+        window: x::Window::new((*con).frame.id),
+        property: x::ATOM_WM_CLASS,
+        r#type: x::ATOM_STRING,
+        data: b"i3-frame\0i3-frame\0",
+    });
     let state = Box::into_raw(Box::new(FrameState {
         id: (*con).frame.id,
         mapped: false,
@@ -672,12 +664,17 @@ pub unsafe fn x_move_win(src: *mut Con, dest: *mut Con) {
     }
 }
 unsafe fn _x_con_kill(con: *mut Con) {
+    let connection = connection();
     if (*con).colormap as ::core::ffi::c_long != XCB_NONE {
-        xcb_free_colormap(conn, (*con).colormap);
+        connection.send_request(&x::FreeColormap {
+            cmap: x::Colormap::new((*con).colormap),
+        });
     }
     draw_util_surface_free(conn, &raw mut (*con).frame);
     draw_util_surface_free(conn, &raw mut (*con).frame_buffer);
-    xcb_free_pixmap(conn, (*con).frame_buffer.id as xcb_pixmap_t);
+    connection.send_request(&x::FreePixmap {
+        pixmap: x::Pixmap::new((*con).frame_buffer.id),
+    });
     (*con).frame_buffer.id = XCB_NONE as xcb_drawable_t;
     let state: *mut FrameState = state_for_frame((*con).frame.id as xcb_window_t);
     if (*state).state.cqe_next == &raw mut state_head as *mut ::core::ffi::c_void as *mut FrameState
@@ -726,7 +723,9 @@ unsafe fn _x_con_kill(con: *mut Con) {
 
 pub unsafe fn x_con_kill(con: *mut Con) {
     _x_con_kill(con);
-    xcb_destroy_window(conn, (*con).frame.id as xcb_window_t);
+    connection().send_request(&x::DestroyWindow {
+        window: x::Window::new((*con).frame.id),
+    });
 }
 
 pub unsafe fn x_con_reframe(con: *mut Con) {
@@ -735,39 +734,46 @@ pub unsafe fn x_con_reframe(con: *mut Con) {
 }
 
 pub unsafe fn window_supports_protocol(window: xcb_window_t, atom: xcb_atom_t) -> bool {
-    let mut protocols: xcb_icccm_get_wm_protocols_reply_t = xcb_icccm_get_wm_protocols_reply_t {
-        atoms_len: 0,
-        atoms: ::core::ptr::null_mut::<xcb_atom_t>(),
-        _reply: ::core::ptr::null_mut::<xcb_get_property_reply_t>(),
+    let connection = connection();
+    let cookie = connection.send_request(&x::GetProperty {
+        delete: false,
+        window: x::Window::new(window),
+        property: x::Atom::new(A_WM_PROTOCOLS),
+        r#type: x::ATOM_ATOM,
+        long_offset: 0,
+        long_length: u32::MAX,
+    });
+    let Ok(reply) = connection.wait_for_reply(cookie) else {
+        return false;
     };
-    let cookie = xcb_icccm_get_wm_protocols(conn, window, A_WM_PROTOCOLS);
-    if xcb_icccm_get_wm_protocols_reply(conn, cookie, &raw mut protocols, std::ptr::null_mut()) != 1
-    {
+    if reply.r#type() != x::ATOM_ATOM || reply.format() != 32 {
         return false;
     }
-    let reply = ProtocolReply(protocols);
-    let raw = reply.0._reply;
-    if raw.is_null() || (*raw).format != 32 {
-        return false;
-    }
-    let available = ((*raw).length as usize).saturating_mul(4) / std::mem::size_of::<u32>();
-    let count = (reply.0.atoms_len as usize).min(available);
-    if count == 0 || reply.0.atoms.is_null() {
-        return false;
-    }
-    // XCB owns an aligned allocation of reply.length*4 payload bytes; the
-    // successful ICCCM parser supplies its first word pointer. Borrow until wipe.
-    std::slice::from_raw_parts(reply.0.atoms, count).contains(&atom)
+    // SAFETY: the concrete owned reply contains its initialized 32-byte header
+    // and length*4 trailing bytes. Bound the native parser's count before reading
+    // words, rather than using its unchecked value_len-based generated slice.
+    let words = unsafe {
+        let raw = ::xcb::Reply::as_raw(&reply);
+        let value_len = raw.add(16).cast::<u32>().read_unaligned();
+        let count = protocol_word_count(value_len, reply.length());
+        std::slice::from_raw_parts(raw.add(32), count * 4)
+    };
+    words
+        .chunks_exact(4)
+        .any(|word| u32::from_ne_bytes(word.try_into().unwrap()) == atom)
 }
 
 pub unsafe fn x_window_kill(window: xcb_window_t, kill_window: KillWindow) {
+    let connection = connection();
     if !window_supports_protocol(window, A_WM_DELETE_WINDOW) {
         if kill_window == KillWindow::Window {
             verboselog(
                 c"Killing specific window 0x%08x\n".as_ptr().cast_mut(),
                 window,
             );
-            xcb_destroy_window(conn, window);
+            connection.send_request(&x::DestroyWindow {
+                window: x::Window::new(window),
+            });
         } else {
             verboselog(
                 c"Killing the X11 client which owns window 0x%08x\n"
@@ -775,21 +781,21 @@ pub unsafe fn x_window_kill(window: xcb_window_t, kill_window: KillWindow) {
                     .cast_mut(),
                 window,
             );
-            xcb_kill_client(conn, window as u32);
+            connection.send_request(&x::KillClient { resource: window });
         }
         return;
     }
     let event = delete_window_event(window, A_WM_PROTOCOLS, A_WM_DELETE_WINDOW);
     verboselog(c"Sending WM_DELETE to the client\n".as_ptr().cast_mut());
-    xcb_send_event(
-        conn,
-        0,
-        window,
-        XCB_EVENT_MASK_NO_EVENT as i32 as u32,
-        (&raw const event).cast(),
-    );
-    xcb_flush(conn);
+    connection.send_request(&x::SendEvent {
+        propagate: false,
+        destination: x::SendEventDest::Window(x::Window::new(window)),
+        event_mask: x::EventMask::NO_EVENT,
+        event: &event,
+    });
+    let _ = connection.flush();
 }
+
 unsafe fn x_draw_title_border(
     con: *mut Con,
     p: *mut deco_render_params,
@@ -1574,7 +1580,9 @@ pub unsafe fn x_push_node(con: *mut Con) {
             || (*state).rect.height != rect.height;
         if !is_pixmap_needed && (*con).frame_buffer.id as ::core::ffi::c_long != XCB_NONE {
             draw_util_surface_free(conn, &raw mut (*con).frame_buffer);
-            xcb_free_pixmap(conn, (*con).frame_buffer.id as xcb_pixmap_t);
+            connection().send_request(&x::FreePixmap {
+                pixmap: x::Pixmap::new((*con).frame_buffer.id),
+            });
             (*con).frame_buffer.id = XCB_NONE as xcb_drawable_t;
         }
         if is_pixmap_needed
@@ -1584,7 +1592,9 @@ pub unsafe fn x_push_node(con: *mut Con) {
                 (*con).frame_buffer.id = xcb_generate_id(conn) as xcb_drawable_t;
             } else {
                 draw_util_surface_free(conn, &raw mut (*con).frame_buffer);
-                xcb_free_pixmap(conn, (*con).frame_buffer.id as xcb_pixmap_t);
+                connection().send_request(&x::FreePixmap {
+                    pixmap: x::Pixmap::new((*con).frame_buffer.id),
+                });
             }
             let mut win_depth: u16 = root_depth as u16;
             if !(*con).window.is_null() {
@@ -1700,7 +1710,7 @@ pub unsafe fn x_push_node(con: *mut Con) {
             XCB_PROP_MODE_REPLACE as i32 as u8,
             (*(*con).window).id,
             A__NET_FRAME_EXTENTS,
-            XCB_ATOM_CARDINAL as i32 as xcb_atom_t,
+            x::ATOM_CARDINAL.resource_id(),
             32 as u8,
             4 as u32,
             extents.as_ptr().cast(),
@@ -2286,68 +2296,57 @@ pub unsafe fn x_set_name(con: *mut Con, name: *const ::core::ffi::c_char) {
 }
 
 pub unsafe fn update_shmlog_atom() {
-    if *shmlogname as i32 == '\0' as i32 {
-        xcb_delete_property(conn, root, A_I3_SHMLOG_PATH);
+    let connection = connection();
+    let path = CStr::from_ptr(shmlogname).to_bytes();
+    if path.is_empty() {
+        connection.send_request(&x::DeleteProperty {
+            window: x::Window::new(root),
+            property: x::Atom::new(A_I3_SHMLOG_PATH),
+        });
     } else {
-        xcb_change_property(
-            conn,
-            XCB_PROP_MODE_REPLACE as i32 as u8,
-            root,
-            A_I3_SHMLOG_PATH,
-            A_UTF8_STRING,
-            8 as u8,
-            strlen(shmlogname) as u32,
-            shmlogname as *const ::core::ffi::c_void,
-        );
-    };
+        connection.send_request(&x::ChangeProperty {
+            mode: x::PropMode::Replace,
+            window: x::Window::new(root),
+            property: x::Atom::new(A_I3_SHMLOG_PATH),
+            r#type: x::Atom::new(A_UTF8_STRING),
+            data: path,
+        });
+    }
 }
 
 pub unsafe fn x_set_i3_atoms() {
-    let mut pid: libc::pid_t = getpid() as libc::pid_t;
-    xcb_change_property(
-        conn,
-        XCB_PROP_MODE_REPLACE as i32 as u8,
-        root,
-        A_I3_SOCKET_PATH,
-        A_UTF8_STRING,
-        8 as u8,
-        (if current_socketpath.is_null() {
-            0 as usize
-        } else {
-            strlen(current_socketpath)
-        }) as u32,
-        current_socketpath as *const ::core::ffi::c_void,
-    );
-    xcb_change_property(
-        conn,
-        XCB_PROP_MODE_REPLACE as i32 as u8,
-        root,
-        A_I3_PID,
-        XCB_ATOM_CARDINAL as i32 as xcb_atom_t,
-        32 as u8,
-        1 as u32,
-        &raw mut pid as *const ::core::ffi::c_void,
-    );
-    xcb_change_property(
-        conn,
-        XCB_PROP_MODE_REPLACE as i32 as u8,
-        root,
-        A_I3_CONFIG_PATH,
-        A_UTF8_STRING,
-        8 as u8,
-        strlen(current_configpath) as u32,
-        current_configpath as *const ::core::ffi::c_void,
-    );
-    xcb_change_property(
-        conn,
-        XCB_PROP_MODE_REPLACE as i32 as u8,
-        root,
-        A_I3_LOG_STREAM_SOCKET_PATH,
-        A_UTF8_STRING,
-        8 as u8,
-        strlen(current_log_stream_socket_path) as u32,
-        current_log_stream_socket_path as *const ::core::ffi::c_void,
-    );
+    let connection = connection();
+    let socket_path = if current_socketpath.is_null() {
+        &[][..]
+    } else {
+        CStr::from_ptr(current_socketpath).to_bytes()
+    };
+    connection.send_request(&x::ChangeProperty {
+        mode: x::PropMode::Replace,
+        window: x::Window::new(root),
+        property: x::Atom::new(A_I3_SOCKET_PATH),
+        r#type: x::Atom::new(A_UTF8_STRING),
+        data: socket_path,
+    });
+    connection.send_request(&x::ChangeProperty {
+        mode: x::PropMode::Replace,
+        window: x::Window::new(root),
+        property: x::Atom::new(A_I3_PID),
+        r#type: x::ATOM_CARDINAL,
+        data: &[getpid() as u32],
+    });
+    for (atom, path) in [
+        (A_I3_CONFIG_PATH, current_configpath),
+        (A_I3_LOG_STREAM_SOCKET_PATH, current_log_stream_socket_path),
+    ] {
+        connection.send_request(&x::ChangeProperty {
+            mode: x::PropMode::Replace,
+            window: x::Window::new(root),
+            property: x::Atom::new(atom),
+            r#type: x::Atom::new(A_UTF8_STRING),
+            data: CStr::from_ptr(path).to_bytes(),
+        });
+    }
     update_shmlog_atom();
 }
 
@@ -2436,26 +2435,21 @@ use i3_common::safewrappers::scalloc;
 // Canonical Pango backend ABI; font policy remains local.
 
 use xcb_sys::{
-    xcb_atom_t, xcb_change_gc, xcb_change_property, xcb_change_window_attributes,
-    xcb_client_message_event_t, xcb_colormap_t, xcb_configure_window, xcb_create_colormap,
-    xcb_create_pixmap, xcb_delete_property, xcb_destroy_window, xcb_drawable_t, xcb_flush,
-    xcb_free_colormap, xcb_free_pixmap, xcb_generate_id, xcb_generic_error_t,
-    xcb_get_property_cookie_t, xcb_get_property_reply_t, xcb_icccm_get_wm_protocols,
-    xcb_icccm_get_wm_protocols_reply, xcb_icccm_get_wm_protocols_reply_t,
-    xcb_icccm_get_wm_protocols_reply_wipe, xcb_kill_client, xcb_map_window, xcb_pixmap_t,
-    xcb_query_pointer, xcb_query_pointer_cookie_t, xcb_query_pointer_reply,
-    xcb_query_pointer_reply_t, xcb_reparent_window, xcb_send_event, xcb_set_input_focus,
-    xcb_unmap_window, xcb_visualid_t, xcb_void_cookie_t, xcb_warp_pointer, xcb_window_t,
-    XCB_ATOM_CARDINAL, XCB_ATOM_STRING, XCB_ATOM_WM_CLASS, XCB_ATOM_WM_NAME, XCB_CLIENT_MESSAGE,
-    XCB_COLORMAP_ALLOC_NONE, XCB_CONFIG_WINDOW_SIBLING, XCB_CONFIG_WINDOW_STACK_MODE,
-    XCB_CURRENT_TIME, XCB_CW_BACK_PIXEL, XCB_CW_BORDER_PIXEL, XCB_CW_COLORMAP, XCB_CW_EVENT_MASK,
-    XCB_CW_OVERRIDE_REDIRECT, XCB_EVENT_MASK_BUTTON_PRESS, XCB_EVENT_MASK_BUTTON_RELEASE,
-    XCB_EVENT_MASK_ENTER_WINDOW, XCB_EVENT_MASK_EXPOSURE, XCB_EVENT_MASK_FOCUS_CHANGE,
-    XCB_EVENT_MASK_NO_EVENT, XCB_EVENT_MASK_POINTER_MOTION, XCB_EVENT_MASK_PROPERTY_CHANGE,
-    XCB_EVENT_MASK_STRUCTURE_NOTIFY, XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY,
-    XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT, XCB_GC_GRAPHICS_EXPOSURES, XCB_ICCCM_WM_STATE_NORMAL,
-    XCB_ICCCM_WM_STATE_WITHDRAWN, XCB_INPUT_FOCUS_POINTER_ROOT, XCB_NONE, XCB_PIXMAP_NONE,
-    XCB_PROP_MODE_REPLACE, XCB_STACK_MODE_ABOVE, XCB_WINDOW_CLASS_INPUT_OUTPUT, XCB_WINDOW_NONE,
+    xcb_atom_t, xcb_change_gc, xcb_change_property, xcb_change_window_attributes, xcb_colormap_t,
+    xcb_configure_window, xcb_create_pixmap, xcb_drawable_t, xcb_flush, xcb_free_pixmap,
+    xcb_generate_id, xcb_generic_error_t, xcb_map_window, xcb_pixmap_t, xcb_query_pointer,
+    xcb_query_pointer_cookie_t, xcb_query_pointer_reply, xcb_query_pointer_reply_t,
+    xcb_reparent_window, xcb_set_input_focus, xcb_unmap_window, xcb_visualid_t, xcb_void_cookie_t,
+    xcb_warp_pointer, xcb_window_t, XCB_ATOM_STRING, XCB_ATOM_WM_NAME, XCB_CONFIG_WINDOW_SIBLING,
+    XCB_CONFIG_WINDOW_STACK_MODE, XCB_CURRENT_TIME, XCB_CW_BACK_PIXEL, XCB_CW_BORDER_PIXEL,
+    XCB_CW_COLORMAP, XCB_CW_EVENT_MASK, XCB_CW_OVERRIDE_REDIRECT, XCB_EVENT_MASK_BUTTON_PRESS,
+    XCB_EVENT_MASK_BUTTON_RELEASE, XCB_EVENT_MASK_ENTER_WINDOW, XCB_EVENT_MASK_EXPOSURE,
+    XCB_EVENT_MASK_FOCUS_CHANGE, XCB_EVENT_MASK_NO_EVENT, XCB_EVENT_MASK_POINTER_MOTION,
+    XCB_EVENT_MASK_PROPERTY_CHANGE, XCB_EVENT_MASK_STRUCTURE_NOTIFY,
+    XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY, XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT,
+    XCB_GC_GRAPHICS_EXPOSURES, XCB_ICCCM_WM_STATE_NORMAL, XCB_ICCCM_WM_STATE_WITHDRAWN,
+    XCB_INPUT_FOCUS_POINTER_ROOT, XCB_NONE, XCB_PIXMAP_NONE, XCB_PROP_MODE_REPLACE,
+    XCB_STACK_MODE_ABOVE, XCB_WINDOW_CLASS_INPUT_OUTPUT, XCB_WINDOW_NONE,
 };
 
 use libc::{free, getpid, strlen};
@@ -2547,18 +2541,24 @@ mod tests {
         );
         assert_eq!(format_marks([b"_hidden".as_slice()]), None);
         let event = delete_window_event(0xffff_ffff, 12, 13);
-        assert_eq!(
-            (
-                event.response_type,
-                event.format,
-                event.sequence,
-                event.window,
-                event.type_0
-            ),
-            (33, 32, 0, u32::MAX, 12)
-        );
-        assert_eq!(unsafe { event.data.data32 }, [13, 0, 0, 0, 0]);
-        assert_eq!(std::mem::size_of_val(&event), 32);
+        use ::xcb::Raw;
+        let bytes = unsafe { std::slice::from_raw_parts(event.as_raw().cast::<u8>(), 32) };
+        let mut expected = [0u8; 32];
+        expected[0] = 33;
+        expected[1] = 32;
+        expected[4..8].copy_from_slice(&u32::MAX.to_ne_bytes());
+        expected[8..12].copy_from_slice(&12u32.to_ne_bytes());
+        expected[12..16].copy_from_slice(&13u32.to_ne_bytes());
+        assert_eq!(bytes, expected);
+    }
+    #[test]
+    fn protocol_counts_keep_signed_native_arithmetic_and_payload_bounds() {
+        assert_eq!(protocol_word_count(3, 8), 3);
+        assert_eq!(protocol_word_count(8, 3), 3);
+        assert_eq!(protocol_word_count(0, u32::MAX), 0);
+        assert_eq!(protocol_word_count(0x4000_0000, 8), 0);
+        assert_eq!(protocol_word_count(0x8000_0003, 8), 3);
+        assert_eq!(protocol_word_count(u32::MAX, 8), 8);
     }
     #[test]
     fn border_geometry_retains_hidden_edges_and_native_narrowing() {
