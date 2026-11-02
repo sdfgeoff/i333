@@ -1776,7 +1776,7 @@ unsafe fn handle_configuration_change(window: u32) {
                 if (*trayclient).mapped {
                     clients += 1;
                     if !((*trayclient).win != window) {
-                        let mut rect: xcb_rectangle_t = xcb_rectangle_t {
+                        let mut rect = x::Rectangle {
                             x: 0,
                             y: 0,
                             width: 0,
@@ -1796,12 +1796,9 @@ unsafe fn handle_configuration_change(window: u32) {
                                 rect.x as ::core::ffi::c_int,
                             );
                         }
-                        fake_configure_notify(
-                            xcb_connection,
-                            rect,
-                            window,
-                            0 as ::core::ffi::c_int,
-                        );
+                        if let Some(connection) = i3_common::display::connection() {
+                            send_configure_notify(&connection, rect, x::Window::new(window), 0);
+                        }
                         return;
                     }
                 }
@@ -3231,7 +3228,7 @@ use i3_common::native_stdio::{errx, stderr};
 
 // Internal calls and globals use canonical Rust identities.
 use crate::application::main_loop;
-use i3_common::fake_configure_notify::fake_configure_notify;
+use i3_common::fake_configure_notify::send_configure_notify;
 use i3_common::get_visualtype::get_visualtype;
 use i3_common::root_atom_contents::root_atom_contents;
 
@@ -3443,9 +3440,9 @@ mod owned_tests {
 
 use xcb_sys::{
     xcb_aux_find_visual_by_attrs, xcb_aux_get_depth_of_visual, xcb_aux_get_screen,
-    xcb_color_strings_t, xcb_connection_t, xcb_rectangle_t, xcb_screen_t, xcb_visualtype_t,
-    XCB_ATOM_WM_CLASS, XCB_ATOM_WM_NAME, XCB_BUTTON_SCROLL_DOWN, XCB_BUTTON_SCROLL_LEFT,
-    XCB_BUTTON_SCROLL_RIGHT, XCB_BUTTON_SCROLL_UP, XCB_CURRENT_TIME, XCB_EVENT_MASK_BUTTON_PRESS,
+    xcb_color_strings_t, xcb_connection_t, xcb_screen_t, xcb_visualtype_t, XCB_ATOM_WM_CLASS,
+    XCB_ATOM_WM_NAME, XCB_BUTTON_SCROLL_DOWN, XCB_BUTTON_SCROLL_LEFT, XCB_BUTTON_SCROLL_RIGHT,
+    XCB_BUTTON_SCROLL_UP, XCB_CURRENT_TIME, XCB_EVENT_MASK_BUTTON_PRESS,
     XCB_EVENT_MASK_BUTTON_RELEASE, XCB_EVENT_MASK_EXPOSURE, XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT,
     XCB_EVENT_MASK_VISIBILITY_CHANGE, XCB_NONE, XCB_STACK_MODE_ABOVE,
 };

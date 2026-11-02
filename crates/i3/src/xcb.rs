@@ -85,8 +85,8 @@ fn preferred_atom(atoms: impl IntoIterator<Item = u32>, supported: &[u32]) -> u3
 fn without_atom(atoms: impl IntoIterator<Item = u32>, removed: u32) -> Vec<u32> {
     atoms.into_iter().filter(|&atom| atom != removed).collect()
 }
-fn absolute_geometry(container: Rect, window: Rect) -> xcb_rectangle_t {
-    xcb_rectangle_t {
+fn absolute_geometry(container: Rect, window: Rect) -> x::Rectangle {
+    x::Rectangle {
         x: container.x.wrapping_add(window.x) as i16,
         y: container.y.wrapping_add(window.y) as i16,
         width: window.width as u16,
@@ -182,7 +182,14 @@ pub unsafe fn fake_absolute_configure_notify(con: *mut Con) {
         absolute.width as ::core::ffi::c_int,
         absolute.height as ::core::ffi::c_int,
     );
-    fake_configure_notify(conn, absolute, (*(*con).window).id, (*con).border_width);
+    if let Some(connection) = i3_common::display::connection() {
+        send_configure_notify(
+            &connection,
+            absolute,
+            x::Window::new((*(*con).window).id),
+            (*con).border_width,
+        );
+    }
 }
 
 /// Native display/graph boundary: requires a live event-thread connection and
@@ -408,9 +415,9 @@ use crate::xcursor::xcursor_get_cursor;
 use xcb_sys::{
     xcb_atom_t, xcb_change_window_attributes, xcb_connection_t, xcb_create_window,
     xcb_depth_iterator_t, xcb_depth_next, xcb_depth_t, xcb_depth_visuals_iterator, xcb_generate_id,
-    xcb_map_window, xcb_rectangle_t, xcb_request_check, xcb_screen_allowed_depths_iterator,
-    xcb_timestamp_t, xcb_visualid_t, xcb_visualtype_iterator_t, xcb_visualtype_next,
-    xcb_visualtype_t, xcb_void_cookie_t, xcb_window_t, XCB_COPY_FROM_PARENT, XCB_CW_CURSOR,
+    xcb_map_window, xcb_request_check, xcb_screen_allowed_depths_iterator, xcb_timestamp_t,
+    xcb_visualid_t, xcb_visualtype_iterator_t, xcb_visualtype_next, xcb_visualtype_t,
+    xcb_void_cookie_t, xcb_window_t, XCB_COPY_FROM_PARENT, XCB_CW_CURSOR,
     XCB_WINDOW_CLASS_INPUT_ONLY,
 };
 
@@ -438,7 +445,7 @@ use crate::application::A__NET_WM_WINDOW_TYPE_SPLASH;
 use crate::application::A__NET_WM_WINDOW_TYPE_TOOLBAR;
 use crate::application::A__NET_WM_WINDOW_TYPE_TOOLTIP;
 use crate::application::A__NET_WM_WINDOW_TYPE_UTILITY;
-use i3_common::fake_configure_notify::fake_configure_notify;
+use i3_common::fake_configure_notify::send_configure_notify;
 
 #[cfg(test)]
 mod tests {
