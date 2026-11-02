@@ -2,6 +2,7 @@ use crate::application::ColorStrings;
 use crate::config::config;
 use crate::outputs::output_has_focus;
 use crate::outputs::outputs;
+use ::xcb::ffi::xcb_connection_t;
 use ::xcb::{x, Reply, Xid, XidNew};
 use i3_common::draw_util::draw_util_clear_surface;
 use i3_common::draw_util::draw_util_copy_surface;
@@ -55,6 +56,28 @@ pub use crate::application::tray_output_t;
 
 pub use crate::application::binding_t;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(u8)]
+enum WorkspaceButton {
+    Click = 1,
+    Up = 4,
+    Down = 5,
+    Left = 6,
+    Right = 7,
+}
+impl WorkspaceButton {
+    fn from_native(button: u8) -> Option<Self> {
+        match button {
+            1 => Some(Self::Click),
+            4 => Some(Self::Up),
+            5 => Some(Self::Down),
+            6 => Some(Self::Left),
+            7 => Some(Self::Right),
+            _ => None,
+        }
+    }
+}
+
 pub const NUM_ATOMS: usize = AtomIndex::COUNT;
 
 pub const _NET_SYSTEM_TRAY_ORIENTATION_HORZ: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
@@ -79,12 +102,20 @@ pub static mut xcb_connection: *mut xcb_connection_t =
 
 pub static mut screen: ::core::ffi::c_int = 0;
 
-pub static mut root_screen: *mut xcb_screen_t =
-    ::core::ptr::null::<xcb_screen_t>() as *mut xcb_screen_t;
+// The registered connection guard retains every cached Cairo visual through
+// graphics cleanup. Context snapshots copy only semantic screen scalars and the
+// actual canonical Cairo pointer; no setup-buffer record escapes initialization.
+pub static mut DISPLAY_CONTEXT: i3_common::display::DisplayContext =
+    i3_common::display::DisplayContext {
+        connection: std::ptr::null_mut(),
+        screen: None,
+        visual_type: std::ptr::null_mut(),
+        visual_id: 0,
+    };
 
 pub static mut xcb_root: u32 = 0;
 static mut cursor: u32 = 0;
-static mut selwin: u32 = XCB_NONE as u32;
+static mut selwin: u32 = 0 as u32;
 static mut tray_atom: Option<x::Atom> = None;
 
 pub static mut conn: *mut xcb_connection_t =
@@ -102,9 +133,6 @@ static mut font: Font = Font {
 };
 
 pub static mut icon_size: ::core::ffi::c_int = 0;
-
-pub static mut visual_type: *mut xcb_visualtype_t =
-    ::core::ptr::null::<xcb_visualtype_t>() as *mut xcb_visualtype_t;
 
 pub static mut depth: u8 = 0;
 
@@ -784,7 +812,7 @@ unsafe fn unhide_bars() {
     cont_children();
     walk = (*outputs).slh_first as *mut i3_output;
     while !walk.is_null() {
-        if !((*walk).bar.id as ::core::ffi::c_long == XCB_NONE) {
+        if !((*walk).bar.id as ::core::ffi::c_long == 0) {
             values[0 as ::core::ffi::c_int as usize] = (*walk).rect.x as u32;
             if config.position == crate::application::BarPosition::Top {
                 values[1 as ::core::ffi::c_int as usize] = (*walk).rect.y as u32;
@@ -794,8 +822,7 @@ unsafe fn unhide_bars() {
             }
             values[2 as ::core::ffi::c_int as usize] = (*walk).rect.w as u32;
             values[3 as ::core::ffi::c_int as usize] = bar_height as u32;
-            values[4 as ::core::ffi::c_int as usize] =
-                XCB_STACK_MODE_ABOVE as ::core::ffi::c_int as u32;
+
             if config.verbose {
                 printf(
                     c"[%s:%d] Reconfiguring window for output %s to %d,%d\n".as_ptr(),
@@ -1167,20 +1194,20 @@ unsafe fn handle_button(event: &ButtonInput) {
         }
         return;
     }
-    match event.button as ::core::ffi::c_int {
-        XCB_BUTTON_SCROLL_UP | XCB_BUTTON_SCROLL_LEFT => {
+    match WorkspaceButton::from_native(event.button) {
+        Some(WorkspaceButton::Up | WorkspaceButton::Left) => {
             if cur_ws == (*(*walk).workspaces).tqh_first {
                 return;
             }
             cur_ws = *(*((*cur_ws).tailq.tqe_prev as *mut ws_head)).tqh_last as *mut i3_ws;
         }
-        XCB_BUTTON_SCROLL_DOWN | XCB_BUTTON_SCROLL_RIGHT => {
+        Some(WorkspaceButton::Down | WorkspaceButton::Right) => {
             if cur_ws == *(*((*(*walk).workspaces).tqh_last as *mut ws_head)).tqh_last {
                 return;
             }
             cur_ws = (*cur_ws).tailq.tqe_next as *mut i3_ws;
         }
-        1 => {
+        Some(WorkspaceButton::Click) => {
             cur_ws = clicked_ws;
             if cur_ws.is_null() {
                 cur_ws = (*(*walk).workspaces).tqh_first as *mut i3_ws;
@@ -1504,7 +1531,7 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
                 client,
                 atoms[AtomIndex::Xembed as usize],
                 [
-                    XCB_CURRENT_TIME as u32,
+                    x::CURRENT_TIME as u32,
                     XEMBED_EMBEDDED_NOTIFY as u32,
                     (*output_for_tray).bar.id,
                     xe_version as u32,
@@ -1757,7 +1784,9 @@ unsafe fn handle_property_notify(event: &x::PropertyNotifyEvent) {
                 window: x::Window::new((*client).win),
             });
         }
-    } else if event.atom().resource_id() == XCB_ATOM_WM_CLASS as ::core::ffi::c_int as u32 {
+    } else if event.atom().resource_id()
+        == x::ATOM_WM_CLASS.resource_id() as ::core::ffi::c_int as u32
+    {
         let client_0: *mut trayclient = trayclient_from_window(event.window().resource_id());
         if !client_0.is_null() {
             trayclient_update_class(client_0);
@@ -1949,7 +1978,7 @@ pub unsafe fn init_xcb_early() -> *mut ::core::ffi::c_char {
         }
     };
     screen = screen_number;
-    xcb_connection = connection.get_raw_conn().cast();
+    xcb_connection = connection.get_raw_conn();
     let registration = i3_common::display::install_connection(std::rc::Rc::new(connection));
     DISPLAY_CONNECTION.with(|registered| {
         assert!(
@@ -1975,34 +2004,44 @@ pub unsafe fn init_xcb_early() -> *mut ::core::ffi::c_char {
             name: ATOM_NAMES[index].to_bytes(),
         })
     });
-    root_screen = xcb_aux_get_screen(xcb_connection, screen);
-    xcb_root = (*root_screen).root;
-    depth = (*root_screen).root_depth;
-    colormap = (*root_screen).default_colormap;
-    visual_type = if config.transparency as ::core::ffi::c_int != 0 {
-        xcb_aux_find_visual_by_attrs(root_screen, -(1 as ::core::ffi::c_int) as i8, 32 as i8)
-    } else {
-        ::core::ptr::null_mut::<xcb_visualtype_t>()
-    };
-    if !visual_type.is_null() {
-        depth = xcb_aux_get_depth_of_visual(root_screen, (*visual_type).visual_id);
-        colormap = connection.generate_id::<x::Colormap>().resource_id() as u32;
+    let selected_screen = i3_common::display::DisplayScreen::new(connection.clone(), screen)
+        .expect("bar setup contains the selected screen");
+    let info = selected_screen.info();
+    xcb_root = info.root;
+    depth = info.root_depth;
+    colormap = info.default_colormap;
+    // Native transparency selects the first visual at depth 32, regardless of
+    // visual class. Avoid the maintained closed class enum getter entirely.
+    let transparent = config
+        .transparency
+        .then(|| {
+            selected_screen
+                .screen()
+                .allowed_depths()
+                .find_map(|allowed| {
+                    (allowed.depth() == 32)
+                        .then(|| allowed.visuals().first().map(|visual| visual.visual_id()))
+                        .flatten()
+                })
+        })
+        .flatten();
+    let visual_id = transparent.unwrap_or(info.root_visual);
+    let selected_visual = i3_common::display::visual(visual_id)
+        .expect("selected bar visual belongs to the retained setup");
+    DISPLAY_CONTEXT =
+        i3_common::display::DisplayContext::from_screen(&selected_screen, Some(&selected_visual));
+    if transparent.is_some() {
+        depth = 32;
+        colormap = connection.generate_id::<x::Colormap>().resource_id();
         let cm_cookie = connection.send_request_checked(&x::CreateColormap {
             alloc: x::ColormapAlloc::None,
             mid: x::Colormap::new(colormap),
             window: x::Window::new(xcb_root),
-            visual: (*visual_type).visual_id,
+            visual: visual_id,
         });
-        if request_failed(
-            cm_cookie,
-            c"Could not allocate colormap",
-            1363 as ::core::ffi::c_int,
-        ) != 0
-        {
+        if request_failed(cm_cookie, c"Could not allocate colormap", 1363) != 0 {
             exit(libc::EXIT_FAILURE);
         }
-    } else {
-        visual_type = get_visualtype(root_screen);
     }
     let cursor_context = match xcb_interop::cursor::CursorContext::new(connection.clone(), screen) {
         Ok(context) => context,
@@ -2025,7 +2064,7 @@ pub unsafe fn init_xcb_early() -> *mut ::core::ffi::c_char {
     ev_prepare_start(main_loop as *mut ev_loop, xcb_prep);
     get_atoms(&connection, atom_cookies);
     let path: *mut ::core::ffi::c_char =
-        root_atom_contents(c"I3_SOCKET_PATH".as_ptr(), xcb_connection, screen);
+        root_atom_contents(c"I3_SOCKET_PATH".as_ptr(), xcb_connection.cast(), screen);
     path
 }
 /// All StateNotify fields are selected, and all eight native map parts remain
@@ -2148,7 +2187,7 @@ unsafe fn send_tray_clientmessage() {
         xcb_root,
         atoms[AtomIndex::Manager as usize],
         [
-            XCB_CURRENT_TIME as u32,
+            x::CURRENT_TIME as u32,
             tray_atom.unwrap().resource_id(),
             selwin,
             0,
@@ -2187,10 +2226,10 @@ unsafe fn init_tray() {
         height: 1 as u16,
         border_width: 0 as u16,
         class: x::WindowClass::InputOutput,
-        visual: (*visual_type).visual_id,
+        visual: DISPLAY_CONTEXT.visual_id,
         value_list: &[
-            x::Cw::BackPixel((*root_screen).black_pixel),
-            x::Cw::BorderPixel((*root_screen).black_pixel),
+            x::Cw::BackPixel(DISPLAY_CONTEXT.screen.unwrap().black_pixel),
+            x::Cw::BorderPixel(DISPLAY_CONTEXT.screen.unwrap().black_pixel),
             x::Cw::OverrideRedirect(true),
             x::Cw::Colormap(x::Colormap::new(colormap)),
         ],
@@ -2207,7 +2246,7 @@ unsafe fn init_tray() {
         window: x::Window::new(selwin),
         property: x::Atom::new(atoms[AtomIndex::NetSystemTrayVisual as usize]),
         r#type: x::ATOM_VISUALID,
-        data: &[(*visual_type).visual_id],
+        data: &[DISPLAY_CONTEXT.visual_id],
     });
     init_tray_colors();
     if let Some(cookie) = tray_cookie {
@@ -2350,8 +2389,7 @@ pub unsafe fn clean_xcb() {
         xcb_io = std::ptr::null_mut();
     }
     tray_atom = None;
-    root_screen = std::ptr::null_mut();
-    visual_type = std::ptr::null_mut();
+    DISPLAY_CONTEXT = i3_common::display::DisplayContext::default();
     conn = std::ptr::null_mut();
     xcb_connection = std::ptr::null_mut();
     // Release the registration outside its RefCell borrow. The final Rc drops
@@ -2419,13 +2457,13 @@ pub unsafe fn kick_tray_clients(output: *mut i3_output) {
 }
 
 pub unsafe fn destroy_window(output: *mut i3_output) {
-    if output.is_null() || (*output).bar.id as ::core::ffi::c_long == XCB_NONE {
+    if output.is_null() || (*output).bar.id as ::core::ffi::c_long == 0 {
         return;
     }
     kick_tray_clients(output);
-    draw_util_surface_free(xcb_connection, &raw mut (*output).bar);
-    draw_util_surface_free(xcb_connection, &raw mut (*output).buffer);
-    draw_util_surface_free(xcb_connection, &raw mut (*output).statusline_buffer);
+    draw_util_surface_free(xcb_connection.cast(), &raw mut (*output).bar);
+    draw_util_surface_free(xcb_connection.cast(), &raw mut (*output).buffer);
+    draw_util_surface_free(xcb_connection.cast(), &raw mut (*output).statusline_buffer);
     send_unchecked(&x::DestroyWindow {
         window: x::Window::new((*output).bar.id as u32),
     });
@@ -2435,7 +2473,7 @@ pub unsafe fn destroy_window(output: *mut i3_output) {
     send_unchecked(&x::FreePixmap {
         pixmap: x::Pixmap::new((*output).statusline_buffer.id as u32),
     });
-    (*output).bar.id = XCB_NONE as u32;
+    (*output).bar.id = 0 as u32;
 }
 unsafe fn config_strut_partial(
     connection: &::xcb::Connection,
@@ -2508,7 +2546,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 );
             }
             destroy_window(walk);
-        } else if (*walk).bar.id as ::core::ffi::c_long == XCB_NONE {
+        } else if (*walk).bar.id as ::core::ffi::c_long == 0 {
             if config.verbose {
                 printf(
                     c"[%s:%d] Creating window for output %s\n".as_ptr(),
@@ -2523,21 +2561,22 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 connection.generate_id::<x::Pixmap>().resource_id() as u32;
 
             values[0 as ::core::ffi::c_int as usize] = colors.bar_bg.colorpixel;
-            values[1 as ::core::ffi::c_int as usize] = (*root_screen).black_pixel;
+            values[1 as ::core::ffi::c_int as usize] = DISPLAY_CONTEXT.screen.unwrap().black_pixel;
             values[2 as ::core::ffi::c_int as usize] =
                 (if config.hide_on_modifier == crate::application::BarDisplayMode::Dock {
                     0 as ::core::ffi::c_int
                 } else {
                     1 as ::core::ffi::c_int
                 }) as u32;
-            values[3 as ::core::ffi::c_int as usize] =
-                (XCB_EVENT_MASK_EXPOSURE as ::core::ffi::c_int
-                    | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT as ::core::ffi::c_int
-                    | XCB_EVENT_MASK_BUTTON_PRESS as ::core::ffi::c_int
-                    | XCB_EVENT_MASK_BUTTON_RELEASE as ::core::ffi::c_int) as u32;
+            values[3 as ::core::ffi::c_int as usize] = (x::EventMask::EXPOSURE.bits()
+                as ::core::ffi::c_int
+                | x::EventMask::SUBSTRUCTURE_REDIRECT.bits() as ::core::ffi::c_int
+                | x::EventMask::BUTTON_PRESS.bits() as ::core::ffi::c_int
+                | x::EventMask::BUTTON_RELEASE.bits() as ::core::ffi::c_int)
+                as u32;
             if config.hide_on_modifier == crate::application::BarDisplayMode::Dock {
                 values[3 as ::core::ffi::c_int as usize] |=
-                    XCB_EVENT_MASK_VISIBILITY_CHANGE as ::core::ffi::c_int as u32;
+                    x::EventMask::VISIBILITY_CHANGE.bits() as ::core::ffi::c_int as u32;
                 (*walk).visible = true;
             }
             values[4 as ::core::ffi::c_int as usize] = colormap as u32;
@@ -2552,7 +2591,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 height: bar_height as u16,
                 border_width: 0 as u16,
                 class: x::WindowClass::InputOutput,
-                visual: (*visual_type).visual_id,
+                visual: DISPLAY_CONTEXT.visual_id,
                 value_list: &[
                     x::Cw::BackPixel(values[0]),
                     x::Cw::BorderPixel(values[1]),
@@ -2588,7 +2627,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
             let class_cookie = connection.send_request(&x::ChangeProperty {
                 mode: x::PropMode::Replace,
                 window: x::Window::new(bar_id),
-                property: x::Atom::new(XCB_ATOM_WM_CLASS as ::core::ffi::c_int as u32),
+                property: x::Atom::new(x::ATOM_WM_CLASS.resource_id() as ::core::ffi::c_int as u32),
                 r#type: x::ATOM_STRING,
                 data: std::slice::from_raw_parts(class.cast::<u8>(), len as usize),
             });
@@ -2602,7 +2641,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
             let name_cookie = connection.send_request(&x::ChangeProperty {
                 mode: x::PropMode::Replace,
                 window: x::Window::new(bar_id),
-                property: x::Atom::new(XCB_ATOM_WM_NAME as ::core::ffi::c_int as u32),
+                property: x::Atom::new(x::ATOM_WM_NAME.resource_id() as ::core::ffi::c_int as u32),
                 r#type: x::ATOM_STRING,
                 data: std::ffi::CStr::from_ptr(name).to_bytes(),
             });
@@ -2617,26 +2656,26 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 data: &[atoms[AtomIndex::NetWmWindowTypeDock as usize]],
             });
             draw_util_surface_init(
-                xcb_connection,
+                xcb_connection.cast(),
                 &raw mut (*walk).bar,
                 bar_id as u32,
-                ::core::ptr::null_mut::<xcb_visualtype_t>(),
+                None,
                 (*walk).rect.w,
                 bar_height,
             );
             draw_util_surface_init(
-                xcb_connection,
+                xcb_connection.cast(),
                 &raw mut (*walk).buffer,
                 buffer_id as u32,
-                ::core::ptr::null_mut::<xcb_visualtype_t>(),
+                None,
                 (*walk).rect.w,
                 bar_height,
             );
             draw_util_surface_init(
-                xcb_connection,
+                xcb_connection.cast(),
                 &raw mut (*walk).statusline_buffer,
                 statusline_buffer_id as u32,
-                ::core::ptr::null_mut::<xcb_visualtype_t>(),
+                None,
                 (*walk).rect.w,
                 bar_height,
             );
@@ -2701,8 +2740,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
             }
             values[2 as ::core::ffi::c_int as usize] = (*walk).rect.w as u32;
             values[3 as ::core::ffi::c_int as usize] = bar_height as u32;
-            values[4 as ::core::ffi::c_int as usize] =
-                XCB_STACK_MODE_ABOVE as ::core::ffi::c_int as u32;
+
             if config.verbose {
                 printf(
                     c"[%s:%d] Reconfiguring strut partial property for output %s\n".as_ptr(),
@@ -2805,30 +2843,30 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 width: (*walk).rect.w as u16,
                 height: bar_height as u16,
             });
-            draw_util_surface_free(xcb_connection, &raw mut (*walk).bar);
-            draw_util_surface_free(xcb_connection, &raw mut (*walk).buffer);
-            draw_util_surface_free(xcb_connection, &raw mut (*walk).statusline_buffer);
+            draw_util_surface_free(xcb_connection.cast(), &raw mut (*walk).bar);
+            draw_util_surface_free(xcb_connection.cast(), &raw mut (*walk).buffer);
+            draw_util_surface_free(xcb_connection.cast(), &raw mut (*walk).statusline_buffer);
             draw_util_surface_init(
-                xcb_connection,
+                xcb_connection.cast(),
                 &raw mut (*walk).bar,
                 (*walk).bar.id,
-                ::core::ptr::null_mut::<xcb_visualtype_t>(),
+                None,
                 (*walk).rect.w,
                 bar_height,
             );
             draw_util_surface_init(
-                xcb_connection,
+                xcb_connection.cast(),
                 &raw mut (*walk).buffer,
                 (*walk).buffer.id,
-                ::core::ptr::null_mut::<xcb_visualtype_t>(),
+                None,
                 (*walk).rect.w,
                 bar_height,
             );
             draw_util_surface_init(
-                xcb_connection,
+                xcb_connection.cast(),
                 &raw mut (*walk).statusline_buffer,
                 (*walk).statusline_buffer.id,
-                ::core::ptr::null_mut::<xcb_visualtype_t>(),
+                None,
                 (*walk).rect.w,
                 bar_height,
             );
@@ -2897,10 +2935,10 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
     }
     output_for_tray = get_tray_output();
     if !output_for_tray.is_null() {
-        if selwin as ::core::ffi::c_long == XCB_NONE {
+        if selwin as ::core::ffi::c_long == 0 {
             init_tray();
         }
-    } else if selwin as ::core::ffi::c_long != XCB_NONE {
+    } else if selwin as ::core::ffi::c_long != 0 {
         if config.verbose {
             printf(
                 c"[%s:%d] Destroying tray selection window\n".as_ptr(),
@@ -2911,7 +2949,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
         send_unchecked(&x::DestroyWindow {
             window: x::Window::new(selwin),
         });
-        selwin = XCB_NONE as u32;
+        selwin = 0 as u32;
     }
 }
 unsafe fn draw_button(
@@ -2978,7 +3016,7 @@ pub unsafe fn draw_bars(mut unhide: bool) {
                 );
             }
         } else {
-            if (*outputs_walk).bar.id as ::core::ffi::c_long == XCB_NONE {
+            if (*outputs_walk).bar.id as ::core::ffi::c_long == 0 {
                 reconfig_windows(false);
             }
             let use_focus_colors: bool = output_has_focus(outputs_walk);
@@ -3230,7 +3268,6 @@ use i3_common::native_stdio::{errx, stderr};
 // Internal calls and globals use canonical Rust identities.
 use crate::application::main_loop;
 use i3_common::fake_configure_notify::send_configure_notify;
-use i3_common::get_visualtype::get_visualtype;
 use i3_common::root_atom_contents::root_atom_contents;
 
 use i3_common::string::I3String;
@@ -3438,12 +3475,3 @@ mod owned_tests {
         }
     }
 }
-
-use xcb_sys::{
-    xcb_aux_find_visual_by_attrs, xcb_aux_get_depth_of_visual, xcb_aux_get_screen,
-    xcb_connection_t, xcb_screen_t, xcb_visualtype_t, XCB_ATOM_WM_CLASS, XCB_ATOM_WM_NAME,
-    XCB_BUTTON_SCROLL_DOWN, XCB_BUTTON_SCROLL_LEFT, XCB_BUTTON_SCROLL_RIGHT, XCB_BUTTON_SCROLL_UP,
-    XCB_CURRENT_TIME, XCB_EVENT_MASK_BUTTON_PRESS, XCB_EVENT_MASK_BUTTON_RELEASE,
-    XCB_EVENT_MASK_EXPOSURE, XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT,
-    XCB_EVENT_MASK_VISIBILITY_CHANGE, XCB_NONE, XCB_STACK_MODE_ABOVE,
-};

@@ -284,6 +284,7 @@ def modifier_visibility(connection, child, environment, server, ipc, bar, baseli
 
 
 def invoke(binary,label,mode,connection,environment,server,work):
+    json_mode = mode.startswith('json')
     directory = work / mode
     directory.mkdir(exist_ok=True)
     for name in ('ready','phase','starts','clicks'):
@@ -294,7 +295,7 @@ def invoke(binary,label,mode,connection,environment,server,work):
     descriptor = os.open(control,os.O_RDWR)
     script = directory/'producer.py'
     script.write_text(PRODUCER)
-    command = ' '.join(shlex.quote(value) for value in (sys.executable,'-u',str(script),mode))
+    command = ' '.join(shlex.quote(value) for value in (sys.executable,'-u',str(script),'json' if json_mode else 'plain'))
     ipc = FakeIPC(directory,command)
     child = None
     snapshots = []
@@ -304,10 +305,10 @@ def invoke(binary,label,mode,connection,environment,server,work):
         env = environment.copy()
         env.update(HOME=str(directory),XDG_CONFIG_HOME=str(directory),TMPDIR=str(directory))
         with (work/f'{label}-{mode}.log').open('wb') as log:
-            child = subprocess.Popen([str(binary),'-b','fixture','-s','i.sock'],env=env,cwd=directory,stdout=log,stderr=log)
+            child = subprocess.Popen([str(binary),'-b','fixture','-s','i.sock'] + (['-t'] if mode.endswith('-transparent') else []),env=env,cwd=directory,stdout=log,stderr=log)
         wait_for(lambda:(directory/'ready').exists() or child.poll() is not None,'private producer startup')
         assert child.poll() is None
-        for step in ('1234' if mode=='json' else '12'):
+        for step in ('1234' if json_mode else '12'):
             if step=='4':
                 ipc.config = {**ipc.config,'separator_symbol':'|','colors':{'background':'#101010','statusline':'#00ff00'}}
                 ipc.send(0x80000004,ipc.config)
@@ -319,7 +320,7 @@ def invoke(binary,label,mode,connection,environment,server,work):
             window,snapshot,pixels = rendered(connection,child,snapshots[-1] if snapshots else None)
             snapshots.append(snapshot)
             (work/f'{label}-{mode}-{step}.pixels').write_bytes(pixels)
-            if mode=='json' and step=='3':
+            if json_mode and step=='3':
                 _input.require_private(connection,environment,server)
                 x,y,width,height=snapshot['geometry']
                 xtest.fake_input(connection,X.MotionNotify,x=x+width-3,y=y+height//2)
@@ -327,10 +328,10 @@ def invoke(binary,label,mode,connection,environment,server,work):
                 xtest.fake_input(connection,X.ButtonRelease,1)
                 connection.sync()
                 wait_for(lambda:(directory/'clicks').exists() and (directory/'clicks').read_bytes().count(b'\n')>=2,'private status click')
-        tray = tray_lifecycle(connection, child, environment, server, window, snapshots[-1]) if mode == 'json' else None
-        visibility = modifier_visibility(connection, child, environment, server, ipc, window, snapshots[-1]) if mode == 'json' else None
+        tray = tray_lifecycle(connection, child, environment, server, window, snapshots[-1]) if json_mode else None
+        visibility = modifier_visibility(connection, child, environment, server, ipc, window, snapshots[-1]) if json_mode else None
         assert (directory/'starts').read_bytes()==b'start\n', 'reload restarted identical status command'
-        clicks = (directory/'clicks').read_bytes() if mode=='json' else b''
+        clicks = (directory/'clicks').read_bytes() if json_mode else b''
         assert not ipc.errors,ipc.errors
         ipc.close()
         status = child.wait(timeout=TIMEOUT)
@@ -368,10 +369,10 @@ def main():
         with _input.private_server(args.xvfb.resolve(),work) as (connection,environment,server):
             for label,binary in binaries:
                 hashes[label]=hashlib.sha256(binary.read_bytes()).hexdigest()
-                results[label]={mode:invoke(binary,label,mode,connection,environment,server,work) for mode in ('json','plain')}
+                results[label]={mode:invoke(binary,label,mode,connection,environment,server,work) for mode in ('json','plain','json-transparent')}
             if args.reference:
                 assert results['candidate']==results['reference'],results
-        print('PASS: 2 private bar stream workflows, 6 status rasters, reload, click framing, XEmbed tray lifecycle and modifier visibility'+(' match external C' if args.reference else ' satisfy fixtures'))
+        print('PASS: 3 private bar stream workflows, 10 status rasters, reload, click framing, XEmbed tray lifecycle and modifier visibility'+(' match external C' if args.reference else ' satisfy fixtures'))
     finally:
         (work/'results.json').write_text(json.dumps({'binaries':hashes,'producer_sha256':hashlib.sha256(PRODUCER.encode()).hexdigest(),'results':results},indent=2)+'\n')
         print(f'Private bar stream artifacts: {work}')

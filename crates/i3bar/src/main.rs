@@ -59,12 +59,7 @@ fn common_log_sink(level: i3_common::logging::Level, message: &[u8]) {
 }
 
 fn common_display_context() -> i3_common::display::DisplayContext {
-    // These pointers remain owned by the program and are read on its event thread.
-    unsafe {
-        i3_common::display::DisplayContext {
-            connection: xcb::conn,
-            root_screen: xcb::root_screen,
-            visual_type: xcb::visual_type,
-        }
-    }
+    // The bar event thread publishes a Copy snapshot backed by its retained
+    // connection/visual guard until explicit graphics cleanup.
+    unsafe { xcb::DISPLAY_CONTEXT }
 }
