@@ -8,19 +8,19 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 21 wallclock secs ( 0.63 usr +  0.06 sys =  0.69 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 24 wallclock secs ( 0.89 usr +  0.08 sys =  0.97 CPU)\nResult: PASS",
     "profile": "debug",
     "build": "cargo test --locked",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "be9b2ba2c55a64428874c739109b86517f5a86d2ad4a6cdee8e28578d33592ab",
-    "i3bar": "b6e593670e1ec5c87d534b9f900e92a64450c0ae95e2a30cdadff17c71984338",
-    "i3-config-wizard": "e48fb2acc18b47b7723c2137ff5bdcf25c0ee1478b56879ab968ab85154deb86",
-    "i3-dump-log": "efd9ba3b18e562a451bb70570ca6ee0c7841e0f88ce0396ab4af7ed7f16128c1",
-    "i3-input": "3c1aa4e3515c8305c8ed0f4e2562499879e2b04351b821018a4632b42359c317",
-    "i3-msg": "05c8e4ded173a3500468c8945b742e0387af06c0a2a8746a4cd65939ffe57e23",
-    "i3-nagbar": "d48e483547957d744851b1953c32434fd89b92f2502c6d0481268acd4017fd52"
+    "i3": "3cfa6909cc3b36517610dd9d1069ad6e130cafe8c3eb05a7f2624fe3a03c9287",
+    "i3bar": "faf1b79211f7c15e6d01be6c2c426c5d1eb17eed59c169a6502ddc657f25f34f",
+    "i3-config-wizard": "1b632004861ca08036e03377c8f90bfad36448e8d1c178b1dec8d2d8385a0d1e",
+    "i3-dump-log": "9033b65001dbf7254f5cb5427c36211e3b2eb14bb62495f4c77543107bb87bfa",
+    "i3-input": "18f9c4304e9ae6d1f6920d42658ec67fc74272b81952812d30b562207bade844",
+    "i3-msg": "be27488f7b3e0d27c84eb40e145cd113fc6dd009478a9afb9f9a3cb55932673d",
+    "i3-nagbar": "ed763399fed87d40cbc46ba442ae0c9dfbc3d22562d952f10e6f7957a569cdbf"
   },
   "note": "Nine-member Cargo workspace. cargo test --locked passed 428 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
@@ -148,7 +148,7 @@
     "test_support": "development-only process capture, failure propagation and isolated regression orchestration",
     "release_build_note": "Property/native-utility checkpoint cac6b76d passed Ubuntu CI complete tests, clean-source build isolation and release build. Current input/core/RandR checkpoint additionally passes the full local Cargo gate.",
     "last_release_build_verified_commit": "cac6b76dc83c5b1f2ea36e6ccd58985470e931c2",
-    "rust_source_files": 148
+    "rust_source_files": 149
   },
   "modernization": {
     "yajl_product_dependency": false,
@@ -2372,8 +2372,63 @@
         "rust_tests": 428,
         "upstream_assertions": 4205,
         "status": "validated"
+      },
+      {
+        "stage": 5,
+        "source_commit": "c9407113896dc8dbd8fb15fb60af2fbd2f7f2ba1",
+        "scope": "Adopt explicit connection-scoped RenderingContext caches and retained surfaces across core, bar, restore and tools; own backing pixmaps and leaf windows; prepare exact-depth registry-free emergency drawing before signals; preserve parent-window save-set/reparent order",
+        "rust_tests": 428,
+        "upstream_assertions": 4205,
+        "status": "validated"
       }
-    ]
+    ],
+    "ownership_cleanup_verification": {
+      "source_commit": "c9407113896dc8dbd8fb15fb60af2fbd2f7f2ba1",
+      "status": "complete",
+      "areas": [
+        "Non-Copy owned Font backends and explicit FontContext",
+        "Owned Regex/Match diagnostics and detached payload cloning",
+        "Managed Window ownership, CString fields, borrowed assignment Vec and Cairo icon",
+        "Owned Cairo/GC/pixmap/leaf-window resources and connection-scoped rendering state",
+        "Strict unsafe-operation boundaries in converted modules"
+      ],
+      "strict_unsafe_operation_modules": [
+        "crates/i3-common/src/font.rs",
+        "crates/i3-common/src/draw_util.rs",
+        "crates/i3-common/src/draw_util/rendering.rs",
+        "crates/i3/src/regex.rs",
+        "crates/i3/src/match.rs",
+        "crates/i3/src/window.rs"
+      ],
+      "preserved_boundaries": [
+        "Foreign application/tray parent windows retain explicit reparent/save-set teardown",
+        "Emergency rendering uses prepared exact-depth native state without registry, Rc cloning or RefCell access",
+        "Native byte strings, full PCRE semantics and Cairo sticky error objects preserved"
+      ],
+      "native_ownership_probes": "Passed on private 24-bit and 8-bit displays: connection-specific cache IDs, independent connection survival, single resource release and retained surface display/visual lifetimes",
+      "peer_reviews": {
+        "font_context": "approved",
+        "rendering_context_and_native_lifecycles": "approved by two workers"
+      },
+      "full_gate": {
+        "command": "cargo test --locked",
+        "rust_tests": 428,
+        "upstream_assertions": 4205,
+        "status": "passed"
+      },
+      "clean_source": {
+        "command": "cargo test --locked -p i3-test-support --features clean-source-check --test clean_source",
+        "status": "passed",
+        "c_compilation_and_meson_blocked": true
+      },
+      "transient_test_observation": {
+        "case": "175-startup-notification.t",
+        "initial_failure": "Two mapping assertions after a 60-second event gap exceeded the existing 30-second expiry; identical stall documented before this ownership work",
+        "unchanged_reverification": "Exact failing bytes passed isolated case; unchanged full rerun and both later full checkpoints passed",
+        "product_or_test_timeout_changes": false
+      },
+      "current_desktop_or_installed_binary_changed": false
+    }
   },
   "ci_dependency_preparation": {
     "confirmed_previous_failure": "X11::XCB required missing xcb-composite.pc and protocol XML metadata",
