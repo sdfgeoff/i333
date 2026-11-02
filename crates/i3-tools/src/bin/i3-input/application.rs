@@ -11,8 +11,9 @@ use std::ffi::{CStr, CString};
 use std::io::Write;
 use std::os::fd::FromRawFd;
 use std::os::unix::net::UnixStream;
-use std::ptr::NonNull;
 use std::rc::Rc;
+use xcb::{x, Xid, XidNew};
+use xcb_interop::keysyms::KeySymbols;
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -33,23 +34,12 @@ pub use i3_common::font::XcbFontData;
 
 pub use i3_common::draw_util::color_t;
 pub use i3_common::draw_util::surface_t;
-pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
-pub const NULL_0: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 
 pub static mut visual_type: *mut xcb_visualtype_t =
     ::core::ptr::null::<xcb_visualtype_t>() as *mut xcb_visualtype_t;
-pub const XK_BackSpace: ::core::ffi::c_int = 0xff08 as ::core::ffi::c_int;
-pub const XK_Return: ::core::ffi::c_int = 0xff0d as ::core::ffi::c_int;
-pub const XK_Escape: ::core::ffi::c_int = 0xff1b as ::core::ffi::c_int;
-pub const XK_Mode_switch: ::core::ffi::c_int = 0xff7e as ::core::ffi::c_int;
-
 pub const EXIT_OK: i32 = 0;
 pub const EXIT_CANCEL: i32 = 1;
 pub const EXIT_ERROR: i32 = 2;
-static mut symbols: *mut xcb_key_symbols_t =
-    ::core::ptr::null::<xcb_key_symbols_t>() as *mut xcb_key_symbols_t;
 static mut win: xcb_window_t = 0;
 static mut surface: surface_t = surface_t {
     id: 0,
@@ -100,7 +90,7 @@ struct Glyph {
     character: char,
 }
 impl Glyph {
-    fn from_keysym(sym: xcb_keysym_t) -> Option<Self> {
+    fn from_keysym(sym: u32) -> Option<Self> {
         let ucs = super::keysym2ucs::keysym2ucs(sym)? as u16;
         if ucs == u16::MAX {
             return None;
@@ -172,44 +162,29 @@ impl InputState {
     }
 }
 
-/// A uniquely owned, malloc-allocated native reply/event.
-struct Native<T>(NonNull<T>);
-impl<T> Native<T> {
-    /// # Safety
-    /// pointer is null or points to one initialized native allocation of T.
-    unsafe fn from_raw(pointer: *mut T) -> Option<Self> {
-        NonNull::new(pointer).map(Self)
+/// Borrow only a property payload whose native declared byte length fits.
+fn property_bytes(reply: &x::GetPropertyReply) -> Option<&[u8]> {
+    let raw = unsafe { xcb::Reply::as_raw(reply) };
+    let values = unsafe { raw.add(16).cast::<u32>().read_unaligned() };
+    // Preserve native unsigned multiplication followed by its signed-int result.
+    let length = usize::try_from(values.wrapping_mul(u32::from(reply.format()) / 8) as i32).ok()?;
+    if length > (reply.length() as usize).checked_mul(4)? {
+        return None;
     }
-    fn as_ptr(&self) -> *mut T {
-        self.0.as_ptr()
-    }
-    fn get(&self) -> &T {
-        // SAFETY: from_raw establishes valid initialized storage; self owns it.
-        unsafe { self.0.as_ref() }
-    }
+    Some(unsafe { std::slice::from_raw_parts(raw.add(32), length) })
 }
-impl<T> Drop for Native<T> {
-    fn drop(&mut self) {
-        // SAFETY: native XCB results are malloc allocations; this is their owner.
-        unsafe { libc::free(self.as_ptr().cast()) }
-    }
-}
-impl Native<xcb_get_property_reply_t> {
-    fn bytes(&self) -> Option<&[u8]> {
-        // SAFETY: this owns a complete XCB property reply.
-        let length =
-            usize::try_from(unsafe { xcb_get_property_value_length(self.as_ptr()) }).ok()?;
-        if length == 0 {
-            return Some(&[]);
-        }
-        if length > (self.get().length as usize).checked_mul(4)? {
-            return None;
-        }
-        // SAFETY: the length is checked against the owned reply's payload;
-        // the returned slice cannot outlive that reply.
-        Some(unsafe {
-            std::slice::from_raw_parts(xcb_get_property_value(self.as_ptr()).cast(), length)
-        })
+
+fn keyboard_grab_status(reply: &x::GrabKeyboardReply) -> Result<x::GrabStatus, u8> {
+    // The generated getter transmutes a byte into a closed enum. Check first,
+    // retaining unknown server values for the historical numeric diagnostic.
+    let code = unsafe { xcb::Reply::as_raw(reply).add(1).read() };
+    match code {
+        0 => Ok(x::GrabStatus::Success),
+        1 => Ok(x::GrabStatus::AlreadyGrabbed),
+        2 => Ok(x::GrabStatus::InvalidTime),
+        3 => Ok(x::GrabStatus::NotViewable),
+        4 => Ok(x::GrabStatus::Frozen),
+        code => Err(code),
     }
 }
 
@@ -253,7 +228,7 @@ fn finish_input(state: &InputState, socket: &mut impl Write) -> i32 {
 
 unsafe fn handle_expose(
     state: &mut InputState,
-    conn_0: *mut xcb_connection_t,
+    connection: &xcb::Connection,
 ) -> ::core::ffi::c_int {
     printf(c"expose!\n".as_ptr());
     let border_color: color_t = draw_util_hex_to_color(c"#FF0000".as_ptr());
@@ -303,76 +278,87 @@ unsafe fn handle_expose(
             logical_px(500) - text_offset,
         );
     }
-    xcb_flush(conn_0);
+    let _ = connection.flush();
     1 as ::core::ffi::c_int
 }
-unsafe fn handle_key_release(state: &mut InputState, event: &xcb_key_release_event_t) {
+unsafe fn handle_key_release(
+    state: &mut InputState,
+    symbols: &KeySymbols,
+    event: &x::KeyReleaseEvent,
+) {
     printf(
         c"releasing %d, state raw = %d\n".as_ptr(),
-        event.detail as libc::c_int,
-        event.state as libc::c_int,
+        event.detail() as libc::c_int,
+        event.state().bits() as libc::c_int,
     );
-    let mut lookup_event = *event;
-    let sym = xcb_key_press_lookup_keysym(symbols, &mut lookup_event, event.state as libc::c_int);
-    if sym == XK_Mode_switch as xcb_keysym_t {
+    let sym = symbols.keysym(event.detail(), event.state().bits() as i32);
+    if sym == xkeysym::key::Mode_switch {
         printf(c"Mode switch disabled\n".as_ptr());
         state.modeswitch_active = false;
     }
 }
 unsafe fn handle_key_press(
     state: &mut InputState,
-    conn_0: *mut xcb_connection_t,
-    event: &xcb_key_press_event_t,
+    connection: &xcb::Connection,
+    symbols: &KeySymbols,
+    event: &x::KeyPressEvent,
 ) -> KeyAction {
     printf(
         c"Keypress %d, state raw = %d\n".as_ptr(),
-        event.detail as ::core::ffi::c_int,
-        event.state as ::core::ffi::c_int,
+        event.detail() as ::core::ffi::c_int,
+        event.state().bits() as ::core::ffi::c_int,
     );
-    let mut col: ::core::ffi::c_int =
-        event.state as ::core::ffi::c_int & XCB_MOD_MASK_SHIFT as ::core::ffi::c_int;
+    let mut col: ::core::ffi::c_int = i32::from(event.state().contains(x::KeyButMask::SHIFT));
     if state.modeswitch_active {
         col += 2 as ::core::ffi::c_int;
     }
-    let mut lookup_event = *event;
-    let sym: xcb_keysym_t = xcb_key_press_lookup_keysym(symbols, &mut lookup_event, col);
-    if sym == XK_Mode_switch as xcb_keysym_t {
+    let sym = symbols.keysym(event.detail(), col);
+    if sym == xkeysym::key::Mode_switch {
         printf(c"Mode switch enabled\n".as_ptr());
         state.modeswitch_active = true;
         return KeyAction::Continue;
     }
-    if sym == XK_Return as xcb_keysym_t {
+    if sym == xkeysym::key::Return {
         return KeyAction::Finish;
     }
-    if sym == XK_BackSpace as xcb_keysym_t {
+    if sym == xkeysym::key::BackSpace {
         if state.backspace() {
-            handle_expose(state, conn_0);
+            handle_expose(state, connection);
         }
         return KeyAction::Continue;
     }
-    if sym == XK_Escape as xcb_keysym_t {
+    if sym == xkeysym::key::Escape {
         return KeyAction::Cancel;
     }
-    printf(c"is_keypad_key = %d\n".as_ptr(), xcb_is_keypad_key(sym));
+    printf(
+        c"is_keypad_key = %d\n".as_ptr(),
+        i32::from(xkeysym::Keysym::new(sym).is_keypad_key()),
+    );
     printf(
         c"is_private_keypad_key = %d\n".as_ptr(),
-        xcb_is_private_keypad_key(sym),
+        i32::from(xkeysym::Keysym::new(sym).is_private_keypad_key()),
     );
-    printf(c"xcb_is_cursor_key = %d\n".as_ptr(), xcb_is_cursor_key(sym));
-    printf(c"xcb_is_pf_key = %d\n".as_ptr(), xcb_is_pf_key(sym));
+    printf(
+        c"xcb_is_cursor_key = %d\n".as_ptr(),
+        i32::from(xkeysym::Keysym::new(sym).is_cursor_key()),
+    );
+    printf(
+        c"xcb_is_pf_key = %d\n".as_ptr(),
+        i32::from(xkeysym::Keysym::new(sym).is_pf_key()),
+    );
     printf(
         c"xcb_is_function_key = %d\n".as_ptr(),
-        xcb_is_function_key(sym),
+        i32::from(xkeysym::Keysym::new(sym).is_function_key()),
     );
     printf(
         c"xcb_is_misc_function_key = %d\n".as_ptr(),
-        xcb_is_misc_function_key(sym),
+        i32::from(xkeysym::Keysym::new(sym).is_misc_function_key()),
     );
     printf(
         c"xcb_is_modifier_key = %d\n".as_ptr(),
-        xcb_is_modifier_key(sym),
+        i32::from(xkeysym::Keysym::new(sym).is_modifier_key()),
     );
-    if xcb_is_modifier_key(sym) != 0 || xcb_is_cursor_key(sym) != 0 {
+    if xkeysym::Keysym::new(sym).is_modifier_key() || xkeysym::Keysym::new(sym).is_cursor_key() {
         return KeyAction::Continue;
     }
     printf(c"sym = %c (%d)\n".as_ptr(), sym, sym);
@@ -400,35 +386,30 @@ unsafe fn handle_key_press(
     if state.push(glyph) {
         return KeyAction::Finish;
     }
-    handle_expose(state, conn_0);
+    handle_expose(state, connection);
     KeyAction::Continue
 }
 /// A server grab must be released on every return from position lookup.
-struct ServerGrab(*mut xcb_connection_t);
-impl Drop for ServerGrab {
+struct ServerGrab<'a>(&'a xcb::Connection);
+impl Drop for ServerGrab<'_> {
     fn drop(&mut self) {
-        // SAFETY: this private guard borrows run_window's live connection.
-        unsafe {
-            xcb_ungrab_server(self.0);
-            xcb_flush(self.0);
-        }
+        self.0.send_request(&x::UngrabServer {});
+        let _ = self.0.flush();
     }
 }
 
-unsafe fn get_window_position() -> xcb_rectangle_t {
-    let mut result = xcb_rectangle_t {
+unsafe fn get_window_position(connection: &xcb::Connection) -> x::Rectangle {
+    let mut result = x::Rectangle {
         x: logical_px(50) as i16,
         y: logical_px(50) as i16,
         width: logical_px(500) as u16,
         height: (font.height + 4 * logical_px(2)) as u16,
     };
-    let atom = c"_NET_SUPPORTING_WM_CHECK";
-    let reply = Native::from_raw(xcb_intern_atom_reply(
-        conn,
-        xcb_intern_atom(conn, 0, atom.to_bytes().len() as u16, atom.as_ptr()),
-        std::ptr::null_mut(),
-    ));
-    let Some(reply) = reply else {
+    let cookie = connection.send_request(&x::InternAtom {
+        only_if_exists: false,
+        name: b"_NET_SUPPORTING_WM_CHECK",
+    });
+    let Ok(atom) = connection.wait_for_reply(cookie) else {
         errorlog(
             c"[libi3] ERROR: Could not intern atom _NET_SUPPORTING_WM_CHECK\n"
                 .as_ptr()
@@ -436,72 +417,61 @@ unsafe fn get_window_position() -> xcb_rectangle_t {
         );
         exit(EXIT_ERROR);
     };
-    let supporting = Native::from_raw(xcb_get_property_reply(
-        conn,
-        xcb_get_property(
-            conn,
-            0,
-            root,
-            reply.get().atom,
-            XCB_ATOM_WINDOW as xcb_atom_t,
-            0,
-            32,
-        ),
-        std::ptr::null_mut(),
-    ));
-    let supporting_window = supporting.as_ref().and_then(|reply| {
+    let root_window = x::Window::new(root);
+    let supporting = connection.wait_for_reply(connection.send_request(&x::GetProperty {
+        delete: false,
+        window: root_window,
+        property: atom.atom(),
+        r#type: x::ATOM_WINDOW,
+        long_offset: 0,
+        long_length: 32,
+    }));
+    let supporting_window = supporting.as_ref().ok().and_then(|reply| {
         Some(u32::from_ne_bytes(
-            reply.bytes()?.get(..4)?.try_into().ok()?,
+            property_bytes(reply)?.get(..4)?.try_into().ok()?,
         ))
     });
-    xcb_grab_server(conn);
-    let _server_grab = ServerGrab(conn);
-    let Some(focus) = Native::from_raw(xcb_get_input_focus_reply(
-        conn,
-        xcb_get_input_focus(conn),
-        std::ptr::null_mut(),
-    )) else {
+    connection.send_request(&x::GrabServer {});
+    let _server_grab = ServerGrab(connection);
+    let Ok(focus) = connection.wait_for_reply(connection.send_request(&x::GetInputFocus {})) else {
         return result;
     };
-    let focused = focus.get().focus;
-    if focused == XCB_NONE as xcb_window_t || Some(focused) == supporting_window {
+    let focused = focus.focus();
+    if focused.is_none() || Some(focused.resource_id()) == supporting_window {
         return result;
     }
-    let Some(geometry) = Native::from_raw(xcb_get_geometry_reply(
-        conn,
-        xcb_get_geometry(conn, focused),
-        std::ptr::null_mut(),
-    )) else {
+    let Ok(geometry) = connection.wait_for_reply(connection.send_request(&x::GetGeometry {
+        drawable: x::Drawable::Window(focused),
+    })) else {
         return result;
     };
-    let wm_class = Native::from_raw(xcb_get_property_reply(
-        conn,
-        xcb_get_property(
-            conn,
-            0,
-            focused,
-            XCB_ATOM_WM_CLASS as xcb_atom_t,
-            XCB_GET_PROPERTY_TYPE_ANY as xcb_atom_t,
-            0,
-            32,
-        ),
-        std::ptr::null_mut(),
-    ));
+    let wm_class = connection.wait_for_reply(connection.send_request(&x::GetProperty {
+        delete: false,
+        window: focused,
+        property: x::ATOM_WM_CLASS,
+        r#type: x::ATOM_ANY,
+        long_offset: 0,
+        long_length: 32,
+    }));
     let is_frame = wm_class
         .as_ref()
-        .and_then(Native::bytes)
+        .ok()
+        .and_then(property_bytes)
         .is_some_and(|bytes| bytes.split(|byte| *byte == 0).next() == Some(b"i3-frame".as_slice()));
     let position = if is_frame {
-        (geometry.get().x, geometry.get().y)
+        (geometry.x(), geometry.y())
     } else {
-        let Some(coordinates) = Native::from_raw(xcb_translate_coordinates_reply(
-            conn,
-            xcb_translate_coordinates(conn, focused, root, geometry.get().x, geometry.get().y),
-            std::ptr::null_mut(),
-        )) else {
+        let Ok(coordinates) =
+            connection.wait_for_reply(connection.send_request(&x::TranslateCoordinates {
+                src_window: focused,
+                dst_window: root_window,
+                src_x: geometry.x(),
+                src_y: geometry.y(),
+            }))
+        else {
             return result;
         };
-        (coordinates.get().dst_x, coordinates.get().dst_y)
+        (coordinates.dst_x(), coordinates.dst_y())
     };
     result.x = result.x.wrapping_add(position.0);
     result.y = result.y.wrapping_add(position.1);
@@ -541,6 +511,7 @@ const INPUT_OPTIONS: &[i3_common::cli::OptionSpec] = &[
 struct WindowResources {
     _registration: i3_common::display::DisplayConnection,
     connection: Rc<xcb::Connection>,
+    symbols: Option<KeySymbols>,
     has_font: bool,
     has_surface: bool,
 }
@@ -556,10 +527,7 @@ impl Drop for WindowResources {
             if self.has_font {
                 i3_common::font::free_font();
             }
-            if !symbols.is_null() {
-                xcb_key_symbols_free(symbols);
-            }
-            symbols = std::ptr::null_mut();
+            drop(self.symbols.take());
             root_screen = std::ptr::null_mut();
             visual_type = std::ptr::null_mut();
             root = 0;
@@ -589,6 +557,7 @@ unsafe fn run_window(settings: InputSettings) -> ::core::ffi::c_int {
     let mut resources = WindowResources {
         _registration: registration,
         connection,
+        symbols: None,
         has_font: false,
         has_surface: false,
     };
@@ -597,10 +566,10 @@ unsafe fn run_window(settings: InputSettings) -> ::core::ffi::c_int {
     let mut socket = UnixStream::from_raw_fd(ipc_connect(socket_path));
     root_screen = xcb_aux_get_screen(conn, screen);
     root = (*root_screen).root;
-    symbols = xcb_key_symbols_alloc(conn);
-    if symbols.is_null() {
-        errx(EXIT_ERROR, c"Could not allocate key symbols".as_ptr());
-    }
+    resources.symbols = Some(
+        KeySymbols::new(resources.connection.clone())
+            .unwrap_or_else(|| errx(EXIT_ERROR, c"Could not allocate key symbols".as_ptr())),
+    );
     init_dpi();
     font = load_font(
         if !pattern.is_null() {
@@ -608,38 +577,35 @@ unsafe fn run_window(settings: InputSettings) -> ::core::ffi::c_int {
         } else {
             c"pango:monospace 8".as_ptr()
         },
-        true_0 != 0,
+        true,
     );
     resources.has_font = true;
     set_font(&raw mut font);
     if let Some(prompt) = state.prompt.as_ref() {
         state.prompt_offset = predict_text_width(prompt);
     }
-    let win_pos: xcb_rectangle_t = get_window_position() as xcb_rectangle_t;
-    win = xcb_generate_id(conn) as xcb_window_t;
-    let mut fresh1: [u32; 3] = [
-        0 as ::core::ffi::c_int as u32,
-        1 as ::core::ffi::c_int as u32,
-        XCB_EVENT_MASK_EXPOSURE as ::core::ffi::c_int as u32,
-    ];
-    xcb_create_window(
-        conn,
-        XCB_COPY_FROM_PARENT as u8,
-        win,
-        root,
-        win_pos.x,
-        win_pos.y,
-        win_pos.width,
-        win_pos.height,
-        0 as u16,
-        XCB_WINDOW_CLASS_INPUT_OUTPUT as ::core::ffi::c_int as u16,
-        XCB_WINDOW_CLASS_COPY_FROM_PARENT as ::core::ffi::c_int as xcb_visualid_t,
-        (XCB_CW_BACK_PIXEL as ::core::ffi::c_int
-            | XCB_CW_OVERRIDE_REDIRECT as ::core::ffi::c_int
-            | XCB_CW_EVENT_MASK as ::core::ffi::c_int) as u32,
-        &raw mut fresh1 as *mut u32 as *const ::core::ffi::c_void,
-    );
-    xcb_map_window(conn, win);
+    let connection = &*resources.connection;
+    let win_pos = get_window_position(connection);
+    let window: x::Window = connection.generate_id();
+    win = window.resource_id();
+    connection.send_request(&x::CreateWindow {
+        depth: 0,
+        wid: window,
+        parent: x::Window::new(root),
+        x: win_pos.x,
+        y: win_pos.y,
+        width: win_pos.width,
+        height: win_pos.height,
+        border_width: 0,
+        class: x::WindowClass::InputOutput,
+        visual: 0,
+        value_list: &[
+            x::Cw::BackPixel(0),
+            x::Cw::OverrideRedirect(true),
+            x::Cw::EventMask(x::EventMask::EXPOSURE),
+        ],
+    });
+    connection.send_request(&x::MapWindow { window });
     draw_util_surface_init(
         conn,
         &raw mut surface,
@@ -648,65 +614,65 @@ unsafe fn run_window(settings: InputSettings) -> ::core::ffi::c_int {
         win_pos.width as ::core::ffi::c_int,
         win_pos.height as ::core::ffi::c_int,
     );
-    xcb_flush(conn);
+    let _ = connection.flush();
     resources.has_surface = true;
     let mut grab_status = None;
     for _ in 0..500 {
-        let cookie = xcb_grab_keyboard(
-            conn,
-            0,
-            win,
-            XCB_CURRENT_TIME as xcb_timestamp_t,
-            XCB_GRAB_MODE_ASYNC as u8,
-            XCB_GRAB_MODE_ASYNC as u8,
-        );
-        let reply = Native::from_raw(xcb_grab_keyboard_reply(conn, cookie, std::ptr::null_mut()));
+        let cookie = connection.send_request(&x::GrabKeyboard {
+            owner_events: false,
+            grab_window: window,
+            time: x::CURRENT_TIME,
+            pointer_mode: x::GrabMode::Async,
+            keyboard_mode: x::GrabMode::Async,
+        });
+        let reply = connection.wait_for_reply(cookie);
         std::thread::sleep(std::time::Duration::from_millis(1));
-        grab_status = reply.as_ref().map(|reply| reply.get().status);
-        if grab_status == Some(XCB_GRAB_STATUS_SUCCESS as u8) {
+        grab_status = reply.as_ref().ok().map(keyboard_grab_status);
+        if grab_status == Some(Ok(x::GrabStatus::Success)) {
             break;
         }
     }
-    if grab_status != Some(XCB_GRAB_STATUS_SUCCESS as u8) {
+    if grab_status != Some(Ok(x::GrabStatus::Success)) {
         fprintf(
             stderr,
             c"Could not grab keyboard, status = %d\n".as_ptr(),
-            grab_status.map_or(-1, i32::from),
+            grab_status.map_or(-1, |status| {
+                status.map_or_else(i32::from, |status| status as i32)
+            }),
         );
         return EXIT_ERROR;
     }
-    xcb_flush(conn);
+    let _ = connection.flush();
+    let symbols = resources
+        .symbols
+        .as_ref()
+        .expect("input key-symbol cache initialized");
     loop {
-        let Some(event) = Native::from_raw(xcb_wait_for_event(conn)) else {
-            return EXIT_OK;
-        };
-        let header = event.get();
-        if header.response_type == 0 {
-            fprintf(
-                stderr,
-                c"X11 Error received! sequence %x\n".as_ptr(),
-                header.sequence as libc::c_int,
-            );
-            continue;
-        }
-        // SAFETY: XCB event packets include the complete wire event. Its tag
-        // determines the record type; references stay inside this owned event.
-        let action = match (header.response_type & 0x7f) as i32 {
-            XCB_KEY_PRESS => handle_key_press(
-                &mut state,
-                conn,
-                &*event.as_ptr().cast::<xcb_key_press_event_t>(),
-            ),
-            XCB_KEY_RELEASE => {
-                handle_key_release(
-                    &mut state,
-                    &*event.as_ptr().cast::<xcb_key_release_event_t>(),
+        let event = match connection.wait_for_event() {
+            Ok(event) => event,
+            Err(xcb::Error::Protocol(error)) => {
+                // The maintained error owns its native header. Preserve the
+                // original 16-bit sequence diagnostic and continue processing.
+                fprintf(
+                    stderr,
+                    c"X11 Error received! sequence %x\n".as_ptr(),
+                    (*error.as_raw()).sequence as libc::c_int,
                 );
+                continue;
+            }
+            Err(xcb::Error::Connection(_)) => return EXIT_OK,
+        };
+        let action = match event {
+            xcb::Event::X(x::Event::KeyPress(event)) => {
+                handle_key_press(&mut state, connection, symbols, &event)
+            }
+            xcb::Event::X(x::Event::KeyRelease(event)) => {
+                handle_key_release(&mut state, symbols, &event);
                 KeyAction::Continue
             }
-            XCB_EXPOSE => {
-                if (*event.as_ptr().cast::<xcb_expose_event_t>()).count == 0 {
-                    handle_expose(&mut state, conn);
+            xcb::Event::X(x::Event::Expose(event)) => {
+                if event.count() == 0 {
+                    handle_expose(&mut state, connection);
                 }
                 KeyAction::Continue
             }
@@ -716,7 +682,6 @@ unsafe fn run_window(settings: InputSettings) -> ::core::ffi::c_int {
             KeyAction::Continue => {}
             KeyAction::Cancel => return EXIT_CANCEL,
             KeyAction::Finish => {
-                // Keep native diagnostic lines ahead of the owned Rust output.
                 libc::fflush(stdout);
                 return finish_input(&state, &mut socket);
             }
@@ -783,22 +748,8 @@ pub use cairo_sys::{cairo_surface_t, cairo_t};
 // Canonical Pango backend ABI; font policy remains local.
 
 use xcb_sys::{
-    xcb_atom_t, xcb_aux_get_screen, xcb_connection_t, xcb_create_window, xcb_drawable_t,
-    xcb_expose_event_t, xcb_flush, xcb_generate_id, xcb_get_geometry, xcb_get_geometry_reply,
-    xcb_get_input_focus, xcb_get_input_focus_reply, xcb_get_property, xcb_get_property_reply,
-    xcb_get_property_reply_t, xcb_get_property_value, xcb_get_property_value_length,
-    xcb_grab_keyboard, xcb_grab_keyboard_reply, xcb_grab_server, xcb_intern_atom,
-    xcb_intern_atom_reply, xcb_is_cursor_key, xcb_is_function_key, xcb_is_keypad_key,
-    xcb_is_misc_function_key, xcb_is_modifier_key, xcb_is_pf_key, xcb_is_private_keypad_key,
-    xcb_key_press_event_t, xcb_key_press_lookup_keysym, xcb_key_release_event_t,
-    xcb_key_symbols_alloc, xcb_key_symbols_free, xcb_key_symbols_t, xcb_keysym_t, xcb_map_window,
-    xcb_rectangle_t, xcb_screen_t, xcb_timestamp_t, xcb_translate_coordinates,
-    xcb_translate_coordinates_reply, xcb_ungrab_server, xcb_visualid_t, xcb_visualtype_t,
-    xcb_wait_for_event, xcb_window_t, XCB_ATOM_WINDOW, XCB_ATOM_WM_CLASS, XCB_COPY_FROM_PARENT,
-    XCB_CURRENT_TIME, XCB_CW_BACK_PIXEL, XCB_CW_EVENT_MASK, XCB_CW_OVERRIDE_REDIRECT,
-    XCB_EVENT_MASK_EXPOSURE, XCB_EXPOSE, XCB_GET_PROPERTY_TYPE_ANY, XCB_GRAB_MODE_ASYNC,
-    XCB_GRAB_STATUS_SUCCESS, XCB_KEY_PRESS, XCB_KEY_RELEASE, XCB_MOD_MASK_SHIFT, XCB_NONE,
-    XCB_WINDOW_CLASS_COPY_FROM_PARENT, XCB_WINDOW_CLASS_INPUT_OUTPUT,
+    xcb_aux_get_screen, xcb_connection_t, xcb_drawable_t, xcb_screen_t, xcb_visualtype_t,
+    xcb_window_t,
 };
 
 use libc::{exit, fprintf, printf};
@@ -886,20 +837,70 @@ mod tests {
 
     #[test]
     fn property_views_reject_truncated_values_and_allow_nonterminated_classes() {
-        // XCB pads each property reply to four bytes. The helper must not read
-        // a claimed value length past that padding, unlike the old strcmp path.
         unsafe {
-            let size = std::mem::size_of::<xcb_get_property_reply_t>() + 4;
-            let pointer = libc::calloc(1, size).cast::<xcb_get_property_reply_t>();
+            let pointer = libc::calloc(1, 36).cast::<u8>();
             assert!(!pointer.is_null());
-            (*pointer).format = 8;
-            (*pointer).length = 1;
-            (*pointer).value_len = 8;
-            let reply = Native::from_raw(pointer).unwrap();
-            assert!(reply.bytes().is_none());
-            (*pointer).value_len = 4;
-            std::ptr::copy_nonoverlapping(b"name".as_ptr(), pointer.add(1).cast(), 4);
-            assert_eq!(reply.bytes(), Some(b"name".as_slice()));
+            pointer.write(1);
+            pointer.add(1).write(8);
+            pointer.add(4).cast::<u32>().write_unaligned(1);
+            pointer.add(16).cast::<u32>().write_unaligned(8);
+            let reply: x::GetPropertyReply = xcb::Reply::from_raw(pointer);
+            assert!(property_bytes(&reply).is_none());
+            pointer.add(16).cast::<u32>().write_unaligned(4);
+            std::ptr::copy_nonoverlapping(b"name".as_ptr(), pointer.add(32), 4);
+            assert_eq!(property_bytes(&reply), Some(b"name".as_slice()));
+        }
+    }
+
+    #[test]
+    fn closed_keyboard_grab_statuses_preserve_unknown_native_values() {
+        for code in 0..=u8::MAX {
+            unsafe {
+                let pointer = libc::calloc(1, 32).cast::<u8>();
+                assert!(!pointer.is_null());
+                pointer.write(1);
+                pointer.add(1).write(code);
+                let reply: x::GrabKeyboardReply = xcb::Reply::from_raw(pointer);
+                let status = keyboard_grab_status(&reply);
+                assert_eq!(status.map_or_else(|code| code, |status| status as u8), code);
+                assert_eq!(status.is_ok(), code <= 4);
+            }
+        }
+    }
+
+    #[test]
+    fn rust_keysym_categories_match_native_legacy_and_private_ranges() {
+        let native: [unsafe extern "C" fn(u32) -> i32; 7] = [
+            xcb_sys::xcb_is_keypad_key,
+            xcb_sys::xcb_is_private_keypad_key,
+            xcb_sys::xcb_is_cursor_key,
+            xcb_sys::xcb_is_pf_key,
+            xcb_sys::xcb_is_function_key,
+            xcb_sys::xcb_is_misc_function_key,
+            xcb_sys::xcb_is_modifier_key,
+        ];
+        let rust: [fn(xkeysym::Keysym) -> bool; 7] = [
+            xkeysym::Keysym::is_keypad_key,
+            xkeysym::Keysym::is_private_keypad_key,
+            xkeysym::Keysym::is_cursor_key,
+            xkeysym::Keysym::is_pf_key,
+            xkeysym::Keysym::is_function_key,
+            xkeysym::Keysym::is_misc_function_key,
+            xkeysym::Keysym::is_modifier_key,
+        ];
+        for raw in (0..=0xffff).chain(0x11000000..=0x1100ffff).chain([
+            0x100fffff,
+            0x11010000,
+            0x0101f642,
+            u32::MAX,
+        ]) {
+            for (index, (native, rust)) in native.iter().zip(rust).enumerate() {
+                assert_eq!(
+                    rust(xkeysym::Keysym::new(raw)),
+                    unsafe { native(raw) != 0 },
+                    "keysym {raw:#x}, category {index}"
+                );
+            }
         }
     }
 }

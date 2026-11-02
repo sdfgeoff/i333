@@ -357,8 +357,10 @@ dependencies = [
  "startup-notification-sys",
  "x11rb",
  "xcb",
+ "xcb-interop",
  "xcb-sys",
  "xkbcommon",
+ "xkeysym",
 ]
 
 [[package]]
