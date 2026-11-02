@@ -377,6 +377,8 @@ dependencies = [
  "libc",
  "libev-sys",
  "pango-sys",
+ "serde",
+ "serde_json",
  "xcb-sys",
 ]
 

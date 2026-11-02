@@ -234,7 +234,7 @@ pub static mut statusline_head: statusline_head = statusline_head {
 };
 
 thread_local! {
-    static CLICK_GENERATOR: std::cell::RefCell<i3_json::Generator> = std::cell::RefCell::new(i3_json::Generator::new());
+    static CLICK_STREAM: std::cell::RefCell<ClickStream> = std::cell::RefCell::new(ClickStream::default());
 }
 
 pub static mut child_stdin: ::core::ffi::c_int = 0;
@@ -362,7 +362,7 @@ unsafe fn cleanup(c: *mut i3bar_child) {
     (*c).pending_line = ::core::ptr::null_mut::<::core::ffi::c_char>();
     if c == &raw mut status_child {
         STATUS_PARSER.with(|parser| *parser.borrow_mut() = None);
-        CLICK_GENERATOR.with(|generator| *generator.borrow_mut() = i3_json::Generator::new());
+        CLICK_STREAM.with(|generator| *generator.borrow_mut() = ClickStream::default());
     }
     memset(
         c as *mut ::core::ffi::c_void,
@@ -1073,7 +1073,7 @@ unsafe fn child_write_output() {
         return;
     }
     // End the generator borrow before writes can kill/restart the native child.
-    let bytes = CLICK_GENERATOR.with(|generator| {
+    let bytes = CLICK_STREAM.with(|generator| {
         let mut generator = generator.borrow_mut();
         let bytes = generator.bytes().to_vec();
         generator.clear();
@@ -1193,7 +1193,7 @@ pub unsafe fn start_child(command: *mut ::core::ffi::c_char) {
     }
     let urgent = EVER_URGENT.with(|value| value.get());
     STATUS_PARSER.with(|parser| *parser.borrow_mut() = Some(StatusParser::new(urgent)));
-    CLICK_GENERATOR.with(|generator| *generator.borrow_mut() = i3_json::Generator::new());
+    CLICK_STREAM.with(|generator| *generator.borrow_mut() = ClickStream::default());
     let mut pipe_in: [::core::ffi::c_int; 2] = [0; 2];
     let mut pipe_out: [::core::ffi::c_int; 2] = [0; 2];
     spipe(&raw mut pipe_in as *mut ::core::ffi::c_int);
@@ -1300,8 +1300,8 @@ unsafe fn child_click_events_initialize() {
         );
     }
     if !status_child.click_events_init {
-        CLICK_GENERATOR.with(|generator| {
-            let _ = generator.borrow_mut().start_array();
+        CLICK_STREAM.with(|generator| {
+            let _ = generator.borrow_mut().start();
         });
         child_write_output();
         status_child.click_events_init = true;
@@ -1315,6 +1315,100 @@ struct ClickValue<'a> {
     position: [i32; 8],
     modifiers: i32,
 }
+impl serde::Serialize for ClickValue<'_> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeMap;
+        let mut map = serializer.serialize_map(None)?;
+        for (key, value) in [("name", self.name), ("instance", self.instance)] {
+            if let Some(bytes) = value {
+                let value = std::str::from_utf8(bytes).map_err(serde::ser::Error::custom)?;
+                map.serialize_entry(key, value)?;
+            }
+        }
+        map.serialize_entry("button", &self.button)?;
+        let modifiers: Vec<_> = [
+            (XCB_MOD_MASK_SHIFT, "Shift"),
+            (XCB_MOD_MASK_CONTROL, "Control"),
+            (XCB_MOD_MASK_1, "Mod1"),
+            (XCB_MOD_MASK_2, "Mod2"),
+            (XCB_MOD_MASK_3, "Mod3"),
+            (XCB_MOD_MASK_4, "Mod4"),
+            (XCB_MOD_MASK_5, "Mod5"),
+        ]
+        .into_iter()
+        .filter_map(|(mask, name)| (self.modifiers & mask as i32 != 0).then_some(name))
+        .collect();
+        map.serialize_entry("modifiers", &modifiers)?;
+        for (key, value) in [
+            "x",
+            "y",
+            "relative_x",
+            "relative_y",
+            "output_x",
+            "output_y",
+            "width",
+            "height",
+        ]
+        .into_iter()
+        .zip(self.position)
+        {
+            map.serialize_entry(key, &value)?;
+        }
+        map.end()
+    }
+}
+/// Only the outer click array is a stream. Complete normal click objects are
+/// serialized by Serde; malformed native identifiers activate the narrow
+/// rejected-value compatibility path for the remainder of that child stream.
+#[derive(Default)]
+struct ClickStream {
+    buffer: Vec<u8>,
+    emitted: bool,
+    compatibility: Option<i3_json::Generator>,
+}
+impl ClickStream {
+    fn start(&mut self) {
+        *self = Self::default();
+        self.buffer.push(b'[');
+    }
+    fn bytes(&self) -> &[u8] {
+        &self.buffer
+    }
+    fn clear(&mut self) {
+        self.buffer.clear();
+    }
+    fn append(&mut self, click: ClickValue<'_>) {
+        if self.compatibility.is_none()
+            && [click.name, click.instance]
+                .into_iter()
+                .flatten()
+                .all(|bytes| std::str::from_utf8(bytes).is_ok())
+        {
+            if self.emitted {
+                self.buffer.push(b',');
+            }
+            serde_json::to_writer(&mut self.buffer, &click)
+                .expect("validated click object serializes");
+        } else {
+            let output = self.compatibility.get_or_insert_with(|| {
+                let mut output = i3_json::Generator::new();
+                let _ = output.start_array();
+                if self.emitted {
+                    let _ = output.null();
+                }
+                output.clear();
+                output
+            });
+            append_legacy_click(output, click);
+            self.buffer.extend_from_slice(output.bytes());
+            output.clear();
+        }
+        self.emitted = true;
+    }
+}
+fn append_click(stream: &mut ClickStream, click: ClickValue<'_>) {
+    stream.append(click);
+}
 fn generator_bytes(generator: &mut i3_json::Generator, bytes: &[u8]) {
     // The legacy compatibility generator rejects invalid UTF-8 without advancing
     // its state. Preserve that behavior instead of repairing byte identifiers.
@@ -1322,7 +1416,7 @@ fn generator_bytes(generator: &mut i3_json::Generator, bytes: &[u8]) {
         let _ = generator.string(string);
     }
 }
-fn append_click(generator: &mut i3_json::Generator, click: ClickValue<'_>) {
+fn append_legacy_click(generator: &mut i3_json::Generator, click: ClickValue<'_>) {
     let _ = generator.start_object();
     for (key, value) in [("name", click.name), ("instance", click.instance)] {
         if let Some(value) = value {
@@ -1388,7 +1482,7 @@ pub unsafe fn send_block_clicked(
     // ends before output failure can invoke kill_child/cleanup/reload.
     let name = (!name.is_null()).then(|| std::ffi::CStr::from_ptr(name).to_bytes());
     let instance = (!instance.is_null()).then(|| std::ffi::CStr::from_ptr(instance).to_bytes());
-    CLICK_GENERATOR.with(|generator| {
+    CLICK_STREAM.with(|generator| {
         append_click(
             &mut generator.borrow_mut(),
             ClickValue {
@@ -2034,8 +2128,8 @@ mod owned_tests {
     }
     #[test]
     fn click_generator_keeps_open_array_order_and_invalid_utf8_rejection() {
-        let mut generator = i3_json::Generator::new();
-        generator.start_array().unwrap();
+        let mut generator = ClickStream::default();
+        generator.start();
         assert_eq!(generator.bytes(), b"[");
         generator.clear();
         append_click(
@@ -2061,8 +2155,8 @@ mod owned_tests {
             },
         );
         assert!(generator.bytes().starts_with(b",{"));
-        let mut invalid = i3_json::Generator::new();
-        invalid.start_array().unwrap();
+        let mut invalid = ClickStream::default();
+        invalid.start();
         invalid.clear();
         append_click(
             &mut invalid,
