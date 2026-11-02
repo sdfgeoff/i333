@@ -12,8 +12,9 @@ use i3_common::string::I3String;
 use std::ffi::{CStr, CString};
 use std::io::Write;
 use std::os::fd::FromRawFd;
-use std::ptr::NonNull;
 use std::rc::Rc;
+use xcb::{randr, x, Xid, XidNew};
+use xcb_interop::cursor::CursorContext;
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -36,25 +37,6 @@ use i3_common::font::XcbFontData;
 
 use i3_common::draw_util::color_t;
 use i3_common::draw_util::surface_t;
-
-#[derive(Copy, Clone)]
-#[repr(C)]
-struct WmStrutPartial {
-    left: u32,
-    right: u32,
-    top: u32,
-    bottom: u32,
-    left_start_y: u32,
-    left_end_y: u32,
-    right_start_y: u32,
-    right_end_y: u32,
-    top_start_x: u32,
-    top_end_x: u32,
-    bottom_start_x: u32,
-    bottom_end_x: u32,
-}
-
-const _: () = assert!(std::mem::size_of::<WmStrutPartial>() == 12 * 4);
 
 pub static mut visual_type: *mut xcb_visualtype_t = std::ptr::null_mut();
 
@@ -125,16 +107,16 @@ unsafe fn take_native_string(raw: *mut libc::c_char) -> CString {
     owned
 }
 
-unsafe fn handle_button_release(state: &NagbarState, event: &xcb_button_release_event_t) -> bool {
+unsafe fn handle_button_release(state: &NagbarState, event: &x::ButtonReleaseEvent) -> bool {
     printf(
         c"button released on x = %d, y = %d\n".as_ptr(),
-        i32::from(event.event_x),
-        i32::from(event.event_y),
+        i32::from(event.event_x()),
+        i32::from(event.event_y()),
     );
-    if state.close.contains(i32::from(event.event_x), false) {
+    if state.close.contains(i32::from(event.event_x()), false) {
         return true;
     }
-    let Some(button) = state.button_at(i32::from(event.event_x)) else {
+    let Some(button) = state.button_at(i32::from(event.event_x())) else {
         return false;
     };
     let script_path = take_native_string(get_process_filename(c"nagbar-cmd".as_ptr()));
@@ -206,7 +188,7 @@ unsafe fn button_draw(button: &mut Button, position: i32, render: &mut Renderer)
     );
     button.width
 }
-unsafe fn handle_expose(state: &mut NagbarState) {
+unsafe fn handle_expose(state: &mut NagbarState, connection: &xcb::Connection) {
     let render = &mut state.render;
     draw_util_clear_surface(&mut render.bar, render.color_background);
     let margin = logical_px(8);
@@ -237,173 +219,140 @@ unsafe fn handle_expose(state: &mut NagbarState) {
         f64::from(render.bar.width),
         f64::from(logical_px(2)),
     );
-    xcb_flush(conn);
+    let _ = connection.flush();
 }
-unsafe fn set_window_position_primary(result: &mut xcb_rectangle_t) {
-    let mut replies = NativeReplies::default();
-    let mut output: *mut xcb_randr_get_output_info_reply_t =
-        ::core::ptr::null_mut::<xcb_randr_get_output_info_reply_t>();
-    let mut crtc: *mut xcb_randr_get_crtc_info_reply_t =
-        ::core::ptr::null_mut::<xcb_randr_get_crtc_info_reply_t>();
-    let rcookie: xcb_randr_get_screen_resources_current_cookie_t =
-        xcb_randr_get_screen_resources_current(conn, root);
-    let pcookie: xcb_randr_get_output_primary_cookie_t = xcb_randr_get_output_primary(conn, root);
-    let mut primary: *mut xcb_randr_get_output_primary_reply_t =
-        ::core::ptr::null_mut::<xcb_randr_get_output_primary_reply_t>();
-    let mut res: *mut xcb_randr_get_screen_resources_current_reply_t =
-        ::core::ptr::null_mut::<xcb_randr_get_screen_resources_current_reply_t>();
-    primary = replies.own(xcb_randr_get_output_primary_reply(
-        conn,
-        pcookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    ));
-    if primary.is_null() {
+unsafe fn set_window_position_primary(connection: &xcb::Connection, result: &mut x::Rectangle) {
+    let root_window = x::Window::new(root);
+    // Preserve the original request batching and reply order.
+    let resources_cookie = connection.send_request(&randr::GetScreenResourcesCurrent {
+        window: root_window,
+    });
+    let primary_cookie = connection.send_request(&randr::GetOutputPrimary {
+        window: root_window,
+    });
+    let Ok(primary) = connection.wait_for_reply(primary_cookie) else {
         verboselog(
             c"[libi3] ../i3-nagbar/main.c Could not determine the primary output.\n"
                 .as_ptr()
                 .cast_mut(),
         );
-    } else {
-        res = replies.own(xcb_randr_get_screen_resources_current_reply(
-            conn,
-            rcookie,
-            ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-        ));
-        if res.is_null() {
-            verboselog(
-                c"[libi3] ../i3-nagbar/main.c Could not query screen resources.\n"
-                    .as_ptr()
-                    .cast_mut(),
-            );
-        } else {
-            output = replies.own(xcb_randr_get_output_info_reply(
-                conn,
-                xcb_randr_get_output_info(conn, (*primary).output, (*res).config_timestamp),
-                ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-            ));
-            if output.is_null() || (*output).crtc as ::core::ffi::c_long == XCB_NONE {
-                verboselog(
-                    c"[libi3] ../i3-nagbar/main.c Could not query primary screen.\n"
-                        .as_ptr()
-                        .cast_mut(),
-                );
-            } else {
-                crtc = replies.own(xcb_randr_get_crtc_info_reply(
-                    conn,
-                    xcb_randr_get_crtc_info(conn, (*output).crtc, (*res).config_timestamp),
-                    ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-                ));
-                if crtc.is_null() {
-                    verboselog(
-                        c"[libi3] ../i3-nagbar/main.c Could not get CRTC.\n"
-                            .as_ptr()
-                            .cast_mut(),
-                    );
-                } else {
-                    verboselog(
-                        c"[libi3] ../i3-nagbar/main.c Found primary output on position x = %i / y = %i / w = %i / h = %i.\n".as_ptr().cast_mut(),
-                        (*crtc).x as ::core::ffi::c_int,
-                        (*crtc).y as ::core::ffi::c_int,
-                        (*crtc).width as ::core::ffi::c_int,
-                        (*crtc).height as ::core::ffi::c_int,
-                    );
-                    if (*crtc).width as ::core::ffi::c_int == 0 as ::core::ffi::c_int
-                        || (*crtc).height as ::core::ffi::c_int == 0 as ::core::ffi::c_int
-                    {
-                        verboselog(
-                            c"[libi3] ../i3-nagbar/main.c Primary output is not active, ignoring it.\n".as_ptr().cast_mut(),
-                        );
-                    } else {
-                        result.x = (*crtc).x;
-                        result.y = (*crtc).y;
-                    }
-                }
-            }
-        }
+        return;
+    };
+    let Ok(resources) = connection.wait_for_reply(resources_cookie) else {
+        verboselog(
+            c"[libi3] ../i3-nagbar/main.c Could not query screen resources.\n"
+                .as_ptr()
+                .cast_mut(),
+        );
+        return;
+    };
+    let output = connection.wait_for_reply(connection.send_request(&randr::GetOutputInfo {
+        output: primary.output(),
+        config_timestamp: resources.config_timestamp(),
+    }));
+    let Ok(output) = output else {
+        verboselog(
+            c"[libi3] ../i3-nagbar/main.c Could not query primary screen.\n"
+                .as_ptr()
+                .cast_mut(),
+        );
+        return;
+    };
+    if output.crtc().is_none() {
+        verboselog(
+            c"[libi3] ../i3-nagbar/main.c Could not query primary screen.\n"
+                .as_ptr()
+                .cast_mut(),
+        );
+        return;
     }
-}
-// The native server lock must also be released if reply bookkeeping panics.
-struct ServerGrab(*mut xcb_connection_t);
-impl Drop for ServerGrab {
-    fn drop(&mut self) {
-        // SAFETY: the owning event-thread positioning call keeps this connection
-        // live until the guard drops; construction follows a matching grab.
-        unsafe {
-            xcb_ungrab_server(self.0);
-        }
+    let Ok(crtc) = connection.wait_for_reply(connection.send_request(&randr::GetCrtcInfo {
+        crtc: output.crtc(),
+        config_timestamp: resources.config_timestamp(),
+    })) else {
+        verboselog(
+            c"[libi3] ../i3-nagbar/main.c Could not get CRTC.\n"
+                .as_ptr()
+                .cast_mut(),
+        );
+        return;
+    };
+    verboselog(c"[libi3] ../i3-nagbar/main.c Found primary output on position x = %i / y = %i / w = %i / h = %i.\n".as_ptr().cast_mut(),
+        i32::from(crtc.x()), i32::from(crtc.y()), i32::from(crtc.width()), i32::from(crtc.height()));
+    if crtc.width() == 0 || crtc.height() == 0 {
+        verboselog(
+            c"[libi3] ../i3-nagbar/main.c Primary output is not active, ignoring it.\n"
+                .as_ptr()
+                .cast_mut(),
+        );
+    } else {
+        result.x = crtc.x();
+        result.y = crtc.y();
     }
 }
 
-unsafe fn set_window_position_focus(result: &mut xcb_rectangle_t) {
-    let mut replies = NativeReplies::default();
-    let mut success: bool = false;
-    let mut input_focus: *mut xcb_get_input_focus_reply_t =
-        ::core::ptr::null_mut::<xcb_get_input_focus_reply_t>();
-    let mut geometry: *mut xcb_get_geometry_reply_t =
-        ::core::ptr::null_mut::<xcb_get_geometry_reply_t>();
-    let mut coordinates: *mut xcb_translate_coordinates_reply_t =
-        ::core::ptr::null_mut::<xcb_translate_coordinates_reply_t>();
-    xcb_grab_server(conn);
-    let server_grab = ServerGrab(conn);
-    input_focus = replies.own(xcb_get_input_focus_reply(
-        conn,
-        xcb_get_input_focus(conn),
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    ));
-    if input_focus.is_null() || (*input_focus).focus as ::core::ffi::c_long == XCB_NONE {
-        verboselog(
-            c"[libi3] ../i3-nagbar/main.c Failed to receive the current input focus or no window has the input focus right now.\n".as_ptr().cast_mut(),
-        );
-    } else {
-        geometry = replies.own(xcb_get_geometry_reply(
-            conn,
-            xcb_get_geometry(conn, (*input_focus).focus as xcb_drawable_t),
-            ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-        ));
-        if geometry.is_null() {
+struct ServerGrab<'a>(&'a xcb::Connection);
+impl Drop for ServerGrab<'_> {
+    fn drop(&mut self) {
+        self.0.send_request(&x::UngrabServer {});
+    }
+}
+
+unsafe fn set_window_position_focus(connection: &xcb::Connection, result: &mut x::Rectangle) {
+    connection.send_request(&x::GrabServer {});
+    let server_grab = ServerGrab(connection);
+    let position = (|| {
+        let Ok(input_focus) =
+            connection.wait_for_reply(connection.send_request(&x::GetInputFocus {}))
+        else {
+            verboselog(c"[libi3] ../i3-nagbar/main.c Failed to receive the current input focus or no window has the input focus right now.\n".as_ptr().cast_mut());
+            return None;
+        };
+        if input_focus.focus().is_none() {
+            verboselog(c"[libi3] ../i3-nagbar/main.c Failed to receive the current input focus or no window has the input focus right now.\n".as_ptr().cast_mut());
+            return None;
+        }
+        let Ok(geometry) = connection.wait_for_reply(connection.send_request(&x::GetGeometry {
+            drawable: x::Drawable::Window(input_focus.focus()),
+        })) else {
             verboselog(
                 c"[libi3] ../i3-nagbar/main.c Failed to received window geometry.\n"
                     .as_ptr()
                     .cast_mut(),
             );
-        } else {
-            coordinates = replies.own(xcb_translate_coordinates_reply(
-                conn,
-                xcb_translate_coordinates(
-                    conn,
-                    (*input_focus).focus,
-                    root,
-                    (*geometry).x,
-                    (*geometry).y,
-                ),
-                ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-            ));
-            if coordinates.is_null() {
-                verboselog(
-                    c"[libi3] ../i3-nagbar/main.c Failed to translate coordinates.\n"
-                        .as_ptr()
-                        .cast_mut(),
-                );
-            } else {
-                verboselog(
-                    c"[libi3] ../i3-nagbar/main.c Found current focus at x = %i / y = %i.\n"
-                        .as_ptr()
-                        .cast_mut(),
-                    (*coordinates).dst_x as ::core::ffi::c_int,
-                    (*coordinates).dst_y as ::core::ffi::c_int,
-                );
-                result.x = (*coordinates).dst_x;
-                result.y = (*coordinates).dst_y;
-                success = true;
-            }
-        }
-    }
-    drop(server_grab);
-    if !success {
+            return None;
+        };
+        let Ok(coordinates) =
+            connection.wait_for_reply(connection.send_request(&x::TranslateCoordinates {
+                src_window: input_focus.focus(),
+                dst_window: x::Window::new(root),
+                src_x: geometry.x(),
+                src_y: geometry.y(),
+            }))
+        else {
+            verboselog(
+                c"[libi3] ../i3-nagbar/main.c Failed to translate coordinates.\n"
+                    .as_ptr()
+                    .cast_mut(),
+            );
+            return None;
+        };
         verboselog(
-            c"[libi3] ../i3-nagbar/main.c Could not position on focused output, trying to position on primary output.\n".as_ptr().cast_mut(),
+            c"[libi3] ../i3-nagbar/main.c Found current focus at x = %i / y = %i.\n"
+                .as_ptr()
+                .cast_mut(),
+            i32::from(coordinates.dst_x()),
+            i32::from(coordinates.dst_y()),
         );
-        set_window_position_primary(result);
+        Some((coordinates.dst_x(), coordinates.dst_y()))
+    })();
+    drop(server_grab);
+    if let Some((x, y)) = position {
+        result.x = x;
+        result.y = y;
+    } else {
+        verboselog(c"[libi3] ../i3-nagbar/main.c Could not position on focused output, trying to position on primary output.\n".as_ptr().cast_mut());
+        set_window_position_primary(connection, result);
     }
 }
 struct ButtonSettings {
@@ -579,7 +528,9 @@ impl Drop for NagbarState {
                     i3_common::font::free_font();
                 }
                 if self.window != 0 {
-                    xcb_destroy_window(connection.get_raw_conn().cast(), self.window);
+                    connection.send_request(&x::DestroyWindow {
+                        window: x::Window::new(self.window),
+                    });
                 }
                 root_screen = std::ptr::null_mut();
                 visual_type = std::ptr::null_mut();
@@ -591,56 +542,19 @@ impl Drop for NagbarState {
     }
 }
 
-// Scoped malloc-owned native replies/events. The constructor remains unsafe:
-// it cannot validate arbitrary raw pointers or turn borrowed storage into owners.
-// A value must only be constructed from a unique malloc-owned live allocation
-// returned by XCB (or null); it must outlive every borrowed event view.
-struct NativeAllocation<T>(NonNull<T>);
-impl<T> NativeAllocation<T> {
-    unsafe fn new(pointer: *mut T) -> Option<Self> {
-        NonNull::new(pointer).map(Self)
-    }
-    fn as_ptr(&self) -> *mut T {
-        self.0.as_ptr()
-    }
-}
-impl<T> Drop for NativeAllocation<T> {
-    fn drop(&mut self) {
-        unsafe { free(self.0.as_ptr().cast()) }
-    }
-}
-
-#[derive(Default)]
-struct NativeReplies(Vec<NonNull<libc::c_void>>);
-impl NativeReplies {
-    /// Caller transfers unique ownership of a malloc allocation (or null),
-    /// retaining only borrows which end before this group is dropped.
-    unsafe fn own<T>(&mut self, pointer: *mut T) -> *mut T {
-        if let Some(pointer) = NonNull::new(pointer) {
-            self.0.push(pointer.cast());
-        }
-        pointer
-    }
-}
-impl Drop for NativeReplies {
-    fn drop(&mut self) {
-        for pointer in self.0.drain(..) {
-            unsafe { free(pointer.as_ptr()) }
-        }
-    }
-}
-
-unsafe fn atom_reply(cookie: xcb_intern_atom_cookie_t, name: &CStr) -> xcb_atom_t {
-    let Some(reply) =
-        NativeAllocation::new(xcb_intern_atom_reply(conn, cookie, std::ptr::null_mut()))
-    else {
+unsafe fn atom_reply(
+    connection: &xcb::Connection,
+    cookie: x::InternAtomCookie,
+    name: &CStr,
+) -> x::Atom {
+    let Ok(reply) = connection.wait_for_reply(cookie) else {
         errx(
             libc::EXIT_FAILURE,
             c"Could not get atom %s".as_ptr(),
             name.as_ptr(),
         );
     };
-    (*reply.as_ptr()).atom
+    reply.atom()
 }
 
 /// Own one native display session on the application's sole event thread.
@@ -666,43 +580,19 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
     conn = connection.get_raw_conn().cast();
     let registration = i3_common::display::install_connection(connection.clone());
     state.registration = Some(registration);
-    state.connection = Some(connection);
-    let mut _NET_WM_WINDOW_TYPE_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_WM_WINDOW_TYPE".as_ptr()) as u16,
-        c"_NET_WM_WINDOW_TYPE".as_ptr(),
-    );
-    let mut _NET_WM_WINDOW_TYPE_DOCK_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_WM_WINDOW_TYPE_DOCK".as_ptr()) as u16,
-        c"_NET_WM_WINDOW_TYPE_DOCK".as_ptr(),
-    );
-    let mut _NET_WM_STRUT_PARTIAL_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_WM_STRUT_PARTIAL".as_ptr()) as u16,
-        c"_NET_WM_STRUT_PARTIAL".as_ptr(),
-    );
-    let I3_SOCKET_PATH_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"I3_SOCKET_PATH".as_ptr()) as u16,
-        c"I3_SOCKET_PATH".as_ptr(),
-    );
-    let ATOM_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"ATOM".as_ptr()) as u16,
-        c"ATOM".as_ptr(),
-    );
-    let CARDINAL_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"CARDINAL".as_ptr()) as u16,
-        c"CARDINAL".as_ptr(),
-    );
+    state.connection = Some(connection.clone());
+    let intern = |name: &CStr| {
+        connection.send_request(&x::InternAtom {
+            only_if_exists: false,
+            name: &name.to_bytes()[..name.to_bytes().len() as u16 as usize],
+        })
+    };
+    let window_type_cookie = intern(c"_NET_WM_WINDOW_TYPE");
+    let dock_cookie = intern(c"_NET_WM_WINDOW_TYPE_DOCK");
+    let strut_cookie = intern(c"_NET_WM_STRUT_PARTIAL");
+    let socket_cookie = intern(c"I3_SOCKET_PATH");
+    let atom_cookie = intern(c"ATOM");
+    let cardinal_cookie = intern(c"CARDINAL");
     let sndisplay: *mut SnDisplay = sn_xcb_display_new(conn, None, None);
     let sncontext: *mut SnLauncheeContext =
         sn_launchee_context_new_from_environment(sndisplay, screens);
@@ -729,7 +619,7 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
     state.render.font = load_font(pattern.as_ptr(), true);
     state.has_font = true;
     set_font(&mut state.render.font);
-    let mut win_pos: xcb_rectangle_t = xcb_rectangle_t {
+    let mut win_pos = x::Rectangle {
         x: 50 as i16,
         y: 50 as i16,
         width: 500 as u16,
@@ -742,100 +632,76 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
             .clamp(1, i32::from(u16::MAX)) as u16,
     };
     if position_on_primary {
-        set_window_position_primary(&mut win_pos);
+        set_window_position_primary(&connection, &mut win_pos);
     } else {
-        set_window_position_focus(&mut win_pos);
+        set_window_position_focus(&connection, &mut win_pos);
     }
-    let mut cursor_ctx: *mut xcb_cursor_context_t = ::core::ptr::null_mut::<xcb_cursor_context_t>();
-    if xcb_cursor_context_new(conn, root_screen, &raw mut cursor_ctx) < 0 || cursor_ctx.is_null() {
-        errx(
-            libc::EXIT_FAILURE,
-            c"Cannot allocate xcursor context".as_ptr(),
-        );
-    }
-    let cursor: xcb_cursor_t = xcb_cursor_load_cursor(cursor_ctx, c"left_ptr".as_ptr());
-    xcb_cursor_context_free(cursor_ctx);
-    state.window = xcb_generate_id(conn) as xcb_window_t;
-    let mut fresh2: [u32; 3] = [
-        0 as ::core::ffi::c_int as u32,
-        (XCB_EVENT_MASK_EXPOSURE as ::core::ffi::c_int
-            | XCB_EVENT_MASK_STRUCTURE_NOTIFY as ::core::ffi::c_int
-            | XCB_EVENT_MASK_BUTTON_PRESS as ::core::ffi::c_int
-            | XCB_EVENT_MASK_BUTTON_RELEASE as ::core::ffi::c_int) as u32,
-        cursor,
-    ];
-    xcb_create_window(
-        conn,
-        XCB_COPY_FROM_PARENT as u8,
-        state.window,
-        root,
-        win_pos.x,
-        win_pos.y,
-        win_pos.width,
-        win_pos.height,
-        0 as u16,
-        XCB_WINDOW_CLASS_INPUT_OUTPUT as ::core::ffi::c_int as u16,
-        XCB_WINDOW_CLASS_COPY_FROM_PARENT as ::core::ffi::c_int as xcb_visualid_t,
-        (XCB_CW_BACK_PIXEL as ::core::ffi::c_int
-            | XCB_CW_EVENT_MASK as ::core::ffi::c_int
-            | XCB_CW_CURSOR as ::core::ffi::c_int) as u32,
-        &raw mut fresh2 as *mut u32 as *const ::core::ffi::c_void,
-    );
-    xcb_sys::xcb_free_cursor(conn, cursor);
+    let cursor = {
+        let context = CursorContext::new(connection.clone(), screens).unwrap_or_else(|_| {
+            errx(
+                libc::EXIT_FAILURE,
+                c"Cannot allocate xcursor context".as_ptr(),
+            )
+        });
+        context.load(c"left_ptr")
+    };
+    let window: x::Window = connection.generate_id();
+    state.window = window.resource_id();
+    connection.send_request(&x::CreateWindow {
+        depth: 0,
+        wid: window,
+        parent: x::Window::new(root),
+        x: win_pos.x,
+        y: win_pos.y,
+        width: win_pos.width,
+        height: win_pos.height,
+        border_width: 0,
+        class: x::WindowClass::InputOutput,
+        visual: 0,
+        value_list: &[
+            x::Cw::BackPixel(0),
+            x::Cw::EventMask(
+                x::EventMask::EXPOSURE
+                    | x::EventMask::STRUCTURE_NOTIFY
+                    | x::EventMask::BUTTON_PRESS
+                    | x::EventMask::BUTTON_RELEASE,
+            ),
+            x::Cw::Cursor(cursor),
+        ],
+    });
+    connection.send_request(&x::FreeCursor { cursor });
     if !sncontext.is_null() {
         sn_launchee_context_setup_window(sncontext, state.window as libc::c_ulong);
     }
-    xcb_map_window(conn, state.window);
-    let A__NET_WM_WINDOW_TYPE = atom_reply(_NET_WM_WINDOW_TYPE_cookie, c"_NET_WM_WINDOW_TYPE");
-    let A__NET_WM_WINDOW_TYPE_DOCK =
-        atom_reply(_NET_WM_WINDOW_TYPE_DOCK_cookie, c"_NET_WM_WINDOW_TYPE_DOCK");
-    let A__NET_WM_STRUT_PARTIAL =
-        atom_reply(_NET_WM_STRUT_PARTIAL_cookie, c"_NET_WM_STRUT_PARTIAL");
-    let A_I3_SOCKET_PATH = atom_reply(I3_SOCKET_PATH_cookie, c"I3_SOCKET_PATH");
-    let A_ATOM = atom_reply(ATOM_cookie, c"ATOM");
-    let A_CARDINAL = atom_reply(CARDINAL_cookie, c"CARDINAL");
-    xcb_change_property(
-        conn,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
-        state.window,
-        A__NET_WM_WINDOW_TYPE,
-        A_ATOM,
-        32 as u8,
-        1 as u32,
-        (&raw const A__NET_WM_WINDOW_TYPE_DOCK).cast(),
-    );
-    let mut strut_partial: WmStrutPartial = WmStrutPartial {
-        left: 0,
-        right: 0,
-        top: 0,
-        bottom: 0,
-        left_start_y: 0,
-        left_end_y: 0,
-        right_start_y: 0,
-        right_end_y: 0,
-        top_start_x: 0,
-        top_end_x: 0,
-        bottom_start_x: 0,
-        bottom_end_x: 0,
-    };
-    strut_partial.top = state
+    connection.send_request(&x::MapWindow { window });
+    let window_type = atom_reply(&connection, window_type_cookie, c"_NET_WM_WINDOW_TYPE");
+    let dock = atom_reply(&connection, dock_cookie, c"_NET_WM_WINDOW_TYPE_DOCK");
+    let strut = atom_reply(&connection, strut_cookie, c"_NET_WM_STRUT_PARTIAL");
+    let _socket = atom_reply(&connection, socket_cookie, c"I3_SOCKET_PATH");
+    let atom = atom_reply(&connection, atom_cookie, c"ATOM");
+    let cardinal = atom_reply(&connection, cardinal_cookie, c"CARDINAL");
+    connection.send_request(&x::ChangeProperty {
+        mode: x::PropMode::Replace,
+        window,
+        property: window_type,
+        r#type: atom,
+        data: &[dock.resource_id()],
+    });
+    let mut strut_partial = [0u32; 12];
+    strut_partial[2] = state
         .render
         .font
         .height
         .saturating_add(logical_px(6))
         .max(0) as u32;
-    strut_partial.top_start_x = 0 as u32;
-    strut_partial.top_end_x = 800 as u32;
-    xcb_change_property(
-        conn,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
-        state.window,
-        A__NET_WM_STRUT_PARTIAL,
-        A_CARDINAL,
-        32 as u8,
-        12 as u32,
-        &raw mut strut_partial as *const ::core::ffi::c_void,
-    );
+    strut_partial[9] = 800;
+    connection.send_request(&x::ChangeProperty {
+        mode: x::PropMode::Replace,
+        window,
+        property: strut,
+        r#type: cardinal,
+        data: &strut_partial,
+    });
     draw_util_surface_init(
         conn,
         &mut state.render.bar,
@@ -849,59 +715,48 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
         sn_launchee_context_complete(sncontext);
         sn_launchee_context_unref(sncontext);
     }
-    xcb_flush(conn);
+    let _ = connection.flush();
     loop {
-        let event = xcb_wait_for_event(conn);
-        let Some(owned_event) = NativeAllocation::new(event) else {
-            break;
+        let event = match connection.wait_for_event() {
+            Ok(event) => event,
+            Err(xcb::Error::Protocol(error)) => {
+                fprintf(
+                    stderr,
+                    c"X11 Error received! sequence %x\n".as_ptr(),
+                    (*error.as_raw()).sequence as i32,
+                );
+                continue;
+            }
+            Err(xcb::Error::Connection(_)) => break,
         };
-        let event = owned_event.as_ptr();
-        if (*event).response_type as ::core::ffi::c_int == 0 as ::core::ffi::c_int {
-            fprintf(
-                stderr,
-                c"X11 Error received! sequence %x\n".as_ptr(),
-                (*event).sequence as ::core::ffi::c_int,
-            );
-        } else {
-            let type_0: ::core::ffi::c_int =
-                (*event).response_type as ::core::ffi::c_int & 0x7f as ::core::ffi::c_int;
-            match type_0 {
-                XCB_EXPOSE => {
-                    if (*(event as *mut xcb_expose_event_t)).count as ::core::ffi::c_int
-                        == 0 as ::core::ffi::c_int
-                    {
-                        handle_expose(&mut state);
-                    }
+        match event {
+            xcb::Event::X(x::Event::Expose(event)) => {
+                if event.count() == 0 {
+                    handle_expose(&mut state, &connection);
                 }
-                XCB_BUTTON_PRESS => {
-                    let press = &*event.cast::<xcb_button_press_event_t>();
-                    printf(
-                        c"button pressed on x = %d, y = %d\n".as_ptr(),
-                        i32::from(press.event_x),
-                        i32::from(press.event_y),
+            }
+            xcb::Event::X(x::Event::ButtonPress(event)) => {
+                printf(
+                    c"button pressed on x = %d, y = %d\n".as_ptr(),
+                    i32::from(event.event_x()),
+                    i32::from(event.event_y()),
+                );
+            }
+            xcb::Event::X(x::Event::ButtonRelease(event)) => {
+                if handle_button_release(&state, &event) {
+                    return 0;
+                }
+            }
+            xcb::Event::X(x::Event::ConfigureNotify(event)) => {
+                if event.width() > 0 && event.height() > 0 {
+                    draw_util_surface_set_size(
+                        &mut state.render.bar,
+                        i32::from(event.width()),
+                        i32::from(event.height()),
                     );
                 }
-                XCB_BUTTON_RELEASE => {
-                    if handle_button_release(&state, &*event.cast::<xcb_button_release_event_t>()) {
-                        return 0;
-                    }
-                }
-                XCB_CONFIGURE_NOTIFY => {
-                    let configure_notify: *mut xcb_configure_notify_event_t =
-                        event as *mut xcb_configure_notify_event_t;
-                    if (*configure_notify).width as ::core::ffi::c_int > 0 as ::core::ffi::c_int
-                        && (*configure_notify).height as ::core::ffi::c_int
-                            > 0 as ::core::ffi::c_int
-                    {
-                        draw_util_surface_set_size(
-                            &mut state.render.bar,
-                            (*configure_notify).width as ::core::ffi::c_int,
-                            (*configure_notify).height as ::core::ffi::c_int,
-                        );
-                    }
-                }
-                _ => {}
             }
+            _ => {}
         }
     }
 
@@ -1005,27 +860,8 @@ use cairo_sys::{cairo_surface_t, cairo_t};
 // Canonical Pango backend ABI; font policy remains local.
 
 use xcb_sys::{
-    xcb_atom_t, xcb_aux_get_screen, xcb_button_press_event_t, xcb_button_release_event_t,
-    xcb_change_property, xcb_configure_notify_event_t, xcb_connection_t, xcb_create_window,
-    xcb_cursor_context_free, xcb_cursor_context_new, xcb_cursor_context_t, xcb_cursor_load_cursor,
-    xcb_cursor_t, xcb_destroy_window, xcb_drawable_t, xcb_expose_event_t, xcb_flush,
-    xcb_generate_id, xcb_generic_error_t, xcb_generic_event_t, xcb_get_geometry,
-    xcb_get_geometry_reply, xcb_get_geometry_reply_t, xcb_get_input_focus,
-    xcb_get_input_focus_reply, xcb_get_input_focus_reply_t, xcb_grab_server, xcb_intern_atom,
-    xcb_intern_atom_cookie_t, xcb_intern_atom_reply, xcb_intern_atom_reply_t, xcb_map_window,
-    xcb_randr_get_crtc_info, xcb_randr_get_crtc_info_reply, xcb_randr_get_crtc_info_reply_t,
-    xcb_randr_get_output_info, xcb_randr_get_output_info_reply, xcb_randr_get_output_info_reply_t,
-    xcb_randr_get_output_primary, xcb_randr_get_output_primary_cookie_t,
-    xcb_randr_get_output_primary_reply, xcb_randr_get_output_primary_reply_t,
-    xcb_randr_get_screen_resources_current, xcb_randr_get_screen_resources_current_cookie_t,
-    xcb_randr_get_screen_resources_current_reply, xcb_randr_get_screen_resources_current_reply_t,
-    xcb_rectangle_t, xcb_screen_t, xcb_translate_coordinates, xcb_translate_coordinates_reply,
-    xcb_translate_coordinates_reply_t, xcb_ungrab_server, xcb_visualid_t, xcb_visualtype_t,
-    xcb_wait_for_event, xcb_window_t, XCB_BUTTON_PRESS, XCB_BUTTON_RELEASE, XCB_CONFIGURE_NOTIFY,
-    XCB_COPY_FROM_PARENT, XCB_CW_BACK_PIXEL, XCB_CW_CURSOR, XCB_CW_EVENT_MASK,
-    XCB_EVENT_MASK_BUTTON_PRESS, XCB_EVENT_MASK_BUTTON_RELEASE, XCB_EVENT_MASK_EXPOSURE,
-    XCB_EVENT_MASK_STRUCTURE_NOTIFY, XCB_EXPOSE, XCB_NONE, XCB_PROP_MODE_REPLACE,
-    XCB_WINDOW_CLASS_COPY_FROM_PARENT, XCB_WINDOW_CLASS_INPUT_OUTPUT,
+    xcb_aux_get_screen, xcb_connection_t, xcb_drawable_t, xcb_screen_t, xcb_visualtype_t,
+    xcb_window_t,
 };
 
 use startup_notification_sys::{
