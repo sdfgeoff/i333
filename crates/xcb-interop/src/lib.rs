@@ -1,11 +1,13 @@
-//! Owned adapters for foreign utilities which complement maintained XCB.
+//! Owned foreign utilities and narrow compatibility gaps beside maintained XCB.
 //!
-//! Protocol requests, replies, events, enums and resource IDs belong to `xcb`.
-//! Only cursor themes, native key-symbol tables and X resource matching cross
-//! this crate's private foreign-library boundaries.
+//! The `xcb` crate owns protocol requests, replies, event storage, enums and IDs.
+//! Cursor themes, key-symbol tables and X resource matching use owned adapters
+//! for native libraries. The events/transport modules cover documented gaps in
+//! the published maintained API while retaining its canonical protocol types.
 #![deny(unsafe_op_in_unsafe_fn)]
 
 pub mod cursor;
+pub mod events;
 pub mod keysyms;
 pub mod transport;
 pub mod xrm;

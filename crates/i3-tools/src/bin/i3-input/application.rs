@@ -13,6 +13,7 @@ use std::os::fd::FromRawFd;
 use std::os::unix::net::UnixStream;
 use std::rc::Rc;
 use xcb::{x, Xid, XidNew};
+use xcb_interop::events::{key_press_state, key_release_state};
 use xcb_interop::keysyms::KeySymbols;
 /*
  * vim:ts=4:sw=4:expandtab
@@ -289,9 +290,9 @@ unsafe fn handle_key_release(
     printf(
         c"releasing %d, state raw = %d\n".as_ptr(),
         event.detail() as libc::c_int,
-        event.state().bits() as libc::c_int,
+        key_release_state(event) as libc::c_int,
     );
-    let sym = symbols.keysym(event.detail(), event.state().bits() as i32);
+    let sym = symbols.keysym(event.detail(), key_release_state(event) as i32);
     if sym == xkeysym::key::Mode_switch {
         printf(c"Mode switch disabled\n".as_ptr());
         state.modeswitch_active = false;
@@ -306,9 +307,10 @@ unsafe fn handle_key_press(
     printf(
         c"Keypress %d, state raw = %d\n".as_ptr(),
         event.detail() as ::core::ffi::c_int,
-        event.state().bits() as ::core::ffi::c_int,
+        key_press_state(event) as ::core::ffi::c_int,
     );
-    let mut col: ::core::ffi::c_int = i32::from(event.state().contains(x::KeyButMask::SHIFT));
+    let mut col: ::core::ffi::c_int =
+        i32::from(key_press_state(event) & x::KeyButMask::SHIFT.bits() as u16);
     if state.modeswitch_active {
         col += 2 as ::core::ffi::c_int;
     }
