@@ -10,6 +10,7 @@ use crate::types::Orientation;
 use crate::types::TitleAlign;
 use crate::types::Warping;
 use crate::xcursor::Cursor;
+use ::xcb::{shape, x, XidNew};
 use i3_common::draw_util::draw_util_text;
 use std::ffi::{CStr, CString};
 /*
@@ -75,11 +76,11 @@ fn format_marks<'a>(marks: impl IntoIterator<Item = &'a [u8]>) -> Option<Vec<u8>
 }
 
 struct BorderRectangles {
-    values: [xcb_rectangle_t; 4],
+    values: [x::Rectangle; 4],
     len: usize,
 }
 impl BorderRectangles {
-    fn as_slice(&self) -> &[xcb_rectangle_t] {
+    fn as_slice(&self) -> &[x::Rectangle] {
         &self.values[..self.len]
     }
 }
@@ -91,7 +92,7 @@ fn border_rectangles(
     rect: Rect,
 ) -> BorderRectangles {
     let mut result = BorderRectangles {
-        values: [xcb_rectangle_t {
+        values: [x::Rectangle {
             x: 0,
             y: 0,
             width: 0,
@@ -107,7 +108,7 @@ fn border_rectangles(
         result.len += 1;
     };
     if !hidden.contains(AdjacentEdges::LEFT) {
-        push(xcb_rectangle_t {
+        push(x::Rectangle {
             x: 0,
             y: 0,
             width: border.x as u16,
@@ -115,7 +116,7 @@ fn border_rectangles(
         });
     }
     if !hidden.contains(AdjacentEdges::RIGHT) {
-        push(xcb_rectangle_t {
+        push(x::Rectangle {
             x: rect.width.wrapping_add(border.width.wrapping_add(border.x)) as i16,
             y: 0,
             width: border.width.wrapping_add(border.x).wrapping_neg() as u16,
@@ -123,7 +124,7 @@ fn border_rectangles(
         });
     }
     if !hidden.contains(AdjacentEdges::BOTTOM) {
-        push(xcb_rectangle_t {
+        push(x::Rectangle {
             x: border.x as i16,
             y: rect
                 .height
@@ -133,7 +134,7 @@ fn border_rectangles(
         });
     }
     if style == BorderStyle::Pixel && !hidden.contains(AdjacentEdges::TOP) {
-        push(xcb_rectangle_t {
+        push(x::Rectangle {
             x: border.x as i16,
             y: 0,
             width: rect.width.wrapping_add(border.width) as u16,
@@ -1331,7 +1332,7 @@ unsafe fn set_maximized_state(con: *mut Con) {
         (*state).is_maximized_vert = con_maximized_vert;
     }
 }
-unsafe fn x_shape_frame(con: *mut Con, shape_kind: xcb_shape_sk_t) {
+unsafe fn x_shape_frame(con: *mut Con, shape_kind: shape::Sk) {
     if !(*con).window.is_null() {
     } else {
         __assert_fail(
@@ -1341,38 +1342,36 @@ unsafe fn x_shape_frame(con: *mut Con, shape_kind: xcb_shape_sk_t) {
             c"void x_shape_frame(Con *, xcb_shape_sk_t)".as_ptr(),
         );
     };
-    xcb_shape_combine(
-        conn,
-        XCB_SHAPE_SO_SET as i32 as xcb_shape_op_t,
-        shape_kind as xcb_shape_kind_t,
-        shape_kind as xcb_shape_kind_t,
-        (*con).frame.id as xcb_window_t,
-        (*con)
+    let connection = i3_common::display::connection().expect("active XCB display");
+    connection.send_request(&shape::Combine {
+        operation: shape::So::Set,
+        destination_kind: shape_kind,
+        source_kind: shape_kind,
+        destination_window: x::Window::new((*con).frame.id),
+        x_offset: (*con)
             .window_rect
             .x
             .wrapping_add((*con).border_width as u32) as i16,
-        (*con)
+        y_offset: (*con)
             .window_rect
             .y
             .wrapping_add((*con).border_width as u32) as i16,
-        (*(*con).window).id,
-    );
+        source_window: x::Window::new((*(*con).window).id),
+    });
     let rectangles = x_get_border_rectangles(con);
     if !rectangles.as_slice().is_empty() {
-        xcb_shape_rectangles(
-            conn,
-            XCB_SHAPE_SO_UNION as u8,
-            shape_kind as u8,
-            XCB_CLIP_ORDERING_UNSORTED as u8,
-            (*con).frame.id,
-            0,
-            0,
-            rectangles.len as u32,
-            rectangles.as_slice().as_ptr(),
-        );
+        connection.send_request(&shape::Rectangles {
+            operation: shape::So::Union,
+            destination_kind: shape_kind,
+            ordering: x::ClipOrdering::Unsorted,
+            destination_window: x::Window::new((*con).frame.id),
+            x_offset: 0,
+            y_offset: 0,
+            rectangles: rectangles.as_slice(),
+        });
     }
 }
-unsafe fn x_unshape_frame(con: *mut Con, shape_kind: xcb_shape_sk_t) {
+unsafe fn x_unshape_frame(con: *mut Con, shape_kind: shape::Sk) {
     if !(*con).window.is_null() {
     } else {
         __assert_fail(
@@ -1382,15 +1381,15 @@ unsafe fn x_unshape_frame(con: *mut Con, shape_kind: xcb_shape_sk_t) {
             c"void x_unshape_frame(Con *, xcb_shape_sk_t)".as_ptr(),
         );
     };
-    xcb_shape_mask(
-        conn,
-        XCB_SHAPE_SO_SET as i32 as xcb_shape_op_t,
-        shape_kind as xcb_shape_kind_t,
-        (*con).frame.id as xcb_window_t,
-        0 as i16,
-        0 as i16,
-        XCB_PIXMAP_NONE as i32 as xcb_pixmap_t,
-    );
+    let connection = i3_common::display::connection().expect("active XCB display");
+    connection.send_request(&shape::Mask {
+        operation: shape::So::Set,
+        destination_kind: shape_kind,
+        destination_window: x::Window::new((*con).frame.id),
+        x_offset: 0,
+        y_offset: 0,
+        source_bitmap: x::Pixmap::new(0),
+    });
 }
 unsafe fn set_shape_state(con: *mut Con, need_reshape: bool) {
     if !shape_supported || (*con).window.is_null() {
@@ -1409,18 +1408,18 @@ unsafe fn set_shape_state(con: *mut Con, need_reshape: bool) {
     }
     if need_reshape && con_is_floating(con) {
         if (*(*con).window).shaped {
-            x_shape_frame(con, XCB_SHAPE_SK_BOUNDING);
+            x_shape_frame(con, shape::Sk::Bounding);
         }
         if (*(*con).window).input_shaped {
-            x_shape_frame(con, XCB_SHAPE_SK_INPUT);
+            x_shape_frame(con, shape::Sk::Input);
         }
     }
     if (*state).was_floating && !con_is_floating(con) {
         if (*(*con).window).shaped {
-            x_unshape_frame(con, XCB_SHAPE_SK_BOUNDING);
+            x_unshape_frame(con, shape::Sk::Bounding);
         }
         if (*(*con).window).input_shaped {
-            x_unshape_frame(con, XCB_SHAPE_SK_INPUT);
+            x_unshape_frame(con, shape::Sk::Input);
         }
     }
 }
@@ -2383,7 +2382,7 @@ pub unsafe fn x_mask_event_mask(mask: u32) {
     }
 }
 
-pub unsafe fn x_set_shape(con: *mut Con, kind: xcb_shape_sk_t, enable: bool) {
+pub unsafe fn x_set_shape(con: *mut Con, kind: shape::Sk, enable: bool) {
     if state_for_frame((*con).frame.id as xcb_window_t).is_null() {
         errorlog(
             c"ERROR: window state for con %p not found\n"
@@ -2393,11 +2392,11 @@ pub unsafe fn x_set_shape(con: *mut Con, kind: xcb_shape_sk_t, enable: bool) {
         );
         return;
     }
-    match kind as u32 {
-        0 => {
+    match kind {
+        shape::Sk::Bounding => {
             (*(*con).window).shaped = enable;
         }
-        2 => {
+        shape::Sk::Input => {
             (*(*con).window).input_shaped = enable;
         }
         _ => {
@@ -2416,7 +2415,9 @@ pub unsafe fn x_set_shape(con: *mut Con, kind: xcb_shape_sk_t, enable: bool) {
         } else {
             x_unshape_frame(con, kind);
         }
-        xcb_flush(conn);
+        let _ = i3_common::display::connection()
+            .expect("active XCB display")
+            .flush();
     }
 }
 // Internal helpers use Rust linkage rather than foreign symbol lookup.
@@ -2443,21 +2444,18 @@ use xcb_sys::{
     xcb_icccm_get_wm_protocols_reply, xcb_icccm_get_wm_protocols_reply_t,
     xcb_icccm_get_wm_protocols_reply_wipe, xcb_kill_client, xcb_map_window, xcb_pixmap_t,
     xcb_query_pointer, xcb_query_pointer_cookie_t, xcb_query_pointer_reply,
-    xcb_query_pointer_reply_t, xcb_rectangle_t, xcb_reparent_window, xcb_send_event,
-    xcb_set_input_focus, xcb_shape_combine, xcb_shape_kind_t, xcb_shape_mask, xcb_shape_op_t,
-    xcb_shape_rectangles, xcb_shape_sk_t, xcb_unmap_window, xcb_visualid_t, xcb_void_cookie_t,
-    xcb_warp_pointer, xcb_window_t, XCB_ATOM_CARDINAL, XCB_ATOM_STRING, XCB_ATOM_WM_CLASS,
-    XCB_ATOM_WM_NAME, XCB_CLIENT_MESSAGE, XCB_CLIP_ORDERING_UNSORTED, XCB_COLORMAP_ALLOC_NONE,
-    XCB_CONFIG_WINDOW_SIBLING, XCB_CONFIG_WINDOW_STACK_MODE, XCB_CURRENT_TIME, XCB_CW_BACK_PIXEL,
-    XCB_CW_BORDER_PIXEL, XCB_CW_COLORMAP, XCB_CW_EVENT_MASK, XCB_CW_OVERRIDE_REDIRECT,
-    XCB_EVENT_MASK_BUTTON_PRESS, XCB_EVENT_MASK_BUTTON_RELEASE, XCB_EVENT_MASK_ENTER_WINDOW,
-    XCB_EVENT_MASK_EXPOSURE, XCB_EVENT_MASK_FOCUS_CHANGE, XCB_EVENT_MASK_NO_EVENT,
-    XCB_EVENT_MASK_POINTER_MOTION, XCB_EVENT_MASK_PROPERTY_CHANGE, XCB_EVENT_MASK_STRUCTURE_NOTIFY,
-    XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY, XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT,
-    XCB_GC_GRAPHICS_EXPOSURES, XCB_ICCCM_WM_STATE_NORMAL, XCB_ICCCM_WM_STATE_WITHDRAWN,
-    XCB_INPUT_FOCUS_POINTER_ROOT, XCB_NONE, XCB_PIXMAP_NONE, XCB_PROP_MODE_REPLACE,
-    XCB_SHAPE_SK_BOUNDING, XCB_SHAPE_SK_INPUT, XCB_SHAPE_SO_SET, XCB_SHAPE_SO_UNION,
-    XCB_STACK_MODE_ABOVE, XCB_WINDOW_CLASS_INPUT_OUTPUT, XCB_WINDOW_NONE,
+    xcb_query_pointer_reply_t, xcb_reparent_window, xcb_send_event, xcb_set_input_focus,
+    xcb_unmap_window, xcb_visualid_t, xcb_void_cookie_t, xcb_warp_pointer, xcb_window_t,
+    XCB_ATOM_CARDINAL, XCB_ATOM_STRING, XCB_ATOM_WM_CLASS, XCB_ATOM_WM_NAME, XCB_CLIENT_MESSAGE,
+    XCB_COLORMAP_ALLOC_NONE, XCB_CONFIG_WINDOW_SIBLING, XCB_CONFIG_WINDOW_STACK_MODE,
+    XCB_CURRENT_TIME, XCB_CW_BACK_PIXEL, XCB_CW_BORDER_PIXEL, XCB_CW_COLORMAP, XCB_CW_EVENT_MASK,
+    XCB_CW_OVERRIDE_REDIRECT, XCB_EVENT_MASK_BUTTON_PRESS, XCB_EVENT_MASK_BUTTON_RELEASE,
+    XCB_EVENT_MASK_ENTER_WINDOW, XCB_EVENT_MASK_EXPOSURE, XCB_EVENT_MASK_FOCUS_CHANGE,
+    XCB_EVENT_MASK_NO_EVENT, XCB_EVENT_MASK_POINTER_MOTION, XCB_EVENT_MASK_PROPERTY_CHANGE,
+    XCB_EVENT_MASK_STRUCTURE_NOTIFY, XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY,
+    XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT, XCB_GC_GRAPHICS_EXPOSURES, XCB_ICCCM_WM_STATE_NORMAL,
+    XCB_ICCCM_WM_STATE_WITHDRAWN, XCB_INPUT_FOCUS_POINTER_ROOT, XCB_NONE, XCB_PIXMAP_NONE,
+    XCB_PROP_MODE_REPLACE, XCB_STACK_MODE_ABOVE, XCB_WINDOW_CLASS_INPUT_OUTPUT, XCB_WINDOW_NONE,
 };
 
 use libc::{free, getpid, strlen};

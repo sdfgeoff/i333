@@ -2171,7 +2171,11 @@ pub unsafe fn handle_event(owner: &xcb::Event) {
         {
             x_set_shape(
                 con,
-                (*shape).shape_kind as xcb_shape_sk_t,
+                if (*shape).shape_kind == XCB_SHAPE_SK_BOUNDING as u8 {
+                    xcb::shape::Sk::Bounding
+                } else {
+                    xcb::shape::Sk::Input
+                },
                 (*shape).shaped != 0,
             );
         }
