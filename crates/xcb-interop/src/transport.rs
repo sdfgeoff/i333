@@ -67,14 +67,50 @@ pub fn grab_button(
     }
 }
 
+/// Preserve an unknown outgoing stacking selector without constructing an invalid
+/// maintained StackMode enum. Normal selectors use typed ConfigureWindow instead.
+/// The caller supplies native mask-order values; bounds are checked before FFI.
+pub fn configure_window_with_open_stack_mode(
+    connection: &xcb::Connection,
+    window: x::Window,
+    mask: u16,
+    values: &[u32],
+) -> xcb::VoidCookie {
+    assert_eq!(mask & !0x7f, 0, "unrecognized ConfigureWindow mask bits");
+    assert_eq!(
+        mask.count_ones() as usize,
+        values.len(),
+        "ConfigureWindow value count must match mask"
+    );
+    // SAFETY: the mask only names known fixed-width fields, and the validated
+    // slice contains exactly one initialized value for each field in mask order.
+    let cookie = unsafe {
+        ffi::xcb_configure_window(
+            connection.get_raw_conn(),
+            window.resource_id(),
+            mask,
+            values.as_ptr().cast(),
+        )
+    };
+    // The legacy unchecked native function reports a u32 sequence. Its callers
+    // historically ignore this cookie; preserve that ABI without inventing high bits.
+    unsafe { xcb::VoidCookie::from_sequence(u64::from(cookie.sequence)) }
+}
+
 mod ffi {
     use xcb::ffi::xcb_connection_t;
     // This is libxcb's native transport return ABI, not a wire message schema.
     #[repr(C)]
     pub struct VoidCookie {
-        _sequence: u32,
+        pub sequence: u32,
     }
     unsafe extern "C" {
+        pub fn xcb_configure_window(
+            connection: *mut xcb_connection_t,
+            window: u32,
+            mask: u16,
+            values: *const std::ffi::c_void,
+        ) -> VoidCookie;
         pub fn xcb_discard_reply64(connection: *mut xcb_connection_t, sequence: u64);
         pub fn xcb_grab_button(
             connection: *mut xcb_connection_t,

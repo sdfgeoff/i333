@@ -87,6 +87,7 @@ pub fn verify(connection: Rc<xcb::Connection>, screen: i32, root: x::Window) {
     transport::discard_reply(&connection, pending);
     crate::sync(&connection);
     verify_additional_buttons(&connection, root);
+    verify_open_stack_mode(&connection, root);
 }
 
 fn verify_additional_buttons(connection: &xcb::Connection, root: x::Window) {
@@ -160,4 +161,45 @@ fn verify_additional_buttons(connection: &xcb::Connection, root: x::Window) {
         });
         crate::sync(connection);
     }
+}
+
+fn verify_open_stack_mode(connection: &xcb::Connection, root: x::Window) {
+    use xcb::Cookie;
+    let window: x::Window = connection.generate_id();
+    connection.send_request(&x::CreateWindow {
+        depth: 0,
+        wid: window,
+        parent: root,
+        x: 0,
+        y: 0,
+        width: 1,
+        height: 1,
+        border_width: 0,
+        class: x::WindowClass::InputOutput,
+        visual: 0,
+        value_list: &[],
+    });
+    let cookie = transport::configure_window_with_open_stack_mode(connection, window, 0x40, &[99]);
+    crate::sync(connection);
+    let mut found = false;
+    loop {
+        match connection.poll_for_event() {
+            Err(xcb::Error::Protocol(error)) => {
+                let header = unsafe { &*error.as_raw() };
+                assert_eq!(header.error_code, 2); // native BadValue
+                assert_eq!(header.major_code, 12); // native ConfigureWindow
+                assert_eq!(header.sequence, cookie.sequence() as u16);
+                found = true;
+            }
+            Ok(Some(_)) => {}
+            Ok(None) => break,
+            Err(error) => panic!("unexpected connection error: {error}"),
+        }
+    }
+    assert!(
+        found,
+        "unknown stacking mode must retain its native asynchronous error"
+    );
+    connection.send_request(&x::DestroyWindow { window });
+    crate::sync(connection);
 }
