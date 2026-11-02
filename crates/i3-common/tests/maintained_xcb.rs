@@ -53,6 +53,92 @@ fn sync(connection: &xcb::Connection) {
     let cookie = connection.send_request(&x::GetInputFocus {});
     connection.wait_for_reply(cookie).unwrap();
 }
+fn verify_core_font(connection: &xcb::Connection, root: x::Window, gc: u32) {
+    use i3_common::font;
+    // All globals are event-thread borrows of this private probe's owned display.
+    unsafe {
+        let mut selected = font::load_font(c"fixed".as_ptr(), true);
+        font::set_font(&mut selected);
+        let id: x::Font = xcb::XidNew::new(selected.specific.xcb.id);
+        let color = |pixel| i3_common::draw_util::color_t {
+            red: 0.0,
+            green: 0.0,
+            blue: 0.0,
+            alpha: 1.0,
+            colorpixel: pixel,
+        };
+        font::set_font_colors(gc, color(0), color(1));
+        for sample in [String::new(), "abcdef".to_owned(), "x".repeat(260)] {
+            let text = i3_common::string::I3String::new(&sample);
+            let glyphs: Vec<x::Char2b> = text
+                .rendering_glyphs()
+                .iter()
+                .map(|glyph| x::Char2b {
+                    byte1: glyph.byte1,
+                    byte2: glyph.byte2,
+                })
+                .collect();
+            let expected = connection
+                .wait_for_reply(connection.send_request(&x::QueryTextExtents {
+                    font: x::Fontable::Font(id),
+                    string: &glyphs,
+                }))
+                .unwrap()
+                .overall_width();
+            assert_eq!(font::predict_text_width(&text), expected);
+            font::draw_text(
+                &text,
+                root.resource_id(),
+                gc,
+                std::ptr::null_mut(),
+                0,
+                10,
+                10000,
+            );
+        }
+        sync(connection);
+        // A legal constant-width/no-table reply must use the query slow path.
+        // Retain the actual server font resource and original owned reply.
+        let original = selected.specific.xcb.info;
+        let raw = libc::calloc(1, 60).cast::<u8>();
+        assert!(!raw.is_null());
+        std::ptr::copy_nonoverlapping(xcb::Reply::as_raw(&*original), raw, 60);
+        raw.add(4).cast::<u32>().write_unaligned(7);
+        raw.add(46).cast::<u16>().write_unaligned(0);
+        raw.add(56).cast::<u32>().write_unaligned(0);
+        let slow: x::QueryFontReply = xcb::Reply::from_raw(raw);
+        selected.specific.xcb.info = Box::into_raw(Box::new(slow));
+        let text = i3_common::string::I3String::new("slow path");
+        let expected = connection
+            .wait_for_reply(
+                connection.send_request(&x::QueryTextExtents {
+                    font: x::Fontable::Font(id),
+                    string: &text
+                        .rendering_glyphs()
+                        .iter()
+                        .map(|glyph| x::Char2b {
+                            byte1: glyph.byte1,
+                            byte2: glyph.byte2,
+                        })
+                        .collect::<Vec<_>>(),
+                }),
+            )
+            .unwrap()
+            .overall_width();
+        assert_eq!(font::predict_text_width(&text), expected);
+        drop(Box::from_raw(selected.specific.xcb.info));
+        selected.specific.xcb.info = original;
+        font::set_font(&mut selected);
+        font::free_font();
+        let mut fallback = font::load_font(c"i333-deliberately-nonexistent-font".as_ptr(), true);
+        font::set_font(&mut fallback);
+        assert_eq!(CStr::from_ptr(fallback.pattern), c"fixed");
+        assert_eq!(font::predict_text_width(&text), expected);
+        font::free_font();
+        sync(connection);
+    }
+}
+
 #[test]
 fn maintained_xcb_requests_and_borrowed_lifetime() {
     if std::env::var_os("I333_DISPLAY_ATEXIT_PROBE").is_some() {
@@ -252,6 +338,7 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
             .unwrap();
         i3_common::draw_util::draw_util_surface_free(raw, &mut surface);
     }
+    verify_core_font(&connection, root, surface.gc);
     assert_eq!(
         unsafe { i3_common::draw_util::get_visual_depth(u32::MAX) },
         0

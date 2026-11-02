@@ -5,10 +5,8 @@
 //! Synthetic ConfigureNotify events with a fully initialized wire body.
 #![deny(unsafe_op_in_unsafe_fn)]
 
-use xcb_sys::{
-    xcb_connection_t, xcb_flush, xcb_rectangle_t, xcb_send_event, xcb_window_t,
-    XCB_CONFIGURE_NOTIFY, XCB_EVENT_MASK_STRUCTURE_NOTIFY,
-};
+use xcb::{x, Raw, XidNew};
+use xcb_sys::{xcb_connection_t, xcb_rectangle_t, xcb_window_t};
 
 /// Send a synthetic ConfigureNotify for an existing window.
 ///
@@ -20,42 +18,55 @@ pub unsafe fn fake_configure_notify(
     window: xcb_window_t,
     border_width: i32,
 ) {
-    let event = event_bytes(rectangle, window, border_width);
-    // SAFETY: the caller supplies a live connection. xcb_send_event copies the
-    // complete 32-byte event while its initialized stack buffer remains alive.
-    unsafe {
-        xcb_send_event(
-            conn,
-            0,
-            window,
-            XCB_EVENT_MASK_STRUCTURE_NOTIFY,
-            event.as_ptr().cast(),
-        );
-        xcb_flush(conn);
+    let event = configure_event(rectangle, window, border_width);
+    // SAFETY: the caller retains the native connection for this request. Prefer
+    // its registered Rust owner whenever that executable has migrated.
+    let connection = crate::display::connection()
+        .filter(|connection| connection.get_raw_conn().cast::<xcb_connection_t>() == conn)
+        .or_else(|| unsafe { crate::xcb_connection::borrowed(conn) }.map(std::rc::Rc::new));
+    if let Some(connection) = connection {
+        connection.send_request(&x::SendEvent {
+            propagate: false,
+            destination: x::SendEventDest::Window(unsafe { x::Window::new(window) }),
+            event_mask: x::EventMask::STRUCTURE_NOTIFY,
+            event: &event,
+        });
+        let _ = connection.flush();
     }
 }
 
-fn event_bytes(rectangle: xcb_rectangle_t, window: xcb_window_t, border_width: i32) -> [u8; 32] {
-    // SendEvent always reads 32 bytes, although xcb_configure_notify_event_t is
-    // only 28 bytes. Build the wire body directly so neither struct padding nor
-    // bytes beyond a native event struct can be observed by the native library.
-    let mut event = [0; 32];
-    event[0] = XCB_CONFIGURE_NOTIFY as u8;
-    event[4..8].copy_from_slice(&window.to_ne_bytes());
-    event[8..12].copy_from_slice(&window.to_ne_bytes());
-    // above_sibling, override_redirect, sequence and protocol padding stay zero.
-    event[16..18].copy_from_slice(&rectangle.x.to_ne_bytes());
-    event[18..20].copy_from_slice(&rectangle.y.to_ne_bytes());
-    event[20..22].copy_from_slice(&rectangle.width.to_ne_bytes());
-    event[22..24].copy_from_slice(&rectangle.height.to_ne_bytes());
-    event[24..26].copy_from_slice(&(border_width as u16).to_ne_bytes());
+fn configure_event(
+    rectangle: xcb_rectangle_t,
+    window: u32,
+    border_width: i32,
+) -> x::ConfigureNotifyEvent {
+    // XIDs remain open numeric domains; the server checks their existence.
+    let window = unsafe { x::Window::new(window) };
+    let event = x::ConfigureNotifyEvent::new(
+        window,
+        window,
+        <x::Window as xcb::Xid>::none(),
+        rectangle.x,
+        rectangle.y,
+        rectangle.width,
+        rectangle.height,
+        border_width as u16,
+        false,
+    );
+    // xcb1.7.1's typed constructor allocates 32 bytes but leaves these padding
+    // bytes unwritten. Initialize them before SendEvent reads the whole body.
+    // All protocol fields above are serialized by the maintained constructor.
+    unsafe {
+        let raw = event.as_raw().cast::<u8>();
+        raw.add(1).write(0);
+        raw.add(27).write_bytes(0, 5);
+    }
     event
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use xcb_sys::xcb_configure_notify_event_t;
 
     #[test]
     fn configure_notify_wire_body_matches_native_fields_and_initializes_all_32_bytes() {
@@ -65,28 +76,33 @@ mod tests {
             width: u16::MAX,
             height: 456,
         };
-        let bytes = event_bytes(rectangle, 0x12345678, -1);
-        assert_eq!(std::mem::size_of::<xcb_configure_notify_event_t>(), 28);
-        // SAFETY: every byte is initialized, all native fields accept arbitrary
-        // integer bits, and read_unaligned needs no alignment from this array.
-        let decoded = unsafe {
-            bytes
-                .as_ptr()
-                .cast::<xcb_configure_notify_event_t>()
-                .read_unaligned()
-        };
-        assert_eq!(decoded.response_type, XCB_CONFIGURE_NOTIFY as u8);
-        assert_eq!((decoded.event, decoded.window), (0x12345678, 0x12345678));
-        assert_eq!((decoded.x, decoded.y), (rectangle.x, rectangle.y));
+        let event = configure_event(rectangle, 0x12345678, -1);
+        // Independent complete wire fixture retained from the native boundary:
+        // response byte, sequence/padding, two XIDs, sibling, geometry, border.
+        let mut expected = [0; 32];
+        expected[0] = 22;
+        expected[4..8].copy_from_slice(&0x12345678_u32.to_ne_bytes());
+        expected[8..12].copy_from_slice(&0x12345678_u32.to_ne_bytes());
+        expected[16..18].copy_from_slice(&rectangle.x.to_ne_bytes());
+        expected[18..20].copy_from_slice(&rectangle.y.to_ne_bytes());
+        expected[20..22].copy_from_slice(&rectangle.width.to_ne_bytes());
+        expected[22..24].copy_from_slice(&rectangle.height.to_ne_bytes());
+        expected[24..26].copy_from_slice(&u16::MAX.to_ne_bytes());
+        let bytes = unsafe { std::slice::from_raw_parts(event.as_raw().cast::<u8>(), 32) };
+        assert_eq!(bytes, expected);
         assert_eq!(
-            (decoded.width, decoded.height),
-            (rectangle.width, rectangle.height)
+            (event.event(), event.window()),
+            (unsafe { x::Window::new(0x12345678) }, unsafe {
+                x::Window::new(0x12345678)
+            })
         );
-        assert_eq!(decoded.border_width, u16::MAX);
-        assert_eq!(decoded.above_sibling, 0);
-        assert_eq!(decoded.override_redirect, 0);
-        assert_eq!(decoded.sequence, 0);
-        assert_eq!(bytes[1], 0);
-        assert_eq!(&bytes[26..32], &[0; 6]);
+        assert_eq!(
+            (event.x(), event.y(), event.width(), event.height()),
+            (rectangle.x, rectangle.y, rectangle.width, rectangle.height)
+        );
+        assert_eq!(event.border_width(), u16::MAX);
+        assert_eq!(event.above_sibling(), <x::Window as xcb::Xid>::none());
+        assert!(!event.override_redirect());
+        assert_eq!(event.sequence(), 0);
     }
 }

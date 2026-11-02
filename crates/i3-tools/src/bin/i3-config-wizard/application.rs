@@ -94,8 +94,7 @@ static mut font: Font = Font {
     specific: FontBackendData {
         xcb: XcbFontData {
             id: 0,
-            info: ::core::ptr::null::<xcb_query_font_reply_t>() as *mut xcb_query_font_reply_t,
-            table: ::core::ptr::null::<xcb_charinfo_t>() as *mut xcb_charinfo_t,
+            info: std::ptr::null_mut(),
         },
     },
 };
@@ -106,8 +105,7 @@ static mut bold_font: Font = Font {
     specific: FontBackendData {
         xcb: XcbFontData {
             id: 0,
-            info: ::core::ptr::null::<xcb_query_font_reply_t>() as *mut xcb_query_font_reply_t,
-            table: ::core::ptr::null::<xcb_charinfo_t>() as *mut xcb_charinfo_t,
+            info: std::ptr::null_mut(),
         },
     },
 };
@@ -5354,18 +5352,18 @@ pub use cairo_sys::{cairo_surface_t, cairo_t};
 // Canonical Pango backend ABI; font policy remains local.
 
 use xcb_sys::{
-    xcb_atom_t, xcb_aux_get_screen, xcb_button_press_event_t, xcb_change_property, xcb_charinfo_t,
+    xcb_atom_t, xcb_aux_get_screen, xcb_button_press_event_t, xcb_change_property,
     xcb_connection_t, xcb_create_window, xcb_drawable_t, xcb_expose_event_t, xcb_flush,
     xcb_generate_id, xcb_generic_error_t, xcb_generic_event_t, xcb_get_setup, xcb_grab_keyboard,
     xcb_grab_keyboard_cookie_t, xcb_grab_keyboard_reply, xcb_grab_keyboard_reply_t,
     xcb_intern_atom, xcb_intern_atom_cookie_t, xcb_intern_atom_reply, xcb_intern_atom_reply_t,
     xcb_key_press_event_t, xcb_key_press_lookup_keysym, xcb_key_symbols_alloc,
     xcb_key_symbols_get_keysym, xcb_key_symbols_t, xcb_keycode_t, xcb_keysym_t, xcb_map_window,
-    xcb_query_font_reply_t, xcb_screen_t, xcb_timestamp_t, xcb_visualid_t, xcb_visualtype_t,
-    xcb_wait_for_event, xcb_window_t, XCB_BUTTON_PRESS, XCB_COPY_FROM_PARENT, XCB_CURRENT_TIME,
-    XCB_CW_BACK_PIXEL, XCB_CW_EVENT_MASK, XCB_EVENT_MASK_BUTTON_PRESS, XCB_EVENT_MASK_EXPOSURE,
-    XCB_EXPOSE, XCB_GRAB_MODE_ASYNC, XCB_GRAB_STATUS_SUCCESS, XCB_KEY_PRESS, XCB_MOD_MASK_LOCK,
-    XCB_NONE, XCB_NUM_LOCK, XCB_PROP_MODE_REPLACE, XCB_WINDOW_CLASS_COPY_FROM_PARENT,
+    xcb_screen_t, xcb_timestamp_t, xcb_visualid_t, xcb_visualtype_t, xcb_wait_for_event,
+    xcb_window_t, XCB_BUTTON_PRESS, XCB_COPY_FROM_PARENT, XCB_CURRENT_TIME, XCB_CW_BACK_PIXEL,
+    XCB_CW_EVENT_MASK, XCB_EVENT_MASK_BUTTON_PRESS, XCB_EVENT_MASK_EXPOSURE, XCB_EXPOSE,
+    XCB_GRAB_MODE_ASYNC, XCB_GRAB_STATUS_SUCCESS, XCB_KEY_PRESS, XCB_MOD_MASK_LOCK, XCB_NONE,
+    XCB_NUM_LOCK, XCB_PROP_MODE_REPLACE, XCB_WINDOW_CLASS_COPY_FROM_PARENT,
     XCB_WINDOW_CLASS_INPUT_OUTPUT,
 };
 

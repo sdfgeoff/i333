@@ -67,8 +67,7 @@ static mut font: Font = Font {
     specific: FontBackendData {
         xcb: XcbFontData {
             id: 0,
-            info: ::core::ptr::null::<xcb_query_font_reply_t>() as *mut xcb_query_font_reply_t,
-            table: ::core::ptr::null::<xcb_charinfo_t>() as *mut xcb_charinfo_t,
+            info: std::ptr::null_mut(),
         },
     },
 };
@@ -784,23 +783,22 @@ pub use cairo_sys::{cairo_surface_t, cairo_t};
 // Canonical Pango backend ABI; font policy remains local.
 
 use xcb_sys::{
-    xcb_atom_t, xcb_aux_get_screen, xcb_charinfo_t, xcb_connection_t, xcb_create_window,
-    xcb_drawable_t, xcb_expose_event_t, xcb_flush, xcb_generate_id, xcb_get_geometry,
-    xcb_get_geometry_reply, xcb_get_input_focus, xcb_get_input_focus_reply, xcb_get_property,
-    xcb_get_property_reply, xcb_get_property_reply_t, xcb_get_property_value,
-    xcb_get_property_value_length, xcb_grab_keyboard, xcb_grab_keyboard_reply, xcb_grab_server,
-    xcb_intern_atom, xcb_intern_atom_reply, xcb_is_cursor_key, xcb_is_function_key,
-    xcb_is_keypad_key, xcb_is_misc_function_key, xcb_is_modifier_key, xcb_is_pf_key,
-    xcb_is_private_keypad_key, xcb_key_press_event_t, xcb_key_press_lookup_keysym,
-    xcb_key_release_event_t, xcb_key_symbols_alloc, xcb_key_symbols_free, xcb_key_symbols_t,
-    xcb_keysym_t, xcb_map_window, xcb_query_font_reply_t, xcb_rectangle_t, xcb_screen_t,
-    xcb_timestamp_t, xcb_translate_coordinates, xcb_translate_coordinates_reply, xcb_ungrab_server,
-    xcb_visualid_t, xcb_visualtype_t, xcb_wait_for_event, xcb_window_t, XCB_ATOM_WINDOW,
-    XCB_ATOM_WM_CLASS, XCB_COPY_FROM_PARENT, XCB_CURRENT_TIME, XCB_CW_BACK_PIXEL,
-    XCB_CW_EVENT_MASK, XCB_CW_OVERRIDE_REDIRECT, XCB_EVENT_MASK_EXPOSURE, XCB_EXPOSE,
-    XCB_GET_PROPERTY_TYPE_ANY, XCB_GRAB_MODE_ASYNC, XCB_GRAB_STATUS_SUCCESS, XCB_KEY_PRESS,
-    XCB_KEY_RELEASE, XCB_MOD_MASK_SHIFT, XCB_NONE, XCB_WINDOW_CLASS_COPY_FROM_PARENT,
-    XCB_WINDOW_CLASS_INPUT_OUTPUT,
+    xcb_atom_t, xcb_aux_get_screen, xcb_connection_t, xcb_create_window, xcb_drawable_t,
+    xcb_expose_event_t, xcb_flush, xcb_generate_id, xcb_get_geometry, xcb_get_geometry_reply,
+    xcb_get_input_focus, xcb_get_input_focus_reply, xcb_get_property, xcb_get_property_reply,
+    xcb_get_property_reply_t, xcb_get_property_value, xcb_get_property_value_length,
+    xcb_grab_keyboard, xcb_grab_keyboard_reply, xcb_grab_server, xcb_intern_atom,
+    xcb_intern_atom_reply, xcb_is_cursor_key, xcb_is_function_key, xcb_is_keypad_key,
+    xcb_is_misc_function_key, xcb_is_modifier_key, xcb_is_pf_key, xcb_is_private_keypad_key,
+    xcb_key_press_event_t, xcb_key_press_lookup_keysym, xcb_key_release_event_t,
+    xcb_key_symbols_alloc, xcb_key_symbols_free, xcb_key_symbols_t, xcb_keysym_t, xcb_map_window,
+    xcb_rectangle_t, xcb_screen_t, xcb_timestamp_t, xcb_translate_coordinates,
+    xcb_translate_coordinates_reply, xcb_ungrab_server, xcb_visualid_t, xcb_visualtype_t,
+    xcb_wait_for_event, xcb_window_t, XCB_ATOM_WINDOW, XCB_ATOM_WM_CLASS, XCB_COPY_FROM_PARENT,
+    XCB_CURRENT_TIME, XCB_CW_BACK_PIXEL, XCB_CW_EVENT_MASK, XCB_CW_OVERRIDE_REDIRECT,
+    XCB_EVENT_MASK_EXPOSURE, XCB_EXPOSE, XCB_GET_PROPERTY_TYPE_ANY, XCB_GRAB_MODE_ASYNC,
+    XCB_GRAB_STATUS_SUCCESS, XCB_KEY_PRESS, XCB_KEY_RELEASE, XCB_MOD_MASK_SHIFT, XCB_NONE,
+    XCB_WINDOW_CLASS_COPY_FROM_PARENT, XCB_WINDOW_CLASS_INPUT_OUTPUT,
 };
 
 use libc::{exit, fprintf, printf};

@@ -9,6 +9,8 @@
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 
 use crate::string::I3String;
+use crate::ucs2_conversion::Ucs2Char;
+use xcb::{x, Xid, XidNew};
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct Font {
@@ -27,8 +29,8 @@ pub union FontBackendData {
 #[repr(C)]
 pub struct XcbFontData {
     pub id: xcb_font_t,
-    pub info: *mut xcb_query_font_reply_t,
-    pub table: *mut xcb_charinfo_t,
+    /// Sole Box owner; the enclosing legacy Font POD must not be freed twice.
+    pub info: *mut x::QueryFontReply,
 }
 
 pub type i3Font = Font;
@@ -40,7 +42,7 @@ static mut PANGO_FONT_GREEN: f64 = 0.;
 static mut PANGO_FONT_BLUE: f64 = 0.;
 static mut PANGO_FONT_ALPHA: f64 = 0.;
 use glib::translate::{from_glib_borrow, from_glib_full, IntoGlibPtr, ToGlibPtr};
-use std::{ffi::CStr, mem::size_of, ptr, ptr::NonNull, slice};
+use std::{ffi::CStr, mem::size_of, ptr, ptr::NonNull};
 
 fn create_layout_with_dpi(context: &cairo::Context, dpi: f64) -> pango::Layout {
     let pango_context = pangocairo::functions::create_context(context);
@@ -297,7 +299,6 @@ pub unsafe fn load_font(pattern: *const libc::c_char, fallback: bool) -> i3Font 
             xcb: XcbFontData {
                 id: 0,
                 info: ptr::null_mut(),
-                table: ptr::null_mut(),
             },
         },
     };
@@ -313,33 +314,31 @@ pub unsafe fn load_font(pattern: *const libc::c_char, fallback: bool) -> i3Font 
             return font;
         }
     }
-    font.specific.xcb.id = xcb_generate_id(conn) as xcb_font_t;
-    let mut font_cookie: xcb_void_cookie_t = xcb_open_font_checked(
-        conn,
-        font.specific.xcb.id,
-        pattern.to_bytes().len() as u16,
-        pattern.as_ptr(),
-    );
-    let mut info_cookie: xcb_query_font_cookie_t =
-        xcb_query_font(conn, font.specific.xcb.id as xcb_fontable_t);
-    let mut error = NativeReply::from_raw(xcb_request_check(conn, font_cookie));
+    let connection = crate::display::connection()
+        .or_else(|| crate::xcb_connection::borrowed(conn).map(std::rc::Rc::new));
+    let Some(connection) = connection else {
+        errx(
+            libc::EXIT_FAILURE,
+            c"Could not load font \"%s\"".as_ptr(),
+            pattern.as_ptr(),
+        );
+    };
+    let id: x::Font = connection.generate_id();
+    font.specific.xcb.id = id.resource_id();
+    let (font_cookie, mut info_cookie) = open_core_font(&connection, id, pattern);
+    let mut error = connection.check_request(font_cookie).err();
     if fallback && error.is_some() {
         errorlog(
             c"[libi3] ERROR: Could not open font %s (X error %d). Trying fallback to 'fixed'.\n"
                 .as_ptr()
                 .cast_mut(),
             pattern.as_ptr(),
-            i32::from(error.as_ref().map_or(0, |error| error.error_code)),
+            i32::from(error.as_ref().map_or(0, protocol_error_code)),
         );
         pattern = c"fixed";
-        font_cookie = xcb_open_font_checked(
-            conn,
-            font.specific.xcb.id,
-            pattern.to_bytes().len() as u16,
-            pattern.as_ptr(),
-        );
-        info_cookie = xcb_query_font(conn, font.specific.xcb.id as xcb_fontable_t);
-        error = NativeReply::from_raw(xcb_request_check(conn, font_cookie));
+        let (font_cookie, cookie) = open_core_font(&connection, id, pattern);
+        info_cookie = cookie;
+        error = connection.check_request(font_cookie).err();
         if error.is_some() {
             errorlog(
                 c"[libi3] ERROR: Could not open fallback font 'fixed', trying with '-misc-*'.\n"
@@ -347,19 +346,14 @@ pub unsafe fn load_font(pattern: *const libc::c_char, fallback: bool) -> i3Font 
                     .cast_mut(),
             );
             pattern = c"-misc-*";
-            font_cookie = xcb_open_font_checked(
-                conn,
-                font.specific.xcb.id,
-                pattern.to_bytes().len() as u16,
-                pattern.as_ptr(),
-            );
-            info_cookie = xcb_query_font(conn, font.specific.xcb.id as xcb_fontable_t);
-            error = NativeReply::from_raw(xcb_request_check(conn, font_cookie));
+            let (font_cookie, cookie) = open_core_font(&connection, id, pattern);
+            info_cookie = cookie;
+            error = connection.check_request(font_cookie).err();
             if error.is_some() {
                 errx(
                     libc::EXIT_FAILURE,
                     c"Could open neither requested font nor fallbacks (fixed or -misc-*): X11 error %d".as_ptr(),
-                    i32::from(error.as_ref().map_or(0, |error| error.error_code)),
+                    i32::from(error.as_ref().map_or(0, protocol_error_code)),
                 );
             }
         }
@@ -372,21 +366,22 @@ pub unsafe fn load_font(pattern: *const libc::c_char, fallback: bool) -> i3Font 
             .cast_mut(),
         pattern.as_ptr(),
     );
-    font.specific.xcb.info = xcb_query_font_reply(conn, info_cookie, ptr::null_mut());
-    if font.specific.xcb.info.is_null() {
+    let Ok(info) = connection.wait_for_reply(info_cookie) else {
+        errx(
+            libc::EXIT_FAILURE,
+            c"Could not load font \"%s\"".as_ptr(),
+            pattern.as_ptr(),
+        );
+    };
+    if info.length() < 7 {
         errx(
             libc::EXIT_FAILURE,
             c"Could not load font \"%s\"".as_ptr(),
             pattern.as_ptr(),
         );
     }
-    if !font_table_length(&*font.specific.xcb.info).is_some_and(|count| count > 0) {
-        font.specific.xcb.table = ptr::null_mut();
-    } else {
-        font.specific.xcb.table = xcb_query_font_char_infos(font.specific.xcb.info);
-    }
-    font.height = (*font.specific.xcb.info).font_ascent as i32
-        + (*font.specific.xcb.info).font_descent as i32;
+    font.height = i32::from(info.font_ascent()) + i32::from(info.font_descent());
+    font.specific.xcb.info = Box::into_raw(Box::new(info));
     font.type_0 = FontType::Xcb;
     font
 }
@@ -417,8 +412,16 @@ pub unsafe fn free_font() {
     free((*SAVED_FONT).pattern as *mut libc::c_void);
     match (*SAVED_FONT).type_0 {
         FontType::Xcb => {
-            xcb_close_font(conn, (*SAVED_FONT).specific.xcb.id);
-            free((*SAVED_FONT).specific.xcb.info as *mut libc::c_void);
+            if let Some(connection) = crate::display::connection()
+                .or_else(|| crate::xcb_connection::borrowed(conn).map(std::rc::Rc::new))
+            {
+                connection.send_request(&x::CloseFont {
+                    font: x::Font::new((*SAVED_FONT).specific.xcb.id),
+                });
+            }
+            if let Some(info) = NonNull::new((*SAVED_FONT).specific.xcb.info) {
+                drop(Box::from_raw(info.as_ptr()));
+            }
         }
         FontType::Pango => {
             // Reclaim the description reference transferred into the raw POD.
@@ -452,13 +455,18 @@ pub unsafe fn set_font_colors(gc: xcb_gcontext_t, foreground: color_t, backgroun
     };
     match (*SAVED_FONT).type_0 {
         FontType::Xcb => {
-            let mask = XCB_GC_FOREGROUND | XCB_GC_BACKGROUND | XCB_GC_FONT;
-            let values = [
-                foreground.colorpixel,
-                background.colorpixel,
-                (*SAVED_FONT).specific.xcb.id,
-            ];
-            xcb_change_gc(conn, gc, mask, values.as_ptr().cast());
+            if let Some(connection) = crate::display::connection()
+                .or_else(|| crate::xcb_connection::borrowed(conn).map(std::rc::Rc::new))
+            {
+                connection.send_request(&x::ChangeGc {
+                    gc: x::Gcontext::new(gc),
+                    value_list: &[
+                        x::Gc::Foreground(foreground.colorpixel),
+                        x::Gc::Background(background.colorpixel),
+                        x::Gc::Font(x::Font::new((*SAVED_FONT).specific.xcb.id)),
+                    ],
+                });
+            }
         }
         FontType::Pango => {
             PANGO_FONT_RED = foreground.red;
@@ -476,50 +484,42 @@ pub unsafe fn font_is_pango() -> bool {
     (*SAVED_FONT).type_0 == FontType::Pango
 }
 /// # Safety
-/// text must contain text_len initialized UCS-2 records (or may be null if empty).
 /// The saved XCB font/info, display, drawable and GC must stay live on the event thread.
 #[deny(unsafe_op_in_unsafe_fn)]
 unsafe fn draw_text_xcb(
-    text: *const xcb_char2b_t,
-    text_len: usize,
+    glyphs: &[Ucs2Char],
     drawable: xcb_drawable_t,
     gc: xcb_gcontext_t,
     mut x: i32,
     y: i32,
 ) {
-    let crate::display::DisplayContext {
-        connection: conn, ..
-    } = crate::display::context();
-    // SAFETY: the caller provides an initialized saved font and query reply.
-    let pos_y = y + i32::from(unsafe { (*(*SAVED_FONT).specific.xcb.info).font_ascent });
-    // SAFETY: a nonempty input contains this many initialized records. Avoid
-    // constructing a null zero-length slice for the legacy empty-string request.
-    let glyphs = if text_len == 0 {
-        &[][..]
-    } else {
-        unsafe { slice::from_raw_parts(text, text_len) }
-    };
+    let raw = crate::display::context().connection;
+    // SAFETY: the saved font and display remain live under the caller's contract.
+    let connection = crate::display::connection()
+        .or_else(|| unsafe { crate::xcb_connection::borrowed(raw) }.map(std::rc::Rc::new));
+    let Some(connection) = connection else { return };
+    let pos_y = y + i32::from(unsafe { (*(*SAVED_FONT).specific.xcb.info).font_ascent() });
     let mut chunks = glyphs
         .chunks(255)
         .chain(glyphs.is_empty().then_some(&[][..]))
         .peekable();
+    let mut wire = [x::Char2b { byte1: 0, byte2: 0 }; 255];
     while let Some(chunk) = chunks.next() {
-        // SAFETY: the native request copies at most 255 live glyphs; resources
-        // belong to the caller's live connection. Empty text still emits one request.
-        unsafe {
-            xcb_image_text_16(
-                conn,
-                chunk.len() as u8,
-                drawable,
-                gc,
-                x as i16,
-                pos_y as i16,
-                chunk.as_ptr(),
-            )
-        };
+        for (slot, glyph) in wire.iter_mut().zip(chunk) {
+            *slot = x::Char2b {
+                byte1: glyph.byte1,
+                byte2: glyph.byte2,
+            };
+        }
+        connection.send_request(&x::ImageText16 {
+            drawable: x::Drawable::Unknown(drawable),
+            gc: unsafe { x::Gcontext::new(gc) },
+            x: x as i16,
+            y: pos_y as i16,
+            string: &wire[..chunk.len()],
+        });
         if chunks.peek().is_some() {
-            // SAFETY: the chunk and saved native font remain valid here.
-            x += unsafe { predict_text_width_xcb(chunk.as_ptr(), chunk.len()) };
+            x += unsafe { predict_text_width_xcb(chunk) };
         }
     }
 }
@@ -548,14 +548,7 @@ pub unsafe fn draw_text(
     match (*SAVED_FONT).type_0 {
         FontType::None => {}
         FontType::Xcb => {
-            draw_text_xcb(
-                text.rendering_glyphs().as_ptr().cast(),
-                text.rendering_glyphs().len(),
-                drawable,
-                gc,
-                x,
-                y,
-            );
+            draw_text_xcb(text.rendering_glyphs(), drawable, gc, x, y);
         }
         FontType::Pango => {
             draw_text_pango(
@@ -572,63 +565,63 @@ pub unsafe fn draw_text(
         }
     }
 }
-/// A single XCB reply/error allocation owned until it leaves scope.
-struct NativeReply<T>(NonNull<T>);
-impl<T> NativeReply<T> {
-    /// # Safety
-    /// pointer must be null or an initialized, uniquely owned XCB allocation for T.
-    unsafe fn from_raw(pointer: *mut T) -> Option<Self> {
-        NonNull::new(pointer).map(Self)
-    }
+fn wire_glyphs(glyphs: &[Ucs2Char]) -> Vec<x::Char2b> {
+    glyphs
+        .iter()
+        .map(|glyph| x::Char2b {
+            byte1: glyph.byte1,
+            byte2: glyph.byte2,
+        })
+        .collect()
 }
-impl<T> std::ops::Deref for NativeReply<T> {
-    type Target = T;
-    fn deref(&self) -> &T {
-        // SAFETY: construction requires an initialized allocation owned by self.
-        unsafe { self.0.as_ref() }
-    }
+
+fn protocol_error_code(error: &xcb::ProtocolError) -> u8 {
+    // SAFETY: the maintained error owns its native header. This byte preserves
+    // numeric diagnostics without calling any closed-enum accessor.
+    unsafe { *error.as_raw().cast::<u8>().add(1) }
 }
-impl<T> Drop for NativeReply<T> {
-    fn drop(&mut self) {
-        // SAFETY: XCB transfers this unique malloc allocation to its caller.
-        unsafe { libc::free(self.0.as_ptr().cast()) };
-    }
+
+fn open_core_font(
+    connection: &xcb::Connection,
+    font: x::Font,
+    pattern: &CStr,
+) -> (xcb::VoidCookieChecked, x::QueryFontCookie) {
+    // Native OpenFont truncated the byte count to u16 before serialization.
+    let name = &pattern.to_bytes()[..pattern.to_bytes().len() as u16 as usize];
+    let open = connection.send_request_checked(&x::OpenFont { fid: font, name });
+    let query = connection.send_request(&x::QueryFont {
+        font: x::Fontable::Font(font),
+    });
+    (open, query)
 }
 
 /// # Safety
-/// text must contain text_len initialized glyph records. Saved font/reply and
-/// display globals must remain live on the event thread throughout this call.
+/// Saved font/reply and display remain live on the event thread.
 #[deny(unsafe_op_in_unsafe_fn)]
-unsafe fn xcb_query_text_width(text: *const xcb_char2b_t, text_len: usize) -> i32 {
-    let crate::display::DisplayContext {
-        connection: conn, ..
-    } = crate::display::context();
+unsafe fn xcb_query_text_width(text: &[Ucs2Char]) -> i32 {
     static FIRST_INVOCATION: std::sync::atomic::AtomicBool =
         std::sync::atomic::AtomicBool::new(true);
     if FIRST_INVOCATION.swap(false, std::sync::atomic::Ordering::Relaxed) {
-        // SAFETY: the original diagnostic uses the initialized native stderr.
         unsafe { fprintf(stderr, c"Using slow code path for text extents\n".as_ptr()) };
     }
-    let mut error = ptr::null_mut();
-    // SAFETY: text and saved font satisfy the native request's buffer/resource
-    // contracts, and both returned allocations transfer to local owners.
-    let (reply, error) = unsafe {
-        let cookie = xcb_query_text_extents(
-            conn,
-            (*SAVED_FONT).specific.xcb.id,
-            text_len as u32,
-            text.cast_mut(),
-        );
-        let reply = NativeReply::from_raw(xcb_query_text_extents_reply(conn, cookie, &mut error));
-        (reply, NativeReply::from_raw(error))
-    };
-    if let Some(reply) = reply {
-        return reply.overall_width;
+    let raw = crate::display::context().connection;
+    let connection = crate::display::connection()
+        .or_else(|| unsafe { crate::xcb_connection::borrowed(raw) }.map(std::rc::Rc::new));
+    let result = connection.map(|connection| {
+        let wire = wire_glyphs(&text[..text.len() as u32 as usize]);
+        let cookie = connection.send_request(&x::QueryTextExtents {
+            font: x::Fontable::Font(unsafe { x::Font::new((*SAVED_FONT).specific.xcb.id) }),
+            string: &wire,
+        });
+        connection.wait_for_reply(cookie)
+    });
+    if let Some(Ok(reply)) = result.as_ref() {
+        return reply.overall_width();
     }
-    // A disconnected server may provide neither a reply nor an X error.
-    let code = error.as_ref().map_or(0, |error| error.error_code);
-    // SAFETY: fixed format matches the promoted error code; the saved font/info
-    // remain valid for the historical maximum-width fallback.
+    let code = match result {
+        Some(Err(xcb::Error::Protocol(error))) => protocol_error_code(&error),
+        _ => 0,
+    };
     unsafe {
         fprintf(
             stderr,
@@ -636,48 +629,47 @@ unsafe fn xcb_query_text_width(text: *const xcb_char2b_t, text_len: usize) -> i3
             i32::from(code),
         );
         ((*(*SAVED_FONT).specific.xcb.info)
-            .max_bounds
+            .max_bounds()
             .character_width as usize)
-            .wrapping_mul(text_len) as i32
+            .wrapping_mul(text.len()) as i32
     }
 }
 
 // QueryFont's length counts four-byte units after the first 32 wire bytes, not
 // after its full 60-byte fixed header. Properties precede the glyph metrics.
-fn font_table_length(info: &xcb_query_font_reply_t) -> Option<usize> {
-    let total = usize::try_from(info.length)
+fn font_table_length(info: &x::QueryFontReply) -> Option<usize> {
+    let total = usize::try_from(info.length())
         .ok()?
         .checked_mul(4)?
         .checked_add(32)?;
     if total > isize::MAX as usize {
         return None;
     }
-    let properties = usize::from(info.properties_len).checked_mul(8)?;
-    let available = total
-        .checked_sub(size_of::<xcb_query_font_reply_t>())?
-        .checked_sub(properties)?;
-    let count = usize::try_from(info.char_infos_len).ok()?;
-    (count <= available / size_of::<xcb_charinfo_t>()).then_some(count)
+    let payload = total.checked_sub(60)?;
+    // The maintained variable-payload getters trust counts. Validate both
+    // fixed header counts against the declared allocation before borrowing.
+    let raw = unsafe { xcb::Reply::as_raw(info) };
+    let properties =
+        usize::from(unsafe { raw.add(46).cast::<u16>().read_unaligned() }).checked_mul(8)?;
+    let count = usize::try_from(unsafe { raw.add(56).cast::<u32>().read_unaligned() }).ok()?;
+    let available = payload.checked_sub(properties)?;
+    (count <= available / size_of::<x::Charinfo>()).then_some(count)
 }
 
-fn metric_width(
-    info: &xcb_query_font_reply_t,
-    table: &[xcb_charinfo_t],
-    glyphs: &[xcb_char2b_t],
-) -> i32 {
+fn metric_width(info: &x::QueryFontReply, table: &[x::Charinfo], glyphs: &[Ucs2Char]) -> i32 {
     let mut width = 0;
     for glyph in glyphs {
         let (row, column) = (glyph.byte1, u16::from(glyph.byte2));
-        if row < info.min_byte1
-            || row > info.max_byte1
-            || column < info.min_char_or_byte2
-            || column > info.max_char_or_byte2
+        if row < info.min_byte1()
+            || row > info.max_byte1()
+            || column < info.min_char_or_byte2()
+            || column > info.max_char_or_byte2()
         {
             continue;
         }
-        let columns = usize::from(info.max_char_or_byte2 - info.min_char_or_byte2) + 1;
-        let index = usize::from(row - info.min_byte1) * columns
-            + usize::from(column - info.min_char_or_byte2);
+        let columns = usize::from(info.max_char_or_byte2() - info.min_char_or_byte2()) + 1;
+        let index = usize::from(row - info.min_byte1()) * columns
+            + usize::from(column - info.min_char_or_byte2());
         if let Some(metric) = table.get(index) {
             if metric.character_width != 0
                 || metric.right_side_bearing != 0
@@ -693,33 +685,22 @@ fn metric_width(
 }
 
 /// # Safety
-/// input must hold text_len initialized glyphs. The saved XCB font/info must
-/// remain live, with its complete native reply payload and canonical table view.
+/// The selected XCB font and its owned query reply must remain live.
 #[deny(unsafe_op_in_unsafe_fn)]
-unsafe fn predict_text_width_xcb(input: *const xcb_char2b_t, text_len: usize) -> i32 {
-    if text_len == 0 {
+unsafe fn predict_text_width_xcb(glyphs: &[Ucs2Char]) -> i32 {
+    if glyphs.is_empty() {
         return 0;
     }
-    // SAFETY: the saved font and fixed query reply are borrowed under the caller's contract.
-    let font = unsafe { &*SAVED_FONT };
-    let xcb = unsafe { font.specific.xcb };
-    if xcb.table.is_null() {
-        // SAFETY: forward the same live input/font/display contract.
-        return unsafe { xcb_query_text_width(input, text_len) };
-    }
-    // SAFETY: caller guarantees the saved native allocation's fixed header is valid.
-    let info = unsafe { &*xcb.info };
+    // SAFETY: caller retains the selected font and its uniquely owned Box.
+    let info = unsafe { &*(*SAVED_FONT).specific.xcb.info };
     let Some(count) = font_table_length(info) else {
-        return 0;
+        // Preserve the former null-table slow path for invalid/empty tables.
+        return unsafe { xcb_query_text_width(glyphs) };
     };
-    // SAFETY: bounds derive from the reply's full wire allocation, including its
-    // property prefix, rather than trusting char_infos_len alone. Native XCB's
-    // accessor locates the canonical table; info stays alive while borrowed.
-    let table = unsafe { slice::from_raw_parts(xcb_query_font_char_infos(xcb.info), count) };
-    // SAFETY: caller supplies this many initialized glyphs; no pointer arithmetic
-    // or raw table indexing is needed by the safe metric calculation.
-    let glyphs = unsafe { slice::from_raw_parts(input, text_len) };
-    metric_width(info, table, glyphs)
+    if count == 0 {
+        return unsafe { xcb_query_text_width(glyphs) };
+    }
+    metric_width(info, info.char_infos(), glyphs)
 }
 
 /// # Safety
@@ -736,10 +717,7 @@ pub unsafe fn predict_text_width(text: &I3String) -> i32 {
     };
     match (*SAVED_FONT).type_0 {
         FontType::None => 0,
-        FontType::Xcb => predict_text_width_xcb(
-            text.rendering_glyphs().as_ptr().cast(),
-            text.rendering_glyphs().len(),
-        ),
+        FontType::Xcb => predict_text_width_xcb(text.rendering_glyphs()),
         FontType::Pango => predict_text_width_pango(
             text.cstr_or_report()
                 .map_or(std::ptr::null(), std::ffi::CStr::as_ptr),
@@ -762,14 +740,7 @@ use pango_sys::{
     pango_layout_set_text, PANGO_SCALE,
 };
 
-use xcb_sys::{
-    xcb_change_gc, xcb_char2b_t, xcb_charinfo_t, xcb_close_font, xcb_connection_t, xcb_drawable_t,
-    xcb_font_t, xcb_fontable_t, xcb_gcontext_t, xcb_generate_id, xcb_image_text_16,
-    xcb_open_font_checked, xcb_query_font, xcb_query_font_char_infos, xcb_query_font_cookie_t,
-    xcb_query_font_reply, xcb_query_font_reply_t, xcb_query_text_extents,
-    xcb_query_text_extents_reply, xcb_request_check, xcb_visualtype_t, xcb_void_cookie_t,
-    XCB_GC_BACKGROUND, XCB_GC_FONT, XCB_GC_FOREGROUND,
-};
+use xcb_sys::{xcb_connection_t, xcb_drawable_t, xcb_font_t, xcb_gcontext_t, xcb_visualtype_t};
 
 use libc::{fprintf, free};
 
@@ -987,63 +958,86 @@ mod tests {
         assert_eq!(pango_pattern(invalid_utf8).unwrap().to_bytes(), b"\xff");
     }
 
-    fn font_info() -> xcb_query_font_reply_t {
-        // SAFETY: this native wire header contains only integer/byte-array fields.
-        unsafe { std::mem::zeroed() }
+    fn font_info() -> [u8; 60] {
+        let mut header = [0; 60];
+        header[0] = 1;
+        header
     }
 
-    fn metric(width: i16) -> xcb_charinfo_t {
-        // SAFETY: native metric fields are all plain integers.
-        let mut metric: xcb_charinfo_t = unsafe { std::mem::zeroed() };
-        metric.character_width = width;
-        metric
+    fn set_u16(header: &mut [u8; 60], offset: usize, value: u16) {
+        header[offset..offset + 2].copy_from_slice(&value.to_ne_bytes());
+    }
+    fn set_u32(header: &mut [u8; 60], offset: usize, value: u32) {
+        header[offset..offset + 4].copy_from_slice(&value.to_ne_bytes());
+    }
+    fn owned_font_info(header: &[u8; 60]) -> x::QueryFontReply {
+        let words = u32::from_ne_bytes(header[4..8].try_into().unwrap()) as usize;
+        // Allocate the complete advertised reply, retaining a full fixed header
+        // even when the deliberately malformed length claims it is shorter.
+        unsafe {
+            let raw = libc::calloc(1, (32 + words * 4).max(60)).cast::<u8>();
+            assert!(!raw.is_null());
+            std::ptr::copy_nonoverlapping(header.as_ptr(), raw, header.len());
+            xcb::Reply::from_raw(raw)
+        }
+    }
+
+    fn metric(width: i16) -> x::Charinfo {
+        x::Charinfo {
+            left_side_bearing: 0,
+            right_side_bearing: 0,
+            character_width: width,
+            ascent: 0,
+            descent: 0,
+            attributes: 0,
+        }
     }
 
     #[test]
     fn font_table_bounds_include_fixed_header_and_properties_before_glyphs() {
-        assert_eq!(size_of::<xcb_query_font_reply_t>(), 60);
         let mut info = font_info();
-        assert_eq!(font_table_length(&info), None); // shorter than fixed header
-        info.length = 7;
-        assert_eq!(font_table_length(&info), Some(0));
-        info.char_infos_len = 1;
-        assert_eq!(font_table_length(&info), None);
-        info.length = 10; // 32 + 40 = 60-byte header + one 12-byte glyph
-        assert_eq!(font_table_length(&info), Some(1));
-        info.properties_len = 1; // property consumes eight of those twelve bytes
-        assert_eq!(font_table_length(&info), None);
-        info.length = 12;
-        assert_eq!(font_table_length(&info), Some(1));
-        info.char_infos_len = u32::MAX;
-        assert_eq!(font_table_length(&info), None);
+        assert_eq!(font_table_length(&owned_font_info(&info)), None);
+        set_u32(&mut info, 4, 7);
+        assert_eq!(font_table_length(&owned_font_info(&info)), Some(0));
+        set_u32(&mut info, 56, 1);
+        assert_eq!(font_table_length(&owned_font_info(&info)), None);
+        set_u32(&mut info, 4, 10); // 60-byte header plus one 12-byte glyph
+        assert_eq!(font_table_length(&owned_font_info(&info)), Some(1));
+        set_u16(&mut info, 46, 1); // property consumes eight bytes
+        assert_eq!(font_table_length(&owned_font_info(&info)), None);
+        set_u32(&mut info, 4, 12);
+        assert_eq!(font_table_length(&owned_font_info(&info)), Some(1));
+        set_u32(&mut info, 56, u32::MAX);
+        assert_eq!(font_table_length(&owned_font_info(&info)), None);
     }
 
     #[test]
     fn xcb_metric_rows_missing_glyphs_and_signed_advances_use_checked_indices() {
-        let mut info = font_info();
-        info.min_byte1 = 1;
-        info.max_byte1 = 2;
-        info.min_char_or_byte2 = 10;
-        info.max_char_or_byte2 = 11;
+        let mut header = font_info();
+        header[49] = 1;
+        header[50] = 2;
+        set_u16(&mut header, 40, 10);
+        set_u16(&mut header, 42, 11);
+        let info = owned_font_info(&header);
         let table = [metric(-3), metric(4), metric(0), metric(9)];
         let glyphs = [
-            xcb_char2b_t {
+            Ucs2Char {
                 byte1: 1,
                 byte2: 10,
             },
-            xcb_char2b_t {
+            Ucs2Char {
                 byte1: 1,
                 byte2: 11,
             },
-            xcb_char2b_t {
+            Ucs2Char {
                 byte1: 2,
                 byte2: 11,
             },
-            xcb_char2b_t {
+            Ucs2Char {
                 byte1: 0,
                 byte2: 10,
             },
-            xcb_char2b_t {
+            Ucs2Char {
                 byte1: 1,
                 byte2: 12,
             },

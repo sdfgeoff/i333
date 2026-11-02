@@ -113,8 +113,7 @@ pub static mut config: Config = Config {
         specific: FontBackendData {
             xcb: XcbFontData {
                 id: 0,
-                info: ::core::ptr::null::<xcb_query_font_reply_t>() as *mut xcb_query_font_reply_t,
-                table: ::core::ptr::null::<xcb_charinfo_t>() as *mut xcb_charinfo_t,
+                info: std::ptr::null_mut(),
             },
         },
     },
@@ -967,8 +966,8 @@ use i3_common::safewrappers::sstrdup;
 // Canonical Pango backend ABI; font policy remains local.
 
 use xcb_sys::{
-    xcb_charinfo_t, xcb_connection_t, xcb_keycode_t, xcb_query_font_reply_t, xcb_ungrab_key,
-    XCB_BUTTON_MASK_ANY, XCB_GRAB_ANY, XCB_KEY_BUT_MASK_SHIFT,
+    xcb_connection_t, xcb_keycode_t, xcb_ungrab_key, XCB_BUTTON_MASK_ANY, XCB_GRAB_ANY,
+    XCB_KEY_BUT_MASK_SHIFT,
 };
 
 pub use libc::{__errno_location, free, memset, realpath, strerror};
