@@ -21,7 +21,7 @@ use std::io::Read;
 use std::os::fd::{AsRawFd, FromRawFd};
 use std::ptr::NonNull;
 use std::rc::Rc;
-use xcb::{x, Raw, Xid, XidNew};
+use xcb::{shape, x, xkb, Raw, Xid, XidNew};
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -1206,14 +1206,12 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     }
     root_screen = xcb_aux_get_screen(conn, conn_screen);
     root = (*root_screen).root;
-    xcb_prefetch_extension_data(conn, &raw mut xcb_xkb_id);
-    xcb_prefetch_extension_data(conn, &raw mut xcb_shape_id);
-    xcb_prefetch_extension_data(conn, &raw mut xcb_big_requests_id);
-    if force_xinerama {
-        xcb_prefetch_extension_data(conn, &raw mut xcb_xinerama_id);
-    } else {
-        xcb_prefetch_extension_data(conn, &raw mut xcb_randr_id);
-    }
+    // Query metadata without registering extension event decoders: unknown
+    // future event subtypes must remain owned UnknownEvent packets.
+    let xkb_extension_cookie =
+        main_connection().send_request(&x::QueryExtension { name: b"XKEYBOARD" });
+    let shape_extension_cookie =
+        main_connection().send_request(&x::QueryExtension { name: b"SHAPE" });
     main_connection().send_request(&x::ChangeWindowAttributes {
         window: x::Window::new(root),
         value_list: &[x::Cw::EventMask(x::EventMask::PROPERTY_CHANGE)],
@@ -1478,86 +1476,70 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     if config.force_xinerama {
         force_xinerama = true_0 != 0;
     }
-    let atom_name: *mut ::core::ffi::c_char =
-        xcb_atom_name_by_screen(c"WM".as_ptr(), conn_screen as u8);
-    wm_sn_selection_owner = xcb_generate_id(conn) as xcb_window_t;
-    if atom_name.is_null() {
-        errorlog(
-            c"ERROR: xcb_atom_name_by_screen(\"WM\", %d) failed, exiting\n"
-                .as_ptr()
-                .cast_mut(),
-            conn_screen,
-        );
-        return 1 as ::core::ffi::c_int;
-    }
-    let mut atom_reply: *mut xcb_intern_atom_reply_t =
-        ::core::ptr::null_mut::<xcb_intern_atom_reply_t>();
-    atom_reply = xcb_intern_atom_reply(
-        conn,
-        xcb_intern_atom_unchecked(conn, 0 as u8, strlen(atom_name) as u16, atom_name),
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    free(atom_name as *mut ::core::ffi::c_void);
-    if atom_reply.is_null() {
+    // The native atom-name utility formats its screen argument as an unsigned
+    // byte; retain that conversion for the WM_Sn selection name.
+    let atom_name = format!("WM_S{}", conn_screen as u8);
+    wm_sn_selection_owner = main_connection().generate_id::<x::Window>().resource_id();
+    let cookie = main_connection().send_request_unchecked(&x::InternAtom {
+        only_if_exists: false,
+        name: atom_name.as_bytes(),
+    });
+    let Some(atom_reply) = main_connection()
+        .wait_for_reply_unchecked(cookie)
+        .ok()
+        .flatten()
+    else {
         errorlog(
             c"ERROR: Failed to intern the WM_Sn atom, exiting\n"
                 .as_ptr()
                 .cast_mut(),
         );
-        return 1 as ::core::ffi::c_int;
-    }
-    wm_sn = (*atom_reply).atom;
-    free(atom_reply as *mut ::core::ffi::c_void);
-    let selection_reply: *mut xcb_get_selection_owner_reply_t = xcb_get_selection_owner_reply(
-        conn,
-        xcb_get_selection_owner(conn, wm_sn),
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    let selection_reply_owner = NativeAllocation::take(selection_reply);
-    if !selection_reply.is_null()
-        && (*selection_reply).owner as ::core::ffi::c_long != XCB_NONE
-        && !replace_wm
-    {
+        return 1;
+    };
+    wm_sn = atom_reply.atom().resource_id();
+    drop(atom_reply);
+    let old_owner = main_connection()
+        .wait_for_reply(main_connection().send_request(&x::GetSelectionOwner {
+            selection: x::Atom::new(wm_sn),
+        }))
+        .ok()
+        .map(|reply| reply.owner())
+        .filter(|owner| !owner.is_none());
+    if old_owner.is_some() && !replace_wm {
         errorlog(
             c"ERROR: Another window manager is already running (WM_Sn is owned)"
                 .as_ptr()
                 .cast_mut(),
         );
-        return 1 as ::core::ffi::c_int;
+        return 1;
     }
-    xcb_create_window(
-        conn,
-        (*root_screen).root_depth,
-        wm_sn_selection_owner,
-        (*root_screen).root,
-        -(1 as ::core::ffi::c_int) as i16,
-        -(1 as ::core::ffi::c_int) as i16,
-        1 as u16,
-        1 as u16,
-        0 as u16,
-        XCB_WINDOW_CLASS_INPUT_OUTPUT as ::core::ffi::c_int as u16,
-        (*root_screen).root_visual,
-        0 as u32,
-        ::core::ptr::null::<::core::ffi::c_void>(),
-    );
-    xcb_change_property(
-        conn,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
-        wm_sn_selection_owner,
-        XCB_ATOM_WM_CLASS as ::core::ffi::c_int as xcb_atom_t,
-        XCB_ATOM_STRING as ::core::ffi::c_int as xcb_atom_t,
-        8 as u8,
-        strlen(c"i3-WM_Sn".as_ptr())
-            .wrapping_add(1 as usize)
-            .wrapping_mul(2 as usize) as u32,
-        b"i3-WM_Sn\0i3-WM_Sn\0\0" as *const u8 as *const ::core::ffi::c_char
-            as *const ::core::ffi::c_void,
-    );
-    xcb_set_selection_owner(conn, wm_sn_selection_owner, wm_sn, last_timestamp);
-    if !selection_reply.is_null() && (*selection_reply).owner as ::core::ffi::c_long != XCB_NONE {
-        let mut check_rounds: ::core::ffi::c_int = 150 as ::core::ffi::c_int;
-        let mut geom_reply: *mut xcb_get_geometry_reply_t =
-            ::core::ptr::null_mut::<xcb_get_geometry_reply_t>();
+    main_connection().send_request(&x::CreateWindow {
+        depth: (*root_screen).root_depth,
+        wid: x::Window::new(wm_sn_selection_owner),
+        parent: x::Window::new((*root_screen).root),
+        x: -1,
+        y: -1,
+        width: 1,
+        height: 1,
+        border_width: 0,
+        class: x::WindowClass::InputOutput,
+        visual: (*root_screen).root_visual,
+        value_list: &[],
+    });
+    main_connection().send_request(&x::ChangeProperty {
+        mode: x::PropMode::Replace,
+        window: x::Window::new(wm_sn_selection_owner),
+        property: x::ATOM_WM_CLASS,
+        r#type: x::ATOM_STRING,
+        data: b"i3-WM_Sn\0i3-WM_Sn\0",
+    });
+    main_connection().send_request(&x::SetSelectionOwner {
+        owner: x::Window::new(wm_sn_selection_owner),
+        selection: x::Atom::new(wm_sn),
+        time: last_timestamp,
+    });
+    if let Some(old_owner) = old_owner {
+        let mut check_rounds = 150;
         debuglog(
             c"%s:%s:%d - waiting for old WM_Sn selection owner to exit"
                 .as_ptr()
@@ -1567,31 +1549,24 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
             768 as ::core::ffi::c_int,
         );
         loop {
-            let usleep_time: ::core::ffi::c_uint =
-                100000 as ::core::ffi::c_int as ::core::ffi::c_uint;
-            free(geom_reply as *mut ::core::ffi::c_void);
-            usleep(usleep_time as libc::useconds_t);
-            let fresh7 = check_rounds;
-            check_rounds = check_rounds - 1;
-            if fresh7 == 0 as ::core::ffi::c_int {
+            usleep(100000);
+            if check_rounds == 0 {
                 errorlog(
                     c"ERROR: The old window manager is not exiting"
                         .as_ptr()
                         .cast_mut(),
                 );
-                return 1 as ::core::ffi::c_int;
+                return 1;
             }
-            geom_reply = xcb_get_geometry_reply(
-                conn,
-                xcb_get_geometry(conn, (*selection_reply).owner as xcb_drawable_t),
-                ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-            );
-            if geom_reply.is_null() {
+            check_rounds -= 1;
+            let cookie = main_connection().send_request(&x::GetGeometry {
+                drawable: x::Drawable::Window(old_owner),
+            });
+            if main_connection().wait_for_reply(cookie).is_err() {
                 break;
             }
         }
     }
-    drop(selection_reply_owner);
     let manager = manager_notification(
         (*root_screen).root,
         A_MANAGER,
@@ -1648,12 +1623,9 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     );
     xcursor_load_cursors();
     xcursor_set_root_cursor(Cursor::Pointer);
-    let mut extreply: *const xcb_query_extension_reply_t =
-        ::core::ptr::null::<xcb_query_extension_reply_t>();
-    extreply =
-        xcb_get_extension_data(conn, &raw mut xcb_xkb_id) as *const xcb_query_extension_reply_t;
-    xkb_supported = (*extreply).present != 0;
-    if (*extreply).present == 0 {
+    let xkb_extension = main_connection().wait_for_reply(xkb_extension_cookie).ok();
+    xkb_supported = xkb_extension.as_ref().is_some_and(|reply| reply.present());
+    if !xkb_supported {
         debuglog(
             c"%s:%s:%d - xkb is not present on this server\n"
                 .as_ptr()
@@ -1669,95 +1641,80 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
             c"main".as_ptr(),
             833 as ::core::ffi::c_int,
         );
-        xcb_xkb_use_extension(
-            conn,
-            XCB_XKB_MAJOR_VERSION as u16,
-            XCB_XKB_MINOR_VERSION as u16,
-        );
-        xcb_xkb_select_events(
-            conn,
-            XCB_XKB_ID_USE_CORE_KBD as ::core::ffi::c_int as xcb_xkb_device_spec_t,
-            (XCB_XKB_EVENT_TYPE_STATE_NOTIFY as ::core::ffi::c_int
-                | XCB_XKB_EVENT_TYPE_MAP_NOTIFY as ::core::ffi::c_int
-                | XCB_XKB_EVENT_TYPE_NEW_KEYBOARD_NOTIFY as ::core::ffi::c_int) as u16,
-            0 as u16,
-            (XCB_XKB_EVENT_TYPE_STATE_NOTIFY as ::core::ffi::c_int
-                | XCB_XKB_EVENT_TYPE_MAP_NOTIFY as ::core::ffi::c_int
-                | XCB_XKB_EVENT_TYPE_NEW_KEYBOARD_NOTIFY as ::core::ffi::c_int) as u16,
-            0xff as u16,
-            0xff as u16,
-            ::core::ptr::null::<::core::ffi::c_void>(),
-        );
-        let mask: u32 = (XCB_XKB_PER_CLIENT_FLAG_GRABS_USE_XKB_STATE as ::core::ffi::c_int
-            | XCB_XKB_PER_CLIENT_FLAG_LOOKUP_STATE_WHEN_GRABBED as ::core::ffi::c_int
-            | XCB_XKB_PER_CLIENT_FLAG_DETECTABLE_AUTO_REPEAT as ::core::ffi::c_int)
-            as u32;
-        let mut pcf_reply: *mut xcb_xkb_per_client_flags_reply_t =
-            ::core::ptr::null_mut::<xcb_xkb_per_client_flags_reply_t>();
-        pcf_reply = xcb_xkb_per_client_flags_reply(
-            conn,
-            xcb_xkb_per_client_flags(
-                conn,
-                XCB_XKB_ID_USE_CORE_KBD as ::core::ffi::c_int as xcb_xkb_device_spec_t,
-                mask,
-                mask,
-                0 as u32,
-                0 as u32,
-                0 as u32,
-            ),
-            ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-        );
-        if pcf_reply.is_null()
-            || (*pcf_reply).value
-                & XCB_XKB_PER_CLIENT_FLAG_GRABS_USE_XKB_STATE as ::core::ffi::c_int as u32
-                == 0
-        {
+        let cookie = main_connection().send_request(&xkb::UseExtension {
+            wanted_major: xkb::MAJOR_VERSION as u16,
+            wanted_minor: xkb::MINOR_VERSION as u16,
+        });
+        // The original request did not wait for negotiation. Discard the owned
+        // full-sequence cookie instead of retaining an unconsumed reply.
+        xcb_interop::transport::discard_reply(&main_connection(), cookie);
+        let events = xkb::EventType::STATE_NOTIFY
+            | xkb::EventType::MAP_NOTIFY
+            | xkb::EventType::NEW_KEYBOARD_NOTIFY;
+        main_connection().send_request(&xkb::SelectEvents {
+            device_spec: xkb::Id::UseCoreKbd as u16,
+            affect_which: events,
+            clear: xkb::EventType::empty(),
+            select_all: events,
+            affect_map: xkb::MapPart::from_bits_retain(0xff),
+            map: xkb::MapPart::from_bits_retain(0xff),
+            details: &[],
+        });
+        let mask = xkb::PerClientFlag::GRABS_USE_XKB_STATE
+            | xkb::PerClientFlag::LOOKUP_STATE_WHEN_GRABBED
+            | xkb::PerClientFlag::DETECTABLE_AUTO_REPEAT;
+        let cookie = main_connection().send_request(&xkb::PerClientFlags {
+            device_spec: xkb::Id::UseCoreKbd as u16,
+            change: mask,
+            value: mask,
+            ctrls_to_change: xkb::BoolCtrl::empty(),
+            auto_ctrls: xkb::BoolCtrl::empty(),
+            auto_ctrls_values: xkb::BoolCtrl::empty(),
+        });
+        let reply = main_connection().wait_for_reply(cookie).ok();
+        let pcf_value = reply
+            .as_ref()
+            .map_or(xkb::PerClientFlag::empty(), |reply| reply.value());
+        if !pcf_value.contains(xkb::PerClientFlag::GRABS_USE_XKB_STATE) {
             errorlog(
                 c"ERROR: Could not set XCB_XKB_PER_CLIENT_FLAG_GRABS_USE_XKB_STATE\n"
                     .as_ptr()
                     .cast_mut(),
             );
         }
-        if pcf_reply.is_null()
-            || (*pcf_reply).value
-                & XCB_XKB_PER_CLIENT_FLAG_LOOKUP_STATE_WHEN_GRABBED as ::core::ffi::c_int as u32
-                == 0
-        {
+        if !pcf_value.contains(xkb::PerClientFlag::LOOKUP_STATE_WHEN_GRABBED) {
             errorlog(
                 c"ERROR: Could not set XCB_XKB_PER_CLIENT_FLAG_LOOKUP_STATE_WHEN_GRABBED\n"
                     .as_ptr()
                     .cast_mut(),
             );
         }
-        if pcf_reply.is_null()
-            || (*pcf_reply).value
-                & XCB_XKB_PER_CLIENT_FLAG_DETECTABLE_AUTO_REPEAT as ::core::ffi::c_int as u32
-                == 0
-        {
+        if !pcf_value.contains(xkb::PerClientFlag::DETECTABLE_AUTO_REPEAT) {
             errorlog(
                 c"ERROR: Could not set XCB_XKB_PER_CLIENT_FLAG_DETECTABLE_AUTO_REPEAT\n"
                     .as_ptr()
                     .cast_mut(),
             );
         }
-        free(pcf_reply as *mut ::core::ffi::c_void);
-        xkb_base = (*extreply).first_event as ::core::ffi::c_int;
-    }
-    extreply =
-        xcb_get_extension_data(conn, &raw mut xcb_shape_id) as *const xcb_query_extension_reply_t;
-    if (*extreply).present != 0 {
-        shape_base = (*extreply).first_event as ::core::ffi::c_int;
-        let cookie_0: xcb_shape_query_version_cookie_t = xcb_shape_query_version(conn);
-        let version: *mut xcb_shape_query_version_reply_t = xcb_shape_query_version_reply(
-            conn,
-            cookie_0,
-            ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
+        xkb_base = i32::from(
+            xkb_extension
+                .as_ref()
+                .expect("present XKB extension metadata")
+                .first_event(),
         );
-        shape_supported = !version.is_null()
-            && (*version).minor_version as ::core::ffi::c_int >= 1 as ::core::ffi::c_int;
-        free(version as *mut ::core::ffi::c_void);
+    }
+    let shape_extension = main_connection()
+        .wait_for_reply(shape_extension_cookie)
+        .ok();
+    if let Some(extension) = shape_extension.as_ref().filter(|reply| reply.present()) {
+        shape_base = i32::from(extension.first_event());
+        let cookie = main_connection().send_request(&shape::QueryVersion {});
+        shape_supported = main_connection()
+            .wait_for_reply(cookie)
+            .ok()
+            .is_some_and(|version| version.minor_version() >= 1);
     } else {
-        shape_supported = false_0 != 0;
+        shape_supported = false;
     }
     if !shape_supported {
         debuglog(
@@ -2203,24 +2160,15 @@ use i3_common::safewrappers::sstrdup;
 // Canonical Pango backend ABI; font policy remains local.
 
 use xcb_sys::{
-    xcb_atom_name_by_screen, xcb_atom_t, xcb_aux_find_visual_by_attrs, xcb_aux_get_depth_of_visual,
-    xcb_aux_get_screen, xcb_big_requests_id, xcb_change_property, xcb_colormap_t, xcb_connection_t,
-    xcb_create_window, xcb_drawable_t, xcb_generate_id, xcb_generic_error_t,
-    xcb_get_extension_data, xcb_get_geometry, xcb_get_geometry_reply, xcb_get_geometry_reply_t,
-    xcb_get_selection_owner, xcb_get_selection_owner_reply, xcb_get_selection_owner_reply_t,
-    xcb_intern_atom, xcb_intern_atom_reply, xcb_intern_atom_reply_t, xcb_intern_atom_unchecked,
-    xcb_keycode_t, xcb_prefetch_extension_data, xcb_query_extension_reply_t, xcb_randr_id,
-    xcb_screen_t, xcb_set_selection_owner, xcb_shape_id, xcb_shape_query_version,
-    xcb_shape_query_version_cookie_t, xcb_shape_query_version_reply,
-    xcb_shape_query_version_reply_t, xcb_timestamp_t, xcb_visualtype_t, xcb_void_cookie_t,
-    xcb_window_t, xcb_xinerama_id, xcb_xkb_device_spec_t, xcb_xkb_id, xcb_xkb_per_client_flags,
-    xcb_xkb_per_client_flags_reply, xcb_xkb_per_client_flags_reply_t, xcb_xkb_select_events,
-    xcb_xkb_use_extension, XCB_ATOM_CARDINAL, XCB_ATOM_STRING, XCB_ATOM_SUPERSCRIPT_X,
-    XCB_ATOM_WM_CLASS, XCB_CLIENT_MESSAGE, XCB_COLORMAP_ALLOC_NONE, XCB_CURRENT_TIME,
-    XCB_CW_EVENT_MASK, XCB_EVENT_MASK_BUTTON_PRESS, XCB_EVENT_MASK_ENTER_WINDOW,
-    XCB_EVENT_MASK_FOCUS_CHANGE, XCB_EVENT_MASK_POINTER_MOTION, XCB_EVENT_MASK_PROPERTY_CHANGE,
-    XCB_EVENT_MASK_STRUCTURE_NOTIFY, XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT, XCB_MAP_REQUEST,
-    XCB_NONE, XCB_NUM_LOCK, XCB_PROPERTY_NOTIFY, XCB_PROP_MODE_APPEND, XCB_PROP_MODE_REPLACE,
+    xcb_atom_t, xcb_aux_find_visual_by_attrs, xcb_aux_get_depth_of_visual, xcb_aux_get_screen,
+    xcb_colormap_t, xcb_connection_t, xcb_drawable_t, xcb_generic_error_t, xcb_keycode_t,
+    xcb_screen_t, xcb_timestamp_t, xcb_visualtype_t, xcb_window_t, XCB_ATOM_CARDINAL,
+    XCB_ATOM_STRING, XCB_ATOM_SUPERSCRIPT_X, XCB_ATOM_WM_CLASS, XCB_CLIENT_MESSAGE,
+    XCB_COLORMAP_ALLOC_NONE, XCB_CURRENT_TIME, XCB_CW_EVENT_MASK, XCB_EVENT_MASK_BUTTON_PRESS,
+    XCB_EVENT_MASK_ENTER_WINDOW, XCB_EVENT_MASK_FOCUS_CHANGE, XCB_EVENT_MASK_POINTER_MOTION,
+    XCB_EVENT_MASK_PROPERTY_CHANGE, XCB_EVENT_MASK_STRUCTURE_NOTIFY,
+    XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT, XCB_MAP_REQUEST, XCB_NONE, XCB_NUM_LOCK,
+    XCB_PROPERTY_NOTIFY, XCB_PROP_MODE_APPEND, XCB_PROP_MODE_REPLACE,
     XCB_WINDOW_CLASS_INPUT_OUTPUT, XCB_XKB_EVENT_TYPE_MAP_NOTIFY,
     XCB_XKB_EVENT_TYPE_NEW_KEYBOARD_NOTIFY, XCB_XKB_EVENT_TYPE_STATE_NOTIFY,
     XCB_XKB_ID_USE_CORE_KBD, XCB_XKB_MAJOR_VERSION, XCB_XKB_MINOR_VERSION,
