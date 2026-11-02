@@ -437,8 +437,6 @@ unsafe fn change_ewmh_focus(new_focus: u32, old_focus: u32) {
 
 pub unsafe fn x_con_init(con: *mut Con) {
     let connection = connection();
-    let mut mask: u32 = 0 as u32;
-    let mut values: [u32; 5] = [0; 5];
     let visual: u32 = get_visualid_by_depth((*con).depth);
     let mut win_colormap: u32 = 0;
     if (*con).depth as i32 != root_depth as i32 {
@@ -455,40 +453,35 @@ pub unsafe fn x_con_init(con: *mut Con) {
         win_colormap = colormap;
         (*con).colormap = 0 as u32;
     }
-    mask |= x::CwMask::BACK_PIXEL.bits() as i32 as u32;
-    values[0] = (*root_screen).black_pixel;
-    mask |= x::CwMask::BORDER_PIXEL.bits() as i32 as u32;
-    values[1] = (*root_screen).black_pixel;
-    mask |= x::CwMask::OVERRIDE_REDIRECT.bits() as i32 as u32;
-    values[2] = 1 as u32;
-    mask |= x::CwMask::EVENT_MASK.bits() as i32 as u32;
-    values[3] = ((x::EventMask::BUTTON_PRESS.bits() as i32
-        | x::EventMask::BUTTON_RELEASE.bits() as i32
-        | x::EventMask::POINTER_MOTION.bits() as i32
-        | x::EventMask::EXPOSURE.bits() as i32
-        | x::EventMask::STRUCTURE_NOTIFY.bits() as i32
-        | x::EventMask::SUBSTRUCTURE_REDIRECT.bits() as i32
-        | x::EventMask::SUBSTRUCTURE_NOTIFY.bits() as i32
-        | x::EventMask::ENTER_WINDOW.bits() as i32)
-        & !(x::EventMask::ENTER_WINDOW.bits() as i32)) as u32;
-    mask |= x::CwMask::COLORMAP.bits() as i32 as u32;
-    values[4] = win_colormap as u32;
+    let event_mask = x::EventMask::BUTTON_PRESS
+        | x::EventMask::BUTTON_RELEASE
+        | x::EventMask::POINTER_MOTION
+        | x::EventMask::EXPOSURE
+        | x::EventMask::STRUCTURE_NOTIFY
+        | x::EventMask::SUBSTRUCTURE_REDIRECT
+        | x::EventMask::SUBSTRUCTURE_NOTIFY;
+    let values = [
+        x::Cw::BackPixel((*root_screen).black_pixel),
+        x::Cw::BorderPixel((*root_screen).black_pixel),
+        x::Cw::OverrideRedirect(true),
+        x::Cw::EventMask(event_mask),
+        x::Cw::Colormap(x::Colormap::new(win_colormap)),
+    ];
     let dims: Rect = Rect {
         x: (-15i32) as u32,
         y: (-15i32) as u32,
         width: 10 as u32,
         height: 10 as u32,
     };
-    let frame_id: u32 = create_window(
-        conn,
+    let frame_id = create_window(
+        &connection,
         dims,
-        (*con).depth,
+        (*con).depth as u8,
         visual,
-        x::WindowClass::InputOutput as i32 as u16,
+        x::WindowClass::InputOutput,
         Cursor::Pointer,
         false,
-        mask,
-        &raw mut values as *mut u32,
+        &values,
     );
     draw_util_surface_init(
         conn,
