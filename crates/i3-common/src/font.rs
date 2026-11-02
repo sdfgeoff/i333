@@ -28,7 +28,7 @@ pub union FontBackendData {
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct XcbFontData {
-    pub id: xcb_font_t,
+    pub id: u32,
     /// Sole Box owner; the enclosing legacy Font POD must not be freed twice.
     pub info: *mut x::QueryFontReply,
 }
@@ -79,7 +79,7 @@ unsafe fn set_layout_bytes(
 #[deny(unsafe_op_in_unsafe_fn)]
 unsafe fn font_surface(
     conn: *mut xcb_connection_t,
-    root: xcb_drawable_t,
+    root: u32,
     visual: *mut cairo_sys::xcb_visualtype_t,
 ) -> cairo::Surface {
     // SAFETY: native Cairo returns a non-null surface, including error objects.
@@ -188,7 +188,7 @@ unsafe fn load_pango_font(font: *mut i3Font, desc: *const libc::c_char) -> bool 
 unsafe fn draw_text_pango(
     text: *const libc::c_char,
     text_len: usize,
-    _drawable: xcb_drawable_t,
+    _drawable: u32,
     surface: *mut cairo_surface_t,
     x: i32,
     y: i32,
@@ -451,7 +451,7 @@ pub unsafe fn free_font() {
 /// # Safety
 /// A live font must be selected on the event thread. For XCB fonts, gc must be a
 /// valid graphics context on the registered display connection.
-pub unsafe fn set_font_colors(gc: xcb_gcontext_t, foreground: color_t, background: color_t) {
+pub unsafe fn set_font_colors(gc: u32, foreground: color_t, background: color_t) {
     let crate::display::DisplayContext {
         connection: conn, ..
     } = crate::display::context();
@@ -461,7 +461,7 @@ pub unsafe fn set_font_colors(gc: xcb_gcontext_t, foreground: color_t, backgroun
             c"savedFont != NULL".as_ptr(),
             c"../libi3/font.c".as_ptr(),
             296 as u32,
-            c"void set_font_colors(xcb_gcontext_t, color_t, color_t)".as_ptr(),
+            c"void set_font_colors(u32, color_t, color_t)".as_ptr(),
         );
     };
     match (*SAVED_FONT).type_0 {
@@ -497,13 +497,7 @@ pub unsafe fn font_is_pango() -> bool {
 /// # Safety
 /// The saved XCB font/info, display, drawable and GC must stay live on the event thread.
 #[deny(unsafe_op_in_unsafe_fn)]
-unsafe fn draw_text_xcb(
-    glyphs: &[Ucs2Char],
-    drawable: xcb_drawable_t,
-    gc: xcb_gcontext_t,
-    mut x: i32,
-    y: i32,
-) {
+unsafe fn draw_text_xcb(glyphs: &[Ucs2Char], drawable: u32, gc: u32, mut x: i32, y: i32) {
     let raw = crate::display::context().connection;
     // SAFETY: the saved font and display remain live under the caller's contract.
     let connection = crate::display::connection()
@@ -541,8 +535,8 @@ unsafe fn draw_text_xcb(
 /// surface must be valid during native drawing (including non-null error surfaces).
 pub unsafe fn draw_text(
     text: &I3String,
-    drawable: xcb_drawable_t,
-    gc: xcb_gcontext_t,
+    drawable: u32,
+    gc: u32,
     surface: *mut cairo_surface_t,
     x: i32,
     y: i32,
@@ -553,7 +547,7 @@ pub unsafe fn draw_text(
             c"savedFont != NULL".as_ptr(),
             c"../libi3/font.c".as_ptr(),
             369 as u32,
-            c"void draw_text(i3String *, xcb_drawable_t, xcb_gcontext_t, cairo_surface_t *, int, int, int)".as_ptr(),
+            c"void draw_text(i3String *, u32, u32, cairo_surface_t *, int, int, int)".as_ptr(),
         );
     };
     match (*SAVED_FONT).type_0 {
@@ -751,7 +745,7 @@ use pango_sys::{
     pango_layout_set_text, PANGO_SCALE,
 };
 
-use xcb_sys::{xcb_connection_t, xcb_drawable_t, xcb_font_t, xcb_gcontext_t};
+use xcb::ffi::xcb_connection_t;
 
 use libc::{fprintf, free};
 

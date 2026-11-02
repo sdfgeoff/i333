@@ -99,7 +99,7 @@ static mut bold_font: Font = Font {
     },
 };
 static mut char_width: ::core::ffi::c_int = 0;
-static mut win: xcb_window_t = 0;
+static mut win: u32 = 0;
 static mut surface: surface_t = surface_t {
     id: 0,
     gc: 0,
@@ -110,7 +110,7 @@ static mut surface: surface_t = surface_t {
     cr: ::core::ptr::null::<cairo_t>() as *mut cairo_t,
 };
 
-pub static mut root: xcb_window_t = 0;
+pub static mut root: u32 = 0;
 static mut xkb_keymap: *mut xkb_keymap = ::core::ptr::null::<xkb_keymap>() as *mut xkb_keymap;
 static mut xkb_base_event: u8 = 0;
 static mut xkb_base_error: u8 = 0;
@@ -4866,10 +4866,10 @@ unsafe fn finish(ui: &WizardUi, keysyms: &KeySymbols) {
         errx(1, c"could not create xkbcommon context".as_ptr());
     };
     let context = XkbContext(context);
-    let device_id = xkb_x11_get_core_keyboard_device_id(conn);
+    let device_id = xkb_x11_get_core_keyboard_device_id(conn.cast());
     xkb_keymap = xkb_x11_keymap_new_from_device(
         context.0.as_ptr(),
-        conn,
+        conn.cast(),
         device_id,
         XKB_KEYMAP_COMPILE_NO_FLAGS,
     );
@@ -5023,7 +5023,7 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
         surface: false,
     };
     if xkb_x11_setup_xkb_extension(
-        conn,
+        conn.cast(),
         XKB_X11_MIN_MAJOR_XKB_VERSION as u16,
         XKB_X11_MIN_MINOR_XKB_VERSION as u16,
         xkb_x11_setup_xkb_extension_flags::NO_FLAGS,
@@ -5072,7 +5072,7 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
     let atom_cookie = intern(c"ATOM");
     let cardinal_cookie = intern(c"CARDINAL");
     let utf8_cookie = intern(c"UTF8_STRING");
-    let sndisplay: *mut SnDisplay = sn_xcb_display_new(conn, None, None);
+    let sndisplay: *mut SnDisplay = sn_xcb_display_new(conn.cast(), None, None);
     let sncontext: *mut SnLauncheeContext =
         sn_launchee_context_new_from_environment(sndisplay, screen);
     let startup = StartupContext(sncontext);
@@ -5168,7 +5168,7 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
     draw_util_surface_init(
         conn,
         &raw mut surface,
-        win as xcb_drawable_t,
+        win as u32,
         None,
         logical_px(300 as ::core::ffi::c_int),
         15 as ::core::ffi::c_int * font.height + logical_px(4 as ::core::ffi::c_int),
@@ -5311,7 +5311,7 @@ pub use cairo_sys::{cairo_surface_t, cairo_t};
 
 // Canonical Pango backend ABI; font policy remains local.
 
-use xcb_sys::{xcb_connection_t, xcb_drawable_t, xcb_window_t};
+use xcb::ffi::xcb_connection_t;
 
 use xkbcommon::xkb::ffi::*;
 use xkbcommon::xkb::x11::ffi::*;

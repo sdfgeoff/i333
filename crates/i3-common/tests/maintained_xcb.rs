@@ -209,7 +209,7 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
     {
         // SAFETY: this view is dropped before its sole maintained owner, and no
         // callback can disconnect the connection during this synchronous probe.
-        let view = unsafe { i3_common::xcb_connection::borrowed(raw) }.unwrap();
+        let view = unsafe { i3_common::xcb_connection::borrowed(raw.cast()) }.unwrap();
         assert_eq!(view.get_raw_conn(), connection.get_raw_conn());
         sync(&view);
     }
@@ -230,7 +230,11 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
         sync(&connection);
         // SAFETY: the native raw pointer is borrowed from this live owner.
         let result = unsafe {
-            i3_common::root_atom_contents::root_atom_contents(name.as_ptr(), raw, screen_number)
+            i3_common::root_atom_contents::root_atom_contents(
+                name.as_ptr(),
+                raw.cast(),
+                screen_number,
+            )
         };
         assert!(!result.is_null());
         let expected = data.split(|&byte| byte == 0).next().unwrap();
@@ -359,7 +363,7 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
     let mut surface: i3_common::draw_util::surface_t = unsafe { std::mem::zeroed() };
     unsafe {
         i3_common::draw_util::draw_util_surface_init(
-            raw,
+            raw.cast(),
             &mut surface,
             root.resource_id(),
             Some(&i3_common::display::visual(screen.root_visual()).unwrap()),
@@ -389,7 +393,7 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
                 value_list: &[x::Gc::Foreground(0)],
             })
             .unwrap();
-        i3_common::draw_util::draw_util_surface_free(raw, &mut surface);
+        i3_common::draw_util::draw_util_surface_free(raw.cast(), &mut surface);
     }
     verify_core_font(&connection, root, surface.gc);
     maintained_xcb::utility_probe::verify(connection.clone(), screen_number, root);

@@ -7,8 +7,8 @@
 
 use std::ffi::{c_char, CStr, CString};
 use std::{ptr, slice};
+use xcb::ffi::xcb_connection_t;
 use xcb::{x, Xid};
-use xcb_sys::xcb_connection_t;
 
 /// Read a property using a temporary connection to the configured display.
 /// Missing/empty properties and unavailable displays return None.

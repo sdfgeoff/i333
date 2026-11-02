@@ -1,6 +1,16 @@
 //! Narrow gaps in the maintained crate's public API, with no protocol schemas.
 use xcb::{x, Cookie, Xid};
 
+/// Query a native connection before the maintained borrowed constructor, which
+/// asserts that the connection is healthy before exposing its public methods.
+///
+/// # Safety
+/// `connection` must point to a live libxcb connection, including a failed one.
+pub unsafe fn connection_has_error(connection: *mut xcb::ffi::xcb_connection_t) -> bool {
+    // SAFETY: the caller retains a live native object throughout this query.
+    unsafe { ffi::xcb_connection_has_error(connection) != 0 }
+}
+
 /// Discard a pending reply without blocking. xcb1.7.1's equivalent method is
 /// private; retain its full 64-bit transport sequence instead of truncating it.
 pub fn discard_reply<C: Cookie>(connection: &xcb::Connection, cookie: C) {
@@ -147,6 +157,7 @@ mod ffi {
         pub sequence: u32,
     }
     unsafe extern "C" {
+        pub fn xcb_connection_has_error(connection: *mut xcb_connection_t) -> libc::c_int;
         pub fn xcb_request_check(
             connection: *mut xcb_connection_t,
             cookie: VoidCookie,

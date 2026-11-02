@@ -42,7 +42,7 @@ pub static mut visual_type: *mut cairo_sys::xcb_visualtype_t =
 pub const EXIT_OK: i32 = 0;
 pub const EXIT_CANCEL: i32 = 1;
 pub const EXIT_ERROR: i32 = 2;
-static mut win: xcb_window_t = 0;
+static mut win: u32 = 0;
 static mut surface: surface_t = surface_t {
     id: 0,
     gc: 0,
@@ -64,7 +64,7 @@ static mut font: Font = Font {
     },
 };
 
-pub static mut root: xcb_window_t = 0;
+pub static mut root: u32 = 0;
 
 pub static mut conn: *mut xcb_connection_t =
     ::core::ptr::null::<xcb_connection_t>() as *mut xcb_connection_t;
@@ -604,7 +604,7 @@ unsafe fn run_window(settings: InputSettings) -> ::core::ffi::c_int {
     draw_util_surface_init(
         conn,
         &raw mut surface,
-        win as xcb_drawable_t,
+        win as u32,
         None,
         win_pos.width as ::core::ffi::c_int,
         win_pos.height as ::core::ffi::c_int,
@@ -742,7 +742,7 @@ pub use cairo_sys::{cairo_surface_t, cairo_t};
 
 // Canonical Pango backend ABI; font policy remains local.
 
-use xcb_sys::{xcb_connection_t, xcb_drawable_t, xcb_window_t};
+use xcb::ffi::xcb_connection_t;
 
 use libc::{exit, fprintf, printf};
 
@@ -859,16 +859,31 @@ mod tests {
         }
     }
 
+    // Independent native utility oracle; no protocol records or production
+    // bindings are needed for these seven scalar classification functions.
+    mod native_categories {
+        #[link(name = "xcb-keysyms")]
+        unsafe extern "C" {
+            pub fn xcb_is_keypad_key(keysym: u32) -> i32;
+            pub fn xcb_is_private_keypad_key(keysym: u32) -> i32;
+            pub fn xcb_is_cursor_key(keysym: u32) -> i32;
+            pub fn xcb_is_pf_key(keysym: u32) -> i32;
+            pub fn xcb_is_function_key(keysym: u32) -> i32;
+            pub fn xcb_is_misc_function_key(keysym: u32) -> i32;
+            pub fn xcb_is_modifier_key(keysym: u32) -> i32;
+        }
+    }
+
     #[test]
     fn rust_keysym_categories_match_native_legacy_and_private_ranges() {
         let native: [unsafe extern "C" fn(u32) -> i32; 7] = [
-            xcb_sys::xcb_is_keypad_key,
-            xcb_sys::xcb_is_private_keypad_key,
-            xcb_sys::xcb_is_cursor_key,
-            xcb_sys::xcb_is_pf_key,
-            xcb_sys::xcb_is_function_key,
-            xcb_sys::xcb_is_misc_function_key,
-            xcb_sys::xcb_is_modifier_key,
+            native_categories::xcb_is_keypad_key,
+            native_categories::xcb_is_private_keypad_key,
+            native_categories::xcb_is_cursor_key,
+            native_categories::xcb_is_pf_key,
+            native_categories::xcb_is_function_key,
+            native_categories::xcb_is_misc_function_key,
+            native_categories::xcb_is_modifier_key,
         ];
         let rust: [fn(xkeysym::Keysym) -> bool; 7] = [
             xkeysym::Keysym::is_keypad_key,

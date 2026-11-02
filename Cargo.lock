@@ -358,7 +358,6 @@ dependencies = [
  "x11rb",
  "xcb",
  "xcb-interop",
- "xcb-sys",
  "xkbcommon",
  "xkeysym",
 ]

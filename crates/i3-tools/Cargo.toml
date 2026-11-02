@@ -8,7 +8,6 @@ repository.workspace = true
 [dependencies]
 startup-notification-sys.workspace = true
 xkbcommon.workspace = true
-xcb-sys.workspace = true
 xcb.workspace = true
 xcb-interop.workspace = true
 xkeysym.workspace = true

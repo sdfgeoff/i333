@@ -40,7 +40,7 @@ use i3_common::draw_util::surface_t;
 
 pub static mut visual_type: *mut cairo_sys::xcb_visualtype_t = std::ptr::null_mut();
 
-static mut root: xcb_window_t = 0;
+static mut root: u32 = 0;
 
 pub static mut conn: *mut xcb_connection_t = std::ptr::null_mut();
 
@@ -419,7 +419,7 @@ struct NagbarState {
     render: Renderer,
     registration: Option<i3_common::display::DisplayConnection>,
     connection: Option<Rc<xcb::Connection>>,
-    window: xcb_window_t,
+    window: u32,
     has_font: bool,
     has_surface: bool,
 }
@@ -593,7 +593,7 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
     let socket_cookie = intern(c"I3_SOCKET_PATH");
     let atom_cookie = intern(c"ATOM");
     let cardinal_cookie = intern(c"CARDINAL");
-    let sndisplay: *mut SnDisplay = sn_xcb_display_new(conn, None, None);
+    let sndisplay: *mut SnDisplay = sn_xcb_display_new(conn.cast(), None, None);
     let sncontext: *mut SnLauncheeContext =
         sn_launchee_context_new_from_environment(sndisplay, screens);
     sn_display_unref(sndisplay);
@@ -712,7 +712,7 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
     draw_util_surface_init(
         conn,
         &mut state.render.bar,
-        state.window as xcb_drawable_t,
+        state.window as u32,
         None,
         win_pos.width as ::core::ffi::c_int,
         win_pos.height as ::core::ffi::c_int,
@@ -866,7 +866,7 @@ use cairo_sys::{cairo_surface_t, cairo_t};
 
 // Canonical Pango backend ABI; font policy remains local.
 
-use xcb_sys::{xcb_connection_t, xcb_drawable_t, xcb_window_t};
+use xcb::ffi::xcb_connection_t;
 
 use startup_notification_sys::{
     sn_display_unref, sn_launchee_context_complete, sn_launchee_context_new_from_environment,

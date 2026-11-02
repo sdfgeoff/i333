@@ -24,8 +24,8 @@ pub struct color_t {
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct surface_t {
-    pub id: xcb_drawable_t,
-    pub gc: xcb_gcontext_t,
+    pub id: u32,
+    pub gc: u32,
     pub owns_gc: bool,
     pub width: ::core::ffi::c_int,
     pub height: ::core::ffi::c_int,
@@ -36,7 +36,7 @@ pub struct surface_t {
 #[repr(C)]
 pub struct GraphicsContextCacheEntry {
     pub depth: u8,
-    pub gc: xcb_gcontext_t,
+    pub gc: u32,
 }
 pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
@@ -59,9 +59,9 @@ fn surface_initialized(surface: &surface_t) -> bool {
 unsafe fn get_gc(
     conn: *mut xcb_connection_t,
     depth: u8,
-    drawable: xcb_drawable_t,
+    drawable: u32,
     should_free: *mut bool,
-) -> xcb_gcontext_t {
+) -> u32 {
     static mut gc_cache: [GraphicsContextCacheEntry; 2] = [
         GraphicsContextCacheEntry {
             depth: 0 as u8,
@@ -111,7 +111,7 @@ unsafe fn get_gc(
     gc.resource_id()
 }
 
-pub unsafe fn get_visual_depth(visual_id: xcb_visualid_t) -> u16 {
+pub unsafe fn get_visual_depth(visual_id: u32) -> u16 {
     let crate::display::DisplayContext {
         connection, screen, ..
     } = crate::display::context();
@@ -144,7 +144,7 @@ pub unsafe fn get_visual_depth(visual_id: xcb_visualid_t) -> u16 {
 pub unsafe fn draw_util_surface_init(
     conn: *mut xcb_connection_t,
     surface: *mut surface_t,
-    drawable: xcb_drawable_t,
+    drawable: u32,
     visual: Option<&crate::display::CairoVisual>,
     width: ::core::ffi::c_int,
     height: ::core::ffi::c_int,
@@ -502,7 +502,7 @@ pub use cairo_sys::{
     cairo_xcb_surface_set_size, OPERATOR_SOURCE, STATUS_SUCCESS,
 };
 
-use xcb_sys::{xcb_connection_t, xcb_drawable_t, xcb_gcontext_t, xcb_visualid_t};
+use xcb::ffi::xcb_connection_t;
 
 pub use libc::{strlen, strtol};
 

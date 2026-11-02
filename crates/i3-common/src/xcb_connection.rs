@@ -2,7 +2,7 @@
 //!
 //! This view does not own or disconnect the native connection. Callers must
 //! release the view before the event-thread owner closes that connection.
-use xcb_sys::xcb_connection_t;
+use xcb::ffi::xcb_connection_t;
 
 /// Borrow a healthy native connection without transferring ownership.
 ///
@@ -17,7 +17,7 @@ pub unsafe fn borrowed(raw: *mut xcb_connection_t) -> Option<xcb::Connection> {
     }
     // SAFETY: caller guarantees a live native pointer; failed connections are
     // valid XCB objects but must not be passed to the maintained constructor.
-    if unsafe { xcb_sys::xcb_connection_has_error(raw) } != 0 {
+    if unsafe { xcb_interop::transport::connection_has_error(raw) } {
         return None;
     }
     // SAFETY: the pointer is healthy and its existing owner outlives this view.
@@ -37,7 +37,7 @@ mod tests {
             assert!(borrowed(std::ptr::null_mut()).is_none());
             let raw = xcb_sys::xcb_connect(c"not-a-display".as_ptr(), std::ptr::null_mut());
             assert!(!raw.is_null());
-            assert!(borrowed(raw).is_none());
+            assert!(borrowed(raw.cast()).is_none());
             xcb_sys::xcb_disconnect(raw);
         }
     }
