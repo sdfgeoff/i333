@@ -3,17 +3,18 @@
  * © 2009 Michael Stapelberg and contributors (see also: LICENSE)
  * Updates window attributes (X11 hints/properties).
  */
-use crate::application::conn;
 use crate::assignments::run_assignments;
 use crate::con::{con_by_window_id, con_parse_title_format};
 use crate::ewmh::ewmh_update_visible_name;
 use crate::log::{debuglog, verboselog};
 use crate::render::render_deco_height;
 use crate::types::{reservedpx, BorderStyle, Window};
+use ::xcb::{x, Reply, Xid, XidNew};
 use cairo_sys::{
     cairo_image_surface_create_for_data, cairo_surface_destroy, cairo_surface_set_user_data,
     cairo_user_data_key_t, FORMAT_A_RGB32,
 };
+use i3_common::display;
 use i3_common::dpi::logical_px;
 use i3_common::safewrappers::smalloc;
 use i3_common::string::I3String;
@@ -21,8 +22,6 @@ use libc::free;
 use std::ffi::CStr;
 use std::ptr::NonNull;
 use xcb_sys::{
-    xcb_generic_error_t, xcb_get_geometry_reply_t, xcb_get_property_reply_t,
-    xcb_icccm_get_wm_normal_hints_reply, xcb_icccm_get_wm_normal_hints_unchecked,
     xcb_icccm_get_wm_transient_for_from_reply, xcb_icccm_wm_hints_t, xcb_size_hints_t,
     xcb_window_t, XCB_ATOM_CARDINAL, XCB_ICCCM_SIZE_HINT_BASE_SIZE, XCB_ICCCM_SIZE_HINT_P_ASPECT,
     XCB_ICCCM_SIZE_HINT_P_MAX_SIZE, XCB_ICCCM_SIZE_HINT_P_MIN_SIZE, XCB_ICCCM_SIZE_HINT_P_POSITION,
@@ -50,24 +49,24 @@ macro_rules! tracef {
     };
 }
 
-/// One uniquely owned malloc allocation returned by XCB. Construction requires
-/// a complete native reply allocation, including the payload claimed by length.
-struct PropertyReply(Option<NonNull<xcb_get_property_reply_t>>);
-impl PropertyReply {
-    unsafe fn take(reply: *mut xcb_get_property_reply_t) -> Self {
-        Self(NonNull::new(reply))
-    }
-    fn raw(&self) -> *mut xcb_get_property_reply_t {
-        self.0.map_or(std::ptr::null_mut(), NonNull::as_ptr)
-    }
-    fn view(&self) -> Property<'_> {
-        unsafe { property_view(self.raw()) }
-    }
+/// Mutable geometry decisions belong to Rust values, not an XCB reply buffer.
+/// Size hints may override these coordinates/extents before managing a window.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct WindowGeometry {
+    pub x: i16,
+    pub y: i16,
+    pub width: u16,
+    pub height: u16,
+    pub border_width: u16,
 }
-impl Drop for PropertyReply {
-    fn drop(&mut self) {
-        unsafe {
-            free(self.raw().cast());
+impl From<&x::GetGeometryReply> for WindowGeometry {
+    fn from(reply: &x::GetGeometryReply) -> Self {
+        Self {
+            x: reply.x(),
+            y: reply.y(),
+            width: reply.width(),
+            height: reply.height(),
+            border_width: reply.border_width(),
         }
     }
 }
@@ -92,40 +91,28 @@ impl Property<'_> {
 /// The allocation must be a complete live XCB reply, and remain immutable for
 /// the returned borrow. Validate payload arithmetic before constructing a slice;
 /// never trust value_len to extend beyond the native reply's wire allocation.
-unsafe fn property_view<'a>(reply: *const xcb_get_property_reply_t) -> Property<'a> {
-    let Some(reply) = (unsafe { reply.as_ref() }) else {
+fn property_view(reply: Option<&x::GetPropertyReply>) -> Property<'_> {
+    let Some(reply) = reply else {
         return Property {
             kind: 0,
             format: 0,
             bytes: &[],
         };
     };
-    let length = match reply.format {
-        8 | 16 | 32 => (reply.value_len as usize).checked_mul(reply.format as usize / 8),
-        _ => None,
-    };
-    let wire_len = (reply.length as usize).checked_mul(4);
-    let bytes = match (length, wire_len) {
-        (Some(len), Some(wire)) if len <= wire && len <= isize::MAX as usize => unsafe {
-            std::slice::from_raw_parts(
-                (reply as *const xcb_get_property_reply_t).add(1).cast(),
-                len,
-            )
-        },
-        _ => {
-            return Property {
-                kind: 0,
-                format: 0,
-                bytes: &[],
-            }
-        }
+    let Some(bytes) = crate::xcb::property_payload(reply) else {
+        return Property {
+            kind: 0,
+            format: 0,
+            bytes: &[],
+        };
     };
     Property {
-        kind: reply.type_0,
-        format: reply.format,
+        kind: reply.r#type().resource_id(),
+        format: reply.format(),
         bytes,
     }
 }
+
 fn string_prefix(bytes: &[u8]) -> &[u8] {
     &bytes[..bytes
         .iter()
@@ -159,8 +146,8 @@ unsafe fn replace_string(slot: *mut *mut libc::c_char, bytes: Option<&[u8]>) {
 }
 
 /// All entry points operate on the live event-thread Window graph. Property
-/// update APIs consume their reply except normal_hints, which explicitly borrows
-/// it. No &mut Window is held across tree, logging, or assignment callbacks.
+/// update APIs borrow their maintained reply from the caller. No &mut Window is
+/// held across tree, logging, or assignment callbacks.
 pub unsafe fn window_free(win: *mut Window) {
     for text in [
         (*win).class_class,
@@ -175,9 +162,8 @@ pub unsafe fn window_free(win: *mut Window) {
     drop(Box::from_raw(win));
 }
 
-pub unsafe fn window_update_class(win: *mut Window, prop: *mut xcb_get_property_reply_t) {
-    let prop = PropertyReply::take(prop);
-    let value = prop.view();
+pub unsafe fn window_update_class(win: *mut Window, prop: Option<&x::GetPropertyReply>) {
+    let value = property_view(prop);
     if value.bytes.is_empty() {
         trace!("window_update_class", 36, c"WM_CLASS not set.\n");
         return;
@@ -207,9 +193,8 @@ unsafe fn set_name(win: *mut Window, bytes: &[u8]) {
         );
     }
 }
-pub unsafe fn window_update_name(win: *mut Window, prop: *mut xcb_get_property_reply_t) {
-    let prop = PropertyReply::take(prop);
-    if prop.view().bytes.is_empty() {
+pub unsafe fn window_update_name(win: *mut Window, prop: Option<&x::GetPropertyReply>) {
+    if property_view(prop).bytes.is_empty() {
         trace!(
             "window_update_name",
             70,
@@ -217,7 +202,7 @@ pub unsafe fn window_update_name(win: *mut Window, prop: *mut xcb_get_property_r
         );
         return;
     }
-    set_name(win, prop.view().bytes);
+    set_name(win, property_view(prop).bytes);
     (*win).name_x_changed = true;
     verboselog(
         c"_NET_WM_NAME changed to \"%s\"\n".as_ptr().cast_mut(),
@@ -229,9 +214,8 @@ pub unsafe fn window_update_name(win: *mut Window, prop: *mut xcb_get_property_r
     );
     (*win).uses_net_wm_name = true;
 }
-pub unsafe fn window_update_name_legacy(win: *mut Window, prop: *mut xcb_get_property_reply_t) {
-    let prop = PropertyReply::take(prop);
-    if prop.view().bytes.is_empty() {
+pub unsafe fn window_update_name_legacy(win: *mut Window, prop: Option<&x::GetPropertyReply>) {
+    if property_view(prop).bytes.is_empty() {
         trace!(
             "window_update_name_legacy",
             106,
@@ -242,7 +226,7 @@ pub unsafe fn window_update_name_legacy(win: *mut Window, prop: *mut xcb_get_pro
     if (*win).uses_net_wm_name {
         return;
     }
-    set_name(win, prop.view().bytes);
+    set_name(win, property_view(prop).bytes);
     verboselog(
         c"WM_NAME changed to \"%s\"\n".as_ptr().cast_mut(),
         (*win)
@@ -254,9 +238,8 @@ pub unsafe fn window_update_name_legacy(win: *mut Window, prop: *mut xcb_get_pro
     verboselog(c"Using legacy window title. Note that in order to get Unicode window titles in i3, the application has to set _NET_WM_NAME (UTF-8)\n".as_ptr().cast_mut());
     (*win).name_x_changed = true;
 }
-pub unsafe fn window_update_leader(win: *mut Window, prop: *mut xcb_get_property_reply_t) {
-    let prop = PropertyReply::take(prop);
-    let Some(leader) = prop.view().word(0) else {
+pub unsafe fn window_update_leader(win: *mut Window, prop: Option<&x::GetPropertyReply>) {
+    let Some(leader) = property_view(prop).word(0) else {
         tracef!(
             "window_update_leader",
             145,
@@ -274,9 +257,8 @@ pub unsafe fn window_update_leader(win: *mut Window, prop: *mut xcb_get_property
     );
     (*win).leader = leader;
 }
-pub unsafe fn window_update_transient_for(win: *mut Window, prop: *mut xcb_get_property_reply_t) {
-    let prop = PropertyReply::take(prop);
-    if prop.view().bytes.is_empty() {
+pub unsafe fn window_update_transient_for(win: *mut Window, prop: Option<&x::GetPropertyReply>) {
+    if property_view(prop).bytes.is_empty() {
         tracef!(
             "window_update_transient_for",
             170,
@@ -286,11 +268,16 @@ pub unsafe fn window_update_transient_for(win: *mut Window, prop: *mut xcb_get_p
         (*win).transient_for = 0;
         return;
     }
-    if prop.view().word(0).is_none() {
+    if property_view(prop).word(0).is_none() {
         return;
     }
     let mut transient_for = 0;
-    if xcb_icccm_get_wm_transient_for_from_reply(&raw mut transient_for, prop.raw()) != 0 {
+    if xcb_icccm_get_wm_transient_for_from_reply(
+        &raw mut transient_for,
+        prop.map(|reply| reply.as_raw().cast_mut().cast())
+            .unwrap_or(std::ptr::null_mut()),
+    ) != 0
+    {
         tracef!(
             "window_update_transient_for",
             182,
@@ -301,9 +288,8 @@ pub unsafe fn window_update_transient_for(win: *mut Window, prop: *mut xcb_get_p
         (*win).transient_for = transient_for;
     }
 }
-pub unsafe fn window_update_strut_partial(win: *mut Window, prop: *mut xcb_get_property_reply_t) {
-    let prop = PropertyReply::take(prop);
-    let value = prop.view();
+pub unsafe fn window_update_strut_partial(win: *mut Window, prop: Option<&x::GetPropertyReply>) {
+    let value = property_view(prop);
     if value.bytes.is_empty() {
         trace!(
             "window_update_strut_partial",
@@ -332,21 +318,19 @@ pub unsafe fn window_update_strut_partial(win: *mut Window, prop: *mut xcb_get_p
         };
     }
 }
-pub unsafe fn window_update_role(win: *mut Window, prop: *mut xcb_get_property_reply_t) {
-    let prop = PropertyReply::take(prop);
-    if prop.view().bytes.is_empty() {
+pub unsafe fn window_update_role(win: *mut Window, prop: Option<&x::GetPropertyReply>) {
+    if property_view(prop).bytes.is_empty() {
         trace!("window_update_role", 220, c"WM_WINDOW_ROLE not set.\n");
         return;
     }
-    replace_string(&raw mut (*win).role, Some(prop.view().bytes));
+    replace_string(&raw mut (*win).role, Some(property_view(prop).bytes));
     verboselog(
         c"WM_WINDOW_ROLE changed to \"%s\"\n".as_ptr().cast_mut(),
         (*win).role,
     );
 }
-pub unsafe fn window_update_machine(win: *mut Window, prop: *mut xcb_get_property_reply_t) {
-    let prop = PropertyReply::take(prop);
-    if prop.view().bytes.is_empty() {
+pub unsafe fn window_update_machine(win: *mut Window, prop: Option<&x::GetPropertyReply>) {
+    if property_view(prop).bytes.is_empty() {
         trace!(
             "window_update_machine",
             509,
@@ -354,15 +338,14 @@ pub unsafe fn window_update_machine(win: *mut Window, prop: *mut xcb_get_propert
         );
         return;
     }
-    replace_string(&raw mut (*win).machine, Some(prop.view().bytes));
+    replace_string(&raw mut (*win).machine, Some(property_view(prop).bytes));
     verboselog(
         c"WM_CLIENT_MACHINE changed to \"%s\"\n".as_ptr().cast_mut(),
         (*win).machine,
     );
 }
-pub unsafe fn window_update_type(window: *mut Window, reply: *mut xcb_get_property_reply_t) {
-    let reply = PropertyReply::take(reply);
-    let value = reply.view();
+pub unsafe fn window_update_type(window: *mut Window, reply: Option<&x::GetPropertyReply>) {
+    let value = property_view(reply);
     // The old helper assumes format=32 and can walk beyond short/malformed
     // payloads; choose only from bounded native-endian words here instead.
     let supported = [
@@ -378,7 +361,6 @@ pub unsafe fn window_update_type(window: *mut Window, reply: *mut xcb_get_proper
         crate::application::A__NET_WM_WINDOW_TYPE_NOTIFICATION,
     ];
     let new_type = preferred_type(value, &supported);
-    drop(reply);
     let Some(new_type) = new_type else {
         trace!(
             "window_update_type",
@@ -663,38 +645,40 @@ unsafe fn log_size_hints(size_hints: &xcb_size_hints_t, old: SizeConstraints, ha
         );
     }
 }
-/// Unlike the other update APIs, reply is BORROWED: existing handlers free it.
-/// win/geom must be live event-thread graph objects; geom may be null. A null
-/// reply requests an independent native ICCCM fetch, which owns its own reply.
+/// The property reply stays owned by the caller. Missing reply requests an
+/// independent ICCCM property fetch. Optional geometry is a mutable Rust snapshot;
+/// applying size hints never writes into a maintained reply allocation.
 pub unsafe fn window_update_normal_hints(
     win: *mut Window,
-    reply: *mut xcb_get_property_reply_t,
-    geom: *mut xcb_get_geometry_reply_t,
+    reply: Option<&x::GetPropertyReply>,
+    geom: Option<&mut WindowGeometry>,
 ) -> bool {
-    let mut hints: xcb_size_hints_t = std::mem::zeroed();
-    let success = if reply.is_null() {
-        xcb_icccm_get_wm_normal_hints_reply(
-            conn,
-            xcb_icccm_get_wm_normal_hints_unchecked(conn, (*win).id),
-            &raw mut hints,
-            std::ptr::null_mut(),
-        ) != 0
+    let fetched;
+    let reply = if reply.is_some() {
+        reply
     } else {
-        if let Some(decoded) = decode_size_hints(property_view(reply)) {
-            hints = decoded;
-            true
-        } else {
-            false
-        }
+        let Some(connection) = display::connection() else {
+            return false;
+        };
+        let cookie = connection.send_request_unchecked(&x::GetProperty {
+            delete: false,
+            window: x::Window::new((*win).id),
+            property: x::ATOM_WM_NORMAL_HINTS,
+            r#type: x::ATOM_WM_SIZE_HINTS,
+            long_offset: 0,
+            long_length: 18,
+        });
+        fetched = connection.wait_for_reply_unchecked(cookie).ok().flatten();
+        fetched.as_ref()
     };
-    if !success {
+    let Some(hints) = decode_size_hints(property_view(reply)) else {
         trace!(
             "window_update_normal_hints",
             269,
             c"Could not get WM_NORMAL_HINTS\n"
         );
         return false;
-    }
+    };
     let mut state = SizeConstraints {
         min_width: (*win).min_width,
         min_height: (*win).min_height,
@@ -707,7 +691,7 @@ pub unsafe fn window_update_normal_hints(
         min_aspect_ratio: (*win).min_aspect_ratio,
         max_aspect_ratio: (*win).max_aspect_ratio,
     };
-    log_size_hints(&hints, state, !geom.is_null());
+    log_size_hints(&hints, state, geom.is_some());
     let changed = state.update(&hints);
     (*win).min_width = state.min_width;
     (*win).min_height = state.min_height;
@@ -717,12 +701,12 @@ pub unsafe fn window_update_normal_hints(
     (*win).height_increment = state.height_increment;
     (*win).base_width = state.base_width;
     (*win).base_height = state.base_height;
-    if !geom.is_null() {
+    if let Some(geom) = geom {
         if let Some((x, y, width, height)) = requested_geometry(&hints) {
-            (*geom).x = x;
-            (*geom).y = y;
-            (*geom).width = width;
-            (*geom).height = height;
+            geom.x = x;
+            geom.y = y;
+            geom.width = width;
+            geom.height = height;
         }
     }
     (*win).min_aspect_ratio = state.min_aspect_ratio;
@@ -738,18 +722,17 @@ fn hint_effects(hints: &xcb_icccm_wm_hints_t) -> (Option<bool>, bool) {
 }
 pub unsafe fn window_update_hints(
     win: *mut Window,
-    prop: *mut xcb_get_property_reply_t,
+    prop: Option<&x::GetPropertyReply>,
     urgency_hint: *mut bool,
 ) {
-    let prop = PropertyReply::take(prop);
     if !urgency_hint.is_null() {
         *urgency_hint = false;
     }
-    if prop.view().bytes.is_empty() {
+    if property_view(prop).bytes.is_empty() {
         trace!("window_update_hints", 384, c"WM_HINTS not set.\n");
         return;
     }
-    let Some(hints) = decode_wm_hints(prop.view()) else {
+    let Some(hints) = decode_wm_hints(property_view(prop)) else {
         trace!("window_update_hints", 392, c"Could not get WM_HINTS\n");
         return;
     };
@@ -783,15 +766,14 @@ fn motif_border(property: Property<'_>) -> Option<BorderStyle> {
 }
 pub unsafe fn window_update_motif_hints(
     _win: *mut Window,
-    prop: *mut xcb_get_property_reply_t,
+    prop: Option<&x::GetPropertyReply>,
     motif_border_style: *mut BorderStyle,
 ) -> bool {
-    let prop = PropertyReply::take(prop);
-    if prop.raw().is_null() {
+    if prop.is_none() {
         return false;
     }
     assert!(!motif_border_style.is_null(), "motif_border_style != NULL");
-    let Some(border) = motif_border(prop.view()) else {
+    let Some(border) = motif_border(property_view(prop)) else {
         return false;
     };
     *motif_border_style = border;
@@ -945,9 +927,8 @@ impl Drop for OwnedIcon {
     }
 }
 
-pub unsafe fn window_update_icon(win: *mut Window, prop: *mut xcb_get_property_reply_t) {
-    let prop = PropertyReply::take(prop);
-    let property = prop.view();
+pub unsafe fn window_update_icon(win: *mut Window, prop: Option<&x::GetPropertyReply>) {
+    let property = property_view(prop);
     let preferred = (render_deco_height() - logical_px(2)) as u32;
     if property.kind != XCB_ATOM_CARDINAL || property.format != 32 {
         trace!("window_update_icon", 528, c"_NET_WM_ICON is not set\n");
@@ -996,20 +977,57 @@ mod tests {
     fn words(words: &[u32]) -> Vec<u8> {
         words.iter().flat_map(|word| word.to_ne_bytes()).collect()
     }
-    fn reply(kind: u32, format: u8, bytes: &[u8]) -> PropertyReply {
+    fn reply(kind: u32, format: u8, bytes: &[u8]) -> x::GetPropertyReply {
         let payload = bytes.len().div_ceil(4) * 4;
-        let allocation =
-            unsafe { libc::calloc(1, size_of::<xcb_get_property_reply_t>() + payload) }
-                .cast::<xcb_get_property_reply_t>();
-        assert!(!allocation.is_null());
+        // SAFETY: initialized wire header plus the full advertised payload;
+        // unique malloc ownership transfers to the maintained reply.
         unsafe {
-            (*allocation).type_0 = kind;
-            (*allocation).format = format;
-            (*allocation).length = (payload / 4) as u32;
-            (*allocation).value_len = (bytes.len() / (usize::from(format) / 8).max(1)) as u32;
-            std::ptr::copy_nonoverlapping(bytes.as_ptr(), allocation.add(1).cast(), bytes.len());
-            PropertyReply::take(allocation)
+            let allocation = libc::calloc(1, 32 + payload).cast::<u8>();
+            assert!(!allocation.is_null());
+            allocation.write(1);
+            allocation.add(1).write(format);
+            allocation.add(4).cast::<u32>().write((payload / 4) as u32);
+            allocation.add(8).cast::<u32>().write(kind);
+            allocation
+                .add(16)
+                .cast::<u32>()
+                .write((bytes.len() / (usize::from(format) / 8).max(1)) as u32);
+            std::ptr::copy_nonoverlapping(bytes.as_ptr(), allocation.add(32), bytes.len());
+            x::GetPropertyReply::from_raw(allocation)
         }
+    }
+
+    #[test]
+    fn normal_hints_update_owned_geometry_without_mutating_the_property_reply() {
+        let mut hints = [0u32; 18];
+        hints[0] = XCB_ICCCM_SIZE_HINT_US_POSITION | XCB_ICCCM_SIZE_HINT_P_SIZE;
+        hints[1..5].copy_from_slice(&[65537, (-2i32) as u32, 65536, u32::MAX]);
+        let bytes = words(&hints);
+        let reply = reply(x::ATOM_WM_SIZE_HINTS.resource_id(), 32, &bytes);
+        let mut window = Window::default();
+        let mut geometry = WindowGeometry {
+            x: 10,
+            y: 20,
+            width: 30,
+            height: 40,
+            border_width: 7,
+        };
+        // No native display or tree is needed: the supplied reply contains the
+        // hints and this call only updates the local Window/geometry snapshots.
+        unsafe {
+            window_update_normal_hints(&mut window, Some(&reply), Some(&mut geometry));
+        }
+        assert_eq!(
+            geometry,
+            WindowGeometry {
+                x: 1,
+                y: -2,
+                width: 0,
+                height: u16::MAX,
+                border_width: 7
+            }
+        );
+        assert_eq!(property_view(Some(&reply)).bytes, bytes);
     }
 
     #[test]
@@ -1041,27 +1059,44 @@ mod tests {
 
     #[test]
     fn native_reply_views_reject_payload_overclaims_and_unaligned_words() {
-        assert_eq!(size_of::<xcb_get_property_reply_t>(), 32);
         let bytes = words(&[0x01020304, 0xabcdef12]);
         let owned = reply(XCB_ATOM_CARDINAL, 32, &bytes);
-        assert_eq!(owned.view().bytes, bytes);
-        assert_eq!(owned.view().word(1), Some(0xabcdef12));
-        assert_eq!(owned.view().word(2), None);
-        assert_eq!(owned.view().word(usize::MAX), None);
+        assert_eq!(property_view(Some(&owned)).bytes, bytes);
+        assert_eq!(property_view(Some(&owned)).word(1), Some(0xabcdef12));
+        assert_eq!(property_view(Some(&owned)).word(2), None);
+        assert_eq!(property_view(Some(&owned)).word(usize::MAX), None);
+        for format in [8, 16, 32] {
+            let owned = reply(u32::MAX, format, &bytes);
+            let view = property_view(Some(&owned));
+            assert_eq!(
+                (view.kind, view.format, view.bytes),
+                (u32::MAX, format, bytes.as_slice())
+            );
+        }
         let unaligned = [0, 1, 2, 3, 4, 5];
         assert_eq!(
             property(&unaligned[1..]).word(0),
             Some(u32::from_ne_bytes([1, 2, 3, 4]))
         );
         unsafe {
-            (*owned.raw()).value_len = 3;
+            owned
+                .as_raw()
+                .add(16)
+                .cast_mut()
+                .cast::<u32>()
+                .write_unaligned(3);
         }
-        assert!(owned.view().bytes.is_empty());
+        assert!(property_view(Some(&owned)).bytes.is_empty());
         unsafe {
-            (*owned.raw()).value_len = 1;
-            (*owned.raw()).format = 7;
+            owned
+                .as_raw()
+                .add(16)
+                .cast_mut()
+                .cast::<u32>()
+                .write_unaligned(1);
+            owned.as_raw().add(1).cast_mut().write(7);
         }
-        assert!(owned.view().bytes.is_empty());
+        assert!(property_view(Some(&owned)).bytes.is_empty());
     }
 
     #[test]
@@ -1075,11 +1110,14 @@ mod tests {
             let mut native: xcb_size_hints_t = unsafe { std::mem::zeroed() };
             assert_ne!(
                 unsafe {
-                    xcb_sys::xcb_icccm_get_wm_size_hints_from_reply(&mut native, owned.raw())
+                    xcb_sys::xcb_icccm_get_wm_size_hints_from_reply(
+                        &mut native,
+                        owned.as_raw().cast_mut().cast(),
+                    )
                 },
                 0
             );
-            let decoded = decode_size_hints(owned.view()).unwrap();
+            let decoded = decode_size_hints(property_view(Some(&owned))).unwrap();
             assert_eq!(
                 (
                     decoded.flags,
@@ -1133,9 +1171,12 @@ mod tests {
                 // never use such a reply as a native oracle or runtime decoder.
                 let mut native: xcb_icccm_wm_hints_t = unsafe { std::mem::zeroed() };
                 let success = unsafe {
-                    xcb_sys::xcb_icccm_get_wm_hints_from_reply(&mut native, owned.raw()) != 0
+                    xcb_sys::xcb_icccm_get_wm_hints_from_reply(
+                        &mut native,
+                        owned.as_raw().cast_mut().cast(),
+                    ) != 0
                 };
-                let decoded = decode_wm_hints(owned.view());
+                let decoded = decode_wm_hints(property_view(Some(&owned)));
                 assert_eq!(decoded.is_some(), success);
                 if let Some(decoded) = decoded {
                     assert_eq!(
@@ -1164,7 +1205,7 @@ mod tests {
                     );
                 }
             } else {
-                let decoded = decode_wm_hints(owned.view()).unwrap();
+                let decoded = decode_wm_hints(property_view(Some(&owned))).unwrap();
                 assert_eq!(decoded.window_group, raw[8]);
             }
         }

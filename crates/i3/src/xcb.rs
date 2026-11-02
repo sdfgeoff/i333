@@ -13,6 +13,8 @@ use crate::xcursor::Cursor;
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 
 use crate::application::ignore_event_sequence_t;
+use ::xcb::{x, Reply, Xid, XidNew};
+use i3_common::xcb_connection::borrowed;
 use std::ptr::NonNull;
 
 struct Native<T>(NonNull<T>);
@@ -32,12 +34,10 @@ impl<T> Drop for Native<T> {
         }
     }
 }
-struct ServerGrab(*mut xcb_connection_t);
-impl Drop for ServerGrab {
+struct ServerGrab<'a>(&'a ::xcb::Connection);
+impl Drop for ServerGrab<'_> {
     fn drop(&mut self) {
-        unsafe {
-            xcb_ungrab_server(self.0);
-        }
+        self.0.send_request(&x::UngrabServer {});
     }
 }
 
@@ -47,23 +47,35 @@ fn atom_words(bytes: &[u8]) -> Vec<u32> {
         .map(|word| u32::from_ne_bytes(word.try_into().unwrap()))
         .collect()
 }
-/// Borrow only within the complete XCB allocation advertised by the reply.
-/// The caller keeps the reply immutable/live until the returned slice expires.
-unsafe fn property_bytes<'a>(reply: *const xcb_get_property_reply_t) -> Option<&'a [u8]> {
-    let reply = reply.as_ref()?;
-    if reply.format != 32 {
-        return None;
-    }
-    let length = (reply.value_len as usize).checked_mul(4)?;
-    let available = (reply.length as usize).checked_mul(4)?;
+/// Borrow bytes from an owned maintained reply only after validating its wire
+/// count against the complete advertised allocation. Format 16/32 values remain
+/// raw native-endian bytes; the generated value::<u8>() accessor only accepts 8.
+pub(crate) fn property_payload(reply: &x::GetPropertyReply) -> Option<&[u8]> {
+    let width = match reply.format() {
+        8 => 1,
+        16 => 2,
+        32 => 4,
+        _ => return None,
+    };
+    // SAFETY: the maintained reply owns its initialized 32-byte wire header.
+    let raw = unsafe { reply.as_raw() };
+    let count = unsafe { raw.add(16).cast::<u32>().read_unaligned() };
+    let length = (count as usize).checked_mul(width)?;
+    let available = (reply.length() as usize).checked_mul(4)?;
     if length > available || length > isize::MAX as usize {
         return None;
     }
-    Some(std::slice::from_raw_parts(
-        (reply as *const xcb_get_property_reply_t).add(1).cast(),
-        length,
-    ))
+    // SAFETY: checked byte range lies in the reply's advertised trailing body
+    // and cannot outlive its maintained allocation owner.
+    Some(unsafe { std::slice::from_raw_parts(raw.add(32), length) })
 }
+fn property_bytes(reply: Option<&x::GetPropertyReply>) -> Option<&[u8]> {
+    let reply = reply?;
+    (reply.format() == 32)
+        .then(|| property_payload(reply))
+        .flatten()
+}
+
 fn preferred_atom(atoms: impl IntoIterator<Item = u32>, supported: &[u32]) -> u32 {
     atoms
         .into_iter()
@@ -222,7 +234,7 @@ pub unsafe fn xcb_set_window_rect(conn_0: *mut xcb_connection_t, window: xcb_win
 }
 
 /// reply borrows a complete native allocation on the owning event thread.
-pub unsafe fn xcb_get_preferred_window_type(reply: *mut xcb_get_property_reply_t) -> xcb_atom_t {
+pub unsafe fn xcb_get_preferred_window_type(reply: Option<&x::GetPropertyReply>) -> xcb_atom_t {
     let Some(bytes) = property_bytes(reply) else {
         return 0;
     };
@@ -244,7 +256,7 @@ pub unsafe fn xcb_get_preferred_window_type(reply: *mut xcb_get_property_reply_t
 }
 /// prop borrows a complete native property reply for this event-thread query.
 pub unsafe fn xcb_reply_contains_atom(
-    prop: *mut xcb_get_property_reply_t,
+    prop: Option<&x::GetPropertyReply>,
     atom: xcb_atom_t,
 ) -> bool {
     property_bytes(prop).is_some_and(|bytes| atom_words(bytes).contains(&atom))
@@ -328,43 +340,36 @@ pub unsafe fn xcb_remove_property_atom(
     property: xcb_atom_t,
     atom: xcb_atom_t,
 ) {
-    // The guard releases the native server lock on every Rust return. The
-    // reply drops before the grab; filtered payload owns all words sent to XCB.
-    xcb_grab_server(conn_0);
-    let _grab = ServerGrab(conn_0);
-    let reply = Native::take(xcb_get_property_reply(
-        conn_0,
-        xcb_get_property(
-            conn_0,
-            0,
-            window,
-            property,
-            XCB_GET_PROPERTY_TYPE_ANY as u32,
-            0,
-            4096,
-        ),
-        std::ptr::null_mut(),
-    ));
-    let Some(reply) = reply else {
+    let Some(connection) = borrowed(conn_0) else {
         return;
     };
-    let Some(bytes) = property_bytes(reply.raw()) else {
+    connection.send_request(&x::GrabServer {});
+    let _grab = ServerGrab(&connection);
+    let cookie = connection.send_request(&x::GetProperty {
+        delete: false,
+        window: x::Window::new(window),
+        property: x::Atom::new(property),
+        r#type: x::ATOM_ANY,
+        long_offset: 0,
+        long_length: 4096,
+    });
+    let Ok(reply) = connection.wait_for_reply(cookie) else {
+        return;
+    };
+    let Some(bytes) = property_bytes(Some(&reply)) else {
         return;
     };
     if bytes.is_empty() {
         return;
     }
     let values = without_atom(atom_words(bytes), atom);
-    xcb_change_property(
-        conn_0,
-        XCB_PROP_MODE_REPLACE as u8,
-        window,
-        property,
-        XCB_ATOM_ATOM,
-        32,
-        values.len() as u32,
-        values.as_ptr().cast(),
-    );
+    connection.send_request(&x::ChangeProperty {
+        mode: x::PropMode::Replace,
+        window: x::Window::new(window),
+        property: x::Atom::new(property),
+        r#type: x::ATOM_ATOM,
+        data: &values,
+    });
 }
 
 /// Native display/graph boundary: requires a live event-thread connection and
