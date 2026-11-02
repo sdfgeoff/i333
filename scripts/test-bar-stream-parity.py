@@ -253,7 +253,7 @@ def modifier_visibility(connection, child, environment, server, ipc, bar, baseli
                             and candidate.get_attributes().map_state == state):
                         found.append(candidate)
                         return True
-                except error.BadWindow:
+                except (error.BadWindow, error.BadDrawable):
                     # Reload destroys the old window and creates its successor.
                     continue
             return False

@@ -63,7 +63,7 @@ pub const XEMBED_EMBEDDED_NOTIFY: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 pub const I3_IPC_MESSAGE_TYPE_RUN_COMMAND: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 pub const I3_IPC_MESSAGE_TYPE_SYNC: ::core::ffi::c_int = 11 as ::core::ffi::c_int;
 
-pub static mut atoms: [xcb_atom_t; 12] = [0; 12];
+pub static mut atoms: [u32; 12] = [0; 12];
 
 // The registry shares the sole maintained owner on this event thread. Keeping
 // its guard here makes normal cleanup unregister only after native resources
@@ -81,9 +81,9 @@ pub static mut screen: ::core::ffi::c_int = 0;
 pub static mut root_screen: *mut xcb_screen_t =
     ::core::ptr::null::<xcb_screen_t>() as *mut xcb_screen_t;
 
-pub static mut xcb_root: xcb_window_t = 0;
-static mut cursor: xcb_cursor_t = 0;
-static mut selwin: xcb_window_t = XCB_NONE as xcb_window_t;
+pub static mut xcb_root: u32 = 0;
+static mut cursor: u32 = 0;
+static mut selwin: u32 = XCB_NONE as u32;
 static mut tray_atom: Option<x::Atom> = None;
 
 pub static mut conn: *mut xcb_connection_t =
@@ -107,7 +107,7 @@ pub static mut visual_type: *mut xcb_visualtype_t =
 
 pub static mut depth: u8 = 0;
 
-pub static mut colormap: xcb_colormap_t = 0;
+pub static mut colormap: u32 = 0;
 
 pub static mut bar_height: ::core::ffi::c_int = 0;
 
@@ -289,23 +289,6 @@ pub static mut separator_symbol_width: ::core::ffi::c_int = 0;
 // Native entry points require exclusive event-thread access to live display,
 // output/tray/status graphs. Owned scratch values never extend graph borrows
 // across native calls, drawing, reconfiguration, IPC or process callbacks.
-struct Native<T>(std::ptr::NonNull<T>);
-impl<T> Native<T> {
-    /// Transfers unique ownership of a complete malloc-backed native allocation.
-    unsafe fn take(pointer: *mut T) -> Option<Self> {
-        std::ptr::NonNull::new(pointer).map(Self)
-    }
-    fn raw(&self) -> *mut T {
-        self.0.as_ptr()
-    }
-}
-impl<T> Drop for Native<T> {
-    fn drop(&mut self) {
-        unsafe {
-            free(self.raw().cast());
-        }
-    }
-}
 /// Borrow the complete property payload only after validating its native wire
 /// width/count against the owned reply allocation. The maintained value::<u8>
 /// getter accepts only format 8, while tray clients may send formats 16 or 32.
@@ -466,22 +449,47 @@ const ATOM_NAMES: [&std::ffi::CStr; 12] = [
     c"I3_SYNC",
 ];
 
-pub unsafe fn _xcb_request_failed(
-    cookie: xcb_void_cookie_t,
-    err_msg: *mut ::core::ffi::c_char,
-    line: ::core::ffi::c_int,
-) -> ::core::ffi::c_int {
-    if let Some(error) = Native::take(xcb_request_check(xcb_connection, cookie)) {
-        let code = i32::from((*error.raw()).error_code);
+enum PendingRequest {
+    Checked(::xcb::VoidCookieChecked),
+    Unchecked(::xcb::VoidCookie),
+}
+impl From<::xcb::VoidCookieChecked> for PendingRequest {
+    fn from(cookie: ::xcb::VoidCookieChecked) -> Self {
+        Self::Checked(cookie)
+    }
+}
+impl From<::xcb::VoidCookie> for PendingRequest {
+    fn from(cookie: ::xcb::VoidCookie) -> Self {
+        Self::Unchecked(cookie)
+    }
+}
+unsafe fn request_failed(
+    cookie: impl Into<PendingRequest>,
+    err_msg: &std::ffi::CStr,
+    line: i32,
+) -> i32 {
+    let Some(connection) = i3_common::display::connection() else {
+        return 0;
+    };
+    let code = match cookie.into() {
+        PendingRequest::Checked(cookie) => connection
+            .check_request(cookie)
+            .err()
+            .map(|error| (*error.as_raw()).error_code),
+        PendingRequest::Unchecked(cookie) => {
+            xcb_interop::transport::check_unchecked(&connection, cookie)
+        }
+    };
+    if let Some(code) = code {
         fprintf(
             stderr,
             c"[%s:%d] ERROR: %s. X Error Code: %d\n".as_ptr(),
             c"../i3bar/src/xcb.c".as_ptr(),
             line,
-            err_msg,
-            code,
+            err_msg.as_ptr(),
+            i32::from(code),
         );
-        code
+        i32::from(code)
     } else {
         0
     }
@@ -756,7 +764,7 @@ unsafe fn hide_bars() {
     while !walk.is_null() {
         if (*walk).active {
             send_unchecked(&x::UnmapWindow {
-                window: x::Window::new((*walk).bar.id as xcb_window_t),
+                window: x::Window::new((*walk).bar.id as u32),
             });
         }
         walk = (*walk).slist.sle_next as *mut i3_output;
@@ -764,22 +772,18 @@ unsafe fn hide_bars() {
     stop_children();
 }
 unsafe fn unhide_bars() {
+    let Some(connection) = i3_common::display::connection() else {
+        return;
+    };
     if config.hide_on_modifier != crate::application::BarDisplayMode::Hide {
         return;
     }
     let mut walk: *mut i3_output = ::core::ptr::null_mut::<i3_output>();
-    let mut cookie: xcb_void_cookie_t = xcb_void_cookie_t { sequence: 0 };
-    let mut mask: u32 = 0;
     let mut values: [u32; 5] = [0; 5];
     cont_children();
     walk = (*outputs).slh_first as *mut i3_output;
     while !walk.is_null() {
         if !((*walk).bar.id as ::core::ffi::c_long == XCB_NONE) {
-            mask = (XCB_CONFIG_WINDOW_X as ::core::ffi::c_int
-                | XCB_CONFIG_WINDOW_Y as ::core::ffi::c_int
-                | XCB_CONFIG_WINDOW_WIDTH as ::core::ffi::c_int
-                | XCB_CONFIG_WINDOW_HEIGHT as ::core::ffi::c_int
-                | XCB_CONFIG_WINDOW_STACK_MODE as ::core::ffi::c_int) as u32;
             values[0 as ::core::ffi::c_int as usize] = (*walk).rect.x as u32;
             if config.position == crate::application::BarPosition::Top {
                 values[1 as ::core::ffi::c_int as usize] = (*walk).rect.y as u32;
@@ -801,22 +805,26 @@ unsafe fn unhide_bars() {
                     values[1 as ::core::ffi::c_int as usize],
                 );
             }
-            cookie = xcb_configure_window_checked(
-                xcb_connection,
-                (*walk).bar.id as xcb_window_t,
-                mask as u16,
-                &raw mut values as *mut u32 as *const ::core::ffi::c_void,
-            );
-            if _xcb_request_failed(
+            let cookie = connection.send_request_checked(&x::ConfigureWindow {
+                window: x::Window::new((*walk).bar.id as u32),
+                value_list: &[
+                    x::ConfigWindow::X(values[0] as i32),
+                    x::ConfigWindow::Y(values[1] as i32),
+                    x::ConfigWindow::Width(values[2]),
+                    x::ConfigWindow::Height(values[3]),
+                    x::ConfigWindow::StackMode(x::StackMode::Above),
+                ],
+            });
+            if request_failed(
                 cookie,
-                c"Could not reconfigure window".as_ptr().cast_mut(),
+                c"Could not reconfigure window",
                 441 as ::core::ffi::c_int,
             ) != 0
             {
                 exit(libc::EXIT_FAILURE);
             }
             send_unchecked(&x::MapWindow {
-                window: x::Window::new((*walk).bar.id as xcb_window_t),
+                window: x::Window::new((*walk).bar.id as u32),
             });
         }
         walk = (*walk).slist.sle_next as *mut i3_output;
@@ -935,7 +943,7 @@ pub unsafe fn init_colors(new_colors: *const xcb_color_strings_t) {
     init_tray_colors();
     flush_requests();
 }
-unsafe fn execute_custom_command(input_code: xcb_keycode_t, event_is_release: bool) -> bool {
+unsafe fn execute_custom_command(input_code: u8, event_is_release: bool) -> bool {
     let mut binding_0: *mut binding_t = ::core::ptr::null_mut::<binding_t>();
     binding_0 = config.bindings.tqh_first as *mut binding_t;
     while !binding_0.is_null() {
@@ -1069,7 +1077,7 @@ unsafe extern "C" fn focus_workspace(ws: *mut i3_ws) {
 
 unsafe fn handle_button(event: &ButtonInput) {
     let mut walk: *mut i3_output = ::core::ptr::null_mut::<i3_output>();
-    let bar: xcb_window_t = event.window;
+    let bar: u32 = event.window;
     walk = (*outputs).slh_first as *mut i3_output;
     while !walk.is_null() {
         if (*walk).bar.id == bar {
@@ -1143,8 +1151,7 @@ unsafe fn handle_button(event: &ButtonInput) {
             return;
         }
     }
-    if execute_custom_command(event.button as xcb_keycode_t, event_is_release) as ::core::ffi::c_int
-        != 0
+    if execute_custom_command(event.button as u8, event_is_release) as ::core::ffi::c_int != 0
         || event_is_release as ::core::ffi::c_int != 0
     {
         return;
@@ -1278,7 +1285,7 @@ unsafe fn configure_trayclients() {
     }
 }
 unsafe fn trayclient_and_output_from_window(
-    win: xcb_window_t,
+    win: u32,
     output: *mut *mut i3_output,
 ) -> *mut trayclient {
     let mut o_walk: *mut i3_output = ::core::ptr::null_mut::<i3_output>();
@@ -1301,7 +1308,7 @@ unsafe fn trayclient_and_output_from_window(
     }
     ::core::ptr::null_mut::<trayclient>()
 }
-unsafe fn trayclient_from_window(win: xcb_window_t) -> *mut trayclient {
+unsafe fn trayclient_from_window(win: u32) -> *mut trayclient {
     trayclient_and_output_from_window(win, ::core::ptr::null_mut::<*mut i3_output>())
 }
 unsafe fn trayclient_update_class(client: *mut trayclient) {
@@ -1353,7 +1360,7 @@ unsafe fn trayclient_update_class(client: *mut trayclient) {
 unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
     let words = events::client_message_words(event);
     if event.r#type().resource_id() == atoms[AtomIndex::I3Sync as ::core::ffi::c_int as usize] {
-        let window: xcb_window_t = words[0 as ::core::ffi::c_int as usize];
+        let window: u32 = words[0 as ::core::ffi::c_int as usize];
         let rnd: u32 = words[1 as ::core::ffi::c_int as usize];
         let mut payload: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
         sasprintf(
@@ -1377,7 +1384,7 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
         }
         let op: u32 = words[1 as ::core::ffi::c_int as usize];
         if op == SYSTEM_TRAY_REQUEST_DOCK as u32 {
-            let client: xcb_window_t = words[2 as ::core::ffi::c_int as usize];
+            let client: u32 = words[2 as ::core::ffi::c_int as usize];
             send_unchecked(&x::ChangeWindowAttributes {
                 window: x::Window::new(client),
                 value_list: &[x::Cw::EventMask(
@@ -1471,18 +1478,15 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
                 );
                 return;
             }
-            let rcookie: xcb_void_cookie_t = xcb_reparent_window(
-                xcb_connection,
-                client,
-                (*output_for_tray).bar.id as xcb_window_t,
-                ((*output_for_tray).rect.w - icon_size - logical_px(config.tray_padding)) as i16,
-                logical_px(config.tray_padding) as i16,
-            );
-            if _xcb_request_failed(
+            let rcookie = connection.send_request(&x::ReparentWindow {
+                window: x::Window::new(client),
+                parent: x::Window::new((*output_for_tray).bar.id as u32),
+                x: ((*output_for_tray).rect.w - icon_size - logical_px(config.tray_padding)) as i16,
+                y: logical_px(config.tray_padding) as i16,
+            });
+            if request_failed(
                 rcookie,
-                c"Could not reparent window. Maybe it is using an incorrect depth/visual?"
-                    .as_ptr()
-                    .cast_mut(),
+                c"Could not reparent window. Maybe it is using an incorrect depth/visual?",
                 981 as ::core::ffi::c_int,
             ) != 0
             {
@@ -1752,14 +1756,14 @@ unsafe fn handle_property_notify(event: &x::PropertyNotifyEvent) {
                 window: x::Window::new((*client).win),
             });
         }
-    } else if event.atom().resource_id() == XCB_ATOM_WM_CLASS as ::core::ffi::c_int as xcb_atom_t {
+    } else if event.atom().resource_id() == XCB_ATOM_WM_CLASS as ::core::ffi::c_int as u32 {
         let client_0: *mut trayclient = trayclient_from_window(event.window().resource_id());
         if !client_0.is_null() {
             trayclient_update_class(client_0);
         }
     }
 }
-unsafe fn handle_configuration_change(window: xcb_window_t) {
+unsafe fn handle_configuration_change(window: u32) {
     let mut trayclient: *mut trayclient = ::core::ptr::null_mut::<trayclient>();
     let mut output: *mut i3_output = ::core::ptr::null_mut::<i3_output>();
     output = (*outputs).slh_first as *mut i3_output;
@@ -1984,17 +1988,16 @@ pub unsafe fn init_xcb_early() -> *mut ::core::ffi::c_char {
     };
     if !visual_type.is_null() {
         depth = xcb_aux_get_depth_of_visual(root_screen, (*visual_type).visual_id);
-        colormap = xcb_generate_id(xcb_connection) as xcb_colormap_t;
-        let cm_cookie: xcb_void_cookie_t = xcb_create_colormap_checked(
-            xcb_connection,
-            XCB_COLORMAP_ALLOC_NONE as ::core::ffi::c_int as u8,
-            colormap,
-            xcb_root,
-            (*visual_type).visual_id,
-        );
-        if _xcb_request_failed(
+        colormap = connection.generate_id::<x::Colormap>().resource_id() as u32;
+        let cm_cookie = connection.send_request_checked(&x::CreateColormap {
+            alloc: x::ColormapAlloc::None,
+            mid: x::Colormap::new(colormap),
+            window: x::Window::new(xcb_root),
+            visual: (*visual_type).visual_id,
+        });
+        if request_failed(
             cm_cookie,
-            c"Could not allocate colormap".as_ptr().cast_mut(),
+            c"Could not allocate colormap",
             1363 as ::core::ffi::c_int,
         ) != 0
         {
@@ -2175,32 +2178,25 @@ unsafe fn init_tray() {
             name: atomname.as_bytes(),
         })
     });
-    selwin = xcb_generate_id(xcb_connection) as xcb_window_t;
-    let selmask: u32 = (XCB_CW_BACK_PIXEL as ::core::ffi::c_int
-        | XCB_CW_BORDER_PIXEL as ::core::ffi::c_int
-        | XCB_CW_OVERRIDE_REDIRECT as ::core::ffi::c_int
-        | XCB_CW_COLORMAP as ::core::ffi::c_int) as u32;
-    let mut selval: [u32; 4] = [
-        (*root_screen).black_pixel,
-        (*root_screen).black_pixel,
-        1 as ::core::ffi::c_int as u32,
-        colormap,
-    ];
-    xcb_create_window(
-        xcb_connection,
-        depth,
-        selwin,
-        xcb_root,
-        -(1 as ::core::ffi::c_int) as i16,
-        -(1 as ::core::ffi::c_int) as i16,
-        1 as u16,
-        1 as u16,
-        0 as u16,
-        XCB_WINDOW_CLASS_INPUT_OUTPUT as ::core::ffi::c_int as u16,
-        (*visual_type).visual_id,
-        selmask,
-        &raw mut selval as *mut u32 as *const ::core::ffi::c_void,
-    );
+    selwin = connection.generate_id::<x::Window>().resource_id() as u32;
+    connection.send_request(&x::CreateWindow {
+        depth: depth,
+        wid: x::Window::new(selwin),
+        parent: x::Window::new(xcb_root),
+        x: -(1 as ::core::ffi::c_int) as i16,
+        y: -(1 as ::core::ffi::c_int) as i16,
+        width: 1 as u16,
+        height: 1 as u16,
+        border_width: 0 as u16,
+        class: x::WindowClass::InputOutput,
+        visual: (*visual_type).visual_id,
+        value_list: &[
+            x::Cw::BackPixel((*root_screen).black_pixel),
+            x::Cw::BorderPixel((*root_screen).black_pixel),
+            x::Cw::OverrideRedirect(true),
+            x::Cw::Colormap(x::Colormap::new(colormap)),
+        ],
+    });
     send_unchecked(&x::ChangeProperty {
         mode: x::PropMode::Replace,
         window: x::Window::new(selwin),
@@ -2433,28 +2429,28 @@ pub unsafe fn destroy_window(output: *mut i3_output) {
     draw_util_surface_free(xcb_connection, &raw mut (*output).buffer);
     draw_util_surface_free(xcb_connection, &raw mut (*output).statusline_buffer);
     send_unchecked(&x::DestroyWindow {
-        window: x::Window::new((*output).bar.id as xcb_window_t),
+        window: x::Window::new((*output).bar.id as u32),
     });
     send_unchecked(&x::FreePixmap {
-        pixmap: x::Pixmap::new((*output).buffer.id as xcb_pixmap_t),
+        pixmap: x::Pixmap::new((*output).buffer.id as u32),
     });
     send_unchecked(&x::FreePixmap {
-        pixmap: x::Pixmap::new((*output).statusline_buffer.id as xcb_pixmap_t),
+        pixmap: x::Pixmap::new((*output).statusline_buffer.id as u32),
     });
-    (*output).bar.id = XCB_NONE as xcb_drawable_t;
+    (*output).bar.id = XCB_NONE as u32;
 }
-unsafe fn config_strut_partial(output: *mut i3_output) -> xcb_void_cookie_t {
+unsafe fn config_strut_partial(
+    connection: &::xcb::Connection,
+    output: *mut i3_output,
+) -> ::xcb::VoidCookie {
     let values = strut_values(config.position, bar_height, (*output).rect);
-    xcb_change_property(
-        xcb_connection,
-        XCB_PROP_MODE_REPLACE as u8,
-        (*output).bar.id,
-        atoms[AtomIndex::NetWmStrutPartial as usize],
-        XCB_ATOM_CARDINAL,
-        32,
-        12,
-        values.as_ptr().cast(),
-    )
+    connection.send_request(&x::ChangeProperty {
+        mode: x::PropMode::Replace,
+        window: x::Window::new((*output).bar.id),
+        property: x::Atom::new(atoms[AtomIndex::NetWmStrutPartial as usize]),
+        r#type: x::ATOM_CARDINAL,
+        data: &values,
+    })
 }
 
 unsafe fn get_tray_output() -> *mut i3_output {
@@ -2497,7 +2493,9 @@ unsafe fn get_tray_output() -> *mut i3_output {
 }
 
 pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
-    let mut mask: u32 = 0;
+    let Some(connection) = i3_common::display::connection() else {
+        return;
+    };
     let mut values: [u32; 6] = [0; 6];
     let mut walk: *mut i3_output = ::core::ptr::null_mut::<i3_output>();
     walk = (*outputs).slh_first as *mut i3_output;
@@ -2521,16 +2519,11 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                     (*walk).name_ptr(),
                 );
             }
-            let bar_id: xcb_window_t = xcb_generate_id(xcb_connection) as xcb_window_t;
-            let buffer_id: xcb_pixmap_t = xcb_generate_id(xcb_connection) as xcb_pixmap_t;
-            let statusline_buffer_id: xcb_pixmap_t =
-                xcb_generate_id(xcb_connection) as xcb_pixmap_t;
-            mask = (XCB_CW_BACK_PIXEL as ::core::ffi::c_int
-                | XCB_CW_BORDER_PIXEL as ::core::ffi::c_int
-                | XCB_CW_OVERRIDE_REDIRECT as ::core::ffi::c_int
-                | XCB_CW_EVENT_MASK as ::core::ffi::c_int
-                | XCB_CW_COLORMAP as ::core::ffi::c_int
-                | XCB_CW_CURSOR as ::core::ffi::c_int) as u32;
+            let bar_id: u32 = connection.generate_id::<x::Window>().resource_id() as u32;
+            let buffer_id: u32 = connection.generate_id::<x::Pixmap>().resource_id();
+            let statusline_buffer_id: u32 =
+                connection.generate_id::<x::Pixmap>().resource_id() as u32;
+
             values[0 as ::core::ffi::c_int as usize] = colors.bar_bg.colorpixel;
             values[1 as ::core::ffi::c_int as usize] = (*root_screen).black_pixel;
             values[2 as ::core::ffi::c_int as usize] =
@@ -2551,37 +2544,40 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
             }
             values[4 as ::core::ffi::c_int as usize] = colormap as u32;
             values[5 as ::core::ffi::c_int as usize] = cursor as u32;
-            let win_cookie: xcb_void_cookie_t = xcb_create_window_checked(
-                xcb_connection,
-                depth,
-                bar_id,
-                xcb_root,
-                (*walk).rect.x as i16,
-                ((*walk).rect.y + (*walk).rect.h - bar_height) as i16,
-                (*walk).rect.w as u16,
-                bar_height as u16,
-                0 as u16,
-                XCB_WINDOW_CLASS_INPUT_OUTPUT as ::core::ffi::c_int as u16,
-                (*visual_type).visual_id,
-                mask,
-                &raw mut values as *mut u32 as *const ::core::ffi::c_void,
-            );
-            let pm_cookie: xcb_void_cookie_t = xcb_create_pixmap_checked(
-                xcb_connection,
-                depth,
-                buffer_id,
-                bar_id as xcb_drawable_t,
-                (*walk).rect.w as u16,
-                bar_height as u16,
-            );
-            let slpm_cookie: xcb_void_cookie_t = xcb_create_pixmap_checked(
-                xcb_connection,
-                depth,
-                statusline_buffer_id,
-                bar_id as xcb_drawable_t,
-                (*walk).rect.w as u16,
-                bar_height as u16,
-            );
+            let win_cookie = connection.send_request_checked(&x::CreateWindow {
+                depth: depth,
+                wid: x::Window::new(bar_id),
+                parent: x::Window::new(xcb_root),
+                x: (*walk).rect.x as i16,
+                y: ((*walk).rect.y + (*walk).rect.h - bar_height) as i16,
+                width: (*walk).rect.w as u16,
+                height: bar_height as u16,
+                border_width: 0 as u16,
+                class: x::WindowClass::InputOutput,
+                visual: (*visual_type).visual_id,
+                value_list: &[
+                    x::Cw::BackPixel(values[0]),
+                    x::Cw::BorderPixel(values[1]),
+                    x::Cw::OverrideRedirect(values[2] != 0),
+                    x::Cw::EventMask(x::EventMask::from_bits_retain(values[3])),
+                    x::Cw::Colormap(x::Colormap::new(values[4])),
+                    x::Cw::Cursor(x::Cursor::new(values[5])),
+                ],
+            });
+            let pm_cookie = connection.send_request_checked(&x::CreatePixmap {
+                depth: depth,
+                pid: x::Pixmap::new(buffer_id),
+                drawable: x::Drawable::Window(x::Window::new(bar_id as u32)),
+                width: (*walk).rect.w as u16,
+                height: bar_height as u16,
+            });
+            let slpm_cookie = connection.send_request_checked(&x::CreatePixmap {
+                depth: depth,
+                pid: x::Pixmap::new(statusline_buffer_id),
+                drawable: x::Drawable::Window(x::Window::new(bar_id as u32)),
+                width: (*walk).rect.w as u16,
+                height: bar_height as u16,
+            });
             let mut class: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
             let len: ::core::ffi::c_int = sasprintf(
@@ -2591,17 +2587,13 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 0 as ::core::ffi::c_int,
                 0 as ::core::ffi::c_int,
             );
-            let mut class_cookie: xcb_void_cookie_t = xcb_void_cookie_t { sequence: 0 };
-            class_cookie = xcb_change_property(
-                xcb_connection,
-                XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
-                bar_id,
-                XCB_ATOM_WM_CLASS as ::core::ffi::c_int as xcb_atom_t,
-                XCB_ATOM_STRING as ::core::ffi::c_int as xcb_atom_t,
-                8 as u8,
-                len as u32,
-                class as *const ::core::ffi::c_void,
-            );
+            let class_cookie = connection.send_request(&x::ChangeProperty {
+                mode: x::PropMode::Replace,
+                window: x::Window::new(bar_id),
+                property: x::Atom::new(XCB_ATOM_WM_CLASS as ::core::ffi::c_int as u32),
+                r#type: x::ATOM_STRING,
+                data: std::slice::from_raw_parts(class.cast::<u8>(), len as usize),
+            });
             free(class as *mut ::core::ffi::c_void);
             let mut name: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
@@ -2609,35 +2601,27 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 c"i3bar for output %s".as_ptr(),
                 (*walk).name_ptr(),
             );
-            let mut name_cookie: xcb_void_cookie_t = xcb_void_cookie_t { sequence: 0 };
-            name_cookie = xcb_change_property(
-                xcb_connection,
-                XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
-                bar_id,
-                XCB_ATOM_WM_NAME as ::core::ffi::c_int as xcb_atom_t,
-                XCB_ATOM_STRING as ::core::ffi::c_int as xcb_atom_t,
-                8 as u8,
-                strlen(name) as u32,
-                name as *const ::core::ffi::c_void,
-            );
+            let name_cookie = connection.send_request(&x::ChangeProperty {
+                mode: x::PropMode::Replace,
+                window: x::Window::new(bar_id),
+                property: x::Atom::new(XCB_ATOM_WM_NAME as ::core::ffi::c_int as u32),
+                r#type: x::ATOM_STRING,
+                data: std::ffi::CStr::from_ptr(name).to_bytes(),
+            });
             free(name as *mut ::core::ffi::c_void);
-            let dock_cookie: xcb_void_cookie_t = xcb_change_property(
-                xcb_connection,
-                XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
-                bar_id,
-                atoms[AtomIndex::NetWmWindowType as ::core::ffi::c_int as usize],
-                XCB_ATOM_ATOM as ::core::ffi::c_int as xcb_atom_t,
-                32 as u8,
-                1 as u32,
-                (&raw mut atoms as *mut xcb_atom_t)
-                    .offset(AtomIndex::NetWmWindowTypeDock as ::core::ffi::c_int as isize)
-                    as *mut xcb_atom_t as *mut ::core::ffi::c_uchar
-                    as *const ::core::ffi::c_void,
-            );
+            let dock_cookie = connection.send_request(&x::ChangeProperty {
+                mode: x::PropMode::Replace,
+                window: x::Window::new(bar_id),
+                property: x::Atom::new(
+                    atoms[AtomIndex::NetWmWindowType as ::core::ffi::c_int as usize],
+                ),
+                r#type: x::ATOM_ATOM,
+                data: &[atoms[AtomIndex::NetWmWindowTypeDock as usize]],
+            });
             draw_util_surface_init(
                 xcb_connection,
                 &raw mut (*walk).bar,
-                bar_id as xcb_drawable_t,
+                bar_id as u32,
                 ::core::ptr::null_mut::<xcb_visualtype_t>(),
                 (*walk).rect.w,
                 bar_height,
@@ -2645,7 +2629,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
             draw_util_surface_init(
                 xcb_connection,
                 &raw mut (*walk).buffer,
-                buffer_id as xcb_drawable_t,
+                buffer_id as u32,
                 ::core::ptr::null_mut::<xcb_visualtype_t>(),
                 (*walk).rect.w,
                 bar_height,
@@ -2653,66 +2637,63 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
             draw_util_surface_init(
                 xcb_connection,
                 &raw mut (*walk).statusline_buffer,
-                statusline_buffer_id as xcb_drawable_t,
+                statusline_buffer_id as u32,
                 ::core::ptr::null_mut::<xcb_visualtype_t>(),
                 (*walk).rect.w,
                 bar_height,
             );
-            let strut_cookie: xcb_void_cookie_t = config_strut_partial(walk);
-            let mut map_cookie: xcb_void_cookie_t = xcb_void_cookie_t { sequence: 0 };
+            let strut_cookie = config_strut_partial(&connection, walk);
+            let mut map_cookie = None;
             if config.hide_on_modifier == crate::application::BarDisplayMode::Dock {
-                map_cookie = xcb_map_window_checked(xcb_connection, bar_id);
+                map_cookie = Some(connection.send_request_checked(&x::MapWindow {
+                    window: x::Window::new(bar_id),
+                }));
             }
-            if _xcb_request_failed(
+            if request_failed(
                 win_cookie,
-                c"Could not create window".as_ptr().cast_mut(),
+                c"Could not create window",
                 1970 as ::core::ffi::c_int,
             ) != 0
-                || _xcb_request_failed(
+                || request_failed(
                     pm_cookie,
-                    c"Could not create pixmap".as_ptr().cast_mut(),
+                    c"Could not create pixmap",
                     1971 as ::core::ffi::c_int,
                 ) != 0
-                || _xcb_request_failed(
+                || request_failed(
                     slpm_cookie,
-                    c"Could not create statusline pixmap".as_ptr().cast_mut(),
+                    c"Could not create statusline pixmap",
                     1972 as ::core::ffi::c_int,
                 ) != 0
-                || _xcb_request_failed(
+                || request_failed(
                     dock_cookie,
-                    c"Could not set dock mode".as_ptr().cast_mut(),
+                    c"Could not set dock mode",
                     1973 as ::core::ffi::c_int,
                 ) != 0
-                || _xcb_request_failed(
+                || request_failed(
                     class_cookie,
-                    c"Could not set WM_CLASS".as_ptr().cast_mut(),
+                    c"Could not set WM_CLASS",
                     1974 as ::core::ffi::c_int,
                 ) != 0
-                || _xcb_request_failed(
+                || request_failed(
                     name_cookie,
-                    c"Could not set WM_NAME".as_ptr().cast_mut(),
+                    c"Could not set WM_NAME",
                     1975 as ::core::ffi::c_int,
                 ) != 0
-                || _xcb_request_failed(
+                || request_failed(
                     strut_cookie,
-                    c"Could not set strut".as_ptr().cast_mut(),
+                    c"Could not set strut",
                     1976 as ::core::ffi::c_int,
                 ) != 0
                 || config.hide_on_modifier == crate::application::BarDisplayMode::Dock
-                    && _xcb_request_failed(
-                        map_cookie,
-                        c"Could not map window".as_ptr().cast_mut(),
+                    && request_failed(
+                        map_cookie.unwrap(),
+                        c"Could not map window",
                         1977 as ::core::ffi::c_int,
                     ) != 0
             {
                 exit(libc::EXIT_FAILURE);
             }
         } else {
-            mask = (XCB_CONFIG_WINDOW_X as ::core::ffi::c_int
-                | XCB_CONFIG_WINDOW_Y as ::core::ffi::c_int
-                | XCB_CONFIG_WINDOW_WIDTH as ::core::ffi::c_int
-                | XCB_CONFIG_WINDOW_HEIGHT as ::core::ffi::c_int
-                | XCB_CONFIG_WINDOW_STACK_MODE as ::core::ffi::c_int) as u32;
             values[0 as ::core::ffi::c_int as usize] = (*walk).rect.x as u32;
             if config.position == crate::application::BarPosition::Top {
                 values[1 as ::core::ffi::c_int as usize] = (*walk).rect.y as u32;
@@ -2732,7 +2713,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                     (*walk).name_ptr(),
                 );
             }
-            let strut_cookie_0: xcb_void_cookie_t = config_strut_partial(walk);
+            let strut_cookie_0 = config_strut_partial(&connection, walk);
             if config.verbose {
                 printf(
                     c"[%s:%d] Destroying buffer for output %s\n".as_ptr(),
@@ -2742,7 +2723,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 );
             }
             send_unchecked(&x::FreePixmap {
-                pixmap: x::Pixmap::new((*walk).buffer.id as xcb_pixmap_t),
+                pixmap: x::Pixmap::new((*walk).buffer.id as u32),
             });
             if config.verbose {
                 printf(
@@ -2753,7 +2734,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 );
             }
             send_unchecked(&x::FreePixmap {
-                pixmap: x::Pixmap::new((*walk).statusline_buffer.id as xcb_pixmap_t),
+                pixmap: x::Pixmap::new((*walk).statusline_buffer.id as u32),
             });
             if config.verbose {
                 printf(
@@ -2765,13 +2746,17 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                     values[1 as ::core::ffi::c_int as usize],
                 );
             }
-            let cfg_cookie: xcb_void_cookie_t = xcb_configure_window_checked(
-                xcb_connection,
-                (*walk).bar.id as xcb_window_t,
-                mask as u16,
-                &raw mut values as *mut u32 as *const ::core::ffi::c_void,
-            );
-            mask = XCB_CW_OVERRIDE_REDIRECT as ::core::ffi::c_int as u32;
+            let cfg_cookie = connection.send_request_checked(&x::ConfigureWindow {
+                window: x::Window::new((*walk).bar.id as u32),
+                value_list: &[
+                    x::ConfigWindow::X(values[0] as i32),
+                    x::ConfigWindow::Y(values[1] as i32),
+                    x::ConfigWindow::Width(values[2]),
+                    x::ConfigWindow::Height(values[3]),
+                    x::ConfigWindow::StackMode(x::StackMode::Above),
+                ],
+            });
+
             values[0 as ::core::ffi::c_int as usize] =
                 (if config.hide_on_modifier == crate::application::BarDisplayMode::Dock {
                     0 as ::core::ffi::c_int
@@ -2788,12 +2773,10 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                     values[0 as ::core::ffi::c_int as usize],
                 );
             }
-            let chg_cookie: xcb_void_cookie_t = xcb_change_window_attributes(
-                xcb_connection,
-                (*walk).bar.id as xcb_window_t,
-                mask,
-                &raw mut values as *mut u32 as *const ::core::ffi::c_void,
-            );
+            let chg_cookie = connection.send_request(&x::ChangeWindowAttributes {
+                window: x::Window::new((*walk).bar.id as u32),
+                value_list: &[x::Cw::OverrideRedirect(values[0] != 0)],
+            });
             if config.verbose {
                 printf(
                     c"[%s:%d] Recreating buffer for output %s\n".as_ptr(),
@@ -2802,14 +2785,13 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                     (*walk).name_ptr(),
                 );
             }
-            let pm_cookie_0: xcb_void_cookie_t = xcb_create_pixmap_checked(
-                xcb_connection,
-                depth,
-                (*walk).buffer.id as xcb_pixmap_t,
-                (*walk).bar.id,
-                (*walk).rect.w as u16,
-                bar_height as u16,
-            );
+            let pm_cookie_0 = connection.send_request_checked(&x::CreatePixmap {
+                depth: depth,
+                pid: x::Pixmap::new((*walk).buffer.id as u32),
+                drawable: x::Drawable::Window(x::Window::new((*walk).bar.id)),
+                width: (*walk).rect.w as u16,
+                height: bar_height as u16,
+            });
             if config.verbose {
                 printf(
                     c"[%s:%d] Recreating statusline buffer for output %s\n".as_ptr(),
@@ -2818,14 +2800,13 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                     (*walk).name_ptr(),
                 );
             }
-            let slpm_cookie_0: xcb_void_cookie_t = xcb_create_pixmap_checked(
-                xcb_connection,
-                depth,
-                (*walk).statusline_buffer.id as xcb_pixmap_t,
-                (*walk).bar.id,
-                (*walk).rect.w as u16,
-                bar_height as u16,
-            );
+            let slpm_cookie_0 = connection.send_request_checked(&x::CreatePixmap {
+                depth: depth,
+                pid: x::Pixmap::new((*walk).statusline_buffer.id as u32),
+                drawable: x::Drawable::Window(x::Window::new((*walk).bar.id)),
+                width: (*walk).rect.w as u16,
+                height: bar_height as u16,
+            });
             draw_util_surface_free(xcb_connection, &raw mut (*walk).bar);
             draw_util_surface_free(xcb_connection, &raw mut (*walk).buffer);
             draw_util_surface_free(xcb_connection, &raw mut (*walk).statusline_buffer);
@@ -2853,15 +2834,17 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 (*walk).rect.w,
                 bar_height,
             );
-            let mut map_cookie_0: xcb_void_cookie_t = xcb_void_cookie_t { sequence: 0 };
-            let mut umap_cookie: xcb_void_cookie_t = xcb_void_cookie_t { sequence: 0 };
+            let mut map_cookie_0 = None;
+            let mut umap_cookie = None;
             if redraw_bars_0 {
-                umap_cookie =
-                    xcb_unmap_window_checked(xcb_connection, (*walk).bar.id as xcb_window_t);
+                umap_cookie = Some(connection.send_request_checked(&x::UnmapWindow {
+                    window: x::Window::new((*walk).bar.id as u32),
+                }));
                 if config.hide_on_modifier == crate::application::BarDisplayMode::Dock {
                     cont_children();
-                    map_cookie_0 =
-                        xcb_map_window_checked(xcb_connection, (*walk).bar.id as xcb_window_t);
+                    map_cookie_0 = Some(connection.send_request_checked(&x::MapWindow {
+                        window: x::Window::new((*walk).bar.id as u32),
+                    }));
                 } else {
                     stop_children();
                 }
@@ -2871,41 +2854,41 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                     deregister_xkb_keyevents();
                 }
             }
-            if _xcb_request_failed(
+            if request_failed(
                 cfg_cookie,
-                c"Could not reconfigure window".as_ptr().cast_mut(),
+                c"Could not reconfigure window",
                 2064 as ::core::ffi::c_int,
             ) != 0
-                || _xcb_request_failed(
+                || request_failed(
                     chg_cookie,
-                    c"Could not change window".as_ptr().cast_mut(),
+                    c"Could not change window",
                     2065 as ::core::ffi::c_int,
                 ) != 0
-                || _xcb_request_failed(
+                || request_failed(
                     pm_cookie_0,
-                    c"Could not create pixmap".as_ptr().cast_mut(),
+                    c"Could not create pixmap",
                     2066 as ::core::ffi::c_int,
                 ) != 0
-                || _xcb_request_failed(
+                || request_failed(
                     slpm_cookie_0,
-                    c"Could not create statusline pixmap".as_ptr().cast_mut(),
+                    c"Could not create statusline pixmap",
                     2067 as ::core::ffi::c_int,
                 ) != 0
-                || _xcb_request_failed(
+                || request_failed(
                     strut_cookie_0,
-                    c"Could not set strut".as_ptr().cast_mut(),
+                    c"Could not set strut",
                     2068 as ::core::ffi::c_int,
                 ) != 0
                 || redraw_bars_0 as ::core::ffi::c_int != 0
-                    && (_xcb_request_failed(
-                        umap_cookie,
-                        c"Could not unmap window".as_ptr().cast_mut(),
+                    && (request_failed(
+                        umap_cookie.unwrap(),
+                        c"Could not unmap window",
                         2069 as ::core::ffi::c_int,
                     ) != 0
                         || config.hide_on_modifier == crate::application::BarDisplayMode::Dock
-                            && _xcb_request_failed(
-                                map_cookie_0,
-                                c"Could not map window".as_ptr().cast_mut(),
+                            && request_failed(
+                                map_cookie_0.unwrap(),
+                                c"Could not map window",
                                 2070 as ::core::ffi::c_int,
                             ) != 0)
             {
@@ -2930,7 +2913,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
         send_unchecked(&x::DestroyWindow {
             window: x::Window::new(selwin),
         });
-        selwin = XCB_NONE as xcb_window_t;
+        selwin = XCB_NONE as u32;
     }
 }
 unsafe fn draw_button(
@@ -3213,27 +3196,6 @@ use i3_common::safewrappers::strcasecmp_nullable;
 
 // Canonical Pango backend ABI; font policy remains local.
 
-use xcb_sys::{
-    xcb_atom_t, xcb_aux_find_visual_by_attrs, xcb_aux_get_depth_of_visual, xcb_aux_get_screen,
-    xcb_change_property, xcb_change_window_attributes, xcb_color_strings_t, xcb_colormap_t,
-    xcb_configure_window_checked, xcb_connection_t, xcb_create_colormap_checked,
-    xcb_create_pixmap_checked, xcb_create_window, xcb_create_window_checked, xcb_cursor_t,
-    xcb_drawable_t, xcb_generate_id, xcb_generic_error_t, xcb_keycode_t, xcb_map_window_checked,
-    xcb_pixmap_t, xcb_rectangle_t, xcb_reparent_window, xcb_request_check, xcb_screen_t,
-    xcb_timestamp_t, xcb_unmap_window_checked, xcb_visualtype_t, xcb_void_cookie_t, xcb_window_t,
-    XCB_ATOM_ATOM, XCB_ATOM_CARDINAL, XCB_ATOM_STRING, XCB_ATOM_VISUALID, XCB_ATOM_WM_CLASS,
-    XCB_ATOM_WM_NAME, XCB_BUTTON_SCROLL_DOWN, XCB_BUTTON_SCROLL_LEFT, XCB_BUTTON_SCROLL_RIGHT,
-    XCB_BUTTON_SCROLL_UP, XCB_COLORMAP_ALLOC_NONE, XCB_CONFIG_WINDOW_HEIGHT,
-    XCB_CONFIG_WINDOW_STACK_MODE, XCB_CONFIG_WINDOW_WIDTH, XCB_CONFIG_WINDOW_X,
-    XCB_CONFIG_WINDOW_Y, XCB_CURRENT_TIME, XCB_CW_BACK_PIXEL, XCB_CW_BORDER_PIXEL, XCB_CW_COLORMAP,
-    XCB_CW_CURSOR, XCB_CW_EVENT_MASK, XCB_CW_OVERRIDE_REDIRECT, XCB_EVENT_MASK_BUTTON_PRESS,
-    XCB_EVENT_MASK_BUTTON_RELEASE, XCB_EVENT_MASK_EXPOSURE, XCB_EVENT_MASK_PROPERTY_CHANGE,
-    XCB_EVENT_MASK_RESIZE_REDIRECT, XCB_EVENT_MASK_STRUCTURE_NOTIFY,
-    XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT, XCB_EVENT_MASK_VISIBILITY_CHANGE, XCB_NONE,
-    XCB_PROP_MODE_REPLACE, XCB_SET_MODE_INSERT, XCB_STACK_MODE_ABOVE,
-    XCB_WINDOW_CLASS_INPUT_OUTPUT,
-};
-
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct xcb_colors_t {
@@ -3478,3 +3440,12 @@ mod owned_tests {
         }
     }
 }
+
+use xcb_sys::{
+    xcb_aux_find_visual_by_attrs, xcb_aux_get_depth_of_visual, xcb_aux_get_screen,
+    xcb_color_strings_t, xcb_connection_t, xcb_rectangle_t, xcb_screen_t, xcb_visualtype_t,
+    XCB_ATOM_WM_CLASS, XCB_ATOM_WM_NAME, XCB_BUTTON_SCROLL_DOWN, XCB_BUTTON_SCROLL_LEFT,
+    XCB_BUTTON_SCROLL_RIGHT, XCB_BUTTON_SCROLL_UP, XCB_CURRENT_TIME, XCB_EVENT_MASK_BUTTON_PRESS,
+    XCB_EVENT_MASK_BUTTON_RELEASE, XCB_EVENT_MASK_EXPOSURE, XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT,
+    XCB_EVENT_MASK_VISIBILITY_CHANGE, XCB_NONE, XCB_STACK_MODE_ABOVE,
+};
