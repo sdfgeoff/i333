@@ -10,7 +10,7 @@ use crate::types::Orientation;
 use crate::types::TitleAlign;
 use crate::types::Warping;
 use crate::xcursor::Cursor;
-use ::xcb::{shape, x, Xid, XidNew};
+use ::xcb::{shape, x, Cookie, Xid, XidNew};
 use i3_common::draw_util::draw_util_text;
 use std::ffi::{CStr, CString};
 /*
@@ -48,6 +48,13 @@ fn delete_window_event(window: u32, protocols: u32, delete: u32) -> x::ClientMes
 
 fn connection() -> std::rc::Rc<::xcb::Connection> {
     i3_common::display::connection().expect("active XCB display")
+}
+
+fn set_event_mask(window: u32, mask: u32) {
+    connection().send_request(&x::ChangeWindowAttributes {
+        window: unsafe { x::Window::new(window) },
+        value_list: &[x::Cw::EventMask(x::EventMask::from_bits_retain(mask))],
+    });
 }
 
 // Preserve the native ICCCM parser's signed byte-length arithmetic and the
@@ -313,7 +320,7 @@ fn title_border(rect: Rect) -> [(f64, f64, f64, f64); 4] {
 }
 
 struct FrameState {
-    id: xcb_window_t,
+    id: u32,
     mapped: bool,
     unmap_now: bool,
     child_mapped: bool,
@@ -322,7 +329,7 @@ struct FrameState {
     is_maximized_horz: bool,
     con: *mut Con,
     need_reparent: bool,
-    old_frame: xcb_window_t,
+    old_frame: u32,
     was_floating: bool,
     rect: Rect,
     window_rect: Rect,
@@ -363,8 +370,8 @@ struct StateHead {
     cqh_last: *mut FrameState,
 }
 
-pub static mut focused_id: xcb_window_t = XCB_NONE as xcb_window_t;
-static mut last_focused: xcb_window_t = XCB_NONE as xcb_window_t;
+pub static mut focused_id: u32 = 0 as u32;
+static mut last_focused: u32 = 0 as u32;
 static mut warp_to: *mut Rect = ::core::ptr::null::<Rect>() as *mut Rect;
 
 static mut state_head: StateHead = unsafe {
@@ -389,7 +396,7 @@ static mut initial_mapping_head: InitialMappingHead = InitialMappingHead {
     tqh_first: ::core::ptr::null::<FrameState>() as *mut FrameState,
     tqh_last: unsafe { &raw mut initial_mapping_head.tqh_first },
 };
-unsafe fn state_for_frame(window: xcb_window_t) -> *mut FrameState {
+unsafe fn state_for_frame(window: u32) -> *mut FrameState {
     let mut state: *mut FrameState = ::core::ptr::null_mut::<FrameState>();
     state = state_head.cqh_first as *mut FrameState;
     while state != &raw mut state_head as *mut ::core::ffi::c_void as *mut FrameState {
@@ -410,20 +417,20 @@ unsafe fn state_for_frame(window: xcb_window_t) -> *mut FrameState {
             c"false".as_ptr(),
             c"../src/x.c".as_ptr(),
             99 as u32,
-            c"FrameState *state_for_frame(xcb_window_t)".as_ptr(),
+            c"FrameState *state_for_frame(u32)".as_ptr(),
         );
     };
     ::core::ptr::null_mut::<FrameState>()
 }
-unsafe fn change_ewmh_focus(new_focus: xcb_window_t, old_focus: xcb_window_t) {
+unsafe fn change_ewmh_focus(new_focus: u32, old_focus: u32) {
     if new_focus == old_focus {
         return;
     }
     ewmh_update_active_window(new_focus);
-    if new_focus != XCB_WINDOW_NONE as i32 as xcb_window_t {
+    if new_focus != 0 as i32 as u32 {
         ewmh_update_focused(new_focus, true);
     }
-    if old_focus != XCB_WINDOW_NONE as i32 as xcb_window_t {
+    if old_focus != 0 as i32 as u32 {
         ewmh_update_focused(old_focus, false);
     }
 }
@@ -432,8 +439,8 @@ pub unsafe fn x_con_init(con: *mut Con) {
     let connection = connection();
     let mut mask: u32 = 0 as u32;
     let mut values: [u32; 5] = [0; 5];
-    let visual: xcb_visualid_t = get_visualid_by_depth((*con).depth);
-    let mut win_colormap: xcb_colormap_t = 0;
+    let visual: u32 = get_visualid_by_depth((*con).depth);
+    let mut win_colormap: u32 = 0;
     if (*con).depth as i32 != root_depth as i32 {
         let id = connection.generate_id::<x::Colormap>();
         win_colormap = id.resource_id();
@@ -446,25 +453,25 @@ pub unsafe fn x_con_init(con: *mut Con) {
         (*con).colormap = win_colormap;
     } else {
         win_colormap = colormap;
-        (*con).colormap = XCB_NONE as xcb_colormap_t;
+        (*con).colormap = 0 as u32;
     }
-    mask |= XCB_CW_BACK_PIXEL as i32 as u32;
+    mask |= x::CwMask::BACK_PIXEL.bits() as i32 as u32;
     values[0] = (*root_screen).black_pixel;
-    mask |= XCB_CW_BORDER_PIXEL as i32 as u32;
+    mask |= x::CwMask::BORDER_PIXEL.bits() as i32 as u32;
     values[1] = (*root_screen).black_pixel;
-    mask |= XCB_CW_OVERRIDE_REDIRECT as i32 as u32;
+    mask |= x::CwMask::OVERRIDE_REDIRECT.bits() as i32 as u32;
     values[2] = 1 as u32;
-    mask |= XCB_CW_EVENT_MASK as i32 as u32;
-    values[3] = ((XCB_EVENT_MASK_BUTTON_PRESS as i32
-        | XCB_EVENT_MASK_BUTTON_RELEASE as i32
-        | XCB_EVENT_MASK_POINTER_MOTION as i32
-        | XCB_EVENT_MASK_EXPOSURE as i32
-        | XCB_EVENT_MASK_STRUCTURE_NOTIFY as i32
-        | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT as i32
-        | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY as i32
-        | XCB_EVENT_MASK_ENTER_WINDOW as i32)
-        & !(XCB_EVENT_MASK_ENTER_WINDOW as i32)) as u32;
-    mask |= XCB_CW_COLORMAP as i32 as u32;
+    mask |= x::CwMask::EVENT_MASK.bits() as i32 as u32;
+    values[3] = ((x::EventMask::BUTTON_PRESS.bits() as i32
+        | x::EventMask::BUTTON_RELEASE.bits() as i32
+        | x::EventMask::POINTER_MOTION.bits() as i32
+        | x::EventMask::EXPOSURE.bits() as i32
+        | x::EventMask::STRUCTURE_NOTIFY.bits() as i32
+        | x::EventMask::SUBSTRUCTURE_REDIRECT.bits() as i32
+        | x::EventMask::SUBSTRUCTURE_NOTIFY.bits() as i32
+        | x::EventMask::ENTER_WINDOW.bits() as i32)
+        & !(x::EventMask::ENTER_WINDOW.bits() as i32)) as u32;
+    mask |= x::CwMask::COLORMAP.bits() as i32 as u32;
     values[4] = win_colormap as u32;
     let dims: Rect = Rect {
         x: (-15i32) as u32,
@@ -472,12 +479,12 @@ pub unsafe fn x_con_init(con: *mut Con) {
         width: 10 as u32,
         height: 10 as u32,
     };
-    let frame_id: xcb_window_t = create_window(
+    let frame_id: u32 = create_window(
         conn,
         dims,
         (*con).depth,
         visual,
-        XCB_WINDOW_CLASS_INPUT_OUTPUT as i32 as u16,
+        x::WindowClass::InputOutput as i32 as u16,
         Cursor::Pointer,
         false,
         mask,
@@ -486,7 +493,7 @@ pub unsafe fn x_con_init(con: *mut Con) {
     draw_util_surface_init(
         conn,
         &raw mut (*con).frame,
-        frame_id as xcb_drawable_t,
+        frame_id as u32,
         get_visualtype_by_id(visual),
         dims.width as i32,
         dims.height as i32,
@@ -582,7 +589,7 @@ pub unsafe fn x_con_init(con: *mut Con) {
 
 pub unsafe fn x_reinit(con: *mut Con) {
     let mut state: *mut FrameState = ::core::ptr::null_mut::<FrameState>();
-    state = state_for_frame((*con).frame.id as xcb_window_t);
+    state = state_for_frame((*con).frame.id as u32);
     if state.is_null() {
         errorlog(c"ERROR: window state not found\n".as_ptr().cast_mut());
         return;
@@ -609,7 +616,7 @@ pub unsafe fn x_reinit(con: *mut Con) {
 
 pub unsafe fn x_reparent_child(con: *mut Con, old: *mut Con) {
     let mut state: *mut FrameState = ::core::ptr::null_mut::<FrameState>();
-    state = state_for_frame((*con).frame.id as xcb_window_t);
+    state = state_for_frame((*con).frame.id as u32);
     if state.is_null() {
         errorlog(
             c"ERROR: window state for con not found\n"
@@ -619,13 +626,13 @@ pub unsafe fn x_reparent_child(con: *mut Con, old: *mut Con) {
         return;
     }
     (*state).need_reparent = true;
-    (*state).old_frame = (*old).frame.id as xcb_window_t;
+    (*state).old_frame = (*old).frame.id as u32;
 }
 
 pub unsafe fn x_move_win(src: *mut Con, dest: *mut Con) {
     let mut state_src: *mut FrameState = ::core::ptr::null_mut::<FrameState>();
     let mut state_dest: *mut FrameState = ::core::ptr::null_mut::<FrameState>();
-    state_src = state_for_frame((*src).frame.id as xcb_window_t);
+    state_src = state_for_frame((*src).frame.id as u32);
     if state_src.is_null() {
         errorlog(
             c"ERROR: window state for src not found\n"
@@ -634,7 +641,7 @@ pub unsafe fn x_move_win(src: *mut Con, dest: *mut Con) {
         );
         return;
     }
-    state_dest = state_for_frame((*dest).frame.id as xcb_window_t);
+    state_dest = state_for_frame((*dest).frame.id as u32);
     if state_dest.is_null() {
         errorlog(
             c"ERROR: window state for dest not found\n"
@@ -665,7 +672,7 @@ pub unsafe fn x_move_win(src: *mut Con, dest: *mut Con) {
 }
 unsafe fn _x_con_kill(con: *mut Con) {
     let connection = connection();
-    if (*con).colormap as ::core::ffi::c_long != XCB_NONE {
+    if (*con).colormap as ::core::ffi::c_long != 0 {
         connection.send_request(&x::FreeColormap {
             cmap: x::Colormap::new((*con).colormap),
         });
@@ -675,8 +682,8 @@ unsafe fn _x_con_kill(con: *mut Con) {
     connection.send_request(&x::FreePixmap {
         pixmap: x::Pixmap::new((*con).frame_buffer.id),
     });
-    (*con).frame_buffer.id = XCB_NONE as xcb_drawable_t;
-    let state: *mut FrameState = state_for_frame((*con).frame.id as xcb_window_t);
+    (*con).frame_buffer.id = 0 as u32;
+    let state: *mut FrameState = state_for_frame((*con).frame.id as u32);
     if (*state).state.cqe_next == &raw mut state_head as *mut ::core::ffi::c_void as *mut FrameState
     {
         state_head.cqh_last = (*state).state.cqe_prev;
@@ -714,10 +721,10 @@ unsafe fn _x_con_kill(con: *mut Con) {
     // All three intrusive memberships are gone before destroying owned fields.
     drop(Box::from_raw(state));
     if (*con).frame.id == focused_id {
-        focused_id = XCB_NONE as xcb_window_t;
+        focused_id = 0 as u32;
     }
     if (*con).frame.id == last_focused {
-        last_focused = XCB_NONE as xcb_window_t;
+        last_focused = 0 as u32;
     }
 }
 
@@ -733,7 +740,7 @@ pub unsafe fn x_con_reframe(con: *mut Con) {
     x_con_init(con);
 }
 
-pub unsafe fn window_supports_protocol(window: xcb_window_t, atom: xcb_atom_t) -> bool {
+pub unsafe fn window_supports_protocol(window: u32, atom: u32) -> bool {
     let connection = connection();
     let cookie = connection.send_request(&x::GetProperty {
         delete: false,
@@ -763,7 +770,7 @@ pub unsafe fn window_supports_protocol(window: xcb_window_t, atom: xcb_atom_t) -
         .any(|word| u32::from_ne_bytes(word.try_into().unwrap()) == atom)
 }
 
-pub unsafe fn x_window_kill(window: xcb_window_t, kill_window: KillWindow) {
+pub unsafe fn x_window_kill(window: u32, kill_window: KillWindow) {
     let connection = connection();
     if !window_supports_protocol(window, A_WM_DELETE_WINDOW) {
         if kill_window == KillWindow::Window {
@@ -870,7 +877,7 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
     if (*con).rect.height == 0 as u32 {
         return;
     }
-    if leaf && (*con).frame_buffer.id as ::core::ffi::c_long == XCB_NONE {
+    if leaf && (*con).frame_buffer.id as ::core::ffi::c_long == 0 {
         return;
     }
     let color = if (*con).urgent {
@@ -1051,7 +1058,7 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
             (*dest_surface).height,
             (*dest_surface).id,
         );
-        if !((*dest_surface).id as ::core::ffi::c_long == XCB_NONE) {
+        if !((*dest_surface).id as ::core::ffi::c_long == 0) {
             if con == nodes::first_ptr(parent_ptr(con)) {
                 free((*parent_ptr(con)).deco_render_params as *mut ::core::ffi::c_void);
                 (*parent_ptr(con)).deco_render_params =
@@ -1194,7 +1201,7 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
 pub unsafe fn x_deco_recurse(con: *mut Con) {
     let leaf: bool = nodes::first_ptr(con).is_null()
         && floating::is_empty(identity(con).expect("live floating parent"));
-    let state: *const FrameState = state_for_frame((*con).frame.id as xcb_window_t);
+    let state: *const FrameState = state_for_frame((*con).frame.id as u32);
     if !leaf {
         let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
         current = nodes::first_ptr(con);
@@ -1232,7 +1239,7 @@ unsafe fn set_hidden_state(con: *mut Con) {
     if (*con).window.is_null() {
         return;
     }
-    let state: *mut FrameState = state_for_frame((*con).frame.id as xcb_window_t);
+    let state: *mut FrameState = state_for_frame((*con).frame.id as u32);
     let should_be_hidden: bool = con_is_hidden(con);
     if should_be_hidden == (*state).is_hidden {
         return;
@@ -1276,7 +1283,7 @@ unsafe fn set_maximized_state(con: *mut Con) {
     if (*con).window.is_null() {
         return;
     }
-    let state: *mut FrameState = state_for_frame((*con).frame.id as xcb_window_t);
+    let state: *mut FrameState = state_for_frame((*con).frame.id as u32);
     let con_maximized_horz: bool = con_is_maximized(con, Orientation::Horizontal);
     if con_maximized_horz != (*state).is_maximized_horz {
         debuglog(
@@ -1402,7 +1409,7 @@ unsafe fn set_shape_state(con: *mut Con, need_reshape: bool) {
         return;
     }
     let mut state: *mut FrameState = ::core::ptr::null_mut::<FrameState>();
-    state = state_for_frame((*con).frame.id as xcb_window_t);
+    state = state_for_frame((*con).frame.id as u32);
     if state.is_null() {
         errorlog(
             c"ERROR: window state for con %p not found\n"
@@ -1433,23 +1440,20 @@ unsafe fn set_shape_state(con: *mut Con, need_reshape: bool) {
 pub unsafe fn x_push_node(con: *mut Con) {
     let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut rect: Rect = (*con).rect as Rect;
-    let state: *mut FrameState = state_for_frame((*con).frame.id as xcb_window_t);
+    let state: *mut FrameState = state_for_frame((*con).frame.id as u32);
     if let Some(name) = (*state).name.take() {
         debuglog(
             c"pushing name %s for con %p\n".as_ptr().cast_mut(),
             name.as_ptr(),
             con,
         );
-        xcb_change_property(
-            conn,
-            XCB_PROP_MODE_REPLACE as u8,
-            (*con).frame.id,
-            XCB_ATOM_WM_NAME as u32,
-            XCB_ATOM_STRING as u32,
-            8,
-            name.as_bytes().len() as u32,
-            name.as_ptr().cast(),
-        );
+        connection().send_request(&x::ChangeProperty {
+            mode: x::PropMode::Replace,
+            window: x::Window::new((*con).frame.id),
+            property: x::ATOM_WM_NAME,
+            r#type: x::ATOM_STRING,
+            data: name.as_bytes(),
+        });
     }
     if (*con).window.is_null()
         && ((*con).layout == Layout::Stacked || (*con).layout == Layout::Tabbed)
@@ -1480,50 +1484,29 @@ pub unsafe fn x_push_node(con: *mut Con) {
             c"x_push_node".as_ptr(),
             978,
         );
-        let mut values: [u32; 1] = [XCB_NONE as u32];
-        xcb_change_window_attributes(
-            conn,
-            (*state).old_frame,
-            XCB_CW_EVENT_MASK as i32 as u32,
-            &raw mut values as *mut u32 as *const ::core::ffi::c_void,
-        );
-        xcb_change_window_attributes(
-            conn,
-            (*(*con).window).id,
-            XCB_CW_EVENT_MASK as i32 as u32,
-            &raw mut values as *mut u32 as *const ::core::ffi::c_void,
-        );
-        xcb_reparent_window(
-            conn,
-            (*(*con).window).id,
-            (*con).frame.id as xcb_window_t,
-            0 as i16,
-            0 as i16,
-        );
-        values[0] = (XCB_EVENT_MASK_BUTTON_PRESS as i32
-            | XCB_EVENT_MASK_BUTTON_RELEASE as i32
-            | XCB_EVENT_MASK_POINTER_MOTION as i32
-            | XCB_EVENT_MASK_EXPOSURE as i32
-            | XCB_EVENT_MASK_STRUCTURE_NOTIFY as i32
-            | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT as i32
-            | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY as i32
-            | XCB_EVENT_MASK_ENTER_WINDOW as i32) as u32;
-        xcb_change_window_attributes(
-            conn,
-            (*state).old_frame,
-            XCB_CW_EVENT_MASK as i32 as u32,
-            &raw mut values as *mut u32 as *const ::core::ffi::c_void,
-        );
-        values[0] = (XCB_EVENT_MASK_PROPERTY_CHANGE as i32
-            | XCB_EVENT_MASK_STRUCTURE_NOTIFY as i32
-            | XCB_EVENT_MASK_FOCUS_CHANGE as i32) as u32;
-        xcb_change_window_attributes(
-            conn,
-            (*(*con).window).id,
-            XCB_CW_EVENT_MASK as i32 as u32,
-            &raw mut values as *mut u32 as *const ::core::ffi::c_void,
-        );
-        (*state).old_frame = XCB_NONE as xcb_window_t;
+        let mut values: u32 = 0 as u32;
+        set_event_mask((*state).old_frame, values);
+        set_event_mask((*(*con).window).id, values);
+        connection().send_request(&x::ReparentWindow {
+            window: x::Window::new((*(*con).window).id),
+            parent: x::Window::new((*con).frame.id as u32),
+            x: 0 as i16,
+            y: 0 as i16,
+        });
+        values = (x::EventMask::BUTTON_PRESS.bits() as i32
+            | x::EventMask::BUTTON_RELEASE.bits() as i32
+            | x::EventMask::POINTER_MOTION.bits() as i32
+            | x::EventMask::EXPOSURE.bits() as i32
+            | x::EventMask::STRUCTURE_NOTIFY.bits() as i32
+            | x::EventMask::SUBSTRUCTURE_REDIRECT.bits() as i32
+            | x::EventMask::SUBSTRUCTURE_NOTIFY.bits() as i32
+            | x::EventMask::ENTER_WINDOW.bits() as i32) as u32;
+        set_event_mask((*state).old_frame, values);
+        values = (x::EventMask::PROPERTY_CHANGE.bits() as i32
+            | x::EventMask::STRUCTURE_NOTIFY.bits() as i32
+            | x::EventMask::FOCUS_CHANGE.bits() as i32) as u32;
+        set_event_mask((*(*con).window).id, values);
+        (*state).old_frame = 0 as u32;
         (*state).need_reparent = false;
         (*con).ignore_unmap = (*con).ignore_unmap.wrapping_add(1);
         debuglog(
@@ -1571,25 +1554,25 @@ pub unsafe fn x_push_node(con: *mut Con) {
         (*con).rect.height,
     );
     let mut fake_notify: bool = false;
-    if is_pixmap_needed && (*con).frame_buffer.id as ::core::ffi::c_long == XCB_NONE
+    if is_pixmap_needed && (*con).frame_buffer.id as ::core::ffi::c_long == 0
         || !rect_equals((*state).rect, rect) && rect.height > 0 as u32
     {
         let has_rect_changed: bool = (*state).rect.x != rect.x
             || (*state).rect.y != rect.y
             || (*state).rect.width != rect.width
             || (*state).rect.height != rect.height;
-        if !is_pixmap_needed && (*con).frame_buffer.id as ::core::ffi::c_long != XCB_NONE {
+        if !is_pixmap_needed && (*con).frame_buffer.id as ::core::ffi::c_long != 0 {
             draw_util_surface_free(conn, &raw mut (*con).frame_buffer);
             connection().send_request(&x::FreePixmap {
                 pixmap: x::Pixmap::new((*con).frame_buffer.id),
             });
-            (*con).frame_buffer.id = XCB_NONE as xcb_drawable_t;
+            (*con).frame_buffer.id = 0 as u32;
         }
         if is_pixmap_needed
-            && (has_rect_changed || (*con).frame_buffer.id as ::core::ffi::c_long == XCB_NONE)
+            && (has_rect_changed || (*con).frame_buffer.id as ::core::ffi::c_long == 0)
         {
-            if (*con).frame_buffer.id as ::core::ffi::c_long == XCB_NONE {
-                (*con).frame_buffer.id = xcb_generate_id(conn) as xcb_drawable_t;
+            if (*con).frame_buffer.id as ::core::ffi::c_long == 0 {
+                (*con).frame_buffer.id = connection().generate_id::<x::Pixmap>().resource_id();
             } else {
                 draw_util_surface_free(conn, &raw mut (*con).frame_buffer);
                 connection().send_request(&x::FreePixmap {
@@ -1612,14 +1595,13 @@ pub unsafe fn x_push_node(con: *mut Con) {
                 (*con).frame_buffer.id,
                 (*con).frame.id,
             );
-            xcb_create_pixmap(
-                conn,
-                win_depth as u8,
-                (*con).frame_buffer.id as xcb_pixmap_t,
-                (*con).frame.id,
-                width as u16,
-                height as u16,
-            );
+            connection().send_request(&x::CreatePixmap {
+                depth: win_depth as u8,
+                pid: x::Pixmap::new((*con).frame_buffer.id as u32),
+                drawable: x::Drawable::Window(x::Window::new((*con).frame.id)),
+                width: width as u16,
+                height: height as u16,
+            });
             draw_util_surface_init(
                 conn,
                 &raw mut (*con).frame_buffer,
@@ -1638,13 +1620,10 @@ pub unsafe fn x_push_node(con: *mut Con) {
                     colorpixel: 0,
                 },
             );
-            let mut fresh4: [u32; 1] = [0 as u32];
-            xcb_change_gc(
-                conn,
-                (*con).frame_buffer.gc,
-                XCB_GC_GRAPHICS_EXPOSURES as i32 as u32,
-                &raw mut fresh4 as *mut u32 as *const ::core::ffi::c_void,
-            );
+            connection().send_request(&x::ChangeGc {
+                gc: x::Gcontext::new((*con).frame_buffer.gc),
+                value_list: &[x::Gc::GraphicsExposures(false)],
+            });
             draw_util_surface_set_size(&raw mut (*con).frame, width, height);
             (*con).pixmap_recreated = true;
             if parent_ptr(con).is_null()
@@ -1666,9 +1645,11 @@ pub unsafe fn x_push_node(con: *mut Con) {
             rect.width,
             rect.height,
         );
-        xcb_flush(conn);
-        xcb_set_window_rect(conn, (*con).frame.id as xcb_window_t, rect);
-        if (*con).frame_buffer.id as ::core::ffi::c_long != XCB_NONE {
+        {
+            let _ = connection().flush();
+        };
+        xcb_set_window_rect(conn, (*con).frame.id as u32, rect);
+        if (*con).frame_buffer.id as ::core::ffi::c_long != 0 {
             draw_util_copy_surface(
                 &raw mut (*con).frame_buffer,
                 &raw mut (*con).frame,
@@ -1680,7 +1661,9 @@ pub unsafe fn x_push_node(con: *mut Con) {
                 (*con).rect.height as f64,
             );
         }
-        xcb_flush(conn);
+        {
+            let _ = connection().flush();
+        };
         (*state).rect = rect;
         fake_notify = true;
     }
@@ -1705,49 +1688,38 @@ pub unsafe fn x_push_node(con: *mut Con) {
     if !con.is_null() && !(*con).window.is_null() {
         let bsr: Rect = con_border_style_rect(con);
         let extents = frame_extents(bsr);
-        xcb_change_property(
-            conn,
-            XCB_PROP_MODE_REPLACE as i32 as u8,
-            (*(*con).window).id,
-            A__NET_FRAME_EXTENTS,
-            x::ATOM_CARDINAL.resource_id(),
-            32 as u8,
-            4 as u32,
-            extents.as_ptr().cast(),
-        );
+        connection().send_request(&x::ChangeProperty {
+            mode: x::PropMode::Replace,
+            window: x::Window::new((*(*con).window).id),
+            property: x::Atom::new(A__NET_FRAME_EXTENTS),
+            r#type: x::ATOM_CARDINAL,
+            data: &extents,
+        });
     }
     if ((*state).mapped != (*con).mapped || !(*con).window.is_null() && !(*state).child_mapped)
         && (*con).mapped
     {
-        let mut cookie: xcb_void_cookie_t = xcb_void_cookie_t { sequence: 0 };
         if !(*con).window.is_null() {
-            let mut data: [::core::ffi::c_long; 2] = [
-                XCB_ICCCM_WM_STATE_NORMAL as i32 as ::core::ffi::c_long,
-                XCB_NONE,
-            ];
-            xcb_change_property(
-                conn,
-                XCB_PROP_MODE_REPLACE as i32 as u8,
-                (*(*con).window).id,
-                A_WM_STATE,
-                A_WM_STATE,
-                32 as u8,
-                2 as u32,
-                &raw mut data as *mut ::core::ffi::c_long as *const ::core::ffi::c_void,
-            );
+            // The original format-32 write used two native longs; its first
+            // eight bytes encode Normal and None on the supported LP64 target.
+            let data = [1u32, 0];
+            connection().send_request(&x::ChangeProperty {
+                mode: x::PropMode::Replace,
+                window: x::Window::new((*(*con).window).id),
+                property: x::Atom::new(A_WM_STATE),
+                r#type: x::Atom::new(A_WM_STATE),
+                data: &data,
+            });
         }
-        let mut values_0: [u32; 1] = [0; 1];
+        let mut values_0: u32 = 0;
         if !(*state).child_mapped && !(*con).window.is_null() {
-            cookie = xcb_map_window(conn, (*(*con).window).id);
-            values_0[0] = (XCB_EVENT_MASK_PROPERTY_CHANGE as i32
-                | XCB_EVENT_MASK_STRUCTURE_NOTIFY as i32
-                | XCB_EVENT_MASK_FOCUS_CHANGE as i32) as u32;
-            xcb_change_window_attributes(
-                conn,
-                (*(*con).window).id,
-                XCB_CW_EVENT_MASK as i32 as u32,
-                &raw mut values_0 as *mut u32 as *const ::core::ffi::c_void,
-            );
+            let cookie = connection().send_request(&x::MapWindow {
+                window: x::Window::new((*(*con).window).id),
+            });
+            values_0 = (x::EventMask::PROPERTY_CHANGE.bits() as i32
+                | x::EventMask::STRUCTURE_NOTIFY.bits() as i32
+                | x::EventMask::FOCUS_CHANGE.bits() as i32) as u32;
+            set_event_mask((*(*con).window).id, values_0);
             debuglog(
                 c"%s:%s:%d - mapping child window (serial %d)\n"
                     .as_ptr()
@@ -1755,26 +1727,23 @@ pub unsafe fn x_push_node(con: *mut Con) {
                 c"../src/x.c".as_ptr(),
                 c"x_push_node".as_ptr(),
                 1166,
-                cookie.sequence,
+                cookie.sequence() as u32,
             );
             (*state).child_mapped = true;
         }
-        cookie = xcb_map_window(conn, (*con).frame.id as xcb_window_t);
-        values_0[0] = (XCB_EVENT_MASK_BUTTON_PRESS as i32
-            | XCB_EVENT_MASK_BUTTON_RELEASE as i32
-            | XCB_EVENT_MASK_POINTER_MOTION as i32
-            | XCB_EVENT_MASK_EXPOSURE as i32
-            | XCB_EVENT_MASK_STRUCTURE_NOTIFY as i32
-            | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT as i32
-            | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY as i32
-            | XCB_EVENT_MASK_ENTER_WINDOW as i32) as u32;
-        xcb_change_window_attributes(
-            conn,
-            (*con).frame.id as xcb_window_t,
-            XCB_CW_EVENT_MASK as i32 as u32,
-            &raw mut values_0 as *mut u32 as *const ::core::ffi::c_void,
-        );
-        if (*con).frame_buffer.id as ::core::ffi::c_long != XCB_NONE {
+        let cookie = connection().send_request(&x::MapWindow {
+            window: x::Window::new((*con).frame.id),
+        });
+        values_0 = (x::EventMask::BUTTON_PRESS.bits() as i32
+            | x::EventMask::BUTTON_RELEASE.bits() as i32
+            | x::EventMask::POINTER_MOTION.bits() as i32
+            | x::EventMask::EXPOSURE.bits() as i32
+            | x::EventMask::STRUCTURE_NOTIFY.bits() as i32
+            | x::EventMask::SUBSTRUCTURE_REDIRECT.bits() as i32
+            | x::EventMask::SUBSTRUCTURE_NOTIFY.bits() as i32
+            | x::EventMask::ENTER_WINDOW.bits() as i32) as u32;
+        set_event_mask((*con).frame.id as u32, values_0);
+        if (*con).frame_buffer.id as ::core::ffi::c_long != 0 {
             draw_util_copy_surface(
                 &raw mut (*con).frame_buffer,
                 &raw mut (*con).frame,
@@ -1786,7 +1755,9 @@ pub unsafe fn x_push_node(con: *mut Con) {
                 (*con).rect.height as f64,
             );
         }
-        xcb_flush(conn);
+        {
+            let _ = connection().flush();
+        };
         debuglog(
             c"%s:%s:%d - mapping container %08x (serial %d)\n"
                 .as_ptr()
@@ -1795,7 +1766,7 @@ pub unsafe fn x_push_node(con: *mut Con) {
             c"x_push_node".as_ptr(),
             1181,
             (*con).frame.id,
-            cookie.sequence,
+            cookie.sequence() as u32,
         );
         (*state).mapped = (*con).mapped;
     }
@@ -1822,26 +1793,21 @@ pub unsafe fn x_push_node(con: *mut Con) {
 }
 unsafe fn x_push_node_unmaps(con: *mut Con) {
     let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
-    let state: *mut FrameState = state_for_frame((*con).frame.id as xcb_window_t);
+    let state: *mut FrameState = state_for_frame((*con).frame.id as u32);
     if (*state).unmap_now {
         if !(*con).window.is_null() {
-            let mut data: [::core::ffi::c_long; 2] = [
-                XCB_ICCCM_WM_STATE_WITHDRAWN as i32 as ::core::ffi::c_long,
-                XCB_NONE,
-            ];
-            xcb_change_property(
-                conn,
-                XCB_PROP_MODE_REPLACE as i32 as u8,
-                (*(*con).window).id,
-                A_WM_STATE,
-                A_WM_STATE,
-                32 as u8,
-                2 as u32,
-                &raw mut data as *mut ::core::ffi::c_long as *const ::core::ffi::c_void,
-            );
+            let data = [0u32, 0];
+            connection().send_request(&x::ChangeProperty {
+                mode: x::PropMode::Replace,
+                window: x::Window::new((*(*con).window).id),
+                property: x::Atom::new(A_WM_STATE),
+                r#type: x::Atom::new(A_WM_STATE),
+                data: &data,
+            });
         }
-        let cookie: xcb_void_cookie_t =
-            xcb_unmap_window(conn, (*con).frame.id as xcb_window_t) as xcb_void_cookie_t;
+        let cookie = connection().send_request(&x::UnmapWindow {
+            window: x::Window::new((*con).frame.id),
+        });
         debuglog(
             c"%s:%s:%d - unmapping container %p / %s (serial %d)\n"
                 .as_ptr()
@@ -1851,7 +1817,7 @@ unsafe fn x_push_node_unmaps(con: *mut Con) {
             1229,
             con,
             (*con).name,
-            cookie.sequence,
+            cookie.sequence() as u32,
         );
         if !(*con).window.is_null() {
             (*con).ignore_unmap = (*con).ignore_unmap.wrapping_add(1);
@@ -1898,9 +1864,11 @@ unsafe fn is_con_attached(con: *mut Con) -> bool {
 
 pub unsafe fn x_push_changes(con: *mut Con) {
     let mut state: *mut FrameState = ::core::ptr::null_mut::<FrameState>();
-    let mut pointercookie: xcb_query_pointer_cookie_t = xcb_query_pointer_cookie_t { sequence: 0 };
+    let mut pointer_cookie = None;
     if !warp_to.is_null() {
-        pointercookie = xcb_query_pointer(conn, root);
+        pointer_cookie = Some(connection().send_request(&x::QueryPointer {
+            window: x::Window::new(root),
+        }));
     }
     debuglog(
         c"%s:%s:%d - -- PUSHING WINDOW STACK --\n"
@@ -1910,16 +1878,11 @@ pub unsafe fn x_push_changes(con: *mut Con) {
         c"x_push_changes".as_ptr(),
         1290,
     );
-    let mut values: [u32; 1] = [XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT as i32 as u32];
+    let mut values: u32 = x::EventMask::SUBSTRUCTURE_REDIRECT.bits() as i32 as u32;
     state = state_head.cqh_last as *mut FrameState;
     while state != &raw mut state_head as *mut ::core::ffi::c_void as *mut FrameState {
         if (*state).mapped {
-            xcb_change_window_attributes(
-                conn,
-                (*state).id,
-                XCB_CW_EVENT_MASK as i32 as u32,
-                &raw mut values as *mut u32 as *const ::core::ffi::c_void,
-            );
+            set_event_mask((*state).id, values);
         }
         state = (*state).state.cqe_prev as *mut FrameState;
     }
@@ -1948,16 +1911,13 @@ pub unsafe fn x_push_changes(con: *mut Con) {
             && prev != &raw mut state_head as *mut ::core::ffi::c_void as *mut FrameState
         {
             stacking_changed = true;
-            let mut mask: u32 = 0 as u32;
-            mask |= XCB_CONFIG_WINDOW_SIBLING as i32 as u32;
-            mask |= XCB_CONFIG_WINDOW_STACK_MODE as i32 as u32;
-            let mut values_0: [u32; 2] = [(*state).id, XCB_STACK_MODE_ABOVE as i32 as u32];
-            xcb_configure_window(
-                conn,
-                (*prev).id,
-                mask as u16,
-                &raw mut values_0 as *mut u32 as *const ::core::ffi::c_void,
-            );
+            connection().send_request(&x::ConfigureWindow {
+                window: x::Window::new((*prev).id),
+                value_list: &[
+                    x::ConfigWindow::Sibling(x::Window::new((*state).id)),
+                    x::ConfigWindow::StackMode(x::StackMode::Above),
+                ],
+            });
         }
         (*state).initial = false;
         state = (*state).state.cqe_prev as *mut FrameState;
@@ -1997,82 +1957,64 @@ pub unsafe fn x_push_changes(con: *mut Con) {
     );
     x_push_node(con);
     if !warp_to.is_null() {
-        let pointer_reply = NativeReply(xcb_query_pointer_reply(
-            conn,
-            pointercookie,
-            ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-        ));
-        let pointerreply = pointer_reply.0;
-        if pointerreply.is_null() {
+        let pointer_reply = pointer_cookie
+            .take()
+            .and_then(|cookie| connection().wait_for_reply(cookie).ok());
+        if let Some(pointer_reply) = pointer_reply {
+            let (mid_x, mid_y) = warp_midpoint(*warp_to);
+            let current: *mut Output =
+                get_output_containing(pointer_reply.root_x() as u32, pointer_reply.root_y() as u32);
+            let target: *mut Output = get_output_containing(mid_x as u32, mid_y as u32);
+            if current != target {
+                let temporary_root_mask: u32 =
+                    x::EventMask::SUBSTRUCTURE_REDIRECT.bits() as i32 as u32;
+                set_event_mask(root, temporary_root_mask);
+                connection().send_request(&x::WarpPointer {
+                    src_window: x::Window::new(0),
+                    dst_window: x::Window::new(root),
+                    src_x: 0,
+                    src_y: 0,
+                    src_width: 0,
+                    src_height: 0,
+                    dst_x: mid_x as i16,
+                    dst_y: mid_y as i16,
+                });
+                let root_mask: u32 = (x::EventMask::SUBSTRUCTURE_REDIRECT.bits() as i32
+                    | x::EventMask::BUTTON_PRESS.bits() as i32
+                    | x::EventMask::STRUCTURE_NOTIFY.bits() as i32
+                    | x::EventMask::POINTER_MOTION.bits() as i32
+                    | x::EventMask::PROPERTY_CHANGE.bits() as i32
+                    | x::EventMask::FOCUS_CHANGE.bits() as i32
+                    | x::EventMask::ENTER_WINDOW.bits() as i32)
+                    as u32;
+                set_event_mask(root, root_mask);
+            }
+        } else {
             errorlog(
                 c"ERROR: Could not query pointer position, not warping pointer\n"
                     .as_ptr()
                     .cast_mut(),
             );
-        } else {
-            let (mid_x, mid_y) = warp_midpoint(*warp_to);
-            let current: *mut Output =
-                get_output_containing((*pointerreply).root_x as u32, (*pointerreply).root_y as u32);
-            let target: *mut Output = get_output_containing(mid_x as u32, mid_y as u32);
-            if current != target {
-                let mut fresh7: [u32; 1] = [XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT as i32 as u32];
-                xcb_change_window_attributes(
-                    conn,
-                    root,
-                    XCB_CW_EVENT_MASK as i32 as u32,
-                    &raw mut fresh7 as *mut u32 as *const ::core::ffi::c_void,
-                );
-                xcb_warp_pointer(
-                    conn,
-                    XCB_NONE as xcb_window_t,
-                    root,
-                    0 as i16,
-                    0 as i16,
-                    0 as u16,
-                    0 as u16,
-                    mid_x as i16,
-                    mid_y as i16,
-                );
-                let mut fresh8: [u32; 1] = [(XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT as i32
-                    | XCB_EVENT_MASK_BUTTON_PRESS as i32
-                    | XCB_EVENT_MASK_STRUCTURE_NOTIFY as i32
-                    | XCB_EVENT_MASK_POINTER_MOTION as i32
-                    | XCB_EVENT_MASK_PROPERTY_CHANGE as i32
-                    | XCB_EVENT_MASK_FOCUS_CHANGE as i32
-                    | XCB_EVENT_MASK_ENTER_WINDOW as i32)
-                    as u32];
-                xcb_change_window_attributes(
-                    conn,
-                    root,
-                    XCB_CW_EVENT_MASK as i32 as u32,
-                    &raw mut fresh8 as *mut u32 as *const ::core::ffi::c_void,
-                );
-            }
         }
         warp_to = ::core::ptr::null_mut::<Rect>();
     }
-    values[0] = (XCB_EVENT_MASK_BUTTON_PRESS as i32
-        | XCB_EVENT_MASK_BUTTON_RELEASE as i32
-        | XCB_EVENT_MASK_POINTER_MOTION as i32
-        | XCB_EVENT_MASK_EXPOSURE as i32
-        | XCB_EVENT_MASK_STRUCTURE_NOTIFY as i32
-        | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT as i32
-        | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY as i32
-        | XCB_EVENT_MASK_ENTER_WINDOW as i32) as u32;
+    values = (x::EventMask::BUTTON_PRESS.bits() as i32
+        | x::EventMask::BUTTON_RELEASE.bits() as i32
+        | x::EventMask::POINTER_MOTION.bits() as i32
+        | x::EventMask::EXPOSURE.bits() as i32
+        | x::EventMask::STRUCTURE_NOTIFY.bits() as i32
+        | x::EventMask::SUBSTRUCTURE_REDIRECT.bits() as i32
+        | x::EventMask::SUBSTRUCTURE_NOTIFY.bits() as i32
+        | x::EventMask::ENTER_WINDOW.bits() as i32) as u32;
     state = state_head.cqh_last as *mut FrameState;
     while state != &raw mut state_head as *mut ::core::ffi::c_void as *mut FrameState {
         if (*state).mapped {
-            xcb_change_window_attributes(
-                conn,
-                (*state).id,
-                XCB_CW_EVENT_MASK as i32 as u32,
-                &raw mut values as *mut u32 as *const ::core::ffi::c_void,
-            );
+            set_event_mask((*state).id, values);
         }
         state = (*state).state.cqe_prev as *mut FrameState;
     }
     x_deco_recurse(con);
-    let mut to_focus: xcb_window_t = (*focused).frame.id as xcb_window_t;
+    let mut to_focus: u32 = (*focused).frame.id as u32;
     if !(*focused).window.is_null() {
         to_focus = (*(*focused).window).id;
     }
@@ -2093,7 +2035,7 @@ pub unsafe fn x_push_changes(con: *mut Con) {
                 focused,
                 (*focused).name,
             );
-            focused_id = XCB_NONE as xcb_window_t;
+            focused_id = 0 as u32;
         } else {
             if action == FocusAction::TakeFocus {
                 debuglog(
@@ -2110,7 +2052,7 @@ pub unsafe fn x_push_changes(con: *mut Con) {
                     if con_has_managed_window(focused) {
                         (*(*focused).window).id
                     } else {
-                        XCB_WINDOW_NONE as i32 as xcb_window_t
+                        0 as i32 as u32
                     },
                     last_focused,
                 );
@@ -2130,45 +2072,34 @@ pub unsafe fn x_push_changes(con: *mut Con) {
                     to_focus,
                 );
                 if !(*focused).window.is_null() {
-                    values[0] = ((XCB_EVENT_MASK_PROPERTY_CHANGE as i32
-                        | XCB_EVENT_MASK_STRUCTURE_NOTIFY as i32
-                        | XCB_EVENT_MASK_FOCUS_CHANGE as i32)
-                        & !(XCB_EVENT_MASK_FOCUS_CHANGE as i32))
+                    values = ((x::EventMask::PROPERTY_CHANGE.bits() as i32
+                        | x::EventMask::STRUCTURE_NOTIFY.bits() as i32
+                        | x::EventMask::FOCUS_CHANGE.bits() as i32)
+                        & !(x::EventMask::FOCUS_CHANGE.bits() as i32))
                         as u32;
-                    xcb_change_window_attributes(
-                        conn,
-                        (*(*focused).window).id,
-                        XCB_CW_EVENT_MASK as i32 as u32,
-                        &raw mut values as *mut u32 as *const ::core::ffi::c_void,
-                    );
+                    set_event_mask((*(*focused).window).id, values);
                 }
-                xcb_set_input_focus(
-                    conn,
-                    XCB_INPUT_FOCUS_POINTER_ROOT as i32 as u8,
-                    to_focus,
-                    last_timestamp,
-                );
+                connection().send_request(&x::SetInputFocus {
+                    revert_to: x::InputFocus::PointerRoot,
+                    focus: x::Window::new(to_focus),
+                    time: last_timestamp,
+                });
                 if !(*focused).window.is_null() {
-                    values[0] = (XCB_EVENT_MASK_PROPERTY_CHANGE as i32
-                        | XCB_EVENT_MASK_STRUCTURE_NOTIFY as i32
-                        | XCB_EVENT_MASK_FOCUS_CHANGE as i32)
+                    values = (x::EventMask::PROPERTY_CHANGE.bits() as i32
+                        | x::EventMask::STRUCTURE_NOTIFY.bits() as i32
+                        | x::EventMask::FOCUS_CHANGE.bits() as i32)
                         as u32;
-                    xcb_change_window_attributes(
-                        conn,
-                        (*(*focused).window).id,
-                        XCB_CW_EVENT_MASK as i32 as u32,
-                        &raw mut values as *mut u32 as *const ::core::ffi::c_void,
-                    );
+                    set_event_mask((*(*focused).window).id, values);
                 }
                 change_ewmh_focus(
                     if con_has_managed_window(focused) {
                         (*(*focused).window).id
                     } else {
-                        XCB_WINDOW_NONE as i32 as xcb_window_t
+                        0 as i32 as u32
                     },
                     last_focused,
                 );
-                if to_focus as ::core::ffi::c_long != XCB_NONE
+                if to_focus as ::core::ffi::c_long != 0
                     && to_focus != last_focused
                     && !(*focused).window.is_null()
                     && is_con_attached(focused)
@@ -2180,7 +2111,7 @@ pub unsafe fn x_push_changes(con: *mut Con) {
             focused_id = last_focused;
         }
     }
-    if focused_id as ::core::ffi::c_long == XCB_NONE {
+    if focused_id as ::core::ffi::c_long == 0 {
         debuglog(
             c"%s:%s:%d - Still no window focused, better set focus to the EWMH support window (%d)\n".as_ptr().cast_mut(),
             c"../src/x.c".as_ptr(),
@@ -2188,41 +2119,37 @@ pub unsafe fn x_push_changes(con: *mut Con) {
             1451,
             ewmh_window,
         );
-        xcb_set_input_focus(
-            conn,
-            XCB_INPUT_FOCUS_POINTER_ROOT as i32 as u8,
-            ewmh_window,
-            last_timestamp,
-        );
-        change_ewmh_focus(XCB_WINDOW_NONE as i32 as xcb_window_t, last_focused);
+        connection().send_request(&x::SetInputFocus {
+            revert_to: x::InputFocus::PointerRoot,
+            focus: x::Window::new(ewmh_window),
+            time: last_timestamp,
+        });
+        change_ewmh_focus(0 as i32 as u32, last_focused);
         focused_id = ewmh_window;
-        last_focused = XCB_NONE as xcb_window_t;
+        last_focused = 0 as u32;
     }
-    xcb_flush(conn);
+    {
+        let _ = connection().flush();
+    };
     debuglog(
         c"%s:%s:%d - ENDING CHANGES\n".as_ptr().cast_mut(),
         c"../src/x.c".as_ptr(),
         c"x_push_changes".as_ptr(),
         1460,
     );
-    values[0] = ((XCB_EVENT_MASK_BUTTON_PRESS as i32
-        | XCB_EVENT_MASK_BUTTON_RELEASE as i32
-        | XCB_EVENT_MASK_POINTER_MOTION as i32
-        | XCB_EVENT_MASK_EXPOSURE as i32
-        | XCB_EVENT_MASK_STRUCTURE_NOTIFY as i32
-        | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT as i32
-        | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY as i32
-        | XCB_EVENT_MASK_ENTER_WINDOW as i32)
-        & !(XCB_EVENT_MASK_ENTER_WINDOW as i32)) as u32;
+    values = ((x::EventMask::BUTTON_PRESS.bits() as i32
+        | x::EventMask::BUTTON_RELEASE.bits() as i32
+        | x::EventMask::POINTER_MOTION.bits() as i32
+        | x::EventMask::EXPOSURE.bits() as i32
+        | x::EventMask::STRUCTURE_NOTIFY.bits() as i32
+        | x::EventMask::SUBSTRUCTURE_REDIRECT.bits() as i32
+        | x::EventMask::SUBSTRUCTURE_NOTIFY.bits() as i32
+        | x::EventMask::ENTER_WINDOW.bits() as i32)
+        & !(x::EventMask::ENTER_WINDOW.bits() as i32)) as u32;
     state = state_head.cqh_last as *mut FrameState;
     while state != &raw mut state_head as *mut ::core::ffi::c_void as *mut FrameState {
         if (*state).unmap_now {
-            xcb_change_window_attributes(
-                conn,
-                (*state).id,
-                XCB_CW_EVENT_MASK as i32 as u32,
-                &raw mut values as *mut u32 as *const ::core::ffi::c_void,
-            );
+            set_event_mask((*state).id, values);
         }
         state = (*state).state.cqe_prev as *mut FrameState;
     }
@@ -2256,11 +2183,13 @@ pub unsafe fn x_push_changes(con: *mut Con) {
         old_state_head.cqh_last = state as *mut FrameState;
         state = (*state).state.cqe_next as *mut FrameState;
     }
-    xcb_flush(conn);
+    {
+        let _ = connection().flush();
+    };
 }
 
 pub unsafe fn x_raise_con(con: *const Con) {
-    let state: *mut FrameState = state_for_frame((*con).frame.id as xcb_window_t);
+    let state: *mut FrameState = state_for_frame((*con).frame.id as u32);
     if (*state).state.cqe_next == &raw mut state_head as *mut ::core::ffi::c_void as *mut FrameState
     {
         state_head.cqh_last = (*state).state.cqe_prev;
@@ -2285,7 +2214,7 @@ pub unsafe fn x_raise_con(con: *const Con) {
 
 pub unsafe fn x_set_name(con: *mut Con, name: *const ::core::ffi::c_char) {
     let mut state: *mut FrameState = ::core::ptr::null_mut::<FrameState>();
-    state = state_for_frame((*con).frame.id as xcb_window_t);
+    state = state_for_frame((*con).frame.id as u32);
     if state.is_null() {
         errorlog(c"ERROR: window state not found\n".as_ptr().cast_mut());
         return;
@@ -2357,32 +2286,27 @@ pub unsafe fn x_set_warp_to(rect: *mut Rect) {
 }
 
 pub unsafe fn x_mask_event_mask(mask: u32) {
-    let mut values: [u32; 1] = [(XCB_EVENT_MASK_BUTTON_PRESS as i32
-        | XCB_EVENT_MASK_BUTTON_RELEASE as i32
-        | XCB_EVENT_MASK_POINTER_MOTION as i32
-        | XCB_EVENT_MASK_EXPOSURE as i32
-        | XCB_EVENT_MASK_STRUCTURE_NOTIFY as i32
-        | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT as i32
-        | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY as i32
-        | XCB_EVENT_MASK_ENTER_WINDOW as i32) as u32
-        & mask];
+    let mut values: u32 = (x::EventMask::BUTTON_PRESS.bits() as i32
+        | x::EventMask::BUTTON_RELEASE.bits() as i32
+        | x::EventMask::POINTER_MOTION.bits() as i32
+        | x::EventMask::EXPOSURE.bits() as i32
+        | x::EventMask::STRUCTURE_NOTIFY.bits() as i32
+        | x::EventMask::SUBSTRUCTURE_REDIRECT.bits() as i32
+        | x::EventMask::SUBSTRUCTURE_NOTIFY.bits() as i32
+        | x::EventMask::ENTER_WINDOW.bits() as i32) as u32
+        & mask;
     let mut state: *mut FrameState = ::core::ptr::null_mut::<FrameState>();
     state = state_head.cqh_last as *mut FrameState;
     while state != &raw mut state_head as *mut ::core::ffi::c_void as *mut FrameState {
         if (*state).mapped {
-            xcb_change_window_attributes(
-                conn,
-                (*state).id,
-                XCB_CW_EVENT_MASK as i32 as u32,
-                &raw mut values as *mut u32 as *const ::core::ffi::c_void,
-            );
+            set_event_mask((*state).id, values);
         }
         state = (*state).state.cqe_prev as *mut FrameState;
     }
 }
 
 pub unsafe fn x_set_shape(con: *mut Con, kind: shape::Sk, enable: bool) {
-    if state_for_frame((*con).frame.id as xcb_window_t).is_null() {
+    if state_for_frame((*con).frame.id as u32).is_null() {
         errorlog(
             c"ERROR: window state for con %p not found\n"
                 .as_ptr()
@@ -2433,24 +2357,6 @@ use i3_common::safewrappers::scalloc;
 // Canonical Cairo backend ABI; renderer logic remains local.
 
 // Canonical Pango backend ABI; font policy remains local.
-
-use xcb_sys::{
-    xcb_atom_t, xcb_change_gc, xcb_change_property, xcb_change_window_attributes, xcb_colormap_t,
-    xcb_configure_window, xcb_create_pixmap, xcb_drawable_t, xcb_flush, xcb_free_pixmap,
-    xcb_generate_id, xcb_generic_error_t, xcb_map_window, xcb_pixmap_t, xcb_query_pointer,
-    xcb_query_pointer_cookie_t, xcb_query_pointer_reply, xcb_query_pointer_reply_t,
-    xcb_reparent_window, xcb_set_input_focus, xcb_unmap_window, xcb_visualid_t, xcb_void_cookie_t,
-    xcb_warp_pointer, xcb_window_t, XCB_ATOM_STRING, XCB_ATOM_WM_NAME, XCB_CONFIG_WINDOW_SIBLING,
-    XCB_CONFIG_WINDOW_STACK_MODE, XCB_CURRENT_TIME, XCB_CW_BACK_PIXEL, XCB_CW_BORDER_PIXEL,
-    XCB_CW_COLORMAP, XCB_CW_EVENT_MASK, XCB_CW_OVERRIDE_REDIRECT, XCB_EVENT_MASK_BUTTON_PRESS,
-    XCB_EVENT_MASK_BUTTON_RELEASE, XCB_EVENT_MASK_ENTER_WINDOW, XCB_EVENT_MASK_EXPOSURE,
-    XCB_EVENT_MASK_FOCUS_CHANGE, XCB_EVENT_MASK_NO_EVENT, XCB_EVENT_MASK_POINTER_MOTION,
-    XCB_EVENT_MASK_PROPERTY_CHANGE, XCB_EVENT_MASK_STRUCTURE_NOTIFY,
-    XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY, XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT,
-    XCB_GC_GRAPHICS_EXPOSURES, XCB_ICCCM_WM_STATE_NORMAL, XCB_ICCCM_WM_STATE_WITHDRAWN,
-    XCB_INPUT_FOCUS_POINTER_ROOT, XCB_NONE, XCB_PIXMAP_NONE, XCB_PROP_MODE_REPLACE,
-    XCB_STACK_MODE_ABOVE, XCB_WINDOW_CLASS_INPUT_OUTPUT, XCB_WINDOW_NONE,
-};
 
 use libc::{free, getpid, strlen};
 
