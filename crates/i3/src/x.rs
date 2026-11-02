@@ -484,7 +484,7 @@ pub unsafe fn x_con_init(con: *mut Con) {
         &values,
     );
     draw_util_surface_init(
-        conn,
+        &crate::application::rendering_context(),
         &raw mut (*con).frame,
         frame_id as u32,
         get_visualtype_by_id(visual).as_deref(),
@@ -672,9 +672,11 @@ unsafe fn _x_con_kill(con: *mut Con) {
     }
     draw_util_surface_free(conn, &raw mut (*con).frame);
     draw_util_surface_free(conn, &raw mut (*con).frame_buffer);
-    connection.send_request(&x::FreePixmap {
-        pixmap: x::Pixmap::new((*con).frame_buffer.id),
-    });
+    if !(*con).frame_buffer.release_pixmap() {
+        connection.send_request(&x::FreePixmap {
+            pixmap: x::Pixmap::new((*con).frame_buffer.id),
+        });
+    }
     (*con).frame_buffer.id = 0 as u32;
     let state: *mut FrameState = state_for_frame((*con).frame.id as u32);
     if (*state).state.cqe_next == &raw mut state_head as *mut ::core::ffi::c_void as *mut FrameState
@@ -1558,9 +1560,11 @@ pub unsafe fn x_push_node(con: *mut Con) {
             || (*state).rect.height != rect.height;
         if !is_pixmap_needed && (*con).frame_buffer.id as ::core::ffi::c_long != 0 {
             draw_util_surface_free(conn, &raw mut (*con).frame_buffer);
-            connection().send_request(&x::FreePixmap {
-                pixmap: x::Pixmap::new((*con).frame_buffer.id),
-            });
+            if !(*con).frame_buffer.release_pixmap() {
+                connection().send_request(&x::FreePixmap {
+                    pixmap: x::Pixmap::new((*con).frame_buffer.id),
+                });
+            }
             (*con).frame_buffer.id = 0 as u32;
         }
         if is_pixmap_needed
@@ -1570,9 +1574,11 @@ pub unsafe fn x_push_node(con: *mut Con) {
                 (*con).frame_buffer.id = connection().generate_id::<x::Pixmap>().resource_id();
             } else {
                 draw_util_surface_free(conn, &raw mut (*con).frame_buffer);
-                connection().send_request(&x::FreePixmap {
-                    pixmap: x::Pixmap::new((*con).frame_buffer.id),
-                });
+                if !(*con).frame_buffer.release_pixmap() {
+                    connection().send_request(&x::FreePixmap {
+                        pixmap: x::Pixmap::new((*con).frame_buffer.id),
+                    });
+                }
             }
             let mut win_depth: u16 = root_depth as u16;
             if !(*con).window.is_null() {
@@ -1598,13 +1604,20 @@ pub unsafe fn x_push_node(con: *mut Con) {
                 height: height as u16,
             });
             draw_util_surface_init(
-                conn,
+                &crate::application::rendering_context(),
                 &raw mut (*con).frame_buffer,
                 (*con).frame_buffer.id,
                 get_visualtype_by_id(get_visualid_by_depth(win_depth)).as_deref(),
                 width,
                 height,
             );
+            // SAFETY: this request created the unique backing pixmap. The
+            // surface releases it after Cairo teardown at the existing explicit
+            // free sites, or on final container drop.
+            (*con).frame_buffer.attach_pixmap(OwnedPixmap::from_created(
+                connection(),
+                x::Pixmap::new((*con).frame_buffer.id),
+            ));
             draw_util_clear_surface(
                 &raw mut (*con).frame_buffer,
                 color_t {
@@ -2429,6 +2442,7 @@ use i3_common::draw_util::draw_util_rectangle;
 use i3_common::draw_util::draw_util_surface_free;
 use i3_common::draw_util::draw_util_surface_init;
 use i3_common::draw_util::draw_util_surface_set_size;
+use i3_common::draw_util::OwnedPixmap;
 use i3_common::font::predict_text_width;
 
 #[cfg(test)]
