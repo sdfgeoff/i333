@@ -819,7 +819,7 @@ pub unsafe fn load_configuration(
     }
     config.focus_wrapping = FocusWrapping::On;
     config.tiling_drag = TilingDrag::MODIFIER;
-    config.swap_modifier = XCB_KEY_BUT_MASK_SHIFT as ::core::ffi::c_int as u32;
+    config.swap_modifier = (::xcb::x::KeyButMask::SHIFT.bits()) as ::core::ffi::c_int as u32;
     free(current_configpath as *mut ::core::ffi::c_void);
     current_configpath = ::core::ptr::null_mut::<::core::ffi::c_char>();
     current_configpath = get_config_path(override_configpath, true_0 != 0);
@@ -967,7 +967,6 @@ use i3_common::safewrappers::sstrdup;
 // Canonical Pango backend ABI; font policy remains local.
 
 use xcb::ffi::xcb_connection_t;
-use xcb_sys::XCB_KEY_BUT_MASK_SHIFT;
 
 pub use libc::{__errno_location, free, memset, realpath, strerror};
 

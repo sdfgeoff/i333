@@ -383,7 +383,7 @@ pub struct Con {
     pub scratchpad_state: ScratchpadState,
     pub old_id: ::core::ffi::c_int,
     pub depth: u16,
-    pub colormap: xcb_sys::xcb_colormap_t,
+    pub colormap: u32,
 }
 
 impl Con {
@@ -524,10 +524,10 @@ pub struct Match {
     pub window_role: *mut crate::regex::Regex,
     pub workspace: *mut crate::regex::Regex,
     pub machine: *mut crate::regex::Regex,
-    pub window_type: xcb_sys::xcb_atom_t,
+    pub window_type: u32,
     pub urgent: UrgencyMatch,
     pub dock: DockMatch,
-    pub id: xcb_sys::xcb_window_t,
+    pub id: u32,
     pub window_mode: WindowMode,
     pub con_id: *mut crate::types::Con,
     pub match_all_windows: bool,
@@ -560,9 +560,9 @@ pub struct Rect {
 
 #[repr(C)]
 pub struct Window {
-    pub id: xcb_sys::xcb_window_t,
-    pub leader: xcb_sys::xcb_window_t,
-    pub transient_for: xcb_sys::xcb_window_t,
+    pub id: u32,
+    pub leader: u32,
+    pub transient_for: u32,
     pub nr_assignments: u32,
     pub ran_assignments: *mut *mut crate::types::Assignment,
     pub class_class: *mut ::core::ffi::c_char,
@@ -574,7 +574,7 @@ pub struct Window {
     pub uses_net_wm_name: bool,
     pub needs_take_focus: bool,
     pub doesnt_accept_focus: bool,
-    pub window_type: xcb_sys::xcb_atom_t,
+    pub window_type: u32,
     pub wm_desktop: u32,
     pub dock: WindowDock,
     pub urgent: libc::timeval,
@@ -751,7 +751,7 @@ pub struct width_height {
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct xoutput {
-    pub id: xcb_sys::xcb_randr_output_t,
+    pub id: u32,
     pub active: bool,
     pub changed: bool,
     pub to_be_disabled: bool,

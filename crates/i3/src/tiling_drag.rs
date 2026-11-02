@@ -237,7 +237,7 @@ unsafe fn drag_callback(
             });
         }
     }
-    x_mask_event_mask(!(XCB_EVENT_MASK_ENTER_WINDOW as i32) as u32);
+    x_mask_event_mask(!((::xcb::x::EventMask::ENTER_WINDOW.bits()) as i32) as u32);
     let _ = connection().flush();
     *(*params).target = target;
     *(*params).direction = direction;
@@ -285,7 +285,7 @@ pub unsafe fn tiling_drag(con: *mut Con, event: &x::ButtonPressEvent, use_thresh
     );
     let mut set_focus: bool = con == focused;
     let mut set_fs: bool = ((*con).fullscreen_mode) != FullscreenMode::None;
-    x_mask_event_mask(!(XCB_EVENT_MASK_ENTER_WINDOW as i32) as u32);
+    x_mask_event_mask(!((::xcb::x::EventMask::ENTER_WINDOW.bits()) as i32) as u32);
     let _ = connection().flush();
     let mut target: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut direction: Direction = Direction::Left;
@@ -302,7 +302,7 @@ pub unsafe fn tiling_drag(con: *mut Con, event: &x::ButtonPressEvent, use_thresh
     let drag_result: DragResult = drag_pointer(
         con,
         event,
-        XCB_NONE as xcb_window_t,
+        0 as u32,
         Cursor::Move,
         use_threshold,
         Some(
@@ -467,11 +467,6 @@ use crate::x::x_mask_event_mask;
 use i3_common::dpi::logical_px;
 
 // Canonical Pango backend ABI; font policy remains local.
-
-use xcb_sys::{
-    xcb_visualid_t, xcb_window_t, XCB_COPY_FROM_PARENT, XCB_CW_BACK_PIXEL,
-    XCB_CW_OVERRIDE_REDIRECT, XCB_EVENT_MASK_ENTER_WINDOW, XCB_NONE, XCB_WINDOW_CLASS_INPUT_OUTPUT,
-};
 
 use i3_common::native_stdio::__assert_fail;
 

@@ -225,7 +225,7 @@ unsafe extern "C" fn xcb_drag_prepare_cb(loop_0: *mut ev_loop, w: *mut ev_prepar
 pub unsafe fn drag_pointer(
     con: *mut Con,
     event: &x::ButtonPressEvent,
-    confine_to: xcb_window_t,
+    confine_to: u32,
     cursor: Cursor,
     use_threshold: bool,
     callback: DragCallback,
@@ -382,8 +382,6 @@ use crate::application::main_set_x11_cb;
 use crate::xcursor::xcursor_get_cursor;
 use i3_common::dpi::logical_px;
 
-use xcb_sys::{xcb_window_t, XCB_BUTTON_INDEX_ANY};
-
 use crate::log::{debuglog, errorlog};
 
 // Shared model types retain field layout while using one Rust identity.
@@ -447,7 +445,7 @@ impl Drop for InputGrabs {
     }
 }
 fn released_drag_button(initiator: u8, released: u8) -> bool {
-    initiator == XCB_BUTTON_INDEX_ANY as u8 || initiator == released
+    initiator == (::xcb::x::ButtonIndex::Any as u32) as u8 || initiator == released
 }
 #[cfg(test)]
 mod owned_tests {

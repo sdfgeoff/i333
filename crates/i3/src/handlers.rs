@@ -29,7 +29,7 @@ pub use crate::application::ignore_event_sequence_t;
 pub type PropertyCallback = Option<unsafe fn(*mut Con, Option<&x::GetPropertyReply>) -> bool>;
 #[derive(Copy, Clone)]
 pub struct PropertyHandler {
-    pub atom: xcb_atom_t,
+    pub atom: u32,
     pub long_len: u32,
     pub cb: PropertyCallback,
 }
@@ -171,7 +171,9 @@ unsafe fn handle_enter_notify(event: &x::EnterNotifyEvent, full_sequence: u32) {
         event.event_x() as ::core::ffi::c_int,
         event.event_y() as ::core::ffi::c_int,
     );
-    if event_mode as ::core::ffi::c_int != XCB_NOTIFY_MODE_NORMAL as ::core::ffi::c_int {
+    if event_mode as ::core::ffi::c_int
+        != (::xcb::x::NotifyMode::Normal as u32) as ::core::ffi::c_int
+    {
         debuglog(
             c"%s:%s:%d - This was not a normal notify, ignoring\n"
                 .as_ptr()
@@ -186,7 +188,7 @@ unsafe fn handle_enter_notify(event: &x::EnterNotifyEvent, full_sequence: u32) {
         ignore_event_sequence_t {
             value: full_sequence,
         },
-        XCB_ENTER_NOTIFY,
+        (<::xcb::x::EnterNotifyEvent as ::xcb::BaseEvent>::NUMBER as i32),
     ) {
         debuglog(
             c"%s:%s:%d - Event ignored\n".as_ptr().cast_mut(),
@@ -252,13 +254,13 @@ unsafe fn handle_enter_notify(event: &x::EnterNotifyEvent, full_sequence: u32) {
     if ws != con_get_workspace(focused) {
         workspace_show(ws);
     }
-    focused_id = XCB_NONE as xcb_window_t;
+    focused_id = 0 as u32;
     con_focus(con_descend_focused(con));
     tree_render();
 }
 unsafe fn handle_motion_notify(event: &x::MotionNotifyEvent) {
     last_timestamp = event.time();
-    if event.child().resource_id() as ::core::ffi::c_long != XCB_NONE {
+    if event.child().resource_id() as ::core::ffi::c_long != 0 {
         return;
     }
     let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
@@ -331,7 +333,8 @@ unsafe fn handle_mapping_notify(event: &x::MappingNotifyEvent) {
         269 as ::core::ffi::c_int,
     );
     crate::application::refresh_key_symbols(event);
-    xcb_numlock_mask = crate::application::key_symbol_modifiers(XCB_NUM_LOCK as u32);
+    xcb_numlock_mask =
+        crate::application::key_symbol_modifiers((xkbcommon::xkb::keysyms::KEY_Num_Lock) as u32);
     ungrab_all_keys();
     translate_keysyms();
     grab_all_keys();
@@ -377,17 +380,26 @@ fn configure_values(event: &x::ConfigureRequestEvent) -> (u16, Vec<u32>) {
     let mut mask = 0;
     let mut values = Vec::with_capacity(7);
     for (bit, value) in [
-        (XCB_CONFIG_WINDOW_X, event.x() as u32),
-        (XCB_CONFIG_WINDOW_Y, event.y() as u32),
-        (XCB_CONFIG_WINDOW_WIDTH, u32::from(event.width())),
-        (XCB_CONFIG_WINDOW_HEIGHT, u32::from(event.height())),
+        ((::xcb::x::ConfigWindowMask::X.bits()), event.x() as u32),
+        ((::xcb::x::ConfigWindowMask::Y.bits()), event.y() as u32),
         (
-            XCB_CONFIG_WINDOW_BORDER_WIDTH,
+            (::xcb::x::ConfigWindowMask::WIDTH.bits()),
+            u32::from(event.width()),
+        ),
+        (
+            (::xcb::x::ConfigWindowMask::HEIGHT.bits()),
+            u32::from(event.height()),
+        ),
+        (
+            (::xcb::x::ConfigWindowMask::BORDER_WIDTH.bits()),
             u32::from(event.border_width()),
         ),
-        (XCB_CONFIG_WINDOW_SIBLING, event.sibling().resource_id()),
         (
-            XCB_CONFIG_WINDOW_STACK_MODE,
+            (::xcb::x::ConfigWindowMask::SIBLING.bits()),
+            event.sibling().resource_id(),
+        ),
+        (
+            (::xcb::x::ConfigWindowMask::STACK_MODE.bits()),
             u32::from(configure_selectors(event).0),
         ),
     ] {
@@ -413,27 +425,27 @@ fn configure_window_values(event: &x::ConfigureRequestEvent) -> Vec<x::ConfigWin
     let mut values = Vec::with_capacity(7);
     for (bit, value) in [
         (
-            XCB_CONFIG_WINDOW_X,
+            (::xcb::x::ConfigWindowMask::X.bits()),
             x::ConfigWindow::X(i32::from(event.x())),
         ),
         (
-            XCB_CONFIG_WINDOW_Y,
+            (::xcb::x::ConfigWindowMask::Y.bits()),
             x::ConfigWindow::Y(i32::from(event.y())),
         ),
         (
-            XCB_CONFIG_WINDOW_WIDTH,
+            (::xcb::x::ConfigWindowMask::WIDTH.bits()),
             x::ConfigWindow::Width(u32::from(event.width())),
         ),
         (
-            XCB_CONFIG_WINDOW_HEIGHT,
+            (::xcb::x::ConfigWindowMask::HEIGHT.bits()),
             x::ConfigWindow::Height(u32::from(event.height())),
         ),
         (
-            XCB_CONFIG_WINDOW_BORDER_WIDTH,
+            (::xcb::x::ConfigWindowMask::BORDER_WIDTH.bits()),
             x::ConfigWindow::BorderWidth(u32::from(event.border_width())),
         ),
         (
-            XCB_CONFIG_WINDOW_SIBLING,
+            (::xcb::x::ConfigWindowMask::SIBLING.bits()),
             x::ConfigWindow::Sibling(x::Window::new(event.sibling().resource_id())),
         ),
     ] {
@@ -441,7 +453,9 @@ fn configure_window_values(event: &x::ConfigureRequestEvent) -> Vec<x::ConfigWin
             values.push(value);
         }
     }
-    if u32::from(configure_selectors(event).1) & XCB_CONFIG_WINDOW_STACK_MODE != 0 {
+    if u32::from(configure_selectors(event).1) & (::xcb::x::ConfigWindowMask::STACK_MODE.bits())
+        != 0
+    {
         if let Some(mode) = checked_stack_mode(configure_selectors(event).0) {
             values.push(x::ConfigWindow::StackMode(mode));
         }
@@ -476,7 +490,7 @@ unsafe fn handle_configure_request(event: &x::ConfigureRequestEvent) {
             309 as ::core::ffi::c_int,
         );
         let (mask, values) = configure_values(event);
-        if mask & XCB_CONFIG_WINDOW_STACK_MODE as u16 != 0
+        if mask & (::xcb::x::ConfigWindowMask::STACK_MODE.bits()) as u16 != 0
             && checked_stack_mode(configure_selectors(event).0).is_none()
         {
             // Keep the native asynchronous BadValue/error-queue behavior for
@@ -524,7 +538,7 @@ unsafe fn handle_configure_request(event: &x::ConfigureRequestEvent) {
             let floatingcon: *mut Con = parent_ptr(con);
             let mut newrect: Rect = (*floatingcon).rect as Rect;
             if configure_selectors(event).1 as ::core::ffi::c_int
-                & XCB_CONFIG_WINDOW_X as ::core::ffi::c_int
+                & (::xcb::x::ConfigWindowMask::X.bits()) as ::core::ffi::c_int
                 != 0
             {
                 newrect.x = (event.x() as u32)
@@ -541,7 +555,7 @@ unsafe fn handle_configure_request(event: &x::ConfigureRequestEvent) {
                 );
             }
             if configure_selectors(event).1 as ::core::ffi::c_int
-                & XCB_CONFIG_WINDOW_Y as ::core::ffi::c_int
+                & (::xcb::x::ConfigWindowMask::Y.bits()) as ::core::ffi::c_int
                 != 0
             {
                 newrect.y = (event.y() as u32)
@@ -558,7 +572,7 @@ unsafe fn handle_configure_request(event: &x::ConfigureRequestEvent) {
                 );
             }
             if configure_selectors(event).1 as ::core::ffi::c_int
-                & XCB_CONFIG_WINDOW_WIDTH as ::core::ffi::c_int
+                & (::xcb::x::ConfigWindowMask::WIDTH.bits()) as ::core::ffi::c_int
                 != 0
             {
                 newrect.width = (event.width() as u32)
@@ -579,7 +593,7 @@ unsafe fn handle_configure_request(event: &x::ConfigureRequestEvent) {
                 );
             }
             if configure_selectors(event).1 as ::core::ffi::c_int
-                & XCB_CONFIG_WINDOW_HEIGHT as ::core::ffi::c_int
+                & (::xcb::x::ConfigWindowMask::HEIGHT.bits()) as ::core::ffi::c_int
                 != 0
             {
                 newrect.height = (event.height() as u32)
@@ -621,7 +635,7 @@ unsafe fn handle_configure_request(event: &x::ConfigureRequestEvent) {
                 con,
             );
             if configure_selectors(event).1 as ::core::ffi::c_int
-                & XCB_CONFIG_WINDOW_HEIGHT as ::core::ffi::c_int
+                & (::xcb::x::ConfigWindowMask::HEIGHT.bits()) as ::core::ffi::c_int
                 != 0
             {
                 debuglog(
@@ -637,14 +651,14 @@ unsafe fn handle_configure_request(event: &x::ConfigureRequestEvent) {
                 tree_render();
             }
             if configure_selectors(event).1 as ::core::ffi::c_int
-                & XCB_CONFIG_WINDOW_X as ::core::ffi::c_int
+                & (::xcb::x::ConfigWindowMask::X.bits()) as ::core::ffi::c_int
                 != 0
                 || configure_selectors(event).1 as ::core::ffi::c_int
-                    & XCB_CONFIG_WINDOW_Y as ::core::ffi::c_int
+                    & (::xcb::x::ConfigWindowMask::Y.bits()) as ::core::ffi::c_int
                     != 0
             {
                 let x: i16 = (if configure_selectors(event).1 as ::core::ffi::c_int
-                    & XCB_CONFIG_WINDOW_X as ::core::ffi::c_int
+                    & (::xcb::x::ConfigWindowMask::X.bits()) as ::core::ffi::c_int
                     != 0
                 {
                     event.x() as ::core::ffi::c_int
@@ -652,7 +666,7 @@ unsafe fn handle_configure_request(event: &x::ConfigureRequestEvent) {
                     (*con).geometry.x as i16 as ::core::ffi::c_int
                 }) as i16;
                 let y: i16 = (if configure_selectors(event).1 as ::core::ffi::c_int
-                    & XCB_CONFIG_WINDOW_Y as ::core::ffi::c_int
+                    & (::xcb::x::ConfigWindowMask::Y.bits()) as ::core::ffi::c_int
                     != 0
                 {
                     event.y() as ::core::ffi::c_int
@@ -698,7 +712,7 @@ unsafe fn handle_configure_request(event: &x::ConfigureRequestEvent) {
                 }
             }
         } else if configure_selectors(event).1 as ::core::ffi::c_int
-            & XCB_CONFIG_WINDOW_STACK_MODE as ::core::ffi::c_int
+            & (::xcb::x::ConfigWindowMask::STACK_MODE.bits()) as ::core::ffi::c_int
             != 0
         {
             debuglog(
@@ -712,7 +726,7 @@ unsafe fn handle_configure_request(event: &x::ConfigureRequestEvent) {
                 configure_selectors(event).0 as ::core::ffi::c_int,
             );
             if configure_selectors(event).0 as ::core::ffi::c_int
-                != XCB_STACK_MODE_ABOVE as ::core::ffi::c_int
+                != (::xcb::x::StackMode::Above as u32) as ::core::ffi::c_int
             {
                 debuglog(
                     c"%s:%s:%d - stack_mode != XCB_STACK_MODE_ABOVE, ignoring ConfigureRequest\n"
@@ -900,7 +914,7 @@ unsafe fn handle_window_unmap(window: u32, event_window: u32, sequence: u16, ful
         ignore_event_sequence_t {
             value: full_sequence,
         },
-        XCB_ENTER_NOTIFY,
+        (<::xcb::x::EnterNotifyEvent as ::xcb::BaseEvent>::NUMBER as i32),
     );
     let _ = connection().wait_for_reply(cookie);
 }
@@ -1205,7 +1219,7 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
                 scratchpad_show(con_0);
             } else {
                 workspace_show(ws);
-                focused_id = XCB_NONE as xcb_window_t;
+                focused_id = 0 as u32;
                 con_activate_unblock(con_0);
             }
         } else {
@@ -1258,7 +1272,7 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
         }
         tree_render();
     } else if event.r#type().resource_id() == A_I3_SYNC {
-        let window: xcb_window_t = words[0 as ::core::ffi::c_int as usize];
+        let window: u32 = words[0 as ::core::ffi::c_int as usize];
         let rnd: u32 = words[1 as ::core::ffi::c_int as usize];
         sync_respond(window, rnd);
     } else if event.r#type().resource_id() == A__NET_REQUEST_FRAME_EXTENTS {
@@ -1287,7 +1301,7 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
         let _ = connection().flush();
     } else if event.r#type().resource_id() == A_WM_CHANGE_STATE {
         if words[0 as ::core::ffi::c_int as usize]
-            == XCB_ICCCM_WM_STATE_ICONIC as ::core::ffi::c_int as u32
+            == (crate::domains::IcccmState::Iconic as u32) as ::core::ffi::c_int as u32
         {
             debuglog(
                 c"%s:%s:%d - Client has requested iconic state, rejecting. (window = %08x)\n"
@@ -1303,7 +1317,7 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
                 window: x::Window::new(event.window().resource_id()),
                 property: x::Atom::new(A_WM_STATE),
                 r#type: x::Atom::new(A_WM_STATE),
-                data: &[XCB_ICCCM_WM_STATE_NORMAL as u32, 0],
+                data: &[(crate::domains::IcccmState::Normal as u32) as u32, 0],
             });
         } else {
             debuglog(
@@ -1413,7 +1427,7 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
                 con_2,
             );
             if words[0 as ::core::ffi::c_int as usize] != 0 {
-                last_timestamp = words[0 as ::core::ffi::c_int as usize] as xcb_timestamp_t;
+                last_timestamp = words[0 as ::core::ffi::c_int as usize] as u32;
             }
             tree_close_internal(con_2, KillWindow::Window, false);
             tree_render();
@@ -1593,7 +1607,7 @@ unsafe fn handle_focus_in(event: &x::FocusInEvent) {
             1067 as ::core::ffi::c_int,
         );
         con_focus(focused);
-        focused_id = XCB_NONE as xcb_window_t;
+        focused_id = 0 as u32;
         x_push_changes(croot);
     }
     let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
@@ -1609,8 +1623,9 @@ unsafe fn handle_focus_in(event: &x::FocusInEvent) {
         con,
         (*con).name,
     );
-    if event_mode as ::core::ffi::c_int == XCB_NOTIFY_MODE_GRAB as ::core::ffi::c_int
-        || event_mode as ::core::ffi::c_int == XCB_NOTIFY_MODE_UNGRAB as ::core::ffi::c_int
+    if event_mode as ::core::ffi::c_int == (::xcb::x::NotifyMode::Grab as u32) as ::core::ffi::c_int
+        || event_mode as ::core::ffi::c_int
+            == (::xcb::x::NotifyMode::Ungrab as u32) as ::core::ffi::c_int
     {
         debuglog(
             c"%s:%s:%d - FocusIn event for grab/ungrab, ignoring\n"
@@ -1622,7 +1637,9 @@ unsafe fn handle_focus_in(event: &x::FocusInEvent) {
         );
         return;
     }
-    if event_detail as ::core::ffi::c_int == XCB_NOTIFY_DETAIL_POINTER as ::core::ffi::c_int {
+    if event_detail as ::core::ffi::c_int
+        == (::xcb::x::NotifyDetail::Pointer as u32) as ::core::ffi::c_int
+    {
         debuglog(
             c"%s:%s:%d - notify detail is pointer, ignoring this event\n"
                 .as_ptr()
@@ -1936,21 +1953,21 @@ pub unsafe fn property_handlers_init() {
     );
     property_handlers[0 as ::core::ffi::c_int as usize].atom = A__NET_WM_NAME;
     property_handlers[1 as ::core::ffi::c_int as usize].atom =
-        XCB_ATOM_WM_HINTS as ::core::ffi::c_int as xcb_atom_t;
+        (::xcb::x::ATOM_WM_HINTS.resource_id()) as ::core::ffi::c_int as u32;
     property_handlers[2 as ::core::ffi::c_int as usize].atom =
-        XCB_ATOM_WM_NAME as ::core::ffi::c_int as xcb_atom_t;
+        (::xcb::x::ATOM_WM_NAME.resource_id()) as ::core::ffi::c_int as u32;
     property_handlers[3 as ::core::ffi::c_int as usize].atom =
-        XCB_ATOM_WM_NORMAL_HINTS as ::core::ffi::c_int as xcb_atom_t;
+        (::xcb::x::ATOM_WM_NORMAL_HINTS.resource_id()) as ::core::ffi::c_int as u32;
     property_handlers[4 as ::core::ffi::c_int as usize].atom = A_WM_CLIENT_LEADER;
     property_handlers[5 as ::core::ffi::c_int as usize].atom =
-        XCB_ATOM_WM_TRANSIENT_FOR as ::core::ffi::c_int as xcb_atom_t;
+        (::xcb::x::ATOM_WM_TRANSIENT_FOR.resource_id()) as ::core::ffi::c_int as u32;
     property_handlers[6 as ::core::ffi::c_int as usize].atom = A_WM_WINDOW_ROLE;
     property_handlers[7 as ::core::ffi::c_int as usize].atom =
-        XCB_ATOM_WM_CLASS as ::core::ffi::c_int as xcb_atom_t;
+        (::xcb::x::ATOM_WM_CLASS.resource_id()) as ::core::ffi::c_int as u32;
     property_handlers[8 as ::core::ffi::c_int as usize].atom = A__NET_WM_STRUT_PARTIAL;
     property_handlers[9 as ::core::ffi::c_int as usize].atom = A__NET_WM_WINDOW_TYPE;
     property_handlers[10 as ::core::ffi::c_int as usize].atom =
-        XCB_ATOM_WM_CLIENT_MACHINE as ::core::ffi::c_int as xcb_atom_t;
+        (::xcb::x::ATOM_WM_CLIENT_MACHINE.resource_id()) as ::core::ffi::c_int as u32;
     property_handlers[11 as ::core::ffi::c_int as usize].atom = A__MOTIF_WM_HINTS;
     property_handlers[12 as ::core::ffi::c_int as usize].atom = A__NET_WM_ICON;
 }
@@ -1964,7 +1981,7 @@ unsafe fn dispatch_property(
     callback(con, reply.as_ref());
 }
 
-unsafe fn property_notify(state: u8, window: xcb_window_t, atom: xcb_atom_t) {
+unsafe fn property_notify(state: u8, window: u32, atom: u32) {
     // Snapshot metadata; callback dispatch never retains a table borrow.
     let handler = (0..NUM_HANDLERS).find_map(|index| {
         let handler = property_handlers[index];
@@ -2061,7 +2078,7 @@ fn shape_change(event: &xcb::Event, event_base: i32) -> Option<ShapeChange> {
 pub unsafe fn handle_event(owner: &xcb::Event) {
     let event = owner.as_raw();
     let type_0 = i32::from((*event).response_type & 0x7f);
-    if type_0 != XCB_MOTION_NOTIFY {
+    if type_0 != (<::xcb::x::MotionNotifyEvent as ::xcb::BaseEvent>::NUMBER as i32) {
         debuglog(
             c"%s:%s:%d - event type %d, xkb_base %d\n"
                 .as_ptr()
@@ -2074,7 +2091,9 @@ pub unsafe fn handle_event(owner: &xcb::Event) {
         );
     }
     if randr_base > -(1 as ::core::ffi::c_int)
-        && type_0 == randr_base + XCB_RANDR_SCREEN_CHANGE_NOTIFY
+        && type_0
+            == randr_base
+                + (<::xcb::randr::ScreenChangeNotifyEvent as ::xcb::BaseEvent>::NUMBER as i32)
     {
         handle_screen_change();
         return;
@@ -2102,7 +2121,7 @@ pub unsafe fn handle_event(owner: &xcb::Event) {
                 );
                 crate::application::rebuild_key_symbols();
                 if state.changed as ::core::ffi::c_int
-                    & XCB_XKB_NKN_DETAIL_KEYCODES as ::core::ffi::c_int
+                    & (::xcb::xkb::NknDetail::KEYCODES.bits()) as ::core::ffi::c_int
                     != 0
                 {
                     load_keymap();
@@ -2170,7 +2189,9 @@ pub unsafe fn handle_event(owner: &xcb::Event) {
         }
         return;
     }
-    if shape_supported as ::core::ffi::c_int != 0 && type_0 == shape_base + XCB_SHAPE_NOTIFY {
+    if shape_supported as ::core::ffi::c_int != 0
+        && type_0 == shape_base + (<::xcb::shape::NotifyEvent as ::xcb::BaseEvent>::NUMBER as i32)
+    {
         let Some(shape) = shape_change(owner, shape_base) else {
             return;
         };
@@ -2195,12 +2216,14 @@ pub unsafe fn handle_event(owner: &xcb::Event) {
             );
             return;
         }
-        if shape.kind as ::core::ffi::c_int == XCB_SHAPE_SK_BOUNDING as ::core::ffi::c_int
-            || shape.kind as ::core::ffi::c_int == XCB_SHAPE_SK_INPUT as ::core::ffi::c_int
+        if shape.kind as ::core::ffi::c_int
+            == (::xcb::shape::Sk::Bounding as u32) as ::core::ffi::c_int
+            || shape.kind as ::core::ffi::c_int
+                == (::xcb::shape::Sk::Input as u32) as ::core::ffi::c_int
         {
             x_set_shape(
                 con,
-                if shape.kind == XCB_SHAPE_SK_BOUNDING as u8 {
+                if shape.kind == (::xcb::shape::Sk::Bounding as u32) as u8 {
                     xcb::shape::Sk::Bounding
                 } else {
                     xcb::shape::Sk::Input
@@ -2210,98 +2233,61 @@ pub unsafe fn handle_event(owner: &xcb::Event) {
         }
         return;
     }
-    match type_0 {
-        XCB_KEY_PRESS | XCB_KEY_RELEASE => {
-            if let xcb::Event::X(x::Event::KeyPress(key) | x::Event::KeyRelease(key)) = owner {
-                handle_key_press(key);
+    match owner {
+        xcb::Event::X(x::Event::KeyPress(key) | x::Event::KeyRelease(key)) => {
+            handle_key_press(key);
+        }
+        xcb::Event::X(x::Event::ButtonPress(button) | x::Event::ButtonRelease(button)) => {
+            handle_button_press(button);
+        }
+        xcb::Event::X(x::Event::MapRequest(request)) => {
+            handle_map_request(request, (*event).full_sequence);
+        }
+        xcb::Event::X(x::Event::UnmapNotify(notification)) => {
+            handle_unmap_notify_event(notification, (*event).full_sequence);
+        }
+        xcb::Event::X(x::Event::DestroyNotify(notification)) => {
+            handle_destroy_notify_event(notification, (*event).full_sequence);
+        }
+        xcb::Event::X(x::Event::Expose(expose)) => {
+            if expose.count() == 0 {
+                handle_expose_event(expose);
             }
         }
-        XCB_BUTTON_PRESS | XCB_BUTTON_RELEASE => {
-            if let xcb::Event::X(x::Event::ButtonPress(button) | x::Event::ButtonRelease(button)) =
-                owner
-            {
-                handle_button_press(button);
-            }
+        xcb::Event::X(x::Event::MotionNotify(notification)) => {
+            handle_motion_notify(notification);
         }
-        XCB_MAP_REQUEST => {
-            if let xcb::Event::X(x::Event::MapRequest(request)) = owner {
-                handle_map_request(request, (*event).full_sequence);
-            }
+        xcb::Event::X(x::Event::EnterNotify(notification)) => {
+            handle_enter_notify(notification, (*event).full_sequence);
         }
-        XCB_UNMAP_NOTIFY => {
-            if let xcb::Event::X(x::Event::UnmapNotify(notification)) = owner {
-                handle_unmap_notify_event(notification, (*event).full_sequence);
-            }
+        xcb::Event::X(x::Event::ClientMessage(message)) => {
+            handle_client_message(message);
         }
-        XCB_DESTROY_NOTIFY => {
-            if let xcb::Event::X(x::Event::DestroyNotify(notification)) = owner {
-                handle_destroy_notify_event(notification, (*event).full_sequence);
-            }
+        xcb::Event::X(x::Event::ConfigureRequest(request)) => {
+            handle_configure_request(request);
         }
-        XCB_EXPOSE => {
-            if let xcb::Event::X(x::Event::Expose(expose)) = owner {
-                if expose.count() == 0 {
-                    handle_expose_event(expose);
-                }
-            }
+        xcb::Event::X(x::Event::MappingNotify(mapping)) => {
+            handle_mapping_notify(mapping);
         }
-        XCB_MOTION_NOTIFY => {
-            if let xcb::Event::X(x::Event::MotionNotify(notification)) = owner {
-                handle_motion_notify(notification);
-            }
+        xcb::Event::X(x::Event::FocusIn(notification)) => {
+            handle_focus_in(notification);
         }
-        XCB_ENTER_NOTIFY => {
-            if let xcb::Event::X(x::Event::EnterNotify(notification)) = owner {
-                handle_enter_notify(notification, (*event).full_sequence);
-            }
+        xcb::Event::X(x::Event::FocusOut(notification)) => {
+            handle_focus_out(notification);
         }
-        XCB_CLIENT_MESSAGE => {
-            if let xcb::Event::X(x::Event::ClientMessage(message)) = owner {
-                handle_client_message(message);
-            }
+        xcb::Event::X(x::Event::PropertyNotify(property)) => {
+            last_timestamp = property.time();
+            property_notify(
+                xcb_interop::events::property_notify_state(property),
+                property.window().resource_id(),
+                property.atom().resource_id(),
+            );
         }
-        XCB_CONFIGURE_REQUEST => {
-            if let xcb::Event::X(x::Event::ConfigureRequest(request)) = owner {
-                handle_configure_request(request);
-            }
+        xcb::Event::X(x::Event::ConfigureNotify(notification)) => {
+            handle_configure_notify(notification);
         }
-        XCB_MAPPING_NOTIFY => {
-            if let xcb::Event::X(x::Event::MappingNotify(mapping)) = owner {
-                handle_mapping_notify(mapping);
-            }
-        }
-        XCB_FOCUS_IN => {
-            if let xcb::Event::X(x::Event::FocusIn(notification)) = owner {
-                handle_focus_in(notification);
-            }
-        }
-        XCB_FOCUS_OUT => {
-            if let xcb::Event::X(x::Event::FocusOut(notification)) = owner {
-                handle_focus_out(notification);
-            }
-        }
-        XCB_PROPERTY_NOTIFY => {
-            if let xcb::Event::X(x::Event::PropertyNotify(property)) = owner {
-                last_timestamp = property.time();
-                // Property is an open wire byte; its generated enum getter
-                // would be invalid for an unknown state. Only Delete matters.
-                let state = *property.as_raw().cast::<u8>().add(16);
-                property_notify(
-                    state,
-                    property.window().resource_id(),
-                    property.atom().resource_id(),
-                );
-            }
-        }
-        XCB_CONFIGURE_NOTIFY => {
-            if let xcb::Event::X(x::Event::ConfigureNotify(notification)) = owner {
-                handle_configure_notify(notification);
-            }
-        }
-        XCB_SELECTION_CLEAR => {
-            if let xcb::Event::X(x::Event::SelectionClear(notification)) = owner {
-                handle_selection_clear(notification);
-            }
+        xcb::Event::X(x::Event::SelectionClear(notification)) => {
+            handle_selection_clear(notification);
         }
         _ => {}
     };
@@ -2315,7 +2301,7 @@ pub const __INT_MAX__: ::core::ffi::c_int = 2147483647 as ::core::ffi::c_int;
 unsafe extern "C" fn run_static_initializers() {
     property_handlers = [
         PropertyHandler {
-            atom: 0 as xcb_atom_t,
+            atom: 0 as u32,
             long_len: 128 as u32,
             cb: Some(
                 handle_windowname_change
@@ -2323,12 +2309,12 @@ unsafe extern "C" fn run_static_initializers() {
             ),
         },
         PropertyHandler {
-            atom: 0 as xcb_atom_t,
+            atom: 0 as u32,
             long_len: UINT_MAX as u32,
             cb: Some(handle_hints as unsafe fn(*mut Con, Option<&x::GetPropertyReply>) -> bool),
         },
         PropertyHandler {
-            atom: 0 as xcb_atom_t,
+            atom: 0 as u32,
             long_len: 128 as u32,
             cb: Some(
                 handle_windowname_change_legacy
@@ -2336,14 +2322,14 @@ unsafe extern "C" fn run_static_initializers() {
             ),
         },
         PropertyHandler {
-            atom: 0 as xcb_atom_t,
+            atom: 0 as u32,
             long_len: UINT_MAX as u32,
             cb: Some(
                 handle_normal_hints as unsafe fn(*mut Con, Option<&x::GetPropertyReply>) -> bool,
             ),
         },
         PropertyHandler {
-            atom: 0 as xcb_atom_t,
+            atom: 0 as u32,
             long_len: UINT_MAX as u32,
             cb: Some(
                 handle_clientleader_change
@@ -2351,14 +2337,14 @@ unsafe extern "C" fn run_static_initializers() {
             ),
         },
         PropertyHandler {
-            atom: 0 as xcb_atom_t,
+            atom: 0 as u32,
             long_len: UINT_MAX as u32,
             cb: Some(
                 handle_transient_for as unsafe fn(*mut Con, Option<&x::GetPropertyReply>) -> bool,
             ),
         },
         PropertyHandler {
-            atom: 0 as xcb_atom_t,
+            atom: 0 as u32,
             long_len: 128 as u32,
             cb: Some(
                 handle_windowrole_change
@@ -2366,14 +2352,14 @@ unsafe extern "C" fn run_static_initializers() {
             ),
         },
         PropertyHandler {
-            atom: 0 as xcb_atom_t,
+            atom: 0 as u32,
             long_len: 128 as u32,
             cb: Some(
                 handle_class_change as unsafe fn(*mut Con, Option<&x::GetPropertyReply>) -> bool,
             ),
         },
         PropertyHandler {
-            atom: 0 as xcb_atom_t,
+            atom: 0 as u32,
             long_len: UINT_MAX as u32,
             cb: Some(
                 handle_strut_partial_change
@@ -2381,21 +2367,21 @@ unsafe extern "C" fn run_static_initializers() {
             ),
         },
         PropertyHandler {
-            atom: 0 as xcb_atom_t,
+            atom: 0 as u32,
             long_len: UINT_MAX as u32,
             cb: Some(
                 handle_window_type as unsafe fn(*mut Con, Option<&x::GetPropertyReply>) -> bool,
             ),
         },
         PropertyHandler {
-            atom: 0 as xcb_atom_t,
+            atom: 0 as u32,
             long_len: 128 as u32,
             cb: Some(
                 handle_machine_change as unsafe fn(*mut Con, Option<&x::GetPropertyReply>) -> bool,
             ),
         },
         PropertyHandler {
-            atom: 0 as xcb_atom_t,
+            atom: 0 as u32,
             long_len: 5_usize.wrapping_mul(::core::mem::size_of::<u64>() as usize) as u32,
             cb: Some(
                 handle_motif_hints_change
@@ -2403,7 +2389,7 @@ unsafe extern "C" fn run_static_initializers() {
             ),
         },
         PropertyHandler {
-            atom: 0 as xcb_atom_t,
+            atom: 0 as u32,
             long_len: UINT_MAX as u32,
             cb: Some(
                 handle_windowicon_change
@@ -2434,21 +2420,6 @@ use i3_common::safewrappers::scalloc;
 // Canonical Cairo backend ABI; renderer logic remains local.
 
 // Canonical Pango backend ABI; font policy remains local.
-
-use xcb_sys::{
-    xcb_atom_t, xcb_timestamp_t, xcb_window_t, XCB_ATOM_WM_CLASS, XCB_ATOM_WM_CLIENT_MACHINE,
-    XCB_ATOM_WM_HINTS, XCB_ATOM_WM_NAME, XCB_ATOM_WM_NORMAL_HINTS, XCB_ATOM_WM_TRANSIENT_FOR,
-    XCB_BUTTON_PRESS, XCB_BUTTON_RELEASE, XCB_CLIENT_MESSAGE, XCB_CONFIGURE_NOTIFY,
-    XCB_CONFIGURE_REQUEST, XCB_CONFIG_WINDOW_BORDER_WIDTH, XCB_CONFIG_WINDOW_HEIGHT,
-    XCB_CONFIG_WINDOW_SIBLING, XCB_CONFIG_WINDOW_STACK_MODE, XCB_CONFIG_WINDOW_WIDTH,
-    XCB_CONFIG_WINDOW_X, XCB_CONFIG_WINDOW_Y, XCB_DESTROY_NOTIFY, XCB_ENTER_NOTIFY, XCB_EXPOSE,
-    XCB_FOCUS_IN, XCB_FOCUS_OUT, XCB_ICCCM_WM_STATE_ICONIC, XCB_ICCCM_WM_STATE_NORMAL,
-    XCB_KEY_PRESS, XCB_KEY_RELEASE, XCB_MAPPING_NOTIFY, XCB_MAP_REQUEST, XCB_MOTION_NOTIFY,
-    XCB_NONE, XCB_NOTIFY_DETAIL_POINTER, XCB_NOTIFY_MODE_GRAB, XCB_NOTIFY_MODE_NORMAL,
-    XCB_NOTIFY_MODE_UNGRAB, XCB_NUM_LOCK, XCB_PROPERTY_NOTIFY, XCB_RANDR_SCREEN_CHANGE_NOTIFY,
-    XCB_SELECTION_CLEAR, XCB_SHAPE_NOTIFY, XCB_SHAPE_SK_BOUNDING, XCB_SHAPE_SK_INPUT,
-    XCB_STACK_MODE_ABOVE, XCB_UNMAP_NOTIFY, XCB_XKB_NKN_DETAIL_KEYCODES,
-};
 
 use startup_notification_sys::{
     sn_monitor_context_new, sn_xcb_display_process_event, SnMonitorEvent,
@@ -2639,7 +2610,8 @@ mod owned_event_tests {
                 let raw = libc::calloc(1, std::mem::size_of::<xcb::ffi::xcb_generic_event_t>())
                     .cast::<xcb::ffi::xcb_generic_event_t>();
                 assert!(!raw.is_null());
-                (*raw).response_type = XCB_MAPPING_NOTIFY as u8;
+                (*raw).response_type =
+                    (<::xcb::x::MappingNotifyEvent as ::xcb::BaseEvent>::NUMBER as i32) as u8;
                 raw.cast::<u8>().add(4).write(request);
                 let event = xcb::resolve_event(raw, &[]);
                 let xcb::Event::X(x::Event::MappingNotify(mapping)) = &event else {
@@ -2750,7 +2722,10 @@ mod owned_event_tests {
                 .cast::<u8>()
                 .add(26)
                 .cast::<u16>()
-                .write_unaligned((XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_SIBLING) as u16)
+                .write_unaligned(
+                    ((::xcb::x::ConfigWindowMask::Y.bits())
+                        | (::xcb::x::ConfigWindowMask::SIBLING.bits())) as u16,
+                )
         };
         assert_eq!(
             configure_values(&event),

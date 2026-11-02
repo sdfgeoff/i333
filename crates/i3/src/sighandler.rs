@@ -24,8 +24,8 @@ type Output = crate::types::xoutput;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct dialog_t {
-    pub id: xcb_window_t,
-    pub colormap: xcb_colormap_t,
+    pub id: u32,
+    pub colormap: u32,
     pub dims: Rect,
     pub surface: surface_t,
     pub dialogs: DialogLinks,
@@ -304,7 +304,7 @@ unsafe fn sighandler_create_dialogs() {
             draw_util_surface_init(
                 conn,
                 &raw mut (*dialog).surface,
-                (*dialog).id as xcb_drawable_t,
+                (*dialog).id as u32,
                 Some(crash_visual),
                 (*dialog).dims.width as ::core::ffi::c_int,
                 (*dialog).dims.height as ::core::ffi::c_int,
@@ -586,12 +586,6 @@ use i3_common::safewrappers::scalloc;
 // Canonical Cairo backend ABI; renderer logic remains local.
 
 // Canonical Pango backend ABI; font policy remains local.
-
-use xcb_sys::{
-    xcb_colormap_t, xcb_drawable_t, xcb_visualid_t, xcb_window_t, XCB_COLORMAP_ALLOC_NONE,
-    XCB_CURRENT_TIME, XCB_CW_BACK_PIXEL, XCB_CW_BORDER_PIXEL, XCB_CW_COLORMAP,
-    XCB_CW_OVERRIDE_REDIRECT, XCB_GRAB_MODE_ASYNC, XCB_NONE, XCB_WINDOW_CLASS_INPUT_OUTPUT,
-};
 
 pub use libc::{
     close, dup2, execvp, fork, free, getenv, getpid, pipe, sigaction, sigemptyset, siginfo_t,

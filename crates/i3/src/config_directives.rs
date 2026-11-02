@@ -290,14 +290,14 @@ fn event_state_bytes(bytes: &[u8]) -> u32 {
         .position(|&byte| byte == 0)
         .unwrap_or(bytes.len())];
     let flags: &[(&[u8], u32)] = &[
-        (b"Mod1", XCB_KEY_BUT_MASK_MOD_1),
-        (b"Mod2", XCB_KEY_BUT_MASK_MOD_2),
-        (b"Mod3", XCB_KEY_BUT_MASK_MOD_3),
-        (b"Mod4", XCB_KEY_BUT_MASK_MOD_4),
-        (b"Mod5", XCB_KEY_BUT_MASK_MOD_5),
-        (b"Control", XCB_KEY_BUT_MASK_CONTROL),
-        (b"Ctrl", XCB_KEY_BUT_MASK_CONTROL),
-        (b"Shift", XCB_KEY_BUT_MASK_SHIFT),
+        (b"Mod1", (::xcb::x::KeyButMask::MOD1.bits())),
+        (b"Mod2", (::xcb::x::KeyButMask::MOD2.bits())),
+        (b"Mod3", (::xcb::x::KeyButMask::MOD3.bits())),
+        (b"Mod4", (::xcb::x::KeyButMask::MOD4.bits())),
+        (b"Mod5", (::xcb::x::KeyButMask::MOD5.bits())),
+        (b"Control", (::xcb::x::KeyButMask::CONTROL.bits())),
+        (b"Ctrl", (::xcb::x::KeyButMask::CONTROL.bits())),
+        (b"Shift", (::xcb::x::KeyButMask::SHIFT.bits())),
         (b"Group1", KeyboardGroups::GROUP1.state_mask()),
         (b"Group2", KeyboardGroups::GROUP2.state_mask()),
         (b"Mode_switch", KeyboardGroups::GROUP2.state_mask()),
@@ -1541,7 +1541,7 @@ pub unsafe fn cfg_bar_modifier(
     (*current_bar).modifier = (if !modifiers.is_null() {
         event_state_from_str(modifiers) as ::core::ffi::c_long
     } else {
-        XCB_NONE
+        0
     }) as u32;
 }
 unsafe fn bar_configure_binding(
@@ -1850,7 +1850,7 @@ pub unsafe fn cfg_bar_start(current_match: *mut Match, result: *mut ConfigResult
     (*current_bar).tray_outputs.tqh_last =
         &raw mut (*current_bar).tray_outputs.tqh_first as *mut *mut tray_output_t;
     (*current_bar).tray_padding = 2 as ::core::ffi::c_int;
-    (*current_bar).modifier = XCB_KEY_BUT_MASK_MOD_4 as ::core::ffi::c_int as u32;
+    (*current_bar).modifier = (::xcb::x::KeyButMask::MOD4.bits()) as ::core::ffi::c_int as u32;
 }
 
 pub unsafe fn cfg_bar_finish(current_match: *mut Match, result: *mut ConfigResultIR) {
@@ -1891,12 +1891,6 @@ use i3_common::safewrappers::sstrdup;
 
 // Canonical Pango backend ABI; font policy remains local.
 
-use xcb_sys::{
-    XCB_KEY_BUT_MASK_CONTROL, XCB_KEY_BUT_MASK_MOD_1, XCB_KEY_BUT_MASK_MOD_2,
-    XCB_KEY_BUT_MASK_MOD_3, XCB_KEY_BUT_MASK_MOD_4, XCB_KEY_BUT_MASK_MOD_5, XCB_KEY_BUT_MASK_SHIFT,
-    XCB_NONE,
-};
-
 pub use libc::{
     __errno_location, atoi, free, realpath, strcasecmp, strcmp, strerror, strlen, strncasecmp,
     strstr,
@@ -1935,14 +1929,19 @@ mod argument_tests {
     fn modifier_decisions_keep_native_substring_case_and_first_nul_rules() {
         assert_eq!(
             event_state_bytes(b"prefixMod1suffix+Ctrl+Shift"),
-            XCB_KEY_BUT_MASK_MOD_1 | XCB_KEY_BUT_MASK_CONTROL | XCB_KEY_BUT_MASK_SHIFT
+            (::xcb::x::KeyButMask::MOD1.bits())
+                | (::xcb::x::KeyButMask::CONTROL.bits())
+                | (::xcb::x::KeyButMask::SHIFT.bits())
         );
         assert_eq!(event_state_bytes(b"mod1+ctrl+shift"), 0);
         assert_eq!(
             event_state_bytes(b"Mode_switch+Group4"),
             (KeyboardGroups::GROUP2.bits() | KeyboardGroups::GROUP4.bits()) << 16
         );
-        assert_eq!(event_state_bytes(b"Mod1\0Mod4"), XCB_KEY_BUT_MASK_MOD_1);
+        assert_eq!(
+            event_state_bytes(b"Mod1\0Mod4"),
+            (::xcb::x::KeyButMask::MOD1.bits())
+        );
         unsafe {
             assert_eq!(event_state_from_str(std::ptr::null()), 0);
         }

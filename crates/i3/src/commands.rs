@@ -2585,10 +2585,10 @@ pub unsafe fn cmd_exec(
             command,
             no_startup_id,
             (if (*(*current).con).window.is_null() {
-                XCB_NONE
+                0
             } else {
                 (*(*(*current).con).window).id as ::core::ffi::c_long
-            }) as xcb_window_t,
+            }) as u32,
         );
         current = (*current).owindows.tqe_next as *mut owindow;
     }
@@ -4156,7 +4156,7 @@ pub unsafe fn cmd_swap(
             }
             return;
         }
-        con = con_by_window_id(target as xcb_window_t);
+        con = con_by_window_id(target as u32);
     } else if strcmp(mode, c"con_id".as_ptr()) == 0 as ::core::ffi::c_int {
         let mut target_0: ::core::ffi::c_long = 0;
         if !parse_long(arg, &raw mut target_0, 0 as ::core::ffi::c_int) {
@@ -5212,8 +5212,6 @@ use i3_common::safewrappers::sstrdup;
 // Canonical Cairo backend ABI; renderer logic remains local.
 
 // Canonical Pango backend ABI; font policy remains local.
-
-use xcb_sys::{xcb_window_t, XCB_NONE};
 
 pub use libc::{atoi, exit, fcntl, free, setenv, strcasecmp, strcmp, strlen, strncasecmp, unlink};
 

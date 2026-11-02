@@ -12,7 +12,7 @@
    | `i3-build` | Shared version, target and compiler configuration |
    | `i3-test-support` | Development-only Cargo regression orchestration and captured logs |
    | `libev-sys` | Canonical native event-loop handles and watcher layouts |
-   | `xcb-sys` | Shared XCB protocol and extension boundary |
+   | `xcb-interop` | Owned native cursor, key-symbol and X resource utilities; narrow transport compatibility gaps |
    | `startup-notification-sys` | Native startup-notification handles and callbacks |
 
    Each crate uses ordinary module declarations with source inside its own
@@ -145,11 +145,17 @@
 
    Maintained `cairo-sys-rs`, `pango-sys`, `pangocairo-sys` and `gobject-sys`
    provide GTK rendering bindings. Maintained `xkbcommon` supplies its raw and
-   X11 interfaces. The maintained `xcb` crate supplies public generic events,
-   errors and basic geometry types; `as-raw-xcb-connection` supplies the common
-   connection handle. Most raw extension and utility entry points are private
-   in the maintained XCB crate, so `xcb-sys` centralizes the remaining native
-   declarations without changing connection ownership or generating C headers.
+   X11 interfaces. The maintained `xcb` crate supplies core and extension
+   requests, cookies, replies, owned events and canonical connection/error
+   handles. Each display has one owned connection shared through `Rc`; setup
+   consumers use owned screen views or copied semantic values. Cairo receives
+   aligned owned native visual data retained through graphics teardown.
+   `xcb-interop` owns the real cursor, key-symbol and X resource libraries and
+   supplies narrow transport gaps for reply discard, connection health checks,
+   unchecked request barriers, extra mouse buttons and unknown stacking modes.
+   Checked event-field adapters preserve foreign values where maintained getters
+   truncate flags or require closed enums. The legacy `xcb-sys` crate is removed;
+   no replacement protocol structs or generated C headers are kept locally.
    Native libev watcher layouts and startup-notification callbacks have their
    own boundary crates. `libc` owns C runtime types and calls; the small
    `i3_common::native_stdio` module contains APIs missing from its public API,

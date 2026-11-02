@@ -732,7 +732,7 @@ impl LayoutState {
         }
         if self.parsing_swallows {
             if strcasecmp(self.last_key.as_ptr(), c"id".as_ptr()) == 0 as ::core::ffi::c_int {
-                (*self.current_swallow).id = val as xcb_window_t;
+                (*self.current_swallow).id = val as u32;
                 self.swallow_is_empty = false;
             }
             if strcasecmp(self.last_key.as_ptr(), c"dock".as_ptr()) == 0 as ::core::ffi::c_int {
@@ -1043,8 +1043,6 @@ use i3_common::safewrappers::sstrdup;
 use i3_common::safewrappers::sstrndup;
 
 // Canonical Cairo backend ABI; renderer logic remains local.
-
-use xcb_sys::xcb_window_t;
 
 pub use libc::{free, memcpy, setlocale, strcasecmp, strcmp, strncasecmp};
 

@@ -384,7 +384,8 @@ pub unsafe fn get_binding_from_event(
         InputType::Keyboard
     };
     let event_detail = u16::from(detail);
-    let mut state_filtered: u32 = (event_state as i32 & !(XCB_MOD_MASK_LOCK as i32)) as u32;
+    let mut state_filtered: u32 =
+        (event_state as i32 & !((::xcb::x::ModMask::LOCK.bits()) as i32)) as u32;
     debuglog(
         c"%s:%s:%d - (removed capslock, state = 0x%x)\n"
             .as_ptr()
@@ -433,26 +434,26 @@ unsafe extern "C" fn add_keycode_if_matches(
         }
     }
     let bind: *mut Binding = (*resolving).bind;
-    append_keycode(bind, key as xcb_keycode_t, (*bind).event_state_mask);
+    append_keycode(bind, key as u8, (*bind).event_state_mask);
     append_keycode(
         bind,
-        key as xcb_keycode_t,
-        (*bind).event_state_mask | XCB_MOD_MASK_LOCK as i32 as u32,
+        key as u8,
+        (*bind).event_state_mask | (::xcb::x::ModMask::LOCK.bits()) as i32 as u32,
     );
     if (*bind).event_state_mask & xcb_numlock_mask as u32 != xcb_numlock_mask as u32 {
         let sym_numlock: xkb_keysym_t = xkb_state_key_get_one_sym(numlock_state, key);
         if sym_numlock == (*resolving).keysym {
             append_keycode(
                 bind,
-                key as xcb_keycode_t,
+                key as u8,
                 (*bind).event_state_mask | xcb_numlock_mask as u32,
             );
             append_keycode(
                 bind,
-                key as xcb_keycode_t,
+                key as u8,
                 (*bind).event_state_mask
                     | xcb_numlock_mask as u32
-                    | XCB_MOD_MASK_LOCK as i32 as u32,
+                    | (::xcb::x::ModMask::LOCK.bits()) as i32 as u32,
             );
         } else {
             debuglog(
@@ -516,7 +517,7 @@ pub unsafe fn translate_keysyms() {
                         (*bind).symbol,
                     );
                 }
-                let key: xcb_keycode_t = button as xcb_keycode_t;
+                let key: u8 = button as u8;
                 (*bind).keycode = key as u32;
                 debuglog(
                     c"%s:%s:%d - Binding Mouse button, Keycode = %d\n"
@@ -574,7 +575,7 @@ pub unsafe fn translate_keysyms() {
             xkb_state_update_mask(
                 dummy_state_no_shift,
                 (*bind).event_state_mask as xkb_mod_mask_t & 0x1fff as xkb_mod_mask_t
-                    ^ XCB_KEY_BUT_MASK_SHIFT as i32 as xkb_mod_mask_t,
+                    ^ (::xcb::x::KeyButMask::SHIFT.bits()) as i32 as xkb_mod_mask_t,
                 0 as xkb_mod_mask_t,
                 0 as xkb_mod_mask_t,
                 0 as xkb_layout_index_t,
@@ -595,7 +596,7 @@ pub unsafe fn translate_keysyms() {
                 dummy_state_numlock_no_shift,
                 ((*bind).event_state_mask as xkb_mod_mask_t & 0x1fff as xkb_mod_mask_t
                     | xcb_numlock_mask as xkb_mod_mask_t)
-                    ^ XCB_KEY_BUT_MASK_SHIFT as i32 as xkb_mod_mask_t,
+                    ^ (::xcb::x::KeyButMask::SHIFT.bits()) as i32 as xkb_mod_mask_t,
                 0 as xkb_mod_mask_t,
                 0 as xkb_mod_mask_t,
                 0 as xkb_layout_index_t,
@@ -615,15 +616,11 @@ pub unsafe fn translate_keysyms() {
                     free(first as *mut ::core::ffi::c_void);
                     first = ::core::ptr::null_mut::<Binding_Keycode>();
                 }
+                append_keycode(bind, (*bind).keycode as u8, (*bind).event_state_mask);
                 append_keycode(
                     bind,
-                    (*bind).keycode as xcb_keycode_t,
-                    (*bind).event_state_mask,
-                );
-                append_keycode(
-                    bind,
-                    (*bind).keycode as xcb_keycode_t,
-                    (*bind).event_state_mask | XCB_MOD_MASK_LOCK as i32 as u32,
+                    (*bind).keycode as u8,
+                    (*bind).event_state_mask | (::xcb::x::ModMask::LOCK.bits()) as i32 as u32,
                 );
                 if (*bind).event_state_mask & xcb_numlock_mask as u32 != xcb_numlock_mask as u32 {
                     let sym: xkb_keysym_t =
@@ -641,7 +638,9 @@ pub unsafe fn translate_keysyms() {
                         append_keycode(
                             bind,
                             (*bind).keycode as u8,
-                            (*bind).event_state_mask | xcb_numlock_mask | XCB_MOD_MASK_LOCK as u32,
+                            (*bind).event_state_mask
+                                | xcb_numlock_mask
+                                | (::xcb::x::ModMask::LOCK.bits()) as u32,
                         );
                     } else {
                         debuglog(
@@ -1206,8 +1205,6 @@ use i3_common::safewrappers::smalloc;
 use i3_common::safewrappers::sstrdup;
 
 // Canonical Pango backend ABI; font policy remains local.
-
-use xcb_sys::{xcb_keycode_t, XCB_KEY_BUT_MASK_SHIFT, XCB_MOD_MASK_LOCK};
 
 use xkbcommon::xkb::ffi::*;
 use xkbcommon::xkb::x11::ffi::*;

@@ -5,6 +5,16 @@
 //! to zero remain valid. Unknown payloads never cross native ABI boundaries.
 use crate::flags::AdjacentEdges;
 
+/// ICCCM WM_STATE values used in client property transitions. Incoming words
+/// remain open integers and are compared against these known states.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum IcccmState {
+    Withdrawn = 0,
+    Normal = 1,
+    Iconic = 3,
+}
+
 macro_rules! open_domain {
     ($name:ident: $repr:ident, $unknown:literal {
         $($(#[$attr:meta])* $variant:ident = $raw:expr,)*

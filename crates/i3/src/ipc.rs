@@ -706,7 +706,7 @@ unsafe fn snapshot_node_header(con: *mut Con, restart: bool) -> messages::NodeHe
                         None => NativeValue::Rejected,
                     }),
             ),
-            transient_for: ((*window).transient_for as libc::c_long != XCB_NONE)
+            transient_for: ((*window).transient_for as libc::c_long != 0)
                 .then_some((*window).transient_for as i64),
         }
     }));
@@ -1767,7 +1767,7 @@ pub unsafe fn ipc_send_window_event(property: *const ::core::ffi::c_char, con: *
         if !(*con).window.is_null() {
             (*(*con).window).id
         } else {
-            XCB_WINDOW_NONE as ::core::ffi::c_int as xcb_window_t
+            0 as ::core::ffi::c_int as u32
         },
     );
     let locale = NumericLocale::c();
@@ -1883,8 +1883,6 @@ use i3_common::safewrappers::sstrndup;
 use i3_common::safewrappers::writeall_nonblock;
 
 // Canonical Cairo backend ABI; renderer logic remains local.
-
-use xcb_sys::{xcb_window_t, XCB_NONE, XCB_WINDOW_NONE};
 
 pub use libc::{
     __errno_location, accept, close, fcntl, free, getsockopt, memcpy, memmove, open, perror, read,

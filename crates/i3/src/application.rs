@@ -74,7 +74,7 @@ pub struct keycodes_head {
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct Binding_Keycode {
-    pub keycode: xcb_keycode_t,
+    pub keycode: u8,
     pub modifiers: i3_event_state_mask_t,
     pub keycodes: BindingKeycodeLinks,
 }
@@ -434,17 +434,17 @@ pub static mut conn_screen: ::core::ffi::c_int = 0;
 
 pub static mut sndisplay: *mut SnDisplay = ::core::ptr::null::<SnDisplay>() as *mut SnDisplay;
 
-pub static mut last_timestamp: xcb_timestamp_t = XCB_CURRENT_TIME as xcb_timestamp_t;
+pub static mut last_timestamp: u32 = (::xcb::x::CURRENT_TIME) as u32;
 
-pub static mut root: xcb_window_t = 0;
+pub static mut root: u32 = 0;
 
-pub static mut wm_sn_selection_owner: xcb_window_t = 0;
+pub static mut wm_sn_selection_owner: u32 = 0;
 
-pub static mut wm_sn: xcb_atom_t = 0;
+pub static mut wm_sn: u32 = 0;
 
 pub static mut root_depth: u8 = 0;
 
-pub static mut colormap: xcb_colormap_t = 0;
+pub static mut colormap: u32 = 0;
 
 pub static mut main_loop: *mut ev_loop = ::core::ptr::null::<ev_loop>() as *mut ev_loop;
 
@@ -511,125 +511,125 @@ pub static mut shape_supported: bool = true_0 != 0;
 
 pub static mut force_xinerama: bool = false_0 != 0;
 
-pub static mut A__NET_WM_STATE_MAXIMIZED_HORZ: xcb_atom_t = 0;
+pub static mut A__NET_WM_STATE_MAXIMIZED_HORZ: u32 = 0;
 
-pub static mut A__NET_WM_STATE_FOCUSED: xcb_atom_t = 0;
+pub static mut A__NET_WM_STATE_FOCUSED: u32 = 0;
 
-pub static mut A__NET_WM_STATE_MAXIMIZED_VERT: xcb_atom_t = 0;
+pub static mut A__NET_WM_STATE_MAXIMIZED_VERT: u32 = 0;
 
-pub static mut A__NET_WM_STATE: xcb_atom_t = 0;
+pub static mut A__NET_WM_STATE: u32 = 0;
 
-pub static mut A__NET_WM_WINDOW_TYPE: xcb_atom_t = 0;
+pub static mut A__NET_WM_WINDOW_TYPE: u32 = 0;
 
-pub static mut A__NET_WM_WINDOW_TYPE_NORMAL: xcb_atom_t = 0;
+pub static mut A__NET_WM_WINDOW_TYPE_NORMAL: u32 = 0;
 
-pub static mut A__NET_WM_WINDOW_TYPE_DOCK: xcb_atom_t = 0;
+pub static mut A__NET_WM_WINDOW_TYPE_DOCK: u32 = 0;
 
-pub static mut A__NET_WM_WINDOW_TYPE_DIALOG: xcb_atom_t = 0;
+pub static mut A__NET_WM_WINDOW_TYPE_DIALOG: u32 = 0;
 
-pub static mut A__NET_WM_WINDOW_TYPE_UTILITY: xcb_atom_t = 0;
+pub static mut A__NET_WM_WINDOW_TYPE_UTILITY: u32 = 0;
 
-pub static mut A__NET_WM_WINDOW_TYPE_TOOLBAR: xcb_atom_t = 0;
+pub static mut A__NET_WM_WINDOW_TYPE_TOOLBAR: u32 = 0;
 
-pub static mut A__NET_WM_WINDOW_TYPE_SPLASH: xcb_atom_t = 0;
+pub static mut A__NET_WM_WINDOW_TYPE_SPLASH: u32 = 0;
 
-pub static mut A__NET_WM_WINDOW_TYPE_MENU: xcb_atom_t = 0;
+pub static mut A__NET_WM_WINDOW_TYPE_MENU: u32 = 0;
 
-pub static mut A__NET_WM_WINDOW_TYPE_DROPDOWN_MENU: xcb_atom_t = 0;
+pub static mut A__NET_WM_WINDOW_TYPE_DROPDOWN_MENU: u32 = 0;
 
-pub static mut A__NET_WM_WINDOW_TYPE_POPUP_MENU: xcb_atom_t = 0;
+pub static mut A__NET_WM_WINDOW_TYPE_POPUP_MENU: u32 = 0;
 
-pub static mut A__NET_WM_WINDOW_TYPE_TOOLTIP: xcb_atom_t = 0;
+pub static mut A__NET_WM_WINDOW_TYPE_TOOLTIP: u32 = 0;
 
-pub static mut A__NET_WM_WINDOW_TYPE_NOTIFICATION: xcb_atom_t = 0;
+pub static mut A__NET_WM_WINDOW_TYPE_NOTIFICATION: u32 = 0;
 
-pub static mut A__NET_WM_STATE_HIDDEN: xcb_atom_t = 0;
+pub static mut A__NET_WM_STATE_HIDDEN: u32 = 0;
 
-pub static mut A__NET_WM_STRUT_PARTIAL: xcb_atom_t = 0;
+pub static mut A__NET_WM_STRUT_PARTIAL: u32 = 0;
 
-pub static mut A__NET_CLIENT_LIST: xcb_atom_t = 0;
+pub static mut A__NET_CLIENT_LIST: u32 = 0;
 
-pub static mut A__NET_CLIENT_LIST_STACKING: xcb_atom_t = 0;
+pub static mut A__NET_CLIENT_LIST_STACKING: u32 = 0;
 
-pub static mut A__NET_CURRENT_DESKTOP: xcb_atom_t = 0;
+pub static mut A__NET_CURRENT_DESKTOP: u32 = 0;
 
-pub static mut A__NET_NUMBER_OF_DESKTOPS: xcb_atom_t = 0;
+pub static mut A__NET_NUMBER_OF_DESKTOPS: u32 = 0;
 
-pub static mut A__NET_DESKTOP_NAMES: xcb_atom_t = 0;
+pub static mut A__NET_DESKTOP_NAMES: u32 = 0;
 
-pub static mut A__NET_DESKTOP_VIEWPORT: xcb_atom_t = 0;
+pub static mut A__NET_DESKTOP_VIEWPORT: u32 = 0;
 
-pub static mut A__NET_ACTIVE_WINDOW: xcb_atom_t = 0;
+pub static mut A__NET_ACTIVE_WINDOW: u32 = 0;
 
-pub static mut A__NET_CLOSE_WINDOW: xcb_atom_t = 0;
+pub static mut A__NET_CLOSE_WINDOW: u32 = 0;
 
-pub static mut A__NET_MOVERESIZE_WINDOW: xcb_atom_t = 0;
+pub static mut A__NET_MOVERESIZE_WINDOW: u32 = 0;
 
-pub static mut A__NET_WM_STATE_STICKY: xcb_atom_t = 0;
+pub static mut A__NET_WM_STATE_STICKY: u32 = 0;
 
-pub static mut A__NET_SUPPORTED: xcb_atom_t = 0;
+pub static mut A__NET_SUPPORTED: u32 = 0;
 
-pub static mut A__NET_SUPPORTING_WM_CHECK: xcb_atom_t = 0;
+pub static mut A__NET_SUPPORTING_WM_CHECK: u32 = 0;
 
-pub static mut A__NET_WM_NAME: xcb_atom_t = 0;
+pub static mut A__NET_WM_NAME: u32 = 0;
 
-pub static mut A__NET_WM_VISIBLE_NAME: xcb_atom_t = 0;
+pub static mut A__NET_WM_VISIBLE_NAME: u32 = 0;
 
-pub static mut A__NET_WM_STATE_FULLSCREEN: xcb_atom_t = 0;
+pub static mut A__NET_WM_STATE_FULLSCREEN: u32 = 0;
 
-pub static mut A__NET_WM_MOVERESIZE: xcb_atom_t = 0;
+pub static mut A__NET_WM_MOVERESIZE: u32 = 0;
 
-pub static mut A__NET_WM_STATE_DEMANDS_ATTENTION: xcb_atom_t = 0;
+pub static mut A__NET_WM_STATE_DEMANDS_ATTENTION: u32 = 0;
 
-pub static mut A__NET_WM_STATE_MODAL: xcb_atom_t = 0;
+pub static mut A__NET_WM_STATE_MODAL: u32 = 0;
 
-pub static mut A__NET_WM_DESKTOP: xcb_atom_t = 0;
+pub static mut A__NET_WM_DESKTOP: u32 = 0;
 
-pub static mut A_WM_TAKE_FOCUS: xcb_atom_t = 0;
+pub static mut A_WM_TAKE_FOCUS: u32 = 0;
 
-pub static mut A_I3_CONFIG_PATH: xcb_atom_t = 0;
+pub static mut A_I3_CONFIG_PATH: u32 = 0;
 
-pub static mut A__NET_WM_USER_TIME: xcb_atom_t = 0;
+pub static mut A__NET_WM_USER_TIME: u32 = 0;
 
-pub static mut A__NET_STARTUP_ID: xcb_atom_t = 0;
+pub static mut A__NET_STARTUP_ID: u32 = 0;
 
-pub static mut A__NET_WORKAREA: xcb_atom_t = 0;
+pub static mut A__NET_WORKAREA: u32 = 0;
 
-pub static mut A__NET_WM_ICON: xcb_atom_t = 0;
+pub static mut A__NET_WM_ICON: u32 = 0;
 
-pub static mut A_WM_PROTOCOLS: xcb_atom_t = 0;
+pub static mut A_WM_PROTOCOLS: u32 = 0;
 
-pub static mut A_WM_DELETE_WINDOW: xcb_atom_t = 0;
+pub static mut A_WM_DELETE_WINDOW: u32 = 0;
 
-pub static mut A_UTF8_STRING: xcb_atom_t = 0;
+pub static mut A_UTF8_STRING: u32 = 0;
 
-pub static mut A_WM_STATE: xcb_atom_t = 0;
+pub static mut A_WM_STATE: u32 = 0;
 
-pub static mut A_WM_CLIENT_LEADER: xcb_atom_t = 0;
+pub static mut A_WM_CLIENT_LEADER: u32 = 0;
 
-pub static mut A_WM_WINDOW_ROLE: xcb_atom_t = 0;
+pub static mut A_WM_WINDOW_ROLE: u32 = 0;
 
-pub static mut A_I3_SOCKET_PATH: xcb_atom_t = 0;
+pub static mut A_I3_SOCKET_PATH: u32 = 0;
 
-pub static mut A_I3_SYNC: xcb_atom_t = 0;
+pub static mut A_I3_SYNC: u32 = 0;
 
-pub static mut A__NET_FRAME_EXTENTS: xcb_atom_t = 0;
+pub static mut A__NET_FRAME_EXTENTS: u32 = 0;
 
-pub static mut A_I3_FLOATING_WINDOW: xcb_atom_t = 0;
+pub static mut A_I3_FLOATING_WINDOW: u32 = 0;
 
-pub static mut A_I3_LOG_STREAM_SOCKET_PATH: xcb_atom_t = 0;
+pub static mut A_I3_LOG_STREAM_SOCKET_PATH: u32 = 0;
 
-pub static mut A_I3_SHMLOG_PATH: xcb_atom_t = 0;
+pub static mut A_I3_SHMLOG_PATH: u32 = 0;
 
-pub static mut A_I3_PID: xcb_atom_t = 0;
+pub static mut A_I3_PID: u32 = 0;
 
-pub static mut A__NET_REQUEST_FRAME_EXTENTS: xcb_atom_t = 0;
+pub static mut A__NET_REQUEST_FRAME_EXTENTS: u32 = 0;
 
-pub static mut A__MOTIF_WM_HINTS: xcb_atom_t = 0;
+pub static mut A__MOTIF_WM_HINTS: u32 = 0;
 
-pub static mut A_WM_CHANGE_STATE: xcb_atom_t = 0;
+pub static mut A_WM_CHANGE_STATE: u32 = 0;
 
-pub static mut A_MANAGER: xcb_atom_t = 0;
+pub static mut A_MANAGER: u32 = 0;
 // Native malloc ownership used only by normal startup/event callbacks, never
 // added to the actual signal handler. Global display resources retain atexit ABI.
 struct NativeAllocation<T>(NonNull<T>);
@@ -1242,7 +1242,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     main_connection().send_request(&x::ChangeProperty {
         mode: x::PropMode::Append,
         window: x::Window::new(root),
-        property: x::Atom::new(XCB_ATOM_SUPERSCRIPT_X as u32),
+        property: x::Atom::new((::xcb::x::ATOM_SUPERSCRIPT_X.resource_id()) as u32),
         r#type: x::ATOM_CARDINAL,
         data: &[] as &[u32],
     });
@@ -1457,7 +1457,10 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     );
     loop {
         match main_connection().wait_for_event() {
-            Ok(event) if i32::from(event_response_type(&event)) == XCB_PROPERTY_NOTIFY => {
+            Ok(event)
+                if i32::from(event_response_type(&event))
+                    == (<::xcb::x::PropertyNotifyEvent as ::xcb::BaseEvent>::NUMBER as i32) =>
+            {
                 if let xcb::Event::X(x::Event::PropertyNotify(property)) = event {
                     last_timestamp = property.time();
                     break;
@@ -1759,7 +1762,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     property_handlers_init();
     ewmh_setup_hints();
     rebuild_key_symbols();
-    xcb_numlock_mask = key_symbol_modifiers(XCB_NUM_LOCK as u32);
+    xcb_numlock_mask = key_symbol_modifiers((xkbcommon::xkb::keysyms::KEY_Num_Lock) as u32);
     if !load_keymap() {
         errx(EXIT_FAILURE, c"Could not load keymap\n".as_ptr());
     }
@@ -1967,7 +1970,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         match main_connection().poll_for_event() {
             Ok(Some(event)) => {
                 let kind = event_kind(&event);
-                if kind == XCB_MAP_REQUEST {
+                if kind == (<::xcb::x::MapRequestEvent as ::xcb::BaseEvent>::NUMBER as i32) {
                     handle_event(&event);
                 }
             }
@@ -2046,11 +2049,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         while !autostarts.tqh_first.is_null() {
             let mut exec: *mut Autostart = autostarts.tqh_first;
             verboselog(c"auto-starting %s\n".as_ptr().cast_mut(), (*exec).command);
-            start_application(
-                (*exec).command,
-                (*exec).no_startup_id,
-                XCB_NONE as xcb_window_t,
-            );
+            start_application((*exec).command, (*exec).no_startup_id, 0 as u32);
             free((*exec).command as *mut ::core::ffi::c_void);
             (*exec).command = ::core::ptr::null_mut::<::core::ffi::c_char>();
             if !(*exec).autostarts.tqe_next.is_null() {
@@ -2072,7 +2071,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         start_application(
             (*exec_always).command,
             (*exec_always).no_startup_id,
-            XCB_NONE as xcb_window_t,
+            0 as u32,
         );
         free((*exec_always).command as *mut ::core::ffi::c_void);
         (*exec_always).command = ::core::ptr::null_mut::<::core::ffi::c_char>();
@@ -2186,21 +2185,6 @@ use i3_common::safewrappers::sstrdup;
 // Canonical Cairo backend ABI; renderer logic remains local.
 
 // Canonical Pango backend ABI; font policy remains local.
-
-use xcb_sys::{
-    xcb_atom_t, xcb_colormap_t, xcb_drawable_t, xcb_generic_error_t, xcb_keycode_t,
-    xcb_timestamp_t, xcb_window_t, XCB_ATOM_CARDINAL, XCB_ATOM_STRING, XCB_ATOM_SUPERSCRIPT_X,
-    XCB_ATOM_WM_CLASS, XCB_CLIENT_MESSAGE, XCB_COLORMAP_ALLOC_NONE, XCB_CURRENT_TIME,
-    XCB_CW_EVENT_MASK, XCB_EVENT_MASK_BUTTON_PRESS, XCB_EVENT_MASK_ENTER_WINDOW,
-    XCB_EVENT_MASK_FOCUS_CHANGE, XCB_EVENT_MASK_POINTER_MOTION, XCB_EVENT_MASK_PROPERTY_CHANGE,
-    XCB_EVENT_MASK_STRUCTURE_NOTIFY, XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT, XCB_MAP_REQUEST,
-    XCB_NONE, XCB_NUM_LOCK, XCB_PROPERTY_NOTIFY, XCB_PROP_MODE_APPEND, XCB_PROP_MODE_REPLACE,
-    XCB_WINDOW_CLASS_INPUT_OUTPUT, XCB_XKB_EVENT_TYPE_MAP_NOTIFY,
-    XCB_XKB_EVENT_TYPE_NEW_KEYBOARD_NOTIFY, XCB_XKB_EVENT_TYPE_STATE_NOTIFY,
-    XCB_XKB_ID_USE_CORE_KBD, XCB_XKB_MAJOR_VERSION, XCB_XKB_MINOR_VERSION,
-    XCB_XKB_PER_CLIENT_FLAG_DETECTABLE_AUTO_REPEAT, XCB_XKB_PER_CLIENT_FLAG_GRABS_USE_XKB_STATE,
-    XCB_XKB_PER_CLIENT_FLAG_LOOKUP_STATE_WHEN_GRABBED,
-};
 
 use crate::handlers::xkb_base;
 
@@ -2413,16 +2397,27 @@ mod owned_event_tests {
     fn core_event_ownership_does_not_convert_unknown_native_selectors() {
         // PropertyNotify's state byte is an open native value here. The core
         // owned event must survive decoding without invoking its enum getter.
-        let event = unsafe { event(XCB_PROPERTY_NOTIFY as u8 | 0x80, 0) };
+        let event = unsafe {
+            event(
+                (<::xcb::x::PropertyNotifyEvent as ::xcb::BaseEvent>::NUMBER as i32) as u8 | 0x80,
+                0,
+            )
+        };
         unsafe { event.as_raw().cast::<u8>().add(16).write(u8::MAX) };
         assert!(matches!(
             &event,
             xcb::Event::X(xcb::x::Event::PropertyNotify(_))
         ));
-        assert_eq!(event_kind(&event), XCB_PROPERTY_NOTIFY);
+        assert_eq!(
+            event_kind(&event),
+            (<::xcb::x::PropertyNotifyEvent as ::xcb::BaseEvent>::NUMBER as i32)
+        );
         // Startup timestamp filtering historically ignores SendEvent-flagged
         // PropertyNotify, while ordinary dispatch masks that same flag.
-        assert_ne!(i32::from(event_response_type(&event)), XCB_PROPERTY_NOTIFY);
+        assert_ne!(
+            i32::from(event_response_type(&event)),
+            (<::xcb::x::PropertyNotifyEvent as ::xcb::BaseEvent>::NUMBER as i32)
+        );
         assert_eq!(
             unsafe { event.as_raw().cast::<u8>().add(16).read() },
             u8::MAX

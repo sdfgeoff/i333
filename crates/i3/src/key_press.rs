@@ -15,7 +15,6 @@ use crate::application::last_timestamp;
 use crate::bindings::{get_binding_from_event, run_binding};
 use crate::commands_parser::command_result_free;
 use crate::log::debuglog;
-use xcb_sys::XCB_KEY_RELEASE;
 
 /// Dispatch a native key event against the current bindings.
 ///
@@ -25,8 +24,11 @@ use xcb_sys::XCB_KEY_RELEASE;
 /// initialized display, binding and container globals. Binding execution can
 /// mutate that graph, so no references into it may survive this call.
 pub unsafe fn handle_key_press(event: &x::KeyPressEvent) {
+    // KeyReleaseEvent is a maintained alias of KeyPressEvent, including its
+    // BaseEvent number. Read the actual release response (3) and preserve the
+    // legacy unmasked comparison for synthetic SendEvent input.
     let (key_release, time, detail, state) = (
-        event.response_type() == XCB_KEY_RELEASE as u8,
+        event.response_type() == 3 as u8,
         event.time(),
         event.detail(),
         xcb_interop::events::key_press_state(event),

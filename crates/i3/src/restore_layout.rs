@@ -19,7 +19,7 @@ const false_0: i32 = 0;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct placeholder_state {
-    pub window: xcb_window_t,
+    pub window: u32,
     pub con: *mut Con,
     pub rect: Rect,
     pub surface: surface_t,
@@ -293,7 +293,7 @@ unsafe fn update_placeholder_contents(state: *mut placeholder_state) {
 }
 unsafe fn open_placeholder_window(con: *mut Con) {
     if con_is_leaf(con) as ::core::ffi::c_int != 0
-        && ((*con).window.is_null() || (*(*con).window).id as ::core::ffi::c_long == XCB_NONE)
+        && ((*con).window.is_null() || (*(*con).window).id as ::core::ffi::c_long == 0)
         && !(*con).swallow_head.tqh_first.is_null()
         && ((*con).type_0) == ContainerType::Con
     {
@@ -347,7 +347,7 @@ unsafe fn open_placeholder_window(con: *mut Con) {
         draw_util_surface_init(
             restore_conn,
             &raw mut (*state).surface,
-            placeholder as xcb_drawable_t,
+            placeholder as u32,
             RESTORE_VISUAL.as_ref(),
             (*state).rect.width as ::core::ffi::c_int,
             (*state).rect.height as ::core::ffi::c_int,
@@ -401,7 +401,7 @@ pub unsafe fn restore_open_placeholder_windows(parent: *mut Con) {
     let _ = restore_connection().flush();
 }
 
-pub unsafe fn restore_kill_placeholder(placeholder: xcb_window_t) -> bool {
+pub unsafe fn restore_kill_placeholder(placeholder: u32) -> bool {
     let mut state: *mut placeholder_state = ::core::ptr::null_mut::<placeholder_state>();
     state = state_head.tqh_first as *mut placeholder_state;
     while !state.is_null() {
@@ -549,12 +549,6 @@ use i3_common::safewrappers::smalloc;
 // Canonical Cairo backend ABI; renderer logic remains local.
 
 // Canonical Pango backend ABI; font policy remains local.
-
-use xcb_sys::{
-    xcb_drawable_t, xcb_visualid_t, xcb_window_t, XCB_COPY_FROM_PARENT, XCB_CW_BACK_PIXEL,
-    XCB_CW_EVENT_MASK, XCB_EVENT_MASK_EXPOSURE, XCB_EVENT_MASK_STRUCTURE_NOTIFY, XCB_NONE,
-    XCB_PROP_MODE_REPLACE, XCB_WINDOW_CLASS_INPUT_OUTPUT,
-};
 
 pub use libc::{free, memmove, strlen};
 

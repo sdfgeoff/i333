@@ -442,7 +442,7 @@ pub fn con_is_leaf(con: *mut Con) -> bool {
 pub unsafe fn con_has_managed_window(con: *mut Con) -> bool {
     !con.is_null()
         && !(*con).window.is_null()
-        && (*(*con).window).id != XCB_WINDOW_NONE as ::core::ffi::c_int as xcb_window_t
+        && (*(*con).window).id != 0 as ::core::ffi::c_int as u32
         && !con_get_workspace(con).is_null()
 }
 
@@ -727,7 +727,7 @@ pub fn con_has_parent(con: *mut Con, parent: *mut Con) -> bool {
     false
 }
 
-pub unsafe fn con_by_window_id(window: xcb_window_t) -> *mut Con {
+pub unsafe fn con_by_window_id(window: u32) -> *mut Con {
     for id in arena::containers() {
         let Some(con) = arena::resolve(id) else {
             continue;
@@ -747,7 +747,7 @@ pub fn con_exists(con: *mut Con) -> bool {
     arena::identity(con).is_some()
 }
 
-pub unsafe fn con_by_frame_id(frame: xcb_window_t) -> *mut Con {
+pub unsafe fn con_by_frame_id(frame: u32) -> *mut Con {
     for id in arena::containers() {
         let Some(con) = arena::resolve(id) else {
             continue;
@@ -771,12 +771,12 @@ pub unsafe fn con_by_mark(mark: *const ::core::ffi::c_char) -> *mut Con {
     ::core::ptr::null_mut::<Con>()
 }
 
-pub unsafe fn con_find_transient_for_window(start: *mut Con, target: xcb_window_t) -> bool {
+pub unsafe fn con_find_transient_for_window(start: *mut Con, target: u32) -> bool {
     let mut transient_con: *mut Con = start;
     let mut count: ::core::ffi::c_int = con_num_windows(croot);
     while !transient_con.is_null()
         && !(*transient_con).window.is_null()
-        && (*(*transient_con).window).transient_for as ::core::ffi::c_long != XCB_NONE
+        && (*(*transient_con).window).transient_for as ::core::ffi::c_long != 0
     {
         debuglog(
             c"%s:%s:%d - transient_con = 0x%08x, transient_con->window->transient_for = 0x%08x, target = 0x%08x\n".as_ptr().cast_mut(),
@@ -2941,8 +2941,6 @@ use i3_common::safewrappers::strcasecmp_nullable;
 // Canonical Cairo backend ABI; renderer logic remains local.
 
 // Canonical Pango backend ABI; font policy remains local.
-
-use xcb_sys::{xcb_window_t, XCB_NONE, XCB_WINDOW_NONE};
 
 pub use libc::{free, gettimeofday, strcasecmp, strcmp};
 

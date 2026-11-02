@@ -338,7 +338,7 @@ pub unsafe fn tree_close_internal(
             window: x::Window::new((*(*con).window).id),
             property: x::Atom::new(A_WM_STATE),
             r#type: x::Atom::new(A_WM_STATE),
-            data: &[XCB_ICCCM_WM_STATE_WITHDRAWN as u32, 0],
+            data: &[(crate::domains::IcccmState::Withdrawn as u32) as u32, 0],
         });
         connection().send_request(&x::ChangeSaveSet {
             mode: x::SetMode::Delete,
@@ -980,8 +980,6 @@ use i3_common::safewrappers::sstrdup;
 // Canonical Cairo backend ABI; renderer logic remains local.
 
 // Canonical Pango backend ABI; font policy remains local.
-
-use xcb_sys::XCB_ICCCM_WM_STATE_WITHDRAWN;
 
 pub use libc::{free, strcmp};
 

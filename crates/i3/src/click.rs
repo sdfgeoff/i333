@@ -193,7 +193,7 @@ fn allow_pointer(mode: x::Allow, time: u32) {
     connection.send_request(&x::AllowEvents { mode, time });
     let _ = connection.flush();
 }
-unsafe fn allow_replay_pointer(time: xcb_timestamp_t) {
+unsafe fn allow_replay_pointer(time: u32) {
     allow_pointer(x::Allow::ReplayPointer, time);
     tree_render();
 }
@@ -249,7 +249,9 @@ unsafe fn route_click(con: *mut Con, event: &x::ButtonPressEvent, dest: ClickDes
         command_result_free(result);
         return;
     }
-    if event.response_type() as i32 == XCB_BUTTON_RELEASE {
+    // The maintained release event aliases the press record. Preserve the
+    // original unmasked response comparison (5), including SendEvent behavior.
+    if event.response_type() as i32 == 5 {
         allow_replay_pointer(event.time());
         return;
     }
@@ -264,18 +266,19 @@ unsafe fn route_click(con: *mut Con, event: &x::ButtonPressEvent, dest: ClickDes
     }
     let floatingcon: *mut Con = con_inside_floating(con);
     let proportional: bool = xcb_interop::events::button_press_state(event) as i32
-        & XCB_KEY_BUT_MASK_SHIFT as i32
-        == XCB_KEY_BUT_MASK_SHIFT as i32;
+        & (::xcb::x::KeyButMask::SHIFT.bits()) as i32
+        == (::xcb::x::KeyButMask::SHIFT.bits()) as i32;
     let in_stacked: bool =
         (*parent_ptr(con)).layout == Layout::Stacked || (*parent_ptr(con)).layout == Layout::Tabbed;
     let was_focused: bool = focused == con;
-    let is_left_click: bool = event.detail() as i32 == XCB_BUTTON_INDEX_1 as i32;
-    let is_right_click: bool = event.detail() as i32 == XCB_BUTTON_INDEX_3 as i32;
+    let is_left_click: bool = event.detail() as i32 == (::xcb::x::ButtonIndex::N1 as u32) as i32;
+    let is_right_click: bool = event.detail() as i32 == (::xcb::x::ButtonIndex::N3 as u32) as i32;
     let is_left_or_right_click: bool = is_left_click || is_right_click;
-    let is_scroll: bool = event.detail() as i32 == XCB_BUTTON_INDEX_4 as i32
-        || event.detail() as i32 == XCB_BUTTON_INDEX_5 as i32
-        || event.detail() as i32 == XCB_BUTTON_SCROLL_LEFT
-        || event.detail() as i32 == XCB_BUTTON_SCROLL_RIGHT;
+    // X11 mouse conventions reserve buttons 4..7 for vertical/horizontal scroll.
+    let is_scroll: bool = event.detail() as i32 == (::xcb::x::ButtonIndex::N4 as u32) as i32
+        || event.detail() as i32 == (::xcb::x::ButtonIndex::N5 as u32) as i32
+        || event.detail() as i32 == 6
+        || event.detail() as i32 == 7;
     if in_stacked && dest == ClickDestination::Decoration && is_scroll {
         debuglog(
             c"%s:%s:%d - Scrolling on a window decoration\n"
@@ -287,8 +290,9 @@ unsafe fn route_click(con: *mut Con, event: &x::ButtonPressEvent, dest: ClickDes
         );
         workspace_show(ws);
         let current: *mut Con = focus::first_ptr(parent_ptr(con));
-        let direction: Position = if event.detail() as i32 == XCB_BUTTON_INDEX_4 as i32
-            || event.detail() as i32 == XCB_BUTTON_SCROLL_LEFT
+        let direction: Position = if event.detail() as i32
+            == (::xcb::x::ButtonIndex::N4 as u32) as i32
+            || event.detail() as i32 == 6
         {
             Position::Before
         } else {
@@ -445,7 +449,7 @@ pub unsafe fn handle_button_press(event: &x::ButtonPressEvent) {
         377,
         event.detail() as i32,
         xcb_interop::events::button_press_state(event) as i32,
-        if event.response_type() as i32 == XCB_BUTTON_PRESS {
+        if event.response_type() as i32 == 4 {
             c"press".as_ptr()
         } else {
             c"release".as_ptr()
@@ -476,7 +480,7 @@ pub unsafe fn handle_button_press(event: &x::ButtonPressEvent) {
                 command_result_free(result);
             }
         }
-        if event.event().resource_id() == root && event.response_type() as i32 == XCB_BUTTON_PRESS {
+        if event.event().resource_id() == root && event.response_type() as i32 == 4 {
             let mut output: *mut Con = ::core::ptr::null_mut::<Con>();
             output = nodes::first_ptr(croot);
             while !output.is_null() {
@@ -532,7 +536,7 @@ pub unsafe fn handle_button_press(event: &x::ButtonPressEvent) {
             }
         }
     }
-    if event.child().resource_id() as ::core::ffi::c_long != XCB_NONE {
+    if event.child().resource_id() as ::core::ffi::c_long != 0 {
         debuglog(
             c"%s:%s:%d - event->child not XCB_NONE, so this is an event which originated from a click into the application, but the application did not handle it.\n".as_ptr().cast_mut(),
             c"../src/click.c".as_ptr(),
@@ -550,12 +554,6 @@ use crate::tiling_drag::has_drop_targets;
 use crate::tree::tree_render;
 
 // Canonical Pango backend ABI; font policy remains local.
-
-use xcb_sys::{
-    xcb_timestamp_t, XCB_BUTTON_INDEX_1, XCB_BUTTON_INDEX_3, XCB_BUTTON_INDEX_4,
-    XCB_BUTTON_INDEX_5, XCB_BUTTON_PRESS, XCB_BUTTON_RELEASE, XCB_BUTTON_SCROLL_LEFT,
-    XCB_BUTTON_SCROLL_RIGHT, XCB_KEY_BUT_MASK_SHIFT, XCB_NONE,
-};
 
 use i3_common::native_stdio::__assert_fail;
 

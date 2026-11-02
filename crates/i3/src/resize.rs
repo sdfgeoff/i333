@@ -22,7 +22,7 @@ use xcb::{x, Xid, XidNew};
 struct DragState {
     orientation: Orientation,
     output: *mut Con,
-    helpwin: xcb_window_t,
+    helpwin: u32,
     new_position: u32,
     threshold_exceeded: bool,
 }
@@ -338,7 +338,7 @@ pub unsafe fn resize_graphical_handler(
         second,
         (*second).name,
     );
-    x_mask_event_mask(!(XCB_EVENT_MASK_ENTER_WINDOW as i32) as u32);
+    x_mask_event_mask(!((::xcb::x::EventMask::ENTER_WINDOW.bits()) as i32) as u32);
     let _ = connection().flush();
     let grabwin = create_window(
         &connection(),
@@ -476,12 +476,6 @@ use i3_common::dpi::logical_px;
 // Canonical Cairo backend ABI; renderer logic remains local.
 
 // Canonical Pango backend ABI; font policy remains local.
-
-use xcb_sys::{
-    xcb_visualid_t, xcb_window_t, XCB_COPY_FROM_PARENT, XCB_CW_BACK_PIXEL,
-    XCB_CW_OVERRIDE_REDIRECT, XCB_EVENT_MASK_ENTER_WINDOW, XCB_WINDOW_CLASS_INPUT_ONLY,
-    XCB_WINDOW_CLASS_INPUT_OUTPUT,
-};
 
 use crate::log::debuglog;
 

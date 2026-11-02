@@ -677,7 +677,7 @@ pub unsafe fn match_parse_property(
             );
             (*match_0).error = sstrdup(c"invalid id".as_ptr());
         } else {
-            (*match_0).id = parsed_0 as xcb_window_t;
+            (*match_0).id = parsed_0 as u32;
             debuglog(
                 c"%s:%s:%d - window id as int = %d\n".as_ptr().cast_mut(),
                 c"../src/match.c".as_ptr(),
@@ -804,8 +804,6 @@ use crate::util::parse_long;
 use i3_common::safewrappers::sstrdup;
 
 // Canonical Cairo backend ABI; renderer logic remains local.
-
-use xcb_sys::xcb_window_t;
 
 use libc::{free, strcasecmp, strcmp};
 

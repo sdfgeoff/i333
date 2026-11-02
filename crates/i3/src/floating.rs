@@ -486,7 +486,7 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
     if (*nc).rect.x == 0 as u32 && (*nc).rect.y == 0 as u32 {
         let mut leader: *mut Con = ::core::ptr::null_mut::<Con>();
         if !(*con).window.is_null()
-            && (*(*con).window).leader as ::core::ffi::c_long != XCB_NONE
+            && (*(*con).window).leader as ::core::ffi::c_long != 0
             && (*(*con).window).id != (*(*con).window).leader
             && {
                 leader = con_by_window_id((*(*con).window).leader);
@@ -774,7 +774,7 @@ pub unsafe fn floating_drag_window(
     let drag_result: DragResult = drag_pointer(
         con,
         event,
-        XCB_NONE as xcb_window_t,
+        0 as u32,
         Cursor::Move,
         use_threshold,
         Some(
@@ -875,7 +875,7 @@ pub unsafe fn floating_resize_window(
     let drag_result: DragResult = drag_pointer(
         con,
         event,
-        XCB_NONE as xcb_window_t,
+        0 as u32,
         cursor,
         false,
         Some(
@@ -996,8 +996,6 @@ use crate::util::max;
 use crate::util::min;
 
 // Canonical Pango backend ABI; font policy remains local.
-
-use xcb_sys::{xcb_window_t, XCB_NONE};
 
 pub use libc::free;
 
