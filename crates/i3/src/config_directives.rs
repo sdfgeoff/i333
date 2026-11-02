@@ -217,7 +217,7 @@ pub unsafe fn cfg_include(
                         con_id: ::core::ptr::null_mut::<Con>(),
                         match_all_windows: false,
                         insert_where: M_HERE,
-                        matches: C2RustUnnamed_11 {
+                        matches: MatchListLinks {
                             tqe_next: ::core::ptr::null_mut::<Match>(),
                             tqe_prev: ::core::ptr::null_mut::<*mut Match>(),
                         },
@@ -1950,7 +1950,7 @@ pub use crate::types::gaps_t;
 pub use crate::types::Assignment;
 pub use crate::types::Con;
 pub use crate::types::Match;
-pub use crate::types::MatchMatches as C2RustUnnamed_11;
+pub use crate::types::MatchMatches as MatchListLinks;
 pub use i3_common::font::Font;
 
 // Internal calls and globals use canonical Rust identities.

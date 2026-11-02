@@ -17,14 +17,14 @@ pub use libev_sys::{
 pub use crate::config::Binding as binding_t;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed_0 {
+pub struct BarBindingLinks {
     pub tqe_next: *mut binding_t,
     pub tqe_prev: *mut *mut binding_t,
 }
 pub use crate::config::TrayOutput as tray_output_t;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed_1 {
+pub struct TrayOutputLinks {
     pub tqe_next: *mut tray_output_t,
     pub tqe_prev: *mut *mut tray_output_t,
 }

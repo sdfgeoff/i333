@@ -51,11 +51,11 @@ pub use crate::parser_util::ParserStack as stack;
 #[repr(C)]
 pub struct owindow {
     pub con: *mut Con,
-    pub owindows: C2RustUnnamed_33,
+    pub owindows: CommandWindowLinks,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed_33 {
+pub struct CommandWindowLinks {
     pub tqe_next: *mut owindow,
     pub tqe_prev: *mut *mut owindow,
 }

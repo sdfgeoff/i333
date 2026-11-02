@@ -4,8 +4,8 @@
 pub use crate::application::{
     binding_t, bindings_head, config_t, tray_output_t, tray_outputs_head,
 };
+use crate::application::{BarBindingLinks, TrayOutputLinks};
 use crate::application::{BarDisplayMode, BarPosition, HiddenState, Rect};
-use crate::application::{C2RustUnnamed_0, C2RustUnnamed_1};
 use i3_common::safewrappers::srealloc;
 use i3_common::string::I3String;
 use i3_json::{Event, EventHandler, ParseError, ParseErrorKind, Parser};
@@ -23,7 +23,7 @@ pub struct Binding {
     pub input_code: i32,
     pub command: Option<CString>,
     pub release: bool,
-    pub bindings: C2RustUnnamed_0,
+    pub bindings: BarBindingLinks,
 }
 impl Binding {
     fn new(input_code: i32) -> Self {
@@ -31,7 +31,7 @@ impl Binding {
             input_code,
             command: None,
             release: false,
-            bindings: C2RustUnnamed_0 {
+            bindings: BarBindingLinks {
                 tqe_next: ptr::null_mut(),
                 tqe_prev: ptr::null_mut(),
             },
@@ -45,13 +45,13 @@ impl Binding {
 }
 pub struct TrayOutput {
     pub output: CString,
-    pub tray_outputs: C2RustUnnamed_1,
+    pub tray_outputs: TrayOutputLinks,
 }
 impl TrayOutput {
     fn new(output: CString) -> Self {
         Self {
             output,
-            tray_outputs: C2RustUnnamed_1 {
+            tray_outputs: TrayOutputLinks {
                 tqe_next: ptr::null_mut(),
                 tqe_prev: ptr::null_mut(),
             },

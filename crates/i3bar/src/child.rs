@@ -62,7 +62,7 @@ pub struct status_block {
     pub short_render: status_block_render_desc,
     pub name: *mut ::core::ffi::c_char,
     pub instance: *mut ::core::ffi::c_char,
-    pub blocks: C2RustUnnamed,
+    pub blocks: StatusBlockLinks,
 }
 impl Default for status_block {
     fn default() -> Self {
@@ -97,7 +97,7 @@ impl Default for status_block {
             },
             name: std::ptr::null_mut(),
             instance: std::ptr::null_mut(),
-            blocks: C2RustUnnamed {
+            blocks: StatusBlockLinks {
                 tqe_next: std::ptr::null_mut(),
                 tqe_prev: std::ptr::null_mut(),
             },
@@ -124,7 +124,7 @@ impl Drop for status_block {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed {
+pub struct StatusBlockLinks {
     pub tqe_next: *mut status_block,
     pub tqe_prev: *mut *mut status_block,
 }
@@ -154,14 +154,14 @@ pub struct i3bar_child {
 pub use crate::workspaces::Workspace as i3_ws;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed_4 {
+pub struct WorkspaceLinks {
     pub tqe_next: *mut i3_ws,
     pub tqe_prev: *mut *mut i3_ws,
 }
 pub use crate::outputs::Output as i3_output;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed_5 {
+pub struct OutputLink {
     pub sle_next: *mut i3_output,
 }
 #[derive(Copy, Clone)]
@@ -178,11 +178,11 @@ pub struct trayclient {
     pub xe_version: ::core::ffi::c_int,
     pub class_class: *mut ::core::ffi::c_char,
     pub class_instance: *mut ::core::ffi::c_char,
-    pub tailq: C2RustUnnamed_6,
+    pub tailq: TrayClientLinks,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed_6 {
+pub struct TrayClientLinks {
     pub tqe_next: *mut trayclient,
     pub tqe_prev: *mut *mut trayclient,
 }

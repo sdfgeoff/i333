@@ -15,17 +15,17 @@ pub struct Font {
     pub type_0: FontType,
     pub height: i32,
     pub pattern: *mut libc::c_char,
-    pub specific: C2RustUnnamed,
+    pub specific: FontBackendData,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub union C2RustUnnamed {
-    pub xcb: C2RustUnnamed_0,
+pub union FontBackendData {
+    pub xcb: XcbFontData,
     pub pango_desc: *mut PangoFontDescription,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed_0 {
+pub struct XcbFontData {
     pub id: xcb_font_t,
     pub info: *mut xcb_query_font_reply_t,
     pub table: *mut xcb_charinfo_t,
@@ -293,8 +293,8 @@ pub unsafe fn load_font(pattern: *const libc::c_char, fallback: bool) -> i3Font 
         type_0: FontType::None,
         height: 0,
         pattern: ptr::null_mut(),
-        specific: C2RustUnnamed {
-            xcb: C2RustUnnamed_0 {
+        specific: FontBackendData {
+            xcb: XcbFontData {
                 id: 0,
                 info: ptr::null_mut(),
                 table: ptr::null_mut(),
@@ -942,7 +942,7 @@ mod tests {
             type_0: FontType::Pango,
             height: 0,
             pattern: ptr::null_mut(),
-            specific: C2RustUnnamed {
+            specific: FontBackendData {
                 pango_desc: pointer,
             },
         };

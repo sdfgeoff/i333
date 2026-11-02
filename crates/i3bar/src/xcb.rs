@@ -28,9 +28,9 @@ pub use libev_sys::{
     ev_watcher, EV_READ, EV__IOFDSET,
 };
 
-pub use i3_common::font::C2RustUnnamed;
-pub use i3_common::font::C2RustUnnamed_0;
 pub use i3_common::font::Font;
+pub use i3_common::font::FontBackendData;
+pub use i3_common::font::XcbFontData;
 
 pub use crate::child::rect_t;
 pub use i3_common::draw_util::color_t;
@@ -86,8 +86,8 @@ static mut font: Font = Font {
     type_0: i3_common::font::FontType::None,
     height: 0,
     pattern: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-    specific: C2RustUnnamed {
-        xcb: C2RustUnnamed_0 {
+    specific: FontBackendData {
+        xcb: XcbFontData {
             id: 0,
             info: ::core::ptr::null::<xcb_query_font_reply_t>() as *mut xcb_query_font_reply_t,
             table: ::core::ptr::null::<xcb_charinfo_t>() as *mut xcb_charinfo_t,

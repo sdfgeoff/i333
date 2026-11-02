@@ -8,7 +8,7 @@
 //! output graph. Its intrusive lists own Box<Workspace> nodes, whose text drops
 //! automatically when the lists are detached.
 
-use crate::child::{i3_output, C2RustUnnamed_4};
+use crate::child::{i3_output, WorkspaceLinks};
 use crate::config::config;
 use crate::outputs::{get_output_by_name, outputs};
 use i3_common::font::predict_text_width;
@@ -33,7 +33,7 @@ pub struct Workspace {
     pub focused: bool,
     pub urgent: bool,
     pub output: *mut i3_output,
-    pub tailq: C2RustUnnamed_4,
+    pub tailq: WorkspaceLinks,
 }
 
 impl Workspace {
@@ -48,7 +48,7 @@ impl Workspace {
             focused: false,
             urgent: true,
             output: ptr::null_mut(),
-            tailq: C2RustUnnamed_4 {
+            tailq: WorkspaceLinks {
                 tqe_next: ptr::null_mut(),
                 tqe_prev: ptr::null_mut(),
             },
@@ -348,7 +348,7 @@ unsafe fn apply_workspaces(records: Vec<WorkspaceRecord>) {
                         focused: record.focused,
                         urgent: record.urgent,
                         output: ptr::null_mut(),
-                        tailq: C2RustUnnamed_4 {
+                        tailq: WorkspaceLinks {
                             tqe_next: ptr::null_mut(),
                             tqe_prev: ptr::null_mut(),
                         },

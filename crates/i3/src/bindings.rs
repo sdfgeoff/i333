@@ -1335,7 +1335,7 @@ mod owned_tests {
     use super::*;
     #[test]
     fn native_queue_lookup_preserves_press_release_pair_order_and_modifier_rearming() {
-        use crate::application::{keycodes_head, C2RustUnnamed_13, C2RustUnnamed_14};
+        use crate::application::{keycodes_head, BindingKeycodeLinks, BindingLinks};
         fn binding(release: BindingRelease, key: *mut Binding_Keycode) -> Box<Binding> {
             Box::new(Binding {
                 input_type: InputType::Keyboard,
@@ -1351,7 +1351,7 @@ mod owned_tests {
                     tqh_first: key,
                     tqh_last: std::ptr::null_mut(),
                 },
-                bindings: C2RustUnnamed_13 {
+                bindings: BindingLinks {
                     tqe_next: std::ptr::null_mut(),
                     tqe_prev: std::ptr::null_mut(),
                 },
@@ -1360,7 +1360,7 @@ mod owned_tests {
         let mut key = Box::new(Binding_Keycode {
             keycode: 42,
             modifiers: 4,
-            keycodes: C2RustUnnamed_14 {
+            keycodes: BindingKeycodeLinks {
                 tqe_next: std::ptr::null_mut(),
                 tqe_prev: std::ptr::null_mut(),
             },
@@ -1448,7 +1448,7 @@ unsafe fn append_keycode(bind: *mut Binding, keycode: u8, modifiers: u32) {
     pointer.write(Binding_Keycode {
         keycode,
         modifiers,
-        keycodes: crate::application::C2RustUnnamed_14 {
+        keycodes: crate::application::BindingKeycodeLinks {
             tqe_next: std::ptr::null_mut(),
             tqe_prev: (*bind).keycodes_head.tqh_last,
         },

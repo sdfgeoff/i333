@@ -29,9 +29,9 @@ use i3_common::dpi::{init_dpi, logical_px};
 use i3_common::get_exe_path::get_exe_path;
 use i3_common::i333_va_list;
 
-use i3_common::font::C2RustUnnamed;
-use i3_common::font::C2RustUnnamed_0;
 use i3_common::font::Font;
+use i3_common::font::FontBackendData;
+use i3_common::font::XcbFontData;
 
 use i3_common::draw_util::color_t;
 use i3_common::draw_util::surface_t;
@@ -512,8 +512,8 @@ impl NagbarState {
                     type_0: i3_common::font::FontType::None,
                     height: 0,
                     pattern: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-                    specific: C2RustUnnamed {
-                        xcb: C2RustUnnamed_0 {
+                    specific: FontBackendData {
+                        xcb: XcbFontData {
                             id: 0,
                             info: ::core::ptr::null::<xcb_query_font_reply_t>()
                                 as *mut xcb_query_font_reply_t,

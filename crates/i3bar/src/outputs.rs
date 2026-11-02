@@ -1,7 +1,7 @@
 /* i3bar - Maintaining the outputs list. See LICENSE. */
 //! JSON parsing owns its records. Native windows and intrusive lists are
 //! modified only at the explicitly unsafe event-thread boundary.
-use crate::child::{i3_ws, outputs_head, rect_t, tc_head, trayclient, ws_head, C2RustUnnamed_5};
+use crate::child::{i3_ws, outputs_head, rect_t, tc_head, trayclient, ws_head, OutputLink};
 use crate::config::config;
 use crate::workspaces::free_workspaces;
 use crate::xcb::destroy_window;
@@ -28,7 +28,7 @@ pub struct Output {
     pub bar: surface_t,
     pub workspaces: *mut ws_head,
     pub trayclients: *mut tc_head,
-    pub slist: C2RustUnnamed_5,
+    pub slist: OutputLink,
     _workspace_head: Box<ws_head>,
     _trayclient_head: Box<tc_head>,
 }
@@ -71,7 +71,7 @@ impl Output {
             bar: empty_surface,
             workspaces: &raw mut *workspace_head,
             trayclients: &raw mut *trayclient_head,
-            slist: C2RustUnnamed_5 {
+            slist: OutputLink {
                 sle_next: ptr::null_mut(),
             },
             _workspace_head: workspace_head,

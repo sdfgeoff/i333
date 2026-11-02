@@ -1597,7 +1597,7 @@ pub unsafe fn ipc_new_client_on_fd(loop_: *mut ev_loop, fd: libc::c_int) -> *mut
         write_callback: write,
         timeout: std::ptr::null_mut(),
         buffer: Vec::new(),
-        clients: crate::application::C2RustUnnamed_48 {
+        clients: crate::application::IpcClientLinks {
             tqe_next: std::ptr::null_mut(),
             tqe_prev: all_clients.tqh_last,
         },

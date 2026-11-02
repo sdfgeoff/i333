@@ -60,11 +60,11 @@ pub struct IncludedFile {
     pub path: *mut ::core::ffi::c_char,
     pub raw_contents: *mut ::core::ffi::c_char,
     pub variable_replaced_contents: *mut ::core::ffi::c_char,
-    pub files: C2RustUnnamed_24,
+    pub files: IncludedFileLinks,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed_24 {
+pub struct IncludedFileLinks {
     pub tqe_next: *mut IncludedFile,
     pub tqe_prev: *mut *mut IncludedFile,
 }
@@ -122,8 +122,8 @@ pub static mut config: Config = Config {
         type_0: FontType::None,
         height: 0,
         pattern: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        specific: C2RustUnnamed {
-            xcb: C2RustUnnamed_0 {
+        specific: FontBackendData {
+            xcb: XcbFontData {
                 id: 0,
                 info: ::core::ptr::null::<xcb_query_font_reply_t>() as *mut xcb_query_font_reply_t,
                 table: ::core::ptr::null::<xcb_charinfo_t>() as *mut xcb_charinfo_t,
@@ -912,7 +912,7 @@ pub unsafe fn load_configuration(
             con_id: ::core::ptr::null_mut::<Con>(),
             match_all_windows: false,
             insert_where: M_HERE,
-            matches: C2RustUnnamed_11 {
+            matches: MatchListLinks {
                 tqe_next: ::core::ptr::null_mut::<Match>(),
                 tqe_prev: ::core::ptr::null_mut::<*mut Match>(),
             },
@@ -1005,11 +1005,11 @@ pub use crate::types::Colortriple;
 pub use crate::types::Con;
 pub use crate::types::Config;
 pub use crate::types::Match;
-pub use crate::types::MatchMatches as C2RustUnnamed_11;
+pub use crate::types::MatchMatches as MatchListLinks;
 pub use i3_common::draw_util::color_t;
-pub use i3_common::font::C2RustUnnamed;
-pub use i3_common::font::C2RustUnnamed_0;
 pub use i3_common::font::Font;
+pub use i3_common::font::FontBackendData;
+pub use i3_common::font::XcbFontData;
 
 // Internal calls and globals use canonical Rust identities.
 use crate::application::conn;

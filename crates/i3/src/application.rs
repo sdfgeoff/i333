@@ -49,11 +49,11 @@ pub struct Binding {
     pub symbol: *mut ::core::ffi::c_char,
     pub keycodes_head: keycodes_head,
     pub command: *mut ::core::ffi::c_char,
-    pub bindings: C2RustUnnamed_13,
+    pub bindings: BindingLinks,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed_13 {
+pub struct BindingLinks {
     pub tqe_next: *mut Binding,
     pub tqe_prev: *mut *mut Binding,
 }
@@ -68,11 +68,11 @@ pub struct keycodes_head {
 pub struct Binding_Keycode {
     pub keycode: xcb_keycode_t,
     pub modifiers: i3_event_state_mask_t,
-    pub keycodes: C2RustUnnamed_14,
+    pub keycodes: BindingKeycodeLinks,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed_14 {
+pub struct BindingKeycodeLinks {
     pub tqe_next: *mut Binding_Keycode,
     pub tqe_prev: *mut *mut Binding_Keycode,
 }
@@ -134,11 +134,11 @@ pub struct Workspace_Assignment {
     pub output: *mut ::core::ffi::c_char,
     pub gaps: gaps_t,
     pub gaps_mask: gaps_mask_t,
-    pub ws_assignments: C2RustUnnamed_35,
+    pub ws_assignments: WorkspaceAssignmentLinks,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed_35 {
+pub struct WorkspaceAssignmentLinks {
     pub tqe_next: *mut Workspace_Assignment,
     pub tqe_prev: *mut *mut Workspace_Assignment,
 }
@@ -152,16 +152,16 @@ pub struct ignore_event_sequence_t {
 pub struct Autostart {
     pub command: *mut ::core::ffi::c_char,
     pub no_startup_id: bool,
-    pub autostarts: C2RustUnnamed_37,
-    pub autostarts_always: C2RustUnnamed_36,
+    pub autostarts: AutostartLinks,
+    pub autostarts_always: AutostartAlwaysLinks,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed_36 {
+pub struct AutostartAlwaysLinks {
     pub tqe_next: *mut Autostart,
     pub tqe_prev: *mut *mut Autostart,
 }
-pub use crate::application::C2RustUnnamed_36 as C2RustUnnamed_37;
+pub use crate::application::AutostartAlwaysLinks as AutostartLinks;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -227,11 +227,11 @@ pub struct Barconfig {
     pub bar_height: u32,
     pub padding: Rect,
     pub colors: bar_colors,
-    pub configs: C2RustUnnamed_42,
+    pub configs: BarConfigLinks,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed_42 {
+pub struct BarConfigLinks {
     pub tqe_next: *mut Barconfig,
     pub tqe_prev: *mut *mut Barconfig,
 }
@@ -273,11 +273,11 @@ pub struct Barbinding {
     pub input_code: ::core::ffi::c_int,
     pub command: *mut ::core::ffi::c_char,
     pub release: bool,
-    pub bindings: C2RustUnnamed_44,
+    pub bindings: BarBindingLinks,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed_44 {
+pub struct BarBindingLinks {
     pub tqe_next: *mut Barbinding,
     pub tqe_prev: *mut *mut Barbinding,
 }
@@ -292,11 +292,11 @@ pub struct tray_outputs_head {
 #[repr(C)]
 pub struct tray_output_t {
     pub output: *mut ::core::ffi::c_char,
-    pub tray_outputs: C2RustUnnamed_47,
+    pub tray_outputs: TrayOutputLinks,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed_47 {
+pub struct TrayOutputLinks {
     pub tqe_next: *mut tray_output_t,
     pub tqe_prev: *mut *mut tray_output_t,
 }
@@ -319,11 +319,11 @@ pub struct ipc_client {
     pub write_callback: *mut ev_io,
     pub timeout: *mut ev_timer,
     pub buffer: Vec<u8>,
-    pub clients: C2RustUnnamed_48,
+    pub clients: IpcClientLinks,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed_48 {
+pub struct IpcClientLinks {
     pub tqe_next: *mut ipc_client,
     pub tqe_prev: *mut *mut ipc_client,
 }
@@ -337,7 +337,7 @@ pub struct outputs_head {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub union C2RustUnnamed_49 {
+pub union ClientMessageBuffer {
     pub message: xcb_client_message_event_t,
     pub storage: [::core::ffi::c_char; 32],
 }
@@ -1571,7 +1571,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         }
     }
     drop(selection_reply_owner);
-    let mut event_0: C2RustUnnamed_49 = C2RustUnnamed_49 {
+    let mut event_0: ClientMessageBuffer = ClientMessageBuffer {
         message: xcb_client_message_event_t {
             response_type: 0 as u8,
             format: 0,

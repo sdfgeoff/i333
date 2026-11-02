@@ -33,7 +33,7 @@ pub struct surface_t {
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct C2RustUnnamed {
+pub struct GraphicsContextCacheEntry {
     pub depth: u8,
     pub gc: xcb_gcontext_t,
 }
@@ -61,19 +61,19 @@ unsafe fn get_gc(
     drawable: xcb_drawable_t,
     should_free: *mut bool,
 ) -> xcb_gcontext_t {
-    static mut gc_cache: [C2RustUnnamed; 2] = [
-        C2RustUnnamed {
+    static mut gc_cache: [GraphicsContextCacheEntry; 2] = [
+        GraphicsContextCacheEntry {
             depth: 0 as u8,
             gc: 0,
         },
-        C2RustUnnamed { depth: 0, gc: 0 },
+        GraphicsContextCacheEntry { depth: 0, gc: 0 },
     ];
     let mut index: usize = 0 as usize;
     let mut cache: bool = false_0 != 0;
     *should_free = false_0 != 0;
     while index
-        < (::core::mem::size_of::<[C2RustUnnamed; 2]>() as usize)
-            .wrapping_div(::core::mem::size_of::<C2RustUnnamed>() as usize)
+        < (::core::mem::size_of::<[GraphicsContextCacheEntry; 2]>() as usize)
+            .wrapping_div(::core::mem::size_of::<GraphicsContextCacheEntry>() as usize)
     {
         if gc_cache[index as usize].depth as ::core::ffi::c_int == depth as ::core::ffi::c_int {
             return gc_cache[index as usize].gc;

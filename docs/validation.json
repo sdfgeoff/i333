@@ -1,5 +1,5 @@
 {
-  "date": "2026-10-30",
+  "date": "2026-11-02",
   "upstream_revision": "be04c853ee7fa01a82a0c81f8217565395e2627c",
   "method": "Upstream complete-run.pl; four private Xephyr workers beneath private Xvfb; copied Rust product executables and rewritten embedded build paths; DISPLAY/I3SOCK/WAYLAND_DISPLAY/XAUTHORITY/DBUS_SESSION_BUS_ADDRESS removed before invocation.",
   "c_baseline": {
@@ -8,19 +8,19 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 33 wallclock secs ( 1.38 usr +  0.12 sys =  1.50 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 25 wallclock secs ( 0.85 usr +  0.13 sys =  0.98 CPU)\nResult: PASS",
     "profile": "debug",
     "build": "cargo test --locked",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "5edc9f676de8838a5ce4816b13efefab9cb2ca6e46448148c1595c3de676841b",
-    "i3bar": "8ef8b4e0ca4ac3c3488bb7886c1c155d3de409f0e54275d409f9d60603d30e77",
-    "i3-config-wizard": "72355ae4e9e77ce31ba2deb0cacade9b4b7e93dd28cb37ede99ea2595712f56d",
-    "i3-dump-log": "b6f0622016875463383239f66f3edf130e9869d6e94772592b084dab99cc9bf6",
-    "i3-input": "2603f71f33f6ca9766c493ea0ecdc30ec4b4240b31b7f159d4b80019c25ec7da",
-    "i3-msg": "06d5e9ad3367a7a2fcb80695131ca62ef02ab9ed21c927701aef26fe9a81fe41",
-    "i3-nagbar": "52a99d99dd9015ec449025bd51fdd14cb6d63c43167b47d42d47395e7cbedeb6"
+    "i3": "ab2f1aec9d229da4171a36fd040b2edc6368d6ae873c7ca939efbafc52239c1b",
+    "i3bar": "460567e026d2aec17e762906fcbc9e218243e6be397c99d364db1447d541e588",
+    "i3-config-wizard": "c32e04d018fd982f7fb4870a75f8cbaefff1f4cae631186e7e4c61754750a58b",
+    "i3-dump-log": "41891edab49683834e0eb5a524b47ebd5b8b8f3e7a02b45213f683e7e575701a",
+    "i3-input": "e316137cd21caece72c41644d24e84469853bc7a0a6f9b53567e852132238d20",
+    "i3-msg": "915d8e412ccc595c36ecb1f9943663027bccd6c318f05837602d7c40c57acd4b",
+    "i3-nagbar": "5c82a21fc32663b9107d6d3b9540ac18d3aed8cbc4c42aa0ff23a857e4c2a17d"
   },
   "note": "Ten-member Cargo workspace. cargo test --locked passed386 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
@@ -141,7 +141,7 @@
     "test_command": "cargo test",
     "clean_source_command": "cargo test -p i3-test-support --features clean-source-check",
     "test_support": "development-only process capture, failure propagation and isolated regression orchestration",
-    "release_build_note": "Final ownership code checkpoint9e04d02a passed Ubuntu CI formatting, full cargo test --locked and release build. Subsequent completion record changes are documentation only.",
+    "release_build_note": "Prior ownership code checkpoint9e04d02a passed Ubuntu CI formatting, complete regression suite and release build. Anonymous type-name cleanup additionally passes current full local Cargo validation; changes are mechanically verified identifier substitutions.",
     "last_release_build_verified_commit": "9e04d02a5c039a560d6eaff0b76515bbc7ca109c",
     "rust_source_files": 139
   },
@@ -2095,6 +2095,51 @@
       "tiling": "Owned ordered ConIds plus reverse membership; native child queue fields/types removed",
       "native_boundary": "Address-only checked lookup adapters; using returned raw payload pointers remains an explicit unsafe event-thread lifetime contract",
       "feature_changes": "No window-manager features intentionally removed; traversal/order/callback/numeric/native-byte quirks retained and compared"
+    },
+    "anonymous_translation_type_cleanup": {
+      "declarations_renamed": 22,
+      "existing_aliases_renamed": 5,
+      "files_changed": 19,
+      "identifier_occurrences_renamed": 1236,
+      "remaining_in_rust_source": 0,
+      "scope": "Semantic identifier renames and rustfmt import ordering only; fields, representations, literal bytes and ownership unchanged.",
+      "mechanical_check": "All19 files match renamed HEAD after rustfmt; literal tokens unchanged.",
+      "validation": {
+        "workspace_all_targets_check": true,
+        "cargo_fmt_check": true,
+        "cargo_test_rust_reported": 386,
+        "upstream_assertions": 4205,
+        "native_and_private_runtime_comparisons": "pass"
+      },
+      "type_names": {
+        "i3_common::font::C2RustUnnamed": "i3_common::font::FontBackendData",
+        "i3_common::font::C2RustUnnamed_0": "i3_common::font::XcbFontData",
+        "i3_common::draw_util::C2RustUnnamed": "i3_common::draw_util::GraphicsContextCacheEntry",
+        "i3::application::C2RustUnnamed_13": "i3::application::BindingLinks",
+        "i3::application::C2RustUnnamed_14": "i3::application::BindingKeycodeLinks",
+        "i3::application::C2RustUnnamed_35": "i3::application::WorkspaceAssignmentLinks",
+        "i3::application::C2RustUnnamed_36": "i3::application::AutostartAlwaysLinks",
+        "i3::application::C2RustUnnamed_42": "i3::application::BarConfigLinks",
+        "i3::application::C2RustUnnamed_44": "i3::application::BarBindingLinks",
+        "i3::application::C2RustUnnamed_47": "i3::application::TrayOutputLinks",
+        "i3::application::C2RustUnnamed_48": "i3::application::IpcClientLinks",
+        "i3::application::C2RustUnnamed_49": "i3::application::ClientMessageBuffer",
+        "i3::application::C2RustUnnamed_37": "i3::application::AutostartLinks",
+        "i3::commands::C2RustUnnamed_33": "i3::commands::CommandWindowLinks",
+        "i3::commands_parser::C2RustUnnamed_20": "i3::commands_parser::ParserTokenData",
+        "i3::commands_parser::C2RustUnnamed_5": "i3::commands_parser::MatchListLinks",
+        "i3::config::C2RustUnnamed_24": "i3::config::IncludedFileLinks",
+        "i3::config::C2RustUnnamed_11": "i3::config::MatchListLinks",
+        "i3::config_directives::C2RustUnnamed_11": "i3::config_directives::MatchListLinks",
+        "i3::config_parser::C2RustUnnamed_26": "i3::config_parser::ConfigTokenData",
+        "i3bar::application::C2RustUnnamed_0": "i3bar::application::BarBindingLinks",
+        "i3bar::application::C2RustUnnamed_1": "i3bar::application::TrayOutputLinks",
+        "i3bar::child::C2RustUnnamed": "i3bar::child::StatusBlockLinks",
+        "i3bar::child::C2RustUnnamed_4": "i3bar::child::WorkspaceLinks",
+        "i3bar::child::C2RustUnnamed_5": "i3bar::child::OutputLink",
+        "i3bar::child::C2RustUnnamed_6": "i3bar::child::TrayClientLinks",
+        "i3_config_wizard::application::C2RustUnnamed_5": "i3_config_wizard::application::WizardTokenData"
+      }
     }
   },
   "ci_dependency_preparation": {
