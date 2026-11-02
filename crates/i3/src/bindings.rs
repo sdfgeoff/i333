@@ -370,18 +370,19 @@ unsafe fn find_binding(
     result
 }
 
-pub unsafe fn get_binding_from_xcb_event(event: *mut xcb_generic_event_t) -> *mut Binding {
-    let is_release: bool = (*event).response_type as i32 == XCB_KEY_RELEASE
-        || (*event).response_type as i32 == XCB_BUTTON_RELEASE;
-    let input_type: InputType = if (*event).response_type as i32 == XCB_BUTTON_RELEASE
-        || (*event).response_type as i32 == XCB_BUTTON_PRESS
-    {
+pub unsafe fn get_binding_from_event(
+    response_type: u8,
+    event_state: u16,
+    detail: u8,
+) -> *mut Binding {
+    // Bare core opcodes preserve the historical treatment of SendEvent flags.
+    let is_release = matches!(response_type, 3 | 5);
+    let input_type = if matches!(response_type, 4 | 5) {
         InputType::Mouse
     } else {
         InputType::Keyboard
     };
-    let event_state: u16 = (*(event as *mut xcb_key_press_event_t)).state;
-    let event_detail: u16 = (*(event as *mut xcb_key_press_event_t)).detail as u16;
+    let event_detail = u16::from(detail);
     let mut state_filtered: u32 = (event_state as i32 & !(XCB_MOD_MASK_LOCK as i32)) as u32;
     debuglog(
         c"%s:%s:%d - (removed capslock, state = 0x%x)\n"
@@ -1209,14 +1210,11 @@ use i3_common::safewrappers::sstrdup;
 // Canonical Pango backend ABI; font policy remains local.
 
 use xcb_sys::{
-    xcb_atom_t, xcb_connection_t, xcb_generic_error_t, xcb_generic_event_t,
-    xcb_get_property_cookie_t, xcb_get_property_reply, xcb_get_property_reply_t,
-    xcb_get_property_unchecked, xcb_get_property_value, xcb_get_property_value_length,
-    xcb_grab_key, xcb_grab_server, xcb_intern_atom, xcb_intern_atom_reply, xcb_intern_atom_reply_t,
-    xcb_key_press_event_t, xcb_keycode_t, xcb_ungrab_button, xcb_ungrab_server,
-    XCB_BUTTON_INDEX_ANY, XCB_BUTTON_MASK_ANY, XCB_BUTTON_PRESS, XCB_BUTTON_RELEASE,
-    XCB_GET_PROPERTY_TYPE_ANY, XCB_GRAB_MODE_ASYNC, XCB_KEY_BUT_MASK_SHIFT, XCB_KEY_RELEASE,
-    XCB_MOD_MASK_LOCK, XCB_XKB_GROUP_1, XCB_XKB_GROUP_2, XCB_XKB_GROUP_3, XCB_XKB_GROUP_4,
+    xcb_connection_t, xcb_get_property_reply, xcb_get_property_unchecked, xcb_get_property_value,
+    xcb_get_property_value_length, xcb_grab_key, xcb_grab_server, xcb_intern_atom,
+    xcb_intern_atom_reply, xcb_keycode_t, xcb_ungrab_button, xcb_ungrab_server,
+    XCB_BUTTON_INDEX_ANY, XCB_BUTTON_MASK_ANY, XCB_GET_PROPERTY_TYPE_ANY, XCB_GRAB_MODE_ASYNC,
+    XCB_KEY_BUT_MASK_SHIFT, XCB_MOD_MASK_LOCK,
 };
 
 use xkbcommon::xkb::ffi::*;

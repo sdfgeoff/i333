@@ -1,7 +1,7 @@
 use crate::con::arena::parent::{parent_ptr, set_parent_ptr};
 use crate::con::arena::{floating, focus, identity, nodes};
 use crate::domains::{ContainerType, FullscreenMode};
-use xcb::{x, XidNew};
+use xcb::{x, Xid, XidNew};
 
 use crate::flags::ResizeEdges;
 pub use crate::types::xoutput as Output;
@@ -739,15 +739,15 @@ unsafe fn drag_window_callback(
     old_rect: *mut Rect,
     new_x: u32,
     new_y: u32,
-    event: *const xcb_button_press_event_t,
+    event: &x::ButtonPressEvent,
     extra: *const ::core::ffi::c_void,
 ) {
     (*con).rect.x = (*old_rect)
         .x
-        .wrapping_add(new_x.wrapping_sub((*event).root_x as u32));
+        .wrapping_add(new_x.wrapping_sub(event.root_x() as u32));
     (*con).rect.y = (*old_rect)
         .y
-        .wrapping_add(new_y.wrapping_sub((*event).root_y as u32));
+        .wrapping_add(new_y.wrapping_sub(event.root_y() as u32));
     render_con(con);
     x_push_node(con);
     let _ = connection().flush();
@@ -760,7 +760,7 @@ unsafe fn drag_window_callback(
 
 pub unsafe fn floating_drag_window(
     con: *mut Con,
-    event: *const xcb_button_press_event_t,
+    event: &x::ButtonPressEvent,
     use_threshold: bool,
 ) {
     debuglog(
@@ -784,7 +784,7 @@ pub unsafe fn floating_drag_window(
                     *mut Rect,
                     u32,
                     u32,
-                    *const xcb_button_press_event_t,
+                    &x::ButtonPressEvent,
                     *const ::core::ffi::c_void,
                 ) -> (),
         ),
@@ -815,7 +815,7 @@ unsafe fn resize_window_callback(
     old_rect: *mut Rect,
     new_x: u32,
     new_y: u32,
-    event: *const xcb_button_press_event_t,
+    event: &x::ButtonPressEvent,
     extra: *const ::core::ffi::c_void,
 ) {
     let params: *const ResizeParameters = extra as *const ResizeParameters;
@@ -827,7 +827,7 @@ unsafe fn resize_window_callback(
         corner,
         (*params).proportional,
         (new_x, new_y),
-        ((*event).root_x as u32, (*event).root_y as u32),
+        (event.root_x() as u32, event.root_y() as u32),
     );
     (*con).rect = Rect {
         x: dest_x as u32,
@@ -857,7 +857,7 @@ unsafe fn resize_window_callback(
 pub unsafe fn floating_resize_window(
     con: *mut Con,
     proportional: bool,
-    event: *const xcb_button_press_event_t,
+    event: &x::ButtonPressEvent,
 ) {
     debuglog(
         c"%s:%s:%d - floating_resize_window\n".as_ptr().cast_mut(),
@@ -866,7 +866,7 @@ pub unsafe fn floating_resize_window(
         699,
     );
     tree_render();
-    let (corner, cursor) = resize_corner((*con).rect, (*event).event_x, (*event).event_y);
+    let (corner, cursor) = resize_corner((*con).rect, event.event_x(), event.event_y());
     let mut params: ResizeParameters = ResizeParameters {
         corner,
         proportional,
@@ -885,7 +885,7 @@ pub unsafe fn floating_resize_window(
                     *mut Rect,
                     u32,
                     u32,
-                    *const xcb_button_press_event_t,
+                    &x::ButtonPressEvent,
                     *const ::core::ffi::c_void,
                 ) -> (),
         ),
@@ -997,7 +997,7 @@ use crate::util::min;
 
 // Canonical Pango backend ABI; font policy remains local.
 
-use xcb_sys::{xcb_button_press_event_t, xcb_window_t, XCB_NONE};
+use xcb_sys::{xcb_window_t, XCB_NONE};
 
 pub use libc::free;
 

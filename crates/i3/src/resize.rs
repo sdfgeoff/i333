@@ -5,7 +5,7 @@ use crate::types::DragResult;
 use crate::types::Layout;
 use crate::types::Orientation;
 use crate::xcursor::Cursor;
-use xcb::{x, XidNew};
+use xcb::{x, Xid, XidNew};
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -114,7 +114,7 @@ unsafe fn resize_callback(
     old_rect: *mut Rect,
     new_x: u32,
     new_y: u32,
-    event: *const xcb_button_press_event_t,
+    event: &x::ButtonPressEvent,
     extra: *const ::core::ffi::c_void,
 ) {
     // drag_pointer invokes this callback synchronously, on the event thread;
@@ -136,20 +136,20 @@ unsafe fn resize_callback(
         if (*params).orientation == Orientation::Horizontal {
             connection().send_request(&x::WarpPointer {
                 src_window: x::WINDOW_NONE,
-                dst_window: x::Window::new((*event).root),
+                dst_window: x::Window::new(event.root().resource_id()),
                 src_x: 0,
                 src_y: 0,
                 src_width: 0,
                 src_height: 0,
                 dst_x: ((*params).new_position)
                     .wrapping_add(new_x)
-                    .wrapping_sub((*event).root_x as u32) as i16,
+                    .wrapping_sub(event.root_x() as u32) as i16,
                 dst_y: new_y as i16,
             });
         } else {
             connection().send_request(&x::WarpPointer {
                 src_window: x::WINDOW_NONE,
-                dst_window: x::Window::new((*event).root),
+                dst_window: x::Window::new(event.root().resource_id()),
                 src_x: 0,
                 src_y: 0,
                 src_width: 0,
@@ -157,7 +157,7 @@ unsafe fn resize_callback(
                 dst_x: new_x as i16,
                 dst_y: ((*params).new_position)
                     .wrapping_add(new_y)
-                    .wrapping_sub((*event).root_y as u32) as i16,
+                    .wrapping_sub(event.root_y() as u32) as i16,
             });
         }
         (*params).threshold_exceeded = true;
@@ -310,7 +310,7 @@ pub unsafe fn resize_graphical_handler(
     first: *mut Con,
     second: *mut Con,
     orientation: Orientation,
-    event: *const xcb_button_press_event_t,
+    event: &x::ButtonPressEvent,
     use_threshold: bool,
 ) {
     let output: *mut Con = con_get_output(first);
@@ -390,23 +390,23 @@ pub unsafe fn resize_graphical_handler(
         if orientation == Orientation::Horizontal {
             connection().send_request(&x::WarpPointer {
                 src_window: x::WINDOW_NONE,
-                dst_window: x::Window::new((*event).root),
+                dst_window: x::Window::new(event.root().resource_id()),
                 src_x: 0,
                 src_y: 0,
                 src_width: 0,
                 src_height: 0,
                 dst_x: initial_position as i16,
-                dst_y: (*event).root_y,
+                dst_y: event.root_y(),
             });
         } else {
             connection().send_request(&x::WarpPointer {
                 src_window: x::WINDOW_NONE,
-                dst_window: x::Window::new((*event).root),
+                dst_window: x::Window::new(event.root().resource_id()),
                 src_x: 0,
                 src_y: 0,
                 src_width: 0,
                 src_height: 0,
-                dst_x: (*event).root_x,
+                dst_x: event.root_x(),
                 dst_y: initial_position as i16,
             });
         }
@@ -485,9 +485,9 @@ use i3_common::dpi::logical_px;
 // Canonical Pango backend ABI; font policy remains local.
 
 use xcb_sys::{
-    xcb_button_press_event_t, xcb_visualid_t, xcb_window_t, XCB_COPY_FROM_PARENT,
-    XCB_CW_BACK_PIXEL, XCB_CW_OVERRIDE_REDIRECT, XCB_EVENT_MASK_ENTER_WINDOW,
-    XCB_WINDOW_CLASS_INPUT_ONLY, XCB_WINDOW_CLASS_INPUT_OUTPUT,
+    xcb_visualid_t, xcb_window_t, XCB_COPY_FROM_PARENT, XCB_CW_BACK_PIXEL,
+    XCB_CW_OVERRIDE_REDIRECT, XCB_EVENT_MASK_ENTER_WINDOW, XCB_WINDOW_CLASS_INPUT_ONLY,
+    XCB_WINDOW_CLASS_INPUT_OUTPUT,
 };
 
 use crate::log::debuglog;

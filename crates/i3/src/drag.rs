@@ -21,18 +21,16 @@ pub type DragCallback = Option<
         *mut Rect,
         u32,
         u32,
-        *const xcb_button_press_event_t,
+        &x::ButtonPressEvent,
         *const ::core::ffi::c_void,
     ) -> (),
 >;
 
-#[derive(Copy, Clone)]
-#[repr(C)]
-struct DragState {
+struct DragState<'event> {
     pub prepare: ev_prepare,
     pub result: DragResult,
     pub con: *mut Con,
-    pub event: *const xcb_button_press_event_t,
+    pub event: &'event x::ButtonPressEvent,
     pub old_rect: Rect,
     pub callback: DragCallback,
     pub threshold_exceeded: bool,
@@ -46,8 +44,8 @@ fn threshold_exceeded(x1: u32, y1: u32, x2: u32, y2: u32, threshold: u32) -> boo
         .wrapping_add(y1.wrapping_sub(y2).wrapping_mul(y1.wrapping_sub(y2)))
         > threshold.wrapping_mul(threshold)
 }
-unsafe fn drain_drag_events(loop_0: *mut ev_loop, dragloop: *mut DragState) -> bool {
-    let mut pending_motion: Option<xcb_motion_notify_event_t> = None;
+unsafe fn drain_drag_events(loop_0: *mut ev_loop, dragloop: *mut DragState<'_>) -> bool {
+    let mut pending_motion: Option<(i16, i16)> = None;
     loop {
         let next = i3_common::display::connection()
             .expect("main X11 connection is registered")
@@ -67,11 +65,8 @@ unsafe fn drain_drag_events(loop_0: *mut ev_loop, dragloop: *mut DragState) -> b
         };
         // Only this event owner spans dispatch. Handlers borrow the allocation
         // synchronously; no registry borrow or connection clone spans callbacks.
-        let event = owner.as_raw().cast::<xcb_generic_event_t>();
-        let type_0: i32 = (*event).response_type as i32 & 0x7f as i32;
-        match type_0 {
-            XCB_BUTTON_PRESS => {
-                let press: *const xcb_button_press_event_t = event as *mut xcb_button_press_event_t;
+        match &owner {
+            xcb::Event::X(x::Event::ButtonPress(press)) => {
                 debuglog(
                     c"%s:%s:%d - Ignoring button %d press during drag initiated by button %d\n"
                         .as_ptr()
@@ -79,14 +74,12 @@ unsafe fn drain_drag_events(loop_0: *mut ev_loop, dragloop: *mut DragState) -> b
                     c"../src/drag.c".as_ptr(),
                     c"drain_drag_events".as_ptr(),
                     70,
-                    (*press).detail as i32,
-                    (*(*dragloop).event).detail as i32,
+                    press.detail() as i32,
+                    (*dragloop).event.detail() as i32,
                 );
             }
-            XCB_BUTTON_RELEASE => {
-                let release: *const xcb_button_release_event_t =
-                    event as *mut xcb_button_release_event_t;
-                if released_drag_button((*(*dragloop).event).detail, (*release).detail) {
+            xcb::Event::X(x::Event::ButtonRelease(release)) => {
+                if released_drag_button((*dragloop).event.detail(), release.detail()) {
                     debuglog(
                         c"%s:%s:%d - Button %d released, ending drag initiated by button %d\n"
                             .as_ptr()
@@ -94,8 +87,8 @@ unsafe fn drain_drag_events(loop_0: *mut ev_loop, dragloop: *mut DragState) -> b
                         c"../src/drag.c".as_ptr(),
                         c"drain_drag_events".as_ptr(),
                         79,
-                        (*release).detail as i32,
-                        (*(*dragloop).event).detail as i32,
+                        release.detail() as i32,
+                        (*dragloop).event.detail() as i32,
                     );
                     (*dragloop).result = DragResult::Success;
                 } else {
@@ -104,12 +97,12 @@ unsafe fn drain_drag_events(loop_0: *mut ev_loop, dragloop: *mut DragState) -> b
                         c"../src/drag.c".as_ptr(),
                         c"drain_drag_events".as_ptr(),
                         83,
-                        (*release).detail as i32,
-                        (*(*dragloop).event).detail as i32,
+                        release.detail() as i32,
+                        (*dragloop).event.detail() as i32,
                     );
                 }
             }
-            XCB_KEY_PRESS => {
+            xcb::Event::X(x::Event::KeyPress(_)) => {
                 debuglog(
                     c"%s:%s:%d - A key was pressed during drag, reverting changes.\n"
                         .as_ptr()
@@ -121,10 +114,8 @@ unsafe fn drain_drag_events(loop_0: *mut ev_loop, dragloop: *mut DragState) -> b
                 (*dragloop).result = DragResult::Revert;
                 handle_event(&owner);
             }
-            XCB_UNMAP_NOTIFY => {
-                let unmap_event: *mut xcb_unmap_notify_event_t =
-                    event as *mut xcb_unmap_notify_event_t;
-                let con: *mut Con = con_by_window_id((*unmap_event).window);
+            xcb::Event::X(x::Event::UnmapNotify(unmap_event)) => {
+                let con: *mut Con = con_by_window_id(unmap_event.window().resource_id());
                 if !con.is_null() {
                     debuglog(
                         c"%s:%s:%d - UnmapNotify for window 0x%08x (container %p)\n"
@@ -133,7 +124,7 @@ unsafe fn drain_drag_events(loop_0: *mut ev_loop, dragloop: *mut DragState) -> b
                         c"../src/drag.c".as_ptr(),
                         c"drain_drag_events".as_ptr(),
                         99,
-                        (*unmap_event).window,
+                        unmap_event.window().resource_id(),
                         con,
                     );
                     if con_get_workspace(con) == con_get_workspace(focused) {
@@ -148,22 +139,19 @@ unsafe fn drain_drag_events(loop_0: *mut ev_loop, dragloop: *mut DragState) -> b
                 }
                 handle_event(&owner);
             }
-            XCB_MOTION_NOTIFY => {
-                pending_motion = Some(*(event as *const xcb_motion_notify_event_t));
+            xcb::Event::X(x::Event::MotionNotify(motion)) => {
+                pending_motion = Some((motion.root_x(), motion.root_y()));
             }
-            XCB_CLIENT_MESSAGE => {
-                let client_message: *const xcb_client_message_event_t =
-                    event as *mut xcb_client_message_event_t;
-                if (*client_message).type_0 == A__NET_WM_MOVERESIZE {
+            xcb::Event::X(x::Event::ClientMessage(client_message)) => {
+                let words = xcb_interop::events::client_message_words(client_message);
+                if client_message.r#type().resource_id() == A__NET_WM_MOVERESIZE {
                     debuglog(
                         c"%s:%s:%d - Ignoring _NET_WM_MOVERESIZE request during active drag (window = 0x%08x, direction = %d)\n".as_ptr().cast_mut(),
                         c"../src/drag.c".as_ptr(),
                         c"drain_drag_events".as_ptr(),
                         122,
-                        (*client_message).window,
-                        (*client_message)
-                            .data
-                            .data32[2 as usize],
+                        client_message.window().resource_id(),
+                        words[2],
                     );
                 } else {
                     handle_event(&owner);
@@ -190,15 +178,15 @@ unsafe fn drain_drag_events(loop_0: *mut ev_loop, dragloop: *mut DragState) -> b
         }
         return true;
     }
-    let Some(last_motion_notify) = pending_motion else {
+    let Some((motion_x, motion_y)) = pending_motion else {
         return true;
     };
     if !(*dragloop).threshold_exceeded
         && threshold_exceeded(
-            last_motion_notify.root_x as u32,
-            last_motion_notify.root_y as u32,
-            (*(*dragloop).event).root_x as u32,
-            (*(*dragloop).event).root_y as u32,
+            motion_x as u32,
+            motion_y as u32,
+            (*dragloop).event.root_x() as u32,
+            (*dragloop).event.root_y() as u32,
             logical_px(15) as u32,
         )
     {
@@ -218,8 +206,8 @@ unsafe fn drain_drag_events(loop_0: *mut ev_loop, dragloop: *mut DragState) -> b
         (*dragloop).callback.expect("non-null function pointer")(
             (*dragloop).con,
             &raw mut (*dragloop).old_rect,
-            last_motion_notify.root_x as u32,
-            last_motion_notify.root_y as u32,
+            motion_x as u32,
+            motion_y as u32,
             (*dragloop).event,
             (*dragloop).extra,
         );
@@ -230,13 +218,13 @@ unsafe fn drain_drag_events(loop_0: *mut ev_loop, dragloop: *mut DragState) -> b
     (*dragloop).result != DragResult::Dragging
 }
 unsafe extern "C" fn xcb_drag_prepare_cb(loop_0: *mut ev_loop, w: *mut ev_prepare, revents: i32) {
-    let dragloop: *mut DragState = (*w).data as *mut DragState;
+    let dragloop: *mut DragState<'_> = (*w).data as *mut DragState<'_>;
     while !drain_drag_events(loop_0, dragloop) {}
 }
 
 pub unsafe fn drag_pointer(
     con: *mut Con,
-    event: *const xcb_button_press_event_t,
+    event: &x::ButtonPressEvent,
     confine_to: xcb_window_t,
     cursor: Cursor,
     use_threshold: bool,
@@ -335,7 +323,7 @@ pub unsafe fn drag_pointer(
     );
     drop(keyboard_reply);
     grabs.keyboard = true;
-    let mut loop_0: DragState = DragState {
+    let mut loop_0: DragState<'_> = DragState {
         prepare: ev_prepare::new(xcb_drag_prepare_cb),
         result: DragResult::Dragging,
         con,
@@ -366,7 +354,7 @@ pub unsafe fn drag_pointer(
         c"drag_pointer".as_ptr(),
         288,
         con,
-        (*event).detail as i32,
+        event.detail() as i32,
     );
     ev_loop(main_loop, 0);
     debuglog(
@@ -377,7 +365,7 @@ pub unsafe fn drag_pointer(
         c"drag_pointer".as_ptr(),
         291,
         con,
-        (*event).detail as i32,
+        event.detail() as i32,
         loop_0.result as u32,
     );
     ev_prepare_stop(main_loop, prepare);
@@ -394,12 +382,7 @@ use crate::application::main_set_x11_cb;
 use crate::xcursor::xcursor_get_cursor;
 use i3_common::dpi::logical_px;
 
-use xcb_sys::{
-    xcb_button_press_event_t, xcb_button_release_event_t, xcb_client_message_event_t, xcb_cursor_t,
-    xcb_generic_event_t, xcb_motion_notify_event_t, xcb_unmap_notify_event_t, xcb_window_t,
-    XCB_BUTTON_INDEX_ANY, XCB_BUTTON_PRESS, XCB_BUTTON_RELEASE, XCB_CLIENT_MESSAGE, XCB_KEY_PRESS,
-    XCB_MOTION_NOTIFY, XCB_UNMAP_NOTIFY,
-};
+use xcb_sys::{xcb_window_t, XCB_BUTTON_INDEX_ANY};
 
 use crate::log::{debuglog, errorlog};
 

@@ -1409,28 +1409,27 @@ unsafe fn handle_client_message(event: *mut xcb_client_message_event_t) {
         let direction: u32 = (*event).data.data32[2 as ::core::ffi::c_int as usize];
         let x_root: u32 = (*event).data.data32[0 as ::core::ffi::c_int as usize];
         let y_root: u32 = (*event).data.data32[1 as ::core::ffi::c_int as usize];
-        let mut fake: xcb_button_press_event_t = xcb_button_press_event_t {
-            response_type: 0,
-            detail: (*event).data.data32[3 as ::core::ffi::c_int as usize] as xcb_button_t,
-            sequence: 0,
-            time: 0,
-            root: 0,
-            event: 0,
-            child: 0,
-            root_x: x_root as i16,
-            root_y: y_root as i16,
-            event_x: x_root.wrapping_sub((*con_3).rect.x) as i16,
-            event_y: y_root.wrapping_sub((*con_3).rect.y) as i16,
-            state: 0,
-            same_screen: 0,
-            pad0: 0,
-        };
+        // This local initiating press is never queued; callbacks borrow only
+        // its copied button/coordinate fields throughout the synchronous drag.
+        let fake = x::ButtonPressEvent::new(
+            (*event).data.data32[3] as u8,
+            0,
+            x::WINDOW_NONE,
+            x::WINDOW_NONE,
+            x::WINDOW_NONE,
+            x_root as i16,
+            y_root as i16,
+            x_root.wrapping_sub((*con_3).rect.x) as i16,
+            y_root.wrapping_sub((*con_3).rect.y) as i16,
+            x::KeyButMask::empty(),
+            false,
+        );
         match direction {
             8 => {
-                floating_drag_window(parent_ptr(con_3), &raw mut fake, false);
+                floating_drag_window(parent_ptr(con_3), &fake, false);
             }
             0 => {
-                floating_resize_window(parent_ptr(con_3), false, &raw mut fake);
+                floating_resize_window(parent_ptr(con_3), false, &fake);
             }
             _ => {
                 debuglog(
@@ -2136,10 +2135,16 @@ pub unsafe fn handle_event(owner: &xcb::Event) {
     }
     match type_0 {
         XCB_KEY_PRESS | XCB_KEY_RELEASE => {
-            handle_key_press(event as *mut xcb_key_press_event_t);
+            if let xcb::Event::X(x::Event::KeyPress(key) | x::Event::KeyRelease(key)) = owner {
+                handle_key_press(key);
+            }
         }
         XCB_BUTTON_PRESS | XCB_BUTTON_RELEASE => {
-            handle_button_press(event as *mut xcb_button_press_event_t);
+            if let xcb::Event::X(x::Event::ButtonPress(button) | x::Event::ButtonRelease(button)) =
+                owner
+            {
+                handle_button_press(button);
+            }
         }
         XCB_MAP_REQUEST => {
             handle_map_request(
@@ -2336,25 +2341,25 @@ use i3_common::safewrappers::scalloc;
 // Canonical Pango backend ABI; font policy remains local.
 
 use xcb_sys::{
-    xcb_atom_t, xcb_button_press_event_t, xcb_button_t, xcb_client_message_event_t,
-    xcb_configure_notify_event_t, xcb_configure_request_event_t, xcb_destroy_notify_event_t,
-    xcb_enter_notify_event_t, xcb_expose_event_t, xcb_focus_in_event_t, xcb_generic_event_t,
-    xcb_key_press_event_t, xcb_map_request_event_t, xcb_motion_notify_event_t,
-    xcb_property_notify_event_t, xcb_selection_clear_event_t, xcb_shape_notify_event_t,
-    xcb_shape_sk_t, xcb_timestamp_t, xcb_unmap_notify_event_t, xcb_window_t,
-    xcb_xkb_new_keyboard_notify_event_t, xcb_xkb_state_notify_event_t, XCB_ATOM_WM_CLASS,
-    XCB_ATOM_WM_CLIENT_MACHINE, XCB_ATOM_WM_HINTS, XCB_ATOM_WM_NAME, XCB_ATOM_WM_NORMAL_HINTS,
-    XCB_ATOM_WM_TRANSIENT_FOR, XCB_BUTTON_PRESS, XCB_BUTTON_RELEASE, XCB_CLIENT_MESSAGE,
-    XCB_CONFIGURE_NOTIFY, XCB_CONFIGURE_REQUEST, XCB_CONFIG_WINDOW_BORDER_WIDTH,
-    XCB_CONFIG_WINDOW_HEIGHT, XCB_CONFIG_WINDOW_SIBLING, XCB_CONFIG_WINDOW_STACK_MODE,
-    XCB_CONFIG_WINDOW_WIDTH, XCB_CONFIG_WINDOW_X, XCB_CONFIG_WINDOW_Y, XCB_DESTROY_NOTIFY,
-    XCB_ENTER_NOTIFY, XCB_EXPOSE, XCB_FOCUS_IN, XCB_FOCUS_OUT, XCB_ICCCM_WM_STATE_ICONIC,
-    XCB_ICCCM_WM_STATE_NORMAL, XCB_KEY_PRESS, XCB_KEY_RELEASE, XCB_MAPPING_NOTIFY, XCB_MAP_REQUEST,
-    XCB_MOTION_NOTIFY, XCB_NONE, XCB_NOTIFY_DETAIL_POINTER, XCB_NOTIFY_MODE_GRAB,
-    XCB_NOTIFY_MODE_NORMAL, XCB_NOTIFY_MODE_UNGRAB, XCB_NUM_LOCK, XCB_PROPERTY_NOTIFY,
-    XCB_RANDR_SCREEN_CHANGE_NOTIFY, XCB_SELECTION_CLEAR, XCB_SHAPE_NOTIFY, XCB_SHAPE_SK_BOUNDING,
-    XCB_SHAPE_SK_INPUT, XCB_STACK_MODE_ABOVE, XCB_UNMAP_NOTIFY, XCB_XKB_MAP_NOTIFY,
-    XCB_XKB_NEW_KEYBOARD_NOTIFY, XCB_XKB_NKN_DETAIL_KEYCODES, XCB_XKB_STATE_NOTIFY,
+    xcb_atom_t, xcb_client_message_event_t, xcb_configure_notify_event_t,
+    xcb_configure_request_event_t, xcb_destroy_notify_event_t, xcb_enter_notify_event_t,
+    xcb_expose_event_t, xcb_focus_in_event_t, xcb_generic_event_t, xcb_map_request_event_t,
+    xcb_motion_notify_event_t, xcb_property_notify_event_t, xcb_selection_clear_event_t,
+    xcb_shape_notify_event_t, xcb_shape_sk_t, xcb_timestamp_t, xcb_unmap_notify_event_t,
+    xcb_window_t, xcb_xkb_new_keyboard_notify_event_t, xcb_xkb_state_notify_event_t,
+    XCB_ATOM_WM_CLASS, XCB_ATOM_WM_CLIENT_MACHINE, XCB_ATOM_WM_HINTS, XCB_ATOM_WM_NAME,
+    XCB_ATOM_WM_NORMAL_HINTS, XCB_ATOM_WM_TRANSIENT_FOR, XCB_BUTTON_PRESS, XCB_BUTTON_RELEASE,
+    XCB_CLIENT_MESSAGE, XCB_CONFIGURE_NOTIFY, XCB_CONFIGURE_REQUEST,
+    XCB_CONFIG_WINDOW_BORDER_WIDTH, XCB_CONFIG_WINDOW_HEIGHT, XCB_CONFIG_WINDOW_SIBLING,
+    XCB_CONFIG_WINDOW_STACK_MODE, XCB_CONFIG_WINDOW_WIDTH, XCB_CONFIG_WINDOW_X,
+    XCB_CONFIG_WINDOW_Y, XCB_DESTROY_NOTIFY, XCB_ENTER_NOTIFY, XCB_EXPOSE, XCB_FOCUS_IN,
+    XCB_FOCUS_OUT, XCB_ICCCM_WM_STATE_ICONIC, XCB_ICCCM_WM_STATE_NORMAL, XCB_KEY_PRESS,
+    XCB_KEY_RELEASE, XCB_MAPPING_NOTIFY, XCB_MAP_REQUEST, XCB_MOTION_NOTIFY, XCB_NONE,
+    XCB_NOTIFY_DETAIL_POINTER, XCB_NOTIFY_MODE_GRAB, XCB_NOTIFY_MODE_NORMAL,
+    XCB_NOTIFY_MODE_UNGRAB, XCB_NUM_LOCK, XCB_PROPERTY_NOTIFY, XCB_RANDR_SCREEN_CHANGE_NOTIFY,
+    XCB_SELECTION_CLEAR, XCB_SHAPE_NOTIFY, XCB_SHAPE_SK_BOUNDING, XCB_SHAPE_SK_INPUT,
+    XCB_STACK_MODE_ABOVE, XCB_UNMAP_NOTIFY, XCB_XKB_MAP_NOTIFY, XCB_XKB_NEW_KEYBOARD_NOTIFY,
+    XCB_XKB_NKN_DETAIL_KEYCODES, XCB_XKB_STATE_NOTIFY,
 };
 
 use startup_notification_sys::{

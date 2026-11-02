@@ -9,31 +9,28 @@
  */
 #![deny(unsafe_op_in_unsafe_fn)]
 
+use xcb::x;
+
 use crate::application::last_timestamp;
-use crate::bindings::{get_binding_from_xcb_event, run_binding};
+use crate::bindings::{get_binding_from_event, run_binding};
 use crate::commands_parser::command_result_free;
 use crate::log::debuglog;
-use xcb_sys::{xcb_generic_event_t, xcb_key_press_event_t, XCB_KEY_RELEASE};
+use xcb_sys::XCB_KEY_RELEASE;
 
 /// Dispatch a native key event against the current bindings.
 ///
 /// # Safety
-/// `event` must point to a live, aligned, initialized XCB key press/release event
-/// for this call. The caller must own exclusive event-thread access to the
+/// The borrowed maintained event stays live through this dispatch. The caller
+/// must own exclusive event-thread access to the
 /// initialized display, binding and container globals. Binding execution can
 /// mutate that graph, so no references into it may survive this call.
-pub unsafe fn handle_key_press(event: *mut xcb_key_press_event_t) {
-    // SAFETY: The caller supplies a valid native event. Copy only the fields we
-    // need so the borrow ends before binding lookup or command execution.
-    let (key_release, time, detail, state) = unsafe {
-        let event = &*event;
-        (
-            event.response_type == XCB_KEY_RELEASE as u8,
-            event.time,
-            event.detail,
-            event.state,
-        )
-    };
+pub unsafe fn handle_key_press(event: &x::KeyPressEvent) {
+    let (key_release, time, detail, state) = (
+        event.response_type() == XCB_KEY_RELEASE as u8,
+        event.time(),
+        event.detail(),
+        xcb_interop::events::key_press_state(event),
+    );
     // SAFETY: Exclusive access to the event-thread globals is part of the
     // contract. The event remains live through lookup; a returned binding is
     // used immediately and the owned command result is freed exactly once.
@@ -52,7 +49,7 @@ pub unsafe fn handle_key_press(event: *mut xcb_key_press_event_t) {
             i32::from(detail),
             i32::from(state),
         );
-        let binding = get_binding_from_xcb_event(event.cast::<xcb_generic_event_t>());
+        let binding = get_binding_from_event(event.response_type(), state, detail);
         if binding.is_null() {
             return;
         }

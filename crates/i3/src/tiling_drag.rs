@@ -149,7 +149,7 @@ unsafe fn drag_callback(
     old_rect: *mut Rect,
     new_x: u32,
     new_y: u32,
-    event: *const xcb_button_press_event_t,
+    event: &x::ButtonPressEvent,
     extra: *const ::core::ffi::c_void,
 ) {
     let mut target: *mut Con = find_drop_target(new_x, new_y);
@@ -277,11 +277,7 @@ unsafe fn create_drop_indicator(rect: Rect) -> x::Window {
     indicator
 }
 
-pub unsafe fn tiling_drag(
-    con: *mut Con,
-    event: *mut xcb_button_press_event_t,
-    use_threshold: bool,
-) {
+pub unsafe fn tiling_drag(con: *mut Con, event: &x::ButtonPressEvent, use_threshold: bool) {
     debuglog(
         c"%s:%s:%d - Start dragging tiled container: con = %p\n"
             .as_ptr()
@@ -320,7 +316,7 @@ pub unsafe fn tiling_drag(
                     *mut Rect,
                     u32,
                     u32,
-                    *const xcb_button_press_event_t,
+                    &x::ButtonPressEvent,
                     *const ::core::ffi::c_void,
                 ) -> (),
         ),
@@ -360,7 +356,8 @@ pub unsafe fn tiling_drag(
                 target,
             );
             mod_0 = config.swap_modifier & 0xffff as u32;
-            swap_pressed = mod_0 != 0 as u32 && (*event).state as u32 & mod_0 == mod_0;
+            swap_pressed = mod_0 != 0 as u32
+                && xcb_interop::events::button_press_state(event) as u32 & mod_0 == mod_0;
             if swap_pressed {
                 if !con_swap(con, target) {
                     return;
@@ -476,9 +473,8 @@ use i3_common::dpi::logical_px;
 // Canonical Pango backend ABI; font policy remains local.
 
 use xcb_sys::{
-    xcb_button_press_event_t, xcb_visualid_t, xcb_window_t, XCB_COPY_FROM_PARENT,
-    XCB_CW_BACK_PIXEL, XCB_CW_OVERRIDE_REDIRECT, XCB_EVENT_MASK_ENTER_WINDOW, XCB_NONE,
-    XCB_WINDOW_CLASS_INPUT_OUTPUT,
+    xcb_visualid_t, xcb_window_t, XCB_COPY_FROM_PARENT, XCB_CW_BACK_PIXEL,
+    XCB_CW_OVERRIDE_REDIRECT, XCB_EVENT_MASK_ENTER_WINDOW, XCB_NONE, XCB_WINDOW_CLASS_INPUT_OUTPUT,
 };
 
 use i3_common::native_stdio::__assert_fail;

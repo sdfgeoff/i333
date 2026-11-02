@@ -1,11 +1,11 @@
-use crate::bindings::get_binding_from_xcb_event;
+use crate::bindings::get_binding_from_event;
 use crate::bindings::run_binding;
 use crate::commands_parser::command_result_free;
 use crate::con::arena::focus;
 use crate::con::arena::parent::parent_ptr;
 use crate::domains::ContainerType;
 use crate::flags::{ResizeEdges, TilingDrag};
-use xcb::x;
+use xcb::{x, Xid};
 
 use crate::types::ClickDestination;
 use crate::types::Direction;
@@ -32,7 +32,7 @@ pub use crate::assignments::CommandResult;
 unsafe fn tiling_resize_for_border(
     con: *mut Con,
     border: ResizeEdges,
-    event: *mut xcb_button_press_event_t,
+    event: &x::ButtonPressEvent,
     use_threshold: bool,
 ) -> bool {
     debuglog(
@@ -133,14 +133,11 @@ unsafe fn tiling_resize_for_border(
     tree_render();
     true
 }
-unsafe fn floating_mod_on_tiled_client(
-    con: *mut Con,
-    event: *mut xcb_button_press_event_t,
-) -> bool {
-    let to_right: i32 = (*con).rect.width.wrapping_sub((*event).event_x as u32) as i32;
-    let to_left: i32 = (*event).event_x as i32;
-    let to_top: i32 = (*event).event_y as i32;
-    let to_bottom: i32 = (*con).rect.height.wrapping_sub((*event).event_y as u32) as i32;
+unsafe fn floating_mod_on_tiled_client(con: *mut Con, event: &x::ButtonPressEvent) -> bool {
+    let to_right: i32 = (*con).rect.width.wrapping_sub(event.event_x() as u32) as i32;
+    let to_left: i32 = event.event_x() as i32;
+    let to_top: i32 = event.event_y() as i32;
+    let to_bottom: i32 = (*con).rect.height.wrapping_sub(event.event_y() as u32) as i32;
     debuglog(
         c"%s:%s:%d - click was %d px to the right, %d px to the left, %d px to top, %d px to bottom\n".as_ptr().cast_mut(),
         c"../src/click.c".as_ptr(),
@@ -156,7 +153,7 @@ unsafe fn floating_mod_on_tiled_client(
 }
 unsafe fn tiling_resize(
     con: *mut Con,
-    event: *mut xcb_button_press_event_t,
+    event: &x::ButtonPressEvent,
     dest: ClickDestination,
     use_threshold: bool,
 ) -> bool {
@@ -168,10 +165,10 @@ unsafe fn tiling_resize(
         c"../src/click.c".as_ptr(),
         c"tiling_resize".as_ptr(),
         131,
-        (*event).event_x as i32,
-        (*event).event_y as i32,
+        event.event_x() as i32,
+        event.event_y() as i32,
         con,
-        (*event).event,
+        event.event().resource_id(),
     );
     debuglog(
         c"%s:%s:%d - checks for right >= %d\n".as_ptr().cast_mut(),
@@ -184,8 +181,8 @@ unsafe fn tiling_resize(
         (*con).rect,
         (*con).window_rect,
         bsr,
-        (*event).event_x,
-        (*event).event_y,
+        event.event_x(),
+        event.event_y(),
         dest,
         use_threshold,
     )
@@ -200,8 +197,11 @@ unsafe fn allow_replay_pointer(time: xcb_timestamp_t) {
     allow_pointer(x::Allow::ReplayPointer, time);
     tree_render();
 }
-unsafe fn route_click(con: *mut Con, event: *mut xcb_button_press_event_t, dest: ClickDestination) {
-    let mod_pressed = modifier_pressed((*event).state, config.floating_modifier);
+unsafe fn route_click(con: *mut Con, event: &x::ButtonPressEvent, dest: ClickDestination) {
+    let mod_pressed = modifier_pressed(
+        xcb_interop::events::button_press_state(event),
+        config.floating_modifier,
+    );
     debuglog(
         c"%s:%s:%d - --> click properties: mod = %d, destination = %d\n"
             .as_ptr()
@@ -228,10 +228,14 @@ unsafe fn route_click(con: *mut Con, event: *mut xcb_button_press_event_t, dest:
         (*con).name,
     );
     if ((*parent_ptr(con)).type_0) == ContainerType::DockArea {
-        allow_replay_pointer((*event).time);
+        allow_replay_pointer(event.time());
         return;
     }
-    let bind: *mut Binding = get_binding_from_xcb_event(event as *mut xcb_generic_event_t);
+    let bind: *mut Binding = get_binding_from_event(
+        event.response_type(),
+        xcb_interop::events::button_press_state(event),
+        event.detail(),
+    );
     if !bind.is_null()
         && binding_destination(
             dest,
@@ -241,12 +245,12 @@ unsafe fn route_click(con: *mut Con, event: *mut xcb_button_press_event_t, dest:
         )
     {
         let result: *mut CommandResult = run_binding(bind, con);
-        allow_pointer(x::Allow::AsyncPointer, (*event).time);
+        allow_pointer(x::Allow::AsyncPointer, event.time());
         command_result_free(result);
         return;
     }
-    if (*event).response_type as i32 == XCB_BUTTON_RELEASE {
-        allow_replay_pointer((*event).time);
+    if event.response_type() as i32 == XCB_BUTTON_RELEASE {
+        allow_replay_pointer(event.time());
         return;
     }
     let mut ws: *mut Con = con_get_workspace(con);
@@ -254,23 +258,24 @@ unsafe fn route_click(con: *mut Con, event: *mut xcb_button_press_event_t, dest:
     if ws.is_null() {
         ws = focus::first_ptr(output_get_content(con_get_output(con)));
         if ws.is_null() {
-            allow_replay_pointer((*event).time);
+            allow_replay_pointer(event.time());
             return;
         }
     }
     let floatingcon: *mut Con = con_inside_floating(con);
-    let proportional: bool =
-        (*event).state as i32 & XCB_KEY_BUT_MASK_SHIFT as i32 == XCB_KEY_BUT_MASK_SHIFT as i32;
+    let proportional: bool = xcb_interop::events::button_press_state(event) as i32
+        & XCB_KEY_BUT_MASK_SHIFT as i32
+        == XCB_KEY_BUT_MASK_SHIFT as i32;
     let in_stacked: bool =
         (*parent_ptr(con)).layout == Layout::Stacked || (*parent_ptr(con)).layout == Layout::Tabbed;
     let was_focused: bool = focused == con;
-    let is_left_click: bool = (*event).detail as i32 == XCB_BUTTON_INDEX_1 as i32;
-    let is_right_click: bool = (*event).detail as i32 == XCB_BUTTON_INDEX_3 as i32;
+    let is_left_click: bool = event.detail() as i32 == XCB_BUTTON_INDEX_1 as i32;
+    let is_right_click: bool = event.detail() as i32 == XCB_BUTTON_INDEX_3 as i32;
     let is_left_or_right_click: bool = is_left_click || is_right_click;
-    let is_scroll: bool = (*event).detail as i32 == XCB_BUTTON_INDEX_4 as i32
-        || (*event).detail as i32 == XCB_BUTTON_INDEX_5 as i32
-        || (*event).detail as i32 == XCB_BUTTON_SCROLL_LEFT
-        || (*event).detail as i32 == XCB_BUTTON_SCROLL_RIGHT;
+    let is_scroll: bool = event.detail() as i32 == XCB_BUTTON_INDEX_4 as i32
+        || event.detail() as i32 == XCB_BUTTON_INDEX_5 as i32
+        || event.detail() as i32 == XCB_BUTTON_SCROLL_LEFT
+        || event.detail() as i32 == XCB_BUTTON_SCROLL_RIGHT;
     if in_stacked && dest == ClickDestination::Decoration && is_scroll {
         debuglog(
             c"%s:%s:%d - Scrolling on a window decoration\n"
@@ -282,8 +287,8 @@ unsafe fn route_click(con: *mut Con, event: *mut xcb_button_press_event_t, dest:
         );
         workspace_show(ws);
         let current: *mut Con = focus::first_ptr(parent_ptr(con));
-        let direction: Position = if (*event).detail as i32 == XCB_BUTTON_INDEX_4 as i32
-            || (*event).detail as i32 == XCB_BUTTON_SCROLL_LEFT
+        let direction: Position = if event.detail() as i32 == XCB_BUTTON_INDEX_4 as i32
+            || event.detail() as i32 == XCB_BUTTON_SCROLL_LEFT
         {
             Position::Before
         } else {
@@ -295,7 +300,7 @@ unsafe fn route_click(con: *mut Con, event: *mut xcb_button_press_event_t, dest:
         } else {
             current
         }));
-        allow_replay_pointer((*event).time);
+        allow_replay_pointer(event.time());
         return;
     }
     if mod_pressed
@@ -307,7 +312,7 @@ unsafe fn route_click(con: *mut Con, event: *mut xcb_button_press_event_t, dest:
     {
         let use_threshold: bool = !mod_pressed;
         tiling_drag(con, event, use_threshold);
-        allow_replay_pointer((*event).time);
+        allow_replay_pointer(event.time());
         return;
     }
     let mut con_to_focus: *mut Con = con;
@@ -357,7 +362,7 @@ unsafe fn route_click(con: *mut Con, event: *mut xcb_button_press_event_t, dest:
                 dest,
                 dest == ClickDestination::Decoration && !was_focused,
             ) {
-                allow_replay_pointer((*event).time);
+                allow_replay_pointer(event.time());
                 return;
             }
         }
@@ -389,7 +394,7 @@ unsafe fn route_click(con: *mut Con, event: *mut xcb_button_press_event_t, dest:
             floating_drag_window(floatingcon, event, !was_focused);
             return;
         }
-        allow_replay_pointer((*event).time);
+        allow_replay_pointer(event.time());
         return;
     }
     if is_left_click
@@ -398,7 +403,7 @@ unsafe fn route_click(con: *mut Con, event: *mut xcb_button_press_event_t, dest:
                 && (mod_pressed || dest == ClickDestination::Decoration))
         && has_drop_targets() as i32 != 0
     {
-        allow_replay_pointer((*event).time);
+        allow_replay_pointer(event.time());
         let use_threshold_0: bool = !mod_pressed;
         tiling_drag(con, event, use_threshold_0);
         return;
@@ -407,7 +412,7 @@ unsafe fn route_click(con: *mut Con, event: *mut xcb_button_press_event_t, dest:
         if floating_mod_on_tiled_client(con, event) {
             return;
         }
-        allow_pointer(x::Allow::AsyncPointer, (*event).time);
+        allow_pointer(x::Allow::AsyncPointer, event.time());
         return;
     }
     if (dest == ClickDestination::Border || dest == ClickDestination::Decoration)
@@ -428,54 +433,58 @@ unsafe fn route_click(con: *mut Con, event: *mut xcb_button_press_event_t, dest:
             dest == ClickDestination::Decoration && !was_focused,
         );
     }
-    allow_replay_pointer((*event).time);
+    allow_replay_pointer(event.time());
 }
 
-pub unsafe fn handle_button_press(event: *mut xcb_button_press_event_t) {
+pub unsafe fn handle_button_press(event: &x::ButtonPressEvent) {
     let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
     debuglog(
         c"%s:%s:%d - Button %d (state %d) %s on window 0x%08x (child 0x%08x) at (%d, %d) (root %d, %d)\n".as_ptr().cast_mut(),
         c"../src/click.c".as_ptr(),
         c"handle_button_press".as_ptr(),
         377,
-        (*event).detail as i32,
-        (*event).state as i32,
-        if (*event).response_type as i32 == XCB_BUTTON_PRESS {
+        event.detail() as i32,
+        xcb_interop::events::button_press_state(event) as i32,
+        if event.response_type() as i32 == XCB_BUTTON_PRESS {
             c"press".as_ptr()
         } else {
             c"release".as_ptr()
         },
-        (*event).event,
-        (*event).child,
-        (*event).event_x as i32,
-        (*event).event_y as i32,
-        (*event).root_x as i32,
-        (*event).root_y as i32,
+        event.event().resource_id(),
+        event.child().resource_id(),
+        event.event_x() as i32,
+        event.event_y() as i32,
+        event.root_x() as i32,
+        event.root_y() as i32,
     );
-    last_timestamp = (*event).time;
-    con = con_by_window_id((*event).event);
+    last_timestamp = event.time();
+    con = con_by_window_id(event.event().resource_id());
     if !con.is_null() {
         route_click(con, event, ClickDestination::Inside);
         return;
     }
-    con = con_by_frame_id((*event).event);
+    con = con_by_frame_id(event.event().resource_id());
     if con.is_null() {
-        if (*event).event == root {
-            let bind: *mut Binding = get_binding_from_xcb_event(event as *mut xcb_generic_event_t);
+        if event.event().resource_id() == root {
+            let bind: *mut Binding = get_binding_from_event(
+                event.response_type(),
+                xcb_interop::events::button_press_state(event),
+                event.detail(),
+            );
             if !bind.is_null() && (*bind).whole_window as i32 != 0 {
                 let result: *mut CommandResult = run_binding(bind, ::core::ptr::null_mut::<Con>());
                 command_result_free(result);
             }
         }
-        if (*event).event == root && (*event).response_type as i32 == XCB_BUTTON_PRESS {
+        if event.event().resource_id() == root && event.response_type() as i32 == XCB_BUTTON_PRESS {
             let mut output: *mut Con = ::core::ptr::null_mut::<Con>();
             output = nodes::first_ptr(croot);
             while !output.is_null() {
                 if con_is_internal(output) as i32 != 0
                     || !rect_contains(
                         (*output).rect,
-                        (*event).event_x as u32,
-                        (*event).event_y as u32,
+                        event.event_x() as u32,
+                        event.event_y() as u32,
                     )
                 {
                     output = nodes::next_ptr(output);
@@ -495,14 +504,14 @@ pub unsafe fn handle_button_press(event: *mut xcb_button_press_event_t) {
                 .as_ptr()
                 .cast_mut(),
         );
-        allow_pointer(x::Allow::ReplayPointer, (*event).time);
+        allow_pointer(x::Allow::ReplayPointer, event.time());
         return;
     }
     if !(*con).window.is_null() {
         if rect_contains(
             (*con).deco_rect,
-            (*event).event_x as u32,
-            (*event).event_y as u32,
+            event.event_x() as u32,
+            event.event_y() as u32,
         ) {
             route_click(con, event, ClickDestination::Decoration);
             return;
@@ -513,8 +522,8 @@ pub unsafe fn handle_button_press(event: *mut xcb_button_press_event_t) {
         while !child.is_null() {
             if !rect_contains(
                 (*child).deco_rect,
-                (*event).event_x as u32,
-                (*event).event_y as u32,
+                event.event_x() as u32,
+                event.event_y() as u32,
             ) {
                 child = nodes::previous_ptr(child);
             } else {
@@ -523,7 +532,7 @@ pub unsafe fn handle_button_press(event: *mut xcb_button_press_event_t) {
             }
         }
     }
-    if (*event).child as ::core::ffi::c_long != XCB_NONE {
+    if event.child().resource_id() as ::core::ffi::c_long != XCB_NONE {
         debuglog(
             c"%s:%s:%d - event->child not XCB_NONE, so this is an event which originated from a click into the application, but the application did not handle it.\n".as_ptr().cast_mut(),
             c"../src/click.c".as_ptr(),
@@ -543,10 +552,9 @@ use crate::tree::tree_render;
 // Canonical Pango backend ABI; font policy remains local.
 
 use xcb_sys::{
-    xcb_button_press_event_t, xcb_generic_event_t, xcb_timestamp_t, XCB_BUTTON_INDEX_1,
-    XCB_BUTTON_INDEX_3, XCB_BUTTON_INDEX_4, XCB_BUTTON_INDEX_5, XCB_BUTTON_PRESS,
-    XCB_BUTTON_RELEASE, XCB_BUTTON_SCROLL_LEFT, XCB_BUTTON_SCROLL_RIGHT, XCB_KEY_BUT_MASK_SHIFT,
-    XCB_NONE,
+    xcb_timestamp_t, XCB_BUTTON_INDEX_1, XCB_BUTTON_INDEX_3, XCB_BUTTON_INDEX_4,
+    XCB_BUTTON_INDEX_5, XCB_BUTTON_PRESS, XCB_BUTTON_RELEASE, XCB_BUTTON_SCROLL_LEFT,
+    XCB_BUTTON_SCROLL_RIGHT, XCB_KEY_BUT_MASK_SHIFT, XCB_NONE,
 };
 
 use i3_common::native_stdio::__assert_fail;
