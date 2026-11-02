@@ -9,6 +9,10 @@ use i3_common::font::set_font;
 use i3_common::mkdirp::mkdirp;
 use std::ffi::{CStr, CString};
 use std::rc::Rc;
+use xcb::{x, Xid, XidNew};
+use xcb_interop::events::key_press_state;
+use xcb_interop::keysyms::KeySymbols;
+use xcb_interop::transport::keyboard_grab_status;
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -63,18 +67,6 @@ pub const XK_Up: ::core::ffi::c_int = 0xff52 as ::core::ffi::c_int;
 pub const XK_Down: ::core::ffi::c_int = 0xff54 as ::core::ffi::c_int;
 pub const XK_KP_Enter: ::core::ffi::c_int = 0xff8d as ::core::ffi::c_int;
 
-pub static mut A__NET_WM_WINDOW_TYPE: xcb_atom_t = 0;
-
-pub static mut A_UTF8_STRING: xcb_atom_t = 0;
-
-pub static mut A_ATOM: xcb_atom_t = 0;
-
-pub static mut A_CARDINAL: xcb_atom_t = 0;
-
-pub static mut A__NET_WM_NAME: xcb_atom_t = 0;
-
-pub static mut A__NET_WM_WINDOW_TYPE_DIALOG: xcb_atom_t = 0;
-
 pub static mut visual_type: *mut xcb_visualtype_t =
     ::core::ptr::null::<xcb_visualtype_t>() as *mut xcb_visualtype_t;
 
@@ -82,8 +74,6 @@ static mut xcb_numlock_mask: u32 = 0;
 
 pub static mut conn: *mut xcb_connection_t =
     ::core::ptr::null::<xcb_connection_t>() as *mut xcb_connection_t;
-static mut keysyms: *mut xcb_key_symbols_t =
-    ::core::ptr::null::<xcb_key_symbols_t>() as *mut xcb_key_symbols_t;
 
 pub static mut root_screen: *mut xcb_screen_t =
     ::core::ptr::null::<xcb_screen_t>() as *mut xcb_screen_t;
@@ -120,8 +110,6 @@ static mut surface: surface_t = surface_t {
     surface: ::core::ptr::null::<cairo_surface_t>() as *mut cairo_surface_t,
     cr: ::core::ptr::null::<cairo_t>() as *mut cairo_t,
 };
-static mut symbols: *mut xcb_key_symbols_t =
-    ::core::ptr::null::<xcb_key_symbols_t>() as *mut xcb_key_symbols_t;
 
 pub static mut root: xcb_window_t = 0;
 static mut xkb_keymap: *mut xkb_keymap = ::core::ptr::null::<xkb_keymap>() as *mut xkb_keymap;
@@ -4339,25 +4327,18 @@ fn format_binding(binding: &BindingFields, keysym: &CStr) -> CString {
 
 /// Native key symbols borrow the initialized connection's setup/key table.
 /// Requires sole event-thread access to those resources for this query.
-unsafe fn keysym_used_on_other_key(sym: libc::c_ulong, except_keycode: xcb_keycode_t) -> bool {
-    let (minimum, maximum) = {
-        let setup = &*xcb_get_setup(conn);
-        (setup.min_keycode, setup.max_keycode)
-    };
-    // Preserve the old zero-start sentinel while eliminating u8 wraparound
-    // control flow for the full 1..=255 native keycode range.
+fn keysym_used_on_other_key(keysyms: &KeySymbols, sym: libc::c_ulong, except_keycode: u8) -> bool {
+    let setup = keysyms.connection().get_setup();
+    let (minimum, maximum) = (setup.min_keycode(), setup.max_keycode());
+    // Preserve the native zero-start sentinel and level order.
     minimum != 0
         && (minimum..=maximum)
             .filter(|&code| code != except_keycode)
-            .any(|code| {
-                (0..4).any(|level| {
-                    xcb_key_symbols_get_keysym(keysyms, code, level) as libc::c_ulong == sym
-                })
-            })
+            .any(|code| (0..4).any(|level| keysyms.keysym(code, level) as libc::c_ulong == sym))
 }
 // The parser and formatting own their data. Only keysym lookup and malloc ABI
 // handoff require the initialized event-thread XKB/key-symbol native resources.
-unsafe fn rewrite_binding(input: &CStr) -> Option<CString> {
+unsafe fn rewrite_binding(input: &CStr, keysyms: &KeySymbols) -> Option<CString> {
     let binding = parse_binding(input, |state| parser_tokens(state))?;
     let modifiers = binding.modifiers.as_deref();
     let key = CString::new(binding.key.clone()).expect("key has no NUL");
@@ -4381,8 +4362,9 @@ unsafe fn rewrite_binding(input: &CStr) -> Option<CString> {
             );
         }
         if !keysym_used_on_other_key(
+            keysyms,
             *syms.offset(0 as ::core::ffi::c_int as isize) as libc::c_ulong,
-            keycode as xcb_keycode_t,
+            keycode as u8,
         ) {
             level = 0 as ::core::ffi::c_int;
         }
@@ -4473,24 +4455,6 @@ fn clicked_modifier(
     }
 }
 
-struct Native<T>(std::ptr::NonNull<T>);
-impl<T> Native<T> {
-    /// The pointer transfers a unique complete malloc-backed XCB allocation.
-    unsafe fn take(pointer: *mut T) -> Option<Self> {
-        std::ptr::NonNull::new(pointer).map(Self)
-    }
-    fn raw(&self) -> *mut T {
-        self.0.as_ptr()
-    }
-}
-impl<T> Drop for Native<T> {
-    fn drop(&mut self) {
-        unsafe {
-            free(self.raw().cast());
-        }
-    }
-}
-
 // Session ownership for the native renderer globals. Fonts remain at static
 // stable addresses because the shared backend borrows the selected Font POD.
 struct StartupContext(*mut SnLauncheeContext);
@@ -4506,6 +4470,8 @@ impl Drop for StartupContext {
 struct WizardResources {
     _registration: i3_common::display::DisplayConnection,
     connection: Rc<xcb::Connection>,
+    keysyms: Option<KeySymbols>,
+    symbols: Option<KeySymbols>,
     fonts: bool,
     surface: bool,
 }
@@ -4528,16 +4494,12 @@ impl Drop for WizardResources {
                 xkb_keymap_unref(xkb_keymap);
                 xkb_keymap = std::ptr::null_mut();
             }
-            if !symbols.is_null() {
-                xcb_sys::xcb_key_symbols_free(symbols);
-                symbols = std::ptr::null_mut();
-            }
-            if !keysyms.is_null() {
-                xcb_sys::xcb_key_symbols_free(keysyms);
-                keysyms = std::ptr::null_mut();
-            }
+            drop(self.symbols.take());
+            drop(self.keysyms.take());
             if win != 0 {
-                xcb_sys::xcb_destroy_window(self.connection.get_raw_conn().cast(), win);
+                self.connection.send_request(&x::DestroyWindow {
+                    window: x::Window::new(win),
+                });
                 win = 0;
             }
             root_screen = std::ptr::null_mut();
@@ -4553,16 +4515,24 @@ unsafe fn take_cstring(pointer: *mut libc::c_char) -> CString {
     free(pointer.cast());
     owned
 }
-unsafe fn atom_reply(cookie: xcb_intern_atom_cookie_t, name: &CStr) -> xcb_atom_t {
-    let Some(reply) = Native::take(xcb_intern_atom_reply(conn, cookie, std::ptr::null_mut()))
-    else {
+unsafe fn atom_reply(
+    connection: &xcb::Connection,
+    cookie: x::InternAtomCookie,
+    name: &CStr,
+) -> x::Atom {
+    let Ok(reply) = connection.wait_for_reply(cookie) else {
         errx(
             libc::EXIT_FAILURE,
             c"Could not get atom %s".as_ptr(),
             name.as_ptr(),
         );
     };
-    (*reply.raw()).atom
+    reply.atom()
+}
+
+struct WizardAtoms {
+    name: x::Atom,
+    utf8: x::Atom,
 }
 
 unsafe fn txt(
@@ -4587,7 +4557,7 @@ unsafe fn txt(
         logical_px(300 as ::core::ffi::c_int) - x - logical_px(4 as ::core::ffi::c_int),
     );
 }
-unsafe fn handle_expose(ui: &WizardUi) -> ::core::ffi::c_int {
+unsafe fn handle_expose(ui: &WizardUi, connection: &xcb::Connection) -> ::core::ffi::c_int {
     let black: color_t = draw_util_hex_to_color(c"#000000".as_ptr()) as color_t;
     let white: color_t = draw_util_hex_to_color(c"#FFFFFF".as_ptr()) as color_t;
     let green: color_t = draw_util_hex_to_color(c"#00FF00".as_ptr()) as color_t;
@@ -4745,54 +4715,52 @@ unsafe fn handle_expose(ui: &WizardUi) -> ::core::ffi::c_int {
             black,
         );
     }
-    xcb_flush(conn);
+    let _ = connection.flush();
     1 as ::core::ffi::c_int
 }
 unsafe fn handle_key_press(
     ui: &mut WizardUi,
-    conn_0: *mut xcb_connection_t,
-    event: *mut xcb_key_press_event_t,
+    connection: &xcb::Connection,
+    symbols: &KeySymbols,
+    keysyms: &KeySymbols,
+    atoms: &WizardAtoms,
+    event: &x::KeyPressEvent,
 ) -> bool {
     printf(
         c"Keypress %d, state raw = %d\n".as_ptr(),
-        (*event).detail as ::core::ffi::c_int,
-        (*event).state as ::core::ffi::c_int,
+        event.detail() as ::core::ffi::c_int,
+        key_press_state(event) as ::core::ffi::c_int,
     );
-    let mut state_filtered: u16 = ((*event).state as u32
-        & !(xcb_numlock_mask | XCB_MOD_MASK_LOCK as ::core::ffi::c_int as u32))
-        as u16;
+    let mut state_filtered: u16 =
+        (key_press_state(event) as u32 & !(xcb_numlock_mask | x::ModMask::LOCK.bits())) as u16;
     state_filtered = (state_filtered as ::core::ffi::c_int & 0xff as ::core::ffi::c_int) as u16;
-    let sym: xcb_keysym_t =
-        xcb_key_press_lookup_keysym(symbols, event, state_filtered as ::core::ffi::c_int);
+    let sym: u32 = symbols.keysym(event.detail(), i32::from(state_filtered));
     printf(c"sym = %c (%d)\n".as_ptr(), sym, sym);
-    if sym == XK_Return as xcb_keysym_t || sym == XK_KP_Enter as xcb_keysym_t {
+    if sym == XK_Return as u32 || sym == XK_KP_Enter as u32 {
         if ui.step == WizardStep::Welcome {
             ui.step = WizardStep::Generate;
-            xcb_change_property(
-                conn_0,
-                XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
-                win,
-                A__NET_WM_NAME,
-                A_UTF8_STRING,
-                8 as u8,
-                strlen(c"i3: generate config".as_ptr()) as u32,
-                c"i3: generate config".as_ptr() as *const ::core::ffi::c_void,
-            );
-            xcb_flush(conn_0);
+            connection.send_request(&x::ChangeProperty {
+                mode: x::PropMode::Replace,
+                window: x::Window::new(win),
+                property: atoms.name,
+                r#type: atoms.utf8,
+                data: b"i3: generate config",
+            });
+            let _ = connection.flush();
         } else {
-            finish(ui);
+            finish(ui, keysyms);
             return true;
         }
     }
-    if sym == XK_Up as xcb_keysym_t || sym == XK_Down as xcb_keysym_t {
+    if sym == XK_Up as u32 || sym == XK_Down as u32 {
         ui.modifier = if ui.modifier == WizardModifier::Alt {
             WizardModifier::Win
         } else {
             WizardModifier::Alt
         };
-        handle_expose(ui);
+        handle_expose(ui, connection);
     }
-    if sym == XK_Escape as xcb_keysym_t {
+    if sym == XK_Escape as u32 {
         return true;
     }
     for (index, label, selected) in [
@@ -4808,28 +4776,32 @@ unsafe fn handle_key_press(
                 label.as_ptr(),
                 i32::from(code),
             );
-            if code == (*event).detail {
+            if code == event.detail() {
                 ui.modifier = selected;
                 printf(c"This is %s!\n".as_ptr(), label.as_ptr());
             }
         }
     }
-    handle_expose(ui);
+    handle_expose(ui, connection);
     false
 }
-unsafe fn handle_button_press(ui: &mut WizardUi, event: &xcb_button_press_event_t) {
+unsafe fn handle_button_press(
+    ui: &mut WizardUi,
+    connection: &xcb::Connection,
+    event: &x::ButtonPressEvent,
+) {
     if ui.step != WizardStep::Generate {
         return;
     }
     if let Some(modifier) = clicked_modifier(
-        event.event_x,
-        event.event_y,
+        event.event_x(),
+        event.event_y(),
         char_width,
         font.height,
         logical_px(4),
     ) {
         ui.modifier = modifier;
-        handle_expose(ui);
+        handle_expose(ui, connection);
     }
 }
 const CONFIG_TEMPLATE: &CStr = c"/usr/local/etc/i3/config.keycodes";
@@ -4885,7 +4857,7 @@ impl Drop for XkbContext {
 
 // Paths, file buffers and output bytes are owned locally. Only the initialized
 // display/XKB state and retained legacy IPC adapter remain native boundaries.
-unsafe fn finish(ui: &WizardUi) {
+unsafe fn finish(ui: &WizardUi, keysyms: &KeySymbols) {
     use std::fs::File;
     use std::io::{BufRead, BufReader, Write};
     use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
@@ -4934,7 +4906,7 @@ unsafe fn finish(ui: &WizardUi) {
             Ok(0) | Err(_) => break, // getline historically stops on read failure
             Ok(_) => {}
         }
-        match template.rewrite(&line, ui.modifier, |input| rewrite_binding(input)) {
+        match template.rewrite(&line, ui.modifier, |input| rewrite_binding(input, keysyms)) {
             Ok(Some(bytes)) => {
                 let _ = output.write_all(&bytes);
             }
@@ -5045,7 +5017,9 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
     let registration = i3_common::display::install_connection(connection.clone());
     let mut resources = WizardResources {
         _registration: registration,
-        connection,
+        connection: connection.clone(),
+        keysyms: None,
+        symbols: None,
         fonts: false,
         surface: false,
     };
@@ -5065,55 +5039,40 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
             c"Could not setup XKB extension.".as_ptr(),
         );
     }
-    keysyms = xcb_key_symbols_alloc(conn);
+    resources.keysyms = Some(
+        KeySymbols::new(connection.clone())
+            .unwrap_or_else(|| errx(1, c"Could not allocate key symbols".as_ptr())),
+    );
     // The no-drop view borrows WizardResources' sole native connection owner.
     let modmap_connection = resources.connection.clone();
     let modmap_cookie = modmap_connection.send_request(&xcb::x::GetModifierMapping {});
-    symbols = xcb_key_symbols_alloc(conn);
-    if symbols.is_null() || keysyms.is_null() {
-        errx(1, c"Could not allocate key symbols".as_ptr());
-    }
+    resources.symbols = Some(
+        KeySymbols::new(connection.clone())
+            .unwrap_or_else(|| errx(1, c"Could not allocate key symbols".as_ptr())),
+    );
     if headless_run {
         drop(modmap_connection);
-        finish(&ui);
+        finish(
+            &ui,
+            resources
+                .keysyms
+                .as_ref()
+                .expect("rewrite symbols initialized"),
+        );
         return 0 as ::core::ffi::c_int;
     }
-    let mut _NET_WM_NAME_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_WM_NAME".as_ptr()) as u16,
-        c"_NET_WM_NAME".as_ptr(),
-    );
-    let mut _NET_WM_WINDOW_TYPE_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_WM_WINDOW_TYPE".as_ptr()) as u16,
-        c"_NET_WM_WINDOW_TYPE".as_ptr(),
-    );
-    let mut _NET_WM_WINDOW_TYPE_DIALOG_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"_NET_WM_WINDOW_TYPE_DIALOG".as_ptr()) as u16,
-        c"_NET_WM_WINDOW_TYPE_DIALOG".as_ptr(),
-    );
-    let ATOM_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"ATOM".as_ptr()) as u16,
-        c"ATOM".as_ptr(),
-    );
-    let CARDINAL_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"CARDINAL".as_ptr()) as u16,
-        c"CARDINAL".as_ptr(),
-    );
-    let UTF8_STRING_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
-        conn,
-        0 as u8,
-        strlen(c"UTF8_STRING".as_ptr()) as u16,
-        c"UTF8_STRING".as_ptr(),
-    );
+    let intern = |name: &CStr| {
+        connection.send_request(&x::InternAtom {
+            only_if_exists: false,
+            name: &name.to_bytes()[..name.to_bytes().len() as u16 as usize],
+        })
+    };
+    let name_cookie = intern(c"_NET_WM_NAME");
+    let window_type_cookie = intern(c"_NET_WM_WINDOW_TYPE");
+    let dialog_cookie = intern(c"_NET_WM_WINDOW_TYPE_DIALOG");
+    let atom_cookie = intern(c"ATOM");
+    let cardinal_cookie = intern(c"CARDINAL");
+    let utf8_cookie = intern(c"UTF8_STRING");
     let sndisplay: *mut SnDisplay = sn_xcb_display_new(conn, None, None);
     let sncontext: *mut SnLauncheeContext =
         sn_launchee_context_new_from_environment(sndisplay, screen);
@@ -5141,7 +5100,14 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
         codes[count * 3..count * 4].to_vec(),
         codes[count * 6..count * 7].to_vec(),
     ];
-    xcb_numlock_mask = get_mod_mask_for(XCB_NUM_LOCK as u32, symbols, &modmap);
+    xcb_numlock_mask = i3_common::get_mod_mask::modifier_mask_for(
+        xkeysym::key::Num_Lock,
+        resources
+            .symbols
+            .as_ref()
+            .expect("input symbols initialized"),
+        &modmap,
+    );
     drop(modmap_connection);
     init_dpi();
     font = load_font(pattern, true);
@@ -5150,61 +5116,49 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
     set_font(&raw mut font);
     let letter = i3_common::string::I3String::new("a");
     char_width = predict_text_width(&letter);
-    win = xcb_generate_id(conn) as xcb_window_t;
-    let mut fresh1: [u32; 2] = [
-        0 as ::core::ffi::c_int as u32,
-        (XCB_EVENT_MASK_EXPOSURE as ::core::ffi::c_int
-            | XCB_EVENT_MASK_BUTTON_PRESS as ::core::ffi::c_int) as u32,
-    ];
-    xcb_create_window(
-        conn,
-        XCB_COPY_FROM_PARENT as u8,
-        win,
-        root,
-        logical_px(490 as ::core::ffi::c_int) as i16,
-        logical_px(297 as ::core::ffi::c_int) as i16,
-        logical_px(300 as ::core::ffi::c_int) as u16,
-        (15 as ::core::ffi::c_int * font.height + logical_px(4 as ::core::ffi::c_int)) as u16,
-        0 as u16,
-        XCB_WINDOW_CLASS_INPUT_OUTPUT as ::core::ffi::c_int as u16,
-        XCB_WINDOW_CLASS_COPY_FROM_PARENT as ::core::ffi::c_int as xcb_visualid_t,
-        (XCB_CW_BACK_PIXEL as ::core::ffi::c_int | XCB_CW_EVENT_MASK as ::core::ffi::c_int) as u32,
-        &raw mut fresh1 as *mut u32 as *const ::core::ffi::c_void,
-    );
+    let window: x::Window = connection.generate_id();
+    win = window.resource_id();
+    connection.send_request(&x::CreateWindow {
+        depth: 0,
+        wid: window,
+        parent: x::Window::new(root),
+        x: logical_px(490) as i16,
+        y: logical_px(297) as i16,
+        width: logical_px(300) as u16,
+        height: (15 * font.height + logical_px(4)) as u16,
+        border_width: 0,
+        class: x::WindowClass::InputOutput,
+        visual: 0,
+        value_list: &[
+            x::Cw::BackPixel(0),
+            x::Cw::EventMask(x::EventMask::EXPOSURE | x::EventMask::BUTTON_PRESS),
+        ],
+    });
     if !sncontext.is_null() {
         sn_launchee_context_setup_window(sncontext, win as libc::c_ulong);
     }
-    xcb_map_window(conn, win);
-    A__NET_WM_NAME = atom_reply(_NET_WM_NAME_cookie, c"_NET_WM_NAME");
-    A__NET_WM_WINDOW_TYPE = atom_reply(_NET_WM_WINDOW_TYPE_cookie, c"_NET_WM_WINDOW_TYPE");
-    A__NET_WM_WINDOW_TYPE_DIALOG = atom_reply(
-        _NET_WM_WINDOW_TYPE_DIALOG_cookie,
-        c"_NET_WM_WINDOW_TYPE_DIALOG",
-    );
-    A_ATOM = atom_reply(ATOM_cookie, c"ATOM");
-    A_CARDINAL = atom_reply(CARDINAL_cookie, c"CARDINAL");
-    A_UTF8_STRING = atom_reply(UTF8_STRING_cookie, c"UTF8_STRING");
-    xcb_change_property(
-        conn,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
-        win,
-        A__NET_WM_WINDOW_TYPE,
-        A_ATOM,
-        32 as u8,
-        1 as u32,
-        &raw mut A__NET_WM_WINDOW_TYPE_DIALOG as *mut ::core::ffi::c_uchar
-            as *const ::core::ffi::c_void,
-    );
-    xcb_change_property(
-        conn,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
-        win,
-        A__NET_WM_NAME,
-        A_UTF8_STRING,
-        8 as u8,
-        strlen(c"i3: first configuration".as_ptr()) as u32,
-        c"i3: first configuration".as_ptr() as *const ::core::ffi::c_void,
-    );
+    connection.send_request(&x::MapWindow { window });
+    let name = atom_reply(&connection, name_cookie, c"_NET_WM_NAME");
+    let window_type = atom_reply(&connection, window_type_cookie, c"_NET_WM_WINDOW_TYPE");
+    let dialog = atom_reply(&connection, dialog_cookie, c"_NET_WM_WINDOW_TYPE_DIALOG");
+    let atom = atom_reply(&connection, atom_cookie, c"ATOM");
+    let _cardinal = atom_reply(&connection, cardinal_cookie, c"CARDINAL");
+    let utf8 = atom_reply(&connection, utf8_cookie, c"UTF8_STRING");
+    let atoms = WizardAtoms { name, utf8 };
+    connection.send_request(&x::ChangeProperty {
+        mode: x::PropMode::Replace,
+        window,
+        property: window_type,
+        r#type: atom,
+        data: &[dialog.resource_id()],
+    });
+    connection.send_request(&x::ChangeProperty {
+        mode: x::PropMode::Replace,
+        window,
+        property: name,
+        r#type: utf8,
+        data: b"i3: first configuration",
+    });
     draw_util_surface_init(
         conn,
         &raw mut surface,
@@ -5213,33 +5167,30 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
         logical_px(300 as ::core::ffi::c_int),
         15 as ::core::ffi::c_int * font.height + logical_px(4 as ::core::ffi::c_int),
     );
-    xcb_flush(conn);
+    let _ = connection.flush();
     resources.surface = true;
     let mut status = None;
     for _ in 0..500 {
-        let reply = Native::take(xcb_grab_keyboard_reply(
-            conn,
-            xcb_grab_keyboard(
-                conn,
-                0,
-                win,
-                XCB_CURRENT_TIME as xcb_timestamp_t,
-                XCB_GRAB_MODE_ASYNC as u8,
-                XCB_GRAB_MODE_ASYNC as u8,
-            ),
-            std::ptr::null_mut(),
-        ));
-        status = reply.as_ref().map(|reply| (*reply.raw()).status);
+        let reply = connection.wait_for_reply(connection.send_request(&x::GrabKeyboard {
+            owner_events: false,
+            grab_window: window,
+            time: x::CURRENT_TIME,
+            pointer_mode: x::GrabMode::Async,
+            keyboard_mode: x::GrabMode::Async,
+        }));
+        status = reply.as_ref().ok().map(keyboard_grab_status);
         usleep(1000);
-        if status == Some(XCB_GRAB_STATUS_SUCCESS as u8) {
+        if status == Some(Ok(x::GrabStatus::Success)) {
             break;
         }
     }
-    if status != Some(XCB_GRAB_STATUS_SUCCESS as u8) {
+    if status != Some(Ok(x::GrabStatus::Success)) {
         fprintf(
             stderr,
             c"Could not grab keyboard, status = %d\n".as_ptr(),
-            status.map_or(-1, i32::from),
+            status.map_or(-1, |status| {
+                status.map_or_else(i32::from, |status| status as i32)
+            }),
         );
         return -1;
     }
@@ -5247,43 +5198,46 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
         sn_launchee_context_complete(sncontext);
     }
     drop(startup);
-    xcb_flush(conn);
+    let _ = connection.flush();
+    let symbols = resources
+        .symbols
+        .as_ref()
+        .expect("input symbols initialized");
+    let keysyms = resources
+        .keysyms
+        .as_ref()
+        .expect("rewrite symbols initialized");
     loop {
-        let Some(event_owner) = Native::take(xcb_wait_for_event(conn)) else {
-            break;
-        };
-        let event = event_owner.raw();
-        if (*event).response_type as ::core::ffi::c_int == 0 as ::core::ffi::c_int {
-            fprintf(
-                stderr,
-                c"X11 Error received! sequence %x\n".as_ptr(),
-                (*event).sequence as ::core::ffi::c_int,
-            );
-        } else {
-            let type_0: ::core::ffi::c_int =
-                (*event).response_type as ::core::ffi::c_int & 0x7f as ::core::ffi::c_int;
-            match type_0 {
-                XCB_KEY_PRESS => {
-                    if handle_key_press(&mut ui, conn, event.cast()) {
-                        return 0;
-                    }
-                }
-                XCB_BUTTON_PRESS => {
-                    handle_button_press(&mut ui, &*event.cast::<xcb_button_press_event_t>());
-                }
-                XCB_EXPOSE => {
-                    if (*(event as *mut xcb_expose_event_t)).count as ::core::ffi::c_int
-                        == 0 as ::core::ffi::c_int
-                    {
-                        handle_expose(&ui);
-                    }
-                }
-                _ => {}
+        let event = match connection.wait_for_event() {
+            Ok(event) => event,
+            Err(xcb::Error::Protocol(error)) => {
+                fprintf(
+                    stderr,
+                    c"X11 Error received! sequence %x\n".as_ptr(),
+                    (*error.as_raw()).sequence as i32,
+                );
+                continue;
             }
+            Err(xcb::Error::Connection(_)) => break,
+        };
+        match event {
+            xcb::Event::X(x::Event::KeyPress(event)) => {
+                if handle_key_press(&mut ui, &connection, symbols, keysyms, &atoms, &event) {
+                    return 0;
+                }
+            }
+            xcb::Event::X(x::Event::ButtonPress(event)) => {
+                handle_button_press(&mut ui, &connection, &event);
+            }
+            xcb::Event::X(x::Event::Expose(event)) => {
+                if event.count() == 0 {
+                    handle_expose(&ui, &connection);
+                }
+            }
+            _ => {}
         }
     }
-
-    0 as ::core::ffi::c_int
+    0
 }
 
 pub fn main() {
@@ -5352,19 +5306,8 @@ pub use cairo_sys::{cairo_surface_t, cairo_t};
 // Canonical Pango backend ABI; font policy remains local.
 
 use xcb_sys::{
-    xcb_atom_t, xcb_aux_get_screen, xcb_button_press_event_t, xcb_change_property,
-    xcb_connection_t, xcb_create_window, xcb_drawable_t, xcb_expose_event_t, xcb_flush,
-    xcb_generate_id, xcb_generic_error_t, xcb_generic_event_t, xcb_get_setup, xcb_grab_keyboard,
-    xcb_grab_keyboard_cookie_t, xcb_grab_keyboard_reply, xcb_grab_keyboard_reply_t,
-    xcb_intern_atom, xcb_intern_atom_cookie_t, xcb_intern_atom_reply, xcb_intern_atom_reply_t,
-    xcb_key_press_event_t, xcb_key_press_lookup_keysym, xcb_key_symbols_alloc,
-    xcb_key_symbols_get_keysym, xcb_key_symbols_t, xcb_keycode_t, xcb_keysym_t, xcb_map_window,
-    xcb_screen_t, xcb_timestamp_t, xcb_visualid_t, xcb_visualtype_t, xcb_wait_for_event,
-    xcb_window_t, XCB_BUTTON_PRESS, XCB_COPY_FROM_PARENT, XCB_CURRENT_TIME, XCB_CW_BACK_PIXEL,
-    XCB_CW_EVENT_MASK, XCB_EVENT_MASK_BUTTON_PRESS, XCB_EVENT_MASK_EXPOSURE, XCB_EXPOSE,
-    XCB_GRAB_MODE_ASYNC, XCB_GRAB_STATUS_SUCCESS, XCB_KEY_PRESS, XCB_MOD_MASK_LOCK, XCB_NONE,
-    XCB_NUM_LOCK, XCB_PROP_MODE_REPLACE, XCB_WINDOW_CLASS_COPY_FROM_PARENT,
-    XCB_WINDOW_CLASS_INPUT_OUTPUT,
+    xcb_aux_get_screen, xcb_connection_t, xcb_drawable_t, xcb_screen_t, xcb_visualtype_t,
+    xcb_window_t,
 };
 
 use xkbcommon::xkb::ffi::*;
@@ -5385,7 +5328,6 @@ use i3_common::native_stdio::{err, errx, stderr, stdout, vfprintf};
 
 // Internal calls and globals use canonical Rust identities.
 use i3_common::get_config_path::get_config_path;
-use i3_common::get_mod_mask::get_mod_mask_for;
 use i3_common::get_visualtype::get_visualtype;
 use i3_common::ipc_connect::ipc_connect;
 use i3_common::ipc_send_message::ipc_send_message;

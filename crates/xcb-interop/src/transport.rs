@@ -8,6 +8,20 @@ pub fn discard_reply<C: Cookie>(connection: &xcb::Connection, cookie: C) {
     unsafe { ffi::xcb_discard_reply64(connection.get_raw_conn(), cookie.sequence()) }
 }
 
+/// Check the native status before using the maintained closed enum getter.
+pub fn keyboard_grab_status(reply: &x::GrabKeyboardReply) -> Result<x::GrabStatus, u8> {
+    // SAFETY: the concrete reply owns its complete initialized native header.
+    let code = unsafe { xcb::Reply::as_raw(reply).add(1).read() };
+    match code {
+        0 => Ok(x::GrabStatus::Success),
+        1 => Ok(x::GrabStatus::AlreadyGrabbed),
+        2 => Ok(x::GrabStatus::InvalidTime),
+        3 => Ok(x::GrabStatus::NotViewable),
+        4 => Ok(x::GrabStatus::Frozen),
+        code => Err(code),
+    }
+}
+
 /// Grab an open numeric mouse button, including horizontal/additional buttons.
 /// The maintained ButtonIndex enum only represents Any and buttons one to five.
 /// Known buttons use maintained requests; only additional buttons cross the

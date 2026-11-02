@@ -321,8 +321,8 @@ mod tests {
     #[test]
     fn destroy_notification_has_the_exact_initialized_native_wire_body() {
         use xcb::XidNew;
-        let parent = unsafe { x::Window::new(0x01020304) };
-        let window = unsafe { x::Window::new(0xaabbccdd) };
+        let parent = x::Window::new(0x01020304);
+        let window = x::Window::new(0xaabbccdd);
         let event = destroy_notify(parent, window);
         let mut expected = [0; 32];
         expected[0] = 17;

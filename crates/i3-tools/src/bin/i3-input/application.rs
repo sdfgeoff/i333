@@ -15,6 +15,7 @@ use std::rc::Rc;
 use xcb::{x, Xid, XidNew};
 use xcb_interop::events::{key_press_state, key_release_state};
 use xcb_interop::keysyms::KeySymbols;
+use xcb_interop::transport::keyboard_grab_status;
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -173,20 +174,6 @@ fn property_bytes(reply: &x::GetPropertyReply) -> Option<&[u8]> {
         return None;
     }
     Some(unsafe { std::slice::from_raw_parts(raw.add(32), length) })
-}
-
-fn keyboard_grab_status(reply: &x::GrabKeyboardReply) -> Result<x::GrabStatus, u8> {
-    // The generated getter transmutes a byte into a closed enum. Check first,
-    // retaining unknown server values for the historical numeric diagnostic.
-    let code = unsafe { xcb::Reply::as_raw(reply).add(1).read() };
-    match code {
-        0 => Ok(x::GrabStatus::Success),
-        1 => Ok(x::GrabStatus::AlreadyGrabbed),
-        2 => Ok(x::GrabStatus::InvalidTime),
-        3 => Ok(x::GrabStatus::NotViewable),
-        4 => Ok(x::GrabStatus::Frozen),
-        code => Err(code),
-    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
