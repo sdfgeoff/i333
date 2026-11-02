@@ -425,11 +425,11 @@ unsafe fn sighandler_draw_dialog(dialog: *mut dialog_t) {
     );
     y += config.font.height;
 }
-unsafe fn sighandler_handle_key_press(event: *mut xcb_key_press_event_t) {
-    let mut state: u16 = (*event).state;
+unsafe fn sighandler_handle_key_press(event: &xcb::x::KeyPressEvent) {
+    let mut state = xcb_interop::events::key_press_state(event);
     state = (state as ::core::ffi::c_uint & !xcb_numlock_mask) as u16;
     // The native press-lookup utility is exactly this keycode/column lookup.
-    let sym = crate::application::key_symbol((*event).detail, i32::from(state));
+    let sym = crate::application::key_symbol(event.detail(), i32::from(state));
     if crash_action(sym) == Some(CrashAction::Backtrace) {
         debuglog(
             c"%s:%s:%d - User issued core-dump command.\n"
@@ -469,28 +469,24 @@ unsafe extern "C" fn handle_signal(
     raised_signal = sig;
     sighandler_setup();
     sighandler_create_dialogs();
-    let mut event: *mut xcb_generic_event_t = ::core::ptr::null_mut::<xcb_generic_event_t>();
+    // This emergency path cannot use the event-thread Rc/RefCell registry: the
+    // signal may have interrupted a registry borrow. The main owner remains
+    // live throughout the crash dialog. Restart exits without returning here;
+    // this no-drop view never disconnects its native connection.
+    let Some(connection) = i3_common::xcb_connection::borrowed(conn) else {
+        return;
+    };
     loop {
-        event = xcb_wait_for_event(conn);
-        if event.is_null() {
-            break;
-        }
-        let type_0: ::core::ffi::c_int =
-            (*event).response_type as ::core::ffi::c_int & 0x7f as ::core::ffi::c_int;
-        match type_0 {
-            XCB_KEY_PRESS => {
-                sighandler_handle_key_press(event as *mut xcb_key_press_event_t);
+        match connection.wait_for_event() {
+            Ok(xcb::Event::X(xcb::x::Event::KeyPress(event))) => {
+                sighandler_handle_key_press(&event);
             }
-            XCB_EXPOSE => {
-                if (*(event as *mut xcb_expose_event_t)).count as ::core::ffi::c_int
-                    == 0 as ::core::ffi::c_int
-                {
-                    sighandler_handle_expose();
-                }
+            Ok(xcb::Event::X(xcb::x::Event::Expose(event))) if event.count() == 0 => {
+                sighandler_handle_expose();
             }
-            _ => {}
+            Ok(_) | Err(xcb::Error::Protocol(_)) => {}
+            Err(xcb::Error::Connection(_)) => break,
         }
-        free(event as *mut ::core::ffi::c_void);
     }
 }
 
@@ -561,11 +557,10 @@ use i3_common::safewrappers::scalloc;
 
 use xcb_sys::{
     xcb_colormap_t, xcb_create_colormap, xcb_cursor_t, xcb_destroy_window, xcb_drawable_t,
-    xcb_expose_event_t, xcb_flush, xcb_free_colormap, xcb_generate_id, xcb_generic_event_t,
-    xcb_grab_keyboard, xcb_grab_pointer, xcb_key_press_event_t, xcb_timestamp_t, xcb_visualid_t,
-    xcb_wait_for_event, xcb_window_t, XCB_COLORMAP_ALLOC_NONE, XCB_CURRENT_TIME, XCB_CW_BACK_PIXEL,
-    XCB_CW_BORDER_PIXEL, XCB_CW_COLORMAP, XCB_CW_OVERRIDE_REDIRECT, XCB_EXPOSE,
-    XCB_GRAB_MODE_ASYNC, XCB_KEY_PRESS, XCB_NONE, XCB_WINDOW_CLASS_INPUT_OUTPUT,
+    xcb_flush, xcb_free_colormap, xcb_generate_id, xcb_grab_keyboard, xcb_grab_pointer,
+    xcb_timestamp_t, xcb_visualid_t, xcb_window_t, XCB_COLORMAP_ALLOC_NONE, XCB_CURRENT_TIME,
+    XCB_CW_BACK_PIXEL, XCB_CW_BORDER_PIXEL, XCB_CW_COLORMAP, XCB_CW_OVERRIDE_REDIRECT,
+    XCB_GRAB_MODE_ASYNC, XCB_NONE, XCB_WINDOW_CLASS_INPUT_OUTPUT,
 };
 
 pub use libc::{

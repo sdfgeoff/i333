@@ -10,6 +10,7 @@ use libev_sys::{
 use std::ffi::{CStr, CString};
 use std::os::fd::AsRawFd;
 use std::rc::Rc;
+use xcb::{x, Xid};
 const true_0: i32 = 1;
 const false_0: i32 = 0;
 
@@ -142,8 +143,7 @@ unsafe extern "C" fn restore_xcb_prepare_cb(
         let next = restore_connection().poll_for_event();
         match next {
             Ok(Some(event)) => {
-                let kind = i32::from((*event.as_raw()).response_type & 0x7f);
-                restore_handle_event(kind, event.as_raw().cast());
+                restore_handle_event(&event);
             }
             Err(xcb::Error::Protocol(error)) => {
                 let error = &*error.as_raw();
@@ -432,11 +432,11 @@ pub unsafe fn restore_kill_placeholder(placeholder: xcb_window_t) -> bool {
     );
     false_0 != 0
 }
-unsafe fn expose_event(event: *mut xcb_expose_event_t) {
+unsafe fn expose_event(event: &x::ExposeEvent) {
     let mut state: *mut placeholder_state = ::core::ptr::null_mut::<placeholder_state>();
     state = state_head.tqh_first as *mut placeholder_state;
     while !state.is_null() {
-        if (*state).window != (*event).window {
+        if (*state).window != event.window().resource_id() {
             state = (*state).state.tqe_next as *mut placeholder_state;
         } else {
             debuglog(
@@ -457,14 +457,14 @@ unsafe fn expose_event(event: *mut xcb_expose_event_t) {
         c"ERROR: Received ExposeEvent for unknown window 0x%08x\n"
             .as_ptr()
             .cast_mut(),
-        (*event).window,
+        event.window().resource_id(),
     );
 }
-unsafe fn configure_notify(event: *mut xcb_configure_notify_event_t) {
+unsafe fn configure_notify(event: &x::ConfigureNotifyEvent) {
     let mut state: *mut placeholder_state = ::core::ptr::null_mut::<placeholder_state>();
     state = state_head.tqh_first as *mut placeholder_state;
     while !state.is_null() {
-        if (*state).window != (*event).window {
+        if (*state).window != event.window().resource_id() {
             state = (*state).state.tqe_next as *mut placeholder_state;
         } else {
             debuglog(
@@ -475,12 +475,12 @@ unsafe fn configure_notify(event: *mut xcb_configure_notify_event_t) {
                 c"configure_notify".as_ptr(),
                 323 as ::core::ffi::c_int,
                 (*state).window,
-                (*event).width as ::core::ffi::c_int,
-                (*event).height as ::core::ffi::c_int,
+                event.width() as ::core::ffi::c_int,
+                event.height() as ::core::ffi::c_int,
                 (*state).con,
             );
-            (*state).rect.width = (*event).width as u32;
-            (*state).rect.height = (*event).height as u32;
+            (*state).rect.width = event.width() as u32;
+            (*state).rect.height = event.height() as u32;
             draw_util_surface_set_size(
                 &raw mut (*state).surface,
                 (*state).rect.width as ::core::ffi::c_int,
@@ -494,21 +494,17 @@ unsafe fn configure_notify(event: *mut xcb_configure_notify_event_t) {
         c"ERROR: Received ConfigureNotify for unknown window 0x%08x\n"
             .as_ptr()
             .cast_mut(),
-        (*event).window,
+        event.window().resource_id(),
     );
 }
-unsafe fn restore_handle_event(type_0: ::core::ffi::c_int, event: *mut xcb_generic_event_t) {
-    match type_0 {
-        XCB_EXPOSE => {
-            if (*(event as *mut xcb_expose_event_t)).count as ::core::ffi::c_int
-                == 0 as ::core::ffi::c_int
-            {
-                expose_event(event as *mut xcb_expose_event_t);
+unsafe fn restore_handle_event(event: &xcb::Event) {
+    match event {
+        xcb::Event::X(x::Event::Expose(event)) => {
+            if event.count() == 0 {
+                expose_event(event);
             }
         }
-        XCB_CONFIGURE_NOTIFY => {
-            configure_notify(event as *mut xcb_configure_notify_event_t);
-        }
+        xcb::Event::X(x::Event::ConfigureNotify(event)) => configure_notify(event),
         _ => {
             debuglog(
                 c"%s:%s:%d - Received unhandled X11 event of type %d\n"
@@ -517,10 +513,10 @@ unsafe fn restore_handle_event(type_0: ::core::ffi::c_int, event: *mut xcb_gener
                 c"../src/restore_layout.c".as_ptr(),
                 c"restore_handle_event".as_ptr(),
                 350 as ::core::ffi::c_int,
-                type_0,
+                i32::from((*event.as_raw()).response_type & 0x7f),
             );
         }
-    };
+    }
 }
 pub const EXIT_FAILURE: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 unsafe extern "C" fn run_static_initializers() {
@@ -545,12 +541,11 @@ use i3_common::safewrappers::smalloc;
 // Canonical Pango backend ABI; font policy remains local.
 
 use xcb_sys::{
-    xcb_aux_sync, xcb_change_property, xcb_configure_notify_event_t, xcb_connection_t,
-    xcb_destroy_window, xcb_drawable_t, xcb_expose_event_t, xcb_generic_event_t,
+    xcb_aux_sync, xcb_change_property, xcb_connection_t, xcb_destroy_window, xcb_drawable_t,
     xcb_icccm_set_wm_hints, xcb_icccm_wm_hints_set_input, xcb_icccm_wm_hints_set_none,
-    xcb_icccm_wm_hints_t, xcb_visualid_t, xcb_window_t, XCB_CONFIGURE_NOTIFY, XCB_COPY_FROM_PARENT,
-    XCB_CW_BACK_PIXEL, XCB_CW_EVENT_MASK, XCB_EVENT_MASK_EXPOSURE, XCB_EVENT_MASK_STRUCTURE_NOTIFY,
-    XCB_EXPOSE, XCB_NONE, XCB_PROP_MODE_REPLACE, XCB_WINDOW_CLASS_INPUT_OUTPUT,
+    xcb_icccm_wm_hints_t, xcb_visualid_t, xcb_window_t, XCB_COPY_FROM_PARENT, XCB_CW_BACK_PIXEL,
+    XCB_CW_EVENT_MASK, XCB_EVENT_MASK_EXPOSURE, XCB_EVENT_MASK_STRUCTURE_NOTIFY, XCB_NONE,
+    XCB_PROP_MODE_REPLACE, XCB_WINDOW_CLASS_INPUT_OUTPUT,
 };
 
 pub use libc::{free, memmove, strlen};
