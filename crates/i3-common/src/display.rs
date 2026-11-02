@@ -3,24 +3,30 @@
 //! The provider retains ownership of the connection and screen resources. Unsafe
 //! rendering callers must keep those resources alive for the whole operation.
 use std::cell::RefCell;
-use std::marker::PhantomData;
-use std::rc::Rc;
+use std::mem::ManuallyDrop;
+use std::rc::{Rc, Weak};
 use std::sync::RwLock;
 use xcb_sys::{xcb_connection_t, xcb_screen_t, xcb_visualtype_t};
 
 thread_local! {
-    static CONNECTION: RefCell<Option<Rc<xcb::Connection>>> = const { RefCell::new(None) };
+    // Native C atexit callbacks run after Rust's main-thread TLS destructors.
+    // This nonowning slot must remain readable through those callbacks. The
+    // guard clears its Weak explicitly, so suppress only the slot destructor.
+    static CONNECTION: ManuallyDrop<RefCell<Option<Weak<xcb::Connection>>>> =
+        const { ManuallyDrop::new(RefCell::new(None)) };
 }
 
 /// Keeps the event thread's display registered until native/graphics teardown.
 ///
-/// The registry and caller share one maintained connection owner through `Rc`.
+/// The guard and caller share one maintained connection owner through `Rc`;
+/// the registry keeps only a weak reference.
 /// Drop this guard after releasing native resources, before the caller's final
 /// connection owner. Clones obtained during callbacks remain valid independently.
 #[must_use = "the display connection is registered only while this guard lives"]
 pub struct DisplayConnection {
-    // The registration belongs to its originating thread and cannot be sent.
-    _thread: PhantomData<Rc<()>>,
+    // Ownership belongs to the guard, independently of the TLS registry. This
+    // also makes the registration !Send and keeps C atexit cleanup resources live.
+    _owner: Rc<xcb::Connection>,
 }
 
 /// Register the sole maintained connection owner for the current event thread.
@@ -34,11 +40,9 @@ pub fn install_connection(connection: Rc<xcb::Connection>) -> DisplayConnection 
             registered.is_none(),
             "a display connection is already registered"
         );
-        *registered = Some(connection);
+        *registered = Some(Rc::downgrade(&connection));
     });
-    DisplayConnection {
-        _thread: PhantomData,
-    }
+    DisplayConnection { _owner: connection }
 }
 
 /// Clone the current thread's connection without retaining a registry borrow.
@@ -46,15 +50,21 @@ pub fn install_connection(connection: Rc<xcb::Connection>) -> DisplayConnection 
 /// Callbacks can reenter display helpers or unregister the display while a
 /// request uses this clone; the same single native connection stays alive.
 pub fn connection() -> Option<Rc<xcb::Connection>> {
-    CONNECTION.with(|registered| registered.borrow().clone())
+    CONNECTION
+        .try_with(|registered| registered.borrow().as_ref().and_then(Weak::upgrade))
+        .ok()
+        .flatten()
 }
 
 impl Drop for DisplayConnection {
     fn drop(&mut self) {
-        // Drop the Rc after releasing the registry borrow, even if this is its
-        // final owner. Reentrant teardown must never see a borrowed RefCell.
-        let owner = CONNECTION.with(|registered| registered.borrow_mut().take());
-        drop(owner);
+        // Release the weak registration after ending its RefCell borrow. The
+        // guard's owning Rc drops afterward, including during native atexit.
+        let registration = CONNECTION
+            .try_with(|registered| registered.borrow_mut().take())
+            .ok()
+            .flatten();
+        drop(registration);
     }
 }
 

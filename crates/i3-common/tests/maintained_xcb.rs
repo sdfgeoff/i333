@@ -10,6 +10,38 @@ fn display_context() -> DisplayContext {
     DISPLAY_CONTEXT.with(std::cell::Cell::get)
 }
 
+// C atexit runs after the main thread's Rust TLS destructors. The registration
+// guard must be the owner, and its nonowning lookup must remain available then.
+static TLS_DESTRUCTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+struct ExitMarker;
+impl Drop for ExitMarker {
+    fn drop(&mut self) {
+        TLS_DESTRUCTED.store(true, std::sync::atomic::Ordering::SeqCst);
+    }
+}
+thread_local! { static EXIT_MARKER: ExitMarker = const { ExitMarker }; }
+static mut EXIT_REGISTRATION: Option<i3_common::display::DisplayConnection> = None;
+extern "C" fn release_display_at_exit() {
+    assert!(TLS_DESTRUCTED.load(std::sync::atomic::Ordering::SeqCst));
+    let connection = i3_common::display::connection().expect("registry survives TLS destruction");
+    sync(&connection);
+    drop(connection);
+    // SAFETY: only this single-threaded child owns/accesses its atexit guard.
+    let registration = unsafe { std::ptr::replace(&raw mut EXIT_REGISTRATION, None) };
+    drop(registration);
+    assert!(i3_common::display::connection().is_none());
+}
+fn atexit_probe() -> ! {
+    let (connection, _) = xcb::Connection::connect(None).unwrap();
+    let connection = std::rc::Rc::new(connection);
+    let registration = i3_common::display::install_connection(connection.clone());
+    unsafe { EXIT_REGISTRATION = Some(registration) };
+    drop(connection); // The guard is the only strong owner before process::exit.
+    EXIT_MARKER.with(|_| {});
+    assert_eq!(unsafe { libc::atexit(release_display_at_exit) }, 0);
+    std::process::exit(0);
+}
+
 fn atom(connection: &xcb::Connection, name: &CStr) -> x::Atom {
     let cookie = connection.send_request(&x::InternAtom {
         only_if_exists: false,
@@ -23,6 +55,9 @@ fn sync(connection: &xcb::Connection) {
 }
 #[test]
 fn maintained_xcb_requests_and_borrowed_lifetime() {
+    if std::env::var_os("I333_DISPLAY_ATEXIT_PROBE").is_some() {
+        atexit_probe();
+    }
     if std::env::var_os("I333_MAINTAINED_XCB_PROBE").is_none() {
         let _guard = i3_test_support::suite_lock();
         i3_test_support::run_python(
@@ -34,6 +69,19 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
         );
         return;
     }
+    let exit_status = std::process::Command::new(std::env::current_exe().unwrap())
+        .args([
+            "--exact",
+            "maintained_xcb_requests_and_borrowed_lifetime",
+            "--nocapture",
+        ])
+        .env("I333_DISPLAY_ATEXIT_PROBE", "1")
+        .status()
+        .unwrap();
+    assert!(
+        exit_status.success(),
+        "C atexit/TLS ownership probe failed: {exit_status}"
+    );
     let (connection, screen_number) = xcb::Connection::connect_with_extensions(
         None,
         &[],
