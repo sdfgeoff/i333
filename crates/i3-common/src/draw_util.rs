@@ -21,6 +21,47 @@ pub struct color_t {
     pub alpha: ::core::ffi::c_double,
     pub colorpixel: u32,
 }
+/// One owned native Cairo surface reference, including Cairo error surfaces.
+///
+/// Cairo's fallible `Surface::from_raw_full` rejects error objects. The native
+/// drawing contract keeps those objects and their sticky status, so adoption
+/// uses a reference-preserving conversion instead. No reference can be copied
+/// implicitly; shared Cairo borrows remain tied to this owner.
+#[derive(Debug)]
+pub struct CairoSurface(cairo::Surface);
+
+#[deny(unsafe_op_in_unsafe_fn)]
+impl CairoSurface {
+    /// Adopt one complete native reference without rejecting its error status.
+    ///
+    /// # Safety
+    /// `pointer` must be non-null and transfer one live Cairo reference. The
+    /// caller must neither destroy that reference nor use it after this owner.
+    pub unsafe fn from_raw_owned(pointer: *mut cairo_sys::cairo_surface_t) -> Self {
+        assert!(
+            !pointer.is_null(),
+            "a Cairo surface reference must be non-null"
+        );
+        // SAFETY: the caller transfers a valid reference. from_raw_none keeps
+        // error objects; releasing the original leaves exactly one owned ref.
+        let surface = unsafe { cairo::Surface::from_raw_none(pointer) };
+        unsafe { cairo_sys::cairo_surface_destroy(pointer) };
+        Self(surface)
+    }
+
+    pub fn from_surface(surface: cairo::Surface) -> Self {
+        Self(surface)
+    }
+
+    pub fn as_raw(&self) -> *mut cairo_sys::cairo_surface_t {
+        self.0.to_raw_none()
+    }
+
+    pub fn as_surface(&self) -> &cairo::Surface {
+        &self.0
+    }
+}
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct surface_t {
@@ -515,6 +556,27 @@ use crate::font::set_font_colors;
 mod drawing_tests {
     use super::*;
     use cairo::{Context, Format, ImageSurface, Operator};
+
+    #[test]
+    fn owned_native_surface_releases_exactly_one_reference_and_keeps_error_objects() {
+        unsafe {
+            let raw = cairo_sys::cairo_image_surface_create(cairo_sys::FORMAT_A_RGB32, 1, 1);
+            let observer = cairo::Surface::from_raw_none(raw);
+            let owned = CairoSurface::from_raw_owned(raw);
+            assert_eq!(cairo_sys::cairo_surface_get_reference_count(raw), 2);
+            drop(owned);
+            assert_eq!(
+                cairo_sys::cairo_surface_get_reference_count(observer.to_raw_none()),
+                1
+            );
+            let raw = cairo_sys::cairo_image_surface_create(cairo_sys::FORMAT_A_RGB32, -1, -1);
+            let status = cairo_sys::cairo_surface_status(raw);
+            assert_ne!(status, cairo_sys::STATUS_SUCCESS);
+            let owned = CairoSurface::from_raw_owned(raw);
+            assert_eq!(cairo_sys::cairo_surface_status(owned.as_raw()), status);
+            assert!(owned.as_surface().status().is_err());
+        }
+    }
 
     fn color(red: f64, green: f64, blue: f64, alpha: f64) -> color_t {
         color_t {
