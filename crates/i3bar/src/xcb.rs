@@ -2064,7 +2064,7 @@ pub unsafe fn init_xcb_early() -> *mut ::core::ffi::c_char {
     ev_prepare_start(main_loop as *mut ev_loop, xcb_prep);
     get_atoms(&connection, atom_cookies);
     let path: *mut ::core::ffi::c_char =
-        root_atom_contents(c"I3_SOCKET_PATH".as_ptr(), xcb_connection.cast(), screen);
+        root_atom_contents(c"I3_SOCKET_PATH".as_ptr(), xcb_connection, screen);
     path
 }
 /// All StateNotify fields are selected, and all eight native map parts remain
@@ -2461,9 +2461,9 @@ pub unsafe fn destroy_window(output: *mut i3_output) {
         return;
     }
     kick_tray_clients(output);
-    draw_util_surface_free(xcb_connection.cast(), &raw mut (*output).bar);
-    draw_util_surface_free(xcb_connection.cast(), &raw mut (*output).buffer);
-    draw_util_surface_free(xcb_connection.cast(), &raw mut (*output).statusline_buffer);
+    draw_util_surface_free(xcb_connection, &raw mut (*output).bar);
+    draw_util_surface_free(xcb_connection, &raw mut (*output).buffer);
+    draw_util_surface_free(xcb_connection, &raw mut (*output).statusline_buffer);
     send_unchecked(&x::DestroyWindow {
         window: x::Window::new((*output).bar.id as u32),
     });
@@ -2656,7 +2656,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 data: &[atoms[AtomIndex::NetWmWindowTypeDock as usize]],
             });
             draw_util_surface_init(
-                xcb_connection.cast(),
+                xcb_connection,
                 &raw mut (*walk).bar,
                 bar_id as u32,
                 None,
@@ -2664,7 +2664,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 bar_height,
             );
             draw_util_surface_init(
-                xcb_connection.cast(),
+                xcb_connection,
                 &raw mut (*walk).buffer,
                 buffer_id as u32,
                 None,
@@ -2672,7 +2672,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 bar_height,
             );
             draw_util_surface_init(
-                xcb_connection.cast(),
+                xcb_connection,
                 &raw mut (*walk).statusline_buffer,
                 statusline_buffer_id as u32,
                 None,
@@ -2843,11 +2843,11 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 width: (*walk).rect.w as u16,
                 height: bar_height as u16,
             });
-            draw_util_surface_free(xcb_connection.cast(), &raw mut (*walk).bar);
-            draw_util_surface_free(xcb_connection.cast(), &raw mut (*walk).buffer);
-            draw_util_surface_free(xcb_connection.cast(), &raw mut (*walk).statusline_buffer);
+            draw_util_surface_free(xcb_connection, &raw mut (*walk).bar);
+            draw_util_surface_free(xcb_connection, &raw mut (*walk).buffer);
+            draw_util_surface_free(xcb_connection, &raw mut (*walk).statusline_buffer);
             draw_util_surface_init(
-                xcb_connection.cast(),
+                xcb_connection,
                 &raw mut (*walk).bar,
                 (*walk).bar.id,
                 None,
@@ -2855,7 +2855,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 bar_height,
             );
             draw_util_surface_init(
-                xcb_connection.cast(),
+                xcb_connection,
                 &raw mut (*walk).buffer,
                 (*walk).buffer.id,
                 None,
@@ -2863,7 +2863,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 bar_height,
             );
             draw_util_surface_init(
-                xcb_connection.cast(),
+                xcb_connection,
                 &raw mut (*walk).statusline_buffer,
                 (*walk).statusline_buffer.id,
                 None,
