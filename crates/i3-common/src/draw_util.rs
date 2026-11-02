@@ -1,4 +1,7 @@
 #![deny(unsafe_op_in_unsafe_fn)]
+mod rendering;
+pub use rendering::{GraphicsContext, OwnedPixmap, OwnedWindow, RenderingContext};
+
 use crate::font::draw_text;
 /*
  * vim:ts=4:sw=4:expandtab
@@ -119,6 +122,42 @@ impl surface_t {
             unsafe { cairo_status(resources.context.to_raw_none()) }
         })
     }
+    /// Create owned graphics for a borrowed drawable, retaining the connection
+    /// and aligned visual through Cairo teardown and any uncached GC release.
+    pub fn for_drawable(
+        context: std::rc::Rc<RenderingContext>,
+        drawable: u32,
+        visual: std::rc::Rc<crate::display::CairoVisual>,
+        width: i32,
+        height: i32,
+    ) -> Self {
+        let depth = context.visual_depth(visual.visual_id());
+        let (gc, lease) = context.acquire_gc(drawable, depth);
+        // SAFETY: both connection and aligned visual owners remain retained in
+        // this record after the native references and GC fields are destroyed.
+        let target = unsafe {
+            CairoSurface::from_raw_owned(cairo_xcb_surface_create(
+                context.screen().connection().get_raw_conn().cast(),
+                drawable,
+                visual.as_ptr(),
+                width,
+                height,
+            ))
+        };
+        let cr = unsafe { cairo::Context::from_raw_full(cairo_create(target.as_raw())) };
+        Self {
+            id: drawable,
+            gc,
+            width,
+            height,
+            resources: Some(SurfaceResources {
+                gc: lease,
+                surface: target,
+                context: cr,
+                retained: Some((context, visual)),
+            }),
+        }
+    }
     pub fn from_cairo(
         id: u32,
         width: i32,
@@ -135,6 +174,7 @@ impl surface_t {
                 gc: GcLease::Borrowed,
                 surface,
                 context,
+                retained: None,
             }),
         }
     }
@@ -186,6 +226,11 @@ struct SurfaceResources {
     gc: GcLease,
     surface: CairoSurface,
     context: cairo::Context,
+    // Retained only on the normal owned path, after all native drawing refs.
+    retained: Option<(
+        std::rc::Rc<RenderingContext>,
+        std::rc::Rc<crate::display::CairoVisual>,
+    )>,
 }
 impl Drop for SurfaceResources {
     fn drop(&mut self) {
@@ -364,6 +409,7 @@ pub unsafe fn draw_util_surface_init(
         },
         surface: target,
         context: cr,
+        retained: None,
     });
 }
 

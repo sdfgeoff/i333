@@ -590,4 +590,143 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
     sync(&connection);
     i3_common::display::set_provider(DisplayContext::default);
     DISPLAY_CONTEXT.with(|context| context.set(DisplayContext::default()));
+    verify_rendering_ownership();
+}
+
+fn verify_rendering_ownership() {
+    use i3_common::display::{DisplayContext, DisplayScreen};
+    use i3_common::draw_util::{surface_t, OwnedPixmap, OwnedWindow, RenderingContext};
+    use std::rc::Rc;
+    use xcb::XidNew;
+    let connect = || {
+        let (connection, index) = xcb::Connection::connect(None).unwrap();
+        let connection = Rc::new(connection);
+        let screen = DisplayScreen::new(connection.clone(), index).unwrap();
+        (connection, screen)
+    };
+    let (first, first_screen) = connect();
+    let (second, second_screen) = connect();
+    let first_context = RenderingContext::new(first_screen.clone());
+    let second_context = RenderingContext::new(second_screen.clone());
+    let first_gc =
+        first_context.graphics_context(first_screen.info().root, first_screen.info().root_depth);
+    let second_gc =
+        second_context.graphics_context(second_screen.info().root, second_screen.info().root_depth);
+    assert_ne!(
+        first_gc.id(),
+        second_gc.id(),
+        "two same-depth connections must not share a cached ID"
+    );
+    let first_base = first.get_setup().resource_id_base();
+    let second_base = second.get_setup().resource_id_base();
+    assert_ne!(first_base, second_base);
+    let mask = second.get_setup().resource_id_mask();
+    assert_eq!(second_gc.id() & !mask, second_base);
+    drop(first_gc);
+    drop(first_context);
+    drop(first_screen);
+    drop(first);
+    second
+        .send_and_check_request(&x::ChangeGc {
+            gc: x::Gcontext::new(second_gc.id()),
+            value_list: &[x::Gc::Foreground(1)],
+        })
+        .unwrap();
+
+    let pixmap: x::Pixmap = second.generate_id();
+    second
+        .send_and_check_request(&x::CreatePixmap {
+            depth: second_screen.info().root_depth,
+            pid: pixmap,
+            drawable: x::Drawable::Window(x::Window::new(second_screen.info().root)),
+            width: 2,
+            height: 2,
+        })
+        .unwrap();
+    let mut owned = unsafe { OwnedPixmap::from_created(second.clone(), pixmap) };
+    owned.close();
+    owned.close();
+    drop(owned);
+    assert!(second
+        .wait_for_reply(second.send_request(&x::GetGeometry {
+            drawable: x::Drawable::Pixmap(pixmap)
+        }))
+        .is_err());
+    let window: x::Window = second.generate_id();
+    second
+        .send_and_check_request(&x::CreateWindow {
+            depth: 0,
+            wid: window,
+            parent: x::Window::new(second_screen.info().root),
+            x: 0,
+            y: 0,
+            width: 2,
+            height: 2,
+            border_width: 0,
+            class: x::WindowClass::InputOutput,
+            visual: 0,
+            value_list: &[],
+        })
+        .unwrap();
+    let mut owned = unsafe { OwnedWindow::from_created(second.clone(), window) };
+    owned.close();
+    owned.close();
+    drop(owned);
+    assert!(second
+        .wait_for_reply(second.send_request(&x::GetGeometry {
+            drawable: x::Drawable::Window(window)
+        }))
+        .is_err());
+    sync(&second);
+    while second
+        .poll_for_event()
+        .expect("server resources were released more than once")
+        .is_some()
+    {}
+    drop(second_gc);
+    drop(second_context);
+    drop(second_screen);
+    drop(second);
+
+    let (connection, screen) = connect();
+    let weak_connection = Rc::downgrade(&connection);
+    let registration = i3_common::display::install_connection(connection.clone());
+    let context = RenderingContext::new(screen.clone());
+    let visual = context.visual(screen.info().root_visual).unwrap();
+    let weak_visual = Rc::downgrade(&visual);
+    DISPLAY_CONTEXT.with(|slot| slot.set(DisplayContext::from_screen(&screen, Some(&visual))));
+    i3_common::display::set_provider(display_context);
+    let mut surface =
+        surface_t::for_drawable(context.clone(), screen.info().root, visual.clone(), 2, 2);
+    drop(registration);
+    drop(context);
+    drop(visual);
+    drop(screen);
+    drop(connection);
+    assert!(i3_common::display::connection().is_none());
+    assert!(weak_connection.upgrade().is_some());
+    assert!(weak_visual.upgrade().is_some());
+    unsafe {
+        i3_common::draw_util::draw_util_clear_surface(
+            &mut surface,
+            i3_common::draw_util::color_t {
+                red: 0.0,
+                green: 0.0,
+                blue: 0.0,
+                alpha: 1.0,
+                colorpixel: 0,
+            },
+        );
+    }
+    drop(surface);
+    assert!(
+        weak_connection.upgrade().is_none(),
+        "last surface releases retained display"
+    );
+    assert!(
+        weak_visual.upgrade().is_none(),
+        "last surface releases aligned visual"
+    );
+    DISPLAY_CONTEXT.with(|slot| slot.set(DisplayContext::default()));
+    i3_common::display::set_provider(DisplayContext::default);
 }
