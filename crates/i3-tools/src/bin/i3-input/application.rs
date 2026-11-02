@@ -37,8 +37,8 @@ pub use i3_common::font::XcbFontData;
 pub use i3_common::draw_util::color_t;
 pub use i3_common::draw_util::surface_t;
 
-pub static mut visual_type: *mut xcb_visualtype_t =
-    ::core::ptr::null::<xcb_visualtype_t>() as *mut xcb_visualtype_t;
+pub static mut visual_type: *mut cairo_sys::xcb_visualtype_t =
+    ::core::ptr::null::<cairo_sys::xcb_visualtype_t>() as *mut cairo_sys::xcb_visualtype_t;
 pub const EXIT_OK: i32 = 0;
 pub const EXIT_CANCEL: i32 = 1;
 pub const EXIT_ERROR: i32 = 2;
@@ -69,8 +69,7 @@ pub static mut root: xcb_window_t = 0;
 pub static mut conn: *mut xcb_connection_t =
     ::core::ptr::null::<xcb_connection_t>() as *mut xcb_connection_t;
 
-pub static mut root_screen: *mut xcb_screen_t =
-    ::core::ptr::null::<xcb_screen_t>() as *mut xcb_screen_t;
+pub static mut root_screen: Option<i3_common::display::DisplayScreen> = None;
 
 pub unsafe extern "C" fn verboselog(fmt: *mut ::core::ffi::c_char, args: ...) {
     let mut args_0;
@@ -517,7 +516,7 @@ impl Drop for WindowResources {
                 i3_common::font::free_font();
             }
             drop(self.symbols.take());
-            root_screen = std::ptr::null_mut();
+            root_screen = None;
             visual_type = std::ptr::null_mut();
             root = 0;
             conn = std::ptr::null_mut();
@@ -553,8 +552,15 @@ unsafe fn run_window(settings: InputSettings) -> ::core::ffi::c_int {
     // SAFETY: ipc_connect either returns its newly owned connected descriptor
     // or exits with the historical fatal diagnostic; no other owner remains.
     let mut socket = UnixStream::from_raw_fd(ipc_connect(socket_path));
-    root_screen = xcb_aux_get_screen(conn, screen);
-    root = (*root_screen).root;
+    root_screen = i3_common::display::DisplayScreen::new(resources.connection.clone(), screen);
+    let screen_info = root_screen
+        .as_ref()
+        .expect("initialized display screen")
+        .info();
+    root = screen_info.root;
+    visual_type = i3_common::display::visual(screen_info.root_visual)
+        .expect("root Cairo visual")
+        .as_ptr();
     resources.symbols = Some(
         KeySymbols::new(resources.connection.clone())
             .unwrap_or_else(|| errx(EXIT_ERROR, c"Could not allocate key symbols".as_ptr())),
@@ -599,7 +605,7 @@ unsafe fn run_window(settings: InputSettings) -> ::core::ffi::c_int {
         conn,
         &raw mut surface,
         win as xcb_drawable_t,
-        get_visualtype(root_screen),
+        None,
         win_pos.width as ::core::ffi::c_int,
         win_pos.height as ::core::ffi::c_int,
     );
@@ -736,17 +742,13 @@ pub use cairo_sys::{cairo_surface_t, cairo_t};
 
 // Canonical Pango backend ABI; font policy remains local.
 
-use xcb_sys::{
-    xcb_aux_get_screen, xcb_connection_t, xcb_drawable_t, xcb_screen_t, xcb_visualtype_t,
-    xcb_window_t,
-};
+use xcb_sys::{xcb_connection_t, xcb_drawable_t, xcb_window_t};
 
 use libc::{exit, fprintf, printf};
 
 use i3_common::native_stdio::{errx, stderr, stdout, vfprintf};
 
 // Internal calls and globals use canonical Rust identities.
-use i3_common::get_visualtype::get_visualtype;
 use i3_common::ipc_connect::ipc_connect;
 
 pub use i3_common::ucs2_conversion::Ucs2Char as xcb_char2b_t;

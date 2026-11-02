@@ -461,8 +461,8 @@ pub unsafe fn x_con_init(con: *mut Con) {
         | x::EventMask::SUBSTRUCTURE_REDIRECT
         | x::EventMask::SUBSTRUCTURE_NOTIFY;
     let values = [
-        x::Cw::BackPixel((*root_screen).black_pixel),
-        x::Cw::BorderPixel((*root_screen).black_pixel),
+        x::Cw::BackPixel(crate::application::root_screen_info().black_pixel),
+        x::Cw::BorderPixel(crate::application::root_screen_info().black_pixel),
         x::Cw::OverrideRedirect(true),
         x::Cw::EventMask(event_mask),
         x::Cw::Colormap(x::Colormap::new(win_colormap)),
@@ -487,7 +487,7 @@ pub unsafe fn x_con_init(con: *mut Con) {
         conn,
         &raw mut (*con).frame,
         frame_id as u32,
-        get_visualtype_by_id(visual),
+        get_visualtype_by_id(visual).as_deref(),
         dims.width as i32,
         dims.height as i32,
     );
@@ -1599,7 +1599,7 @@ pub unsafe fn x_push_node(con: *mut Con) {
                 conn,
                 &raw mut (*con).frame_buffer,
                 (*con).frame_buffer.id,
-                get_visualtype_by_id(get_visualid_by_depth(win_depth)),
+                get_visualtype_by_id(get_visualid_by_depth(win_depth)).as_deref(),
                 width,
                 height,
             );

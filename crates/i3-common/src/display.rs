@@ -3,14 +3,14 @@
 //! The provider retains ownership of the connection and screen resources. Unsafe
 //! rendering callers must keep those resources alive for the whole operation.
 mod graphics;
-pub use graphics::{CairoVisual, DisplayScreen};
+pub use graphics::{CairoVisual, DisplayScreen, ScreenInfo};
 
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::mem::ManuallyDrop;
 use std::rc::{Rc, Weak};
 use std::sync::RwLock;
-use xcb_sys::{xcb_connection_t, xcb_screen_t, xcb_visualtype_t};
+use xcb::ffi::xcb_connection_t;
 
 thread_local! {
     // Native C atexit callbacks run after Rust's main-thread TLS destructors.
@@ -115,16 +115,30 @@ impl Drop for DisplayConnection {
 #[derive(Clone, Copy, Debug)]
 pub struct DisplayContext {
     pub connection: *mut xcb_connection_t,
-    pub root_screen: *mut xcb_screen_t,
-    pub visual_type: *mut xcb_visualtype_t,
+    pub screen: Option<ScreenInfo>,
+    pub visual_type: *mut cairo_sys::xcb_visualtype_t,
+    pub visual_id: u32,
+}
+
+impl DisplayContext {
+    /// The provider retains both owners until every graphics resource is freed.
+    pub fn from_screen(screen: &DisplayScreen, visual: Option<&CairoVisual>) -> Self {
+        Self {
+            connection: screen.connection().get_raw_conn(),
+            screen: Some(screen.info()),
+            visual_type: visual.map_or(std::ptr::null_mut(), CairoVisual::as_ptr),
+            visual_id: visual.map_or(screen.info().root_visual, CairoVisual::visual_id),
+        }
+    }
 }
 
 impl Default for DisplayContext {
     fn default() -> Self {
         Self {
             connection: std::ptr::null_mut(),
-            root_screen: std::ptr::null_mut(),
+            screen: None,
             visual_type: std::ptr::null_mut(),
+            visual_id: 0,
         }
     }
 }
@@ -173,11 +187,11 @@ mod tests {
     #[test]
     fn provider_registration_returns_typed_borrowed_state() {
         assert!(DisplayContext::default().connection.is_null());
-        assert!(DisplayContext::default().root_screen.is_null());
+        assert!(DisplayContext::default().screen.is_none());
         assert!(DisplayContext::default().visual_type.is_null());
         set_provider(detached);
         assert_eq!(context().connection, detached().connection);
-        assert!(context().root_screen.is_null());
+        assert!(context().screen.is_none());
         assert!(std::thread::spawn(|| context().connection.is_null())
             .join()
             .unwrap());

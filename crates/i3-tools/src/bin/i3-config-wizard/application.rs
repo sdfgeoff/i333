@@ -67,16 +67,15 @@ pub const XK_Up: ::core::ffi::c_int = 0xff52 as ::core::ffi::c_int;
 pub const XK_Down: ::core::ffi::c_int = 0xff54 as ::core::ffi::c_int;
 pub const XK_KP_Enter: ::core::ffi::c_int = 0xff8d as ::core::ffi::c_int;
 
-pub static mut visual_type: *mut xcb_visualtype_t =
-    ::core::ptr::null::<xcb_visualtype_t>() as *mut xcb_visualtype_t;
+pub static mut visual_type: *mut cairo_sys::xcb_visualtype_t =
+    ::core::ptr::null::<cairo_sys::xcb_visualtype_t>() as *mut cairo_sys::xcb_visualtype_t;
 
 static mut xcb_numlock_mask: u32 = 0;
 
 pub static mut conn: *mut xcb_connection_t =
     ::core::ptr::null::<xcb_connection_t>() as *mut xcb_connection_t;
 
-pub static mut root_screen: *mut xcb_screen_t =
-    ::core::ptr::null::<xcb_screen_t>() as *mut xcb_screen_t;
+pub static mut root_screen: Option<i3_common::display::DisplayScreen> = None;
 static mut font: Font = Font {
     type_0: i3_common::font::FontType::None,
     height: 0,
@@ -4502,7 +4501,7 @@ impl Drop for WizardResources {
                 });
                 win = 0;
             }
-            root_screen = std::ptr::null_mut();
+            root_screen = None;
             visual_type = std::ptr::null_mut();
             root = 0;
             conn = std::ptr::null_mut();
@@ -5078,11 +5077,18 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
         sn_launchee_context_new_from_environment(sndisplay, screen);
     let startup = StartupContext(sncontext);
     sn_display_unref(sndisplay);
-    root_screen = xcb_aux_get_screen(conn, screen);
-    if root_screen.is_null() {
+    root_screen = i3_common::display::DisplayScreen::new(resources.connection.clone(), screen);
+    if root_screen.is_none() {
         errx(1, c"Cannot find display screen".as_ptr());
     }
-    root = (*root_screen).root;
+    let screen_info = root_screen
+        .as_ref()
+        .expect("initialized display screen")
+        .info();
+    root = screen_info.root;
+    visual_type = i3_common::display::visual(screen_info.root_visual)
+        .expect("root Cairo visual")
+        .as_ptr();
     let Ok(modmap) = modmap_connection.wait_for_reply(modmap_cookie) else {
         errx(
             libc::EXIT_FAILURE,
@@ -5163,7 +5169,7 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
         conn,
         &raw mut surface,
         win as xcb_drawable_t,
-        get_visualtype(root_screen),
+        None,
         logical_px(300 as ::core::ffi::c_int),
         15 as ::core::ffi::c_int * font.height + logical_px(4 as ::core::ffi::c_int),
     );
@@ -5305,10 +5311,7 @@ pub use cairo_sys::{cairo_surface_t, cairo_t};
 
 // Canonical Pango backend ABI; font policy remains local.
 
-use xcb_sys::{
-    xcb_aux_get_screen, xcb_connection_t, xcb_drawable_t, xcb_screen_t, xcb_visualtype_t,
-    xcb_window_t,
-};
+use xcb_sys::{xcb_connection_t, xcb_drawable_t, xcb_window_t};
 
 use xkbcommon::xkb::ffi::*;
 use xkbcommon::xkb::x11::ffi::*;
@@ -5328,7 +5331,6 @@ use i3_common::native_stdio::{err, errx, stderr, stdout, vfprintf};
 
 // Internal calls and globals use canonical Rust identities.
 use i3_common::get_config_path::get_config_path;
-use i3_common::get_visualtype::get_visualtype;
 use i3_common::ipc_connect::ipc_connect;
 use i3_common::ipc_send_message::ipc_send_message;
 use i3_common::resolve_tilde::resolve_tilde;

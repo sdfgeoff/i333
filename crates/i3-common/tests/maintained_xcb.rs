@@ -329,13 +329,7 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
         cached_visual_weak.upgrade().is_some(),
         "guard retains the Cairo visual cache"
     );
-    DISPLAY_CONTEXT.with(|context| {
-        context.set(DisplayContext {
-            connection: raw,
-            root_screen: raw_screen,
-            visual_type: std::ptr::null_mut(),
-        })
-    });
+    DISPLAY_CONTEXT.with(|context| context.set(DisplayContext::from_screen(&owned_screen, None)));
     i3_common::display::set_provider(display_context);
     for depth in screen.allowed_depths() {
         for visual in depth.visuals() {
@@ -368,7 +362,7 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
             raw,
             &mut surface,
             root.resource_id(),
-            native_visual,
+            Some(&i3_common::display::visual(screen.root_visual()).unwrap()),
             160,
             120,
         );

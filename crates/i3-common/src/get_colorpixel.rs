@@ -126,12 +126,10 @@ pub unsafe fn get_colorpixel(hex: *const c_char) -> u32 {
     let hex = unsafe { CStr::from_ptr(hex) }.to_bytes();
     let channels = Channels::parse(hex);
     let crate::display::DisplayContext {
-        connection,
-        root_screen,
-        ..
+        connection, screen, ..
     } = crate::display::context();
     // SAFETY: the display provider keeps any non-null screen live by contract.
-    let screen = unsafe { root_screen.as_ref() };
+
     let Some(screen) = screen.filter(|screen| !matches!(screen.root_depth, 24 | 32)) else {
         return channels.argb();
     };
@@ -145,15 +143,16 @@ pub unsafe fn get_colorpixel(hex: *const c_char) -> u32 {
     let (red, green, blue) = channels.native_rgb();
     // SAFETY: the display provider retains the connection owner throughout
     // this synchronous operation. The maintained reply owns its allocation.
-    let reply = unsafe { crate::xcb_connection::borrowed(connection) }.and_then(|connection| {
-        let cookie = connection.send_request(&x::AllocColor {
-            cmap: unsafe { x::Colormap::new(screen.default_colormap) },
-            red,
-            green,
-            blue,
+    let reply =
+        unsafe { crate::xcb_connection::borrowed(connection.cast()) }.and_then(|connection| {
+            let cookie = connection.send_request(&x::AllocColor {
+                cmap: unsafe { x::Colormap::new(screen.default_colormap) },
+                red,
+                green,
+                blue,
+            });
+            connection.wait_for_reply(cookie).ok()
         });
-        connection.wait_for_reply(cookie).ok()
-    });
     let Some(reply) = reply else {
         crate::logging::emit(
             crate::logging::Level::Verbose,

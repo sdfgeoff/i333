@@ -113,21 +113,19 @@ unsafe fn get_gc(
 
 pub unsafe fn get_visual_depth(visual_id: xcb_visualid_t) -> u16 {
     let crate::display::DisplayContext {
-        connection,
-        root_screen,
-        ..
+        connection, screen, ..
     } = crate::display::context();
-    let Some(root_screen) = root_screen.as_ref() else {
+    let Some(screen_info) = screen else {
         return 0;
     };
-    let Some(connection) = crate::xcb_connection::borrowed(connection) else {
+    let Some(connection) = crate::xcb_connection::borrowed(connection.cast()) else {
         return 0;
     };
     // Select the exact registered screen instead of assuming setup screen zero.
     let Some(screen) = connection
         .get_setup()
         .roots()
-        .find(|screen| screen.root().resource_id() == root_screen.root)
+        .find(|screen| screen.root().resource_id() == screen_info.root)
     else {
         return 0;
     };
@@ -147,21 +145,20 @@ pub unsafe fn draw_util_surface_init(
     conn: *mut xcb_connection_t,
     surface: *mut surface_t,
     drawable: xcb_drawable_t,
-    mut visual: *mut xcb_visualtype_t,
+    visual: Option<&crate::display::CairoVisual>,
     width: ::core::ffi::c_int,
     height: ::core::ffi::c_int,
 ) {
-    let crate::display::DisplayContext { visual_type, .. } = crate::display::context();
+    let context = crate::display::context();
 
     (*surface).id = drawable;
     (*surface).width = width;
     (*surface).height = height;
-    if visual.is_null() {
-        visual = visual_type;
-    }
+    let visual_id = visual.map_or(context.visual_id, crate::display::CairoVisual::visual_id);
+    let visual = visual.map_or(context.visual_type, crate::display::CairoVisual::as_ptr);
     (*surface).gc = get_gc(
         conn,
-        get_visual_depth((*visual).visual_id) as u8,
+        get_visual_depth(visual_id) as u8,
         drawable,
         &raw mut (*surface).owns_gc,
     );
@@ -505,7 +502,7 @@ pub use cairo_sys::{
     cairo_xcb_surface_set_size, OPERATOR_SOURCE, STATUS_SUCCESS,
 };
 
-use xcb_sys::{xcb_connection_t, xcb_drawable_t, xcb_gcontext_t, xcb_visualid_t, xcb_visualtype_t};
+use xcb_sys::{xcb_connection_t, xcb_drawable_t, xcb_gcontext_t, xcb_visualid_t};
 
 pub use libc::{strlen, strtol};
 

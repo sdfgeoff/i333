@@ -1,6 +1,37 @@
 //! Owned setup views and the actual Cairo native visual boundary.
 use std::rc::Rc;
-use xcb::x;
+use xcb::{x, Xid};
+
+/// Semantic screen properties copied from the maintained setup view.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ScreenInfo {
+    pub root: u32,
+    pub default_colormap: u32,
+    pub black_pixel: u32,
+    pub white_pixel: u32,
+    pub width_in_pixels: u16,
+    pub height_in_pixels: u16,
+    pub width_in_millimeters: u16,
+    pub height_in_millimeters: u16,
+    pub root_visual: u32,
+    pub root_depth: u8,
+}
+impl From<&x::Screen> for ScreenInfo {
+    fn from(screen: &x::Screen) -> Self {
+        Self {
+            root: screen.root().resource_id(),
+            default_colormap: screen.default_colormap().resource_id(),
+            black_pixel: screen.black_pixel(),
+            white_pixel: screen.white_pixel(),
+            width_in_pixels: screen.width_in_pixels(),
+            height_in_pixels: screen.height_in_pixels(),
+            width_in_millimeters: screen.width_in_millimeters(),
+            height_in_millimeters: screen.height_in_millimeters(),
+            root_visual: screen.root_visual(),
+            root_depth: screen.root_depth(),
+        }
+    }
+}
 
 /// A selected setup screen whose connection owner outlives every borrowed view.
 #[derive(Clone)]
@@ -19,6 +50,10 @@ impl DisplayScreen {
     pub fn screen(&self) -> &x::Screen {
         // Setup data is immutable for the entire retained connection lifetime.
         self.connection.get_setup().roots().nth(self.index).unwrap()
+    }
+
+    pub fn info(&self) -> ScreenInfo {
+        ScreenInfo::from(self.screen())
     }
 
     pub fn connection(&self) -> &xcb::Connection {
@@ -64,6 +99,10 @@ impl CairoVisual {
             );
         }
         Self { words }
+    }
+
+    pub fn visual_id(&self) -> u32 {
+        self.words[0]
     }
 
     /// Borrow Cairo's canonical opaque native visual pointer. The allocation

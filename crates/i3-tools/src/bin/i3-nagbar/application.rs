@@ -38,13 +38,13 @@ use i3_common::font::XcbFontData;
 use i3_common::draw_util::color_t;
 use i3_common::draw_util::surface_t;
 
-pub static mut visual_type: *mut xcb_visualtype_t = std::ptr::null_mut();
+pub static mut visual_type: *mut cairo_sys::xcb_visualtype_t = std::ptr::null_mut();
 
 static mut root: xcb_window_t = 0;
 
 pub static mut conn: *mut xcb_connection_t = std::ptr::null_mut();
 
-pub static mut root_screen: *mut xcb_screen_t = std::ptr::null_mut();
+pub static mut root_screen: Option<i3_common::display::DisplayScreen> = None;
 
 pub unsafe extern "C" fn verboselog(fmt: *mut ::core::ffi::c_char, args: ...) {
     let mut args_0;
@@ -532,7 +532,7 @@ impl Drop for NagbarState {
                         window: x::Window::new(self.window),
                     });
                 }
-                root_screen = std::ptr::null_mut();
+                root_screen = None;
                 visual_type = std::ptr::null_mut();
                 root = 0;
                 conn = std::ptr::null_mut();
@@ -597,11 +597,18 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
     let sncontext: *mut SnLauncheeContext =
         sn_launchee_context_new_from_environment(sndisplay, screens);
     sn_display_unref(sndisplay);
-    root_screen = xcb_aux_get_screen(conn, screens);
-    if root_screen.is_null() {
+    root_screen = i3_common::display::DisplayScreen::new(connection.clone(), screens);
+    if root_screen.is_none() {
         errx(libc::EXIT_FAILURE, c"Cannot find display screen".as_ptr());
     }
-    root = (*root_screen).root;
+    let screen_info = root_screen
+        .as_ref()
+        .expect("initialized display screen")
+        .info();
+    root = screen_info.root;
+    visual_type = i3_common::display::visual(screen_info.root_visual)
+        .expect("root Cairo visual")
+        .as_ptr();
     if bar_type == MessageType::Error {
         state.render.color_button_background = draw_util_hex_to_color(c"#680a0a".as_ptr());
         state.render.color_background = draw_util_hex_to_color(c"#900000".as_ptr());
@@ -706,7 +713,7 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
         conn,
         &mut state.render.bar,
         state.window as xcb_drawable_t,
-        get_visualtype(root_screen),
+        None,
         win_pos.width as ::core::ffi::c_int,
         win_pos.height as ::core::ffi::c_int,
     );
@@ -859,10 +866,7 @@ use cairo_sys::{cairo_surface_t, cairo_t};
 
 // Canonical Pango backend ABI; font policy remains local.
 
-use xcb_sys::{
-    xcb_aux_get_screen, xcb_connection_t, xcb_drawable_t, xcb_screen_t, xcb_visualtype_t,
-    xcb_window_t,
-};
+use xcb_sys::{xcb_connection_t, xcb_drawable_t, xcb_window_t};
 
 use startup_notification_sys::{
     sn_display_unref, sn_launchee_context_complete, sn_launchee_context_new_from_environment,
@@ -876,7 +880,6 @@ use i3_common::native_stdio::{err, errx, stderr, vfprintf, warn};
 
 // Internal calls and globals use canonical Rust identities.
 use i3_common::get_process_filename::get_process_filename;
-use i3_common::get_visualtype::get_visualtype;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u32)]

@@ -50,15 +50,13 @@ fn store(value: libc::c_long) {
 /// Display discovery and its callbacks must not race destruction of those records.
 pub unsafe fn init_dpi() {
     let crate::display::DisplayContext {
-        connection,
-        root_screen,
-        ..
+        connection, screen, ..
     } = crate::display::context();
     if !connection.is_null() {
         // SAFETY: legacy providers retain their native owner. Migrated
         // executables supply the registered maintained owner directly.
         let owner = crate::display::connection().or_else(|| {
-            unsafe { crate::xcb_connection::borrowed(connection) }.map(std::rc::Rc::new)
+            unsafe { crate::xcb_connection::borrowed(connection.cast()) }.map(std::rc::Rc::new)
         });
         match owner.and_then(Database::from_connection) {
             None => emit(
@@ -99,7 +97,7 @@ pub unsafe fn init_dpi() {
             b"../libi3/dpi.c:init_dpi:65 - Using fallback for calculating DPI.\n",
         );
         // SAFETY: caller supplies a live readable screen when fallback is needed.
-        let screen = unsafe { &*root_screen };
+        let screen = screen.expect("initialized display screen");
         // Preserve the previous float-to-integer cast, including a zero physical
         // height; no substitute monitor dimensions or fallback policy is introduced.
         let value = (f64::from(screen.height_in_pixels) * 25.4
@@ -128,7 +126,7 @@ fn scaled_pixels(logical: i32, dpi: libc::c_long) -> i32 {
 /// Scale logical pixels when a display is attached. No native pointer is
 /// dereferenced here; detached callers retain the original unscaled dimensions.
 pub fn logical_px(logical: i32) -> i32 {
-    if crate::display::context().root_screen.is_null() {
+    if crate::display::context().screen.is_none() {
         logical
     } else {
         scaled_pixels(logical, get_dpi_value())

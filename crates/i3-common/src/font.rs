@@ -36,7 +36,7 @@ pub struct XcbFontData {
 pub type i3Font = Font;
 
 static mut SAVED_FONT: *const i3Font = ptr::null();
-static mut ROOT_VISUAL_TYPE: *mut xcb_visualtype_t = ptr::null_mut();
+static mut ROOT_VISUAL_TYPE: *mut cairo_sys::xcb_visualtype_t = ptr::null_mut();
 static mut PANGO_FONT_RED: f64 = 0.;
 static mut PANGO_FONT_GREEN: f64 = 0.;
 static mut PANGO_FONT_BLUE: f64 = 0.;
@@ -80,7 +80,7 @@ unsafe fn set_layout_bytes(
 unsafe fn font_surface(
     conn: *mut xcb_connection_t,
     root: xcb_drawable_t,
-    visual: *mut xcb_visualtype_t,
+    visual: *mut cairo_sys::xcb_visualtype_t,
 ) -> cairo::Surface {
     // SAFETY: native Cairo returns a non-null surface, including error objects.
     let pointer = unsafe { cairo_xcb_surface_create(conn.cast(), root, visual.cast(), 1, 1) };
@@ -121,7 +121,7 @@ unsafe fn borrowed_description(
 unsafe fn load_pango_font(font: *mut i3Font, desc: *const libc::c_char) -> bool {
     let crate::display::DisplayContext {
         connection: conn,
-        root_screen,
+        screen,
         ..
     } = crate::display::context();
     // SAFETY: desc is a native C string; preserve its bytes rather than assuming UTF-8.
@@ -154,9 +154,16 @@ unsafe fn load_pango_font(font: *mut i3Font, desc: *const libc::c_char) -> bool 
     };
     // SAFETY: caller guarantees the display setup, event-thread globals and font.
     let (surface, dpi) = unsafe {
-        ROOT_VISUAL_TYPE = get_visualtype(root_screen);
+        ROOT_VISUAL_TYPE =
+            crate::display::visual(screen.expect("initialized display screen").root_visual)
+                .expect("root Cairo visual")
+                .as_ptr();
         (
-            font_surface(conn, (*root_screen).root, ROOT_VISUAL_TYPE),
+            font_surface(
+                conn.cast(),
+                screen.expect("initialized display screen").root,
+                ROOT_VISUAL_TYPE,
+            ),
             get_dpi_value() as f64,
         )
     };
@@ -243,13 +250,17 @@ unsafe fn predict_text_width_pango(
 ) -> i32 {
     let crate::display::DisplayContext {
         connection: conn,
-        root_screen,
+        screen,
         ..
     } = crate::display::context();
     // SAFETY: caller guarantees the display, global visual, DPI and saved font.
     let (surface, dpi, font) = unsafe {
         (
-            font_surface(conn, (*root_screen).root, ROOT_VISUAL_TYPE),
+            font_surface(
+                conn.cast(),
+                screen.expect("initialized display screen").root,
+                ROOT_VISUAL_TYPE,
+            ),
             get_dpi_value() as f64,
             &*SAVED_FONT,
         )
@@ -315,7 +326,7 @@ pub unsafe fn load_font(pattern: *const libc::c_char, fallback: bool) -> i3Font 
         }
     }
     let connection = crate::display::connection()
-        .or_else(|| crate::xcb_connection::borrowed(conn).map(std::rc::Rc::new));
+        .or_else(|| crate::xcb_connection::borrowed(conn.cast()).map(std::rc::Rc::new));
     let Some(connection) = connection else {
         errx(
             libc::EXIT_FAILURE,
@@ -413,7 +424,7 @@ pub unsafe fn free_font() {
     match (*SAVED_FONT).type_0 {
         FontType::Xcb => {
             if let Some(connection) = crate::display::connection()
-                .or_else(|| crate::xcb_connection::borrowed(conn).map(std::rc::Rc::new))
+                .or_else(|| crate::xcb_connection::borrowed(conn.cast()).map(std::rc::Rc::new))
             {
                 connection.send_request(&x::CloseFont {
                     font: x::Font::new((*SAVED_FONT).specific.xcb.id),
@@ -456,7 +467,7 @@ pub unsafe fn set_font_colors(gc: xcb_gcontext_t, foreground: color_t, backgroun
     match (*SAVED_FONT).type_0 {
         FontType::Xcb => {
             if let Some(connection) = crate::display::connection()
-                .or_else(|| crate::xcb_connection::borrowed(conn).map(std::rc::Rc::new))
+                .or_else(|| crate::xcb_connection::borrowed(conn.cast()).map(std::rc::Rc::new))
             {
                 connection.send_request(&x::ChangeGc {
                     gc: x::Gcontext::new(gc),
@@ -496,7 +507,7 @@ unsafe fn draw_text_xcb(
     let raw = crate::display::context().connection;
     // SAFETY: the saved font and display remain live under the caller's contract.
     let connection = crate::display::connection()
-        .or_else(|| unsafe { crate::xcb_connection::borrowed(raw) }.map(std::rc::Rc::new));
+        .or_else(|| unsafe { crate::xcb_connection::borrowed(raw.cast()) }.map(std::rc::Rc::new));
     let Some(connection) = connection else { return };
     let pos_y = y + i32::from(unsafe { (*(*SAVED_FONT).specific.xcb.info).font_ascent() });
     let mut chunks = glyphs
@@ -606,7 +617,7 @@ unsafe fn xcb_query_text_width(text: &[Ucs2Char]) -> i32 {
     }
     let raw = crate::display::context().connection;
     let connection = crate::display::connection()
-        .or_else(|| unsafe { crate::xcb_connection::borrowed(raw) }.map(std::rc::Rc::new));
+        .or_else(|| unsafe { crate::xcb_connection::borrowed(raw.cast()) }.map(std::rc::Rc::new));
     let result = connection.map(|connection| {
         let wire = wire_glyphs(&text[..text.len() as u32 as usize]);
         let cookie = connection.send_request(&x::QueryTextExtents {
@@ -740,7 +751,7 @@ use pango_sys::{
     pango_layout_set_text, PANGO_SCALE,
 };
 
-use xcb_sys::{xcb_connection_t, xcb_drawable_t, xcb_font_t, xcb_gcontext_t, xcb_visualtype_t};
+use xcb_sys::{xcb_connection_t, xcb_drawable_t, xcb_font_t, xcb_gcontext_t};
 
 use libc::{fprintf, free};
 
@@ -752,7 +763,6 @@ use crate::logging::{errorlog, verboselog};
 pub use crate::draw_util::color_t;
 
 // Internal calls and globals use canonical Rust identities.
-use crate::get_visualtype::get_visualtype;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u32)]

@@ -54,9 +54,14 @@ fn common_display_context() -> i3_common::display::DisplayContext {
     // These pointers remain owned by the program and are read on its event thread.
     unsafe {
         i3_common::display::DisplayContext {
-            connection: application::conn,
-            root_screen: application::root_screen,
+            connection: application::conn.cast(),
+            screen: application::root_screen
+                .as_ref()
+                .map(|screen| screen.info()),
             visual_type: application::visual_type,
+            visual_id: application::root_screen
+                .as_ref()
+                .map_or(0, |screen| screen.info().root_visual),
         }
     }
 }

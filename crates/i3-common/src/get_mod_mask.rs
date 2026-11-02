@@ -44,7 +44,7 @@ pub unsafe fn aio_get_mod_mask_for(keysym: u32, symbols: *mut NativeKeySymbols) 
         return 0;
     }
     // SAFETY: the provider keeps the sole native owner live for this call.
-    let Some(connection) = (unsafe { crate::xcb_connection::borrowed(raw) }) else {
+    let Some(connection) = (unsafe { crate::xcb_connection::borrowed(raw.cast()) }) else {
         return 0;
     };
     let _ = connection.flush();
