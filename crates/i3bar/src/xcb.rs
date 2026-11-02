@@ -2027,55 +2027,63 @@ pub unsafe fn init_xcb_early() -> *mut ::core::ffi::c_char {
         root_atom_contents(c"I3_SOCKET_PATH".as_ptr(), xcb_connection, screen);
     path
 }
+/// All StateNotify fields are selected, and all eight native map parts remain
+/// affected even when StateNotify itself is not selected (the unregister path).
+fn xkb_event_selection(enabled: bool) -> ::xcb::xkb::SelectEvents<'static> {
+    use ::xcb::xkb;
+    let state = if enabled {
+        xkb::EventType::STATE_NOTIFY
+    } else {
+        xkb::EventType::empty()
+    };
+    xkb::SelectEvents {
+        device_spec: xkb::Id::UseCoreKbd as u16,
+        affect_which: state,
+        clear: xkb::EventType::empty(),
+        select_all: state,
+        affect_map: xkb::MapPart::from_bits_retain(0xff),
+        map: xkb::MapPart::from_bits_retain(0xff),
+        details: &[],
+    }
+}
 unsafe fn register_xkb_keyevents() {
-    let mut extreply: *const xcb_query_extension_reply_t =
-        ::core::ptr::null::<xcb_query_extension_reply_t>();
-    extreply =
-        xcb_get_extension_data(conn, &raw mut xcb_xkb_id) as *const xcb_query_extension_reply_t;
-    if (*extreply).present == 0 {
+    let Some(connection) = i3_common::display::connection() else {
+        return;
+    };
+    let cookie = connection.send_request(&x::QueryExtension { name: b"XKEYBOARD" });
+    let extension = connection
+        .wait_for_reply(cookie)
+        .ok()
+        .filter(|reply| reply.present());
+    let Some(extension) = extension else {
         fprintf(
             stderr,
             c"[%s:%d] ERROR: xkb is not present on this server\n".as_ptr(),
             c"../i3bar/src/xcb.c".as_ptr(),
-            1405 as ::core::ffi::c_int,
+            1405,
         );
         exit(libc::EXIT_FAILURE);
-    }
+    };
     if config.verbose {
         printf(
             c"[%s:%d] initializing xcb-xkb\n".as_ptr(),
             c"../i3bar/src/xcb.c".as_ptr(),
-            1408 as ::core::ffi::c_int,
+            1408,
         );
     }
-    xcb_xkb_use_extension(
-        conn,
-        XCB_XKB_MAJOR_VERSION as u16,
-        XCB_XKB_MINOR_VERSION as u16,
-    );
-    xcb_xkb_select_events(
-        conn,
-        XCB_XKB_ID_USE_CORE_KBD as ::core::ffi::c_int as xcb_xkb_device_spec_t,
-        XCB_XKB_EVENT_TYPE_STATE_NOTIFY as ::core::ffi::c_int as u16,
-        0 as u16,
-        XCB_XKB_EVENT_TYPE_STATE_NOTIFY as ::core::ffi::c_int as u16,
-        0xff as u16,
-        0xff as u16,
-        ::core::ptr::null::<::core::ffi::c_void>(),
-    );
-    xkb_base = (*extreply).first_event as ::core::ffi::c_int;
+    // Version negotiation was never awaited by the native implementation.
+    // Discard that checked reply without introducing a round trip or routing
+    // its errors to the event queue.
+    let cookie = connection.send_request(&::xcb::xkb::UseExtension {
+        wanted_major: ::xcb::xkb::MAJOR_VERSION as u16,
+        wanted_minor: ::xcb::xkb::MINOR_VERSION as u16,
+    });
+    xcb_interop::transport::discard_reply(&connection, cookie);
+    send_unchecked(&xkb_event_selection(true));
+    xkb_base = extension.first_event() as i32;
 }
 unsafe fn deregister_xkb_keyevents() {
-    xcb_xkb_select_events(
-        conn,
-        XCB_XKB_ID_USE_CORE_KBD as ::core::ffi::c_int as xcb_xkb_device_spec_t,
-        0 as u16,
-        0 as u16,
-        0 as u16,
-        0xff as u16,
-        0xff as u16,
-        ::core::ptr::null::<::core::ffi::c_void>(),
-    );
+    send_unchecked(&xkb_event_selection(false));
 }
 
 pub unsafe fn init_xcb_late(mut fontname: *mut ::core::ffi::c_char) {
@@ -3210,22 +3218,20 @@ use xcb_sys::{
     xcb_change_property, xcb_change_window_attributes, xcb_color_strings_t, xcb_colormap_t,
     xcb_configure_window_checked, xcb_connection_t, xcb_create_colormap_checked,
     xcb_create_pixmap_checked, xcb_create_window, xcb_create_window_checked, xcb_cursor_t,
-    xcb_drawable_t, xcb_generate_id, xcb_generic_error_t, xcb_get_extension_data, xcb_keycode_t,
-    xcb_map_window_checked, xcb_pixmap_t, xcb_query_extension_reply_t, xcb_rectangle_t,
-    xcb_reparent_window, xcb_request_check, xcb_screen_t, xcb_timestamp_t,
-    xcb_unmap_window_checked, xcb_visualtype_t, xcb_void_cookie_t, xcb_window_t,
-    xcb_xkb_device_spec_t, xcb_xkb_id, xcb_xkb_select_events, xcb_xkb_use_extension, XCB_ATOM_ATOM,
-    XCB_ATOM_CARDINAL, XCB_ATOM_STRING, XCB_ATOM_VISUALID, XCB_ATOM_WM_CLASS, XCB_ATOM_WM_NAME,
-    XCB_BUTTON_SCROLL_DOWN, XCB_BUTTON_SCROLL_LEFT, XCB_BUTTON_SCROLL_RIGHT, XCB_BUTTON_SCROLL_UP,
-    XCB_COLORMAP_ALLOC_NONE, XCB_CONFIG_WINDOW_HEIGHT, XCB_CONFIG_WINDOW_STACK_MODE,
-    XCB_CONFIG_WINDOW_WIDTH, XCB_CONFIG_WINDOW_X, XCB_CONFIG_WINDOW_Y, XCB_CURRENT_TIME,
-    XCB_CW_BACK_PIXEL, XCB_CW_BORDER_PIXEL, XCB_CW_COLORMAP, XCB_CW_CURSOR, XCB_CW_EVENT_MASK,
-    XCB_CW_OVERRIDE_REDIRECT, XCB_EVENT_MASK_BUTTON_PRESS, XCB_EVENT_MASK_BUTTON_RELEASE,
-    XCB_EVENT_MASK_EXPOSURE, XCB_EVENT_MASK_PROPERTY_CHANGE, XCB_EVENT_MASK_RESIZE_REDIRECT,
-    XCB_EVENT_MASK_STRUCTURE_NOTIFY, XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT,
-    XCB_EVENT_MASK_VISIBILITY_CHANGE, XCB_NONE, XCB_PROP_MODE_REPLACE, XCB_SET_MODE_INSERT,
-    XCB_STACK_MODE_ABOVE, XCB_WINDOW_CLASS_INPUT_OUTPUT, XCB_XKB_EVENT_TYPE_STATE_NOTIFY,
-    XCB_XKB_ID_USE_CORE_KBD, XCB_XKB_MAJOR_VERSION, XCB_XKB_MINOR_VERSION,
+    xcb_drawable_t, xcb_generate_id, xcb_generic_error_t, xcb_keycode_t, xcb_map_window_checked,
+    xcb_pixmap_t, xcb_rectangle_t, xcb_reparent_window, xcb_request_check, xcb_screen_t,
+    xcb_timestamp_t, xcb_unmap_window_checked, xcb_visualtype_t, xcb_void_cookie_t, xcb_window_t,
+    XCB_ATOM_ATOM, XCB_ATOM_CARDINAL, XCB_ATOM_STRING, XCB_ATOM_VISUALID, XCB_ATOM_WM_CLASS,
+    XCB_ATOM_WM_NAME, XCB_BUTTON_SCROLL_DOWN, XCB_BUTTON_SCROLL_LEFT, XCB_BUTTON_SCROLL_RIGHT,
+    XCB_BUTTON_SCROLL_UP, XCB_COLORMAP_ALLOC_NONE, XCB_CONFIG_WINDOW_HEIGHT,
+    XCB_CONFIG_WINDOW_STACK_MODE, XCB_CONFIG_WINDOW_WIDTH, XCB_CONFIG_WINDOW_X,
+    XCB_CONFIG_WINDOW_Y, XCB_CURRENT_TIME, XCB_CW_BACK_PIXEL, XCB_CW_BORDER_PIXEL, XCB_CW_COLORMAP,
+    XCB_CW_CURSOR, XCB_CW_EVENT_MASK, XCB_CW_OVERRIDE_REDIRECT, XCB_EVENT_MASK_BUTTON_PRESS,
+    XCB_EVENT_MASK_BUTTON_RELEASE, XCB_EVENT_MASK_EXPOSURE, XCB_EVENT_MASK_PROPERTY_CHANGE,
+    XCB_EVENT_MASK_RESIZE_REDIRECT, XCB_EVENT_MASK_STRUCTURE_NOTIFY,
+    XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT, XCB_EVENT_MASK_VISIBILITY_CHANGE, XCB_NONE,
+    XCB_PROP_MODE_REPLACE, XCB_SET_MODE_INSERT, XCB_STACK_MODE_ABOVE,
+    XCB_WINDOW_CLASS_INPUT_OUTPUT,
 };
 
 #[derive(Copy, Clone)]

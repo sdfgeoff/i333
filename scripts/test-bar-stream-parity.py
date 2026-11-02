@@ -20,7 +20,7 @@ import sys
 import threading
 import time
 
-from Xlib import X
+from Xlib import X, XK, error
 from Xlib.protocol import event as xevent
 from Xlib.ext import xtest
 from workspace_temp import make_tempdir
@@ -235,6 +235,54 @@ def tray_lifecycle(connection, child, environment, server, bar, baseline):
         connection.sync()
 
 
+def modifier_visibility(connection, child, environment, server, ipc, bar, baseline):
+    _input.require_private(connection, environment, server)
+    keycode = connection.keysym_to_keycode(XK.string_to_keysym('Super_L'))
+    assert keycode, 'private Xvfb has no Super_L keycode'
+    replaced = {bar.id}
+
+    def wait_bar(state, description):
+        found = []
+
+        def match():
+            assert child.poll() is None, ('bar exited in visibility fixture', child.returncode)
+            for candidate in connection.screen().root.query_tree().children:
+                try:
+                    geometry = candidate.get_geometry()
+                    if (candidate.id not in replaced and geometry.width == 1024 and geometry.height == baseline['geometry'][3]
+                            and candidate.get_attributes().map_state == state):
+                        found.append(candidate)
+                        return True
+                except error.BadWindow:
+                    # Reload destroys the old window and creates its successor.
+                    continue
+            return False
+
+        wait_for(match, description)
+        return found[-1]
+
+    ipc.config = {**ipc.config, 'mode': 'hide', 'hidden_state': 'hide', 'modifier': 'Mod4'}
+    ipc.send(0x80000004, ipc.config)
+    bar = wait_bar(X.IsUnmapped, 'modifier-hidden bar')
+    try:
+        xtest.fake_input(connection, X.KeyPress, keycode)
+        connection.sync()
+        bar = wait_bar(X.IsViewable, 'modifier shows bar')
+        _, shown, _ = rendered(connection, child)
+        assert shown == baseline, (shown, baseline)
+    finally:
+        xtest.fake_input(connection, X.KeyRelease, keycode)
+        connection.sync()
+    bar = wait_bar(X.IsUnmapped, 'modifier release hides bar')
+    replaced.add(bar.id)
+    ipc.config = {**ipc.config, 'mode': 'dock'}
+    ipc.send(0x80000004, ipc.config)
+    bar = wait_bar(X.IsViewable, 'dock reload shows bar')
+    _, restored, _ = rendered(connection, child)
+    assert restored == baseline, (restored, baseline)
+    return {'modifier_shown': shown, 'dock_restored': restored}
+
+
 def invoke(binary,label,mode,connection,environment,server,work):
     directory = work / mode
     directory.mkdir(exist_ok=True)
@@ -280,6 +328,7 @@ def invoke(binary,label,mode,connection,environment,server,work):
                 connection.sync()
                 wait_for(lambda:(directory/'clicks').exists() and (directory/'clicks').read_bytes().count(b'\n')>=2,'private status click')
         tray = tray_lifecycle(connection, child, environment, server, window, snapshots[-1]) if mode == 'json' else None
+        visibility = modifier_visibility(connection, child, environment, server, ipc, window, snapshots[-1]) if mode == 'json' else None
         assert (directory/'starts').read_bytes()==b'start\n', 'reload restarted identical status command'
         clicks = (directory/'clicks').read_bytes() if mode=='json' else b''
         assert not ipc.errors,ipc.errors
@@ -288,7 +337,7 @@ def invoke(binary,label,mode,connection,environment,server,work):
         assert status == 0, ('IPC EOF should exit normally',status)
         connection.sync()
         wait_for(lambda:not _input.mapped_windows(connection.screen().root),'bar window cleanup')
-        return {'status':status,'snapshots':snapshots,'clicks_hex':clicks.hex(),'starts':1,'tray':tray}
+        return {'status':status,'snapshots':snapshots,'clicks_hex':clicks.hex(),'starts':1,'tray':tray,'visibility':visibility}
     finally:
         # Only Popen handles created by this fixture are signalled. Closing the
         # control pipe also lets its fixed producer exit if the bar was killed.
@@ -322,7 +371,7 @@ def main():
                 results[label]={mode:invoke(binary,label,mode,connection,environment,server,work) for mode in ('json','plain')}
             if args.reference:
                 assert results['candidate']==results['reference'],results
-        print('PASS: 2 private bar stream workflows, 6 status rasters, reload, click framing and XEmbed tray lifecycle'+(' match external C' if args.reference else ' satisfy fixtures'))
+        print('PASS: 2 private bar stream workflows, 6 status rasters, reload, click framing, XEmbed tray lifecycle and modifier visibility'+(' match external C' if args.reference else ' satisfy fixtures'))
     finally:
         (work/'results.json').write_text(json.dumps({'binaries':hashes,'producer_sha256':hashlib.sha256(PRODUCER.encode()).hexdigest(),'results':results},indent=2)+'\n')
         print(f'Private bar stream artifacts: {work}')
