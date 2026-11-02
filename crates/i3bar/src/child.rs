@@ -428,9 +428,9 @@ struct StatusValues {
     separator: u32,
     error: Option<String>,
 }
-impl i3_json::EventHandler for StatusValues {
-    fn on_event(&mut self, event: i3_json::Event<'_>) -> bool {
-        use i3_json::Event;
+impl i3_common::json_stream::EventHandler for StatusValues {
+    fn on_event(&mut self, event: i3_common::json_stream::Event<'_>) -> bool {
+        use i3_common::json_stream::Event;
         match event {
             Event::StartArray => self.buffer.clear(),
             Event::StartMap => self.block = StatusValue::new(self.separator),
@@ -529,9 +529,9 @@ impl i3_json::EventHandler for StatusValues {
     }
 }
 struct StatusHandler(std::rc::Rc<std::cell::RefCell<StatusValues>>);
-impl i3_json::EventHandler for StatusHandler {
-    fn on_event(&mut self, event: i3_json::Event<'_>) -> bool {
-        i3_json::EventHandler::on_event(&mut *self.0.borrow_mut(), event)
+impl i3_common::json_stream::EventHandler for StatusHandler {
+    fn on_event(&mut self, event: i3_common::json_stream::Event<'_>) -> bool {
+        i3_common::json_stream::EventHandler::on_event(&mut *self.0.borrow_mut(), event)
     }
     fn error_message(&self) -> Option<&str> {
         None
@@ -540,7 +540,7 @@ impl i3_json::EventHandler for StatusHandler {
 // Handler-owned error text is copied into ParseError via this adapter's last
 // failure; integer overflow is normalized after parse below without raw context.
 struct StatusParser {
-    parser: i3_json::Parser,
+    parser: i3_common::json_stream::Parser,
     values: std::rc::Rc<std::cell::RefCell<StatusValues>>,
 }
 impl StatusParser {
@@ -554,7 +554,7 @@ impl StatusParser {
             separator: 0,
             error: None,
         }));
-        let mut parser = i3_json::Parser::new(StatusHandler(values.clone()));
+        let mut parser = i3_common::json_stream::Parser::new(StatusHandler(values.clone()));
         parser.options_mut().allow_legacy_whitespace = true;
         Self { parser, values }
     }
@@ -562,7 +562,11 @@ impl StatusParser {
         &mut self,
         input: &[u8],
         separator: u32,
-    ) -> (Vec<Vec<StatusValue>>, bool, Result<(), i3_json::ParseError>) {
+    ) -> (
+        Vec<Vec<StatusValue>>,
+        bool,
+        Result<(), i3_common::json_stream::ParseError>,
+    ) {
         self.values.borrow_mut().separator = separator;
         let mut result = self.parser.parse(input);
         let mut values = self.values.borrow_mut();
@@ -810,7 +814,7 @@ unsafe fn read_json_input(input: &[u8]) -> bool {
     match result {
         Ok(()) => urgent,
         Err(error) => {
-            let status = if error.kind == i3_json::ParseErrorKind::Canceled {
+            let status = if error.kind == i3_common::json_stream::ParseErrorKind::Canceled {
                 1u32
             } else {
                 2
@@ -1364,7 +1368,7 @@ impl serde::Serialize for ClickValue<'_> {
 struct ClickStream {
     buffer: Vec<u8>,
     emitted: bool,
-    compatibility: Option<i3_json::Generator>,
+    compatibility: Option<i3_common::json_rejection::RejectedOutput>,
 }
 impl ClickStream {
     fn start(&mut self) {
@@ -1391,13 +1395,7 @@ impl ClickStream {
                 .expect("validated click object serializes");
         } else {
             let output = self.compatibility.get_or_insert_with(|| {
-                let mut output = i3_json::Generator::new();
-                let _ = output.start_array();
-                if self.emitted {
-                    let _ = output.null();
-                }
-                output.clear();
-                output
+                i3_common::json_rejection::RejectedOutput::resume_array(Vec::new(), self.emitted)
             });
             append_legacy_click(output, click);
             self.buffer.extend_from_slice(output.bytes());
@@ -1409,14 +1407,17 @@ impl ClickStream {
 fn append_click(stream: &mut ClickStream, click: ClickValue<'_>) {
     stream.append(click);
 }
-fn generator_bytes(generator: &mut i3_json::Generator, bytes: &[u8]) {
+fn generator_bytes(generator: &mut i3_common::json_rejection::RejectedOutput, bytes: &[u8]) {
     // The legacy compatibility generator rejects invalid UTF-8 without advancing
     // its state. Preserve that behavior instead of repairing byte identifiers.
     if let Ok(string) = std::str::from_utf8(bytes) {
         let _ = generator.string(string);
     }
 }
-fn append_legacy_click(generator: &mut i3_json::Generator, click: ClickValue<'_>) {
+fn append_legacy_click(
+    generator: &mut i3_common::json_rejection::RejectedOutput,
+    click: ClickValue<'_>,
+) {
     let _ = generator.start_object();
     for (key, value) in [("name", click.name), ("instance", click.instance)] {
         if let Some(value) = value {
@@ -1478,7 +1479,7 @@ pub unsafe fn send_block_clicked(
         return;
     }
     child_click_events_initialize();
-    // Name/instance are live native strings for this callback. Generator access
+    // Name/instance are live native strings for this callback. Stream access
     // ends before output failure can invoke kill_child/cleanup/reload.
     let name = (!name.is_null()).then(|| std::ffi::CStr::from_ptr(name).to_bytes());
     let instance = (!instance.is_null()).then(|| std::ffi::CStr::from_ptr(instance).to_bytes());
@@ -2067,7 +2068,7 @@ mod owned_tests {
         let mut parser = StatusParser::new(false);
         let (_, _, result) = parser.feed(br#"[[{"min_width":-9223372036854775808}]]"#, 9);
         let error = result.unwrap_err();
-        assert_eq!(error.kind, i3_json::ParseErrorKind::Canceled);
+        assert_eq!(error.kind, i3_common::json_stream::ParseErrorKind::Canceled);
         assert_eq!(error.message, "parse error: integer overflow");
         let mut parser = StatusParser::new(true);
         let (frames, urgent, result) =

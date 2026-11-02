@@ -10,8 +10,8 @@
 use i3_common::ipc_connect::{connect_path, root_property, socket_path};
 use i3_common::ipc_recv_message::{receive_message, ReceiveError};
 use i3_common::ipc_send_message::send_message;
+use i3_common::json_stream::{Event, EventHandler, ParseError, Parser};
 use i3_common::logging::{emit, Level};
-use i3_json::{Event, EventHandler, ParseError, Parser};
 use std::cell::RefCell;
 use std::ffi::{OsStr, OsString};
 use std::fs::{self, File};

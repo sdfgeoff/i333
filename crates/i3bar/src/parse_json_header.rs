@@ -10,7 +10,7 @@
  */
 //! Protocol header parsing owns its state and borrows the input buffer.
 
-use i3_json::{Event, EventHandler, Parser};
+use i3_common::json_stream::{Event, EventHandler, Parser};
 use std::cell::RefCell;
 use std::ffi::CStr;
 use std::rc::Rc;

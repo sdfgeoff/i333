@@ -1,7 +1,7 @@
 //! Typed IPC values. Serde handles normal JSON; the small event fallback keeps
 //! i3's historical treatment of invalid native bytes and non-finite numbers.
 #![forbid(unsafe_code)]
-use i3_json::Generator;
+use i3_common::json_rejection::RejectedOutput;
 use serde::{Serialize, Serializer};
 use std::ffi::CStr;
 
@@ -15,23 +15,14 @@ pub(super) trait WireValue: Serialize {
     fn omitted(&self) -> bool {
         false
     }
-    fn legacy(&self, output: &mut Generator);
+    fn legacy(&self, output: &mut RejectedOutput);
     fn to_bytes(&self) -> Vec<u8> {
         if self.valid() && self.depth() <= 128 {
             return serde_json::to_vec(self).expect("validated IPC value serializes");
         }
-        let mut output = Generator::new();
+        let mut output = RejectedOutput::new();
         self.legacy(&mut output);
         output.bytes().to_vec()
-    }
-    fn write(&self, output: &mut Generator) {
-        // Decide before touching the generator: a failed depth check poisons
-        // its state, whereas the old event sequence retains a partial prefix.
-        if self.valid() && output.nesting_depth().saturating_add(self.depth()) <= 128 {
-            let _ = output.serialized(self);
-        } else {
-            self.legacy(output);
-        }
     }
 }
 
@@ -56,19 +47,19 @@ impl WireValue for NativeText {
     fn valid(&self) -> bool {
         std::str::from_utf8(&self.0).is_ok()
     }
-    fn legacy(&self, output: &mut Generator) {
+    fn legacy(&self, output: &mut RejectedOutput) {
         if let Ok(value) = std::str::from_utf8(&self.0) {
             let _ = output.string(value);
         }
     }
 }
 impl WireValue for bool {
-    fn legacy(&self, output: &mut Generator) {
+    fn legacy(&self, output: &mut RejectedOutput) {
         let _ = output.boolean(*self);
     }
 }
 impl WireValue for i64 {
-    fn legacy(&self, output: &mut Generator) {
+    fn legacy(&self, output: &mut RejectedOutput) {
         let _ = output.integer(*self);
     }
 }
@@ -76,12 +67,12 @@ impl WireValue for f64 {
     fn valid(&self) -> bool {
         self.is_finite()
     }
-    fn legacy(&self, output: &mut Generator) {
+    fn legacy(&self, output: &mut RejectedOutput) {
         let _ = output.double(*self);
     }
 }
 impl WireValue for &'static str {
-    fn legacy(&self, output: &mut Generator) {
+    fn legacy(&self, output: &mut RejectedOutput) {
         let _ = output.string(self);
     }
 }
@@ -92,7 +83,7 @@ impl<T: WireValue> WireValue for Option<T> {
     fn depth(&self) -> usize {
         self.as_ref().map_or(0, WireValue::depth)
     }
-    fn legacy(&self, output: &mut Generator) {
+    fn legacy(&self, output: &mut RejectedOutput) {
         if let Some(value) = self {
             value.legacy(output);
         } else {
@@ -107,7 +98,7 @@ impl<T: WireValue> WireValue for Vec<T> {
     fn depth(&self) -> usize {
         1 + self.iter().map(WireValue::depth).max().unwrap_or(0)
     }
-    fn legacy(&self, output: &mut Generator) {
+    fn legacy(&self, output: &mut RejectedOutput) {
         let _ = output.start_array();
         for value in self {
             value.legacy(output);
@@ -138,7 +129,7 @@ impl<T: WireValue> WireValue for Omitted<T> {
     fn omitted(&self) -> bool {
         self.is_omitted()
     }
-    fn legacy(&self, output: &mut Generator) {
+    fn legacy(&self, output: &mut RejectedOutput) {
         self.0.legacy(output);
     }
 }
@@ -169,7 +160,7 @@ impl<T: WireValue> WireValue for NativeValue<T> {
             Self::Rejected => 0,
         }
     }
-    fn legacy(&self, output: &mut Generator) {
+    fn legacy(&self, output: &mut RejectedOutput) {
         if let Self::Value(value) = self {
             value.legacy(output);
         }
@@ -181,7 +172,7 @@ impl<T: WireValue> WireValue for NativeValue<T> {
 pub(super) trait WireFields {
     fn serialize_fields<M: serde::ser::SerializeMap>(&self, output: &mut M)
         -> Result<(), M::Error>;
-    fn fields(&self, output: &mut Generator, compatibility: &mut bool);
+    fn fields(&self, output: &mut RejectedOutput);
 }
 // Each schema is declared once: Serde and the exceptional compatibility path
 // share field order and omission rules without a second hand-maintained builder.
@@ -192,7 +183,7 @@ macro_rules! wire_object {
         impl WireValue for $name {
             fn valid(&self) -> bool { true $(&& self.$field.valid())* }
             fn depth(&self) -> usize { 1 + [0 $(, self.$field.depth())*].into_iter().max().unwrap() }
-            fn legacy(&self, output: &mut Generator) {
+            fn legacy(&self, output: &mut RejectedOutput) {
                 let _ = output.start_object();
                 $(if !self.$field.omitted() {
                     let _ = output.string(wire_object!(@key $field $(, $key)?));
@@ -208,14 +199,10 @@ macro_rules! wire_object {
                 })*
                 Ok(())
             }
-            fn fields(&self, output: &mut Generator, compatibility: &mut bool) {
+            fn fields(&self, output: &mut RejectedOutput) {
                 $(if !self.$field.omitted() {
                     let _ = output.string(wire_object!(@key $field $(, $key)?));
-                    if !self.$field.valid() || output.nesting_depth().saturating_add(self.$field.depth()) > 128 {
-                        *compatibility = true;
-                    }
-                    if *compatibility { self.$field.legacy(output); }
-                    else { self.$field.write(output); }
+                    self.$field.legacy(output);
                 })*
             }
         }
@@ -466,9 +453,7 @@ wire_object!(BarConfig {
 mod tests {
     use super::*;
     fn bytes<T: WireValue>(value: &T) -> Vec<u8> {
-        let mut output = Generator::new();
-        value.write(&mut output);
-        output.bytes().to_vec()
+        value.to_bytes()
     }
     wire_object!(ConditionalNames {
         r#type: NativeText,
@@ -485,7 +470,7 @@ mod tests {
                 renamed: true,
             };
             let typed = bytes(&value);
-            let mut legacy = Generator::new();
+            let mut legacy = RejectedOutput::new();
             value.legacy(&mut legacy);
             assert_eq!(typed, legacy.bytes());
             assert!(std::str::from_utf8(&typed)
@@ -584,7 +569,7 @@ mod tests {
             }],
         };
         let normal = bytes(&value);
-        let mut events = Generator::new();
+        let mut events = RejectedOutput::new();
         value.legacy(&mut events);
         assert_eq!(normal, events.bytes());
         assert_eq!(
@@ -595,7 +580,7 @@ mod tests {
     }
     #[test]
     fn depth_fallback_keeps_legacy_prefix_and_nonfinite_values_stay_rejected() {
-        let mut output = Generator::new();
+        let mut output = RejectedOutput::new();
         for _ in 0..128 {
             output.start_array().unwrap();
         }
@@ -604,19 +589,19 @@ mod tests {
             first: false,
             payload: NativeText::bytes(b"text"),
         }
-        .write(&mut output);
+        .legacy(&mut output);
         assert_eq!(output.bytes(), before);
         assert_eq!(
             output.boolean(true),
-            Err(i3_json::GenerateError::InvalidState)
+            Err(i3_common::json_rejection::Rejection::InvalidState)
         );
         // Matching closes still close a parent after a sticky error.
         assert!(output.end_array().is_ok());
-        let mut output = Generator::new();
+        let mut output = RejectedOutput::new();
         output.start_array().unwrap();
-        f64::NAN.write(&mut output);
-        f64::NEG_INFINITY.write(&mut output);
-        (-0.0_f64).write(&mut output);
+        f64::NAN.legacy(&mut output);
+        f64::NEG_INFINITY.legacy(&mut output);
+        (-0.0_f64).legacy(&mut output);
         output.end_array().unwrap();
         assert_eq!(output.bytes(), b"[-0.0]");
     }

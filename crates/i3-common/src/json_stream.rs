@@ -1,3 +1,6 @@
+//! Serde decoding with incremental callbacks for i3 protocol streams.
+#![forbid(unsafe_code)]
+
 use std::fmt;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]

@@ -6,7 +6,7 @@ use crate::config::config;
 use crate::workspaces::free_workspaces;
 use crate::xcb::destroy_window;
 use i3_common::draw_util::surface_t;
-use i3_json::{Event, EventHandler, ParseError, Parser};
+use i3_common::json_stream::{Event, EventHandler, ParseError, Parser};
 use std::cell::RefCell;
 use std::ffi::{CStr, CString};
 use std::ptr;

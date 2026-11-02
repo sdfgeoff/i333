@@ -67,12 +67,17 @@ fn pointer_normalization_keeps_numeric_boundaries_and_non_id_fields() {
 }
 
 unsafe fn node_bytes(node: *mut Con, restart: bool, depth: usize, pointers: &[*mut Con]) -> String {
-    let mut output = i3_json::Generator::new();
-    for _ in 0..depth {
-        output.start_array().unwrap();
-    }
-    dump_node(&mut output, node, restart);
-    normalize_pointer_ids(output.bytes(), pointers)
+    let bytes = if depth == 0 {
+        node_payload(node, restart)
+    } else {
+        let mut output = i3_common::json_rejection::RejectedOutput::new();
+        for _ in 0..depth {
+            output.start_array().unwrap();
+        }
+        dump_node_stream(&mut output, node, restart);
+        output.bytes().to_vec()
+    };
+    normalize_pointer_ids(&bytes, pointers)
 }
 unsafe fn collect() -> BTreeMap<String, String> {
     let mut result = BTreeMap::new();
@@ -266,12 +271,8 @@ unsafe fn collect() -> BTreeMap<String, String> {
     // in its calloc-initialized representation.
     let mut bar: Barconfig = std::mem::zeroed();
     bar.id = c"bar0".as_ptr().cast_mut();
-    let mut bytes = i3_json::Generator::new();
-    dump_bar_config(&mut bytes, &mut bar);
-    result.insert(
-        "bar_sparse".into(),
-        String::from_utf8(bytes.bytes().to_vec()).unwrap(),
-    );
+    let bytes = snapshot_bar_config(&mut bar).to_bytes();
+    result.insert("bar_sparse".into(), String::from_utf8(bytes).unwrap());
     bar.socket_path = c"socket".as_ptr().cast_mut();
     bar.status_command = c"status --flag".as_ptr().cast_mut();
     bar.workspace_command = c"workspaces".as_ptr().cast_mut();
@@ -301,18 +302,13 @@ unsafe fn collect() -> BTreeMap<String, String> {
     let mut tray: tray_output_t = std::mem::zeroed();
     tray.output = c"PRIMARY".as_ptr().cast_mut();
     bar.tray_outputs.tqh_first = &mut tray;
-    let mut bytes = i3_json::Generator::new();
-    dump_bar_config(&mut bytes, &mut bar);
-    result.insert(
-        "bar_full".into(),
-        String::from_utf8(bytes.bytes().to_vec()).unwrap(),
-    );
+    let bytes = snapshot_bar_config(&mut bar).to_bytes();
+    result.insert("bar_full".into(), String::from_utf8(bytes).unwrap());
     bar.socket_path = invalid.as_ptr().cast_mut();
-    let mut bytes = i3_json::Generator::new();
-    dump_bar_config(&mut bytes, &mut bar);
+    let bytes = snapshot_bar_config(&mut bar).to_bytes();
     result.insert(
         "bar_invalid_socket".into(),
-        String::from_utf8(bytes.bytes().to_vec()).unwrap(),
+        String::from_utf8(bytes).unwrap(),
     );
     result
 }

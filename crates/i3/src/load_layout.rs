@@ -8,8 +8,8 @@ use crate::types::JsonContent;
 use crate::types::Layout;
 use crate::types::MarkMode;
 use crate::types::ScratchpadState;
+use i3_common::json_stream::{Event, EventHandler, ParseError, Parser};
 use i3_common::safewrappers::sasprintf;
-use i3_json::{Event, EventHandler, ParseError, Parser};
 use std::cell::RefCell;
 use std::ffi::{CStr, CString};
 use std::rc::Rc;
@@ -916,7 +916,7 @@ fn content_result(bytes: &[u8]) -> (JsonContent, Option<ParseError>) {
         result,
         parsed
             .err()
-            .filter(|error| error.kind != i3_json::ParseErrorKind::Canceled),
+            .filter(|error| error.kind != i3_common::json_stream::ParseErrorKind::Canceled),
     )
 }
 fn determine_content(bytes: &[u8]) -> JsonContent {

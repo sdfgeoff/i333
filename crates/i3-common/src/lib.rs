@@ -59,3 +59,7 @@ pub mod cli;
 
 /// Narrow transitional access to maintained XCB on a borrowed native connection.
 pub mod xcb_connection;
+/// Narrow compatibility formatting for rejected native output.
+pub mod json_rejection;
+/// Serde decoding with incremental i3 protocol framing.
+pub mod json_stream;

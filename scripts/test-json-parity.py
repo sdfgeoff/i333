@@ -184,7 +184,7 @@ def main():
                *[dict(name="generator-double-"+v,ops=[["double",v]]) for v in ["0.0","-0.0","0.1","0.3333333333333333","1e100","1e-100","1.7976931348623157e308"]],
                *[dict(name="generator-nonfinite-"+v,ops=[["double",v]]) for v in ["NaN","inf","-inf"]]]
     all_cases=parse_cases+gen_cases
-    probe = args.probe.resolve() if args.probe else build_probe("i3-json", "native_json_oracle", args.offline)
+    probe = args.probe.resolve() if args.probe else build_probe("i3-common", "native_json_oracle", args.offline)
     run=subprocess.run([str(probe), "--probe"],input=''.join(json.dumps(case)+'\n' for case in all_cases),text=True,capture_output=True,check=True,timeout=60)
     outputs=[json.loads(line) for line in run.stdout.splitlines()]
     differences=[]

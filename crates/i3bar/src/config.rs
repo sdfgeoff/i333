@@ -6,9 +6,9 @@ pub use crate::application::{
 };
 use crate::application::{BarBindingLinks, TrayOutputLinks};
 use crate::application::{BarDisplayMode, BarPosition, HiddenState, Rect};
+use i3_common::json_stream::{Event, EventHandler, ParseError, ParseErrorKind, Parser};
 use i3_common::safewrappers::srealloc;
 use i3_common::string::I3String;
-use i3_json::{Event, EventHandler, ParseError, ParseErrorKind, Parser};
 use libc::free;
 use std::cell::RefCell;
 use std::ffi::CString;

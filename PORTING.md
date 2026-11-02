@@ -26,7 +26,7 @@
    to compile project sources. A C compiler driver may still invoke the native
    linker. The workspace separates the window manager (`i3`), shared Rust
    helper library (`i3-common`), bar (`i3bar`), five utility binaries
-   (`i3-tools`), build configuration (`i3-build`), Rust JSON (`i3-json`) and
+   (`i3-tools`), build configuration (`i3-build`) and
    dedicated native boundaries. Standard module declarations keep source inside
    each crate; native binding crates own their linking metadata.
 5. **Test isolation.** Never replace, restart, signal, or send commands to the

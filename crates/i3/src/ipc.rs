@@ -378,7 +378,7 @@ impl CommandReply<'_> {
             .iter()
             .all(|(_, value)| !matches!(value, ReplyField::Text(text) if text.to_str().is_err()))
     }
-    fn legacy(&self, output: &mut i3_json::Generator) {
+    fn legacy(&self, output: &mut i3_common::json_rejection::RejectedOutput) {
         let fields = self.fields();
         // Legacy generators reject invalid UTF-8 without consuming a value.
         // Preserve the subsequent key/value state and partial output exactly;
@@ -432,7 +432,7 @@ pub unsafe fn emit_command_reply(
 #[derive(Default)]
 pub struct CommandReplies {
     items: Vec<Vec<u8>>,
-    compatibility: Option<i3_json::Generator>,
+    compatibility: Option<i3_common::json_rejection::RejectedOutput>,
 }
 impl CommandReplies {
     fn push(&mut self, reply: CommandReply<'_>) {
@@ -442,14 +442,15 @@ impl CommandReplies {
             return;
         }
         let output = self.compatibility.get_or_insert_with(|| {
-            let mut output = i3_json::Generator::new();
-            let _ = output.start_array();
-            for bytes in self.items.drain(..) {
-                let value: &serde_json::value::RawValue =
-                    serde_json::from_slice(&bytes).expect("Serde reply bytes");
-                let _ = output.serialized(value);
+            let mut prefix = vec![b'['];
+            let populated = !self.items.is_empty();
+            for (index, bytes) in self.items.drain(..).enumerate() {
+                if index > 0 {
+                    prefix.push(b',');
+                }
+                prefix.extend_from_slice(&bytes);
             }
-            output
+            i3_common::json_rejection::RejectedOutput::resume_array(prefix, populated)
         });
         reply.legacy(output);
     }
@@ -936,53 +937,43 @@ impl WireValue for NodeRef {
     fn depth(&self) -> usize {
         unsafe { self.validation().unwrap_or(129) }
     }
-    fn legacy(&self, output: &mut i3_json::Generator) {
+    fn legacy(&self, output: &mut i3_common::json_rejection::RejectedOutput) {
         unsafe {
-            dump_node_stream(output, self.con, self.restart, &mut true);
+            dump_node_stream(output, self.con, self.restart);
         }
     }
 }
 pub unsafe fn node_payload(con: *mut Con, restart: bool) -> Vec<u8> {
     NodeRef { con, restart }.to_bytes()
 }
-/// Native graph traversal remains streaming: Serde sees only bounded value
-/// segments, never a recursively constructed copy of the complete window tree.
-pub unsafe fn dump_node(output: &mut i3_json::Generator, con: *mut Con, restart: bool) {
-    NodeRef { con, restart }.write(output);
-}
+/// Exceptional native values retain historical partial-output behavior. Normal
+/// graph traversal is handled by NodeRef's Serde implementation above.
 unsafe fn dump_node_stream(
-    output: &mut i3_json::Generator,
+    output: &mut i3_common::json_rejection::RejectedOutput,
     con: *mut Con,
     restart: bool,
-    compatibility: &mut bool,
 ) {
     use messages::WireFields;
-    if output.start_object().is_err() {
-        *compatibility = true;
-    }
-    snapshot_node_header(con, restart).fields(output, compatibility);
+    let _ = output.start_object();
+    snapshot_node_header(con, restart).fields(output);
     let _ = output.string("nodes");
-    if output.start_array().is_err() {
-        *compatibility = true;
-    }
+    let _ = output.start_array();
     if (*con).type_0 != ContainerType::DockArea || !restart {
         let mut child = nodes::first_ptr(con);
         while !child.is_null() {
-            dump_node_stream(output, child, restart, compatibility);
+            dump_node_stream(output, child, restart);
             child = nodes::next_ptr(child);
         }
     }
     let _ = output.end_array();
     let _ = output.string("floating_nodes");
-    if output.start_array().is_err() {
-        *compatibility = true;
-    }
+    let _ = output.start_array();
     for id in floating::children(identity(con).expect("live floating parent")) {
         let Some(child) = resolve(id) else { continue };
-        dump_node_stream(output, child, restart, compatibility);
+        dump_node_stream(output, child, restart);
     }
     let _ = output.end_array();
-    snapshot_node_tail(con, restart).fields(output, compatibility);
+    snapshot_node_tail(con, restart).fields(output);
     let _ = output.end_object();
 }
 
@@ -1082,9 +1073,6 @@ unsafe fn snapshot_bar_config(config: *mut Barconfig) -> messages::BarConfig {
         verbose: (*config).verbose,
         colors,
     }
-}
-unsafe fn dump_bar_config(output: &mut i3_json::Generator, config: *mut Barconfig) {
-    snapshot_bar_config(config).write(output);
 }
 
 unsafe fn handle_tree(
@@ -1274,19 +1262,22 @@ unsafe fn handle_get_binding_modes(
     }
     send_typed_reply(client, I3_IPC_REPLY_TYPE_BINDING_MODES as u32, &names);
 }
-fn parse_subscriptions(message: &[u8]) -> (Vec<CString>, Result<(), i3_json::ParseError>) {
+fn parse_subscriptions(
+    message: &[u8],
+) -> (Vec<CString>, Result<(), i3_common::json_stream::ParseError>) {
     let events = Rc::new(RefCell::new(Vec::new()));
     let output = events.clone();
-    let mut parser = i3_json::Parser::new(move |event: i3_json::Event<'_>| {
-        if let i3_json::Event::String(bytes) = event {
-            let prefix = &bytes[..bytes
-                .iter()
-                .position(|byte| *byte == 0)
-                .unwrap_or(bytes.len())];
-            output.borrow_mut().push(CString::new(prefix).unwrap());
-        }
-        true
-    });
+    let mut parser =
+        i3_common::json_stream::Parser::new(move |event: i3_common::json_stream::Event<'_>| {
+            if let i3_common::json_stream::Event::String(bytes) = event {
+                let prefix = &bytes[..bytes
+                    .iter()
+                    .position(|byte| *byte == 0)
+                    .unwrap_or(bytes.len())];
+                output.borrow_mut().push(CString::new(prefix).unwrap());
+            }
+            true
+        });
     parser.options_mut().allow_legacy_whitespace = true;
     let result = parser.parse(message);
     drop(parser);
@@ -1404,13 +1395,13 @@ struct SyncEvents {
     state: Rc<RefCell<SyncRequest>>,
     error: Option<String>,
 }
-impl i3_json::EventHandler for SyncEvents {
-    fn on_event(&mut self, event: i3_json::Event<'_>) -> bool {
+impl i3_common::json_stream::EventHandler for SyncEvents {
+    fn on_event(&mut self, event: i3_common::json_stream::Event<'_>) -> bool {
         match event {
-            i3_json::Event::MapKey(bytes) => {
+            i3_common::json_stream::Event::MapKey(bytes) => {
                 self.key = CString::new(bytes.split(|byte| *byte == 0).next().unwrap()).unwrap()
             }
-            i3_json::Event::Number(number) if !number.contains(['.', 'e', 'E']) => {
+            i3_common::json_stream::Event::Number(number) if !number.contains(['.', 'e', 'E']) => {
                 if let Ok(number) = number.parse::<i64>() {
                     if number != i64::MIN {
                         if unsafe { strcasecmp(self.key.as_ptr(), c"rnd".as_ptr()) == 0 } {
@@ -1433,9 +1424,9 @@ impl i3_json::EventHandler for SyncEvents {
         self.error.as_deref()
     }
 }
-fn parse_sync(message: &[u8]) -> Result<SyncRequest, i3_json::ParseError> {
+fn parse_sync(message: &[u8]) -> Result<SyncRequest, i3_common::json_stream::ParseError> {
     let state = Rc::new(RefCell::new(SyncRequest::default()));
-    let mut parser = i3_json::Parser::new(SyncEvents {
+    let mut parser = i3_common::json_stream::Parser::new(SyncEvents {
         key: CString::default(),
         state: state.clone(),
         error: None,
@@ -2058,19 +2049,18 @@ mod client_lifetime_tests {
     }
     #[test]
     fn value_serialization_keeps_signed_coordinates_gap_alias_and_modifier_order() {
-        let mut gen = i3_json::Generator::new();
-        gen.start_object().unwrap();
-        gen.string("rect").unwrap();
-        signed_rect(Rect {
+        let rect = signed_rect(Rect {
             x: u32::MAX,
             y: 0x8000_0000,
             width: u32::MAX,
             height: 1,
-        })
-        .write(&mut gen);
-        gen.end_object().unwrap();
+        });
+        #[derive(serde::Serialize)]
+        struct RectMessage {
+            rect: messages::Rectangle,
+        }
         assert_eq!(
-            gen.bytes(),
+            serde_json::to_vec(&RectMessage { rect }).unwrap(),
             br#"{"rect":{"x":-1,"y":-2147483648,"width":4294967295,"height":1}}"#
         );
         let gaps = gap_values(gaps_t {

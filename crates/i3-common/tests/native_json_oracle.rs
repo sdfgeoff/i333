@@ -1,4 +1,7 @@
-use i3_json::{Event, EventHandler, Generator, ParseError, ParseErrorKind, Parser, ParserOptions};
+use i3_common::json_rejection::RejectedOutput;
+use i3_common::json_stream::{
+    Event, EventHandler, ParseError, ParseErrorKind, Parser, ParserOptions,
+};
 use serde_json::{json, Value};
 use std::{
     cell::RefCell,
@@ -107,7 +110,7 @@ fn parse(v: &Value) -> Value {
     json!({"steps":steps,"finish":finish,"events":events.borrow().clone()})
 }
 fn generate(v: &Value) -> Value {
-    let mut g = Generator::new();
+    let mut g = RejectedOutput::new();
     let mut states = vec![];
     for op in v["ops"].as_array().unwrap() {
         let name = op[0].as_str().unwrap();
@@ -129,12 +132,11 @@ fn generate(v: &Value) -> Value {
         };
         let status = match r {
             Ok(()) => 0,
-            Err(i3_json::GenerateError::KeysMustBeStrings) => 1,
-            Err(i3_json::GenerateError::DepthExceeded) => 2,
-            Err(i3_json::GenerateError::InvalidState) => 3,
-            Err(i3_json::GenerateError::Complete) => 4,
-            Err(i3_json::GenerateError::InvalidNumber) => 5,
-            Err(i3_json::GenerateError::InvalidString) => 7,
+            Err(i3_common::json_rejection::Rejection::KeysMustBeStrings) => 1,
+            Err(i3_common::json_rejection::Rejection::DepthExceeded) => 2,
+            Err(i3_common::json_rejection::Rejection::InvalidState) => 3,
+            Err(i3_common::json_rejection::Rejection::Complete) => 4,
+            Err(i3_common::json_rejection::Rejection::InvalidNumber) => 5,
         };
         states.push(json!({"status":status,"bytes":hex(g.bytes())}));
     }

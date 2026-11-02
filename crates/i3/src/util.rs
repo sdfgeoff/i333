@@ -4,7 +4,7 @@ use crate::application::{main_loop, start_argv};
 use crate::bindings::command_error_nagbar_pid;
 use crate::config::config;
 use crate::config_parser::config_error_nagbar_pid;
-use crate::ipc::{dump_node, ipc_shutdown};
+use crate::ipc::ipc_shutdown;
 use crate::log::{debuglog, errorlog, get_debug_logging, verboselog};
 use crate::manage::restore_geometry;
 use crate::tree::croot;
@@ -298,8 +298,7 @@ impl Drop for NumericLocale {
         }
     }
 }
-/// Live event-thread tree and serialized process-locale contract. dump_node only
-/// borrows the stack-owned generator for its call; no raw adapter is published.
+/// Serialize the live event-thread tree while holding the process-locale guard.
 unsafe fn restart_layout_payload() -> Vec<u8> {
     let _locale = NumericLocale::c();
     crate::ipc::node_payload(croot, true)

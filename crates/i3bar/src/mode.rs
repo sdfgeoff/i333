@@ -9,8 +9,8 @@
  */
 //! Binding-mode events use owned parser state and owned display text.
 
+use i3_common::json_stream::{Event, EventHandler, ParseError, ParseErrorKind, Parser};
 use i3_common::string::I3String;
-use i3_json::{Event, EventHandler, ParseError, ParseErrorKind, Parser};
 use std::cell::RefCell;
 use std::io::Write;
 use std::rc::Rc;

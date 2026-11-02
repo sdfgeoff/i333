@@ -10,7 +10,6 @@
    | `i3bar` | Status bar executable |
    | `i3-tools` | `i3-msg`, `i3-dump-log`, `i3-input`, `i3-nagbar`, `i3-config-wizard` |
    | `i3-build` | Shared version, target and compiler configuration |
-   | `i3-json` | Rust streaming JSON parser/generator using `serde_json` |
    | `i3-test-support` | Development-only Cargo regression orchestration and captured logs |
    | `libev-sys` | Canonical native event-loop handles and watcher layouts |
    | `xcb-sys` | Shared XCB protocol and extension boundary |
@@ -184,11 +183,14 @@
    providers replace executable symbol lookup; providers run on their registered
    event thread. Native callbacks, loader initialization hooks and language-
    required variadic adapters retain the C ABI.
-9. **JSON compatibility checks.** `i3-json` uses owned streaming state and
-   `serde_json` scalar encoding/decoding. It emits events before a never-closed
-   i3bar outer array finishes. Existing core/bar files still use pointer callback
-   adapters in `i3_json::compat`; these are Rust functions without YAJL linking.
-   New code can use `Parser` and `Generator` directly.
+9. **JSON compatibility checks.** Core IPC schemas, lazy borrowed tree views and
+   complete click messages serialize directly through Serde. The former
+   `i3-json` crate is removed. Shared `i3_common::json_stream` uses Serde visitors
+   for JSON grammar, raw number tokens and byte-preserving text decoding. Its
+   incremental framing adapter retains callbacks for incomplete layouts and
+   never-closed i3bar status arrays. `i3_common::json_rejection` is used only when
+   malformed native strings, non-finite values or the historical output-depth
+   limit require legacy partial bytes that valid Serde messages cannot express.
 
    Cargo runs the JSON/PCRE/variadic compatibility drivers using already-built
    Rust probe executables. Their Python code uses ctypes only for independent

@@ -297,7 +297,6 @@ dependencies = [
  "cairo-sys-rs",
  "i3-build",
  "i3-common",
- "i3-json",
  "i3-test-support",
  "libc",
  "libev-sys",
@@ -330,17 +329,10 @@ dependencies = [
  "pango-sys",
  "pangocairo",
  "pangocairo-sys",
- "xcb",
- "xcb-sys",
-]
-
-[[package]]
-name = "i3-json"
-version = "4.25.0"
-dependencies = [
- "i3-test-support",
  "serde",
  "serde_json",
+ "xcb",
+ "xcb-sys",
 ]
 
 [[package]]
@@ -372,7 +364,6 @@ dependencies = [
  "cairo-sys-rs",
  "i3-build",
  "i3-common",
- "i3-json",
  "i3-test-support",
  "libc",
  "libev-sys",
