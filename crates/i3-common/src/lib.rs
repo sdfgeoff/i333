@@ -32,7 +32,6 @@ pub mod get_config_path;
 pub mod get_exe_path;
 pub mod get_mod_mask;
 pub mod get_process_filename;
-pub mod get_visualtype;
 pub mod ipc_connect;
 pub mod ipc_recv_message;
 pub mod ipc_send_message;

@@ -1,9 +1,11 @@
 //! Real maintained-XCB ownership and protocol checks on an owned private display.
 use i3_common::display::DisplayContext;
+use maintained_xcb::native_utilities as native;
 use std::ffi::{CStr, CString};
 use xcb::{x, Xid};
 
 mod maintained_xcb {
+    pub mod native_utilities;
     pub mod utility_probe;
 }
 
@@ -203,9 +205,7 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
         .nth(screen_number as usize)
         .unwrap();
     let root = screen.root();
-    let raw = connection
-        .get_raw_conn()
-        .cast::<xcb_sys::xcb_connection_t>();
+    let raw = connection.get_raw_conn();
     {
         // SAFETY: this view is dropped before its sole maintained owner, and no
         // callback can disconnect the connection during this synchronous probe.
@@ -278,7 +278,7 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
     sync(&connection);
     // The remaining raw screen adapter is exclusively for existing native
     // callers; the maintained requests own all replies used by these helpers.
-    let raw_screen = unsafe { xcb_sys::xcb_aux_get_screen(raw, screen_number) };
+    let raw_screen = unsafe { native::xcb_aux_get_screen(raw, screen_number) };
     assert!(!raw_screen.is_null());
     let owned_screen =
         i3_common::display::DisplayScreen::new(connection.clone(), screen_number).unwrap();
@@ -293,7 +293,7 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
     ));
     let cached_visual_weak = std::rc::Rc::downgrade(&cached_visual);
     unsafe {
-        let native = i3_common::get_visualtype::get_visualtype(raw_screen);
+        let native = native::xcb_aux_find_visual_by_id(raw_screen, screen.root_visual());
         assert!(!native.is_null());
         let native_bytes = std::slice::from_raw_parts(native.cast::<u8>(), 24);
         assert_eq!(
@@ -343,22 +343,10 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
             );
         }
     }
-    // Cairo consumes a native visual record, never the maintained alignment-one
-    // wire view. Only this foreign-library boundary uses a native setup pointer.
-    let mut native_visual = std::ptr::null_mut();
-    unsafe {
-        let mut depths = xcb_sys::xcb_screen_allowed_depths_iterator(raw_screen);
-        while depths.rem != 0 {
-            let mut visuals = xcb_sys::xcb_depth_visuals_iterator(depths.data);
-            while visuals.rem != 0 {
-                if (*visuals.data).visual_id == screen.root_visual() {
-                    native_visual = visuals.data;
-                }
-                xcb_sys::xcb_visualtype_next(&mut visuals);
-            }
-            xcb_sys::xcb_depth_next(&mut depths);
-        }
-    }
+    // The native utility oracle supplies Cairo's own opaque native visual;
+    // protocol traversal and header schemas are not duplicated in the fixture.
+    let native_visual =
+        unsafe { native::xcb_aux_find_visual_by_id(raw_screen, screen.root_visual()) };
     assert!(!native_visual.is_null());
     let mut surface: i3_common::draw_util::surface_t = unsafe { std::mem::zeroed() };
     unsafe {
@@ -419,12 +407,12 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
     let mapping = connection
         .wait_for_reply(connection.send_request(&x::GetModifierMapping {}))
         .unwrap();
-    let symbols = unsafe { xcb_sys::xcb_key_symbols_alloc(raw) };
+    let symbols = unsafe { native::xcb_key_symbols_alloc(raw) };
     assert!(!symbols.is_null());
     for keysym in [0xffe1, 0xffe3, 0xffe9, 0xff7f, 0xffeb, u32::MAX] {
         // Compute the expected modifier with the native utility's keycode list
         // and the real server mapping, independently of production traversal.
-        let codes = unsafe { xcb_sys::xcb_key_symbols_get_keycode(symbols, keysym) };
+        let codes = unsafe { native::xcb_key_symbols_get_keycode(symbols, keysym) };
         let expected = if codes.is_null() {
             0
         } else {
@@ -457,7 +445,7 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
             expected
         );
     }
-    unsafe { xcb_sys::xcb_key_symbols_free(symbols) };
+    unsafe { native::xcb_key_symbols_free(symbols) };
 
     assert!(i3_common::is_background_set::is_background_set(
         &connection,

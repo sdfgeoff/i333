@@ -9,7 +9,6 @@ repository.workspace = true
 xcb-interop.workspace = true
 serde.workspace = true
 serde_json = { workspace = true, features = ["arbitrary_precision", "raw_value", "unbounded_depth"] }
-xcb-sys.workspace = true
 xcb.workspace = true
 libc.workspace = true
 c2rust-bitfields.workspace = true

@@ -28,6 +28,14 @@ pub unsafe fn borrowed(raw: *mut xcb_connection_t) -> Option<xcb::Connection> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[link(name = "xcb")]
+    unsafe extern "C" {
+        fn xcb_connect(
+            display: *const libc::c_char,
+            screen: *mut libc::c_int,
+        ) -> *mut xcb_connection_t;
+        fn xcb_disconnect(connection: *mut xcb_connection_t);
+    }
 
     #[test]
     fn borrowed_view_rejects_null_and_failed_native_connections() {
@@ -35,10 +43,10 @@ mod tests {
         // a failed but live native object without attempting a desktop connection.
         unsafe {
             assert!(borrowed(std::ptr::null_mut()).is_none());
-            let raw = xcb_sys::xcb_connect(c"not-a-display".as_ptr(), std::ptr::null_mut());
+            let raw = xcb_connect(c"not-a-display".as_ptr(), std::ptr::null_mut());
             assert!(!raw.is_null());
             assert!(borrowed(raw.cast()).is_none());
-            xcb_sys::xcb_disconnect(raw);
+            xcb_disconnect(raw);
         }
     }
 }

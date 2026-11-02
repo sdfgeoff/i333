@@ -1,4 +1,5 @@
 //! Independent native utility comparisons and real additional-button delivery.
+use super::native_utilities as native;
 use std::{
     ffi::CStr,
     rc::Rc,
@@ -9,12 +10,12 @@ use xcb_interop::{cursor::CursorContext, keysyms::KeySymbols, transport, xrm::Da
 
 pub fn verify(connection: Rc<xcb::Connection>, screen: i32, root: x::Window) {
     let mut owned = KeySymbols::new(connection.clone()).unwrap();
-    let reference = unsafe { xcb_sys::xcb_key_symbols_alloc(connection.get_raw_conn().cast()) };
+    let reference = unsafe { native::xcb_key_symbols_alloc(connection.get_raw_conn().cast()) };
     assert!(!reference.is_null());
     for keycode in 0..=u8::MAX {
         for column in [i32::MIN, -1, 0, 1, 2, 3, 4, 5, 6, 7, 255, 256, i32::MAX] {
             assert_eq!(owned.keysym(keycode, column), unsafe {
-                xcb_sys::xcb_key_symbols_get_keysym(reference, keycode, column)
+                native::xcb_key_symbols_get_keysym(reference, keycode, column)
             });
         }
     }
@@ -22,7 +23,7 @@ pub fn verify(connection: Rc<xcb::Connection>, screen: i32, root: x::Window) {
         .wait_for_reply(connection.send_request(&x::GetModifierMapping {}))
         .unwrap();
     for keysym in [0, 0xffe1, 0xffe3, 0xff7f, 0xffeb, u32::MAX] {
-        let native = unsafe { xcb_sys::xcb_key_symbols_get_keycode(reference, keysym) };
+        let native = unsafe { native::xcb_key_symbols_get_keycode(reference, keysym) };
         let expected = if native.is_null() {
             Vec::new()
         } else {
@@ -50,10 +51,10 @@ pub fn verify(connection: Rc<xcb::Connection>, screen: i32, root: x::Window) {
     assert_eq!(
         owned.keysym(connection.get_setup().min_keycode(), 0),
         unsafe {
-            xcb_sys::xcb_key_symbols_get_keysym(reference, connection.get_setup().min_keycode(), 0)
+            native::xcb_key_symbols_get_keysym(reference, connection.get_setup().min_keycode(), 0)
         }
     );
-    unsafe { xcb_sys::xcb_key_symbols_free(reference) };
+    unsafe { native::xcb_key_symbols_free(reference) };
     drop(owned);
 
     assert!(CursorContext::new(connection.clone(), -1).is_err());
