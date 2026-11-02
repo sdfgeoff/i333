@@ -5,6 +5,7 @@
 //! Detect whether the root background repaints after a temporary window disappears.
 #![deny(unsafe_op_in_unsafe_fn)]
 
+use crate::display::ScreenInfo;
 use cairo_sys::{
     cairo_rectangle_int_t, cairo_region_create_rectangle, cairo_region_destroy,
     cairo_region_get_rectangle, cairo_region_num_rectangles, cairo_region_subtract_rectangle,
@@ -12,7 +13,6 @@ use cairo_sys::{
 };
 use std::ptr::NonNull;
 use xcb::{x, XidNew};
-use xcb_sys::{xcb_connection_t, xcb_screen_t};
 
 struct Region(NonNull<cairo_region_t>);
 
@@ -83,7 +83,7 @@ fn image_pixel(depth: u8, data: &[u8]) -> u32 {
 }
 
 /// Find a pixel not covered by a viewable root child, retaining native batching.
-fn unobscured_pixel(connection: &xcb::Connection, screen: &xcb_screen_t) -> (u16, u16) {
+fn unobscured_pixel(connection: &xcb::Connection, screen: &ScreenInfo) -> (u16, u16) {
     let mut region = Region::new(screen.width_in_pixels, screen.height_in_pixels);
     let cookie = connection.send_request_unchecked(&x::QueryTree {
         window: x::Window::new(screen.root),
@@ -141,7 +141,7 @@ fn unobscured_pixel(connection: &xcb::Connection, screen: &xcb_screen_t) -> (u16
 /// after an image round trip confirms the previous destroy has completed.
 fn flicker_window_at(
     connection: &xcb::Connection,
-    screen: &xcb_screen_t,
+    screen: &ScreenInfo,
     x: i16,
     y: i16,
     window: x::Window,
@@ -192,31 +192,22 @@ fn flicker_window_at(
 }
 
 /// Check whether the root background is restored after temporary windows disappear.
-///
-/// # Safety
-/// conn must be a live XCB connection. screen must point to its initialized screen
-/// record and remain readable throughout the call. The caller must permit native
-/// root-window requests and temporary windows on that connection's display.
-pub unsafe fn is_background_set(conn: *mut xcb_connection_t, screen: *mut xcb_screen_t) -> bool {
-    // SAFETY: the native owner and screen remain live throughout this call; no
-    // callback or disconnect occurs while the non-owning maintained view exists.
-    let Some(connection) = (unsafe { crate::xcb_connection::borrowed(conn) }) else {
-        return false;
-    };
-    let screen = unsafe { &*screen };
-    let (x, y) = unobscured_pixel(&connection, screen);
+/// This deliberately creates temporary override-redirect windows on the supplied
+/// connection and compares the restored root pixels between two round trips.
+pub fn is_background_set(connection: &xcb::Connection, screen: ScreenInfo) -> bool {
+    let (x, y) = unobscured_pixel(connection, &screen);
     let window = connection.generate_id();
     let first = flicker_window_at(
-        &connection,
-        screen,
+        connection,
+        &screen,
         x as i16,
         y as i16,
         window,
         screen.black_pixel,
     );
     let second = flicker_window_at(
-        &connection,
-        screen,
+        connection,
+        &screen,
         x as i16,
         y as i16,
         window,

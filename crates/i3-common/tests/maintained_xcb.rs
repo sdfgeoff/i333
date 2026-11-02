@@ -455,7 +455,10 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
     }
     unsafe { xcb_sys::xcb_key_symbols_free(symbols) };
 
-    assert!(unsafe { i3_common::is_background_set::is_background_set(raw, raw_screen) });
+    assert!(i3_common::is_background_set::is_background_set(
+        &connection,
+        owned_screen.info()
+    ));
     let image = || {
         let request = connection.send_request(&x::GetImage {
             format: x::ImageFormat::ZPixmap,
@@ -482,7 +485,10 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
     });
     sync(&connection);
     assert_eq!(image(), before);
-    assert!(unsafe { i3_common::is_background_set::is_background_set(raw, raw_screen) });
+    assert!(i3_common::is_background_set::is_background_set(
+        &connection,
+        owned_screen.info()
+    ));
     sync(&connection);
     connection.has_error().unwrap();
     assert_ne!(root.resource_id(), 0);
