@@ -8,24 +8,24 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 27 wallclock secs ( 0.92 usr +  0.09 sys =  1.01 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 24 wallclock secs ( 0.84 usr +  0.07 sys =  0.91 CPU)\nResult: PASS",
     "profile": "debug",
     "build": "cargo test --locked",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "df8514be656380d4ddc4b8c202f69413ab18960aedef71d00e0606ae20eb01bf",
-    "i3bar": "5739fdb0ef69c6c14b13400bd7cd45d9ec5d26d32177dcc7dc13dfd859246f5a",
-    "i3-config-wizard": "a7629404493e52b24922476cd9e95976f81e38264230faf6fda33f567a828faf",
-    "i3-dump-log": "b92921adb0f7a8661912e35159bb89b1682fd6a2d4627e5726b674eb38110e13",
-    "i3-input": "0ae87e66facc45977549c1e85fc631e009d35c0131e8bbe71c3553d4796b2e12",
-    "i3-msg": "f01c551651e593e72d185846d00f47cdb698fbf1d2a9bff173655486abd081f9",
-    "i3-nagbar": "c3049c98467a2c3e427fff8740c24480a02816d1ef4404b8fb4184bcd8470105"
+    "i3": "65b39d204cba092c80ef8ccfd19101e435e792a53d9e2dad7c0343d1e2d6d113",
+    "i3bar": "7a916993a3ac939ce2fa114e76b3e0a9763053afefe91ff018f7705e44b7b91c",
+    "i3-config-wizard": "6b8a3f260aa19b65972a8229c834599080e5f56ab0ccc7279c7db5463cc97622",
+    "i3-dump-log": "64b929a511ba20ed48e4f135766eeaa83d257eb45ddd364da5fda72acbf6eb65",
+    "i3-input": "038976039e19a1d11a64451b5c6436ed9656ff2a074c401440063eb734bab460",
+    "i3-msg": "d3e2aa1446a30612f5ec17d055784b5c22b3ac6995bda470d1630319068527aa",
+    "i3-nagbar": "3a3bbf31ef9643fbd0e91e06d2487075bd69623e0a7dd3f2f4d1960682a8f62b"
   },
   "note": "Ten-member Cargo workspace. cargo test --locked passed 425 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
   "additional_checks": {
-    "headless_c_rust_state_comparisons": 56,
+    "headless_c_rust_state_comparisons": 61,
     "ipc_client_test_groups": 16,
     "workspace_unit_tests": 425,
     "core_and_bar_cli_comparisons": 39,
@@ -50,13 +50,15 @@
     "pango_native_measurement_and_rendering_cases": 18,
     "forced_xinerama_private_display_checkpoints": 2,
     "wizard_private_workflow_and_config_cases": 5,
-    "bar_private_stream_workflows": 2,
-    "bar_private_raster_comparisons": 6,
+    "bar_private_stream_workflows": 3,
+    "bar_private_raster_comparisons": 10,
     "ipc_production_output_golden_cases": 23,
     "xkeysym_native_classification_comparisons": 917532,
     "transient_hint_native_comparisons": 72,
     "lossless_input_event_state_comparisons": 458752,
-    "window_hint_native_flag_input_comparisons": 136
+    "window_hint_native_flag_input_comparisons": 136,
+    "bar_private_xembed_lifecycle": true,
+    "bar_private_modifier_hide_reload": true
   },
   "toolchain": {
     "rustc": "rustc 1.99.0-nightly (11177f223 2026-08-02)",
@@ -120,11 +122,11 @@
     "binary_count": 7,
     "native_library_discovery": "maintained native binding build scripts and dedicated sys crates; i3-build links only platform m/rt",
     "unit_tests": {
-      "i3": 222,
+      "i3": 223,
       "cargo_regression_wrappers": 8,
       "xkb_integration": 1,
       "i3-build": 3,
-      "i3-common": 92,
+      "i3-common": 91,
       "native_graphics": 5,
       "i3-config-wizard": 5,
       "i3-dump-log": 5,
@@ -2293,6 +2295,14 @@
         "stage": 12,
         "source_commit": "32129d26dfd8e39884b2ff83a17bfd8a4b325fe7",
         "scope": "Owned WM selection/XKB/Shape negotiation; typed Shape requests and checked event snapshots; complete frame map/focus/warp and lifecycle requests; safe ConfigureNotify/CreateWindow helper interfaces and coordinated callers; native sync routing preserved; aligned owned Cairo visuals and maintained screen views. Native setup provider adaptation follows.",
+        "rust_tests": 425,
+        "upstream_assertions": 4205,
+        "status": "validated"
+      },
+      {
+        "stage": 13,
+        "source_commit": "ad0009c6c34966e12008b7a2e7bdf69e0f589166",
+        "scope": "Atomic canonical display/provider/surface APIs across core, bar, common and tools; retained DisplayScreen and aligned CairoVisual owners; Arena graphics teardown precedes static visuals; independent/emergency owners explicit; startup notification uses canonical maintained ffi. XCB font emergency drawing avoids registry/Rc. Permanent61 C/Rust lifecycle comparisons cover replacement and Pango/XCB crash recovery.",
         "rust_tests": 425,
         "upstream_assertions": 4205,
         "status": "validated"
