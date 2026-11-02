@@ -2032,15 +2032,15 @@ pub unsafe fn init_xcb_early() -> *mut ::core::ffi::c_char {
     } else {
         visual_type = get_visualtype(root_screen);
     }
-    let mut cursor_ctx: *mut xcb_cursor_context_t = ::core::ptr::null_mut::<xcb_cursor_context_t>();
-    if xcb_cursor_context_new(conn, root_screen, &raw mut cursor_ctx) < 0 as ::core::ffi::c_int {
-        errx(
+    let cursor_context = match xcb_interop::cursor::CursorContext::new(connection.clone(), screen) {
+        Ok(context) => context,
+        Err(_) => errx(
             libc::EXIT_FAILURE,
             c"Cannot allocate xcursor context".as_ptr(),
-        );
-    }
-    cursor = xcb_cursor_load_cursor(cursor_ctx, c"left_ptr".as_ptr());
-    xcb_cursor_context_free(cursor_ctx);
+        ),
+    };
+    cursor = ::xcb::Xid::resource_id(&cursor_context.load(c"left_ptr"));
+    drop(cursor_context);
     xcb_io = smalloc(std::mem::size_of::<ev_io>()).cast();
     xcb_io.write(ev_io::new(
         std::os::fd::AsRawFd::as_raw_fd(connection.as_ref()),
@@ -3262,31 +3262,29 @@ use xcb_sys::{
     xcb_change_window_attributes, xcb_client_message_event_t, xcb_color_strings_t, xcb_colormap_t,
     xcb_configure_request_event_t, xcb_configure_window, xcb_configure_window_checked,
     xcb_connection_t, xcb_create_colormap_checked, xcb_create_pixmap_checked, xcb_create_window,
-    xcb_create_window_checked, xcb_cursor_context_free, xcb_cursor_context_new,
-    xcb_cursor_context_t, xcb_cursor_load_cursor, xcb_cursor_t, xcb_destroy_notify_event_t,
-    xcb_destroy_window, xcb_drawable_t, xcb_expose_event_t, xcb_flush, xcb_free_cursor,
-    xcb_free_pixmap, xcb_generate_id, xcb_generic_error_t, xcb_generic_event_t,
-    xcb_get_extension_data, xcb_get_property, xcb_get_property_cookie_t, xcb_get_property_reply,
-    xcb_get_property_reply_t, xcb_get_property_unchecked, xcb_get_property_value,
-    xcb_get_property_value_length, xcb_get_selection_owner, xcb_get_selection_owner_cookie_t,
-    xcb_get_selection_owner_reply, xcb_get_selection_owner_reply_t, xcb_intern_atom,
-    xcb_intern_atom_cookie_t, xcb_intern_atom_reply, xcb_intern_atom_reply_t, xcb_keycode_t,
-    xcb_map_notify_event_t, xcb_map_window, xcb_map_window_checked, xcb_pixmap_t,
-    xcb_property_notify_event_t, xcb_query_extension_reply_t, xcb_rectangle_t, xcb_reparent_window,
-    xcb_request_check, xcb_resize_request_event_t, xcb_screen_t, xcb_send_event,
-    xcb_set_selection_owner, xcb_timestamp_t, xcb_unmap_notify_event_t, xcb_unmap_window,
-    xcb_unmap_window_checked, xcb_visibility_notify_event_t, xcb_visualtype_t, xcb_void_cookie_t,
-    xcb_window_t, xcb_xkb_device_spec_t, xcb_xkb_id, xcb_xkb_select_events,
-    xcb_xkb_state_notify_event_t, xcb_xkb_use_extension, XCB_ATOM_ATOM, XCB_ATOM_CARDINAL,
-    XCB_ATOM_STRING, XCB_ATOM_VISUALID, XCB_ATOM_WM_CLASS, XCB_ATOM_WM_NAME, XCB_BUTTON_PRESS,
-    XCB_BUTTON_RELEASE, XCB_BUTTON_SCROLL_DOWN, XCB_BUTTON_SCROLL_LEFT, XCB_BUTTON_SCROLL_RIGHT,
-    XCB_BUTTON_SCROLL_UP, XCB_CLIENT_MESSAGE, XCB_COLORMAP_ALLOC_NONE, XCB_CONFIGURE_REQUEST,
-    XCB_CONFIG_WINDOW_HEIGHT, XCB_CONFIG_WINDOW_STACK_MODE, XCB_CONFIG_WINDOW_WIDTH,
-    XCB_CONFIG_WINDOW_X, XCB_CONFIG_WINDOW_Y, XCB_CURRENT_TIME, XCB_CW_BACK_PIXEL,
-    XCB_CW_BORDER_PIXEL, XCB_CW_COLORMAP, XCB_CW_CURSOR, XCB_CW_EVENT_MASK,
-    XCB_CW_OVERRIDE_REDIRECT, XCB_DESTROY_NOTIFY, XCB_EVENT_MASK_BUTTON_PRESS,
-    XCB_EVENT_MASK_BUTTON_RELEASE, XCB_EVENT_MASK_EXPOSURE, XCB_EVENT_MASK_NO_EVENT,
-    XCB_EVENT_MASK_PROPERTY_CHANGE, XCB_EVENT_MASK_RESIZE_REDIRECT,
+    xcb_create_window_checked, xcb_cursor_t, xcb_destroy_notify_event_t, xcb_destroy_window,
+    xcb_drawable_t, xcb_expose_event_t, xcb_flush, xcb_free_cursor, xcb_free_pixmap,
+    xcb_generate_id, xcb_generic_error_t, xcb_generic_event_t, xcb_get_extension_data,
+    xcb_get_property, xcb_get_property_cookie_t, xcb_get_property_reply, xcb_get_property_reply_t,
+    xcb_get_property_unchecked, xcb_get_property_value, xcb_get_property_value_length,
+    xcb_get_selection_owner, xcb_get_selection_owner_cookie_t, xcb_get_selection_owner_reply,
+    xcb_get_selection_owner_reply_t, xcb_intern_atom, xcb_intern_atom_cookie_t,
+    xcb_intern_atom_reply, xcb_intern_atom_reply_t, xcb_keycode_t, xcb_map_notify_event_t,
+    xcb_map_window, xcb_map_window_checked, xcb_pixmap_t, xcb_property_notify_event_t,
+    xcb_query_extension_reply_t, xcb_rectangle_t, xcb_reparent_window, xcb_request_check,
+    xcb_resize_request_event_t, xcb_screen_t, xcb_send_event, xcb_set_selection_owner,
+    xcb_timestamp_t, xcb_unmap_notify_event_t, xcb_unmap_window, xcb_unmap_window_checked,
+    xcb_visibility_notify_event_t, xcb_visualtype_t, xcb_void_cookie_t, xcb_window_t,
+    xcb_xkb_device_spec_t, xcb_xkb_id, xcb_xkb_select_events, xcb_xkb_state_notify_event_t,
+    xcb_xkb_use_extension, XCB_ATOM_ATOM, XCB_ATOM_CARDINAL, XCB_ATOM_STRING, XCB_ATOM_VISUALID,
+    XCB_ATOM_WM_CLASS, XCB_ATOM_WM_NAME, XCB_BUTTON_PRESS, XCB_BUTTON_RELEASE,
+    XCB_BUTTON_SCROLL_DOWN, XCB_BUTTON_SCROLL_LEFT, XCB_BUTTON_SCROLL_RIGHT, XCB_BUTTON_SCROLL_UP,
+    XCB_CLIENT_MESSAGE, XCB_COLORMAP_ALLOC_NONE, XCB_CONFIGURE_REQUEST, XCB_CONFIG_WINDOW_HEIGHT,
+    XCB_CONFIG_WINDOW_STACK_MODE, XCB_CONFIG_WINDOW_WIDTH, XCB_CONFIG_WINDOW_X,
+    XCB_CONFIG_WINDOW_Y, XCB_CURRENT_TIME, XCB_CW_BACK_PIXEL, XCB_CW_BORDER_PIXEL, XCB_CW_COLORMAP,
+    XCB_CW_CURSOR, XCB_CW_EVENT_MASK, XCB_CW_OVERRIDE_REDIRECT, XCB_DESTROY_NOTIFY,
+    XCB_EVENT_MASK_BUTTON_PRESS, XCB_EVENT_MASK_BUTTON_RELEASE, XCB_EVENT_MASK_EXPOSURE,
+    XCB_EVENT_MASK_NO_EVENT, XCB_EVENT_MASK_PROPERTY_CHANGE, XCB_EVENT_MASK_RESIZE_REDIRECT,
     XCB_EVENT_MASK_STRUCTURE_NOTIFY, XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT,
     XCB_EVENT_MASK_VISIBILITY_CHANGE, XCB_EXPOSE, XCB_GET_PROPERTY_TYPE_ANY, XCB_MAP_NOTIFY,
     XCB_NONE, XCB_PROPERTY_NEW_VALUE, XCB_PROPERTY_NOTIFY, XCB_PROP_MODE_REPLACE,

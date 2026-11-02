@@ -18,10 +18,9 @@ use crate::randr::{create_root_output, init_ws_for_output, output_init_con, outp
 use crate::types::{output_name, xoutput, xoutput as Output, Rect};
 use ::xcb::xinerama::{QueryScreensReply, ScreenInfo};
 use ::xcb::{x, xinerama, Connection, Reply};
+use i3_common::display;
 use i3_common::safewrappers::{scalloc, sstrdup};
-use i3_common::{display, xcb_connection::borrowed};
 use std::ffi::CString;
-use std::rc::Rc;
 use std::sync::atomic::{AtomicI32, Ordering};
 use xcb_sys::xcb_connection_t;
 
@@ -241,7 +240,7 @@ unsafe fn use_root_output(connection: *mut xcb_connection_t) {
 /// render and workspace graphs exclusively for this call and all init callbacks.
 pub unsafe fn xinerama_init() {
     unsafe {
-        let connection = display::connection().or_else(|| borrowed(conn).map(Rc::new));
+        let connection = display::connection();
         let Some(connection) = connection else {
             use_root_output(conn);
             return;

@@ -4,7 +4,7 @@
 use crate::con::arena::{floating, identity, resolve};
 use crate::domains::ContainerType;
 use ::xcb::{x, Xid, XidNew};
-use i3_common::xcb_connection::borrowed;
+use i3_common::display::connection;
 use std::ffi::CStr;
 use std::ptr;
 
@@ -127,7 +127,7 @@ fn desktop_property_change(previous: u32, desktop: u32) -> Option<DesktopPropert
 /// payload synchronously; neither pointer nor graph references are retained.
 unsafe fn set_bytes(window: xcb_window_t, property: xcb_atom_t, type_: xcb_atom_t, bytes: &[u8]) {
     let _ = u32::try_from(bytes.len()).expect("EWMH byte payload exceeds X11 property limit");
-    let Some(connection) = borrowed(conn) else {
+    let Some(connection) = connection() else {
         return;
     };
     connection.send_request(&x::ChangeProperty {
@@ -143,7 +143,7 @@ unsafe fn set_bytes(window: xcb_window_t, property: xcb_atom_t, type_: xcb_atom_
 /// according to the connection's negotiated byte order.
 unsafe fn set_words(window: xcb_window_t, property: xcb_atom_t, type_: xcb_atom_t, words: &[u32]) {
     let _ = u32::try_from(words.len()).expect("EWMH word payload exceeds X11 property limit");
-    let Some(connection) = borrowed(conn) else {
+    let Some(connection) = connection() else {
         return;
     };
     connection.send_request(&x::ChangeProperty {
@@ -157,7 +157,7 @@ unsafe fn set_words(window: xcb_window_t, property: xcb_atom_t, type_: xcb_atom_
 /// # Safety
 /// The event thread owns the live connection and the supplied window.
 unsafe fn delete_property(window: xcb_window_t, property: xcb_atom_t) {
-    let Some(connection) = borrowed(conn) else {
+    let Some(connection) = connection() else {
         return;
     };
     connection.send_request(&x::DeleteProperty {
@@ -429,7 +429,7 @@ pub unsafe fn ewmh_setup_hints() {
         A__NET_CLOSE_WINDOW,
         A__NET_MOVERESIZE_WINDOW,
     ];
-    let Some(connection) = borrowed(conn) else {
+    let Some(connection) = connection() else {
         return;
     };
     let wid: x::Window = connection.generate_id();

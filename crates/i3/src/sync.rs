@@ -9,10 +9,10 @@
  */
 #![deny(unsafe_op_in_unsafe_fn)]
 
-use crate::application::{conn, A_I3_SYNC};
+use crate::application::A_I3_SYNC;
 use crate::log::debuglog;
 use ::xcb::{x, XidNew};
-use i3_common::xcb_connection::borrowed;
+use i3_common::display::connection;
 use xcb_sys::{xcb_atom_t, xcb_window_t};
 
 fn sync_reply(window: xcb_window_t, random: u32, atom: xcb_atom_t) -> x::ClientMessageEvent {
@@ -44,7 +44,7 @@ pub unsafe fn sync_respond(window: xcb_window_t, rnd: u32) {
             window,
         );
         let reply = sync_reply(window, rnd, A_I3_SYNC);
-        let Some(connection) = borrowed(conn) else {
+        let Some(connection) = connection() else {
             return;
         };
         connection.send_request(&x::SendEvent {
