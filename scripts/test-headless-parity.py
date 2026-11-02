@@ -91,7 +91,7 @@ def count_windows(node):
 
 
 @contextlib.contextmanager
-def session(binary, xvfb, *, force_xinerama=False):
+def session(binary, xvfb, *, force_xinerama=False, disable_randr15=False):
     with temporary_directory(prefix="i333-headless-") as temporary:
         work = Path(temporary)
         env = {k: v for k, v in os.environ.items()
@@ -125,7 +125,10 @@ default_border pixel 2
 gaps inner 5
 gaps outer 3
 """ + ("force_xinerama yes\n" if force_xinerama else ""))
-                wm = subprocess.Popen([str(binary), "-a", "-c", str(config)], env=env,
+                arguments = [str(binary), "-a", "-c", str(config)]
+                if disable_randr15:
+                    arguments.append("--disable-randr15")
+                wm = subprocess.Popen(arguments, env=env,
                                       cwd=work, stdout=log, stderr=log)
                 wait_for(lambda: ipc.exists() or wm.poll() is not None, "WM startup")
                 if wm.poll() is not None:
@@ -216,26 +219,30 @@ def exercise(binary, xvfb):
     return snapshots
 
 
-def exercise_xinerama(binary, xvfb):
-    """Force the real legacy extension path on its own private server."""
+def exercise_output_backend(binary, xvfb, *, force_xinerama=False, disable_randr15=False):
+    """Exercise each fallback backend on its own private server."""
+    assert force_xinerama != disable_randr15
+    backend = "xinerama" if force_xinerama else "randr14"
     snapshots = []
-    with session(binary, xvfb, force_xinerama=True) as (_, ipc):
+    with session(binary, xvfb, force_xinerama=force_xinerama,
+                 disable_randr15=disable_randr15) as (_, ipc):
         def snapshot(label):
             outputs = request(ipc, 3)
             active = [output for output in outputs if output["active"]]
             assert len(active) == 1, outputs
             output = active[0]
-            assert output["name"] == "xinerama-0", outputs
+            if force_xinerama:
+                assert output["name"] == "xinerama-0", outputs
             assert output["rect"] == {"x": 0, "y": 0, "width": 1280, "height": 800}, outputs
             snapshots.append((label, {
                 "outputs": outputs,
                 "tree": normalize(request(ipc, 4)),
             }))
 
-        snapshot("xinerama-startup")
-        result = request(ipc, 0, 'workspace "7: xinerama"')
+        snapshot(f"{backend}-startup")
+        result = request(ipc, 0, f'workspace "7: {backend}"')
         assert result and all(item.get("success") for item in result), result
-        snapshot("xinerama-workspace-switch")
+        snapshot(f"{backend}-workspace-switch")
     return snapshots
 
 
@@ -255,11 +262,16 @@ def main():
             parser.error(f"Missing executable {binary}; run cargo build, or provide an existing external reference")
     if not args.xvfb:
         parser.error("Pass --xvfb /path/to/Xvfb; no desktop fallback is permitted")
-    candidate = exercise(args.candidate.resolve(), args.xvfb) + exercise_xinerama(args.candidate.resolve(), args.xvfb)
+    def exercise_all(binary):
+        return (exercise(binary, args.xvfb)
+                + exercise_output_backend(binary, args.xvfb, force_xinerama=True)
+                + exercise_output_backend(binary, args.xvfb, disable_randr15=True))
+
+    candidate = exercise_all(args.candidate.resolve())
     if args.reference is None:
         print(f"PASS: {len(candidate)} headless Rust state checkpoints")
         return
-    reference = exercise(args.reference.resolve(), args.xvfb) + exercise_xinerama(args.reference.resolve(), args.xvfb)
+    reference = exercise_all(args.reference.resolve())
     for (label, expected), (other_label, actual) in zip(reference, candidate, strict=True):
         assert label == other_label
         if expected != actual:

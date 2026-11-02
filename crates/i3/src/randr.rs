@@ -9,7 +9,7 @@ use crate::types::Layout;
 use crate::types::Orientation;
 use crate::types::OutputSelection;
 use crate::workspace::output_triggers_assignment;
-use ::xcb::{randr, x, XidNew};
+use ::xcb::{randr, x, Reply, Xid, XidNew};
 use i3_common::display;
 use i3_common::safewrappers::sasprintf;
 /*
@@ -32,9 +32,7 @@ use i3_common::safewrappers::sasprintf;
 use crate::application::{outputs_head, Workspace_Assignment};
 
 pub use crate::types::xoutput as Output;
-pub static mut primary: *mut xcb_randr_get_output_primary_reply_t =
-    ::core::ptr::null::<xcb_randr_get_output_primary_reply_t>()
-        as *mut xcb_randr_get_output_primary_reply_t;
+static mut PRIMARY_OUTPUT: Option<u32> = None;
 
 pub static mut outputs: outputs_head = outputs_head {
     tqh_first: ::core::ptr::null::<xoutput>() as *mut xoutput,
@@ -179,7 +177,15 @@ fn c_name(bytes: &[u8]) -> std::ffi::CString {
     std::ffi::CString::new(bytes.split(|&byte| byte == 0).next().unwrap_or_default()).unwrap()
 }
 struct MonitorSnapshot {
-    info: xcb_randr_monitor_info_t,
+    name: u32,
+    primary: u8,
+    automatic: u8,
+    x: i16,
+    y: i16,
+    width: u16,
+    height: u16,
+    width_in_millimeters: u32,
+    height_in_millimeters: u32,
     outputs: Vec<u32>,
 }
 fn monitor_snapshots(mut bytes: &[u8], count: u32) -> Option<Vec<MonitorSnapshot>> {
@@ -190,18 +196,15 @@ fn monitor_snapshots(mut bytes: &[u8], count: u32) -> Option<Vec<MonitorSnapshot
         let length = output_count.checked_mul(4)?.checked_add(24)?;
         let record = bytes.get(..length)?;
         monitors.push(MonitorSnapshot {
-            info: xcb_randr_monitor_info_t {
-                name: word(header, 0)?,
-                primary: header[4],
-                automatic: header[5],
-                nOutput: output_count as u16,
-                x: short(header, 8)? as i16,
-                y: short(header, 10)? as i16,
-                width: short(header, 12)?,
-                height: short(header, 14)?,
-                width_in_millimeters: word(header, 16)?,
-                height_in_millimeters: word(header, 20)?,
-            },
+            name: word(header, 0)?,
+            primary: header[4],
+            automatic: header[5],
+            x: short(header, 8)? as i16,
+            y: short(header, 10)? as i16,
+            width: short(header, 12)?,
+            height: short(header, 14)?,
+            width_in_millimeters: word(header, 16)?,
+            height_in_millimeters: word(header, 20)?,
             outputs: record[24..]
                 .chunks_exact(4)
                 .map(|part| u32::from_ne_bytes(part.try_into().unwrap()))
@@ -211,20 +214,41 @@ fn monitor_snapshots(mut bytes: &[u8], count: u32) -> Option<Vec<MonitorSnapshot
     }
     Some(monitors)
 }
-unsafe fn output_info_name(
-    reply: *const xcb_randr_get_output_info_reply_t,
-) -> Option<std::ffi::CString> {
-    let reply_ref = reply.as_ref()?;
-    let arrays = usize::from(reply_ref.num_crtcs)
-        .checked_add(usize::from(reply_ref.num_modes))?
-        .checked_add(usize::from(reply_ref.num_clones))?;
+fn output_info_name(reply: &randr::GetOutputInfoReply) -> Option<std::ffi::CString> {
+    let available = (reply.length() as usize).checked_mul(4)?.checked_add(32)?;
+    // OutputInfo has four bytes of fixed fields beyond the ordinary header.
+    // Validate those bytes before reading its private count/name fields.
+    if available < 36 {
+        return None;
+    }
+    let raw = unsafe { reply.as_raw() };
+    let header = unsafe { std::slice::from_raw_parts(raw, 36) };
+    let arrays = usize::from(short(header, 26)?)
+        .checked_add(usize::from(short(header, 28)?))?
+        .checked_add(usize::from(short(header, 32)?))?;
     let offset = 36usize.checked_add(arrays.checked_mul(4)?)?;
-    Some(c_name(native_span(
-        reply,
-        reply_ref.length,
-        offset,
-        usize::from(reply_ref.name_len),
-    )?))
+    let length = usize::from(short(header, 34)?);
+    if offset.checked_add(length)? > available || available > isize::MAX as usize {
+        return None;
+    }
+    // SAFETY: the maintained owner advertises this complete allocation; both
+    // variable offset and byte count were checked before constructing the view.
+    let bytes = unsafe { std::slice::from_raw_parts(raw.add(offset), length) };
+    Some(c_name(bytes))
+}
+fn resource_outputs(reply: &randr::GetScreenResourcesCurrentReply) -> Option<Vec<u32>> {
+    let raw = unsafe { reply.as_raw() };
+    // SAFETY: these two scalar counts lie in the owned fixed 32-byte header.
+    let crtcs = usize::from(unsafe { raw.add(16).cast::<u16>().read_unaligned() });
+    let output_count = usize::from(unsafe { raw.add(18).cast::<u16>().read_unaligned() });
+    let offset = 32usize.checked_add(crtcs.checked_mul(4)?)?;
+    let end = offset.checked_add(output_count.checked_mul(4)?)?;
+    let available = (reply.length() as usize).checked_mul(4)?.checked_add(32)?;
+    if end > available || available > isize::MAX as usize {
+        return None;
+    }
+    // The generated accessor only depends on the two validated array counts.
+    Some(reply.outputs().iter().map(Xid::resource_id).collect())
 }
 
 unsafe fn get_output_by_id(id: xcb_randr_output_t) -> *mut Output {
@@ -822,6 +846,9 @@ unsafe fn randr_query_outputs_15() -> bool {
     if !has_randr_1_5 {
         return false;
     }
+    let Some(connection) = display::connection() else {
+        return false;
+    };
     debuglog(
         c"%s:%s:%d - Querying outputs using RandR 1.5\n"
             .as_ptr()
@@ -882,7 +909,7 @@ unsafe fn randr_query_outputs_15() -> bool {
         return false;
     };
     for monitor in snapshot {
-        let monitor_info = &monitor.info as *const xcb_randr_monitor_info_t;
+        let monitor_info = &monitor;
         let atom_reply: *mut xcb_get_atom_name_reply_t = replies.take(xcb_get_atom_name_reply(
             conn,
             xcb_get_atom_name(conn, (*monitor_info).name),
@@ -919,13 +946,12 @@ unsafe fn randr_query_outputs_15() -> bool {
                 let mut i: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
                 while i < randr_output_len {
                     let randr_output: xcb_randr_output_t = *randr_outputs.offset(i as isize);
-                    let mut info: *mut xcb_randr_get_output_info_reply_t =
-                        replies.take(xcb_randr_get_output_info_reply(
-                            conn,
-                            xcb_randr_get_output_info(conn, randr_output, (*monitors).timestamp),
-                            ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-                        ));
-                    if !info.is_null() && (*info).crtc as ::core::ffi::c_long != XCB_NONE {
+                    let cookie = connection.send_request(&randr::GetOutputInfo {
+                        output: randr::Output::new(randr_output),
+                        config_timestamp: (*monitors).timestamp,
+                    });
+                    let info = connection.wait_for_reply(cookie).ok();
+                    if let Some(info) = info.as_ref().filter(|info| !info.crtc().is_none()) {
                         let Some(oname_owned) = output_info_name(info) else {
                             i += 1;
                             continue;
@@ -940,7 +966,6 @@ unsafe fn randr_query_outputs_15() -> bool {
                             (*new).names_head.slh_first = output_name;
                         }
                     }
-                    info = ::core::ptr::null_mut::<xcb_randr_get_output_info_reply_t>();
                     i += 1;
                 }
                 let output_name_0: *mut output_name =
@@ -1002,18 +1027,14 @@ unsafe fn randr_query_outputs_15() -> bool {
     true
 }
 unsafe fn handle_output(
-    conn_0: *mut xcb_connection_t,
+    connection: &::xcb::Connection,
     id: xcb_randr_output_t,
-    output: *mut xcb_randr_get_output_info_reply_t,
+    output: &randr::GetOutputInfoReply,
     cts: xcb_timestamp_t,
-    res: *mut xcb_randr_get_screen_resources_current_reply_t,
 ) {
-    let mut replies = NativeReplies::default();
     let Some(name) = output_info_name(output) else {
         return;
     };
-    let mut crtc: *mut xcb_randr_get_crtc_info_reply_t =
-        ::core::ptr::null_mut::<xcb_randr_get_crtc_info_reply_t>();
     let mut new: *mut Output = get_output_by_id(id);
     let existing: bool = !new.is_null();
     if !existing {
@@ -1021,7 +1042,7 @@ unsafe fn handle_output(
         (*new).names_head.slh_first = ::core::ptr::null_mut::<output_name>();
     }
     (*new).id = id;
-    (*new).primary = !primary.is_null() && (*primary).output == id;
+    (*new).primary = PRIMARY_OUTPUT == Some(id);
     while !(*new).names_head.slh_first.is_null() {
         free((*(*new).names_head.slh_first).name as *mut ::core::ffi::c_void);
         (*(*new).names_head.slh_first).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
@@ -1044,7 +1065,7 @@ unsafe fn handle_output(
         742 as ::core::ffi::c_int,
         output_primary_name(new),
     );
-    if (*output).crtc as ::core::ffi::c_long == XCB_NONE {
+    if output.crtc().is_none() {
         if !existing {
             if (*new).primary {
                 (*new).outputs.tqe_next = outputs.tqh_first;
@@ -1066,14 +1087,11 @@ unsafe fn handle_output(
         }
         return;
     }
-    let icookie: xcb_randr_get_crtc_info_cookie_t =
-        xcb_randr_get_crtc_info(conn_0, (*output).crtc, cts) as xcb_randr_get_crtc_info_cookie_t;
-    crtc = replies.take(xcb_randr_get_crtc_info_reply(
-        conn_0,
-        icookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    ));
-    if crtc.is_null() {
+    let cookie = connection.send_request(&randr::GetCrtcInfo {
+        crtc: output.crtc(),
+        config_timestamp: cts,
+    });
+    let Ok(crtc) = connection.wait_for_reply(cookie) else {
         debuglog(
             c"%s:%s:%d - Skipping output %s: could not get CRTC (%p)\n"
                 .as_ptr()
@@ -1082,16 +1100,16 @@ unsafe fn handle_output(
             c"handle_output".as_ptr(),
             763 as ::core::ffi::c_int,
             output_primary_name(new),
-            crtc,
+            std::ptr::null::<libc::c_void>(),
         );
         return;
-    }
-    let update_x: bool = update_if_necessary(&raw mut (*new).rect.x, (*crtc).x as u32) as bool;
-    let update_y: bool = update_if_necessary(&raw mut (*new).rect.y, (*crtc).y as u32) as bool;
+    };
+    let update_x: bool = update_if_necessary(&raw mut (*new).rect.x, crtc.x() as u32) as bool;
+    let update_y: bool = update_if_necessary(&raw mut (*new).rect.y, crtc.y() as u32) as bool;
     let update_w: bool =
-        update_if_necessary(&raw mut (*new).rect.width, (*crtc).width as u32) as bool;
+        update_if_necessary(&raw mut (*new).rect.width, crtc.width() as u32) as bool;
     let update_h: bool =
-        update_if_necessary(&raw mut (*new).rect.height, (*crtc).height as u32) as bool;
+        update_if_necessary(&raw mut (*new).rect.height, crtc.height() as u32) as bool;
     let updated: bool = update_x as ::core::ffi::c_int != 0
         || update_y as ::core::ffi::c_int != 0
         || update_w as ::core::ffi::c_int != 0
@@ -1141,90 +1159,72 @@ unsafe fn handle_output(
     (*new).changed = true;
 }
 unsafe fn randr_query_outputs_14() {
-    let mut replies = NativeReplies::default();
     debuglog(
         c"%s:%s:%d - Querying outputs using RandR ≤ 1.4\n"
             .as_ptr()
             .cast_mut(),
         c"../src/randr.c".as_ptr(),
         c"randr_query_outputs_14".as_ptr(),
-        804 as ::core::ffi::c_int,
+        804i32,
     );
-    let rcookie: xcb_randr_get_screen_resources_current_cookie_t =
-        xcb_randr_get_screen_resources_current(conn, root)
-            as xcb_randr_get_screen_resources_current_cookie_t;
-    let pcookie: xcb_randr_get_output_primary_cookie_t =
-        xcb_randr_get_output_primary(conn, root) as xcb_randr_get_output_primary_cookie_t;
-    primary = xcb_randr_get_output_primary_reply(
-        conn,
-        pcookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if primary.is_null() {
+    let Some(connection) = display::connection() else {
+        return;
+    };
+    // Preserve batching and reply order: resources first, primary second;
+    // wait for the primary reply before consuming the resource/output replies.
+    let resources_cookie = connection.send_request(&randr::GetScreenResourcesCurrent {
+        window: x::Window::new(root),
+    });
+    let primary_cookie = connection.send_request(&randr::GetOutputPrimary {
+        window: x::Window::new(root),
+    });
+    PRIMARY_OUTPUT = connection
+        .wait_for_reply(primary_cookie)
+        .ok()
+        .map(|reply| reply.output().resource_id());
+    if let Some(primary_id) = PRIMARY_OUTPUT {
+        debuglog(
+            c"%s:%s:%d - primary output is %08x\n".as_ptr().cast_mut(),
+            c"../src/randr.c".as_ptr(),
+            c"randr_query_outputs_14".as_ptr(),
+            813i32,
+            primary_id,
+        );
+    } else {
         errorlog(
             c"ERROR: Could not get RandR primary output\n"
                 .as_ptr()
                 .cast_mut(),
         );
-    } else {
-        debuglog(
-            c"%s:%s:%d - primary output is %08x\n".as_ptr().cast_mut(),
-            c"../src/randr.c".as_ptr(),
-            c"randr_query_outputs_14".as_ptr(),
-            813 as ::core::ffi::c_int,
-            (*primary).output,
-        );
     }
-    let mut res: *mut xcb_randr_get_screen_resources_current_reply_t =
-        replies.take(xcb_randr_get_screen_resources_current_reply(
-            conn,
-            rcookie,
-            ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-        ));
-    if res.is_null() {
+    let Ok(resources) = connection.wait_for_reply(resources_cookie) else {
         errorlog(
             c"ERROR: Could not query screen resources.\n"
                 .as_ptr()
                 .cast_mut(),
         );
         return;
-    }
-    let cts: xcb_timestamp_t = (*res).config_timestamp;
-    let offset = 32 + usize::from((*res).num_crtcs) * 4;
-    let Some(bytes) = native_span(
-        res,
-        (*res).length,
-        offset,
-        usize::from((*res).num_outputs) * 4,
-    ) else {
+    };
+    let cts = resources.config_timestamp();
+    let Some(ids) = resource_outputs(&resources) else {
         return;
     };
-    let ids: Vec<_> = bytes
-        .chunks_exact(4)
-        .map(|word| u32::from_ne_bytes(word.try_into().unwrap()))
-        .collect();
-    let len = ids.len() as i32;
-    let randr_outputs = ids.as_ptr();
-    let ocookie: Vec<_> = ids
+    let cookies: Vec<_> = ids
         .iter()
-        .map(|&id| xcb_randr_get_output_info(conn, id, cts))
+        .map(|&id| {
+            connection.send_request(&randr::GetOutputInfo {
+                output: randr::Output::new(id),
+                config_timestamp: cts,
+            })
+        })
         .collect();
-    let mut i_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    while i_0 < len {
-        let mut output: *mut xcb_randr_get_output_info_reply_t =
-            ::core::ptr::null_mut::<xcb_randr_get_output_info_reply_t>();
-        output = replies.take(xcb_randr_get_output_info_reply(
-            conn,
-            ocookie[i_0 as usize],
-            ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-        ));
-        if !output.is_null() {
-            handle_output(conn, *randr_outputs.offset(i_0 as isize), output, cts, res);
+    for (id, cookie) in ids.into_iter().zip(cookies) {
+        if let Ok(output) = connection.wait_for_reply(cookie) {
+            handle_output(&connection, id, &output, cts);
         }
-        i_0 += 1;
     }
-    res = ::core::ptr::null_mut::<xcb_randr_get_screen_resources_current_reply_t>();
 }
+
 unsafe fn move_content(con: *mut Con) {
     let first: *mut Con = (*get_first_output()).con;
     let first_content: *mut Con = output_get_content(first);
@@ -1550,8 +1550,7 @@ pub unsafe fn randr_query_outputs() {
     }
     ewmh_update_desktop_properties();
     tree_render();
-    free(primary as *mut ::core::ffi::c_void);
-    primary = ::core::ptr::null_mut::<xcb_randr_get_output_primary_reply_t>();
+    PRIMARY_OUTPUT = None;
 }
 
 pub unsafe fn randr_disable_output(output: *mut Output) {
@@ -1684,16 +1683,9 @@ use i3_common::safewrappers::sstrdup;
 
 use xcb_sys::{
     xcb_connection_t, xcb_generic_error_t, xcb_get_atom_name, xcb_get_atom_name_reply,
-    xcb_get_atom_name_reply_t, xcb_randr_get_crtc_info, xcb_randr_get_crtc_info_cookie_t,
-    xcb_randr_get_crtc_info_reply, xcb_randr_get_crtc_info_reply_t, xcb_randr_get_monitors,
-    xcb_randr_get_monitors_monitors_length, xcb_randr_get_monitors_reply,
-    xcb_randr_get_monitors_reply_t, xcb_randr_get_output_info, xcb_randr_get_output_info_reply,
-    xcb_randr_get_output_info_reply_t, xcb_randr_get_output_primary,
-    xcb_randr_get_output_primary_cookie_t, xcb_randr_get_output_primary_reply,
-    xcb_randr_get_output_primary_reply_t, xcb_randr_get_screen_resources_current,
-    xcb_randr_get_screen_resources_current_cookie_t, xcb_randr_get_screen_resources_current_reply,
-    xcb_randr_get_screen_resources_current_reply_t, xcb_randr_monitor_info_t, xcb_randr_output_t,
-    xcb_timestamp_t, XCB_NONE,
+    xcb_get_atom_name_reply_t, xcb_randr_get_monitors, xcb_randr_get_monitors_monitors_length,
+    xcb_randr_get_monitors_reply, xcb_randr_get_monitors_reply_t, xcb_randr_output_t,
+    xcb_timestamp_t,
 };
 
 pub use libc::{free, strcasecmp, strcmp};
@@ -1749,6 +1741,88 @@ mod tests {
             height,
         }
     }
+    fn owned_reply<R: Reply>(mut bytes: Vec<u8>) -> R {
+        assert!(bytes.len() >= 32);
+        bytes.resize(bytes.len().div_ceil(4) * 4, 0);
+        bytes[0] = 1;
+        let length = ((bytes.len() - 32) / 4) as u32;
+        bytes[4..8].copy_from_slice(&length.to_ne_bytes());
+        // SAFETY: transfer one complete initialized malloc allocation, including
+        // the fixed wire header and all advertised trailing bytes, to its owner.
+        unsafe {
+            let allocation = libc::malloc(bytes.len()).cast::<u8>();
+            assert!(!allocation.is_null());
+            std::ptr::copy_nonoverlapping(bytes.as_ptr(), allocation, bytes.len());
+            R::from_raw(allocation)
+        }
+    }
+    #[test]
+    fn owned_output_names_check_fixed_and_nested_lengths_without_enum_decoding() {
+        let name = b"DP\xff\0ignored";
+        let mut bytes = vec![0; 52 + name.len()];
+        bytes[1] = 255; // Unknown status: no generated status enum getter.
+        bytes[24] = 255; // Unknown connection/subpixel selectors remain untouched.
+        bytes[25] = 255;
+        bytes[26..28].copy_from_slice(&1u16.to_ne_bytes());
+        bytes[28..30].copy_from_slice(&2u16.to_ne_bytes());
+        bytes[32..34].copy_from_slice(&1u16.to_ne_bytes());
+        bytes[34..36].copy_from_slice(&(name.len() as u16).to_ne_bytes());
+        bytes[52..].copy_from_slice(name);
+        let reply: randr::GetOutputInfoReply = owned_reply(bytes);
+        assert_eq!(output_info_name(&reply).unwrap().to_bytes(), b"DP\xff");
+        // Counts are checked before any generated variable-length accessor.
+        unsafe {
+            reply
+                .as_raw()
+                .add(28)
+                .cast_mut()
+                .cast::<u16>()
+                .write_unaligned(u16::MAX)
+        };
+        assert!(output_info_name(&reply).is_none());
+        let reply: randr::GetOutputInfoReply = owned_reply(vec![0; 36]);
+        assert_eq!(output_info_name(&reply).unwrap().to_bytes(), b"");
+        unsafe {
+            reply
+                .as_raw()
+                .add(4)
+                .cast_mut()
+                .cast::<u32>()
+                .write_unaligned(0)
+        };
+        assert!(output_info_name(&reply).is_none());
+    }
+    #[test]
+    fn owned_resource_output_ids_retain_order_unknown_ids_and_count_bounds() {
+        let mut bytes = vec![0; 44];
+        bytes[16..18].copy_from_slice(&1u16.to_ne_bytes());
+        bytes[18..20].copy_from_slice(&2u16.to_ne_bytes());
+        bytes[36..40].copy_from_slice(&u32::MAX.to_ne_bytes());
+        bytes[40..44].copy_from_slice(&0x80000000u32.to_ne_bytes());
+        let reply: randr::GetScreenResourcesCurrentReply = owned_reply(bytes);
+        assert_eq!(resource_outputs(&reply).unwrap(), [u32::MAX, 0x80000000]);
+        unsafe {
+            reply
+                .as_raw()
+                .add(18)
+                .cast_mut()
+                .cast::<u16>()
+                .write_unaligned(3)
+        };
+        assert!(resource_outputs(&reply).is_none());
+        let reply: randr::GetScreenResourcesCurrentReply = owned_reply(vec![0; 32]);
+        assert!(resource_outputs(&reply).unwrap().is_empty());
+        unsafe {
+            reply
+                .as_raw()
+                .add(16)
+                .cast_mut()
+                .cast::<u16>()
+                .write_unaligned(u16::MAX)
+        };
+        assert!(resource_outputs(&reply).is_none());
+    }
+
     #[test]
     fn geometry_keeps_unsigned_containment_wrapping_and_last_positive_overlap() {
         assert!(contains_point(rect(0, 0, 10, 10), 0, 9));
@@ -1823,13 +1897,13 @@ mod tests {
         let snapshots = monitor_snapshots(&bytes, 1).unwrap();
         assert_eq!(snapshots[0].outputs, [9, 8]);
         assert_eq!(
-            (
-                snapshots[0].info.name,
-                snapshots[0].info.x,
-                snapshots[0].info.width
-            ),
+            (snapshots[0].name, snapshots[0].x, snapshots[0].width),
             (42, -1920, 1920)
         );
+        bytes[4] = 255;
+        bytes[5] = 254;
+        let snapshots = monitor_snapshots(&bytes, 1).unwrap();
+        assert_eq!((snapshots[0].primary, snapshots[0].automatic), (255, 254));
         for length in 0..bytes.len() {
             assert!(monitor_snapshots(&bytes[..length], 1).is_none());
         }
