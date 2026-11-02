@@ -57,6 +57,11 @@ pub struct ParserOptions {
     pub allow_legacy_whitespace: bool,
 }
 
+/// Maximum accepted nesting of arrays and objects. This explicit input limit
+/// keeps recursive Serde visitors inside the caller's normal stack; it replaces
+/// YAJL's formerly unbounded input depth by an intentional compatibility policy.
+pub const MAX_NESTING: usize = 1000;
+
 // JSON structure and scalar decoding belong to serde_json. This adapter only
 // preserves the event protocol's incremental commits, source offsets and legacy
 // comments/whitespace. Replaying an unfinished value never repeats callbacks.
@@ -274,6 +279,11 @@ impl<'de> Visitor<'de> for ValueVisitor<'_, '_> {
         let context = self.context;
         context.emit(Event::StartArray, context.position.get())?;
         let depth = context.depth.get();
+        if depth >= MAX_NESTING {
+            return Err(serde::de::Error::custom(
+                "JSON nesting exceeds the 1000-level limit",
+            ));
+        }
         context.depth.set(depth + 1);
         while seq
             .next_element_seed(ValueSeed {
@@ -294,6 +304,11 @@ impl<'de> Visitor<'de> for ValueVisitor<'_, '_> {
         let context = self.context;
         context.emit(Event::StartMap, context.position.get())?;
         let depth = context.depth.get();
+        if depth >= MAX_NESTING {
+            return Err(serde::de::Error::custom(
+                "JSON nesting exceeds the 1000-level limit",
+            ));
+        }
         context.depth.set(depth + 1);
         while map.next_key_seed(KeySeed(context))?.is_some() {
             map.next_value_seed(ValueSeed {

@@ -208,3 +208,10 @@
 
    The regex driver compares the owned wrapper with the installed PCRE2 library.
    Neither oracle becomes a dependency of the Rust executables.
+
+The Serde input adapter accepts at most 1000 nested arrays and objects. This is an
+intentional change from YAJL's unbounded input nesting: deeper input returns a
+clear parse error rather than risking the desktop process's stack. The guard runs
+only as an input container is entered; callback cancellation and a completed
+status header still stop before any unconsumed suffix is parsed. The native JSON
+probe checks arrays and objects at depths 999, 1000 and 1001 in isolated processes.

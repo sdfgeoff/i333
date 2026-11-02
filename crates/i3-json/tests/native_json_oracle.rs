@@ -152,6 +152,53 @@ fn probe_main() {
     }
 }
 
+fn check_nesting_limit() {
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+    let mut child = Command::new(std::env::current_exe().unwrap())
+        .arg("--probe")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut input = child.stdin.take().unwrap();
+    for maps in [false, true] {
+        for depth in [999, 1000, 1001] {
+            let mut bytes = if maps {
+                b"{\"x\":".repeat(depth)
+            } else {
+                vec![b'['; depth]
+            };
+            bytes.push(b'0');
+            bytes.extend(std::iter::repeat_n(if maps { b'}' } else { b']' }, depth));
+            writeln!(input, "{}", json!({"chunks": [hex(&bytes)]})).unwrap();
+        }
+    }
+    drop(input);
+    let output = child.wait_with_output().unwrap();
+    assert!(
+        output.status.success(),
+        "deep JSON subprocess failed: {:?}",
+        output.status
+    );
+    let values: Vec<Value> = std::str::from_utf8(&output.stdout)
+        .unwrap()
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    assert_eq!(values.len(), 6);
+    for (index, value) in values.iter().enumerate() {
+        assert_eq!(
+            value["finish"],
+            if index % 3 == 2 { 2 } else { 0 },
+            "nesting boundary probe {index}"
+        );
+    }
+    println!(
+        "6 input nesting boundary probes: arrays/maps at 999 and 1000 accepted; 1001 rejected"
+    );
+}
+
 fn main() {
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--probe")) {
         probe_main();
@@ -165,4 +212,5 @@ fn main() {
             .into_os_string(),
     ];
     i3_test_support::run_python("test-json-parity.py", &args);
+    check_nesting_limit();
 }
