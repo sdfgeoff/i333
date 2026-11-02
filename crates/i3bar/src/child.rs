@@ -173,7 +173,7 @@ pub struct tc_head {
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct trayclient {
-    pub win: xcb_window_t,
+    pub win: u32,
     pub mapped: bool,
     pub xe_version: ::core::ffi::c_int,
     pub class_class: *mut ::core::ffi::c_char,
@@ -1331,13 +1331,13 @@ impl serde::Serialize for ClickValue<'_> {
         }
         map.serialize_entry("button", &self.button)?;
         let modifiers: Vec<_> = [
-            (XCB_MOD_MASK_SHIFT, "Shift"),
-            (XCB_MOD_MASK_CONTROL, "Control"),
-            (XCB_MOD_MASK_1, "Mod1"),
-            (XCB_MOD_MASK_2, "Mod2"),
-            (XCB_MOD_MASK_3, "Mod3"),
-            (XCB_MOD_MASK_4, "Mod4"),
-            (XCB_MOD_MASK_5, "Mod5"),
+            (::xcb::x::ModMask::SHIFT.bits(), "Shift"),
+            (::xcb::x::ModMask::CONTROL.bits(), "Control"),
+            (::xcb::x::ModMask::N1.bits(), "Mod1"),
+            (::xcb::x::ModMask::N2.bits(), "Mod2"),
+            (::xcb::x::ModMask::N3.bits(), "Mod3"),
+            (::xcb::x::ModMask::N4.bits(), "Mod4"),
+            (::xcb::x::ModMask::N5.bits(), "Mod5"),
         ]
         .into_iter()
         .filter_map(|(mask, name)| (self.modifiers & mask as i32 != 0).then_some(name))
@@ -1430,13 +1430,13 @@ fn append_legacy_click(
     let _ = generator.string("modifiers");
     let _ = generator.start_array();
     for (mask, name) in [
-        (XCB_MOD_MASK_SHIFT, "Shift"),
-        (XCB_MOD_MASK_CONTROL, "Control"),
-        (XCB_MOD_MASK_1, "Mod1"),
-        (XCB_MOD_MASK_2, "Mod2"),
-        (XCB_MOD_MASK_3, "Mod3"),
-        (XCB_MOD_MASK_4, "Mod4"),
-        (XCB_MOD_MASK_5, "Mod5"),
+        (::xcb::x::ModMask::SHIFT.bits(), "Shift"),
+        (::xcb::x::ModMask::CONTROL.bits(), "Control"),
+        (::xcb::x::ModMask::N1.bits(), "Mod1"),
+        (::xcb::x::ModMask::N2.bits(), "Mod2"),
+        (::xcb::x::ModMask::N3.bits(), "Mod3"),
+        (::xcb::x::ModMask::N4.bits(), "Mod4"),
+        (::xcb::x::ModMask::N5.bits(), "Mod5"),
     ] {
         if click.modifiers & mask as i32 != 0 {
             let _ = generator.string(name);
@@ -1974,11 +1974,6 @@ use i3_common::safewrappers::writeall;
 
 // Canonical Cairo backend ABI; renderer logic remains local.
 
-use xcb_sys::{
-    xcb_window_t, XCB_MOD_MASK_1, XCB_MOD_MASK_2, XCB_MOD_MASK_3, XCB_MOD_MASK_4, XCB_MOD_MASK_5,
-    XCB_MOD_MASK_CONTROL, XCB_MOD_MASK_SHIFT,
-};
-
 pub use libc::{
     __errno_location, close, dup2, execl, exit, fcntl, fork, fprintf, free, killpg, memcpy,
     memmove, memset, pipe, printf, read, setpgid, strcasecmp, strerror, strlen, strncasecmp,
@@ -2140,7 +2135,8 @@ mod owned_tests {
                 instance: None,
                 button: 1,
                 position: [-1, 2, 3, 4, 5, 6, 7, 8],
-                modifiers: XCB_MOD_MASK_SHIFT as i32 | XCB_MOD_MASK_4 as i32,
+                modifiers: ::xcb::x::ModMask::SHIFT.bits() as i32
+                    | ::xcb::x::ModMask::N4.bits() as i32,
             },
         );
         assert_eq!(generator.bytes(), br#"{"name":"test","button":1,"modifiers":["Shift","Mod4"],"x":-1,"y":2,"relative_x":3,"relative_y":4,"output_x":5,"output_y":6,"width":7,"height":8}"#);
