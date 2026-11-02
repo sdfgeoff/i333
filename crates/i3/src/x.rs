@@ -2375,7 +2375,6 @@ use crate::application::conn;
 use crate::application::last_timestamp;
 use crate::application::root;
 use crate::application::root_depth;
-use crate::application::root_screen;
 use crate::application::shape_supported;
 use crate::application::A_I3_CONFIG_PATH;
 use crate::application::A_I3_LOG_STREAM_SOCKET_PATH;

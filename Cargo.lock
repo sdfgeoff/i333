@@ -379,7 +379,6 @@ dependencies = [
  "serde_json",
  "xcb",
  "xcb-interop",
- "xcb-sys",
 ]
 
 [[package]]
