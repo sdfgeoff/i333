@@ -335,6 +335,7 @@ fn flush_twice(surface: &cairo::Surface) {
 /// drawable/GC, and the current font/display must remain valid during drawing.
 #[deny(unsafe_op_in_unsafe_fn)]
 pub unsafe fn draw_util_text(
+    font: &crate::font::Font,
     text: &I3String,
     surface: *mut surface_t,
     fg_color: color_t,
@@ -354,12 +355,14 @@ pub unsafe fn draw_util_text(
     flush_twice(&target);
     // SAFETY: text, font, drawable and GC validity are the caller's contract.
     unsafe {
-        set_font_colors(surface.gc, fg_color, bg_color);
         draw_text(
+            font,
             text,
             surface.id,
             surface.gc,
             surface.surface,
+            fg_color,
+            bg_color,
             x,
             y,
             max_width,
@@ -550,7 +553,6 @@ pub use libc::{strlen, strtol};
 use crate::logging::{errorlog, verboselog};
 
 // Internal calls and globals use canonical Rust identities.
-use crate::font::set_font_colors;
 
 #[cfg(test)]
 mod drawing_tests {
