@@ -5,6 +5,7 @@ use crate::types::DragResult;
 use crate::types::Layout;
 use crate::types::Orientation;
 use crate::xcursor::Cursor;
+use xcb::{x, XidNew};
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -29,18 +30,20 @@ struct DragState {
 // Both windows belong to this synchronous resize operation; the display
 // connection stays live until the operation returns. No graph node is borrowed.
 struct ResizeWindows {
-    connection: *mut xcb_sys::xcb_connection_t,
-    help: xcb_window_t,
-    grab: xcb_window_t,
+    help: x::Window,
+    grab: x::Window,
 }
 impl Drop for ResizeWindows {
     fn drop(&mut self) {
-        unsafe {
-            xcb_destroy_window(self.connection, self.help);
-            xcb_destroy_window(self.connection, self.grab);
-            xcb_flush(self.connection);
+        if let Some(connection) = i3_common::display::connection() {
+            connection.send_request(&x::DestroyWindow { window: self.help });
+            connection.send_request(&x::DestroyWindow { window: self.grab });
+            let _ = connection.flush();
         }
     }
+}
+fn connection() -> std::rc::Rc<xcb::Connection> {
+    i3_common::display::connection().expect("main X11 connection is registered")
 }
 
 fn minimum_share(parent_size: i32, horizontal: bool, deco_height: u32) -> f64 {
@@ -127,35 +130,35 @@ unsafe fn resize_callback(
         new_y,
     );
     if !(*params).threshold_exceeded {
-        xcb_map_window(conn, (*params).helpwin);
+        connection().send_request(&x::MapWindow {
+            window: x::Window::new((*params).helpwin),
+        });
         if (*params).orientation == Orientation::Horizontal {
-            xcb_warp_pointer(
-                conn,
-                XCB_NONE as xcb_window_t,
-                (*event).root,
-                0 as i16,
-                0 as i16,
-                0 as u16,
-                0 as u16,
-                ((*params).new_position)
+            connection().send_request(&x::WarpPointer {
+                src_window: x::WINDOW_NONE,
+                dst_window: x::Window::new((*event).root),
+                src_x: 0,
+                src_y: 0,
+                src_width: 0,
+                src_height: 0,
+                dst_x: ((*params).new_position)
                     .wrapping_add(new_x)
                     .wrapping_sub((*event).root_x as u32) as i16,
-                new_y as i16,
-            );
+                dst_y: new_y as i16,
+            });
         } else {
-            xcb_warp_pointer(
-                conn,
-                XCB_NONE as xcb_window_t,
-                (*event).root,
-                0 as i16,
-                0 as i16,
-                0 as u16,
-                0 as u16,
-                new_x as i16,
-                ((*params).new_position)
+            connection().send_request(&x::WarpPointer {
+                src_window: x::WINDOW_NONE,
+                dst_window: x::Window::new((*event).root),
+                src_x: 0,
+                src_y: 0,
+                src_width: 0,
+                src_height: 0,
+                dst_x: new_x as i16,
+                dst_y: ((*params).new_position)
                     .wrapping_add(new_y)
                     .wrapping_sub((*event).root_y as u32) as i16,
-            );
+            });
         }
         (*params).threshold_exceeded = true;
         return;
@@ -169,18 +172,16 @@ unsafe fn resize_callback(
         return;
     }
     (*params).new_position = position;
-    let mask = if (*params).orientation == Orientation::Horizontal {
-        XCB_CONFIG_WINDOW_X
+    let value = if (*params).orientation == Orientation::Horizontal {
+        x::ConfigWindow::X((*params).new_position as i32)
     } else {
-        XCB_CONFIG_WINDOW_Y
+        x::ConfigWindow::Y((*params).new_position as i32)
     };
-    xcb_configure_window(
-        conn,
-        (*params).helpwin,
-        mask as u16,
-        (&raw const (*params).new_position).cast(),
-    );
-    xcb_flush(conn);
+    connection().send_request(&x::ConfigureWindow {
+        window: x::Window::new((*params).helpwin),
+        value_list: &[value],
+    });
+    let _ = connection().flush();
 }
 
 pub unsafe fn resize_find_tiling_participants(
@@ -338,7 +339,7 @@ pub unsafe fn resize_graphical_handler(
         (*second).name,
     );
     x_mask_event_mask(!(XCB_EVENT_MASK_ENTER_WINDOW as i32) as u32);
-    xcb_flush(conn);
+    let _ = connection().flush();
     let mut mask: u32 = 0 as u32;
     let mut values: [u32; 2] = [0; 2];
     mask = XCB_CW_OVERRIDE_REDIRECT as i32 as u32;
@@ -383,39 +384,41 @@ pub unsafe fn resize_graphical_handler(
         &raw mut values as *mut u32,
     );
     if !use_threshold {
-        xcb_map_window(conn, helpwin);
+        connection().send_request(&x::MapWindow {
+            window: x::Window::new(helpwin),
+        });
         if orientation == Orientation::Horizontal {
-            xcb_warp_pointer(
-                conn,
-                XCB_NONE as xcb_window_t,
-                (*event).root,
-                0 as i16,
-                0 as i16,
-                0 as u16,
-                0 as u16,
-                initial_position as i16,
-                (*event).root_y,
-            );
+            connection().send_request(&x::WarpPointer {
+                src_window: x::WINDOW_NONE,
+                dst_window: x::Window::new((*event).root),
+                src_x: 0,
+                src_y: 0,
+                src_width: 0,
+                src_height: 0,
+                dst_x: initial_position as i16,
+                dst_y: (*event).root_y,
+            });
         } else {
-            xcb_warp_pointer(
-                conn,
-                XCB_NONE as xcb_window_t,
-                (*event).root,
-                0 as i16,
-                0 as i16,
-                0 as u16,
-                0 as u16,
-                (*event).root_x,
-                initial_position as i16,
-            );
+            connection().send_request(&x::WarpPointer {
+                src_window: x::WINDOW_NONE,
+                dst_window: x::Window::new((*event).root),
+                src_x: 0,
+                src_y: 0,
+                src_width: 0,
+                src_height: 0,
+                dst_x: (*event).root_x,
+                dst_y: initial_position as i16,
+            });
         }
     }
-    xcb_circulate_window(conn, XCB_CIRCULATE_RAISE_LOWEST as i32 as u8, helpwin);
-    xcb_flush(conn);
+    connection().send_request(&x::CirculateWindow {
+        direction: x::Circulate::RaiseLowest,
+        window: x::Window::new(helpwin),
+    });
+    let _ = connection().flush();
     let windows = ResizeWindows {
-        connection: conn,
-        help: helpwin,
-        grab: grabwin,
+        help: x::Window::new(helpwin),
+        grab: x::Window::new(grabwin),
     };
     let mut params = DragState {
         orientation,
@@ -482,10 +485,8 @@ use i3_common::dpi::logical_px;
 // Canonical Pango backend ABI; font policy remains local.
 
 use xcb_sys::{
-    xcb_button_press_event_t, xcb_circulate_window, xcb_configure_window, xcb_destroy_window,
-    xcb_flush, xcb_map_window, xcb_visualid_t, xcb_warp_pointer, xcb_window_t,
-    XCB_CIRCULATE_RAISE_LOWEST, XCB_CONFIG_WINDOW_X, XCB_CONFIG_WINDOW_Y, XCB_COPY_FROM_PARENT,
-    XCB_CW_BACK_PIXEL, XCB_CW_OVERRIDE_REDIRECT, XCB_EVENT_MASK_ENTER_WINDOW, XCB_NONE,
+    xcb_button_press_event_t, xcb_visualid_t, xcb_window_t, XCB_COPY_FROM_PARENT,
+    XCB_CW_BACK_PIXEL, XCB_CW_OVERRIDE_REDIRECT, XCB_EVENT_MASK_ENTER_WINDOW,
     XCB_WINDOW_CLASS_INPUT_ONLY, XCB_WINDOW_CLASS_INPUT_OUTPUT,
 };
 

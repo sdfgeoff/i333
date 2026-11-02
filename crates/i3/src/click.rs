@@ -5,6 +5,7 @@ use crate::con::arena::focus;
 use crate::con::arena::parent::parent_ptr;
 use crate::domains::ContainerType;
 use crate::flags::{ResizeEdges, TilingDrag};
+use xcb::x;
 
 use crate::types::ClickDestination;
 use crate::types::Direction;
@@ -190,9 +191,13 @@ unsafe fn tiling_resize(
     )
     .is_some_and(|(border, threshold)| tiling_resize_for_border(con, border, event, threshold))
 }
+fn allow_pointer(mode: x::Allow, time: u32) {
+    let connection = i3_common::display::connection().expect("main X11 connection is registered");
+    connection.send_request(&x::AllowEvents { mode, time });
+    let _ = connection.flush();
+}
 unsafe fn allow_replay_pointer(time: xcb_timestamp_t) {
-    xcb_allow_events(conn, XCB_ALLOW_REPLAY_POINTER as i32 as u8, time);
-    xcb_flush(conn);
+    allow_pointer(x::Allow::ReplayPointer, time);
     tree_render();
 }
 unsafe fn route_click(con: *mut Con, event: *mut xcb_button_press_event_t, dest: ClickDestination) {
@@ -236,8 +241,7 @@ unsafe fn route_click(con: *mut Con, event: *mut xcb_button_press_event_t, dest:
         )
     {
         let result: *mut CommandResult = run_binding(bind, con);
-        xcb_allow_events(conn, XCB_ALLOW_ASYNC_POINTER as i32 as u8, (*event).time);
-        xcb_flush(conn);
+        allow_pointer(x::Allow::AsyncPointer, (*event).time);
         command_result_free(result);
         return;
     }
@@ -403,8 +407,7 @@ unsafe fn route_click(con: *mut Con, event: *mut xcb_button_press_event_t, dest:
         if floating_mod_on_tiled_client(con, event) {
             return;
         }
-        xcb_allow_events(conn, XCB_ALLOW_ASYNC_POINTER as i32 as u8, (*event).time);
-        xcb_flush(conn);
+        allow_pointer(x::Allow::AsyncPointer, (*event).time);
         return;
     }
     if (dest == ClickDestination::Border || dest == ClickDestination::Decoration)
@@ -492,8 +495,7 @@ pub unsafe fn handle_button_press(event: *mut xcb_button_press_event_t) {
                 .as_ptr()
                 .cast_mut(),
         );
-        xcb_allow_events(conn, XCB_ALLOW_REPLAY_POINTER as i32 as u8, (*event).time);
-        xcb_flush(conn);
+        allow_pointer(x::Allow::ReplayPointer, (*event).time);
         return;
     }
     if !(*con).window.is_null() {
@@ -541,10 +543,10 @@ use crate::tree::tree_render;
 // Canonical Pango backend ABI; font policy remains local.
 
 use xcb_sys::{
-    xcb_allow_events, xcb_button_press_event_t, xcb_flush, xcb_generic_event_t, xcb_timestamp_t,
-    XCB_ALLOW_ASYNC_POINTER, XCB_ALLOW_REPLAY_POINTER, XCB_BUTTON_INDEX_1, XCB_BUTTON_INDEX_3,
-    XCB_BUTTON_INDEX_4, XCB_BUTTON_INDEX_5, XCB_BUTTON_PRESS, XCB_BUTTON_RELEASE,
-    XCB_BUTTON_SCROLL_LEFT, XCB_BUTTON_SCROLL_RIGHT, XCB_KEY_BUT_MASK_SHIFT, XCB_NONE,
+    xcb_button_press_event_t, xcb_generic_event_t, xcb_timestamp_t, XCB_BUTTON_INDEX_1,
+    XCB_BUTTON_INDEX_3, XCB_BUTTON_INDEX_4, XCB_BUTTON_INDEX_5, XCB_BUTTON_PRESS,
+    XCB_BUTTON_RELEASE, XCB_BUTTON_SCROLL_LEFT, XCB_BUTTON_SCROLL_RIGHT, XCB_KEY_BUT_MASK_SHIFT,
+    XCB_NONE,
 };
 
 use i3_common::native_stdio::__assert_fail;
@@ -556,7 +558,6 @@ pub use crate::types::Con;
 pub use crate::types::Rect;
 
 // Internal calls and globals use canonical Rust identities.
-use crate::application::conn;
 use crate::application::last_timestamp;
 use crate::application::root;
 use crate::con::con_activate;

@@ -2,6 +2,7 @@ use crate::con::arena::focus;
 use crate::con::arena::parent::parent_ptr;
 use crate::con::arena::{containers, resolve};
 use crate::domains::{ContainerType, FullscreenMode};
+use xcb::{x, Xid, XidNew};
 
 pub use crate::types::xoutput as Output;
 use crate::types::Direction;
@@ -27,7 +28,7 @@ use crate::xcursor::Cursor;
 #[derive(Copy, Clone)]
 #[repr(C)]
 struct DropParameters {
-    pub indicator: *mut xcb_window_t,
+    pub indicator: *mut x::Window,
     pub target: *mut *mut Con,
     pub direction: *mut Direction,
     pub drop_type: *mut DropType,
@@ -189,8 +190,10 @@ unsafe fn drag_callback(
         };
         if drop_type != DropType::Parent && target == con {
             draw_window = false;
-            xcb_destroy_window(conn, *(*params).indicator);
-            *(*params).indicator = 0 as xcb_window_t;
+            connection().send_request(&x::DestroyWindow {
+                window: *(*params).indicator,
+            });
+            *(*params).indicator = x::WINDOW_NONE;
         } else {
             match drop_type {
                 DropType::Parent => {
@@ -220,36 +223,34 @@ unsafe fn drag_callback(
         }
     }
     if draw_window {
-        if *(*params).indicator == 0 as xcb_window_t {
+        if (*(*params).indicator).is_none() {
             *(*params).indicator = create_drop_indicator(rect);
         } else {
-            let values: [u32; 4] = [rect.x, rect.y, rect.width, rect.height];
-            let mask: u32 = (XCB_CONFIG_WINDOW_X as i32
-                | XCB_CONFIG_WINDOW_Y as i32
-                | XCB_CONFIG_WINDOW_WIDTH as i32
-                | XCB_CONFIG_WINDOW_HEIGHT as i32) as u32;
-            xcb_configure_window(
-                conn,
-                *(*params).indicator,
-                mask as u16,
-                &raw const values as *const u32 as *const ::core::ffi::c_void,
-            );
+            connection().send_request(&x::ConfigureWindow {
+                window: *(*params).indicator,
+                value_list: &[
+                    x::ConfigWindow::X(rect.x as i32),
+                    x::ConfigWindow::Y(rect.y as i32),
+                    x::ConfigWindow::Width(rect.width),
+                    x::ConfigWindow::Height(rect.height),
+                ],
+            });
         }
     }
     x_mask_event_mask(!(XCB_EVENT_MASK_ENTER_WINDOW as i32) as u32);
-    xcb_flush(conn);
+    let _ = connection().flush();
     *(*params).target = target;
     *(*params).direction = direction;
     *(*params).drop_type = drop_type;
 }
-unsafe fn create_drop_indicator(rect: Rect) -> xcb_window_t {
+unsafe fn create_drop_indicator(rect: Rect) -> x::Window {
     let mut mask: u32 = 0 as u32;
     let mut values: [u32; 2] = [0; 2];
     mask = XCB_CW_BACK_PIXEL as i32 as u32;
     values[0 as usize] = config.client.focused.indicator.colorpixel;
     mask |= XCB_CW_OVERRIDE_REDIRECT as i32 as u32;
     values[1 as usize] = 1 as u32;
-    let indicator: xcb_window_t = create_window(
+    let indicator = x::Window::new(create_window(
         conn,
         rect,
         XCB_COPY_FROM_PARENT as u16,
@@ -259,20 +260,20 @@ unsafe fn create_drop_indicator(rect: Rect) -> xcb_window_t {
         false,
         mask,
         &raw mut values as *mut u32,
-    );
-    xcb_change_property(
-        conn,
-        XCB_PROP_MODE_REPLACE as i32 as u8,
-        indicator,
-        XCB_ATOM_WM_CLASS as i32 as xcb_atom_t,
-        XCB_ATOM_STRING as i32 as xcb_atom_t,
-        8 as u8,
-        16,
-        b"i3-drag\0i3-drag\0\0" as *const u8 as *const ::core::ffi::c_char
-            as *const ::core::ffi::c_void,
-    );
-    xcb_map_window(conn, indicator);
-    xcb_circulate_window(conn, XCB_CIRCULATE_RAISE_LOWEST as i32 as u8, indicator);
+    ));
+    connection().send_request(&x::ChangeProperty {
+        mode: x::PropMode::Replace,
+        window: indicator,
+        property: x::ATOM_WM_CLASS,
+        r#type: x::ATOM_STRING,
+        // Native code copied exactly sixteen bytes, excluding its extra NUL.
+        data: b"i3-drag\0i3-drag\0",
+    });
+    connection().send_request(&x::MapWindow { window: indicator });
+    connection().send_request(&x::CirculateWindow {
+        direction: x::Circulate::RaiseLowest,
+        window: indicator,
+    });
     indicator
 }
 
@@ -293,13 +294,12 @@ pub unsafe fn tiling_drag(
     let mut set_focus: bool = con == focused;
     let mut set_fs: bool = ((*con).fullscreen_mode) != FullscreenMode::None;
     x_mask_event_mask(!(XCB_EVENT_MASK_ENTER_WINDOW as i32) as u32);
-    xcb_flush(conn);
+    let _ = connection().flush();
     let mut target: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut direction: Direction = Direction::Left;
     let mut drop_type: DropType = DropType::Sibling;
     let mut indicator = Indicator {
-        connection: conn,
-        window: 0,
+        window: x::WINDOW_NONE,
     };
     let params: DropParameters = DropParameters {
         indicator: &raw mut indicator.window,
@@ -476,12 +476,9 @@ use i3_common::dpi::logical_px;
 // Canonical Pango backend ABI; font policy remains local.
 
 use xcb_sys::{
-    xcb_atom_t, xcb_button_press_event_t, xcb_change_property, xcb_circulate_window,
-    xcb_configure_window, xcb_connection_t, xcb_destroy_window, xcb_flush, xcb_map_window,
-    xcb_visualid_t, xcb_window_t, XCB_ATOM_STRING, XCB_ATOM_WM_CLASS, XCB_CIRCULATE_RAISE_LOWEST,
-    XCB_CONFIG_WINDOW_HEIGHT, XCB_CONFIG_WINDOW_WIDTH, XCB_CONFIG_WINDOW_X, XCB_CONFIG_WINDOW_Y,
-    XCB_COPY_FROM_PARENT, XCB_CW_BACK_PIXEL, XCB_CW_OVERRIDE_REDIRECT, XCB_EVENT_MASK_ENTER_WINDOW,
-    XCB_NONE, XCB_PROP_MODE_REPLACE, XCB_WINDOW_CLASS_INPUT_OUTPUT,
+    xcb_button_press_event_t, xcb_visualid_t, xcb_window_t, XCB_COPY_FROM_PARENT,
+    XCB_CW_BACK_PIXEL, XCB_CW_OVERRIDE_REDIRECT, XCB_EVENT_MASK_ENTER_WINDOW, XCB_NONE,
+    XCB_WINDOW_CLASS_INPUT_OUTPUT,
 };
 
 use i3_common::native_stdio::__assert_fail;
@@ -528,16 +525,21 @@ use crate::workspace::workspace_show;
 use crate::xcb::create_window;
 
 struct Indicator {
-    connection: *mut xcb_connection_t,
-    window: xcb_window_t,
+    window: x::Window,
 }
 impl Drop for Indicator {
     fn drop(&mut self) {
-        unsafe {
-            xcb_destroy_window(self.connection, self.window);
+        if let Some(connection) = i3_common::display::connection() {
+            connection.send_request(&x::DestroyWindow {
+                window: self.window,
+            });
         }
     }
 }
+fn connection() -> std::rc::Rc<xcb::Connection> {
+    i3_common::display::connection().expect("main X11 connection is registered")
+}
+
 struct IndicatorEdges {
     direction: Direction,
     distance: u32,
