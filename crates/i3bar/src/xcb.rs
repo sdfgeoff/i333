@@ -61,9 +61,6 @@ pub const XEMBED_EMBEDDED_NOTIFY: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 pub const I3_IPC_MESSAGE_TYPE_RUN_COMMAND: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 pub const I3_IPC_MESSAGE_TYPE_SYNC: ::core::ffi::c_int = 11 as ::core::ffi::c_int;
 
-pub static mut atom_cookies: [xcb_intern_atom_cookie_t; 12] =
-    [xcb_intern_atom_cookie_t { sequence: 0 }; 12];
-
 pub static mut atoms: [xcb_atom_t; 12] = [0; 12];
 
 // The registry shares the sole maintained owner on this event thread. Keeping
@@ -1997,14 +1994,15 @@ pub unsafe fn init_xcb_early() -> *mut ::core::ffi::c_char {
             1343 as ::core::ffi::c_int,
         );
     }
-    for (index, name) in ATOM_NAMES.iter().enumerate() {
-        atom_cookies[index] = xcb_intern_atom(
-            xcb_connection,
-            0,
-            name.to_bytes().len() as u16,
-            name.as_ptr(),
-        );
-    }
+    let connection = i3_common::display::connection().expect("bar display is registered");
+    // Keep the complete maintained cookies local and batch every atom request
+    // before waiting for a reply, preserving startup request ordering.
+    let atom_cookies = std::array::from_fn(|index| {
+        connection.send_request(&::xcb::x::InternAtom {
+            only_if_exists: false,
+            name: ATOM_NAMES[index].to_bytes(),
+        })
+    });
     root_screen = xcb_aux_get_screen(xcb_connection, screen);
     xcb_root = (*root_screen).root;
     depth = (*root_screen).root_depth;
@@ -2046,7 +2044,7 @@ pub unsafe fn init_xcb_early() -> *mut ::core::ffi::c_char {
     xcb_cursor_context_free(cursor_ctx);
     xcb_io = smalloc(std::mem::size_of::<ev_io>()).cast();
     xcb_io.write(ev_io::new(
-        xcb_get_file_descriptor(xcb_connection),
+        std::os::fd::AsRawFd::as_raw_fd(connection.as_ref()),
         EV_READ,
         xcb_io_cb,
     ));
@@ -2054,7 +2052,7 @@ pub unsafe fn init_xcb_early() -> *mut ::core::ffi::c_char {
     xcb_prep.write(ev_prepare::new(xcb_prep_cb));
     ev_io_start(main_loop as *mut ev_loop, xcb_io);
     ev_prepare_start(main_loop as *mut ev_loop, xcb_prep);
-    get_atoms();
+    get_atoms(&connection, atom_cookies);
     let path: *mut ::core::ffi::c_char =
         root_atom_contents(c"I3_SOCKET_PATH".as_ptr(), xcb_connection, screen);
     path
@@ -2416,13 +2414,12 @@ pub unsafe fn clean_xcb() {
     drop(registration);
 }
 
-pub unsafe fn get_atoms() {
-    for (index, name) in ATOM_NAMES.iter().enumerate() {
-        let Some(reply) = Native::take(xcb_intern_atom_reply(
-            xcb_connection,
-            atom_cookies[index],
-            std::ptr::null_mut(),
-        )) else {
+unsafe fn get_atoms(
+    connection: &::xcb::Connection,
+    cookies: [::xcb::x::InternAtomCookie; NUM_ATOMS],
+) {
+    for (index, (name, cookie)) in ATOM_NAMES.iter().zip(cookies).enumerate() {
+        let Ok(reply) = connection.wait_for_reply(cookie) else {
             fprintf(
                 stderr,
                 c"[%s:%d] ERROR: Could not get atom %s\n".as_ptr(),
@@ -2432,7 +2429,7 @@ pub unsafe fn get_atoms() {
             );
             exit(libc::EXIT_FAILURE);
         };
-        atoms[index] = (*reply.raw()).atom;
+        atoms[index] = ::xcb::Xid::resource_id(&reply.atom());
     }
     if config.verbose {
         printf(
@@ -3270,8 +3267,8 @@ use xcb_sys::{
     xcb_cursor_context_free, xcb_cursor_context_new, xcb_cursor_context_t, xcb_cursor_load_cursor,
     xcb_cursor_t, xcb_destroy_notify_event_t, xcb_destroy_window, xcb_drawable_t,
     xcb_expose_event_t, xcb_flush, xcb_free_cursor, xcb_free_pixmap, xcb_generate_id,
-    xcb_generic_error_t, xcb_generic_event_t, xcb_get_extension_data, xcb_get_file_descriptor,
-    xcb_get_property, xcb_get_property_cookie_t, xcb_get_property_reply, xcb_get_property_reply_t,
+    xcb_generic_error_t, xcb_generic_event_t, xcb_get_extension_data, xcb_get_property,
+    xcb_get_property_cookie_t, xcb_get_property_reply, xcb_get_property_reply_t,
     xcb_get_property_unchecked, xcb_get_property_value, xcb_get_property_value_length,
     xcb_get_selection_owner, xcb_get_selection_owner_cookie_t, xcb_get_selection_owner_reply,
     xcb_get_selection_owner_reply_t, xcb_intern_atom, xcb_intern_atom_cookie_t,
