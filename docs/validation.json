@@ -8,26 +8,26 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 22 wallclock secs ( 0.72 usr +  0.07 sys =  0.79 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 21 wallclock secs ( 0.60 usr +  0.07 sys =  0.67 CPU)\nResult: PASS",
     "profile": "debug",
     "build": "cargo test --locked",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "d249aa250a4f7274f85ca75bc17e05f15ea0ba394b9892dcc8e8f42ec06fe3da",
-    "i3bar": "c2b285f76639eab893a1fad8747e63c9fd9d6f2a03d590c9a1e88155e268e5d1",
-    "i3-config-wizard": "a10096ad00168149ad2d5b5f1ffb748e763daedc9b09faed915a05a6ad215f6e",
-    "i3-dump-log": "21e7eb1b7fbbaa810e6c9900ca70ad0bfa67e731a7d1c1ea2f2399caa7586e62",
-    "i3-input": "6c7fc34a74a32373fa1b3bcd297a766d4399e3eda339ddcc606ce652ec00df45",
-    "i3-msg": "53eed47147861f6f92b37b181967e7ad8f7c08b55e133bbe562e2b69be76a9ec",
-    "i3-nagbar": "5547a7a6454d0ee62546ffe8ddfdc66d95278c49d9c2922ab5d94606296a94ee"
+    "i3": "d58d4ef822f599ec7350d294771758c9e5cad60bd6e23f06ef7853a09a4573ff",
+    "i3bar": "e1694a474fc8fa058c23dc841c4e218a238055592c202b480e19c472700d9548",
+    "i3-config-wizard": "bc591ac33d17aa90cb14b09ca1cdd01e92bf80afb63afac1a4bde26f685cd2d7",
+    "i3-dump-log": "2c890bb7e5ff0159ce6d19c390f71c3620a8aaf5a21d40c8a36d76afaa9cd0b7",
+    "i3-input": "ae6479ba0b5943b3879af998e7249ec337ffa7ea62a48cbcf364faee86eae966",
+    "i3-msg": "5b73425748d8c0a6e8ae6d19d7b5771191452d751060ea9fe2cae11541d622b6",
+    "i3-nagbar": "26ac87b8a59191d184cb6f37fcc9b33747a7f47f01be0cdbfeda46589be44894"
   },
-  "note": "Nine-member Cargo workspace. cargo test --locked passed 425 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
+  "note": "Nine-member Cargo workspace. cargo test --locked passed 426 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
   "additional_checks": {
     "headless_c_rust_state_comparisons": 61,
     "ipc_client_test_groups": 16,
-    "workspace_unit_tests": 425,
+    "workspace_unit_tests": 426,
     "core_and_bar_cli_comparisons": 39,
     "pcre2_compile_match_error_comparisons": 4620,
     "json_oracle_cases": 2263,
@@ -125,7 +125,7 @@
       "cargo_regression_wrappers": 8,
       "xkb_integration": 1,
       "i3-build": 3,
-      "i3-common": 92,
+      "i3-common": 93,
       "native_graphics": 5,
       "i3-config-wizard": 5,
       "i3-dump-log": 5,
@@ -142,7 +142,7 @@
     "cargo_fmt_check": true,
     "debug_build": true,
     "release_build": true,
-    "unit_tests_total_including_integration_checks": 425,
+    "unit_tests_total_including_integration_checks": 426,
     "test_command": "cargo test",
     "clean_source_command": "cargo test -p i3-test-support --features clean-source-check",
     "test_support": "development-only process capture, failure propagation and isolated regression orchestration",
@@ -2354,6 +2354,14 @@
         "source_commit": "7b5e9a8a23fba41364de2a99c67104c97b4f9f49",
         "scope": "Own Match PCRE expressions and diagnostics; construct and drop Match/Assignment nodes; deep clone payloads without copying queue links; borrow regex inputs through safe APIs",
         "rust_tests": 425,
+        "upstream_assertions": 4205,
+        "status": "validated"
+      },
+      {
+        "stage": 3,
+        "source_commit": "ee5e61880c2cd255d6f2344e8b157e54a7e1025e",
+        "scope": "Own non-Copy Font backends and native Cairo surface/context/uncached GC resources; pass font and colors explicitly; initialize Config and embedded rendering records safely; enforce strict unsafe-operation boundaries",
+        "rust_tests": 426,
         "upstream_assertions": 4205,
         "status": "validated"
       }
