@@ -8,19 +8,19 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 23 wallclock secs ( 0.89 usr +  0.08 sys =  0.97 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 22 wallclock secs ( 0.72 usr +  0.07 sys =  0.79 CPU)\nResult: PASS",
     "profile": "debug",
     "build": "cargo test --locked",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "99257e0da5f4c9fb1ade4e210e97b947f7bcf967551171dd86a3bb65332a833a",
-    "i3bar": "52280306c13ee14d4c5cc43381ea53bf6d9844b37f588038d3029c1f887bc606",
-    "i3-config-wizard": "380848dff6375321b81865408dc32d82b27cd0f74bb31cb2045b2ea14d1eba16",
-    "i3-dump-log": "b51aa969085b8b0b78237ff6990f05c271b8d60ac03adefc83f45fbb792e6c60",
-    "i3-input": "b38bf94cac2166d127d5ea20c2e091464474118d6985ab6c09c2e2d3963ef9b1",
-    "i3-msg": "ceecbcf74c5a32fe846faa5336b58d25a8b2c37f8779b2b342871a3679389a5a",
-    "i3-nagbar": "baa1946e61fda1a96f2033d2e186b4eaca377ece33f9661915fc2ec8447a4ab9"
+    "i3": "d249aa250a4f7274f85ca75bc17e05f15ea0ba394b9892dcc8e8f42ec06fe3da",
+    "i3bar": "c2b285f76639eab893a1fad8747e63c9fd9d6f2a03d590c9a1e88155e268e5d1",
+    "i3-config-wizard": "a10096ad00168149ad2d5b5f1ffb748e763daedc9b09faed915a05a6ad215f6e",
+    "i3-dump-log": "21e7eb1b7fbbaa810e6c9900ca70ad0bfa67e731a7d1c1ea2f2399caa7586e62",
+    "i3-input": "6c7fc34a74a32373fa1b3bcd297a766d4399e3eda339ddcc606ce652ec00df45",
+    "i3-msg": "53eed47147861f6f92b37b181967e7ad8f7c08b55e133bbe562e2b69be76a9ec",
+    "i3-nagbar": "5547a7a6454d0ee62546ffe8ddfdc66d95278c49d9c2922ab5d94606296a94ee"
   },
   "note": "Nine-member Cargo workspace. cargo test --locked passed 425 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
@@ -2345,6 +2345,14 @@
         "stage": 1,
         "source_commit": "fe44ff418344aa0ab09135429583fe61c4cfbbcc",
         "scope": "Regex directly owns compiled PCRE2 and CString with independent clone; native Cairo error-preserving reference guard; Window.icon owns its surface through replacement and window teardown. Larger font/surface and Match payload ownership stages follow.",
+        "rust_tests": 425,
+        "upstream_assertions": 4205,
+        "status": "validated"
+      },
+      {
+        "stage": 2,
+        "source_commit": "7b5e9a8a23fba41364de2a99c67104c97b4f9f49",
+        "scope": "Own Match PCRE expressions and diagnostics; construct and drop Match/Assignment nodes; deep clone payloads without copying queue links; borrow regex inputs through safe APIs",
         "rust_tests": 425,
         "upstream_assertions": 4205,
         "status": "validated"
