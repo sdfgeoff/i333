@@ -1,7 +1,7 @@
 use crate::con::arena::parent::{parent_ptr, set_parent_ptr};
 use crate::con::arena::{focus, identity, nodes, resolve};
 use crate::domains::{ContainerType, DockMatch, FullscreenMode, MatchInsertWhere};
-use crate::regex::{regex_free, regex_new};
+use crate::regex::compile_or_report;
 use crate::types::BorderStyle;
 use crate::types::FloatingState;
 use crate::types::JsonContent;
@@ -101,8 +101,8 @@ impl LayoutState {
         );
         if self.parsing_swallows {
             verboselog(c"creating new swallow\n".as_ptr().cast_mut());
-            self.current_swallow = smalloc(::core::mem::size_of::<Match>() as usize) as *mut Match;
-            match_init(self.current_swallow);
+            self.current_swallow = Box::into_raw(Box::new(Match::empty()));
+
             (*self.current_swallow).dock = DockMatch::DontCheck;
             (*self.current_swallow).matches.tqe_next = ::core::ptr::null_mut::<Match>();
             (*self.current_swallow).matches.tqe_prev = (*self.json_node).swallow_head.tqh_last;
@@ -200,8 +200,7 @@ impl LayoutState {
                         (*self.json_node).swallow_head.tqh_last = (*match_0).matches.tqe_prev;
                     }
                     *(*match_0).matches.tqe_prev = (*match_0).matches.tqe_next;
-                    match_free(match_0);
-                    free(match_0 as *mut ::core::ffi::c_void);
+                    drop(Box::from_raw(match_0));
                 }
             }
             if ((*self.json_node).type_0) == ContainerType::Workspace {
@@ -425,36 +424,36 @@ impl LayoutState {
             let owned_sval = property_string(std::slice::from_raw_parts(val, len));
             let sval = owned_sval.as_ptr();
             if strcasecmp(self.last_key.as_ptr(), c"class".as_ptr()) == 0 as ::core::ffi::c_int {
-                let new = regex_new(sval);
-                regex_free((*self.current_swallow).class);
+                let new = compile_or_report(owned_sval.as_c_str());
+
                 (*self.current_swallow).class = new;
                 self.swallow_is_empty = false;
             } else if strcasecmp(self.last_key.as_ptr(), c"instance".as_ptr())
                 == 0 as ::core::ffi::c_int
             {
-                let new = regex_new(sval);
-                regex_free((*self.current_swallow).instance);
+                let new = compile_or_report(owned_sval.as_c_str());
+
                 (*self.current_swallow).instance = new;
                 self.swallow_is_empty = false;
             } else if strcasecmp(self.last_key.as_ptr(), c"window_role".as_ptr())
                 == 0 as ::core::ffi::c_int
             {
-                let new = regex_new(sval);
-                regex_free((*self.current_swallow).window_role);
+                let new = compile_or_report(owned_sval.as_c_str());
+
                 (*self.current_swallow).window_role = new;
                 self.swallow_is_empty = false;
             } else if strcasecmp(self.last_key.as_ptr(), c"title".as_ptr())
                 == 0 as ::core::ffi::c_int
             {
-                let new = regex_new(sval);
-                regex_free((*self.current_swallow).title);
+                let new = compile_or_report(owned_sval.as_c_str());
+
                 (*self.current_swallow).title = new;
                 self.swallow_is_empty = false;
             } else if strcasecmp(self.last_key.as_ptr(), c"machine".as_ptr())
                 == 0 as ::core::ffi::c_int
             {
-                let new = regex_new(sval);
-                regex_free((*self.current_swallow).machine);
+                let new = compile_or_report(owned_sval.as_c_str());
+
                 (*self.current_swallow).machine = new;
                 self.swallow_is_empty = false;
             } else {
@@ -1065,8 +1064,6 @@ use crate::con::con_mark;
 use crate::con::con_new_skeleton;
 use crate::floating::floating_check_size;
 use crate::floating::floating_enable;
-use crate::r#match::match_free;
-use crate::r#match::match_init;
 use crate::util::rect_equals;
 use crate::workspace::get_existing_workspace_by_name;
 use crate::workspace::previous_workspace_name;

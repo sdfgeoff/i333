@@ -12,9 +12,8 @@
 
 use crate::log::{errorlog, verboselog};
 use pcre2::bytes::{Regex as CompiledRegex, RegexBuilder};
-use std::ffi::{c_char, CStr, CString};
+use std::ffi::{CStr, CString};
 use std::fmt;
-use std::ptr;
 
 /// A compiled expression with independent owned pattern storage. The maintained
 /// PCRE2 clone retains the complete native options and provides fresh match data.
@@ -131,13 +130,10 @@ impl Regex {
         self.compiled.is_match(input)
     }
 }
-/// Transitional pointer entry point, using Rust linkage.
-/// # Safety
-/// pattern must point to a live NUL-terminated string.
-pub unsafe fn regex_new(pattern: *const c_char) -> *mut Regex {
-    // SAFETY: The caller supplies a borrowed C string for this call.
-    match Regex::compile(unsafe { CStr::from_ptr(pattern) }) {
-        Ok(regex) => Box::into_raw(Box::new(regex)),
+/// Compile an owned expression while retaining the native diagnostic wording.
+pub fn compile_or_report(pattern: &CStr) -> Option<Regex> {
+    match Regex::compile(pattern) {
+        Ok(regex) => Some(regex),
         Err(error) => {
             let message = CString::new(error.message).expect("regex diagnostic contains no NUL");
             unsafe {
@@ -149,25 +145,14 @@ pub unsafe fn regex_new(pattern: *const c_char) -> *mut Regex {
                     message.as_ptr(),
                 )
             };
-            ptr::null_mut()
+            None
         }
     }
 }
 
-/// # Safety
-/// regex is null or is a still-owned pointer returned by regex_new.
-pub unsafe fn regex_free(regex: *mut Regex) {
-    if !regex.is_null() {
-        unsafe { drop(Box::from_raw(regex)) };
-    }
-}
-
-/// # Safety
-/// regex and input must be live borrowed pointers from the corresponding APIs.
-pub unsafe fn regex_matches(regex: *const Regex, input: *const c_char) -> bool {
-    // SAFETY: The caller supplies a live expression and C string for this call.
-    let expression = unsafe { &*regex };
-    match expression.is_match(unsafe { CStr::from_ptr(input) }) {
+/// Match borrowed native text without transferring any expression/string owner.
+pub fn regex_matches(expression: &Regex, input: &CStr) -> bool {
+    match expression.is_match(input) {
         Ok(matched) => {
             let verb = if matched {
                 c"matches"
@@ -179,7 +164,7 @@ pub unsafe fn regex_matches(regex: *const Regex, input: *const c_char) -> bool {
                     c"Regular expression \"%s\" %s \"%s\"\n".as_ptr().cast_mut(),
                     expression.pattern().as_ptr(),
                     verb.as_ptr(),
-                    input,
+                    input.as_ptr(),
                 )
             };
             matched
@@ -187,7 +172,7 @@ pub unsafe fn regex_matches(regex: *const Regex, input: *const c_char) -> bool {
         Err(error) => {
             unsafe {
                 errorlog(c"ERROR: PCRE error %d while trying to use regular expression \"%s\" on input \"%s\", see pcreapi(3)\n".as_ptr().cast_mut(),
-                error.code(), expression.pattern().as_ptr(), input)
+                error.code(), expression.pattern().as_ptr(), input.as_ptr())
             };
             false
         }

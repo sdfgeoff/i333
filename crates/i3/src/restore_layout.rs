@@ -91,16 +91,15 @@ fn serialize_swallow(fields: [Option<&CStr>; 5]) -> Option<CString> {
 /// Borrow only pattern values long enough to copy the display text; never keep
 /// a Match/Con reference across drawing/native callbacks.
 unsafe fn swallow_text(swallow: *const Match) -> Option<CString> {
-    let fields = unsafe {
-        [
-            (*swallow).class,
-            (*swallow).instance,
-            (*swallow).window_role,
-            (*swallow).title,
-            (*swallow).machine,
-        ]
-    };
-    serialize_swallow(fields.map(|field| unsafe { field.as_ref() }.map(|regex| regex.pattern())))
+    let swallow = unsafe { &*swallow };
+    let fields = [
+        &swallow.class,
+        &swallow.instance,
+        &swallow.window_role,
+        &swallow.title,
+        &swallow.machine,
+    ];
+    serialize_swallow(fields.map(|field| field.as_ref().map(|regex| regex.pattern())))
 }
 fn text_geometry(rect: Rect, font_height: i32, padding: i32, line: i32) -> (i32, i32, i32) {
     (
@@ -357,8 +356,8 @@ unsafe fn open_placeholder_window(con: *mut Con) {
         (*state).state.tqe_prev = state_head.tqh_last;
         *state_head.tqh_last = state as *mut placeholder_state;
         state_head.tqh_last = &raw mut (*state).state.tqe_next;
-        let temp_id: *mut Match = smalloc(::core::mem::size_of::<Match>() as usize) as *mut Match;
-        match_init(temp_id);
+        let temp_id: *mut Match = Box::into_raw(Box::new(Match::empty()));
+
         (*temp_id).dock = DockMatch::DontCheck;
         (*temp_id).id = placeholder;
         (*temp_id).matches.tqe_next = (*con).swallow_head.tqh_first;
@@ -570,7 +569,6 @@ use crate::application::A_UTF8_STRING;
 use crate::application::A__NET_WM_NAME;
 use crate::con::con_is_leaf;
 use crate::config::config;
-use crate::r#match::match_init;
 use crate::xcb::create_window;
 use i3_common::draw_util::draw_util_clear_surface;
 use i3_common::draw_util::draw_util_surface_free;

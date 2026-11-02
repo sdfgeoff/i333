@@ -47,8 +47,7 @@ unsafe fn _remove_matches(con: *mut Con) {
             (*con).swallow_head.tqh_last = (*first).matches.tqe_prev;
         }
         *(*first).matches.tqe_prev = (*first).matches.tqe_next;
-        match_free(first);
-        free(first as *mut ::core::ffi::c_void);
+        drop(Box::from_raw(first));
     }
 }
 
@@ -654,8 +653,7 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                             (*nc).swallow_head.tqh_last = (*match_0).matches.tqe_prev;
                         }
                         *(*match_0).matches.tqe_prev = (*match_0).matches.tqe_next;
-                        match_free(match_0);
-                        free(match_0 as *mut ::core::ffi::c_void);
+                        drop(Box::from_raw(match_0));
                         match_0 = ::core::ptr::null_mut::<Match>();
                     }
                     (*cwindow).swallowed = true;
@@ -1191,7 +1189,6 @@ use crate::floating::floating_enable;
 use crate::ipc::ipc_send_window_event;
 use crate::output::output_primary_name;
 use crate::output::output_push_sticky_windows;
-use crate::r#match::match_free;
 use crate::randr::get_output_containing;
 use crate::randr::get_output_with_dimensions;
 use crate::render::render_con;

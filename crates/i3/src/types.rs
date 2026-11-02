@@ -304,13 +304,27 @@ pub enum BarPosition {
     Top = 1,
 }
 
-#[derive(Copy, Clone)]
-#[repr(C)]
 pub struct Assignment {
     pub type_0: AssignmentKind,
     pub match_0: crate::types::Match,
     pub dest: crate::types::AssignmentDest,
     pub assignments: crate::types::AssignmentAssignments,
+}
+
+impl Assignment {
+    pub fn new(type_0: AssignmentKind, match_0: Match) -> Self {
+        Self {
+            type_0,
+            match_0,
+            dest: AssignmentDest {
+                command: std::ptr::null_mut(),
+            },
+            assignments: AssignmentAssignments {
+                tqe_next: std::ptr::null_mut(),
+                tqe_prev: std::ptr::null_mut(),
+            },
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -512,18 +526,16 @@ pub struct MarkTMarks {
     pub tqe_prev: *mut *mut crate::types::mark_t,
 }
 
-#[derive(Copy, Clone)]
-#[repr(C)]
 pub struct Match {
-    pub error: *mut ::core::ffi::c_char,
-    pub title: *mut crate::regex::Regex,
-    pub application: *mut crate::regex::Regex,
-    pub class: *mut crate::regex::Regex,
-    pub instance: *mut crate::regex::Regex,
-    pub mark: *mut crate::regex::Regex,
-    pub window_role: *mut crate::regex::Regex,
-    pub workspace: *mut crate::regex::Regex,
-    pub machine: *mut crate::regex::Regex,
+    pub error: Option<std::ffi::CString>,
+    pub title: Option<crate::regex::Regex>,
+    pub application: Option<crate::regex::Regex>,
+    pub class: Option<crate::regex::Regex>,
+    pub instance: Option<crate::regex::Regex>,
+    pub mark: Option<crate::regex::Regex>,
+    pub window_role: Option<crate::regex::Regex>,
+    pub workspace: Option<crate::regex::Regex>,
+    pub machine: Option<crate::regex::Regex>,
     pub window_type: u32,
     pub urgent: UrgencyMatch,
     pub dock: DockMatch,
@@ -534,6 +546,75 @@ pub struct Match {
     pub insert_where: MatchInsertWhere,
     pub matches: crate::types::MatchMatches,
     pub restart_mode: bool,
+}
+
+impl Match {
+    pub const fn empty() -> Self {
+        Self {
+            error: None,
+            title: None,
+            application: None,
+            class: None,
+            instance: None,
+            mark: None,
+            window_role: None,
+            workspace: None,
+            machine: None,
+            window_type: u32::MAX,
+            urgent: UrgencyMatch::DontCheck,
+            dock: DockMatch::NoDock,
+            id: 0,
+            window_mode: WindowMode::Any,
+            con_id: std::ptr::null_mut(),
+            match_all_windows: false,
+            insert_where: MatchInsertWhere::Here,
+            matches: MatchMatches {
+                tqe_next: std::ptr::null_mut(),
+                tqe_prev: std::ptr::null_mut(),
+            },
+            restart_mode: false,
+        }
+    }
+    pub fn error_ptr(&self) -> *const ::core::ffi::c_char {
+        self.error
+            .as_ref()
+            .map_or(std::ptr::null(), |error| error.as_ptr())
+    }
+}
+impl Default for Match {
+    fn default() -> Self {
+        Self::empty()
+    }
+}
+impl Clone for Match {
+    fn clone(&self) -> Self {
+        // Clone only payload owners/borrowed identities. An independently owned
+        // match is never already a member of its source's intrusive queue.
+        Self {
+            error: self.error.clone(),
+            title: self.title.clone(),
+            application: self.application.clone(),
+            class: self.class.clone(),
+            instance: self.instance.clone(),
+            mark: self.mark.clone(),
+            window_role: self.window_role.clone(),
+            workspace: self.workspace.clone(),
+            machine: self.machine.clone(),
+            window_type: self.window_type,
+            urgent: self.urgent,
+            dock: self.dock,
+            id: self.id,
+            window_mode: self.window_mode,
+            con_id: self.con_id,
+            match_all_windows: self.match_all_windows,
+            insert_where: self.insert_where,
+            restart_mode: self.restart_mode,
+            matches: MatchMatches {
+                tqe_next: std::ptr::null_mut(),
+                tqe_prev: std::ptr::null_mut(),
+            },
+        }
+    }
 }
 
 #[derive(Copy, Clone)]

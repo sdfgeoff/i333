@@ -104,8 +104,7 @@ pub unsafe fn con_free(con: *mut Con) {
             (*con).swallow_head.tqh_last = (*match_0).matches.tqe_prev;
         }
         *(*match_0).matches.tqe_prev = (*match_0).matches.tqe_next;
-        match_free(match_0);
-        free(match_0 as *mut ::core::ffi::c_void);
+        drop(Box::from_raw(match_0));
     }
     while !(*con).marks_head.tqh_first.is_null() {
         let mut mark: *mut mark_t = (*con).marks_head.tqh_first as *mut mark_t;
@@ -2973,7 +2972,6 @@ use crate::output::get_output_for_con;
 use crate::output::get_output_from_string;
 use crate::output::output_get_content;
 use crate::output::output_primary_name;
-use crate::r#match::match_free;
 use crate::r#match::match_matches_window;
 use crate::scratchpad::scratchpad_move;
 use crate::startup::startup_sequence_delete_by_window;

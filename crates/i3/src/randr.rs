@@ -583,9 +583,8 @@ pub unsafe fn output_init_con(output: *mut Output) {
     );
     (*topdock).type_0 = ContainerType::DockArea;
     (*topdock).layout = Layout::DockArea;
-    let mut match_0: *mut Match =
-        scalloc(1 as usize, ::core::mem::size_of::<Match>() as usize) as *mut Match;
-    match_init(match_0);
+    let mut match_0: *mut Match = Box::into_raw(Box::new(Match::empty()));
+
     (*match_0).dock = DockMatch::Top;
     (*match_0).insert_where = MatchInsertWhere::Below;
     (*match_0).matches.tqe_next = ::core::ptr::null_mut::<Match>();
@@ -638,8 +637,8 @@ pub unsafe fn output_init_con(output: *mut Output) {
     );
     (*bottomdock).type_0 = ContainerType::DockArea;
     (*bottomdock).layout = Layout::DockArea;
-    match_0 = scalloc(1 as usize, ::core::mem::size_of::<Match>() as usize) as *mut Match;
-    match_init(match_0);
+    match_0 = Box::into_raw(Box::new(Match::empty()));
+
     (*match_0).dock = DockMatch::Bottom;
     (*match_0).insert_where = MatchInsertWhere::Below;
     (*match_0).matches.tqe_next = ::core::ptr::null_mut::<Match>();
@@ -1689,7 +1688,6 @@ use crate::floating::floating_fix_coordinates;
 use crate::output::get_output_for_con;
 use crate::output::output_get_content;
 use crate::output::output_primary_name;
-use crate::r#match::match_init;
 use crate::tree::croot;
 use crate::tree::focused;
 use crate::tree::tree_close_internal;

@@ -764,12 +764,10 @@ unsafe fn snapshot_node_header(con: *mut Con, restart: bool) -> messages::NodeHe
         window_properties: properties,
     }
 }
-unsafe fn optional_pattern(
-    pattern: *mut crate::regex::Regex,
+fn optional_pattern(
+    pattern: Option<&crate::regex::Regex>,
 ) -> messages::Omitted<messages::NativeText> {
-    messages::Omitted(
-        (!pattern.is_null()).then(|| messages::NativeText::cstr((*pattern).pattern())),
-    )
+    messages::Omitted(pattern.map(|pattern| messages::NativeText::cstr(pattern.pattern())))
 }
 unsafe fn snapshot_node_tail(con: *mut Con, restart: bool) -> messages::NodeTail {
     use messages::Omitted;
@@ -787,11 +785,11 @@ unsafe fn snapshot_node_tail(con: *mut Con, restart: bool) -> messages::NodeTail
             swallows.push(messages::Swallow {
                 dock: Omitted(dock.then_some(((*swallow).dock).raw() as i64)),
                 insert_where: Omitted(dock.then_some(((*swallow).insert_where).raw() as i64)),
-                class: optional_pattern((*swallow).class),
-                instance: optional_pattern((*swallow).instance),
-                window_role: optional_pattern((*swallow).window_role),
-                title: optional_pattern((*swallow).title),
-                machine: optional_pattern((*swallow).machine),
+                class: optional_pattern((*swallow).class.as_ref()),
+                instance: optional_pattern((*swallow).instance.as_ref()),
+                window_role: optional_pattern((*swallow).window_role.as_ref()),
+                title: optional_pattern((*swallow).title.as_ref()),
+                machine: optional_pattern((*swallow).machine.as_ref()),
                 id: Omitted(None),
                 restart_mode: Omitted(None),
             });

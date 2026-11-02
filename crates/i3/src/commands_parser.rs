@@ -90,8 +90,6 @@ use i3_common::safewrappers::sasprintf;
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 use crate::ipc::{emit_command_reply, CommandReply};
 
-pub use crate::regex::Regex as regex;
-
 pub use crate::application::ipc_client;
 
 pub use crate::assignments::CommandResult;
@@ -3992,30 +3990,7 @@ pub unsafe fn parse_command(
             .as_ref()
             .map(|_| crate::ipc::CommandReplies::default()),
         state: CommandParserState::RenameWorkspaceLikelyToNewName,
-        current_match: Match {
-            error: ::core::ptr::null_mut::<::core::ffi::c_char>(),
-            title: ::core::ptr::null_mut::<regex>(),
-            application: ::core::ptr::null_mut::<regex>(),
-            class: ::core::ptr::null_mut::<regex>(),
-            instance: ::core::ptr::null_mut::<regex>(),
-            mark: ::core::ptr::null_mut::<regex>(),
-            window_role: ::core::ptr::null_mut::<regex>(),
-            workspace: ::core::ptr::null_mut::<regex>(),
-            machine: ::core::ptr::null_mut::<regex>(),
-            window_type: 0,
-            urgent: UrgencyMatch::Latest,
-            dock: DockMatch::NoDock,
-            id: 0,
-            window_mode: WindowMode::Any,
-            con_id: ::core::ptr::null_mut::<Con>(),
-            match_all_windows: false,
-            insert_where: MatchInsertWhere::Here,
-            matches: MatchListLinks {
-                tqe_next: ::core::ptr::null_mut::<Match>(),
-                tqe_prev: ::core::ptr::null_mut::<*mut Match>(),
-            },
-            restart_mode: false,
-        },
+        current_match: Match::empty(),
         stack: stack::default(),
         owindows: owindows_head {
             tqh_first: ::core::ptr::null_mut::<owindow>(),
@@ -4231,7 +4206,6 @@ use crate::log::{debuglog, errorlog};
 // Shared model types retain field layout while using one Rust identity.
 pub use crate::types::Con;
 pub use crate::types::Match;
-pub use crate::types::MatchMatches as MatchListLinks;
 
 /// A valid state in the generated command parser table.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

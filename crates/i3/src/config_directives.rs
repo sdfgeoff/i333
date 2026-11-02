@@ -41,8 +41,6 @@ pub use libev_sys::ev_tstamp;
 
 pub type i3_event_state_mask_t = u32;
 
-pub use crate::regex::Regex as regex;
-
 pub type gaps_mask_t = GapMask;
 
 pub use crate::application::Autostart;
@@ -166,30 +164,7 @@ pub unsafe fn cfg_include(
                 let mut ctx: parser_ctx = parser_ctx {
                     use_nagbar: (*(*result).ctx).use_nagbar,
                     state: ConfigParserState::ForceDisplayUrgencyHintMs,
-                    current_match: Match {
-                        error: ::core::ptr::null_mut::<::core::ffi::c_char>(),
-                        title: ::core::ptr::null_mut::<regex>(),
-                        application: ::core::ptr::null_mut::<regex>(),
-                        class: ::core::ptr::null_mut::<regex>(),
-                        instance: ::core::ptr::null_mut::<regex>(),
-                        mark: ::core::ptr::null_mut::<regex>(),
-                        window_role: ::core::ptr::null_mut::<regex>(),
-                        workspace: ::core::ptr::null_mut::<regex>(),
-                        machine: ::core::ptr::null_mut::<regex>(),
-                        window_type: 0,
-                        urgent: UrgencyMatch::Latest,
-                        dock: DockMatch::NoDock,
-                        id: 0,
-                        window_mode: WindowMode::Any,
-                        con_id: ::core::ptr::null_mut::<Con>(),
-                        match_all_windows: false,
-                        insert_where: MatchInsertWhere::Here,
-                        matches: MatchListLinks {
-                            tqe_next: ::core::ptr::null_mut::<Match>(),
-                            tqe_prev: ::core::ptr::null_mut::<*mut Match>(),
-                        },
-                        restart_mode: false,
-                    },
+                    current_match: Match::empty(),
                     statelist: Vec::new(),
                     statelist_idx: 0,
                     stack: &raw mut stack,
@@ -265,8 +240,7 @@ pub unsafe fn cfg_criteria_init(
         current_match,
         _state as u32,
     );
-    match_free(current_match);
-    match_init(current_match);
+    *current_match = Match::empty();
 }
 
 pub unsafe fn cfg_criteria_pop_state(current_match: *mut Match, result: *mut ConfigResultIR) {
@@ -461,10 +435,10 @@ pub unsafe fn cfg_for_window(
     result: *mut ConfigResultIR,
     command: *const ::core::ffi::c_char,
 ) {
-    if !(*current_match).error.is_null() {
+    if (*current_match).error.is_some() {
         errorlog(
             c"ERROR: match has error: %s\n".as_ptr().cast_mut(),
-            (*current_match).error,
+            (*current_match).error_ptr(),
         );
         return;
     }
@@ -485,10 +459,11 @@ pub unsafe fn cfg_for_window(
         237 as ::core::ffi::c_int,
         command,
     );
-    let assignment: *mut Assignment =
-        scalloc(1 as usize, ::core::mem::size_of::<Assignment>() as usize) as *mut Assignment;
+    let assignment: *mut Assignment = Box::into_raw(Box::new(Assignment::new(
+        AssignmentKind::empty(),
+        (*current_match).clone(),
+    )));
     (*assignment).type_0 = AssignmentKind::COMMAND;
-    match_copy(&raw mut (*assignment).match_0, current_match);
     (*assignment).dest.command = sstrdup(command);
     (*assignment).assignments.tqe_next = ::core::ptr::null_mut::<Assignment>();
     (*assignment).assignments.tqe_prev = assignments.tqh_last;
@@ -1206,10 +1181,10 @@ pub unsafe fn cfg_assign_output(
     result: *mut ConfigResultIR,
     output: *const ::core::ffi::c_char,
 ) {
-    if !(*current_match).error.is_null() {
+    if (*current_match).error.is_some() {
         errorlog(
             c"ERROR: match has error: %s\n".as_ptr().cast_mut(),
-            (*current_match).error,
+            (*current_match).error_ptr(),
         );
         return;
     }
@@ -1238,9 +1213,10 @@ pub unsafe fn cfg_assign_output(
         654 as ::core::ffi::c_int,
         output,
     );
-    let assignment: *mut Assignment =
-        scalloc(1 as usize, ::core::mem::size_of::<Assignment>() as usize) as *mut Assignment;
-    match_copy(&raw mut (*assignment).match_0, current_match);
+    let assignment: *mut Assignment = Box::into_raw(Box::new(Assignment::new(
+        AssignmentKind::empty(),
+        (*current_match).clone(),
+    )));
     (*assignment).type_0 = AssignmentKind::TO_OUTPUT;
     (*assignment).dest.output = sstrdup(output);
     (*assignment).assignments.tqe_next = ::core::ptr::null_mut::<Assignment>();
@@ -1255,10 +1231,10 @@ pub unsafe fn cfg_assign(
     workspace: *const ::core::ffi::c_char,
     is_number: bool,
 ) {
-    if !(*current_match).error.is_null() {
+    if (*current_match).error.is_some() {
         errorlog(
             c"ERROR: match has error: %s\n".as_ptr().cast_mut(),
-            (*current_match).error,
+            (*current_match).error_ptr(),
         );
         return;
     }
@@ -1298,9 +1274,10 @@ pub unsafe fn cfg_assign(
         682 as ::core::ffi::c_int,
         workspace,
     );
-    let assignment: *mut Assignment =
-        scalloc(1 as usize, ::core::mem::size_of::<Assignment>() as usize) as *mut Assignment;
-    match_copy(&raw mut (*assignment).match_0, current_match);
+    let assignment: *mut Assignment = Box::into_raw(Box::new(Assignment::new(
+        AssignmentKind::empty(),
+        (*current_match).clone(),
+    )));
     (*assignment).type_0 = if is_number as ::core::ffi::c_int != 0 {
         AssignmentKind::TO_WORKSPACE_NUMBER
     } else {
@@ -1314,10 +1291,10 @@ pub unsafe fn cfg_assign(
 }
 
 pub unsafe fn cfg_no_focus(current_match: *mut Match, result: *mut ConfigResultIR) {
-    if !(*current_match).error.is_null() {
+    if (*current_match).error.is_some() {
         errorlog(
             c"ERROR: match has error: %s\n".as_ptr().cast_mut(),
-            (*current_match).error,
+            (*current_match).error_ptr(),
         );
         return;
     }
@@ -1337,9 +1314,10 @@ pub unsafe fn cfg_no_focus(current_match: *mut Match, result: *mut ConfigResultI
         c"cfg_no_focus".as_ptr(),
         700 as ::core::ffi::c_int,
     );
-    let assignment: *mut Assignment =
-        scalloc(1 as usize, ::core::mem::size_of::<Assignment>() as usize) as *mut Assignment;
-    match_copy(&raw mut (*assignment).match_0, current_match);
+    let assignment: *mut Assignment = Box::into_raw(Box::new(Assignment::new(
+        AssignmentKind::empty(),
+        (*current_match).clone(),
+    )));
     (*assignment).type_0 = AssignmentKind::NO_FOCUS;
     (*assignment).assignments.tqe_next = ::core::ptr::null_mut::<Assignment>();
     (*assignment).assignments.tqe_prev = assignments.tqh_last;
@@ -1907,15 +1885,11 @@ pub use crate::types::gaps_t;
 pub use crate::types::Assignment;
 pub use crate::types::Con;
 pub use crate::types::Match;
-pub use crate::types::MatchMatches as MatchListLinks;
 pub use i3_common::font::Font;
 
 // Internal calls and globals use canonical Rust identities.
 use crate::bindings::DEFAULT_BINDING_MODE;
 use crate::config::config;
-use crate::r#match::match_copy;
-use crate::r#match::match_free;
-use crate::r#match::match_init;
 use crate::r#match::match_is_empty;
 use crate::r#match::match_parse_property;
 use i3_common::draw_util::draw_util_hex_to_color;

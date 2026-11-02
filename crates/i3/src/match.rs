@@ -1,3 +1,5 @@
+#![deny(unsafe_op_in_unsafe_fn)]
+
 use crate::con::arena::{containers, resolve};
 use crate::domains::{DockMatch, MatchInsertWhere};
 use crate::types::FloatingState;
@@ -24,50 +26,18 @@ pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 
 fn empty_match() -> Match {
-    Match {
-        error: std::ptr::null_mut(),
-        title: std::ptr::null_mut(),
-        application: std::ptr::null_mut(),
-        class: std::ptr::null_mut(),
-        instance: std::ptr::null_mut(),
-        mark: std::ptr::null_mut(),
-        window_role: std::ptr::null_mut(),
-        workspace: std::ptr::null_mut(),
-        machine: std::ptr::null_mut(),
-        window_type: u32::MAX,
-        urgent: UrgencyMatch::DontCheck,
-        dock: DockMatch::NoDock,
-        id: 0,
-        window_mode: WindowMode::Any,
-        con_id: std::ptr::null_mut(),
-        match_all_windows: false,
-        insert_where: MatchInsertWhere::Here,
-        matches: crate::types::MatchMatches {
-            tqe_next: std::ptr::null_mut(),
-            tqe_prev: std::ptr::null_mut(),
-        },
-        restart_mode: false,
-    }
-}
-
-/// # Safety
-/// Destination is aligned/writable Match storage. Previously owned expressions
-/// and errors must already have been released before reinitialization.
-pub unsafe fn match_init(destination: *mut Match) {
-    unsafe {
-        destination.write(empty_match());
-    }
+    Match::empty()
 }
 
 fn is_empty(value: &Match) -> bool {
-    value.title.is_null()
-        && value.mark.is_null()
-        && value.application.is_null()
-        && value.class.is_null()
-        && value.instance.is_null()
-        && value.window_role.is_null()
-        && value.workspace.is_null()
-        && value.machine.is_null()
+    value.title.is_none()
+        && value.mark.is_none()
+        && value.application.is_none()
+        && value.class.is_none()
+        && value.instance.is_none()
+        && value.window_role.is_none()
+        && value.workspace.is_none()
+        && value.machine.is_none()
         && value.urgent == UrgencyMatch::DontCheck
         && value.id == 0
         && value.window_type == u32::MAX
@@ -83,9 +53,9 @@ pub unsafe fn match_is_empty(value: *mut Match) -> bool {
     is_empty(unsafe { &*value })
 }
 
-fn compile_expression(pattern: &CStr) -> Option<Box<Regex>> {
+fn compile_expression(pattern: &CStr) -> Option<Regex> {
     match Regex::compile(pattern) {
-        Ok(expression) => Some(Box::new(expression)),
+        Ok(expression) => Some(expression),
         Err(error) => {
             emit(
                 Level::Error,
@@ -97,41 +67,6 @@ fn compile_expression(pattern: &CStr) -> Option<Box<Regex>> {
             );
             None
         }
-    }
-}
-
-/// # Safety
-/// A non-null pointer borrows a live compiled expression.
-unsafe fn copy_expression(pointer: *mut Regex) -> *mut Regex {
-    unsafe { pointer.as_ref() }
-        .and_then(|expression| compile_expression(expression.pattern()))
-        .map_or(std::ptr::null_mut(), Box::into_raw)
-}
-
-/// # Safety
-/// Source is a live Match whose strings/expressions remain borrowed during the
-/// copy. Destination is writable, nonoverlapping, and has no unreleased owners.
-/// Queue links retain the legacy shallow-copy convention; owned fields do not.
-pub unsafe fn match_copy(destination: *mut Match, source: *mut Match) {
-    if destination == source {
-        return;
-    }
-    let mut copy = unsafe { *source };
-    copy.title = unsafe { copy_expression(copy.title) };
-    copy.mark = unsafe { copy_expression(copy.mark) };
-    copy.application = unsafe { copy_expression(copy.application) };
-    copy.class = unsafe { copy_expression(copy.class) };
-    copy.instance = unsafe { copy_expression(copy.instance) };
-    copy.window_role = unsafe { copy_expression(copy.window_role) };
-    copy.workspace = unsafe { copy_expression(copy.workspace) };
-    copy.machine = unsafe { copy_expression(copy.machine) };
-    // Errors have the same malloc/free contract as before, but copied invalid
-    // criteria must not share an allocation that both owners later free.
-    if !copy.error.is_null() {
-        copy.error = unsafe { sstrdup(copy.error) };
-    }
-    unsafe {
-        destination.write(copy);
     }
 }
 
@@ -410,22 +345,20 @@ impl Criteria<'_> {
 }
 
 /// All referenced expressions must remain allocated and immutable for 'a.
-unsafe fn criteria_view<'a>(value: &'a Match) -> Criteria<'a> {
-    unsafe {
-        Criteria {
-            class: value.class.as_ref(),
-            instance: value.instance.as_ref(),
-            title: value.title.as_ref(),
-            role: value.window_role.as_ref(),
-            machine: value.machine.as_ref(),
-            workspace: value.workspace.as_ref(),
-            mark: value.mark.as_ref(),
-            id: value.id,
-            window_type: value.window_type,
-            urgent: value.urgent,
-            dock: value.dock,
-            mode: value.window_mode,
-        }
+fn criteria_view(value: &Match) -> Criteria<'_> {
+    Criteria {
+        class: value.class.as_ref(),
+        instance: value.instance.as_ref(),
+        title: value.title.as_ref(),
+        role: value.window_role.as_ref(),
+        machine: value.machine.as_ref(),
+        workspace: value.workspace.as_ref(),
+        mark: value.mark.as_ref(),
+        id: value.id,
+        window_type: value.window_type,
+        urgent: value.urgent,
+        dock: value.dock,
+        mode: value.window_mode,
     }
 }
 
@@ -571,33 +504,7 @@ pub unsafe fn match_matches_window(raw_match: *mut Match, raw_window: *mut Windo
 }
 
 /// # Safety
-/// The Match is exclusively borrowed and each non-null expression/error is its
-/// unique live owner. Match storage/queue links are not freed by this function.
-pub unsafe fn match_free(raw: *mut Match) {
-    let value = unsafe { &mut *raw };
-    let error = std::mem::replace(&mut value.error, std::ptr::null_mut());
-    unsafe {
-        free(error.cast());
-    }
-    for slot in [
-        &mut value.title,
-        &mut value.application,
-        &mut value.class,
-        &mut value.instance,
-        &mut value.mark,
-        &mut value.window_role,
-        &mut value.workspace,
-        &mut value.machine,
-    ] {
-        let expression = std::mem::replace(slot, std::ptr::null_mut());
-        unsafe {
-            regex_free(expression);
-        }
-    }
-}
-
-/// Legacy model mutation boundary. Regex/error allocations remain compatible
-/// with the other creators and their explicit match_free calls.
+/// Parser compatibility boundary over an exclusively borrowed owned Match.
 /// # Safety
 /// Match is exclusively borrowed; ctype is a live C string. cvalue is null only
 /// for flag criteria, otherwise a live C string. Global atom/focus state belongs
@@ -607,205 +514,200 @@ pub unsafe fn match_parse_property(
     ctype: *const ::core::ffi::c_char,
     cvalue: *const ::core::ffi::c_char,
 ) {
-    if match_0 != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Match {
-    } else {
-        __assert_fail(
-            c"match != NULL".as_ptr(),
+    // SAFETY: this compatibility edge borrows the caller's live C arguments and
+    // exclusive Match/event-thread globals for the complete parse. Owned fields
+    // are replaced normally; no allocation ownership crosses the raw boundary.
+    unsafe {
+        if match_0 != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Match {
+        } else {
+            __assert_fail(
+                c"match != NULL".as_ptr(),
+                c"../src/match.c".as_ptr(),
+                296 as ::core::ffi::c_uint,
+                c"void match_parse_property(Match *, const char *, const char *)".as_ptr(),
+            );
+        };
+        debuglog(
+            c"%s:%s:%d - ctype=*%s*, cvalue=*%s*\n".as_ptr().cast_mut(),
             c"../src/match.c".as_ptr(),
-            296 as ::core::ffi::c_uint,
-            c"void match_parse_property(Match *, const char *, const char *)".as_ptr(),
+            c"match_parse_property".as_ptr(),
+            297 as ::core::ffi::c_int,
+            ctype,
+            cvalue,
         );
-    };
-    debuglog(
-        c"%s:%s:%d - ctype=*%s*, cvalue=*%s*\n".as_ptr().cast_mut(),
-        c"../src/match.c".as_ptr(),
-        c"match_parse_property".as_ptr(),
-        297 as ::core::ffi::c_int,
-        ctype,
-        cvalue,
-    );
-    let property = unsafe { CStr::from_ptr(ctype) }.to_bytes();
-    if property == b"class" {
-        regex_free((*match_0).class);
-        (*match_0).class = regex_new(cvalue);
-        return;
-    }
-    if property == b"instance" {
-        regex_free((*match_0).instance);
-        (*match_0).instance = regex_new(cvalue);
-        return;
-    }
-    if property == b"window_role" {
-        regex_free((*match_0).window_role);
-        (*match_0).window_role = regex_new(cvalue);
-        return;
-    }
-    if property == b"con_id" {
-        if strcmp(cvalue, c"__focused__".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*match_0).con_id = global_focused;
+        let property = unsafe { CStr::from_ptr(ctype) }.to_bytes();
+        if property == b"class" {
+            (*match_0).class = compile_expression(CStr::from_ptr(cvalue));
             return;
         }
-        let mut parsed: ::core::ffi::c_long = 0;
-        if !parse_long(cvalue, &raw mut parsed, 0 as ::core::ffi::c_int) {
-            errorlog(
-                c"ERROR: Could not parse con id \"%s\"\n"
-                    .as_ptr()
-                    .cast_mut(),
-                cvalue,
-            );
-            (*match_0).error = sstrdup(c"invalid con_id".as_ptr());
-        } else {
-            (*match_0).con_id = parsed as *mut Con;
-            debuglog(
-                c"%s:%s:%d - id as int = %p\n".as_ptr().cast_mut(),
-                c"../src/match.c".as_ptr(),
-                c"match_parse_property".as_ptr(),
-                329 as ::core::ffi::c_int,
-                (*match_0).con_id,
-            );
+        if property == b"instance" {
+            (*match_0).instance = compile_expression(CStr::from_ptr(cvalue));
+            return;
         }
-        return;
-    }
-    if property == b"id" {
-        let mut parsed_0: ::core::ffi::c_long = 0;
-        if !parse_long(cvalue, &raw mut parsed_0, 0 as ::core::ffi::c_int) {
-            errorlog(
-                c"ERROR: Could not parse window id \"%s\"\n"
-                    .as_ptr()
-                    .cast_mut(),
-                cvalue,
-            );
-            (*match_0).error = sstrdup(c"invalid id".as_ptr());
-        } else {
-            (*match_0).id = parsed_0 as u32;
-            debuglog(
-                c"%s:%s:%d - window id as int = %d\n".as_ptr().cast_mut(),
-                c"../src/match.c".as_ptr(),
-                c"match_parse_property".as_ptr(),
-                341 as ::core::ffi::c_int,
-                (*match_0).id,
-            );
+        if property == b"window_role" {
+            (*match_0).window_role = compile_expression(CStr::from_ptr(cvalue));
+            return;
         }
-        return;
-    }
-    if property == b"window_type" {
-        if strcasecmp(cvalue, c"normal".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*match_0).window_type = A__NET_WM_WINDOW_TYPE_NORMAL;
-        } else if strcasecmp(cvalue, c"dialog".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*match_0).window_type = A__NET_WM_WINDOW_TYPE_DIALOG;
-        } else if strcasecmp(cvalue, c"utility".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*match_0).window_type = A__NET_WM_WINDOW_TYPE_UTILITY;
-        } else if strcasecmp(cvalue, c"toolbar".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*match_0).window_type = A__NET_WM_WINDOW_TYPE_TOOLBAR;
-        } else if strcasecmp(cvalue, c"splash".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*match_0).window_type = A__NET_WM_WINDOW_TYPE_SPLASH;
-        } else if strcasecmp(cvalue, c"menu".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*match_0).window_type = A__NET_WM_WINDOW_TYPE_MENU;
-        } else if strcasecmp(cvalue, c"dropdown_menu".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*match_0).window_type = A__NET_WM_WINDOW_TYPE_DROPDOWN_MENU;
-        } else if strcasecmp(cvalue, c"popup_menu".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*match_0).window_type = A__NET_WM_WINDOW_TYPE_POPUP_MENU;
-        } else if strcasecmp(cvalue, c"tooltip".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*match_0).window_type = A__NET_WM_WINDOW_TYPE_TOOLTIP;
-        } else if strcasecmp(cvalue, c"notification".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*match_0).window_type = A__NET_WM_WINDOW_TYPE_NOTIFICATION;
-        } else {
-            errorlog(
-                c"ERROR: unknown window_type value \"%s\"\n"
-                    .as_ptr()
-                    .cast_mut(),
-                cvalue,
-            );
-            (*match_0).error = sstrdup(c"unknown window_type value".as_ptr());
+        if property == b"con_id" {
+            if strcmp(cvalue, c"__focused__".as_ptr()) == 0 as ::core::ffi::c_int {
+                (*match_0).con_id = global_focused;
+                return;
+            }
+            let mut parsed: ::core::ffi::c_long = 0;
+            if !parse_long(cvalue, &raw mut parsed, 0 as ::core::ffi::c_int) {
+                errorlog(
+                    c"ERROR: Could not parse con id \"%s\"\n"
+                        .as_ptr()
+                        .cast_mut(),
+                    cvalue,
+                );
+                (*match_0).error = Some(c"invalid con_id".to_owned());
+            } else {
+                (*match_0).con_id = parsed as *mut Con;
+                debuglog(
+                    c"%s:%s:%d - id as int = %p\n".as_ptr().cast_mut(),
+                    c"../src/match.c".as_ptr(),
+                    c"match_parse_property".as_ptr(),
+                    329 as ::core::ffi::c_int,
+                    (*match_0).con_id,
+                );
+            }
+            return;
         }
-        return;
-    }
-    if property == b"con_mark" {
-        regex_free((*match_0).mark);
-        (*match_0).mark = regex_new(cvalue);
-        return;
-    }
-    if property == b"title" {
-        regex_free((*match_0).title);
-        (*match_0).title = regex_new(cvalue);
-        return;
-    }
-    if property == b"urgent" {
-        if strcasecmp(cvalue, c"latest".as_ptr()) == 0 as ::core::ffi::c_int
-            || strcasecmp(cvalue, c"newest".as_ptr()) == 0 as ::core::ffi::c_int
-            || strcasecmp(cvalue, c"recent".as_ptr()) == 0 as ::core::ffi::c_int
-            || strcasecmp(cvalue, c"last".as_ptr()) == 0 as ::core::ffi::c_int
+        if property == b"id" {
+            let mut parsed_0: ::core::ffi::c_long = 0;
+            if !parse_long(cvalue, &raw mut parsed_0, 0 as ::core::ffi::c_int) {
+                errorlog(
+                    c"ERROR: Could not parse window id \"%s\"\n"
+                        .as_ptr()
+                        .cast_mut(),
+                    cvalue,
+                );
+                (*match_0).error = Some(c"invalid id".to_owned());
+            } else {
+                (*match_0).id = parsed_0 as u32;
+                debuglog(
+                    c"%s:%s:%d - window id as int = %d\n".as_ptr().cast_mut(),
+                    c"../src/match.c".as_ptr(),
+                    c"match_parse_property".as_ptr(),
+                    341 as ::core::ffi::c_int,
+                    (*match_0).id,
+                );
+            }
+            return;
+        }
+        if property == b"window_type" {
+            if strcasecmp(cvalue, c"normal".as_ptr()) == 0 as ::core::ffi::c_int {
+                (*match_0).window_type = A__NET_WM_WINDOW_TYPE_NORMAL;
+            } else if strcasecmp(cvalue, c"dialog".as_ptr()) == 0 as ::core::ffi::c_int {
+                (*match_0).window_type = A__NET_WM_WINDOW_TYPE_DIALOG;
+            } else if strcasecmp(cvalue, c"utility".as_ptr()) == 0 as ::core::ffi::c_int {
+                (*match_0).window_type = A__NET_WM_WINDOW_TYPE_UTILITY;
+            } else if strcasecmp(cvalue, c"toolbar".as_ptr()) == 0 as ::core::ffi::c_int {
+                (*match_0).window_type = A__NET_WM_WINDOW_TYPE_TOOLBAR;
+            } else if strcasecmp(cvalue, c"splash".as_ptr()) == 0 as ::core::ffi::c_int {
+                (*match_0).window_type = A__NET_WM_WINDOW_TYPE_SPLASH;
+            } else if strcasecmp(cvalue, c"menu".as_ptr()) == 0 as ::core::ffi::c_int {
+                (*match_0).window_type = A__NET_WM_WINDOW_TYPE_MENU;
+            } else if strcasecmp(cvalue, c"dropdown_menu".as_ptr()) == 0 as ::core::ffi::c_int {
+                (*match_0).window_type = A__NET_WM_WINDOW_TYPE_DROPDOWN_MENU;
+            } else if strcasecmp(cvalue, c"popup_menu".as_ptr()) == 0 as ::core::ffi::c_int {
+                (*match_0).window_type = A__NET_WM_WINDOW_TYPE_POPUP_MENU;
+            } else if strcasecmp(cvalue, c"tooltip".as_ptr()) == 0 as ::core::ffi::c_int {
+                (*match_0).window_type = A__NET_WM_WINDOW_TYPE_TOOLTIP;
+            } else if strcasecmp(cvalue, c"notification".as_ptr()) == 0 as ::core::ffi::c_int {
+                (*match_0).window_type = A__NET_WM_WINDOW_TYPE_NOTIFICATION;
+            } else {
+                errorlog(
+                    c"ERROR: unknown window_type value \"%s\"\n"
+                        .as_ptr()
+                        .cast_mut(),
+                    cvalue,
+                );
+                (*match_0).error = Some(c"unknown window_type value".to_owned());
+            }
+            return;
+        }
+        if property == b"con_mark" {
+            (*match_0).mark = compile_expression(CStr::from_ptr(cvalue));
+            return;
+        }
+        if property == b"title" {
+            (*match_0).title = compile_expression(CStr::from_ptr(cvalue));
+            return;
+        }
+        if property == b"urgent" {
+            if strcasecmp(cvalue, c"latest".as_ptr()) == 0 as ::core::ffi::c_int
+                || strcasecmp(cvalue, c"newest".as_ptr()) == 0 as ::core::ffi::c_int
+                || strcasecmp(cvalue, c"recent".as_ptr()) == 0 as ::core::ffi::c_int
+                || strcasecmp(cvalue, c"last".as_ptr()) == 0 as ::core::ffi::c_int
+            {
+                (*match_0).urgent = UrgencyMatch::Latest;
+            } else if strcasecmp(cvalue, c"oldest".as_ptr()) == 0 as ::core::ffi::c_int
+                || strcasecmp(cvalue, c"first".as_ptr()) == 0 as ::core::ffi::c_int
+            {
+                (*match_0).urgent = UrgencyMatch::Oldest;
+            }
+            return;
+        }
+        if property == b"workspace" {
+            (*match_0).workspace = compile_expression(CStr::from_ptr(cvalue));
+            return;
+        }
+        if property == b"machine" {
+            (*match_0).machine = compile_expression(CStr::from_ptr(cvalue));
+            return;
+        }
+        if property == b"tiling" {
+            (*match_0).window_mode = WindowMode::Tiling;
+            return;
+        }
+        if property == b"tiling_from"
+            && !cvalue.is_null()
+            && strcmp(cvalue, c"auto".as_ptr()) == 0 as ::core::ffi::c_int
         {
-            (*match_0).urgent = UrgencyMatch::Latest;
-        } else if strcasecmp(cvalue, c"oldest".as_ptr()) == 0 as ::core::ffi::c_int
-            || strcasecmp(cvalue, c"first".as_ptr()) == 0 as ::core::ffi::c_int
-        {
-            (*match_0).urgent = UrgencyMatch::Oldest;
+            (*match_0).window_mode = WindowMode::TilingAuto;
+            return;
         }
-        return;
+        if property == b"tiling_from"
+            && !cvalue.is_null()
+            && strcmp(cvalue, c"user".as_ptr()) == 0 as ::core::ffi::c_int
+        {
+            (*match_0).window_mode = WindowMode::TilingUser;
+            return;
+        }
+        if property == b"floating" {
+            (*match_0).window_mode = WindowMode::Floating;
+            return;
+        }
+        if property == b"floating_from"
+            && !cvalue.is_null()
+            && strcmp(cvalue, c"auto".as_ptr()) == 0 as ::core::ffi::c_int
+        {
+            (*match_0).window_mode = WindowMode::FloatingAuto;
+            return;
+        }
+        if property == b"floating_from"
+            && !cvalue.is_null()
+            && strcmp(cvalue, c"user".as_ptr()) == 0 as ::core::ffi::c_int
+        {
+            (*match_0).window_mode = WindowMode::FloatingUser;
+            return;
+        }
+        if property == b"all" {
+            (*match_0).match_all_windows = true_0 != 0;
+            return;
+        }
+        errorlog(c"ERROR: Unknown criterion: %s\n".as_ptr().cast_mut(), ctype);
     }
-    if property == b"workspace" {
-        regex_free((*match_0).workspace);
-        (*match_0).workspace = regex_new(cvalue);
-        return;
-    }
-    if property == b"machine" {
-        regex_free((*match_0).machine);
-        (*match_0).machine = regex_new(cvalue);
-        return;
-    }
-    if property == b"tiling" {
-        (*match_0).window_mode = WindowMode::Tiling;
-        return;
-    }
-    if property == b"tiling_from"
-        && !cvalue.is_null()
-        && strcmp(cvalue, c"auto".as_ptr()) == 0 as ::core::ffi::c_int
-    {
-        (*match_0).window_mode = WindowMode::TilingAuto;
-        return;
-    }
-    if property == b"tiling_from"
-        && !cvalue.is_null()
-        && strcmp(cvalue, c"user".as_ptr()) == 0 as ::core::ffi::c_int
-    {
-        (*match_0).window_mode = WindowMode::TilingUser;
-        return;
-    }
-    if property == b"floating" {
-        (*match_0).window_mode = WindowMode::Floating;
-        return;
-    }
-    if property == b"floating_from"
-        && !cvalue.is_null()
-        && strcmp(cvalue, c"auto".as_ptr()) == 0 as ::core::ffi::c_int
-    {
-        (*match_0).window_mode = WindowMode::FloatingAuto;
-        return;
-    }
-    if property == b"floating_from"
-        && !cvalue.is_null()
-        && strcmp(cvalue, c"user".as_ptr()) == 0 as ::core::ffi::c_int
-    {
-        (*match_0).window_mode = WindowMode::FloatingUser;
-        return;
-    }
-    if property == b"all" {
-        (*match_0).match_all_windows = true_0 != 0;
-        return;
-    }
-    errorlog(c"ERROR: Unknown criterion: %s\n".as_ptr().cast_mut(), ctype);
 }
-
-use crate::regex::{regex_free, regex_new};
 
 // Internal helpers use Rust linkage rather than foreign symbol lookup.
 use crate::util::parse_long;
-use i3_common::safewrappers::sstrdup;
 
 // Canonical Cairo backend ABI; renderer logic remains local.
 
-use libc::{free, strcasecmp, strcmp};
+use libc::{strcasecmp, strcmp};
 
 use i3_common::native_stdio::__assert_fail;
 
@@ -984,27 +886,29 @@ mod tests {
     }
 
     #[test]
-    fn copied_match_owns_error_and_regex_after_the_original_is_freed() {
+    fn copied_match_owns_payload_and_resets_intrusive_membership() {
         let mut original = empty_match();
-        original.class = Box::into_raw(Box::new(Regex::compile_str(r"(foo)\1").unwrap()));
-        original.error = unsafe { sstrdup(c"error".as_ptr()) };
-        let mut copy = std::mem::MaybeUninit::uninit();
-        unsafe {
-            match_copy(copy.as_mut_ptr(), &raw mut original);
-        }
-        let mut copy = unsafe { copy.assume_init() };
-        assert_ne!(copy.class, original.class);
-        assert_ne!(copy.error, original.error);
-        unsafe {
-            match_free(&raw mut original);
-        }
-        assert!(unsafe { &*copy.class }.is_match_str("foofoo").unwrap());
-        assert_eq!(unsafe { CStr::from_ptr(copy.error) }, c"error");
-        unsafe {
-            match_free(&raw mut copy);
-            match_free(&raw mut copy);
-        }
-        assert!(copy.class.is_null() && copy.error.is_null());
+        original.class = Some(Regex::compile_str(r"(foo)\1").unwrap());
+        original.error = Some(c"error".to_owned());
+        original.matches.tqe_next = std::ptr::NonNull::<Match>::dangling().as_ptr();
+        let copied = original.clone();
+        assert_ne!(
+            copied.class.as_ref().unwrap().pattern().as_ptr(),
+            original.class.as_ref().unwrap().pattern().as_ptr()
+        );
+        assert_ne!(
+            copied.error.as_ref().unwrap().as_ptr(),
+            original.error.as_ref().unwrap().as_ptr()
+        );
+        assert!(copied.matches.tqe_next.is_null() && copied.matches.tqe_prev.is_null());
+        drop(original);
+        assert!(copied
+            .class
+            .as_ref()
+            .unwrap()
+            .is_match_str("foofoo")
+            .unwrap());
+        assert_eq!(copied.error.as_deref(), Some(c"error"));
         assert!(is_empty(&empty_match()));
     }
 }

@@ -142,7 +142,7 @@ mod tests {
         );
     }
     #[test]
-    fn zero_storage_is_valid_and_internal_payload_layout_is_deliberate() {
+    fn domain_zero_storage_and_owned_criteria_defaults_are_valid() {
         // Explicit repr(C,integer) fixes tag location and all zero tags select a
         // known payload-free variant. These types own no resources and are Copy.
         unsafe {
@@ -157,14 +157,14 @@ mod tests {
                 std::mem::zeroed::<HideEdgeBordersMode>(),
                 HideEdgeBordersMode::None
             );
-            let criteria: crate::types::Match = std::mem::zeroed();
-            assert_eq!(criteria.dock, DockMatch::NoDock);
-            assert_eq!(criteria.insert_where, MatchInsertWhere::Here);
         }
+        let criteria = crate::types::Match::empty();
+        assert_eq!(criteria.dock, DockMatch::NoDock);
+        assert_eq!(criteria.insert_where, MatchInsertWhere::Here);
         assert_eq!(std::mem::size_of::<ContainerType>(), 8);
         assert_eq!(std::mem::size_of::<DockMatch>(), 8);
         assert_eq!(std::mem::size_of::<HideEdgeBordersMode>(), 4);
-        assert!(!std::mem::needs_drop::<crate::types::Match>());
+        assert!(std::mem::needs_drop::<crate::types::Match>());
     }
     #[test]
     fn hiding_modes_translate_only_actual_edges_and_keep_native_codes() {

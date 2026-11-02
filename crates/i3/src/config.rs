@@ -37,8 +37,6 @@ use i3_common::font::FontType;
 
 pub use crate::application::Binding;
 
-pub use crate::regex::Regex as regex;
-
 pub use crate::application::bindings_head;
 pub use crate::application::Workspace_Assignment;
 pub type tiling_drag_t = TilingDrag;
@@ -587,14 +585,13 @@ unsafe fn free_configuration() {
             free((*assign).dest.output as *mut ::core::ffi::c_void);
             (*assign).dest.output = ::core::ptr::null_mut::<::core::ffi::c_char>();
         }
-        match_free(&raw mut (*assign).match_0);
         if !(*assign).assignments.tqe_next.is_null() {
             (*(*assign).assignments.tqe_next).assignments.tqe_prev = (*assign).assignments.tqe_prev;
         } else {
             assignments.tqh_last = (*assign).assignments.tqe_prev;
         }
         *(*assign).assignments.tqe_prev = (*assign).assignments.tqe_next;
-        free(assign as *mut ::core::ffi::c_void);
+        drop(Box::from_raw(assign));
         assign = ::core::ptr::null_mut::<Assignment>();
     }
     while !ws_assignments.tqh_first.is_null() {
@@ -876,30 +873,7 @@ pub unsafe fn load_configuration(
     let mut ctx: parser_ctx = parser_ctx {
         use_nagbar: load_type != ConfigLoad::Validate,
         state: ConfigParserState::ForceDisplayUrgencyHintMs,
-        current_match: Match {
-            error: ::core::ptr::null_mut::<::core::ffi::c_char>(),
-            title: ::core::ptr::null_mut::<regex>(),
-            application: ::core::ptr::null_mut::<regex>(),
-            class: ::core::ptr::null_mut::<regex>(),
-            instance: ::core::ptr::null_mut::<regex>(),
-            mark: ::core::ptr::null_mut::<regex>(),
-            window_role: ::core::ptr::null_mut::<regex>(),
-            workspace: ::core::ptr::null_mut::<regex>(),
-            machine: ::core::ptr::null_mut::<regex>(),
-            window_type: 0,
-            urgent: UrgencyMatch::Latest,
-            dock: DockMatch::NoDock,
-            id: 0,
-            window_mode: WindowMode::Any,
-            con_id: ::core::ptr::null_mut::<Con>(),
-            match_all_windows: false,
-            insert_where: MatchInsertWhere::Here,
-            matches: MatchListLinks {
-                tqe_next: ::core::ptr::null_mut::<Match>(),
-                tqe_prev: ::core::ptr::null_mut::<*mut Match>(),
-            },
-            restart_mode: false,
-        },
+        current_match: Match::empty(),
         statelist: Vec::new(),
         statelist_idx: 0,
         stack: &raw mut stack,
@@ -984,7 +958,6 @@ pub use crate::types::Colortriple;
 pub use crate::types::Con;
 pub use crate::types::Config;
 pub use crate::types::Match;
-pub use crate::types::MatchMatches as MatchListLinks;
 pub use i3_common::draw_util::color_t;
 pub use i3_common::font::Font;
 pub use i3_common::font::FontBackendData;
@@ -996,7 +969,6 @@ use crate::application::current_binding_mode;
 use crate::application::root;
 use crate::bindings::grab_all_keys;
 use crate::bindings::regrab_all_buttons;
-use crate::r#match::match_free;
 use i3_common::draw_util::draw_util_hex_to_color;
 use i3_common::font::load_font;
 use i3_common::font::set_font;

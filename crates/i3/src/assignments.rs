@@ -225,10 +225,10 @@ mod tests {
 
     #[test]
     fn dedup_uses_assignment_identity_and_ignores_unused_capacity() {
-        let first = std::mem::MaybeUninit::<Assignment>::uninit();
-        let second = std::mem::MaybeUninit::<Assignment>::uninit();
-        let first = first.as_ptr().cast_mut();
-        let second = second.as_ptr().cast_mut();
+        let first = Assignment::new(AssignmentKind::COMMAND, crate::types::Match::empty());
+        let second = Assignment::new(AssignmentKind::COMMAND, crate::types::Match::empty());
+        let first = std::ptr::from_ref(&first).cast_mut();
+        let second = std::ptr::from_ref(&second).cast_mut();
         let entries = [first, second, first];
         assert!(!already_ran(&[], first));
         assert!(already_ran(&entries[..1], first));

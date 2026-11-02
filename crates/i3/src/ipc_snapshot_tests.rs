@@ -197,12 +197,13 @@ unsafe fn collect() -> BTreeMap<String, String> {
     );
     focus::remove(focus_owner, leaf_id).unwrap();
     focus::remove(focus_owner, floating_id).unwrap();
-    let mut pattern = Box::new(crate::regex::Regex::compile(c"^App$").unwrap());
-    let mut swallow: Match = std::mem::zeroed();
+    let mut swallow = Match::empty();
+    swallow.window_type = 0;
+    swallow.urgent = crate::types::UrgencyMatch::Latest;
     swallow.dock = DockMatch::Top;
     swallow.insert_where = MatchInsertWhere::AssignWorkspace;
-    swallow.class = &mut *pattern;
-    let mut ignored_swallow: Match = std::mem::zeroed();
+    swallow.class = Some(crate::regex::Regex::compile(c"^App$").unwrap());
+    let mut ignored_swallow = Match::empty();
     ignored_swallow.restart_mode = true;
     swallow.matches.tqe_next = &mut ignored_swallow;
     (*leaf).swallow_head.tqh_first = &mut swallow;
