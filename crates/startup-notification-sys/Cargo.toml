@@ -8,7 +8,7 @@ links = "startup-notification-1"
 description = "Native startup-notification boundary for i3"
 
 [dependencies]
-xcb-sys.workspace = true
+xcb.workspace = true
 
 [build-dependencies]
 pkg-config.workspace = true

@@ -966,7 +966,8 @@ use i3_common::safewrappers::sstrdup;
 
 // Canonical Pango backend ABI; font policy remains local.
 
-use xcb_sys::{xcb_connection_t, XCB_KEY_BUT_MASK_SHIFT};
+use xcb::ffi::xcb_connection_t;
+use xcb_sys::XCB_KEY_BUT_MASK_SHIFT;
 
 pub use libc::{__errno_location, free, memset, realpath, strerror};
 

@@ -1,7 +1,7 @@
 //! Raw startup-notification bindings.
 //! Layouts and signatures preserve the existing Linux x86_64 native backend.
 #![allow(non_camel_case_types, non_upper_case_globals)]
-use xcb_sys::{xcb_connection_t, xcb_generic_event_t};
+use xcb::ffi::{xcb_connection_t, xcb_generic_event_t};
 /// Known startup-notification events. Foreign values are checked before use.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u32)]

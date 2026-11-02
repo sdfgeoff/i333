@@ -650,7 +650,7 @@ name = "startup-notification-sys"
 version = "4.25.0"
 dependencies = [
  "pkg-config",
- "xcb-sys",
+ "xcb",
 ]
 
 [[package]]

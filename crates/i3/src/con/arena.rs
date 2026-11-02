@@ -43,6 +43,30 @@ struct Arena {
     generation: u64,
 }
 
+impl Drop for Arena {
+    fn drop(&mut self) {
+        // The thread-local graph dies before C atexit releases static display
+        // and visual owners. Walk the owned entries directly: querying the TLS
+        // registry or invoking graph callbacks during its destruction is invalid.
+        for entry in self.entries.values_mut() {
+            let con = entry.storage.get_mut();
+            for surface in [&mut con.frame, &mut con.frame_buffer] {
+                if !surface.surface.is_null() || !surface.cr.is_null() {
+                    // SAFETY: this arena uniquely owns each remaining container
+                    // and its uncleared graphics records; display/visual owners
+                    // are retained until subsequent native atexit cleanup.
+                    unsafe {
+                        i3_common::draw_util::draw_util_surface_free(
+                            crate::application::conn,
+                            surface,
+                        );
+                    }
+                }
+            }
+        }
+    }
+}
+
 impl Arena {
     fn insert(&mut self, con: Con) -> *mut Con {
         self.generation = self
@@ -193,6 +217,65 @@ pub(super) unsafe fn release(raw: *mut Con) {
 mod tests {
     use super::parent::{parent_ptr, set_parent_ptr};
     use super::*;
+
+    #[test]
+    fn arena_drop_releases_both_graphics_records_before_container_storage() {
+        unsafe fn image_frame() -> (
+            i3_common::draw_util::surface_t,
+            *mut cairo_sys::cairo_surface_t,
+            *mut cairo_sys::cairo_t,
+        ) {
+            let image = cairo_sys::cairo_image_surface_create(cairo_sys::FORMAT_A_RGB32, 1, 1);
+            let context = cairo_sys::cairo_create(image);
+            assert_eq!(cairo_sys::cairo_status(context), cairo_sys::STATUS_SUCCESS);
+            let observer_image = cairo_sys::cairo_surface_reference(image);
+            let observer_context = cairo_sys::cairo_reference(context);
+            (
+                i3_common::draw_util::surface_t {
+                    id: 0,
+                    gc: 0,
+                    owns_gc: false,
+                    width: 1,
+                    height: 1,
+                    surface: image,
+                    cr: context,
+                },
+                observer_image,
+                observer_context,
+            )
+        }
+        unsafe {
+            let (frame, frame_image, frame_context) = image_frame();
+            let (buffer, buffer_image, buffer_context) = image_frame();
+            let observers = [(frame_image, frame_context), (buffer_image, buffer_context)].map(
+                |(image, context)| {
+                    (
+                        image,
+                        context,
+                        cairo_sys::cairo_surface_get_reference_count(image),
+                    )
+                },
+            );
+            let mut arena = Arena::default();
+            let mut con = Con::empty();
+            con.frame = frame;
+            con.frame_buffer = buffer;
+            arena.insert(con);
+            drop(arena);
+            for (image, context, original_count) in observers {
+                assert_eq!(cairo_sys::cairo_get_reference_count(context), 1);
+                // Cairo may retain multiple target references inside a context;
+                // the arena must release its independent surface reference.
+                assert_eq!(
+                    cairo_sys::cairo_surface_get_reference_count(image),
+                    original_count - 1
+                );
+                cairo_sys::cairo_destroy(context);
+                assert_eq!(cairo_sys::cairo_surface_get_reference_count(image), 1);
+                cairo_sys::cairo_surface_destroy(image);
+            }
+        }
+    }
 
     #[test]
     fn live_iterator_preserves_creation_order_through_removal_and_append() {

@@ -1127,12 +1127,12 @@ pub unsafe fn load_keymap() -> bool {
     let mut new_keymap: *mut xkb_keymap = ::core::ptr::null_mut::<xkb_keymap>();
     let mut device_id: i32 = 0;
     if xkb_supported as i32 != 0 && {
-        device_id = xkb_x11_get_core_keyboard_device_id(conn);
+        device_id = xkb_x11_get_core_keyboard_device_id(conn.cast());
         device_id > -(1)
     } {
         new_keymap = xkb_x11_keymap_new_from_device(
             xkb_context,
-            conn,
+            conn.cast(),
             device_id,
             XKB_KEYMAP_COMPILE_NO_FLAGS,
         );

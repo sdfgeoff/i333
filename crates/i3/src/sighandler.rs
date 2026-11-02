@@ -15,6 +15,7 @@ use i3_common::safewrappers::sasprintf;
 // The crash callback remains a legacy native signal edge: X11/rendering,
 // logging and restart are not claimed async-signal-safe. New helpers below are
 // stack-only; owned text is prepared before handlers are installed.
+use i3_common::display::CairoVisual;
 use i3_common::string::I3String;
 use std::ffi::CStr;
 use xcb::{x, Xid, XidNew};
@@ -62,6 +63,7 @@ static mut dialogs: dialogs_head = dialogs_head {
     tqh_last: ::core::ptr::null::<*mut dialog_t>() as *mut *mut dialog_t,
 };
 static mut raised_signal: ::core::ffi::c_int = 0;
+static mut CRASH_VISUAL: Option<CairoVisual> = None;
 static mut backtrace_done: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 static mut message_intro: Option<I3String> = None;
 static mut message_intro2: Option<I3String> = None;
@@ -181,6 +183,9 @@ unsafe fn sighandler_backtrace() -> ::core::ffi::c_int {
     1
 }
 unsafe fn prepare_crash_messages() {
+    let visual_id = get_visualid_by_depth(root_depth as u16);
+    CRASH_VISUAL = crate::application::root_display().visual(visual_id);
+
     message_intro = Some(I3String::new(
         "i3 has just crashed. Please report a bug for this.",
     ));
@@ -271,7 +276,11 @@ unsafe fn sighandler_create_dialogs() {
             (*dialog).dialogs.tqe_prev = dialogs.tqh_last;
             *dialogs.tqh_last = dialog as *mut dialog_t;
             dialogs.tqh_last = &raw mut (*dialog).dialogs.tqe_next;
-            let visual: xcb_visualid_t = get_visualid_by_depth(root_depth as u16);
+            // Prepared before signal installation: no registry/Rc operation.
+            let Some(crash_visual) = CRASH_VISUAL.as_ref() else {
+                return;
+            };
+            let visual = crash_visual.visual_id();
             let colormap: x::Colormap = connection.generate_id();
             (*dialog).colormap = colormap.resource_id();
             connection.send_request(&x::CreateColormap {
@@ -280,7 +289,7 @@ unsafe fn sighandler_create_dialogs() {
                 window: x::Window::new(root),
                 visual,
             });
-            let values = dialog_attributes((*root_screen).black_pixel, (*dialog).colormap);
+            let values = dialog_attributes(root_screen_info().black_pixel, (*dialog).colormap);
             (*dialog).dims = dialog_geometry((*output).rect, dialog_width, dialog_height);
             (*dialog).id = create_window(
                 &connection,
@@ -296,7 +305,7 @@ unsafe fn sighandler_create_dialogs() {
                 conn,
                 &raw mut (*dialog).surface,
                 (*dialog).id as xcb_drawable_t,
-                get_visualtype_by_id(visual),
+                Some(crash_visual),
                 (*dialog).dims.width as ::core::ffi::c_int,
                 (*dialog).dims.height as ::core::ffi::c_int,
             );
@@ -363,6 +372,11 @@ unsafe fn sighandler_handle_expose() {
         let _ = connection.flush();
     }
 }
+pub unsafe fn shutdown_crash_visual() {
+    sighandler_destroy_dialogs();
+    drop(CRASH_VISUAL.take());
+}
+
 unsafe fn sighandler_draw_dialog(dialog: *mut dialog_t) {
     let black: color_t = draw_util_hex_to_color(c"#000000".as_ptr()) as color_t;
     let white: color_t = draw_util_hex_to_color(c"#FFFFFF".as_ptr()) as color_t;
@@ -599,11 +613,10 @@ pub use i3_common::font::Font;
 use crate::application::conn;
 use crate::application::root;
 use crate::application::root_depth;
-use crate::application::root_screen;
+use crate::application::root_screen_info;
 use crate::application::start_argv;
 use crate::config::config;
 use crate::xcb::create_window;
-use crate::xcb::get_visualtype_by_id;
 use i3_common::draw_util::draw_util_clear_surface;
 use i3_common::draw_util::draw_util_hex_to_color;
 use i3_common::draw_util::draw_util_rectangle;

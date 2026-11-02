@@ -15,12 +15,14 @@ use crate::types::ConfigLoad;
 use crate::types::InputType;
 use crate::types::ShutdownReason;
 use crate::xcursor::Cursor;
+use i3_common::display::{CairoVisual, DisplayScreen, ScreenInfo};
 use i3_common::safewrappers::sasprintf;
 use std::ffi::{CStr, CString};
 use std::io::Read;
 use std::os::fd::{AsRawFd, FromRawFd};
 use std::ptr::NonNull;
 use std::rc::Rc;
+use xcb::ffi::xcb_connection_t;
 use xcb::{shape, x, xkb, Raw, Xid, XidNew};
 /*
  * vim:ts=4:sw=4:expandtab
@@ -338,6 +340,30 @@ pub static mut conn: *mut xcb_connection_t =
 // The registration owns the one maintained connection on the event thread.
 // `conn` is only a compatibility/native-library alias and never disconnects it.
 static mut MAIN_DISPLAY: Option<i3_common::display::DisplayConnection> = None;
+static mut MAIN_SCREEN: Option<DisplayScreen> = None;
+static mut MAIN_VISUAL: Option<CairoVisual> = None;
+
+/// The event thread retains this setup owner until all graphics are released.
+/// Safety: no reference may outlive or trigger display teardown.
+pub unsafe fn root_display() -> &'static DisplayScreen {
+    MAIN_SCREEN
+        .as_ref()
+        .expect("main setup screen is initialized")
+}
+
+/// Copy immutable setup values without registry borrows or connection cloning.
+pub unsafe fn root_screen_info() -> ScreenInfo {
+    root_display().info()
+}
+
+/// Called only by the common event-thread context provider.
+pub unsafe fn display_context() -> i3_common::display::DisplayContext {
+    MAIN_SCREEN
+        .as_ref()
+        .map_or_else(i3_common::display::DisplayContext::default, |screen| {
+            i3_common::display::DisplayContext::from_screen(screen, MAIN_VISUAL.as_ref())
+        })
+}
 
 fn main_connection() -> Rc<xcb::Connection> {
     i3_common::display::connection().expect("main X11 connection is registered")
@@ -410,9 +436,6 @@ pub static mut sndisplay: *mut SnDisplay = ::core::ptr::null::<SnDisplay>() as *
 
 pub static mut last_timestamp: xcb_timestamp_t = XCB_CURRENT_TIME as xcb_timestamp_t;
 
-pub static mut root_screen: *mut xcb_screen_t =
-    ::core::ptr::null::<xcb_screen_t>() as *mut xcb_screen_t;
-
 pub static mut root: xcb_window_t = 0;
 
 pub static mut wm_sn_selection_owner: xcb_window_t = 0;
@@ -420,9 +443,6 @@ pub static mut wm_sn_selection_owner: xcb_window_t = 0;
 pub static mut wm_sn: xcb_atom_t = 0;
 
 pub static mut root_depth: u8 = 0;
-
-pub static mut visual_type: *mut xcb_visualtype_t =
-    ::core::ptr::null::<xcb_visualtype_t>() as *mut xcb_visualtype_t;
 
 pub static mut colormap: xcb_colormap_t = 0;
 
@@ -736,6 +756,9 @@ extern "C" fn i3_exit() {
         }
         crate::restore_layout::restore_shutdown();
         drop(KEY_SYMBOLS.take());
+        crate::sighandler::shutdown_crash_visual();
+        drop(MAIN_VISUAL.take());
+        drop(MAIN_SCREEN.take());
         // All native shutdown requests above complete before unregistering the
         // sole owner. The raw alias must never be disconnected independently.
         conn = std::ptr::null_mut();
@@ -1204,8 +1227,8 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
             c"Could not initialize libev. Bad LIBEV_FLAGS?\n".as_ptr(),
         );
     }
-    root_screen = xcb_aux_get_screen(conn, conn_screen);
-    root = (*root_screen).root;
+    MAIN_SCREEN = DisplayScreen::new(main_connection(), conn_screen);
+    root = root_screen_info().root;
     // Query metadata without registering extension event decoders: unknown
     // future event subtypes must remain owned UnknownEvent packets.
     let xkb_extension_cookie =
@@ -1354,19 +1377,27 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
             })
         })
         .collect();
-    root_depth = (*root_screen).root_depth;
-    colormap = (*root_screen).default_colormap;
-    visual_type =
-        xcb_aux_find_visual_by_attrs(root_screen, -(1 as ::core::ffi::c_int) as i8, 32 as i8);
-    if !visual_type.is_null() {
-        root_depth = xcb_aux_get_depth_of_visual(root_screen, (*visual_type).visual_id);
+    let screen_info = root_screen_info();
+    root_depth = screen_info.root_depth;
+    colormap = screen_info.default_colormap;
+    // The native helper used class=-1 and selected the first visual of the
+    // first nonempty depth-32 list. No closed VisualClass getter is needed.
+    let argb = root_display().screen().allowed_depths().find_map(|depth| {
+        (depth.depth() == 32)
+            .then(|| depth.visuals().first().map(|visual| visual.visual_id()))
+            .flatten()
+    });
+    let visual_id = argb.unwrap_or(screen_info.root_visual);
+    MAIN_VISUAL = root_display().visual(visual_id);
+    if let Some(visual_id) = argb {
+        root_depth = 32;
         let id: x::Colormap = main_connection().generate_id();
         colormap = id.resource_id();
         let cookie = main_connection().send_request_checked(&x::CreateColormap {
             alloc: x::ColormapAlloc::None,
             mid: id,
             window: x::Window::new(root),
-            visual: (*visual_type).visual_id,
+            visual: visual_id,
         });
         if let Err(error) = main_connection().check_request(cookie) {
             errorlog(
@@ -1377,8 +1408,6 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
             );
             exit(EXIT_FAILURE);
         }
-    } else {
-        visual_type = get_visualtype(root_screen);
     }
     main_connection().prefetch_maximum_request_length();
     init_dpi();
@@ -1390,7 +1419,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         c"main".as_ptr(),
         648 as ::core::ffi::c_int,
         root_depth as ::core::ffi::c_int,
-        (*visual_type).visual_id,
+        visual_id,
     );
     debuglog(
         c"%s:%s:%d - root_screen->height_in_pixels = %d, root_screen->height_in_millimeters = %d\n"
@@ -1399,8 +1428,8 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         c"../src/main.c".as_ptr(),
         c"main".as_ptr(),
         650 as ::core::ffi::c_int,
-        (*root_screen).height_in_pixels as ::core::ffi::c_int,
-        (*root_screen).height_in_millimeters as ::core::ffi::c_int,
+        root_screen_info().height_in_pixels as ::core::ffi::c_int,
+        root_screen_info().height_in_millimeters as ::core::ffi::c_int,
     );
     debuglog(
         c"%s:%s:%d - One logical pixel corresponds to %d physical pixels on this display.\n"
@@ -1514,16 +1543,16 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         return 1;
     }
     main_connection().send_request(&x::CreateWindow {
-        depth: (*root_screen).root_depth,
+        depth: root_screen_info().root_depth,
         wid: x::Window::new(wm_sn_selection_owner),
-        parent: x::Window::new((*root_screen).root),
+        parent: x::Window::new(root_screen_info().root),
         x: -1,
         y: -1,
         width: 1,
         height: 1,
         border_width: 0,
         class: x::WindowClass::InputOutput,
-        visual: (*root_screen).root_visual,
+        visual: root_screen_info().root_visual,
         value_list: &[],
     });
     main_connection().send_request(&x::ChangeProperty {
@@ -1568,7 +1597,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         }
     }
     let manager = manager_notification(
-        (*root_screen).root,
+        root_screen_info().root,
         A_MANAGER,
         last_timestamp,
         wm_sn,
@@ -1576,7 +1605,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     );
     main_connection().send_request(&x::SendEvent {
         propagate: false,
-        destination: x::SendEventDest::Window(x::Window::new((*root_screen).root)),
+        destination: x::SendEventDest::Window(x::Window::new(root_screen_info().root)),
         event_mask: x::EventMask::STRUCTURE_NOTIFY,
         event: &manager,
     });
@@ -1954,8 +1983,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
                 .as_ptr()
                 .cast_mut(),
         );
-        let root_0: *mut xcb_screen_t = xcb_aux_get_screen(conn, conn_screen);
-        if is_background_set(conn, root_0) {
+        if is_background_set(&main_connection(), root_screen_info()) {
             verboselog(
                 c"A wallpaper is set, so no screenshot is necessary.\n"
                     .as_ptr()
@@ -1967,7 +1995,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
                     .as_ptr()
                     .cast_mut(),
             );
-            set_screenshot_as_wallpaper(conn, root_0);
+            set_screenshot_as_wallpaper(&main_connection(), root_screen_info());
         }
     }
     if !disable_signalhandler {
@@ -2160,15 +2188,13 @@ use i3_common::safewrappers::sstrdup;
 // Canonical Pango backend ABI; font policy remains local.
 
 use xcb_sys::{
-    xcb_atom_t, xcb_aux_find_visual_by_attrs, xcb_aux_get_depth_of_visual, xcb_aux_get_screen,
-    xcb_colormap_t, xcb_connection_t, xcb_drawable_t, xcb_generic_error_t, xcb_keycode_t,
-    xcb_screen_t, xcb_timestamp_t, xcb_visualtype_t, xcb_window_t, XCB_ATOM_CARDINAL,
-    XCB_ATOM_STRING, XCB_ATOM_SUPERSCRIPT_X, XCB_ATOM_WM_CLASS, XCB_CLIENT_MESSAGE,
-    XCB_COLORMAP_ALLOC_NONE, XCB_CURRENT_TIME, XCB_CW_EVENT_MASK, XCB_EVENT_MASK_BUTTON_PRESS,
-    XCB_EVENT_MASK_ENTER_WINDOW, XCB_EVENT_MASK_FOCUS_CHANGE, XCB_EVENT_MASK_POINTER_MOTION,
-    XCB_EVENT_MASK_PROPERTY_CHANGE, XCB_EVENT_MASK_STRUCTURE_NOTIFY,
-    XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT, XCB_MAP_REQUEST, XCB_NONE, XCB_NUM_LOCK,
-    XCB_PROPERTY_NOTIFY, XCB_PROP_MODE_APPEND, XCB_PROP_MODE_REPLACE,
+    xcb_atom_t, xcb_colormap_t, xcb_drawable_t, xcb_generic_error_t, xcb_keycode_t,
+    xcb_timestamp_t, xcb_window_t, XCB_ATOM_CARDINAL, XCB_ATOM_STRING, XCB_ATOM_SUPERSCRIPT_X,
+    XCB_ATOM_WM_CLASS, XCB_CLIENT_MESSAGE, XCB_COLORMAP_ALLOC_NONE, XCB_CURRENT_TIME,
+    XCB_CW_EVENT_MASK, XCB_EVENT_MASK_BUTTON_PRESS, XCB_EVENT_MASK_ENTER_WINDOW,
+    XCB_EVENT_MASK_FOCUS_CHANGE, XCB_EVENT_MASK_POINTER_MOTION, XCB_EVENT_MASK_PROPERTY_CHANGE,
+    XCB_EVENT_MASK_STRUCTURE_NOTIFY, XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT, XCB_MAP_REQUEST,
+    XCB_NONE, XCB_NUM_LOCK, XCB_PROPERTY_NOTIFY, XCB_PROP_MODE_APPEND, XCB_PROP_MODE_REPLACE,
     XCB_WINDOW_CLASS_INPUT_OUTPUT, XCB_XKB_EVENT_TYPE_MAP_NOTIFY,
     XCB_XKB_EVENT_TYPE_NEW_KEYBOARD_NOTIFY, XCB_XKB_EVENT_TYPE_STATE_NOTIFY,
     XCB_XKB_ID_USE_CORE_KBD, XCB_XKB_MAJOR_VERSION, XCB_XKB_MINOR_VERSION,
@@ -2299,7 +2325,6 @@ use crate::tree::tree_restore;
 use crate::version::i3_version;
 use i3_common::create_socket::create_socket;
 use i3_common::get_process_filename::get_process_filename;
-use i3_common::get_visualtype::get_visualtype;
 use i3_common::ipc_recv_message::ipc_recv_message;
 use i3_common::ipc_send_message::ipc_send_message;
 use i3_common::is_background_set::is_background_set;

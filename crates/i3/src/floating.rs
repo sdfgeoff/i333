@@ -40,8 +40,8 @@ unsafe fn total_outputs_dimensions() -> Rect {
         return Rect {
             x: 0 as u32,
             y: 0 as u32,
-            width: (*root_screen).width_in_pixels as u32,
-            height: (*root_screen).height_in_pixels as u32,
+            width: root_screen_info().width_in_pixels as u32,
+            height: root_screen_info().height_in_pixels as u32,
         };
     }
     let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
@@ -1013,7 +1013,7 @@ pub use crate::types::Window;
 
 // Internal calls and globals use canonical Rust identities.
 use crate::application::root;
-use crate::application::root_screen;
+use crate::application::root_screen_info;
 use crate::application::A_I3_FLOATING_WINDOW;
 use crate::con::con_activate;
 use crate::con::con_attach;

@@ -3,6 +3,7 @@
 use crate::con::arena::{floating, identity, resolve};
 use crate::domains::{ContainerType, DockMatch};
 use crate::xcursor::Cursor;
+use i3_common::display::{CairoVisual, DisplayScreen};
 use i3_common::draw_util::draw_util_text;
 use libev_sys::{
     ev_io, ev_io_start, ev_io_stop, ev_loop, ev_prepare, ev_prepare_start, ev_prepare_stop, EV_READ,
@@ -10,6 +11,7 @@ use libev_sys::{
 use std::ffi::{CStr, CString};
 use std::os::fd::AsRawFd;
 use std::rc::Rc;
+use xcb::ffi::xcb_connection_t;
 use xcb::{x, Xid, XidNew};
 const true_0: i32 = 1;
 const false_0: i32 = 0;
@@ -46,6 +48,8 @@ static mut restore_conn: *mut xcb_connection_t =
 // Placeholder windows intentionally use a second connection, independent of
 // the main display registry. `restore_conn` is only its native request alias.
 static mut RESTORE_CONNECTION: Option<Rc<xcb::Connection>> = None;
+static mut RESTORE_SCREEN: Option<DisplayScreen> = None;
+static mut RESTORE_VISUAL: Option<CairoVisual> = None;
 
 /// Call only on the event thread after restore_connect, before restore_shutdown.
 unsafe fn restore_connection() -> Rc<xcb::Connection> {
@@ -178,6 +182,8 @@ pub unsafe fn restore_shutdown() {
             free(state as *mut ::core::ffi::c_void);
         }
         restore_conn = std::ptr::null_mut();
+        drop(RESTORE_VISUAL.take());
+        drop(RESTORE_SCREEN.take());
         drop(RESTORE_CONNECTION.take());
         free(xcb_watcher as *mut ::core::ffi::c_void);
         free(xcb_prepare as *mut ::core::ffi::c_void);
@@ -190,12 +196,17 @@ pub unsafe fn restore_connect() {
     restore_shutdown();
     // No extension event metadata: unknown native opcodes/subtypes remain
     // owned UnknownEvent values, exactly as on the main connection.
-    let (connection, _) = match xcb::Connection::connect(None) {
+    let (connection, screen_index) = match xcb::Connection::connect(None) {
         Ok(connection) => connection,
         Err(_) => errx(EXIT_FAILURE, c"Cannot open display".as_ptr()),
     };
     restore_conn = connection.get_raw_conn().cast();
-    RESTORE_CONNECTION = Some(Rc::new(connection));
+    let connection = Rc::new(connection);
+    let screen = DisplayScreen::new(connection.clone(), screen_index)
+        .expect("placeholder setup screen exists");
+    RESTORE_VISUAL = screen.visual(screen.info().root_visual);
+    RESTORE_SCREEN = Some(screen);
+    RESTORE_CONNECTION = Some(connection);
     xcb_watcher = scalloc(1 as usize, ::core::mem::size_of::<ev_io>() as usize) as *mut ev_io;
     xcb_prepare =
         scalloc(1 as usize, ::core::mem::size_of::<ev_prepare>() as usize) as *mut ev_prepare;
@@ -337,7 +348,7 @@ unsafe fn open_placeholder_window(con: *mut Con) {
             restore_conn,
             &raw mut (*state).surface,
             placeholder as xcb_drawable_t,
-            get_visualtype(root_screen),
+            RESTORE_VISUAL.as_ref(),
             (*state).rect.width as ::core::ffi::c_int,
             (*state).rect.height as ::core::ffi::c_int,
         );
@@ -540,9 +551,9 @@ use i3_common::safewrappers::smalloc;
 // Canonical Pango backend ABI; font policy remains local.
 
 use xcb_sys::{
-    xcb_connection_t, xcb_drawable_t, xcb_visualid_t, xcb_window_t, XCB_COPY_FROM_PARENT,
-    XCB_CW_BACK_PIXEL, XCB_CW_EVENT_MASK, XCB_EVENT_MASK_EXPOSURE, XCB_EVENT_MASK_STRUCTURE_NOTIFY,
-    XCB_NONE, XCB_PROP_MODE_REPLACE, XCB_WINDOW_CLASS_INPUT_OUTPUT,
+    xcb_drawable_t, xcb_visualid_t, xcb_window_t, XCB_COPY_FROM_PARENT, XCB_CW_BACK_PIXEL,
+    XCB_CW_EVENT_MASK, XCB_EVENT_MASK_EXPOSURE, XCB_EVENT_MASK_STRUCTURE_NOTIFY, XCB_NONE,
+    XCB_PROP_MODE_REPLACE, XCB_WINDOW_CLASS_INPUT_OUTPUT,
 };
 
 pub use libc::{free, memmove, strlen};
@@ -561,7 +572,6 @@ pub use i3_common::font::Font;
 
 // Internal calls and globals use canonical Rust identities.
 use crate::application::main_loop;
-use crate::application::root_screen;
 use crate::application::A_UTF8_STRING;
 use crate::application::A__NET_WM_NAME;
 use crate::con::con_is_leaf;
@@ -573,7 +583,6 @@ use i3_common::draw_util::draw_util_surface_free;
 use i3_common::draw_util::draw_util_surface_init;
 use i3_common::draw_util::draw_util_surface_set_size;
 use i3_common::font::predict_text_width;
-use i3_common::get_visualtype::get_visualtype;
 
 #[cfg(test)]
 mod tests {
