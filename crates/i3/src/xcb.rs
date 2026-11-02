@@ -248,51 +248,37 @@ pub unsafe fn xcb_reply_contains_atom(
 
 /// Native display/graph boundary: requires a live event-thread connection and
 /// initialized, exclusively accessible pointers/resources for this operation.
-pub unsafe fn get_visualtype_by_id(visual_id: xcb_visualid_t) -> *mut xcb_visualtype_t {
-    let mut depth_iter: xcb_depth_iterator_t = xcb_depth_iterator_t {
-        data: ::core::ptr::null_mut::<xcb_depth_t>(),
-        rem: 0,
-        index: 0,
-    };
-    depth_iter = xcb_screen_allowed_depths_iterator(root_screen);
-    while depth_iter.rem != 0 {
-        let mut visual_iter: xcb_visualtype_iterator_t = xcb_visualtype_iterator_t {
-            data: ::core::ptr::null_mut::<xcb_visualtype_t>(),
-            rem: 0,
-            index: 0,
-        };
-        visual_iter = xcb_depth_visuals_iterator(depth_iter.data);
-        while visual_iter.rem != 0 {
-            if visual_id == (*visual_iter.data).visual_id {
-                return visual_iter.data;
-            }
-            xcb_visualtype_next(&raw mut visual_iter);
-        }
-        xcb_depth_next(&raw mut depth_iter);
-    }
-    ::core::ptr::null_mut::<xcb_visualtype_t>()
+pub unsafe fn get_visualtype_by_id(
+    visual_id: u32,
+) -> Option<std::rc::Rc<i3_common::display::CairoVisual>> {
+    // The native helper searched only the selected main screen. Preserve its
+    // missing-ID fallback even when another screen has a matching visual.
+    let present = crate::application::root_display()
+        .screen()
+        .allowed_depths()
+        .any(|depth| {
+            depth
+                .visuals()
+                .iter()
+                .any(|visual| visual.visual_id() == visual_id)
+        });
+    present
+        .then(|| i3_common::display::visual(visual_id))
+        .flatten()
 }
 
-/// Native display/graph boundary: requires a live event-thread connection and
-/// initialized, exclusively accessible pointers/resources for this operation.
-pub unsafe fn get_visualid_by_depth(depth: u16) -> xcb_visualid_t {
-    let mut depth_iter: xcb_depth_iterator_t = xcb_depth_iterator_t {
-        data: ::core::ptr::null_mut::<xcb_depth_t>(),
-        rem: 0,
-        index: 0,
-    };
-    depth_iter = xcb_screen_allowed_depths_iterator(root_screen);
-    while depth_iter.rem != 0 {
-        if !((*depth_iter.data).depth as ::core::ffi::c_int != depth as ::core::ffi::c_int) {
-            let visual_iter: xcb_visualtype_iterator_t =
-                xcb_depth_visuals_iterator(depth_iter.data);
-            if !(visual_iter.rem == 0) {
-                return (*visual_iter.data).visual_id;
-            }
-        }
-        xcb_depth_next(&raw mut depth_iter);
-    }
-    0 as xcb_visualid_t
+/// The event thread retains the selected setup owner during this lookup.
+/// Return the first visual at the complete requested depth, or zero when absent.
+pub unsafe fn get_visualid_by_depth(depth: u16) -> u32 {
+    crate::application::root_display()
+        .screen()
+        .allowed_depths()
+        .find_map(|allowed| {
+            (u16::from(allowed.depth()) == depth)
+                .then(|| allowed.visuals().first().map(|visual| visual.visual_id()))
+                .flatten()
+        })
+        .unwrap_or(0)
 }
 
 /// Native display/graph boundary: requires a live event-thread connection and
@@ -400,7 +386,6 @@ pub use crate::types::Rect;
 // Internal calls and globals use canonical Rust identities.
 use crate::application::conn;
 use crate::application::root;
-use crate::application::root_screen;
 use crate::application::A_WM_PROTOCOLS;
 use crate::application::A_WM_TAKE_FOCUS;
 use crate::application::A__NET_WM_WINDOW_TYPE_DIALOG;
@@ -466,8 +451,4 @@ mod tests {
     }
 }
 
-use xcb_sys::{
-    xcb_atom_t, xcb_connection_t, xcb_depth_iterator_t, xcb_depth_next, xcb_depth_t,
-    xcb_depth_visuals_iterator, xcb_screen_allowed_depths_iterator, xcb_timestamp_t,
-    xcb_visualid_t, xcb_visualtype_iterator_t, xcb_visualtype_next, xcb_visualtype_t, xcb_window_t,
-};
+use xcb_sys::{xcb_atom_t, xcb_connection_t, xcb_timestamp_t, xcb_window_t};
