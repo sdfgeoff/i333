@@ -1,6 +1,7 @@
 /* i3bar - Parses the configuration received from i3. See LICENSE. */
 //! Parsing produces owned, ordered updates. Applying those updates to the
 //! legacy event-thread configuration is an explicit unsafe boundary.
+use crate::application::ColorStrings;
 pub use crate::application::{
     binding_t, bindings_head, config_t, tray_output_t, tray_outputs_head,
 };
@@ -15,7 +16,6 @@ use std::ffi::CString;
 use std::ptr;
 use std::rc::Rc;
 use std::sync::Mutex;
-use xcb_sys::xcb_color_strings_t;
 
 /// Intrusive nodes are owned by exactly one configuration list. Only the
 /// explicit event-thread append/clear functions transfer or recover Boxes.
@@ -80,7 +80,7 @@ pub(crate) const fn empty_config() -> config_t {
             height: 0,
         },
         transparency: false,
-        colors: xcb_color_strings_t {
+        colors: ColorStrings {
             bar_fg: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
             bar_bg: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
             sep_fg: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
@@ -835,7 +835,7 @@ pub unsafe fn parse_get_first_i3bar_config(json: *const u8, size: usize) {
 /// # Safety
 /// Every non-null color slot is a native malloc allocation exclusively owned
 /// by this transport; no borrowed color pointer survives the call.
-pub unsafe fn free_colors(colors: *mut xcb_color_strings_t) {
+pub unsafe fn free_colors(colors: *mut ColorStrings) {
     free((*colors).bar_fg as *mut ::core::ffi::c_void);
     (*colors).bar_fg = ::core::ptr::null_mut::<::core::ffi::c_char>();
     free((*colors).bar_bg as *mut ::core::ffi::c_void);

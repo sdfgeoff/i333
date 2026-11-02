@@ -1,3 +1,4 @@
+use crate::application::ColorStrings;
 use crate::config::config;
 use crate::outputs::output_has_focus;
 use crate::outputs::outputs;
@@ -831,7 +832,7 @@ unsafe fn unhide_bars() {
     }
 }
 
-pub unsafe fn init_colors(new_colors: *const xcb_color_strings_t) {
+pub unsafe fn init_colors(new_colors: *const ColorStrings) {
     colors.bar_fg = draw_util_hex_to_color(if !(*new_colors).bar_fg.is_null() {
         (*new_colors).bar_fg as *const ::core::ffi::c_char
     } else {
@@ -3440,9 +3441,9 @@ mod owned_tests {
 
 use xcb_sys::{
     xcb_aux_find_visual_by_attrs, xcb_aux_get_depth_of_visual, xcb_aux_get_screen,
-    xcb_color_strings_t, xcb_connection_t, xcb_screen_t, xcb_visualtype_t, XCB_ATOM_WM_CLASS,
-    XCB_ATOM_WM_NAME, XCB_BUTTON_SCROLL_DOWN, XCB_BUTTON_SCROLL_LEFT, XCB_BUTTON_SCROLL_RIGHT,
-    XCB_BUTTON_SCROLL_UP, XCB_CURRENT_TIME, XCB_EVENT_MASK_BUTTON_PRESS,
-    XCB_EVENT_MASK_BUTTON_RELEASE, XCB_EVENT_MASK_EXPOSURE, XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT,
+    xcb_connection_t, xcb_screen_t, xcb_visualtype_t, XCB_ATOM_WM_CLASS, XCB_ATOM_WM_NAME,
+    XCB_BUTTON_SCROLL_DOWN, XCB_BUTTON_SCROLL_LEFT, XCB_BUTTON_SCROLL_RIGHT, XCB_BUTTON_SCROLL_UP,
+    XCB_CURRENT_TIME, XCB_EVENT_MASK_BUTTON_PRESS, XCB_EVENT_MASK_BUTTON_RELEASE,
+    XCB_EVENT_MASK_EXPOSURE, XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT,
     XCB_EVENT_MASK_VISIBILITY_CHANGE, XCB_NONE, XCB_STACK_MODE_ABOVE,
 };

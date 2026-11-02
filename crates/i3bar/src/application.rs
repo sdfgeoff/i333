@@ -36,6 +36,36 @@ pub struct Rect {
     pub width: u32,
     pub height: u32,
 }
+/// Configuration color text belongs to the bar, not the XCB protocol.
+///
+/// Every non-null slot uniquely owns a malloc-backed NUL-terminated string.
+/// Configuration updates replace/free individual slots; `config::free_colors`
+/// releases and clears them during explicit teardown. Rendering only borrows
+/// these pointers. Deliberately not Copy or Clone: copies would alias ownership.
+pub struct ColorStrings {
+    pub bar_fg: *mut ::core::ffi::c_char,
+    pub bar_bg: *mut ::core::ffi::c_char,
+    pub sep_fg: *mut ::core::ffi::c_char,
+    pub focus_bar_fg: *mut ::core::ffi::c_char,
+    pub focus_bar_bg: *mut ::core::ffi::c_char,
+    pub focus_sep_fg: *mut ::core::ffi::c_char,
+    pub active_ws_fg: *mut ::core::ffi::c_char,
+    pub active_ws_bg: *mut ::core::ffi::c_char,
+    pub active_ws_border: *mut ::core::ffi::c_char,
+    pub inactive_ws_fg: *mut ::core::ffi::c_char,
+    pub inactive_ws_bg: *mut ::core::ffi::c_char,
+    pub inactive_ws_border: *mut ::core::ffi::c_char,
+    pub focus_ws_bg: *mut ::core::ffi::c_char,
+    pub focus_ws_fg: *mut ::core::ffi::c_char,
+    pub focus_ws_border: *mut ::core::ffi::c_char,
+    pub urgent_ws_bg: *mut ::core::ffi::c_char,
+    pub urgent_ws_fg: *mut ::core::ffi::c_char,
+    pub urgent_ws_border: *mut ::core::ffi::c_char,
+    pub binding_mode_bg: *mut ::core::ffi::c_char,
+    pub binding_mode_fg: *mut ::core::ffi::c_char,
+    pub binding_mode_border: *mut ::core::ffi::c_char,
+}
+
 #[repr(C)]
 pub struct config_t {
     pub modifier: u32,
@@ -45,7 +75,7 @@ pub struct config_t {
     pub bar_height: u32,
     pub padding: Rect,
     pub transparency: bool,
-    pub colors: xcb_color_strings_t,
+    pub colors: ColorStrings,
     pub disable_binding_mode_indicator: bool,
     pub disable_ws: bool,
     pub ws_min_width: ::core::ffi::c_int,
@@ -327,8 +357,6 @@ use crate::xcb::init_xcb_early;
 use i3_common::dpi::init_dpi;
 use i3_common::safewrappers::smalloc;
 use i3_common::safewrappers::sstrdup;
-
-use xcb_sys::xcb_color_strings_t;
 
 pub use libc::{
     atexit, exit, fprintf, free, getenv, glob, glob_t, globfree, memmove, memset, printf,
