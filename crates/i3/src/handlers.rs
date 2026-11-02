@@ -7,6 +7,7 @@ use crate::types::FocusActivation;
 use crate::types::KillWindow;
 use crate::types::Layout;
 use crate::types::WindowDock;
+use xcb::{x, XidNew};
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -25,13 +26,12 @@ pub type i3Window = Window;
 
 pub use crate::application::ignore_event_sequence_t;
 
-pub type cb_property_handler_t = Option<unsafe fn(*mut Con, *mut xcb_get_property_reply_t) -> bool>;
+pub type PropertyCallback = Option<unsafe fn(*mut Con, Option<&x::GetPropertyReply>) -> bool>;
 #[derive(Copy, Clone)]
-#[repr(C)]
-pub struct property_handler_t {
+pub struct PropertyHandler {
     pub atom: xcb_atom_t,
     pub long_len: u32,
-    pub cb: cb_property_handler_t,
+    pub cb: PropertyCallback,
 }
 
 pub const __ASSERT_FUNCTION: [::core::ffi::c_char; 69] = unsafe {
@@ -317,8 +317,11 @@ unsafe fn handle_mapping_notify(event: *mut xcb_mapping_notify_event_t) {
     grab_all_keys(conn);
 }
 unsafe fn handle_map_request(event: *const xcb_map_request_event_t, full_sequence: u32) {
-    let cookie: xcb_get_window_attributes_cookie_t =
-        xcb_get_window_attributes_unchecked(conn, (*event).window);
+    let cookie = i3_common::display::connection()
+        .expect("main X11 connection is registered")
+        .send_request_unchecked(&x::GetWindowAttributes {
+            window: x::Window::new((*event).window),
+        });
     debuglog(
         c"%s:%s:%d - window = 0x%08x, serial is %d.\n"
             .as_ptr()
@@ -335,7 +338,11 @@ unsafe fn handle_map_request(event: *const xcb_map_request_event_t, full_sequenc
         },
         -(1 as ::core::ffi::c_int),
     );
-    manage_window((*event).window, cookie, false);
+    manage_window(
+        (*event).window,
+        crate::manage::AttributesCookie::Unchecked(cookie),
+        false,
+    );
 }
 fn configure_values(event: xcb_configure_request_event_t) -> (u16, Vec<u32>) {
     let mut mask = 0;
@@ -819,7 +826,7 @@ unsafe fn window_name_snapshot(window: *mut i3Window) -> Option<Vec<u8>> {
         .as_ref()
         .and_then(|name| name.cstr_or_report().map(|text| text.to_bytes().to_vec()))
 }
-unsafe fn handle_windowname_change(mut con: *mut Con, prop: *mut xcb_get_property_reply_t) -> bool {
+unsafe fn handle_windowname_change(mut con: *mut Con, prop: Option<&x::GetPropertyReply>) -> bool {
     let old_name = window_name_snapshot((*con).window);
     window_update_name((*con).window, prop);
     con = remanage_window(con);
@@ -831,7 +838,7 @@ unsafe fn handle_windowname_change(mut con: *mut Con, prop: *mut xcb_get_propert
 }
 unsafe fn handle_windowname_change_legacy(
     mut con: *mut Con,
-    prop: *mut xcb_get_property_reply_t,
+    prop: Option<&x::GetPropertyReply>,
 ) -> bool {
     let old_name = window_name_snapshot((*con).window);
     window_update_name_legacy((*con).window, prop);
@@ -842,7 +849,7 @@ unsafe fn handle_windowname_change_legacy(
     }
     true
 }
-unsafe fn handle_windowrole_change(con: *mut Con, prop: *mut xcb_get_property_reply_t) -> bool {
+unsafe fn handle_windowrole_change(con: *mut Con, prop: Option<&x::GetPropertyReply>) -> bool {
     window_update_role((*con).window as *mut i3Window, prop);
     remanage_window(con);
     true
@@ -1451,16 +1458,12 @@ unsafe fn handle_client_message(event: *mut xcb_client_message_event_t) {
         );
     };
 }
-unsafe fn handle_window_type(con: *mut Con, reply: *mut xcb_get_property_reply_t) -> bool {
+unsafe fn handle_window_type(con: *mut Con, reply: Option<&x::GetPropertyReply>) -> bool {
     window_update_type((*con).window as *mut i3Window, reply);
     true
 }
-unsafe fn handle_normal_hints(con: *mut Con, mut reply: *mut xcb_get_property_reply_t) -> bool {
-    let changed: bool = window_update_normal_hints(
-        (*con).window as *mut i3Window,
-        reply,
-        ::core::ptr::null_mut::<xcb_get_geometry_reply_t>(),
-    );
+unsafe fn handle_normal_hints(con: *mut Con, reply: Option<&x::GetPropertyReply>) -> bool {
+    let changed: bool = window_update_normal_hints((*con).window as *mut i3Window, reply, None);
     if changed {
         let floating: *mut Con = con_inside_floating(con);
         if !floating.is_null() {
@@ -1468,11 +1471,9 @@ unsafe fn handle_normal_hints(con: *mut Con, mut reply: *mut xcb_get_property_re
             tree_render();
         }
     }
-    free(reply as *mut ::core::ffi::c_void);
-    reply = ::core::ptr::null_mut::<xcb_get_property_reply_t>();
     true
 }
-unsafe fn handle_hints(con: *mut Con, reply: *mut xcb_get_property_reply_t) -> bool {
+unsafe fn handle_hints(con: *mut Con, reply: Option<&x::GetPropertyReply>) -> bool {
     let mut urgency_hint: bool = false;
     window_update_hints((*con).window as *mut i3Window, reply, &raw mut urgency_hint);
     con_set_urgency(con, urgency_hint);
@@ -1480,11 +1481,11 @@ unsafe fn handle_hints(con: *mut Con, reply: *mut xcb_get_property_reply_t) -> b
     tree_render();
     true
 }
-unsafe fn handle_transient_for(con: *mut Con, prop: *mut xcb_get_property_reply_t) -> bool {
+unsafe fn handle_transient_for(con: *mut Con, prop: Option<&x::GetPropertyReply>) -> bool {
     window_update_transient_for((*con).window as *mut i3Window, prop);
     true
 }
-unsafe fn handle_clientleader_change(con: *mut Con, prop: *mut xcb_get_property_reply_t) -> bool {
+unsafe fn handle_clientleader_change(con: *mut Con, prop: Option<&x::GetPropertyReply>) -> bool {
     window_update_leader((*con).window as *mut i3Window, prop);
     true
 }
@@ -1703,17 +1704,17 @@ unsafe fn handle_selection_clear(event: *mut xcb_selection_clear_event_t) {
     verboselog(c"Lost WM_Sn selection, exiting.\n".as_ptr().cast_mut());
     exit(EXIT_SUCCESS);
 }
-unsafe fn handle_class_change(mut con: *mut Con, prop: *mut xcb_get_property_reply_t) -> bool {
+unsafe fn handle_class_change(mut con: *mut Con, prop: Option<&x::GetPropertyReply>) -> bool {
     window_update_class((*con).window as *mut i3Window, prop);
     con = remanage_window(con);
     true
 }
-unsafe fn handle_machine_change(mut con: *mut Con, prop: *mut xcb_get_property_reply_t) -> bool {
+unsafe fn handle_machine_change(mut con: *mut Con, prop: Option<&x::GetPropertyReply>) -> bool {
     window_update_machine((*con).window as *mut i3Window, prop);
     con = remanage_window(con);
     true
 }
-unsafe fn handle_motif_hints_change(con: *mut Con, prop: *mut xcb_get_property_reply_t) -> bool {
+unsafe fn handle_motif_hints_change(con: *mut Con, prop: Option<&x::GetPropertyReply>) -> bool {
     let mut motif_border_style: BorderStyle = BorderStyle::None;
     let has_mwm_hints: bool = window_update_motif_hints(
         (*con).window as *mut i3Window,
@@ -1736,7 +1737,7 @@ unsafe fn handle_motif_hints_change(con: *mut Con, prop: *mut xcb_get_property_r
     }
     true
 }
-unsafe fn handle_strut_partial_change(con: *mut Con, prop: *mut xcb_get_property_reply_t) -> bool {
+unsafe fn handle_strut_partial_change(con: *mut Con, prop: Option<&x::GetPropertyReply>) -> bool {
     window_update_strut_partial((*con).window as *mut i3Window, prop);
     if parent_ptr(con).is_null() || ((*parent_ptr(con)).type_0) != ContainerType::DockArea {
         return true;
@@ -1825,18 +1826,17 @@ unsafe fn handle_strut_partial_change(con: *mut Con, prop: *mut xcb_get_property
     tree_render();
     true
 }
-unsafe fn handle_windowicon_change(con: *mut Con, prop: *mut xcb_get_property_reply_t) -> bool {
+unsafe fn handle_windowicon_change(con: *mut Con, prop: Option<&x::GetPropertyReply>) -> bool {
     window_update_icon((*con).window as *mut i3Window, prop);
     x_push_changes(croot);
     true
 }
-static mut property_handlers: [property_handler_t; 13] = [property_handler_t {
+static mut property_handlers: [PropertyHandler; 13] = [PropertyHandler {
     atom: 0,
     long_len: 0,
     cb: None,
 }; 13];
-pub const NUM_HANDLERS: usize = (::core::mem::size_of::<[property_handler_t; 13]>() as usize)
-    .wrapping_div(::core::mem::size_of::<property_handler_t>() as usize);
+pub const NUM_HANDLERS: usize = 13;
 
 pub unsafe fn property_handlers_init() {
     sn_monitor_context_new(
@@ -1869,32 +1869,14 @@ pub unsafe fn property_handlers_init() {
     property_handlers[11 as ::core::ffi::c_int as usize].atom = A__MOTIF_WM_HINTS;
     property_handlers[12 as ::core::ffi::c_int as usize].atom = A__NET_WM_ICON;
 }
-struct PropertyAllocation(*mut xcb_get_property_reply_t);
-impl PropertyAllocation {
-    /// The callback receives a live reply (or null for deletion) and an event-
-    /// thread Con. It may consume the reply before returning or unwinding; only
-    /// a normal false return promises that ownership remains with this caller.
-    unsafe fn dispatch(
-        mut self,
-        callback: unsafe fn(*mut Con, *mut xcb_get_property_reply_t) -> bool,
-        con: *mut Con,
-    ) {
-        let reply = std::mem::replace(&mut self.0, std::ptr::null_mut());
-        if !callback(con, reply) {
-            self.0 = reply;
-        }
-    }
-}
-impl Drop for PropertyAllocation {
-    fn drop(&mut self) {
-        unsafe { libc::free(self.0.cast()) };
-    }
-}
-struct PropertyError(*mut xcb_generic_error_t);
-impl Drop for PropertyError {
-    fn drop(&mut self) {
-        unsafe { libc::free(self.0.cast()) };
-    }
+/// The request retains ownership across callbacks, including unwinding. A
+/// handler can borrow the property but cannot consume or retain its allocation.
+unsafe fn dispatch_property(
+    callback: unsafe fn(*mut Con, Option<&x::GetPropertyReply>) -> bool,
+    con: *mut Con,
+    reply: Option<x::GetPropertyReply>,
+) {
+    callback(con, reply.as_ref());
 }
 
 unsafe fn property_notify(state: u8, window: xcb_window_t, atom: xcb_atom_t) {
@@ -1906,8 +1888,7 @@ unsafe fn property_notify(state: u8, window: xcb_window_t, atom: xcb_atom_t) {
     let Some(handler) = handler else {
         return;
     };
-    let mut propr = PropertyAllocation(std::ptr::null_mut());
-    let mut err = std::ptr::null_mut();
+    let mut reply = None;
     let con;
     con = con_by_window_id(window);
     if con.is_null() || (*con).window.is_null() {
@@ -1922,35 +1903,41 @@ unsafe fn property_notify(state: u8, window: xcb_window_t, atom: xcb_atom_t) {
         );
         return;
     }
-    if state as ::core::ffi::c_int != XCB_PROPERTY_DELETE as ::core::ffi::c_int {
-        let cookie: xcb_get_property_cookie_t = xcb_get_property(
-            conn,
-            0 as u8,
-            window,
-            atom,
-            XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-            0 as u32,
-            handler.long_len,
-        );
-        propr.0 = xcb_get_property_reply(conn, cookie, &raw mut err);
-        let _error_owner = PropertyError(err);
-        if !err.is_null() {
-            debuglog(
-                c"%s:%s:%d - got error %d when getting property of atom %d\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/handlers.c".as_ptr(),
-                c"property_notify".as_ptr(),
-                1393 as ::core::ffi::c_int,
-                (*err).error_code as ::core::ffi::c_int,
-                atom,
-            );
-            return;
+    if state != x::Property::Delete as u8 {
+        let result = {
+            let connection =
+                i3_common::display::connection().expect("main X11 connection is registered");
+            let cookie = connection.send_request(&x::GetProperty {
+                delete: false,
+                window: x::Window::new(window),
+                property: x::Atom::new(atom),
+                r#type: x::ATOM_ANY,
+                long_offset: 0,
+                long_length: handler.long_len,
+            });
+            connection.wait_for_reply(cookie)
+        };
+        match result {
+            Ok(property) => reply = Some(property),
+            Err(xcb::Error::Protocol(error)) => {
+                debuglog(
+                    c"%s:%s:%d - got error %d when getting property of atom %d\n"
+                        .as_ptr()
+                        .cast_mut(),
+                    c"../src/handlers.c".as_ptr(),
+                    c"property_notify".as_ptr(),
+                    1393,
+                    i32::from((*error.as_raw()).error_code),
+                    atom,
+                );
+                return;
+            }
+            // A native null reply without a protocol error still dispatched a
+            // missing property. Keep that behavior on connection failures.
+            Err(xcb::Error::Connection(_)) => {}
         }
     }
-    // Release before dispatch: a consuming handler can free/retain the reply
-    // and then unwind during assignments or another Rust graph callback.
-    propr.dispatch(handler.cb.expect("non-null function pointer"), con);
+    dispatch_property(handler.cb.expect("non-null function pointer"), con, reply);
 }
 
 pub unsafe fn handle_event(type_0: ::core::ffi::c_int, event: *mut xcb_generic_event_t) {
@@ -2173,100 +2160,100 @@ pub const UINT_MAX: ::core::ffi::c_uint = (__INT_MAX__ as ::core::ffi::c_uint)
 pub const __INT_MAX__: ::core::ffi::c_int = 2147483647 as ::core::ffi::c_int;
 unsafe extern "C" fn run_static_initializers() {
     property_handlers = [
-        property_handler_t {
+        PropertyHandler {
             atom: 0 as xcb_atom_t,
             long_len: 128 as u32,
             cb: Some(
                 handle_windowname_change
-                    as unsafe fn(*mut Con, *mut xcb_get_property_reply_t) -> bool,
+                    as unsafe fn(*mut Con, Option<&x::GetPropertyReply>) -> bool,
             ),
         },
-        property_handler_t {
+        PropertyHandler {
             atom: 0 as xcb_atom_t,
             long_len: UINT_MAX as u32,
-            cb: Some(handle_hints as unsafe fn(*mut Con, *mut xcb_get_property_reply_t) -> bool),
+            cb: Some(handle_hints as unsafe fn(*mut Con, Option<&x::GetPropertyReply>) -> bool),
         },
-        property_handler_t {
+        PropertyHandler {
             atom: 0 as xcb_atom_t,
             long_len: 128 as u32,
             cb: Some(
                 handle_windowname_change_legacy
-                    as unsafe fn(*mut Con, *mut xcb_get_property_reply_t) -> bool,
+                    as unsafe fn(*mut Con, Option<&x::GetPropertyReply>) -> bool,
             ),
         },
-        property_handler_t {
+        PropertyHandler {
             atom: 0 as xcb_atom_t,
             long_len: UINT_MAX as u32,
             cb: Some(
-                handle_normal_hints as unsafe fn(*mut Con, *mut xcb_get_property_reply_t) -> bool,
+                handle_normal_hints as unsafe fn(*mut Con, Option<&x::GetPropertyReply>) -> bool,
             ),
         },
-        property_handler_t {
+        PropertyHandler {
             atom: 0 as xcb_atom_t,
             long_len: UINT_MAX as u32,
             cb: Some(
                 handle_clientleader_change
-                    as unsafe fn(*mut Con, *mut xcb_get_property_reply_t) -> bool,
+                    as unsafe fn(*mut Con, Option<&x::GetPropertyReply>) -> bool,
             ),
         },
-        property_handler_t {
+        PropertyHandler {
             atom: 0 as xcb_atom_t,
             long_len: UINT_MAX as u32,
             cb: Some(
-                handle_transient_for as unsafe fn(*mut Con, *mut xcb_get_property_reply_t) -> bool,
+                handle_transient_for as unsafe fn(*mut Con, Option<&x::GetPropertyReply>) -> bool,
             ),
         },
-        property_handler_t {
+        PropertyHandler {
             atom: 0 as xcb_atom_t,
             long_len: 128 as u32,
             cb: Some(
                 handle_windowrole_change
-                    as unsafe fn(*mut Con, *mut xcb_get_property_reply_t) -> bool,
+                    as unsafe fn(*mut Con, Option<&x::GetPropertyReply>) -> bool,
             ),
         },
-        property_handler_t {
+        PropertyHandler {
             atom: 0 as xcb_atom_t,
             long_len: 128 as u32,
             cb: Some(
-                handle_class_change as unsafe fn(*mut Con, *mut xcb_get_property_reply_t) -> bool,
+                handle_class_change as unsafe fn(*mut Con, Option<&x::GetPropertyReply>) -> bool,
             ),
         },
-        property_handler_t {
+        PropertyHandler {
             atom: 0 as xcb_atom_t,
             long_len: UINT_MAX as u32,
             cb: Some(
                 handle_strut_partial_change
-                    as unsafe fn(*mut Con, *mut xcb_get_property_reply_t) -> bool,
+                    as unsafe fn(*mut Con, Option<&x::GetPropertyReply>) -> bool,
             ),
         },
-        property_handler_t {
+        PropertyHandler {
             atom: 0 as xcb_atom_t,
             long_len: UINT_MAX as u32,
             cb: Some(
-                handle_window_type as unsafe fn(*mut Con, *mut xcb_get_property_reply_t) -> bool,
+                handle_window_type as unsafe fn(*mut Con, Option<&x::GetPropertyReply>) -> bool,
             ),
         },
-        property_handler_t {
+        PropertyHandler {
             atom: 0 as xcb_atom_t,
             long_len: 128 as u32,
             cb: Some(
-                handle_machine_change as unsafe fn(*mut Con, *mut xcb_get_property_reply_t) -> bool,
+                handle_machine_change as unsafe fn(*mut Con, Option<&x::GetPropertyReply>) -> bool,
             ),
         },
-        property_handler_t {
+        PropertyHandler {
             atom: 0 as xcb_atom_t,
             long_len: 5_usize.wrapping_mul(::core::mem::size_of::<u64>() as usize) as u32,
             cb: Some(
                 handle_motif_hints_change
-                    as unsafe fn(*mut Con, *mut xcb_get_property_reply_t) -> bool,
+                    as unsafe fn(*mut Con, Option<&x::GetPropertyReply>) -> bool,
             ),
         },
-        property_handler_t {
+        PropertyHandler {
             atom: 0 as xcb_atom_t,
             long_len: UINT_MAX as u32,
             cb: Some(
                 handle_windowicon_change
-                    as unsafe fn(*mut Con, *mut xcb_get_property_reply_t) -> bool,
+                    as unsafe fn(*mut Con, Option<&x::GetPropertyReply>) -> bool,
             ),
         },
     ];
@@ -2301,9 +2288,7 @@ use xcb_sys::{
     xcb_enter_notify_event_t, xcb_expose_event_t, xcb_flush, xcb_focus_in_event_t,
     xcb_generic_error_t, xcb_generic_event_t, xcb_get_geometry, xcb_get_geometry_cookie_t,
     xcb_get_geometry_reply, xcb_get_geometry_reply_t, xcb_get_input_focus,
-    xcb_get_input_focus_cookie_t, xcb_get_input_focus_reply, xcb_get_property,
-    xcb_get_property_cookie_t, xcb_get_property_reply, xcb_get_property_reply_t,
-    xcb_get_window_attributes_cookie_t, xcb_get_window_attributes_unchecked, xcb_key_press_event_t,
+    xcb_get_input_focus_cookie_t, xcb_get_input_focus_reply, xcb_key_press_event_t,
     xcb_key_symbols_alloc, xcb_key_symbols_free, xcb_map_request_event_t,
     xcb_mapping_notify_event_t, xcb_motion_notify_event_t, xcb_property_notify_event_t,
     xcb_refresh_keyboard_mapping, xcb_selection_clear_event_t, xcb_shape_notify_event_t,
@@ -2315,14 +2300,14 @@ use xcb_sys::{
     XCB_CONFIG_WINDOW_BORDER_WIDTH, XCB_CONFIG_WINDOW_HEIGHT, XCB_CONFIG_WINDOW_SIBLING,
     XCB_CONFIG_WINDOW_STACK_MODE, XCB_CONFIG_WINDOW_WIDTH, XCB_CONFIG_WINDOW_X,
     XCB_CONFIG_WINDOW_Y, XCB_DESTROY_NOTIFY, XCB_ENTER_NOTIFY, XCB_EXPOSE, XCB_FOCUS_IN,
-    XCB_FOCUS_OUT, XCB_GET_PROPERTY_TYPE_ANY, XCB_ICCCM_WM_STATE_ICONIC, XCB_ICCCM_WM_STATE_NORMAL,
-    XCB_KEY_PRESS, XCB_KEY_RELEASE, XCB_MAPPING_KEYBOARD, XCB_MAPPING_MODIFIER, XCB_MAPPING_NOTIFY,
+    XCB_FOCUS_OUT, XCB_ICCCM_WM_STATE_ICONIC, XCB_ICCCM_WM_STATE_NORMAL, XCB_KEY_PRESS,
+    XCB_KEY_RELEASE, XCB_MAPPING_KEYBOARD, XCB_MAPPING_MODIFIER, XCB_MAPPING_NOTIFY,
     XCB_MAP_REQUEST, XCB_MOTION_NOTIFY, XCB_NONE, XCB_NOTIFY_DETAIL_POINTER, XCB_NOTIFY_MODE_GRAB,
-    XCB_NOTIFY_MODE_NORMAL, XCB_NOTIFY_MODE_UNGRAB, XCB_NUM_LOCK, XCB_PROPERTY_DELETE,
-    XCB_PROPERTY_NOTIFY, XCB_PROP_MODE_REPLACE, XCB_RANDR_SCREEN_CHANGE_NOTIFY,
-    XCB_SELECTION_CLEAR, XCB_SHAPE_NOTIFY, XCB_SHAPE_SK_BOUNDING, XCB_SHAPE_SK_INPUT,
-    XCB_STACK_MODE_ABOVE, XCB_UNMAP_NOTIFY, XCB_XKB_MAP_NOTIFY, XCB_XKB_NEW_KEYBOARD_NOTIFY,
-    XCB_XKB_NKN_DETAIL_KEYCODES, XCB_XKB_STATE_NOTIFY,
+    XCB_NOTIFY_MODE_NORMAL, XCB_NOTIFY_MODE_UNGRAB, XCB_NUM_LOCK, XCB_PROPERTY_NOTIFY,
+    XCB_PROP_MODE_REPLACE, XCB_RANDR_SCREEN_CHANGE_NOTIFY, XCB_SELECTION_CLEAR, XCB_SHAPE_NOTIFY,
+    XCB_SHAPE_SK_BOUNDING, XCB_SHAPE_SK_INPUT, XCB_STACK_MODE_ABOVE, XCB_UNMAP_NOTIFY,
+    XCB_XKB_MAP_NOTIFY, XCB_XKB_NEW_KEYBOARD_NOTIFY, XCB_XKB_NKN_DETAIL_KEYCODES,
+    XCB_XKB_STATE_NOTIFY,
 };
 
 use startup_notification_sys::{
@@ -2448,16 +2433,20 @@ use crate::xcb::xcb_numlock_mask;
 mod owned_event_tests {
     use super::*;
     #[test]
-    fn property_dispatch_releases_ownership_before_a_consuming_callback_unwinds() {
-        unsafe fn consume_then_panic(_: *mut Con, reply: *mut xcb_get_property_reply_t) -> bool {
-            unsafe { libc::free(reply.cast()) };
-            panic!("callback unwound after consuming its reply");
+    fn property_dispatch_keeps_owned_reply_alive_through_a_borrowing_callback_unwind() {
+        unsafe fn borrow_then_panic(_: *mut Con, reply: Option<&x::GetPropertyReply>) -> bool {
+            assert_eq!(reply.unwrap().format(), 8);
+            panic!("callback unwound while borrowing its reply");
         }
-        let reply: *mut xcb_get_property_reply_t =
-            unsafe { libc::calloc(1, std::mem::size_of::<xcb_get_property_reply_t>()) }.cast();
-        assert!(!reply.is_null());
+        let raw = unsafe { libc::calloc(1, 32).cast::<u8>() };
+        assert!(!raw.is_null());
+        unsafe {
+            raw.write(1);
+            raw.add(1).write(8);
+        }
+        let reply: x::GetPropertyReply = unsafe { xcb::Reply::from_raw(raw) };
         let result = std::panic::catch_unwind(|| unsafe {
-            PropertyAllocation(reply).dispatch(consume_then_panic, std::ptr::null_mut());
+            dispatch_property(borrow_then_panic, std::ptr::null_mut(), Some(reply));
         });
         assert!(result.is_err());
     }

@@ -2,7 +2,7 @@
 //! Startup notification contexts and workspace routing. Graph/native callbacks
 //! remain event-thread-only; no borrowed graph or sequence list spans a callback.
 use crate::application::{
-    conn, conn_screen, last_timestamp, listen_fds, main_loop, original_rlimit_core, sndisplay,
+    conn_screen, last_timestamp, listen_fds, main_loop, original_rlimit_core, sndisplay,
     A__NET_STARTUP_ID,
 };
 use crate::con::{con_by_window_id, con_get_workspace};
@@ -15,7 +15,7 @@ use libev_sys::{ev_loop, ev_timer, ev_timer_start, ev_timer_stop};
 use startup_notification_sys::*;
 use std::ffi::{CStr, CString};
 use std::ptr::NonNull;
-use xcb_sys::{xcb_get_property_reply_t, xcb_window_t};
+use xcb::{x, XidNew};
 
 struct LauncherRef(NonNull<SnLauncherContext>);
 impl LauncherRef {
@@ -174,11 +174,7 @@ impl PreparedCommand {
 /// command is live C text; globals/graph/SN display are serialized on the event
 /// thread. All Rust-owned preparation occurs before fork. The child uses only
 /// the existing native process/environment/SN setup and exec failure boundary.
-pub unsafe fn start_application(
-    command: *const libc::c_char,
-    no_startup_id: bool,
-    window_id: xcb_window_t,
-) {
+pub unsafe fn start_application(command: *const libc::c_char, no_startup_id: bool, window_id: u32) {
     let prepared = PreparedCommand::new(
         CStr::from_ptr(command),
         CStr::from_ptr(current_socketpath),
@@ -295,37 +291,22 @@ pub unsafe fn startup_sequence_rename_workspace(
     }
 }
 
-struct PropertyReply(*mut xcb_get_property_reply_t);
-impl PropertyReply {
-    /// Complete malloc-owned XCB reply with its declared wire allocation.
-    unsafe fn bytes(&self) -> &[u8] {
-        let Some(reply) = (unsafe { self.0.as_ref() }) else {
-            return &[];
-        };
-        let width = match reply.format {
-            8 => 1,
-            16 => 2,
-            32 => 4,
-            _ => return &[],
-        };
-        let Some(len) = (reply.value_len as usize).checked_mul(width) else {
-            return &[];
-        };
-        let Some(wire) = (reply.length as usize).checked_mul(4) else {
-            return &[];
-        };
-        if len > wire || len > isize::MAX as usize {
-            return &[];
-        }
-        unsafe { std::slice::from_raw_parts(self.0.add(1).cast(), len) }
-    }
+fn startup_property(window: u32) -> Option<x::GetPropertyReply> {
+    let connection = i3_common::display::connection().expect("main X11 connection is registered");
+    let cookie = connection.send_request(&x::GetProperty {
+        delete: false,
+        window: x::Window::new(window),
+        property: x::Atom::new(unsafe { A__NET_STARTUP_ID }),
+        r#type: x::ATOM_ANY,
+        long_offset: 0,
+        long_length: 512,
+    });
+    connection.wait_for_reply(cookie).ok()
 }
-impl Drop for PropertyReply {
-    fn drop(&mut self) {
-        unsafe {
-            libc::free(self.0.cast());
-        }
-    }
+fn startup_property_bytes(reply: Option<&x::GetPropertyReply>) -> &[u8] {
+    reply
+        .and_then(crate::xcb::property_payload)
+        .unwrap_or_default()
 }
 fn startup_id(bytes: &[u8]) -> CString {
     CString::new(
@@ -336,42 +317,34 @@ fn startup_id(bytes: &[u8]) -> CString {
     )
     .unwrap()
 }
-/// The reply transfers ownership; cwindow and any returned sequence are borrowed
-/// from the event-thread graph until a sequence deletion or workspace rename.
+/// The reply is borrowed for this lookup. cwindow and any returned sequence
+/// belong to the event-thread graph until deletion or workspace rename.
 pub unsafe fn startup_sequence_get(
     cwindow: *const Window,
-    reply: *mut xcb_get_property_reply_t,
+    reply: Option<&x::GetPropertyReply>,
     ignore_mapped_leader: bool,
 ) -> *mut Startup_Sequence {
-    let mut reply = PropertyReply(reply);
-    if reply.bytes().is_empty() {
+    let fetched;
+    let reply = if startup_property_bytes(reply).is_empty() {
         let leader = (*cwindow).leader;
         if leader == 0 || ignore_mapped_leader && !con_by_window_id(leader).is_null() {
             return std::ptr::null_mut();
         }
-        let cookie = xcb_sys::xcb_get_property(
-            conn,
-            0,
-            leader,
-            A__NET_STARTUP_ID,
-            xcb_sys::XCB_GET_PROPERTY_TYPE_ANY,
-            0,
-            512,
-        );
-        reply = PropertyReply(xcb_sys::xcb_get_property_reply(
-            conn,
-            cookie,
-            std::ptr::null_mut(),
-        ));
-        if reply.bytes().is_empty() {
-            return std::ptr::null_mut();
-        }
+        fetched = startup_property(leader);
+        fetched.as_ref()
+    } else {
+        reply
+    };
+    let bytes = startup_property_bytes(reply);
+    if bytes.is_empty() {
+        return std::ptr::null_mut();
     }
-    find_sequence(&startup_id(reply.bytes()))
+    find_sequence(&startup_id(bytes))
 }
+
 pub unsafe fn startup_workspace_for_window(
     cwindow: *const Window,
-    reply: *mut xcb_get_property_reply_t,
+    reply: Option<&x::GetPropertyReply>,
 ) -> *mut libc::c_char {
     let sequence = startup_sequence_get(cwindow, reply, false);
     if sequence.is_null() {
@@ -384,17 +357,8 @@ pub unsafe fn startup_workspace_for_window(
     (*sequence).workspace.as_ptr().cast_mut()
 }
 pub unsafe fn startup_sequence_delete_by_window(window: *const Window) {
-    let cookie = xcb_sys::xcb_get_property(
-        conn,
-        0,
-        (*window).id,
-        A__NET_STARTUP_ID,
-        xcb_sys::XCB_GET_PROPERTY_TYPE_ANY,
-        0,
-        512,
-    );
-    let reply = xcb_sys::xcb_get_property_reply(conn, cookie, std::ptr::null_mut());
-    let sequence = startup_sequence_get(window, reply, true);
+    let reply = startup_property((*window).id);
+    let sequence = startup_sequence_get(window, reply.as_ref(), true);
     if !sequence.is_null() {
         startup_sequence_delete(sequence);
     }

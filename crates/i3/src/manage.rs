@@ -8,6 +8,7 @@ use crate::types::FloatingState;
 use crate::types::PopupDuringFullscreen;
 use crate::types::WindowDock;
 use i3_common::safewrappers::sasprintf;
+use xcb::{x, Xid, XidNew};
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -66,48 +67,83 @@ fn tree_child_count(children: u16, wire_words: u32) -> Option<usize> {
 
 /// Root and connection are valid native XCB objects on the event thread.
 pub unsafe fn manage_existing_windows(root_0: xcb_window_t) {
-    let reply = NativeReply(xcb_query_tree_reply(
-        conn,
-        xcb_query_tree(conn, root_0),
-        std::ptr::null_mut(),
-    ));
-    if reply.0.is_null() {
-        return;
-    }
-    let Some(count) = tree_child_count((*reply.0).children_len, (*reply.0).length) else {
+    let cookie = connection().send_request(&x::QueryTree {
+        window: x::Window::new(root_0),
+    });
+    let Some(reply) = connection().wait_for_reply(cookie).ok() else {
         return;
     };
-    let children = std::slice::from_raw_parts(xcb_query_tree_children(reply.0), count).to_vec();
-    // Preserve request pipelining: issue every attribute query before managing
-    // any child (which can invoke graph callbacks/native round trips).
+    // Validate the wire count before the maintained reply creates its slice.
+    let raw = xcb::Reply::as_raw(&reply);
+    let count = raw.add(16).cast::<u16>().read_unaligned();
+    let Some(_) = tree_child_count(count, reply.length()) else {
+        return;
+    };
+    let children = reply.children().to_vec();
+    // Retain batching before managing children can invoke graph callbacks.
     let cookies: Vec<_> = children
         .iter()
-        .map(|&child| xcb_get_window_attributes(conn, child))
+        .map(|&window| {
+            AttributesCookie::Checked(connection().send_request(&x::GetWindowAttributes { window }))
+        })
         .collect();
     drop(reply);
     for (child, cookie) in children.into_iter().zip(cookies) {
-        manage_window(child, cookie, true);
+        manage_window(child.resource_id(), cookie, true);
     }
 }
 
 /// Native complete reply allocation, borrowed only for this copied first word.
 /// The original accepted any format/type with at least one byte; reject only
 /// undersized payloads that previously triggered an out-of-bounds u32 read.
-unsafe fn first_property_word(reply: *const xcb_get_property_reply_t) -> Option<u32> {
-    let header = reply.as_ref()?;
-    let bytes = usize::try_from(header.value_len)
+fn first_property_word(reply: Option<&x::GetPropertyReply>) -> Option<u32> {
+    let reply = reply?;
+    // The original accepted nonstandard formats too. Only the first four
+    // payload bytes are borrowed after checking both advertised lengths.
+    let raw = unsafe { xcb::Reply::as_raw(reply) };
+    let count = unsafe { raw.add(16).cast::<u32>().read_unaligned() };
+    let bytes = usize::try_from(count)
         .ok()?
-        .checked_mul(usize::from(header.format / 8))?;
-    if bytes < 4 || header.length == 0 {
+        .checked_mul(usize::from(reply.format() / 8))?;
+    if bytes < 4 || reply.length() == 0 {
         return None;
     }
-    let pointer = xcb_get_property_value(reply.cast_mut()).cast::<u8>();
-    if pointer.is_null() {
-        return None;
+    Some(unsafe { raw.add(32).cast::<u32>().read_unaligned() })
+}
+
+fn connection() -> std::rc::Rc<xcb::Connection> {
+    i3_common::display::connection().expect("main X11 connection is registered")
+}
+fn property_cookie(window: u32, atom: u32, kind: u32, long_length: u32) -> x::GetPropertyCookie {
+    connection().send_request(&x::GetProperty {
+        delete: false,
+        window: x::Window::new(window),
+        property: x::Atom::new(atom),
+        r#type: x::Atom::new(kind),
+        long_offset: 0,
+        long_length,
+    })
+}
+fn property_reply(cookie: x::GetPropertyCookie) -> Option<x::GetPropertyReply> {
+    connection().wait_for_reply(cookie).ok()
+}
+
+pub(crate) enum AttributesCookie {
+    Checked(x::GetWindowAttributesCookie),
+    Unchecked(x::GetWindowAttributesCookieUnchecked),
+}
+fn attribute_reply(cookie: AttributesCookie) -> Option<x::GetWindowAttributesReply> {
+    match cookie {
+        AttributesCookie::Checked(cookie) => connection().wait_for_reply(cookie).ok(),
+        AttributesCookie::Unchecked(cookie) => {
+            connection().wait_for_reply_unchecked(cookie).ok().flatten()
+        }
     }
-    Some(u32::from_ne_bytes(
-        std::slice::from_raw_parts(pointer, 4).try_into().unwrap(),
-    ))
+}
+fn attributes_viewable(reply: &x::GetWindowAttributesReply) -> bool {
+    // The maintained map_state getter transmutes its native byte. Compare the
+    // open wire value directly so unknown states retain the previous policy.
+    unsafe { *xcb::Reply::as_raw(reply).add(26) == x::MapState::Viewable as u8 }
 }
 
 unsafe fn request_failed(cookie: xcb_void_cookie_t) -> bool {
@@ -175,7 +211,7 @@ pub unsafe fn restore_geometry() {
 
 pub unsafe fn manage_window(
     window: xcb_window_t,
-    cookie: xcb_get_window_attributes_cookie_t,
+    cookie: AttributesCookie,
     needs_to_be_mapped: bool,
 ) {
     let mut values: [u32; 1] = [0; 1];
@@ -185,12 +221,6 @@ pub unsafe fn manage_window(
     let mut urgency_hint: bool = false;
     let mut motif_border_style: BorderStyle = BorderStyle::None;
     let mut has_mwm_hints: bool = false;
-    let mut type_reply: *mut xcb_get_property_reply_t =
-        ::core::ptr::null_mut::<xcb_get_property_reply_t>();
-    let mut state_reply: *mut xcb_get_property_reply_t =
-        ::core::ptr::null_mut::<xcb_get_property_reply_t>();
-    let mut startup_id_reply: *mut xcb_get_property_reply_t =
-        ::core::ptr::null_mut::<xcb_get_property_reply_t>();
     let mut startup_ws: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
     let mut search_at: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut match_0: *mut Match = ::core::ptr::null_mut::<Match>();
@@ -210,59 +240,25 @@ pub unsafe fn manage_window(
         108 as ::core::ffi::c_int,
         window,
     );
-    let d: xcb_drawable_t = window;
-    let mut geomc: xcb_get_geometry_cookie_t = xcb_get_geometry_cookie_t { sequence: 0 };
-    let mut geom: *mut xcb_get_geometry_reply_t =
-        ::core::ptr::null_mut::<xcb_get_geometry_reply_t>();
-    let mut attr: *mut xcb_get_window_attributes_reply_t =
-        ::core::ptr::null_mut::<xcb_get_window_attributes_reply_t>();
-    let mut wm_type_cookie: xcb_get_property_cookie_t = xcb_get_property_cookie_t { sequence: 0 };
-    let mut strut_cookie: xcb_get_property_cookie_t = xcb_get_property_cookie_t { sequence: 0 };
-    let mut state_cookie: xcb_get_property_cookie_t = xcb_get_property_cookie_t { sequence: 0 };
-    let mut utf8_title_cookie: xcb_get_property_cookie_t =
-        xcb_get_property_cookie_t { sequence: 0 };
-    let mut title_cookie: xcb_get_property_cookie_t = xcb_get_property_cookie_t { sequence: 0 };
-    let mut class_cookie: xcb_get_property_cookie_t = xcb_get_property_cookie_t { sequence: 0 };
-    let mut leader_cookie: xcb_get_property_cookie_t = xcb_get_property_cookie_t { sequence: 0 };
-    let mut transient_cookie: xcb_get_property_cookie_t = xcb_get_property_cookie_t { sequence: 0 };
-    let mut role_cookie: xcb_get_property_cookie_t = xcb_get_property_cookie_t { sequence: 0 };
-    let mut startup_id_cookie: xcb_get_property_cookie_t =
-        xcb_get_property_cookie_t { sequence: 0 };
-    let mut wm_hints_cookie: xcb_get_property_cookie_t = xcb_get_property_cookie_t { sequence: 0 };
-    let mut wm_normal_hints_cookie: xcb_get_property_cookie_t =
-        xcb_get_property_cookie_t { sequence: 0 };
-    let mut motif_wm_hints_cookie: xcb_get_property_cookie_t =
-        xcb_get_property_cookie_t { sequence: 0 };
-    let mut wm_user_time_cookie: xcb_get_property_cookie_t =
-        xcb_get_property_cookie_t { sequence: 0 };
-    let mut wm_desktop_cookie: xcb_get_property_cookie_t =
-        xcb_get_property_cookie_t { sequence: 0 };
-    let mut wm_machine_cookie: xcb_get_property_cookie_t =
-        xcb_get_property_cookie_t { sequence: 0 };
-    let mut wm_icon_cookie: xcb_get_property_cookie_t = xcb_get_property_cookie_t { sequence: 0 };
-    geomc = xcb_get_geometry(conn, d);
-    attr = xcb_get_window_attributes_reply(
-        conn,
-        cookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    let _attribute_owner = NativeReply(attr);
-    if attr.is_null() {
+    let geomc = connection().send_request(&x::GetGeometry {
+        drawable: x::Drawable::Window(x::Window::new(window)),
+    });
+    let attr = attribute_reply(cookie);
+    if attr.is_none() {
         debuglog(
             c"%s:%s:%d - Could not get attributes\n".as_ptr().cast_mut(),
             c"../src/manage.c".as_ptr(),
             c"manage_window".as_ptr(),
             129 as ::core::ffi::c_int,
         );
-        xcb_discard_reply(conn, geomc.sequence);
+        xcb_interop::transport::discard_reply(&connection(), geomc);
         return;
     }
-    if needs_to_be_mapped as ::core::ffi::c_int != 0
-        && (*attr).map_state as ::core::ffi::c_int != XCB_MAP_STATE_VIEWABLE as ::core::ffi::c_int
-    {
-        xcb_discard_reply(conn, geomc.sequence);
-    } else if (*attr).override_redirect != 0 {
-        xcb_discard_reply(conn, geomc.sequence);
+    let attr = attr.unwrap();
+    if needs_to_be_mapped && !attributes_viewable(&attr) {
+        xcb_interop::transport::discard_reply(&connection(), geomc);
+    } else if attr.override_redirect() {
+        xcb_interop::transport::discard_reply(&connection(), geomc);
     } else if !con_by_window_id(window).is_null() {
         debuglog(
             c"%s:%s:%d - already managed (by con %p)\n"
@@ -273,15 +269,10 @@ pub unsafe fn manage_window(
             147 as ::core::ffi::c_int,
             con_by_window_id(window),
         );
-        xcb_discard_reply(conn, geomc.sequence);
+        xcb_interop::transport::discard_reply(&connection(), geomc);
     } else {
-        geom = xcb_get_geometry_reply(
-            conn,
-            geomc,
-            ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-        );
-        let _geometry_owner = NativeReply(geom);
-        if geom.is_null() {
+        let geom = connection().wait_for_reply(geomc).ok();
+        if geom.is_none() {
             debuglog(
                 c"%s:%s:%d - could not get geometry\n".as_ptr().cast_mut(),
                 c"../src/manage.c".as_ptr(),
@@ -289,6 +280,7 @@ pub unsafe fn manage_window(
                 154 as ::core::ffi::c_int,
             );
         } else {
+            let mut geom = crate::window::WindowGeometry::from(geom.as_ref().unwrap());
             values = [0; 1];
             values[0 as ::core::ffi::c_int as usize] =
                 (XCB_EVENT_MASK_PROPERTY_CHANGE as ::core::ffi::c_int
@@ -306,267 +298,143 @@ pub unsafe fn manage_window(
                         .cast_mut(),
                 );
             } else {
-                wm_type_cookie = xcb_get_property(
-                    conn,
-                    false_0 as u8,
+                let wm_type_cookie = property_cookie(
                     window,
                     A__NET_WM_WINDOW_TYPE,
                     XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-                    0 as u32,
                     4294967295 as u32,
                 );
-                strut_cookie = xcb_get_property(
-                    conn,
-                    false_0 as u8,
+                let strut_cookie = property_cookie(
                     window,
                     A__NET_WM_STRUT_PARTIAL,
                     XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-                    0 as u32,
                     4294967295 as u32,
                 );
-                state_cookie = xcb_get_property(
-                    conn,
-                    false_0 as u8,
+                let state_cookie = property_cookie(
                     window,
                     A__NET_WM_STATE,
                     XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-                    0 as u32,
                     4294967295 as u32,
                 );
-                utf8_title_cookie = xcb_get_property(
-                    conn,
-                    false_0 as u8,
+                let utf8_title_cookie = property_cookie(
                     window,
                     A__NET_WM_NAME,
                     XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-                    0 as u32,
                     128 as u32,
                 );
-                leader_cookie = xcb_get_property(
-                    conn,
-                    false_0 as u8,
+                let leader_cookie = property_cookie(
                     window,
                     A_WM_CLIENT_LEADER,
                     XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-                    0 as u32,
                     4294967295 as u32,
                 );
-                transient_cookie = xcb_get_property(
-                    conn,
-                    false_0 as u8,
+                let transient_cookie = property_cookie(
                     window,
                     XCB_ATOM_WM_TRANSIENT_FOR as ::core::ffi::c_int as xcb_atom_t,
                     XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-                    0 as u32,
                     4294967295 as u32,
                 );
-                title_cookie = xcb_get_property(
-                    conn,
-                    false_0 as u8,
+                let title_cookie = property_cookie(
                     window,
                     XCB_ATOM_WM_NAME as ::core::ffi::c_int as xcb_atom_t,
                     XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-                    0 as u32,
                     128 as u32,
                 );
-                class_cookie = xcb_get_property(
-                    conn,
-                    false_0 as u8,
+                let class_cookie = property_cookie(
                     window,
                     XCB_ATOM_WM_CLASS as ::core::ffi::c_int as xcb_atom_t,
                     XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-                    0 as u32,
                     128 as u32,
                 );
-                role_cookie = xcb_get_property(
-                    conn,
-                    false_0 as u8,
+                let role_cookie = property_cookie(
                     window,
                     A_WM_WINDOW_ROLE,
                     XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-                    0 as u32,
                     128 as u32,
                 );
-                startup_id_cookie = xcb_get_property(
-                    conn,
-                    false_0 as u8,
+                let startup_id_cookie = property_cookie(
                     window,
                     A__NET_STARTUP_ID,
                     XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-                    0 as u32,
                     512 as u32,
                 );
-                wm_hints_cookie = xcb_icccm_get_wm_hints(conn, window);
-                wm_normal_hints_cookie = xcb_icccm_get_wm_normal_hints(conn, window);
-                motif_wm_hints_cookie = xcb_get_property(
-                    conn,
-                    false_0 as u8,
+                let wm_hints_cookie = property_cookie(
+                    window,
+                    x::ATOM_WM_HINTS.resource_id(),
+                    x::ATOM_WM_HINTS.resource_id(),
+                    9,
+                );
+                let wm_normal_hints_cookie = property_cookie(
+                    window,
+                    x::ATOM_WM_NORMAL_HINTS.resource_id(),
+                    x::ATOM_WM_SIZE_HINTS.resource_id(),
+                    18,
+                );
+                let motif_wm_hints_cookie = property_cookie(
                     window,
                     A__MOTIF_WM_HINTS,
                     XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-                    0 as u32,
                     5_usize.wrapping_mul(::core::mem::size_of::<u64>() as usize) as u32,
                 );
-                wm_user_time_cookie = xcb_get_property(
-                    conn,
-                    false_0 as u8,
+                let wm_user_time_cookie = property_cookie(
                     window,
                     A__NET_WM_USER_TIME,
                     XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-                    0 as u32,
                     4294967295 as u32,
                 );
-                wm_desktop_cookie = xcb_get_property(
-                    conn,
-                    false_0 as u8,
+                let wm_desktop_cookie = property_cookie(
                     window,
                     A__NET_WM_DESKTOP,
                     XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-                    0 as u32,
                     4294967295 as u32,
                 );
-                wm_machine_cookie = xcb_get_property(
-                    conn,
-                    false_0 as u8,
+                let wm_machine_cookie = property_cookie(
                     window,
                     XCB_ATOM_WM_CLIENT_MACHINE as ::core::ffi::c_int as xcb_atom_t,
                     XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-                    0 as u32,
                     4294967295 as u32,
                 );
-                wm_icon_cookie = xcb_get_property(
-                    conn,
-                    false_0 as u8,
+                let wm_icon_cookie = property_cookie(
                     window,
                     A__NET_WM_ICON,
                     XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-                    0 as u32,
                     4294967295 as u32,
                 );
                 cwindow = Box::into_raw(Box::new(i3Window::default()));
                 (*cwindow).id = window;
-                (*cwindow).depth = get_visual_depth((*attr).visual);
+                (*cwindow).depth = get_visual_depth(attr.visual());
                 buttons = bindings_get_buttons_to_grab();
                 xcb_grab_buttons(conn, window, buttons);
                 free(buttons as *mut ::core::ffi::c_void);
                 buttons = ::core::ptr::null_mut::<::core::ffi::c_int>();
-                window_update_class(
-                    cwindow,
-                    xcb_get_property_reply(
-                        conn,
-                        class_cookie,
-                        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-                    ),
-                );
-                window_update_name_legacy(
-                    cwindow,
-                    xcb_get_property_reply(
-                        conn,
-                        title_cookie,
-                        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-                    ),
-                );
-                window_update_name(
-                    cwindow,
-                    xcb_get_property_reply(
-                        conn,
-                        utf8_title_cookie,
-                        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-                    ),
-                );
-                window_update_icon(
-                    cwindow,
-                    xcb_get_property_reply(
-                        conn,
-                        wm_icon_cookie,
-                        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-                    ),
-                );
-                window_update_leader(
-                    cwindow,
-                    xcb_get_property_reply(
-                        conn,
-                        leader_cookie,
-                        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-                    ),
-                );
-                window_update_transient_for(
-                    cwindow,
-                    xcb_get_property_reply(
-                        conn,
-                        transient_cookie,
-                        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-                    ),
-                );
-                window_update_strut_partial(
-                    cwindow,
-                    xcb_get_property_reply(
-                        conn,
-                        strut_cookie,
-                        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-                    ),
-                );
-                window_update_role(
-                    cwindow,
-                    xcb_get_property_reply(
-                        conn,
-                        role_cookie,
-                        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-                    ),
-                );
+                window_update_class(cwindow, property_reply(class_cookie).as_ref());
+                window_update_name_legacy(cwindow, property_reply(title_cookie).as_ref());
+                window_update_name(cwindow, property_reply(utf8_title_cookie).as_ref());
+                window_update_icon(cwindow, property_reply(wm_icon_cookie).as_ref());
+                window_update_leader(cwindow, property_reply(leader_cookie).as_ref());
+                window_update_transient_for(cwindow, property_reply(transient_cookie).as_ref());
+                window_update_strut_partial(cwindow, property_reply(strut_cookie).as_ref());
+                window_update_role(cwindow, property_reply(role_cookie).as_ref());
                 urgency_hint = false;
                 window_update_hints(
                     cwindow,
-                    xcb_get_property_reply(
-                        conn,
-                        wm_hints_cookie,
-                        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-                    ),
+                    property_reply(wm_hints_cookie).as_ref(),
                     &raw mut urgency_hint,
                 );
                 motif_border_style = BorderStyle::None;
                 has_mwm_hints = window_update_motif_hints(
                     cwindow,
-                    xcb_get_property_reply(
-                        conn,
-                        motif_wm_hints_cookie,
-                        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-                    ),
+                    property_reply(motif_wm_hints_cookie).as_ref(),
                     &raw mut motif_border_style,
                 );
-                let normal_hints_reply = xcb_get_property_reply(
-                    conn,
-                    wm_normal_hints_cookie,
-                    ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-                );
+                let normal_hints_reply = property_reply(wm_normal_hints_cookie);
                 // window_update_normal_hints borrows its reply; this request owns it.
-                window_update_normal_hints(cwindow, normal_hints_reply, geom);
-                free(normal_hints_reply.cast());
-                window_update_machine(
-                    cwindow,
-                    xcb_get_property_reply(
-                        conn,
-                        wm_machine_cookie,
-                        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-                    ),
-                );
-                type_reply = xcb_get_property_reply(
-                    conn,
-                    wm_type_cookie,
-                    ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-                );
-                state_reply = xcb_get_property_reply(
-                    conn,
-                    state_cookie,
-                    ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-                );
-                startup_id_reply = ::core::ptr::null_mut::<xcb_get_property_reply_t>();
-                startup_id_reply = xcb_get_property_reply(
-                    conn,
-                    startup_id_cookie,
-                    ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-                );
-                startup_ws = startup_workspace_for_window(cwindow, startup_id_reply);
+                window_update_normal_hints(cwindow, normal_hints_reply.as_ref(), Some(&mut geom));
+                window_update_machine(cwindow, property_reply(wm_machine_cookie).as_ref());
+                let type_reply = property_reply(wm_type_cookie);
+                let state_reply = property_reply(state_cookie);
+                let startup_id_reply = property_reply(startup_id_cookie);
+                startup_ws = startup_workspace_for_window(cwindow, startup_id_reply.as_ref());
                 debuglog(
                     c"%s:%s:%d - startup workspace = %s\n".as_ptr().cast_mut(),
                     c"../src/manage.c".as_ptr(),
@@ -574,25 +442,20 @@ pub unsafe fn manage_window(
                     227 as ::core::ffi::c_int,
                     startup_ws,
                 );
-                let wm_desktop_reply = xcb_get_property_reply(
-                    conn,
-                    wm_desktop_cookie,
-                    ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-                );
-                let _desktop_owner = NativeReply(wm_desktop_reply);
+                let wm_desktop_reply = property_reply(wm_desktop_cookie);
                 (*cwindow).wm_desktop = NET_WM_DESKTOP_NONE as u32;
-                if let Some(desktop) = first_property_word(wm_desktop_reply) {
+                if let Some(desktop) = first_property_word(wm_desktop_reply.as_ref()) {
                     (*cwindow).wm_desktop = desktop;
                 }
                 (*cwindow).needs_take_focus =
                     window_supports_protocol((*cwindow).id, A_WM_TAKE_FOCUS);
-                (*cwindow).window_type = xcb_get_preferred_window_type(type_reply);
+                (*cwindow).window_type = xcb_get_preferred_window_type(type_reply.as_ref());
                 search_at = croot;
-                if xcb_reply_contains_atom(type_reply, A__NET_WM_WINDOW_TYPE_DOCK) {
+                if xcb_reply_contains_atom(type_reply.as_ref(), A__NET_WM_WINDOW_TYPE_DOCK) {
                     verboselog(c"This window is of type dock\n".as_ptr().cast_mut());
                     let output: *mut Output = get_output_containing(
-                        (*geom).x as ::core::ffi::c_uint,
-                        (*geom).y as ::core::ffi::c_uint,
+                        geom.x as ::core::ffi::c_uint,
+                        geom.y as ::core::ffi::c_uint,
                     );
                     if !output.is_null() {
                         debuglog(
@@ -632,7 +495,7 @@ pub unsafe fn manage_window(
                             c"manage_window".as_ptr(),
                             264 as ::core::ffi::c_int,
                         );
-                        if ((*geom).y as ::core::ffi::c_int)
+                        if (geom.y as ::core::ffi::c_int)
                             < (*search_at).rect.height.wrapping_div(2 as u32) as i16
                                 as ::core::ffi::c_int
                         {
@@ -641,7 +504,7 @@ pub unsafe fn manage_window(
                                 c"../src/manage.c".as_ptr(),
                                 c"manage_window".as_ptr(),
                                 267 as ::core::ffi::c_int,
-                                (*geom).y as ::core::ffi::c_int,
+                                geom.y as ::core::ffi::c_int,
                                 (*search_at).rect.height.wrapping_div(2 as u32),
                             );
                             (*cwindow).dock = WindowDock::Top;
@@ -651,7 +514,7 @@ pub unsafe fn manage_window(
                                 c"../src/manage.c".as_ptr(),
                                 c"manage_window".as_ptr(),
                                 271 as ::core::ffi::c_int,
-                                (*geom).y as ::core::ffi::c_int,
+                                geom.y as ::core::ffi::c_int,
                                 (*search_at).rect.height.wrapping_div(2 as u32),
                             );
                             (*cwindow).dock = WindowDock::Bottom;
@@ -665,10 +528,10 @@ pub unsafe fn manage_window(
                     c"../src/manage.c".as_ptr(),
                     c"manage_window".as_ptr(),
                     277 as ::core::ffi::c_int,
-                    (*geom).x as ::core::ffi::c_int,
-                    (*geom).y as ::core::ffi::c_int,
-                    (*geom).width as ::core::ffi::c_int,
-                    (*geom).height as ::core::ffi::c_int,
+                    geom.x as ::core::ffi::c_int,
+                    geom.y as ::core::ffi::c_int,
+                    geom.width as ::core::ffi::c_int,
+                    geom.height as ::core::ffi::c_int,
                 );
                 (*cwindow).swallowed = false;
                 match_0 = ::core::ptr::null_mut::<Match>();
@@ -842,7 +705,7 @@ pub unsafe fn manage_window(
                 }
                 (*nc).window = cwindow as *mut Window;
                 x_reinit(nc);
-                (*nc).border_width = (*geom).border_width as ::core::ffi::c_int;
+                (*nc).border_width = geom.border_width as ::core::ffi::c_int;
                 name = ::core::ptr::null_mut::<::core::ffi::c_char>();
                 sasprintf(
                     &raw mut name,
@@ -853,13 +716,13 @@ pub unsafe fn manage_window(
                 free(name as *mut ::core::ffi::c_void);
                 ws = con_get_workspace(nc);
                 fs = con_get_fullscreen_covering_ws(ws);
-                if xcb_reply_contains_atom(state_reply, A__NET_WM_STATE_FULLSCREEN) {
+                if xcb_reply_contains_atom(state_reply.as_ref(), A__NET_WM_STATE_FULLSCREEN) {
                     if fs != nc {
                         let output_0: *mut Output = get_output_with_dimensions(Rect {
-                            x: (*geom).x as u32,
-                            y: (*geom).y as u32,
-                            width: (*geom).width as u32,
-                            height: (*geom).height as u32,
+                            x: geom.x as u32,
+                            y: geom.y as u32,
+                            width: geom.width as u32,
+                            height: geom.height as u32,
                         });
                         if !output_0.is_null() {
                             con_move_to_output(nc, output_0, false);
@@ -945,22 +808,24 @@ pub unsafe fn manage_window(
                     }
                 }
                 want_floating = false;
-                if xcb_reply_contains_atom(type_reply, A__NET_WM_WINDOW_TYPE_DIALOG)
+                if xcb_reply_contains_atom(type_reply.as_ref(), A__NET_WM_WINDOW_TYPE_DIALOG)
                     as ::core::ffi::c_int
                     != 0
-                    || xcb_reply_contains_atom(type_reply, A__NET_WM_WINDOW_TYPE_UTILITY)
+                    || xcb_reply_contains_atom(type_reply.as_ref(), A__NET_WM_WINDOW_TYPE_UTILITY)
                         as ::core::ffi::c_int
                         != 0
-                    || xcb_reply_contains_atom(type_reply, A__NET_WM_WINDOW_TYPE_TOOLBAR)
+                    || xcb_reply_contains_atom(type_reply.as_ref(), A__NET_WM_WINDOW_TYPE_TOOLBAR)
                         as ::core::ffi::c_int
                         != 0
-                    || xcb_reply_contains_atom(type_reply, A__NET_WM_WINDOW_TYPE_NOTIFICATION)
+                    || xcb_reply_contains_atom(
+                        type_reply.as_ref(),
+                        A__NET_WM_WINDOW_TYPE_NOTIFICATION,
+                    ) as ::core::ffi::c_int
+                        != 0
+                    || xcb_reply_contains_atom(type_reply.as_ref(), A__NET_WM_WINDOW_TYPE_SPLASH)
                         as ::core::ffi::c_int
                         != 0
-                    || xcb_reply_contains_atom(type_reply, A__NET_WM_WINDOW_TYPE_SPLASH)
-                        as ::core::ffi::c_int
-                        != 0
-                    || xcb_reply_contains_atom(state_reply, A__NET_WM_STATE_MODAL)
+                    || xcb_reply_contains_atom(state_reply.as_ref(), A__NET_WM_STATE_MODAL)
                         as ::core::ffi::c_int
                         != 0
                     || (*cwindow).max_width > 0 as ::core::ffi::c_int
@@ -975,7 +840,7 @@ pub unsafe fn manage_window(
                     );
                     want_floating = true;
                 }
-                if xcb_reply_contains_atom(state_reply, A__NET_WM_STATE_STICKY) {
+                if xcb_reply_contains_atom(state_reply.as_ref(), A__NET_WM_STATE_STICKY) {
                     (*nc).sticky = true;
                 }
                 if (*cwindow).wm_desktop == NET_WM_DESKTOP_ALL as u32
@@ -990,10 +855,8 @@ pub unsafe fn manage_window(
                     (*nc).sticky = true;
                     want_floating = true;
                 }
-                free(state_reply as *mut ::core::ffi::c_void);
-                state_reply = ::core::ptr::null_mut::<xcb_get_property_reply_t>();
-                free(type_reply as *mut ::core::ffi::c_void);
-                type_reply = ::core::ptr::null_mut::<xcb_get_property_reply_t>();
+                drop(state_reply);
+                drop(type_reply);
                 if (*cwindow).transient_for as ::core::ffi::c_long != XCB_NONE
                     || (*cwindow).leader as ::core::ffi::c_long != XCB_NONE
                         && (*cwindow).leader != (*cwindow).id
@@ -1030,10 +893,10 @@ pub unsafe fn manage_window(
                 }
                 if (*nc).geometry.width == 0 as u32 {
                     (*nc).geometry = Rect {
-                        x: (*geom).x as u32,
-                        y: (*geom).y as u32,
-                        width: (*geom).width as u32,
-                        height: (*geom).height as u32,
+                        x: geom.x as u32,
+                        y: geom.y as u32,
+                        width: geom.width as u32,
+                        height: geom.height as u32,
                     } as Rect;
                 }
                 if config.popup_during_fullscreen == PopupDuringFullscreen::All
@@ -1180,14 +1043,8 @@ pub unsafe fn manage_window(
                             634 as ::core::ffi::c_int,
                             nc,
                         );
-                        let wm_user_time_reply: *mut xcb_get_property_reply_t =
-                            xcb_get_property_reply(
-                                conn,
-                                wm_user_time_cookie,
-                                ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-                            );
-                        let _time_owner = NativeReply(wm_user_time_reply);
-                        if first_property_word(wm_user_time_reply) == Some(0) {
+                        let wm_user_time_reply = property_reply(wm_user_time_cookie);
+                        if first_property_word(wm_user_time_reply.as_ref()) == Some(0) {
                             debuglog(
                                 c"%s:%s:%d - _NET_WM_USER_TIME set to 0, not focusing con = %p.\n"
                                     .as_ptr()
@@ -1200,7 +1057,7 @@ pub unsafe fn manage_window(
                             set_focus = false;
                         }
                     } else {
-                        xcb_discard_reply(conn, wm_user_time_cookie.sequence);
+                        xcb_interop::transport::discard_reply(&connection(), wm_user_time_cookie);
                     }
                     if (*(*nc).window).doesnt_accept_focus as ::core::ffi::c_int != 0
                         && !(*(*nc).window).needs_take_focus
@@ -1295,21 +1152,14 @@ use i3_common::safewrappers::scalloc;
 
 use xcb_sys::{
     xcb_atom_t, xcb_aux_sync, xcb_change_save_set, xcb_change_window_attributes,
-    xcb_change_window_attributes_checked, xcb_destroy_window, xcb_discard_reply, xcb_drawable_t,
-    xcb_flush, xcb_generic_error_t, xcb_get_geometry, xcb_get_geometry_cookie_t,
-    xcb_get_geometry_reply, xcb_get_geometry_reply_t, xcb_get_property, xcb_get_property_cookie_t,
-    xcb_get_property_reply, xcb_get_property_reply_t, xcb_get_property_value,
-    xcb_get_window_attributes, xcb_get_window_attributes_cookie_t, xcb_get_window_attributes_reply,
-    xcb_get_window_attributes_reply_t, xcb_icccm_get_wm_hints, xcb_icccm_get_wm_normal_hints,
-    xcb_query_tree, xcb_query_tree_children, xcb_query_tree_reply, xcb_reparent_window,
-    xcb_reparent_window_checked, xcb_request_check, xcb_shape_query_extents,
+    xcb_change_window_attributes_checked, xcb_destroy_window, xcb_flush, xcb_generic_error_t,
+    xcb_reparent_window, xcb_reparent_window_checked, xcb_request_check, xcb_shape_query_extents,
     xcb_shape_query_extents_cookie_t, xcb_shape_query_extents_reply,
     xcb_shape_query_extents_reply_t, xcb_shape_select_input, xcb_void_cookie_t, xcb_window_t,
     XCB_ATOM_WM_CLASS, XCB_ATOM_WM_CLIENT_MACHINE, XCB_ATOM_WM_NAME, XCB_ATOM_WM_TRANSIENT_FOR,
     XCB_CW_EVENT_MASK, XCB_EVENT_MASK_ENTER_WINDOW, XCB_EVENT_MASK_FOCUS_CHANGE,
     XCB_EVENT_MASK_PROPERTY_CHANGE, XCB_EVENT_MASK_STRUCTURE_NOTIFY,
-    XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT, XCB_GET_PROPERTY_TYPE_ANY, XCB_MAP_STATE_VIEWABLE,
-    XCB_NONE, XCB_SET_MODE_INSERT,
+    XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT, XCB_GET_PROPERTY_TYPE_ANY, XCB_NONE, XCB_SET_MODE_INSERT,
 };
 
 pub use libc::{free, time};
@@ -1423,32 +1273,47 @@ mod owned_reply_tests {
         );
     }
     #[test]
-    fn first_property_word_checks_complete_bytes_and_retains_native_formats() {
-        // u32 storage gives the native header its required alignment; payload
-        // bytes are read by copy, without assuming a u32-aligned value view.
-        let mut storage = vec![0u32; 9];
-        let reply = storage.as_mut_ptr().cast::<xcb_get_property_reply_t>();
+    fn attribute_ingress_compares_unknown_map_states_without_enum_conversion() {
         unsafe {
-            (*reply).length = 1;
-            (*reply).format = 8;
-            (*reply).value_len = 3;
-            std::ptr::copy_nonoverlapping(
-                [0x12u8, 0x34, 0x56, 0x78].as_ptr(),
-                reply.add(1).cast(),
-                4,
-            );
-            assert_eq!(first_property_word(reply), None);
-            (*reply).value_len = 4;
+            let raw = libc::calloc(1, 44).cast::<u8>();
+            assert!(!raw.is_null());
+            raw.write(1);
+            raw.add(4).cast::<u32>().write_unaligned(3);
+            raw.add(26).write(u8::MAX);
+            let reply: x::GetWindowAttributesReply = xcb::Reply::from_raw(raw);
+            assert!(!attributes_viewable(&reply));
+            raw.add(26).write(x::MapState::Viewable as u8);
+            assert!(attributes_viewable(&reply));
+            raw.add(26).write(x::MapState::Unmapped as u8);
+            assert!(!attributes_viewable(&reply));
+        }
+    }
+    #[test]
+    fn first_property_word_checks_complete_bytes_and_retains_native_formats() {
+        unsafe {
+            let raw = libc::calloc(1, 36).cast::<u8>();
+            assert!(!raw.is_null());
+            raw.write(1);
+            raw.add(1).write(8);
+            raw.add(4).cast::<u32>().write_unaligned(1);
+            raw.add(16).cast::<u32>().write_unaligned(3);
+            std::ptr::copy_nonoverlapping([0x12u8, 0x34, 0x56, 0x78].as_ptr(), raw.add(32), 4);
+            let reply: x::GetPropertyReply = xcb::Reply::from_raw(raw);
+            assert_eq!(first_property_word(Some(&reply)), None);
+            raw.add(16).cast::<u32>().write_unaligned(4);
             assert_eq!(
-                first_property_word(reply),
+                first_property_word(Some(&reply)),
                 Some(u32::from_ne_bytes([0x12, 0x34, 0x56, 0x78]))
             );
-            (*reply).format = 32;
-            (*reply).value_len = 1;
-            assert!(first_property_word(reply).is_some());
-            (*reply).length = 0;
-            assert_eq!(first_property_word(reply), None);
-            assert_eq!(first_property_word(std::ptr::null()), None);
+            raw.add(1).write(32);
+            raw.add(16).cast::<u32>().write_unaligned(1);
+            assert!(first_property_word(Some(&reply)).is_some());
+            // A nonstandard format still exposes its first four native bytes.
+            raw.add(1).write(64);
+            assert!(first_property_word(Some(&reply)).is_some());
+            raw.add(4).cast::<u32>().write_unaligned(0);
+            assert_eq!(first_property_word(Some(&reply)), None);
+            assert_eq!(first_property_word(None), None);
         }
     }
 }
