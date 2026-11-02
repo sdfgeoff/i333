@@ -52,14 +52,6 @@ unsafe fn _remove_matches(con: *mut Con) {
     }
 }
 
-/// Uniquely owned native reply/error allocation; no graph ownership is implied.
-struct NativeReply<T>(*mut T);
-impl<T> Drop for NativeReply<T> {
-    fn drop(&mut self) {
-        unsafe { libc::free(self.0.cast()) };
-    }
-}
-
 fn tree_child_count(children: u16, wire_words: u32) -> Option<usize> {
     let count = usize::from(children);
     (count <= wire_words as usize).then_some(count)
@@ -146,9 +138,8 @@ fn attributes_viewable(reply: &x::GetWindowAttributesReply) -> bool {
     unsafe { *xcb::Reply::as_raw(reply).add(26) == x::MapState::Viewable as u8 }
 }
 
-unsafe fn request_failed(cookie: xcb_void_cookie_t) -> bool {
-    let error = NativeReply(xcb_request_check(conn, cookie));
-    !error.0.is_null()
+fn request_failed(cookie: xcb::VoidCookieChecked) -> bool {
+    connection().check_request(cookie).is_err()
 }
 
 pub unsafe fn restore_geometry() {
@@ -190,23 +181,20 @@ pub unsafe fn restore_geometry() {
                 (*con).rect.x,
                 (*con).rect.y,
             );
-            xcb_reparent_window(
-                conn,
-                (*(*con).window).id,
-                root,
-                (*con).rect.x as i16,
-                (*con).rect.y as i16,
-            );
+            connection().send_request(&x::ReparentWindow {
+                window: x::Window::new((*(*con).window).id),
+                parent: x::Window::new(root),
+                x: (*con).rect.x as i16,
+                y: (*con).rect.y as i16,
+            });
         }
     }
-    let mut fresh0: [u32; 1] = [XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT as ::core::ffi::c_int as u32];
-    xcb_change_window_attributes(
-        conn,
-        root,
-        XCB_CW_EVENT_MASK as ::core::ffi::c_int as u32,
-        &raw mut fresh0 as *mut u32 as *const ::core::ffi::c_void,
-    );
-    xcb_aux_sync(conn);
+    connection().send_request(&x::ChangeWindowAttributes {
+        window: x::Window::new(root),
+        value_list: &[x::Cw::EventMask(x::EventMask::SUBSTRUCTURE_REDIRECT)],
+    });
+    let cookie = connection().send_request(&x::GetInputFocus {});
+    let _ = connection().wait_for_reply(cookie);
 }
 
 pub unsafe fn manage_window(
@@ -215,7 +203,6 @@ pub unsafe fn manage_window(
     needs_to_be_mapped: bool,
 ) {
     let mut values: [u32; 1] = [0; 1];
-    let mut event_mask_cookie: xcb_void_cookie_t = xcb_void_cookie_t { sequence: 0 };
     let mut cwindow: *mut i3Window = ::core::ptr::null_mut::<i3Window>();
     let mut buttons: *mut ::core::ffi::c_int = ::core::ptr::null_mut::<::core::ffi::c_int>();
     let mut urgency_hint: bool = false;
@@ -232,7 +219,6 @@ pub unsafe fn manage_window(
     let mut fs: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut set_focus: bool = false;
     let mut want_floating: bool = false;
-    let mut rcookie: xcb_void_cookie_t = xcb_void_cookie_t { sequence: 0 };
     debuglog(
         c"%s:%s:%d - window 0x%08x\n".as_ptr().cast_mut(),
         c"../src/manage.c".as_ptr(),
@@ -285,12 +271,10 @@ pub unsafe fn manage_window(
             values[0 as ::core::ffi::c_int as usize] =
                 (XCB_EVENT_MASK_PROPERTY_CHANGE as ::core::ffi::c_int
                     | XCB_EVENT_MASK_STRUCTURE_NOTIFY as ::core::ffi::c_int) as u32;
-            event_mask_cookie = xcb_change_window_attributes_checked(
-                conn,
-                window,
-                XCB_CW_EVENT_MASK as ::core::ffi::c_int as u32,
-                &raw mut values as *mut u32 as *const ::core::ffi::c_void,
-            );
+            let event_mask_cookie = connection().send_request_checked(&x::ChangeWindowAttributes {
+                window: x::Window::new(window),
+                value_list: &[x::Cw::EventMask(x::EventMask::from_bits_retain(values[0]))],
+            });
             if request_failed(event_mask_cookie) {
                 verboselog(
                     c"Could not change event mask, the window probably already disappeared.\n"
@@ -946,19 +930,16 @@ pub unsafe fn manage_window(
                     };
                 }
                 values[0 as ::core::ffi::c_int as usize] = XCB_NONE as u32;
-                xcb_change_window_attributes(
-                    conn,
-                    window,
-                    XCB_CW_EVENT_MASK as ::core::ffi::c_int as u32,
-                    &raw mut values as *mut u32 as *const ::core::ffi::c_void,
-                );
-                rcookie = xcb_reparent_window_checked(
-                    conn,
-                    window,
-                    (*nc).frame.id as xcb_window_t,
-                    0 as i16,
-                    0 as i16,
-                );
+                connection().send_request(&x::ChangeWindowAttributes {
+                    window: x::Window::new(window),
+                    value_list: &[x::Cw::EventMask(x::EventMask::from_bits_retain(values[0]))],
+                });
+                let rcookie = connection().send_request_checked(&x::ReparentWindow {
+                    window: x::Window::new(window),
+                    parent: x::Window::new((*nc).frame.id as xcb_window_t),
+                    x: 0 as i16,
+                    y: 0 as i16,
+                });
                 if request_failed(rcookie) {
                     verboselog(
                         c"Could not reparent the window, aborting\n"
@@ -972,33 +953,29 @@ pub unsafe fn manage_window(
                         | XCB_EVENT_MASK_FOCUS_CHANGE as ::core::ffi::c_int)
                         & !(XCB_EVENT_MASK_ENTER_WINDOW as ::core::ffi::c_int))
                         as u32;
-                    xcb_change_window_attributes(
-                        conn,
-                        window,
-                        XCB_CW_EVENT_MASK as ::core::ffi::c_int as u32,
-                        &raw mut values as *mut u32 as *const ::core::ffi::c_void,
-                    );
-                    xcb_flush(conn);
-                    xcb_change_save_set(
-                        conn,
-                        XCB_SET_MODE_INSERT as ::core::ffi::c_int as u8,
-                        window,
-                    );
+                    connection().send_request(&x::ChangeWindowAttributes {
+                        window: x::Window::new(window),
+                        value_list: &[x::Cw::EventMask(x::EventMask::from_bits_retain(values[0]))],
+                    });
+                    let _ = connection().flush();
+                    connection().send_request(&x::ChangeSaveSet {
+                        mode: x::SetMode::Insert,
+                        window: x::Window::new(window),
+                    });
                     if shape_supported {
-                        xcb_shape_select_input(conn, window, true_0 as u8);
-                        let cookie_0: xcb_shape_query_extents_cookie_t =
-                            xcb_shape_query_extents(conn, window);
-                        let mut reply: *mut xcb_shape_query_extents_reply_t =
-                            xcb_shape_query_extents_reply(
-                                conn,
-                                cookie_0,
-                                ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-                            );
-                        if !reply.is_null() && (*reply).bounding_shaped as ::core::ffi::c_int != 0 {
+                        connection().send_request(&xcb::shape::SelectInput {
+                            destination_window: x::Window::new(window),
+                            enable: true,
+                        });
+                        let cookie = connection().send_request(&xcb::shape::QueryExtents {
+                            destination_window: x::Window::new(window),
+                        });
+                        if connection()
+                            .wait_for_reply(cookie)
+                            .is_ok_and(|reply| reply.bounding_shaped())
+                        {
                             (*cwindow).shaped = true;
                         }
-                        free(reply as *mut ::core::ffi::c_void);
-                        reply = ::core::ptr::null_mut::<xcb_shape_query_extents_reply_t>();
                     }
                     run_assignments(cwindow);
                     ws = con_get_workspace(nc);
@@ -1077,7 +1054,9 @@ pub unsafe fn manage_window(
                     }
                     tree_render();
                     if old_frame as ::core::ffi::c_long != XCB_NONE {
-                        xcb_destroy_window(conn, old_frame);
+                        connection().send_request(&x::DestroyWindow {
+                            window: x::Window::new(old_frame),
+                        });
                     }
                     con_set_urgency(nc, urgency_hint);
                     (*cwindow).wm_desktop = NET_WM_DESKTOP_NONE as u32;
@@ -1125,7 +1104,9 @@ pub unsafe fn remanage_window(con: *mut Con) -> *mut Con {
     let moved_workpaces: bool = con_get_workspace(nc) != con_get_workspace(con);
     con_merge_into(con, nc);
     if old_frame as ::core::ffi::c_long != XCB_NONE {
-        xcb_destroy_window(conn, old_frame);
+        connection().send_request(&x::DestroyWindow {
+            window: x::Window::new(old_frame),
+        });
     }
     run_assignments((*nc).window as *mut i3Window);
     if moved_workpaces {
@@ -1151,15 +1132,10 @@ use i3_common::safewrappers::scalloc;
 // Canonical Pango backend ABI; font policy remains local.
 
 use xcb_sys::{
-    xcb_atom_t, xcb_aux_sync, xcb_change_save_set, xcb_change_window_attributes,
-    xcb_change_window_attributes_checked, xcb_destroy_window, xcb_flush, xcb_generic_error_t,
-    xcb_reparent_window, xcb_reparent_window_checked, xcb_request_check, xcb_shape_query_extents,
-    xcb_shape_query_extents_cookie_t, xcb_shape_query_extents_reply,
-    xcb_shape_query_extents_reply_t, xcb_shape_select_input, xcb_void_cookie_t, xcb_window_t,
-    XCB_ATOM_WM_CLASS, XCB_ATOM_WM_CLIENT_MACHINE, XCB_ATOM_WM_NAME, XCB_ATOM_WM_TRANSIENT_FOR,
-    XCB_CW_EVENT_MASK, XCB_EVENT_MASK_ENTER_WINDOW, XCB_EVENT_MASK_FOCUS_CHANGE,
-    XCB_EVENT_MASK_PROPERTY_CHANGE, XCB_EVENT_MASK_STRUCTURE_NOTIFY,
-    XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT, XCB_GET_PROPERTY_TYPE_ANY, XCB_NONE, XCB_SET_MODE_INSERT,
+    xcb_atom_t, xcb_window_t, XCB_ATOM_WM_CLASS, XCB_ATOM_WM_CLIENT_MACHINE, XCB_ATOM_WM_NAME,
+    XCB_ATOM_WM_TRANSIENT_FOR, XCB_EVENT_MASK_ENTER_WINDOW, XCB_EVENT_MASK_FOCUS_CHANGE,
+    XCB_EVENT_MASK_PROPERTY_CHANGE, XCB_EVENT_MASK_STRUCTURE_NOTIFY, XCB_GET_PROPERTY_TYPE_ANY,
+    XCB_NONE,
 };
 
 pub use libc::{free, time};

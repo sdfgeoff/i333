@@ -1,6 +1,7 @@
 use crate::con::arena::parent::{parent_ptr, set_parent_ptr};
 use crate::con::arena::{floating, focus, identity, nodes};
 use crate::domains::{ContainerType, FullscreenMode};
+use xcb::{x, XidNew};
 
 use crate::flags::ResizeEdges;
 pub use crate::types::xoutput as Output;
@@ -73,21 +74,20 @@ unsafe fn floating_set_hint_atom(con: *mut Con, floating: bool) {
         return;
     }
     if floating {
-        let mut val: u32 = 1 as u32;
-        xcb_change_property(
-            conn,
-            XCB_PROP_MODE_REPLACE as i32 as u8,
-            (*(*con).window).id,
-            A_I3_FLOATING_WINDOW,
-            XCB_ATOM_CARDINAL as i32 as xcb_atom_t,
-            32 as u8,
-            1 as u32,
-            &raw mut val as *const ::core::ffi::c_void,
-        );
+        connection().send_request(&x::ChangeProperty {
+            mode: x::PropMode::Replace,
+            window: x::Window::new((*(*con).window).id),
+            property: x::Atom::new(A_I3_FLOATING_WINDOW),
+            r#type: x::ATOM_CARDINAL,
+            data: &[1u32],
+        });
     } else {
-        xcb_delete_property(conn, (*(*con).window).id, A_I3_FLOATING_WINDOW);
+        connection().send_request(&x::DeleteProperty {
+            window: x::Window::new((*(*con).window).id),
+            property: x::Atom::new(A_I3_FLOATING_WINDOW),
+        });
     }
-    xcb_flush(conn);
+    let _ = connection().flush();
 }
 
 // Safe copied values never borrow Window/Con/config across native operations.
@@ -709,21 +709,19 @@ pub unsafe fn floating_move_to_pointer(con: *mut Con) {
             c"void floating_move_to_pointer(Con *)".as_ptr(),
         );
     };
-    let mut reply: *mut xcb_query_pointer_reply_t = xcb_query_pointer_reply(
-        conn,
-        xcb_query_pointer(conn, root),
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    if reply.is_null() {
+    let cookie = connection().send_request(&x::QueryPointer {
+        window: x::Window::new(root),
+    });
+    let Some(reply) = connection().wait_for_reply(cookie).ok() else {
         errorlog(
             c"ERROR: could not query pointer position, not moving this container\n"
                 .as_ptr()
                 .cast_mut(),
         );
         return;
-    }
-    let pointer = ((*reply).root_x as u32, (*reply).root_y as u32);
-    free(reply.cast());
+    };
+    let pointer = (reply.root_x() as u32, reply.root_y() as u32);
+    drop(reply);
     let output = get_output_containing(pointer.0, pointer.1);
     if output.is_null() {
         errorlog(
@@ -752,7 +750,7 @@ unsafe fn drag_window_callback(
         .wrapping_add(new_y.wrapping_sub((*event).root_y as u32));
     render_con(con);
     x_push_node(con);
-    xcb_flush(conn);
+    let _ = connection().flush();
     if !floating_maybe_reassign_ws(con) {
         return;
     }
@@ -999,11 +997,7 @@ use crate::util::min;
 
 // Canonical Pango backend ABI; font policy remains local.
 
-use xcb_sys::{
-    xcb_atom_t, xcb_button_press_event_t, xcb_change_property, xcb_delete_property, xcb_flush,
-    xcb_generic_error_t, xcb_query_pointer, xcb_query_pointer_reply, xcb_query_pointer_reply_t,
-    xcb_window_t, XCB_ATOM_CARDINAL, XCB_NONE, XCB_PROP_MODE_REPLACE,
-};
+use xcb_sys::{xcb_button_press_event_t, xcb_window_t, XCB_NONE};
 
 pub use libc::free;
 
@@ -1018,7 +1012,6 @@ pub use crate::types::Rect;
 pub use crate::types::Window;
 
 // Internal calls and globals use canonical Rust identities.
-use crate::application::conn;
 use crate::application::root;
 use crate::application::root_screen;
 use crate::application::A_I3_FLOATING_WINDOW;
@@ -1268,4 +1261,8 @@ mod owned_tests {
         );
         assert_eq!((mapped.x, mapped.y), (30, 2));
     }
+}
+
+fn connection() -> std::rc::Rc<xcb::Connection> {
+    i3_common::display::connection().expect("main X11 connection is registered")
 }

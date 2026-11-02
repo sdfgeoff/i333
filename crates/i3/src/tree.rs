@@ -11,6 +11,7 @@ use crate::types::Layout;
 use crate::types::Orientation;
 use crate::types::OutputSelection;
 use crate::types::Position;
+use xcb::{x, Cookie, XidNew};
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -311,52 +312,48 @@ pub unsafe fn tree_close_internal(
             x_window_kill((*(*con).window).id, kill_window);
             return false;
         }
-        let mut fresh0: [u32; 1] = [XCB_NONE as u32];
-        xcb_change_window_attributes(
-            conn,
-            (*(*con).window).id,
-            XCB_CW_EVENT_MASK as ::core::ffi::c_int as u32,
-            &raw mut fresh0 as *mut u32 as *const ::core::ffi::c_void,
-        );
-        xcb_unmap_window(conn, (*(*con).window).id);
-        let mut cookie: xcb_void_cookie_t = xcb_reparent_window(
-            conn,
-            (*(*con).window).id,
-            root,
-            (*con).rect.x as i16,
-            (*con).rect.y as i16,
-        );
+
+        connection().send_request(&x::ChangeWindowAttributes {
+            window: x::Window::new((*(*con).window).id),
+            value_list: &[x::Cw::EventMask(x::EventMask::empty())],
+        });
+        connection().send_request(&x::UnmapWindow {
+            window: x::Window::new((*(*con).window).id),
+        });
+        let mut cookie = connection().send_request(&x::ReparentWindow {
+            window: x::Window::new((*(*con).window).id),
+            parent: x::Window::new(root),
+            x: (*con).rect.x as i16,
+            y: (*con).rect.y as i16,
+        });
         add_ignore_event(
             ignore_event_sequence_t {
-                value: cookie.sequence as u32,
+                // The existing ignored-event cache stores native full_sequence's low 32 bits.
+                value: cookie.sequence() as u32,
             },
             0 as ::core::ffi::c_int,
         );
-        let mut data: [::core::ffi::c_long; 2] = [
-            XCB_ICCCM_WM_STATE_WITHDRAWN as ::core::ffi::c_int as ::core::ffi::c_long,
-            XCB_NONE,
-        ];
-        cookie = xcb_change_property(
-            conn,
-            XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
-            (*(*con).window).id,
-            A_WM_STATE,
-            A_WM_STATE,
-            32 as u8,
-            2 as u32,
-            &raw mut data as *mut ::core::ffi::c_long as *const ::core::ffi::c_void,
-        );
-        xcb_change_save_set(
-            conn,
-            XCB_SET_MODE_DELETE as ::core::ffi::c_int as u8,
-            (*(*con).window).id,
-        );
+        cookie = connection().send_request(&x::ChangeProperty {
+            mode: x::PropMode::Replace,
+            window: x::Window::new((*(*con).window).id),
+            property: x::Atom::new(A_WM_STATE),
+            r#type: x::Atom::new(A_WM_STATE),
+            data: &[XCB_ICCCM_WM_STATE_WITHDRAWN as u32, 0],
+        });
+        connection().send_request(&x::ChangeSaveSet {
+            mode: x::SetMode::Delete,
+            window: x::Window::new((*(*con).window).id),
+        });
         if shape_supported {
-            xcb_shape_select_input(conn, (*(*con).window).id, false_0 as u8);
+            connection().send_request(&xcb::shape::SelectInput {
+                destination_window: x::Window::new((*(*con).window).id),
+                enable: false,
+            });
         }
         add_ignore_event(
             ignore_event_sequence_t {
-                value: cookie.sequence as u32,
+                // The existing ignored-event cache stores native full_sequence's low 32 bits.
+                value: cookie.sequence() as u32,
             },
             0 as ::core::ffi::c_int,
         );
@@ -984,12 +981,7 @@ use i3_common::safewrappers::sstrdup;
 
 // Canonical Pango backend ABI; font policy remains local.
 
-use xcb_sys::{
-    xcb_change_property, xcb_change_save_set, xcb_change_window_attributes,
-    xcb_get_geometry_reply_t, xcb_reparent_window, xcb_shape_select_input, xcb_unmap_window,
-    xcb_void_cookie_t, XCB_CW_EVENT_MASK, XCB_ICCCM_WM_STATE_WITHDRAWN, XCB_NONE,
-    XCB_PROP_MODE_REPLACE, XCB_SET_MODE_DELETE,
-};
+use xcb_sys::{xcb_get_geometry_reply_t, XCB_ICCCM_WM_STATE_WITHDRAWN};
 
 pub use libc::{free, strcmp};
 
@@ -1004,7 +996,6 @@ pub use crate::types::Rect;
 pub use crate::types::Window;
 
 // Internal calls and globals use canonical Rust identities.
-use crate::application::conn;
 use crate::application::main_loop;
 use crate::application::root;
 use crate::application::shape_supported;
@@ -1086,4 +1077,8 @@ mod owned_policy_tests {
             Orientation::Horizontal
         ));
     }
+}
+
+fn connection() -> std::rc::Rc<xcb::Connection> {
+    i3_common::display::connection().expect("main X11 connection is registered")
 }
