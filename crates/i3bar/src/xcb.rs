@@ -66,6 +66,14 @@ pub static mut atom_cookies: [xcb_intern_atom_cookie_t; 12] =
 
 pub static mut atoms: [xcb_atom_t; 12] = [0; 12];
 
+// The registry shares the sole maintained owner on this event thread. Keeping
+// its guard here makes normal cleanup unregister only after native resources
+// and libev watchers have stopped using the borrowed compatibility pointers.
+thread_local! {
+    static DISPLAY_CONNECTION: std::cell::RefCell<Option<i3_common::display::DisplayConnection>> =
+        const { std::cell::RefCell::new(None) };
+}
+
 pub static mut xcb_connection: *mut xcb_connection_t =
     ::core::ptr::null::<xcb_connection_t>() as *mut xcb_connection_t;
 
@@ -1949,16 +1957,30 @@ unsafe extern "C" fn xcb_io_cb(
 }
 
 pub unsafe fn init_xcb_early() -> *mut ::core::ffi::c_char {
-    xcb_connection = xcb_connect(::core::ptr::null::<::core::ffi::c_char>(), &raw mut screen);
-    if xcb_connection_has_error(xcb_connection) != 0 {
-        fprintf(
-            stderr,
-            c"[%s:%d] ERROR: Cannot open display\n".as_ptr(),
-            c"../i3bar/src/xcb.c".as_ptr(),
-            1339 as ::core::ffi::c_int,
+    // Leave extension event metadata unregistered: the existing dispatcher
+    // tolerates unknown extension opcodes/subtypes instead of enum-decoding them.
+    let (connection, screen_number) = match ::xcb::Connection::connect(None) {
+        Ok(display) => display,
+        Err(_) => {
+            fprintf(
+                stderr,
+                c"[%s:%d] ERROR: Cannot open display\n".as_ptr(),
+                c"../i3bar/src/xcb.c".as_ptr(),
+                1339 as ::core::ffi::c_int,
+            );
+            exit(libc::EXIT_FAILURE);
+        }
+    };
+    screen = screen_number;
+    xcb_connection = connection.get_raw_conn().cast();
+    let registration = i3_common::display::install_connection(std::rc::Rc::new(connection));
+    DISPLAY_CONNECTION.with(|registered| {
+        assert!(
+            registered.borrow().is_none(),
+            "bar display already initialized"
         );
-        exit(libc::EXIT_FAILURE);
-    }
+        *registered.borrow_mut() = Some(registration);
+    });
     conn = xcb_connection;
     if config.verbose {
         printf(
@@ -2376,12 +2398,14 @@ pub unsafe fn clean_xcb() {
         free(tray_reply.cast());
         tray_reply = std::ptr::null_mut();
     }
-    let connection = xcb_connection;
     root_screen = std::ptr::null_mut();
     visual_type = std::ptr::null_mut();
     conn = std::ptr::null_mut();
     xcb_connection = std::ptr::null_mut();
-    xcb_disconnect(connection);
+    // Release the registration outside its RefCell borrow. The final Rc drops
+    // the maintained owner once all native aliases and callbacks are detached.
+    let registration = DISPLAY_CONNECTION.with(|registered| registered.borrow_mut().take());
+    drop(registration);
 }
 
 pub unsafe fn get_atoms() {
@@ -3233,12 +3257,12 @@ use xcb_sys::{
     xcb_aux_sync, xcb_button_press_event_t, xcb_change_property, xcb_change_save_set,
     xcb_change_window_attributes, xcb_charinfo_t, xcb_client_message_event_t, xcb_color_strings_t,
     xcb_colormap_t, xcb_configure_request_event_t, xcb_configure_window,
-    xcb_configure_window_checked, xcb_connect, xcb_connection_has_error, xcb_connection_t,
+    xcb_configure_window_checked, xcb_connection_has_error, xcb_connection_t,
     xcb_create_colormap_checked, xcb_create_pixmap_checked, xcb_create_window,
     xcb_create_window_checked, xcb_cursor_context_free, xcb_cursor_context_new,
     xcb_cursor_context_t, xcb_cursor_load_cursor, xcb_cursor_t, xcb_destroy_notify_event_t,
-    xcb_destroy_window, xcb_disconnect, xcb_drawable_t, xcb_expose_event_t, xcb_flush,
-    xcb_free_cursor, xcb_free_pixmap, xcb_generate_id, xcb_generic_error_t, xcb_generic_event_t,
+    xcb_destroy_window, xcb_drawable_t, xcb_expose_event_t, xcb_flush, xcb_free_cursor,
+    xcb_free_pixmap, xcb_generate_id, xcb_generic_error_t, xcb_generic_event_t,
     xcb_get_extension_data, xcb_get_file_descriptor, xcb_get_property, xcb_get_property_cookie_t,
     xcb_get_property_reply, xcb_get_property_reply_t, xcb_get_property_unchecked,
     xcb_get_property_value, xcb_get_property_value_length, xcb_get_selection_owner,
