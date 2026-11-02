@@ -104,6 +104,7 @@ pub static mut screen: ::core::ffi::c_int = 0;
 // graphics cleanup. Context snapshots copy only semantic screen scalars and the
 // actual canonical Cairo pointer; no setup-buffer record escapes initialization.
 struct BarDisplayState {
+    renderer: std::rc::Rc<i3_common::draw_util::RenderingContext>,
     context: i3_common::display::DisplayContext,
     font_context: i3_common::font::FontContext,
 }
@@ -2027,6 +2028,10 @@ pub unsafe fn init_xcb_early() -> *mut ::core::ffi::c_char {
     let selected_visual = i3_common::display::visual(visual_id)
         .expect("selected bar visual belongs to the retained setup");
     DISPLAY_STATE = Some(BarDisplayState {
+        renderer: i3_common::draw_util::RenderingContext::with_default_visual(
+            selected_screen.clone(),
+            visual_id,
+        ),
         context: i3_common::display::DisplayContext::from_screen(
             &selected_screen,
             Some(&selected_visual),
@@ -2668,7 +2673,10 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 data: &[atoms[AtomIndex::NetWmWindowTypeDock as usize]],
             });
             draw_util_surface_init(
-                xcb_connection,
+                &DISPLAY_STATE
+                    .as_ref()
+                    .expect("bar display initialized")
+                    .renderer,
                 &raw mut (*walk).bar,
                 bar_id as u32,
                 None,
@@ -2676,7 +2684,10 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 bar_height,
             );
             draw_util_surface_init(
-                xcb_connection,
+                &DISPLAY_STATE
+                    .as_ref()
+                    .expect("bar display initialized")
+                    .renderer,
                 &raw mut (*walk).buffer,
                 buffer_id as u32,
                 None,
@@ -2684,7 +2695,10 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 bar_height,
             );
             draw_util_surface_init(
-                xcb_connection,
+                &DISPLAY_STATE
+                    .as_ref()
+                    .expect("bar display initialized")
+                    .renderer,
                 &raw mut (*walk).statusline_buffer,
                 statusline_buffer_id as u32,
                 None,
@@ -2859,7 +2873,10 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
             draw_util_surface_free(xcb_connection, &raw mut (*walk).buffer);
             draw_util_surface_free(xcb_connection, &raw mut (*walk).statusline_buffer);
             draw_util_surface_init(
-                xcb_connection,
+                &DISPLAY_STATE
+                    .as_ref()
+                    .expect("bar display initialized")
+                    .renderer,
                 &raw mut (*walk).bar,
                 (*walk).bar.id,
                 None,
@@ -2867,7 +2884,10 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 bar_height,
             );
             draw_util_surface_init(
-                xcb_connection,
+                &DISPLAY_STATE
+                    .as_ref()
+                    .expect("bar display initialized")
+                    .renderer,
                 &raw mut (*walk).buffer,
                 (*walk).buffer.id,
                 None,
@@ -2875,7 +2895,10 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 bar_height,
             );
             draw_util_surface_init(
-                xcb_connection,
+                &DISPLAY_STATE
+                    .as_ref()
+                    .expect("bar display initialized")
+                    .renderer,
                 &raw mut (*walk).statusline_buffer,
                 (*walk).statusline_buffer.id,
                 None,

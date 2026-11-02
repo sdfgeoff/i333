@@ -62,7 +62,7 @@ static mut dialogs: dialogs_head = dialogs_head {
     tqh_last: ::core::ptr::null::<*mut dialog_t>() as *mut *mut dialog_t,
 };
 static mut raised_signal: ::core::ffi::c_int = 0;
-static mut CRASH_VISUAL: Option<CairoVisual> = None;
+static mut CRASH_RENDERER: Option<i3_common::draw_util::NativeRenderingContext> = None;
 static mut backtrace_done: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 static mut message_intro: Option<I3String> = None;
 static mut message_intro2: Option<I3String> = None;
@@ -183,7 +183,9 @@ unsafe fn sighandler_backtrace() -> ::core::ffi::c_int {
 }
 unsafe fn prepare_crash_messages() {
     let visual_id = get_visualid_by_depth(root_depth as u16);
-    CRASH_VISUAL = crate::application::root_display().visual(visual_id);
+    CRASH_RENDERER = crate::application::root_display()
+        .visual(visual_id)
+        .map(|visual| i3_common::draw_util::NativeRenderingContext::new(conn, visual, root_depth));
 
     message_intro = Some(I3String::new(
         "i3 has just crashed. Please report a bug for this.",
@@ -291,10 +293,10 @@ unsafe fn sighandler_create_dialogs() {
             *dialogs.tqh_last = dialog as *mut dialog_t;
             dialogs.tqh_last = &raw mut (*dialog).dialogs.tqe_next;
             // Prepared before signal installation: no registry/Rc operation.
-            let Some(crash_visual) = CRASH_VISUAL.as_ref() else {
+            let Some(renderer) = CRASH_RENDERER.as_mut() else {
                 return;
             };
-            let visual = crash_visual.visual_id();
+            let visual = renderer.visual().visual_id();
             let colormap: x::Colormap = connection.generate_id();
             (*dialog).colormap = colormap.resource_id();
             connection.send_request(&x::CreateColormap {
@@ -315,11 +317,10 @@ unsafe fn sighandler_create_dialogs() {
                 true,
                 &values,
             );
-            draw_util_surface_init(
-                conn,
+            i3_common::draw_util::draw_util_surface_init_native(
+                renderer,
                 &raw mut (*dialog).surface,
                 (*dialog).id as u32,
-                Some(crash_visual),
                 (*dialog).dims.width as ::core::ffi::c_int,
                 (*dialog).dims.height as ::core::ffi::c_int,
             );
@@ -388,7 +389,7 @@ unsafe fn sighandler_handle_expose() {
 }
 pub unsafe fn shutdown_crash_visual() {
     sighandler_destroy_dialogs();
-    drop(CRASH_VISUAL.take());
+    drop(CRASH_RENDERER.take());
 }
 
 unsafe fn sighandler_draw_dialog(dialog: *mut dialog_t) {

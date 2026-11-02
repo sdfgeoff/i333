@@ -19,16 +19,25 @@ pub struct RenderingContext {
     // Drop cached server resources before the retained connection/setup owner.
     cache: RefCell<[Option<CacheEntry>; 2]>,
     screen: DisplayScreen,
+    default_visual: u32,
 }
 
 impl RenderingContext {
     pub fn new(screen: DisplayScreen) -> Rc<Self> {
+        let visual = screen.info().root_visual;
+        Self::with_default_visual(screen, visual)
+    }
+
+    pub fn with_default_visual(screen: DisplayScreen, default_visual: u32) -> Rc<Self> {
         Rc::new(Self {
             cache: RefCell::new([None, None]),
             screen,
+            default_visual,
         })
     }
-
+    pub fn default_visual(&self) -> u32 {
+        self.default_visual
+    }
     pub fn screen(&self) -> &DisplayScreen {
         &self.screen
     }
@@ -178,5 +187,87 @@ impl OwnedPixmap {
 impl Drop for OwnedPixmap {
     fn drop(&mut self) {
         self.close();
+    }
+}
+
+/// Explicit emergency graphics state. The caller retains its native connection
+/// through all derived surfaces, which must be cleared before this cache drops.
+/// Its cache is exclusive native state, separate from normal RefCell/Rc caches.
+pub struct NativeRenderingContext {
+    cache: [Option<CacheEntry>; 2],
+    connection: *mut xcb::ffi::xcb_connection_t,
+    visual: CairoVisual,
+    depth: u8,
+}
+impl NativeRenderingContext {
+    /// # Safety
+    /// The connection must remain live until this context and all derived
+    /// graphics are destroyed. Access is exclusive on the native signal edge.
+    pub unsafe fn new(
+        connection: *mut xcb::ffi::xcb_connection_t,
+        visual: CairoVisual,
+        depth: u8,
+    ) -> Self {
+        Self {
+            cache: [None, None],
+            connection,
+            visual,
+            depth,
+        }
+    }
+    /// Populate the emergency depth cache before installing the signal handler.
+    pub fn prepare(&mut self, drawable: u32) {
+        let (_, lease) = self.acquire_gc(drawable);
+        drop(lease);
+    }
+    pub fn visual(&self) -> &CairoVisual {
+        &self.visual
+    }
+    pub(super) fn connection(&self) -> *mut xcb::ffi::xcb_connection_t {
+        self.connection
+    }
+    pub(super) fn acquire_gc(&mut self, drawable: u32) -> (u32, GcLease) {
+        if self.depth == 0 {
+            return (0, GcLease::Borrowed);
+        }
+        if let Some(entry) = self
+            .cache
+            .iter()
+            .flatten()
+            .find(|entry| entry.depth == self.depth)
+        {
+            return (entry.owner.id(), GcLease::Borrowed);
+        }
+        // SAFETY: native context adoption retains the same healthy connection;
+        // the no-drop view neither clones nor accesses the event-thread registry.
+        let Some(connection) = (unsafe { crate::xcb_connection::borrowed(self.connection) }) else {
+            return (0, GcLease::Borrowed);
+        };
+        let gc: x::Gcontext = connection.generate_id();
+        let cookie = connection.send_request_checked(&x::CreateGc {
+            cid: gc,
+            drawable: x::Drawable::Unknown(drawable),
+            value_list: &[],
+        });
+        if let Err(error) = connection.check_request(cookie) {
+            let code = unsafe { (*error.as_raw()).error_code };
+            unsafe {
+                crate::logging::errorlog(
+                c"[libi3] ERROR: Could not create graphical context. Error code: %d. Please report this bug.\n".as_ptr().cast_mut(), i32::from(code),
+            );
+            }
+            return (gc.resource_id(), GcLease::Borrowed);
+        }
+        let owner =
+            unsafe { OwnedGraphicsContext::from_raw_owned(self.connection, gc.resource_id()) };
+        if let Some(slot) = self.cache.iter_mut().find(|slot| slot.is_none()) {
+            *slot = Some(CacheEntry {
+                depth: self.depth,
+                owner,
+            });
+            (gc.resource_id(), GcLease::Borrowed)
+        } else {
+            (gc.resource_id(), GcLease::Owned(owner))
+        }
     }
 }

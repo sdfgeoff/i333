@@ -47,6 +47,7 @@ static mut restore_conn: *mut xcb_connection_t =
 // Placeholder windows intentionally use a second connection, independent of
 // the main display registry. `restore_conn` is only its native request alias.
 static mut RESTORE_CONNECTION: Option<Rc<xcb::Connection>> = None;
+static mut RESTORE_RENDERER: Option<Rc<i3_common::draw_util::RenderingContext>> = None;
 static mut RESTORE_SCREEN: Option<DisplayScreen> = None;
 static mut RESTORE_VISUAL: Option<CairoVisual> = None;
 
@@ -180,6 +181,7 @@ pub unsafe fn restore_shutdown() {
             drop(Box::from_raw(state));
         }
         restore_conn = std::ptr::null_mut();
+        drop(RESTORE_RENDERER.take());
         drop(RESTORE_VISUAL.take());
         drop(RESTORE_SCREEN.take());
         drop(RESTORE_CONNECTION.take());
@@ -203,6 +205,7 @@ pub unsafe fn restore_connect() {
     let screen = DisplayScreen::new(connection.clone(), screen_index)
         .expect("placeholder setup screen exists");
     RESTORE_VISUAL = screen.visual(screen.info().root_visual);
+    RESTORE_RENDERER = Some(i3_common::draw_util::RenderingContext::new(screen.clone()));
     RESTORE_SCREEN = Some(screen);
     RESTORE_CONNECTION = Some(connection);
     xcb_watcher = scalloc(1 as usize, ::core::mem::size_of::<ev_io>() as usize) as *mut ev_io;
@@ -348,7 +351,9 @@ unsafe fn open_placeholder_window(con: *mut Con) {
             },
         }));
         draw_util_surface_init(
-            restore_conn,
+            RESTORE_RENDERER
+                .as_ref()
+                .expect("placeholder renderer initialized"),
             &raw mut (*state).surface,
             placeholder as u32,
             RESTORE_VISUAL.as_ref(),

@@ -340,6 +340,14 @@ pub static mut conn: *mut xcb_connection_t =
 // The registration owns the one maintained connection on the event thread.
 // `conn` is only a compatibility/native-library alias and never disconnects it.
 static mut MAIN_DISPLAY: Option<i3_common::display::DisplayConnection> = None;
+static mut MAIN_RENDERER: Option<Rc<i3_common::draw_util::RenderingContext>> = None;
+/// The event thread clones explicit rendering state only on the normal path.
+pub unsafe fn rendering_context() -> Rc<i3_common::draw_util::RenderingContext> {
+    MAIN_RENDERER
+        .as_ref()
+        .expect("main rendering context is initialized")
+        .clone()
+}
 static mut MAIN_SCREEN: Option<DisplayScreen> = None;
 static mut MAIN_VISUAL: Option<CairoVisual> = None;
 
@@ -757,6 +765,7 @@ extern "C" fn i3_exit() {
         crate::restore_layout::restore_shutdown();
         drop(KEY_SYMBOLS.take());
         crate::sighandler::shutdown_crash_visual();
+        drop(MAIN_RENDERER.take());
         drop(MAIN_VISUAL.take());
         drop(MAIN_SCREEN.take());
         // All native shutdown requests above complete before unregistering the
@@ -1392,6 +1401,10 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     });
     let visual_id = argb.unwrap_or(screen_info.root_visual);
     MAIN_VISUAL = root_display().visual(visual_id);
+    MAIN_RENDERER = Some(i3_common::draw_util::RenderingContext::with_default_visual(
+        root_display().clone(),
+        visual_id,
+    ));
     if let Some(visual_id) = argb {
         root_depth = 32;
         let id: x::Colormap = main_connection().generate_id();

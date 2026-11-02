@@ -1,6 +1,8 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 mod rendering;
-pub use rendering::{GraphicsContext, OwnedPixmap, OwnedWindow, RenderingContext};
+pub use rendering::{
+    GraphicsContext, NativeRenderingContext, OwnedPixmap, OwnedWindow, RenderingContext,
+};
 
 use crate::font::draw_text;
 /*
@@ -76,6 +78,7 @@ pub struct surface_t {
     pub width: i32,
     pub height: i32,
     resources: Option<SurfaceResources>,
+    pixmap: Option<OwnedPixmap>,
 }
 
 impl Default for surface_t {
@@ -91,7 +94,25 @@ impl surface_t {
             width: 0,
             height: 0,
             resources: None,
+            pixmap: None,
         }
+    }
+    pub fn attach_pixmap(&mut self, owner: OwnedPixmap) {
+        assert!(
+            self.pixmap.is_none(),
+            "release the old pixmap owner before replacement"
+        );
+        assert_eq!(
+            owner.pixmap().map(|pixmap| pixmap.resource_id()),
+            Some(self.id)
+        );
+        self.pixmap = Some(owner);
+    }
+    pub fn release_pixmap(&mut self) -> bool {
+        let owner = self.pixmap.take();
+        let owned = owner.is_some();
+        drop(owner);
+        owned
     }
     pub fn has_resources(&self) -> bool {
         self.resources.is_some()
@@ -156,6 +177,7 @@ impl surface_t {
                 context: cr,
                 retained: Some((context, visual)),
             }),
+            pixmap: None,
         }
     }
     pub fn from_cairo(
@@ -176,12 +198,14 @@ impl surface_t {
                 context,
                 retained: None,
             }),
+            pixmap: None,
         }
     }
 }
 impl Drop for surface_t {
     fn drop(&mut self) {
         self.clear();
+        self.release_pixmap();
     }
 }
 
@@ -244,12 +268,6 @@ impl Drop for SurfaceResources {
         }
     }
 }
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct GraphicsContextCacheEntry {
-    pub depth: u8,
-    pub gc: u32,
-}
 pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 
@@ -268,64 +286,6 @@ fn surface_initialized(surface: &surface_t) -> bool {
     }
     true
 }
-unsafe fn get_gc(
-    conn: *mut xcb_connection_t,
-    depth: u8,
-    drawable: u32,
-    should_free: *mut bool,
-) -> u32 {
-    // SAFETY: The caller serializes the native GC cache and retains this display for the operation.
-    unsafe {
-        static mut gc_cache: [GraphicsContextCacheEntry; 2] = [
-            GraphicsContextCacheEntry {
-                depth: 0 as u8,
-                gc: 0,
-            },
-            GraphicsContextCacheEntry { depth: 0, gc: 0 },
-        ];
-        *should_free = false;
-        let mut empty_slot = None;
-        for index in 0..2 {
-            if gc_cache[index].depth == depth {
-                return gc_cache[index].gc;
-            }
-            if gc_cache[index].depth == 0 {
-                empty_slot = Some(index);
-                break;
-            }
-        }
-        // The existing display owner remains live through this synchronous request.
-        let Some(connection) = crate::xcb_connection::borrowed(conn) else {
-            return 0;
-        };
-        let gc: x::Gcontext = connection.generate_id();
-        let cookie = connection.send_request_checked(&x::CreateGc {
-            cid: gc,
-            drawable: x::Drawable::Unknown(drawable),
-            value_list: &[],
-        });
-        if let Err(error) = connection.check_request(cookie) {
-            // The maintained error owns its native header. Preserve the native
-            // numeric diagnostic without converting an unknown error into an enum.
-            let code = *error.as_raw().cast::<u8>().add(1);
-            errorlog(
-            c"[libi3] ERROR: Could not create graphical context. Error code: %d. Please report this bug.\n".as_ptr().cast_mut(),
-            i32::from(code),
-        );
-            return gc.resource_id();
-        }
-        if let Some(index) = empty_slot {
-            gc_cache[index] = GraphicsContextCacheEntry {
-                depth,
-                gc: gc.resource_id(),
-            };
-        } else {
-            *should_free = true;
-        }
-        gc.resource_id()
-    }
-}
-
 pub unsafe fn get_visual_depth(visual_id: u32) -> u16 {
     let crate::display::DisplayContext {
         connection, screen, ..
@@ -363,52 +323,62 @@ pub unsafe fn get_visual_depth(visual_id: u32) -> u16 {
 /// remain live until its graphics are cleared/dropped. This includes independent
 /// and emergency callers, whose connection must never be replaced by a registry.
 pub unsafe fn draw_util_surface_init(
-    conn: *mut xcb_connection_t,
+    renderer: &std::rc::Rc<RenderingContext>,
     surface: *mut surface_t,
     drawable: u32,
     visual: Option<&crate::display::CairoVisual>,
     width: i32,
     height: i32,
 ) {
-    // SAFETY: the caller supplies exclusive live storage and retained owners.
     let surface = unsafe { &mut *surface };
     surface.clear();
-    let context = crate::display::context();
-    let visual_id = visual.map_or(context.visual_id, crate::display::CairoVisual::visual_id);
-    let visual = visual.map_or(context.visual_type, crate::display::CairoVisual::as_ptr);
-    let mut owns_gc = false;
-    let gc = unsafe {
-        get_gc(
-            conn,
-            get_visual_depth(visual_id) as u8,
-            drawable,
-            &mut owns_gc,
-        )
-    };
-    // SAFETY: native constructors return complete references, including error
-    // objects. Both owners deliberately preserve native sticky error status.
+    let visual_id = visual.map_or(
+        renderer.default_visual(),
+        crate::display::CairoVisual::visual_id,
+    );
+    let visual = renderer
+        .visual(visual_id)
+        .expect("render visual belongs to the retained setup");
+    let mut next = surface_t::for_drawable(renderer.clone(), drawable, visual, width, height);
+    // Preserve an attached pixmap owner through Cairo-only reload/reinit.
+    surface.id = next.id;
+    surface.gc = next.gc;
+    surface.width = width;
+    surface.height = height;
+    surface.resources = next.resources.take();
+}
+
+/// # Safety
+/// Native display/visual owners must cover all derived surfaces. This path is
+/// exclusive emergency state and never accesses a registry, Rc or RefCell.
+pub unsafe fn draw_util_surface_init_native(
+    renderer: &mut NativeRenderingContext,
+    surface: *mut surface_t,
+    drawable: u32,
+    width: i32,
+    height: i32,
+) {
+    let surface = unsafe { &mut *surface };
+    surface.clear();
+    let (gc, lease) = renderer.acquire_gc(drawable);
     let target = unsafe {
         CairoSurface::from_raw_owned(cairo_xcb_surface_create(
-            conn.cast(),
+            renderer.connection().cast(),
             drawable,
-            visual,
+            renderer.visual().as_ptr(),
             width,
             height,
         ))
     };
-    let cr = unsafe { cairo::Context::from_raw_full(cairo_create(target.as_raw())) };
+    let context = unsafe { cairo::Context::from_raw_full(cairo_create(target.as_raw())) };
     surface.id = drawable;
     surface.gc = gc;
     surface.width = width;
     surface.height = height;
     surface.resources = Some(SurfaceResources {
-        gc: if owns_gc {
-            GcLease::Owned(unsafe { OwnedGraphicsContext::from_raw_owned(conn, gc) })
-        } else {
-            GcLease::Borrowed
-        },
+        gc: lease,
         surface: target,
-        context: cr,
+        context,
         retained: None,
     });
 }

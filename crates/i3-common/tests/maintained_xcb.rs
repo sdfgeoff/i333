@@ -404,9 +404,10 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
         unsafe { native::xcb_aux_find_visual_by_id(raw_screen, screen.root_visual()) };
     assert!(!native_visual.is_null());
     let mut surface = i3_common::draw_util::surface_t::empty();
+    let renderer = i3_common::draw_util::RenderingContext::new(owned_screen.clone());
     unsafe {
         i3_common::draw_util::draw_util_surface_init(
-            raw.cast(),
+            &renderer,
             &mut surface,
             root.resource_id(),
             Some(&i3_common::display::visual(screen.root_visual()).unwrap()),
@@ -477,6 +478,7 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
     {}
     let font_context = i3_common::font::FontContext::for_screen(&owned_screen);
     i3_common::display::set_provider(DisplayContext::default);
+    drop(renderer);
     verify_core_font(&connection, &font_context, root, surface.gc);
     verify_pango_font_context(&font_context, &owned_screen);
     i3_common::display::set_provider(display_context);
