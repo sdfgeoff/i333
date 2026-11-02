@@ -6,37 +6,6 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 
 use xcb::{x, Raw, XidNew};
-use xcb_sys::{xcb_connection_t, xcb_rectangle_t, xcb_window_t};
-
-/// Send a synthetic ConfigureNotify for an existing window.
-///
-/// # Safety
-/// conn must be a live XCB connection for the duration of the request/flush.
-pub unsafe fn fake_configure_notify(
-    conn: *mut xcb_connection_t,
-    rectangle: xcb_rectangle_t,
-    window: xcb_window_t,
-    border_width: i32,
-) {
-    // SAFETY: the caller retains the native connection for this request. Prefer
-    // its registered Rust owner whenever that executable has migrated.
-    let connection = crate::display::connection()
-        .filter(|connection| connection.get_raw_conn().cast::<xcb_connection_t>() == conn)
-        .or_else(|| unsafe { crate::xcb_connection::borrowed(conn) }.map(std::rc::Rc::new));
-    if let Some(connection) = connection {
-        send_configure_notify(
-            &connection,
-            x::Rectangle {
-                x: rectangle.x,
-                y: rectangle.y,
-                width: rectangle.width,
-                height: rectangle.height,
-            },
-            unsafe { x::Window::new(window) },
-            border_width,
-        );
-    }
-}
 
 /// Send and flush a synthetic ConfigureNotify using the retained connection.
 pub fn send_configure_notify(
