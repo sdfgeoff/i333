@@ -1,7 +1,7 @@
 use crate::config::config;
 use crate::outputs::output_has_focus;
 use crate::outputs::outputs;
-use ::xcb::{x, Xid, XidNew};
+use ::xcb::{x, Reply, Xid, XidNew};
 use i3_common::draw_util::draw_util_clear_surface;
 use i3_common::draw_util::draw_util_copy_surface;
 use i3_common::draw_util::draw_util_hex_to_color;
@@ -84,8 +84,7 @@ pub static mut root_screen: *mut xcb_screen_t =
 pub static mut xcb_root: xcb_window_t = 0;
 static mut cursor: xcb_cursor_t = 0;
 static mut selwin: xcb_window_t = XCB_NONE as xcb_window_t;
-static mut tray_reply: *mut xcb_intern_atom_reply_t =
-    ::core::ptr::null::<xcb_intern_atom_reply_t>() as *mut xcb_intern_atom_reply_t;
+static mut tray_atom: Option<x::Atom> = None;
 
 pub static mut conn: *mut xcb_connection_t =
     ::core::ptr::null::<xcb_connection_t>() as *mut xcb_connection_t;
@@ -307,42 +306,24 @@ impl<T> Drop for Native<T> {
         }
     }
 }
-#[derive(Default)]
-struct Replies(Vec<std::ptr::NonNull<libc::c_void>>);
-impl Replies {
-    unsafe fn take<T>(&mut self, pointer: *mut T) -> *mut T {
-        if let Some(pointer) = std::ptr::NonNull::new(pointer) {
-            self.0.push(pointer.cast());
-        }
-        pointer
-    }
-}
-impl Drop for Replies {
-    fn drop(&mut self) {
-        for pointer in self.0.drain(..) {
-            unsafe {
-                free(pointer.as_ptr());
-            }
-        }
-    }
-}
-unsafe fn property_bytes<'a>(reply: *const xcb_get_property_reply_t) -> Option<&'a [u8]> {
-    let reply = reply.as_ref()?;
-    let stride = match reply.format {
+/// Borrow the complete property payload only after validating its native wire
+/// width/count against the owned reply allocation. The maintained value::<u8>
+/// getter accepts only format 8, while tray clients may send formats 16 or 32.
+fn property_bytes(reply: &x::GetPropertyReply) -> Option<&[u8]> {
+    let stride = match reply.format() {
         8 => 1,
         16 => 2,
         32 => 4,
         _ => return None,
     };
-    let length = (reply.value_len as usize).checked_mul(stride)?;
-    let available = (reply.length as usize).checked_mul(4)?;
+    // GetProperty's fixed header is 32 bytes; value_len is the u32 at byte 16.
+    let length = unsafe { reply.as_raw().add(16).cast::<u32>().read_unaligned() } as usize;
+    let length = length.checked_mul(stride)?;
+    let available = (reply.length() as usize).checked_mul(4)?;
     if length > available || length > isize::MAX as usize {
         return None;
     }
-    Some(std::slice::from_raw_parts(
-        (reply as *const xcb_get_property_reply_t).add(1).cast(),
-        length,
-    ))
+    Some(unsafe { std::slice::from_raw_parts(reply.as_raw().add(32), length) })
 }
 fn first_nul(bytes: &[u8]) -> &[u8] {
     bytes.split(|&byte| byte == 0).next().unwrap_or_default()
@@ -1310,21 +1291,20 @@ unsafe fn trayclient_from_window(win: xcb_window_t) -> *mut trayclient {
     trayclient_and_output_from_window(win, ::core::ptr::null_mut::<*mut i3_output>())
 }
 unsafe fn trayclient_update_class(client: *mut trayclient) {
-    let mut replies = Replies::default();
-    let prop: *mut xcb_get_property_reply_t = replies.take(xcb_get_property_reply(
-        conn,
-        xcb_get_property_unchecked(
-            xcb_connection,
-            0,
-            (*client).win,
-            XCB_ATOM_WM_CLASS as ::core::ffi::c_int as xcb_atom_t,
-            XCB_ATOM_STRING as ::core::ffi::c_int as xcb_atom_t,
-            0 as u32,
-            32 as u32,
-        ),
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    ));
-    if prop.is_null() || xcb_get_property_value_length(prop) == 0 as ::core::ffi::c_int {
+    let Some(connection) = i3_common::display::connection() else {
+        return;
+    };
+    let cookie = connection.send_request_unchecked(&x::GetProperty {
+        delete: false,
+        window: x::Window::new((*client).win),
+        property: x::ATOM_WM_CLASS,
+        r#type: x::ATOM_STRING,
+        long_offset: 0,
+        long_length: 32,
+    });
+    let prop = connection.wait_for_reply_unchecked(cookie).ok().flatten();
+    let bytes = prop.as_ref().and_then(property_bytes);
+    if bytes.is_none_or(|bytes| bytes.is_empty()) {
         if config.verbose {
             printf(
                 c"[%s:%d] WM_CLASS not set.\n".as_ptr(),
@@ -1334,7 +1314,7 @@ unsafe fn trayclient_update_class(client: *mut trayclient) {
         }
         return;
     }
-    let Some(bytes) = property_bytes(prop) else {
+    let Some(bytes) = bytes else {
         return;
     };
     let (instance, class) = class_parts(bytes);
@@ -1358,7 +1338,6 @@ unsafe fn trayclient_update_class(client: *mut trayclient) {
 }
 unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
     let words = events::client_message_words(event);
-    let mut replies = Replies::default();
     if event.r#type().resource_id() == atoms[AtomIndex::I3Sync as ::core::ffi::c_int as usize] {
         let window: xcb_window_t = words[0 as ::core::ffi::c_int as usize];
         let rnd: u32 = words[1 as ::core::ffi::c_int as usize];
@@ -1401,42 +1380,37 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
             );
             let mut map_it: bool = true;
             let mut xe_version: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-            let mut xembedc: xcb_get_property_cookie_t = xcb_get_property_cookie_t { sequence: 0 };
-            let mut error: *mut xcb_generic_error_t =
-                ::core::ptr::null_mut::<xcb_generic_error_t>();
-            xembedc = xcb_get_property(
-                xcb_connection,
-                0 as u8,
-                client,
-                atoms[AtomIndex::XembedInfo as ::core::ffi::c_int as usize],
-                XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-                0 as u32,
-                (2 as ::core::ffi::c_int * 32 as ::core::ffi::c_int) as u32,
-            );
-            let xembedr: *mut xcb_get_property_reply_t = replies.take(xcb_get_property_reply(
-                xcb_connection,
-                xembedc,
-                &raw mut error,
-            ));
-            if !error.is_null() {
+            let Some(connection) = i3_common::display::connection() else {
+                return;
+            };
+            let cookie = connection.send_request(&x::GetProperty {
+                delete: false,
+                window: x::Window::new(client),
+                property: x::Atom::new(atoms[AtomIndex::XembedInfo as usize]),
+                r#type: x::ATOM_ANY,
+                long_offset: 0,
+                long_length: 64,
+            });
+            let reply = connection.wait_for_reply(cookie);
+            if let Err(::xcb::Error::Protocol(error)) = &reply {
                 fprintf(
                     stderr,
                     c"[%s:%d] ERROR: Error getting _XEMBED_INFO property: error_code %d\n".as_ptr(),
                     c"../i3bar/src/xcb.c".as_ptr(),
-                    950 as ::core::ffi::c_int,
-                    (*error).error_code as ::core::ffi::c_int,
+                    950,
+                    (*error.as_raw()).error_code as i32,
                 );
-                free(error as *mut ::core::ffi::c_void);
                 return;
             }
-            if !xembedr.is_null() && (*xembedr).length != 0 as u32 {
+            let xembedr = reply.ok().filter(|reply| reply.length() != 0);
+            if let Some(xembedr) = xembedr.as_ref() {
                 if config.verbose {
                     printf(
                         c"[%s:%d] xembed format = %d, len = %d\n".as_ptr(),
                         c"../i3bar/src/xcb.c".as_ptr(),
                         955 as ::core::ffi::c_int,
-                        (*xembedr).format as ::core::ffi::c_int,
-                        (*xembedr).length,
+                        xembedr.format() as ::core::ffi::c_int,
+                        xembedr.length(),
                     );
                 }
                 let Some(xembed) = property_bytes(xembedr).and_then(xembed_words) else {
@@ -1676,7 +1650,6 @@ unsafe fn handle_unmap_notify(event: &x::UnmapNotifyEvent) {
     draw_bars(false);
 }
 unsafe fn handle_property_notify(event: &x::PropertyNotifyEvent) {
-    let mut replies = Replies::default();
     if config.verbose {
         printf(
             c"[%s:%d] PropertyNotify\n".as_ptr(),
@@ -1705,22 +1678,19 @@ unsafe fn handle_property_notify(event: &x::PropertyNotifyEvent) {
             );
             return;
         }
-        let mut xembedc: xcb_get_property_cookie_t = xcb_get_property_cookie_t { sequence: 0 };
-        xembedc = xcb_get_property_unchecked(
-            xcb_connection,
-            0 as u8,
-            (*client).win,
-            atoms[AtomIndex::XembedInfo as ::core::ffi::c_int as usize],
-            XCB_GET_PROPERTY_TYPE_ANY as ::core::ffi::c_int as xcb_atom_t,
-            0 as u32,
-            (2 as ::core::ffi::c_int * 32 as ::core::ffi::c_int) as u32,
-        );
-        let xembedr: *mut xcb_get_property_reply_t = replies.take(xcb_get_property_reply(
-            xcb_connection,
-            xembedc,
-            ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-        ));
-        if xembedr.is_null() || (*xembedr).length == 0 as u32 {
+        let Some(connection) = i3_common::display::connection() else {
+            return;
+        };
+        let cookie = connection.send_request_unchecked(&x::GetProperty {
+            delete: false,
+            window: x::Window::new((*client).win),
+            property: x::Atom::new(atoms[AtomIndex::XembedInfo as usize]),
+            r#type: x::ATOM_ANY,
+            long_offset: 0,
+            long_length: 64,
+        });
+        let xembedr = connection.wait_for_reply_unchecked(cookie).ok().flatten();
+        let Some(xembedr) = xembedr.as_ref().filter(|reply| reply.length() != 0) else {
             if config.verbose {
                 printf(
                     c"[%s:%d] xembed_info unset\n".as_ptr(),
@@ -1729,14 +1699,14 @@ unsafe fn handle_property_notify(event: &x::PropertyNotifyEvent) {
                 );
             }
             return;
-        }
+        };
         if config.verbose {
             printf(
                 c"[%s:%d] xembed format = %d, len = %d\n".as_ptr(),
                 c"../i3bar/src/xcb.c".as_ptr(),
                 1151 as ::core::ffi::c_int,
-                (*xembedr).format as ::core::ffi::c_int,
-                (*xembedr).length,
+                xembedr.format() as ::core::ffi::c_int,
+                xembedr.length(),
             );
         }
         let Some(xembed) = property_bytes(xembedr).and_then(xembed_words) else {
@@ -2158,13 +2128,18 @@ unsafe fn send_tray_clientmessage() {
     let packet = client_message(
         xcb_root,
         atoms[AtomIndex::Manager as usize],
-        [XCB_CURRENT_TIME as u32, (*tray_reply).atom, selwin, 0, 0],
+        [
+            XCB_CURRENT_TIME as u32,
+            tray_atom.unwrap().resource_id(),
+            selwin,
+            0,
+            0,
+        ],
     );
     send_event(xcb_root, 0xffffff, &packet);
 }
 
 unsafe fn init_tray() {
-    let mut replies = Replies::default();
     if config.verbose {
         printf(
             c"[%s:%d] Initializing system tray functionality\n".as_ptr(),
@@ -2172,25 +2147,16 @@ unsafe fn init_tray() {
             1514 as ::core::ffi::c_int,
         );
     }
-    let systray_len: usize =
-        (strlen(c"_NET_SYSTEM_TRAY_S".as_ptr()) as usize).wrapping_add(11 as usize);
-    let vla = systray_len as usize;
-    let mut atomname: Vec<::core::ffi::c_char> = ::std::vec::from_elem(0, vla);
-    snprintf(
-        atomname.as_mut_ptr(),
-        systray_len,
-        c"_NET_SYSTEM_TRAY_S%d".as_ptr(),
-        screen,
-    );
-    let mut tray_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom_cookie_t { sequence: 0 };
-    if tray_reply.is_null() {
-        tray_cookie = xcb_intern_atom(
-            xcb_connection,
-            0 as u8,
-            strlen(atomname.as_mut_ptr()) as u16,
-            atomname.as_mut_ptr(),
-        );
-    }
+    let Some(connection) = i3_common::display::connection() else {
+        return;
+    };
+    let atomname = std::ffi::CString::new(format!("_NET_SYSTEM_TRAY_S{screen}")).unwrap();
+    let tray_cookie = tray_atom.is_none().then(|| {
+        connection.send_request(&x::InternAtom {
+            only_if_exists: false,
+            name: atomname.as_bytes(),
+        })
+    });
     selwin = xcb_generate_id(xcb_connection) as xcb_window_t;
     let selmask: u32 = (XCB_CW_BACK_PIXEL as ::core::ffi::c_int
         | XCB_CW_BORDER_PIXEL as ::core::ffi::c_int
@@ -2239,56 +2205,48 @@ unsafe fn init_tray() {
         &raw mut (*visual_type).visual_id as *const ::core::ffi::c_void,
     );
     init_tray_colors();
-    if tray_reply.is_null() {
-        tray_reply = xcb_intern_atom_reply(
-            xcb_connection,
-            tray_cookie,
-            ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-        );
-        if tray_reply.is_null() {
+    if let Some(cookie) = tray_cookie {
+        tray_atom = connection
+            .wait_for_reply(cookie)
+            .ok()
+            .map(|reply| reply.atom());
+        if tray_atom.is_none() {
             fprintf(
                 stderr,
                 c"[%s:%d] ERROR: Could not get atom %s\n".as_ptr(),
                 c"../i3bar/src/xcb.c".as_ptr(),
-                1565 as ::core::ffi::c_int,
-                atomname.as_mut_ptr(),
+                1565,
+                atomname.as_ptr(),
             );
             exit(libc::EXIT_FAILURE);
         }
     }
-    xcb_set_selection_owner(
-        xcb_connection,
-        selwin,
-        (*tray_reply).atom,
-        XCB_CURRENT_TIME as xcb_timestamp_t,
-    );
-    let mut selcookie: xcb_get_selection_owner_cookie_t =
-        xcb_get_selection_owner_cookie_t { sequence: 0 };
-    let mut selreply: *mut xcb_get_selection_owner_reply_t =
-        ::core::ptr::null_mut::<xcb_get_selection_owner_reply_t>();
-    selcookie = xcb_get_selection_owner(xcb_connection, (*tray_reply).atom);
-    selreply = replies.take(xcb_get_selection_owner_reply(
-        xcb_connection,
-        selcookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    ));
-    if selreply.is_null() {
+    connection.send_request(&x::SetSelectionOwner {
+        owner: x::Window::new(selwin),
+        selection: tray_atom.unwrap(),
+        time: x::CURRENT_TIME,
+    });
+    let cookie = connection.send_request(&x::GetSelectionOwner {
+        selection: tray_atom.unwrap(),
+    });
+    let reply = connection.wait_for_reply(cookie);
+    let Ok(reply) = reply else {
         fprintf(
             stderr,
             c"[%s:%d] ERROR: Could not get selection owner for %s\n".as_ptr(),
             c"../i3bar/src/xcb.c".as_ptr(),
             1581 as ::core::ffi::c_int,
-            atomname.as_mut_ptr(),
+            atomname.as_ptr(),
         );
         exit(libc::EXIT_FAILURE);
-    }
-    if (*selreply).owner != selwin {
+    };
+    if reply.owner().resource_id() != selwin {
         fprintf(
             stderr,
             c"[%s:%d] ERROR: Could not set the %s selection. Maybe another tray is already running?\n".as_ptr(),
             c"../i3bar/src/xcb.c".as_ptr(),
             1588 as ::core::ffi::c_int,
-            atomname.as_mut_ptr(),
+            atomname.as_ptr(),
         );
         return;
     }
@@ -2384,10 +2342,7 @@ pub unsafe fn clean_xcb() {
         free(xcb_io.cast());
         xcb_io = std::ptr::null_mut();
     }
-    if !tray_reply.is_null() {
-        free(tray_reply.cast());
-        tray_reply = std::ptr::null_mut();
-    }
+    tray_atom = None;
     root_screen = std::ptr::null_mut();
     visual_type = std::ptr::null_mut();
     conn = std::ptr::null_mut();
@@ -3242,27 +3197,22 @@ use xcb_sys::{
     xcb_connection_t, xcb_create_colormap_checked, xcb_create_pixmap_checked, xcb_create_window,
     xcb_create_window_checked, xcb_cursor_t, xcb_destroy_window, xcb_drawable_t, xcb_flush,
     xcb_free_cursor, xcb_free_pixmap, xcb_generate_id, xcb_generic_error_t, xcb_get_extension_data,
-    xcb_get_property, xcb_get_property_cookie_t, xcb_get_property_reply, xcb_get_property_reply_t,
-    xcb_get_property_unchecked, xcb_get_property_value_length, xcb_get_selection_owner,
-    xcb_get_selection_owner_cookie_t, xcb_get_selection_owner_reply,
-    xcb_get_selection_owner_reply_t, xcb_intern_atom, xcb_intern_atom_cookie_t,
-    xcb_intern_atom_reply, xcb_intern_atom_reply_t, xcb_keycode_t, xcb_map_window,
-    xcb_map_window_checked, xcb_pixmap_t, xcb_query_extension_reply_t, xcb_rectangle_t,
-    xcb_reparent_window, xcb_request_check, xcb_screen_t, xcb_set_selection_owner, xcb_timestamp_t,
-    xcb_unmap_window, xcb_unmap_window_checked, xcb_visualtype_t, xcb_void_cookie_t, xcb_window_t,
-    xcb_xkb_device_spec_t, xcb_xkb_id, xcb_xkb_select_events, xcb_xkb_use_extension, XCB_ATOM_ATOM,
-    XCB_ATOM_CARDINAL, XCB_ATOM_STRING, XCB_ATOM_VISUALID, XCB_ATOM_WM_CLASS, XCB_ATOM_WM_NAME,
-    XCB_BUTTON_SCROLL_DOWN, XCB_BUTTON_SCROLL_LEFT, XCB_BUTTON_SCROLL_RIGHT, XCB_BUTTON_SCROLL_UP,
-    XCB_COLORMAP_ALLOC_NONE, XCB_CONFIG_WINDOW_HEIGHT, XCB_CONFIG_WINDOW_STACK_MODE,
-    XCB_CONFIG_WINDOW_WIDTH, XCB_CONFIG_WINDOW_X, XCB_CONFIG_WINDOW_Y, XCB_CURRENT_TIME,
-    XCB_CW_BACK_PIXEL, XCB_CW_BORDER_PIXEL, XCB_CW_COLORMAP, XCB_CW_CURSOR, XCB_CW_EVENT_MASK,
+    xcb_keycode_t, xcb_map_window, xcb_map_window_checked, xcb_pixmap_t,
+    xcb_query_extension_reply_t, xcb_rectangle_t, xcb_reparent_window, xcb_request_check,
+    xcb_screen_t, xcb_timestamp_t, xcb_unmap_window, xcb_unmap_window_checked, xcb_visualtype_t,
+    xcb_void_cookie_t, xcb_window_t, xcb_xkb_device_spec_t, xcb_xkb_id, xcb_xkb_select_events,
+    xcb_xkb_use_extension, XCB_ATOM_ATOM, XCB_ATOM_CARDINAL, XCB_ATOM_STRING, XCB_ATOM_VISUALID,
+    XCB_ATOM_WM_CLASS, XCB_ATOM_WM_NAME, XCB_BUTTON_SCROLL_DOWN, XCB_BUTTON_SCROLL_LEFT,
+    XCB_BUTTON_SCROLL_RIGHT, XCB_BUTTON_SCROLL_UP, XCB_COLORMAP_ALLOC_NONE,
+    XCB_CONFIG_WINDOW_HEIGHT, XCB_CONFIG_WINDOW_STACK_MODE, XCB_CONFIG_WINDOW_WIDTH,
+    XCB_CONFIG_WINDOW_X, XCB_CONFIG_WINDOW_Y, XCB_CURRENT_TIME, XCB_CW_BACK_PIXEL,
+    XCB_CW_BORDER_PIXEL, XCB_CW_COLORMAP, XCB_CW_CURSOR, XCB_CW_EVENT_MASK,
     XCB_CW_OVERRIDE_REDIRECT, XCB_EVENT_MASK_BUTTON_PRESS, XCB_EVENT_MASK_BUTTON_RELEASE,
     XCB_EVENT_MASK_EXPOSURE, XCB_EVENT_MASK_PROPERTY_CHANGE, XCB_EVENT_MASK_RESIZE_REDIRECT,
     XCB_EVENT_MASK_STRUCTURE_NOTIFY, XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT,
-    XCB_EVENT_MASK_VISIBILITY_CHANGE, XCB_GET_PROPERTY_TYPE_ANY, XCB_NONE, XCB_PROP_MODE_REPLACE,
-    XCB_SET_MODE_INSERT, XCB_STACK_MODE_ABOVE, XCB_WINDOW_CLASS_INPUT_OUTPUT,
-    XCB_XKB_EVENT_TYPE_STATE_NOTIFY, XCB_XKB_ID_USE_CORE_KBD, XCB_XKB_MAJOR_VERSION,
-    XCB_XKB_MINOR_VERSION,
+    XCB_EVENT_MASK_VISIBILITY_CHANGE, XCB_NONE, XCB_PROP_MODE_REPLACE, XCB_SET_MODE_INSERT,
+    XCB_STACK_MODE_ABOVE, XCB_WINDOW_CLASS_INPUT_OUTPUT, XCB_XKB_EVENT_TYPE_STATE_NOTIFY,
+    XCB_XKB_ID_USE_CORE_KBD, XCB_XKB_MAJOR_VERSION, XCB_XKB_MINOR_VERSION,
 };
 
 #[derive(Copy, Clone)]
@@ -3461,24 +3411,51 @@ mod owned_tests {
         assert_eq!(bytes, expected);
     }
     #[test]
+    fn owned_property_views_preserve_complete_bytes_for_all_native_widths() {
+        for (format, count) in [(8, 8u32), (16, 4), (32, 2)] {
+            unsafe {
+                let pointer = libc::calloc(1, 40).cast::<u8>();
+                assert!(!pointer.is_null());
+                pointer.add(1).write(format);
+                pointer.add(4).cast::<u32>().write_unaligned(2);
+                pointer.add(16).cast::<u32>().write_unaligned(count);
+                let owner = x::GetPropertyReply::from_raw(pointer.cast());
+                let payload = [0, 255, 2, 128, 4, 5, 6, 7];
+                std::ptr::copy_nonoverlapping(payload.as_ptr(), pointer.add(32), payload.len());
+                assert_eq!(property_bytes(&owner), Some(payload.as_slice()));
+                assert_eq!(
+                    property_bytes(&owner).and_then(xembed_words),
+                    Some([
+                        u32::from_ne_bytes(payload[..4].try_into().unwrap()),
+                        u32::from_ne_bytes(payload[4..].try_into().unwrap()),
+                    ])
+                );
+                pointer.add(16).cast::<u32>().write_unaligned(count + 1);
+                assert!(property_bytes(&owner).is_none());
+                pointer.add(16).cast::<u32>().write_unaligned(0);
+                assert_eq!(property_bytes(&owner), Some([].as_slice()));
+                pointer.add(1).write(255);
+                assert!(property_bytes(&owner).is_none());
+            }
+        }
+    }
+
+    #[test]
     fn property_views_reject_overclaims_before_slice_creation() {
-        // Native malloc ownership matches the real reply adapter and destructor.
+        // The maintained owner takes the same malloc-backed wire allocation as XCB.
         unsafe {
-            let pointer = libc::calloc(1, 40).cast::<xcb_get_property_reply_t>();
+            let pointer = libc::calloc(1, 40).cast::<u8>();
             assert!(!pointer.is_null());
-            (*pointer).format = 32;
-            (*pointer).length = 2;
-            (*pointer).value_len = 2;
-            let owner = Native::take(pointer).unwrap();
-            let data = pointer.add(1).cast::<u32>();
+            pointer.add(1).write(32);
+            pointer.add(4).cast::<u32>().write_unaligned(2);
+            pointer.add(16).cast::<u32>().write_unaligned(2);
+            let owner = x::GetPropertyReply::from_raw(pointer.cast());
+            let data = pointer.add(32).cast::<u32>();
             data.write(7);
             data.add(1).write(1);
-            assert_eq!(
-                property_bytes(owner.raw()).and_then(xembed_words),
-                Some([7, 1])
-            );
-            (*pointer).value_len = 3;
-            assert!(property_bytes(owner.raw()).is_none());
+            assert_eq!(property_bytes(&owner).and_then(xembed_words), Some([7, 1]));
+            pointer.add(16).cast::<u32>().write_unaligned(3);
+            assert!(property_bytes(&owner).is_none());
         }
     }
 }

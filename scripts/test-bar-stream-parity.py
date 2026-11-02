@@ -21,6 +21,7 @@ import threading
 import time
 
 from Xlib import X
+from Xlib.protocol import event as xevent
 from Xlib.ext import xtest
 from workspace_temp import make_tempdir
 
@@ -89,7 +90,7 @@ class FakeIPC:
         self.lock = threading.Lock()
         self.errors = []
         self.config = {'id':'fixture','mode':'dock','position':'bottom','font':'fixed',
-                       'workspace_buttons':False,'status_command':command,
+                       'workspace_buttons':False,'status_command':command,'tray_padding':2,
                        'colors':{'background':'#000000','statusline':'#ffffff'}}
         self.thread = threading.Thread(target=self.serve, daemon=True)
         self.thread.start()
@@ -165,6 +166,75 @@ def rendered(connection, child, previous=None):
     raise AssertionError('bar did not complete stable foreground/text rendering')
 
 
+def tray_lifecycle(connection, child, environment, server, bar, baseline):
+    """Drive only our client's XEmbed requests on the owned private server."""
+    _input.require_private(connection, environment, server)
+    selection = connection.intern_atom('_NET_SYSTEM_TRAY_S0')
+    opcode = connection.intern_atom('_NET_SYSTEM_TRAY_OPCODE')
+    info = connection.intern_atom('_XEMBED_INFO')
+    embed = connection.intern_atom('_XEMBED')
+    wait_for(lambda: bool(connection.get_selection_owner(selection)), 'private tray selection')
+    owner = connection.get_selection_owner(selection)
+    root = connection.screen().root
+    client = root.create_window(0, 0, 7, 9, 0, X.CopyFromParent, X.InputOutput,
+                                X.CopyFromParent, background_pixel=0x204080,
+                                event_mask=X.StructureNotifyMask | X.PropertyChangeMask)
+    destroyed = False
+    try:
+        client.set_wm_class('fixture-instance', 'FixtureClass')
+        client.change_property(info, info, 32, [1, 1])
+        owner.send_event(xevent.ClientMessage(window=owner, client_type=opcode,
+                                             data=(32, [X.CurrentTime, 0, client.id, 0, 0])),
+                         event_mask=X.NoEventMask)
+        connection.sync()
+        wait_for(lambda: client.query_tree().parent.id == bar.id, 'tray client reparent')
+        wait_for(lambda: client.get_attributes().map_state == X.IsViewable, 'tray client map')
+        geometry = client.get_geometry()
+        expected_size = baseline['geometry'][3] - 4
+        assert (geometry.width, geometry.height) == (expected_size, expected_size)
+        assert (geometry.x, geometry.y) == (1024 - expected_size - 2, 2)
+        messages = []
+
+        def embedded():
+            while connection.pending_events():
+                received = connection.next_event()
+                if received.type == X.ClientMessage and received.client_type == embed:
+                    format_, words = received.data
+                    assert format_ == 32
+                    words = list(words)
+                    assert words[2] == bar.id
+                    messages.append([words[0], words[1], True, words[3], words[4]])
+            return bool(messages)
+
+        wait_for(embedded, 'XEmbed embedded notification')
+        assert messages == [[0, 0, True, 1, 0]], messages
+        _, docked, _ = rendered(connection, child, baseline)
+        states = [X.IsViewable]
+        for mapped in [False, True]:
+            client.change_property(info, info, 32, [1, int(mapped)])
+            connection.sync()
+            expected = X.IsViewable if mapped else X.IsUnmapped
+            wait_for(lambda: client.get_attributes().map_state == expected,
+                     'XEmbed mapped flag ' + str(mapped))
+            states.append(expected)
+        # Exercise the subsequent WM_CLASS update as well as the initial lookup.
+        client.set_wm_class('updated-instance', 'UpdatedClass')
+        connection.sync()
+        client.destroy()
+        destroyed = True
+        connection.sync()
+        wait_for(lambda: client.id not in [window.id for window in bar.query_tree().children],
+                 'tray client destroy')
+        _, restored, _ = rendered(connection, child, docked)
+        assert restored == baseline, (restored, baseline)
+        return {'geometry': [geometry.x, geometry.y, geometry.width, geometry.height],
+                'map_states': states, 'embedded': messages, 'restored': restored}
+    finally:
+        if not destroyed:
+            client.destroy()
+        connection.sync()
+
+
 def invoke(binary,label,mode,connection,environment,server,work):
     directory = work / mode
     directory.mkdir(exist_ok=True)
@@ -209,6 +279,7 @@ def invoke(binary,label,mode,connection,environment,server,work):
                 xtest.fake_input(connection,X.ButtonRelease,1)
                 connection.sync()
                 wait_for(lambda:(directory/'clicks').exists() and (directory/'clicks').read_bytes().count(b'\n')>=2,'private status click')
+        tray = tray_lifecycle(connection, child, environment, server, window, snapshots[-1]) if mode == 'json' else None
         assert (directory/'starts').read_bytes()==b'start\n', 'reload restarted identical status command'
         clicks = (directory/'clicks').read_bytes() if mode=='json' else b''
         assert not ipc.errors,ipc.errors
@@ -217,7 +288,7 @@ def invoke(binary,label,mode,connection,environment,server,work):
         assert status == 0, ('IPC EOF should exit normally',status)
         connection.sync()
         wait_for(lambda:not _input.mapped_windows(connection.screen().root),'bar window cleanup')
-        return {'status':status,'snapshots':snapshots,'clicks_hex':clicks.hex(),'starts':1}
+        return {'status':status,'snapshots':snapshots,'clicks_hex':clicks.hex(),'starts':1,'tray':tray}
     finally:
         # Only Popen handles created by this fixture are signalled. Closing the
         # control pipe also lets its fixed producer exit if the bar was killed.
@@ -251,7 +322,7 @@ def main():
                 results[label]={mode:invoke(binary,label,mode,connection,environment,server,work) for mode in ('json','plain')}
             if args.reference:
                 assert results['candidate']==results['reference'],results
-        print('PASS: 2 private bar stream workflows, 6 rasters, reload and click framing'+(' match external C' if args.reference else ' satisfy fixtures'))
+        print('PASS: 2 private bar stream workflows, 6 status rasters, reload, click framing and XEmbed tray lifecycle'+(' match external C' if args.reference else ' satisfy fixtures'))
     finally:
         (work/'results.json').write_text(json.dumps({'binaries':hashes,'producer_sha256':hashlib.sha256(PRODUCER.encode()).hexdigest(),'results':results},indent=2)+'\n')
         print(f'Private bar stream artifacts: {work}')

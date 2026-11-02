@@ -48,6 +48,6 @@ fn wizard_5_private_workflow_and_config_checks() {
 }
 
 #[test]
-fn bar_2_private_stream_workflows() {
+fn bar_private_stream_and_xembed_workflows() {
     suite("bar");
 }
