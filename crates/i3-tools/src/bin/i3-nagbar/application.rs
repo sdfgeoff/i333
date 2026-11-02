@@ -449,15 +449,7 @@ impl NagbarState {
                 })
                 .collect(),
             render: Renderer {
-                bar: surface_t {
-                    id: 0,
-                    gc: 0,
-                    owns_gc: false,
-                    width: 0,
-                    height: 0,
-                    surface: ::core::ptr::null::<cairo_surface_t>() as *mut cairo_surface_t,
-                    cr: ::core::ptr::null::<cairo_t>() as *mut cairo_t,
-                },
+                bar: surface_t::empty(),
                 font: Font::empty(),
                 color_background: color_t {
                     red: 0.,

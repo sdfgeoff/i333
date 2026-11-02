@@ -44,15 +44,6 @@ impl Output {
             tqh_last: ptr::null_mut(),
         });
         trayclient_head.tqh_last = &raw mut trayclient_head.tqh_first;
-        let empty_surface = surface_t {
-            id: 0,
-            gc: 0,
-            owns_gc: false,
-            width: 0,
-            height: 0,
-            surface: ptr::null_mut(),
-            cr: ptr::null_mut(),
-        };
         Self {
             name,
             active: false,
@@ -65,10 +56,10 @@ impl Output {
                 w: 0,
                 h: 0,
             },
-            buffer: empty_surface,
-            statusline_buffer: empty_surface,
+            buffer: surface_t::empty(),
+            statusline_buffer: surface_t::empty(),
             statusline_width: 0,
-            bar: empty_surface,
+            bar: surface_t::empty(),
             workspaces: &raw mut *workspace_head,
             trayclients: &raw mut *trayclient_head,
             slist: OutputLink {

@@ -40,15 +40,7 @@ pub const EXIT_OK: i32 = 0;
 pub const EXIT_CANCEL: i32 = 1;
 pub const EXIT_ERROR: i32 = 2;
 static mut win: u32 = 0;
-static mut surface: surface_t = surface_t {
-    id: 0,
-    gc: 0,
-    owns_gc: false,
-    width: 0,
-    height: 0,
-    surface: ::core::ptr::null::<cairo_surface_t>() as *mut cairo_surface_t,
-    cr: ::core::ptr::null::<cairo_t>() as *mut cairo_t,
-};
+static mut surface: surface_t = surface_t::empty();
 static mut font: Font = Font::empty();
 
 pub static mut root: u32 = 0;

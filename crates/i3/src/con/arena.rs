@@ -43,29 +43,8 @@ struct Arena {
     generation: u64,
 }
 
-impl Drop for Arena {
-    fn drop(&mut self) {
-        // The thread-local graph dies before C atexit releases static display
-        // and visual owners. Walk the owned entries directly: querying the TLS
-        // registry or invoking graph callbacks during its destruction is invalid.
-        for entry in self.entries.values_mut() {
-            let con = entry.storage.get_mut();
-            for surface in [&mut con.frame, &mut con.frame_buffer] {
-                if !surface.surface.is_null() || !surface.cr.is_null() {
-                    // SAFETY: this arena uniquely owns each remaining container
-                    // and its uncleared graphics records; display/visual owners
-                    // are retained until subsequent native atexit cleanup.
-                    unsafe {
-                        i3_common::draw_util::draw_util_surface_free(
-                            crate::application::conn,
-                            surface,
-                        );
-                    }
-                }
-            }
-        }
-    }
-}
+// Surface owners drop with each container, before C atexit releases display
+// and visual owners. Their destructors never consult the TLS arena registry.
 
 impl Arena {
     fn insert(&mut self, con: Con) -> *mut Con {
@@ -231,15 +210,7 @@ mod tests {
             let observer_image = cairo_sys::cairo_surface_reference(image);
             let observer_context = cairo_sys::cairo_reference(context);
             (
-                i3_common::draw_util::surface_t {
-                    id: 0,
-                    gc: 0,
-                    owns_gc: false,
-                    width: 1,
-                    height: 1,
-                    surface: image,
-                    cr: context,
-                },
+                i3_common::draw_util::surface_t::from_raw_cairo(0, 1, 1, image, context),
                 observer_image,
                 observer_context,
             )

@@ -21,7 +21,6 @@ use std::ffi::CStr;
 use xcb::{x, Xid, XidNew};
 type Output = crate::types::xoutput;
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct dialog_t {
     pub id: u32,
@@ -272,8 +271,21 @@ unsafe fn sighandler_create_dialogs() {
     output = outputs.tqh_first as *mut Output;
     while !output.is_null() {
         if (*output).active {
-            let dialog: *mut dialog_t =
-                scalloc(1 as usize, ::core::mem::size_of::<dialog_t>() as usize) as *mut dialog_t;
+            let dialog = Box::into_raw(Box::new(dialog_t {
+                id: 0,
+                colormap: 0,
+                dims: Rect {
+                    x: 0,
+                    y: 0,
+                    width: 0,
+                    height: 0,
+                },
+                surface: surface_t::empty(),
+                dialogs: DialogLinks {
+                    tqe_next: std::ptr::null_mut(),
+                    tqe_prev: std::ptr::null_mut(),
+                },
+            }));
             (*dialog).dialogs.tqe_next = ::core::ptr::null_mut::<dialog_t>();
             (*dialog).dialogs.tqe_prev = dialogs.tqh_last;
             *dialogs.tqh_last = dialog as *mut dialog_t;
@@ -357,7 +369,7 @@ unsafe fn sighandler_destroy_dialogs() {
             dialogs.tqh_last = (*dialog).dialogs.tqe_prev;
         }
         *(*dialog).dialogs.tqe_prev = (*dialog).dialogs.tqe_next;
-        free(dialog as *mut ::core::ffi::c_void);
+        drop(Box::from_raw(dialog));
     }
     if let Some(connection) = i3_common::xcb_connection::borrowed(conn) {
         let _ = connection.flush();

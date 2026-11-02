@@ -356,7 +356,7 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
     let native_visual =
         unsafe { native::xcb_aux_find_visual_by_id(raw_screen, screen.root_visual()) };
     assert!(!native_visual.is_null());
-    let mut surface: i3_common::draw_util::surface_t = unsafe { std::mem::zeroed() };
+    let mut surface = i3_common::draw_util::surface_t::empty();
     unsafe {
         i3_common::draw_util::draw_util_surface_init(
             raw.cast(),
@@ -378,7 +378,7 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
         );
         let native_context = cairo_sys::cairo_create(native_surface);
         assert_eq!(
-            cairo_sys::cairo_status(surface.cr),
+            surface.context_status(),
             cairo_sys::cairo_status(native_context)
         );
         cairo_sys::cairo_destroy(native_context);
@@ -391,6 +391,43 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
             .unwrap();
         i3_common::draw_util::draw_util_surface_free(raw.cast(), &mut surface);
     }
+    // A third-depth/uncached GC has its own lease, unlike the shared cache.
+    // Verify the real server resource is released once while its owner is live.
+    let uncached_gc: x::Gcontext = connection.generate_id();
+    connection
+        .send_and_check_request(&x::CreateGc {
+            cid: uncached_gc,
+            drawable: x::Drawable::Window(root),
+            value_list: &[],
+        })
+        .unwrap();
+    let uncached_owner = unsafe {
+        i3_common::draw_util::OwnedGraphicsContext::from_raw_owned(raw, uncached_gc.resource_id())
+    };
+    connection
+        .send_and_check_request(&x::ChangeGc {
+            gc: uncached_gc,
+            value_list: &[x::Gc::Foreground(1)],
+        })
+        .unwrap();
+    drop(uncached_owner);
+    let freed = connection
+        .send_and_check_request(&x::ChangeGc {
+            gc: uncached_gc,
+            value_list: &[x::Gc::Foreground(2)],
+        })
+        .unwrap_err();
+    assert_eq!(
+        unsafe { (*freed.as_raw()).error_code },
+        13,
+        "uncached GC was freed"
+    );
+    sync(&connection);
+    while connection
+        .poll_for_event()
+        .expect("GC teardown emitted a duplicate FreeGc error")
+        .is_some()
+    {}
     verify_core_font(&connection, root, surface.gc);
     maintained_xcb::utility_probe::verify(connection.clone(), screen_number, root);
     assert_eq!(

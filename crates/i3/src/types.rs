@@ -411,21 +411,12 @@ impl Con {
             width: 0,
             height: 0,
         };
-        let surface = i3_common::draw_util::surface_t {
-            id: 0,
-            gc: 0,
-            owns_gc: false,
-            width: 0,
-            height: 0,
-            surface: null_mut(),
-            cr: null_mut(),
-        };
         Self {
             mapped: false,
             urgent: false,
             ignore_unmap: 0,
-            frame: surface,
-            frame_buffer: surface,
+            frame: i3_common::draw_util::surface_t::empty(),
+            frame_buffer: i3_common::draw_util::surface_t::empty(),
             pixmap_recreated: false,
             type_0: ContainerType::Root,
             num: 0,

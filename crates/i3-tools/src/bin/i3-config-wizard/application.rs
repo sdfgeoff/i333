@@ -77,15 +77,7 @@ static mut font: Font = Font::empty();
 static mut bold_font: Font = Font::empty();
 static mut char_width: ::core::ffi::c_int = 0;
 static mut win: u32 = 0;
-static mut surface: surface_t = surface_t {
-    id: 0,
-    gc: 0,
-    owns_gc: false,
-    width: 0,
-    height: 0,
-    surface: ::core::ptr::null::<cairo_surface_t>() as *mut cairo_surface_t,
-    cr: ::core::ptr::null::<cairo_t>() as *mut cairo_t,
-};
+static mut surface: surface_t = surface_t::empty();
 
 pub static mut root: u32 = 0;
 static mut xkb_keymap: *mut xkb_keymap = ::core::ptr::null::<xkb_keymap>() as *mut xkb_keymap;

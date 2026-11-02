@@ -1,3 +1,4 @@
+#![deny(unsafe_op_in_unsafe_fn)]
 use crate::font::draw_text;
 /*
  * vim:ts=4:sw=4:expandtab
@@ -62,16 +63,141 @@ impl CairoSurface {
     }
 }
 
-#[derive(Copy, Clone)]
-#[repr(C)]
+/// An owned pair of Cairo drawing references for a borrowed server drawable.
+/// Drawable IDs survive `clear` because reconfiguration reuses existing windows
+/// and pixmaps. Clearing releases only the Cairo references and uncached GC.
+/// The server drawable remains the creator's responsibility.
 pub struct surface_t {
     pub id: u32,
     pub gc: u32,
-    pub owns_gc: bool,
-    pub width: ::core::ffi::c_int,
-    pub height: ::core::ffi::c_int,
-    pub surface: *mut cairo_surface_t,
-    pub cr: *mut cairo_t,
+    pub width: i32,
+    pub height: i32,
+    resources: Option<SurfaceResources>,
+}
+
+impl Default for surface_t {
+    fn default() -> Self {
+        Self::empty()
+    }
+}
+impl surface_t {
+    pub const fn empty() -> Self {
+        Self {
+            id: 0,
+            gc: 0,
+            width: 0,
+            height: 0,
+            resources: None,
+        }
+    }
+    pub fn has_resources(&self) -> bool {
+        self.resources.is_some()
+    }
+    pub fn clear(&mut self) {
+        // Drop the detached owner after taking it, making repeated clear safe.
+        drop(self.resources.take());
+    }
+    /// Adopt complete native drawing references, including Cairo error objects.
+    /// # Safety
+    /// Both non-null pointers transfer one live reference; all native display
+    /// and visual lifetimes must cover this record and any derived native refs.
+    #[deny(unsafe_op_in_unsafe_fn)]
+    pub unsafe fn from_raw_cairo(
+        id: u32,
+        width: i32,
+        height: i32,
+        surface: *mut cairo_surface_t,
+        context: *mut cairo_t,
+    ) -> Self {
+        let surface = unsafe { CairoSurface::from_raw_owned(surface) };
+        let context = unsafe { cairo::Context::from_raw_full(context) };
+        Self::from_cairo(id, width, height, surface, context)
+    }
+    pub fn context_status(&self) -> cairo_status_t {
+        self.resources.as_ref().map_or(STATUS_SUCCESS, |resources| {
+            // SAFETY: the native context reference is retained by this record.
+            unsafe { cairo_status(resources.context.to_raw_none()) }
+        })
+    }
+    pub fn from_cairo(
+        id: u32,
+        width: i32,
+        height: i32,
+        surface: CairoSurface,
+        context: cairo::Context,
+    ) -> Self {
+        Self {
+            id,
+            gc: 0,
+            width,
+            height,
+            resources: Some(SurfaceResources {
+                gc: GcLease::Borrowed,
+                surface,
+                context,
+            }),
+        }
+    }
+}
+impl Drop for surface_t {
+    fn drop(&mut self) {
+        self.clear();
+    }
+}
+
+// Cached GCs are borrowed, while a third-depth GC belongs to this surface.
+// Unsafe native initialization requires the connection to remain live through
+// clear/drop, including independent placeholder and emergency connections.
+enum GcLease {
+    Borrowed,
+    Owned(OwnedGraphicsContext),
+}
+
+/// One uncached server GC. Cached GCs are borrowed and never use this owner.
+/// Native/independent connection lifetimes are explicit at the adoption boundary.
+pub struct OwnedGraphicsContext {
+    connection: *mut xcb_connection_t,
+    id: u32,
+}
+impl OwnedGraphicsContext {
+    /// # Safety
+    /// `id` transfers unique ownership of a live GC; `connection` must remain
+    /// live until this owner is dropped. Never adopt a borrowed cache entry.
+    pub unsafe fn from_raw_owned(connection: *mut xcb_connection_t, id: u32) -> Self {
+        Self { connection, id }
+    }
+    pub fn id(&self) -> u32 {
+        self.id
+    }
+}
+impl Drop for OwnedGraphicsContext {
+    fn drop(&mut self) {
+        // SAFETY: adoption requires the caller's display owner to outlive this
+        // resource. The native borrowed view never clones a registry/Rc owner.
+        if let Some(connection) = unsafe { crate::xcb_connection::borrowed(self.connection) } {
+            connection.send_request(&x::FreeGc {
+                gc: x::Gcontext::new(self.id),
+            });
+        }
+    }
+}
+struct SurfaceResources {
+    // Field destruction preserves native order: GC, surface, then context.
+    gc: GcLease,
+    surface: CairoSurface,
+    context: cairo::Context,
+}
+impl Drop for SurfaceResources {
+    fn drop(&mut self) {
+        // SAFETY: this owned Cairo context remains live through field teardown;
+        // preserve numeric native error diagnostics without rejecting the object.
+        unsafe {
+            let status = cairo_status(self.context.to_raw_none());
+            if status != STATUS_SUCCESS {
+                verboselog(c"[libi3] ../libi3/draw_util.c Found cairo context in an error status while freeing, error %d is %s".as_ptr().cast_mut(), status as u32, cairo_status_to_string(status));
+            }
+        }
+    }
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -84,7 +210,7 @@ pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 fn surface_initialized(surface: &surface_t) -> bool {
-    if surface.id == 0 {
+    if surface.id == 0 || surface.resources.is_none() {
         crate::logging::emit(
             crate::logging::Level::Error,
             format!(
@@ -103,53 +229,56 @@ unsafe fn get_gc(
     drawable: u32,
     should_free: *mut bool,
 ) -> u32 {
-    static mut gc_cache: [GraphicsContextCacheEntry; 2] = [
-        GraphicsContextCacheEntry {
-            depth: 0 as u8,
-            gc: 0,
-        },
-        GraphicsContextCacheEntry { depth: 0, gc: 0 },
-    ];
-    *should_free = false;
-    let mut empty_slot = None;
-    for index in 0..2 {
-        if gc_cache[index].depth == depth {
-            return gc_cache[index].gc;
+    // SAFETY: The caller serializes the native GC cache and retains this display for the operation.
+    unsafe {
+        static mut gc_cache: [GraphicsContextCacheEntry; 2] = [
+            GraphicsContextCacheEntry {
+                depth: 0 as u8,
+                gc: 0,
+            },
+            GraphicsContextCacheEntry { depth: 0, gc: 0 },
+        ];
+        *should_free = false;
+        let mut empty_slot = None;
+        for index in 0..2 {
+            if gc_cache[index].depth == depth {
+                return gc_cache[index].gc;
+            }
+            if gc_cache[index].depth == 0 {
+                empty_slot = Some(index);
+                break;
+            }
         }
-        if gc_cache[index].depth == 0 {
-            empty_slot = Some(index);
-            break;
-        }
-    }
-    // The existing display owner remains live through this synchronous request.
-    let Some(connection) = crate::xcb_connection::borrowed(conn) else {
-        return 0;
-    };
-    let gc: x::Gcontext = connection.generate_id();
-    let cookie = connection.send_request_checked(&x::CreateGc {
-        cid: gc,
-        drawable: x::Drawable::Unknown(drawable),
-        value_list: &[],
-    });
-    if let Err(error) = connection.check_request(cookie) {
-        // The maintained error owns its native header. Preserve the native
-        // numeric diagnostic without converting an unknown error into an enum.
-        let code = *error.as_raw().cast::<u8>().add(1);
-        errorlog(
+        // The existing display owner remains live through this synchronous request.
+        let Some(connection) = crate::xcb_connection::borrowed(conn) else {
+            return 0;
+        };
+        let gc: x::Gcontext = connection.generate_id();
+        let cookie = connection.send_request_checked(&x::CreateGc {
+            cid: gc,
+            drawable: x::Drawable::Unknown(drawable),
+            value_list: &[],
+        });
+        if let Err(error) = connection.check_request(cookie) {
+            // The maintained error owns its native header. Preserve the native
+            // numeric diagnostic without converting an unknown error into an enum.
+            let code = *error.as_raw().cast::<u8>().add(1);
+            errorlog(
             c"[libi3] ERROR: Could not create graphical context. Error code: %d. Please report this bug.\n".as_ptr().cast_mut(),
             i32::from(code),
         );
-        return gc.resource_id();
+            return gc.resource_id();
+        }
+        if let Some(index) = empty_slot {
+            gc_cache[index] = GraphicsContextCacheEntry {
+                depth,
+                gc: gc.resource_id(),
+            };
+        } else {
+            *should_free = true;
+        }
+        gc.resource_id()
     }
-    if let Some(index) = empty_slot {
-        gc_cache[index] = GraphicsContextCacheEntry {
-            depth,
-            gc: gc.resource_id(),
-        };
-    } else {
-        *should_free = true;
-    }
-    gc.resource_id()
 }
 
 pub unsafe fn get_visual_depth(visual_id: u32) -> u16 {
@@ -159,7 +288,7 @@ pub unsafe fn get_visual_depth(visual_id: u32) -> u16 {
     let Some(screen_info) = screen else {
         return 0;
     };
-    let Some(connection) = crate::xcb_connection::borrowed(connection.cast()) else {
+    let Some(connection) = (unsafe { crate::xcb_connection::borrowed(connection) }) else {
         return 0;
     };
     // Select the exact registered screen instead of assuming setup screen zero.
@@ -182,139 +311,162 @@ pub unsafe fn get_visual_depth(visual_id: u32) -> u16 {
         .unwrap_or(0)
 }
 
+/// Initialize owned native graphics for a borrowed server drawable.
+///
+/// # Safety
+/// The record must be exclusively accessible; connection and visual owners must
+/// remain live until its graphics are cleared/dropped. This includes independent
+/// and emergency callers, whose connection must never be replaced by a registry.
 pub unsafe fn draw_util_surface_init(
     conn: *mut xcb_connection_t,
     surface: *mut surface_t,
     drawable: u32,
     visual: Option<&crate::display::CairoVisual>,
-    width: ::core::ffi::c_int,
-    height: ::core::ffi::c_int,
+    width: i32,
+    height: i32,
 ) {
+    // SAFETY: the caller supplies exclusive live storage and retained owners.
+    let surface = unsafe { &mut *surface };
+    surface.clear();
     let context = crate::display::context();
-
-    (*surface).id = drawable;
-    (*surface).width = width;
-    (*surface).height = height;
     let visual_id = visual.map_or(context.visual_id, crate::display::CairoVisual::visual_id);
     let visual = visual.map_or(context.visual_type, crate::display::CairoVisual::as_ptr);
-    (*surface).gc = get_gc(
-        conn,
-        get_visual_depth(visual_id) as u8,
-        drawable,
-        &raw mut (*surface).owns_gc,
-    );
-    (*surface).surface =
-        cairo_xcb_surface_create((conn).cast(), (*surface).id, (visual).cast(), width, height);
-    (*surface).cr = cairo_create((*surface).surface);
+    let mut owns_gc = false;
+    let gc = unsafe {
+        get_gc(
+            conn,
+            get_visual_depth(visual_id) as u8,
+            drawable,
+            &mut owns_gc,
+        )
+    };
+    // SAFETY: native constructors return complete references, including error
+    // objects. Both owners deliberately preserve native sticky error status.
+    let target = unsafe {
+        CairoSurface::from_raw_owned(cairo_xcb_surface_create(
+            conn.cast(),
+            drawable,
+            visual,
+            width,
+            height,
+        ))
+    };
+    let cr = unsafe { cairo::Context::from_raw_full(cairo_create(target.as_raw())) };
+    surface.id = drawable;
+    surface.gc = gc;
+    surface.width = width;
+    surface.height = height;
+    surface.resources = Some(SurfaceResources {
+        gc: if owns_gc {
+            GcLease::Owned(unsafe { OwnedGraphicsContext::from_raw_owned(conn, gc) })
+        } else {
+            GcLease::Borrowed
+        },
+        surface: target,
+        context: cr,
+    });
 }
 
-pub unsafe fn draw_util_surface_free(conn: *mut xcb_connection_t, surface: *mut surface_t) {
-    let mut status: cairo_status_t = STATUS_SUCCESS;
-    if !(*surface).cr.is_null() {
-        status = cairo_status((*surface).cr);
-    }
-    if status != STATUS_SUCCESS {
-        verboselog(
-            c"[libi3] ../libi3/draw_util.c Found cairo context in an error status while freeing, error %d is %s".as_ptr().cast_mut(),
-            status as ::core::ffi::c_uint,
-            cairo_status_to_string(status),
-        );
-    }
-    if (*surface).owns_gc {
-        if let Some(connection) = crate::xcb_connection::borrowed(conn) {
-            connection.send_request(&x::FreeGc {
-                gc: x::Gcontext::new((*surface).gc),
-            });
-        }
-    }
-    cairo_surface_destroy((*surface).surface);
-    cairo_destroy((*surface).cr);
-    (*surface).surface = ::core::ptr::null_mut::<cairo_surface_t>();
-    (*surface).cr = ::core::ptr::null_mut::<cairo_t>();
+/// # Safety
+/// `surface` is exclusively accessible live Rust storage. Its display owners
+/// still satisfy the initialization lifetime contract. Repeated clears are safe.
+pub unsafe fn draw_util_surface_free(_conn: *mut xcb_connection_t, surface: *mut surface_t) {
+    unsafe { (&mut *surface).clear() };
 }
 
-pub unsafe fn draw_util_surface_set_size(
-    surface: *mut surface_t,
-    width: ::core::ffi::c_int,
-    height: ::core::ffi::c_int,
-) {
-    (*surface).width = width;
-    (*surface).height = height;
-    cairo_xcb_surface_set_size((*surface).surface, width, height);
+/// # Safety
+/// `surface` is exclusively accessible live Rust storage.
+pub unsafe fn draw_util_surface_set_size(surface: *mut surface_t, width: i32, height: i32) {
+    let surface = unsafe { &mut *surface };
+    surface.width = width;
+    surface.height = height;
+    if let Some(resources) = &surface.resources {
+        // SAFETY: the owner keeps even error surfaces live for the native call.
+        unsafe { cairo_xcb_surface_set_size(resources.surface.as_raw(), width, height) };
+    }
 }
 
 pub unsafe fn draw_util_hex_to_color(color: *const ::core::ffi::c_char) -> color_t {
-    if strlen(color) < 6 as usize
-        || *color.offset(0 as ::core::ffi::c_int as isize) as ::core::ffi::c_int != '#' as i32
-    {
-        errorlog(
-            c"[libi3] ERROR: Could not parse color: %s\n"
-                .as_ptr()
-                .cast_mut(),
-            color,
-        );
-        return draw_util_hex_to_color(c"#A9A9A9".as_ptr());
-    }
-    let mut alpha: [::core::ffi::c_char; 2] = [0; 2];
-    if strlen(color) == strlen(c"#rrggbbaa".as_ptr()) {
-        alpha[0 as ::core::ffi::c_int as usize] = *color.offset(7 as ::core::ffi::c_int as isize);
-        alpha[1 as ::core::ffi::c_int as usize] = *color.offset(8 as ::core::ffi::c_int as isize);
-    } else {
-        alpha[1 as ::core::ffi::c_int as usize] = 'F' as i32 as ::core::ffi::c_char;
-        alpha[0 as ::core::ffi::c_int as usize] = alpha[1 as ::core::ffi::c_int as usize];
-    }
-    let mut groups: [[::core::ffi::c_char; 3]; 4] = [
-        [
-            *color.offset(1 as ::core::ffi::c_int as isize),
-            *color.offset(2 as ::core::ffi::c_int as isize),
-            '\0' as i32 as ::core::ffi::c_char,
-        ],
-        [
-            *color.offset(3 as ::core::ffi::c_int as isize),
-            *color.offset(4 as ::core::ffi::c_int as isize),
-            '\0' as i32 as ::core::ffi::c_char,
-        ],
-        [
-            *color.offset(5 as ::core::ffi::c_int as isize),
-            *color.offset(6 as ::core::ffi::c_int as isize),
-            '\0' as i32 as ::core::ffi::c_char,
-        ],
-        [
-            alpha[0 as ::core::ffi::c_int as usize],
-            alpha[1 as ::core::ffi::c_int as usize],
-            '\0' as i32 as ::core::ffi::c_char,
-        ],
-    ];
-    color_t {
-        red: strtol(
-            &raw mut *(&raw mut groups as *mut [::core::ffi::c_char; 3])
-                .offset(0 as ::core::ffi::c_int as isize) as *mut ::core::ffi::c_char,
-            ::core::ptr::null_mut::<*mut ::core::ffi::c_char>(),
-            16 as ::core::ffi::c_int,
-        ) as ::core::ffi::c_double
-            / 255.0f64,
-        green: strtol(
-            &raw mut *(&raw mut groups as *mut [::core::ffi::c_char; 3])
-                .offset(1 as ::core::ffi::c_int as isize) as *mut ::core::ffi::c_char,
-            ::core::ptr::null_mut::<*mut ::core::ffi::c_char>(),
-            16 as ::core::ffi::c_int,
-        ) as ::core::ffi::c_double
-            / 255.0f64,
-        blue: strtol(
-            &raw mut *(&raw mut groups as *mut [::core::ffi::c_char; 3])
-                .offset(2 as ::core::ffi::c_int as isize) as *mut ::core::ffi::c_char,
-            ::core::ptr::null_mut::<*mut ::core::ffi::c_char>(),
-            16 as ::core::ffi::c_int,
-        ) as ::core::ffi::c_double
-            / 255.0f64,
-        alpha: strtol(
-            &raw mut *(&raw mut groups as *mut [::core::ffi::c_char; 3])
-                .offset(3 as ::core::ffi::c_int as isize) as *mut ::core::ffi::c_char,
-            ::core::ptr::null_mut::<*mut ::core::ffi::c_char>(),
-            16 as ::core::ffi::c_int,
-        ) as ::core::ffi::c_double
-            / 255.0f64,
-        colorpixel: get_colorpixel(color),
+    // SAFETY: The caller supplies a live NUL-terminated native color string, including its terminator.
+    unsafe {
+        if strlen(color) < 6 as usize
+            || *color.offset(0 as ::core::ffi::c_int as isize) as ::core::ffi::c_int != '#' as i32
+        {
+            errorlog(
+                c"[libi3] ERROR: Could not parse color: %s\n"
+                    .as_ptr()
+                    .cast_mut(),
+                color,
+            );
+            return draw_util_hex_to_color(c"#A9A9A9".as_ptr());
+        }
+        let mut alpha: [::core::ffi::c_char; 2] = [0; 2];
+        if strlen(color) == strlen(c"#rrggbbaa".as_ptr()) {
+            alpha[0 as ::core::ffi::c_int as usize] =
+                *color.offset(7 as ::core::ffi::c_int as isize);
+            alpha[1 as ::core::ffi::c_int as usize] =
+                *color.offset(8 as ::core::ffi::c_int as isize);
+        } else {
+            alpha[1 as ::core::ffi::c_int as usize] = 'F' as i32 as ::core::ffi::c_char;
+            alpha[0 as ::core::ffi::c_int as usize] = alpha[1 as ::core::ffi::c_int as usize];
+        }
+        let mut groups: [[::core::ffi::c_char; 3]; 4] = [
+            [
+                *color.offset(1 as ::core::ffi::c_int as isize),
+                *color.offset(2 as ::core::ffi::c_int as isize),
+                '\0' as i32 as ::core::ffi::c_char,
+            ],
+            [
+                *color.offset(3 as ::core::ffi::c_int as isize),
+                *color.offset(4 as ::core::ffi::c_int as isize),
+                '\0' as i32 as ::core::ffi::c_char,
+            ],
+            [
+                *color.offset(5 as ::core::ffi::c_int as isize),
+                *color.offset(6 as ::core::ffi::c_int as isize),
+                '\0' as i32 as ::core::ffi::c_char,
+            ],
+            [
+                alpha[0 as ::core::ffi::c_int as usize],
+                alpha[1 as ::core::ffi::c_int as usize],
+                '\0' as i32 as ::core::ffi::c_char,
+            ],
+        ];
+        color_t {
+            red: strtol(
+                &raw mut *(&raw mut groups as *mut [::core::ffi::c_char; 3])
+                    .offset(0 as ::core::ffi::c_int as isize)
+                    as *mut ::core::ffi::c_char,
+                ::core::ptr::null_mut::<*mut ::core::ffi::c_char>(),
+                16 as ::core::ffi::c_int,
+            ) as ::core::ffi::c_double
+                / 255.0f64,
+            green: strtol(
+                &raw mut *(&raw mut groups as *mut [::core::ffi::c_char; 3])
+                    .offset(1 as ::core::ffi::c_int as isize)
+                    as *mut ::core::ffi::c_char,
+                ::core::ptr::null_mut::<*mut ::core::ffi::c_char>(),
+                16 as ::core::ffi::c_int,
+            ) as ::core::ffi::c_double
+                / 255.0f64,
+            blue: strtol(
+                &raw mut *(&raw mut groups as *mut [::core::ffi::c_char; 3])
+                    .offset(2 as ::core::ffi::c_int as isize)
+                    as *mut ::core::ffi::c_char,
+                ::core::ptr::null_mut::<*mut ::core::ffi::c_char>(),
+                16 as ::core::ffi::c_int,
+            ) as ::core::ffi::c_double
+                / 255.0f64,
+            alpha: strtol(
+                &raw mut *(&raw mut groups as *mut [::core::ffi::c_char; 3])
+                    .offset(3 as ::core::ffi::c_int as isize)
+                    as *mut ::core::ffi::c_char,
+                ::core::ptr::null_mut::<*mut ::core::ffi::c_char>(),
+                16 as ::core::ffi::c_int,
+            ) as ::core::ffi::c_double
+                / 255.0f64,
+            colorpixel: get_colorpixel(color),
+        }
     }
 }
 // These helpers work with real borrowed cairo-rs objects. The legacy surface
@@ -351,7 +503,7 @@ pub unsafe fn draw_util_text(
     }
     // SAFETY: an initialized record holds a live non-null surface. This wrapper
     // borrows its reference, including error surfaces, and never outlives it.
-    let target = unsafe { cairo::Surface::from_raw_borrow(surface.surface) };
+    let target = surface.resources.as_ref().unwrap().surface.as_surface();
     flush_twice(&target);
     // SAFETY: text, font, drawable and GC validity are the caller's contract.
     unsafe {
@@ -360,7 +512,7 @@ pub unsafe fn draw_util_text(
             text,
             surface.id,
             surface.gc,
-            surface.surface,
+            surface.resources.as_ref().unwrap().surface.as_raw(),
             fg_color,
             bg_color,
             x,
@@ -390,7 +542,7 @@ pub unsafe fn draw_util_image(
     }
     // SAFETY: both pointers remain live, including native error objects. Borrowed
     // wrappers neither take ownership nor reject the native sticky error status.
-    let context = unsafe { cairo::Context::from_raw_borrow(surface.cr) };
+    let context = &surface.resources.as_ref().unwrap().context;
     let image_surface = unsafe { cairo::Surface::from_raw_borrow(image) };
     let _ = context.save();
     context.translate(x.into(), y.into());
@@ -454,8 +606,8 @@ pub unsafe fn draw_util_rectangle(
     }
     // SAFETY: both initialized object pointers remain live until these borrowed
     // wrappers leave scope. Their original reference counts are unchanged.
-    let context = unsafe { cairo::Context::from_raw_borrow(surface.cr) };
-    let target = unsafe { cairo::Surface::from_raw_borrow(surface.surface) };
+    let context = &surface.resources.as_ref().unwrap().context;
+    let target = surface.resources.as_ref().unwrap().surface.as_surface();
     rectangle(&context, &target, color, x, y, w, h);
 }
 
@@ -479,8 +631,8 @@ pub unsafe fn draw_util_clear_surface(surface: *mut surface_t, color: color_t) {
         return;
     }
     // SAFETY: wrappers borrow live native objects without taking their references.
-    let context = unsafe { cairo::Context::from_raw_borrow(surface.cr) };
-    let target = unsafe { cairo::Surface::from_raw_borrow(surface.surface) };
+    let context = &surface.resources.as_ref().unwrap().context;
+    let target = surface.resources.as_ref().unwrap().surface.as_surface();
     clear(&context, &target, color);
 }
 
@@ -525,9 +677,9 @@ pub unsafe fn draw_util_copy_surface(
         return;
     }
     // SAFETY: each pointer is live for these local, non-owning Cairo borrows.
-    let context = unsafe { cairo::Context::from_raw_borrow(dest.cr) };
-    let source = unsafe { cairo::Surface::from_raw_borrow(src.surface) };
-    let target = unsafe { cairo::Surface::from_raw_borrow(dest.surface) };
+    let context = &dest.resources.as_ref().unwrap().context;
+    let source = src.resources.as_ref().unwrap().surface.as_surface();
+    let target = dest.resources.as_ref().unwrap().surface.as_surface();
     copy_surface(
         &source, &target, &context, src_x, src_y, dest_x, dest_y, width, height,
     );
@@ -560,6 +712,40 @@ mod drawing_tests {
     use cairo::{Context, Format, ImageSurface, Operator};
 
     #[test]
+    fn surface_clear_and_drop_release_each_reference_once_and_keep_drawable_identity() {
+        let image = ImageSurface::create(Format::ARgb32, 1, 1).unwrap();
+        let context = Context::new(&image).unwrap();
+        let before = unsafe {
+            (
+                cairo_sys::cairo_get_reference_count(context.to_raw_none()),
+                cairo_sys::cairo_surface_get_reference_count(image.to_raw_none()),
+            )
+        };
+        let mut owned = record(&image, &context);
+        owned.id = 73;
+        owned.gc = 19;
+        assert!(owned.has_resources());
+        owned.clear();
+        assert!(!owned.has_resources());
+        assert_eq!(
+            (owned.id, owned.gc, owned.width, owned.height),
+            (73, 19, 1, 1)
+        );
+        owned.clear();
+        drop(owned);
+        unsafe {
+            assert_eq!(
+                cairo_sys::cairo_get_reference_count(context.to_raw_none()),
+                before.0
+            );
+            assert_eq!(
+                cairo_sys::cairo_surface_get_reference_count(image.to_raw_none()),
+                before.1
+            );
+        }
+    }
+
+    #[test]
     fn owned_native_surface_releases_exactly_one_reference_and_keeps_error_objects() {
         unsafe {
             let raw = cairo_sys::cairo_image_surface_create(cairo_sys::FORMAT_A_RGB32, 1, 1);
@@ -590,18 +776,14 @@ mod drawing_tests {
         }
     }
 
-    // This record only borrows the test's owning Cairo objects; it is never
-    // passed to the legacy ownership-transfer/free functions.
     fn record(image: &ImageSurface, context: &Context) -> surface_t {
-        surface_t {
-            id: 1,
-            gc: 0,
-            owns_gc: false,
-            width: image.width(),
-            height: image.height(),
-            surface: image.to_raw_none(),
-            cr: context.to_raw_none(),
-        }
+        surface_t::from_cairo(
+            1,
+            image.width(),
+            image.height(),
+            CairoSurface::from_surface(image.as_ref().clone()),
+            context.clone(),
+        )
     }
 
     fn pixel(image: &ImageSurface, x: usize, y: usize) -> u32 {
@@ -725,15 +907,13 @@ mod drawing_tests {
         // when the target has an error. This owning wrapper preserves that error.
         let context =
             unsafe { Context::from_raw_full(cairo_sys::cairo_create(surface.to_raw_none())) };
-        let mut raw = surface_t {
-            id: 1,
-            gc: 0,
-            owns_gc: false,
-            width: -1,
-            height: -1,
-            surface: surface.to_raw_none(),
-            cr: context.to_raw_none(),
-        };
+        let mut raw = surface_t::from_cairo(
+            1,
+            -1,
+            -1,
+            CairoSurface::from_surface(surface.clone()),
+            context.clone(),
+        );
         let before = context.status();
         assert!(before.is_err());
         // SAFETY: non-null native error objects remain live and support drawing
@@ -746,8 +926,7 @@ mod drawing_tests {
         }
         assert_eq!(context.status(), before);
         raw.id = 0;
-        raw.surface = std::ptr::null_mut();
-        raw.cr = std::ptr::null_mut();
+        raw.clear();
         // SAFETY: the zero id guard permits uninitialized null Cairo fields and
         // skips drawing before attempting any native wrapper construction.
         unsafe { draw_util_clear_surface(&mut raw, color(0.0, 0.0, 0.0, 0.0)) };

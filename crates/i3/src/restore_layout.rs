@@ -16,7 +16,6 @@ use xcb::{x, Xid, XidNew};
 const true_0: i32 = 1;
 const false_0: i32 = 0;
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct placeholder_state {
     pub window: u32,
@@ -178,7 +177,7 @@ pub unsafe fn restore_shutdown() {
             }
             *(*state).state.tqe_prev = (*state).state.tqe_next;
             draw_util_surface_free(restore_conn, &raw mut (*state).surface);
-            free(state as *mut ::core::ffi::c_void);
+            drop(Box::from_raw(state));
         }
         restore_conn = std::ptr::null_mut();
         drop(RESTORE_VISUAL.take());
@@ -338,13 +337,16 @@ unsafe fn open_placeholder_window(con: *mut Con) {
             con,
             (*con).name,
         );
-        let state: *mut placeholder_state = scalloc(
-            1 as usize,
-            ::core::mem::size_of::<placeholder_state>() as usize,
-        ) as *mut placeholder_state;
-        (*state).window = placeholder;
-        (*state).con = con;
-        (*state).rect = (*con).rect as Rect;
+        let state = Box::into_raw(Box::new(placeholder_state {
+            window: placeholder,
+            con,
+            rect: (*con).rect,
+            surface: surface_t::empty(),
+            state: PlaceholderLinks {
+                tqe_next: std::ptr::null_mut(),
+                tqe_prev: std::ptr::null_mut(),
+            },
+        }));
         draw_util_surface_init(
             restore_conn,
             &raw mut (*state).surface,
@@ -419,7 +421,7 @@ pub unsafe fn restore_kill_placeholder(placeholder: u32) -> bool {
                 state_head.tqh_last = (*state).state.tqe_prev;
             }
             *(*state).state.tqe_prev = (*state).state.tqe_next;
-            free(state as *mut ::core::ffi::c_void);
+            drop(Box::from_raw(state));
             debuglog(
                 c"%s:%s:%d - placeholder window 0x%08x destroyed.\n"
                     .as_ptr()
