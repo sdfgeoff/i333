@@ -8,26 +8,26 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 27 wallclock secs ( 0.75 usr +  0.09 sys =  0.84 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 31 wallclock secs ( 0.96 usr +  0.08 sys =  1.04 CPU)\nResult: PASS",
     "profile": "debug",
     "build": "cargo test --locked",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "28ba01b9ead6de6e4cfb5691096fae328f3f6a63260374cacee8919254d8a374",
-    "i3bar": "32c0b3b12a16f131d693d110e2aee5c1333048681137864fe19770c6276f43c1",
-    "i3-config-wizard": "3509a5986385c090ddad9f4174f979a10d8031b77de2d8759664bd645867e4f9",
-    "i3-dump-log": "67e0c3d82fcd86b12e976ec3886dad33a3ffea2c924afc3a008ec36c17fd2a2b",
-    "i3-input": "f00359fc90ad33ff3a91f9eb0929f125817692a84c9bd146c0cec41cbf1f5f3a",
-    "i3-msg": "3b2a20189333dda0cbbef6d7dacfe878c1cf33b105c53020075305fb402065a3",
-    "i3-nagbar": "3104cf181047a852b5792d16c802821a6b9807def67624fb550db25d5438d61b"
+    "i3": "60659df2ed4b852528a1f75eb62b1e0d7e69166dccec7fb0edc243938c3d1e50",
+    "i3bar": "2075e676e053b8fe64af7127da2c47fab77988cfd73935505edf844fe8fc9f82",
+    "i3-config-wizard": "5ac7725788b563cd0e9bacb3b4e2285f88a669486f209d8d594d94dc53dbfb6f",
+    "i3-dump-log": "4f2bb8a89f4f337fc092c654985b31b72f3dfb03e20acc56068838e2ec50a1ed",
+    "i3-input": "706c71e04bdea92b96f40bec8a725febbb949be3cc05cf96bb08e25591f53914",
+    "i3-msg": "84d6e5f55eeb1644285cbad2b1cfdd3bb563a14c4e291be16b3776297638de88",
+    "i3-nagbar": "ae534a2b8ec09b2d743c63cbd8956ae71b28f9c5ee1a1ac406eb14f2f1966825"
   },
-  "note": "Nine-member Cargo workspace. cargo test --locked passed 393 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
+  "note": "Nine-member Cargo workspace. cargo test --locked passed 396 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
   "additional_checks": {
     "headless_c_rust_state_comparisons": 54,
     "ipc_client_test_groups": 16,
-    "workspace_unit_tests": 393,
+    "workspace_unit_tests": 396,
     "core_and_bar_cli_comparisons": 39,
     "pcre2_compile_match_error_comparisons": 4620,
     "json_oracle_cases": 2263,
@@ -77,9 +77,9 @@
     "compile_only": true,
     "all_unit_and_integration_test_targets_compiled": true,
     "automatic_after_each_source_edit": false,
-    "last_verification_environment": "Local fresh source and target directories, compiler/generator guards, all binary/unit/integration targets compiled; include-time JSON fixture packaged.",
+    "last_verification_environment": "Local fresh source and target directories with compiler/generator guards; maintained XCB extension features; all binary/unit/integration targets compiled.",
     "last_verified_batch": 9,
-    "last_verified_commit": "9edfc994",
+    "last_verified_commit": "520166f0",
     "last_verified_ownership_checkpoint": 2
   },
   "repository_cleanup": {
@@ -115,7 +115,7 @@
     "binary_count": 7,
     "native_library_discovery": "maintained native binding build scripts and dedicated sys crates; i3-build links only platform m/rt",
     "unit_tests": {
-      "i3": 204,
+      "i3": 207,
       "cargo_regression_wrappers": 8,
       "xkb_integration": 1,
       "i3-build": 3,
@@ -136,12 +136,12 @@
     "cargo_fmt_check": true,
     "debug_build": true,
     "release_build": true,
-    "unit_tests_total_including_integration_checks": 393,
+    "unit_tests_total_including_integration_checks": 396,
     "test_command": "cargo test",
     "clean_source_command": "cargo test -p i3-test-support --features clean-source-check",
     "test_support": "development-only process capture, failure propagation and isolated regression orchestration",
-    "release_build_note": "Prior ownership code checkpoint9e04d02a passed Ubuntu CI formatting, complete regression suite and release build. Anonymous type-name cleanup additionally passes current full local Cargo validation; changes are mechanically verified identifier substitutions.",
-    "last_release_build_verified_commit": "9e04d02a5c039a560d6eaff0b76515bbc7ca109c",
+    "release_build_note": "Serde and first maintained XCB checkpoint bc42514e passed Ubuntu CI formatting, complete regression suite, clean-source isolation and release build. Current connection lifecycle checkpoint additionally passed local full Cargo validation.",
+    "last_release_build_verified_commit": "bc42514e821b211fe8f4b5916c7b822fae6240c9",
     "rust_source_files": 142
   },
   "modernization": {
@@ -2186,6 +2186,15 @@
         "rust_tests": 393,
         "upstream_assertions": 4205,
         "status": "validated"
+      },
+      {
+        "stage": 3,
+        "scope": "Maintained owned main connection/events and standalone tool connections; shared weak registry with guard owning Rc; passive EWMH/sync/cursor requests and owned Xinerama replies.",
+        "unknown_native_events": "Extension resolver metadata omitted so unknown extension opcodes/subtypes remain owned unknown events; synchronous legacy handlers borrow buffers temporarily.",
+        "lifecycle_regression": "Fixed TLS-before-C-atexit lifetime ordering; real process::exit private probe checks live registry/connection after TLS destruction and explicit guard cleanup.",
+        "rust_tests": 396,
+        "upstream_assertions": 4205,
+        "status": "validated"
       }
     ],
     "serde_json_checkpoint": {
@@ -2209,8 +2218,8 @@
     "subsequent_failure": "d6401e98 CI dependency preparation passed; formatting failed because direct rustfmt used edition2024 rather than workspace edition2021. Scoped import formatting corrected in batch4."
   },
   "last_observed_green_ci": {
-    "commit": "20ea57815f0e2f66a52a4bc8154680da5e49ac94",
-    "url": "https://github.com/sdfgeoff/i333/actions/runs/41386745323",
+    "commit": "bc42514e821b211fe8f4b5916c7b822fae6240c9",
+    "url": "https://github.com/sdfgeoff/i333/actions/runs/41395368276",
     "conclusion": "success"
   },
   "ci_diagnostics": {
