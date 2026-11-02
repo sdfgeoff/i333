@@ -1,8 +1,7 @@
 use i3_common::draw_util::draw_util_hex_to_color;
 use i3_common::draw_util::draw_util_rectangle;
-use i3_common::draw_util::draw_util_surface_free;
-use i3_common::draw_util::draw_util_surface_init;
 use i3_common::draw_util::draw_util_text;
+use i3_common::draw_util::RenderingContext;
 use i3_common::font::load_font;
 use i3_common::font::predict_text_width;
 use i3_common::string::I3String;
@@ -480,6 +479,7 @@ const INPUT_OPTIONS: &[i3_common::cli::OptionSpec] = &[
 struct WindowResources {
     _registration: i3_common::display::DisplayConnection,
     connection: Rc<xcb::Connection>,
+    rendering: Option<Rc<RenderingContext>>,
     symbols: Option<KeySymbols>,
     has_font: bool,
     has_surface: bool,
@@ -491,12 +491,15 @@ impl Drop for WindowResources {
         // destruction still needs the live connection and display globals.
         unsafe {
             if self.has_surface {
-                draw_util_surface_free(self.connection.get_raw_conn().cast(), &raw mut surface);
+                surface.clear();
             }
             if self.has_font {
                 font = Font::empty();
             }
             drop(self.symbols.take());
+            drop(self.rendering.take());
+            // Keep input's original connection-owned window destruction; no
+            // additional DestroyWindow request is introduced here.
             root_screen = None;
             visual_type = std::ptr::null_mut();
             root = 0;
@@ -526,6 +529,7 @@ unsafe fn run_window(settings: InputSettings) -> ::core::ffi::c_int {
     let mut resources = WindowResources {
         _registration: registration,
         connection,
+        rendering: None,
         symbols: None,
         has_font: false,
         has_surface: false,
@@ -539,6 +543,12 @@ unsafe fn run_window(settings: InputSettings) -> ::core::ffi::c_int {
         .expect("initialized display screen")
         .info();
     root = screen_info.root;
+    resources.rendering = Some(RenderingContext::new(
+        root_screen
+            .as_ref()
+            .expect("initialized display screen")
+            .clone(),
+    ));
     visual_type = i3_common::display::visual(screen_info.root_visual)
         .expect("root Cairo visual")
         .as_ptr();
@@ -586,11 +596,17 @@ unsafe fn run_window(settings: InputSettings) -> ::core::ffi::c_int {
         ],
     });
     connection.send_request(&x::MapWindow { window });
-    draw_util_surface_init(
-        conn,
-        &raw mut surface,
+    let rendering = resources
+        .rendering
+        .as_ref()
+        .expect("session rendering context");
+    let visual = rendering
+        .visual(rendering.screen().info().root_visual)
+        .expect("root visual belongs to the selected screen");
+    surface = surface_t::for_drawable(
+        rendering.clone(),
         win as u32,
-        None,
+        visual,
         win_pos.width as ::core::ffi::c_int,
         win_pos.height as ::core::ffi::c_int,
     );

@@ -1,8 +1,7 @@
 use i3_common::draw_util::draw_util_clear_surface;
 use i3_common::draw_util::draw_util_hex_to_color;
-use i3_common::draw_util::draw_util_surface_free;
-use i3_common::draw_util::draw_util_surface_init;
 use i3_common::draw_util::draw_util_text;
+use i3_common::draw_util::{OwnedWindow, RenderingContext};
 use i3_common::font::load_font;
 use i3_common::font::predict_text_width;
 use i3_common::mkdirp::mkdirp;
@@ -4423,8 +4422,8 @@ fn clicked_modifier(
     }
 }
 
-// Session ownership for the native renderer globals. Fonts remain at static
-// stable addresses because the shared backend borrows the selected Font POD.
+// Session ownership keeps fonts, graphics and leaf-window teardown explicit.
+// Rendering borrows each owning font directly; no selected-font POD is stored.
 struct StartupContext(*mut SnLauncheeContext);
 impl Drop for StartupContext {
     fn drop(&mut self) {
@@ -4438,6 +4437,8 @@ impl Drop for StartupContext {
 struct WizardResources {
     _registration: i3_common::display::DisplayConnection,
     connection: Rc<xcb::Connection>,
+    rendering: Option<Rc<RenderingContext>>,
+    window_owner: Option<OwnedWindow>,
     keysyms: Option<KeySymbols>,
     symbols: Option<KeySymbols>,
     fonts: bool,
@@ -4450,7 +4451,7 @@ impl Drop for WizardResources {
         // borrows and closing this session's uniquely owned connection.
         unsafe {
             if self.surface {
-                draw_util_surface_free(self.connection.get_raw_conn().cast(), &raw mut surface);
+                surface.clear();
             }
             if self.fonts {
                 bold_font = Font::empty();
@@ -4462,12 +4463,13 @@ impl Drop for WizardResources {
             }
             drop(self.symbols.take());
             drop(self.keysyms.take());
-            if win != 0 {
-                self.connection.send_request(&x::DestroyWindow {
-                    window: x::Window::new(win),
-                });
-                win = 0;
+            if let Some(window) = self.window_owner.as_mut() {
+                window.close();
             }
+            drop(self.window_owner.take());
+            win = 0;
+            // Surface and key/font users are gone before cached GCs.
+            drop(self.rendering.take());
             root_screen = None;
             visual_type = std::ptr::null_mut();
             root = 0;
@@ -5005,6 +5007,8 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
     let mut resources = WizardResources {
         _registration: registration,
         connection: connection.clone(),
+        rendering: None,
+        window_owner: None,
         keysyms: None,
         symbols: None,
         fonts: false,
@@ -5074,6 +5078,12 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
         .expect("initialized display screen")
         .info();
     root = screen_info.root;
+    resources.rendering = Some(RenderingContext::new(
+        root_screen
+            .as_ref()
+            .expect("initialized display screen")
+            .clone(),
+    ));
     visual_type = i3_common::display::visual(screen_info.root_visual)
         .expect("root Cairo visual")
         .as_ptr();
@@ -5131,6 +5141,9 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
             x::Cw::EventMask(x::EventMask::EXPOSURE | x::EventMask::BUTTON_PRESS),
         ],
     });
+    // Unique leaf XID; preserve the unchecked create/error route and the exact
+    // former explicit close position in the session destructor.
+    resources.window_owner = Some(OwnedWindow::from_created(connection.clone(), window));
     if !sncontext.is_null() {
         sn_launchee_context_setup_window(sncontext, win as libc::c_ulong);
     }
@@ -5156,11 +5169,17 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
         r#type: utf8,
         data: b"i3: first configuration",
     });
-    draw_util_surface_init(
-        conn,
-        &raw mut surface,
+    let rendering = resources
+        .rendering
+        .as_ref()
+        .expect("session rendering context");
+    let visual = rendering
+        .visual(rendering.screen().info().root_visual)
+        .expect("root visual belongs to the selected screen");
+    surface = surface_t::for_drawable(
+        rendering.clone(),
         win as u32,
-        None,
+        visual,
         logical_px(300 as ::core::ffi::c_int),
         15 as ::core::ffi::c_int * font.height + logical_px(4 as ::core::ffi::c_int),
     );

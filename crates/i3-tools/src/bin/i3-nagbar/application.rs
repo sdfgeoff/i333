@@ -1,10 +1,9 @@
 use i3_common::draw_util::draw_util_clear_surface;
 use i3_common::draw_util::draw_util_hex_to_color;
 use i3_common::draw_util::draw_util_rectangle;
-use i3_common::draw_util::draw_util_surface_free;
-use i3_common::draw_util::draw_util_surface_init;
 use i3_common::draw_util::draw_util_surface_set_size;
 use i3_common::draw_util::draw_util_text;
+use i3_common::draw_util::{OwnedWindow, RenderingContext};
 use i3_common::font::load_font;
 use i3_common::font::predict_text_width;
 use i3_common::string::I3String;
@@ -418,6 +417,8 @@ struct NagbarState {
     render: Renderer,
     registration: Option<i3_common::display::DisplayConnection>,
     connection: Option<Rc<xcb::Connection>>,
+    rendering: Option<Rc<RenderingContext>>,
+    window_owner: Option<OwnedWindow>,
     window: u32,
     has_font: bool,
     has_surface: bool,
@@ -489,6 +490,8 @@ impl NagbarState {
             },
             registration: None,
             connection: None,
+            rendering: None,
+            window_owner: None,
             window: 0,
             has_font: false,
             has_surface: false,
@@ -503,16 +506,18 @@ impl Drop for NagbarState {
         unsafe {
             if let Some(connection) = self.connection.as_ref() {
                 if self.has_surface {
-                    draw_util_surface_free(connection.get_raw_conn().cast(), &mut self.render.bar);
+                    self.render.bar.clear();
                 }
                 if self.has_font {
                     self.render.font = Font::empty();
                 }
-                if self.window != 0 {
-                    connection.send_request(&x::DestroyWindow {
-                        window: x::Window::new(self.window),
-                    });
+                if let Some(window) = self.window_owner.as_mut() {
+                    window.close();
                 }
+                drop(self.window_owner.take());
+                self.window = 0;
+                // Cairo/font references are gone before cache GC owners.
+                drop(self.rendering.take());
                 root_screen = None;
                 visual_type = std::ptr::null_mut();
                 root = 0;
@@ -587,6 +592,12 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
         .expect("initialized display screen")
         .info();
     root = screen_info.root;
+    state.rendering = Some(RenderingContext::new(
+        root_screen
+            .as_ref()
+            .expect("initialized display screen")
+            .clone(),
+    ));
     visual_type = i3_common::display::visual(screen_info.root_visual)
         .expect("root Cairo visual")
         .as_ptr();
@@ -660,6 +671,9 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
             x::Cw::Cursor(cursor),
         ],
     });
+    // Unique leaf XID; preserve the unchecked create/error route and the exact
+    // former explicit close position in the session destructor.
+    state.window_owner = Some(OwnedWindow::from_created(connection.clone(), window));
     connection.send_request(&x::FreeCursor { cursor });
     if !sncontext.is_null() {
         sn_launchee_context_setup_window(sncontext, state.window as libc::c_ulong);
@@ -693,11 +707,14 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
         r#type: cardinal,
         data: &strut_partial,
     });
-    draw_util_surface_init(
-        conn,
-        &mut state.render.bar,
+    let rendering = state.rendering.as_ref().expect("session rendering context");
+    let visual = rendering
+        .visual(rendering.screen().info().root_visual)
+        .expect("root visual belongs to the selected screen");
+    state.render.bar = surface_t::for_drawable(
+        rendering.clone(),
         state.window as u32,
-        None,
+        visual,
         win_pos.width as ::core::ffi::c_int,
         win_pos.height as ::core::ffi::c_int,
     );
