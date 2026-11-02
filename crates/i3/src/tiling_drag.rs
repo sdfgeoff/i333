@@ -244,22 +244,18 @@ unsafe fn drag_callback(
     *(*params).drop_type = drop_type;
 }
 unsafe fn create_drop_indicator(rect: Rect) -> x::Window {
-    let mut mask: u32 = 0 as u32;
-    let mut values: [u32; 2] = [0; 2];
-    mask = XCB_CW_BACK_PIXEL as i32 as u32;
-    values[0 as usize] = config.client.focused.indicator.colorpixel;
-    mask |= XCB_CW_OVERRIDE_REDIRECT as i32 as u32;
-    values[1 as usize] = 1 as u32;
     let indicator = x::Window::new(create_window(
-        conn,
+        &connection(),
         rect,
-        XCB_COPY_FROM_PARENT as u16,
-        XCB_COPY_FROM_PARENT as xcb_visualid_t,
-        XCB_WINDOW_CLASS_INPUT_OUTPUT as i32 as u16,
+        0,
+        0,
+        x::WindowClass::InputOutput,
         Cursor::Move,
         false,
-        mask,
-        &raw mut values as *mut u32,
+        &[
+            x::Cw::BackPixel(config.client.focused.indicator.colorpixel),
+            x::Cw::OverrideRedirect(true),
+        ],
     ));
     connection().send_request(&x::ChangeProperty {
         mode: x::PropMode::Replace,

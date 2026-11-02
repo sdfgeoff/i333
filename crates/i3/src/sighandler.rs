@@ -221,12 +221,13 @@ fn dialog_geometry(output: Rect, width: i32, height: i32) -> Rect {
         height: height as u32,
     }
 }
-fn dialog_attributes(black: u32, colormap: u32) -> (u32, [u32; 4]) {
-    (
-        (XCB_CW_BACK_PIXEL | XCB_CW_BORDER_PIXEL | XCB_CW_OVERRIDE_REDIRECT | XCB_CW_COLORMAP)
-            as u32,
-        [black, black, 1, colormap],
-    )
+fn dialog_attributes(black: u32, colormap: u32) -> [x::Cw; 4] {
+    [
+        x::Cw::BackPixel(black),
+        x::Cw::BorderPixel(black),
+        x::Cw::OverrideRedirect(true),
+        x::Cw::Colormap(unsafe { x::Colormap::new(colormap) }),
+    ]
 }
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum CrashAction {
@@ -279,19 +280,17 @@ unsafe fn sighandler_create_dialogs() {
                 window: x::Window::new(root),
                 visual,
             });
-            let (mask, mut values) =
-                dialog_attributes((*root_screen).black_pixel, (*dialog).colormap);
+            let values = dialog_attributes((*root_screen).black_pixel, (*dialog).colormap);
             (*dialog).dims = dialog_geometry((*output).rect, dialog_width, dialog_height);
             (*dialog).id = create_window(
-                conn,
+                &connection,
                 (*dialog).dims,
-                root_depth as u16,
+                root_depth,
                 visual,
-                XCB_WINDOW_CLASS_INPUT_OUTPUT as ::core::ffi::c_int as u16,
+                x::WindowClass::InputOutput,
                 Cursor::Pointer,
-                true_0 != 0,
-                mask,
-                &raw mut values as *mut u32,
+                true,
+                &values,
             );
             draw_util_surface_init(
                 conn,
@@ -630,7 +629,9 @@ mod tests {
             10,
         );
         assert_eq!((r.x, r.y, r.width, r.height), (7, 17, 8, 10));
-        assert_eq!(dialog_attributes(4, 7).1, [4, 4, 1, 7]);
+        assert!(
+            matches!(dialog_attributes(4, 7), [x::Cw::BackPixel(4), x::Cw::BorderPixel(4), x::Cw::OverrideRedirect(true), x::Cw::Colormap(id)] if id.resource_id() == 7)
+        );
         assert_eq!(crash_action(b'b' as u32), Some(CrashAction::Backtrace));
         assert_eq!(crash_action(b'B' as u32), None);
         assert_eq!(backtrace_color(-1), c"#AA0000");

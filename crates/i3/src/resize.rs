@@ -340,20 +340,15 @@ pub unsafe fn resize_graphical_handler(
     );
     x_mask_event_mask(!(XCB_EVENT_MASK_ENTER_WINDOW as i32) as u32);
     let _ = connection().flush();
-    let mut mask: u32 = 0 as u32;
-    let mut values: [u32; 2] = [0; 2];
-    mask = XCB_CW_OVERRIDE_REDIRECT as i32 as u32;
-    values[0] = 1 as u32;
-    let grabwin: xcb_window_t = create_window(
-        conn,
-        (*output).rect as Rect,
-        XCB_COPY_FROM_PARENT as u16,
-        XCB_COPY_FROM_PARENT as xcb_visualid_t,
-        XCB_WINDOW_CLASS_INPUT_ONLY as i32 as u16,
+    let grabwin = create_window(
+        &connection(),
+        (*output).rect,
+        0,
+        0,
+        x::WindowClass::InputOnly,
         Cursor::Pointer,
         true,
-        mask,
-        &raw mut values as *mut u32,
+        &[x::Cw::OverrideRedirect(true)],
     );
     let first_focused = con_descend_focused(first);
     let second_focused = con_descend_focused(second);
@@ -364,24 +359,22 @@ pub unsafe fn resize_graphical_handler(
         (*second_focused).rect,
         logical_px(2) as u32,
     );
-    mask = XCB_CW_BACK_PIXEL as i32 as u32;
-    values[0] = config.client.focused.border.colorpixel;
-    mask |= XCB_CW_OVERRIDE_REDIRECT as i32 as u32;
-    values[1] = 1 as u32;
-    let helpwin: xcb_window_t = create_window(
-        conn,
+    let helpwin = create_window(
+        &connection(),
         helprect,
-        XCB_COPY_FROM_PARENT as u16,
-        XCB_COPY_FROM_PARENT as xcb_visualid_t,
-        XCB_WINDOW_CLASS_INPUT_OUTPUT as i32 as u16,
+        0,
+        0,
+        x::WindowClass::InputOutput,
         if orientation == Orientation::Horizontal {
             Cursor::ResizeHorizontal
         } else {
             Cursor::ResizeVertical
         },
         false,
-        mask,
-        &raw mut values as *mut u32,
+        &[
+            x::Cw::BackPixel(config.client.focused.border.colorpixel),
+            x::Cw::OverrideRedirect(true),
+        ],
     );
     if !use_threshold {
         connection().send_request(&x::MapWindow {

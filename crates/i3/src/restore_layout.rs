@@ -286,22 +286,18 @@ unsafe fn open_placeholder_window(con: *mut Con) {
         && !(*con).swallow_head.tqh_first.is_null()
         && ((*con).type_0) == ContainerType::Con
     {
-        let mut fresh2: [u32; 2] = [
-            config.client.placeholder.background.colorpixel,
-            (XCB_EVENT_MASK_EXPOSURE as ::core::ffi::c_int
-                | XCB_EVENT_MASK_STRUCTURE_NOTIFY as ::core::ffi::c_int) as u32,
-        ];
-        let placeholder: xcb_window_t = create_window(
-            restore_conn,
-            (*con).rect as Rect,
-            XCB_COPY_FROM_PARENT as u16,
-            XCB_COPY_FROM_PARENT as xcb_visualid_t,
-            XCB_WINDOW_CLASS_INPUT_OUTPUT as ::core::ffi::c_int as u16,
+        let placeholder = create_window(
+            &restore_connection(),
+            (*con).rect,
+            0,
+            0,
+            x::WindowClass::InputOutput,
             Cursor::Pointer,
-            true_0 != 0,
-            (XCB_CW_BACK_PIXEL as ::core::ffi::c_int | XCB_CW_EVENT_MASK as ::core::ffi::c_int)
-                as u32,
-            &raw mut fresh2 as *mut u32,
+            true,
+            &[
+                x::Cw::BackPixel(config.client.placeholder.background.colorpixel),
+                x::Cw::EventMask(x::EventMask::EXPOSURE | x::EventMask::STRUCTURE_NOTIFY),
+            ],
         );
         restore_connection().send_request(&x::ChangeProperty {
             mode: x::PropMode::Replace,
