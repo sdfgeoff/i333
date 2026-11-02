@@ -2025,6 +2025,33 @@ unsafe fn property_notify(state: u8, window: xcb_window_t, atom: xcb_atom_t) {
     dispatch_property(handler.cb.expect("non-null function pointer"), con, reply);
 }
 
+#[derive(Debug, PartialEq, Eq)]
+struct ShapeChange {
+    window: u32,
+    kind: u8,
+    shaped: u8,
+}
+
+fn shape_change(event: &xcb::Event, event_base: i32) -> Option<ShapeChange> {
+    // The event owner guarantees a fixed wire body. Check the negotiated
+    // extension opcode before borrowing its canonical view; never transfer its
+    // allocation to that view or invoke the closed shape_kind enum getter.
+    unsafe {
+        let raw = event.as_raw();
+        if !(0..=127).contains(&event_base) || i32::from((*raw).response_type & 0x7f) != event_base
+        {
+            return None;
+        }
+        let notification = std::mem::ManuallyDrop::new(xcb::shape::NotifyEvent::from_raw(raw));
+        let bytes = raw.cast::<u8>();
+        Some(ShapeChange {
+            window: notification.affected_window().resource_id(),
+            kind: *bytes.add(1),
+            shaped: *bytes.add(20),
+        })
+    }
+}
+
 /// Dispatch an owned native queue event by borrowing its maintained owner.
 ///
 /// # Safety
@@ -2144,7 +2171,9 @@ pub unsafe fn handle_event(owner: &xcb::Event) {
         return;
     }
     if shape_supported as ::core::ffi::c_int != 0 && type_0 == shape_base + XCB_SHAPE_NOTIFY {
-        let shape: *mut xcb_shape_notify_event_t = event as *mut xcb_shape_notify_event_t;
+        let Some(shape) = shape_change(owner, shape_base) else {
+            return;
+        };
         debuglog(
             c"%s:%s:%d - shape_notify_event for window 0x%08x, shape_kind = %d, shaped = %d\n"
                 .as_ptr()
@@ -2152,31 +2181,31 @@ pub unsafe fn handle_event(owner: &xcb::Event) {
             c"../src/handlers.c".as_ptr(),
             c"handle_event".as_ptr(),
             1465 as ::core::ffi::c_int,
-            (*shape).affected_window,
-            (*shape).shape_kind as ::core::ffi::c_int,
-            (*shape).shaped as ::core::ffi::c_int,
+            shape.window,
+            shape.kind as ::core::ffi::c_int,
+            shape.shaped as ::core::ffi::c_int,
         );
-        let con: *mut Con = con_by_window_id((*shape).affected_window);
+        let con: *mut Con = con_by_window_id(shape.window);
         if con.is_null() {
             verboselog(
                 c"Not a managed window 0x%08x, ignoring shape_notify_event\n"
                     .as_ptr()
                     .cast_mut(),
-                (*shape).affected_window,
+                shape.window,
             );
             return;
         }
-        if (*shape).shape_kind as ::core::ffi::c_int == XCB_SHAPE_SK_BOUNDING as ::core::ffi::c_int
-            || (*shape).shape_kind as ::core::ffi::c_int == XCB_SHAPE_SK_INPUT as ::core::ffi::c_int
+        if shape.kind as ::core::ffi::c_int == XCB_SHAPE_SK_BOUNDING as ::core::ffi::c_int
+            || shape.kind as ::core::ffi::c_int == XCB_SHAPE_SK_INPUT as ::core::ffi::c_int
         {
             x_set_shape(
                 con,
-                if (*shape).shape_kind == XCB_SHAPE_SK_BOUNDING as u8 {
+                if shape.kind == XCB_SHAPE_SK_BOUNDING as u8 {
                     xcb::shape::Sk::Bounding
                 } else {
                     xcb::shape::Sk::Input
                 },
-                (*shape).shaped != 0,
+                shape.shaped != 0,
             );
         }
         return;
@@ -2407,16 +2436,15 @@ use i3_common::safewrappers::scalloc;
 // Canonical Pango backend ABI; font policy remains local.
 
 use xcb_sys::{
-    xcb_atom_t, xcb_shape_notify_event_t, xcb_shape_sk_t, xcb_timestamp_t, xcb_window_t,
-    XCB_ATOM_WM_CLASS, XCB_ATOM_WM_CLIENT_MACHINE, XCB_ATOM_WM_HINTS, XCB_ATOM_WM_NAME,
-    XCB_ATOM_WM_NORMAL_HINTS, XCB_ATOM_WM_TRANSIENT_FOR, XCB_BUTTON_PRESS, XCB_BUTTON_RELEASE,
-    XCB_CLIENT_MESSAGE, XCB_CONFIGURE_NOTIFY, XCB_CONFIGURE_REQUEST,
-    XCB_CONFIG_WINDOW_BORDER_WIDTH, XCB_CONFIG_WINDOW_HEIGHT, XCB_CONFIG_WINDOW_SIBLING,
-    XCB_CONFIG_WINDOW_STACK_MODE, XCB_CONFIG_WINDOW_WIDTH, XCB_CONFIG_WINDOW_X,
-    XCB_CONFIG_WINDOW_Y, XCB_DESTROY_NOTIFY, XCB_ENTER_NOTIFY, XCB_EXPOSE, XCB_FOCUS_IN,
-    XCB_FOCUS_OUT, XCB_ICCCM_WM_STATE_ICONIC, XCB_ICCCM_WM_STATE_NORMAL, XCB_KEY_PRESS,
-    XCB_KEY_RELEASE, XCB_MAPPING_NOTIFY, XCB_MAP_REQUEST, XCB_MOTION_NOTIFY, XCB_NONE,
-    XCB_NOTIFY_DETAIL_POINTER, XCB_NOTIFY_MODE_GRAB, XCB_NOTIFY_MODE_NORMAL,
+    xcb_atom_t, xcb_timestamp_t, xcb_window_t, XCB_ATOM_WM_CLASS, XCB_ATOM_WM_CLIENT_MACHINE,
+    XCB_ATOM_WM_HINTS, XCB_ATOM_WM_NAME, XCB_ATOM_WM_NORMAL_HINTS, XCB_ATOM_WM_TRANSIENT_FOR,
+    XCB_BUTTON_PRESS, XCB_BUTTON_RELEASE, XCB_CLIENT_MESSAGE, XCB_CONFIGURE_NOTIFY,
+    XCB_CONFIGURE_REQUEST, XCB_CONFIG_WINDOW_BORDER_WIDTH, XCB_CONFIG_WINDOW_HEIGHT,
+    XCB_CONFIG_WINDOW_SIBLING, XCB_CONFIG_WINDOW_STACK_MODE, XCB_CONFIG_WINDOW_WIDTH,
+    XCB_CONFIG_WINDOW_X, XCB_CONFIG_WINDOW_Y, XCB_DESTROY_NOTIFY, XCB_ENTER_NOTIFY, XCB_EXPOSE,
+    XCB_FOCUS_IN, XCB_FOCUS_OUT, XCB_ICCCM_WM_STATE_ICONIC, XCB_ICCCM_WM_STATE_NORMAL,
+    XCB_KEY_PRESS, XCB_KEY_RELEASE, XCB_MAPPING_NOTIFY, XCB_MAP_REQUEST, XCB_MOTION_NOTIFY,
+    XCB_NONE, XCB_NOTIFY_DETAIL_POINTER, XCB_NOTIFY_MODE_GRAB, XCB_NOTIFY_MODE_NORMAL,
     XCB_NOTIFY_MODE_UNGRAB, XCB_NUM_LOCK, XCB_PROPERTY_NOTIFY, XCB_RANDR_SCREEN_CHANGE_NOTIFY,
     XCB_SELECTION_CLEAR, XCB_SHAPE_NOTIFY, XCB_SHAPE_SK_BOUNDING, XCB_SHAPE_SK_INPUT,
     XCB_STACK_MODE_ABOVE, XCB_UNMAP_NOTIFY, XCB_XKB_NKN_DETAIL_KEYCODES,
@@ -2542,6 +2570,38 @@ use crate::xcb::xcb_numlock_mask;
 #[cfg(test)]
 mod owned_event_tests {
     use super::*;
+    #[test]
+    fn shape_ingress_checks_opcode_and_keeps_open_kind_and_shaped_bytes() {
+        unsafe {
+            let raw = libc::calloc(1, std::mem::size_of::<xcb::ffi::xcb_generic_event_t>())
+                .cast::<xcb::ffi::xcb_generic_event_t>();
+            assert!(!raw.is_null());
+            (*raw).response_type = 64 | 0x80;
+            raw.cast::<u8>()
+                .add(4)
+                .cast::<u32>()
+                .write_unaligned(0x12345678);
+            let event = xcb::resolve_event(raw, &[]);
+            assert_eq!(shape_change(&event, -1), None);
+            assert_eq!(shape_change(&event, 63), None);
+            assert_eq!(shape_change(&event, 128), None);
+            for kind in 0..=u8::MAX {
+                for shaped in 0..=u8::MAX {
+                    raw.cast::<u8>().add(1).write(kind);
+                    raw.cast::<u8>().add(20).write(shaped);
+                    assert_eq!(
+                        shape_change(&event, 64),
+                        Some(ShapeChange {
+                            window: 0x12345678,
+                            kind,
+                            shaped
+                        })
+                    );
+                }
+            }
+        }
+    }
+
     #[test]
     fn crossing_and_focus_selectors_preserve_all_native_bytes_without_enum_conversion() {
         for (opcode, mode_offset) in [(7, 30), (9, 8), (10, 8)] {
