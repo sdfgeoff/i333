@@ -129,9 +129,28 @@ unsafe fn check_crossing_screen_boundary(x: u32, y: u32) {
         tree_render();
     }
 }
-unsafe fn handle_enter_notify(event: *mut xcb_enter_notify_event_t, full_sequence: u32) {
+fn enter_selectors(event: &x::EnterNotifyEvent) -> (u8, u8) {
+    // Binding gap: mode/detail are open wire bytes, whereas generated getters
+    // construct closed Rust enums. Both offsets are inside the fixed event.
+    unsafe {
+        let bytes = event.as_raw().cast::<u8>();
+        (*bytes.add(30), *bytes.add(1))
+    }
+}
+
+fn focus_selectors(event: &x::FocusInEvent) -> (u8, u8) {
+    // FocusOut is the same maintained record type; preserve unknown values for
+    // existing policy comparisons and diagnostic fallbacks.
+    unsafe {
+        let bytes = event.as_raw().cast::<u8>();
+        (*bytes.add(8), *bytes.add(1))
+    }
+}
+
+unsafe fn handle_enter_notify(event: &x::EnterNotifyEvent, full_sequence: u32) {
+    let (event_mode, event_detail) = enter_selectors(event);
     let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
-    last_timestamp = (*event).time;
+    last_timestamp = event.time();
     debuglog(
         c"%s:%s:%d - enter_notify for %08x, mode = %d, detail %d, serial %d\n"
             .as_ptr()
@@ -139,20 +158,20 @@ unsafe fn handle_enter_notify(event: *mut xcb_enter_notify_event_t, full_sequenc
         c"../src/handlers.c".as_ptr(),
         c"handle_enter_notify".as_ptr(),
         133 as ::core::ffi::c_int,
-        (*event).event,
-        (*event).mode as ::core::ffi::c_int,
-        (*event).detail as ::core::ffi::c_int,
-        (*event).sequence as ::core::ffi::c_int,
+        event.event().resource_id(),
+        event_mode as ::core::ffi::c_int,
+        event_detail as ::core::ffi::c_int,
+        event.sequence() as ::core::ffi::c_int,
     );
     debuglog(
         c"%s:%s:%d - coordinates %d, %d\n".as_ptr().cast_mut(),
         c"../src/handlers.c".as_ptr(),
         c"handle_enter_notify".as_ptr(),
         134 as ::core::ffi::c_int,
-        (*event).event_x as ::core::ffi::c_int,
-        (*event).event_y as ::core::ffi::c_int,
+        event.event_x() as ::core::ffi::c_int,
+        event.event_y() as ::core::ffi::c_int,
     );
-    if (*event).mode as ::core::ffi::c_int != XCB_NOTIFY_MODE_NORMAL as ::core::ffi::c_int {
+    if event_mode as ::core::ffi::c_int != XCB_NOTIFY_MODE_NORMAL as ::core::ffi::c_int {
         debuglog(
             c"%s:%s:%d - This was not a normal notify, ignoring\n"
                 .as_ptr()
@@ -178,9 +197,9 @@ unsafe fn handle_enter_notify(event: *mut xcb_enter_notify_event_t, full_sequenc
         return;
     }
     let mut enter_child: bool = false;
-    con = con_by_frame_id((*event).event);
+    con = con_by_frame_id(event.event().resource_id());
     if con.is_null() {
-        con = con_by_window_id((*event).event);
+        con = con_by_window_id(event.event().resource_id());
         enter_child = true;
     }
     if con.is_null() || ((*parent_ptr(con)).type_0) == ContainerType::DockArea {
@@ -191,10 +210,10 @@ unsafe fn handle_enter_notify(event: *mut xcb_enter_notify_event_t, full_sequenc
             c"../src/handlers.c".as_ptr(),
             c"handle_enter_notify".as_ptr(),
             157 as ::core::ffi::c_int,
-            (*event).root_x as ::core::ffi::c_int,
-            (*event).root_y as ::core::ffi::c_int,
+            event.root_x() as ::core::ffi::c_int,
+            event.root_y() as ::core::ffi::c_int,
         );
-        check_crossing_screen_boundary((*event).root_x as u32, (*event).root_y as u32);
+        check_crossing_screen_boundary(event.root_x() as u32, event.root_y() as u32);
         return;
     }
     let layout: Layout = if enter_child as ::core::ffi::c_int != 0 {
@@ -208,8 +227,8 @@ unsafe fn handle_enter_notify(event: *mut xcb_enter_notify_event_t, full_sequenc
         while !child.is_null() {
             if rect_contains(
                 (*child).deco_rect as Rect,
-                (*event).event_x as u32,
-                (*event).event_y as u32,
+                event.event_x() as u32,
+                event.event_y() as u32,
             ) {
                 verboselog(
                     c"using child %p / %s instead!\n".as_ptr().cast_mut(),
@@ -237,13 +256,13 @@ unsafe fn handle_enter_notify(event: *mut xcb_enter_notify_event_t, full_sequenc
     con_focus(con_descend_focused(con));
     tree_render();
 }
-unsafe fn handle_motion_notify(event: *mut xcb_motion_notify_event_t) {
-    last_timestamp = (*event).time;
-    if (*event).child as ::core::ffi::c_long != XCB_NONE {
+unsafe fn handle_motion_notify(event: &x::MotionNotifyEvent) {
+    last_timestamp = event.time();
+    if event.child().resource_id() as ::core::ffi::c_long != XCB_NONE {
         return;
     }
     let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
-    con = con_by_frame_id((*event).event);
+    con = con_by_frame_id(event.event().resource_id());
     if con.is_null() {
         debuglog(
             c"%s:%s:%d - MotionNotify for an unknown container, checking if it crosses screen boundaries.\n".as_ptr().cast_mut(),
@@ -251,7 +270,7 @@ unsafe fn handle_motion_notify(event: *mut xcb_motion_notify_event_t) {
             c"handle_motion_notify".as_ptr(),
             214 as ::core::ffi::c_int,
         );
-        check_crossing_screen_boundary((*event).root_x as u32, (*event).root_y as u32);
+        check_crossing_screen_boundary(event.root_x() as u32, event.root_y() as u32);
         return;
     }
     if config.disable_focus_follows_mouse {
@@ -266,8 +285,8 @@ unsafe fn handle_motion_notify(event: *mut xcb_motion_notify_event_t) {
     if !(*con).window.is_null() {
         if rect_contains(
             (*con).deco_rect as Rect,
-            (*event).event_x as u32,
-            (*event).event_y as u32,
+            event.event_x() as u32,
+            event.event_y() as u32,
         ) {
             if focus::first_ptr(parent_ptr(con)) == con {
                 return;
@@ -281,8 +300,8 @@ unsafe fn handle_motion_notify(event: *mut xcb_motion_notify_event_t) {
         while !current.is_null() {
             if !rect_contains(
                 (*current).deco_rect as Rect,
-                (*event).event_x as u32,
-                (*event).event_y as u32,
+                event.event_x() as u32,
+                event.event_y() as u32,
             ) {
                 current = nodes::previous_ptr(current);
             } else {
@@ -743,7 +762,7 @@ unsafe fn handle_configure_request(event: *mut xcb_configure_request_event_t) {
     }
     fake_absolute_configure_notify(con);
 }
-unsafe fn handle_screen_change(e: *mut xcb_generic_event_t) {
+unsafe fn handle_screen_change() {
     debuglog(
         c"%s:%s:%d - RandR screen change\n".as_ptr().cast_mut(),
         c"../src/handlers.c".as_ptr(),
@@ -783,7 +802,18 @@ unsafe fn handle_screen_change(e: *mut xcb_generic_event_t) {
         c"{\"change\":\"unspecified\"}".as_ptr(),
     );
 }
-unsafe fn handle_unmap_notify_event(event: *mut xcb_unmap_notify_event_t, full_sequence: u32) {
+unsafe fn handle_unmap_notify_event(event: &x::UnmapNotifyEvent, full_sequence: u32) {
+    handle_window_unmap(
+        event.window().resource_id(),
+        event.event().resource_id(),
+        event.sequence(),
+        full_sequence,
+    );
+}
+
+// DestroyNotify shares this semantic operation without manufacturing an Unmap
+// packet, response opcode or appended native full_sequence field.
+unsafe fn handle_window_unmap(window: u32, event_window: u32, sequence: u16, full_sequence: u32) {
     debuglog(
         c"%s:%s:%d - UnmapNotify for 0x%08x (received from 0x%08x), serial %d\n"
             .as_ptr()
@@ -791,14 +821,14 @@ unsafe fn handle_unmap_notify_event(event: *mut xcb_unmap_notify_event_t, full_s
         c"../src/handlers.c".as_ptr(),
         c"handle_unmap_notify_event".as_ptr(),
         483 as ::core::ffi::c_int,
-        (*event).window,
-        (*event).event,
-        (*event).sequence as ::core::ffi::c_int,
+        window,
+        event_window,
+        sequence as ::core::ffi::c_int,
     );
     let cookie;
-    let mut con: *mut Con = con_by_window_id((*event).window);
+    let mut con: *mut Con = con_by_window_id(window);
     if con.is_null() {
-        con = con_by_frame_id((*event).window);
+        con = con_by_frame_id(window);
         if con.is_null() {
             verboselog(
                 c"Not a managed window, ignoring UnmapNotify event\n"
@@ -834,11 +864,11 @@ unsafe fn handle_unmap_notify_event(event: *mut xcb_unmap_notify_event_t, full_s
             (*con).ignore_unmap = (*con).ignore_unmap.wrapping_sub(1);
         } else {
             connection().send_request(&x::DeleteProperty {
-                window: x::Window::new((*event).window),
+                window: x::Window::new(window),
                 property: x::Atom::new(A__NET_WM_DESKTOP),
             });
             connection().send_request(&x::DeleteProperty {
-                window: x::Window::new((*event).window),
+                window: x::Window::new(window),
                 property: x::Atom::new(A__NET_WM_STATE),
             });
             tree_close_internal(con, KillWindow::DontKill, false);
@@ -853,7 +883,7 @@ unsafe fn handle_unmap_notify_event(event: *mut xcb_unmap_notify_event_t, full_s
     );
     let _ = connection().wait_for_reply(cookie);
 }
-unsafe fn handle_destroy_notify_event(event: *mut xcb_destroy_notify_event_t, full_sequence: u32) {
+unsafe fn handle_destroy_notify_event(event: &x::DestroyNotifyEvent, full_sequence: u32) {
     debuglog(
         c"%s:%s:%d - destroy notify for 0x%08x, 0x%08x\n"
             .as_ptr()
@@ -861,22 +891,15 @@ unsafe fn handle_destroy_notify_event(event: *mut xcb_destroy_notify_event_t, fu
         c"../src/handlers.c".as_ptr(),
         c"handle_destroy_notify_event".as_ptr(),
         555 as ::core::ffi::c_int,
-        (*event).event,
-        (*event).window,
+        event.event().resource_id(),
+        event.window().resource_id(),
     );
-    let mut unmap: xcb_unmap_notify_event_t = xcb_unmap_notify_event_t {
-        response_type: 0,
-        pad0: 0,
-        sequence: 0,
-        event: 0,
-        window: 0,
-        from_configure: 0,
-        pad1: [0; 3],
-    };
-    unmap.sequence = (*event).sequence;
-    unmap.event = (*event).event;
-    unmap.window = (*event).window;
-    handle_unmap_notify_event(&raw mut unmap, full_sequence);
+    handle_window_unmap(
+        event.window().resource_id(),
+        event.event().resource_id(),
+        event.sequence(),
+        full_sequence,
+    );
 }
 /// Copy only the native first-NUL text view before property/remanage callbacks
 /// can replace/free the original Window or its string.
@@ -1538,7 +1561,8 @@ unsafe fn handle_clientleader_change(con: *mut Con, prop: Option<&x::GetProperty
     window_update_leader((*con).window as *mut i3Window, prop);
     true
 }
-unsafe fn handle_focus_in(event: *mut xcb_focus_in_event_t) {
+unsafe fn handle_focus_in(event: &x::FocusInEvent) {
+    let (event_mode, event_detail) = focus_selectors(event);
     debuglog(
         c"%s:%s:%d - focus change in, for window 0x%08x\n"
             .as_ptr()
@@ -1546,9 +1570,9 @@ unsafe fn handle_focus_in(event: *mut xcb_focus_in_event_t) {
         c"../src/handlers.c".as_ptr(),
         c"handle_focus_in".as_ptr(),
         1064 as ::core::ffi::c_int,
-        (*event).event,
+        event.event().resource_id(),
     );
-    if (*event).event == root {
+    if event.event().resource_id() == root {
         debuglog(
             c"%s:%s:%d - Received focus in for root window, refocusing the focused window.\n"
                 .as_ptr()
@@ -1562,7 +1586,7 @@ unsafe fn handle_focus_in(event: *mut xcb_focus_in_event_t) {
         x_push_changes(croot);
     }
     let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
-    con = con_by_window_id((*event).event);
+    con = con_by_window_id(event.event().resource_id());
     if con.is_null() || (*con).window.is_null() {
         return;
     }
@@ -1574,8 +1598,8 @@ unsafe fn handle_focus_in(event: *mut xcb_focus_in_event_t) {
         con,
         (*con).name,
     );
-    if (*event).mode as ::core::ffi::c_int == XCB_NOTIFY_MODE_GRAB as ::core::ffi::c_int
-        || (*event).mode as ::core::ffi::c_int == XCB_NOTIFY_MODE_UNGRAB as ::core::ffi::c_int
+    if event_mode as ::core::ffi::c_int == XCB_NOTIFY_MODE_GRAB as ::core::ffi::c_int
+        || event_mode as ::core::ffi::c_int == XCB_NOTIFY_MODE_UNGRAB as ::core::ffi::c_int
     {
         debuglog(
             c"%s:%s:%d - FocusIn event for grab/ungrab, ignoring\n"
@@ -1587,7 +1611,7 @@ unsafe fn handle_focus_in(event: *mut xcb_focus_in_event_t) {
         );
         return;
     }
-    if (*event).detail as ::core::ffi::c_int == XCB_NOTIFY_DETAIL_POINTER as ::core::ffi::c_int {
+    if event_detail as ::core::ffi::c_int == XCB_NOTIFY_DETAIL_POINTER as ::core::ffi::c_int {
         debuglog(
             c"%s:%s:%d - notify detail is pointer, ignoring this event\n"
                 .as_ptr()
@@ -1598,7 +1622,7 @@ unsafe fn handle_focus_in(event: *mut xcb_focus_in_event_t) {
         );
         return;
     }
-    if focused_id == (*event).event && con_inside_floating(con).is_null() {
+    if focused_id == event.event().resource_id() && con_inside_floating(con).is_null() {
         debuglog(
             c"%s:%s:%d - focus matches the currently focused window, not doing anything\n"
                 .as_ptr()
@@ -1629,11 +1653,12 @@ unsafe fn handle_focus_in(event: *mut xcb_focus_in_event_t) {
         1103 as ::core::ffi::c_int,
     );
     con_activate_unblock(con);
-    focused_id = (*event).event;
+    focused_id = event.event().resource_id();
     tree_render();
 }
-unsafe fn handle_focus_out(event: *mut xcb_focus_in_event_t) {
-    let con: *mut Con = con_by_window_id((*event).event);
+unsafe fn handle_focus_out(event: &x::FocusInEvent) {
+    let (event_mode, event_detail) = focus_selectors(event);
+    let con: *mut Con = con_by_window_id(event.event().resource_id());
     let mut window_name: *const ::core::ffi::c_char = ::core::ptr::null::<::core::ffi::c_char>();
     let mut mode: *const ::core::ffi::c_char = ::core::ptr::null::<::core::ffi::c_char>();
     let mut detail: *const ::core::ffi::c_char = ::core::ptr::null::<::core::ffi::c_char>();
@@ -1642,12 +1667,12 @@ unsafe fn handle_focus_out(event: *mut xcb_focus_in_event_t) {
         if window_name.is_null() {
             window_name = c"<unnamed con>".as_ptr();
         }
-    } else if (*event).event == root {
+    } else if event.event().resource_id() == root {
         window_name = c"<the root window>".as_ptr();
     } else {
         window_name = c"<unknown window>".as_ptr();
     }
-    match (*event).mode as ::core::ffi::c_int {
+    match event_mode as ::core::ffi::c_int {
         0 => {
             mode = c"Normal".as_ptr();
         }
@@ -1664,7 +1689,7 @@ unsafe fn handle_focus_out(event: *mut xcb_focus_in_event_t) {
             mode = c"<unknown>".as_ptr();
         }
     }
-    match (*event).detail as ::core::ffi::c_int {
+    match event_detail as ::core::ffi::c_int {
         0 => {
             detail = c"Ancestor".as_ptr();
         }
@@ -1698,7 +1723,7 @@ unsafe fn handle_focus_out(event: *mut xcb_focus_in_event_t) {
         c"../src/handlers.c".as_ptr(),
         c"handle_focus_out".as_ptr(),
         1179 as ::core::ffi::c_int,
-        (*event).event,
+        event.event().resource_id(),
         con,
         window_name,
         detail,
@@ -2009,7 +2034,7 @@ pub unsafe fn handle_event(owner: &xcb::Event) {
     if randr_base > -(1 as ::core::ffi::c_int)
         && type_0 == randr_base + XCB_RANDR_SCREEN_CHANGE_NOTIFY
     {
-        handle_screen_change(event);
+        handle_screen_change();
         return;
     }
     if xkb_base > -(1 as ::core::ffi::c_int) && type_0 == xkb_base {
@@ -2156,16 +2181,14 @@ pub unsafe fn handle_event(owner: &xcb::Event) {
             }
         }
         XCB_UNMAP_NOTIFY => {
-            handle_unmap_notify_event(
-                event as *mut xcb_unmap_notify_event_t,
-                (*event).full_sequence,
-            );
+            if let xcb::Event::X(x::Event::UnmapNotify(notification)) = owner {
+                handle_unmap_notify_event(notification, (*event).full_sequence);
+            }
         }
         XCB_DESTROY_NOTIFY => {
-            handle_destroy_notify_event(
-                event as *mut xcb_destroy_notify_event_t,
-                (*event).full_sequence,
-            );
+            if let xcb::Event::X(x::Event::DestroyNotify(notification)) = owner {
+                handle_destroy_notify_event(notification, (*event).full_sequence);
+            }
         }
         XCB_EXPOSE => {
             if let xcb::Event::X(x::Event::Expose(expose)) = owner {
@@ -2175,13 +2198,14 @@ pub unsafe fn handle_event(owner: &xcb::Event) {
             }
         }
         XCB_MOTION_NOTIFY => {
-            handle_motion_notify(event as *mut xcb_motion_notify_event_t);
+            if let xcb::Event::X(x::Event::MotionNotify(notification)) = owner {
+                handle_motion_notify(notification);
+            }
         }
         XCB_ENTER_NOTIFY => {
-            handle_enter_notify(
-                event as *mut xcb_enter_notify_event_t,
-                (*event).full_sequence,
-            );
+            if let xcb::Event::X(x::Event::EnterNotify(notification)) = owner {
+                handle_enter_notify(notification, (*event).full_sequence);
+            }
         }
         XCB_CLIENT_MESSAGE => {
             handle_client_message(event as *mut xcb_client_message_event_t);
@@ -2195,10 +2219,14 @@ pub unsafe fn handle_event(owner: &xcb::Event) {
             }
         }
         XCB_FOCUS_IN => {
-            handle_focus_in(event as *mut xcb_focus_in_event_t);
+            if let xcb::Event::X(x::Event::FocusIn(notification)) = owner {
+                handle_focus_in(notification);
+            }
         }
         XCB_FOCUS_OUT => {
-            handle_focus_out(event as *mut xcb_focus_in_event_t);
+            if let xcb::Event::X(x::Event::FocusOut(notification)) = owner {
+                handle_focus_out(notification);
+            }
         }
         XCB_PROPERTY_NOTIFY => {
             if let xcb::Event::X(x::Event::PropertyNotify(property)) = owner {
@@ -2356,10 +2384,8 @@ use i3_common::safewrappers::scalloc;
 // Canonical Pango backend ABI; font policy remains local.
 
 use xcb_sys::{
-    xcb_atom_t, xcb_client_message_event_t, xcb_configure_request_event_t,
-    xcb_destroy_notify_event_t, xcb_enter_notify_event_t, xcb_focus_in_event_t,
-    xcb_generic_event_t, xcb_motion_notify_event_t, xcb_shape_notify_event_t, xcb_shape_sk_t,
-    xcb_timestamp_t, xcb_unmap_notify_event_t, xcb_window_t, XCB_ATOM_WM_CLASS,
+    xcb_atom_t, xcb_client_message_event_t, xcb_configure_request_event_t, xcb_generic_event_t,
+    xcb_shape_notify_event_t, xcb_shape_sk_t, xcb_timestamp_t, xcb_window_t, XCB_ATOM_WM_CLASS,
     XCB_ATOM_WM_CLIENT_MACHINE, XCB_ATOM_WM_HINTS, XCB_ATOM_WM_NAME, XCB_ATOM_WM_NORMAL_HINTS,
     XCB_ATOM_WM_TRANSIENT_FOR, XCB_BUTTON_PRESS, XCB_BUTTON_RELEASE, XCB_CLIENT_MESSAGE,
     XCB_CONFIGURE_NOTIFY, XCB_CONFIGURE_REQUEST, XCB_CONFIG_WINDOW_BORDER_WIDTH,
@@ -2493,6 +2519,36 @@ use crate::xcb::xcb_numlock_mask;
 #[cfg(test)]
 mod owned_event_tests {
     use super::*;
+    #[test]
+    fn crossing_and_focus_selectors_preserve_all_native_bytes_without_enum_conversion() {
+        for (opcode, mode_offset) in [(7, 30), (9, 8), (10, 8)] {
+            // Use a genuine queue-sized allocation owned by resolve_event;
+            // each concrete adapter borrows only the fixed 32-byte event body.
+            let raw = unsafe {
+                libc::calloc(1, std::mem::size_of::<xcb::ffi::xcb_generic_event_t>())
+                    .cast::<xcb::ffi::xcb_generic_event_t>()
+            };
+            assert!(!raw.is_null());
+            unsafe { (*raw).response_type = opcode };
+            let event = unsafe { xcb::resolve_event(raw, &[]) };
+            for mode in 0..=u8::MAX {
+                let detail = mode.wrapping_add(17);
+                unsafe {
+                    raw.cast::<u8>().add(mode_offset).write(mode);
+                    raw.cast::<u8>().add(1).write(detail);
+                }
+                let selectors = match &event {
+                    xcb::Event::X(x::Event::EnterNotify(event)) => enter_selectors(event),
+                    xcb::Event::X(x::Event::FocusIn(event) | x::Event::FocusOut(event)) => {
+                        focus_selectors(event)
+                    }
+                    _ => panic!("unexpected native event opcode"),
+                };
+                assert_eq!(selectors, (mode, detail));
+            }
+        }
+    }
+
     #[test]
     fn unknown_and_pointer_mapping_selectors_are_ignored_before_native_cache_access() {
         for request in [x::Mapping::Pointer as u8, u8::MAX] {
