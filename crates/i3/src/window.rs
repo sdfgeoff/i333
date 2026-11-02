@@ -21,13 +21,6 @@ use i3_common::string::I3String;
 use libc::free;
 use std::ffi::CStr;
 use std::ptr::NonNull;
-use xcb_sys::{
-    xcb_icccm_wm_hints_t, xcb_size_hints_t, xcb_window_t, XCB_ATOM_CARDINAL,
-    XCB_ICCCM_SIZE_HINT_BASE_SIZE, XCB_ICCCM_SIZE_HINT_P_ASPECT, XCB_ICCCM_SIZE_HINT_P_MAX_SIZE,
-    XCB_ICCCM_SIZE_HINT_P_MIN_SIZE, XCB_ICCCM_SIZE_HINT_P_POSITION,
-    XCB_ICCCM_SIZE_HINT_P_RESIZE_INC, XCB_ICCCM_SIZE_HINT_P_SIZE, XCB_ICCCM_SIZE_HINT_US_POSITION,
-    XCB_ICCCM_SIZE_HINT_US_SIZE, XCB_ICCCM_WM_HINT_INPUT,
-};
 
 macro_rules! trace {
     ($function:literal, $line:literal, $message:literal $(,)?) => {
@@ -383,14 +376,65 @@ fn preferred_type(property: Property<'_>, supported: &[u32]) -> Option<u32> {
         .map(|word| u32::from_ne_bytes(word.try_into().unwrap()))
         .find(|atom| *atom != 0 && supported.contains(atom))
 }
-fn decode_size_hints(property: Property<'_>) -> Option<xcb_size_hints_t> {
-    if property.kind != xcb_sys::XCB_ATOM_WM_SIZE_HINTS || property.format != 32 {
+bitflags::bitflags! {
+    /// ICCCM size fields are valid only when their corresponding flag is set.
+    #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+    struct SizeHintFlags: u32 {
+        const USER_POSITION = 1 << 0;
+        const USER_SIZE = 1 << 1;
+        const POSITION = 1 << 2;
+        const SIZE = 1 << 3;
+        const MIN_SIZE = 1 << 4;
+        const MAX_SIZE = 1 << 5;
+        const RESIZE_INCREMENT = 1 << 6;
+        const ASPECT = 1 << 7;
+        const BASE_SIZE = 1 << 8;
+        const GRAVITY = 1 << 9;
+    }
+}
+
+/// Owned ICCCM values, independent of the native library's record layout.
+/// Signed dimensions and open gravity values are retained until policy applies.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct SizeHints {
+    flags: SizeHintFlags,
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+    min_width: i32,
+    min_height: i32,
+    max_width: i32,
+    max_height: i32,
+    width_increment: i32,
+    height_increment: i32,
+    min_aspect_num: i32,
+    min_aspect_den: i32,
+    max_aspect_num: i32,
+    max_aspect_den: i32,
+    base_width: i32,
+    base_height: i32,
+    gravity: u32,
+}
+
+/// Only these WM_HINTS values affect window management. Preserve the complete
+/// input word for diagnostics; any nonzero value accepts keyboard input.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct WindowHints {
+    input: Option<u32>,
+    urgent: bool,
+}
+
+fn decode_size_hints(property: Property<'_>) -> Option<SizeHints> {
+    if property.kind != x::ATOM_WM_SIZE_HINTS.resource_id() || property.format != 32 {
         return None;
     }
     let signed = |index| property.word(index).unwrap_or(0) as i32;
     let modern = property.bytes.len() / 4 >= 18;
-    Some(xcb_size_hints_t {
-        flags: property.word(0).unwrap_or(0) & if modern { 0x3ff } else { 0xff },
+    Some(SizeHints {
+        flags: SizeHintFlags::from_bits_retain(
+            property.word(0).unwrap_or(0) & if modern { 0x3ff } else { 0xff },
+        ),
         x: signed(1),
         y: signed(2),
         width: signed(3),
@@ -399,38 +443,32 @@ fn decode_size_hints(property: Property<'_>) -> Option<xcb_size_hints_t> {
         min_height: signed(6),
         max_width: signed(7),
         max_height: signed(8),
-        width_inc: signed(9),
-        height_inc: signed(10),
+        width_increment: signed(9),
+        height_increment: signed(10),
         min_aspect_num: signed(11),
         min_aspect_den: signed(12),
         max_aspect_num: signed(13),
         max_aspect_den: signed(14),
         base_width: if modern { signed(15) } else { 0 },
         base_height: if modern { signed(16) } else { 0 },
-        win_gravity: if modern {
+        gravity: if modern {
             property.word(17).unwrap()
         } else {
             0
         },
     })
 }
-fn decode_wm_hints(property: Property<'_>) -> Option<xcb_icccm_wm_hints_t> {
-    if property.kind != xcb_sys::XCB_ATOM_WM_HINTS
+fn decode_wm_hints(property: Property<'_>) -> Option<WindowHints> {
+    if property.kind != x::ATOM_WM_HINTS.resource_id()
         || property.format != 32
         || property.bytes.len() < 8 * 4
     {
         return None;
     }
-    Some(xcb_icccm_wm_hints_t {
-        flags: property.word(0)? as i32,
-        input: property.word(1)?,
-        initial_state: property.word(2)? as i32,
-        icon_pixmap: property.word(3)?,
-        icon_window: property.word(4)?,
-        icon_x: property.word(5)? as i32,
-        icon_y: property.word(6)? as i32,
-        icon_mask: property.word(7)?,
-        window_group: property.word(8).unwrap_or(0),
+    let flags = property.word(0)?;
+    Some(WindowHints {
+        input: (flags & 1 != 0).then_some(property.word(1)?),
+        urgent: flags & (1 << 8) != 0,
     })
 }
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -447,7 +485,7 @@ struct SizeConstraints {
     max_aspect_ratio: f64,
 }
 impl SizeConstraints {
-    fn update(&mut self, hints: &xcb_size_hints_t) -> bool {
+    fn update(&mut self, hints: &SizeHints) -> bool {
         fn set<T: PartialEq + Copy>(slot: &mut T, value: T) -> bool {
             if *slot == value {
                 false
@@ -457,11 +495,11 @@ impl SizeConstraints {
             }
         }
         let mut changed = false;
-        if hints.flags & XCB_ICCCM_SIZE_HINT_P_MIN_SIZE != 0 {
+        if hints.flags.contains(SizeHintFlags::MIN_SIZE) {
             changed |= set(&mut self.min_width, hints.min_width);
             changed |= set(&mut self.min_height, hints.min_height);
         }
-        let max = hints.flags & XCB_ICCCM_SIZE_HINT_P_MAX_SIZE != 0;
+        let max = hints.flags.contains(SizeHintFlags::MAX_SIZE);
         changed |= set(
             &mut self.max_width,
             if max { hints.max_width.max(0) } else { 0 },
@@ -470,7 +508,7 @@ impl SizeConstraints {
             &mut self.max_height,
             if max { hints.max_height.max(0) } else { 0 },
         );
-        let increments = hints.flags & XCB_ICCCM_SIZE_HINT_P_RESIZE_INC != 0;
+        let increments = hints.flags.contains(SizeHintFlags::RESIZE_INCREMENT);
         let increment = |n| {
             if increments && (1..0xffff).contains(&n) {
                 n
@@ -478,11 +516,14 @@ impl SizeConstraints {
                 0
             }
         };
-        changed |= set(&mut self.width_increment, increment(hints.width_inc));
-        changed |= set(&mut self.height_increment, increment(hints.height_inc));
+        changed |= set(&mut self.width_increment, increment(hints.width_increment));
+        changed |= set(
+            &mut self.height_increment,
+            increment(hints.height_increment),
+        );
         // Preserve the original check of the existing base size, rather than
         // silently changing it to validate the incoming base size.
-        let base = hints.flags & XCB_ICCCM_SIZE_HINT_BASE_SIZE != 0
+        let base = hints.flags.contains(SizeHintFlags::BASE_SIZE)
             && self.base_width >= 0
             && self.base_height >= 0;
         changed |= set(
@@ -493,7 +534,7 @@ impl SizeConstraints {
             &mut self.base_height,
             if base { hints.base_height } else { 0 },
         );
-        if hints.flags & XCB_ICCCM_SIZE_HINT_P_ASPECT != 0
+        if hints.flags.contains(SizeHintFlags::ASPECT)
             && hints.min_aspect_num >= 0
             && hints.min_aspect_den > 0
             && hints.max_aspect_num >= 0
@@ -516,10 +557,13 @@ impl SizeConstraints {
         changed
     }
 }
-fn requested_geometry(hints: &xcb_size_hints_t) -> Option<(i16, i16, u16, u16)> {
-    let positioned =
-        hints.flags & (XCB_ICCCM_SIZE_HINT_US_POSITION | XCB_ICCCM_SIZE_HINT_P_POSITION) != 0;
-    let sized = hints.flags & (XCB_ICCCM_SIZE_HINT_US_SIZE | XCB_ICCCM_SIZE_HINT_P_SIZE) != 0;
+fn requested_geometry(hints: &SizeHints) -> Option<(i16, i16, u16, u16)> {
+    let positioned = hints
+        .flags
+        .intersects(SizeHintFlags::USER_POSITION | SizeHintFlags::POSITION);
+    let sized = hints
+        .flags
+        .intersects(SizeHintFlags::USER_SIZE | SizeHintFlags::SIZE);
     (positioned && sized).then_some((
         hints.x as i16,
         hints.y as i16,
@@ -528,8 +572,8 @@ fn requested_geometry(hints: &xcb_size_hints_t) -> Option<(i16, i16, u16, u16)> 
     ))
 }
 // Only owned hint values are borrowed while native logging runs.
-unsafe fn log_size_hints(size_hints: &xcb_size_hints_t, old: SizeConstraints, has_geometry: bool) {
-    if size_hints.flags & XCB_ICCCM_SIZE_HINT_P_MIN_SIZE != 0 {
+unsafe fn log_size_hints(size_hints: &SizeHints, old: SizeConstraints, has_geometry: bool) {
+    if size_hints.flags.contains(SizeHintFlags::MIN_SIZE) {
         debuglog(
             c"%s:%s:%d - Minimum size: %d (width) x %d (height)\n"
                 .as_ptr()
@@ -541,7 +585,7 @@ unsafe fn log_size_hints(size_hints: &xcb_size_hints_t, old: SizeConstraints, ha
             size_hints.min_height,
         );
     }
-    if size_hints.flags & XCB_ICCCM_SIZE_HINT_P_MAX_SIZE != 0 {
+    if size_hints.flags.contains(SizeHintFlags::MAX_SIZE) {
         debuglog(
             c"%s:%s:%d - Maximum size: %d (width) x %d (height)\n"
                 .as_ptr()
@@ -560,7 +604,7 @@ unsafe fn log_size_hints(size_hints: &xcb_size_hints_t, old: SizeConstraints, ha
             297 as ::core::ffi::c_int,
         );
     }
-    if size_hints.flags & XCB_ICCCM_SIZE_HINT_P_RESIZE_INC != 0 {
+    if size_hints.flags.contains(SizeHintFlags::RESIZE_INCREMENT) {
         debuglog(
             c"%s:%s:%d - Size increments: %d (width) x %d (height)\n"
                 .as_ptr()
@@ -568,8 +612,8 @@ unsafe fn log_size_hints(size_hints: &xcb_size_hints_t, old: SizeConstraints, ha
             c"../src/window.c".as_ptr(),
             c"window_update_normal_hints".as_ptr(),
             304 as ::core::ffi::c_int,
-            size_hints.width_inc,
-            size_hints.height_inc,
+            size_hints.width_increment,
+            size_hints.height_increment,
         );
     } else {
         debuglog(
@@ -579,7 +623,7 @@ unsafe fn log_size_hints(size_hints: &xcb_size_hints_t, old: SizeConstraints, ha
             318 as ::core::ffi::c_int,
         );
     }
-    if size_hints.flags & XCB_ICCCM_SIZE_HINT_BASE_SIZE != 0
+    if size_hints.flags.contains(SizeHintFlags::BASE_SIZE)
         && old.base_width >= 0
         && old.base_height >= 0
     {
@@ -615,7 +659,7 @@ unsafe fn log_size_hints(size_hints: &xcb_size_hints_t, old: SizeConstraints, ha
             size_hints.height,
         );
     }
-    if size_hints.flags & XCB_ICCCM_SIZE_HINT_P_ASPECT != 0
+    if size_hints.flags.contains(SizeHintFlags::ASPECT)
         && size_hints.min_aspect_num >= 0
         && size_hints.min_aspect_den > 0
         && size_hints.max_aspect_num >= 0
@@ -711,12 +755,6 @@ pub unsafe fn window_update_normal_hints(
     changed
 }
 
-fn hint_effects(hints: &xcb_icccm_wm_hints_t) -> (Option<bool>, bool) {
-    (
-        (hints.flags & XCB_ICCCM_WM_HINT_INPUT as i32 != 0).then_some(hints.input == 0),
-        hints.flags & xcb_sys::XCB_ICCCM_WM_HINT_X_URGENCY as i32 != 0,
-    )
-}
 pub unsafe fn window_update_hints(
     win: *mut Window,
     prop: Option<&x::GetPropertyReply>,
@@ -733,16 +771,15 @@ pub unsafe fn window_update_hints(
         trace!("window_update_hints", 392, c"Could not get WM_HINTS\n");
         return;
     };
-    let (focus, urgent) = hint_effects(&hints);
-    if let Some(doesnt_accept_focus) = focus {
-        (*win).doesnt_accept_focus = doesnt_accept_focus;
+    if let Some(input) = hints.input {
+        (*win).doesnt_accept_focus = input == 0;
         verboselog(
             c"WM_HINTS.input changed to \"%d\"\n".as_ptr().cast_mut(),
-            hints.input,
+            input,
         );
     }
     if !urgency_hint.is_null() {
-        *urgency_hint = urgent;
+        *urgency_hint = hints.urgent;
     }
 }
 fn border_style_from_motif_value(value: u32) -> BorderStyle {
@@ -792,7 +829,7 @@ fn select_icon_with(
     preferred: u32,
     mut found: impl FnMut(u32, u32),
 ) -> Option<IconCandidate> {
-    if property.kind != XCB_ATOM_CARDINAL || property.format != 32 {
+    if property.kind != x::ATOM_CARDINAL.resource_id() || property.format != 32 {
         return None;
     }
     let mut offset = 0usize;
@@ -927,7 +964,7 @@ impl Drop for OwnedIcon {
 pub unsafe fn window_update_icon(win: *mut Window, prop: Option<&x::GetPropertyReply>) {
     let property = property_view(prop);
     let preferred = (render_deco_height() - logical_px(2)) as u32;
-    if property.kind != XCB_ATOM_CARDINAL || property.format != 32 {
+    if property.kind != x::ATOM_CARDINAL.resource_id() || property.format != 32 {
         trace!("window_update_icon", 528, c"_NET_WM_ICON is not set\n");
         return;
     }
@@ -966,7 +1003,7 @@ mod tests {
 
     fn property(bytes: &[u8]) -> Property<'_> {
         Property {
-            kind: XCB_ATOM_CARDINAL,
+            kind: x::ATOM_CARDINAL.resource_id(),
             format: 32,
             bytes,
         }
@@ -1031,7 +1068,7 @@ mod tests {
     #[test]
     fn normal_hints_update_owned_geometry_without_mutating_the_property_reply() {
         let mut hints = [0u32; 18];
-        hints[0] = XCB_ICCCM_SIZE_HINT_US_POSITION | XCB_ICCCM_SIZE_HINT_P_SIZE;
+        hints[0] = (SizeHintFlags::USER_POSITION | SizeHintFlags::SIZE).bits();
         hints[1..5].copy_from_slice(&[65537, (-2i32) as u32, 65536, u32::MAX]);
         let bytes = words(&hints);
         let reply = reply(x::ATOM_WM_SIZE_HINTS.resource_id(), 32, &bytes);
@@ -1091,7 +1128,7 @@ mod tests {
     #[test]
     fn native_reply_views_reject_payload_overclaims_and_unaligned_words() {
         let bytes = words(&[0x01020304, 0xabcdef12]);
-        let owned = reply(XCB_ATOM_CARDINAL, 32, &bytes);
+        let owned = reply(x::ATOM_CARDINAL.resource_id(), 32, &bytes);
         assert_eq!(property_view(Some(&owned)).bytes, bytes);
         assert_eq!(property_view(Some(&owned)).word(1), Some(0xabcdef12));
         assert_eq!(property_view(Some(&owned)).word(2), None);
@@ -1137,8 +1174,8 @@ mod tests {
                 .map(|i| if i == 0 { u32::MAX } else { i as u32 * 3 })
                 .collect();
             let hints = words(&raw);
-            let owned = reply(xcb_sys::XCB_ATOM_WM_SIZE_HINTS, 32, &hints);
-            let mut native: xcb_size_hints_t = unsafe { std::mem::zeroed() };
+            let owned = reply(x::ATOM_WM_SIZE_HINTS.resource_id(), 32, &hints);
+            let mut native: xcb_sys::xcb_size_hints_t = unsafe { std::mem::zeroed() };
             assert_ne!(
                 unsafe {
                     xcb_sys::xcb_icccm_get_wm_size_hints_from_reply(
@@ -1151,7 +1188,7 @@ mod tests {
             let decoded = decode_size_hints(property_view(Some(&owned))).unwrap();
             assert_eq!(
                 (
-                    decoded.flags,
+                    decoded.flags.bits(),
                     decoded.x,
                     decoded.y,
                     decoded.width,
@@ -1171,8 +1208,8 @@ mod tests {
                     decoded.min_height,
                     decoded.max_width,
                     decoded.max_height,
-                    decoded.width_inc,
-                    decoded.height_inc,
+                    decoded.width_increment,
+                    decoded.height_increment,
                     decoded.min_aspect_num,
                     decoded.min_aspect_den,
                     decoded.max_aspect_num,
@@ -1195,12 +1232,12 @@ mod tests {
                     native.base_height,
                 )
             );
-            assert_eq!(decoded.win_gravity, native.win_gravity);
-            let owned = reply(xcb_sys::XCB_ATOM_WM_HINTS, 32, &hints);
+            assert_eq!(decoded.gravity, native.win_gravity);
+            let owned = reply(x::ATOM_WM_HINTS.resource_id(), 32, &hints);
             if count <= 9 {
                 // Some native libxcb-icccm versions over-copy oversized WM_HINTS;
                 // never use such a reply as a native oracle or runtime decoder.
-                let mut native: xcb_icccm_wm_hints_t = unsafe { std::mem::zeroed() };
+                let mut native: xcb_sys::xcb_icccm_wm_hints_t = unsafe { std::mem::zeroed() };
                 let success = unsafe {
                     xcb_sys::xcb_icccm_get_wm_hints_from_reply(
                         &mut native,
@@ -1211,34 +1248,53 @@ mod tests {
                 assert_eq!(decoded.is_some(), success);
                 if let Some(decoded) = decoded {
                     assert_eq!(
-                        (
-                            decoded.flags,
-                            decoded.input,
-                            decoded.initial_state,
-                            decoded.icon_pixmap,
-                            decoded.icon_window,
-                            decoded.icon_x,
-                            decoded.icon_y,
-                            decoded.icon_mask,
-                            decoded.window_group
-                        ),
-                        (
-                            native.flags,
-                            native.input,
-                            native.initial_state,
-                            native.icon_pixmap,
-                            native.icon_window,
-                            native.icon_x,
-                            native.icon_y,
-                            native.icon_mask,
-                            native.window_group
-                        )
+                        decoded.input,
+                        (native.flags & 1 != 0).then_some(native.input)
                     );
+                    assert_eq!(decoded.urgent, native.flags & (1 << 8) != 0);
                 }
             } else {
                 let decoded = decode_wm_hints(property_view(Some(&owned))).unwrap();
-                assert_eq!(decoded.window_group, raw[8]);
+                assert_eq!(decoded.input, Some(raw[1]));
+                assert!(decoded.urgent);
             }
+        }
+    }
+
+    #[test]
+    fn semantic_window_hints_match_native_for_each_flag_and_full_input_words() {
+        let flags = std::iter::once(0)
+            .chain((0..32).map(|bit| 1u32 << bit))
+            .chain([u32::MAX]);
+        for flags in flags {
+            for input in [0, 1, 0x8000_0000, u32::MAX] {
+                let bytes = words(&[flags, input, 0, 0, 0, 0, 0, 0, 0]);
+                let owned = reply(x::ATOM_WM_HINTS.resource_id(), 32, &bytes);
+                let mut native: xcb_sys::xcb_icccm_wm_hints_t = unsafe { std::mem::zeroed() };
+                assert_ne!(
+                    unsafe {
+                        xcb_sys::xcb_icccm_get_wm_hints_from_reply(
+                            &mut native,
+                            owned.as_raw().cast_mut().cast(),
+                        )
+                    },
+                    0
+                );
+                let decoded = decode_wm_hints(property_view(Some(&owned))).unwrap();
+                assert_eq!(
+                    decoded.input,
+                    (native.flags & 1 != 0).then_some(native.input)
+                );
+                assert_eq!(decoded.urgent, native.flags & (1 << 8) != 0);
+            }
+        }
+        for format in [0, 8, 16, 33, 255] {
+            assert!(decode_wm_hints(Property {
+                kind: x::ATOM_WM_HINTS.resource_id(),
+                format,
+                bytes: &[0; 36],
+            })
+            .is_none());
         }
     }
 
@@ -1345,14 +1401,13 @@ mod tests {
             width_increment: 3,
             ..Default::default()
         };
-        let mut hints: xcb_size_hints_t = unsafe { std::mem::zeroed() };
-        hints.flags = XCB_ICCCM_SIZE_HINT_BASE_SIZE
-            | XCB_ICCCM_SIZE_HINT_P_RESIZE_INC
-            | XCB_ICCCM_SIZE_HINT_P_ASPECT;
+        let mut hints = SizeHints::default();
+        hints.flags =
+            SizeHintFlags::BASE_SIZE | SizeHintFlags::RESIZE_INCREMENT | SizeHintFlags::ASPECT;
         hints.base_width = 12;
         hints.base_height = 13;
-        hints.width_inc = 0xffff;
-        hints.height_inc = 0xfffe;
+        hints.width_increment = 0xffff;
+        hints.height_increment = 0xfffe;
         hints.min_aspect_num = 1;
         hints.min_aspect_den = 2;
         hints.max_aspect_num = 2;
@@ -1365,16 +1420,16 @@ mod tests {
         assert!(state.update(&hints)); // existing nonnegative bases now permit hints
         assert_eq!((state.base_width, state.base_height), (12, 13));
         assert!(!state.update(&hints));
-        hints.flags = 0;
+        hints.flags = SizeHintFlags::empty();
         assert!(state.update(&hints));
         assert_eq!((state.min_aspect_ratio, state.max_aspect_ratio), (0.0, 0.0));
-        hints.flags = XCB_ICCCM_SIZE_HINT_US_POSITION | XCB_ICCCM_SIZE_HINT_P_SIZE;
+        hints.flags = SizeHintFlags::USER_POSITION | SizeHintFlags::SIZE;
         hints.x = 65537;
         hints.y = -2;
         hints.width = 65536;
         hints.height = -1;
         assert_eq!(requested_geometry(&hints), Some((1, -2, 0, 65535)));
-        hints.flags = XCB_ICCCM_SIZE_HINT_US_POSITION;
+        hints.flags = SizeHintFlags::USER_POSITION;
         assert_eq!(requested_geometry(&hints), None);
     }
 }
