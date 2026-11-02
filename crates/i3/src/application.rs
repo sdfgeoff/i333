@@ -20,6 +20,7 @@ use std::ffi::{CStr, CString};
 use std::io::Read;
 use std::os::fd::{AsRawFd, FromRawFd};
 use std::ptr::NonNull;
+use std::rc::Rc;
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -339,6 +340,61 @@ pub static mut start_argv: *mut *mut ::core::ffi::c_char =
 
 pub static mut conn: *mut xcb_connection_t =
     ::core::ptr::null::<xcb_connection_t>() as *mut xcb_connection_t;
+// The registration owns the one maintained connection on the event thread.
+// `conn` is only a compatibility/native-library alias and never disconnects it.
+static mut MAIN_DISPLAY: Option<i3_common::display::DisplayConnection> = None;
+
+fn main_connection() -> Rc<xcb::Connection> {
+    i3_common::display::connection().expect("main X11 connection is registered")
+}
+
+/// Retain the native opcode and full sequence without invoking enum getters.
+/// The pointer is borrowed only while the maintained event owner is alive.
+fn event_header(event: &xcb::Event) -> &xcb::ffi::xcb_generic_event_t {
+    // SAFETY: every maintained event owns a complete native event allocation.
+    unsafe { &*event.as_raw() }
+}
+
+fn event_kind(event: &xcb::Event) -> i32 {
+    i32::from(event_header(event).response_type & 0x7f)
+}
+
+fn error_header(error: &xcb::ProtocolError) -> &xcb::ffi::xcb_generic_error_t {
+    // SAFETY: every maintained protocol error owns a complete native allocation.
+    unsafe { &*error.as_raw() }
+}
+
+/// Log asynchronous errors with the same full-sequence ignore-cache policy.
+unsafe fn log_x11_error(error: &xcb::ProtocolError) {
+    let error = error_header(error);
+    if event_is_ignored(
+        ignore_event_sequence_t {
+            value: error.full_sequence,
+        },
+        0,
+    ) {
+        debuglog(
+            c"%s:%s:%d - Expected X11 Error received for sequence %x\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/main.c".as_ptr(),
+            c"xcb_prepare_cb".as_ptr(),
+            137,
+            i32::from(error.sequence),
+        );
+    } else {
+        debuglog(
+            c"%s:%s:%d - X11 Error received (probably harmless)! sequence 0x%x, error_code = %d\n"
+                .as_ptr()
+                .cast_mut(),
+            c"../src/main.c".as_ptr(),
+            c"xcb_prepare_cb".as_ptr(),
+            141,
+            i32::from(error.sequence),
+            i32::from(error.error_code),
+        );
+    }
+}
 
 pub static mut conn_screen: ::core::ffi::c_int = 0;
 
@@ -595,46 +651,22 @@ unsafe extern "C" fn xcb_prepare_cb(
     w: *mut ev_prepare,
     revents: ::core::ffi::c_int,
 ) {
-    let mut event: *mut xcb_generic_event_t = ::core::ptr::null_mut::<xcb_generic_event_t>();
     loop {
-        let Some(owner) = NativeAllocation::take(xcb_poll_for_event(conn)) else {
-            break;
-        };
-        event = owner.raw();
-        if (*event).response_type as ::core::ffi::c_int == 0 as ::core::ffi::c_int {
-            if event_is_ignored(
-                ignore_event_sequence_t {
-                    value: (*event).full_sequence,
-                },
-                0 as ::core::ffi::c_int,
-            ) {
-                debuglog(
-                    c"%s:%s:%d - Expected X11 Error received for sequence %x\n"
-                        .as_ptr()
-                        .cast_mut(),
-                    c"../src/main.c".as_ptr(),
-                    c"xcb_prepare_cb".as_ptr(),
-                    137 as ::core::ffi::c_int,
-                    (*event).sequence as ::core::ffi::c_int,
-                );
-            } else {
-                let error: *mut xcb_generic_error_t = event as *mut xcb_generic_error_t;
-                debuglog(
-                    c"%s:%s:%d - X11 Error received (probably harmless)! sequence 0x%x, error_code = %d\n".as_ptr().cast_mut(),
-                    c"../src/main.c".as_ptr(),
-                    c"xcb_prepare_cb".as_ptr(),
-                    141 as ::core::ffi::c_int,
-                    (*error).sequence as ::core::ffi::c_int,
-                    (*error).error_code as ::core::ffi::c_int,
-                );
+        // Release the registry clone before dispatch: callbacks can reenter
+        // display helpers without retaining a RefCell borrow or a second owner.
+        let next = main_connection().poll_for_event();
+        match next {
+            Ok(Some(event)) => {
+                let kind = event_kind(&event);
+                // Transitional borrow for existing native event handlers. They
+                // must not free or retain the owned event allocation.
+                handle_event(kind, event.as_raw().cast());
             }
-        } else {
-            let type_0: ::core::ffi::c_int =
-                (*event).response_type as ::core::ffi::c_int & 0x7f as ::core::ffi::c_int;
-            handle_event(type_0, event);
+            Err(xcb::Error::Protocol(error)) => log_x11_error(&error),
+            Ok(None) | Err(xcb::Error::Connection(_)) => break,
         }
     }
-    xcb_flush(conn);
+    let _ = main_connection().flush();
 }
 
 pub unsafe fn main_set_x11_cb(enable: bool) {
@@ -670,7 +702,10 @@ extern "C" fn i3_exit() {
         if !current_log_stream_socket_path.is_null() {
             unlink(current_log_stream_socket_path);
         }
-        xcb_disconnect(conn);
+        // All native shutdown requests above complete before unregistering the
+        // sole owner. The raw alias must never be disconnected independently.
+        conn = std::ptr::null_mut();
+        drop(MAIN_DISPLAY.take());
         kill_nagbar(config_error_nagbar_pid, false_0 != 0);
         kill_nagbar(command_error_nagbar_pid, false_0 != 0);
         ev_loop_destroy(main_loop);
@@ -1116,13 +1151,17 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         }
     }
     verboselog(c"i3 %s starting\n".as_ptr().cast_mut(), _i3_version);
-    conn = xcb_connect(
-        ::core::ptr::null::<::core::ffi::c_char>(),
-        &raw mut conn_screen,
-    );
-    if xcb_connection_has_error(conn) != 0 {
-        errx(EXIT_FAILURE, c"Cannot open display".as_ptr());
-    }
+    // Keep extension events as owned UnknownEvent values for now. xcb 1.7's
+    // optional extension resolver unwraps unknown extension opcodes/subtypes;
+    // the existing checked native dispatcher must continue ignoring them.
+    // Typed extension requests do not require event-resolution registration.
+    let (connection, screen) = match xcb::Connection::connect(None) {
+        Ok(connection) => connection,
+        Err(_) => errx(EXIT_FAILURE, c"Cannot open display".as_ptr()),
+    };
+    conn_screen = screen;
+    conn = connection.get_raw_conn().cast();
+    MAIN_DISPLAY = Some(i3_common::display::install_connection(Rc::new(connection)));
     sndisplay = sn_xcb_display_new(conn, None, None);
     main_loop = ev_default_loop(0 as ::core::ffi::c_uint);
     if main_loop.is_null() {
@@ -1344,8 +1383,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     );
     let gcookie: xcb_get_geometry_cookie_t = xcb_get_geometry(conn, root as xcb_drawable_t);
     let pointercookie: xcb_query_pointer_cookie_t = xcb_query_pointer(conn, root);
-    xcb_flush(conn);
-    let mut event: *mut xcb_generic_event_t = ::core::ptr::null_mut::<xcb_generic_event_t>();
+    let _ = main_connection().flush();
     debuglog(
         c"%s:%s:%d - waiting for PropertyNotify event\n"
             .as_ptr()
@@ -1355,14 +1393,15 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         660 as ::core::ffi::c_int,
     );
     loop {
-        let Some(owner) = NativeAllocation::take(xcb_wait_for_event(conn)) else {
-            break;
-        };
-        event = owner.raw();
-        if (*event).response_type as ::core::ffi::c_int == XCB_PROPERTY_NOTIFY {
-            last_timestamp = (*(event as *mut xcb_property_notify_event_t)).time;
-            break;
-        } else {
+        match main_connection().wait_for_event() {
+            Ok(event) if i32::from(event_header(&event).response_type) == XCB_PROPERTY_NOTIFY => {
+                // A matching core event has the complete PropertyNotify record;
+                // its scalar timestamp has no closed-enum conversion.
+                last_timestamp = (*(event.as_raw().cast::<xcb_property_notify_event_t>())).time;
+                break;
+            }
+            Ok(_) | Err(xcb::Error::Protocol(_)) => {}
+            Err(xcb::Error::Connection(_)) => break,
         }
     }
     debuglog(
@@ -1932,25 +1971,22 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     x_set_i3_atoms();
     ewmh_update_workarea();
     ewmh_update_desktop_properties();
-    let xcb_watcher = watchers.add(xcb_get_file_descriptor(conn), xcb_got_event);
+    let xcb_watcher = watchers.add(main_connection().as_raw_fd(), xcb_got_event);
     xcb_prepare = Box::into_raw(Box::new(ev_prepare::new(xcb_prepare_cb)));
     ev_prepare_start(main_loop, xcb_prepare);
-    xcb_flush(conn);
+    let _ = main_connection().flush();
     xcb_grab_server(conn);
     xcb_aux_sync(conn);
-    let mut event_1: *mut xcb_generic_event_t = ::core::ptr::null_mut::<xcb_generic_event_t>();
     loop {
-        let Some(owner) = NativeAllocation::take(xcb_poll_for_event(conn)) else {
-            break;
-        };
-        event_1 = owner.raw();
-        if (*event_1).response_type as ::core::ffi::c_int == 0 as ::core::ffi::c_int {
-        } else {
-            let type_0: ::core::ffi::c_int =
-                (*event_1).response_type as ::core::ffi::c_int & 0x7f as ::core::ffi::c_int;
-            if type_0 == XCB_MAP_REQUEST {
-                handle_event(type_0, event_1);
+        match main_connection().poll_for_event() {
+            Ok(Some(event)) => {
+                let kind = event_kind(&event);
+                if kind == XCB_MAP_REQUEST {
+                    handle_event(kind, event.as_raw().cast());
+                }
             }
+            Err(xcb::Error::Protocol(_)) => {}
+            Ok(None) | Err(xcb::Error::Connection(_)) => break,
         }
     }
     manage_existing_windows(root);
@@ -2170,29 +2206,27 @@ use xcb_sys::{
     xcb_atom_name_by_screen, xcb_atom_t, xcb_aux_find_visual_by_attrs, xcb_aux_get_depth_of_visual,
     xcb_aux_get_screen, xcb_aux_sync, xcb_big_requests_id, xcb_change_property,
     xcb_change_window_attributes, xcb_change_window_attributes_checked, xcb_client_message_data_t,
-    xcb_client_message_event_t, xcb_colormap_t, xcb_connect, xcb_connection_has_error,
-    xcb_connection_t, xcb_create_colormap_checked, xcb_create_window, xcb_disconnect,
-    xcb_drawable_t, xcb_flush, xcb_generate_id, xcb_generic_error_t, xcb_generic_event_t,
-    xcb_get_extension_data, xcb_get_file_descriptor, xcb_get_geometry, xcb_get_geometry_cookie_t,
-    xcb_get_geometry_reply, xcb_get_geometry_reply_t, xcb_get_selection_owner,
-    xcb_get_selection_owner_reply, xcb_get_selection_owner_reply_t, xcb_grab_server,
-    xcb_intern_atom, xcb_intern_atom_cookie_t, xcb_intern_atom_reply, xcb_intern_atom_reply_t,
-    xcb_intern_atom_unchecked, xcb_key_symbols_alloc, xcb_key_symbols_t, xcb_keycode_t,
-    xcb_poll_for_event, xcb_prefetch_extension_data, xcb_prefetch_maximum_request_length,
-    xcb_property_notify_event_t, xcb_query_extension_reply_t, xcb_query_pointer,
-    xcb_query_pointer_cookie_t, xcb_query_pointer_reply, xcb_query_pointer_reply_t, xcb_randr_id,
-    xcb_request_check, xcb_screen_t, xcb_send_event, xcb_set_selection_owner, xcb_shape_id,
-    xcb_shape_query_version, xcb_shape_query_version_cookie_t, xcb_shape_query_version_reply,
+    xcb_client_message_event_t, xcb_colormap_t, xcb_connection_t, xcb_create_colormap_checked,
+    xcb_create_window, xcb_drawable_t, xcb_generate_id, xcb_generic_error_t,
+    xcb_get_extension_data, xcb_get_geometry, xcb_get_geometry_cookie_t, xcb_get_geometry_reply,
+    xcb_get_geometry_reply_t, xcb_get_selection_owner, xcb_get_selection_owner_reply,
+    xcb_get_selection_owner_reply_t, xcb_grab_server, xcb_intern_atom, xcb_intern_atom_cookie_t,
+    xcb_intern_atom_reply, xcb_intern_atom_reply_t, xcb_intern_atom_unchecked,
+    xcb_key_symbols_alloc, xcb_key_symbols_t, xcb_keycode_t, xcb_prefetch_extension_data,
+    xcb_prefetch_maximum_request_length, xcb_property_notify_event_t, xcb_query_extension_reply_t,
+    xcb_query_pointer, xcb_query_pointer_cookie_t, xcb_query_pointer_reply,
+    xcb_query_pointer_reply_t, xcb_randr_id, xcb_request_check, xcb_screen_t, xcb_send_event,
+    xcb_set_selection_owner, xcb_shape_id, xcb_shape_query_version,
+    xcb_shape_query_version_cookie_t, xcb_shape_query_version_reply,
     xcb_shape_query_version_reply_t, xcb_timestamp_t, xcb_ungrab_server, xcb_visualtype_t,
-    xcb_void_cookie_t, xcb_wait_for_event, xcb_window_t, xcb_xinerama_id, xcb_xkb_device_spec_t,
-    xcb_xkb_id, xcb_xkb_per_client_flags, xcb_xkb_per_client_flags_reply,
-    xcb_xkb_per_client_flags_reply_t, xcb_xkb_select_events, xcb_xkb_use_extension,
-    XCB_ATOM_CARDINAL, XCB_ATOM_STRING, XCB_ATOM_SUPERSCRIPT_X, XCB_ATOM_WM_CLASS,
-    XCB_CLIENT_MESSAGE, XCB_COLORMAP_ALLOC_NONE, XCB_CURRENT_TIME, XCB_CW_EVENT_MASK,
-    XCB_EVENT_MASK_BUTTON_PRESS, XCB_EVENT_MASK_ENTER_WINDOW, XCB_EVENT_MASK_FOCUS_CHANGE,
-    XCB_EVENT_MASK_POINTER_MOTION, XCB_EVENT_MASK_PROPERTY_CHANGE, XCB_EVENT_MASK_STRUCTURE_NOTIFY,
-    XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT, XCB_MAP_REQUEST, XCB_NONE, XCB_NUM_LOCK,
-    XCB_PROPERTY_NOTIFY, XCB_PROP_MODE_APPEND, XCB_PROP_MODE_REPLACE,
+    xcb_void_cookie_t, xcb_window_t, xcb_xinerama_id, xcb_xkb_device_spec_t, xcb_xkb_id,
+    xcb_xkb_per_client_flags, xcb_xkb_per_client_flags_reply, xcb_xkb_per_client_flags_reply_t,
+    xcb_xkb_select_events, xcb_xkb_use_extension, XCB_ATOM_CARDINAL, XCB_ATOM_STRING,
+    XCB_ATOM_SUPERSCRIPT_X, XCB_ATOM_WM_CLASS, XCB_CLIENT_MESSAGE, XCB_COLORMAP_ALLOC_NONE,
+    XCB_CURRENT_TIME, XCB_CW_EVENT_MASK, XCB_EVENT_MASK_BUTTON_PRESS, XCB_EVENT_MASK_ENTER_WINDOW,
+    XCB_EVENT_MASK_FOCUS_CHANGE, XCB_EVENT_MASK_POINTER_MOTION, XCB_EVENT_MASK_PROPERTY_CHANGE,
+    XCB_EVENT_MASK_STRUCTURE_NOTIFY, XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT, XCB_MAP_REQUEST,
+    XCB_NONE, XCB_NUM_LOCK, XCB_PROPERTY_NOTIFY, XCB_PROP_MODE_APPEND, XCB_PROP_MODE_REPLACE,
     XCB_WINDOW_CLASS_INPUT_OUTPUT, XCB_XKB_EVENT_TYPE_MAP_NOTIFY,
     XCB_XKB_EVENT_TYPE_NEW_KEYBOARD_NOTIFY, XCB_XKB_EVENT_TYPE_STATE_NOTIFY,
     XCB_XKB_ID_USE_CORE_KBD, XCB_XKB_MAJOR_VERSION, XCB_XKB_MINOR_VERSION,
@@ -2351,3 +2385,77 @@ mod owned_startup_tests {
 }
 
 use crate::con::arena::nodes;
+
+#[cfg(test)]
+mod owned_event_tests {
+    use super::*;
+
+    /// Manufacture an initialized malloc allocation, transferred directly to
+    /// the maintained decoder just like a native event queue allocation.
+    unsafe fn event(opcode: u8, detail: u8) -> xcb::Event {
+        let raw = libc::calloc(1, std::mem::size_of::<xcb::ffi::xcb_generic_event_t>())
+            .cast::<xcb::ffi::xcb_generic_event_t>();
+        assert!(!raw.is_null());
+        (*raw).response_type = opcode;
+        (*raw).pad0 = detail;
+        (*raw).sequence = 0x1234;
+        (*raw).full_sequence = 0xfedc_1234;
+        xcb::resolve_event(raw, &[])
+    }
+
+    #[test]
+    fn unknown_extension_opcode_and_subtype_keep_their_native_headers() {
+        // No extension metadata: a future XKB subtype or unknown event remains
+        // an owned UnknownEvent rather than reaching an unwrap/enum conversion.
+        let event = unsafe { event(100 | 0x80, u8::MAX) };
+        assert!(matches!(&event, xcb::Event::Unknown(_)));
+        assert_eq!(event_kind(&event), 100);
+        assert_eq!(event_header(&event).pad0, u8::MAX);
+        assert_eq!(event_header(&event).sequence, 0x1234);
+        assert_eq!(event_header(&event).full_sequence, 0xfedc_1234);
+    }
+
+    #[test]
+    fn core_event_ownership_does_not_convert_unknown_native_selectors() {
+        // PropertyNotify's state byte is an open native value here. The core
+        // owned event must survive decoding without invoking its enum getter.
+        let event = unsafe { event(XCB_PROPERTY_NOTIFY as u8 | 0x80, 0) };
+        unsafe { event.as_raw().cast::<u8>().add(16).write(u8::MAX) };
+        assert!(matches!(
+            &event,
+            xcb::Event::X(xcb::x::Event::PropertyNotify(_))
+        ));
+        assert_eq!(event_kind(&event), XCB_PROPERTY_NOTIFY);
+        // Startup timestamp filtering historically ignores SendEvent-flagged
+        // PropertyNotify, while ordinary dispatch masks that same flag.
+        assert_ne!(
+            i32::from(event_header(&event).response_type),
+            XCB_PROPERTY_NOTIFY
+        );
+        assert_eq!(
+            unsafe { event.as_raw().cast::<u8>().add(16).read() },
+            u8::MAX
+        );
+    }
+
+    #[test]
+    fn unknown_protocol_error_preserves_full_sequence_and_numeric_diagnostic() {
+        unsafe {
+            let raw = libc::calloc(1, std::mem::size_of::<xcb::ffi::xcb_generic_error_t>())
+                .cast::<xcb::ffi::xcb_generic_error_t>();
+            assert!(!raw.is_null());
+            (*raw).error_code = u8::MAX;
+            (*raw).sequence = 0x5678;
+            (*raw).full_sequence = 0xfedc_5678;
+            (*raw).major_code = u8::MAX;
+            (*raw).minor_code = u16::MAX;
+            let error = xcb::resolve_error(raw, &[]);
+            assert!(matches!(&error, xcb::ProtocolError::Unknown(_, _)));
+            assert_eq!(error_header(&error).error_code, u8::MAX);
+            assert_eq!(error_header(&error).sequence, 0x5678);
+            assert_eq!(error_header(&error).full_sequence, 0xfedc_5678);
+            assert_eq!(error_header(&error).major_code, u8::MAX);
+            assert_eq!(error_header(&error).minor_code, u16::MAX);
+        }
+    }
+}
