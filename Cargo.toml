@@ -33,7 +33,7 @@ pcre2 = "=0.2.11"
 libev-sys = { path = "crates/libev-sys" }
 xcb-sys = { path = "crates/xcb-sys" }
 startup-notification-sys = { path = "crates/startup-notification-sys" }
-xcb = { version = "=1.7.1", default-features = false }
+xcb = { version = "=1.7.1", default-features = false, features = ["randr", "xinerama", "xkb", "shape"] }
 as-raw-xcb-connection = "=1.0.1"
 xkbcommon = { version = "=0.9.0", default-features = false, features = ["x11"] }
 cairo = { package = "cairo-rs", version = "=0.21.5", default-features = false }

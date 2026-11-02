@@ -34,7 +34,29 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
         );
         return;
     }
-    let (connection, screen_number) = xcb::Connection::connect(None).unwrap();
+    let (connection, screen_number) = xcb::Connection::connect_with_extensions(
+        None,
+        &[],
+        &[
+            xcb::Extension::RandR,
+            xcb::Extension::Xinerama,
+            xcb::Extension::Xkb,
+            xcb::Extension::Shape,
+        ],
+    )
+    .unwrap();
+    let connection = std::rc::Rc::new(connection);
+    assert!(i3_common::display::connection().is_none());
+    let registration = i3_common::display::install_connection(connection.clone());
+    assert!(std::rc::Rc::ptr_eq(
+        &connection,
+        &i3_common::display::connection().unwrap()
+    ));
+    assert!(
+        std::thread::spawn(|| i3_common::display::connection().is_none())
+            .join()
+            .unwrap()
+    );
     let screen = connection
         .get_setup()
         .roots()
@@ -275,6 +297,12 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
     sync(&connection);
     connection.has_error().unwrap();
     assert_ne!(root.resource_id(), 0);
+    let retained = i3_common::display::connection().unwrap();
+    drop(registration);
+    assert!(i3_common::display::connection().is_none());
+    sync(&retained);
+    drop(retained);
+    sync(&connection);
     i3_common::display::set_provider(DisplayContext::default);
     DISPLAY_CONTEXT.with(|context| context.set(DisplayContext::default()));
 }
