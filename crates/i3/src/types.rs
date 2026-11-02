@@ -9,6 +9,8 @@
 //! require valid enum discriminants; their current defaults are zero. Open
 //! integer domains remain integers until all producers migrate together.
 
+use crate::flags::{AssignmentKind, TilingDrag};
+
 /// The layout of a container or the default layout for a workspace.
 ///
 /// Zero is a valid default because legacy model allocation still zeroes storage.
@@ -302,7 +304,7 @@ pub enum BarPosition {
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct Assignment {
-    pub type_0: ::core::ffi::c_uint,
+    pub type_0: AssignmentKind,
     pub match_0: crate::types::Match,
     pub dest: crate::types::AssignmentDest,
     pub assignments: crate::types::AssignmentAssignments,
@@ -495,7 +497,7 @@ pub struct Config {
     pub bar: crate::types::config_bar,
     pub popup_during_fullscreen: PopupDuringFullscreen,
     pub number_barconfigs: ::core::ffi::c_int,
-    pub tiling_drag: ::core::ffi::c_uint,
+    pub tiling_drag: TilingDrag,
     pub gaps: crate::types::gaps_t,
     pub smart_gaps: SmartGaps,
 }

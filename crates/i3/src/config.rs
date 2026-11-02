@@ -6,6 +6,7 @@ use crate::con::arena::{containers, resolve};
 use crate::config_parser::free_variables;
 use crate::config_parser::parse_file;
 use crate::config_parser::ConfigParserState;
+use crate::flags::{AssignmentKind, TilingDrag};
 use crate::types::BorderStyle;
 use crate::types::ConfigLoad;
 use crate::types::FocusActivation;
@@ -41,19 +42,12 @@ pub const M_NODOCK: ::core::ffi::c_int = 0;
 
 pub use crate::regex::Regex as regex;
 
-pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
-pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
-pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
-pub const A_COMMAND: ::core::ffi::c_uint = 1;
-
 pub type hide_edge_borders_mode_t = ::core::ffi::c_uint;
 pub const HEBM_NONE: hide_edge_borders_mode_t = 0;
 
 pub use crate::application::bindings_head;
 pub use crate::application::Workspace_Assignment;
-pub type tiling_drag_t = ::core::ffi::c_uint;
-pub const TILING_DRAG_MODIFIER: tiling_drag_t = 1;
-pub const TILING_DRAG_OFF: tiling_drag_t = 0;
+pub type tiling_drag_t = TilingDrag;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct IncludedFile {
@@ -506,7 +500,7 @@ pub static mut config: Config = Config {
     },
     popup_during_fullscreen: PopupDuringFullscreen::Smart,
     number_barconfigs: 0,
-    tiling_drag: TILING_DRAG_OFF,
+    tiling_drag: TilingDrag::empty(),
     gaps: gaps_t {
         inner: 0,
         top: 0,
@@ -587,21 +581,15 @@ unsafe fn free_configuration() {
     }
     while !assignments.tqh_first.is_null() {
         let mut assign: *mut Assignment = assignments.tqh_first as *mut Assignment;
-        if (*assign).type_0 as ::core::ffi::c_uint
-            == A_TO_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-            || (*assign).type_0 as ::core::ffi::c_uint
-                == A_TO_WORKSPACE_NUMBER as ::core::ffi::c_int as ::core::ffi::c_uint
+        if (*assign).type_0 == AssignmentKind::TO_WORKSPACE
+            || (*assign).type_0 == AssignmentKind::TO_WORKSPACE_NUMBER
         {
             free((*assign).dest.workspace as *mut ::core::ffi::c_void);
             (*assign).dest.workspace = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        } else if (*assign).type_0 as ::core::ffi::c_uint
-            == A_COMMAND as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
+        } else if (*assign).type_0 == AssignmentKind::COMMAND {
             free((*assign).dest.command as *mut ::core::ffi::c_void);
             (*assign).dest.command = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        } else if (*assign).type_0 as ::core::ffi::c_uint
-            == A_TO_OUTPUT as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
+        } else if (*assign).type_0 == AssignmentKind::TO_OUTPUT {
             free((*assign).dest.output as *mut ::core::ffi::c_void);
             (*assign).dest.output = ::core::ptr::null_mut::<::core::ffi::c_char>();
         }
@@ -836,7 +824,7 @@ pub unsafe fn load_configuration(
         config.workspace_urgency_timer = 0.5f32;
     }
     config.focus_wrapping = FocusWrapping::On;
-    config.tiling_drag = TILING_DRAG_MODIFIER;
+    config.tiling_drag = TilingDrag::MODIFIER;
     config.swap_modifier = XCB_KEY_BUT_MASK_SHIFT as ::core::ffi::c_int as u32;
     free(current_configpath as *mut ::core::ffi::c_void);
     current_configpath = ::core::ptr::null_mut::<::core::ffi::c_char>();

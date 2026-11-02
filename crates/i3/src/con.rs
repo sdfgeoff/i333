@@ -1,6 +1,7 @@
 use crate::con::arena::nodes;
 use crate::con::arena::parent::{parent_ptr, set_parent_ptr};
 use crate::con::arena::{focus, ConId};
+use crate::flags::{AdjacentEdges, TilingDrag};
 pub(crate) mod arena;
 use crate::types::BorderStyle;
 use crate::types::Direction;
@@ -40,22 +41,14 @@ pub const CT_ROOT: ::core::ffi::c_uint = 0;
 pub type Output = xoutput;
 pub type i3Window = Window;
 
-pub type adjacent_t = ::core::ffi::c_uint;
-pub const ADJ_LOWER_SCREEN_EDGE: adjacent_t = 16;
-pub const ADJ_UPPER_SCREEN_EDGE: adjacent_t = 4;
-pub const ADJ_RIGHT_SCREEN_EDGE: adjacent_t = 2;
-pub const ADJ_LEFT_SCREEN_EDGE: adjacent_t = 1;
-pub const ADJ_NONE: adjacent_t = 0;
+pub type adjacent_t = AdjacentEdges;
 
 pub type hide_edge_borders_mode_t = ::core::ffi::c_uint;
 pub const HEBM_SMART_NO_GAPS: hide_edge_borders_mode_t = 64;
 pub const HEBM_SMART: hide_edge_borders_mode_t = 32;
 pub const HEBM_NONE: hide_edge_borders_mode_t = 0;
 
-pub type tiling_drag_t = ::core::ffi::c_uint;
-pub const TILING_DRAG_MODIFIER_OR_TITLEBAR: tiling_drag_t = 3;
-pub const TILING_DRAG_TITLEBAR: tiling_drag_t = 2;
-pub const TILING_DRAG_MODIFIER: tiling_drag_t = 1;
+pub type tiling_drag_t = TilingDrag;
 
 pub type ylength = usize;
 pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
@@ -2075,35 +2068,35 @@ fn border_rect(style: BorderStyle, width: i32, hidden: adjacent_t) -> Rect {
             doubled
         },
     };
-    if hidden & ADJ_LEFT_SCREEN_EDGE != 0 {
+    if hidden.contains(AdjacentEdges::LEFT) {
         rect.x = rect.x.wrapping_sub(width);
         rect.width = rect.width.wrapping_add(width);
     }
-    if hidden & ADJ_RIGHT_SCREEN_EDGE != 0 {
+    if hidden.contains(AdjacentEdges::RIGHT) {
         rect.width = rect.width.wrapping_add(width);
     }
-    if hidden & ADJ_UPPER_SCREEN_EDGE != 0 && style != BorderStyle::Normal {
+    if hidden.contains(AdjacentEdges::TOP) && style != BorderStyle::Normal {
         rect.y = rect.y.wrapping_sub(width);
         rect.height = rect.height.wrapping_add(width);
     }
-    if hidden & ADJ_LOWER_SCREEN_EDGE != 0 {
+    if hidden.contains(AdjacentEdges::BOTTOM) {
         rect.height = rect.height.wrapping_add(width);
     }
     rect
 }
 fn adjacent_borders(rect: Rect, workspace: Rect) -> adjacent_t {
-    let mut result = ADJ_NONE;
+    let mut result = AdjacentEdges::empty();
     if rect.x == workspace.x {
-        result |= ADJ_LEFT_SCREEN_EDGE;
+        result |= AdjacentEdges::LEFT;
     }
     if rect.x.wrapping_add(rect.width) == workspace.x.wrapping_add(workspace.width) {
-        result |= ADJ_RIGHT_SCREEN_EDGE;
+        result |= AdjacentEdges::RIGHT;
     }
     if rect.y == workspace.y {
-        result |= ADJ_UPPER_SCREEN_EDGE;
+        result |= AdjacentEdges::TOP;
     }
     if rect.y.wrapping_add(rect.height) == workspace.y.wrapping_add(workspace.height) {
-        result |= ADJ_LOWER_SCREEN_EDGE;
+        result |= AdjacentEdges::BOTTOM;
     }
     result
 }
@@ -2154,14 +2147,14 @@ unsafe fn con_border_style_rect_without_title(con: *mut Con) -> Rect {
     );
     let border_style: BorderStyle = con_border_style(con);
     if border_style == BorderStyle::None {
-        return border_rect(border_style, border_width, ADJ_NONE);
+        return border_rect(border_style, border_width, AdjacentEdges::empty());
     }
     let mask = if config.hide_edge_borders == HEBM_SMART_NO_GAPS {
         HEBM_NONE
     } else {
         config.hide_edge_borders
     };
-    let hidden = con_adjacent_borders(con) & mask;
+    let hidden = con_adjacent_borders(con) & AdjacentEdges::from_bits_retain(mask);
     border_rect(border_style, border_width, hidden)
 }
 
@@ -2177,7 +2170,7 @@ pub unsafe fn con_border_style_rect(con: *mut Con) -> Rect {
 
 pub unsafe fn con_adjacent_borders(con: *mut Con) -> adjacent_t {
     if con_is_floating(con) {
-        return ADJ_NONE;
+        return AdjacentEdges::empty();
     }
     let workspace = con_get_workspace(con);
     adjacent_borders((*con).rect, (*workspace).rect)
@@ -3174,11 +3167,9 @@ mod owned_graph_tests {
     use super::*;
     #[test]
     fn border_geometry_preserves_wrapping_normal_title_edge_and_adjacency_masks() {
-        let all = ADJ_LEFT_SCREEN_EDGE
-            | ADJ_RIGHT_SCREEN_EDGE
-            | ADJ_UPPER_SCREEN_EDGE
-            | ADJ_LOWER_SCREEN_EDGE;
-        let plain = border_rect(BorderStyle::Pixel, 2, ADJ_NONE);
+        let all =
+            AdjacentEdges::LEFT | AdjacentEdges::RIGHT | AdjacentEdges::TOP | AdjacentEdges::BOTTOM;
+        let plain = border_rect(BorderStyle::Pixel, 2, AdjacentEdges::empty());
         assert_eq!(
             (plain.x, plain.y, plain.width, plain.height),
             (2, 2, (-4i32) as u32, (-4i32) as u32)
@@ -3193,7 +3184,7 @@ mod owned_graph_tests {
             (normal.x, normal.y, normal.width, normal.height),
             (0, 0, 0, 0)
         );
-        let normal = border_rect(BorderStyle::Normal, 2, ADJ_UPPER_SCREEN_EDGE);
+        let normal = border_rect(BorderStyle::Normal, 2, AdjacentEdges::TOP);
         assert_eq!((normal.y, normal.height), (0, (-2i32) as u32));
         let wrapped = Rect {
             x: u32::MAX,
@@ -3208,7 +3199,7 @@ mod owned_graph_tests {
             width: 1,
             height: 3,
         };
-        assert_eq!(adjacent_borders(right, wrapped), ADJ_RIGHT_SCREEN_EDGE);
+        assert_eq!(adjacent_borders(right, wrapped), AdjacentEdges::RIGHT);
     }
     #[test]
     fn percentages_preserve_sequential_assignment_and_nan_comparisons() {

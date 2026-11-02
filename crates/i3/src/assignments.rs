@@ -1,3 +1,4 @@
+use crate::flags::AssignmentKind;
 /*
  * i3 - an improved tiling window manager
  * © 2009 Michael Stapelberg and contributors (see also: LICENSE)
@@ -13,9 +14,6 @@ use crate::r#match::match_matches_window;
 use crate::tree::tree_render;
 use crate::types::{Assignment, Window};
 use i3_common::safewrappers::srealloc;
-
-const A_COMMAND: u32 = 1;
-const A_ANY: i32 = 0;
 
 // Shared with the command parser and IPC; allocation remains malloc-compatible.
 #[derive(Copy, Clone)]
@@ -56,8 +54,8 @@ fn window_command(id: u32, command: &CStr) -> CString {
     CString::new(bytes).expect("numeric prefix and CStr contain no NUL")
 }
 
-fn accepts_assignment(kind: u32, filter: i32) -> bool {
-    filter == A_ANY || kind & filter as u32 != 0
+fn accepts_assignment(kind: AssignmentKind, filter: AssignmentKind) -> bool {
+    kind.accepts(filter)
 }
 
 fn already_ran(ran: &[*mut Assignment], assignment: *mut Assignment) -> bool {
@@ -117,7 +115,7 @@ pub unsafe fn run_assignments(window: *mut Window) {
     let old_first_assignment = assignments.tqh_first;
     let mut current = assignments.tqh_first;
     while !current.is_null() {
-        if (*current).type_0 == A_COMMAND
+        if (*current).type_0 == AssignmentKind::COMMAND
             && match_matches_window(&raw mut (*current).match_0, window)
         {
             if window_already_ran(window, current) {
@@ -156,7 +154,7 @@ pub unsafe fn run_assignments(window: *mut Window) {
 /// window and the global assignment list must satisfy match_matches_window's
 /// live event-thread graph contract. The returned pointer borrows the current
 /// configuration and must not be retained across a configuration reload.
-pub unsafe fn assignment_for(window: *mut Window, filter: libc::c_int) -> *mut Assignment {
+pub unsafe fn assignment_for(window: *mut Window, filter: AssignmentKind) -> *mut Assignment {
     let mut assignment = assignments.tqh_first;
     while !assignment.is_null() {
         if accepts_assignment((*assignment).type_0, filter)
@@ -207,9 +205,15 @@ mod tests {
 
     #[test]
     fn selection_preserves_any_and_bitmask_behavior() {
+        let accepts_assignment = |kind: u32, filter: i32| {
+            super::accepts_assignment(
+                AssignmentKind::from_bits_retain(kind),
+                AssignmentKind::from_bits_retain(filter as u32),
+            )
+        };
         let kinds = [0, 1, 2, 4, 8, 16, 3, 0x8000_0000];
         for kind in kinds {
-            assert!(accepts_assignment(kind, A_ANY));
+            assert!(accepts_assignment(kind, 0));
         }
         assert!(accepts_assignment(3, 1));
         assert!(accepts_assignment(3, 2));

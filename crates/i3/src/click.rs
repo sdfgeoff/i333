@@ -4,7 +4,8 @@ use crate::commands_parser::command_result_free;
 use crate::con::arena::focus;
 use crate::con::arena::parent::parent_ptr;
 use crate::con::CT_DOCKAREA;
-use crate::con::{TILING_DRAG_MODIFIER, TILING_DRAG_MODIFIER_OR_TITLEBAR, TILING_DRAG_TITLEBAR};
+use crate::flags::{ResizeEdges, TilingDrag};
+
 use crate::types::ClickDestination;
 use crate::types::Direction;
 use crate::types::Layout;
@@ -25,15 +26,11 @@ use crate::types::Position;
 
 pub use crate::application::Binding;
 
-pub const BORDER_BOTTOM: u32 = 8;
-pub const BORDER_TOP: u32 = 4;
-pub const BORDER_RIGHT: u32 = 2;
-pub const BORDER_LEFT: u32 = 1;
 pub use crate::assignments::CommandResult;
 
 unsafe fn tiling_resize_for_border(
     con: *mut Con,
-    border: u32,
+    border: ResizeEdges,
     event: *mut xcb_button_press_event_t,
     use_threshold: bool,
 ) -> bool {
@@ -42,13 +39,13 @@ unsafe fn tiling_resize_for_border(
         c"../src/click.c".as_ptr(),
         c"tiling_resize_for_border".as_ptr(),
         25,
-        border as u32,
+        border.bits(),
         con,
     );
     let mut second: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut first: *mut Con = con;
     let mut search_direction: Direction = Direction::Left;
-    match border as u32 {
+    match border.bits() {
         1 => {
             search_direction = Direction::Left;
         }
@@ -64,7 +61,7 @@ unsafe fn tiling_resize_for_border(
         _ => {
             errorlog(
                 c"ERROR: BUG: invalid border value %d\n".as_ptr().cast_mut(),
-                border as u32,
+                border.bits(),
             );
             return false;
         }
@@ -118,9 +115,7 @@ unsafe fn tiling_resize_for_border(
         first = second;
         second = tmp;
     }
-    let orientation: Orientation = if border as u32 == BORDER_LEFT as i32 as u32
-        || border as u32 == BORDER_RIGHT as i32 as u32
-    {
+    let orientation: Orientation = if border == ResizeEdges::LEFT || border == ResizeEdges::RIGHT {
         Orientation::Horizontal
     } else {
         Orientation::Vertical
@@ -302,8 +297,8 @@ unsafe fn route_click(con: *mut Con, event: *mut xcb_button_press_event_t, dest:
     if mod_pressed
         && is_left_click
         && floatingcon.is_null()
-        && (config.tiling_drag as u32 == TILING_DRAG_MODIFIER as i32 as u32
-            || config.tiling_drag as u32 == TILING_DRAG_MODIFIER_OR_TITLEBAR as i32 as u32)
+        && (config.tiling_drag == TilingDrag::MODIFIER
+            || config.tiling_drag == TilingDrag::MODIFIER_OR_TITLEBAR)
         && has_drop_targets() as i32 != 0
     {
         let use_threshold: bool = !mod_pressed;
@@ -394,9 +389,8 @@ unsafe fn route_click(con: *mut Con, event: *mut xcb_button_press_event_t, dest:
         return;
     }
     if is_left_click
-        && (config.tiling_drag as u32 == TILING_DRAG_TITLEBAR as i32 as u32
-            && dest == ClickDestination::Decoration
-            || config.tiling_drag as u32 == TILING_DRAG_MODIFIER_OR_TITLEBAR as i32 as u32
+        && (config.tiling_drag == TilingDrag::TITLEBAR && dest == ClickDestination::Decoration
+            || config.tiling_drag == TilingDrag::MODIFIER_OR_TITLEBAR
                 && (mod_pressed || dest == ClickDestination::Decoration))
         && has_drop_targets() as i32 != 0
     {
@@ -589,15 +583,15 @@ use crate::tree::get_tree_next_sibling;
 use crate::util::rect_contains;
 use crate::workspace::workspace_show;
 
-fn nearest_border([left, top, right, bottom]: [i32; 4]) -> Option<u32> {
+fn nearest_border([left, top, right, bottom]: [i32; 4]) -> Option<ResizeEdges> {
     if right < left && right < top && right < bottom {
-        Some(BORDER_RIGHT)
+        Some(ResizeEdges::RIGHT)
     } else if left < right && left < top && left < bottom {
-        Some(BORDER_LEFT)
+        Some(ResizeEdges::LEFT)
     } else if top < right && top < left && top < bottom {
-        Some(BORDER_TOP)
+        Some(ResizeEdges::TOP)
     } else if bottom < right && bottom < left && bottom < top {
-        Some(BORDER_BOTTOM)
+        Some(ResizeEdges::BOTTOM)
     } else {
         None
     }
@@ -610,16 +604,16 @@ fn border_hit(
     y: i16,
     dest: ClickDestination,
     use_threshold: bool,
-) -> Option<(u32, bool)> {
+) -> Option<(ResizeEdges, bool)> {
     if dest == ClickDestination::Decoration {
-        return Some((BORDER_TOP, use_threshold));
+        return Some((ResizeEdges::TOP, use_threshold));
     } else if dest == ClickDestination::Border {
         if y as i32 >= 0
             && y as i32 <= bsr.y as i32
             && x as i32 >= bsr.x as i32
             && x as i32 <= rect.width.wrapping_add(bsr.width) as i32
         {
-            return Some((BORDER_TOP, false));
+            return Some((ResizeEdges::TOP, false));
         }
     }
     if x as i32 >= 0
@@ -627,16 +621,16 @@ fn border_hit(
         && y as i32 >= bsr.y as i32
         && y as i32 <= rect.height.wrapping_add(bsr.height) as i32
     {
-        return Some((BORDER_LEFT, false));
+        return Some((ResizeEdges::LEFT, false));
     }
     if x as i32 >= window.x.wrapping_add(window.width) as i32
         && y as i32 >= bsr.y as i32
         && y as i32 <= rect.height.wrapping_add(bsr.height) as i32
     {
-        return Some((BORDER_RIGHT, false));
+        return Some((ResizeEdges::RIGHT, false));
     }
     if y as i32 >= window.y.wrapping_add(window.height) as i32 {
-        return Some((BORDER_BOTTOM, false));
+        return Some((ResizeEdges::BOTTOM, false));
     }
     None
 }
@@ -671,7 +665,7 @@ mod owned_tests {
     #[test]
     fn border_precedence_threshold_and_signed_coordinates_remain_distinct() {
         assert_eq!(nearest_border([1, 1, 9, 9]), None);
-        assert_eq!(nearest_border([-1, 5, 11, 5]), Some(BORDER_LEFT));
+        assert_eq!(nearest_border([-1, 5, 11, 5]), Some(ResizeEdges::LEFT));
         let bounds = rect(0, 0, 100, 100);
         let window = rect(2, 20, 96, 78);
         let borders = rect(2, 20, u32::MAX - 3, u32::MAX - 21);
@@ -685,7 +679,7 @@ mod owned_tests {
                 ClickDestination::Border,
                 true
             ),
-            Some((BORDER_LEFT, false))
+            Some((ResizeEdges::LEFT, false))
         );
         assert_eq!(
             border_hit(
@@ -697,7 +691,7 @@ mod owned_tests {
                 ClickDestination::Border,
                 true
             ),
-            Some((BORDER_TOP, false))
+            Some((ResizeEdges::TOP, false))
         );
         assert_eq!(
             border_hit(
@@ -709,7 +703,7 @@ mod owned_tests {
                 ClickDestination::Decoration,
                 true
             ),
-            Some((BORDER_TOP, true))
+            Some((ResizeEdges::TOP, true))
         );
         assert_eq!(
             border_hit(
@@ -721,7 +715,7 @@ mod owned_tests {
                 ClickDestination::Inside,
                 true
             ),
-            Some((BORDER_RIGHT, false))
+            Some((ResizeEdges::RIGHT, false))
         );
     }
     #[test]

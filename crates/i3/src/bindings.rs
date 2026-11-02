@@ -2,6 +2,7 @@ use crate::application::bindings;
 use crate::commands_parser::parse_command;
 use crate::con::arena::{containers, resolve};
 use crate::config::modes;
+use crate::flags::KeyboardGroups;
 use crate::ipc::ipc_send_binding_event;
 use crate::types::BindingRelease;
 use crate::types::InputType;
@@ -20,10 +21,6 @@ use i3_common::safewrappers::sasprintf;
 
 pub use crate::application::Binding;
 pub use crate::application::Binding_Keycode;
-
-pub const I3_XKB_GROUP_MASK_4: u32 = 8;
-pub const I3_XKB_GROUP_MASK_3: u32 = 4;
-pub const I3_XKB_GROUP_MASK_2: u32 = 2;
 
 pub use crate::application::bindings_head;
 
@@ -182,8 +179,7 @@ pub unsafe fn configure_binding(
     new_binding
 }
 fn group_matches(mask: u32, group: u32) -> bool {
-    let groups = mask >> 16;
-    groups == 0 || group < 4 && groups & (1 << group) != 0
+    KeyboardGroups::from_state_mask(mask).matches_group(group)
 }
 unsafe fn binding_in_current_group(bind: *const Binding) -> bool {
     if (*bind).event_state_mask >> 16 != 0 && xkb_current_group > 3 {
@@ -540,7 +536,7 @@ pub unsafe fn translate_keysyms() {
                 group,
                 (*bind).event_state_mask,
                 if (*bind).event_state_mask
-                    & I3_XKB_GROUP_MASK_2 as i32 as u32
+                    & KeyboardGroups::GROUP2.bits() as i32 as u32
                     != 0
                 {
                     c"yes".as_ptr()
@@ -548,7 +544,7 @@ pub unsafe fn translate_keysyms() {
                     c"no".as_ptr()
                 },
                 if (*bind).event_state_mask
-                    & I3_XKB_GROUP_MASK_3 as i32 as u32
+                    & KeyboardGroups::GROUP3.bits() as i32 as u32
                     != 0
                 {
                     c"yes".as_ptr()
@@ -556,7 +552,7 @@ pub unsafe fn translate_keysyms() {
                     c"no".as_ptr()
                 },
                 if (*bind).event_state_mask
-                    & I3_XKB_GROUP_MASK_4 as i32 as u32
+                    & KeyboardGroups::GROUP4.bits() as i32 as u32
                     != 0
                 {
                     c"yes".as_ptr()
@@ -1458,16 +1454,7 @@ unsafe fn append_keycode(bind: *mut Binding, keycode: u8, modifiers: u32) {
 }
 
 fn translation_group(mask: u32) -> u32 {
-    let groups = mask >> 16;
-    if groups & 2 != 0 {
-        1
-    } else if groups & 4 != 0 {
-        2
-    } else if groups & 8 != 0 {
-        3
-    } else {
-        0
-    }
+    KeyboardGroups::from_state_mask(mask).translation_group()
 }
 
 struct BindingCopy(*mut Binding);

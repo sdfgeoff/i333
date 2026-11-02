@@ -34,6 +34,7 @@ mod display_version;
 mod drag;
 mod ewmh;
 mod fake_outputs;
+mod flags;
 mod floating;
 mod gaps;
 mod handlers;

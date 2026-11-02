@@ -1,12 +1,9 @@
 use crate::con::arena::parent::{parent_ptr, set_parent_ptr};
 use crate::con::arena::{floating, focus, identity, nodes};
 use crate::con::{CF_NONE, CT_CON, CT_FLOATING_CON, CT_WORKSPACE};
+use crate::flags::ResizeEdges;
 pub use crate::types::xoutput as Output;
 
-const BORDER_LEFT: u32 = 1;
-const BORDER_RIGHT: u32 = 2;
-const BORDER_TOP: u32 = 4;
-const BORDER_BOTTOM: u32 = 8;
 use crate::randr::outputs;
 use crate::types::DragResult;
 use crate::types::FloatingState;
@@ -32,7 +29,7 @@ use crate::xcursor::Cursor;
 #[derive(Copy, Clone)]
 #[repr(C)]
 struct ResizeParameters {
-    pub corner: u32,
+    pub corner: ResizeEdges,
     pub proportional: bool,
 }
 
@@ -823,7 +820,7 @@ unsafe fn resize_window_callback(
     extra: *const ::core::ffi::c_void,
 ) {
     let params: *const ResizeParameters = extra as *const ResizeParameters;
-    let corner: u32 = (*params).corner;
+    let corner: ResizeEdges = (*params).corner;
     let mut dest_x: i32 = (*con).rect.x as i32;
     let mut dest_y: i32 = (*con).rect.y as i32;
     let (dest_width, dest_height) = dragged_size(
@@ -840,13 +837,13 @@ unsafe fn resize_window_callback(
         height: dest_height,
     };
     floating_check_size(con, false);
-    if corner as u32 & BORDER_LEFT as i32 as u32 != 0 {
+    if corner.contains(ResizeEdges::LEFT) {
         dest_x = (*old_rect)
             .x
             .wrapping_add((*old_rect).width.wrapping_sub((*con).rect.width))
             as i32;
     }
-    if corner as u32 & BORDER_TOP as i32 as u32 != 0 {
+    if corner.contains(ResizeEdges::TOP) {
         dest_y = (*old_rect)
             .y
             .wrapping_add((*old_rect).height.wrapping_sub((*con).rect.height))
@@ -1062,12 +1059,19 @@ use crate::x::x_push_node;
 use crate::x::x_set_name;
 use crate::x::x_set_warp_to;
 
-fn resize_corner(rect: Rect, x: i16, y: i16) -> (u32, Cursor) {
+fn resize_corner(rect: Rect, x: i16, y: i16) -> (ResizeEdges, Cursor) {
     let left = x <= (rect.width / 2) as i16;
     let top = y <= (rect.height / 2) as i16;
     (
-        (if left { BORDER_LEFT } else { BORDER_RIGHT })
-            | (if top { BORDER_TOP } else { BORDER_BOTTOM }),
+        (if left {
+            ResizeEdges::LEFT
+        } else {
+            ResizeEdges::RIGHT
+        }) | (if top {
+            ResizeEdges::TOP
+        } else {
+            ResizeEdges::BOTTOM
+        }),
         match (left, top) {
             (true, true) => Cursor::TopLeftCorner,
             (false, true) => Cursor::TopRightCorner,
@@ -1079,19 +1083,19 @@ fn resize_corner(rect: Rect, x: i16, y: i16) -> (u32, Cursor) {
 
 fn dragged_size(
     old: Rect,
-    corner: u32,
+    corner: ResizeEdges,
     proportional: bool,
     new: (u32, u32),
     origin: (u32, u32),
 ) -> (u32, u32) {
     let dx = new.0.wrapping_sub(origin.0);
     let dy = new.1.wrapping_sub(origin.1);
-    let mut width = if corner & BORDER_LEFT != 0 {
+    let mut width = if corner.contains(ResizeEdges::LEFT) {
         old.width.wrapping_sub(dx)
     } else {
         old.width.wrapping_add(dx)
     };
-    let mut height = if corner & BORDER_TOP != 0 {
+    let mut height = if corner.contains(ResizeEdges::TOP) {
         old.height.wrapping_sub(dy)
     } else {
         old.height.wrapping_add(dy)
@@ -1213,11 +1217,11 @@ mod owned_tests {
         );
         assert_eq!((centered.x, centered.y), (13, 22));
         let (corner, _) = resize_corner(rect(131072, 100), 1, 50);
-        assert_eq!(corner, BORDER_RIGHT | BORDER_TOP);
+        assert_eq!(corner, ResizeEdges::RIGHT | ResizeEdges::TOP);
         assert_eq!(
             dragged_size(
                 rect(100, 50),
-                BORDER_LEFT | BORDER_TOP,
+                ResizeEdges::LEFT | ResizeEdges::TOP,
                 false,
                 (5, 10),
                 (10, 20)
@@ -1227,7 +1231,7 @@ mod owned_tests {
         assert_eq!(
             dragged_size(
                 rect(100, 50),
-                BORDER_RIGHT | BORDER_BOTTOM,
+                ResizeEdges::RIGHT | ResizeEdges::BOTTOM,
                 true,
                 (10, 10),
                 (0, 0)

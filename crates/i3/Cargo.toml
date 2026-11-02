@@ -6,6 +6,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+bitflags.workspace = true
 startup-notification-sys.workspace = true
 xkbcommon.workspace = true
 xcb-sys.workspace = true

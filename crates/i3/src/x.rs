@@ -1,6 +1,7 @@
 use crate::con::arena::focus;
 use crate::con::arena::parent::parent_ptr;
 use crate::con::arena::{floating, identity, resolve};
+use crate::flags::AdjacentEdges;
 use crate::types::BorderStyle;
 use crate::types::KillWindow;
 use crate::types::Layout;
@@ -25,10 +26,6 @@ use std::ffi::{CStr, CString};
 // the graph, so node references must never span those calls.
 
 type Output = xoutput;
-const ADJ_LOWER_SCREEN_EDGE: u32 = 16;
-const ADJ_UPPER_SCREEN_EDGE: u32 = 4;
-const ADJ_RIGHT_SCREEN_EDGE: u32 = 2;
-const ADJ_LEFT_SCREEN_EDGE: u32 = 1;
 const CT_ROOT: u32 = 0;
 const CT_OUTPUT: u32 = 1;
 const CT_DOCKAREA: u32 = 5;
@@ -92,7 +89,7 @@ impl BorderRectangles {
 fn border_rectangles(
     style: BorderStyle,
     leaf: bool,
-    hidden: u32,
+    hidden: AdjacentEdges,
     border: Rect,
     rect: Rect,
 ) -> BorderRectangles {
@@ -112,7 +109,7 @@ fn border_rectangles(
         result.values[result.len] = value;
         result.len += 1;
     };
-    if hidden & ADJ_LEFT_SCREEN_EDGE == 0 {
+    if !hidden.contains(AdjacentEdges::LEFT) {
         push(xcb_rectangle_t {
             x: 0,
             y: 0,
@@ -120,7 +117,7 @@ fn border_rectangles(
             height: rect.height as u16,
         });
     }
-    if hidden & ADJ_RIGHT_SCREEN_EDGE == 0 {
+    if !hidden.contains(AdjacentEdges::RIGHT) {
         push(xcb_rectangle_t {
             x: rect.width.wrapping_add(border.width.wrapping_add(border.x)) as i16,
             y: 0,
@@ -128,7 +125,7 @@ fn border_rectangles(
             height: rect.height as u16,
         });
     }
-    if hidden & ADJ_LOWER_SCREEN_EDGE == 0 {
+    if !hidden.contains(AdjacentEdges::BOTTOM) {
         push(xcb_rectangle_t {
             x: border.x as i16,
             y: rect
@@ -138,7 +135,7 @@ fn border_rectangles(
             height: border.height.wrapping_add(border.y).wrapping_neg() as u16,
         });
     }
-    if style == BorderStyle::Pixel && hidden & ADJ_UPPER_SCREEN_EDGE == 0 {
+    if style == BorderStyle::Pixel && !hidden.contains(AdjacentEdges::TOP) {
         push(xcb_rectangle_t {
             x: border.x as i16,
             y: 0,
@@ -839,7 +836,7 @@ unsafe fn x_get_border_rectangles(con: *mut Con) -> BorderRectangles {
     border_rectangles(
         con_border_style(con),
         con_is_leaf(con),
-        con_adjacent_borders(con) as u32 & config.hide_edge_borders as u32,
+        con_adjacent_borders(con) & AdjacentEdges::from_bits_retain(config.hide_edge_borders),
         con_border_style_rect(con),
         (*con).rect,
     )
@@ -2582,7 +2579,13 @@ mod tests {
             width: (-4i32) as u32,
             height: (-4i32) as u32,
         };
-        let all = border_rectangles(BorderStyle::Pixel, true, 0, border, rect);
+        let all = border_rectangles(
+            BorderStyle::Pixel,
+            true,
+            AdjacentEdges::empty(),
+            border,
+            rect,
+        );
         let tuples: Vec<_> = all
             .as_slice()
             .iter()
@@ -2593,18 +2596,18 @@ mod tests {
             [(0, 0, 2, 80), (98, 0, 2, 80), (2, 78, 96, 2), (2, 0, 96, 2)]
         );
         assert_eq!(
+            border_rectangles(BorderStyle::Normal, true, AdjacentEdges::LEFT, border, rect).len,
+            2
+        );
+        assert_eq!(
             border_rectangles(
-                BorderStyle::Normal,
+                BorderStyle::None,
                 true,
-                ADJ_LEFT_SCREEN_EDGE,
+                AdjacentEdges::empty(),
                 border,
                 rect
             )
             .len,
-            2
-        );
-        assert_eq!(
-            border_rectangles(BorderStyle::None, true, 0, border, rect).len,
             0
         );
         assert_eq!(frame_extents(border), [2, 2, 2, 2]);

@@ -1,6 +1,7 @@
 use crate::con::arena::focus;
 use crate::con::arena::parent::parent_ptr;
 use crate::con::arena::{containers, resolve};
+use crate::flags::AssignmentKind;
 use crate::types::BorderStyle;
 use crate::types::FloatingState;
 use crate::types::PopupDuringFullscreen;
@@ -22,11 +23,6 @@ pub type fullscreen_mode_t = ::core::ffi::c_uint;
 pub const CF_OUTPUT: fullscreen_mode_t = 1;
 
 pub const M_BELOW: ::core::ffi::c_uint = 2;
-
-pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
-pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
-pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
-pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
 
 pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
 pub const CT_CON: ::core::ffi::c_uint = 2;
@@ -689,10 +685,9 @@ pub unsafe fn manage_window(
                 if nc.is_null() {
                     let mut wm_desktop_ws: *mut Con = ::core::ptr::null_mut::<Con>();
                     let mut assignment: *mut Assignment = ::core::ptr::null_mut::<Assignment>();
-                    assignment = assignment_for(cwindow, A_TO_WORKSPACE as ::core::ffi::c_int);
+                    assignment = assignment_for(cwindow, AssignmentKind::TO_WORKSPACE);
                     if !assignment.is_null() || {
-                        assignment =
-                            assignment_for(cwindow, A_TO_WORKSPACE_NUMBER as ::core::ffi::c_int);
+                        assignment = assignment_for(cwindow, AssignmentKind::TO_WORKSPACE_NUMBER);
                         !assignment.is_null()
                     } {
                         debuglog(
@@ -703,9 +698,7 @@ pub unsafe fn manage_window(
                             match_0,
                         );
                         let mut assigned_ws: *mut Con = ::core::ptr::null_mut::<Con>();
-                        if (*assignment).type_0 as ::core::ffi::c_uint
-                            == A_TO_WORKSPACE_NUMBER as ::core::ffi::c_int as ::core::ffi::c_uint
-                        {
+                        if (*assignment).type_0 == AssignmentKind::TO_WORKSPACE_NUMBER {
                             let parsed_num: ::core::ffi::c_long =
                                 ws_name_to_number((*assignment).dest.workspace)
                                     as ::core::ffi::c_long;
@@ -805,7 +798,7 @@ pub unsafe fn manage_window(
                     } else {
                         nc = tree_open_con(::core::ptr::null_mut::<Con>(), cwindow);
                     }
-                    assignment = assignment_for(cwindow, A_TO_OUTPUT as ::core::ffi::c_int);
+                    assignment = assignment_for(cwindow, AssignmentKind::TO_OUTPUT);
                     if !assignment.is_null() {
                         con_move_to_output_name(nc, (*assignment).dest.output, true);
                     }
@@ -1175,7 +1168,7 @@ pub unsafe fn manage_window(
                     (*cwindow).managed_since = time(::core::ptr::null_mut::<libc::time_t>());
                     ipc_send_window_event(c"new".as_ptr(), nc);
                     if set_focus as ::core::ffi::c_int != 0
-                        && !assignment_for(cwindow, A_NO_FOCUS as ::core::ffi::c_int).is_null()
+                        && !assignment_for(cwindow, AssignmentKind::NO_FOCUS).is_null()
                     {
                         if con_num_windows(ws) == 1 as ::core::ffi::c_int {
                             debuglog(

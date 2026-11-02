@@ -9,10 +9,9 @@
  *
  */
 #![deny(unsafe_op_in_unsafe_fn)]
+use crate::flags::GapMask;
 
-use crate::application::{
-    ws_assignments, GAPS_BOTTOM, GAPS_INNER, GAPS_LEFT, GAPS_RIGHT, GAPS_TOP,
-};
+use crate::application::ws_assignments;
 use crate::con::arena::parent::parent_ptr;
 use crate::con::{
     con_get_fullscreen_con, con_get_workspace, con_has_parent, con_inside_floating,
@@ -118,18 +117,18 @@ enum AssignmentMatch {
 struct GapAssignment {
     matching: AssignmentMatch,
     gaps: gaps_t,
-    mask: u32,
+    mask: GapMask,
 }
 
-fn assignment_offsets(mut gaps: gaps_t, mask: u32, configured: gaps_t) -> gaps_t {
+fn assignment_offsets(mut gaps: gaps_t, mask: GapMask, configured: gaps_t) -> gaps_t {
     for (value, global, bit) in [
-        (&mut gaps.inner, configured.inner, GAPS_INNER),
-        (&mut gaps.top, configured.top, GAPS_TOP),
-        (&mut gaps.right, configured.right, GAPS_RIGHT),
-        (&mut gaps.bottom, configured.bottom, GAPS_BOTTOM),
-        (&mut gaps.left, configured.left, GAPS_LEFT),
+        (&mut gaps.inner, configured.inner, GapMask::INNER),
+        (&mut gaps.top, configured.top, GapMask::TOP),
+        (&mut gaps.right, configured.right, GapMask::RIGHT),
+        (&mut gaps.bottom, configured.bottom, GapMask::BOTTOM),
+        (&mut gaps.left, configured.left, GapMask::LEFT),
     ] {
-        if mask & bit != 0 {
+        if mask.contains(bit) {
             *value -= global;
         }
     }
@@ -141,7 +140,7 @@ fn workspace_gaps(
     configured: gaps_t,
 ) -> gaps_t {
     let mut gaps = NO_GAPS;
-    let mut mask = 0;
+    let mut mask = GapMask::empty();
     for assignment in assignments {
         match assignment.matching {
             AssignmentMatch::None => continue,
@@ -488,7 +487,7 @@ mod tests {
         assert!(!has_adjacent(false, FullscreenNeighbor::NoFullscreen));
     }
 
-    fn assigned(matching: AssignmentMatch, number: i32, mask: u32) -> GapAssignment {
+    fn assigned(matching: AssignmentMatch, number: i32, mask: GapMask) -> GapAssignment {
         GapAssignment {
             matching,
             gaps: gaps([number; 5]),
@@ -500,9 +499,9 @@ mod tests {
     fn first_exact_name_wins_but_last_numeric_match_applies_until_then() {
         let configured = gaps([1, 2, 3, 4, 5]);
         let numeric = [
-            assigned(AssignmentMatch::Number, 10, GAPS_TOP),
-            assigned(AssignmentMatch::None, 999, 31),
-            assigned(AssignmentMatch::Number, 20, GAPS_LEFT),
+            assigned(AssignmentMatch::Number, 10, GapMask::TOP),
+            assigned(AssignmentMatch::None, 999, GapMask::from_bits_retain(31)),
+            assigned(AssignmentMatch::Number, 20, GapMask::LEFT),
         ];
         assert_eq!(
             values(workspace_gaps(numeric, configured)),
@@ -513,7 +512,7 @@ mod tests {
             .chain([assigned(
                 AssignmentMatch::Name,
                 30,
-                GAPS_INNER | GAPS_BOTTOM,
+                GapMask::INNER | GapMask::BOTTOM,
             )])
             .chain(std::iter::from_fn(|| {
                 panic!("assignment after exact name must not be inspected")
@@ -527,7 +526,7 @@ mod tests {
             values(workspace_gaps(
                 [
                     numeric[0],
-                    assigned(AssignmentMatch::Name, 7, 0),
+                    assigned(AssignmentMatch::Name, 7, GapMask::empty()),
                     numeric[2]
                 ],
                 configured
@@ -536,7 +535,11 @@ mod tests {
         );
         assert_eq!(
             values(workspace_gaps(
-                [assigned(AssignmentMatch::None, 100, 31)],
+                [assigned(
+                    AssignmentMatch::None,
+                    100,
+                    GapMask::from_bits_retain(31)
+                )],
                 configured
             )),
             [0; 5]
@@ -552,7 +555,7 @@ mod tests {
             let assignment = GapAssignment {
                 matching: AssignmentMatch::Name,
                 gaps: gaps(requested_values),
-                mask,
+                mask: GapMask::from_bits_retain(mask),
             };
             let workspace = workspace_gaps([assignment], configured);
             let actual = values(effective_gaps(workspace, configured, SmartGaps::Off, false));
@@ -566,7 +569,11 @@ mod tests {
             }
             // Unknown mask bits cannot alter any component.
             assert_eq!(
-                values(assignment_offsets(workspace, 1 << 31, configured)),
+                values(assignment_offsets(
+                    workspace,
+                    GapMask::from_bits_retain(1 << 31),
+                    configured
+                )),
                 values(workspace)
             );
         }

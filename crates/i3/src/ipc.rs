@@ -60,13 +60,6 @@ pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
 pub const M_NODOCK: ::core::ffi::c_int = 0;
 pub const M_DONTCHECK: ::core::ffi::c_int = -1;
 
-pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
-pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
-pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
-pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
-pub const A_COMMAND: ::core::ffi::c_uint = 1;
-pub const A_ANY: ::core::ffi::c_uint = 0;
-
 pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
 pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
 pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
@@ -75,12 +68,6 @@ pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
 pub const CT_ROOT: ::core::ffi::c_uint = 0;
 
 pub type Output = xoutput;
-
-pub const I3_XKB_GROUP_MASK_4: ::core::ffi::c_uint = 8;
-pub const I3_XKB_GROUP_MASK_3: ::core::ffi::c_uint = 4;
-pub const I3_XKB_GROUP_MASK_2: ::core::ffi::c_uint = 2;
-pub const I3_XKB_GROUP_MASK_1: ::core::ffi::c_uint = 1;
-pub const I3_XKB_GROUP_MASK_ANY: ::core::ffi::c_uint = 0;
 
 pub use crate::application::Barconfig;
 pub use crate::config::IncludedFile;

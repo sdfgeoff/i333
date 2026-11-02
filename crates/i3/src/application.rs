@@ -1,4 +1,5 @@
 use crate::config::barconfigs;
+use crate::flags::{GapMask, TilingDrag};
 use crate::handlers::event_is_ignored;
 use crate::ipc::ipc_confirm_restart;
 use crate::ipc::ipc_new_client_on_fd;
@@ -93,13 +94,6 @@ pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
 pub const M_NODOCK: ::core::ffi::c_int = 0;
 pub const M_DONTCHECK: ::core::ffi::c_int = -1;
 
-pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
-pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
-pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
-pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
-pub const A_COMMAND: ::core::ffi::c_uint = 1;
-pub const A_ANY: ::core::ffi::c_uint = 0;
-
 pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
 pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
 pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
@@ -117,15 +111,7 @@ pub const HEBM_HORIZONTAL: hide_edge_borders_mode_t = 20;
 pub const HEBM_VERTICAL: hide_edge_borders_mode_t = 3;
 pub const HEBM_NONE: hide_edge_borders_mode_t = 0;
 
-pub type gaps_mask_t = ::core::ffi::c_uint;
-pub const GAPS_OUTER: gaps_mask_t = 30;
-pub const GAPS_HORIZONTAL: gaps_mask_t = 20;
-pub const GAPS_VERTICAL: gaps_mask_t = 10;
-pub const GAPS_LEFT: gaps_mask_t = 16;
-pub const GAPS_BOTTOM: gaps_mask_t = 8;
-pub const GAPS_RIGHT: gaps_mask_t = 4;
-pub const GAPS_TOP: gaps_mask_t = 2;
-pub const GAPS_INNER: gaps_mask_t = 1;
+pub type gaps_mask_t = GapMask;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -193,11 +179,7 @@ pub struct assignments_head {
     pub tqh_first: *mut Assignment,
     pub tqh_last: *mut *mut Assignment,
 }
-pub type tiling_drag_t = ::core::ffi::c_uint;
-pub const TILING_DRAG_MODIFIER_OR_TITLEBAR: tiling_drag_t = 3;
-pub const TILING_DRAG_TITLEBAR: tiling_drag_t = 2;
-pub const TILING_DRAG_MODIFIER: tiling_drag_t = 1;
-pub const TILING_DRAG_OFF: tiling_drag_t = 0;
+pub type tiling_drag_t = TilingDrag;
 
 #[derive(Copy, Clone)]
 #[repr(C)]

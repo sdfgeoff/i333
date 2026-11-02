@@ -8,6 +8,7 @@ use crate::config::included_files;
 use crate::config::modes;
 use crate::config_parser::parse_file;
 use crate::config_parser::ConfigParserState;
+use crate::flags::{AssignmentKind, GapMask, KeyboardGroups, TilingDrag};
 use crate::types::BarHiddenState;
 use crate::types::BarMode;
 use crate::types::BarPosition;
@@ -45,12 +46,6 @@ pub const M_NODOCK: ::core::ffi::c_int = 0;
 
 pub use crate::regex::Regex as regex;
 
-pub const A_TO_OUTPUT: ::core::ffi::c_uint = 16;
-pub const A_TO_WORKSPACE_NUMBER: ::core::ffi::c_uint = 8;
-pub const A_NO_FOCUS: ::core::ffi::c_uint = 4;
-pub const A_TO_WORKSPACE: ::core::ffi::c_uint = 2;
-pub const A_COMMAND: ::core::ffi::c_uint = 1;
-
 pub type hide_edge_borders_mode_t = ::core::ffi::c_uint;
 pub const HEBM_SMART_NO_GAPS: hide_edge_borders_mode_t = 64;
 pub const HEBM_SMART: hide_edge_borders_mode_t = 32;
@@ -59,28 +54,11 @@ pub const HEBM_HORIZONTAL: hide_edge_borders_mode_t = 20;
 pub const HEBM_VERTICAL: hide_edge_borders_mode_t = 3;
 pub const HEBM_NONE: hide_edge_borders_mode_t = 0;
 
-pub const I3_XKB_GROUP_MASK_4: ::core::ffi::c_uint = 8;
-pub const I3_XKB_GROUP_MASK_3: ::core::ffi::c_uint = 4;
-pub const I3_XKB_GROUP_MASK_2: ::core::ffi::c_uint = 2;
-pub const I3_XKB_GROUP_MASK_1: ::core::ffi::c_uint = 1;
-
-pub type gaps_mask_t = ::core::ffi::c_uint;
-pub const GAPS_OUTER: gaps_mask_t = 30;
-pub const GAPS_HORIZONTAL: gaps_mask_t = 20;
-pub const GAPS_VERTICAL: gaps_mask_t = 10;
-pub const GAPS_LEFT: gaps_mask_t = 16;
-pub const GAPS_BOTTOM: gaps_mask_t = 8;
-pub const GAPS_RIGHT: gaps_mask_t = 4;
-pub const GAPS_TOP: gaps_mask_t = 2;
-pub const GAPS_INNER: gaps_mask_t = 1;
+pub type gaps_mask_t = GapMask;
 
 pub use crate::application::Autostart;
 pub use crate::application::Workspace_Assignment;
-pub type tiling_drag_t = ::core::ffi::c_uint;
-pub const TILING_DRAG_MODIFIER_OR_TITLEBAR: tiling_drag_t = 3;
-pub const TILING_DRAG_TITLEBAR: tiling_drag_t = 2;
-pub const TILING_DRAG_MODIFIER: tiling_drag_t = 1;
-pub const TILING_DRAG_OFF: tiling_drag_t = 0;
+pub type tiling_drag_t = TilingDrag;
 pub use crate::config::IncludedFile;
 
 pub use crate::application::Barconfig;
@@ -331,11 +309,11 @@ fn event_state_bytes(bytes: &[u8]) -> u32 {
         (b"Control", XCB_KEY_BUT_MASK_CONTROL),
         (b"Ctrl", XCB_KEY_BUT_MASK_CONTROL),
         (b"Shift", XCB_KEY_BUT_MASK_SHIFT),
-        (b"Group1", I3_XKB_GROUP_MASK_1 << 16),
-        (b"Group2", I3_XKB_GROUP_MASK_2 << 16),
-        (b"Mode_switch", I3_XKB_GROUP_MASK_2 << 16),
-        (b"Group3", I3_XKB_GROUP_MASK_3 << 16),
-        (b"Group4", I3_XKB_GROUP_MASK_4 << 16),
+        (b"Group1", KeyboardGroups::GROUP1.state_mask()),
+        (b"Group2", KeyboardGroups::GROUP2.state_mask()),
+        (b"Mode_switch", KeyboardGroups::GROUP2.state_mask()),
+        (b"Group3", KeyboardGroups::GROUP3.state_mask()),
+        (b"Group4", KeyboardGroups::GROUP4.state_mask()),
     ];
     flags
         .iter()
@@ -520,7 +498,7 @@ pub unsafe fn cfg_for_window(
     );
     let assignment: *mut Assignment =
         scalloc(1 as usize, ::core::mem::size_of::<Assignment>() as usize) as *mut Assignment;
-    (*assignment).type_0 = A_COMMAND;
+    (*assignment).type_0 = AssignmentKind::COMMAND;
     match_copy(&raw mut (*assignment).match_0, current_match);
     (*assignment).dest.command = sstrdup(command);
     (*assignment).assignments.tqe_next = ::core::ptr::null_mut::<Assignment>();
@@ -532,19 +510,19 @@ unsafe fn apply_gaps(gaps: *mut gaps_t, mask: gaps_mask_t, value: ::core::ffi::c
     if gaps.is_null() {
         return;
     }
-    if mask as ::core::ffi::c_uint & GAPS_INNER as ::core::ffi::c_int as ::core::ffi::c_uint != 0 {
+    if mask.contains(GapMask::INNER) {
         (*gaps).inner = value;
     }
-    if mask as ::core::ffi::c_uint & GAPS_TOP as ::core::ffi::c_int as ::core::ffi::c_uint != 0 {
+    if mask.contains(GapMask::TOP) {
         (*gaps).top = value;
     }
-    if mask as ::core::ffi::c_uint & GAPS_RIGHT as ::core::ffi::c_int as ::core::ffi::c_uint != 0 {
+    if mask.contains(GapMask::RIGHT) {
         (*gaps).right = value;
     }
-    if mask as ::core::ffi::c_uint & GAPS_BOTTOM as ::core::ffi::c_int as ::core::ffi::c_uint != 0 {
+    if mask.contains(GapMask::BOTTOM) {
         (*gaps).bottom = value;
     }
-    if mask as ::core::ffi::c_uint & GAPS_LEFT as ::core::ffi::c_int as ::core::ffi::c_uint != 0 {
+    if mask.contains(GapMask::LEFT) {
         (*gaps).left = value;
     }
 }
@@ -553,7 +531,7 @@ unsafe fn create_gaps_assignment(
     mask: gaps_mask_t,
     pixels: ::core::ffi::c_int,
 ) {
-    if mask as ::core::ffi::c_uint == 0 as ::core::ffi::c_uint {
+    if mask.is_empty() {
         return;
     }
     debuglog(
@@ -588,35 +566,33 @@ unsafe fn create_gaps_assignment(
         *ws_assignments.tqh_last = assignment;
         ws_assignments.tqh_last = &raw mut (*assignment).ws_assignments.tqe_next;
     }
-    (*assignment).gaps_mask = ::core::mem::transmute::<::core::ffi::c_uint, gaps_mask_t>(
-        (*assignment).gaps_mask as ::core::ffi::c_uint | mask as ::core::ffi::c_uint,
-    );
+    (*assignment).gaps_mask |= mask;
     apply_gaps(&raw mut (*assignment).gaps, mask, pixels);
 }
 unsafe fn gaps_scope_to_mask(scope: *const ::core::ffi::c_char) -> gaps_mask_t {
     if strcmp(scope, c"inner".as_ptr()) == 0 {
-        return GAPS_INNER;
+        return GapMask::INNER;
     }
     if strcmp(scope, c"outer".as_ptr()) == 0 {
-        return GAPS_OUTER;
+        return GapMask::OUTER;
     }
     if strcmp(scope, c"vertical".as_ptr()) == 0 {
-        return GAPS_VERTICAL;
+        return GapMask::VERTICAL;
     }
     if strcmp(scope, c"horizontal".as_ptr()) == 0 {
-        return GAPS_HORIZONTAL;
+        return GapMask::HORIZONTAL;
     }
     if strcmp(scope, c"top".as_ptr()) == 0 {
-        return GAPS_TOP;
+        return GapMask::TOP;
     }
     if strcmp(scope, c"right".as_ptr()) == 0 {
-        return GAPS_RIGHT;
+        return GapMask::RIGHT;
     }
     if strcmp(scope, c"bottom".as_ptr()) == 0 {
-        return GAPS_BOTTOM;
+        return GapMask::BOTTOM;
     }
     if strcmp(scope, c"left".as_ptr()) == 0 {
-        return GAPS_LEFT;
+        return GapMask::LEFT;
     }
     errorlog(
         c"ERROR: Invalid command, cannot process scope %s"
@@ -624,7 +600,7 @@ unsafe fn gaps_scope_to_mask(scope: *const ::core::ffi::c_char) -> gaps_mask_t {
             .cast_mut(),
         scope,
     );
-    0 as gaps_mask_t
+    GapMask::empty()
 }
 
 pub unsafe fn cfg_gaps(
@@ -635,7 +611,7 @@ pub unsafe fn cfg_gaps(
     value: ::core::ffi::c_long,
 ) {
     let pixels: ::core::ffi::c_int = logical_px(value as ::core::ffi::c_int) as ::core::ffi::c_int;
-    let mask: gaps_mask_t = gaps_scope_to_mask(scope) as gaps_mask_t;
+    let mask: gaps_mask_t = gaps_scope_to_mask(scope);
     if workspace.is_null() {
         apply_gaps(&raw mut config.gaps, mask, pixels);
     } else {
@@ -1278,7 +1254,7 @@ pub unsafe fn cfg_assign_output(
     let assignment: *mut Assignment =
         scalloc(1 as usize, ::core::mem::size_of::<Assignment>() as usize) as *mut Assignment;
     match_copy(&raw mut (*assignment).match_0, current_match);
-    (*assignment).type_0 = A_TO_OUTPUT;
+    (*assignment).type_0 = AssignmentKind::TO_OUTPUT;
     (*assignment).dest.output = sstrdup(output);
     (*assignment).assignments.tqe_next = ::core::ptr::null_mut::<Assignment>();
     (*assignment).assignments.tqe_prev = assignments.tqh_last;
@@ -1338,11 +1314,11 @@ pub unsafe fn cfg_assign(
     let assignment: *mut Assignment =
         scalloc(1 as usize, ::core::mem::size_of::<Assignment>() as usize) as *mut Assignment;
     match_copy(&raw mut (*assignment).match_0, current_match);
-    (*assignment).type_0 = (if is_number as ::core::ffi::c_int != 0 {
-        A_TO_WORKSPACE_NUMBER as ::core::ffi::c_int
+    (*assignment).type_0 = if is_number as ::core::ffi::c_int != 0 {
+        AssignmentKind::TO_WORKSPACE_NUMBER
     } else {
-        A_TO_WORKSPACE as ::core::ffi::c_int
-    }) as ::core::ffi::c_uint;
+        AssignmentKind::TO_WORKSPACE
+    };
     (*assignment).dest.workspace = sstrdup(workspace);
     (*assignment).assignments.tqe_next = ::core::ptr::null_mut::<Assignment>();
     (*assignment).assignments.tqe_prev = assignments.tqh_last;
@@ -1377,7 +1353,7 @@ pub unsafe fn cfg_no_focus(current_match: *mut Match, result: *mut ConfigResultI
     let assignment: *mut Assignment =
         scalloc(1 as usize, ::core::mem::size_of::<Assignment>() as usize) as *mut Assignment;
     match_copy(&raw mut (*assignment).match_0, current_match);
-    (*assignment).type_0 = A_NO_FOCUS;
+    (*assignment).type_0 = AssignmentKind::NO_FOCUS;
     (*assignment).assignments.tqe_next = ::core::ptr::null_mut::<Assignment>();
     (*assignment).assignments.tqe_prev = assignments.tqh_last;
     *assignments.tqh_last = assignment as *mut Assignment;
@@ -1398,15 +1374,15 @@ pub unsafe fn cfg_tiling_drag(
     value: *const ::core::ffi::c_char,
 ) {
     if strcmp(value, c"modifier".as_ptr()) == 0 as ::core::ffi::c_int {
-        config.tiling_drag = TILING_DRAG_MODIFIER;
+        config.tiling_drag = TilingDrag::MODIFIER;
     } else if strcmp(value, c"titlebar".as_ptr()) == 0 as ::core::ffi::c_int {
-        config.tiling_drag = TILING_DRAG_TITLEBAR;
+        config.tiling_drag = TilingDrag::TITLEBAR;
     } else if strcmp(value, c"modifier,titlebar".as_ptr()) == 0 as ::core::ffi::c_int
         || strcmp(value, c"titlebar,modifier".as_ptr()) == 0 as ::core::ffi::c_int
     {
-        config.tiling_drag = TILING_DRAG_MODIFIER_OR_TITLEBAR;
+        config.tiling_drag = TilingDrag::MODIFIER_OR_TITLEBAR;
     } else {
-        config.tiling_drag = TILING_DRAG_OFF;
+        config.tiling_drag = TilingDrag::empty();
     };
 }
 static mut current_bar: *mut Barconfig = ::core::ptr::null::<Barconfig>() as *mut Barconfig;
@@ -1977,7 +1953,7 @@ mod argument_tests {
         assert_eq!(event_state_bytes(b"mod1+ctrl+shift"), 0);
         assert_eq!(
             event_state_bytes(b"Mode_switch+Group4"),
-            (I3_XKB_GROUP_MASK_2 | I3_XKB_GROUP_MASK_4) << 16
+            (KeyboardGroups::GROUP2.bits() | KeyboardGroups::GROUP4.bits()) << 16
         );
         assert_eq!(event_state_bytes(b"Mod1\0Mod4"), XCB_KEY_BUT_MASK_MOD_1);
         unsafe {
