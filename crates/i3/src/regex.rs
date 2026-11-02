@@ -8,21 +8,18 @@
 //! lookarounds, backreferences, POSIX classes, anchors and recursion. No pattern
 //! syntax is rewritten or approximated by a second regular-expression engine.
 
+#![deny(unsafe_op_in_unsafe_fn)]
+
 use crate::log::{errorlog, verboselog};
 use pcre2::bytes::{Regex as CompiledRegex, RegexBuilder};
 use std::ffi::{c_char, CStr, CString};
 use std::fmt;
 use std::ptr;
 
-/// A compiled expression with Rust-owned matching and storage.
+/// A compiled expression with independent owned pattern storage. The maintained
+/// PCRE2 clone retains the complete native options and provides fresh match data.
+#[derive(Clone)]
 pub struct Regex {
-    // Temporary legacy transport: matching files still read this C pointer.
-    // The CString owns its storage; callers must not mutate or replace it.
-    pub pattern: *mut c_char,
-    state: Box<PatternState>,
-}
-
-struct PatternState {
     compiled: CompiledRegex,
     pattern: CString,
 }
@@ -109,23 +106,17 @@ impl Regex {
                     source: Some(error),
                 }
             })?;
-        let state = Box::new(PatternState {
+        Ok(Self {
             compiled,
             pattern: owned_pattern,
-        });
-        let pattern = state.pattern.as_ptr().cast_mut();
-        Ok(Self { pattern, state })
+        })
     }
 
     pub fn pattern(&self) -> &CStr {
-        &self.state().pattern
+        &self.pattern
     }
     pub fn pattern_str(&self) -> &str {
         self.pattern().to_str().expect("compiled UTF-8 pattern")
-    }
-
-    fn state(&self) -> &PatternState {
-        &self.state
     }
 
     pub fn is_match(&self, input: &CStr) -> Result<bool, MatchError> {
@@ -137,7 +128,7 @@ impl Regex {
     /// Retain native UTF validation and error codes. Valid UTF-8 containing NUL
     /// can be matched through this owned byte API; the legacy C view stops at NUL.
     pub fn is_match_bytes(&self, input: &[u8]) -> Result<bool, MatchError> {
-        self.state().compiled.is_match(input)
+        self.compiled.is_match(input)
     }
 }
 /// Transitional pointer entry point, using Rust linkage.
@@ -308,6 +299,18 @@ mod tests {
         assert!(expression(r"^\C$").is_match_str("A").unwrap());
         assert!(!expression(r"^\C$").is_match_str("é").unwrap());
         assert!(expression(r"^\x{00}$").is_match_bytes(b"\0").unwrap());
+    }
+
+    #[test]
+    fn cloned_expression_owns_its_pattern_and_retains_native_unicode_backreferences() {
+        let original = expression(r"^(?<word>\p{L}+)-\k<word>$");
+        let cloned = original.clone();
+        assert_eq!(original.pattern(), cloned.pattern());
+        assert_ne!(original.pattern().as_ptr(), cloned.pattern().as_ptr());
+        drop(original);
+        assert!(cloned.is_match_str("é-é").unwrap());
+        assert!(!cloned.is_match_str("é-e").unwrap());
+        assert!(cloned.is_match_bytes(b"\xff-\xff").is_err());
     }
 
     #[test]
