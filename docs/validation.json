@@ -8,26 +8,26 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 24 wallclock secs ( 0.84 usr +  0.07 sys =  0.91 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 20 wallclock secs ( 0.59 usr +  0.07 sys =  0.66 CPU)\nResult: PASS",
     "profile": "debug",
     "build": "cargo test --locked",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "65b39d204cba092c80ef8ccfd19101e435e792a53d9e2dad7c0343d1e2d6d113",
-    "i3bar": "7a916993a3ac939ce2fa114e76b3e0a9763053afefe91ff018f7705e44b7b91c",
-    "i3-config-wizard": "6b8a3f260aa19b65972a8229c834599080e5f56ab0ccc7279c7db5463cc97622",
-    "i3-dump-log": "64b929a511ba20ed48e4f135766eeaa83d257eb45ddd364da5fda72acbf6eb65",
-    "i3-input": "038976039e19a1d11a64451b5c6436ed9656ff2a074c401440063eb734bab460",
-    "i3-msg": "d3e2aa1446a30612f5ec17d055784b5c22b3ac6995bda470d1630319068527aa",
-    "i3-nagbar": "3a3bbf31ef9643fbd0e91e06d2487075bd69623e0a7dd3f2f4d1960682a8f62b"
+    "i3": "15f7a8fee5bff8bd69ba203857827a777e69aa94729b7cd9e1674abd80714265",
+    "i3bar": "2dcf5c1c3dd6b4f9a4fb1bee812069d11b7f97e88bf412c36000696deb9e507f",
+    "i3-config-wizard": "3d2e95a1f0de78c291086ea039cf9280899ea0a9479c3728ee8204c3107b5501",
+    "i3-dump-log": "a41e2efe2908b2d1af213c77d55bbb65a97428f179793ffde5c8e2166ce6b7fc",
+    "i3-input": "0b2468856f060d3eedfb06b282a2cb530a4298a9888373713fa3a5a06b11db5f",
+    "i3-msg": "f20f988baf54e65ba3cf1107318315816e814d4cfc20b4ee25a302f216df1f0b",
+    "i3-nagbar": "362cda120df9ab4d84cf1f021b057a8f9b41d85f73544276de8f8e4232590ae9"
   },
-  "note": "Ten-member Cargo workspace. cargo test --locked passed 425 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
+  "note": "Nine-member Cargo workspace. cargo test --locked passed 423 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
   "additional_checks": {
     "headless_c_rust_state_comparisons": 61,
     "ipc_client_test_groups": 16,
-    "workspace_unit_tests": 425,
+    "workspace_unit_tests": 423,
     "core_and_bar_cli_comparisons": 39,
     "pcre2_compile_match_error_comparisons": 4620,
     "json_oracle_cases": 2263,
@@ -70,7 +70,7 @@
   "clean_cargo_build": {
     "passed": true,
     "product_binaries": 7,
-    "rust_sources": 149,
+    "rust_sources": 148,
     "fresh_source_and_target_directories": true,
     "c_sources_headers_and_objects_present": false,
     "meson_ninja_perl_invocations": false,
@@ -78,14 +78,14 @@
       "Rust 1.99.0-nightly (repository nightly)"
     ],
     "standard_nightly_requires_custom_flags": false,
-    "workspace_packages": 10,
+    "workspace_packages": 9,
     "old_root_source_wiring_present": false,
     "compile_only": true,
     "all_unit_and_integration_test_targets_compiled": true,
     "automatic_after_each_source_edit": false,
-    "last_verification_environment": "Local fresh source and target directories, compiler/generator guards, all binary/unit/integration targets compiled including the new native utility crate.",
+    "last_verification_environment": "Local fresh source/target isolation after complete legacy XCB crate retirement; compiler/generator guards; all binary/unit/integration targets compiled.",
     "last_verified_batch": 9,
-    "last_verified_commit": "668332bc",
+    "last_verified_commit": "8ce83677",
     "last_verified_ownership_checkpoint": 2
   },
   "repository_cleanup": {
@@ -113,7 +113,6 @@
       "i3-tools",
       "i3-build",
       "libev-sys",
-      "xcb-sys",
       "startup-notification-sys",
       "i3-test-support",
       "xcb-interop"
@@ -137,20 +136,19 @@
       "i3bar": 44,
       "libev-sys": 3,
       "startup-notification-sys": 2,
-      "xcb-sys": 2,
       "maintained_xcb_integration": 1,
       "xcb-interop": 9
     },
     "cargo_fmt_check": true,
     "debug_build": true,
     "release_build": true,
-    "unit_tests_total_including_integration_checks": 425,
+    "unit_tests_total_including_integration_checks": 423,
     "test_command": "cargo test",
     "clean_source_command": "cargo test -p i3-test-support --features clean-source-check",
     "test_support": "development-only process capture, failure propagation and isolated regression orchestration",
     "release_build_note": "Property/native-utility checkpoint cac6b76d passed Ubuntu CI complete tests, clean-source build isolation and release build. Current input/core/RandR checkpoint additionally passes the full local Cargo gate.",
     "last_release_build_verified_commit": "cac6b76dc83c5b1f2ea36e6ccd58985470e931c2",
-    "rust_source_files": 151
+    "rust_source_files": 148
   },
   "modernization": {
     "yajl_product_dependency": false,
@@ -2306,6 +2304,14 @@
         "rust_tests": 425,
         "upstream_assertions": 4205,
         "status": "validated"
+      },
+      {
+        "stage": 14,
+        "source_commit": "8ce83677e381cd3a20371ef234fb8251f730f654",
+        "scope": "Legacy xcb-sys crate, workspace/dependency/lock edges and unused packet declarations deleted. Remaining core IDs/keycodes use Rust scalars, canonical maintained ffi and semantic ICCCM state. Independent review verified60 constants/8 scalar widths, open values and error routing. Actual native utility/ICCCM oracles remain; two obsolete legacy-layout tests removed. Full425-provider and final423-retirement gates plus fresh-source build passed.",
+        "rust_tests": 423,
+        "upstream_assertions": 4205,
+        "status": "validated"
       }
     ],
     "serde_json_checkpoint": {
@@ -2320,6 +2326,19 @@
       "diagnostic_note": "Same final rejection and semantic events; incremental diagnostic timing/consumption differs.",
       "production_ipc_goldens": 23,
       "upstream_assertions": 4205
+    },
+    "xcb": {
+      "legacy_protocol_crate_removed": true,
+      "maintained_binding": "xcb1.7.1 core/extensions/cookies/replies/events",
+      "native_utility_crate": "xcb-interop: owned cursor/keysyms/Xrm plus narrowly documented transport/event-field compatibility gaps",
+      "remaining_local_protocol_schemas": 0,
+      "source_manifest_lock_legacy_references": 0,
+      "review": "60 constants and8 scalar aliases checked; no replacement protocol facade or schemas",
+      "full_rust_tests": 423,
+      "upstream_assertions": 4205,
+      "headless_lifecycle_comparisons": 61,
+      "fresh_source_build": true,
+      "obsolete_deleted_crate_tests_removed": 2
     }
   },
   "ci_dependency_preparation": {
