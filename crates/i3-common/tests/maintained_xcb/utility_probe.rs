@@ -88,6 +88,7 @@ pub fn verify(connection: Rc<xcb::Connection>, screen: i32, root: x::Window) {
     crate::sync(&connection);
     verify_additional_buttons(&connection, root);
     verify_open_stack_mode(&connection, root);
+    verify_unchecked_barrier(&connection, root);
 }
 
 fn verify_additional_buttons(connection: &xcb::Connection, root: x::Window) {
@@ -202,4 +203,49 @@ fn verify_open_stack_mode(connection: &xcb::Connection, root: x::Window) {
     );
     connection.send_request(&x::DestroyWindow { window });
     crate::sync(connection);
+}
+
+fn verify_unchecked_barrier(connection: &xcb::Connection, root: x::Window) {
+    use xcb::Cookie;
+    // An allocated-but-uncreated window is deterministically invalid, while
+    // preserving an otherwise valid request. Check both routing contracts.
+    let absent: x::Window = connection.generate_id();
+    let checked = connection.send_request_checked(&x::MapWindow { window: absent });
+    assert!(connection.check_request(checked).is_err());
+    crate::sync(connection);
+    assert!(connection.poll_for_event().unwrap().is_none());
+
+    let unchecked = connection.send_request(&x::MapWindow { window: absent });
+    let sequence = unchecked.sequence() as u32;
+    let result = transport::check_unchecked(connection, unchecked);
+    assert_eq!(
+        result, None,
+        "unchecked error must not be claimed by the barrier"
+    );
+    crate::sync(connection);
+    let mut queued = false;
+    loop {
+        match connection.poll_for_event() {
+            Err(xcb::Error::Protocol(error)) => {
+                let header = unsafe { &*error.as_raw() };
+                assert_eq!(header.error_code, 3); // BadWindow
+                assert_eq!(header.major_code, 8); // MapWindow
+                assert_eq!(header.full_sequence, sequence);
+                assert_eq!(header.sequence, sequence as u16);
+                assert!(!queued, "unchecked request reports exactly one error");
+                queued = true;
+            }
+            Ok(Some(_)) => {}
+            Ok(None) => break,
+            Err(error) => panic!("unexpected connection error: {error}"),
+        }
+    }
+    assert!(queued, "unchecked failure must stay on the event queue");
+    let valid = connection.send_request(&x::ChangeWindowAttributes {
+        window: root,
+        value_list: &[x::Cw::EventMask(x::EventMask::NO_EVENT)],
+    });
+    assert_eq!(transport::check_unchecked(connection, valid), None);
+    crate::sync(connection);
+    assert!(connection.poll_for_event().unwrap().is_none());
 }

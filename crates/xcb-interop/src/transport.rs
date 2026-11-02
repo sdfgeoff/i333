@@ -8,6 +8,34 @@ pub fn discard_reply<C: Cookie>(connection: &xcb::Connection, cookie: C) {
     unsafe { ffi::xcb_discard_reply64(connection.get_raw_conn(), cookie.sequence()) }
 }
 
+/// Preserve libxcb's barrier/check behavior for an unchecked request. Errors for
+/// unchecked requests remain on the event queue; unlike `check_request`, this
+/// deliberately does not treat the cookie as a checked request. Native sequence
+/// projection matches libxcb's original u32 cookie ABI.
+pub fn check_unchecked(connection: &xcb::Connection, cookie: xcb::VoidCookie) -> Option<u8> {
+    // SAFETY: the connection is live, the native cookie is only its documented
+    // u32 transport sequence, and libxcb owns the returned optional allocation.
+    let error = unsafe {
+        ffi::xcb_request_check(
+            connection.get_raw_conn(),
+            ffi::VoidCookie {
+                sequence: cookie.sequence() as u32,
+            },
+        )
+    };
+    if error.is_null() {
+        None
+    } else {
+        // SAFETY: a non-null result is a complete malloc-owned canonical error
+        // header. Copy its scalar code before releasing that allocation once.
+        unsafe {
+            let code = (*error).error_code;
+            libc::free(error.cast());
+            Some(code)
+        }
+    }
+}
+
 /// Check the native status before using the maintained closed enum getter.
 pub fn keyboard_grab_status(reply: &x::GrabKeyboardReply) -> Result<x::GrabStatus, u8> {
     // SAFETY: the concrete reply owns its complete initialized native header.
@@ -119,6 +147,10 @@ mod ffi {
         pub sequence: u32,
     }
     unsafe extern "C" {
+        pub fn xcb_request_check(
+            connection: *mut xcb_connection_t,
+            cookie: VoidCookie,
+        ) -> *mut xcb::ffi::xcb_generic_error_t;
         pub fn xcb_configure_window(
             connection: *mut xcb_connection_t,
             window: u32,
