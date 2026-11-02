@@ -16,21 +16,19 @@ use crate::log::{debuglog, errorlog};
 use crate::output::output_primary_name;
 use crate::randr::{create_root_output, init_ws_for_output, output_init_con, outputs};
 use crate::types::{output_name, xoutput, xoutput as Output, Rect};
+use ::xcb::xinerama::{QueryScreensReply, ScreenInfo};
+use ::xcb::{x, xinerama, Connection, Reply};
 use i3_common::safewrappers::{scalloc, sstrdup};
+use i3_common::{display, xcb_connection::borrowed};
 use std::ffi::CString;
-use std::ptr::NonNull;
+use std::rc::Rc;
 use std::sync::atomic::{AtomicI32, Ordering};
-use xcb_sys::{
-    xcb_connection_t, xcb_get_extension_data, xcb_xinerama_id, xcb_xinerama_is_active,
-    xcb_xinerama_is_active_reply, xcb_xinerama_query_screens_reply,
-    xcb_xinerama_query_screens_reply_t, xcb_xinerama_query_screens_screen_info,
-    xcb_xinerama_query_screens_unchecked, xcb_xinerama_screen_info_t,
-};
+use xcb_sys::xcb_connection_t;
 
 // Survives repeated initialization calls, including clone-only queries.
 static NUM_SCREENS: AtomicI32 = AtomicI32::new(0);
 
-fn screen_rect(screen: &xcb_xinerama_screen_info_t) -> Rect {
+fn screen_rect(screen: &ScreenInfo) -> Rect {
     Rect {
         x: screen.x_org as u32,
         y: screen.y_org as u32,
@@ -44,7 +42,7 @@ fn same_origin(left: Rect, right: Rect) -> bool {
 fn origin_is_zero(rect: Rect) -> bool {
     rect.x == 0 && rect.y == 0
 }
-fn shrink_clone(rect: &mut Rect, screen: &xcb_xinerama_screen_info_t) {
+fn shrink_clone(rect: &mut Rect, screen: &ScreenInfo) {
     // Existing unsigned extents passed through signed int in the original min.
     rect.width = (rect.width as i32).min(i32::from(screen.width)) as u32;
     rect.height = (rect.height as i32).min(i32::from(screen.height)) as u32;
@@ -52,7 +50,7 @@ fn shrink_clone(rect: &mut Rect, screen: &xcb_xinerama_screen_info_t) {
 
 fn checked_screen_count(number: u32, length: u32) -> Option<usize> {
     let count = usize::try_from(number).ok()?;
-    let required = count.checked_mul(std::mem::size_of::<xcb_xinerama_screen_info_t>())?;
+    let required = count.checked_mul(std::mem::size_of::<ScreenInfo>())?;
     let available = usize::try_from(length).ok()?.checked_mul(4)?;
     (required <= available && required <= isize::MAX as usize).then_some(count)
 }
@@ -73,43 +71,14 @@ fn screen_source(present: bool, active: Option<bool>) -> ScreenSource {
     }
 }
 
-// Owns complete malloc-backed XCB replies, including their advertised body.
-struct NativeReply<T>(NonNull<T>);
-impl<T> NativeReply<T> {
-    /// # Safety
-    /// A non-null pointer transfers unique ownership of a complete initialized
-    /// XCB reply allocation (header plus its length-advertised body). No other
-    /// owner may free it, and any borrowed views must end before this guard.
-    unsafe fn new(pointer: *mut T) -> Option<Self> {
-        NonNull::new(pointer).map(Self)
-    }
-    fn as_ptr(&self) -> *mut T {
-        self.0.as_ptr()
-    }
-    fn header(&self) -> &T {
-        // SAFETY: the constructor requires a complete initialized reply.
-        unsafe { self.0.as_ref() }
-    }
-}
-impl<T> Drop for NativeReply<T> {
-    fn drop(&mut self) {
-        // SAFETY: this guard uniquely owns its native malloc allocation.
-        unsafe { libc::free(self.0.as_ptr().cast()) }
-    }
-}
-impl NativeReply<xcb_xinerama_query_screens_reply_t> {
-    fn screens(&self) -> Option<&[xcb_xinerama_screen_info_t]> {
-        let count = checked_screen_count(self.header().number, self.header().length)?;
-        if count == 0 {
-            return Some(&[]);
-        }
-        // SAFETY: the constructor owns the full advertised body. XCB's screen
-        // pointer follows the aligned 32-byte header; the count is bounded by
-        // that body's byte length and the slice cannot outlive this reply.
-        Some(unsafe {
-            std::slice::from_raw_parts(xcb_xinerama_query_screens_screen_info(self.as_ptr()), count)
-        })
-    }
+/// Validate the wire count before calling the generated slice accessor. The
+/// maintained reply owns the allocation; only this private header field needs
+/// raw access because its generated getter is not public.
+fn screens(reply: &QueryScreensReply) -> Option<&[ScreenInfo]> {
+    // SAFETY: a maintained reply owns its complete initialized 32-byte header.
+    let number = unsafe { reply.as_raw().add(8).cast::<u32>().read_unaligned() };
+    checked_screen_count(number, reply.length())?;
+    Some(reply.screen_info())
 }
 
 /// # Safety
@@ -132,7 +101,7 @@ unsafe fn get_screen_at(rect: Rect) -> *mut Output {
 /// The caller owns the initialized native output/render/workspace graph on its
 /// event thread. New queue nodes and names use its existing malloc/free contract.
 /// Init callbacks must not invalidate the new output or queue while attaching it.
-unsafe fn apply_screen(screen: &xcb_xinerama_screen_info_t) {
+unsafe fn apply_screen(screen: &ScreenInfo) {
     unsafe {
         let mut s: *mut Output = get_screen_at(screen_rect(screen));
         if !s.is_null() {
@@ -199,13 +168,12 @@ unsafe fn apply_screen(screen: &xcb_xinerama_screen_info_t) {
 /// # Safety
 /// connection is live on the event thread; that thread exclusively owns the
 /// initialized output, rendering and workspace graphs throughout this call.
-unsafe fn query_screens(connection: *mut xcb_connection_t) {
+unsafe fn query_screens(connection: &Connection) {
     unsafe {
-        let reply = NativeReply::new(xcb_xinerama_query_screens_reply(
-            connection,
-            xcb_xinerama_query_screens_unchecked(connection),
-            std::ptr::null_mut(),
-        ));
+        // Keep protocol errors on the event queue, as the original unchecked
+        // query did; the owned reply is released after applying its records.
+        let cookie = connection.send_request_unchecked(&xinerama::QueryScreens {});
+        let reply = connection.wait_for_reply_unchecked(cookie).ok().flatten();
         let Some(reply) = reply else {
             errorlog(
                 c"ERROR: Couldn't get Xinerama screens\n"
@@ -214,7 +182,7 @@ unsafe fn query_screens(connection: *mut xcb_connection_t) {
             );
             return;
         };
-        let Some(screens) = reply.screens() else {
+        let Some(screens) = screens(&reply) else {
             errorlog(
                 c"ERROR: Invalid Xinerama screen reply\n"
                     .as_ptr()
@@ -273,22 +241,31 @@ unsafe fn use_root_output(connection: *mut xcb_connection_t) {
 /// render and workspace graphs exclusively for this call and all init callbacks.
 pub unsafe fn xinerama_init() {
     unsafe {
-        let extension = xcb_get_extension_data(conn, &raw mut xcb_xinerama_id);
-        let present = !extension.is_null() && (*extension).present != 0;
+        let connection = display::connection().or_else(|| borrowed(conn).map(Rc::new));
+        let Some(connection) = connection else {
+            use_root_output(conn);
+            return;
+        };
+        // Query through the maintained API rather than its generated cached
+        // accessor, which asserts on a missing reply after connection failure.
+        // Event decoding deliberately leaves extension metadata unregistered so
+        // unknown extension events can reach the existing tolerant dispatcher.
+        let cookie = connection.send_request(&x::QueryExtension { name: b"XINERAMA" });
+        let present = connection
+            .wait_for_reply(cookie)
+            .ok()
+            .is_some_and(|reply| reply.present());
         // Missing extension must not issue an IsActive request.
         let active = if present {
-            NativeReply::new(xcb_xinerama_is_active_reply(
-                conn,
-                xcb_xinerama_is_active(conn),
-                std::ptr::null_mut(),
-            ))
+            let cookie = connection.send_request(&xinerama::IsActive {});
+            connection
+                .wait_for_reply(cookie)
+                .ok()
+                .map(|reply| reply.state() != 0)
         } else {
             None
         };
-        match screen_source(
-            present,
-            active.as_ref().map(|reply| reply.header().state != 0),
-        ) {
+        match screen_source(present, active) {
             ScreenSource::MissingExtension => {
                 debuglog(
                     c"%s:%s:%d - Xinerama extension not found, using root output.\n"
@@ -311,7 +288,7 @@ pub unsafe fn xinerama_init() {
                 );
                 use_root_output(conn);
             }
-            ScreenSource::Xinerama => query_screens(conn),
+            ScreenSource::Xinerama => query_screens(&connection),
         }
     }
 }
@@ -320,8 +297,8 @@ pub unsafe fn xinerama_init() {
 mod tests {
     use super::*;
 
-    fn screen(x: i16, y: i16, width: u16, height: u16) -> xcb_xinerama_screen_info_t {
-        xcb_xinerama_screen_info_t {
+    fn screen(x: i16, y: i16, width: u16, height: u16) -> ScreenInfo {
+        ScreenInfo {
             x_org: x,
             y_org: y,
             width,
@@ -369,32 +346,20 @@ mod tests {
         assert_eq!([rect.width, rect.height], [0x80000000, u32::MAX]);
     }
 
-    fn wire_reply(
-        number: u32,
-        records: &[xcb_xinerama_screen_info_t],
-    ) -> NativeReply<xcb_xinerama_query_screens_reply_t> {
+    fn wire_reply(number: u32, records: &[ScreenInfo]) -> QueryScreensReply {
         let bytes = std::mem::size_of_val(records);
-        assert_eq!(
-            std::mem::size_of::<xcb_xinerama_query_screens_reply_t>(),
-            32
-        );
-        assert_eq!(std::mem::size_of::<xcb_xinerama_screen_info_t>(), 8);
-        // SAFETY: calloc supplies a unique, aligned native allocation covering
-        // the 32-byte header and its complete advertised record body. Both POD
-        // types permit zero initialization; all live fields are written below.
+        assert_eq!(std::mem::size_of::<ScreenInfo>(), 8);
+        // SAFETY: calloc supplies unique aligned storage for the header and
+        // advertised body. Write scalar wire fields and initialized records;
+        // ownership transfers once to the maintained reply destructor.
         unsafe {
-            let pointer = libc::calloc(1, 32 + bytes).cast::<xcb_xinerama_query_screens_reply_t>();
+            let pointer = libc::calloc(1, 32 + bytes).cast::<u8>();
             assert!(!pointer.is_null());
-            pointer.write(xcb_xinerama_query_screens_reply_t {
-                response_type: 1,
-                pad0: 0,
-                sequence: 0,
-                length: (bytes / 4) as u32,
-                number,
-                pad1: [0; 20],
-            });
-            std::ptr::copy_nonoverlapping(records.as_ptr(), pointer.add(1).cast(), records.len());
-            NativeReply::new(pointer).unwrap()
+            pointer.write(1);
+            pointer.add(4).cast::<u32>().write((bytes / 4) as u32);
+            pointer.add(8).cast::<u32>().write(number);
+            std::ptr::copy_nonoverlapping(records.as_ptr(), pointer.add(32).cast(), records.len());
+            QueryScreensReply::from_raw(pointer)
         }
     }
 
@@ -402,8 +367,7 @@ mod tests {
     fn reply_records_are_bounded_by_body_length_and_keep_native_order() {
         let records = [screen(-1, 2, 3, 4), screen(0, 0, 65535, 1)];
         let reply = wire_reply(2, &records);
-        let rects: Vec<_> = reply
-            .screens()
+        let rects: Vec<_> = screens(&reply)
             .unwrap()
             .iter()
             .map(|screen| rect_values(screen_rect(screen)))
@@ -411,9 +375,9 @@ mod tests {
         assert_eq!(rects, [[u32::MAX, 2, 3, 4], [0, 0, 65535, 1]]);
         // A count beyond the allocated reply is rejected before creating any
         // slice. An empty count and unused trailing body records remain valid.
-        assert!(wire_reply(3, &records).screens().is_none());
-        assert!(wire_reply(0, &[]).screens().unwrap().is_empty());
-        assert_eq!(wire_reply(1, &records).screens().unwrap().len(), 1);
+        assert!(screens(&wire_reply(3, &records)).is_none());
+        assert!(screens(&wire_reply(0, &[])).unwrap().is_empty());
+        assert_eq!(screens(&wire_reply(1, &records)).unwrap().len(), 1);
         assert_eq!(checked_screen_count(1, 1), None);
         assert_eq!(checked_screen_count(u32::MAX, u32::MAX), None);
         assert_eq!(checked_screen_count(0, 0), Some(0));
