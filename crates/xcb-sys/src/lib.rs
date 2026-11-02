@@ -375,10 +375,7 @@ pub const XCB_XKB_PER_CLIENT_FLAG_GRABS_USE_XKB_STATE: xcb_xkb_per_client_flag_t
 pub const XCB_XKB_PER_CLIENT_FLAG_LOOKUP_STATE_WHEN_GRABBED: xcb_xkb_per_client_flag_t = 8;
 pub const XCB_XKB_PER_CLIENT_FLAG_SEND_EVENT_USES_XKB_STATE: xcb_xkb_per_client_flag_t = 16;
 pub const XCB_XKB_STATE_NOTIFY: ::core::ffi::c_int = 2 as ::core::ffi::c_int;
-#[repr(C)]
-pub struct _XCBKeySymbols {
-    _private: [u8; 0],
-}
+pub use xcb_interop::keysyms::NativeKeySymbols as _XCBKeySymbols;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct xcb_alloc_color_cookie_t {
@@ -513,10 +510,7 @@ pub struct xcb_configure_request_event_t {
     pub border_width: u16,
     pub value_mask: u16,
 }
-#[repr(C)]
-pub struct xcb_cursor_context_t {
-    _private: [u8; 0],
-}
+pub use xcb_interop::cursor::NativeCursorContext as xcb_cursor_context_t;
 pub type xcb_cursor_t = u32;
 pub type xcb_cw_t = ::core::ffi::c_uint;
 #[derive(Copy, Clone)]
@@ -1457,10 +1451,7 @@ pub struct xcb_xkb_state_notify_event_t {
 pub struct xcb_xkb_use_extension_cookie_t {
     pub sequence: ::core::ffi::c_uint,
 }
-#[repr(C)]
-pub struct xcb_xrm_database_t {
-    _private: [u8; 0],
-}
+pub use xcb_interop::xrm::NativeDatabase as xcb_xrm_database_t;
 unsafe extern "C" {
     pub fn xcb_alloc_color(
         c: *mut xcb_connection_t,

@@ -8,6 +8,7 @@ links = "i3-xcb"
 description = "Shared native XCB protocol boundary for i3"
 
 [dependencies]
+xcb-interop.workspace = true
 xcb.workspace = true
 as-raw-xcb-connection.workspace = true
 

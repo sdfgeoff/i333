@@ -7,65 +7,15 @@
 
 use crate::logging::{emit, Level};
 use std::ffi::CStr;
-use std::ops::Deref;
-use std::ptr::{self, NonNull};
+use std::ptr;
 use std::sync::atomic::{AtomicIsize, Ordering};
-use xcb_sys::{
-    xcb_connection_t, xcb_xrm_database_free, xcb_xrm_database_from_default, xcb_xrm_database_t,
-    xcb_xrm_resource_get_string,
-};
+use xcb_interop::xrm::Database;
 
 // Linux c_long and isize have the same width on the supported ILP32/LP64 ABIs.
 static DPI: AtomicIsize = AtomicIsize::new(0);
 
 unsafe extern "C" {
     fn lround(value: f64) -> libc::c_long;
-}
-
-struct Database(NonNull<xcb_xrm_database_t>);
-impl Database {
-    /// # Safety
-    /// connection must be a live XCB connection for native X resource discovery.
-    unsafe fn from_display(connection: *mut xcb_connection_t) -> Option<Self> {
-        // SAFETY: the caller supplies the native connection for this synchronous call.
-        NonNull::new(unsafe { xcb_xrm_database_from_default(connection) }).map(Self)
-    }
-
-    fn dpi_resource(&self) -> Option<Resource> {
-        let mut resource = ptr::null_mut();
-        // SAFETY: self owns the live database; output storage is writable and
-        // Xrm transfers a malloc-owned, NUL-terminated string when available.
-        unsafe {
-            xcb_xrm_resource_get_string(
-                self.0.as_ptr(),
-                c"Xft.dpi".as_ptr(),
-                ptr::null(),
-                &mut resource,
-            );
-        }
-        NonNull::new(resource).map(Resource)
-    }
-}
-impl Drop for Database {
-    fn drop(&mut self) {
-        // SAFETY: this wrapper uniquely owns the database returned by Xrm.
-        unsafe { xcb_xrm_database_free(self.0.as_ptr()) };
-    }
-}
-
-struct Resource(NonNull<libc::c_char>);
-impl Deref for Resource {
-    type Target = CStr;
-    fn deref(&self) -> &CStr {
-        // SAFETY: Xrm supplies a terminated string owned until this wrapper drops.
-        unsafe { CStr::from_ptr(self.0.as_ptr()) }
-    }
-}
-impl Drop for Resource {
-    fn drop(&mut self) {
-        // SAFETY: Xrm resource strings are transferred malloc allocations.
-        unsafe { libc::free(self.0.as_ptr().cast()) };
-    }
 }
 
 fn parse_resource(resource: &CStr) -> Option<libc::c_long> {
@@ -105,13 +55,17 @@ pub unsafe fn init_dpi() {
         ..
     } = crate::display::context();
     if !connection.is_null() {
-        // SAFETY: caller guarantees the display connection remains live.
-        match unsafe { Database::from_display(connection) } {
+        // SAFETY: legacy providers retain their native owner. Migrated
+        // executables supply the registered maintained owner directly.
+        let owner = crate::display::connection().or_else(|| {
+            unsafe { crate::xcb_connection::borrowed(connection) }.map(std::rc::Rc::new)
+        });
+        match owner.and_then(Database::from_connection) {
             None => emit(
                 Level::Error,
                 b"[libi3] ERROR: Failed to open the resource database.\n",
             ),
-            Some(database) => match database.dpi_resource() {
+            Some(database) => match database.resource(c"Xft.dpi", None) {
                 None => emit(
                     Level::Debug,
                     b"../libi3/dpi.c:init_dpi:42 - Resource Xft.dpi not specified, skipping.\n",

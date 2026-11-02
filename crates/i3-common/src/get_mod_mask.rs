@@ -5,30 +5,32 @@
 //! Modifier lookup over checked keycode slices.
 #![deny(unsafe_op_in_unsafe_fn)]
 
-use std::ffi::CStr;
-use std::ptr::NonNull;
 use xcb::x;
-use xcb_sys::{xcb_key_symbols_get_keycode, xcb_key_symbols_t};
-
-/// A uniquely owned allocation returned by an XCB allocation API.
-struct Allocation<T>(NonNull<T>);
-
-impl<T> Allocation<T> {
-    /// pointer must be null or a uniquely owned malloc-compatible allocation of T.
-    unsafe fn from_raw(pointer: *mut T) -> Option<Self> {
-        NonNull::new(pointer).map(Self)
-    }
-
-    fn as_ptr(&self) -> *mut T {
-        self.0.as_ptr()
-    }
+use xcb_interop::keysyms::{keycodes_for_raw, KeySymbols, NativeKeySymbols};
+/// Query a modifier mask using an owned native key-symbol cache.
+pub fn query_modifier_mask(keysym: u32, symbols: &KeySymbols) -> u32 {
+    let connection = symbols.connection();
+    let _ = connection.flush();
+    let cookie = connection.send_request(&x::GetModifierMapping {});
+    connection
+        .wait_for_reply(cookie)
+        .map_or(0, |reply| modifier_mask_for(keysym, symbols, &reply))
 }
 
-impl<T> Drop for Allocation<T> {
-    fn drop(&mut self) {
-        // SAFETY: from_raw establishes sole ownership of a native allocation.
-        unsafe { libc::free(self.as_ptr().cast()) }
-    }
+/// Find the first modifier in a validated maintained reply without raw pointers.
+pub fn modifier_mask_for(
+    keysym: u32,
+    symbols: &KeySymbols,
+    reply: &x::GetModifierMappingReply,
+) -> u32 {
+    let Some(mapping) = modifier_keycodes(reply) else {
+        return 0;
+    };
+    modifier_mask(
+        &symbols.keycodes(keysym),
+        mapping,
+        usize::from(reply.keycodes_per_modifier()),
+    )
 }
 
 /// Fetch the current modifier map and find the first modifier containing keysym.
@@ -36,7 +38,7 @@ impl<T> Drop for Allocation<T> {
 /// # Safety
 /// symbols must be a live native key-symbol table, and the registered display
 /// context must contain its live connection for the duration of this call.
-pub unsafe fn aio_get_mod_mask_for(keysym: u32, symbols: *mut xcb_key_symbols_t) -> u32 {
+pub unsafe fn aio_get_mod_mask_for(keysym: u32, symbols: *mut NativeKeySymbols) -> u32 {
     let raw = crate::display::context().connection;
     if symbols.is_null() {
         return 0;
@@ -67,7 +69,7 @@ pub fn modifier_keycodes(reply: &x::GetModifierMappingReply) -> Option<&[u8]> {
 /// symbols must point to a live XCB key-symbol table.
 pub unsafe fn get_mod_mask_for(
     keysym: u32,
-    symbols: *mut xcb_key_symbols_t,
+    symbols: *mut NativeKeySymbols,
     reply: &x::GetModifierMappingReply,
 ) -> u32 {
     if symbols.is_null() {
@@ -77,16 +79,10 @@ pub unsafe fn get_mod_mask_for(
     let Some(mapping) = modifier_keycodes(reply).filter(|_| per_modifier != 0) else {
         return 0;
     };
-    // SAFETY: symbols is a live native table. This API returns a malloc-owned,
-    // zero-terminated byte array, or null if there are no matching keycodes.
-    let codes = unsafe { Allocation::from_raw(xcb_key_symbols_get_keycode(symbols, keysym)) };
-    let Some(keycodes) = codes else {
-        return 0;
-    };
-    // SAFETY: XCB guarantees the returned keycode list is zero-terminated. The
-    // allocation guard outlives this borrowed byte slice and frees on every exit.
-    let codes = unsafe { CStr::from_ptr(keycodes.as_ptr().cast()).to_bytes() };
-    modifier_mask(codes, mapping, per_modifier)
+    // SAFETY: caller retains this native cache and its display. The adapter
+    // owns/frees the utility's allocation and returns ordinary Rust bytes.
+    let codes = unsafe { keycodes_for_raw(symbols, keysym) };
+    modifier_mask(&codes, mapping, per_modifier)
 }
 
 fn modifier_mask(codes: &[u8], mapping: &[u8], per_modifier: usize) -> u32 {

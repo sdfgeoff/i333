@@ -1,0 +1,92 @@
+//! Narrow gaps in the maintained crate's public API, with no protocol schemas.
+use xcb::{x, Cookie, Xid};
+
+/// Discard a pending reply without blocking. xcb1.7.1's equivalent method is
+/// private; retain its full 64-bit transport sequence instead of truncating it.
+pub fn discard_reply<C: Cookie>(connection: &xcb::Connection, cookie: C) {
+    // SAFETY: the borrowed owner keeps this native connection live for the call.
+    unsafe { ffi::xcb_discard_reply64(connection.get_raw_conn(), cookie.sequence()) }
+}
+
+/// Grab an open numeric mouse button, including horizontal/additional buttons.
+/// The maintained ButtonIndex enum only represents Any and buttons one to five.
+/// Known buttons use maintained requests; only additional buttons cross the
+/// native compatibility call. Native unchecked error and wire-width rules remain.
+#[allow(clippy::too_many_arguments)]
+pub fn grab_button(
+    connection: &xcb::Connection,
+    owner_events: bool,
+    grab_window: x::Window,
+    event_mask: x::EventMask,
+    pointer_mode: x::GrabMode,
+    keyboard_mode: x::GrabMode,
+    confine_to: x::Window,
+    cursor: x::Cursor,
+    button: u8,
+    modifiers: x::ModMask,
+) {
+    let known = match button {
+        0 => Some(x::ButtonIndex::Any),
+        1 => Some(x::ButtonIndex::N1),
+        2 => Some(x::ButtonIndex::N2),
+        3 => Some(x::ButtonIndex::N3),
+        4 => Some(x::ButtonIndex::N4),
+        5 => Some(x::ButtonIndex::N5),
+        _ => None,
+    };
+    if let Some(button) = known {
+        connection.send_request(&x::GrabButton {
+            owner_events,
+            grab_window,
+            event_mask,
+            pointer_mode,
+            keyboard_mode,
+            confine_to,
+            cursor,
+            button,
+            modifiers,
+        });
+    } else {
+        // SAFETY: all fields are scalar native values. The live connection
+        // serializes this request through libxcb's original protocol function.
+        // Native cookies are ignored exactly as in the existing passive grabs.
+        unsafe {
+            ffi::xcb_grab_button(
+                connection.get_raw_conn(),
+                u8::from(owner_events),
+                grab_window.resource_id(),
+                event_mask.bits() as u16,
+                pointer_mode as u8,
+                keyboard_mode as u8,
+                confine_to.resource_id(),
+                cursor.resource_id(),
+                button,
+                modifiers.bits() as u16,
+            );
+        }
+    }
+}
+
+mod ffi {
+    use xcb::ffi::xcb_connection_t;
+    // This is libxcb's native transport return ABI, not a wire message schema.
+    #[repr(C)]
+    pub struct VoidCookie {
+        _sequence: u32,
+    }
+    unsafe extern "C" {
+        pub fn xcb_discard_reply64(connection: *mut xcb_connection_t, sequence: u64);
+        pub fn xcb_grab_button(
+            connection: *mut xcb_connection_t,
+            owner_events: u8,
+            window: u32,
+            event_mask: u16,
+            pointer_mode: u8,
+            keyboard_mode: u8,
+            confine_to: u32,
+            cursor: u32,
+            button: u8,
+            modifiers: u16,
+        ) -> VoidCookie;
+    }
+}

@@ -333,6 +333,7 @@ dependencies = [
  "serde",
  "serde_json",
  "xcb",
+ "xcb-interop",
  "xcb-sys",
 ]
 
@@ -807,12 +808,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "xcb-interop"
+version = "4.25.0"
+dependencies = [
+ "libc",
+ "pkg-config",
+ "xcb",
+]
+
+[[package]]
 name = "xcb-sys"
 version = "4.25.0"
 dependencies = [
  "as-raw-xcb-connection",
  "pkg-config",
  "xcb",
+ "xcb-interop",
 ]
 
 [[package]]

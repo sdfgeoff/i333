@@ -9,6 +9,7 @@ members = [
     "crates/i3-test-support",
     "crates/libev-sys",
     "crates/xcb-sys",
+    "crates/xcb-interop",
     "crates/startup-notification-sys",
 ]
 
@@ -32,6 +33,7 @@ x11rb = "=0.13.2"
 pcre2 = "=0.2.11"
 libev-sys = { path = "crates/libev-sys" }
 xcb-sys = { path = "crates/xcb-sys" }
+xcb-interop = { path = "crates/xcb-interop" }
 startup-notification-sys = { path = "crates/startup-notification-sys" }
 xcb = { version = "=1.7.1", default-features = false, features = ["randr", "xinerama", "xkb", "shape"] }
 as-raw-xcb-connection = "=1.0.1"
