@@ -8,26 +8,26 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 25 wallclock secs ( 0.98 usr +  0.07 sys =  1.05 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 20 wallclock secs ( 0.60 usr +  0.06 sys =  0.66 CPU)\nResult: PASS",
     "profile": "debug",
     "build": "cargo test --locked",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "928ee65d2f7c6207792d88a572b283b5d27ac1792a268d17b1ca1f59373ece12",
-    "i3bar": "8f5ae921cbc15bf64651e31415eccb6996ac947d75517d9b99f3765640b455aa",
-    "i3-config-wizard": "0cee83c4727579e2e17c7380fecc8178fa686585a993dd120b4e78b8e1fb895d",
-    "i3-dump-log": "215f29bc51fd06991e778029276b65cb0998a5295fff1d70d22056a7a3fb4647",
-    "i3-input": "f528dee7deb6c1942fff78db8140d7c665008e36ab101ee850876d8ebbe546c7",
-    "i3-msg": "da29ddc53781a41706b2c596110eb3bbf88f53befd56aa9eac8e4b442397722c",
-    "i3-nagbar": "be7401538267bfac3bf1e48bf99e937d606b68aecfbc29e4f9df79a00afef82f"
+    "i3": "f7aeacaebb19b63df767278ecf639b6317e29bbe198eec21a2ae98088d0e0fdd",
+    "i3bar": "ad5c15501679ff80b3eb0322fda43050c294d94f9bfc305908b3a4be31047167",
+    "i3-config-wizard": "32fffcc6f4dc02a7910fc45d986c0974c02e090283cdd49f527475ff65aa526f",
+    "i3-dump-log": "b3bb0852106aacac80c8ca6a901924cce3100c52d798397a998b70aac1327fff",
+    "i3-input": "ab76ad974cc751bc4f223f72c3e93195ffa54fff36209c343debec87a93b0b40",
+    "i3-msg": "905dbc89da6f928a9c87175b062d9b305617aa63a7164aba3f9251eeb5991da4",
+    "i3-nagbar": "dee73e8a1852a5287eda3f2e37231c65df15fdf44735cc4f32324869b6de821c"
   },
-  "note": "Ten-member Cargo workspace. cargo test --locked passed 407 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
+  "note": "Ten-member Cargo workspace. cargo test --locked passed 416 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
   "additional_checks": {
     "headless_c_rust_state_comparisons": 56,
     "ipc_client_test_groups": 16,
-    "workspace_unit_tests": 407,
+    "workspace_unit_tests": 416,
     "core_and_bar_cli_comparisons": 39,
     "pcre2_compile_match_error_comparisons": 4620,
     "json_oracle_cases": 2263,
@@ -119,7 +119,7 @@
     "binary_count": 7,
     "native_library_discovery": "maintained native binding build scripts and dedicated sys crates; i3-build links only platform m/rt",
     "unit_tests": {
-      "i3": 214,
+      "i3": 216,
       "cargo_regression_wrappers": 8,
       "xkb_integration": 1,
       "i3-build": 3,
@@ -136,12 +136,12 @@
       "startup-notification-sys": 2,
       "xcb-sys": 2,
       "maintained_xcb_integration": 1,
-      "xcb-interop": 2
+      "xcb-interop": 9
     },
     "cargo_fmt_check": true,
     "debug_build": true,
     "release_build": true,
-    "unit_tests_total_including_integration_checks": 407,
+    "unit_tests_total_including_integration_checks": 416,
     "test_command": "cargo test",
     "clean_source_command": "cargo test -p i3-test-support --features clean-source-check",
     "test_support": "development-only process capture, failure propagation and isolated regression orchestration",
@@ -2245,6 +2245,16 @@
         "upstream_assertions": 4205,
         "targeted_binding_group_numlock_reload_cleanup_drag_assertions": 245,
         "nagbar_private_cases": 4,
+        "status": "validated"
+      },
+      {
+        "stage": 8,
+        "scope": "Owned RandR 1.5 monitors/name replies and checked Rust snapshots; passive output modules no longer import xcb-sys. Core bindings/click/drag/floating/key/resize/tiling input callbacks borrow maintained events.",
+        "native_binding_gaps": "Checked value-only XKB snapshots preserve all group/modifier/change bytes and SendEvent masking; client-message words and visibility/property selector adapters retain unknown values; typed DestroyNotify padding fully initialized.",
+        "rust_tests": 416,
+        "upstream_assertions": 4205,
+        "headless_comparisons": 56,
+        "targeted_input_event_assertions": 369,
         "status": "validated"
       }
     ],
