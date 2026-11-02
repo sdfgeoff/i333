@@ -98,19 +98,13 @@ fn take_focus_message(
     timestamp: xcb_timestamp_t,
     protocols: u32,
     take_focus: u32,
-) -> xcb_client_message_event_t {
-    xcb_client_message_event_t {
-        response_type: XCB_CLIENT_MESSAGE as u8,
-        format: 32,
-        sequence: 0,
-        window,
-        type_0: protocols,
-        data: xcb_sys::xcb_client_message_data_t {
-            data32: [take_focus, timestamp, 0, 0, 0],
-        },
-    }
+) -> x::ClientMessageEvent {
+    x::ClientMessageEvent::new(
+        x::Window::new(window),
+        x::Atom::new(protocols),
+        x::ClientMessageData::Data32([take_focus, timestamp, 0, 0, 0]),
+    )
 }
-const _: () = assert!(std::mem::size_of::<xcb_client_message_event_t>() == 32);
 
 pub static mut xcb_numlock_mask: ::core::ffi::c_uint = 0;
 
@@ -203,31 +197,35 @@ pub unsafe fn send_take_focus(window: xcb_window_t, timestamp: xcb_timestamp_t) 
         c"send_take_focus".as_ptr(),
         98 as ::core::ffi::c_int,
     );
-    xcb_send_event(
-        conn,
-        0,
-        window,
-        XCB_EVENT_MASK_NO_EVENT as ::core::ffi::c_int as u32,
-        (&raw const event).cast(),
-    );
+    let Some(connection) = i3_common::display::connection() else {
+        return;
+    };
+    connection.send_request(&x::SendEvent {
+        propagate: false,
+        destination: x::SendEventDest::Window(x::Window::new(window)),
+        event_mask: x::EventMask::NO_EVENT,
+        event: &event,
+    });
 }
 
 /// Native display/graph boundary: requires a live event-thread connection and
 /// initialized, exclusively accessible pointers/resources for this operation.
 pub unsafe fn xcb_set_window_rect(conn_0: *mut xcb_connection_t, window: xcb_window_t, r: Rect) {
-    let values = [r.x, r.y, r.width, r.height];
-    let cookie: xcb_void_cookie_t = xcb_configure_window(
-        conn_0,
-        window,
-        (XCB_CONFIG_WINDOW_X as ::core::ffi::c_int
-            | XCB_CONFIG_WINDOW_Y as ::core::ffi::c_int
-            | XCB_CONFIG_WINDOW_WIDTH as ::core::ffi::c_int
-            | XCB_CONFIG_WINDOW_HEIGHT as ::core::ffi::c_int) as u16,
-        values.as_ptr().cast(),
-    );
+    let Some(connection) = borrowed(conn_0) else {
+        return;
+    };
+    let cookie = connection.send_request(&x::ConfigureWindow {
+        window: x::Window::new(window),
+        value_list: &[
+            x::ConfigWindow::X(r.x as i32),
+            x::ConfigWindow::Y(r.y as i32),
+            x::ConfigWindow::Width(r.width),
+            x::ConfigWindow::Height(r.height),
+        ],
+    });
     add_ignore_event(
         ignore_event_sequence_t {
-            value: cookie.sequence as u32,
+            value: ::xcb::Cookie::sequence(&cookie) as u32,
         },
         -(1 as ::core::ffi::c_int),
     );
@@ -319,17 +317,16 @@ pub unsafe fn xcb_add_property_atom(
     property: xcb_atom_t,
     atom: xcb_atom_t,
 ) {
-    let mut fresh0: [u32; 1] = [atom];
-    xcb_change_property(
-        conn_0,
-        XCB_PROP_MODE_APPEND as ::core::ffi::c_int as u8,
-        window,
-        property,
-        XCB_ATOM_ATOM as ::core::ffi::c_int as xcb_atom_t,
-        32 as u8,
-        1 as u32,
-        &raw mut fresh0 as *mut u32 as *const ::core::ffi::c_void,
-    );
+    let Some(connection) = borrowed(conn_0) else {
+        return;
+    };
+    connection.send_request(&x::ChangeProperty {
+        mode: x::PropMode::Append,
+        window: x::Window::new(window),
+        property: x::Atom::new(property),
+        r#type: x::ATOM_ATOM,
+        data: &[atom],
+    });
 }
 
 /// Native display/graph boundary: requires a live event-thread connection and
@@ -403,19 +400,13 @@ use crate::xcursor::xcursor_get_cursor;
 // Canonical Cairo backend ABI; renderer logic remains local.
 
 use xcb_sys::{
-    xcb_atom_t, xcb_change_property, xcb_change_window_attributes, xcb_client_message_event_t,
-    xcb_configure_window, xcb_connection_t, xcb_create_window, xcb_cursor_t, xcb_depth_iterator_t,
-    xcb_depth_next, xcb_depth_t, xcb_depth_visuals_iterator, xcb_generate_id, xcb_generic_error_t,
-    xcb_get_property, xcb_get_property_reply, xcb_get_property_reply_t, xcb_get_property_value,
-    xcb_get_property_value_length, xcb_grab_button, xcb_grab_server, xcb_map_window,
-    xcb_rectangle_t, xcb_request_check, xcb_screen_allowed_depths_iterator, xcb_send_event,
-    xcb_timestamp_t, xcb_ungrab_server, xcb_visualid_t, xcb_visualtype_iterator_t,
-    xcb_visualtype_next, xcb_visualtype_t, xcb_void_cookie_t, xcb_window_t, XCB_ATOM_ATOM,
-    XCB_BUTTON_MASK_ANY, XCB_CLIENT_MESSAGE, XCB_CONFIG_WINDOW_HEIGHT, XCB_CONFIG_WINDOW_WIDTH,
-    XCB_CONFIG_WINDOW_X, XCB_CONFIG_WINDOW_Y, XCB_COPY_FROM_PARENT, XCB_CW_CURSOR,
-    XCB_EVENT_MASK_BUTTON_PRESS, XCB_EVENT_MASK_NO_EVENT, XCB_GET_PROPERTY_TYPE_ANY,
-    XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_SYNC, XCB_NONE, XCB_PROP_MODE_APPEND, XCB_PROP_MODE_REPLACE,
-    XCB_WINDOW_CLASS_INPUT_ONLY,
+    xcb_atom_t, xcb_change_window_attributes, xcb_connection_t, xcb_create_window, xcb_cursor_t,
+    xcb_depth_iterator_t, xcb_depth_next, xcb_depth_t, xcb_depth_visuals_iterator, xcb_generate_id,
+    xcb_grab_button, xcb_map_window, xcb_rectangle_t, xcb_request_check,
+    xcb_screen_allowed_depths_iterator, xcb_timestamp_t, xcb_visualid_t, xcb_visualtype_iterator_t,
+    xcb_visualtype_next, xcb_visualtype_t, xcb_void_cookie_t, xcb_window_t, XCB_BUTTON_MASK_ANY,
+    XCB_COPY_FROM_PARENT, XCB_CW_CURSOR, XCB_EVENT_MASK_BUTTON_PRESS, XCB_GRAB_MODE_ASYNC,
+    XCB_GRAB_MODE_SYNC, XCB_NONE, XCB_WINDOW_CLASS_INPUT_ONLY,
 };
 
 pub use libc::free;
@@ -480,16 +471,17 @@ mod tests {
     #[test]
     fn take_focus_packet_initializes_every_native_data_word() {
         let event = take_focus_message(0xffffffff, 0x12345678, 12, 34);
-        assert_eq!(
-            (
-                event.response_type,
-                event.format,
-                event.sequence,
-                event.window,
-                event.type_0
-            ),
-            (XCB_CLIENT_MESSAGE as u8, 32, 0, u32::MAX, 12)
-        );
-        assert_eq!(unsafe { event.data.data32 }, [34, 0x12345678, 0, 0, 0]);
+        let mut expected = [0u8; 32];
+        expected[0] = 33;
+        expected[1] = 32;
+        expected[4..8].copy_from_slice(&u32::MAX.to_ne_bytes());
+        expected[8..12].copy_from_slice(&12u32.to_ne_bytes());
+        expected[12..16].copy_from_slice(&34u32.to_ne_bytes());
+        expected[16..20].copy_from_slice(&0x12345678u32.to_ne_bytes());
+        // SAFETY: the maintained event owns its complete initialized 32-byte
+        // representation. Borrow only for the comparison, then let it drop.
+        let bytes =
+            unsafe { std::slice::from_raw_parts(::xcb::Raw::as_raw(&event).cast::<u8>(), 32) };
+        assert_eq!(bytes, expected);
     }
 }
