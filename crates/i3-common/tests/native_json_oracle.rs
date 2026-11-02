@@ -142,7 +142,7 @@ fn generate(v: &Value) -> Value {
     }
     json!(states)
 }
-fn probe_main() {
+fn probe_main(compact: bool) {
     for line in io::stdin().lock().lines() {
         let v: Value = serde_json::from_str(&line.unwrap()).unwrap();
         let out = if v.get("ops").is_some() {
@@ -150,7 +150,13 @@ fn probe_main() {
         } else {
             parse(&v)
         };
-        println!("{out}");
+        if compact {
+            // Depth probes only need the final status. Keep responses small so
+            // the parent can send all cases before draining the stdout pipe.
+            println!("{}", json!({"finish": out["finish"]}));
+        } else {
+            println!("{out}");
+        }
     }
 }
 
@@ -158,7 +164,7 @@ fn check_nesting_limit() {
     use std::io::Write;
     use std::process::{Command, Stdio};
     let mut child = Command::new(std::env::current_exe().unwrap())
-        .arg("--probe")
+        .arg("--nesting-probe")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()
@@ -202,9 +208,16 @@ fn check_nesting_limit() {
 }
 
 fn main() {
-    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--probe")) {
-        probe_main();
-        return;
+    match std::env::args_os().nth(1).as_deref() {
+        Some(value) if value == "--probe" => {
+            probe_main(false);
+            return;
+        }
+        Some(value) if value == "--nesting-probe" => {
+            probe_main(true);
+            return;
+        }
+        _ => {}
     }
     let args = vec![
         std::ffi::OsString::from("--require-oracle"),
