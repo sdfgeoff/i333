@@ -102,7 +102,8 @@ def private_environment(work):
 
 
 @contextlib.contextmanager
-def session(binary, xvfb, *, force_xinerama=False, disable_randr15=False, with_process=False):
+def session(binary, xvfb, *, force_xinerama=False, disable_randr15=False, with_process=False,
+            font="pango:monospace 8"):
     with temporary_directory(prefix="i333-headless-") as temporary:
         work = Path(temporary)
         env = private_environment(work)
@@ -123,7 +124,7 @@ def session(binary, xvfb, *, force_xinerama=False, disable_randr15=False, with_p
                 env["DISPLAY"] = ":" + number
                 ipc = work / "ipc.sock"
                 config = work / "config"
-                config.write_text(f"""font pango:monospace 8
+                config.write_text(f"""font {font}
 ipc-socket {ipc}
 focus_follows_mouse no
 mouse_warping none
@@ -328,47 +329,50 @@ def exercise_lifecycle(binary, xvfb):
                         replacement.kill()
                         replacement.wait()
 
-    with session(binary, xvfb, with_process=True) as (connection, ipc, wm):
-        assert request(ipc, 7)["human_readable"]
-        root = connection.screen().root
-        initial = {window.id for window in root.query_tree().children}
+    # A plain fixed font selects the actual XCB backend; it exercises native GC,
+    # glyph drawing and width requests that Pango does not use.
+    for backend, font in [("pango", "pango:monospace 8"), ("xcb", "fixed")]:
+        with session(binary, xvfb, with_process=True, font=font) as (connection, ipc, wm):
+            assert request(ipc, 7)["human_readable"]
+            root = connection.screen().root
+            initial = {window.id for window in root.query_tree().children}
 
-        def dialogs():
-            return [window for window in root.query_tree().children
-                    if window.id not in initial and window.get_attributes().override_redirect
-                    and window.get_attributes().map_state == X.IsViewable]
+            def dialogs():
+                return [window for window in root.query_tree().children
+                        if window.id not in initial and window.get_attributes().override_redirect
+                        and window.get_attributes().map_state == X.IsViewable]
 
-        # Signal only the Popen handle returned by this private session. Never
-        # discover a process via desktop state, server atoms, or a process scan.
-        wm.send_signal(signal.SIGABRT)
-        wait_for(lambda: bool(dialogs()), "private crash dialog")
-        dialog = dialogs()[0]
-        dialog.send_event(wire_event.Expose(window=dialog, x=0, y=0, width=1, height=1, count=0),
-                          event_mask=0)
-        keycode = connection.keysym_to_keycode(XK.string_to_keysym("r"))
-        assert keycode
-        dialog.send_event(wire_event.KeyPress(time=X.CurrentTime, root=root, window=dialog,
-                                             child=X.NONE, root_x=0, root_y=0, event_x=0, event_y=0,
-                                             state=0, same_screen=1, detail=keycode), event_mask=0)
-        connection.sync()
-        wait_for(lambda: all(window.id != dialog.id for window in root.query_tree().children),
-                 "restart from private crash dialog")
+            # Signal only the Popen handle returned by this private session. Never
+            # discover a process via desktop state, server atoms, or a process scan.
+            wm.send_signal(signal.SIGABRT)
+            wait_for(lambda: bool(dialogs()), "private crash dialog")
+            dialog = dialogs()[0]
+            dialog.send_event(wire_event.Expose(window=dialog, x=0, y=0, width=1, height=1, count=0),
+                              event_mask=0)
+            keycode = connection.keysym_to_keycode(XK.string_to_keysym("r"))
+            assert keycode
+            dialog.send_event(wire_event.KeyPress(time=X.CurrentTime, root=root, window=dialog,
+                                                 child=X.NONE, root_x=0, root_y=0, event_x=0, event_y=0,
+                                                 state=0, same_screen=1, detail=keycode), event_mask=0)
+            connection.sync()
+            wait_for(lambda: all(window.id != dialog.id for window in root.query_tree().children),
+                     "restart from private crash dialog")
 
-        def restarted_ipc_ready():
-            try:
-                return bool(request(ipc, 7)["human_readable"])
-            except (OSError, RuntimeError):
-                return False
+            def restarted_ipc_ready():
+                try:
+                    return bool(request(ipc, 7)["human_readable"])
+                except (OSError, RuntimeError):
+                    return False
 
-        wait_for(restarted_ipc_ready, "restarted private IPC socket")
-        assert wm.poll() is None
-        reply = request(ipc, 0, "nop after-crash-restart")
-        assert reply and all(item.get("success") for item in reply)
-        snapshots.append(("crash-dialog-restart", {
-            "wm_running": wm.poll() is None,
-            "ipc_command_succeeded": all(item.get("success") for item in reply),
-            "crash_dialog_removed": all(window.id != dialog.id for window in root.query_tree().children),
-        }))
+            wait_for(restarted_ipc_ready, "restarted private IPC socket")
+            assert wm.poll() is None
+            reply = request(ipc, 0, "nop after-crash-restart")
+            assert reply and all(item.get("success") for item in reply)
+            snapshots.append((f"crash-dialog-{backend}-restart", {
+                "wm_running": wm.poll() is None,
+                "ipc_command_succeeded": all(item.get("success") for item in reply),
+                "crash_dialog_removed": all(window.id != dialog.id for window in root.query_tree().children),
+            }))
     return snapshots
 
 
