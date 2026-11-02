@@ -333,6 +333,7 @@ dependencies = [
  "pangocairo-sys",
  "serde",
  "serde_json",
+ "x11rb",
  "xcb",
  "xcb-interop",
  "xcb-sys",

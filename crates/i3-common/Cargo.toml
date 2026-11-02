@@ -26,6 +26,7 @@ gobject-sys.workspace = true
 i3-build.workspace = true
 
 [dev-dependencies]
+x11rb = { workspace = true, features = ["xtest"] }
 i3-test-support.workspace = true
 
 [[test]]

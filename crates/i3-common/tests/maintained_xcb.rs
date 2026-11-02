@@ -3,6 +3,10 @@ use i3_common::display::DisplayContext;
 use std::ffi::{CStr, CString};
 use xcb::{x, Xid};
 
+mod maintained_xcb {
+    pub mod utility_probe;
+}
+
 thread_local! {
     static DISPLAY_CONTEXT: std::cell::Cell<DisplayContext> = std::cell::Cell::new(DisplayContext::default());
 }
@@ -339,6 +343,7 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
         i3_common::draw_util::draw_util_surface_free(raw, &mut surface);
     }
     verify_core_font(&connection, root, surface.gc);
+    maintained_xcb::utility_probe::verify(connection.clone(), screen_number, root);
     assert_eq!(
         unsafe { i3_common::draw_util::get_visual_depth(u32::MAX) },
         0

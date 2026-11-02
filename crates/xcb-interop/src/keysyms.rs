@@ -31,7 +31,15 @@ impl KeySymbols {
         // SAFETY: this owner keeps its native cache and connection live.
         unsafe { keycodes_for_raw(self.pointer.as_ptr(), keysym) }
     }
+    /// Invalid keycodes or columns return the native NoSymbol value (zero).
     pub fn keysym(&self, keycode: u8, column: i32) -> u32 {
+        // Mapping columns are limited by the native u8 keysyms-per-keycode
+        // count. Reject negative/unbounded inputs before the foreign call.
+        if !(0..=i32::from(u8::MAX)).contains(&column) {
+            return 0;
+        }
+        // libxcb-keysyms validates keycode and per-row column bounds itself,
+        // including its synthesized columns zero through three (0.4.1 source).
         // SAFETY: native lookup borrows this live cache synchronously.
         unsafe { ffi::xcb_key_symbols_get_keysym(self.pointer.as_ptr(), keycode, column) }
     }
