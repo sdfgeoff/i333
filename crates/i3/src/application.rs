@@ -702,6 +702,7 @@ extern "C" fn i3_exit() {
         if !current_log_stream_socket_path.is_null() {
             unlink(current_log_stream_socket_path);
         }
+        crate::restore_layout::restore_shutdown();
         // All native shutdown requests above complete before unregistering the
         // sole owner. The raw alias must never be disconnected independently.
         conn = std::ptr::null_mut();

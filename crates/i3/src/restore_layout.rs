@@ -8,7 +8,8 @@ use libev_sys::{
     ev_io, ev_io_start, ev_io_stop, ev_loop, ev_prepare, ev_prepare_start, ev_prepare_stop, EV_READ,
 };
 use std::ffi::{CStr, CString};
-use std::ptr::NonNull;
+use std::os::fd::AsRawFd;
+use std::rc::Rc;
 const true_0: i32 = 1;
 const false_0: i32 = 0;
 
@@ -41,21 +42,20 @@ static mut state_head: state_head = state_head {
 };
 static mut restore_conn: *mut xcb_connection_t =
     ::core::ptr::null::<xcb_connection_t>() as *mut xcb_connection_t;
+// Placeholder windows intentionally use a second connection, independent of
+// the main display registry. `restore_conn` is only its native request alias.
+static mut RESTORE_CONNECTION: Option<Rc<xcb::Connection>> = None;
+
+/// Call only on the event thread after restore_connect, before restore_shutdown.
+unsafe fn restore_connection() -> Rc<xcb::Connection> {
+    RESTORE_CONNECTION
+        .as_ref()
+        .expect("placeholder connection is live")
+        .clone()
+}
+
 static mut xcb_watcher: *mut ev_io = ::core::ptr::null::<ev_io>() as *mut ev_io;
 static mut xcb_prepare: *mut ev_prepare = ::core::ptr::null::<ev_prepare>() as *mut ev_prepare;
-struct NativeEvent(NonNull<xcb_generic_event_t>);
-impl NativeEvent {
-    unsafe fn take(ptr: *mut xcb_generic_event_t) -> Option<Self> {
-        NonNull::new(ptr).map(Self)
-    }
-}
-impl Drop for NativeEvent {
-    fn drop(&mut self) {
-        unsafe {
-            free(self.0.as_ptr().cast());
-        }
-    }
-}
 fn serialize_swallow(fields: [Option<&CStr>; 5]) -> Option<CString> {
     let mut output = Vec::new();
     for (name, value) in [
@@ -124,44 +124,45 @@ unsafe extern "C" fn restore_xcb_prepare_cb(
     w: *mut ev_prepare,
     revents: ::core::ffi::c_int,
 ) {
-    let mut event: *mut xcb_generic_event_t = ::core::ptr::null_mut::<xcb_generic_event_t>();
-    if xcb_connection_has_error(restore_conn) != 0 {
+    if restore_connection().has_error().is_err() {
         debuglog(
             c"%s:%s:%d - restore X11 connection has an error, reconnecting\n"
                 .as_ptr()
                 .cast_mut(),
             c"../src/restore_layout.c".as_ptr(),
             c"restore_xcb_prepare_cb".as_ptr(),
-            53 as ::core::ffi::c_int,
+            53,
         );
         restore_connect();
         return;
     }
     loop {
-        let Some(owned_event) = NativeEvent::take(xcb_poll_for_event(restore_conn)) else {
-            break;
-        };
-        event = owned_event.0.as_ptr();
-        if (*event).response_type as ::core::ffi::c_int == 0 as ::core::ffi::c_int {
-            let error: *mut xcb_generic_error_t = event as *mut xcb_generic_error_t;
-            debuglog(
-                c"%s:%s:%d - X11 Error received (probably harmless)! sequence 0x%x, error_code = %d\n".as_ptr().cast_mut(),
-                c"../src/restore_layout.c".as_ptr(),
-                c"restore_xcb_prepare_cb".as_ptr(),
-                62 as ::core::ffi::c_int,
-                (*error).sequence as ::core::ffi::c_int,
-                (*error).error_code as ::core::ffi::c_int,
-            );
-        } else {
-            let type_0: ::core::ffi::c_int =
-                (*event).response_type as ::core::ffi::c_int & 0x7f as ::core::ffi::c_int;
-            restore_handle_event(type_0, event);
+        // Keep only the event/error owner across callbacks; the temporary
+        // connection clone is released before they can replace the display.
+        let next = restore_connection().poll_for_event();
+        match next {
+            Ok(Some(event)) => {
+                let kind = i32::from((*event.as_raw()).response_type & 0x7f);
+                restore_handle_event(kind, event.as_raw().cast());
+            }
+            Err(xcb::Error::Protocol(error)) => {
+                let error = &*error.as_raw();
+                debuglog(
+                    c"%s:%s:%d - X11 Error received (probably harmless)! sequence 0x%x, error_code = %d\n".as_ptr().cast_mut(),
+                    c"../src/restore_layout.c".as_ptr(),
+                    c"restore_xcb_prepare_cb".as_ptr(), 62,
+                    i32::from(error.sequence), i32::from(error.error_code),
+                );
+            }
+            Ok(None) | Err(xcb::Error::Connection(_)) => break,
         }
     }
-    xcb_flush(restore_conn);
+    let _ = restore_connection().flush();
 }
 
-pub unsafe fn restore_connect() {
+/// Stop placeholder callbacks and free graphics while their connection is live.
+/// Called on the event thread before reconnecting or during main native cleanup.
+pub unsafe fn restore_shutdown() {
     if !restore_conn.is_null() {
         ev_io_stop(main_loop, xcb_watcher);
         ev_prepare_stop(main_loop, xcb_prepare);
@@ -176,23 +177,30 @@ pub unsafe fn restore_connect() {
             draw_util_surface_free(restore_conn, &raw mut (*state).surface);
             free(state as *mut ::core::ffi::c_void);
         }
-        xcb_disconnect(restore_conn);
+        restore_conn = std::ptr::null_mut();
+        drop(RESTORE_CONNECTION.take());
         free(xcb_watcher as *mut ::core::ffi::c_void);
         free(xcb_prepare as *mut ::core::ffi::c_void);
     }
-    let mut screen: ::core::ffi::c_int = 0;
-    restore_conn = xcb_connect(::core::ptr::null::<::core::ffi::c_char>(), &raw mut screen);
-    if restore_conn.is_null() || xcb_connection_has_error(restore_conn) != 0 {
-        if !restore_conn.is_null() {
-            xcb_disconnect(restore_conn);
-        }
-        errx(EXIT_FAILURE, c"Cannot open display".as_ptr());
-    }
+    xcb_watcher = std::ptr::null_mut();
+    xcb_prepare = std::ptr::null_mut();
+}
+
+pub unsafe fn restore_connect() {
+    restore_shutdown();
+    // No extension event metadata: unknown native opcodes/subtypes remain
+    // owned UnknownEvent values, exactly as on the main connection.
+    let (connection, _) = match xcb::Connection::connect(None) {
+        Ok(connection) => connection,
+        Err(_) => errx(EXIT_FAILURE, c"Cannot open display".as_ptr()),
+    };
+    restore_conn = connection.get_raw_conn().cast();
+    RESTORE_CONNECTION = Some(Rc::new(connection));
     xcb_watcher = scalloc(1 as usize, ::core::mem::size_of::<ev_io>() as usize) as *mut ev_io;
     xcb_prepare =
         scalloc(1 as usize, ::core::mem::size_of::<ev_prepare>() as usize) as *mut ev_prepare;
     xcb_watcher.write(ev_io::new(
-        xcb_get_file_descriptor(restore_conn),
+        restore_connection().as_raw_fd(),
         EV_READ,
         restore_xcb_got_event,
     ));
@@ -382,7 +390,7 @@ pub unsafe fn restore_open_placeholder_windows(parent: *mut Con) {
         };
         open_placeholder_window(child);
     }
-    xcb_flush(restore_conn);
+    let _ = restore_connection().flush();
 }
 
 pub unsafe fn restore_kill_placeholder(placeholder: xcb_window_t) -> bool {
@@ -537,14 +545,12 @@ use i3_common::safewrappers::smalloc;
 // Canonical Pango backend ABI; font policy remains local.
 
 use xcb_sys::{
-    xcb_aux_sync, xcb_change_property, xcb_configure_notify_event_t, xcb_connect,
-    xcb_connection_has_error, xcb_connection_t, xcb_destroy_window, xcb_disconnect, xcb_drawable_t,
-    xcb_expose_event_t, xcb_flush, xcb_generic_error_t, xcb_generic_event_t,
-    xcb_get_file_descriptor, xcb_icccm_set_wm_hints, xcb_icccm_wm_hints_set_input,
-    xcb_icccm_wm_hints_set_none, xcb_icccm_wm_hints_t, xcb_poll_for_event, xcb_visualid_t,
-    xcb_window_t, XCB_CONFIGURE_NOTIFY, XCB_COPY_FROM_PARENT, XCB_CW_BACK_PIXEL, XCB_CW_EVENT_MASK,
-    XCB_EVENT_MASK_EXPOSURE, XCB_EVENT_MASK_STRUCTURE_NOTIFY, XCB_EXPOSE, XCB_NONE,
-    XCB_PROP_MODE_REPLACE, XCB_WINDOW_CLASS_INPUT_OUTPUT,
+    xcb_aux_sync, xcb_change_property, xcb_configure_notify_event_t, xcb_connection_t,
+    xcb_destroy_window, xcb_drawable_t, xcb_expose_event_t, xcb_generic_event_t,
+    xcb_icccm_set_wm_hints, xcb_icccm_wm_hints_set_input, xcb_icccm_wm_hints_set_none,
+    xcb_icccm_wm_hints_t, xcb_visualid_t, xcb_window_t, XCB_CONFIGURE_NOTIFY, XCB_COPY_FROM_PARENT,
+    XCB_CW_BACK_PIXEL, XCB_CW_EVENT_MASK, XCB_EVENT_MASK_EXPOSURE, XCB_EVENT_MASK_STRUCTURE_NOTIFY,
+    XCB_EXPOSE, XCB_NONE, XCB_PROP_MODE_REPLACE, XCB_WINDOW_CLASS_INPUT_OUTPUT,
 };
 
 pub use libc::{free, memmove, strlen};
