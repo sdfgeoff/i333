@@ -1001,6 +1001,60 @@ pub unsafe fn window_update_icon(win: *mut Window, prop: Option<&x::GetPropertyR
 mod tests {
     use super::*;
 
+    // Independent native decoder oracles from /usr/include/xcb/xcb_icccm.h.
+    // These output-only ABI fixtures never enter the product's hint model.
+    // Property replies stay opaque here and are owned by maintained XCB.
+    #[derive(Default)]
+    #[repr(C)]
+    struct NativeSizeHints {
+        flags: u32,
+        x: i32,
+        y: i32,
+        width: i32,
+        height: i32,
+        min_width: i32,
+        min_height: i32,
+        max_width: i32,
+        max_height: i32,
+        width_inc: i32,
+        height_inc: i32,
+        min_aspect_num: i32,
+        min_aspect_den: i32,
+        max_aspect_num: i32,
+        max_aspect_den: i32,
+        base_width: i32,
+        base_height: i32,
+        win_gravity: u32,
+    }
+    #[derive(Default)]
+    #[repr(C)]
+    struct NativeWindowHints {
+        flags: i32,
+        input: u32,
+        initial_state: i32,
+        icon_pixmap: u32,
+        icon_window: u32,
+        icon_x: i32,
+        icon_y: i32,
+        icon_mask: u32,
+        window_group: u32,
+    }
+    const _: () = {
+        assert!(size_of::<NativeSizeHints>() == 72);
+        assert!(align_of::<NativeSizeHints>() == 4);
+        assert!(size_of::<NativeWindowHints>() == 36);
+        assert!(align_of::<NativeWindowHints>() == 4);
+    };
+    #[link(name = "xcb-icccm")]
+    unsafe extern "C" {
+        #[link_name = "xcb_icccm_get_wm_transient_for_from_reply"]
+        fn native_transient_for(window: *mut u32, reply: *mut libc::c_void) -> u8;
+        #[link_name = "xcb_icccm_get_wm_size_hints_from_reply"]
+        fn native_size_hints(hints: *mut NativeSizeHints, reply: *mut libc::c_void) -> u8;
+        #[link_name = "xcb_icccm_get_wm_hints_from_reply"]
+        fn native_window_hints(hints: *mut NativeWindowHints, reply: *mut libc::c_void) -> u8;
+    }
+
     fn property(bytes: &[u8]) -> Property<'_> {
         Property {
             kind: x::ATOM_CARDINAL.resource_id(),
@@ -1048,10 +1102,7 @@ mod tests {
                         // SAFETY: the synthetic maintained reply owns its full
                         // initialized body, including the first word read by ICCCM.
                         let accepted = unsafe {
-                            xcb_sys::xcb_icccm_get_wm_transient_for_from_reply(
-                                &mut native,
-                                reply.as_raw().cast_mut().cast(),
-                            ) != 0
+                            native_transient_for(&mut native, reply.as_raw().cast_mut().cast()) != 0
                         };
                         let decoded = transient_for(property_view(Some(&reply)));
                         assert_eq!(
@@ -1175,14 +1226,9 @@ mod tests {
                 .collect();
             let hints = words(&raw);
             let owned = reply(x::ATOM_WM_SIZE_HINTS.resource_id(), 32, &hints);
-            let mut native: xcb_sys::xcb_size_hints_t = unsafe { std::mem::zeroed() };
+            let mut native = NativeSizeHints::default();
             assert_ne!(
-                unsafe {
-                    xcb_sys::xcb_icccm_get_wm_size_hints_from_reply(
-                        &mut native,
-                        owned.as_raw().cast_mut().cast(),
-                    )
-                },
+                unsafe { native_size_hints(&mut native, owned.as_raw().cast_mut().cast(),) },
                 0
             );
             let decoded = decode_size_hints(property_view(Some(&owned))).unwrap();
@@ -1237,12 +1283,9 @@ mod tests {
             if count <= 9 {
                 // Some native libxcb-icccm versions over-copy oversized WM_HINTS;
                 // never use such a reply as a native oracle or runtime decoder.
-                let mut native: xcb_sys::xcb_icccm_wm_hints_t = unsafe { std::mem::zeroed() };
+                let mut native = NativeWindowHints::default();
                 let success = unsafe {
-                    xcb_sys::xcb_icccm_get_wm_hints_from_reply(
-                        &mut native,
-                        owned.as_raw().cast_mut().cast(),
-                    ) != 0
+                    native_window_hints(&mut native, owned.as_raw().cast_mut().cast()) != 0
                 };
                 let decoded = decode_wm_hints(property_view(Some(&owned)));
                 assert_eq!(decoded.is_some(), success);
@@ -1270,14 +1313,9 @@ mod tests {
             for input in [0, 1, 0x8000_0000, u32::MAX] {
                 let bytes = words(&[flags, input, 0, 0, 0, 0, 0, 0, 0]);
                 let owned = reply(x::ATOM_WM_HINTS.resource_id(), 32, &bytes);
-                let mut native: xcb_sys::xcb_icccm_wm_hints_t = unsafe { std::mem::zeroed() };
+                let mut native = NativeWindowHints::default();
                 assert_ne!(
-                    unsafe {
-                        xcb_sys::xcb_icccm_get_wm_hints_from_reply(
-                            &mut native,
-                            owned.as_raw().cast_mut().cast(),
-                        )
-                    },
+                    unsafe { native_window_hints(&mut native, owned.as_raw().cast_mut().cast(),) },
                     0
                 );
                 let decoded = decode_wm_hints(property_view(Some(&owned))).unwrap();
