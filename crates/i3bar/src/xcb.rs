@@ -429,6 +429,18 @@ fn destroy_message(window: u32) -> x::DestroyNotifyEvent {
     let window = x::Window::new(window);
     events::destroy_notify(window, window)
 }
+/// These fire-and-forget requests intentionally keep native unchecked error
+/// delivery to the bar event loop. Checked request batches are handled separately.
+fn send_unchecked<R: ::xcb::RequestWithoutReply>(request: &R) {
+    if let Some(connection) = i3_common::display::connection() {
+        connection.send_request(request);
+    }
+}
+fn flush_requests() {
+    if let Some(connection) = i3_common::display::connection() {
+        let _ = connection.flush();
+    }
+}
 fn send_event<E: ::xcb::BaseEvent>(window: u32, mask: u32, event: &E) {
     if let Some(connection) = i3_common::display::connection() {
         connection.send_request(&x::SendEvent {
@@ -743,7 +755,9 @@ unsafe fn hide_bars() {
     walk = (*outputs).slh_first as *mut i3_output;
     while !walk.is_null() {
         if (*walk).active {
-            xcb_unmap_window(xcb_connection, (*walk).bar.id as xcb_window_t);
+            send_unchecked(&x::UnmapWindow {
+                window: x::Window::new((*walk).bar.id as xcb_window_t),
+            });
         }
         walk = (*walk).slist.sle_next as *mut i3_output;
     }
@@ -801,7 +815,9 @@ unsafe fn unhide_bars() {
             {
                 exit(libc::EXIT_FAILURE);
             }
-            xcb_map_window(xcb_connection, (*walk).bar.id as xcb_window_t);
+            send_unchecked(&x::MapWindow {
+                window: x::Window::new((*walk).bar.id as xcb_window_t),
+            });
         }
         walk = (*walk).slist.sle_next as *mut i3_output;
     }
@@ -917,7 +933,7 @@ pub unsafe fn init_colors(new_colors: *const xcb_color_strings_t) {
         colors.sep_fg
     };
     init_tray_colors();
-    xcb_flush(xcb_connection);
+    flush_requests();
 }
 unsafe fn execute_custom_command(input_code: xcb_keycode_t, event_is_release: bool) -> bool {
     let mut binding_0: *mut binding_t = ::core::ptr::null_mut::<binding_t>();
@@ -1251,12 +1267,10 @@ unsafe fn configure_trayclients() {
                         x,
                     );
                 }
-                xcb_configure_window(
-                    xcb_connection,
-                    (*trayclients[(idx - 1) as usize]).win,
-                    XCB_CONFIG_WINDOW_X as ::core::ffi::c_int as u16,
-                    &raw mut x as *const ::core::ffi::c_void,
-                );
+                send_unchecked(&x::ConfigureWindow {
+                    window: x::Window::new((*trayclients[(idx - 1) as usize]).win),
+                    value_list: &[x::ConfigWindow::X(x as i32)],
+                });
                 idx -= 1;
             }
         }
@@ -1362,22 +1376,16 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
             );
         }
         let op: u32 = words[1 as ::core::ffi::c_int as usize];
-        let mut values: [u32; 2] = [0; 2];
         if op == SYSTEM_TRAY_REQUEST_DOCK as u32 {
             let client: xcb_window_t = words[2 as ::core::ffi::c_int as usize];
-            let mut mask: u32 = XCB_CW_EVENT_MASK as ::core::ffi::c_int as u32;
-            values[0 as ::core::ffi::c_int as usize] =
-                XCB_EVENT_MASK_PROPERTY_CHANGE as ::core::ffi::c_int as u32;
-            values[0 as ::core::ffi::c_int as usize] |=
-                XCB_EVENT_MASK_STRUCTURE_NOTIFY as ::core::ffi::c_int as u32;
-            values[0 as ::core::ffi::c_int as usize] |=
-                XCB_EVENT_MASK_RESIZE_REDIRECT as ::core::ffi::c_int as u32;
-            xcb_change_window_attributes(
-                xcb_connection,
-                client,
-                mask,
-                &raw mut values as *mut u32 as *const ::core::ffi::c_void,
-            );
+            send_unchecked(&x::ChangeWindowAttributes {
+                window: x::Window::new(client),
+                value_list: &[x::Cw::EventMask(
+                    x::EventMask::PROPERTY_CHANGE
+                        | x::EventMask::STRUCTURE_NOTIFY
+                        | x::EventMask::RESIZE_REDIRECT,
+                )],
+            });
             let mut map_it: bool = true;
             let mut xe_version: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
             let Some(connection) = i3_common::display::connection() else {
@@ -1480,16 +1488,13 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
             {
                 return;
             }
-            mask = (XCB_CONFIG_WINDOW_WIDTH as ::core::ffi::c_int
-                | XCB_CONFIG_WINDOW_HEIGHT as ::core::ffi::c_int) as u32;
-            values[0 as ::core::ffi::c_int as usize] = icon_size as u32;
-            values[1 as ::core::ffi::c_int as usize] = icon_size as u32;
-            xcb_configure_window(
-                xcb_connection,
-                client,
-                mask as u16,
-                &raw mut values as *mut u32 as *const ::core::ffi::c_void,
-            );
+            send_unchecked(&x::ConfigureWindow {
+                window: x::Window::new(client),
+                value_list: &[
+                    x::ConfigWindow::Width(icon_size as u32),
+                    x::ConfigWindow::Height(icon_size as u32),
+                ],
+            });
             let packet = client_message(
                 client,
                 atoms[AtomIndex::Xembed as usize],
@@ -1502,11 +1507,10 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
                 ],
             );
             send_event(client, x::EventMask::NO_EVENT.bits(), &packet);
-            xcb_change_save_set(
-                xcb_connection,
-                XCB_SET_MODE_INSERT as ::core::ffi::c_int as u8,
-                client,
-            );
+            send_unchecked(&x::ChangeSaveSet {
+                mode: x::SetMode::Insert,
+                window: x::Window::new(client),
+            });
             let tc: *mut trayclient =
                 scalloc(1 as usize, ::core::mem::size_of::<trayclient>() as usize)
                     as *mut trayclient;
@@ -1526,7 +1530,9 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
                         1031 as ::core::ffi::c_int,
                     );
                 }
-                xcb_map_window(xcb_connection, client);
+                send_unchecked(&x::MapWindow {
+                    window: x::Window::new(client),
+                });
             } else if config.verbose {
                 printf(
                     c"[%s:%d] Not mapping dock client yet\n".as_ptr(),
@@ -1738,9 +1744,13 @@ unsafe fn handle_property_notify(event: &x::PropertyNotifyEvent) {
             );
         }
         if (*client).mapped as ::core::ffi::c_int != 0 && !map_it {
-            xcb_unmap_window(xcb_connection, (*client).win);
+            send_unchecked(&x::UnmapWindow {
+                window: x::Window::new((*client).win),
+            });
         } else if !(*client).mapped && map_it as ::core::ffi::c_int != 0 {
-            xcb_map_window(xcb_connection, (*client).win);
+            send_unchecked(&x::MapWindow {
+                window: x::Window::new((*client).win),
+            });
         }
     } else if event.atom().resource_id() == XCB_ATOM_WM_CLASS as ::core::ffi::c_int as xcb_atom_t {
         let client_0: *mut trayclient = trayclient_from_window(event.window().resource_id());
@@ -2119,7 +2129,7 @@ pub unsafe fn init_xcb_late(mut fontname: *mut ::core::ffi::c_char) {
     if let Some(separator) = (&*(&raw const config.separator_symbol)).as_ref() {
         separator_symbol_width = predict_text_width(separator);
     }
-    xcb_flush(xcb_connection);
+    flush_requests();
     if config.hide_on_modifier == crate::application::BarDisplayMode::Hide {
         register_xkb_keyevents();
     }
@@ -2183,27 +2193,20 @@ unsafe fn init_tray() {
         selmask,
         &raw mut selval as *mut u32 as *const ::core::ffi::c_void,
     );
-    let mut orientation: u32 = _NET_SYSTEM_TRAY_ORIENTATION_HORZ as u32;
-    xcb_change_property(
-        xcb_connection,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
-        selwin,
-        atoms[AtomIndex::NetSystemTrayOrientation as ::core::ffi::c_int as usize],
-        XCB_ATOM_CARDINAL as ::core::ffi::c_int as xcb_atom_t,
-        32 as u8,
-        1 as u32,
-        &raw mut orientation as *const ::core::ffi::c_void,
-    );
-    xcb_change_property(
-        xcb_connection,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
-        selwin,
-        atoms[AtomIndex::NetSystemTrayVisual as ::core::ffi::c_int as usize],
-        XCB_ATOM_VISUALID as ::core::ffi::c_int as xcb_atom_t,
-        32 as u8,
-        1 as u32,
-        &raw mut (*visual_type).visual_id as *const ::core::ffi::c_void,
-    );
+    send_unchecked(&x::ChangeProperty {
+        mode: x::PropMode::Replace,
+        window: x::Window::new(selwin),
+        property: x::Atom::new(atoms[AtomIndex::NetSystemTrayOrientation as usize]),
+        r#type: x::ATOM_CARDINAL,
+        data: &[0u32],
+    });
+    send_unchecked(&x::ChangeProperty {
+        mode: x::PropMode::Replace,
+        window: x::Window::new(selwin),
+        property: x::Atom::new(atoms[AtomIndex::NetSystemTrayVisual as usize]),
+        r#type: x::ATOM_VISUALID,
+        data: &[(*visual_type).visual_id],
+    });
     init_tray_colors();
     if let Some(cookie) = tray_cookie {
         tray_atom = connection
@@ -2312,16 +2315,13 @@ pub unsafe fn init_tray_colors() {
         r16 as u32, g16 as u32, b16 as u32, r16 as u32, g16 as u32, b16 as u32, r16 as u32,
         g16 as u32, b16 as u32, r16 as u32, g16 as u32, b16 as u32,
     ];
-    xcb_change_property(
-        xcb_connection,
-        XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
-        selwin,
-        atoms[AtomIndex::NetSystemTrayColors as ::core::ffi::c_int as usize],
-        XCB_ATOM_CARDINAL as ::core::ffi::c_int as xcb_atom_t,
-        32 as u8,
-        12 as u32,
-        &raw const tray_colors as *const u32 as *const ::core::ffi::c_void,
-    );
+    send_unchecked(&x::ChangeProperty {
+        mode: x::PropMode::Replace,
+        window: x::Window::new(selwin),
+        property: x::Atom::new(atoms[AtomIndex::NetSystemTrayColors as usize]),
+        r#type: x::ATOM_CARDINAL,
+        data: &tray_colors,
+    });
 }
 
 pub unsafe fn clean_xcb() {
@@ -2330,8 +2330,13 @@ pub unsafe fn clean_xcb() {
     }
     free_outputs();
     free_font();
-    xcb_free_cursor(xcb_connection, cursor);
-    xcb_aux_sync(xcb_connection);
+    send_unchecked(&x::FreeCursor {
+        cursor: x::Cursor::new(cursor),
+    });
+    if let Some(connection) = i3_common::display::connection() {
+        let cookie = connection.send_request(&x::GetInputFocus {});
+        let _ = connection.wait_for_reply(cookie);
+    };
     if !xcb_prep.is_null() {
         ev_prepare_stop(main_loop, xcb_prep);
         free(xcb_prep.cast());
@@ -2386,14 +2391,15 @@ pub unsafe fn kick_tray_clients(output: *mut i3_output) {
     let mut trayclient: *mut trayclient = ::core::ptr::null_mut::<trayclient>();
     while !(*(*output).trayclients).tqh_first.is_null() {
         trayclient = (*(*output).trayclients).tqh_first as *mut trayclient;
-        xcb_unmap_window(xcb_connection, (*trayclient).win);
-        xcb_reparent_window(
-            xcb_connection,
-            (*trayclient).win,
-            xcb_root,
-            0 as i16,
-            0 as i16,
-        );
+        send_unchecked(&x::UnmapWindow {
+            window: x::Window::new((*trayclient).win),
+        });
+        send_unchecked(&x::ReparentWindow {
+            window: x::Window::new((*trayclient).win),
+            parent: x::Window::new(xcb_root),
+            x: 0,
+            y: 0,
+        });
         free((*trayclient).class_class as *mut ::core::ffi::c_void);
         free((*trayclient).class_instance as *mut ::core::ffi::c_void);
         if !(*trayclient).tailq.tqe_next.is_null() {
@@ -2418,12 +2424,15 @@ pub unsafe fn destroy_window(output: *mut i3_output) {
     draw_util_surface_free(xcb_connection, &raw mut (*output).bar);
     draw_util_surface_free(xcb_connection, &raw mut (*output).buffer);
     draw_util_surface_free(xcb_connection, &raw mut (*output).statusline_buffer);
-    xcb_destroy_window(xcb_connection, (*output).bar.id as xcb_window_t);
-    xcb_free_pixmap(xcb_connection, (*output).buffer.id as xcb_pixmap_t);
-    xcb_free_pixmap(
-        xcb_connection,
-        (*output).statusline_buffer.id as xcb_pixmap_t,
-    );
+    send_unchecked(&x::DestroyWindow {
+        window: x::Window::new((*output).bar.id as xcb_window_t),
+    });
+    send_unchecked(&x::FreePixmap {
+        pixmap: x::Pixmap::new((*output).buffer.id as xcb_pixmap_t),
+    });
+    send_unchecked(&x::FreePixmap {
+        pixmap: x::Pixmap::new((*output).statusline_buffer.id as xcb_pixmap_t),
+    });
     (*output).bar.id = XCB_NONE as xcb_drawable_t;
 }
 unsafe fn config_strut_partial(output: *mut i3_output) -> xcb_void_cookie_t {
@@ -2724,7 +2733,9 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                     (*walk).name_ptr(),
                 );
             }
-            xcb_free_pixmap(xcb_connection, (*walk).buffer.id as xcb_pixmap_t);
+            send_unchecked(&x::FreePixmap {
+                pixmap: x::Pixmap::new((*walk).buffer.id as xcb_pixmap_t),
+            });
             if config.verbose {
                 printf(
                     c"[%s:%d] Destroying statusline buffer for output %s\n".as_ptr(),
@@ -2733,7 +2744,9 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                     (*walk).name_ptr(),
                 );
             }
-            xcb_free_pixmap(xcb_connection, (*walk).statusline_buffer.id as xcb_pixmap_t);
+            send_unchecked(&x::FreePixmap {
+                pixmap: x::Pixmap::new((*walk).statusline_buffer.id as xcb_pixmap_t),
+            });
             if config.verbose {
                 printf(
                     c"[%s:%d] Reconfiguring window for output %s to %d,%d\n".as_ptr(),
@@ -2906,7 +2919,9 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 2084 as ::core::ffi::c_int,
             );
         }
-        xcb_destroy_window(xcb_connection, selwin);
+        send_unchecked(&x::DestroyWindow {
+            window: x::Window::new(selwin),
+        });
         selwin = XCB_NONE as xcb_window_t;
     }
 }
@@ -3157,7 +3172,7 @@ pub unsafe fn redraw_bars() {
                 (*outputs_walk).rect.w as ::core::ffi::c_double,
                 (*outputs_walk).rect.h as ::core::ffi::c_double,
             );
-            xcb_flush(xcb_connection);
+            flush_requests();
         }
         outputs_walk = (*outputs_walk).slist.sle_next as *mut i3_output;
     }
@@ -3192,21 +3207,19 @@ use i3_common::safewrappers::strcasecmp_nullable;
 
 use xcb_sys::{
     xcb_atom_t, xcb_aux_find_visual_by_attrs, xcb_aux_get_depth_of_visual, xcb_aux_get_screen,
-    xcb_aux_sync, xcb_change_property, xcb_change_save_set, xcb_change_window_attributes,
-    xcb_color_strings_t, xcb_colormap_t, xcb_configure_window, xcb_configure_window_checked,
-    xcb_connection_t, xcb_create_colormap_checked, xcb_create_pixmap_checked, xcb_create_window,
-    xcb_create_window_checked, xcb_cursor_t, xcb_destroy_window, xcb_drawable_t, xcb_flush,
-    xcb_free_cursor, xcb_free_pixmap, xcb_generate_id, xcb_generic_error_t, xcb_get_extension_data,
-    xcb_keycode_t, xcb_map_window, xcb_map_window_checked, xcb_pixmap_t,
-    xcb_query_extension_reply_t, xcb_rectangle_t, xcb_reparent_window, xcb_request_check,
-    xcb_screen_t, xcb_timestamp_t, xcb_unmap_window, xcb_unmap_window_checked, xcb_visualtype_t,
-    xcb_void_cookie_t, xcb_window_t, xcb_xkb_device_spec_t, xcb_xkb_id, xcb_xkb_select_events,
-    xcb_xkb_use_extension, XCB_ATOM_ATOM, XCB_ATOM_CARDINAL, XCB_ATOM_STRING, XCB_ATOM_VISUALID,
-    XCB_ATOM_WM_CLASS, XCB_ATOM_WM_NAME, XCB_BUTTON_SCROLL_DOWN, XCB_BUTTON_SCROLL_LEFT,
-    XCB_BUTTON_SCROLL_RIGHT, XCB_BUTTON_SCROLL_UP, XCB_COLORMAP_ALLOC_NONE,
-    XCB_CONFIG_WINDOW_HEIGHT, XCB_CONFIG_WINDOW_STACK_MODE, XCB_CONFIG_WINDOW_WIDTH,
-    XCB_CONFIG_WINDOW_X, XCB_CONFIG_WINDOW_Y, XCB_CURRENT_TIME, XCB_CW_BACK_PIXEL,
-    XCB_CW_BORDER_PIXEL, XCB_CW_COLORMAP, XCB_CW_CURSOR, XCB_CW_EVENT_MASK,
+    xcb_change_property, xcb_change_window_attributes, xcb_color_strings_t, xcb_colormap_t,
+    xcb_configure_window_checked, xcb_connection_t, xcb_create_colormap_checked,
+    xcb_create_pixmap_checked, xcb_create_window, xcb_create_window_checked, xcb_cursor_t,
+    xcb_drawable_t, xcb_generate_id, xcb_generic_error_t, xcb_get_extension_data, xcb_keycode_t,
+    xcb_map_window_checked, xcb_pixmap_t, xcb_query_extension_reply_t, xcb_rectangle_t,
+    xcb_reparent_window, xcb_request_check, xcb_screen_t, xcb_timestamp_t,
+    xcb_unmap_window_checked, xcb_visualtype_t, xcb_void_cookie_t, xcb_window_t,
+    xcb_xkb_device_spec_t, xcb_xkb_id, xcb_xkb_select_events, xcb_xkb_use_extension, XCB_ATOM_ATOM,
+    XCB_ATOM_CARDINAL, XCB_ATOM_STRING, XCB_ATOM_VISUALID, XCB_ATOM_WM_CLASS, XCB_ATOM_WM_NAME,
+    XCB_BUTTON_SCROLL_DOWN, XCB_BUTTON_SCROLL_LEFT, XCB_BUTTON_SCROLL_RIGHT, XCB_BUTTON_SCROLL_UP,
+    XCB_COLORMAP_ALLOC_NONE, XCB_CONFIG_WINDOW_HEIGHT, XCB_CONFIG_WINDOW_STACK_MODE,
+    XCB_CONFIG_WINDOW_WIDTH, XCB_CONFIG_WINDOW_X, XCB_CONFIG_WINDOW_Y, XCB_CURRENT_TIME,
+    XCB_CW_BACK_PIXEL, XCB_CW_BORDER_PIXEL, XCB_CW_COLORMAP, XCB_CW_CURSOR, XCB_CW_EVENT_MASK,
     XCB_CW_OVERRIDE_REDIRECT, XCB_EVENT_MASK_BUTTON_PRESS, XCB_EVENT_MASK_BUTTON_RELEASE,
     XCB_EVENT_MASK_EXPOSURE, XCB_EVENT_MASK_PROPERTY_CHANGE, XCB_EVENT_MASK_RESIZE_REDIRECT,
     XCB_EVENT_MASK_STRUCTURE_NOTIFY, XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT,
