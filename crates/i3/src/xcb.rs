@@ -1,5 +1,6 @@
 use crate::handlers::add_ignore_event;
 use crate::xcursor::Cursor;
+use ::xcb::ffi::xcb_connection_t;
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -75,8 +76,8 @@ fn absolute_geometry(container: Rect, window: Rect) -> x::Rectangle {
     }
 }
 fn take_focus_message(
-    window: xcb_window_t,
-    timestamp: xcb_timestamp_t,
+    window: u32,
+    timestamp: u32,
     protocols: u32,
     take_focus: u32,
 ) -> x::ClientMessageEvent {
@@ -173,7 +174,7 @@ pub unsafe fn fake_absolute_configure_notify(con: *mut Con) {
 
 /// Native display/graph boundary: requires a live event-thread connection and
 /// initialized, exclusively accessible pointers/resources for this operation.
-pub unsafe fn send_take_focus(window: xcb_window_t, timestamp: xcb_timestamp_t) {
+pub unsafe fn send_take_focus(window: u32, timestamp: u32) {
     let event = take_focus_message(window, timestamp, A_WM_PROTOCOLS, A_WM_TAKE_FOCUS);
     debuglog(
         c"%s:%s:%d - Sending WM_TAKE_FOCUS to the client\n"
@@ -196,7 +197,7 @@ pub unsafe fn send_take_focus(window: xcb_window_t, timestamp: xcb_timestamp_t) 
 
 /// Native display/graph boundary: requires a live event-thread connection and
 /// initialized, exclusively accessible pointers/resources for this operation.
-pub unsafe fn xcb_set_window_rect(conn_0: *mut xcb_connection_t, window: xcb_window_t, r: Rect) {
+pub unsafe fn xcb_set_window_rect(conn_0: *mut xcb_connection_t, window: u32, r: Rect) {
     let Some(connection) = borrowed(conn_0) else {
         return;
     };
@@ -218,7 +219,7 @@ pub unsafe fn xcb_set_window_rect(conn_0: *mut xcb_connection_t, window: xcb_win
 }
 
 /// reply borrows a complete native allocation on the owning event thread.
-pub unsafe fn xcb_get_preferred_window_type(reply: Option<&x::GetPropertyReply>) -> xcb_atom_t {
+pub unsafe fn xcb_get_preferred_window_type(reply: Option<&x::GetPropertyReply>) -> u32 {
     let Some(bytes) = property_bytes(reply) else {
         return 0;
     };
@@ -239,10 +240,7 @@ pub unsafe fn xcb_get_preferred_window_type(reply: Option<&x::GetPropertyReply>)
     )
 }
 /// prop borrows a complete native property reply for this event-thread query.
-pub unsafe fn xcb_reply_contains_atom(
-    prop: Option<&x::GetPropertyReply>,
-    atom: xcb_atom_t,
-) -> bool {
+pub unsafe fn xcb_reply_contains_atom(prop: Option<&x::GetPropertyReply>, atom: u32) -> bool {
     property_bytes(prop).is_some_and(|bytes| atom_words(bytes).contains(&atom))
 }
 
@@ -285,9 +283,9 @@ pub unsafe fn get_visualid_by_depth(depth: u16) -> u32 {
 /// initialized, exclusively accessible pointers/resources for this operation.
 pub unsafe fn xcb_add_property_atom(
     conn_0: *mut xcb_connection_t,
-    window: xcb_window_t,
-    property: xcb_atom_t,
-    atom: xcb_atom_t,
+    window: u32,
+    property: u32,
+    atom: u32,
 ) {
     let Some(connection) = borrowed(conn_0) else {
         return;
@@ -305,9 +303,9 @@ pub unsafe fn xcb_add_property_atom(
 /// initialized, exclusively accessible pointers/resources for this operation.
 pub unsafe fn xcb_remove_property_atom(
     conn_0: *mut xcb_connection_t,
-    window: xcb_window_t,
-    property: xcb_atom_t,
-    atom: xcb_atom_t,
+    window: u32,
+    property: u32,
+    atom: u32,
 ) {
     let Some(connection) = borrowed(conn_0) else {
         return;
@@ -345,7 +343,7 @@ pub unsafe fn xcb_remove_property_atom(
 /// initialized, exclusively accessible pointers/resources for this operation.
 pub unsafe fn xcb_grab_buttons(
     conn_0: *mut xcb_connection_t,
-    window: xcb_window_t,
+    window: u32,
     buttons: *mut ::core::ffi::c_int,
 ) {
     let Some(connection) = borrowed(conn_0) else {
@@ -450,5 +448,3 @@ mod tests {
         assert_eq!(bytes, expected);
     }
 }
-
-use xcb_sys::{xcb_atom_t, xcb_connection_t, xcb_timestamp_t, xcb_window_t};
