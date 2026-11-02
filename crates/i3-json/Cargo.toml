@@ -8,7 +8,7 @@ description = "Rust JSON generation and incremental event parsing for i3"
 
 [dependencies]
 serde.workspace = true
-serde_json = { workspace = true, features = ["arbitrary_precision"] }
+serde_json = { workspace = true, features = ["arbitrary_precision", "raw_value", "unbounded_depth"] }
 
 [dev-dependencies]
 i3-test-support.workspace = true
