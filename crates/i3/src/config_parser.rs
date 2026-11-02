@@ -5942,40 +5942,29 @@ unsafe fn upsert_variable(
     store_variable(&mut *variables, key_text, value_text);
 }
 
-struct ResourceDatabase(*mut xcb_xrm_database_t);
-impl Drop for ResourceDatabase {
-    fn drop(&mut self) {
-        if !self.0.is_null() {
-            unsafe { xcb_xrm_database_free(self.0) };
-        }
-    }
-}
+#[derive(Default)]
+struct ResourceDatabase(Option<xcb_interop::xrm::Database>);
 impl ResourceDatabase {
-    /// # Safety
-    /// conn must be a live connection or null; resources are copied before return.
+    /// The core connection is read only on its event thread. A configuration
+    /// check without a display keeps using the variable's configured fallback.
     unsafe fn get(&mut self, name: &std::ffi::CStr) -> Option<std::ffi::CString> {
         if conn.is_null() {
             return None;
         }
-        if self.0.is_null() {
-            self.0 = xcb_xrm_database_from_default(conn);
-            if self.0.is_null() {
+        if self.0.is_none() {
+            self.0 = i3_common::display::connection()
+                .and_then(xcb_interop::xrm::Database::from_connection);
+            if self.0.is_none() {
                 errorlog(
                     c"ERROR: Failed to open the resource database.\n"
                         .as_ptr()
                         .cast_mut(),
                 );
-                self.0 = xcb_xrm_database_from_string(c"".as_ptr());
+                self.0 = xcb_interop::xrm::Database::from_string(c"");
                 return None;
             }
         }
-        let mut resource = std::ptr::null_mut();
-        xcb_xrm_resource_get_string(self.0, name.as_ptr(), std::ptr::null(), &mut resource);
-        if resource.is_null() {
-            return None;
-        }
-        let resource = NativeString(resource);
-        Some(std::ffi::CStr::from_ptr(resource.0).to_owned())
+        self.0.as_ref()?.resource(name, None)
     }
 }
 
@@ -6086,7 +6075,7 @@ unsafe fn parse_file_inner(
         return ParseFileResult::Failed;
     }
     let stream = ConfigFile(fstr);
-    let mut resources = ResourceDatabase(std::ptr::null_mut());
+    let mut resources = ResourceDatabase::default();
     let Ok(file_size) = usize::try_from(stbuf.st_size) else {
         return ParseFileResult::Failed;
     };
@@ -6361,11 +6350,6 @@ use i3_common::safewrappers::sstrdup;
 // Canonical Cairo backend ABI; renderer logic remains local.
 
 // Canonical Pango backend ABI; font policy remains local.
-
-use xcb_sys::{
-    xcb_xrm_database_free, xcb_xrm_database_from_default, xcb_xrm_database_from_string,
-    xcb_xrm_database_t, xcb_xrm_resource_get_string,
-};
 
 pub use libc::{
     __errno_location, chdir, close, dirname, fclose, fdopen, feof, fgets, fread, free, fstat,
