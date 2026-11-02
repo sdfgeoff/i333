@@ -13,6 +13,7 @@ use std::ffi::{CStr, CString};
 use std::io::Write;
 use std::os::fd::FromRawFd;
 use std::ptr::NonNull;
+use std::rc::Rc;
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -467,7 +468,8 @@ struct NagbarState {
     close: Button,
     buttons: Vec<Button>,
     render: Renderer,
-    connection: Option<NonNull<xcb_connection_t>>,
+    registration: Option<i3_common::display::DisplayConnection>,
+    connection: Option<Rc<xcb::Connection>>,
     window: xcb_window_t,
     has_font: bool,
     has_surface: bool,
@@ -557,6 +559,7 @@ impl NagbarState {
                     colorpixel: 0,
                 },
             },
+            registration: None,
             connection: None,
             window: 0,
             has_font: false,
@@ -570,21 +573,21 @@ impl Drop for NagbarState {
         // all event borrows have ended. Native destructors run before disconnect;
         // provider globals are only borrowed on this same event thread.
         unsafe {
-            if let Some(connection) = self.connection {
+            if let Some(connection) = self.connection.as_ref() {
                 if self.has_surface {
-                    draw_util_surface_free(connection.as_ptr(), &mut self.render.bar);
+                    draw_util_surface_free(connection.get_raw_conn().cast(), &mut self.render.bar);
                 }
                 if self.has_font {
                     i3_common::font::free_font();
                 }
                 if self.window != 0 {
-                    xcb_destroy_window(connection.as_ptr(), self.window);
+                    xcb_destroy_window(connection.get_raw_conn().cast(), self.window);
                 }
                 root_screen = std::ptr::null_mut();
                 visual_type = std::ptr::null_mut();
                 root = 0;
                 conn = std::ptr::null_mut();
-                xcb_disconnect(connection.as_ptr());
+                // Registry and owning connection drop after native teardown.
             }
         }
     }
@@ -658,12 +661,14 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
     // The common font backend retains this exact field address until free_font.
     // Keep the session allocation stable throughout the native event loop.
     let mut state = Box::new(NagbarState::new(settings));
-    let mut screens: ::core::ffi::c_int = 0;
-    conn = xcb_connect(::core::ptr::null::<::core::ffi::c_char>(), &raw mut screens);
-    if conn.is_null() || xcb_connection_has_error(conn) != 0 {
+    let Ok((connection, screens)) = xcb::Connection::connect(None) else {
         errx(libc::EXIT_FAILURE, c"Cannot open display".as_ptr());
-    }
-    state.connection = NonNull::new(conn);
+    };
+    let connection = Rc::new(connection);
+    conn = connection.get_raw_conn().cast();
+    let registration = i3_common::display::install_connection(connection.clone());
+    state.registration = Some(registration);
+    state.connection = Some(connection);
     let mut _NET_WM_WINDOW_TYPE_cookie: xcb_intern_atom_cookie_t = xcb_intern_atom(
         conn,
         0 as u8,
@@ -1003,11 +1008,10 @@ use cairo_sys::{cairo_surface_t, cairo_t};
 
 use xcb_sys::{
     xcb_atom_t, xcb_aux_get_screen, xcb_button_press_event_t, xcb_button_release_event_t,
-    xcb_change_property, xcb_charinfo_t, xcb_configure_notify_event_t, xcb_connect,
-    xcb_connection_has_error, xcb_connection_t, xcb_create_window, xcb_cursor_context_free,
-    xcb_cursor_context_new, xcb_cursor_context_t, xcb_cursor_load_cursor, xcb_cursor_t,
-    xcb_destroy_window, xcb_disconnect, xcb_drawable_t, xcb_expose_event_t, xcb_flush,
-    xcb_generate_id, xcb_generic_error_t, xcb_generic_event_t, xcb_get_geometry,
+    xcb_change_property, xcb_charinfo_t, xcb_configure_notify_event_t, xcb_connection_t,
+    xcb_create_window, xcb_cursor_context_free, xcb_cursor_context_new, xcb_cursor_context_t,
+    xcb_cursor_load_cursor, xcb_cursor_t, xcb_destroy_window, xcb_drawable_t, xcb_expose_event_t,
+    xcb_flush, xcb_generate_id, xcb_generic_error_t, xcb_generic_event_t, xcb_get_geometry,
     xcb_get_geometry_reply, xcb_get_geometry_reply_t, xcb_get_input_focus,
     xcb_get_input_focus_reply, xcb_get_input_focus_reply_t, xcb_grab_server, xcb_intern_atom,
     xcb_intern_atom_cookie_t, xcb_intern_atom_reply, xcb_intern_atom_reply_t, xcb_map_window,

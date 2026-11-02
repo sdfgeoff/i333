@@ -8,6 +8,7 @@ use i3_common::font::predict_text_width;
 use i3_common::font::set_font;
 use i3_common::mkdirp::mkdirp;
 use std::ffi::{CStr, CString};
+use std::rc::Rc;
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -4505,7 +4506,8 @@ impl Drop for StartupContext {
     }
 }
 struct WizardResources {
-    connection: std::ptr::NonNull<xcb_connection_t>,
+    _registration: i3_common::display::DisplayConnection,
+    connection: Rc<xcb::Connection>,
     fonts: bool,
     surface: bool,
 }
@@ -4516,7 +4518,7 @@ impl Drop for WizardResources {
         // borrows and closing this session's uniquely owned connection.
         unsafe {
             if self.surface {
-                draw_util_surface_free(self.connection.as_ptr(), &raw mut surface);
+                draw_util_surface_free(self.connection.get_raw_conn().cast(), &raw mut surface);
             }
             if self.fonts {
                 set_font(&raw mut bold_font);
@@ -4537,14 +4539,14 @@ impl Drop for WizardResources {
                 keysyms = std::ptr::null_mut();
             }
             if win != 0 {
-                xcb_sys::xcb_destroy_window(self.connection.as_ptr(), win);
+                xcb_sys::xcb_destroy_window(self.connection.get_raw_conn().cast(), win);
                 win = 0;
             }
             root_screen = std::ptr::null_mut();
             visual_type = std::ptr::null_mut();
             root = 0;
             conn = std::ptr::null_mut();
-            xcb_sys::xcb_disconnect(self.connection.as_ptr());
+            // Registry and owning connection drop after native teardown.
         }
     }
 }
@@ -5037,13 +5039,15 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
         socket: settings.socket,
         modifier_codes: [Vec::new(), Vec::new()],
     };
-    let mut screen: ::core::ffi::c_int = 0;
-    conn = xcb_connect(::core::ptr::null::<::core::ffi::c_char>(), &raw mut screen);
-    if conn.is_null() || xcb_connection_has_error(conn) != 0 {
-        errx(1 as ::core::ffi::c_int, c"Cannot open display".as_ptr());
-    }
+    let Ok((connection, screen)) = xcb::Connection::connect(None) else {
+        errx(libc::EXIT_FAILURE, c"Cannot open display".as_ptr());
+    };
+    let connection = Rc::new(connection);
+    conn = connection.get_raw_conn().cast();
+    let registration = i3_common::display::install_connection(connection.clone());
     let mut resources = WizardResources {
-        connection: std::ptr::NonNull::new(conn).unwrap(),
+        _registration: registration,
+        connection,
         fonts: false,
         surface: false,
     };
@@ -5065,8 +5069,7 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
     }
     keysyms = xcb_key_symbols_alloc(conn);
     // The no-drop view borrows WizardResources' sole native connection owner.
-    let modmap_connection = i3_common::xcb_connection::borrowed(conn)
-        .expect("the wizard has checked its live connection");
+    let modmap_connection = resources.connection.clone();
     let modmap_cookie = modmap_connection.send_request(&xcb::x::GetModifierMapping {});
     symbols = xcb_key_symbols_alloc(conn);
     if symbols.is_null() || keysyms.is_null() {
@@ -5352,18 +5355,18 @@ pub use cairo_sys::{cairo_surface_t, cairo_t};
 
 use xcb_sys::{
     xcb_atom_t, xcb_aux_get_screen, xcb_button_press_event_t, xcb_change_property, xcb_charinfo_t,
-    xcb_connect, xcb_connection_has_error, xcb_connection_t, xcb_create_window, xcb_drawable_t,
-    xcb_expose_event_t, xcb_flush, xcb_generate_id, xcb_generic_error_t, xcb_generic_event_t,
-    xcb_get_setup, xcb_grab_keyboard, xcb_grab_keyboard_cookie_t, xcb_grab_keyboard_reply,
-    xcb_grab_keyboard_reply_t, xcb_intern_atom, xcb_intern_atom_cookie_t, xcb_intern_atom_reply,
-    xcb_intern_atom_reply_t, xcb_key_press_event_t, xcb_key_press_lookup_keysym,
-    xcb_key_symbols_alloc, xcb_key_symbols_get_keysym, xcb_key_symbols_t, xcb_keycode_t,
-    xcb_keysym_t, xcb_map_window, xcb_query_font_reply_t, xcb_screen_t, xcb_timestamp_t,
-    xcb_visualid_t, xcb_visualtype_t, xcb_wait_for_event, xcb_window_t, XCB_BUTTON_PRESS,
-    XCB_COPY_FROM_PARENT, XCB_CURRENT_TIME, XCB_CW_BACK_PIXEL, XCB_CW_EVENT_MASK,
-    XCB_EVENT_MASK_BUTTON_PRESS, XCB_EVENT_MASK_EXPOSURE, XCB_EXPOSE, XCB_GRAB_MODE_ASYNC,
-    XCB_GRAB_STATUS_SUCCESS, XCB_KEY_PRESS, XCB_MOD_MASK_LOCK, XCB_NONE, XCB_NUM_LOCK,
-    XCB_PROP_MODE_REPLACE, XCB_WINDOW_CLASS_COPY_FROM_PARENT, XCB_WINDOW_CLASS_INPUT_OUTPUT,
+    xcb_connection_t, xcb_create_window, xcb_drawable_t, xcb_expose_event_t, xcb_flush,
+    xcb_generate_id, xcb_generic_error_t, xcb_generic_event_t, xcb_get_setup, xcb_grab_keyboard,
+    xcb_grab_keyboard_cookie_t, xcb_grab_keyboard_reply, xcb_grab_keyboard_reply_t,
+    xcb_intern_atom, xcb_intern_atom_cookie_t, xcb_intern_atom_reply, xcb_intern_atom_reply_t,
+    xcb_key_press_event_t, xcb_key_press_lookup_keysym, xcb_key_symbols_alloc,
+    xcb_key_symbols_get_keysym, xcb_key_symbols_t, xcb_keycode_t, xcb_keysym_t, xcb_map_window,
+    xcb_query_font_reply_t, xcb_screen_t, xcb_timestamp_t, xcb_visualid_t, xcb_visualtype_t,
+    xcb_wait_for_event, xcb_window_t, XCB_BUTTON_PRESS, XCB_COPY_FROM_PARENT, XCB_CURRENT_TIME,
+    XCB_CW_BACK_PIXEL, XCB_CW_EVENT_MASK, XCB_EVENT_MASK_BUTTON_PRESS, XCB_EVENT_MASK_EXPOSURE,
+    XCB_EXPOSE, XCB_GRAB_MODE_ASYNC, XCB_GRAB_STATUS_SUCCESS, XCB_KEY_PRESS, XCB_MOD_MASK_LOCK,
+    XCB_NONE, XCB_NUM_LOCK, XCB_PROP_MODE_REPLACE, XCB_WINDOW_CLASS_COPY_FROM_PARENT,
+    XCB_WINDOW_CLASS_INPUT_OUTPUT,
 };
 
 use xkbcommon::xkb::ffi::*;

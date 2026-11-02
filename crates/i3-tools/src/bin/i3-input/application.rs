@@ -12,6 +12,7 @@ use std::io::Write;
 use std::os::fd::FromRawFd;
 use std::os::unix::net::UnixStream;
 use std::ptr::NonNull;
+use std::rc::Rc;
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -539,7 +540,8 @@ const INPUT_OPTIONS: &[i3_common::cli::OptionSpec] = &[
 
 /// Session-owned native resources. Only the display-provider globals borrow them.
 struct WindowResources {
-    connection: NonNull<xcb_connection_t>,
+    _registration: i3_common::display::DisplayConnection,
+    connection: Rc<xcb::Connection>,
     has_font: bool,
     has_surface: bool,
 }
@@ -550,7 +552,7 @@ impl Drop for WindowResources {
         // destruction still needs the live connection and display globals.
         unsafe {
             if self.has_surface {
-                draw_util_surface_free(conn, &raw mut surface);
+                draw_util_surface_free(self.connection.get_raw_conn().cast(), &raw mut surface);
             }
             if self.has_font {
                 i3_common::font::free_font();
@@ -563,7 +565,7 @@ impl Drop for WindowResources {
             visual_type = std::ptr::null_mut();
             root = 0;
             conn = std::ptr::null_mut();
-            xcb_disconnect(self.connection.as_ptr());
+            // The registry and connection fields drop after native teardown.
         }
     }
 }
@@ -579,13 +581,15 @@ unsafe fn run_window(settings: InputSettings) -> ::core::ffi::c_int {
         .map_or(std::ptr::null(), |value| value.as_ptr());
     let mut state = InputState::new(&settings);
     printf(c"using format \"%s\"\n".as_ptr(), state.format.as_ptr());
-    let mut screen: ::core::ffi::c_int = 0;
-    conn = xcb_connect(::core::ptr::null::<::core::ffi::c_char>(), &raw mut screen);
-    if conn.is_null() || xcb_connection_has_error(conn) != 0 {
+    let Ok((connection, screen)) = xcb::Connection::connect(None) else {
         errx(libc::EXIT_FAILURE, c"Cannot open display".as_ptr());
-    }
+    };
+    let connection = Rc::new(connection);
+    conn = connection.get_raw_conn().cast();
+    let registration = i3_common::display::install_connection(connection.clone());
     let mut resources = WindowResources {
-        connection: NonNull::new(conn).expect("checked native connection"),
+        _registration: registration,
+        connection,
         has_font: false,
         has_surface: false,
     };
@@ -780,23 +784,23 @@ pub use cairo_sys::{cairo_surface_t, cairo_t};
 // Canonical Pango backend ABI; font policy remains local.
 
 use xcb_sys::{
-    xcb_atom_t, xcb_aux_get_screen, xcb_charinfo_t, xcb_connect, xcb_connection_has_error,
-    xcb_connection_t, xcb_create_window, xcb_disconnect, xcb_drawable_t, xcb_expose_event_t,
-    xcb_flush, xcb_generate_id, xcb_get_geometry, xcb_get_geometry_reply, xcb_get_input_focus,
-    xcb_get_input_focus_reply, xcb_get_property, xcb_get_property_reply, xcb_get_property_reply_t,
-    xcb_get_property_value, xcb_get_property_value_length, xcb_grab_keyboard,
-    xcb_grab_keyboard_reply, xcb_grab_server, xcb_intern_atom, xcb_intern_atom_reply,
-    xcb_is_cursor_key, xcb_is_function_key, xcb_is_keypad_key, xcb_is_misc_function_key,
-    xcb_is_modifier_key, xcb_is_pf_key, xcb_is_private_keypad_key, xcb_key_press_event_t,
-    xcb_key_press_lookup_keysym, xcb_key_release_event_t, xcb_key_symbols_alloc,
-    xcb_key_symbols_free, xcb_key_symbols_t, xcb_keysym_t, xcb_map_window, xcb_query_font_reply_t,
-    xcb_rectangle_t, xcb_screen_t, xcb_timestamp_t, xcb_translate_coordinates,
-    xcb_translate_coordinates_reply, xcb_ungrab_server, xcb_visualid_t, xcb_visualtype_t,
-    xcb_wait_for_event, xcb_window_t, XCB_ATOM_WINDOW, XCB_ATOM_WM_CLASS, XCB_COPY_FROM_PARENT,
-    XCB_CURRENT_TIME, XCB_CW_BACK_PIXEL, XCB_CW_EVENT_MASK, XCB_CW_OVERRIDE_REDIRECT,
-    XCB_EVENT_MASK_EXPOSURE, XCB_EXPOSE, XCB_GET_PROPERTY_TYPE_ANY, XCB_GRAB_MODE_ASYNC,
-    XCB_GRAB_STATUS_SUCCESS, XCB_KEY_PRESS, XCB_KEY_RELEASE, XCB_MOD_MASK_SHIFT, XCB_NONE,
-    XCB_WINDOW_CLASS_COPY_FROM_PARENT, XCB_WINDOW_CLASS_INPUT_OUTPUT,
+    xcb_atom_t, xcb_aux_get_screen, xcb_charinfo_t, xcb_connection_t, xcb_create_window,
+    xcb_drawable_t, xcb_expose_event_t, xcb_flush, xcb_generate_id, xcb_get_geometry,
+    xcb_get_geometry_reply, xcb_get_input_focus, xcb_get_input_focus_reply, xcb_get_property,
+    xcb_get_property_reply, xcb_get_property_reply_t, xcb_get_property_value,
+    xcb_get_property_value_length, xcb_grab_keyboard, xcb_grab_keyboard_reply, xcb_grab_server,
+    xcb_intern_atom, xcb_intern_atom_reply, xcb_is_cursor_key, xcb_is_function_key,
+    xcb_is_keypad_key, xcb_is_misc_function_key, xcb_is_modifier_key, xcb_is_pf_key,
+    xcb_is_private_keypad_key, xcb_key_press_event_t, xcb_key_press_lookup_keysym,
+    xcb_key_release_event_t, xcb_key_symbols_alloc, xcb_key_symbols_free, xcb_key_symbols_t,
+    xcb_keysym_t, xcb_map_window, xcb_query_font_reply_t, xcb_rectangle_t, xcb_screen_t,
+    xcb_timestamp_t, xcb_translate_coordinates, xcb_translate_coordinates_reply, xcb_ungrab_server,
+    xcb_visualid_t, xcb_visualtype_t, xcb_wait_for_event, xcb_window_t, XCB_ATOM_WINDOW,
+    XCB_ATOM_WM_CLASS, XCB_COPY_FROM_PARENT, XCB_CURRENT_TIME, XCB_CW_BACK_PIXEL,
+    XCB_CW_EVENT_MASK, XCB_CW_OVERRIDE_REDIRECT, XCB_EVENT_MASK_EXPOSURE, XCB_EXPOSE,
+    XCB_GET_PROPERTY_TYPE_ANY, XCB_GRAB_MODE_ASYNC, XCB_GRAB_STATUS_SUCCESS, XCB_KEY_PRESS,
+    XCB_KEY_RELEASE, XCB_MOD_MASK_SHIFT, XCB_NONE, XCB_WINDOW_CLASS_COPY_FROM_PARENT,
+    XCB_WINDOW_CLASS_INPUT_OUTPUT,
 };
 
 use libc::{exit, fprintf, printf};
