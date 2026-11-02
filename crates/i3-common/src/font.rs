@@ -466,9 +466,9 @@ pub unsafe fn set_font_colors(gc: u32, foreground: color_t, background: color_t)
     };
     match (*SAVED_FONT).type_0 {
         FontType::Xcb => {
-            if let Some(connection) = crate::display::connection()
-                .or_else(|| crate::xcb_connection::borrowed(conn.cast()).map(std::rc::Rc::new))
-            {
+            // Emergency rendering can interrupt registry activity. Borrow the
+            // caller-retained native connection directly, without TLS/Rc access.
+            if let Some(connection) = crate::xcb_connection::borrowed(conn) {
                 connection.send_request(&x::ChangeGc {
                     gc: x::Gcontext::new(gc),
                     value_list: &[
@@ -500,8 +500,9 @@ pub unsafe fn font_is_pango() -> bool {
 unsafe fn draw_text_xcb(glyphs: &[Ucs2Char], drawable: u32, gc: u32, mut x: i32, y: i32) {
     let raw = crate::display::context().connection;
     // SAFETY: the saved font and display remain live under the caller's contract.
-    let connection = crate::display::connection()
-        .or_else(|| unsafe { crate::xcb_connection::borrowed(raw.cast()) }.map(std::rc::Rc::new));
+    // This path is also used by the synchronous emergency dialog. The
+    // explicit context owner stays live; avoid reentering the TLS registry.
+    let connection = unsafe { crate::xcb_connection::borrowed(raw) };
     let Some(connection) = connection else { return };
     let pos_y = y + i32::from(unsafe { (*(*SAVED_FONT).specific.xcb.info).font_ascent() });
     let mut chunks = glyphs
@@ -610,8 +611,9 @@ unsafe fn xcb_query_text_width(text: &[Ucs2Char]) -> i32 {
         unsafe { fprintf(stderr, c"Using slow code path for text extents\n".as_ptr()) };
     }
     let raw = crate::display::context().connection;
-    let connection = crate::display::connection()
-        .or_else(|| unsafe { crate::xcb_connection::borrowed(raw.cast()) }.map(std::rc::Rc::new));
+    // This path is also used by the synchronous emergency dialog. The
+    // explicit context owner stays live; avoid reentering the TLS registry.
+    let connection = unsafe { crate::xcb_connection::borrowed(raw) };
     let result = connection.map(|connection| {
         let wire = wire_glyphs(&text[..text.len() as u32 as usize]);
         let cookie = connection.send_request(&x::QueryTextExtents {
