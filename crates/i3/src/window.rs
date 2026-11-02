@@ -11,8 +11,8 @@ use crate::render::render_deco_height;
 use crate::types::{reservedpx, BorderStyle, Window};
 use ::xcb::{x, Reply, Xid, XidNew};
 use cairo_sys::{
-    cairo_image_surface_create_for_data, cairo_surface_destroy, cairo_surface_set_user_data,
-    cairo_user_data_key_t, FORMAT_A_RGB32,
+    cairo_image_surface_create_for_data, cairo_surface_set_user_data, cairo_user_data_key_t,
+    FORMAT_A_RGB32,
 };
 use i3_common::display;
 use i3_common::dpi::logical_px;
@@ -150,7 +150,6 @@ pub unsafe fn window_free(win: *mut Window) {
     ] {
         free(text.cast());
     }
-    cairo_surface_destroy((*win).icon);
     free((*win).ran_assignments.cast());
     drop(Box::from_raw(win));
 }
@@ -911,7 +910,7 @@ impl Drop for NativePixels {
 }
 /// Own a native Cairo reference while its pixels are attached to that
 /// reference's user-data destructor. Transfer only at the Window ABI boundary.
-struct OwnedIcon(NonNull<cairo_sys::cairo_surface_t>);
+struct OwnedIcon(i3_common::draw_util::CairoSurface);
 impl OwnedIcon {
     fn new(width: u32, height: u32, values: &[u32]) -> Option<Self> {
         let expected = (width as usize).checked_mul(height as usize)?;
@@ -923,7 +922,7 @@ impl OwnedIcon {
         let pixels = NativePixels::copy(values);
         // cairo-sys is maintained by cairo-rs. The backing allocation is owned
         // independently of the temporary Rust values passed to this constructor.
-        let surface = Self(NonNull::new(unsafe {
+        let pointer = NonNull::new(unsafe {
             cairo_image_surface_create_for_data(
                 pixels.0.as_ptr().cast(),
                 FORMAT_A_RGB32,
@@ -931,11 +930,15 @@ impl OwnedIcon {
                 height,
                 stride,
             )
-        })?);
+        })?;
+        // SAFETY: Cairo transfers its one live native reference, including an
+        // error object. The Rust guard destroys it on every subsequent exit.
+        let surface =
+            Self(unsafe { i3_common::draw_util::CairoSurface::from_raw_owned(pointer.as_ptr()) });
         static mut FREE_DATA: cairo_user_data_key_t = cairo_user_data_key_t { unused: 0 };
         let status = unsafe {
             cairo_surface_set_user_data(
-                surface.0.as_ptr(),
+                surface.0.as_raw(),
                 &raw mut FREE_DATA,
                 pixels.0.as_ptr().cast(),
                 Some(free),
@@ -947,17 +950,8 @@ impl OwnedIcon {
         std::mem::forget(pixels);
         Some(surface)
     }
-    fn into_raw(self) -> *mut cairo_sys::cairo_surface_t {
-        let raw = self.0.as_ptr();
-        std::mem::forget(self);
-        raw
-    }
-}
-impl Drop for OwnedIcon {
-    fn drop(&mut self) {
-        unsafe {
-            cairo_surface_destroy(self.0.as_ptr());
-        }
+    fn into_surface(self) -> i3_common::draw_util::CairoSurface {
+        self.0
     }
 }
 
@@ -993,8 +987,7 @@ pub unsafe fn window_update_icon(win: *mut Window, prop: Option<&x::GetPropertyR
         return;
     };
     (*win).name_x_changed = true;
-    cairo_surface_destroy((*win).icon);
-    (*win).icon = surface.into_raw();
+    (*win).icon = Some(surface.into_surface());
 }
 
 #[cfg(test)]
@@ -1415,14 +1408,13 @@ mod tests {
         let temporary = vec![premultiplied_argb(0x80_ff8040), 0xff_123456];
         let surface = OwnedIcon::new(2, 1, &temporary).unwrap();
         drop(temporary);
-        let retained = OwnedIcon(
-            NonNull::new(unsafe { cairo_sys::cairo_surface_reference(surface.0.as_ptr()) })
-                .unwrap(),
-        );
+        let retained = OwnedIcon(i3_common::draw_util::CairoSurface::from_surface(
+            surface.0.as_surface().clone(),
+        ));
         drop(surface);
         unsafe {
-            cairo_sys::cairo_surface_flush(retained.0.as_ptr());
-            let data = cairo_sys::cairo_image_surface_get_data(retained.0.as_ptr()).cast::<u32>();
+            cairo_sys::cairo_surface_flush(retained.0.as_raw());
+            let data = cairo_sys::cairo_image_surface_get_data(retained.0.as_raw()).cast::<u32>();
             assert_eq!(data.read(), 0x80_804020);
             assert_eq!(data.add(1).read(), 0xff_123456);
         }

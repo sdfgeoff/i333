@@ -1144,7 +1144,7 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
                         (*con).deco_rect.height,
                         logical_px(2),
                         (*con).window_icon_padding,
-                        !win.is_null() && !(*win).icon.is_null(),
+                        !win.is_null() && (*win).icon.is_some(),
                         predict_text_width(title),
                         mark_width,
                         title_padding,
@@ -1165,7 +1165,7 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
                     );
                     if has_icon {
                         draw_util_image(
-                            (*win).icon,
+                            (*win).icon.as_ref().unwrap().as_raw(),
                             dest_surface,
                             (*con).deco_rect.x.wrapping_add(icon_offset_x as u32) as i32,
                             (*con).deco_rect.y.wrapping_add(logical_px(1) as u32) as i32,
