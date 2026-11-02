@@ -15,25 +15,6 @@ use crate::xcursor::Cursor;
 use crate::application::ignore_event_sequence_t;
 use ::xcb::{x, Reply, Xid, XidNew};
 use i3_common::xcb_connection::borrowed;
-use std::ptr::NonNull;
-
-struct Native<T>(NonNull<T>);
-impl<T> Native<T> {
-    /// A non-null pointer transfers a unique, complete malloc-backed XCB reply.
-    unsafe fn take(pointer: *mut T) -> Option<Self> {
-        NonNull::new(pointer).map(Self)
-    }
-    fn raw(&self) -> *mut T {
-        self.0.as_ptr()
-    }
-}
-impl<T> Drop for Native<T> {
-    fn drop(&mut self) {
-        unsafe {
-            free(self.raw().cast());
-        }
-    }
-}
 struct ServerGrab<'a>(&'a ::xcb::Connection);
 impl Drop for ServerGrab<'_> {
     fn drop(&mut self) {
@@ -108,59 +89,57 @@ fn take_focus_message(
 
 pub static mut xcb_numlock_mask: ::core::ffi::c_uint = 0;
 
-/// Native display/graph boundary: requires a live event-thread connection and
-/// initialized, exclusively accessible pointers/resources for this operation.
+/// Create a helper window using the caller's retained connection. Independent
+/// placeholder/emergency connections must never be replaced by the registry.
+///
+/// Safety: the caller serializes access to the event-thread root/cursor caches.
+/// Values are typed and borrowed only while the maintained request serializes.
 pub unsafe fn create_window(
-    conn_0: *mut xcb_connection_t,
+    connection: &::xcb::Connection,
     dims: Rect,
-    mut depth: u16,
-    mut visual: xcb_visualid_t,
-    window_class: u16,
+    mut depth: u8,
+    mut visual: u32,
+    window_class: x::WindowClass,
     cursor: Cursor,
     map: bool,
-    mask: u32,
-    values: *mut u32,
-) -> xcb_window_t {
-    let result: xcb_window_t = xcb_generate_id(conn_0) as xcb_window_t;
-    if window_class as ::core::ffi::c_int == XCB_WINDOW_CLASS_INPUT_ONLY as ::core::ffi::c_int {
-        depth = XCB_COPY_FROM_PARENT as u16;
-        visual = XCB_COPY_FROM_PARENT as xcb_visualid_t;
+    values: &[x::Cw],
+) -> u32 {
+    let result: x::Window = connection.generate_id();
+    if window_class == x::WindowClass::InputOnly {
+        depth = 0;
+        visual = 0;
     }
-    let gc_cookie: xcb_void_cookie_t = xcb_create_window(
-        conn_0,
-        depth as u8,
-        result,
-        root,
-        dims.x as i16,
-        dims.y as i16,
-        dims.width as u16,
-        dims.height as u16,
-        0 as u16,
-        window_class,
+    let cookie = connection.send_request(&x::CreateWindow {
+        depth,
+        wid: result,
+        parent: x::Window::new(root),
+        x: dims.x as i16,
+        y: dims.y as i16,
+        width: dims.width as u16,
+        height: dims.height as u16,
+        border_width: 0,
+        class: window_class,
         visual,
-        mask,
-        values as *const ::core::ffi::c_void,
-    );
-    let error = Native::take(xcb_request_check(conn_0, gc_cookie));
-    if let Some(error) = error {
+        value_list: values,
+    });
+    // Native CreateWindow is unchecked, but still followed by request_check.
+    // Retain that barrier without claiming errors from the event queue.
+    if let Some(code) = xcb_interop::transport::check_unchecked(connection, cookie) {
         errorlog(
             c"ERROR: Could not create window. Error code: %d.\n"
                 .as_ptr()
                 .cast_mut(),
-            (*error.raw()).error_code as ::core::ffi::c_int,
+            i32::from(code),
         );
     }
-    let mut cursor_values: [u32; 1] = [xcursor_get_cursor(cursor)];
-    xcb_change_window_attributes(
-        conn_0,
-        result,
-        XCB_CW_CURSOR as ::core::ffi::c_int as u32,
-        &raw mut cursor_values as *mut u32 as *const ::core::ffi::c_void,
-    );
+    connection.send_request(&x::ChangeWindowAttributes {
+        window: result,
+        value_list: &[x::Cw::Cursor(x::Cursor::new(xcursor_get_cursor(cursor)))],
+    });
     if map {
-        xcb_map_window(conn_0, result);
+        connection.send_request(&x::MapWindow { window: result });
     }
-    result
+    result.resource_id()
 }
 
 /// Native display/graph boundary: requires a live event-thread connection and
@@ -412,17 +391,6 @@ use crate::xcursor::xcursor_get_cursor;
 
 // Canonical Cairo backend ABI; renderer logic remains local.
 
-use xcb_sys::{
-    xcb_atom_t, xcb_change_window_attributes, xcb_connection_t, xcb_create_window,
-    xcb_depth_iterator_t, xcb_depth_next, xcb_depth_t, xcb_depth_visuals_iterator, xcb_generate_id,
-    xcb_map_window, xcb_request_check, xcb_screen_allowed_depths_iterator, xcb_timestamp_t,
-    xcb_visualid_t, xcb_visualtype_iterator_t, xcb_visualtype_next, xcb_visualtype_t,
-    xcb_void_cookie_t, xcb_window_t, XCB_COPY_FROM_PARENT, XCB_CW_CURSOR,
-    XCB_WINDOW_CLASS_INPUT_ONLY,
-};
-
-pub use libc::free;
-
 use crate::log::{debuglog, errorlog};
 
 // Shared model types retain field layout while using one Rust identity.
@@ -497,3 +465,9 @@ mod tests {
         assert_eq!(bytes, expected);
     }
 }
+
+use xcb_sys::{
+    xcb_atom_t, xcb_connection_t, xcb_depth_iterator_t, xcb_depth_next, xcb_depth_t,
+    xcb_depth_visuals_iterator, xcb_screen_allowed_depths_iterator, xcb_timestamp_t,
+    xcb_visualid_t, xcb_visualtype_iterator_t, xcb_visualtype_next, xcb_visualtype_t, xcb_window_t,
+};
