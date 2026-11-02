@@ -8,26 +8,26 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 31 wallclock secs ( 0.96 usr +  0.08 sys =  1.04 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 30 wallclock secs ( 0.86 usr +  0.10 sys =  0.96 CPU)\nResult: PASS",
     "profile": "debug",
     "build": "cargo test --locked",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "60659df2ed4b852528a1f75eb62b1e0d7e69166dccec7fb0edc243938c3d1e50",
-    "i3bar": "2075e676e053b8fe64af7127da2c47fab77988cfd73935505edf844fe8fc9f82",
-    "i3-config-wizard": "5ac7725788b563cd0e9bacb3b4e2285f88a669486f209d8d594d94dc53dbfb6f",
-    "i3-dump-log": "4f2bb8a89f4f337fc092c654985b31b72f3dfb03e20acc56068838e2ec50a1ed",
-    "i3-input": "706c71e04bdea92b96f40bec8a725febbb949be3cc05cf96bb08e25591f53914",
-    "i3-msg": "84d6e5f55eeb1644285cbad2b1cfdd3bb563a14c4e291be16b3776297638de88",
-    "i3-nagbar": "ae534a2b8ec09b2d743c63cbd8956ae71b28f9c5ee1a1ac406eb14f2f1966825"
+    "i3": "9d615f540e94fa0828053e92e168c86dc49de3289f74db99400da47c15432383",
+    "i3bar": "d31277bf50964c4200e056bea7da856f19f04619aba71f62b61354e1a9eafaf8",
+    "i3-config-wizard": "fc064dd523ee600ccc42464e316291b9b22055ef0a193e5bb358acbd879e664a",
+    "i3-dump-log": "07f3401f934b5ecf5a7608aec69700a2045f0717868e104f86268061c2793fff",
+    "i3-input": "b8abefb6d18e9cd44e473b4f4ecf55c05baf5c998dc32143448449f2c0b9ed38",
+    "i3-msg": "915bd110d2013e1b8349d444b27994c7bb8430f6d041a2799df00e66d35bfb66",
+    "i3-nagbar": "949cffe182c3eaee1fa7cf59bef7033e22193b069e0a763f9f13552dd935d337"
   },
-  "note": "Nine-member Cargo workspace. cargo test --locked passed 396 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
+  "note": "Nine-member Cargo workspace. cargo test --locked passed 397 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
   "additional_checks": {
     "headless_c_rust_state_comparisons": 54,
     "ipc_client_test_groups": 16,
-    "workspace_unit_tests": 396,
+    "workspace_unit_tests": 397,
     "core_and_bar_cli_comparisons": 39,
     "pcre2_compile_match_error_comparisons": 4620,
     "json_oracle_cases": 2263,
@@ -115,7 +115,7 @@
     "binary_count": 7,
     "native_library_discovery": "maintained native binding build scripts and dedicated sys crates; i3-build links only platform m/rt",
     "unit_tests": {
-      "i3": 207,
+      "i3": 208,
       "cargo_regression_wrappers": 8,
       "xkb_integration": 1,
       "i3-build": 3,
@@ -136,7 +136,7 @@
     "cargo_fmt_check": true,
     "debug_build": true,
     "release_build": true,
-    "unit_tests_total_including_integration_checks": 396,
+    "unit_tests_total_including_integration_checks": 397,
     "test_command": "cargo test",
     "clean_source_command": "cargo test -p i3-test-support --features clean-source-check",
     "test_support": "development-only process capture, failure propagation and isolated regression orchestration",
@@ -2194,6 +2194,20 @@
         "lifecycle_regression": "Fixed TLS-before-C-atexit lifetime ordering; real process::exit private probe checks live registry/connection after TLS destruction and explicit guard cleanup.",
         "rust_tests": 396,
         "upstream_assertions": 4205,
+        "status": "validated"
+      },
+      {
+        "stage": 4,
+        "scope": "Owned bar connection/events/atom replies; separate placeholder connection/events; typed drag requests/events/grab replies; owned core-font QueryFont replies and maintained font drawing requests; typed padded synthetic ConfigureNotify.",
+        "compatibility": "Legacy Font POD temporarily holds one Box<QueryFontReply> pointer; redundant native glyph pointer removed. Native selector ingress checked before closed enum getters. Full transmitted event padding explicitly initialized where maintained constructor omits it.",
+        "rust_tests": 397,
+        "upstream_assertions": 4205,
+        "private_font_display_depths": [
+          8,
+          24
+        ],
+        "targeted_drag_resize_mouse_assertions": 267,
+        "targeted_restore_restart_assertions": 138,
         "status": "validated"
       }
     ],
