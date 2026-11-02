@@ -7,7 +7,7 @@ use crate::types::FocusActivation;
 use crate::types::KillWindow;
 use crate::types::Layout;
 use crate::types::WindowDock;
-use xcb::{x, Raw, XidNew};
+use xcb::{x, Raw, Xid, XidNew};
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -317,11 +317,11 @@ unsafe fn handle_mapping_notify(event: &x::MappingNotifyEvent) {
     translate_keysyms();
     grab_all_keys(conn);
 }
-unsafe fn handle_map_request(event: *const xcb_map_request_event_t, full_sequence: u32) {
+unsafe fn handle_map_request(event: &x::MapRequestEvent, full_sequence: u32) {
     let cookie = i3_common::display::connection()
         .expect("main X11 connection is registered")
         .send_request_unchecked(&x::GetWindowAttributes {
-            window: x::Window::new((*event).window),
+            window: event.window(),
         });
     debuglog(
         c"%s:%s:%d - window = 0x%08x, serial is %d.\n"
@@ -330,8 +330,8 @@ unsafe fn handle_map_request(event: *const xcb_map_request_event_t, full_sequenc
         c"../src/handlers.c".as_ptr(),
         c"handle_map_request".as_ptr(),
         286 as ::core::ffi::c_int,
-        (*event).window,
-        (*event).sequence as ::core::ffi::c_int,
+        event.window().resource_id(),
+        event.sequence() as ::core::ffi::c_int,
     );
     add_ignore_event(
         ignore_event_sequence_t {
@@ -340,7 +340,7 @@ unsafe fn handle_map_request(event: *const xcb_map_request_event_t, full_sequenc
         -(1 as ::core::ffi::c_int),
     );
     manage_window(
-        (*event).window,
+        event.window().resource_id(),
         crate::manage::AttributesCookie::Unchecked(cookie),
         false,
     );
@@ -914,16 +914,16 @@ unsafe fn handle_windowrole_change(con: *mut Con, prop: Option<&x::GetPropertyRe
     remanage_window(con);
     true
 }
-unsafe fn handle_expose_event(event: *mut xcb_expose_event_t) {
+unsafe fn handle_expose_event(event: &x::ExposeEvent) {
     let mut parent: *mut Con = ::core::ptr::null_mut::<Con>();
     debuglog(
         c"%s:%s:%d - window = %08x\n".as_ptr().cast_mut(),
         c"../src/handlers.c".as_ptr(),
         c"handle_expose_event".as_ptr(),
         642 as ::core::ffi::c_int,
-        (*event).window,
+        event.window().resource_id(),
     );
-    parent = con_by_frame_id((*event).window);
+    parent = con_by_frame_id(event.window().resource_id());
     if parent.is_null() {
         verboselog(
             c"expose event for unknown window, ignoring\n"
@@ -1705,8 +1705,8 @@ unsafe fn handle_focus_out(event: *mut xcb_focus_in_event_t) {
         mode,
     );
 }
-unsafe fn handle_configure_notify(event: *mut xcb_configure_notify_event_t) {
-    if (*event).event != root {
+unsafe fn handle_configure_notify(event: &x::ConfigureNotifyEvent) {
+    if event.event().resource_id() != root {
         debuglog(
             c"%s:%s:%d - ConfigureNotify for non-root window 0x%08x, ignoring\n"
                 .as_ptr()
@@ -1714,7 +1714,7 @@ unsafe fn handle_configure_notify(event: *mut xcb_configure_notify_event_t) {
             c"../src/handlers.c".as_ptr(),
             c"handle_configure_notify".as_ptr(),
             1189 as ::core::ffi::c_int,
-            (*event).event,
+            event.event().resource_id(),
         );
         return;
     }
@@ -1725,7 +1725,7 @@ unsafe fn handle_configure_notify(event: *mut xcb_configure_notify_event_t) {
         c"../src/handlers.c".as_ptr(),
         c"handle_configure_notify".as_ptr(),
         1192 as ::core::ffi::c_int,
-        (*event).event,
+        event.event().resource_id(),
     );
     if force_xinerama {
         return;
@@ -1737,8 +1737,8 @@ unsafe fn handle_configure_notify(event: *mut xcb_configure_notify_event_t) {
         c"{\"change\":\"unspecified\"}".as_ptr(),
     );
 }
-unsafe fn handle_selection_clear(event: *mut xcb_selection_clear_event_t) {
-    if (*event).selection != wm_sn {
+unsafe fn handle_selection_clear(event: &x::SelectionClearEvent) {
+    if event.selection().resource_id() != wm_sn {
         debuglog(
             c"%s:%s:%d - SelectionClear for unknown selection %d, ignoring\n"
                 .as_ptr()
@@ -1746,7 +1746,7 @@ unsafe fn handle_selection_clear(event: *mut xcb_selection_clear_event_t) {
             c"../src/handlers.c".as_ptr(),
             c"handle_selection_clear".as_ptr(),
             1208 as ::core::ffi::c_int,
-            (*event).selection,
+            event.selection().resource_id(),
         );
         return;
     }
@@ -2021,81 +2021,85 @@ pub unsafe fn handle_event(owner: &xcb::Event) {
             c"handle_event".as_ptr(),
             1422 as ::core::ffi::c_int,
         );
-        let state: *mut xcb_xkb_state_notify_event_t = event as *mut xcb_xkb_state_notify_event_t;
-        if (*state).xkbType as ::core::ffi::c_int == XCB_XKB_NEW_KEYBOARD_NOTIFY {
-            debuglog(
-                c"%s:%s:%d - xkb new keyboard notify, sequence %d, time %d\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/handlers.c".as_ptr(),
-                c"handle_event".as_ptr(),
-                1426 as ::core::ffi::c_int,
-                (*state).sequence as ::core::ffi::c_int,
-                (*state).time,
-            );
-            crate::application::rebuild_key_symbols();
-            if (*(event as *mut xcb_xkb_new_keyboard_notify_event_t)).changed as ::core::ffi::c_int
-                & XCB_XKB_NKN_DETAIL_KEYCODES as ::core::ffi::c_int
-                != 0
-            {
-                load_keymap();
+        match xcb_interop::events::xkb_event(owner, xkb_base as u8) {
+            Some(xcb_interop::events::XkbEvent::NewKeyboard(state)) => {
+                debuglog(
+                    c"%s:%s:%d - xkb new keyboard notify, sequence %d, time %d\n"
+                        .as_ptr()
+                        .cast_mut(),
+                    c"../src/handlers.c".as_ptr(),
+                    c"handle_event".as_ptr(),
+                    1426 as ::core::ffi::c_int,
+                    state.sequence as ::core::ffi::c_int,
+                    state.time,
+                );
+                crate::application::rebuild_key_symbols();
+                if state.changed as ::core::ffi::c_int
+                    & XCB_XKB_NKN_DETAIL_KEYCODES as ::core::ffi::c_int
+                    != 0
+                {
+                    load_keymap();
+                }
+                ungrab_all_keys(conn);
+                translate_keysyms();
+                grab_all_keys(conn);
             }
-            ungrab_all_keys(conn);
-            translate_keysyms();
-            grab_all_keys(conn);
-        } else if (*state).xkbType as ::core::ffi::c_int == XCB_XKB_MAP_NOTIFY {
-            if event_is_ignored(
-                ignore_event_sequence_t {
-                    value: (*event).full_sequence,
-                },
-                type_0,
-            ) {
-                debuglog(
-                    c"%s:%s:%d - Ignoring map notify event for sequence %d.\n"
-                        .as_ptr()
-                        .cast_mut(),
-                    c"../src/handlers.c".as_ptr(),
-                    c"handle_event".as_ptr(),
-                    1437 as ::core::ffi::c_int,
-                    (*state).sequence as ::core::ffi::c_int,
-                );
-            } else {
-                debuglog(
-                    c"%s:%s:%d - xkb map notify, sequence %d, time %d\n"
-                        .as_ptr()
-                        .cast_mut(),
-                    c"../src/handlers.c".as_ptr(),
-                    c"handle_event".as_ptr(),
-                    1439 as ::core::ffi::c_int,
-                    (*state).sequence as ::core::ffi::c_int,
-                    (*state).time,
-                );
-                add_ignore_event(
+            Some(xcb_interop::events::XkbEvent::Map(state)) => {
+                if event_is_ignored(
                     ignore_event_sequence_t {
                         value: (*event).full_sequence,
                     },
                     type_0,
+                ) {
+                    debuglog(
+                        c"%s:%s:%d - Ignoring map notify event for sequence %d.\n"
+                            .as_ptr()
+                            .cast_mut(),
+                        c"../src/handlers.c".as_ptr(),
+                        c"handle_event".as_ptr(),
+                        1437 as ::core::ffi::c_int,
+                        state.sequence as ::core::ffi::c_int,
+                    );
+                } else {
+                    debuglog(
+                        c"%s:%s:%d - xkb map notify, sequence %d, time %d\n"
+                            .as_ptr()
+                            .cast_mut(),
+                        c"../src/handlers.c".as_ptr(),
+                        c"handle_event".as_ptr(),
+                        1439 as ::core::ffi::c_int,
+                        state.sequence as ::core::ffi::c_int,
+                        state.time,
+                    );
+                    add_ignore_event(
+                        ignore_event_sequence_t {
+                            value: (*event).full_sequence,
+                        },
+                        type_0,
+                    );
+                    crate::application::rebuild_key_symbols();
+                    ungrab_all_keys(conn);
+                    translate_keysyms();
+                    grab_all_keys(conn);
+                    load_keymap();
+                }
+            }
+            Some(xcb_interop::events::XkbEvent::State(state)) => {
+                debuglog(
+                    c"%s:%s:%d - xkb state group = %d\n".as_ptr().cast_mut(),
+                    c"../src/handlers.c".as_ptr(),
+                    c"handle_event".as_ptr(),
+                    1449 as ::core::ffi::c_int,
+                    state.group as ::core::ffi::c_int,
                 );
-                crate::application::rebuild_key_symbols();
+                if xkb_current_group == state.group as ::core::ffi::c_int {
+                    return;
+                }
+                xkb_current_group = state.group as ::core::ffi::c_int;
                 ungrab_all_keys(conn);
-                translate_keysyms();
                 grab_all_keys(conn);
-                load_keymap();
             }
-        } else if (*state).xkbType as ::core::ffi::c_int == XCB_XKB_STATE_NOTIFY {
-            debuglog(
-                c"%s:%s:%d - xkb state group = %d\n".as_ptr().cast_mut(),
-                c"../src/handlers.c".as_ptr(),
-                c"handle_event".as_ptr(),
-                1449 as ::core::ffi::c_int,
-                (*state).group as ::core::ffi::c_int,
-            );
-            if xkb_current_group == (*state).group as ::core::ffi::c_int {
-                return;
-            }
-            xkb_current_group = (*state).group as ::core::ffi::c_int;
-            ungrab_all_keys(conn);
-            grab_all_keys(conn);
+            None => {}
         }
         return;
     }
@@ -2147,10 +2151,9 @@ pub unsafe fn handle_event(owner: &xcb::Event) {
             }
         }
         XCB_MAP_REQUEST => {
-            handle_map_request(
-                event as *mut xcb_map_request_event_t,
-                (*event).full_sequence,
-            );
+            if let xcb::Event::X(x::Event::MapRequest(request)) = owner {
+                handle_map_request(request, (*event).full_sequence);
+            }
         }
         XCB_UNMAP_NOTIFY => {
             handle_unmap_notify_event(
@@ -2165,10 +2168,10 @@ pub unsafe fn handle_event(owner: &xcb::Event) {
             );
         }
         XCB_EXPOSE => {
-            if (*(event as *mut xcb_expose_event_t)).count as ::core::ffi::c_int
-                == 0 as ::core::ffi::c_int
-            {
-                handle_expose_event(event as *mut xcb_expose_event_t);
+            if let xcb::Event::X(x::Event::Expose(expose)) = owner {
+                if expose.count() == 0 {
+                    handle_expose_event(expose);
+                }
             }
         }
         XCB_MOTION_NOTIFY => {
@@ -2198,15 +2201,27 @@ pub unsafe fn handle_event(owner: &xcb::Event) {
             handle_focus_out(event as *mut xcb_focus_in_event_t);
         }
         XCB_PROPERTY_NOTIFY => {
-            let e: *mut xcb_property_notify_event_t = event as *mut xcb_property_notify_event_t;
-            last_timestamp = (*e).time;
-            property_notify((*e).state, (*e).window, (*e).atom);
+            if let xcb::Event::X(x::Event::PropertyNotify(property)) = owner {
+                last_timestamp = property.time();
+                // Property is an open wire byte; its generated enum getter
+                // would be invalid for an unknown state. Only Delete matters.
+                let state = *property.as_raw().cast::<u8>().add(16);
+                property_notify(
+                    state,
+                    property.window().resource_id(),
+                    property.atom().resource_id(),
+                );
+            }
         }
         XCB_CONFIGURE_NOTIFY => {
-            handle_configure_notify(event as *mut xcb_configure_notify_event_t);
+            if let xcb::Event::X(x::Event::ConfigureNotify(notification)) = owner {
+                handle_configure_notify(notification);
+            }
         }
         XCB_SELECTION_CLEAR => {
-            handle_selection_clear(event as *mut xcb_selection_clear_event_t);
+            if let xcb::Event::X(x::Event::SelectionClear(notification)) = owner {
+                handle_selection_clear(notification);
+            }
         }
         _ => {}
     };
@@ -2341,25 +2356,21 @@ use i3_common::safewrappers::scalloc;
 // Canonical Pango backend ABI; font policy remains local.
 
 use xcb_sys::{
-    xcb_atom_t, xcb_client_message_event_t, xcb_configure_notify_event_t,
-    xcb_configure_request_event_t, xcb_destroy_notify_event_t, xcb_enter_notify_event_t,
-    xcb_expose_event_t, xcb_focus_in_event_t, xcb_generic_event_t, xcb_map_request_event_t,
-    xcb_motion_notify_event_t, xcb_property_notify_event_t, xcb_selection_clear_event_t,
-    xcb_shape_notify_event_t, xcb_shape_sk_t, xcb_timestamp_t, xcb_unmap_notify_event_t,
-    xcb_window_t, xcb_xkb_new_keyboard_notify_event_t, xcb_xkb_state_notify_event_t,
-    XCB_ATOM_WM_CLASS, XCB_ATOM_WM_CLIENT_MACHINE, XCB_ATOM_WM_HINTS, XCB_ATOM_WM_NAME,
-    XCB_ATOM_WM_NORMAL_HINTS, XCB_ATOM_WM_TRANSIENT_FOR, XCB_BUTTON_PRESS, XCB_BUTTON_RELEASE,
-    XCB_CLIENT_MESSAGE, XCB_CONFIGURE_NOTIFY, XCB_CONFIGURE_REQUEST,
-    XCB_CONFIG_WINDOW_BORDER_WIDTH, XCB_CONFIG_WINDOW_HEIGHT, XCB_CONFIG_WINDOW_SIBLING,
-    XCB_CONFIG_WINDOW_STACK_MODE, XCB_CONFIG_WINDOW_WIDTH, XCB_CONFIG_WINDOW_X,
-    XCB_CONFIG_WINDOW_Y, XCB_DESTROY_NOTIFY, XCB_ENTER_NOTIFY, XCB_EXPOSE, XCB_FOCUS_IN,
-    XCB_FOCUS_OUT, XCB_ICCCM_WM_STATE_ICONIC, XCB_ICCCM_WM_STATE_NORMAL, XCB_KEY_PRESS,
-    XCB_KEY_RELEASE, XCB_MAPPING_NOTIFY, XCB_MAP_REQUEST, XCB_MOTION_NOTIFY, XCB_NONE,
-    XCB_NOTIFY_DETAIL_POINTER, XCB_NOTIFY_MODE_GRAB, XCB_NOTIFY_MODE_NORMAL,
-    XCB_NOTIFY_MODE_UNGRAB, XCB_NUM_LOCK, XCB_PROPERTY_NOTIFY, XCB_RANDR_SCREEN_CHANGE_NOTIFY,
-    XCB_SELECTION_CLEAR, XCB_SHAPE_NOTIFY, XCB_SHAPE_SK_BOUNDING, XCB_SHAPE_SK_INPUT,
-    XCB_STACK_MODE_ABOVE, XCB_UNMAP_NOTIFY, XCB_XKB_MAP_NOTIFY, XCB_XKB_NEW_KEYBOARD_NOTIFY,
-    XCB_XKB_NKN_DETAIL_KEYCODES, XCB_XKB_STATE_NOTIFY,
+    xcb_atom_t, xcb_client_message_event_t, xcb_configure_request_event_t,
+    xcb_destroy_notify_event_t, xcb_enter_notify_event_t, xcb_focus_in_event_t,
+    xcb_generic_event_t, xcb_motion_notify_event_t, xcb_shape_notify_event_t, xcb_shape_sk_t,
+    xcb_timestamp_t, xcb_unmap_notify_event_t, xcb_window_t, XCB_ATOM_WM_CLASS,
+    XCB_ATOM_WM_CLIENT_MACHINE, XCB_ATOM_WM_HINTS, XCB_ATOM_WM_NAME, XCB_ATOM_WM_NORMAL_HINTS,
+    XCB_ATOM_WM_TRANSIENT_FOR, XCB_BUTTON_PRESS, XCB_BUTTON_RELEASE, XCB_CLIENT_MESSAGE,
+    XCB_CONFIGURE_NOTIFY, XCB_CONFIGURE_REQUEST, XCB_CONFIG_WINDOW_BORDER_WIDTH,
+    XCB_CONFIG_WINDOW_HEIGHT, XCB_CONFIG_WINDOW_SIBLING, XCB_CONFIG_WINDOW_STACK_MODE,
+    XCB_CONFIG_WINDOW_WIDTH, XCB_CONFIG_WINDOW_X, XCB_CONFIG_WINDOW_Y, XCB_DESTROY_NOTIFY,
+    XCB_ENTER_NOTIFY, XCB_EXPOSE, XCB_FOCUS_IN, XCB_FOCUS_OUT, XCB_ICCCM_WM_STATE_ICONIC,
+    XCB_ICCCM_WM_STATE_NORMAL, XCB_KEY_PRESS, XCB_KEY_RELEASE, XCB_MAPPING_NOTIFY, XCB_MAP_REQUEST,
+    XCB_MOTION_NOTIFY, XCB_NONE, XCB_NOTIFY_DETAIL_POINTER, XCB_NOTIFY_MODE_GRAB,
+    XCB_NOTIFY_MODE_NORMAL, XCB_NOTIFY_MODE_UNGRAB, XCB_NUM_LOCK, XCB_PROPERTY_NOTIFY,
+    XCB_RANDR_SCREEN_CHANGE_NOTIFY, XCB_SELECTION_CLEAR, XCB_SHAPE_NOTIFY, XCB_SHAPE_SK_BOUNDING,
+    XCB_SHAPE_SK_INPUT, XCB_STACK_MODE_ABOVE, XCB_UNMAP_NOTIFY, XCB_XKB_NKN_DETAIL_KEYCODES,
 };
 
 use startup_notification_sys::{
