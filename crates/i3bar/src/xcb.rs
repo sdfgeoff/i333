@@ -1852,7 +1852,10 @@ unsafe extern "C" fn xcb_prep_cb(
     watcher: *mut ev_prepare,
     revents: ::core::ffi::c_int,
 ) {
-    if xcb_connection_has_error(xcb_connection) != 0 {
+    let Some(connection) = i3_common::display::connection() else {
+        return;
+    };
+    if connection.has_error().is_err() {
         fprintf(
             stderr,
             c"[%s:%d] ERROR: X11 connection was closed unexpectedly - maybe your X server terminated / crashed?\n".as_ptr(),
@@ -1862,92 +1865,97 @@ unsafe extern "C" fn xcb_prep_cb(
         exit(1 as ::core::ffi::c_int);
     }
     loop {
-        let Some(event_owner) = Native::take(xcb_poll_for_event(xcb_connection)) else {
-            break;
-        };
-        let event = event_owner.raw();
-        if (*event).response_type as ::core::ffi::c_int == 0 as ::core::ffi::c_int {
-            let error: *mut xcb_generic_error_t = event as *mut xcb_generic_error_t;
-            if config.verbose {
-                printf(
-                    c"[%s:%d] Received X11 error, sequence 0x%x, error_code = %d\n".as_ptr(),
-                    c"../i3bar/src/xcb.c".as_ptr(),
-                    1241 as ::core::ffi::c_int,
-                    (*error).sequence as ::core::ffi::c_int,
-                    (*error).error_code as ::core::ffi::c_int,
-                );
-            }
-        } else {
-            let type_0: ::core::ffi::c_int =
-                (*event).response_type as ::core::ffi::c_int & !(0x80 as ::core::ffi::c_int);
-            if type_0 == xkb_base && xkb_base > -(1 as ::core::ffi::c_int) {
+        let event_owner = match connection.poll_for_event() {
+            Ok(Some(event)) => event,
+            Ok(None) | Err(::xcb::Error::Connection(_)) => break,
+            Err(::xcb::Error::Protocol(error)) => {
                 if config.verbose {
+                    // The maintained owner retains the complete native error.
+                    // Read open numeric fields directly, without enum getters.
+                    let error = &*error.as_raw();
                     printf(
-                        c"[%s:%d] received an xkb event\n".as_ptr(),
+                        c"[%s:%d] Received X11 error, sequence 0x%x, error_code = %d\n".as_ptr(),
                         c"../i3bar/src/xcb.c".as_ptr(),
-                        1249 as ::core::ffi::c_int,
+                        1241 as ::core::ffi::c_int,
+                        i32::from(error.sequence),
+                        i32::from(error.error_code),
                     );
                 }
-                let state: *mut xcb_xkb_state_notify_event_t =
-                    event as *mut xcb_xkb_state_notify_event_t;
-                let mod_0: u32 = config.modifier & 0xffff as u32;
-                let new_mod_pressed: bool =
-                    mod_0 != 0 as u32 && (*state).mods as u32 & mod_0 == mod_0;
-                if new_mod_pressed as ::core::ffi::c_int != mod_pressed as ::core::ffi::c_int {
-                    mod_pressed = new_mod_pressed;
-                    if (*state).xkbType as ::core::ffi::c_int == XCB_XKB_STATE_NOTIFY
-                        && config.modifier as ::core::ffi::c_long != XCB_NONE
+                continue;
+            }
+        };
+        // Existing handlers borrow this maintained event allocation for this
+        // dispatch only. Unknown extension events retain their raw opcode/data;
+        // no closed-enum getter is called and handlers neither free nor retain it.
+        let event = event_owner.as_raw().cast::<xcb_generic_event_t>();
+        let type_0: ::core::ffi::c_int =
+            (*event).response_type as ::core::ffi::c_int & !(0x80 as ::core::ffi::c_int);
+        if type_0 == xkb_base && xkb_base > -(1 as ::core::ffi::c_int) {
+            if config.verbose {
+                printf(
+                    c"[%s:%d] received an xkb event\n".as_ptr(),
+                    c"../i3bar/src/xcb.c".as_ptr(),
+                    1249 as ::core::ffi::c_int,
+                );
+            }
+            let state: *mut xcb_xkb_state_notify_event_t =
+                event as *mut xcb_xkb_state_notify_event_t;
+            let mod_0: u32 = config.modifier & 0xffff as u32;
+            let new_mod_pressed: bool = mod_0 != 0 as u32 && (*state).mods as u32 & mod_0 == mod_0;
+            if new_mod_pressed as ::core::ffi::c_int != mod_pressed as ::core::ffi::c_int {
+                mod_pressed = new_mod_pressed;
+                if (*state).xkbType as ::core::ffi::c_int == XCB_XKB_STATE_NOTIFY
+                    && config.modifier as ::core::ffi::c_long != XCB_NONE
+                {
+                    if mod_pressed {
+                        activated_mode = false;
+                        unhide_bars();
+                    } else if !activated_mode {
+                        hide_bars();
+                    }
+                }
+            }
+        } else {
+            match type_0 {
+                XCB_VISIBILITY_NOTIFY => {
+                    handle_visibility_notify(event as *mut xcb_visibility_notify_event_t);
+                }
+                XCB_EXPOSE => {
+                    if (*(event as *mut xcb_expose_event_t)).count as ::core::ffi::c_int
+                        == 0 as ::core::ffi::c_int
                     {
-                        if mod_pressed {
-                            activated_mode = false;
-                            unhide_bars();
-                        } else if !activated_mode {
-                            hide_bars();
-                        }
+                        redraw_bars();
                     }
                 }
-            } else {
-                match type_0 {
-                    XCB_VISIBILITY_NOTIFY => {
-                        handle_visibility_notify(event as *mut xcb_visibility_notify_event_t);
-                    }
-                    XCB_EXPOSE => {
-                        if (*(event as *mut xcb_expose_event_t)).count as ::core::ffi::c_int
-                            == 0 as ::core::ffi::c_int
-                        {
-                            redraw_bars();
-                        }
-                    }
-                    XCB_BUTTON_RELEASE | XCB_BUTTON_PRESS => {
-                        handle_button(event as *mut xcb_button_press_event_t);
-                    }
-                    XCB_CLIENT_MESSAGE => {
-                        handle_client_message(event as *mut xcb_client_message_event_t);
-                    }
-                    XCB_DESTROY_NOTIFY => {
-                        handle_destroy_notify(event as *mut xcb_destroy_notify_event_t);
-                    }
-                    XCB_UNMAP_NOTIFY => {
-                        handle_unmap_notify(event as *mut xcb_unmap_notify_event_t);
-                    }
-                    XCB_MAP_NOTIFY => {
-                        handle_map_notify(event as *mut xcb_map_notify_event_t);
-                    }
-                    XCB_PROPERTY_NOTIFY => {
-                        handle_property_notify(event as *mut xcb_property_notify_event_t);
-                    }
-                    XCB_CONFIGURE_REQUEST => {
-                        handle_configure_request(event as *mut xcb_configure_request_event_t);
-                    }
-                    XCB_RESIZE_REQUEST => {
-                        handle_resize_request(event as *mut xcb_resize_request_event_t);
-                    }
-                    _ => {}
+                XCB_BUTTON_RELEASE | XCB_BUTTON_PRESS => {
+                    handle_button(event as *mut xcb_button_press_event_t);
                 }
+                XCB_CLIENT_MESSAGE => {
+                    handle_client_message(event as *mut xcb_client_message_event_t);
+                }
+                XCB_DESTROY_NOTIFY => {
+                    handle_destroy_notify(event as *mut xcb_destroy_notify_event_t);
+                }
+                XCB_UNMAP_NOTIFY => {
+                    handle_unmap_notify(event as *mut xcb_unmap_notify_event_t);
+                }
+                XCB_MAP_NOTIFY => {
+                    handle_map_notify(event as *mut xcb_map_notify_event_t);
+                }
+                XCB_PROPERTY_NOTIFY => {
+                    handle_property_notify(event as *mut xcb_property_notify_event_t);
+                }
+                XCB_CONFIGURE_REQUEST => {
+                    handle_configure_request(event as *mut xcb_configure_request_event_t);
+                }
+                XCB_RESIZE_REQUEST => {
+                    handle_resize_request(event as *mut xcb_resize_request_event_t);
+                }
+                _ => {}
             }
         }
     }
-    xcb_flush(xcb_connection);
+    let _ = connection.flush();
 }
 unsafe extern "C" fn xcb_io_cb(
     loop_0: *mut ev_loop,
@@ -3257,34 +3265,33 @@ use xcb_sys::{
     xcb_aux_sync, xcb_button_press_event_t, xcb_change_property, xcb_change_save_set,
     xcb_change_window_attributes, xcb_charinfo_t, xcb_client_message_event_t, xcb_color_strings_t,
     xcb_colormap_t, xcb_configure_request_event_t, xcb_configure_window,
-    xcb_configure_window_checked, xcb_connection_has_error, xcb_connection_t,
-    xcb_create_colormap_checked, xcb_create_pixmap_checked, xcb_create_window,
-    xcb_create_window_checked, xcb_cursor_context_free, xcb_cursor_context_new,
-    xcb_cursor_context_t, xcb_cursor_load_cursor, xcb_cursor_t, xcb_destroy_notify_event_t,
-    xcb_destroy_window, xcb_drawable_t, xcb_expose_event_t, xcb_flush, xcb_free_cursor,
-    xcb_free_pixmap, xcb_generate_id, xcb_generic_error_t, xcb_generic_event_t,
-    xcb_get_extension_data, xcb_get_file_descriptor, xcb_get_property, xcb_get_property_cookie_t,
-    xcb_get_property_reply, xcb_get_property_reply_t, xcb_get_property_unchecked,
-    xcb_get_property_value, xcb_get_property_value_length, xcb_get_selection_owner,
-    xcb_get_selection_owner_cookie_t, xcb_get_selection_owner_reply,
+    xcb_configure_window_checked, xcb_connection_t, xcb_create_colormap_checked,
+    xcb_create_pixmap_checked, xcb_create_window, xcb_create_window_checked,
+    xcb_cursor_context_free, xcb_cursor_context_new, xcb_cursor_context_t, xcb_cursor_load_cursor,
+    xcb_cursor_t, xcb_destroy_notify_event_t, xcb_destroy_window, xcb_drawable_t,
+    xcb_expose_event_t, xcb_flush, xcb_free_cursor, xcb_free_pixmap, xcb_generate_id,
+    xcb_generic_error_t, xcb_generic_event_t, xcb_get_extension_data, xcb_get_file_descriptor,
+    xcb_get_property, xcb_get_property_cookie_t, xcb_get_property_reply, xcb_get_property_reply_t,
+    xcb_get_property_unchecked, xcb_get_property_value, xcb_get_property_value_length,
+    xcb_get_selection_owner, xcb_get_selection_owner_cookie_t, xcb_get_selection_owner_reply,
     xcb_get_selection_owner_reply_t, xcb_intern_atom, xcb_intern_atom_cookie_t,
     xcb_intern_atom_reply, xcb_intern_atom_reply_t, xcb_keycode_t, xcb_map_notify_event_t,
-    xcb_map_window, xcb_map_window_checked, xcb_pixmap_t, xcb_poll_for_event,
-    xcb_property_notify_event_t, xcb_query_extension_reply_t, xcb_query_font_reply_t,
-    xcb_rectangle_t, xcb_reparent_window, xcb_request_check, xcb_resize_request_event_t,
-    xcb_screen_t, xcb_send_event, xcb_set_selection_owner, xcb_timestamp_t,
-    xcb_unmap_notify_event_t, xcb_unmap_window, xcb_unmap_window_checked,
-    xcb_visibility_notify_event_t, xcb_visualtype_t, xcb_void_cookie_t, xcb_window_t,
-    xcb_xkb_device_spec_t, xcb_xkb_id, xcb_xkb_select_events, xcb_xkb_state_notify_event_t,
-    xcb_xkb_use_extension, XCB_ATOM_ATOM, XCB_ATOM_CARDINAL, XCB_ATOM_STRING, XCB_ATOM_VISUALID,
-    XCB_ATOM_WM_CLASS, XCB_ATOM_WM_NAME, XCB_BUTTON_PRESS, XCB_BUTTON_RELEASE,
-    XCB_BUTTON_SCROLL_DOWN, XCB_BUTTON_SCROLL_LEFT, XCB_BUTTON_SCROLL_RIGHT, XCB_BUTTON_SCROLL_UP,
-    XCB_CLIENT_MESSAGE, XCB_COLORMAP_ALLOC_NONE, XCB_CONFIGURE_REQUEST, XCB_CONFIG_WINDOW_HEIGHT,
-    XCB_CONFIG_WINDOW_STACK_MODE, XCB_CONFIG_WINDOW_WIDTH, XCB_CONFIG_WINDOW_X,
-    XCB_CONFIG_WINDOW_Y, XCB_CURRENT_TIME, XCB_CW_BACK_PIXEL, XCB_CW_BORDER_PIXEL, XCB_CW_COLORMAP,
-    XCB_CW_CURSOR, XCB_CW_EVENT_MASK, XCB_CW_OVERRIDE_REDIRECT, XCB_DESTROY_NOTIFY,
-    XCB_EVENT_MASK_BUTTON_PRESS, XCB_EVENT_MASK_BUTTON_RELEASE, XCB_EVENT_MASK_EXPOSURE,
-    XCB_EVENT_MASK_NO_EVENT, XCB_EVENT_MASK_PROPERTY_CHANGE, XCB_EVENT_MASK_RESIZE_REDIRECT,
+    xcb_map_window, xcb_map_window_checked, xcb_pixmap_t, xcb_property_notify_event_t,
+    xcb_query_extension_reply_t, xcb_query_font_reply_t, xcb_rectangle_t, xcb_reparent_window,
+    xcb_request_check, xcb_resize_request_event_t, xcb_screen_t, xcb_send_event,
+    xcb_set_selection_owner, xcb_timestamp_t, xcb_unmap_notify_event_t, xcb_unmap_window,
+    xcb_unmap_window_checked, xcb_visibility_notify_event_t, xcb_visualtype_t, xcb_void_cookie_t,
+    xcb_window_t, xcb_xkb_device_spec_t, xcb_xkb_id, xcb_xkb_select_events,
+    xcb_xkb_state_notify_event_t, xcb_xkb_use_extension, XCB_ATOM_ATOM, XCB_ATOM_CARDINAL,
+    XCB_ATOM_STRING, XCB_ATOM_VISUALID, XCB_ATOM_WM_CLASS, XCB_ATOM_WM_NAME, XCB_BUTTON_PRESS,
+    XCB_BUTTON_RELEASE, XCB_BUTTON_SCROLL_DOWN, XCB_BUTTON_SCROLL_LEFT, XCB_BUTTON_SCROLL_RIGHT,
+    XCB_BUTTON_SCROLL_UP, XCB_CLIENT_MESSAGE, XCB_COLORMAP_ALLOC_NONE, XCB_CONFIGURE_REQUEST,
+    XCB_CONFIG_WINDOW_HEIGHT, XCB_CONFIG_WINDOW_STACK_MODE, XCB_CONFIG_WINDOW_WIDTH,
+    XCB_CONFIG_WINDOW_X, XCB_CONFIG_WINDOW_Y, XCB_CURRENT_TIME, XCB_CW_BACK_PIXEL,
+    XCB_CW_BORDER_PIXEL, XCB_CW_COLORMAP, XCB_CW_CURSOR, XCB_CW_EVENT_MASK,
+    XCB_CW_OVERRIDE_REDIRECT, XCB_DESTROY_NOTIFY, XCB_EVENT_MASK_BUTTON_PRESS,
+    XCB_EVENT_MASK_BUTTON_RELEASE, XCB_EVENT_MASK_EXPOSURE, XCB_EVENT_MASK_NO_EVENT,
+    XCB_EVENT_MASK_PROPERTY_CHANGE, XCB_EVENT_MASK_RESIZE_REDIRECT,
     XCB_EVENT_MASK_STRUCTURE_NOTIFY, XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT,
     XCB_EVENT_MASK_VISIBILITY_CHANGE, XCB_EXPOSE, XCB_GET_PROPERTY_TYPE_ANY, XCB_MAP_NOTIFY,
     XCB_NONE, XCB_PROPERTY_NEW_VALUE, XCB_PROPERTY_NOTIFY, XCB_PROP_MODE_REPLACE,
