@@ -476,8 +476,6 @@ impl Con {
     }
 }
 
-#[derive(Copy, Clone)]
-#[repr(C)]
 pub struct Config {
     pub terminal: *const ::core::ffi::c_char,
     pub font: i3_common::font::Font,

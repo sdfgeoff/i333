@@ -7,7 +7,6 @@ use i3_common::draw_util::draw_util_surface_set_size;
 use i3_common::draw_util::draw_util_text;
 use i3_common::font::load_font;
 use i3_common::font::predict_text_width;
-use i3_common::font::set_font;
 use i3_common::string::I3String;
 use std::ffi::{CStr, CString};
 use std::io::Write;
@@ -32,8 +31,6 @@ use i3_common::get_exe_path::get_exe_path;
 use i3_common::i333_va_list;
 
 use i3_common::font::Font;
-use i3_common::font::FontBackendData;
-use i3_common::font::XcbFontData;
 
 use i3_common::draw_util::color_t;
 use i3_common::draw_util::surface_t;
@@ -157,7 +154,7 @@ unsafe fn handle_button_release(state: &NagbarState, event: &x::ButtonReleaseEve
 /// Native rendering requires the initialized event-thread display/font. All
 /// labels and layout values are borrowed from the owned session.
 unsafe fn button_draw(button: &mut Button, position: i32, render: &mut Renderer) -> i32 {
-    let text_width = predict_text_width(&button.label).max(0);
+    let text_width = predict_text_width(&render.font, &button.label).max(0);
     let padding = logical_px(3).max(0);
     let top = logical_px(8);
     (button.x, button.width) = button_layout(text_width, padding, position);
@@ -178,6 +175,7 @@ unsafe fn button_draw(button: &mut Button, position: i32, render: &mut Renderer)
         f64::from(render.font.height.saturating_add(padding.saturating_mul(2))),
     );
     draw_util_text(
+        &render.font,
         &button.label,
         &mut render.bar,
         render.color_text,
@@ -193,6 +191,7 @@ unsafe fn handle_expose(state: &mut NagbarState, connection: &xcb::Connection) {
     draw_util_clear_surface(&mut render.bar, render.color_background);
     let margin = logical_px(8);
     draw_util_text(
+        &render.font,
         &state.message,
         &mut render.bar,
         render.color_text,
@@ -459,17 +458,7 @@ impl NagbarState {
                     surface: ::core::ptr::null::<cairo_surface_t>() as *mut cairo_surface_t,
                     cr: ::core::ptr::null::<cairo_t>() as *mut cairo_t,
                 },
-                font: Font {
-                    type_0: i3_common::font::FontType::None,
-                    height: 0,
-                    pattern: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-                    specific: FontBackendData {
-                        xcb: XcbFontData {
-                            id: 0,
-                            info: std::ptr::null_mut(),
-                        },
-                    },
-                },
+                font: Font::empty(),
                 color_background: color_t {
                     red: 0.,
                     green: 0.,
@@ -525,7 +514,7 @@ impl Drop for NagbarState {
                     draw_util_surface_free(connection.get_raw_conn().cast(), &mut self.render.bar);
                 }
                 if self.has_font {
-                    i3_common::font::free_font();
+                    self.render.font = Font::empty();
                 }
                 if self.window != 0 {
                     connection.send_request(&x::DestroyWindow {
@@ -570,8 +559,8 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
     } else {
         MessageType::Error
     };
-    // The common font backend retains this exact field address until free_font.
-    // Keep the session allocation stable throughout the native event loop.
+    // The session owns its font and backing surface through display teardown.
+    // Rendering borrows the font explicitly for each operation.
     let mut state = Box::new(NagbarState::new(settings));
     let Ok((connection, screens)) = xcb::Connection::connect(None) else {
         errx(libc::EXIT_FAILURE, c"Cannot open display".as_ptr());
@@ -623,9 +612,9 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
         state.render.color_border_bottom = draw_util_hex_to_color(c"#ab7100".as_ptr());
     }
     init_dpi();
-    state.render.font = load_font(pattern.as_ptr(), true);
+    state.render.font = load_font(&pattern, true);
     state.has_font = true;
-    set_font(&mut state.render.font);
+
     let mut win_pos = x::Rectangle {
         x: 50 as i16,
         y: 50 as i16,

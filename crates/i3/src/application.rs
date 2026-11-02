@@ -762,6 +762,9 @@ extern "C" fn i3_exit() {
         // All native shutdown requests above complete before unregistering the
         // sole owner. The raw alias must never be disconnected independently.
         conn = std::ptr::null_mut();
+        // Static owning fonts do not receive Rust Drop automatically at exit.
+        // Release the backend while its display/visual guards still live.
+        crate::config::config.font = i3_common::font::Font::empty();
         drop(MAIN_DISPLAY.take());
         kill_nagbar(config_error_nagbar_pid, false_0 != 0);
         kill_nagbar(command_error_nagbar_pid, false_0 != 0);

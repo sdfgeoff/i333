@@ -212,7 +212,7 @@ unsafe fn got_mode_event(event: &[u8]) {
         |name| {
             // Font measurement borrows the owned string; only its interior
             // encoding caches can change, and ownership stays here.
-            i3_common::font::predict_text_width(name)
+            i3_common::font::predict_text_width(&crate::xcb::font, name)
         },
         config.verbose,
     );

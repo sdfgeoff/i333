@@ -26,6 +26,7 @@ use crate::types::UrgencyMatch;
 use crate::types::Warping;
 use crate::types::WindowMode;
 use i3_common::safewrappers::sasprintf;
+use std::ffi::CStr;
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -299,8 +300,7 @@ pub unsafe fn cfg_font(
     result: *mut ConfigResultIR,
     font: *const ::core::ffi::c_char,
 ) {
-    config.font = load_font(font, true_0 != 0);
-    set_font(&raw mut config.font);
+    i3_common::font::replace_font(&mut config.font, CStr::from_ptr(font), true_0 != 0);
 }
 
 pub unsafe fn cfg_binding(
@@ -1894,7 +1894,6 @@ use crate::r#match::match_is_empty;
 use crate::r#match::match_parse_property;
 use i3_common::draw_util::draw_util_hex_to_color;
 use i3_common::font::load_font;
-use i3_common::font::set_font;
 
 #[cfg(test)]
 mod argument_tests {

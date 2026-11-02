@@ -1,48 +1,108 @@
-/*
- * vim:ts=4:sw=4:expandtab
- *
- * i3 - an improved tiling window manager
- * © 2009 Michael Stapelberg and contributors (see also: LICENSE)
- *
- */
-// Mechanical file-by-file Rust translation of libi3/font.c.
-// Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
+//! Owned font resources and explicit, borrowed rendering operations.
+#![deny(unsafe_op_in_unsafe_fn)]
 
-use crate::string::I3String;
-use crate::ucs2_conversion::Ucs2Char;
+pub use crate::draw_util::color_t;
+use crate::logging::{errorlog, verboselog};
+use crate::native_stdio::{errx, stderr};
+use crate::{
+    display::CairoVisual, dpi::get_dpi_value, string::I3String, ucs2_conversion::Ucs2Char,
+};
+use cairo_sys::{cairo_create, cairo_surface_destroy, cairo_xcb_surface_create};
+pub use cairo_sys::{cairo_surface_t, cairo_t};
+use glib::translate::{from_glib_full, ToGlibPtr};
+use libc::fprintf;
+use pango_sys::{
+    pango_font_description_from_string, pango_font_description_get_family, pango_layout_set_markup,
+    pango_layout_set_text, PANGO_SCALE,
+};
+use std::{
+    ffi::{CStr, CString},
+    mem::size_of,
+    ptr,
+    rc::Rc,
+};
+use xcb::ffi::xcb_connection_t;
 use xcb::{x, Xid, XidNew};
-#[derive(Copy, Clone)]
-#[repr(C)]
+
+/// Owns every backend resource. Fonts must be moved, never byte-copied or zeroed.
 pub struct Font {
-    pub type_0: FontType,
     pub height: i32,
-    pub pattern: *mut libc::c_char,
-    pub specific: FontBackendData,
+    pattern: Option<CString>,
+    backend: FontBackend,
 }
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub union FontBackendData {
-    pub xcb: XcbFontData,
-    pub pango_desc: *mut PangoFontDescription,
+enum FontBackend {
+    None,
+    Pango(PangoFont),
+    Xcb(CoreFont),
 }
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct XcbFontData {
-    pub id: u32,
-    /// Sole Box owner; the enclosing legacy Font POD must not be freed twice.
-    pub info: *mut x::QueryFontReply,
+struct PangoFont {
+    description: pango::FontDescription,
+    connection: Rc<xcb::Connection>,
+    root: u32,
+    visual: Rc<CairoVisual>,
+}
+struct CoreFont {
+    connection: Rc<xcb::Connection>,
+    id: x::Font,
+    info: x::QueryFontReply,
+}
+impl Drop for CoreFont {
+    fn drop(&mut self) {
+        // The retained single connection owner stays live through CloseFont.
+        self.connection
+            .send_request(&x::CloseFont { font: self.id });
+    }
+}
+impl Default for Font {
+    fn default() -> Self {
+        Self::empty()
+    }
+}
+impl Font {
+    pub const fn empty() -> Self {
+        Self {
+            height: 0,
+            pattern: None,
+            backend: FontBackend::None,
+        }
+    }
+    pub fn is_loaded(&self) -> bool {
+        !matches!(self.backend, FontBackend::None)
+    }
+    pub fn is_pango(&self) -> bool {
+        matches!(self.backend, FontBackend::Pango(_))
+    }
+    pub fn pattern(&self) -> Option<&CStr> {
+        self.pattern.as_deref()
+    }
+    /// Borrowed core-font details for protocol diagnostics and native comparison.
+    pub fn xcb_details(&self) -> Option<(x::Font, &x::QueryFontReply)> {
+        match &self.backend {
+            FontBackend::Xcb(font) => Some((font.id, &font.info)),
+            _ => None,
+        }
+    }
+    /// Replace a server metric snapshot while retaining allocation ownership.
+    /// Returns the previous snapshot; the font XID/connection stay unchanged.
+    pub fn replace_xcb_metrics(&mut self, info: x::QueryFontReply) -> Option<x::QueryFontReply> {
+        match &mut self.backend {
+            FontBackend::Xcb(font) => Some(std::mem::replace(&mut font.info, info)),
+            _ => None,
+        }
+    }
 }
 
-pub type i3Font = Font;
+pub fn font_is_pango(font: &Font) -> bool {
+    font.is_pango()
+}
 
-static mut SAVED_FONT: *const i3Font = ptr::null();
-static mut ROOT_VISUAL_TYPE: *mut cairo_sys::xcb_visualtype_t = ptr::null_mut();
-static mut PANGO_FONT_RED: f64 = 0.;
-static mut PANGO_FONT_GREEN: f64 = 0.;
-static mut PANGO_FONT_BLUE: f64 = 0.;
-static mut PANGO_FONT_ALPHA: f64 = 0.;
-use glib::translate::{from_glib_borrow, from_glib_full, IntoGlibPtr, ToGlibPtr};
-use std::{ffi::CStr, mem::size_of, ptr, ptr::NonNull};
+/// Drop the previous owner before opening its replacement, preserving request
+/// ordering. Copy the bytes first in case a native caller aliases the old pattern.
+pub fn replace_font(font: &mut Font, pattern: &CStr, fallback: bool) {
+    let pattern = pattern.to_owned();
+    *font = Font::empty();
+    *font = load_font(&pattern, fallback);
+}
 
 fn create_layout_with_dpi(context: &cairo::Context, dpi: f64) -> pango::Layout {
     let pango_context = pangocairo::functions::create_context(context);
@@ -50,13 +110,9 @@ fn create_layout_with_dpi(context: &cairo::Context, dpi: f64) -> pango::Layout {
     pango::Layout::new(&pango_context)
 }
 
-/// Set the original explicit byte count without decoding, repairing, or rejecting
-/// embedded NULs. The maintained &str setters cannot express all legacy inputs.
-///
+/// Native Pango byte setter, retaining explicit byte counts and invalid UTF-8.
 /// # Safety
-/// text must satisfy Pango's native text/markup setter contract for len as i32:
-/// readable bytes for a nonnegative count, or NUL-terminated when it is negative.
-#[deny(unsafe_op_in_unsafe_fn)]
+/// text is readable for len as i32, or NUL-terminated when that count is negative.
 unsafe fn set_layout_bytes(
     layout: &pango::Layout,
     text: *const libc::c_char,
@@ -75,8 +131,7 @@ unsafe fn set_layout_bytes(
 }
 
 /// # Safety
-/// conn/root/visual must describe a live XCB display and a valid root visual.
-#[deny(unsafe_op_in_unsafe_fn)]
+/// The connection, root and visual owner must stay live through the returned surface.
 unsafe fn font_surface(
     conn: *mut xcb_connection_t,
     root: u32,
@@ -93,56 +148,41 @@ unsafe fn font_surface(
 }
 
 /// # Safety
-/// surface must be live and non-null. The resulting context owns its native ref.
-#[deny(unsafe_op_in_unsafe_fn)]
+/// surface is a live non-null Cairo surface, including a native error object.
 unsafe fn font_context(surface: *mut cairo_surface_t) -> cairo::Context {
     // SAFETY: cairo_create returns a non-null context even for native errors;
     // from_raw_full owns that reference without rejecting its sticky error.
     unsafe { cairo::Context::from_raw_full(cairo_create(surface)) }
 }
 
-/// # Safety
-/// A non-null stored description must remain live while the returned borrow is used.
-#[deny(unsafe_op_in_unsafe_fn)]
-unsafe fn borrowed_description(
-    font: &Font,
-) -> Option<glib::translate::Borrowed<pango::FontDescription>> {
-    // SAFETY: the active union member is selected by the caller's Pango font.
-    NonNull::new(unsafe { font.specific.pango_desc }).map(|pointer| {
-        // SAFETY: the caller keeps this non-null description live for the borrow.
-        unsafe { from_glib_borrow(pointer.as_ptr()) }
-    })
+fn measurement_context(font: &PangoFont) -> cairo::Context {
+    // SAFETY: the font retains its live display and aligned native visual owner.
+    let surface = unsafe {
+        font_surface(
+            font.connection.get_raw_conn(),
+            font.root,
+            font.visual.as_ptr(),
+        )
+    };
+    // Cairo's context retains its own reference to the local owned surface.
+    unsafe { font_context(surface.to_raw_none()) }
 }
 
-/// # Safety
-/// font is writable; desc is a valid native C string. Display/font globals must
-/// be used only on the event thread and remain live throughout this operation.
-#[deny(unsafe_op_in_unsafe_fn)]
-unsafe fn load_pango_font(font: *mut i3Font, desc: *const libc::c_char) -> bool {
-    let crate::display::DisplayContext {
-        connection: conn,
-        screen,
-        ..
-    } = crate::display::context();
-    // SAFETY: desc is a native C string; preserve its bytes rather than assuming UTF-8.
-    let pointer = unsafe { pango_font_description_from_string(desc) };
-    // Preserve the legacy field value on the native failure path.
-    unsafe { (*font).specific.pango_desc = pointer };
+fn load_pango_font(connection: Rc<xcb::Connection>, desc: &CStr) -> Option<(i32, PangoFont)> {
+    // Keep native non-UTF8 description bytes; the &str factory cannot express them.
+    let pointer = unsafe { pango_font_description_from_string(desc.as_ptr()) };
     if pointer.is_null() {
-        // SAFETY: format and desc are live NUL-terminated native strings.
         unsafe {
             errorlog(
                 c"[libi3] ERROR: Could not open font %s with Pango, fallback to X font.\n"
                     .as_ptr()
                     .cast_mut(),
-                desc,
+                desc.as_ptr(),
             )
         };
-        return false;
+        return None;
     }
-    // SAFETY: native construction transfers a non-null description to this owner.
     let description: pango::FontDescription = unsafe { from_glib_full(pointer) };
-    // SAFETY: description and the borrowed family C string remain live for logging.
     unsafe {
         verboselog(
             c"[libi3] ../libi3/font.c Using Pango font %s, size %d\n"
@@ -152,75 +192,57 @@ unsafe fn load_pango_font(font: *mut i3Font, desc: *const libc::c_char) -> bool 
             description.size() / PANGO_SCALE,
         )
     };
-    // SAFETY: caller guarantees the display setup, event-thread globals and font.
-    let (surface, dpi) = unsafe {
-        ROOT_VISUAL_TYPE =
-            crate::display::visual(screen.expect("initialized display screen").root_visual)
-                .expect("root Cairo visual")
-                .as_ptr();
-        (
-            font_surface(
-                conn.cast(),
-                screen.expect("initialized display screen").root,
-                ROOT_VISUAL_TYPE,
-            ),
-            get_dpi_value() as f64,
-        )
+    let screen = crate::display::context()
+        .screen
+        .expect("initialized display screen");
+    let visual = crate::display::visual(screen.root_visual).expect("root Cairo visual");
+    let font = PangoFont {
+        description,
+        connection,
+        root: screen.root,
+        visual,
     };
-    // SAFETY: the local owning surface remains live while its context is used.
-    let context = unsafe { font_context(surface.to_raw_none()) };
-    let layout = create_layout_with_dpi(&context, dpi);
-    layout.set_font_description(Some(&description));
-    // SAFETY: transfer the description owner into the unchanged legacy Font POD.
-    // free_font will reclaim it; no Rust-owned fields are installed in this record.
-    unsafe {
-        (*font).height = layout.pixel_size().1;
-        (*font).specific.pango_desc = description.into_glib_ptr();
-        (*font).type_0 = FontType::Pango;
-    }
-    true
+    let context = measurement_context(&font);
+    let layout = create_layout_with_dpi(&context, get_dpi_value() as f64);
+    layout.set_font_description(Some(&font.description));
+    Some((layout.pixel_size().1, font))
 }
 
 /// # Safety
-/// text satisfies set_layout_bytes' native buffer contract. surface and the
-/// saved Pango Font/description must stay live on the event thread until return.
-#[deny(unsafe_op_in_unsafe_fn)]
+/// The supplied Cairo surface and native text byte span remain live during drawing.
 unsafe fn draw_text_pango(
+    font: &Font,
+    backend: &PangoFont,
     text: *const libc::c_char,
     text_len: usize,
-    _drawable: u32,
     surface: *mut cairo_surface_t,
+    foreground: color_t,
     x: i32,
     y: i32,
     max_width: i32,
-    pango_markup: bool,
+    markup: bool,
 ) {
-    // SAFETY: caller keeps the native surface, saved font and globals valid.
-    let (context, font, dpi, color) = unsafe {
-        (
-            font_context(surface),
-            &*SAVED_FONT,
-            get_dpi_value() as f64,
-            (
-                PANGO_FONT_RED,
-                PANGO_FONT_GREEN,
-                PANGO_FONT_BLUE,
-                PANGO_FONT_ALPHA,
-            ),
-        )
-    };
-    let layout = create_layout_with_dpi(&context, dpi);
-    // SAFETY: borrow the live description stored in the saved Font, without copying
-    // or taking ownership. The local borrowed wrapper cannot outlive this call.
-    let description = unsafe { borrowed_description(font) };
-    layout.set_font_description(description.as_deref());
+    let context = unsafe { font_context(surface) };
+    let layout = create_layout_with_dpi(&context, get_dpi_value() as f64);
+    layout.set_font_description(Some(&backend.description));
     layout.set_width(max_width * PANGO_SCALE);
     layout.set_wrap(pango::WrapMode::Char);
     layout.set_ellipsize(pango::EllipsizeMode::End);
     layout.set_single_paragraph_mode(true);
-    // SAFETY: preserve the caller's original native buffer and explicit count.
-    unsafe { set_layout_bytes(&layout, text, text_len, pango_markup) };
-    draw_pango_layout(&context, &layout, color, x, y, font.height);
+    unsafe { set_layout_bytes(&layout, text, text_len, markup) };
+    draw_pango_layout(
+        &context,
+        &layout,
+        (
+            foreground.red,
+            foreground.green,
+            foreground.blue,
+            foreground.alpha,
+        ),
+        x,
+        y,
+        font.height,
+    );
 }
 
 fn draw_pango_layout(
@@ -240,39 +262,17 @@ fn draw_pango_layout(
 }
 
 /// # Safety
-/// text satisfies set_layout_bytes' native buffer contract. The saved Pango font,
-/// description, display and global visual must stay live on the event thread.
-#[deny(unsafe_op_in_unsafe_fn)]
+/// text satisfies the explicit native Pango byte-span contract.
 unsafe fn predict_text_width_pango(
+    font: &PangoFont,
     text: *const libc::c_char,
     text_len: usize,
-    pango_markup: bool,
+    markup: bool,
 ) -> i32 {
-    let crate::display::DisplayContext {
-        connection: conn,
-        screen,
-        ..
-    } = crate::display::context();
-    // SAFETY: caller guarantees the display, global visual, DPI and saved font.
-    let (surface, dpi, font) = unsafe {
-        (
-            font_surface(
-                conn.cast(),
-                screen.expect("initialized display screen").root,
-                ROOT_VISUAL_TYPE,
-            ),
-            get_dpi_value() as f64,
-            &*SAVED_FONT,
-        )
-    };
-    // SAFETY: surface stays owned throughout the context's use.
-    let context = unsafe { font_context(surface.to_raw_none()) };
-    let layout = create_layout_with_dpi(&context, dpi);
-    // SAFETY: the saved font's description is borrowed only during this call.
-    let description = unsafe { borrowed_description(font) };
-    layout.set_font_description(description.as_deref());
-    // SAFETY: preserve the original explicit native byte buffer/count.
-    unsafe { set_layout_bytes(&layout, text, text_len, pango_markup) };
+    let context = measurement_context(font);
+    let layout = create_layout_with_dpi(&context, get_dpi_value() as f64);
+    layout.set_font_description(Some(&font.description));
+    unsafe { set_layout_bytes(&layout, text, text_len, markup) };
     measure_pango_layout(&context, &layout)
 }
 
@@ -290,221 +290,113 @@ fn pango_pattern(pattern: &CStr) -> Option<&CStr> {
     (!description.to_bytes().is_empty()).then_some(description)
 }
 
-/// Load a legacy POD font whose native allocations are released by free_font.
-///
-/// # Safety
-/// pattern must be NUL-terminated and readable. Display globals and any previous
-/// saved Font must remain valid on the event thread; that previous Font's resources
-/// are released here. The returned POD must not acquire multiple owning copies.
-pub unsafe fn load_font(pattern: *const libc::c_char, fallback: bool) -> i3Font {
-    let crate::display::DisplayContext {
-        connection: conn, ..
-    } = crate::display::context();
-
-    free_font();
-    let mut font: i3Font = Font {
-        type_0: FontType::None,
-        height: 0,
-        pattern: ptr::null_mut(),
-        specific: FontBackendData {
-            xcb: XcbFontData {
-                id: 0,
-                info: ptr::null_mut(),
-            },
-        },
-    };
-    if conn.is_null() {
-        return font;
+/// Open an owned font using the registered display, or an empty font when no
+/// display is attached. Pattern and fallback bytes remain native C strings.
+pub fn load_font(pattern: &CStr, fallback: bool) -> Font {
+    if crate::display::context().connection.is_null() {
+        return Font::empty();
     }
-    // SAFETY: the caller provides a native NUL-terminated pattern. Prefix parsing
-    // uses borrowed bytes without decoding or allocating a different font name.
-    let mut pattern = CStr::from_ptr(pattern);
+    let Some(connection) = crate::display::connection() else {
+        unsafe {
+            errx(
+                libc::EXIT_FAILURE,
+                c"Could not load font \"%s\"".as_ptr(),
+                pattern.as_ptr(),
+            )
+        };
+    };
     if let Some(description) = pango_pattern(pattern) {
-        if load_pango_font(&raw mut font, description.as_ptr()) {
-            font.pattern = sstrdup(pattern.as_ptr());
-            return font;
+        if let Some((height, backend)) = load_pango_font(connection.clone(), description) {
+            return Font {
+                height,
+                pattern: Some(pattern.to_owned()),
+                backend: FontBackend::Pango(backend),
+            };
         }
     }
-    let connection = crate::display::connection()
-        .or_else(|| crate::xcb_connection::borrowed(conn.cast()).map(std::rc::Rc::new));
-    let Some(connection) = connection else {
-        errx(
-            libc::EXIT_FAILURE,
-            c"Could not load font \"%s\"".as_ptr(),
-            pattern.as_ptr(),
-        );
-    };
+    let mut pattern = pattern;
     let id: x::Font = connection.generate_id();
-    font.specific.xcb.id = id.resource_id();
     let (font_cookie, mut info_cookie) = open_core_font(&connection, id, pattern);
     let mut error = connection.check_request(font_cookie).err();
     if fallback && error.is_some() {
-        errorlog(
+        unsafe {
+            errorlog(
             c"[libi3] ERROR: Could not open font %s (X error %d). Trying fallback to 'fixed'.\n"
                 .as_ptr()
                 .cast_mut(),
             pattern.as_ptr(),
             i32::from(error.as_ref().map_or(0, protocol_error_code)),
-        );
+        )
+        };
         pattern = c"fixed";
         let (font_cookie, cookie) = open_core_font(&connection, id, pattern);
         info_cookie = cookie;
         error = connection.check_request(font_cookie).err();
         if error.is_some() {
-            errorlog(
+            unsafe {
+                errorlog(
                 c"[libi3] ERROR: Could not open fallback font 'fixed', trying with '-misc-*'.\n"
                     .as_ptr()
                     .cast_mut(),
-            );
+            )
+            };
             pattern = c"-misc-*";
             let (font_cookie, cookie) = open_core_font(&connection, id, pattern);
             info_cookie = cookie;
             error = connection.check_request(font_cookie).err();
             if error.is_some() {
-                errx(
+                unsafe {
+                    errx(
                     libc::EXIT_FAILURE,
                     c"Could open neither requested font nor fallbacks (fixed or -misc-*): X11 error %d".as_ptr(),
                     i32::from(error.as_ref().map_or(0, protocol_error_code)),
-                );
+                )
+                };
             }
         }
     }
     drop(error);
-    font.pattern = sstrdup(pattern.as_ptr());
-    verboselog(
-        c"[libi3] ../libi3/font.c Using X font %s\n"
-            .as_ptr()
-            .cast_mut(),
-        pattern.as_ptr(),
-    );
-    let Ok(info) = connection.wait_for_reply(info_cookie) else {
-        errx(
-            libc::EXIT_FAILURE,
-            c"Could not load font \"%s\"".as_ptr(),
+    unsafe {
+        verboselog(
+            c"[libi3] ../libi3/font.c Using X font %s\n"
+                .as_ptr()
+                .cast_mut(),
             pattern.as_ptr(),
-        );
+        )
+    };
+    let Ok(info) = connection.wait_for_reply(info_cookie) else {
+        unsafe {
+            errx(
+                libc::EXIT_FAILURE,
+                c"Could not load font \"%s\"".as_ptr(),
+                pattern.as_ptr(),
+            )
+        };
     };
     if info.length() < 7 {
-        errx(
-            libc::EXIT_FAILURE,
-            c"Could not load font \"%s\"".as_ptr(),
-            pattern.as_ptr(),
-        );
+        unsafe {
+            errx(
+                libc::EXIT_FAILURE,
+                c"Could not load font \"%s\"".as_ptr(),
+                pattern.as_ptr(),
+            )
+        };
     }
-    font.height = i32::from(info.font_ascent()) + i32::from(info.font_descent());
-    font.specific.xcb.info = Box::into_raw(Box::new(info));
-    font.type_0 = FontType::Xcb;
-    font
-}
-
-/// Select a borrowed font for subsequent drawing and eventual free_font.
-///
-/// # Safety
-/// font must remain readable and unmoved until replaced/freed, with all resources
-/// matching its active type. Calls using this global are restricted to the event
-/// thread. POD copies must not independently free the same native allocations.
-pub unsafe fn set_font(font: *mut i3Font) {
-    SAVED_FONT = font;
-}
-
-/// Release resources of the currently selected borrowed legacy font.
-///
-/// # Safety
-/// The saved font, its unique native allocations, and display connection must
-/// remain valid on the event thread. Do not use the freed POD until reinitialized.
-pub unsafe fn free_font() {
-    let crate::display::DisplayContext {
-        connection: conn, ..
-    } = crate::display::context();
-
-    if SAVED_FONT.is_null() {
-        return;
+    let height = i32::from(info.font_ascent()) + i32::from(info.font_descent());
+    Font {
+        height,
+        pattern: Some(pattern.to_owned()),
+        backend: FontBackend::Xcb(CoreFont {
+            connection,
+            id,
+            info,
+        }),
     }
-    free((*SAVED_FONT).pattern as *mut libc::c_void);
-    match (*SAVED_FONT).type_0 {
-        FontType::Xcb => {
-            if let Some(connection) = crate::display::connection()
-                .or_else(|| crate::xcb_connection::borrowed(conn.cast()).map(std::rc::Rc::new))
-            {
-                connection.send_request(&x::CloseFont {
-                    font: x::Font::new((*SAVED_FONT).specific.xcb.id),
-                });
-            }
-            if let Some(info) = NonNull::new((*SAVED_FONT).specific.xcb.info) {
-                drop(Box::from_raw(info.as_ptr()));
-            }
-        }
-        FontType::Pango => {
-            // Reclaim the description reference transferred into the raw POD.
-            // A null description is Pango's default, not an owning allocation.
-            if let Some(pointer) = NonNull::new((*SAVED_FONT).specific.pango_desc) {
-                drop(from_glib_full::<_, pango::FontDescription>(
-                    pointer.as_ptr(),
-                ));
-            }
-        }
-        FontType::None => {}
-    }
-    SAVED_FONT = ptr::null();
 }
 
-/// # Safety
-/// A live font must be selected on the event thread. For XCB fonts, gc must be a
-/// valid graphics context on the registered display connection.
-pub unsafe fn set_font_colors(gc: u32, foreground: color_t, background: color_t) {
-    let crate::display::DisplayContext {
-        connection: conn, ..
-    } = crate::display::context();
-
-    if SAVED_FONT.is_null() {
-        __assert_fail(
-            c"savedFont != NULL".as_ptr(),
-            c"../libi3/font.c".as_ptr(),
-            296 as u32,
-            c"void set_font_colors(u32, color_t, color_t)".as_ptr(),
-        );
-    };
-    match (*SAVED_FONT).type_0 {
-        FontType::Xcb => {
-            // Emergency rendering can interrupt registry activity. Borrow the
-            // caller-retained native connection directly, without TLS/Rc access.
-            if let Some(connection) = crate::xcb_connection::borrowed(conn) {
-                connection.send_request(&x::ChangeGc {
-                    gc: x::Gcontext::new(gc),
-                    value_list: &[
-                        x::Gc::Foreground(foreground.colorpixel),
-                        x::Gc::Background(background.colorpixel),
-                        x::Gc::Font(x::Font::new((*SAVED_FONT).specific.xcb.id)),
-                    ],
-                });
-            }
-        }
-        FontType::Pango => {
-            PANGO_FONT_RED = foreground.red;
-            PANGO_FONT_GREEN = foreground.green;
-            PANGO_FONT_BLUE = foreground.blue;
-            PANGO_FONT_ALPHA = foreground.alpha;
-        }
-        FontType::None => {}
-    };
-}
-
-/// # Safety
-/// A readable font must remain selected on the event thread during this call.
-pub unsafe fn font_is_pango() -> bool {
-    (*SAVED_FONT).type_0 == FontType::Pango
-}
-/// # Safety
-/// The saved XCB font/info, display, drawable and GC must stay live on the event thread.
-#[deny(unsafe_op_in_unsafe_fn)]
-unsafe fn draw_text_xcb(glyphs: &[Ucs2Char], drawable: u32, gc: u32, mut x: i32, y: i32) {
-    let raw = crate::display::context().connection;
-    // SAFETY: the saved font and display remain live under the caller's contract.
-    // This path is also used by the synchronous emergency dialog. The
-    // explicit context owner stays live; avoid reentering the TLS registry.
-    let connection = unsafe { crate::xcb_connection::borrowed(raw) };
-    let Some(connection) = connection else { return };
-    let pos_y = y + i32::from(unsafe { (*(*SAVED_FONT).specific.xcb.info).font_ascent() });
+fn draw_text_xcb(font: &CoreFont, glyphs: &[Ucs2Char], drawable: u32, gc: u32, mut x: i32, y: i32) {
+    let connection = &font.connection;
+    let pos_y = y + i32::from(font.info.font_ascent());
     let mut chunks = glyphs
         .chunks(255)
         .chain(glyphs.is_empty().then_some(&[][..]))
@@ -525,52 +417,58 @@ unsafe fn draw_text_xcb(glyphs: &[Ucs2Char], drawable: u32, gc: u32, mut x: i32,
             string: &wire[..chunk.len()],
         });
         if chunks.peek().is_some() {
-            x += unsafe { predict_text_width_xcb(chunk) };
+            x += predict_text_width_xcb(font, chunk);
         }
     }
 }
 
+/// Draw using this explicit font and colors; no selected-font/color registry is
+/// accessed, including during synchronous emergency rendering.
 /// # Safety
-/// The selected Font and display resources must
-/// remain live on the event thread. The requested backend's drawable/GC/Cairo
-/// surface must be valid during native drawing (including non-null error surfaces).
+/// The supplied Cairo surface is live/non-null for Pango; drawable/GC identify
+/// resources on this font's retained display for the core backend.
 pub unsafe fn draw_text(
+    font: &Font,
     text: &I3String,
     drawable: u32,
     gc: u32,
     surface: *mut cairo_surface_t,
+    foreground: color_t,
+    background: color_t,
     x: i32,
     y: i32,
     max_width: i32,
 ) {
-    if SAVED_FONT.is_null() {
-        __assert_fail(
-            c"savedFont != NULL".as_ptr(),
-            c"../libi3/font.c".as_ptr(),
-            369 as u32,
-            c"void draw_text(i3String *, u32, u32, cairo_surface_t *, int, int, int)".as_ptr(),
-        );
-    };
-    match (*SAVED_FONT).type_0 {
-        FontType::None => {}
-        FontType::Xcb => {
-            draw_text_xcb(text.rendering_glyphs(), drawable, gc, x, y);
+    match &font.backend {
+        FontBackend::None => {}
+        FontBackend::Xcb(backend) => {
+            backend.connection.send_request(&x::ChangeGc {
+                gc: x::Gcontext::new(gc),
+                value_list: &[
+                    x::Gc::Foreground(foreground.colorpixel),
+                    x::Gc::Background(background.colorpixel),
+                    x::Gc::Font(backend.id),
+                ],
+            });
+            draw_text_xcb(backend, text.rendering_glyphs(), drawable, gc, x, y);
         }
-        FontType::Pango => {
+        FontBackend::Pango(backend) => unsafe {
             draw_text_pango(
-                text.cstr_or_report()
-                    .map_or(std::ptr::null(), std::ffi::CStr::as_ptr),
+                font,
+                backend,
+                text.cstr_or_report().map_or(ptr::null(), CStr::as_ptr),
                 text.rendering_byte_len(),
-                drawable,
                 surface,
+                foreground,
                 x,
                 y,
                 max_width,
                 text.is_markup(),
-            );
-        }
+            )
+        },
     }
 }
+
 fn wire_glyphs(glyphs: &[Ucs2Char]) -> Vec<x::Char2b> {
     glyphs
         .iter()
@@ -601,32 +499,23 @@ fn open_core_font(
     (open, query)
 }
 
-/// # Safety
-/// Saved font/reply and display remain live on the event thread.
-#[deny(unsafe_op_in_unsafe_fn)]
-unsafe fn xcb_query_text_width(text: &[Ucs2Char]) -> i32 {
+fn xcb_query_text_width(font: &CoreFont, text: &[Ucs2Char]) -> i32 {
     static FIRST_INVOCATION: std::sync::atomic::AtomicBool =
         std::sync::atomic::AtomicBool::new(true);
     if FIRST_INVOCATION.swap(false, std::sync::atomic::Ordering::Relaxed) {
         unsafe { fprintf(stderr, c"Using slow code path for text extents\n".as_ptr()) };
     }
-    let raw = crate::display::context().connection;
-    // This path is also used by the synchronous emergency dialog. The
-    // explicit context owner stays live; avoid reentering the TLS registry.
-    let connection = unsafe { crate::xcb_connection::borrowed(raw) };
-    let result = connection.map(|connection| {
-        let wire = wire_glyphs(&text[..text.len() as u32 as usize]);
-        let cookie = connection.send_request(&x::QueryTextExtents {
-            font: x::Fontable::Font(unsafe { x::Font::new((*SAVED_FONT).specific.xcb.id) }),
-            string: &wire,
-        });
-        connection.wait_for_reply(cookie)
+    let wire = wire_glyphs(&text[..text.len() as u32 as usize]);
+    let cookie = font.connection.send_request(&x::QueryTextExtents {
+        font: x::Fontable::Font(font.id),
+        string: &wire,
     });
-    if let Some(Ok(reply)) = result.as_ref() {
+    let result = font.connection.wait_for_reply(cookie);
+    if let Ok(reply) = result.as_ref() {
         return reply.overall_width();
     }
     let code = match result {
-        Some(Err(xcb::Error::Protocol(error))) => protocol_error_code(&error),
+        Err(xcb::Error::Protocol(error)) => protocol_error_code(&error),
         _ => 0,
     };
     unsafe {
@@ -635,15 +524,10 @@ unsafe fn xcb_query_text_width(text: &[Ucs2Char]) -> i32 {
             c"Could not get text extents (X error code %d)\n".as_ptr(),
             i32::from(code),
         );
-        ((*(*SAVED_FONT).specific.xcb.info)
-            .max_bounds()
-            .character_width as usize)
-            .wrapping_mul(text.len()) as i32
+        (font.info.max_bounds().character_width as usize).wrapping_mul(text.len()) as i32
     }
 }
 
-// QueryFont's length counts four-byte units after the first 32 wire bytes, not
-// after its full 60-byte fixed header. Properties precede the glyph metrics.
 fn font_table_length(info: &x::QueryFontReply) -> Option<usize> {
     let total = usize::try_from(info.length())
         .ok()?
@@ -691,81 +575,37 @@ fn metric_width(info: &x::QueryFontReply, table: &[x::Charinfo], glyphs: &[Ucs2C
     width
 }
 
-/// # Safety
-/// The selected XCB font and its owned query reply must remain live.
-#[deny(unsafe_op_in_unsafe_fn)]
-unsafe fn predict_text_width_xcb(glyphs: &[Ucs2Char]) -> i32 {
+fn predict_text_width_xcb(font: &CoreFont, glyphs: &[Ucs2Char]) -> i32 {
     if glyphs.is_empty() {
         return 0;
     }
-    // SAFETY: caller retains the selected font and its uniquely owned Box.
-    let info = unsafe { &*(*SAVED_FONT).specific.xcb.info };
+    // The borrowed backend retains the complete owned metric reply.
+    let info = &font.info;
     let Some(count) = font_table_length(info) else {
         // Preserve the former null-table slow path for invalid/empty tables.
-        return unsafe { xcb_query_text_width(glyphs) };
+        return xcb_query_text_width(font, glyphs);
     };
     if count == 0 {
-        return unsafe { xcb_query_text_width(glyphs) };
+        return xcb_query_text_width(font, glyphs);
     }
     metric_width(info, info.char_infos(), glyphs)
 }
 
-/// # Safety
-/// The selected font (including its complete native query reply/table)
-/// must remain valid on the event thread for the duration of the measurement.
-pub unsafe fn predict_text_width(text: &I3String) -> i32 {
-    if SAVED_FONT.is_null() {
-        __assert_fail(
-            c"savedFont != NULL".as_ptr(),
-            c"../libi3/font.c".as_ptr(),
-            467 as u32,
-            c"int predict_text_width(i3String *)".as_ptr(),
-        );
-    };
-    match (*SAVED_FONT).type_0 {
-        FontType::None => 0,
-        FontType::Xcb => predict_text_width_xcb(text.rendering_glyphs()),
-        FontType::Pango => predict_text_width_pango(
-            text.cstr_or_report()
-                .map_or(std::ptr::null(), std::ffi::CStr::as_ptr),
-            text.rendering_byte_len(),
-            text.is_markup(),
-        ),
+/// Measure with a borrowed owning font. Native replies and display/visual owners
+/// remain live through the borrow; no mutable selected-font global is needed.
+pub fn predict_text_width(font: &Font, text: &I3String) -> i32 {
+    match &font.backend {
+        FontBackend::None => 0,
+        FontBackend::Xcb(backend) => predict_text_width_xcb(backend, text.rendering_glyphs()),
+        FontBackend::Pango(backend) => unsafe {
+            predict_text_width_pango(
+                backend,
+                text.cstr_or_report().map_or(ptr::null(), CStr::as_ptr),
+                text.rendering_byte_len(),
+                text.is_markup(),
+            )
+        },
     }
-}
-
-// Internal helpers use Rust linkage rather than foreign symbol lookup.
-use crate::dpi::get_dpi_value;
-use crate::safewrappers::sstrdup;
-
-// Canonical maintained native types remain part of the legacy POD interface.
-use cairo_sys::{cairo_create, cairo_surface_destroy, cairo_xcb_surface_create};
-pub use cairo_sys::{cairo_surface_t, cairo_t};
-pub use pango_sys::PangoFontDescription;
-use pango_sys::{
-    pango_font_description_from_string, pango_font_description_get_family, pango_layout_set_markup,
-    pango_layout_set_text, PANGO_SCALE,
-};
-
-use xcb::ffi::xcb_connection_t;
-
-use libc::{fprintf, free};
-
-use crate::native_stdio::{__assert_fail, errx, stderr};
-
-use crate::logging::{errorlog, verboselog};
-
-// Shared model types retain field layout while using one Rust identity.
-pub use crate::draw_util::color_t;
-
-// Internal calls and globals use canonical Rust identities.
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-#[repr(u32)]
-pub enum FontType {
-    None = 0,
-    Xcb = 1,
-    Pango = 2,
 }
 
 #[cfg(test)]
@@ -908,37 +748,18 @@ mod tests {
     }
 
     #[test]
-    fn stored_description_borrow_and_transfer_preserve_raw_font_ownership() {
-        assert!(!std::mem::needs_drop::<Font>());
+    fn description_owner_and_layout_hold_independent_native_references() {
+        assert!(std::mem::needs_drop::<Font>());
         let image = ImageSurface::create(Format::ARgb32, 1, 1).unwrap();
         let context = Context::new(&image).unwrap();
         let layout = create_layout_with_dpi(&context, 96.0);
         let description = pango::FontDescription::from_string("Sans Bold 12");
-        let pointer = description.into_glib_ptr();
-        let mut font = Font {
-            type_0: FontType::Pango,
-            height: 0,
-            pattern: ptr::null_mut(),
-            specific: FontBackendData {
-                pango_desc: pointer,
-            },
-        };
-        {
-            // SAFETY: the raw font still uniquely owns pointer; borrow ends here.
-            let borrowed = unsafe { borrowed_description(&font) };
-            assert_eq!(borrowed.as_ref().unwrap().size(), 12 * PANGO_SCALE);
-            layout.set_font_description(borrowed.as_deref());
-        }
-        // SAFETY: reclaim exactly the reference previously transferred into POD.
-        drop(unsafe { from_glib_full::<_, pango::FontDescription>(pointer) });
-        font.specific.pango_desc = ptr::null_mut();
+        layout.set_font_description(Some(&description));
+        drop(description);
         assert_eq!(layout.font_description().unwrap().size(), 12 * PANGO_SCALE);
-        // SAFETY: null descriptions select Pango defaults rather than constructing
-        // an invalid non-null gtk-rs borrowed wrapper.
-        let default = unsafe { borrowed_description(&font) };
-        assert!(default.is_none());
-        layout.set_font_description(default.as_deref());
+        layout.set_font_description(None);
         assert!(layout.font_description().is_none());
+        assert!(!Font::empty().is_loaded());
     }
 
     #[test]

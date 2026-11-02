@@ -203,8 +203,10 @@ unsafe fn sighandler_setup() {
     border_width = logical_px(border_width);
     margin = logical_px(margin);
     let num_lines: ::core::ffi::c_int = 5 as ::core::ffi::c_int;
-    let width_longest_message: ::core::ffi::c_int =
-        predict_text_width((&*(&raw const message_intro2)).as_ref().unwrap());
+    let width_longest_message: ::core::ffi::c_int = predict_text_width(
+        &crate::config::config.font,
+        (&*(&raw const message_intro2)).as_ref().unwrap(),
+    );
     dialog_width = width_longest_message
         + 2 as ::core::ffi::c_int * border_width
         + 2 as ::core::ffi::c_int * margin;
@@ -406,6 +408,7 @@ unsafe fn sighandler_draw_dialog(dialog: *mut dialog_t) {
         .wrapping_sub((2 as ::core::ffi::c_int * x) as u32)
         as ::core::ffi::c_int;
     draw_util_text(
+        &crate::config::config.font,
         (&*(&raw const message_intro)).as_ref().unwrap(),
         &raw mut (*dialog).surface,
         white,
@@ -416,6 +419,7 @@ unsafe fn sighandler_draw_dialog(dialog: *mut dialog_t) {
     );
     y += config.font.height;
     draw_util_text(
+        &crate::config::config.font,
         (&*(&raw const message_intro2)).as_ref().unwrap(),
         &raw mut (*dialog).surface,
         white,
@@ -427,6 +431,7 @@ unsafe fn sighandler_draw_dialog(dialog: *mut dialog_t) {
     y += config.font.height;
     let bt_color = backtrace_color(backtrace_done);
     draw_util_text(
+        &crate::config::config.font,
         (&*(&raw const message_option_backtrace)).as_ref().unwrap(),
         &raw mut (*dialog).surface,
         draw_util_hex_to_color(bt_color.as_ptr()),
@@ -437,6 +442,7 @@ unsafe fn sighandler_draw_dialog(dialog: *mut dialog_t) {
     );
     y += config.font.height;
     draw_util_text(
+        &crate::config::config.font,
         (&*(&raw const message_option_restart)).as_ref().unwrap(),
         &raw mut (*dialog).surface,
         white,
@@ -447,6 +453,7 @@ unsafe fn sighandler_draw_dialog(dialog: *mut dialog_t) {
     );
     y += config.font.height;
     draw_util_text(
+        &crate::config::config.font,
         (&*(&raw const message_option_forget)).as_ref().unwrap(),
         &raw mut (*dialog).surface,
         white,

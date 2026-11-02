@@ -255,6 +255,7 @@ unsafe fn update_placeholder_contents(state: *mut placeholder_state) {
             let (x, y, max_width) =
                 text_geometry((*state).rect, config.font.height, logical_px(2), n);
             draw_util_text(
+                &crate::config::config.font,
                 &text,
                 &raw mut (*state).surface,
                 foreground,
@@ -277,9 +278,10 @@ unsafe fn update_placeholder_contents(state: *mut placeholder_state) {
         swallows = (*swallows).matches.tqe_next as *mut Match;
     }
     let line = i3_common::string::I3String::new("⌚");
-    let text_width = predict_text_width(&line);
+    let text_width = predict_text_width(&crate::config::config.font, &line);
     let (x, y) = centered_text((*state).rect, text_width, config.font.height);
     draw_util_text(
+        &crate::config::config.font,
         &line,
         &raw mut (*state).surface,
         foreground,

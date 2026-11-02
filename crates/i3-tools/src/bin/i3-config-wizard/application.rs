@@ -5,7 +5,6 @@ use i3_common::draw_util::draw_util_surface_init;
 use i3_common::draw_util::draw_util_text;
 use i3_common::font::load_font;
 use i3_common::font::predict_text_width;
-use i3_common::font::set_font;
 use i3_common::mkdirp::mkdirp;
 use std::ffi::{CStr, CString};
 use std::rc::Rc;
@@ -29,8 +28,6 @@ use i3_common::dpi::{init_dpi, logical_px};
 use i3_common::i333_va_list;
 
 pub use i3_common::font::Font;
-pub use i3_common::font::FontBackendData;
-pub use i3_common::font::XcbFontData;
 
 pub use i3_common::draw_util::color_t;
 pub use i3_common::draw_util::surface_t;
@@ -76,28 +73,8 @@ pub static mut conn: *mut xcb_connection_t =
     ::core::ptr::null::<xcb_connection_t>() as *mut xcb_connection_t;
 
 pub static mut root_screen: Option<i3_common::display::DisplayScreen> = None;
-static mut font: Font = Font {
-    type_0: i3_common::font::FontType::None,
-    height: 0,
-    pattern: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-    specific: FontBackendData {
-        xcb: XcbFontData {
-            id: 0,
-            info: std::ptr::null_mut(),
-        },
-    },
-};
-static mut bold_font: Font = Font {
-    type_0: i3_common::font::FontType::None,
-    height: 0,
-    pattern: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-    specific: FontBackendData {
-        xcb: XcbFontData {
-            id: 0,
-            info: std::ptr::null_mut(),
-        },
-    },
-};
+static mut font: Font = Font::empty();
+static mut bold_font: Font = Font::empty();
 static mut char_width: ::core::ffi::c_int = 0;
 static mut win: u32 = 0;
 static mut surface: surface_t = surface_t {
@@ -4484,10 +4461,8 @@ impl Drop for WizardResources {
                 draw_util_surface_free(self.connection.get_raw_conn().cast(), &raw mut surface);
             }
             if self.fonts {
-                set_font(&raw mut bold_font);
-                i3_common::font::free_font();
-                set_font(&raw mut font);
-                i3_common::font::free_font();
+                bold_font = Font::empty();
+                font = Font::empty();
             }
             if !xkb_keymap.is_null() {
                 xkb_keymap_unref(xkb_keymap);
@@ -4535,6 +4510,7 @@ struct WizardAtoms {
 }
 
 unsafe fn txt(
+    text_font: &Font,
     col: ::core::ffi::c_int,
     row: ::core::ffi::c_int,
     text: *mut ::core::ffi::c_char,
@@ -4547,6 +4523,7 @@ unsafe fn txt(
         (row - 1 as ::core::ffi::c_int) * font.height + logical_px(4 as ::core::ffi::c_int);
     let string = i3_common::string::I3String::from_cstr(CStr::from_ptr(text));
     draw_util_text(
+        text_font,
         &string,
         &raw mut surface,
         fg,
@@ -4562,9 +4539,10 @@ unsafe fn handle_expose(ui: &WizardUi, connection: &xcb::Connection) -> ::core::
     let green: color_t = draw_util_hex_to_color(c"#00FF00".as_ptr()) as color_t;
     let red: color_t = draw_util_hex_to_color(c"#FF0000".as_ptr()) as color_t;
     draw_util_clear_surface(&raw mut surface, black);
-    set_font(&raw mut font);
+
     if ui.step == WizardStep::Welcome {
         txt(
+            &font,
             2 as ::core::ffi::c_int,
             2 as ::core::ffi::c_int,
             c"You have not configured i3 yet.".as_ptr().cast_mut(),
@@ -4572,6 +4550,7 @@ unsafe fn handle_expose(ui: &WizardUi, connection: &xcb::Connection) -> ::core::
             black,
         );
         txt(
+            &font,
             2 as ::core::ffi::c_int,
             3 as ::core::ffi::c_int,
             c"Do you want me to generate a config at"
@@ -4584,6 +4563,7 @@ unsafe fn handle_expose(ui: &WizardUi, connection: &xcb::Connection) -> ::core::
         message.push(b'?');
         let msg = CString::new(message).expect("path contains no NUL");
         txt(
+            &font,
             2 as ::core::ffi::c_int,
             4 as ::core::ffi::c_int,
             msg.as_ptr().cast_mut(),
@@ -4592,6 +4572,7 @@ unsafe fn handle_expose(ui: &WizardUi, connection: &xcb::Connection) -> ::core::
         );
 
         txt(
+            &font,
             13 as ::core::ffi::c_int,
             6 as ::core::ffi::c_int,
             c"Yes, generate the config".as_ptr().cast_mut(),
@@ -4599,6 +4580,7 @@ unsafe fn handle_expose(ui: &WizardUi, connection: &xcb::Connection) -> ::core::
             black,
         );
         txt(
+            &font,
             13 as ::core::ffi::c_int,
             8 as ::core::ffi::c_int,
             c"No, I will use the defaults".as_ptr().cast_mut(),
@@ -4606,6 +4588,7 @@ unsafe fn handle_expose(ui: &WizardUi, connection: &xcb::Connection) -> ::core::
             black,
         );
         txt(
+            &font,
             4 as ::core::ffi::c_int,
             6 as ::core::ffi::c_int,
             c"<Enter>".as_ptr().cast_mut(),
@@ -4613,6 +4596,7 @@ unsafe fn handle_expose(ui: &WizardUi, connection: &xcb::Connection) -> ::core::
             black,
         );
         txt(
+            &font,
             5 as ::core::ffi::c_int,
             8 as ::core::ffi::c_int,
             c"<ESC>".as_ptr().cast_mut(),
@@ -4622,6 +4606,7 @@ unsafe fn handle_expose(ui: &WizardUi, connection: &xcb::Connection) -> ::core::
     }
     if ui.step == WizardStep::Generate {
         txt(
+            &font,
             2 as ::core::ffi::c_int,
             2 as ::core::ffi::c_int,
             c"Please choose either:".as_ptr().cast_mut(),
@@ -4629,6 +4614,7 @@ unsafe fn handle_expose(ui: &WizardUi, connection: &xcb::Connection) -> ::core::
             black,
         );
         txt(
+            &font,
             13 as ::core::ffi::c_int,
             4 as ::core::ffi::c_int,
             c"Win as default modifier".as_ptr().cast_mut(),
@@ -4636,6 +4622,7 @@ unsafe fn handle_expose(ui: &WizardUi, connection: &xcb::Connection) -> ::core::
             black,
         );
         txt(
+            &font,
             13 as ::core::ffi::c_int,
             5 as ::core::ffi::c_int,
             c"Alt as default modifier".as_ptr().cast_mut(),
@@ -4643,6 +4630,7 @@ unsafe fn handle_expose(ui: &WizardUi, connection: &xcb::Connection) -> ::core::
             black,
         );
         txt(
+            &font,
             2 as ::core::ffi::c_int,
             7 as ::core::ffi::c_int,
             c"Afterwards, press".as_ptr().cast_mut(),
@@ -4650,6 +4638,7 @@ unsafe fn handle_expose(ui: &WizardUi, connection: &xcb::Connection) -> ::core::
             black,
         );
         txt(
+            &font,
             13 as ::core::ffi::c_int,
             9 as ::core::ffi::c_int,
             c"to write the config".as_ptr().cast_mut(),
@@ -4657,6 +4646,7 @@ unsafe fn handle_expose(ui: &WizardUi, connection: &xcb::Connection) -> ::core::
             black,
         );
         txt(
+            &font,
             13 as ::core::ffi::c_int,
             10 as ::core::ffi::c_int,
             c"to abort".as_ptr().cast_mut(),
@@ -4665,6 +4655,7 @@ unsafe fn handle_expose(ui: &WizardUi, connection: &xcb::Connection) -> ::core::
         );
         if ui.modifier == WizardModifier::Win {
             txt(
+                &font,
                 5 as ::core::ffi::c_int,
                 5 as ::core::ffi::c_int,
                 c"<Alt>".as_ptr().cast_mut(),
@@ -4673,6 +4664,7 @@ unsafe fn handle_expose(ui: &WizardUi, connection: &xcb::Connection) -> ::core::
             );
         } else {
             txt(
+                &font,
                 5 as ::core::ffi::c_int,
                 4 as ::core::ffi::c_int,
                 c"<Win>".as_ptr().cast_mut(),
@@ -4680,9 +4672,10 @@ unsafe fn handle_expose(ui: &WizardUi, connection: &xcb::Connection) -> ::core::
                 black,
             );
         }
-        set_font(&raw mut bold_font);
+
         if ui.modifier == WizardModifier::Win {
             txt(
+                &bold_font,
                 2 as ::core::ffi::c_int,
                 4 as ::core::ffi::c_int,
                 c"-> <Win>".as_ptr().cast_mut(),
@@ -4691,6 +4684,7 @@ unsafe fn handle_expose(ui: &WizardUi, connection: &xcb::Connection) -> ::core::
             );
         } else {
             txt(
+                &bold_font,
                 2 as ::core::ffi::c_int,
                 5 as ::core::ffi::c_int,
                 c"-> <Alt>".as_ptr().cast_mut(),
@@ -4698,8 +4692,9 @@ unsafe fn handle_expose(ui: &WizardUi, connection: &xcb::Connection) -> ::core::
                 black,
             );
         }
-        set_font(&raw mut font);
+
         txt(
+            &font,
             4 as ::core::ffi::c_int,
             9 as ::core::ffi::c_int,
             c"<Enter>".as_ptr().cast_mut(),
@@ -4707,6 +4702,7 @@ unsafe fn handle_expose(ui: &WizardUi, connection: &xcb::Connection) -> ::core::
             black,
         );
         txt(
+            &font,
             5 as ::core::ffi::c_int,
             10 as ::core::ffi::c_int,
             c"<ESC>".as_ptr().cast_mut(),
@@ -5116,12 +5112,12 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
     );
     drop(modmap_connection);
     init_dpi();
-    font = load_font(pattern, true);
-    bold_font = load_font(patternbold, true);
+    font = load_font(CStr::from_ptr(pattern), true);
+    bold_font = load_font(CStr::from_ptr(patternbold), true);
     resources.fonts = true;
-    set_font(&raw mut font);
+
     let letter = i3_common::string::I3String::new("a");
-    char_width = predict_text_width(&letter);
+    char_width = predict_text_width(&font, &letter);
     let window: x::Window = connection.generate_id();
     win = window.resource_id();
     connection.send_request(&x::CreateWindow {

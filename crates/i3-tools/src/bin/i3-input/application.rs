@@ -5,7 +5,6 @@ use i3_common::draw_util::draw_util_surface_init;
 use i3_common::draw_util::draw_util_text;
 use i3_common::font::load_font;
 use i3_common::font::predict_text_width;
-use i3_common::font::set_font;
 use i3_common::string::I3String;
 use std::ffi::{CStr, CString};
 use std::io::Write;
@@ -31,8 +30,6 @@ use xcb_interop::transport::keyboard_grab_status;
 use i3_common::i333_va_list;
 
 pub use i3_common::font::Font;
-pub use i3_common::font::FontBackendData;
-pub use i3_common::font::XcbFontData;
 
 pub use i3_common::draw_util::color_t;
 pub use i3_common::draw_util::surface_t;
@@ -52,17 +49,7 @@ static mut surface: surface_t = surface_t {
     surface: ::core::ptr::null::<cairo_surface_t>() as *mut cairo_surface_t,
     cr: ::core::ptr::null::<cairo_t>() as *mut cairo_t,
 };
-static mut font: Font = Font {
-    type_0: i3_common::font::FontType::None,
-    height: 0,
-    pattern: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-    specific: FontBackendData {
-        xcb: XcbFontData {
-            id: 0,
-            info: std::ptr::null_mut(),
-        },
-    },
-};
+static mut font: Font = Font::empty();
 
 pub static mut root: u32 = 0;
 
@@ -243,6 +230,7 @@ unsafe fn handle_expose(
     );
     if let Some(prompt) = state.prompt.as_ref() {
         draw_util_text(
+            &font,
             prompt,
             &raw mut surface,
             fg_color,
@@ -256,6 +244,7 @@ unsafe fn handle_expose(
         let glyphs: Vec<_> = state.glyphs.iter().map(|glyph| glyph.ucs2).collect();
         let input = I3String::from_ucs2(&glyphs);
         draw_util_text(
+            &font,
             &input,
             &raw mut surface,
             fg_color,
@@ -513,7 +502,7 @@ impl Drop for WindowResources {
                 draw_util_surface_free(self.connection.get_raw_conn().cast(), &raw mut surface);
             }
             if self.has_font {
-                i3_common::font::free_font();
+                font = Font::empty();
             }
             drop(self.symbols.take());
             root_screen = None;
@@ -567,17 +556,17 @@ unsafe fn run_window(settings: InputSettings) -> ::core::ffi::c_int {
     );
     init_dpi();
     font = load_font(
-        if !pattern.is_null() {
+        CStr::from_ptr(if !pattern.is_null() {
             pattern as *const ::core::ffi::c_char
         } else {
             c"pango:monospace 8".as_ptr()
-        },
+        }),
         true,
     );
     resources.has_font = true;
-    set_font(&raw mut font);
+
     if let Some(prompt) = state.prompt.as_ref() {
-        state.prompt_offset = predict_text_width(prompt);
+        state.prompt_offset = predict_text_width(&font, prompt);
     }
     let connection = &*resources.connection;
     let win_pos = get_window_position(connection);

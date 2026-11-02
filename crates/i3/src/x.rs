@@ -821,7 +821,7 @@ unsafe fn x_draw_decoration_after_title(
         );
     };
     let dr: *mut Rect = &raw mut (*con).deco_rect;
-    if !font_is_pango() {
+    if !font_is_pango(&crate::config::config.font) {
         draw_util_rectangle(
             dest_surface,
             (*(*p).color).background,
@@ -1102,13 +1102,14 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
                     if let Some(formatted_mark) = format_marks(marks.iter().map(Vec::as_slice)) {
                         let mark_text = I3String::from_bytes(&formatted_mark);
                         let mark_0 = &mark_text;
-                        mark_width = predict_text_width(mark_0);
+                        mark_width = predict_text_width(&crate::config::config.font, mark_0);
                         let mark_offset_x: i32 = if config.title_align == TitleAlign::Right {
                             title_padding
                         } else {
                             deco_width - mark_width - title_padding
                         };
                         draw_util_text(
+                            &crate::config::config.font,
                             mark_0,
                             dest_surface,
                             (*(*p).color).text,
@@ -1145,7 +1146,7 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
                         logical_px(2),
                         (*con).window_icon_padding,
                         !win.is_null() && (*win).icon.is_some(),
-                        predict_text_width(title),
+                        predict_text_width(&crate::config::config.font, title),
                         mark_width,
                         title_padding,
                         logical_px((*con).window_icon_padding.max(1)),
@@ -1155,6 +1156,7 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
                     icon_offset_x = placement.icon_offset;
                     title_offset_x = placement.title_offset;
                     draw_util_text(
+                        &crate::config::config.font,
                         title,
                         dest_surface,
                         (*(*p).color).text,

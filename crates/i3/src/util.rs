@@ -405,7 +405,7 @@ pub unsafe fn i3_restart(forget_layout: bool) {
 /// input is null or a uniquely owned malloc-compatible C string. The return
 /// value transfers that ownership to the caller, including the non-Pango path.
 pub unsafe fn pango_escape_markup(input: *mut ::core::ffi::c_char) -> *mut ::core::ffi::c_char {
-    if !font_is_pango() {
+    if !font_is_pango(&crate::config::config.font) {
         return input;
     }
     if input.is_null() {

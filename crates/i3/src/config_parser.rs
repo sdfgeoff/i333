@@ -5837,11 +5837,7 @@ pub unsafe fn start_config_error_nagbar(configpath: *const ::core::ffi::c_char, 
     let mut argv: [*mut ::core::ffi::c_char; 14] = [
         ::core::ptr::null_mut::<::core::ffi::c_char>(),
         c"-f".as_ptr().cast_mut(),
-        (if !config.font.pattern.is_null() {
-            config.font.pattern as *const ::core::ffi::c_char
-        } else {
-            c"fixed".as_ptr()
-        }) as *mut ::core::ffi::c_char,
+        config.font.pattern().unwrap_or(c"fixed").as_ptr() as *mut ::core::ffi::c_char,
         c"-t".as_ptr().cast_mut(),
         (if has_errors as ::core::ffi::c_int != 0 {
             c"error".as_ptr()

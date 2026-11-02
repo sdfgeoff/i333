@@ -1018,7 +1018,10 @@ pub unsafe fn run_binding(bind: *mut Binding, con: *mut Con) -> *mut CommandResu
         let mut argv: [*mut ::core::ffi::c_char; 11] = [
             ::core::ptr::null_mut::<::core::ffi::c_char>(),
             c"-f".as_ptr().cast_mut(),
-            config.font.pattern,
+            config
+                .font
+                .pattern()
+                .map_or(std::ptr::null_mut(), |pattern| pattern.as_ptr().cast_mut()),
             c"-t".as_ptr().cast_mut(),
             c"error".as_ptr().cast_mut(),
             c"-m".as_ptr().cast_mut(),

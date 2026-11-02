@@ -21,7 +21,7 @@ use crate::types::TitleAlign;
 use crate::types::UrgencyMatch;
 use crate::types::Warping;
 use crate::types::WindowMode;
-use i3_common::font::FontType;
+use std::ffi::CStr;
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -102,64 +102,40 @@ pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::
 pub static mut current_configpath: *mut ::core::ffi::c_char =
     ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char;
 
-pub static mut config: Config = Config {
-    terminal: ::core::ptr::null::<::core::ffi::c_char>(),
-    font: Font {
-        type_0: FontType::None,
-        height: 0,
-        pattern: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        specific: FontBackendData {
-            xcb: XcbFontData {
-                id: 0,
-                info: std::ptr::null_mut(),
-            },
-        },
-    },
-    ipc_socket_path: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-    restart_state_path: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-    default_layout: Layout::Default,
-    container_stack_limit: 0,
-    container_stack_limit_value: 0,
-    default_border_width: 0,
-    default_floating_border_width: 0,
-    default_orientation: Orientation::None,
-    disable_focus_follows_mouse: false,
-    mouse_warping: Warping::Output,
-    hide_edge_borders: HideEdgeBordersMode::None,
-    disable_workspace_bar: false,
-    focus_wrapping: FocusWrapping::Off,
-    force_xinerama: false,
-    disable_randr15: false,
-    fake_outputs: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-    workspace_auto_back_and_forth: false,
-    workspace_urgency_timer: 0.,
-    focus_on_window_activation: FocusActivation::Smart,
-    show_marks: false,
-    title_align: TitleAlign::Left,
-    default_border: BorderStyle::None,
-    default_floating_border: BorderStyle::None,
-    floating_modifier: 0,
-    swap_modifier: 0,
-    floating_maximum_width: 0,
-    floating_maximum_height: 0,
-    floating_minimum_width: 0,
-    floating_minimum_height: 0,
-    client: config_client {
-        background: color_t {
-            red: 0.,
-            green: 0.,
-            blue: 0.,
-            alpha: 0.,
-            colorpixel: 0,
-        },
-        focused: Colortriple {
-            border: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
+const fn empty_config() -> Config {
+    Config {
+        terminal: ::core::ptr::null::<::core::ffi::c_char>(),
+        font: Font::empty(),
+        ipc_socket_path: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
+        restart_state_path: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
+        default_layout: Layout::Default,
+        container_stack_limit: 0,
+        container_stack_limit_value: 0,
+        default_border_width: 0,
+        default_floating_border_width: 0,
+        default_orientation: Orientation::None,
+        disable_focus_follows_mouse: false,
+        mouse_warping: Warping::Output,
+        hide_edge_borders: HideEdgeBordersMode::None,
+        disable_workspace_bar: false,
+        focus_wrapping: FocusWrapping::Off,
+        force_xinerama: false,
+        disable_randr15: false,
+        fake_outputs: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
+        workspace_auto_back_and_forth: false,
+        workspace_urgency_timer: 0.,
+        focus_on_window_activation: FocusActivation::Smart,
+        show_marks: false,
+        title_align: TitleAlign::Left,
+        default_border: BorderStyle::None,
+        default_floating_border: BorderStyle::None,
+        floating_modifier: 0,
+        swap_modifier: 0,
+        floating_maximum_width: 0,
+        floating_maximum_height: 0,
+        floating_minimum_width: 0,
+        floating_minimum_height: 0,
+        client: config_client {
             background: color_t {
                 red: 0.,
                 green: 0.,
@@ -167,340 +143,357 @@ pub static mut config: Config = Config {
                 alpha: 0.,
                 colorpixel: 0,
             },
-            text: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
+            focused: Colortriple {
+                border: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+                background: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+                text: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+                indicator: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+                child_border: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
             },
-            indicator: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
+            focused_inactive: Colortriple {
+                border: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+                background: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+                text: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+                indicator: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+                child_border: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
             },
-            child_border: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
+            focused_tab_title: Colortriple {
+                border: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+                background: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+                text: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+                indicator: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+                child_border: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+            },
+            unfocused: Colortriple {
+                border: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+                background: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+                text: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+                indicator: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+                child_border: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+            },
+            urgent: Colortriple {
+                border: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+                background: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+                text: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+                indicator: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+                child_border: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+            },
+            placeholder: Colortriple {
+                border: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+                background: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+                text: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+                indicator: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+                child_border: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+            },
+            got_focused_tab_title: false,
+        },
+        bar: config_bar {
+            focused: Colortriple {
+                border: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+                background: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+                text: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+                indicator: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+                child_border: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+            },
+            unfocused: Colortriple {
+                border: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+                background: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+                text: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+                indicator: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+                child_border: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+            },
+            urgent: Colortriple {
+                border: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+                background: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+                text: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+                indicator: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
+                child_border: color_t {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.,
+                    colorpixel: 0,
+                },
             },
         },
-        focused_inactive: Colortriple {
-            border: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-            background: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-            text: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-            indicator: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-            child_border: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
+        popup_during_fullscreen: PopupDuringFullscreen::Smart,
+        number_barconfigs: 0,
+        tiling_drag: TilingDrag::empty(),
+        gaps: gaps_t {
+            inner: 0,
+            top: 0,
+            right: 0,
+            bottom: 0,
+            left: 0,
         },
-        focused_tab_title: Colortriple {
-            border: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-            background: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-            text: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-            indicator: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-            child_border: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-        },
-        unfocused: Colortriple {
-            border: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-            background: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-            text: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-            indicator: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-            child_border: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-        },
-        urgent: Colortriple {
-            border: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-            background: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-            text: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-            indicator: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-            child_border: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-        },
-        placeholder: Colortriple {
-            border: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-            background: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-            text: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-            indicator: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-            child_border: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-        },
-        got_focused_tab_title: false,
-    },
-    bar: config_bar {
-        focused: Colortriple {
-            border: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-            background: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-            text: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-            indicator: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-            child_border: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-        },
-        unfocused: Colortriple {
-            border: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-            background: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-            text: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-            indicator: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-            child_border: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-        },
-        urgent: Colortriple {
-            border: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-            background: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-            text: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-            indicator: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-            child_border: color_t {
-                red: 0.,
-                green: 0.,
-                blue: 0.,
-                alpha: 0.,
-                colorpixel: 0,
-            },
-        },
-    },
-    popup_during_fullscreen: PopupDuringFullscreen::Smart,
-    number_barconfigs: 0,
-    tiling_drag: TilingDrag::empty(),
-    gaps: gaps_t {
-        inner: 0,
-        top: 0,
-        right: 0,
-        bottom: 0,
-        left: 0,
-    },
-    smart_gaps: SmartGaps::Off,
-};
+        smart_gaps: SmartGaps::Off,
+    }
+}
+pub static mut config: Config = empty_config();
 
 pub static mut modes: modes_head = modes_head {
     slh_first: ::core::ptr::null::<Mode>() as *mut Mode,
@@ -728,7 +721,7 @@ unsafe fn free_configuration() {
         free((*con).deco_render_params as *mut ::core::ffi::c_void);
         (*con).deco_render_params = ::core::ptr::null_mut::<deco_render_params>();
     }
-    free_font();
+    config.font = Font::empty();
     free(config.ipc_socket_path as *mut ::core::ffi::c_void);
     free(config.restart_state_path as *mut ::core::ffi::c_void);
     free(config.fake_outputs as *mut ::core::ffi::c_void);
@@ -753,11 +746,7 @@ pub unsafe fn load_configuration(
     modes.slh_first = default_mode as *mut Mode;
     bindings = (*default_mode).bindings as *mut bindings_head;
     current_binding_mode = (*default_mode).name;
-    memset(
-        &raw mut config as *mut ::core::ffi::c_void,
-        0 as ::core::ffi::c_int,
-        ::core::mem::size_of::<Config>() as usize,
-    );
+    config = empty_config();
     config.client.background = draw_util_hex_to_color(c"#000000".as_ptr());
     config.client.focused.border = draw_util_hex_to_color(c"#4c7899".as_ptr());
     config.client.focused.background = draw_util_hex_to_color(c"#285577".as_ptr());
@@ -895,21 +884,21 @@ pub unsafe fn load_configuration(
     }
     extract_workspace_names_from_bindings();
     reorder_bindings();
-    if config.font.type_0 == FontType::None && load_type != ConfigLoad::Validate {
+    if !config.font.is_loaded() && load_type != ConfigLoad::Validate {
         errorlog(
             c"ERROR: You did not specify required configuration option \"font\"\n"
                 .as_ptr()
                 .cast_mut(),
         );
-        config.font = load_font(c"fixed".as_ptr(), true_0 != 0);
-        set_font(&raw mut config.font);
+        config.font = load_font(c"fixed", true_0 != 0);
     }
     if load_type != ConfigLoad::Validate {
         let mut current: *mut Barconfig = ::core::ptr::null_mut::<Barconfig>();
         current = barconfigs.tqh_first as *mut Barconfig;
         while !current.is_null() {
             if (*current).font.is_null() {
-                (*current).font = sstrdup(config.font.pattern);
+                (*current).font =
+                    sstrdup(config.font.pattern().map_or(std::ptr::null(), CStr::as_ptr));
             }
             current = (*current).configs.tqe_next as *mut Barconfig;
         }
@@ -932,7 +921,6 @@ use crate::gaps::gaps_reapply_workspace_assignments;
 use crate::tree::tree_render;
 use crate::workspace::extract_workspace_names_from_bindings;
 use i3_common::dpi::logical_px;
-use i3_common::font::free_font;
 use i3_common::safewrappers::scalloc;
 use i3_common::safewrappers::sstrdup;
 
@@ -942,7 +930,7 @@ use i3_common::safewrappers::sstrdup;
 
 use xcb::ffi::xcb_connection_t;
 
-pub use libc::{__errno_location, free, memset, realpath, strerror};
+pub use libc::{__errno_location, free, realpath, strerror};
 
 use i3_common::native_stdio::{__assert_fail, errx};
 
@@ -960,8 +948,6 @@ pub use crate::types::Config;
 pub use crate::types::Match;
 pub use i3_common::draw_util::color_t;
 pub use i3_common::font::Font;
-pub use i3_common::font::FontBackendData;
-pub use i3_common::font::XcbFontData;
 
 // Internal calls and globals use canonical Rust identities.
 use crate::application::conn;
@@ -971,5 +957,4 @@ use crate::bindings::grab_all_keys;
 use crate::bindings::regrab_all_buttons;
 use i3_common::draw_util::draw_util_hex_to_color;
 use i3_common::font::load_font;
-use i3_common::font::set_font;
 use i3_common::get_config_path::get_config_path;

@@ -665,7 +665,7 @@ unsafe fn install_status_frame(frame: Vec<StatusValue>) {
         if !(*block).min_width_str.is_null() {
             let text = I3String::from_cstr(std::ffi::CStr::from_ptr((*block).min_width_str));
             text.set_markup(value.markup);
-            (*block).min_width = predict_text_width(&text) as u32;
+            (*block).min_width = predict_text_width(&crate::xcb::font, &text) as u32;
         }
         (*block).full_text.set_markup(value.markup);
         if let Some(short) = (*block).short_text.as_ref() {
@@ -947,7 +947,7 @@ pub unsafe fn set_workspace_button_error(message: *const ::core::ffi::c_char) {
     let mut output = (*outputs).slh_first;
     while !output.is_null() {
         let text = name.clone();
-        let width = predict_text_width(&text);
+        let width = predict_text_width(&crate::xcb::font, &text);
         crate::workspaces::append_workspace(output, Box::new(i3_ws::error(text, width)));
         output = (*output).slist.sle_next;
     }

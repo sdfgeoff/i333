@@ -2698,7 +2698,7 @@ fn title_capture(bytes: &[u8], markup: bool) -> std::ffi::CString {
 pub unsafe fn con_parse_title_format(con: *mut Con) -> i3_common::string::I3String {
     assert!(!(*con).title_format.is_null());
     let win = (*con).window;
-    let markup = font_is_pango();
+    let markup = font_is_pango(&crate::config::config.font);
     let capture = |pointer: *const libc::c_char| {
         let bytes = if pointer.is_null() {
             &[][..]

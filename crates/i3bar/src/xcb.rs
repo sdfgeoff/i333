@@ -13,8 +13,8 @@ use i3_common::draw_util::draw_util_surface_init;
 use i3_common::draw_util::draw_util_text;
 use i3_common::font::load_font;
 use i3_common::font::predict_text_width;
-use i3_common::font::set_font;
 use i3_common::safewrappers::{sasprintf, sstrdup};
+use std::ffi::CStr;
 use xcb_interop::events;
 /*
  * vim:ts=4:sw=4:expandtab
@@ -33,8 +33,6 @@ pub use libev_sys::{
 };
 
 pub use i3_common::font::Font;
-pub use i3_common::font::FontBackendData;
-pub use i3_common::font::XcbFontData;
 
 pub use crate::child::rect_t;
 pub use i3_common::draw_util::color_t;
@@ -120,17 +118,7 @@ static mut tray_atom: Option<x::Atom> = None;
 
 pub static mut conn: *mut xcb_connection_t =
     ::core::ptr::null::<xcb_connection_t>() as *mut xcb_connection_t;
-static mut font: Font = Font {
-    type_0: i3_common::font::FontType::None,
-    height: 0,
-    pattern: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-    specific: FontBackendData {
-        xcb: XcbFontData {
-            id: 0,
-            info: std::ptr::null_mut(),
-        },
-    },
-};
+pub(crate) static mut font: Font = Font::empty();
 
 pub static mut icon_size: ::core::ffi::c_int = 0;
 
@@ -583,6 +571,7 @@ unsafe fn draw_separator(
             center_x.wrapping_sub((separator_symbol_width / 2 as ::core::ffi::c_int) as u32)
         };
         draw_util_text(
+            &crate::xcb::font,
             config.separator_symbol.as_ref().unwrap(),
             &raw mut (*output).statusline_buffer,
             sep_fg,
@@ -604,7 +593,7 @@ unsafe fn predict_block_length(block: *mut status_block) {
         (*block).render_length = 0 as u32;
         return;
     }
-    (*render).width = predict_text_width(text) as u32;
+    (*render).width = predict_text_width(&crate::xcb::font, text) as u32;
     if !(*block).border.is_null() {
         (*render).width = (*render).width.wrapping_add(logical_px(
             (*block).border_left.wrapping_add((*block).border_right) as ::core::ffi::c_int,
@@ -758,6 +747,7 @@ unsafe fn draw_statusline(output: *mut i3_output, clip_left: u32, use_focus_colo
                 );
             }
             draw_util_text(
+                &crate::xcb::font,
                 text,
                 &raw mut (*output).statusline_buffer,
                 fg_color,
@@ -2132,8 +2122,8 @@ pub unsafe fn init_xcb_late(mut fontname: *mut ::core::ffi::c_char) {
             .as_ptr()
             .cast_mut();
     }
-    font = load_font(fontname, true);
-    set_font(&raw mut font);
+    i3_common::font::replace_font(&mut font, CStr::from_ptr(fontname), true);
+
     if config.verbose {
         printf(
             c"[%s:%d] Calculated font-height: %d\n".as_ptr(),
@@ -2175,7 +2165,7 @@ pub unsafe fn init_xcb_late(mut fontname: *mut ::core::ffi::c_char) {
     bar_height = default_px + padding_scaled;
     icon_size = bar_height - 2 as ::core::ffi::c_int * logical_px(config.tray_padding);
     if let Some(separator) = (&*(&raw const config.separator_symbol)).as_ref() {
-        separator_symbol_width = predict_text_width(separator);
+        separator_symbol_width = predict_text_width(&crate::xcb::font, separator);
     }
     flush_requests();
     if config.hide_on_modifier == crate::application::BarDisplayMode::Hide {
@@ -2370,7 +2360,7 @@ pub unsafe fn clean_xcb() {
         return;
     }
     free_outputs();
-    free_font();
+    font = Font::empty();
     send_unchecked(&x::FreeCursor {
         cursor: x::Cursor::new(cursor),
     });
@@ -2983,6 +2973,7 @@ unsafe fn draw_button(
             as ::core::ffi::c_double,
     );
     draw_util_text(
+        &crate::xcb::font,
         text,
         surface,
         fg_color,
@@ -3222,7 +3213,6 @@ use crate::child::stop_children;
 use crate::ipc::i3_send_msg;
 use crate::outputs::free_outputs;
 use i3_common::dpi::logical_px;
-use i3_common::font::free_font;
 use i3_common::safewrappers::scalloc;
 use i3_common::safewrappers::smalloc;
 use i3_common::safewrappers::sstrndup;
