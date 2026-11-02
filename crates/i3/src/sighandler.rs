@@ -428,8 +428,8 @@ unsafe fn sighandler_draw_dialog(dialog: *mut dialog_t) {
 unsafe fn sighandler_handle_key_press(event: *mut xcb_key_press_event_t) {
     let mut state: u16 = (*event).state;
     state = (state as ::core::ffi::c_uint & !xcb_numlock_mask) as u16;
-    let sym: xcb_keysym_t =
-        xcb_key_press_lookup_keysym(keysyms, event, state as ::core::ffi::c_int);
+    // The native press-lookup utility is exactly this keycode/column lookup.
+    let sym = crate::application::key_symbol((*event).detail, i32::from(state));
     if crash_action(sym) == Some(CrashAction::Backtrace) {
         debuglog(
             c"%s:%s:%d - User issued core-dump command.\n"
@@ -562,11 +562,10 @@ use i3_common::safewrappers::scalloc;
 use xcb_sys::{
     xcb_colormap_t, xcb_create_colormap, xcb_cursor_t, xcb_destroy_window, xcb_drawable_t,
     xcb_expose_event_t, xcb_flush, xcb_free_colormap, xcb_generate_id, xcb_generic_event_t,
-    xcb_grab_keyboard, xcb_grab_pointer, xcb_key_press_event_t, xcb_key_press_lookup_keysym,
-    xcb_keysym_t, xcb_timestamp_t, xcb_visualid_t, xcb_wait_for_event, xcb_window_t,
-    XCB_COLORMAP_ALLOC_NONE, XCB_CURRENT_TIME, XCB_CW_BACK_PIXEL, XCB_CW_BORDER_PIXEL,
-    XCB_CW_COLORMAP, XCB_CW_OVERRIDE_REDIRECT, XCB_EXPOSE, XCB_GRAB_MODE_ASYNC, XCB_KEY_PRESS,
-    XCB_NONE, XCB_WINDOW_CLASS_INPUT_OUTPUT,
+    xcb_grab_keyboard, xcb_grab_pointer, xcb_key_press_event_t, xcb_timestamp_t, xcb_visualid_t,
+    xcb_wait_for_event, xcb_window_t, XCB_COLORMAP_ALLOC_NONE, XCB_CURRENT_TIME, XCB_CW_BACK_PIXEL,
+    XCB_CW_BORDER_PIXEL, XCB_CW_COLORMAP, XCB_CW_OVERRIDE_REDIRECT, XCB_EXPOSE,
+    XCB_GRAB_MODE_ASYNC, XCB_KEY_PRESS, XCB_NONE, XCB_WINDOW_CLASS_INPUT_OUTPUT,
 };
 
 pub use libc::{
@@ -587,7 +586,6 @@ pub use i3_common::font::Font;
 
 // Internal calls and globals use canonical Rust identities.
 use crate::application::conn;
-use crate::application::keysyms;
 use crate::application::root;
 use crate::application::root_depth;
 use crate::application::root_screen;

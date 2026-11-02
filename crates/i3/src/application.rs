@@ -420,8 +420,33 @@ pub static mut colormap: xcb_colormap_t = 0;
 
 pub static mut main_loop: *mut ev_loop = ::core::ptr::null::<ev_loop>() as *mut ev_loop;
 
-pub static mut keysyms: *mut xcb_key_symbols_t =
-    ::core::ptr::null::<xcb_key_symbols_t>() as *mut xcb_key_symbols_t;
+// Native cache ownership remains on the main event thread and outlives TLS.
+// Release it explicitly before the main display registration in native atexit.
+static mut KEY_SYMBOLS: Option<xcb_interop::keysyms::KeySymbols> = None;
+
+/// Rebuild on the event thread; no key-symbol borrow may span this operation.
+pub unsafe fn rebuild_key_symbols() {
+    drop(KEY_SYMBOLS.take());
+    KEY_SYMBOLS = xcb_interop::keysyms::KeySymbols::new(main_connection());
+}
+/// Refresh only during synchronous MappingNotify dispatch on the event thread.
+pub unsafe fn refresh_key_symbols(event: &xcb::x::MappingNotifyEvent) {
+    if let Some(symbols) = KEY_SYMBOLS.as_mut() {
+        symbols.refresh(event);
+    }
+}
+/// Query without exposing a cache borrow to graph-mutating callbacks.
+pub unsafe fn key_symbol_modifiers(symbol: u32) -> u32 {
+    KEY_SYMBOLS.as_ref().map_or(0, |symbols| {
+        i3_common::get_mod_mask::query_modifier_mask(symbol, symbols)
+    })
+}
+/// Copy a lookup result while the event thread retains its cache owner.
+pub unsafe fn key_symbol(keycode: u8, column: i32) -> u32 {
+    KEY_SYMBOLS
+        .as_ref()
+        .map_or(0, |symbols| symbols.keysym(keycode, column))
+}
 
 pub static mut default_shmlog_size: ::core::ffi::c_int =
     25 as ::core::ffi::c_int * 1024 as ::core::ffi::c_int * 1024 as ::core::ffi::c_int;
@@ -657,10 +682,9 @@ unsafe extern "C" fn xcb_prepare_cb(
         let next = main_connection().poll_for_event();
         match next {
             Ok(Some(event)) => {
-                let kind = event_kind(&event);
-                // Transitional borrow for existing native event handlers. They
-                // must not free or retain the owned event allocation.
-                handle_event(kind, event.as_raw().cast());
+                // Dispatch borrows the maintained owner; neither handlers nor
+                // native startup-notification may free or retain its allocation.
+                handle_event(&event);
             }
             Err(xcb::Error::Protocol(error)) => log_x11_error(&error),
             Ok(None) | Err(xcb::Error::Connection(_)) => break,
@@ -703,6 +727,7 @@ extern "C" fn i3_exit() {
             unlink(current_log_stream_socket_path);
         }
         crate::restore_layout::restore_shutdown();
+        drop(KEY_SYMBOLS.take());
         // All native shutdown requests above complete before unregistering the
         // sole owner. The raw alias must never be disconnected independently.
         conn = std::ptr::null_mut();
@@ -1767,8 +1792,8 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     restore_connect();
     property_handlers_init();
     ewmh_setup_hints();
-    keysyms = xcb_key_symbols_alloc(conn);
-    xcb_numlock_mask = aio_get_mod_mask_for(XCB_NUM_LOCK as u32, keysyms) as ::core::ffi::c_uint;
+    rebuild_key_symbols();
+    xcb_numlock_mask = key_symbol_modifiers(XCB_NUM_LOCK as u32);
     if !load_keymap() {
         errx(EXIT_FAILURE, c"Could not load keymap\n".as_ptr());
     }
@@ -1983,7 +2008,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
             Ok(Some(event)) => {
                 let kind = event_kind(&event);
                 if kind == XCB_MAP_REQUEST {
-                    handle_event(kind, event.as_raw().cast());
+                    handle_event(&event);
                 }
             }
             Err(xcb::Error::Protocol(_)) => {}
@@ -2211,9 +2236,8 @@ use xcb_sys::{
     xcb_create_window, xcb_drawable_t, xcb_generate_id, xcb_generic_error_t,
     xcb_get_extension_data, xcb_get_geometry, xcb_get_geometry_cookie_t, xcb_get_geometry_reply,
     xcb_get_geometry_reply_t, xcb_get_selection_owner, xcb_get_selection_owner_reply,
-    xcb_get_selection_owner_reply_t, xcb_grab_server, xcb_intern_atom, xcb_intern_atom_cookie_t,
-    xcb_intern_atom_reply, xcb_intern_atom_reply_t, xcb_intern_atom_unchecked,
-    xcb_key_symbols_alloc, xcb_key_symbols_t, xcb_keycode_t, xcb_prefetch_extension_data,
+    xcb_get_selection_owner_reply_t, xcb_grab_server, xcb_intern_atom, xcb_intern_atom_reply,
+    xcb_intern_atom_reply_t, xcb_intern_atom_unchecked, xcb_keycode_t, xcb_prefetch_extension_data,
     xcb_prefetch_maximum_request_length, xcb_property_notify_event_t, xcb_query_extension_reply_t,
     xcb_query_pointer, xcb_query_pointer_cookie_t, xcb_query_pointer_reply,
     xcb_query_pointer_reply_t, xcb_randr_id, xcb_request_check, xcb_screen_t, xcb_send_event,
@@ -2357,7 +2381,6 @@ use crate::tree::tree_init;
 use crate::tree::tree_restore;
 use crate::version::i3_version;
 use i3_common::create_socket::create_socket;
-use i3_common::get_mod_mask::aio_get_mod_mask_for;
 use i3_common::get_process_filename::get_process_filename;
 use i3_common::get_visualtype::get_visualtype;
 use i3_common::ipc_recv_message::ipc_recv_message;

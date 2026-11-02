@@ -119,7 +119,7 @@ unsafe fn drain_drag_events(loop_0: *mut ev_loop, dragloop: *mut DragState) -> b
                     89,
                 );
                 (*dragloop).result = DragResult::Revert;
-                handle_event(type_0, event);
+                handle_event(&owner);
             }
             XCB_UNMAP_NOTIFY => {
                 let unmap_event: *mut xcb_unmap_notify_event_t =
@@ -146,7 +146,7 @@ unsafe fn drain_drag_events(loop_0: *mut ev_loop, dragloop: *mut DragState) -> b
                         (*dragloop).result = DragResult::Abort;
                     }
                 }
-                handle_event(type_0, event);
+                handle_event(&owner);
             }
             XCB_MOTION_NOTIFY => {
                 pending_motion = Some(*(event as *const xcb_motion_notify_event_t));
@@ -166,7 +166,7 @@ unsafe fn drain_drag_events(loop_0: *mut ev_loop, dragloop: *mut DragState) -> b
                             .data32[2 as usize],
                     );
                 } else {
-                    handle_event(type_0, event);
+                    handle_event(&owner);
                 }
             }
             _ => {
@@ -178,7 +178,7 @@ unsafe fn drain_drag_events(loop_0: *mut ev_loop, dragloop: *mut DragState) -> b
                     c"drain_drag_events".as_ptr(),
                     131,
                 );
-                handle_event(type_0, event);
+                handle_event(&owner);
             }
         }
         if (*dragloop).result == DragResult::Dragging {

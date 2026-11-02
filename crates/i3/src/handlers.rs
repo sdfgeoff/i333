@@ -7,7 +7,7 @@ use crate::types::FocusActivation;
 use crate::types::KillWindow;
 use crate::types::Layout;
 use crate::types::WindowDock;
-use xcb::{x, XidNew};
+use xcb::{x, Raw, XidNew};
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -296,10 +296,11 @@ unsafe fn handle_motion_notify(event: *mut xcb_motion_notify_event_t) {
         }
     }
 }
-unsafe fn handle_mapping_notify(event: *mut xcb_mapping_notify_event_t) {
-    if (*event).request as ::core::ffi::c_int != XCB_MAPPING_KEYBOARD as ::core::ffi::c_int
-        && (*event).request as ::core::ffi::c_int != XCB_MAPPING_MODIFIER as ::core::ffi::c_int
-    {
+unsafe fn handle_mapping_notify(event: &x::MappingNotifyEvent) {
+    // request() transmutes the native selector. Inspect its wire byte first;
+    // unknown mappings remain ignored rather than becoming invalid Rust enums.
+    let request = *event.as_raw().cast::<u8>().add(4);
+    if request != x::Mapping::Keyboard as u8 && request != x::Mapping::Modifier as u8 {
         return;
     }
     debuglog(
@@ -310,8 +311,8 @@ unsafe fn handle_mapping_notify(event: *mut xcb_mapping_notify_event_t) {
         c"handle_mapping_notify".as_ptr(),
         269 as ::core::ffi::c_int,
     );
-    xcb_refresh_keyboard_mapping(keysyms, event);
-    xcb_numlock_mask = aio_get_mod_mask_for(XCB_NUM_LOCK as u32, keysyms) as ::core::ffi::c_uint;
+    crate::application::refresh_key_symbols(event);
+    xcb_numlock_mask = crate::application::key_symbol_modifiers(XCB_NUM_LOCK as u32);
     ungrab_all_keys(conn);
     translate_keysyms();
     grab_all_keys(conn);
@@ -1989,7 +1990,11 @@ unsafe fn property_notify(state: u8, window: xcb_window_t, atom: xcb_atom_t) {
     dispatch_property(handler.cb.expect("non-null function pointer"), con, reply);
 }
 
-pub unsafe fn handle_event(type_0: ::core::ffi::c_int, event: *mut xcb_generic_event_t) {
+pub unsafe fn handle_event(owner: &xcb::Event) {
+    // Transitional leaf handlers still borrow native records from this one
+    // maintained owner. This dispatch API cannot transfer/free event ownership.
+    let event = owner.as_raw().cast::<xcb_generic_event_t>();
+    let type_0 = i32::from((*event).response_type & 0x7f);
     if type_0 != XCB_MOTION_NOTIFY {
         debuglog(
             c"%s:%s:%d - event type %d, xkb_base %d\n"
@@ -2029,8 +2034,7 @@ pub unsafe fn handle_event(type_0: ::core::ffi::c_int, event: *mut xcb_generic_e
                 (*state).sequence as ::core::ffi::c_int,
                 (*state).time,
             );
-            xcb_key_symbols_free(keysyms);
-            keysyms = xcb_key_symbols_alloc(conn);
+            crate::application::rebuild_key_symbols();
             if (*(event as *mut xcb_xkb_new_keyboard_notify_event_t)).changed as ::core::ffi::c_int
                 & XCB_XKB_NKN_DETAIL_KEYCODES as ::core::ffi::c_int
                 != 0
@@ -2073,8 +2077,7 @@ pub unsafe fn handle_event(type_0: ::core::ffi::c_int, event: *mut xcb_generic_e
                     },
                     type_0,
                 );
-                xcb_key_symbols_free(keysyms);
-                keysyms = xcb_key_symbols_alloc(conn);
+                crate::application::rebuild_key_symbols();
                 ungrab_all_keys(conn);
                 translate_keysyms();
                 grab_all_keys(conn);
@@ -2179,7 +2182,9 @@ pub unsafe fn handle_event(type_0: ::core::ffi::c_int, event: *mut xcb_generic_e
             handle_configure_request(event as *mut xcb_configure_request_event_t);
         }
         XCB_MAPPING_NOTIFY => {
-            handle_mapping_notify(event as *mut xcb_mapping_notify_event_t);
+            if let xcb::Event::X(x::Event::MappingNotify(mapping)) = owner {
+                handle_mapping_notify(mapping);
+            }
         }
         XCB_FOCUS_IN => {
             handle_focus_in(event as *mut xcb_focus_in_event_t);
@@ -2334,9 +2339,8 @@ use xcb_sys::{
     xcb_atom_t, xcb_button_press_event_t, xcb_button_t, xcb_client_message_event_t,
     xcb_configure_notify_event_t, xcb_configure_request_event_t, xcb_destroy_notify_event_t,
     xcb_enter_notify_event_t, xcb_expose_event_t, xcb_focus_in_event_t, xcb_generic_event_t,
-    xcb_key_press_event_t, xcb_key_symbols_alloc, xcb_key_symbols_free, xcb_map_request_event_t,
-    xcb_mapping_notify_event_t, xcb_motion_notify_event_t, xcb_property_notify_event_t,
-    xcb_refresh_keyboard_mapping, xcb_selection_clear_event_t, xcb_shape_notify_event_t,
+    xcb_key_press_event_t, xcb_map_request_event_t, xcb_motion_notify_event_t,
+    xcb_property_notify_event_t, xcb_selection_clear_event_t, xcb_shape_notify_event_t,
     xcb_shape_sk_t, xcb_timestamp_t, xcb_unmap_notify_event_t, xcb_window_t,
     xcb_xkb_new_keyboard_notify_event_t, xcb_xkb_state_notify_event_t, XCB_ATOM_WM_CLASS,
     XCB_ATOM_WM_CLIENT_MACHINE, XCB_ATOM_WM_HINTS, XCB_ATOM_WM_NAME, XCB_ATOM_WM_NORMAL_HINTS,
@@ -2345,13 +2349,12 @@ use xcb_sys::{
     XCB_CONFIG_WINDOW_HEIGHT, XCB_CONFIG_WINDOW_SIBLING, XCB_CONFIG_WINDOW_STACK_MODE,
     XCB_CONFIG_WINDOW_WIDTH, XCB_CONFIG_WINDOW_X, XCB_CONFIG_WINDOW_Y, XCB_DESTROY_NOTIFY,
     XCB_ENTER_NOTIFY, XCB_EXPOSE, XCB_FOCUS_IN, XCB_FOCUS_OUT, XCB_ICCCM_WM_STATE_ICONIC,
-    XCB_ICCCM_WM_STATE_NORMAL, XCB_KEY_PRESS, XCB_KEY_RELEASE, XCB_MAPPING_KEYBOARD,
-    XCB_MAPPING_MODIFIER, XCB_MAPPING_NOTIFY, XCB_MAP_REQUEST, XCB_MOTION_NOTIFY, XCB_NONE,
-    XCB_NOTIFY_DETAIL_POINTER, XCB_NOTIFY_MODE_GRAB, XCB_NOTIFY_MODE_NORMAL,
-    XCB_NOTIFY_MODE_UNGRAB, XCB_NUM_LOCK, XCB_PROPERTY_NOTIFY, XCB_RANDR_SCREEN_CHANGE_NOTIFY,
-    XCB_SELECTION_CLEAR, XCB_SHAPE_NOTIFY, XCB_SHAPE_SK_BOUNDING, XCB_SHAPE_SK_INPUT,
-    XCB_STACK_MODE_ABOVE, XCB_UNMAP_NOTIFY, XCB_XKB_MAP_NOTIFY, XCB_XKB_NEW_KEYBOARD_NOTIFY,
-    XCB_XKB_NKN_DETAIL_KEYCODES, XCB_XKB_STATE_NOTIFY,
+    XCB_ICCCM_WM_STATE_NORMAL, XCB_KEY_PRESS, XCB_KEY_RELEASE, XCB_MAPPING_NOTIFY, XCB_MAP_REQUEST,
+    XCB_MOTION_NOTIFY, XCB_NONE, XCB_NOTIFY_DETAIL_POINTER, XCB_NOTIFY_MODE_GRAB,
+    XCB_NOTIFY_MODE_NORMAL, XCB_NOTIFY_MODE_UNGRAB, XCB_NUM_LOCK, XCB_PROPERTY_NOTIFY,
+    XCB_RANDR_SCREEN_CHANGE_NOTIFY, XCB_SELECTION_CLEAR, XCB_SHAPE_NOTIFY, XCB_SHAPE_SK_BOUNDING,
+    XCB_SHAPE_SK_INPUT, XCB_STACK_MODE_ABOVE, XCB_UNMAP_NOTIFY, XCB_XKB_MAP_NOTIFY,
+    XCB_XKB_NEW_KEYBOARD_NOTIFY, XCB_XKB_NKN_DETAIL_KEYCODES, XCB_XKB_STATE_NOTIFY,
 };
 
 use startup_notification_sys::{
@@ -2375,7 +2378,6 @@ pub use crate::types::Window;
 use crate::application::conn;
 use crate::application::conn_screen;
 use crate::application::force_xinerama;
-use crate::application::keysyms;
 use crate::application::last_timestamp;
 use crate::application::root;
 use crate::application::shape_supported;
@@ -2469,13 +2471,31 @@ use crate::x::x_push_changes;
 use crate::x::x_set_shape;
 use crate::xcb::fake_absolute_configure_notify;
 use i3_common::draw_util::draw_util_copy_surface;
-use i3_common::get_mod_mask::aio_get_mod_mask_for;
 
 use crate::xcb::xcb_numlock_mask;
 
 #[cfg(test)]
 mod owned_event_tests {
     use super::*;
+    #[test]
+    fn unknown_and_pointer_mapping_selectors_are_ignored_before_native_cache_access() {
+        for request in [x::Mapping::Pointer as u8, u8::MAX] {
+            unsafe {
+                let raw = libc::calloc(1, std::mem::size_of::<xcb::ffi::xcb_generic_event_t>())
+                    .cast::<xcb::ffi::xcb_generic_event_t>();
+                assert!(!raw.is_null());
+                (*raw).response_type = XCB_MAPPING_NOTIFY as u8;
+                raw.cast::<u8>().add(4).write(request);
+                let event = xcb::resolve_event(raw, &[]);
+                let xcb::Event::X(x::Event::MappingNotify(mapping)) = &event else {
+                    panic!("mapping opcode was not decoded as a maintained event");
+                };
+                // No display or key-symbol owner exists in this test. Processing
+                // an unknown selector must stop before a lookup or enum getter.
+                handle_mapping_notify(mapping);
+            }
+        }
+    }
     #[test]
     fn property_dispatch_keeps_owned_reply_alive_through_a_borrowing_callback_unwind() {
         unsafe fn borrow_then_panic(_: *mut Con, reply: Option<&x::GetPropertyReply>) -> bool {
