@@ -330,6 +330,7 @@ dependencies = [
  "pango-sys",
  "pangocairo",
  "pangocairo-sys",
+ "xcb",
  "xcb-sys",
 ]
 

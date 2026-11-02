@@ -8,12 +8,13 @@
  *
  */
 #![deny(unsafe_op_in_unsafe_fn)]
+use crate::domains::ContainerType;
 
 use crate::con::arena::parent::parent_ptr;
 use crate::con::arena::{focus, identity, resolve};
 use crate::con::{
     con_activate, con_descend_focused, con_get_output, con_get_workspace, con_is_sticky,
-    con_move_to_workspace, CT_CON, CT_FLOATING_CON,
+    con_move_to_workspace,
 };
 use crate::randr::{get_output_by_name, get_output_next_wrap};
 use crate::tree::{croot, focused};
@@ -72,7 +73,7 @@ pub unsafe fn output_get_content(output: *mut Con) -> *mut Con {
     unsafe {
         let mut child = nodes::first_ptr(output);
         while !child.is_null() {
-            if (*child).type_0 == CT_CON {
+            if (*child).type_0 == ContainerType::Con {
                 return child;
             }
             child = nodes::next_ptr(child);
@@ -169,7 +170,7 @@ pub unsafe fn output_push_sticky_windows(old_focus: *mut Con) {
                     let Some(current) = resolve(current_id) else {
                         continue;
                     };
-                    let floating = (*current).type_0 == CT_FLOATING_CON;
+                    let floating = (*current).type_0 == ContainerType::Floating;
                     let sticky = floating && con_is_sticky(current);
                     let was_focused = floating
                         && sticky

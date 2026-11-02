@@ -31,6 +31,7 @@ mod config;
 mod config_directives;
 mod config_parser;
 mod display_version;
+mod domains;
 mod drag;
 mod ewmh;
 mod fake_outputs;

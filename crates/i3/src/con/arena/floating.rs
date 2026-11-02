@@ -1,5 +1,6 @@
 //! Owned ordered floating membership. This module never dereferences Con links.
 use super::{Arena, ConId, Entry, CONTAINERS};
+use crate::domains::ContainerType;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum MembershipError {
@@ -454,7 +455,7 @@ mod tests {
         for (&raw, &id) in raws.iter().zip(&ids) {
             unsafe {
                 set_parent_ptr(raw, parent).expect("live acyclic ancestry");
-                (*raw).type_0 = crate::con::CT_FLOATING_CON;
+                (*raw).type_0 = ContainerType::Floating;
             }
             append(parent_id, id).unwrap();
         }
@@ -484,8 +485,8 @@ mod tests {
         let parent_id = identity(parent).unwrap();
         let child_id = identity(child).unwrap();
         unsafe {
-            (*parent).type_0 = crate::con::CT_WORKSPACE;
-            (*child).type_0 = crate::con::CT_FLOATING_CON;
+            (*parent).type_0 = ContainerType::Workspace;
+            (*child).type_0 = ContainerType::Floating;
             crate::con::con_attach(child, parent, false);
             assert_eq!(parent_ptr(child), parent);
             assert_eq!(first(parent_id), Some(child_id));

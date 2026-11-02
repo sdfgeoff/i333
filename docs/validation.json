@@ -8,26 +8,26 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 23 wallclock secs ( 0.81 usr +  0.13 sys =  0.94 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 23 wallclock secs ( 0.89 usr +  0.12 sys =  1.01 CPU)\nResult: PASS",
     "profile": "debug",
     "build": "cargo test --locked",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "cf2fefedb442bffd9ee355e1ca74db562525a770f099ae99ee3f98961e385bbc",
-    "i3bar": "6bdb80034bcaa9bf3421cf61888a83875271875573785b361ad84b3747fabd8b",
-    "i3-config-wizard": "41e0de887dfbcb7b9948df0da74dd7042e352708efd62b7cc4c5d749cf8173f8",
-    "i3-dump-log": "df6d934e454d9ea33b145b3651a94b056ffcd441220c29d12b460f09f35284e6",
-    "i3-input": "423e06810b221871df9274384c4ac44e98437587c60f6fdc10396d7aed6e4499",
-    "i3-msg": "4a1b41104f794350e5b068d44eee3195d55045804b5db343ea79084a534c5106",
-    "i3-nagbar": "d3f150c94193b1a0ecd1d75a8321dc180ee7f74fd38da25bf39e6bcc9f9df281"
+    "i3": "0d5fc80f2cc865acd08f3b3beb5564d32da2af8d23696698cf1acf648bf0c9eb",
+    "i3bar": "b3ee4feffbe9e0ec487b67c7d62eeb69e477c49f32a590da68582d317bd5c1cf",
+    "i3-config-wizard": "937b8de63c9efcdbdf8dd92848e707c89146d6bd79e164591d89f9cd10fa95d0",
+    "i3-dump-log": "42bdb30a841f005bca5df5b7291b88aea56e04ddbb7fb594755f36915eeb53c9",
+    "i3-input": "fca72ff8074b82c8f506c66dab47afdbf893113e3ad1399f3217faef41a66161",
+    "i3-msg": "498841a1a889ddb0951a2289675edb04f1c12fce27a0877e15089db28ea84b7b",
+    "i3-nagbar": "ebff78957cccf9f3182c4ccdc61b3237223de6cb8e6d4530012a2b667cc6db28"
   },
-  "note": "Ten-member Cargo workspace. cargo test --locked passed388 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
+  "note": "Ten-member Cargo workspace. cargo test --locked passed 395 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
   "additional_checks": {
     "headless_c_rust_state_comparisons": 54,
     "ipc_client_test_groups": 16,
-    "workspace_unit_tests": 388,
+    "workspace_unit_tests": 395,
     "core_and_bar_cli_comparisons": 39,
     "pcre2_compile_match_error_comparisons": 4620,
     "json_oracle_cases": 2218,
@@ -116,11 +116,11 @@
     "binary_count": 7,
     "native_library_discovery": "maintained native binding build scripts and dedicated sys crates; i3-build links only platform m/rt",
     "unit_tests": {
-      "i3": 201,
+      "i3": 204,
       "cargo_regression_wrappers": 8,
       "xkb_integration": 1,
       "i3-build": 3,
-      "i3-common": 75,
+      "i3-common": 76,
       "native_graphics": 5,
       "i3-json": 17,
       "i3-config-wizard": 5,
@@ -130,14 +130,15 @@
       "i3-nagbar": 3,
       "binary_artifact_checks": 2,
       "i3bar": 42,
-      "libev-sys": 2,
-      "startup-notification-sys": 1,
-      "xcb-sys": 2
+      "libev-sys": 3,
+      "startup-notification-sys": 2,
+      "xcb-sys": 2,
+      "maintained_xcb_integration": 1
     },
     "cargo_fmt_check": true,
     "debug_build": true,
     "release_build": true,
-    "unit_tests_total_including_integration_checks": 388,
+    "unit_tests_total_including_integration_checks": 395,
     "test_command": "cargo test",
     "clean_source_command": "cargo test -p i3-test-support --features clean-source-check",
     "test_support": "development-only process capture, failure propagation and isolated regression orchestration",
@@ -2157,6 +2158,24 @@
         "rust_tests": 388,
         "upstream_assertions": 4205,
         "native_and_private_runtime_suites": "pass",
+        "status": "validated"
+      },
+      {
+        "stage": 2,
+        "scope": "Five application enum domains plus checked startup-notification events and typed libev break modes. Actual model fields and consumers migrated.",
+        "compatibility": "Open layout domains preserve unknown and signed numeric values; zero initialized internal records remain valid; no foreign ABI uses internal payload enums; 23 production JSON golden cases retained.",
+        "rust_tests": 395,
+        "upstream_assertions": 4205,
+        "status": "validated"
+      }
+    ],
+    "maintained_xcb_checkpoints": [
+      {
+        "stage": 1,
+        "scope": "Common root property, background detection and wallpaper screenshot helpers use maintained xcb typed requests and owned replies. Borrowed Connection view retains existing native owner.",
+        "private_display_integration": "Owned Xvfb verifies properties, background detection, screenshot and dropping borrowed view without disconnecting owner.",
+        "rust_tests": 395,
+        "upstream_assertions": 4205,
         "status": "validated"
       }
     ]

@@ -1,5 +1,6 @@
 use crate::con::arena::focus;
 use crate::con::arena::{floating, identity, resolve};
+use crate::domains::{ContainerType, FullscreenMode};
 use crate::types::BorderStyle;
 use crate::types::Direction;
 use crate::types::Layout;
@@ -17,15 +18,6 @@ use crate::types::PopupDuringFullscreen;
 // Local policy and temporary values use owned Rust storage. Native entrypoints
 // require live event-thread graph handles and a live display; callbacks may mutate
 // the graph, so node references must never span those calls.
-const CF_GLOBAL: u32 = 2;
-const CF_OUTPUT: u32 = 1;
-const CF_NONE: u32 = 0;
-const CT_WORKSPACE: u32 = 4;
-const CT_OUTPUT: u32 = 1;
-const CT_ROOT: u32 = 0;
-const CT_CON: u32 = 2;
-const CT_DOCKAREA: u32 = 5;
-type fullscreen_mode_t = u32;
 extern "C" {
     fn lround(value: f64) -> libc::c_long;
 }
@@ -151,7 +143,7 @@ pub unsafe fn render_con(con: *mut Con) {
         (*con).layout as u32,
         params.children,
     );
-    if (*con).type_0 as u32 == CT_WORKSPACE {
+    if ((*con).type_0) == ContainerType::Workspace {
         let gaps: gaps_t = calculate_effective_gaps(con);
         let inset = workspace_inset(gaps);
         (*con).rect = rect_add((*con).rect as Rect, inset) as Rect;
@@ -170,7 +162,7 @@ pub unsafe fn render_con(con: *mut Con) {
                 gaps_has_adjacent_container(con, Direction::Down),
             ],
         );
-        if (*con).fullscreen_mode as u32 == CF_NONE {
+        if ((*con).fullscreen_mode) == FullscreenMode::None {
             params.rect = rect_add(params.rect, inset_0);
             (*con).rect = rect_add((*con).rect as Rect, inset_0) as Rect;
         }
@@ -179,7 +171,7 @@ pub unsafe fn render_con(con: *mut Con) {
     }
     (*con).mapped = true;
     if !(*con).window.is_null() {
-        let border = if (*con).fullscreen_mode as u32 == CF_NONE {
+        let border = if ((*con).fullscreen_mode) == FullscreenMode::None {
             Some(con_border_style_rect(con))
         } else {
             None
@@ -200,21 +192,21 @@ pub unsafe fn render_con(con: *mut Con) {
         );
     }
     let mut fullscreen: *mut Con = ::core::ptr::null_mut::<Con>();
-    if (*con).type_0 as u32 != CT_OUTPUT {
+    if ((*con).type_0) != ContainerType::Output {
         fullscreen = con_get_fullscreen_con(
             con,
-            (if (*con).type_0 as u32 == CT_ROOT {
-                CF_GLOBAL as i32
+            (if ((*con).type_0) == ContainerType::Root {
+                FullscreenMode::Global
             } else {
-                CF_OUTPUT as i32
-            }) as fullscreen_mode_t,
+                FullscreenMode::Output
+            }),
         );
     }
     if !fullscreen.is_null() {
         (*fullscreen).rect = params.rect as Rect;
         x_raise_con(fullscreen);
         render_con(fullscreen);
-        if (*con).type_0 as u32 != CT_ROOT {
+        if ((*con).type_0) != ContainerType::Root {
             return;
         }
     }
@@ -224,7 +216,7 @@ pub unsafe fn render_con(con: *mut Con) {
         if !con_is_internal(con) {
             render_output(con);
         }
-    } else if (*con).type_0 as u32 == CT_ROOT {
+    } else if ((*con).type_0) == ContainerType::Root {
         render_root(con, fullscreen);
     } else {
         let mut i: i32 = 0;
@@ -386,7 +378,7 @@ unsafe fn render_output(con: *mut Con) {
     let mut content: *mut Con = ::core::ptr::null_mut::<Con>();
     child = nodes::first_ptr(con);
     while !child.is_null() {
-        if (*child).type_0 as u32 == CT_CON {
+        if ((*child).type_0) == ContainerType::Con {
             if !content.is_null() {
                 debuglog(
                     c"%s:%s:%d - More than one CT_CON on output container\n"
@@ -407,7 +399,7 @@ unsafe fn render_output(con: *mut Con) {
                 };
             }
             content = child;
-        } else if (*child).type_0 as u32 != CT_DOCKAREA {
+        } else if ((*child).type_0) != ContainerType::DockArea {
             debuglog(
                 c"%s:%s:%d - Child %p of type %d is inside the OUTPUT con\n"
                     .as_ptr()
@@ -416,7 +408,7 @@ unsafe fn render_output(con: *mut Con) {
                 c"render_output".as_ptr(),
                 334,
                 child,
-                (*child).type_0 as u32,
+                ((*child).type_0).raw() as u32,
             );
             if 0 != 0 {
             } else {
@@ -441,7 +433,7 @@ unsafe fn render_output(con: *mut Con) {
         );
         return;
     }
-    let ws: *mut Con = con_get_fullscreen_con(content, CF_OUTPUT);
+    let ws: *mut Con = con_get_fullscreen_con(content, FullscreenMode::Output);
     if ws.is_null() {
         debuglog(
             c"%s:%s:%d - Skipping this output because it is currently being destroyed.\n"
@@ -453,7 +445,7 @@ unsafe fn render_output(con: *mut Con) {
         );
         return;
     }
-    let fullscreen: *mut Con = con_get_fullscreen_con(ws, CF_OUTPUT);
+    let fullscreen: *mut Con = con_get_fullscreen_con(ws, FullscreenMode::Output);
     if !fullscreen.is_null() {
         (*fullscreen).rect = (*con).rect;
         x_raise_con(fullscreen);
@@ -462,7 +454,7 @@ unsafe fn render_output(con: *mut Con) {
     }
     child = nodes::first_ptr(con);
     while !child.is_null() {
-        if !((*child).type_0 as u32 != CT_DOCKAREA) {
+        if (*child).type_0 == ContainerType::DockArea {
             (*child).rect.height = 0 as u32;
             dockchild = nodes::first_ptr(child);
             while !dockchild.is_null() {
@@ -478,7 +470,7 @@ unsafe fn render_output(con: *mut Con) {
     }
     child = nodes::first_ptr(con);
     while !child.is_null() {
-        if (*child).type_0 as u32 == CT_CON {
+        if ((*child).type_0) == ContainerType::Con {
             (*child).rect.x = x as u32;
             (*child).rect.y = y as u32;
             (*child).rect.width = (*con).rect.width;

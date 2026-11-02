@@ -1,6 +1,7 @@
 use crate::con::arena::focus;
 use crate::con::arena::parent::parent_ptr;
 use crate::con::arena::{floating, identity, resolve};
+use crate::domains::ContainerType;
 use crate::flags::AdjacentEdges;
 use crate::types::BorderStyle;
 use crate::types::KillWindow;
@@ -26,10 +27,6 @@ use std::ffi::{CStr, CString};
 // the graph, so node references must never span those calls.
 
 type Output = xoutput;
-const CT_ROOT: u32 = 0;
-const CT_OUTPUT: u32 = 1;
-const CT_DOCKAREA: u32 = 5;
-const CT_FLOATING_CON: u32 = 3;
 
 // Adoption is confined to native reply/allocation producers in this module.
 struct NativeReply<T>(*mut T);
@@ -268,9 +265,9 @@ fn focus_action(mapped: bool, take_focus: bool, refuses_input: bool) -> FocusAct
         FocusAction::Direct
     }
 }
-fn needs_pixmap(leaf: bool, border: BorderStyle, layout: Layout, kind: i32) -> bool {
-    kind != CT_ROOT as i32
-        && kind != CT_OUTPUT as i32
+fn needs_pixmap(leaf: bool, border: BorderStyle, layout: Layout, kind: ContainerType) -> bool {
+    kind != ContainerType::Root
+        && kind != ContainerType::Output
         && ((leaf && border != BorderStyle::None)
             || matches!(layout, Layout::Stacked | Layout::Tabbed))
 }
@@ -836,7 +833,7 @@ unsafe fn x_get_border_rectangles(con: *mut Con) -> BorderRectangles {
     border_rectangles(
         con_border_style(con),
         con_is_leaf(con),
-        con_adjacent_borders(con) & AdjacentEdges::from_bits_retain(config.hide_edge_borders),
+        con_adjacent_borders(con) & config.hide_edge_borders.edge_mask(),
         con_border_style_rect(con),
         (*con).rect,
     )
@@ -857,9 +854,9 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
     let parent: *mut Con = parent_ptr(con);
     let leaf: bool = con_is_leaf(con);
     if !leaf && (*parent).layout != Layout::Stacked && (*parent).layout != Layout::Tabbed
-        || (*parent).type_0 as u32 == CT_OUTPUT
-        || (*parent).type_0 as u32 == CT_DOCKAREA
-        || (*con).type_0 as u32 == CT_FLOATING_CON
+        || ((*parent).type_0) == ContainerType::Output
+        || ((*parent).type_0) == ContainerType::DockArea
+        || ((*con).type_0) == ContainerType::Floating
     {
         return;
     }
@@ -989,7 +986,7 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
             let br: Rect = con_border_style_rect(con);
             if nodes::next_ptr(con).is_null()
                 && (nodes::previous_ptr(con)).is_null()
-                && (*parent_ptr(con)).type_0 as u32 != CT_FLOATING_CON
+                && ((*parent_ptr(con)).type_0) != ContainerType::Floating
             {
                 if (*p).parent_layout == Layout::SplitH {
                     draw_util_rectangle(
@@ -1217,8 +1214,8 @@ pub unsafe fn x_deco_recurse(con: *mut Con) {
             );
         }
     }
-    if (*con).type_0 as u32 != CT_ROOT
-        && (*con).type_0 as u32 != CT_OUTPUT
+    if ((*con).type_0) != ContainerType::Root
+        && ((*con).type_0) != ContainerType::Output
         && (!leaf || (*con).mapped)
     {
         x_draw_decoration(con);
@@ -1550,7 +1547,7 @@ pub unsafe fn x_push_node(con: *mut Con) {
         con_is_leaf(con),
         con_border_style(con),
         (*con).layout,
-        (*con).type_0 as i32,
+        (*con).type_0,
     );
     debuglog(
         c"%s:%s:%d - Con %p (layout %d), is_pixmap_needed = %s, rect.height = %d\n"
@@ -2686,9 +2683,14 @@ mod tests {
             true,
             BorderStyle::Normal,
             Layout::Stacked,
-            CT_ROOT as i32
+            ContainerType::Root
         ));
-        assert!(needs_pixmap(false, BorderStyle::None, Layout::Tabbed, 2));
+        assert!(needs_pixmap(
+            false,
+            BorderStyle::None,
+            Layout::Tabbed,
+            ContainerType::Con
+        ));
         assert!(!needs_reshape(
             first.con_deco_rect,
             first.con_deco_rect,

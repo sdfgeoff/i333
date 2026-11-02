@@ -12,9 +12,7 @@ use crate::xcursor::Cursor;
 // Event/grab ownership is scoped to this synchronous nested loop. Con/event/
 // extra pointers are borrowed by contract until drag_pointer returns; callbacks
 // may mutate/free graph nodes, so no graph references cross their invocation.
-pub use libev_sys::{
-    ev_break, ev_loop, ev_prepare, ev_prepare_start, ev_prepare_stop, EVBREAK_ONE,
-};
+pub use libev_sys::{ev_loop, ev_prepare, ev_prepare_start, ev_prepare_stop, ev_unloop, BreakMode};
 
 pub type DragCallback = Option<
     unsafe fn(
@@ -184,7 +182,7 @@ unsafe fn drain_drag_events(loop_0: *mut ev_loop, dragloop: *mut DragState) -> b
             if !((*dragloop).result != DragResult::Dragging) {
                 continue;
             }
-            ev_break(loop_0, EVBREAK_ONE as i32);
+            ev_unloop(loop_0, BreakMode::One);
             if (*dragloop).result == DragResult::Success {
                 break;
             }

@@ -1,5 +1,6 @@
 use crate::con::arena::focus;
 use crate::con::arena::parent::parent_ptr;
+use crate::domains::{ContainerType, FullscreenMode};
 use crate::types::BorderStyle;
 use crate::types::FloatingState;
 use crate::types::FocusActivation;
@@ -18,12 +19,6 @@ use crate::types::WindowDock;
  */
 // Mechanical file-by-file Rust translation of src/handlers.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
-
-pub type fullscreen_mode_t = ::core::ffi::c_uint;
-pub const CF_OUTPUT: fullscreen_mode_t = 1;
-pub const CF_NONE: fullscreen_mode_t = 0;
-
-pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
 
 pub type Output = xoutput;
 pub type i3Window = Window;
@@ -188,10 +183,7 @@ unsafe fn handle_enter_notify(event: *mut xcb_enter_notify_event_t, full_sequenc
         con = con_by_window_id((*event).event);
         enter_child = true;
     }
-    if con.is_null()
-        || (*parent_ptr(con)).type_0 as ::core::ffi::c_uint
-            == CT_DOCKAREA as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if con.is_null() || ((*parent_ptr(con)).type_0) == ContainerType::DockArea {
         debuglog(
             c"%s:%s:%d - Getting screen at %d x %d\n"
                 .as_ptr()
@@ -511,10 +503,7 @@ unsafe fn handle_configure_request(event: *mut xcb_configure_request_event_t) {
             floating_reposition(floatingcon, newrect);
             return;
         }
-        if !parent_ptr(con).is_null()
-            && (*parent_ptr(con)).type_0 as ::core::ffi::c_uint
-                == CT_DOCKAREA as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
+        if !parent_ptr(con).is_null() && ((*parent_ptr(con)).type_0) == ContainerType::DockArea {
             debuglog(
                 c"%s:%s:%d - Reconfiguring dock window (con = %p).\n"
                     .as_ptr()
@@ -918,11 +907,9 @@ unsafe fn handle_net_wm_state_change(mut con: *mut Con, change: u32, atom: u32) 
             debug_change,
         );
         if change == _NET_WM_STATE_TOGGLE as u32
-            || (*con).fullscreen_mode as ::core::ffi::c_uint
-                != CF_NONE as ::core::ffi::c_int as ::core::ffi::c_uint
+            || ((*con).fullscreen_mode) != FullscreenMode::None
                 && change == _NET_WM_STATE_REMOVE as u32
-            || (*con).fullscreen_mode as ::core::ffi::c_uint
-                == CF_NONE as ::core::ffi::c_int as ::core::ffi::c_uint
+            || ((*con).fullscreen_mode) == FullscreenMode::None
                 && change == _NET_WM_STATE_ADD as u32
         {
             debuglog(
@@ -931,7 +918,7 @@ unsafe fn handle_net_wm_state_change(mut con: *mut Con, change: u32, atom: u32) 
                 c"handle_net_wm_state_change".as_ptr(),
                 688 as ::core::ffi::c_int,
             );
-            con_toggle_fullscreen(con, CF_OUTPUT as ::core::ffi::c_int);
+            con_toggle_fullscreen(con, FullscreenMode::Output);
         }
     } else if atom == A__NET_WM_STATE_DEMANDS_ATTENTION {
         debuglog(
@@ -1572,9 +1559,7 @@ unsafe fn handle_focus_in(event: *mut xcb_focus_in_event_t) {
         );
         return;
     }
-    if (*parent_ptr(con)).type_0 as ::core::ffi::c_uint
-        == CT_DOCKAREA as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if ((*parent_ptr(con)).type_0) == ContainerType::DockArea {
         debuglog(
             c"%s:%s:%d - This is a dock client, not focusing.\n"
                 .as_ptr()
@@ -1753,10 +1738,7 @@ unsafe fn handle_motif_hints_change(con: *mut Con, prop: *mut xcb_get_property_r
 }
 unsafe fn handle_strut_partial_change(con: *mut Con, prop: *mut xcb_get_property_reply_t) -> bool {
     window_update_strut_partial((*con).window as *mut i3Window, prop);
-    if parent_ptr(con).is_null()
-        || (*parent_ptr(con)).type_0 as ::core::ffi::c_uint
-            != CT_DOCKAREA as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if parent_ptr(con).is_null() || ((*parent_ptr(con)).type_0) != ContainerType::DockArea {
         return true;
     }
     let mut search_at: *mut Con = croot;

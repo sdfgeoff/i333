@@ -1,5 +1,6 @@
 use crate::con::arena::parent::{parent_ptr, set_parent_ptr};
 use crate::con::arena::{focus, identity, nodes, resolve};
+use crate::domains::{ContainerType, DockMatch, FullscreenMode, MatchInsertWhere};
 use crate::regex::{regex_free, regex_new};
 use crate::types::BorderStyle;
 use crate::types::FloatingState;
@@ -25,14 +26,6 @@ use std::rc::Rc;
 // Mechanical file-by-file Rust translation of src/load_layout.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 
-pub const M_DONTCHECK: ::core::ffi::c_int = -1;
-
-pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
-pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
-pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
-pub const CT_CON: ::core::ffi::c_uint = 2;
-pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
-pub const CT_ROOT: ::core::ffi::c_uint = 0;
 pub type i3Window = Window;
 
 const true_0: i32 = 1;
@@ -110,7 +103,7 @@ impl LayoutState {
             verboselog(c"creating new swallow\n".as_ptr().cast_mut());
             self.current_swallow = smalloc(::core::mem::size_of::<Match>() as usize) as *mut Match;
             match_init(self.current_swallow);
-            (*self.current_swallow).dock = M_DONTCHECK;
+            (*self.current_swallow).dock = DockMatch::DontCheck;
             (*self.current_swallow).matches.tqe_next = ::core::ptr::null_mut::<Match>();
             (*self.current_swallow).matches.tqe_prev = (*self.json_node).swallow_head.tqh_last;
             *(*self.json_node).swallow_head.tqh_last = self.current_swallow as *mut Match;
@@ -211,9 +204,7 @@ impl LayoutState {
                     free(match_0 as *mut ::core::ffi::c_void);
                 }
             }
-            if (*self.json_node).type_0 as ::core::ffi::c_uint
-                == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-            {
+            if ((*self.json_node).type_0) == ContainerType::Workspace {
                 debuglog(
                     c"%s:%s:%d - Attaching workspace. name = %s\n"
                         .as_ptr()
@@ -244,9 +235,7 @@ impl LayoutState {
                 }
                 (*self.json_node).num = ws_name_to_number((*self.json_node).name);
             }
-            if (*self.json_node).type_0 as ::core::ffi::c_uint
-                == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
-            {
+            if ((*self.json_node).type_0) == ContainerType::Floating {
                 debuglog(
                     c"%s:%s:%d - fixing parent which currently is %p / %s\n"
                         .as_ptr()
@@ -312,8 +301,7 @@ impl LayoutState {
             x_con_init(self.json_node);
             let old_floating_mode: FloatingState = (*self.json_node).floating;
             if (old_floating_mode).is_floating()
-                && (*parent_ptr(self.json_node)).type_0 as ::core::ffi::c_uint
-                    != CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
+                && ((*parent_ptr(self.json_node)).type_0) != ContainerType::Floating
             {
                 verboselog(
                     c"Fixing floating node without CT_FLOATING_CON parent\n"
@@ -555,17 +543,17 @@ impl LayoutState {
             let owned_buf_1 = property_string(std::slice::from_raw_parts(val, len));
             let buf_1 = owned_buf_1.as_ptr();
             if strcasecmp(buf_1, c"root".as_ptr()) == 0 as ::core::ffi::c_int {
-                (*self.json_node).type_0 = CT_ROOT;
+                (*self.json_node).type_0 = ContainerType::Root;
             } else if strcasecmp(buf_1, c"output".as_ptr()) == 0 as ::core::ffi::c_int {
-                (*self.json_node).type_0 = CT_OUTPUT;
+                (*self.json_node).type_0 = ContainerType::Output;
             } else if strcasecmp(buf_1, c"con".as_ptr()) == 0 as ::core::ffi::c_int {
-                (*self.json_node).type_0 = CT_CON;
+                (*self.json_node).type_0 = ContainerType::Con;
             } else if strcasecmp(buf_1, c"floating_con".as_ptr()) == 0 as ::core::ffi::c_int {
-                (*self.json_node).type_0 = CT_FLOATING_CON;
+                (*self.json_node).type_0 = ContainerType::Floating;
             } else if strcasecmp(buf_1, c"workspace".as_ptr()) == 0 as ::core::ffi::c_int {
-                (*self.json_node).type_0 = CT_WORKSPACE;
+                (*self.json_node).type_0 = ContainerType::Workspace;
             } else if strcasecmp(buf_1, c"dockarea".as_ptr()) == 0 as ::core::ffi::c_int {
-                (*self.json_node).type_0 = CT_DOCKAREA;
+                (*self.json_node).type_0 = ContainerType::DockArea;
             } else {
                 verboselog(c"Unhandled \"type\": %s\n".as_ptr().cast_mut(), buf_1);
             }
@@ -676,12 +664,12 @@ impl LayoutState {
             self.last_key.as_ptr(),
         );
         if strcasecmp(self.last_key.as_ptr(), c"type".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*self.json_node).type_0 = val as ::core::ffi::c_uint;
+            (*self.json_node).type_0 = ContainerType::from_raw(val as u32);
         }
         if strcasecmp(self.last_key.as_ptr(), c"fullscreen_mode".as_ptr())
             == 0 as ::core::ffi::c_int
         {
-            (*self.json_node).fullscreen_mode = val as u32;
+            (*self.json_node).fullscreen_mode = FullscreenMode::from_raw(val as u32);
         }
         if strcasecmp(self.last_key.as_ptr(), c"num".as_ptr()) == 0 as ::core::ffi::c_int {
             (*self.json_node).num = val as ::core::ffi::c_int;
@@ -748,13 +736,13 @@ impl LayoutState {
                 self.swallow_is_empty = false;
             }
             if strcasecmp(self.last_key.as_ptr(), c"dock".as_ptr()) == 0 as ::core::ffi::c_int {
-                (*self.current_swallow).dock = val as ::core::ffi::c_int;
+                (*self.current_swallow).dock = DockMatch::from_raw(val as i32);
                 self.swallow_is_empty = false;
             }
             if strcasecmp(self.last_key.as_ptr(), c"insert_where".as_ptr())
                 == 0 as ::core::ffi::c_int
             {
-                (*self.current_swallow).insert_where = val as ::core::ffi::c_uint;
+                (*self.current_swallow).insert_where = MatchInsertWhere::from_raw(val as u32);
                 self.swallow_is_empty = false;
             }
         }

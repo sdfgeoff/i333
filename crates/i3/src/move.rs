@@ -1,5 +1,6 @@
 use crate::con::arena::parent::{parent_ptr, set_parent_ptr};
 use crate::con::arena::{focus, identity, nodes};
+use crate::domains::{ContainerType, FullscreenMode};
 use crate::types::Direction;
 use crate::types::Layout;
 use crate::types::Orientation;
@@ -18,9 +19,6 @@ use crate::types::Position;
 // require live event-thread graph handles and a live display; callbacks may mutate
 // the graph, so node references must never span those calls.
 
-const CF_GLOBAL: u32 = 2;
-const CF_OUTPUT: u32 = 1;
-const CT_WORKSPACE: u32 = 4;
 type Output = xoutput;
 type i3Window = Window;
 
@@ -121,7 +119,7 @@ pub unsafe fn insert_con_into(mut con: *mut Con, target: *mut Con, position: Pos
     }
     con_detach(con);
     con_fix_percent(parent_ptr(con));
-    if (*parent).type_0 as u32 == CT_WORKSPACE {
+    if ((*parent).type_0) == ContainerType::Workspace {
         let split: *mut Con = workspace_attach_to(parent);
         if split != parent {
             debuglog(
@@ -267,7 +265,7 @@ pub unsafe fn tree_move(con: *mut Con, direction: Direction) {
         263,
         direction as u32,
     );
-    if (*con).type_0 as u32 == CT_WORKSPACE {
+    if ((*con).type_0) == ContainerType::Workspace {
         debuglog(
             c"%s:%s:%d - Not moving workspace\n".as_ptr().cast_mut(),
             c"../src/move.c".as_ptr(),
@@ -276,7 +274,7 @@ pub unsafe fn tree_move(con: *mut Con, direction: Direction) {
         );
         return;
     }
-    if (*con).fullscreen_mode as u32 == CF_GLOBAL {
+    if ((*con).fullscreen_mode) == FullscreenMode::Global {
         debuglog(
             c"%s:%s:%d - Not moving fullscreen global container\n"
                 .as_ptr()
@@ -287,8 +285,8 @@ pub unsafe fn tree_move(con: *mut Con, direction: Direction) {
         );
         return;
     }
-    if (*con).fullscreen_mode as u32 == CF_OUTPUT
-        || (*parent_ptr(con)).type_0 as u32 == CT_WORKSPACE
+    if ((*con).fullscreen_mode) == FullscreenMode::Output
+        || ((*parent_ptr(con)).type_0) == ContainerType::Workspace
             && con_num_children(parent_ptr(con)) == 1
     {
         move_to_output_directed(con, direction);
@@ -413,7 +411,7 @@ pub unsafe fn tree_move(con: *mut Con, direction: Direction) {
             position = branch_position(direction, con_orientation(parent_ptr(target)) == o);
             insert_con_into(con, target, position);
         } else if next.is_null()
-            && (*parent_ptr(parent_ptr(con))).type_0 as u32 == CT_WORKSPACE
+            && ((*parent_ptr(parent_ptr(con))).type_0) == ContainerType::Workspace
             && (*parent_ptr(con)).layout != Layout::Default
             && con_num_children(parent_ptr(con)) == 1
         {

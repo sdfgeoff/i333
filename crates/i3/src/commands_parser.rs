@@ -52,6 +52,7 @@ use crate::commands::cmd_workspace;
 use crate::commands::cmd_workspace_back_and_forth;
 use crate::commands::cmd_workspace_name;
 use crate::commands::cmd_workspace_number;
+use crate::domains::{DockMatch, MatchInsertWhere};
 use crate::parser_util::parser_clear_stack;
 use crate::parser_util::parser_get_long;
 use crate::parser_util::parser_get_string;
@@ -88,10 +89,6 @@ use i3_common::safewrappers::sasprintf;
 // Mechanical file-by-file Rust translation of src/commands_parser.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 use crate::ipc::{emit_command_reply, CommandReply};
-
-pub const M_HERE: ::core::ffi::c_uint = 0;
-
-pub const M_NODOCK: ::core::ffi::c_int = 0;
 
 pub use crate::regex::Regex as regex;
 
@@ -4005,12 +4002,12 @@ pub unsafe fn parse_command(
             machine: ::core::ptr::null_mut::<regex>(),
             window_type: 0,
             urgent: UrgencyMatch::Latest,
-            dock: M_NODOCK,
+            dock: DockMatch::NoDock,
             id: 0,
             window_mode: WindowMode::Any,
             con_id: ::core::ptr::null_mut::<Con>(),
             match_all_windows: false,
-            insert_where: M_HERE,
+            insert_where: MatchInsertWhere::Here,
             matches: MatchListLinks {
                 tqe_next: ::core::ptr::null_mut::<Match>(),
                 tqe_prev: ::core::ptr::null_mut::<*mut Match>(),

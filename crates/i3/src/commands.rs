@@ -3,6 +3,7 @@ use crate::con::arena::focus;
 use crate::con::arena::parent::parent_ptr;
 use crate::con::arena::{containers, resolve};
 use crate::config::barconfigs;
+use crate::domains::{ContainerType, FullscreenMode};
 use crate::ipc::ipc_send_barconfig_update_event;
 use crate::randr::outputs;
 use crate::types::BarHiddenState;
@@ -31,13 +32,6 @@ use i3_common::safewrappers::sasprintf;
 // Mechanical file-by-file Rust translation of src/commands.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 use crate::ipc::{emit_command_reply, CommandReply};
-
-pub type fullscreen_mode_t = ::core::ffi::c_uint;
-pub const CF_GLOBAL: fullscreen_mode_t = 2;
-pub const CF_OUTPUT: fullscreen_mode_t = 1;
-
-pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
-pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
 
 pub type Output = xoutput;
 pub type i3Window = Window;
@@ -407,8 +401,7 @@ pub unsafe fn cmd_move_con_to_workspace(
         let mut current: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
         while !current.is_null() {
             let next: *mut owindow = (*current).owindows.tqe_next as *mut owindow;
-            if (*(*current).con).type_0 as ::core::ffi::c_uint
-                == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
+            if ((*(*current).con).type_0) == ContainerType::Workspace
                 && !con_has_children((*current).con)
             {
                 if !(*current).owindows.tqe_next.is_null() {
@@ -622,8 +615,7 @@ pub unsafe fn cmd_move_con_to_workspace_name(
         let mut current: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
         while !current.is_null() {
             let next: *mut owindow = (*current).owindows.tqe_next as *mut owindow;
-            if (*(*current).con).type_0 as ::core::ffi::c_uint
-                == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
+            if ((*(*current).con).type_0) == ContainerType::Workspace
                 && !con_has_children((*current).con)
             {
                 if !(*current).owindows.tqe_next.is_null() {
@@ -734,8 +726,7 @@ pub unsafe fn cmd_move_con_to_workspace_number(
         let mut current: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
         while !current.is_null() {
             let next: *mut owindow = (*current).owindows.tqe_next as *mut owindow;
-            if (*(*current).con).type_0 as ::core::ffi::c_uint
-                == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
+            if ((*(*current).con).type_0) == ContainerType::Workspace
                 && !con_has_children((*current).con)
             {
                 if !(*current).owindows.tqe_next.is_null() {
@@ -1636,9 +1627,7 @@ pub unsafe fn cmd_append_layout(
             if content == JsonContent::Workspace {
                 parent = output_get_content(con_get_output(parent));
             } else {
-                while (*parent).type_0 as ::core::ffi::c_uint
-                    != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-                    && !con_accepts_window(parent)
+                while ((*parent).type_0) != ContainerType::Workspace && !con_accepts_window(parent)
                 {
                     parent = parent_ptr(parent);
                 }
@@ -1686,7 +1675,7 @@ pub unsafe fn cmd_append_layout(
     free(buf as *mut ::core::ffi::c_void);
 }
 unsafe fn disable_global_fullscreen() {
-    let fs: *mut Con = con_get_fullscreen_con(croot, CF_GLOBAL);
+    let fs: *mut Con = con_get_fullscreen_con(croot, FullscreenMode::Global);
     if !fs.is_null() {
         con_disable_fullscreen(fs);
     }
@@ -2404,9 +2393,7 @@ pub unsafe fn cmd_split(
                 == 't' as i32
             {
                 let mut current_layout: Layout = Layout::Default;
-                if (*(*current).con).type_0 as ::core::ffi::c_uint
-                    == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-                {
+                if ((*(*current).con).type_0) == ContainerType::Workspace {
                     current_layout = (*(*current).con).layout;
                 } else {
                     current_layout = (*parent_ptr((*current).con)).layout;
@@ -2767,9 +2754,7 @@ pub unsafe fn cmd_focus_sibling(
         if !(ws.is_null() || con_is_internal(ws) as ::core::ffi::c_int != 0) {
             let next: *mut Con = get_tree_next_sibling((*current_0).con, direction);
             if !next.is_null() {
-                if (*next).type_0 as ::core::ffi::c_uint
-                    == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-                {
+                if ((*next).type_0) == ContainerType::Workspace {
                     workspace_show(next);
                     con_focus(next);
                 } else {
@@ -2810,12 +2795,8 @@ pub unsafe fn cmd_focus_window_mode(
     let mut success: bool = false_0 != 0;
     current = focus::first_ptr(ws.cast_mut());
     while !current.is_null() {
-        if to_floating as ::core::ffi::c_int != 0
-            && (*current).type_0 as ::core::ffi::c_uint
-                != CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
-            || !to_floating
-                && (*current).type_0 as ::core::ffi::c_uint
-                    == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
+        if to_floating as ::core::ffi::c_int != 0 && ((*current).type_0) != ContainerType::Floating
+            || !to_floating && ((*current).type_0) == ContainerType::Floating
         {
             current = focus::next_ptr(current);
         } else {
@@ -2991,12 +2972,12 @@ pub unsafe fn cmd_fullscreen(
     action: *const ::core::ffi::c_char,
     fullscreen_mode: *const ::core::ffi::c_char,
 ) {
-    let mode: fullscreen_mode_t =
+    let mode: FullscreenMode =
         (if strcmp(fullscreen_mode, c"global".as_ptr()) == 0 as ::core::ffi::c_int {
-            CF_GLOBAL as ::core::ffi::c_int
+            FullscreenMode::Global
         } else {
-            CF_OUTPUT as ::core::ffi::c_int
-        }) as fullscreen_mode_t;
+            FullscreenMode::Output
+        });
     debuglog(
         c"%s:%s:%d - %s fullscreen, mode = %s\n".as_ptr().cast_mut(),
         c"../src/commands.c".as_ptr(),
@@ -3055,7 +3036,7 @@ pub unsafe fn cmd_fullscreen(
             (*(*current).con).name,
         );
         if strcmp(action, c"toggle".as_ptr()) == 0 as ::core::ffi::c_int {
-            con_toggle_fullscreen((*current).con, mode as ::core::ffi::c_int);
+            con_toggle_fullscreen((*current).con, mode);
         } else if strcmp(action, c"enable".as_ptr()) == 0 as ::core::ffi::c_int {
             con_enable_fullscreen((*current).con, mode);
         } else if strcmp(action, c"disable".as_ptr()) == 0 as ::core::ffi::c_int {
@@ -4542,8 +4523,7 @@ pub unsafe fn cmd_rename_workspace(
     (*workspace).num = ws_name_to_number(new_name);
     verboselog(c"num = %d\n".as_ptr().cast_mut(), (*workspace).num);
     let previously_focused: *mut Con = focused;
-    let previously_focused_content: *const Con = if (*focused).type_0 as ::core::ffi::c_uint
-        == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
+    let previously_focused_content: *const Con = if ((*focused).type_0) == ContainerType::Workspace
     {
         parent_ptr(focused)
     } else {

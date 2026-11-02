@@ -6,6 +6,7 @@ use crate::con::arena::{containers, resolve};
 use crate::config_parser::free_variables;
 use crate::config_parser::parse_file;
 use crate::config_parser::ConfigParserState;
+use crate::domains::{DockMatch, HideEdgeBordersMode, MatchInsertWhere};
 use crate::flags::{AssignmentKind, TilingDrag};
 use crate::types::BorderStyle;
 use crate::types::ConfigLoad;
@@ -36,14 +37,7 @@ use i3_common::font::FontType;
 
 pub use crate::application::Binding;
 
-pub const M_HERE: ::core::ffi::c_uint = 0;
-
-pub const M_NODOCK: ::core::ffi::c_int = 0;
-
 pub use crate::regex::Regex as regex;
-
-pub type hide_edge_borders_mode_t = ::core::ffi::c_uint;
-pub const HEBM_NONE: hide_edge_borders_mode_t = 0;
 
 pub use crate::application::bindings_head;
 pub use crate::application::Workspace_Assignment;
@@ -134,7 +128,7 @@ pub static mut config: Config = Config {
     default_orientation: Orientation::None,
     disable_focus_follows_mouse: false,
     mouse_warping: Warping::Output,
-    hide_edge_borders: HEBM_NONE,
+    hide_edge_borders: HideEdgeBordersMode::None,
     disable_workspace_bar: false,
     focus_wrapping: FocusWrapping::Off,
     force_xinerama: false,
@@ -894,12 +888,12 @@ pub unsafe fn load_configuration(
             machine: ::core::ptr::null_mut::<regex>(),
             window_type: 0,
             urgent: UrgencyMatch::Latest,
-            dock: M_NODOCK,
+            dock: DockMatch::NoDock,
             id: 0,
             window_mode: WindowMode::Any,
             con_id: ::core::ptr::null_mut::<Con>(),
             match_all_windows: false,
-            insert_where: M_HERE,
+            insert_where: MatchInsertWhere::Here,
             matches: MatchListLinks {
                 tqe_next: ::core::ptr::null_mut::<Match>(),
                 tqe_prev: ::core::ptr::null_mut::<*mut Match>(),

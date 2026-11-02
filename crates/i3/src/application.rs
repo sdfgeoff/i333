@@ -1,4 +1,7 @@
 use crate::config::barconfigs;
+use crate::domains::{
+    ContainerType, DockMatch, FullscreenMode, HideEdgeBordersMode, MatchInsertWhere,
+};
 use crate::flags::{GapMask, TilingDrag};
 use crate::handlers::event_is_ignored;
 use crate::ipc::ipc_confirm_restart;
@@ -79,37 +82,7 @@ pub struct BindingKeycodeLinks {
 }
 pub type i3_event_state_mask_t = u32;
 
-pub type fullscreen_mode_t = ::core::ffi::c_uint;
-pub const CF_GLOBAL: fullscreen_mode_t = 2;
-pub const CF_OUTPUT: fullscreen_mode_t = 1;
-pub const CF_NONE: fullscreen_mode_t = 0;
-
-pub const M_BELOW: ::core::ffi::c_uint = 2;
-pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
-pub const M_HERE: ::core::ffi::c_uint = 0;
-
-pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
-pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
-pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
-pub const M_NODOCK: ::core::ffi::c_int = 0;
-pub const M_DONTCHECK: ::core::ffi::c_int = -1;
-
-pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
-pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
-pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
-pub const CT_CON: ::core::ffi::c_uint = 2;
-pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
-pub const CT_ROOT: ::core::ffi::c_uint = 0;
-
 pub type Output = xoutput;
-
-pub type hide_edge_borders_mode_t = ::core::ffi::c_uint;
-pub const HEBM_SMART_NO_GAPS: hide_edge_borders_mode_t = 64;
-pub const HEBM_SMART: hide_edge_borders_mode_t = 32;
-pub const HEBM_BOTH: hide_edge_borders_mode_t = 23;
-pub const HEBM_HORIZONTAL: hide_edge_borders_mode_t = 20;
-pub const HEBM_VERTICAL: hide_edge_borders_mode_t = 3;
-pub const HEBM_NONE: hide_edge_borders_mode_t = 0;
 
 pub type gaps_mask_t = GapMask;
 

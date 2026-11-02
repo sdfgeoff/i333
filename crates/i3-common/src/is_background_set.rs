@@ -10,44 +10,9 @@ use cairo_sys::{
     cairo_region_get_rectangle, cairo_region_num_rectangles, cairo_region_subtract_rectangle,
     cairo_region_t,
 };
-use std::{ops::Deref, ptr, ptr::NonNull, slice};
-use xcb_sys::{
-    xcb_aux_sync, xcb_clear_area, xcb_connection_t, xcb_create_window, xcb_destroy_window,
-    xcb_generate_id, xcb_get_geometry_reply, xcb_get_geometry_unchecked, xcb_get_image_data,
-    xcb_get_image_reply, xcb_get_image_unchecked, xcb_get_window_attributes_reply,
-    xcb_get_window_attributes_unchecked, xcb_map_window, xcb_query_tree_children,
-    xcb_query_tree_reply, xcb_query_tree_unchecked, xcb_screen_t, xcb_window_t,
-    XCB_COPY_FROM_PARENT, XCB_CW_BACK_PIXEL, XCB_CW_OVERRIDE_REDIRECT, XCB_IMAGE_FORMAT_Z_PIXMAP,
-    XCB_MAP_STATE_VIEWABLE, XCB_WINDOW_CLASS_INPUT_OUTPUT,
-};
-
-/// An individually allocated XCB reply, including its trailing wire payload.
-struct Reply<T>(NonNull<T>);
-
-impl<T> Reply<T> {
-    /// # Safety
-    /// A non-null pointer must be an initialized, uniquely owned XCB reply
-    /// allocation for T, released with libc::free and containing its declared payload.
-    unsafe fn from_raw(pointer: *mut T) -> Option<Self> {
-        NonNull::new(pointer).map(Self)
-    }
-}
-
-impl<T> Deref for Reply<T> {
-    type Target = T;
-
-    fn deref(&self) -> &T {
-        // SAFETY: construction requires a live initialized reply owned by self.
-        unsafe { self.0.as_ref() }
-    }
-}
-
-impl<T> Drop for Reply<T> {
-    fn drop(&mut self) {
-        // SAFETY: XCB transfers this allocation to us; it has not been freed.
-        unsafe { libc::free(self.0.as_ptr().cast()) };
-    }
-}
+use std::ptr::NonNull;
+use xcb::{x, XidNew};
+use xcb_sys::{xcb_connection_t, xcb_screen_t};
 
 struct Region(NonNull<cairo_region_t>);
 
@@ -106,7 +71,7 @@ fn payload_length(words: u32) -> Option<usize> {
 
 fn child_count(words: u32, children: u16) -> Option<usize> {
     let count = usize::from(children);
-    (count <= payload_length(words)? / size_of::<xcb_window_t>()).then_some(count)
+    (count <= payload_length(words)? / size_of::<x::Window>()).then_some(count)
 }
 
 // Keep the original byte folding (including byte order and depth-as-byte-count),
@@ -117,64 +82,53 @@ fn image_pixel(depth: u8, data: &[u8]) -> u32 {
         .fold(0, |pixel, &byte| (pixel << 8) | u32::from(byte))
 }
 
-/// # Safety
-/// conn must be a live connection on which native requests/replies may be used.
-unsafe fn unobscured_pixel(conn: *mut xcb_connection_t, screen: &xcb_screen_t) -> (u16, u16) {
+/// Find a pixel not covered by a viewable root child, retaining native batching.
+fn unobscured_pixel(connection: &xcb::Connection, screen: &xcb_screen_t) -> (u16, u16) {
     let mut region = Region::new(screen.width_in_pixels, screen.height_in_pixels);
-    // SAFETY: the caller supplies a live connection; native replies transfer ownership.
-    let tree = unsafe {
-        Reply::from_raw(xcb_query_tree_reply(
-            conn,
-            xcb_query_tree_unchecked(conn, screen.root),
-            ptr::null_mut(),
-        ))
-    };
-    let Some(tree) = tree else {
+    let cookie = connection.send_request_unchecked(&x::QueryTree {
+        window: x::Window::new(screen.root),
+    });
+    let Some(tree) = connection.wait_for_reply_unchecked(cookie).ok().flatten() else {
         return region.first_pixel();
     };
-    let Some(count) = child_count(tree.length, tree.children_len) else {
+    // Keep bounds validation independent of the maintained accessor: malformed
+    // child counts must not create an out-of-allocation slice.
+    let raw = unsafe { xcb::Reply::as_raw(&tree) };
+    let words = unsafe { raw.add(4).cast::<u32>().read_unaligned() };
+    let children = unsafe { raw.add(16).cast::<u16>().read_unaligned() };
+    if child_count(words, children).is_none() {
         return region.first_pixel();
-    };
-    // SAFETY: XCB allocated the declared payload; count was checked against its
-    // size. The owned tree remains alive throughout use of the borrowed children.
-    let children =
-        unsafe { slice::from_raw_parts(xcb_query_tree_children(tree.0.as_ptr()), count) };
-    let requests: Vec<_> = children
+    }
+    let requests: Vec<_> = tree
+        .children()
         .iter()
         .map(|&window| {
-            // SAFETY: conn remains live; child IDs are values from the server reply.
-            unsafe {
-                (
-                    xcb_get_geometry_unchecked(conn, window),
-                    xcb_get_window_attributes_unchecked(conn, window),
-                )
-            }
+            (
+                connection.send_request_unchecked(&x::GetGeometry {
+                    drawable: x::Drawable::Window(window),
+                }),
+                connection.send_request_unchecked(&x::GetWindowAttributes { window }),
+            )
         })
         .collect();
     // Issue every request before waiting, retaining the original pipelining.
-    for (geometry_cookie, attributes_cookie) in requests {
-        // SAFETY: cookies belong to conn; both returned allocations are owned.
-        let (geometry, attributes) = unsafe {
-            (
-                Reply::from_raw(xcb_get_geometry_reply(
-                    conn,
-                    geometry_cookie,
-                    ptr::null_mut(),
-                )),
-                Reply::from_raw(xcb_get_window_attributes_reply(
-                    conn,
-                    attributes_cookie,
-                    ptr::null_mut(),
-                )),
-            )
-        };
+    for (geometry, attributes) in requests {
+        let geometry = connection.wait_for_reply_unchecked(geometry).ok().flatten();
+        let attributes = connection
+            .wait_for_reply_unchecked(attributes)
+            .ok()
+            .flatten();
         if let (Some(geometry), Some(attributes)) = (geometry, attributes) {
-            if u32::from(attributes.map_state) == XCB_MAP_STATE_VIEWABLE {
+            // Compare the open wire value rather than turning an unexpected
+            // native map-state discriminant into a Rust enum.
+            let raw = unsafe { xcb::Reply::as_raw(&attributes) };
+            let viewable = unsafe { raw.add(26).read() } == x::MapState::Viewable as u8;
+            if viewable {
                 region.subtract(cairo_rectangle_int_t {
-                    x: geometry.x.into(),
-                    y: geometry.y.into(),
-                    width: geometry.width.into(),
-                    height: geometry.height.into(),
+                    x: geometry.x().into(),
+                    y: geometry.y().into(),
+                    width: geometry.width().into(),
+                    height: geometry.height().into(),
                 });
             }
         }
@@ -182,63 +136,58 @@ unsafe fn unobscured_pixel(conn: *mut xcb_connection_t, screen: &xcb_screen_t) -
     region.first_pixel()
 }
 
-/// # Safety
-/// conn must be live and screen must describe its root; window must be an unused
-/// resource ID. This deliberately maps/destroys a temporary override-redirect window.
-unsafe fn flicker_window_at(
-    conn: *mut xcb_connection_t,
+/// Deliberately map/destroy a temporary override-redirect window on the supplied
+/// connection. The resource ID comes from that connection and is reused only
+/// after an image round trip confirms the previous destroy has completed.
+fn flicker_window_at(
+    connection: &xcb::Connection,
     screen: &xcb_screen_t,
     x: i16,
     y: i16,
-    window: xcb_window_t,
+    window: x::Window,
     pixel: u32,
 ) -> u32 {
-    let values = [pixel, 1];
-    // SAFETY: the caller guarantees native connection/screen/resource validity.
-    // The value list contains both fields selected by the mask, in protocol order.
-    let image = unsafe {
-        xcb_create_window(
-            conn,
-            XCB_COPY_FROM_PARENT as u8,
-            window,
-            screen.root,
-            x,
-            y,
-            10,
-            10,
-            0,
-            XCB_WINDOW_CLASS_INPUT_OUTPUT as u16,
-            XCB_COPY_FROM_PARENT as u32,
-            XCB_CW_BACK_PIXEL | XCB_CW_OVERRIDE_REDIRECT,
-            values.as_ptr().cast(),
-        );
-        xcb_map_window(conn, window);
-        xcb_clear_area(conn, 0, window, 0, 0, 0, 0);
-        xcb_aux_sync(conn);
-        xcb_destroy_window(conn, window);
-        Reply::from_raw(xcb_get_image_reply(
-            conn,
-            xcb_get_image_unchecked(
-                conn,
-                XCB_IMAGE_FORMAT_Z_PIXMAP as u8,
-                screen.root,
-                x,
-                y,
-                1,
-                1,
-                u32::MAX,
-            ),
-            ptr::null_mut(),
-        ))
-    };
-    let Some(image) = image else { return 0 };
-    let Some(length) = payload_length(image.length) else {
+    let root = x::Window::new(screen.root);
+    connection.send_request(&x::CreateWindow {
+        depth: x::COPY_FROM_PARENT as u8,
+        wid: window,
+        parent: root,
+        x,
+        y,
+        width: 10,
+        height: 10,
+        border_width: 0,
+        class: x::WindowClass::InputOutput,
+        visual: x::COPY_FROM_PARENT,
+        value_list: &[x::Cw::BackPixel(pixel), x::Cw::OverrideRedirect(true)],
+    });
+    connection.send_request(&x::MapWindow { window });
+    connection.send_request(&x::ClearArea {
+        exposures: false,
+        window,
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+    });
+    // xcb_aux_sync is a GetInputFocus round trip. Retain unchecked request/error
+    // behavior while using the maintained cookie and reply owner.
+    let sync = connection.send_request_unchecked(&x::GetInputFocus {});
+    let _ = connection.wait_for_reply_unchecked(sync);
+    connection.send_request(&x::DestroyWindow { window });
+    let image = connection.send_request_unchecked(&x::GetImage {
+        format: x::ImageFormat::ZPixmap,
+        drawable: x::Drawable::Window(root),
+        x,
+        y,
+        width: 1,
+        height: 1,
+        plane_mask: u32::MAX,
+    });
+    let Some(image) = connection.wait_for_reply_unchecked(image).ok().flatten() else {
         return 0;
     };
-    // SAFETY: XCB owns a reply with this declared trailing payload; checked
-    // length fits a Rust slice and image stays alive until after folding it.
-    let data = unsafe { slice::from_raw_parts(xcb_get_image_data(image.0.as_ptr()), length) };
-    image_pixel(image.depth, data)
+    image_pixel(image.depth(), image.data())
 }
 
 /// Check whether the root background is restored after temporary windows disappear.
@@ -248,17 +197,31 @@ unsafe fn flicker_window_at(
 /// record and remain readable throughout the call. The caller must permit native
 /// root-window requests and temporary windows on that connection's display.
 pub unsafe fn is_background_set(conn: *mut xcb_connection_t, screen: *mut xcb_screen_t) -> bool {
-    // SAFETY: the caller guarantees the screen record is valid and remains live.
+    // SAFETY: the native owner and screen remain live throughout this call; no
+    // callback or disconnect occurs while the non-owning maintained view exists.
+    let Some(connection) = (unsafe { crate::xcb_connection::borrowed(conn) }) else {
+        return false;
+    };
     let screen = unsafe { &*screen };
-    // SAFETY: all native operations share the caller's live connection/screen.
-    unsafe {
-        let (x, y) = unobscured_pixel(conn, screen);
-        let window = xcb_generate_id(conn);
-        let first = flicker_window_at(conn, screen, x as i16, y as i16, window, screen.black_pixel);
-        let second =
-            flicker_window_at(conn, screen, x as i16, y as i16, window, screen.white_pixel);
-        first == second
-    }
+    let (x, y) = unobscured_pixel(&connection, screen);
+    let window = connection.generate_id();
+    let first = flicker_window_at(
+        &connection,
+        screen,
+        x as i16,
+        y as i16,
+        window,
+        screen.black_pixel,
+    );
+    let second = flicker_window_at(
+        &connection,
+        screen,
+        x as i16,
+        y as i16,
+        window,
+        screen.white_pixel,
+    );
+    first == second
 }
 
 #[cfg(test)]

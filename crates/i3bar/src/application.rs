@@ -11,7 +11,7 @@ use crate::config::config;
 use i3_common::i333_va_list;
 pub use libev_sys::{
     ev_default_destroy, ev_default_loop, ev_loop, ev_signal, ev_signal_start, ev_unloop,
-    ev_watcher, EVBREAK_ALL,
+    ev_watcher, BreakMode,
 };
 
 pub use crate::config::Binding as binding_t;
@@ -197,7 +197,7 @@ unsafe extern "C" fn sig_cb(
         }
         _ => {}
     }
-    ev_unloop(main_loop, EVBREAK_ALL as ::core::ffi::c_int);
+    ev_unloop(main_loop, BreakMode::All);
 }
 const BAR_OPTIONS: &[i3_common::cli::OptionSpec] = &[
     i3_common::cli::OptionSpec::value(b's', "socket"),

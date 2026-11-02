@@ -1,5 +1,6 @@
 //! Owned non-floating child order, independent of ancestry and focus history.
 use super::{identity, resolve, Arena, ConId, Entry, CONTAINERS};
+use crate::domains::ContainerType;
 use crate::types::Con;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -601,10 +602,10 @@ mod tests {
         let values = [2, -1, 1, 2, -1, -2];
         let mut raws = Vec::new();
         unsafe {
-            (*raw_parent).type_0 = crate::con::CT_CON;
+            (*raw_parent).type_0 = ContainerType::Con;
             for number in values {
                 let raw = allocate(Con::empty());
-                (*raw).type_0 = crate::con::CT_WORKSPACE;
+                (*raw).type_0 = ContainerType::Workspace;
                 (*raw).num = number;
                 crate::con::con_attach(raw, raw_parent, false);
                 raws.push(raw);
@@ -649,7 +650,7 @@ mod tests {
         let mut windows = Vec::new();
         let mut raws = Vec::new();
         unsafe {
-            (*raw_parent).type_0 = crate::con::CT_DOCKAREA;
+            (*raw_parent).type_0 = ContainerType::DockArea;
             for (class, instance) in &text {
                 let mut window = Box::new(crate::types::Window::default());
                 window.class_class = class
@@ -659,7 +660,7 @@ mod tests {
                     .as_ref()
                     .map_or(std::ptr::null_mut(), |text| text.as_ptr().cast_mut());
                 let raw = allocate(Con::empty());
-                (*raw).type_0 = crate::con::CT_CON;
+                (*raw).type_0 = ContainerType::Con;
                 (*raw).window = &raw mut *window;
                 crate::con::con_attach(raw, raw_parent, false);
                 raws.push(raw);
@@ -689,9 +690,9 @@ mod tests {
         let child_id = identity(child).unwrap();
         let wrapper_id = identity(wrapper).unwrap();
         unsafe {
-            (*raw_parent).type_0 = crate::con::CT_WORKSPACE;
-            (*child).type_0 = crate::con::CT_CON;
-            (*wrapper).type_0 = crate::con::CT_CON;
+            (*raw_parent).type_0 = ContainerType::Workspace;
+            (*child).type_0 = ContainerType::Con;
+            (*wrapper).type_0 = ContainerType::Con;
             crate::con::con_attach(child, raw_parent, true);
             replace(p, child_id, wrapper_id).unwrap();
             super::super::focus::replace(p, child_id, wrapper_id).unwrap();
@@ -721,9 +722,9 @@ mod tests {
         let raws: Vec<_> = (0..4).map(|_| allocate(Con::empty())).collect();
         let ids: Vec<_> = raws.iter().map(|&raw| identity(raw).unwrap()).collect();
         unsafe {
-            (*raw_parent).type_0 = crate::con::CT_WORKSPACE;
+            (*raw_parent).type_0 = ContainerType::Workspace;
             for &raw in &raws {
-                (*raw).type_0 = crate::con::CT_CON;
+                (*raw).type_0 = ContainerType::Con;
             }
             crate::con::con_attach(raws[0], raw_parent, false);
             crate::con::con_attach(raws[1], raw_parent, false);

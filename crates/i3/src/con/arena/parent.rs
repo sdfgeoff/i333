@@ -4,6 +4,7 @@
 //! explicit clear. Retired parents become absent through generation validation;
 //! reusing their addresses never reconnects surviving children.
 use super::{identity, resolve, Arena, ConId, Entry, CONTAINERS};
+use crate::domains::ContainerType;
 use crate::types::Con;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -220,9 +221,9 @@ mod tests {
         let second = allocate(Con::empty());
         let child = allocate(Con::empty());
         unsafe {
-            (*first).type_0 = crate::con::CT_WORKSPACE;
-            (*second).type_0 = crate::con::CT_WORKSPACE;
-            (*child).type_0 = crate::con::CT_FLOATING_CON;
+            (*first).type_0 = ContainerType::Workspace;
+            (*second).type_0 = ContainerType::Workspace;
+            (*child).type_0 = ContainerType::Floating;
             crate::con::con_attach(child, first, false);
             assert_eq!(parent_ptr(child), first);
             crate::con::con_detach(child);

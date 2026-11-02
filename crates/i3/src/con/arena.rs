@@ -3,6 +3,7 @@
 //! Existing graph links and IPC IDs borrow addresses. Internal deferred work can
 //! instead capture a generation-checked identity, preventing a reused address
 //! from naming a different container. Registry borrows never cross callbacks.
+use crate::domains::ContainerType;
 pub(crate) mod floating;
 pub(crate) mod focus;
 pub(crate) mod nodes;
@@ -338,7 +339,7 @@ mod tests {
         let second_id = identity(second).unwrap();
         unsafe {
             // A workspace stops redraw propagation without any X connection.
-            (*parent).type_0 = super::super::CT_WORKSPACE;
+            (*parent).type_0 = crate::domains::ContainerType::Workspace;
             set_parent_ptr(first, parent).expect("live acyclic ancestry");
             set_parent_ptr(second, parent).expect("live acyclic ancestry");
             nodes::append(identity(parent).unwrap(), first_id).unwrap();

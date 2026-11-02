@@ -1,8 +1,8 @@
 use crate::application::ws_assignments;
 use crate::con::arena::focus;
 use crate::con::arena::{containers, floating, identity, resolve};
-use crate::con::M_BELOW;
-use crate::r#match::{M_DOCK_BOTTOM, M_DOCK_TOP};
+use crate::domains::{ContainerType, DockMatch, FullscreenMode, MatchInsertWhere};
+
 use crate::types::Direction;
 use crate::types::KillWindow;
 use crate::types::Layout;
@@ -28,7 +28,7 @@ use i3_common::safewrappers::sasprintf;
 // across those calls. All reply byte views borrow complete XCB allocations.
 
 use crate::application::{outputs_head, Workspace_Assignment};
-use crate::con::{CF_OUTPUT, CT_CON, CT_DOCKAREA, CT_OUTPUT, CT_WORKSPACE};
+
 pub use crate::types::xoutput as Output;
 pub static mut primary: *mut xcb_randr_get_output_primary_reply_t =
     ::core::ptr::null::<xcb_randr_get_output_primary_reply_t>()
@@ -520,7 +520,7 @@ pub unsafe fn output_init_con(output: *mut Output) {
         free((*con).name as *mut ::core::ffi::c_void);
         (*con).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
         (*con).name = sstrdup(output_primary_name(output));
-        (*con).type_0 = CT_OUTPUT;
+        (*con).type_0 = ContainerType::Output;
         (*con).layout = Layout::Output;
         con_fix_percent(croot);
     }
@@ -554,13 +554,13 @@ pub unsafe fn output_init_con(output: *mut Output) {
         ::core::ptr::null_mut::<Con>(),
         ::core::ptr::null_mut::<Window>(),
     );
-    (*topdock).type_0 = CT_DOCKAREA;
+    (*topdock).type_0 = ContainerType::DockArea;
     (*topdock).layout = Layout::DockArea;
     let mut match_0: *mut Match =
         scalloc(1 as usize, ::core::mem::size_of::<Match>() as usize) as *mut Match;
     match_init(match_0);
-    (*match_0).dock = M_DOCK_TOP;
-    (*match_0).insert_where = M_BELOW;
+    (*match_0).dock = DockMatch::Top;
+    (*match_0).insert_where = MatchInsertWhere::Below;
     (*match_0).matches.tqe_next = ::core::ptr::null_mut::<Match>();
     (*match_0).matches.tqe_prev = (*topdock).swallow_head.tqh_last;
     *(*topdock).swallow_head.tqh_last = match_0 as *mut Match;
@@ -595,7 +595,7 @@ pub unsafe fn output_init_con(output: *mut Output) {
         ::core::ptr::null_mut::<Con>(),
         ::core::ptr::null_mut::<Window>(),
     );
-    (*content).type_0 = CT_CON;
+    (*content).type_0 = ContainerType::Con;
     (*content).layout = Layout::SplitH;
     free((*content).name as *mut ::core::ffi::c_void);
     (*content).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
@@ -609,12 +609,12 @@ pub unsafe fn output_init_con(output: *mut Output) {
         ::core::ptr::null_mut::<Con>(),
         ::core::ptr::null_mut::<Window>(),
     );
-    (*bottomdock).type_0 = CT_DOCKAREA;
+    (*bottomdock).type_0 = ContainerType::DockArea;
     (*bottomdock).layout = Layout::DockArea;
     match_0 = scalloc(1 as usize, ::core::mem::size_of::<Match>() as usize) as *mut Match;
     match_init(match_0);
-    (*match_0).dock = M_DOCK_BOTTOM;
-    (*match_0).insert_where = M_BELOW;
+    (*match_0).dock = DockMatch::Bottom;
+    (*match_0).insert_where = MatchInsertWhere::Below;
     (*match_0).matches.tqe_next = ::core::ptr::null_mut::<Match>();
     (*match_0).matches.tqe_prev = (*bottomdock).swallow_head.tqh_last;
     *(*bottomdock).swallow_head.tqh_last = match_0 as *mut Match;
@@ -657,8 +657,7 @@ pub unsafe fn init_ws_for_output(output: *mut Output) {
         let Some(workspace) = resolve(id) else {
             continue;
         };
-        if !((*workspace).type_0 as ::core::ffi::c_uint
-            != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
+        if !(((*workspace).type_0) != ContainerType::Workspace
             || con_is_internal(workspace) as ::core::ffi::c_int != 0)
         {
             let workspace_out: *mut Con =
@@ -688,9 +687,7 @@ pub unsafe fn init_ws_for_output(output: *mut Output) {
         } {
             child = nodes::first_ptr(content);
             while !child.is_null() {
-                if !((*child).fullscreen_mode as ::core::ffi::c_uint
-                    == CF_OUTPUT as ::core::ffi::c_int as ::core::ffi::c_uint)
-                {
+                if !(((*child).fullscreen_mode) == FullscreenMode::Output) {
                     child = nodes::next_ptr(child);
                 } else {
                     visible = child;
@@ -1302,9 +1299,7 @@ unsafe fn move_content(con: *mut Con) {
     let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
     child = nodes::first_ptr(con);
     while !child.is_null() {
-        if !((*child).type_0 as ::core::ffi::c_uint
-            != CT_DOCKAREA as ::core::ffi::c_int as ::core::ffi::c_uint)
-        {
+        if !(((*child).type_0) != ContainerType::DockArea) {
             debuglog(
                 c"%s:%s:%d - Handling dock con %p\n".as_ptr().cast_mut(),
                 c"../src/randr.c".as_ptr(),

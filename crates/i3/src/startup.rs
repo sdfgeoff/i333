@@ -263,7 +263,9 @@ pub unsafe extern "C" fn startup_monitor_event(event: *mut SnMonitorEvent, _: *m
             c"../src/startup.c".as_ptr(),c"startup_monitor_event".as_ptr(),237 as libc::c_int,id.as_ptr());
         return;
     }
-    if sn_monitor_event_get_type(event) as u32 == 1 {
+    if startup_notification_sys::MonitorEventType::from_raw(sn_monitor_event_get_type(event))
+        == Some(startup_notification_sys::MonitorEventType::Completed)
+    {
         debuglog(
             c"%s:%s:%d - startup sequence %s completed\n"
                 .as_ptr()

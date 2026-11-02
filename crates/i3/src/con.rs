@@ -1,6 +1,7 @@
 use crate::con::arena::nodes;
 use crate::con::arena::parent::{parent_ptr, set_parent_ptr};
 use crate::con::arena::{focus, ConId};
+use crate::domains::{ContainerType, FullscreenMode, HideEdgeBordersMode, MatchInsertWhere};
 use crate::flags::{AdjacentEdges, TilingDrag};
 pub(crate) mod arena;
 use crate::types::BorderStyle;
@@ -24,29 +25,10 @@ use crate::types::Orientation;
 // Mechanical file-by-file Rust translation of src/con.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 
-pub type fullscreen_mode_t = ::core::ffi::c_uint;
-pub const CF_GLOBAL: fullscreen_mode_t = 2;
-pub const CF_OUTPUT: fullscreen_mode_t = 1;
-pub const CF_NONE: fullscreen_mode_t = 0;
-
-pub const M_BELOW: ::core::ffi::c_uint = 2;
-
-pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
-pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
-pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
-pub const CT_CON: ::core::ffi::c_uint = 2;
-pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
-pub const CT_ROOT: ::core::ffi::c_uint = 0;
-
 pub type Output = xoutput;
 pub type i3Window = Window;
 
 pub type adjacent_t = AdjacentEdges;
-
-pub type hide_edge_borders_mode_t = ::core::ffi::c_uint;
-pub const HEBM_SMART_NO_GAPS: hide_edge_borders_mode_t = 64;
-pub const HEBM_SMART: hide_edge_borders_mode_t = 32;
-pub const HEBM_NONE: hide_edge_borders_mode_t = 0;
 
 pub type tiling_drag_t = TilingDrag;
 
@@ -63,10 +45,8 @@ pub const I3_IPC_EVENT_WORKSPACE: ::core::ffi::c_ulong =
 pub unsafe fn con_force_split_parents_redraw(con: *mut Con) {
     let mut parent: *mut Con = con;
     while !parent.is_null()
-        && (*parent).type_0 as ::core::ffi::c_uint
-            != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-        && (*parent).type_0 as ::core::ffi::c_uint
-            != CT_DOCKAREA as ::core::ffi::c_int as ::core::ffi::c_uint
+        && ((*parent).type_0) != ContainerType::Workspace
+        && ((*parent).type_0) != ContainerType::DockArea
     {
         if !con_is_leaf(parent) {
             free((*parent).deco_render_params as *mut ::core::ffi::c_void);
@@ -80,7 +60,7 @@ pub unsafe fn con_new_skeleton(parent: *mut Con, window: *mut i3Window) -> *mut 
     let new = arena::allocate(Con::empty());
     (*new).on_remove_child =
         Some(con_on_remove_child as unsafe fn(*mut Con) -> ()) as Option<unsafe fn(*mut Con) -> ()>;
-    (*new).type_0 = CT_CON;
+    (*new).type_0 = ContainerType::Con;
     (*new).window = window as *mut Window;
     (*new).max_user_border_style = config.default_border;
     (*new).border_style = (*new).max_user_border_style;
@@ -157,9 +137,7 @@ unsafe fn _con_attach(con: *mut Con, parent: *mut Con, previous: *mut Con, ignor
     let mut node_owner = arena::identity(parent).expect("live child owner");
     let child_id = arena::identity(con).expect("live child");
     let mut focus_parent = parent;
-    if (*con).type_0 as ::core::ffi::c_uint
-        == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if ((*con).type_0) == ContainerType::Workspace {
         debuglog(
             c"%s:%s:%d - it's a workspace. num = %d\n"
                 .as_ptr()
@@ -194,9 +172,7 @@ unsafe fn _con_attach(con: *mut Con, parent: *mut Con, previous: *mut Con, ignor
                 .expect("detached workspace");
             }
         }
-    } else if (*parent).type_0 as ::core::ffi::c_uint
-        == CT_DOCKAREA as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    } else if ((*parent).type_0) == ContainerType::DockArea {
         current = ::core::ptr::null_mut::<Con>();
         loop_0 = nodes::first(node_owner)
             .and_then(arena::resolve)
@@ -229,9 +205,7 @@ unsafe fn _con_attach(con: *mut Con, parent: *mut Con, previous: *mut Con, ignor
         } else {
             nodes::append(node_owner, child_id).expect("detached dock child");
         }
-    } else if (*con).type_0 as ::core::ffi::c_uint
-        == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    } else if ((*con).type_0) == ContainerType::Floating {
         debuglog(
             c"%s:%s:%d - Inserting into floating containers\n"
                 .as_ptr()
@@ -249,9 +223,7 @@ unsafe fn _con_attach(con: *mut Con, parent: *mut Con, previous: *mut Con, ignor
         if !ignore_focus {
             loop_0 = focus::first_ptr(parent) as *mut Con;
             while !loop_0.is_null() {
-                if (*loop_0).type_0 as ::core::ffi::c_uint
-                    == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
-                {
+                if ((*loop_0).type_0) == ContainerType::Floating {
                     loop_0 = focus::next_ptr(loop_0) as *mut Con;
                 } else {
                     current = loop_0;
@@ -260,8 +232,7 @@ unsafe fn _con_attach(con: *mut Con, parent: *mut Con, previous: *mut Con, ignor
             }
         }
         if !(*con).window.is_null()
-            && (*parent).type_0 as ::core::ffi::c_uint
-                == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
+            && ((*parent).type_0) == ContainerType::Workspace
             && (*parent).workspace_layout != Layout::Default
         {
             debuglog(
@@ -284,10 +255,7 @@ unsafe fn _con_attach(con: *mut Con, parent: *mut Con, previous: *mut Con, ignor
                 195 as ::core::ffi::c_int,
             );
         }
-        if !current.is_null()
-            && (*parent).type_0 as ::core::ffi::c_uint
-                != CT_OUTPUT as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
+        if !current.is_null() && ((*parent).type_0) != ContainerType::Output {
             debuglog(
                 c"%s:%s:%d - Inserting con = %p after con %p\n"
                     .as_ptr()
@@ -322,9 +290,7 @@ pub unsafe fn con_attach(con: *mut Con, parent: *mut Con, ignore_focus: bool) {
 
 pub unsafe fn con_detach(con: *mut Con) {
     con_force_split_parents_redraw(con);
-    if (*con).type_0 as ::core::ffi::c_uint
-        == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if ((*con).type_0) == ContainerType::Floating {
         arena::floating::remove(
             arena::identity(parent_ptr(con)).expect("live floating parent"),
             arena::identity(con).expect("live floating child"),
@@ -424,11 +390,7 @@ pub unsafe fn con_close(con: *mut Con, kill_window: KillWindow) {
         338 as ::core::ffi::c_int,
         con,
     );
-    if (*con).type_0 as ::core::ffi::c_uint
-        == CT_OUTPUT as ::core::ffi::c_int as ::core::ffi::c_uint
-        || (*con).type_0 as ::core::ffi::c_uint
-            == CT_ROOT as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if ((*con).type_0) == ContainerType::Output || ((*con).type_0) == ContainerType::Root {
         debuglog(
             c"%s:%s:%d - con = %p is of type %d, not closing anything.\n"
                 .as_ptr()
@@ -437,13 +399,11 @@ pub unsafe fn con_close(con: *mut Con, kill_window: KillWindow) {
             c"con_close".as_ptr(),
             342 as ::core::ffi::c_int,
             con,
-            (*con).type_0 as ::core::ffi::c_uint,
+            ((*con).type_0).raw() as ::core::ffi::c_uint,
         );
         return;
     }
-    if (*con).type_0 as ::core::ffi::c_uint
-        == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if ((*con).type_0) == ContainerType::Workspace {
         debuglog(
             c"%s:%s:%d - con = %p is a workspace, closing all children instead.\n"
                 .as_ptr()
@@ -504,10 +464,7 @@ pub unsafe fn con_is_split(con: *mut Con) -> bool {
 
 pub unsafe fn con_is_hidden(con: *mut Con) -> bool {
     let mut current: *mut Con = con;
-    while !current.is_null()
-        && (*current).type_0 as ::core::ffi::c_uint
-            != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    while !current.is_null() && ((*current).type_0) != ContainerType::Workspace {
         let parent: *mut Con = parent_ptr(current) as *mut Con;
         if !parent.is_null()
             && ((*parent).layout == Layout::Tabbed || (*parent).layout == Layout::Stacked)
@@ -522,9 +479,7 @@ pub unsafe fn con_is_hidden(con: *mut Con) -> bool {
 }
 
 pub unsafe fn con_is_maximized(con: *mut Con, orientation: Orientation) -> bool {
-    if (*con).fullscreen_mode as ::core::ffi::c_uint
-        != CF_NONE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if ((*con).fullscreen_mode) != FullscreenMode::None {
         return true;
     }
     let mut layout: Layout = Layout::Default;
@@ -550,18 +505,13 @@ pub unsafe fn con_is_maximized(con: *mut Con, orientation: Orientation) -> bool 
     let mut current: *mut Con = con;
     loop {
         let parent: *mut Con = parent_ptr(current) as *mut Con;
-        if parent.is_null()
-            || (*current).type_0 as ::core::ffi::c_uint
-                == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
+        if parent.is_null() || ((*current).type_0) == ContainerType::Workspace {
             return true;
         }
         if (*parent).layout == layout && con_num_children(parent) > 1 as ::core::ffi::c_int {
             return false;
         }
-        if (*parent).type_0 as ::core::ffi::c_uint
-            == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
+        if ((*parent).type_0) == ContainerType::Floating {
             return false;
         }
         current = parent;
@@ -584,9 +534,7 @@ pub unsafe fn con_is_sticky(con: *mut Con) -> bool {
 }
 
 pub unsafe fn con_accepts_window(con: *mut Con) -> bool {
-    if (*con).type_0 as ::core::ffi::c_uint
-        == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if ((*con).type_0) == ContainerType::Workspace {
         return false;
     }
     if con_is_split(con) {
@@ -606,10 +554,7 @@ pub unsafe fn con_accepts_window(con: *mut Con) -> bool {
 
 pub unsafe fn con_get_output(con: *mut Con) -> *mut Con {
     let mut result: *mut Con = con;
-    while !result.is_null()
-        && (*result).type_0 as ::core::ffi::c_uint
-            != CT_OUTPUT as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    while !result.is_null() && ((*result).type_0) != ContainerType::Output {
         result = parent_ptr(result) as *mut Con;
     }
     if result != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Con {
@@ -626,10 +571,7 @@ pub unsafe fn con_get_output(con: *mut Con) -> *mut Con {
 
 pub unsafe fn con_get_workspace(con: *mut Con) -> *mut Con {
     let mut result: *mut Con = con;
-    while !result.is_null()
-        && (*result).type_0 as ::core::ffi::c_uint
-            != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    while !result.is_null() && ((*result).type_0) != ContainerType::Workspace {
         result = parent_ptr(result) as *mut Con;
     }
     result
@@ -647,9 +589,7 @@ pub unsafe fn con_parent_with_orientation(con: *mut Con, orientation: Orientatio
         orientation as ::core::ffi::c_uint,
     );
     let mut parent: *mut Con = parent_ptr(con) as *mut Con;
-    if (*parent).type_0 as ::core::ffi::c_uint
-        == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if ((*parent).type_0) == ContainerType::Floating {
         return ::core::ptr::null_mut::<Con>();
     }
     while con_orientation(parent) != orientation {
@@ -663,13 +603,10 @@ pub unsafe fn con_parent_with_orientation(con: *mut Con, orientation: Orientatio
         );
         parent = parent_ptr(parent) as *mut Con;
         if !parent.is_null()
-            && ((*parent).type_0 as ::core::ffi::c_uint
-                == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
-                || (*parent).type_0 as ::core::ffi::c_uint
-                    == CT_OUTPUT as ::core::ffi::c_int as ::core::ffi::c_uint
+            && (((*parent).type_0) == ContainerType::Floating
+                || ((*parent).type_0) == ContainerType::Output
                 || !parent_ptr(parent).is_null()
-                    && (*parent_ptr(parent)).type_0 as ::core::ffi::c_uint
-                        == CT_OUTPUT as ::core::ffi::c_int as ::core::ffi::c_uint)
+                    && ((*parent_ptr(parent)).type_0) == ContainerType::Output)
         {
             parent = ::core::ptr::null_mut::<Con>();
         }
@@ -688,10 +625,7 @@ pub unsafe fn con_parent_with_orientation(con: *mut Con, orientation: Orientatio
 }
 
 /// The event-thread graph rooted at `con` must remain live throughout traversal.
-pub unsafe fn con_get_fullscreen_con(
-    con: *mut Con,
-    fullscreen_mode: fullscreen_mode_t,
-) -> *mut Con {
+pub unsafe fn con_get_fullscreen_con(con: *mut Con, fullscreen_mode: FullscreenMode) -> *mut Con {
     let mut pending = std::collections::VecDeque::from([con]);
     while let Some(current) = pending.pop_front() {
         if current != con && (*current).fullscreen_mode == fullscreen_mode {
@@ -717,9 +651,9 @@ pub unsafe fn con_get_fullscreen_covering_ws(ws: *mut Con) -> *mut Con {
     if ws.is_null() {
         return ::core::ptr::null_mut::<Con>();
     }
-    let fs: *mut Con = con_get_fullscreen_con(croot, CF_GLOBAL);
+    let fs: *mut Con = con_get_fullscreen_con(croot, FullscreenMode::Global);
     if fs.is_null() {
-        return con_get_fullscreen_con(ws, CF_OUTPUT);
+        return con_get_fullscreen_con(ws, FullscreenMode::Output);
     }
     fs
 }
@@ -747,9 +681,7 @@ pub unsafe fn con_is_docked(con: *mut Con) -> bool {
     if parent_ptr(con).is_null() {
         return false;
     }
-    if (*parent_ptr(con)).type_0 as ::core::ffi::c_uint
-        == CT_DOCKAREA as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if ((*parent_ptr(con)).type_0) == ContainerType::DockArea {
         return true;
     }
     con_is_docked(parent_ptr(con) as *mut Con)
@@ -759,19 +691,13 @@ pub unsafe fn con_inside_floating(con: *mut Con) -> *mut Con {
     if con.is_null() {
         return ::core::ptr::null_mut::<Con>();
     }
-    if (*con).type_0 as ::core::ffi::c_uint
-        == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if ((*con).type_0) == ContainerType::Floating {
         return con;
     }
     if ((*con).floating).is_floating() {
         return parent_ptr(con) as *mut Con;
     }
-    if (*con).type_0 as ::core::ffi::c_uint
-        == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-        || (*con).type_0 as ::core::ffi::c_uint
-            == CT_OUTPUT as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if ((*con).type_0) == ContainerType::Workspace || ((*con).type_0) == ContainerType::Output {
         return ::core::ptr::null_mut::<Con>();
     }
     con_inside_floating(parent_ptr(con) as *mut Con)
@@ -1126,7 +1052,7 @@ pub unsafe fn set_focus_order(con: *mut Con, focus_order: &[ConId]) {
             break;
         }
         let current = arena::resolve(id).expect("live focus snapshot child");
-        if (*con).type_0 != CT_WORKSPACE && !con_inside_floating(current).is_null() {
+        if (*con).type_0 != ContainerType::Workspace && !con_inside_floating(current).is_null() {
             continue;
         }
         retained.push(id);
@@ -1233,10 +1159,8 @@ pub unsafe fn con_fix_percent(con: *mut Con) {
     }
 }
 
-pub unsafe fn con_toggle_fullscreen(con: *mut Con, fullscreen_mode: ::core::ffi::c_int) {
-    if (*con).type_0 as ::core::ffi::c_uint
-        == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+pub unsafe fn con_toggle_fullscreen(con: *mut Con, fullscreen_mode: FullscreenMode) {
+    if ((*con).type_0) == ContainerType::Workspace {
         debuglog(
             c"%s:%s:%d - You cannot make a workspace fullscreen.\n"
                 .as_ptr()
@@ -1257,30 +1181,26 @@ pub unsafe fn con_toggle_fullscreen(con: *mut Con, fullscreen_mode: ::core::ffi:
         con,
         (*con).name,
     );
-    if (*con).fullscreen_mode as ::core::ffi::c_uint
-        == CF_NONE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
-        con_enable_fullscreen(con, fullscreen_mode as fullscreen_mode_t);
+    if ((*con).fullscreen_mode) == FullscreenMode::None {
+        con_enable_fullscreen(con, fullscreen_mode);
     } else {
         con_disable_fullscreen(con);
     };
 }
-unsafe fn con_set_fullscreen_mode(con: *mut Con, fullscreen_mode: fullscreen_mode_t) {
+unsafe fn con_set_fullscreen_mode(con: *mut Con, fullscreen_mode: FullscreenMode) {
     (*con).fullscreen_mode = fullscreen_mode;
     debuglog(
         c"%s:%s:%d - mode now: %d\n".as_ptr().cast_mut(),
         c"../src/con.c".as_ptr(),
         c"con_set_fullscreen_mode".as_ptr(),
         1212 as ::core::ffi::c_int,
-        (*con).fullscreen_mode as ::core::ffi::c_uint,
+        ((*con).fullscreen_mode).raw() as ::core::ffi::c_uint,
     );
     ipc_send_window_event(c"fullscreen_mode".as_ptr(), con);
     if (*con).window.is_null() {
         return;
     }
-    if (*con).fullscreen_mode as ::core::ffi::c_uint
-        != CF_NONE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if ((*con).fullscreen_mode) != FullscreenMode::None {
         debuglog(
             c"%s:%s:%d - Setting _NET_WM_STATE_FULLSCREEN for con = %p / window = %d.\n"
                 .as_ptr()
@@ -1317,10 +1237,8 @@ unsafe fn con_set_fullscreen_mode(con: *mut Con, fullscreen_mode: fullscreen_mod
     };
 }
 
-pub unsafe fn con_enable_fullscreen(con: *mut Con, fullscreen_mode: fullscreen_mode_t) {
-    if (*con).type_0 as ::core::ffi::c_uint
-        == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+pub unsafe fn con_enable_fullscreen(con: *mut Con, fullscreen_mode: FullscreenMode) {
+    if ((*con).type_0) == ContainerType::Workspace {
         debuglog(
             c"%s:%s:%d - You cannot make a workspace fullscreen.\n"
                 .as_ptr()
@@ -1331,11 +1249,7 @@ pub unsafe fn con_enable_fullscreen(con: *mut Con, fullscreen_mode: fullscreen_m
         );
         return;
     }
-    if fullscreen_mode as ::core::ffi::c_uint
-        == CF_GLOBAL as ::core::ffi::c_int as ::core::ffi::c_uint
-        || fullscreen_mode as ::core::ffi::c_uint
-            == CF_OUTPUT as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if (fullscreen_mode) == FullscreenMode::Global || (fullscreen_mode) == FullscreenMode::Output {
     } else {
         __assert_fail(
             c"fullscreen_mode == CF_GLOBAL || fullscreen_mode == CF_OUTPUT".as_ptr(),
@@ -1344,9 +1258,7 @@ pub unsafe fn con_enable_fullscreen(con: *mut Con, fullscreen_mode: fullscreen_m
             c"void con_enable_fullscreen(Con *, fullscreen_mode_t)".as_ptr(),
         );
     };
-    if fullscreen_mode as ::core::ffi::c_uint
-        == CF_GLOBAL as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if (fullscreen_mode) == FullscreenMode::Global {
         debuglog(
             c"%s:%s:%d - enabling global fullscreen for %p / %s\n"
                 .as_ptr()
@@ -1369,7 +1281,7 @@ pub unsafe fn con_enable_fullscreen(con: *mut Con, fullscreen_mode: fullscreen_m
             (*con).name,
         );
     }
-    if (*con).fullscreen_mode as ::core::ffi::c_uint == fullscreen_mode as ::core::ffi::c_uint {
+    if ((*con).fullscreen_mode) == fullscreen_mode {
         debuglog(
             c"%s:%s:%d - fullscreen already enabled for %p / %s\n"
                 .as_ptr()
@@ -1383,35 +1295,27 @@ pub unsafe fn con_enable_fullscreen(con: *mut Con, fullscreen_mode: fullscreen_m
         return;
     }
     let con_ws: *mut Con = con_get_workspace(con);
-    let mut fullscreen: *mut Con = con_get_fullscreen_con(croot, CF_GLOBAL);
+    let mut fullscreen: *mut Con = con_get_fullscreen_con(croot, FullscreenMode::Global);
     if fullscreen.is_null() {
-        fullscreen = con_get_fullscreen_con(con_ws, CF_OUTPUT);
+        fullscreen = con_get_fullscreen_con(con_ws, FullscreenMode::Output);
     }
     if !fullscreen.is_null() {
         con_disable_fullscreen(fullscreen);
     }
     let cur_ws: *mut Con = con_get_workspace(focused);
     let old_focused: *mut Con = focused;
-    if fullscreen_mode as ::core::ffi::c_uint
-        == CF_GLOBAL as ::core::ffi::c_int as ::core::ffi::c_uint
-        && cur_ws != con_ws
-    {
+    if (fullscreen_mode) == FullscreenMode::Global && cur_ws != con_ws {
         workspace_show(con_ws);
     }
     con_activate(con);
-    if fullscreen_mode as ::core::ffi::c_uint
-        != CF_GLOBAL as ::core::ffi::c_int as ::core::ffi::c_uint
-        && cur_ws != con_ws
-    {
+    if (fullscreen_mode) != FullscreenMode::Global && cur_ws != con_ws {
         con_activate(old_focused);
     }
     con_set_fullscreen_mode(con, fullscreen_mode);
 }
 
 pub unsafe fn con_disable_fullscreen(con: *mut Con) {
-    if (*con).type_0 as ::core::ffi::c_uint
-        == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if ((*con).type_0) == ContainerType::Workspace {
         debuglog(
             c"%s:%s:%d - You cannot make a workspace fullscreen.\n"
                 .as_ptr()
@@ -1432,9 +1336,7 @@ pub unsafe fn con_disable_fullscreen(con: *mut Con) {
         con,
         (*con).name,
     );
-    if (*con).fullscreen_mode as ::core::ffi::c_uint
-        == CF_NONE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if ((*con).fullscreen_mode) == FullscreenMode::None {
         debuglog(
             c"%s:%s:%d - fullscreen already disabled for %p / %s\n"
                 .as_ptr()
@@ -1447,7 +1349,7 @@ pub unsafe fn con_disable_fullscreen(con: *mut Con) {
         );
         return;
     }
-    con_set_fullscreen_mode(con, CF_NONE);
+    con_set_fullscreen_mode(con, FullscreenMode::None);
 }
 unsafe fn _con_move_to_con(
     mut con: *mut Con,
@@ -1480,9 +1382,7 @@ unsafe fn _con_move_to_con(
         con = parent_ptr(con) as *mut Con;
     }
     let source_ws: *mut Con = con_get_workspace(con);
-    if (*con).type_0 as ::core::ffi::c_uint
-        == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if ((*con).type_0) == ContainerType::Workspace {
         let source_id = arena::identity(source_ws).expect("live source workspace");
         while let Some(child) = arena::floating::first(source_id).and_then(arena::resolve) {
             con_move_to_workspace(child, target_ws, true, true, false);
@@ -1511,9 +1411,7 @@ unsafe fn _con_move_to_con(
             focus_next = con_next_focused(con);
         }
     }
-    if (*target).type_0 as ::core::ffi::c_uint
-        != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if ((*target).type_0) != ContainerType::Workspace {
         debuglog(
             c"%s:%s:%d - target originally = %p / %s / type %d\n"
                 .as_ptr()
@@ -1523,13 +1421,11 @@ unsafe fn _con_move_to_con(
             1369 as ::core::ffi::c_int,
             target,
             (*target).name,
-            (*target).type_0 as ::core::ffi::c_uint,
+            ((*target).type_0).raw() as ::core::ffi::c_uint,
         );
         target = parent_ptr(target) as *mut Con;
     }
-    if (*target).type_0 as ::core::ffi::c_uint
-        == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if ((*target).type_0) == ContainerType::Floating {
         debuglog(
             c"%s:%s:%d - floatingcon, going up even further\n"
                 .as_ptr()
@@ -1541,9 +1437,7 @@ unsafe fn _con_move_to_con(
         orig_target = target;
         target = parent_ptr(target) as *mut Con;
     }
-    if (*con).type_0 as ::core::ffi::c_uint
-        == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if ((*con).type_0) == ContainerType::Floating {
         let ws: *mut Con = con_get_workspace(target);
         debuglog(
             c"%s:%s:%d - This is a floating window, using workspace %p / %s\n"
@@ -1558,9 +1452,7 @@ unsafe fn _con_move_to_con(
         target = ws;
     }
     if source_output != dest_output {
-        if fix_coordinates as ::core::ffi::c_int != 0
-            && (*con).type_0 as ::core::ffi::c_uint
-                == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
+        if fix_coordinates as ::core::ffi::c_int != 0 && ((*con).type_0) == ContainerType::Floating
         {
             floating_fix_coordinates(
                 con,
@@ -1579,13 +1471,12 @@ unsafe fn _con_move_to_con(
             );
         }
     }
-    let mut fullscreen: *mut Con = con_get_fullscreen_con(target_ws, CF_OUTPUT);
-    let con_has_fullscreen: bool = (*con).fullscreen_mode as ::core::ffi::c_uint
-        != CF_NONE as ::core::ffi::c_int as ::core::ffi::c_uint
-        || !con_get_fullscreen_con(con, CF_GLOBAL).is_null()
-        || !con_get_fullscreen_con(con, CF_OUTPUT).is_null();
+    let mut fullscreen: *mut Con = con_get_fullscreen_con(target_ws, FullscreenMode::Output);
+    let con_has_fullscreen: bool = ((*con).fullscreen_mode) != FullscreenMode::None
+        || !con_get_fullscreen_con(con, FullscreenMode::Global).is_null()
+        || !con_get_fullscreen_con(con, FullscreenMode::Output).is_null();
     if con_has_fullscreen as ::core::ffi::c_int != 0 && !fullscreen.is_null() {
-        con_toggle_fullscreen(fullscreen, CF_OUTPUT as ::core::ffi::c_int);
+        con_toggle_fullscreen(fullscreen, FullscreenMode::Output);
         fullscreen = ::core::ptr::null_mut::<Con>();
     }
     debuglog(
@@ -1619,10 +1510,7 @@ unsafe fn _con_move_to_con(
         let old_focus_ws: *mut Con = focus::first_ptr(output_get_content(dest_output)) as *mut Con;
         let old_focus: *mut Con = focused;
         con_activate(con_descend_focused(con));
-        if old_focus_ws == current_ws
-            && (*old_focus).type_0 as ::core::ffi::c_uint
-                != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
+        if old_focus_ws == current_ws && ((*old_focus).type_0) != ContainerType::Workspace {
             con_activate(old_focus);
         } else if con_get_workspace(focused) != old_focus_ws {
             con_focus(con_descend_focused(old_focus_ws));
@@ -1697,8 +1585,7 @@ pub unsafe fn con_move_to_target(con: *mut Con, mut target: *mut Con) -> bool {
         con_move_to_workspace(con, con_get_workspace(target), true, false, false);
         return true;
     }
-    if (*target).type_0 as ::core::ffi::c_uint
-        == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
+    if ((*target).type_0) == ContainerType::Workspace
         && con_is_leaf(target) as ::core::ffi::c_int != 0
     {
         debuglog(
@@ -1759,9 +1646,7 @@ pub unsafe fn con_move_to_workspace(
     dont_warp: bool,
     ignore_focus: bool,
 ) {
-    if (*workspace).type_0 as ::core::ffi::c_uint
-        == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if ((*workspace).type_0) == ContainerType::Workspace {
     } else {
         __assert_fail(
             c"workspace->type == CT_WORKSPACE".as_ptr(),
@@ -1885,9 +1770,7 @@ pub unsafe fn con_orientation(con: *mut Con) -> Orientation {
 }
 
 pub unsafe fn con_next_focused(mut con: *mut Con) -> *mut Con {
-    if (*parent_ptr(con)).type_0 as ::core::ffi::c_uint
-        == CT_DOCKAREA as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if ((*parent_ptr(con)).type_0) == ContainerType::DockArea {
         debuglog(
             c"%s:%s:%d - selecting workspace for dock client\n"
                 .as_ptr()
@@ -1919,10 +1802,7 @@ pub unsafe fn con_next_focused(mut con: *mut Con) -> *mut Con {
     while !focus::first_ptr(next).is_null() && focus::first_ptr(next) != con {
         next = focus::first_ptr(next) as *mut Con;
     }
-    if (*con).type_0 as ::core::ffi::c_uint
-        == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
-        && next != parent_ptr(con)
-    {
+    if ((*con).type_0) == ContainerType::Floating && next != parent_ptr(con) {
         next = con_descend_focused(next);
     }
     next
@@ -1947,9 +1827,7 @@ pub unsafe fn con_descend_tiling_focused(con: *mut Con) -> *mut Con {
         before = next;
         child = focus::first_ptr(next) as *mut Con;
         while !child.is_null() {
-            if (*child).type_0 as ::core::ffi::c_uint
-                == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
-            {
+            if ((*child).type_0) == ContainerType::Floating {
                 child = focus::next_ptr(child) as *mut Con;
             } else {
                 next = child;
@@ -1988,9 +1866,7 @@ pub unsafe fn con_descend_direction(con: *mut Con, direction: Direction) -> *mut
         } else if orientation == Orientation::Vertical {
             current = focus::first_ptr(con) as *mut Con;
             while !current.is_null() {
-                if (*current).type_0 as ::core::ffi::c_uint
-                    != CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
-                {
+                if ((*current).type_0) != ContainerType::Floating {
                     most = current;
                     break;
                 } else {
@@ -2011,9 +1887,7 @@ pub unsafe fn con_descend_direction(con: *mut Con, direction: Direction) -> *mut
         } else if orientation == Orientation::Horizontal {
             current = focus::first_ptr(con) as *mut Con;
             while !current.is_null() {
-                if (*current).type_0 as ::core::ffi::c_uint
-                    != CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
-                {
+                if ((*current).type_0) != ContainerType::Floating {
                     most = current;
                     break;
                 } else {
@@ -2102,11 +1976,9 @@ fn adjacent_borders(rect: Rect, workspace: Rect) -> adjacent_t {
 }
 
 unsafe fn con_border_style_rect_without_title(con: *mut Con) -> Rect {
-    if config.hide_edge_borders as ::core::ffi::c_uint
-        == HEBM_SMART as ::core::ffi::c_int as ::core::ffi::c_uint
+    if config.hide_edge_borders == HideEdgeBordersMode::Smart
         && con_num_visible_children(con_get_workspace(con)) <= 1 as ::core::ffi::c_int
-        || config.hide_edge_borders as ::core::ffi::c_uint
-            == HEBM_SMART_NO_GAPS as ::core::ffi::c_int as ::core::ffi::c_uint
+        || config.hide_edge_borders == HideEdgeBordersMode::SmartNoGaps
             && con_num_visible_children(con_get_workspace(con)) <= 1 as ::core::ffi::c_int
             && !has_outer_gaps(calculate_effective_gaps(con))
     {
@@ -2149,12 +2021,12 @@ unsafe fn con_border_style_rect_without_title(con: *mut Con) -> Rect {
     if border_style == BorderStyle::None {
         return border_rect(border_style, border_width, AdjacentEdges::empty());
     }
-    let mask = if config.hide_edge_borders == HEBM_SMART_NO_GAPS {
-        HEBM_NONE
+    let mask = if config.hide_edge_borders == HideEdgeBordersMode::SmartNoGaps {
+        HideEdgeBordersMode::None
     } else {
         config.hide_edge_borders
     };
-    let hidden = con_adjacent_borders(con) & AdjacentEdges::from_bits_retain(mask);
+    let hidden = con_adjacent_borders(con) & mask.edge_mask();
     border_rect(border_style, border_width, hidden)
 }
 
@@ -2177,10 +2049,8 @@ pub unsafe fn con_adjacent_borders(con: *mut Con) -> adjacent_t {
 }
 
 pub unsafe fn con_border_style(con: *mut Con) -> BorderStyle {
-    if (*con).fullscreen_mode as ::core::ffi::c_uint
-        == CF_OUTPUT as ::core::ffi::c_int as ::core::ffi::c_uint
-        || (*con).fullscreen_mode as ::core::ffi::c_uint
-            == CF_GLOBAL as ::core::ffi::c_int as ::core::ffi::c_uint
+    if ((*con).fullscreen_mode) == FullscreenMode::Output
+        || ((*con).fullscreen_mode) == FullscreenMode::Global
     {
         debuglog(
             c"%s:%s:%d - this one is fullscreen! overriding BS_NONE\n"
@@ -2208,9 +2078,7 @@ pub unsafe fn con_border_style(con: *mut Con) -> BorderStyle {
                 BorderStyle::Normal
             };
         }
-        if (*parent_ptr(con)).type_0 as ::core::ffi::c_uint
-            == CT_DOCKAREA as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
+        if ((*parent_ptr(con)).type_0) == ContainerType::DockArea {
             return BorderStyle::None;
         }
     }
@@ -2251,19 +2119,15 @@ pub unsafe fn con_set_layout(mut con: *mut Con, layout: Layout) {
         1999 as ::core::ffi::c_int,
         con,
         layout as ::core::ffi::c_uint,
-        (*con).type_0 as ::core::ffi::c_uint,
+        ((*con).type_0).raw() as ::core::ffi::c_uint,
     );
-    if (*con).type_0 as ::core::ffi::c_uint
-        != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if ((*con).type_0) != ContainerType::Workspace {
         con = parent_ptr(con) as *mut Con;
     }
     if (*con).layout == Layout::SplitH || (*con).layout == Layout::SplitV {
         (*con).last_split_layout = (*con).layout;
     }
-    if (*con).type_0 as ::core::ffi::c_uint
-        == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if ((*con).type_0) == ContainerType::Workspace {
         if con_num_children(con) == 0 as ::core::ffi::c_int {
             let ws_layout: Layout = if layout == Layout::Stacked || layout == Layout::Tabbed {
                 layout
@@ -2335,10 +2199,8 @@ pub unsafe fn con_set_layout(mut con: *mut Con, layout: Layout) {
             return;
         }
     }
-    if (*con).type_0 as ::core::ffi::c_uint
-        != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-        && (*parent_ptr(con)).type_0 as ::core::ffi::c_uint
-            != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
+    if ((*con).type_0) != ContainerType::Workspace
+        && ((*parent_ptr(con)).type_0) != ContainerType::Workspace
         && con_num_children(con) == 1 as ::core::ffi::c_int
         && con_num_children(parent_ptr(con) as *mut Con) == 1 as ::core::ffi::c_int
     {
@@ -2428,7 +2290,7 @@ fn layout_toggle(
 }
 
 pub unsafe fn con_toggle_layout(con: *mut Con, toggle_mode: *const ::core::ffi::c_char) {
-    let parent = if (*con).type_0 == CT_WORKSPACE {
+    let parent = if (*con).type_0 == ContainerType::Workspace {
         con
     } else {
         parent_ptr(con)
@@ -2466,15 +2328,10 @@ unsafe fn con_on_remove_child(con: *mut Con) {
         c"con_on_remove_child".as_ptr(),
         2206 as ::core::ffi::c_int,
     );
-    if (*con).type_0 as ::core::ffi::c_uint
-        == CT_OUTPUT as ::core::ffi::c_int as ::core::ffi::c_uint
-        || (*con).type_0 as ::core::ffi::c_uint
-            == CT_ROOT as ::core::ffi::c_int as ::core::ffi::c_uint
-        || (*con).type_0 as ::core::ffi::c_uint
-            == CT_DOCKAREA as ::core::ffi::c_int as ::core::ffi::c_uint
-        || !parent_ptr(con).is_null()
-            && (*parent_ptr(con)).type_0 as ::core::ffi::c_uint
-                == CT_OUTPUT as ::core::ffi::c_int as ::core::ffi::c_uint
+    if ((*con).type_0) == ContainerType::Output
+        || ((*con).type_0) == ContainerType::Root
+        || ((*con).type_0) == ContainerType::DockArea
+        || !parent_ptr(con).is_null() && ((*parent_ptr(con)).type_0) == ContainerType::Output
     {
         debuglog(
             c"%s:%s:%d - not handling, type = %d, name = %s\n"
@@ -2483,14 +2340,12 @@ unsafe fn con_on_remove_child(con: *mut Con) {
             c"../src/con.c".as_ptr(),
             c"con_on_remove_child".as_ptr(),
             2214 as ::core::ffi::c_int,
-            (*con).type_0 as ::core::ffi::c_uint,
+            ((*con).type_0).raw() as ::core::ffi::c_uint,
             (*con).name,
         );
         return;
     }
-    if (*con).type_0 as ::core::ffi::c_uint
-        == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if ((*con).type_0) == ContainerType::Workspace {
         if focus::first_ptr(con).is_null() && !workspace_is_visible(con) {
             verboselog(
                 c"Closing old workspace (%p / %s), it is empty\n"
@@ -2551,9 +2406,7 @@ pub unsafe fn con_minimum_size(con: *mut Con) -> Rect {
             height: 50 as u32,
         };
     }
-    if (*con).type_0 as ::core::ffi::c_uint
-        == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if ((*con).type_0) == ContainerType::Floating {
         debuglog(
             c"%s:%s:%d - floating con\n".as_ptr().cast_mut(),
             c"../src/con.c".as_ptr(),
@@ -2643,7 +2496,7 @@ pub unsafe fn con_minimum_size(con: *mut Con) -> Rect {
         c"ERROR: Unhandled case, type = %d, layout = %d, split = %d\n"
             .as_ptr()
             .cast_mut(),
-        (*con).type_0 as ::core::ffi::c_uint,
+        ((*con).type_0).raw() as ::core::ffi::c_uint,
         (*con).layout as ::core::ffi::c_uint,
         con_is_split(con) as ::core::ffi::c_int,
     );
@@ -2664,10 +2517,7 @@ pub unsafe fn con_fullscreen_permits_focusing(con: *mut Con) -> bool {
         return true;
     }
     let mut fs: *mut Con = focused;
-    while !fs.is_null()
-        && (*fs).fullscreen_mode as ::core::ffi::c_uint
-            == CF_NONE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    while !fs.is_null() && ((*fs).fullscreen_mode) == FullscreenMode::None {
         fs = parent_ptr(fs) as *mut Con;
     }
     if fs != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Con {
@@ -2679,9 +2529,7 @@ pub unsafe fn con_fullscreen_permits_focusing(con: *mut Con) -> bool {
             c"_Bool con_fullscreen_permits_focusing(Con *)".as_ptr(),
         );
     };
-    if (*fs).fullscreen_mode as ::core::ffi::c_uint
-        != CF_NONE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if ((*fs).fullscreen_mode) != FullscreenMode::None {
     } else {
         __assert_fail(
             c"fs->fullscreen_mode != CF_NONE".as_ptr(),
@@ -2690,16 +2538,13 @@ pub unsafe fn con_fullscreen_permits_focusing(con: *mut Con) -> bool {
             c"_Bool con_fullscreen_permits_focusing(Con *)".as_ptr(),
         );
     };
-    if (*fs).type_0 as ::core::ffi::c_uint
-        == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if ((*fs).type_0) == ContainerType::Workspace {
         return true;
     }
     if con == fs {
         return true;
     }
-    if (*fs).fullscreen_mode as ::core::ffi::c_uint
-        == CF_OUTPUT as ::core::ffi::c_int as ::core::ffi::c_uint
+    if ((*fs).fullscreen_mode) == FullscreenMode::Output
         && con_get_workspace(con) != con_get_workspace(fs)
     {
         return true;
@@ -2724,17 +2569,13 @@ pub unsafe fn con_has_urgent_child(con: *mut Con) -> bool {
 
 pub unsafe fn con_update_parents_urgency(con: *mut Con) {
     let mut parent: *mut Con = parent_ptr(con) as *mut Con;
-    if (*con).type_0 as ::core::ffi::c_uint
-        == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if ((*con).type_0) == ContainerType::Workspace {
         return;
     }
     let new_urgency_value: bool = (*con).urgent;
     while !parent.is_null()
-        && (*parent).type_0 as ::core::ffi::c_uint
-            != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-        && (*parent).type_0 as ::core::ffi::c_uint
-            != CT_DOCKAREA as ::core::ffi::c_int as ::core::ffi::c_uint
+        && ((*parent).type_0) != ContainerType::Workspace
+        && ((*parent).type_0) != ContainerType::DockArea
     {
         if new_urgency_value {
             (*parent).urgent = true;
@@ -2931,26 +2772,23 @@ pub unsafe fn con_swap(first: *mut Con, second: *mut Con) -> bool {
         first,
         second,
     );
-    if (*first).type_0 as ::core::ffi::c_uint != CT_CON as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if ((*first).type_0) != ContainerType::Con {
         errorlog(
             c"ERROR: Only regular containers can be swapped, but found con = %p with type = %d.\n"
                 .as_ptr()
                 .cast_mut(),
             first,
-            (*first).type_0 as ::core::ffi::c_uint,
+            ((*first).type_0).raw() as ::core::ffi::c_uint,
         );
         return false;
     }
-    if (*second).type_0 as ::core::ffi::c_uint
-        != CT_CON as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if ((*second).type_0) != ContainerType::Con {
         errorlog(
             c"ERROR: Only regular containers can be swapped, but found con = %p with type = %d.\n"
                 .as_ptr()
                 .cast_mut(),
             second,
-            (*second).type_0 as ::core::ffi::c_uint,
+            ((*second).type_0).raw() as ::core::ffi::c_uint,
         );
         return false;
     }
@@ -3016,17 +2854,13 @@ pub unsafe fn con_swap(first: *mut Con, second: *mut Con) -> bool {
     }
     con_set_urgency(first, (*first).urgent);
     con_set_urgency(second, (*second).urgent);
-    let second_fullscreen_mode: fullscreen_mode_t = (*second).fullscreen_mode;
-    if (*first).fullscreen_mode as ::core::ffi::c_uint
-        == CF_NONE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    let second_fullscreen_mode: FullscreenMode = (*second).fullscreen_mode;
+    if ((*first).fullscreen_mode) == FullscreenMode::None {
         con_disable_fullscreen(second);
     } else {
         con_enable_fullscreen(second, (*first).fullscreen_mode);
     }
-    if second_fullscreen_mode as ::core::ffi::c_uint
-        == CF_NONE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if (second_fullscreen_mode) == FullscreenMode::None {
         con_disable_fullscreen(first);
     } else {
         con_enable_fullscreen(first, second_fullscreen_mode);
@@ -3230,7 +3064,7 @@ mod owned_graph_tests {
         )
         .unwrap();
         unsafe {
-            (*root).fullscreen_mode = CF_OUTPUT;
+            (*root).fullscreen_mode = FullscreenMode::Output;
             nodes::append(
                 arena::identity(root).unwrap(),
                 arena::identity(tiling).unwrap(),
@@ -3241,15 +3075,18 @@ mod owned_graph_tests {
                 arena::identity(grandchild).unwrap(),
             )
             .unwrap();
-            (*floating).fullscreen_mode = CF_OUTPUT;
-            (*grandchild).fullscreen_mode = CF_OUTPUT;
-            assert_eq!(con_get_fullscreen_con(root, CF_OUTPUT), floating);
-            (*tiling).fullscreen_mode = CF_OUTPUT;
-            assert_eq!(con_get_fullscreen_con(root, CF_OUTPUT), tiling);
-            (*tiling).fullscreen_mode = CF_NONE;
-            (*floating).fullscreen_mode = CF_NONE;
-            (*grandchild).fullscreen_mode = CF_NONE;
-            assert!(con_get_fullscreen_con(root, CF_OUTPUT).is_null());
+            (*floating).fullscreen_mode = FullscreenMode::Output;
+            (*grandchild).fullscreen_mode = FullscreenMode::Output;
+            assert_eq!(
+                con_get_fullscreen_con(root, FullscreenMode::Output),
+                floating
+            );
+            (*tiling).fullscreen_mode = FullscreenMode::Output;
+            assert_eq!(con_get_fullscreen_con(root, FullscreenMode::Output), tiling);
+            (*tiling).fullscreen_mode = FullscreenMode::None;
+            (*floating).fullscreen_mode = FullscreenMode::None;
+            (*grandchild).fullscreen_mode = FullscreenMode::None;
+            assert!(con_get_fullscreen_con(root, FullscreenMode::Output).is_null());
             for con in [root, tiling, floating, grandchild] {
                 arena::release(con);
             }
@@ -3269,9 +3106,9 @@ mod owned_graph_tests {
         focus::append(id(split), id(first)).unwrap();
         focus::append(id(split), id(second)).unwrap();
         unsafe {
-            (*workspace).type_0 = CT_WORKSPACE;
-            (*split).type_0 = CT_CON;
-            (*floating).type_0 = CT_FLOATING_CON;
+            (*workspace).type_0 = ContainerType::Workspace;
+            (*split).type_0 = ContainerType::Con;
+            (*floating).type_0 = ContainerType::Floating;
             assert_eq!(get_focus_order(split), vec![id(first), id(second)]);
             set_focus_order(split, &[id(floating), id(second), id(first)]);
             assert_eq!(get_focus_order(split), vec![id(second), id(first)]);

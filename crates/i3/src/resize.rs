@@ -1,4 +1,5 @@
 use crate::con::arena::parent::parent_ptr;
+use crate::domains::ContainerType;
 use crate::types::Direction;
 use crate::types::DragResult;
 use crate::types::Layout;
@@ -16,9 +17,6 @@ use crate::xcursor::Cursor;
 // Local policy and temporary values use owned Rust storage. Native entrypoints
 // require live event-thread graph handles and a live display; callbacks may mutate
 // the graph, so node references must never span those calls.
-
-const CT_WORKSPACE: u32 = 4;
-const CT_FLOATING_CON: u32 = 3;
 
 struct DragState {
     orientation: Orientation,
@@ -216,8 +214,8 @@ pub unsafe fn resize_find_tiling_participants(
     }
     let search_orientation: Orientation = orientation_from_direction(direction);
     let dir_backwards: bool = direction == Direction::Up || direction == Direction::Left;
-    while (*first).type_0 as u32 != CT_WORKSPACE
-        && (*first).type_0 as u32 != CT_FLOATING_CON
+    while ((*first).type_0) != ContainerType::Workspace
+        && ((*first).type_0) != ContainerType::Floating
         && second.is_null()
     {
         if con_orientation(parent_ptr(first)) != search_orientation

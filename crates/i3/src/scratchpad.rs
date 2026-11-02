@@ -1,6 +1,7 @@
 use crate::con::arena::focus;
 use crate::con::arena::parent::parent_ptr;
 use crate::con::arena::{containers, floating, identity, resolve};
+use crate::domains::{ContainerType, FullscreenMode};
 use crate::types::ScratchpadState;
 /*
  * vim:ts=4:sw=4:expandtab
@@ -14,10 +15,6 @@ use crate::types::ScratchpadState;
 // Local policy and temporary values use owned Rust storage. Native entrypoints
 // require live event-thread graph handles and a live display; callbacks may mutate
 // the graph, so node references must never span those calls.
-
-const CF_NONE: u32 = 0;
-const CF_OUTPUT: u32 = 1;
-const CT_WORKSPACE: u32 = 4;
 
 fn greatest_common_divisor(mut first: i32, mut second: i32) -> i32 {
     while second != 0 {
@@ -52,7 +49,7 @@ fn can_focus_visible(state: ScratchpadState, is_focused: bool) -> bool {
 }
 
 pub unsafe fn scratchpad_move(mut con: *mut Con) {
-    if (*con).type_0 as u32 == CT_WORKSPACE {
+    if ((*con).type_0) == ContainerType::Workspace {
         verboselog(
             c"'move scratchpad' used on a workspace \"%s\". Calling it recursively on all windows on this workspace.\n".as_ptr().cast_mut(),
             (*con).name,
@@ -162,11 +159,11 @@ pub unsafe fn scratchpad_show(mut con: *mut Con) -> bool {
         return true;
     }
     let mut fs: *mut Con = focused;
-    while !fs.is_null() && (*fs).fullscreen_mode as u32 == CF_NONE {
+    while !fs.is_null() && ((*fs).fullscreen_mode) == FullscreenMode::None {
         fs = parent_ptr(fs);
     }
-    if !fs.is_null() && (*fs).type_0 as u32 != CT_WORKSPACE {
-        con_toggle_fullscreen(fs, CF_OUTPUT as i32);
+    if !fs.is_null() && ((*fs).type_0) != ContainerType::Workspace {
+        con_toggle_fullscreen(fs, FullscreenMode::Output);
     }
     let mut focused_ws: *mut Con = con_get_workspace(focused);
     for floating_id in floating::children(identity(focused_ws).expect("live floating parent")) {

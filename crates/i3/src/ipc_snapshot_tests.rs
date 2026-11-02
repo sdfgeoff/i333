@@ -1,6 +1,8 @@
 //! Golden bytes captured from the pre-schema production emitters at 01b7ac4d.
 use super::*;
 use crate::con::arena::parent::set_parent_ptr;
+use crate::domains::ContainerType;
+use crate::domains::{DockMatch, MatchInsertWhere};
 use crate::types::Window;
 use std::collections::BTreeMap;
 
@@ -75,7 +77,7 @@ unsafe fn node_bytes(node: *mut Con, restart: bool, depth: usize, pointers: &[*m
 unsafe fn collect() -> BTreeMap<String, String> {
     let mut result = BTreeMap::new();
     let mut allocated = Vec::new();
-    unsafe fn node(all: &mut Vec<*mut Con>, kind: u32, parent: *mut Con) -> *mut Con {
+    unsafe fn node(all: &mut Vec<*mut Con>, kind: ContainerType, parent: *mut Con) -> *mut Con {
         let raw = crate::con::con_new_skeleton(std::ptr::null_mut(), std::ptr::null_mut());
         (*raw).type_0 = kind;
         set_parent_ptr(raw, parent).expect("registered fixture ancestry");
@@ -86,10 +88,10 @@ unsafe fn collect() -> BTreeMap<String, String> {
         all.push(raw);
         raw
     }
-    let root = node(&mut allocated, CT_ROOT as u32, std::ptr::null_mut());
-    let output = node(&mut allocated, CT_OUTPUT as u32, root);
-    let workspace = node(&mut allocated, CT_WORKSPACE as u32, output);
-    let leaf = node(&mut allocated, 2, workspace);
+    let root = node(&mut allocated, ContainerType::Root, std::ptr::null_mut());
+    let output = node(&mut allocated, ContainerType::Output, root);
+    let workspace = node(&mut allocated, ContainerType::Workspace, output);
+    let leaf = node(&mut allocated, ContainerType::Con, workspace);
     (*workspace).num = 3;
     (*workspace).rect.x = 100;
     (*workspace).rect.y = 50;
@@ -163,13 +165,13 @@ unsafe fn collect() -> BTreeMap<String, String> {
         node_bytes(leaf, false, 0, &allocated),
     );
     window.class_class = c"App".as_ptr().cast_mut();
-    (*leaf).type_0 = 42;
+    (*leaf).type_0 = ContainerType::from_raw(42);
     result.insert(
         "unknown_type".into(),
         node_bytes(leaf, false, 0, &allocated),
     );
-    (*leaf).type_0 = 2;
-    let floating_child = node(&mut allocated, 3, workspace);
+    (*leaf).type_0 = ContainerType::Con;
+    let floating_child = node(&mut allocated, ContainerType::Floating, workspace);
     floating::append(
         identity(workspace).unwrap(),
         identity(floating_child).unwrap(),
@@ -192,8 +194,8 @@ unsafe fn collect() -> BTreeMap<String, String> {
     focus::remove(focus_owner, floating_id).unwrap();
     let mut pattern = Box::new(crate::regex::Regex::compile(c"^App$").unwrap());
     let mut swallow: Match = std::mem::zeroed();
-    swallow.dock = 2;
-    swallow.insert_where = 1;
+    swallow.dock = DockMatch::Top;
+    swallow.insert_where = MatchInsertWhere::AssignWorkspace;
     swallow.class = &mut *pattern;
     let mut ignored_swallow: Match = std::mem::zeroed();
     ignored_swallow.restart_mode = true;
@@ -207,6 +209,28 @@ unsafe fn collect() -> BTreeMap<String, String> {
         "node_restart_swallows".into(),
         node_bytes(leaf, true, 0, &allocated),
     );
+    // Numeric layout fields remain open domains at the production JSON edge.
+    // Check signed/unsigned extremes without changing the captured golden set.
+    for (fullscreen, dock, insert) in [
+        (u32::MAX, i32::MIN, u32::MAX),
+        (0x8000_0000, i32::MAX, 0x8000_0000),
+        (3, 4, 3),
+    ] {
+        (*leaf).fullscreen_mode = FullscreenMode::from_raw(fullscreen);
+        swallow.dock = DockMatch::from_raw(dock);
+        swallow.insert_where = MatchInsertWhere::from_raw(insert);
+        let json: serde_json::Value =
+            serde_json::from_str(&node_bytes(leaf, false, 0, &allocated)).unwrap();
+        assert_eq!(json["fullscreen_mode"], fullscreen);
+        assert_eq!(json["swallows"][0]["dock"], dock);
+        assert_eq!(json["swallows"][0]["insert_where"], insert);
+    }
+    swallow.dock = DockMatch::DontCheck;
+    let json: serde_json::Value =
+        serde_json::from_str(&node_bytes(leaf, false, 0, &allocated)).unwrap();
+    assert!(json["swallows"][0].get("dock").is_none());
+    assert!(json["swallows"][0].get("insert_where").is_none());
+    (*leaf).fullscreen_mode = FullscreenMode::None;
     (*leaf).swallow_head.tqh_first = std::ptr::null_mut();
     for depth in [124, 125, 126, 127, 128] {
         result.insert(
@@ -221,7 +245,7 @@ unsafe fn collect() -> BTreeMap<String, String> {
     nodes::append(identity(workspace).unwrap(), identity(leaf).unwrap()).unwrap();
     let mut parent = leaf;
     for _ in 0..70 {
-        let child = node(&mut allocated, 2, parent);
+        let child = node(&mut allocated, ContainerType::Con, parent);
         nodes::append(identity(parent).unwrap(), identity(child).unwrap()).unwrap();
         parent = child;
     }

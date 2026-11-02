@@ -2,10 +2,30 @@
 //! Layouts and signatures preserve the existing Linux x86_64 native backend.
 #![allow(non_camel_case_types, non_upper_case_globals)]
 use xcb_sys::{xcb_connection_t, xcb_generic_event_t};
-pub const SN_MONITOR_EVENT_CANCELED: SnMonitorEventType = 3;
-pub const SN_MONITOR_EVENT_CHANGED: SnMonitorEventType = 2;
-pub const SN_MONITOR_EVENT_COMPLETED: SnMonitorEventType = 1;
-pub const SN_MONITOR_EVENT_INITIATED: SnMonitorEventType = 0;
+/// Known startup-notification events. Foreign values are checked before use.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum MonitorEventType {
+    Initiated = 0,
+    Completed = 1,
+    Changed = 2,
+    Canceled = 3,
+}
+impl MonitorEventType {
+    pub const fn from_raw(raw: SnMonitorEventType) -> Option<Self> {
+        match raw {
+            0 => Some(Self::Initiated),
+            1 => Some(Self::Completed),
+            2 => Some(Self::Changed),
+            3 => Some(Self::Canceled),
+            _ => None,
+        }
+    }
+    pub const fn raw(self) -> SnMonitorEventType {
+        self as SnMonitorEventType
+    }
+}
+
 #[repr(C)]
 pub struct SnDisplay {
     _private: [u8; 0],
@@ -108,4 +128,22 @@ unsafe extern "C" {
         n_bytes: ::core::ffi::c_ulong,
     ) -> *mut ::core::ffi::c_void;
     pub fn sn_free(mem: *mut ::core::ffi::c_void);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn event_values_are_checked_at_the_native_boundary() {
+        for event in [
+            MonitorEventType::Initiated,
+            MonitorEventType::Completed,
+            MonitorEventType::Changed,
+            MonitorEventType::Canceled,
+        ] {
+            assert_eq!(MonitorEventType::from_raw(event.raw()), Some(event));
+        }
+        assert_eq!(MonitorEventType::from_raw(4), None);
+        assert_eq!(MonitorEventType::from_raw(u32::MAX), None);
+    }
 }

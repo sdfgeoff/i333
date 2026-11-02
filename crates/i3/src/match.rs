@@ -1,4 +1,5 @@
 use crate::con::arena::{containers, resolve};
+use crate::domains::{DockMatch, MatchInsertWhere};
 use crate::types::FloatingState;
 use crate::types::UrgencyMatch;
 use crate::types::WindowDock;
@@ -19,12 +20,6 @@ use crate::types::WindowMode;
 // Mechanical file-by-file Rust translation of src/match.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 
-pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
-pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
-pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
-pub const M_NODOCK: ::core::ffi::c_int = 0;
-pub const M_DONTCHECK: ::core::ffi::c_int = -1;
-
 pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 
@@ -41,12 +36,12 @@ fn empty_match() -> Match {
         machine: std::ptr::null_mut(),
         window_type: u32::MAX,
         urgent: UrgencyMatch::DontCheck,
-        dock: M_NODOCK,
+        dock: DockMatch::NoDock,
         id: 0,
         window_mode: WindowMode::Any,
         con_id: std::ptr::null_mut(),
         match_all_windows: false,
-        insert_where: 0,
+        insert_where: MatchInsertWhere::Here,
         matches: crate::types::MatchMatches {
             tqe_next: std::ptr::null_mut(),
             tqe_prev: std::ptr::null_mut(),
@@ -77,7 +72,7 @@ fn is_empty(value: &Match) -> bool {
         && value.id == 0
         && value.window_type == u32::MAX
         && value.con_id.is_null()
-        && value.dock == M_NODOCK
+        && value.dock == DockMatch::NoDock
         && value.window_mode == WindowMode::Any
         && !value.match_all_windows
 }
@@ -175,7 +170,7 @@ struct Criteria<'a> {
     id: u32,
     window_type: u32,
     urgent: UrgencyMatch,
-    dock: i32,
+    dock: DockMatch,
     mode: WindowMode,
 }
 
@@ -376,15 +371,15 @@ impl Criteria<'_> {
     }
 
     fn dock_matches(&self, dock: WindowDock) -> bool {
-        if self.dock == M_DONTCHECK {
+        if self.dock == DockMatch::DontCheck {
             return true;
         }
         let matches = matches!(
             (self.dock, dock),
-            (M_NODOCK, WindowDock::None)
-                | (M_DOCK_TOP, WindowDock::Top)
-                | (M_DOCK_BOTTOM, WindowDock::Bottom)
-                | (M_DOCK_ANY, WindowDock::Top | WindowDock::Bottom)
+            (DockMatch::NoDock, WindowDock::None)
+                | (DockMatch::Top, WindowDock::Top)
+                | (DockMatch::Bottom, WindowDock::Bottom)
+                | (DockMatch::Any, WindowDock::Top | WindowDock::Bottom)
         );
         emit(
             Level::Verbose,
@@ -855,7 +850,7 @@ mod tests {
             id: 0,
             window_type: u32::MAX,
             urgent: UrgencyMatch::DontCheck,
-            dock: M_NODOCK,
+            dock: DockMatch::NoDock,
             mode: WindowMode::Any,
         }
     }
@@ -961,7 +956,7 @@ mod tests {
             (4, [false, false, false]),
             (i32::MIN, [false, false, false]),
         ] {
-            criterion.dock = raw;
+            criterion.dock = DockMatch::from_raw(raw);
             for (dock, expected) in [WindowDock::None, WindowDock::Top, WindowDock::Bottom]
                 .into_iter()
                 .zip(expected)

@@ -2,6 +2,7 @@ use crate::con::arena::focus;
 use crate::con::arena::nodes;
 use crate::con::arena::parent::{parent_ptr, set_parent_ptr};
 use crate::con::arena::{floating, identity, resolve};
+use crate::domains::{ContainerType, FullscreenMode};
 use crate::handlers::add_ignore_event;
 use crate::types::Direction;
 use crate::types::FocusWrapping;
@@ -23,18 +24,6 @@ use crate::types::Position;
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 pub use libev_sys::{ev_timer, ev_timer_stop};
 
-pub type fullscreen_mode_t = ::core::ffi::c_uint;
-pub const CF_GLOBAL: fullscreen_mode_t = 2;
-pub const CF_OUTPUT: fullscreen_mode_t = 1;
-pub const CF_NONE: fullscreen_mode_t = 0;
-
-pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
-pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
-pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
-pub const CT_CON: ::core::ffi::c_uint = 2;
-pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
-pub const CT_ROOT: ::core::ffi::c_uint = 0;
-
 pub type Output = xoutput;
 pub type i3Window = Window;
 
@@ -54,7 +43,7 @@ unsafe fn _create___i3() -> *mut Con {
     free((*__i3).name as *mut ::core::ffi::c_void);
     (*__i3).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
     (*__i3).name = sstrdup(c"__i3".as_ptr());
-    (*__i3).type_0 = CT_OUTPUT;
+    (*__i3).type_0 = ContainerType::Output;
     (*__i3).layout = Layout::Output;
     con_fix_percent(croot);
     x_set_name(__i3, c"[i3 con] pseudo-output __i3".as_ptr());
@@ -72,7 +61,7 @@ unsafe fn _create___i3() -> *mut Con {
         ::core::ptr::null_mut::<Con>(),
         ::core::ptr::null_mut::<i3Window>(),
     );
-    (*content).type_0 = CT_CON;
+    (*content).type_0 = ContainerType::Con;
     free((*content).name as *mut ::core::ffi::c_void);
     (*content).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
     (*content).name = sstrdup(c"content".as_ptr());
@@ -83,13 +72,13 @@ unsafe fn _create___i3() -> *mut Con {
         ::core::ptr::null_mut::<Con>(),
         ::core::ptr::null_mut::<i3Window>(),
     );
-    (*ws).type_0 = CT_WORKSPACE;
+    (*ws).type_0 = ContainerType::Workspace;
     (*ws).num = -(1 as ::core::ffi::c_int);
     (*ws).name = sstrdup(c"__i3_scratch".as_ptr());
     (*ws).layout = Layout::SplitH;
     con_attach(ws, content, false);
     x_set_name(ws, c"[i3 con] workspace __i3_scratch".as_ptr());
-    (*ws).fullscreen_mode = CF_OUTPUT;
+    (*ws).fullscreen_mode = FullscreenMode::Output;
     __i3
 }
 
@@ -221,7 +210,7 @@ pub unsafe fn tree_init(geometry: *mut xcb_get_geometry_reply_t) {
     free((*croot).name as *mut ::core::ffi::c_void);
     (*croot).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
     (*croot).name = c"root".as_ptr().cast_mut();
-    (*croot).type_0 = CT_ROOT;
+    (*croot).type_0 = ContainerType::Root;
     (*croot).layout = Layout::SplitH;
     (*croot).rect = geometry_rect(
         (*geometry).x,
@@ -235,20 +224,14 @@ pub unsafe fn tree_init(geometry: *mut xcb_get_geometry_reply_t) {
 pub unsafe fn tree_open_con(mut con: *mut Con, window: *mut i3Window) -> *mut Con {
     if con.is_null() {
         con = parent_ptr(focused) as *mut Con;
-        if (*parent_ptr(con)).type_0 as ::core::ffi::c_uint
-            == CT_OUTPUT as ::core::ffi::c_int as ::core::ffi::c_uint
-            && (*con).type_0 as ::core::ffi::c_uint
-                != CT_DOCKAREA as ::core::ffi::c_int as ::core::ffi::c_uint
+        if ((*parent_ptr(con)).type_0) == ContainerType::Output
+            && ((*con).type_0) != ContainerType::DockArea
         {
             con = focused;
         }
-        if (*con).type_0 as ::core::ffi::c_uint
-            == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
+        if ((*con).type_0) == ContainerType::Floating {
             con = con_descend_tiling_focused(parent_ptr(con) as *mut Con);
-            if (*con).type_0 as ::core::ffi::c_uint
-                != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-            {
+            if ((*con).type_0) != ContainerType::Workspace {
                 con = parent_ptr(con) as *mut Con;
             }
         }
@@ -414,9 +397,7 @@ pub unsafe fn tree_close_internal(
         free((*con).urgency_timer as *mut ::core::ffi::c_void);
         (*con).urgency_timer = ::core::ptr::null_mut::<ev_timer>();
     }
-    if (*con).type_0 as ::core::ffi::c_uint
-        != CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if ((*con).type_0) != ContainerType::Floating {
         con_fix_percent(parent);
     }
     if !dont_kill_parent {
@@ -468,9 +449,7 @@ pub unsafe fn tree_split(mut con: *mut Con, orientation: Orientation) {
         );
         return;
     }
-    if (*con).type_0 as ::core::ffi::c_uint
-        == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if ((*con).type_0) == ContainerType::Workspace {
         if con_num_children(con) < 2 as ::core::ffi::c_int {
             if con_num_children(con) == 0 as ::core::ffi::c_int {
                 debuglog(
@@ -558,18 +537,13 @@ pub unsafe fn tree_split(mut con: *mut Con, orientation: Orientation) {
 }
 
 pub unsafe fn level_up() -> bool {
-    if (*parent_ptr(focused)).type_0 as ::core::ffi::c_uint
-        == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if ((*parent_ptr(focused)).type_0) == ContainerType::Floating {
         con_activate(parent_ptr(parent_ptr(focused)) as *mut Con);
         return true;
     }
-    if (*parent_ptr(focused)).type_0 as ::core::ffi::c_uint
-        != CT_CON as ::core::ffi::c_int as ::core::ffi::c_uint
-        && (*parent_ptr(focused)).type_0 as ::core::ffi::c_uint
-            != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-        || (*focused).type_0 as ::core::ffi::c_uint
-            == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
+    if ((*parent_ptr(focused)).type_0) != ContainerType::Con
+        && ((*parent_ptr(focused)).type_0) != ContainerType::Workspace
+        || ((*focused).type_0) == ContainerType::Workspace
     {
         errorlog(
             c"ERROR: 'focus parent': Focus is already on the workspace, cannot go higher than that.\n".as_ptr().cast_mut(),
@@ -590,9 +564,7 @@ pub unsafe fn level_down() -> bool {
             413 as ::core::ffi::c_int,
         );
         return false;
-    } else if (*next).type_0 as ::core::ffi::c_uint
-        == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    } else if ((*next).type_0) == ContainerType::Floating {
         let child: *mut Con = focus::first_ptr(next) as *mut Con;
         if child.is_null() {
             debuglog(
@@ -617,9 +589,7 @@ unsafe fn mark_unmapped(con: *mut Con) {
         mark_unmapped(current);
         current = nodes::next_ptr(current) as *mut Con;
     }
-    if (*con).type_0 as ::core::ffi::c_uint
-        == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if ((*con).type_0) == ContainerType::Workspace {
         for id in identity(con).into_iter().flat_map(floating::children) {
             if let Some(current) = resolve(id) {
                 mark_unmapped(current);
@@ -650,7 +620,7 @@ pub unsafe fn tree_render() {
     );
 }
 unsafe fn get_tree_next_workspace(con: *mut Con, direction: Direction) -> *mut Con {
-    if !con_get_fullscreen_con(con, CF_GLOBAL).is_null() {
+    if !con_get_fullscreen_con(con, FullscreenMode::Global).is_null() {
         debuglog(
             c"%s:%s:%d - Cannot change workspace while in global fullscreen mode.\n"
                 .as_ptr()
@@ -707,27 +677,17 @@ unsafe fn get_tree_next(mut con: *mut Con, direction: Direction) -> *mut Con {
     let previous: bool = position_from_direction(direction) == Position::Before;
     let orientation: Orientation = orientation_from_direction(direction);
     let mut first_wrap: *mut Con = ::core::ptr::null_mut::<Con>();
-    if !((*con).type_0 as ::core::ffi::c_uint
-        == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint)
-    {
-        while (*con).type_0 as ::core::ffi::c_uint
-            != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
-            if (*con).fullscreen_mode as ::core::ffi::c_uint
-                == CF_OUTPUT as ::core::ffi::c_int as ::core::ffi::c_uint
-            {
+    if !(((*con).type_0) == ContainerType::Workspace) {
+        while ((*con).type_0) != ContainerType::Workspace {
+            if ((*con).fullscreen_mode) == FullscreenMode::Output {
                 con = con_get_workspace(con);
                 break;
             } else {
-                if (*con).fullscreen_mode as ::core::ffi::c_uint
-                    == CF_GLOBAL as ::core::ffi::c_int as ::core::ffi::c_uint
-                {
+                if ((*con).fullscreen_mode) == FullscreenMode::Global {
                     return first_wrap;
                 }
                 let parent: *mut Con = parent_ptr(con) as *mut Con;
-                if (*con).type_0 as ::core::ffi::c_uint
-                    == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
-                {
+                if ((*con).type_0) == ContainerType::Floating {
                     if orientation != Orientation::Horizontal {
                         return ::core::ptr::null_mut::<Con>();
                     }
@@ -796,9 +756,7 @@ unsafe fn get_tree_next(mut con: *mut Con, direction: Direction) -> *mut Con {
                 con = parent;
             }
         }
-        if (*con).type_0 as ::core::ffi::c_uint
-            == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
+        if ((*con).type_0) == ContainerType::Workspace {
         } else {
             __assert_fail(
                 c"con->type == CT_WORKSPACE".as_ptr(),
@@ -824,13 +782,9 @@ pub unsafe fn tree_next(con: *mut Con, direction: Direction) {
     if next.is_null() {
         return;
     }
-    if (*next).type_0 as ::core::ffi::c_uint
-        == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if ((*next).type_0) == ContainerType::Workspace {
         let mut focus: *mut Con = con_descend_focused(next);
-        if (*focus).fullscreen_mode as ::core::ffi::c_uint
-            == CF_NONE as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
+        if ((*focus).fullscreen_mode) == FullscreenMode::None {
             let focus_tiling: *mut Con = con_descend_tiling_focused(next);
             if focus_tiling != next {
                 focus = focus_tiling;
@@ -840,9 +794,7 @@ pub unsafe fn tree_next(con: *mut Con, direction: Direction) {
         con_activate(focus);
         x_set_warp_to(&raw mut (*focus).rect);
         return;
-    } else if (*next).type_0 as ::core::ffi::c_uint
-        == CT_FLOATING_CON as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    } else if ((*next).type_0) == ContainerType::Floating {
         let parent: *mut Con = parent_ptr(next) as *mut Con;
         floating::rotate_after(
             identity(parent).expect("live floating parent"),
@@ -881,8 +833,7 @@ pub unsafe fn tree_flatten(con: *mut Con) {
         con,
         (*con).name,
     );
-    if !((*con).type_0 as ::core::ffi::c_uint
-        != CT_CON as ::core::ffi::c_int as ::core::ffi::c_uint
+    if !(((*con).type_0) != ContainerType::Con
         || (*parent).layout == Layout::Output
         || !(*con).window.is_null())
     {

@@ -2,13 +2,13 @@
 //! Property payloads and index decisions use owned Rust values. The native
 //! setters and tree traversals remain explicit event-thread unsafe boundaries.
 use crate::con::arena::{floating, identity, resolve};
+use crate::domains::ContainerType;
 use std::ffi::CStr;
 use std::ptr;
 
 pub const NET_WM_DESKTOP_NONE: u32 = 0xfffffff0;
 pub const NET_WM_DESKTOP_ALL: u32 = u32::MAX;
 pub static mut ewmh_window: xcb_window_t = 0;
-const WORKSPACE: u32 = 4;
 
 struct WorkspaceEntry {
     con: *mut Con,
@@ -214,7 +214,7 @@ unsafe fn ewmh_update_wm_desktop_recursively(con: *mut Con, desktop: u32) {
         ewmh_update_wm_desktop_recursively(child, desktop);
         child = nodes::next_ptr(child);
     }
-    if (*con).type_0 == WORKSPACE {
+    if (*con).type_0 == ContainerType::Workspace {
         for floating_id in floating::children(identity(con).expect("live floating parent")) {
             let Some(child) = resolve(floating_id) else {
                 continue;

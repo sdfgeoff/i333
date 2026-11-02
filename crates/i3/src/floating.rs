@@ -1,6 +1,7 @@
 use crate::con::arena::parent::{parent_ptr, set_parent_ptr};
 use crate::con::arena::{floating, focus, identity, nodes};
-use crate::con::{CF_NONE, CT_CON, CT_FLOATING_CON, CT_WORKSPACE};
+use crate::domains::{ContainerType, FullscreenMode};
+
 use crate::flags::ResizeEdges;
 pub use crate::types::xoutput as Output;
 
@@ -301,7 +302,7 @@ pub unsafe fn floating_check_size(floating_con: *mut Con, prefer_height: bool) {
         hints,
         limits,
         total_outputs_dimensions(),
-        (*floating_con).fullscreen_mode != CF_NONE,
+        (*floating_con).fullscreen_mode != FullscreenMode::None,
         prefer_height,
     );
 }
@@ -324,7 +325,7 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
         );
         return false;
     }
-    if (*con).type_0 as u32 == CT_WORKSPACE as i32 as u32 {
+    if ((*con).type_0) == ContainerType::Workspace {
         verboselog(
             c"Container is a workspace, not enabling floating mode.\n"
                 .as_ptr()
@@ -336,7 +337,7 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
     let mut focus_before_parent: bool = true;
     if !set_focus {
         let mut ancestor: *mut Con = con;
-        while (*parent_ptr(ancestor)).type_0 as u32 != CT_WORKSPACE as i32 as u32 {
+        while ((*parent_ptr(ancestor)).type_0) != ContainerType::Workspace {
             focus_before_parent = (focus_before_parent as i32
                 & (focus::first_ptr(parent_ptr(ancestor)) == ancestor) as i32)
                 != 0;
@@ -356,7 +357,7 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
     );
     let ws: *mut Con = con_get_workspace(con);
     set_parent_ptr(nc, ws as *mut Con).expect("live acyclic ancestry");
-    (*nc).type_0 = CT_FLOATING_CON;
+    (*nc).type_0 = ContainerType::Floating;
     (*nc).layout = Layout::SplitH;
     floating::prepend(
         identity(ws).expect("live floating workspace"),
@@ -376,8 +377,8 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
     } else {
         focus::append(focus_owner, wrapper_id).expect("new focus wrapper");
     }
-    if ((*parent_ptr(con)).type_0 as u32 == CT_CON as i32 as u32
-        || (*parent_ptr(con)).type_0 as u32 == CT_FLOATING_CON as i32 as u32)
+    if (((*parent_ptr(con)).type_0) == ContainerType::Con
+        || ((*parent_ptr(con)).type_0) == ContainerType::Floating)
         && con_num_children(parent_ptr(con)) == 0
     {
         debuglog(
@@ -566,7 +567,7 @@ pub unsafe fn floating_disable(con: *mut Con) {
         return;
     }
     let tiling_focused: *mut Con = con_descend_tiling_focused(ws);
-    if (*tiling_focused).type_0 as u32 == CT_WORKSPACE as i32 as u32 {
+    if ((*tiling_focused).type_0) == ContainerType::Workspace {
         let parent: *mut Con = parent_ptr(con);
         con_detach(con);
         set_parent_ptr(con, ::core::ptr::null_mut::<Con>()).expect("live acyclic ancestry");
@@ -583,7 +584,7 @@ pub unsafe fn floating_disable(con: *mut Con) {
 }
 
 pub unsafe fn toggle_floating_mode(con: *mut Con, automatic: bool) {
-    if (*con).type_0 as u32 == CT_FLOATING_CON as i32 as u32 {
+    if ((*con).type_0) == ContainerType::Floating {
         errorlog(
             c"ERROR: Cannot toggle floating mode on con = %p because it is of type CT_FLOATING_CON.\n".as_ptr().cast_mut(),
             con,
@@ -699,7 +700,7 @@ pub unsafe fn floating_center(con: *mut Con, rect: Rect) {
 }
 
 pub unsafe fn floating_move_to_pointer(con: *mut Con) {
-    if (*con).type_0 as u32 == CT_FLOATING_CON as i32 as u32 {
+    if ((*con).type_0) == ContainerType::Floating {
     } else {
         __assert_fail(
             c"con->type == CT_FLOATING_CON".as_ptr(),

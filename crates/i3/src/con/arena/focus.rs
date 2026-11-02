@@ -1,5 +1,6 @@
 //! Owned focus history independent of ancestry and tiling/floating membership.
 use super::{identity, resolve, Arena, ConId, Entry, CONTAINERS};
+use crate::domains::ContainerType;
 use crate::types::Con;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -591,8 +592,8 @@ mod tests {
         let p = identity(p_raw).unwrap();
         let child = identity(child_raw).unwrap();
         unsafe {
-            (*p_raw).type_0 = crate::con::CT_WORKSPACE;
-            (*child_raw).type_0 = crate::con::CT_FLOATING_CON;
+            (*p_raw).type_0 = ContainerType::Workspace;
+            (*child_raw).type_0 = ContainerType::Floating;
             crate::con::con_attach(child_raw, p_raw, false);
             assert_eq!(first(p), Some(child));
             assert_eq!(super::super::floating::first(p), Some(child));
@@ -640,11 +641,11 @@ mod tests {
             append(ids[parent], ids[child]).unwrap();
         }
         unsafe {
-            (*raws[0]).type_0 = crate::con::CT_ROOT;
-            (*raws[1]).type_0 = crate::con::CT_OUTPUT;
-            (*raws[2]).type_0 = crate::con::CT_WORKSPACE;
-            (*raws[3]).type_0 = crate::con::CT_CON;
-            (*raws[4]).type_0 = crate::con::CT_CON;
+            (*raws[0]).type_0 = ContainerType::Root;
+            (*raws[1]).type_0 = ContainerType::Output;
+            (*raws[2]).type_0 = ContainerType::Workspace;
+            (*raws[3]).type_0 = ContainerType::Con;
+            (*raws[4]).type_0 = ContainerType::Con;
             crate::con::con_focus(raws[4]);
             assert_eq!(first(ids[2]), Some(ids[4]));
             assert_eq!(first(ids[1]), Some(ids[2]));

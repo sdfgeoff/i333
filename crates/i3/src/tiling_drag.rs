@@ -1,7 +1,8 @@
 use crate::con::arena::focus;
 use crate::con::arena::parent::parent_ptr;
 use crate::con::arena::{containers, resolve};
-use crate::con::{CF_NONE, CF_OUTPUT, CT_WORKSPACE};
+use crate::domains::{ContainerType, FullscreenMode};
+
 pub use crate::types::xoutput as Output;
 use crate::types::Direction;
 use crate::types::DragResult;
@@ -159,7 +160,7 @@ unsafe fn drag_callback(
     let mut drop_type: DropType = DropType::Center;
     let mut draw_window: bool = true;
     let params: *const DropParameters = extra as *const DropParameters;
-    if !((*target).type_0 as u32 == CT_WORKSPACE as i32 as u32) {
+    if !(((*target).type_0) == ContainerType::Workspace) {
         let edges = indicator_edges(
             rect,
             new_x,
@@ -193,7 +194,7 @@ unsafe fn drag_callback(
         } else {
             match drop_type {
                 DropType::Parent => {
-                    while (*parent_ptr(target)).type_0 as u32 != CT_WORKSPACE as i32 as u32
+                    while ((*parent_ptr(target)).type_0) != ContainerType::Workspace
                         && con_on_side_of_parent(parent_ptr(target), direction) as i32 != 0
                     {
                         target = parent_ptr(target);
@@ -290,7 +291,7 @@ pub unsafe fn tiling_drag(
         con,
     );
     let mut set_focus: bool = con == focused;
-    let mut set_fs: bool = (*con).fullscreen_mode as u32 != CF_NONE as i32 as u32;
+    let mut set_fs: bool = ((*con).fullscreen_mode) != FullscreenMode::None;
     x_mask_event_mask(!(XCB_EVENT_MASK_ENTER_WINDOW as i32) as u32);
     xcb_flush(conn);
     let mut target: *mut Con = ::core::ptr::null_mut::<Con>();
@@ -451,7 +452,7 @@ pub unsafe fn tiling_drag(
         }
     }
     if set_fs {
-        con_enable_fullscreen(con, CF_OUTPUT);
+        con_enable_fullscreen(con, FullscreenMode::Output);
     }
     if set_focus {
         workspace_show(con_get_workspace(con));

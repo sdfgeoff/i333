@@ -1,6 +1,7 @@
 use crate::con::arena::focus;
 use crate::con::arena::parent::parent_ptr;
 use crate::con::arena::{containers, resolve};
+use crate::domains::{ContainerType, FullscreenMode, MatchInsertWhere};
 use crate::flags::AssignmentKind;
 use crate::types::BorderStyle;
 use crate::types::FloatingState;
@@ -18,14 +19,6 @@ use i3_common::safewrappers::sasprintf;
  */
 // Mechanical file-by-file Rust translation of src/manage.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
-
-pub type fullscreen_mode_t = ::core::ffi::c_uint;
-pub const CF_OUTPUT: fullscreen_mode_t = 1;
-
-pub const M_BELOW: ::core::ffi::c_uint = 2;
-
-pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
-pub const CT_CON: ::core::ffi::c_uint = 2;
 
 pub type Output = xoutput;
 pub type i3Window = Window;
@@ -720,9 +713,7 @@ pub unsafe fn manage_window(
                             nc,
                             (*nc).name,
                         );
-                        if (*nc).type_0 as ::core::ffi::c_uint
-                            == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-                        {
+                        if ((*nc).type_0) == ContainerType::Workspace {
                             nc = tree_open_con(nc, cwindow);
                         } else {
                             nc = tree_open_con(parent_ptr(nc), cwindow);
@@ -749,9 +740,7 @@ pub unsafe fn manage_window(
                             (*cwindow).wm_desktop,
                         );
                         nc = con_descend_tiling_focused(wm_desktop_ws);
-                        if (*nc).type_0 as ::core::ffi::c_uint
-                            == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-                        {
+                        if ((*nc).type_0) == ContainerType::Workspace {
                             nc = tree_open_con(nc, cwindow);
                         } else {
                             nc = tree_open_con(parent_ptr(nc), cwindow);
@@ -776,15 +765,12 @@ pub unsafe fn manage_window(
                             nc,
                             (*nc).name,
                         );
-                        if (*nc).type_0 as ::core::ffi::c_uint
-                            == CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
-                        {
+                        if ((*nc).type_0) == ContainerType::Workspace {
                             nc = tree_open_con(nc, cwindow);
                         } else {
                             nc = tree_open_con(parent_ptr(nc), cwindow);
                         }
-                    } else if (*focused).type_0 as ::core::ffi::c_uint
-                        == CT_CON as ::core::ffi::c_int as ::core::ffi::c_uint
+                    } else if ((*focused).type_0) == ContainerType::Con
                         && con_accepts_window(focused) as ::core::ffi::c_int != 0
                     {
                         verboselog(
@@ -803,16 +789,10 @@ pub unsafe fn manage_window(
                         con_move_to_output_name(nc, (*assignment).dest.output, true);
                     }
                 } else {
-                    if !match_0.is_null()
-                        && (*match_0).insert_where as ::core::ffi::c_uint
-                            == M_BELOW as ::core::ffi::c_int as ::core::ffi::c_uint
-                    {
+                    if !match_0.is_null() && ((*match_0).insert_where) == MatchInsertWhere::Below {
                         nc = tree_open_con(nc, cwindow);
                     }
-                    if !match_0.is_null()
-                        && (*match_0).insert_where as ::core::ffi::c_uint
-                            != M_BELOW as ::core::ffi::c_int as ::core::ffi::c_uint
-                    {
+                    if !match_0.is_null() && ((*match_0).insert_where) != MatchInsertWhere::Below {
                         debuglog(
                             c"%s:%s:%d - Removing match %p from container %p\n"
                                 .as_ptr()
@@ -884,7 +864,7 @@ pub unsafe fn manage_window(
                         if !output_0.is_null() {
                             con_move_to_output(nc, output_0, false);
                         }
-                        con_toggle_fullscreen(nc, CF_OUTPUT as ::core::ffi::c_int);
+                        con_toggle_fullscreen(nc, FullscreenMode::Output);
                     }
                     fs = ::core::ptr::null_mut::<Con>();
                 }

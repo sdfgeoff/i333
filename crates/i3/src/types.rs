@@ -9,6 +9,9 @@
 //! require valid enum discriminants; their current defaults are zero. Open
 //! integer domains remain integers until all producers migrate together.
 
+use crate::domains::{
+    ContainerType, DockMatch, FullscreenMode, HideEdgeBordersMode, MatchInsertWhere,
+};
 use crate::flags::{AssignmentKind, TilingDrag};
 
 /// The layout of a container or the default layout for a workspace.
@@ -348,7 +351,7 @@ pub struct Con {
     pub frame: i3_common::draw_util::surface_t,
     pub frame_buffer: i3_common::draw_util::surface_t,
     pub pixmap_recreated: bool,
-    pub type_0: ::core::ffi::c_uint,
+    pub type_0: ContainerType,
     pub num: ::core::ffi::c_int,
     pub gaps: crate::types::gaps_t,
     pub rect: crate::types::Rect,
@@ -368,7 +371,7 @@ pub struct Con {
     pub urgency_timer: *mut libev_sys::ev_timer,
     pub deco_render_params: *mut crate::types::deco_render_params,
     pub swallow_head: crate::types::swallow_head,
-    pub fullscreen_mode: ::core::ffi::c_uint,
+    pub fullscreen_mode: FullscreenMode,
     pub sticky: bool,
     pub layout: Layout,
     pub last_split_layout: Layout,
@@ -410,7 +413,7 @@ impl Con {
             frame: surface,
             frame_buffer: surface,
             pixmap_recreated: false,
-            type_0: 0,
+            type_0: ContainerType::Root,
             num: 0,
             gaps: gaps_t {
                 inner: 0,
@@ -442,7 +445,7 @@ impl Con {
                 tqh_first: null_mut(),
                 tqh_last: null_mut(),
             },
-            fullscreen_mode: 0,
+            fullscreen_mode: FullscreenMode::None,
             sticky: false,
             layout: Layout::Default,
             last_split_layout: Layout::Default,
@@ -474,7 +477,7 @@ pub struct Config {
     pub default_orientation: Orientation,
     pub disable_focus_follows_mouse: bool,
     pub mouse_warping: Warping,
-    pub hide_edge_borders: ::core::ffi::c_uint,
+    pub hide_edge_borders: HideEdgeBordersMode,
     pub disable_workspace_bar: bool,
     pub focus_wrapping: FocusWrapping,
     pub force_xinerama: bool,
@@ -523,12 +526,12 @@ pub struct Match {
     pub machine: *mut crate::regex::Regex,
     pub window_type: xcb_sys::xcb_atom_t,
     pub urgent: UrgencyMatch,
-    pub dock: ::core::ffi::c_int,
+    pub dock: DockMatch,
     pub id: xcb_sys::xcb_window_t,
     pub window_mode: WindowMode,
     pub con_id: *mut crate::types::Con,
     pub match_all_windows: bool,
-    pub insert_where: ::core::ffi::c_uint,
+    pub insert_where: MatchInsertWhere,
     pub matches: crate::types::MatchMatches,
     pub restart_mode: bool,
 }

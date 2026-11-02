@@ -3,7 +3,7 @@ use crate::bindings::run_binding;
 use crate::commands_parser::command_result_free;
 use crate::con::arena::focus;
 use crate::con::arena::parent::parent_ptr;
-use crate::con::CT_DOCKAREA;
+use crate::domains::ContainerType;
 use crate::flags::{ResizeEdges, TilingDrag};
 
 use crate::types::ClickDestination;
@@ -79,14 +79,14 @@ unsafe fn tiling_resize_for_border(
         );
         return false;
     }
-    if (*first).fullscreen_mode as u32 != (*second).fullscreen_mode as u32 {
+    if ((*first).fullscreen_mode) != (*second).fullscreen_mode {
         debuglog(
             c"%s:%s:%d - Avoiding resize between containers with different fullscreen modes, %d != %d\n".as_ptr().cast_mut(),
             c"../src/click.c".as_ptr(),
             c"tiling_resize_for_border".as_ptr(),
             53,
-            (*first).fullscreen_mode as u32,
-            (*second).fullscreen_mode as u32,
+            ((*first).fullscreen_mode).raw() as u32,
+            ((*second).fullscreen_mode).raw() as u32,
         );
         return false;
     }
@@ -219,10 +219,10 @@ unsafe fn route_click(con: *mut Con, event: *mut xcb_button_press_event_t, dest:
         c"../src/click.c".as_ptr(),
         c"route_click".as_ptr(),
         175,
-        (*con).type_0 as u32,
+        ((*con).type_0).raw() as u32,
         (*con).name,
     );
-    if (*parent_ptr(con)).type_0 as u32 == CT_DOCKAREA as i32 as u32 {
+    if ((*parent_ptr(con)).type_0) == ContainerType::DockArea {
         allow_replay_pointer((*event).time);
         return;
     }

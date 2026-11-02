@@ -8,6 +8,7 @@ use crate::config::included_files;
 use crate::config::modes;
 use crate::config_parser::parse_file;
 use crate::config_parser::ConfigParserState;
+use crate::domains::{DockMatch, HideEdgeBordersMode, MatchInsertWhere};
 use crate::flags::{AssignmentKind, GapMask, KeyboardGroups, TilingDrag};
 use crate::types::BarHiddenState;
 use crate::types::BarMode;
@@ -40,19 +41,7 @@ pub use libev_sys::ev_tstamp;
 
 pub type i3_event_state_mask_t = u32;
 
-pub const M_HERE: ::core::ffi::c_uint = 0;
-
-pub const M_NODOCK: ::core::ffi::c_int = 0;
-
 pub use crate::regex::Regex as regex;
-
-pub type hide_edge_borders_mode_t = ::core::ffi::c_uint;
-pub const HEBM_SMART_NO_GAPS: hide_edge_borders_mode_t = 64;
-pub const HEBM_SMART: hide_edge_borders_mode_t = 32;
-pub const HEBM_BOTH: hide_edge_borders_mode_t = 23;
-pub const HEBM_HORIZONTAL: hide_edge_borders_mode_t = 20;
-pub const HEBM_VERTICAL: hide_edge_borders_mode_t = 3;
-pub const HEBM_NONE: hide_edge_borders_mode_t = 0;
 
 pub type gaps_mask_t = GapMask;
 
@@ -189,12 +178,12 @@ pub unsafe fn cfg_include(
                         machine: ::core::ptr::null_mut::<regex>(),
                         window_type: 0,
                         urgent: UrgencyMatch::Latest,
-                        dock: M_NODOCK,
+                        dock: DockMatch::NoDock,
                         id: 0,
                         window_mode: WindowMode::Any,
                         con_id: ::core::ptr::null_mut::<Con>(),
                         match_all_windows: false,
-                        insert_where: M_HERE,
+                        insert_where: MatchInsertWhere::Here,
                         matches: MatchListLinks {
                             tqe_next: ::core::ptr::null_mut::<Match>(),
                             tqe_prev: ::core::ptr::null_mut::<*mut Match>(),
@@ -625,12 +614,10 @@ pub unsafe fn cfg_smart_borders(
     enable: *const ::core::ffi::c_char,
 ) {
     if strcmp(enable, c"no_gaps".as_ptr()) == 0 {
-        config.hide_edge_borders = HEBM_SMART_NO_GAPS;
+        config.hide_edge_borders = HideEdgeBordersMode::SmartNoGaps;
     } else if boolstr(enable) {
-        if config.hide_edge_borders as ::core::ffi::c_uint
-            == HEBM_NONE as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
-            config.hide_edge_borders = HEBM_SMART;
+        if config.hide_edge_borders == HideEdgeBordersMode::None {
+            config.hide_edge_borders = HideEdgeBordersMode::Smart;
         } else {
             errorlog(
                 c"ERROR: Both hide_edge_borders and smart_borders was used. Ignoring smart_borders as it is deprecated.\n".as_ptr().cast_mut(),
@@ -780,21 +767,21 @@ pub unsafe fn cfg_hide_edge_borders(
     borders: *const ::core::ffi::c_char,
 ) {
     if strcmp(borders, c"smart_no_gaps".as_ptr()) == 0 as ::core::ffi::c_int {
-        config.hide_edge_borders = HEBM_SMART_NO_GAPS;
+        config.hide_edge_borders = HideEdgeBordersMode::SmartNoGaps;
     } else if strcmp(borders, c"smart".as_ptr()) == 0 as ::core::ffi::c_int {
-        config.hide_edge_borders = HEBM_SMART;
+        config.hide_edge_borders = HideEdgeBordersMode::Smart;
     } else if strcmp(borders, c"vertical".as_ptr()) == 0 as ::core::ffi::c_int {
-        config.hide_edge_borders = HEBM_VERTICAL;
+        config.hide_edge_borders = HideEdgeBordersMode::Vertical;
     } else if strcmp(borders, c"horizontal".as_ptr()) == 0 as ::core::ffi::c_int {
-        config.hide_edge_borders = HEBM_HORIZONTAL;
+        config.hide_edge_borders = HideEdgeBordersMode::Horizontal;
     } else if strcmp(borders, c"both".as_ptr()) == 0 as ::core::ffi::c_int {
-        config.hide_edge_borders = HEBM_BOTH;
+        config.hide_edge_borders = HideEdgeBordersMode::Both;
     } else if strcmp(borders, c"none".as_ptr()) == 0 as ::core::ffi::c_int {
-        config.hide_edge_borders = HEBM_NONE;
+        config.hide_edge_borders = HideEdgeBordersMode::None;
     } else if boolstr(borders) {
-        config.hide_edge_borders = HEBM_VERTICAL;
+        config.hide_edge_borders = HideEdgeBordersMode::Vertical;
     } else {
-        config.hide_edge_borders = HEBM_NONE;
+        config.hide_edge_borders = HideEdgeBordersMode::None;
     };
 }
 

@@ -1,6 +1,7 @@
 // Copyright © 2009 Michael Stapelberg and contributors (see LICENSE).
 //! Native placeholder windows with owned display text and scoped event buffers.
 use crate::con::arena::{floating, identity, resolve};
+use crate::domains::{ContainerType, DockMatch};
 use crate::xcursor::Cursor;
 use i3_common::draw_util::draw_util_text;
 use libev_sys::{
@@ -10,8 +11,6 @@ use std::ffi::{CStr, CString};
 use std::ptr::NonNull;
 const true_0: i32 = 1;
 const false_0: i32 = 0;
-const CT_CON: u32 = 2;
-const M_DONTCHECK: i32 = -1;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -266,8 +265,7 @@ unsafe fn open_placeholder_window(con: *mut Con) {
     if con_is_leaf(con) as ::core::ffi::c_int != 0
         && ((*con).window.is_null() || (*(*con).window).id as ::core::ffi::c_long == XCB_NONE)
         && !(*con).swallow_head.tqh_first.is_null()
-        && (*con).type_0 as ::core::ffi::c_uint
-            == CT_CON as ::core::ffi::c_int as ::core::ffi::c_uint
+        && ((*con).type_0) == ContainerType::Con
     {
         let mut fresh2: [u32; 2] = [
             config.client.placeholder.background.colorpixel,
@@ -345,7 +343,7 @@ unsafe fn open_placeholder_window(con: *mut Con) {
         state_head.tqh_last = &raw mut (*state).state.tqe_next;
         let temp_id: *mut Match = smalloc(::core::mem::size_of::<Match>() as usize) as *mut Match;
         match_init(temp_id);
-        (*temp_id).dock = M_DONTCHECK;
+        (*temp_id).dock = DockMatch::DontCheck;
         (*temp_id).id = placeholder;
         (*temp_id).matches.tqe_next = (*con).swallow_head.tqh_first;
         if !(*temp_id).matches.tqe_next.is_null() {

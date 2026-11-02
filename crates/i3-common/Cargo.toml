@@ -7,6 +7,7 @@ repository.workspace = true
 
 [dependencies]
 xcb-sys.workspace = true
+xcb.workspace = true
 libc.workspace = true
 c2rust-bitfields.workspace = true
 cairo.workspace = true

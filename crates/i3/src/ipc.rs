@@ -1,5 +1,6 @@
 use crate::con::arena::focus;
 use crate::con::arena::parent::parent_ptr;
+use crate::domains::{ContainerType, DockMatch, FullscreenMode, MatchInsertWhere};
 #[path = "ipc_messages.rs"]
 mod messages;
 use crate::commands_parser::command_result_free;
@@ -44,28 +45,6 @@ pub use libev_sys::{
 
 pub use crate::application::Binding;
 pub type i3_event_state_mask_t = u32;
-
-pub type fullscreen_mode_t = ::core::ffi::c_uint;
-pub const CF_GLOBAL: fullscreen_mode_t = 2;
-pub const CF_OUTPUT: fullscreen_mode_t = 1;
-pub const CF_NONE: fullscreen_mode_t = 0;
-
-pub const M_BELOW: ::core::ffi::c_uint = 2;
-pub const M_ASSIGN_WS: ::core::ffi::c_uint = 1;
-pub const M_HERE: ::core::ffi::c_uint = 0;
-
-pub const M_DOCK_BOTTOM: ::core::ffi::c_int = 3;
-pub const M_DOCK_TOP: ::core::ffi::c_int = 2;
-pub const M_DOCK_ANY: ::core::ffi::c_int = 1;
-pub const M_NODOCK: ::core::ffi::c_int = 0;
-pub const M_DONTCHECK: ::core::ffi::c_int = -1;
-
-pub const CT_DOCKAREA: ::core::ffi::c_uint = 5;
-pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
-pub const CT_FLOATING_CON: ::core::ffi::c_uint = 3;
-pub const CT_CON: ::core::ffi::c_uint = 2;
-pub const CT_OUTPUT: ::core::ffi::c_uint = 1;
-pub const CT_ROOT: ::core::ffi::c_uint = 0;
 
 pub type Output = xoutput;
 
@@ -650,7 +629,7 @@ unsafe fn snapshot_node_header(con: *mut Con, restart: bool) -> messages::NodeHe
         mark = (*mark).marks.tqe_next;
     }
     let output = Omitted(
-        ((*con).type_0 != CT_ROOT as u32 && (*con).type_0 != CT_OUTPUT as u32)
+        ((*con).type_0 != ContainerType::Root && (*con).type_0 != ContainerType::Output)
             .then(|| native_text((*con_get_output(con)).name)),
     );
     let layout = node_layout(con);
@@ -695,12 +674,12 @@ unsafe fn snapshot_node_header(con: *mut Con, restart: bool) -> messages::NodeHe
     messages::NodeHeader {
         id: con as usize as i64,
         r#type: match (*con).type_0 {
-            0 => NativeValue::Value("root"),
-            1 => NativeValue::Value("output"),
-            2 => NativeValue::Value("con"),
-            3 => NativeValue::Value("floating_con"),
-            4 => NativeValue::Value("workspace"),
-            5 => NativeValue::Value("dockarea"),
+            ContainerType::Root => NativeValue::Value("root"),
+            ContainerType::Output => NativeValue::Value("output"),
+            ContainerType::Con => NativeValue::Value("con"),
+            ContainerType::Floating => NativeValue::Value("floating_con"),
+            ContainerType::Workspace => NativeValue::Value("workspace"),
+            ContainerType::DockArea => NativeValue::Value("dockarea"),
             _ => NativeValue::Rejected,
         },
         orientation,
@@ -737,8 +716,10 @@ unsafe fn snapshot_node_header(con: *mut Con, restart: bool) -> messages::NodeHe
         name,
         title_format: optional_text((*con).title_format),
         window_icon_padding: (*con).window_icon_padding as i64,
-        num: Omitted(((*con).type_0 == CT_WORKSPACE as u32).then_some((*con).num as i64)),
-        gaps: Omitted(((*con).type_0 == CT_WORKSPACE as u32).then_some(gap_values((*con).gaps))),
+        num: Omitted(((*con).type_0 == ContainerType::Workspace).then_some((*con).num as i64)),
+        gaps: Omitted(
+            ((*con).type_0 == ContainerType::Workspace).then_some(gap_values((*con).gaps)),
+        ),
         window: (!window.is_null()).then(|| (*window).id as i64),
         window_type: (!window.is_null()).then(|| window_kind(window)),
         window_properties: properties,
@@ -763,10 +744,10 @@ unsafe fn snapshot_node_tail(con: *mut Con, restart: bool) -> messages::NodeTail
     let mut swallow = (*con).swallow_head.tqh_first;
     while !swallow.is_null() {
         if !(*swallow).restart_mode {
-            let dock = (*swallow).dock as libc::c_int != M_DONTCHECK as libc::c_int;
+            let dock = (*swallow).dock != DockMatch::DontCheck;
             swallows.push(messages::Swallow {
-                dock: Omitted(dock.then_some((*swallow).dock as i64)),
-                insert_where: Omitted(dock.then_some((*swallow).insert_where as i64)),
+                dock: Omitted(dock.then_some(((*swallow).dock).raw() as i64)),
+                insert_where: Omitted(dock.then_some(((*swallow).insert_where).raw() as i64)),
                 class: optional_pattern((*swallow).class),
                 instance: optional_pattern((*swallow).instance),
                 window_role: optional_pattern((*swallow).window_role),
@@ -794,7 +775,7 @@ unsafe fn snapshot_node_tail(con: *mut Con, restart: bool) -> messages::NodeTail
     }
     messages::NodeTail {
         focus,
-        fullscreen_mode: (*con).fullscreen_mode as i64,
+        fullscreen_mode: ((*con).fullscreen_mode).raw() as i64,
         sticky: (*con).sticky,
         floating: match (*con).floating {
             FloatingState::AutoOff => "auto_off",
@@ -805,7 +786,7 @@ unsafe fn snapshot_node_tail(con: *mut Con, restart: bool) -> messages::NodeTail
         swallows,
         depth: Omitted((restart && !window.is_null()).then_some((*con).depth as i64)),
         previous_workspace_name: Omitted(
-            (restart && (*con).type_0 == CT_ROOT as u32 && !previous_workspace_name.is_null())
+            (restart && (*con).type_0 == ContainerType::Root && !previous_workspace_name.is_null())
                 .then(|| native_text(previous_workspace_name)),
         ),
     }
@@ -831,7 +812,7 @@ unsafe fn dump_node_stream(
     if output.start_array().is_err() {
         *compatibility = true;
     }
-    if (*con).type_0 != CT_DOCKAREA as u32 || !restart {
+    if (*con).type_0 != ContainerType::DockArea || !restart {
         let mut child = nodes::first_ptr(con);
         while !child.is_null() {
             dump_node_stream(output, child, restart, compatibility);
@@ -989,7 +970,7 @@ unsafe fn handle_get_workspaces(
             let mut workspace = nodes::first_ptr(output_get_content(output));
             while !workspace.is_null() {
                 assert!(
-                    (*workspace).type_0 == CT_WORKSPACE as u32,
+                    (*workspace).type_0 == ContainerType::Workspace,
                     "workspace type in output content"
                 );
                 workspaces.push(messages::Workspace {
@@ -1022,7 +1003,7 @@ unsafe fn handle_get_outputs(
         let workspace = if (*output).con.is_null() {
             std::ptr::null_mut()
         } else {
-            con_get_fullscreen_con((*output).con, CF_OUTPUT)
+            con_get_fullscreen_con((*output).con, FullscreenMode::Output)
         };
         result.push(messages::Output {
             name: native_text(output_primary_name(output)),

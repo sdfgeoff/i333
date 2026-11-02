@@ -2,6 +2,7 @@ use crate::application::bindings;
 use crate::application::ws_assignments;
 use crate::con::arena::parent::{parent_ptr, set_parent_ptr};
 use crate::con::arena::{floating, focus, identity, nodes, resolve};
+use crate::domains::{ContainerType, FullscreenMode};
 use crate::types::KillWindow;
 use crate::types::Layout;
 use crate::types::Orientation;
@@ -22,12 +23,6 @@ pub use libev_sys::{
     ev_loop, ev_timer, ev_timer_again, ev_timer_start, ev_timer_stop, ev_tstamp, ev_watcher,
     ev_watcher_time,
 };
-
-pub type fullscreen_mode_t = ::core::ffi::c_uint;
-pub const CF_OUTPUT: fullscreen_mode_t = 1;
-pub const CF_NONE: fullscreen_mode_t = 0;
-
-pub const CT_WORKSPACE: ::core::ffi::c_uint = 4;
 
 pub type Output = xoutput;
 pub type i3Window = Window;
@@ -210,7 +205,7 @@ pub unsafe fn workspace_get(num: *const ::core::ffi::c_char) -> *mut Con {
     (*workspace).name = sstrdup(num);
     (*workspace).workspace_layout = config.default_layout;
     (*workspace).num = parsed_num;
-    (*workspace).type_0 = CT_WORKSPACE;
+    (*workspace).type_0 = ContainerType::Workspace;
     (*workspace).gaps = gaps_for_workspace(workspace);
     con_attach(workspace, output_get_content(output), false);
     _workspace_apply_default_orientation(workspace);
@@ -293,7 +288,7 @@ pub unsafe fn create_workspace_on_output(output: *mut Output, content: *mut Con)
         ::core::ptr::null_mut::<Con>(),
         ::core::ptr::null_mut::<i3Window>(),
     );
-    (*ws).type_0 = CT_WORKSPACE;
+    (*ws).type_0 = ContainerType::Workspace;
     // Release the cache lock before querying/creating graph state or callbacks.
     let binding_names = BINDING_WORKSPACE_NAMES.lock().unwrap().clone();
     for name in &binding_names {
@@ -365,7 +360,7 @@ pub unsafe fn create_workspace_on_output(output: *mut Output, content: *mut Con)
     x_set_name(ws, name);
     free(name as *mut ::core::ffi::c_void);
     (*ws).gaps = gaps_for_workspace(ws);
-    (*ws).fullscreen_mode = CF_OUTPUT;
+    (*ws).fullscreen_mode = FullscreenMode::Output;
     (*ws).workspace_layout = config.default_layout;
     _workspace_apply_default_orientation(ws);
     ipc_send_workspace_event(c"init".as_ptr(), ws, ::core::ptr::null_mut::<Con>());
@@ -377,7 +372,7 @@ pub unsafe fn workspace_is_visible(ws: *mut Con) -> bool {
     if output.is_null() {
         return false;
     }
-    let fs: *mut Con = con_get_fullscreen_con(output, CF_OUTPUT);
+    let fs: *mut Con = con_get_fullscreen_con(output, FullscreenMode::Output);
     fs == ws
 }
 unsafe fn _get_sticky(
@@ -500,15 +495,13 @@ pub unsafe fn workspace_show(workspace: *mut Con) {
     }
     current = nodes::first_ptr(parent_ptr(workspace));
     while !current.is_null() {
-        if (*current).fullscreen_mode as ::core::ffi::c_uint
-            == CF_OUTPUT as ::core::ffi::c_int as ::core::ffi::c_uint
-        {
+        if ((*current).fullscreen_mode) == FullscreenMode::Output {
             old = current;
         }
-        (*current).fullscreen_mode = CF_NONE;
+        (*current).fullscreen_mode = FullscreenMode::None;
         current = nodes::next_ptr(current);
     }
-    (*workspace).fullscreen_mode = CF_OUTPUT;
+    (*workspace).fullscreen_mode = FullscreenMode::Output;
     current = con_get_workspace(focused);
     if workspace == current {
         debuglog(
@@ -656,7 +649,7 @@ pub unsafe fn workspace_show(workspace: *mut Con) {
             ewmh_update_desktop_properties();
         }
     }
-    (*workspace).fullscreen_mode = CF_OUTPUT;
+    (*workspace).fullscreen_mode = FullscreenMode::Output;
     verboselog(
         c"focused now = %p / %s\n".as_ptr().cast_mut(),
         focused,
@@ -696,9 +689,7 @@ pub unsafe fn workspace_next() -> *mut Con {
                 } {
                     child = nodes::first_ptr(output_get_content(output));
                     while !child.is_null() {
-                        if !((*child).type_0 as ::core::ffi::c_uint
-                            != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint)
-                        {
+                        if !(((*child).type_0) != ContainerType::Workspace) {
                             if first.is_null() {
                                 first = child;
                             }
@@ -735,9 +726,7 @@ pub unsafe fn workspace_next() -> *mut Con {
                 } {
                     child_0 = nodes::first_ptr(output_get_content(output));
                     while !child_0.is_null() {
-                        if !((*child_0).type_0 as ::core::ffi::c_uint
-                            != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint)
-                        {
+                        if !(((*child_0).type_0) != ContainerType::Workspace) {
                             if first.is_null()
                                 || (*child_0).num != -(1 as ::core::ffi::c_int)
                                     && (*child_0).num < (*first).num
@@ -805,9 +794,7 @@ pub unsafe fn workspace_prev() -> *mut Con {
                     } {
                         child = nodes::last_ptr(output_get_content(output));
                         while !child.is_null() {
-                            if !((*child).type_0 as ::core::ffi::c_uint
-                                != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint)
-                            {
+                            if !(((*child).type_0) != ContainerType::Workspace) {
                                 if last.is_null() {
                                     last = child;
                                 }
@@ -845,9 +832,7 @@ pub unsafe fn workspace_prev() -> *mut Con {
                 } {
                     child_0 = nodes::last_ptr(output_get_content(output));
                     while !child_0.is_null() {
-                        if !((*child_0).type_0 as ::core::ffi::c_uint
-                            != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint)
-                        {
+                        if !(((*child_0).type_0) != ContainerType::Workspace) {
                             if last.is_null()
                                 || (*child_0).num != -(1 as ::core::ffi::c_int)
                                     && (*last).num < (*child_0).num
@@ -907,9 +892,7 @@ pub unsafe fn workspace_next_on_output() -> *mut Con {
         } {
             child = nodes::first_ptr(output_get_content(output));
             while !child.is_null() {
-                if !((*child).type_0 as ::core::ffi::c_uint
-                    != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint)
-                {
+                if !(((*child).type_0) != ContainerType::Workspace) {
                     if (*child).num == -(1 as ::core::ffi::c_int) {
                         break;
                     }
@@ -943,9 +926,7 @@ pub unsafe fn workspace_next_on_output() -> *mut Con {
             }
             child_0 = nodes::first_ptr(output_get_content(output));
             while !child_0.is_null() {
-                if !((*child_0).type_0 as ::core::ffi::c_uint
-                    != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint)
-                {
+                if !(((*child_0).type_0) != ContainerType::Workspace) {
                     if child_0 == current {
                         found_current_0 = true;
                     } else if (*child_0).num == -(1 as ::core::ffi::c_int)
@@ -973,9 +954,7 @@ pub unsafe fn workspace_next_on_output() -> *mut Con {
                 } {
                     child_1 = nodes::first_ptr(output_get_content(output));
                     while !child_1.is_null() {
-                        if !((*child_1).type_0 as ::core::ffi::c_uint
-                            != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint)
-                        {
+                        if !(((*child_1).type_0) != ContainerType::Workspace) {
                             if next.is_null()
                                 || (*child_1).num != -(1 as ::core::ffi::c_int)
                                     && (*child_1).num < (*next).num
@@ -1019,8 +998,7 @@ pub unsafe fn workspace_prev_on_output() -> *mut Con {
         } {
             child = nodes::last_ptr(output_get_content(output));
             while !child.is_null() {
-                if !((*child).type_0 as ::core::ffi::c_uint
-                    != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint
+                if !(((*child).type_0) != ContainerType::Workspace
                     || (*child).num == -(1 as ::core::ffi::c_int))
                 {
                     if (*current).num > (*child).num
@@ -1053,9 +1031,7 @@ pub unsafe fn workspace_prev_on_output() -> *mut Con {
             }
             child_0 = nodes::last_ptr(output_get_content(output));
             while !child_0.is_null() {
-                if !((*child_0).type_0 as ::core::ffi::c_uint
-                    != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint)
-                {
+                if !(((*child_0).type_0) != ContainerType::Workspace) {
                     if child_0 == current {
                         found_current_0 = true;
                     } else if (*child_0).num == -(1 as ::core::ffi::c_int)
@@ -1083,9 +1059,7 @@ pub unsafe fn workspace_prev_on_output() -> *mut Con {
                 } {
                     child_1 = nodes::last_ptr(output_get_content(output));
                     while !child_1.is_null() {
-                        if !((*child_1).type_0 as ::core::ffi::c_uint
-                            != CT_WORKSPACE as ::core::ffi::c_int as ::core::ffi::c_uint)
-                        {
+                        if !(((*child_1).type_0) != ContainerType::Workspace) {
                             if prev.is_null() || (*child_1).num > (*prev).num {
                                 prev = child_1;
                             }

@@ -129,9 +129,19 @@ pub const EV_WRITE: ::core::ffi::c_int = 2;
 pub const EV_READ: ::core::ffi::c_int = 1;
 pub const EV_NONE: ::core::ffi::c_int = 0;
 pub const EV_UNDEF: ::core::ffi::c_int = -1;
-pub const EVBREAK_ALL: ::core::ffi::c_int = 2;
-pub const EVBREAK_ONE: ::core::ffi::c_int = 1;
-pub const EVBREAK_CANCEL: ::core::ffi::c_int = 0;
+/// Which nesting level of the native event loop should stop.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(i32)]
+pub enum BreakMode {
+    Cancel = 0,
+    One = 1,
+    All = 2,
+}
+impl BreakMode {
+    pub const fn raw(self) -> ::core::ffi::c_int {
+        self as ::core::ffi::c_int
+    }
+}
 
 pub const EVFLAG_AUTO: ::core::ffi::c_uint = 0;
 pub const EVFLAG_NOENV: ::core::ffi::c_uint = 0x0100_0000;
@@ -178,9 +188,9 @@ pub unsafe fn ev_loop(loop_: *mut ev_loop, flags: ::core::ffi::c_int) {
 /// # Safety
 /// `loop_` is live and called on its owning thread.
 #[inline]
-pub unsafe fn ev_unloop(loop_: *mut ev_loop, how: ::core::ffi::c_int) {
+pub unsafe fn ev_unloop(loop_: *mut ev_loop, how: BreakMode) {
     unsafe {
-        ev_break(loop_, how);
+        ev_break(loop_, how.raw());
     }
 }
 
@@ -294,6 +304,13 @@ mod tests {
     use core::mem::{offset_of, size_of};
 
     #[test]
+    fn break_selectors_keep_native_values() {
+        assert_eq!(BreakMode::Cancel.raw(), 0);
+        assert_eq!(BreakMode::One.raw(), 1);
+        assert_eq!(BreakMode::All.raw(), 2);
+    }
+
+    #[test]
     fn watcher_layout_matches_default_linux_abi() {
         assert_eq!(size_of::<ev_watcher>(), 32);
         assert_eq!(size_of::<ev_watcher_list>(), 40);
@@ -324,7 +341,7 @@ mod tests {
             let outcome = &mut *(*timer).data.cast::<Outcome>();
             outcome.calls += 1;
             outcome.events = events;
-            ev_break(loop_, EVBREAK_ONE);
+            ev_unloop(loop_, BreakMode::One);
         }
     }
     #[test]

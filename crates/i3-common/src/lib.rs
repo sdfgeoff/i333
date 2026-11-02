@@ -56,3 +56,6 @@ mod tests;
 
 /// Owned, byte-preserving command-line parsing shared by the executables.
 pub mod cli;
+
+/// Narrow transitional access to maintained XCB on a borrowed native connection.
+pub mod xcb_connection;

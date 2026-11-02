@@ -9,6 +9,8 @@
  *
  */
 #![deny(unsafe_op_in_unsafe_fn)]
+use crate::domains::{ContainerType, FullscreenMode};
+
 use crate::flags::GapMask;
 
 use crate::application::ws_assignments;
@@ -16,7 +18,6 @@ use crate::con::arena::parent::parent_ptr;
 use crate::con::{
     con_get_fullscreen_con, con_get_workspace, con_has_parent, con_inside_floating,
     con_inside_stacked_or_tabbed, con_is_leaf, con_num_children, con_num_visible_children,
-    CF_GLOBAL, CF_OUTPUT, CT_CON, CT_WORKSPACE,
 };
 use crate::config::config;
 use crate::log::debuglog;
@@ -204,9 +205,9 @@ pub unsafe fn gaps_should_inset_con(con: *mut Con, _children: i32) -> bool {
         if !con_inside_floating(con).is_null() {
             return false;
         }
-        let parent_kind = if (*parent).type_0 == CT_WORKSPACE {
+        let parent_kind = if (*parent).type_0 == ContainerType::Workspace {
             InsetParent::Workspace
-        } else if (*parent).type_0 == CT_CON
+        } else if (*parent).type_0 == ContainerType::Con
             && matches!((*parent).layout, Layout::SplitH | Layout::SplitV)
         {
             InsetParent::Split
@@ -234,9 +235,9 @@ pub unsafe fn gaps_has_adjacent_container(con: *mut Con, direction: Direction) -
     // only these stack participant pointers. No graph references are retained.
     unsafe {
         let workspace = con_get_workspace(con);
-        let mut fullscreen = con_get_fullscreen_con(workspace, CF_GLOBAL);
+        let mut fullscreen = con_get_fullscreen_con(workspace, FullscreenMode::Global);
         if fullscreen.is_null() {
-            fullscreen = con_get_fullscreen_con(workspace, CF_OUTPUT);
+            fullscreen = con_get_fullscreen_con(workspace, FullscreenMode::Output);
         }
         if con == fullscreen {
             return has_adjacent(false, FullscreenNeighbor::ContainerIsFullscreen);
