@@ -3976,7 +3976,7 @@ pub unsafe fn parse_string(walk: *mut *const libc::c_char, as_word: bool) -> *mu
 
 pub unsafe fn parse_command(
     input: *const ::core::ffi::c_char,
-    output: Option<&mut i3_json::Generator>,
+    output: Option<&mut Vec<u8>>,
     client: *mut ipc_client,
 ) -> *mut CommandResult {
     debuglog(
@@ -3988,7 +3988,9 @@ pub unsafe fn parse_command(
     );
     let mut output = output;
     let mut cmd_ctx: cmd_parser_ctx = cmd_parser_ctx {
-        json_output: output.as_deref_mut().map(std::mem::take),
+        json_output: output
+            .as_ref()
+            .map(|_| crate::ipc::CommandReplies::default()),
         state: CommandParserState::RenameWorkspaceLikelyToNewName,
         current_match: Match {
             error: ::core::ptr::null_mut::<::core::ffi::c_char>(),
@@ -4037,9 +4039,6 @@ pub unsafe fn parse_command(
         scalloc(1 as usize, ::core::mem::size_of::<CommandResult>() as usize) as *mut CommandResult;
     cmd_ctx.command_output.ctx = &raw mut cmd_ctx as *mut cmd_parser_ctx;
     cmd_ctx.command_output.client = client;
-    if let Some(generator) = &mut cmd_ctx.json_output {
-        let _ = generator.start_array();
-    }
     cmd_ctx.command_output.needs_tree_render = false_0 != 0;
     let mut walk: *const ::core::ffi::c_char = input;
     let len: usize = strlen(input) as usize;
@@ -4184,14 +4183,12 @@ pub unsafe fn parse_command(
         parser_clear_stack(&raw mut cmd_ctx.stack);
         break;
     }
-    if let Some(generator) = &mut cmd_ctx.json_output {
-        let _ = generator.end_array();
-    }
     if let Some(output) = output {
         *output = cmd_ctx
             .json_output
             .take()
-            .expect("requested command output");
+            .expect("requested command output")
+            .finish();
     }
     (*result).needs_tree_render = cmd_ctx.command_output.needs_tree_render;
     while !cmd_ctx.owindows.tqh_first.is_null() {

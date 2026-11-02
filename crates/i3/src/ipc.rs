@@ -325,6 +325,7 @@ pub unsafe fn ipc_shutdown(reason: ShutdownReason, exempt_fd: ::core::ffi::c_int
 }
 /// Complete command response values. The parser owns their stream; command
 /// handlers borrow native message bytes only while appending one response.
+#[derive(Clone, Copy)]
 pub enum CommandReply<'a> {
     Success(bool),
     Error(&'a CStr),
@@ -372,15 +373,13 @@ impl CommandReply<'_> {
             ],
         }
     }
-    fn write(&self, output: &mut i3_json::Generator) {
-        let fields = self.fields();
-        if fields
+    fn valid(&self) -> bool {
+        self.fields()
             .iter()
             .all(|(_, value)| !matches!(value, ReplyField::Text(text) if text.to_str().is_err()))
-        {
-            let _ = output.serialized(self);
-            return;
-        }
+    }
+    fn legacy(&self, output: &mut i3_json::Generator) {
+        let fields = self.fields();
         // Legacy generators reject invalid UTF-8 without consuming a value.
         // Preserve the subsequent key/value state and partial output exactly;
         // repairing native bytes or dropping the whole response changes IPC.
@@ -424,7 +423,50 @@ pub unsafe fn emit_command_reply(
 ) {
     let context = unsafe { (*command).ctx };
     if let Some(output) = unsafe { &mut (*context).json_output } {
-        reply.write(output);
+        output.push(reply);
+    }
+}
+
+/// Complete reply values use Serde. Only a rejected native value switches the
+/// remainder of this command's array to legacy partial-output behavior.
+#[derive(Default)]
+pub struct CommandReplies {
+    items: Vec<Vec<u8>>,
+    compatibility: Option<i3_json::Generator>,
+}
+impl CommandReplies {
+    fn push(&mut self, reply: CommandReply<'_>) {
+        if self.compatibility.is_none() && reply.valid() {
+            self.items
+                .push(serde_json::to_vec(&reply).expect("validated command reply serializes"));
+            return;
+        }
+        let output = self.compatibility.get_or_insert_with(|| {
+            let mut output = i3_json::Generator::new();
+            let _ = output.start_array();
+            for bytes in self.items.drain(..) {
+                let value: &serde_json::value::RawValue =
+                    serde_json::from_slice(&bytes).expect("Serde reply bytes");
+                let _ = output.serialized(value);
+            }
+            output
+        });
+        reply.legacy(output);
+    }
+    pub(crate) fn finish(mut self) -> Vec<u8> {
+        if let Some(mut output) = self.compatibility.take() {
+            let _ = output.end_array();
+            return output.bytes().to_vec();
+        }
+        let mut bytes = vec![b'['];
+        for (index, item) in self.items.into_iter().enumerate() {
+            if index > 0 {
+                bytes.push(b',');
+            }
+            bytes.extend_from_slice(&item);
+        }
+        bytes.push(b']');
+        bytes
     }
 }
 
@@ -451,7 +493,7 @@ unsafe fn handle_run_command(
         c"IPC: received: *%.4000s*\n".as_ptr().cast_mut(),
         command.as_ptr(),
     );
-    let mut output = i3_json::Generator::new();
+    let mut output = Vec::new();
     let result = CommandResultOwner(parse_command(command.as_ptr(), Some(&mut output), client));
     if (*result.0).needs_tree_render {
         tree_render();
@@ -462,7 +504,7 @@ unsafe fn handle_run_command(
     if !token.live() {
         return;
     }
-    let reply = output.bytes();
+    let reply = &output;
     ipc_send_client_message(
         client,
         reply.len(),
@@ -482,15 +524,11 @@ fn unsigned_rect(rect: Rect) -> messages::Rectangle {
     }
 }
 unsafe fn send_typed_reply<T: WireValue>(client: *mut ipc_client, message_type: u32, value: &T) {
-    let mut output = i3_json::Generator::new();
-    value.write(&mut output);
-    let payload = output.bytes();
+    let payload = value.to_bytes();
     ipc_send_client_message(client, payload.len(), message_type, payload.as_ptr());
 }
 unsafe fn send_typed_event<T: WireValue>(name: &CStr, message_type: u32, value: &T) {
-    let mut output = i3_json::Generator::new();
-    value.write(&mut output);
-    let payload = CString::new(output.bytes()).expect("JSON has no literal NUL");
+    let payload = CString::new(value.to_bytes()).expect("JSON has no literal NUL");
     ipc_send_event(name.as_ptr(), message_type, payload.as_ptr());
 }
 fn modifier_names(mask: u32) -> impl Iterator<Item = &'static str> {
@@ -791,11 +829,126 @@ unsafe fn snapshot_node_tail(con: *mut Con, restart: bool) -> messages::NodeTail
         ),
     }
 }
+/// A borrowed event-thread tree. Serialization visits child links lazily and
+/// never constructs an owned copy of the native graph.
+struct NodeRef {
+    con: *mut Con,
+    restart: bool,
+}
+impl NodeRef {
+    unsafe fn validation(&self) -> Option<usize> {
+        let mut pending = vec![(self.con, 0usize)];
+        let mut maximum = 0;
+        while let Some((con, base)) = pending.pop() {
+            // Stop before traversing a graph that needs legacy depth handling.
+            if base >= 128 {
+                return None;
+            }
+            let header = snapshot_node_header(con, self.restart);
+            let tail = snapshot_node_tail(con, self.restart);
+            if !header.valid() || !tail.valid() {
+                return None;
+            }
+            maximum = maximum.max(base + header.depth().max(tail.depth()).max(2));
+            if maximum > 128 {
+                return None;
+            }
+            if (*con).type_0 != CT_DOCKAREA as u32 || !self.restart {
+                let mut child = nodes::first_ptr(con);
+                while !child.is_null() {
+                    pending.push((child, base + 2));
+                    child = nodes::next_ptr(child);
+                }
+            }
+            for id in floating::children(identity(con).expect("live floating parent")) {
+                if let Some(child) = resolve(id) {
+                    pending.push((child, base + 2));
+                }
+            }
+        }
+        Some(maximum)
+    }
+}
+impl serde::Serialize for NodeRef {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeMap;
+        // The enclosing IPC/restart operation holds the native event-thread
+        // graph contract for the complete synchronous Serde call.
+        unsafe {
+            let mut map = serializer.serialize_map(None)?;
+            snapshot_node_header(self.con, self.restart).serialize_fields(&mut map)?;
+            map.serialize_entry(
+                "nodes",
+                &NodeChildren {
+                    node: self,
+                    floating: false,
+                },
+            )?;
+            map.serialize_entry(
+                "floating_nodes",
+                &NodeChildren {
+                    node: self,
+                    floating: true,
+                },
+            )?;
+            snapshot_node_tail(self.con, self.restart).serialize_fields(&mut map)?;
+            map.end()
+        }
+    }
+}
+struct NodeChildren<'a> {
+    node: &'a NodeRef,
+    floating: bool,
+}
+impl serde::Serialize for NodeChildren<'_> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeSeq;
+        let mut seq = serializer.serialize_seq(None)?;
+        unsafe {
+            if self.floating {
+                for id in floating::children(identity(self.node.con).expect("live floating parent"))
+                {
+                    if let Some(con) = resolve(id) {
+                        seq.serialize_element(&NodeRef {
+                            con,
+                            restart: self.node.restart,
+                        })?;
+                    }
+                }
+            } else if (*self.node.con).type_0 != CT_DOCKAREA as u32 || !self.node.restart {
+                let mut con = nodes::first_ptr(self.node.con);
+                while !con.is_null() {
+                    seq.serialize_element(&NodeRef {
+                        con,
+                        restart: self.node.restart,
+                    })?;
+                    con = nodes::next_ptr(con);
+                }
+            }
+        }
+        seq.end()
+    }
+}
+impl WireValue for NodeRef {
+    fn valid(&self) -> bool {
+        unsafe { self.validation().is_some() }
+    }
+    fn depth(&self) -> usize {
+        unsafe { self.validation().unwrap_or(129) }
+    }
+    fn legacy(&self, output: &mut i3_json::Generator) {
+        unsafe {
+            dump_node_stream(output, self.con, self.restart, &mut true);
+        }
+    }
+}
+pub unsafe fn node_payload(con: *mut Con, restart: bool) -> Vec<u8> {
+    NodeRef { con, restart }.to_bytes()
+}
 /// Native graph traversal remains streaming: Serde sees only bounded value
 /// segments, never a recursively constructed copy of the complete window tree.
 pub unsafe fn dump_node(output: &mut i3_json::Generator, con: *mut Con, restart: bool) {
-    let mut compatibility = false;
-    dump_node_stream(output, con, restart, &mut compatibility);
+    NodeRef { con, restart }.write(output);
 }
 unsafe fn dump_node_stream(
     output: &mut i3_json::Generator,
@@ -942,11 +1095,8 @@ unsafe fn handle_tree(
     message_type: u32,
 ) {
     let locale = NumericLocale::c();
-    let mut generator = i3_json::Generator::new();
-    let gen = &mut generator;
-    dump_node(gen, croot, false_0 != 0);
+    let payload = node_payload(croot, false);
     drop(locale);
-    let payload = gen.bytes();
     let length = payload.len();
     ipc_send_client_message(
         client,
@@ -1066,8 +1216,6 @@ unsafe fn handle_get_bar_config(
     message_size: u32,
     message_type: u32,
 ) {
-    let mut generator = i3_json::Generator::new();
-    let gen = &mut generator;
     if message_size == 0 {
         let mut names = Vec::new();
         let mut current = barconfigs.tqh_first;
@@ -1098,12 +1246,11 @@ unsafe fn handle_get_bar_config(
             break;
         }
     }
-    if config.is_null() {
-        messages::MissingBar { id: None }.write(gen);
+    let payload_0 = if config.is_null() {
+        messages::MissingBar { id: None }.to_bytes()
     } else {
-        dump_bar_config(gen, config);
-    }
-    let payload_0 = gen.bytes();
+        snapshot_bar_config(config).to_bytes()
+    };
     let length_0 = payload_0.len();
     ipc_send_client_message(
         client,
@@ -1584,28 +1731,21 @@ pub unsafe fn ipc_marshal_workspace_event(
     old: *mut Con,
 ) -> CString {
     let locale = NumericLocale::c();
-    let mut generator = i3_json::Generator::new();
-    let gen = &mut generator;
-    let mut compatibility = false;
-    let _ = gen.start_object();
-    messages::Change {
-        change: native_text(change),
-    }
-    .fields(gen, &mut compatibility);
-    let _ = gen.string("current");
-    if current.is_null() {
-        let _ = gen.null();
-    } else {
-        dump_node_stream(gen, current, false, &mut compatibility);
-    }
-    let _ = gen.string("old");
-    if old.is_null() {
-        let _ = gen.null();
-    } else {
-        dump_node_stream(gen, old, false, &mut compatibility);
-    }
-    let _ = gen.end_object();
-    let payload = CString::new(gen.bytes()).expect("JSON has no literal NUL");
+    let payload = CString::new(
+        messages::WorkspaceEvent {
+            change: native_text(change),
+            current: (!current.is_null()).then_some(NodeRef {
+                con: current,
+                restart: false,
+            }),
+            old: (!old.is_null()).then_some(NodeRef {
+                con: old,
+                restart: false,
+            }),
+        }
+        .to_bytes(),
+    )
+    .expect("JSON has no literal NUL");
     drop(locale);
     payload
 }
@@ -1640,19 +1780,14 @@ pub unsafe fn ipc_send_window_event(property: *const ::core::ffi::c_char, con: *
         },
     );
     let locale = NumericLocale::c();
-    let mut generator = i3_json::Generator::new();
-    let gen = &mut generator;
-    let mut compatibility = false;
-    let _ = gen.start_object();
-    messages::Change {
+    let payload = messages::WindowEvent {
         change: native_text(property),
+        container: NodeRef {
+            con,
+            restart: false,
+        },
     }
-    .fields(gen, &mut compatibility);
-    let _ = gen.string("container");
-    dump_node_stream(gen, con, false, &mut compatibility);
-    let _ = gen.end_object();
-    let payload = gen.bytes();
-    let length = payload.len();
+    .to_bytes();
     ipc_send_event(
         c"window".as_ptr(),
         I3_IPC_EVENT_WINDOW as u32,
@@ -1675,10 +1810,7 @@ pub unsafe fn ipc_send_barconfig_update_event(barconfig: *mut Barconfig) {
         (*barconfig).id,
     );
     let locale = NumericLocale::c();
-    let mut generator = i3_json::Generator::new();
-    let gen = &mut generator;
-    dump_bar_config(gen, barconfig);
-    let payload = gen.bytes();
+    let payload = snapshot_bar_config(barconfig).to_bytes();
     let length = payload.len();
     ipc_send_event(
         c"barconfig_update".as_ptr(),
@@ -1960,13 +2092,11 @@ mod client_lifetime_tests {
 mod typed_reply_tests {
     use super::*;
     fn stream(replies: &[CommandReply<'_>]) -> Vec<u8> {
-        let mut output = i3_json::Generator::new();
-        output.start_array().unwrap();
+        let mut output = CommandReplies::default();
         for reply in replies {
-            reply.write(&mut output);
+            output.push(*reply);
         }
-        let _ = output.end_array();
-        output.bytes().to_vec()
+        output.finish()
     }
     #[test]
     fn typed_command_replies_preserve_field_order_and_escaping() {
@@ -2003,12 +2133,8 @@ mod typed_reply_tests {
     }
     #[test]
     fn typed_container_ids_preserve_signed_pointer_cast_range() {
-        let mut output = i3_json::Generator::new();
-        output.start_array().unwrap();
-        CommandReply::WithId(i64::MIN).write(&mut output);
-        output.end_array().unwrap();
         assert_eq!(
-            output.bytes(),
+            stream(&[CommandReply::WithId(i64::MIN)]),
             b"[{\"success\":true,\"id\":-9223372036854775808}]"
         );
     }

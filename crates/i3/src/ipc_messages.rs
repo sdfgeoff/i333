@@ -16,6 +16,14 @@ pub(super) trait WireValue: Serialize {
         false
     }
     fn legacy(&self, output: &mut Generator);
+    fn to_bytes(&self) -> Vec<u8> {
+        if self.valid() && self.depth() <= 128 {
+            return serde_json::to_vec(self).expect("validated IPC value serializes");
+        }
+        let mut output = Generator::new();
+        self.legacy(&mut output);
+        output.bytes().to_vec()
+    }
     fn write(&self, output: &mut Generator) {
         // Decide before touching the generator: a failed depth check poisons
         // its state, whereas the old event sequence retains a partial prefix.
@@ -171,6 +179,8 @@ impl<T: WireValue> WireValue for NativeValue<T> {
 /// child arrays. Once native output becomes exceptional, retain event behavior
 /// for the rest of that traversal, including siblings and parent closing fields.
 pub(super) trait WireFields {
+    fn serialize_fields<M: serde::ser::SerializeMap>(&self, output: &mut M)
+        -> Result<(), M::Error>;
     fn fields(&self, output: &mut Generator, compatibility: &mut bool);
 }
 // Each schema is declared once: Serde and the exceptional compatibility path
@@ -192,6 +202,12 @@ macro_rules! wire_object {
             }
         }
         impl WireFields for $name {
+            fn serialize_fields<M: serde::ser::SerializeMap>(&self, output: &mut M) -> Result<(), M::Error> {
+                $(if !self.$field.omitted() {
+                    output.serialize_entry(wire_object!(@key $field $(, $key)?), &self.$field)?;
+                })*
+                Ok(())
+            }
             fn fields(&self, output: &mut Generator, compatibility: &mut bool) {
                 $(if !self.$field.omitted() {
                     let _ = output.string(wire_object!(@key $field $(, $key)?));
@@ -207,6 +223,15 @@ macro_rules! wire_object {
     (@key $field:ident, $key:literal) => { $key };
     (@key $field:ident) => { stringify!($field).strip_prefix("r#").unwrap_or(stringify!($field)) };
 }
+wire_object!(WorkspaceEvent {
+    change: NativeText,
+    current: Option<super::NodeRef>,
+    old: Option<super::NodeRef>,
+});
+wire_object!(WindowEvent {
+    change: NativeText,
+    container: super::NodeRef,
+});
 wire_object!(Change { change: NativeText });
 wire_object!(MissingBar { id: Option<i64> });
 wire_object!(Shutdown { change: &'static str });

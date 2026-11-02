@@ -70,7 +70,7 @@ impl CommandResultIR {
 }
 #[repr(C)]
 pub struct cmd_parser_ctx {
-    pub json_output: Option<i3_json::Generator>,
+    pub json_output: Option<crate::ipc::CommandReplies>,
     pub state: CommandParserState,
     pub current_match: Match,
     pub stack: stack,
