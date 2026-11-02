@@ -18,30 +18,48 @@ pub unsafe fn fake_configure_notify(
     window: xcb_window_t,
     border_width: i32,
 ) {
-    let event = configure_event(rectangle, window, border_width);
     // SAFETY: the caller retains the native connection for this request. Prefer
     // its registered Rust owner whenever that executable has migrated.
     let connection = crate::display::connection()
         .filter(|connection| connection.get_raw_conn().cast::<xcb_connection_t>() == conn)
         .or_else(|| unsafe { crate::xcb_connection::borrowed(conn) }.map(std::rc::Rc::new));
     if let Some(connection) = connection {
-        connection.send_request(&x::SendEvent {
-            propagate: false,
-            destination: x::SendEventDest::Window(unsafe { x::Window::new(window) }),
-            event_mask: x::EventMask::STRUCTURE_NOTIFY,
-            event: &event,
-        });
-        let _ = connection.flush();
+        send_configure_notify(
+            &connection,
+            x::Rectangle {
+                x: rectangle.x,
+                y: rectangle.y,
+                width: rectangle.width,
+                height: rectangle.height,
+            },
+            unsafe { x::Window::new(window) },
+            border_width,
+        );
     }
 }
 
+/// Send and flush a synthetic ConfigureNotify using the retained connection.
+pub fn send_configure_notify(
+    connection: &xcb::Connection,
+    rectangle: x::Rectangle,
+    window: x::Window,
+    border_width: i32,
+) {
+    let event = configure_event(rectangle, window, border_width);
+    connection.send_request(&x::SendEvent {
+        propagate: false,
+        destination: x::SendEventDest::Window(window),
+        event_mask: x::EventMask::STRUCTURE_NOTIFY,
+        event: &event,
+    });
+    let _ = connection.flush();
+}
+
 fn configure_event(
-    rectangle: xcb_rectangle_t,
-    window: u32,
+    rectangle: x::Rectangle,
+    window: x::Window,
     border_width: i32,
 ) -> x::ConfigureNotifyEvent {
-    // XIDs remain open numeric domains; the server checks their existence.
-    let window = unsafe { x::Window::new(window) };
     let event = x::ConfigureNotifyEvent::new(
         window,
         window,
@@ -70,13 +88,13 @@ mod tests {
 
     #[test]
     fn configure_notify_wire_body_matches_native_fields_and_initializes_all_32_bytes() {
-        let rectangle = xcb_rectangle_t {
+        let rectangle = x::Rectangle {
             x: -123,
             y: i16::MIN,
             width: u16::MAX,
             height: 456,
         };
-        let event = configure_event(rectangle, 0x12345678, -1);
+        let event = configure_event(rectangle, unsafe { x::Window::new(0x12345678) }, -1);
         // Independent complete wire fixture retained from the native boundary:
         // response byte, sequence/padding, two XIDs, sibling, geometry, border.
         let mut expected = [0; 32];

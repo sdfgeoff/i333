@@ -170,10 +170,11 @@ fn flicker_window_at(
         width: 0,
         height: 0,
     });
-    // xcb_aux_sync is a GetInputFocus round trip. Retain unchecked request/error
-    // behavior while using the maintained cookie and reply owner.
-    let sync = connection.send_request_unchecked(&x::GetInputFocus {});
-    let _ = connection.wait_for_reply_unchecked(sync);
+    // xcb_aux_sync uses xcb_get_input_focus (the checked reply request), then
+    // waits with a null error destination. Preserve that routing and discard
+    // its optional error rather than leaving it on the event queue.
+    let sync = connection.send_request(&x::GetInputFocus {});
+    let _ = connection.wait_for_reply(sync);
     connection.send_request(&x::DestroyWindow { window });
     let image = connection.send_request_unchecked(&x::GetImage {
         format: x::ImageFormat::ZPixmap,
