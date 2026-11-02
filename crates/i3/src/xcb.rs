@@ -376,19 +376,25 @@ pub unsafe fn xcb_grab_buttons(
     window: xcb_window_t,
     buttons: *mut ::core::ffi::c_int,
 ) {
-    let mut i: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    while *buttons.offset(i as isize) > 0 as ::core::ffi::c_int {
-        xcb_grab_button(
-            conn_0,
-            0,
-            window,
-            XCB_EVENT_MASK_BUTTON_PRESS as ::core::ffi::c_int as u16,
-            XCB_GRAB_MODE_SYNC as ::core::ffi::c_int as u8,
-            XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as u8,
-            root,
-            XCB_NONE as xcb_cursor_t,
-            *buttons.offset(i as isize) as u8,
-            XCB_BUTTON_MASK_ANY as ::core::ffi::c_int as u16,
+    let Some(connection) = borrowed(conn_0) else {
+        return;
+    };
+    let mut i = 0;
+    while *buttons.offset(i) > 0 {
+        // Buttons beyond five are valid i3 configuration values even though
+        // maintained XCB's ButtonIndex enum cannot represent them. The narrow
+        // utility adapter retains the complete u8 domain without transmuting it.
+        xcb_interop::transport::grab_button(
+            &connection,
+            false,
+            x::Window::new(window),
+            x::EventMask::BUTTON_PRESS,
+            x::GrabMode::Sync,
+            x::GrabMode::Async,
+            x::Window::new(root),
+            x::Cursor::none(),
+            *buttons.offset(i) as u8,
+            x::ModMask::ANY,
         );
         i += 1;
     }
@@ -400,13 +406,12 @@ use crate::xcursor::xcursor_get_cursor;
 // Canonical Cairo backend ABI; renderer logic remains local.
 
 use xcb_sys::{
-    xcb_atom_t, xcb_change_window_attributes, xcb_connection_t, xcb_create_window, xcb_cursor_t,
+    xcb_atom_t, xcb_change_window_attributes, xcb_connection_t, xcb_create_window,
     xcb_depth_iterator_t, xcb_depth_next, xcb_depth_t, xcb_depth_visuals_iterator, xcb_generate_id,
-    xcb_grab_button, xcb_map_window, xcb_rectangle_t, xcb_request_check,
-    xcb_screen_allowed_depths_iterator, xcb_timestamp_t, xcb_visualid_t, xcb_visualtype_iterator_t,
-    xcb_visualtype_next, xcb_visualtype_t, xcb_void_cookie_t, xcb_window_t, XCB_BUTTON_MASK_ANY,
-    XCB_COPY_FROM_PARENT, XCB_CW_CURSOR, XCB_EVENT_MASK_BUTTON_PRESS, XCB_GRAB_MODE_ASYNC,
-    XCB_GRAB_MODE_SYNC, XCB_NONE, XCB_WINDOW_CLASS_INPUT_ONLY,
+    xcb_map_window, xcb_rectangle_t, xcb_request_check, xcb_screen_allowed_depths_iterator,
+    xcb_timestamp_t, xcb_visualid_t, xcb_visualtype_iterator_t, xcb_visualtype_next,
+    xcb_visualtype_t, xcb_void_cookie_t, xcb_window_t, XCB_COPY_FROM_PARENT, XCB_CW_CURSOR,
+    XCB_WINDOW_CLASS_INPUT_ONLY,
 };
 
 pub use libc::free;

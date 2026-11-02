@@ -22,9 +22,9 @@ use libc::free;
 use std::ffi::CStr;
 use std::ptr::NonNull;
 use xcb_sys::{
-    xcb_icccm_get_wm_transient_for_from_reply, xcb_icccm_wm_hints_t, xcb_size_hints_t,
-    xcb_window_t, XCB_ATOM_CARDINAL, XCB_ICCCM_SIZE_HINT_BASE_SIZE, XCB_ICCCM_SIZE_HINT_P_ASPECT,
-    XCB_ICCCM_SIZE_HINT_P_MAX_SIZE, XCB_ICCCM_SIZE_HINT_P_MIN_SIZE, XCB_ICCCM_SIZE_HINT_P_POSITION,
+    xcb_icccm_wm_hints_t, xcb_size_hints_t, xcb_window_t, XCB_ATOM_CARDINAL,
+    XCB_ICCCM_SIZE_HINT_BASE_SIZE, XCB_ICCCM_SIZE_HINT_P_ASPECT, XCB_ICCCM_SIZE_HINT_P_MAX_SIZE,
+    XCB_ICCCM_SIZE_HINT_P_MIN_SIZE, XCB_ICCCM_SIZE_HINT_P_POSITION,
     XCB_ICCCM_SIZE_HINT_P_RESIZE_INC, XCB_ICCCM_SIZE_HINT_P_SIZE, XCB_ICCCM_SIZE_HINT_US_POSITION,
     XCB_ICCCM_SIZE_HINT_US_SIZE, XCB_ICCCM_WM_HINT_INPUT,
 };
@@ -257,6 +257,12 @@ pub unsafe fn window_update_leader(win: *mut Window, prop: Option<&x::GetPropert
     );
     (*win).leader = leader;
 }
+fn transient_for(property: Property<'_>) -> Option<u32> {
+    if property.kind != x::ATOM_WINDOW.resource_id() || property.format != 32 {
+        return None;
+    }
+    property.word(0)
+}
 pub unsafe fn window_update_transient_for(win: *mut Window, prop: Option<&x::GetPropertyReply>) {
     if property_view(prop).bytes.is_empty() {
         tracef!(
@@ -268,16 +274,7 @@ pub unsafe fn window_update_transient_for(win: *mut Window, prop: Option<&x::Get
         (*win).transient_for = 0;
         return;
     }
-    if property_view(prop).word(0).is_none() {
-        return;
-    }
-    let mut transient_for = 0;
-    if xcb_icccm_get_wm_transient_for_from_reply(
-        &raw mut transient_for,
-        prop.map(|reply| reply.as_raw().cast_mut().cast())
-            .unwrap_or(std::ptr::null_mut()),
-    ) != 0
-    {
+    if let Some(transient_for) = transient_for(property_view(prop)) {
         tracef!(
             "window_update_transient_for",
             182,
@@ -994,6 +991,40 @@ mod tests {
                 .write((bytes.len() / (usize::from(format) / 8).max(1)) as u32);
             std::ptr::copy_nonoverlapping(bytes.as_ptr(), allocation.add(32), bytes.len());
             x::GetPropertyReply::from_raw(allocation)
+        }
+    }
+
+    #[test]
+    fn transient_for_decoding_matches_native_types_formats_and_multiple_words() {
+        for kind in [
+            0,
+            x::ATOM_WINDOW.resource_id(),
+            x::ATOM_CARDINAL.resource_id(),
+            u32::MAX,
+        ] {
+            for format in [8, 16, 32] {
+                for value in [0, 0x12345678, u32::MAX] {
+                    for count in [1, 2] {
+                        let bytes = words(&vec![value; count]);
+                        let reply = reply(kind, format, &bytes);
+                        let mut native = 0x87654321;
+                        // SAFETY: the synthetic maintained reply owns its full
+                        // initialized body, including the first word read by ICCCM.
+                        let accepted = unsafe {
+                            xcb_sys::xcb_icccm_get_wm_transient_for_from_reply(
+                                &mut native,
+                                reply.as_raw().cast_mut().cast(),
+                            ) != 0
+                        };
+                        let decoded = transient_for(property_view(Some(&reply)));
+                        assert_eq!(
+                            decoded,
+                            accepted.then_some(native),
+                            "kind={kind} format={format} value={value} count={count}"
+                        );
+                    }
+                }
+            }
         }
     }
 
