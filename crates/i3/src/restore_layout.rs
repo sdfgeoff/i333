@@ -10,7 +10,7 @@ use libev_sys::{
 use std::ffi::{CStr, CString};
 use std::os::fd::AsRawFd;
 use std::rc::Rc;
-use xcb::{x, Xid};
+use xcb::{x, Xid, XidNew};
 const true_0: i32 = 1;
 const false_0: i32 = 0;
 
@@ -208,11 +208,22 @@ pub unsafe fn restore_connect() {
     xcb_prepare.write(ev_prepare::new(restore_xcb_prepare_cb));
     ev_prepare_start(main_loop, xcb_prepare);
 }
+// ICCCM WM_HINTS contains nine 32-bit words. Advertise only InputHint,
+// with input=false, so native placeholders never accept keyboard focus.
+const PLACEHOLDER_HINTS: [u32; 9] = [1, 0, 0, 0, 0, 0, 0, 0, 0];
+
+unsafe fn restore_sync() {
+    let connection = restore_connection();
+    // xcb_aux_sync uses the checked GetInputFocus cookie and discards its error.
+    let cookie = connection.send_request(&x::GetInputFocus {});
+    let _ = connection.wait_for_reply(cookie);
+}
+
 unsafe fn update_placeholder_contents(state: *mut placeholder_state) {
     let foreground: color_t = config.client.placeholder.text;
     let background: color_t = config.client.placeholder.background;
     draw_util_clear_surface(&raw mut (*state).surface, background);
-    xcb_aux_sync(restore_conn);
+    restore_sync();
     let mut swallows: *mut Match = ::core::ptr::null_mut::<Match>();
     let mut n: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
     swallows = (*(*state).con).swallow_head.tqh_first as *mut Match;
@@ -267,7 +278,7 @@ unsafe fn update_placeholder_contents(state: *mut placeholder_state) {
         y,
         text_width,
     );
-    xcb_aux_sync(restore_conn);
+    restore_sync();
 }
 unsafe fn open_placeholder_window(con: *mut Con) {
     if con_is_leaf(con) as ::core::ffi::c_int != 0
@@ -292,31 +303,21 @@ unsafe fn open_placeholder_window(con: *mut Con) {
                 as u32,
             &raw mut fresh2 as *mut u32,
         );
-        let mut hints: xcb_icccm_wm_hints_t = xcb_icccm_wm_hints_t {
-            flags: 0,
-            input: 0,
-            initial_state: 0,
-            icon_pixmap: 0,
-            icon_window: 0,
-            icon_x: 0,
-            icon_y: 0,
-            icon_mask: 0,
-            window_group: 0,
-        };
-        xcb_icccm_wm_hints_set_none(&raw mut hints);
-        xcb_icccm_wm_hints_set_input(&raw mut hints, 0 as u8);
-        xcb_icccm_set_wm_hints(restore_conn, placeholder, &raw mut hints);
+        restore_connection().send_request(&x::ChangeProperty {
+            mode: x::PropMode::Replace,
+            window: x::Window::new(placeholder),
+            property: x::ATOM_WM_HINTS,
+            r#type: x::ATOM_WM_HINTS,
+            data: &PLACEHOLDER_HINTS,
+        });
         if !(*con).name.is_null() {
-            xcb_change_property(
-                restore_conn,
-                XCB_PROP_MODE_REPLACE as ::core::ffi::c_int as u8,
-                placeholder,
-                A__NET_WM_NAME,
-                A_UTF8_STRING,
-                8 as u8,
-                strlen((*con).name) as u32,
-                (*con).name as *const ::core::ffi::c_void,
-            );
+            restore_connection().send_request(&x::ChangeProperty {
+                mode: x::PropMode::Replace,
+                window: x::Window::new(placeholder),
+                property: x::Atom::new(A__NET_WM_NAME),
+                r#type: x::Atom::new(A_UTF8_STRING),
+                data: CStr::from_ptr((*con).name).to_bytes(),
+            });
         }
         debuglog(
             c"%s:%s:%d - Created placeholder window 0x%08x for leaf container %p / %s\n"
@@ -400,7 +401,9 @@ pub unsafe fn restore_kill_placeholder(placeholder: xcb_window_t) -> bool {
         if (*state).window != placeholder {
             state = (*state).state.tqe_next as *mut placeholder_state;
         } else {
-            xcb_destroy_window(restore_conn, (*state).window);
+            restore_connection().send_request(&x::DestroyWindow {
+                window: x::Window::new((*state).window),
+            });
             draw_util_surface_free(restore_conn, &raw mut (*state).surface);
             if !(*state).state.tqe_next.is_null() {
                 (*(*state).state.tqe_next).state.tqe_prev = (*state).state.tqe_prev;
@@ -541,11 +544,9 @@ use i3_common::safewrappers::smalloc;
 // Canonical Pango backend ABI; font policy remains local.
 
 use xcb_sys::{
-    xcb_aux_sync, xcb_change_property, xcb_connection_t, xcb_destroy_window, xcb_drawable_t,
-    xcb_icccm_set_wm_hints, xcb_icccm_wm_hints_set_input, xcb_icccm_wm_hints_set_none,
-    xcb_icccm_wm_hints_t, xcb_visualid_t, xcb_window_t, XCB_COPY_FROM_PARENT, XCB_CW_BACK_PIXEL,
-    XCB_CW_EVENT_MASK, XCB_EVENT_MASK_EXPOSURE, XCB_EVENT_MASK_STRUCTURE_NOTIFY, XCB_NONE,
-    XCB_PROP_MODE_REPLACE, XCB_WINDOW_CLASS_INPUT_OUTPUT,
+    xcb_connection_t, xcb_drawable_t, xcb_visualid_t, xcb_window_t, XCB_COPY_FROM_PARENT,
+    XCB_CW_BACK_PIXEL, XCB_CW_EVENT_MASK, XCB_EVENT_MASK_EXPOSURE, XCB_EVENT_MASK_STRUCTURE_NOTIFY,
+    XCB_NONE, XCB_PROP_MODE_REPLACE, XCB_WINDOW_CLASS_INPUT_OUTPUT,
 };
 
 pub use libc::{free, memmove, strlen};

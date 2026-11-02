@@ -17,6 +17,7 @@ use i3_common::safewrappers::sasprintf;
 // stack-only; owned text is prepared before handlers are installed.
 use i3_common::string::I3String;
 use std::ffi::CStr;
+use xcb::{x, Xid, XidNew};
 type Output = crate::types::xoutput;
 
 #[derive(Copy, Clone)]
@@ -254,6 +255,11 @@ fn child_succeeded(status: i32) -> bool {
     libc::WIFEXITED(status) && libc::WEXITSTATUS(status) == 0
 }
 unsafe fn sighandler_create_dialogs() {
+    // Never touch the event-thread RefCell/Rc registry from an async signal.
+    // The main native owner remains live throughout these emergency operations.
+    let Some(connection) = i3_common::xcb_connection::borrowed(conn) else {
+        return;
+    };
     let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
     output = outputs.tqh_first as *mut Output;
     while !output.is_null() {
@@ -265,14 +271,14 @@ unsafe fn sighandler_create_dialogs() {
             *dialogs.tqh_last = dialog as *mut dialog_t;
             dialogs.tqh_last = &raw mut (*dialog).dialogs.tqe_next;
             let visual: xcb_visualid_t = get_visualid_by_depth(root_depth as u16);
-            (*dialog).colormap = xcb_generate_id(conn) as xcb_colormap_t;
-            xcb_create_colormap(
-                conn,
-                XCB_COLORMAP_ALLOC_NONE as ::core::ffi::c_int as u8,
-                (*dialog).colormap,
-                root,
+            let colormap: x::Colormap = connection.generate_id();
+            (*dialog).colormap = colormap.resource_id();
+            connection.send_request(&x::CreateColormap {
+                alloc: x::ColormapAlloc::None,
+                mid: colormap,
+                window: x::Window::new(root),
                 visual,
-            );
+            });
             let (mask, mut values) =
                 dialog_attributes((*root_screen).black_pixel, (*dialog).colormap);
             (*dialog).dims = dialog_geometry((*output).rect, dialog_width, dialog_height);
@@ -295,37 +301,46 @@ unsafe fn sighandler_create_dialogs() {
                 (*dialog).dims.width as ::core::ffi::c_int,
                 (*dialog).dims.height as ::core::ffi::c_int,
             );
-            xcb_grab_keyboard(
-                conn,
-                false_0 as u8,
-                (*dialog).id,
-                XCB_CURRENT_TIME as xcb_timestamp_t,
-                XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as u8,
-                XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as u8,
-            );
-            xcb_grab_pointer(
-                conn,
-                false_0 as u8,
-                (*dialog).id,
-                XCB_NONE as u16,
-                XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as u8,
-                XCB_GRAB_MODE_ASYNC as ::core::ffi::c_int as u8,
-                (*dialog).id,
-                XCB_NONE as xcb_cursor_t,
-                XCB_CURRENT_TIME as xcb_timestamp_t,
-            );
+            let keyboard = connection.send_request(&x::GrabKeyboard {
+                owner_events: false,
+                grab_window: x::Window::new((*dialog).id),
+                time: x::CURRENT_TIME,
+                pointer_mode: x::GrabMode::Async,
+                keyboard_mode: x::GrabMode::Async,
+            });
+            xcb_interop::transport::discard_reply(&connection, keyboard);
+            let pointer = connection.send_request(&x::GrabPointer {
+                owner_events: false,
+                grab_window: x::Window::new((*dialog).id),
+                event_mask: x::EventMask::empty(),
+                pointer_mode: x::GrabMode::Async,
+                keyboard_mode: x::GrabMode::Async,
+                confine_to: x::Window::new((*dialog).id),
+                cursor: x::Cursor::none(),
+                time: x::CURRENT_TIME,
+            });
+            xcb_interop::transport::discard_reply(&connection, pointer);
         }
         output = (*output).outputs.tqe_next as *mut Output;
     }
     sighandler_handle_expose();
-    xcb_flush(conn);
+    let _ = connection.flush();
 }
 unsafe fn sighandler_destroy_dialogs() {
+    let connection = i3_common::xcb_connection::borrowed(conn);
     while !dialogs.tqh_first.is_null() {
         let dialog: *mut dialog_t = dialogs.tqh_first as *mut dialog_t;
-        xcb_free_colormap(conn, (*dialog).colormap);
+        if let Some(connection) = &connection {
+            connection.send_request(&x::FreeColormap {
+                cmap: x::Colormap::new((*dialog).colormap),
+            });
+        }
         draw_util_surface_free(conn, &raw mut (*dialog).surface);
-        xcb_destroy_window(conn, (*dialog).id);
+        if let Some(connection) = &connection {
+            connection.send_request(&x::DestroyWindow {
+                window: x::Window::new((*dialog).id),
+            });
+        }
         if !(*dialog).dialogs.tqe_next.is_null() {
             (*(*dialog).dialogs.tqe_next).dialogs.tqe_prev = (*dialog).dialogs.tqe_prev;
         } else {
@@ -334,7 +349,9 @@ unsafe fn sighandler_destroy_dialogs() {
         *(*dialog).dialogs.tqe_prev = (*dialog).dialogs.tqe_next;
         free(dialog as *mut ::core::ffi::c_void);
     }
-    xcb_flush(conn);
+    if let Some(connection) = i3_common::xcb_connection::borrowed(conn) {
+        let _ = connection.flush();
+    }
 }
 unsafe fn sighandler_handle_expose() {
     let mut current: *mut dialog_t = ::core::ptr::null_mut::<dialog_t>();
@@ -343,7 +360,9 @@ unsafe fn sighandler_handle_expose() {
         sighandler_draw_dialog(current);
         current = (*current).dialogs.tqe_next as *mut dialog_t;
     }
-    xcb_flush(conn);
+    if let Some(connection) = i3_common::xcb_connection::borrowed(conn) {
+        let _ = connection.flush();
+    }
 }
 unsafe fn sighandler_draw_dialog(dialog: *mut dialog_t) {
     let black: color_t = draw_util_hex_to_color(c"#000000".as_ptr()) as color_t;
@@ -556,11 +575,9 @@ use i3_common::safewrappers::scalloc;
 // Canonical Pango backend ABI; font policy remains local.
 
 use xcb_sys::{
-    xcb_colormap_t, xcb_create_colormap, xcb_cursor_t, xcb_destroy_window, xcb_drawable_t,
-    xcb_flush, xcb_free_colormap, xcb_generate_id, xcb_grab_keyboard, xcb_grab_pointer,
-    xcb_timestamp_t, xcb_visualid_t, xcb_window_t, XCB_COLORMAP_ALLOC_NONE, XCB_CURRENT_TIME,
-    XCB_CW_BACK_PIXEL, XCB_CW_BORDER_PIXEL, XCB_CW_COLORMAP, XCB_CW_OVERRIDE_REDIRECT,
-    XCB_GRAB_MODE_ASYNC, XCB_NONE, XCB_WINDOW_CLASS_INPUT_OUTPUT,
+    xcb_colormap_t, xcb_drawable_t, xcb_visualid_t, xcb_window_t, XCB_COLORMAP_ALLOC_NONE,
+    XCB_CURRENT_TIME, XCB_CW_BACK_PIXEL, XCB_CW_BORDER_PIXEL, XCB_CW_COLORMAP,
+    XCB_CW_OVERRIDE_REDIRECT, XCB_GRAB_MODE_ASYNC, XCB_NONE, XCB_WINDOW_CLASS_INPUT_OUTPUT,
 };
 
 pub use libc::{
