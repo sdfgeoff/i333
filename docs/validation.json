@@ -8,31 +8,31 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 23 wallclock secs ( 0.89 usr +  0.12 sys =  1.01 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 27 wallclock secs ( 0.75 usr +  0.09 sys =  0.84 CPU)\nResult: PASS",
     "profile": "debug",
     "build": "cargo test --locked",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "0d5fc80f2cc865acd08f3b3beb5564d32da2af8d23696698cf1acf648bf0c9eb",
-    "i3bar": "b3ee4feffbe9e0ec487b67c7d62eeb69e477c49f32a590da68582d317bd5c1cf",
-    "i3-config-wizard": "937b8de63c9efcdbdf8dd92848e707c89146d6bd79e164591d89f9cd10fa95d0",
-    "i3-dump-log": "42bdb30a841f005bca5df5b7291b88aea56e04ddbb7fb594755f36915eeb53c9",
-    "i3-input": "fca72ff8074b82c8f506c66dab47afdbf893113e3ad1399f3217faef41a66161",
-    "i3-msg": "498841a1a889ddb0951a2289675edb04f1c12fce27a0877e15089db28ea84b7b",
-    "i3-nagbar": "ebff78957cccf9f3182c4ccdc61b3237223de6cb8e6d4530012a2b667cc6db28"
+    "i3": "28ba01b9ead6de6e4cfb5691096fae328f3f6a63260374cacee8919254d8a374",
+    "i3bar": "32c0b3b12a16f131d693d110e2aee5c1333048681137864fe19770c6276f43c1",
+    "i3-config-wizard": "3509a5986385c090ddad9f4174f979a10d8031b77de2d8759664bd645867e4f9",
+    "i3-dump-log": "67e0c3d82fcd86b12e976ec3886dad33a3ffea2c924afc3a008ec36c17fd2a2b",
+    "i3-input": "f00359fc90ad33ff3a91f9eb0929f125817692a84c9bd146c0cec41cbf1f5f3a",
+    "i3-msg": "3b2a20189333dda0cbbef6d7dacfe878c1cf33b105c53020075305fb402065a3",
+    "i3-nagbar": "3104cf181047a852b5792d16c802821a6b9807def67624fb550db25d5438d61b"
   },
-  "note": "Ten-member Cargo workspace. cargo test --locked passed 395 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
+  "note": "Nine-member Cargo workspace. cargo test --locked passed 393 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
   "additional_checks": {
     "headless_c_rust_state_comparisons": 54,
     "ipc_client_test_groups": 16,
-    "workspace_unit_tests": 395,
+    "workspace_unit_tests": 393,
     "core_and_bar_cli_comparisons": 39,
     "pcre2_compile_match_error_comparisons": 4620,
-    "json_oracle_cases": 2218,
+    "json_oracle_cases": 2263,
     "json_unexpected_differences": 0,
-    "json_malformed_input_diagnostic_differences": 115,
+    "json_malformed_input_diagnostic_differences": 328,
     "json_deliberate_unicode_strictness_cases": 132,
     "json_equivalent_number_encodings": 5,
     "workspace_rust_tests_include_integration_wrappers": true,
@@ -64,7 +64,7 @@
   "clean_cargo_build": {
     "passed": true,
     "product_binaries": 7,
-    "rust_sources": 132,
+    "rust_sources": 142,
     "fresh_source_and_target_directories": true,
     "c_sources_headers_and_objects_present": false,
     "meson_ninja_perl_invocations": false,
@@ -72,14 +72,14 @@
       "Rust 1.99.0-nightly (repository nightly)"
     ],
     "standard_nightly_requires_custom_flags": false,
-    "workspace_packages": 10,
+    "workspace_packages": 9,
     "old_root_source_wiring_present": false,
     "compile_only": true,
     "all_unit_and_integration_test_targets_compiled": true,
     "automatic_after_each_source_edit": false,
-    "last_verification_environment": "Ubuntu24 GitHub Actions structural check at ownership checkpoint2; subsequent relationship batches change Rust sources only",
+    "last_verification_environment": "Local fresh source and target directories, compiler/generator guards, all binary/unit/integration targets compiled; include-time JSON fixture packaged.",
     "last_verified_batch": 9,
-    "last_verified_commit": "01b7ac4d3d75d0b683b553ce0bcfa2201baabe79",
+    "last_verified_commit": "9edfc994",
     "last_verified_ownership_checkpoint": 2
   },
   "repository_cleanup": {
@@ -106,7 +106,6 @@
       "i3bar",
       "i3-tools",
       "i3-build",
-      "i3-json",
       "libev-sys",
       "xcb-sys",
       "startup-notification-sys",
@@ -120,9 +119,8 @@
       "cargo_regression_wrappers": 8,
       "xkb_integration": 1,
       "i3-build": 3,
-      "i3-common": 76,
+      "i3-common": 91,
       "native_graphics": 5,
-      "i3-json": 17,
       "i3-config-wizard": 5,
       "i3-dump-log": 5,
       "i3-input": 8,
@@ -138,17 +136,17 @@
     "cargo_fmt_check": true,
     "debug_build": true,
     "release_build": true,
-    "unit_tests_total_including_integration_checks": 395,
+    "unit_tests_total_including_integration_checks": 393,
     "test_command": "cargo test",
     "clean_source_command": "cargo test -p i3-test-support --features clean-source-check",
     "test_support": "development-only process capture, failure propagation and isolated regression orchestration",
     "release_build_note": "Prior ownership code checkpoint9e04d02a passed Ubuntu CI formatting, complete regression suite and release build. Anonymous type-name cleanup additionally passes current full local Cargo validation; changes are mechanically verified identifier substitutions.",
     "last_release_build_verified_commit": "9e04d02a5c039a560d6eaff0b76515bbc7ca109c",
-    "rust_source_files": 139
+    "rust_source_files": 142
   },
   "modernization": {
     "yajl_product_dependency": false,
-    "json": "Typed Serde IPC schemas and owned JSON storage; native YAJL compatibility module deleted. Incremental event parsing and open-array framing retained to preserve status/layout protocol behavior.",
+    "json": "i3-json crate removed. Serde visitors own input grammar, and normal IPC/tree/command/click output uses Serde directly. Incremental framing, callback cancellation/replay and a small exceptional malformed-output adapter preserve protocol behavior. Input beyond 1000 nested arrays/objects is rejected by approved policy; historical output depth limit remains 128.",
     "regex": "maintained pcre2 safe wrapper, preserving full PCRE semantics",
     "graphics": "Maintained cairo-rs, pango, pangocairo and glib owners/borrowed APIs for drawing and fonts; maintained sys bindings retain explicit native text byte-count and XCB surface boundaries",
     "xkb": "maintained xkbcommon bindings",
@@ -2177,8 +2175,32 @@
         "rust_tests": 395,
         "upstream_assertions": 4205,
         "status": "validated"
+      },
+      {
+        "stage": 2,
+        "scope": "Color allocation, modifier maps and drawing GC/depth requests use maintained xcb requests/replies; wizard modifier lookup migrated.",
+        "private_display_depths": [
+          8,
+          24
+        ],
+        "rust_tests": 393,
+        "upstream_assertions": 4205,
+        "status": "validated"
       }
-    ]
+    ],
+    "serde_json_checkpoint": {
+      "status": "validated",
+      "input_nesting_limit": 1000,
+      "production_parsing_threads": false,
+      "custom_json_crate_removed": true,
+      "rust_tests": 393,
+      "native_oracle_cases": 2263,
+      "unexpected_differences": 0,
+      "diagnostic_progress_differences": 328,
+      "diagnostic_note": "Same final rejection and semantic events; incremental diagnostic timing/consumption differs.",
+      "production_ipc_goldens": 23,
+      "upstream_assertions": 4205
+    }
   },
   "ci_dependency_preparation": {
     "confirmed_previous_failure": "X11::XCB required missing xcb-composite.pc and protocol XML metadata",
@@ -2187,8 +2209,8 @@
     "subsequent_failure": "d6401e98 CI dependency preparation passed; formatting failed because direct rustfmt used edition2024 rather than workspace edition2021. Scoped import formatting corrected in batch4."
   },
   "last_observed_green_ci": {
-    "commit": "9e04d02a5c039a560d6eaff0b76515bbc7ca109c",
-    "url": "https://github.com/sdfgeoff/i333/actions/runs/40996552213",
+    "commit": "20ea57815f0e2f66a52a4bc8154680da5e49ac94",
+    "url": "https://github.com/sdfgeoff/i333/actions/runs/41386745323",
     "conclusion": "success"
   },
   "ci_diagnostics": {
