@@ -2025,10 +2025,14 @@ unsafe fn property_notify(state: u8, window: xcb_window_t, atom: xcb_atom_t) {
     dispatch_property(handler.cb.expect("non-null function pointer"), con, reply);
 }
 
+/// Dispatch an owned native queue event by borrowing its maintained owner.
+///
+/// # Safety
+/// The event must come from the native queue, with libxcb's appended 32-bit
+/// full_sequence field. A 32-byte event factory must go directly to its typed
+/// leaf instead. Callers also hold exclusive access to the event-thread graph.
 pub unsafe fn handle_event(owner: &xcb::Event) {
-    // Transitional leaf handlers still borrow native records from this one
-    // maintained owner. This dispatch API cannot transfer/free event ownership.
-    let event = owner.as_raw().cast::<xcb_generic_event_t>();
+    let event = owner.as_raw();
     let type_0 = i32::from((*event).response_type & 0x7f);
     if type_0 != XCB_MOTION_NOTIFY {
         debuglog(
@@ -2399,10 +2403,10 @@ use i3_common::safewrappers::scalloc;
 // Canonical Pango backend ABI; font policy remains local.
 
 use xcb_sys::{
-    xcb_atom_t, xcb_generic_event_t, xcb_shape_notify_event_t, xcb_shape_sk_t, xcb_timestamp_t,
-    xcb_window_t, XCB_ATOM_WM_CLASS, XCB_ATOM_WM_CLIENT_MACHINE, XCB_ATOM_WM_HINTS,
-    XCB_ATOM_WM_NAME, XCB_ATOM_WM_NORMAL_HINTS, XCB_ATOM_WM_TRANSIENT_FOR, XCB_BUTTON_PRESS,
-    XCB_BUTTON_RELEASE, XCB_CLIENT_MESSAGE, XCB_CONFIGURE_NOTIFY, XCB_CONFIGURE_REQUEST,
+    xcb_atom_t, xcb_shape_notify_event_t, xcb_shape_sk_t, xcb_timestamp_t, xcb_window_t,
+    XCB_ATOM_WM_CLASS, XCB_ATOM_WM_CLIENT_MACHINE, XCB_ATOM_WM_HINTS, XCB_ATOM_WM_NAME,
+    XCB_ATOM_WM_NORMAL_HINTS, XCB_ATOM_WM_TRANSIENT_FOR, XCB_BUTTON_PRESS, XCB_BUTTON_RELEASE,
+    XCB_CLIENT_MESSAGE, XCB_CONFIGURE_NOTIFY, XCB_CONFIGURE_REQUEST,
     XCB_CONFIG_WINDOW_BORDER_WIDTH, XCB_CONFIG_WINDOW_HEIGHT, XCB_CONFIG_WINDOW_SIBLING,
     XCB_CONFIG_WINDOW_STACK_MODE, XCB_CONFIG_WINDOW_WIDTH, XCB_CONFIG_WINDOW_X,
     XCB_CONFIG_WINDOW_Y, XCB_DESTROY_NOTIFY, XCB_ENTER_NOTIFY, XCB_EXPOSE, XCB_FOCUS_IN,

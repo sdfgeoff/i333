@@ -110,7 +110,7 @@ fn flatten_layouts(con: Layout, child: Layout, parent: Orientation) -> bool {
 
 pub unsafe fn tree_restore(
     path: *const ::core::ffi::c_char,
-    geometry: *mut xcb_get_geometry_reply_t,
+    geometry: &x::GetGeometryReply,
 ) -> bool {
     let mut out: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut ws: *mut Con = ::core::ptr::null_mut::<Con>();
@@ -134,10 +134,10 @@ pub unsafe fn tree_restore(
                 ::core::ptr::null_mut::<i3Window>(),
             );
             (*croot).rect = geometry_rect(
-                (*geometry).x,
-                (*geometry).y,
-                (*geometry).width,
-                (*geometry).height,
+                geometry.x(),
+                geometry.y(),
+                geometry.width(),
+                geometry.height(),
             );
             focused = croot;
             tree_append_json(
@@ -203,7 +203,7 @@ pub unsafe fn tree_restore(
     result
 }
 
-pub unsafe fn tree_init(geometry: *mut xcb_get_geometry_reply_t) {
+pub unsafe fn tree_init(geometry: &x::GetGeometryReply) {
     croot = con_new(
         ::core::ptr::null_mut::<Con>(),
         ::core::ptr::null_mut::<i3Window>(),
@@ -214,10 +214,10 @@ pub unsafe fn tree_init(geometry: *mut xcb_get_geometry_reply_t) {
     (*croot).type_0 = ContainerType::Root;
     (*croot).layout = Layout::SplitH;
     (*croot).rect = geometry_rect(
-        (*geometry).x,
-        (*geometry).y,
-        (*geometry).width,
-        (*geometry).height,
+        geometry.x(),
+        geometry.y(),
+        geometry.width(),
+        geometry.height(),
     );
     _create___i3();
 }
@@ -981,7 +981,7 @@ use i3_common::safewrappers::sstrdup;
 
 // Canonical Pango backend ABI; font policy remains local.
 
-use xcb_sys::{xcb_get_geometry_reply_t, XCB_ICCCM_WM_STATE_WITHDRAWN};
+use xcb_sys::XCB_ICCCM_WM_STATE_WITHDRAWN;
 
 pub use libc::{free, strcmp};
 

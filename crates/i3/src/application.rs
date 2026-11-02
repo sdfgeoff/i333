@@ -21,6 +21,7 @@ use std::io::Read;
 use std::os::fd::{AsRawFd, FromRawFd};
 use std::ptr::NonNull;
 use std::rc::Rc;
+use xcb::{x, Raw, Xid, XidNew};
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -291,12 +292,6 @@ pub struct outputs_head {
     pub tqh_last: *mut *mut xoutput,
 }
 
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub union ClientMessageBuffer {
-    pub message: xcb_client_message_event_t,
-    pub storage: [::core::ffi::c_char; 32],
-}
 pub const I3_VERSION: &[u8] = concat!(env!("I3_VERSION"), "\0").as_bytes();
 pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
@@ -348,15 +343,28 @@ fn main_connection() -> Rc<xcb::Connection> {
     i3_common::display::connection().expect("main X11 connection is registered")
 }
 
-/// Retain the native opcode and full sequence without invoking enum getters.
-/// The pointer is borrowed only while the maintained event owner is alive.
-fn event_header(event: &xcb::Event) -> &xcb::ffi::xcb_generic_event_t {
-    // SAFETY: every maintained event owns a complete native event allocation.
-    unsafe { &*event.as_raw() }
+fn manager_notification(
+    root_window: u32,
+    atom: u32,
+    time: u32,
+    selection: u32,
+    owner: u32,
+) -> x::ClientMessageEvent {
+    x::ClientMessageEvent::new(
+        unsafe { x::Window::new(root_window) },
+        unsafe { x::Atom::new(atom) },
+        x::ClientMessageData::Data32([time, selection, owner, 0, 0]),
+    )
+}
+
+/// Read only the response byte, valid for queue events and 32-byte factories.
+fn event_response_type(event: &xcb::Event) -> u8 {
+    // SAFETY: every maintained event has at least its initialized response byte.
+    unsafe { event.as_raw().cast::<u8>().read() }
 }
 
 fn event_kind(event: &xcb::Event) -> i32 {
-    i32::from(event_header(event).response_type & 0x7f)
+    i32::from(event_response_type(event) & 0x7f)
 }
 
 fn error_header(error: &xcb::ProtocolError) -> &xcb::ffi::xcb_generic_error_t {
@@ -1206,23 +1214,17 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     } else {
         xcb_prefetch_extension_data(conn, &raw mut xcb_randr_id);
     }
-    let mut fresh6: [u32; 1] = [XCB_EVENT_MASK_PROPERTY_CHANGE as ::core::ffi::c_int as u32];
-    xcb_change_window_attributes(
-        conn,
-        root,
-        XCB_CW_EVENT_MASK as ::core::ffi::c_int as u32,
-        &raw mut fresh6 as *mut u32 as *const ::core::ffi::c_void,
-    );
-    xcb_change_property(
-        conn,
-        XCB_PROP_MODE_APPEND as ::core::ffi::c_int as u8,
-        root,
-        XCB_ATOM_SUPERSCRIPT_X as ::core::ffi::c_int as xcb_atom_t,
-        XCB_ATOM_CARDINAL as ::core::ffi::c_int as xcb_atom_t,
-        32 as u8,
-        0 as u32,
-        c"".as_ptr() as *const ::core::ffi::c_void,
-    );
+    main_connection().send_request(&x::ChangeWindowAttributes {
+        window: x::Window::new(root),
+        value_list: &[x::Cw::EventMask(x::EventMask::PROPERTY_CHANGE)],
+    });
+    main_connection().send_request(&x::ChangeProperty {
+        mode: x::PropMode::Append,
+        window: x::Window::new(root),
+        property: x::Atom::new(XCB_ATOM_SUPERSCRIPT_X as u32),
+        r#type: x::ATOM_CARDINAL,
+        data: &[] as &[u32],
+    });
     let atom_requests = [
         (c"_NET_SUPPORTED", &raw mut A__NET_SUPPORTED),
         (
@@ -1347,7 +1349,12 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     ];
     let atom_cookies: Vec<_> = atom_requests
         .iter()
-        .map(|(name, _)| xcb_intern_atom(conn, 0, name.to_bytes().len() as u16, name.as_ptr()))
+        .map(|(name, _)| {
+            main_connection().send_request(&x::InternAtom {
+                only_if_exists: false,
+                name: name.to_bytes(),
+            })
+        })
         .collect();
     root_depth = (*root_screen).root_depth;
     colormap = (*root_screen).default_colormap;
@@ -1355,28 +1362,27 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         xcb_aux_find_visual_by_attrs(root_screen, -(1 as ::core::ffi::c_int) as i8, 32 as i8);
     if !visual_type.is_null() {
         root_depth = xcb_aux_get_depth_of_visual(root_screen, (*visual_type).visual_id);
-        colormap = xcb_generate_id(conn) as xcb_colormap_t;
-        let cm_cookie: xcb_void_cookie_t = xcb_create_colormap_checked(
-            conn,
-            XCB_COLORMAP_ALLOC_NONE as ::core::ffi::c_int as u8,
-            colormap,
-            root,
-            (*visual_type).visual_id,
-        );
-        let error: *mut xcb_generic_error_t = xcb_request_check(conn, cm_cookie);
-        if !error.is_null() {
+        let id: x::Colormap = main_connection().generate_id();
+        colormap = id.resource_id();
+        let cookie = main_connection().send_request_checked(&x::CreateColormap {
+            alloc: x::ColormapAlloc::None,
+            mid: id,
+            window: x::Window::new(root),
+            visual: (*visual_type).visual_id,
+        });
+        if let Err(error) = main_connection().check_request(cookie) {
             errorlog(
                 c"ERROR: Could not create colormap. Error code: %d\n"
                     .as_ptr()
                     .cast_mut(),
-                (*error).error_code as ::core::ffi::c_int,
+                i32::from((*error.as_raw()).error_code),
             );
             exit(EXIT_FAILURE);
         }
     } else {
         visual_type = get_visualtype(root_screen);
     }
-    xcb_prefetch_maximum_request_length(conn);
+    main_connection().prefetch_maximum_request_length();
     init_dpi();
     debuglog(
         c"%s:%s:%d - root_depth = %d, visual_id = 0x%08x.\n"
@@ -1407,8 +1413,12 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         651 as ::core::ffi::c_int,
         logical_px(1 as ::core::ffi::c_int),
     );
-    let gcookie: xcb_get_geometry_cookie_t = xcb_get_geometry(conn, root as xcb_drawable_t);
-    let pointercookie: xcb_query_pointer_cookie_t = xcb_query_pointer(conn, root);
+    let gcookie = main_connection().send_request(&x::GetGeometry {
+        drawable: x::Drawable::Window(x::Window::new(root)),
+    });
+    let pointercookie = main_connection().send_request(&x::QueryPointer {
+        window: x::Window::new(root),
+    });
     let _ = main_connection().flush();
     debuglog(
         c"%s:%s:%d - waiting for PropertyNotify event\n"
@@ -1420,11 +1430,11 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     );
     loop {
         match main_connection().wait_for_event() {
-            Ok(event) if i32::from(event_header(&event).response_type) == XCB_PROPERTY_NOTIFY => {
-                // A matching core event has the complete PropertyNotify record;
-                // its scalar timestamp has no closed-enum conversion.
-                last_timestamp = (*(event.as_raw().cast::<xcb_property_notify_event_t>())).time;
-                break;
+            Ok(event) if i32::from(event_response_type(&event)) == XCB_PROPERTY_NOTIFY => {
+                if let xcb::Event::X(x::Event::PropertyNotify(property)) = event {
+                    last_timestamp = property.time();
+                    break;
+                }
             }
             Ok(_) | Err(xcb::Error::Protocol(_)) => {}
             Err(xcb::Error::Connection(_)) => break,
@@ -1437,24 +1447,15 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         669 as ::core::ffi::c_int,
         last_timestamp,
     );
-    for index in [
-        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
-        25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47,
-        48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59,
-    ] {
-        let (name, target) = atom_requests[index];
-        let Some(reply) = NativeAllocation::take(xcb_intern_atom_reply(
-            conn,
-            atom_cookies[index],
-            std::ptr::null_mut(),
-        )) else {
+    for ((name, target), cookie) in atom_requests.into_iter().zip(atom_cookies) {
+        let Ok(reply) = main_connection().wait_for_reply(cookie) else {
             errorlog(
                 c"ERROR: Could not get atom %s\n".as_ptr().cast_mut(),
                 name.as_ptr(),
             );
             exit(-1);
         };
-        target.write((*reply.raw()).atom);
+        target.write(reply.atom().resource_id());
     }
     load_configuration(override_configpath, ConfigLoad::Load);
     if config.ipc_socket_path.is_null() {
@@ -1591,69 +1592,48 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         }
     }
     drop(selection_reply_owner);
-    let mut event_0: ClientMessageBuffer = ClientMessageBuffer {
-        message: xcb_client_message_event_t {
-            response_type: 0 as u8,
-            format: 0,
-            sequence: 0,
-            window: 0,
-            type_0: 0,
-            data: xcb_client_message_data_t { data8: [0; 20] },
-        },
-    };
-    event_0.message.response_type = XCB_CLIENT_MESSAGE as u8;
-    event_0.message.window = (*root_screen).root;
-    event_0.message.format = 32 as u8;
-    event_0.message.type_0 = A_MANAGER;
-    event_0.message.data.data32[0 as ::core::ffi::c_int as usize] = last_timestamp as u32;
-    event_0.message.data.data32[1 as ::core::ffi::c_int as usize] = wm_sn as u32;
-    event_0.message.data.data32[2 as ::core::ffi::c_int as usize] = wm_sn_selection_owner as u32;
-    xcb_send_event(
-        conn,
-        0 as u8,
+    let manager = manager_notification(
         (*root_screen).root,
-        XCB_EVENT_MASK_STRUCTURE_NOTIFY as ::core::ffi::c_int as u32,
-        &raw mut event_0.storage as *mut ::core::ffi::c_char,
+        A_MANAGER,
+        last_timestamp,
+        wm_sn,
+        wm_sn_selection_owner,
     );
-    let mut cookie: xcb_void_cookie_t = xcb_void_cookie_t { sequence: 0 };
-    let mut fresh8: [u32; 1] = [(XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT as ::core::ffi::c_int
-        | XCB_EVENT_MASK_BUTTON_PRESS as ::core::ffi::c_int
-        | XCB_EVENT_MASK_STRUCTURE_NOTIFY as ::core::ffi::c_int
-        | XCB_EVENT_MASK_POINTER_MOTION as ::core::ffi::c_int
-        | XCB_EVENT_MASK_PROPERTY_CHANGE as ::core::ffi::c_int
-        | XCB_EVENT_MASK_FOCUS_CHANGE as ::core::ffi::c_int
-        | XCB_EVENT_MASK_ENTER_WINDOW as ::core::ffi::c_int)
-        as u32];
-    cookie = xcb_change_window_attributes_checked(
-        conn,
-        root,
-        XCB_CW_EVENT_MASK as ::core::ffi::c_int as u32,
-        &raw mut fresh8 as *mut u32 as *const ::core::ffi::c_void,
-    );
-    let error_0: *mut xcb_generic_error_t = xcb_request_check(conn, cookie);
-    if !error_0.is_null() {
+    main_connection().send_request(&x::SendEvent {
+        propagate: false,
+        destination: x::SendEventDest::Window(x::Window::new((*root_screen).root)),
+        event_mask: x::EventMask::STRUCTURE_NOTIFY,
+        event: &manager,
+    });
+    let cookie = main_connection().send_request_checked(&x::ChangeWindowAttributes {
+        window: x::Window::new(root),
+        value_list: &[x::Cw::EventMask(
+            x::EventMask::SUBSTRUCTURE_REDIRECT
+                | x::EventMask::BUTTON_PRESS
+                | x::EventMask::STRUCTURE_NOTIFY
+                | x::EventMask::POINTER_MOTION
+                | x::EventMask::PROPERTY_CHANGE
+                | x::EventMask::FOCUS_CHANGE
+                | x::EventMask::ENTER_WINDOW,
+        )],
+    });
+    if let Err(error) = main_connection().check_request(cookie) {
         errorlog(
             c"ERROR: Another window manager seems to be running (X error %d)\n"
                 .as_ptr()
                 .cast_mut(),
-            (*error_0).error_code as ::core::ffi::c_int,
+            i32::from((*error.as_raw()).error_code),
         );
         return 1 as ::core::ffi::c_int;
     }
-    let greply: *mut xcb_get_geometry_reply_t = xcb_get_geometry_reply(
-        conn,
-        gcookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    let greply_owner = NativeAllocation::take(greply);
-    if greply.is_null() {
+    let Ok(greply) = main_connection().wait_for_reply(gcookie) else {
         errorlog(
             c"ERROR: Could not get geometry of the root window, exiting\n"
                 .as_ptr()
                 .cast_mut(),
         );
         return 1 as ::core::ffi::c_int;
-    }
+    };
     debuglog(
         c"%s:%s:%d - root geometry reply: (%d, %d) %d x %d\n"
             .as_ptr()
@@ -1661,10 +1641,10 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         c"../src/main.c".as_ptr(),
         c"main".as_ptr(),
         819 as ::core::ffi::c_int,
-        (*greply).x as ::core::ffi::c_int,
-        (*greply).y as ::core::ffi::c_int,
-        (*greply).width as ::core::ffi::c_int,
-        (*greply).height as ::core::ffi::c_int,
+        greply.x() as ::core::ffi::c_int,
+        greply.y() as ::core::ffi::c_int,
+        greply.width() as ::core::ffi::c_int,
+        greply.height() as ::core::ffi::c_int,
     );
     xcursor_load_cursors();
     xcursor_set_root_cursor(Cursor::Pointer);
@@ -1807,7 +1787,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
                 .cast_mut(),
             layout_path,
         );
-        needs_tree_init = !tree_restore(layout_path, greply);
+        needs_tree_init = !tree_restore(layout_path, &greply);
         if delete_layout_path {
             unlink(layout_path);
             let dir = owned_dirname(CStr::from_ptr(layout_path));
@@ -1815,9 +1795,9 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         }
     }
     if needs_tree_init {
-        tree_init(greply);
+        tree_init(&greply);
     }
-    drop(greply_owner);
+    drop(greply);
     let configured_fake = if fake_outputs.is_null() {
         NativeAllocation::take(config.fake_outputs)
     } else {
@@ -1876,38 +1856,33 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     layout_path = ::core::ptr::null_mut::<::core::ffi::c_char>();
     scratchpad_fix_resolution();
     let mut output_0: *mut Output = ::core::ptr::null_mut::<Output>();
-    let pointer_reply: *mut xcb_query_pointer_reply_t = xcb_query_pointer_reply(
-        conn,
-        pointercookie,
-        ::core::ptr::null_mut::<*mut xcb_generic_error_t>(),
-    );
-    let pointer_reply_owner = NativeAllocation::take(pointer_reply);
-    if pointer_reply.is_null() {
+    let pointer_reply = main_connection().wait_for_reply(pointercookie).ok();
+    if pointer_reply.is_none() {
         errorlog(
             c"ERROR: Could not query pointer position, using first screen\n"
                 .as_ptr()
                 .cast_mut(),
         );
-    } else {
+    } else if let Some(pointer_reply) = pointer_reply {
         debuglog(
             c"%s:%s:%d - Pointer at %d, %d\n".as_ptr().cast_mut(),
             c"../src/main.c".as_ptr(),
             c"main".as_ptr(),
             995 as ::core::ffi::c_int,
-            (*pointer_reply).root_x as ::core::ffi::c_int,
-            (*pointer_reply).root_y as ::core::ffi::c_int,
+            pointer_reply.root_x() as ::core::ffi::c_int,
+            pointer_reply.root_y() as ::core::ffi::c_int,
         );
         output_0 = get_output_containing(
-            (*pointer_reply).root_x as ::core::ffi::c_uint,
-            (*pointer_reply).root_y as ::core::ffi::c_uint,
+            pointer_reply.root_x() as ::core::ffi::c_uint,
+            pointer_reply.root_y() as ::core::ffi::c_uint,
         );
         if output_0.is_null() {
             errorlog(
                 c"ERROR: ERROR: No screen at (%d, %d), starting on the first screen\n"
                     .as_ptr()
                     .cast_mut(),
-                (*pointer_reply).root_x as ::core::ffi::c_int,
-                (*pointer_reply).root_y as ::core::ffi::c_int,
+                pointer_reply.root_x() as ::core::ffi::c_int,
+                pointer_reply.root_y() as ::core::ffi::c_int,
             );
         }
     }
@@ -1915,7 +1890,6 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         output_0 = get_first_output();
     }
     con_activate(con_descend_focused(output_get_content((*output_0).con)));
-    drop(pointer_reply_owner);
     tree_render();
     let mut watchers = MainWatchers::new();
     let ipc_io = watchers.add(ipc_socket, ipc_new_client);
@@ -2001,8 +1975,8 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     xcb_prepare = Box::into_raw(Box::new(ev_prepare::new(xcb_prepare_cb)));
     ev_prepare_start(main_loop, xcb_prepare);
     let _ = main_connection().flush();
-    xcb_grab_server(conn);
-    xcb_aux_sync(conn);
+    main_connection().send_request(&x::GrabServer {});
+    let _ = main_connection().wait_for_reply(main_connection().send_request(&x::GetInputFocus {}));
     loop {
         match main_connection().poll_for_event() {
             Ok(Some(event)) => {
@@ -2016,7 +1990,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         }
     }
     manage_existing_windows(root);
-    xcb_ungrab_server(conn);
+    main_connection().send_request(&x::UngrabServer {});
     if autostart {
         verboselog(
             c"This is not an in-place restart, checking if a wallpaper is set.\n"
@@ -2230,25 +2204,20 @@ use i3_common::safewrappers::sstrdup;
 
 use xcb_sys::{
     xcb_atom_name_by_screen, xcb_atom_t, xcb_aux_find_visual_by_attrs, xcb_aux_get_depth_of_visual,
-    xcb_aux_get_screen, xcb_aux_sync, xcb_big_requests_id, xcb_change_property,
-    xcb_change_window_attributes, xcb_change_window_attributes_checked, xcb_client_message_data_t,
-    xcb_client_message_event_t, xcb_colormap_t, xcb_connection_t, xcb_create_colormap_checked,
+    xcb_aux_get_screen, xcb_big_requests_id, xcb_change_property, xcb_colormap_t, xcb_connection_t,
     xcb_create_window, xcb_drawable_t, xcb_generate_id, xcb_generic_error_t,
-    xcb_get_extension_data, xcb_get_geometry, xcb_get_geometry_cookie_t, xcb_get_geometry_reply,
-    xcb_get_geometry_reply_t, xcb_get_selection_owner, xcb_get_selection_owner_reply,
-    xcb_get_selection_owner_reply_t, xcb_grab_server, xcb_intern_atom, xcb_intern_atom_reply,
-    xcb_intern_atom_reply_t, xcb_intern_atom_unchecked, xcb_keycode_t, xcb_prefetch_extension_data,
-    xcb_prefetch_maximum_request_length, xcb_property_notify_event_t, xcb_query_extension_reply_t,
-    xcb_query_pointer, xcb_query_pointer_cookie_t, xcb_query_pointer_reply,
-    xcb_query_pointer_reply_t, xcb_randr_id, xcb_request_check, xcb_screen_t, xcb_send_event,
-    xcb_set_selection_owner, xcb_shape_id, xcb_shape_query_version,
+    xcb_get_extension_data, xcb_get_geometry, xcb_get_geometry_reply, xcb_get_geometry_reply_t,
+    xcb_get_selection_owner, xcb_get_selection_owner_reply, xcb_get_selection_owner_reply_t,
+    xcb_intern_atom, xcb_intern_atom_reply, xcb_intern_atom_reply_t, xcb_intern_atom_unchecked,
+    xcb_keycode_t, xcb_prefetch_extension_data, xcb_query_extension_reply_t, xcb_randr_id,
+    xcb_screen_t, xcb_set_selection_owner, xcb_shape_id, xcb_shape_query_version,
     xcb_shape_query_version_cookie_t, xcb_shape_query_version_reply,
-    xcb_shape_query_version_reply_t, xcb_timestamp_t, xcb_ungrab_server, xcb_visualtype_t,
-    xcb_void_cookie_t, xcb_window_t, xcb_xinerama_id, xcb_xkb_device_spec_t, xcb_xkb_id,
-    xcb_xkb_per_client_flags, xcb_xkb_per_client_flags_reply, xcb_xkb_per_client_flags_reply_t,
-    xcb_xkb_select_events, xcb_xkb_use_extension, XCB_ATOM_CARDINAL, XCB_ATOM_STRING,
-    XCB_ATOM_SUPERSCRIPT_X, XCB_ATOM_WM_CLASS, XCB_CLIENT_MESSAGE, XCB_COLORMAP_ALLOC_NONE,
-    XCB_CURRENT_TIME, XCB_CW_EVENT_MASK, XCB_EVENT_MASK_BUTTON_PRESS, XCB_EVENT_MASK_ENTER_WINDOW,
+    xcb_shape_query_version_reply_t, xcb_timestamp_t, xcb_visualtype_t, xcb_void_cookie_t,
+    xcb_window_t, xcb_xinerama_id, xcb_xkb_device_spec_t, xcb_xkb_id, xcb_xkb_per_client_flags,
+    xcb_xkb_per_client_flags_reply, xcb_xkb_per_client_flags_reply_t, xcb_xkb_select_events,
+    xcb_xkb_use_extension, XCB_ATOM_CARDINAL, XCB_ATOM_STRING, XCB_ATOM_SUPERSCRIPT_X,
+    XCB_ATOM_WM_CLASS, XCB_CLIENT_MESSAGE, XCB_COLORMAP_ALLOC_NONE, XCB_CURRENT_TIME,
+    XCB_CW_EVENT_MASK, XCB_EVENT_MASK_BUTTON_PRESS, XCB_EVENT_MASK_ENTER_WINDOW,
     XCB_EVENT_MASK_FOCUS_CHANGE, XCB_EVENT_MASK_POINTER_MOTION, XCB_EVENT_MASK_PROPERTY_CHANGE,
     XCB_EVENT_MASK_STRUCTURE_NOTIFY, XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT, XCB_MAP_REQUEST,
     XCB_NONE, XCB_NUM_LOCK, XCB_PROPERTY_NOTIFY, XCB_PROP_MODE_APPEND, XCB_PROP_MODE_REPLACE,
@@ -2428,15 +2397,43 @@ mod owned_event_tests {
     }
 
     #[test]
+    fn manager_factory_has_exact_wire_body_and_needs_no_native_sequence_tail() {
+        let message =
+            manager_notification(0x10203040, 0x50607080, 0x90abcdef, 0x12345678, 0xfedcba98);
+        let mut expected = [0u8; 32];
+        expected[0] = 33;
+        expected[1] = 32;
+        for (offset, value) in [
+            (4, 0x10203040u32),
+            (8, 0x50607080),
+            (12, 0x90abcdef),
+            (16, 0x12345678),
+            (20, 0xfedcba98),
+        ] {
+            expected[offset..offset + 4].copy_from_slice(&value.to_ne_bytes());
+        }
+        // The canonical factory owns exactly the 32-byte wire body.
+        assert_eq!(
+            unsafe { std::slice::from_raw_parts(message.as_raw().cast::<u8>(), 32) },
+            expected
+        );
+        let event = xcb::Event::X(x::Event::ClientMessage(message));
+        assert_eq!(event_response_type(&event), 33);
+        assert_eq!(event_kind(&event), 33);
+    }
+
+    #[test]
     fn unknown_extension_opcode_and_subtype_keep_their_native_headers() {
         // No extension metadata: a future XKB subtype or unknown event remains
         // an owned UnknownEvent rather than reaching an unwrap/enum conversion.
         let event = unsafe { event(100 | 0x80, u8::MAX) };
         assert!(matches!(&event, xcb::Event::Unknown(_)));
         assert_eq!(event_kind(&event), 100);
-        assert_eq!(event_header(&event).pad0, u8::MAX);
-        assert_eq!(event_header(&event).sequence, 0x1234);
-        assert_eq!(event_header(&event).full_sequence, 0xfedc_1234);
+        // This fixture explicitly allocated the native 36-byte queue header.
+        let header = unsafe { &*event.as_raw() };
+        assert_eq!(header.pad0, u8::MAX);
+        assert_eq!(header.sequence, 0x1234);
+        assert_eq!(header.full_sequence, 0xfedc_1234);
     }
 
     #[test]
@@ -2452,10 +2449,7 @@ mod owned_event_tests {
         assert_eq!(event_kind(&event), XCB_PROPERTY_NOTIFY);
         // Startup timestamp filtering historically ignores SendEvent-flagged
         // PropertyNotify, while ordinary dispatch masks that same flag.
-        assert_ne!(
-            i32::from(event_header(&event).response_type),
-            XCB_PROPERTY_NOTIFY
-        );
+        assert_ne!(i32::from(event_response_type(&event)), XCB_PROPERTY_NOTIFY);
         assert_eq!(
             unsafe { event.as_raw().cast::<u8>().add(16).read() },
             u8::MAX
