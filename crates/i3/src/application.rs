@@ -1798,7 +1798,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         errx(EXIT_FAILURE, c"Could not load keymap\n".as_ptr());
     }
     translate_keysyms();
-    grab_all_keys(conn);
+    grab_all_keys();
     let mut needs_tree_init: bool = true_0 != 0;
     if !layout_path.is_null() {
         verboselog(

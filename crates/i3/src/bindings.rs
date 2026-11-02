@@ -7,6 +7,12 @@ use crate::ipc::ipc_send_binding_event;
 use crate::types::BindingRelease;
 use crate::types::InputType;
 use i3_common::safewrappers::sasprintf;
+use std::rc::Rc;
+use xcb::{x, XidNew};
+
+fn connection() -> Rc<xcb::Connection> {
+    i3_common::display::connection().expect("main X11 connection is registered")
+}
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -192,11 +198,7 @@ unsafe fn binding_in_current_group(bind: *const Binding) -> bool {
     }
     group_matches((*bind).event_state_mask, xkb_current_group as u32)
 }
-unsafe fn grab_keycode_for_binding(
-    conn_0: *mut xcb_connection_t,
-    bind: *mut Binding,
-    keycode: u32,
-) {
+unsafe fn grab_keycode_for_binding(connection: &xcb::Connection, bind: *mut Binding, keycode: u32) {
     let mods: i32 = ((*bind).event_state_mask & 0xffff as u32) as i32;
     debuglog(
         c"%s:%s:%d - Binding %p Grabbing keycode %d with event state mask 0x%x (mods 0x%x)\n"
@@ -211,26 +213,26 @@ unsafe fn grab_keycode_for_binding(
         mods,
     );
     for modifiers in grab_masks(mods as u32, xcb_numlock_mask) {
-        xcb_grab_key(
-            conn_0,
-            0,
-            root,
-            modifiers,
-            keycode as u8,
-            XCB_GRAB_MODE_ASYNC as u8,
-            XCB_GRAB_MODE_ASYNC as u8,
-        );
+        connection.send_request(&x::GrabKey {
+            owner_events: false,
+            grab_window: x::Window::new(root),
+            modifiers: x::ModMask::from_bits_retain(u32::from(modifiers)),
+            key: keycode as u8,
+            pointer_mode: x::GrabMode::Async,
+            keyboard_mode: x::GrabMode::Async,
+        });
     }
 }
 
-pub unsafe fn grab_all_keys(conn_0: *mut xcb_connection_t) {
+pub unsafe fn grab_all_keys() {
+    let connection = connection();
     let mut bind: *mut Binding = ::core::ptr::null_mut::<Binding>();
     bind = (*bindings).tqh_first as *mut Binding;
     while !bind.is_null() {
         if !((*bind).input_type != InputType::Keyboard) {
             if binding_in_current_group(bind) {
                 if (*bind).keycode > 0 as u32 {
-                    grab_keycode_for_binding(conn_0, bind, (*bind).keycode);
+                    grab_keycode_for_binding(&connection, bind, (*bind).keycode);
                 } else {
                     let mut binding_keycode: *mut Binding_Keycode =
                         ::core::ptr::null_mut::<Binding_Keycode>();
@@ -249,15 +251,14 @@ pub unsafe fn grab_all_keys(conn_0: *mut xcb_connection_t) {
                             keycode,
                             mods,
                         );
-                        xcb_grab_key(
-                            conn_0,
-                            0 as u8,
-                            root,
-                            mods as u16,
-                            keycode as xcb_keycode_t,
-                            XCB_GRAB_MODE_ASYNC as i32 as u8,
-                            XCB_GRAB_MODE_ASYNC as i32 as u8,
-                        );
+                        connection.send_request(&x::GrabKey {
+                            owner_events: false,
+                            grab_window: x::Window::new(root),
+                            modifiers: x::ModMask::from_bits_retain(u32::from(mods as u16)),
+                            key: keycode as u8,
+                            pointer_mode: x::GrabMode::Async,
+                            keyboard_mode: x::GrabMode::Async,
+                        });
                         binding_keycode = (*binding_keycode).keycodes.tqe_next;
                     }
                 }
@@ -267,21 +268,21 @@ pub unsafe fn grab_all_keys(conn_0: *mut xcb_connection_t) {
     }
 }
 
-pub unsafe fn regrab_all_buttons(conn_0: *mut xcb_connection_t) {
+pub unsafe fn regrab_all_buttons() {
+    let connection = connection();
     let buttons = bindings_get_buttons_to_grab();
     let buttons_owner = Native::take(buttons);
-    xcb_grab_server(conn_0);
-    let server_grab = ServerGrab(conn_0);
+    connection.send_request(&x::GrabServer {});
+    let server_grab = ServerGrab(connection.clone());
     for id in containers() {
         let Some(con) = resolve(id) else { continue };
         if !(*con).window.is_null() {
-            xcb_ungrab_button(
-                conn_0,
-                XCB_BUTTON_INDEX_ANY as i32 as u8,
-                (*(*con).window).id,
-                XCB_BUTTON_MASK_ANY as i32 as u16,
-            );
-            xcb_grab_buttons(conn_0, (*(*con).window).id, buttons);
+            connection.send_request(&x::UngrabButton {
+                button: x::ButtonIndex::Any,
+                grab_window: x::Window::new((*(*con).window).id),
+                modifiers: x::ModMask::ANY,
+            });
+            xcb_grab_buttons(conn, (*(*con).window).id, buttons);
         }
     }
     drop(buttons_owner);
@@ -766,12 +767,12 @@ pub unsafe fn switch_mode(new_mode: *const ::core::ffi::c_char) {
         if strcmp((*mode).name, new_mode) != 0 {
             mode = (*mode).modes.sle_next;
         } else {
-            ungrab_all_keys(conn);
+            ungrab_all_keys();
             bindings = (*mode).bindings as *mut bindings_head;
             current_binding_mode = (*mode).name;
             translate_keysyms();
-            grab_all_keys(conn);
-            regrab_all_buttons(conn);
+            grab_all_keys();
+            regrab_all_buttons();
             let mut bind: *mut Binding = ::core::ptr::null_mut::<Binding>();
             bind = (*bindings).tqh_first as *mut Binding;
             while !bind.is_null() {
@@ -1077,41 +1078,38 @@ fn rule_names(bytes: &[u8]) -> RuleNames {
 }
 /// Query only on the live event-thread display; replies own all byte views.
 unsafe fn fill_rmlvo_from_root() -> Option<RuleNames> {
-    let atom = Native::take(xcb_intern_atom_reply(
-        conn,
-        xcb_intern_atom(conn, 0, 16, c"_XKB_RULES_NAMES".as_ptr()),
-        std::ptr::null_mut(),
-    ))?;
-    let mut words = 256u32;
+    let connection = connection();
+    let atom = connection
+        .wait_for_reply(connection.send_request(&x::InternAtom {
+            only_if_exists: false,
+            name: b"_XKB_RULES_NAMES",
+        }))
+        .ok()?
+        .atom();
     let query = |words| {
-        xcb_get_property_reply(
-            conn,
-            xcb_get_property_unchecked(
-                conn,
-                0,
-                root,
-                (*atom.raw()).atom,
-                XCB_GET_PROPERTY_TYPE_ANY as u32,
-                0,
-                words,
-            ),
-            std::ptr::null_mut(),
-        )
+        let cookie = connection.send_request_unchecked(&x::GetProperty {
+            delete: false,
+            window: x::Window::new(root),
+            property: atom,
+            r#type: x::ATOM_ANY,
+            long_offset: 0,
+            long_length: words,
+        });
+        connection.wait_for_reply_unchecked(cookie).ok().flatten()
     };
-    let mut reply = Native::take(query(words))?;
-    if xcb_get_property_value_length(reply.raw()) > 0 && (*reply.raw()).bytes_after > 0 {
-        words = words.wrapping_add((*reply.raw()).bytes_after.div_ceil(4));
-        reply = Native::take(query(words))?;
+    let mut words = 256u32;
+    let mut reply = query(words)?;
+    if crate::xcb::property_payload(&reply).is_some_and(|bytes| !bytes.is_empty())
+        && reply.bytes_after() > 0
+    {
+        words = words.wrapping_add(reply.bytes_after().div_ceil(4));
+        reply = query(words)?;
     }
-    let header = &*reply.raw();
-    let length = usize::try_from(xcb_get_property_value_length(reply.raw())).ok()?;
-    if length == 0 || length > (header.length as usize).checked_mul(4)? {
+    let bytes = crate::xcb::property_payload(&reply)?;
+    if bytes.is_empty() {
         return None;
     }
-    Some(rule_names(std::slice::from_raw_parts(
-        xcb_get_property_value(reply.raw()).cast(),
-        length,
-    )))
+    Some(rule_names(bytes))
 }
 
 pub unsafe fn load_keymap() -> bool {
@@ -1209,13 +1207,7 @@ use i3_common::safewrappers::sstrdup;
 
 // Canonical Pango backend ABI; font policy remains local.
 
-use xcb_sys::{
-    xcb_connection_t, xcb_get_property_reply, xcb_get_property_unchecked, xcb_get_property_value,
-    xcb_get_property_value_length, xcb_grab_key, xcb_grab_server, xcb_intern_atom,
-    xcb_intern_atom_reply, xcb_keycode_t, xcb_ungrab_button, xcb_ungrab_server,
-    XCB_BUTTON_INDEX_ANY, XCB_BUTTON_MASK_ANY, XCB_GET_PROPERTY_TYPE_ANY, XCB_GRAB_MODE_ASYNC,
-    XCB_KEY_BUT_MASK_SHIFT, XCB_MOD_MASK_LOCK,
-};
+use xcb_sys::{xcb_keycode_t, XCB_KEY_BUT_MASK_SHIFT, XCB_MOD_MASK_LOCK};
 
 use xkbcommon::xkb::ffi::*;
 use xkbcommon::xkb::x11::ffi::*;
@@ -1464,11 +1456,9 @@ impl Drop for BindingCopy {
     }
 }
 
-struct ServerGrab(*mut xcb_connection_t);
+struct ServerGrab(Rc<xcb::Connection>);
 impl Drop for ServerGrab {
     fn drop(&mut self) {
-        unsafe {
-            xcb_ungrab_server(self.0);
-        }
+        self.0.send_request(&x::UngrabServer {});
     }
 }

@@ -332,9 +332,9 @@ unsafe fn handle_mapping_notify(event: &x::MappingNotifyEvent) {
     );
     crate::application::refresh_key_symbols(event);
     xcb_numlock_mask = crate::application::key_symbol_modifiers(XCB_NUM_LOCK as u32);
-    ungrab_all_keys(conn);
+    ungrab_all_keys();
     translate_keysyms();
-    grab_all_keys(conn);
+    grab_all_keys();
 }
 unsafe fn handle_map_request(event: &x::MapRequestEvent, full_sequence: u32) {
     let cookie = i3_common::display::connection()
@@ -2076,9 +2076,9 @@ pub unsafe fn handle_event(owner: &xcb::Event) {
                 {
                     load_keymap();
                 }
-                ungrab_all_keys(conn);
+                ungrab_all_keys();
                 translate_keysyms();
-                grab_all_keys(conn);
+                grab_all_keys();
             }
             Some(xcb_interop::events::XkbEvent::Map(state)) => {
                 if event_is_ignored(
@@ -2114,9 +2114,9 @@ pub unsafe fn handle_event(owner: &xcb::Event) {
                         type_0,
                     );
                     crate::application::rebuild_key_symbols();
-                    ungrab_all_keys(conn);
+                    ungrab_all_keys();
                     translate_keysyms();
-                    grab_all_keys(conn);
+                    grab_all_keys();
                     load_keymap();
                 }
             }
@@ -2132,8 +2132,8 @@ pub unsafe fn handle_event(owner: &xcb::Event) {
                     return;
                 }
                 xkb_current_group = state.group as ::core::ffi::c_int;
-                ungrab_all_keys(conn);
-                grab_all_keys(conn);
+                ungrab_all_keys();
+                grab_all_keys();
             }
             None => {}
         }

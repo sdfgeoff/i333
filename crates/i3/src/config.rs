@@ -518,19 +518,20 @@ pub static mut included_files: includedfiles_head = includedfiles_head {
     tqh_last: unsafe { &raw mut included_files.tqh_first },
 };
 
-pub unsafe fn ungrab_all_keys(conn_0: *mut xcb_connection_t) {
+pub unsafe fn ungrab_all_keys() {
     debuglog(
         c"%s:%s:%d - Ungrabbing all keys\n".as_ptr().cast_mut(),
         c"../src/config.c".as_ptr(),
         c"ungrab_all_keys".as_ptr(),
         28 as ::core::ffi::c_int,
     );
-    xcb_ungrab_key(
-        conn_0,
-        XCB_GRAB_ANY as ::core::ffi::c_int as xcb_keycode_t,
-        root,
-        XCB_BUTTON_MASK_ANY as ::core::ffi::c_int as u16,
-    );
+    i3_common::display::connection()
+        .expect("main X11 connection is registered")
+        .send_request(&xcb::x::UngrabKey {
+            key: 0,
+            grab_window: <xcb::x::Window as xcb::XidNew>::new(root),
+            modifiers: xcb::x::ModMask::ANY,
+        });
 }
 unsafe fn free_configuration() {
     if conn != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut xcb_connection_t {
@@ -543,7 +544,7 @@ unsafe fn free_configuration() {
         );
     };
     switch_mode(c"default".as_ptr());
-    ungrab_all_keys(conn);
+    ungrab_all_keys();
     while !modes.slh_first.is_null() {
         let mut mode: *mut Mode = modes.slh_first as *mut Mode;
         free((*mode).name as *mut ::core::ffi::c_void);
@@ -941,8 +942,8 @@ pub unsafe fn load_configuration(
     }
     if load_type == ConfigLoad::Reload {
         translate_keysyms();
-        grab_all_keys(conn);
-        regrab_all_buttons(conn);
+        grab_all_keys();
+        regrab_all_buttons();
         gaps_reapply_workspace_assignments();
         tree_render();
     }
@@ -965,10 +966,7 @@ use i3_common::safewrappers::sstrdup;
 
 // Canonical Pango backend ABI; font policy remains local.
 
-use xcb_sys::{
-    xcb_connection_t, xcb_keycode_t, xcb_ungrab_key, XCB_BUTTON_MASK_ANY, XCB_GRAB_ANY,
-    XCB_KEY_BUT_MASK_SHIFT,
-};
+use xcb_sys::{xcb_connection_t, XCB_KEY_BUT_MASK_SHIFT};
 
 pub use libc::{__errno_location, free, memset, realpath, strerror};
 
