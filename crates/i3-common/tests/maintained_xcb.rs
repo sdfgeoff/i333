@@ -29,6 +29,8 @@ extern "C" fn release_display_at_exit() {
     assert!(TLS_DESTRUCTED.load(std::sync::atomic::Ordering::SeqCst));
     let connection = i3_common::display::connection().expect("registry survives TLS destruction");
     sync(&connection);
+    let root_visual = connection.get_setup().roots().next().unwrap().root_visual();
+    assert!(i3_common::display::visual(root_visual).is_some());
     drop(connection);
     // SAFETY: only this single-threaded child owns/accesses its atexit guard.
     let registration = unsafe { std::ptr::replace(&raw mut EXIT_REGISTRATION, None) };
@@ -274,6 +276,59 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
     // callers; the maintained requests own all replies used by these helpers.
     let raw_screen = unsafe { xcb_sys::xcb_aux_get_screen(raw, screen_number) };
     assert!(!raw_screen.is_null());
+    let owned_screen =
+        i3_common::display::DisplayScreen::new(connection.clone(), screen_number).unwrap();
+    assert!(i3_common::display::DisplayScreen::new(connection.clone(), -1).is_none());
+    assert!(i3_common::display::DisplayScreen::new(connection.clone(), i32::MAX).is_none());
+    assert_eq!(owned_screen.screen().root(), root);
+    let owned_visual = owned_screen.visual(screen.root_visual()).unwrap();
+    let cached_visual = i3_common::display::visual(screen.root_visual()).unwrap();
+    assert!(std::rc::Rc::ptr_eq(
+        &cached_visual,
+        &i3_common::display::visual(screen.root_visual()).unwrap()
+    ));
+    let cached_visual_weak = std::rc::Rc::downgrade(&cached_visual);
+    unsafe {
+        let native = i3_common::get_visualtype::get_visualtype(raw_screen);
+        assert!(!native.is_null());
+        let native_bytes = std::slice::from_raw_parts(native.cast::<u8>(), 24);
+        assert_eq!(
+            std::slice::from_raw_parts(owned_visual.as_ptr().cast::<u8>(), 24),
+            native_bytes
+        );
+        assert_eq!(
+            std::slice::from_raw_parts(cached_visual.as_ptr().cast::<u8>(), 24),
+            native_bytes
+        );
+        // Exercise Cairo's real native visual consumer, retaining each visual
+        // until its surface is destroyed, including unsupported 8-bit visuals.
+        let original = cairo_sys::cairo_xcb_surface_create(
+            raw.cast(),
+            root.resource_id(),
+            native.cast(),
+            2,
+            2,
+        );
+        let copied = cairo_sys::cairo_xcb_surface_create(
+            raw.cast(),
+            root.resource_id(),
+            owned_visual.as_ptr(),
+            2,
+            2,
+        );
+        assert_eq!(
+            cairo_sys::cairo_surface_status(original),
+            cairo_sys::cairo_surface_status(copied)
+        );
+        cairo_sys::cairo_surface_destroy(original);
+        cairo_sys::cairo_surface_destroy(copied);
+    }
+    drop(owned_visual);
+    drop(cached_visual);
+    assert!(
+        cached_visual_weak.upgrade().is_some(),
+        "guard retains the Cairo visual cache"
+    );
     DISPLAY_CONTEXT.with(|context| {
         context.set(DisplayContext {
             connection: raw,
@@ -439,6 +494,10 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
     assert_ne!(root.resource_id(), 0);
     let retained = i3_common::display::connection().unwrap();
     drop(registration);
+    assert!(
+        cached_visual_weak.upgrade().is_none(),
+        "cache is released after graphics teardown"
+    );
     assert!(i3_common::display::connection().is_none());
     sync(&retained);
     drop(retained);

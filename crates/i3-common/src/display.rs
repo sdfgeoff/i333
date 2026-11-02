@@ -2,7 +2,11 @@
 //!
 //! The provider retains ownership of the connection and screen resources. Unsafe
 //! rendering callers must keep those resources alive for the whole operation.
+mod graphics;
+pub use graphics::{CairoVisual, DisplayScreen};
+
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::mem::ManuallyDrop;
 use std::rc::{Rc, Weak};
 use std::sync::RwLock;
@@ -12,7 +16,7 @@ thread_local! {
     // Native C atexit callbacks run after Rust's main-thread TLS destructors.
     // This nonowning slot must remain readable through those callbacks. The
     // guard clears its Weak explicitly, so suppress only the slot destructor.
-    static CONNECTION: ManuallyDrop<RefCell<Option<Weak<xcb::Connection>>>> =
+    static CONNECTION: ManuallyDrop<RefCell<Option<Weak<DisplayResources>>>> =
         const { ManuallyDrop::new(RefCell::new(None)) };
 }
 
@@ -26,7 +30,14 @@ thread_local! {
 pub struct DisplayConnection {
     // Ownership belongs to the guard, independently of the TLS registry. This
     // also makes the registration !Send and keeps C atexit cleanup resources live.
-    _owner: Rc<xcb::Connection>,
+    _owner: Rc<DisplayResources>,
+}
+
+struct DisplayResources {
+    connection: Rc<xcb::Connection>,
+    // Native rendering globals may retain pointers into these independent
+    // allocations. The atexit-safe guard owns them through graphics teardown.
+    visuals: RefCell<HashMap<u32, Rc<CairoVisual>>>,
 }
 
 /// Register the sole maintained connection owner for the current event thread.
@@ -34,15 +45,19 @@ pub struct DisplayConnection {
 /// Each graphical program registers once after connecting, before common display
 /// helpers run. Nested registrations indicate a lifecycle bug and are rejected.
 pub fn install_connection(connection: Rc<xcb::Connection>) -> DisplayConnection {
+    let resources = Rc::new(DisplayResources {
+        connection,
+        visuals: RefCell::new(HashMap::new()),
+    });
     CONNECTION.with(|registered| {
         let mut registered = registered.borrow_mut();
         assert!(
             registered.is_none(),
             "a display connection is already registered"
         );
-        *registered = Some(Rc::downgrade(&connection));
+        *registered = Some(Rc::downgrade(&resources));
     });
-    DisplayConnection { _owner: connection }
+    DisplayConnection { _owner: resources }
 }
 
 /// Clone the current thread's connection without retaining a registry borrow.
@@ -50,10 +65,39 @@ pub fn install_connection(connection: Rc<xcb::Connection>) -> DisplayConnection 
 /// Callbacks can reenter display helpers or unregister the display while a
 /// request uses this clone; the same single native connection stays alive.
 pub fn connection() -> Option<Rc<xcb::Connection>> {
+    resources().map(|resources| resources.connection.clone())
+}
+
+fn resources() -> Option<Rc<DisplayResources>> {
     CONNECTION
         .try_with(|registered| registered.borrow().as_ref().and_then(Weak::upgrade))
         .ok()
         .flatten()
+}
+
+/// Obtain a cached native Cairo visual owned through registered graphics teardown.
+/// Independent/emergency connections should instead retain their own CairoVisual.
+pub fn visual(id: u32) -> Option<Rc<CairoVisual>> {
+    let resources = resources()?;
+    if let Some(visual) = resources.visuals.borrow().get(&id) {
+        return Some(visual.clone());
+    }
+    let visual = resources
+        .connection
+        .get_setup()
+        .roots()
+        .find_map(|screen| {
+            screen.allowed_depths().find_map(|depth| {
+                depth
+                    .visuals()
+                    .iter()
+                    .find(|visual| visual.visual_id() == id)
+                    .map(CairoVisual::new)
+            })
+        })?;
+    let visual = Rc::new(visual);
+    resources.visuals.borrow_mut().insert(id, visual.clone());
+    Some(visual)
 }
 
 impl Drop for DisplayConnection {
