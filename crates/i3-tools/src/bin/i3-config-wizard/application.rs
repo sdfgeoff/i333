@@ -5064,14 +5064,16 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
         );
     }
     keysyms = xcb_key_symbols_alloc(conn);
-    let mut modmap_cookie: xcb_get_modifier_mapping_cookie_t =
-        xcb_get_modifier_mapping_cookie_t { sequence: 0 };
-    modmap_cookie = xcb_get_modifier_mapping(conn);
+    // The no-drop view borrows WizardResources' sole native connection owner.
+    let modmap_connection = i3_common::xcb_connection::borrowed(conn)
+        .expect("the wizard has checked its live connection");
+    let modmap_cookie = modmap_connection.send_request(&xcb::x::GetModifierMapping {});
     symbols = xcb_key_symbols_alloc(conn);
     if symbols.is_null() || keysyms.is_null() {
         errx(1, c"Could not allocate key symbols".as_ptr());
     }
     if headless_run {
+        drop(modmap_connection);
         finish(&ui);
         return 0 as ::core::ffi::c_int;
     }
@@ -5121,33 +5123,25 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
         errx(1, c"Cannot find display screen".as_ptr());
     }
     root = (*root_screen).root;
-    let Some(modmap) = Native::take(xcb_get_modifier_mapping_reply(
-        conn,
-        modmap_cookie,
-        std::ptr::null_mut(),
-    )) else {
+    let Ok(modmap) = modmap_connection.wait_for_reply(modmap_cookie) else {
         errx(
             libc::EXIT_FAILURE,
             c"Could not get modifier mapping".as_ptr(),
         );
     };
-    let count = usize::from((*modmap.raw()).keycodes_per_modifier);
-    let available = ((*modmap.raw()).length as usize)
-        .checked_mul(4)
-        .unwrap_or(0);
-    if count * 8 > available {
+    let count = usize::from(modmap.keycodes_per_modifier());
+    let Some(codes) = i3_common::get_mod_mask::modifier_keycodes(&modmap) else {
         errx(
             libc::EXIT_FAILURE,
             c"Could not get modifier mapping".as_ptr(),
         );
-    }
-    let codes =
-        std::slice::from_raw_parts(xcb_get_modifier_mapping_keycodes(modmap.raw()), count * 8);
+    };
     ui.modifier_codes = [
         codes[count * 3..count * 4].to_vec(),
         codes[count * 6..count * 7].to_vec(),
     ];
-    xcb_numlock_mask = get_mod_mask_for(XCB_NUM_LOCK as u32, symbols, modmap.raw());
+    xcb_numlock_mask = get_mod_mask_for(XCB_NUM_LOCK as u32, symbols, &modmap);
+    drop(modmap_connection);
     init_dpi();
     font = load_font(pattern, true);
     bold_font = load_font(patternbold, true);
@@ -5360,9 +5354,7 @@ use xcb_sys::{
     xcb_atom_t, xcb_aux_get_screen, xcb_button_press_event_t, xcb_change_property, xcb_charinfo_t,
     xcb_connect, xcb_connection_has_error, xcb_connection_t, xcb_create_window, xcb_drawable_t,
     xcb_expose_event_t, xcb_flush, xcb_generate_id, xcb_generic_error_t, xcb_generic_event_t,
-    xcb_get_modifier_mapping, xcb_get_modifier_mapping_cookie_t, xcb_get_modifier_mapping_keycodes,
-    xcb_get_modifier_mapping_reply, xcb_get_modifier_mapping_reply_t, xcb_get_setup,
-    xcb_grab_keyboard, xcb_grab_keyboard_cookie_t, xcb_grab_keyboard_reply,
+    xcb_get_setup, xcb_grab_keyboard, xcb_grab_keyboard_cookie_t, xcb_grab_keyboard_reply,
     xcb_grab_keyboard_reply_t, xcb_intern_atom, xcb_intern_atom_cookie_t, xcb_intern_atom_reply,
     xcb_intern_atom_reply_t, xcb_key_press_event_t, xcb_key_press_lookup_keysym,
     xcb_key_symbols_alloc, xcb_key_symbols_get_keysym, xcb_key_symbols_t, xcb_keycode_t,

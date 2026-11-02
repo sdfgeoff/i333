@@ -7,9 +7,10 @@
 
 use std::collections::HashMap;
 use std::ffi::{c_char, CStr};
-use std::ptr::{self, NonNull};
+#[cfg(test)]
+use std::ptr;
 use std::sync::{LazyLock, Mutex};
-use xcb_sys::{xcb_alloc_color, xcb_alloc_color_reply, xcb_alloc_color_reply_t};
+use xcb::{x, XidNew};
 
 #[derive(Default)]
 struct ColorCache {
@@ -110,22 +111,6 @@ fn hex_byte(pair: [u8; 2]) -> u8 {
     }
 }
 
-struct ColorReply(NonNull<xcb_alloc_color_reply_t>);
-
-impl ColorReply {
-    fn pixel(&self) -> u32 {
-        // SAFETY: this guard owns the complete reply returned by XCB.
-        unsafe { self.0.as_ref().pixel }
-    }
-}
-
-impl Drop for ColorReply {
-    fn drop(&mut self) {
-        // SAFETY: XCB transfers this malloc-compatible reply to its sole owner.
-        unsafe { libc::free(self.0.as_ptr().cast()) }
-    }
-}
-
 /// Get the packed ARGB value or allocate a color in the current native colormap.
 ///
 /// # Safety
@@ -158,13 +143,18 @@ pub unsafe fn get_colorpixel(hex: *const c_char) -> u32 {
         return pixel;
     }
     let (red, green, blue) = channels.native_rgb();
-    // SAFETY: the display provider keeps the connection live and its screen's
-    // default colormap belongs to that connection. The returned reply is owned.
-    let reply = unsafe {
-        let cookie = xcb_alloc_color(connection, screen.default_colormap, red, green, blue);
-        xcb_alloc_color_reply(connection, cookie, ptr::null_mut())
-    };
-    let Some(reply) = NonNull::new(reply).map(ColorReply) else {
+    // SAFETY: the display provider retains the connection owner throughout
+    // this synchronous operation. The maintained reply owns its allocation.
+    let reply = unsafe { crate::xcb_connection::borrowed(connection) }.and_then(|connection| {
+        let cookie = connection.send_request(&x::AllocColor {
+            cmap: unsafe { x::Colormap::new(screen.default_colormap) },
+            red,
+            green,
+            blue,
+        });
+        connection.wait_for_reply(cookie).ok()
+    });
+    let Some(reply) = reply else {
         crate::logging::emit(
             crate::logging::Level::Verbose,
             b"[libi3] ../libi3/get_colorpixel.c Could not allocate color\n",

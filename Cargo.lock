@@ -352,6 +352,7 @@ dependencies = [
  "serde_json",
  "startup-notification-sys",
  "x11rb",
+ "xcb",
  "xcb-sys",
  "xkbcommon",
 ]

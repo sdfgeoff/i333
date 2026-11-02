@@ -1,6 +1,14 @@
 //! Real maintained-XCB ownership and protocol checks on an owned private display.
+use i3_common::display::DisplayContext;
 use std::ffi::{CStr, CString};
 use xcb::{x, Xid};
+
+thread_local! {
+    static DISPLAY_CONTEXT: std::cell::Cell<DisplayContext> = std::cell::Cell::new(DisplayContext::default());
+}
+fn display_context() -> DisplayContext {
+    DISPLAY_CONTEXT.with(std::cell::Cell::get)
+}
 
 fn atom(connection: &xcb::Connection, name: &CStr) -> x::Atom {
     let cookie = connection.send_request(&x::InternAtom {
@@ -106,6 +114,136 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
     // callers; the maintained requests own all replies used by these helpers.
     let raw_screen = unsafe { xcb_sys::xcb_aux_get_screen(raw, screen_number) };
     assert!(!raw_screen.is_null());
+    DISPLAY_CONTEXT.with(|context| {
+        context.set(DisplayContext {
+            connection: raw,
+            root_screen: raw_screen,
+            visual_type: std::ptr::null_mut(),
+        })
+    });
+    i3_common::display::set_provider(display_context);
+    for depth in screen.allowed_depths() {
+        for visual in depth.visuals() {
+            assert_eq!(
+                unsafe { i3_common::draw_util::get_visual_depth(visual.visual_id()) },
+                u16::from(depth.depth())
+            );
+        }
+    }
+    // Cairo consumes a native visual record, never the maintained alignment-one
+    // wire view. Only this foreign-library boundary uses a native setup pointer.
+    let mut native_visual = std::ptr::null_mut();
+    unsafe {
+        let mut depths = xcb_sys::xcb_screen_allowed_depths_iterator(raw_screen);
+        while depths.rem != 0 {
+            let mut visuals = xcb_sys::xcb_depth_visuals_iterator(depths.data);
+            while visuals.rem != 0 {
+                if (*visuals.data).visual_id == screen.root_visual() {
+                    native_visual = visuals.data;
+                }
+                xcb_sys::xcb_visualtype_next(&mut visuals);
+            }
+            xcb_sys::xcb_depth_next(&mut depths);
+        }
+    }
+    assert!(!native_visual.is_null());
+    let mut surface: i3_common::draw_util::surface_t = unsafe { std::mem::zeroed() };
+    unsafe {
+        i3_common::draw_util::draw_util_surface_init(
+            raw,
+            &mut surface,
+            root.resource_id(),
+            native_visual,
+            160,
+            120,
+        );
+        assert_ne!(surface.gc, 0);
+        // Some 8-bit Xvfb visuals are unsupported by Cairo. Compare against
+        // its direct native constructor rather than assuming TrueColor support.
+        let native_surface = cairo_sys::cairo_xcb_surface_create(
+            raw.cast(),
+            root.resource_id(),
+            native_visual.cast(),
+            160,
+            120,
+        );
+        let native_context = cairo_sys::cairo_create(native_surface);
+        assert_eq!(
+            cairo_sys::cairo_status(surface.cr),
+            cairo_sys::cairo_status(native_context)
+        );
+        cairo_sys::cairo_destroy(native_context);
+        cairo_sys::cairo_surface_destroy(native_surface);
+        connection
+            .send_and_check_request(&x::ChangeGc {
+                gc: xcb::XidNew::new(surface.gc),
+                value_list: &[x::Gc::Foreground(0)],
+            })
+            .unwrap();
+        i3_common::draw_util::draw_util_surface_free(raw, &mut surface);
+    }
+    assert_eq!(
+        unsafe { i3_common::draw_util::get_visual_depth(u32::MAX) },
+        0
+    );
+    if screen.root_depth() == 8 {
+        let cookie = connection.send_request(&x::AllocColor {
+            cmap: screen.default_colormap(),
+            red: 0x1212,
+            green: 0x3434,
+            blue: 0x5656,
+        });
+        let expected = connection.wait_for_reply(cookie).unwrap().pixel();
+        let actual = unsafe { i3_common::get_colorpixel::get_colorpixel(c"#123456".as_ptr()) };
+        assert_eq!(actual, expected);
+        assert_eq!(
+            unsafe { i3_common::get_colorpixel::get_colorpixel(c"#123456".as_ptr()) },
+            expected
+        );
+    }
+    let mapping = connection
+        .wait_for_reply(connection.send_request(&x::GetModifierMapping {}))
+        .unwrap();
+    let symbols = unsafe { xcb_sys::xcb_key_symbols_alloc(raw) };
+    assert!(!symbols.is_null());
+    for keysym in [0xffe1, 0xffe3, 0xffe9, 0xff7f, 0xffeb, u32::MAX] {
+        // Compute the expected modifier with the native utility's keycode list
+        // and the real server mapping, independently of production traversal.
+        let codes = unsafe { xcb_sys::xcb_key_symbols_get_keycode(symbols, keysym) };
+        let expected = if codes.is_null() {
+            0
+        } else {
+            let codes_slice = unsafe { CStr::from_ptr(codes.cast()) }.to_bytes();
+            let per = usize::from(mapping.keycodes_per_modifier());
+            let result = if per == 0 {
+                0
+            } else {
+                mapping
+                    .keycodes()
+                    .chunks_exact(per)
+                    .enumerate()
+                    .find_map(|(index, values)| {
+                        values
+                            .iter()
+                            .any(|code| *code != 0 && codes_slice.contains(code))
+                            .then_some(1 << index)
+                    })
+                    .unwrap_or(0)
+            };
+            unsafe { libc::free(codes.cast()) };
+            result
+        };
+        assert_eq!(
+            unsafe { i3_common::get_mod_mask::get_mod_mask_for(keysym, symbols, &mapping) },
+            expected
+        );
+        assert_eq!(
+            unsafe { i3_common::get_mod_mask::aio_get_mod_mask_for(keysym, symbols) },
+            expected
+        );
+    }
+    unsafe { xcb_sys::xcb_key_symbols_free(symbols) };
+
     assert!(unsafe { i3_common::is_background_set::is_background_set(raw, raw_screen) });
     let image = || {
         let request = connection.send_request(&x::GetImage {
@@ -137,4 +275,6 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
     sync(&connection);
     connection.has_error().unwrap();
     assert_ne!(root.resource_id(), 0);
+    i3_common::display::set_provider(DisplayContext::default);
+    DISPLAY_CONTEXT.with(|context| context.set(DisplayContext::default()));
 }

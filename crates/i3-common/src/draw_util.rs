@@ -11,6 +11,7 @@ use crate::font::draw_text;
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 
 use crate::string::I3String;
+use xcb::{x, Xid, XidNew};
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct color_t {
@@ -68,74 +69,78 @@ unsafe fn get_gc(
         },
         GraphicsContextCacheEntry { depth: 0, gc: 0 },
     ];
-    let mut index: usize = 0 as usize;
-    let mut cache: bool = false_0 != 0;
-    *should_free = false_0 != 0;
-    while index
-        < (::core::mem::size_of::<[GraphicsContextCacheEntry; 2]>() as usize)
-            .wrapping_div(::core::mem::size_of::<GraphicsContextCacheEntry>() as usize)
-    {
-        if gc_cache[index as usize].depth as ::core::ffi::c_int == depth as ::core::ffi::c_int {
-            return gc_cache[index as usize].gc;
+    *should_free = false;
+    let mut empty_slot = None;
+    for index in 0..2 {
+        if gc_cache[index].depth == depth {
+            return gc_cache[index].gc;
         }
-        if gc_cache[index as usize].depth as ::core::ffi::c_int == 0 as ::core::ffi::c_int {
-            cache = true_0 != 0;
+        if gc_cache[index].depth == 0 {
+            empty_slot = Some(index);
             break;
-        } else {
-            index = index.wrapping_add(1);
         }
     }
-    let gc: xcb_gcontext_t = xcb_generate_id(conn) as xcb_gcontext_t;
-    let gc_cookie: xcb_void_cookie_t = xcb_create_gc_checked(
-        conn,
-        gc,
-        drawable,
-        0 as u32,
-        ::core::ptr::null::<::core::ffi::c_void>(),
-    );
-    let error: *mut xcb_generic_error_t = xcb_request_check(conn, gc_cookie);
-    if !error.is_null() {
+    // The existing display owner remains live through this synchronous request.
+    let Some(connection) = crate::xcb_connection::borrowed(conn) else {
+        return 0;
+    };
+    let gc: x::Gcontext = connection.generate_id();
+    let cookie = connection.send_request_checked(&x::CreateGc {
+        cid: gc,
+        drawable: x::Drawable::Unknown(drawable),
+        value_list: &[],
+    });
+    if let Err(error) = connection.check_request(cookie) {
+        // The maintained error owns its native header. Preserve the native
+        // numeric diagnostic without converting an unknown error into an enum.
+        let code = *error.as_raw().cast::<u8>().add(1);
         errorlog(
             c"[libi3] ERROR: Could not create graphical context. Error code: %d. Please report this bug.\n".as_ptr().cast_mut(),
-            (*error).error_code as ::core::ffi::c_int,
+            i32::from(code),
         );
-        free(error as *mut ::core::ffi::c_void);
-        return gc;
+        return gc.resource_id();
     }
-    if cache {
-        gc_cache[index as usize].depth = depth;
-        gc_cache[index as usize].gc = gc;
+    if let Some(index) = empty_slot {
+        gc_cache[index] = GraphicsContextCacheEntry {
+            depth,
+            gc: gc.resource_id(),
+        };
     } else {
-        *should_free = true_0 != 0;
+        *should_free = true;
     }
-    gc
+    gc.resource_id()
 }
 
 pub unsafe fn get_visual_depth(visual_id: xcb_visualid_t) -> u16 {
-    let crate::display::DisplayContext { root_screen, .. } = crate::display::context();
-
-    let mut depth_iter: xcb_depth_iterator_t = xcb_depth_iterator_t {
-        data: ::core::ptr::null_mut::<xcb_depth_t>(),
-        rem: 0,
-        index: 0,
+    let crate::display::DisplayContext {
+        connection,
+        root_screen,
+        ..
+    } = crate::display::context();
+    let Some(root_screen) = root_screen.as_ref() else {
+        return 0;
     };
-    depth_iter = xcb_screen_allowed_depths_iterator(root_screen);
-    while depth_iter.rem != 0 {
-        let mut visual_iter: xcb_visualtype_iterator_t = xcb_visualtype_iterator_t {
-            data: ::core::ptr::null_mut::<xcb_visualtype_t>(),
-            rem: 0,
-            index: 0,
-        };
-        visual_iter = xcb_depth_visuals_iterator(depth_iter.data);
-        while visual_iter.rem != 0 {
-            if visual_id == (*visual_iter.data).visual_id {
-                return (*depth_iter.data).depth as u16;
-            }
-            xcb_visualtype_next(&raw mut visual_iter);
-        }
-        xcb_depth_next(&raw mut depth_iter);
-    }
-    0 as u16
+    let Some(connection) = crate::xcb_connection::borrowed(connection) else {
+        return 0;
+    };
+    // Select the exact registered screen instead of assuming setup screen zero.
+    let Some(screen) = connection
+        .get_setup()
+        .roots()
+        .find(|screen| screen.root().resource_id() == root_screen.root)
+    else {
+        return 0;
+    };
+    screen
+        .allowed_depths()
+        .find_map(|depth| {
+            depth
+                .visuals()
+                .iter()
+                .any(|visual| visual.visual_id() == visual_id)
+                .then(|| u16::from(depth.depth()))
+        })
+        .unwrap_or(0)
 }
 
 pub unsafe fn draw_util_surface_init(
@@ -178,7 +183,11 @@ pub unsafe fn draw_util_surface_free(conn: *mut xcb_connection_t, surface: *mut 
         );
     }
     if (*surface).owns_gc {
-        xcb_free_gc(conn, (*surface).gc);
+        if let Some(connection) = crate::xcb_connection::borrowed(conn) {
+            connection.send_request(&x::FreeGc {
+                gc: x::Gcontext::new((*surface).gc),
+            });
+        }
     }
     cairo_surface_destroy((*surface).surface);
     cairo_destroy((*surface).cr);
@@ -496,14 +505,9 @@ pub use cairo_sys::{
     cairo_xcb_surface_set_size, OPERATOR_SOURCE, STATUS_SUCCESS,
 };
 
-use xcb_sys::{
-    xcb_connection_t, xcb_create_gc_checked, xcb_depth_iterator_t, xcb_depth_next, xcb_depth_t,
-    xcb_depth_visuals_iterator, xcb_drawable_t, xcb_free_gc, xcb_gcontext_t, xcb_generate_id,
-    xcb_generic_error_t, xcb_request_check, xcb_screen_allowed_depths_iterator, xcb_visualid_t,
-    xcb_visualtype_iterator_t, xcb_visualtype_next, xcb_visualtype_t, xcb_void_cookie_t,
-};
+use xcb_sys::{xcb_connection_t, xcb_drawable_t, xcb_gcontext_t, xcb_visualid_t, xcb_visualtype_t};
 
-pub use libc::{free, strlen, strtol};
+pub use libc::{strlen, strtol};
 
 use crate::logging::{errorlog, verboselog};
 
