@@ -75,7 +75,7 @@ pub fn configure_window_with_open_stack_mode(
     window: x::Window,
     mask: u16,
     values: &[u32],
-) -> xcb::VoidCookie {
+) -> u32 {
     assert_eq!(mask & !0x7f, 0, "unrecognized ConfigureWindow mask bits");
     assert_eq!(
         mask.count_ones() as usize,
@@ -92,9 +92,9 @@ pub fn configure_window_with_open_stack_mode(
             values.as_ptr().cast(),
         )
     };
-    // The legacy unchecked native function reports a u32 sequence. Its callers
-    // historically ignore this cookie; preserve that ABI without inventing high bits.
-    unsafe { xcb::VoidCookie::from_sequence(u64::from(cookie.sequence)) }
+    // Preserve the native sequence width. It cannot reconstruct the full u64
+    // sequence required by maintained cookie types after libxcb's u32 wrap.
+    cookie.sequence
 }
 
 mod ffi {

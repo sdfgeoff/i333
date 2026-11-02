@@ -164,7 +164,6 @@ fn verify_additional_buttons(connection: &xcb::Connection, root: x::Window) {
 }
 
 fn verify_open_stack_mode(connection: &xcb::Connection, root: x::Window) {
-    use xcb::Cookie;
     let window: x::Window = connection.generate_id();
     connection.send_request(&x::CreateWindow {
         depth: 0,
@@ -188,7 +187,8 @@ fn verify_open_stack_mode(connection: &xcb::Connection, root: x::Window) {
                 let header = unsafe { &*error.as_raw() };
                 assert_eq!(header.error_code, 2); // native BadValue
                 assert_eq!(header.major_code, 12); // native ConfigureWindow
-                assert_eq!(header.sequence, cookie.sequence() as u16);
+                assert_eq!(header.sequence, cookie as u16);
+                assert_eq!(header.full_sequence, cookie);
                 found = true;
             }
             Ok(Some(_)) => {}
