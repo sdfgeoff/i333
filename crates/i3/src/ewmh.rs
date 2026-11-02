@@ -3,6 +3,8 @@
 //! setters and tree traversals remain explicit event-thread unsafe boundaries.
 use crate::con::arena::{floating, identity, resolve};
 use crate::domains::ContainerType;
+use ::xcb::{x, Xid, XidNew};
+use i3_common::xcb_connection::borrowed;
 use std::ffi::CStr;
 use std::ptr;
 
@@ -124,33 +126,44 @@ fn desktop_property_change(previous: u32, desktop: u32) -> Option<DesktopPropert
 /// conn is this event thread's live XCB connection. XCB copies the bounded
 /// payload synchronously; neither pointer nor graph references are retained.
 unsafe fn set_bytes(window: xcb_window_t, property: xcb_atom_t, type_: xcb_atom_t, bytes: &[u8]) {
-    let length = u32::try_from(bytes.len()).expect("EWMH byte payload exceeds X11 property limit");
-    xcb_change_property(
-        conn,
-        XCB_PROP_MODE_REPLACE as u8,
-        window,
-        property,
-        type_,
-        8,
-        length,
-        bytes.as_ptr().cast(),
-    );
+    let _ = u32::try_from(bytes.len()).expect("EWMH byte payload exceeds X11 property limit");
+    let Some(connection) = borrowed(conn) else {
+        return;
+    };
+    connection.send_request(&x::ChangeProperty {
+        mode: x::PropMode::Replace,
+        window: x::Window::new(window),
+        property: x::Atom::new(property),
+        r#type: x::Atom::new(type_),
+        data: bytes,
+    });
 }
 /// # Safety
-/// Same connection/lifetime contract as set_bytes. Words use native u32 layout:
-/// XCB serializes them according to the connection's negotiated byte order.
+/// Same connection/lifetime contract as set_bytes. Typed XCB serializes words
+/// according to the connection's negotiated byte order.
 unsafe fn set_words(window: xcb_window_t, property: xcb_atom_t, type_: xcb_atom_t, words: &[u32]) {
-    let length = u32::try_from(words.len()).expect("EWMH word payload exceeds X11 property limit");
-    xcb_change_property(
-        conn,
-        XCB_PROP_MODE_REPLACE as u8,
-        window,
-        property,
-        type_,
-        32,
-        length,
-        words.as_ptr().cast(),
-    );
+    let _ = u32::try_from(words.len()).expect("EWMH word payload exceeds X11 property limit");
+    let Some(connection) = borrowed(conn) else {
+        return;
+    };
+    connection.send_request(&x::ChangeProperty {
+        mode: x::PropMode::Replace,
+        window: x::Window::new(window),
+        property: x::Atom::new(property),
+        r#type: x::Atom::new(type_),
+        data: words,
+    });
+}
+/// # Safety
+/// The event thread owns the live connection and the supplied window.
+unsafe fn delete_property(window: xcb_window_t, property: xcb_atom_t) {
+    let Some(connection) = borrowed(conn) else {
+        return;
+    };
+    connection.send_request(&x::DeleteProperty {
+        window: x::Window::new(window),
+        property: x::Atom::new(property),
+    });
 }
 
 /// # Safety
@@ -256,7 +269,7 @@ unsafe fn ewmh_update_wm_desktop_recursively(con: *mut Con, desktop: u32) {
         }
         DesktopProperty::Delete => {
             errorlog(c"ERROR: Failed to determine the proper EWMH desktop index for window 0x%08x, deleting _NET_WM_DESKTOP.\n".as_ptr().cast_mut(),window);
-            xcb_delete_property(conn, window, A__NET_WM_DESKTOP);
+            delete_property(window, A__NET_WM_DESKTOP);
         }
     }
 }
@@ -280,7 +293,7 @@ pub unsafe fn ewmh_update_active_window(window: xcb_window_t) {
 /// live XCB connection. The borrowed name is copied synchronously by XCB.
 pub unsafe fn ewmh_update_visible_name(window: xcb_window_t, name: *const libc::c_char) {
     if name.is_null() {
-        xcb_delete_property(conn, window, A__NET_WM_VISIBLE_NAME);
+        delete_property(window, A__NET_WM_VISIBLE_NAME);
     } else {
         set_bytes(
             window,
@@ -293,7 +306,7 @@ pub unsafe fn ewmh_update_visible_name(window: xcb_window_t, name: *const libc::
 /// # Safety
 /// conn/root are live native event-thread resources.
 pub unsafe fn ewmh_update_workarea() {
-    xcb_delete_property(conn, root, A__NET_WORKAREA);
+    delete_property(root, A__NET_WORKAREA);
 }
 /// # Safety
 /// list points to num_windows readable window IDs when nonzero. The count is
@@ -416,24 +429,25 @@ pub unsafe fn ewmh_setup_hints() {
         A__NET_CLOSE_WINDOW,
         A__NET_MOVERESIZE_WINDOW,
     ];
-    ewmh_window = xcb_generate_id(conn);
-    let window = ewmh_window;
-    let override_redirect = [1u32];
-    xcb_create_window(
-        conn,
-        XCB_COPY_FROM_PARENT as u8,
-        window,
-        root,
-        -1,
-        -1,
-        1,
-        1,
-        0,
-        XCB_WINDOW_CLASS_INPUT_ONLY as u16,
-        XCB_COPY_FROM_PARENT as xcb_visualid_t,
-        XCB_CW_OVERRIDE_REDIRECT as u32,
-        override_redirect.as_ptr().cast(),
-    );
+    let Some(connection) = borrowed(conn) else {
+        return;
+    };
+    let wid: x::Window = connection.generate_id();
+    let window = wid.resource_id();
+    ewmh_window = window;
+    connection.send_request(&x::CreateWindow {
+        depth: 0,
+        wid,
+        parent: x::Window::new(root),
+        x: -1,
+        y: -1,
+        width: 1,
+        height: 1,
+        border_width: 0,
+        class: x::WindowClass::InputOnly,
+        visual: 0,
+        value_list: &[x::Cw::OverrideRedirect(true)],
+    });
     set_words(
         window,
         A__NET_SUPPORTING_WM_CHECK,
@@ -444,14 +458,11 @@ pub unsafe fn ewmh_setup_hints() {
     set_words(root, A__NET_SUPPORTING_WM_CHECK, XCB_ATOM_WINDOW, &[window]);
     set_bytes(root, A__NET_WM_NAME, A_UTF8_STRING, b"i3");
     set_words(root, A__NET_SUPPORTED, XCB_ATOM_ATOM, &supported_atoms);
-    xcb_map_window(conn, window);
-    let stack_mode = [XCB_STACK_MODE_BELOW as u32];
-    xcb_configure_window(
-        conn,
-        window,
-        XCB_CONFIG_WINDOW_STACK_MODE as u16,
-        stack_mode.as_ptr().cast(),
-    );
+    connection.send_request(&x::MapWindow { window: wid });
+    connection.send_request(&x::ConfigureWindow {
+        window: wid,
+        value_list: &[x::ConfigWindow::StackMode(x::StackMode::Below)],
+    });
 }
 /// # Safety
 /// The event thread owns a stable workspace graph. Returned pointer is borrowed
@@ -479,13 +490,7 @@ pub unsafe fn ewmh_get_workspace_index(con: *mut Con) -> u32 {
         target,
     )
 }
-use xcb_sys::{
-    xcb_atom_t, xcb_change_property, xcb_configure_window, xcb_create_window, xcb_delete_property,
-    xcb_generate_id, xcb_map_window, xcb_visualid_t, xcb_window_t, XCB_ATOM_ATOM,
-    XCB_ATOM_CARDINAL, XCB_ATOM_WINDOW, XCB_CONFIG_WINDOW_STACK_MODE, XCB_COPY_FROM_PARENT,
-    XCB_CW_OVERRIDE_REDIRECT, XCB_PROP_MODE_REPLACE, XCB_STACK_MODE_BELOW,
-    XCB_WINDOW_CLASS_INPUT_ONLY,
-};
+use xcb_sys::{xcb_atom_t, xcb_window_t, XCB_ATOM_ATOM, XCB_ATOM_CARDINAL, XCB_ATOM_WINDOW};
 
 use crate::log::{debuglog, errorlog};
 

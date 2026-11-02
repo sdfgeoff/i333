@@ -10,12 +10,14 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 
 use crate::application::{conn, root, root_screen};
+use ::xcb::{x, XidNew};
 use i3_common::native_stdio::errx;
+use i3_common::xcb_connection::borrowed;
 use std::ffi::CStr;
 use std::ptr::NonNull;
 use xcb_sys::{
-    xcb_change_window_attributes, xcb_cursor_context_free, xcb_cursor_context_new,
-    xcb_cursor_context_t, xcb_cursor_load_cursor, xcb_cursor_t, XCB_CW_CURSOR,
+    xcb_cursor_context_free, xcb_cursor_context_new, xcb_cursor_context_t, xcb_cursor_load_cursor,
+    xcb_cursor_t,
 };
 
 /// An index into the cursor cache, separate from native XCB cursor IDs.
@@ -106,8 +108,13 @@ pub unsafe fn xcursor_set_root_cursor(cursor: Cursor) {
     // SAFETY: The caller supplies the live display and initialized cache. XCB
     // copies the single attribute value before the stack array is dropped.
     unsafe {
-        let values = [xcursor_get_cursor(cursor)];
-        xcb_change_window_attributes(conn, root, XCB_CW_CURSOR, values.as_ptr().cast());
+        let Some(connection) = borrowed(conn) else {
+            return;
+        };
+        connection.send_request(&x::ChangeWindowAttributes {
+            window: x::Window::new(root),
+            value_list: &[x::Cw::Cursor(x::Cursor::new(xcursor_get_cursor(cursor)))],
+        });
     }
 }
 
