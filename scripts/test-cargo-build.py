@@ -5,7 +5,7 @@ Run after Cargo support is ready:
     python scripts/test-cargo-build.py
 
 Workspace and member Cargo manifests/build.rs files, Rust sources and explicitly
-listed configuration assets are copied. A fresh target directory prevents reuse of project objects.
+listed configuration and test assets are copied. A fresh target directory prevents reuse of project objects.
 Compiler wrappers allow native linking but reject C compilation; build-system
 and parser-generator wrappers fail if invoked. Version checks run without any
 DISPLAY, WAYLAND_DISPLAY or I3SOCK and never connect to the user's desktop.
@@ -25,6 +25,7 @@ BINARIES = ('i3', 'i3bar', 'i3-config-wizard', 'i3-dump-log', 'i3-input',
 SKIP_DIRS = {'.work', '.git', '.agents', '.aws', '.codex', '.venv', '__pycache__',
              'build', 'target'}
 CONFIG_ASSETS = ('I3_VERSION', 'etc/config', 'etc/config.keycodes')
+TEST_ASSETS = ('crates/i3/tests/fixtures/ipc-output-baseline.json',)
 NATIVE_SOURCE_SUFFIXES = {'.c', '.h', '.cc', '.cpp', '.cxx', '.hh', '.hpp', '.hxx'}
 CACHE_DIRS = {'.work', '.git', '.agents', '.aws', '.codex', '.venv', '.cache',
               '__pycache__', 'target'}
@@ -51,7 +52,7 @@ def copy_clean_sources(destination):
         if not (ROOT / name).is_file():
             raise SystemExit(f'{name} is missing; workspace Cargo support is not ready')
     for name in ('rust-toolchain.toml', 'rust-toolchain', '.cargo/config.toml',
-                 '.cargo/config', *CONFIG_ASSETS):
+                 '.cargo/config', *CONFIG_ASSETS, *TEST_ASSETS):
         source = ROOT / name
         if source.is_file():
             target = destination / name
