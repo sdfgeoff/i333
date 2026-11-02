@@ -9,6 +9,8 @@ use crate::types::Layout;
 use crate::types::Orientation;
 use crate::types::OutputSelection;
 use crate::workspace::output_triggers_assignment;
+use ::xcb::{randr, x, XidNew};
+use i3_common::display;
 use i3_common::safewrappers::sasprintf;
 /*
  * vim:ts=4:sw=4:expandtab
@@ -1587,70 +1589,71 @@ unsafe fn fallback_to_root_output() {
 }
 
 pub unsafe fn randr_init(event_base: *mut ::core::ffi::c_int, disable_randr15: bool) {
-    let mut replies = NativeReplies::default();
     root_output = create_root_output(conn);
     (*root_output).outputs.tqe_next = ::core::ptr::null_mut::<xoutput>();
     (*root_output).outputs.tqe_prev = outputs.tqh_last;
     *outputs.tqh_last = root_output as *mut xoutput;
     outputs.tqh_last = &raw mut (*root_output).outputs.tqe_next;
-    let extension_reply: *const xcb_query_extension_reply_t =
-        xcb_get_extension_data(conn, &raw mut xcb_randr_id) as *const xcb_query_extension_reply_t;
-    if (*extension_reply).present == 0 {
-        debuglog(
-            c"%s:%s:%d - RandR is not present, activating root output.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/randr.c".as_ptr(),
-            c"randr_init".as_ptr(),
-            1096 as ::core::ffi::c_int,
-        );
+    let Some(connection) = display::connection() else {
         fallback_to_root_output();
         return;
-    }
-    let mut err: *mut xcb_generic_error_t = ::core::ptr::null_mut::<xcb_generic_error_t>();
-    let randr_version: *mut xcb_randr_query_version_reply_t =
-        replies.take(xcb_randr_query_version_reply(
-            conn,
-            xcb_randr_query_version(
-                conn,
-                XCB_RANDR_MAJOR_VERSION as u32,
-                XCB_RANDR_MINOR_VERSION as u32,
-            ),
-            &raw mut err,
-        ));
-    if !err.is_null() {
-        errorlog(
-            c"ERROR: Could not query RandR version: X11 error code %d\n"
-                .as_ptr()
-                .cast_mut(),
-            (*err).error_code as ::core::ffi::c_int,
-        );
-        free(err as *mut ::core::ffi::c_void);
-        fallback_to_root_output();
-        return;
-    }
-    if randr_version.is_null() {
-        fallback_to_root_output();
-        return;
-    }
+    };
+    // Do not use the generated cached-extension accessor: it asserts after a
+    // missing native reply. Keep the original root-output fallback on failure.
+    let cookie = connection.send_request(&x::QueryExtension { name: b"RANDR" });
+    let extension_reply = match connection.wait_for_reply(cookie) {
+        Ok(reply) if reply.present() => reply,
+        _ => {
+            debuglog(
+                c"%s:%s:%d - RandR is not present, activating root output.\n"
+                    .as_ptr()
+                    .cast_mut(),
+                c"../src/randr.c".as_ptr(),
+                c"randr_init".as_ptr(),
+                1096 as ::core::ffi::c_int,
+            );
+            fallback_to_root_output();
+            return;
+        }
+    };
+    let cookie = connection.send_request(&randr::QueryVersion {
+        major_version: randr::MAJOR_VERSION,
+        minor_version: randr::MINOR_VERSION,
+    });
+    let randr_version = match connection.wait_for_reply(cookie) {
+        Ok(reply) => reply,
+        Err(error) => {
+            if let ::xcb::Error::Protocol(error) = error {
+                // The maintained protocol-error owner retains this native header;
+                // error codes remain an open numeric domain for diagnostics.
+                errorlog(
+                    c"ERROR: Could not query RandR version: X11 error code %d\n"
+                        .as_ptr()
+                        .cast_mut(),
+                    i32::from((*error.as_raw()).error_code),
+                );
+            }
+            fallback_to_root_output();
+            return;
+        }
+    };
     has_randr_1_5 = randr15_version(
-        (*randr_version).major_version,
-        (*randr_version).minor_version,
+        randr_version.major_version(),
+        randr_version.minor_version(),
         disable_randr15,
     );
     randr_query_outputs();
     if !event_base.is_null() {
-        *event_base = (*extension_reply).first_event as ::core::ffi::c_int;
+        *event_base = i32::from(extension_reply.first_event());
     }
-    xcb_randr_select_input(
-        conn,
-        root,
-        (XCB_RANDR_NOTIFY_MASK_SCREEN_CHANGE as ::core::ffi::c_int
-            | XCB_RANDR_NOTIFY_MASK_OUTPUT_CHANGE as ::core::ffi::c_int
-            | XCB_RANDR_NOTIFY_MASK_CRTC_CHANGE as ::core::ffi::c_int
-            | XCB_RANDR_NOTIFY_MASK_OUTPUT_PROPERTY as ::core::ffi::c_int) as u16,
-    );
-    xcb_flush(conn);
+    connection.send_request(&randr::SelectInput {
+        window: x::Window::new(root),
+        enable: randr::NotifyMask::SCREEN_CHANGE
+            | randr::NotifyMask::OUTPUT_CHANGE
+            | randr::NotifyMask::CRTC_CHANGE
+            | randr::NotifyMask::OUTPUT_PROPERTY,
+    });
+    let _ = connection.flush();
 }
 pub const EXIT_FAILURE: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 unsafe extern "C" fn run_static_initializers() {
@@ -1680,29 +1683,17 @@ use i3_common::safewrappers::sstrdup;
 // Canonical Pango backend ABI; font policy remains local.
 
 use xcb_sys::{
-    xcb_connection_t, xcb_flush, xcb_generic_error_t, xcb_get_atom_name, xcb_get_atom_name_name,
-    xcb_get_atom_name_name_length, xcb_get_atom_name_reply, xcb_get_atom_name_reply_t,
-    xcb_get_extension_data, xcb_query_extension_reply_t, xcb_randr_get_crtc_info,
-    xcb_randr_get_crtc_info_cookie_t, xcb_randr_get_crtc_info_reply,
-    xcb_randr_get_crtc_info_reply_t, xcb_randr_get_monitors,
-    xcb_randr_get_monitors_monitors_iterator, xcb_randr_get_monitors_monitors_length,
-    xcb_randr_get_monitors_reply, xcb_randr_get_monitors_reply_t, xcb_randr_get_output_info,
-    xcb_randr_get_output_info_cookie_t, xcb_randr_get_output_info_name,
-    xcb_randr_get_output_info_name_length, xcb_randr_get_output_info_reply,
+    xcb_connection_t, xcb_generic_error_t, xcb_get_atom_name, xcb_get_atom_name_reply,
+    xcb_get_atom_name_reply_t, xcb_randr_get_crtc_info, xcb_randr_get_crtc_info_cookie_t,
+    xcb_randr_get_crtc_info_reply, xcb_randr_get_crtc_info_reply_t, xcb_randr_get_monitors,
+    xcb_randr_get_monitors_monitors_length, xcb_randr_get_monitors_reply,
+    xcb_randr_get_monitors_reply_t, xcb_randr_get_output_info, xcb_randr_get_output_info_reply,
     xcb_randr_get_output_info_reply_t, xcb_randr_get_output_primary,
     xcb_randr_get_output_primary_cookie_t, xcb_randr_get_output_primary_reply,
     xcb_randr_get_output_primary_reply_t, xcb_randr_get_screen_resources_current,
-    xcb_randr_get_screen_resources_current_cookie_t,
-    xcb_randr_get_screen_resources_current_outputs,
-    xcb_randr_get_screen_resources_current_outputs_length,
-    xcb_randr_get_screen_resources_current_reply, xcb_randr_get_screen_resources_current_reply_t,
-    xcb_randr_id, xcb_randr_monitor_info_iterator_t, xcb_randr_monitor_info_next,
-    xcb_randr_monitor_info_outputs, xcb_randr_monitor_info_outputs_length,
-    xcb_randr_monitor_info_t, xcb_randr_output_t, xcb_randr_query_version,
-    xcb_randr_query_version_reply, xcb_randr_query_version_reply_t, xcb_randr_select_input,
-    xcb_timestamp_t, XCB_NONE, XCB_RANDR_MAJOR_VERSION, XCB_RANDR_MINOR_VERSION,
-    XCB_RANDR_NOTIFY_MASK_CRTC_CHANGE, XCB_RANDR_NOTIFY_MASK_OUTPUT_CHANGE,
-    XCB_RANDR_NOTIFY_MASK_OUTPUT_PROPERTY, XCB_RANDR_NOTIFY_MASK_SCREEN_CHANGE,
+    xcb_randr_get_screen_resources_current_cookie_t, xcb_randr_get_screen_resources_current_reply,
+    xcb_randr_get_screen_resources_current_reply_t, xcb_randr_monitor_info_t, xcb_randr_output_t,
+    xcb_timestamp_t, XCB_NONE,
 };
 
 pub use libc::{free, strcasecmp, strcmp};
