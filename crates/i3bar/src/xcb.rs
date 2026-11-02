@@ -2483,12 +2483,18 @@ pub unsafe fn destroy_window(output: *mut i3_output) {
     send_unchecked(&x::DestroyWindow {
         window: x::Window::new((*output).bar.id as u32),
     });
-    send_unchecked(&x::FreePixmap {
-        pixmap: x::Pixmap::new((*output).buffer.id as u32),
-    });
-    send_unchecked(&x::FreePixmap {
-        pixmap: x::Pixmap::new((*output).statusline_buffer.id as u32),
-    });
+    (*output).buffer.clear();
+    if !(*output).buffer.release_pixmap() {
+        send_unchecked(&x::FreePixmap {
+            pixmap: x::Pixmap::new((*output).buffer.id),
+        });
+    }
+    (*output).statusline_buffer.clear();
+    if !(*output).statusline_buffer.release_pixmap() {
+        send_unchecked(&x::FreePixmap {
+            pixmap: x::Pixmap::new((*output).statusline_buffer.id),
+        });
+    }
     (*output).bar.id = 0 as u32;
 }
 unsafe fn config_strut_partial(
@@ -2756,6 +2762,18 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
             {
                 exit(libc::EXIT_FAILURE);
             }
+            (*walk).buffer.attach_pixmap(unsafe {
+                i3_common::draw_util::OwnedPixmap::from_created(
+                    connection.clone(),
+                    x::Pixmap::new(buffer_id),
+                )
+            });
+            (*walk).statusline_buffer.attach_pixmap(unsafe {
+                i3_common::draw_util::OwnedPixmap::from_created(
+                    connection.clone(),
+                    x::Pixmap::new(statusline_buffer_id),
+                )
+            });
         } else {
             values[0 as ::core::ffi::c_int as usize] = (*walk).rect.x as u32;
             if config.position == crate::application::BarPosition::Top {
@@ -2784,9 +2802,12 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                     (*walk).name_ptr(),
                 );
             }
-            send_unchecked(&x::FreePixmap {
-                pixmap: x::Pixmap::new((*walk).buffer.id as u32),
-            });
+            (*walk).buffer.clear();
+            if !(*walk).buffer.release_pixmap() {
+                send_unchecked(&x::FreePixmap {
+                    pixmap: x::Pixmap::new((*walk).buffer.id),
+                });
+            }
             if config.verbose {
                 printf(
                     c"[%s:%d] Destroying statusline buffer for output %s\n".as_ptr(),
@@ -2795,9 +2816,12 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                     (*walk).name_ptr(),
                 );
             }
-            send_unchecked(&x::FreePixmap {
-                pixmap: x::Pixmap::new((*walk).statusline_buffer.id as u32),
-            });
+            (*walk).statusline_buffer.clear();
+            if !(*walk).statusline_buffer.release_pixmap() {
+                send_unchecked(&x::FreePixmap {
+                    pixmap: x::Pixmap::new((*walk).statusline_buffer.id),
+                });
+            }
             if config.verbose {
                 printf(
                     c"[%s:%d] Reconfiguring window for output %s to %d,%d\n".as_ptr(),
@@ -2965,6 +2989,18 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
             {
                 exit(libc::EXIT_FAILURE);
             }
+            (*walk).buffer.attach_pixmap(unsafe {
+                i3_common::draw_util::OwnedPixmap::from_created(
+                    connection.clone(),
+                    x::Pixmap::new((*walk).buffer.id),
+                )
+            });
+            (*walk).statusline_buffer.attach_pixmap(unsafe {
+                i3_common::draw_util::OwnedPixmap::from_created(
+                    connection.clone(),
+                    x::Pixmap::new((*walk).statusline_buffer.id),
+                )
+            });
         }
         walk = (*walk).slist.sle_next as *mut i3_output;
     }

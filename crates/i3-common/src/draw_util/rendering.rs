@@ -217,14 +217,35 @@ impl NativeRenderingContext {
     }
     /// Populate the emergency depth cache before installing the signal handler.
     pub fn prepare(&mut self, drawable: u32) {
-        let (_, lease) = self.acquire_gc(drawable);
+        // The physical root can differ from the ARGB crash-window depth. Make
+        // a scratch drawable of the exact depth before the signal path begins.
+        let Some(connection) = (unsafe { crate::xcb_connection::borrowed(self.connection) }) else {
+            return;
+        };
+        let pixmap: x::Pixmap = connection.generate_id();
+        connection.send_request(&x::CreatePixmap {
+            depth: self.depth,
+            pid: pixmap,
+            drawable: x::Drawable::Unknown(drawable),
+            width: 1,
+            height: 1,
+        });
+        let (_, lease) = self.acquire_gc(pixmap.resource_id());
         drop(lease);
+        connection.send_request(&x::FreePixmap { pixmap });
     }
     pub fn visual(&self) -> &CairoVisual {
         &self.visual
     }
     pub(super) fn connection(&self) -> *mut xcb::ffi::xcb_connection_t {
         self.connection
+    }
+    pub(super) fn prepared_gc(&self) -> u32 {
+        self.cache
+            .iter()
+            .flatten()
+            .find(|entry| entry.depth == self.depth)
+            .map_or(0, |entry| entry.owner.id())
     }
     pub(super) fn acquire_gc(&mut self, drawable: u32) -> (u32, GcLease) {
         if self.depth == 0 {

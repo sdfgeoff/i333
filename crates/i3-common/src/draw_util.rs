@@ -319,9 +319,9 @@ pub unsafe fn get_visual_depth(visual_id: u32) -> u16 {
 /// Initialize owned native graphics for a borrowed server drawable.
 ///
 /// # Safety
-/// The record must be exclusively accessible; connection and visual owners must
-/// remain live until its graphics are cleared/dropped. This includes independent
-/// and emergency callers, whose connection must never be replaced by a registry.
+/// The record must be exclusively accessible Rust storage. The explicit context
+/// and selected visual are retained through graphics teardown. Emergency native
+/// callers use draw_util_surface_init_native instead of this Rc-backed path.
 pub unsafe fn draw_util_surface_init(
     renderer: &std::rc::Rc<RenderingContext>,
     surface: *mut surface_t,
@@ -360,7 +360,7 @@ pub unsafe fn draw_util_surface_init_native(
 ) {
     let surface = unsafe { &mut *surface };
     surface.clear();
-    let (gc, lease) = renderer.acquire_gc(drawable);
+    let gc = renderer.prepared_gc();
     let target = unsafe {
         CairoSurface::from_raw_owned(cairo_xcb_surface_create(
             renderer.connection().cast(),
@@ -376,7 +376,7 @@ pub unsafe fn draw_util_surface_init_native(
     surface.width = width;
     surface.height = height;
     surface.resources = Some(SurfaceResources {
-        gc: lease,
+        gc: GcLease::Borrowed,
         surface: target,
         context,
         retained: None,

@@ -478,9 +478,9 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
     {}
     let font_context = i3_common::font::FontContext::for_screen(&owned_screen);
     i3_common::display::set_provider(DisplayContext::default);
-    drop(renderer);
     verify_core_font(&connection, &font_context, root, surface.gc);
     verify_pango_font_context(&font_context, &owned_screen);
+    drop(renderer);
     i3_common::display::set_provider(display_context);
     maintained_xcb::utility_probe::verify(connection.clone(), screen_number, root);
     assert_eq!(

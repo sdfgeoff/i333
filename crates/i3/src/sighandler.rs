@@ -185,7 +185,12 @@ unsafe fn prepare_crash_messages() {
     let visual_id = get_visualid_by_depth(root_depth as u16);
     CRASH_RENDERER = crate::application::root_display()
         .visual(visual_id)
-        .map(|visual| i3_common::draw_util::NativeRenderingContext::new(conn, visual, root_depth));
+        .map(|visual| {
+            let mut renderer =
+                i3_common::draw_util::NativeRenderingContext::new(conn, visual, root_depth);
+            renderer.prepare(root);
+            renderer
+        });
 
     message_intro = Some(I3String::new(
         "i3 has just crashed. Please report a bug for this.",
