@@ -8,26 +8,26 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 26 wallclock secs ( 0.99 usr +  0.10 sys =  1.09 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 23 wallclock secs ( 0.86 usr +  0.07 sys =  0.93 CPU)\nResult: PASS",
     "profile": "debug",
     "build": "cargo test --locked",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "3ad769f15b4a58cd28477557010e5972ee05382643182b8c0719a0366389e5d8",
-    "i3bar": "ab8a05d5dafd931078ecc45654cfca5e355f15a2cc3e8fd1afacb3e2f7f94ed9",
-    "i3-config-wizard": "aac04a0ff84fa04f0e4e25c2edc10ef77caee7c8c30a17a936d36ed885ecb593",
-    "i3-dump-log": "265c072bac846289ea8716a7564f095561a04dca9ae7d0cd9e7b3ed8d50a6b34",
-    "i3-input": "4f1e569ad17d584a4f8bd3e3820b812d66b047683cec2c0534f0f1e623dec630",
-    "i3-msg": "ba2dca20de1a797003e40a472283aff2be6441ca9244d78aacd10640c582214c",
-    "i3-nagbar": "d811229a14c89d3e3eba03e274dd1f3dc4bcaf1de1d01fee15dc5bcb741abdd1"
+    "i3": "45decca5840d94841597f7d0d7ecef74fd9d1e056c91f8784b5ae8736220094e",
+    "i3bar": "fe2d31282e28e3daf656679630b309265a853f1b618741e5ac7b4548207c3245",
+    "i3-config-wizard": "6b386bde72b6f0f84838e124be04690f8d6f82aa2ea614f9cc9d056ed6944112",
+    "i3-dump-log": "360e72c01755ad0171123403cf00e4c80933005fd9aced0571802639e5fd2982",
+    "i3-input": "0d15ea3851f1c1c80e13577a8c1378c6bab688b439ad8666840d209eed8863ea",
+    "i3-msg": "26f06478af326f98bc0f500b0ee8455a18751c9a36d980c09c00002e4e1f3bd1",
+    "i3-nagbar": "f1641a4d0ae4b105a649dddc82bcaef990941c8d104736dea02947dfa272139a"
   },
-  "note": "Ten-member Cargo workspace. cargo test --locked passed 400 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
+  "note": "Ten-member Cargo workspace. cargo test --locked passed 405 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
   "additional_checks": {
-    "headless_c_rust_state_comparisons": 54,
+    "headless_c_rust_state_comparisons": 56,
     "ipc_client_test_groups": 16,
-    "workspace_unit_tests": 400,
+    "workspace_unit_tests": 405,
     "core_and_bar_cli_comparisons": 39,
     "pcre2_compile_match_error_comparisons": 4620,
     "json_oracle_cases": 2263,
@@ -52,7 +52,9 @@
     "wizard_private_workflow_and_config_cases": 5,
     "bar_private_stream_workflows": 2,
     "bar_private_raster_comparisons": 6,
-    "ipc_production_output_golden_cases": 23
+    "ipc_production_output_golden_cases": 23,
+    "xkeysym_native_classification_comparisons": 917532,
+    "transient_hint_native_comparisons": 72
   },
   "toolchain": {
     "rustc": "rustc 1.99.0-nightly (11177f223 2026-08-02)",
@@ -116,7 +118,7 @@
     "binary_count": 7,
     "native_library_discovery": "maintained native binding build scripts and dedicated sys crates; i3-build links only platform m/rt",
     "unit_tests": {
-      "i3": 210,
+      "i3": 213,
       "cargo_regression_wrappers": 8,
       "xkb_integration": 1,
       "i3-build": 3,
@@ -124,7 +126,7 @@
       "native_graphics": 5,
       "i3-config-wizard": 5,
       "i3-dump-log": 5,
-      "i3-input": 8,
+      "i3-input": 10,
       "i3-msg": 8,
       "i3-nagbar": 3,
       "binary_artifact_checks": 2,
@@ -138,12 +140,12 @@
     "cargo_fmt_check": true,
     "debug_build": true,
     "release_build": true,
-    "unit_tests_total_including_integration_checks": 400,
+    "unit_tests_total_including_integration_checks": 405,
     "test_command": "cargo test",
     "clean_source_command": "cargo test -p i3-test-support --features clean-source-check",
     "test_support": "development-only process capture, failure propagation and isolated regression orchestration",
-    "release_build_note": "Font/bar/drag checkpoint98c73e58 passed Ubuntu CI formatting, full regression suite, clean-source isolation and release build. Current property/native-utility checkpoint additionally passes the complete local Cargo gate.",
-    "last_release_build_verified_commit": "98c73e58bb38420fd602c02b89256fa6d293f5db",
+    "release_build_note": "Property/native-utility checkpoint cac6b76d passed Ubuntu CI complete tests, clean-source build isolation and release build. Current input/core/RandR checkpoint additionally passes the full local Cargo gate.",
+    "last_release_build_verified_commit": "cac6b76dc83c5b1f2ea36e6ccd58985470e931c2",
     "rust_source_files": 149
   },
   "modernization": {
@@ -2221,6 +2223,18 @@
         "upstream_assertions": 4205,
         "targeted_property_hint_startup_dock_assertions": 291,
         "status": "validated"
+      },
+      {
+        "stage": 6,
+        "scope": "Maintained request paths for handlers/manage/floating/tree, pure Rust transient hints, typed RandR initialization/resource/output/CRTC replies with checked payload views, owned input events/replies/KeySymbols and Rust xkeysym classifiers.",
+        "compatibility": "Unknown outgoing stacking selectors retain native BadValue/error opcode/full-u32 sequence through a narrow adapter. Native event type dependencies removed from input; older and current RandR backends explicitly exercised.",
+        "rust_tests": 405,
+        "upstream_assertions": 4205,
+        "headless_comparisons": 56,
+        "native_key_classification_comparisons": 917532,
+        "transient_hint_native_comparisons": 72,
+        "targeted_close_restart_floating_property_assertions": 395,
+        "status": "validated"
       }
     ],
     "serde_json_checkpoint": {
@@ -2244,8 +2258,8 @@
     "subsequent_failure": "d6401e98 CI dependency preparation passed; formatting failed because direct rustfmt used edition2024 rather than workspace edition2021. Scoped import formatting corrected in batch4."
   },
   "last_observed_green_ci": {
-    "commit": "98c73e58bb38420fd602c02b89256fa6d293f5db",
-    "url": "https://github.com/sdfgeoff/i333/actions/runs/41397986155",
+    "commit": "cac6b76dc83c5b1f2ea36e6ccd58985470e931c2",
+    "url": "https://github.com/sdfgeoff/i333/actions/runs/41401202230",
     "conclusion": "success"
   },
   "ci_diagnostics": {
