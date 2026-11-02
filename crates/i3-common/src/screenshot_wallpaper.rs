@@ -5,22 +5,12 @@
 //! Keep a server-side copy of the root contents using maintained XCB requests.
 #![deny(unsafe_op_in_unsafe_fn)]
 
+use crate::display::ScreenInfo;
 use xcb::{x, XidNew};
-use xcb_sys::{xcb_connection_t, xcb_screen_t};
 
 /// Capture the screen, including child windows, without waiting for a helper process.
-///
-/// # Safety
-/// conn must be a live XCB connection on which requests may be issued. screen
-/// must point to its initialized screen record and remain readable during this
-/// call. The caller must permit replacing that screen's root background pixmap.
-pub unsafe fn set_screenshot_as_wallpaper(conn: *mut xcb_connection_t, screen: *mut xcb_screen_t) {
-    // SAFETY: the native owner and screen remain live for this synchronous call;
-    // the temporary maintained view never disconnects the borrowed connection.
-    let Some(connection) = (unsafe { crate::xcb_connection::borrowed(conn) }) else {
-        return;
-    };
-    let screen = unsafe { &*screen };
+/// Replaces the supplied screen's server-side root background pixmap.
+pub fn set_screenshot_as_wallpaper(connection: &xcb::Connection, screen: ScreenInfo) {
     let root = x::Window::new(screen.root);
     let (width, height) = (screen.width_in_pixels, screen.height_in_pixels);
     let pixmap: x::Pixmap = connection.generate_id();

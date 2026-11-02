@@ -472,9 +472,7 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
         connection.wait_for_reply(request).unwrap().data().to_vec()
     };
     let before = image();
-    unsafe {
-        i3_common::screenshot_wallpaper::set_screenshot_as_wallpaper(raw, raw_screen);
-    }
+    i3_common::screenshot_wallpaper::set_screenshot_as_wallpaper(&connection, owned_screen.info());
     connection.send_request(&x::ClearArea {
         exposures: false,
         window: root,
