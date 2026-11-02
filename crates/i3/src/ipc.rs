@@ -854,7 +854,7 @@ impl NodeRef {
             if maximum > 128 {
                 return None;
             }
-            if (*con).type_0 != CT_DOCKAREA as u32 || !self.restart {
+            if (*con).type_0 != ContainerType::DockArea || !self.restart {
                 let mut child = nodes::first_ptr(con);
                 while !child.is_null() {
                     pending.push((child, base + 2));
@@ -916,7 +916,7 @@ impl serde::Serialize for NodeChildren<'_> {
                         })?;
                     }
                 }
-            } else if (*self.node.con).type_0 != CT_DOCKAREA as u32 || !self.node.restart {
+            } else if (*self.node.con).type_0 != ContainerType::DockArea || !self.node.restart {
                 let mut con = nodes::first_ptr(self.node.con);
                 while !con.is_null() {
                     seq.serialize_element(&NodeRef {
