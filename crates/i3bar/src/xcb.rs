@@ -103,13 +103,21 @@ pub static mut screen: ::core::ffi::c_int = 0;
 // The registered connection guard retains every cached Cairo visual through
 // graphics cleanup. Context snapshots copy only semantic screen scalars and the
 // actual canonical Cairo pointer; no setup-buffer record escapes initialization.
-pub static mut DISPLAY_CONTEXT: i3_common::display::DisplayContext =
-    i3_common::display::DisplayContext {
-        connection: std::ptr::null_mut(),
-        screen: None,
-        visual_type: std::ptr::null_mut(),
-        visual_id: 0,
-    };
+struct BarDisplayState {
+    context: i3_common::display::DisplayContext,
+    font_context: i3_common::font::FontContext,
+}
+static mut DISPLAY_STATE: Option<BarDisplayState> = None;
+/// # Safety
+/// Read only on the bar event thread while its display state is initialized.
+#[deny(unsafe_op_in_unsafe_fn)]
+pub unsafe fn common_display_context() -> i3_common::display::DisplayContext {
+    // SAFETY: the event-thread provider snapshots scalars without retaining a borrow.
+    unsafe { DISPLAY_STATE.as_ref() }
+        .map_or_else(i3_common::display::DisplayContext::default, |state| {
+            state.context
+        })
+}
 
 pub static mut xcb_root: u32 = 0;
 static mut cursor: u32 = 0;
@@ -2018,8 +2026,13 @@ pub unsafe fn init_xcb_early() -> *mut ::core::ffi::c_char {
     let visual_id = transparent.unwrap_or(info.root_visual);
     let selected_visual = i3_common::display::visual(visual_id)
         .expect("selected bar visual belongs to the retained setup");
-    DISPLAY_CONTEXT =
-        i3_common::display::DisplayContext::from_screen(&selected_screen, Some(&selected_visual));
+    DISPLAY_STATE = Some(BarDisplayState {
+        context: i3_common::display::DisplayContext::from_screen(
+            &selected_screen,
+            Some(&selected_visual),
+        ),
+        font_context: i3_common::font::FontContext::for_screen(&selected_screen),
+    });
     if transparent.is_some() {
         depth = 32;
         colormap = connection.generate_id::<x::Colormap>().resource_id();
@@ -2122,7 +2135,15 @@ pub unsafe fn init_xcb_late(mut fontname: *mut ::core::ffi::c_char) {
             .as_ptr()
             .cast_mut();
     }
-    i3_common::font::replace_font(&mut font, CStr::from_ptr(fontname), true);
+    i3_common::font::replace_font(
+        &mut font,
+        &DISPLAY_STATE
+            .as_ref()
+            .expect("bar display initialized")
+            .font_context,
+        CStr::from_ptr(fontname),
+        true,
+    );
 
     if config.verbose {
         printf(
@@ -2216,10 +2237,10 @@ unsafe fn init_tray() {
         height: 1 as u16,
         border_width: 0 as u16,
         class: x::WindowClass::InputOutput,
-        visual: DISPLAY_CONTEXT.visual_id,
+        visual: common_display_context().visual_id,
         value_list: &[
-            x::Cw::BackPixel(DISPLAY_CONTEXT.screen.unwrap().black_pixel),
-            x::Cw::BorderPixel(DISPLAY_CONTEXT.screen.unwrap().black_pixel),
+            x::Cw::BackPixel(common_display_context().screen.unwrap().black_pixel),
+            x::Cw::BorderPixel(common_display_context().screen.unwrap().black_pixel),
             x::Cw::OverrideRedirect(true),
             x::Cw::Colormap(x::Colormap::new(colormap)),
         ],
@@ -2236,7 +2257,7 @@ unsafe fn init_tray() {
         window: x::Window::new(selwin),
         property: x::Atom::new(atoms[AtomIndex::NetSystemTrayVisual as usize]),
         r#type: x::ATOM_VISUALID,
-        data: &[DISPLAY_CONTEXT.visual_id],
+        data: &[common_display_context().visual_id],
     });
     init_tray_colors();
     if let Some(cookie) = tray_cookie {
@@ -2379,7 +2400,7 @@ pub unsafe fn clean_xcb() {
         xcb_io = std::ptr::null_mut();
     }
     tray_atom = None;
-    DISPLAY_CONTEXT = i3_common::display::DisplayContext::default();
+    DISPLAY_STATE = None;
     conn = std::ptr::null_mut();
     xcb_connection = std::ptr::null_mut();
     // Release the registration outside its RefCell borrow. The final Rc drops
@@ -2551,7 +2572,8 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 connection.generate_id::<x::Pixmap>().resource_id() as u32;
 
             values[0 as ::core::ffi::c_int as usize] = colors.bar_bg.colorpixel;
-            values[1 as ::core::ffi::c_int as usize] = DISPLAY_CONTEXT.screen.unwrap().black_pixel;
+            values[1 as ::core::ffi::c_int as usize] =
+                common_display_context().screen.unwrap().black_pixel;
             values[2 as ::core::ffi::c_int as usize] =
                 (if config.hide_on_modifier == crate::application::BarDisplayMode::Dock {
                     0 as ::core::ffi::c_int
@@ -2581,7 +2603,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 height: bar_height as u16,
                 border_width: 0 as u16,
                 class: x::WindowClass::InputOutput,
-                visual: DISPLAY_CONTEXT.visual_id,
+                visual: common_display_context().visual_id,
                 value_list: &[
                     x::Cw::BackPixel(values[0]),
                     x::Cw::BorderPixel(values[1]),

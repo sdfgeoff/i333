@@ -300,7 +300,7 @@ pub unsafe fn cfg_font(
     result: *mut ConfigResultIR,
     font: *const ::core::ffi::c_char,
 ) {
-    i3_common::font::replace_font(&mut config.font, CStr::from_ptr(font), true_0 != 0);
+    crate::config::set_config_font(CStr::from_ptr(font));
 }
 
 pub unsafe fn cfg_binding(
@@ -1893,7 +1893,6 @@ use crate::config::config;
 use crate::r#match::match_is_empty;
 use crate::r#match::match_parse_property;
 use i3_common::draw_util::draw_util_hex_to_color;
-use i3_common::font::load_font;
 
 #[cfg(test)]
 mod argument_tests {

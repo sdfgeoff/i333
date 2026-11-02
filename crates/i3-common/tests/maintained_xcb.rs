@@ -61,11 +61,16 @@ fn sync(connection: &xcb::Connection) {
     let cookie = connection.send_request(&x::GetInputFocus {});
     connection.wait_for_reply(cookie).unwrap();
 }
-fn verify_core_font(connection: &xcb::Connection, root: x::Window, gc: u32) {
+fn verify_core_font(
+    connection: &xcb::Connection,
+    font_context: &i3_common::font::FontContext,
+    root: x::Window,
+    gc: u32,
+) {
     use i3_common::font;
     // All globals are event-thread borrows of this private probe's owned display.
     unsafe {
-        let mut selected = font::load_font(c"fixed", true);
+        let mut selected = font::load_font(font_context, c"fixed", true);
         let id = selected.xcb_details().unwrap().0;
         let color = |pixel| i3_common::draw_util::color_t {
             red: 0.0,
@@ -147,11 +152,53 @@ fn verify_core_font(connection: &xcb::Connection, root: x::Window, gc: u32) {
                 font: x::Fontable::Font(id),
             }))
             .is_err());
-        let fallback = font::load_font(c"i333-deliberately-nonexistent-font", true);
+        let fallback = font::load_font(font_context, c"i333-deliberately-nonexistent-font", true);
         assert_eq!(fallback.pattern(), Some(c"fixed"));
         assert_eq!(font::predict_text_width(&fallback, &text), expected);
         drop(fallback);
         sync(connection);
+    }
+}
+
+fn verify_pango_font_context(
+    context: &i3_common::font::FontContext,
+    screen: &i3_common::display::DisplayScreen,
+) {
+    use i3_common::{font, string::I3String};
+    // Native Pango measurement is independent of Font's layout helpers. Both
+    // paths operate with the ambient provider detached, including depth8 errors.
+    let font = font::load_font(context, c"pango:monospace 8", true);
+    assert!(font.is_pango());
+    assert_eq!(font.pattern(), Some(c"pango:monospace 8"));
+    let text = I3String::new("owned metrics");
+    let visual = screen.visual(screen.info().root_visual).unwrap();
+    unsafe {
+        let surface = cairo_sys::cairo_xcb_surface_create(
+            screen.connection().get_raw_conn().cast(),
+            screen.info().root,
+            visual.as_ptr(),
+            1,
+            1,
+        );
+        let cr = cairo_sys::cairo_create(surface);
+        let pango = pango_cairo_sys::pango_cairo_create_context(cr);
+        pango_cairo_sys::pango_cairo_context_set_resolution(
+            pango,
+            i3_common::dpi::get_dpi_value() as f64,
+        );
+        let layout = pango_sys::pango_layout_new(pango);
+        let description = pango_sys::pango_font_description_from_string(c"monospace 8".as_ptr());
+        pango_sys::pango_layout_set_font_description(layout, description);
+        pango_sys::pango_layout_set_text(layout, c"owned metrics".as_ptr(), 13);
+        pango_cairo_sys::pango_cairo_update_layout(cr, layout);
+        let mut width = 0;
+        pango_sys::pango_layout_get_pixel_size(layout, &mut width, std::ptr::null_mut());
+        assert_eq!(font::predict_text_width(&font, &text), width);
+        pango_sys::pango_font_description_free(description);
+        gobject_sys::g_object_unref(layout.cast());
+        gobject_sys::g_object_unref(pango.cast());
+        cairo_sys::cairo_destroy(cr);
+        cairo_sys::cairo_surface_destroy(surface);
     }
 }
 
@@ -428,7 +475,11 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
         .expect("GC teardown emitted a duplicate FreeGc error")
         .is_some()
     {}
-    verify_core_font(&connection, root, surface.gc);
+    let font_context = i3_common::font::FontContext::for_screen(&owned_screen);
+    i3_common::display::set_provider(DisplayContext::default);
+    verify_core_font(&connection, &font_context, root, surface.gc);
+    verify_pango_font_context(&font_context, &owned_screen);
+    i3_common::display::set_provider(display_context);
     maintained_xcb::utility_probe::verify(connection.clone(), screen_number, root);
     assert_eq!(
         unsafe { i3_common::draw_util::get_visual_depth(u32::MAX) },

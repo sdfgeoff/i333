@@ -61,5 +61,5 @@ fn common_log_sink(level: i3_common::logging::Level, message: &[u8]) {
 fn common_display_context() -> i3_common::display::DisplayContext {
     // The bar event thread publishes a Copy snapshot backed by its retained
     // connection/visual guard until explicit graphics cleanup.
-    unsafe { xcb::DISPLAY_CONTEXT }
+    unsafe { xcb::common_display_context() }
 }

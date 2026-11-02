@@ -5104,8 +5104,11 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
     );
     drop(modmap_connection);
     init_dpi();
-    font = load_font(CStr::from_ptr(pattern), true);
-    bold_font = load_font(CStr::from_ptr(patternbold), true);
+    let font_context = i3_common::font::FontContext::for_screen(
+        root_screen.as_ref().expect("initialized display screen"),
+    );
+    font = load_font(&font_context, CStr::from_ptr(pattern), true);
+    bold_font = load_font(&font_context, CStr::from_ptr(patternbold), true);
     resources.fonts = true;
 
     let letter = i3_common::string::I3String::new("a");

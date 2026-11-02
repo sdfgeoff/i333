@@ -547,7 +547,11 @@ unsafe fn run_window(settings: InputSettings) -> ::core::ffi::c_int {
             .unwrap_or_else(|| errx(EXIT_ERROR, c"Could not allocate key symbols".as_ptr())),
     );
     init_dpi();
+    let font_context = i3_common::font::FontContext::for_screen(
+        root_screen.as_ref().expect("initialized display screen"),
+    );
     font = load_font(
+        &font_context,
         CStr::from_ptr(if !pattern.is_null() {
             pattern as *const ::core::ffi::c_char
         } else {

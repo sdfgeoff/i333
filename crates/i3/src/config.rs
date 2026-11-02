@@ -725,6 +725,21 @@ unsafe fn free_configuration() {
     free(config.fake_outputs as *mut ::core::ffi::c_void);
 }
 
+/// Configuration owns its font; validation without X11 keeps an empty value.
+/// # Safety
+/// Requires exclusive event-thread access to configuration and its live display.
+#[deny(unsafe_op_in_unsafe_fn)]
+pub unsafe fn set_config_font(pattern: &CStr) {
+    // SAFETY: caller serializes the display/configuration globals.
+    if unsafe { crate::application::conn.is_null() } {
+        unsafe { config.font = Font::empty() };
+        return;
+    }
+    let context =
+        i3_common::font::FontContext::for_screen(unsafe { crate::application::root_display() });
+    unsafe { i3_common::font::replace_font(&mut config.font, &context, pattern, true) };
+}
+
 pub unsafe fn load_configuration(
     override_configpath: *const ::core::ffi::c_char,
     load_type: ConfigLoad,
@@ -888,7 +903,7 @@ pub unsafe fn load_configuration(
                 .as_ptr()
                 .cast_mut(),
         );
-        config.font = load_font(c"fixed", true_0 != 0);
+        set_config_font(c"fixed");
     }
     if load_type != ConfigLoad::Validate {
         let mut current: *mut Barconfig = ::core::ptr::null_mut::<Barconfig>();
@@ -954,5 +969,4 @@ use crate::application::root;
 use crate::bindings::grab_all_keys;
 use crate::bindings::regrab_all_buttons;
 use i3_common::draw_util::draw_util_hex_to_color;
-use i3_common::font::load_font;
 use i3_common::get_config_path::get_config_path;

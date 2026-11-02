@@ -5,7 +5,10 @@ pub use crate::draw_util::color_t;
 use crate::logging::{errorlog, verboselog};
 use crate::native_stdio::{errx, stderr};
 use crate::{
-    display::CairoVisual, dpi::get_dpi_value, string::I3String, ucs2_conversion::Ucs2Char,
+    display::{CairoVisual, DisplayScreen},
+    dpi::get_dpi_value,
+    string::I3String,
+    ucs2_conversion::Ucs2Char,
 };
 use cairo_sys::{cairo_create, cairo_surface_destroy, cairo_xcb_surface_create};
 pub use cairo_sys::{cairo_surface_t, cairo_t};
@@ -24,6 +27,25 @@ use std::{
 use xcb::ffi::xcb_connection_t;
 use xcb::{x, Xid, XidNew};
 
+/// Display resources used to open and measure fonts, retained independently of
+/// ambient providers. DPI remains read at measurement time, as in native i3.
+#[derive(Clone)]
+pub struct FontContext {
+    screen: DisplayScreen,
+    visual: Option<Rc<CairoVisual>>,
+}
+impl FontContext {
+    pub fn for_screen(screen: &DisplayScreen) -> Self {
+        Self {
+            screen: screen.clone(),
+            visual: screen.visual(screen.info().root_visual).map(Rc::new),
+        }
+    }
+    fn connection(&self) -> &xcb::Connection {
+        self.screen.connection()
+    }
+}
+
 /// Owns every backend resource. Fonts must be moved, never byte-copied or zeroed.
 pub struct Font {
     pub height: i32,
@@ -37,19 +59,18 @@ enum FontBackend {
 }
 struct PangoFont {
     description: pango::FontDescription,
-    connection: Rc<xcb::Connection>,
-    root: u32,
-    visual: Rc<CairoVisual>,
+    context: FontContext,
 }
 struct CoreFont {
-    connection: Rc<xcb::Connection>,
+    context: FontContext,
     id: x::Font,
     info: x::QueryFontReply,
 }
 impl Drop for CoreFont {
     fn drop(&mut self) {
         // The retained single connection owner stays live through CloseFont.
-        self.connection
+        self.context
+            .connection()
             .send_request(&x::CloseFont { font: self.id });
     }
 }
@@ -98,10 +119,10 @@ pub fn font_is_pango(font: &Font) -> bool {
 
 /// Drop the previous owner before opening its replacement, preserving request
 /// ordering. Copy the bytes first in case a native caller aliases the old pattern.
-pub fn replace_font(font: &mut Font, pattern: &CStr, fallback: bool) {
+pub fn replace_font(font: &mut Font, context: &FontContext, pattern: &CStr, fallback: bool) {
     let pattern = pattern.to_owned();
     *font = Font::empty();
-    *font = load_font(&pattern, fallback);
+    *font = load_font(context, &pattern, fallback);
 }
 
 fn create_layout_with_dpi(context: &cairo::Context, dpi: f64) -> pango::Layout {
@@ -159,16 +180,20 @@ fn measurement_context(font: &PangoFont) -> cairo::Context {
     // SAFETY: the font retains its live display and aligned native visual owner.
     let surface = unsafe {
         font_surface(
-            font.connection.get_raw_conn(),
-            font.root,
-            font.visual.as_ptr(),
+            font.context.connection().get_raw_conn(),
+            font.context.screen.info().root,
+            font.context
+                .visual
+                .as_ref()
+                .expect("root Cairo visual")
+                .as_ptr(),
         )
     };
     // Cairo's context retains its own reference to the local owned surface.
     unsafe { font_context(surface.to_raw_none()) }
 }
 
-fn load_pango_font(connection: Rc<xcb::Connection>, desc: &CStr) -> Option<(i32, PangoFont)> {
+fn load_pango_font(context: &FontContext, desc: &CStr) -> Option<(i32, PangoFont)> {
     // Keep native non-UTF8 description bytes; the &str factory cannot express them.
     let pointer = unsafe { pango_font_description_from_string(desc.as_ptr()) };
     if pointer.is_null() {
@@ -192,15 +217,9 @@ fn load_pango_font(connection: Rc<xcb::Connection>, desc: &CStr) -> Option<(i32,
             description.size() / PANGO_SCALE,
         )
     };
-    let screen = crate::display::context()
-        .screen
-        .expect("initialized display screen");
-    let visual = crate::display::visual(screen.root_visual).expect("root Cairo visual");
     let font = PangoFont {
         description,
-        connection,
-        root: screen.root,
-        visual,
+        context: context.clone(),
     };
     let context = measurement_context(&font);
     let layout = create_layout_with_dpi(&context, get_dpi_value() as f64);
@@ -290,23 +309,12 @@ fn pango_pattern(pattern: &CStr) -> Option<&CStr> {
     (!description.to_bytes().is_empty()).then_some(description)
 }
 
-/// Open an owned font using the registered display, or an empty font when no
-/// display is attached. Pattern and fallback bytes remain native C strings.
-pub fn load_font(pattern: &CStr, fallback: bool) -> Font {
-    if crate::display::context().connection.is_null() {
-        return Font::empty();
-    }
-    let Some(connection) = crate::display::connection() else {
-        unsafe {
-            errx(
-                libc::EXIT_FAILURE,
-                c"Could not load font \"%s\"".as_ptr(),
-                pattern.as_ptr(),
-            )
-        };
-    };
+/// Open an owned font on the explicit retained display. Pattern and fallback
+/// bytes remain native C strings; no provider or registry is consulted.
+pub fn load_font(context: &FontContext, pattern: &CStr, fallback: bool) -> Font {
+    let connection = context.connection();
     if let Some(description) = pango_pattern(pattern) {
-        if let Some((height, backend)) = load_pango_font(connection.clone(), description) {
+        if let Some((height, backend)) = load_pango_font(context, description) {
             return Font {
                 height,
                 pattern: Some(pattern.to_owned()),
@@ -387,7 +395,7 @@ pub fn load_font(pattern: &CStr, fallback: bool) -> Font {
         height,
         pattern: Some(pattern.to_owned()),
         backend: FontBackend::Xcb(CoreFont {
-            connection,
+            context: context.clone(),
             id,
             info,
         }),
@@ -395,7 +403,7 @@ pub fn load_font(pattern: &CStr, fallback: bool) -> Font {
 }
 
 fn draw_text_xcb(font: &CoreFont, glyphs: &[Ucs2Char], drawable: u32, gc: u32, mut x: i32, y: i32) {
-    let connection = &font.connection;
+    let connection = font.context.connection();
     let pos_y = y + i32::from(font.info.font_ascent());
     let mut chunks = glyphs
         .chunks(255)
@@ -442,7 +450,7 @@ pub unsafe fn draw_text(
     match &font.backend {
         FontBackend::None => {}
         FontBackend::Xcb(backend) => {
-            backend.connection.send_request(&x::ChangeGc {
+            backend.context.connection().send_request(&x::ChangeGc {
                 gc: x::Gcontext::new(gc),
                 value_list: &[
                     x::Gc::Foreground(foreground.colorpixel),
@@ -506,11 +514,14 @@ fn xcb_query_text_width(font: &CoreFont, text: &[Ucs2Char]) -> i32 {
         unsafe { fprintf(stderr, c"Using slow code path for text extents\n".as_ptr()) };
     }
     let wire = wire_glyphs(&text[..text.len() as u32 as usize]);
-    let cookie = font.connection.send_request(&x::QueryTextExtents {
-        font: x::Fontable::Font(font.id),
-        string: &wire,
-    });
-    let result = font.connection.wait_for_reply(cookie);
+    let cookie = font
+        .context
+        .connection()
+        .send_request(&x::QueryTextExtents {
+            font: x::Fontable::Font(font.id),
+            string: &wire,
+        });
+    let result = font.context.connection().wait_for_reply(cookie);
     if let Ok(reply) = result.as_ref() {
         return reply.overall_width();
     }

@@ -604,7 +604,10 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
         state.render.color_border_bottom = draw_util_hex_to_color(c"#ab7100".as_ptr());
     }
     init_dpi();
-    state.render.font = load_font(&pattern, true);
+    let font_context = i3_common::font::FontContext::for_screen(
+        root_screen.as_ref().expect("initialized display screen"),
+    );
+    state.render.font = load_font(&font_context, &pattern, true);
     state.has_font = true;
 
     let mut win_pos = x::Rectangle {
