@@ -2248,16 +2248,13 @@ fn layout_toggle(
                     _ => last_split,
                 }
             } else {
-                let mut layout = Layout::Default;
-                // Live CStr and initialized scalar output satisfy this legacy
-                // helper's native string adapter contract, without graph access.
-                if !unsafe { layout_from_name(token.as_ptr(), &raw mut layout) }
-                    || layout == Layout::Default
-                {
-                    invalid.push(token);
-                    continue;
+                match layout_from_name(&token) {
+                    Some(layout) if layout != Layout::Default => layout,
+                    _ => {
+                        invalid.push(token);
+                        continue;
+                    }
                 }
-                layout
             };
             if next.is_none() {
                 next = Some(layout);

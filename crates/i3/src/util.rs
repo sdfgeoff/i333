@@ -134,30 +134,24 @@ pub unsafe fn name_is_digits(name: *const ::core::ffi::c_char) -> bool {
         })
 }
 
-/// Input is a live C string, out is writable; locale changes must be serialized.
-pub unsafe fn layout_from_name(layout_str: *const ::core::ffi::c_char, out: *mut Layout) -> bool {
-    let name = CStr::from_ptr(layout_str);
-    let layout = if name == c"default" {
-        Some(Layout::Default)
-    } else {
-        [
-            (c"stacked", Layout::Stacked),
-            (c"stacking", Layout::Stacked),
-            (c"tabbed", Layout::Tabbed),
-            (c"splitv", Layout::SplitV),
-            (c"splith", Layout::SplitH),
-        ]
-        .into_iter()
-        .find_map(|(candidate, layout)| {
-            (strcasecmp(name.as_ptr(), candidate.as_ptr()) == 0).then_some(layout)
-        })
-    };
-    if let Some(layout) = layout {
-        *out = layout;
-        true
-    } else {
-        false
+/// Parse a layout name using the current native locale. `default` remains
+/// deliberately case sensitive, while named layouts follow libc strcasecmp.
+pub fn layout_from_name(name: &CStr) -> Option<Layout> {
+    if name == c"default" {
+        return Some(Layout::Default);
     }
+    [
+        (c"stacked", Layout::Stacked),
+        (c"stacking", Layout::Stacked),
+        (c"tabbed", Layout::Tabbed),
+        (c"splitv", Layout::SplitV),
+        (c"splith", Layout::SplitH),
+    ]
+    .into_iter()
+    .find_map(|(candidate, layout)| {
+        // SAFETY: both CStr references remain live through native comparison.
+        (unsafe { strcasecmp(name.as_ptr(), candidate.as_ptr()) } == 0).then_some(layout)
+    })
 }
 
 /// Input is a live C string. Retains libc prefix/whitespace/errno semantics.
@@ -176,11 +170,9 @@ pub unsafe fn ws_name_to_number(name: *const ::core::ffi::c_char) -> ::core::ffi
     parsed_num as ::core::ffi::c_int
 }
 
-/// destination must be live and writable for this event-thread update.
-pub unsafe fn update_if_necessary(destination: *mut u32, new_value: u32) -> bool {
-    let old_value: u32 = *destination;
-    *destination = new_value;
-    *destination != old_value
+/// Store the current value and report whether it changed.
+pub fn update_if_necessary(destination: &mut u32, new_value: u32) -> bool {
+    std::mem::replace(destination, new_value) != new_value
 }
 
 // POSIX dirname handles bare names, roots and trailing slashes differently from
@@ -805,11 +797,9 @@ mod tests {
                     libc::isdigit(byte as i32) != 0
                 );
             }
-            let mut layout = Layout::Output;
-            assert!(!layout_from_name(c"DEFAULT".as_ptr(), &mut layout));
-            assert_eq!(layout, Layout::Output);
-            assert!(layout_from_name(c"StAcKiNg".as_ptr(), &mut layout));
-            assert_eq!(layout, Layout::Stacked);
+            assert_eq!(layout_from_name(c"DEFAULT"), None);
+            assert_eq!(layout_from_name(c"default"), Some(Layout::Default));
+            assert_eq!(layout_from_name(c"StAcKiNg"), Some(Layout::Stacked));
         }
     }
 

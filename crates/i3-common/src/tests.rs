@@ -293,44 +293,15 @@ fn path_exists_uses_stat_semantics_for_files_directories_and_symlinks() {
 
 #[test]
 fn placeholders_expand_repeated_names_and_preserve_unknown_tokens() {
-    let mut format = c"%title:%x:%title:%unknown".to_bytes_with_nul().to_vec();
-    let mut placeholders = [
-        crate::format_placeholders::placeholder_t {
-            name: c"%title".as_ptr(),
-            value: c"hello".as_ptr(),
-        },
-        crate::format_placeholders::placeholder_t {
-            name: c"%x".as_ptr(),
-            value: c"".as_ptr(),
-        },
-    ];
-    // SAFETY: Format storage is writable; both placeholder names are nonempty
-    // '%' tokens. All name/value C strings outlive the call.
-    let result = unsafe {
-        crate::format_placeholders::format_placeholders(
-            format.as_mut_ptr().cast(),
-            placeholders.as_mut_ptr(),
-            placeholders.len() as i32,
-        )
-    };
-    assert!(!result.is_null());
-    // SAFETY: Success returns a NUL-terminated malloc allocation; copy its bytes
-    // before releasing it so assertions do not retain references after free.
-    let actual = unsafe {
-        let bytes = CStr::from_ptr(result).to_bytes().to_vec();
-        libc::free(result.cast());
-        bytes
-    };
-    assert_eq!(actual, b"hello::hello:%unknown");
-    // SAFETY: Null format is an explicitly supported early-return case.
-    assert!(unsafe {
-        crate::format_placeholders::format_placeholders(
-            std::ptr::null_mut(),
-            std::ptr::null_mut(),
-            0,
-        )
-    }
-    .is_null());
+    let result = crate::format_placeholders::expand_cstr(
+        c"%title:%x:%title:%unknown",
+        &[(c"%title", c"hello"), (c"%x", c"")],
+    );
+    assert_eq!(result.to_bytes(), b"hello::hello:%unknown");
+    assert_eq!(
+        crate::format_placeholders::expand_cstr(c"%unknown", &[]).as_c_str(),
+        c"%unknown"
+    );
 }
 
 #[test]

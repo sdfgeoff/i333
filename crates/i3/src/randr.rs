@@ -973,12 +973,12 @@ unsafe fn randr_query_outputs_15() -> bool {
         (*new).active = true;
         (*new).to_be_disabled = false;
         (*new).primary = monitor.primary != 0;
-        let update_x: bool = update_if_necessary(&raw mut (*new).rect.x, monitor.x as u32) as bool;
-        let update_y: bool = update_if_necessary(&raw mut (*new).rect.y, monitor.y as u32) as bool;
+        let update_x: bool = update_if_necessary(&mut (*new).rect.x, monitor.x as u32) as bool;
+        let update_y: bool = update_if_necessary(&mut (*new).rect.y, monitor.y as u32) as bool;
         let update_w: bool =
-            update_if_necessary(&raw mut (*new).rect.width, monitor.width as u32) as bool;
+            update_if_necessary(&mut (*new).rect.width, monitor.width as u32) as bool;
         let update_h: bool =
-            update_if_necessary(&raw mut (*new).rect.height, monitor.height as u32) as bool;
+            update_if_necessary(&mut (*new).rect.height, monitor.height as u32) as bool;
         (*new).changed = update_x as ::core::ffi::c_int != 0
             || update_y as ::core::ffi::c_int != 0
             || update_w as ::core::ffi::c_int != 0
@@ -1080,12 +1080,10 @@ unsafe fn handle_output(
         );
         return;
     };
-    let update_x: bool = update_if_necessary(&raw mut (*new).rect.x, crtc.x() as u32) as bool;
-    let update_y: bool = update_if_necessary(&raw mut (*new).rect.y, crtc.y() as u32) as bool;
-    let update_w: bool =
-        update_if_necessary(&raw mut (*new).rect.width, crtc.width() as u32) as bool;
-    let update_h: bool =
-        update_if_necessary(&raw mut (*new).rect.height, crtc.height() as u32) as bool;
+    let update_x: bool = update_if_necessary(&mut (*new).rect.x, crtc.x() as u32) as bool;
+    let update_y: bool = update_if_necessary(&mut (*new).rect.y, crtc.y() as u32) as bool;
+    let update_w: bool = update_if_necessary(&mut (*new).rect.width, crtc.width() as u32) as bool;
+    let update_h: bool = update_if_necessary(&mut (*new).rect.height, crtc.height() as u32) as bool;
     let updated: bool = update_x as ::core::ffi::c_int != 0
         || update_y as ::core::ffi::c_int != 0
         || update_w as ::core::ffi::c_int != 0
@@ -1401,16 +1399,16 @@ pub unsafe fn randr_query_outputs() {
                             (*output).rect.height as ::core::ffi::c_int,
                         ) as u32;
                         let update_w: bool =
-                            update_if_necessary(&raw mut (*output).rect.width, width) as bool;
+                            update_if_necessary(&mut (*output).rect.width, width) as bool;
                         let update_h: bool =
-                            update_if_necessary(&raw mut (*output).rect.height, height) as bool;
+                            update_if_necessary(&mut (*output).rect.height, height) as bool;
                         if update_w as ::core::ffi::c_int != 0
                             || update_h as ::core::ffi::c_int != 0
                         {
                             (*output).changed = true;
                         }
-                        update_if_necessary(&raw mut (*other).rect.width, width);
-                        update_if_necessary(&raw mut (*other).rect.height, height);
+                        update_if_necessary(&mut (*other).rect.width, width);
+                        update_if_necessary(&mut (*other).rect.height, height);
                         debuglog(
                             c"%s:%s:%d - disabling output %p (%s)\n".as_ptr().cast_mut(),
                             c"../src/randr.c".as_ptr(),

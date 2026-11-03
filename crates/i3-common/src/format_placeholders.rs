@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 // Copyright © 2009 Michael Stapelberg and contributors (see LICENSE).
 
 use std::ffi::{CStr, CString};
@@ -44,47 +46,4 @@ fn expand_bytes(format: &[u8], placeholders: &[(&[u8], &[u8])]) -> Vec<u8> {
         }
     }
     output
-}
-
-/// Legacy pointer layouts and allocation boundary, pending caller migration.
-#[allow(non_camel_case_types)]
-#[repr(C)]
-pub struct placeholder_t {
-    pub name: *const libc::c_char,
-    pub value: *const libc::c_char,
-}
-
-/// Legacy ABI adapter for [`expand_cstr`]. Returned storage belongs to free().
-///
-/// # Safety
-/// `format` is null or a live C string. `placeholders` contains `num` entries,
-/// each with live C-string name/value pointers. Nonpositive num means no entries.
-
-pub unsafe fn format_placeholders(
-    format: *mut libc::c_char,
-    placeholders: *mut placeholder_t,
-    num: libc::c_int,
-) -> *mut libc::c_char {
-    if format.is_null() {
-        return std::ptr::null_mut();
-    }
-    let count = usize::try_from(num).unwrap_or(0);
-    let entries = if count == 0 {
-        &[]
-    } else {
-        // SAFETY: The caller supplies count live placeholder records.
-        unsafe { std::slice::from_raw_parts(placeholders, count) }
-    };
-    let entries: Vec<_> = entries
-        .iter()
-        .map(|entry| {
-            // SAFETY: Names and values follow the caller's C-string contract.
-            unsafe { (CStr::from_ptr(entry.name), CStr::from_ptr(entry.value)) }
-        })
-        .collect();
-    // SAFETY: format is nonnull and follows the caller's C-string contract.
-    let expanded = expand_cstr(unsafe { CStr::from_ptr(format) }, &entries);
-    // SAFETY: Duplicate the result into the existing malloc allocator boundary;
-    // returning CString::into_raw would be incompatible with callers using free.
-    unsafe { crate::safewrappers::sstrndup(expanded.as_ptr(), expanded.as_bytes().len()) }
 }

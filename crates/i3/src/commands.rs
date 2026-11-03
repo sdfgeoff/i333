@@ -3312,8 +3312,7 @@ pub unsafe fn cmd_layout(
         *(*(*cmd_output).ctx).owindows.tqh_last = ow_0 as *mut owindow;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
-    let mut layout: Layout = Layout::Default;
-    if !layout_from_name(layout_str, &raw mut layout) {
+    let Some(layout) = layout_from_name(std::ffi::CStr::from_ptr(layout_str)) else {
         if (*cmd_output).has_reply() {
             let mut message_0: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
@@ -3329,7 +3328,7 @@ pub unsafe fn cmd_layout(
             free(message_0 as *mut ::core::ffi::c_void);
         }
         return;
-    }
+    };
     debuglog(
         c"%s:%s:%d - changing layout to %s (%d)\n"
             .as_ptr()
