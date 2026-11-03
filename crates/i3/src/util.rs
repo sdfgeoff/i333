@@ -14,7 +14,6 @@ use i3_common::get_process_filename::get_process_filename;
 use i3_common::mkdirp::mkdirp;
 use i3_common::native_stdio::{__ctype_b_loc, warn};
 use i3_common::resolve_tilde::resolve_cstring;
-use i3_common::safewrappers::smalloc;
 use libc::{
     __errno_location, _exit, execvp, fork, free, kill, perror, setlocale, strcasecmp, strcmp,
     strerror, strtol, strtoll, waitpid,
@@ -32,33 +31,15 @@ const LONG_MAX: libc::c_long = libc::c_long::MAX;
 const true_0: i32 = 1;
 const false_0: i32 = 0;
 
-/// Final buffers exported to still-native malloc/free callers. Rust temporary
-/// strings/vectors never cross that allocation boundary.
+/// Adopt the native restart-state filename until its contents have been copied.
 struct MallocBuffer(NonNull<libc::c_char>);
 impl MallocBuffer {
-    fn copy(bytes: &[u8]) -> Self {
-        let size = bytes
-            .len()
-            .checked_add(1)
-            .expect("native buffer size overflow");
-        let ptr = unsafe { smalloc(size) }.cast::<libc::c_char>();
-        unsafe {
-            std::ptr::copy_nonoverlapping(bytes.as_ptr(), ptr.cast(), bytes.len());
-            ptr.add(bytes.len()).write(0);
-        }
-        Self(NonNull::new(ptr).expect("smalloc returns nonnull"))
-    }
     /// ptr must transfer a uniquely owned malloc buffer containing a NUL.
     unsafe fn take(ptr: *mut libc::c_char) -> Option<Self> {
         NonNull::new(ptr).map(Self)
     }
     fn as_cstr(&self) -> &CStr {
         unsafe { CStr::from_ptr(self.0.as_ptr()) }
-    }
-    fn into_raw(self) -> *mut libc::c_char {
-        let ptr = self.0.as_ptr();
-        std::mem::forget(self);
-        ptr
     }
 }
 impl Drop for MallocBuffer {
@@ -511,7 +492,7 @@ pub unsafe fn parse_long(
 }
 
 #[derive(Debug)]
-enum SlurpFailure {
+pub(crate) enum SlurpFailure {
     Open(std::io::Error),
     Metadata(std::io::Error),
     Short { got: usize, want: usize },
@@ -544,46 +525,38 @@ fn slurp_file(path: &std::path::Path) -> Result<Vec<u8>, SlurpFailure> {
         .ok_or_else(|| SlurpFailure::Metadata(std::io::Error::from_raw_os_error(libc::EFBIG)))?;
     read_sized(&mut file, size).map_err(|got| SlurpFailure::Short { got, want: size })
 }
-/// path is a terminated C string and buf is writable. Success transfers a native
-/// malloc-owned, NUL-terminated allocation (its payload may contain NULs). As in
-/// the original API, open/stat failure leaves buf untouched; short reads clear it.
-pub unsafe fn slurp(path: *const libc::c_char, buf: *mut *mut libc::c_char) -> isize {
-    let name = CStr::from_ptr(path);
-    let path_view = std::path::Path::new(std::ffi::OsStr::from_bytes(name.to_bytes()));
-    match slurp_file(path_view) {
-        Ok(bytes) => {
-            *buf = MallocBuffer::copy(&bytes).into_raw();
-            bytes.len() as isize
-        }
-        Err(SlurpFailure::Open(error)) => {
-            errorlog(
+/// Read the stat-sized snapshot, preserving binary bytes and logging the native
+/// open/stat/short-read diagnostics. The caller owns the returned payload.
+pub(crate) fn slurp(path: &CStr) -> Result<Vec<u8>, SlurpFailure> {
+    let path_view = std::path::Path::new(std::ffi::OsStr::from_bytes(path.to_bytes()));
+    let error = match slurp_file(path_view) {
+        Ok(bytes) => return Ok(bytes),
+        Err(error) => error,
+    };
+    // SAFETY: path is terminated and all format arguments match their native types.
+    unsafe {
+        match &error {
+            SlurpFailure::Open(error) => errorlog(
                 c"ERROR: Cannot open file \"%s\": %s\n".as_ptr().cast_mut(),
-                path,
+                path.as_ptr(),
                 strerror(error.raw_os_error().unwrap_or(libc::EIO)),
-            );
-            -1
-        }
-        Err(SlurpFailure::Metadata(error)) => {
-            errorlog(
+            ),
+            SlurpFailure::Metadata(error) => errorlog(
                 c"ERROR: Cannot fstat() \"%s\": %s\n".as_ptr().cast_mut(),
-                path,
+                path.as_ptr(),
                 strerror(error.raw_os_error().unwrap_or(libc::EIO)),
-            );
-            -1
-        }
-        Err(SlurpFailure::Short { got, want }) => {
-            errorlog(
+            ),
+            SlurpFailure::Short { got, want } => errorlog(
                 c"ERROR: File \"%s\" could not be read entirely: got %zd, want %li\n"
                     .as_ptr()
                     .cast_mut(),
-                path,
-                got,
-                want as libc::c_long,
-            );
-            *buf = std::ptr::null_mut();
-            -1
+                path.as_ptr(),
+                *got,
+                *want as libc::c_long,
+            ),
         }
     }
+    Err(error)
 }
 
 pub fn orientation_from_direction(direction: Direction) -> Orientation {
@@ -803,17 +776,10 @@ mod tests {
         assert_eq!(read_sized(&mut input, 5).unwrap(), b"a\0bcd");
         assert_eq!(read_sized(&mut input, 6).unwrap_err(), 5);
         assert_eq!(read_sized(&mut input, 0).unwrap(), b"");
-        let native = MallocBuffer::copy(b"a\0b");
-        unsafe {
-            assert_eq!(
-                std::slice::from_raw_parts(native.0.as_ptr().cast::<u8>(), 4),
-                b"a\0b\0"
-            );
-        }
     }
 
     #[test]
-    fn file_snapshot_uses_owned_file_and_native_buffer_boundary() {
+    fn file_snapshot_preserves_binary_bytes_and_stat_size() {
         let directory = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.work/tmp");
         std::fs::create_dir_all(&directory).unwrap();
         let path = directory.join(format!(
@@ -832,16 +798,15 @@ mod tests {
         }
         let _remove = Remove(path.clone());
         std::fs::write(&path, b"layout\0bytes").unwrap();
-        assert_eq!(slurp_file(&path).unwrap(), b"layout\0bytes");
-        let path = CString::new(path.as_os_str().as_bytes()).unwrap();
-        let mut buffer = std::ptr::null_mut();
-        unsafe {
-            assert_eq!(slurp(path.as_ptr(), &mut buffer), 12);
-            let buffer = MallocBuffer::take(buffer).unwrap();
-            assert_eq!(
-                std::slice::from_raw_parts(buffer.0.as_ptr().cast::<u8>(), 13),
-                b"layout\0bytes\0"
-            );
-        }
+        let name = CString::new(path.as_os_str().as_bytes()).unwrap();
+        assert_eq!(slurp(&name).unwrap(), b"layout\0bytes");
+        assert!(matches!(
+            slurp_file(&path.with_extension("missing")),
+            Err(SlurpFailure::Open(_))
+        ));
+        // procfs reports size zero even though an ordinary read returns data.
+        let proc_path = std::path::Path::new("/proc/self/status");
+        assert!(!std::fs::read(proc_path).unwrap().is_empty());
+        assert_eq!(slurp(c"/proc/self/status").unwrap(), b"");
     }
 }

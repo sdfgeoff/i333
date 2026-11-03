@@ -1563,21 +1563,27 @@ pub unsafe fn cmd_append_layout(
     verboselog(c"Appending layout \"%s\"\n".as_ptr().cast_mut(), cpath);
     let path_owner = resolve_cstring(std::ffi::CStr::from_ptr(cpath));
     let path = path_owner.as_ptr();
-    let mut buf: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    let mut len: isize = 0;
-    len = slurp(path, &raw mut buf);
-    if len < 0 as isize {
-        if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(&raw mut message, c"Could not slurp \"%s\".".as_ptr(), path);
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
-            );
-            free(message as *mut ::core::ffi::c_void);
+    let mut bytes = match slurp(&path_owner) {
+        Ok(bytes) => bytes,
+        Err(_) => {
+            if (*cmd_output).has_reply() {
+                let mut message: *mut ::core::ffi::c_char =
+                    ::core::ptr::null_mut::<::core::ffi::c_char>();
+                sasprintf(&raw mut message, c"Could not slurp \"%s\".".as_ptr(), path);
+                emit_command_reply(
+                    cmd_output,
+                    CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                );
+                free(message as *mut ::core::ffi::c_void);
+            }
+            return;
         }
-    } else if !json_validate(buf, len as usize) {
+    };
+    let len = bytes.len();
+    // Parser input retains its original byte length, including any embedded NUL.
+    bytes.push(0);
+    let buf = bytes.as_ptr().cast();
+    if !json_validate(buf, len) {
         errorlog(
             c"ERROR: Could not parse \"%s\" as JSON, not loading.\n"
                 .as_ptr()
@@ -1599,7 +1605,7 @@ pub unsafe fn cmd_append_layout(
             free(message_0 as *mut ::core::ffi::c_void);
         }
     } else {
-        content = json_determine_content(buf, len as usize);
+        content = json_determine_content(buf, len);
         verboselog(
             c"JSON content = %d\n".as_ptr().cast_mut(),
             content as ::core::ffi::c_uint,
@@ -1646,7 +1652,7 @@ pub unsafe fn cmd_append_layout(
                 focused,
             );
             errormsg = ::core::ptr::null_mut::<::core::ffi::c_char>();
-            tree_append_json(parent, buf, len as usize, &raw mut errormsg);
+            tree_append_json(parent, buf, len, &raw mut errormsg);
             if !errormsg.is_null() {
                 if (*cmd_output).has_reply() {
                     let mut message_2: *mut ::core::ffi::c_char =
@@ -1674,7 +1680,6 @@ pub unsafe fn cmd_append_layout(
             (*cmd_output).needs_tree_render = true_0 != 0;
         }
     }
-    free(buf as *mut ::core::ffi::c_void);
 }
 unsafe fn disable_global_fullscreen() {
     let fs: *mut Con = con_get_fullscreen_con(croot, FullscreenMode::Global);

@@ -83,15 +83,6 @@ unsafe fn _create___i3() -> *mut Con {
     __i3
 }
 
-/// A uniquely owned malloc buffer returned by slurp. Tree parsing
-/// may retain partial graph effects, but never borrows these file bytes afterward.
-struct RestoreBuffer(*mut libc::c_char);
-impl Drop for RestoreBuffer {
-    fn drop(&mut self) {
-        unsafe { libc::free(self.0.cast()) };
-    }
-}
-
 fn geometry_rect(x: i16, y: i16, width: u16, height: u16) -> Rect {
     Rect {
         x: x as u32,
@@ -117,8 +108,8 @@ pub unsafe fn tree_restore(
     let mut result: bool = false;
     let path_owner = resolve_cstring(std::ffi::CStr::from_ptr(path));
     let globbed = path_owner.as_ptr();
-    let mut buf: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    if !path_exists(globbed) {
+    let file_path = std::path::Path::new(std::ffi::OsStr::from_bytes(path_owner.to_bytes()));
+    if !exists(file_path) {
         verboselog(
             c"%s does not exist, not restoring tree\n"
                 .as_ptr()
@@ -126,9 +117,10 @@ pub unsafe fn tree_restore(
             globbed,
         );
     } else {
-        let len = slurp(globbed, &raw mut buf);
-        let _buffer_owner = RestoreBuffer(buf);
-        if !(len < 0 as isize) {
+        if let Ok(mut bytes) = slurp(&path_owner) {
+            let len = bytes.len();
+            // Keep termination at the parser boundary without truncating embedded NULs.
+            bytes.push(0);
             croot = con_new(
                 ::core::ptr::null_mut::<Con>(),
                 ::core::ptr::null_mut::<i3Window>(),
@@ -142,8 +134,8 @@ pub unsafe fn tree_restore(
             focused = croot;
             tree_append_json(
                 focused,
-                buf,
-                len as usize,
+                bytes.as_ptr().cast(),
+                len,
                 ::core::ptr::null_mut::<*mut ::core::ffi::c_char>(),
             );
             debuglog(
@@ -974,8 +966,9 @@ use crate::util::orientation_from_direction;
 use crate::util::position_from_direction;
 use crate::util::slurp;
 use crate::x::x_window_kill;
-use i3_common::path_exists::path_exists;
+use i3_common::path_exists::exists;
 use i3_common::safewrappers::sstrdup;
+use std::os::unix::ffi::OsStrExt;
 
 // Canonical Cairo backend ABI; renderer logic remains local.
 
