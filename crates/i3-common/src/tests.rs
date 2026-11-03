@@ -101,19 +101,10 @@ fn enabled_words_are_case_insensitive_without_trimming() {
 
 #[test]
 fn sender_emits_native_endian_header_and_binary_payload() {
-    let (sender, mut reader) = socket_pair();
+    let (mut sender, mut reader) = socket_pair();
     let body = b"\0binary\xff\0";
     let kind = 0x8123_4567;
-    // SAFETY: body is readable for its supplied length; sender is a live socket.
-    let result = unsafe {
-        crate::ipc_send_message::ipc_send_message(
-            sender.as_raw_fd(),
-            body.len() as u32,
-            kind,
-            body.as_ptr(),
-        )
-    };
-    assert_eq!(result, 0);
+    crate::ipc_send_message::send_message_retry_would_block(&mut sender, kind, body).unwrap();
     sender.shutdown(Shutdown::Write).unwrap();
     let mut actual = Vec::new();
     reader.read_to_end(&mut actual).unwrap();
@@ -122,14 +113,8 @@ fn sender_emits_native_endian_header_and_binary_payload() {
 
 #[test]
 fn zero_length_message_has_a_header_and_no_payload() {
-    let (sender, mut reader) = socket_pair();
-    // SAFETY: A zero-length payload never dereferences its null pointer.
-    assert_eq!(
-        unsafe {
-            crate::ipc_send_message::ipc_send_message(sender.as_raw_fd(), 0, 12, std::ptr::null())
-        },
-        0
-    );
+    let (mut sender, mut reader) = socket_pair();
+    crate::ipc_send_message::send_message_retry_would_block(&mut sender, 12, &[]).unwrap();
     sender.shutdown(Shutdown::Write).unwrap();
     let mut wire = Vec::new();
     reader.read_to_end(&mut wire).unwrap();
@@ -224,13 +209,18 @@ fn truncated_payload_is_reported_and_returned_storage_can_be_freed() {
 
 #[test]
 fn write_failure_preserves_os_error() {
-    // SAFETY: -1 is an invalid fd; the kernel rejects it without touching body.
-    let status = unsafe { crate::ipc_send_message::ipc_send_message(-1, 1, 0, b"x".as_ptr()) };
-    assert_eq!(status, -1);
-    assert_eq!(
-        std::io::Error::last_os_error().raw_os_error(),
-        Some(libc::EBADF)
-    );
+    struct Broken;
+    impl Write for Broken {
+        fn write(&mut self, _: &[u8]) -> std::io::Result<usize> {
+            Err(std::io::Error::from_raw_os_error(libc::EBADF))
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    let error =
+        crate::ipc_send_message::send_message_retry_would_block(&mut Broken, 0, b"x").unwrap_err();
+    assert_eq!(error.raw_os_error(), Some(libc::EBADF));
 }
 
 struct TempDir(PathBuf);
@@ -866,4 +856,55 @@ fn owned_listener_replaces_stale_sockets_but_rejects_active_listeners() {
     let replacement = bind(&path).unwrap();
     let _client = UnixStream::connect(&path).unwrap();
     let _accepted = replacement.listener.accept().unwrap();
+}
+
+#[test]
+fn compatibility_sender_retries_would_block_without_duplicating_partial_bytes() {
+    use std::collections::VecDeque;
+    struct Writer {
+        steps: VecDeque<Result<usize, std::io::ErrorKind>>,
+        bytes: Vec<u8>,
+    }
+    impl Write for Writer {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            let count = self
+                .steps
+                .pop_front()
+                .unwrap_or(Ok(bytes.len()))
+                .map_err(std::io::Error::from)?;
+            let count = count.min(bytes.len());
+            self.bytes.extend_from_slice(&bytes[..count]);
+            Ok(count)
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    let mut writer = Writer {
+        steps: [
+            Err(std::io::ErrorKind::WouldBlock),
+            Ok(2),
+            Err(std::io::ErrorKind::Interrupted),
+            Err(std::io::ErrorKind::WouldBlock),
+            Ok(12),
+            Ok(1),
+            Err(std::io::ErrorKind::WouldBlock),
+        ]
+        .into(),
+        bytes: Vec::new(),
+    };
+    crate::ipc_send_message::send_message_retry_would_block(&mut writer, u32::MAX, b"\0\xffbody")
+        .unwrap();
+    assert_eq!(writer.bytes, frame(u32::MAX, b"\0\xffbody"));
+    let mut blocked = Writer {
+        steps: [Err(std::io::ErrorKind::WouldBlock)].into(),
+        bytes: Vec::new(),
+    };
+    assert_eq!(
+        crate::ipc_send_message::send_message(&mut blocked, 0, b"x")
+            .unwrap_err()
+            .kind(),
+        std::io::ErrorKind::WouldBlock
+    );
+    assert!(blocked.bytes.is_empty());
 }

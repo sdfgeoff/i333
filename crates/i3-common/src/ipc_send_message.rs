@@ -1,5 +1,7 @@
 // Copyright © 2009 Michael Stapelberg and contributors (see LICENSE).
 
+#![forbid(unsafe_code)]
+
 use std::io::{self, Write};
 
 /// Send an i3 IPC frame, retaining arbitrary binary payloads and message types.
@@ -23,56 +25,26 @@ pub fn send_message<W: Write + ?Sized>(
     writer.write_all(payload)
 }
 
-/// Legacy ABI and raw-descriptor I/O boundary. Framing lives only in send_message.
-mod legacy {
-    use super::*;
-    use std::os::fd::RawFd;
-
-    struct Descriptor(RawFd);
-    impl Write for Descriptor {
+/// Send using the historical descriptor policy of retrying WouldBlock writes.
+/// Ordinary send_message keeps standard Write behavior for modern callers.
+pub fn send_message_retry_would_block<W: Write + ?Sized>(
+    writer: &mut W,
+    message_type: u32,
+    payload: &[u8],
+) -> io::Result<()> {
+    struct RetryWouldBlock<'a, W: Write + ?Sized>(&'a mut W);
+    impl<W: Write + ?Sized> Write for RetryWouldBlock<'_, W> {
         fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
             loop {
-                // SAFETY: bytes is readable for its full length. The kernel
-                // validates the raw descriptor; this wrapper never takes ownership.
-                let written = unsafe { libc::write(self.0, bytes.as_ptr().cast(), bytes.len()) };
-                if written >= 0 {
-                    return Ok(written as usize);
-                }
-                let error = io::Error::last_os_error();
-                // The old writeall helper retried EAGAIN as well as EINTR.
-                if error.kind() != io::ErrorKind::WouldBlock {
-                    return Err(error);
+                match self.0.write(bytes) {
+                    Err(error) if error.kind() == io::ErrorKind::WouldBlock => continue,
+                    result => return result,
                 }
             }
         }
         fn flush(&mut self) -> io::Result<()> {
-            Ok(())
+            self.0.flush()
         }
     }
-
-    /// # Safety
-    /// `payload` must be readable for `message_size` bytes; null is allowed for zero.
-
-    pub unsafe fn ipc_send_message(
-        fd: libc::c_int,
-        message_size: u32,
-        message_type: u32,
-        payload: *const u8,
-    ) -> libc::c_int {
-        let bytes = if message_size == 0 {
-            &[]
-        } else {
-            // SAFETY: The caller supplies the readable payload buffer.
-            unsafe { std::slice::from_raw_parts(payload, message_size as usize) }
-        };
-        match send_message(&mut Descriptor(fd), message_type, bytes) {
-            Ok(()) => 0,
-            Err(error) => {
-                // SAFETY: Restore the underlying OS error after Rust I/O handling.
-                unsafe { *libc::__errno_location() = error.raw_os_error().unwrap_or(libc::EIO) };
-                -1
-            }
-        }
-    }
+    send_message(&mut RetryWouldBlock(writer), message_type, payload)
 }
-pub use legacy::ipc_send_message;
