@@ -8,19 +8,19 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 25 wallclock secs ( 0.99 usr +  0.07 sys =  1.06 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 21 wallclock secs ( 0.66 usr +  0.07 sys =  0.73 CPU)\nResult: PASS",
     "profile": "debug",
     "build": "cargo test --locked",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "24f119b80caf3271b401d6d206f67e3153029e3b1b01ccac267cee9dcc34c110",
-    "i3bar": "6c90961d14e661370b5a510268592231d45d7918db69599478e4c878385525d0",
-    "i3-config-wizard": "f800005c9d93b70b8bd148f766365292ecf523acefe3b1709a2bfe1e478f602b",
-    "i3-dump-log": "41815cfe407d3c2b2f7eb833b002a088dda04ef817c032da3a675aa19d737df1",
-    "i3-input": "4a17b3ebe107e74fbbdfc738ecee491212616c639b0bf88bab78ff582d31c476",
-    "i3-msg": "45d3af99a49160434e548cbafd6b4a543d1778e8e2a4fa0eeea19d7a27c9a4be",
-    "i3-nagbar": "96ca7b50359bfbe12e71636fff946f3efc9014bdd73581ea38b89930dfe2dcef"
+    "i3": "6993f6acffa77d4611cb4f6eab0eb2c36b2fc3534e6c72d622796b80c1a54dbc",
+    "i3bar": "23a30ee515440809acff3d3151eb92568a42d37257b1db423299879094b2c625",
+    "i3-config-wizard": "9f207dee2e65fd5e8833e29b57938467ddd49cc12dd4f6a81b122e9f41997340",
+    "i3-dump-log": "ab77b92d0f07712a829e266e1a5f341f4cab92793519c1f87467ca041534d99f",
+    "i3-input": "56b9d24bacfd1841603bbaf3d395c56e9a79ada84d5a1185a565f8417e94b09a",
+    "i3-msg": "05432776415d01b44dc06980d2b6f291a7dd38c6a39ca3821ccf4569cf6d40a3",
+    "i3-nagbar": "0e6b356f8032a7f5adfbb219e69c3519d1830c9aea16ed40dbca93d53ff99efe"
   },
   "note": "Nine-member Cargo workspace. cargo test --locked passed 428 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
@@ -2438,7 +2438,61 @@
         "upstream_assertions": 4205,
         "status": "validated"
       }
-    ]
+    ],
+    "safe_api_cleanup_checkpoints": [
+      {
+        "stage": 1,
+        "source_commit": "40008ea68d639b29c4985ca3d0d2427da0998989",
+        "scope": "Retire eight legacy raw-pointer adapters; migrate writes to slices/Result, paths and restart filenames to owned Rust storage, boolean parser captures to borrowed/typed arguments, layout results to Option and scalar updates to exclusive references; bool and placeholder modules forbid unsafe code",
+        "rust_tests": 428,
+        "upstream_assertions": 4205,
+        "status": "validated"
+      }
+    ],
+    "safe_api_cleanup_verification": {
+      "source_commit": "40008ea68d639b29c4985ca3d0d2427da0998989",
+      "status": "complete",
+      "baseline": "a1ea3001",
+      "areas": [
+        "Retired dead raw placeholder API and migrated its tests",
+        "Migrated IPC/log/bar writes to existing slice-based Result APIs and retired write pointer adapters",
+        "Owned resolved paths and restart filenames; removed malloc result adapters and unused markup wrapper",
+        "Borrowed parser captures and typed boolean/layout/update helper APIs"
+      ],
+      "unsafe_functions_removed_or_made_safe": 11,
+      "retired_pointer_apis": [
+        "format_placeholders",
+        "boolstr",
+        "get_exe_path",
+        "resolve_tilde",
+        "pango_escape_markup",
+        "writeall",
+        "writeall_nonblock",
+        "swrite"
+      ],
+      "unsafe_forbidden_modules": [
+        "crates/i3-common/src/boolstr.rs",
+        "crates/i3-common/src/format_placeholders.rs"
+      ],
+      "compatibility_preserved": [
+        "Native path bytes and first-component glob expansion",
+        "Locale-sensitive named layouts with case-sensitive default",
+        "Optional icon-token absence and mode-specific configuration values",
+        "EINTR/EAGAIN/zero-progress writes and historical IPC fatal-after-partial queue restoration"
+      ],
+      "full_gate": {
+        "command": "cargo test --locked",
+        "rust_tests": 428,
+        "upstream_assertions": 4205,
+        "status": "passed"
+      },
+      "test_count_note": "A non-UTF-8 path/glob compatibility test replaces the now-obsolete fatal raw-write adapter test; the total remains 428.",
+      "peer_review": {
+        "scope": "slice writes, queue progress/restoration, click framing and error handling",
+        "status": "approved"
+      },
+      "desktop_or_installed_binary_changed": false
+    }
   },
   "ci_dependency_preparation": {
     "confirmed_previous_failure": "X11::XCB required missing xcb-composite.pc and protocol XML metadata",
