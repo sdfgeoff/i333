@@ -1568,8 +1568,10 @@ unsafe extern "C" fn ipc_receive_message(_: *mut ev_loop, w: *mut ev_io, _: libc
     let mut message = match received {
         Ok(message) => message,
         Err(error) => {
+            let token = ClientToken::capture(client);
             report_receive_error(&error);
             if !matches!(&error, ReceiveError::Io(error) if error.kind() == std::io::ErrorKind::WouldBlock)
+                && token.live()
             {
                 free_ipc_client(client, -1);
             }
@@ -2068,6 +2070,12 @@ mod client_lifetime_tests {
             let token = ClientToken::capture(client);
             ipc_receive_message(loop_, (*client).read_callback, EV_READ);
             assert!(token.live(), "header WouldBlock keeps the client connected");
+            fn disconnect_during_diagnostic(level: i3_common::logging::Level, _: &[u8]) {
+                if level == i3_common::logging::Level::Error {
+                    unsafe { free_ipc_client(all_clients.tqh_first, -1) };
+                }
+            }
+            i3_common::logging::set_sink(disconnect_during_diagnostic);
             peer.write_all(b"badipc\0\0\0\0\0\0\0\0").unwrap();
             ipc_receive_message(loop_, (*client).read_callback, EV_READ);
             assert!(!token.live(), "protocol errors close and unlink the client");

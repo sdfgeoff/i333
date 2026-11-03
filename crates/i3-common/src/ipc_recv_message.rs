@@ -1,5 +1,7 @@
 // Copyright © 2009 Michael Stapelberg and contributors (see LICENSE).
 
+#![deny(unsafe_code)]
+
 use std::fmt;
 use std::io::{self, Read};
 
@@ -149,93 +151,8 @@ pub fn report_receive_error(error: &ReceiveError) {
     if matches!(error, ReceiveError::Io(_) | ReceiveError::Eof) {
         return;
     }
-    let diagnostic =
-        std::ffi::CString::new(error.diagnostic_bytes()).expect("protocol diagnostic has no NUL");
-    // SAFETY: diagnostic is terminated and the native format matches its argument.
-    unsafe { errorlog(c"[libi3] ERROR: %s\n".as_ptr(), diagnostic.as_ptr()) };
+    let mut diagnostic = b"[libi3] ERROR: ".to_vec();
+    diagnostic.extend_from_slice(&error.diagnostic_bytes());
+    diagnostic.push(b'\n');
+    crate::logging::emit(crate::logging::Level::Error, &diagnostic);
 }
-
-/// Legacy ABI boundary: malloc-owned output and integer status codes. Both this
-/// adapter and the safe API use the same header and payload decoders above.
-mod legacy {
-    use super::*;
-    use std::ffi::CString;
-    use std::os::fd::RawFd;
-
-    struct Descriptor {
-        fd: RawFd,
-        retry_would_block: bool,
-    }
-    impl Read for Descriptor {
-        fn read(&mut self, bytes: &mut [u8]) -> io::Result<usize> {
-            loop {
-                // SAFETY: bytes is writable for its length; the kernel validates
-                // the borrowed raw fd, including invalid descriptors.
-                let count = unsafe { libc::read(self.fd, bytes.as_mut_ptr().cast(), bytes.len()) };
-                if count >= 0 {
-                    return Ok(count as usize);
-                }
-                let error = io::Error::last_os_error();
-                if !(self.retry_would_block && error.kind() == io::ErrorKind::WouldBlock) {
-                    return Err(error);
-                }
-            }
-        }
-    }
-
-    fn status(error: ReceiveError) -> libc::c_int {
-        match error {
-            ReceiveError::Io(error) => {
-                // SAFETY: Preserve the original errno contract for C callers.
-                unsafe { *libc::__errno_location() = error.raw_os_error().unwrap_or(libc::EIO) };
-                -1
-            }
-            ReceiveError::Eof => -2,
-            error => {
-                let diagnostic =
-                    CString::new(error.diagnostic_bytes()).expect("protocol diagnostic has no NUL");
-                // SAFETY: diagnostic is a live C string and the format is static.
-                unsafe { errorlog(c"[libi3] ERROR: %s\n".as_ptr(), diagnostic.as_ptr()) };
-                -3
-            }
-        }
-    }
-
-    /// # Safety
-    /// `reply_length` and `reply` must be writable; `message_type` may be null.
-    /// The caller frees returned storage with free(), including on payload errors.
-
-    pub unsafe fn ipc_recv_message(
-        fd: libc::c_int,
-        message_type: *mut u32,
-        reply_length: *mut u32,
-        reply: *mut *mut u8,
-    ) -> libc::c_int {
-        let mut reader = Descriptor {
-            fd,
-            retry_would_block: false,
-        };
-        let header = match read_header(&mut reader) {
-            Ok(header) => header,
-            Err(error) => return status(error),
-        };
-        // SAFETY: The caller provides writable outputs. scalloc returns malloc-
-        // compatible zeroed storage, allowing a safe initialized slice for Read.
-        let payload = unsafe {
-            *reply_length = header.length as u32;
-            if !message_type.is_null() {
-                *message_type = header.message_type;
-            }
-            *reply = crate::safewrappers::scalloc(header.length, 1).cast();
-            std::slice::from_raw_parts_mut(*reply, header.length)
-        };
-        reader.retry_would_block = true;
-        match read_payload(&mut reader, payload, false) {
-            Ok(()) => 0,
-            Err(error) => status(error),
-        }
-    }
-}
-pub use legacy::ipc_recv_message;
-
-use crate::logging::errorlog;
