@@ -271,7 +271,7 @@ pub struct barconfig_head {
 pub struct ipc_client {
     pub fd: libc::c_int,
     pub generation: u64,
-    pub fd_owner: Option<std::os::fd::OwnedFd>,
+    pub fd_owner: Option<std::os::unix::net::UnixStream>,
     pub events: Vec<std::ffi::CString>,
     pub first_tick_sent: bool,
     pub read_callback: *mut ev_io,

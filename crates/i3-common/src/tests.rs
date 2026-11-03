@@ -12,52 +12,10 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-struct Received {
-    status: libc::c_int,
-    kind: u32,
-    length: u32,
-    data: *mut u8,
-}
-
-impl Received {
-    fn read(stream: &UnixStream) -> Self {
-        let mut received = Self {
-            status: 99,
-            kind: 0x1122_3344,
-            length: 0x5566_7788,
-            data: std::ptr::null_mut(),
-        };
-        // SAFETY: Each output points to live writable storage. The file
-        // descriptor is borrowed from a live UnixStream throughout this call.
-        received.status = unsafe {
-            crate::ipc_recv_message::ipc_recv_message(
-                stream.as_raw_fd(),
-                &mut received.kind,
-                &mut received.length,
-                &mut received.data,
-            )
-        };
-        received
-    }
-
-    fn body(&self) -> &[u8] {
-        assert_eq!(self.status, 0, "only a complete payload is initialized");
-        if self.length == 0 {
-            return &[];
-        }
-        assert!(!self.data.is_null());
-        // SAFETY: Success means all length bytes were initialized by read().
-        // The buffer remains allocated until this Received is dropped.
-        unsafe { std::slice::from_raw_parts(self.data, self.length as usize) }
-    }
-}
-
-impl Drop for Received {
-    fn drop(&mut self) {
-        // SAFETY: The IPC helper returns malloc-owned storage, including on
-        // payload read errors. free(null) also covers failures before allocation.
-        unsafe { libc::free(self.data.cast()) }
-    }
+fn receive(
+    stream: &UnixStream,
+) -> Result<crate::ipc_recv_message::Message, crate::ipc_recv_message::ReceiveError> {
+    crate::ipc_recv_message::receive_message_retry_payload(&mut &*stream)
 }
 
 fn socket_pair() -> (UnixStream, UnixStream) {
@@ -135,11 +93,10 @@ fn receiver_reassembles_fragments_across_header_and_payload() {
             thread::sleep(Duration::from_millis(1));
         }
     });
-    let received = Received::read(&reader);
+    let received = receive(&reader).unwrap();
     producer.join().unwrap();
-    assert_eq!(received.status, 0);
-    assert_eq!(received.kind, 0x8000_0007);
-    assert_eq!(received.body(), expected);
+    assert_eq!(received.message_type, 0x8000_0007);
+    assert_eq!(received.payload, expected);
 }
 
 #[test]
@@ -148,12 +105,15 @@ fn receiver_keeps_back_to_back_frames_separate() {
     let mut wire = frame(4, b"first");
     wire.extend_from_slice(&frame(u32::MAX, b"\0\xffnext"));
     writer.write_all(&wire).unwrap();
-    let first = Received::read(&reader);
-    let second = Received::read(&reader);
-    assert_eq!((first.kind, first.body()), (4, b"first".as_slice()));
+    let first = receive(&reader).unwrap();
+    let second = receive(&reader).unwrap();
+    assert_eq!(
+        (first.message_type, first.payload.as_slice()),
+        (4, b"first".as_slice())
+    );
     // The framing layer must preserve unknown/future message and event types.
     assert_eq!(
-        (second.kind, second.body()),
+        (second.message_type, second.payload.as_slice()),
         (u32::MAX, b"\0\xffnext".as_slice())
     );
 }
@@ -162,22 +122,23 @@ fn receiver_keeps_back_to_back_frames_separate() {
 fn receiver_accepts_empty_payload() {
     let (reader, mut writer) = socket_pair();
     writer.write_all(&frame(7, &[])).unwrap();
-    let received = Received::read(&reader);
-    assert_eq!(received.kind, 7);
-    assert_eq!(received.body(), b"");
+    let received = receive(&reader).unwrap();
+    assert_eq!(received.message_type, 7);
+    assert_eq!(received.payload, b"");
 }
 
 #[test]
 fn clean_eof_differs_from_truncated_header() {
-    for (prefix, expected_status) in [(b"".as_slice(), -2), (b"i3-ip".as_slice(), -3)] {
+    use crate::ipc_recv_message::ReceiveError;
+    for prefix in [b"".as_slice(), b"i3-ip".as_slice()] {
         let (reader, mut writer) = socket_pair();
         writer.write_all(prefix).unwrap();
         writer.shutdown(Shutdown::Write).unwrap();
-        let received = Received::read(&reader);
-        assert_eq!(received.status, expected_status);
-        assert_eq!(received.kind, 0x1122_3344);
-        assert_eq!(received.length, 0x5566_7788);
-        assert!(received.data.is_null());
+        match receive(&reader).unwrap_err() {
+            ReceiveError::Eof => assert!(prefix.is_empty()),
+            ReceiveError::TruncatedHeader { received } => assert_eq!(received, prefix.len()),
+            error => panic!("wrong error: {error}"),
+        }
     }
 }
 
@@ -187,24 +148,24 @@ fn invalid_magic_is_rejected_before_payload_allocation() {
     let mut wire = frame(0, b"ignored");
     wire[..6].copy_from_slice(b"badipc");
     writer.write_all(&wire).unwrap();
-    let received = Received::read(&reader);
-    assert_eq!(received.status, -3);
-    assert_eq!(received.kind, 0x1122_3344);
-    assert_eq!(received.length, 0x5566_7788);
-    assert!(received.data.is_null());
+    assert!(
+        matches!(receive(&reader), Err(crate::ipc_recv_message::ReceiveError::InvalidMagic(magic)) if magic == *b"badipc")
+    );
 }
 
 #[test]
-fn truncated_payload_is_reported_and_returned_storage_can_be_freed() {
+fn truncated_payload_reports_progress_without_exporting_storage() {
     let (reader, mut writer) = socket_pair();
     let wire = frame(5, b"four");
     writer.write_all(&wire[..wire.len() - 1]).unwrap();
     writer.shutdown(Shutdown::Write).unwrap();
-    let received = Received::read(&reader);
-    assert_eq!(received.status, -3);
-    assert_eq!((received.kind, received.length), (5, 4));
-    assert!(!received.data.is_null());
-    // Drop frees the allocated buffer without reading its uninitialized suffix.
+    assert!(matches!(
+        receive(&reader),
+        Err(crate::ipc_recv_message::ReceiveError::TruncatedPayload {
+            received: 3,
+            expected: 4
+        })
+    ));
 }
 
 #[test]
@@ -856,6 +817,57 @@ fn owned_listener_replaces_stale_sockets_but_rejects_active_listeners() {
     let replacement = bind(&path).unwrap();
     let _client = UnixStream::connect(&path).unwrap();
     let _accepted = replacement.listener.accept().unwrap();
+}
+
+#[test]
+fn compatibility_receiver_retries_only_payload_would_block_without_losing_progress() {
+    use crate::ipc_recv_message::{receive_message, receive_message_retry_payload, ReceiveError};
+    struct Paused {
+        bytes: std::io::Cursor<Vec<u8>>,
+        failures: std::collections::VecDeque<(u64, std::io::ErrorKind)>,
+    }
+    impl Read for Paused {
+        fn read(&mut self, output: &mut [u8]) -> std::io::Result<usize> {
+            if self
+                .failures
+                .front()
+                .is_some_and(|(position, _)| *position == self.bytes.position())
+            {
+                return Err(self.failures.pop_front().unwrap().1.into());
+            }
+            let count = output.len().min(2);
+            self.bytes.read(&mut output[..count])
+        }
+    }
+    let make = |failures: Vec<_>| Paused {
+        bytes: std::io::Cursor::new(frame(0xffff_ffff, b"a\0b\xff")),
+        failures: failures.into(),
+    };
+    // A partially consumed header still returns OS errors immediately.
+    for kind in [
+        std::io::ErrorKind::Interrupted,
+        std::io::ErrorKind::WouldBlock,
+    ] {
+        let mut reader = make(vec![(2, kind)]);
+        assert!(
+            matches!(receive_message_retry_payload(&mut reader), Err(ReceiveError::Io(error)) if error.kind() == kind)
+        );
+        assert_eq!(reader.bytes.position(), 2);
+    }
+    let mut reader = make(vec![
+        (14, std::io::ErrorKind::WouldBlock),
+        (16, std::io::ErrorKind::Interrupted),
+        (16, std::io::ErrorKind::WouldBlock),
+    ]);
+    let message = receive_message_retry_payload(&mut reader).unwrap();
+    assert_eq!(message.message_type, u32::MAX);
+    assert_eq!(message.payload, b"a\0b\xff");
+    // The modern default retains its nonblocking error semantics.
+    let mut reader = make(vec![(16, std::io::ErrorKind::WouldBlock)]);
+    assert!(
+        matches!(receive_message(&mut reader), Err(ReceiveError::Io(error)) if error.kind() == std::io::ErrorKind::WouldBlock)
+    );
+    assert_eq!(reader.bytes.position(), 16);
 }
 
 #[test]

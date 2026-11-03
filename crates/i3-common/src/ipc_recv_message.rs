@@ -83,7 +83,11 @@ fn read_header<R: Read + ?Sized>(reader: &mut R) -> Result<Header, ReceiveError>
     })
 }
 
-fn read_payload<R: Read + ?Sized>(reader: &mut R, payload: &mut [u8]) -> Result<(), ReceiveError> {
+fn read_payload<R: Read + ?Sized>(
+    reader: &mut R,
+    payload: &mut [u8],
+    retry_would_block: bool,
+) -> Result<(), ReceiveError> {
     let mut received = 0;
     while received < payload.len() {
         match reader.read(&mut payload[received..]) {
@@ -94,7 +98,12 @@ fn read_payload<R: Read + ?Sized>(reader: &mut R, payload: &mut [u8]) -> Result<
                 })
             }
             Ok(count) => received += count,
-            Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
+            Err(error)
+                if error.kind() == io::ErrorKind::Interrupted
+                    || (retry_would_block && error.kind() == io::ErrorKind::WouldBlock) =>
+            {
+                continue
+            }
             Err(error) => return Err(ReceiveError::Io(error)),
         }
     }
@@ -104,17 +113,46 @@ fn read_payload<R: Read + ?Sized>(reader: &mut R, payload: &mut [u8]) -> Result<
 /// Read exactly one frame, leaving following frames untouched in the reader.
 /// Owned payload storage is released automatically on success and failure.
 pub fn receive_message<R: Read + ?Sized>(reader: &mut R) -> Result<Message, ReceiveError> {
+    receive(reader, false)
+}
+
+/// Compatibility mode for the original nonblocking server and legacy clients.
+/// Header OS errors return immediately, including Interrupted and WouldBlock.
+/// Once a complete header is consumed, payload Interrupted/WouldBlock errors
+/// retry without discarding bytes already received. No following frame is read.
+pub fn receive_message_retry_payload<R: Read + ?Sized>(
+    reader: &mut R,
+) -> Result<Message, ReceiveError> {
+    receive(reader, true)
+}
+
+fn receive<R: Read + ?Sized>(
+    reader: &mut R,
+    retry_would_block: bool,
+) -> Result<Message, ReceiveError> {
     let header = read_header(reader)?;
     let mut payload = Vec::new();
     payload
         .try_reserve_exact(header.length)
         .map_err(|error| ReceiveError::Io(io::Error::new(io::ErrorKind::OutOfMemory, error)))?;
     payload.resize(header.length, 0);
-    read_payload(reader, &mut payload)?;
+    read_payload(reader, &mut payload, retry_would_block)?;
     Ok(Message {
         message_type: header.message_type,
         payload,
     })
+}
+
+/// Report the original libi3 protocol diagnostics after releasing reader borrows.
+/// OS failures and EOF between frames remain the caller's reporting decision.
+pub fn report_receive_error(error: &ReceiveError) {
+    if matches!(error, ReceiveError::Io(_) | ReceiveError::Eof) {
+        return;
+    }
+    let diagnostic =
+        std::ffi::CString::new(error.diagnostic_bytes()).expect("protocol diagnostic has no NUL");
+    // SAFETY: diagnostic is terminated and the native format matches its argument.
+    unsafe { errorlog(c"[libi3] ERROR: %s\n".as_ptr(), diagnostic.as_ptr()) };
 }
 
 /// Legacy ABI boundary: malloc-owned output and integer status codes. Both this
@@ -192,7 +230,7 @@ mod legacy {
             std::slice::from_raw_parts_mut(*reply, header.length)
         };
         reader.retry_would_block = true;
-        match read_payload(&mut reader, payload) {
+        match read_payload(&mut reader, payload, false) {
             Ok(()) => 0,
             Err(error) => status(error),
         }

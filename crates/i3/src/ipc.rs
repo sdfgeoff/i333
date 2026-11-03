@@ -1553,35 +1553,38 @@ pub const handlers: [handler_t; 13] = unsafe {
         ),
     ]
 };
-struct ReceivedBytes(*mut u8);
-impl Drop for ReceivedBytes {
-    fn drop(&mut self) {
-        unsafe {
-            free(self.0.cast());
-        }
-    }
-}
 unsafe extern "C" fn ipc_receive_message(_: *mut ev_loop, w: *mut ev_io, _: libc::c_int) {
     let client = (*w).data.cast::<ipc_client>();
     assert_eq!((*client).fd, (*w).fd);
-    let mut message_type = 0;
-    let mut message_length = 0;
-    let mut message = std::ptr::null_mut();
-    let result = ipc_recv_message(
-        (*w).fd,
-        &mut message_type,
-        &mut message_length,
-        &mut message,
-    );
-    let message = ReceivedBytes(message);
-    if result < 0 {
-        if result != -1 || *__errno_location() != EAGAIN {
-            free_ipc_client(client, -1);
+    // No client or stream borrow may span diagnostics or command handlers:
+    // either can invoke callbacks that reload state or disconnect this client.
+    let received = {
+        let stream = (*client)
+            .fd_owner
+            .as_mut()
+            .expect("IPC client owns its stream");
+        receive_message_retry_payload(stream)
+    };
+    let mut message = match received {
+        Ok(message) => message,
+        Err(error) => {
+            report_receive_error(&error);
+            if !matches!(&error, ReceiveError::Io(error) if error.kind() == std::io::ErrorKind::WouldBlock)
+            {
+                free_ipc_client(client, -1);
+            }
+            return;
         }
-        return;
-    }
+    };
+    let message_type = message.message_type;
     if let Some(handler) = handlers.get(message_type as usize).copied().flatten() {
-        handler(client, message.0, 0, message_length, message_type);
+        handler(
+            client,
+            message.payload.as_mut_ptr(),
+            0,
+            message.payload.len() as u32,
+            message_type,
+        );
     } else {
         debuglog(
             c"%s:%s:%d - Unhandled message type: %d\n"
@@ -1711,7 +1714,7 @@ pub unsafe fn ipc_new_client_on_fd(loop_: *mut ev_loop, fd: libc::c_int) -> *mut
     let client = Box::into_raw(Box::new(ipc_client {
         fd,
         generation,
-        fd_owner: Some(owner),
+        fd_owner: Some(owner.into()),
         events: Vec::new(),
         first_tick_sent: false,
         read_callback: read,
@@ -1948,7 +1951,9 @@ use crate::tree::focused;
 use crate::version::i3_version;
 use crate::workspace::previous_workspace_name;
 use crate::workspace::workspace_is_visible;
-use i3_common::ipc_recv_message::ipc_recv_message;
+use i3_common::ipc_recv_message::{
+    receive_message_retry_payload, report_receive_error, ReceiveError,
+};
 use i3_common::nonblock::set_nonblock;
 
 #[cfg(test)]
