@@ -1,4 +1,5 @@
 // Copyright © 2009 Michael Stapelberg and contributors (see LICENSE).
+#![deny(unsafe_op_in_unsafe_fn)]
 
 use std::ffi::{CStr, CString, OsString};
 use std::io;
@@ -58,33 +59,37 @@ impl Drop for Glob {
     }
 }
 
-mod legacy {
-    use super::*;
+/// Resolve a native path into Rust-owned, NUL-terminated storage. Native callers
+/// retain the historical fatal glob diagnostic without malloc ownership transfer.
+pub fn resolve_cstring(path: &CStr) -> CString {
+    let resolved =
+        resolve(std::ffi::OsStr::from_bytes(path.to_bytes())).unwrap_or_else(|error| abort(error));
+    CString::new(resolved.as_os_str().as_bytes()).expect("resolved OS path contains no NUL")
+}
 
-    pub(crate) fn abort(error: io::Error) -> ! {
-        // SAFETY: Preserve the fatal legacy glob diagnostic without unwinding.
-        unsafe {
-            *libc::__errno_location() = error.raw_os_error().unwrap_or(libc::ENOMEM);
-            err(libc::EXIT_FAILURE, c"glob() failed".as_ptr());
-        }
-    }
-
-    /// Legacy malloc/free adapter. The caller supplies a live C string.
-    ///
-    /// # Safety
-    /// `path` must be a live NUL-terminated C string.
-
-    pub unsafe fn resolve_tilde(path: *const libc::c_char) -> *mut libc::c_char {
-        // SAFETY: path follows the caller's C-string contract.
-        let input = unsafe { CStr::from_ptr(path) };
-        let resolved = resolve(std::ffi::OsStr::from_bytes(input.to_bytes()))
-            .unwrap_or_else(|error| abort(error));
-        let bytes = resolved.as_os_str().as_bytes();
-        // SAFETY: Duplicate into malloc-owned storage for unconverted callers.
-        unsafe { crate::safewrappers::sstrndup(bytes.as_ptr().cast(), bytes.len()) }
+pub(crate) fn abort(error: io::Error) -> ! {
+    // SAFETY: Preserve the fatal glob diagnostic and errno without unwinding.
+    unsafe {
+        *libc::__errno_location() = error.raw_os_error().unwrap_or(libc::ENOMEM);
+        crate::native_stdio::err(libc::EXIT_FAILURE, c"glob() failed".as_ptr());
     }
 }
-pub(crate) use legacy::abort;
-pub use legacy::resolve_tilde;
 
-use crate::native_stdio::err;
+#[cfg(test)]
+mod tests {
+    use super::resolve_cstring;
+    use std::ffi::CStr;
+
+    #[test]
+    fn native_paths_retain_non_utf8_and_expand_only_the_first_component() {
+        let literal = CStr::from_bytes_with_nul(b"literal/\xff//tail*\0").unwrap();
+        assert_eq!(resolve_cstring(literal).as_c_str(), literal);
+        // This first component matches the package manifest; the non-UTF-8
+        // tail and its glob syntax must remain byte-for-byte untouched.
+        let globbed = CStr::from_bytes_with_nul(b"Cargo.tom?/\xff/tail*\0").unwrap();
+        assert_eq!(
+            resolve_cstring(globbed).to_bytes(),
+            b"Cargo.toml/\xff/tail*"
+        );
+    }
+}

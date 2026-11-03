@@ -10,11 +10,10 @@ use crate::manage::restore_geometry;
 use crate::tree::croot;
 pub use crate::types::Rect;
 use crate::types::{Direction, Layout, Orientation, Position, ShutdownReason};
-use i3_common::font::font_is_pango;
 use i3_common::get_process_filename::get_process_filename;
 use i3_common::mkdirp::mkdirp;
 use i3_common::native_stdio::{__ctype_b_loc, warn};
-use i3_common::resolve_tilde::resolve_tilde;
+use i3_common::resolve_tilde::resolve_cstring;
 use i3_common::safewrappers::smalloc;
 use libc::{
     __errno_location, _exit, execvp, fork, free, kill, perror, setlocale, strcasecmp, strcmp,
@@ -295,17 +294,15 @@ unsafe fn restart_layout_payload() -> Vec<u8> {
     let _locale = NumericLocale::c();
     crate::ipc::node_payload(croot, true)
 }
-unsafe fn store_restart_layout() -> *mut libc::c_char {
+unsafe fn store_restart_layout() -> Option<CString> {
     let payload = restart_layout_payload();
     let filename = if config.restart_state_path.is_null() {
-        get_process_filename(c"restart-state".as_ptr())
+        let filename = MallocBuffer::take(get_process_filename(c"restart-state".as_ptr()))?;
+        filename.as_cstr().to_owned()
     } else {
-        resolve_tilde(config.restart_state_path)
+        resolve_cstring(CStr::from_ptr(config.restart_state_path))
     };
-    let Some(filename) = MallocBuffer::take(filename) else {
-        return std::ptr::null_mut();
-    };
-    let base = parent_directory(filename.as_cstr());
+    let base = parent_directory(filename.as_c_str());
     debuglog(
         c"%s:%s:%d - Creating \"%s\" for storing the restart layout\n"
             .as_ptr()
@@ -318,7 +315,7 @@ unsafe fn store_restart_layout() -> *mut libc::c_char {
     if mkdirp(base.as_ptr(), DEFAULT_DIR_MODE) != 0 {
         errorlog(c"ERROR: Could not create \"%s\" for storing the restart layout, layout will be lost.\n".as_ptr().cast_mut(),base.as_ptr());
     }
-    let path = std::path::Path::new(std::ffi::OsStr::from_bytes(filename.as_cstr().to_bytes()));
+    let path = std::path::Path::new(std::ffi::OsStr::from_bytes(filename.as_c_str().to_bytes()));
     let mut file = match std::fs::OpenOptions::new()
         .write(true)
         .create(true)
@@ -330,7 +327,7 @@ unsafe fn store_restart_layout() -> *mut libc::c_char {
         Err(error) => {
             *__errno_location() = error.raw_os_error().unwrap_or(libc::EIO);
             perror(c"open()".as_ptr());
-            return std::ptr::null_mut();
+            return None;
         }
     };
     if let Err(error) = file.write_all(&payload) {
@@ -338,10 +335,10 @@ unsafe fn store_restart_layout() -> *mut libc::c_char {
             c"ERROR: Could not write restart layout to \"%s\", layout will be lost: %s\n"
                 .as_ptr()
                 .cast_mut(),
-            filename.as_cstr().as_ptr(),
+            filename.as_c_str().as_ptr(),
             strerror(error.raw_os_error().unwrap_or(libc::EIO)),
         );
-        return std::ptr::null_mut();
+        return None;
     }
     drop(file);
     if !payload.is_empty() {
@@ -354,7 +351,7 @@ unsafe fn store_restart_layout() -> *mut libc::c_char {
             payload.as_ptr(),
         );
     }
-    filename.into_raw()
+    Some(filename)
 }
 
 /// Live event-thread graph/process boundary. Never call this against a desktop
@@ -364,7 +361,7 @@ pub unsafe fn i3_restart(forget_layout: bool) {
     let restart_filename = if forget_layout {
         None
     } else {
-        MallocBuffer::take(store_restart_layout())
+        store_restart_layout()
     };
     kill_nagbar(config_error_nagbar_pid, true);
     kill_nagbar(command_error_nagbar_pid, true);
@@ -382,7 +379,7 @@ pub unsafe fn i3_restart(forget_layout: bool) {
         replace_argument(
             &mut arguments,
             c"--restart",
-            Some(filename.as_cstr()),
+            Some(filename.as_c_str()),
             Some(c"-r"),
         );
     }
@@ -394,26 +391,6 @@ pub unsafe fn i3_restart(forget_layout: bool) {
     execvp(pointers[0], pointers.as_ptr());
 }
 
-/// input is null or a uniquely owned malloc-compatible C string. The return
-/// value transfers that ownership to the caller, including the non-Pango path.
-pub unsafe fn pango_escape_markup(input: *mut ::core::ffi::c_char) -> *mut ::core::ffi::c_char {
-    if !font_is_pango(&crate::config::config.font) {
-        return input;
-    }
-    if input.is_null() {
-        return input;
-    }
-    // The renderer receives owned, nul-terminated text. Repair invalid UTF-8
-    // through the shared text model, escape in Rust, and retain malloc ownership
-    // for the existing caller while it migrates to owned strings.
-    let text = i3_common::string::I3String::from_cstr(std::ffi::CStr::from_ptr(input));
-    let escaped_text =
-        i3_common::string::escape_markup(text.as_str().expect("UTF-8 source is initialized"));
-    let escaped =
-        i3_common::safewrappers::sstrndup(escaped_text.as_ptr().cast(), escaped_text.len());
-    free(input.cast());
-    escaped
-}
 unsafe extern "C" fn nagbar_exited(
     loop_0: *mut ev_loop,
     watcher: *mut ev_child,

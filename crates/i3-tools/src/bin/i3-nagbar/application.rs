@@ -26,8 +26,9 @@ use xcb_interop::cursor::CursorContext;
 // Mechanical file-by-file Rust translation of i3-nagbar/main.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 use i3_common::dpi::{init_dpi, logical_px};
-use i3_common::get_exe_path::get_exe_path;
+use i3_common::get_exe_path::executable_path;
 use i3_common::i333_va_list;
+use std::os::unix::ffi::OsStrExt;
 
 use i3_common::font::Font;
 
@@ -130,7 +131,10 @@ unsafe fn handle_button_release(state: &NagbarState, event: &x::ButtonReleaseEve
     let mut script = std::fs::File::from_raw_fd(fd);
     let _ = script.write_all(&command_script(&script_path, button.action.as_deref()));
     drop(script);
-    let exe_path = take_native_string(get_exe_path(state.program.as_ptr().cast_mut()));
+    let exe_path = executable_path(std::ffi::OsStr::from_bytes(state.program.to_bytes()))
+        .unwrap_or_else(|_| std::path::PathBuf::from("/usr/bin/i3-nagbar"));
+    let exe_path =
+        CString::new(exe_path.as_os_str().as_bytes()).expect("executable path contains no NUL");
     let mut link_bytes = script_path.to_bytes().to_vec();
     link_bytes.extend_from_slice(b".nagbar_cmd");
     let link_path = CString::new(link_bytes).expect("C string path has no NUL");

@@ -83,7 +83,7 @@ unsafe fn _create___i3() -> *mut Con {
     __i3
 }
 
-/// A uniquely owned malloc buffer returned by resolve_tilde/slurp. Tree parsing
+/// A uniquely owned malloc buffer returned by slurp. Tree parsing
 /// may retain partial graph effects, but never borrows these file bytes afterward.
 struct RestoreBuffer(*mut libc::c_char);
 impl Drop for RestoreBuffer {
@@ -115,8 +115,8 @@ pub unsafe fn tree_restore(
     let mut out: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut ws: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut result: bool = false;
-    let path_owner = RestoreBuffer(resolve_tilde(path));
-    let globbed = path_owner.0;
+    let path_owner = resolve_cstring(std::ffi::CStr::from_ptr(path));
+    let globbed = path_owner.as_ptr();
     let mut buf: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
     if !path_exists(globbed) {
         verboselog(
@@ -1035,7 +1035,7 @@ use crate::x::x_con_kill;
 use crate::x::x_push_changes;
 use crate::x::x_set_name;
 use crate::x::x_set_warp_to;
-use i3_common::resolve_tilde::resolve_tilde;
+use i3_common::resolve_tilde::resolve_cstring;
 
 #[cfg(test)]
 mod owned_policy_tests {

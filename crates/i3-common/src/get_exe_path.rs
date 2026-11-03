@@ -1,6 +1,7 @@
 // Copyright © 2009 Michael Stapelberg and contributors (see LICENSE).
+#![deny(unsafe_op_in_unsafe_fn)]
 
-use std::ffi::{CString, OsStr, OsString};
+use std::ffi::{CString, OsString};
 use std::io;
 use std::os::unix::ffi::{OsStrExt, OsStringExt};
 use std::path::{Path, PathBuf};
@@ -56,20 +57,4 @@ fn default_search_path() -> OsString {
     }
     buffer.truncate(written - 1);
     OsString::from_vec(buffer)
-}
-
-/// Legacy ABI allocation boundary for callers not yet using [`executable_path`].
-///
-/// # Safety
-/// `argv0` points to a live C string. The caller frees the returned allocation.
-
-pub unsafe fn get_exe_path(argv0: *const libc::c_char) -> *mut libc::c_char {
-    // SAFETY: The caller supplies a valid C string and no embedded NUL can reach
-    // executable_path. The fallback only applies to an unexpected input error.
-    let name = unsafe { std::ffi::CStr::from_ptr(argv0) };
-    let path = executable_path(OsStr::from_bytes(name.to_bytes()))
-        .unwrap_or_else(|_| PathBuf::from("/usr/bin/i3-nagbar"));
-    let bytes = path.as_os_str().as_bytes();
-    // SAFETY: Preserve malloc/free ownership at the remaining ABI boundary.
-    unsafe { crate::safewrappers::sstrndup(bytes.as_ptr().cast(), bytes.len()) }
 }

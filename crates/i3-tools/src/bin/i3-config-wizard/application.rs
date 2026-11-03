@@ -4478,11 +4478,6 @@ impl Drop for WizardResources {
         }
     }
 }
-unsafe fn take_cstring(pointer: *mut libc::c_char) -> CString {
-    let owned = CStr::from_ptr(pointer).to_owned();
-    free(pointer.cast());
-    owned
-}
 unsafe fn atom_reply(
     connection: &xcb::Connection,
     cookie: x::InternAtomCookie,
@@ -4958,7 +4953,7 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
     if xdg_config_home.is_null() {
         xdg_config_home = c"~/.config".as_ptr().cast_mut();
     }
-    let base = take_cstring(resolve_tilde(xdg_config_home));
+    let base = resolve_cstring(CStr::from_ptr(xdg_config_home));
     let mut directory = base.to_bytes().to_vec();
     directory.extend_from_slice(b"/i3");
     let config_dir = CString::new(directory).expect("base path has no NUL");
@@ -5343,7 +5338,7 @@ use i3_common::native_stdio::{err, errx, stderr, stdout, vfprintf};
 use i3_common::get_config_path::get_config_path;
 use i3_common::ipc_connect::ipc_connect;
 use i3_common::ipc_send_message::ipc_send_message;
-use i3_common::resolve_tilde::resolve_tilde;
+use i3_common::resolve_tilde::resolve_cstring;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u32)]

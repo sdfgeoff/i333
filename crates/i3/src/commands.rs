@@ -1561,7 +1561,8 @@ pub unsafe fn cmd_append_layout(
     let mut parent: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut errormsg: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
     verboselog(c"Appending layout \"%s\"\n".as_ptr().cast_mut(), cpath);
-    let path: *mut ::core::ffi::c_char = resolve_tilde(cpath);
+    let path_owner = resolve_cstring(std::ffi::CStr::from_ptr(cpath));
+    let path = path_owner.as_ptr();
     let mut buf: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
     let mut len: isize = 0;
     len = slurp(path, &raw mut buf);
@@ -1673,7 +1674,6 @@ pub unsafe fn cmd_append_layout(
             (*cmd_output).needs_tree_render = true_0 != 0;
         }
     }
-    free(path as *mut ::core::ffi::c_void);
     free(buf as *mut ::core::ffi::c_void);
 }
 unsafe fn disable_global_fullscreen() {
@@ -5323,7 +5323,7 @@ use crate::workspace::workspace_next_on_output;
 use crate::workspace::workspace_prev;
 use crate::workspace::workspace_prev_on_output;
 use crate::workspace::workspace_show;
-use i3_common::resolve_tilde::resolve_tilde;
+use i3_common::resolve_tilde::resolve_cstring;
 
 #[cfg(test)]
 mod argument_tests {
