@@ -8,26 +8,26 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 21 wallclock secs ( 0.66 usr +  0.07 sys =  0.73 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 30 wallclock secs ( 0.83 usr +  0.09 sys =  0.92 CPU)\nResult: PASS",
     "profile": "debug",
     "build": "cargo test --locked",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "6993f6acffa77d4611cb4f6eab0eb2c36b2fc3534e6c72d622796b80c1a54dbc",
-    "i3bar": "23a30ee515440809acff3d3151eb92568a42d37257b1db423299879094b2c625",
-    "i3-config-wizard": "9f207dee2e65fd5e8833e29b57938467ddd49cc12dd4f6a81b122e9f41997340",
-    "i3-dump-log": "ab77b92d0f07712a829e266e1a5f341f4cab92793519c1f87467ca041534d99f",
-    "i3-input": "56b9d24bacfd1841603bbaf3d395c56e9a79ada84d5a1185a565f8417e94b09a",
-    "i3-msg": "05432776415d01b44dc06980d2b6f291a7dd38c6a39ca3821ccf4569cf6d40a3",
-    "i3-nagbar": "0e6b356f8032a7f5adfbb219e69c3519d1830c9aea16ed40dbca93d53ff99efe"
+    "i3": "cd5d9af0101cf60f1c1c2f1ed50c8e5d3747dd379286de2d1f75fafb88fed699",
+    "i3bar": "9d8cc09801dfb808c49976af2fe2706aa387c0b98c1ba118c8e856b6bdb9c87e",
+    "i3-config-wizard": "c2cdb36ed2c93cf5bda5d7e35efc269f8c985a626fd5ad0aa1db60b2fd4944d0",
+    "i3-dump-log": "2faca9128dad10f55f5fc19450a61e69e68ffe094e5fcb9e6a757b643d4965d2",
+    "i3-input": "72ce77be20b5dff27f2b9ad7f92553942ae90171727ab2c2328befbb9f9234bb",
+    "i3-msg": "2fde253d501c460e95afd27681c6eba1eeb704eb07ef3185328216470b118173",
+    "i3-nagbar": "4cf1a4a59380ade113c602ae665596e2f214d8acd08b3a1cf91683924cc2914d"
   },
-  "note": "Nine-member Cargo workspace. cargo test --locked passed 428 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
+  "note": "Nine-member Cargo workspace. cargo test --locked passed 430 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
   "additional_checks": {
     "headless_c_rust_state_comparisons": 61,
     "ipc_client_test_groups": 16,
-    "workspace_unit_tests": 428,
+    "workspace_unit_tests": 430,
     "core_and_bar_cli_comparisons": 39,
     "pcre2_compile_match_error_comparisons": 4620,
     "json_oracle_cases": 2263,
@@ -121,11 +121,11 @@
     "binary_count": 7,
     "native_library_discovery": "maintained native binding build scripts and dedicated sys crates; i3-build links only platform m/rt",
     "unit_tests": {
-      "i3": 226,
+      "i3": 227,
       "cargo_regression_wrappers": 8,
       "xkb_integration": 1,
       "i3-build": 3,
-      "i3-common": 93,
+      "i3-common": 94,
       "native_graphics": 5,
       "i3-config-wizard": 5,
       "i3-dump-log": 5,
@@ -142,7 +142,7 @@
     "cargo_fmt_check": true,
     "debug_build": true,
     "release_build": true,
-    "unit_tests_total_including_integration_checks": 428,
+    "unit_tests_total_including_integration_checks": 430,
     "test_command": "cargo test",
     "clean_source_command": "cargo test -p i3-test-support --features clean-source-check",
     "test_support": "development-only process capture, failure propagation and isolated regression orchestration",
@@ -2492,7 +2492,17 @@
         "status": "approved"
       },
       "desktop_or_installed_binary_changed": false
-    }
+    },
+    "filesystem_numeric_read_checkpoints": [
+      {
+        "stage": 1,
+        "source_commit": "cc9dccc2e7356c7833c2590558f81055856cede6",
+        "scope": "Retire raw path_exists/mkdirp adapters, retain native filesystem diagnostics with safe paths; borrow numeric CStr inputs and return explicit parse results including rejected values; return owned file snapshots without malloc output pointers",
+        "rust_tests": 430,
+        "upstream_assertions": 4205,
+        "status": "validated"
+      }
+    ]
   },
   "ci_dependency_preparation": {
     "confirmed_previous_failure": "X11::XCB required missing xcb-composite.pc and protocol XML metadata",
