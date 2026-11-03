@@ -1251,7 +1251,8 @@ pub unsafe fn cfg_assign(
         return;
     }
     if is_number as ::core::ffi::c_int != 0
-        && ws_name_to_number(workspace) == -(1 as ::core::ffi::c_int)
+        && ws_name_to_number(std::ffi::CStr::from_ptr(workspace)).unwrap_or(-1)
+            == -(1 as ::core::ffi::c_int)
     {
         errorlog(
             c"ERROR: Could not parse initial part of \"%s\" as a number.\n"

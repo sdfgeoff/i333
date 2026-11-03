@@ -146,8 +146,12 @@ pub unsafe fn get_assigned_output(
                 }
             } else if output.is_null()
                 && parsed_num != -(1 as ::core::ffi::c_int) as ::core::ffi::c_long
-                && name_is_digits((*assignment).name) as ::core::ffi::c_int != 0
-                && ws_name_to_number((*assignment).name) as ::core::ffi::c_long == parsed_num
+                && name_is_digits(std::ffi::CStr::from_ptr((*assignment).name))
+                    as ::core::ffi::c_int
+                    != 0
+                && ws_name_to_number(std::ffi::CStr::from_ptr((*assignment).name)).unwrap_or(-1)
+                    as ::core::ffi::c_long
+                    == parsed_num
             {
                 debuglog(
                     c"%s:%s:%d - Found workspace number=%ld assignment to output \"%s\"\n"
@@ -187,7 +191,8 @@ pub unsafe fn workspace_get(num: *const ::core::ffi::c_char) -> *mut Con {
         return workspace;
     }
     verboselog(c"Creating new workspace \"%s\"\n".as_ptr().cast_mut(), num);
-    let parsed_num: ::core::ffi::c_int = ws_name_to_number(num) as ::core::ffi::c_int;
+    let parsed_num: ::core::ffi::c_int =
+        ws_name_to_number(std::ffi::CStr::from_ptr(num)).unwrap_or(-1) as ::core::ffi::c_int;
     let mut output: *mut Con = get_assigned_output(num, parsed_num as ::core::ffi::c_long);
     if output.is_null() {
         output = con_get_output(focused);
@@ -298,7 +303,8 @@ pub unsafe fn create_workspace_on_output(output: *mut Output, content: *mut Con)
             -(1 as ::core::ffi::c_int) as ::core::ffi::c_long,
         );
         if !(!assigned.is_null() && assigned != (*output).con) {
-            let num: ::core::ffi::c_int = ws_name_to_number(target_name) as ::core::ffi::c_int;
+            let num: ::core::ffi::c_int = ws_name_to_number(std::ffi::CStr::from_ptr(target_name))
+                .unwrap_or(-1) as ::core::ffi::c_int;
             exists = !if num == -(1 as ::core::ffi::c_int) {
                 get_existing_workspace_by_name(target_name)
             } else {
@@ -1360,7 +1366,8 @@ pub unsafe fn workspace_move_to_output(mut ws: *mut Con, output: *mut Output) {
         while !assignment.is_null() {
             if output_triggers_assignment(current_output, assignment) {
                 let num: ::core::ffi::c_int =
-                    ws_name_to_number((*assignment).name) as ::core::ffi::c_int;
+                    ws_name_to_number(std::ffi::CStr::from_ptr((*assignment).name)).unwrap_or(-1)
+                        as ::core::ffi::c_int;
                 let attached: bool = !if num == -(1 as ::core::ffi::c_int) {
                     get_existing_workspace_by_name((*assignment).name)
                 } else {

@@ -551,46 +551,50 @@ pub unsafe fn match_parse_property(
                 (*match_0).con_id = global_focused;
                 return;
             }
-            let mut parsed: ::core::ffi::c_long = 0;
-            if !parse_long(cvalue, &raw mut parsed, 0 as ::core::ffi::c_int) {
-                errorlog(
-                    c"ERROR: Could not parse con id \"%s\"\n"
-                        .as_ptr()
-                        .cast_mut(),
-                    cvalue,
-                );
-                (*match_0).error = Some(c"invalid con_id".to_owned());
-            } else {
-                (*match_0).con_id = parsed as *mut Con;
-                debuglog(
-                    c"%s:%s:%d - id as int = %p\n".as_ptr().cast_mut(),
-                    c"../src/match.c".as_ptr(),
-                    c"match_parse_property".as_ptr(),
-                    329 as ::core::ffi::c_int,
-                    (*match_0).con_id,
-                );
+            match parse_long(CStr::from_ptr(cvalue), 0) {
+                Err(_) => {
+                    errorlog(
+                        c"ERROR: Could not parse con id \"%s\"\n"
+                            .as_ptr()
+                            .cast_mut(),
+                        cvalue,
+                    );
+                    (*match_0).error = Some(c"invalid con_id".to_owned());
+                }
+                Ok(parsed) => {
+                    (*match_0).con_id = parsed as *mut Con;
+                    debuglog(
+                        c"%s:%s:%d - id as int = %p\n".as_ptr().cast_mut(),
+                        c"../src/match.c".as_ptr(),
+                        c"match_parse_property".as_ptr(),
+                        329 as ::core::ffi::c_int,
+                        (*match_0).con_id,
+                    );
+                }
             }
             return;
         }
         if property == b"id" {
-            let mut parsed_0: ::core::ffi::c_long = 0;
-            if !parse_long(cvalue, &raw mut parsed_0, 0 as ::core::ffi::c_int) {
-                errorlog(
-                    c"ERROR: Could not parse window id \"%s\"\n"
-                        .as_ptr()
-                        .cast_mut(),
-                    cvalue,
-                );
-                (*match_0).error = Some(c"invalid id".to_owned());
-            } else {
-                (*match_0).id = parsed_0 as u32;
-                debuglog(
-                    c"%s:%s:%d - window id as int = %d\n".as_ptr().cast_mut(),
-                    c"../src/match.c".as_ptr(),
-                    c"match_parse_property".as_ptr(),
-                    341 as ::core::ffi::c_int,
-                    (*match_0).id,
-                );
+            match parse_long(CStr::from_ptr(cvalue), 0) {
+                Err(_) => {
+                    errorlog(
+                        c"ERROR: Could not parse window id \"%s\"\n"
+                            .as_ptr()
+                            .cast_mut(),
+                        cvalue,
+                    );
+                    (*match_0).error = Some(c"invalid id".to_owned());
+                }
+                Ok(parsed_0) => {
+                    (*match_0).id = parsed_0 as u32;
+                    debuglog(
+                        c"%s:%s:%d - window id as int = %d\n".as_ptr().cast_mut(),
+                        c"../src/match.c".as_ptr(),
+                        c"match_parse_property".as_ptr(),
+                        341 as ::core::ffi::c_int,
+                        (*match_0).id,
+                    );
+                }
             }
             return;
         }

@@ -232,7 +232,9 @@ impl LayoutState {
                         fresh1,
                     );
                 }
-                (*self.json_node).num = ws_name_to_number((*self.json_node).name);
+                (*self.json_node).num =
+                    ws_name_to_number(std::ffi::CStr::from_ptr((*self.json_node).name))
+                        .unwrap_or(-1);
             }
             if ((*self.json_node).type_0) == ContainerType::Floating {
                 debuglog(

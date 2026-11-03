@@ -288,8 +288,9 @@ pub unsafe fn gaps_for_workspace(ws: *mut Con) -> gaps_t {
             let matching = if CStr::from_ptr(assignment.name) == name {
                 AssignmentMatch::Name
             } else if number != -1
-                && name_is_digits(assignment.name)
-                && ws_name_to_number(assignment.name) == number
+                && name_is_digits(std::ffi::CStr::from_ptr(assignment.name))
+                && ws_name_to_number(std::ffi::CStr::from_ptr(assignment.name)).unwrap_or(-1)
+                    == number
             {
                 AssignmentMatch::Number
             } else {

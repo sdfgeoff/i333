@@ -764,7 +764,8 @@ pub unsafe fn cmd_move_con_to_workspace_number(
         c"should move window to workspace %s\n".as_ptr().cast_mut(),
         which,
     );
-    let parsed_num: ::core::ffi::c_long = ws_name_to_number(which) as ::core::ffi::c_long;
+    let parsed_num: ::core::ffi::c_long =
+        ws_name_to_number(std::ffi::CStr::from_ptr(which)).unwrap_or(-1) as ::core::ffi::c_long;
     if parsed_num == -(1 as ::core::ffi::c_int) as ::core::ffi::c_long {
         verboselog(
             c"Could not parse initial part of \"%s\" as a number.\n"
@@ -1742,7 +1743,8 @@ pub unsafe fn cmd_workspace_number(
 ) {
     let no_auto_back_and_forth: bool = !no_auto_back_and_forth_str.is_null();
     disable_global_fullscreen();
-    let parsed_num: ::core::ffi::c_long = ws_name_to_number(which) as ::core::ffi::c_long;
+    let parsed_num: ::core::ffi::c_long =
+        ws_name_to_number(std::ffi::CStr::from_ptr(which)).unwrap_or(-1) as ::core::ffi::c_long;
     if parsed_num == -(1 as ::core::ffi::c_int) as ::core::ffi::c_long {
         if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
@@ -4144,8 +4146,7 @@ pub unsafe fn cmd_swap(
     }
     let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
     if strcmp(mode, c"id".as_ptr()) == 0 as ::core::ffi::c_int {
-        let mut target: ::core::ffi::c_long = 0;
-        if !parse_long(arg, &raw mut target, 0 as ::core::ffi::c_int) {
+        let Ok(target) = parse_long(std::ffi::CStr::from_ptr(arg), 0) else {
             if (*cmd_output).has_reply() {
                 let mut message_2: *mut ::core::ffi::c_char =
                     ::core::ptr::null_mut::<::core::ffi::c_char>();
@@ -4161,11 +4162,10 @@ pub unsafe fn cmd_swap(
                 free(message_2 as *mut ::core::ffi::c_void);
             }
             return;
-        }
+        };
         con = con_by_window_id(target as u32);
     } else if strcmp(mode, c"con_id".as_ptr()) == 0 as ::core::ffi::c_int {
-        let mut target_0: ::core::ffi::c_long = 0;
-        if !parse_long(arg, &raw mut target_0, 0 as ::core::ffi::c_int) {
+        let Ok(target_0) = parse_long(std::ffi::CStr::from_ptr(arg), 0) else {
             if (*cmd_output).has_reply() {
                 let mut message_3: *mut ::core::ffi::c_char =
                     ::core::ptr::null_mut::<::core::ffi::c_char>();
@@ -4181,7 +4181,7 @@ pub unsafe fn cmd_swap(
                 free(message_3 as *mut ::core::ffi::c_void);
             }
             return;
-        }
+        };
         con = con_by_con_id(target_0);
     } else if strcmp(mode, c"mark".as_ptr()) == 0 as ::core::ffi::c_int {
         con = con_by_mark(arg);
@@ -4526,7 +4526,7 @@ pub unsafe fn cmd_rename_workspace(
     free((*workspace).name as *mut ::core::ffi::c_void);
     (*workspace).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
     (*workspace).name = sstrdup(new_name);
-    (*workspace).num = ws_name_to_number(new_name);
+    (*workspace).num = ws_name_to_number(std::ffi::CStr::from_ptr(new_name)).unwrap_or(-1);
     verboselog(c"num = %d\n".as_ptr().cast_mut(), (*workspace).num);
     let previously_focused: *mut Con = focused;
     let previously_focused_content: *const Con = if ((*focused).type_0) == ContainerType::Workspace
@@ -4799,8 +4799,7 @@ pub unsafe fn cmd_shmlog(
     } else if strcmp(argument, c"off".as_ptr()) == 0 {
         shmlog_size = 0 as ::core::ffi::c_int;
     } else {
-        let mut new_size: ::core::ffi::c_long = 0 as ::core::ffi::c_long;
-        if !parse_long(argument, &raw mut new_size, 0 as ::core::ffi::c_int) {
+        let Ok(new_size) = parse_long(std::ffi::CStr::from_ptr(argument), 0) else {
             if (*cmd_output).has_reply() {
                 let mut message: *mut ::core::ffi::c_char =
                     ::core::ptr::null_mut::<::core::ffi::c_char>();
@@ -4816,7 +4815,7 @@ pub unsafe fn cmd_shmlog(
                 free(message as *mut ::core::ffi::c_void);
             }
             return;
-        }
+        };
         if shmlog_size > 0 as ::core::ffi::c_int {
             shmlog_size = 0 as ::core::ffi::c_int;
             verboselog(c"Restarting shm logging...\n".as_ptr().cast_mut());

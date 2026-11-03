@@ -152,8 +152,7 @@ pub unsafe fn configure_binding(
         };
         (*new_binding).symbol = sstrdup(input_code);
     } else {
-        let mut keycode: ::core::ffi::c_long = 0;
-        if !parse_long(input_code, &raw mut keycode, 10) {
+        let Ok(keycode) = parse_long(std::ffi::CStr::from_ptr(input_code), 10) else {
             errorlog(
                 c"ERROR: Could not parse \"%s\" as an input code, ignoring this binding.\n"
                     .as_ptr()
@@ -163,7 +162,7 @@ pub unsafe fn configure_binding(
             free(new_binding as *mut ::core::ffi::c_void);
             new_binding = ::core::ptr::null_mut::<Binding>();
             return ::core::ptr::null_mut::<Binding>();
-        }
+        };
         (*new_binding).keycode = keycode as u32;
         (*new_binding).input_type = InputType::Keyboard;
     }
@@ -501,22 +500,29 @@ pub unsafe fn translate_keysyms() {
         bind = (*bindings).tqh_first as *mut Binding;
         while !bind.is_null() {
             if (*bind).input_type == InputType::Mouse {
-                let mut button: ::core::ffi::c_long = 0;
-                if !parse_long(
-                    (*bind).symbol.offset(
-                        (::core::mem::size_of::<[::core::ffi::c_char; 7]>() as usize)
-                            .wrapping_sub(1_usize) as isize,
+                let button = match parse_long(
+                    std::ffi::CStr::from_ptr(
+                        (*bind).symbol.offset(
+                            (::core::mem::size_of::<[::core::ffi::c_char; 7]>() as usize)
+                                .wrapping_sub(1_usize) as isize,
+                        ),
                     ),
-                    &raw mut button,
                     10,
                 ) {
-                    errorlog(
-                        c"ERROR: Could not translate string to button: \"%s\"\n"
-                            .as_ptr()
-                            .cast_mut(),
-                        (*bind).symbol,
-                    );
-                }
+                    Ok(button) => button,
+                    Err(error) => {
+                        errorlog(
+                            c"ERROR: Could not translate string to button: \"%s\"\n"
+                                .as_ptr()
+                                .cast_mut(),
+                            (*bind).symbol,
+                        );
+
+                        // Native i3 continues with strtol's output even after
+                        // logging malformed button input. Preserve that value.
+                        error.value
+                    }
+                };
                 let key: u8 = button as u8;
                 (*bind).keycode = key as u32;
                 debuglog(
@@ -1181,8 +1187,7 @@ pub unsafe fn bindings_get_buttons_to_grab() -> *mut libc::c_int {
             break;
         }
         if (*bind).input_type == InputType::Mouse && (*bind).whole_window {
-            let mut button = 0;
-            if parse_long((*bind).symbol.add(6), &raw mut button, 10) {
+            if let Ok(button) = parse_long(std::ffi::CStr::from_ptr((*bind).symbol.add(6)), 10) {
                 append_button(&mut buttons, button);
             } else {
                 errorlog(c"ERROR: Could not parse button number, skipping this binding. Please report this bug in i3.\n".as_ptr().cast_mut());

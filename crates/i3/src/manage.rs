@@ -535,9 +535,11 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                         );
                         let mut assigned_ws: *mut Con = ::core::ptr::null_mut::<Con>();
                         if (*assignment).type_0 == AssignmentKind::TO_WORKSPACE_NUMBER {
-                            let parsed_num: ::core::ffi::c_long =
-                                ws_name_to_number((*assignment).dest.workspace)
-                                    as ::core::ffi::c_long;
+                            let parsed_num: ::core::ffi::c_long = ws_name_to_number(
+                                std::ffi::CStr::from_ptr((*assignment).dest.workspace),
+                            )
+                            .unwrap_or(-1)
+                                as ::core::ffi::c_long;
                             assigned_ws =
                                 get_existing_workspace_by_num(parsed_num as ::core::ffi::c_int);
                         }

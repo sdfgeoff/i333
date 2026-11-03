@@ -812,8 +812,7 @@ unsafe fn parse_restart_fd() -> ::core::ffi::c_int {
     if restart_fd.is_null() {
         return -(1 as ::core::ffi::c_int);
     }
-    let mut fd: ::core::ffi::c_long = -(1 as ::core::ffi::c_int) as ::core::ffi::c_long;
-    if !parse_long(restart_fd, &raw mut fd, 10 as ::core::ffi::c_int) {
+    let Ok(fd) = parse_long(std::ffi::CStr::from_ptr(restart_fd), 10) else {
         errorlog(
             c"ERROR: Malformed _I3_RESTART_FD \"%s\"\n"
                 .as_ptr()
@@ -821,7 +820,7 @@ unsafe fn parse_restart_fd() -> ::core::ffi::c_int {
             restart_fd,
         );
         return -(1 as ::core::ffi::c_int);
-    }
+    };
     fd as ::core::ffi::c_int
 }
 /// Only the legacy restart/exec boundary receives a C-compatible argv array.
