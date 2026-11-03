@@ -11,7 +11,7 @@ use crate::tree::croot;
 pub use crate::types::Rect;
 use crate::types::{Direction, Layout, Orientation, Position, ShutdownReason};
 use i3_common::get_process_filename::get_process_filename;
-use i3_common::mkdirp::mkdirp;
+use i3_common::mkdirp::{create_dir_all, report_create_error};
 use i3_common::native_stdio::{__ctype_b_loc, warn};
 use i3_common::resolve_tilde::resolve_cstring;
 use libc::{
@@ -293,7 +293,12 @@ unsafe fn store_restart_layout() -> Option<CString> {
         253 as libc::c_int,
         base.as_ptr(),
     );
-    if mkdirp(base.as_ptr(), DEFAULT_DIR_MODE) != 0 {
+    if let Err(error) = create_dir_all(
+        std::ffi::OsStr::from_bytes(base.to_bytes()),
+        DEFAULT_DIR_MODE,
+    ) {
+        let error = report_create_error(std::ffi::OsStr::from_bytes(base.to_bytes()), error);
+        *__errno_location() = error.raw_os_error().unwrap_or(libc::EIO);
         errorlog(c"ERROR: Could not create \"%s\" for storing the restart layout, layout will be lost.\n".as_ptr().cast_mut(),base.as_ptr());
     }
     let path = std::path::Path::new(std::ffi::OsStr::from_bytes(filename.as_c_str().to_bytes()));

@@ -18,6 +18,7 @@ use i3_common::safewrappers::sasprintf;
 use i3_common::display::CairoVisual;
 use i3_common::string::I3String;
 use std::ffi::CStr;
+use std::os::unix::ffi::OsStrExt;
 use xcb::{x, Xid, XidNew};
 type Output = crate::types::xoutput;
 
@@ -92,7 +93,9 @@ unsafe fn sighandler_backtrace() -> ::core::ffi::c_int {
             suffix,
         );
         suffix += 1;
-        if !path_exists(filename) {
+        if !exists(std::ffi::OsStr::from_bytes(
+            CStr::from_ptr(filename).to_bytes(),
+        )) {
             break;
         }
     }
@@ -166,7 +169,9 @@ unsafe fn sighandler_backtrace() -> ::core::ffi::c_int {
         );
         free(filename.cast());
         return -1;
-    } else if !path_exists(filename) {
+    } else if !exists(std::ffi::OsStr::from_bytes(
+        CStr::from_ptr(filename).to_bytes(),
+    )) {
         debuglog(
             c"%s:%s:%d - GDB executed successfully, but no backtrace was generated\n"
                 .as_ptr()
@@ -605,7 +610,7 @@ static INIT_ARRAY: [unsafe extern "C" fn(); 1] = [run_static_initializers];
 use crate::util::i3_restart;
 use crate::xcb::get_visualid_by_depth;
 use i3_common::dpi::logical_px;
-use i3_common::path_exists::path_exists;
+use i3_common::path_exists::exists;
 use i3_common::safewrappers::scalloc;
 
 // Canonical Cairo backend ABI; renderer logic remains local.

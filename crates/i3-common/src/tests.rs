@@ -273,16 +273,7 @@ fn path_exists_uses_stat_semantics_for_files_directories_and_symlinks() {
         (&absent, false),
         (&broken, false),
     ] {
-        let path = CString::new(path.as_os_str().as_bytes()).unwrap();
-        // SAFETY: path is a live C string; stat does not retain its pointer.
-        assert_eq!(
-            unsafe { crate::path_exists::path_exists(path.as_ptr()) },
-            expected
-        );
-        assert_eq!(
-            crate::path_exists::exists(std::ffi::OsStr::from_bytes(path.to_bytes())),
-            expected
-        );
+        assert_eq!(crate::path_exists::exists(path), expected);
     }
 }
 
@@ -690,6 +681,63 @@ fn recursive_directories_preserve_existing_permissions_and_reject_files() {
     std::fs::write(&file, b"ordinary").unwrap();
     assert!(crate::mkdirp::create_dir_all(file, 0o700).is_err());
     assert!(crate::mkdirp::create_dir_all("", 0o700).is_err());
+}
+
+#[test]
+fn recursive_directory_failure_diagnostics_retain_native_bytes_and_errno() {
+    const CHILD_PATH: &str = "I333_MKDIR_DIAGNOSTIC_CHILD";
+    if let Some(path) = std::env::var_os(CHILD_PATH) {
+        let path = PathBuf::from(path);
+        let error = crate::mkdirp::create_dir_all(&path, 0o700).unwrap_err();
+        assert_eq!(error.raw_os_error(), Some(libc::EEXIST));
+        let error = crate::mkdirp::report_create_error(&path, error);
+        assert_eq!(error.raw_os_error(), Some(libc::EEXIST));
+        let nested = path.join("nested");
+        let error = crate::mkdirp::create_dir_all(&nested, 0o700).unwrap_err();
+        let error = crate::mkdirp::report_create_error(&nested, error);
+        assert_eq!(error.raw_os_error(), Some(libc::ENOTDIR));
+        // Reproduce the disappearance between failed mkdir and follow-up stat.
+        std::fs::remove_file(&path).unwrap();
+        let error = crate::mkdirp::report_create_error(
+            &path,
+            std::io::Error::from_raw_os_error(libc::EEXIST),
+        );
+        assert_eq!(error.raw_os_error(), Some(libc::ENOENT));
+        return;
+    }
+    let temp = TempDir::new();
+    let file = temp.0.join(std::ffi::OsStr::from_bytes(b"file-\xff"));
+    std::fs::write(&file, b"ordinary file").unwrap();
+    let child = std::process::Command::new(std::env::current_exe().unwrap())
+        .args([
+            "--exact",
+            "tests::recursive_directory_failure_diagnostics_retain_native_bytes_and_errno",
+            "--nocapture",
+        ])
+        .env(CHILD_PATH, &file)
+        .output()
+        .unwrap();
+    assert!(
+        child.status.success(),
+        "{}",
+        String::from_utf8_lossy(&child.stderr)
+    );
+    let mut expected = Vec::new();
+    for (operation, path, code) in [
+        ("mkdir", file.clone(), libc::ENOTDIR),
+        ("mkdir", file.join("nested"), libc::ENOTDIR),
+        ("stat", file, libc::ENOENT),
+    ] {
+        expected.extend_from_slice(b"[libi3] ERROR: ");
+        expected.extend_from_slice(operation.as_bytes());
+        expected.push(b'(');
+        expected.extend_from_slice(path.as_os_str().as_bytes());
+        expected.extend_from_slice(b") failed: ");
+        // SAFETY: strerror returns a live native locale description.
+        expected.extend_from_slice(unsafe { CStr::from_ptr(libc::strerror(code)) }.to_bytes());
+        expected.push(b'\n');
+    }
+    assert_eq!(child.stderr, expected);
 }
 
 #[test]

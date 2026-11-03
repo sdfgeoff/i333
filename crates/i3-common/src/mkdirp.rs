@@ -1,5 +1,7 @@
 // Copyright © 2009 Michael Stapelberg and contributors (see LICENSE).
 
+#![deny(unsafe_op_in_unsafe_fn)]
+
 use std::io;
 use std::os::unix::fs::DirBuilderExt;
 use std::path::Path;
@@ -17,50 +19,39 @@ pub fn create_dir_all(path: impl AsRef<Path>, mode: u32) -> io::Result<()> {
         .create(path)
 }
 
-mod legacy {
-    use super::*;
+/// Report a recursive mkdir failure with the historical native diagnostic.
+/// The returned error retains mkdir's errno, except when the EEXIST follow-up
+/// stat itself fails. Callers at native fatal boundaries may restore that errno.
+pub fn report_create_error(path: impl AsRef<Path>, error: io::Error) -> io::Error {
     use std::ffi::CStr;
     use std::os::unix::ffi::OsStrExt;
 
-    /// # Safety
-    /// `path` is a live C string. This adapter retains integer/errno diagnostics.
-
-    pub unsafe fn mkdirp(path: *const libc::c_char, mode: libc::mode_t) -> libc::c_int {
-        // SAFETY: The caller provides a borrowed C string.
-        let raw = unsafe { CStr::from_ptr(path) };
-        let target = Path::new(std::ffi::OsStr::from_bytes(raw.to_bytes()));
-        match create_dir_all(target, mode) {
-            Ok(()) => 0,
-            Err(error) => {
-                let code = error.raw_os_error().unwrap_or(libc::EIO);
-                let mut display_code = code;
-                let mut format = c"[libi3] ERROR: mkdir(%s) failed: %s\n";
-                if code == libc::EEXIST {
-                    match std::fs::metadata(target) {
-                        Ok(metadata) if !metadata.is_dir() => display_code = libc::ENOTDIR,
-                        Err(stat_error) => {
-                            display_code = stat_error.raw_os_error().unwrap_or(libc::EIO);
-                            format = c"[libi3] ERROR: stat(%s) failed: %s\n";
-                        }
-                        _ => {}
-                    }
-                }
-                // SAFETY: raw and the static format are valid C strings. strerror
-                // returns borrowed error text; errno retains the original failure.
-                unsafe {
-                    errorlog(format.as_ptr(), raw.as_ptr(), libc::strerror(display_code));
-                    *libc::__errno_location() = if format == c"[libi3] ERROR: stat(%s) failed: %s\n"
-                    {
-                        display_code
-                    } else {
-                        code
-                    };
-                }
-                -1
+    let path = path.as_ref();
+    let code = error.raw_os_error().unwrap_or(libc::EIO);
+    let mut returned_code = code;
+    let mut display_code = code;
+    let mut operation = b"mkdir".as_slice();
+    if code == libc::EEXIST {
+        match std::fs::metadata(path) {
+            Ok(metadata) if !metadata.is_dir() => display_code = libc::ENOTDIR,
+            Err(stat_error) => {
+                display_code = stat_error.raw_os_error().unwrap_or(libc::EIO);
+                returned_code = display_code;
+                operation = b"stat";
             }
+            _ => {}
         }
     }
+    let mut message = b"[libi3] ERROR: ".to_vec();
+    message.extend_from_slice(operation);
+    message.push(b'(');
+    message.extend_from_slice(path.as_os_str().as_bytes());
+    message.extend_from_slice(b") failed: ");
+    // SAFETY: strerror returns native locale error text for every integer code.
+    // Copy its bytes before invoking the logging callback, as the old helper did.
+    let description = unsafe { CStr::from_ptr(libc::strerror(display_code)) };
+    message.extend_from_slice(description.to_bytes());
+    message.push(b'\n');
+    crate::logging::emit(crate::logging::Level::Error, &message);
+    io::Error::from_raw_os_error(returned_code)
 }
-pub use legacy::mkdirp;
-
-use crate::logging::errorlog;

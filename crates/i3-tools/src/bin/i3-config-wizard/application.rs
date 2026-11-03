@@ -4,8 +4,9 @@ use i3_common::draw_util::draw_util_text;
 use i3_common::draw_util::{OwnedWindow, RenderingContext};
 use i3_common::font::load_font;
 use i3_common::font::predict_text_width;
-use i3_common::mkdirp::mkdirp;
+use i3_common::mkdirp::{create_dir_all, report_create_error};
 use std::ffi::{CStr, CString};
+use std::os::unix::ffi::OsStrExt;
 use std::rc::Rc;
 use xcb::{x, Xid, XidNew};
 use xcb_interop::events::key_press_state;
@@ -4962,7 +4963,10 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
     let config_path = CString::new(path).expect("base path has no NUL");
     let mut stbuf: stat = ::core::mem::zeroed();
     if stat(config_dir.as_ptr(), &raw mut stbuf) != 0 {
-        if mkdirp(config_dir.as_ptr(), DEFAULT_DIR_MODE) != 0 {
+        let directory = std::path::Path::new(std::ffi::OsStr::from_bytes(config_dir.to_bytes()));
+        if let Err(error) = create_dir_all(directory, DEFAULT_DIR_MODE) {
+            let error = report_create_error(directory, error);
+            *__errno_location() = error.raw_os_error().unwrap_or(libc::EIO);
             err(
                 libc::EXIT_FAILURE,
                 c"mkdirp(%s) failed".as_ptr(),
