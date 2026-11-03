@@ -21,7 +21,6 @@ repository = "https://github.com/sdfgeoff/i333"
 [workspace.dependencies]
 bitflags = "=2.13.2"
 libc = "=0.2.191"
-c2rust-bitfields = "=0.22.1"
 pkg-config = "=0.3.34"
 i3-common = { path = "crates/i3-common" }
 i3-build = { path = "crates/i3-build" }

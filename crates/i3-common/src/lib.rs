@@ -15,8 +15,6 @@
     stable_features,
     ambiguous_wide_pointer_comparisons
 )]
-#[macro_use]
-extern crate c2rust_bitfields;
 
 pub mod boolstr;
 pub mod create_socket;

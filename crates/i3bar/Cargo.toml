@@ -11,7 +11,6 @@ xcb.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 libc.workspace = true
-c2rust-bitfields.workspace = true
 i3-common.workspace = true
 libev-sys.workspace = true
 cairo-sys.workspace = true

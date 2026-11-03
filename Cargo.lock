@@ -15,27 +15,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3ded4057c258ba199e2d26386d3af3780957ecaee6c4ef4041c6b4b8b97c0b06"
 
 [[package]]
-name = "c2rust-bitfields"
-version = "0.22.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e91b9a85391b09c224053f3c45344f0639822e641f9d2b4f351bb3152600742d"
-dependencies = [
- "c2rust-bitfields-derive",
-]
-
-[[package]]
-name = "c2rust-bitfields-derive"
-version = "0.22.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "153187c06ed005d5cb75ed9f0a2f274836f54f6b2efdc1f45136e728764875f9"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.106",
- "unicode-ident",
-]
-
-[[package]]
 name = "cairo-rs"
 version = "0.21.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -293,7 +272,6 @@ name = "i3"
 version = "4.25.0"
 dependencies = [
  "bitflags",
- "c2rust-bitfields",
  "cairo-sys-rs",
  "i3-build",
  "i3-common",
@@ -318,7 +296,6 @@ version = "4.25.0"
 name = "i3-common"
 version = "4.25.0"
 dependencies = [
- "c2rust-bitfields",
  "cairo-rs",
  "cairo-sys-rs",
  "glib",
@@ -345,7 +322,6 @@ version = "4.25.0"
 name = "i3-tools"
 version = "4.25.0"
 dependencies = [
- "c2rust-bitfields",
  "cairo-sys-rs",
  "i3-build",
  "i3-common",
@@ -364,7 +340,6 @@ dependencies = [
 name = "i3bar"
 version = "4.25.0"
 dependencies = [
- "c2rust-bitfields",
  "cairo-sys-rs",
  "i3-build",
  "i3-common",
