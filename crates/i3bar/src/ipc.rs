@@ -6,12 +6,14 @@ use crate::config::config;
 use crate::outputs::outputs;
 use crate::xcb::kick_tray_clients;
 use i3_common::ipc_recv_message::{receive_message, Message, ReceiveError};
-use i3_common::ipc_send_message::send_message;
+use i3_common::ipc_send_message::{send_message, send_message_retry_would_block};
 use libc::{exit, fprintf, printf};
 use libev_sys::{ev_io, ev_io_start, ev_io_stop, ev_loop, EV_READ};
 use std::ffi::CStr;
 use std::io::{self, Read, Write};
-use std::os::fd::{AsRawFd, BorrowedFd, FromRawFd, OwnedFd};
+use std::os::fd::AsRawFd;
+use std::os::unix::ffi::OsStrExt;
+use std::os::unix::net::UnixStream;
 use std::ptr;
 
 const I3_IPC_MESSAGE_TYPE_GET_WORKSPACES: u32 = 1;
@@ -307,42 +309,6 @@ fn subscriptions(provides_workspaces: bool) -> &'static CStr {
     }
 }
 
-// A scoped descriptor borrow, never stored in a frame or retained by a handler.
-struct Descriptor<'a>(BorrowedFd<'a>);
-impl Read for Descriptor<'_> {
-    fn read(&mut self, bytes: &mut [u8]) -> io::Result<usize> {
-        // SAFETY: The descriptor remains live for this borrow and bytes provides
-        // writable storage. This call deliberately does not retry EINTR/EAGAIN.
-        let count =
-            unsafe { libc::read(self.0.as_raw_fd(), bytes.as_mut_ptr().cast(), bytes.len()) };
-        if count < 0 {
-            Err(io::Error::last_os_error())
-        } else {
-            Ok(count as usize)
-        }
-    }
-}
-impl Write for Descriptor<'_> {
-    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
-        loop {
-            // SAFETY: bytes is readable and the scoped descriptor is live.
-            let count =
-                unsafe { libc::write(self.0.as_raw_fd(), bytes.as_ptr().cast(), bytes.len()) };
-            if count >= 0 {
-                return Ok(count as usize);
-            }
-            let error = io::Error::last_os_error();
-            // swrite retried EAGAIN and EINTR; Write::write_all retries EINTR.
-            if error.kind() != io::ErrorKind::WouldBlock {
-                return Err(error);
-            }
-        }
-    }
-    fn flush(&mut self) -> io::Result<()> {
-        Ok(())
-    }
-}
-
 struct BarReader<'a, R: ?Sized> {
     reader: &'a mut R,
     received: usize,
@@ -387,7 +353,7 @@ fn read_frame(reader: &mut (impl Read + ?Sized)) -> Result<Message, FrameError> 
 
 struct Connection {
     watcher: ev_io,
-    fd: Option<OwnedFd>,
+    stream: Option<UnixStream>,
 }
 static mut CONNECTION: *mut Connection = ptr::null_mut();
 
@@ -399,8 +365,11 @@ unsafe extern "C" fn got_data(_loop: *mut ev_loop, watcher: *mut ev_io, _events:
         printf(c"[../i3bar/src/ipc.c:275] Got data!\n".as_ptr());
     }
     let result = {
-        let descriptor = BorrowedFd::borrow_raw((*watcher).fd);
-        read_frame(&mut Descriptor(descriptor))
+        let mut stream = (*CONNECTION)
+            .stream
+            .as_ref()
+            .expect("registered IPC stream remains live during IO");
+        read_frame(&mut stream)
     };
     let message = match result {
         Ok(message) => message,
@@ -471,8 +440,14 @@ unsafe extern "C" fn got_data(_loop: *mut ev_loop, watcher: *mut ev_io, _events:
 pub unsafe fn i3_send_msg(message_type: u32, payload: *const libc::c_char) -> i32 {
     let payload = optional_c_str(payload).map_or(&[][..], CStr::to_bytes);
     let fd = (*CONNECTION).watcher.fd;
-    let descriptor = BorrowedFd::borrow_raw(fd);
-    if let Err(error) = send_message(&mut Descriptor(descriptor), message_type, payload) {
+    let result = {
+        let mut stream = (*CONNECTION)
+            .stream
+            .as_ref()
+            .expect("initialized IPC stream remains live during IO");
+        send_message_retry_would_block(&mut stream, message_type, payload)
+    };
+    if let Err(error) = result {
         *libc::__errno_location() = error.raw_os_error().unwrap_or(libc::EIO);
         i3_common::native_stdio::err(libc::EXIT_FAILURE, c"Failed to write %d".as_ptr(), fd);
     }
@@ -483,10 +458,12 @@ pub unsafe fn i3_send_msg(message_type: u32, payload: *const libc::c_char) -> i3
 /// socket_path is a readable native path. The event thread owns the initialized
 /// main_loop and calls this once before using the connection.
 pub unsafe fn init_connection(socket_path: *const libc::c_char) {
-    let fd = ipc_connect(socket_path);
+    let path = optional_c_str(socket_path)
+        .map(|path| std::path::Path::new(std::ffi::OsStr::from_bytes(path.to_bytes())));
+    let stream = connect_or_exit(path);
     let connection = Box::new(Connection {
-        watcher: ev_io::new(fd, EV_READ, got_data),
-        fd: Some(OwnedFd::from_raw_fd(fd)),
+        watcher: ev_io::new(stream.as_raw_fd(), EV_READ, got_data),
+        stream: Some(stream),
     });
     CONNECTION = Box::into_raw(connection);
     ev_io_start(main_loop, &raw mut (*CONNECTION).watcher);
@@ -502,7 +479,7 @@ pub unsafe fn destroy_connection() {
     let mut connection = Box::from_raw(connection);
     // Preserve close-before-stop ordering, while retaining the watcher's stable
     // address until libev has removed it and cleared any pending callback.
-    drop(connection.fd.take());
+    drop(connection.stream.take());
     ev_io_stop(main_loop, &raw mut connection.watcher);
 }
 /// # Safety
@@ -540,13 +517,12 @@ use crate::application::verboselog;
 use crate::application::main_loop;
 use crate::config::free_colors;
 use crate::xcb::init_colors;
-use i3_common::ipc_connect::ipc_connect;
+use i3_common::ipc_connect::connect_or_exit;
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::io::Cursor;
-    use std::os::fd::AsFd;
     use std::os::unix::net::UnixStream;
     use std::time::Duration;
 
@@ -578,7 +554,7 @@ mod tests {
                 self.0.read(&mut bytes[..length])
             }
         }
-        let mut reader = Fragments(Descriptor(reader.as_fd()));
+        let mut reader = Fragments(reader);
         assert_eq!(
             read_frame(&mut reader).unwrap(),
             Message {

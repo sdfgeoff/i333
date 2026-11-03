@@ -4841,11 +4841,10 @@ impl Drop for XkbContext {
 }
 
 // Paths, file buffers and output bytes are owned locally. Only the initialized
-// display/XKB state and retained legacy IPC adapter remain native boundaries.
+// display/XKB state remains a native boundary.
 unsafe fn finish(ui: &WizardUi, keysyms: &KeySymbols) {
     use std::fs::File;
     use std::io::{BufRead, BufReader, Write};
-    use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
     use std::os::unix::ffi::OsStrExt;
     printf(c"creating \"%s\"...\n".as_ptr(), ui.config_path.as_ptr());
     let Some(context) = std::ptr::NonNull::new(xkb_context_new(XKB_CONTEXT_NO_FLAGS)) else {
@@ -4902,14 +4901,12 @@ unsafe fn finish(ui: &WizardUi, keysyms: &KeySymbols) {
     let _ = output.flush();
     let _ = output.sync_all();
     drop(output);
-    // ipc_connect returns a new uniquely owned socket (or exits). The borrowed
-    // descriptor stays open until the original reload adapter has sent its frame.
-    let descriptor = OwnedFd::from_raw_fd(ipc_connect(
-        ui.socket
-            .as_ref()
-            .map_or(std::ptr::null(), |path| path.as_ptr()),
-    ));
-    ipc_send_message(descriptor.as_raw_fd(), 6, 0, c"reload".as_ptr().cast());
+    let path = ui
+        .socket
+        .as_deref()
+        .map(|path| std::path::Path::new(std::ffi::OsStr::from_bytes(path.to_bytes())));
+    let mut socket = connect_or_exit(path);
+    let _ = send_message_retry_would_block(&mut socket, 0, b"reload");
 }
 #[derive(Clone, Copy)]
 enum ModifierKey {
@@ -5340,8 +5337,8 @@ use i3_common::native_stdio::{err, errx, stderr, stdout, vfprintf};
 
 // Internal calls and globals use canonical Rust identities.
 use i3_common::get_config_path::get_config_path;
-use i3_common::ipc_connect::ipc_connect;
-use i3_common::ipc_send_message::ipc_send_message;
+use i3_common::ipc_connect::connect_or_exit;
+use i3_common::ipc_send_message::send_message_retry_would_block;
 use i3_common::resolve_tilde::resolve_cstring;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]

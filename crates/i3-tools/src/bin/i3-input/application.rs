@@ -7,7 +7,7 @@ use i3_common::font::predict_text_width;
 use i3_common::string::I3String;
 use std::ffi::{CStr, CString};
 use std::io::Write;
-use std::os::fd::FromRawFd;
+use std::os::unix::ffi::OsStrExt;
 use std::os::unix::net::UnixStream;
 use std::rc::Rc;
 use xcb::{x, Xid, XidNew};
@@ -512,8 +512,8 @@ impl Drop for WindowResources {
 unsafe fn run_window(settings: InputSettings) -> ::core::ffi::c_int {
     let socket_path = settings
         .socket
-        .as_ref()
-        .map_or(std::ptr::null(), |value| value.as_ptr());
+        .as_deref()
+        .map(|value| std::path::Path::new(std::ffi::OsStr::from_bytes(value.to_bytes())));
     let pattern = settings
         .font
         .as_ref()
@@ -534,9 +534,7 @@ unsafe fn run_window(settings: InputSettings) -> ::core::ffi::c_int {
         has_font: false,
         has_surface: false,
     };
-    // SAFETY: ipc_connect either returns its newly owned connected descriptor
-    // or exits with the historical fatal diagnostic; no other owner remains.
-    let mut socket = UnixStream::from_raw_fd(ipc_connect(socket_path));
+    let mut socket = connect_or_exit(socket_path);
     root_screen = i3_common::display::DisplayScreen::new(resources.connection.clone(), screen);
     let screen_info = root_screen
         .as_ref()
@@ -750,7 +748,7 @@ use libc::{exit, fprintf, printf};
 use i3_common::native_stdio::{errx, stderr, stdout, vfprintf};
 
 // Internal calls and globals use canonical Rust identities.
-use i3_common::ipc_connect::ipc_connect;
+use i3_common::ipc_connect::connect_or_exit;
 
 pub use i3_common::ucs2_conversion::Ucs2Char as xcb_char2b_t;
 

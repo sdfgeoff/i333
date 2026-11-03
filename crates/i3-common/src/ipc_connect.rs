@@ -44,83 +44,153 @@ pub fn connect(explicit: Option<&Path>) -> io::Result<UnixStream> {
     connect_path(&socket_path(explicit)?)
 }
 
-/// Legacy raw-descriptor and fatal-diagnostic boundary, pending caller migration.
-mod legacy {
-    use super::*;
-    use std::ffi::CString;
-    use std::os::fd::IntoRawFd;
+/// Connect using the historical native sockaddr path limit. Older clients
+/// silently retained only the first 107 bytes; modern connect_path is unchanged.
+pub fn connect_compatible_path(path: &CStr) -> io::Result<UnixStream> {
+    let capacity =
+        std::mem::size_of::<libc::sockaddr_un>() - std::mem::size_of::<libc::sa_family_t>() - 1;
+    let bytes = path.to_bytes();
+    connect_path(Path::new(OsStr::from_bytes(
+        &bytes[..bytes.len().min(capacity)],
+    )))
+}
 
-    fn restore_errno(error: &io::Error) {
-        // SAFETY: The current target uses Linux's errno ABI.
-        unsafe { *libc::__errno_location() = error.raw_os_error().unwrap_or(libc::ENOENT) };
-    }
+fn restore_errno(error: &io::Error) {
+    // SAFETY: the Linux errno slot belongs to the calling thread. Preserve the
+    // native fatal diagnostic's OS error, including missing discovery fallback.
+    unsafe { *libc::__errno_location() = error.raw_os_error().unwrap_or(libc::ENOENT) };
+}
 
-    fn legacy_path(path: &CStr) -> PathBuf {
-        // Original sockaddr_un construction retained at this boundary only:
-        // older callers silently truncated paths to sun_path.len()-1 bytes.
-        let capacity =
-            std::mem::size_of::<libc::sockaddr_un>() - std::mem::size_of::<libc::sa_family_t>() - 1;
-        let bytes = path.to_bytes();
-        PathBuf::from(OsStr::from_bytes(&bytes[..bytes.len().min(capacity)]))
-    }
-
-    /// # Safety
-    /// `path` must point to a live NUL-terminated C string.
-
-    pub unsafe fn ipc_connect_impl(path: *const libc::c_char) -> libc::c_int {
-        // SAFETY: The caller supplies a borrowed C string.
-        let path = legacy_path(unsafe { CStr::from_ptr(path) });
-        match connect_path(&path) {
-            Ok(stream) => stream.into_raw_fd(),
-            Err(error) => {
-                restore_errno(&error);
-                -1
+/// Resolve and connect for clients whose historical failure contract exits.
+/// The full original path appears in diagnostics even when its wire path was
+/// truncated. The returned stream is the sole owner of its connected socket.
+pub fn connect_or_exit(explicit: Option<&Path>) -> UnixStream {
+    let path = match socket_path(explicit) {
+        Ok(path) => path,
+        Err(error) => {
+            restore_errno(&error);
+            // SAFETY: the static native diagnostic exits without unwinding FFI.
+            unsafe {
+                crate::native_stdio::err(
+                    libc::EXIT_FAILURE,
+                    c"Could not determine i3 socket path".as_ptr(),
+                )
             }
         }
-    }
-
-    /// # Safety
-    /// `path` is null or points to a live NUL-terminated C string.
-
-    pub unsafe fn ipc_connect(path: *const libc::c_char) -> libc::c_int {
-        // SAFETY: A nonnull path follows the caller's C-string contract.
-        let explicit = if path.is_null() {
-            None
-        } else {
-            Some(Path::new(OsStr::from_bytes(
-                unsafe { CStr::from_ptr(path) }.to_bytes(),
-            )))
-        };
-        let path = match socket_path(explicit) {
-            Ok(path) => path,
-            Err(error) => {
-                restore_errno(&error);
-                // SAFETY: Static C format; err exits without unwinding across FFI.
-                unsafe {
-                    err(
-                        libc::EXIT_FAILURE,
-                        c"Could not determine i3 socket path".as_ptr(),
-                    )
-                }
-            }
-        };
-        let c_path = CString::new(path.as_os_str().as_bytes()).expect("discovered path has no NUL");
-        match connect_path(&legacy_path(&c_path)) {
-            Ok(stream) => stream.into_raw_fd(),
-            Err(error) => {
-                restore_errno(&error);
-                // SAFETY: c_path outlives the printf-compatible diagnostic.
-                unsafe {
-                    err(
-                        libc::EXIT_FAILURE,
-                        c"Could not connect to i3 on socket %s".as_ptr(),
-                        c_path.as_ptr(),
-                    )
-                }
+    };
+    let path =
+        std::ffi::CString::new(path.as_os_str().as_bytes()).expect("discovered path has no NUL");
+    match connect_compatible_path(&path) {
+        Ok(stream) => stream,
+        Err(error) => {
+            restore_errno(&error);
+            // SAFETY: the owned original path outlives the native fatal format.
+            unsafe {
+                crate::native_stdio::err(
+                    libc::EXIT_FAILURE,
+                    c"Could not connect to i3 on socket %s".as_ptr(),
+                    path.as_ptr(),
+                )
             }
         }
     }
 }
-pub use legacy::{ipc_connect, ipc_connect_impl};
 
-use crate::native_stdio::err;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::ffi::CString;
+    use std::io::{Read, Write};
+    use std::os::unix::net::UnixListener;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    struct PrivateDirectory(PathBuf);
+    impl PrivateDirectory {
+        fn new() -> Self {
+            static NEXT: AtomicUsize = AtomicUsize::new(0);
+            let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+                .parent()
+                .unwrap()
+                .parent()
+                .unwrap()
+                .join(".work/ic");
+            std::fs::create_dir_all(&root).unwrap();
+            let path = root.join(format!(
+                "{}-{}",
+                std::process::id(),
+                NEXT.fetch_add(1, Ordering::Relaxed)
+            ));
+            std::fs::create_dir(&path).unwrap();
+            Self(path)
+        }
+        fn long_socket_path(&self) -> CString {
+            let mut bytes = self.0.join("socket-").as_os_str().as_bytes().to_vec();
+            assert!(
+                bytes.len() < 106,
+                "test directory must leave room for a107-byte socket"
+            );
+            bytes.resize(106, b'x');
+            bytes.push(0xff);
+            bytes.extend_from_slice(b"-original-suffix");
+            CString::new(bytes).unwrap()
+        }
+    }
+    impl Drop for PrivateDirectory {
+        fn drop(&mut self) {
+            std::fs::remove_dir_all(&self.0).unwrap();
+        }
+    }
+
+    #[test]
+    fn compatible_connection_keeps_native_truncation_bytes_and_socket_ownership() {
+        let directory = PrivateDirectory::new();
+        let original = directory.long_socket_path();
+        let truncated = Path::new(OsStr::from_bytes(&original.to_bytes()[..107]));
+        let listener = UnixListener::bind(truncated).unwrap();
+        assert!(connect_path(Path::new(OsStr::from_bytes(original.to_bytes()))).is_err());
+        let mut client = connect_compatible_path(&original).unwrap();
+        let (mut server, _) = listener.accept().unwrap();
+        client.write_all(b"private\0\xff").unwrap();
+        let mut payload = [0; 9];
+        server.read_exact(&mut payload).unwrap();
+        assert_eq!(&payload, b"private\0\xff");
+        drop(client);
+        assert_eq!(server.read(&mut payload).unwrap(), 0);
+    }
+
+    #[test]
+    fn fatal_connection_keeps_full_original_path_and_native_error() {
+        const CHILD_PATH: &str = "I333_CONNECT_FATAL_CHILD";
+        if let Some(path) = std::env::var_os(CHILD_PATH) {
+            connect_or_exit(Some(Path::new(&path)));
+            panic!("missing private socket must fail");
+        }
+        let directory = PrivateDirectory::new();
+        let original = directory.long_socket_path();
+        let path = Path::new(OsStr::from_bytes(original.to_bytes()));
+        assert_eq!(
+            connect_compatible_path(&original)
+                .unwrap_err()
+                .raw_os_error(),
+            Some(libc::ENOENT)
+        );
+        let child = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "ipc_connect::tests::fatal_connection_keeps_full_original_path_and_native_error",
+                "--nocapture",
+            ])
+            .env(CHILD_PATH, path)
+            .output()
+            .unwrap();
+        assert_eq!(child.status.code(), Some(libc::EXIT_FAILURE));
+        let mut expected = b"Could not connect to i3 on socket ".to_vec();
+        expected.extend_from_slice(original.to_bytes());
+        expected.extend_from_slice(b": ");
+        // SAFETY: strerror's borrowed native diagnostic is copied immediately.
+        expected
+            .extend_from_slice(unsafe { CStr::from_ptr(libc::strerror(libc::ENOENT)) }.to_bytes());
+        expected.push(b'\n');
+        assert!(child.stderr.ends_with(&expected), "{:?}", child.stderr);
+    }
+}
