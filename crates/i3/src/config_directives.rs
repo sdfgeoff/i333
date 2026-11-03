@@ -586,11 +586,11 @@ pub unsafe fn cfg_gaps(
 pub unsafe fn cfg_smart_borders(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    enable: *const ::core::ffi::c_char,
+    enable: &CStr,
 ) {
-    if strcmp(enable, c"no_gaps".as_ptr()) == 0 {
+    if enable == c"no_gaps" {
         config.hide_edge_borders = HideEdgeBordersMode::SmartNoGaps;
-    } else if boolstr(enable) {
+    } else if is_enabled(enable.to_bytes()) {
         if config.hide_edge_borders == HideEdgeBordersMode::None {
             config.hide_edge_borders = HideEdgeBordersMode::Smart;
         } else {
@@ -604,12 +604,12 @@ pub unsafe fn cfg_smart_borders(
 pub unsafe fn cfg_smart_gaps(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    enable: *const ::core::ffi::c_char,
+    enable: &CStr,
 ) {
-    if strcmp(enable, c"inverse_outer".as_ptr()) == 0 {
+    if enable == c"inverse_outer" {
         config.smart_gaps = SmartGaps::InverseOuter;
     } else {
-        config.smart_gaps = if boolstr(enable) as ::core::ffi::c_int != 0 {
+        config.smart_gaps = if is_enabled(enable.to_bytes()) {
             SmartGaps::On
         } else {
             SmartGaps::Off
@@ -739,21 +739,21 @@ pub unsafe fn cfg_default_border(
 pub unsafe fn cfg_hide_edge_borders(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    borders: *const ::core::ffi::c_char,
+    borders: &CStr,
 ) {
-    if strcmp(borders, c"smart_no_gaps".as_ptr()) == 0 as ::core::ffi::c_int {
+    if borders == c"smart_no_gaps" {
         config.hide_edge_borders = HideEdgeBordersMode::SmartNoGaps;
-    } else if strcmp(borders, c"smart".as_ptr()) == 0 as ::core::ffi::c_int {
+    } else if borders == c"smart" {
         config.hide_edge_borders = HideEdgeBordersMode::Smart;
-    } else if strcmp(borders, c"vertical".as_ptr()) == 0 as ::core::ffi::c_int {
+    } else if borders == c"vertical" {
         config.hide_edge_borders = HideEdgeBordersMode::Vertical;
-    } else if strcmp(borders, c"horizontal".as_ptr()) == 0 as ::core::ffi::c_int {
+    } else if borders == c"horizontal" {
         config.hide_edge_borders = HideEdgeBordersMode::Horizontal;
-    } else if strcmp(borders, c"both".as_ptr()) == 0 as ::core::ffi::c_int {
+    } else if borders == c"both" {
         config.hide_edge_borders = HideEdgeBordersMode::Both;
-    } else if strcmp(borders, c"none".as_ptr()) == 0 as ::core::ffi::c_int {
+    } else if borders == c"none" {
         config.hide_edge_borders = HideEdgeBordersMode::None;
-    } else if boolstr(borders) {
+    } else if is_enabled(borders.to_bytes()) {
         config.hide_edge_borders = HideEdgeBordersMode::Vertical;
     } else {
         config.hide_edge_borders = HideEdgeBordersMode::None;
@@ -763,9 +763,9 @@ pub unsafe fn cfg_hide_edge_borders(
 pub unsafe fn cfg_focus_follows_mouse(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    value: *const ::core::ffi::c_char,
+    value: bool,
 ) {
-    config.disable_focus_follows_mouse = !boolstr(value);
+    config.disable_focus_follows_mouse = !value;
 }
 
 pub unsafe fn cfg_mouse_warping(
@@ -783,29 +783,29 @@ pub unsafe fn cfg_mouse_warping(
 pub unsafe fn cfg_force_xinerama(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    value: *const ::core::ffi::c_char,
+    value: bool,
 ) {
-    config.force_xinerama = boolstr(value);
+    config.force_xinerama = value;
 }
 
 pub unsafe fn cfg_disable_randr15(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    value: *const ::core::ffi::c_char,
+    value: bool,
 ) {
-    config.disable_randr15 = boolstr(value);
+    config.disable_randr15 = value;
 }
 
 pub unsafe fn cfg_focus_wrapping(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    value: *const ::core::ffi::c_char,
+    value: &CStr,
 ) {
-    if strcmp(value, c"force".as_ptr()) == 0 as ::core::ffi::c_int {
+    if value == c"force" {
         config.focus_wrapping = FocusWrapping::Force;
-    } else if strcmp(value, c"workspace".as_ptr()) == 0 as ::core::ffi::c_int {
+    } else if value == c"workspace" {
         config.focus_wrapping = FocusWrapping::Workspace;
-    } else if boolstr(value) {
+    } else if is_enabled(value.to_bytes()) {
         config.focus_wrapping = FocusWrapping::On;
     } else {
         config.focus_wrapping = FocusWrapping::Off;
@@ -815,9 +815,9 @@ pub unsafe fn cfg_focus_wrapping(
 pub unsafe fn cfg_force_focus_wrapping(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    value: *const ::core::ffi::c_char,
+    value: bool,
 ) {
-    if boolstr(value) {
+    if value {
         config.focus_wrapping = FocusWrapping::Force;
     } else if config.focus_wrapping == FocusWrapping::Force {
         config.focus_wrapping = FocusWrapping::On;
@@ -827,9 +827,9 @@ pub unsafe fn cfg_force_focus_wrapping(
 pub unsafe fn cfg_workspace_back_and_forth(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    value: *const ::core::ffi::c_char,
+    value: bool,
 ) {
-    config.workspace_auto_back_and_forth = boolstr(value);
+    config.workspace_auto_back_and_forth = value;
 }
 
 pub unsafe fn cfg_fake_outputs(
@@ -907,12 +907,8 @@ pub unsafe fn cfg_title_align(
     };
 }
 
-pub unsafe fn cfg_show_marks(
-    current_match: *mut Match,
-    result: *mut ConfigResultIR,
-    value: *const ::core::ffi::c_char,
-) {
-    config.show_marks = boolstr(value);
+pub unsafe fn cfg_show_marks(current_match: *mut Match, result: *mut ConfigResultIR, value: bool) {
+    config.show_marks = value;
 }
 static CURRENT_WORKSPACE: std::sync::Mutex<Option<std::ffi::CString>> = std::sync::Mutex::new(None);
 
@@ -1430,9 +1426,9 @@ pub unsafe fn cfg_bar_output(
 pub unsafe fn cfg_bar_verbose(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    verbose: *const ::core::ffi::c_char,
+    verbose: bool,
 ) {
-    (*current_bar).verbose = boolstr(verbose);
+    (*current_bar).verbose = verbose;
 }
 
 pub unsafe fn cfg_bar_height(
@@ -1781,17 +1777,17 @@ pub unsafe fn cfg_bar_workspace_command(
 pub unsafe fn cfg_bar_binding_mode_indicator(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    value: *const ::core::ffi::c_char,
+    value: bool,
 ) {
-    (*current_bar).hide_binding_mode_indicator = !boolstr(value);
+    (*current_bar).hide_binding_mode_indicator = !value;
 }
 
 pub unsafe fn cfg_bar_workspace_buttons(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    value: *const ::core::ffi::c_char,
+    value: bool,
 ) {
-    (*current_bar).hide_workspace_buttons = !boolstr(value);
+    (*current_bar).hide_workspace_buttons = !value;
 }
 
 pub unsafe fn cfg_bar_workspace_min_width(
@@ -1805,17 +1801,17 @@ pub unsafe fn cfg_bar_workspace_min_width(
 pub unsafe fn cfg_bar_strip_workspace_numbers(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    value: *const ::core::ffi::c_char,
+    value: bool,
 ) {
-    (*current_bar).strip_workspace_numbers = boolstr(value);
+    (*current_bar).strip_workspace_numbers = value;
 }
 
 pub unsafe fn cfg_bar_strip_workspace_name(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    value: *const ::core::ffi::c_char,
+    value: bool,
 ) {
-    (*current_bar).strip_workspace_name = boolstr(value);
+    (*current_bar).strip_workspace_name = value;
 }
 
 pub unsafe fn cfg_bar_start(current_match: *mut Match, result: *mut ConfigResultIR) {
@@ -1858,7 +1854,7 @@ pub unsafe fn cfg_bar_finish(current_match: *mut Match, result: *mut ConfigResul
 // Internal helpers use Rust linkage rather than foreign symbol lookup.
 use crate::ipc::ipc_set_kill_timeout;
 use crate::util::ws_name_to_number;
-use i3_common::boolstr::boolstr;
+use i3_common::boolstr::is_enabled;
 use i3_common::dpi::logical_px;
 use i3_common::safewrappers::scalloc;
 use i3_common::safewrappers::smalloc;

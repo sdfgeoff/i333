@@ -63,7 +63,7 @@ impl ParserStack {
         });
     }
 
-    fn get_string(&self, identifier: &CStr) -> Option<&CStr> {
+    pub(crate) fn get_string(&self, identifier: &CStr) -> Option<&CStr> {
         self.entries
             .iter()
             .find(|entry| entry.identifier.as_c_str() == identifier)

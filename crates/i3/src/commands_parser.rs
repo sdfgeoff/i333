@@ -2859,7 +2859,7 @@ unsafe fn GENERATED_call(
             cmd_title_window_icon(
                 current_match,
                 result,
-                parser_get_string(stack, c"enable".as_ptr()),
+                (&*stack).get_string(c"enable"),
                 parser_get_long(stack, c"padding".as_ptr()) as ::core::ffi::c_int,
             );
         }
@@ -2868,7 +2868,7 @@ unsafe fn GENERATED_call(
             cmd_title_window_icon(
                 current_match,
                 result,
-                parser_get_string(stack, c"enable".as_ptr()),
+                (&*stack).get_string(c"enable"),
                 parser_get_long(stack, c"padding".as_ptr()) as ::core::ffi::c_int,
             );
         }
@@ -3025,7 +3025,7 @@ unsafe fn GENERATED_call(
             cmd_title_window_icon(
                 current_match,
                 result,
-                parser_get_string(stack, c"enable".as_ptr()),
+                (&*stack).get_string(c"enable"),
                 0 as ::core::ffi::c_int,
             );
         }
@@ -3034,7 +3034,7 @@ unsafe fn GENERATED_call(
             cmd_title_window_icon(
                 current_match,
                 result,
-                parser_get_string(stack, c"enable".as_ptr()),
+                (&*stack).get_string(c"enable"),
                 0 as ::core::ffi::c_int,
             );
         }
@@ -3043,7 +3043,7 @@ unsafe fn GENERATED_call(
             cmd_title_window_icon(
                 current_match,
                 result,
-                parser_get_string(stack, c"enable".as_ptr()),
+                (&*stack).get_string(c"enable"),
                 0 as ::core::ffi::c_int,
             );
         }
@@ -3052,7 +3052,7 @@ unsafe fn GENERATED_call(
             cmd_title_window_icon(
                 current_match,
                 result,
-                parser_get_string(stack, c"enable".as_ptr()),
+                (&*stack).get_string(c"enable"),
                 0 as ::core::ffi::c_int,
             );
         }
@@ -3061,7 +3061,7 @@ unsafe fn GENERATED_call(
             cmd_title_window_icon(
                 current_match,
                 result,
-                parser_get_string(stack, c"enable".as_ptr()),
+                (&*stack).get_string(c"enable"),
                 0 as ::core::ffi::c_int,
             );
         }
@@ -3070,7 +3070,7 @@ unsafe fn GENERATED_call(
             cmd_title_window_icon(
                 current_match,
                 result,
-                parser_get_string(stack, c"enable".as_ptr()),
+                (&*stack).get_string(c"enable"),
                 0 as ::core::ffi::c_int,
             );
         }
@@ -3079,7 +3079,7 @@ unsafe fn GENERATED_call(
             cmd_title_window_icon(
                 current_match,
                 result,
-                parser_get_string(stack, c"enable".as_ptr()),
+                (&*stack).get_string(c"enable"),
                 0 as ::core::ffi::c_int,
             );
         }
@@ -3088,7 +3088,7 @@ unsafe fn GENERATED_call(
             cmd_title_window_icon(
                 current_match,
                 result,
-                parser_get_string(stack, c"enable".as_ptr()),
+                (&*stack).get_string(c"enable"),
                 0 as ::core::ffi::c_int,
             );
         }
@@ -3097,7 +3097,7 @@ unsafe fn GENERATED_call(
             cmd_title_window_icon(
                 current_match,
                 result,
-                parser_get_string(stack, c"enable".as_ptr()),
+                (&*stack).get_string(c"enable"),
                 0 as ::core::ffi::c_int,
             );
         }
@@ -3106,7 +3106,7 @@ unsafe fn GENERATED_call(
             cmd_title_window_icon(
                 current_match,
                 result,
-                parser_get_string(stack, c"enable".as_ptr()),
+                (&*stack).get_string(c"enable"),
                 0 as ::core::ffi::c_int,
             );
         }
@@ -3115,7 +3115,7 @@ unsafe fn GENERATED_call(
             cmd_title_window_icon(
                 current_match,
                 result,
-                parser_get_string(stack, c"enable".as_ptr()),
+                (&*stack).get_string(c"enable"),
                 0 as ::core::ffi::c_int,
             );
         }
@@ -3124,7 +3124,7 @@ unsafe fn GENERATED_call(
             cmd_title_window_icon(
                 current_match,
                 result,
-                parser_get_string(stack, c"enable".as_ptr()),
+                (&*stack).get_string(c"enable"),
                 0 as ::core::ffi::c_int,
             );
         }

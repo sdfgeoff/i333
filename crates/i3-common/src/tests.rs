@@ -88,19 +88,14 @@ fn enabled_words_are_case_insensitive_without_trimming() {
     for word in ["1", "yes", "true", "on", "enable", "active"] {
         for variant in [word.to_owned(), word.to_uppercase()] {
             let value = CString::new(variant).unwrap();
-            // SAFETY: CString supplies a valid NUL-terminated borrowed string.
-            assert!(unsafe { crate::boolstr::boolstr(value.as_ptr()) }, "{word}");
+            assert!(crate::boolstr::is_enabled(value.to_bytes()), "{word}");
         }
     }
     for word in [
         "", "0", "no", "false", "disabled", " yes", "true ", "y", "2",
     ] {
         let value = CString::new(word).unwrap();
-        // SAFETY: CString remains alive through the call.
-        assert!(
-            !unsafe { crate::boolstr::boolstr(value.as_ptr()) },
-            "{word:?}"
-        );
+        assert!(!crate::boolstr::is_enabled(value.to_bytes()), "{word:?}");
     }
 }
 

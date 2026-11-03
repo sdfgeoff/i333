@@ -4338,14 +4338,14 @@ pub unsafe fn cmd_title_format(
 pub unsafe fn cmd_title_window_icon(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    enable: *const ::core::ffi::c_char,
+    enable: Option<&std::ffi::CStr>,
     mut padding: ::core::ffi::c_int,
 ) {
     let mut is_toggle: bool = false_0 != 0;
-    if !enable.is_null() {
-        if strcmp(enable, c"toggle".as_ptr()) == 0 as ::core::ffi::c_int {
+    if let Some(enable) = enable {
+        if enable == c"toggle" {
             is_toggle = true_0 != 0;
-        } else if !boolstr(enable) {
+        } else if !is_enabled(enable.to_bytes()) {
             padding = -(1 as ::core::ffi::c_int);
         }
     }
@@ -5204,7 +5204,7 @@ use crate::workspace::workspace_back_and_forth;
 use crate::workspace::workspace_show_by_name;
 use crate::x::update_shmlog_atom;
 use crate::x::x_set_i3_atoms;
-use i3_common::boolstr::boolstr;
+use i3_common::boolstr::is_enabled;
 use i3_common::dpi::logical_px;
 use i3_common::safewrappers::scalloc;
 use i3_common::safewrappers::smalloc;

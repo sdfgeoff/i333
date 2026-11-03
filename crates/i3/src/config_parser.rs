@@ -4177,7 +4177,12 @@ unsafe fn GENERATED_call(
             cfg_bar_strip_workspace_numbers(
                 current_match,
                 result,
-                parser_get_string(stack, c"value".as_ptr()),
+                i3_common::boolstr::is_enabled(
+                    (&*stack)
+                        .get_string(c"value")
+                        .expect("boolean directive has a captured value")
+                        .to_bytes(),
+                ),
             );
         }
         4 => {
@@ -4185,7 +4190,12 @@ unsafe fn GENERATED_call(
             cfg_bar_binding_mode_indicator(
                 current_match,
                 result,
-                parser_get_string(stack, c"value".as_ptr()),
+                i3_common::boolstr::is_enabled(
+                    (&*stack)
+                        .get_string(c"value")
+                        .expect("boolean directive has a captured value")
+                        .to_bytes(),
+                ),
             );
         }
         5 => {
@@ -4217,7 +4227,12 @@ unsafe fn GENERATED_call(
             cfg_bar_strip_workspace_name(
                 current_match,
                 result,
-                parser_get_string(stack, c"value".as_ptr()),
+                i3_common::boolstr::is_enabled(
+                    (&*stack)
+                        .get_string(c"value")
+                        .expect("boolean directive has a captured value")
+                        .to_bytes(),
+                ),
             );
         }
         9 => {
@@ -4253,7 +4268,12 @@ unsafe fn GENERATED_call(
             cfg_workspace_back_and_forth(
                 current_match,
                 result,
-                parser_get_string(stack, c"value".as_ptr()),
+                i3_common::boolstr::is_enabled(
+                    (&*stack)
+                        .get_string(c"value")
+                        .expect("boolean directive has a captured value")
+                        .to_bytes(),
+                ),
             );
         }
         13 => {
@@ -4311,7 +4331,12 @@ unsafe fn GENERATED_call(
             cfg_bar_workspace_buttons(
                 current_match,
                 result,
-                parser_get_string(stack, c"value".as_ptr()),
+                i3_common::boolstr::is_enabled(
+                    (&*stack)
+                        .get_string(c"value")
+                        .expect("boolean directive has a captured value")
+                        .to_bytes(),
+                ),
             );
         }
         20 => {
@@ -4354,7 +4379,12 @@ unsafe fn GENERATED_call(
             cfg_force_focus_wrapping(
                 current_match,
                 result,
-                parser_get_string(stack, c"value".as_ptr()),
+                i3_common::boolstr::is_enabled(
+                    (&*stack)
+                        .get_string(c"value")
+                        .expect("boolean directive has a captured value")
+                        .to_bytes(),
+                ),
             );
         }
         25 => {
@@ -4404,7 +4434,12 @@ unsafe fn GENERATED_call(
             cfg_focus_follows_mouse(
                 current_match,
                 result,
-                parser_get_string(stack, c"value".as_ptr()),
+                i3_common::boolstr::is_enabled(
+                    (&*stack)
+                        .get_string(c"value")
+                        .expect("boolean directive has a captured value")
+                        .to_bytes(),
+                ),
             );
         }
         31 => {
@@ -4498,7 +4533,9 @@ unsafe fn GENERATED_call(
             cfg_hide_edge_borders(
                 current_match,
                 result,
-                parser_get_string(stack, c"hide_borders".as_ptr()),
+                (&*stack)
+                    .get_string(c"hide_borders")
+                    .expect("boolean directive has a captured value"),
             );
         }
         41 => {
@@ -4506,7 +4543,9 @@ unsafe fn GENERATED_call(
             cfg_hide_edge_borders(
                 current_match,
                 result,
-                parser_get_string(stack, c"hide_borders".as_ptr()),
+                (&*stack)
+                    .get_string(c"hide_borders")
+                    .expect("boolean directive has a captured value"),
             );
         }
         42 => {
@@ -4514,7 +4553,9 @@ unsafe fn GENERATED_call(
             cfg_hide_edge_borders(
                 current_match,
                 result,
-                parser_get_string(stack, c"hide_borders".as_ptr()),
+                (&*stack)
+                    .get_string(c"hide_borders")
+                    .expect("boolean directive has a captured value"),
             );
         }
         43 => {
@@ -4522,7 +4563,9 @@ unsafe fn GENERATED_call(
             cfg_hide_edge_borders(
                 current_match,
                 result,
-                parser_get_string(stack, c"hide_borders".as_ptr()),
+                (&*stack)
+                    .get_string(c"hide_borders")
+                    .expect("boolean directive has a captured value"),
             );
         }
         44 => {
@@ -4530,7 +4573,9 @@ unsafe fn GENERATED_call(
             cfg_hide_edge_borders(
                 current_match,
                 result,
-                parser_get_string(stack, c"hide_borders".as_ptr()),
+                (&*stack)
+                    .get_string(c"hide_borders")
+                    .expect("boolean directive has a captured value"),
             );
         }
         45 => {
@@ -4538,7 +4583,9 @@ unsafe fn GENERATED_call(
             cfg_hide_edge_borders(
                 current_match,
                 result,
-                parser_get_string(stack, c"hide_borders".as_ptr()),
+                (&*stack)
+                    .get_string(c"hide_borders")
+                    .expect("boolean directive has a captured value"),
             );
         }
         46 => {
@@ -4546,7 +4593,9 @@ unsafe fn GENERATED_call(
             cfg_hide_edge_borders(
                 current_match,
                 result,
-                parser_get_string(stack, c"hide_borders".as_ptr()),
+                (&*stack)
+                    .get_string(c"hide_borders")
+                    .expect("boolean directive has a captured value"),
             );
         }
         47 => {
@@ -4554,7 +4603,9 @@ unsafe fn GENERATED_call(
             cfg_hide_edge_borders(
                 current_match,
                 result,
-                parser_get_string(stack, c"hide_borders".as_ptr()),
+                (&*stack)
+                    .get_string(c"hide_borders")
+                    .expect("boolean directive has a captured value"),
             );
         }
         48 => {
@@ -4562,7 +4613,9 @@ unsafe fn GENERATED_call(
             cfg_hide_edge_borders(
                 current_match,
                 result,
-                parser_get_string(stack, c"hide_borders".as_ptr()),
+                (&*stack)
+                    .get_string(c"hide_borders")
+                    .expect("boolean directive has a captured value"),
             );
         }
         49 => {
@@ -4570,7 +4623,9 @@ unsafe fn GENERATED_call(
             cfg_hide_edge_borders(
                 current_match,
                 result,
-                parser_get_string(stack, c"hide_borders".as_ptr()),
+                (&*stack)
+                    .get_string(c"hide_borders")
+                    .expect("boolean directive has a captured value"),
             );
         }
         50 => {
@@ -4578,7 +4633,9 @@ unsafe fn GENERATED_call(
             cfg_hide_edge_borders(
                 current_match,
                 result,
-                parser_get_string(stack, c"hide_borders".as_ptr()),
+                (&*stack)
+                    .get_string(c"hide_borders")
+                    .expect("boolean directive has a captured value"),
             );
         }
         51 => {
@@ -4586,7 +4643,9 @@ unsafe fn GENERATED_call(
             cfg_hide_edge_borders(
                 current_match,
                 result,
-                parser_get_string(stack, c"hide_borders".as_ptr()),
+                (&*stack)
+                    .get_string(c"hide_borders")
+                    .expect("boolean directive has a captured value"),
             );
         }
         52 => {
@@ -4768,7 +4827,12 @@ unsafe fn GENERATED_call(
             cfg_disable_randr15(
                 current_match,
                 result,
-                parser_get_string(stack, c"value".as_ptr()),
+                i3_common::boolstr::is_enabled(
+                    (&*stack)
+                        .get_string(c"value")
+                        .expect("boolean directive has a captured value")
+                        .to_bytes(),
+                ),
             );
         }
         72 => {
@@ -4796,7 +4860,9 @@ unsafe fn GENERATED_call(
             cfg_focus_wrapping(
                 current_match,
                 result,
-                parser_get_string(stack, c"value".as_ptr()),
+                (&*stack)
+                    .get_string(c"value")
+                    .expect("boolean directive has a captured value"),
             );
         }
         75 => {
@@ -4804,7 +4870,9 @@ unsafe fn GENERATED_call(
             cfg_focus_wrapping(
                 current_match,
                 result,
-                parser_get_string(stack, c"value".as_ptr()),
+                (&*stack)
+                    .get_string(c"value")
+                    .expect("boolean directive has a captured value"),
             );
         }
         76 => {
@@ -4812,7 +4880,9 @@ unsafe fn GENERATED_call(
             cfg_focus_wrapping(
                 current_match,
                 result,
-                parser_get_string(stack, c"value".as_ptr()),
+                (&*stack)
+                    .get_string(c"value")
+                    .expect("boolean directive has a captured value"),
             );
         }
         77 => {
@@ -4820,7 +4890,9 @@ unsafe fn GENERATED_call(
             cfg_focus_wrapping(
                 current_match,
                 result,
-                parser_get_string(stack, c"value".as_ptr()),
+                (&*stack)
+                    .get_string(c"value")
+                    .expect("boolean directive has a captured value"),
             );
         }
         78 => {
@@ -4828,7 +4900,9 @@ unsafe fn GENERATED_call(
             cfg_focus_wrapping(
                 current_match,
                 result,
-                parser_get_string(stack, c"value".as_ptr()),
+                (&*stack)
+                    .get_string(c"value")
+                    .expect("boolean directive has a captured value"),
             );
         }
         79 => {
@@ -4836,7 +4910,9 @@ unsafe fn GENERATED_call(
             cfg_focus_wrapping(
                 current_match,
                 result,
-                parser_get_string(stack, c"value".as_ptr()),
+                (&*stack)
+                    .get_string(c"value")
+                    .expect("boolean directive has a captured value"),
             );
         }
         80 => {
@@ -4844,7 +4920,9 @@ unsafe fn GENERATED_call(
             cfg_focus_wrapping(
                 current_match,
                 result,
-                parser_get_string(stack, c"value".as_ptr()),
+                (&*stack)
+                    .get_string(c"value")
+                    .expect("boolean directive has a captured value"),
             );
         }
         81 => {
@@ -4852,7 +4930,9 @@ unsafe fn GENERATED_call(
             cfg_focus_wrapping(
                 current_match,
                 result,
-                parser_get_string(stack, c"value".as_ptr()),
+                (&*stack)
+                    .get_string(c"value")
+                    .expect("boolean directive has a captured value"),
             );
         }
         82 => {
@@ -4860,7 +4940,9 @@ unsafe fn GENERATED_call(
             cfg_focus_wrapping(
                 current_match,
                 result,
-                parser_get_string(stack, c"value".as_ptr()),
+                (&*stack)
+                    .get_string(c"value")
+                    .expect("boolean directive has a captured value"),
             );
         }
         83 => {
@@ -4868,7 +4950,9 @@ unsafe fn GENERATED_call(
             cfg_focus_wrapping(
                 current_match,
                 result,
-                parser_get_string(stack, c"value".as_ptr()),
+                (&*stack)
+                    .get_string(c"value")
+                    .expect("boolean directive has a captured value"),
             );
         }
         84 => {
@@ -4876,7 +4960,9 @@ unsafe fn GENERATED_call(
             cfg_focus_wrapping(
                 current_match,
                 result,
-                parser_get_string(stack, c"value".as_ptr()),
+                (&*stack)
+                    .get_string(c"value")
+                    .expect("boolean directive has a captured value"),
             );
         }
         85 => {
@@ -4884,7 +4970,9 @@ unsafe fn GENERATED_call(
             cfg_focus_wrapping(
                 current_match,
                 result,
-                parser_get_string(stack, c"value".as_ptr()),
+                (&*stack)
+                    .get_string(c"value")
+                    .expect("boolean directive has a captured value"),
             );
         }
         86 => {
@@ -4892,7 +4980,9 @@ unsafe fn GENERATED_call(
             cfg_focus_wrapping(
                 current_match,
                 result,
-                parser_get_string(stack, c"value".as_ptr()),
+                (&*stack)
+                    .get_string(c"value")
+                    .expect("boolean directive has a captured value"),
             );
         }
         87 => {
@@ -4900,7 +4990,9 @@ unsafe fn GENERATED_call(
             cfg_focus_wrapping(
                 current_match,
                 result,
-                parser_get_string(stack, c"value".as_ptr()),
+                (&*stack)
+                    .get_string(c"value")
+                    .expect("boolean directive has a captured value"),
             );
         }
         88 => {
@@ -4908,7 +5000,12 @@ unsafe fn GENERATED_call(
             cfg_force_xinerama(
                 current_match,
                 result,
-                parser_get_string(stack, c"value".as_ptr()),
+                i3_common::boolstr::is_enabled(
+                    (&*stack)
+                        .get_string(c"value")
+                        .expect("boolean directive has a captured value")
+                        .to_bytes(),
+                ),
             );
         }
         89 => {
@@ -4957,7 +5054,9 @@ unsafe fn GENERATED_call(
             cfg_smart_borders(
                 current_match,
                 result,
-                parser_get_string(stack, c"enabled".as_ptr()),
+                (&*stack)
+                    .get_string(c"enabled")
+                    .expect("boolean directive has a captured value"),
             );
         }
         95 => {
@@ -4965,7 +5064,9 @@ unsafe fn GENERATED_call(
             cfg_smart_borders(
                 current_match,
                 result,
-                parser_get_string(stack, c"enabled".as_ptr()),
+                (&*stack)
+                    .get_string(c"enabled")
+                    .expect("boolean directive has a captured value"),
             );
         }
         96 => {
@@ -4973,7 +5074,9 @@ unsafe fn GENERATED_call(
             cfg_smart_borders(
                 current_match,
                 result,
-                parser_get_string(stack, c"enabled".as_ptr()),
+                (&*stack)
+                    .get_string(c"enabled")
+                    .expect("boolean directive has a captured value"),
             );
         }
         97 => {
@@ -4981,7 +5084,9 @@ unsafe fn GENERATED_call(
             cfg_smart_borders(
                 current_match,
                 result,
-                parser_get_string(stack, c"enabled".as_ptr()),
+                (&*stack)
+                    .get_string(c"enabled")
+                    .expect("boolean directive has a captured value"),
             );
         }
         98 => {
@@ -4989,7 +5094,9 @@ unsafe fn GENERATED_call(
             cfg_smart_borders(
                 current_match,
                 result,
-                parser_get_string(stack, c"enabled".as_ptr()),
+                (&*stack)
+                    .get_string(c"enabled")
+                    .expect("boolean directive has a captured value"),
             );
         }
         99 => {
@@ -4997,7 +5104,9 @@ unsafe fn GENERATED_call(
             cfg_smart_borders(
                 current_match,
                 result,
-                parser_get_string(stack, c"enabled".as_ptr()),
+                (&*stack)
+                    .get_string(c"enabled")
+                    .expect("boolean directive has a captured value"),
             );
         }
         100 => {
@@ -5005,7 +5114,9 @@ unsafe fn GENERATED_call(
             cfg_smart_borders(
                 current_match,
                 result,
-                parser_get_string(stack, c"enabled".as_ptr()),
+                (&*stack)
+                    .get_string(c"enabled")
+                    .expect("boolean directive has a captured value"),
             );
         }
         101 => {
@@ -5074,7 +5185,12 @@ unsafe fn GENERATED_call(
             cfg_bar_verbose(
                 current_match,
                 result,
-                parser_get_string(stack, c"value".as_ptr()),
+                i3_common::boolstr::is_enabled(
+                    (&*stack)
+                        .get_string(c"value")
+                        .expect("boolean directive has a captured value")
+                        .to_bytes(),
+                ),
             );
         }
         110 => {
@@ -5197,7 +5313,12 @@ unsafe fn GENERATED_call(
             cfg_show_marks(
                 current_match,
                 result,
-                parser_get_string(stack, c"value".as_ptr()),
+                i3_common::boolstr::is_enabled(
+                    (&*stack)
+                        .get_string(c"value")
+                        .expect("boolean directive has a captured value")
+                        .to_bytes(),
+                ),
             );
         }
         125 => {
@@ -5205,7 +5326,9 @@ unsafe fn GENERATED_call(
             cfg_smart_gaps(
                 current_match,
                 result,
-                parser_get_string(stack, c"enabled".as_ptr()),
+                (&*stack)
+                    .get_string(c"enabled")
+                    .expect("boolean directive has a captured value"),
             );
         }
         126 => {
@@ -5213,7 +5336,9 @@ unsafe fn GENERATED_call(
             cfg_smart_gaps(
                 current_match,
                 result,
-                parser_get_string(stack, c"enabled".as_ptr()),
+                (&*stack)
+                    .get_string(c"enabled")
+                    .expect("boolean directive has a captured value"),
             );
         }
         127 => {
@@ -5221,7 +5346,9 @@ unsafe fn GENERATED_call(
             cfg_smart_gaps(
                 current_match,
                 result,
-                parser_get_string(stack, c"enabled".as_ptr()),
+                (&*stack)
+                    .get_string(c"enabled")
+                    .expect("boolean directive has a captured value"),
             );
         }
         128 => {
@@ -5229,7 +5356,9 @@ unsafe fn GENERATED_call(
             cfg_smart_gaps(
                 current_match,
                 result,
-                parser_get_string(stack, c"enabled".as_ptr()),
+                (&*stack)
+                    .get_string(c"enabled")
+                    .expect("boolean directive has a captured value"),
             );
         }
         129 => {
@@ -5237,7 +5366,9 @@ unsafe fn GENERATED_call(
             cfg_smart_gaps(
                 current_match,
                 result,
-                parser_get_string(stack, c"enabled".as_ptr()),
+                (&*stack)
+                    .get_string(c"enabled")
+                    .expect("boolean directive has a captured value"),
             );
         }
         130 => {
@@ -5245,7 +5376,9 @@ unsafe fn GENERATED_call(
             cfg_smart_gaps(
                 current_match,
                 result,
-                parser_get_string(stack, c"enabled".as_ptr()),
+                (&*stack)
+                    .get_string(c"enabled")
+                    .expect("boolean directive has a captured value"),
             );
         }
         131 => {
@@ -5253,7 +5386,9 @@ unsafe fn GENERATED_call(
             cfg_smart_gaps(
                 current_match,
                 result,
-                parser_get_string(stack, c"enabled".as_ptr()),
+                (&*stack)
+                    .get_string(c"enabled")
+                    .expect("boolean directive has a captured value"),
             );
         }
         132 => {
@@ -5261,7 +5396,9 @@ unsafe fn GENERATED_call(
             cfg_smart_gaps(
                 current_match,
                 result,
-                parser_get_string(stack, c"enabled".as_ptr()),
+                (&*stack)
+                    .get_string(c"enabled")
+                    .expect("boolean directive has a captured value"),
             );
         }
         133 => {
@@ -5269,7 +5406,9 @@ unsafe fn GENERATED_call(
             cfg_smart_gaps(
                 current_match,
                 result,
-                parser_get_string(stack, c"enabled".as_ptr()),
+                (&*stack)
+                    .get_string(c"enabled")
+                    .expect("boolean directive has a captured value"),
             );
         }
         134 => {
@@ -5277,7 +5416,9 @@ unsafe fn GENERATED_call(
             cfg_smart_gaps(
                 current_match,
                 result,
-                parser_get_string(stack, c"enabled".as_ptr()),
+                (&*stack)
+                    .get_string(c"enabled")
+                    .expect("boolean directive has a captured value"),
             );
         }
         135 => {
@@ -5285,7 +5426,9 @@ unsafe fn GENERATED_call(
             cfg_smart_gaps(
                 current_match,
                 result,
-                parser_get_string(stack, c"enabled".as_ptr()),
+                (&*stack)
+                    .get_string(c"enabled")
+                    .expect("boolean directive has a captured value"),
             );
         }
         136 => {
@@ -5293,7 +5436,9 @@ unsafe fn GENERATED_call(
             cfg_smart_gaps(
                 current_match,
                 result,
-                parser_get_string(stack, c"enabled".as_ptr()),
+                (&*stack)
+                    .get_string(c"enabled")
+                    .expect("boolean directive has a captured value"),
             );
         }
         137 => {
@@ -5301,7 +5446,9 @@ unsafe fn GENERATED_call(
             cfg_smart_gaps(
                 current_match,
                 result,
-                parser_get_string(stack, c"enabled".as_ptr()),
+                (&*stack)
+                    .get_string(c"enabled")
+                    .expect("boolean directive has a captured value"),
             );
         }
         138 => {
