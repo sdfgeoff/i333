@@ -8,19 +8,19 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 24 wallclock secs ( 0.89 usr +  0.08 sys =  0.97 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 25 wallclock secs ( 0.99 usr +  0.07 sys =  1.06 CPU)\nResult: PASS",
     "profile": "debug",
     "build": "cargo test --locked",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "3cfa6909cc3b36517610dd9d1069ad6e130cafe8c3eb05a7f2624fe3a03c9287",
-    "i3bar": "faf1b79211f7c15e6d01be6c2c426c5d1eb17eed59c169a6502ddc657f25f34f",
-    "i3-config-wizard": "1b632004861ca08036e03377c8f90bfad36448e8d1c178b1dec8d2d8385a0d1e",
-    "i3-dump-log": "9033b65001dbf7254f5cb5427c36211e3b2eb14bb62495f4c77543107bb87bfa",
-    "i3-input": "18f9c4304e9ae6d1f6920d42658ec67fc74272b81952812d30b562207bade844",
-    "i3-msg": "be27488f7b3e0d27c84eb40e145cd113fc6dd009478a9afb9f9a3cb55932673d",
-    "i3-nagbar": "ed763399fed87d40cbc46ba442ae0c9dfbc3d22562d952f10e6f7957a569cdbf"
+    "i3": "24f119b80caf3271b401d6d206f67e3153029e3b1b01ccac267cee9dcc34c110",
+    "i3bar": "6c90961d14e661370b5a510268592231d45d7918db69599478e4c878385525d0",
+    "i3-config-wizard": "f800005c9d93b70b8bd148f766365292ecf523acefe3b1709a2bfe1e478f602b",
+    "i3-dump-log": "41815cfe407d3c2b2f7eb833b002a088dda04ef817c032da3a675aa19d737df1",
+    "i3-input": "4a17b3ebe107e74fbbdfc738ecee491212616c639b0bf88bab78ff582d31c476",
+    "i3-msg": "45d3af99a49160434e548cbafd6b4a543d1778e8e2a4fa0eeea19d7a27c9a4be",
+    "i3-nagbar": "96ca7b50359bfbe12e71636fff946f3efc9014bdd73581ea38b89930dfe2dcef"
   },
   "note": "Nine-member Cargo workspace. cargo test --locked passed 428 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
@@ -2428,7 +2428,17 @@
         "product_or_test_timeout_changes": false
       },
       "current_desktop_or_installed_binary_changed": false
-    }
+    },
+    "dependency_cleanup_checkpoints": [
+      {
+        "stage": 1,
+        "source_commit": "cfb30df8d5357d5337ea2ee68afd4b45902fff6b",
+        "scope": "Remove unused c2rust-bitfields and c2rust-bitfields-derive packages, workspace/member declarations and obsolete macro imports; lockfile contains no unrelated version changes",
+        "rust_tests": 428,
+        "upstream_assertions": 4205,
+        "status": "validated"
+      }
+    ]
   },
   "ci_dependency_preparation": {
     "confirmed_previous_failure": "X11::XCB required missing xcb-composite.pc and protocol XML metadata",
