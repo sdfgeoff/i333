@@ -1122,7 +1122,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
                     ForwardConnectError::Socket(error) => (c"Could not create socket", error),
                     ForwardConnectError::Connect(error) => (c"Could not connect to i3", error),
                 };
-                *__errno_location() = error.raw_os_error().unwrap_or(libc::EIO);
+                *libc::__errno_location() = error.raw_os_error().unwrap_or(libc::EIO);
                 err(EXIT_FAILURE, message.as_ptr());
             }
         };
@@ -1131,7 +1131,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
             I3_IPC_MESSAGE_TYPE_RUN_COMMAND as u32,
             payload_owner.to_bytes(),
         ) {
-            *__errno_location() = error.raw_os_error().unwrap_or(libc::EIO);
+            *libc::__errno_location() = error.raw_os_error().unwrap_or(libc::EIO);
             err(EXIT_FAILURE, c"IPC: write()".as_ptr());
         }
         let reply = match receive_message_retry_payload(&mut stream) {
@@ -1139,7 +1139,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
             Err(error) => {
                 report_receive_error(&error);
                 if let ReceiveError::Io(error) = error {
-                    *__errno_location() = error.raw_os_error().unwrap_or(libc::EIO);
+                    *libc::__errno_location() = error.raw_os_error().unwrap_or(libc::EIO);
                     err(EXIT_FAILURE, c"IPC: read()".as_ptr());
                 }
                 return 1;
