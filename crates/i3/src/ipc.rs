@@ -2061,6 +2061,26 @@ mod client_lifetime_tests {
             peer.read_exact(&mut byte).unwrap();
             assert_eq!(&byte, b"x");
             drop(retained);
+            // The receive callback must end its stream borrow before freeing
+            // its client/watchers on protocol error or clean peer shutdown.
+            let (stream, mut peer) = std::os::unix::net::UnixStream::pair().unwrap();
+            let client = ipc_new_client_on_fd(loop_, stream.into_raw_fd());
+            let token = ClientToken::capture(client);
+            ipc_receive_message(loop_, (*client).read_callback, EV_READ);
+            assert!(token.live(), "header WouldBlock keeps the client connected");
+            peer.write_all(b"badipc\0\0\0\0\0\0\0\0").unwrap();
+            ipc_receive_message(loop_, (*client).read_callback, EV_READ);
+            assert!(!token.live(), "protocol errors close and unlink the client");
+            assert_eq!(peer.read(&mut byte).unwrap(), 0);
+            let (stream, peer) = std::os::unix::net::UnixStream::pair().unwrap();
+            let client = ipc_new_client_on_fd(loop_, stream.into_raw_fd());
+            let token = ClientToken::capture(client);
+            drop(peer);
+            ipc_receive_message(loop_, (*client).read_callback, EV_READ);
+            assert!(
+                !token.live(),
+                "EOF closes the owned stream and its watchers"
+            );
             libev_sys::ev_loop_destroy(loop_);
             main_loop = std::ptr::null_mut();
         }
