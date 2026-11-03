@@ -190,12 +190,15 @@ unsafe fn ipc_push_pending(client: *mut ipc_client) {
     // Move bytes out of the client slot before native IO; no client reference is
     // held while callbacks/dispatch elsewhere can mutate client ownership.
     let mut queue = std::mem::take(&mut (*client).buffer);
-    let result = writeall_nonblock((*client).fd, queue.as_ptr().cast(), queue.len());
-    if result < 0 {
-        (*client).buffer = queue;
-        return;
-    }
-    let count = result as usize;
+    let count = match write_available((*client).fd, &queue) {
+        Ok(count) => count,
+        Err(_) => {
+            // Preserve the existing fatal-error policy, including retaining the
+            // complete queue when an earlier write made partial progress.
+            (*client).buffer = queue;
+            return;
+        }
+    };
     assert!(count <= queue.len());
     queue.drain(..count);
     (*client).buffer = queue;
@@ -1892,7 +1895,7 @@ use i3_common::safewrappers::scalloc;
 use i3_common::safewrappers::srealloc;
 use i3_common::safewrappers::sstrdup;
 use i3_common::safewrappers::sstrndup;
-use i3_common::safewrappers::writeall_nonblock;
+use i3_common::safewrappers::write_available;
 
 // Canonical Cairo backend ABI; renderer logic remains local.
 

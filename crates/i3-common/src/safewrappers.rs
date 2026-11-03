@@ -142,62 +142,6 @@ fn write_buffer(
     Ok(written)
 }
 
-fn native_write_result(result: io::Result<usize>) -> isize {
-    match result {
-        Ok(count) => count as isize,
-        Err(error) => {
-            // SAFETY: errno is thread-local on the supported Linux target.
-            unsafe { *libc::__errno_location() = error.raw_os_error().unwrap_or(libc::EIO) };
-            -1
-        }
-    }
-}
-
-/// Write the complete buffer, retrying EINTR and EAGAIN as the native helper did.
-///
-/// # Safety
-/// buf must be readable for count bytes in one allocation for the whole call,
-/// with count <= isize::MAX. Null is allowed only for zero; fd is never closed.
-pub unsafe fn writeall(fd: RawFd, buf: *const libc::c_void, count: usize) -> isize {
-    let bytes = if count == 0 {
-        &[]
-    } else {
-        // SAFETY: caller guarantees a live readable allocation and valid slice size.
-        unsafe { std::slice::from_raw_parts(buf.cast::<u8>(), count) }
-    };
-    native_write_result(write_all(fd, bytes))
-}
-
-/// Write until complete, returning progress on EAGAIN and retrying EINTR.
-///
-/// # Safety
-/// buf must be readable for count bytes in one allocation for the whole call,
-/// with count <= isize::MAX. Null is allowed only for zero; fd is never closed.
-pub unsafe fn writeall_nonblock(fd: RawFd, buf: *const libc::c_void, count: usize) -> isize {
-    let bytes = if count == 0 {
-        &[]
-    } else {
-        // SAFETY: caller guarantees a live readable allocation and valid slice size.
-        unsafe { std::slice::from_raw_parts(buf.cast::<u8>(), count) }
-    };
-    native_write_result(write_available(fd, bytes))
-}
-
-/// Write a complete buffer, terminating on an unrecoverable write failure.
-///
-/// # Safety
-/// buf must satisfy writeall's readable-buffer contract throughout this call.
-/// The borrowed fd is not closed, including when a fatal diagnostic is emitted.
-pub unsafe fn swrite(fd: c_int, buf: *const c_void, count: usize) -> isize {
-    // SAFETY: the caller supplies writeall's readable-buffer contract.
-    let count = unsafe { writeall(fd, buf, count) };
-    if count == -1 {
-        // SAFETY: static format consumes the native integer fd, errno was retained.
-        unsafe { err(libc::EXIT_FAILURE, c"Failed to write %d".as_ptr(), fd) };
-    }
-    count
-}
-
 /// Compare optional native strings using the current C locale. Null sorts first.
 ///
 /// # Safety
@@ -276,40 +220,28 @@ mod tests {
     }
 
     #[test]
-    fn safe_and_legacy_writes_preserve_binary_bytes_and_descriptor_ownership() {
+    fn slice_writes_preserve_binary_bytes_and_descriptor_ownership() {
         let (writer, mut reader) = UnixStream::pair().unwrap();
         let bytes = b"\0binary\xff";
         assert_eq!(write_all(writer.as_raw_fd(), bytes).unwrap(), bytes.len());
-        // SAFETY: bytes remains readable while the borrowed raw descriptor is live.
         assert_eq!(
-            unsafe { writeall(writer.as_raw_fd(), bytes.as_ptr().cast(), bytes.len()) },
-            bytes.len() as isize
+            write_available(writer.as_raw_fd(), bytes).unwrap(),
+            bytes.len()
         );
         let mut received = vec![0; 2 * bytes.len()];
         reader.read_exact(&mut received).unwrap();
         assert_eq!(received, bytes.repeat(2));
         assert_eq!(write_available(writer.as_raw_fd(), b"x").unwrap(), 1);
         reader.read_exact(&mut [0]).unwrap();
-        // Invalid descriptors and null empty buffers retain the native zero-call
-        // behavior: neither the kernel nor the pointer is accessed for zero bytes.
+        // Empty slices retain zero-call behavior even for invalid descriptors.
         assert_eq!(write_all(-1, &[]).unwrap(), 0);
         assert_eq!(write_available(-1, &[]).unwrap(), 0);
-        // SAFETY: zero bytes explicitly permit null buffers and invalid fds.
-        unsafe {
-            assert_eq!(writeall(-1, std::ptr::null(), 0), 0);
-            assert_eq!(writeall_nonblock(-1, std::ptr::null(), 0), 0);
-            assert_eq!(swrite(-1, std::ptr::null(), 0), 0);
+        for error in [
+            write_all(-1, b"x").unwrap_err(),
+            write_available(-1, b"x").unwrap_err(),
+        ] {
+            assert_eq!(error.raw_os_error(), Some(libc::EBADF));
         }
-        assert_eq!(
-            write_all(-1, b"x").unwrap_err().raw_os_error(),
-            Some(libc::EBADF)
-        );
-        // SAFETY: one-byte input is live; the kernel rejects fd -1.
-        assert_eq!(
-            unsafe { writeall_nonblock(-1, b"x".as_ptr().cast(), 1) },
-            -1
-        );
-        assert_eq!(io::Error::last_os_error().raw_os_error(), Some(libc::EBADF));
     }
 
     #[test]
@@ -327,35 +259,7 @@ mod tests {
         }
         assert_eq!(write_available(fd, b"x").unwrap(), 0);
         assert_eq!(io::Error::last_os_error().kind(), io::ErrorKind::WouldBlock);
-        // SAFETY: the input is live and the descriptor is a live full socket.
-        assert_eq!(unsafe { writeall_nonblock(fd, b"x".as_ptr().cast(), 1) }, 0);
-        assert_eq!(io::Error::last_os_error().kind(), io::ErrorKind::WouldBlock);
         // SAFETY: F_GETFD only queries flags; proves the borrowed fd stayed open.
         assert!(unsafe { libc::fcntl(fd, libc::F_GETFD) } >= 0);
-    }
-
-    #[test]
-    fn swrite_preserves_fatal_native_error() {
-        const CHILD: &str = "I333_SAFEWRAPPER_FATAL_CHILD";
-        if std::env::var_os(CHILD).is_some() {
-            // SAFETY: the byte buffer is valid; invalid fd is deliberately used
-            // to exercise the original native fatal error in this isolated child.
-            unsafe { swrite(-1, b"x".as_ptr().cast(), 1) };
-            panic!("swrite must terminate on failure");
-        }
-        let child = std::process::Command::new(std::env::current_exe().unwrap())
-            .args([
-                "--exact",
-                "safewrappers::tests::swrite_preserves_fatal_native_error",
-                "--nocapture",
-            ])
-            .env(CHILD, "1")
-            .output()
-            .unwrap();
-        assert_eq!(child.status.code(), Some(libc::EXIT_FAILURE));
-        assert!(child
-            .stderr
-            .windows(b"Failed to write -1".len())
-            .any(|part| part == b"Failed to write -1"));
     }
 }

@@ -1083,11 +1083,8 @@ unsafe fn child_write_output() {
         generator.clear();
         bytes
     });
-    let mut count = writeall(child_stdin, bytes.as_ptr().cast(), bytes.len());
-    if count != -1 {
-        count = writeall(child_stdin, c"\n".as_ptr().cast(), 1);
-    }
-    if count == -1 {
+    let result = write_all(child_stdin, &bytes).and_then(|_| write_all(child_stdin, b"\n"));
+    if result.is_err() {
         status_child.click_events = false;
         kill_child();
         set_statusline_error(c"child_write_output failed".as_ptr());
@@ -1970,7 +1967,7 @@ use i3_common::dpi::logical_px;
 use i3_common::safewrappers::scalloc;
 use i3_common::safewrappers::smalloc;
 use i3_common::safewrappers::sstrdup;
-use i3_common::safewrappers::writeall;
+use i3_common::safewrappers::write_all;
 
 // Canonical Cairo backend ABI; renderer logic remains local.
 

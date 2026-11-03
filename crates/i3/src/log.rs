@@ -12,7 +12,7 @@ use i3_common::get_process_filename::get_process_filename;
 use i3_common::i333_va_list;
 use i3_common::native_stdio::{stderr, stdout, vfprintf, vprintf, vsnprintf};
 use i3_common::nonblock::set_nonblock;
-use i3_common::safewrappers::writeall;
+use i3_common::safewrappers::write_all;
 use libc::{
     __errno_location, atexit, fcntl, fflush, fileno, fopen, fprintf, fwrite, localtime_r, perror,
     strerror, strftime, sysconf, time, tm, FD_CLOEXEC, FILE, F_SETFD,
@@ -456,8 +456,7 @@ pub unsafe extern "C" fn log_new_client(_loop: *mut ev_loop, w: *mut ev_io, _eve
 }
 unsafe fn broadcast(message: &[u8]) {
     let mut clients = (&raw mut CLIENTS).replace(Vec::new());
-    clients
-        .retain(|client| writeall(client.as_raw_fd(), message.as_ptr().cast(), message.len()) >= 0);
+    clients.retain(|client| write_all(client.as_raw_fd(), message).is_ok());
     clients.append(&mut *(&raw mut CLIENTS));
     (&raw mut CLIENTS).write(clients);
 }
