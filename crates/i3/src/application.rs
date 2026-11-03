@@ -1100,7 +1100,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
             payload,
             strlen(payload),
         );
-        let mut socket_path_0: *mut ::core::ffi::c_char = root_atom_contents(
+        let socket_path_0: *mut ::core::ffi::c_char = root_atom_contents(
             c"I3_SOCKET_PATH".as_ptr(),
             ::core::ptr::null_mut::<xcb_connection_t>(),
             0 as ::core::ffi::c_int,
@@ -1113,78 +1113,54 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
             );
             return 1 as ::core::ffi::c_int;
         }
-        let sockfd: ::core::ffi::c_int = socket(
-            AF_LOCAL,
-            libc::SOCK_STREAM as ::core::ffi::c_int,
-            0 as ::core::ffi::c_int,
-        );
-        if sockfd == -(1 as ::core::ffi::c_int) {
-            err(EXIT_FAILURE, c"Could not create socket".as_ptr());
-        }
-        let socket_owner = std::os::fd::OwnedFd::from_raw_fd(sockfd);
-        let mut addr: sockaddr_un = sockaddr_un {
-            sun_family: 0 as libc::sa_family_t,
-            sun_path: [0; 108],
+        let socket_path = std::ffi::CStr::from_ptr(socket_path_0).to_owned();
+        free(socket_path_0.cast());
+        let mut stream = match connect_forwarding_socket(&socket_path) {
+            Ok(stream) => stream,
+            Err(error) => {
+                let (message, error) = match error {
+                    ForwardConnectError::Socket(error) => (c"Could not create socket", error),
+                    ForwardConnectError::Connect(error) => (c"Could not connect to i3", error),
+                };
+                *__errno_location() = error.raw_os_error().unwrap_or(libc::EIO);
+                err(EXIT_FAILURE, message.as_ptr());
+            }
         };
-        addr.sun_family = AF_LOCAL as libc::sa_family_t;
-        strncpy(
-            &raw mut addr.sun_path as *mut ::core::ffi::c_char,
-            socket_path_0,
-            (::core::mem::size_of::<[::core::ffi::c_char; 108]>() as usize)
-                .wrapping_sub(1 as usize),
-        );
-        free(socket_path_0 as *mut ::core::ffi::c_void);
-        socket_path_0 = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        if connect(
-            sockfd,
-            &raw mut addr as *const sockaddr,
-            ::core::mem::size_of::<sockaddr_un>() as libc::socklen_t,
-        ) < 0 as ::core::ffi::c_int
-        {
-            err(EXIT_FAILURE, c"Could not connect to i3".as_ptr());
-        }
-        if ipc_send_message(
-            sockfd,
-            strlen(payload) as u32,
+        if let Err(error) = send_message_retry_would_block(
+            &mut stream,
             I3_IPC_MESSAGE_TYPE_RUN_COMMAND as u32,
-            payload as *mut u8,
-        ) == -(1 as ::core::ffi::c_int)
-        {
+            payload_owner.to_bytes(),
+        ) {
+            *__errno_location() = error.raw_os_error().unwrap_or(libc::EIO);
             err(EXIT_FAILURE, c"IPC: write()".as_ptr());
         }
-        let mut reply_length: u32 = 0;
-        let mut reply_type: u32 = 0;
-        let mut reply: *mut u8 = ::core::ptr::null_mut::<u8>();
-        let mut ret: ::core::ffi::c_int = 0;
-        ret = ipc_recv_message(
-            sockfd,
-            &raw mut reply_type,
-            &raw mut reply_length,
-            &raw mut reply,
-        );
-        let reply_owner = NativeAllocation::take(reply);
-        if ret != 0 as ::core::ffi::c_int {
-            if ret == -(1 as ::core::ffi::c_int) {
-                err(EXIT_FAILURE, c"IPC: read()".as_ptr());
+        let reply = match receive_message_retry_payload(&mut stream) {
+            Ok(reply) => reply,
+            Err(error) => {
+                report_receive_error(&error);
+                if let ReceiveError::Io(error) = error {
+                    *__errno_location() = error.raw_os_error().unwrap_or(libc::EIO);
+                    err(EXIT_FAILURE, c"IPC: read()".as_ptr());
+                }
+                return 1;
             }
-            return 1 as ::core::ffi::c_int;
-        }
-        if reply_type != I3_IPC_REPLY_TYPE_COMMAND as u32 {
+        };
+        if reply.message_type != I3_IPC_REPLY_TYPE_COMMAND as u32 {
             errx(
                 EXIT_FAILURE,
                 c"IPC: received reply of type %d but expected %d (COMMAND)".as_ptr(),
-                reply_type,
+                reply.message_type,
                 I3_IPC_REPLY_TYPE_COMMAND,
             );
         }
-        printf(
-            c"%.*s\n".as_ptr(),
-            reply_length,
-            reply as *mut ::core::ffi::c_char,
-        );
-        drop(reply_owner);
-        reply = ::core::ptr::null_mut::<u8>();
-        drop(socket_owner);
+        // Match printf's bounded %.*s bytes: stop at the first NUL and emit a
+        // newline even for an empty reply. No UTF-8 interpretation is performed.
+        {
+            use std::io::Write;
+            let mut output = std::io::stdout().lock();
+            let _ = output.write_all(command_reply_prefix(&reply.payload));
+            let _ = output.write_all(b"\n");
+        }
         return 0 as ::core::ffi::c_int;
     }
     init_logging();
@@ -2206,10 +2182,10 @@ use crate::handlers::xkb_base;
 use startup_notification_sys::{sn_xcb_display_new, SnDisplay};
 
 pub use libc::{
-    atexit, close, connect, dirname, exit, fcntl, fflush, fileno, fprintf, free, getcwd, getenv,
-    getrlimit, isatty, memmove, open, printf, raise, read, rlimit, rmdir, setbuf, setlocale,
-    setrlimit, shm_unlink, sigaction, sigemptyset, siginfo_t, signal, sockaddr, sockaddr_un,
-    socket, srand, strcmp, strlen, strncpy, strstr, time, unlink, unsetenv, usleep,
+    atexit, close, dirname, exit, fcntl, fflush, fileno, fprintf, free, getcwd, getenv, getrlimit,
+    isatty, memmove, open, printf, raise, read, rlimit, rmdir, setbuf, setlocale, setrlimit,
+    shm_unlink, sigaction, sigemptyset, siginfo_t, signal, srand, strcmp, strlen, strstr, time,
+    unlink, unsetenv, usleep,
 };
 
 use i3_common::native_stdio::{err, errx, stderr, stdout};
@@ -2223,6 +2199,49 @@ pub use crate::types::Assignment;
 pub use crate::types::Con;
 pub use crate::types::Rect;
 pub use i3_common::font::Font;
+
+/// This command-forwarding boundary preserves separate socket/connect failures
+/// and the native 107-byte pathname truncation, while owning the descriptor.
+#[derive(Debug)]
+enum ForwardConnectError {
+    Socket(std::io::Error),
+    Connect(std::io::Error),
+}
+fn connect_forwarding_socket(
+    path: &std::ffi::CStr,
+) -> Result<std::os::unix::net::UnixStream, ForwardConnectError> {
+    // SAFETY: socket creates a unique descriptor, adopted immediately on success.
+    let descriptor = unsafe { libc::socket(libc::AF_UNIX, libc::SOCK_STREAM, 0) };
+    if descriptor < 0 {
+        return Err(ForwardConnectError::Socket(std::io::Error::last_os_error()));
+    }
+    let owner = unsafe { std::os::fd::OwnedFd::from_raw_fd(descriptor) };
+    let mut address = libc::sockaddr_un {
+        sun_family: libc::AF_UNIX as libc::sa_family_t,
+        sun_path: [0; 108],
+    };
+    for (slot, byte) in address.sun_path.iter_mut().take(107).zip(path.to_bytes()) {
+        *slot = *byte as libc::c_char;
+    }
+    // SAFETY: the initialized address is live for its complete native size.
+    if unsafe {
+        libc::connect(
+            owner.as_raw_fd(),
+            (&address as *const libc::sockaddr_un).cast(),
+            std::mem::size_of::<libc::sockaddr_un>() as libc::socklen_t,
+        )
+    } < 0
+    {
+        return Err(ForwardConnectError::Connect(std::io::Error::last_os_error()));
+    }
+    Ok(std::os::unix::net::UnixStream::from(owner))
+}
+fn command_reply_prefix(payload: &[u8]) -> &[u8] {
+    &payload[..payload
+        .iter()
+        .position(|byte| *byte == 0)
+        .unwrap_or(payload.len())]
+}
 
 #[cfg(test)]
 mod cli_tests {
@@ -2324,8 +2343,10 @@ use crate::tree::tree_restore;
 use crate::version::i3_version;
 use i3_common::create_socket::create_socket;
 use i3_common::get_process_filename::get_process_filename;
-use i3_common::ipc_recv_message::ipc_recv_message;
-use i3_common::ipc_send_message::ipc_send_message;
+use i3_common::ipc_recv_message::{
+    receive_message_retry_payload, report_receive_error, ReceiveError,
+};
+use i3_common::ipc_send_message::send_message_retry_would_block;
 use i3_common::is_background_set::is_background_set;
 use i3_common::root_atom_contents::root_atom_contents;
 use i3_common::screenshot_wallpaper::set_screenshot_as_wallpaper;
