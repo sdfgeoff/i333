@@ -83,13 +83,33 @@ pub unsafe fn cfg_include(
     result: *mut ConfigResultIR,
     pattern: *const ::core::ffi::c_char,
 ) {
-    debuglog(
-        c"%s:%s:%d - include %s\n".as_ptr().cast_mut(),
-        c"../src/config_directives.c".as_ptr(),
-        c"cfg_include".as_ptr(),
-        19 as ::core::ffi::c_int,
-        pattern,
-    );
+    {
+        // Snapshot native bytes before the logger can dispatch a callback.
+        let log_pointer_1 = pattern;
+        let log_value_0 = i3_common::logging::string_bytes(
+            if log_pointer_1.is_null() {
+                None
+            } else {
+                Some(std::ffi::CStr::from_ptr(log_pointer_1))
+            },
+            None,
+        )
+        .to_vec();
+        if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+            ::log::debug!(
+                "../src/config_directives.c:cfg_include:19 - include {}\n",
+                log_value_0_text
+            );
+        } else {
+            let mut message = Vec::new();
+            message.extend_from_slice(
+                "../src/config_directives.c:cfg_include:19 - include ".as_bytes(),
+            );
+            message.extend_from_slice(&log_value_0);
+            message.extend_from_slice("\n".as_bytes());
+            i3_common::logging::emit(i3_common::logging::Level::Debug, &message);
+        }
+    };
     let mut p: wordexp_t = wordexp_t {
         we_wordc: 0,
         we_wordv: ::core::ptr::null_mut::<*mut ::core::ffi::c_char>(),
@@ -103,11 +123,33 @@ pub unsafe fn cfg_include(
         if ret == 1 {
             wordfree(&mut p);
         }
-        errorlog(
-            c"ERROR: wordexp(%s): error %d\n".as_ptr().cast_mut(),
-            pattern,
-            ret,
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_pointer_1 = pattern;
+            let log_value_0 = i3_common::logging::string_bytes(
+                if log_pointer_1.is_null() {
+                    None
+                } else {
+                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                },
+                None,
+            )
+            .to_vec();
+            let log_value_1 = (ret) as i32;
+            if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                ::log::error!(
+                    "ERROR: wordexp({}): error {}\n",
+                    log_value_0_text,
+                    log_value_1
+                );
+            } else {
+                let mut message = Vec::new();
+                message.extend_from_slice("ERROR: wordexp(".as_bytes());
+                message.extend_from_slice(&log_value_0);
+                message.extend_from_slice(format!("): error {}\n", log_value_1).as_bytes());
+                i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+            }
+        };
         (*result).has_errors = true_0 != 0;
         return;
     }
@@ -123,11 +165,43 @@ pub unsafe fn cfg_include(
         )
         .is_null()
         {
-            verboselog(
-                c"Skipping %s: %s\n".as_ptr().cast_mut(),
-                *w.offset(i as isize),
-                strerror(*__errno_location()),
-            );
+            {
+                // Snapshot native bytes before the logger can dispatch a callback.
+                let log_pointer_1 = *w.offset(i as isize);
+                let log_value_0 = i3_common::logging::string_bytes(
+                    if log_pointer_1.is_null() {
+                        None
+                    } else {
+                        Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                    },
+                    None,
+                )
+                .to_vec();
+                let log_pointer_2 = strerror(*__errno_location());
+                let log_value_1 = i3_common::logging::string_bytes(
+                    if log_pointer_2.is_null() {
+                        None
+                    } else {
+                        Some(std::ffi::CStr::from_ptr(log_pointer_2))
+                    },
+                    None,
+                )
+                .to_vec();
+                if let (Ok(log_value_0_text), Ok(log_value_1_text)) = (
+                    std::str::from_utf8(&log_value_0),
+                    std::str::from_utf8(&log_value_1),
+                ) {
+                    ::log::info!("Skipping {}: {}\n", log_value_0_text, log_value_1_text);
+                } else {
+                    let mut message = Vec::new();
+                    message.extend_from_slice("Skipping ".as_bytes());
+                    message.extend_from_slice(&log_value_0);
+                    message.extend_from_slice(": ".as_bytes());
+                    message.extend_from_slice(&log_value_1);
+                    message.extend_from_slice("\n".as_bytes());
+                    i3_common::logging::emit(i3_common::logging::Level::Verbose, &message);
+                }
+            };
         } else {
             let mut skip: bool = false_0 != 0;
             let mut file: *mut IncludedFile = ::core::ptr::null_mut::<IncludedFile>();
@@ -145,15 +219,51 @@ pub unsafe fn cfg_include(
                 }
             }
             if skip {
-                verboselog(
-                    c"Skipping file %s (already included)\n".as_ptr().cast_mut(),
-                    &raw mut resolved_path as *mut ::core::ffi::c_char,
-                );
+                {
+                    // Snapshot native bytes before the logger can dispatch a callback.
+                    let log_pointer_1 = &raw mut resolved_path as *mut ::core::ffi::c_char;
+                    let log_value_0 = i3_common::logging::string_bytes(
+                        if log_pointer_1.is_null() {
+                            None
+                        } else {
+                            Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                        },
+                        None,
+                    )
+                    .to_vec();
+                    if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                        ::log::info!("Skipping file {} (already included)\n", log_value_0_text);
+                    } else {
+                        let mut message = Vec::new();
+                        message.extend_from_slice("Skipping file ".as_bytes());
+                        message.extend_from_slice(&log_value_0);
+                        message.extend_from_slice(" (already included)\n".as_bytes());
+                        i3_common::logging::emit(i3_common::logging::Level::Verbose, &message);
+                    }
+                };
             } else {
-                verboselog(
-                    c"Including config file %s\n".as_ptr().cast_mut(),
-                    &raw mut resolved_path as *mut ::core::ffi::c_char,
-                );
+                {
+                    // Snapshot native bytes before the logger can dispatch a callback.
+                    let log_pointer_1 = &raw mut resolved_path as *mut ::core::ffi::c_char;
+                    let log_value_0 = i3_common::logging::string_bytes(
+                        if log_pointer_1.is_null() {
+                            None
+                        } else {
+                            Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                        },
+                        None,
+                    )
+                    .to_vec();
+                    if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                        ::log::info!("Including config file {}\n", log_value_0_text);
+                    } else {
+                        let mut message = Vec::new();
+                        message.extend_from_slice("Including config file ".as_bytes());
+                        message.extend_from_slice(&log_value_0);
+                        message.extend_from_slice("\n".as_bytes());
+                        i3_common::logging::emit(i3_common::logging::Level::Verbose, &message);
+                    }
+                };
                 file = scalloc(1 as usize, ::core::mem::size_of::<IncludedFile>() as usize)
                     as *mut IncludedFile;
                 (*file).path = sstrdup(&raw mut resolved_path as *mut ::core::ffi::c_char);
@@ -182,11 +292,51 @@ pub unsafe fn cfg_include(
                         current_block_46 = 10150597327160359210;
                     }
                     ParseFileResult::Failed => {
-                        errorlog(
-                            c"ERROR: including config file %s: %s\n".as_ptr().cast_mut(),
-                            &raw mut resolved_path as *mut ::core::ffi::c_char,
-                            strerror(*__errno_location()),
-                        );
+                        {
+                            // Snapshot native bytes before the logger can dispatch a callback.
+                            let log_pointer_1 = &raw mut resolved_path as *mut ::core::ffi::c_char;
+                            let log_value_0 = i3_common::logging::string_bytes(
+                                if log_pointer_1.is_null() {
+                                    None
+                                } else {
+                                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                                },
+                                None,
+                            )
+                            .to_vec();
+                            let log_pointer_2 = strerror(*__errno_location());
+                            let log_value_1 = i3_common::logging::string_bytes(
+                                if log_pointer_2.is_null() {
+                                    None
+                                } else {
+                                    Some(std::ffi::CStr::from_ptr(log_pointer_2))
+                                },
+                                None,
+                            )
+                            .to_vec();
+                            if let (Ok(log_value_0_text), Ok(log_value_1_text)) = (
+                                std::str::from_utf8(&log_value_0),
+                                std::str::from_utf8(&log_value_1),
+                            ) {
+                                ::log::error!(
+                                    "ERROR: including config file {}: {}\n",
+                                    log_value_0_text,
+                                    log_value_1_text
+                                );
+                            } else {
+                                let mut message = Vec::new();
+                                message
+                                    .extend_from_slice("ERROR: including config file ".as_bytes());
+                                message.extend_from_slice(&log_value_0);
+                                message.extend_from_slice(": ".as_bytes());
+                                message.extend_from_slice(&log_value_1);
+                                message.extend_from_slice("\n".as_bytes());
+                                i3_common::logging::emit(
+                                    i3_common::logging::Level::Error,
+                                    &message,
+                                );
+                            }
+                        };
                         current_block_46 = 1383695296304875401;
                     }
                     ParseFileResult::ConfigErrors => {
@@ -231,16 +381,11 @@ pub unsafe fn cfg_criteria_init(
     *CRITERIA_NEXT_STATE
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner) = _state;
-    debuglog(
-        c"%s:%s:%d - Initializing criteria, current_match = %p, state = %d\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/config_directives.c".as_ptr(),
-        c"cfg_criteria_init".as_ptr(),
-        101 as ::core::ffi::c_int,
-        current_match,
-        _state as u32,
-    );
+    {
+        let log_value_0 = i3_common::logging::pointer(current_match);
+        let log_value_1 = (_state as u32) as i32;
+        ::log::debug!("../src/config_directives.c:cfg_criteria_init:101 - Initializing criteria, current_match = {}, state = {}\n", log_value_0, log_value_1);
+    };
     *current_match = Match::empty();
 }
 
@@ -372,34 +517,92 @@ pub unsafe fn cfg_enter_mode(
     modename: *const ::core::ffi::c_char,
 ) {
     if strcmp(modename, DEFAULT_BINDING_MODE) == 0 as ::core::ffi::c_int {
-        errorlog(
-            c"ERROR: You cannot use the name %s for your mode\n"
-                .as_ptr()
-                .cast_mut(),
-            DEFAULT_BINDING_MODE,
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_pointer_1 = DEFAULT_BINDING_MODE;
+            let log_value_0 = i3_common::logging::string_bytes(
+                if log_pointer_1.is_null() {
+                    None
+                } else {
+                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                },
+                None,
+            )
+            .to_vec();
+            if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                ::log::error!(
+                    "ERROR: You cannot use the name {} for your mode\n",
+                    log_value_0_text
+                );
+            } else {
+                let mut message = Vec::new();
+                message.extend_from_slice("ERROR: You cannot use the name ".as_bytes());
+                message.extend_from_slice(&log_value_0);
+                message.extend_from_slice(" for your mode\n".as_bytes());
+                i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+            }
+        };
         return;
     }
     let mut mode: *mut Mode = ::core::ptr::null_mut::<Mode>();
     mode = modes.slh_first as *mut Mode;
     while !mode.is_null() {
         if strcmp((*mode).name, modename) == 0 as ::core::ffi::c_int {
-            errorlog(
-                c"ERROR: The binding mode with name \"%s\" is defined at least twice.\n"
-                    .as_ptr()
-                    .cast_mut(),
-                modename,
-            );
+            {
+                // Snapshot native bytes before the logger can dispatch a callback.
+                let log_pointer_1 = modename;
+                let log_value_0 = i3_common::logging::string_bytes(
+                    if log_pointer_1.is_null() {
+                        None
+                    } else {
+                        Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                    },
+                    None,
+                )
+                .to_vec();
+                if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                    ::log::error!(
+                        "ERROR: The binding mode with name \"{}\" is defined at least twice.\n",
+                        log_value_0_text
+                    );
+                } else {
+                    let mut message = Vec::new();
+                    message.extend_from_slice("ERROR: The binding mode with name \"".as_bytes());
+                    message.extend_from_slice(&log_value_0);
+                    message.extend_from_slice("\" is defined at least twice.\n".as_bytes());
+                    i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+                }
+            };
         }
         mode = (*mode).modes.sle_next;
     }
-    debuglog(
-        c"%s:%s:%d - \t now in mode %s\n".as_ptr().cast_mut(),
-        c"../src/config_directives.c".as_ptr(),
-        c"cfg_enter_mode".as_ptr(),
-        211 as ::core::ffi::c_int,
-        modename,
-    );
+    {
+        // Snapshot native bytes before the logger can dispatch a callback.
+        let log_pointer_1 = modename;
+        let log_value_0 = i3_common::logging::string_bytes(
+            if log_pointer_1.is_null() {
+                None
+            } else {
+                Some(std::ffi::CStr::from_ptr(log_pointer_1))
+            },
+            None,
+        )
+        .to_vec();
+        if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+            ::log::debug!(
+                "../src/config_directives.c:cfg_enter_mode:211 - \t now in mode {}\n",
+                log_value_0_text
+            );
+        } else {
+            let mut message = Vec::new();
+            message.extend_from_slice(
+                "../src/config_directives.c:cfg_enter_mode:211 - \t now in mode ".as_bytes(),
+            );
+            message.extend_from_slice(&log_value_0);
+            message.extend_from_slice("\n".as_bytes());
+            i3_common::logging::emit(i3_common::logging::Level::Debug, &message);
+        }
+    };
     let mode = std::ffi::CStr::from_ptr(modename).to_owned();
     *CURRENT_MODE
         .lock()
@@ -436,29 +639,59 @@ pub unsafe fn cfg_for_window(
     command: *const ::core::ffi::c_char,
 ) {
     if (*current_match).error.is_some() {
-        errorlog(
-            c"ERROR: match has error: %s\n".as_ptr().cast_mut(),
-            (*current_match).error_ptr(),
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_pointer_1 = (*current_match).error_ptr();
+            let log_value_0 = i3_common::logging::string_bytes(
+                if log_pointer_1.is_null() {
+                    None
+                } else {
+                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                },
+                None,
+            )
+            .to_vec();
+            if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                ::log::error!("ERROR: match has error: {}\n", log_value_0_text);
+            } else {
+                let mut message = Vec::new();
+                message.extend_from_slice("ERROR: match has error: ".as_bytes());
+                message.extend_from_slice(&log_value_0);
+                message.extend_from_slice("\n".as_bytes());
+                i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+            }
+        };
         return;
     }
     if match_is_empty(current_match) {
-        errorlog(
-            c"ERROR: Match is empty, ignoring this for_window statement\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::error!("ERROR: Match is empty, ignoring this for_window statement\n");
         return;
     }
-    debuglog(
-        c"%s:%s:%d - \t should execute command %s for the criteria mentioned above\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/config_directives.c".as_ptr(),
-        c"cfg_for_window".as_ptr(),
-        237 as ::core::ffi::c_int,
-        command,
-    );
+    {
+        // Snapshot native bytes before the logger can dispatch a callback.
+        let log_pointer_1 = command;
+        let log_value_0 = i3_common::logging::string_bytes(
+            if log_pointer_1.is_null() {
+                None
+            } else {
+                Some(std::ffi::CStr::from_ptr(log_pointer_1))
+            },
+            None,
+        )
+        .to_vec();
+        if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+            ::log::debug!("../src/config_directives.c:cfg_for_window:237 - \t should execute command {} for the criteria mentioned above\n", log_value_0_text);
+        } else {
+            let mut message = Vec::new();
+            message.extend_from_slice(
+                "../src/config_directives.c:cfg_for_window:237 - \t should execute command "
+                    .as_bytes(),
+            );
+            message.extend_from_slice(&log_value_0);
+            message.extend_from_slice(" for the criteria mentioned above\n".as_bytes());
+            i3_common::logging::emit(i3_common::logging::Level::Debug, &message);
+        }
+    };
     let assignment: *mut Assignment = Box::into_raw(Box::new(Assignment::new(
         crate::types::AssignmentDest::Command(CStr::from_ptr(command).to_owned()),
         (*current_match).clone(),
@@ -496,15 +729,27 @@ unsafe fn create_gaps_assignment(
     if mask.is_empty() {
         return;
     }
-    debuglog(
-        c"%s:%s:%d - Setting gaps for workspace %s"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/config_directives.c".as_ptr(),
-        c"create_gaps_assignment".as_ptr(),
-        271 as ::core::ffi::c_int,
-        workspace,
-    );
+    {
+        // Snapshot native bytes before the logger can dispatch a callback.
+        let log_pointer_1 = workspace;
+        let log_value_0 = i3_common::logging::string_bytes(
+            if log_pointer_1.is_null() {
+                None
+            } else {
+                Some(std::ffi::CStr::from_ptr(log_pointer_1))
+            },
+            None,
+        )
+        .to_vec();
+        if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+            ::log::debug!("../src/config_directives.c:create_gaps_assignment:271 - Setting gaps for workspace {}", log_value_0_text);
+        } else {
+            let mut message = Vec::new();
+            message.extend_from_slice("../src/config_directives.c:create_gaps_assignment:271 - Setting gaps for workspace ".as_bytes());
+            message.extend_from_slice(&log_value_0);
+            i3_common::logging::emit(i3_common::logging::Level::Debug, &message);
+        }
+    };
     let mut found: bool = false_0 != 0;
     let mut assignment: *mut Workspace_Assignment = ::core::ptr::null_mut::<Workspace_Assignment>();
     assignment = ws_assignments.tqh_first;
@@ -556,12 +801,30 @@ unsafe fn gaps_scope_to_mask(scope: *const ::core::ffi::c_char) -> gaps_mask_t {
     if strcmp(scope, c"left".as_ptr()) == 0 {
         return GapMask::LEFT;
     }
-    errorlog(
-        c"ERROR: Invalid command, cannot process scope %s"
-            .as_ptr()
-            .cast_mut(),
-        scope,
-    );
+    {
+        // Snapshot native bytes before the logger can dispatch a callback.
+        let log_pointer_1 = scope;
+        let log_value_0 = i3_common::logging::string_bytes(
+            if log_pointer_1.is_null() {
+                None
+            } else {
+                Some(std::ffi::CStr::from_ptr(log_pointer_1))
+            },
+            None,
+        )
+        .to_vec();
+        if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+            ::log::error!(
+                "ERROR: Invalid command, cannot process scope {}",
+                log_value_0_text
+            );
+        } else {
+            let mut message = Vec::new();
+            message.extend_from_slice("ERROR: Invalid command, cannot process scope ".as_bytes());
+            message.extend_from_slice(&log_value_0);
+            i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+        }
+    };
     GapMask::empty()
 }
 
@@ -592,9 +855,7 @@ pub unsafe fn cfg_smart_borders(
         if config.hide_edge_borders == HideEdgeBordersMode::None {
             config.hide_edge_borders = HideEdgeBordersMode::Smart;
         } else {
-            errorlog(
-                c"ERROR: Both hide_edge_borders and smart_borders was used. Ignoring smart_borders as it is deprecated.\n".as_ptr().cast_mut(),
-            );
+            ::log::error!("ERROR: Both hide_edge_borders and smart_borders was used. Ignoring smart_borders as it is deprecated.\n");
         }
     }
 }
@@ -706,29 +967,21 @@ pub unsafe fn cfg_default_border(
     if strcmp(windowtype, c"default_border".as_ptr()) == 0 as ::core::ffi::c_int
         || strcmp(windowtype, c"new_window".as_ptr()) == 0 as ::core::ffi::c_int
     {
-        debuglog(
-            c"%s:%s:%d - default tiled border style = %d and border width = %d (%d physical px)\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/config_directives.c".as_ptr(),
-            c"cfg_default_border".as_ptr(),
-            416 as ::core::ffi::c_int,
-            (border_style) as u32,
-            border_width,
-            logical_px(border_width),
-        );
+        {
+            let log_value_0 = ((border_style) as u32) as i32;
+            let log_value_1 = (border_width) as i32;
+            let log_value_2 = (logical_px(border_width)) as i32;
+            ::log::debug!("../src/config_directives.c:cfg_default_border:416 - default tiled border style = {} and border width = {} ({} physical px)\n", log_value_0, log_value_1, log_value_2);
+        };
         config.default_border = border_style;
         config.default_border_width = logical_px(border_width);
     } else {
-        debuglog(
-            c"%s:%s:%d - default floating border style = %d and border width = %d (%d physical px)\n".as_ptr().cast_mut(),
-            c"../src/config_directives.c".as_ptr(),
-            c"cfg_default_border".as_ptr(),
-            421 as ::core::ffi::c_int,
-            (border_style) as u32,
-            border_width,
-            logical_px(border_width),
-        );
+        {
+            let log_value_0 = ((border_style) as u32) as i32;
+            let log_value_1 = (border_width) as i32;
+            let log_value_2 = (logical_px(border_width)) as i32;
+            ::log::debug!("../src/config_directives.c:cfg_default_border:421 - default floating border style = {} and border width = {} ({} physical px)\n", log_value_0, log_value_1, log_value_2);
+        };
         config.default_floating_border = border_style;
         config.default_floating_border_width = logical_px(border_width);
     };
@@ -861,23 +1114,39 @@ pub unsafe fn cfg_focus_on_window_activation(
     } else if strcmp(mode, c"none".as_ptr()) == 0 as ::core::ffi::c_int {
         config.focus_on_window_activation = FocusActivation::None;
     } else {
-        errorlog(
-            c"ERROR: Unknown focus_on_window_activation mode \"%s\", ignoring it.\n"
-                .as_ptr()
-                .cast_mut(),
-            mode,
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_pointer_1 = mode;
+            let log_value_0 = i3_common::logging::string_bytes(
+                if log_pointer_1.is_null() {
+                    None
+                } else {
+                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                },
+                None,
+            )
+            .to_vec();
+            if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                ::log::error!(
+                    "ERROR: Unknown focus_on_window_activation mode \"{}\", ignoring it.\n",
+                    log_value_0_text
+                );
+            } else {
+                let mut message = Vec::new();
+                message.extend_from_slice(
+                    "ERROR: Unknown focus_on_window_activation mode \"".as_bytes(),
+                );
+                message.extend_from_slice(&log_value_0);
+                message.extend_from_slice("\", ignoring it.\n".as_bytes());
+                i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+            }
+        };
         return;
     }
-    debuglog(
-        c"%s:%s:%d - Set new focus_on_window_activation mode = %i.\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/config_directives.c".as_ptr(),
-        c"cfg_focus_on_window_activation".as_ptr(),
-        519 as ::core::ffi::c_int,
-        config.focus_on_window_activation as ::core::ffi::c_uint,
-    );
+    {
+        let log_value_0 = (config.focus_on_window_activation as ::core::ffi::c_uint) as i32;
+        ::log::debug!("../src/config_directives.c:cfg_focus_on_window_activation:519 - Set new focus_on_window_activation mode = {}.\n", log_value_0);
+    };
 }
 
 pub unsafe fn cfg_title_align(
@@ -928,12 +1197,31 @@ pub unsafe fn cfg_workspace(
         while !assignment.is_null() {
             if strcasecmp((*assignment).name, workspace) == 0 as ::core::ffi::c_int {
                 if !(*assignment).output.is_null() {
-                    errorlog(
-                        c"ERROR: You have a duplicate workspace assignment for workspace \"%s\"\n"
-                            .as_ptr()
-                            .cast_mut(),
-                        workspace,
-                    );
+                    {
+                        // Snapshot native bytes before the logger can dispatch a callback.
+                        let log_pointer_1 = workspace;
+                        let log_value_0 = i3_common::logging::string_bytes(
+                            if log_pointer_1.is_null() {
+                                None
+                            } else {
+                                Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                            },
+                            None,
+                        )
+                        .to_vec();
+                        if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                            ::log::error!("ERROR: You have a duplicate workspace assignment for workspace \"{}\"\n", log_value_0_text);
+                        } else {
+                            let mut message = Vec::new();
+                            message.extend_from_slice(
+                                "ERROR: You have a duplicate workspace assignment for workspace \""
+                                    .as_bytes(),
+                            );
+                            message.extend_from_slice(&log_value_0);
+                            message.extend_from_slice("\"\n".as_bytes());
+                            i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+                        }
+                    };
                     return;
                 }
             }
@@ -945,26 +1233,50 @@ pub unsafe fn cfg_workspace(
             Some(std::ffi::CStr::from_ptr(workspace).to_owned());
     } else {
         if cached_workspace.is_none() {
-            debuglog(
-                c"%s:%s:%d - Both workspace and current_workspace are NULL, assuming we had an error before\n".as_ptr().cast_mut(),
-                c"../src/config_directives.c".as_ptr(),
-                c"cfg_workspace".as_ptr(),
-                563 as ::core::ffi::c_int,
-            );
+            ::log::debug!("../src/config_directives.c:cfg_workspace:563 - Both workspace and current_workspace are NULL, assuming we had an error before\n");
             return;
         }
         workspace = cached_workspace.as_ref().unwrap().as_ptr();
     }
-    debuglog(
-        c"%s:%s:%d - Assigning workspace \"%s\" to output \"%s\"\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/config_directives.c".as_ptr(),
-        c"cfg_workspace".as_ptr(),
-        569 as ::core::ffi::c_int,
-        workspace,
-        output,
-    );
+    {
+        // Snapshot native bytes before the logger can dispatch a callback.
+        let log_pointer_1 = workspace;
+        let log_value_0 = i3_common::logging::string_bytes(
+            if log_pointer_1.is_null() {
+                None
+            } else {
+                Some(std::ffi::CStr::from_ptr(log_pointer_1))
+            },
+            None,
+        )
+        .to_vec();
+        let log_pointer_2 = output;
+        let log_value_1 = i3_common::logging::string_bytes(
+            if log_pointer_2.is_null() {
+                None
+            } else {
+                Some(std::ffi::CStr::from_ptr(log_pointer_2))
+            },
+            None,
+        )
+        .to_vec();
+        if let (Ok(log_value_0_text), Ok(log_value_1_text)) = (
+            std::str::from_utf8(&log_value_0),
+            std::str::from_utf8(&log_value_1),
+        ) {
+            ::log::debug!("../src/config_directives.c:cfg_workspace:569 - Assigning workspace \"{}\" to output \"{}\"\n", log_value_0_text, log_value_1_text);
+        } else {
+            let mut message = Vec::new();
+            message.extend_from_slice(
+                "../src/config_directives.c:cfg_workspace:569 - Assigning workspace \"".as_bytes(),
+            );
+            message.extend_from_slice(&log_value_0);
+            message.extend_from_slice("\" to output \"".as_bytes());
+            message.extend_from_slice(&log_value_1);
+            message.extend_from_slice("\"\n".as_bytes());
+            i3_common::logging::emit(i3_common::logging::Level::Debug, &message);
+        }
+    };
     assignment = scalloc(
         1 as usize,
         ::core::mem::size_of::<Workspace_Assignment>() as usize,
@@ -1034,9 +1346,7 @@ pub unsafe fn cfg_color(
         {
             config.client.got_focused_tab_title = true_0 != 0;
             if !indicator.is_null() || !child_border.is_null() {
-                errorlog(
-                    c"ERROR: indicator and child_border colors have no effect for client.focused_tab_title\n".as_ptr().cast_mut(),
-                );
+                ::log::error!("ERROR: indicator and child_border colors have no effect for client.focused_tab_title\n");
             }
         }
         config.client.focused_inactive.border = draw_util_hex_to_color(border);
@@ -1058,9 +1368,7 @@ pub unsafe fn cfg_color(
         {
             config.client.got_focused_tab_title = true_0 != 0;
             if !indicator.is_null() || !child_border.is_null() {
-                errorlog(
-                    c"ERROR: indicator and child_border colors have no effect for client.focused_tab_title\n".as_ptr().cast_mut(),
-                );
+                ::log::error!("ERROR: indicator and child_border colors have no effect for client.focused_tab_title\n");
             }
         }
         config.client.focused_tab_title.border = draw_util_hex_to_color(border);
@@ -1081,9 +1389,7 @@ pub unsafe fn cfg_color(
         if strcmp(c"focused_tab_title".as_ptr(), c"focused".as_ptr()) == 0 as ::core::ffi::c_int {
             config.client.got_focused_tab_title = true_0 != 0;
             if !indicator.is_null() || !child_border.is_null() {
-                errorlog(
-                    c"ERROR: indicator and child_border colors have no effect for client.focused_tab_title\n".as_ptr().cast_mut(),
-                );
+                ::log::error!("ERROR: indicator and child_border colors have no effect for client.focused_tab_title\n");
             }
         }
         config.client.focused.border = draw_util_hex_to_color(border);
@@ -1103,9 +1409,7 @@ pub unsafe fn cfg_color(
         if strcmp(c"focused_tab_title".as_ptr(), c"unfocused".as_ptr()) == 0 as ::core::ffi::c_int {
             config.client.got_focused_tab_title = true_0 != 0;
             if !indicator.is_null() || !child_border.is_null() {
-                errorlog(
-                    c"ERROR: indicator and child_border colors have no effect for client.focused_tab_title\n".as_ptr().cast_mut(),
-                );
+                ::log::error!("ERROR: indicator and child_border colors have no effect for client.focused_tab_title\n");
             }
         }
         config.client.unfocused.border = draw_util_hex_to_color(border);
@@ -1125,9 +1429,7 @@ pub unsafe fn cfg_color(
         if strcmp(c"focused_tab_title".as_ptr(), c"urgent".as_ptr()) == 0 as ::core::ffi::c_int {
             config.client.got_focused_tab_title = true_0 != 0;
             if !indicator.is_null() || !child_border.is_null() {
-                errorlog(
-                    c"ERROR: indicator and child_border colors have no effect for client.focused_tab_title\n".as_ptr().cast_mut(),
-                );
+                ::log::error!("ERROR: indicator and child_border colors have no effect for client.focused_tab_title\n");
             }
         }
         config.client.urgent.border = draw_util_hex_to_color(border);
@@ -1148,9 +1450,7 @@ pub unsafe fn cfg_color(
         {
             config.client.got_focused_tab_title = true_0 != 0;
             if !indicator.is_null() || !child_border.is_null() {
-                errorlog(
-                    c"ERROR: indicator and child_border colors have no effect for client.focused_tab_title\n".as_ptr().cast_mut(),
-                );
+                ::log::error!("ERROR: indicator and child_border colors have no effect for client.focused_tab_title\n");
             }
         }
         config.client.placeholder.border = draw_util_hex_to_color(border);
@@ -1173,37 +1473,60 @@ pub unsafe fn cfg_assign_output(
     output: *const ::core::ffi::c_char,
 ) {
     if (*current_match).error.is_some() {
-        errorlog(
-            c"ERROR: match has error: %s\n".as_ptr().cast_mut(),
-            (*current_match).error_ptr(),
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_pointer_1 = (*current_match).error_ptr();
+            let log_value_0 = i3_common::logging::string_bytes(
+                if log_pointer_1.is_null() {
+                    None
+                } else {
+                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                },
+                None,
+            )
+            .to_vec();
+            if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                ::log::error!("ERROR: match has error: {}\n", log_value_0_text);
+            } else {
+                let mut message = Vec::new();
+                message.extend_from_slice("ERROR: match has error: ".as_bytes());
+                message.extend_from_slice(&log_value_0);
+                message.extend_from_slice("\n".as_bytes());
+                i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+            }
+        };
         return;
     }
     if match_is_empty(current_match) {
-        errorlog(
-            c"ERROR: Match is empty, ignoring this assignment\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::error!("ERROR: Match is empty, ignoring this assignment\n");
         return;
     }
     if (*current_match).window_mode != WindowMode::Any {
-        errorlog(
-            c"ERROR: Assignments using window mode (floating/tiling) is not supported\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::error!("ERROR: Assignments using window mode (floating/tiling) is not supported\n");
         return;
     }
-    debuglog(
-        c"%s:%s:%d - New assignment, using above criteria, to output \"%s\".\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/config_directives.c".as_ptr(),
-        c"cfg_assign_output".as_ptr(),
-        654 as ::core::ffi::c_int,
-        output,
-    );
+    {
+        // Snapshot native bytes before the logger can dispatch a callback.
+        let log_pointer_1 = output;
+        let log_value_0 = i3_common::logging::string_bytes(
+            if log_pointer_1.is_null() {
+                None
+            } else {
+                Some(std::ffi::CStr::from_ptr(log_pointer_1))
+            },
+            None,
+        )
+        .to_vec();
+        if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+            ::log::debug!("../src/config_directives.c:cfg_assign_output:654 - New assignment, using above criteria, to output \"{}\".\n", log_value_0_text);
+        } else {
+            let mut message = Vec::new();
+            message.extend_from_slice("../src/config_directives.c:cfg_assign_output:654 - New assignment, using above criteria, to output \"".as_bytes());
+            message.extend_from_slice(&log_value_0);
+            message.extend_from_slice("\".\n".as_bytes());
+            i3_common::logging::emit(i3_common::logging::Level::Debug, &message);
+        }
+    };
     let assignment: *mut Assignment = Box::into_raw(Box::new(Assignment::new(
         crate::types::AssignmentDest::Output(CStr::from_ptr(output).to_owned()),
         (*current_match).clone(),
@@ -1221,49 +1544,91 @@ pub unsafe fn cfg_assign(
     is_number: bool,
 ) {
     if (*current_match).error.is_some() {
-        errorlog(
-            c"ERROR: match has error: %s\n".as_ptr().cast_mut(),
-            (*current_match).error_ptr(),
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_pointer_1 = (*current_match).error_ptr();
+            let log_value_0 = i3_common::logging::string_bytes(
+                if log_pointer_1.is_null() {
+                    None
+                } else {
+                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                },
+                None,
+            )
+            .to_vec();
+            if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                ::log::error!("ERROR: match has error: {}\n", log_value_0_text);
+            } else {
+                let mut message = Vec::new();
+                message.extend_from_slice("ERROR: match has error: ".as_bytes());
+                message.extend_from_slice(&log_value_0);
+                message.extend_from_slice("\n".as_bytes());
+                i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+            }
+        };
         return;
     }
     if match_is_empty(current_match) {
-        errorlog(
-            c"ERROR: Match is empty, ignoring this assignment\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::error!("ERROR: Match is empty, ignoring this assignment\n");
         return;
     }
     if (*current_match).window_mode != WindowMode::Any {
-        errorlog(
-            c"ERROR: Assignments using window mode (floating/tiling) is not supported\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::error!("ERROR: Assignments using window mode (floating/tiling) is not supported\n");
         return;
     }
     if is_number as ::core::ffi::c_int != 0
         && ws_name_to_number(std::ffi::CStr::from_ptr(workspace)).unwrap_or(-1)
             == -(1 as ::core::ffi::c_int)
     {
-        errorlog(
-            c"ERROR: Could not parse initial part of \"%s\" as a number.\n"
-                .as_ptr()
-                .cast_mut(),
-            workspace,
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_pointer_1 = workspace;
+            let log_value_0 = i3_common::logging::string_bytes(
+                if log_pointer_1.is_null() {
+                    None
+                } else {
+                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                },
+                None,
+            )
+            .to_vec();
+            if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                ::log::error!(
+                    "ERROR: Could not parse initial part of \"{}\" as a number.\n",
+                    log_value_0_text
+                );
+            } else {
+                let mut message = Vec::new();
+                message.extend_from_slice("ERROR: Could not parse initial part of \"".as_bytes());
+                message.extend_from_slice(&log_value_0);
+                message.extend_from_slice("\" as a number.\n".as_bytes());
+                i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+            }
+        };
         return;
     }
-    debuglog(
-        c"%s:%s:%d - New assignment, using above criteria, to workspace \"%s\".\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/config_directives.c".as_ptr(),
-        c"cfg_assign".as_ptr(),
-        682 as ::core::ffi::c_int,
-        workspace,
-    );
+    {
+        // Snapshot native bytes before the logger can dispatch a callback.
+        let log_pointer_1 = workspace;
+        let log_value_0 = i3_common::logging::string_bytes(
+            if log_pointer_1.is_null() {
+                None
+            } else {
+                Some(std::ffi::CStr::from_ptr(log_pointer_1))
+            },
+            None,
+        )
+        .to_vec();
+        if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+            ::log::debug!("../src/config_directives.c:cfg_assign:682 - New assignment, using above criteria, to workspace \"{}\".\n", log_value_0_text);
+        } else {
+            let mut message = Vec::new();
+            message.extend_from_slice("../src/config_directives.c:cfg_assign:682 - New assignment, using above criteria, to workspace \"".as_bytes());
+            message.extend_from_slice(&log_value_0);
+            message.extend_from_slice("\".\n".as_bytes());
+            i3_common::logging::emit(i3_common::logging::Level::Debug, &message);
+        }
+    };
     let assignment: *mut Assignment = Box::into_raw(Box::new(Assignment::new(
         if is_number {
             crate::types::AssignmentDest::WorkspaceNumber(CStr::from_ptr(workspace).to_owned())
@@ -1280,28 +1645,35 @@ pub unsafe fn cfg_assign(
 
 pub unsafe fn cfg_no_focus(current_match: *mut Match, result: *mut ConfigResultIR) {
     if (*current_match).error.is_some() {
-        errorlog(
-            c"ERROR: match has error: %s\n".as_ptr().cast_mut(),
-            (*current_match).error_ptr(),
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_pointer_1 = (*current_match).error_ptr();
+            let log_value_0 = i3_common::logging::string_bytes(
+                if log_pointer_1.is_null() {
+                    None
+                } else {
+                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                },
+                None,
+            )
+            .to_vec();
+            if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                ::log::error!("ERROR: match has error: {}\n", log_value_0_text);
+            } else {
+                let mut message = Vec::new();
+                message.extend_from_slice("ERROR: match has error: ".as_bytes());
+                message.extend_from_slice(&log_value_0);
+                message.extend_from_slice("\n".as_bytes());
+                i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+            }
+        };
         return;
     }
     if match_is_empty(current_match) {
-        errorlog(
-            c"ERROR: Match is empty, ignoring this assignment\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::error!("ERROR: Match is empty, ignoring this assignment\n");
         return;
     }
-    debuglog(
-        c"%s:%s:%d - New assignment, using above criteria, to ignore focus on manage.\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/config_directives.c".as_ptr(),
-        c"cfg_no_focus".as_ptr(),
-        700 as ::core::ffi::c_int,
-    );
+    ::log::debug!("../src/config_directives.c:cfg_no_focus:700 - New assignment, using above criteria, to ignore focus on manage.\n");
     let assignment: *mut Assignment = Box::into_raw(Box::new(Assignment::new(
         crate::types::AssignmentDest::NoFocus,
         (*current_match).clone(),
@@ -1418,18 +1790,19 @@ pub unsafe fn cfg_bar_height(
     (*current_bar).bar_height = height as u32;
 }
 unsafe fn dlog_padding() {
-    debuglog(
-        c"%s:%s:%d - padding now: x=%d, y=%d, w=%d, h=%d\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/config_directives.c".as_ptr(),
-        c"dlog_padding".as_ptr(),
-        773 as ::core::ffi::c_int,
-        (*current_bar).padding.x,
-        (*current_bar).padding.y,
-        (*current_bar).padding.width,
-        (*current_bar).padding.height,
-    );
+    {
+        let log_value_0 = ((*current_bar).padding.x) as i32;
+        let log_value_1 = ((*current_bar).padding.y) as i32;
+        let log_value_2 = ((*current_bar).padding.width) as i32;
+        let log_value_3 = ((*current_bar).padding.height) as i32;
+        ::log::debug!(
+            "../src/config_directives.c:dlog_padding:773 - padding now: x={}, y={}, w={}, h={}\n",
+            log_value_0,
+            log_value_1,
+            log_value_2,
+            log_value_3
+        );
+    };
 }
 
 pub unsafe fn cfg_bar_padding_one(
@@ -1505,23 +1878,64 @@ unsafe fn bar_configure_binding(
     if strncasecmp(button, c"button".as_ptr(), strlen(c"button".as_ptr()))
         != 0 as ::core::ffi::c_int
     {
-        errorlog(
-            c"ERROR: Bindings for a bar can only be mouse bindings, not \"%s\", ignoring.\n"
-                .as_ptr()
-                .cast_mut(),
-            button,
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_pointer_1 = button;
+            let log_value_0 = i3_common::logging::string_bytes(
+                if log_pointer_1.is_null() {
+                    None
+                } else {
+                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                },
+                None,
+            )
+            .to_vec();
+            if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                ::log::error!(
+                    "ERROR: Bindings for a bar can only be mouse bindings, not \"{}\", ignoring.\n",
+                    log_value_0_text
+                );
+            } else {
+                let mut message = Vec::new();
+                message.extend_from_slice(
+                    "ERROR: Bindings for a bar can only be mouse bindings, not \"".as_bytes(),
+                );
+                message.extend_from_slice(&log_value_0);
+                message.extend_from_slice("\", ignoring.\n".as_bytes());
+                i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+            }
+        };
         return;
     }
     let input_code: ::core::ffi::c_int =
         atoi(button.offset(strlen(c"button".as_ptr()) as isize)) as ::core::ffi::c_int;
     if input_code < 1 as ::core::ffi::c_int {
-        errorlog(
-            c"ERROR: Button \"%s\" does not seem to be in format 'buttonX'.\n"
-                .as_ptr()
-                .cast_mut(),
-            button,
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_pointer_1 = button;
+            let log_value_0 = i3_common::logging::string_bytes(
+                if log_pointer_1.is_null() {
+                    None
+                } else {
+                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                },
+                None,
+            )
+            .to_vec();
+            if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                ::log::error!(
+                    "ERROR: Button \"{}\" does not seem to be in format 'buttonX'.\n",
+                    log_value_0_text
+                );
+            } else {
+                let mut message = Vec::new();
+                message.extend_from_slice("ERROR: Button \"".as_bytes());
+                message.extend_from_slice(&log_value_0);
+                message
+                    .extend_from_slice("\" does not seem to be in format 'buttonX'.\n".as_bytes());
+                i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+            }
+        };
         return;
     }
     let release_bool: bool = !release.is_null();
@@ -1531,12 +1945,31 @@ unsafe fn bar_configure_binding(
         if (*current).input_code == input_code
             && (*current).release as ::core::ffi::c_int == release_bool as ::core::ffi::c_int
         {
-            errorlog(
-                c"ERROR: command for button %s was already specified, ignoring.\n"
-                    .as_ptr()
-                    .cast_mut(),
-                button,
-            );
+            {
+                // Snapshot native bytes before the logger can dispatch a callback.
+                let log_pointer_1 = button;
+                let log_value_0 = i3_common::logging::string_bytes(
+                    if log_pointer_1.is_null() {
+                        None
+                    } else {
+                        Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                    },
+                    None,
+                )
+                .to_vec();
+                if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                    ::log::error!(
+                        "ERROR: command for button {} was already specified, ignoring.\n",
+                        log_value_0_text
+                    );
+                } else {
+                    let mut message = Vec::new();
+                    message.extend_from_slice("ERROR: command for button ".as_bytes());
+                    message.extend_from_slice(&log_value_0);
+                    message.extend_from_slice(" was already specified, ignoring.\n".as_bytes());
+                    i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+                }
+            };
             return;
         }
         current = (*current).bindings.tqe_next;
@@ -1561,12 +1994,33 @@ pub unsafe fn cfg_bar_wheel_up_cmd(
     result: *mut ConfigResultIR,
     command: *const ::core::ffi::c_char,
 ) {
-    errorlog(
-        c"ERROR: 'wheel_up_cmd' is deprecated. Please use 'bindsym button4 %s' instead.\n"
-            .as_ptr()
-            .cast_mut(),
-        command,
-    );
+    {
+        // Snapshot native bytes before the logger can dispatch a callback.
+        let log_pointer_1 = command;
+        let log_value_0 = i3_common::logging::string_bytes(
+            if log_pointer_1.is_null() {
+                None
+            } else {
+                Some(std::ffi::CStr::from_ptr(log_pointer_1))
+            },
+            None,
+        )
+        .to_vec();
+        if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+            ::log::error!(
+                "ERROR: 'wheel_up_cmd' is deprecated. Please use 'bindsym button4 {}' instead.\n",
+                log_value_0_text
+            );
+        } else {
+            let mut message = Vec::new();
+            message.extend_from_slice(
+                "ERROR: 'wheel_up_cmd' is deprecated. Please use 'bindsym button4 ".as_bytes(),
+            );
+            message.extend_from_slice(&log_value_0);
+            message.extend_from_slice("' instead.\n".as_bytes());
+            i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+        }
+    };
     bar_configure_binding(
         c"button4".as_ptr(),
         ::core::ptr::null::<::core::ffi::c_char>(),
@@ -1579,12 +2033,33 @@ pub unsafe fn cfg_bar_wheel_down_cmd(
     result: *mut ConfigResultIR,
     command: *const ::core::ffi::c_char,
 ) {
-    errorlog(
-        c"ERROR: 'wheel_down_cmd' is deprecated. Please use 'bindsym button5 %s' instead.\n"
-            .as_ptr()
-            .cast_mut(),
-        command,
-    );
+    {
+        // Snapshot native bytes before the logger can dispatch a callback.
+        let log_pointer_1 = command;
+        let log_value_0 = i3_common::logging::string_bytes(
+            if log_pointer_1.is_null() {
+                None
+            } else {
+                Some(std::ffi::CStr::from_ptr(log_pointer_1))
+            },
+            None,
+        )
+        .to_vec();
+        if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+            ::log::error!(
+                "ERROR: 'wheel_down_cmd' is deprecated. Please use 'bindsym button5 {}' instead.\n",
+                log_value_0_text
+            );
+        } else {
+            let mut message = Vec::new();
+            message.extend_from_slice(
+                "ERROR: 'wheel_down_cmd' is deprecated. Please use 'bindsym button5 ".as_bytes(),
+            );
+            message.extend_from_slice(&log_value_0);
+            message.extend_from_slice("' instead.\n".as_bytes());
+            i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+        }
+    };
     bar_configure_binding(
         c"button5".as_ptr(),
         ::core::ptr::null::<::core::ffi::c_char>(),
@@ -1831,14 +2306,7 @@ pub unsafe fn cfg_bar_start(current_match: *mut Match, result: *mut ConfigResult
 }
 
 pub unsafe fn cfg_bar_finish(current_match: *mut Match, result: *mut ConfigResultIR) {
-    debuglog(
-        c"%s:%s:%d - \t new bar configuration finished, saving.\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/config_directives.c".as_ptr(),
-        c"cfg_bar_finish".as_ptr(),
-        959 as ::core::ffi::c_int,
-    );
+    ::log::debug!("../src/config_directives.c:cfg_bar_finish:959 - \t new bar configuration finished, saving.\n");
     if (*current_bar).id.is_none() {
         (*current_bar).id =
             Some(std::ffi::CString::new(format!("bar-{}", config.number_barconfigs)).unwrap());
@@ -1871,8 +2339,6 @@ pub use libc::{
 };
 
 use i3_common::native_stdio::__assert_fail;
-
-use crate::log::{debuglog, errorlog, verboselog};
 
 use i3_common::native_stdio::{wordexp, wordexp_t, wordfree};
 
