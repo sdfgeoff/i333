@@ -8,26 +8,26 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 26 wallclock secs ( 0.89 usr +  0.10 sys =  0.99 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 23 wallclock secs ( 0.71 usr +  0.09 sys =  0.80 CPU)\nResult: PASS",
     "profile": "debug",
     "build": "cargo test --locked",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "2668b466cd0573655cda67dcb64fe389ef5d0db29afe56703ec5f7a4b565c775",
-    "i3bar": "7dad620253152e92cf676426654b34b2f2b632489fee1d9a54094e099551d5d0",
-    "i3-config-wizard": "a872a4b571fc615c41fb92e7f26ac315794e39fb777992e6b45793d33b567174",
-    "i3-dump-log": "ef7d0241dad6fd0868babd96c934a5a818724634a6090987950aaaf6b2930af2",
-    "i3-input": "994735c1dd521a910a6abc6e12cf44caa58dbcd10fe0da9bd58029434de05f64",
-    "i3-msg": "1f7093364863403219f6d6667a5b9e65a4f5df0ab65efb9287a33868d12c21e4",
-    "i3-nagbar": "aabeff1c83733407bead6a44ffb45f09f81a4ae845ab5299ddfc003487917d6b"
+    "i3": "43aa78ce2ebab9c46473f667f79ba30f79adbb482894e740090a0efcb1e8aabe",
+    "i3bar": "3b3dae3e4f37f153cf4861c2e9dac76101f7c649483e75ada0e0c42901b02000",
+    "i3-config-wizard": "9c83d3fb2e8dfcdab517874ad7e192c53856648dff1b50098afa1f1d0340482c",
+    "i3-dump-log": "ab5560b931e0b892433bb0c3cb8cdebaf25611df4fa1baa2e87e55b442c7f47c",
+    "i3-input": "bfee897ad1a5ae13191ecd956f996ef55df4f13cbe4791a24c4b901e32f6359d",
+    "i3-msg": "b9ecbbac07ee8bce70b9301cdd6dae4d75b17fa657d54b94d6465bf1f274a788",
+    "i3-nagbar": "7267b3d550f9d4afcd5d6ad5acc0e93419396d8bd7e13c5cee1f6d88bdf054a7"
   },
-  "note": "Nine-member Cargo workspace. cargo test --locked passed 460 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
+  "note": "Nine-member Cargo workspace. cargo test --locked passed 462 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
   "additional_checks": {
     "headless_c_rust_state_comparisons": 61,
     "ipc_client_test_groups": 16,
-    "workspace_unit_tests": 460,
+    "workspace_unit_tests": 462,
     "core_and_bar_cli_comparisons": 39,
     "pcre2_compile_match_error_comparisons": 4620,
     "json_oracle_cases": 2263,
@@ -121,13 +121,13 @@
     "binary_count": 7,
     "native_library_discovery": "maintained native binding build scripts and dedicated sys crates; i3-build links only platform m/rt",
     "unit_tests": {
-      "i3": 243,
+      "i3": 244,
       "cargo_regression_wrappers": 8,
       "xkb_integration": 1,
       "i3-build": 3,
       "i3-common": 106,
       "native_graphics": 5,
-      "i3-config-wizard": 5,
+      "i3-config-wizard": 6,
       "i3-dump-log": 5,
       "i3-input": 10,
       "i3-msg": 8,
@@ -142,7 +142,7 @@
     "cargo_fmt_check": true,
     "debug_build": true,
     "release_build": true,
-    "unit_tests_total_including_integration_checks": 460,
+    "unit_tests_total_including_integration_checks": 462,
     "test_command": "cargo test",
     "clean_source_command": "cargo test -p i3-test-support --features clean-source-check",
     "test_support": "development-only process capture, failure propagation and isolated regression orchestration",
@@ -2918,6 +2918,14 @@
           "source_commit": "9300b4fba4326f3adff8230af5afdbc688636df3",
           "scope": "Rust-native byte-model checkpoint: window, mark, output, startup and subscription data use owned Rust bytes; focus/split/mark handlers use byte APIs and callback-safe captures; multi-mark transfer keeps every node linked; wizard private parsing/formatting and atom requests use Rust text; diagnostic paths own OS bytes and dead context payloads are removed; private wizard harness supports repeated embedded template literals.",
           "rust_tests": 460,
+          "upstream_assertions": 4205,
+          "status": "validated"
+        },
+        {
+          "stage": 11,
+          "source_commit": "d816de2bb1635a40bde13f71a685aed1b3828cdb",
+          "scope": "Rust-native parser checkpoint: both parsers and all command/configuration text callbacks use Rust bytes, optional captures and deep-cloned bounded stacks; static grammar metadata is immutable Rust data, including the fingerprinted wizard table; matcher and Regex use byte/string APIs with PCRE2 preserved; native SHM names remain behind private prepared SDK arguments with fault-path ownership tested.",
+          "rust_tests": 462,
           "upstream_assertions": 4205,
           "status": "validated"
         }
