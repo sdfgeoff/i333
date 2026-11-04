@@ -8,26 +8,26 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 23 wallclock secs ( 0.77 usr +  0.07 sys =  0.84 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 24 wallclock secs ( 0.89 usr +  0.09 sys =  0.98 CPU)\nResult: PASS",
     "profile": "debug",
     "build": "cargo test --locked",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "ac03943f380684754503df9c077c32b30df6c8723d1de40a85dc4ca2c48a8c9f",
-    "i3bar": "3b9b435872823159ae6fe63f269ca152c14e62497df40b3a6ba72389fee3b2c1",
-    "i3-config-wizard": "c143cd3d6c0a9920e638f1fe7f6c77fd135d5f30e96a67c0a89bbeeb3a173cd2",
-    "i3-dump-log": "24bf80ddf7b85203d327620f888df86869f85ba2c2345b39ab0b2209c56564ba",
-    "i3-input": "7f8342376cf34af3d37d51d82bf11dd9891b1a70cbb8f5c3676df90b54626d87",
-    "i3-msg": "c5ebbbc4ccb15a9874886d4274555710826485676e7e00d169ede1a3b34c9d3e",
-    "i3-nagbar": "7d290702836b747f53ca18833e080a968924d634e152ed4cad853c22f3a98431"
+    "i3": "c144d644666476911fc381f1f2db12044d29498ea030554020dc130e3ee435a0",
+    "i3bar": "9d1efb0fa55a4402c45fc3c4f72133d48ee78020952a40f4cd14de2bc39a506c",
+    "i3-config-wizard": "f8698529ae0ca02259478cefa0834374e6802dfd127284d9545fea03c5f29f61",
+    "i3-dump-log": "867e68773a02d68f489c42364a991b7555139602c050cd6a4de3764838bc27af",
+    "i3-input": "99340c5b1b1b861e28007ba9f38ecc1da57815c51c94dad345fd8a1c3a31fe89",
+    "i3-msg": "0eada16f8ba4a5e08d35ce07738cc04f51443ce10f6cdaf26b812d39eea2344e",
+    "i3-nagbar": "bd9edc8d8b317ee6ed8c0b9ecca176003d39296ee169e79ebad547ca6cc90489"
   },
-  "note": "Nine-member Cargo workspace. cargo test --locked passed 438 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
+  "note": "Nine-member Cargo workspace. cargo test --locked passed 440 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
   "additional_checks": {
     "headless_c_rust_state_comparisons": 61,
     "ipc_client_test_groups": 16,
-    "workspace_unit_tests": 438,
+    "workspace_unit_tests": 440,
     "core_and_bar_cli_comparisons": 39,
     "pcre2_compile_match_error_comparisons": 4620,
     "json_oracle_cases": 2263,
@@ -121,11 +121,11 @@
     "binary_count": 7,
     "native_library_discovery": "maintained native binding build scripts and dedicated sys crates; i3-build links only platform m/rt",
     "unit_tests": {
-      "i3": 228,
+      "i3": 229,
       "cargo_regression_wrappers": 8,
       "xkb_integration": 1,
       "i3-build": 3,
-      "i3-common": 101,
+      "i3-common": 102,
       "native_graphics": 5,
       "i3-config-wizard": 5,
       "i3-dump-log": 5,
@@ -142,7 +142,7 @@
     "cargo_fmt_check": true,
     "debug_build": true,
     "release_build": true,
-    "unit_tests_total_including_integration_checks": 438,
+    "unit_tests_total_including_integration_checks": 440,
     "test_command": "cargo test",
     "clean_source_command": "cargo test -p i3-test-support --features clean-source-check",
     "test_support": "development-only process capture, failure propagation and isolated regression orchestration",
@@ -2603,8 +2603,53 @@
         "rust_tests": 438,
         "upstream_assertions": 4205,
         "status": "validated"
+      },
+      {
+        "stage": 6,
+        "source_commit": "2ec84ef136f77c221adbfdd693a0b38e1cdce846",
+        "scope": "Complete owned assignment/config/bar/container strings and standard Rust log macros across all programs; retire core variadic logging and preserve byte diagnostics, native formatting, output routing and fault-handler restart with a preinitialized thread-local emergency sink and held-lock regression.",
+        "rust_tests": 440,
+        "upstream_assertions": 4205,
+        "status": "validated"
+      },
+      {
+        "stage": 7,
+        "source_commit": "8a43da52d3a353bac2263df351e9fd85d830b17a",
+        "scope": "Finish owned assignment/config/bar/container data and standard Rust logging across every caller; remove legacy variadic logging; validate exact native byte/float/output behavior and lock-free emergency restart dispatch with TLS storage explicitly primed by address.",
+        "rust_tests": 440,
+        "upstream_assertions": 4205,
+        "status": "validated"
       }
-    ]
+    ],
+    "owned_model_and_logging": {
+      "status": "complete",
+      "source_commit": "8a43da52d3a353bac2263df351e9fd85d830b17a",
+      "owned_fields": [
+        "AssignmentDest enum payloads with derived assignment kind",
+        "Config terminal, IPC/restart paths and fake output specifications",
+        "Barconfig strings, colors, outputs, binding commands and tray names",
+        "Con name, title_format and sticky_group"
+      ],
+      "string_policy": "Owned CString preserves non-UTF-8 bytes, first-NUL semantics and distinct absent/empty values at compatibility boundaries; logger arguments take owned snapshots before callbacks.",
+      "logging": "Standard log crate macros throughout normal callers; existing byte sinks retain timestamps, verbosity, destinations, shared-memory records and IPC log clients. Legacy variadic loggers removed.",
+      "exceptional_diagnostics": "Explicit owned byte fragments retain invalid UTF-8 diagnostics; fault handlers use the existing backend directly and activate a preinitialized const thread-local sink for indirect restart logging without entering the registry lock.",
+      "native_float_compatibility": "Typed fixed-precision helper uses nonvariadic strfromd to preserve libc rounding, locale and signed-NaN diagnostics.",
+      "validation": {
+        "cargo_test": "passed",
+        "rust_tests": 440,
+        "upstream_assertions": 4205,
+        "headless_state_comparisons": 61,
+        "clean_source_build_and_test_target_compilation": "passed",
+        "clean_source_without": [
+          "C source compilation",
+          "Meson",
+          "Ninja",
+          "Perl",
+          "existing build products"
+        ],
+        "desktop_or_installed_binary_changed": false
+      }
+    }
   },
   "ci_dependency_preparation": {
     "confirmed_previous_failure": "X11::XCB required missing xcb-composite.pc and protocol XML metadata",
