@@ -35,13 +35,10 @@ unsafe fn tiling_resize_for_border(
     event: &x::ButtonPressEvent,
     use_threshold: bool,
 ) -> bool {
-    debuglog(
-        c"%s:%s:%d - border = %d, con = %p\n".as_ptr().cast_mut(),
-        c"../src/click.c".as_ptr(),
-        c"tiling_resize_for_border".as_ptr(),
-        25,
-        border.bits(),
-        con,
+    ::log::debug!(
+        "../src/click.c:tiling_resize_for_border:25 - border = {}, con = {}\n",
+        (border.bits()) as i32,
+        i3_common::logging::pointer(con)
     );
     let mut second: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut first: *mut Con = con;
@@ -60,9 +57,9 @@ unsafe fn tiling_resize_for_border(
             search_direction = Direction::Down;
         }
         _ => {
-            errorlog(
-                c"ERROR: BUG: invalid border value %d\n".as_ptr().cast_mut(),
-                border.bits(),
+            ::log::error!(
+                "ERROR: BUG: invalid border value {}\n",
+                (border.bits()) as i32
             );
             return false;
         }
@@ -70,25 +67,11 @@ unsafe fn tiling_resize_for_border(
     let res: bool =
         resize_find_tiling_participants(&raw mut first, &raw mut second, search_direction, false);
     if !res {
-        debuglog(
-            c"%s:%s:%d - No second container in this direction found.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/click.c".as_ptr(),
-            c"tiling_resize_for_border".as_ptr(),
-            49,
-        );
+        ::log::debug!("../src/click.c:tiling_resize_for_border:49 - No second container in this direction found.\n");
         return false;
     }
     if ((*first).fullscreen_mode) != (*second).fullscreen_mode {
-        debuglog(
-            c"%s:%s:%d - Avoiding resize between containers with different fullscreen modes, %d != %d\n".as_ptr().cast_mut(),
-            c"../src/click.c".as_ptr(),
-            c"tiling_resize_for_border".as_ptr(),
-            53,
-            ((*first).fullscreen_mode).raw() as u32,
-            ((*second).fullscreen_mode).raw() as u32,
-        );
+        ::log::debug!("../src/click.c:tiling_resize_for_border:53 - Avoiding resize between containers with different fullscreen modes, {} != {}\n", (((*first).fullscreen_mode).raw() as u32) as i32, (((*second).fullscreen_mode).raw() as u32) as i32);
         return false;
     }
     if first != second {
@@ -122,14 +105,7 @@ unsafe fn tiling_resize_for_border(
         Orientation::Vertical
     };
     resize_graphical_handler(first, second, orientation, event, use_threshold);
-    debuglog(
-        c"%s:%s:%d - After resize handler, rendering\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/click.c".as_ptr(),
-        c"tiling_resize_for_border".as_ptr(),
-        71,
-    );
+    ::log::debug!("../src/click.c:tiling_resize_for_border:71 - After resize handler, rendering\n");
     tree_render();
     true
 }
@@ -138,16 +114,7 @@ unsafe fn floating_mod_on_tiled_client(con: *mut Con, event: &x::ButtonPressEven
     let to_left: i32 = event.event_x() as i32;
     let to_top: i32 = event.event_y() as i32;
     let to_bottom: i32 = (*con).rect.height.wrapping_sub(event.event_y() as u32) as i32;
-    debuglog(
-        c"%s:%s:%d - click was %d px to the right, %d px to the left, %d px to top, %d px to bottom\n".as_ptr().cast_mut(),
-        c"../src/click.c".as_ptr(),
-        c"floating_mod_on_tiled_client".as_ptr(),
-        94,
-        to_right,
-        to_left,
-        to_top,
-        to_bottom,
-    );
+    ::log::debug!("../src/click.c:floating_mod_on_tiled_client:94 - click was {} px to the right, {} px to the left, {} px to top, {} px to bottom\n", (to_right) as i32, (to_left) as i32, (to_top) as i32, (to_bottom) as i32);
     nearest_border([to_left, to_top, to_right, to_bottom])
         .is_some_and(|border| tiling_resize_for_border(con, border, event, false))
 }
@@ -158,24 +125,16 @@ unsafe fn tiling_resize(
     use_threshold: bool,
 ) -> bool {
     let bsr: Rect = con_border_style_rect(con);
-    debuglog(
-        c"%s:%s:%d - BORDER x = %d, y = %d for con %p, window 0x%08x\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/click.c".as_ptr(),
-        c"tiling_resize".as_ptr(),
-        131,
-        event.event_x() as i32,
-        event.event_y() as i32,
-        con,
-        event.event().resource_id(),
+    ::log::debug!(
+        "../src/click.c:tiling_resize:131 - BORDER x = {}, y = {} for con {}, window 0x{:08x}\n",
+        (event.event_x() as i32) as i32,
+        (event.event_y() as i32) as i32,
+        i3_common::logging::pointer(con),
+        (event.event().resource_id()) as u32
     );
-    debuglog(
-        c"%s:%s:%d - checks for right >= %d\n".as_ptr().cast_mut(),
-        c"../src/click.c".as_ptr(),
-        c"tiling_resize".as_ptr(),
-        132,
-        (*con).window_rect.x.wrapping_add((*con).window_rect.width),
+    ::log::debug!(
+        "../src/click.c:tiling_resize:132 - checks for right >= {}\n",
+        ((*con).window_rect.x.wrapping_add((*con).window_rect.width)) as i32
     );
     border_hit(
         (*con).rect,
@@ -202,31 +161,49 @@ unsafe fn route_click(con: *mut Con, event: &x::ButtonPressEvent, dest: ClickDes
         xcb_interop::events::button_press_state(event),
         config.floating_modifier,
     );
-    debuglog(
-        c"%s:%s:%d - --> click properties: mod = %d, destination = %d\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/click.c".as_ptr(),
-        c"route_click".as_ptr(),
-        173,
-        mod_pressed as i32,
-        dest as u32,
+    ::log::debug!(
+        "../src/click.c:route_click:173 - --> click properties: mod = {}, destination = {}\n",
+        (mod_pressed as i32) as i32,
+        (dest as u32) as i32
     );
-    debuglog(
-        c"%s:%s:%d - --> OUTCOME = %p\n".as_ptr().cast_mut(),
-        c"../src/click.c".as_ptr(),
-        c"route_click".as_ptr(),
-        174,
-        con,
+    ::log::debug!(
+        "../src/click.c:route_click:174 - --> OUTCOME = {}\n",
+        i3_common::logging::pointer(con)
     );
-    debuglog(
-        c"%s:%s:%d - type = %d, name = %s\n".as_ptr().cast_mut(),
-        c"../src/click.c".as_ptr(),
-        c"route_click".as_ptr(),
-        175,
-        ((*con).type_0).raw() as u32,
-        (*con).name_ptr(),
-    );
+    {
+        // Snapshot native bytes before the logger can dispatch a callback.
+        let log_value_0 = (((*con).type_0).raw() as u32) as i32;
+        let log_pointer_2 = (*con).name_ptr();
+        let log_value_1 = i3_common::logging::string_bytes(
+            if log_pointer_2.is_null() {
+                None
+            } else {
+                Some(std::ffi::CStr::from_ptr(log_pointer_2))
+            },
+            None,
+        )
+        .to_vec();
+        if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+            ::log::debug!(
+                "../src/click.c:route_click:175 - type = {}, name = {}\n",
+                log_value_0,
+                log_value_1_text
+            );
+        } else {
+            i3_common::logging::emit_parts(
+                i3_common::logging::Level::Debug,
+                &[
+                    format!(
+                        "../src/click.c:route_click:175 - type = {}, name = ",
+                        log_value_0
+                    )
+                    .as_bytes(),
+                    &log_value_1,
+                    "\n".as_bytes(),
+                ],
+            );
+        }
+    };
     if ((*parent_ptr(con)).type_0) == ContainerType::DockArea {
         allow_replay_pointer(event.time());
         return;
@@ -280,14 +257,7 @@ unsafe fn route_click(con: *mut Con, event: &x::ButtonPressEvent, dest: ClickDes
         || event.detail() as i32 == 6
         || event.detail() as i32 == 7;
     if in_stacked && dest == ClickDestination::Decoration && is_scroll {
-        debuglog(
-            c"%s:%s:%d - Scrolling on a window decoration\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/click.c".as_ptr(),
-            c"route_click".as_ptr(),
-            234,
-        );
+        ::log::debug!("../src/click.c:route_click:234 - Scrolling on a window decoration\n");
         workspace_show(ws);
         let current: *mut Con = focus::first_ptr(parent_ptr(con));
         let direction: Position = if event.detail() as i32
@@ -338,13 +308,8 @@ unsafe fn route_click(con: *mut Con, event: &x::ButtonPressEvent, dest: ClickDes
             return;
         }
         if mod_pressed && is_right_click {
-            debuglog(
-                c"%s:%s:%d - floating resize due to floatingmodifier\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/click.c".as_ptr(),
-                c"route_click".as_ptr(),
-                293,
+            ::log::debug!(
+                "../src/click.c:route_click:293 - floating resize due to floatingmodifier\n"
             );
             floating_resize_window(floatingcon, proportional, event);
             return;
@@ -352,14 +317,7 @@ unsafe fn route_click(con: *mut Con, event: &x::ButtonPressEvent, dest: ClickDes
         if (dest == ClickDestination::Border || dest == ClickDestination::Decoration)
             && is_left_or_right_click
         {
-            debuglog(
-                c"%s:%s:%d - tiling resize with fallback\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/click.c".as_ptr(),
-                c"route_click".as_ptr(),
-                301,
-            );
+            ::log::debug!("../src/click.c:route_click:301 - tiling resize with fallback\n");
             if tiling_resize(
                 con,
                 event,
@@ -371,26 +329,14 @@ unsafe fn route_click(con: *mut Con, event: &x::ButtonPressEvent, dest: ClickDes
             }
         }
         if dest == ClickDestination::Decoration && is_right_click {
-            debuglog(
-                c"%s:%s:%d - floating resize due to decoration right click\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/click.c".as_ptr(),
-                c"route_click".as_ptr(),
-                309,
+            ::log::debug!(
+                "../src/click.c:route_click:309 - floating resize due to decoration right click\n"
             );
             floating_resize_window(floatingcon, proportional, event);
             return;
         }
         if dest == ClickDestination::Border && is_left_or_right_click {
-            debuglog(
-                c"%s:%s:%d - floating resize due to border click\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/click.c".as_ptr(),
-                c"route_click".as_ptr(),
-                315,
-            );
+            ::log::debug!("../src/click.c:route_click:315 - floating resize due to border click\n");
             floating_resize_window(floatingcon, proportional, event);
             return;
         }
@@ -422,14 +368,7 @@ unsafe fn route_click(con: *mut Con, event: &x::ButtonPressEvent, dest: ClickDes
     if (dest == ClickDestination::Border || dest == ClickDestination::Decoration)
         && is_left_or_right_click
     {
-        debuglog(
-            c"%s:%s:%d - Trying to resize (tiling)\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/click.c".as_ptr(),
-            c"route_click".as_ptr(),
-            357,
-        );
+        ::log::debug!("../src/click.c:route_click:357 - Trying to resize (tiling)\n");
         tiling_resize(
             con,
             event,
@@ -442,25 +381,11 @@ unsafe fn route_click(con: *mut Con, event: &x::ButtonPressEvent, dest: ClickDes
 
 pub unsafe fn handle_button_press(event: &x::ButtonPressEvent) {
     let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
-    debuglog(
-        c"%s:%s:%d - Button %d (state %d) %s on window 0x%08x (child 0x%08x) at (%d, %d) (root %d, %d)\n".as_ptr().cast_mut(),
-        c"../src/click.c".as_ptr(),
-        c"handle_button_press".as_ptr(),
-        377,
-        event.detail() as i32,
-        xcb_interop::events::button_press_state(event) as i32,
-        if event.response_type() as i32 == 4 {
-            c"press".as_ptr()
+    ::log::debug!("../src/click.c:handle_button_press:377 - Button {} (state {}) {} on window 0x{:08x} (child 0x{:08x}) at ({}, {}) (root {}, {})\n", (event.detail() as i32) as i32, (xcb_interop::events::button_press_state(event) as i32) as i32, if event.response_type() as i32 == 4 {
+            "press"
         } else {
-            c"release".as_ptr()
-        },
-        event.event().resource_id(),
-        event.child().resource_id(),
-        event.event_x() as i32,
-        event.event_y() as i32,
-        event.root_x() as i32,
-        event.root_y() as i32,
-    );
+            "release"
+        }, (event.event().resource_id()) as u32, (event.child().resource_id()) as u32, (event.event_x() as i32) as i32, (event.event_y() as i32) as i32, (event.root_x() as i32) as i32, (event.root_y() as i32) as i32);
     last_timestamp = event.time();
     con = con_by_window_id(event.event().resource_id());
     if !con.is_null() {
@@ -503,11 +428,7 @@ pub unsafe fn handle_button_press(event: &x::ButtonPressEvent) {
             }
             return;
         }
-        errorlog(
-            c"ERROR: Clicked into unknown window?!\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::error!("ERROR: Clicked into unknown window?!\n");
         allow_pointer(x::Allow::ReplayPointer, event.time());
         return;
     }
@@ -537,12 +458,7 @@ pub unsafe fn handle_button_press(event: &x::ButtonPressEvent) {
         }
     }
     if event.child().resource_id() as ::core::ffi::c_long != 0 {
-        debuglog(
-            c"%s:%s:%d - event->child not XCB_NONE, so this is an event which originated from a click into the application, but the application did not handle it.\n".as_ptr().cast_mut(),
-            c"../src/click.c".as_ptr(),
-            c"handle_button_press".as_ptr(),
-            443,
-        );
+        ::log::debug!("../src/click.c:handle_button_press:443 - event->child not XCB_NONE, so this is an event which originated from a click into the application, but the application did not handle it.\n");
         route_click(con, event, ClickDestination::Inside);
         return;
     }
@@ -556,8 +472,6 @@ use crate::tree::tree_render;
 // Canonical Pango backend ABI; font policy remains local.
 
 use i3_common::native_stdio::__assert_fail;
-
-use crate::log::{debuglog, errorlog};
 
 // Shared model types retain field layout while using one Rust identity.
 pub use crate::types::Con;
