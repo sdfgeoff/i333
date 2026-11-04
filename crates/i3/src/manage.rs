@@ -24,9 +24,6 @@ use xcb::{x, Xid, XidNew};
 pub type Output = xoutput;
 pub type i3Window = Window;
 
-pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-
 pub const NET_WM_DESKTOP_NONE: ::core::ffi::c_uint = 0xfffffff0 as ::core::ffi::c_uint;
 pub const NET_WM_DESKTOP_ALL: ::core::ffi::c_uint = 0xffffffff as ::core::ffi::c_uint;
 unsafe fn _match_depth(win: *mut i3Window, con: *mut Con) -> u32 {

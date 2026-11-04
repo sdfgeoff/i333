@@ -339,8 +339,6 @@ pub struct outputs_head {
 }
 
 pub const I3_VERSION: &[u8] = concat!(env!("I3_VERSION"), "\0").as_bytes();
-pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 
 pub const SIGILL: ::core::ffi::c_int = 4 as ::core::ffi::c_int;
 pub const SIGABRT: ::core::ffi::c_int = 6 as ::core::ffi::c_int;
@@ -552,11 +550,11 @@ pub static mut ws_assignments: ws_assignments_head = ws_assignments_head {
     tqh_last: ::core::ptr::null::<*mut Workspace_Assignment>() as *mut *mut Workspace_Assignment,
 };
 
-pub static mut xkb_supported: bool = true_0 != 0;
+pub static mut xkb_supported: bool = true;
 
-pub static mut shape_supported: bool = true_0 != 0;
+pub static mut shape_supported: bool = true;
 
-pub static mut force_xinerama: bool = false_0 != 0;
+pub static mut force_xinerama: bool = false;
 
 pub static mut A__NET_WM_STATE_MAXIMIZED_HORZ: u32 = 0;
 
@@ -811,8 +809,8 @@ extern "C" fn i3_exit() {
         // Release the backend while its display/visual guards still live.
         crate::config::config.font = i3_common::font::Font::empty();
         drop(MAIN_DISPLAY.take());
-        kill_nagbar(config_error_nagbar_pid, false_0 != 0);
-        kill_nagbar(command_error_nagbar_pid, false_0 != 0);
+        kill_nagbar(config_error_nagbar_pid, false);
+        kill_nagbar(command_error_nagbar_pid, false);
         ev_loop_destroy(main_loop);
     }
 }
@@ -1026,14 +1024,14 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     let mut fake_owner: Option<CString> = None;
     let mut override_configpath: *mut ::core::ffi::c_char =
         ::core::ptr::null_mut::<::core::ffi::c_char>();
-    let mut autostart: bool = true_0 != 0;
+    let mut autostart: bool = true;
     let mut layout_path: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    let mut delete_layout_path: bool = false_0 != 0;
-    let mut disable_randr15: bool = false_0 != 0;
+    let mut delete_layout_path: bool = false;
+    let mut disable_randr15: bool = false;
     let mut fake_outputs: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    let mut disable_signalhandler: bool = false_0 != 0;
-    let mut only_check_config: bool = false_0 != 0;
-    let mut replace_wm: bool = false_0 != 0;
+    let mut disable_signalhandler: bool = false;
+    let mut only_check_config: bool = false;
+    let mut replace_wm: bool = false;
     setlocale(LC_ALL, c"".as_ptr());
     getrlimit(libc::RLIMIT_CORE, &raw mut original_rlimit_core);
     if isatty(fileno(stdout)) == 0 {
@@ -1140,7 +1138,7 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
         );
     }
     if !operands.is_empty() {
-        set_verbosity(true_0 != 0);
+        set_verbosity(true);
         ::log::info!("Additional arguments passed. Sending them as a command to i3.\n");
         let payload_bytes = operands
             .iter()
@@ -1616,7 +1614,7 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
         );
     }
     if config.force_xinerama {
-        force_xinerama = true_0 != 0;
+        force_xinerama = true;
     }
     // The native atom-name utility formats its screen argument as an unsigned
     // byte; retain that conversion for the WM_Sn selection name.
@@ -1819,7 +1817,7 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
     }
     translate_keysyms();
     grab_all_keys();
-    let mut needs_tree_init: bool = true_0 != 0;
+    let mut needs_tree_init: bool = true;
     if !layout_path.is_null() {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
@@ -1897,9 +1895,9 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
                 {
                     if (*output).con.is_null() {
                         output_init_con(output);
-                        (*output).changed = false_0 != 0;
+                        (*output).changed = false;
                     }
-                    (*output).to_be_disabled = true_0 != 0;
+                    (*output).to_be_disabled = true;
                     randr_disable_output(output);
                 }
                 output = (*output).outputs.tqe_next as *mut Output;

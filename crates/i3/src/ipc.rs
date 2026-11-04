@@ -80,8 +80,6 @@ pub const MINOR_VERSION: ::core::ffi::c_int = 25 as ::core::ffi::c_int;
 pub const PATCH_VERSION: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 pub const EINTR: ::core::ffi::c_int = 4 as ::core::ffi::c_int;
 pub const EAGAIN: ::core::ffi::c_int = 11 as ::core::ffi::c_int;
-pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 pub const I3_IPC_REPLY_TYPE_COMMAND: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
@@ -1009,7 +1007,7 @@ unsafe fn canonicalize_output_name(name: *const ::core::ffi::c_char) -> *const :
     {
         return name;
     }
-    let output: *mut Output = get_output_by_name(name, false_0 != 0);
+    let output: *mut Output = get_output_by_name(name, false);
     if !output.is_null() {
         output_primary_name(output)
     } else {

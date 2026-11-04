@@ -13,8 +13,6 @@ use std::os::fd::AsRawFd;
 use std::rc::Rc;
 use xcb::ffi::xcb_connection_t;
 use xcb::{x, Xid, XidNew};
-const true_0: i32 = 1;
-const false_0: i32 = 0;
 
 #[repr(C)]
 pub struct placeholder_state {
@@ -418,7 +416,7 @@ pub unsafe fn restore_kill_placeholder(placeholder: u32) -> bool {
                 ),
                 { (placeholder) }
             );
-            return true_0 != 0;
+            return true;
         }
     }
     ::log::debug!(
@@ -428,7 +426,7 @@ pub unsafe fn restore_kill_placeholder(placeholder: u32) -> bool {
         ),
         { (placeholder) }
     );
-    false_0 != 0
+    false
 }
 unsafe fn expose_event(event: &x::ExposeEvent) {
     let mut state: *mut placeholder_state = ::core::ptr::null_mut::<placeholder_state>();

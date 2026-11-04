@@ -66,9 +66,6 @@ pub struct ConfigResultIR {
     pub has_errors: bool,
 }
 
-pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 
 struct ExpandedWords(wordexp_t);
@@ -150,7 +147,7 @@ pub unsafe fn cfg_include(
                 i3_common::logging::emit(i3_common::logging::Level::Error, &message);
             }
         };
-        (*result).has_errors = true_0 != 0;
+        (*result).has_errors = true;
         return;
     }
     let mut expanded_words = ExpandedWords(p);
@@ -203,12 +200,12 @@ pub unsafe fn cfg_include(
                 }
             };
         } else {
-            let mut skip: bool = false_0 != 0;
+            let mut skip: bool = false;
             let mut file: *mut IncludedFile = ::core::ptr::null_mut::<IncludedFile>();
             file = included_files.tqh_first;
             while !file.is_null() {
                 if (*file).path.as_c_str() == CStr::from_ptr(resolved_path.as_ptr()) {
-                    skip = true_0 != 0;
+                    skip = true;
                     break;
                 } else {
                     file = (*file).files.tqe_next;
@@ -330,7 +327,7 @@ pub unsafe fn cfg_include(
                     ParseFileResult::ConfigErrors => 1383695296304875401,
                 };
                 if current_block_46 == 1383695296304875401 {
-                    (*result).has_errors = true_0 != 0;
+                    (*result).has_errors = true;
                     crate::config::remove_included_file(file);
                     file = ::core::ptr::null_mut::<IncludedFile>();
                 }
@@ -440,7 +437,7 @@ pub unsafe fn cfg_binding(
         exclude_titlebar,
         command,
         DEFAULT_BINDING_MODE,
-        false_0 != 0,
+        false,
     );
 }
 static CURRENT_MODE: std::sync::Mutex<Option<(std::ffi::CString, bool)>> =
@@ -720,12 +717,12 @@ unsafe fn create_gaps_assignment(
             i3_common::logging::emit(i3_common::logging::Level::Debug, &message);
         }
     };
-    let mut found: bool = false_0 != 0;
+    let mut found: bool = false;
     let mut assignment: *mut Workspace_Assignment = ::core::ptr::null_mut::<Workspace_Assignment>();
     assignment = ws_assignments.tqh_first;
     while !assignment.is_null() {
         if strcasecmp((*assignment).name, workspace) == 0 as ::core::ffi::c_int {
-            found = true_0 != 0;
+            found = true;
             break;
         } else {
             assignment = (*assignment).ws_assignments.tqe_next;
@@ -1328,7 +1325,7 @@ pub unsafe fn cfg_color(
         if strcmp(c"focused_tab_title".as_ptr(), c"focused_inactive".as_ptr())
             == 0 as ::core::ffi::c_int
         {
-            config.client.got_focused_tab_title = true_0 != 0;
+            config.client.got_focused_tab_title = true;
             if indicator.is_some() || child_border.is_some() {
                 ::log::error!("ERROR: indicator and child_border colors have no effect for client.focused_tab_title\n");
             }
@@ -1352,7 +1349,7 @@ pub unsafe fn cfg_color(
         if strcmp(c"focused_tab_title".as_ptr(), c"focused_tab_title".as_ptr())
             == 0 as ::core::ffi::c_int
         {
-            config.client.got_focused_tab_title = true_0 != 0;
+            config.client.got_focused_tab_title = true;
             if indicator.is_some() || child_border.is_some() {
                 ::log::error!("ERROR: indicator and child_border colors have no effect for client.focused_tab_title\n");
             }
@@ -1374,7 +1371,7 @@ pub unsafe fn cfg_color(
     }
     if strcmp(colorclass.as_ptr(), c"client.focused".as_ptr()) == 0 as ::core::ffi::c_int {
         if strcmp(c"focused_tab_title".as_ptr(), c"focused".as_ptr()) == 0 as ::core::ffi::c_int {
-            config.client.got_focused_tab_title = true_0 != 0;
+            config.client.got_focused_tab_title = true;
             if indicator.is_some() || child_border.is_some() {
                 ::log::error!("ERROR: indicator and child_border colors have no effect for client.focused_tab_title\n");
             }
@@ -1394,7 +1391,7 @@ pub unsafe fn cfg_color(
     }
     if strcmp(colorclass.as_ptr(), c"client.unfocused".as_ptr()) == 0 as ::core::ffi::c_int {
         if strcmp(c"focused_tab_title".as_ptr(), c"unfocused".as_ptr()) == 0 as ::core::ffi::c_int {
-            config.client.got_focused_tab_title = true_0 != 0;
+            config.client.got_focused_tab_title = true;
             if indicator.is_some() || child_border.is_some() {
                 ::log::error!("ERROR: indicator and child_border colors have no effect for client.focused_tab_title\n");
             }
@@ -1414,7 +1411,7 @@ pub unsafe fn cfg_color(
     }
     if strcmp(colorclass.as_ptr(), c"client.urgent".as_ptr()) == 0 as ::core::ffi::c_int {
         if strcmp(c"focused_tab_title".as_ptr(), c"urgent".as_ptr()) == 0 as ::core::ffi::c_int {
-            config.client.got_focused_tab_title = true_0 != 0;
+            config.client.got_focused_tab_title = true;
             if indicator.is_some() || child_border.is_some() {
                 ::log::error!("ERROR: indicator and child_border colors have no effect for client.focused_tab_title\n");
             }
@@ -1435,7 +1432,7 @@ pub unsafe fn cfg_color(
     if strcmp(colorclass.as_ptr(), c"client.placeholder".as_ptr()) == 0 as ::core::ffi::c_int {
         if strcmp(c"focused_tab_title".as_ptr(), c"placeholder".as_ptr()) == 0 as ::core::ffi::c_int
         {
-            config.client.got_focused_tab_title = true_0 != 0;
+            config.client.got_focused_tab_title = true;
             if indicator.is_some() || child_border.is_some() {
                 ::log::error!("ERROR: indicator and child_border colors have no effect for client.focused_tab_title\n");
             }

@@ -28,8 +28,6 @@ use std::rc::Rc;
 
 pub type i3Window = Window;
 
-const true_0: i32 = 1;
-const false_0: i32 = 0;
 fn property_string(bytes: &[u8]) -> CString {
     CString::new(bytes.split(|byte| *byte == 0).next().unwrap()).unwrap()
 }

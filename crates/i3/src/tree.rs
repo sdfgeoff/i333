@@ -30,9 +30,6 @@ pub type i3Window = Window;
 
 pub use crate::application::ignore_event_sequence_t;
 
-pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 
 pub static mut croot: *mut Con = ::core::ptr::null::<Con>() as *mut Con;

@@ -88,8 +88,6 @@ type OutputNames = std::sync::Mutex<Vec<std::ffi::CString>>;
 static names: OutputNames = std::sync::Mutex::new(Vec::new());
 static names_global: OutputNames = std::sync::Mutex::new(Vec::new());
 pub type gap_accessor = Option<unsafe fn(*mut gaps_t) -> *mut libc::c_int>;
-pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 pub const F_GETFD: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
@@ -101,16 +99,16 @@ unsafe fn maybe_back_and_forth(
 ) -> bool {
     let ws: *const Con = con_get_workspace(focused);
     if strcmp((*ws).name_ptr(), name) != 0 as ::core::ffi::c_int {
-        return false_0 != 0;
+        return false;
     }
     ::log::debug!(
         "../src/commands.c:maybe_back_and_forth:91 - This workspace is already focused.\n"
     );
     if config.workspace_auto_back_and_forth {
         workspace_back_and_forth();
-        (*cmd_output).needs_tree_render = true_0 != 0;
+        (*cmd_output).needs_tree_render = true;
     }
-    true_0 != 0
+    true
 }
 unsafe fn maybe_auto_back_and_forth_workspace(workspace: *mut Con) -> *mut Con {
     if !config.workspace_auto_back_and_forth {
@@ -174,9 +172,9 @@ pub unsafe fn cmd_criteria_match_windows(
                 i3_common::logging::emit_parts(i3_common::logging::Level::Debug, &[ format!("../src/commands.c:cmd_criteria_match_windows:157 - checking if con {} / ", log_value_0).as_bytes(), &log_value_1, " matches\n".as_bytes() ]);
             }
         };
-        let mut accept_match: bool = false_0 != 0;
+        let mut accept_match: bool = false;
         if !(*current_match).con_id.is_null() {
-            accept_match = true_0 != 0;
+            accept_match = true;
             if (*current_match).con_id == con {
                 ::log::debug!(
                     "../src/commands.c:cmd_criteria_match_windows:167 - con_id matched.\n"
@@ -193,8 +191,8 @@ pub unsafe fn cmd_criteria_match_windows(
         }
         if current_block_41 == 15089075282327824602 {
             if (*current_match).mark.is_some() && !(*con).marks_head.tqh_first.is_null() {
-                accept_match = true_0 != 0;
-                let mut matched_by_mark: bool = false_0 != 0;
+                accept_match = true;
+                let mut matched_by_mark: bool = false;
                 let mut mark: *mut mark_t = ::core::ptr::null_mut::<mark_t>();
                 mark = (*con).marks_head.tqh_first;
                 while !mark.is_null() {
@@ -207,7 +205,7 @@ pub unsafe fn cmd_criteria_match_windows(
                         ::log::debug!(
                             "../src/commands.c:cmd_criteria_match_windows:184 - match by mark\n"
                         );
-                        matched_by_mark = true_0 != 0;
+                        matched_by_mark = true;
                         break;
                     }
                 }
@@ -228,7 +226,7 @@ pub unsafe fn cmd_criteria_match_windows(
                     if !(*con).window.is_null() {
                         if match_matches_window(current_match, (*con).window as *mut i3Window) {
                             ::log::debug!("../src/commands.c:cmd_criteria_match_windows:197 - matches window!\n");
-                            accept_match = true_0 != 0;
+                            accept_match = true;
                             current_block_41 = 8845338526596852646;
                         } else {
                             ::log::debug!("../src/commands.c:cmd_criteria_match_windows:200 - doesn't match\n");
@@ -326,7 +324,7 @@ unsafe fn move_matches_to_workspace(owindows: *const owindows_head, ws: *mut Con
                 );
             }
         };
-        con_move_to_workspace((*current).con, ws, true_0 != 0, false_0 != 0, false_0 != 0);
+        con_move_to_workspace((*current).con, ws, true, false, false);
         current = (*current).owindows.tqe_next;
     }
 }
@@ -418,7 +416,7 @@ pub unsafe fn cmd_move_con_to_workspace(
         }
         return;
     } else {
-        let mut found: bool = false_0 != 0;
+        let mut found: bool = false;
         let mut current: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
         while !current.is_null() {
             let next: *mut owindow = (*current).owindows.tqe_next;
@@ -433,7 +431,7 @@ pub unsafe fn cmd_move_con_to_workspace(
                 }
                 *(*current).owindows.tqe_prev = (*current).owindows.tqe_next;
             } else {
-                found = true_0 != 0;
+                found = true;
             }
             current = next;
         }
@@ -483,7 +481,7 @@ pub unsafe fn cmd_move_con_to_workspace(
         return;
     }
     move_matches_to_workspace(&raw mut (*(*cmd_output).ctx).owindows, ws);
-    (*cmd_output).needs_tree_render = true_0 != 0;
+    (*cmd_output).needs_tree_render = true;
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
     }
@@ -549,7 +547,7 @@ pub unsafe fn cmd_move_con_to_workspace_back_and_forth(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
     move_matches_to_workspace(&raw mut (*(*cmd_output).ctx).owindows, ws);
-    (*cmd_output).needs_tree_render = true_0 != 0;
+    (*cmd_output).needs_tree_render = true;
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
     }
@@ -632,7 +630,7 @@ pub unsafe fn cmd_move_con_to_workspace_name(
         }
         return;
     } else {
-        let mut found: bool = false_0 != 0;
+        let mut found: bool = false;
         let mut current: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
         while !current.is_null() {
             let next: *mut owindow = (*current).owindows.tqe_next;
@@ -647,7 +645,7 @@ pub unsafe fn cmd_move_con_to_workspace_name(
                 }
                 *(*current).owindows.tqe_prev = (*current).owindows.tqe_next;
             } else {
-                found = true_0 != 0;
+                found = true;
             }
             current = next;
         }
@@ -698,7 +696,7 @@ pub unsafe fn cmd_move_con_to_workspace_name(
         ws = maybe_auto_back_and_forth_workspace(ws);
     }
     move_matches_to_workspace(&raw mut (*(*cmd_output).ctx).owindows, ws);
-    (*cmd_output).needs_tree_render = true_0 != 0;
+    (*cmd_output).needs_tree_render = true;
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
     }
@@ -764,7 +762,7 @@ pub unsafe fn cmd_move_con_to_workspace_number(
         }
         return;
     } else {
-        let mut found: bool = false_0 != 0;
+        let mut found: bool = false;
         let mut current: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
         while !current.is_null() {
             let next: *mut owindow = (*current).owindows.tqe_next;
@@ -779,7 +777,7 @@ pub unsafe fn cmd_move_con_to_workspace_number(
                 }
                 *(*current).owindows.tqe_prev = (*current).owindows.tqe_next;
             } else {
-                found = true_0 != 0;
+                found = true;
             }
             current = next;
         }
@@ -880,7 +878,7 @@ pub unsafe fn cmd_move_con_to_workspace_number(
         ws = maybe_auto_back_and_forth_workspace(ws);
     }
     move_matches_to_workspace(&raw mut (*(*cmd_output).ctx).owindows, ws);
-    (*cmd_output).needs_tree_render = true_0 != 0;
+    (*cmd_output).needs_tree_render = true;
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
     }
@@ -994,12 +992,9 @@ unsafe fn cmd_resize_tiling_direction(
     let mut second: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut first: *mut Con = current;
     let search_direction: Direction = parse_direction(direction);
-    let res: bool = resize_find_tiling_participants(
-        &raw mut first,
-        &raw mut second,
-        search_direction,
-        false_0 != 0,
-    ) as bool;
+    let res: bool =
+        resize_find_tiling_participants(&raw mut first, &raw mut second, search_direction, false)
+            as bool;
     if !res {
         if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
@@ -1014,7 +1009,7 @@ unsafe fn cmd_resize_tiling_direction(
             );
             free(message as *mut ::core::ffi::c_void);
         }
-        return false_0 != 0;
+        return false;
     }
     if ppt != 0 {
         px = 0 as ::core::ffi::c_int;
@@ -1037,13 +1032,9 @@ unsafe fn cmd_resize_tiling_width_height(
         } else {
             Direction::Down
         };
-    let search_result: bool = resize_find_tiling_participants(
-        &raw mut current,
-        &raw mut dummy,
-        search_direction,
-        true_0 != 0,
-    ) as bool;
-    if search_result as ::core::ffi::c_int == false_0 {
+    let search_result: bool =
+        resize_find_tiling_participants(&raw mut current, &raw mut dummy, search_direction, true);
+    if !search_result {
         if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
@@ -1057,7 +1048,7 @@ unsafe fn cmd_resize_tiling_width_height(
             );
             free(message as *mut ::core::ffi::c_void);
         }
-        return false_0 != 0;
+        return false;
     }
     let children: ::core::ffi::c_int = con_num_children(parent_ptr(current)) as ::core::ffi::c_int;
     ::log::info!("ins. {} children\n", (children) as i32);
@@ -1137,7 +1128,7 @@ unsafe fn cmd_resize_tiling_width_height(
             );
             free(message_0 as *mut ::core::ffi::c_void);
         }
-        return false_0 != 0;
+        return false;
     }
     {
         // Snapshot native bytes before the logger can dispatch a callback.
@@ -1196,7 +1187,7 @@ unsafe fn cmd_resize_tiling_width_height(
                     );
                     free(message_1 as *mut ::core::ffi::c_void);
                 }
-                return false_0 != 0;
+                return false;
             }
             child = nodes::next_ptr(child);
         }
@@ -1252,7 +1243,7 @@ unsafe fn cmd_resize_tiling_width_height(
         }
         child = nodes::next_ptr(child);
     }
-    true_0 != 0
+    true
 }
 
 pub unsafe fn cmd_resize(
@@ -1412,7 +1403,7 @@ pub unsafe fn cmd_resize(
         }
         current = (*current).owindows.tqe_next;
     }
-    (*cmd_output).needs_tree_render = true_0 != 0;
+    (*cmd_output).needs_tree_render = true;
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
     }
@@ -1435,12 +1426,7 @@ unsafe fn resize_set_tiling(
         mode = c"height".as_ptr().cast_mut();
     }
     let mut dummy: *mut Con = ::core::ptr::null_mut::<Con>();
-    resize_find_tiling_participants(
-        &raw mut target,
-        &raw mut dummy,
-        search_direction,
-        true_0 != 0,
-    );
+    resize_find_tiling_participants(&raw mut target, &raw mut dummy, search_direction, true);
     let mut ppt: ::core::ffi::c_double = 0.0f64;
     let mut px: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
     if is_ppt {
@@ -1568,7 +1554,7 @@ pub unsafe fn cmd_resize_set(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    let mut success: bool = true_0 != 0;
+    let mut success: bool = true;
     current = (*(*cmd_output).ctx).owindows.tqh_first;
     while !current.is_null() {
         let mut floating_con: *mut Con = ::core::ptr::null_mut::<Con>();
@@ -1630,7 +1616,7 @@ pub unsafe fn cmd_resize_set(
         }
         current = (*current).owindows.tqe_next;
     }
-    (*cmd_output).needs_tree_render = true_0 != 0;
+    (*cmd_output).needs_tree_render = true;
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(success));
     }
@@ -1801,7 +1787,7 @@ pub unsafe fn cmd_border(
         con_set_border_style((*current).con, border_style, con_border_width);
         current = (*current).owindows.tqe_next;
     }
-    (*cmd_output).needs_tree_render = true_0 != 0;
+    (*cmd_output).needs_tree_render = true;
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
     }
@@ -2024,7 +2010,7 @@ pub unsafe fn cmd_append_layout(
                     ::core::ptr::null_mut::<Con>(),
                 );
             }
-            (*cmd_output).needs_tree_render = true_0 != 0;
+            (*cmd_output).needs_tree_render = true;
         }
     }
 }
@@ -2096,7 +2082,7 @@ pub unsafe fn cmd_workspace(
         return;
     }
     workspace_show(ws);
-    (*cmd_output).needs_tree_render = true_0 != 0;
+    (*cmd_output).needs_tree_render = true;
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
     }
@@ -2139,7 +2125,7 @@ pub unsafe fn cmd_workspace_number(
             emit_command_reply(cmd_output, CommandReply::Success(true));
         }
         workspace_show_by_name(which);
-        (*cmd_output).needs_tree_render = true_0 != 0;
+        (*cmd_output).needs_tree_render = true;
         return;
     }
     let workspace_name = (*workspace).name.clone().expect("workspace has a name");
@@ -2152,7 +2138,7 @@ pub unsafe fn cmd_workspace_number(
         return;
     }
     workspace_show(workspace);
-    (*cmd_output).needs_tree_render = true_0 != 0;
+    (*cmd_output).needs_tree_render = true;
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
     }
@@ -2164,7 +2150,7 @@ pub unsafe fn cmd_workspace_back_and_forth(
 ) {
     disable_global_fullscreen();
     workspace_back_and_forth();
-    (*cmd_output).needs_tree_render = true_0 != 0;
+    (*cmd_output).needs_tree_render = true;
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
     }
@@ -2232,7 +2218,7 @@ pub unsafe fn cmd_workspace_name(
         return;
     }
     workspace_show_by_name(name);
-    (*cmd_output).needs_tree_render = true_0 != 0;
+    (*cmd_output).needs_tree_render = true;
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
     }
@@ -2364,7 +2350,7 @@ pub unsafe fn cmd_mark(
     } else {
         con_mark((*current).con, mark, mark_mode);
     }
-    (*cmd_output).needs_tree_render = true_0 != 0;
+    (*cmd_output).needs_tree_render = true;
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
     }
@@ -2385,7 +2371,7 @@ pub unsafe fn cmd_unmark(
             current = (*current).owindows.tqe_next;
         }
     }
-    (*cmd_output).needs_tree_render = true_0 != 0;
+    (*cmd_output).needs_tree_render = true;
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
     }
@@ -2549,7 +2535,7 @@ pub unsafe fn cmd_move_con_to_output(
         }
         return;
     }
-    let mut success: bool = false_0 != 0;
+    let mut success: bool = false;
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
     current = (*(*cmd_output).ctx).owindows.tqh_first;
     while !current.is_null() {
@@ -2561,9 +2547,9 @@ pub unsafe fn cmd_move_con_to_output(
                 if move_workspace {
                     workspace_move_to_output(ws, target_output);
                 } else {
-                    con_move_to_output((*current).con, target_output, true_0 != 0);
+                    con_move_to_output((*current).con, target_output, true);
                 }
-                success = true_0 != 0;
+                success = true;
             }
         }
         current = (*current).owindows.tqe_next;
@@ -2658,7 +2644,7 @@ pub unsafe fn cmd_move_con_to_mark(
         *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
-    let mut result: bool = true_0 != 0;
+    let mut result: bool = true;
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
     current = (*(*cmd_output).ctx).owindows.tqh_first;
     while !current.is_null() {
@@ -2699,7 +2685,7 @@ pub unsafe fn cmd_move_con_to_mark(
             != 0;
         current = (*current).owindows.tqe_next;
     }
-    (*cmd_output).needs_tree_render = true_0 != 0;
+    (*cmd_output).needs_tree_render = true;
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(result));
     }
@@ -2825,7 +2811,7 @@ pub unsafe fn cmd_floating(
         };
         if strcmp(floating_mode, c"toggle".as_ptr()) == 0 as ::core::ffi::c_int {
             ::log::debug!("../src/commands.c:cmd_floating:1152 - should toggle mode\n");
-            toggle_floating_mode((*current).con, false_0 != 0);
+            toggle_floating_mode((*current).con, false);
         } else {
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
@@ -2857,7 +2843,7 @@ pub unsafe fn cmd_floating(
                 }
             };
             if strcmp(floating_mode, c"enable".as_ptr()) == 0 as ::core::ffi::c_int {
-                floating_enable((*current).con, false_0 != 0);
+                floating_enable((*current).con, false);
             } else {
                 floating_disable((*current).con);
             }
@@ -2865,7 +2851,7 @@ pub unsafe fn cmd_floating(
         run_assignments((*(*current).con).window as *mut i3Window);
         current = (*current).owindows.tqe_next;
     }
-    (*cmd_output).needs_tree_render = true_0 != 0;
+    (*cmd_output).needs_tree_render = true;
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
     }
@@ -3000,7 +2986,7 @@ pub unsafe fn cmd_split(
         }
         current = (*current).owindows.tqe_next;
     }
-    (*cmd_output).needs_tree_render = true_0 != 0;
+    (*cmd_output).needs_tree_render = true;
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
     }
@@ -3108,7 +3094,7 @@ pub unsafe fn cmd_kill(
         con_close((*current).con, kill_mode);
         current = (*current).owindows.tqe_next;
     }
-    (*cmd_output).needs_tree_render = true_0 != 0;
+    (*cmd_output).needs_tree_render = true;
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
     }
@@ -3272,13 +3258,13 @@ pub unsafe fn cmd_focus_direction(
     }
     let mut direction: Direction = Direction::Left;
     let mut position: Position = Position::Before;
-    let mut auto_direction: bool = true_0 != 0;
+    let mut auto_direction: bool = true;
     if strcmp(direction_str, c"prev".as_ptr()) == 0 as ::core::ffi::c_int {
         position = Position::Before;
     } else if strcmp(direction_str, c"next".as_ptr()) == 0 as ::core::ffi::c_int {
         position = Position::After;
     } else {
-        auto_direction = false_0 != 0;
+        auto_direction = false;
         direction = parse_direction(direction_str);
     }
     let mut current_0: *mut owindow = ::core::ptr::null_mut::<owindow>();
@@ -3294,7 +3280,7 @@ pub unsafe fn cmd_focus_direction(
         }
         current_0 = (*current_0).owindows.tqe_next;
     }
-    (*cmd_output).needs_tree_render = true_0 != 0;
+    (*cmd_output).needs_tree_render = true;
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
     }
@@ -3377,7 +3363,7 @@ pub unsafe fn cmd_focus_sibling(
         }
         current_0 = (*current_0).owindows.tqe_next;
     }
-    (*cmd_output).needs_tree_render = true_0 != 0;
+    (*cmd_output).needs_tree_render = true;
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
     }
@@ -3416,17 +3402,17 @@ pub unsafe fn cmd_focus_window_mode(
             );
         }
     };
-    let mut to_floating: bool = false_0 != 0;
+    let mut to_floating: bool = false;
     if strcmp(window_mode, c"mode_toggle".as_ptr()) == 0 as ::core::ffi::c_int {
         to_floating = con_inside_floating(focused).is_null();
     } else if strcmp(window_mode, c"floating".as_ptr()) == 0 as ::core::ffi::c_int {
-        to_floating = true_0 != 0;
+        to_floating = true;
     } else if strcmp(window_mode, c"tiling".as_ptr()) == 0 as ::core::ffi::c_int {
-        to_floating = false_0 != 0;
+        to_floating = false;
     }
     let ws: *const Con = con_get_workspace(focused);
     let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
-    let mut success: bool = false_0 != 0;
+    let mut success: bool = false;
     current = focus::first_ptr(ws.cast_mut());
     while !current.is_null() {
         if to_floating as ::core::ffi::c_int != 0 && ((*current).type_0) != ContainerType::Floating
@@ -3435,12 +3421,12 @@ pub unsafe fn cmd_focus_window_mode(
             current = focus::next_ptr(current);
         } else {
             con_activate_unblock(con_descend_focused(current));
-            success = true_0 != 0;
+            success = true;
             break;
         }
     }
     if success {
-        (*cmd_output).needs_tree_render = true_0 != 0;
+        (*cmd_output).needs_tree_render = true;
         if (*cmd_output).has_reply() {
             emit_command_reply(cmd_output, CommandReply::Success(true));
         }
@@ -3496,7 +3482,7 @@ pub unsafe fn cmd_focus_level(
             );
         }
     };
-    let mut success: bool = false_0 != 0;
+    let mut success: bool = false;
     if strcmp(level, c"parent".as_ptr()) == 0 as ::core::ffi::c_int {
         if !focused.is_null() && !parent_ptr(focused).is_null() {
             if con_fullscreen_permits_focusing(parent_ptr(focused)) {
@@ -3657,7 +3643,7 @@ pub unsafe fn cmd_focus(
         }
         current_0 = (*current_0).owindows.tqe_next;
     }
-    (*cmd_output).needs_tree_render = true_0 != 0;
+    (*cmd_output).needs_tree_render = true;
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
     }
@@ -3803,7 +3789,7 @@ pub unsafe fn cmd_fullscreen(
         }
         current = (*current).owindows.tqe_next;
     }
-    (*cmd_output).needs_tree_render = true_0 != 0;
+    (*cmd_output).needs_tree_render = true;
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
     }
@@ -3908,11 +3894,11 @@ pub unsafe fn cmd_sticky(
                     i3_common::logging::emit_parts(i3_common::logging::Level::Debug, &[ format!("../src/commands.c:cmd_sticky:1525 - setting sticky for container = {} / ", log_value_0).as_bytes(), &log_value_1, "\n".as_bytes() ]);
                 }
             };
-            let mut sticky: bool = false_0 != 0;
+            let mut sticky: bool = false;
             if strcmp(action, c"enable".as_ptr()) == 0 as ::core::ffi::c_int {
-                sticky = true_0 != 0;
+                sticky = true;
             } else if strcmp(action, c"disable".as_ptr()) == 0 as ::core::ffi::c_int {
-                sticky = false_0 != 0;
+                sticky = false;
             } else if strcmp(action, c"toggle".as_ptr()) == 0 as ::core::ffi::c_int {
                 sticky = !(*(*current).con).sticky;
             }
@@ -3923,7 +3909,7 @@ pub unsafe fn cmd_sticky(
     }
     output_push_sticky_windows(focused);
     ewmh_update_wm_desktop();
-    (*cmd_output).needs_tree_render = true_0 != 0;
+    (*cmd_output).needs_tree_render = true;
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
     }
@@ -4093,7 +4079,7 @@ pub unsafe fn cmd_move_direction(
                 floating_reposition(parent_ptr((*current).con), newrect);
         } else {
             tree_move((*current).con, direction);
-            (*cmd_output).needs_tree_render = true_0 != 0;
+            (*cmd_output).needs_tree_render = true;
         }
         current = (*current).owindows.tqe_next;
     }
@@ -4236,7 +4222,7 @@ pub unsafe fn cmd_layout(
         }
         current = (*current).owindows.tqe_next;
     }
-    (*cmd_output).needs_tree_render = true_0 != 0;
+    (*cmd_output).needs_tree_render = true;
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
     }
@@ -4323,7 +4309,7 @@ pub unsafe fn cmd_layout_toggle(
             current = (*current).owindows.tqe_next;
         }
     }
-    (*cmd_output).needs_tree_render = true_0 != 0;
+    (*cmd_output).needs_tree_render = true;
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
     }
@@ -4336,8 +4322,8 @@ pub unsafe fn cmd_exit(current_match: *mut Match, cmd_output: *mut CommandResult
 
 pub unsafe fn cmd_reload(current_match: *mut Match, cmd_output: *mut CommandResultIR) {
     ::log::info!("reloading\n");
-    kill_nagbar(config_error_nagbar_pid, false_0 != 0);
-    kill_nagbar(command_error_nagbar_pid, false_0 != 0);
+    kill_nagbar(config_error_nagbar_pid, false);
+    kill_nagbar(command_error_nagbar_pid, false);
     command_error_nagbar_pid = -(1 as ::core::ffi::c_int) as libc::pid_t;
     config_error_nagbar_pid = command_error_nagbar_pid;
     load_configuration(
@@ -4392,7 +4378,7 @@ pub unsafe fn cmd_restart(current_match: *mut Match, cmd_output: *mut CommandRes
         unlink(current_log_stream_socket_path);
     }
     purge_zerobyte_logfile();
-    i3_restart(false_0 != 0);
+    i3_restart(false);
     if 0 as ::core::ffi::c_int != 0 {
     } else {
         __assert_fail(
@@ -4416,7 +4402,7 @@ pub unsafe fn cmd_open(current_match: *mut Match, cmd_output: *mut CommandResult
         cmd_output,
         CommandReply::WithId(con as usize as ::core::ffi::c_longlong),
     );
-    (*cmd_output).needs_tree_render = true_0 != 0;
+    (*cmd_output).needs_tree_render = true;
 }
 
 pub unsafe fn cmd_focus_output(
@@ -4506,14 +4492,14 @@ pub unsafe fn cmd_focus_output(
     let current_output: *mut Output = get_output_for_con(con);
     let target_output: *const Output = user_output_names_find_next(&names_global, current_output);
     user_output_names_free(&names_global);
-    let mut success: bool = false_0 != 0;
+    let mut success: bool = false;
     if !target_output.is_null() {
-        success = true_0 != 0;
+        success = true;
         let mut ws: *mut Con = ::core::ptr::null_mut::<Con>();
         let mut child: *mut Con = -(1 as ::core::ffi::c_int) as *mut Con;
         while child == -(1 as ::core::ffi::c_int) as *mut Con && {
             child = ::core::ptr::null_mut::<Con>();
-            true_0 != 0
+            true
         } {
             child = nodes::first_ptr(output_get_content((*target_output).con));
             while !child.is_null() {
@@ -4568,7 +4554,7 @@ pub unsafe fn cmd_move_window_to_position(
     y: ::core::ffi::c_long,
     mode_y: *const ::core::ffi::c_char,
 ) {
-    let mut has_error: bool = false_0 != 0;
+    let mut has_error: bool = false;
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
@@ -4627,7 +4613,7 @@ pub unsafe fn cmd_move_window_to_position(
                     );
                     free(message_0 as *mut ::core::ffi::c_void);
                 }
-                has_error = true_0 != 0;
+                has_error = true;
             }
         } else {
             let mut newrect: Rect = (*parent_ptr((*current).con)).rect as Rect;
@@ -4695,7 +4681,7 @@ pub unsafe fn cmd_move_window_to_position(
                     );
                     free(message_1 as *mut ::core::ffi::c_void);
                 }
-                has_error = true_0 != 0;
+                has_error = true;
             }
         }
         current = (*current).owindows.tqe_next;
@@ -4710,7 +4696,7 @@ pub unsafe fn cmd_move_window_to_center(
     cmd_output: *mut CommandResultIR,
     method: *const ::core::ffi::c_char,
 ) {
-    let mut has_error: bool = false_0 != 0;
+    let mut has_error: bool = false;
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
@@ -4799,14 +4785,14 @@ pub unsafe fn cmd_move_window_to_center(
                     );
                     free(message_0 as *mut ::core::ffi::c_void);
                 }
-                has_error = true_0 != 0;
+                has_error = true;
             }
         } else {
             if strcmp(method, c"absolute".as_ptr()) == 0 as ::core::ffi::c_int {
                 ::log::debug!("../src/commands.c:cmd_move_window_to_center:1872 - moving to absolute center\n");
                 floating_center(floating_con, (*croot).rect as Rect);
                 floating_maybe_reassign_ws(floating_con);
-                (*cmd_output).needs_tree_render = true_0 != 0;
+                (*cmd_output).needs_tree_render = true;
             }
             if strcmp(method, c"position".as_ptr()) == 0 as ::core::ffi::c_int {
                 ::log::debug!(
@@ -4816,7 +4802,7 @@ pub unsafe fn cmd_move_window_to_center(
                     floating_con,
                     (*con_get_workspace(floating_con)).rect as Rect,
                 );
-                (*cmd_output).needs_tree_render = true_0 != 0;
+                (*cmd_output).needs_tree_render = true;
             }
         }
         current = (*current).owindows.tqe_next;
@@ -4927,7 +4913,7 @@ pub unsafe fn cmd_move_window_to_mouse(
         }
         current = (*current).owindows.tqe_next;
     }
-    (*cmd_output).needs_tree_render = true_0 != 0;
+    (*cmd_output).needs_tree_render = true;
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
     }
@@ -5015,7 +5001,7 @@ pub unsafe fn cmd_move_scratchpad(current_match: *mut Match, cmd_output: *mut Co
         scratchpad_move((*current).con);
         current = (*current).owindows.tqe_next;
     }
-    (*cmd_output).needs_tree_render = true_0 != 0;
+    (*cmd_output).needs_tree_render = true;
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
     }
@@ -5023,7 +5009,7 @@ pub unsafe fn cmd_move_scratchpad(current_match: *mut Match, cmd_output: *mut Co
 
 pub unsafe fn cmd_scratchpad_show(current_match: *mut Match, cmd_output: *mut CommandResultIR) {
     ::log::debug!("../src/commands.c:cmd_scratchpad_show:1942 - should show scratchpad window\n");
-    let mut result: bool = false_0 != 0;
+    let mut result: bool = false;
     if match_is_empty(current_match) {
         result = scratchpad_show(::core::ptr::null_mut::<Con>());
     } else {
@@ -5070,7 +5056,7 @@ pub unsafe fn cmd_scratchpad_show(current_match: *mut Match, cmd_output: *mut Co
             current = (*current).owindows.tqe_next;
         }
     }
-    (*cmd_output).needs_tree_render = true_0 != 0;
+    (*cmd_output).needs_tree_render = true;
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(result));
     }
@@ -5236,7 +5222,7 @@ pub unsafe fn cmd_swap(
         i3_common::logging::pointer(con)
     );
     let result: bool = con_swap((*match_0).con, con) as bool;
-    (*cmd_output).needs_tree_render = true_0 != 0;
+    (*cmd_output).needs_tree_render = true;
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(result));
     }
@@ -5360,14 +5346,14 @@ pub unsafe fn cmd_title_format(
             );
         }
         if !(*(*current).con).window.is_null() {
-            (*(*(*current).con).window).name_x_changed = true_0 != 0;
+            (*(*(*current).con).window).name_x_changed = true;
         } else {
             free((*(*current).con).deco_render_params as *mut ::core::ffi::c_void);
             (*(*current).con).deco_render_params = ::core::ptr::null_mut::<deco_render_params>();
         }
         current = (*current).owindows.tqe_next;
     }
-    (*cmd_output).needs_tree_render = true_0 != 0;
+    (*cmd_output).needs_tree_render = true;
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
     }
@@ -5379,10 +5365,10 @@ pub unsafe fn cmd_title_window_icon(
     enable: Option<&std::ffi::CStr>,
     mut padding: ::core::ffi::c_int,
 ) {
-    let mut is_toggle: bool = false_0 != 0;
+    let mut is_toggle: bool = false;
     if let Some(enable) = enable {
         if enable == c"toggle" {
-            is_toggle = true_0 != 0;
+            is_toggle = true;
         } else if !is_enabled(enable.to_bytes()) {
             padding = -(1 as ::core::ffi::c_int);
         }
@@ -5468,14 +5454,14 @@ pub unsafe fn cmd_title_window_icon(
             }
         };
         if !(*(*current).con).window.is_null() {
-            (*(*(*current).con).window).name_x_changed = true_0 != 0;
+            (*(*(*current).con).window).name_x_changed = true;
         } else {
             free((*(*current).con).deco_render_params as *mut ::core::ffi::c_void);
             (*(*current).con).deco_render_params = ::core::ptr::null_mut::<deco_render_params>();
         }
         current = (*current).owindows.tqe_next;
     }
-    (*cmd_output).needs_tree_render = true_0 != 0;
+    (*cmd_output).needs_tree_render = true;
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
     }
@@ -5642,7 +5628,7 @@ pub unsafe fn cmd_rename_workspace(
     };
     let parent: *mut Con = parent_ptr(workspace);
     con_detach(workspace);
-    con_attach(workspace, parent, false_0 != 0);
+    con_attach(workspace, parent, false);
     ipc_send_workspace_event(
         c"rename".as_ptr(),
         workspace,
@@ -5662,7 +5648,7 @@ pub unsafe fn cmd_rename_workspace(
         let mut child: *mut Con = -(1 as ::core::ffi::c_int) as *mut Con;
         while child == -(1 as ::core::ffi::c_int) as *mut Con && {
             child = ::core::ptr::null_mut::<Con>();
-            true_0 != 0
+            true
         } {
             child = nodes::first_ptr(previously_focused_content.cast_mut());
             while !child.is_null() {
@@ -5689,7 +5675,7 @@ pub unsafe fn cmd_rename_workspace(
         previous_workspace_name = ::core::ptr::null_mut::<::core::ffi::c_char>();
         previous_workspace_name = sstrdup(new_name);
     }
-    (*cmd_output).needs_tree_render = true_0 != 0;
+    (*cmd_output).needs_tree_render = true;
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
     }
@@ -5704,7 +5690,7 @@ pub unsafe fn cmd_bar_mode(
     bar_id: *const ::core::ffi::c_char,
 ) {
     let mut mode: BarMode = BarMode::Dock;
-    let mut toggle: bool = false_0 != 0;
+    let mut toggle: bool = false;
     if strcmp(bar_mode, c"dock".as_ptr()) == 0 as ::core::ffi::c_int {
         mode = BarMode::Dock;
     } else if strcmp(bar_mode, c"hide".as_ptr()) == 0 as ::core::ffi::c_int {
@@ -5712,7 +5698,7 @@ pub unsafe fn cmd_bar_mode(
     } else if strcmp(bar_mode, c"invisible".as_ptr()) == 0 as ::core::ffi::c_int {
         mode = BarMode::Invisible;
     } else if strcmp(bar_mode, c"toggle".as_ptr()) == 0 as ::core::ffi::c_int {
-        toggle = true_0 != 0;
+        toggle = true;
     } else {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
@@ -5855,13 +5841,13 @@ pub unsafe fn cmd_bar_hidden_state(
     bar_id: *const ::core::ffi::c_char,
 ) {
     let mut hidden_state: BarHiddenState = BarHiddenState::Show;
-    let mut toggle: bool = false_0 != 0;
+    let mut toggle: bool = false;
     if strcmp(bar_hidden_state, c"hide".as_ptr()) == 0 as ::core::ffi::c_int {
         hidden_state = BarHiddenState::Hide;
     } else if strcmp(bar_hidden_state, c"show".as_ptr()) == 0 as ::core::ffi::c_int {
         hidden_state = BarHiddenState::Show;
     } else if strcmp(bar_hidden_state, c"toggle".as_ptr()) == 0 as ::core::ffi::c_int {
-        toggle = true_0 != 0;
+        toggle = true;
     } else {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
@@ -6059,10 +6045,10 @@ pub unsafe fn cmd_debuglog(
         set_debug_logging(!logging);
     } else if strcmp(argument, c"on".as_ptr()) == 0 && !logging {
         ::log::info!("Enabling debug logging\n");
-        set_debug_logging(true_0 != 0);
+        set_debug_logging(true);
     } else if strcmp(argument, c"off".as_ptr()) == 0 && logging as ::core::ffi::c_int != 0 {
         ::log::info!("Disabling debug logging\n");
-        set_debug_logging(false_0 != 0);
+        set_debug_logging(false);
     }
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
@@ -6147,17 +6133,17 @@ unsafe fn gaps_update(
         (global_gap_size) as i32,
         (current_value) as i32
     );
-    let mut reset: bool = false_0 != 0;
+    let mut reset: bool = false;
     if strcmp(mode, c"plus".as_ptr()) == 0 as ::core::ffi::c_int {
         current_value += pixels;
     } else if strcmp(mode, c"minus".as_ptr()) == 0 as ::core::ffi::c_int {
         current_value -= pixels;
     } else if strcmp(mode, c"set".as_ptr()) == 0 as ::core::ffi::c_int {
         current_value = pixels;
-        reset = true_0 != 0;
+        reset = true;
     } else if strcmp(mode, c"toggle".as_ptr()) == 0 as ::core::ffi::c_int {
         current_value = (current_value == 0) as ::core::ffi::c_int * pixels;
-        reset = true_0 != 0;
+        reset = true;
     } else {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
@@ -6187,7 +6173,7 @@ unsafe fn gaps_update(
                 );
             }
         };
-        return false_0 != 0;
+        return false;
     }
     let mut min_value: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
     let is_outer: bool = get.expect("non-null function pointer")(&raw mut config.gaps)
@@ -6245,7 +6231,7 @@ unsafe fn gaps_update(
             get.expect("non-null function pointer")(&raw mut (*workspace).gaps);
         *gaps_value_0 = current_value - global_gap_size;
     }
-    true_0 != 0
+    true
 }
 
 pub unsafe fn cmd_gaps(
@@ -6429,7 +6415,7 @@ pub unsafe fn cmd_gaps(
             }
         }
         _ => {
-            (*cmd_output).needs_tree_render = true_0 != 0;
+            (*cmd_output).needs_tree_render = true;
             if (*cmd_output).has_reply() {
                 emit_command_reply(cmd_output, CommandReply::Success(true));
             }

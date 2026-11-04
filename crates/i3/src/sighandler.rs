@@ -42,8 +42,6 @@ pub struct dialogs_head {
     pub tqh_first: *mut dialog_t,
     pub tqh_last: *mut *mut dialog_t,
 }
-pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 
 pub const SIG_DFL: libc::sighandler_t = libc::SIG_DFL;
 pub const SIGILL: ::core::ffi::c_int = 4 as ::core::ffi::c_int;
@@ -490,10 +488,10 @@ unsafe fn sighandler_handle_key_press(event: &xcb::x::KeyPressEvent) {
         sighandler_handle_expose();
     } else if crash_action(sym) == Some(CrashAction::Restart) {
         sighandler_destroy_dialogs();
-        i3_restart(false_0 != 0);
+        i3_restart(false);
     } else if crash_action(sym) == Some(CrashAction::Forget) {
         sighandler_destroy_dialogs();
-        i3_restart(true_0 != 0);
+        i3_restart(true);
     }
 }
 unsafe extern "C" fn handle_signal(

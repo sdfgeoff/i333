@@ -33,8 +33,6 @@ pub type adjacent_t = AdjacentEdges;
 pub type tiling_drag_t = TilingDrag;
 
 pub type ylength = usize;
-pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 pub const I3_IPC_EVENT_MASK: ::core::ffi::c_ulong =

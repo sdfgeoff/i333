@@ -152,8 +152,6 @@ pub const __ASSERT_FUNCTION: [::core::ffi::c_char; 30] = unsafe {
         *b"void free_configuration(void)\0",
     )
 };
-pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 
 pub static mut current_configpath: *mut ::core::ffi::c_char =
@@ -752,7 +750,7 @@ pub unsafe fn load_configuration(
         config.client.urgent.text = draw_util_hex_to_color(screen, "#ffffff");
         config.client.urgent.indicator = draw_util_hex_to_color(screen, "#900000");
         config.client.urgent.child_border = draw_util_hex_to_color(screen, "#900000");
-        config.client.got_focused_tab_title = false_0 != 0;
+        config.client.got_focused_tab_title = false;
         config.client.placeholder.border = draw_util_hex_to_color(screen, "#000000");
         config.client.placeholder.background = draw_util_hex_to_color(screen, "#0c0c0c");
         config.client.placeholder.text = draw_util_hex_to_color(screen, "#ffffff");
@@ -774,7 +772,7 @@ pub unsafe fn load_configuration(
         config.bar.urgent.indicator = draw_util_hex_to_color(screen, "#000000");
         config.bar.urgent.child_border = draw_util_hex_to_color(screen, "#900000");
     }
-    config.show_marks = true_0 != 0;
+    config.show_marks = true;
     config.default_border = BorderStyle::Normal;
     config.default_floating_border = BorderStyle::Normal;
     config.default_border_width = logical_px(2 as ::core::ffi::c_int);
@@ -793,7 +791,7 @@ pub unsafe fn load_configuration(
     config.swap_modifier = (::xcb::x::KeyButMask::SHIFT.bits()) as ::core::ffi::c_int as u32;
     free(current_configpath as *mut ::core::ffi::c_void);
     current_configpath = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    current_configpath = get_config_path(override_configpath, true_0 != 0);
+    current_configpath = get_config_path(override_configpath, true);
     if current_configpath.is_null() {
         errx(
             EXIT_FAILURE,

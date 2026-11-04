@@ -27,8 +27,6 @@ use std::ptr::NonNull;
 const DEFAULT_DIR_MODE: libc::mode_t = 0o755;
 const LONG_MIN: libc::c_long = libc::c_long::MIN;
 const LONG_MAX: libc::c_long = libc::c_long::MAX;
-const true_0: i32 = 1;
-const false_0: i32 = 0;
 
 /// Adopt the native restart-state filename until its contents have been copied.
 struct MallocBuffer(NonNull<libc::c_char>);

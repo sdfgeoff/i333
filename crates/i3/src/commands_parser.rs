@@ -127,8 +127,6 @@ pub const __ASSERT_FUNCTION: [::core::ffi::c_char; 82] = unsafe {
 };
 pub const LONG_MAX: ::core::ffi::c_long = __LONG_MAX__;
 pub const LONG_MIN: ::core::ffi::c_long = -__LONG_MAX__ - 1 as ::core::ffi::c_long;
-pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 static mut tokens_RENAME_WORKSPACE_LIKELY_TO_NEW_NAME: [cmdp_token; 2] = [
     token {
         name: c"string".as_ptr().cast_mut(),
@@ -3929,7 +3927,7 @@ unsafe fn next_state(token: *const cmdp_token, cmd_ctx: *mut cmd_parser_ctx) {
     if (*token).next_state == CommandParserState::Call {
         (*cmd_ctx).subcommand_output.ctx = cmd_ctx;
         (*cmd_ctx).subcommand_output.client = (*cmd_ctx).command_output.client;
-        (*cmd_ctx).subcommand_output.needs_tree_render = false_0 != 0;
+        (*cmd_ctx).subcommand_output.needs_tree_render = false;
         GENERATED_call(
             &raw mut (*cmd_ctx).current_match,
             &raw mut (*cmd_ctx).stack,
@@ -3938,7 +3936,7 @@ unsafe fn next_state(token: *const cmdp_token, cmd_ctx: *mut cmd_parser_ctx) {
         );
         (*cmd_ctx).state = (*cmd_ctx).subcommand_output.next_state;
         if (*cmd_ctx).subcommand_output.needs_tree_render {
-            (*cmd_ctx).command_output.needs_tree_render = true_0 != 0;
+            (*cmd_ctx).command_output.needs_tree_render = true;
         }
         parser_clear_stack(&raw mut (*cmd_ctx).stack);
         return;
@@ -4032,7 +4030,7 @@ pub unsafe fn parse_command(
         scalloc(1_usize, ::core::mem::size_of::<CommandResult>() as usize) as *mut CommandResult;
     cmd_ctx.command_output.ctx = &raw mut cmd_ctx;
     cmd_ctx.command_output.client = client;
-    cmd_ctx.command_output.needs_tree_render = false_0 != 0;
+    cmd_ctx.command_output.needs_tree_render = false;
     let mut walk: *const ::core::ffi::c_char = input;
     let len: usize = strlen(input) as usize;
     let mut c: ::core::ffi::c_int = 0;
@@ -4052,7 +4050,7 @@ pub unsafe fn parse_command(
             walk = walk.offset(1);
         }
         let grammar = state_tokens(cmd_ctx.state);
-        token_handled = false_0 != 0;
+        token_handled = false;
         c = 0 as ::core::ffi::c_int;
         while c < grammar.len() as libc::c_int {
             token = &grammar[c as usize] as *const cmdp_token;
@@ -4074,7 +4072,7 @@ pub unsafe fn parse_command(
                     }
                     walk = walk.add(strlen((*token).name).wrapping_sub(1_usize));
                     next_state(token, &raw mut cmd_ctx);
-                    token_handled = true_0 != 0;
+                    token_handled = true;
                     break;
                 }
             } else if strcmp((*token).name, c"number".as_ptr()) == 0 as ::core::ffi::c_int {
@@ -4093,7 +4091,7 @@ pub unsafe fn parse_command(
                     }
                     walk = end;
                     next_state(token, &raw mut cmd_ctx);
-                    token_handled = true_0 != 0;
+                    token_handled = true;
                     break;
                 }
             } else {
@@ -4115,7 +4113,7 @@ pub unsafe fn parse_command(
                             walk = walk.offset(1);
                         }
                         next_state(token, &raw mut cmd_ctx);
-                        token_handled = true_0 != 0;
+                        token_handled = true;
                         break;
                     }
                 }
@@ -4125,7 +4123,7 @@ pub unsafe fn parse_command(
                         || *walk as ::core::ffi::c_int == ';' as i32)
                 {
                     next_state(token, &raw mut cmd_ctx);
-                    token_handled = true_0 != 0;
+                    token_handled = true;
                     if *walk as ::core::ffi::c_int == '\0' as i32
                         || *walk as ::core::ffi::c_int == ';' as i32
                     {
@@ -4224,7 +4222,7 @@ pub unsafe fn parse_command(
                 i3_common::logging::emit(i3_common::logging::Level::Error, &message);
             }
         };
-        (*result).parse_error = true_0 != 0;
+        (*result).parse_error = true;
         (*result).error_message = errormessage;
         emit_command_reply(
             &raw mut cmd_ctx.command_output,

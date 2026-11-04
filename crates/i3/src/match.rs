@@ -22,9 +22,6 @@ use crate::types::WindowMode;
 // Mechanical file-by-file Rust translation of src/match.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 
-pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-
 fn empty_match() -> Match {
     Match::empty()
 }
@@ -742,7 +739,7 @@ pub unsafe fn match_parse_property(
             return;
         }
         if property == b"all" {
-            (*match_0).match_all_windows = true_0 != 0;
+            (*match_0).match_all_windows = true;
             return;
         }
         {

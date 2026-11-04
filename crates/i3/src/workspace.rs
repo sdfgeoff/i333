@@ -30,8 +30,6 @@ pub type i3Window = Window;
 pub use crate::application::Workspace_Assignment;
 
 pub type ylength = usize;
-pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 pub const I3_IPC_EVENT_MASK: ::core::ffi::c_ulong =
     (1 as ::core::ffi::c_ulong) << 31 as ::core::ffi::c_int;
 pub const I3_IPC_EVENT_WORKSPACE: ::core::ffi::c_ulong =

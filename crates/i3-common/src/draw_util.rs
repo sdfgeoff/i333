@@ -272,8 +272,6 @@ impl Drop for SurfaceResources {
         }
     }
 }
-pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 fn surface_initialized(surface: &surface_t) -> bool {

@@ -140,8 +140,6 @@ pub struct tokenptr {
 }
 pub const LONG_MAX: ::core::ffi::c_long = __LONG_MAX__;
 pub const LONG_MIN: ::core::ffi::c_long = -__LONG_MAX__ - 1 as ::core::ffi::c_long;
-pub const true_0: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const false_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 pub const O_RDONLY: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
 
 pub static mut config_error_nagbar_pid: libc::pid_t = -(1 as libc::pid_t);
@@ -5625,7 +5623,7 @@ unsafe fn next_state(token: *const cmdp_token, ctx: *mut parser_ctx) {
             &raw mut subcommand_output,
         );
         if subcommand_output.has_errors {
-            (*ctx).has_errors = true_0 != 0;
+            (*ctx).has_errors = true;
         }
         _next_state = subcommand_output.next_state;
         parser_clear_stack((*ctx).stack);
@@ -5790,7 +5788,7 @@ unsafe fn parse_config(
             walk = walk.offset(1);
         }
         let grammar = state_tokens((*ctx).state);
-        token_handled = false_0 != 0;
+        token_handled = false;
         c = 0 as ::core::ffi::c_int;
         while c < grammar.len() as libc::c_int {
             token = &grammar[c as usize] as *const cmdp_token;
@@ -5812,7 +5810,7 @@ unsafe fn parse_config(
                     }
                     walk = walk.add(strlen((*token).name).wrapping_sub(1_usize));
                     next_state(token, ctx);
-                    token_handled = true_0 != 0;
+                    token_handled = true;
                     break;
                 }
             } else if strcmp((*token).name, c"number".as_ptr()) == 0 as ::core::ffi::c_int {
@@ -5831,7 +5829,7 @@ unsafe fn parse_config(
                     }
                     walk = end;
                     next_state(token, ctx);
-                    token_handled = true_0 != 0;
+                    token_handled = true;
                     break;
                 }
             } else {
@@ -5866,7 +5864,7 @@ unsafe fn parse_config(
                         walk = walk.offset(1);
                     }
                     next_state(token, ctx);
-                    token_handled = true_0 != 0;
+                    token_handled = true;
                     linecnt += 1;
                     walk = walk.offset(1);
                     break;
@@ -5876,7 +5874,7 @@ unsafe fn parse_config(
                         || *walk as ::core::ffi::c_int == '\r' as i32)
                 {
                     next_state(token, ctx);
-                    token_handled = true_0 != 0;
+                    token_handled = true;
                     cfg_criteria_init(
                         &raw mut (*ctx).current_match,
                         &raw mut subcommand_output,
@@ -6129,14 +6127,14 @@ unsafe fn parse_config(
                 }
                 i_0 += 1;
             }
-            (*context).has_errors = true_0 != 0;
+            (*context).has_errors = true;
             while walk.offset_from(input) as ::core::ffi::c_long as usize <= len
                 && *walk as ::core::ffi::c_int != '\n' as i32
             {
                 walk = walk.offset(1);
             }
             parser_clear_stack((*ctx).stack);
-            let mut error_token_found: bool = false_0 != 0;
+            let mut error_token_found: bool = false;
             let mut i_1: ::core::ffi::c_int = (*ctx).statelist_idx - 1 as ::core::ffi::c_int;
             while i_1 >= 0 as ::core::ffi::c_int && !error_token_found {
                 let recovery = state_tokens((&(*ctx).statelist)[i_1 as usize]);
@@ -6148,7 +6146,7 @@ unsafe fn parse_config(
                         j += 1;
                     } else {
                         next_state(&recovery[j as usize] as *const cmdp_token, ctx);
-                        error_token_found = true_0 != 0;
+                        error_token_found = true;
                         break;
                     }
                 }
@@ -6442,7 +6440,7 @@ pub unsafe fn free_variables(ctx: *mut parser_ctx) {
 }
 
 unsafe fn try_chdir(path: *const ::core::ffi::c_char) -> bool {
-    let mut result: bool = true_0 != 0;
+    let mut result: bool = true;
     let mut dir: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
     let mut dirbuf: *mut ::core::ffi::c_char = sstrdup(path);
     dir = dirname(dirbuf);
@@ -6516,7 +6514,7 @@ unsafe fn try_chdir(path: *const ::core::ffi::c_char) -> bool {
                     i3_common::logging::emit(i3_common::logging::Level::Error, &message);
                 }
             };
-            result = false_0 != 0;
+            result = false;
         }
     }
     free(dirbuf as *mut ::core::ffi::c_void);
@@ -6581,7 +6579,7 @@ unsafe fn parse_file_inner(
     let mut key: [::core::ffi::c_char; 512] = [0; 512];
     let mut value: [::core::ffi::c_char; 4096] = [0; 4096];
     let mut continuation: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    let mut invalid_sets: bool = false_0 != 0;
+    let mut invalid_sets: bool = false;
     let mut buffer_contents = Vec::with_capacity(file_size);
     while feof(fstr) == 0 {
         if continuation.is_null() {
@@ -6703,14 +6701,14 @@ unsafe fn parse_file_inner(
                             i3_common::logging::emit(i3_common::logging::Level::Error, &message);
                         }
                     };
-                    invalid_sets = true_0 != 0;
+                    invalid_sets = true;
                 } else if v_key[0 as ::core::ffi::c_int as usize] as ::core::ffi::c_int
                     != '$' as i32
                 {
                     ::log::error!(
                         "ERROR: Malformed variable assignment, name has to start with $\n"
                     );
-                    invalid_sets = true_0 != 0;
+                    invalid_sets = true;
                 } else {
                     upsert_variable(
                         &raw mut (*ctx).variables,
@@ -6762,14 +6760,14 @@ unsafe fn parse_file_inner(
                             i3_common::logging::emit(i3_common::logging::Level::Error, &message);
                         }
                     };
-                    invalid_sets = true_0 != 0;
+                    invalid_sets = true;
                 } else if v_key_0[0 as ::core::ffi::c_int as usize] as ::core::ffi::c_int
                     != '$' as i32
                 {
                     ::log::error!(
                         "ERROR: Malformed variable assignment, name has to start with $\n"
                     );
-                    invalid_sets = true_0 != 0;
+                    invalid_sets = true;
                 } else {
                     let resource_name = std::ffi::CStr::from_ptr(res_name.as_ptr());
                     let resource = resources.get(resource_name);
@@ -6847,7 +6845,7 @@ unsafe fn parse_file_inner(
     let context = &raw mut local_context;
     parse_config(ctx, new, context);
     if (*ctx).has_errors {
-        (*context).has_errors = true_0 != 0;
+        (*context).has_errors = true;
     }
     check_for_duplicate_bindings(context);
     if (*ctx).use_nagbar as ::core::ffi::c_int != 0
