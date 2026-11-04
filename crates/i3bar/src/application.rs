@@ -8,7 +8,6 @@ use crate::config::config;
  */
 // Mechanical file-by-file Rust translation of i3bar/src/main.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
-use i3_common::i333_va_list;
 pub use libev_sys::{
     ev_default_destroy, ev_default_loop, ev_loop, ev_signal, ev_signal_start, ev_unloop,
     ev_watcher, BreakMode,
@@ -125,19 +124,6 @@ pub fn write_log_bytes(level: i3_common::logging::Level, message: &[u8]) {
     }
 }
 
-pub unsafe extern "C" fn verboselog(fmt: *mut ::core::ffi::c_char, args: ...) {
-    let mut args_0;
-    args_0 = args.clone();
-    vfprintf(stdout, fmt, i333_va_list!(args_0));
-}
-
-pub unsafe extern "C" fn errorlog(fmt: *mut ::core::ffi::c_char, args: ...) {
-    let mut args_0;
-    args_0 = args.clone();
-    vfprintf(stderr, fmt, i333_va_list!(args_0));
-}
-
-pub unsafe extern "C" fn debuglog(fmt: *mut ::core::ffi::c_char, args: ...) {}
 struct GlobPaths(libc::glob_t);
 impl Drop for GlobPaths {
     fn drop(&mut self) {
@@ -301,14 +287,9 @@ unsafe fn run(arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
             },
         }
     }
-    verboselog(
-        concat!(
-            "[libi3] ../i3bar/src/main.c i3bar version ",
-            env!("I3_VERSION"),
-            "\n\0"
-        )
-        .as_bytes()
-        .as_ptr() as *const u8 as *const ::core::ffi::c_char as *mut ::core::ffi::c_char,
+    ::log::info!(
+        "[libi3] ../i3bar/src/main.c i3bar version {}\n",
+        env!("I3_VERSION")
     );
     main_loop = ev_default_loop(0 as ::core::ffi::c_uint);
     let atom_socket = take_string(init_xcb_early());
@@ -376,7 +357,7 @@ pub use libc::{
     atexit, exit, fprintf, free, getenv, glob, glob_t, globfree, memmove, memset, printf,
 };
 
-use i3_common::native_stdio::{stderr, stdout, vfprintf};
+use i3_common::native_stdio::{stderr, stdout};
 
 #[cfg(test)]
 mod cli_tests {

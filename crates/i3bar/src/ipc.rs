@@ -147,10 +147,27 @@ unsafe fn got_bar_config(reply: &[u8]) {
             );
             exit(libc::EXIT_FAILURE);
         }
-        verboselog(
-            c"[libi3] ../i3bar/src/ipc.c Using first bar config: %s. Use --bar_id to manually select a different bar configuration.\n".as_ptr().cast_mut(),
-            config.bar_id,
-        );
+        {
+            let log_text_bytes = (CStr::from_ptr(config.bar_id).to_bytes()).to_vec();
+            match std::str::from_utf8(&log_text_bytes) {
+                Ok(log_text) => ::log::info!(
+                    concat!(
+                        "[libi3] ../i3bar/src/ipc.c Using first bar config: {}. Use --bar_id ",
+                        "to manually select a different bar configuration.\n"
+                    ),
+                    log_text
+                ),
+                Err(_) => {
+                    let mut message =
+                        b"[libi3] ../i3bar/src/ipc.c Using first bar config: ".to_vec();
+                    message.extend_from_slice(&log_text_bytes);
+                    message.extend_from_slice(
+                        b". Use --bar_id to manually select a different bar configuration.\n",
+                    );
+                    i3_common::logging::emit(i3_common::logging::Level::Verbose, &message);
+                }
+            }
+        };
         i3_send_msg(I3_IPC_MESSAGE_TYPE_GET_BAR_CONFIG, config.bar_id);
         return;
     }
@@ -510,8 +527,6 @@ use crate::xcb::draw_bars;
 use crate::xcb::init_xcb_late;
 use crate::xcb::reconfig_windows;
 use i3_common::native_stdio::stderr;
-
-use crate::application::verboselog;
 
 // Internal calls and globals use canonical Rust identities.
 use crate::application::main_loop;

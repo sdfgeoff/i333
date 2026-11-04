@@ -2,7 +2,6 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 
 pub use crate::draw_util::color_t;
-use crate::logging::{errorlog, verboselog};
 use crate::native_stdio::{errx, stderr};
 use crate::{
     display::{CairoVisual, DisplayScreen},
@@ -197,25 +196,49 @@ fn load_pango_font(context: &FontContext, desc: &CStr) -> Option<(i32, PangoFont
     // Keep native non-UTF8 description bytes; the &str factory cannot express them.
     let pointer = unsafe { pango_font_description_from_string(desc.as_ptr()) };
     if pointer.is_null() {
-        unsafe {
-            errorlog(
-                c"[libi3] ERROR: Could not open font %s with Pango, fallback to X font.\n"
-                    .as_ptr()
-                    .cast_mut(),
-                desc.as_ptr(),
-            )
+        {
+            let log_text_bytes = (desc.to_bytes()).to_vec();
+            match std::str::from_utf8(&log_text_bytes) {
+                Ok(log_text) => ::log::error!(
+                    "[libi3] ERROR: Could not open font {} with Pango, fallback to X font.\n",
+                    log_text
+                ),
+                Err(_) => {
+                    let mut message = b"[libi3] ERROR: Could not open font ".to_vec();
+                    message.extend_from_slice(&log_text_bytes);
+                    message.extend_from_slice(b" with Pango, fallback to X font.\n");
+                    crate::logging::emit(crate::logging::Level::Error, &message);
+                }
+            }
         };
         return None;
     }
     let description: pango::FontDescription = unsafe { from_glib_full(pointer) };
-    unsafe {
-        verboselog(
-            c"[libi3] ../libi3/font.c Using Pango font %s, size %d\n"
-                .as_ptr()
-                .cast_mut(),
-            pango_font_description_get_family(pointer),
-            description.size() / PANGO_SCALE,
-        )
+    {
+        let log_text_bytes = ({
+            let family = unsafe { pango_font_description_get_family(pointer) };
+            let family = if family.is_null() {
+                None
+            } else {
+                Some(unsafe { CStr::from_ptr(family) })
+            };
+            crate::logging::string_bytes(family, None)
+        })
+        .to_vec();
+        let log_number = description.size() / PANGO_SCALE;
+        match std::str::from_utf8(&log_text_bytes) {
+            Ok(log_text) => ::log::info!(
+                "[libi3] ../libi3/font.c Using Pango font {}, size {}\n",
+                log_text,
+                log_number
+            ),
+            Err(_) => {
+                let mut message = b"[libi3] ../libi3/font.c Using Pango font ".to_vec();
+                message.extend_from_slice(&log_text_bytes);
+                message.extend_from_slice(format!(", size {}\n", log_number).as_bytes());
+                crate::logging::emit(crate::logging::Level::Verbose, &message);
+            }
+        }
     };
     let font = PangoFont {
         description,
@@ -327,27 +350,37 @@ pub fn load_font(context: &FontContext, pattern: &CStr, fallback: bool) -> Font 
     let (font_cookie, mut info_cookie) = open_core_font(&connection, id, pattern);
     let mut error = connection.check_request(font_cookie).err();
     if fallback && error.is_some() {
-        unsafe {
-            errorlog(
-            c"[libi3] ERROR: Could not open font %s (X error %d). Trying fallback to 'fixed'.\n"
-                .as_ptr()
-                .cast_mut(),
-            pattern.as_ptr(),
-            i32::from(error.as_ref().map_or(0, protocol_error_code)),
-        )
+        {
+            let log_text_bytes = (pattern.to_bytes()).to_vec();
+            let log_number = i32::from(error.as_ref().map_or(0, protocol_error_code));
+            match std::str::from_utf8(&log_text_bytes) {
+                Ok(log_text) => ::log::error!(
+                    concat!(
+                        "[libi3] ERROR: Could not open font {} (X error {}). ",
+                        "Trying fallback to 'fixed'.\n"
+                    ),
+                    log_text,
+                    log_number
+                ),
+                Err(_) => {
+                    let mut message = b"[libi3] ERROR: Could not open font ".to_vec();
+                    message.extend_from_slice(&log_text_bytes);
+                    message.extend_from_slice(
+                        format!(" (X error {}). Trying fallback to 'fixed'.\n", log_number)
+                            .as_bytes(),
+                    );
+                    crate::logging::emit(crate::logging::Level::Error, &message);
+                }
+            }
         };
         pattern = c"fixed";
         let (font_cookie, cookie) = open_core_font(&connection, id, pattern);
         info_cookie = cookie;
         error = connection.check_request(font_cookie).err();
         if error.is_some() {
-            unsafe {
-                errorlog(
-                c"[libi3] ERROR: Could not open fallback font 'fixed', trying with '-misc-*'.\n"
-                    .as_ptr()
-                    .cast_mut(),
-            )
-            };
+            ::log::error!(
+                "[libi3] ERROR: Could not open fallback font 'fixed', trying with '-misc-*'.\n"
+            );
             pattern = c"-misc-*";
             let (font_cookie, cookie) = open_core_font(&connection, id, pattern);
             info_cookie = cookie;
@@ -364,13 +397,17 @@ pub fn load_font(context: &FontContext, pattern: &CStr, fallback: bool) -> Font 
         }
     }
     drop(error);
-    unsafe {
-        verboselog(
-            c"[libi3] ../libi3/font.c Using X font %s\n"
-                .as_ptr()
-                .cast_mut(),
-            pattern.as_ptr(),
-        )
+    {
+        let log_text_bytes = (pattern.to_bytes()).to_vec();
+        match std::str::from_utf8(&log_text_bytes) {
+            Ok(log_text) => ::log::info!("[libi3] ../libi3/font.c Using X font {}\n", log_text),
+            Err(_) => {
+                let mut message = b"[libi3] ../libi3/font.c Using X font ".to_vec();
+                message.extend_from_slice(&log_text_bytes);
+                message.extend_from_slice(b"\n");
+                crate::logging::emit(crate::logging::Level::Verbose, &message);
+            }
+        }
     };
     let Ok(info) = connection.wait_for_reply(info_cookie) else {
         unsafe {

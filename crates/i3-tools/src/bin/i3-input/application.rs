@@ -26,7 +26,6 @@ use xcb_interop::transport::keyboard_grab_status;
  */
 // Mechanical file-by-file Rust translation of i3-input/main.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
-use i3_common::i333_va_list;
 
 pub use i3_common::font::Font;
 
@@ -63,19 +62,6 @@ pub fn write_log_bytes(level: i3_common::logging::Level, message: &[u8]) {
     }
 }
 
-pub unsafe extern "C" fn verboselog(fmt: *mut ::core::ffi::c_char, args: ...) {
-    let mut args_0;
-    args_0 = args.clone();
-    vfprintf(stdout, fmt, i333_va_list!(args_0));
-}
-
-pub unsafe extern "C" fn errorlog(fmt: *mut ::core::ffi::c_char, args: ...) {
-    let mut args_0;
-    args_0 = args.clone();
-    vfprintf(stderr, fmt, i333_va_list!(args_0));
-}
-
-pub unsafe extern "C" fn debuglog(fmt: *mut ::core::ffi::c_char, args: ...) {}
 /// One accepted key has an owned scalar and its historical X core-font code.
 #[derive(Clone, Copy, Debug)]
 struct Glyph {
@@ -392,11 +378,7 @@ unsafe fn get_window_position(connection: &xcb::Connection) -> x::Rectangle {
         name: b"_NET_SUPPORTING_WM_CHECK",
     });
     let Ok(atom) = connection.wait_for_reply(cookie) else {
-        errorlog(
-            c"[libi3] ERROR: Could not intern atom _NET_SUPPORTING_WM_CHECK\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::error!("[libi3] ERROR: Could not intern atom _NET_SUPPORTING_WM_CHECK\n");
         exit(EXIT_ERROR);
     };
     let root_window = x::Window::new(root);
@@ -759,7 +741,7 @@ use xcb::ffi::xcb_connection_t;
 
 use libc::{exit, fprintf, printf};
 
-use i3_common::native_stdio::{errx, stderr, stdout, vfprintf};
+use i3_common::native_stdio::{errx, stderr, stdout};
 
 // Internal calls and globals use canonical Rust identities.
 use i3_common::ipc_connect::connect_or_exit;

@@ -55,15 +55,23 @@ mod legacy {
         let path = crate::resolve_tilde::resolve(OsStr::from_bytes(filename.to_bytes()))
             .unwrap_or_else(|error| crate::resolve_tilde::abort(error));
         let name = CString::new(path.as_os_str().as_bytes()).expect("resolved path has no NUL");
-        // SAFETY: Static formats and name remain live through logging calls.
-        unsafe {
-            debuglog(
-                c"%s:%s:%d - Creating UNIX socket at %s\n".as_ptr(),
-                c"libi3/create_socket.c".as_ptr(),
-                c"create_socket".as_ptr(),
-                30,
-                name.as_ptr(),
-            )
+        // Snapshot diagnostic bytes before any logging callback.
+        {
+            let log_text_bytes = (name.to_bytes()).to_vec();
+            match std::str::from_utf8(&log_text_bytes) {
+                Ok(log_text) => ::log::debug!(
+                    "libi3/create_socket.c:create_socket:30 - Creating UNIX socket at {}\n",
+                    log_text
+                ),
+                Err(_) => {
+                    let mut message =
+                        b"libi3/create_socket.c:create_socket:30 - Creating UNIX socket at "
+                            .to_vec();
+                    message.extend_from_slice(&log_text_bytes);
+                    message.extend_from_slice(b"\n");
+                    crate::logging::emit(crate::logging::Level::Debug, &message);
+                }
+            }
         };
         match bind_resolved(path) {
             Ok(socket) => {
@@ -87,7 +95,26 @@ mod legacy {
                     let code = error.raw_os_error().unwrap_or(libc::EIO);
                     *libc::__errno_location() = code;
                     if code == libc::EEXIST {
-                        errorlog(c"[libi3] ERROR: Refusing to create UNIX socket at %s: Socket is already in use\n".as_ptr(), name.as_ptr());
+                        {
+                            let log_text_bytes = (name.to_bytes()).to_vec();
+                            match std::str::from_utf8(&log_text_bytes) {
+                                Ok(log_text) => ::log::error!(
+                                    concat!(
+                                        "[libi3] ERROR: Refusing to create UNIX socket at {}: ",
+                                        "Socket is already in use\n"
+                                    ),
+                                    log_text
+                                ),
+                                Err(_) => {
+                                    let mut message =
+                                        b"[libi3] ERROR: Refusing to create UNIX socket at "
+                                            .to_vec();
+                                    message.extend_from_slice(&log_text_bytes);
+                                    message.extend_from_slice(b": Socket is already in use\n");
+                                    crate::logging::emit(crate::logging::Level::Error, &message);
+                                }
+                            }
+                        };
                     } else {
                         libc::perror(c"bind()".as_ptr());
                     }
@@ -99,5 +126,3 @@ mod legacy {
     }
 }
 pub use legacy::create_socket;
-
-use crate::logging::{debuglog, errorlog};

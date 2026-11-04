@@ -1,5 +1,7 @@
 //! Standard Rust logging shares the program's event-thread byte sink. Native
 //! byte diagnostics remain available without UTF-8 conversion through `emit`.
+#![cfg_attr(not(test), deny(unsafe_code))]
+
 mod compat;
 pub use compat::{pointer, string_bytes};
 
@@ -80,39 +82,6 @@ pub fn stderr_sink(level: Level, message: &[u8]) {
     }
 }
 
-unsafe fn format_message(format: *const libc::c_char, arguments: core::ffi::VaList) -> Vec<u8> {
-    let mut buffer = std::ptr::null_mut();
-    let length = unsafe { crate::native_stdio::vasprintf(&mut buffer, format, arguments) };
-    if length < 0 {
-        return b"[libi3] diagnostic formatting failed\n".to_vec();
-    }
-    let message =
-        unsafe { std::slice::from_raw_parts(buffer.cast::<u8>(), length as usize) }.to_vec();
-    unsafe { libc::free(buffer.cast()) };
-    message
-}
-
-/// # Safety
-/// `format` is a valid C format string and all arguments match its conversions.
-pub unsafe extern "C" fn errorlog(format: *const libc::c_char, mut arguments: ...) {
-    let message = unsafe { format_message(format, crate::i333_va_list!(arguments)) };
-    emit(Level::Error, &message);
-}
-
-/// # Safety
-/// `format` is a valid C format string and all arguments match its conversions.
-pub unsafe extern "C" fn verboselog(format: *const libc::c_char, mut arguments: ...) {
-    let message = unsafe { format_message(format, crate::i333_va_list!(arguments)) };
-    emit(Level::Verbose, &message);
-}
-
-/// # Safety
-/// `format` is a valid C format string and all arguments match its conversions.
-pub unsafe extern "C" fn debuglog(format: *const libc::c_char, mut arguments: ...) {
-    let message = unsafe { format_message(format, crate::i333_va_list!(arguments)) };
-    emit(Level::Debug, &message);
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -123,13 +92,11 @@ mod tests {
     }
 
     #[test]
-    fn native_formatting_dispatches_bytes_and_levels_to_rust_sink() {
+    fn standard_macros_and_native_bytes_dispatch_to_the_rust_sink() {
         set_sink(record);
-        unsafe {
-            errorlog(c"logging-test:%s %d %%\n".as_ptr(), c"text".as_ptr(), 42i32);
-            verboselog(c"logging-test:%.3s".as_ptr(), c"abcdef".as_ptr());
-            debuglog(c"logging-test:%c%c".as_ptr(), 0i32, 255i32);
-        }
+        ::log::error!("logging-test:{} {} %\n", "text", 42);
+        ::log::info!("logging-test:{}", "abc");
+        emit(Level::Debug, b"logging-test:\0\xff");
         ::log::error!("logging-test:rust {} {:04x}\n", 42, 15);
         ::log::warn!("logging-test:warning");
         ::log::info!("logging-test:info");

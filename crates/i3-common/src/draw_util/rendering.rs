@@ -92,12 +92,10 @@ impl RenderingContext {
         if let Err(error) = connection.check_request(cookie) {
             // SAFETY: the maintained error owns its complete native header.
             let code = unsafe { (*error.as_raw()).error_code };
-            unsafe {
-                crate::logging::errorlog(
-                    c"[libi3] ERROR: Could not create graphical context. Error code: %d. Please report this bug.\n".as_ptr().cast_mut(),
-                    i32::from(code),
-                );
-            }
+            ::log::error!(
+                "[libi3] ERROR: Could not create graphical context. Error code: {}. Please report this bug.\n",
+                code,
+            );
             return (gc.resource_id(), GcLease::Borrowed);
         }
         // SAFETY: this unique successful GC is released before self.screen's
@@ -272,11 +270,10 @@ impl NativeRenderingContext {
         });
         if let Err(error) = connection.check_request(cookie) {
             let code = unsafe { (*error.as_raw()).error_code };
-            unsafe {
-                crate::logging::errorlog(
-                c"[libi3] ERROR: Could not create graphical context. Error code: %d. Please report this bug.\n".as_ptr().cast_mut(), i32::from(code),
+            ::log::error!(
+                "[libi3] ERROR: Could not create graphical context. Error code: {}. Please report this bug.\n",
+                code,
             );
-            }
             return (gc.resource_id(), GcLease::Borrowed);
         }
         let owner =

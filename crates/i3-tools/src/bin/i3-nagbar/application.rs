@@ -27,7 +27,6 @@ use xcb_interop::cursor::CursorContext;
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 use i3_common::dpi::{init_dpi, logical_px};
 use i3_common::get_exe_path::executable_path;
-use i3_common::i333_va_list;
 use std::os::unix::ffi::OsStrExt;
 
 use i3_common::font::Font;
@@ -56,19 +55,6 @@ pub fn write_log_bytes(level: i3_common::logging::Level, message: &[u8]) {
     }
 }
 
-pub unsafe extern "C" fn verboselog(fmt: *mut ::core::ffi::c_char, args: ...) {
-    let mut args_0;
-    args_0 = args.clone();
-    vfprintf(stderr, fmt, i333_va_list!(args_0));
-}
-
-pub unsafe extern "C" fn errorlog(fmt: *mut ::core::ffi::c_char, args: ...) {
-    let mut args_0;
-    args_0 = args.clone();
-    vfprintf(stderr, fmt, i333_va_list!(args_0));
-}
-
-pub unsafe extern "C" fn debuglog(fmt: *mut ::core::ffi::c_char, args: ...) {}
 // Prepare Rust-owned bytes/files in the parent before this legacy process edge.
 // Children retain the existing fork/setsid/exec and error/exit behavior; notably
 // the legacy exec-failure diagnostic and exit are not async-signal-safe. No new
@@ -246,19 +232,11 @@ unsafe fn set_window_position_primary(connection: &xcb::Connection, result: &mut
         window: root_window,
     });
     let Ok(primary) = connection.wait_for_reply(primary_cookie) else {
-        verboselog(
-            c"[libi3] ../i3-nagbar/main.c Could not determine the primary output.\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::info!("[libi3] ../i3-nagbar/main.c Could not determine the primary output.\n");
         return;
     };
     let Ok(resources) = connection.wait_for_reply(resources_cookie) else {
-        verboselog(
-            c"[libi3] ../i3-nagbar/main.c Could not query screen resources.\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::info!("[libi3] ../i3-nagbar/main.c Could not query screen resources.\n");
         return;
     };
     let output = connection.wait_for_reply(connection.send_request(&randr::GetOutputInfo {
@@ -266,40 +244,23 @@ unsafe fn set_window_position_primary(connection: &xcb::Connection, result: &mut
         config_timestamp: resources.config_timestamp(),
     }));
     let Ok(output) = output else {
-        verboselog(
-            c"[libi3] ../i3-nagbar/main.c Could not query primary screen.\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::info!("[libi3] ../i3-nagbar/main.c Could not query primary screen.\n");
         return;
     };
     if output.crtc().is_none() {
-        verboselog(
-            c"[libi3] ../i3-nagbar/main.c Could not query primary screen.\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::info!("[libi3] ../i3-nagbar/main.c Could not query primary screen.\n");
         return;
     }
     let Ok(crtc) = connection.wait_for_reply(connection.send_request(&randr::GetCrtcInfo {
         crtc: output.crtc(),
         config_timestamp: resources.config_timestamp(),
     })) else {
-        verboselog(
-            c"[libi3] ../i3-nagbar/main.c Could not get CRTC.\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::info!("[libi3] ../i3-nagbar/main.c Could not get CRTC.\n");
         return;
     };
-    verboselog(c"[libi3] ../i3-nagbar/main.c Found primary output on position x = %i / y = %i / w = %i / h = %i.\n".as_ptr().cast_mut(),
-        i32::from(crtc.x()), i32::from(crtc.y()), i32::from(crtc.width()), i32::from(crtc.height()));
+    ::log::info!("[libi3] ../i3-nagbar/main.c Found primary output on position x = {} / y = {} / w = {} / h = {}.\n", (i32::from(crtc.x())) as i32, (i32::from(crtc.y())) as i32, (i32::from(crtc.width())) as i32, (i32::from(crtc.height())) as i32);
     if crtc.width() == 0 || crtc.height() == 0 {
-        verboselog(
-            c"[libi3] ../i3-nagbar/main.c Primary output is not active, ignoring it.\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::info!("[libi3] ../i3-nagbar/main.c Primary output is not active, ignoring it.\n");
     } else {
         result.x = crtc.x();
         result.y = crtc.y();
@@ -320,21 +281,17 @@ unsafe fn set_window_position_focus(connection: &xcb::Connection, result: &mut x
         let Ok(input_focus) =
             connection.wait_for_reply(connection.send_request(&x::GetInputFocus {}))
         else {
-            verboselog(c"[libi3] ../i3-nagbar/main.c Failed to receive the current input focus or no window has the input focus right now.\n".as_ptr().cast_mut());
+            ::log::info!("[libi3] ../i3-nagbar/main.c Failed to receive the current input focus or no window has the input focus right now.\n");
             return None;
         };
         if input_focus.focus().is_none() {
-            verboselog(c"[libi3] ../i3-nagbar/main.c Failed to receive the current input focus or no window has the input focus right now.\n".as_ptr().cast_mut());
+            ::log::info!("[libi3] ../i3-nagbar/main.c Failed to receive the current input focus or no window has the input focus right now.\n");
             return None;
         }
         let Ok(geometry) = connection.wait_for_reply(connection.send_request(&x::GetGeometry {
             drawable: x::Drawable::Window(input_focus.focus()),
         })) else {
-            verboselog(
-                c"[libi3] ../i3-nagbar/main.c Failed to received window geometry.\n"
-                    .as_ptr()
-                    .cast_mut(),
-            );
+            ::log::info!("[libi3] ../i3-nagbar/main.c Failed to received window geometry.\n");
             return None;
         };
         let Ok(coordinates) =
@@ -345,19 +302,13 @@ unsafe fn set_window_position_focus(connection: &xcb::Connection, result: &mut x
                 src_y: geometry.y(),
             }))
         else {
-            verboselog(
-                c"[libi3] ../i3-nagbar/main.c Failed to translate coordinates.\n"
-                    .as_ptr()
-                    .cast_mut(),
-            );
+            ::log::info!("[libi3] ../i3-nagbar/main.c Failed to translate coordinates.\n");
             return None;
         };
-        verboselog(
-            c"[libi3] ../i3-nagbar/main.c Found current focus at x = %i / y = %i.\n"
-                .as_ptr()
-                .cast_mut(),
-            i32::from(coordinates.dst_x()),
-            i32::from(coordinates.dst_y()),
+        ::log::info!(
+            "[libi3] ../i3-nagbar/main.c Found current focus at x = {} / y = {}.\n",
+            (i32::from(coordinates.dst_x())) as i32,
+            (i32::from(coordinates.dst_y())) as i32
         );
         Some((coordinates.dst_x(), coordinates.dst_y()))
     })();
@@ -366,7 +317,7 @@ unsafe fn set_window_position_focus(connection: &xcb::Connection, result: &mut x
         result.x = x;
         result.y = y;
     } else {
-        verboselog(c"[libi3] ../i3-nagbar/main.c Could not position on focused output, trying to position on primary output.\n".as_ptr().cast_mut());
+        ::log::info!("[libi3] ../i3-nagbar/main.c Could not position on focused output, trying to position on primary output.\n");
         set_window_position_primary(connection, result);
     }
 }
@@ -894,7 +845,7 @@ use startup_notification_sys::{
 
 use libc::{execl, exit, fork, fprintf, free, open, printf, setsid, strlen, symlink, wait};
 
-use i3_common::native_stdio::{err, errx, stderr, vfprintf, warn};
+use i3_common::native_stdio::{err, errx, stderr, warn};
 
 // Internal calls and globals use canonical Rust identities.
 use i3_common::get_process_filename::get_process_filename;

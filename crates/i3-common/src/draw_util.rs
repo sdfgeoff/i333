@@ -263,7 +263,11 @@ impl Drop for SurfaceResources {
         unsafe {
             let status = cairo_status(self.context.to_raw_none());
             if status != STATUS_SUCCESS {
-                verboselog(c"[libi3] ../libi3/draw_util.c Found cairo context in an error status while freeing, error %d is %s".as_ptr().cast_mut(), status as u32, cairo_status_to_string(status));
+                let description = std::ffi::CStr::from_ptr(cairo_status_to_string(status))
+                    .to_str()
+                    .expect("Cairo status descriptions are ASCII")
+                    .to_owned();
+                ::log::info!("[libi3] ../libi3/draw_util.c Found cairo context in an error status while freeing, error {} is {}", status as i32, description);
             }
         }
     }
@@ -408,12 +412,20 @@ pub unsafe fn draw_util_hex_to_color(color: *const ::core::ffi::c_char) -> color
         if strlen(color) < 6 as usize
             || *color.offset(0 as ::core::ffi::c_int as isize) as ::core::ffi::c_int != '#' as i32
         {
-            errorlog(
-                c"[libi3] ERROR: Could not parse color: %s\n"
-                    .as_ptr()
-                    .cast_mut(),
-                color,
-            );
+            {
+                let log_text_bytes = (std::ffi::CStr::from_ptr(color).to_bytes()).to_vec();
+                match std::str::from_utf8(&log_text_bytes) {
+                    Ok(log_text) => {
+                        ::log::error!("[libi3] ERROR: Could not parse color: {}\n", log_text)
+                    }
+                    Err(_) => {
+                        let mut message = b"[libi3] ERROR: Could not parse color: ".to_vec();
+                        message.extend_from_slice(&log_text_bytes);
+                        message.extend_from_slice(b"\n");
+                        crate::logging::emit(crate::logging::Level::Error, &message);
+                    }
+                }
+            };
             return draw_util_hex_to_color(c"#A9A9A9".as_ptr());
         }
         let mut alpha: [::core::ffi::c_char; 2] = [0; 2];
@@ -717,8 +729,6 @@ pub use cairo_sys::{
 use xcb::ffi::xcb_connection_t;
 
 pub use libc::{strlen, strtol};
-
-use crate::logging::{errorlog, verboselog};
 
 // Internal calls and globals use canonical Rust identities.
 

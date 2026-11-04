@@ -25,7 +25,6 @@ use xcb_interop::transport::keyboard_grab_status;
 // Mechanical file-by-file Rust translation of i3-config-wizard/main.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
 use i3_common::dpi::{init_dpi, logical_px};
-use i3_common::i333_va_list;
 
 pub use i3_common::font::Font;
 
@@ -4389,19 +4388,6 @@ pub fn write_log_bytes(level: i3_common::logging::Level, message: &[u8]) {
     }
 }
 
-pub unsafe extern "C" fn verboselog(fmt: *mut ::core::ffi::c_char, args: ...) {
-    let mut args_0;
-    args_0 = args.clone();
-    vfprintf(stdout, fmt, i333_va_list!(args_0));
-}
-
-pub unsafe extern "C" fn errorlog(fmt: *mut ::core::ffi::c_char, args: ...) {
-    let mut args_0;
-    args_0 = args.clone();
-    vfprintf(stderr, fmt, i333_va_list!(args_0));
-}
-
-pub unsafe extern "C" fn debuglog(fmt: *mut ::core::ffi::c_char, args: ...) {}
 struct WizardUi {
     step: WizardStep,
     modifier: WizardModifier,
@@ -5347,7 +5333,7 @@ use libc::{
     unlink, usleep,
 };
 
-use i3_common::native_stdio::{err, errx, stderr, stdout, vfprintf};
+use i3_common::native_stdio::{err, errx, stderr, stdout};
 
 // Internal calls and globals use canonical Rust identities.
 use i3_common::get_config_path::get_config_path;
