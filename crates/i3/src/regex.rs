@@ -8,9 +8,8 @@
 //! lookarounds, backreferences, POSIX classes, anchors and recursion. No pattern
 //! syntax is rewritten or approximated by a second regular-expression engine.
 
-#![deny(unsafe_op_in_unsafe_fn)]
+#![forbid(unsafe_code)]
 
-use crate::log::{errorlog, verboselog};
 use pcre2::bytes::{Regex as CompiledRegex, RegexBuilder};
 use std::ffi::{CStr, CString};
 use std::fmt;
@@ -136,15 +135,13 @@ pub fn compile_or_report(pattern: &CStr) -> Option<Regex> {
         Ok(regex) => Some(regex),
         Err(error) => {
             let message = CString::new(error.message).expect("regex diagnostic contains no NUL");
-            unsafe {
-                errorlog(
-                    c"ERROR: PCRE regular expression compilation failed at %zu: %s\n"
-                        .as_ptr()
-                        .cast_mut(),
-                    error.offset,
-                    message.as_ptr(),
-                )
-            };
+            ::log::error!(
+                "ERROR: PCRE regular expression compilation failed at {}: {}\n",
+                error.offset,
+                message
+                    .to_str()
+                    .expect("PCRE message comes from a Rust string"),
+            );
             None
         }
     }
@@ -154,26 +151,51 @@ pub fn compile_or_report(pattern: &CStr) -> Option<Regex> {
 pub fn regex_matches(expression: &Regex, input: &CStr) -> bool {
     match expression.is_match(input) {
         Ok(matched) => {
-            let verb = if matched {
-                c"matches"
-            } else {
-                c"does not match"
-            };
-            unsafe {
-                verboselog(
-                    c"Regular expression \"%s\" %s \"%s\"\n".as_ptr().cast_mut(),
-                    expression.pattern().as_ptr(),
-                    verb.as_ptr(),
-                    input.as_ptr(),
-                )
-            };
+            let verb = if matched { "matches" } else { "does not match" };
+            // Snapshot before a logging callback can reload expression owners.
+            let pattern = expression.pattern().to_bytes().to_vec();
+            let input = input.to_bytes().to_vec();
+            match (std::str::from_utf8(&pattern), std::str::from_utf8(&input)) {
+                (Ok(pattern), Ok(input)) => {
+                    ::log::info!(
+                        "Regular expression \"{}\" {} \"{}\"\n",
+                        pattern,
+                        verb,
+                        input
+                    );
+                }
+                _ => {
+                    let mut message = b"Regular expression \"".to_vec();
+                    message.extend_from_slice(&pattern);
+                    message.extend_from_slice(format!("\" {} \"", verb).as_bytes());
+                    message.extend_from_slice(&input);
+                    message.extend_from_slice(b"\"\n");
+                    i3_common::logging::emit(i3_common::logging::Level::Verbose, &message);
+                }
+            }
             matched
         }
         Err(error) => {
-            unsafe {
-                errorlog(c"ERROR: PCRE error %d while trying to use regular expression \"%s\" on input \"%s\", see pcreapi(3)\n".as_ptr().cast_mut(),
-                error.code(), expression.pattern().as_ptr(), input.as_ptr())
-            };
+            let code = error.code();
+            let pattern = expression.pattern().to_bytes().to_vec();
+            let input = input.to_bytes().to_vec();
+            match (std::str::from_utf8(&pattern), std::str::from_utf8(&input)) {
+                (Ok(pattern), Ok(input)) => {
+                    ::log::error!("ERROR: PCRE error {} while trying to use regular expression \"{}\" on input \"{}\", see pcreapi(3)\n", code, pattern, input);
+                }
+                _ => {
+                    let mut message = format!(
+                        "ERROR: PCRE error {} while trying to use regular expression \"",
+                        code
+                    )
+                    .into_bytes();
+                    message.extend_from_slice(&pattern);
+                    message.extend_from_slice(b"\" on input \"");
+                    message.extend_from_slice(&input);
+                    message.extend_from_slice(b"\", see pcreapi(3)\n");
+                    i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+                }
+            }
             false
         }
     }
