@@ -72,7 +72,9 @@ pub fn set_sink(sink: Sink) {
     initialize();
     // Force a real access so dynamically linked TLS storage, if any, is ready
     // before entry from an asynchronous signal handler.
-    let _ = std::hint::black_box(EMERGENCY_SINK.get());
+    EMERGENCY_SINK.with(|cell| {
+        std::hint::black_box(cell);
+    });
     *SINK
         .write()
         .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(RegisteredSink {
