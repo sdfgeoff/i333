@@ -224,6 +224,58 @@ mod tests {
     use super::*;
 
     #[test]
+    fn participant_search_returns_neighbors_and_retains_failed_ancestor() {
+        use crate::con::arena::parent::set_parent_ptr;
+        use crate::domains::ContainerType;
+        use crate::resize::resize_find_tiling_participants;
+        use crate::types::{Direction, Layout};
+
+        let mut workspace_value = Con::empty();
+        workspace_value.type_0 = ContainerType::Workspace;
+        workspace_value.layout = Layout::SplitH;
+        let workspace = allocate(workspace_value);
+        let mut child_value = Con::empty();
+        child_value.type_0 = ContainerType::Con;
+        let first = allocate(child_value);
+        let mut child_value = Con::empty();
+        child_value.type_0 = ContainerType::Con;
+        let second = allocate(child_value);
+        for child in [first, second] {
+            set_parent_ptr(child, workspace).unwrap();
+            nodes::append(identity(workspace).unwrap(), identity(child).unwrap()).unwrap();
+        }
+        // SAFETY: the fixture owns every live node on this test's event thread;
+        // searching needs only ancestry and sibling order, with no X11 access.
+        unsafe {
+            assert_eq!(
+                resize_find_tiling_participants(first, Direction::Right, false),
+                Ok((first, second)),
+            );
+            assert_eq!(
+                resize_find_tiling_participants(first, Direction::Left, true),
+                Ok((first, second)),
+            );
+            // The failed search still yields its final workspace ancestor,
+            // matching the old output argument used by resize_set_tiling.
+            assert_eq!(
+                resize_find_tiling_participants(first, Direction::Left, false),
+                Err(workspace),
+            );
+            assert_eq!(
+                resize_find_tiling_participants(workspace, Direction::Left, false),
+                Err(workspace),
+            );
+            assert_eq!(
+                resize_find_tiling_participants(std::ptr::null_mut(), Direction::Left, false),
+                Err(std::ptr::null_mut()),
+            );
+            release(first);
+            release(second);
+            release(workspace);
+        }
+    }
+
+    #[test]
     fn managed_windows_have_stable_owners_and_release_payloads_at_arena_drop() {
         unsafe {
             let image = cairo_sys::cairo_image_surface_create(cairo_sys::FORMAT_A_RGB32, 1, 1);

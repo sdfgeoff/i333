@@ -241,17 +241,17 @@ pub unsafe fn gaps_has_adjacent_container(con: *mut Con, direction: Direction) -
         if con == fullscreen {
             return has_adjacent(false, FullscreenNeighbor::Container);
         }
-        let mut first = con;
-        let mut second = std::ptr::null_mut();
-        let found = resize_find_tiling_participants(&mut first, &mut second, direction, false);
-        let context = if !found || fullscreen.is_null() {
-            FullscreenNeighbor::None
-        } else {
-            let container = con_has_parent(con, fullscreen);
-            FullscreenNeighbor::Ancestor {
-                container,
-                neighbor: container && con_has_parent(second, fullscreen),
+        let participants = resize_find_tiling_participants(con, direction, false);
+        let found = participants.is_ok();
+        let context = match participants {
+            Ok((_, second)) if !fullscreen.is_null() => {
+                let container = con_has_parent(con, fullscreen);
+                FullscreenNeighbor::Ancestor {
+                    container,
+                    neighbor: container && con_has_parent(second, fullscreen),
+                }
             }
+            _ => FullscreenNeighbor::None,
         };
         has_adjacent(found, context)
     }

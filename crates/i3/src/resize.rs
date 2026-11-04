@@ -181,29 +181,34 @@ unsafe fn resize_callback(
     let _ = connection().flush();
 }
 
+/// Find adjacent tiling containers, or return the final ancestor searched.
+/// `Err` preserves the original search's progress when no neighbor exists.
+///
+/// # Safety
+/// Non-null handles and their ancestry must remain live on the event thread;
+/// no graph references may survive logging callbacks during this search.
 pub unsafe fn resize_find_tiling_participants(
-    current: *mut *mut Con,
-    other: *mut *mut Con,
+    current: *mut Con,
     direction: Direction,
     both_sides: bool,
-) -> bool {
+) -> Result<(*mut Con, *mut Con), *mut Con> {
     ::log::debug!(
         concat!(
             "../src/resize.c:resize_find_tiling_participants:73 - ",
             "Find two participants for resizing container={} in ",
             "direction={}\n"
         ),
-        i3_common::logging::pointer(other),
+        i3_common::logging::pointer(current),
         (direction as u32) as i32
     );
-    let mut first: *mut Con = *current;
+    let mut first: *mut Con = current;
     let mut second: *mut Con = ::core::ptr::null_mut::<Con>();
     if first.is_null() {
         ::log::debug!(concat!(
             "../src/resize.c:resize_find_tiling_participants:77 - ",
             "Current container is NULL, aborting.\n"
         ));
-        return false;
+        return Err(first);
     }
     let search_orientation: Orientation = orientation_from_direction(direction);
     let dir_backwards: bool = direction == Direction::Up || direction == Direction::Left;
@@ -246,17 +251,15 @@ pub unsafe fn resize_find_tiling_participants(
         i3_common::logging::pointer(first),
         i3_common::logging::pointer(second)
     );
-    *current = first;
-    *other = second;
     if first.is_null() || second.is_null() {
         ::log::debug!(concat!(
             "../src/resize.c:resize_find_tiling_participants:119 - ",
             "Could not find two participants for this resize ",
             "request.\n"
         ));
-        return false;
+        return Err(first);
     }
-    true
+    Ok((first, second))
 }
 
 pub unsafe fn percent_for_1px(con: *mut Con) -> f64 {

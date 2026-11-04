@@ -993,12 +993,9 @@ unsafe fn cmd_resize_tiling_direction(
     mut px: i32,
     ppt: i32,
 ) -> bool {
-    let mut second: *mut Con = ::core::ptr::null_mut::<Con>();
-    let mut first: *mut Con = current;
     let search_direction: Direction = parse_direction(direction);
-    let res: bool =
-        resize_find_tiling_participants(&raw mut first, &raw mut second, search_direction, false);
-    if !res {
+    let Ok((first, second)) = resize_find_tiling_participants(current, search_direction, false)
+    else {
         if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
@@ -1013,7 +1010,7 @@ unsafe fn cmd_resize_tiling_direction(
             free(message as *mut ::core::ffi::c_void);
         }
         return false;
-    }
+    };
     if ppt != 0 {
         px = 0_i32;
     }
@@ -1022,21 +1019,18 @@ unsafe fn cmd_resize_tiling_direction(
 unsafe fn cmd_resize_tiling_width_height(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    mut current: *mut Con,
+    current: *mut Con,
     direction: *const ::core::ffi::c_char,
     px: i32,
     mut ppt: f64,
 ) -> bool {
     ::log::info!("width/height resize\n");
-    let mut dummy: *mut Con = ::core::ptr::null_mut::<Con>();
     let search_direction: Direction = if strcmp(direction, c"width".as_ptr()) == 0_i32 {
         Direction::Left
     } else {
         Direction::Down
     };
-    let search_result: bool =
-        resize_find_tiling_participants(&raw mut current, &raw mut dummy, search_direction, true);
-    if !search_result {
+    let Ok((current, _)) = resize_find_tiling_participants(current, search_direction, true) else {
         if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
@@ -1051,7 +1045,7 @@ unsafe fn cmd_resize_tiling_width_height(
             free(message as *mut ::core::ffi::c_void);
         }
         return false;
-    }
+    };
     let children: i32 = con_num_children(parent_ptr(current));
     ::log::info!("ins. {} children\n", { (children) });
     let percentage: f64 = 1.0f64 / children as f64;
@@ -1411,7 +1405,7 @@ pub unsafe fn cmd_resize(
 unsafe fn resize_set_tiling(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    mut target: *mut Con,
+    target: *mut Con,
     resize_orientation: Orientation,
     is_ppt: bool,
     target_size: i64,
@@ -1425,8 +1419,9 @@ unsafe fn resize_set_tiling(
         search_direction = Direction::Down;
         mode = c"height".as_ptr().cast_mut();
     }
-    let mut dummy: *mut Con = ::core::ptr::null_mut::<Con>();
-    resize_find_tiling_participants(&raw mut target, &raw mut dummy, search_direction, true);
+    let target = match resize_find_tiling_participants(target, search_direction, true) {
+        Ok((first, _)) | Err(first) => first,
+    };
     let mut ppt: f64 = 0.0f64;
     let mut px: i32 = 0_i32;
     if is_ppt {

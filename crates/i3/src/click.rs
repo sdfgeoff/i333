@@ -37,8 +37,6 @@ unsafe fn tiling_resize_for_border(
         (border.bits()) as i32,
         i3_common::logging::pointer(con)
     );
-    let mut second: *mut Con = ::core::ptr::null_mut::<Con>();
-    let mut first: *mut Con = con;
     let mut search_direction: Direction = Direction::Left;
     match border.bits() {
         1 => {
@@ -61,14 +59,13 @@ unsafe fn tiling_resize_for_border(
             return false;
         }
     }
-    let res: bool =
-        resize_find_tiling_participants(&raw mut first, &raw mut second, search_direction, false);
-    if !res {
+    let Ok((mut first, mut second)) = resize_find_tiling_participants(con, search_direction, false)
+    else {
         ::log::debug!("../src/click.c:tiling_resize_for_border:49 - No second container in this direction found.\n");
         return false;
-    }
+    };
     if ((*first).fullscreen_mode) != (*second).fullscreen_mode {
-        ::log::debug!("../src/click.c:tiling_resize_for_border:53 - Avoiding resize between containers with different fullscreen modes, {} != {}\n", ((*first).fullscreen_mode).raw() as i32, (((*second).fullscreen_mode).raw() as u32) as i32);
+        ::log::debug!("../src/click.c:tiling_resize_for_border:53 - Avoiding resize between containers with different fullscreen modes, {} != {}\n", ((*first).fullscreen_mode).raw() as i32, ((*second).fullscreen_mode).raw() as i32);
         return false;
     }
     if first != second {
