@@ -360,7 +360,7 @@ pub fn display_running_version() -> i32 {
         return libc::EXIT_FAILURE;
     }
     let mut output = std::io::stdout().lock();
-    let Some(pid) = root_property(c"I3_PID") else {
+    let Some(pid) = root_property(b"I3_PID") else {
         let _ = output.write_all(b"\nRunning version: < 4.2-200\n");
         return libc::EXIT_SUCCESS;
     };

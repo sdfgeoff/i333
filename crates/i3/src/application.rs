@@ -1148,10 +1148,9 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> i32 {
             OPT_RANDR15 => disable_randr15 = true,
             OPT_SIGNAL => disable_signalhandler = true,
             OPT_SOCKET => {
-                let socket = root_atom_contents(c"I3_SOCKET_PATH".as_ptr(), std::ptr::null_mut(), 0);
-                if socket.is_null() { return EXIT_FAILURE; }
-                printf(c"%s\n".as_ptr(), socket);
-                free(socket.cast());
+                let Some(mut socket) = read_root_property(b"I3_SOCKET_PATH") else { return EXIT_FAILURE; };
+                socket.push(b'\n');
+                libc::fwrite(socket.as_ptr().cast(), socket.len(), 1, stdout);
                 return EXIT_SUCCESS;
             },
             OPT_SHMLOG => {
@@ -1228,17 +1227,11 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
                 );
             }
         };
-        let socket_path_0: *mut ::core::ffi::c_char = root_atom_contents(
-            c"I3_SOCKET_PATH".as_ptr(),
-            ::core::ptr::null_mut::<xcb_connection_t>(),
-            0_i32,
-        );
-        if socket_path_0.is_null() {
+        let Some(socket_path) = read_root_property(b"I3_SOCKET_PATH") else {
             ::log::error!("ERROR: Could not get i3 IPC socket path\n");
             return 1_i32;
-        }
-        let socket_path = std::ffi::CStr::from_ptr(socket_path_0).to_owned();
-        free(socket_path_0.cast());
+        };
+        let socket_path = std::path::PathBuf::from(std::ffi::OsStr::from_bytes(&socket_path));
         let mut stream = match connect_forwarding_socket(&socket_path) {
             Ok(stream) => stream,
             Err(error) => {
@@ -2276,8 +2269,9 @@ enum ForwardConnectError {
     Connect(std::io::Error),
 }
 fn connect_forwarding_socket(
-    path: &std::ffi::CStr,
+    path: &std::path::Path,
 ) -> Result<std::os::unix::net::UnixStream, ForwardConnectError> {
+    use std::os::unix::ffi::OsStrExt;
     // SAFETY: socket creates a unique descriptor, adopted immediately on success.
     let descriptor = unsafe { libc::socket(libc::AF_UNIX, libc::SOCK_STREAM, 0) };
     if descriptor < 0 {
@@ -2288,7 +2282,12 @@ fn connect_forwarding_socket(
         sun_family: libc::AF_UNIX as libc::sa_family_t,
         sun_path: [0; 108],
     };
-    for (slot, byte) in address.sun_path.iter_mut().take(107).zip(path.to_bytes()) {
+    let bytes = path.as_os_str().as_bytes();
+    let bytes = &bytes[..bytes
+        .iter()
+        .position(|&byte| byte == 0)
+        .unwrap_or(bytes.len())];
+    for (slot, byte) in address.sun_path.iter_mut().take(107).zip(bytes) {
         *slot = *byte as libc::c_char;
     }
     // SAFETY: the initialized address is live for its complete native size.
@@ -2416,7 +2415,7 @@ use i3_common::ipc_recv_message::{
 };
 use i3_common::ipc_send_message::send_message_retry_would_block;
 use i3_common::is_background_set::is_background_set;
-use i3_common::root_atom_contents::root_atom_contents;
+use i3_common::root_atom_contents::read_root_property;
 use i3_common::screenshot_wallpaper::set_screenshot_as_wallpaper;
 
 use crate::xcb::xcb_numlock_mask;

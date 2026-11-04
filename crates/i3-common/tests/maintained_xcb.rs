@@ -1,7 +1,7 @@
 //! Real maintained-XCB ownership and protocol checks on an owned private display.
 use i3_common::display::DisplayContext;
 use maintained_xcb::native_utilities as native;
-use std::ffi::{CStr, CString};
+use std::ffi::CStr;
 use xcb::{x, Xid};
 
 mod maintained_xcb {
@@ -283,25 +283,18 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
             data,
         });
         sync(&connection);
-        // SAFETY: the native raw pointer is borrowed from this live owner.
-        let result = unsafe {
-            i3_common::root_atom_contents::root_atom_contents(
-                name.as_ptr(),
-                raw.cast(),
-                screen_number,
-            )
-        };
-        assert!(!result.is_null());
+        let property_screen =
+            i3_common::display::DisplayScreen::new(connection.clone(), screen_number).unwrap();
+        let result = i3_common::root_atom_contents::read_root_property_on_screen(
+            name.to_bytes(),
+            &property_screen,
+        )
+        .unwrap();
         let expected = data.split(|&byte| byte == 0).next().unwrap();
-        assert_eq!(unsafe { CStr::from_ptr(result) }.to_bytes(), expected);
-        unsafe {
-            libc::free(result.cast());
-        }
+        assert_eq!(result, expected);
         // The public API independently owns its temporary connection too.
         assert_eq!(
-            i3_common::root_atom_contents::read_root_property(name)
-                .unwrap()
-                .to_bytes(),
+            i3_common::root_atom_contents::read_root_property(name.to_bytes()).unwrap(),
             expected
         );
     }
@@ -315,8 +308,8 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
     });
     sync(&connection);
     assert_eq!(
-        i3_common::root_atom_contents::read_root_property(name),
-        Some(CString::new(u32::MAX.to_string()).unwrap())
+        i3_common::root_atom_contents::read_root_property(name.to_bytes()),
+        Some(u32::MAX.to_string().into_bytes())
     );
     connection.send_request(&x::ChangeWindowAttributes {
         window: root,

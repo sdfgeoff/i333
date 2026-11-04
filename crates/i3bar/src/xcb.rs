@@ -2044,18 +2044,10 @@ pub unsafe fn init_xcb_early() -> Option<std::path::PathBuf> {
     ev_io_start(main_loop, xcb_io);
     ev_prepare_start(main_loop, xcb_prep);
     get_atoms(&connection, atom_cookies);
-    let path: *mut ::core::ffi::c_char =
-        root_atom_contents(c"I3_SOCKET_PATH".as_ptr(), xcb_connection, screen);
-    if path.is_null() {
-        None
-    } else {
-        use std::os::unix::ffi::OsStringExt;
-        let bytes = CStr::from_ptr(path).to_bytes().to_vec();
-        free(path.cast());
-        Some(std::path::PathBuf::from(std::ffi::OsString::from_vec(
-            bytes,
-        )))
-    }
+    use std::os::unix::ffi::OsStringExt;
+    let selected_screen = display_screen();
+    read_root_property_on_screen(b"I3_SOCKET_PATH", &selected_screen)
+        .map(|bytes| std::path::PathBuf::from(std::ffi::OsString::from_vec(bytes)))
 }
 /// All StateNotify fields are selected, and all eight native map parts remain
 /// affected even when StateNotify itself is not selected (the unregister path).
@@ -3271,7 +3263,7 @@ use i3_common::native_stdio::{errx, stderr};
 // Internal calls and globals use canonical Rust identities.
 use crate::application::main_loop;
 use i3_common::fake_configure_notify::send_configure_notify;
-use i3_common::root_atom_contents::root_atom_contents;
+use i3_common::root_atom_contents::read_root_property_on_screen;
 
 use i3_common::string::I3String;
 
