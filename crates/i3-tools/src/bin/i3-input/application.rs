@@ -5,9 +5,8 @@ use i3_common::draw_util::RenderingContext;
 use i3_common::font::load_font;
 use i3_common::font::predict_text_width;
 use i3_common::string::I3String;
-use std::ffi::{CStr, CString};
 use std::io::Write;
-use std::os::unix::ffi::OsStrExt;
+use std::os::unix::ffi::{OsStrExt, OsStringExt};
 use std::os::unix::net::UnixStream;
 use std::rc::Rc;
 use xcb::{x, Xid, XidNew};
@@ -64,7 +63,7 @@ pub fn write_log_bytes(level: i3_common::logging::Level, message: &[u8]) {
 /// One accepted key has an owned scalar and its historical X core-font code.
 #[derive(Clone, Copy, Debug)]
 struct Glyph {
-    ucs2: xcb_char2b_t,
+    ucs2: Ucs2Char,
     character: char,
 }
 impl Glyph {
@@ -75,7 +74,7 @@ impl Glyph {
         }
         // Preserve upstream's byte packing (>> 2, not >> 8). Changing this
         // while replacing storage would change existing non-Latin input.
-        let ucs2 = xcb_char2b_t {
+        let ucs2 = Ucs2Char {
             byte1: ((ucs & 0xff00) >> 2) as u8,
             byte2: (ucs & 0xff) as u8,
         };
@@ -93,7 +92,7 @@ impl Glyph {
 /// All editing/text state belongs to the running window, not mutable globals.
 struct InputState {
     glyphs: Vec<Glyph>,
-    format: CString,
+    format: Vec<u8>,
     prompt: Option<I3String>,
     prompt_offset: i32,
     limit: i32,
@@ -104,10 +103,7 @@ impl InputState {
         Self {
             glyphs: Vec::new(),
             format: settings.format.clone(),
-            prompt: settings
-                .prompt
-                .as_deref()
-                .map(|text| I3String::from_bytes(text.to_bytes())),
+            prompt: settings.prompt.as_deref().map(I3String::from_bytes),
             prompt_offset: 0,
             limit: settings.limit,
             modeswitch_active: false,
@@ -123,7 +119,7 @@ impl InputState {
         self.glyphs.pop().is_some()
     }
 
-    fn input(&self) -> CString {
+    fn input(&self) -> String {
         // The old concatenation copied NUL glyphs too, but strlen projected the
         // command only up to the first NUL. Keep that projection without a C walk.
         let text: String = self
@@ -132,13 +128,13 @@ impl InputState {
             .map(|glyph| glyph.character)
             .take_while(|character| *character != '\0')
             .collect();
-        CString::new(text).expect("the projected input contains no NUL")
+        text
     }
 
-    fn command(&self) -> CString {
-        i3_common::format_placeholders::expand_cstr(
+    fn command(&self) -> Vec<u8> {
+        i3_common::format_placeholders::expand_bytes(
             &self.format,
-            &[(c"%s", self.input().as_c_str())],
+            &[(b"%s", self.input().as_bytes())],
         )
     }
 }
@@ -176,17 +172,16 @@ fn finish_input(state: &InputState, socket: &mut impl Write) -> i32 {
         write_line(&mut output, b"at ", &glyph.bytes(&mut encoded)[..1]);
     }
     let input = state.input();
-    write_line(&mut output, b"output = ", input.to_bytes());
+    write_line(&mut output, b"output = ", input.as_bytes());
     let occurrences = state
         .format
-        .to_bytes()
         .windows(2)
         .filter(|part| *part == b"%s")
         .count();
     let _ = writeln!(output, "occurrences = {occurrences}");
     let command = state.command();
-    write_line(&mut output, b"command = ", command.to_bytes());
-    if i3_common::ipc_send_message::send_message(socket, 0, command.to_bytes()).is_ok() {
+    write_line(&mut output, b"command = ", &command);
+    if i3_common::ipc_send_message::send_message(socket, 0, &command).is_ok() {
         EXIT_OK
     } else {
         EXIT_ERROR
@@ -445,10 +440,10 @@ unsafe fn get_window_position(connection: &xcb::Connection) -> x::Rectangle {
 }
 #[derive(Debug)]
 struct InputSettings {
-    socket: Option<std::ffi::CString>,
-    font: Option<std::ffi::CString>,
-    prompt: Option<std::ffi::CString>,
-    format: std::ffi::CString,
+    socket: Option<std::path::PathBuf>,
+    font: Option<Vec<u8>>,
+    prompt: Option<Vec<u8>>,
+    format: Vec<u8>,
     limit: i32,
 }
 impl Default for InputSettings {
@@ -457,7 +452,7 @@ impl Default for InputSettings {
             socket: None,
             font: None,
             prompt: None,
-            format: c"%s".to_owned(),
+            format: b"%s".to_vec(),
             limit: 0,
         }
     }
@@ -508,16 +503,12 @@ impl Drop for WindowResources {
 }
 
 unsafe fn run_window(settings: InputSettings) -> ::core::ffi::c_int {
-    let socket_path = settings
-        .socket
-        .as_deref()
-        .map(|value| std::path::Path::new(std::ffi::OsStr::from_bytes(value.to_bytes())));
-    let pattern = settings
-        .font
-        .as_ref()
-        .map_or(std::ptr::null(), |value| value.as_ptr());
+    let socket_path = settings.socket.as_deref();
     let mut state = InputState::new(&settings);
-    printf(c"using format \"%s\"\n".as_ptr(), state.format.as_ptr());
+    let mut record = b"using format \"".to_vec();
+    record.extend_from_slice(&state.format);
+    record.extend_from_slice(b"\"\n");
+    libc::fwrite(record.as_ptr().cast(), 1, record.len(), stdout);
     let Ok((connection, screen)) = xcb::Connection::connect(None) else {
         errx(libc::EXIT_FAILURE, c"Cannot open display".as_ptr());
     };
@@ -558,13 +549,7 @@ unsafe fn run_window(settings: InputSettings) -> ::core::ffi::c_int {
     );
     font = load_font(
         &font_context,
-        CStr::from_ptr(if !pattern.is_null() {
-            pattern as *const ::core::ffi::c_char
-        } else {
-            c"pango:monospace 8".as_ptr()
-        })
-        .to_bytes()
-        .to_vec(),
+        settings.font.as_deref().unwrap_or(b"pango:monospace 8"),
         true,
     );
     resources.has_font = true;
@@ -685,7 +670,7 @@ unsafe fn run_window(settings: InputSettings) -> ::core::ffi::c_int {
 
 pub fn main() {
     use i3_common::cli::{Item, Parser};
-    use std::os::unix::ffi::OsStrExt;
+    use std::os::unix::ffi::{OsStrExt, OsStringExt};
     let mut arguments = std::env::args_os();
     let program = arguments.next().unwrap_or_else(|| "i3-input".into());
     let mut settings = InputSettings::default();
@@ -714,10 +699,13 @@ pub fn main() {
                         eprintln!("i3-input: WARNING: the -p option is DEPRECATED in favor of the -F (format) option");
                         bytes.extend_from_slice(b"%s");
                     }
-                    let value =
-                        std::ffi::CString::new(bytes).expect("OS arguments have no NUL bytes");
+                    let value = bytes;
                     match short {
-                        b's' => settings.socket = Some(value),
+                        b's' => {
+                            settings.socket = Some(std::path::PathBuf::from(
+                                std::ffi::OsString::from_vec(value),
+                            ))
+                        }
                         b'P' => settings.prompt = Some(value),
                         b'f' => settings.font = Some(value),
                         b'F' | b'p' => settings.format = value,
@@ -750,15 +738,15 @@ use i3_common::native_stdio::{errx, stderr, stdout};
 // Internal calls and globals use canonical Rust identities.
 use i3_common::ipc_connect::connect_or_exit;
 
-pub use i3_common::ucs2_conversion::Ucs2Char as xcb_char2b_t;
+use i3_common::ucs2_conversion::Ucs2Char;
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn state(format: &CStr, limit: i32) -> InputState {
+    fn state(format: &[u8], limit: i32) -> InputState {
         InputState::new(&InputSettings {
-            format: format.to_owned(),
+            format: format.to_vec(),
             limit,
             ..InputSettings::default()
         })
@@ -770,33 +758,33 @@ mod tests {
 
     #[test]
     fn unlimited_input_and_explicit_limits_can_cross_old_512_slot_boundary() {
-        let mut unlimited = state(c"%s", 0);
+        let mut unlimited = state(b"%s", 0);
         for _ in 0..1025 {
             assert!(!append(&mut unlimited, b'a'.into()));
         }
-        assert_eq!(unlimited.input().to_bytes(), vec![b'a'; 1025]);
+        assert_eq!(unlimited.input().as_bytes(), vec![b'a'; 1025]);
         assert!(unlimited.backspace());
         assert_eq!(unlimited.glyphs.len(), 1024);
 
-        let mut limited = state(c"%s", 513);
+        let mut limited = state(b"%s", 513);
         for index in 0..513 {
             assert_eq!(append(&mut limited, b'b'.into()), index == 512);
         }
-        let mut negative = state(c"%s", -1);
+        let mut negative = state(b"%s", -1);
         assert!(!append(&mut negative, b'a'.into()));
     }
 
     #[test]
     fn backspace_removes_whole_multibyte_glyphs_and_empty_input_is_safe() {
-        let mut input = state(c"%s", 0);
+        let mut input = state(b"%s", 0);
         assert!(!input.backspace());
         append(&mut input, b'a'.into());
         append(&mut input, 0x00e9);
-        assert_eq!(input.input().to_bytes(), "aé".as_bytes());
+        assert_eq!(input.input().as_bytes(), "aé".as_bytes());
         assert!(input.backspace());
-        assert_eq!(input.input().to_bytes(), b"a");
+        assert_eq!(input.input().as_bytes(), b"a");
         assert!(input.backspace());
-        assert_eq!(input.command().to_bytes(), b"");
+        assert_eq!(input.command().as_slice(), b"");
     }
 
     #[test]
@@ -813,16 +801,16 @@ mod tests {
 
     #[test]
     fn format_expansion_preserves_percent_rules_raw_bytes_and_nul_projection() {
-        let mut input = state(c"[%s] %%s %s%", 0);
+        let mut input = state(b"[%s] %%s %s%", 0);
         append(&mut input, 0x00e9);
-        assert_eq!(input.command().to_bytes(), "[é] %é é%".as_bytes());
-        input.format = CString::new(vec![0xff, b'%', b's']).unwrap();
-        assert_eq!(input.command().to_bytes(), &[0xff, 0xc3, 0xa9]);
+        assert_eq!(input.command().as_slice(), "[é] %é é%".as_bytes());
+        input.format = vec![0xff, b'%', b's'];
+        assert_eq!(input.command().as_slice(), &[0xff, 0xc3, 0xa9]);
         append(&mut input, 0x0100_0000);
         append(&mut input, b'z'.into());
-        assert_eq!(input.input().to_bytes(), "é".as_bytes());
-        input.format = c"".to_owned();
-        assert!(input.command().to_bytes().is_empty());
+        assert_eq!(input.input().as_bytes(), "é".as_bytes());
+        input.format = Vec::new();
+        assert!(input.command().as_slice().is_empty());
     }
 
     #[test]

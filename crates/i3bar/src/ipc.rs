@@ -9,7 +9,6 @@ use i3_common::ipc_recv_message::{receive_message, Message, ReceiveError};
 use i3_common::ipc_send_message::{send_message, send_message_retry_would_block};
 use libc::{exit, fprintf, printf};
 use libev_sys::{ev_io, ev_io_start, ev_io_stop, ev_loop, EV_READ};
-use std::ffi::CStr;
 use std::io::{self, Read, Write};
 use std::os::fd::AsRawFd;
 use std::os::unix::ffi::OsStrExt;
@@ -23,13 +22,6 @@ const I3_IPC_MESSAGE_TYPE_GET_BAR_CONFIG: u32 = 6;
 const EVENT_BIT: u32 = 1 << 31;
 type Handler = unsafe fn(&[u8]);
 
-unsafe fn optional_c_str<'a>(value: *const libc::c_char) -> Option<&'a CStr> {
-    if value.is_null() {
-        None
-    } else {
-        Some(CStr::from_ptr(value))
-    }
-}
 fn child_needs_restart(alive: bool, previous: Option<&[u8]>, current: Option<&[u8]>) -> bool {
     !alive || previous != current
 }
@@ -458,12 +450,10 @@ pub unsafe fn i3_send_msg(message_type: u32, payload: Option<&[u8]>) -> i32 {
 }
 
 /// # Safety
-/// socket_path is a readable native path. The event thread owns the initialized
+/// The event thread owns the initialized
 /// main_loop and calls this once before using the connection.
-pub unsafe fn init_connection(socket_path: *const libc::c_char) {
-    let path = optional_c_str(socket_path)
-        .map(|path| std::path::Path::new(std::ffi::OsStr::from_bytes(path.to_bytes())));
-    let stream = connect_or_exit(path);
+pub unsafe fn init_connection(socket_path: &std::path::Path) {
+    let stream = connect_or_exit(Some(socket_path));
     let connection = Box::new(Connection {
         watcher: ev_io::new(stream.as_raw_fd(), EV_READ, got_data),
         stream: Some(stream),

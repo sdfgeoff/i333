@@ -7,6 +7,7 @@ use crate::ipc::ipc_send_binding_event;
 use crate::types::BindingRelease;
 use crate::types::InputType;
 use i3_common::safewrappers::sasprintf;
+use std::os::unix::ffi::OsStrExt;
 use std::rc::Rc;
 use xcb::{x, XidNew};
 
@@ -1333,13 +1334,15 @@ pub unsafe fn run_binding(bind: *mut Binding, con: *mut Con) -> *mut CommandResu
         tree_render();
     }
     if (*result).parse_error {
-        let mut pageraction: *mut ::core::ffi::c_char =
-            ::core::ptr::null_mut::<::core::ffi::c_char>();
-        sasprintf(
-            &raw mut pageraction,
-            c"i3-sensible-pager \"%s\"\n".as_ptr(),
-            errorfilename,
+        let error_path = errorfilename.clone();
+        let mut pager_bytes = b"i3-sensible-pager \"".to_vec();
+        pager_bytes.extend_from_slice(
+            error_path
+                .as_deref()
+                .map_or(b"(null)".as_slice(), |path| path.as_os_str().as_bytes()),
         );
+        pager_bytes.extend_from_slice(b"\"\n");
+        let pageraction = std::ffi::CString::new(pager_bytes).unwrap();
         let font_pattern = config
             .font
             .pattern()
@@ -1358,14 +1361,13 @@ pub unsafe fn run_binding(bind: *mut Binding, con: *mut Con) -> *mut CommandResu
                 .cast_mut(),
             c"-b".as_ptr().cast_mut(),
             c"show errors".as_ptr().cast_mut(),
-            pageraction,
+            pageraction.as_ptr().cast_mut(),
             ::core::ptr::null_mut::<::core::ffi::c_char>(),
         ];
         start_nagbar(
             &raw mut command_error_nagbar_pid,
             &raw mut argv as *mut *mut ::core::ffi::c_char,
         );
-        free(pageraction as *mut ::core::ffi::c_void);
     }
     ipc_send_binding_event(b"run", bind_cp, &modename);
     drop(binding_owner);

@@ -59,6 +59,11 @@ impl Drop for Glob {
     }
 }
 
+/// Resolve an owned filesystem path with the application's fatal glob policy.
+pub fn resolve_or_exit(path: impl AsRef<Path>) -> PathBuf {
+    resolve(path).unwrap_or_else(|error| abort(error))
+}
+
 /// Resolve a native path into Rust-owned, NUL-terminated storage. Native callers
 /// retain the historical fatal glob diagnostic without malloc ownership transfer.
 pub fn resolve_cstring(path: &CStr) -> CString {

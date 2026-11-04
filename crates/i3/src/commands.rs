@@ -4359,10 +4359,10 @@ pub unsafe fn cmd_restart(current_match: *mut Match, cmd_output: *mut CommandRes
     }
     ipc_shutdown(ShutdownReason::Restart, exempt_fd);
     if let Some(path) = config.ipc_socket_path.as_deref() {
-        unlink(path.as_ptr());
+        let _ = std::fs::remove_file(path);
     }
-    if !current_log_stream_socket_path.is_null() {
-        unlink(current_log_stream_socket_path);
+    if let Some(path) = current_log_stream_socket_path.as_deref() {
+        let _ = std::fs::remove_file(path);
     }
     purge_zerobyte_logfile();
     i3_restart(false);

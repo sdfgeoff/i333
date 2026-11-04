@@ -7,7 +7,7 @@ use i3_common::draw_util::{OwnedWindow, RenderingContext};
 use i3_common::font::load_font;
 use i3_common::font::predict_text_width;
 use i3_common::string::I3String;
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 use std::io::Write;
 use std::os::fd::FromRawFd;
 use std::rc::Rc;
@@ -60,8 +60,19 @@ pub fn write_log_bytes(level: i3_common::logging::Level, message: &[u8]) {
 // the legacy exec-failure diagnostic and exit are not async-signal-safe. No new
 // Rust allocation, lock acquisition or destructor is introduced in either child.
 // Command bytes belong to its forked address space until exec.
-unsafe fn start_application(command: *const ::core::ffi::c_char) {
-    printf(c"executing: %s\n".as_ptr(), command);
+unsafe fn start_application(command: &[u8]) {
+    let mut record = b"executing: ".to_vec();
+    record.extend_from_slice(command);
+    record.push(b'\n');
+    libc::fwrite(
+        record.as_ptr().cast(),
+        1,
+        record.len(),
+        i3_common::native_stdio::stdout,
+    );
+    // Allocate the actual native exec argument before either fork.
+    let command =
+        CString::new(command.split(|&byte| byte == 0).next().unwrap()).expect("command prefix");
     if fork() == 0 as ::core::ffi::c_int {
         setsid();
         if fork() == 0 as ::core::ffi::c_int {
@@ -69,7 +80,7 @@ unsafe fn start_application(command: *const ::core::ffi::c_char) {
                 c"/bin/sh".as_ptr(),
                 c"/bin/sh".as_ptr(),
                 c"-c".as_ptr(),
-                command,
+                command.as_ptr(),
                 std::ptr::null::<libc::c_char>(),
             );
             err(libc::EXIT_FAILURE, c"execl return".as_ptr());
@@ -78,29 +89,28 @@ unsafe fn start_application(command: *const ::core::ffi::c_char) {
     }
     wait(::core::ptr::null_mut::<::core::ffi::c_int>());
 }
-fn command_script(path: &CStr, action: Option<&CStr>) -> Vec<u8> {
+fn command_script(path: &std::path::Path, action: Option<&[u8]>) -> Vec<u8> {
     let mut bytes = b"#!/bin/sh\nrm ".to_vec();
-    bytes.extend_from_slice(path.to_bytes());
+    bytes.extend_from_slice(path.as_os_str().as_bytes());
     bytes.push(b'\n');
-    bytes.extend_from_slice(action.unwrap_or(c"(null)").to_bytes());
+    bytes.extend_from_slice(
+        action
+            .unwrap_or(b"(null)")
+            .split(|&byte| byte == 0)
+            .next()
+            .unwrap(),
+    );
     bytes
 }
 
-fn terminal_command(path: &CStr, terminal: bool) -> CString {
+fn terminal_command(path: &std::path::Path, terminal: bool) -> Vec<u8> {
     let mut bytes = if terminal {
         b"i3-sensible-terminal -e ".to_vec()
     } else {
         Vec::new()
     };
-    bytes.extend_from_slice(path.to_bytes());
-    CString::new(bytes).expect("C string inputs contain no NUL")
-}
-
-// Native filename helpers return unique malloc-owned NUL-terminated strings.
-unsafe fn take_native_string(raw: *mut libc::c_char) -> CString {
-    let owned = CStr::from_ptr(raw).to_owned();
-    free(raw.cast());
-    owned
+    bytes.extend_from_slice(path.as_os_str().as_bytes());
+    bytes
 }
 
 unsafe fn handle_button_release(state: &NagbarState, event: &x::ButtonReleaseEvent) -> bool {
@@ -115,9 +125,16 @@ unsafe fn handle_button_release(state: &NagbarState, event: &x::ButtonReleaseEve
     let Some(button) = state.button_at(i32::from(event.event_x())) else {
         return false;
     };
-    let script_path = take_native_string(get_process_filename(c"nagbar-cmd".as_ptr()));
+    let Some(script_path) = get_process_filename("nagbar-cmd") else {
+        // Native open(NULL) failed with EFAULT after mkdtemp's nonfatal failure.
+        *libc::__errno_location() = libc::EFAULT;
+        warn(c"Could not create temporary script to store the nagbar command".as_ptr());
+        return false;
+    };
+    let native_script_path =
+        CString::new(script_path.as_os_str().as_bytes()).expect("filesystem path has no NUL");
     let fd = open(
-        script_path.as_ptr(),
+        native_script_path.as_ptr(),
         libc::O_WRONLY | libc::O_CREAT | libc::O_TRUNC,
         libc::S_IRUSR | libc::S_IWUSR,
     );
@@ -130,27 +147,41 @@ unsafe fn handle_button_release(state: &NagbarState, event: &x::ButtonReleaseEve
     let mut script = std::fs::File::from_raw_fd(fd);
     let _ = script.write_all(&command_script(&script_path, button.action.as_deref()));
     drop(script);
-    let exe_path = executable_path(std::ffi::OsStr::from_bytes(state.program.to_bytes()))
+    let exe_path = executable_path(&state.program)
         .unwrap_or_else(|_| std::path::PathBuf::from("/usr/bin/i3-nagbar"));
-    let exe_path =
-        CString::new(exe_path.as_os_str().as_bytes()).expect("executable path contains no NUL");
-    let mut link_bytes = script_path.to_bytes().to_vec();
-    link_bytes.extend_from_slice(b".nagbar_cmd");
-    let link_path = CString::new(link_bytes).expect("C string path has no NUL");
-    if symlink(exe_path.as_ptr(), link_path.as_ptr()) == -1 {
+    let mut link_path = script_path.as_os_str().to_owned();
+    link_path.push(".nagbar_cmd");
+    let link_path = std::path::PathBuf::from(link_path);
+    let native_exe_path =
+        CString::new(exe_path.as_os_str().as_bytes()).expect("executable path has no NUL");
+    let native_link_path =
+        CString::new(link_path.as_os_str().as_bytes()).expect("filesystem path has no NUL");
+    if symlink(native_exe_path.as_ptr(), native_link_path.as_ptr()) == -1 {
         err(
             libc::EXIT_FAILURE,
             c"Failed to symlink %s to %s".as_ptr(),
-            link_path.as_ptr(),
-            exe_path.as_ptr(),
+            native_link_path.as_ptr(),
+            native_exe_path.as_ptr(),
         );
     }
     let command = terminal_command(&link_path, button.terminal);
-    printf(c"argv0 = %s\n".as_ptr(), state.program.as_ptr());
-    printf(c"terminal_cmd = %s\n".as_ptr(), command.as_ptr());
+    for (prefix, bytes) in [
+        (b"argv0 = ".as_slice(), state.program.as_os_str().as_bytes()),
+        (b"terminal_cmd = ".as_slice(), command.as_slice()),
+    ] {
+        let mut record = prefix.to_vec();
+        record.extend_from_slice(bytes);
+        record.push(b'\n');
+        libc::fwrite(
+            record.as_ptr().cast(),
+            1,
+            record.len(),
+            i3_common::native_stdio::stdout,
+        );
+    }
     // The script removes itself and the special invocation removes the symlink.
     // Do not unlink either here: the detached terminal may not have read it yet.
-    start_application(command.as_ptr());
+    start_application(&command);
     false
 }
 /// Native rendering requires the initialized event-thread display/font. All
@@ -322,14 +353,14 @@ unsafe fn set_window_position_focus(connection: &xcb::Connection, result: &mut x
     }
 }
 struct ButtonSettings {
-    label: std::ffi::CString,
-    action: Option<std::ffi::CString>,
+    label: Vec<u8>,
+    action: Option<Vec<u8>>,
     terminal: bool,
 }
 struct NagbarSettings {
-    program: std::ffi::CString,
-    font: std::ffi::CString,
-    message: std::ffi::CString,
+    program: std::path::PathBuf,
+    font: Vec<u8>,
+    message: Vec<u8>,
     warning: bool,
     primary: bool,
     buttons: Vec<ButtonSettings>,
@@ -347,7 +378,7 @@ const NAGBAR_OPTIONS: &[i3_common::cli::OptionSpec] = &[
 
 struct Button {
     label: I3String,
-    action: Option<CString>,
+    action: Option<Vec<u8>>,
     x: i32,
     width: i32,
     terminal: bool,
@@ -378,7 +409,7 @@ struct Renderer {
     color_text: color_t,
 }
 struct NagbarState {
-    program: CString,
+    program: std::path::PathBuf,
     message: I3String,
     close: Button,
     buttons: Vec<Button>,
@@ -398,7 +429,7 @@ impl NagbarState {
     fn new(settings: NagbarSettings) -> Self {
         Self {
             program: settings.program,
-            message: I3String::from_bytes(settings.message.to_bytes()),
+            message: I3String::from_bytes(&settings.message),
             close: Button {
                 label: I3String::new("X"),
                 action: None,
@@ -410,7 +441,7 @@ impl NagbarState {
                 .buttons
                 .into_iter()
                 .map(|button| Button {
-                    label: I3String::from_bytes(button.label.to_bytes()),
+                    label: I3String::from_bytes(&button.label),
                     action: button.action,
                     x: 0,
                     width: 0,
@@ -499,13 +530,15 @@ impl Drop for NagbarState {
 unsafe fn atom_reply(
     connection: &xcb::Connection,
     cookie: x::InternAtomCookie,
-    name: &CStr,
+    name: &[u8],
 ) -> x::Atom {
     let Ok(reply) = connection.wait_for_reply(cookie) else {
         errx(
             libc::EXIT_FAILURE,
             c"Could not get atom %s".as_ptr(),
-            name.as_ptr(),
+            CString::new(name)
+                .expect("atom name bytes have no NUL")
+                .as_ptr(),
         );
     };
     reply.atom()
@@ -535,18 +568,18 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
     let registration = i3_common::display::install_connection(connection.clone());
     state.registration = Some(registration);
     state.connection = Some(connection.clone());
-    let intern = |name: &CStr| {
+    let intern = |name: &[u8]| {
         connection.send_request(&x::InternAtom {
             only_if_exists: false,
-            name: &name.to_bytes()[..name.to_bytes().len() as u16 as usize],
+            name: &name[..name.len() as u16 as usize],
         })
     };
-    let window_type_cookie = intern(c"_NET_WM_WINDOW_TYPE");
-    let dock_cookie = intern(c"_NET_WM_WINDOW_TYPE_DOCK");
-    let strut_cookie = intern(c"_NET_WM_STRUT_PARTIAL");
-    let socket_cookie = intern(c"I3_SOCKET_PATH");
-    let atom_cookie = intern(c"ATOM");
-    let cardinal_cookie = intern(c"CARDINAL");
+    let window_type_cookie = intern(b"_NET_WM_WINDOW_TYPE");
+    let dock_cookie = intern(b"_NET_WM_WINDOW_TYPE_DOCK");
+    let strut_cookie = intern(b"_NET_WM_STRUT_PARTIAL");
+    let socket_cookie = intern(b"I3_SOCKET_PATH");
+    let atom_cookie = intern(b"ATOM");
+    let cardinal_cookie = intern(b"CARDINAL");
     let sndisplay: *mut SnDisplay = sn_xcb_display_new(conn.cast(), None, None);
     let sncontext: *mut SnLauncheeContext =
         sn_launchee_context_new_from_environment(sndisplay, screens);
@@ -588,7 +621,7 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
     let font_context = i3_common::font::FontContext::for_screen(
         root_screen.as_ref().expect("initialized display screen"),
     );
-    state.render.font = load_font(&font_context, pattern.to_bytes().to_vec(), true);
+    state.render.font = load_font(&font_context, pattern, true);
     state.has_font = true;
 
     let mut win_pos = x::Rectangle {
@@ -649,12 +682,12 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
         sn_launchee_context_setup_window(sncontext, state.window as libc::c_ulong);
     }
     connection.send_request(&x::MapWindow { window });
-    let window_type = atom_reply(&connection, window_type_cookie, c"_NET_WM_WINDOW_TYPE");
-    let dock = atom_reply(&connection, dock_cookie, c"_NET_WM_WINDOW_TYPE_DOCK");
-    let strut = atom_reply(&connection, strut_cookie, c"_NET_WM_STRUT_PARTIAL");
-    let _socket = atom_reply(&connection, socket_cookie, c"I3_SOCKET_PATH");
-    let atom = atom_reply(&connection, atom_cookie, c"ATOM");
-    let cardinal = atom_reply(&connection, cardinal_cookie, c"CARDINAL");
+    let window_type = atom_reply(&connection, window_type_cookie, b"_NET_WM_WINDOW_TYPE");
+    let dock = atom_reply(&connection, dock_cookie, b"_NET_WM_WINDOW_TYPE_DOCK");
+    let strut = atom_reply(&connection, strut_cookie, b"_NET_WM_STRUT_PARTIAL");
+    let _socket = atom_reply(&connection, socket_cookie, b"I3_SOCKET_PATH");
+    let atom = atom_reply(&connection, atom_cookie, b"ATOM");
+    let cardinal = atom_reply(&connection, cardinal_cookie, b"CARDINAL");
     connection.send_request(&x::ChangeProperty {
         mode: x::PropMode::Replace,
         window,
@@ -769,13 +802,11 @@ pub fn main() {
         );
         std::process::exit(1);
     }
-    let c_string = |value: std::ffi::OsString| {
-        std::ffi::CString::new(value.as_bytes()).expect("OS arguments have no NUL bytes")
-    };
+    let byte_string = |value: std::ffi::OsString| value.into_encoded_bytes();
     let mut settings = NagbarSettings {
-        program: c_string(program.clone()),
-        font: c"pango:monospace 8".to_owned(),
-        message: c"Please do not run this program.".to_owned(),
+        program: std::path::PathBuf::from(program.clone()),
+        font: b"pango:monospace 8".to_vec(),
+        message: b"Please do not run this program.".to_vec(),
         warning: false,
         primary: false,
         buttons: Vec::new(),
@@ -802,21 +833,20 @@ pub fn main() {
                     return;
                 }
                 b'p' => settings.primary = true,
-                b'f' => settings.font = c_string(value.unwrap()),
-                b'm' => settings.message = c_string(value.unwrap()),
+                b'f' => settings.font = byte_string(value.unwrap()),
+                b'm' => settings.message = byte_string(value.unwrap()),
                 b't' => {
                     settings.warning = value.unwrap().as_bytes().eq_ignore_ascii_case(b"warning")
                 }
                 b'b' | b'B' => {
-                    let label = c_string(value.unwrap());
-                    let action = parser.take_argument().map(c_string);
-                    println!(
-                        "button with label *{}* and action *{}*",
-                        label.to_string_lossy(),
-                        action
-                            .as_ref()
-                            .map_or_else(|| "(null)".into(), |action| action.to_string_lossy())
-                    );
+                    let label = byte_string(value.unwrap());
+                    let action = parser.take_argument().map(byte_string);
+                    let mut record = b"button with label *".to_vec();
+                    record.extend_from_slice(&label);
+                    record.extend_from_slice(b"* and action *");
+                    record.extend_from_slice(action.as_deref().unwrap_or(b"(null)"));
+                    record.extend_from_slice(b"*\n");
+                    let _ = std::io::stdout().lock().write_all(&record);
                     settings.buttons.push(ButtonSettings {
                         label,
                         action,
@@ -865,12 +895,12 @@ mod tests {
 
     fn settings() -> NagbarSettings {
         NagbarSettings {
-            program: c"nagbar".to_owned(),
-            font: c"fixed".to_owned(),
-            message: c"<b>message</b>".to_owned(),
+            program: std::path::PathBuf::from("nagbar"),
+            font: b"fixed".to_vec(),
+            message: b"<b>message</b>".to_vec(),
             warning: false,
             primary: false,
-            buttons: [c"first", c"second"]
+            buttons: [b"first".as_slice(), b"second".as_slice()]
                 .into_iter()
                 .map(|label| ButtonSettings {
                     label: label.to_owned(),
@@ -897,17 +927,17 @@ mod tests {
         assert!(state.button_at(-11).is_none());
         assert_eq!(
             state.button_at(-10).unwrap().action.as_deref(),
-            Some(c"first")
+            Some(b"first".as_slice())
         );
         assert_eq!(
             state.button_at(10).unwrap().action.as_deref(),
-            Some(c"first")
+            Some(b"first".as_slice())
         );
         assert!(state.button_at(11).is_none());
         state.buttons[0].x = 100;
         assert_eq!(
             state.button_at(0).unwrap().action.as_deref(),
-            Some(c"second")
+            Some(b"second".as_slice())
         );
         state.buttons[0].x = i32::MAX - 1;
         state.buttons[0].width = 10;
@@ -930,19 +960,20 @@ mod tests {
 
     #[test]
     fn command_bytes_keep_self_cleanup_and_delayed_terminal_handoff() {
-        let path = CString::new(b"/persistent/nagbar-\xff".as_slice()).unwrap();
-        let action = CString::new(b"printf '%s' '\xff';\necho done".as_slice()).unwrap();
+        let path =
+            std::path::PathBuf::from(std::ffi::OsStr::from_bytes(b"/persistent/nagbar-\xff"));
+        let action = b"printf '%s' '\xff';\necho done".to_vec();
         let mut expected = b"#!/bin/sh\nrm /persistent/nagbar-\xff\n".to_vec();
-        expected.extend_from_slice(action.to_bytes());
+        expected.extend_from_slice(action.as_slice());
         assert_eq!(command_script(&path, Some(&action)), expected);
         assert_eq!(
-            command_script(c"path with spaces", None),
+            command_script(std::path::Path::new("path with spaces"), None),
             b"#!/bin/sh\nrm path with spaces\n(null)"
         );
-        assert_eq!(terminal_command(&path, false).to_bytes(), path.to_bytes());
+        assert_eq!(terminal_command(&path, false), path.as_os_str().as_bytes());
         let mut expected = b"i3-sensible-terminal -e ".to_vec();
-        expected.extend_from_slice(path.to_bytes());
-        assert_eq!(terminal_command(&path, true).to_bytes(), expected);
+        expected.extend_from_slice(path.as_os_str().as_bytes());
+        assert_eq!(terminal_command(&path, true), expected);
         // These helpers only construct bytes; no script or user command is run.
     }
 }

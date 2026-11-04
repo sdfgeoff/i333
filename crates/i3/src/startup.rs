@@ -13,6 +13,7 @@ use crate::xcursor::{xcursor_set_root_cursor, Cursor};
 use libev_sys::{ev_loop, ev_timer, ev_timer_start, ev_timer_stop};
 use startup_notification_sys::*;
 use std::ffi::{CStr, CString};
+use std::os::unix::ffi::OsStrExt;
 use std::ptr::NonNull;
 use xcb::{x, XidNew};
 
@@ -176,7 +177,9 @@ impl PreparedCommand {
 pub unsafe fn start_application(command: &[u8], no_startup_id: bool, window_id: u32) {
     let prepared = PreparedCommand::new(
         command,
-        CStr::from_ptr(current_socketpath).to_bytes(),
+        current_socketpath
+            .as_deref()
+            .map_or(&[][..], |path| path.as_os_str().as_bytes()),
         window_id,
     );
     let mut context = None;

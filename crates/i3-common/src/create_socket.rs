@@ -37,91 +37,66 @@ fn bind_resolved(path: PathBuf) -> io::Result<BoundSocket> {
     Ok(BoundSocket { listener, path })
 }
 
-mod legacy {
-    use super::*;
-    use std::ffi::{CStr, CString, OsStr};
-    use std::os::fd::{AsRawFd, IntoRawFd};
+/// Create an application listener with the historical backlog and diagnostics.
+/// Glob resolution failures retain their fatal diagnostic policy. Other failures
+/// return the captured OS error; the caller retains its previous published path.
+#[deny(unsafe_op_in_unsafe_fn)]
+pub fn create_socket(filename: impl AsRef<Path>) -> io::Result<BoundSocket> {
+    use std::os::fd::AsRawFd;
     use std::os::unix::ffi::OsStrExt;
-    /// # Safety
-    /// `filename` is a live C string. `out_path` points to a writable null or
-    /// malloc-owned pointer; a successful replacement also belongs to free().
-    pub unsafe fn create_socket(
-        filename: *const libc::c_char,
-        out_path: *mut *mut libc::c_char,
-    ) -> libc::c_int {
-        // SAFETY: The caller supplies a borrowed C string.
-        let filename = unsafe { CStr::from_ptr(filename) };
-        let path = crate::resolve_tilde::resolve(OsStr::from_bytes(filename.to_bytes()))
-            .unwrap_or_else(|error| crate::resolve_tilde::abort(error));
-        let name = CString::new(path.as_os_str().as_bytes()).expect("resolved path has no NUL");
-        // Snapshot diagnostic bytes before any logging callback.
-        {
-            let log_text_bytes = (name.to_bytes()).to_vec();
-            match std::str::from_utf8(&log_text_bytes) {
-                Ok(log_text) => ::log::debug!(
-                    "libi3/create_socket.c:create_socket:30 - Creating UNIX socket at {}\n",
-                    log_text
-                ),
-                Err(_) => {
-                    let mut message =
-                        b"libi3/create_socket.c:create_socket:30 - Creating UNIX socket at "
-                            .to_vec();
-                    message.extend_from_slice(&log_text_bytes);
-                    message.extend_from_slice(b"\n");
-                    crate::logging::emit(crate::logging::Level::Debug, &message);
-                }
-            }
-        };
-        match bind_resolved(path) {
-            Ok(socket) => {
-                // SAFETY: Preserve the original backlog of five at the legacy
-                // boundary; modern callers retain UnixListener's default backlog.
-                if unsafe { libc::listen(socket.listener.as_raw_fd(), 5) } < 0 {
-                    unsafe { libc::perror(c"listen()".as_ptr()) };
-                    return -1;
-                }
-                // SAFETY: Replace the caller's malloc-owned path only after bind
-                // and listen succeed; transfer the descriptor without closing it.
+    let path = crate::resolve_tilde::resolve(filename)
+        .unwrap_or_else(|error| crate::resolve_tilde::abort(error));
+    let name = path.as_os_str().as_bytes().to_vec();
+    match std::str::from_utf8(&name) {
+        Ok(text) => ::log::debug!(
+            "libi3/create_socket.c:create_socket:30 - Creating UNIX socket at {}\n",
+            text
+        ),
+        Err(_) => crate::logging::emit_parts(
+            crate::logging::Level::Debug,
+            &[
+                b"libi3/create_socket.c:create_socket:30 - Creating UNIX socket at ",
+                &name,
+                b"\n",
+            ],
+        ),
+    }
+    match bind_resolved(path) {
+        Ok(socket) => {
+            // SAFETY: this listener owns its live descriptor. Preserve backlog5;
+            // the modern bind helper intentionally retains its default backlog.
+            if unsafe { libc::listen(socket.listener.as_raw_fd(), 5) } < 0 {
+                let error = io::Error::last_os_error();
+                // SAFETY: native stderr and the literal diagnostic are live.
                 unsafe {
-                    libc::free((*out_path).cast());
-                    *out_path = crate::safewrappers::sstrndup(name.as_ptr(), name.as_bytes().len());
+                    libc::perror(c"listen()".as_ptr());
                 }
-                socket.listener.into_raw_fd()
+                return Err(error);
             }
-            Err(error) => {
-                // SAFETY: Preserve the OS error and active-socket diagnostic.
+            Ok(socket)
+        }
+        Err(error) => {
+            let code = error.raw_os_error().unwrap_or(libc::EIO);
+            if code == libc::EEXIST {
+                match std::str::from_utf8(&name) {
+                    Ok(text) => ::log::error!("[libi3] ERROR: Refusing to create UNIX socket at {}: Socket is already in use\n", text),
+                    Err(_) => crate::logging::emit_parts(crate::logging::Level::Error, &[b"[libi3] ERROR: Refusing to create UNIX socket at ", &name, b": Socket is already in use\n"]),
+                }
+            } else {
+                // SAFETY: errno is thread-local and stderr remains initialized.
+                // Bind may have run Rust cleanup; restore the captured OS error
+                // before emitting the same native perror message.
                 unsafe {
-                    let code = error.raw_os_error().unwrap_or(libc::EIO);
                     *libc::__errno_location() = code;
-                    if code == libc::EEXIST {
-                        {
-                            let log_text_bytes = (name.to_bytes()).to_vec();
-                            match std::str::from_utf8(&log_text_bytes) {
-                                Ok(log_text) => ::log::error!(
-                                    concat!(
-                                        "[libi3] ERROR: Refusing to create UNIX socket at {}: ",
-                                        "Socket is already in use\n"
-                                    ),
-                                    log_text
-                                ),
-                                Err(_) => {
-                                    let mut message =
-                                        b"[libi3] ERROR: Refusing to create UNIX socket at "
-                                            .to_vec();
-                                    message.extend_from_slice(&log_text_bytes);
-                                    message.extend_from_slice(b": Socket is already in use\n");
-                                    crate::logging::emit(crate::logging::Level::Error, &message);
-                                }
-                            }
-                        };
-                    } else {
-                        libc::perror(c"bind()".as_ptr());
-                    }
-                    *libc::__errno_location() = code;
+                    libc::perror(c"bind()".as_ptr());
                 }
-                -1
             }
+            // Retain legacy errno for genuine native callers in the transition,
+            // while Rust callers use the returned io::Error directly.
+            unsafe {
+                *libc::__errno_location() = code;
+            }
+            Err(error)
         }
     }
 }
-pub use legacy::create_socket;

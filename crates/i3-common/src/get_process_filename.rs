@@ -104,45 +104,34 @@ pub fn process_filename(prefix: impl AsRef<OsStr>) -> io::Result<PathBuf> {
     Ok(paths.as_ref().unwrap().filename(prefix))
 }
 
-mod legacy {
-    use super::*;
-    use std::ffi::CString;
-    /// # Safety
-    /// `prefix` is a live C string. The returned allocation belongs to free().
-    pub unsafe fn get_process_filename(prefix: *const libc::c_char) -> *mut libc::c_char {
-        // SAFETY: The caller supplies a borrowed C string.
-        let prefix = unsafe { CStr::from_ptr(prefix) };
-        match process_filename(OsStr::from_bytes(prefix.to_bytes())) {
-            Ok(path) => {
-                let bytes = path.as_os_str().as_bytes();
-                // SAFETY: Duplicate into the existing malloc allocation boundary.
-                unsafe { crate::safewrappers::sstrndup(bytes.as_ptr().cast(), bytes.len()) }
-            }
-            Err(error) => {
-                // SAFETY: Preserve fatal XDG permission errors and the original
-                // nonfatal mkdtemp failure path, without unwinding over FFI.
-                unsafe {
-                    *libc::__errno_location() = error.raw_os_error().unwrap_or(libc::EIO);
-                    if let Some(directory) = std::env::var_os("XDG_RUNTIME_DIR") {
-                        let directory =
-                            CString::new(directory.as_bytes()).expect("environment has no NUL");
-                        let mut path = directory.as_bytes().to_vec();
-                        path.extend_from_slice(b"/i3");
-                        let path = CString::new(path).unwrap();
-                        warn(c"Could not mkdirp(%s)".as_ptr(), path.as_ptr());
-                        errx(
-                            libc::EXIT_FAILURE,
-                            c"Check permissions of $XDG_RUNTIME_DIR = '%s'".as_ptr(),
-                            directory.as_ptr(),
-                        );
-                    }
-                    libc::perror(c"mkdtemp()".as_ptr());
+/// Use the native application's established fatal/nonfatal directory policy,
+/// while returning an owned filesystem path rather than a malloc string.
+pub fn get_process_filename(prefix: impl AsRef<OsStr>) -> Option<PathBuf> {
+    match process_filename(prefix) {
+        Ok(path) => Some(path),
+        Err(error) => {
+            // SAFETY: errno is thread-local. Diagnostic arguments below have
+            // local owners retained through the native warn/errx calls.
+            unsafe {
+                *libc::__errno_location() = error.raw_os_error().unwrap_or(libc::EIO);
+                if let Some(directory) = std::env::var_os("XDG_RUNTIME_DIR") {
+                    let native_directory = std::ffi::CString::new(directory.as_bytes())
+                        .expect("environment has no NUL");
+                    let mut path = directory.as_bytes().to_vec();
+                    path.extend_from_slice(b"/i3");
+                    let native_path = std::ffi::CString::new(path).unwrap();
+                    warn(c"Could not mkdirp(%s)".as_ptr(), native_path.as_ptr());
+                    errx(
+                        libc::EXIT_FAILURE,
+                        c"Check permissions of $XDG_RUNTIME_DIR = '%s'".as_ptr(),
+                        native_directory.as_ptr(),
+                    );
                 }
-                std::ptr::null_mut()
+                libc::perror(c"mkdtemp()".as_ptr());
             }
+            None
         }
     }
 }
-pub use legacy::get_process_filename;
 
 use crate::native_stdio::{errx, warn};

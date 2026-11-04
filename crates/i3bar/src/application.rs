@@ -154,13 +154,16 @@ impl Drop for GlobPaths {
         }
     }
 }
-fn expand_path(path: &std::ffi::CStr) -> std::ffi::CString {
+fn expand_path(path: &std::path::Path) -> std::path::PathBuf {
+    use std::os::unix::ffi::{OsStrExt, OsStringExt};
+    let native_path =
+        std::ffi::CString::new(path.as_os_str().as_bytes()).expect("OS path contains no NUL");
     let mut paths = GlobPaths(unsafe { std::mem::zeroed() });
     // SAFETY: glob borrows the C string and writes only its initialized out
     // structure. Preserve the native flags and first-match/error policy.
     unsafe {
         if glob(
-            path.as_ptr(),
+            native_path.as_ptr(),
             libc::GLOB_NOCHECK | libc::GLOB_TILDE,
             None,
             &mut paths.0,
@@ -175,21 +178,17 @@ fn expand_path(path: &std::ffi::CStr) -> std::ffi::CString {
             exit(libc::EXIT_FAILURE);
         }
         if paths.0.gl_pathc > 0 {
-            std::ffi::CStr::from_ptr(*paths.0.gl_pathv).to_owned()
+            std::path::PathBuf::from(std::ffi::OsString::from_vec(
+                std::ffi::CStr::from_ptr(*paths.0.gl_pathv)
+                    .to_bytes()
+                    .to_vec(),
+            ))
         } else {
             path.to_owned()
         }
     }
 }
-unsafe fn take_string(pointer: *mut libc::c_char) -> Option<std::ffi::CString> {
-    if pointer.is_null() {
-        None
-    } else {
-        let string = std::ffi::CStr::from_ptr(pointer).to_owned();
-        free(pointer.cast());
-        Some(string)
-    }
-}
+
 struct SignalWatchers {
     loop_: *mut ev_loop,
     watchers: Vec<Box<ev_signal>>,
@@ -262,7 +261,7 @@ unsafe fn run(arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     use std::os::unix::ffi::OsStrExt;
     let mut arguments = arguments.into_iter();
     let program = arguments.next().unwrap_or_else(|| "i3bar".into());
-    let mut socket_path: Option<std::ffi::CString> = None;
+    let mut socket_path: Option<std::path::PathBuf> = None;
     // Construct owned rendering text normally; native list links start empty.
     config = crate::config::empty_config();
     for item in Parser::new(
@@ -292,14 +291,11 @@ unsafe fn run(arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
                 b't' => config.transparency = true,
                 b'V' => config.verbose = true,
                 b's' | b'b' => {
-                    let value = std::ffi::CString::new(value.unwrap().as_bytes())
-                        .expect("OS arguments have no NUL bytes");
+                    let value = value.unwrap();
                     if short == b's' {
-                        // Native initialization still owns/frees the expanded
-                        // socket path. Never give libc a Rust allocation.
-                        socket_path = Some(expand_path(&value));
+                        socket_path = Some(expand_path(std::path::Path::new(&value)));
                     } else {
-                        config.bar_id = Some(value.into_bytes());
+                        config.bar_id = Some(value.into_encoded_bytes());
                     }
                 }
                 _ => unreachable!(),
@@ -311,10 +307,9 @@ unsafe fn run(arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         env!("I3_VERSION")
     );
     main_loop = ev_default_loop(0 as ::core::ffi::c_uint);
-    let atom_socket = take_string(init_xcb_early());
+    let atom_socket = init_xcb_early();
     if socket_path.is_none() {
-        socket_path = std::env::var_os("I3SOCK")
-            .map(|value| std::ffi::CString::new(value.as_bytes()).expect("environment has no NUL"));
+        socket_path = std::env::var_os("I3SOCK").map(std::path::PathBuf::from);
     }
     if socket_path.is_none() {
         socket_path = atom_socket;
@@ -327,11 +322,11 @@ unsafe fn run(arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
             157i32,
             c"/tmp/i3-ipc.sock".as_ptr(),
         );
-        socket_path = Some(c"/tmp/i3-ipc.sock".to_owned());
+        socket_path = Some(std::path::PathBuf::from("/tmp/i3-ipc.sock"));
     }
     init_dpi();
     init_outputs();
-    init_connection(socket_path.as_ref().unwrap().as_ptr());
+    init_connection(socket_path.as_deref().unwrap());
     i3_send_msg(
         I3_IPC_MESSAGE_TYPE_GET_BAR_CONFIG as u32,
         config.bar_id.clone().as_deref(),
@@ -446,9 +441,14 @@ mod path_tests {
     use super::*;
     #[test]
     fn native_glob_keeps_unmatched_raw_path_spelling_and_first_result_policy() {
-        let path =
-            std::ffi::CString::new(b"/i333-nonexistent-parent/raw-\xff.sock".as_slice()).unwrap();
+        use std::os::unix::ffi::OsStringExt;
+        let path = std::path::PathBuf::from(std::ffi::OsString::from_vec(
+            b"/i333-nonexistent-parent/raw-\xff.sock".to_vec(),
+        ));
         assert_eq!(expand_path(&path), path);
-        assert_eq!(expand_path(c""), c"".to_owned());
+        assert_eq!(
+            expand_path(std::path::Path::new("")),
+            std::path::PathBuf::new()
+        );
     }
 }

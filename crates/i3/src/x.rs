@@ -13,6 +13,7 @@ use crate::xcursor::Cursor;
 use ::xcb::{shape, x, Cookie, Xid, XidNew};
 use i3_common::draw_util::draw_util_text;
 use std::ffi::{CStr, CString};
+use std::os::unix::ffi::OsStrExt;
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -2194,11 +2195,12 @@ pub unsafe fn update_shmlog_atom() {
 
 pub unsafe fn x_set_i3_atoms() {
     let connection = connection();
-    let socket_path = if current_socketpath.is_null() {
-        &[][..]
-    } else {
-        CStr::from_ptr(current_socketpath).to_bytes()
-    };
+    let socket_path_owner = current_socketpath.clone();
+    let log_path_owner = current_log_stream_socket_path.clone();
+    let config_path = CStr::from_ptr(current_configpath).to_bytes().to_vec();
+    let socket_path = socket_path_owner
+        .as_deref()
+        .map_or(&[][..], |path| path.as_os_str().as_bytes());
     connection.send_request(&x::ChangeProperty {
         mode: x::PropMode::Replace,
         window: x::Window::new(root),
@@ -2214,15 +2216,23 @@ pub unsafe fn x_set_i3_atoms() {
         data: &[getpid() as u32],
     });
     for (atom, path) in [
-        (A_I3_CONFIG_PATH, current_configpath),
-        (A_I3_LOG_STREAM_SOCKET_PATH, current_log_stream_socket_path),
+        (
+            A_I3_CONFIG_PATH,
+            CStr::from_ptr(current_configpath).to_bytes(),
+        ),
+        (
+            A_I3_LOG_STREAM_SOCKET_PATH,
+            log_path_owner
+                .as_deref()
+                .map_or(&[][..], |path| path.as_os_str().as_bytes()),
+        ),
     ] {
         connection.send_request(&x::ChangeProperty {
             mode: x::PropMode::Replace,
             window: x::Window::new(root),
             property: x::Atom::new(atom),
             r#type: x::Atom::new(A_UTF8_STRING),
-            data: CStr::from_ptr(path).to_bytes(),
+            data: path,
         });
     }
     update_shmlog_atom();

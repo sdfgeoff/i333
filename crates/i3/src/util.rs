@@ -13,7 +13,7 @@ use crate::types::{Direction, Layout, Orientation, Position, ShutdownReason};
 use i3_common::get_process_filename::get_process_filename;
 use i3_common::mkdirp::{create_dir_all, report_create_error};
 use i3_common::native_stdio::{__ctype_b_loc, warn};
-use i3_common::resolve_tilde::resolve_cstring;
+
 use libc::{
     __errno_location, _exit, execvp, fork, free, kill, perror, setlocale, strcasecmp, strcmp,
     strerror, strtol, strtoll, waitpid,
@@ -23,29 +23,9 @@ use std::ffi::{CStr, CString};
 use std::io::{Read, Write};
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::OpenOptionsExt;
-use std::ptr::NonNull;
 const DEFAULT_DIR_MODE: libc::mode_t = 0o755;
 const LONG_MIN: libc::c_long = libc::c_long::MIN;
 const LONG_MAX: libc::c_long = libc::c_long::MAX;
-
-/// Adopt the native restart-state filename until its contents have been copied.
-struct MallocBuffer(NonNull<libc::c_char>);
-impl MallocBuffer {
-    /// ptr must transfer a uniquely owned malloc buffer containing a NUL.
-    unsafe fn take(ptr: *mut libc::c_char) -> Option<Self> {
-        NonNull::new(ptr).map(Self)
-    }
-    fn as_cstr(&self) -> &CStr {
-        unsafe { CStr::from_ptr(self.0.as_ptr()) }
-    }
-}
-impl Drop for MallocBuffer {
-    fn drop(&mut self) {
-        unsafe {
-            free(self.0.as_ptr().cast());
-        }
-    }
-}
 
 pub fn min(a: ::core::ffi::c_int, b: ::core::ffi::c_int) -> ::core::ffi::c_int {
     a.min(b)
@@ -268,33 +248,37 @@ unsafe fn restart_layout_payload() -> Vec<u8> {
     let _locale = NumericLocale::c();
     crate::ipc::node_payload(croot, true)
 }
-unsafe fn store_restart_layout() -> Option<CString> {
+unsafe fn store_restart_layout() -> Option<std::path::PathBuf> {
     let payload = restart_layout_payload();
-    let filename = if let Some(path) = config.restart_state_path.as_deref() {
-        resolve_cstring(path)
+    let requested_path = config.restart_state_path.clone();
+    let filename = if let Some(path) = requested_path.as_deref() {
+        i3_common::resolve_tilde::resolve_or_exit(path)
     } else {
-        let filename = MallocBuffer::take(get_process_filename(c"restart-state".as_ptr()))?;
-        filename.as_cstr().to_owned()
+        get_process_filename("restart-state")?
     };
-    let base = parent_directory(filename.as_c_str());
+    // dirname's spelling/empty/trailing-slash behavior is the native boundary.
+    let mut native_path = CString::new(filename.as_os_str().as_bytes())
+        .unwrap()
+        .into_bytes_with_nul();
+    let directory = libc::dirname(native_path.as_mut_ptr().cast());
+    let base = std::path::PathBuf::from(std::ffi::OsStr::from_bytes(
+        CStr::from_ptr(directory).to_bytes(),
+    ));
     {
         let diagnostic_5_owner = base.clone();
-        let diagnostic_5_bytes = diagnostic_5_owner.as_bytes();
+        let diagnostic_5_bytes = diagnostic_5_owner.as_os_str().as_bytes();
         match (std::str::from_utf8(diagnostic_5_bytes),) { (Ok(diagnostic_5_text),) => ::log::debug!("../src/util.c:store_restart_layout:253 - Creating \"{}\" for storing the restart layout\n", diagnostic_5_text), _ => emit_parts(Level::Debug, &[b"../src/util.c:store_restart_layout:253 - Creating \"", diagnostic_5_bytes, b"\" for storing the restart layout\n"]), }
     };
-    if let Err(error) = create_dir_all(
-        std::ffi::OsStr::from_bytes(base.to_bytes()),
-        DEFAULT_DIR_MODE,
-    ) {
-        let error = report_create_error(std::ffi::OsStr::from_bytes(base.to_bytes()), error);
+    if let Err(error) = create_dir_all(&base, DEFAULT_DIR_MODE) {
+        let error = report_create_error(&base, error);
         *__errno_location() = error.raw_os_error().unwrap_or(libc::EIO);
         {
             let diagnostic_2_owner = base.clone();
-            let diagnostic_2_bytes = diagnostic_2_owner.as_bytes();
+            let diagnostic_2_bytes = diagnostic_2_owner.as_os_str().as_bytes();
             match (std::str::from_utf8(diagnostic_2_bytes),) { (Ok(diagnostic_2_text),) => ::log::error!("ERROR: Could not create \"{}\" for storing the restart layout, layout will be lost.\n", diagnostic_2_text), _ => emit_parts(Level::Error, &[b"ERROR: Could not create \"", diagnostic_2_bytes, b"\" for storing the restart layout, layout will be lost.\n"]), }
         };
     }
-    let path = std::path::Path::new(std::ffi::OsStr::from_bytes(filename.as_c_str().to_bytes()));
+    let path = &filename;
     let mut file = match std::fs::OpenOptions::new()
         .write(true)
         .create(true)
@@ -311,8 +295,8 @@ unsafe fn store_restart_layout() -> Option<CString> {
     };
     if let Err(error) = file.write_all(&payload) {
         {
-            let diagnostic_2_owner = Some(filename.clone());
-            let diagnostic_2_bytes = string_bytes(diagnostic_2_owner.as_deref(), None);
+            let diagnostic_2_owner = filename.clone();
+            let diagnostic_2_bytes = diagnostic_2_owner.as_os_str().as_bytes();
             let diagnostic_3_owner = unsafe {
                 (strerror(error.raw_os_error().unwrap_or(libc::EIO)))
                     .cast::<libc::c_char>()
@@ -408,10 +392,12 @@ pub unsafe fn i3_restart(forget_layout: bool) {
         replace_argument(&mut arguments, c"-d", Some(c"all"), None);
     }
     if let Some(filename) = restart_filename.as_ref() {
+        let native_filename =
+            CString::new(filename.as_os_str().as_bytes()).expect("native argv path has no NUL");
         replace_argument(
             &mut arguments,
             c"--restart",
-            Some(filename.as_c_str()),
+            Some(native_filename.as_c_str()),
             Some(c"-r"),
         );
     }

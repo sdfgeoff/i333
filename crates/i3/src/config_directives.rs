@@ -1238,17 +1238,17 @@ pub unsafe fn cfg_workspace(
 pub unsafe fn cfg_ipc_socket(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    path: *const ::core::ffi::c_char,
+    path: &std::path::Path,
 ) {
-    config.ipc_socket_path = Some(std::ffi::CStr::from_ptr(path).to_owned());
+    config.ipc_socket_path = Some(path.to_path_buf());
 }
 
 pub unsafe fn cfg_restart_state(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    path: *const ::core::ffi::c_char,
+    path: &std::path::Path,
 ) {
-    config.restart_state_path = Some(std::ffi::CStr::from_ptr(path).to_owned());
+    config.restart_state_path = Some(path.to_path_buf());
 }
 
 pub unsafe fn cfg_popup_during_fullscreen(

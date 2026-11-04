@@ -1941,7 +1941,7 @@ unsafe extern "C" fn xcb_io_cb(
 ) {
 }
 
-pub unsafe fn init_xcb_early() -> *mut ::core::ffi::c_char {
+pub unsafe fn init_xcb_early() -> Option<std::path::PathBuf> {
     // Leave extension event metadata unregistered: the existing dispatcher
     // tolerates unknown extension opcodes/subtypes instead of enum-decoding them.
     let (connection, screen_number) = match ::xcb::Connection::connect(None) {
@@ -2053,7 +2053,16 @@ pub unsafe fn init_xcb_early() -> *mut ::core::ffi::c_char {
     get_atoms(&connection, atom_cookies);
     let path: *mut ::core::ffi::c_char =
         root_atom_contents(c"I3_SOCKET_PATH".as_ptr(), xcb_connection, screen);
-    path
+    if path.is_null() {
+        None
+    } else {
+        use std::os::unix::ffi::OsStringExt;
+        let bytes = CStr::from_ptr(path).to_bytes().to_vec();
+        free(path.cast());
+        Some(std::path::PathBuf::from(std::ffi::OsString::from_vec(
+            bytes,
+        )))
+    }
 }
 /// All StateNotify fields are selected, and all eight native map parts remain
 /// affected even when StateNotify itself is not selected (the unregister path).

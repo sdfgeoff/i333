@@ -116,8 +116,7 @@ pub const SOL_SOCKET: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 pub const SO_PEERCRED: ::core::ffi::c_int = 17 as ::core::ffi::c_int;
 pub const LC_NUMERIC: ::core::ffi::c_int = __LC_NUMERIC;
 
-pub static mut current_socketpath: *mut ::core::ffi::c_char =
-    std::ptr::null_mut::<::core::ffi::c_char>();
+pub static mut current_socketpath: Option<std::path::PathBuf> = None;
 
 pub static mut all_clients: ipc_client_head = ipc_client_head {
     tqh_first: std::ptr::null_mut::<ipc_client>(),

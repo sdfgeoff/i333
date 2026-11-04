@@ -748,22 +748,6 @@ pub static mut A_WM_CHANGE_STATE: u32 = 0;
 pub static mut A_MANAGER: u32 = 0;
 // Native malloc ownership used only by normal startup/event callbacks, never
 // added to the actual signal handler. Global display resources retain atexit ABI.
-struct NativeAllocation<T>(NonNull<T>);
-impl<T> NativeAllocation<T> {
-    unsafe fn take(ptr: *mut T) -> Option<Self> {
-        NonNull::new(ptr).map(Self)
-    }
-    fn raw(&self) -> *mut T {
-        self.0.as_ptr()
-    }
-}
-impl<T> Drop for NativeAllocation<T> {
-    fn drop(&mut self) {
-        unsafe {
-            free(self.raw().cast());
-        }
-    }
-}
 struct MainWatchers {
     io: Vec<NonNull<ev_io>>,
 }
@@ -862,10 +846,10 @@ extern "C" fn i3_exit() {
         }
         ipc_shutdown(ShutdownReason::Exit, -(1 as ::core::ffi::c_int));
         if let Some(path) = config.ipc_socket_path.as_deref() {
-            unlink(path.as_ptr());
+            let _ = std::fs::remove_file(path);
         }
-        if !current_log_stream_socket_path.is_null() {
-            unlink(current_log_stream_socket_path);
+        if let Some(path) = current_log_stream_socket_path.as_deref() {
+            let _ = std::fs::remove_file(path);
         }
         crate::restore_layout::restore_shutdown();
         drop(KEY_SYMBOLS.take());
@@ -1659,27 +1643,36 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
     }
     load_configuration(override_configpath, ConfigLoad::Load);
     if config.ipc_socket_path.is_none() {
-        let environment = getenv(c"I3SOCK".as_ptr());
-        config.ipc_socket_path = if environment.is_null() {
-            // Preserve the process-filename helper's fatal diagnostic/null fallback.
-            NativeAllocation::take(get_process_filename(c"ipc-socket".as_ptr()))
-                .map(|path| CStr::from_ptr(path.raw()).to_owned())
-        } else {
-            Some(CStr::from_ptr(environment).to_owned())
-        };
+        config.ipc_socket_path = std::env::var_os("I3SOCK")
+            .map(std::path::PathBuf::from)
+            .or_else(|| get_process_filename("ipc-socket"));
     }
-    let socket_path = config
-        .ipc_socket_path
-        .as_ref()
-        .map_or(std::ptr::null(), |path| path.as_ptr());
-    let ipc_socket: ::core::ffi::c_int = create_socket(socket_path, &raw mut current_socketpath);
-    if ipc_socket == -(1 as ::core::ffi::c_int) {
-        errx(
-            EXIT_FAILURE,
-            c"Could not create the IPC socket: %s".as_ptr(),
-            socket_path,
-        );
-    }
+    // Own the requested path across diagnostic callbacks; the bound result owns
+    // the resolved path and descriptor independently of later config reloads.
+    let socket_path = config.ipc_socket_path.clone();
+    let ipc_listener = match socket_path
+        .as_deref()
+        .ok_or_else(|| std::io::Error::from_raw_os_error(libc::EINVAL))
+        .and_then(create_socket)
+    {
+        Ok(bound) => bound,
+        Err(_) => {
+            let native_path = socket_path.as_ref().map(|path| {
+                CString::new(path.as_os_str().as_bytes()).expect("native socket path has no NUL")
+            });
+            errx(
+                EXIT_FAILURE,
+                c"Could not create the IPC socket: %s".as_ptr(),
+                native_path.as_deref().unwrap_or(c"(null)").as_ptr(),
+            );
+        }
+    };
+    current_socketpath = Some(ipc_listener.path.clone());
+    let ipc_socket = ipc_listener.listener.as_raw_fd();
+    // Declared before watchers, including the late-initialized log listener, so
+    // watcher Drop always stops borrowed descriptors before their owners close.
+    let log_listener: Option<i3_common::create_socket::BoundSocket>;
+
     if config.force_xinerama {
         force_xinerama = true;
     }
@@ -1993,18 +1986,14 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
     tree_render();
     let mut watchers = MainWatchers::new();
     let ipc_io = watchers.add(ipc_socket, ipc_new_client);
-    let log_stream_socket_path: *mut ::core::ffi::c_char =
-        get_process_filename(c"log-stream-socket".as_ptr());
-    let log_socket: ::core::ffi::c_int = create_socket(
-        log_stream_socket_path,
-        &raw mut current_log_stream_socket_path,
-    );
-    free(log_stream_socket_path as *mut ::core::ffi::c_void);
-    let mut log_io: *mut ev_io = ::core::ptr::null_mut::<ev_io>();
-    if log_socket == -(1 as ::core::ffi::c_int) {
-        ::log::error!("ERROR: Could not create the log socket, i3-dump-log -f will not work\n");
+    log_listener =
+        get_process_filename("log-stream-socket").and_then(|path| create_socket(&path).ok());
+    let mut log_io: *mut ev_io = std::ptr::null_mut();
+    if let Some(bound) = log_listener.as_ref() {
+        current_log_stream_socket_path = Some(bound.path.clone());
+        log_io = watchers.add(bound.listener.as_raw_fd(), log_new_client);
     } else {
-        log_io = watchers.add(log_socket, log_new_client);
+        ::log::error!("ERROR: Could not create the log socket, i3-dump-log -f will not work\n");
     }
     let mut socket_ipc_io: *mut ev_io = ::core::ptr::null_mut::<ev_io>();
     listen_fds = crate::sd_daemon::listen_fds();
@@ -2162,7 +2151,9 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
             program.to_bytes(),
             (*barconfig).verbose,
             (*barconfig).id().to_bytes(),
-            CStr::from_ptr(current_socketpath).to_bytes(),
+            current_socketpath
+                .as_deref()
+                .map_or(&[][..], |path| path.as_os_str().as_bytes()),
         );
         {
             let log_value_0 = &command;

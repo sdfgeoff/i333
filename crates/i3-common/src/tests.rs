@@ -830,19 +830,31 @@ fn owned_listener_replaces_stale_sockets_but_rejects_active_listeners() {
     }
     use crate::create_socket::bind;
     let temp = TempDir::new();
-    let path = temp.0.join("nested/ipc");
-    let bound = bind(&path).unwrap();
-    assert_eq!(bound.path, path);
-    assert_eq!(
-        bound.listener.accept().unwrap_err().kind(),
-        std::io::ErrorKind::WouldBlock
-    );
-    assert_eq!(bind(&path).unwrap_err().raw_os_error(), Some(libc::EEXIST));
-    drop(bound);
-    assert!(path.exists());
-    let replacement = bind(&path).unwrap();
-    let _client = UnixStream::connect(&path).unwrap();
-    let _accepted = replacement.listener.accept().unwrap();
+    for (name, application) in [
+        (b"nested/ipc".as_slice(), false),
+        (b"old/raw-\xff".as_slice(), true),
+    ] {
+        let path = temp.0.join(std::ffi::OsStr::from_bytes(name));
+        let bind = |path: &std::path::Path| {
+            if application {
+                crate::create_socket::create_socket(path)
+            } else {
+                bind(path)
+            }
+        };
+        let bound = bind(&path).unwrap();
+        assert_eq!(bound.path, path);
+        assert_eq!(
+            bound.listener.accept().unwrap_err().kind(),
+            std::io::ErrorKind::WouldBlock
+        );
+        assert_eq!(bind(&path).unwrap_err().raw_os_error(), Some(libc::EEXIST));
+        drop(bound);
+        assert!(path.exists());
+        let replacement = bind(&path).unwrap();
+        let _client = UnixStream::connect(&path).unwrap();
+        let _accepted = replacement.listener.accept().unwrap();
+    }
 }
 
 #[test]

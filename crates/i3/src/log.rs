@@ -234,11 +234,11 @@ static mut CLIENTS: Vec<OwnedFd> = Vec::new();
 static mut debug_logging: bool = false;
 static mut verbose: bool = false;
 static mut errorfile: *mut FILE = std::ptr::null_mut();
-pub static mut errorfilename: *mut libc::c_char = std::ptr::null_mut();
+pub static mut errorfilename: Option<std::path::PathBuf> = None;
 pub static mut shmlogname: *mut libc::c_char = c"".as_ptr().cast_mut();
 pub static mut shmlog_size: libc::c_int = 0;
 static mut physical_mem_bytes: libc::c_longlong = 0;
-pub static mut current_log_stream_socket_path: *mut libc::c_char = std::ptr::null_mut();
+pub static mut current_log_stream_socket_path: Option<std::path::PathBuf> = None;
 unsafe fn logbuffer_is_closed() -> bool {
     unsafe { (*(&raw const LOG_BUFFER)).is_none() }
 }
@@ -250,22 +250,24 @@ pub(crate) unsafe fn debug_record_enabled() -> bool {
 }
 
 pub unsafe fn init_logging() {
-    if errorfilename.is_null() {
-        errorfilename = get_process_filename(c"errorlog".as_ptr());
-        if errorfilename.is_null() {
-            fprintf(stderr, c"Could not initialize errorlog\n".as_ptr());
-        } else {
-            errorfile = fopen(errorfilename, c"w".as_ptr());
+    if errorfilename.is_none() {
+        errorfilename = get_process_filename("errorlog");
+        if let Some(path) = errorfilename.clone() {
+            let native_path =
+                CString::new(path.as_os_str().as_bytes()).expect("native error path has no NUL");
+            errorfile = fopen(native_path.as_ptr(), c"w".as_ptr());
             if errorfile.is_null() {
                 fprintf(
                     stderr,
                     c"Could not initialize errorlog on %s: %s\n".as_ptr(),
-                    errorfilename,
+                    native_path.as_ptr(),
                     strerror(*__errno_location()),
                 );
             } else if fcntl(fileno(errorfile), F_SETFD, FD_CLOEXEC) != 0 {
                 fprintf(stderr, c"Could not set close-on-exec flag\n".as_ptr());
             }
+        } else {
+            fprintf(stderr, c"Could not initialize errorlog\n".as_ptr());
         }
     }
     if physical_mem_bytes == 0 as ::core::ffi::c_longlong {
@@ -421,13 +423,8 @@ pub unsafe fn write_log_bytes(level: i3_common::logging::Level, body: &[u8]) {
 pub extern "C" fn purge_zerobyte_logfile() {
     // atexit runs after event-thread logging has stopped; copy the legacy name
     // before filesystem operations rather than modifying its parent separator.
-    let path = unsafe {
-        if errorfilename.is_null() {
-            return;
-        }
-        std::path::PathBuf::from(std::ffi::OsStr::from_bytes(
-            CStr::from_ptr(errorfilename).to_bytes(),
-        ))
+    let Some(path) = (unsafe { errorfilename.clone() }) else {
+        return;
     };
     if std::fs::metadata(&path).is_ok_and(|metadata| metadata.len() == 0)
         && std::fs::remove_file(&path).is_ok()

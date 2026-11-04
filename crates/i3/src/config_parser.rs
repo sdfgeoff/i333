@@ -5043,7 +5043,9 @@ unsafe fn GENERATED_call(
             cfg_restart_state(
                 current_match,
                 result,
-                parser_get_string(stack, c"path".as_ptr()),
+                std::path::Path::new(std::ffi::OsStr::from_bytes(
+                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"path".as_ptr())).to_bytes(),
+                )),
             );
         }
         94 => {
@@ -5302,7 +5304,9 @@ unsafe fn GENERATED_call(
             cfg_ipc_socket(
                 current_match,
                 result,
-                parser_get_string(stack, c"path".as_ptr()),
+                std::path::Path::new(std::ffi::OsStr::from_bytes(
+                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"path".as_ptr())).to_bytes(),
+                )),
             );
         }
         124 => {
@@ -6165,18 +6169,25 @@ unsafe fn parse_config(
 }
 
 pub unsafe fn start_config_error_nagbar(configpath: *const ::core::ffi::c_char, has_errors: bool) {
-    let mut editaction: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    let mut pageraction: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    sasprintf(
-        &raw mut editaction,
-        c"i3-sensible-editor \"%s\" && i3-msg reload\n".as_ptr(),
-        configpath,
+    let configpath = if configpath.is_null() {
+        b"(null)".to_vec()
+    } else {
+        std::ffi::CStr::from_ptr(configpath).to_bytes().to_vec()
+    };
+    let error_path = errorfilename.clone();
+    let mut edit_bytes = b"i3-sensible-editor \"".to_vec();
+    edit_bytes.extend_from_slice(&configpath);
+    edit_bytes.extend_from_slice(b"\" && i3-msg reload\n");
+    let mut pager_bytes = b"i3-sensible-pager \"".to_vec();
+    pager_bytes.extend_from_slice(
+        error_path
+            .as_deref()
+            .map_or(b"(null)".as_slice(), |path| path.as_os_str().as_bytes()),
     );
-    sasprintf(
-        &raw mut pageraction,
-        c"i3-sensible-pager \"%s\"\n".as_ptr(),
-        errorfilename,
-    );
+    pager_bytes.extend_from_slice(b"\"\n");
+    // These terminated owners are the actual child process argv allocation.
+    let editaction = std::ffi::CString::new(edit_bytes).unwrap();
+    let pageraction = std::ffi::CString::new(pager_bytes).unwrap();
     let font_pattern = std::ffi::CString::new(config.font.pattern().unwrap_or(b"fixed"))
         .expect("native font argument has no NUL");
     let mut argv: [*mut ::core::ffi::c_char; 14] = [
@@ -6198,8 +6209,8 @@ pub unsafe fn start_config_error_nagbar(configpath: *const ::core::ffi::c_char, 
         }) as *mut ::core::ffi::c_char,
         c"-b".as_ptr().cast_mut(),
         c"edit config".as_ptr().cast_mut(),
-        editaction,
-        (if !errorfilename.is_null() {
+        editaction.as_ptr().cast_mut(),
+        (if error_path.is_some() {
             c"-b".as_ptr()
         } else {
             ::core::ptr::null::<::core::ffi::c_char>()
@@ -6209,15 +6220,13 @@ pub unsafe fn start_config_error_nagbar(configpath: *const ::core::ffi::c_char, 
         } else {
             c"show warnings".as_ptr()
         }) as *mut ::core::ffi::c_char,
-        pageraction,
+        pageraction.as_ptr().cast_mut(),
         ::core::ptr::null_mut::<::core::ffi::c_char>(),
     ];
     start_nagbar(
         &raw mut config_error_nagbar_pid,
         &raw mut argv as *mut *mut ::core::ffi::c_char,
     );
-    free(editaction as *mut ::core::ffi::c_void);
-    free(pageraction as *mut ::core::ffi::c_void);
 }
 fn store_variable(variables: &mut variables_head, key: &[u8], value: &[u8]) {
     let key = key.split(|byte| *byte == 0).next().unwrap();

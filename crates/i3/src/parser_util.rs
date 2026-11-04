@@ -5,7 +5,7 @@ use std::ffi::{CStr, CString};
 #[derive(Debug)]
 enum Capture {
     String(CString),
-    Long(libc::c_long),
+    Long(i64),
 }
 
 #[derive(Debug)]
@@ -53,7 +53,7 @@ impl ParserStack {
         });
     }
 
-    fn push_long(&mut self, identifier: &CStr, value: libc::c_long) {
+    fn push_long(&mut self, identifier: &CStr, value: i64) {
         if self.full() {
             full_stack();
         }
@@ -76,7 +76,7 @@ impl ParserStack {
             })
     }
 
-    fn get_long(&self, identifier: &CStr) -> libc::c_long {
+    fn get_long(&self, identifier: &CStr) -> i64 {
         self.entries
             .iter()
             .find(|entry| entry.identifier.as_c_str() == identifier)
@@ -116,7 +116,7 @@ pub unsafe fn parser_push_string(
 pub unsafe fn parser_push_long(
     stack: *mut ParserStack,
     identifier: *const libc::c_char,
-    value: libc::c_long,
+    value: i64,
 ) {
     unsafe { (&mut *stack).push_long(CStr::from_ptr(identifier), value) };
 }
@@ -134,10 +134,7 @@ pub unsafe fn parser_get_string(
 
 /// # Safety
 /// stack and identifier are readable during this call, without concurrent mutation.
-pub unsafe fn parser_get_long(
-    stack: *const ParserStack,
-    identifier: *const libc::c_char,
-) -> libc::c_long {
+pub unsafe fn parser_get_long(stack: *const ParserStack, identifier: *const libc::c_char) -> i64 {
     unsafe { (&*stack).get_long(CStr::from_ptr(identifier)) }
 }
 
@@ -260,13 +257,13 @@ mod tests {
         }
         stack.push_string(c"name", c"second");
         stack.push_string(c"empty", c"");
-        stack.push_long(c"number", libc::c_long::MIN);
+        stack.push_long(c"number", i64::MIN);
         assert_eq!(
             stack.get_string(c"name").unwrap().to_bytes(),
             b"\xffa,second"
         );
         assert_eq!(stack.get_string(c"empty"), Some(c""));
-        assert_eq!(stack.get_long(c"number"), libc::c_long::MIN);
+        assert_eq!(stack.get_long(c"number"), i64::MIN);
         assert_eq!(stack.get_string(c"missing"), None);
         assert_eq!(stack.get_long(c"missing"), 0);
         // SAFETY: the normal Rust stack is uniquely borrowed and no capture views remain.
