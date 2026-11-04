@@ -486,7 +486,7 @@ pub unsafe fn cfg_enter_mode(
     if modename == DEFAULT_BINDING_MODE {
         {
             let log_value_0 = DEFAULT_BINDING_MODE;
-            if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+            if let (Ok(log_value_0_text),) = (std::str::from_utf8(log_value_0),) {
                 ::log::error!(
                     "ERROR: You cannot use the name {} for your mode\n",
                     log_value_0_text
@@ -494,7 +494,7 @@ pub unsafe fn cfg_enter_mode(
             } else {
                 let mut message = Vec::new();
                 message.extend_from_slice("ERROR: You cannot use the name ".as_bytes());
-                message.extend_from_slice(&log_value_0);
+                message.extend_from_slice(log_value_0);
                 message.extend_from_slice(" for your mode\n".as_bytes());
                 i3_common::logging::emit(i3_common::logging::Level::Error, &message);
             }
