@@ -5565,9 +5565,9 @@ unsafe fn GENERATED_call(
             cfg_exec(
                 current_match,
                 result,
-                parser_get_string(stack, c"exectype".as_ptr()),
-                parser_get_string(stack, c"no_startup_id".as_ptr()),
-                parser_get_string(stack, c"command".as_ptr()),
+                std::ffi::CStr::from_ptr(parser_get_string(stack, c"exectype".as_ptr())).to_bytes(),
+                !parser_get_string(stack, c"no_startup_id".as_ptr()).is_null(),
+                std::ffi::CStr::from_ptr(parser_get_string(stack, c"command".as_ptr())).to_bytes(),
             );
         }
         154 => {

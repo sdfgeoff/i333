@@ -130,15 +130,15 @@ pub struct ignore_event_sequence_t {
     pub value: u32,
 }
 pub struct Autostart {
-    pub command: std::ffi::CString,
+    pub command: Vec<u8>,
     pub no_startup_id: bool,
     pub autostarts: AutostartLinks,
     pub autostarts_always: AutostartAlwaysLinks,
 }
 impl Autostart {
-    pub fn new(command: std::ffi::CString, no_startup_id: bool) -> Self {
+    pub fn new(command: Vec<u8>, no_startup_id: bool) -> Self {
         Self {
-            command,
+            command: command.split(|byte| *byte == 0).next().unwrap().to_vec(),
             no_startup_id,
             autostarts: AutostartLinks {
                 tqe_next: std::ptr::null_mut(),
@@ -792,18 +792,18 @@ impl Drop for MainWatchers {
         }
     }
 }
-fn bar_command(program: &CStr, verbose: bool, id: &CStr, socket: &CStr) -> CString {
-    let mut bytes = program.to_bytes().to_vec();
+fn bar_command(program: &[u8], verbose: bool, id: &[u8], socket: &[u8]) -> Vec<u8> {
+    let mut bytes = program.to_vec();
     bytes.push(b' ');
     if verbose {
         bytes.extend_from_slice(b"-V");
     }
     bytes.extend_from_slice(b" --bar_id=");
-    bytes.extend_from_slice(id.to_bytes());
+    bytes.extend_from_slice(id);
     bytes.extend_from_slice(b" --socket=\"");
-    bytes.extend_from_slice(socket.to_bytes());
+    bytes.extend_from_slice(socket);
     bytes.push(b'"');
-    CString::new(bytes).unwrap()
+    bytes
 }
 fn owned_dirname(path: &CStr) -> CString {
     let mut bytes = path.to_bytes_with_nul().to_vec();
@@ -2131,7 +2131,7 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
         while let Some(exec) = take_first_autostart(false) {
             {
                 // The detached owner keeps native bytes live through logging and launch.
-                let log_value_0 = exec.command.as_bytes();
+                let log_value_0 = exec.command.as_slice();
                 if let Ok(log_value_0_text) = std::str::from_utf8(log_value_0) {
                     ::log::info!("auto-starting {}\n", log_value_0_text);
                 } else {
@@ -2141,13 +2141,13 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
                     );
                 }
             };
-            start_application(exec.command.as_ptr(), exec.no_startup_id, 0_u32);
+            start_application(&exec.command, exec.no_startup_id, 0_u32);
         }
     }
     while let Some(exec_always) = take_first_autostart(true) {
         {
             // The detached owner keeps native bytes live through logging and launch.
-            let log_value_0 = exec_always.command.as_bytes();
+            let log_value_0 = exec_always.command.as_slice();
             if let Ok(log_value_0_text) = std::str::from_utf8(log_value_0) {
                 ::log::info!("auto-starting (always!) {}\n", log_value_0_text);
             } else {
@@ -2161,11 +2161,7 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
                 );
             }
         };
-        start_application(
-            exec_always.command.as_ptr(),
-            exec_always.no_startup_id,
-            0_u32,
-        );
+        start_application(&exec_always.command, exec_always.no_startup_id, 0_u32);
     }
     let mut barconfig: *mut Barconfig = barconfigs.tqh_first;
 
@@ -2175,23 +2171,13 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
             .as_deref()
             .unwrap_or(c"exec i3bar");
         let command = bar_command(
-            program,
+            program.to_bytes(),
             (*barconfig).verbose,
-            (*barconfig).id(),
-            CStr::from_ptr(current_socketpath),
+            (*barconfig).id().to_bytes(),
+            CStr::from_ptr(current_socketpath).to_bytes(),
         );
         {
-            // Snapshot native bytes before the logger can dispatch a callback.
-            let log_pointer_1 = command.as_ptr();
-            let log_value_0 = i3_common::logging::string_bytes(
-                if log_pointer_1.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                },
-                None,
-            )
-            .to_vec();
+            let log_value_0 = &command;
             if let Ok(log_value_0_text) = std::str::from_utf8(&log_value_0) {
                 ::log::info!("Starting bar process: {}\n", log_value_0_text);
             } else {
@@ -2205,7 +2191,7 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
                 );
             }
         };
-        start_application(command.as_ptr(), true, 0);
+        start_application(&command, true, 0);
         barconfig = (*barconfig).configs.tqe_next;
     }
     atexit(i3_exit);
@@ -2467,11 +2453,11 @@ mod owned_startup_tests {
     #[test]
     fn bar_command_preserves_native_spaces_quotes_and_non_utf8() {
         assert_eq!(
-            bar_command(c"exec i3bar", false, c"id\xff", c"/socket\xfe").to_bytes(),
+            bar_command(b"exec i3bar", false, b"id\xff", b"/socket\xfe"),
             b"exec i3bar  --bar_id=id\xff --socket=\"/socket\xfe\""
         );
         assert_eq!(
-            bar_command(c"custom", true, c"bar", c"/path").to_bytes(),
+            bar_command(b"custom", true, b"bar", b"/path"),
             b"custom -V --bar_id=bar --socket=\"/path\""
         );
         assert_eq!(owned_dirname(c"relative/file").as_c_str(), c"relative");
@@ -2619,26 +2605,30 @@ mod autostart_ownership_tests {
             crate::config_directives::cfg_exec(
                 std::ptr::null_mut(),
                 std::ptr::null_mut(),
-                c"exec".as_ptr(),
-                c"--no-startup-id".as_ptr(),
-                command.as_ptr(),
+                b"exec",
+                true,
+                command.as_bytes(),
             );
             crate::config_directives::cfg_exec(
                 std::ptr::null_mut(),
                 std::ptr::null_mut(),
-                c"exec".as_ptr(),
-                std::ptr::null(),
-                c"".as_ptr(),
+                b"exec",
+                false,
+                b"",
             );
             crate::config_directives::cfg_exec(
                 std::ptr::null_mut(),
                 std::ptr::null_mut(),
-                c"exec_always".as_ptr(),
-                std::ptr::null(),
-                c"always".as_ptr(),
+                b"exec_always",
+                false,
+                b"always",
             );
             let detached = take_first_autostart(false).unwrap();
-            assert_eq!(detached.command.as_bytes(), &[0xff, b'x']);
+            assert_eq!(detached.command.as_slice(), &[0xff, b'x']);
+            assert_eq!(
+                Autostart::new(b"prefix\0ignored".to_vec(), false).command,
+                b"prefix"
+            );
             assert!(detached.no_startup_id);
             assert!(detached.autostarts.tqe_next.is_null());
             assert!(detached.autostarts.tqe_prev.is_null());
@@ -2650,24 +2640,18 @@ mod autostart_ownership_tests {
             crate::config_directives::cfg_exec(
                 std::ptr::null_mut(),
                 std::ptr::null_mut(),
-                c"exec".as_ptr(),
-                std::ptr::null(),
-                c"later".as_ptr(),
+                b"exec",
+                false,
+                b"later",
             );
-            assert_eq!(detached.command.as_bytes(), command.as_bytes());
+            assert_eq!(detached.command.as_slice(), command.as_bytes());
             let empty = take_first_autostart(false).unwrap();
-            assert!(empty.command.as_bytes().is_empty());
+            assert!(empty.command.as_slice().is_empty());
             assert!(!empty.no_startup_id);
-            assert_eq!(
-                take_first_autostart(false).unwrap().command.as_c_str(),
-                c"later"
-            );
+            assert_eq!(take_first_autostart(false).unwrap().command, b"later");
             assert!(take_first_autostart(false).is_none());
             assert_eq!(autostarts.tqh_last, &raw mut autostarts.tqh_first);
-            assert_eq!(
-                take_first_autostart(true).unwrap().command.as_c_str(),
-                c"always"
-            );
+            assert_eq!(take_first_autostart(true).unwrap().command, b"always");
             assert!(take_first_autostart(true).is_none());
             assert_eq!(
                 autostarts_always.tqh_last,

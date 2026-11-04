@@ -551,15 +551,12 @@ pub unsafe fn cfg_enter_mode(
 pub unsafe fn cfg_exec(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    exectype: *const ::core::ffi::c_char,
-    no_startup_id: *const ::core::ffi::c_char,
-    command: *const ::core::ffi::c_char,
+    exectype: &[u8],
+    no_startup_id: bool,
+    command: &[u8],
 ) {
-    let new = Box::into_raw(Box::new(Autostart::new(
-        std::ffi::CStr::from_ptr(command).to_owned(),
-        !no_startup_id.is_null(),
-    )));
-    if strcmp(exectype, c"exec".as_ptr()) == 0 as ::core::ffi::c_int {
+    let new = Box::into_raw(Box::new(Autostart::new(command.to_vec(), no_startup_id)));
+    if exectype.split(|byte| *byte == 0).next().unwrap() == b"exec" {
         (*new).autostarts.tqe_next = ::core::ptr::null_mut::<Autostart>();
         (*new).autostarts.tqe_prev = autostarts.tqh_last;
         *autostarts.tqh_last = new;

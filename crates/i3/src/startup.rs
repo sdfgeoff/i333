@@ -141,8 +141,8 @@ pub unsafe fn startup_sequence_delete(sequence: *mut Startup_Sequence) {
         drop(sequence);
     }
 }
-fn first_word(command: &CStr) -> CString {
-    let bytes = command.to_bytes();
+fn first_word(command: &[u8]) -> CString {
+    let bytes = command.split(|byte| *byte == 0).next().unwrap();
     CString::new(
         &bytes[..bytes
             .iter()
@@ -161,22 +161,22 @@ struct PreparedCommand {
     first_word: CString,
 }
 impl PreparedCommand {
-    fn new(command: &CStr, socket: &CStr, window: u32) -> Self {
+    fn new(command: &[u8], socket: &[u8], window: u32) -> Self {
         Self {
-            command: command.to_owned(),
-            socket: socket.to_owned(),
+            command: CString::new(command.split(|byte| *byte == 0).next().unwrap()).unwrap(),
+            socket: CString::new(socket.split(|byte| *byte == 0).next().unwrap()).unwrap(),
             window: (window != 0).then(|| window_id_string(window)),
             first_word: first_word(command),
         }
     }
 }
-/// command is live C text; globals/graph/SN display are serialized on the event
+/// command bytes are copied before callbacks; globals/graph/SN display belong to the event
 /// thread. All Rust-owned preparation occurs before fork. The child uses only
 /// the existing native process/environment/SN setup and exec failure boundary.
-pub unsafe fn start_application(command: *const libc::c_char, no_startup_id: bool, window_id: u32) {
+pub unsafe fn start_application(command: &[u8], no_startup_id: bool, window_id: u32) {
     let prepared = PreparedCommand::new(
-        CStr::from_ptr(command),
-        CStr::from_ptr(current_socketpath),
+        command,
+        CStr::from_ptr(current_socketpath).to_bytes(),
         window_id,
     );
     let mut context = None;
@@ -396,12 +396,16 @@ mod tests {
     use super::*;
     #[test]
     fn prepared_command_retains_bytes_signed_xid_and_literal_first_space() {
-        let command = PreparedCommand::new(c"\xff\tapp arg", c"/private/socket", u32::MAX);
+        let command = PreparedCommand::new(b"\xff\tapp arg", b"/private/socket", u32::MAX);
         assert_eq!(command.first_word.to_bytes(), b"\xff\tapp");
         assert_eq!(command.window.unwrap().to_bytes(), b"-1");
-        assert_eq!(first_word(c" command").to_bytes(), b"");
+        assert_eq!(first_word(b" command").to_bytes(), b"");
         assert_eq!(window_id_string(0x8000_0000).to_bytes(), b"-2147483648");
-        assert!(PreparedCommand::new(c"a", c"b", 0).window.is_none());
+        assert!(PreparedCommand::new(b"a", b"b", 0).window.is_none());
+        let bounded = PreparedCommand::new(b"\xff app\0ignored", b"/socket\0ignored", 0);
+        assert_eq!(bounded.command.to_bytes(), b"\xff app");
+        assert_eq!(bounded.first_word.to_bytes(), b"\xff");
+        assert_eq!(bounded.socket.to_bytes(), b"/socket");
     }
     #[test]
     fn startup_ids_and_expiry_preserve_prefix_and_strict_deadline() {

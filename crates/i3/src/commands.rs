@@ -3175,7 +3175,7 @@ pub unsafe fn cmd_exec(
             }
         };
         start_application(
-            command,
+            &std::ffi::CStr::from_ptr(command).to_bytes().to_vec(),
             no_startup_id,
             (if (*(*current).con).window.is_null() {
                 0
