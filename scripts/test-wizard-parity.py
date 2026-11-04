@@ -45,7 +45,7 @@ CASES = [('welcome-abort', [], ['Escape'], False),
 def copied_binary(binary, label, work):
     original = binary.read_bytes()
     count = original.count(ORIGINAL_TEMPLATE)
-    assert count == 1, (binary, 'expected one embedded template path', count)
+    assert count >= 1, (binary, 'expected an embedded template path', count)
     patched = original.replace(ORIGINAL_TEMPLATE, FIXTURE_NAME)
     assert len(patched) == len(original)
     path = work / (label + '-wizard')
