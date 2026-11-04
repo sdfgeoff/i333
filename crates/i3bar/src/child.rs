@@ -256,7 +256,8 @@ unsafe extern "C" fn set_statusline_error(format: *const ::core::ffi::c_char, ar
         (*err_block).color = Some(b"#ff0000".to_vec());
         (*err_block).no_separator = true;
         message_block = Box::into_raw(Box::new(status_block::default()));
-        (*message_block).full_text = I3String::from_cstr(std::ffi::CStr::from_ptr(message));
+        (*message_block).full_text =
+            I3String::from_bytes(std::ffi::CStr::from_ptr(message).to_bytes());
         (*message_block).name = Some(b"error_message".to_vec());
         (*message_block).color = Some(b"#ff0000".to_vec());
         (*message_block).no_separator = true;
@@ -666,42 +667,36 @@ unsafe fn install_status_frame(frame: Vec<StatusValue>) {
         );
         let mut current = statusline_head.tqh_first;
         while !current.is_null() {
-            printf(
-                c"[%s:%d] full_text = %s\n".as_ptr(),
-                c"../i3bar/src/child.c".as_ptr(),
-                381i32,
-                (*current)
-                    .full_text
-                    .cstr_or_report()
-                    .map_or(std::ptr::null(), std::ffi::CStr::as_ptr),
-            );
-            printf(
-                c"[%s:%d] short_text = %s\n".as_ptr(),
-                c"../i3bar/src/child.c".as_ptr(),
-                382i32,
-                if (*current).short_text.is_none() {
-                    std::ptr::null()
-                } else {
-                    (*current)
-                        .short_text
-                        .as_ref()
-                        .and_then(I3String::cstr_or_report)
-                        .map_or(std::ptr::null(), std::ffi::CStr::as_ptr)
-                },
-            );
-            printf(
-                c"[%s:%d] color = %s\n".as_ptr(),
-                c"../i3bar/src/child.c".as_ptr(),
-                383i32,
-                (*current)
-                    .color
-                    .as_ref()
-                    .map(|bytes| {
-                        std::ffi::CString::new(bytes.clone()).expect("color C-string prefix")
-                    })
-                    .as_ref()
-                    .map_or(std::ptr::null(), |color| color.as_ptr()),
-            );
+            let full = (*current)
+                .full_text
+                .str_or_report()
+                .unwrap_or("(null)")
+                .to_owned();
+            let short = (*current)
+                .short_text
+                .as_ref()
+                .and_then(I3String::str_or_report)
+                .unwrap_or("(null)")
+                .to_owned();
+            let color = (*current)
+                .color
+                .clone()
+                .unwrap_or_else(|| b"(null)".to_vec());
+            for (line, label, bytes) in [
+                (381, "full_text", full.as_bytes()),
+                (382, "short_text", short.as_bytes()),
+                (383, "color", color.as_slice()),
+            ] {
+                let mut record = format!("[../i3bar/src/child.c:{line}] {label} = ").into_bytes();
+                record.extend_from_slice(bytes);
+                record.push(b'\n');
+                libc::fwrite(
+                    record.as_ptr().cast(),
+                    1,
+                    record.len(),
+                    i3_common::native_stdio::stdout,
+                );
+            }
             current = (*current).blocks.tqe_next;
         }
         printf(
@@ -1865,8 +1860,8 @@ mod owned_tests {
                 );
                 assert!((*head.tqh_first).border.is_none());
                 let minimum = (*head.tqh_first).minimum_width_text().unwrap();
-                let native_view = I3String::from_cstr(c"width-\xff");
-                assert_eq!(minimum.as_cstr(), native_view.as_cstr());
+                let native_view = I3String::new("width-�");
+                assert_eq!(minimum.as_str(), native_view.as_str());
                 assert_eq!(
                     minimum.rendering_byte_len(),
                     native_view.rendering_byte_len()

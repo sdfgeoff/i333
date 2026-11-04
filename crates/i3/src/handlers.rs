@@ -727,7 +727,7 @@ unsafe fn window_name_snapshot(window: *mut i3Window) -> Option<Vec<u8>> {
     (*window)
         .name
         .as_ref()
-        .and_then(|name| name.cstr_or_report().map(|text| text.to_bytes().to_vec()))
+        .and_then(|name| name.str_or_report().map(|text| text.as_bytes().to_vec()))
 }
 unsafe fn handle_windowname_change(mut con: *mut Con, prop: Option<&x::GetPropertyReply>) -> bool {
     let old_name = window_name_snapshot((*con).window);

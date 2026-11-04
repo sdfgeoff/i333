@@ -171,12 +171,7 @@ unsafe fn set_name(win: *mut Window, bytes: &[u8]) {
         let con = con_by_window_id((*win).id);
         if !con.is_null() && (*con).title_format.is_some() {
             let formatted = con_parse_title_format(con);
-            ewmh_update_visible_name(
-                (*win).id,
-                formatted
-                    .cstr_or_report()
-                    .map_or(std::ptr::null(), CStr::as_ptr),
-            );
+            ewmh_update_visible_name((*win).id, formatted.str_or_report().map(str::as_bytes));
         }
     }
 }
@@ -194,10 +189,8 @@ pub unsafe fn window_update_name(win: *mut Window, prop: Option<&x::GetPropertyR
             let name = (*win).name.clone();
             let text = name
                 .as_ref()
-                .and_then(I3String::cstr_or_report)
-                .map_or("(null)", |value| {
-                    value.to_str().expect("I3String owns valid UTF-8")
-                });
+                .and_then(I3String::str_or_report)
+                .map_or("(null)", |value| value);
             ::log::info!("_NET_WM_NAME changed to \"{}\"\n", text);
         };
         (*win).uses_net_wm_name = true;
@@ -219,10 +212,8 @@ pub unsafe fn window_update_name_legacy(win: *mut Window, prop: Option<&x::GetPr
             let name = (*win).name.clone();
             let text = name
                 .as_ref()
-                .and_then(I3String::cstr_or_report)
-                .map_or("(null)", |value| {
-                    value.to_str().expect("I3String owns valid UTF-8")
-                });
+                .and_then(I3String::str_or_report)
+                .map_or("(null)", |value| value);
             ::log::info!("WM_NAME changed to \"{}\"\n", text);
         };
         ::log::info!("Using legacy window title. Note that in order to get Unicode window titles in i3, the application has to set _NET_WM_NAME (UTF-8)\n");

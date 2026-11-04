@@ -70,7 +70,7 @@ fn verify_core_font(
     use i3_common::font;
     // All globals are event-thread borrows of this private probe's owned display.
     unsafe {
-        let mut selected = font::load_font(font_context, c"fixed", true);
+        let mut selected = font::load_font(font_context, b"fixed", true);
         let id = selected.xcb_details().unwrap().0;
         let color = |pixel| i3_common::draw_util::color_t {
             red: 0.0,
@@ -152,8 +152,8 @@ fn verify_core_font(
                 font: x::Fontable::Font(id),
             }))
             .is_err());
-        let fallback = font::load_font(font_context, c"i333-deliberately-nonexistent-font", true);
-        assert_eq!(fallback.pattern(), Some(c"fixed"));
+        let fallback = font::load_font(font_context, b"i333-deliberately-nonexistent-font", true);
+        assert_eq!(fallback.pattern(), Some(b"fixed".as_slice()));
         assert_eq!(font::predict_text_width(&fallback, &text), expected);
         drop(fallback);
         sync(connection);
@@ -167,9 +167,9 @@ fn verify_pango_font_context(
     use i3_common::{font, string::I3String};
     // Native Pango measurement is independent of Font's layout helpers. Both
     // paths operate with the ambient provider detached, including depth8 errors.
-    let font = font::load_font(context, c"pango:monospace 8", true);
+    let font = font::load_font(context, b"pango:monospace 8", true);
     assert!(font.is_pango());
-    assert_eq!(font.pattern(), Some(c"pango:monospace 8"));
+    assert_eq!(font.pattern(), Some(b"pango:monospace 8".as_slice()));
     let text = I3String::new("owned metrics");
     let visual = screen.visual(screen.info().root_visual).unwrap();
     unsafe {

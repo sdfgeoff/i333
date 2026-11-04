@@ -2122,7 +2122,7 @@ pub unsafe fn init_xcb_late(fontname: Option<std::ffi::CString>) {
             .as_ref()
             .expect("bar display initialized")
             .font_context,
-        fontname,
+        fontname.to_bytes().to_vec(),
         true,
     );
 
@@ -3083,17 +3083,17 @@ pub unsafe fn draw_bars(mut unhide: bool) {
 
                 while !ws_walk.is_null() {
                     if config.verbose {
-                        printf(
-                            c"[%s:%d] Drawing button for WS %s at x = %d, len = %d\n".as_ptr(),
-                            c"../i3bar/src/xcb.c".as_ptr(),
-                            2138 as ::core::ffi::c_int,
-                            (*ws_walk)
-                                .name
-                                .as_cstr()
-                                .expect("workspace text is UTF-8")
-                                .as_ptr(),
-                            workspace_width,
-                            (*ws_walk).name_width,
+                        let name = (*ws_walk)
+                            .name
+                            .as_str()
+                            .expect("workspace text is UTF-8")
+                            .to_owned();
+                        let record = format!("[../i3bar/src/xcb.c:2138] Drawing button for WS {name} at x = {workspace_width}, len = {}\n", (*ws_walk).name_width);
+                        libc::fwrite(
+                            record.as_ptr().cast(),
+                            1,
+                            record.len(),
+                            i3_common::native_stdio::stdout,
                         );
                     }
                     let mut fg_color: color_t = colors.inactive_ws_fg;
@@ -3112,15 +3112,18 @@ pub unsafe fn draw_bars(mut unhide: bool) {
                     }
                     if (*ws_walk).urgent {
                         if config.verbose {
-                            printf(
-                                c"[%s:%d] WS %s is urgent!\n".as_ptr(),
-                                c"../i3bar/src/xcb.c".as_ptr(),
-                                2154 as ::core::ffi::c_int,
-                                (*ws_walk)
-                                    .name
-                                    .as_cstr()
-                                    .expect("workspace text is UTF-8")
-                                    .as_ptr(),
+                            let name = (*ws_walk)
+                                .name
+                                .as_str()
+                                .expect("workspace text is UTF-8")
+                                .to_owned();
+                            let record =
+                                format!("[../i3bar/src/xcb.c:2154] WS {name} is urgent!\n");
+                            libc::fwrite(
+                                record.as_ptr().cast(),
+                                1,
+                                record.len(),
+                                i3_common::native_stdio::stdout,
                             );
                         }
                         fg_color = colors.urgent_ws_fg;

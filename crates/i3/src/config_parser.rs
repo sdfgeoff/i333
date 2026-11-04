@@ -6176,10 +6176,12 @@ pub unsafe fn start_config_error_nagbar(configpath: *const ::core::ffi::c_char, 
         c"i3-sensible-pager \"%s\"\n".as_ptr(),
         errorfilename,
     );
+    let font_pattern = std::ffi::CString::new(config.font.pattern().unwrap_or(b"fixed"))
+        .expect("native font argument has no NUL");
     let mut argv: [*mut ::core::ffi::c_char; 14] = [
         ::core::ptr::null_mut::<::core::ffi::c_char>(),
         c"-f".as_ptr().cast_mut(),
-        config.font.pattern().unwrap_or(c"fixed").as_ptr() as *mut ::core::ffi::c_char,
+        font_pattern.as_ptr().cast_mut(),
         c"-t".as_ptr().cast_mut(),
         (if has_errors {
             c"error".as_ptr()

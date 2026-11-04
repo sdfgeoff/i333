@@ -26,7 +26,7 @@ pub fn expand_cstr(format: &CStr, placeholders: &[(&CStr, &CStr)]) -> CString {
         .expect("C string inputs contain no embedded NUL")
 }
 
-fn expand_bytes(format: &[u8], placeholders: &[(&[u8], &[u8])]) -> Vec<u8> {
+pub fn expand_bytes(format: &[u8], placeholders: &[(&[u8], &[u8])]) -> Vec<u8> {
     let mut output = Vec::with_capacity(format.len());
     let mut remaining = format;
     while let Some((&first, tail)) = remaining.split_first() {

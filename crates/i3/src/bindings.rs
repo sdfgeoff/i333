@@ -1340,12 +1340,15 @@ pub unsafe fn run_binding(bind: *mut Binding, con: *mut Con) -> *mut CommandResu
             c"i3-sensible-pager \"%s\"\n".as_ptr(),
             errorfilename,
         );
+        let font_pattern = config
+            .font
+            .pattern()
+            .map(|bytes| std::ffi::CString::new(bytes).expect("native font argument has no NUL"));
         let mut argv: [*mut ::core::ffi::c_char; 11] = [
             ::core::ptr::null_mut::<::core::ffi::c_char>(),
             c"-f".as_ptr().cast_mut(),
-            config
-                .font
-                .pattern()
+            font_pattern
+                .as_ref()
                 .map_or(std::ptr::null_mut(), |pattern| pattern.as_ptr().cast_mut()),
             c"-t".as_ptr().cast_mut(),
             c"error".as_ptr().cast_mut(),

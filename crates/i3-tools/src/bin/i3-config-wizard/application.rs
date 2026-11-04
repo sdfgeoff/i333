@@ -4508,7 +4508,7 @@ unsafe fn txt(
         (col - 1 as ::core::ffi::c_int) * char_width + logical_px(4 as ::core::ffi::c_int);
     let y: ::core::ffi::c_int =
         (row - 1 as ::core::ffi::c_int) * font.height + logical_px(4 as ::core::ffi::c_int);
-    let string = i3_common::string::I3String::from_cstr(CStr::from_ptr(text));
+    let string = i3_common::string::I3String::from_bytes(CStr::from_ptr(text).to_bytes());
     draw_util_text(
         text_font,
         &string,
@@ -5110,8 +5110,16 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
     let font_context = i3_common::font::FontContext::for_screen(
         root_screen.as_ref().expect("initialized display screen"),
     );
-    font = load_font(&font_context, CStr::from_ptr(pattern), true);
-    bold_font = load_font(&font_context, CStr::from_ptr(patternbold), true);
+    font = load_font(
+        &font_context,
+        CStr::from_ptr(pattern).to_bytes().to_vec(),
+        true,
+    );
+    bold_font = load_font(
+        &font_context,
+        CStr::from_ptr(patternbold).to_bytes().to_vec(),
+        true,
+    );
     resources.fonts = true;
 
     let letter = i3_common::string::I3String::new("a");

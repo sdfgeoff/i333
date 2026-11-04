@@ -245,7 +245,7 @@ unsafe fn update_placeholder_contents(state: *mut placeholder_state) {
                 let diagnostic_8_bytes = diagnostic_8_owner.as_bytes();
                 match (std::str::from_utf8(diagnostic_8_bytes),) { (Ok(diagnostic_8_text),) => ::log::debug!(concat!("../src/restore_layout.c:update_placeholder_contents:166 - con {} (placeholder 0x{:08x}) line {}: {}\n"), diagnostic_5, diagnostic_6, diagnostic_7, diagnostic_8_text), _ => emit_parts(Level::Debug, &[b"../src/restore_layout.c:update_placeholder_contents:166 - con ", format!("{}", diagnostic_5).as_bytes(), b" (placeholder 0x", format!("{:08x}", diagnostic_6).as_bytes(), b") line ", format!("{}", diagnostic_7).as_bytes(), b": ", diagnostic_8_bytes, b"\n"]), }
             };
-            let text = i3_common::string::I3String::from_cstr(&serialized);
+            let text = i3_common::string::I3String::from_bytes(serialized.as_bytes());
             let (x, y, max_width) =
                 text_geometry((*state).rect, config.font.height, logical_px(2), n);
             draw_util_text(

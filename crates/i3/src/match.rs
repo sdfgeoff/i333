@@ -146,13 +146,13 @@ fn regex_matches_bytes(expression: &Regex, bytes: &[u8]) -> bool {
 
 fn text_matches(
     expression: &Regex,
-    value: Option<&CStr>,
-    focused: Option<&CStr>,
+    value: Option<&[u8]>,
+    focused: Option<&[u8]>,
     label: &[u8],
 ) -> bool {
-    let bytes = value.map_or(&b""[..], CStr::to_bytes);
+    let bytes = value.unwrap_or(b"");
     let mut message = label.to_vec();
-    if focused_pattern(expression) && focused.is_some_and(|focused| focused.to_bytes() == bytes) {
+    if focused_pattern(expression) && focused.is_some_and(|focused| focused == bytes) {
         message.extend_from_slice(if label == b"workspace" {
             b" matches focused workspace\n"
         } else {
@@ -231,8 +231,8 @@ impl Criteria<'_> {
         if let Some(expression) = self.class {
             if !text_matches(
                 expression,
-                window.text.class,
-                focused.class,
+                window.text.class.map(CStr::to_bytes),
+                focused.class.map(CStr::to_bytes),
                 b"window class",
             ) {
                 return false;
@@ -241,8 +241,8 @@ impl Criteria<'_> {
         if let Some(expression) = self.instance {
             if !text_matches(
                 expression,
-                window.text.instance,
-                focused.instance,
+                window.text.instance.map(CStr::to_bytes),
+                focused.instance.map(CStr::to_bytes),
                 b"window instance",
             ) {
                 return false;
@@ -259,13 +259,13 @@ impl Criteria<'_> {
             );
         }
         if let Some(expression) = self.title {
-            let title = match window.text.title.map(I3String::as_cstr).transpose() {
+            let title = match window.text.title.map(I3String::as_bytes).transpose() {
                 Ok(title) => title,
                 // An unrepresentable title cannot be passed as a null C string
                 // to PCRE. Refuse it rather than invoking the old undefined read.
                 Err(_) => return false,
             };
-            let focused_title = focused.title.and_then(|title| title.as_cstr().ok());
+            let focused_title = focused.title.and_then(|title| title.as_bytes().ok());
             if !text_matches(expression, title, focused_title, b"window title") {
                 return false;
             }
@@ -273,8 +273,8 @@ impl Criteria<'_> {
         if let Some(expression) = self.role {
             if !text_matches(
                 expression,
-                window.text.role,
-                focused.role,
+                window.text.role.map(CStr::to_bytes),
+                focused.role.map(CStr::to_bytes),
                 b"window window_role",
             ) {
                 return false;
@@ -292,8 +292,8 @@ impl Criteria<'_> {
         if let Some(expression) = self.machine {
             if !text_matches(
                 expression,
-                window.text.machine,
-                focused.machine,
+                window.text.machine.map(CStr::to_bytes),
+                focused.machine.map(CStr::to_bytes),
                 b"window machine",
             ) {
                 return false;
@@ -457,8 +457,8 @@ pub unsafe fn match_matches_window(raw_match: *mut Match, raw_window: *mut Windo
         };
         if !text_matches(
             expression,
-            name.as_deref(),
-            focused_name.as_deref(),
+            name.as_deref().map(CStr::to_bytes),
+            focused_name.as_deref().map(CStr::to_bytes),
             b"workspace",
         ) {
             return false;
@@ -818,29 +818,29 @@ mod tests {
     #[test]
     fn focused_sentinel_retains_literal_regex_fallback_and_missing_empty_distinction() {
         let pattern = Regex::compile_str("__focused__").unwrap();
-        assert!(text_matches(&pattern, None, Some(c""), b"window class"));
+        assert!(text_matches(&pattern, None, Some(b""), b"window class"));
         assert!(!text_matches(&pattern, None, None, b"window class"));
         assert!(text_matches(
             &pattern,
-            Some(c"__focused__"),
+            Some(b"__focused__"),
             None,
             b"window class"
         ));
         assert!(text_matches(
             &pattern,
-            Some(c"__focused__"),
-            Some(c"different"),
+            Some(b"__focused__"),
+            Some(b"different"),
             b"workspace"
         ));
         assert!(!text_matches(
             &pattern,
-            Some(c"different"),
-            Some(c"__focused__"),
+            Some(b"different"),
+            Some(b"__focused__"),
             b"window class"
         ));
         let empty = Regex::compile_str("^$").unwrap();
         assert!(text_matches(&empty, None, None, b"window class"));
-        assert!(text_matches(&empty, Some(c""), None, b"window class"));
+        assert!(text_matches(&empty, Some(b""), None, b"window class"));
         let mut criterion = criteria();
         criterion.title = Some(&pattern);
         let properties = window();

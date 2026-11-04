@@ -48,7 +48,7 @@ impl FontContext {
 /// Owns every backend resource. Fonts must be moved, never byte-copied or zeroed.
 pub struct Font {
     pub height: i32,
-    pattern: Option<CString>,
+    pattern: Option<Vec<u8>>,
     backend: FontBackend,
 }
 enum FontBackend {
@@ -92,7 +92,7 @@ impl Font {
     pub fn is_pango(&self) -> bool {
         matches!(self.backend, FontBackend::Pango(_))
     }
-    pub fn pattern(&self) -> Option<&CStr> {
+    pub fn pattern(&self) -> Option<&[u8]> {
         self.pattern.as_deref()
     }
     /// Borrowed core-font details for protocol diagnostics and native comparison.
@@ -118,8 +118,13 @@ pub fn font_is_pango(font: &Font) -> bool {
 
 /// Drop the previous owner before opening its replacement, preserving request
 /// ordering. Copy the bytes first in case a native caller aliases the old pattern.
-pub fn replace_font(font: &mut Font, context: &FontContext, pattern: &CStr, fallback: bool) {
-    let pattern = pattern.to_owned();
+pub fn replace_font(
+    font: &mut Font,
+    context: &FontContext,
+    pattern: impl AsRef<[u8]>,
+    fallback: bool,
+) {
+    let pattern = first_nul(pattern.as_ref()).to_vec();
     *font = Font::empty();
     *font = load_font(context, &pattern, fallback);
 }
@@ -192,12 +197,13 @@ fn measurement_context(font: &PangoFont) -> cairo::Context {
     unsafe { font_context(surface.to_raw_none()) }
 }
 
-fn load_pango_font(context: &FontContext, desc: &CStr) -> Option<(i32, PangoFont)> {
+fn load_pango_font(context: &FontContext, desc: &[u8]) -> Option<(i32, PangoFont)> {
     // Keep native non-UTF8 description bytes; the &str factory cannot express them.
-    let pointer = unsafe { pango_font_description_from_string(desc.as_ptr()) };
+    let native_description = CString::new(desc).expect("font description is a first-NUL prefix");
+    let pointer = unsafe { pango_font_description_from_string(native_description.as_ptr()) };
     if pointer.is_null() {
         {
-            let log_text_bytes = (desc.to_bytes()).to_vec();
+            let log_text_bytes = desc.to_vec();
             match std::str::from_utf8(&log_text_bytes) {
                 Ok(log_text) => ::log::error!(
                     "[libi3] ERROR: Could not open font {} with Pango, fallback to X font.\n",
@@ -323,18 +329,22 @@ fn measure_pango_layout(context: &cairo::Context, layout: &pango::Layout) -> i32
     layout.pixel_size().0
 }
 
-fn pango_pattern(pattern: &CStr) -> Option<&CStr> {
-    let bytes = pattern.to_bytes_with_nul();
-    let description = bytes
+fn first_nul(bytes: &[u8]) -> &[u8] {
+    bytes.split(|&byte| byte == 0).next().unwrap_or_default()
+}
+fn pango_pattern(pattern: &[u8]) -> Option<&[u8]> {
+    let description = pattern
         .strip_prefix(b"pango:")
-        .or_else(|| bytes.strip_prefix(b"xft:"))?;
-    let description = CStr::from_bytes_with_nul(description).ok()?;
-    (!description.to_bytes().is_empty()).then_some(description)
+        .or_else(|| pattern.strip_prefix(b"xft:"))?;
+    (!description.is_empty()).then_some(description)
 }
 
 /// Open an owned font on the explicit retained display. Pattern and fallback
-/// bytes remain native C strings; no provider or registry is consulted.
-pub fn load_font(context: &FontContext, pattern: &CStr, fallback: bool) -> Font {
+/// bytes preserve the native first-NUL projection; no registry is consulted.
+pub fn load_font(context: &FontContext, pattern: impl AsRef<[u8]>, fallback: bool) -> Font {
+    // Snapshot before any backend/error callback can release the caller's model.
+    let pattern_owner = first_nul(pattern.as_ref()).to_vec();
+    let pattern = pattern_owner.as_slice();
     let connection = context.connection();
     if let Some(description) = pango_pattern(pattern) {
         if let Some((height, backend)) = load_pango_font(context, description) {
@@ -351,7 +361,7 @@ pub fn load_font(context: &FontContext, pattern: &CStr, fallback: bool) -> Font 
     let mut error = connection.check_request(font_cookie).err();
     if fallback && error.is_some() {
         {
-            let log_text_bytes = (pattern.to_bytes()).to_vec();
+            let log_text_bytes = pattern.to_vec();
             let log_number = i32::from(error.as_ref().map_or(0, protocol_error_code));
             match std::str::from_utf8(&log_text_bytes) {
                 Ok(log_text) => ::log::error!(
@@ -373,7 +383,7 @@ pub fn load_font(context: &FontContext, pattern: &CStr, fallback: bool) -> Font 
                 }
             }
         };
-        pattern = c"fixed";
+        pattern = b"fixed";
         let (font_cookie, cookie) = open_core_font(connection, id, pattern);
         info_cookie = cookie;
         error = connection.check_request(font_cookie).err();
@@ -381,7 +391,7 @@ pub fn load_font(context: &FontContext, pattern: &CStr, fallback: bool) -> Font 
             ::log::error!(
                 "[libi3] ERROR: Could not open fallback font 'fixed', trying with '-misc-*'.\n"
             );
-            pattern = c"-misc-*";
+            pattern = b"-misc-*";
             let (font_cookie, cookie) = open_core_font(connection, id, pattern);
             info_cookie = cookie;
             error = connection.check_request(font_cookie).err();
@@ -398,7 +408,7 @@ pub fn load_font(context: &FontContext, pattern: &CStr, fallback: bool) -> Font 
     }
     drop(error);
     {
-        let log_text_bytes = (pattern.to_bytes()).to_vec();
+        let log_text_bytes = pattern.to_vec();
         match std::str::from_utf8(&log_text_bytes) {
             Ok(log_text) => ::log::info!("[libi3] ../libi3/font.c Using X font {}\n", log_text),
             Err(_) => {
@@ -414,7 +424,9 @@ pub fn load_font(context: &FontContext, pattern: &CStr, fallback: bool) -> Font 
             errx(
                 libc::EXIT_FAILURE,
                 c"Could not load font \"%s\"".as_ptr(),
-                pattern.as_ptr(),
+                CString::new(pattern)
+                    .expect("font pattern is a first-NUL prefix")
+                    .as_ptr(),
             )
         };
     };
@@ -423,7 +435,9 @@ pub fn load_font(context: &FontContext, pattern: &CStr, fallback: bool) -> Font 
             errx(
                 libc::EXIT_FAILURE,
                 c"Could not load font \"%s\"".as_ptr(),
-                pattern.as_ptr(),
+                CString::new(pattern)
+                    .expect("font pattern is a first-NUL prefix")
+                    .as_ptr(),
             )
         };
     }
@@ -498,10 +512,15 @@ pub unsafe fn draw_text(
             draw_text_xcb(backend, text.rendering_glyphs(), drawable, gc, x, y);
         }
         FontBackend::Pango(backend) => unsafe {
+            let native_text = text
+                .str_or_report()
+                .map(|text| CString::new(text).expect("repaired rendering text has no NUL"));
             draw_text_pango(
                 font,
                 backend,
-                text.cstr_or_report().map_or(ptr::null(), CStr::as_ptr),
+                native_text
+                    .as_ref()
+                    .map_or(ptr::null(), |text| text.as_ptr()),
                 text.rendering_byte_len(),
                 surface,
                 foreground,
@@ -533,10 +552,10 @@ fn protocol_error_code(error: &xcb::ProtocolError) -> u8 {
 fn open_core_font(
     connection: &xcb::Connection,
     font: x::Font,
-    pattern: &CStr,
+    pattern: &[u8],
 ) -> (xcb::VoidCookieChecked, x::QueryFontCookie) {
     // Native OpenFont truncated the byte count to u16 before serialization.
-    let name = &pattern.to_bytes()[..pattern.to_bytes().len() as u16 as usize];
+    let name = &pattern[..pattern.len() as u16 as usize];
     let open = connection.send_request_checked(&x::OpenFont { fid: font, name });
     let query = connection.send_request(&x::QueryFont {
         font: x::Fontable::Font(font),
@@ -646,9 +665,14 @@ pub fn predict_text_width(font: &Font, text: &I3String) -> i32 {
         FontBackend::None => 0,
         FontBackend::Xcb(backend) => predict_text_width_xcb(backend, text.rendering_glyphs()),
         FontBackend::Pango(backend) => unsafe {
+            let native_text = text
+                .str_or_report()
+                .map(|text| CString::new(text).expect("repaired rendering text has no NUL"));
             predict_text_width_pango(
                 backend,
-                text.cstr_or_report().map_or(ptr::null(), CStr::as_ptr),
+                native_text
+                    .as_ref()
+                    .map_or(ptr::null(), |text| text.as_ptr()),
                 text.rendering_byte_len(),
                 text.is_markup(),
             )
@@ -824,13 +848,16 @@ mod tests {
 
     #[test]
     fn pango_prefixes_preserve_native_bytes_and_require_nonempty_descriptions() {
-        assert_eq!(pango_pattern(c"pango:Sans 10"), Some(c"Sans 10"));
-        assert_eq!(pango_pattern(c"xft:monospace"), Some(c"monospace"));
-        assert_eq!(pango_pattern(c"pango:"), None);
-        assert_eq!(pango_pattern(c"xft:"), None);
-        assert_eq!(pango_pattern(c"fixed"), None);
-        let invalid_utf8 = c"pango:\xff";
-        assert_eq!(pango_pattern(invalid_utf8).unwrap().to_bytes(), b"\xff");
+        assert_eq!(pango_pattern(b"pango:Sans 10"), Some(b"Sans 10".as_slice()));
+        assert_eq!(
+            pango_pattern(b"xft:monospace"),
+            Some(b"monospace".as_slice())
+        );
+        assert_eq!(pango_pattern(b"pango:"), None);
+        assert_eq!(pango_pattern(b"xft:"), None);
+        assert_eq!(pango_pattern(b"fixed"), None);
+        let invalid_utf8 = b"pango:\xff";
+        assert_eq!(pango_pattern(invalid_utf8).unwrap(), b"\xff");
     }
 
     fn font_info() -> [u8; 60] {

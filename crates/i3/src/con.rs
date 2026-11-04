@@ -2571,12 +2571,12 @@ pub unsafe fn con_get_tree_representation(con: *mut Con) -> *mut ::core::ffi::c_
     i3_common::safewrappers::sstrndup(text.as_ptr().cast(), text.len())
 }
 
-fn title_capture(bytes: &[u8], markup: bool) -> std::ffi::CString {
+fn title_capture(bytes: &[u8], markup: bool) -> Vec<u8> {
     if markup {
         let text = i3_common::string::I3String::from_bytes(bytes);
-        std::ffi::CString::new(i3_common::string::escape_markup(text.as_str().unwrap())).unwrap()
+        i3_common::string::escape_markup(text.as_str().unwrap()).into_bytes()
     } else {
-        std::ffi::CString::new(bytes).expect("borrowed C string contains no NUL")
+        bytes.to_vec()
     }
 }
 
@@ -2590,20 +2590,12 @@ pub unsafe fn con_parse_title_format(con: *mut Con) -> i3_common::string::I3Stri
         .expect("container has a title format");
     let win = (*con).window;
     let markup = font_is_pango(&crate::config::config.font);
-    let capture = |pointer: *const libc::c_char| {
-        let bytes = if pointer.is_null() {
-            &[][..]
-        } else {
-            std::ffi::CStr::from_ptr(pointer).to_bytes()
-        };
-        title_capture(bytes, markup)
-    };
     let (title, class, instance, machine) = if win.is_null() {
         (
             title_capture(&tree_representation(con), markup),
-            c"i3-frame".to_owned(),
-            c"i3-frame".to_owned(),
-            c"".to_owned(),
+            b"i3-frame".to_vec(),
+            b"i3-frame".to_vec(),
+            Vec::new(),
         )
     } else {
         let title = (*win).name.clone();
@@ -2611,11 +2603,12 @@ pub unsafe fn con_parse_title_format(con: *mut Con) -> i3_common::string::I3Stri
         let instance = (*win).class_instance.clone();
         let machine = (*win).machine.clone();
         (
-            capture(
+            title_capture(
                 title
                     .as_ref()
-                    .and_then(|text| text.cstr_or_report())
-                    .map_or(std::ptr::null(), std::ffi::CStr::as_ptr),
+                    .and_then(|text| text.str_or_report())
+                    .map_or(&[][..], str::as_bytes),
+                markup,
             ),
             title_capture(
                 class.as_deref().map_or(&[][..], std::ffi::CStr::to_bytes),
@@ -2633,16 +2626,16 @@ pub unsafe fn con_parse_title_format(con: *mut Con) -> i3_common::string::I3Stri
             ),
         )
     };
-    let expanded = i3_common::format_placeholders::expand_cstr(
-        &format,
+    let expanded = i3_common::format_placeholders::expand_bytes(
+        format.as_bytes(),
         &[
-            (c"%title", &title),
-            (c"%class", &class),
-            (c"%instance", &instance),
-            (c"%machine", &machine),
+            (b"%title", &title),
+            (b"%class", &class),
+            (b"%instance", &instance),
+            (b"%machine", &machine),
         ],
     );
-    let formatted = i3_common::string::I3String::from_cstr(&expanded);
+    let formatted = i3_common::string::I3String::from_bytes(&expanded);
     formatted.set_markup(markup);
     formatted
 }
@@ -3059,17 +3052,17 @@ mod owned_graph_tests {
     }
     #[test]
     fn title_captures_escape_and_repair_only_for_markup() {
-        assert_eq!(title_capture(b"<&\xff", false).as_bytes(), b"<&\xff");
+        assert_eq!(title_capture(b"<&\xff", false).as_slice(), b"<&\xff");
         assert_eq!(
-            title_capture(b"<&\xff", true).as_bytes(),
+            title_capture(b"<&\xff", true).as_slice(),
             "&lt;&amp;�".as_bytes()
         );
         let title = title_capture(b"title", false);
         let machine = title_capture(b"host<&", true);
-        let text = i3_common::format_placeholders::expand_cstr(
-            c"%machine:%title:%unknown",
-            &[(c"%title", &title), (c"%machine", &machine)],
+        let text = i3_common::format_placeholders::expand_bytes(
+            b"%machine:%title:%unknown",
+            &[(b"%title", &title), (b"%machine", &machine)],
         );
-        assert_eq!(text.as_bytes(), b"host&lt;&amp;:title:%unknown");
+        assert_eq!(text, b"host&lt;&amp;:title:%unknown");
     }
 }

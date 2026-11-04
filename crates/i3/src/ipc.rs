@@ -687,8 +687,8 @@ unsafe fn snapshot_node_header(con: *mut Con, restart: bool) -> messages::NodeHe
         .then(|| (*window).name.as_ref())
         .flatten();
     let name = if let Some(title) = window_title {
-        match title.cstr_or_report() {
-            Some(title) => NativeValue::Value(Some(messages::NativeText::cstr(title))),
+        match title.str_or_report() {
+            Some(title) => NativeValue::Value(Some(messages::NativeText::bytes(title.as_bytes()))),
             None => NativeValue::Rejected,
         }
     } else {
@@ -718,8 +718,10 @@ unsafe fn snapshot_node_header(con: *mut Con, restart: bool) -> messages::NodeHe
                 (*window)
                     .name
                     .as_ref()
-                    .map(|title| match title.cstr_or_report() {
-                        Some(title) => NativeValue::Value(messages::NativeText::cstr(title)),
+                    .map(|title| match title.str_or_report() {
+                        Some(title) => {
+                            NativeValue::Value(messages::NativeText::bytes(title.as_bytes()))
+                        }
                         None => NativeValue::Rejected,
                     }),
             ),

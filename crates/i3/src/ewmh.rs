@@ -305,18 +305,13 @@ pub unsafe fn ewmh_update_active_window(window: u32) {
     );
 }
 /// # Safety
-/// name is null or a readable terminated string; conn is the event thread's
-/// live XCB connection. The borrowed name is copied synchronously by XCB.
-pub unsafe fn ewmh_update_visible_name(window: u32, name: *const libc::c_char) {
-    if name.is_null() {
-        delete_property(window, A__NET_WM_VISIBLE_NAME);
+/// conn is the event thread's live XCB connection. The optional name bytes
+/// are copied synchronously; None deletes the property and Some(empty) sets it.
+pub unsafe fn ewmh_update_visible_name(window: u32, name: Option<&[u8]>) {
+    if let Some(name) = name {
+        set_bytes(window, A__NET_WM_VISIBLE_NAME, A_UTF8_STRING, name);
     } else {
-        set_bytes(
-            window,
-            A__NET_WM_VISIBLE_NAME,
-            A_UTF8_STRING,
-            CStr::from_ptr(name).to_bytes(),
-        );
+        delete_property(window, A__NET_WM_VISIBLE_NAME);
     }
 }
 /// # Safety

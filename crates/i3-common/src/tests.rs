@@ -544,11 +544,11 @@ fn owned_text_replaces_each_invalid_byte_and_embedded_nul() {
     let text = I3String::from_bytes(b"A\xe2\x82\0B\xff");
     assert_eq!(text.as_str().unwrap(), "A��\u{fffd}B�");
     assert_eq!(text.byte_len().unwrap(), text.as_str().unwrap().len());
-    let pointer = text.as_cstr().unwrap().as_ptr();
+    let pointer = text.as_str().unwrap().as_ptr();
     assert_eq!(text.glyph_count(), 6);
     text.set_markup(true);
     assert!(text.is_markup());
-    assert_eq!(text.as_cstr().unwrap().as_ptr(), pointer);
+    assert_eq!(text.as_str().unwrap().as_ptr(), pointer);
     let astral = I3String::new("A😀B");
     assert_eq!(astral.as_str().unwrap(), "A😀B");
     assert_eq!(astral.as_ucs2(), &[0x0041.into(), 0x0042.into()]);
@@ -579,35 +579,20 @@ fn owned_text_from_ucs2_retains_glyphs_when_c_view_stops_at_nul() {
 
 #[test]
 fn legacy_text_keeps_explicit_length_quirk_and_independent_copies() {
-    use crate::string::*;
-    struct Owned(*mut I3String);
-    impl Drop for Owned {
-        fn drop(&mut self) {
-            // SAFETY: Each Owned holds exactly one box from the legacy constructor.
-            unsafe { i3string_free(self.0) }
-        }
-    }
-    let input = [b'A', 255];
-    // SAFETY: The constructor receives the complete readable byte span; all
-    // following calls borrow that live box, and Owned releases each result once.
-    unsafe {
-        let original = Owned(i3string_from_utf8_with_length(
-            input.as_ptr().cast(),
-            input.len() as isize,
-        ));
-        assert_eq!(
-            CStr::from_ptr(i3string_as_utf8(original.0)).to_bytes(),
-            "A�".as_bytes()
-        );
-        assert_eq!(i3string_get_num_bytes(original.0), 2);
-        i3string_set_markup(original.0, true);
-        let copy = Owned(i3string_copy(original.0));
-        assert_eq!(i3string_get_num_bytes(copy.0), 4);
-        assert!(i3string_is_markup(copy.0));
-        assert_ne!(i3string_as_utf8(copy.0), i3string_as_utf8(original.0));
-        i3string_set_markup(original.0, false);
-        assert!(i3string_is_markup(copy.0));
-    }
+    use crate::string::I3String;
+    let original = I3String::from_bytes_with_legacy_length(&[b'A', 255]);
+    assert_eq!(original.as_bytes().unwrap(), "A�".as_bytes());
+    assert_eq!(original.rendering_byte_len(), 2);
+    original.set_markup(true);
+    let copy = original.copy_utf8().unwrap();
+    assert_eq!(copy.rendering_byte_len(), 4);
+    assert!(copy.is_markup());
+    assert_ne!(
+        copy.as_bytes().unwrap().as_ptr(),
+        original.as_bytes().unwrap().as_ptr()
+    );
+    original.set_markup(false);
+    assert!(copy.is_markup());
 }
 
 #[test]

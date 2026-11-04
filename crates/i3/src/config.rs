@@ -692,7 +692,7 @@ unsafe fn free_configuration() {
 /// # Safety
 /// Requires exclusive event-thread access to configuration and its live display.
 #[deny(unsafe_op_in_unsafe_fn)]
-pub unsafe fn set_config_font(pattern: &CStr) {
+pub unsafe fn set_config_font(pattern: &[u8]) {
     // SAFETY: caller serializes the display/configuration globals.
     if unsafe { crate::application::conn.is_null() } {
         unsafe { config.font = Font::empty() };
@@ -853,14 +853,17 @@ pub unsafe fn load_configuration(
     reorder_bindings();
     if !config.font.is_loaded() && load_type != ConfigLoad::Validate {
         ::log::error!("ERROR: You did not specify required configuration option \"font\"\n");
-        set_config_font(c"fixed");
+        set_config_font(b"fixed");
     }
     if load_type != ConfigLoad::Validate {
         let mut current: *mut Barconfig = barconfigs.tqh_first;
 
         while !current.is_null() {
             if (*current).font.is_none() {
-                (*current).font = config.font.pattern().map(CStr::to_owned);
+                (*current).font = config
+                    .font
+                    .pattern()
+                    .map(|bytes| std::ffi::CString::new(bytes).expect("font name has no NUL"));
             }
             current = (*current).configs.tqe_next;
         }

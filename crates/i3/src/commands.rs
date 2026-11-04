@@ -5318,16 +5318,11 @@ pub unsafe fn cmd_title_format(
                 let formatted_title = con_parse_title_format((*current).con);
                 ewmh_update_visible_name(
                     (*(*(*current).con).window).id,
-                    formatted_title
-                        .cstr_or_report()
-                        .map_or(std::ptr::null(), std::ffi::CStr::as_ptr),
+                    formatted_title.str_or_report().map(str::as_bytes),
                 );
             }
         } else if !(*(*current).con).window.is_null() {
-            ewmh_update_visible_name(
-                (*(*(*current).con).window).id,
-                ::core::ptr::null::<::core::ffi::c_char>(),
-            );
+            ewmh_update_visible_name((*(*(*current).con).window).id, None);
         }
         if !(*(*current).con).window.is_null() {
             (*(*(*current).con).window).name_x_changed = true;

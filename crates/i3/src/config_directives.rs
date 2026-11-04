@@ -412,7 +412,7 @@ pub unsafe fn cfg_font(
     result: *mut ConfigResultIR,
     font: *const ::core::ffi::c_char,
 ) {
-    crate::config::set_config_font(CStr::from_ptr(font));
+    crate::config::set_config_font(&CStr::from_ptr(font).to_bytes().to_vec());
 }
 
 pub unsafe fn cfg_binding(

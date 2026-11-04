@@ -1,16 +1,17 @@
 // Copyright © 2009 Michael Stapelberg and contributors (see LICENSE).
 
+#![forbid(unsafe_code)]
+
 use crate::ucs2_conversion::{
     decode_ucs2, encode_ucs2, ConversionIssue, EncodedUcs2, EncodingPolicy, Ucs2Char,
 };
 use std::cell::{Cell, OnceCell};
-use std::ffi::{CStr, CString};
 
-/// Owned UI text with lazy X core-font encoding and a stable borrowed C view.
+/// Owned UTF-8 UI text with lazy X core-font encoding.
 /// Rendering borrows this value; its cached native encodings live until it drops.
 #[derive(Debug, Clone)]
 pub struct I3String {
-    utf8: OnceCell<CString>,
+    utf8: OnceCell<String>,
     ucs2: OnceCell<EncodedUcs2>,
     markup: Cell<bool>,
     legacy_num_bytes: Cell<usize>,
@@ -27,7 +28,7 @@ impl I3String {
         let text = make_valid(bytes);
         let count = text.len();
         Self {
-            utf8: OnceCell::from(CString::new(text).expect("make_valid replaces NUL")),
+            utf8: OnceCell::from(text),
             ucs2: OnceCell::new(),
             markup: Cell::new(false),
             legacy_num_bytes: Cell::new(count),
@@ -44,9 +45,6 @@ impl I3String {
         text
     }
 
-    pub fn from_cstr(text: &CStr) -> Self {
-        Self::from_bytes(text.to_bytes())
-    }
     pub fn from_ucs2(glyphs: &[Ucs2Char]) -> Self {
         Self {
             utf8: OnceCell::new(),
@@ -59,25 +57,22 @@ impl I3String {
             originated_as_ucs2: true,
         }
     }
-    pub fn as_cstr(&self) -> Result<&CStr, ConversionIssue> {
+    pub fn as_str(&self) -> Result<&str, ConversionIssue> {
         if self.utf8.get().is_none() {
             let text = decode_ucs2(&self.ucs2.get().expect("one source encoding exists").glyphs)?;
-            // A C string's visible text ends at its first NUL, exactly as the
-            // original strlen-based projection did. The UCS-2 cache stays intact.
+            // Native UTF-8 projection stops at the first NUL. The original
+            // UCS-2 source/cache remains intact, including subsequent glyphs.
             let prefix = text.split('\0').next().unwrap();
             self.legacy_num_bytes.set(prefix.len());
-            let _ = self.utf8.set(CString::new(prefix).unwrap());
+            let _ = self.utf8.set(prefix.to_owned());
         }
-        Ok(self.utf8.get().unwrap().as_c_str())
+        Ok(self.utf8.get().unwrap())
     }
-    pub fn as_str(&self) -> Result<&str, ConversionIssue> {
-        Ok(self
-            .as_cstr()?
-            .to_str()
-            .expect("stored text is valid UTF-8"))
+    pub fn as_bytes(&self) -> Result<&[u8], ConversionIssue> {
+        self.as_str().map(str::as_bytes)
     }
     pub fn byte_len(&self) -> Result<usize, ConversionIssue> {
-        Ok(self.as_cstr()?.to_bytes().len())
+        self.as_bytes().map(<[u8]>::len)
     }
     pub fn as_ucs2(&self) -> &[Ucs2Char] {
         &self
@@ -104,8 +99,8 @@ impl I3String {
     }
     /// The UTF-8 view used by legacy native rendering and diagnostic adapters.
     /// Conversion failures retain the original diagnostic and null-view policy.
-    pub fn cstr_or_report(&self) -> Option<&CStr> {
-        match self.as_cstr() {
+    pub fn str_or_report(&self) -> Option<&str> {
+        match self.as_str() {
             Ok(value) => Some(value),
             Err(issue) => {
                 crate::ucs2_conversion::legacy::report(issue, c"Converting to UTF-8 failed");
@@ -116,7 +111,7 @@ impl I3String {
 
     /// Preserve explicit-input byte lengths, including repaired invalid bytes.
     pub fn rendering_byte_len(&self) -> usize {
-        let _ = self.cstr_or_report();
+        let _ = self.str_or_report();
         self.legacy_num_bytes.get()
     }
 
@@ -140,7 +135,7 @@ impl I3String {
     /// An independent UTF-8 copy, matching the old copy operation rather than
     /// cloning a potentially different UCS-2 source/cache or legacy byte count.
     pub fn copy_utf8(&self) -> Option<Self> {
-        let copy = Self::from_cstr(self.cstr_or_report()?);
+        let copy = Self::new(self.str_or_report()?);
         copy.set_markup(self.is_markup());
         Some(copy)
     }
@@ -202,152 +197,6 @@ pub fn escape_markup(text: &str) -> String {
     output
 }
 
-pub use crate::ucs2_conversion::Ucs2Char as xcb_char2b_t;
-
-// Raw adapters remain solely as an oracle for the historical ownership API.
-#[cfg(test)]
-mod legacy {
-    use super::*;
-    fn boxed(text: I3String) -> *mut I3String {
-        Box::into_raw(Box::new(text))
-    }
-    unsafe fn text<'a>(raw: *mut I3String) -> &'a I3String {
-        // SAFETY: Each entry point requires a live box from this module; access
-        // is borrowed for that entry point and cached buffers remain stable.
-        unsafe { &*raw }
-    }
-    fn utf8(text: &I3String) -> Option<&CStr> {
-        text.cstr_or_report()
-    }
-    fn glyphs(text: &I3String) -> &[Ucs2Char] {
-        text.rendering_glyphs()
-    }
-    /// # Safety
-    /// Input is a live C string; release the returned box only with i3string_free.
-    pub unsafe fn i3string_from_utf8(input: *const libc::c_char) -> *mut I3String {
-        unsafe { i3string_from_utf8_with_length(input, -1) }
-    }
-    /// # Safety
-    /// Input is a live C string, or readable for length bytes when nonnegative.
-    pub unsafe fn i3string_from_utf8_with_length(
-        input: *const libc::c_char,
-        length: isize,
-    ) -> *mut I3String {
-        // SAFETY: The caller supplies either a C string or a readable byte span.
-        let bytes = if length < 0 {
-            unsafe { CStr::from_ptr(input) }.to_bytes()
-        } else if length == 0 {
-            &[]
-        } else {
-            unsafe { std::slice::from_raw_parts(input.cast::<u8>(), length as usize) }
-        };
-        let result = I3String::from_bytes(bytes);
-        // The old explicit-length constructor reports the original byte count,
-        // even when make-valid expands invalid bytes. Keep that quirk only here.
-        if length >= 0 {
-            result.legacy_num_bytes.set(length as usize);
-        }
-        boxed(result)
-    }
-    /// # Safety
-    /// Input is a live C string.
-    pub unsafe fn i3string_from_markup(input: *const libc::c_char) -> *mut I3String {
-        let result = unsafe { i3string_from_utf8(input) };
-        unsafe { text(result) }.set_markup(true);
-        result
-    }
-    /// # Safety
-    /// Input is readable for length bytes.
-    pub unsafe fn i3string_from_markup_with_length(
-        input: *const libc::c_char,
-        length: usize,
-    ) -> *mut I3String {
-        let result = unsafe { i3string_from_utf8_with_length(input, length as isize) };
-        unsafe { text(result) }.set_markup(true);
-        result
-    }
-    /// # Safety
-    /// Input contains count readable UCS-2 units, or may be null for count zero.
-    pub unsafe fn i3string_from_ucs2(input: *const Ucs2Char, count: usize) -> *mut I3String {
-        let glyphs = if count == 0 {
-            &[]
-        } else {
-            unsafe { std::slice::from_raw_parts(input, count) }
-        };
-        boxed(I3String::from_ucs2(glyphs))
-    }
-    /// # Safety
-    /// raw is a live text box. Its copy is independently owned.
-    pub unsafe fn i3string_copy(raw: *mut I3String) -> *mut I3String {
-        let source = unsafe { text(raw) };
-        let Some(value) = utf8(source) else {
-            return std::ptr::null_mut();
-        };
-        let copy = I3String::from_cstr(value);
-        copy.set_markup(source.is_markup());
-        boxed(copy)
-    }
-    /// # Safety
-    /// raw is null or a still-owned box returned by an i3string constructor.
-    pub unsafe fn i3string_free(raw: *mut I3String) {
-        if !raw.is_null() {
-            unsafe { drop(Box::from_raw(raw)) };
-        }
-    }
-    /// # Safety
-    /// raw is a live text box; the borrowed pointer lasts until i3string_free.
-    pub unsafe fn i3string_as_utf8(raw: *mut I3String) -> *const libc::c_char {
-        utf8(unsafe { text(raw) }).map_or(std::ptr::null(), CStr::as_ptr)
-    }
-    /// # Safety
-    /// raw is a live text box; the borrowed pointer lasts until i3string_free.
-    pub unsafe fn i3string_as_ucs2(raw: *mut I3String) -> *const Ucs2Char {
-        let source = unsafe { text(raw) };
-        let glyphs = glyphs(source);
-        if glyphs.is_empty() && !source.originated_as_ucs2 {
-            std::ptr::null()
-        } else {
-            glyphs.as_ptr()
-        }
-    }
-    /// # Safety
-    /// raw is a live text box.
-    pub unsafe fn i3string_get_num_bytes(raw: *mut I3String) -> usize {
-        let source = unsafe { text(raw) };
-        let _ = utf8(source);
-        source.legacy_num_bytes.get()
-    }
-    /// # Safety
-    /// raw is a live text box.
-    pub unsafe fn i3string_get_num_glyphs(raw: *mut I3String) -> usize {
-        glyphs(unsafe { text(raw) }).len()
-    }
-    /// # Safety
-    /// raw is a live text box.
-    pub unsafe fn i3string_is_markup(raw: *mut I3String) -> bool {
-        unsafe { text(raw) }.is_markup()
-    }
-    /// # Safety
-    /// raw is a live text box.
-    pub unsafe fn i3string_set_markup(raw: *mut I3String, markup: bool) {
-        unsafe { text(raw) }.set_markup(markup);
-    }
-    /// # Safety
-    /// raw is a live text box; release the returned independent box with i3string_free.
-    pub unsafe fn i3string_escape_markup(raw: *mut I3String) -> *mut I3String {
-        let source = unsafe { text(raw) };
-        match source.escaped_markup() {
-            Ok(escaped) => boxed(escaped),
-            Err(issue) => {
-                crate::ucs2_conversion::legacy::report(issue, c"Converting to UTF-8 failed");
-                std::ptr::null_mut()
-            }
-        }
-    }
-}
-#[cfg(test)]
-pub use legacy::*;
-
 #[cfg(test)]
 mod owned_length_tests {
     use super::I3String;
@@ -369,15 +218,15 @@ mod owned_length_tests {
     fn borrowed_render_views_and_utf8_copy_keep_distinct_length_contracts() {
         let original = I3String::from_bytes_with_legacy_length(b"A\xff");
         original.set_markup(true);
-        let address = original.cstr_or_report().unwrap().as_ptr();
+        let address = original.str_or_report().unwrap().as_ptr();
         assert_eq!(original.rendering_byte_len(), 2);
         assert_eq!(original.rendering_glyphs(), &[0x41.into(), 0xfffd.into()]);
-        assert_eq!(original.cstr_or_report().unwrap().as_ptr(), address);
+        assert_eq!(original.str_or_report().unwrap().as_ptr(), address);
         let copy = original.copy_utf8().unwrap();
         assert_eq!(copy.as_str(), Ok("A�"));
         assert_eq!(copy.rendering_byte_len(), 4);
         assert!(copy.is_markup());
-        assert_ne!(copy.cstr_or_report().unwrap().as_ptr(), address);
+        assert_ne!(copy.str_or_report().unwrap().as_ptr(), address);
         original.set_markup(false);
         assert!(copy.is_markup());
     }
@@ -387,7 +236,7 @@ mod owned_length_tests {
         let glyphs = [0x41.into(), 0.into(), 0x42.into()];
         let original = I3String::from_ucs2(&glyphs);
         assert_eq!(original.rendering_glyphs(), glyphs);
-        assert_eq!(original.cstr_or_report().unwrap().to_bytes(), b"A");
+        assert_eq!(original.str_or_report().unwrap().as_bytes(), b"A");
         assert_eq!(original.rendering_byte_len(), 1);
         assert_eq!(original.rendering_glyphs(), glyphs);
         assert_eq!(

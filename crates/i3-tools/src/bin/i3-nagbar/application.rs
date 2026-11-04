@@ -398,7 +398,7 @@ impl NagbarState {
     fn new(settings: NagbarSettings) -> Self {
         Self {
             program: settings.program,
-            message: I3String::from_cstr(&settings.message),
+            message: I3String::from_bytes(settings.message.to_bytes()),
             close: Button {
                 label: I3String::new("X"),
                 action: None,
@@ -410,7 +410,7 @@ impl NagbarState {
                 .buttons
                 .into_iter()
                 .map(|button| Button {
-                    label: I3String::from_cstr(&button.label),
+                    label: I3String::from_bytes(button.label.to_bytes()),
                     action: button.action,
                     x: 0,
                     width: 0,
@@ -588,7 +588,7 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
     let font_context = i3_common::font::FontContext::for_screen(
         root_screen.as_ref().expect("initialized display screen"),
     );
-    state.render.font = load_font(&font_context, &pattern, true);
+    state.render.font = load_font(&font_context, pattern.to_bytes().to_vec(), true);
     state.has_font = true;
 
     let mut win_pos = x::Rectangle {

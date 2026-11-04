@@ -104,7 +104,10 @@ impl InputState {
         Self {
             glyphs: Vec::new(),
             format: settings.format.clone(),
-            prompt: settings.prompt.as_deref().map(I3String::from_cstr),
+            prompt: settings
+                .prompt
+                .as_deref()
+                .map(|text| I3String::from_bytes(text.to_bytes())),
             prompt_offset: 0,
             limit: settings.limit,
             modeswitch_active: false,
@@ -559,7 +562,9 @@ unsafe fn run_window(settings: InputSettings) -> ::core::ffi::c_int {
             pattern as *const ::core::ffi::c_char
         } else {
             c"pango:monospace 8".as_ptr()
-        }),
+        })
+        .to_bytes()
+        .to_vec(),
         true,
     );
     resources.has_font = true;
