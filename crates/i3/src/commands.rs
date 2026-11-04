@@ -451,18 +451,14 @@ pub unsafe fn cmd_move_con_to_workspace(
         ws = con_get_workspace(focused);
     } else {
         if (*cmd_output).has_reply() {
-            let mut message_2: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message_2,
-                c"BUG: called with which=%s".as_ptr(),
-                which,
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_2).to_bytes()),
-            );
-            free(message_2 as *mut ::core::ffi::c_void);
+            let error_pointer_0 = which;
+            let error_bytes_0 = if error_pointer_0.is_null() {
+                b"(null)".as_slice()
+            } else {
+                std::ffi::CStr::from_ptr(error_pointer_0).to_bytes()
+            };
+            let message_2 = [b"BUG: called with which=".as_slice(), error_bytes_0].concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message_2));
         }
         return;
     }
@@ -535,18 +531,19 @@ pub unsafe fn cmd_move_con_to_workspace_name(
 ) {
     if strncasecmp(name, c"__".as_ptr(), c"__".count_bytes()) == 0_i32 {
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message,
-                c"You cannot move containers to i3-internal workspaces (\"%s\").".as_ptr(),
-                name,
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
-            );
-            free(message as *mut ::core::ffi::c_void);
+            let error_pointer_0 = name;
+            let error_bytes_0 = if error_pointer_0.is_null() {
+                b"(null)".as_slice()
+            } else {
+                std::ffi::CStr::from_ptr(error_pointer_0).to_bytes()
+            };
+            let message = [
+                b"You cannot move containers to i3-internal workspaces (\"".as_slice(),
+                error_bytes_0,
+                b"\").".as_slice(),
+            ]
+            .concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
         return;
     }
@@ -794,18 +791,19 @@ pub unsafe fn cmd_move_con_to_workspace_number(
             }
         };
         if (*cmd_output).has_reply() {
-            let mut message_2: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message_2,
-                c"Could not parse number \"%s\"".as_ptr(),
-                which,
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_2).to_bytes()),
-            );
-            free(message_2 as *mut ::core::ffi::c_void);
+            let error_pointer_0 = which;
+            let error_bytes_0 = if error_pointer_0.is_null() {
+                b"(null)".as_slice()
+            } else {
+                std::ffi::CStr::from_ptr(error_pointer_0).to_bytes()
+            };
+            let message_2 = [
+                b"Could not parse number \"".as_slice(),
+                error_bytes_0,
+                b"\"".as_slice(),
+            ]
+            .concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message_2));
         }
         return;
     }
@@ -1079,19 +1077,14 @@ unsafe fn cmd_resize_tiling_width_height(
         while !child.is_null() {
             if !(child == current) && (*child).percent - subtract_percent < percent_for_1px(child) {
                 if (*cmd_output).has_reply() {
-                    let mut message_1: *mut ::core::ffi::c_char =
-                        ::core::ptr::null_mut::<::core::ffi::c_char>();
-                    sasprintf(
-                            &raw mut message_1,
-                            c"Not resizing, already at minimum size (child %p would end up with a size of %.f".as_ptr(),
-                            child,
-                            (*child).percent - subtract_percent,
-                        );
-                    emit_command_reply(
-                        cmd_output,
-                        CommandReply::Error(std::ffi::CStr::from_ptr(message_1).to_bytes()),
+                    let pointer = i3_common::logging::pointer(child);
+                    let prefix = format!("Not resizing, already at minimum size (child {pointer} would end up with a size of ");
+                    let percentage = i3_common::native_stdio::fixed_decimal(
+                        (*child).percent - subtract_percent,
+                        i3_common::native_stdio::FixedPrecision::Zero,
                     );
-                    free(message_1 as *mut ::core::ffi::c_void);
+                    let message_1 = [prefix.as_bytes(), &percentage].concat();
+                    emit_command_reply(cmd_output, CommandReply::Error(&message_1));
                 }
                 return false;
             }
@@ -1635,18 +1628,15 @@ pub unsafe fn cmd_border(
             border_style = BorderStyle::None;
         } else {
             if (*cmd_output).has_reply() {
-                let mut message_0: *mut ::core::ffi::c_char =
-                    ::core::ptr::null_mut::<::core::ffi::c_char>();
-                sasprintf(
-                    &raw mut message_0,
-                    c"BUG: called with border_style=%s".as_ptr(),
-                    border_style_str,
-                );
-                emit_command_reply(
-                    cmd_output,
-                    CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
-                );
-                free(message_0 as *mut ::core::ffi::c_void);
+                let error_pointer_0 = border_style_str;
+                let error_bytes_0 = if error_pointer_0.is_null() {
+                    b"(null)".as_slice()
+                } else {
+                    std::ffi::CStr::from_ptr(error_pointer_0).to_bytes()
+                };
+                let message_0 =
+                    [b"BUG: called with border_style=".as_slice(), error_bytes_0].concat();
+                emit_command_reply(cmd_output, CommandReply::Error(&message_0));
             }
             return;
         }
@@ -1808,14 +1798,14 @@ pub unsafe fn cmd_append_layout(
             tree_append_json(parent, buf, len, &raw mut errormsg);
             if !errormsg.is_null() {
                 if (*cmd_output).has_reply() {
-                    let mut message_2: *mut ::core::ffi::c_char =
-                        ::core::ptr::null_mut::<::core::ffi::c_char>();
-                    sasprintf(&raw mut message_2, c"%s".as_ptr(), errormsg);
-                    emit_command_reply(
-                        cmd_output,
-                        CommandReply::Error(std::ffi::CStr::from_ptr(message_2).to_bytes()),
-                    );
-                    free(message_2 as *mut ::core::ffi::c_void);
+                    let error_pointer_0 = errormsg;
+                    let error_bytes_0 = if error_pointer_0.is_null() {
+                        b"(null)".as_slice()
+                    } else {
+                        std::ffi::CStr::from_ptr(error_pointer_0).to_bytes()
+                    };
+                    let message_2 = [error_bytes_0].concat();
+                    emit_command_reply(cmd_output, CommandReply::Error(&message_2));
                 }
                 free(errormsg as *mut ::core::ffi::c_void);
             } else if (*cmd_output).has_reply() {
@@ -1887,18 +1877,14 @@ pub unsafe fn cmd_workspace(
         ws = workspace_prev_on_output();
     } else {
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message,
-                c"BUG: called with which=%s".as_ptr(),
-                which,
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
-            );
-            free(message as *mut ::core::ffi::c_void);
+            let error_pointer_0 = which;
+            let error_bytes_0 = if error_pointer_0.is_null() {
+                b"(null)".as_slice()
+            } else {
+                std::ffi::CStr::from_ptr(error_pointer_0).to_bytes()
+            };
+            let message = [b"BUG: called with which=".as_slice(), error_bytes_0].concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
         return;
     }
@@ -1921,18 +1907,19 @@ pub unsafe fn cmd_workspace_number(
         ws_name_to_number(std::ffi::CStr::from_ptr(which).to_bytes()).unwrap_or(-1) as i64;
     if parsed_num == -1_i32 as i64 {
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message,
-                c"Could not parse initial part of \"%s\" as a number.".as_ptr(),
-                which,
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
-            );
-            free(message as *mut ::core::ffi::c_void);
+            let error_pointer_0 = which;
+            let error_bytes_0 = if error_pointer_0.is_null() {
+                b"(null)".as_slice()
+            } else {
+                std::ffi::CStr::from_ptr(error_pointer_0).to_bytes()
+            };
+            let message = [
+                b"Could not parse initial part of \"".as_slice(),
+                error_bytes_0,
+                b"\" as a number.".as_slice(),
+            ]
+            .concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
         return;
     }
@@ -1984,18 +1971,19 @@ pub unsafe fn cmd_workspace_name(
     let no_auto_back_and_forth: bool = !no_auto_back_and_forth_str.is_null();
     if strncasecmp(name, c"__".as_ptr(), c"__".count_bytes()) == 0_i32 {
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message,
-                c"You cannot switch to the i3-internal workspaces (\"%s\").".as_ptr(),
-                name,
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
-            );
-            free(message as *mut ::core::ffi::c_void);
+            let error_pointer_0 = name;
+            let error_bytes_0 = if error_pointer_0.is_null() {
+                b"(null)".as_slice()
+            } else {
+                std::ffi::CStr::from_ptr(error_pointer_0).to_bytes()
+            };
+            let message = [
+                b"You cannot switch to the i3-internal workspaces (\"".as_slice(),
+                error_bytes_0,
+                b"\").".as_slice(),
+            ]
+            .concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
         return;
     }
@@ -2802,18 +2790,14 @@ pub unsafe fn cmd_kill(
         kill_mode = KillWindow::Client;
     } else {
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message,
-                c"BUG: called with kill_mode=%s".as_ptr(),
-                kill_mode_str,
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
-            );
-            free(message as *mut ::core::ffi::c_void);
+            let error_pointer_0 = kill_mode_str;
+            let error_bytes_0 = if error_pointer_0.is_null() {
+                b"(null)".as_slice()
+            } else {
+                std::ffi::CStr::from_ptr(error_pointer_0).to_bytes()
+            };
+            let message = [b"BUG: called with kill_mode=".as_slice(), error_bytes_0].concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
         return;
     }
@@ -3179,21 +3163,23 @@ pub unsafe fn cmd_focus_window_mode(
             emit_command_reply(cmd_output, CommandReply::Success(true));
         }
     } else if (*cmd_output).has_reply() {
-        let mut message: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        sasprintf(
-            &raw mut message,
-            c"Failed to find a %s container in workspace.".as_ptr(),
-            if to_floating {
-                c"floating".as_ptr()
-            } else {
-                c"tiling".as_ptr()
-            },
-        );
-        emit_command_reply(
-            cmd_output,
-            CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
-        );
-        free(message as *mut ::core::ffi::c_void);
+        let error_pointer_0 = if to_floating {
+            c"floating".as_ptr()
+        } else {
+            c"tiling".as_ptr()
+        };
+        let error_bytes_0 = if error_pointer_0.is_null() {
+            b"(null)".as_slice()
+        } else {
+            std::ffi::CStr::from_ptr(error_pointer_0).to_bytes()
+        };
+        let message = [
+            b"Failed to find a ".as_slice(),
+            error_bytes_0,
+            b" container in workspace.".as_slice(),
+        ]
+        .concat();
+        emit_command_reply(cmd_output, CommandReply::Error(&message));
     }
 }
 
@@ -3856,18 +3842,19 @@ pub unsafe fn cmd_layout(
     }
     let Some(layout) = layout_from_name(std::ffi::CStr::from_ptr(layout_str).to_bytes()) else {
         if (*cmd_output).has_reply() {
-            let mut message_0: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message_0,
-                c"Unknown layout \"%s\", this is a mismatch between code and parser spec.".as_ptr(),
-                layout_str,
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
-            );
-            free(message_0 as *mut ::core::ffi::c_void);
+            let error_pointer_0 = layout_str;
+            let error_bytes_0 = if error_pointer_0.is_null() {
+                b"(null)".as_slice()
+            } else {
+                std::ffi::CStr::from_ptr(error_pointer_0).to_bytes()
+            };
+            let message_0 = [
+                b"Unknown layout \"".as_slice(),
+                error_bytes_0,
+                b"\", this is a mismatch between code and parser spec.".as_slice(),
+            ]
+            .concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message_0));
         }
         return;
     };
@@ -4089,9 +4076,13 @@ pub unsafe fn cmd_restart(current_match: *mut Match, cmd_output: *mut CommandRes
                 (exempt_fd)
             });
         }
-        let mut fdstr: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        sasprintf(&raw mut fdstr, c"%d".as_ptr(), exempt_fd);
-        setenv(c"_I3_RESTART_FD".as_ptr(), fdstr, 1 as ::core::ffi::c_int);
+        let fdstr = std::ffi::CString::new(exempt_fd.to_string())
+            .expect("a decimal file descriptor contains no NUL");
+        setenv(
+            c"_I3_RESTART_FD".as_ptr(),
+            fdstr.as_ptr(),
+            1 as ::core::ffi::c_int,
+        );
     }
     ipc_shutdown(ShutdownReason::Restart, exempt_fd);
     if let Some(path) = config.ipc_socket_path.as_deref() {
@@ -4286,18 +4277,7 @@ pub unsafe fn cmd_move_window_to_position(
             ::log::error!("ERROR: Cannot change position. The window/container is not floating\n");
             if !has_error {
                 if (*cmd_output).has_reply() {
-                    let mut message_0: *mut ::core::ffi::c_char =
-                        ::core::ptr::null_mut::<::core::ffi::c_char>();
-                    sasprintf(
-                        &raw mut message_0,
-                        c"Cannot change position of a window/container because it is not floating."
-                            .as_ptr(),
-                    );
-                    emit_command_reply(
-                        cmd_output,
-                        CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
-                    );
-                    free(message_0 as *mut ::core::ffi::c_void);
+                    emit_command_reply(cmd_output, CommandReply::Error(b"Cannot change position of a window/container because it is not floating."));
                 }
                 has_error = true;
             }
@@ -4443,18 +4423,7 @@ pub unsafe fn cmd_move_window_to_center(
             };
             if !has_error {
                 if (*cmd_output).has_reply() {
-                    let mut message_0: *mut ::core::ffi::c_char =
-                        ::core::ptr::null_mut::<::core::ffi::c_char>();
-                    sasprintf(
-                        &raw mut message_0,
-                        c"Cannot change position of a window/container because it is not floating."
-                            .as_ptr(),
-                    );
-                    emit_command_reply(
-                        cmd_output,
-                        CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
-                    );
-                    free(message_0 as *mut ::core::ffi::c_void);
+                    emit_command_reply(cmd_output, CommandReply::Error(b"Cannot change position of a window/container because it is not floating."));
                 }
                 has_error = true;
             }
@@ -4776,18 +4745,11 @@ pub unsafe fn cmd_swap(
     }
     if (*match_0).con.is_null() {
         if (*cmd_output).has_reply() {
-            let mut message_1: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message_1,
-                c"Match %p has no container.".as_ptr(),
-                match_0,
+            let message_1 = format!(
+                "Match {} has no container.",
+                i3_common::logging::pointer(match_0)
             );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_1).to_bytes()),
-            );
-            free(message_1 as *mut ::core::ffi::c_void);
+            emit_command_reply(cmd_output, CommandReply::Error(message_1.as_bytes()));
         }
         return;
     }
@@ -4795,18 +4757,19 @@ pub unsafe fn cmd_swap(
     if strcmp(mode, c"id".as_ptr()) == 0_i32 {
         let Ok(target) = parse_long(std::ffi::CStr::from_ptr(arg).to_bytes(), 0) else {
             if (*cmd_output).has_reply() {
-                let mut message_2: *mut ::core::ffi::c_char =
-                    ::core::ptr::null_mut::<::core::ffi::c_char>();
-                sasprintf(
-                    &raw mut message_2,
-                    c"Failed to parse %s into a window id.".as_ptr(),
-                    arg,
-                );
-                emit_command_reply(
-                    cmd_output,
-                    CommandReply::Error(std::ffi::CStr::from_ptr(message_2).to_bytes()),
-                );
-                free(message_2 as *mut ::core::ffi::c_void);
+                let error_pointer_0 = arg;
+                let error_bytes_0 = if error_pointer_0.is_null() {
+                    b"(null)".as_slice()
+                } else {
+                    std::ffi::CStr::from_ptr(error_pointer_0).to_bytes()
+                };
+                let message_2 = [
+                    b"Failed to parse ".as_slice(),
+                    error_bytes_0,
+                    b" into a window id.".as_slice(),
+                ]
+                .concat();
+                emit_command_reply(cmd_output, CommandReply::Error(&message_2));
             }
             return;
         };
@@ -4814,18 +4777,19 @@ pub unsafe fn cmd_swap(
     } else if strcmp(mode, c"con_id".as_ptr()) == 0_i32 {
         let Ok(target_0) = parse_long(std::ffi::CStr::from_ptr(arg).to_bytes(), 0) else {
             if (*cmd_output).has_reply() {
-                let mut message_3: *mut ::core::ffi::c_char =
-                    ::core::ptr::null_mut::<::core::ffi::c_char>();
-                sasprintf(
-                    &raw mut message_3,
-                    c"Failed to parse %s into a container id.".as_ptr(),
-                    arg,
-                );
-                emit_command_reply(
-                    cmd_output,
-                    CommandReply::Error(std::ffi::CStr::from_ptr(message_3).to_bytes()),
-                );
-                free(message_3 as *mut ::core::ffi::c_void);
+                let error_pointer_0 = arg;
+                let error_bytes_0 = if error_pointer_0.is_null() {
+                    b"(null)".as_slice()
+                } else {
+                    std::ffi::CStr::from_ptr(error_pointer_0).to_bytes()
+                };
+                let message_3 = [
+                    b"Failed to parse ".as_slice(),
+                    error_bytes_0,
+                    b" into a container id.".as_slice(),
+                ]
+                .concat();
+                emit_command_reply(cmd_output, CommandReply::Error(&message_3));
             }
             return;
         };
@@ -4834,36 +4798,44 @@ pub unsafe fn cmd_swap(
         con = con_by_mark(arg);
     } else {
         if (*cmd_output).has_reply() {
-            let mut message_4: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message_4,
-                c"Unhandled swap mode \"%s\". This is a bug.".as_ptr(),
-                mode,
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_4).to_bytes()),
-            );
-            free(message_4 as *mut ::core::ffi::c_void);
+            let error_pointer_0 = mode;
+            let error_bytes_0 = if error_pointer_0.is_null() {
+                b"(null)".as_slice()
+            } else {
+                std::ffi::CStr::from_ptr(error_pointer_0).to_bytes()
+            };
+            let message_4 = [
+                b"Unhandled swap mode \"".as_slice(),
+                error_bytes_0,
+                b"\". This is a bug.".as_slice(),
+            ]
+            .concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message_4));
         }
         return;
     }
     if con.is_null() {
         if (*cmd_output).has_reply() {
-            let mut message_5: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message_5,
-                c"Could not find container for %s = %s".as_ptr(),
-                mode,
-                arg,
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_5).to_bytes()),
-            );
-            free(message_5 as *mut ::core::ffi::c_void);
+            let error_pointer_0 = mode;
+            let error_bytes_0 = if error_pointer_0.is_null() {
+                b"(null)".as_slice()
+            } else {
+                std::ffi::CStr::from_ptr(error_pointer_0).to_bytes()
+            };
+            let error_pointer_1 = arg;
+            let error_bytes_1 = if error_pointer_1.is_null() {
+                b"(null)".as_slice()
+            } else {
+                std::ffi::CStr::from_ptr(error_pointer_1).to_bytes()
+            };
+            let message_5 = [
+                b"Could not find container for ".as_slice(),
+                error_bytes_0,
+                b" = ".as_slice(),
+                error_bytes_1,
+            ]
+            .concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message_5));
         }
         return;
     }
@@ -5537,18 +5509,19 @@ pub unsafe fn cmd_shmlog(
     } else {
         let Ok(new_size) = parse_long(std::ffi::CStr::from_ptr(argument).to_bytes(), 0) else {
             if (*cmd_output).has_reply() {
-                let mut message: *mut ::core::ffi::c_char =
-                    ::core::ptr::null_mut::<::core::ffi::c_char>();
-                sasprintf(
-                    &raw mut message,
-                    c"Failed to parse %s into a shmlog size.".as_ptr(),
-                    argument,
-                );
-                emit_command_reply(
-                    cmd_output,
-                    CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
-                );
-                free(message as *mut ::core::ffi::c_void);
+                let error_pointer_0 = argument;
+                let error_bytes_0 = if error_pointer_0.is_null() {
+                    b"(null)".as_slice()
+                } else {
+                    std::ffi::CStr::from_ptr(error_pointer_0).to_bytes()
+                };
+                let message = [
+                    b"Failed to parse ".as_slice(),
+                    error_bytes_0,
+                    b" into a shmlog size.".as_slice(),
+                ]
+                .concat();
+                emit_command_reply(cmd_output, CommandReply::Error(&message));
             }
             return;
         };
@@ -6130,6 +6103,66 @@ use crate::con::arena::nodes;
 #[cfg(test)]
 mod argument_tests {
     use super::*;
+    #[test]
+    fn command_error_byte_builder_matches_native_printf_before_serialization() {
+        let nul_backing = b"nul\0tail\xff";
+        let first_nul = std::ffi::CStr::from_bytes_until_nul(nul_backing).unwrap();
+        for input in [c"invalid", c"quote\"\n", c"bad\xff", first_nul] {
+            let mut context = cmd_parser_ctx {
+                json_output: Some(crate::ipc::CommandReplies::default()),
+                state: CommandParserState::Initial,
+                current_match: Match::empty(),
+                stack: stack::default(),
+                owindows: owindows_head {
+                    tqh_first: std::ptr::null_mut(),
+                    tqh_last: std::ptr::null_mut(),
+                },
+                subcommand_output: CommandResultIR {
+                    ctx: std::ptr::null_mut(),
+                    client: std::ptr::null_mut(),
+                    next_state: CommandParserState::Initial,
+                    needs_tree_render: false,
+                },
+                command_output: CommandResultIR {
+                    ctx: std::ptr::null_mut(),
+                    client: std::ptr::null_mut(),
+                    next_state: CommandParserState::Initial,
+                    needs_tree_render: false,
+                },
+            };
+            context.command_output.ctx = &raw mut context;
+            // SAFETY: each input is intentionally not a shmlog keyword/number;
+            // its failure branch touches only this live parser context and
+            // thread-local errno, with no X11 or logging-state mutation.
+            unsafe {
+                cmd_shmlog(
+                    &raw mut context.current_match,
+                    &raw mut context.command_output,
+                    input.as_ptr(),
+                );
+            }
+            let actual = context.json_output.take().unwrap().finish();
+            let mut native = [0u8; 256];
+            let count = unsafe {
+                libc::snprintf(
+                    native.as_mut_ptr().cast(),
+                    native.len(),
+                    c"Failed to parse %s into a shmlog size.".as_ptr(),
+                    input.as_ptr(),
+                )
+            };
+            assert!(count >= 0 && (count as usize) < native.len());
+            context.json_output = Some(crate::ipc::CommandReplies::default());
+            unsafe {
+                emit_command_reply(
+                    &raw mut context.command_output,
+                    CommandReply::Error(&native[..count as usize]),
+                );
+            }
+            assert_eq!(actual, context.json_output.take().unwrap().finish());
+        }
+    }
+
     #[test]
     fn direction_arguments_remain_exact_case_sensitive_keywords() {
         assert!(matches!(direction_argument(b"left"), Some(Direction::Left)));
