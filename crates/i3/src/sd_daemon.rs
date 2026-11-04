@@ -27,7 +27,6 @@
 //! are owned; the remaining unsafe operations are native syscalls or explicitly
 //! documented compatibility boundaries.
 
-use i3_common::{i333_va_list, native_stdio::vasprintf};
 use std::ffi::{c_char, c_int, CStr, OsStr};
 use std::fs;
 use std::io;
@@ -38,7 +37,6 @@ use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::MetadataExt;
 use std::os::unix::net::{SocketAddr, UnixDatagram};
 use std::path::Path;
-use std::ptr::NonNull;
 
 pub const SD_LISTEN_FDS_START: i32 = 3;
 
@@ -515,34 +513,6 @@ pub unsafe fn sd_notify(unset_environment: i32, state: &CStr) -> i32 {
         }
     }
     result
-}
-
-struct FormattedMessage(NonNull<c_char>);
-impl Drop for FormattedMessage {
-    fn drop(&mut self) {
-        unsafe {
-            libc::free(self.0.as_ptr().cast());
-        }
-    }
-}
-
-/// # Safety
-/// `format` and all variadic arguments must satisfy printf's contracts. When
-/// clearing NOTIFY_SOCKET, the environment must also be exclusively accessible.
-pub unsafe extern "C" fn sd_notifyf(
-    unset_environment: c_int,
-    format: *const c_char,
-    args: ...
-) -> c_int {
-    let mut arguments = args.clone();
-    let mut message = std::ptr::null_mut();
-    let result = unsafe { vasprintf(&raw mut message, format, i333_va_list!(arguments)) };
-    let Some(message) = NonNull::new(message).filter(|_| result >= 0) else {
-        return -libc::ENOMEM;
-    };
-    let message = FormattedMessage(message);
-    let state = unsafe { CStr::from_ptr(message.0.as_ptr()) };
-    unsafe { sd_notify(unset_environment, state) }
 }
 
 pub fn sd_booted() -> i32 {
