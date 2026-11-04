@@ -8,7 +8,6 @@ use i3_common::draw_util::draw_util_text;
 use libev_sys::{
     ev_io, ev_io_start, ev_io_stop, ev_loop, ev_prepare, ev_prepare_start, ev_prepare_stop, EV_READ,
 };
-use std::ffi::{CStr, CString};
 use std::os::fd::AsRawFd;
 use std::rc::Rc;
 use xcb::ffi::xcb_connection_t;
@@ -58,7 +57,7 @@ unsafe fn restore_connection() -> Rc<xcb::Connection> {
 
 static mut xcb_watcher: *mut ev_io = std::ptr::null_mut::<ev_io>();
 static mut xcb_prepare: *mut ev_prepare = std::ptr::null_mut::<ev_prepare>();
-fn serialize_swallow(fields: [Option<&CStr>; 5]) -> Option<CString> {
+fn serialize_swallow(fields: [Option<&[u8]>; 5]) -> Option<Vec<u8>> {
     let mut output = Vec::new();
     for (name, value) in [
         b"class".as_slice(),
@@ -74,7 +73,7 @@ fn serialize_swallow(fields: [Option<&CStr>; 5]) -> Option<CString> {
             output.push(if output.is_empty() { b'[' } else { b' ' });
             output.extend_from_slice(name);
             output.extend_from_slice(b"=\"");
-            output.extend_from_slice(value.to_bytes());
+            output.extend_from_slice(value.split(|&byte| byte == 0).next().unwrap_or_default());
             output.push(b'"');
         }
     }
@@ -82,12 +81,12 @@ fn serialize_swallow(fields: [Option<&CStr>; 5]) -> Option<CString> {
         None
     } else {
         output.push(b']');
-        Some(CString::new(output).unwrap())
+        Some(output)
     }
 }
 /// Borrow only pattern values long enough to copy the display text; never keep
 /// a Match/Con reference across drawing/native callbacks.
-unsafe fn swallow_text(swallow: *const Match) -> Option<CString> {
+unsafe fn swallow_text(swallow: *const Match) -> Option<Vec<u8>> {
     let swallow = unsafe { &*swallow };
     let fields = [
         &swallow.class,
@@ -96,7 +95,9 @@ unsafe fn swallow_text(swallow: *const Match) -> Option<CString> {
         &swallow.title,
         &swallow.machine,
     ];
-    serialize_swallow(fields.map(|field| field.as_ref().map(|regex| regex.pattern())))
+    serialize_swallow(
+        fields.map(|field| field.as_ref().map(|regex| regex.pattern_str().as_bytes())),
+    )
 }
 fn text_geometry(rect: Rect, font_height: i32, padding: i32, line: i32) -> (i32, i32, i32) {
     (
@@ -242,10 +243,10 @@ unsafe fn update_placeholder_contents(state: *mut placeholder_state) {
                 let diagnostic_6 = ((*state).window);
                 let diagnostic_7 = (n);
                 let diagnostic_8_owner = serialized.clone();
-                let diagnostic_8_bytes = diagnostic_8_owner.as_bytes();
+                let diagnostic_8_bytes = diagnostic_8_owner.as_slice();
                 match (std::str::from_utf8(diagnostic_8_bytes),) { (Ok(diagnostic_8_text),) => ::log::debug!(concat!("../src/restore_layout.c:update_placeholder_contents:166 - con {} (placeholder 0x{:08x}) line {}: {}\n"), diagnostic_5, diagnostic_6, diagnostic_7, diagnostic_8_text), _ => emit_parts(Level::Debug, &[b"../src/restore_layout.c:update_placeholder_contents:166 - con ", format!("{}", diagnostic_5).as_bytes(), b" (placeholder 0x", format!("{:08x}", diagnostic_6).as_bytes(), b") line ", format!("{}", diagnostic_7).as_bytes(), b": ", diagnostic_8_bytes, b"\n"]), }
             };
-            let text = i3_common::string::I3String::from_bytes(serialized.as_bytes());
+            let text = i3_common::string::I3String::from_bytes(serialized.as_slice());
             let (x, y, max_width) =
                 text_geometry((*state).rect, config.font.height, logical_px(2), n);
             draw_util_text(
@@ -562,9 +563,7 @@ mod tests {
     fn swallow_display_retains_order_raw_bytes_quotes_and_empty_values() {
         assert!(serialize_swallow([None; 5]).is_none());
         assert_eq!(
-            serialize_swallow([Some(c"A\xff"), Some(c""), None, Some(c"q\"\\"), None])
-                .unwrap()
-                .to_bytes(),
+            serialize_swallow([Some(b"A\xff"), Some(b""), None, Some(b"q\"\\"), None]).unwrap(),
             b"[class=\"A\xff\" instance=\"\" title=\"q\"\\\"]"
         );
     }

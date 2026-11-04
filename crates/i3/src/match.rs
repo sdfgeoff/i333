@@ -50,8 +50,8 @@ pub unsafe fn match_is_empty(value: *mut Match) -> bool {
     is_empty(unsafe { &*value })
 }
 
-fn compile_expression(pattern: &CStr) -> Option<Regex> {
-    match Regex::compile(pattern) {
+fn compile_expression(pattern: &[u8]) -> Option<Regex> {
+    match Regex::compile_bytes(pattern) {
         Ok(expression) => Some(expression),
         Err(error) => {
             emit(
@@ -107,7 +107,7 @@ struct Criteria<'a> {
 }
 
 fn focused_pattern(expression: &Regex) -> bool {
-    expression.pattern().to_bytes() == b"__focused__"
+    expression.pattern_str().as_bytes() == b"__focused__"
 }
 
 pub(crate) fn regex_matches_bytes(expression: &Regex, bytes: &[u8]) -> bool {
@@ -115,7 +115,7 @@ pub(crate) fn regex_matches_bytes(expression: &Regex, bytes: &[u8]) -> bool {
     match expression.is_match_bytes(bytes) {
         Ok(matched) => {
             message.extend_from_slice(b"Regular expression \"");
-            message.extend_from_slice(expression.pattern().to_bytes());
+            message.extend_from_slice(expression.pattern_str().as_bytes());
             message.extend_from_slice(if matched {
                 b"\" matches \""
             } else {
@@ -134,7 +134,7 @@ pub(crate) fn regex_matches_bytes(expression: &Regex, bytes: &[u8]) -> bool {
                 )
                 .as_bytes(),
             );
-            message.extend_from_slice(expression.pattern().to_bytes());
+            message.extend_from_slice(expression.pattern_str().as_bytes());
             message.extend_from_slice(b"\" on input \"");
             message.extend_from_slice(bytes);
             message.extend_from_slice(b"\", see pcreapi(3)\n");
@@ -545,15 +545,16 @@ pub unsafe fn match_parse_property(
         };
         let property = CStr::from_ptr(ctype).to_bytes();
         if property == b"class" {
-            (*match_0).class = compile_expression(CStr::from_ptr(cvalue));
+            (*match_0).class = compile_expression(&CStr::from_ptr(cvalue).to_bytes().to_vec());
             return;
         }
         if property == b"instance" {
-            (*match_0).instance = compile_expression(CStr::from_ptr(cvalue));
+            (*match_0).instance = compile_expression(&CStr::from_ptr(cvalue).to_bytes().to_vec());
             return;
         }
         if property == b"window_role" {
-            (*match_0).window_role = compile_expression(CStr::from_ptr(cvalue));
+            (*match_0).window_role =
+                compile_expression(&CStr::from_ptr(cvalue).to_bytes().to_vec());
             return;
         }
         if property == b"con_id" {
@@ -665,11 +666,11 @@ pub unsafe fn match_parse_property(
             return;
         }
         if property == b"con_mark" {
-            (*match_0).mark = compile_expression(CStr::from_ptr(cvalue));
+            (*match_0).mark = compile_expression(&CStr::from_ptr(cvalue).to_bytes().to_vec());
             return;
         }
         if property == b"title" {
-            (*match_0).title = compile_expression(CStr::from_ptr(cvalue));
+            (*match_0).title = compile_expression(&CStr::from_ptr(cvalue).to_bytes().to_vec());
             return;
         }
         if property == b"urgent" {
@@ -687,11 +688,11 @@ pub unsafe fn match_parse_property(
             return;
         }
         if property == b"workspace" {
-            (*match_0).workspace = compile_expression(CStr::from_ptr(cvalue));
+            (*match_0).workspace = compile_expression(&CStr::from_ptr(cvalue).to_bytes().to_vec());
             return;
         }
         if property == b"machine" {
-            (*match_0).machine = compile_expression(CStr::from_ptr(cvalue));
+            (*match_0).machine = compile_expression(&CStr::from_ptr(cvalue).to_bytes().to_vec());
             return;
         }
         if property == b"tiling" {
@@ -936,8 +937,8 @@ mod tests {
         original.matches.tqe_next = std::ptr::NonNull::<Match>::dangling().as_ptr();
         let copied = original.clone();
         assert_ne!(
-            copied.class.as_ref().unwrap().pattern().as_ptr(),
-            original.class.as_ref().unwrap().pattern().as_ptr()
+            copied.class.as_ref().unwrap().pattern_str().as_ptr(),
+            original.class.as_ref().unwrap().pattern_str().as_ptr()
         );
         assert_ne!(
             copied.error.as_ref().unwrap().as_ptr(),

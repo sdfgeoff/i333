@@ -460,27 +460,27 @@ impl LayoutState {
             let owned_sval = property_string(std::slice::from_raw_parts(val, len));
             let sval = owned_sval.as_ptr();
             if strcasecmp(self.last_key.as_ptr(), c"class".as_ptr()) == 0_i32 {
-                let new = compile_or_report(owned_sval.as_c_str());
+                let new = compile_or_report(owned_sval.to_bytes());
 
                 (*self.current_swallow).class = new;
                 self.swallow_is_empty = false;
             } else if strcasecmp(self.last_key.as_ptr(), c"instance".as_ptr()) == 0_i32 {
-                let new = compile_or_report(owned_sval.as_c_str());
+                let new = compile_or_report(owned_sval.to_bytes());
 
                 (*self.current_swallow).instance = new;
                 self.swallow_is_empty = false;
             } else if strcasecmp(self.last_key.as_ptr(), c"window_role".as_ptr()) == 0_i32 {
-                let new = compile_or_report(owned_sval.as_c_str());
+                let new = compile_or_report(owned_sval.to_bytes());
 
                 (*self.current_swallow).window_role = new;
                 self.swallow_is_empty = false;
             } else if strcasecmp(self.last_key.as_ptr(), c"title".as_ptr()) == 0_i32 {
-                let new = compile_or_report(owned_sval.as_c_str());
+                let new = compile_or_report(owned_sval.to_bytes());
 
                 (*self.current_swallow).title = new;
                 self.swallow_is_empty = false;
             } else if strcasecmp(self.last_key.as_ptr(), c"machine".as_ptr()) == 0_i32 {
-                let new = compile_or_report(owned_sval.as_c_str());
+                let new = compile_or_report(owned_sval.to_bytes());
 
                 (*self.current_swallow).machine = new;
                 self.swallow_is_empty = false;

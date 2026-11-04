@@ -791,7 +791,9 @@ unsafe fn snapshot_node_header(con: *mut Con, restart: bool) -> messages::NodeHe
 fn optional_pattern(
     pattern: Option<&crate::regex::Regex>,
 ) -> messages::Omitted<messages::NativeText> {
-    messages::Omitted(pattern.map(|pattern| messages::NativeText::cstr(pattern.pattern())))
+    messages::Omitted(
+        pattern.map(|pattern| messages::NativeText::bytes(pattern.pattern_str().as_bytes())),
+    )
 }
 unsafe fn snapshot_node_tail(con: *mut Con, restart: bool) -> messages::NodeTail {
     use messages::Omitted;

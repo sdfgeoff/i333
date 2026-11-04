@@ -11,7 +11,6 @@
 #![forbid(unsafe_code)]
 
 use pcre2::bytes::{Regex as CompiledRegex, RegexBuilder};
-use std::ffi::{CStr, CString};
 use std::fmt;
 
 /// A compiled expression with independent owned pattern storage. The maintained
@@ -19,14 +18,14 @@ use std::fmt;
 #[derive(Clone)]
 pub struct Regex {
     compiled: CompiledRegex,
-    pattern: CString,
+    pattern: String,
 }
 
 #[derive(Debug)]
 pub struct CompileError {
     pub offset: usize,
     pub message: String,
-    /// Native PCRE2 code, or None for an invalid Rust/C input representation.
+    /// Native PCRE2 code, or None for invalid pattern text.
     pub code: Option<i32>,
     source: Option<pcre2::Error>,
 }
@@ -53,10 +52,6 @@ pub type MatchError = pcre2::Error;
 const UCP_DIRECTIVE: &str = "(*UCP)";
 
 impl Regex {
-    pub fn compile(pattern: &CStr) -> Result<Self, CompileError> {
-        Self::compile_bytes(pattern.to_bytes())
-    }
-
     /// Compile UTF-8 pattern bytes, rejecting malformed text without replacement.
     pub fn compile_bytes(pattern: &[u8]) -> Result<Self, CompileError> {
         let text = std::str::from_utf8(pattern).map_err(|error| CompileError {
@@ -69,14 +64,17 @@ impl Regex {
     }
 
     /// Compile PCRE syntax with the same UTF/UCP defaults as upstream i3.
-    /// Embedded NUL is rejected because remaining callers retain a C-string view.
+    /// Retain the application's existing embedded-NUL rejection policy.
     pub fn compile_str(pattern: &str) -> Result<Self, CompileError> {
-        let owned_pattern = CString::new(pattern).map_err(|error| CompileError {
-            offset: error.nul_position(),
-            message: "regular expression contains NUL".to_owned(),
-            code: None,
-            source: None,
-        })?;
+        if let Some(offset) = pattern.as_bytes().iter().position(|&byte| byte == 0) {
+            return Err(CompileError {
+                offset,
+                message: "regular expression contains NUL".to_owned(),
+                code: None,
+                source: None,
+            });
+        }
+        let owned_pattern = pattern.to_owned();
         let effective = format!("{UCP_DIRECTIVE}{pattern}");
         // Leave JIT/newline/multiline/dotall settings at native defaults, as i3 did.
         let compiled = RegexBuilder::new()
@@ -110,93 +108,30 @@ impl Regex {
         })
     }
 
-    pub fn pattern(&self) -> &CStr {
+    pub fn pattern_str(&self) -> &str {
         &self.pattern
     }
-    pub fn pattern_str(&self) -> &str {
-        self.pattern().to_str().expect("compiled UTF-8 pattern")
-    }
 
-    pub fn is_match(&self, input: &CStr) -> Result<bool, MatchError> {
-        self.is_match_bytes(input.to_bytes())
-    }
     pub fn is_match_str(&self, input: &str) -> Result<bool, MatchError> {
         self.is_match_bytes(input.as_bytes())
     }
     /// Retain native UTF validation and error codes. Valid UTF-8 containing NUL
-    /// can be matched through this owned byte API; the legacy C view stops at NUL.
+    /// can be matched through this bounded byte API.
     pub fn is_match_bytes(&self, input: &[u8]) -> Result<bool, MatchError> {
         self.compiled.is_match(input)
     }
 }
 /// Compile an owned expression while retaining the native diagnostic wording.
-pub fn compile_or_report(pattern: &CStr) -> Option<Regex> {
-    match Regex::compile(pattern) {
+pub fn compile_or_report(pattern: &[u8]) -> Option<Regex> {
+    match Regex::compile_bytes(pattern) {
         Ok(regex) => Some(regex),
         Err(error) => {
-            let message = CString::new(error.message).expect("regex diagnostic contains no NUL");
             ::log::error!(
                 "ERROR: PCRE regular expression compilation failed at {}: {}\n",
                 error.offset,
-                message
-                    .to_str()
-                    .expect("PCRE message comes from a Rust string"),
+                error.message,
             );
             None
-        }
-    }
-}
-
-/// Match borrowed native text without transferring any expression/string owner.
-pub fn regex_matches(expression: &Regex, input: &CStr) -> bool {
-    match expression.is_match(input) {
-        Ok(matched) => {
-            let verb = if matched { "matches" } else { "does not match" };
-            // Snapshot before a logging callback can reload expression owners.
-            let pattern = expression.pattern().to_bytes().to_vec();
-            let input = input.to_bytes().to_vec();
-            match (std::str::from_utf8(&pattern), std::str::from_utf8(&input)) {
-                (Ok(pattern), Ok(input)) => {
-                    ::log::info!(
-                        "Regular expression \"{}\" {} \"{}\"\n",
-                        pattern,
-                        verb,
-                        input
-                    );
-                }
-                _ => {
-                    let mut message = b"Regular expression \"".to_vec();
-                    message.extend_from_slice(&pattern);
-                    message.extend_from_slice(format!("\" {} \"", verb).as_bytes());
-                    message.extend_from_slice(&input);
-                    message.extend_from_slice(b"\"\n");
-                    i3_common::logging::emit(i3_common::logging::Level::Verbose, &message);
-                }
-            }
-            matched
-        }
-        Err(error) => {
-            let code = error.code();
-            let pattern = expression.pattern().to_bytes().to_vec();
-            let input = input.to_bytes().to_vec();
-            match (std::str::from_utf8(&pattern), std::str::from_utf8(&input)) {
-                (Ok(pattern), Ok(input)) => {
-                    ::log::error!("ERROR: PCRE error {} while trying to use regular expression \"{}\" on input \"{}\", see pcreapi(3)\n", code, pattern, input);
-                }
-                _ => {
-                    let mut message = format!(
-                        "ERROR: PCRE error {} while trying to use regular expression \"",
-                        code
-                    )
-                    .into_bytes();
-                    message.extend_from_slice(&pattern);
-                    message.extend_from_slice(b"\" on input \"");
-                    message.extend_from_slice(&input);
-                    message.extend_from_slice(b"\", see pcreapi(3)\n");
-                    i3_common::logging::emit(i3_common::logging::Level::Error, &message);
-                }
-            }
-            false
         }
     }
 }
@@ -312,8 +247,11 @@ mod tests {
     fn cloned_expression_owns_its_pattern_and_retains_native_unicode_backreferences() {
         let original = expression(r"^(?<word>\p{L}+)-\k<word>$");
         let cloned = original.clone();
-        assert_eq!(original.pattern(), cloned.pattern());
-        assert_ne!(original.pattern().as_ptr(), cloned.pattern().as_ptr());
+        assert_eq!(original.pattern_str(), cloned.pattern_str());
+        assert_ne!(
+            original.pattern_str().as_ptr(),
+            cloned.pattern_str().as_ptr()
+        );
         drop(original);
         assert!(cloned.is_match_str("é-é").unwrap());
         assert!(!cloned.is_match_str("é-e").unwrap());
@@ -331,6 +269,11 @@ mod tests {
         let error = Regex::compile_bytes(b"a\xff").err().unwrap();
         assert_eq!(error.offset, 1);
         assert!(error.code.is_none());
-        assert!(Regex::compile_str("a\0b").is_err());
+        for (pattern, offset) in [("a\0b", 1), ("é\0tail", 2)] {
+            let error = Regex::compile_str(pattern).err().unwrap();
+            assert_eq!(error.offset, offset);
+            assert_eq!(error.message, "regular expression contains NUL");
+            assert!(error.code.is_none());
+        }
     }
 }

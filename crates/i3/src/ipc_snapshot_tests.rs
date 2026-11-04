@@ -202,7 +202,7 @@ unsafe fn collect() -> BTreeMap<String, String> {
     swallow.urgent = crate::types::UrgencyMatch::Latest;
     swallow.dock = DockMatch::Top;
     swallow.insert_where = MatchInsertWhere::AssignWorkspace;
-    swallow.class = Some(crate::regex::Regex::compile(c"^App$").unwrap());
+    swallow.class = Some(crate::regex::Regex::compile_str("^App$").unwrap());
     let mut ignored_swallow = Match::empty();
     ignored_swallow.restart_mode = true;
     swallow.matches.tqe_next = &mut ignored_swallow;
