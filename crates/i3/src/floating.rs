@@ -310,27 +310,15 @@ pub unsafe fn floating_check_size(floating_con: *mut Con, prefer_height: bool) {
 pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
     let set_focus: bool = con == focused;
     if con_is_docked(con) {
-        verboselog(
-            c"Container is a dock window, not enabling floating mode.\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::info!("Container is a dock window, not enabling floating mode.\n");
         return false;
     }
     if con_is_floating(con) {
-        verboselog(
-            c"Container is already in floating mode, not doing anything.\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::info!("Container is already in floating mode, not doing anything.\n");
         return false;
     }
     if ((*con).type_0) == ContainerType::Workspace {
-        verboselog(
-            c"Container is a workspace, not enabling floating mode.\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::info!("Container is a workspace, not enabling floating mode.\n");
         return false;
     }
     let mut focus_placeholder = None;
@@ -381,43 +369,26 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
         || ((*parent_ptr(con)).type_0) == ContainerType::Floating)
         && con_num_children(parent_ptr(con)) == 0
     {
-        debuglog(
-            c"%s:%s:%d - Old container empty after setting this child to floating, closing\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/floating.c".as_ptr(),
-            c"floating_enable".as_ptr(),
-            316,
-        );
+        ::log::debug!("../src/floating.c:floating_enable:316 - Old container empty after setting this child to floating, closing\n");
         let parent: *mut Con = parent_ptr(con);
         set_parent_ptr(con, ::core::ptr::null_mut::<Con>()).expect("live acyclic ancestry");
         tree_close_internal(parent, KillWindow::DontKill, false);
     }
     let name = std::ffi::CString::new(format!("[i3 con] floatingcon around {con:p}")).unwrap();
     x_set_name(nc, name.as_ptr());
-    debuglog(
-        c"%s:%s:%d - Original rect: (%d, %d) with %d x %d\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/floating.c".as_ptr(),
-        c"floating_enable".as_ptr(),
-        328,
-        (*con).rect.x,
-        (*con).rect.y,
-        (*con).rect.width,
-        (*con).rect.height,
+    ::log::debug!(
+        "../src/floating.c:floating_enable:328 - Original rect: ({}, {}) with {} x {}\n",
+        ((*con).rect.x) as i32,
+        ((*con).rect.y) as i32,
+        ((*con).rect.width) as i32,
+        ((*con).rect.height) as i32
     );
-    debuglog(
-        c"%s:%s:%d - Geometry = (%d, %d) with %d x %d\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/floating.c".as_ptr(),
-        c"floating_enable".as_ptr(),
-        329,
-        (*con).geometry.x,
-        (*con).geometry.y,
-        (*con).geometry.width,
-        (*con).geometry.height,
+    ::log::debug!(
+        "../src/floating.c:floating_enable:329 - Geometry = ({}, {}) with {} x {}\n",
+        ((*con).geometry.x) as i32,
+        ((*con).geometry.y) as i32,
+        ((*con).geometry.width) as i32,
+        ((*con).geometry.height) as i32
     );
     (*nc).rect = (*con).geometry;
     if rect_equals(
@@ -429,24 +400,16 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
             height: 0 as u32,
         },
     ) {
-        debuglog(
-            c"%s:%s:%d - Geometry not set, combining children\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/floating.c".as_ptr(),
-            c"floating_enable".as_ptr(),
-            334,
+        ::log::debug!(
+            "../src/floating.c:floating_enable:334 - Geometry not set, combining children\n"
         );
         let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
         child = nodes::first_ptr(con);
         while !child.is_null() {
-            debuglog(
-                c"%s:%s:%d - child geometry: %d x %d\n".as_ptr().cast_mut(),
-                c"../src/floating.c".as_ptr(),
-                c"floating_enable".as_ptr(),
-                337,
-                (*child).geometry.width,
-                (*child).geometry.height,
+            ::log::debug!(
+                "../src/floating.c:floating_enable:337 - child geometry: {} x {}\n",
+                ((*child).geometry.width) as i32,
+                ((*child).geometry.height) as i32
             );
             (*nc).rect.width = (*nc).rect.width.wrapping_add((*child).geometry.width);
             (*nc).rect.height =
@@ -493,12 +456,7 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
                 !leader.is_null()
             }
         {
-            debuglog(
-                c"%s:%s:%d - Centering above leader\n".as_ptr().cast_mut(),
-                c"../src/floating.c".as_ptr(),
-                c"floating_enable".as_ptr(),
-                377,
-            );
+            ::log::debug!("../src/floating.c:floating_enable:377 - Centering above leader\n");
             floating_center(nc, (*leader).rect);
         } else {
             floating_center(nc, (*ws).rect);
@@ -507,14 +465,7 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
     let mut current_output: *mut Output = get_output_from_rect((*nc).rect);
     let correct_output: *mut Con = con_get_output(ws);
     if current_output.is_null() || (*current_output).con != correct_output {
-        debuglog(
-            c"%s:%s:%d - This floating window is on the wrong output, fixing coordinates (currently (%d, %d))\n".as_ptr().cast_mut(),
-            c"../src/floating.c".as_ptr(),
-            c"floating_enable".as_ptr(),
-            391,
-            (*nc).rect.x,
-            (*nc).rect.y,
-        );
+        ::log::debug!("../src/floating.c:floating_enable:391 - This floating window is on the wrong output, fixing coordinates (currently ({}, {}))\n", ((*nc).rect.x) as i32, ((*nc).rect.y) as i32);
         if !current_output.is_null() {
             floating_fix_coordinates(
                 nc,
@@ -527,17 +478,12 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
             floating_center(nc, (*ws).rect);
         }
     }
-    debuglog(
-        c"%s:%s:%d - Floating rect: (%d, %d) with %d x %d\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/floating.c".as_ptr(),
-        c"floating_enable".as_ptr(),
-        405,
-        (*nc).rect.x,
-        (*nc).rect.y,
-        (*nc).rect.width,
-        (*nc).rect.height,
+    ::log::debug!(
+        "../src/floating.c:floating_enable:405 - Floating rect: ({}, {}) with {} x {}\n",
+        ((*nc).rect.x) as i32,
+        ((*nc).rect.y) as i32,
+        ((*nc).rect.width) as i32,
+        ((*nc).rect.height) as i32
     );
     render_con(nc);
     if set_focus {
@@ -550,20 +496,12 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
 
 pub unsafe fn floating_disable(con: *mut Con) {
     if !con_is_floating(con) {
-        verboselog(
-            c"Container isn't floating, not doing anything.\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::info!("Container isn't floating, not doing anything.\n");
         return;
     }
     let ws: *mut Con = con_get_workspace(con);
     if con_is_internal(ws) {
-        verboselog(
-            c"Can't disable floating for container in internal workspace.\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::info!("Can't disable floating for container in internal workspace.\n");
         return;
     }
     let tiling_focused: *mut Con = con_descend_tiling_focused(ws);
@@ -585,18 +523,11 @@ pub unsafe fn floating_disable(con: *mut Con) {
 
 pub unsafe fn toggle_floating_mode(con: *mut Con, automatic: bool) {
     if ((*con).type_0) == ContainerType::Floating {
-        errorlog(
-            c"ERROR: Cannot toggle floating mode on con = %p because it is of type CT_FLOATING_CON.\n".as_ptr().cast_mut(),
-            con,
-        );
+        ::log::error!("ERROR: Cannot toggle floating mode on con = {} because it is of type CT_FLOATING_CON.\n", i3_common::logging::pointer(con));
         return;
     }
     if con_is_floating(con) {
-        verboselog(
-            c"already floating, re-setting to tiling\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::info!("already floating, re-setting to tiling\n");
         floating_disable(con);
         return;
     }
@@ -604,16 +535,32 @@ pub unsafe fn toggle_floating_mode(con: *mut Con, automatic: bool) {
 }
 
 pub unsafe fn floating_raise_con(con: *mut Con) {
-    debuglog(
-        c"%s:%s:%d - Raising floating con %p / %s\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/floating.c".as_ptr(),
-        c"floating_raise_con".as_ptr(),
-        479,
-        con,
-        (*con).name_ptr(),
-    );
+    {
+        // Snapshot native bytes before the logger can dispatch a callback.
+        let log_value_0 = i3_common::logging::pointer(con);
+        let log_owner_2 = (*con).name.clone();
+        let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
+        if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+            ::log::debug!(
+                "../src/floating.c:floating_raise_con:479 - Raising floating con {} / {}\n",
+                log_value_0,
+                log_value_1_text
+            );
+        } else {
+            i3_common::logging::emit_parts(
+                i3_common::logging::Level::Debug,
+                &[
+                    format!(
+                        "../src/floating.c:floating_raise_con:479 - Raising floating con {} / ",
+                        log_value_0
+                    )
+                    .as_bytes(),
+                    &log_value_1,
+                    "\n".as_bytes(),
+                ],
+            );
+        }
+    };
     floating::move_to_back(
         identity(parent_ptr(con)).expect("live floating parent"),
         identity(con).expect("live floating wrapper"),
@@ -623,54 +570,53 @@ pub unsafe fn floating_raise_con(con: *mut Con) {
 
 pub unsafe fn floating_maybe_reassign_ws(con: *mut Con) -> bool {
     if con_is_internal(con_get_workspace(con)) {
-        debuglog(
-            c"%s:%s:%d - Con in an internal workspace\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/floating.c".as_ptr(),
-            c"floating_maybe_reassign_ws".as_ptr(),
-            491,
+        ::log::debug!(
+            "../src/floating.c:floating_maybe_reassign_ws:491 - Con in an internal workspace\n"
         );
         return false;
     }
     let output: *mut Output = get_output_from_rect((*con).rect);
     if output.is_null() {
-        errorlog(
-            c"ERROR: No output found at destination coordinates?\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::error!("ERROR: No output found at destination coordinates?\n");
         return false;
     }
     if con_get_output(con) == (*output).con {
-        debuglog(
-            c"%s:%s:%d - still the same ws\n".as_ptr().cast_mut(),
-            c"../src/floating.c".as_ptr(),
-            c"floating_maybe_reassign_ws".as_ptr(),
-            503,
-        );
+        ::log::debug!("../src/floating.c:floating_maybe_reassign_ws:503 - still the same ws\n");
         return false;
     }
-    debuglog(
-        c"%s:%s:%d - Need to re-assign!\n".as_ptr().cast_mut(),
-        c"../src/floating.c".as_ptr(),
-        c"floating_maybe_reassign_ws".as_ptr(),
-        507,
-    );
+    ::log::debug!("../src/floating.c:floating_maybe_reassign_ws:507 - Need to re-assign!\n");
     let content: *mut Con = output_get_content((*output).con);
     let ws: *mut Con = focus::first_ptr(content);
-    debuglog(
-        c"%s:%s:%d - Moving con %p / %s to workspace %p / %s\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/floating.c".as_ptr(),
-        c"floating_maybe_reassign_ws".as_ptr(),
-        511,
-        con,
-        (*con).name_ptr(),
-        ws,
-        (*ws).name_ptr(),
-    );
+    {
+        // Snapshot native bytes before the logger can dispatch a callback.
+        let log_value_0 = i3_common::logging::pointer(con);
+        let log_owner_2 = (*con).name.clone();
+        let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
+        let log_value_2 = i3_common::logging::pointer(ws);
+        let log_owner_4 = (*ws).name.clone();
+        let log_value_3 = i3_common::logging::string_bytes(log_owner_4.as_deref(), None);
+        if let (Ok(log_value_1_text), Ok(log_value_3_text)) = (
+            std::str::from_utf8(&log_value_1),
+            std::str::from_utf8(&log_value_3),
+        ) {
+            ::log::debug!("../src/floating.c:floating_maybe_reassign_ws:511 - Moving con {} / {} to workspace {} / {}\n", log_value_0, log_value_1_text, log_value_2, log_value_3_text);
+        } else {
+            i3_common::logging::emit_parts(
+                i3_common::logging::Level::Debug,
+                &[
+                    format!(
+                        "../src/floating.c:floating_maybe_reassign_ws:511 - Moving con {} / ",
+                        log_value_0
+                    )
+                    .as_bytes(),
+                    &log_value_1,
+                    format!(" to workspace {} / ", log_value_2).as_bytes(),
+                    &log_value_3,
+                    "\n".as_bytes(),
+                ],
+            );
+        }
+    };
     let mut needs_focus: *mut Con = con_descend_focused(con);
     if !con_inside_focused(needs_focus) {
         needs_focus = ::core::ptr::null_mut::<Con>();
@@ -713,22 +659,14 @@ pub unsafe fn floating_move_to_pointer(con: *mut Con) {
         window: x::Window::new(root),
     });
     let Some(reply) = connection().wait_for_reply(cookie).ok() else {
-        errorlog(
-            c"ERROR: could not query pointer position, not moving this container\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::error!("ERROR: could not query pointer position, not moving this container\n");
         return;
     };
     let pointer = (reply.root_x() as u32, reply.root_y() as u32);
     drop(reply);
     let output = get_output_containing(pointer.0, pointer.1);
     if output.is_null() {
-        errorlog(
-            c"ERROR: The pointer is not on any output, cannot move the container here.\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::error!("ERROR: The pointer is not on any output, cannot move the container here.\n");
         return;
     }
     let destination = pointer_placement((*con).rect, (*output).rect, pointer);
@@ -763,12 +701,7 @@ pub unsafe fn floating_drag_window(
     event: &x::ButtonPressEvent,
     use_threshold: bool,
 ) {
-    debuglog(
-        c"%s:%s:%d - floating_drag_window\n".as_ptr().cast_mut(),
-        c"../src/floating.c".as_ptr(),
-        c"floating_drag_window".as_ptr(),
-        595,
-    );
+    ::log::debug!("../src/floating.c:floating_drag_window:595 - floating_drag_window\n");
     tree_render();
     let initial_rect: Rect = (*con).rect;
     let drag_result: DragResult = drag_pointer(
@@ -791,14 +724,7 @@ pub unsafe fn floating_drag_window(
         ::core::ptr::null::<::core::ffi::c_void>(),
     );
     if !con_exists(con) {
-        debuglog(
-            c"%s:%s:%d - The container has been closed in the meantime.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/floating.c".as_ptr(),
-            c"floating_drag_window".as_ptr(),
-            608,
-        );
+        ::log::debug!("../src/floating.c:floating_drag_window:608 - The container has been closed in the meantime.\n");
         return;
     }
     if drag_result == DragResult::Revert {
@@ -859,12 +785,7 @@ pub unsafe fn floating_resize_window(
     proportional: bool,
     event: &x::ButtonPressEvent,
 ) {
-    debuglog(
-        c"%s:%s:%d - floating_resize_window\n".as_ptr().cast_mut(),
-        c"../src/floating.c".as_ptr(),
-        c"floating_resize_window".as_ptr(),
-        699,
-    );
+    ::log::debug!("../src/floating.c:floating_resize_window:699 - floating_resize_window\n");
     tree_render();
     let (corner, cursor) = resize_corner((*con).rect, event.event_x(), event.event_y());
     let mut params: ResizeParameters = ResizeParameters {
@@ -892,14 +813,7 @@ pub unsafe fn floating_resize_window(
         &raw mut params as *const ::core::ffi::c_void,
     );
     if !con_exists(con) {
-        debuglog(
-            c"%s:%s:%d - The container has been closed in the meantime.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/floating.c".as_ptr(),
-            c"floating_resize_window".as_ptr(),
-            732,
-        );
+        ::log::debug!("../src/floating.c:floating_resize_window:732 - The container has been closed in the meantime.\n");
         return;
     }
     if drag_result == DragResult::Revert {
@@ -912,11 +826,7 @@ pub unsafe fn floating_resize_window(
 
 pub unsafe fn floating_reposition(con: *mut Con, newrect: Rect) -> bool {
     if output_containing_rect(newrect).is_null() {
-        errorlog(
-            c"ERROR: No output found at destination coordinates. Not repositioning.\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::error!("ERROR: No output found at destination coordinates. Not repositioning.\n");
         return false;
     }
     (*con).rect = newrect;
@@ -929,26 +839,16 @@ pub unsafe fn floating_reposition(con: *mut Con, newrect: Rect) -> bool {
 }
 
 pub unsafe fn floating_resize(floating_con: *mut Con, x: u32, y: u32) {
-    debuglog(
-        c"%s:%s:%d - floating resize to %dx%d px\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/floating.c".as_ptr(),
-        c"floating_resize".as_ptr(),
-        783,
-        x,
-        y,
+    ::log::debug!(
+        "../src/floating.c:floating_resize:783 - floating resize to {}x{} px\n",
+        (x) as i32,
+        (y) as i32
     );
     let rect: *mut Rect = &raw mut (*floating_con).rect;
     let focused_con: *mut Con = con_descend_focused(floating_con);
     if (*focused_con).window.is_null() {
-        debuglog(
-            c"%s:%s:%d - No window is focused. Not resizing.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/floating.c".as_ptr(),
-            c"floating_resize".as_ptr(),
-            787,
+        ::log::debug!(
+            "../src/floating.c:floating_resize:787 - No window is focused. Not resizing.\n"
         );
         return;
     }
@@ -1000,8 +900,6 @@ use crate::util::min;
 pub use libc::free;
 
 use i3_common::native_stdio::__assert_fail;
-
-use crate::log::{debuglog, errorlog, verboselog};
 
 // Shared model types retain field layout while using one Rust identity.
 pub use crate::types::xoutput;
