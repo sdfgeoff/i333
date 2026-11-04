@@ -73,9 +73,9 @@ unsafe fn start_application(command: &[u8]) {
     // Allocate the actual native exec argument before either fork.
     let command =
         CString::new(command.split(|&byte| byte == 0).next().unwrap()).expect("command prefix");
-    if fork() == 0 as ::core::ffi::c_int {
+    if fork() == 0_i32 {
         setsid();
-        if fork() == 0 as ::core::ffi::c_int {
+        if fork() == 0_i32 {
             execl(
                 c"/bin/sh".as_ptr(),
                 c"/bin/sh".as_ptr(),
@@ -87,7 +87,7 @@ unsafe fn start_application(command: &[u8]) {
         }
         exit(0 as ::core::ffi::c_int);
     }
-    wait(::core::ptr::null_mut::<::core::ffi::c_int>());
+    wait(::core::ptr::null_mut::<i32>());
 }
 fn command_script(path: &std::path::Path, action: Option<&[u8]>) -> Vec<u8> {
     let mut bytes = b"#!/bin/sh\nrm ".to_vec();
@@ -549,7 +549,7 @@ unsafe fn atom_reply(
 /// # Safety
 /// The common display provider and font globals must have no concurrent users;
 /// this call installs and later clears their borrowed session pointers.
-unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
+unsafe fn run_window(settings: NagbarSettings) -> i32 {
     let pattern = settings.font.clone();
     let position_on_primary = settings.primary;
     let bar_type = if settings.warning {
@@ -718,8 +718,8 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
         rendering.clone(),
         state.window,
         visual,
-        win_pos.width as ::core::ffi::c_int,
-        win_pos.height as ::core::ffi::c_int,
+        win_pos.width as i32,
+        win_pos.height as i32,
     );
     state.has_surface = true;
     if !sncontext.is_null() {
@@ -771,7 +771,7 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
         }
     }
 
-    0 as ::core::ffi::c_int
+    0_i32
 }
 
 pub fn main() {

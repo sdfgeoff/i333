@@ -100,7 +100,7 @@ pub struct config_t {
     pub colors: ColorStrings,
     pub disable_binding_mode_indicator: bool,
     pub disable_ws: bool,
-    pub ws_min_width: ::core::ffi::c_int,
+    pub ws_min_width: i32,
     pub strip_ws_numbers: bool,
     pub strip_ws_name: bool,
     pub bar_id: Option<Vec<u8>>,
@@ -109,7 +109,7 @@ pub struct config_t {
     pub fontname: Option<Vec<u8>>,
     pub separator_symbol: Option<I3String>,
     pub tray_outputs: tray_outputs_head,
-    pub tray_padding: ::core::ffi::c_int,
+    pub tray_padding: i32,
     pub outputs: Vec<Vec<u8>>,
     pub hide_on_modifier: crate::application::BarDisplayMode,
     pub hidden_state: crate::application::HiddenState,
@@ -128,7 +128,7 @@ pub struct bindings_head {
     pub tqh_last: *mut *mut binding_t,
 }
 
-pub const I3_IPC_MESSAGE_TYPE_GET_BAR_CONFIG: ::core::ffi::c_int = 6 as ::core::ffi::c_int;
+pub const I3_IPC_MESSAGE_TYPE_GET_BAR_CONFIG: i32 = 6_i32;
 
 pub static mut main_loop: *mut ev_loop = std::ptr::null_mut::<ev_loop>();
 
@@ -256,7 +256,7 @@ const BAR_OPTIONS: &[i3_common::cli::OptionSpec] = &[
     i3_common::cli::OptionSpec::flag(b'v', "version"),
     i3_common::cli::OptionSpec::flag(b'V', "verbose"),
 ];
-unsafe fn run(arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
+unsafe fn run(arguments: Vec<std::ffi::OsString>) -> i32 {
     use i3_common::cli::{Item, Parser};
     use std::os::unix::ffi::OsStrExt;
     let mut arguments = arguments.into_iter();
@@ -350,7 +350,7 @@ unsafe fn run(arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     drop(signals);
     ev_default_destroy();
     main_loop = std::ptr::null_mut();
-    0 as ::core::ffi::c_int
+    0_i32
 }
 
 pub fn main() {

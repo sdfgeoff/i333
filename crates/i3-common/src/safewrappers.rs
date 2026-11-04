@@ -147,7 +147,7 @@ fn write_buffer(
 /// # Safety
 /// Each non-null argument must remain a readable NUL-terminated string for the
 /// comparison. Identical pointers (including two null pointers) compare equal.
-pub unsafe fn strcasecmp_nullable(a: *const c_char, b: *const c_char) -> c_int {
+pub unsafe fn strcasecmp_nullable(a: *const c_char, b: *const c_char) -> i32 {
     if a == b {
         return 0;
     }

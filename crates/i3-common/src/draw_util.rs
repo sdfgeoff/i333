@@ -21,10 +21,10 @@ use xcb::{x, Xid, XidNew};
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct color_t {
-    pub red: ::core::ffi::c_double,
-    pub green: ::core::ffi::c_double,
-    pub blue: ::core::ffi::c_double,
-    pub alpha: ::core::ffi::c_double,
+    pub red: f64,
+    pub green: f64,
+    pub blue: f64,
+    pub alpha: f64,
     pub colorpixel: u32,
 }
 /// One owned native Cairo surface reference, including Cairo error surfaces.

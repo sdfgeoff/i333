@@ -78,12 +78,12 @@ impl WorkspaceButton {
 
 pub const NUM_ATOMS: usize = AtomIndex::COUNT;
 
-pub const _NET_SYSTEM_TRAY_ORIENTATION_HORZ: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-pub const SYSTEM_TRAY_REQUEST_DOCK: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-pub const XEMBED_MAPPED: ::core::ffi::c_int = (1 as ::core::ffi::c_int) << 0 as ::core::ffi::c_int;
-pub const XEMBED_EMBEDDED_NOTIFY: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-pub const I3_IPC_MESSAGE_TYPE_RUN_COMMAND: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-pub const I3_IPC_MESSAGE_TYPE_SYNC: ::core::ffi::c_int = 11 as ::core::ffi::c_int;
+pub const _NET_SYSTEM_TRAY_ORIENTATION_HORZ: i32 = 0_i32;
+pub const SYSTEM_TRAY_REQUEST_DOCK: i32 = 0_i32;
+pub const XEMBED_MAPPED: i32 = 1_i32 << 0_i32;
+pub const XEMBED_EMBEDDED_NOTIFY: i32 = 0_i32;
+pub const I3_IPC_MESSAGE_TYPE_RUN_COMMAND: i32 = 0_i32;
+pub const I3_IPC_MESSAGE_TYPE_SYNC: i32 = 11_i32;
 
 pub static mut atoms: [u32; 12] = [0; 12];
 
@@ -97,7 +97,7 @@ thread_local! {
 
 pub static mut xcb_connection: *mut xcb_connection_t = std::ptr::null_mut::<xcb_connection_t>();
 
-pub static mut screen: ::core::ffi::c_int = 0;
+pub static mut screen: i32 = 0;
 
 // The registered connection guard retains every cached Cairo visual through
 // graphics cleanup. Context snapshots copy only semantic screen scalars and the
@@ -140,15 +140,15 @@ static mut tray_atom: Option<x::Atom> = None;
 pub static mut conn: *mut xcb_connection_t = std::ptr::null_mut::<xcb_connection_t>();
 pub(crate) static mut font: Font = Font::empty();
 
-pub static mut icon_size: ::core::ffi::c_int = 0;
+pub static mut icon_size: i32 = 0;
 
 pub static mut depth: u8 = 0;
 
 pub static mut colormap: u32 = 0;
 
-pub static mut bar_height: ::core::ffi::c_int = 0;
+pub static mut bar_height: i32 = 0;
 
-pub static mut xkb_base: ::core::ffi::c_int = 0;
+pub static mut xkb_base: i32 = 0;
 
 pub static mut mod_pressed: bool = false;
 
@@ -314,14 +314,14 @@ pub static mut colors: xcb_colors_t = xcb_colors_t {
         colorpixel: 0,
     },
 };
-static mut ws_hoff_px: ::core::ffi::c_int = 4 as ::core::ffi::c_int;
-static mut ws_voff_px: ::core::ffi::c_int = 3 as ::core::ffi::c_int;
-static mut ws_spacing_px: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-static mut sb_hoff_px: ::core::ffi::c_int = 4 as ::core::ffi::c_int;
-static mut tray_loff_px: ::core::ffi::c_int = 2 as ::core::ffi::c_int;
-static mut sep_voff_px: ::core::ffi::c_int = 4 as ::core::ffi::c_int;
+static mut ws_hoff_px: i32 = 4_i32;
+static mut ws_voff_px: i32 = 3_i32;
+static mut ws_spacing_px: i32 = 1_i32;
+static mut sb_hoff_px: i32 = 4_i32;
+static mut tray_loff_px: i32 = 2_i32;
+static mut sep_voff_px: i32 = 4_i32;
 
-pub static mut separator_symbol_width: ::core::ffi::c_int = 0;
+pub static mut separator_symbol_width: i32 = 0;
 
 // Native entry points require exclusive event-thread access to live display,
 // output/tray/status graphs. Owned scratch values never extend graph borrows
@@ -576,19 +576,18 @@ unsafe fn draw_separator(
         draw_util_rectangle(
             &raw mut (*output).statusline_buffer,
             sep_fg,
-            center_x as ::core::ffi::c_double,
-            logical_px(sep_voff_px) as ::core::ffi::c_double,
-            logical_px(1 as ::core::ffi::c_int) as ::core::ffi::c_double,
-            (bar_height - 2 as ::core::ffi::c_int * logical_px(sep_voff_px))
-                as ::core::ffi::c_double,
+            center_x as f64,
+            logical_px(sep_voff_px) as f64,
+            logical_px(1_i32) as f64,
+            (bar_height - 2_i32 * logical_px(sep_voff_px)) as f64,
         );
     } else {
         let separator_x: u32 = if x.wrapping_sub((*block).sep_block_width)
-            > center_x.wrapping_sub((separator_symbol_width / 2 as ::core::ffi::c_int) as u32)
+            > center_x.wrapping_sub((separator_symbol_width / 2_i32) as u32)
         {
             x.wrapping_sub((*block).sep_block_width)
         } else {
-            center_x.wrapping_sub((separator_symbol_width / 2 as ::core::ffi::c_int) as u32)
+            center_x.wrapping_sub((separator_symbol_width / 2_i32) as u32)
         };
         draw_util_text(
             &crate::xcb::font,
@@ -596,9 +595,9 @@ unsafe fn draw_separator(
             &raw mut (*output).statusline_buffer,
             sep_fg,
             bar_bg,
-            separator_x as ::core::ffi::c_int,
-            bar_height / 2 as ::core::ffi::c_int - font.height / 2 as ::core::ffi::c_int,
-            x.wrapping_sub(separator_x) as ::core::ffi::c_int,
+            separator_x as i32,
+            bar_height / 2_i32 - font.height / 2_i32,
+            x.wrapping_sub(separator_x) as i32,
         );
     };
 }
@@ -616,7 +615,7 @@ unsafe fn predict_block_length(block: *mut status_block) {
     (*render).width = predict_text_width(&crate::xcb::font, text) as u32;
     if (*block).border.is_some() {
         (*render).width = (*render).width.wrapping_add(logical_px(
-            (*block).border_left.wrapping_add((*block).border_right) as ::core::ffi::c_int,
+            (*block).border_left.wrapping_add((*block).border_right) as i32,
         ) as u32);
     }
     *render = render_dimensions((*render).width, (*block).min_width, (*block).align, *render);
@@ -710,15 +709,14 @@ unsafe fn draw_statusline(output: *mut i3_output, clip_left: u32, use_focus_colo
                 fg_color = colors.bar_fg;
             }
             let mut bg_color: color_t = bar_color;
-            let full_render_width: ::core::ffi::c_int = (*render)
+            let full_render_width: i32 = (*render)
                 .width
                 .wrapping_add((*render).x_offset)
-                .wrapping_add((*render).x_append)
-                as ::core::ffi::c_int;
-            let has_border: ::core::ffi::c_int = if (*block).border.is_some() {
-                1 as ::core::ffi::c_int
+                .wrapping_add((*render).x_append) as i32;
+            let has_border: i32 = if (*block).border.is_some() {
+                1_i32
             } else {
-                0 as ::core::ffi::c_int
+                0_i32
             };
             if (*block).border.is_some() || (*block).background.is_some() || (*block).urgent {
                 let mut border_color: color_t = bar_color;
@@ -736,32 +734,29 @@ unsafe fn draw_statusline(output: *mut i3_output, clip_left: u32, use_focus_colo
                 draw_util_rectangle(
                     &raw mut (*output).statusline_buffer,
                     border_color,
-                    x as ::core::ffi::c_double,
-                    logical_px(1 as ::core::ffi::c_int) as ::core::ffi::c_double,
-                    full_render_width as ::core::ffi::c_double,
-                    (bar_height - logical_px(2 as ::core::ffi::c_int)) as ::core::ffi::c_double,
+                    x as f64,
+                    logical_px(1_i32) as f64,
+                    full_render_width as f64,
+                    (bar_height - logical_px(2_i32)) as f64,
                 );
                 draw_util_rectangle(
                     &raw mut (*output).statusline_buffer,
                     bg_color,
-                    x.wrapping_add(
-                        (has_border * logical_px((*block).border_left as ::core::ffi::c_int))
-                            as u32,
-                    ) as ::core::ffi::c_double,
-                    (logical_px(1 as ::core::ffi::c_int)
-                        + has_border * logical_px((*block).border_top as ::core::ffi::c_int))
-                        as ::core::ffi::c_double,
+                    x.wrapping_add((has_border * logical_px((*block).border_left as i32)) as u32)
+                        as f64,
+                    (logical_px(1_i32) + has_border * logical_px((*block).border_top as i32))
+                        as f64,
                     (full_render_width
                         - has_border
-                            * logical_px((*block).border_right.wrapping_add((*block).border_left)
-                                as ::core::ffi::c_int))
-                        as ::core::ffi::c_double,
+                            * logical_px(
+                                (*block).border_right.wrapping_add((*block).border_left) as i32
+                            )) as f64,
                     (bar_height
                         - has_border
-                            * logical_px((*block).border_bottom.wrapping_add((*block).border_top)
-                                as ::core::ffi::c_int)
-                        - logical_px(2 as ::core::ffi::c_int))
-                        as ::core::ffi::c_double,
+                            * logical_px(
+                                (*block).border_bottom.wrapping_add((*block).border_top) as i32
+                            )
+                        - logical_px(2_i32)) as f64,
                 );
             }
             draw_util_text(
@@ -770,15 +765,16 @@ unsafe fn draw_statusline(output: *mut i3_output, clip_left: u32, use_focus_colo
                 &raw mut (*output).statusline_buffer,
                 fg_color,
                 bg_color,
-                x.wrapping_add((*render).x_offset).wrapping_add(
-                    (has_border * logical_px((*block).border_left as ::core::ffi::c_int)) as u32,
-                ) as ::core::ffi::c_int,
-                bar_height / 2 as ::core::ffi::c_int - font.height / 2 as ::core::ffi::c_int,
+                x.wrapping_add((*render).x_offset)
+                    .wrapping_add((has_border * logical_px((*block).border_left as i32)) as u32)
+                    as i32,
+                bar_height / 2_i32 - font.height / 2_i32,
                 (*render).width.wrapping_sub(
                     (has_border
-                        * logical_px((*block).border_left.wrapping_add((*block).border_right)
-                            as ::core::ffi::c_int)) as u32,
-                ) as ::core::ffi::c_int,
+                        * logical_px(
+                            (*block).border_left.wrapping_add((*block).border_right) as i32
+                        )) as u32,
+                ) as i32,
             );
             x = x.wrapping_add(full_render_width as u32);
             if !(*block).blocks.tqe_next.is_null() {
@@ -820,7 +816,7 @@ unsafe fn unhide_bars() {
     cont_children();
     walk = (*outputs).slh_first;
     while !walk.is_null() {
-        if !((*walk).bar.id as ::core::ffi::c_long == 0) {
+        if !((*walk).bar.id as i64 == 0) {
             values[0_usize] = (*walk).rect.x as u32;
             if config.position == crate::application::BarPosition::Top {
                 values[1_usize] = (*walk).rect.y as u32;
@@ -858,12 +854,7 @@ unsafe fn unhide_bars() {
                     x::ConfigWindow::StackMode(x::StackMode::Above),
                 ],
             });
-            if request_failed(
-                cookie,
-                c"Could not reconfigure window",
-                441 as ::core::ffi::c_int,
-            ) != 0
-            {
+            if request_failed(cookie, c"Could not reconfigure window", 441_i32) != 0 {
                 exit(libc::EXIT_FAILURE);
             }
             send_unchecked(&x::MapWindow {
@@ -978,8 +969,8 @@ unsafe fn execute_custom_command(input_code: u8, event_is_release: bool) -> bool
     let mut binding_0: *mut binding_t = config.bindings.tqh_first;
 
     while !binding_0.is_null() {
-        if (*binding_0).input_code != input_code as ::core::ffi::c_int
-            || (*binding_0).release as ::core::ffi::c_int != event_is_release as ::core::ffi::c_int
+        if (*binding_0).input_code != input_code as i32
+            || (*binding_0).release as i32 != event_is_release as i32
         {
             binding_0 = (*binding_0).bindings.tqe_next;
         } else {
@@ -1057,18 +1048,18 @@ unsafe fn child_handle_button(
                 let output_x: u32 = event.x as u32;
                 let output_y: u32 = statusline_y.wrapping_add(event.y as u32);
                 send_block_clicked(
-                    event.button as ::core::ffi::c_int,
+                    event.button as i32,
                     (*block).name.clone(),
                     (*block).instance.clone(),
-                    event.root_x as ::core::ffi::c_int,
-                    event.root_y as ::core::ffi::c_int,
-                    relative_x as ::core::ffi::c_int,
-                    event.y as ::core::ffi::c_int,
-                    output_x as ::core::ffi::c_int,
-                    output_y as ::core::ffi::c_int,
-                    full_render_width as ::core::ffi::c_int,
+                    event.root_x as i32,
+                    event.root_y as i32,
+                    relative_x as i32,
+                    event.y as i32,
+                    output_x as i32,
+                    output_y as i32,
+                    full_render_width as i32,
                     bar_height,
-                    event.state as ::core::ffi::c_int,
+                    event.state as i32,
                 );
                 return;
             }
@@ -1081,15 +1072,11 @@ unsafe fn child_handle_button(
         block = (*block).blocks.tqe_next;
     }
 }
-unsafe fn predict_button_width(name_width: ::core::ffi::c_int) -> ::core::ffi::c_int {
-    if name_width
-        + 2 as ::core::ffi::c_int * logical_px(ws_hoff_px)
-        + 2 as ::core::ffi::c_int * logical_px(1 as ::core::ffi::c_int)
+unsafe fn predict_button_width(name_width: i32) -> i32 {
+    if name_width + 2_i32 * logical_px(ws_hoff_px) + 2_i32 * logical_px(1_i32)
         > logical_px(config.ws_min_width)
     {
-        name_width
-            + 2 as ::core::ffi::c_int * logical_px(ws_hoff_px)
-            + 2 as ::core::ffi::c_int * logical_px(1 as ::core::ffi::c_int)
+        name_width + 2_i32 * logical_px(ws_hoff_px) + 2_i32 * logical_px(1_i32)
     } else {
         logical_px(config.ws_min_width)
     }
@@ -1135,22 +1122,21 @@ unsafe fn handle_button(event: &ButtonInput) {
         );
     }
     let event_is_release = event.release;
-    let x: ::core::ffi::c_int = (if event.x as ::core::ffi::c_int >= 0 as ::core::ffi::c_int {
-        event.x as ::core::ffi::c_int
+    let x: i32 = (if event.x as i32 >= 0_i32 {
+        event.x as i32
     } else {
-        0 as ::core::ffi::c_int
-    }) - logical_px(config.padding.x as ::core::ffi::c_int)
-        as ::core::ffi::c_int;
-    if x < 0 as ::core::ffi::c_int {
+        0_i32
+    }) - logical_px(config.padding.x as i32) as i32;
+    if x < 0_i32 {
         return;
     }
-    let mut workspace_width: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
+    let mut workspace_width: i32 = 0_i32;
     let mut cur_ws: *mut i3_ws = ::core::ptr::null_mut::<i3_ws>();
     let mut clicked_ws: *mut i3_ws = ::core::ptr::null_mut::<i3_ws>();
     let mut ws_walk: *mut i3_ws = (*(*walk).workspaces).tqh_first;
 
     while !ws_walk.is_null() {
-        let w: ::core::ffi::c_int = predict_button_width((*ws_walk).name_width);
+        let w: i32 = predict_button_width((*ws_walk).name_width);
         if x >= workspace_width && x <= workspace_width + w {
             clicked_ws = ws_walk;
         }
@@ -1164,19 +1150,16 @@ unsafe fn handle_button(event: &ButtonInput) {
         ws_walk = (*ws_walk).tailq.tqe_next;
     }
     if child_want_click_events() && x > workspace_width {
-        let tray_width: ::core::ffi::c_int =
-            get_tray_width((*walk).trayclients) as ::core::ffi::c_int;
-        let offset_x: ::core::ffi::c_int = (*walk).rect.w
+        let tray_width: i32 = get_tray_width((*walk).trayclients) as i32;
+        let offset_x: i32 = (*walk).rect.w
             - (*walk).statusline_width
             - tray_width
-            - logical_px((tray_width > 0 as ::core::ffi::c_int) as ::core::ffi::c_int * sb_hoff_px)
-                as ::core::ffi::c_int;
+            - logical_px((tray_width > 0_i32) as i32 * sb_hoff_px) as i32;
         if x >= offset_x {
             if !event_is_release {
                 let statusline_x: u32 = (x - offset_x) as u32;
-                let statusline_y: u32 = (event.root_y as ::core::ffi::c_int
-                    - (*walk).rect.y
-                    - event.y as ::core::ffi::c_int) as u32;
+                let statusline_y: u32 =
+                    (event.root_y as i32 - (*walk).rect.y - event.y as i32) as u32;
                 child_handle_button(event, walk, statusline_x, statusline_y);
             }
             return;
@@ -1229,7 +1212,7 @@ unsafe fn handle_button(event: &ButtonInput) {
 }
 unsafe fn handle_visibility_notify(event: &x::VisibilityNotifyEvent) {
     let visible: bool = events::visibility_state(event) != x::Visibility::FullyObscured as u8;
-    let mut num_visible: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
+    let mut num_visible: i32 = 0_i32;
     let mut output: *mut i3_output = (*outputs).slh_first;
 
     while !output.is_null() {
@@ -1237,11 +1220,11 @@ unsafe fn handle_visibility_notify(event: &x::VisibilityNotifyEvent) {
             if (*output).bar.id == event.window().resource_id() {
                 (*output).visible = visible;
             }
-            num_visible += (*output).visible as ::core::ffi::c_int;
+            num_visible += (*output).visible as i32;
         }
         output = (*output).slist.sle_next;
     }
-    if num_visible == 0 as ::core::ffi::c_int {
+    if num_visible == 0_i32 {
         stop_children();
     } else {
         cont_children();
@@ -1253,8 +1236,8 @@ unsafe extern "C" fn reorder_trayclients_cmp(
 ) -> ::core::ffi::c_int {
     let a: *mut trayclient = *(_a as *mut *mut trayclient);
     let b: *mut trayclient = *(_b as *mut *mut trayclient);
-    let result: ::core::ffi::c_int = strcasecmp_nullable((*a).class_class, (*b).class_class);
-    if result != 0 as ::core::ffi::c_int {
+    let result: i32 = strcasecmp_nullable((*a).class_class, (*b).class_class);
+    if result != 0_i32 {
         result
     } else {
         strcasecmp_nullable((*a).class_instance, (*b).class_instance)
@@ -1265,7 +1248,7 @@ unsafe fn configure_trayclients() {
 
     while !output.is_null() {
         if (*output).active {
-            let mut count: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
+            let mut count: i32 = 0_i32;
             let mut client: *mut trayclient = (*(*output).trayclients).tqh_first;
 
             while !client.is_null() {
@@ -1292,7 +1275,7 @@ unsafe fn configure_trayclients() {
             );
             let mut x: u32 = (*output).rect.w as u32;
             let mut idx = count;
-            while idx > 0 as ::core::ffi::c_int {
+            while idx > 0_i32 {
                 x = x.wrapping_sub((icon_size + logical_px(config.tray_padding)) as u32);
                 if config.verbose {
                     printf(
@@ -1388,15 +1371,14 @@ unsafe fn trayclient_update_class(client: *mut trayclient) {
 }
 unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
     let words = events::client_message_words(event);
-    if event.r#type().resource_id() == atoms[AtomIndex::I3Sync as ::core::ffi::c_int as usize] {
+    if event.r#type().resource_id() == atoms[AtomIndex::I3Sync as i32 as usize] {
         let window: u32 = words[0_usize];
         let rnd: u32 = words[1_usize];
         let payload =
             format!("{{\"rnd\":{}, \"window\":{}}}", rnd as i32, window as i32).into_bytes();
         i3_send_msg(I3_IPC_MESSAGE_TYPE_SYNC as u32, Some(&payload));
-    } else if event.r#type().resource_id()
-        == atoms[AtomIndex::NetSystemTrayOpcode as ::core::ffi::c_int as usize]
-        && event.format() as ::core::ffi::c_int == 32 as ::core::ffi::c_int
+    } else if event.r#type().resource_id() == atoms[AtomIndex::NetSystemTrayOpcode as i32 as usize]
+        && event.format() as i32 == 32_i32
     {
         if config.verbose {
             printf(
@@ -1417,7 +1399,7 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
                 )],
             });
             let mut map_it: bool = true;
-            let mut xe_version: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
+            let mut xe_version: i32 = 1_i32;
             let Some(connection) = i3_common::display::connection() else {
                 return;
             };
@@ -1471,9 +1453,9 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
                     );
                 }
                 map_it = xembed[1] & XEMBED_MAPPED as u32 == XEMBED_MAPPED as u32;
-                xe_version = xembed[0] as ::core::ffi::c_int;
-                if xe_version > 1 as ::core::ffi::c_int {
-                    xe_version = 1 as ::core::ffi::c_int;
+                xe_version = xembed[0] as i32;
+                if xe_version > 1_i32 {
+                    xe_version = 1_i32;
                 }
             } else {
                 fprintf(
@@ -1510,7 +1492,7 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
             if request_failed(
                 rcookie,
                 c"Could not reparent window. Maybe it is using an incorrect depth/visual?",
-                981 as ::core::ffi::c_int,
+                981_i32,
             ) != 0
             {
                 return;
@@ -1689,7 +1671,7 @@ unsafe fn handle_property_notify(event: &x::PropertyNotifyEvent) {
             1122 as ::core::ffi::c_int,
         );
     }
-    if event.atom().resource_id() == atoms[AtomIndex::XembedInfo as ::core::ffi::c_int as usize]
+    if event.atom().resource_id() == atoms[AtomIndex::XembedInfo as i32 as usize]
         && events::property_notify_state(event) == x::Property::NewValue as u8
     {
         if config.verbose {
@@ -1778,9 +1760,7 @@ unsafe fn handle_property_notify(event: &x::PropertyNotifyEvent) {
                 window: x::Window::new((*client).win),
             });
         }
-    } else if event.atom().resource_id()
-        == x::ATOM_WM_CLASS.resource_id() as ::core::ffi::c_int as u32
-    {
+    } else if event.atom().resource_id() == x::ATOM_WM_CLASS.resource_id() as i32 as u32 {
         let client_0: *mut trayclient = trayclient_from_window(event.window().resource_id());
         if !client_0.is_null() {
             trayclient_update_class(client_0);
@@ -1793,7 +1773,7 @@ unsafe fn handle_configuration_change(window: u32) {
 
     while !output.is_null() {
         if (*output).active {
-            let mut clients: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
+            let mut clients: i32 = 0_i32;
             trayclient = *(*((*(*output).trayclients).tqh_last as *mut tc_head)).tqh_last;
             while !trayclient.is_null() {
                 if (*trayclient).mapped {
@@ -2158,17 +2138,16 @@ pub unsafe fn init_xcb_late(fontname: Option<Vec<u8>>) {
             font.height,
         );
     }
-    let default_px: ::core::ffi::c_int =
-        font.height + 2 as ::core::ffi::c_int * logical_px(ws_voff_px) as ::core::ffi::c_int;
-    let mut padding_scaled: ::core::ffi::c_int = logical_px(config.padding.y as ::core::ffi::c_int)
-        + logical_px(config.padding.height as ::core::ffi::c_int);
+    let default_px: i32 = font.height + 2_i32 * logical_px(ws_voff_px) as i32;
+    let mut padding_scaled: i32 =
+        logical_px(config.padding.y as i32) + logical_px(config.padding.height as i32);
     if config.bar_height > 0_u32
         && config.padding.x == 0_u32
         && config.padding.y == 0_u32
         && config.padding.width == 0_u32
         && config.padding.height == 0_u32
     {
-        padding_scaled = config.bar_height.wrapping_sub(default_px as u32) as ::core::ffi::c_int;
+        padding_scaled = config.bar_height.wrapping_sub(default_px as u32) as i32;
         if config.verbose {
             printf(
                 c"[%s:%d] setting padding_scaled=%d based on bar_height=%d\n".as_ptr(),
@@ -2189,7 +2168,7 @@ pub unsafe fn init_xcb_late(fontname: Option<Vec<u8>>) {
         );
     }
     bar_height = default_px + padding_scaled;
-    icon_size = bar_height - 2 as ::core::ffi::c_int * logical_px(config.tray_padding);
+    icon_size = bar_height - 2_i32 * logical_px(config.tray_padding);
     if let Some(separator) = (&*(&raw const config.separator_symbol)).as_ref() {
         separator_symbol_width = predict_text_width(&crate::xcb::font, separator);
     }
@@ -2236,8 +2215,8 @@ unsafe fn init_tray() {
         depth,
         wid: x::Window::new(selwin),
         parent: x::Window::new(xcb_root),
-        x: -(1 as ::core::ffi::c_int) as i16,
-        y: -(1 as ::core::ffi::c_int) as i16,
+        x: -1_i32 as i16,
+        y: -1_i32 as i16,
         width: 1_u16,
         height: 1_u16,
         border_width: 0_u16,
@@ -2364,12 +2343,9 @@ pub unsafe fn init_tray_colors() {
         ::core::ptr::null_mut::<*mut ::core::ffi::c_char>(),
         16 as ::core::ffi::c_int,
     ) as u8;
-    let r16: u16 = ((r as u16 as ::core::ffi::c_int) << 8 as ::core::ffi::c_int
-        | r as ::core::ffi::c_int) as u16;
-    let g16: u16 = ((g as u16 as ::core::ffi::c_int) << 8 as ::core::ffi::c_int
-        | g as ::core::ffi::c_int) as u16;
-    let b16: u16 = ((b as u16 as ::core::ffi::c_int) << 8 as ::core::ffi::c_int
-        | b as ::core::ffi::c_int) as u16;
+    let r16: u16 = ((r as u16 as i32) << 8_i32 | r as i32) as u16;
+    let g16: u16 = ((g as u16 as i32) << 8_i32 | g as i32) as u16;
+    let b16: u16 = ((b as u16 as i32) << 8_i32 | b as i32) as u16;
     let tray_colors: [u32; 12] = [
         r16 as u32, g16 as u32, b16 as u32, r16 as u32, g16 as u32, b16 as u32, r16 as u32,
         g16 as u32, b16 as u32, r16 as u32, g16 as u32, b16 as u32,
@@ -2475,7 +2451,7 @@ pub unsafe fn kick_tray_clients(output: *mut i3_output) {
 }
 
 pub unsafe fn destroy_window(output: *mut i3_output) {
-    if output.is_null() || (*output).bar.id as ::core::ffi::c_long == 0 {
+    if output.is_null() || (*output).bar.id as i64 == 0 {
         return;
     }
     kick_tray_clients(output);
@@ -2568,7 +2544,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 );
             }
             destroy_window(walk);
-        } else if (*walk).bar.id as ::core::ffi::c_long == 0 {
+        } else if (*walk).bar.id as i64 == 0 {
             if config.verbose {
                 let mut record = b"[../i3bar/src/xcb.c:1862] Creating window for output ".to_vec();
                 record.extend_from_slice(&(*walk).name);
@@ -2588,18 +2564,16 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
             values[1_usize] = common_display_context().screen.unwrap().black_pixel;
             values[2_usize] =
                 (if config.hide_on_modifier == crate::application::BarDisplayMode::Dock {
-                    0 as ::core::ffi::c_int
+                    0_i32
                 } else {
-                    1 as ::core::ffi::c_int
+                    1_i32
                 }) as u32;
-            values[3_usize] = (x::EventMask::EXPOSURE.bits() as ::core::ffi::c_int
-                | x::EventMask::SUBSTRUCTURE_REDIRECT.bits() as ::core::ffi::c_int
-                | x::EventMask::BUTTON_PRESS.bits() as ::core::ffi::c_int
-                | x::EventMask::BUTTON_RELEASE.bits() as ::core::ffi::c_int)
-                as u32;
+            values[3_usize] = (x::EventMask::EXPOSURE.bits() as i32
+                | x::EventMask::SUBSTRUCTURE_REDIRECT.bits() as i32
+                | x::EventMask::BUTTON_PRESS.bits() as i32
+                | x::EventMask::BUTTON_RELEASE.bits() as i32) as u32;
             if config.hide_on_modifier == crate::application::BarDisplayMode::Dock {
-                values[3_usize] |=
-                    x::EventMask::VISIBILITY_CHANGE.bits() as ::core::ffi::c_int as u32;
+                values[3_usize] |= x::EventMask::VISIBILITY_CHANGE.bits() as i32 as u32;
                 (*walk).visible = true;
             }
             values[4_usize] = colormap;
@@ -2643,7 +2617,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
             let class_cookie = connection.send_request(&x::ChangeProperty {
                 mode: x::PropMode::Replace,
                 window: x::Window::new(bar_id),
-                property: x::Atom::new(x::ATOM_WM_CLASS.resource_id() as ::core::ffi::c_int as u32),
+                property: x::Atom::new(x::ATOM_WM_CLASS.resource_id() as i32 as u32),
                 r#type: x::ATOM_STRING,
                 data: &class,
             });
@@ -2652,7 +2626,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
             let name_cookie = connection.send_request(&x::ChangeProperty {
                 mode: x::PropMode::Replace,
                 window: x::Window::new(bar_id),
-                property: x::Atom::new(x::ATOM_WM_NAME.resource_id() as ::core::ffi::c_int as u32),
+                property: x::Atom::new(x::ATOM_WM_NAME.resource_id() as i32 as u32),
                 r#type: x::ATOM_STRING,
                 data: &name,
             });
@@ -2660,9 +2634,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
             let dock_cookie = connection.send_request(&x::ChangeProperty {
                 mode: x::PropMode::Replace,
                 window: x::Window::new(bar_id),
-                property: x::Atom::new(
-                    atoms[AtomIndex::NetWmWindowType as ::core::ffi::c_int as usize],
-                ),
+                property: x::Atom::new(atoms[AtomIndex::NetWmWindowType as i32 as usize]),
                 r#type: x::ATOM_ATOM,
                 data: &[atoms[AtomIndex::NetWmWindowTypeDock as usize]],
             });
@@ -2706,47 +2678,15 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                     window: x::Window::new(bar_id),
                 }));
             }
-            if request_failed(
-                win_cookie,
-                c"Could not create window",
-                1970 as ::core::ffi::c_int,
-            ) != 0
-                || request_failed(
-                    pm_cookie,
-                    c"Could not create pixmap",
-                    1971 as ::core::ffi::c_int,
-                ) != 0
-                || request_failed(
-                    slpm_cookie,
-                    c"Could not create statusline pixmap",
-                    1972 as ::core::ffi::c_int,
-                ) != 0
-                || request_failed(
-                    dock_cookie,
-                    c"Could not set dock mode",
-                    1973 as ::core::ffi::c_int,
-                ) != 0
-                || request_failed(
-                    class_cookie,
-                    c"Could not set WM_CLASS",
-                    1974 as ::core::ffi::c_int,
-                ) != 0
-                || request_failed(
-                    name_cookie,
-                    c"Could not set WM_NAME",
-                    1975 as ::core::ffi::c_int,
-                ) != 0
-                || request_failed(
-                    strut_cookie,
-                    c"Could not set strut",
-                    1976 as ::core::ffi::c_int,
-                ) != 0
+            if request_failed(win_cookie, c"Could not create window", 1970_i32) != 0
+                || request_failed(pm_cookie, c"Could not create pixmap", 1971_i32) != 0
+                || request_failed(slpm_cookie, c"Could not create statusline pixmap", 1972_i32) != 0
+                || request_failed(dock_cookie, c"Could not set dock mode", 1973_i32) != 0
+                || request_failed(class_cookie, c"Could not set WM_CLASS", 1974_i32) != 0
+                || request_failed(name_cookie, c"Could not set WM_NAME", 1975_i32) != 0
+                || request_failed(strut_cookie, c"Could not set strut", 1976_i32) != 0
                 || config.hide_on_modifier == crate::application::BarDisplayMode::Dock
-                    && request_failed(
-                        map_cookie.unwrap(),
-                        c"Could not map window",
-                        1977 as ::core::ffi::c_int,
-                    ) != 0
+                    && request_failed(map_cookie.unwrap(), c"Could not map window", 1977_i32) != 0
             {
                 exit(libc::EXIT_FAILURE);
             }
@@ -2853,9 +2793,9 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
 
             values[0_usize] =
                 (if config.hide_on_modifier == crate::application::BarDisplayMode::Dock {
-                    0 as ::core::ffi::c_int
+                    0_i32
                 } else {
-                    1 as ::core::ffi::c_int
+                    1_i32
                 }) as u32;
             if config.verbose {
                 let mut record = b"[../i3bar/src/xcb.c:2015] Changing window attribute override_redirect for output ".to_vec();
@@ -2966,42 +2906,23 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                     deregister_xkb_keyevents();
                 }
             }
-            if request_failed(
-                cfg_cookie,
-                c"Could not reconfigure window",
-                2064 as ::core::ffi::c_int,
-            ) != 0
-                || request_failed(
-                    chg_cookie,
-                    c"Could not change window",
-                    2065 as ::core::ffi::c_int,
-                ) != 0
-                || request_failed(
-                    pm_cookie_0,
-                    c"Could not create pixmap",
-                    2066 as ::core::ffi::c_int,
-                ) != 0
+            if request_failed(cfg_cookie, c"Could not reconfigure window", 2064_i32) != 0
+                || request_failed(chg_cookie, c"Could not change window", 2065_i32) != 0
+                || request_failed(pm_cookie_0, c"Could not create pixmap", 2066_i32) != 0
                 || request_failed(
                     slpm_cookie_0,
                     c"Could not create statusline pixmap",
-                    2067 as ::core::ffi::c_int,
+                    2067_i32,
                 ) != 0
-                || request_failed(
-                    strut_cookie_0,
-                    c"Could not set strut",
-                    2068 as ::core::ffi::c_int,
-                ) != 0
+                || request_failed(strut_cookie_0, c"Could not set strut", 2068_i32) != 0
                 || redraw_bars_0
-                    && (request_failed(
-                        umap_cookie.unwrap(),
-                        c"Could not unmap window",
-                        2069 as ::core::ffi::c_int,
-                    ) != 0
+                    && (request_failed(umap_cookie.unwrap(), c"Could not unmap window", 2069_i32)
+                        != 0
                         || config.hide_on_modifier == crate::application::BarDisplayMode::Dock
                             && request_failed(
                                 map_cookie_0.unwrap(),
                                 c"Could not map window",
-                                2070 as ::core::ffi::c_int,
+                                2070_i32,
                             ) != 0)
             {
                 exit(libc::EXIT_FAILURE);
@@ -3023,10 +2944,10 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
     }
     output_for_tray = get_tray_output();
     if !output_for_tray.is_null() {
-        if selwin as ::core::ffi::c_long == 0 {
+        if selwin as i64 == 0 {
             init_tray();
         }
-    } else if selwin as ::core::ffi::c_long != 0 {
+    } else if selwin as i64 != 0 {
         if config.verbose {
             printf(
                 c"[%s:%d] Destroying tray selection window\n".as_ptr(),
@@ -3045,30 +2966,27 @@ unsafe fn draw_button(
     fg_color: color_t,
     bg_color: color_t,
     border_color: color_t,
-    x: ::core::ffi::c_int,
-    width: ::core::ffi::c_int,
-    text_width: ::core::ffi::c_int,
+    x: i32,
+    width: i32,
+    text_width: i32,
     text: &I3String,
 ) {
-    let height: ::core::ffi::c_int =
-        bar_height - 2 as ::core::ffi::c_int * logical_px(1 as ::core::ffi::c_int);
+    let height: i32 = bar_height - 2_i32 * logical_px(1_i32);
     draw_util_rectangle(
         surface,
         border_color,
-        x as ::core::ffi::c_double,
-        logical_px(1 as ::core::ffi::c_int) as ::core::ffi::c_double,
-        width as ::core::ffi::c_double,
-        height as ::core::ffi::c_double,
+        x as f64,
+        logical_px(1_i32) as f64,
+        width as f64,
+        height as f64,
     );
     draw_util_rectangle(
         surface,
         bg_color,
-        (x + logical_px(1 as ::core::ffi::c_int)) as ::core::ffi::c_double,
-        (2 as ::core::ffi::c_int * logical_px(1 as ::core::ffi::c_int)) as ::core::ffi::c_double,
-        (width - 2 as ::core::ffi::c_int * logical_px(1 as ::core::ffi::c_int))
-            as ::core::ffi::c_double,
-        (height - 2 as ::core::ffi::c_int * logical_px(1 as ::core::ffi::c_int))
-            as ::core::ffi::c_double,
+        (x + logical_px(1_i32)) as f64,
+        (2_i32 * logical_px(1_i32)) as f64,
+        (width - 2_i32 * logical_px(1_i32)) as f64,
+        (height - 2_i32 * logical_px(1_i32)) as f64,
     );
     draw_util_text(
         &crate::xcb::font,
@@ -3076,8 +2994,8 @@ unsafe fn draw_button(
         surface,
         fg_color,
         bg_color,
-        x + (width - text_width) / 2 as ::core::ffi::c_int,
-        bar_height / 2 as ::core::ffi::c_int - font.height / 2 as ::core::ffi::c_int,
+        x + (width - text_width) / 2_i32,
+        bar_height / 2_i32 - font.height / 2_i32,
         text_width,
     );
 }
@@ -3093,8 +3011,7 @@ pub unsafe fn draw_bars(mut unhide: bool) {
     let mut outputs_walk: *mut i3_output = (*outputs).slh_first;
 
     while !outputs_walk.is_null() {
-        let mut workspace_width: ::core::ffi::c_int =
-            logical_px(config.padding.x as ::core::ffi::c_int);
+        let mut workspace_width: i32 = logical_px(config.padding.x as i32);
         if !(*outputs_walk).active {
             if config.verbose {
                 let mut record = b"[../i3bar/src/xcb.c:2121] Output ".to_vec();
@@ -3108,7 +3025,7 @@ pub unsafe fn draw_bars(mut unhide: bool) {
                 );
             }
         } else {
-            if (*outputs_walk).bar.id as ::core::ffi::c_long == 0 {
+            if (*outputs_walk).bar.id as i64 == 0 {
                 reconfig_windows(false);
             }
             let use_focus_colors: bool = output_has_focus(outputs_walk);
@@ -3173,7 +3090,7 @@ pub unsafe fn draw_bars(mut unhide: bool) {
                         border_color = colors.urgent_ws_border;
                         unhide = true;
                     }
-                    let w: ::core::ffi::c_int = predict_button_width((*ws_walk).name_width);
+                    let w: i32 = predict_button_width((*ws_walk).name_width);
                     draw_button(
                         &raw mut (*outputs_walk).buffer,
                         fg_color,
@@ -3197,7 +3114,7 @@ pub unsafe fn draw_bars(mut unhide: bool) {
                 .filter(|_| !config.disable_binding_mode_indicator)
             {
                 workspace_width += logical_px(ws_spacing_px);
-                let w_0: ::core::ffi::c_int = predict_button_width(binding.name_width);
+                let w_0: i32 = predict_button_width(binding.name_width);
                 draw_button(
                     &raw mut (*outputs_walk).buffer,
                     colors.binding_mode_fg,
@@ -3219,11 +3136,9 @@ pub unsafe fn draw_bars(mut unhide: bool) {
                         2184 as ::core::ffi::c_int,
                     );
                 }
-                let tray_width: ::core::ffi::c_int = get_tray_width((*outputs_walk).trayclients);
+                let tray_width: i32 = get_tray_width((*outputs_walk).trayclients);
                 let hoff: u32 = logical_px(
-                    ((workspace_width > 0 as ::core::ffi::c_int) as ::core::ffi::c_int
-                        + (tray_width > 0 as ::core::ffi::c_int) as ::core::ffi::c_int)
-                        * sb_hoff_px,
+                    ((workspace_width > 0_i32) as i32 + (tray_width > 0_i32) as i32) * sb_hoff_px,
                 ) as u32;
                 let max_statusline_width: u32 =
                     (((*outputs_walk).rect.w - workspace_width - tray_width) as u32)
@@ -3244,25 +3159,23 @@ pub unsafe fn draw_bars(mut unhide: bool) {
                 } else {
                     max_statusline_width
                 }) as i16;
-                let mut x_dest: ::core::ffi::c_int = (*outputs_walk).rect.w
+                let mut x_dest: i32 = (*outputs_walk).rect.w
                     - tray_width
-                    - logical_px(
-                        (tray_width > 0 as ::core::ffi::c_int) as ::core::ffi::c_int * sb_hoff_px,
-                    )
-                    - visible_statusline_width as ::core::ffi::c_int;
-                x_dest -= logical_px(config.padding.width as ::core::ffi::c_int);
+                    - logical_px((tray_width > 0_i32) as i32 * sb_hoff_px)
+                    - visible_statusline_width as i32;
+                x_dest -= logical_px(config.padding.width as i32);
                 draw_statusline(outputs_walk, clip_left, use_focus_colors);
                 draw_util_copy_surface(
                     &raw mut (*outputs_walk).statusline_buffer,
                     &raw mut (*outputs_walk).buffer,
-                    0 as ::core::ffi::c_int as ::core::ffi::c_double,
-                    0 as ::core::ffi::c_int as ::core::ffi::c_double,
-                    x_dest as ::core::ffi::c_double,
-                    0 as ::core::ffi::c_int as ::core::ffi::c_double,
-                    visible_statusline_width as ::core::ffi::c_double,
-                    bar_height as i16 as ::core::ffi::c_double,
+                    0_i32 as f64,
+                    0_i32 as f64,
+                    x_dest as f64,
+                    0_i32 as f64,
+                    visible_statusline_width as f64,
+                    bar_height as i16 as f64,
                 );
-                (*outputs_walk).statusline_width = statusline_width as ::core::ffi::c_int;
+                (*outputs_walk).statusline_width = statusline_width as i32;
             }
         }
         outputs_walk = (*outputs_walk).slist.sle_next;
@@ -3283,12 +3196,12 @@ pub unsafe fn redraw_bars() {
             draw_util_copy_surface(
                 &raw mut (*outputs_walk).buffer,
                 &raw mut (*outputs_walk).bar,
-                0 as ::core::ffi::c_int as ::core::ffi::c_double,
-                0 as ::core::ffi::c_int as ::core::ffi::c_double,
-                0 as ::core::ffi::c_int as ::core::ffi::c_double,
-                0 as ::core::ffi::c_int as ::core::ffi::c_double,
-                (*outputs_walk).rect.w as ::core::ffi::c_double,
-                (*outputs_walk).rect.h as ::core::ffi::c_double,
+                0_i32 as f64,
+                0_i32 as f64,
+                0_i32 as f64,
+                0_i32 as f64,
+                (*outputs_walk).rect.w as f64,
+                (*outputs_walk).rect.h as f64,
             );
             flush_requests();
         }

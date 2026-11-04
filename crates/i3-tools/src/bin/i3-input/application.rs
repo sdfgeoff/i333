@@ -188,33 +188,27 @@ fn finish_input(state: &InputState, socket: &mut impl Write) -> i32 {
     }
 }
 
-unsafe fn handle_expose(
-    state: &mut InputState,
-    connection: &xcb::Connection,
-) -> ::core::ffi::c_int {
+unsafe fn handle_expose(state: &mut InputState, connection: &xcb::Connection) -> i32 {
     printf(c"expose!\n".as_ptr());
     let border_color: color_t = draw_util_hex_to_color(root_screen.as_ref(), "#FF0000");
     let fg_color: color_t = draw_util_hex_to_color(root_screen.as_ref(), "#FFFFFF");
     let bg_color: color_t = draw_util_hex_to_color(root_screen.as_ref(), "#000000");
-    let text_offset: ::core::ffi::c_int =
-        logical_px(2 as ::core::ffi::c_int) + logical_px(2 as ::core::ffi::c_int);
+    let text_offset: i32 = logical_px(2_i32) + logical_px(2_i32);
     draw_util_rectangle(
         &raw mut surface,
         border_color,
-        0 as ::core::ffi::c_int as ::core::ffi::c_double,
-        0 as ::core::ffi::c_int as ::core::ffi::c_double,
-        surface.width as ::core::ffi::c_double,
-        surface.height as ::core::ffi::c_double,
+        0_i32 as f64,
+        0_i32 as f64,
+        surface.width as f64,
+        surface.height as f64,
     );
     draw_util_rectangle(
         &raw mut surface,
         bg_color,
-        logical_px(2 as ::core::ffi::c_int) as ::core::ffi::c_double,
-        logical_px(2 as ::core::ffi::c_int) as ::core::ffi::c_double,
-        (surface.width - 2 as ::core::ffi::c_int * logical_px(2 as ::core::ffi::c_int))
-            as ::core::ffi::c_double,
-        (surface.height - 2 as ::core::ffi::c_int * logical_px(2 as ::core::ffi::c_int))
-            as ::core::ffi::c_double,
+        logical_px(2_i32) as f64,
+        logical_px(2_i32) as f64,
+        (surface.width - 2_i32 * logical_px(2_i32)) as f64,
+        (surface.height - 2_i32 * logical_px(2_i32)) as f64,
     );
     if let Some(prompt) = state.prompt.as_ref() {
         draw_util_text(
@@ -225,7 +219,7 @@ unsafe fn handle_expose(
             bg_color,
             text_offset,
             text_offset,
-            logical_px(500 as ::core::ffi::c_int) - text_offset,
+            logical_px(500_i32) - text_offset,
         );
     }
     if !state.glyphs.is_empty() {
@@ -243,7 +237,7 @@ unsafe fn handle_expose(
         );
     }
     let _ = connection.flush();
-    1 as ::core::ffi::c_int
+    1_i32
 }
 unsafe fn handle_key_release(
     state: &mut InputState,
@@ -272,10 +266,9 @@ unsafe fn handle_key_press(
         event.detail() as ::core::ffi::c_int,
         key_press_state(event) as ::core::ffi::c_int,
     );
-    let mut col: ::core::ffi::c_int =
-        i32::from(key_press_state(event) & x::KeyButMask::SHIFT.bits() as u16);
+    let mut col: i32 = i32::from(key_press_state(event) & x::KeyButMask::SHIFT.bits() as u16);
     if state.modeswitch_active {
-        col += 2 as ::core::ffi::c_int;
+        col += 2_i32;
     }
     let sym = symbols.keysym(event.detail(), col);
     if sym == xkeysym::key::Mode_switch {
@@ -502,7 +495,7 @@ impl Drop for WindowResources {
     }
 }
 
-unsafe fn run_window(settings: InputSettings) -> ::core::ffi::c_int {
+unsafe fn run_window(settings: InputSettings) -> i32 {
     let socket_path = settings.socket.as_deref();
     let mut state = InputState::new(&settings);
     let mut record = b"using format \"".to_vec();
@@ -590,8 +583,8 @@ unsafe fn run_window(settings: InputSettings) -> ::core::ffi::c_int {
         rendering.clone(),
         win,
         visual,
-        win_pos.width as ::core::ffi::c_int,
-        win_pos.height as ::core::ffi::c_int,
+        win_pos.width as i32,
+        win_pos.height as i32,
     );
     let _ = connection.flush();
     resources.has_surface = true;

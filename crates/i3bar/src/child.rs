@@ -24,10 +24,10 @@ pub use i3_common::draw_util::surface_t;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct rect_t {
-    pub x: ::core::ffi::c_int,
-    pub y: ::core::ffi::c_int,
-    pub w: ::core::ffi::c_int,
-    pub h: ::core::ffi::c_int,
+    pub x: i32,
+    pub y: i32,
+    pub w: i32,
+    pub h: i32,
 }
 pub type rect = rect_t;
 
@@ -131,13 +131,13 @@ pub struct i3bar_child {
     pub pid: libc::pid_t,
     pub version: u32,
     pub stopped: bool,
-    pub stop_signal: ::core::ffi::c_int,
-    pub cont_signal: ::core::ffi::c_int,
+    pub stop_signal: i32,
+    pub cont_signal: i32,
     pub click_events: bool,
     pub click_events_init: bool,
     pub stdin_io: *mut ev_io,
     pub child_sig: *mut ev_child,
-    pub stdin_fd: ::core::ffi::c_int,
+    pub stdin_fd: i32,
     pub pending_line: *mut ::core::ffi::c_char,
 }
 
@@ -165,7 +165,7 @@ pub struct tc_head {
 pub struct trayclient {
     pub win: u32,
     pub mapped: bool,
-    pub xe_version: ::core::ffi::c_int,
+    pub xe_version: i32,
     pub class_class: *mut ::core::ffi::c_char,
     pub class_instance: *mut ::core::ffi::c_char,
     pub tailq: TrayClientLinks,
@@ -188,7 +188,7 @@ pub struct outputs_head {
     pub slh_first: *mut i3_output,
 }
 
-pub const STDIN_CHUNK_SIZE: ::core::ffi::c_int = 1024 as ::core::ffi::c_int;
+pub const STDIN_CHUNK_SIZE: i32 = 1024_i32;
 
 pub static mut status_child: i3bar_child = i3bar_child {
     pid: 0 as libc::pid_t,
@@ -227,7 +227,7 @@ thread_local! {
     static CLICK_STREAM: std::cell::RefCell<ClickStream> = std::cell::RefCell::new(ClickStream::default());
 }
 
-pub static mut child_stdin: ::core::ffi::c_int = 0;
+pub static mut child_stdin: i32 = 0;
 
 /// Unlink each stable block before dropping its owned rendering text and strings.
 pub unsafe fn clear_statusline(head: *mut statusline_head) {
@@ -249,7 +249,7 @@ unsafe extern "C" fn set_statusline_error(format: *const ::core::ffi::c_char, ar
     let mut message: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
     let mut args_0;
     args_0 = args.clone();
-    if !(vasprintf(&raw mut message, format, i333_va_list!(args_0)) == -(1 as ::core::ffi::c_int)) {
+    if !(vasprintf(&raw mut message, format, i333_va_list!(args_0)) == -1_i32) {
         err_block = Box::into_raw(Box::new(status_block::default()));
         (*err_block).full_text = I3String::new("Error: ");
         (*err_block).name = Some(b"error".to_vec());
@@ -277,7 +277,7 @@ unsafe extern "C" fn set_statusline_error(format: *const ::core::ffi::c_char, ar
     free(message as *mut ::core::ffi::c_void);
 }
 unsafe fn cleanup(c: *mut i3bar_child) {
-    if (*c).pid == 0 as ::core::ffi::c_int {
+    if (*c).pid == 0_i32 {
         if config.verbose {
             printf(
                 c"[%s:%d] %s: child pid = 0\n".as_ptr(),
@@ -337,7 +337,7 @@ unsafe fn cleanup(c: *mut i3bar_child) {
         (*c).stdin_io = ::core::ptr::null_mut::<ev_io>();
         if (*c).pid == status_child.pid {
             close(child_stdin);
-            child_stdin = 0 as ::core::ffi::c_int;
+            child_stdin = 0_i32;
         }
         close((*c).stdin_fd);
     }
@@ -882,7 +882,7 @@ unsafe extern "C" fn common_stdin_cb(
     revents: ::core::ffi::c_int,
 ) {
     if watcher == status_child.stdin_io {
-        if status_child.version == -(1 as ::core::ffi::c_int) as u32 {
+        if status_child.version == -1_i32 as u32 {
             stdin_io_first_line_cb((*watcher).fd);
         } else {
             stdin_io_cb((*watcher).fd);
@@ -917,7 +917,7 @@ unsafe extern "C" fn set_workspace_button_error_f(format: *const ::core::ffi::c_
     let mut message: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
     let mut args_0;
     args_0 = args.clone();
-    if !(vasprintf(&raw mut message, format, i333_va_list!(args_0)) == -(1 as ::core::ffi::c_int)) {
+    if !(vasprintf(&raw mut message, format, i333_va_list!(args_0)) == -1_i32) {
         set_workspace_button_error(message);
     }
     free(message as *mut ::core::ffi::c_void);
@@ -941,8 +941,7 @@ unsafe extern "C" fn child_sig_cb(
     watcher: *mut ev_child,
     revents: ::core::ffi::c_int,
 ) {
-    let exit_status: ::core::ffi::c_int =
-        ((*watcher).rstatus & 0xff00 as ::core::ffi::c_int) >> 8 as ::core::ffi::c_int;
+    let exit_status: i32 = ((*watcher).rstatus & 0xff00_i32) >> 8_i32;
     fprintf(
         stderr,
         c"[%s:%d] ERROR: Child (pid: %d) unexpectedly exited with status %d\n".as_ptr(),
@@ -980,7 +979,7 @@ unsafe extern "C" fn child_sig_cb(
         );
         return;
     }
-    if (*c).pid == 0 as ::core::ffi::c_int {
+    if (*c).pid == 0_i32 {
         if config.verbose {
             printf(
                 c"[%s:%d] %s: child pid = 0\n".as_ptr(),
@@ -1034,13 +1033,13 @@ unsafe extern "C" fn child_sig_cb(
             (*c).click_events_init as ::core::ffi::c_int,
         );
     }
-    if exit_status == 126 as ::core::ffi::c_int {
+    if exit_status == 126_i32 {
         error_function_pointer.expect("non-null function pointer")(
             c"%s is not executable (exit %d)".as_ptr(),
             command_type,
             exit_status,
         );
-    } else if exit_status == 127 as ::core::ffi::c_int {
+    } else if exit_status == 127_i32 {
         error_function_pointer.expect("non-null function pointer")(
             c"%s not found or is missing a library dependency (exit %d)".as_ptr(),
             command_type,
@@ -1077,7 +1076,7 @@ unsafe fn child_write_output() {
 }
 unsafe fn sfork() -> libc::pid_t {
     let pid: libc::pid_t = fork() as libc::pid_t;
-    if pid == -(1 as ::core::ffi::c_int) {
+    if pid == -1_i32 {
         fprintf(
             stderr,
             c"[%s:%d] ERROR: Couldn't fork(): %s\n".as_ptr(),
@@ -1089,8 +1088,8 @@ unsafe fn sfork() -> libc::pid_t {
     }
     pid
 }
-unsafe fn spipe(pipedes: *mut ::core::ffi::c_int) {
-    if pipe(pipedes) == -(1 as ::core::ffi::c_int) {
+unsafe fn spipe(pipedes: *mut i32) {
+    if pipe(pipedes) == -1_i32 {
         err(libc::EXIT_FAILURE, c"pipe(pipe_in)".as_ptr());
     }
 }
@@ -1117,7 +1116,7 @@ unsafe fn setup_child_cb(child: *mut i3bar_child) {
         .child_sig
         .write(ev_child::new((*child).pid, false, child_sig_cb));
     ev_child_start(main_loop, (*child).child_sig);
-    if (*child).pid == 0 as ::core::ffi::c_int {
+    if (*child).pid == 0_i32 {
         if config.verbose {
             printf(
                 c"[%s:%d] %s: child pid = 0\n".as_ptr(),
@@ -1180,12 +1179,12 @@ pub unsafe fn start_child(command: Option<Vec<u8>>) {
     let urgent = EVER_URGENT.with(|value| value.get());
     STATUS_PARSER.with(|parser| *parser.borrow_mut() = Some(StatusParser::new(urgent)));
     CLICK_STREAM.with(|generator| *generator.borrow_mut() = ClickStream::default());
-    let mut pipe_in: [::core::ffi::c_int; 2] = [0; 2];
-    let mut pipe_out: [::core::ffi::c_int; 2] = [0; 2];
-    spipe(&raw mut pipe_in as *mut ::core::ffi::c_int);
-    spipe(&raw mut pipe_out as *mut ::core::ffi::c_int);
+    let mut pipe_in: [i32; 2] = [0; 2];
+    let mut pipe_out: [i32; 2] = [0; 2];
+    spipe(&raw mut pipe_in as *mut i32);
+    spipe(&raw mut pipe_out as *mut i32);
     status_child.pid = sfork();
-    if status_child.pid == 0 as ::core::ffi::c_int {
+    if status_child.pid == 0_i32 {
         close(pipe_in[0_usize]);
         close(pipe_out[1_usize]);
         dup2(pipe_in[1_usize], libc::STDOUT_FILENO);
@@ -1198,7 +1197,7 @@ pub unsafe fn start_child(command: Option<Vec<u8>>) {
     close(pipe_out[0_usize]);
     status_child.stdin_fd = pipe_in[0_usize];
     child_stdin = pipe_out[1_usize];
-    status_child.version = -(1 as ::core::ffi::c_int) as u32;
+    status_child.version = -1_i32 as u32;
     setup_child_cb(&raw mut status_child);
 }
 
@@ -1208,10 +1207,10 @@ pub unsafe fn start_ws_child(command: Option<Vec<u8>>) {
     };
     ws_child.stop_signal = libc::SIGSTOP;
     ws_child.cont_signal = libc::SIGCONT;
-    let mut pipe_in: [::core::ffi::c_int; 2] = [0; 2];
-    spipe(&raw mut pipe_in as *mut ::core::ffi::c_int);
+    let mut pipe_in: [i32; 2] = [0; 2];
+    spipe(&raw mut pipe_in as *mut i32);
     ws_child.pid = sfork();
-    if ws_child.pid == 0 as ::core::ffi::c_int {
+    if ws_child.pid == 0_i32 {
         close(pipe_in[0_usize]);
         dup2(pipe_in[1_usize], libc::STDOUT_FILENO);
         setpgid(ws_child.pid as libc::pid_t, 0 as libc::pid_t);
@@ -1222,7 +1221,7 @@ pub unsafe fn start_ws_child(command: Option<Vec<u8>>) {
     setup_child_cb(&raw mut ws_child);
 }
 unsafe fn child_click_events_initialize() {
-    if status_child.pid == 0 as ::core::ffi::c_int {
+    if status_child.pid == 0_i32 {
         if config.verbose {
             printf(
                 c"[%s:%d] %s: child pid = 0\n".as_ptr(),
@@ -1406,18 +1405,18 @@ fn append_legacy_click(
     let _ = generator.end_object();
 }
 pub unsafe fn send_block_clicked(
-    button: ::core::ffi::c_int,
+    button: i32,
     name: Option<Vec<u8>>,
     instance: Option<Vec<u8>>,
-    x: ::core::ffi::c_int,
-    y: ::core::ffi::c_int,
-    x_rel: ::core::ffi::c_int,
-    y_rel: ::core::ffi::c_int,
-    out_x: ::core::ffi::c_int,
-    out_y: ::core::ffi::c_int,
-    width: ::core::ffi::c_int,
-    height: ::core::ffi::c_int,
-    mods: ::core::ffi::c_int,
+    x: i32,
+    y: i32,
+    x_rel: i32,
+    y_rel: i32,
+    out_x: i32,
+    out_y: i32,
+    width: i32,
+    height: i32,
+    mods: i32,
 ) {
     if !status_child.click_events {
         return;
@@ -1439,7 +1438,7 @@ pub unsafe fn send_block_clicked(
     child_write_output();
 }
 unsafe fn is_alive(c: *mut i3bar_child) -> bool {
-    (*c).pid > 0 as ::core::ffi::c_int
+    (*c).pid > 0_i32
 }
 
 pub unsafe fn status_child_is_alive() -> bool {
@@ -1452,7 +1451,7 @@ pub unsafe fn ws_child_is_alive() -> bool {
 
 pub extern "C" fn kill_children_at_exit() {
     unsafe {
-        if status_child.pid == 0 as ::core::ffi::c_int {
+        if status_child.pid == 0_i32 {
             if config.verbose {
                 printf(
                     c"[%s:%d] %s: child pid = 0\n".as_ptr(),
@@ -1477,7 +1476,7 @@ pub extern "C" fn kill_children_at_exit() {
             );
             }
         }
-        if ws_child.pid == 0 as ::core::ffi::c_int {
+        if ws_child.pid == 0_i32 {
             if config.verbose {
                 printf(
                     c"[%s:%d] %s: child pid = 0\n".as_ptr(),
@@ -1527,13 +1526,13 @@ pub extern "C" fn kill_children_at_exit() {
     }
 }
 unsafe fn cont_child(c: *mut i3bar_child) {
-    if is_alive(c) && (*c).cont_signal > 0 as ::core::ffi::c_int && (*c).stopped {
+    if is_alive(c) && (*c).cont_signal > 0_i32 && (*c).stopped {
         (*c).stopped = false;
         killpg((*c).pid as libc::pid_t, (*c).cont_signal);
     }
 }
 unsafe fn kill_and_wait(c: *mut i3bar_child) {
-    if (*c).pid == 0 as ::core::ffi::c_int {
+    if (*c).pid == 0_i32 {
         if config.verbose {
             printf(
                 c"[%s:%d] %s: child pid = 0\n".as_ptr(),
@@ -1592,7 +1591,7 @@ unsafe fn kill_and_wait(c: *mut i3bar_child) {
     }
     cont_child(c);
     killpg((*c).pid as libc::pid_t, libc::SIGTERM);
-    let mut status: ::core::ffi::c_int = 0;
+    let mut status: i32 = 0;
     waitpid(
         (*c).pid as libc::pid_t,
         &raw mut status,
@@ -1609,14 +1608,14 @@ pub unsafe fn kill_ws_child() {
     kill_and_wait(&raw mut ws_child);
 }
 unsafe fn stop_child(c: *mut i3bar_child) {
-    if (*c).stop_signal > 0 as ::core::ffi::c_int && !(*c).stopped {
+    if (*c).stop_signal > 0_i32 && !(*c).stopped {
         (*c).stopped = true;
         killpg((*c).pid as libc::pid_t, (*c).stop_signal);
     }
 }
 
 pub unsafe fn stop_children() {
-    if status_child.pid == 0 as ::core::ffi::c_int {
+    if status_child.pid == 0_i32 {
         if config.verbose {
             printf(
                 c"[%s:%d] %s: child pid = 0\n".as_ptr(),
@@ -1641,7 +1640,7 @@ pub unsafe fn stop_children() {
             );
         }
     }
-    if ws_child.pid == 0 as ::core::ffi::c_int {
+    if ws_child.pid == 0_i32 {
         if config.verbose {
             printf(
                 c"[%s:%d] %s: child pid = 0\n".as_ptr(),
@@ -1686,7 +1685,7 @@ pub unsafe fn stop_children() {
 }
 
 pub unsafe fn cont_children() {
-    if status_child.pid == 0 as ::core::ffi::c_int {
+    if status_child.pid == 0_i32 {
         if config.verbose {
             printf(
                 c"[%s:%d] %s: child pid = 0\n".as_ptr(),
@@ -1711,7 +1710,7 @@ pub unsafe fn cont_children() {
             );
         }
     }
-    if ws_child.pid == 0 as ::core::ffi::c_int {
+    if ws_child.pid == 0_i32 {
         if config.verbose {
             printf(
                 c"[%s:%d] %s: child pid = 0\n".as_ptr(),

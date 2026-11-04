@@ -30,7 +30,7 @@ fn set_raw_nonblocking(fd: RawFd, enabled: bool) -> io::Result<()> {
 mod legacy {
     use super::*;
 
-    pub fn set_nonblock(fd: libc::c_int) {
+    pub fn set_nonblock(fd: i32) {
         if let Err(error) = set_raw_nonblocking(fd, true) {
             // SAFETY: This target currently uses Linux's errno ABI. The format
             // is a static C string; err terminates instead of unwinding over FFI.

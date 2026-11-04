@@ -18,7 +18,7 @@ unsafe extern "C" {
     fn lround(value: f64) -> libc::c_long;
 }
 
-fn parse_resource(resource: &CStr) -> Option<libc::c_long> {
+fn parse_resource(resource: &CStr) -> Option<i64> {
     let mut end = ptr::null_mut();
     // SAFETY: resource is a readable C string and end is writable pointer storage.
     let value = unsafe { libc::strtod(resource.as_ptr(), &mut end) };
@@ -37,7 +37,7 @@ fn parse_resource(resource: &CStr) -> Option<libc::c_long> {
     Some(unsafe { lround(value) })
 }
 
-fn store(value: libc::c_long) {
+fn store(value: i64) {
     DPI.store(value as isize, Ordering::Relaxed);
 }
 
@@ -94,7 +94,7 @@ fn finish_dpi(screen: Option<crate::display::ScreenInfo>) {
         // Preserve the previous float-to-integer cast, including a zero physical
         // height; no substitute monitor dimensions or fallback policy is introduced.
         let value = (f64::from(screen.height_in_pixels) * 25.4
-            / f64::from(screen.height_in_millimeters)) as libc::c_long;
+            / f64::from(screen.height_in_millimeters)) as i64;
         store(value);
         emit(
             Level::Debug,
@@ -103,11 +103,11 @@ fn finish_dpi(screen: Option<crate::display::ScreenInfo>) {
     }
 }
 
-pub fn get_dpi_value() -> libc::c_long {
-    DPI.load(Ordering::Relaxed) as libc::c_long
+pub fn get_dpi_value() -> i64 {
+    DPI.load(Ordering::Relaxed) as i64
 }
 
-fn scaled_pixels(logical: i32, dpi: libc::c_long) -> i32 {
+fn scaled_pixels(logical: i32, dpi: i64) -> i32 {
     let scale = dpi as f64 / 96.0;
     if scale < 1.25 {
         logical
@@ -130,7 +130,7 @@ pub fn logical_px(logical: i32) -> i32 {
 mod tests {
     use super::*;
 
-    fn native_parse(input: &CStr) -> Option<libc::c_long> {
+    fn native_parse(input: &CStr) -> Option<i64> {
         // SAFETY: independent copy of the original predicate and native rounding;
         // input and output pointer storage remain live throughout conversion.
         unsafe {
@@ -197,17 +197,7 @@ mod tests {
         unsafe extern "C" {
             fn ceil(value: f64) -> f64;
         }
-        for dpi in [
-            0,
-            96,
-            119,
-            120,
-            121,
-            144,
-            192,
-            libc::c_long::MIN,
-            libc::c_long::MAX,
-        ] {
+        for dpi in [0, 96, 119, 120, 121, 144, 192, i64::MIN, i64::MAX] {
             for logical in [i32::MIN, -3, -1, 0, 1, 3, i32::MAX] {
                 let expected = if (dpi as f64 / 96.0) < 1.25 {
                     logical

@@ -51,17 +51,17 @@ pub type cmdp_token_ptr = tokenptr;
 #[repr(C)]
 pub struct tokenptr {
     pub array: *mut cmdp_token,
-    pub n: ::core::ffi::c_int,
+    pub n: i32,
 }
 
 pub const DEFAULT_DIR_MODE: libc::mode_t =
     libc::S_IRWXU | libc::S_IRGRP | libc::S_IXGRP | libc::S_IROTH | libc::S_IXOTH;
 
-pub const XK_Return: ::core::ffi::c_int = 0xff0d as ::core::ffi::c_int;
-pub const XK_Escape: ::core::ffi::c_int = 0xff1b as ::core::ffi::c_int;
-pub const XK_Up: ::core::ffi::c_int = 0xff52 as ::core::ffi::c_int;
-pub const XK_Down: ::core::ffi::c_int = 0xff54 as ::core::ffi::c_int;
-pub const XK_KP_Enter: ::core::ffi::c_int = 0xff8d as ::core::ffi::c_int;
+pub const XK_Return: i32 = 0xff0d_i32;
+pub const XK_Escape: i32 = 0xff1b_i32;
+pub const XK_Up: i32 = 0xff52_i32;
+pub const XK_Down: i32 = 0xff54_i32;
+pub const XK_KP_Enter: i32 = 0xff8d_i32;
 
 pub static mut visual_type: *mut cairo_sys::xcb_visualtype_t =
     std::ptr::null_mut::<cairo_sys::xcb_visualtype_t>();
@@ -73,7 +73,7 @@ pub static mut conn: *mut xcb_connection_t = std::ptr::null_mut::<xcb_connection
 pub static mut root_screen: Option<i3_common::display::DisplayScreen> = None;
 static mut font: Font = Font::empty();
 static mut bold_font: Font = Font::empty();
-static mut char_width: ::core::ffi::c_int = 0;
+static mut char_width: i32 = 0;
 static mut win: u32 = 0;
 static mut surface: surface_t = surface_t::empty();
 
@@ -87,7 +87,7 @@ static mut tokens_FORCE_DISPLAY_URGENCY_HINT_MS: [cmdp_token; 2] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::ForceDisplayUrgencyHintMs,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -95,7 +95,7 @@ static mut tokens_FORCE_DISPLAY_URGENCY_HINT_MS: [cmdp_token; 2] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
 ];
@@ -104,7 +104,7 @@ static mut tokens_FLOATING_MAXIMUM_SIZE_HEIGHT: [cmdp_token; 1] = [token {
     identifier: c"height".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 1 as ::core::ffi::c_int as u16,
+        call_identifier: 1_i32 as u16,
     },
 }];
 static mut tokens_FLOATING_MINIMUM_SIZE_HEIGHT: [cmdp_token; 1] = [token {
@@ -112,7 +112,7 @@ static mut tokens_FLOATING_MINIMUM_SIZE_HEIGHT: [cmdp_token; 1] = [token {
     identifier: c"height".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 2 as ::core::ffi::c_int as u16,
+        call_identifier: 2_i32 as u16,
     },
 }];
 static mut tokens_BAR_STRIP_WORKSPACE_NUMBERS: [cmdp_token; 1] = [token {
@@ -120,7 +120,7 @@ static mut tokens_BAR_STRIP_WORKSPACE_NUMBERS: [cmdp_token; 1] = [token {
     identifier: c"value".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 3 as ::core::ffi::c_int as u16,
+        call_identifier: 3_i32 as u16,
     },
 }];
 static mut tokens_FLOATING_MAXIMUM_SIZE_WIDTH: [cmdp_token; 1] = [token {
@@ -128,7 +128,7 @@ static mut tokens_FLOATING_MAXIMUM_SIZE_WIDTH: [cmdp_token; 1] = [token {
     identifier: c"width".as_ptr().cast_mut(),
     next_state: ParserState::FloatingMaximumSizeX,
     extra: WizardTokenData {
-        call_identifier: 0 as ::core::ffi::c_int as u16,
+        call_identifier: 0_i32 as u16,
     },
 }];
 static mut tokens_FLOATING_MINIMUM_SIZE_WIDTH: [cmdp_token; 1] = [token {
@@ -136,7 +136,7 @@ static mut tokens_FLOATING_MINIMUM_SIZE_WIDTH: [cmdp_token; 1] = [token {
     identifier: c"width".as_ptr().cast_mut(),
     next_state: ParserState::FloatingMinimumSizeX,
     extra: WizardTokenData {
-        call_identifier: 0 as ::core::ffi::c_int as u16,
+        call_identifier: 0_i32 as u16,
     },
 }];
 static mut tokens_BAR_BINDING_MODE_INDICATOR: [cmdp_token; 1] = [token {
@@ -144,7 +144,7 @@ static mut tokens_BAR_BINDING_MODE_INDICATOR: [cmdp_token; 1] = [token {
     identifier: c"value".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 4 as ::core::ffi::c_int as u16,
+        call_identifier: 4_i32 as u16,
     },
 }];
 static mut tokens_BAR_WORKSPACE_MIN_WIDTH_PX: [cmdp_token; 2] = [
@@ -153,7 +153,7 @@ static mut tokens_BAR_WORKSPACE_MIN_WIDTH_PX: [cmdp_token; 2] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarWorkspaceMinWidthPx,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -161,7 +161,7 @@ static mut tokens_BAR_WORKSPACE_MIN_WIDTH_PX: [cmdp_token; 2] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 5 as ::core::ffi::c_int as u16,
+            call_identifier: 5_i32 as u16,
         },
     },
 ];
@@ -170,7 +170,7 @@ static mut tokens_FOCUS_ON_WINDOW_ACTIVATION: [cmdp_token; 1] = [token {
     identifier: c"mode".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 6 as ::core::ffi::c_int as u16,
+        call_identifier: 6_i32 as u16,
     },
 }];
 static mut tokens_FORCE_DISPLAY_URGENCY_HINT: [cmdp_token; 1] = [token {
@@ -178,7 +178,7 @@ static mut tokens_FORCE_DISPLAY_URGENCY_HINT: [cmdp_token; 1] = [token {
     identifier: c"duration_ms".as_ptr().cast_mut(),
     next_state: ParserState::ForceDisplayUrgencyHintMs,
     extra: WizardTokenData {
-        call_identifier: 0 as ::core::ffi::c_int as u16,
+        call_identifier: 0_i32 as u16,
     },
 }];
 static mut tokens_TILING_DRAG_SWAP_MODIFIER: [cmdp_token; 10] = [
@@ -187,7 +187,7 @@ static mut tokens_TILING_DRAG_SWAP_MODIFIER: [cmdp_token; 10] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::TilingDragSwapModifier,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -195,7 +195,7 @@ static mut tokens_TILING_DRAG_SWAP_MODIFIER: [cmdp_token; 10] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::TilingDragSwapModifier,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -203,7 +203,7 @@ static mut tokens_TILING_DRAG_SWAP_MODIFIER: [cmdp_token; 10] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::TilingDragSwapModifier,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -211,7 +211,7 @@ static mut tokens_TILING_DRAG_SWAP_MODIFIER: [cmdp_token; 10] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::TilingDragSwapModifier,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -219,7 +219,7 @@ static mut tokens_TILING_DRAG_SWAP_MODIFIER: [cmdp_token; 10] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::TilingDragSwapModifier,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -227,7 +227,7 @@ static mut tokens_TILING_DRAG_SWAP_MODIFIER: [cmdp_token; 10] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::TilingDragSwapModifier,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -235,7 +235,7 @@ static mut tokens_TILING_DRAG_SWAP_MODIFIER: [cmdp_token; 10] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::TilingDragSwapModifier,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -243,7 +243,7 @@ static mut tokens_TILING_DRAG_SWAP_MODIFIER: [cmdp_token; 10] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::TilingDragSwapModifier,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -251,7 +251,7 @@ static mut tokens_TILING_DRAG_SWAP_MODIFIER: [cmdp_token; 10] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::TilingDragSwapModifier,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -259,7 +259,7 @@ static mut tokens_TILING_DRAG_SWAP_MODIFIER: [cmdp_token; 10] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 7 as ::core::ffi::c_int as u16,
+            call_identifier: 7_i32 as u16,
         },
     },
 ];
@@ -268,7 +268,7 @@ static mut tokens_BAR_STRIP_WORKSPACE_NAME: [cmdp_token; 1] = [token {
     identifier: c"value".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 8 as ::core::ffi::c_int as u16,
+        call_identifier: 8_i32 as u16,
     },
 }];
 static mut tokens_CRITERION_FROM_STR_START: [cmdp_token; 3] = [
@@ -277,7 +277,7 @@ static mut tokens_CRITERION_FROM_STR_START: [cmdp_token; 3] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::CriterionFromStr,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -285,7 +285,7 @@ static mut tokens_CRITERION_FROM_STR_START: [cmdp_token; 3] = [
         identifier: c"kind".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 9 as ::core::ffi::c_int as u16,
+            call_identifier: 9_i32 as u16,
         },
     },
     token {
@@ -293,7 +293,7 @@ static mut tokens_CRITERION_FROM_STR_START: [cmdp_token; 3] = [
         identifier: c"kind".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 10 as ::core::ffi::c_int as u16,
+            call_identifier: 10_i32 as u16,
         },
     },
 ];
@@ -303,7 +303,7 @@ static mut tokens_DEFAULT_BORDER_PIXELS_PX: [cmdp_token; 2] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::DefaultBorderPixelsPx,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -311,7 +311,7 @@ static mut tokens_DEFAULT_BORDER_PIXELS_PX: [cmdp_token; 2] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 11 as ::core::ffi::c_int as u16,
+            call_identifier: 11_i32 as u16,
         },
     },
 ];
@@ -320,7 +320,7 @@ static mut tokens_WORKSPACE_BACK_AND_FORTH: [cmdp_token; 1] = [token {
     identifier: c"value".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 12 as ::core::ffi::c_int as u16,
+        call_identifier: 12_i32 as u16,
     },
 }];
 static mut tokens_ASSIGN_WORKSPACE_NUMBER: [cmdp_token; 1] = [token {
@@ -328,7 +328,7 @@ static mut tokens_ASSIGN_WORKSPACE_NUMBER: [cmdp_token; 1] = [token {
     identifier: c"number".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 13 as ::core::ffi::c_int as u16,
+        call_identifier: 13_i32 as u16,
     },
 }];
 static mut tokens_BAR_WORKSPACE_MIN_WIDTH: [cmdp_token; 1] = [token {
@@ -336,7 +336,7 @@ static mut tokens_BAR_WORKSPACE_MIN_WIDTH: [cmdp_token; 1] = [token {
     identifier: c"width".as_ptr().cast_mut(),
     next_state: ParserState::BarWorkspaceMinWidthPx,
     extra: WizardTokenData {
-        call_identifier: 0 as ::core::ffi::c_int as u16,
+        call_identifier: 0_i32 as u16,
     },
 }];
 static mut tokens_FLOATING_MAXIMUM_SIZE_X: [cmdp_token; 1] = [token {
@@ -344,7 +344,7 @@ static mut tokens_FLOATING_MAXIMUM_SIZE_X: [cmdp_token; 1] = [token {
     identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
     next_state: ParserState::FloatingMaximumSizeHeight,
     extra: WizardTokenData {
-        call_identifier: 0 as ::core::ffi::c_int as u16,
+        call_identifier: 0_i32 as u16,
     },
 }];
 static mut tokens_FLOATING_MINIMUM_SIZE_X: [cmdp_token; 1] = [token {
@@ -352,7 +352,7 @@ static mut tokens_FLOATING_MINIMUM_SIZE_X: [cmdp_token; 1] = [token {
     identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
     next_state: ParserState::FloatingMinimumSizeHeight,
     extra: WizardTokenData {
-        call_identifier: 0 as ::core::ffi::c_int as u16,
+        call_identifier: 0_i32 as u16,
     },
 }];
 static mut tokens_POPUP_DURING_FULLSCREEN: [cmdp_token; 4] = [
@@ -361,7 +361,7 @@ static mut tokens_POPUP_DURING_FULLSCREEN: [cmdp_token; 4] = [
         identifier: c"value".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 14 as ::core::ffi::c_int as u16,
+            call_identifier: 14_i32 as u16,
         },
     },
     token {
@@ -369,7 +369,7 @@ static mut tokens_POPUP_DURING_FULLSCREEN: [cmdp_token; 4] = [
         identifier: c"value".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 15 as ::core::ffi::c_int as u16,
+            call_identifier: 15_i32 as u16,
         },
     },
     token {
@@ -377,7 +377,7 @@ static mut tokens_POPUP_DURING_FULLSCREEN: [cmdp_token; 4] = [
         identifier: c"value".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 16 as ::core::ffi::c_int as u16,
+            call_identifier: 16_i32 as u16,
         },
     },
     token {
@@ -385,7 +385,7 @@ static mut tokens_POPUP_DURING_FULLSCREEN: [cmdp_token; 4] = [
         identifier: c"value".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 17 as ::core::ffi::c_int as u16,
+            call_identifier: 17_i32 as u16,
         },
     },
 ];
@@ -394,7 +394,7 @@ static mut tokens_BAR_COLORS_IGNORE_LINE: [cmdp_token; 1] = [token {
     identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
     next_state: ParserState::BarColors,
     extra: WizardTokenData {
-        call_identifier: 0 as ::core::ffi::c_int as u16,
+        call_identifier: 0_i32 as u16,
     },
 }];
 static mut tokens_CRITERION_FROM_STR_END: [cmdp_token; 1] = [token {
@@ -402,7 +402,7 @@ static mut tokens_CRITERION_FROM_STR_END: [cmdp_token; 1] = [token {
     identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 18 as ::core::ffi::c_int as u16,
+        call_identifier: 18_i32 as u16,
     },
 }];
 static mut tokens_BAR_COLORS_BACKGROUND: [cmdp_token; 1] = [token {
@@ -410,7 +410,7 @@ static mut tokens_BAR_COLORS_BACKGROUND: [cmdp_token; 1] = [token {
     identifier: c"background".as_ptr().cast_mut(),
     next_state: ParserState::BarColorsText,
     extra: WizardTokenData {
-        call_identifier: 0 as ::core::ffi::c_int as u16,
+        call_identifier: 0_i32 as u16,
     },
 }];
 static mut tokens_BAR_WORKSPACE_BUTTONS: [cmdp_token; 1] = [token {
@@ -418,7 +418,7 @@ static mut tokens_BAR_WORKSPACE_BUTTONS: [cmdp_token; 1] = [token {
     identifier: c"value".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 19 as ::core::ffi::c_int as u16,
+        call_identifier: 19_i32 as u16,
     },
 }];
 static mut tokens_BAR_WORKSPACE_COMMAND: [cmdp_token; 1] = [token {
@@ -426,7 +426,7 @@ static mut tokens_BAR_WORKSPACE_COMMAND: [cmdp_token; 1] = [token {
     identifier: c"command".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 20 as ::core::ffi::c_int as u16,
+        call_identifier: 20_i32 as u16,
     },
 }];
 static mut tokens_DEFAULT_BORDER_PIXELS: [cmdp_token; 2] = [
@@ -435,7 +435,7 @@ static mut tokens_DEFAULT_BORDER_PIXELS: [cmdp_token; 2] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 21 as ::core::ffi::c_int as u16,
+            call_identifier: 21_i32 as u16,
         },
     },
     token {
@@ -443,7 +443,7 @@ static mut tokens_DEFAULT_BORDER_PIXELS: [cmdp_token; 2] = [
         identifier: c"width".as_ptr().cast_mut(),
         next_state: ParserState::DefaultBorderPixelsPx,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
 ];
@@ -453,7 +453,7 @@ static mut tokens_WORKSPACE_OUTPUT_WORD: [cmdp_token; 2] = [
         identifier: c"output".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 22 as ::core::ffi::c_int as u16,
+            call_identifier: 22_i32 as u16,
         },
     },
     token {
@@ -461,7 +461,7 @@ static mut tokens_WORKSPACE_OUTPUT_WORD: [cmdp_token; 2] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Initial,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
 ];
@@ -470,7 +470,7 @@ static mut tokens_BAR_SEPARATOR_SYMBOL: [cmdp_token; 1] = [token {
     identifier: c"separator".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 23 as ::core::ffi::c_int as u16,
+        call_identifier: 23_i32 as u16,
     },
 }];
 static mut tokens_FORCE_FOCUS_WRAPPING: [cmdp_token; 1] = [token {
@@ -478,7 +478,7 @@ static mut tokens_FORCE_FOCUS_WRAPPING: [cmdp_token; 1] = [token {
     identifier: c"value".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 24 as ::core::ffi::c_int as u16,
+        call_identifier: 24_i32 as u16,
     },
 }];
 static mut tokens_BAR_BINDSYM_COMMAND: [cmdp_token; 2] = [
@@ -487,7 +487,7 @@ static mut tokens_BAR_BINDSYM_COMMAND: [cmdp_token; 2] = [
         identifier: c"release".as_ptr().cast_mut(),
         next_state: ParserState::BarBindsymCommand,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -495,7 +495,7 @@ static mut tokens_BAR_BINDSYM_COMMAND: [cmdp_token; 2] = [
         identifier: c"command".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 25 as ::core::ffi::c_int as u16,
+            call_identifier: 25_i32 as u16,
         },
     },
 ];
@@ -505,7 +505,7 @@ static mut tokens_BAR_TRAY_PADDING_PX: [cmdp_token; 2] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarTrayPaddingPx,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -513,7 +513,7 @@ static mut tokens_BAR_TRAY_PADDING_PX: [cmdp_token; 2] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 26 as ::core::ffi::c_int as u16,
+            call_identifier: 26_i32 as u16,
         },
     },
 ];
@@ -523,7 +523,7 @@ static mut tokens_DEFAULT_ORIENTATION: [cmdp_token; 3] = [
         identifier: c"orientation".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 27 as ::core::ffi::c_int as u16,
+            call_identifier: 27_i32 as u16,
         },
     },
     token {
@@ -531,7 +531,7 @@ static mut tokens_DEFAULT_ORIENTATION: [cmdp_token; 3] = [
         identifier: c"orientation".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 28 as ::core::ffi::c_int as u16,
+            call_identifier: 28_i32 as u16,
         },
     },
     token {
@@ -539,7 +539,7 @@ static mut tokens_DEFAULT_ORIENTATION: [cmdp_token; 3] = [
         identifier: c"orientation".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 29 as ::core::ffi::c_int as u16,
+            call_identifier: 29_i32 as u16,
         },
     },
 ];
@@ -548,7 +548,7 @@ static mut tokens_FOCUS_FOLLOWS_MOUSE: [cmdp_token; 1] = [token {
     identifier: c"value".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 30 as ::core::ffi::c_int as u16,
+        call_identifier: 30_i32 as u16,
     },
 }];
 static mut tokens_BAR_PADDING_BOTTOM: [cmdp_token; 3] = [
@@ -557,7 +557,7 @@ static mut tokens_BAR_PADDING_BOTTOM: [cmdp_token; 3] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarPaddingBottom,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -565,7 +565,7 @@ static mut tokens_BAR_PADDING_BOTTOM: [cmdp_token; 3] = [
         identifier: c"left".as_ptr().cast_mut(),
         next_state: ParserState::BarPaddingLeft,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -573,7 +573,7 @@ static mut tokens_BAR_PADDING_BOTTOM: [cmdp_token; 3] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 31 as ::core::ffi::c_int as u16,
+            call_identifier: 31_i32 as u16,
         },
     },
 ];
@@ -582,7 +582,7 @@ static mut tokens_BAR_STATUS_COMMAND: [cmdp_token; 1] = [token {
     identifier: c"command".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 32 as ::core::ffi::c_int as u16,
+        call_identifier: 32_i32 as u16,
     },
 }];
 static mut tokens_BAR_WHEEL_DOWN_CMD: [cmdp_token; 1] = [token {
@@ -590,7 +590,7 @@ static mut tokens_BAR_WHEEL_DOWN_CMD: [cmdp_token; 1] = [token {
     identifier: c"command".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 33 as ::core::ffi::c_int as u16,
+        call_identifier: 33_i32 as u16,
     },
 }];
 static mut tokens_COLOR_CHILD_BORDER: [cmdp_token; 2] = [
@@ -599,7 +599,7 @@ static mut tokens_COLOR_CHILD_BORDER: [cmdp_token; 2] = [
         identifier: c"child_border".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 34 as ::core::ffi::c_int as u16,
+            call_identifier: 34_i32 as u16,
         },
     },
     token {
@@ -607,7 +607,7 @@ static mut tokens_COLOR_CHILD_BORDER: [cmdp_token; 2] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 35 as ::core::ffi::c_int as u16,
+            call_identifier: 35_i32 as u16,
         },
     },
 ];
@@ -617,7 +617,7 @@ static mut tokens_CRITERION_FROM_STR: [cmdp_token; 2] = [
         identifier: c"kind".as_ptr().cast_mut(),
         next_state: ParserState::CriterionFromStrEnd,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -625,7 +625,7 @@ static mut tokens_CRITERION_FROM_STR: [cmdp_token; 2] = [
         identifier: c"kind".as_ptr().cast_mut(),
         next_state: ParserState::CriterionFromStrEnd,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
 ];
@@ -634,7 +634,7 @@ static mut tokens_FOR_WINDOW_COMMAND: [cmdp_token; 1] = [token {
     identifier: c"command".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 36 as ::core::ffi::c_int as u16,
+        call_identifier: 36_i32 as u16,
     },
 }];
 static mut tokens_BAR_COLORS_BORDER: [cmdp_token; 1] = [token {
@@ -642,7 +642,7 @@ static mut tokens_BAR_COLORS_BORDER: [cmdp_token; 1] = [token {
     identifier: c"border".as_ptr().cast_mut(),
     next_state: ParserState::BarColorsBackground,
     extra: WizardTokenData {
-        call_identifier: 0 as ::core::ffi::c_int as u16,
+        call_identifier: 0_i32 as u16,
     },
 }];
 static mut tokens_BAR_COLORS_SINGLE: [cmdp_token; 1] = [token {
@@ -650,7 +650,7 @@ static mut tokens_BAR_COLORS_SINGLE: [cmdp_token; 1] = [token {
     identifier: c"color".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 37 as ::core::ffi::c_int as u16,
+        call_identifier: 37_i32 as u16,
     },
 }];
 static mut tokens_BAR_PADDING_RIGHT: [cmdp_token; 3] = [
@@ -659,7 +659,7 @@ static mut tokens_BAR_PADDING_RIGHT: [cmdp_token; 3] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarPaddingRight,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -667,7 +667,7 @@ static mut tokens_BAR_PADDING_RIGHT: [cmdp_token; 3] = [
         identifier: c"bottom".as_ptr().cast_mut(),
         next_state: ParserState::BarPaddingBottom,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -675,7 +675,7 @@ static mut tokens_BAR_PADDING_RIGHT: [cmdp_token; 3] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 38 as ::core::ffi::c_int as u16,
+            call_identifier: 38_i32 as u16,
         },
     },
 ];
@@ -685,7 +685,7 @@ static mut tokens_FLOATING_MODIFIER: [cmdp_token; 10] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::FloatingModifier,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -693,7 +693,7 @@ static mut tokens_FLOATING_MODIFIER: [cmdp_token; 10] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::FloatingModifier,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -701,7 +701,7 @@ static mut tokens_FLOATING_MODIFIER: [cmdp_token; 10] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::FloatingModifier,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -709,7 +709,7 @@ static mut tokens_FLOATING_MODIFIER: [cmdp_token; 10] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::FloatingModifier,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -717,7 +717,7 @@ static mut tokens_FLOATING_MODIFIER: [cmdp_token; 10] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::FloatingModifier,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -725,7 +725,7 @@ static mut tokens_FLOATING_MODIFIER: [cmdp_token; 10] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::FloatingModifier,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -733,7 +733,7 @@ static mut tokens_FLOATING_MODIFIER: [cmdp_token; 10] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::FloatingModifier,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -741,7 +741,7 @@ static mut tokens_FLOATING_MODIFIER: [cmdp_token; 10] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::FloatingModifier,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -749,7 +749,7 @@ static mut tokens_FLOATING_MODIFIER: [cmdp_token; 10] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::FloatingModifier,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -757,7 +757,7 @@ static mut tokens_FLOATING_MODIFIER: [cmdp_token; 10] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 39 as ::core::ffi::c_int as u16,
+            call_identifier: 39_i32 as u16,
         },
     },
 ];
@@ -767,7 +767,7 @@ static mut tokens_HIDE_EDGE_BORDERS: [cmdp_token; 12] = [
         identifier: c"hide_borders".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 40 as ::core::ffi::c_int as u16,
+            call_identifier: 40_i32 as u16,
         },
     },
     token {
@@ -775,7 +775,7 @@ static mut tokens_HIDE_EDGE_BORDERS: [cmdp_token; 12] = [
         identifier: c"hide_borders".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 41 as ::core::ffi::c_int as u16,
+            call_identifier: 41_i32 as u16,
         },
     },
     token {
@@ -783,7 +783,7 @@ static mut tokens_HIDE_EDGE_BORDERS: [cmdp_token; 12] = [
         identifier: c"hide_borders".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 42 as ::core::ffi::c_int as u16,
+            call_identifier: 42_i32 as u16,
         },
     },
     token {
@@ -791,7 +791,7 @@ static mut tokens_HIDE_EDGE_BORDERS: [cmdp_token; 12] = [
         identifier: c"hide_borders".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 43 as ::core::ffi::c_int as u16,
+            call_identifier: 43_i32 as u16,
         },
     },
     token {
@@ -799,7 +799,7 @@ static mut tokens_HIDE_EDGE_BORDERS: [cmdp_token; 12] = [
         identifier: c"hide_borders".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 44 as ::core::ffi::c_int as u16,
+            call_identifier: 44_i32 as u16,
         },
     },
     token {
@@ -807,7 +807,7 @@ static mut tokens_HIDE_EDGE_BORDERS: [cmdp_token; 12] = [
         identifier: c"hide_borders".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 45 as ::core::ffi::c_int as u16,
+            call_identifier: 45_i32 as u16,
         },
     },
     token {
@@ -815,7 +815,7 @@ static mut tokens_HIDE_EDGE_BORDERS: [cmdp_token; 12] = [
         identifier: c"hide_borders".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 46 as ::core::ffi::c_int as u16,
+            call_identifier: 46_i32 as u16,
         },
     },
     token {
@@ -823,7 +823,7 @@ static mut tokens_HIDE_EDGE_BORDERS: [cmdp_token; 12] = [
         identifier: c"hide_borders".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 47 as ::core::ffi::c_int as u16,
+            call_identifier: 47_i32 as u16,
         },
     },
     token {
@@ -831,7 +831,7 @@ static mut tokens_HIDE_EDGE_BORDERS: [cmdp_token; 12] = [
         identifier: c"hide_borders".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 48 as ::core::ffi::c_int as u16,
+            call_identifier: 48_i32 as u16,
         },
     },
     token {
@@ -839,7 +839,7 @@ static mut tokens_HIDE_EDGE_BORDERS: [cmdp_token; 12] = [
         identifier: c"hide_borders".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 49 as ::core::ffi::c_int as u16,
+            call_identifier: 49_i32 as u16,
         },
     },
     token {
@@ -847,7 +847,7 @@ static mut tokens_HIDE_EDGE_BORDERS: [cmdp_token; 12] = [
         identifier: c"hide_borders".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 50 as ::core::ffi::c_int as u16,
+            call_identifier: 50_i32 as u16,
         },
     },
     token {
@@ -855,7 +855,7 @@ static mut tokens_HIDE_EDGE_BORDERS: [cmdp_token; 12] = [
         identifier: c"hide_borders".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 51 as ::core::ffi::c_int as u16,
+            call_identifier: 51_i32 as u16,
         },
     },
 ];
@@ -865,7 +865,7 @@ static mut tokens_WORKSPACE_COMMAND: [cmdp_token; 2] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::WorkspaceOutputWord,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -873,7 +873,7 @@ static mut tokens_WORKSPACE_COMMAND: [cmdp_token; 2] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Gaps,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
 ];
@@ -883,7 +883,7 @@ static mut tokens_ASSIGN_WORKSPACE: [cmdp_token; 5] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::AssignWorkspace,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -891,7 +891,7 @@ static mut tokens_ASSIGN_WORKSPACE: [cmdp_token; 5] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::AssignOutput,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -899,7 +899,7 @@ static mut tokens_ASSIGN_WORKSPACE: [cmdp_token; 5] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::AssignWorkspace,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -907,7 +907,7 @@ static mut tokens_ASSIGN_WORKSPACE: [cmdp_token; 5] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::AssignWorkspaceNumber,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -915,7 +915,7 @@ static mut tokens_ASSIGN_WORKSPACE: [cmdp_token; 5] = [
         identifier: c"workspace".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 52 as ::core::ffi::c_int as u16,
+            call_identifier: 52_i32 as u16,
         },
     },
 ];
@@ -925,7 +925,7 @@ static mut tokens_BAR_COLORS_BRACE: [cmdp_token; 2] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarColorsBrace,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -933,7 +933,7 @@ static mut tokens_BAR_COLORS_BRACE: [cmdp_token; 2] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarColors,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
 ];
@@ -943,7 +943,7 @@ static mut tokens_BAR_HIDDEN_STATE: [cmdp_token; 2] = [
         identifier: c"hidden_state".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 53 as ::core::ffi::c_int as u16,
+            call_identifier: 53_i32 as u16,
         },
     },
     token {
@@ -951,7 +951,7 @@ static mut tokens_BAR_HIDDEN_STATE: [cmdp_token; 2] = [
         identifier: c"hidden_state".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 54 as ::core::ffi::c_int as u16,
+            call_identifier: 54_i32 as u16,
         },
     },
 ];
@@ -961,7 +961,7 @@ static mut tokens_BAR_PADDING_LEFT: [cmdp_token; 2] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarPaddingLeft,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -969,7 +969,7 @@ static mut tokens_BAR_PADDING_LEFT: [cmdp_token; 2] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 55 as ::core::ffi::c_int as u16,
+            call_identifier: 55_i32 as u16,
         },
     },
 ];
@@ -978,7 +978,7 @@ static mut tokens_BAR_TRAY_PADDING: [cmdp_token; 1] = [token {
     identifier: c"padding_px".as_ptr().cast_mut(),
     next_state: ParserState::BarTrayPaddingPx,
     extra: WizardTokenData {
-        call_identifier: 0 as ::core::ffi::c_int as u16,
+        call_identifier: 0_i32 as u16,
     },
 }];
 static mut tokens_BAR_WHEEL_UP_CMD: [cmdp_token; 1] = [token {
@@ -986,7 +986,7 @@ static mut tokens_BAR_WHEEL_UP_CMD: [cmdp_token; 1] = [token {
     identifier: c"command".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 56 as ::core::ffi::c_int as u16,
+        call_identifier: 56_i32 as u16,
     },
 }];
 static mut tokens_COLOR_BACKGROUND: [cmdp_token; 1] = [token {
@@ -994,7 +994,7 @@ static mut tokens_COLOR_BACKGROUND: [cmdp_token; 1] = [token {
     identifier: c"background".as_ptr().cast_mut(),
     next_state: ParserState::ColorText,
     extra: WizardTokenData {
-        call_identifier: 0 as ::core::ffi::c_int as u16,
+        call_identifier: 0_i32 as u16,
     },
 }];
 static mut tokens_IPC_KILL_TIMEOUT: [cmdp_token; 1] = [token {
@@ -1002,7 +1002,7 @@ static mut tokens_IPC_KILL_TIMEOUT: [cmdp_token; 1] = [token {
     identifier: c"timeout".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 57 as ::core::ffi::c_int as u16,
+        call_identifier: 57_i32 as u16,
     },
 }];
 static mut tokens_MODE_BINDCOMMAND: [cmdp_token; 5] = [
@@ -1011,7 +1011,7 @@ static mut tokens_MODE_BINDCOMMAND: [cmdp_token; 5] = [
         identifier: c"release".as_ptr().cast_mut(),
         next_state: ParserState::ModeBindcommand,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1019,7 +1019,7 @@ static mut tokens_MODE_BINDCOMMAND: [cmdp_token; 5] = [
         identifier: c"border".as_ptr().cast_mut(),
         next_state: ParserState::ModeBindcommand,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1027,7 +1027,7 @@ static mut tokens_MODE_BINDCOMMAND: [cmdp_token; 5] = [
         identifier: c"whole_window".as_ptr().cast_mut(),
         next_state: ParserState::ModeBindcommand,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1035,7 +1035,7 @@ static mut tokens_MODE_BINDCOMMAND: [cmdp_token; 5] = [
         identifier: c"exclude_titlebar".as_ptr().cast_mut(),
         next_state: ParserState::ModeBindcommand,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1043,7 +1043,7 @@ static mut tokens_MODE_BINDCOMMAND: [cmdp_token; 5] = [
         identifier: c"command".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 58 as ::core::ffi::c_int as u16,
+            call_identifier: 58_i32 as u16,
         },
     },
 ];
@@ -1052,7 +1052,7 @@ static mut tokens_MODE_IGNORE_LINE: [cmdp_token; 1] = [token {
     identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
     next_state: ParserState::Mode,
     extra: WizardTokenData {
-        call_identifier: 0 as ::core::ffi::c_int as u16,
+        call_identifier: 0_i32 as u16,
     },
 }];
 static mut tokens_TILING_DRAG_MODE: [cmdp_token; 3] = [
@@ -1061,7 +1061,7 @@ static mut tokens_TILING_DRAG_MODE: [cmdp_token; 3] = [
         identifier: c"value".as_ptr().cast_mut(),
         next_state: ParserState::TilingDragMode,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1069,7 +1069,7 @@ static mut tokens_TILING_DRAG_MODE: [cmdp_token; 3] = [
         identifier: c"value".as_ptr().cast_mut(),
         next_state: ParserState::TilingDragMode,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1077,7 +1077,7 @@ static mut tokens_TILING_DRAG_MODE: [cmdp_token; 3] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 59 as ::core::ffi::c_int as u16,
+            call_identifier: 59_i32 as u16,
         },
     },
 ];
@@ -1087,7 +1087,7 @@ static mut tokens_WORKSPACE_LAYOUT: [cmdp_token; 4] = [
         identifier: c"layout".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 60 as ::core::ffi::c_int as u16,
+            call_identifier: 60_i32 as u16,
         },
     },
     token {
@@ -1095,7 +1095,7 @@ static mut tokens_WORKSPACE_LAYOUT: [cmdp_token; 4] = [
         identifier: c"layout".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 61 as ::core::ffi::c_int as u16,
+            call_identifier: 61_i32 as u16,
         },
     },
     token {
@@ -1103,7 +1103,7 @@ static mut tokens_WORKSPACE_LAYOUT: [cmdp_token; 4] = [
         identifier: c"layout".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 62 as ::core::ffi::c_int as u16,
+            call_identifier: 62_i32 as u16,
         },
     },
     token {
@@ -1111,7 +1111,7 @@ static mut tokens_WORKSPACE_LAYOUT: [cmdp_token; 4] = [
         identifier: c"layout".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 63 as ::core::ffi::c_int as u16,
+            call_identifier: 63_i32 as u16,
         },
     },
 ];
@@ -1120,7 +1120,7 @@ static mut tokens_BAR_BAR_COMMAND: [cmdp_token; 1] = [token {
     identifier: c"command".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 64 as ::core::ffi::c_int as u16,
+        call_identifier: 64_i32 as u16,
     },
 }];
 static mut tokens_BAR_COLORS_TEXT: [cmdp_token; 2] = [
@@ -1129,7 +1129,7 @@ static mut tokens_BAR_COLORS_TEXT: [cmdp_token; 2] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 65 as ::core::ffi::c_int as u16,
+            call_identifier: 65_i32 as u16,
         },
     },
     token {
@@ -1137,7 +1137,7 @@ static mut tokens_BAR_COLORS_TEXT: [cmdp_token; 2] = [
         identifier: c"text".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 66 as ::core::ffi::c_int as u16,
+            call_identifier: 66_i32 as u16,
         },
     },
 ];
@@ -1146,7 +1146,7 @@ static mut tokens_BAR_IGNORE_LINE: [cmdp_token; 1] = [token {
     identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
     next_state: ParserState::Bar,
     extra: WizardTokenData {
-        call_identifier: 0 as ::core::ffi::c_int as u16,
+        call_identifier: 0_i32 as u16,
     },
 }];
 static mut tokens_BAR_PADDING_TOP: [cmdp_token; 3] = [
@@ -1155,7 +1155,7 @@ static mut tokens_BAR_PADDING_TOP: [cmdp_token; 3] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarPaddingTop,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1163,7 +1163,7 @@ static mut tokens_BAR_PADDING_TOP: [cmdp_token; 3] = [
         identifier: c"right_or_right_and_left".as_ptr().cast_mut(),
         next_state: ParserState::BarPaddingRight,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1171,7 +1171,7 @@ static mut tokens_BAR_PADDING_TOP: [cmdp_token; 3] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 67 as ::core::ffi::c_int as u16,
+            call_identifier: 67_i32 as u16,
         },
     },
 ];
@@ -1180,7 +1180,7 @@ static mut tokens_BAR_SOCKET_PATH: [cmdp_token; 1] = [token {
     identifier: c"path".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 68 as ::core::ffi::c_int as u16,
+        call_identifier: 68_i32 as u16,
     },
 }];
 static mut tokens_BAR_TRAY_OUTPUT: [cmdp_token; 1] = [token {
@@ -1188,7 +1188,7 @@ static mut tokens_BAR_TRAY_OUTPUT: [cmdp_token; 1] = [token {
     identifier: c"output".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 69 as ::core::ffi::c_int as u16,
+        call_identifier: 69_i32 as u16,
     },
 }];
 static mut tokens_COLOR_INDICATOR: [cmdp_token; 2] = [
@@ -1197,7 +1197,7 @@ static mut tokens_COLOR_INDICATOR: [cmdp_token; 2] = [
         identifier: c"indicator".as_ptr().cast_mut(),
         next_state: ParserState::ColorChildBorder,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1205,7 +1205,7 @@ static mut tokens_COLOR_INDICATOR: [cmdp_token; 2] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 70 as ::core::ffi::c_int as u16,
+            call_identifier: 70_i32 as u16,
         },
     },
 ];
@@ -1214,7 +1214,7 @@ static mut tokens_DISABLE_RANDR15: [cmdp_token; 1] = [token {
     identifier: c"value".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 71 as ::core::ffi::c_int as u16,
+        call_identifier: 71_i32 as u16,
     },
 }];
 static mut tokens_GAPS_WITH_SCOPE: [cmdp_token; 1] = [token {
@@ -1222,7 +1222,7 @@ static mut tokens_GAPS_WITH_SCOPE: [cmdp_token; 1] = [token {
     identifier: c"value".as_ptr().cast_mut(),
     next_state: ParserState::GapsEnd,
     extra: WizardTokenData {
-        call_identifier: 0 as ::core::ffi::c_int as u16,
+        call_identifier: 0_i32 as u16,
     },
 }];
 static mut tokens_CRITERION_FROM: [cmdp_token; 1] = [token {
@@ -1230,7 +1230,7 @@ static mut tokens_CRITERION_FROM: [cmdp_token; 1] = [token {
     identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
     next_state: ParserState::CriterionFromStrStart,
     extra: WizardTokenData {
-        call_identifier: 0 as ::core::ffi::c_int as u16,
+        call_identifier: 0_i32 as u16,
     },
 }];
 static mut tokens_DEFAULT_BORDER: [cmdp_token; 4] = [
@@ -1239,7 +1239,7 @@ static mut tokens_DEFAULT_BORDER: [cmdp_token; 4] = [
         identifier: c"border".as_ptr().cast_mut(),
         next_state: ParserState::DefaultBorderPixels,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1247,7 +1247,7 @@ static mut tokens_DEFAULT_BORDER: [cmdp_token; 4] = [
         identifier: c"border".as_ptr().cast_mut(),
         next_state: ParserState::DefaultBorderPixels,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1255,7 +1255,7 @@ static mut tokens_DEFAULT_BORDER: [cmdp_token; 4] = [
         identifier: c"border".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 72 as ::core::ffi::c_int as u16,
+            call_identifier: 72_i32 as u16,
         },
     },
     token {
@@ -1263,7 +1263,7 @@ static mut tokens_DEFAULT_BORDER: [cmdp_token; 4] = [
         identifier: c"border".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 73 as ::core::ffi::c_int as u16,
+            call_identifier: 73_i32 as u16,
         },
     },
 ];
@@ -1273,7 +1273,7 @@ static mut tokens_FOCUS_WRAPPING: [cmdp_token; 14] = [
         identifier: c"value".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 74 as ::core::ffi::c_int as u16,
+            call_identifier: 74_i32 as u16,
         },
     },
     token {
@@ -1281,7 +1281,7 @@ static mut tokens_FOCUS_WRAPPING: [cmdp_token; 14] = [
         identifier: c"value".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 75 as ::core::ffi::c_int as u16,
+            call_identifier: 75_i32 as u16,
         },
     },
     token {
@@ -1289,7 +1289,7 @@ static mut tokens_FOCUS_WRAPPING: [cmdp_token; 14] = [
         identifier: c"value".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 76 as ::core::ffi::c_int as u16,
+            call_identifier: 76_i32 as u16,
         },
     },
     token {
@@ -1297,7 +1297,7 @@ static mut tokens_FOCUS_WRAPPING: [cmdp_token; 14] = [
         identifier: c"value".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 77 as ::core::ffi::c_int as u16,
+            call_identifier: 77_i32 as u16,
         },
     },
     token {
@@ -1305,7 +1305,7 @@ static mut tokens_FOCUS_WRAPPING: [cmdp_token; 14] = [
         identifier: c"value".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 78 as ::core::ffi::c_int as u16,
+            call_identifier: 78_i32 as u16,
         },
     },
     token {
@@ -1313,7 +1313,7 @@ static mut tokens_FOCUS_WRAPPING: [cmdp_token; 14] = [
         identifier: c"value".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 79 as ::core::ffi::c_int as u16,
+            call_identifier: 79_i32 as u16,
         },
     },
     token {
@@ -1321,7 +1321,7 @@ static mut tokens_FOCUS_WRAPPING: [cmdp_token; 14] = [
         identifier: c"value".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 80 as ::core::ffi::c_int as u16,
+            call_identifier: 80_i32 as u16,
         },
     },
     token {
@@ -1329,7 +1329,7 @@ static mut tokens_FOCUS_WRAPPING: [cmdp_token; 14] = [
         identifier: c"value".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 81 as ::core::ffi::c_int as u16,
+            call_identifier: 81_i32 as u16,
         },
     },
     token {
@@ -1337,7 +1337,7 @@ static mut tokens_FOCUS_WRAPPING: [cmdp_token; 14] = [
         identifier: c"value".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 82 as ::core::ffi::c_int as u16,
+            call_identifier: 82_i32 as u16,
         },
     },
     token {
@@ -1345,7 +1345,7 @@ static mut tokens_FOCUS_WRAPPING: [cmdp_token; 14] = [
         identifier: c"value".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 83 as ::core::ffi::c_int as u16,
+            call_identifier: 83_i32 as u16,
         },
     },
     token {
@@ -1353,7 +1353,7 @@ static mut tokens_FOCUS_WRAPPING: [cmdp_token; 14] = [
         identifier: c"value".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 84 as ::core::ffi::c_int as u16,
+            call_identifier: 84_i32 as u16,
         },
     },
     token {
@@ -1361,7 +1361,7 @@ static mut tokens_FOCUS_WRAPPING: [cmdp_token; 14] = [
         identifier: c"value".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 85 as ::core::ffi::c_int as u16,
+            call_identifier: 85_i32 as u16,
         },
     },
     token {
@@ -1369,7 +1369,7 @@ static mut tokens_FOCUS_WRAPPING: [cmdp_token; 14] = [
         identifier: c"value".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 86 as ::core::ffi::c_int as u16,
+            call_identifier: 86_i32 as u16,
         },
     },
     token {
@@ -1377,7 +1377,7 @@ static mut tokens_FOCUS_WRAPPING: [cmdp_token; 14] = [
         identifier: c"value".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 87 as ::core::ffi::c_int as u16,
+            call_identifier: 87_i32 as u16,
         },
     },
 ];
@@ -1386,7 +1386,7 @@ static mut tokens_FORCE_XINERAMA: [cmdp_token; 1] = [token {
     identifier: c"value".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 88 as ::core::ffi::c_int as u16,
+        call_identifier: 88_i32 as u16,
     },
 }];
 static mut tokens_ASSIGN_OUTPUT: [cmdp_token; 1] = [token {
@@ -1394,7 +1394,7 @@ static mut tokens_ASSIGN_OUTPUT: [cmdp_token; 1] = [token {
     identifier: c"output".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 89 as ::core::ffi::c_int as u16,
+        call_identifier: 89_i32 as u16,
     },
 }];
 static mut tokens_CRITERION_STR: [cmdp_token; 1] = [token {
@@ -1402,7 +1402,7 @@ static mut tokens_CRITERION_STR: [cmdp_token; 1] = [token {
     identifier: c"cvalue".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 90 as ::core::ffi::c_int as u16,
+        call_identifier: 90_i32 as u16,
     },
 }];
 static mut tokens_MOUSE_WARPING: [cmdp_token; 2] = [
@@ -1411,7 +1411,7 @@ static mut tokens_MOUSE_WARPING: [cmdp_token; 2] = [
         identifier: c"value".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 91 as ::core::ffi::c_int as u16,
+            call_identifier: 91_i32 as u16,
         },
     },
     token {
@@ -1419,7 +1419,7 @@ static mut tokens_MOUSE_WARPING: [cmdp_token; 2] = [
         identifier: c"value".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 92 as ::core::ffi::c_int as u16,
+            call_identifier: 92_i32 as u16,
         },
     },
 ];
@@ -1428,7 +1428,7 @@ static mut tokens_RESTART_STATE: [cmdp_token; 1] = [token {
     identifier: c"path".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 93 as ::core::ffi::c_int as u16,
+        call_identifier: 93_i32 as u16,
     },
 }];
 static mut tokens_SMART_BORDERS: [cmdp_token; 7] = [
@@ -1437,7 +1437,7 @@ static mut tokens_SMART_BORDERS: [cmdp_token; 7] = [
         identifier: c"enabled".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 94 as ::core::ffi::c_int as u16,
+            call_identifier: 94_i32 as u16,
         },
     },
     token {
@@ -1445,7 +1445,7 @@ static mut tokens_SMART_BORDERS: [cmdp_token; 7] = [
         identifier: c"enabled".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 95 as ::core::ffi::c_int as u16,
+            call_identifier: 95_i32 as u16,
         },
     },
     token {
@@ -1453,7 +1453,7 @@ static mut tokens_SMART_BORDERS: [cmdp_token; 7] = [
         identifier: c"enabled".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 96 as ::core::ffi::c_int as u16,
+            call_identifier: 96_i32 as u16,
         },
     },
     token {
@@ -1461,7 +1461,7 @@ static mut tokens_SMART_BORDERS: [cmdp_token; 7] = [
         identifier: c"enabled".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 97 as ::core::ffi::c_int as u16,
+            call_identifier: 97_i32 as u16,
         },
     },
     token {
@@ -1469,7 +1469,7 @@ static mut tokens_SMART_BORDERS: [cmdp_token; 7] = [
         identifier: c"enabled".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 98 as ::core::ffi::c_int as u16,
+            call_identifier: 98_i32 as u16,
         },
     },
     token {
@@ -1477,7 +1477,7 @@ static mut tokens_SMART_BORDERS: [cmdp_token; 7] = [
         identifier: c"enabled".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 99 as ::core::ffi::c_int as u16,
+            call_identifier: 99_i32 as u16,
         },
     },
     token {
@@ -1485,7 +1485,7 @@ static mut tokens_SMART_BORDERS: [cmdp_token; 7] = [
         identifier: c"enabled".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 100 as ::core::ffi::c_int as u16,
+            call_identifier: 100_i32 as u16,
         },
     },
 ];
@@ -1495,7 +1495,7 @@ static mut tokens_BAR_MODIFIER: [cmdp_token; 12] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 101 as ::core::ffi::c_int as u16,
+            call_identifier: 101_i32 as u16,
         },
     },
     token {
@@ -1503,7 +1503,7 @@ static mut tokens_BAR_MODIFIER: [cmdp_token; 12] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 102 as ::core::ffi::c_int as u16,
+            call_identifier: 102_i32 as u16,
         },
     },
     token {
@@ -1511,7 +1511,7 @@ static mut tokens_BAR_MODIFIER: [cmdp_token; 12] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::BarModifier,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1519,7 +1519,7 @@ static mut tokens_BAR_MODIFIER: [cmdp_token; 12] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::BarModifier,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1527,7 +1527,7 @@ static mut tokens_BAR_MODIFIER: [cmdp_token; 12] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::BarModifier,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1535,7 +1535,7 @@ static mut tokens_BAR_MODIFIER: [cmdp_token; 12] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::BarModifier,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1543,7 +1543,7 @@ static mut tokens_BAR_MODIFIER: [cmdp_token; 12] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::BarModifier,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1551,7 +1551,7 @@ static mut tokens_BAR_MODIFIER: [cmdp_token; 12] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::BarModifier,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1559,7 +1559,7 @@ static mut tokens_BAR_MODIFIER: [cmdp_token; 12] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::BarModifier,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1567,7 +1567,7 @@ static mut tokens_BAR_MODIFIER: [cmdp_token; 12] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::BarModifier,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1575,7 +1575,7 @@ static mut tokens_BAR_MODIFIER: [cmdp_token; 12] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarModifier,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1583,7 +1583,7 @@ static mut tokens_BAR_MODIFIER: [cmdp_token; 12] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 103 as ::core::ffi::c_int as u16,
+            call_identifier: 103_i32 as u16,
         },
     },
 ];
@@ -1593,7 +1593,7 @@ static mut tokens_BAR_POSITION: [cmdp_token; 2] = [
         identifier: c"position".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 104 as ::core::ffi::c_int as u16,
+            call_identifier: 104_i32 as u16,
         },
     },
     token {
@@ -1601,7 +1601,7 @@ static mut tokens_BAR_POSITION: [cmdp_token; 2] = [
         identifier: c"position".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 105 as ::core::ffi::c_int as u16,
+            call_identifier: 105_i32 as u16,
         },
     },
 ];
@@ -1610,7 +1610,7 @@ static mut tokens_COLOR_BORDER: [cmdp_token; 1] = [token {
     identifier: c"border".as_ptr().cast_mut(),
     next_state: ParserState::ColorBackground,
     extra: WizardTokenData {
-        call_identifier: 0 as ::core::ffi::c_int as u16,
+        call_identifier: 0_i32 as u16,
     },
 }];
 static mut tokens_COLOR_SINGLE: [cmdp_token; 1] = [token {
@@ -1618,7 +1618,7 @@ static mut tokens_COLOR_SINGLE: [cmdp_token; 1] = [token {
     identifier: c"color".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 106 as ::core::ffi::c_int as u16,
+        call_identifier: 106_i32 as u16,
     },
 }];
 static mut tokens_FAKE_OUTPUTS: [cmdp_token; 1] = [token {
@@ -1626,7 +1626,7 @@ static mut tokens_FAKE_OUTPUTS: [cmdp_token; 1] = [token {
     identifier: c"outputs".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 107 as ::core::ffi::c_int as u16,
+        call_identifier: 107_i32 as u16,
     },
 }];
 static mut tokens_MODE_BINDING: [cmdp_token; 20] = [
@@ -1635,7 +1635,7 @@ static mut tokens_MODE_BINDING: [cmdp_token; 20] = [
         identifier: c"release".as_ptr().cast_mut(),
         next_state: ParserState::ModeBinding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1643,7 +1643,7 @@ static mut tokens_MODE_BINDING: [cmdp_token; 20] = [
         identifier: c"border".as_ptr().cast_mut(),
         next_state: ParserState::ModeBinding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1651,7 +1651,7 @@ static mut tokens_MODE_BINDING: [cmdp_token; 20] = [
         identifier: c"whole_window".as_ptr().cast_mut(),
         next_state: ParserState::ModeBinding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1659,7 +1659,7 @@ static mut tokens_MODE_BINDING: [cmdp_token; 20] = [
         identifier: c"exclude_titlebar".as_ptr().cast_mut(),
         next_state: ParserState::ModeBinding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1667,7 +1667,7 @@ static mut tokens_MODE_BINDING: [cmdp_token; 20] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::ModeBinding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1675,7 +1675,7 @@ static mut tokens_MODE_BINDING: [cmdp_token; 20] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::ModeBinding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1683,7 +1683,7 @@ static mut tokens_MODE_BINDING: [cmdp_token; 20] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::ModeBinding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1691,7 +1691,7 @@ static mut tokens_MODE_BINDING: [cmdp_token; 20] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::ModeBinding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1699,7 +1699,7 @@ static mut tokens_MODE_BINDING: [cmdp_token; 20] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::ModeBinding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1707,7 +1707,7 @@ static mut tokens_MODE_BINDING: [cmdp_token; 20] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::ModeBinding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1715,7 +1715,7 @@ static mut tokens_MODE_BINDING: [cmdp_token; 20] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::ModeBinding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1723,7 +1723,7 @@ static mut tokens_MODE_BINDING: [cmdp_token; 20] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::ModeBinding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1731,7 +1731,7 @@ static mut tokens_MODE_BINDING: [cmdp_token; 20] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::ModeBinding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1739,7 +1739,7 @@ static mut tokens_MODE_BINDING: [cmdp_token; 20] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::ModeBinding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1747,7 +1747,7 @@ static mut tokens_MODE_BINDING: [cmdp_token; 20] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::ModeBinding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1755,7 +1755,7 @@ static mut tokens_MODE_BINDING: [cmdp_token; 20] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::ModeBinding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1763,7 +1763,7 @@ static mut tokens_MODE_BINDING: [cmdp_token; 20] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::ModeBinding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1771,7 +1771,7 @@ static mut tokens_MODE_BINDING: [cmdp_token; 20] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::ModeBinding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1779,7 +1779,7 @@ static mut tokens_MODE_BINDING: [cmdp_token; 20] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::ModeBinding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1787,7 +1787,7 @@ static mut tokens_MODE_BINDING: [cmdp_token; 20] = [
         identifier: c"key".as_ptr().cast_mut(),
         next_state: ParserState::ModeBindcommand,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
 ];
@@ -1796,7 +1796,7 @@ static mut tokens_NO_FOCUS_END: [cmdp_token; 1] = [token {
     identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 108 as ::core::ffi::c_int as u16,
+        call_identifier: 108_i32 as u16,
     },
 }];
 static mut tokens_BAR_BINDSYM: [cmdp_token; 2] = [
@@ -1805,7 +1805,7 @@ static mut tokens_BAR_BINDSYM: [cmdp_token; 2] = [
         identifier: c"release".as_ptr().cast_mut(),
         next_state: ParserState::BarBindsym,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1813,7 +1813,7 @@ static mut tokens_BAR_BINDSYM: [cmdp_token; 2] = [
         identifier: c"button".as_ptr().cast_mut(),
         next_state: ParserState::BarBindsymCommand,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
 ];
@@ -1822,7 +1822,7 @@ static mut tokens_BAR_PADDING: [cmdp_token; 1] = [token {
     identifier: c"top_or_all".as_ptr().cast_mut(),
     next_state: ParserState::BarPaddingTop,
     extra: WizardTokenData {
-        call_identifier: 0 as ::core::ffi::c_int as u16,
+        call_identifier: 0_i32 as u16,
     },
 }];
 static mut tokens_BAR_VERBOSE: [cmdp_token; 1] = [token {
@@ -1830,7 +1830,7 @@ static mut tokens_BAR_VERBOSE: [cmdp_token; 1] = [token {
     identifier: c"value".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 109 as ::core::ffi::c_int as u16,
+        call_identifier: 109_i32 as u16,
     },
 }];
 static mut tokens_BINDCOMMAND: [cmdp_token; 5] = [
@@ -1839,7 +1839,7 @@ static mut tokens_BINDCOMMAND: [cmdp_token; 5] = [
         identifier: c"release".as_ptr().cast_mut(),
         next_state: ParserState::Bindcommand,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1847,7 +1847,7 @@ static mut tokens_BINDCOMMAND: [cmdp_token; 5] = [
         identifier: c"border".as_ptr().cast_mut(),
         next_state: ParserState::Bindcommand,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1855,7 +1855,7 @@ static mut tokens_BINDCOMMAND: [cmdp_token; 5] = [
         identifier: c"whole_window".as_ptr().cast_mut(),
         next_state: ParserState::Bindcommand,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1863,7 +1863,7 @@ static mut tokens_BINDCOMMAND: [cmdp_token; 5] = [
         identifier: c"exclude_titlebar".as_ptr().cast_mut(),
         next_state: ParserState::Bindcommand,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1871,7 +1871,7 @@ static mut tokens_BINDCOMMAND: [cmdp_token; 5] = [
         identifier: c"command".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 110 as ::core::ffi::c_int as u16,
+            call_identifier: 110_i32 as u16,
         },
     },
 ];
@@ -1880,7 +1880,7 @@ static mut tokens_IGNORE_LINE: [cmdp_token; 1] = [token {
     identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
     next_state: ParserState::Initial,
     extra: WizardTokenData {
-        call_identifier: 0 as ::core::ffi::c_int as u16,
+        call_identifier: 0_i32 as u16,
     },
 }];
 static mut tokens_TILING_DRAG: [cmdp_token; 9] = [
@@ -1889,7 +1889,7 @@ static mut tokens_TILING_DRAG: [cmdp_token; 9] = [
         identifier: c"off".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 111 as ::core::ffi::c_int as u16,
+            call_identifier: 111_i32 as u16,
         },
     },
     token {
@@ -1897,7 +1897,7 @@ static mut tokens_TILING_DRAG: [cmdp_token; 9] = [
         identifier: c"off".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 112 as ::core::ffi::c_int as u16,
+            call_identifier: 112_i32 as u16,
         },
     },
     token {
@@ -1905,7 +1905,7 @@ static mut tokens_TILING_DRAG: [cmdp_token; 9] = [
         identifier: c"off".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 113 as ::core::ffi::c_int as u16,
+            call_identifier: 113_i32 as u16,
         },
     },
     token {
@@ -1913,7 +1913,7 @@ static mut tokens_TILING_DRAG: [cmdp_token; 9] = [
         identifier: c"off".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 114 as ::core::ffi::c_int as u16,
+            call_identifier: 114_i32 as u16,
         },
     },
     token {
@@ -1921,7 +1921,7 @@ static mut tokens_TILING_DRAG: [cmdp_token; 9] = [
         identifier: c"off".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 115 as ::core::ffi::c_int as u16,
+            call_identifier: 115_i32 as u16,
         },
     },
     token {
@@ -1929,7 +1929,7 @@ static mut tokens_TILING_DRAG: [cmdp_token; 9] = [
         identifier: c"off".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 116 as ::core::ffi::c_int as u16,
+            call_identifier: 116_i32 as u16,
         },
     },
     token {
@@ -1937,7 +1937,7 @@ static mut tokens_TILING_DRAG: [cmdp_token; 9] = [
         identifier: c"swap_modifier".as_ptr().cast_mut(),
         next_state: ParserState::TilingDragSwapModifier,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1945,7 +1945,7 @@ static mut tokens_TILING_DRAG: [cmdp_token; 9] = [
         identifier: c"value".as_ptr().cast_mut(),
         next_state: ParserState::TilingDragMode,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1953,7 +1953,7 @@ static mut tokens_TILING_DRAG: [cmdp_token; 9] = [
         identifier: c"value".as_ptr().cast_mut(),
         next_state: ParserState::TilingDragMode,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
 ];
@@ -1963,7 +1963,7 @@ static mut tokens_TITLE_ALIGN: [cmdp_token; 3] = [
         identifier: c"alignment".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 117 as ::core::ffi::c_int as u16,
+            call_identifier: 117_i32 as u16,
         },
     },
     token {
@@ -1971,7 +1971,7 @@ static mut tokens_TITLE_ALIGN: [cmdp_token; 3] = [
         identifier: c"alignment".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 118 as ::core::ffi::c_int as u16,
+            call_identifier: 118_i32 as u16,
         },
     },
     token {
@@ -1979,7 +1979,7 @@ static mut tokens_TITLE_ALIGN: [cmdp_token; 3] = [
         identifier: c"alignment".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 119 as ::core::ffi::c_int as u16,
+            call_identifier: 119_i32 as u16,
         },
     },
 ];
@@ -1989,7 +1989,7 @@ static mut tokens_BAR_COLORS: [cmdp_token; 15] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarColors,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -1997,7 +1997,7 @@ static mut tokens_BAR_COLORS: [cmdp_token; 15] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarColorsIgnoreLine,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2005,7 +2005,7 @@ static mut tokens_BAR_COLORS: [cmdp_token; 15] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarColorsIgnoreLine,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2013,7 +2013,7 @@ static mut tokens_BAR_COLORS: [cmdp_token; 15] = [
         identifier: c"colorclass".as_ptr().cast_mut(),
         next_state: ParserState::BarColorsSingle,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2021,7 +2021,7 @@ static mut tokens_BAR_COLORS: [cmdp_token; 15] = [
         identifier: c"colorclass".as_ptr().cast_mut(),
         next_state: ParserState::BarColorsSingle,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2029,7 +2029,7 @@ static mut tokens_BAR_COLORS: [cmdp_token; 15] = [
         identifier: c"colorclass".as_ptr().cast_mut(),
         next_state: ParserState::BarColorsSingle,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2037,7 +2037,7 @@ static mut tokens_BAR_COLORS: [cmdp_token; 15] = [
         identifier: c"colorclass".as_ptr().cast_mut(),
         next_state: ParserState::BarColorsSingle,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2045,7 +2045,7 @@ static mut tokens_BAR_COLORS: [cmdp_token; 15] = [
         identifier: c"colorclass".as_ptr().cast_mut(),
         next_state: ParserState::BarColorsSingle,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2053,7 +2053,7 @@ static mut tokens_BAR_COLORS: [cmdp_token; 15] = [
         identifier: c"colorclass".as_ptr().cast_mut(),
         next_state: ParserState::BarColorsSingle,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2061,7 +2061,7 @@ static mut tokens_BAR_COLORS: [cmdp_token; 15] = [
         identifier: c"colorclass".as_ptr().cast_mut(),
         next_state: ParserState::BarColorsBorder,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2069,7 +2069,7 @@ static mut tokens_BAR_COLORS: [cmdp_token; 15] = [
         identifier: c"colorclass".as_ptr().cast_mut(),
         next_state: ParserState::BarColorsBorder,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2077,7 +2077,7 @@ static mut tokens_BAR_COLORS: [cmdp_token; 15] = [
         identifier: c"colorclass".as_ptr().cast_mut(),
         next_state: ParserState::BarColorsBorder,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2085,7 +2085,7 @@ static mut tokens_BAR_COLORS: [cmdp_token; 15] = [
         identifier: c"colorclass".as_ptr().cast_mut(),
         next_state: ParserState::BarColorsBorder,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2093,7 +2093,7 @@ static mut tokens_BAR_COLORS: [cmdp_token; 15] = [
         identifier: c"colorclass".as_ptr().cast_mut(),
         next_state: ParserState::BarColorsBorder,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2101,7 +2101,7 @@ static mut tokens_BAR_COLORS: [cmdp_token; 15] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Bar,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
 ];
@@ -2110,7 +2110,7 @@ static mut tokens_BAR_HEIGHT: [cmdp_token; 1] = [token {
     identifier: c"value".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 120 as ::core::ffi::c_int as u16,
+        call_identifier: 120_i32 as u16,
     },
 }];
 static mut tokens_BAR_OUTPUT: [cmdp_token; 1] = [token {
@@ -2118,7 +2118,7 @@ static mut tokens_BAR_OUTPUT: [cmdp_token; 1] = [token {
     identifier: c"output".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 121 as ::core::ffi::c_int as u16,
+        call_identifier: 121_i32 as u16,
     },
 }];
 static mut tokens_COLOR_TEXT: [cmdp_token; 1] = [token {
@@ -2126,7 +2126,7 @@ static mut tokens_COLOR_TEXT: [cmdp_token; 1] = [token {
     identifier: c"text".as_ptr().cast_mut(),
     next_state: ParserState::ColorIndicator,
     extra: WizardTokenData {
-        call_identifier: 0 as ::core::ffi::c_int as u16,
+        call_identifier: 0_i32 as u16,
     },
 }];
 static mut tokens_FOR_WINDOW: [cmdp_token; 1] = [token {
@@ -2134,7 +2134,7 @@ static mut tokens_FOR_WINDOW: [cmdp_token; 1] = [token {
     identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 122 as ::core::ffi::c_int as u16,
+        call_identifier: 122_i32 as u16,
     },
 }];
 static mut tokens_IPC_SOCKET: [cmdp_token; 1] = [token {
@@ -2142,7 +2142,7 @@ static mut tokens_IPC_SOCKET: [cmdp_token; 1] = [token {
     identifier: c"path".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 123 as ::core::ffi::c_int as u16,
+        call_identifier: 123_i32 as u16,
     },
 }];
 static mut tokens_SHOW_MARKS: [cmdp_token; 1] = [token {
@@ -2150,7 +2150,7 @@ static mut tokens_SHOW_MARKS: [cmdp_token; 1] = [token {
     identifier: c"value".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 124 as ::core::ffi::c_int as u16,
+        call_identifier: 124_i32 as u16,
     },
 }];
 static mut tokens_SMART_GAPS: [cmdp_token; 13] = [
@@ -2159,7 +2159,7 @@ static mut tokens_SMART_GAPS: [cmdp_token; 13] = [
         identifier: c"enabled".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 125 as ::core::ffi::c_int as u16,
+            call_identifier: 125_i32 as u16,
         },
     },
     token {
@@ -2167,7 +2167,7 @@ static mut tokens_SMART_GAPS: [cmdp_token; 13] = [
         identifier: c"enabled".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 126 as ::core::ffi::c_int as u16,
+            call_identifier: 126_i32 as u16,
         },
     },
     token {
@@ -2175,7 +2175,7 @@ static mut tokens_SMART_GAPS: [cmdp_token; 13] = [
         identifier: c"enabled".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 127 as ::core::ffi::c_int as u16,
+            call_identifier: 127_i32 as u16,
         },
     },
     token {
@@ -2183,7 +2183,7 @@ static mut tokens_SMART_GAPS: [cmdp_token; 13] = [
         identifier: c"enabled".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 128 as ::core::ffi::c_int as u16,
+            call_identifier: 128_i32 as u16,
         },
     },
     token {
@@ -2191,7 +2191,7 @@ static mut tokens_SMART_GAPS: [cmdp_token; 13] = [
         identifier: c"enabled".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 129 as ::core::ffi::c_int as u16,
+            call_identifier: 129_i32 as u16,
         },
     },
     token {
@@ -2199,7 +2199,7 @@ static mut tokens_SMART_GAPS: [cmdp_token; 13] = [
         identifier: c"enabled".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 130 as ::core::ffi::c_int as u16,
+            call_identifier: 130_i32 as u16,
         },
     },
     token {
@@ -2207,7 +2207,7 @@ static mut tokens_SMART_GAPS: [cmdp_token; 13] = [
         identifier: c"enabled".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 131 as ::core::ffi::c_int as u16,
+            call_identifier: 131_i32 as u16,
         },
     },
     token {
@@ -2215,7 +2215,7 @@ static mut tokens_SMART_GAPS: [cmdp_token; 13] = [
         identifier: c"enabled".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 132 as ::core::ffi::c_int as u16,
+            call_identifier: 132_i32 as u16,
         },
     },
     token {
@@ -2223,7 +2223,7 @@ static mut tokens_SMART_GAPS: [cmdp_token; 13] = [
         identifier: c"enabled".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 133 as ::core::ffi::c_int as u16,
+            call_identifier: 133_i32 as u16,
         },
     },
     token {
@@ -2231,7 +2231,7 @@ static mut tokens_SMART_GAPS: [cmdp_token; 13] = [
         identifier: c"enabled".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 134 as ::core::ffi::c_int as u16,
+            call_identifier: 134_i32 as u16,
         },
     },
     token {
@@ -2239,7 +2239,7 @@ static mut tokens_SMART_GAPS: [cmdp_token; 13] = [
         identifier: c"enabled".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 135 as ::core::ffi::c_int as u16,
+            call_identifier: 135_i32 as u16,
         },
     },
     token {
@@ -2247,7 +2247,7 @@ static mut tokens_SMART_GAPS: [cmdp_token; 13] = [
         identifier: c"enabled".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 136 as ::core::ffi::c_int as u16,
+            call_identifier: 136_i32 as u16,
         },
     },
     token {
@@ -2255,7 +2255,7 @@ static mut tokens_SMART_GAPS: [cmdp_token; 13] = [
         identifier: c"enabled".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 137 as ::core::ffi::c_int as u16,
+            call_identifier: 137_i32 as u16,
         },
     },
 ];
@@ -2264,7 +2264,7 @@ static mut tokens_CRITERION: [cmdp_token; 1] = [token {
     identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
     next_state: ParserState::CriterionStr,
     extra: WizardTokenData {
-        call_identifier: 0 as ::core::ffi::c_int as u16,
+        call_identifier: 0_i32 as u16,
     },
 }];
 static mut tokens_MODEBRACE: [cmdp_token; 2] = [
@@ -2273,7 +2273,7 @@ static mut tokens_MODEBRACE: [cmdp_token; 2] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Modebrace,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2281,7 +2281,7 @@ static mut tokens_MODEBRACE: [cmdp_token; 2] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Mode,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
 ];
@@ -2290,7 +2290,7 @@ static mut tokens_WORKSPACE: [cmdp_token; 1] = [token {
     identifier: c"workspace".as_ptr().cast_mut(),
     next_state: ParserState::WorkspaceCommand,
     extra: WizardTokenData {
-        call_identifier: 0 as ::core::ffi::c_int as u16,
+        call_identifier: 0_i32 as u16,
     },
 }];
 static mut tokens_BARBRACE: [cmdp_token; 2] = [
@@ -2299,7 +2299,7 @@ static mut tokens_BARBRACE: [cmdp_token; 2] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Barbrace,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2307,7 +2307,7 @@ static mut tokens_BARBRACE: [cmdp_token; 2] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 138 as ::core::ffi::c_int as u16,
+            call_identifier: 138_i32 as u16,
         },
     },
 ];
@@ -2316,7 +2316,7 @@ static mut tokens_BAR_FONT: [cmdp_token; 1] = [token {
     identifier: c"font".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 139 as ::core::ffi::c_int as u16,
+        call_identifier: 139_i32 as u16,
     },
 }];
 static mut tokens_BAR_MODE: [cmdp_token; 3] = [
@@ -2325,7 +2325,7 @@ static mut tokens_BAR_MODE: [cmdp_token; 3] = [
         identifier: c"mode".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 140 as ::core::ffi::c_int as u16,
+            call_identifier: 140_i32 as u16,
         },
     },
     token {
@@ -2333,7 +2333,7 @@ static mut tokens_BAR_MODE: [cmdp_token; 3] = [
         identifier: c"mode".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 141 as ::core::ffi::c_int as u16,
+            call_identifier: 141_i32 as u16,
         },
     },
     token {
@@ -2341,7 +2341,7 @@ static mut tokens_BAR_MODE: [cmdp_token; 3] = [
         identifier: c"mode".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 142 as ::core::ffi::c_int as u16,
+            call_identifier: 142_i32 as u16,
         },
     },
 ];
@@ -2351,7 +2351,7 @@ static mut tokens_CRITERIA: [cmdp_token; 17] = [
         identifier: c"ctype".as_ptr().cast_mut(),
         next_state: ParserState::Criterion,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2359,7 +2359,7 @@ static mut tokens_CRITERIA: [cmdp_token; 17] = [
         identifier: c"ctype".as_ptr().cast_mut(),
         next_state: ParserState::Criterion,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2367,7 +2367,7 @@ static mut tokens_CRITERIA: [cmdp_token; 17] = [
         identifier: c"ctype".as_ptr().cast_mut(),
         next_state: ParserState::Criterion,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2375,7 +2375,7 @@ static mut tokens_CRITERIA: [cmdp_token; 17] = [
         identifier: c"ctype".as_ptr().cast_mut(),
         next_state: ParserState::Criterion,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2383,7 +2383,7 @@ static mut tokens_CRITERIA: [cmdp_token; 17] = [
         identifier: c"ctype".as_ptr().cast_mut(),
         next_state: ParserState::Criterion,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2391,7 +2391,7 @@ static mut tokens_CRITERIA: [cmdp_token; 17] = [
         identifier: c"ctype".as_ptr().cast_mut(),
         next_state: ParserState::Criterion,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2399,7 +2399,7 @@ static mut tokens_CRITERIA: [cmdp_token; 17] = [
         identifier: c"ctype".as_ptr().cast_mut(),
         next_state: ParserState::Criterion,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2407,7 +2407,7 @@ static mut tokens_CRITERIA: [cmdp_token; 17] = [
         identifier: c"ctype".as_ptr().cast_mut(),
         next_state: ParserState::Criterion,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2415,7 +2415,7 @@ static mut tokens_CRITERIA: [cmdp_token; 17] = [
         identifier: c"ctype".as_ptr().cast_mut(),
         next_state: ParserState::Criterion,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2423,7 +2423,7 @@ static mut tokens_CRITERIA: [cmdp_token; 17] = [
         identifier: c"ctype".as_ptr().cast_mut(),
         next_state: ParserState::Criterion,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2431,7 +2431,7 @@ static mut tokens_CRITERIA: [cmdp_token; 17] = [
         identifier: c"ctype".as_ptr().cast_mut(),
         next_state: ParserState::Criterion,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2439,7 +2439,7 @@ static mut tokens_CRITERIA: [cmdp_token; 17] = [
         identifier: c"ctype".as_ptr().cast_mut(),
         next_state: ParserState::CriterionFrom,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2447,7 +2447,7 @@ static mut tokens_CRITERIA: [cmdp_token; 17] = [
         identifier: c"ctype".as_ptr().cast_mut(),
         next_state: ParserState::CriterionFrom,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2455,7 +2455,7 @@ static mut tokens_CRITERIA: [cmdp_token; 17] = [
         identifier: c"ctype".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 143 as ::core::ffi::c_int as u16,
+            call_identifier: 143_i32 as u16,
         },
     },
     token {
@@ -2463,7 +2463,7 @@ static mut tokens_CRITERIA: [cmdp_token; 17] = [
         identifier: c"ctype".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 144 as ::core::ffi::c_int as u16,
+            call_identifier: 144_i32 as u16,
         },
     },
     token {
@@ -2471,7 +2471,7 @@ static mut tokens_CRITERIA: [cmdp_token; 17] = [
         identifier: c"ctype".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 145 as ::core::ffi::c_int as u16,
+            call_identifier: 145_i32 as u16,
         },
     },
     token {
@@ -2479,7 +2479,7 @@ static mut tokens_CRITERIA: [cmdp_token; 17] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 146 as ::core::ffi::c_int as u16,
+            call_identifier: 146_i32 as u16,
         },
     },
 ];
@@ -2489,7 +2489,7 @@ static mut tokens_GAPS_END: [cmdp_token; 2] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::GapsEnd,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2497,7 +2497,7 @@ static mut tokens_GAPS_END: [cmdp_token; 2] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 147 as ::core::ffi::c_int as u16,
+            call_identifier: 147_i32 as u16,
         },
     },
 ];
@@ -2507,7 +2507,7 @@ static mut tokens_MODENAME: [cmdp_token; 2] = [
         identifier: c"pango_markup".as_ptr().cast_mut(),
         next_state: ParserState::Modename,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2515,7 +2515,7 @@ static mut tokens_MODENAME: [cmdp_token; 2] = [
         identifier: c"modename".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 148 as ::core::ffi::c_int as u16,
+            call_identifier: 148_i32 as u16,
         },
     },
 ];
@@ -2524,7 +2524,7 @@ static mut tokens_NO_FOCUS: [cmdp_token; 1] = [token {
     identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 149 as ::core::ffi::c_int as u16,
+        call_identifier: 149_i32 as u16,
     },
 }];
 static mut tokens_BINDING: [cmdp_token; 20] = [
@@ -2533,7 +2533,7 @@ static mut tokens_BINDING: [cmdp_token; 20] = [
         identifier: c"release".as_ptr().cast_mut(),
         next_state: ParserState::Binding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2541,7 +2541,7 @@ static mut tokens_BINDING: [cmdp_token; 20] = [
         identifier: c"border".as_ptr().cast_mut(),
         next_state: ParserState::Binding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2549,7 +2549,7 @@ static mut tokens_BINDING: [cmdp_token; 20] = [
         identifier: c"whole_window".as_ptr().cast_mut(),
         next_state: ParserState::Binding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2557,7 +2557,7 @@ static mut tokens_BINDING: [cmdp_token; 20] = [
         identifier: c"exclude_titlebar".as_ptr().cast_mut(),
         next_state: ParserState::Binding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2565,7 +2565,7 @@ static mut tokens_BINDING: [cmdp_token; 20] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::Binding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2573,7 +2573,7 @@ static mut tokens_BINDING: [cmdp_token; 20] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::Binding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2581,7 +2581,7 @@ static mut tokens_BINDING: [cmdp_token; 20] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::Binding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2589,7 +2589,7 @@ static mut tokens_BINDING: [cmdp_token; 20] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::Binding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2597,7 +2597,7 @@ static mut tokens_BINDING: [cmdp_token; 20] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::Binding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2605,7 +2605,7 @@ static mut tokens_BINDING: [cmdp_token; 20] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::Binding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2613,7 +2613,7 @@ static mut tokens_BINDING: [cmdp_token; 20] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::Binding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2621,7 +2621,7 @@ static mut tokens_BINDING: [cmdp_token; 20] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::Binding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2629,7 +2629,7 @@ static mut tokens_BINDING: [cmdp_token; 20] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::Binding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2637,7 +2637,7 @@ static mut tokens_BINDING: [cmdp_token; 20] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::Binding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2645,7 +2645,7 @@ static mut tokens_BINDING: [cmdp_token; 20] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::Binding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2653,7 +2653,7 @@ static mut tokens_BINDING: [cmdp_token; 20] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::Binding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2661,7 +2661,7 @@ static mut tokens_BINDING: [cmdp_token; 20] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::Binding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2669,7 +2669,7 @@ static mut tokens_BINDING: [cmdp_token; 20] = [
         identifier: c"modifiers".as_ptr().cast_mut(),
         next_state: ParserState::Binding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2677,7 +2677,7 @@ static mut tokens_BINDING: [cmdp_token; 20] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Binding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2685,7 +2685,7 @@ static mut tokens_BINDING: [cmdp_token; 20] = [
         identifier: c"key".as_ptr().cast_mut(),
         next_state: ParserState::Bindcommand,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
 ];
@@ -2694,7 +2694,7 @@ static mut tokens_INCLUDE: [cmdp_token; 1] = [token {
     identifier: c"pattern".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 150 as ::core::ffi::c_int as u16,
+        call_identifier: 150_i32 as u16,
     },
 }];
 static mut tokens_INITIAL: [cmdp_token; 60] = [
@@ -2703,7 +2703,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Initial,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2711,7 +2711,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Initial,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2719,7 +2719,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::IgnoreLine,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2727,7 +2727,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::IgnoreLine,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2735,7 +2735,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::IgnoreLine,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2743,7 +2743,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::IgnoreLine,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2751,7 +2751,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Include,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2759,7 +2759,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: c"bindtype".as_ptr().cast_mut(),
         next_state: ParserState::Binding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2767,7 +2767,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: c"bindtype".as_ptr().cast_mut(),
         next_state: ParserState::Binding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2775,7 +2775,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: c"bindtype".as_ptr().cast_mut(),
         next_state: ParserState::Binding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2783,7 +2783,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Barbrace,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2791,7 +2791,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Font,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2799,7 +2799,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Modename,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2807,7 +2807,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Gaps,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2815,7 +2815,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::SmartBorders,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2823,7 +2823,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::SmartGaps,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2831,7 +2831,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::FloatingMinimumSizeWidth,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2839,7 +2839,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::FloatingMaximumSizeWidth,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2847,7 +2847,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::FloatingModifier,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2855,7 +2855,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::DefaultOrientation,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2863,7 +2863,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::WorkspaceLayout,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2871,7 +2871,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: c"windowtype".as_ptr().cast_mut(),
         next_state: ParserState::DefaultBorder,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2879,7 +2879,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: c"windowtype".as_ptr().cast_mut(),
         next_state: ParserState::DefaultBorder,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2887,7 +2887,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: c"windowtype".as_ptr().cast_mut(),
         next_state: ParserState::DefaultBorder,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2895,7 +2895,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: c"windowtype".as_ptr().cast_mut(),
         next_state: ParserState::DefaultBorder,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2903,7 +2903,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::HideEdgeBorders,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2911,7 +2911,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::ForWindow,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2919,7 +2919,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Assign,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2927,7 +2927,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::NoFocus,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2935,7 +2935,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::FocusFollowsMouse,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2943,7 +2943,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::MouseWarping,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2951,7 +2951,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::FocusWrapping,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2959,7 +2959,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::ForceFocusWrapping,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2967,7 +2967,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::ForceXinerama,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2975,7 +2975,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::ForceXinerama,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2983,7 +2983,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::DisableRandr15,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2991,7 +2991,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::DisableRandr15,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -2999,7 +2999,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::WorkspaceBackAndForth,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3007,7 +3007,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::FakeOutputs,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3015,7 +3015,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::FakeOutputs,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3023,7 +3023,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::ForceDisplayUrgencyHint,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3031,7 +3031,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::FocusOnWindowActivation,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3039,7 +3039,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::TitleAlign,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3047,7 +3047,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::ShowMarks,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3055,7 +3055,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Workspace,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3063,7 +3063,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::IpcSocket,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3071,7 +3071,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::IpcSocket,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3079,7 +3079,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::IpcKillTimeout,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3087,7 +3087,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::RestartState,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3095,7 +3095,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::PopupDuringFullscreen,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3103,7 +3103,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::TilingDrag,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3111,7 +3111,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: c"exectype".as_ptr().cast_mut(),
         next_state: ParserState::Exec,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3119,7 +3119,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: c"exectype".as_ptr().cast_mut(),
         next_state: ParserState::Exec,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3127,7 +3127,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: c"colorclass".as_ptr().cast_mut(),
         next_state: ParserState::ColorSingle,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3135,7 +3135,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: c"colorclass".as_ptr().cast_mut(),
         next_state: ParserState::ColorBorder,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3143,7 +3143,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: c"colorclass".as_ptr().cast_mut(),
         next_state: ParserState::ColorBorder,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3151,7 +3151,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: c"colorclass".as_ptr().cast_mut(),
         next_state: ParserState::ColorBorder,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3159,7 +3159,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: c"colorclass".as_ptr().cast_mut(),
         next_state: ParserState::ColorBorder,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3167,7 +3167,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: c"colorclass".as_ptr().cast_mut(),
         next_state: ParserState::ColorBorder,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3175,7 +3175,7 @@ static mut tokens_INITIAL: [cmdp_token; 60] = [
         identifier: c"colorclass".as_ptr().cast_mut(),
         next_state: ParserState::ColorBorder,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
 ];
@@ -3184,7 +3184,7 @@ static mut tokens_ASSIGN: [cmdp_token; 1] = [token {
     identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 151 as ::core::ffi::c_int as u16,
+        call_identifier: 151_i32 as u16,
     },
 }];
 static mut tokens_BAR_ID: [cmdp_token; 1] = [token {
@@ -3192,7 +3192,7 @@ static mut tokens_BAR_ID: [cmdp_token; 1] = [token {
     identifier: c"bar_id".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 152 as ::core::ffi::c_int as u16,
+        call_identifier: 152_i32 as u16,
     },
 }];
 static mut tokens_EXEC: [cmdp_token; 2] = [
@@ -3201,7 +3201,7 @@ static mut tokens_EXEC: [cmdp_token; 2] = [
         identifier: c"no_startup_id".as_ptr().cast_mut(),
         next_state: ParserState::Exec,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3209,7 +3209,7 @@ static mut tokens_EXEC: [cmdp_token; 2] = [
         identifier: c"command".as_ptr().cast_mut(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 153 as ::core::ffi::c_int as u16,
+            call_identifier: 153_i32 as u16,
         },
     },
 ];
@@ -3218,7 +3218,7 @@ static mut tokens_FONT: [cmdp_token; 1] = [token {
     identifier: c"font".as_ptr().cast_mut(),
     next_state: ParserState::Call,
     extra: WizardTokenData {
-        call_identifier: 154 as ::core::ffi::c_int as u16,
+        call_identifier: 154_i32 as u16,
     },
 }];
 static mut tokens_GAPS: [cmdp_token; 8] = [
@@ -3227,7 +3227,7 @@ static mut tokens_GAPS: [cmdp_token; 8] = [
         identifier: c"scope".as_ptr().cast_mut(),
         next_state: ParserState::GapsWithScope,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3235,7 +3235,7 @@ static mut tokens_GAPS: [cmdp_token; 8] = [
         identifier: c"scope".as_ptr().cast_mut(),
         next_state: ParserState::GapsWithScope,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3243,7 +3243,7 @@ static mut tokens_GAPS: [cmdp_token; 8] = [
         identifier: c"scope".as_ptr().cast_mut(),
         next_state: ParserState::GapsWithScope,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3251,7 +3251,7 @@ static mut tokens_GAPS: [cmdp_token; 8] = [
         identifier: c"scope".as_ptr().cast_mut(),
         next_state: ParserState::GapsWithScope,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3259,7 +3259,7 @@ static mut tokens_GAPS: [cmdp_token; 8] = [
         identifier: c"scope".as_ptr().cast_mut(),
         next_state: ParserState::GapsWithScope,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3267,7 +3267,7 @@ static mut tokens_GAPS: [cmdp_token; 8] = [
         identifier: c"scope".as_ptr().cast_mut(),
         next_state: ParserState::GapsWithScope,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3275,7 +3275,7 @@ static mut tokens_GAPS: [cmdp_token; 8] = [
         identifier: c"scope".as_ptr().cast_mut(),
         next_state: ParserState::GapsWithScope,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3283,7 +3283,7 @@ static mut tokens_GAPS: [cmdp_token; 8] = [
         identifier: c"scope".as_ptr().cast_mut(),
         next_state: ParserState::GapsWithScope,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
 ];
@@ -3293,7 +3293,7 @@ static mut tokens_MODE: [cmdp_token; 8] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Mode,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3301,7 +3301,7 @@ static mut tokens_MODE: [cmdp_token; 8] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Mode,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3309,7 +3309,7 @@ static mut tokens_MODE: [cmdp_token; 8] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::ModeIgnoreLine,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3317,7 +3317,7 @@ static mut tokens_MODE: [cmdp_token; 8] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::ModeIgnoreLine,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3325,7 +3325,7 @@ static mut tokens_MODE: [cmdp_token; 8] = [
         identifier: c"bindtype".as_ptr().cast_mut(),
         next_state: ParserState::ModeBinding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3333,7 +3333,7 @@ static mut tokens_MODE: [cmdp_token; 8] = [
         identifier: c"bindtype".as_ptr().cast_mut(),
         next_state: ParserState::ModeBinding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3341,7 +3341,7 @@ static mut tokens_MODE: [cmdp_token; 8] = [
         identifier: c"bindtype".as_ptr().cast_mut(),
         next_state: ParserState::ModeBinding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3349,7 +3349,7 @@ static mut tokens_MODE: [cmdp_token; 8] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Initial,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
 ];
@@ -3359,7 +3359,7 @@ static mut tokens_BAR: [cmdp_token; 31] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Bar,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3367,7 +3367,7 @@ static mut tokens_BAR: [cmdp_token; 31] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Bar,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3375,7 +3375,7 @@ static mut tokens_BAR: [cmdp_token; 31] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarIgnoreLine,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3383,7 +3383,7 @@ static mut tokens_BAR: [cmdp_token; 31] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarIgnoreLine,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3391,7 +3391,7 @@ static mut tokens_BAR: [cmdp_token; 31] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarBarCommand,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3399,7 +3399,7 @@ static mut tokens_BAR: [cmdp_token; 31] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarStatusCommand,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3407,7 +3407,7 @@ static mut tokens_BAR: [cmdp_token; 31] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarWorkspaceCommand,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3415,7 +3415,7 @@ static mut tokens_BAR: [cmdp_token; 31] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarSocketPath,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3423,7 +3423,7 @@ static mut tokens_BAR: [cmdp_token; 31] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarMode,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3431,7 +3431,7 @@ static mut tokens_BAR: [cmdp_token; 31] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarHiddenState,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3439,7 +3439,7 @@ static mut tokens_BAR: [cmdp_token; 31] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarId,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3447,7 +3447,7 @@ static mut tokens_BAR: [cmdp_token; 31] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarModifier,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3455,7 +3455,7 @@ static mut tokens_BAR: [cmdp_token; 31] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarWheelUpCmd,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3463,7 +3463,7 @@ static mut tokens_BAR: [cmdp_token; 31] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarWheelDownCmd,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3471,7 +3471,7 @@ static mut tokens_BAR: [cmdp_token; 31] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarBindsym,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3479,7 +3479,7 @@ static mut tokens_BAR: [cmdp_token; 31] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarPosition,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3487,7 +3487,7 @@ static mut tokens_BAR: [cmdp_token; 31] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarOutput,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3495,7 +3495,7 @@ static mut tokens_BAR: [cmdp_token; 31] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarTrayOutput,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3503,7 +3503,7 @@ static mut tokens_BAR: [cmdp_token; 31] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarTrayPadding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3511,7 +3511,7 @@ static mut tokens_BAR: [cmdp_token; 31] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarFont,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3519,7 +3519,7 @@ static mut tokens_BAR: [cmdp_token; 31] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarSeparatorSymbol,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3527,7 +3527,7 @@ static mut tokens_BAR: [cmdp_token; 31] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarBindingModeIndicator,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3535,7 +3535,7 @@ static mut tokens_BAR: [cmdp_token; 31] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarWorkspaceButtons,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3543,7 +3543,7 @@ static mut tokens_BAR: [cmdp_token; 31] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarWorkspaceMinWidth,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3551,7 +3551,7 @@ static mut tokens_BAR: [cmdp_token; 31] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarStripWorkspaceNumbers,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3559,7 +3559,7 @@ static mut tokens_BAR: [cmdp_token; 31] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarStripWorkspaceName,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3567,7 +3567,7 @@ static mut tokens_BAR: [cmdp_token; 31] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarVerbose,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3575,7 +3575,7 @@ static mut tokens_BAR: [cmdp_token; 31] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarHeight,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3583,7 +3583,7 @@ static mut tokens_BAR: [cmdp_token; 31] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarPadding,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3591,7 +3591,7 @@ static mut tokens_BAR: [cmdp_token; 31] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::BarColorsBrace,
         extra: WizardTokenData {
-            call_identifier: 0 as ::core::ffi::c_int as u16,
+            call_identifier: 0_i32 as u16,
         },
     },
     token {
@@ -3599,478 +3599,478 @@ static mut tokens_BAR: [cmdp_token; 31] = [
         identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
         next_state: ParserState::Call,
         extra: WizardTokenData {
-            call_identifier: 155 as ::core::ffi::c_int as u16,
+            call_identifier: 155_i32 as u16,
         },
     },
 ];
 static mut tokens: [cmdp_token_ptr; 117] = [
     tokenptr {
         array: &raw const tokens_FORCE_DISPLAY_URGENCY_HINT_MS as *mut cmdp_token,
-        n: 2 as ::core::ffi::c_int,
+        n: 2_i32,
     },
     tokenptr {
         array: &raw const tokens_FLOATING_MAXIMUM_SIZE_HEIGHT as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_FLOATING_MINIMUM_SIZE_HEIGHT as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_STRIP_WORKSPACE_NUMBERS as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_FLOATING_MAXIMUM_SIZE_WIDTH as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_FLOATING_MINIMUM_SIZE_WIDTH as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_BINDING_MODE_INDICATOR as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_WORKSPACE_MIN_WIDTH_PX as *mut cmdp_token,
-        n: 2 as ::core::ffi::c_int,
+        n: 2_i32,
     },
     tokenptr {
         array: &raw const tokens_FOCUS_ON_WINDOW_ACTIVATION as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_FORCE_DISPLAY_URGENCY_HINT as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_TILING_DRAG_SWAP_MODIFIER as *mut cmdp_token,
-        n: 10 as ::core::ffi::c_int,
+        n: 10_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_STRIP_WORKSPACE_NAME as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_CRITERION_FROM_STR_START as *mut cmdp_token,
-        n: 3 as ::core::ffi::c_int,
+        n: 3_i32,
     },
     tokenptr {
         array: &raw const tokens_DEFAULT_BORDER_PIXELS_PX as *mut cmdp_token,
-        n: 2 as ::core::ffi::c_int,
+        n: 2_i32,
     },
     tokenptr {
         array: &raw const tokens_WORKSPACE_BACK_AND_FORTH as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_ASSIGN_WORKSPACE_NUMBER as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_WORKSPACE_MIN_WIDTH as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_FLOATING_MAXIMUM_SIZE_X as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_FLOATING_MINIMUM_SIZE_X as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_POPUP_DURING_FULLSCREEN as *mut cmdp_token,
-        n: 4 as ::core::ffi::c_int,
+        n: 4_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_COLORS_IGNORE_LINE as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_CRITERION_FROM_STR_END as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_COLORS_BACKGROUND as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_WORKSPACE_BUTTONS as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_WORKSPACE_COMMAND as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_DEFAULT_BORDER_PIXELS as *mut cmdp_token,
-        n: 2 as ::core::ffi::c_int,
+        n: 2_i32,
     },
     tokenptr {
         array: &raw const tokens_WORKSPACE_OUTPUT_WORD as *mut cmdp_token,
-        n: 2 as ::core::ffi::c_int,
+        n: 2_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_SEPARATOR_SYMBOL as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_FORCE_FOCUS_WRAPPING as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_BINDSYM_COMMAND as *mut cmdp_token,
-        n: 2 as ::core::ffi::c_int,
+        n: 2_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_TRAY_PADDING_PX as *mut cmdp_token,
-        n: 2 as ::core::ffi::c_int,
+        n: 2_i32,
     },
     tokenptr {
         array: &raw const tokens_DEFAULT_ORIENTATION as *mut cmdp_token,
-        n: 3 as ::core::ffi::c_int,
+        n: 3_i32,
     },
     tokenptr {
         array: &raw const tokens_FOCUS_FOLLOWS_MOUSE as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_PADDING_BOTTOM as *mut cmdp_token,
-        n: 3 as ::core::ffi::c_int,
+        n: 3_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_STATUS_COMMAND as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_WHEEL_DOWN_CMD as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_COLOR_CHILD_BORDER as *mut cmdp_token,
-        n: 2 as ::core::ffi::c_int,
+        n: 2_i32,
     },
     tokenptr {
         array: &raw const tokens_CRITERION_FROM_STR as *mut cmdp_token,
-        n: 2 as ::core::ffi::c_int,
+        n: 2_i32,
     },
     tokenptr {
         array: &raw const tokens_FOR_WINDOW_COMMAND as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_COLORS_BORDER as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_COLORS_SINGLE as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_PADDING_RIGHT as *mut cmdp_token,
-        n: 3 as ::core::ffi::c_int,
+        n: 3_i32,
     },
     tokenptr {
         array: &raw const tokens_FLOATING_MODIFIER as *mut cmdp_token,
-        n: 10 as ::core::ffi::c_int,
+        n: 10_i32,
     },
     tokenptr {
         array: &raw const tokens_HIDE_EDGE_BORDERS as *mut cmdp_token,
-        n: 12 as ::core::ffi::c_int,
+        n: 12_i32,
     },
     tokenptr {
         array: &raw const tokens_WORKSPACE_COMMAND as *mut cmdp_token,
-        n: 2 as ::core::ffi::c_int,
+        n: 2_i32,
     },
     tokenptr {
         array: &raw const tokens_ASSIGN_WORKSPACE as *mut cmdp_token,
-        n: 5 as ::core::ffi::c_int,
+        n: 5_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_COLORS_BRACE as *mut cmdp_token,
-        n: 2 as ::core::ffi::c_int,
+        n: 2_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_HIDDEN_STATE as *mut cmdp_token,
-        n: 2 as ::core::ffi::c_int,
+        n: 2_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_PADDING_LEFT as *mut cmdp_token,
-        n: 2 as ::core::ffi::c_int,
+        n: 2_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_TRAY_PADDING as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_WHEEL_UP_CMD as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_COLOR_BACKGROUND as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_IPC_KILL_TIMEOUT as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_MODE_BINDCOMMAND as *mut cmdp_token,
-        n: 5 as ::core::ffi::c_int,
+        n: 5_i32,
     },
     tokenptr {
         array: &raw const tokens_MODE_IGNORE_LINE as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_TILING_DRAG_MODE as *mut cmdp_token,
-        n: 3 as ::core::ffi::c_int,
+        n: 3_i32,
     },
     tokenptr {
         array: &raw const tokens_WORKSPACE_LAYOUT as *mut cmdp_token,
-        n: 4 as ::core::ffi::c_int,
+        n: 4_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_BAR_COMMAND as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_COLORS_TEXT as *mut cmdp_token,
-        n: 2 as ::core::ffi::c_int,
+        n: 2_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_IGNORE_LINE as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_PADDING_TOP as *mut cmdp_token,
-        n: 3 as ::core::ffi::c_int,
+        n: 3_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_SOCKET_PATH as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_TRAY_OUTPUT as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_COLOR_INDICATOR as *mut cmdp_token,
-        n: 2 as ::core::ffi::c_int,
+        n: 2_i32,
     },
     tokenptr {
         array: &raw const tokens_DISABLE_RANDR15 as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_GAPS_WITH_SCOPE as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_CRITERION_FROM as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_DEFAULT_BORDER as *mut cmdp_token,
-        n: 4 as ::core::ffi::c_int,
+        n: 4_i32,
     },
     tokenptr {
         array: &raw const tokens_FOCUS_WRAPPING as *mut cmdp_token,
-        n: 14 as ::core::ffi::c_int,
+        n: 14_i32,
     },
     tokenptr {
         array: &raw const tokens_FORCE_XINERAMA as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_ASSIGN_OUTPUT as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_CRITERION_STR as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_MOUSE_WARPING as *mut cmdp_token,
-        n: 2 as ::core::ffi::c_int,
+        n: 2_i32,
     },
     tokenptr {
         array: &raw const tokens_RESTART_STATE as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_SMART_BORDERS as *mut cmdp_token,
-        n: 7 as ::core::ffi::c_int,
+        n: 7_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_MODIFIER as *mut cmdp_token,
-        n: 12 as ::core::ffi::c_int,
+        n: 12_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_POSITION as *mut cmdp_token,
-        n: 2 as ::core::ffi::c_int,
+        n: 2_i32,
     },
     tokenptr {
         array: &raw const tokens_COLOR_BORDER as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_COLOR_SINGLE as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_FAKE_OUTPUTS as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_MODE_BINDING as *mut cmdp_token,
-        n: 20 as ::core::ffi::c_int,
+        n: 20_i32,
     },
     tokenptr {
         array: &raw const tokens_NO_FOCUS_END as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_BINDSYM as *mut cmdp_token,
-        n: 2 as ::core::ffi::c_int,
+        n: 2_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_PADDING as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_VERBOSE as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_BINDCOMMAND as *mut cmdp_token,
-        n: 5 as ::core::ffi::c_int,
+        n: 5_i32,
     },
     tokenptr {
         array: &raw const tokens_IGNORE_LINE as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_TILING_DRAG as *mut cmdp_token,
-        n: 9 as ::core::ffi::c_int,
+        n: 9_i32,
     },
     tokenptr {
         array: &raw const tokens_TITLE_ALIGN as *mut cmdp_token,
-        n: 3 as ::core::ffi::c_int,
+        n: 3_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_COLORS as *mut cmdp_token,
-        n: 15 as ::core::ffi::c_int,
+        n: 15_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_HEIGHT as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_OUTPUT as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_COLOR_TEXT as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_FOR_WINDOW as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_IPC_SOCKET as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_SHOW_MARKS as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_SMART_GAPS as *mut cmdp_token,
-        n: 13 as ::core::ffi::c_int,
+        n: 13_i32,
     },
     tokenptr {
         array: &raw const tokens_CRITERION as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_MODEBRACE as *mut cmdp_token,
-        n: 2 as ::core::ffi::c_int,
+        n: 2_i32,
     },
     tokenptr {
         array: &raw const tokens_WORKSPACE as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_BARBRACE as *mut cmdp_token,
-        n: 2 as ::core::ffi::c_int,
+        n: 2_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_FONT as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_MODE as *mut cmdp_token,
-        n: 3 as ::core::ffi::c_int,
+        n: 3_i32,
     },
     tokenptr {
         array: &raw const tokens_CRITERIA as *mut cmdp_token,
-        n: 17 as ::core::ffi::c_int,
+        n: 17_i32,
     },
     tokenptr {
         array: &raw const tokens_GAPS_END as *mut cmdp_token,
-        n: 2 as ::core::ffi::c_int,
+        n: 2_i32,
     },
     tokenptr {
         array: &raw const tokens_MODENAME as *mut cmdp_token,
-        n: 2 as ::core::ffi::c_int,
+        n: 2_i32,
     },
     tokenptr {
         array: &raw const tokens_NO_FOCUS as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_BINDING as *mut cmdp_token,
-        n: 20 as ::core::ffi::c_int,
+        n: 20_i32,
     },
     tokenptr {
         array: &raw const tokens_INCLUDE as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_INITIAL as *mut cmdp_token,
-        n: 60 as ::core::ffi::c_int,
+        n: 60_i32,
     },
     tokenptr {
         array: &raw const tokens_ASSIGN as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR_ID as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_EXEC as *mut cmdp_token,
-        n: 2 as ::core::ffi::c_int,
+        n: 2_i32,
     },
     tokenptr {
         array: &raw const tokens_FONT as *mut cmdp_token,
-        n: 1 as ::core::ffi::c_int,
+        n: 1_i32,
     },
     tokenptr {
         array: &raw const tokens_GAPS as *mut cmdp_token,
-        n: 8 as ::core::ffi::c_int,
+        n: 8_i32,
     },
     tokenptr {
         array: &raw const tokens_MODE as *mut cmdp_token,
-        n: 8 as ::core::ffi::c_int,
+        n: 8_i32,
     },
     tokenptr {
         array: &raw const tokens_BAR as *mut cmdp_token,
-        n: 31 as ::core::ffi::c_int,
+        n: 31_i32,
     },
 ];
 #[derive(Clone)]
@@ -4103,7 +4103,7 @@ unsafe fn parser_tokens(state: ParserState) -> Vec<ParserToken> {
 #[derive(Debug)]
 enum CapturedValue {
     String(Vec<u8>),
-    Number(libc::c_long),
+    Number(i64),
 }
 #[derive(Default)]
 struct Captures(Vec<(Vec<u8>, CapturedValue)>);
@@ -4153,7 +4153,7 @@ fn case_prefix(input: &[u8], word: &[u8]) -> bool {
             unsafe { libc::tolower(i32::from(a)) == libc::tolower(i32::from(b)) }
         })
 }
-fn decimal_prefix(input: &[u8]) -> Option<(libc::c_long, usize)> {
+fn decimal_prefix(input: &[u8]) -> Option<(i64, usize)> {
     let string = CString::new(input).ok()?;
     let mut end = std::ptr::null_mut();
     // SAFETY: the temporary C string is live, and end is a writable pointer.
@@ -4161,7 +4161,7 @@ fn decimal_prefix(input: &[u8]) -> Option<(libc::c_long, usize)> {
         *libc::__errno_location() = 0;
         let number = libc::strtol(string.as_ptr(), &mut end, 10);
         let errno = *libc::__errno_location();
-        if errno == libc::ERANGE && (number == libc::c_long::MIN || number == libc::c_long::MAX)
+        if errno == libc::ERANGE && (number == i64::MIN || number == i64::MAX)
             || errno != 0 && number == 0
         {
             return None;
@@ -4291,14 +4291,14 @@ fn format_binding(binding: &BindingFields, keysym: &CStr) -> CString {
 
 /// Native key symbols borrow the initialized connection's setup/key table.
 /// Requires sole event-thread access to those resources for this query.
-fn keysym_used_on_other_key(keysyms: &KeySymbols, sym: libc::c_ulong, except_keycode: u8) -> bool {
+fn keysym_used_on_other_key(keysyms: &KeySymbols, sym: u64, except_keycode: u8) -> bool {
     let setup = keysyms.connection().get_setup();
     let (minimum, maximum) = (setup.min_keycode(), setup.max_keycode());
     // Preserve the native zero-start sentinel and level order.
     minimum != 0
         && (minimum..=maximum)
             .filter(|&code| code != except_keycode)
-            .any(|code| (0..4).any(|level| keysyms.keysym(code, level) as libc::c_ulong == sym))
+            .any(|code| (0..4).any(|level| keysyms.keysym(code, level) as u64 == sym))
 }
 // The parser and formatting own their data. Only keysym lookup and malloc ABI
 // handoff require the initialized event-thread XKB/key-symbol native resources.
@@ -4307,48 +4307,44 @@ unsafe fn rewrite_binding(input: &CStr, keysyms: &KeySymbols) -> Option<CString>
     let modifiers = binding.modifiers.as_deref();
     let key = CString::new(binding.key.clone()).expect("key has no NUL");
     let keycode = atoi(key.as_ptr());
-    let mut level: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
+    let mut level: i32 = 0_i32;
     if modifiers.is_some_and(|bytes| bytes.windows(5).any(|part| part == b"Shift")) {
-        level = 1 as ::core::ffi::c_int;
+        level = 1_i32;
         let mut syms: *const xkb_keysym_t = ::core::ptr::null::<xkb_keysym_t>();
-        let num: ::core::ffi::c_int = xkb_keymap_key_get_syms_by_level(
+        let num: i32 = xkb_keymap_key_get_syms_by_level(
             xkb_keymap,
             keycode as xkb_keycode_t,
             0 as xkb_layout_index_t,
             0 as xkb_level_index_t,
             &raw mut syms,
         );
-        if num == 0 as ::core::ffi::c_int {
+        if num == 0_i32 {
             errx(
                 1 as ::core::ffi::c_int,
                 c"xkb_keymap_key_get_syms_by_level returned no symbols for keycode %d".as_ptr(),
                 keycode,
             );
         }
-        if !keysym_used_on_other_key(
-            keysyms,
-            *syms.offset(0_isize) as libc::c_ulong,
-            keycode as u8,
-        ) {
-            level = 0 as ::core::ffi::c_int;
+        if !keysym_used_on_other_key(keysyms, *syms.offset(0_isize) as u64, keycode as u8) {
+            level = 0_i32;
         }
     }
     let mut syms_0: *const xkb_keysym_t = ::core::ptr::null::<xkb_keysym_t>();
-    let num_0: ::core::ffi::c_int = xkb_keymap_key_get_syms_by_level(
+    let num_0: i32 = xkb_keymap_key_get_syms_by_level(
         xkb_keymap,
         keycode as xkb_keycode_t,
         0 as xkb_layout_index_t,
         level as xkb_level_index_t,
         &raw mut syms_0,
     );
-    if num_0 == 0 as ::core::ffi::c_int {
+    if num_0 == 0_i32 {
         errx(
             1 as ::core::ffi::c_int,
             c"xkb_keymap_key_get_syms_by_level returned no symbols for keycode %d".as_ptr(),
             keycode,
         );
     }
-    if num_0 > 1 as ::core::ffi::c_int {
+    if num_0 > 1_i32 {
         printf(
                 c"xkb_keymap_key_get_syms_by_level (keycode = %d) returned %d symbolsinstead of 1, using only the first one.\n".as_ptr(),
                 keycode,
@@ -4360,7 +4356,7 @@ unsafe fn rewrite_binding(input: &CStr, keysyms: &KeySymbols) -> Option<CString>
         *syms_0.offset(0_isize),
         &raw mut str as *mut ::core::ffi::c_char,
         ::core::mem::size_of::<[::core::ffi::c_char; 4096]>() as usize,
-    ) == -(1 as ::core::ffi::c_int)
+    ) == -1_i32
     {
         errx(
             libc::EXIT_FAILURE,
@@ -4498,16 +4494,14 @@ struct WizardAtoms {
 
 unsafe fn txt(
     text_font: &Font,
-    col: ::core::ffi::c_int,
-    row: ::core::ffi::c_int,
+    col: i32,
+    row: i32,
     text: *mut ::core::ffi::c_char,
     fg: color_t,
     bg: color_t,
 ) {
-    let x: ::core::ffi::c_int =
-        (col - 1 as ::core::ffi::c_int) * char_width + logical_px(4 as ::core::ffi::c_int);
-    let y: ::core::ffi::c_int =
-        (row - 1 as ::core::ffi::c_int) * font.height + logical_px(4 as ::core::ffi::c_int);
+    let x: i32 = (col - 1_i32) * char_width + logical_px(4_i32);
+    let y: i32 = (row - 1_i32) * font.height + logical_px(4_i32);
     let string = i3_common::string::I3String::from_bytes(CStr::from_ptr(text).to_bytes());
     draw_util_text(
         text_font,
@@ -4517,10 +4511,10 @@ unsafe fn txt(
         bg,
         x,
         y,
-        logical_px(300 as ::core::ffi::c_int) - x - logical_px(4 as ::core::ffi::c_int),
+        logical_px(300_i32) - x - logical_px(4_i32),
     );
 }
-unsafe fn handle_expose(ui: &WizardUi, connection: &xcb::Connection) -> ::core::ffi::c_int {
+unsafe fn handle_expose(ui: &WizardUi, connection: &xcb::Connection) -> i32 {
     let black: color_t = draw_util_hex_to_color(root_screen.as_ref(), "#000000") as color_t;
     let white: color_t = draw_util_hex_to_color(root_screen.as_ref(), "#FFFFFF") as color_t;
     let green: color_t = draw_util_hex_to_color(root_screen.as_ref(), "#00FF00") as color_t;
@@ -4530,16 +4524,16 @@ unsafe fn handle_expose(ui: &WizardUi, connection: &xcb::Connection) -> ::core::
     if ui.step == WizardStep::Welcome {
         txt(
             &font,
-            2 as ::core::ffi::c_int,
-            2 as ::core::ffi::c_int,
+            2_i32,
+            2_i32,
             c"You have not configured i3 yet.".as_ptr().cast_mut(),
             white,
             black,
         );
         txt(
             &font,
-            2 as ::core::ffi::c_int,
-            3 as ::core::ffi::c_int,
+            2_i32,
+            3_i32,
             c"Do you want me to generate a config at"
                 .as_ptr()
                 .cast_mut(),
@@ -4549,43 +4543,36 @@ unsafe fn handle_expose(ui: &WizardUi, connection: &xcb::Connection) -> ::core::
         let mut message = ui.config_path.to_bytes().to_vec();
         message.push(b'?');
         let msg = CString::new(message).expect("path contains no NUL");
-        txt(
-            &font,
-            2 as ::core::ffi::c_int,
-            4 as ::core::ffi::c_int,
-            msg.as_ptr().cast_mut(),
-            white,
-            black,
-        );
+        txt(&font, 2_i32, 4_i32, msg.as_ptr().cast_mut(), white, black);
 
         txt(
             &font,
-            13 as ::core::ffi::c_int,
-            6 as ::core::ffi::c_int,
+            13_i32,
+            6_i32,
             c"Yes, generate the config".as_ptr().cast_mut(),
             white,
             black,
         );
         txt(
             &font,
-            13 as ::core::ffi::c_int,
-            8 as ::core::ffi::c_int,
+            13_i32,
+            8_i32,
             c"No, I will use the defaults".as_ptr().cast_mut(),
             white,
             black,
         );
         txt(
             &font,
-            4 as ::core::ffi::c_int,
-            6 as ::core::ffi::c_int,
+            4_i32,
+            6_i32,
             c"<Enter>".as_ptr().cast_mut(),
             green,
             black,
         );
         txt(
             &font,
-            5 as ::core::ffi::c_int,
-            8 as ::core::ffi::c_int,
+            5_i32,
+            8_i32,
             c"<ESC>".as_ptr().cast_mut(),
             red,
             black,
@@ -4594,48 +4581,48 @@ unsafe fn handle_expose(ui: &WizardUi, connection: &xcb::Connection) -> ::core::
     if ui.step == WizardStep::Generate {
         txt(
             &font,
-            2 as ::core::ffi::c_int,
-            2 as ::core::ffi::c_int,
+            2_i32,
+            2_i32,
             c"Please choose either:".as_ptr().cast_mut(),
             white,
             black,
         );
         txt(
             &font,
-            13 as ::core::ffi::c_int,
-            4 as ::core::ffi::c_int,
+            13_i32,
+            4_i32,
             c"Win as default modifier".as_ptr().cast_mut(),
             white,
             black,
         );
         txt(
             &font,
-            13 as ::core::ffi::c_int,
-            5 as ::core::ffi::c_int,
+            13_i32,
+            5_i32,
             c"Alt as default modifier".as_ptr().cast_mut(),
             white,
             black,
         );
         txt(
             &font,
-            2 as ::core::ffi::c_int,
-            7 as ::core::ffi::c_int,
+            2_i32,
+            7_i32,
             c"Afterwards, press".as_ptr().cast_mut(),
             white,
             black,
         );
         txt(
             &font,
-            13 as ::core::ffi::c_int,
-            9 as ::core::ffi::c_int,
+            13_i32,
+            9_i32,
             c"to write the config".as_ptr().cast_mut(),
             white,
             black,
         );
         txt(
             &font,
-            13 as ::core::ffi::c_int,
-            10 as ::core::ffi::c_int,
+            13_i32,
+            10_i32,
             c"to abort".as_ptr().cast_mut(),
             white,
             black,
@@ -4643,8 +4630,8 @@ unsafe fn handle_expose(ui: &WizardUi, connection: &xcb::Connection) -> ::core::
         if ui.modifier == WizardModifier::Win {
             txt(
                 &font,
-                5 as ::core::ffi::c_int,
-                5 as ::core::ffi::c_int,
+                5_i32,
+                5_i32,
                 c"<Alt>".as_ptr().cast_mut(),
                 white,
                 black,
@@ -4652,8 +4639,8 @@ unsafe fn handle_expose(ui: &WizardUi, connection: &xcb::Connection) -> ::core::
         } else {
             txt(
                 &font,
-                5 as ::core::ffi::c_int,
-                4 as ::core::ffi::c_int,
+                5_i32,
+                4_i32,
                 c"<Win>".as_ptr().cast_mut(),
                 white,
                 black,
@@ -4663,8 +4650,8 @@ unsafe fn handle_expose(ui: &WizardUi, connection: &xcb::Connection) -> ::core::
         if ui.modifier == WizardModifier::Win {
             txt(
                 &bold_font,
-                2 as ::core::ffi::c_int,
-                4 as ::core::ffi::c_int,
+                2_i32,
+                4_i32,
                 c"-> <Win>".as_ptr().cast_mut(),
                 white,
                 black,
@@ -4672,8 +4659,8 @@ unsafe fn handle_expose(ui: &WizardUi, connection: &xcb::Connection) -> ::core::
         } else {
             txt(
                 &bold_font,
-                2 as ::core::ffi::c_int,
-                5 as ::core::ffi::c_int,
+                2_i32,
+                5_i32,
                 c"-> <Alt>".as_ptr().cast_mut(),
                 white,
                 black,
@@ -4682,23 +4669,23 @@ unsafe fn handle_expose(ui: &WizardUi, connection: &xcb::Connection) -> ::core::
 
         txt(
             &font,
-            4 as ::core::ffi::c_int,
-            9 as ::core::ffi::c_int,
+            4_i32,
+            9_i32,
             c"<Enter>".as_ptr().cast_mut(),
             green,
             black,
         );
         txt(
             &font,
-            5 as ::core::ffi::c_int,
-            10 as ::core::ffi::c_int,
+            5_i32,
+            10_i32,
             c"<ESC>".as_ptr().cast_mut(),
             red,
             black,
         );
     }
     let _ = connection.flush();
-    1 as ::core::ffi::c_int
+    1_i32
 }
 unsafe fn handle_key_press(
     ui: &mut WizardUi,
@@ -4715,7 +4702,7 @@ unsafe fn handle_key_press(
     );
     let mut state_filtered: u16 =
         (key_press_state(event) as u32 & !(xcb_numlock_mask | x::ModMask::LOCK.bits())) as u16;
-    state_filtered = (state_filtered as ::core::ffi::c_int & 0xff as ::core::ffi::c_int) as u16;
+    state_filtered = (state_filtered as i32 & 0xff_i32) as u16;
     let sym: u32 = symbols.keysym(event.detail(), i32::from(state_filtered));
     printf(c"sym = %c (%d)\n".as_ptr(), sym, sym);
     if sym == XK_Return as u32 || sym == XK_KP_Enter as u32 {
@@ -4925,7 +4912,7 @@ const WIZARD_OPTIONS: &[i3_common::cli::OptionSpec] = &[
     i3_common::cli::OptionSpec::value(b'f', "font").long_only(),
     i3_common::cli::OptionSpec::flag(b'h', "help"),
 ];
-unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
+unsafe fn run_window(settings: WizardSettings) -> i32 {
     let mut xdg_config_home: *mut ::core::ffi::c_char = std::ptr::null_mut();
     let pattern = c"pango:monospace 8".as_ptr();
     let patternbold = c"pango:monospace bold 8".as_ptr();
@@ -4942,7 +4929,7 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
             path,
         );
         free(path as *mut ::core::ffi::c_void);
-        return 0 as ::core::ffi::c_int;
+        return 0_i32;
     }
     xdg_config_home = getenv(c"XDG_CONFIG_HOME".as_ptr());
     if xdg_config_home.is_null() {
@@ -4968,19 +4955,19 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
             );
         }
     }
-    let mut fd: ::core::ffi::c_int = 0;
+    let mut fd: i32 = 0;
     fd = open(
         config_path.as_ptr(),
         libc::O_CREAT | libc::O_RDWR,
         0o644 as ::core::ffi::c_int,
     );
-    if fd == -(1 as ::core::ffi::c_int) {
+    if fd == -1_i32 {
         printf(
             c"Cannot open file \"%s\" for writing: %s. Exiting.\n".as_ptr(),
             config_path.as_ptr(),
             strerror(*__errno_location()),
         );
-        return 0 as ::core::ffi::c_int;
+        return 0_i32;
     }
     close(fd);
     unlink(config_path.as_ptr());
@@ -5016,7 +5003,7 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
         ::core::ptr::null_mut::<u16>(),
         &raw mut xkb_base_event,
         &raw mut xkb_base_error,
-    ) != 1 as ::core::ffi::c_int
+    ) != 1_i32
     {
         errx(
             libc::EXIT_FAILURE,
@@ -5043,7 +5030,7 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
                 .as_ref()
                 .expect("rewrite symbols initialized"),
         );
-        return 0 as ::core::ffi::c_int;
+        return 0_i32;
     }
     let intern = |name: &CStr| {
         connection.send_request(&x::InternAtom {
@@ -5181,8 +5168,8 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
         rendering.clone(),
         win,
         visual,
-        logical_px(300 as ::core::ffi::c_int),
-        15 as ::core::ffi::c_int * font.height + logical_px(4 as ::core::ffi::c_int),
+        logical_px(300_i32),
+        15_i32 * font.height + logical_px(4_i32),
     );
     let _ = connection.flush();
     resources.surface = true;
