@@ -12,6 +12,32 @@ use std::ffi::CString;
 use std::ptr;
 use std::rc::Rc;
 
+// Intrusive heads publish self-tail pointers. Convert the allocation into raw
+// ownership before deriving those links; moving this owner never retags a Box.
+struct OwnedQueueHead<T> {
+    pointer: std::ptr::NonNull<T>,
+}
+impl<T> OwnedQueueHead<T> {
+    fn new(value: T) -> Self {
+        Self {
+            pointer: std::ptr::NonNull::new(Box::into_raw(Box::new(value)))
+                .expect("Box is non-null"),
+        }
+    }
+    fn as_ptr(&self) -> *mut T {
+        self.pointer.as_ptr()
+    }
+}
+impl<T> Drop for OwnedQueueHead<T> {
+    fn drop(&mut self) {
+        // The output cleanup path drains its lists before releasing the heads.
+        // No Box or reference to the head exists while intrusive aliases are live.
+        unsafe {
+            drop(Box::from_raw(self.pointer.as_ptr()));
+        }
+    }
+}
+
 /// Box-owned node in the event-thread output list. The head owners keep their
 /// addresses stable; public raw aliases are only for legacy native callers.
 /// No Drop traverses those forgeable raw links or releases native resources.
@@ -29,21 +55,25 @@ pub struct Output {
     pub workspaces: *mut ws_head,
     pub trayclients: *mut tc_head,
     pub slist: OutputLink,
-    _workspace_head: Box<ws_head>,
-    _trayclient_head: Box<tc_head>,
+    _workspace_head: OwnedQueueHead<ws_head>,
+    _trayclient_head: OwnedQueueHead<tc_head>,
 }
 impl Output {
     pub fn new(name: Vec<u8>) -> Self {
-        let mut workspace_head = Box::new(ws_head {
+        let workspace_head = OwnedQueueHead::new(ws_head {
             tqh_first: ptr::null_mut(),
             tqh_last: ptr::null_mut(),
         });
-        workspace_head.tqh_last = &raw mut workspace_head.tqh_first;
-        let mut trayclient_head = Box::new(tc_head {
+        unsafe {
+            (*workspace_head.as_ptr()).tqh_last = &raw mut (*workspace_head.as_ptr()).tqh_first;
+        }
+        let trayclient_head = OwnedQueueHead::new(tc_head {
             tqh_first: ptr::null_mut(),
             tqh_last: ptr::null_mut(),
         });
-        trayclient_head.tqh_last = &raw mut trayclient_head.tqh_first;
+        unsafe {
+            (*trayclient_head.as_ptr()).tqh_last = &raw mut (*trayclient_head.as_ptr()).tqh_first;
+        }
         Self {
             name,
             active: false,
@@ -60,8 +90,8 @@ impl Output {
             statusline_buffer: surface_t::empty(),
             statusline_width: 0,
             bar: surface_t::empty(),
-            workspaces: &raw mut *workspace_head,
-            trayclients: &raw mut *trayclient_head,
+            workspaces: workspace_head.as_ptr(),
+            trayclients: trayclient_head.as_ptr(),
             slist: OutputLink {
                 sle_next: ptr::null_mut(),
             },
@@ -429,12 +459,12 @@ mod tests {
             assert!(!(*first_node).primary);
             assert_eq!((*first_node).ws, 3);
             // Moving the Output box or owner never moves either head allocation.
-            assert_eq!((*two).workspaces, &raw mut *(*two)._workspace_head);
+            assert_eq!((*two).workspaces, (*two)._workspace_head.as_ptr());
             assert_eq!(
                 (*(*two).workspaces).tqh_last,
                 &raw mut (*(*two).workspaces).tqh_first
             );
-            assert_eq!((*two).trayclients, &raw mut *(*two)._trayclient_head);
+            assert_eq!((*two).trayclients, (*two)._trayclient_head.as_ptr());
             assert_eq!(
                 (*(*two).trayclients).tqh_last,
                 &raw mut (*(*two).trayclients).tqh_first
