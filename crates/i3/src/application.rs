@@ -89,18 +89,18 @@ pub type Output = xoutput;
 pub type gaps_mask_t = GapMask;
 
 pub struct Workspace_Assignment {
-    pub name: CString,
+    pub name: Vec<u8>,
     /// None is a gaps-only record; Some(empty) remains an output assignment.
-    pub output: Option<CString>,
+    pub output: Option<Vec<u8>>,
     pub gaps: gaps_t,
     pub gaps_mask: gaps_mask_t,
     pub ws_assignments: WorkspaceAssignmentLinks,
 }
 impl Workspace_Assignment {
-    pub fn new(name: CString, output: Option<CString>) -> Self {
+    pub fn new(name: Vec<u8>, output: Option<Vec<u8>>) -> Self {
         Self {
-            name,
-            output,
+            name: name.split(|byte| *byte == 0).next().unwrap().to_vec(),
+            output: output.map(|value| value.split(|byte| *byte == 0).next().unwrap().to_vec()),
             gaps: gaps_t {
                 inner: 0,
                 top: 0,
@@ -790,17 +790,8 @@ fn owned_dirname(path: &CStr) -> CString {
     let mut bytes = path.to_bytes_with_nul().to_vec();
     unsafe { CStr::from_ptr(dirname(bytes.as_mut_ptr().cast())) }.to_owned()
 }
-unsafe extern "C" fn xcb_got_event(
-    loop_0: *mut ev_loop,
-    w: *mut ev_io,
-    revents: ::core::ffi::c_int,
-) {
-}
-unsafe extern "C" fn xcb_prepare_cb(
-    loop_0: *mut ev_loop,
-    w: *mut ev_prepare,
-    revents: ::core::ffi::c_int,
-) {
+unsafe extern "C" fn xcb_got_event(loop_0: *mut ev_loop, w: *mut ev_io, revents: i32) {}
+unsafe extern "C" fn xcb_prepare_cb(loop_0: *mut ev_loop, w: *mut ev_prepare, revents: i32) {
     loop {
         // Release the registry clone before dispatch: callbacks can reenter
         // display helpers without retaining a RefCell borrow or a second owner.
@@ -825,11 +816,7 @@ pub unsafe fn main_set_x11_cb(enable: bool) {
     );
     if enable {
         ev_prepare_start(main_loop, xcb_prepare);
-        ev_feed_event(
-            main_loop,
-            xcb_prepare as *mut ::core::ffi::c_void,
-            0 as ::core::ffi::c_int,
-        );
+        ev_feed_event(main_loop, xcb_prepare as *mut ::core::ffi::c_void, 0_i32);
     } else {
         ev_prepare_stop(main_loop, xcb_prepare);
     };
@@ -867,7 +854,7 @@ extern "C" fn i3_exit() {
     }
 }
 unsafe extern "C" fn handle_core_signal(
-    sig: ::core::ffi::c_int,
+    sig: i32,
     info: *mut siginfo_t,
     data: *mut ::core::ffi::c_void,
 ) {
@@ -879,7 +866,7 @@ unsafe extern "C" fn handle_core_signal(
 unsafe extern "C" fn handle_term_signal(
     loop_0: *mut ev_loop,
     signal_0: *mut ev_signal,
-    revents: ::core::ffi::c_int,
+    revents: i32,
 ) {
     exit(128_i32 + (*signal_0).signum);
 }
@@ -1087,7 +1074,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> i32 {
     if isatty(fileno(stdout)) == 0 {
         setbuf(stdout, ::core::ptr::null_mut::<::core::ffi::c_char>());
     }
-    srand(time(::core::ptr::null_mut::<libc::time_t>()) as ::core::ffi::c_uint);
+    srand(time(::core::ptr::null_mut::<libc::time_t>()) as u32);
     init_logging();
     shmlog_size = if is_debug_build()
         || !strstr(
@@ -1376,7 +1363,7 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
     conn = connection.get_raw_conn().cast();
     MAIN_DISPLAY = Some(i3_common::display::install_connection(Rc::new(connection)));
     sndisplay = sn_xcb_display_new(conn, None, None);
-    main_loop = ev_default_loop(0 as ::core::ffi::c_uint);
+    main_loop = ev_default_loop(0_u32);
     if main_loop.is_null() {
         errx(
             EXIT_FAILURE,
@@ -1936,7 +1923,8 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
 
             while !output.is_null() {
                 if !((*output).active
-                    || strcmp((*con).name_ptr(), output_primary_name(output)) != 0_i32)
+                    || (*con).name.as_deref()
+                        != Some(CStr::from_ptr(output_primary_name(output)).to_bytes()))
                 {
                     if (*output).con.is_null() {
                         output_init_con(output);
@@ -2162,7 +2150,7 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
     atexit(i3_exit);
     raise(SIGCHLD);
     sd_notify(1_i32, c"READY=1");
-    ev_loop(main_loop, 0 as ::core::ffi::c_int);
+    ev_loop(main_loop, 0_i32);
     ev_prepare_stop(main_loop, xcb_prepare);
     drop(Box::from_raw(xcb_prepare));
     xcb_prepare = std::ptr::null_mut();

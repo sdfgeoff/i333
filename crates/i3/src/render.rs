@@ -134,10 +134,7 @@ pub unsafe fn render_con(con: *mut Con) {
     {
         let diagnostic_5 = i3_common::logging::pointer(con);
         let diagnostic_6_owner = (*con).name.clone();
-        let diagnostic_6_bytes = string_bytes(
-            (diagnostic_6_owner.as_deref()).map(std::ffi::CStr::to_bytes),
-            None,
-        );
+        let diagnostic_6_bytes = string_bytes(diagnostic_6_owner.as_deref(), None);
         let diagnostic_7 = ((*con).layout as u32) as i32;
         let diagnostic_8 = (params.children);
         match (std::str::from_utf8(diagnostic_6_bytes),) {

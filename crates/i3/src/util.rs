@@ -89,6 +89,17 @@ pub fn name_is_digits(name: &[u8]) -> bool {
     })
 }
 
+/// Compare first-NUL byte projections using libc's current locale. The bounded
+/// native operation needs no terminated allocation and never reads past a slice.
+pub fn text_eq_ignore_case(left: &[u8], right: &[u8]) -> bool {
+    let left = left.split(|byte| *byte == 0).next().unwrap();
+    let right = right.split(|byte| *byte == 0).next().unwrap();
+    left.len() == right.len()
+        && unsafe {
+            libc::strncasecmp(left.as_ptr().cast(), right.as_ptr().cast(), left.len()) == 0
+        }
+}
+
 /// Parse a layout name using the current native locale. `default` remains
 /// deliberately case sensitive, while named layouts follow libc strcasecmp.
 pub fn layout_from_name(name: &[u8]) -> Option<Layout> {
@@ -715,6 +726,32 @@ mod tests {
     }
     fn bytes(values: &[CString]) -> Vec<&[u8]> {
         values.iter().map(|value| value.to_bytes()).collect()
+    }
+
+    #[test]
+    fn byte_name_equality_matches_native_locale_and_first_nul_rules() {
+        for left in 0..=255u8 {
+            for right in 0..=255u8 {
+                let left = [left, 0];
+                let right = [right, 0];
+                let native =
+                    unsafe { libc::strcasecmp(left.as_ptr().cast(), right.as_ptr().cast()) == 0 };
+                assert_eq!(text_eq_ignore_case(&left[..1], &right[..1]), native);
+            }
+        }
+        for (left, right) in [
+            (b"primary\0ignored".as_slice(), b"PRIMARY".as_slice()),
+            (b"", b"\0x"),
+            (b"one", b"onetwo"),
+            (b"\xff-long", b"\xff-LONG"),
+        ] {
+            let left_native = CString::new(left.split(|byte| *byte == 0).next().unwrap()).unwrap();
+            let right_native =
+                CString::new(right.split(|byte| *byte == 0).next().unwrap()).unwrap();
+            let native =
+                unsafe { libc::strcasecmp(left_native.as_ptr(), right_native.as_ptr()) == 0 };
+            assert_eq!(text_eq_ignore_case(left, right), native);
+        }
     }
 
     #[test]

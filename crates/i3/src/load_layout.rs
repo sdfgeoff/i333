@@ -205,10 +205,8 @@ impl LayoutState {
                 {
                     // Snapshot native bytes before the logger can dispatch a callback.
                     let log_owner_1 = (*self.json_node).name.clone();
-                    let log_value_0 = i3_common::logging::string_bytes(
-                        (log_owner_1.as_deref()).map(std::ffi::CStr::to_bytes),
-                        None,
-                    );
+                    let log_value_0 =
+                        i3_common::logging::string_bytes(log_owner_1.as_deref(), None);
                     if let (Ok(log_value_0_text),) = (std::str::from_utf8(log_value_0),) {
                         ::log::debug!("../src/load_layout.c:json_end_map:121 - Attaching workspace. name = {}\n", log_value_0_text);
                     } else {
@@ -216,24 +214,34 @@ impl LayoutState {
                     }
                 };
                 if (*self.json_node).name.is_none()
-                    || strcmp((*self.json_node).name_ptr(), c"".as_ptr()) == 0_i32
+                    || (*self.json_node).name.as_deref() == Some(b"".as_slice())
                 {
-                    (*self.json_node).name = Some(c"unnamed".to_owned());
+                    (*self.json_node).name = Some(b"unnamed".to_vec());
                 }
                 let base = (*self.json_node)
                     .name
                     .clone()
                     .expect("layout workspace name is initialized");
                 let mut cnt: i32 = 1_i32;
-                while !get_existing_workspace_by_name((*self.json_node).name_ptr()).is_null() {
+                while !get_existing_workspace_by_name(
+                    &(*self.json_node)
+                        .name
+                        .clone()
+                        .expect("workspace has a name"),
+                )
+                .is_null()
+                {
                     let fresh1 = cnt;
                     cnt += 1;
-                    let mut name = base.to_bytes().to_vec();
+                    let mut name = base.clone();
                     name.extend_from_slice(format!("_{fresh1}").as_bytes());
-                    (*self.json_node).name = Some(CString::new(name).unwrap());
+                    (*self.json_node).name = Some(name);
                 }
                 (*self.json_node).num = ws_name_to_number(
-                    std::ffi::CStr::from_ptr((*self.json_node).name_ptr()).to_bytes(),
+                    (*self.json_node)
+                        .name
+                        .as_deref()
+                        .expect("workspace has a name"),
                 )
                 .unwrap_or(-1);
             }
@@ -242,10 +250,8 @@ impl LayoutState {
                     // Snapshot native bytes before the logger can dispatch a callback.
                     let log_value_0 = i3_common::logging::pointer(parent_ptr(self.json_node));
                     let log_owner_2 = (*parent_ptr(self.json_node)).name.clone();
-                    let log_value_1 = i3_common::logging::string_bytes(
-                        (log_owner_2.as_deref()).map(std::ffi::CStr::to_bytes),
-                        None,
-                    );
+                    let log_value_1 =
+                        i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
                     if let (Ok(log_value_1_text),) = (std::str::from_utf8(log_value_1),) {
                         ::log::debug!("../src/load_layout.c:json_end_map:148 - fixing parent which currently is {} / {}\n", log_value_0, log_value_1_text);
                     } else {
@@ -515,7 +521,13 @@ impl LayoutState {
                 self.json_node,
             ));
         } else if strcasecmp(self.last_key.as_ptr(), c"name".as_ptr()) == 0_i32 {
-            (*self.json_node).name = Some(property_string(std::slice::from_raw_parts(val, len)));
+            (*self.json_node).name = Some(
+                std::slice::from_raw_parts(val, len)
+                    .split(|byte| *byte == 0)
+                    .next()
+                    .unwrap()
+                    .to_vec(),
+            );
         } else if strcasecmp(self.last_key.as_ptr(), c"title_format".as_ptr()) == 0_i32 {
             (*self.json_node).title_format = Some(
                 std::slice::from_raw_parts(val, len)
@@ -830,9 +842,13 @@ impl LayoutState {
                 (*self.json_node).scratchpad_state = ScratchpadState::Changed;
             }
         } else if strcasecmp(self.last_key.as_ptr(), c"previous_workspace_name".as_ptr()) == 0_i32 {
-            free(previous_workspace_name as *mut ::core::ffi::c_void);
-            previous_workspace_name = ::core::ptr::null_mut::<::core::ffi::c_char>();
-            previous_workspace_name = sstrndup(val as *const ::core::ffi::c_char, len);
+            previous_workspace_name = Some(
+                std::slice::from_raw_parts(val, len)
+                    .split(|byte| *byte == 0)
+                    .next()
+                    .unwrap()
+                    .to_vec(),
+            );
         }
         1_i32
     }

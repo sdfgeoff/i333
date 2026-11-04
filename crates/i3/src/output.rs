@@ -29,7 +29,7 @@ enum OutputQuery {
     Named,
 }
 
-fn output_query(name: &CStr) -> OutputQuery {
+fn output_query(name: &[u8]) -> OutputQuery {
     for (keyword, query) in [
         (c"current", OutputQuery::Current),
         (c"left", OutputQuery::Next(Direction::Left)),
@@ -37,9 +37,8 @@ fn output_query(name: &CStr) -> OutputQuery {
         (c"up", OutputQuery::Next(Direction::Up)),
         (c"down", OutputQuery::Next(Direction::Down)),
     ] {
-        // SAFETY: both CStr values guarantee live, terminated strings. Preserve
-        // the current locale's strcasecmp semantics instead of ASCII folding.
-        if unsafe { libc::strcasecmp(name.as_ptr(), keyword.as_ptr()) } == 0 {
+        // Preserve locale-sensitive matching at the bounded native boundary.
+        if crate::util::text_eq_ignore_case(name, keyword.to_bytes()) {
             return query;
         }
     }
@@ -90,12 +89,12 @@ pub unsafe fn output_get_content(output: *mut Con) -> *mut Con {
 /// pointers borrow the graph and must not survive removal of their nodes.
 pub unsafe fn get_output_from_string(
     current_output: *mut Output,
-    output_str: *const libc::c_char,
+    output_str: &[u8],
 ) -> *mut Output {
     // SAFETY: the input string and all lookup globals satisfy the caller's
     // lifetime contract. Pure classification completes before native lookups.
     unsafe {
-        match output_query(CStr::from_ptr(output_str)) {
+        match output_query(output_str) {
             OutputQuery::Current => get_output_for_con(focused),
             OutputQuery::Next(direction) => get_output_next_wrap(direction, current_output),
             OutputQuery::Named => get_output_by_name(output_str, true),
@@ -122,7 +121,7 @@ pub unsafe fn get_output_for_con(con: *mut Con) -> *mut Output {
     unsafe {
         let output_con = con_get_output(con);
         let name = (*output_con).name.clone().expect("output has a name");
-        let output = get_output_by_name(name.as_ptr(), true);
+        let output = get_output_by_name(&name, true);
         if output.is_null() {
             i3_common::native_stdio::__assert_fail(
                 c"output != NULL".as_ptr(),
@@ -218,7 +217,7 @@ mod tests {
             (c"HDMI-1", OutputQuery::Named),
             (c"\xff\xfe", OutputQuery::Named),
         ] {
-            assert_eq!(output_query(name), expected);
+            assert_eq!(output_query(name.to_bytes()), expected);
         }
     }
 

@@ -4358,11 +4358,20 @@ unsafe fn GENERATED_call(
         }
         22 => {
             (*result).next_state = ConfigParserState::WorkspaceOutputWord;
+            let workspace_pointer = parser_get_string(stack, c"workspace".as_ptr());
+            let output_pointer = parser_get_string(stack, c"output".as_ptr());
+            let workspace = (!workspace_pointer.is_null()).then(|| {
+                std::ffi::CStr::from_ptr(workspace_pointer)
+                    .to_bytes()
+                    .to_vec()
+            });
+            let output = (!output_pointer.is_null())
+                .then(|| std::ffi::CStr::from_ptr(output_pointer).to_bytes().to_vec());
             cfg_workspace(
                 current_match,
                 result,
-                parser_get_string(stack, c"workspace".as_ptr()),
-                parser_get_string(stack, c"output".as_ptr()),
+                workspace.as_deref(),
+                output.as_deref(),
             );
         }
         23 => {

@@ -53,10 +53,7 @@ pub unsafe fn scratchpad_move(mut con: *mut Con) {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_owner_1 = (*con).name.clone();
-            let log_value_0 = i3_common::logging::string_bytes(
-                (log_owner_1.as_deref()).map(std::ffi::CStr::to_bytes),
-                None,
-            );
+            let log_value_0 = i3_common::logging::string_bytes(log_owner_1.as_deref(), None);
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(log_value_0),) {
                 ::log::info!("'move scratchpad' used on a workspace \"{}\". Calling it recursively on all windows on this workspace.\n", log_value_0_text);
             } else {
@@ -85,7 +82,7 @@ pub unsafe fn scratchpad_move(mut con: *mut Con) {
         "../src/scratchpad.c:scratchpad_move:32 - should move con {} to __i3_scratch\n",
         i3_common::logging::pointer(con)
     );
-    let mut __i3_scratch: *mut Con = workspace_get(c"__i3_scratch".as_ptr());
+    let mut __i3_scratch: *mut Con = workspace_get(b"__i3_scratch");
     if con_get_workspace(con) == __i3_scratch {
         ::log::debug!(
             "../src/scratchpad.c:scratchpad_move:36 - This window is already on __i3_scratch.\n"
@@ -118,7 +115,7 @@ pub unsafe fn scratchpad_show(mut con: *mut Con) -> bool {
         "../src/scratchpad.c:scratchpad_show:85 - should show scratchpad window {}\n",
         i3_common::logging::pointer(con)
     );
-    let mut __i3_scratch: *mut Con = workspace_get(c"__i3_scratch".as_ptr());
+    let mut __i3_scratch: *mut Con = workspace_get(b"__i3_scratch");
     let mut floating: *mut Con = ::core::ptr::null_mut::<Con>();
     if con.is_null()
         && {
@@ -238,7 +235,7 @@ pub unsafe fn scratchpad_show(mut con: *mut Con) -> bool {
     true
 }
 pub unsafe fn scratchpad_fix_resolution() {
-    let mut __i3_scratch: *mut Con = workspace_get(c"__i3_scratch".as_ptr());
+    let mut __i3_scratch: *mut Con = workspace_get(b"__i3_scratch");
     let mut __i3_output: *mut Con = con_get_output(__i3_scratch);
     ::log::debug!("../src/scratchpad.c:scratchpad_fix_resolution:253 - Current resolution: ({}, {}) {} x {}\n", ((*__i3_output).rect.x) as i32, ((*__i3_output).rect.y) as i32, ((*__i3_output).rect.width) as i32, ((*__i3_output).rect.height) as i32);
     let mut output: *mut Con = ::core::ptr::null_mut::<Con>();
@@ -250,10 +247,7 @@ pub unsafe fn scratchpad_fix_resolution() {
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
                 let log_owner_1 = (*output).name.clone();
-                let log_value_0 = i3_common::logging::string_bytes(
-                    (log_owner_1.as_deref()).map(std::ffi::CStr::to_bytes),
-                    None,
-                );
+                let log_value_0 = i3_common::logging::string_bytes(log_owner_1.as_deref(), None);
                 let log_value_1 = ((*output).rect.x) as i32;
                 let log_value_2 = ((*output).rect.y) as i32;
                 let log_value_3 = ((*output).rect.width) as i32;

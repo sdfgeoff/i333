@@ -284,11 +284,11 @@ pub unsafe fn gaps_for_workspace(ws: *mut Con) -> gaps_t {
         unsafe {
             let assignment = &*current;
             current = assignment.ws_assignments.tqe_next;
-            let matching = if assignment.name.as_c_str() == name.as_c_str() {
+            let matching = if assignment.name == name {
                 AssignmentMatch::Name
             } else if number != -1
-                && name_is_digits(assignment.name.as_bytes())
-                && ws_name_to_number(assignment.name.as_bytes()).unwrap_or(-1) == number
+                && name_is_digits(assignment.name.as_slice())
+                && ws_name_to_number(assignment.name.as_slice()).unwrap_or(-1) == number
             {
                 AssignmentMatch::Number
             } else {
@@ -321,10 +321,7 @@ pub unsafe fn gaps_reapply_workspace_assignments() {
             while !workspace.is_null() {
                 {
                     let diagnostic_5_owner = (*workspace).name.clone();
-                    let diagnostic_5_bytes = string_bytes(
-                        (diagnostic_5_owner.as_deref()).map(std::ffi::CStr::to_bytes),
-                        None,
-                    );
+                    let diagnostic_5_bytes = string_bytes(diagnostic_5_owner.as_deref(), None);
                     match (std::str::from_utf8(diagnostic_5_bytes),) { (Ok(diagnostic_5_text),) => ::log::debug!(concat!("../src/gaps.c:gaps_reapply_workspace_assignments:171 - ","updating gap assignments for workspace {}\n"), diagnostic_5_text), _ => emit_parts(Level::Debug, &[b"../src/gaps.c:gaps_reapply_workspace_assignments:171 - updating gap assignments for workspace ", diagnostic_5_bytes, b"\n"]), }
                 };
                 (*workspace).gaps = gaps_for_workspace(workspace);

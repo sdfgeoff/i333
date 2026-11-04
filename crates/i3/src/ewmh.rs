@@ -83,10 +83,11 @@ fn workspace_desktop_indices<T>(entries: impl IntoIterator<Item = (T, bool)>) ->
         })
         .collect()
 }
-fn desktop_names<'a>(names: impl IntoIterator<Item = &'a CStr>) -> Vec<u8> {
+fn desktop_names<'a>(names: impl IntoIterator<Item = &'a [u8]>) -> Vec<u8> {
     let mut bytes = Vec::new();
     for name in names {
-        bytes.extend_from_slice(name.to_bytes_with_nul());
+        bytes.extend_from_slice(name.split(|byte| *byte == 0).next().unwrap());
+        bytes.push(0);
     }
     bytes
 }
@@ -203,9 +204,9 @@ unsafe fn ewmh_update_desktop_names() {
     let names: Vec<_> = workspace_entries()
         .into_iter()
         .filter(|workspace| !workspace.internal)
-        .map(|workspace| CStr::from_ptr((*workspace.con).name_ptr()).to_owned())
+        .map(|workspace| (*workspace.con).name.clone().expect("workspace has a name"))
         .collect();
-    let payload = desktop_names(names.iter().map(|name| name.as_c_str()));
+    let payload = desktop_names(names.iter().map(Vec::as_slice));
     set_bytes(root, A__NET_DESKTOP_NAMES, A_UTF8_STRING, &payload);
 }
 unsafe fn ewmh_update_desktop_viewport() {
@@ -555,7 +556,10 @@ mod tests {
     #[test]
     fn desktop_name_payload_preserves_raw_bytes_empty_names_and_final_nul() {
         let names = [c"1: web", c"", c"\xff\xfe"];
-        assert_eq!(desktop_names(names), b"1: web\0\0\xff\xfe\0");
+        assert_eq!(
+            desktop_names(names.map(CStr::to_bytes)),
+            b"1: web\0\0\xff\xfe\0"
+        );
         assert!(desktop_names(std::iter::empty()).is_empty());
     }
 

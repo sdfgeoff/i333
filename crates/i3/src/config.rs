@@ -1083,8 +1083,8 @@ mod workspace_assignment_tests {
             crate::config_directives::cfg_workspace(
                 std::ptr::null_mut(),
                 std::ptr::null_mut(),
-                std::ptr::null(),
-                std::ptr::null(),
+                None,
+                None,
             );
             assert!(ws_assignments.tqh_first.is_null());
             crate::randr::outputs.tqh_first = &mut *a;
@@ -1093,48 +1093,48 @@ mod workspace_assignment_tests {
             a.outputs.tqe_next = &mut *b;
             b.outputs.tqe_prev = &raw mut a.outputs.tqe_next;
             let gaps_only =
-                append_workspace_assignment(Workspace_Assignment::new(c"1".to_owned(), None));
+                append_workspace_assignment(Workspace_Assignment::new(b"1".to_vec(), None));
             let first = append_workspace_assignment(Workspace_Assignment::new(
-                c"1".to_owned(),
-                Some(c"out-a".to_owned()),
+                b"1".to_vec(),
+                Some(b"out-a".to_vec()),
             ));
             append_workspace_assignment(Workspace_Assignment::new(
-                c"1:dev".to_owned(),
-                Some(label_b.clone()),
+                b"1:dev".to_vec(),
+                Some(label_b.as_bytes().to_vec()),
             ));
             append_workspace_assignment(Workspace_Assignment::new(
-                c"01".to_owned(),
-                Some(label_b.clone()),
+                b"01".to_vec(),
+                Some(label_b.as_bytes().to_vec()),
             ));
             let empty_output = append_workspace_assignment(Workspace_Assignment::new(
-                c"empty".to_owned(),
-                Some(c"".to_owned()),
+                b"empty".to_vec(),
+                Some(b"".to_vec()),
             ));
             let invalid = append_workspace_assignment(Workspace_Assignment::new(
-                c"work-\xff".to_owned(),
-                Some(label_b.clone()),
+                b"work-\xff".to_vec(),
+                Some(label_b.as_bytes().to_vec()),
             ));
             assert!((*gaps_only).output.is_none());
-            assert_eq!((*empty_output).output.as_deref(), Some(c""));
+            assert_eq!((*empty_output).output.as_deref(), Some(b"".as_slice()));
             let saved_name = (*invalid).name.clone();
             let saved_output = (*invalid).output.clone();
             assert_eq!(
-                crate::workspace::get_assigned_output(c"1:dev".as_ptr(), 1),
+                crate::workspace::get_assigned_output(Some(b"1:dev"), 1),
                 &raw mut *con_b
             );
             assert_eq!(
-                crate::workspace::get_assigned_output(c"1:Dev".as_ptr(), 1),
+                crate::workspace::get_assigned_output(Some(b"1:Dev"), 1),
                 &raw mut *con_a
             );
             assert_eq!(
-                crate::workspace::get_assigned_output(std::ptr::null(), 1),
+                crate::workspace::get_assigned_output(None, 1),
                 &raw mut *con_a
             );
             assert_eq!(
-                crate::workspace::get_assigned_output(c"work-\xff".as_ptr(), -1),
+                crate::workspace::get_assigned_output(Some(b"work-\xff"), -1),
                 &raw mut *con_b
             );
-            assert!(crate::workspace::get_assigned_output(c"empty".as_ptr(), -1).is_null());
+            assert!(crate::workspace::get_assigned_output(Some(b"empty"), -1).is_null());
             assert!(crate::workspace::output_triggers_assignment(
                 &mut *a, gaps_only
             ));
@@ -1143,8 +1143,8 @@ mod workspace_assignment_tests {
             crate::config_directives::cfg_workspace(
                 std::ptr::null_mut(),
                 std::ptr::null_mut(),
-                c"empty".as_ptr(),
-                std::ptr::null(),
+                Some(b"empty"),
+                None,
             );
             assert_eq!(ws_assignments.tqh_last, tail);
             let successor = (*first).ws_assignments.tqe_next;
@@ -1158,8 +1158,8 @@ mod workspace_assignment_tests {
                 remove_workspace_assignment(ws_assignments.tqh_first);
             }
             assert_eq!(ws_assignments.tqh_last, &raw mut ws_assignments.tqh_first);
-            assert_eq!(saved_name.as_bytes(), b"work-\xff");
-            assert_eq!(saved_output.as_deref(), Some(label_b.as_c_str()));
+            assert_eq!(saved_name.as_slice(), b"work-\xff");
+            assert_eq!(saved_output.as_deref(), Some(label_b.as_bytes()));
             // Exercise the actual queue adapter, not only the pure gap reducer.
             config.gaps = gaps_t {
                 inner: 1,
@@ -1169,15 +1169,15 @@ mod workspace_assignment_tests {
                 left: 5,
             };
             let numeric =
-                append_workspace_assignment(Workspace_Assignment::new(c"1".to_owned(), None));
+                append_workspace_assignment(Workspace_Assignment::new(b"1".to_vec(), None));
             (*numeric).gaps = gaps(10);
             (*numeric).gaps_mask = GapMask::TOP;
             let numeric =
-                append_workspace_assignment(Workspace_Assignment::new(c"01".to_owned(), None));
+                append_workspace_assignment(Workspace_Assignment::new(b"01".to_vec(), None));
             (*numeric).gaps = gaps(20);
             (*numeric).gaps_mask = GapMask::LEFT;
             let mut workspace = Con::empty();
-            workspace.name = Some(c"1:dev".to_owned());
+            workspace.name = Some(b"1:dev".to_vec());
             workspace.num = 1;
             let actual = crate::gaps::gaps_for_workspace(&mut workspace);
             assert_eq!(
@@ -1191,7 +1191,7 @@ mod workspace_assignment_tests {
                 [20, 20, 20, 20, 15]
             );
             let exact =
-                append_workspace_assignment(Workspace_Assignment::new(c"1:dev".to_owned(), None));
+                append_workspace_assignment(Workspace_Assignment::new(b"1:dev".to_vec(), None));
             (*exact).gaps = gaps(30);
             (*exact).gaps_mask = GapMask::INNER | GapMask::BOTTOM;
             let actual = crate::gaps::gaps_for_workspace(&mut workspace);
@@ -1206,7 +1206,7 @@ mod workspace_assignment_tests {
                 [29, 30, 30, 26, 30]
             );
             let later =
-                append_workspace_assignment(Workspace_Assignment::new(c"1:dev".to_owned(), None));
+                append_workspace_assignment(Workspace_Assignment::new(b"1:dev".to_vec(), None));
             (*later).gaps = gaps(99);
             let actual = crate::gaps::gaps_for_workspace(&mut workspace);
             assert_eq!(actual.inner, 29);

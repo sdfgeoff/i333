@@ -89,7 +89,7 @@ unsafe fn collect() -> BTreeMap<String, String> {
         (*raw).layout = Layout::SplitH;
         (*raw).workspace_layout = Layout::Default;
         (*raw).border_style = BorderStyle::Pixel;
-        (*raw).name = Some(c"node".to_owned());
+        (*raw).name = Some(b"node".to_vec());
         all.push(raw);
         raw
     }
@@ -152,7 +152,7 @@ unsafe fn collect() -> BTreeMap<String, String> {
     (*leaf).percent = 0.25;
     result.insert("node_window".into(), node_bytes(leaf, false, 0, &allocated));
     result.insert("node_restart".into(), node_bytes(leaf, true, 0, &allocated));
-    previous_workspace_name = c"old workspace".as_ptr().cast_mut();
+    previous_workspace_name = Some(b"old workspace".to_vec());
     result.insert("root_restart".into(), node_bytes(root, true, 0, &allocated));
     for (name, percent) in [
         ("negative_zero", -0.0),
@@ -267,7 +267,7 @@ unsafe fn collect() -> BTreeMap<String, String> {
         crate::con::con_free(raw);
     }
     focused = std::ptr::null_mut();
-    previous_workspace_name = std::ptr::null_mut();
+    previous_workspace_name = None;
     let mut bar = Barconfig {
         id: Some(b"bar0".to_vec()),
         ..Default::default()

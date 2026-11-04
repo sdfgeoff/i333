@@ -571,7 +571,7 @@ pub unsafe fn con_is_internal(con: *mut Con) -> bool {
     (*con)
         .name
         .as_deref()
-        .is_some_and(|name| name.to_bytes().starts_with(b"__"))
+        .is_some_and(|name| name.starts_with(b"__"))
 }
 
 pub unsafe fn con_is_floating(con: *mut Con) -> bool {
@@ -1116,10 +1116,7 @@ pub unsafe fn con_toggle_fullscreen(con: *mut Con, fullscreen_mode: FullscreenMo
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_value_0 = i3_common::logging::pointer(con);
         let log_owner_2 = (*con).name.clone();
-        let log_value_1 = i3_common::logging::string_bytes(
-            (log_owner_2.as_deref()).map(std::ffi::CStr::to_bytes),
-            None,
-        );
+        let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
         if let (Ok(log_value_1_text),) = (std::str::from_utf8(log_value_1),) {
             ::log::debug!(
                 "../src/con.c:con_toggle_fullscreen:1194 - toggling fullscreen for {} / {}\n",
@@ -1197,10 +1194,7 @@ pub unsafe fn con_enable_fullscreen(con: *mut Con, fullscreen_mode: FullscreenMo
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_value_0 = i3_common::logging::pointer(con);
             let log_owner_2 = (*con).name.clone();
-            let log_value_1 = i3_common::logging::string_bytes(
-                (log_owner_2.as_deref()).map(std::ffi::CStr::to_bytes),
-                None,
-            );
+            let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
             if let (Ok(log_value_1_text),) = (std::str::from_utf8(log_value_1),) {
                 ::log::debug!("../src/con.c:con_enable_fullscreen:1253 - enabling global fullscreen for {} / {}\n", log_value_0, log_value_1_text);
             } else {
@@ -1212,10 +1206,7 @@ pub unsafe fn con_enable_fullscreen(con: *mut Con, fullscreen_mode: FullscreenMo
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_value_0 = i3_common::logging::pointer(con);
             let log_owner_2 = (*con).name.clone();
-            let log_value_1 = i3_common::logging::string_bytes(
-                (log_owner_2.as_deref()).map(std::ffi::CStr::to_bytes),
-                None,
-            );
+            let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
             if let (Ok(log_value_1_text),) = (std::str::from_utf8(log_value_1),) {
                 ::log::debug!(
                     "../src/con.c:con_enable_fullscreen:1255 - enabling fullscreen for {} / {}\n",
@@ -1232,10 +1223,7 @@ pub unsafe fn con_enable_fullscreen(con: *mut Con, fullscreen_mode: FullscreenMo
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_value_0 = i3_common::logging::pointer(con);
             let log_owner_2 = (*con).name.clone();
-            let log_value_1 = i3_common::logging::string_bytes(
-                (log_owner_2.as_deref()).map(std::ffi::CStr::to_bytes),
-                None,
-            );
+            let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
             if let (Ok(log_value_1_text),) = (std::str::from_utf8(log_value_1),) {
                 ::log::debug!("../src/con.c:con_enable_fullscreen:1259 - fullscreen already enabled for {} / {}\n", log_value_0, log_value_1_text);
             } else {
@@ -1275,10 +1263,7 @@ pub unsafe fn con_disable_fullscreen(con: *mut Con) {
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_value_0 = i3_common::logging::pointer(con);
         let log_owner_2 = (*con).name.clone();
-        let log_value_1 = i3_common::logging::string_bytes(
-            (log_owner_2.as_deref()).map(std::ffi::CStr::to_bytes),
-            None,
-        );
+        let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
         if let (Ok(log_value_1_text),) = (std::str::from_utf8(log_value_1),) {
             ::log::debug!(
                 "../src/con.c:con_disable_fullscreen:1301 - disabling fullscreen for {} / {}\n",
@@ -1305,10 +1290,7 @@ pub unsafe fn con_disable_fullscreen(con: *mut Con) {
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_value_0 = i3_common::logging::pointer(con);
             let log_owner_2 = (*con).name.clone();
-            let log_value_1 = i3_common::logging::string_bytes(
-                (log_owner_2.as_deref()).map(std::ffi::CStr::to_bytes),
-                None,
-            );
+            let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
             if let (Ok(log_value_1_text),) = (std::str::from_utf8(log_value_1),) {
                 ::log::debug!("../src/con.c:con_disable_fullscreen:1304 - fullscreen already disabled for {} / {}\n", log_value_0, log_value_1_text);
             } else {
@@ -1371,10 +1353,7 @@ unsafe fn _con_move_to_con(
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_value_0 = i3_common::logging::pointer(target);
             let log_owner_2 = (*target).name.clone();
-            let log_value_1 = i3_common::logging::string_bytes(
-                (log_owner_2.as_deref()).map(std::ffi::CStr::to_bytes),
-                None,
-            );
+            let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
             let log_value_2 = ((*target).type_0).raw() as i32;
             if let (Ok(log_value_1_text),) = (std::str::from_utf8(log_value_1),) {
                 ::log::debug!(
@@ -1411,10 +1390,7 @@ unsafe fn _con_move_to_con(
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_value_0 = i3_common::logging::pointer(ws);
             let log_owner_2 = (*ws).name.clone();
-            let log_value_1 = i3_common::logging::string_bytes(
-                (log_owner_2.as_deref()).map(std::ffi::CStr::to_bytes),
-                None,
-            );
+            let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
             if let (Ok(log_value_1_text),) = (std::str::from_utf8(log_value_1),) {
                 ::log::debug!("../src/con.c:_con_move_to_con:1384 - This is a floating window, using workspace {} / {}\n", log_value_0, log_value_1_text);
             } else {
@@ -1443,10 +1419,7 @@ unsafe fn _con_move_to_con(
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_value_0 = i3_common::logging::pointer(target);
         let log_owner_2 = (*target).name.clone();
-        let log_value_1 = i3_common::logging::string_bytes(
-            (log_owner_2.as_deref()).map(std::ffi::CStr::to_bytes),
-            None,
-        );
+        let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
         if let (Ok(log_value_1_text),) = (std::str::from_utf8(log_value_1),) {
             ::log::debug!(
                 "../src/con.c:_con_move_to_con:1414 - Re-attaching container to {} / {}\n",
@@ -1533,7 +1506,7 @@ unsafe fn _con_move_to_con(
 }
 
 pub unsafe fn con_move_to_target(con: *mut Con, mut target: *mut Con) -> bool {
-    if con_get_workspace(target) == workspace_get(c"__i3_scratch".as_ptr()) {
+    if con_get_workspace(target) == workspace_get(b"__i3_scratch") {
         ::log::debug!("../src/con.c:con_move_to_target:1501 - target container is in the scratchpad, moving container to scratchpad.\n");
         scratchpad_move(con);
         return true;
@@ -1698,29 +1671,13 @@ pub unsafe fn con_move_to_output(con: *mut Con, output: *mut Output, fix_coordin
     con_move_to_workspace(con, ws, fix_coordinates, false, false);
 }
 
-pub unsafe fn con_move_to_output_name(
-    con: *mut Con,
-    name: *const ::core::ffi::c_char,
-    fix_coordinates: bool,
-) -> bool {
+pub unsafe fn con_move_to_output_name(con: *mut Con, name: &[u8], fix_coordinates: bool) -> bool {
     let current_output: *mut Output = get_output_for_con(con);
     let output: *mut Output = get_output_from_string(current_output, name);
     if output.is_null() {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_value_0 = {
-                let pointer: *const libc::c_char = name;
-                i3_common::logging::string_bytes(
-                    (if pointer.is_null() {
-                        None
-                    } else {
-                        Some(std::ffi::CStr::from_ptr(pointer))
-                    })
-                    .map(std::ffi::CStr::to_bytes),
-                    None,
-                )
-                .to_vec()
-            };
+            let log_value_0 = name.to_vec();
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::error!("ERROR: Could not find output \"{}\"\n", log_value_0_text);
             } else {
@@ -2296,10 +2253,7 @@ unsafe fn con_on_remove_child(con: *mut Con) {
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_value_0 = ((*con).type_0).raw() as i32;
             let log_owner_2 = (*con).name.clone();
-            let log_value_1 = i3_common::logging::string_bytes(
-                (log_owner_2.as_deref()).map(std::ffi::CStr::to_bytes),
-                None,
-            );
+            let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
             if let (Ok(log_value_1_text),) = (std::str::from_utf8(log_value_1),) {
                 ::log::debug!(
                     "../src/con.c:con_on_remove_child:2214 - not handling, type = {}, name = {}\n",
@@ -2318,10 +2272,7 @@ unsafe fn con_on_remove_child(con: *mut Con) {
                 // Snapshot native bytes before the logger can dispatch a callback.
                 let log_value_0 = i3_common::logging::pointer(con);
                 let log_owner_2 = (*con).name.clone();
-                let log_value_1 = i3_common::logging::string_bytes(
-                    (log_owner_2.as_deref()).map(std::ffi::CStr::to_bytes),
-                    None,
-                );
+                let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
                 if let (Ok(log_value_1_text),) = (std::str::from_utf8(log_value_1),) {
                     ::log::info!(
                         "Closing old workspace ({} / {}), it is empty\n",

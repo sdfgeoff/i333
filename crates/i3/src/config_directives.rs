@@ -114,7 +114,7 @@ pub unsafe fn cfg_include(
         we_wordv: ::core::ptr::null_mut::<*mut ::core::ffi::c_char>(),
         we_offs: 0,
     };
-    let ret: i32 = wordexp(pattern, &raw mut p, 0 as ::core::ffi::c_int) as i32;
+    let ret: i32 = wordexp(pattern, &raw mut p, 0_i32) as i32;
     if ret != 0_i32 {
         // GNU wordexp may leave partial output on WRDE_NOSPACE (value1 in the
         // supported native ABI); other failed expansions transfer no ownership.
@@ -669,29 +669,15 @@ unsafe fn apply_gaps(gaps: *mut gaps_t, mask: gaps_mask_t, value: i32) {
         (*gaps).left = value;
     }
 }
-unsafe fn create_gaps_assignment(
-    workspace: *const ::core::ffi::c_char,
-    mask: gaps_mask_t,
-    pixels: i32,
-) {
+unsafe fn create_gaps_assignment(workspace: &[u8], mask: gaps_mask_t, pixels: i32) {
     if mask.is_empty() {
         return;
     }
-    let workspace_owner = CStr::from_ptr(workspace).to_owned();
-    let workspace = workspace_owner.as_ptr();
+    let workspace_owner = workspace.split(|byte| *byte == 0).next().unwrap().to_vec();
+    let workspace = workspace_owner.as_slice();
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = workspace;
-        let log_value_0 = i3_common::logging::string_bytes(
-            (if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_0 = workspace.to_vec();
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::debug!("../src/config_directives.c:create_gaps_assignment:271 - Setting gaps for workspace {}", log_value_0_text);
         } else {
@@ -705,7 +691,7 @@ unsafe fn create_gaps_assignment(
     let mut assignment: *mut Workspace_Assignment = ws_assignments.tqh_first;
 
     while !assignment.is_null() {
-        if strcasecmp((*assignment).name.as_ptr(), workspace) == 0_i32 {
+        if crate::util::text_eq_ignore_case(&(*assignment).name, workspace) {
             found = true;
             break;
         } else {
@@ -786,7 +772,7 @@ pub unsafe fn cfg_gaps(
     if workspace.is_null() {
         apply_gaps(&raw mut config.gaps, mask, pixels);
     } else {
-        create_gaps_assignment(workspace, mask, pixels);
+        create_gaps_assignment(&CStr::from_ptr(workspace).to_bytes().to_vec(), mask, pixels);
     };
 }
 
@@ -1118,7 +1104,7 @@ pub unsafe fn cfg_title_align(
         __assert_fail(
             c"false".as_ptr(),
             c"../src/config_directives.c".as_ptr(),
-            530 as ::core::ffi::c_uint,
+            530_u32,
             c"void cfg_title_align(Match *, struct ConfigResultIR *, const char *)".as_ptr(),
         );
     };
@@ -1127,125 +1113,79 @@ pub unsafe fn cfg_title_align(
 pub unsafe fn cfg_show_marks(current_match: *mut Match, result: *mut ConfigResultIR, value: bool) {
     config.show_marks = value;
 }
-static CURRENT_WORKSPACE: std::sync::Mutex<Option<std::ffi::CString>> = std::sync::Mutex::new(None);
+static CURRENT_WORKSPACE: std::sync::Mutex<Option<Vec<u8>>> = std::sync::Mutex::new(None);
 
 pub unsafe fn cfg_workspace(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    mut workspace: *const ::core::ffi::c_char,
-    output: *const ::core::ffi::c_char,
+    workspace: Option<&[u8]>,
+    output: Option<&[u8]>,
 ) {
-    // Own parser arguments before logging can dispatch a callback.
-    let supplied_workspace = workspace
-        .as_ref()
-        .map(|value| CStr::from_ptr(value).to_owned());
-    let output_owner = output
-        .as_ref()
-        .map(|value| CStr::from_ptr(value).to_owned());
-    let output = output_owner
-        .as_ref()
-        .map_or(std::ptr::null(), |value| value.as_ptr());
-    workspace = supplied_workspace
-        .as_ref()
-        .map_or(std::ptr::null(), |name| name.as_ptr());
-    let mut assignment: *mut Workspace_Assignment = ::core::ptr::null_mut::<Workspace_Assignment>();
+    let supplied_workspace =
+        workspace.map(|name| name.split(|byte| *byte == 0).next().unwrap().to_vec());
+    let output_owner = output.map(|name| name.split(|byte| *byte == 0).next().unwrap().to_vec());
     let cached_workspace = CURRENT_WORKSPACE
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .clone();
-    if !workspace.is_null() {
+    let workspace = if let Some(workspace) = supplied_workspace {
         *CURRENT_WORKSPACE
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner) = None;
-        assignment = ws_assignments.tqh_first;
+        let mut assignment = ws_assignments.tqh_first;
         while !assignment.is_null() {
-            if strcasecmp((*assignment).name.as_ptr(), workspace) == 0_i32
+            if crate::util::text_eq_ignore_case(&(*assignment).name, &workspace)
                 && (*assignment).output.is_some()
             {
-                {
-                    // Snapshot native bytes before the logger can dispatch a callback.
-                    let log_pointer_1 = workspace;
-                    let log_value_0 = i3_common::logging::string_bytes(
-                        (if log_pointer_1.is_null() {
-                            None
-                        } else {
-                            Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                        })
-                        .map(std::ffi::CStr::to_bytes),
-                        None,
-                    )
-                    .to_vec();
-                    if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
-                        ::log::error!("ERROR: You have a duplicate workspace assignment for workspace \"{}\"\n", log_value_0_text);
-                    } else {
-                        let mut message = Vec::new();
-                        message.extend_from_slice(
-                            "ERROR: You have a duplicate workspace assignment for workspace \""
-                                .as_bytes(),
-                        );
-                        message.extend_from_slice(&log_value_0);
-                        message.extend_from_slice("\"\n".as_bytes());
-                        i3_common::logging::emit(i3_common::logging::Level::Error, &message);
-                    }
-                };
+                if let Ok(name) = std::str::from_utf8(&workspace) {
+                    ::log::error!(
+                        "ERROR: You have a duplicate workspace assignment for workspace \"{}\"\n",
+                        name
+                    );
+                } else {
+                    i3_common::logging::emit_parts(
+                        i3_common::logging::Level::Error,
+                        &[
+                            b"ERROR: You have a duplicate workspace assignment for workspace \"",
+                            &workspace,
+                            b"\"\n",
+                        ],
+                    );
+                }
                 return;
             }
             assignment = (*assignment).ws_assignments.tqe_next;
         }
         *CURRENT_WORKSPACE
             .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner) =
-            Some(std::ffi::CStr::from_ptr(workspace).to_owned());
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(workspace.clone());
+        workspace
+    } else if let Some(workspace) = cached_workspace {
+        workspace
     } else {
-        if cached_workspace.is_none() {
-            ::log::debug!("../src/config_directives.c:cfg_workspace:563 - Both workspace and current_workspace are NULL, assuming we had an error before\n");
-            return;
-        }
-        workspace = cached_workspace.as_ref().unwrap().as_ptr();
-    }
-    {
-        // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = workspace;
-        let log_value_0 = i3_common::logging::string_bytes(
-            (if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
-        let log_pointer_2 = output;
-        let log_value_1 = i3_common::logging::string_bytes(
-            (if log_pointer_2.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_2))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
-        if let (Ok(log_value_0_text), Ok(log_value_1_text)) = (
-            std::str::from_utf8(&log_value_0),
-            std::str::from_utf8(&log_value_1),
-        ) {
-            ::log::debug!("../src/config_directives.c:cfg_workspace:569 - Assigning workspace \"{}\" to output \"{}\"\n", log_value_0_text, log_value_1_text);
-        } else {
-            let mut message = Vec::new();
-            message.extend_from_slice(
-                "../src/config_directives.c:cfg_workspace:569 - Assigning workspace \"".as_bytes(),
-            );
-            message.extend_from_slice(&log_value_0);
-            message.extend_from_slice("\" to output \"".as_bytes());
-            message.extend_from_slice(&log_value_1);
-            message.extend_from_slice("\"\n".as_bytes());
-            i3_common::logging::emit(i3_common::logging::Level::Debug, &message);
-        }
+        ::log::debug!("../src/config_directives.c:cfg_workspace:563 - Both workspace and current_workspace are NULL, assuming we had an error before\n");
+        return;
     };
+    let output_text = i3_common::logging::string_bytes(output_owner.as_deref(), None);
+    if let (Ok(name), Ok(output)) = (
+        std::str::from_utf8(&workspace),
+        std::str::from_utf8(output_text),
+    ) {
+        ::log::debug!("../src/config_directives.c:cfg_workspace:569 - Assigning workspace \"{}\" to output \"{}\"\n", name, output);
+    } else {
+        i3_common::logging::emit_parts(
+            i3_common::logging::Level::Debug,
+            &[
+                b"../src/config_directives.c:cfg_workspace:569 - Assigning workspace \"",
+                &workspace,
+                b"\" to output \"",
+                output_text,
+                b"\"\n",
+            ],
+        );
+    }
     crate::config::append_workspace_assignment(Workspace_Assignment::new(
-        CStr::from_ptr(workspace).to_owned(),
+        workspace,
         Some(
             output_owner.expect("workspace output is required when creating a routing assignment"),
         ),
@@ -1504,7 +1444,7 @@ pub unsafe fn cfg_assign_output(
         }
     };
     let assignment: *mut Assignment = Box::into_raw(Box::new(Assignment::new(
-        crate::types::AssignmentDest::Output(CStr::from_ptr(output).to_owned()),
+        crate::types::AssignmentDest::Output(CStr::from_ptr(output).to_bytes().to_vec()),
         (*current_match).clone(),
     )));
     (*assignment).assignments.tqe_next = ::core::ptr::null_mut::<Assignment>();
@@ -1609,9 +1549,11 @@ pub unsafe fn cfg_assign(
     };
     let assignment: *mut Assignment = Box::into_raw(Box::new(Assignment::new(
         if is_number {
-            crate::types::AssignmentDest::WorkspaceNumber(CStr::from_ptr(workspace).to_owned())
+            crate::types::AssignmentDest::WorkspaceNumber(
+                CStr::from_ptr(workspace).to_bytes().to_vec(),
+            )
         } else {
-            crate::types::AssignmentDest::Workspace(CStr::from_ptr(workspace).to_owned())
+            crate::types::AssignmentDest::Workspace(CStr::from_ptr(workspace).to_bytes().to_vec())
         },
         (*current_match).clone(),
     )));

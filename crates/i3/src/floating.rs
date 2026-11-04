@@ -374,8 +374,8 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
         set_parent_ptr(con, ::core::ptr::null_mut::<Con>()).expect("live acyclic ancestry");
         tree_close_internal(parent, KillWindow::DontKill, false);
     }
-    let name = std::ffi::CString::new(format!("[i3 con] floatingcon around {con:p}")).unwrap();
-    x_set_name(nc, name.as_ptr());
+    let name = format!("[i3 con] floatingcon around {con:p}").into_bytes();
+    x_set_name(nc, &name);
     ::log::debug!(
         "../src/floating.c:floating_enable:328 - Original rect: ({}, {}) with {} x {}\n",
         ((*con).rect.x) as i32,
@@ -539,10 +539,7 @@ pub unsafe fn floating_raise_con(con: *mut Con) {
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_value_0 = i3_common::logging::pointer(con);
         let log_owner_2 = (*con).name.clone();
-        let log_value_1 = i3_common::logging::string_bytes(
-            (log_owner_2.as_deref()).map(std::ffi::CStr::to_bytes),
-            None,
-        );
+        let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
         if let (Ok(log_value_1_text),) = (std::str::from_utf8(log_value_1),) {
             ::log::debug!(
                 "../src/floating.c:floating_raise_con:479 - Raising floating con {} / {}\n",
@@ -594,16 +591,10 @@ pub unsafe fn floating_maybe_reassign_ws(con: *mut Con) -> bool {
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_value_0 = i3_common::logging::pointer(con);
         let log_owner_2 = (*con).name.clone();
-        let log_value_1 = i3_common::logging::string_bytes(
-            (log_owner_2.as_deref()).map(std::ffi::CStr::to_bytes),
-            None,
-        );
+        let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
         let log_value_2 = i3_common::logging::pointer(ws);
         let log_owner_4 = (*ws).name.clone();
-        let log_value_3 = i3_common::logging::string_bytes(
-            (log_owner_4.as_deref()).map(std::ffi::CStr::to_bytes),
-            None,
-        );
+        let log_value_3 = i3_common::logging::string_bytes(log_owner_4.as_deref(), None);
         if let (Ok(log_value_1_text), Ok(log_value_3_text)) = (
             std::str::from_utf8(log_value_1),
             std::str::from_utf8(log_value_3),

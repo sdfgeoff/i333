@@ -48,7 +48,7 @@ impl Drop for LauncherRef {
 
 pub struct Startup_Sequence {
     id: CString,
-    workspace: CString,
+    workspace: Vec<u8>,
     context: LauncherRef,
     delete_at: libc::time_t,
 }
@@ -205,7 +205,10 @@ pub unsafe fn start_application(command: &[u8], no_startup_id: bool, window_id: 
                 ),
             }
         };
-        let workspace = CStr::from_ptr((*con_get_workspace(focused)).name_ptr()).to_owned();
+        let workspace = (*con_get_workspace(focused))
+            .name
+            .clone()
+            .expect("focused workspace has a name");
         let sequence = Box::new(Startup_Sequence {
             id,
             workspace,
@@ -305,12 +308,9 @@ pub unsafe extern "C" fn startup_monitor_event(event: *mut SnMonitorEvent, _: *m
         }
     }
 }
-pub unsafe fn startup_sequence_rename_workspace(
-    old_name: *const libc::c_char,
-    new_name: *const libc::c_char,
-) {
-    let old_name = CStr::from_ptr(old_name).to_owned();
-    let new_name = CStr::from_ptr(new_name).to_owned();
+pub unsafe fn startup_sequence_rename_workspace(old_name: &[u8], new_name: &[u8]) {
+    let old_name = old_name.split(|byte| *byte == 0).next().unwrap().to_vec();
+    let new_name = new_name.split(|byte| *byte == 0).next().unwrap().to_vec();
     for sequence in (*(&raw const SEQUENCES)).iter().copied() {
         let ptr = sequence.as_ptr();
         if (*ptr).workspace == old_name {
@@ -373,16 +373,16 @@ pub unsafe fn startup_sequence_get(
 pub unsafe fn startup_workspace_for_window(
     cwindow: *const Window,
     reply: Option<&x::GetPropertyReply>,
-) -> *mut libc::c_char {
+) -> Option<Vec<u8>> {
     let sequence = startup_sequence_get(cwindow, reply, false);
     if sequence.is_null() {
-        return std::ptr::null_mut();
+        return None;
     }
     if expired((*sequence).delete_at, libc::time(std::ptr::null_mut())) {
         startup_sequence_delete(sequence);
-        return std::ptr::null_mut();
+        return None;
     }
-    (*sequence).workspace.as_ptr().cast_mut()
+    Some((*sequence).workspace.clone())
 }
 pub unsafe fn startup_sequence_delete_by_window(window: *const Window) {
     let reply = startup_property((*window).id);

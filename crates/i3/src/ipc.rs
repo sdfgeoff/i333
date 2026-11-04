@@ -662,8 +662,16 @@ unsafe fn snapshot_node_header(con: *mut Con, restart: bool) -> messages::NodeHe
         mark = (*mark).marks.tqe_next;
     }
     let output = Omitted(
-        ((*con).type_0 != ContainerType::Root && (*con).type_0 != ContainerType::Output)
-            .then(|| native_text((*con_get_output(con)).name_ptr())),
+        ((*con).type_0 != ContainerType::Root && (*con).type_0 != ContainerType::Output).then(
+            || {
+                messages::NativeText::bytes(
+                    (*con_get_output(con))
+                        .name
+                        .as_deref()
+                        .expect("named node has a name"),
+                )
+            },
+        ),
     );
     let layout = node_layout(con);
     let workspace_layout = node_workspace_layout(con);
@@ -683,7 +691,7 @@ unsafe fn snapshot_node_header(con: *mut Con, restart: bool) -> messages::NodeHe
             None => NativeValue::Rejected,
         }
     } else {
-        NativeValue::Value((*con).name.as_deref().map(messages::NativeText::cstr))
+        NativeValue::Value((*con).name.as_deref().map(messages::NativeText::bytes))
     };
     let properties = Omitted((!window.is_null() && !restart).then(|| {
         messages::WindowProperties {
@@ -838,8 +846,8 @@ unsafe fn snapshot_node_tail(con: *mut Con, restart: bool) -> messages::NodeTail
         swallows,
         depth: Omitted((restart && !window.is_null()).then_some((*con).depth as i64)),
         previous_workspace_name: Omitted(
-            (restart && (*con).type_0 == ContainerType::Root && !previous_workspace_name.is_null())
-                .then(|| native_text(previous_workspace_name)),
+            (restart && (*con).type_0 == ContainerType::Root && previous_workspace_name.is_some())
+                .then(|| messages::NativeText::bytes(previous_workspace_name.as_deref().unwrap())),
         ),
     }
 }
@@ -991,18 +999,15 @@ unsafe fn dump_node_stream(
 }
 
 unsafe fn canonicalize_output_name(name: &[u8]) -> Vec<u8> {
-    // Transitional bridge to the core output-name graph's not-yet-ported lookup.
-    // The bar API/storage remains bounded Rust bytes; the output-name owner
-    // family will remove this C-string application boundary separately.
-    let native = CString::new(name.split(|&byte| byte == 0).next().unwrap()).unwrap();
-    if strcasecmp(native.as_ptr(), c"primary".as_ptr()) == 0
-        || strcasecmp(native.as_ptr(), c"nonprimary".as_ptr()) == 0
+    let name = name.split(|byte| *byte == 0).next().unwrap();
+    if crate::util::text_eq_ignore_case(name, b"primary")
+        || crate::util::text_eq_ignore_case(name, b"nonprimary")
     {
-        return native.into_bytes();
+        return name.to_vec();
     }
-    let output = get_output_by_name(native.as_ptr(), false);
+    let output = get_output_by_name(name, false);
     if output.is_null() {
-        native.into_bytes()
+        name.to_vec()
     } else {
         CStr::from_ptr(output_primary_name(output))
             .to_bytes()
@@ -1158,11 +1163,15 @@ unsafe fn handle_get_workspaces(
                 workspaces.push(messages::Workspace {
                     id: workspace as usize as i64,
                     num: (*workspace).num as i64,
-                    name: native_text((*workspace).name_ptr()),
+                    name: messages::NativeText::bytes(
+                        (*workspace).name.as_deref().expect("named node has a name"),
+                    ),
                     visible: workspace_is_visible(workspace),
                     focused: workspace == focused_workspace,
                     rect: unsigned_rect((*workspace).rect),
-                    output: native_text((*output).name_ptr()),
+                    output: messages::NativeText::bytes(
+                        (*output).name.as_deref().expect("named node has a name"),
+                    ),
                     urgent: (*workspace).urgent,
                 });
                 workspace = nodes::next_ptr(workspace);
@@ -1192,7 +1201,11 @@ unsafe fn handle_get_outputs(
             active: (*output).active,
             primary: (*output).primary,
             rect: unsigned_rect((*output).rect),
-            current_workspace: (!workspace.is_null()).then(|| native_text((*workspace).name_ptr())),
+            current_workspace: (!workspace.is_null()).then(|| {
+                messages::NativeText::bytes(
+                    (*workspace).name.as_deref().expect("named node has a name"),
+                )
+            }),
         });
         output = (*output).outputs.tqe_next;
     }

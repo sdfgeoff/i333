@@ -38,11 +38,11 @@ pub static mut focused: *mut Con = std::ptr::null_mut::<Con>();
 
 unsafe fn _create___i3() -> *mut Con {
     let mut __i3: *mut Con = con_new(croot, ::core::ptr::null_mut::<i3Window>());
-    (*__i3).name = Some(c"__i3".to_owned());
+    (*__i3).name = Some(b"__i3".to_vec());
     (*__i3).type_0 = ContainerType::Output;
     (*__i3).layout = Layout::Output;
     con_fix_percent(croot);
-    x_set_name(__i3, c"[i3 con] pseudo-output __i3".as_ptr());
+    x_set_name(__i3, b"[i3 con] pseudo-output __i3");
     (*__i3).rect.width = 1280_u32;
     (*__i3).rect.height = 1024_u32;
     ::log::debug!("../src/tree.c:_create___i3:39 - adding main content container\n");
@@ -51,20 +51,20 @@ unsafe fn _create___i3() -> *mut Con {
         ::core::ptr::null_mut::<i3Window>(),
     );
     (*content).type_0 = ContainerType::Con;
-    (*content).name = Some(c"content".to_owned());
+    (*content).name = Some(b"content".to_vec());
     (*content).layout = Layout::SplitH;
-    x_set_name(content, c"[i3 con] content __i3".as_ptr());
+    x_set_name(content, b"[i3 con] content __i3");
     con_attach(content, __i3, false);
     let ws: *mut Con = con_new(
         ::core::ptr::null_mut::<Con>(),
         ::core::ptr::null_mut::<i3Window>(),
     );
     (*ws).type_0 = ContainerType::Workspace;
-    (*ws).num = -1_i32;
-    (*ws).name = Some(c"__i3_scratch".to_owned());
+    (*ws).num = -(1_i32);
+    (*ws).name = Some(b"__i3_scratch".to_vec());
     (*ws).layout = Layout::SplitH;
     con_attach(ws, content, false);
-    x_set_name(ws, c"[i3 con] workspace __i3_scratch".as_ptr());
+    x_set_name(ws, b"[i3 con] workspace __i3_scratch");
     (*ws).fullscreen_mode = FullscreenMode::Output;
     __i3
 }
@@ -145,7 +145,7 @@ pub unsafe fn tree_restore(path: &std::path::Path, geometry: &x::GetGeometryRepl
                     "../src/tree.c:tree_restore:103 - ws = {}\n",
                     i3_common::logging::pointer(ws)
                 );
-                if strcmp((*out).name_ptr(), c"__i3".as_ptr()) != 0_i32 {
+                if (*out).name.as_deref() != Some(b"__i3".as_slice()) {
                     ::log::debug!("../src/tree.c:tree_restore:108 - Adding pseudo-output __i3 during inplace restart\n");
                     let mut __i3: *mut Con = _create___i3();
                     nodes::move_to_front(
@@ -167,7 +167,7 @@ pub unsafe fn tree_init(geometry: &x::GetGeometryReply) {
         ::core::ptr::null_mut::<Con>(),
         ::core::ptr::null_mut::<i3Window>(),
     );
-    (*croot).name = Some(c"root".to_owned());
+    (*croot).name = Some(b"root".to_vec());
     (*croot).type_0 = ContainerType::Root;
     (*croot).layout = Layout::SplitH;
     (*croot).rect = geometry_rect(
@@ -203,7 +203,7 @@ pub unsafe fn tree_open_con(mut con: *mut Con, window: *mut i3Window) -> *mut Co
         __assert_fail(
             c"con != NULL".as_ptr(),
             c"../src/tree.c".as_ptr(),
-            171 as ::core::ffi::c_uint,
+            171_u32,
             c"Con *tree_open_con(Con *, i3Window *)".as_ptr(),
         );
     };
@@ -338,10 +338,7 @@ pub unsafe fn tree_close_internal(
         {
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_owner_1 = (*ws).name.clone();
-            let log_value_0 = i3_common::logging::string_bytes(
-                (log_owner_1.as_deref()).map(std::ffi::CStr::to_bytes),
-                None,
-            );
+            let log_value_0 = i3_common::logging::string_bytes(log_owner_1.as_deref(), None);
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(log_value_0),) {
                 ::log::debug!("../src/tree.c:tree_close_internal:302 - Closing workspace container {}, updating EWMH atoms\n", log_value_0_text);
             } else {
@@ -630,7 +627,7 @@ unsafe fn get_tree_next(mut con: *mut Con, direction: Direction) -> *mut Con {
                         __assert_fail(
                             c"next".as_ptr(),
                             c"../src/tree.c".as_ptr(),
-                            543 as ::core::ffi::c_uint,
+                            543_u32,
                             c"Con *get_tree_next(Con *, direction_t)".as_ptr(),
                         );
                     };
@@ -677,7 +674,7 @@ unsafe fn get_tree_next(mut con: *mut Con, direction: Direction) -> *mut Con {
             __assert_fail(
                 c"con->type == CT_WORKSPACE".as_ptr(),
                 c"../src/tree.c".as_ptr(),
-                579 as ::core::ffi::c_uint,
+                579_u32,
                 c"Con *get_tree_next(Con *, direction_t)".as_ptr(),
             );
         };
@@ -743,10 +740,7 @@ pub unsafe fn tree_flatten(con: *mut Con) {
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_value_0 = i3_common::logging::pointer(con);
         let log_owner_2 = (*con).name.clone();
-        let log_value_1 = i3_common::logging::string_bytes(
-            (log_owner_2.as_deref()).map(std::ffi::CStr::to_bytes),
-            None,
-        );
+        let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
         if let (Ok(log_value_1_text),) = (std::str::from_utf8(log_value_1),) {
             ::log::debug!(
                 "../src/tree.c:tree_flatten:659 - Checking if I can flatten con = {} / {}\n",
@@ -793,10 +787,8 @@ pub unsafe fn tree_flatten(con: *mut Con) {
                         // Snapshot native bytes before the logger can dispatch a callback.
                         let log_value_0 = i3_common::logging::pointer(current);
                         let log_owner_2 = (*current).name.clone();
-                        let log_value_1 = i3_common::logging::string_bytes(
-                            (log_owner_2.as_deref()).map(std::ffi::CStr::to_bytes),
-                            None,
-                        );
+                        let log_value_1 =
+                            i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
                         if let (Ok(log_value_1_text),) = (std::str::from_utf8(log_value_1),) {
                             ::log::debug!(
                                 "../src/tree.c:tree_flatten:695 - detaching current={} / {}\n",

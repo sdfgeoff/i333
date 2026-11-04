@@ -346,9 +346,9 @@ pub struct AssignmentAssignments {
 /// tags or uninitialized destination storage. Names/commands preserve C bytes.
 pub enum AssignmentDest {
     Command(Vec<u8>),
-    Workspace(std::ffi::CString),
-    WorkspaceNumber(std::ffi::CString),
-    Output(std::ffi::CString),
+    Workspace(Vec<u8>),
+    WorkspaceNumber(Vec<u8>),
+    Output(Vec<u8>),
     NoFocus,
 }
 
@@ -382,7 +382,7 @@ pub struct Con {
     pub window_rect: crate::types::Rect,
     pub deco_rect: crate::types::Rect,
     pub geometry: crate::types::Rect,
-    pub name: Option<std::ffi::CString>,
+    pub name: Option<Vec<u8>>,
     pub title_format: Option<Vec<u8>>,
     pub window_icon_padding: i32,
     pub sticky_group: Option<Vec<u8>>,
@@ -411,14 +411,6 @@ pub struct Con {
 }
 
 impl Con {
-    /// A borrowed native view. Callers must not retain it across model mutation;
-    /// logging callbacks should receive an independently owned name snapshot.
-    pub fn name_ptr(&self) -> *const libc::c_char {
-        self.name
-            .as_deref()
-            .map_or(std::ptr::null(), std::ffi::CStr::as_ptr)
-    }
-
     /// Construct detached storage without assuming that Rust owners are zeroable.
     /// Mark/swallow queue tails are installed only after stable allocation.
     pub fn empty() -> Self {

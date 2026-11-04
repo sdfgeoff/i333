@@ -254,12 +254,9 @@ unsafe fn get_output_by_id(id: u32) -> *mut Output {
     ::core::ptr::null_mut::<Output>()
 }
 
-pub unsafe fn get_output_by_name(
-    name: *const ::core::ffi::c_char,
-    require_active: bool,
-) -> *mut Output {
-    let get_primary: bool = strcasecmp(c"primary".as_ptr(), name) == 0_i32;
-    let get_non_primary: bool = strcasecmp(c"nonprimary".as_ptr(), name) == 0_i32;
+pub unsafe fn get_output_by_name(name: &[u8], require_active: bool) -> *mut Output {
+    let get_primary: bool = crate::util::text_eq_ignore_case(b"primary", name);
+    let get_non_primary: bool = crate::util::text_eq_ignore_case(b"nonprimary", name);
     let mut output: *mut Output = outputs.tqh_first;
 
     while !output.is_null() {
@@ -273,7 +270,10 @@ pub unsafe fn get_output_by_name(
             let mut output_name: *mut output_name = (*output).names_head.slh_first;
 
             while !output_name.is_null() {
-                if strcasecmp((*output_name).name, name) == 0_i32 {
+                if crate::util::text_eq_ignore_case(
+                    std::ffi::CStr::from_ptr((*output_name).name).to_bytes(),
+                    name,
+                ) {
                     return output;
                 }
                 output_name = (*output_name).names.sle_next;
@@ -577,7 +577,9 @@ pub unsafe fn output_init_con(output: *mut Output) {
     };
     current = nodes::first_ptr(croot);
     while !current.is_null() {
-        if strcmp((*current).name_ptr(), output_primary_name(output)) != 0_i32 {
+        if (*current).name.as_deref()
+            != Some(std::ffi::CStr::from_ptr(output_primary_name(output)).to_bytes())
+        {
             current = nodes::next_ptr(current);
         } else {
             con = current;
@@ -585,17 +587,9 @@ pub unsafe fn output_init_con(output: *mut Output) {
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
                 let log_value_0 = i3_common::logging::pointer(con);
-                let log_pointer_2 = (*con).name_ptr();
-                let log_value_1 = i3_common::logging::string_bytes(
-                    (if log_pointer_2.is_null() {
-                        None
-                    } else {
-                        Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                    })
-                    .map(std::ffi::CStr::to_bytes),
-                    None,
-                )
-                .to_vec();
+                let log_name_owner_2 = (*con).name.clone();
+                let log_value_1 =
+                    i3_common::logging::string_bytes(log_name_owner_2.as_deref(), None).to_vec();
                 if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
                     ::log::debug!(
                         "../src/randr.c:output_init_con:362 - Using existing con {} / {}\n",
@@ -622,22 +616,20 @@ pub unsafe fn output_init_con(output: *mut Output) {
     }
     if con.is_null() {
         con = con_new(croot, ::core::ptr::null_mut::<Window>());
-        (*con).name = Some(std::ffi::CStr::from_ptr(output_primary_name(output)).to_owned());
+        (*con).name = Some(
+            std::ffi::CStr::from_ptr(output_primary_name(output))
+                .to_bytes()
+                .to_vec(),
+        );
         (*con).type_0 = ContainerType::Output;
         (*con).layout = Layout::Output;
         con_fix_percent(croot);
     }
     (*con).rect = (*output).rect as Rect;
     (*output).con = con;
-    let mut name: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    sasprintf(
-        &raw mut name,
-        c"[i3 con] output %s".as_ptr(),
-        (*con).name_ptr(),
-    );
-    x_set_name(con, name);
-    free(name as *mut ::core::ffi::c_void);
-    name = ::core::ptr::null_mut::<::core::ffi::c_char>();
+    let mut name = b"[i3 con] output ".to_vec();
+    name.extend_from_slice((*con).name.as_deref().unwrap_or(b"(null)"));
+    x_set_name(con, &name);
     if reused {
         ::log::debug!(
             "../src/randr.c:output_init_con:383 - Not adding workspace, this was a reused con\n"
@@ -661,15 +653,10 @@ pub unsafe fn output_init_con(output: *mut Output) {
     (*match_0).matches.tqe_prev = (*topdock).swallow_head.tqh_last;
     *(*topdock).swallow_head.tqh_last = match_0;
     (*topdock).swallow_head.tqh_last = &raw mut (*match_0).matches.tqe_next;
-    (*topdock).name = Some(c"topdock".to_owned());
-    sasprintf(
-        &raw mut name,
-        c"[i3 con] top dockarea %s".as_ptr(),
-        (*con).name_ptr(),
-    );
-    x_set_name(topdock, name);
-    free(name as *mut ::core::ffi::c_void);
-    name = ::core::ptr::null_mut::<::core::ffi::c_char>();
+    (*topdock).name = Some(b"topdock".to_vec());
+    let mut name = b"[i3 con] top dockarea ".to_vec();
+    name.extend_from_slice((*con).name.as_deref().unwrap_or(b"(null)"));
+    x_set_name(topdock, &name);
     ::log::debug!("../src/randr.c:output_init_con:404 - attaching\n");
     con_attach(topdock, con, false);
     ::log::debug!("../src/randr.c:output_init_con:409 - adding main content container\n");
@@ -679,15 +666,10 @@ pub unsafe fn output_init_con(output: *mut Output) {
     );
     (*content).type_0 = ContainerType::Con;
     (*content).layout = Layout::SplitH;
-    (*content).name = Some(c"content".to_owned());
-    sasprintf(
-        &raw mut name,
-        c"[i3 con] content %s".as_ptr(),
-        (*con).name_ptr(),
-    );
-    x_set_name(content, name);
-    free(name as *mut ::core::ffi::c_void);
-    name = ::core::ptr::null_mut::<::core::ffi::c_char>();
+    (*content).name = Some(b"content".to_vec());
+    let mut name = b"[i3 con] content ".to_vec();
+    name.extend_from_slice((*con).name.as_deref().unwrap_or(b"(null)"));
+    x_set_name(content, &name);
     con_attach(content, con, false);
     let bottomdock: *mut Con = con_new(
         ::core::ptr::null_mut::<Con>(),
@@ -703,15 +685,10 @@ pub unsafe fn output_init_con(output: *mut Output) {
     (*match_0).matches.tqe_prev = (*bottomdock).swallow_head.tqh_last;
     *(*bottomdock).swallow_head.tqh_last = match_0;
     (*bottomdock).swallow_head.tqh_last = &raw mut (*match_0).matches.tqe_next;
-    (*bottomdock).name = Some(c"bottomdock".to_owned());
-    sasprintf(
-        &raw mut name,
-        c"[i3 con] bottom dockarea %s".as_ptr(),
-        (*con).name_ptr(),
-    );
-    x_set_name(bottomdock, name);
-    free(name as *mut ::core::ffi::c_void);
-    name = ::core::ptr::null_mut::<::core::ffi::c_char>();
+    (*bottomdock).name = Some(b"bottomdock".to_vec());
+    let mut name = b"[i3 con] bottom dockarea ".to_vec();
+    name.extend_from_slice((*con).name.as_deref().unwrap_or(b"(null)"));
+    x_set_name(bottomdock, &name);
     ::log::debug!("../src/randr.c:output_init_con:438 - attaching\n");
     con_attach(bottomdock, con, false);
     let owner = identity(con).expect("live output focus owner");
@@ -736,22 +713,14 @@ pub unsafe fn init_ws_for_output(output: *mut Output) {
         };
         if !(((*workspace).type_0) != ContainerType::Workspace || con_is_internal(workspace)) {
             let name = (*workspace).name.clone().expect("workspace has a name");
-            let workspace_out: *mut Con =
-                get_assigned_output(name.as_ptr(), (*workspace).num as i64);
+            let workspace_out: *mut Con = get_assigned_output(Some(&name), (*workspace).num as i64);
             if !((*output).con != workspace_out) {
                 {
                     // Snapshot native bytes before the logger can dispatch a callback.
-                    let log_pointer_1 = (*workspace).name_ptr();
-                    let log_value_0 = i3_common::logging::string_bytes(
-                        (if log_pointer_1.is_null() {
-                            None
-                        } else {
-                            Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                        })
-                        .map(std::ffi::CStr::to_bytes),
-                        None,
-                    )
-                    .to_vec();
+                    let log_name_owner_1 = (*workspace).name.clone();
+                    let log_value_0 =
+                        i3_common::logging::string_bytes(log_name_owner_1.as_deref(), None)
+                            .to_vec();
                     let log_pointer_2 = output_primary_name(get_output_for_con(workspace));
                     let log_value_1 = i3_common::logging::string_bytes(
                         (if log_pointer_2.is_null() {
@@ -839,30 +808,10 @@ pub unsafe fn init_ws_for_output(output: *mut Output) {
             } else {
                 {
                     // Snapshot native bytes before the logger can dispatch a callback.
-                    let log_pointer_1 = assignment_name.as_ptr();
-                    let log_value_0 = i3_common::logging::string_bytes(
-                        (if log_pointer_1.is_null() {
-                            None
-                        } else {
-                            Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                        })
-                        .map(std::ffi::CStr::to_bytes),
-                        None,
-                    )
-                    .to_vec();
-                    let log_pointer_2 = assignment_output
-                        .as_ref()
-                        .map_or(std::ptr::null(), |value| value.as_ptr());
-                    let log_value_1 = i3_common::logging::string_bytes(
-                        (if log_pointer_2.is_null() {
-                            None
-                        } else {
-                            Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                        })
-                        .map(std::ffi::CStr::to_bytes),
-                        None,
-                    )
-                    .to_vec();
+                    let log_value_0 = assignment_name.clone();
+                    let log_pointer_2 = assignment_output.as_deref();
+                    let log_value_1 =
+                        i3_common::logging::string_bytes(log_pointer_2, None).to_vec();
                     if let (Ok(log_value_0_text), Ok(log_value_1_text)) = (
                         std::str::from_utf8(&log_value_0),
                         std::str::from_utf8(&log_value_1),
@@ -885,7 +834,7 @@ pub unsafe fn init_ws_for_output(output: *mut Output) {
                         );
                     }
                 };
-                workspace_show_by_name(assignment_name.as_ptr());
+                workspace_show_by_name(&assignment_name);
                 current_block = 4825863742504697761;
                 break;
             }
@@ -909,7 +858,7 @@ unsafe fn output_change_mode(output: *mut Output) {
         __assert_fail(
             c"output->con != NULL".as_ptr(),
             c"../src/randr.c".as_ptr(),
-            540 as ::core::ffi::c_uint,
+            540_u32,
             c"void output_change_mode(xcb_connection_t *, Output *)".as_ptr(),
         );
     };
@@ -938,17 +887,10 @@ unsafe fn output_change_mode(output: *mut Output) {
                 {
                     // Snapshot native bytes before the logger can dispatch a callback.
                     let log_value_0 = ((*workspace).num) as i32;
-                    let log_pointer_2 = (*workspace).name_ptr();
-                    let log_value_1 = i3_common::logging::string_bytes(
-                        (if log_pointer_2.is_null() {
-                            None
-                        } else {
-                            Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                        })
-                        .map(std::ffi::CStr::to_bytes),
-                        None,
-                    )
-                    .to_vec();
+                    let log_name_owner_2 = (*workspace).name.clone();
+                    let log_value_1 =
+                        i3_common::logging::string_bytes(log_name_owner_2.as_deref(), None)
+                            .to_vec();
                     let log_value_2 = ((*workspace).layout as u32) as i32;
                     if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
                         ::log::debug!("../src/randr.c:output_change_mode:568 - Setting workspace [{},{}]'s layout to {}.\n", log_value_0, log_value_1_text, log_value_2);
@@ -964,17 +906,10 @@ unsafe fn output_change_mode(output: *mut Output) {
                     {
                         // Snapshot native bytes before the logger can dispatch a callback.
                         let log_value_0 = ((*child).num) as i32;
-                        let log_pointer_2 = (*child).name_ptr();
-                        let log_value_1 = i3_common::logging::string_bytes(
-                            (if log_pointer_2.is_null() {
-                                None
-                            } else {
-                                Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                            })
-                            .map(std::ffi::CStr::to_bytes),
-                            None,
-                        )
-                        .to_vec();
+                        let log_name_owner_2 = (*child).name.clone();
+                        let log_value_1 =
+                            i3_common::logging::string_bytes(log_name_owner_2.as_deref(), None)
+                                .to_vec();
                         let log_value_2 = ((*child).layout as u32) as i32;
                         if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
                             ::log::debug!("../src/randr.c:output_change_mode:573 - Setting child [{},{}]'s layout to {}.\n", log_value_0, log_value_1_text, log_value_2);
@@ -1048,7 +983,8 @@ unsafe fn randr_query_outputs_15() -> bool {
             continue;
         };
         let name = name_owned.as_ptr();
-        let mut new: *mut Output = get_output_by_name(name, false);
+        let mut new: *mut Output =
+            get_output_by_name(std::ffi::CStr::from_ptr(name).to_bytes(), false);
         if new.is_null() {
             new = scalloc(1_usize, ::core::mem::size_of::<Output>() as usize) as *mut Output;
             (*new).names_head.slh_first = ::core::ptr::null_mut::<output_name>();
@@ -1356,17 +1292,9 @@ unsafe fn move_content(con: *mut Con) {
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
                 let log_value_0 = i3_common::logging::pointer(current);
-                let log_pointer_2 = (*current).name_ptr();
-                let log_value_1 = i3_common::logging::string_bytes(
-                    (if log_pointer_2.is_null() {
-                        None
-                    } else {
-                        Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                    })
-                    .map(std::ffi::CStr::to_bytes),
-                    None,
-                )
-                .to_vec();
+                let log_name_owner_2 = (*current).name.clone();
+                let log_value_1 =
+                    i3_common::logging::string_bytes(log_name_owner_2.as_deref(), None).to_vec();
                 if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
                     ::log::debug!("../src/randr.c:move_content:875 - Getting rid of current = {} / {} (empty, unfocused)\n", log_value_0, log_value_1_text);
                 } else {
@@ -1389,17 +1317,9 @@ unsafe fn move_content(con: *mut Con) {
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
                 let log_value_0 = i3_common::logging::pointer(current);
-                let log_pointer_2 = (*current).name_ptr();
-                let log_value_1 = i3_common::logging::string_bytes(
-                    (if log_pointer_2.is_null() {
-                        None
-                    } else {
-                        Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                    })
-                    .map(std::ffi::CStr::to_bytes),
-                    None,
-                )
-                .to_vec();
+                let log_name_owner_2 = (*current).name.clone();
+                let log_value_1 =
+                    i3_common::logging::string_bytes(log_name_owner_2.as_deref(), None).to_vec();
                 if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
                     ::log::debug!(
                         "../src/randr.c:move_content:879 - Detaching current = {} / {}\n",
@@ -1425,17 +1345,9 @@ unsafe fn move_content(con: *mut Con) {
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
                 let log_value_0 = i3_common::logging::pointer(current);
-                let log_pointer_2 = (*current).name_ptr();
-                let log_value_1 = i3_common::logging::string_bytes(
-                    (if log_pointer_2.is_null() {
-                        None
-                    } else {
-                        Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                    })
-                    .map(std::ffi::CStr::to_bytes),
-                    None,
-                )
-                .to_vec();
+                let log_name_owner_2 = (*current).name.clone();
+                let log_value_1 =
+                    i3_common::logging::string_bytes(log_name_owner_2.as_deref(), None).to_vec();
                 if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
                     ::log::debug!(
                         "../src/randr.c:move_content:881 - Re-attaching current = {} / {}\n",
@@ -1645,26 +1557,13 @@ pub unsafe fn randr_query_outputs() {
         let Some(con) = resolve(id) else { continue };
         let name = (*con).name.clone();
         if !con_is_internal(con)
-            && get_output_by_name(
-                name.as_deref()
-                    .map_or(std::ptr::null(), std::ffi::CStr::as_ptr),
-                true,
-            )
-            .is_null()
+            && get_output_by_name(name.as_deref().unwrap_or_default(), true).is_null()
         {
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
-                let log_pointer_1 = (*con).name_ptr();
-                let log_value_0 = i3_common::logging::string_bytes(
-                    (if log_pointer_1.is_null() {
-                        None
-                    } else {
-                        Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                    })
-                    .map(std::ffi::CStr::to_bytes),
-                    None,
-                )
-                .to_vec();
+                let log_name_owner_1 = (*con).name.clone();
+                let log_value_0 =
+                    i3_common::logging::string_bytes(log_name_owner_1.as_deref(), None).to_vec();
                 if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                     ::log::debug!("../src/randr.c:randr_query_outputs:1007 - No output {} found, moving its old content to first output\n", log_value_0_text);
                 } else {
@@ -1771,7 +1670,7 @@ pub unsafe fn randr_disable_output(output: *mut Output) {
         __assert_fail(
             c"output->to_be_disabled".as_ptr(),
             c"../src/randr.c".as_ptr(),
-            1063 as ::core::ffi::c_uint,
+            1063_u32,
             c"void randr_disable_output(Output *)".as_ptr(),
         );
     };

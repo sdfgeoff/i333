@@ -199,17 +199,10 @@ unsafe fn handle_enter_notify(event: &x::EnterNotifyEvent, full_sequence: u32) {
                 {
                     // Snapshot native bytes before the logger can dispatch a callback.
                     let log_value_0 = i3_common::logging::pointer(child);
-                    let log_pointer_2 = (*child).name_ptr();
-                    let log_value_1 = i3_common::logging::string_bytes(
-                        (if log_pointer_2.is_null() {
-                            None
-                        } else {
-                            Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                        })
-                        .map(std::ffi::CStr::to_bytes),
-                        None,
-                    )
-                    .to_vec();
+                    let log_name_owner_2 = (*child).name.clone();
+                    let log_value_1 =
+                        i3_common::logging::string_bytes(log_name_owner_2.as_deref(), None)
+                            .to_vec();
                     if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
                         ::log::info!(
                             "using child {} / {} instead!\n",
@@ -466,7 +459,7 @@ unsafe fn handle_configure_request(event: &x::ConfigureRequestEvent) {
     }
     ::log::debug!("../src/handlers.c:handle_configure_request:336 - Configure request!\n");
     let workspace: *mut Con = con_get_workspace(con);
-    if !workspace.is_null() && strcmp((*workspace).name_ptr(), c"__i3_scratch".as_ptr()) == 0_i32 {
+    if !workspace.is_null() && (*workspace).name.as_deref() == Some(b"__i3_scratch".as_slice()) {
         ::log::debug!("../src/handlers.c:handle_configure_request:340 - This is a scratchpad container, ignoring ConfigureRequest\n");
     } else {
         fullscreen = con_get_fullscreen_covering_ws(workspace);
@@ -943,7 +936,7 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
             ::log::debug!("../src/handlers.c:handle_client_message:770 - Window is not being managed, ignoring _NET_ACTIVE_WINDOW\n");
             return;
         }
-        if con_is_internal(ws) && ws != workspace_get(c"__i3_scratch".as_ptr()) {
+        if con_is_internal(ws) && ws != workspace_get(b"__i3_scratch") {
             ::log::debug!("../src/handlers.c:handle_client_message:775 - Workspace is internal but not scratchpad, ignoring _NET_ACTIVE_WINDOW\n");
             return;
         }
@@ -1029,17 +1022,9 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
         }
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_pointer_1 = (*ws_0).name_ptr();
-            let log_value_0 = i3_common::logging::string_bytes(
-                (if log_pointer_1.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                })
-                .map(std::ffi::CStr::to_bytes),
-                None,
-            )
-            .to_vec();
+            let log_name_owner_1 = (*ws_0).name.clone();
+            let log_value_0 =
+                i3_common::logging::string_bytes(log_name_owner_1.as_deref(), None).to_vec();
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::debug!("../src/handlers.c:handle_client_message:872 - Handling request to focus workspace {}\n", log_value_0_text);
             } else {
@@ -1218,17 +1203,9 @@ unsafe fn handle_focus_in(event: &x::FocusInEvent) {
     {
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_value_0 = i3_common::logging::pointer(con);
-        let log_pointer_2 = (*con).name_ptr();
-        let log_value_1 = i3_common::logging::string_bytes(
-            (if log_pointer_2.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_2))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_name_owner_2 = (*con).name.clone();
+        let log_value_1 =
+            i3_common::logging::string_bytes(log_name_owner_2.as_deref(), None).to_vec();
         if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
             ::log::debug!(
                 "../src/handlers.c:handle_focus_in:1077 - That is con {} / {}\n",
@@ -1280,22 +1257,16 @@ unsafe fn handle_focus_in(event: &x::FocusInEvent) {
 unsafe fn handle_focus_out(event: &x::FocusInEvent) {
     let (event_mode, event_detail) = focus_selectors(event);
     let con: *mut Con = con_by_window_id(event.event().resource_id());
-    let mut window_name: *const ::core::ffi::c_char = ::core::ptr::null::<::core::ffi::c_char>();
-    let mut mode: *const ::core::ffi::c_char = ::core::ptr::null::<::core::ffi::c_char>();
-    let mut detail: *const ::core::ffi::c_char = ::core::ptr::null::<::core::ffi::c_char>();
+    let mut mode: *const ::core::ffi::c_char = std::ptr::null();
+    let mut detail: *const ::core::ffi::c_char = std::ptr::null();
     let owned_window_name = (!con.is_null()).then(|| (*con).name.clone()).flatten();
-    if !con.is_null() {
-        window_name = owned_window_name
-            .as_deref()
-            .map_or(std::ptr::null(), std::ffi::CStr::as_ptr);
-        if window_name.is_null() {
-            window_name = c"<unnamed con>".as_ptr();
-        }
+    let window_name: &[u8] = if !con.is_null() {
+        owned_window_name.as_deref().unwrap_or(b"<unnamed con>")
     } else if event.event().resource_id() == root {
-        window_name = c"<the root window>".as_ptr();
+        b"<the root window>"
     } else {
-        window_name = c"<unknown window>".as_ptr();
-    }
+        b"<unknown window>"
+    };
     match event_mode as i32 {
         0 => {
             mode = c"Normal".as_ptr();
@@ -1346,17 +1317,7 @@ unsafe fn handle_focus_out(event: &x::FocusInEvent) {
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_value_0 = (event.event().resource_id());
         let log_value_1 = i3_common::logging::pointer(con);
-        let log_pointer_3 = window_name;
-        let log_value_2 = i3_common::logging::string_bytes(
-            (if log_pointer_3.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_3))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_2 = window_name.to_vec();
         let log_pointer_4 = detail;
         let log_value_3 = i3_common::logging::string_bytes(
             (if log_pointer_4.is_null() {
@@ -1448,17 +1409,9 @@ unsafe fn handle_strut_partial_change(con: *mut Con, prop: Option<&x::GetPropert
     if !output.is_null() {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_pointer_1 = (*output).name_ptr();
-            let log_value_0 = i3_common::logging::string_bytes(
-                (if log_pointer_1.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                })
-                .map(std::ffi::CStr::to_bytes),
-                None,
-            )
-            .to_vec();
+            let log_name_owner_1 = (*output).name.clone();
+            let log_value_0 =
+                i3_common::logging::string_bytes(log_name_owner_1.as_deref(), None).to_vec();
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::debug!("../src/handlers.c:handle_strut_partial_change:1270 - Starting search at output {}\n", log_value_0_text);
             } else {
@@ -1493,7 +1446,7 @@ unsafe fn handle_strut_partial_change(con: *mut Con, prop: Option<&x::GetPropert
         __assert_fail(
             c"dockarea != NULL".as_ptr(),
             c"../src/handlers.c".as_ptr(),
-            1296 as ::core::ffi::c_uint,
+            1296_u32,
             __ASSERT_FUNCTION.as_ptr(),
         );
     };

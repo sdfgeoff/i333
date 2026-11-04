@@ -457,8 +457,8 @@ pub unsafe fn match_matches_window(raw_match: *mut Match, raw_window: *mut Windo
         };
         if !text_matches(
             expression,
-            name.as_deref().map(CStr::to_bytes),
-            focused_name.as_deref().map(CStr::to_bytes),
+            name.as_deref(),
+            focused_name.as_deref(),
             b"workspace",
         ) {
             return false;
