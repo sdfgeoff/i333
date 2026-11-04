@@ -118,19 +118,81 @@ pub unsafe fn configure_binding(
 ) -> *mut Binding {
     let mut new_binding: *mut Binding =
         scalloc(1 as usize, ::core::mem::size_of::<Binding>() as usize) as *mut Binding;
-    debuglog(
-        c"%s:%s:%d - Binding %p bindtype %s, modifiers %s, input code %s, release %s\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/bindings.c".as_ptr(),
-        c"configure_binding".as_ptr(),
-        64,
-        new_binding,
-        bindtype,
-        modifiers,
-        input_code,
-        release,
-    );
+    {
+        // Snapshot native bytes before the logger can dispatch a callback.
+        let log_value_0 = i3_common::logging::pointer(new_binding);
+        let log_pointer_2 = bindtype;
+        let log_value_1 = i3_common::logging::string_bytes(
+            if log_pointer_2.is_null() {
+                None
+            } else {
+                Some(std::ffi::CStr::from_ptr(log_pointer_2))
+            },
+            None,
+        )
+        .to_vec();
+        let log_pointer_3 = modifiers;
+        let log_value_2 = i3_common::logging::string_bytes(
+            if log_pointer_3.is_null() {
+                None
+            } else {
+                Some(std::ffi::CStr::from_ptr(log_pointer_3))
+            },
+            None,
+        )
+        .to_vec();
+        let log_pointer_4 = input_code;
+        let log_value_3 = i3_common::logging::string_bytes(
+            if log_pointer_4.is_null() {
+                None
+            } else {
+                Some(std::ffi::CStr::from_ptr(log_pointer_4))
+            },
+            None,
+        )
+        .to_vec();
+        let log_pointer_5 = release;
+        let log_value_4 = i3_common::logging::string_bytes(
+            if log_pointer_5.is_null() {
+                None
+            } else {
+                Some(std::ffi::CStr::from_ptr(log_pointer_5))
+            },
+            None,
+        )
+        .to_vec();
+        if let (
+            Ok(log_value_1_text),
+            Ok(log_value_2_text),
+            Ok(log_value_3_text),
+            Ok(log_value_4_text),
+        ) = (
+            std::str::from_utf8(&log_value_1),
+            std::str::from_utf8(&log_value_2),
+            std::str::from_utf8(&log_value_3),
+            std::str::from_utf8(&log_value_4),
+        ) {
+            ::log::debug!("../src/bindings.c:configure_binding:64 - Binding {} bindtype {}, modifiers {}, input code {}, release {}\n", log_value_0, log_value_1_text, log_value_2_text, log_value_3_text, log_value_4_text);
+        } else {
+            let mut message = Vec::new();
+            message.extend_from_slice(
+                format!(
+                    "../src/bindings.c:configure_binding:64 - Binding {} bindtype ",
+                    log_value_0
+                )
+                .as_bytes(),
+            );
+            message.extend_from_slice(&log_value_1);
+            message.extend_from_slice(", modifiers ".as_bytes());
+            message.extend_from_slice(&log_value_2);
+            message.extend_from_slice(", input code ".as_bytes());
+            message.extend_from_slice(&log_value_3);
+            message.extend_from_slice(", release ".as_bytes());
+            message.extend_from_slice(&log_value_4);
+            message.extend_from_slice("\n".as_bytes());
+            i3_common::logging::emit(i3_common::logging::Level::Debug, &message);
+        }
+    };
     (*new_binding).release = if !release.is_null() {
         BindingRelease::KeyRelease
     } else {
@@ -153,12 +215,33 @@ pub unsafe fn configure_binding(
         (*new_binding).symbol = sstrdup(input_code);
     } else {
         let Ok(keycode) = parse_long(std::ffi::CStr::from_ptr(input_code), 10) else {
-            errorlog(
-                c"ERROR: Could not parse \"%s\" as an input code, ignoring this binding.\n"
-                    .as_ptr()
-                    .cast_mut(),
-                input_code,
-            );
+            {
+                // Snapshot native bytes before the logger can dispatch a callback.
+                let log_pointer_1 = input_code;
+                let log_value_0 = i3_common::logging::string_bytes(
+                    if log_pointer_1.is_null() {
+                        None
+                    } else {
+                        Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                    },
+                    None,
+                )
+                .to_vec();
+                if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                    ::log::error!(
+                        "ERROR: Could not parse \"{}\" as an input code, ignoring this binding.\n",
+                        log_value_0_text
+                    );
+                } else {
+                    let mut message = Vec::new();
+                    message.extend_from_slice("ERROR: Could not parse \"".as_bytes());
+                    message.extend_from_slice(&log_value_0);
+                    message.extend_from_slice(
+                        "\" as an input code, ignoring this binding.\n".as_bytes(),
+                    );
+                    i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+                }
+            };
             free(new_binding as *mut ::core::ffi::c_void);
             new_binding = ::core::ptr::null_mut::<Binding>();
             return ::core::ptr::null_mut::<Binding>();
@@ -170,9 +253,7 @@ pub unsafe fn configure_binding(
     (*new_binding).event_state_mask = event_state_from_str(modifiers);
     let group_bits_set = (((*new_binding).event_state_mask >> 16) & 15).count_ones();
     if group_bits_set > 1 {
-        errorlog(
-            c"ERROR: Keybinding has more than one Group specified, but your X server is always in precisely one group. The keybinding can never trigger.\n".as_ptr().cast_mut(),
-        );
+        ::log::error!("ERROR: Keybinding has more than one Group specified, but your X server is always in precisely one group. The keybinding can never trigger.\n");
     }
     let mode: *const Mode = mode_from_name(modename, pango_markup);
     (*new_binding).bindings.tqe_next = ::core::ptr::null_mut::<Binding>();
@@ -188,29 +269,22 @@ fn group_matches(mask: u32, group: u32) -> bool {
 }
 unsafe fn binding_in_current_group(bind: *const Binding) -> bool {
     if (*bind).event_state_mask >> 16 != 0 && xkb_current_group > 3 {
-        errorlog(
-            c"ERROR: BUG: xkb_current_group (= %d) outside of [XCB_XKB_GROUP_1..XCB_XKB_GROUP_4]\n"
-                .as_ptr()
-                .cast_mut(),
-            xkb_current_group,
-        );
+        {
+            let log_value_0 = (xkb_current_group) as i32;
+            ::log::error!("ERROR: BUG: xkb_current_group (= {}) outside of [XCB_XKB_GROUP_1..XCB_XKB_GROUP_4]\n", log_value_0);
+        };
     }
     group_matches((*bind).event_state_mask, xkb_current_group as u32)
 }
 unsafe fn grab_keycode_for_binding(connection: &xcb::Connection, bind: *mut Binding, keycode: u32) {
     let mods: i32 = ((*bind).event_state_mask & 0xffff as u32) as i32;
-    debuglog(
-        c"%s:%s:%d - Binding %p Grabbing keycode %d with event state mask 0x%x (mods 0x%x)\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/bindings.c".as_ptr(),
-        c"grab_keycode_for_binding".as_ptr(),
-        141,
-        bind,
-        keycode,
-        (*bind).event_state_mask,
-        mods,
-    );
+    {
+        let log_value_0 = i3_common::logging::pointer(bind);
+        let log_value_1 = (keycode) as i32;
+        let log_value_2 = ((*bind).event_state_mask) as u32;
+        let log_value_3 = (mods) as u32;
+        ::log::debug!("../src/bindings.c:grab_keycode_for_binding:141 - Binding {} Grabbing keycode {} with event state mask 0x{:x} (mods 0x{:x})\n", log_value_0, log_value_1, log_value_2, log_value_3);
+    };
     for modifiers in grab_masks(mods as u32, xcb_numlock_mask) {
         connection.send_request(&x::GrabKey {
             owner_events: false,
@@ -239,17 +313,12 @@ pub unsafe fn grab_all_keys() {
                     while !binding_keycode.is_null() {
                         let keycode: i32 = (*binding_keycode).keycode as i32;
                         let mods: i32 = ((*binding_keycode).modifiers & 0xffff as u32) as i32;
-                        debuglog(
-                            c"%s:%s:%d - Binding %p Grabbing keycode %d with mods %d\n"
-                                .as_ptr()
-                                .cast_mut(),
-                            c"../src/bindings.c".as_ptr(),
-                            c"grab_all_keys".as_ptr(),
-                            176,
-                            bind,
-                            keycode,
-                            mods,
-                        );
+                        {
+                            let log_value_0 = i3_common::logging::pointer(bind);
+                            let log_value_1 = (keycode) as i32;
+                            let log_value_2 = (mods) as i32;
+                            ::log::debug!("../src/bindings.c:grab_all_keys:176 - Binding {} Grabbing keycode {} with mods {}\n", log_value_0, log_value_1, log_value_2);
+                        };
                         connection.send_request(&x::GrabKey {
                             owner_events: false,
                             grab_window: x::Window::new(root),
@@ -385,25 +454,15 @@ pub unsafe fn get_binding_from_event(
     let event_detail = u16::from(detail);
     let mut state_filtered: u32 =
         (event_state as i32 & !((::xcb::x::ModMask::LOCK.bits()) as i32)) as u32;
-    debuglog(
-        c"%s:%s:%d - (removed capslock, state = 0x%x)\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/bindings.c".as_ptr(),
-        c"get_binding_from_xcb_event".as_ptr(),
-        329,
-        state_filtered,
-    );
+    {
+        let log_value_0 = (state_filtered) as u32;
+        ::log::debug!("../src/bindings.c:get_binding_from_xcb_event:329 - (removed capslock, state = 0x{:x})\n", log_value_0);
+    };
     state_filtered = filtered_event_state(event_state);
-    debuglog(
-        c"%s:%s:%d - (transformed keyboard group, state = 0x%x)\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/bindings.c".as_ptr(),
-        c"get_binding_from_xcb_event".as_ptr(),
-        354,
-        state_filtered,
-    );
+    {
+        let log_value_0 = (state_filtered) as u32;
+        ::log::debug!("../src/bindings.c:get_binding_from_xcb_event:354 - (transformed keyboard group, state = 0x{:x})\n", log_value_0);
+    };
     get_binding(state_filtered, is_release, event_detail, input_type)
 }
 unsafe extern "C" fn add_keycode_if_matches(
@@ -455,14 +514,11 @@ unsafe extern "C" fn add_keycode_if_matches(
                     | (::xcb::x::ModMask::LOCK.bits()) as i32 as u32,
             );
         } else {
-            debuglog(
-                c"%s:%s:%d - Skipping automatic numlock fallback, key %d resolves to 0x%x with numlock\n".as_ptr().cast_mut(),
-                c"../src/bindings.c".as_ptr(),
-                c"add_keycode_if_matches".as_ptr(),
-                440,
-                key,
-                sym_numlock,
-            );
+            {
+                let log_value_0 = (key) as i32;
+                let log_value_1 = (sym_numlock) as u32;
+                ::log::debug!("../src/bindings.c:add_keycode_if_matches:440 - Skipping automatic numlock fallback, key {} resolves to 0x{:x} with numlock\n", log_value_0, log_value_1);
+            };
         }
     }
 }
@@ -490,11 +546,7 @@ pub unsafe fn translate_keysyms() {
             dummy_state_numlock_no_shift.is_null()
         }
     {
-        errorlog(
-            c"ERROR: Could not create XKB state, cannot translate keysyms.\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::error!("ERROR: Could not create XKB state, cannot translate keysyms.\n");
     } else {
         bind = ::core::ptr::null_mut::<Binding>();
         bind = (*bindings).tqh_first as *mut Binding;
@@ -511,12 +563,36 @@ pub unsafe fn translate_keysyms() {
                 ) {
                     Ok(button) => button,
                     Err(error) => {
-                        errorlog(
-                            c"ERROR: Could not translate string to button: \"%s\"\n"
-                                .as_ptr()
-                                .cast_mut(),
-                            (*bind).symbol,
-                        );
+                        {
+                            // Snapshot native bytes before the logger can dispatch a callback.
+                            let log_pointer_1 = (*bind).symbol;
+                            let log_value_0 = i3_common::logging::string_bytes(
+                                if log_pointer_1.is_null() {
+                                    None
+                                } else {
+                                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                                },
+                                None,
+                            )
+                            .to_vec();
+                            if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                                ::log::error!(
+                                    "ERROR: Could not translate string to button: \"{}\"\n",
+                                    log_value_0_text
+                                );
+                            } else {
+                                let mut message = Vec::new();
+                                message.extend_from_slice(
+                                    "ERROR: Could not translate string to button: \"".as_bytes(),
+                                );
+                                message.extend_from_slice(&log_value_0);
+                                message.extend_from_slice("\"\n".as_bytes());
+                                i3_common::logging::emit(
+                                    i3_common::logging::Level::Error,
+                                    &message,
+                                );
+                            }
+                        };
 
                         // Native i3 continues with strtol's output even after
                         // logging malformed button input. Preserve that value.
@@ -525,50 +601,86 @@ pub unsafe fn translate_keysyms() {
                 };
                 let key: u8 = button as u8;
                 (*bind).keycode = key as u32;
-                debuglog(
-                    c"%s:%s:%d - Binding Mouse button, Keycode = %d\n"
-                        .as_ptr()
-                        .cast_mut(),
-                    c"../src/bindings.c".as_ptr(),
-                    c"translate_keysyms".as_ptr(),
-                    474,
-                    key as i32,
-                );
+                {
+                    let log_value_0 = (key as i32) as i32;
+                    ::log::debug!("../src/bindings.c:translate_keysyms:474 - Binding Mouse button, Keycode = {}\n", log_value_0);
+                };
             }
             let group = translation_group((*bind).event_state_mask);
-            debuglog(
-                c"%s:%s:%d - Binding %p group = %d, event_state_mask = %d, &2 = %s, &3 = %s, &4 = %s\n".as_ptr().cast_mut(),
-                c"../src/bindings.c".as_ptr(),
-                c"translate_keysyms".as_ptr(),
-                492,
-                bind,
-                group,
-                (*bind).event_state_mask,
-                if (*bind).event_state_mask
+            {
+                // Snapshot native bytes before the logger can dispatch a callback.
+                let log_value_0 = i3_common::logging::pointer(bind);
+                let log_value_1 = (group) as i32;
+                let log_value_2 = ((*bind).event_state_mask) as i32;
+                let log_pointer_4 = if (*bind).event_state_mask
                     & KeyboardGroups::GROUP2.bits() as i32 as u32
                     != 0
                 {
                     c"yes".as_ptr()
                 } else {
                     c"no".as_ptr()
-                },
-                if (*bind).event_state_mask
+                };
+                let log_value_3 = i3_common::logging::string_bytes(
+                    if log_pointer_4.is_null() {
+                        None
+                    } else {
+                        Some(std::ffi::CStr::from_ptr(log_pointer_4))
+                    },
+                    None,
+                )
+                .to_vec();
+                let log_pointer_5 = if (*bind).event_state_mask
                     & KeyboardGroups::GROUP3.bits() as i32 as u32
                     != 0
                 {
                     c"yes".as_ptr()
                 } else {
                     c"no".as_ptr()
-                },
-                if (*bind).event_state_mask
+                };
+                let log_value_4 = i3_common::logging::string_bytes(
+                    if log_pointer_5.is_null() {
+                        None
+                    } else {
+                        Some(std::ffi::CStr::from_ptr(log_pointer_5))
+                    },
+                    None,
+                )
+                .to_vec();
+                let log_pointer_6 = if (*bind).event_state_mask
                     & KeyboardGroups::GROUP4.bits() as i32 as u32
                     != 0
                 {
                     c"yes".as_ptr()
                 } else {
                     c"no".as_ptr()
-                },
-            );
+                };
+                let log_value_5 = i3_common::logging::string_bytes(
+                    if log_pointer_6.is_null() {
+                        None
+                    } else {
+                        Some(std::ffi::CStr::from_ptr(log_pointer_6))
+                    },
+                    None,
+                )
+                .to_vec();
+                if let (Ok(log_value_3_text), Ok(log_value_4_text), Ok(log_value_5_text)) = (
+                    std::str::from_utf8(&log_value_3),
+                    std::str::from_utf8(&log_value_4),
+                    std::str::from_utf8(&log_value_5),
+                ) {
+                    ::log::debug!("../src/bindings.c:translate_keysyms:492 - Binding {} group = {}, event_state_mask = {}, &2 = {}, &3 = {}, &4 = {}\n", log_value_0, log_value_1, log_value_2, log_value_3_text, log_value_4_text, log_value_5_text);
+                } else {
+                    let mut message = Vec::new();
+                    message.extend_from_slice(format!("../src/bindings.c:translate_keysyms:492 - Binding {} group = {}, event_state_mask = {}, &2 = ", log_value_0, log_value_1, log_value_2).as_bytes());
+                    message.extend_from_slice(&log_value_3);
+                    message.extend_from_slice(", &3 = ".as_bytes());
+                    message.extend_from_slice(&log_value_4);
+                    message.extend_from_slice(", &4 = ".as_bytes());
+                    message.extend_from_slice(&log_value_5);
+                    message.extend_from_slice("\n".as_bytes());
+                    i3_common::logging::emit(i3_common::logging::Level::Debug, &message);
+                }
+            };
             xkb_state_update_mask(
                 dummy_state,
                 (*bind).event_state_mask as xkb_mod_mask_t & 0x1fff as xkb_mod_mask_t,
@@ -649,26 +761,44 @@ pub unsafe fn translate_keysyms() {
                                 | (::xcb::x::ModMask::LOCK.bits()) as u32,
                         );
                     } else {
-                        debuglog(
-                            c"%s:%s:%d - Skipping automatic numlock fallback, key %d resolves to 0x%x with numlock\n".as_ptr().cast_mut(),
-                            c"../src/bindings.c".as_ptr(),
-                            c"translate_keysyms".as_ptr(),
-                            560,
-                            (*bind).keycode,
-                            sym_numlock,
-                        );
+                        {
+                            let log_value_0 = ((*bind).keycode) as i32;
+                            let log_value_1 = (sym_numlock) as u32;
+                            ::log::debug!("../src/bindings.c:translate_keysyms:560 - Skipping automatic numlock fallback, key {} resolves to 0x{:x} with numlock\n", log_value_0, log_value_1);
+                        };
                     }
                 }
             } else {
                 let keysym: xkb_keysym_t =
                     xkb_keysym_from_name((*bind).symbol, XKB_KEYSYM_NO_FLAGS) as xkb_keysym_t;
                 if keysym == XKB_KEY_NoSymbol as xkb_keysym_t {
-                    errorlog(
-                        c"ERROR: Could not translate string to key symbol: \"%s\"\n"
-                            .as_ptr()
-                            .cast_mut(),
-                        (*bind).symbol,
-                    );
+                    {
+                        // Snapshot native bytes before the logger can dispatch a callback.
+                        let log_pointer_1 = (*bind).symbol;
+                        let log_value_0 = i3_common::logging::string_bytes(
+                            if log_pointer_1.is_null() {
+                                None
+                            } else {
+                                Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                            },
+                            None,
+                        )
+                        .to_vec();
+                        if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                            ::log::error!(
+                                "ERROR: Could not translate string to key symbol: \"{}\"\n",
+                                log_value_0_text
+                            );
+                        } else {
+                            let mut message = Vec::new();
+                            message.extend_from_slice(
+                                "ERROR: Could not translate string to key symbol: \"".as_bytes(),
+                            );
+                            message.extend_from_slice(&log_value_0);
+                            message.extend_from_slice("\"\n".as_bytes());
+                            i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+                        }
+                    };
                 } else {
                     let mut resolving: Resolve = Resolve {
                         bind,
@@ -720,12 +850,41 @@ pub unsafe fn translate_keysyms() {
                                         || (*check).release as u32 != (*bind).release as u32)
                                     {
                                         has_errors = true;
-                                        errorlog(
-                                            c"ERROR: Duplicate keybinding in config file:\n  keysym = %s, keycode = %d, state_mask = 0x%x\n".as_ptr().cast_mut(),
-                                            (*bind).symbol,
-                                            (*check).keycode,
-                                            (*bind).event_state_mask,
-                                        );
+                                        {
+                                            // Snapshot native bytes before the logger can dispatch a callback.
+                                            let log_pointer_1 = (*bind).symbol;
+                                            let log_value_0 = i3_common::logging::string_bytes(
+                                                if log_pointer_1.is_null() {
+                                                    None
+                                                } else {
+                                                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                                                },
+                                                None,
+                                            )
+                                            .to_vec();
+                                            let log_value_1 = ((*check).keycode) as i32;
+                                            let log_value_2 = ((*bind).event_state_mask) as u32;
+                                            if let (Ok(log_value_0_text),) =
+                                                (std::str::from_utf8(&log_value_0),)
+                                            {
+                                                ::log::error!("ERROR: Duplicate keybinding in config file:\n  keysym = {}, keycode = {}, state_mask = 0x{:x}\n", log_value_0_text, log_value_1, log_value_2);
+                                            } else {
+                                                let mut message = Vec::new();
+                                                message.extend_from_slice("ERROR: Duplicate keybinding in config file:\n  keysym = ".as_bytes());
+                                                message.extend_from_slice(&log_value_0);
+                                                message.extend_from_slice(
+                                                    format!(
+                                                        ", keycode = {}, state_mask = 0x{:x}\n",
+                                                        log_value_1, log_value_2
+                                                    )
+                                                    .as_bytes(),
+                                                );
+                                                i3_common::logging::emit(
+                                                    i3_common::logging::Level::Error,
+                                                    &message,
+                                                );
+                                            }
+                                        };
                                     }
                                 }
                             }
@@ -733,19 +892,49 @@ pub unsafe fn translate_keysyms() {
                         }
                         binding_keycode_3 = (*binding_keycode_3).keycodes.tqe_next;
                     }
-                    debuglog(
-                        c"%s:%s:%d - state=0x%x, cfg=\"%s\", sym=0x%x → keycodes%s (%d)\n"
-                            .as_ptr()
-                            .cast_mut(),
-                        c"../src/bindings.c".as_ptr(),
-                        c"translate_keysyms".as_ptr(),
-                        618,
-                        (*bind).event_state_mask,
-                        (*bind).symbol,
-                        keysym,
-                        std::ffi::CString::new(keycodes).unwrap().as_ptr(),
-                        num_keycodes,
-                    );
+                    let keycodes = std::ffi::CString::new(keycodes).unwrap();
+                    {
+                        // Snapshot native bytes before the logger can dispatch a callback.
+                        let log_value_0 = ((*bind).event_state_mask) as u32;
+                        let log_pointer_2 = (*bind).symbol;
+                        let log_value_1 = i3_common::logging::string_bytes(
+                            if log_pointer_2.is_null() {
+                                None
+                            } else {
+                                Some(std::ffi::CStr::from_ptr(log_pointer_2))
+                            },
+                            None,
+                        )
+                        .to_vec();
+                        let log_value_2 = (keysym) as u32;
+                        let log_pointer_4 = keycodes.as_ptr();
+                        let log_value_3 = i3_common::logging::string_bytes(
+                            if log_pointer_4.is_null() {
+                                None
+                            } else {
+                                Some(std::ffi::CStr::from_ptr(log_pointer_4))
+                            },
+                            None,
+                        )
+                        .to_vec();
+                        let log_value_4 = (num_keycodes) as i32;
+                        if let (Ok(log_value_1_text), Ok(log_value_3_text)) = (
+                            std::str::from_utf8(&log_value_1),
+                            std::str::from_utf8(&log_value_3),
+                        ) {
+                            ::log::debug!("../src/bindings.c:translate_keysyms:618 - state=0x{:x}, cfg=\"{}\", sym=0x{:x} → keycodes{} ({})\n", log_value_0, log_value_1_text, log_value_2, log_value_3_text, log_value_4);
+                        } else {
+                            let mut message = Vec::new();
+                            message.extend_from_slice(format!("../src/bindings.c:translate_keysyms:618 - state=0x{:x}, cfg=\"", log_value_0).as_bytes());
+                            message.extend_from_slice(&log_value_1);
+                            message.extend_from_slice(
+                                format!("\", sym=0x{:x} → keycodes", log_value_2).as_bytes(),
+                            );
+                            message.extend_from_slice(&log_value_3);
+                            message.extend_from_slice(format!(" ({})\n", log_value_4).as_bytes());
+                            i3_common::logging::emit(i3_common::logging::Level::Debug, &message);
+                        }
+                    };
                 }
             }
             bind = (*bind).bindings.tqe_next as *mut Binding;
@@ -760,13 +949,33 @@ pub unsafe fn translate_keysyms() {
 
 pub unsafe fn switch_mode(new_mode: *const ::core::ffi::c_char) {
     let mut mode: *mut Mode = ::core::ptr::null_mut::<Mode>();
-    debuglog(
-        c"%s:%s:%d - Switching to mode %s\n".as_ptr().cast_mut(),
-        c"../src/bindings.c".as_ptr(),
-        c"switch_mode".as_ptr(),
-        642,
-        new_mode,
-    );
+    {
+        // Snapshot native bytes before the logger can dispatch a callback.
+        let log_pointer_1 = new_mode;
+        let log_value_0 = i3_common::logging::string_bytes(
+            if log_pointer_1.is_null() {
+                None
+            } else {
+                Some(std::ffi::CStr::from_ptr(log_pointer_1))
+            },
+            None,
+        )
+        .to_vec();
+        if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+            ::log::debug!(
+                "../src/bindings.c:switch_mode:642 - Switching to mode {}\n",
+                log_value_0_text
+            );
+        } else {
+            let mut message = Vec::new();
+            message.extend_from_slice(
+                "../src/bindings.c:switch_mode:642 - Switching to mode ".as_bytes(),
+            );
+            message.extend_from_slice(&log_value_0);
+            message.extend_from_slice("\n".as_bytes());
+            i3_common::logging::emit(i3_common::logging::Level::Debug, &message);
+        }
+    };
     mode = modes.slh_first as *mut Mode;
     while !mode.is_null() {
         if strcmp((*mode).name, new_mode) != 0 {
@@ -804,7 +1013,7 @@ pub unsafe fn switch_mode(new_mode: *const ::core::ffi::c_char) {
             return;
         }
     }
-    errorlog(c"ERROR: Mode not found\n".as_ptr().cast_mut());
+    ::log::error!("ERROR: Mode not found\n");
 }
 unsafe extern "C" fn reorder_binding_cmp(
     a: *const ::core::ffi::c_void,
@@ -921,19 +1130,69 @@ pub unsafe fn check_for_duplicate_bindings(context: *mut context) {
             if binding_same_key(bind, current) {
                 (*context).has_errors = true;
                 if (*current).keycode != 0 as u32 {
-                    errorlog(
-                        c"ERROR: Duplicate keybinding in config file:\n  state mask 0x%x with keycode %d, command \"%s\"\n".as_ptr().cast_mut(),
-                        (*current).event_state_mask,
-                        (*current).keycode,
-                        (*current).command,
-                    );
+                    {
+                        // Snapshot native bytes before the logger can dispatch a callback.
+                        let log_value_0 = ((*current).event_state_mask) as u32;
+                        let log_value_1 = ((*current).keycode) as i32;
+                        let log_pointer_3 = (*current).command;
+                        let log_value_2 = i3_common::logging::string_bytes(
+                            if log_pointer_3.is_null() {
+                                None
+                            } else {
+                                Some(std::ffi::CStr::from_ptr(log_pointer_3))
+                            },
+                            None,
+                        )
+                        .to_vec();
+                        if let (Ok(log_value_2_text),) = (std::str::from_utf8(&log_value_2),) {
+                            ::log::error!("ERROR: Duplicate keybinding in config file:\n  state mask 0x{:x} with keycode {}, command \"{}\"\n", log_value_0, log_value_1, log_value_2_text);
+                        } else {
+                            let mut message = Vec::new();
+                            message.extend_from_slice(format!("ERROR: Duplicate keybinding in config file:\n  state mask 0x{:x} with keycode {}, command \"", log_value_0, log_value_1).as_bytes());
+                            message.extend_from_slice(&log_value_2);
+                            message.extend_from_slice("\"\n".as_bytes());
+                            i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+                        }
+                    };
                 } else {
-                    errorlog(
-                        c"ERROR: Duplicate keybinding in config file:\n  state mask 0x%x with keysym %s, command \"%s\"\n".as_ptr().cast_mut(),
-                        (*current).event_state_mask,
-                        (*current).symbol,
-                        (*current).command,
-                    );
+                    {
+                        // Snapshot native bytes before the logger can dispatch a callback.
+                        let log_value_0 = ((*current).event_state_mask) as u32;
+                        let log_pointer_2 = (*current).symbol;
+                        let log_value_1 = i3_common::logging::string_bytes(
+                            if log_pointer_2.is_null() {
+                                None
+                            } else {
+                                Some(std::ffi::CStr::from_ptr(log_pointer_2))
+                            },
+                            None,
+                        )
+                        .to_vec();
+                        let log_pointer_3 = (*current).command;
+                        let log_value_2 = i3_common::logging::string_bytes(
+                            if log_pointer_3.is_null() {
+                                None
+                            } else {
+                                Some(std::ffi::CStr::from_ptr(log_pointer_3))
+                            },
+                            None,
+                        )
+                        .to_vec();
+                        if let (Ok(log_value_1_text), Ok(log_value_2_text)) = (
+                            std::str::from_utf8(&log_value_1),
+                            std::str::from_utf8(&log_value_2),
+                        ) {
+                            ::log::error!("ERROR: Duplicate keybinding in config file:\n  state mask 0x{:x} with keysym {}, command \"{}\"\n", log_value_0, log_value_1_text, log_value_2_text);
+                        } else {
+                            let mut message = Vec::new();
+                            message.extend_from_slice(format!("ERROR: Duplicate keybinding in config file:\n  state mask 0x{:x} with keysym ", log_value_0).as_bytes());
+                            message.extend_from_slice(&log_value_1);
+                            message.extend_from_slice(", command \"".as_bytes());
+                            message.extend_from_slice(&log_value_2);
+                            message.extend_from_slice("\"\n".as_bytes());
+                            i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+                        }
+                    };
                 }
             }
             bind = (*bind).bindings.tqe_next as *mut Binding;
@@ -1124,11 +1383,7 @@ pub unsafe fn load_keymap() -> bool {
     if xkb_context.is_null() {
         xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
         if xkb_context.is_null() {
-            errorlog(
-                c"ERROR: Could not create xkbcommon context\n"
-                    .as_ptr()
-                    .cast_mut(),
-            );
+            ::log::error!("ERROR: Could not create xkbcommon context\n");
             return false;
         }
     }
@@ -1145,32 +1400,20 @@ pub unsafe fn load_keymap() -> bool {
             XKB_KEYMAP_COMPILE_NO_FLAGS,
         );
         if new_keymap.is_null() {
-            errorlog(
-                c"ERROR: xkb_x11_keymap_new_from_device failed\n"
-                    .as_ptr()
-                    .cast_mut(),
-            );
+            ::log::error!("ERROR: xkb_x11_keymap_new_from_device failed\n");
             return false;
         }
     } else {
-        verboselog(
-            c"No XKB / core keyboard device? Assembling keymap from local RMLVO.\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::info!("No XKB / core keyboard device? Assembling keymap from local RMLVO.\n");
         let owned_names = fill_rmlvo_from_root();
         if owned_names.is_none() {
-            errorlog(c"ERROR: Could not get _XKB_RULES_NAMES atom from root window, falling back to defaults.\n".as_ptr().cast_mut());
+            ::log::error!("ERROR: Could not get _XKB_RULES_NAMES atom from root window, falling back to defaults.\n");
         }
         let owned_names = owned_names.unwrap_or_default();
         let names = owned_names.native();
         new_keymap = xkb_keymap_new_from_names(xkb_context, &names, XKB_KEYMAP_COMPILE_NO_FLAGS);
         if new_keymap.is_null() {
-            errorlog(
-                c"ERROR: xkb_keymap_new_from_names failed\n"
-                    .as_ptr()
-                    .cast_mut(),
-            );
+            ::log::error!("ERROR: xkb_keymap_new_from_names failed\n");
             return false;
         }
     }
@@ -1190,7 +1433,7 @@ pub unsafe fn bindings_get_buttons_to_grab() -> *mut libc::c_int {
             if let Ok(button) = parse_long(std::ffi::CStr::from_ptr((*bind).symbol.add(6)), 10) {
                 append_button(&mut buttons, button);
             } else {
-                errorlog(c"ERROR: Could not parse button number, skipping this binding. Please report this bug in i3.\n".as_ptr().cast_mut());
+                ::log::error!("ERROR: Could not parse button number, skipping this binding. Please report this bug in i3.\n");
             }
         }
         bind = (*bind).bindings.tqe_next;
@@ -1229,8 +1472,6 @@ use crate::application::xkb_supported;
 use libc::{free, qsort, strcasecmp, strcmp, strncasecmp};
 
 use i3_common::native_stdio::__assert_fail;
-
-use crate::log::{debuglog, errorlog, verboselog};
 
 // Shared model types retain field layout while using one Rust identity.
 pub use crate::types::Con;
