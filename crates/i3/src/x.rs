@@ -1982,7 +1982,7 @@ pub unsafe fn x_push_changes(con: *mut Con) {
                     last_focused,
                 );
                 if to_focus != last_focused && is_con_attached(focused) {
-                    ipc_send_window_event(c"focus".as_ptr(), focused);
+                    ipc_send_window_event("focus", focused);
                 }
             } else {
                 {
@@ -2047,7 +2047,7 @@ pub unsafe fn x_push_changes(con: *mut Con) {
                     && !(*focused).window.is_null()
                     && is_con_attached(focused)
                 {
-                    ipc_send_window_event(c"focus".as_ptr(), focused);
+                    ipc_send_window_event("focus", focused);
                 }
             }
             last_focused = to_focus;

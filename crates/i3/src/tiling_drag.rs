@@ -364,7 +364,7 @@ pub unsafe fn tiling_drag(con: *mut Con, event: &x::ButtonPressEvent, use_thresh
                 }
             }
             insert_con_into(con, target, position);
-            ipc_send_window_event(c"move".as_ptr(), con);
+            ipc_send_window_event("move", con);
         }
         DropType::Parent => {
             let parent_tabbed_or_stacked: bool = (*parent_ptr(target)).layout == Layout::Tabbed

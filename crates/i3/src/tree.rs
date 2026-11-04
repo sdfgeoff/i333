@@ -298,7 +298,7 @@ pub unsafe fn tree_close_internal(
             },
             0_i32,
         );
-        ipc_send_window_event(c"close".as_ptr(), con);
+        ipc_send_window_event("close", con);
         window_free((*con).window as *mut i3Window);
         (*con).window = ::core::ptr::null_mut::<Window>();
     }

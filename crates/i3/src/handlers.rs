@@ -624,7 +624,7 @@ unsafe fn handle_screen_change() {
     randr_query_outputs();
     scratchpad_fix_resolution();
     ipc_send_event(
-        b"output",
+        "output",
         I3_IPC_EVENT_OUTPUT as u32,
         b"{\"change\":\"unspecified\"}",
     );
@@ -707,7 +707,7 @@ unsafe fn handle_windowname_change(mut con: *mut Con, prop: Option<&x::GetProper
     con = remanage_window(con);
     x_push_changes(croot);
     if old_name != window_name_snapshot((*con).window) {
-        ipc_send_window_event(c"title".as_ptr(), con);
+        ipc_send_window_event("title", con);
     }
     true
 }
@@ -720,7 +720,7 @@ unsafe fn handle_windowname_change_legacy(
     con = remanage_window(con);
     x_push_changes(croot);
     if old_name != window_name_snapshot((*con).window) {
-        ipc_send_window_event(c"title".as_ptr(), con);
+        ipc_send_window_event("title", con);
     }
     true
 }
@@ -1352,7 +1352,7 @@ unsafe fn handle_configure_notify(event: &x::ConfigureNotifyEvent) {
     }
     randr_query_outputs();
     ipc_send_event(
-        b"output",
+        "output",
         I3_IPC_EVENT_OUTPUT as u32,
         b"{\"change\":\"unspecified\"}",
     );

@@ -215,7 +215,7 @@ unsafe fn move_to_output_directed(con: *mut Con, direction: Direction) {
     }
     free((*con).deco_render_params as *mut ::core::ffi::c_void);
     (*con).deco_render_params = ::core::ptr::null_mut::<deco_render_params>();
-    ipc_send_window_event(c"move".as_ptr(), con);
+    ipc_send_window_event("move", con);
     tree_flatten(croot);
     ewmh_update_wm_desktop();
 }
@@ -288,7 +288,7 @@ pub unsafe fn tree_move(con: *mut Con, direction: Direction) {
                     )
                     .expect("adjacent tiling siblings");
                     con_force_split_parents_redraw(con);
-                    ipc_send_window_event(c"move".as_ptr(), con);
+                    ipc_send_window_event("move", con);
                     return;
                 }
             } else {
@@ -346,7 +346,7 @@ pub unsafe fn tree_move(con: *mut Con, direction: Direction) {
     }
     free((*con).deco_render_params as *mut ::core::ffi::c_void);
     (*con).deco_render_params = ::core::ptr::null_mut::<deco_render_params>();
-    ipc_send_window_event(c"move".as_ptr(), con);
+    ipc_send_window_event("move", con);
     tree_flatten(croot);
     ewmh_update_wm_desktop();
 }

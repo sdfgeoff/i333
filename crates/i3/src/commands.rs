@@ -1764,11 +1764,7 @@ pub unsafe fn cmd_append_layout(
             render_con(croot);
             restore_open_placeholder_windows(parent);
             if content == JsonContent::Workspace {
-                ipc_send_workspace_event(
-                    c"restored".as_ptr(),
-                    parent,
-                    ::core::ptr::null_mut::<Con>(),
-                );
+                ipc_send_workspace_event("restored", parent, ::core::ptr::null_mut::<Con>());
             }
             (*cmd_output).needs_tree_render = true;
         }
@@ -3846,7 +3842,7 @@ pub unsafe fn cmd_reload(current_match: *mut Match, cmd_output: *mut CommandResu
     load_configuration(None, ConfigLoad::Reload);
     x_set_i3_atoms();
     ipc_send_workspace_event(
-        c"reload".as_ptr(),
+        "reload",
         ::core::ptr::null_mut::<Con>(),
         ::core::ptr::null_mut::<Con>(),
     );
@@ -4907,11 +4903,7 @@ pub unsafe fn cmd_rename_workspace(
     let parent: *mut Con = parent_ptr(workspace);
     con_detach(workspace);
     con_attach(workspace, parent, false);
-    ipc_send_workspace_event(
-        c"rename".as_ptr(),
-        workspace,
-        ::core::ptr::null_mut::<Con>(),
-    );
+    ipc_send_workspace_event("rename", workspace, ::core::ptr::null_mut::<Con>());
     let assigned_name = (*workspace).name.clone().expect("workspace has a name");
     let assigned: *mut Con = get_assigned_output(Some(&assigned_name), (*workspace).num as i64);
     if !assigned.is_null() {

@@ -284,7 +284,7 @@ pub unsafe fn con_focus(con: *mut Con) {
         con_set_urgency(con, false);
         con_update_parents_urgency(con);
         workspace_update_urgent_flag(con_get_workspace(con));
-        ipc_send_window_event(c"urgent".as_ptr(), con);
+        ipc_send_window_event("urgent", con);
     }
 }
 unsafe fn con_raise(con: *mut Con) {
@@ -819,7 +819,7 @@ pub unsafe fn con_mark(con: *mut Con, mark: &[u8], mode: MarkMode) {
     (*new).marks.tqe_prev = (*con).marks_head.tqh_last;
     *(*con).marks_head.tqh_last = new;
     (*con).marks_head.tqh_last = &raw mut (*new).marks.tqe_next;
-    ipc_send_window_event(c"mark".as_ptr(), con);
+    ipc_send_window_event("mark", con);
     (*con).mark_changed = true;
 }
 
@@ -834,7 +834,7 @@ pub unsafe fn con_unmark(con: *mut Con, name: Option<&[u8]>) {
             if !(!con.is_null() && current != con) && !(*current).marks_head.tqh_first.is_null() {
                 while !(*current).marks_head.tqh_first.is_null() {
                     remove_mark(current, (*current).marks_head.tqh_first);
-                    ipc_send_window_event(c"mark".as_ptr(), current);
+                    ipc_send_window_event("mark", current);
                 }
                 (*current).mark_changed = true;
             }
@@ -881,7 +881,7 @@ pub unsafe fn con_unmark(con: *mut Con, name: Option<&[u8]>) {
                 mark_0 = (*mark_0).marks.tqe_next;
             } else {
                 remove_mark(current, mark_0);
-                ipc_send_window_event(c"mark".as_ptr(), current);
+                ipc_send_window_event("mark", current);
                 break;
             }
         }
@@ -1108,7 +1108,7 @@ unsafe fn con_set_fullscreen_mode(con: *mut Con, fullscreen_mode: FullscreenMode
         "../src/con.c:con_set_fullscreen_mode:1212 - mode now: {}\n",
         ((*con).fullscreen_mode).raw() as i32
     );
-    ipc_send_window_event(c"fullscreen_mode".as_ptr(), con);
+    ipc_send_window_event("fullscreen_mode", con);
     if (*con).window.is_null() {
         return;
     }
@@ -1458,7 +1458,7 @@ unsafe fn _con_move_to_con(
     (*parent)
         .on_remove_child
         .expect("non-null function pointer")(parent);
-    ipc_send_window_event(c"move".as_ptr(), con);
+    ipc_send_window_event("move", con);
     ewmh_update_wm_desktop();
     true
 }
@@ -2225,13 +2225,12 @@ unsafe fn con_on_remove_child(con: *mut Con) {
                     );
                 }
             };
-            let payload =
-                ipc_marshal_workspace_event(c"empty".as_ptr(), con, ::core::ptr::null_mut::<Con>());
+            let payload = ipc_marshal_workspace_event("empty", con, ::core::ptr::null_mut::<Con>());
             tree_close_internal(con, KillWindow::DontKill, false);
             ipc_send_event(
-                b"workspace",
+                "workspace",
                 I3_IPC_EVENT_WORKSPACE as u32,
-                payload.as_bytes(),
+                payload.as_slice(),
             );
         }
         return;
@@ -2427,7 +2426,7 @@ pub unsafe fn con_set_urgency(con: *mut Con, urgent: bool) {
     }
     if (*con).urgent != old_urgent {
         ::log::info!("Urgency flag changed to {}\n", { ((*con).urgent as i32) });
-        ipc_send_window_event(c"urgent".as_ptr(), con);
+        ipc_send_window_event("urgent", con);
     }
 }
 
@@ -2686,7 +2685,7 @@ pub unsafe fn con_merge_into(old: *mut Con, new: *mut Con) {
     let had_marks = !(*old).marks_head.tqh_first.is_null();
     while transfer_first_mark(old, new) {
         // Both queues are valid before callbacks can observe either container.
-        ipc_send_window_event(c"mark".as_ptr(), new);
+        ipc_send_window_event("mark", new);
     }
     (*new).mark_changed = had_marks;
     tree_close_internal(old, KillWindow::DontKill, false);

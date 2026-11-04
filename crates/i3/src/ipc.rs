@@ -267,8 +267,8 @@ unsafe fn free_ipc_client(client: *mut ipc_client, exempt_fd: i32) {
     drop(owner);
 }
 
-pub unsafe fn ipc_send_event(event: &[u8], message_type: u32, payload: &[u8]) {
-    let event = event.split(|b| *b == 0).next().unwrap().to_vec();
+pub unsafe fn ipc_send_event(event: &str, message_type: u32, payload: &[u8]) {
+    let event = event.as_bytes().split(|b| *b == 0).next().unwrap().to_vec();
     let payload = payload.split(|b| *b == 0).next().unwrap().to_vec();
     let mut current = all_clients.tqh_first;
     while !current.is_null() {
@@ -293,7 +293,7 @@ unsafe fn ipc_send_shutdown_event(reason: ShutdownReason) {
             ShutdownReason::Exit => "exit",
         },
     };
-    send_typed_event(b"shutdown", I3_IPC_EVENT_SHUTDOWN as u32, &event);
+    send_typed_event("shutdown", I3_IPC_EVENT_SHUTDOWN as u32, &event);
 }
 
 pub unsafe fn ipc_shutdown(reason: ShutdownReason, exempt_fd: i32) {
@@ -521,7 +521,7 @@ unsafe fn send_typed_reply<T: WireValue>(client: *mut ipc_client, message_type: 
     let payload = value.to_bytes();
     ipc_send_client_message(client, payload.len(), message_type, payload.as_ptr());
 }
-unsafe fn send_typed_event<T: WireValue>(name: &[u8], message_type: u32, value: &T) {
+unsafe fn send_typed_event<T: WireValue>(name: &str, message_type: u32, value: &T) {
     let payload = value.to_bytes();
     ipc_send_event(name, message_type, &payload);
 }
@@ -1451,7 +1451,7 @@ unsafe fn handle_send_tick(
             message_size as usize,
         )),
     };
-    send_typed_event(b"tick", I3_IPC_EVENT_TICK as u32, &event);
+    send_typed_event("tick", I3_IPC_EVENT_TICK as u32, &event);
 
     let reply: *const ::core::ffi::c_char = c"{\"success\":true}".as_ptr();
     ipc_send_client_message(
@@ -1639,7 +1639,7 @@ unsafe extern "C" fn ipc_receive_message(_: *mut ev_loop, w: *mut ev_io, _: libc
         );
     }
 }
-fn diagnostic_cmdline(bytes: &[u8]) -> CString {
+fn diagnostic_cmdline(bytes: &[u8]) -> Vec<u8> {
     let mut bytes = bytes.to_vec();
     let last = bytes.len().saturating_sub(1);
     for byte in &mut bytes[..last] {
@@ -1652,7 +1652,8 @@ fn diagnostic_cmdline(bytes: &[u8]) -> CString {
         .iter()
         .position(|byte| *byte == 0)
         .unwrap_or(bytes.len());
-    CString::new(&bytes[..length]).unwrap()
+    bytes.truncate(length);
+    bytes
 }
 unsafe extern "C" fn ipc_client_timeout(_: *mut ev_loop, w: *mut ev_timer, _: libc::c_int) {
     let client = (*w).data.cast::<ipc_client>();
@@ -1676,17 +1677,7 @@ unsafe extern "C" fn ipc_client_timeout(_: *mut ev_loop, w: *mut ev_timer, _: li
                     // Snapshot native bytes before the logger can dispatch a callback.
                     let log_value_0 = i3_common::logging::pointer(client);
                     let log_value_1 = (peercred.pid) as i32;
-                    let log_pointer_3 = line.as_ptr();
-                    let log_value_2 = i3_common::logging::string_bytes(
-                        (if log_pointer_3.is_null() {
-                            None
-                        } else {
-                            Some(std::ffi::CStr::from_ptr(log_pointer_3))
-                        })
-                        .map(std::ffi::CStr::to_bytes),
-                        None,
-                    )
-                    .to_vec();
+                    let log_value_2 = line;
                     let log_value_3 = ((*client).fd);
                     if let Ok(log_value_2_text) = std::str::from_utf8(&log_value_2) {
                         ::log::error!("ERROR: client {} with pid {} and cmdline '{}' on fd {} timed out, killing\n", log_value_0, log_value_1, log_value_2_text, log_value_3);
@@ -1796,57 +1787,41 @@ pub unsafe fn ipc_new_client_on_fd(loop_: *mut ev_loop, fd: i32) -> *mut ipc_cli
 }
 
 pub unsafe fn ipc_marshal_workspace_event(
-    change: *const ::core::ffi::c_char,
+    change: &str,
     current: *mut Con,
     old: *mut Con,
-) -> CString {
+) -> Vec<u8> {
     let locale = NumericLocale::c();
-    let payload = CString::new(
-        messages::WorkspaceEvent {
-            change: native_text(change),
-            current: (!current.is_null()).then_some(NodeRef {
-                con: current,
-                restart: false,
-            }),
-            old: (!old.is_null()).then_some(NodeRef {
-                con: old,
-                restart: false,
-            }),
-        }
-        .to_bytes(),
-    )
-    .expect("JSON has no literal NUL");
+    let payload = messages::WorkspaceEvent {
+        change: messages::NativeText::bytes(change.as_bytes()),
+        current: (!current.is_null()).then_some(NodeRef {
+            con: current,
+            restart: false,
+        }),
+        old: (!old.is_null()).then_some(NodeRef {
+            con: old,
+            restart: false,
+        }),
+    }
+    .to_bytes();
     drop(locale);
     payload
 }
 
-pub unsafe fn ipc_send_workspace_event(
-    change: *const ::core::ffi::c_char,
-    current: *mut Con,
-    old: *mut Con,
-) {
+pub unsafe fn ipc_send_workspace_event(change: &str, current: *mut Con, old: *mut Con) {
     let payload = ipc_marshal_workspace_event(change, current, old);
-    ipc_send_event(
-        b"workspace",
-        I3_IPC_EVENT_WORKSPACE as u32,
-        payload.as_bytes(),
-    );
+    ipc_send_event("workspace", I3_IPC_EVENT_WORKSPACE as u32, &payload);
 }
 
-pub unsafe fn ipc_send_window_event(property: *const ::core::ffi::c_char, con: *mut Con) {
+pub unsafe fn ipc_send_window_event(property: &str, con: *mut Con) {
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = property;
-        let log_value_0 = i3_common::logging::string_bytes(
-            (if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_0 = property
+            .as_bytes()
+            .split(|byte| *byte == 0)
+            .next()
+            .unwrap()
+            .to_vec();
         let log_value_1 = i3_common::logging::pointer(con);
         let log_value_2 = (if !(*con).window.is_null() {
             (*(*con).window).id
@@ -1872,14 +1847,14 @@ pub unsafe fn ipc_send_window_event(property: *const ::core::ffi::c_char, con: *
     };
     let locale = NumericLocale::c();
     let payload = messages::WindowEvent {
-        change: native_text(property),
+        change: messages::NativeText::bytes(property.as_bytes()),
         container: NodeRef {
             con,
             restart: false,
         },
     }
     .to_bytes();
-    ipc_send_event(b"window", I3_IPC_EVENT_WINDOW as u32, &payload);
+    ipc_send_event("window", I3_IPC_EVENT_WINDOW as u32, &payload);
 
     drop(locale);
 }
@@ -1901,7 +1876,7 @@ pub unsafe fn ipc_send_barconfig_update_event(barconfig: *mut Barconfig) {
 
     let length = payload.len();
     ipc_send_event(
-        b"barconfig_update",
+        "barconfig_update",
         I3_IPC_EVENT_BARCONFIG_UPDATE as u32,
         &payload,
     );
@@ -1909,9 +1884,9 @@ pub unsafe fn ipc_send_barconfig_update_event(barconfig: *mut Barconfig) {
     drop(locale);
 }
 
-pub unsafe fn ipc_send_binding_event(event_type: &[u8], bind: *mut Binding, modename: &[u8]) {
+pub unsafe fn ipc_send_binding_event(event_type: &str, bind: *mut Binding, modename: &[u8]) {
     {
-        let log_value_0 = event_type.to_vec();
+        let log_value_0 = event_type.as_bytes().to_vec();
         let log_value_1 =
             i3_common::logging::string_bytes((*bind).symbol.as_deref(), None).to_vec();
         let log_value_2 = ((*bind).keycode) as i32;
@@ -1934,11 +1909,11 @@ pub unsafe fn ipc_send_binding_event(event_type: &[u8], bind: *mut Binding, mode
         }
     };
     let event = messages::BindingEvent {
-        change: messages::NativeText::bytes(event_type),
+        change: messages::NativeText::bytes(event_type.as_bytes()),
         mode: messages::NativeText::bytes(modename),
         binding: snapshot_binding(bind),
     };
-    send_typed_event(b"binding", I3_IPC_EVENT_BINDING as u32, &event);
+    send_typed_event("binding", I3_IPC_EVENT_BINDING as u32, &event);
 }
 
 pub unsafe fn ipc_confirm_restart(client: *mut ipc_client) {
@@ -2069,9 +2044,9 @@ mod owned_tests {
     }
     #[test]
     fn timeout_cmdline_handles_empty_embedded_and_full_buffers() {
-        assert_eq!(diagnostic_cmdline(b"").as_c_str(), c"");
-        assert_eq!(diagnostic_cmdline(b"a\0b\0").as_c_str(), c"a b");
-        assert_eq!(diagnostic_cmdline(&[b'x'; 512]).to_bytes().len(), 512);
+        assert_eq!(diagnostic_cmdline(b""), b"");
+        assert_eq!(diagnostic_cmdline(b"a\0b\0"), b"a b");
+        assert_eq!(diagnostic_cmdline(&[b'x'; 512]).len(), 512);
     }
 }
 

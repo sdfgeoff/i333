@@ -490,7 +490,7 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
         con_activate(con);
     }
     floating_set_hint_atom(nc, true);
-    ipc_send_window_event(c"floating".as_ptr(), con);
+    ipc_send_window_event("floating", con);
     true
 }
 
@@ -518,7 +518,7 @@ pub unsafe fn floating_disable(con: *mut Con) {
     }
     (*con).floating = FloatingState::UserOff;
     floating_set_hint_atom(con, false);
-    ipc_send_window_event(c"floating".as_ptr(), con);
+    ipc_send_window_event("floating", con);
 }
 
 pub unsafe fn toggle_floating_mode(con: *mut Con, automatic: bool) {

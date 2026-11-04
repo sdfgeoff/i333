@@ -212,7 +212,7 @@ pub unsafe fn workspace_get(num: &[u8]) -> *mut Con {
     (*workspace).gaps = gaps_for_workspace(workspace);
     con_attach(workspace, output_get_content(output), false);
     _workspace_apply_default_orientation(workspace);
-    ipc_send_workspace_event(c"init".as_ptr(), workspace, ::core::ptr::null_mut::<Con>());
+    ipc_send_workspace_event("init", workspace, ::core::ptr::null_mut::<Con>());
     ewmh_update_desktop_properties();
     workspace
 }
@@ -355,7 +355,7 @@ pub unsafe fn create_workspace_on_output(output: *mut Output, content: *mut Con)
     (*ws).fullscreen_mode = FullscreenMode::Output;
     (*ws).workspace_layout = config.default_layout;
     _workspace_apply_default_orientation(ws);
-    ipc_send_workspace_event(c"init".as_ptr(), ws, ::core::ptr::null_mut::<Con>());
+    ipc_send_workspace_event("init", ws, ::core::ptr::null_mut::<Con>());
     ws
 }
 
@@ -473,7 +473,7 @@ unsafe extern "C" fn workspace_defer_update_urgent_hint_cb(
         con_set_urgency(con, false);
         con_update_parents_urgency(con);
         workspace_update_urgent_flag(con_get_workspace(con));
-        ipc_send_window_event(c"urgent".as_ptr(), con);
+        ipc_send_window_event("urgent", con);
         tree_render();
     }
 }
@@ -588,7 +588,7 @@ pub unsafe fn workspace_show(workspace: *mut Con) {
     } else {
         con_focus(next);
     }
-    ipc_send_workspace_event(c"focus".as_ptr(), workspace, current);
+    ipc_send_workspace_event("focus", workspace, current);
     {
         let old_name = (!old.is_null()).then(|| (*old).name.clone()).flatten();
         let name_bytes = i3_common::logging::string_bytes(old_name.as_deref(), None);
@@ -641,13 +641,12 @@ pub unsafe fn workspace_show(workspace: *mut Con) {
                 );
             }
         };
-        let payload =
-            ipc_marshal_workspace_event(c"empty".as_ptr(), old, ::core::ptr::null_mut::<Con>());
+        let payload = ipc_marshal_workspace_event("empty", old, ::core::ptr::null_mut::<Con>());
         tree_close_internal(old, KillWindow::DontKill, false);
         ipc_send_event(
-            b"workspace",
+            "workspace",
             I3_IPC_EVENT_WORKSPACE as u32,
-            payload.as_bytes(),
+            payload.as_slice(),
         );
         if old == old_focus {
             old_focus = ::core::ptr::null_mut::<Con>();
@@ -1115,7 +1114,7 @@ pub unsafe fn workspace_update_urgent_flag(ws: *mut Con) {
     (*ws).urgent = get_urgency_flag(ws);
     ::log::debug!("../src/workspace.c:workspace_update_urgent_flag:941 - Workspace urgency flag changed from {} to {}\n", { (old_flag as i32) }, { ((*ws).urgent as i32) });
     if old_flag as i32 != (*ws).urgent as i32 {
-        ipc_send_workspace_event(c"urgent".as_ptr(), ws, ::core::ptr::null_mut::<Con>());
+        ipc_send_workspace_event("urgent", ws, ::core::ptr::null_mut::<Con>());
     }
 }
 
@@ -1371,7 +1370,7 @@ pub unsafe fn workspace_move_to_output(mut ws: *mut Con, output: *mut Output) {
         (*floating_con).rect =
             floating_fix_coordinates((*floating_con).rect, (*old_content).rect, (*content).rect);
     }
-    ipc_send_workspace_event(c"move".as_ptr(), ws, ::core::ptr::null_mut::<Con>());
+    ipc_send_workspace_event("move", ws, ::core::ptr::null_mut::<Con>());
     if workspace_was_visible {
         workspace_show(ws);
     }

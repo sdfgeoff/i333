@@ -1044,7 +1044,7 @@ pub unsafe fn switch_mode(new_mode: &[u8]) {
                 bind = (*bind).bindings.tqe_next;
             }
             let event_msg = mode_event_payload(&mode_name, pango_markup);
-            ipc_send_event(b"mode", I3_IPC_EVENT_MODE as u32, &event_msg);
+            ipc_send_event("mode", I3_IPC_EVENT_MODE as u32, &event_msg);
             return;
         }
     }
@@ -1330,7 +1330,7 @@ pub unsafe fn run_binding(bind: *mut Binding, con: *mut Con) -> CommandResult {
             &raw mut argv as *mut *mut ::core::ffi::c_char,
         );
     }
-    ipc_send_binding_event(b"run", bind_cp, &modename);
+    ipc_send_binding_event("run", bind_cp, &modename);
     drop(binding_owner);
     result
 }

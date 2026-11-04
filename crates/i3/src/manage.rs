@@ -837,7 +837,7 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                     }
                     render_con(croot);
                     (*cwindow).managed_since = time(::core::ptr::null_mut::<libc::time_t>());
-                    ipc_send_window_event(c"new".as_ptr(), nc);
+                    ipc_send_window_event("new", nc);
                     if set_focus && !assignment_for(cwindow, AssignmentKind::NO_FOCUS).is_null() {
                         if con_num_windows(ws) == 1_i32 {
                             ::log::debug!("../src/manage.c:manage_window:626 - This is the first window on this workspace, ignoring no_focus.\n");
