@@ -8,26 +8,26 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 23 wallclock secs ( 0.67 usr +  0.06 sys =  0.73 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 23 wallclock secs ( 0.65 usr +  0.07 sys =  0.72 CPU)\nResult: PASS",
     "profile": "debug",
     "build": "cargo test --locked",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "c1242b509d0c4952520ab0113d96e7986f3b9a3fe723a8b0960c275977803fd1",
-    "i3bar": "6074d4af838930482d3f8ccf0c752b71cc6c18a9d90ca4fb5d610aa6398dbd3e",
-    "i3-config-wizard": "024c91e1b70a909e7780fa329014480afdb15a9c2daa4dc7f8d5d10311b3e3d2",
-    "i3-dump-log": "a421b1482d70e790cf7662cdeac7eacd6fc0d8d2a5342a01d439b4e67b53bbde",
-    "i3-input": "d112c78faccddb7900339eec2bcca116a5dca7f88179ea7e4c7b5d1b5aa252f1",
-    "i3-msg": "116dbdb11a487ccd13f24560c99de2e14ef47f09f71a6045e0fd95f0f7e09f3e",
-    "i3-nagbar": "21a4e93ac5327805f993b8275b3dd99714a1be0173eb0a42897895fffe5284ab"
+    "i3": "7f31eeea792a63e75313c14d597f3aa549bce5d2c3c4eb3c41daadd7f7ef6dba",
+    "i3bar": "4fe63ed2c18d0b63a48ec49b7d4c8acd184bbeddb3cced0ea3991603e28dab78",
+    "i3-config-wizard": "5ee92bf1acd3cb1228241c1ee8e8fb914360c820a68fffa5f6734095d08c1e8e",
+    "i3-dump-log": "a8e73ba0ef5a8048495121bfec38fc29f55ef04839154c5826a3c273daf93f06",
+    "i3-input": "31a9f20fec4accfaa402c29f6e5bf2c6f91bc28b6988f63d6dca0a522bcca46b",
+    "i3-msg": "878b2e63a2ed6e2707dbd9691ff362e8e3f35b2ed054a0a348807c0f1322e86d",
+    "i3-nagbar": "728cfc8c146af332e7d63b14b668153724ce00b5e1482edae00b65065dd78e44"
   },
-  "note": "Nine-member Cargo workspace. cargo test --locked passed 450 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
+  "note": "Nine-member Cargo workspace. cargo test --locked passed 451 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
   "additional_checks": {
     "headless_c_rust_state_comparisons": 61,
     "ipc_client_test_groups": 16,
-    "workspace_unit_tests": 450,
+    "workspace_unit_tests": 451,
     "core_and_bar_cli_comparisons": 39,
     "pcre2_compile_match_error_comparisons": 4620,
     "json_oracle_cases": 2263,
@@ -121,7 +121,7 @@
     "binary_count": 7,
     "native_library_discovery": "maintained native binding build scripts and dedicated sys crates; i3-build links only platform m/rt",
     "unit_tests": {
-      "i3": 235,
+      "i3": 236,
       "cargo_regression_wrappers": 8,
       "xkb_integration": 1,
       "i3-build": 3,
@@ -142,7 +142,7 @@
     "cargo_fmt_check": true,
     "debug_build": true,
     "release_build": true,
-    "unit_tests_total_including_integration_checks": 450,
+    "unit_tests_total_including_integration_checks": 451,
     "test_command": "cargo test",
     "clean_source_command": "cargo test -p i3-test-support --features clean-source-check",
     "test_support": "development-only process capture, failure propagation and isolated regression orchestration",
@@ -2836,6 +2836,20 @@
         "installed_binary_or_running_desktop_changed": false,
         "new_lint_suppressions": 0
       }
+    },
+    "native_rust_application_interfaces": {
+      "status": "in_progress",
+      "backend_replacement": false,
+      "checkpoints": [
+        {
+          "stage": 8,
+          "source_commit": "9bd25ed71d12e218177a1689d9b63727ee2ff1e3",
+          "scope": "Rust-native interface transition stage1: mode names/state and mode lookup/configuration/switch APIs use Rust byte owners/borrows; IPC event names/payloads use bytes without CString JSON roundtrips; native legacy mode wire behavior compared directly.",
+          "rust_tests": 451,
+          "upstream_assertions": 4205,
+          "status": "validated"
+        }
+      ]
     }
   },
   "ci_dependency_preparation": {
