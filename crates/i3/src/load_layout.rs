@@ -27,22 +27,22 @@ use std::rc::Rc;
 
 pub type i3Window = Window;
 
-fn property_string(bytes: &[u8]) -> CString {
-    CString::new(bytes.split(|byte| *byte == 0).next().unwrap()).unwrap()
+fn property_bytes(bytes: &[u8]) -> Vec<u8> {
+    bytes.split(|byte| *byte == 0).next().unwrap().to_vec()
 }
 // Keep the legacy independent parsing flags: malformed/overlapping keys can set
 // more than one, so replacing them with a strict schema changes partial layouts.
-fn key_is(key: &CStr, name: &CStr) -> bool {
-    unsafe { strcasecmp(key.as_ptr(), name.as_ptr()) == 0 }
+fn key_is(key: &[u8], name: &[u8]) -> bool {
+    crate::util::text_eq_ignore_case(key, name)
 }
-fn rect_value(mut rect: Rect, key: &CStr, value: i64) -> Option<Rect> {
-    if key_is(key, c"x") {
+fn rect_value(mut rect: Rect, key: &[u8], value: i64) -> Option<Rect> {
+    if key_is(key, b"x") {
         rect.x = value as u32;
-    } else if key_is(key, c"y") {
+    } else if key_is(key, b"y") {
         rect.y = value as u32;
-    } else if key_is(key, c"width") {
+    } else if key_is(key, b"width") {
         rect.width = value as u32;
-    } else if key_is(key, c"height") {
+    } else if key_is(key, b"height") {
         rect.height = value as u32;
     } else {
         return None;
@@ -50,7 +50,7 @@ fn rect_value(mut rect: Rect, key: &CStr, value: i64) -> Option<Rect> {
     Some(rect)
 }
 struct LayoutState {
-    last_key: CString,
+    last_key: Vec<u8>,
     incomplete: i32,
     json_node: *mut Con,
     to_focus: *mut Con,
@@ -72,7 +72,7 @@ impl LayoutState {
     /// con is a live event-thread graph node for all graph event callbacks.
     unsafe fn new(con: *mut Con) -> Self {
         Self {
-            last_key: CString::default(),
+            last_key: Vec::new(),
             incomplete: 0,
             json_node: con,
             to_focus: std::ptr::null_mut(),
@@ -94,19 +94,7 @@ impl LayoutState {
     unsafe fn json_start_map(&mut self) -> i32 {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_value_0 = {
-                let pointer: *const libc::c_char = self.last_key.as_ptr();
-                i3_common::logging::string_bytes(
-                    (if pointer.is_null() {
-                        None
-                    } else {
-                        Some(std::ffi::CStr::from_ptr(pointer))
-                    })
-                    .map(std::ffi::CStr::to_bytes),
-                    None,
-                )
-                .to_vec()
-            };
+            let log_value_0 = self.last_key.clone();
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::info!("start of map, last_key = {}\n", log_value_0_text);
             } else {
@@ -138,7 +126,7 @@ impl LayoutState {
             && !self.parsing_geometry
             && !self.parsing_gaps
         {
-            if key_is(&self.last_key, c"floating_nodes") {
+            if key_is(&self.last_key, b"floating_nodes") {
                 ::log::debug!("../src/load_layout.c:json_start_map:72 - New floating_node\n");
                 let ws: *mut Con = con_get_workspace(self.json_node);
                 self.json_node = con_new_skeleton(
@@ -355,17 +343,14 @@ impl LayoutState {
         }
         1_i32
     }
-    unsafe fn json_key(&mut self, val: *const u8, len: usize) -> i32 {
-        let logged_key = property_string(if len == 0 {
-            &[]
-        } else {
-            std::slice::from_raw_parts(val, len)
-        });
+    unsafe fn json_key(&mut self, value: &[u8]) -> i32 {
+        let len = value.len();
+        let logged_key = property_bytes(value);
         {
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_precision_0 = (len as i32);
             let log_value_0 = i3_common::logging::string_bytes(
-                (Some(logged_key.as_c_str())).map(std::ffi::CStr::to_bytes),
+                Some(&logged_key),
                 usize::try_from(log_precision_0).ok(),
             );
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(log_value_0),) {
@@ -378,62 +363,47 @@ impl LayoutState {
             }
         };
         self.last_key = logged_key;
-        if strcasecmp(self.last_key.as_ptr(), c"swallows".as_ptr()) == 0_i32 {
+        if key_is(&self.last_key, b"swallows") {
             self.parsing_swallows = true;
         }
-        if strcasecmp(self.last_key.as_ptr(), c"gaps".as_ptr()) == 0_i32 {
+        if key_is(&self.last_key, b"gaps") {
             self.parsing_gaps = true;
         }
-        if strcasecmp(self.last_key.as_ptr(), c"rect".as_ptr()) == 0_i32 {
+        if key_is(&self.last_key, b"rect") {
             self.parsing_rect = true;
         }
-        if strcasecmp(self.last_key.as_ptr(), c"actual_deco_rect".as_ptr()) == 0_i32 {
+        if key_is(&self.last_key, b"actual_deco_rect") {
             self.parsing_actual_deco_rect = true;
         }
-        if strcasecmp(self.last_key.as_ptr(), c"deco_rect".as_ptr()) == 0_i32 {
+        if key_is(&self.last_key, b"deco_rect") {
             self.parsing_deco_rect = true;
         }
-        if strcasecmp(self.last_key.as_ptr(), c"window_rect".as_ptr()) == 0_i32 {
+        if key_is(&self.last_key, b"window_rect") {
             self.parsing_window_rect = true;
         }
-        if strcasecmp(self.last_key.as_ptr(), c"geometry".as_ptr()) == 0_i32 {
+        if key_is(&self.last_key, b"geometry") {
             self.parsing_geometry = true;
         }
-        if strcasecmp(self.last_key.as_ptr(), c"focus".as_ptr()) == 0_i32 {
+        if key_is(&self.last_key, b"focus") {
             self.parsing_focus = true;
         }
-        if strcasecmp(self.last_key.as_ptr(), c"marks".as_ptr()) == 0_i32 {
+        if key_is(&self.last_key, b"marks") {
             self.pending_marks.clear();
             self.parsing_marks = true;
         }
         1_i32
     }
-    unsafe fn json_string(&mut self, val: *const u8, len: usize) -> i32 {
-        let logged_string = property_string(if len == 0 {
-            &[]
-        } else {
-            std::slice::from_raw_parts(val, len)
-        });
+    unsafe fn json_string(&mut self, value: &[u8]) -> i32 {
+        let len = value.len();
+        let logged_string = property_bytes(value);
         {
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_precision_0 = (len as i32);
             let log_value_0 = i3_common::logging::string_bytes(
-                (Some(logged_string.as_c_str())).map(std::ffi::CStr::to_bytes),
+                Some(&logged_string),
                 usize::try_from(log_precision_0).ok(),
             );
-            let log_value_1 = {
-                let pointer: *const libc::c_char = self.last_key.as_ptr();
-                i3_common::logging::string_bytes(
-                    (if pointer.is_null() {
-                        None
-                    } else {
-                        Some(std::ffi::CStr::from_ptr(pointer))
-                    })
-                    .map(std::ffi::CStr::to_bytes),
-                    None,
-                )
-                .to_vec()
-            };
+            let log_value_1 = self.last_key.clone();
             if let (Ok(log_value_0_text), Ok(log_value_1_text)) = (
                 std::str::from_utf8(log_value_0),
                 std::str::from_utf8(&log_value_1),
@@ -457,49 +427,36 @@ impl LayoutState {
             }
         };
         if self.parsing_swallows {
-            let owned_sval = property_string(std::slice::from_raw_parts(val, len));
-            let sval = owned_sval.as_ptr();
-            if strcasecmp(self.last_key.as_ptr(), c"class".as_ptr()) == 0_i32 {
-                let new = compile_or_report(owned_sval.to_bytes());
+            let owned_sval = property_bytes(value);
+            if key_is(&self.last_key, b"class") {
+                let new = compile_or_report(&owned_sval);
 
                 (*self.current_swallow).class = new;
                 self.swallow_is_empty = false;
-            } else if strcasecmp(self.last_key.as_ptr(), c"instance".as_ptr()) == 0_i32 {
-                let new = compile_or_report(owned_sval.to_bytes());
+            } else if key_is(&self.last_key, b"instance") {
+                let new = compile_or_report(&owned_sval);
 
                 (*self.current_swallow).instance = new;
                 self.swallow_is_empty = false;
-            } else if strcasecmp(self.last_key.as_ptr(), c"window_role".as_ptr()) == 0_i32 {
-                let new = compile_or_report(owned_sval.to_bytes());
+            } else if key_is(&self.last_key, b"window_role") {
+                let new = compile_or_report(&owned_sval);
 
                 (*self.current_swallow).window_role = new;
                 self.swallow_is_empty = false;
-            } else if strcasecmp(self.last_key.as_ptr(), c"title".as_ptr()) == 0_i32 {
-                let new = compile_or_report(owned_sval.to_bytes());
+            } else if key_is(&self.last_key, b"title") {
+                let new = compile_or_report(&owned_sval);
 
                 (*self.current_swallow).title = new;
                 self.swallow_is_empty = false;
-            } else if strcasecmp(self.last_key.as_ptr(), c"machine".as_ptr()) == 0_i32 {
-                let new = compile_or_report(owned_sval.to_bytes());
+            } else if key_is(&self.last_key, b"machine") {
+                let new = compile_or_report(&owned_sval);
 
                 (*self.current_swallow).machine = new;
                 self.swallow_is_empty = false;
             } else {
                 {
                     // Snapshot native bytes before the logger can dispatch a callback.
-                    let log_value_0 = {
-                        let pointer: *const libc::c_char = self.last_key.as_ptr();
-                        i3_common::logging::string_bytes(
-                            (if pointer.is_null() {
-                                None
-                            } else {
-                                Some(std::ffi::CStr::from_ptr(pointer))
-                            })
-                            .map(std::ffi::CStr::to_bytes),
-                            None,
-                        )
-                        .to_vec()
-                    };
+                    let log_value_0 = self.last_key.clone();
                     if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                         ::log::error!("ERROR: swallow key {} unknown\n", log_value_0_text);
                     } else {
@@ -516,35 +473,16 @@ impl LayoutState {
             }
         } else if self.parsing_marks {
             self.pending_marks.push((
-                std::slice::from_raw_parts(val, len)
-                    .split(|byte| *byte == 0)
-                    .next()
-                    .unwrap()
-                    .to_vec(),
+                value.split(|byte| *byte == 0).next().unwrap().to_vec(),
                 self.json_node,
             ));
-        } else if strcasecmp(self.last_key.as_ptr(), c"name".as_ptr()) == 0_i32 {
-            (*self.json_node).name = Some(
-                std::slice::from_raw_parts(val, len)
-                    .split(|byte| *byte == 0)
-                    .next()
-                    .unwrap()
-                    .to_vec(),
-            );
-        } else if strcasecmp(self.last_key.as_ptr(), c"title_format".as_ptr()) == 0_i32 {
-            (*self.json_node).title_format = Some(
-                std::slice::from_raw_parts(val, len)
-                    .split(|byte| *byte == 0)
-                    .next()
-                    .unwrap()
-                    .to_vec(),
-            );
-        } else if strcasecmp(self.last_key.as_ptr(), c"sticky_group".as_ptr()) == 0_i32 {
-            let group = std::slice::from_raw_parts(val, len)
-                .split(|byte| *byte == 0)
-                .next()
-                .unwrap()
-                .to_vec();
+        } else if key_is(&self.last_key, b"name") {
+            (*self.json_node).name = Some(value.split(|byte| *byte == 0).next().unwrap().to_vec());
+        } else if key_is(&self.last_key, b"title_format") {
+            (*self.json_node).title_format =
+                Some(value.split(|byte| *byte == 0).next().unwrap().to_vec());
+        } else if key_is(&self.last_key, b"sticky_group") {
+            let group = value.split(|byte| *byte == 0).next().unwrap().to_vec();
             (*self.json_node).sticky_group = Some(group.clone());
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
@@ -562,31 +500,16 @@ impl LayoutState {
                     );
                 }
             };
-        } else if strcasecmp(self.last_key.as_ptr(), c"orientation".as_ptr()) == 0_i32 {
-            let owned_buf = property_string(std::slice::from_raw_parts(val, len));
-            let buf = owned_buf.as_ptr();
-            if strcasecmp(buf, c"none".as_ptr()) == 0_i32
-                || strcasecmp(buf, c"horizontal".as_ptr()) == 0_i32
-            {
+        } else if key_is(&self.last_key, b"orientation") {
+            let owned_buf = property_bytes(value);
+            if key_is(&owned_buf, b"none") || key_is(&owned_buf, b"horizontal") {
                 (*self.json_node).last_split_layout = Layout::SplitH;
-            } else if strcasecmp(buf, c"vertical".as_ptr()) == 0_i32 {
+            } else if key_is(&owned_buf, b"vertical") {
                 (*self.json_node).last_split_layout = Layout::SplitV;
             } else {
                 {
                     // Snapshot native bytes before the logger can dispatch a callback.
-                    let log_value_0 = {
-                        let pointer: *const libc::c_char = buf;
-                        i3_common::logging::string_bytes(
-                            (if pointer.is_null() {
-                                None
-                            } else {
-                                Some(std::ffi::CStr::from_ptr(pointer))
-                            })
-                            .map(std::ffi::CStr::to_bytes),
-                            None,
-                        )
-                        .to_vec()
-                    };
+                    let log_value_0 = owned_buf.clone();
                     if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                         ::log::info!("Unhandled orientation: {}\n", log_value_0_text);
                     } else {
@@ -601,38 +524,25 @@ impl LayoutState {
                     }
                 };
             }
-        } else if strcasecmp(self.last_key.as_ptr(), c"border".as_ptr()) == 0_i32 {
-            let owned_buf_0 = property_string(std::slice::from_raw_parts(val, len));
-            let buf_0 = owned_buf_0.as_ptr();
-            if strcasecmp(buf_0, c"none".as_ptr()) == 0_i32 {
+        } else if key_is(&self.last_key, b"border") {
+            let owned_buf_0 = property_bytes(value);
+            if key_is(&owned_buf_0, b"none") {
                 (*self.json_node).border_style = BorderStyle::None;
                 (*self.json_node).max_user_border_style = (*self.json_node).border_style;
-            } else if strcasecmp(buf_0, c"1pixel".as_ptr()) == 0_i32 {
+            } else if key_is(&owned_buf_0, b"1pixel") {
                 (*self.json_node).border_style = BorderStyle::Pixel;
                 (*self.json_node).max_user_border_style = (*self.json_node).border_style;
                 (*self.json_node).current_border_width = 1_i32;
-            } else if strcasecmp(buf_0, c"pixel".as_ptr()) == 0_i32 {
+            } else if key_is(&owned_buf_0, b"pixel") {
                 (*self.json_node).border_style = BorderStyle::Pixel;
                 (*self.json_node).max_user_border_style = (*self.json_node).border_style;
-            } else if strcasecmp(buf_0, c"normal".as_ptr()) == 0_i32 {
+            } else if key_is(&owned_buf_0, b"normal") {
                 (*self.json_node).border_style = BorderStyle::Normal;
                 (*self.json_node).max_user_border_style = (*self.json_node).border_style;
             } else {
                 {
                     // Snapshot native bytes before the logger can dispatch a callback.
-                    let log_value_0 = {
-                        let pointer: *const libc::c_char = buf_0;
-                        i3_common::logging::string_bytes(
-                            (if pointer.is_null() {
-                                None
-                            } else {
-                                Some(std::ffi::CStr::from_ptr(pointer))
-                            })
-                            .map(std::ffi::CStr::to_bytes),
-                            None,
-                        )
-                        .to_vec()
-                    };
+                    let log_value_0 = owned_buf_0.clone();
                     if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                         ::log::info!("Unhandled \"border\": {}\n", log_value_0_text);
                     } else {
@@ -647,37 +557,24 @@ impl LayoutState {
                     }
                 };
             }
-        } else if strcasecmp(self.last_key.as_ptr(), c"type".as_ptr()) == 0_i32 {
-            let owned_buf_1 = property_string(std::slice::from_raw_parts(val, len));
-            let buf_1 = owned_buf_1.as_ptr();
-            if strcasecmp(buf_1, c"root".as_ptr()) == 0_i32 {
+        } else if key_is(&self.last_key, b"type") {
+            let owned_buf_1 = property_bytes(value);
+            if key_is(&owned_buf_1, b"root") {
                 (*self.json_node).type_0 = ContainerType::Root;
-            } else if strcasecmp(buf_1, c"output".as_ptr()) == 0_i32 {
+            } else if key_is(&owned_buf_1, b"output") {
                 (*self.json_node).type_0 = ContainerType::Output;
-            } else if strcasecmp(buf_1, c"con".as_ptr()) == 0_i32 {
+            } else if key_is(&owned_buf_1, b"con") {
                 (*self.json_node).type_0 = ContainerType::Con;
-            } else if strcasecmp(buf_1, c"floating_con".as_ptr()) == 0_i32 {
+            } else if key_is(&owned_buf_1, b"floating_con") {
                 (*self.json_node).type_0 = ContainerType::Floating;
-            } else if strcasecmp(buf_1, c"workspace".as_ptr()) == 0_i32 {
+            } else if key_is(&owned_buf_1, b"workspace") {
                 (*self.json_node).type_0 = ContainerType::Workspace;
-            } else if strcasecmp(buf_1, c"dockarea".as_ptr()) == 0_i32 {
+            } else if key_is(&owned_buf_1, b"dockarea") {
                 (*self.json_node).type_0 = ContainerType::DockArea;
             } else {
                 {
                     // Snapshot native bytes before the logger can dispatch a callback.
-                    let log_value_0 = {
-                        let pointer: *const libc::c_char = buf_1;
-                        i3_common::logging::string_bytes(
-                            (if pointer.is_null() {
-                                None
-                            } else {
-                                Some(std::ffi::CStr::from_ptr(pointer))
-                            })
-                            .map(std::ffi::CStr::to_bytes),
-                            None,
-                        )
-                        .to_vec()
-                    };
+                    let log_value_0 = owned_buf_1.clone();
                     if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                         ::log::info!("Unhandled \"type\": {}\n", log_value_0_text);
                     } else {
@@ -692,39 +589,26 @@ impl LayoutState {
                     }
                 };
             }
-        } else if strcasecmp(self.last_key.as_ptr(), c"layout".as_ptr()) == 0_i32 {
-            let owned_buf_2 = property_string(std::slice::from_raw_parts(val, len));
-            let buf_2 = owned_buf_2.as_ptr();
-            if strcasecmp(buf_2, c"default".as_ptr()) == 0_i32 {
+        } else if key_is(&self.last_key, b"layout") {
+            let owned_buf_2 = property_bytes(value);
+            if key_is(&owned_buf_2, b"default") {
                 (*self.json_node).layout = (*self.json_node).last_split_layout;
-            } else if strcasecmp(buf_2, c"stacked".as_ptr()) == 0_i32 {
+            } else if key_is(&owned_buf_2, b"stacked") {
                 (*self.json_node).layout = Layout::Stacked;
-            } else if strcasecmp(buf_2, c"tabbed".as_ptr()) == 0_i32 {
+            } else if key_is(&owned_buf_2, b"tabbed") {
                 (*self.json_node).layout = Layout::Tabbed;
-            } else if strcasecmp(buf_2, c"dockarea".as_ptr()) == 0_i32 {
+            } else if key_is(&owned_buf_2, b"dockarea") {
                 (*self.json_node).layout = Layout::DockArea;
-            } else if strcasecmp(buf_2, c"output".as_ptr()) == 0_i32 {
+            } else if key_is(&owned_buf_2, b"output") {
                 (*self.json_node).layout = Layout::Output;
-            } else if strcasecmp(buf_2, c"splith".as_ptr()) == 0_i32 {
+            } else if key_is(&owned_buf_2, b"splith") {
                 (*self.json_node).layout = Layout::SplitH;
-            } else if strcasecmp(buf_2, c"splitv".as_ptr()) == 0_i32 {
+            } else if key_is(&owned_buf_2, b"splitv") {
                 (*self.json_node).layout = Layout::SplitV;
             } else {
                 {
                     // Snapshot native bytes before the logger can dispatch a callback.
-                    let log_value_0 = {
-                        let pointer: *const libc::c_char = buf_2;
-                        i3_common::logging::string_bytes(
-                            (if pointer.is_null() {
-                                None
-                            } else {
-                                Some(std::ffi::CStr::from_ptr(pointer))
-                            })
-                            .map(std::ffi::CStr::to_bytes),
-                            None,
-                        )
-                        .to_vec()
-                    };
+                    let log_value_0 = owned_buf_2.clone();
                     if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                         ::log::info!("Unhandled \"layout\": {}\n", log_value_0_text);
                     } else {
@@ -739,31 +623,18 @@ impl LayoutState {
                     }
                 };
             }
-        } else if strcasecmp(self.last_key.as_ptr(), c"workspace_layout".as_ptr()) == 0_i32 {
-            let owned_buf_3 = property_string(std::slice::from_raw_parts(val, len));
-            let buf_3 = owned_buf_3.as_ptr();
-            if strcasecmp(buf_3, c"default".as_ptr()) == 0_i32 {
+        } else if key_is(&self.last_key, b"workspace_layout") {
+            let owned_buf_3 = property_bytes(value);
+            if key_is(&owned_buf_3, b"default") {
                 (*self.json_node).workspace_layout = Layout::Default;
-            } else if strcasecmp(buf_3, c"stacked".as_ptr()) == 0_i32 {
+            } else if key_is(&owned_buf_3, b"stacked") {
                 (*self.json_node).workspace_layout = Layout::Stacked;
-            } else if strcasecmp(buf_3, c"tabbed".as_ptr()) == 0_i32 {
+            } else if key_is(&owned_buf_3, b"tabbed") {
                 (*self.json_node).workspace_layout = Layout::Tabbed;
             } else {
                 {
                     // Snapshot native bytes before the logger can dispatch a callback.
-                    let log_value_0 = {
-                        let pointer: *const libc::c_char = buf_3;
-                        i3_common::logging::string_bytes(
-                            (if pointer.is_null() {
-                                None
-                            } else {
-                                Some(std::ffi::CStr::from_ptr(pointer))
-                            })
-                            .map(std::ffi::CStr::to_bytes),
-                            None,
-                        )
-                        .to_vec()
-                    };
+                    let log_value_0 = owned_buf_3.clone();
                     if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                         ::log::info!("Unhandled \"workspace_layout\": {}\n", log_value_0_text);
                     } else {
@@ -778,29 +649,16 @@ impl LayoutState {
                     }
                 };
             }
-        } else if strcasecmp(self.last_key.as_ptr(), c"last_split_layout".as_ptr()) == 0_i32 {
-            let owned_buf_4 = property_string(std::slice::from_raw_parts(val, len));
-            let buf_4 = owned_buf_4.as_ptr();
-            if strcasecmp(buf_4, c"splith".as_ptr()) == 0_i32 {
+        } else if key_is(&self.last_key, b"last_split_layout") {
+            let owned_buf_4 = property_bytes(value);
+            if key_is(&owned_buf_4, b"splith") {
                 (*self.json_node).last_split_layout = Layout::SplitH;
-            } else if strcasecmp(buf_4, c"splitv".as_ptr()) == 0_i32 {
+            } else if key_is(&owned_buf_4, b"splitv") {
                 (*self.json_node).last_split_layout = Layout::SplitV;
             } else {
                 {
                     // Snapshot native bytes before the logger can dispatch a callback.
-                    let log_value_0 = {
-                        let pointer: *const libc::c_char = buf_4;
-                        i3_common::logging::string_bytes(
-                            (if pointer.is_null() {
-                                None
-                            } else {
-                                Some(std::ffi::CStr::from_ptr(pointer))
-                            })
-                            .map(std::ffi::CStr::to_bytes),
-                            None,
-                        )
-                        .to_vec()
-                    };
+                    let log_value_0 = owned_buf_4.clone();
                     if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                         ::log::info!("Unhandled \"last_splitlayout\": {}\n", log_value_0_text);
                     } else {
@@ -815,42 +673,34 @@ impl LayoutState {
                     }
                 };
             }
-        } else if strcasecmp(self.last_key.as_ptr(), c"mark".as_ptr()) == 0_i32 {
+        } else if key_is(&self.last_key, b"mark") {
             ::log::debug!(
                 "../src/load_layout.c:json_string:443 - Found deprecated key \"mark\".\n"
             );
-            let mark = std::slice::from_raw_parts(val, len).to_vec();
+            let mark = value.to_vec();
             con_mark(self.json_node, &mark, MarkMode::Replace);
-        } else if strcasecmp(self.last_key.as_ptr(), c"floating".as_ptr()) == 0_i32 {
-            let owned_buf_6 = property_string(std::slice::from_raw_parts(val, len));
-            let buf_6 = owned_buf_6.as_ptr();
-            if strcasecmp(buf_6, c"auto_off".as_ptr()) == 0_i32 {
+        } else if key_is(&self.last_key, b"floating") {
+            let owned_buf_6 = property_bytes(value);
+            if key_is(&owned_buf_6, b"auto_off") {
                 (*self.json_node).floating = FloatingState::AutoOff;
-            } else if strcasecmp(buf_6, c"auto_on".as_ptr()) == 0_i32 {
+            } else if key_is(&owned_buf_6, b"auto_on") {
                 (*self.json_node).floating = FloatingState::AutoOn;
-            } else if strcasecmp(buf_6, c"user_off".as_ptr()) == 0_i32 {
+            } else if key_is(&owned_buf_6, b"user_off") {
                 (*self.json_node).floating = FloatingState::UserOff;
-            } else if strcasecmp(buf_6, c"user_on".as_ptr()) == 0_i32 {
+            } else if key_is(&owned_buf_6, b"user_on") {
                 (*self.json_node).floating = FloatingState::UserOn;
             }
-        } else if strcasecmp(self.last_key.as_ptr(), c"scratchpad_state".as_ptr()) == 0_i32 {
-            let owned_buf_7 = property_string(std::slice::from_raw_parts(val, len));
-            let buf_7 = owned_buf_7.as_ptr();
-            if strcasecmp(buf_7, c"none".as_ptr()) == 0_i32 {
+        } else if key_is(&self.last_key, b"scratchpad_state") {
+            let owned_buf_7 = property_bytes(value);
+            if key_is(&owned_buf_7, b"none") {
                 (*self.json_node).scratchpad_state = ScratchpadState::None;
-            } else if strcasecmp(buf_7, c"fresh".as_ptr()) == 0_i32 {
+            } else if key_is(&owned_buf_7, b"fresh") {
                 (*self.json_node).scratchpad_state = ScratchpadState::Fresh;
-            } else if strcasecmp(buf_7, c"changed".as_ptr()) == 0_i32 {
+            } else if key_is(&owned_buf_7, b"changed") {
                 (*self.json_node).scratchpad_state = ScratchpadState::Changed;
             }
-        } else if strcasecmp(self.last_key.as_ptr(), c"previous_workspace_name".as_ptr()) == 0_i32 {
-            previous_workspace_name = Some(
-                std::slice::from_raw_parts(val, len)
-                    .split(|byte| *byte == 0)
-                    .next()
-                    .unwrap()
-                    .to_vec(),
-            );
+        } else if key_is(&self.last_key, b"previous_workspace_name") {
+            previous_workspace_name = Some(value.split(|byte| *byte == 0).next().unwrap().to_vec());
         }
         1_i32
     }
@@ -858,19 +708,7 @@ impl LayoutState {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_value_0 = (val);
-            let log_value_1 = {
-                let pointer: *const libc::c_char = self.last_key.as_ptr();
-                i3_common::logging::string_bytes(
-                    (if pointer.is_null() {
-                        None
-                    } else {
-                        Some(std::ffi::CStr::from_ptr(pointer))
-                    })
-                    .map(std::ffi::CStr::to_bytes),
-                    None,
-                )
-                .to_vec()
-            };
+            let log_value_1 = self.last_key.clone();
             if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
                 ::log::info!("int {} for key {}\n", log_value_0, log_value_1_text);
             } else {
@@ -884,25 +722,25 @@ impl LayoutState {
                 );
             }
         };
-        if strcasecmp(self.last_key.as_ptr(), c"type".as_ptr()) == 0_i32 {
+        if key_is(&self.last_key, b"type") {
             (*self.json_node).type_0 = ContainerType::from_raw(val as u32);
         }
-        if strcasecmp(self.last_key.as_ptr(), c"fullscreen_mode".as_ptr()) == 0_i32 {
+        if key_is(&self.last_key, b"fullscreen_mode") {
             (*self.json_node).fullscreen_mode = FullscreenMode::from_raw(val as u32);
         }
-        if strcasecmp(self.last_key.as_ptr(), c"num".as_ptr()) == 0_i32 {
+        if key_is(&self.last_key, b"num") {
             (*self.json_node).num = val as i32;
         }
-        if strcasecmp(self.last_key.as_ptr(), c"current_border_width".as_ptr()) == 0_i32 {
+        if key_is(&self.last_key, b"current_border_width") {
             (*self.json_node).current_border_width = val as i32;
         }
-        if strcasecmp(self.last_key.as_ptr(), c"window_icon_padding".as_ptr()) == 0_i32 {
+        if key_is(&self.last_key, b"window_icon_padding") {
             (*self.json_node).window_icon_padding = val as i32;
         }
-        if strcasecmp(self.last_key.as_ptr(), c"depth".as_ptr()) == 0_i32 {
+        if key_is(&self.last_key, b"depth") {
             (*self.json_node).depth = val as u16;
         }
-        if !self.parsing_swallows && strcasecmp(self.last_key.as_ptr(), c"id".as_ptr()) == 0_i32 {
+        if !self.parsing_swallows && key_is(&self.last_key, b"id") {
             (*self.json_node).old_id = val as i32;
         }
         if self.parsing_focus {
@@ -922,19 +760,7 @@ impl LayoutState {
             } else {
                 {
                     // Snapshot native bytes before the logger can dispatch a callback.
-                    let log_value_0 = {
-                        let pointer: *const libc::c_char = self.last_key.as_ptr();
-                        i3_common::logging::string_bytes(
-                            (if pointer.is_null() {
-                                None
-                            } else {
-                                Some(std::ffi::CStr::from_ptr(pointer))
-                            })
-                            .map(std::ffi::CStr::to_bytes),
-                            None,
-                        )
-                        .to_vec()
-                    };
+                    let log_value_0 = self.last_key.clone();
                     if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                         ::log::error!("ERROR: WARNING: unknown key {} in rect\n", log_value_0_text);
                     } else {
@@ -958,29 +784,29 @@ impl LayoutState {
             );
         }
         if self.parsing_swallows {
-            if strcasecmp(self.last_key.as_ptr(), c"id".as_ptr()) == 0_i32 {
+            if key_is(&self.last_key, b"id") {
                 (*self.current_swallow).id = val as u32;
                 self.swallow_is_empty = false;
             }
-            if strcasecmp(self.last_key.as_ptr(), c"dock".as_ptr()) == 0_i32 {
+            if key_is(&self.last_key, b"dock") {
                 (*self.current_swallow).dock = DockMatch::from_raw(val as i32);
                 self.swallow_is_empty = false;
             }
-            if strcasecmp(self.last_key.as_ptr(), c"insert_where".as_ptr()) == 0_i32 {
+            if key_is(&self.last_key, b"insert_where") {
                 (*self.current_swallow).insert_where = MatchInsertWhere::from_raw(val as u32);
                 self.swallow_is_empty = false;
             }
         }
         if self.parsing_gaps {
-            if strcasecmp(self.last_key.as_ptr(), c"inner".as_ptr()) == 0_i32 {
+            if key_is(&self.last_key, b"inner") {
                 (*self.json_node).gaps.inner = val as i32;
-            } else if strcasecmp(self.last_key.as_ptr(), c"top".as_ptr()) == 0_i32 {
+            } else if key_is(&self.last_key, b"top") {
                 (*self.json_node).gaps.top = val as i32;
-            } else if strcasecmp(self.last_key.as_ptr(), c"right".as_ptr()) == 0_i32 {
+            } else if key_is(&self.last_key, b"right") {
                 (*self.json_node).gaps.right = val as i32;
-            } else if strcasecmp(self.last_key.as_ptr(), c"bottom".as_ptr()) == 0_i32 {
+            } else if key_is(&self.last_key, b"bottom") {
                 (*self.json_node).gaps.bottom = val as i32;
-            } else if strcasecmp(self.last_key.as_ptr(), c"left".as_ptr()) == 0_i32 {
+            } else if key_is(&self.last_key, b"left") {
                 (*self.json_node).gaps.left = val as i32;
             }
         }
@@ -990,19 +816,7 @@ impl LayoutState {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_value_0 = (val);
-            let log_value_1 = {
-                let pointer: *const libc::c_char = self.last_key.as_ptr();
-                i3_common::logging::string_bytes(
-                    (if pointer.is_null() {
-                        None
-                    } else {
-                        Some(std::ffi::CStr::from_ptr(pointer))
-                    })
-                    .map(std::ffi::CStr::to_bytes),
-                    None,
-                )
-                .to_vec()
-            };
+            let log_value_1 = self.last_key.clone();
             if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
                 ::log::info!("bool {} for key {}\n", log_value_0, log_value_1_text);
             } else {
@@ -1016,15 +830,13 @@ impl LayoutState {
                 );
             }
         };
-        if strcasecmp(self.last_key.as_ptr(), c"focused".as_ptr()) == 0_i32 && val != 0 {
+        if key_is(&self.last_key, b"focused") && val != 0 {
             self.to_focus = self.json_node;
         }
-        if strcasecmp(self.last_key.as_ptr(), c"sticky".as_ptr()) == 0_i32 {
+        if key_is(&self.last_key, b"sticky") {
             (*self.json_node).sticky = val != 0;
         }
-        if self.parsing_swallows
-            && strcasecmp(self.last_key.as_ptr(), c"restart_mode".as_ptr()) == 0_i32
-        {
+        if self.parsing_swallows && key_is(&self.last_key, b"restart_mode") {
             (*self.current_swallow).restart_mode = val != 0;
             self.swallow_is_empty = false;
         }
@@ -1033,15 +845,15 @@ impl LayoutState {
     unsafe fn json_double(&mut self, val: f64) -> i32 {
         let value = i3_common::logging::fixed_decimal(val, i3_common::logging::FixedPrecision::Six);
         let key = self.last_key.clone();
-        if let (Ok(value), Ok(key)) = (std::str::from_utf8(&value), key.to_str()) {
+        if let (Ok(value), Ok(key)) = (std::str::from_utf8(&value), std::str::from_utf8(&key)) {
             ::log::info!("double {} for key {}\n", value, key);
         } else {
             i3_common::logging::emit_parts(
                 i3_common::logging::Level::Verbose,
-                &[b"double ", &value, b" for key ", key.to_bytes(), b"\n"],
+                &[b"double ", &value, b" for key ", key.as_slice(), b"\n"],
             );
         }
-        if strcasecmp(self.last_key.as_ptr(), c"percent".as_ptr()) == 0_i32 {
+        if key_is(&self.last_key, b"percent") {
             (*self.json_node).percent = val;
         }
         1_i32
@@ -1068,8 +880,8 @@ impl EventHandler for LayoutEvents {
                     self.error = Some("parse error: swallow value outside a map".into());
                     false
                 }
-                Event::MapKey(bytes) => state.json_key(bytes.as_ptr(), bytes.len()) != 0,
-                Event::String(bytes) => state.json_string(bytes.as_ptr(), bytes.len()) != 0,
+                Event::MapKey(bytes) => state.json_key(bytes) != 0,
+                Event::String(bytes) => state.json_string(bytes) != 0,
                 Event::Boolean(value) => state.json_bool(i32::from(value)) != 0,
                 Event::Number(number) => {
                     if number.contains(['.', 'e', 'E']) {
@@ -1115,13 +927,24 @@ fn validate_bytes(bytes: &[u8]) -> Result<(), ParseError> {
 }
 #[derive(Debug)]
 struct ContentState {
-    key: CString,
+    key: Vec<u8>,
     level: i32,
     result: JsonContent,
 }
+fn workspace_value(value: &[u8]) -> bool {
+    let prefix = value.split(|byte| *byte == 0).next().unwrap();
+    if prefix.len() > b"workspace".len() {
+        return false;
+    }
+    if prefix.len() == value.len() {
+        key_is(prefix, &b"workspace"[..prefix.len()])
+    } else {
+        key_is(prefix, b"workspace")
+    }
+}
 fn content_result(bytes: &[u8]) -> (JsonContent, Option<ParseError>) {
     let state = Rc::new(RefCell::new(ContentState {
-        key: CString::default(),
+        key: Vec::new(),
         level: 0,
         result: JsonContent::Container,
     }));
@@ -1132,15 +955,9 @@ fn content_result(bytes: &[u8]) -> (JsonContent, Option<ParseError>) {
             match event {
                 Event::StartMap | Event::StartArray => state.level += 1,
                 Event::EndMap | Event::EndArray => state.level -= 1,
-                Event::MapKey(bytes) => state.key = property_string(bytes),
-                Event::String(value)
-                    if state.level <= 1
-                        && unsafe { strcasecmp(state.key.as_ptr(), c"type".as_ptr()) } == 0 =>
-                {
-                    if unsafe {
-                        strncasecmp(value.as_ptr().cast(), c"workspace".as_ptr(), value.len())
-                    } == 0
-                    {
+                Event::MapKey(bytes) => state.key = property_bytes(bytes),
+                Event::String(value) if state.level <= 1 && key_is(&state.key, b"type") => {
+                    if workspace_value(value) {
                         state.result = JsonContent::Workspace;
                     }
                     return false;
@@ -1165,86 +982,21 @@ fn content_result(bytes: &[u8]) -> (JsonContent, Option<ParseError>) {
 fn determine_content(bytes: &[u8]) -> JsonContent {
     content_result(bytes).0
 }
-/// buf is a readable initialized byte span. Legacy validation intentionally
-/// ignores finish errors, accepting syntactically incomplete layout fragments.
-pub unsafe fn json_validate(buf: *const libc::c_char, len: usize) -> bool {
-    let bytes = if len == 0 {
-        &[]
-    } else {
-        std::slice::from_raw_parts(buf.cast(), len)
-    };
+/// Legacy validation intentionally ignores finish errors, accepting syntactically
+/// incomplete layout fragments. The input remains length-delimited, including NUL.
+pub fn json_validate(bytes: &[u8]) -> bool {
     match validate_bytes(bytes) {
         Ok(()) => true,
         Err(error) => {
-            let text = CString::new(format!("{error}\n")).unwrap();
-            {
-                // Snapshot native bytes before the logger can dispatch a callback.
-                let log_value_0 = {
-                    let pointer: *const libc::c_char = text.as_ptr();
-                    i3_common::logging::string_bytes(
-                        (if pointer.is_null() {
-                            None
-                        } else {
-                            Some(std::ffi::CStr::from_ptr(pointer))
-                        })
-                        .map(std::ffi::CStr::to_bytes),
-                        None,
-                    )
-                    .to_vec()
-                };
-                if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
-                    ::log::error!("ERROR: JSON parsing error: {}\n", log_value_0_text);
-                } else {
-                    i3_common::logging::emit_parts(
-                        i3_common::logging::Level::Error,
-                        &[
-                            "ERROR: JSON parsing error: ".as_bytes(),
-                            &log_value_0,
-                            "\n".as_bytes(),
-                        ],
-                    );
-                }
-            };
+            ::log::error!("ERROR: JSON parsing error: {error}\n\n");
             false
         }
     }
 }
-pub unsafe fn json_determine_content(buf: *const libc::c_char, len: usize) -> JsonContent {
-    let (content, error) = content_result(if len == 0 {
-        &[]
-    } else {
-        std::slice::from_raw_parts(buf.cast(), len)
-    });
+pub fn json_determine_content(bytes: &[u8]) -> JsonContent {
+    let (content, error) = content_result(bytes);
     if let Some(error) = error {
-        let text = CString::new(format!("{error}\n")).unwrap();
-        {
-            // Snapshot native bytes before the logger can dispatch a callback.
-            let log_value_0 = {
-                let pointer: *const libc::c_char = text.as_ptr();
-                i3_common::logging::string_bytes(
-                    (if pointer.is_null() {
-                        None
-                    } else {
-                        Some(std::ffi::CStr::from_ptr(pointer))
-                    })
-                    .map(std::ffi::CStr::to_bytes),
-                    None,
-                )
-                .to_vec()
-            };
-            if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
-                ::log::error!("ERROR: JSON parsing error: {}\n", log_value_0_text);
-            } else {
-                i3_common::logging::emit_parts(
-                    i3_common::logging::Level::Error,
-                    &[
-                        "ERROR: JSON parsing error: ".as_bytes(),
-                        &log_value_0,
-                        "\n".as_bytes(),
-                    ],
-                );
-            }
-        };
+        ::log::error!("ERROR: JSON parsing error: {error}\n\n");
     }
     content
 }
@@ -1266,17 +1018,11 @@ impl Drop for NumericLocale {
 }
 /// Native graph/locale entry point. Completed containers stay attached on parse
 /// error; only incomplete containers are freed, exactly as the legacy loader.
-pub unsafe fn tree_append_json(
-    con: *mut Con,
-    buf: *const libc::c_char,
-    len: usize,
-    errormsg: *mut *mut libc::c_char,
-) {
-    let bytes = if len == 0 {
-        &[]
-    } else {
-        std::slice::from_raw_parts(buf.cast(), len)
-    };
+///
+/// # Safety
+/// `con` and the event-thread graph remain live and exclusively accessible for
+/// the whole call, including callbacks. The caller retains the input owner.
+pub unsafe fn tree_append_json(con: *mut Con, bytes: &[u8]) -> Result<(), String> {
     let state = Rc::new(RefCell::new(LayoutState::new(con)));
     let mut parser = layout_parser(
         LayoutEvents {
@@ -1286,40 +1032,11 @@ pub unsafe fn tree_append_json(
         true,
     );
     let locale = NumericLocale::c();
+    let mut result = Ok(());
     if let Err(error) = parser.parse(bytes) {
-        let message = error.to_string();
-        let message = CString::new(format!("{message}\n")).unwrap();
-        {
-            // Snapshot native bytes before the logger can dispatch a callback.
-            let log_value_0 = {
-                let pointer: *const libc::c_char = message.as_ptr();
-                i3_common::logging::string_bytes(
-                    (if pointer.is_null() {
-                        None
-                    } else {
-                        Some(std::ffi::CStr::from_ptr(pointer))
-                    })
-                    .map(std::ffi::CStr::to_bytes),
-                    None,
-                )
-                .to_vec()
-            };
-            if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
-                ::log::error!("ERROR: JSON parsing error: {}\n", log_value_0_text);
-            } else {
-                i3_common::logging::emit_parts(
-                    i3_common::logging::Level::Error,
-                    &[
-                        "ERROR: JSON parsing error: ".as_bytes(),
-                        &log_value_0,
-                        "\n".as_bytes(),
-                    ],
-                );
-            }
-        };
-        if !errormsg.is_null() {
-            *errormsg = sstrdup(message.as_ptr());
-        }
+        let message = format!("{error}\n");
+        ::log::error!("ERROR: JSON parsing error: {message}\n");
+        result = Err(message);
         loop {
             let node = {
                 let mut state = state.borrow_mut();
@@ -1347,19 +1064,15 @@ pub unsafe fn tree_append_json(
     if !to_focus.is_null() {
         con_activate(to_focus);
     }
+    result
 }
 // Internal helpers use Rust linkage rather than foreign symbol lookup.
 use crate::util::max;
 use crate::util::ws_name_to_number;
-use i3_common::safewrappers::scalloc;
-use i3_common::safewrappers::smalloc;
-use i3_common::safewrappers::srealloc;
-use i3_common::safewrappers::sstrdup;
-use i3_common::safewrappers::sstrndup;
 
 // Canonical Cairo backend ABI; renderer logic remains local.
 
-pub use libc::{free, memcpy, setlocale, strcasecmp, strcmp, strncasecmp};
+use libc::setlocale;
 
 // Shared model types retain field layout while using one Rust identity.
 pub use crate::types::Con;
@@ -1438,9 +1151,9 @@ mod tests {
                 )
             };
             assert!(count >= 0 && (count as usize) < native.len());
-            assert_eq!(unsafe { state.json_key(pointer, bytes.len()) }, 1);
+            assert_eq!(unsafe { state.json_key(bytes) }, 1);
             assert_eq!(take(), &native[..count as usize]);
-            state.last_key = c"unknown-\xff".to_owned();
+            state.last_key = b"unknown-\xff".to_vec();
             let count = unsafe {
                 libc::snprintf(
                     native.as_mut_ptr().cast(),
@@ -1448,11 +1161,11 @@ mod tests {
                     c"string: %.*s for key %s\n".as_ptr(),
                     bytes.len() as i32,
                     pointer,
-                    state.last_key.as_ptr(),
+                    CString::new(state.last_key.clone()).unwrap().as_ptr(),
                 )
             };
             assert!(count >= 0 && (count as usize) < native.len());
-            assert_eq!(unsafe { state.json_string(pointer, bytes.len()) }, 1);
+            assert_eq!(unsafe { state.json_string(bytes) }, 1);
             assert_eq!(take(), &native[..count as usize]);
         }
         for value in [
@@ -1470,7 +1183,7 @@ mod tests {
                     native.len(),
                     c"double %f for key %s\n".as_ptr(),
                     value,
-                    state.last_key.as_ptr(),
+                    CString::new(state.last_key.clone()).unwrap().as_ptr(),
                 )
             };
             assert!(count >= 0 && (count as usize) < native.len());
@@ -1496,6 +1209,21 @@ mod tests {
     }
     #[test]
     fn content_detection_preserves_shallow_cancellation_and_prefix_comparison() {
+        for value in [
+            b"".as_slice(),
+            b"w",
+            b"WORKSPACE",
+            b"workspace\0suffix",
+            b"work\0space",
+            b"workspaceX",
+            b"\0",
+            b"\xff",
+        ] {
+            let native = unsafe {
+                libc::strncasecmp(value.as_ptr().cast(), c"workspace".as_ptr(), value.len()) == 0
+            };
+            assert_eq!(workspace_value(value), native, "{value:?}");
+        }
         assert_eq!(
             determine_content(br#"{"type":"work"}"#),
             JsonContent::Workspace
@@ -1520,17 +1248,17 @@ mod tests {
     }
     #[test]
     fn property_and_rect_values_are_bounded_owned_and_keep_narrowing() {
-        assert_eq!(property_string(b"\xff\0suffix").to_bytes(), b"\xff");
+        assert_eq!(property_bytes(b"\xff\0suffix"), b"\xff");
         let rect = Rect {
             x: 1,
             y: 2,
             width: 3,
             height: 4,
         };
-        let updated = rect_value(rect, c"WIDTH", -1).unwrap();
+        let updated = rect_value(rect, b"WIDTH", -1).unwrap();
         assert_eq!(updated.width, u32::MAX);
         assert_eq!(updated.x, 1);
-        assert!(rect_value(rect, c"unknown", 1).is_none());
-        assert_eq!(rect_value(rect, c"x", 0x1_0000_0001).unwrap().x, 1);
+        assert!(rect_value(rect, b"unknown", 1).is_none());
+        assert_eq!(rect_value(rect, b"x", 0x1_0000_0001).unwrap().x, 1);
     }
 }

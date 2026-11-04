@@ -107,10 +107,7 @@ pub unsafe fn tree_restore(path: &std::path::Path, geometry: &x::GetGeometryRepl
             }
         };
     } else {
-        if let Ok(mut bytes) = slurp(&path_owner) {
-            let len = bytes.len();
-            // Keep termination at the parser boundary without truncating embedded NULs.
-            bytes.push(0);
+        if let Ok(bytes) = slurp(&path_owner) {
             croot = con_new(
                 ::core::ptr::null_mut::<Con>(),
                 ::core::ptr::null_mut::<i3Window>(),
@@ -122,12 +119,7 @@ pub unsafe fn tree_restore(path: &std::path::Path, geometry: &x::GetGeometryRepl
                 geometry.height(),
             );
             focused = croot;
-            tree_append_json(
-                focused,
-                bytes.as_ptr().cast(),
-                len,
-                ::core::ptr::null_mut::<*mut ::core::ffi::c_char>(),
-            );
+            let _ = tree_append_json(focused, &bytes);
             ::log::debug!("../src/tree.c:tree_restore:93 - appended tree, using new root\n");
             croot = nodes::first_ptr(croot);
             if !croot.is_null() {

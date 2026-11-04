@@ -1533,9 +1533,6 @@ pub unsafe fn cmd_append_layout(
     cpath: &std::path::Path,
 ) {
     let cpath = cpath.to_owned();
-    let mut content: JsonContent = JsonContent::Unknown;
-    let mut parent: *mut Con = ::core::ptr::null_mut::<Con>();
-    let mut errormsg: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
     {
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_value_0 = cpath.as_os_str().as_bytes().to_vec();
@@ -1553,7 +1550,7 @@ pub unsafe fn cmd_append_layout(
         }
     };
     let path_owner = resolve_or_exit(&cpath);
-    let mut bytes = match slurp(&path_owner) {
+    let bytes = match slurp(&path_owner) {
         Ok(bytes) => bytes,
         Err(_) => {
             if (*cmd_output).has_reply() {
@@ -1565,11 +1562,7 @@ pub unsafe fn cmd_append_layout(
             return;
         }
     };
-    let len = bytes.len();
-    // Parser input retains its original byte length, including any embedded NUL.
-    bytes.push(0);
-    let buf = bytes.as_ptr().cast();
-    if !json_validate(buf, len) {
+    if !json_validate(&bytes) {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_value_0 = path_owner.as_os_str().as_bytes().to_vec();
@@ -1596,7 +1589,7 @@ pub unsafe fn cmd_append_layout(
             emit_command_reply(cmd_output, CommandReply::Error(&message_0));
         }
     } else {
-        content = json_determine_content(buf, len);
+        let content = json_determine_content(&bytes);
         ::log::info!("JSON content = {}\n", (content as u32) as i32);
         if content == JsonContent::Unknown {
             {
@@ -1625,7 +1618,7 @@ pub unsafe fn cmd_append_layout(
                 emit_command_reply(cmd_output, CommandReply::Error(&message_1));
             }
         } else {
-            parent = focused;
+            let mut parent = focused;
             if content == JsonContent::Workspace {
                 parent = output_get_content(con_get_output(parent));
             } else {
@@ -1635,22 +1628,14 @@ pub unsafe fn cmd_append_layout(
                 }
             }
             ::log::debug!("../src/commands.c:cmd_append_layout:784 - Appending to parent={} instead of focused={}\n", i3_common::logging::pointer(parent), i3_common::logging::pointer(focused));
-            errormsg = ::core::ptr::null_mut::<::core::ffi::c_char>();
-            tree_append_json(parent, buf, len, &raw mut errormsg);
-            if !errormsg.is_null() {
-                if (*cmd_output).has_reply() {
-                    let error_pointer_0 = errormsg;
-                    let error_bytes_0 = if error_pointer_0.is_null() {
-                        b"(null)".as_slice()
-                    } else {
-                        std::ffi::CStr::from_ptr(error_pointer_0).to_bytes()
-                    };
-                    let message_2 = [error_bytes_0].concat();
-                    emit_command_reply(cmd_output, CommandReply::Error(&message_2));
+            match tree_append_json(parent, &bytes) {
+                Err(error) if (*cmd_output).has_reply() => {
+                    emit_command_reply(cmd_output, CommandReply::Error(error.as_bytes()));
                 }
-                free(errormsg as *mut ::core::ffi::c_void);
-            } else if (*cmd_output).has_reply() {
-                emit_command_reply(cmd_output, CommandReply::Success(true));
+                Ok(()) if (*cmd_output).has_reply() => {
+                    emit_command_reply(cmd_output, CommandReply::Success(true));
+                }
+                _ => {}
             }
             render_con(croot);
             restore_open_placeholder_windows(parent);

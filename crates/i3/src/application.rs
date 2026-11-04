@@ -19,6 +19,7 @@ use i3_common::display::{CairoVisual, DisplayScreen, ScreenInfo};
 use std::ffi::{CStr, CString};
 use std::io::Read;
 use std::os::fd::{AsRawFd, FromRawFd};
+use std::os::unix::ffi::OsStrExt;
 use std::ptr::NonNull;
 use std::rc::Rc;
 use xcb::ffi::xcb_connection_t;
@@ -785,9 +786,12 @@ fn bar_command(program: &[u8], verbose: bool, id: &[u8], socket: &[u8]) -> Vec<u
     bytes.push(b'"');
     bytes
 }
-fn owned_dirname(path: &CStr) -> CString {
-    let mut bytes = path.to_bytes_with_nul().to_vec();
-    unsafe { CStr::from_ptr(dirname(bytes.as_mut_ptr().cast())) }.to_owned()
+fn owned_dirname(path: &std::path::Path) -> std::path::PathBuf {
+    let mut bytes = CString::new(path.as_os_str().as_bytes())
+        .expect("OS path has no NUL")
+        .into_bytes_with_nul();
+    let directory = unsafe { CStr::from_ptr(dirname(bytes.as_mut_ptr().cast())) };
+    std::path::PathBuf::from(std::ffi::OsStr::from_bytes(directory.to_bytes()))
 }
 unsafe extern "C" fn xcb_got_event(loop_0: *mut ev_loop, w: *mut ev_io, revents: i32) {}
 unsafe extern "C" fn xcb_prepare_cb(loop_0: *mut ev_loop, w: *mut ev_prepare, revents: i32) {
@@ -1052,11 +1056,10 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> i32 {
     #[used]
     static mut _i3_version: *const ::core::ffi::c_char =
         I3_VERSION.as_ptr().cast::<::core::ffi::c_char>();
-    let mut layout_owner: Option<CString> = None;
     let mut fake_owner: Option<Vec<u8>> = None;
     let mut override_configpath: Option<std::path::PathBuf> = None;
     let mut autostart: bool = true;
-    let mut layout_path: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
+    let mut layout_path: Option<std::path::PathBuf> = None;
     let mut delete_layout_path: bool = false;
     let mut disable_randr15: bool = false;
     let mut disable_signalhandler: bool = false;
@@ -1100,17 +1103,13 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> i32 {
             }
             Item::Option { short, value } => (short, value),
         };
-        let value = value.map(|value| {
-            std::ffi::CString::new(value.as_bytes()).expect("OS arguments have no NUL bytes")
-        });
         match flag {
             b'a' => { ::log::info!("Autostart disabled using -a\n"); autostart = false; },
             b'L' | OPT_RESTART => {
-                layout_owner=value.clone();
-                layout_path=layout_owner.as_ref().unwrap().as_ptr().cast_mut();
+                layout_path=Some(std::path::PathBuf::from(value.expect("layout option has a path")));
                 delete_layout_path = flag == OPT_RESTART;
             },
-            b'c' => { override_configpath = Some(std::path::PathBuf::from(std::ffi::OsStr::from_bytes(value.as_ref().unwrap().to_bytes()))); },
+            b'c' => { override_configpath = Some(std::path::PathBuf::from(value.expect("config option has a path"))); },
             b'C' => { ::log::info!("Checking configuration file only (-C)\n"); only_check_config = true; },
             b'v' => { printf(c"i3 version %s © 2009 Michael Stapelberg and contributors\n".as_ptr(), i3_version); return EXIT_SUCCESS; },
             b'm' => { printf(c"Binary i3 version:  %s © 2009 Michael Stapelberg and contributors\n".as_ptr(), i3_version); return display_running_version(); },
@@ -1140,8 +1139,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> i32 {
                 let value = value.as_ref().unwrap();
                 {
 // Snapshot native bytes before the logger can dispatch a callback.
-let log_pointer_1 = value.as_ptr();
-let log_value_0 = i3_common::logging::string_bytes((if log_pointer_1.is_null() { None } else { Some(std::ffi::CStr::from_ptr(log_pointer_1)) }).map(std::ffi::CStr::to_bytes), None).to_vec();
+let log_value_0 = value.as_bytes().to_vec();
 if let Ok(log_value_0_text) = std::str::from_utf8(&log_value_0) {
 ::log::info!("Initializing fake outputs: {}\n", log_value_0_text);
 } else {
@@ -1171,23 +1169,11 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
             .map(|argument| argument.as_bytes())
             .collect::<Vec<_>>()
             .join(&b' ');
-        let payload_owner =
-            std::ffi::CString::new(payload_bytes).expect("OS arguments have no NUL bytes");
-        let payload = payload_owner.as_ptr();
+        let payload = payload_bytes;
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_pointer_1 = payload;
-            let log_value_0 = i3_common::logging::string_bytes(
-                (if log_pointer_1.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                })
-                .map(std::ffi::CStr::to_bytes),
-                None,
-            )
-            .to_vec();
-            let log_value_1 = (strlen(payload)) as isize;
+            let log_value_0 = payload.clone();
+            let log_value_1 = payload.len() as isize;
             if let Ok(log_value_0_text) = std::str::from_utf8(&log_value_0) {
                 ::log::debug!(
                     "../src/main.c:main:500 - Command is: {} ({} bytes)\n",
@@ -1224,7 +1210,7 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
         if let Err(error) = send_message_retry_would_block(
             &mut stream,
             I3_IPC_MESSAGE_TYPE_RUN_COMMAND as u32,
-            payload_owner.to_bytes(),
+            &payload,
         ) {
             *libc::__errno_location() = error.raw_os_error().unwrap_or(libc::EIO);
             err(EXIT_FAILURE, c"IPC: write()".as_ptr());
@@ -1851,20 +1837,10 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
     translate_keysyms();
     grab_all_keys();
     let mut needs_tree_init: bool = true;
-    if !layout_path.is_null() {
+    if let Some(restore_path) = layout_path.as_deref() {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_pointer_1 = layout_path;
-            let log_value_0 = i3_common::logging::string_bytes(
-                (if log_pointer_1.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                })
-                .map(std::ffi::CStr::to_bytes),
-                None,
-            )
-            .to_vec();
+            let log_value_0 = restore_path.as_os_str().as_bytes().to_vec();
             if let Ok(log_value_0_text) = std::str::from_utf8(&log_value_0) {
                 ::log::info!(
                     "Trying to restore the layout from \"{}\".\n",
@@ -1881,14 +1857,14 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
                 );
             }
         };
-        let restore_path = std::path::PathBuf::from(std::ffi::OsStr::from_bytes(
-            CStr::from_ptr(layout_path).to_bytes(),
-        ));
-        needs_tree_init = !tree_restore(&restore_path, &greply);
+        needs_tree_init = !tree_restore(restore_path, &greply);
         if delete_layout_path {
-            unlink(layout_path);
-            let dir = owned_dirname(CStr::from_ptr(layout_path));
-            rmdir(dir.as_ptr());
+            let native_path =
+                CString::new(restore_path.as_os_str().as_bytes()).expect("OS path has no NUL");
+            unlink(native_path.as_ptr());
+            let dir = owned_dirname(restore_path);
+            let native_dir = CString::new(dir.as_os_str().as_bytes()).expect("OS path has no NUL");
+            rmdir(native_dir.as_ptr());
         }
     }
     if needs_tree_init {
@@ -1908,7 +1884,7 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
             disable_randr15 || config.disable_randr15,
         );
     }
-    if !layout_path.is_null() && randr_base > -1_i32 {
+    if layout_path.is_some() && randr_base > -1_i32 {
         let mut con: *mut Con = nodes::first_ptr(croot);
 
         while !con.is_null() {
@@ -1930,8 +1906,7 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
             con = nodes::next_ptr(con);
         }
     }
-    drop(layout_owner.take());
-    layout_path = ::core::ptr::null_mut::<::core::ffi::c_char>();
+    drop(layout_path.take());
     scratchpad_fix_resolution();
     let mut output_0: *mut Output = ::core::ptr::null_mut::<Output>();
     let pointer_reply = main_connection().wait_for_reply(pointercookie).ok();
@@ -2410,7 +2385,12 @@ mod owned_startup_tests {
             bar_command(b"custom", true, b"bar", b"/path"),
             b"custom -V --bar_id=bar --socket=\"/path\""
         );
-        assert_eq!(owned_dirname(c"relative/file").as_c_str(), c"relative");
+        assert_eq!(
+            owned_dirname(std::path::Path::new("relative/file")),
+            std::path::Path::new("relative")
+        );
+        let path = std::path::Path::new(std::ffi::OsStr::from_bytes(b"../\xff/file"));
+        assert_eq!(owned_dirname(path).as_os_str().as_bytes(), b"../\xff");
     }
 }
 

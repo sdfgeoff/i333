@@ -506,9 +506,6 @@ unsafe fn handle_run_command(
         reply.as_ptr(),
     );
 }
-unsafe fn native_text(value: *const libc::c_char) -> messages::NativeText {
-    messages::NativeText::cstr(CStr::from_ptr(value))
-}
 fn unsigned_rect(rect: Rect) -> messages::Rectangle {
     messages::Rectangle {
         x: rect.x as i64,
@@ -587,9 +584,6 @@ fn gap_values(gaps: gaps_t) -> messages::Gaps {
 }
 fn owned_optional_text(value: Option<&[u8]>) -> messages::Omitted<messages::NativeText> {
     messages::Omitted(value.map(messages::NativeText::bytes))
-}
-unsafe fn optional_text(value: *const libc::c_char) -> messages::Omitted<messages::NativeText> {
-    messages::Omitted((!value.is_null()).then(|| native_text(value)))
 }
 unsafe fn node_layout(con: *mut Con) -> &'static str {
     match (*con).layout {
@@ -1251,7 +1245,12 @@ unsafe fn handle_get_version(
         major: MAJOR_VERSION as i64,
         minor: MINOR_VERSION as i64,
         patch: PATCH_VERSION as i64,
-        human_readable: native_text(i3_version),
+        human_readable: messages::NativeText::bytes(
+            crate::version::I3_VERSION
+                .split(|byte| *byte == 0)
+                .next()
+                .unwrap(),
+        ),
         loaded_config_file_name: messages::NativeText::bytes(
             current_configpath
                 .as_deref()
@@ -1468,7 +1467,7 @@ struct SyncRequest {
     window: u32,
 }
 struct SyncEvents {
-    key: CString,
+    key: Vec<u8>,
     state: Rc<RefCell<SyncRequest>>,
     error: Option<String>,
 }
@@ -1476,15 +1475,14 @@ impl i3_common::json_stream::EventHandler for SyncEvents {
     fn on_event(&mut self, event: i3_common::json_stream::Event<'_>) -> bool {
         match event {
             i3_common::json_stream::Event::MapKey(bytes) => {
-                self.key = CString::new(bytes.split(|byte| *byte == 0).next().unwrap()).unwrap()
+                self.key = bytes.split(|byte| *byte == 0).next().unwrap().to_vec()
             }
             i3_common::json_stream::Event::Number(number) if !number.contains(['.', 'e', 'E']) => {
                 if let Ok(number) = number.parse::<i64>() {
                     if number != i64::MIN {
-                        if unsafe { strcasecmp(self.key.as_ptr(), c"rnd".as_ptr()) == 0 } {
+                        if crate::util::text_eq_ignore_case(&self.key, b"rnd") {
                             self.state.borrow_mut().rnd = number as u32;
-                        } else if unsafe { strcasecmp(self.key.as_ptr(), c"window".as_ptr()) == 0 }
-                        {
+                        } else if crate::util::text_eq_ignore_case(&self.key, b"window") {
                             self.state.borrow_mut().window = number as u32;
                         }
                         return true;
@@ -1504,7 +1502,7 @@ impl i3_common::json_stream::EventHandler for SyncEvents {
 fn parse_sync(message: &[u8]) -> Result<SyncRequest, i3_common::json_stream::ParseError> {
     let state = Rc::new(RefCell::new(SyncRequest::default()));
     let mut parser = i3_common::json_stream::Parser::new(SyncEvents {
-        key: CString::default(),
+        key: Vec::new(),
         state: state.clone(),
         error: None,
     });
@@ -1526,33 +1524,8 @@ unsafe fn handle_sync(
         sync_respond(state.window, state.rnd);
         true
     } else {
-        let error = CString::new(format!("{}\n", parsed.unwrap_err())).unwrap();
-        {
-            // Snapshot native bytes before the logger can dispatch a callback.
-            let log_pointer_1 = error.as_ptr();
-            let log_value_0 = i3_common::logging::string_bytes(
-                (if log_pointer_1.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                })
-                .map(std::ffi::CStr::to_bytes),
-                None,
-            )
-            .to_vec();
-            if let Ok(log_value_0_text) = std::str::from_utf8(&log_value_0) {
-                ::log::error!("ERROR: YAJL parse error: {}\n", log_value_0_text);
-            } else {
-                i3_common::logging::emit_parts(
-                    i3_common::logging::Level::Error,
-                    &[
-                        "ERROR: YAJL parse error: ".as_bytes(),
-                        &log_value_0,
-                        "\n".as_bytes(),
-                    ],
-                );
-            }
-        };
+        let error = parsed.unwrap_err();
+        ::log::error!("ERROR: YAJL parse error: {error}\n\n");
         false
     };
     if !token.live() {
@@ -1791,6 +1764,7 @@ pub unsafe fn ipc_marshal_workspace_event(
     current: *mut Con,
     old: *mut Con,
 ) -> Vec<u8> {
+    let change = change.split('\0').next().unwrap();
     let locale = NumericLocale::c();
     let payload = messages::WorkspaceEvent {
         change: messages::NativeText::bytes(change.as_bytes()),
@@ -1814,6 +1788,7 @@ pub unsafe fn ipc_send_workspace_event(change: &str, current: *mut Con, old: *mu
 }
 
 pub unsafe fn ipc_send_window_event(property: &str, con: *mut Con) {
+    let property = property.split('\0').next().unwrap();
     {
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_value_0 = property
@@ -1997,7 +1972,6 @@ use crate::output::output_primary_name;
 use crate::randr::get_output_by_name;
 use crate::tree::croot;
 use crate::tree::focused;
-use crate::version::i3_version;
 use crate::workspace::previous_workspace_name;
 use crate::workspace::workspace_is_visible;
 use i3_common::ipc_recv_message::{

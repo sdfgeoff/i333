@@ -3,7 +3,6 @@
 #![forbid(unsafe_code)]
 use i3_common::json_rejection::RejectedOutput;
 use serde::{Serialize, Serializer};
-use std::ffi::CStr;
 
 pub(super) trait WireValue: Serialize {
     fn valid(&self) -> bool {
@@ -33,9 +32,6 @@ pub(super) struct NativeText(Vec<u8>);
 impl NativeText {
     pub fn bytes(value: &[u8]) -> Self {
         Self(value.to_vec())
-    }
-    pub fn cstr(value: &CStr) -> Self {
-        Self::bytes(value.to_bytes())
     }
 }
 impl Serialize for NativeText {
