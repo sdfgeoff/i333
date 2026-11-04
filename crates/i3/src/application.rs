@@ -129,13 +129,68 @@ pub struct WorkspaceAssignmentLinks {
 pub struct ignore_event_sequence_t {
     pub value: u32,
 }
-#[derive(Copy, Clone)]
-#[repr(C)]
 pub struct Autostart {
-    pub command: *mut ::core::ffi::c_char,
+    pub command: std::ffi::CString,
     pub no_startup_id: bool,
     pub autostarts: AutostartLinks,
     pub autostarts_always: AutostartAlwaysLinks,
+}
+impl Autostart {
+    pub fn new(command: std::ffi::CString, no_startup_id: bool) -> Self {
+        Self {
+            command,
+            no_startup_id,
+            autostarts: AutostartLinks {
+                tqe_next: std::ptr::null_mut(),
+                tqe_prev: std::ptr::null_mut(),
+            },
+            autostarts_always: AutostartAlwaysLinks {
+                tqe_next: std::ptr::null_mut(),
+                tqe_prev: std::ptr::null_mut(),
+            },
+        }
+    }
+}
+
+/// Detach a pending command before logging or launching it, retaining its owner.
+///
+/// # Safety
+/// The event thread exclusively owns both initialized queues. Every linked node
+/// is a unique Box in exactly one queue, and no borrowed node view is in use.
+#[deny(unsafe_op_in_unsafe_fn)]
+pub unsafe fn take_first_autostart(always: bool) -> Option<Box<Autostart>> {
+    unsafe {
+        let node = if always {
+            autostarts_always.tqh_first
+        } else {
+            autostarts.tqh_first
+        };
+        if node.is_null() {
+            return None;
+        }
+        if always {
+            let links = (*node).autostarts_always;
+            if links.tqe_next.is_null() {
+                autostarts_always.tqh_last = links.tqe_prev;
+            } else {
+                (*links.tqe_next).autostarts_always.tqe_prev = links.tqe_prev;
+            }
+            *links.tqe_prev = links.tqe_next;
+            (*node).autostarts_always.tqe_next = std::ptr::null_mut();
+            (*node).autostarts_always.tqe_prev = std::ptr::null_mut();
+        } else {
+            let links = (*node).autostarts;
+            if links.tqe_next.is_null() {
+                autostarts.tqh_last = links.tqe_prev;
+            } else {
+                (*links.tqe_next).autostarts.tqe_prev = links.tqe_prev;
+            }
+            *links.tqe_prev = links.tqe_next;
+            (*node).autostarts.tqe_next = std::ptr::null_mut();
+            (*node).autostarts.tqe_prev = std::ptr::null_mut();
+        }
+        Some(Box::from_raw(node))
+    }
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -2079,82 +2134,44 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
     setup_term_handlers();
     signal(SIGPIPE, libc::SIG_IGN);
     if autostart {
-        while !autostarts.tqh_first.is_null() {
-            let mut exec: *mut Autostart = autostarts.tqh_first;
+        while let Some(exec) = take_first_autostart(false) {
             {
-                // Snapshot native bytes before the logger can dispatch a callback.
-                let log_pointer_1 = (*exec).command;
-                let log_value_0 = i3_common::logging::string_bytes(
-                    if log_pointer_1.is_null() {
-                        None
-                    } else {
-                        Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                    },
-                    None,
-                )
-                .to_vec();
-                if let Ok(log_value_0_text) = std::str::from_utf8(&log_value_0) {
+                // The detached owner keeps native bytes live through logging and launch.
+                let log_value_0 = exec.command.as_bytes();
+                if let Ok(log_value_0_text) = std::str::from_utf8(log_value_0) {
                     ::log::info!("auto-starting {}\n", log_value_0_text);
                 } else {
                     i3_common::logging::emit_parts(
                         i3_common::logging::Level::Verbose,
-                        &["auto-starting ".as_bytes(), &log_value_0, "\n".as_bytes()],
+                        &["auto-starting ".as_bytes(), log_value_0, "\n".as_bytes()],
                     );
                 }
             };
-            start_application((*exec).command, (*exec).no_startup_id, 0_u32);
-            free((*exec).command as *mut ::core::ffi::c_void);
-            (*exec).command = ::core::ptr::null_mut::<::core::ffi::c_char>();
-            if !(*exec).autostarts.tqe_next.is_null() {
-                (*(*exec).autostarts.tqe_next).autostarts.tqe_prev = (*exec).autostarts.tqe_prev;
-            } else {
-                autostarts.tqh_last = (*exec).autostarts.tqe_prev;
-            }
-            *(*exec).autostarts.tqe_prev = (*exec).autostarts.tqe_next;
-            free(exec as *mut ::core::ffi::c_void);
-            exec = ::core::ptr::null_mut::<Autostart>();
+            start_application(exec.command.as_ptr(), exec.no_startup_id, 0_u32);
         }
     }
-    while !autostarts_always.tqh_first.is_null() {
-        let mut exec_always: *mut Autostart = autostarts_always.tqh_first;
+    while let Some(exec_always) = take_first_autostart(true) {
         {
-            // Snapshot native bytes before the logger can dispatch a callback.
-            let log_pointer_1 = (*exec_always).command;
-            let log_value_0 = i3_common::logging::string_bytes(
-                if log_pointer_1.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                },
-                None,
-            )
-            .to_vec();
-            if let Ok(log_value_0_text) = std::str::from_utf8(&log_value_0) {
+            // The detached owner keeps native bytes live through logging and launch.
+            let log_value_0 = exec_always.command.as_bytes();
+            if let Ok(log_value_0_text) = std::str::from_utf8(log_value_0) {
                 ::log::info!("auto-starting (always!) {}\n", log_value_0_text);
             } else {
                 i3_common::logging::emit_parts(
                     i3_common::logging::Level::Verbose,
                     &[
                         "auto-starting (always!) ".as_bytes(),
-                        &log_value_0,
+                        log_value_0,
                         "\n".as_bytes(),
                     ],
                 );
             }
         };
-        start_application((*exec_always).command, (*exec_always).no_startup_id, 0_u32);
-        free((*exec_always).command as *mut ::core::ffi::c_void);
-        (*exec_always).command = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        if !(*exec_always).autostarts_always.tqe_next.is_null() {
-            (*(*exec_always).autostarts_always.tqe_next)
-                .autostarts_always
-                .tqe_prev = (*exec_always).autostarts_always.tqe_prev;
-        } else {
-            autostarts_always.tqh_last = (*exec_always).autostarts_always.tqe_prev;
-        }
-        *(*exec_always).autostarts_always.tqe_prev = (*exec_always).autostarts_always.tqe_next;
-        free(exec_always as *mut ::core::ffi::c_void);
-        exec_always = ::core::ptr::null_mut::<Autostart>();
+        start_application(
+            exec_always.command.as_ptr(),
+            exec_always.no_startup_id,
+            0_u32,
+        );
     }
     let mut barconfig: *mut Barconfig = ::core::ptr::null_mut::<Barconfig>();
     barconfig = barconfigs.tqh_first;
@@ -2575,6 +2592,93 @@ mod owned_event_tests {
             assert_eq!(error_header(&error).full_sequence, 0xfedc_5678);
             assert_eq!(error_header(&error).major_code, u8::MAX);
             assert_eq!(error_header(&error).minor_code, u16::MAX);
+        }
+    }
+}
+
+#[cfg(test)]
+mod autostart_ownership_tests {
+    use super::*;
+
+    #[test]
+    fn pending_commands_detach_before_callbacks_and_preserve_queue_and_native_bytes() {
+        if std::env::var_os("I333_AUTOSTART_OWNER_PROBE").is_none() {
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "application::autostart_ownership_tests::pending_commands_detach_before_callbacks_and_preserve_queue_and_native_bytes", "--nocapture"])
+                .env("I333_AUTOSTART_OWNER_PROBE", "1")
+                .env_remove("DISPLAY").env_remove("I3SOCK").env_remove("WAYLAND_DISPLAY")
+                .output().unwrap();
+            assert!(
+                output.status.success(),
+                "{}\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            return;
+        }
+        unsafe {
+            assert!(autostarts.tqh_first.is_null());
+            assert!(autostarts_always.tqh_first.is_null());
+            autostarts.tqh_last = &raw mut autostarts.tqh_first;
+            autostarts_always.tqh_last = &raw mut autostarts_always.tqh_first;
+            let command = std::ffi::CString::new(vec![0xff, b'x']).unwrap();
+            crate::config_directives::cfg_exec(
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                c"exec".as_ptr(),
+                c"--no-startup-id".as_ptr(),
+                command.as_ptr(),
+            );
+            crate::config_directives::cfg_exec(
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                c"exec".as_ptr(),
+                std::ptr::null(),
+                c"".as_ptr(),
+            );
+            crate::config_directives::cfg_exec(
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                c"exec_always".as_ptr(),
+                std::ptr::null(),
+                c"always".as_ptr(),
+            );
+            let detached = take_first_autostart(false).unwrap();
+            assert_eq!(detached.command.as_bytes(), &[0xff, b'x']);
+            assert!(detached.no_startup_id);
+            assert!(detached.autostarts.tqe_next.is_null());
+            assert!(detached.autostarts.tqe_prev.is_null());
+            assert_eq!(
+                (*autostarts.tqh_first).autostarts.tqe_prev,
+                &raw mut autostarts.tqh_first
+            );
+            // A callback can append another command while the detached owner's bytes stay live.
+            crate::config_directives::cfg_exec(
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                c"exec".as_ptr(),
+                std::ptr::null(),
+                c"later".as_ptr(),
+            );
+            assert_eq!(detached.command.as_bytes(), command.as_bytes());
+            let empty = take_first_autostart(false).unwrap();
+            assert!(empty.command.as_bytes().is_empty());
+            assert!(!empty.no_startup_id);
+            assert_eq!(
+                take_first_autostart(false).unwrap().command.as_c_str(),
+                c"later"
+            );
+            assert!(take_first_autostart(false).is_none());
+            assert_eq!(autostarts.tqh_last, &raw mut autostarts.tqh_first);
+            assert_eq!(
+                take_first_autostart(true).unwrap().command.as_c_str(),
+                c"always"
+            );
+            assert!(take_first_autostart(true).is_none());
+            assert_eq!(
+                autostarts_always.tqh_last,
+                &raw mut autostarts_always.tqh_first
+            );
         }
     }
 }

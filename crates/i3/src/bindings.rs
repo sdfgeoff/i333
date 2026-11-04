@@ -35,13 +35,65 @@ pub use crate::application::bindings_head;
 pub struct modes_head {
     pub slh_first: *mut Mode,
 }
-#[derive(Copy, Clone)]
-#[repr(C)]
 pub struct Mode {
-    pub name: *mut ::core::ffi::c_char,
+    pub name: std::ffi::CString,
     pub pango_markup: bool,
-    pub bindings: *mut bindings_head,
+    bindings: OwnedBindingsHead,
     pub modes: ModeLinks,
+}
+// Queue heads have self-referential tail links and escaped intrusive aliases.
+// Store only the stable allocation address: moving a Box after publishing its
+// pointers could invalidate those aliases under Box's uniqueness rules.
+struct OwnedBindingsHead {
+    pointer: std::ptr::NonNull<bindings_head>,
+}
+
+impl OwnedBindingsHead {
+    fn new() -> Self {
+        let pointer = Box::into_raw(Box::new(bindings_head {
+            tqh_first: std::ptr::null_mut(),
+            tqh_last: std::ptr::null_mut(),
+        }));
+        // Derive self-pointers only after Box ownership has become a raw owner.
+        unsafe {
+            (*pointer).tqh_last = &raw mut (*pointer).tqh_first;
+        }
+        Self {
+            pointer: std::ptr::NonNull::new(pointer).expect("Box allocation is non-null"),
+        }
+    }
+
+    fn as_ptr(&self) -> *mut bindings_head {
+        self.pointer.as_ptr()
+    }
+}
+
+impl Drop for OwnedBindingsHead {
+    fn drop(&mut self) {
+        // Mode teardown drains the queue; reorder detaches every node and
+        // refreshes the active alias before the old owner is dropped.
+        unsafe {
+            drop(Box::from_raw(self.pointer.as_ptr()));
+        }
+    }
+}
+
+impl Mode {
+    pub fn new(name: std::ffi::CString, pango_markup: bool) -> Self {
+        Self {
+            name,
+            pango_markup,
+            bindings: OwnedBindingsHead::new(),
+            modes: ModeLinks {
+                sle_next: std::ptr::null_mut(),
+            },
+        }
+    }
+
+    /// Borrowed event-thread queue alias, valid until this mode's head is replaced or dropped.
+    pub fn bindings_ptr(&self) -> *mut bindings_head {
+        self.bindings.as_ptr()
+    }
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -87,21 +139,51 @@ unsafe fn mode_from_name(name: *const ::core::ffi::c_char, pango_markup: bool) -
     let mut mode: *mut Mode = ::core::ptr::null_mut::<Mode>();
     mode = modes.slh_first;
     while !mode.is_null() {
-        if strcmp((*mode).name, name) == 0 {
+        if strcmp((*mode).name.as_ptr(), name) == 0 {
             return mode;
         }
         mode = (*mode).modes.sle_next;
     }
-    mode = scalloc(1_usize, ::core::mem::size_of::<Mode>() as usize) as *mut Mode;
-    (*mode).name = sstrdup(name);
-    (*mode).pango_markup = pango_markup;
-    (*mode).bindings =
-        scalloc(1_usize, ::core::mem::size_of::<bindings_head>() as usize) as *mut bindings_head;
-    (*(*mode).bindings).tqh_first = ::core::ptr::null_mut::<Binding>();
-    (*(*mode).bindings).tqh_last = &raw mut (*(*mode).bindings).tqh_first;
+    mode = Box::into_raw(Box::new(Mode::new(
+        std::ffi::CStr::from_ptr(name).to_owned(),
+        pango_markup,
+    )));
     (*mode).modes.sle_next = modes.slh_first;
     modes.slh_first = mode;
     mode
+}
+
+/// Unlink and destroy the first mode and its bindings.
+///
+/// # Safety
+/// The event thread exclusively owns the initialized mode registry. Every linked
+/// node is a unique Box allocation and no borrowed queue/name view is in use.
+#[deny(unsafe_op_in_unsafe_fn)]
+pub unsafe fn remove_first_mode() {
+    unsafe {
+        let mode = modes.slh_first;
+        if mode.is_null() {
+            return;
+        }
+        modes.slh_first = (*mode).modes.sle_next;
+        if bindings == (*mode).bindings_ptr() {
+            bindings = std::ptr::null_mut();
+        }
+        if current_binding_mode == (*mode).name.as_ptr() {
+            current_binding_mode = c"default".as_ptr();
+        }
+        while !(*(*mode).bindings.as_ptr()).tqh_first.is_null() {
+            let bind = (*(*mode).bindings.as_ptr()).tqh_first;
+            if !(*bind).bindings.tqe_next.is_null() {
+                (*(*bind).bindings.tqe_next).bindings.tqe_prev = (*bind).bindings.tqe_prev;
+            } else {
+                (*(*mode).bindings.as_ptr()).tqh_last = (*bind).bindings.tqe_prev;
+            }
+            *(*bind).bindings.tqe_prev = (*bind).bindings.tqe_next;
+            binding_free(bind);
+        }
+        drop(Box::from_raw(mode));
+    }
 }
 
 pub unsafe fn configure_binding(
@@ -255,11 +337,11 @@ pub unsafe fn configure_binding(
     if group_bits_set > 1 {
         ::log::error!("ERROR: Keybinding has more than one Group specified, but your X server is always in precisely one group. The keybinding can never trigger.\n");
     }
-    let mode: *const Mode = mode_from_name(modename, pango_markup);
+    let mode: *mut Mode = mode_from_name(modename, pango_markup);
     (*new_binding).bindings.tqe_next = ::core::ptr::null_mut::<Binding>();
-    (*new_binding).bindings.tqe_prev = (*(*mode).bindings).tqh_last;
-    *(*(*mode).bindings).tqh_last = new_binding;
-    (*(*mode).bindings).tqh_last = &raw mut (*new_binding).bindings.tqe_next;
+    (*new_binding).bindings.tqe_prev = (*(*mode).bindings.as_ptr()).tqh_last;
+    *(*(*mode).bindings.as_ptr()).tqh_last = new_binding;
+    (*(*mode).bindings.as_ptr()).tqh_last = &raw mut (*new_binding).bindings.tqe_next;
     (*new_binding).keycodes_head.tqh_first = ::core::ptr::null_mut::<Binding_Keycode>();
     (*new_binding).keycodes_head.tqh_last = &raw mut (*new_binding).keycodes_head.tqh_first;
     new_binding
@@ -939,6 +1021,8 @@ pub unsafe fn translate_keysyms() {
 }
 
 pub unsafe fn switch_mode(new_mode: *const ::core::ffi::c_char) {
+    let requested_mode = std::ffi::CStr::from_ptr(new_mode).to_owned();
+    let new_mode = requested_mode.as_ptr();
     let mut mode: *mut Mode = ::core::ptr::null_mut::<Mode>();
     {
         // Snapshot native bytes before the logger can dispatch a callback.
@@ -969,12 +1053,14 @@ pub unsafe fn switch_mode(new_mode: *const ::core::ffi::c_char) {
     };
     mode = modes.slh_first;
     while !mode.is_null() {
-        if strcmp((*mode).name, new_mode) != 0 {
+        if strcmp((*mode).name.as_ptr(), new_mode) != 0 {
             mode = (*mode).modes.sle_next;
         } else {
+            let mode_name = (*mode).name.clone();
+            let pango_markup = (*mode).pango_markup;
             ungrab_all_keys();
-            bindings = (*mode).bindings;
-            current_binding_mode = (*mode).name;
+            bindings = (*mode).bindings_ptr();
+            current_binding_mode = (*mode).name.as_ptr();
             translate_keysyms();
             grab_all_keys();
             regrab_all_buttons();
@@ -991,8 +1077,8 @@ pub unsafe fn switch_mode(new_mode: *const ::core::ffi::c_char) {
             sasprintf(
                 &raw mut event_msg,
                 c"{\"change\":\"%s\", \"pango_markup\":%s}".as_ptr(),
-                (*mode).name,
-                if (*mode).pango_markup as i32 != 0 {
+                mode_name.as_ptr(),
+                if pango_markup {
                     c"true".as_ptr()
                 } else {
                     c"false".as_ptr()
@@ -1022,7 +1108,7 @@ unsafe extern "C" fn reorder_binding_cmp(
 }
 unsafe fn reorder_bindings_of_mode(mode: *mut Mode) {
     let mut tmp = Vec::<*mut Binding>::new();
-    let mut current = (*(*mode).bindings).tqh_first;
+    let mut current = (*(*mode).bindings.as_ptr()).tqh_first;
     while !current.is_null() {
         tmp.push(current);
         current = (*current).bindings.tqe_next;
@@ -1040,17 +1126,15 @@ unsafe fn reorder_bindings_of_mode(mode: *mut Mode) {
                 ) -> i32,
         ),
     );
-    let reordered: *mut bindings_head =
-        scalloc(1_usize, ::core::mem::size_of::<bindings_head>() as usize) as *mut bindings_head;
-    (*reordered).tqh_first = ::core::ptr::null_mut::<Binding>();
-    (*reordered).tqh_last = &raw mut (*reordered).tqh_first;
+    let reordered_owner = OwnedBindingsHead::new();
+    let reordered = reordered_owner.as_ptr();
     let mut i = 0usize;
     while i < n {
         current = tmp[i];
         if !(*current).bindings.tqe_next.is_null() {
             (*(*current).bindings.tqe_next).bindings.tqe_prev = (*current).bindings.tqe_prev;
         } else {
-            (*(*mode).bindings).tqh_last = (*current).bindings.tqe_prev;
+            (*(*mode).bindings.as_ptr()).tqh_last = (*current).bindings.tqe_prev;
         }
         *(*current).bindings.tqe_prev = (*current).bindings.tqe_next;
         (*current).bindings.tqe_next = ::core::ptr::null_mut::<Binding>();
@@ -1060,7 +1144,7 @@ unsafe fn reorder_bindings_of_mode(mode: *mut Mode) {
         i += 1;
     }
 
-    if (*(*mode).bindings).tqh_first
+    if (*(*mode).bindings.as_ptr()).tqh_first
         == ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Binding
     {
     } else {
@@ -1071,19 +1155,17 @@ unsafe fn reorder_bindings_of_mode(mode: *mut Mode) {
             c"void reorder_bindings_of_mode(struct Mode *)".as_ptr(),
         );
     };
-    free((*mode).bindings as *mut ::core::ffi::c_void);
-    (*mode).bindings = reordered;
+    if bindings == (*mode).bindings_ptr() {
+        bindings = reordered;
+    }
+    (*mode).bindings = reordered_owner;
 }
 
 pub unsafe fn reorder_bindings() {
     let mut mode: *mut Mode = ::core::ptr::null_mut::<Mode>();
     mode = modes.slh_first;
     while !mode.is_null() {
-        let current_mode: bool = (*mode).bindings == bindings;
         reorder_bindings_of_mode(mode);
-        if current_mode {
-            bindings = (*mode).bindings;
-        }
         mode = (*mode).modes.sle_next;
     }
 }
@@ -1698,5 +1780,85 @@ mod owned_tests {
             append_button(&mut buttons, button);
         }
         assert_eq!(buttons.len(), 24);
+    }
+}
+
+#[cfg(test)]
+mod mode_ownership_tests {
+    use super::*;
+
+    #[test]
+    fn reorder_and_remove_owned_modes_preserves_active_aliases_and_native_names() {
+        if std::env::var_os("I333_MODE_OWNER_PROBE").is_none() {
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "bindings::mode_ownership_tests::reorder_and_remove_owned_modes_preserves_active_aliases_and_native_names", "--nocapture"])
+                .env("I333_MODE_OWNER_PROBE", "1")
+                .env_remove("DISPLAY").env_remove("I3SOCK").env_remove("WAYLAND_DISPLAY")
+                .output().unwrap();
+            assert!(
+                output.status.success(),
+                "{}\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            return;
+        }
+        unsafe {
+            assert!(modes.slh_first.is_null());
+            let name = std::ffi::CString::new(vec![0xff, b'm']).unwrap();
+            let mode = mode_from_name(name.as_ptr(), true);
+            assert_eq!(mode_from_name(name.as_ptr(), false), mode);
+            assert!((*mode).pango_markup);
+            let first = configure_binding(
+                c"bindcode".as_ptr(),
+                c"".as_ptr(),
+                c"42".as_ptr(),
+                std::ptr::null(),
+                std::ptr::null(),
+                std::ptr::null(),
+                std::ptr::null(),
+                c"nop first".as_ptr(),
+                name.as_ptr(),
+                true,
+            );
+            let second = configure_binding(
+                c"bindcode".as_ptr(),
+                c"Mod4".as_ptr(),
+                c"42".as_ptr(),
+                std::ptr::null(),
+                std::ptr::null(),
+                std::ptr::null(),
+                std::ptr::null(),
+                c"nop second".as_ptr(),
+                name.as_ptr(),
+                true,
+            );
+            bindings = (*mode).bindings_ptr();
+            current_binding_mode = (*mode).name.as_ptr();
+            reorder_bindings();
+            assert_eq!(bindings, (*mode).bindings_ptr());
+            assert_eq!((*bindings).tqh_first, second);
+            assert_eq!((*second).bindings.tqe_prev, &raw mut (*bindings).tqh_first);
+            assert_eq!((*second).bindings.tqe_next, first);
+            assert_eq!(
+                (*first).bindings.tqe_prev,
+                &raw mut (*second).bindings.tqe_next
+            );
+            assert_eq!((*bindings).tqh_last, &raw mut (*first).bindings.tqe_next);
+            let retained_name = (*mode).name.clone();
+            remove_first_mode();
+            assert!(modes.slh_first.is_null());
+            assert!(bindings.is_null());
+            assert_eq!(std::ffi::CStr::from_ptr(current_binding_mode), c"default");
+            assert_eq!(retained_name.as_bytes(), &[0xff, b'm']);
+            let empty_mode = mode_from_name(c"".as_ptr(), false);
+            assert!((*empty_mode).name.as_bytes().is_empty());
+            assert_eq!(
+                (*(*empty_mode).bindings.as_ptr()).tqh_last,
+                &raw mut (*(*empty_mode).bindings.as_ptr()).tqh_first
+            );
+            remove_first_mode();
+            remove_first_mode();
+        }
     }
 }

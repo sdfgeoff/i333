@@ -622,32 +622,7 @@ unsafe fn free_configuration() {
     switch_mode(c"default".as_ptr());
     ungrab_all_keys();
     while !modes.slh_first.is_null() {
-        let mut mode: *mut Mode = modes.slh_first;
-        free((*mode).name as *mut ::core::ffi::c_void);
-        (*mode).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        while !(*(*mode).bindings).tqh_first.is_null() {
-            let bind: *mut Binding = (*(*mode).bindings).tqh_first;
-            if !(*bind).bindings.tqe_next.is_null() {
-                (*(*bind).bindings.tqe_next).bindings.tqe_prev = (*bind).bindings.tqe_prev;
-            } else {
-                (*(*mode).bindings).tqh_last = (*bind).bindings.tqe_prev;
-            }
-            *(*bind).bindings.tqe_prev = (*bind).bindings.tqe_next;
-            binding_free(bind);
-        }
-        free((*mode).bindings as *mut ::core::ffi::c_void);
-        (*mode).bindings = ::core::ptr::null_mut::<bindings_head>();
-        if modes.slh_first == mode {
-            modes.slh_first = (*modes.slh_first).modes.sle_next;
-        } else {
-            let mut curelm: *mut Mode = modes.slh_first;
-            while (*curelm).modes.sle_next != mode {
-                curelm = (*curelm).modes.sle_next;
-            }
-            (*curelm).modes.sle_next = (*(*curelm).modes.sle_next).modes.sle_next;
-        }
-        free(mode as *mut ::core::ffi::c_void);
-        mode = ::core::ptr::null_mut::<Mode>();
+        crate::bindings::remove_first_mode();
     }
     while !assignments.tqh_first.is_null() {
         let mut assign: *mut Assignment = assignments.tqh_first;
@@ -736,17 +711,11 @@ pub unsafe fn load_configuration(
         free_configuration();
     }
     modes.slh_first = ::core::ptr::null_mut::<Mode>();
-    let default_mode: *mut Mode =
-        scalloc(1_usize, ::core::mem::size_of::<Mode>() as usize) as *mut Mode;
-    (*default_mode).name = sstrdup(c"default".as_ptr());
-    (*default_mode).bindings =
-        scalloc(1_usize, ::core::mem::size_of::<bindings_head>() as usize) as *mut bindings_head;
-    (*(*default_mode).bindings).tqh_first = ::core::ptr::null_mut::<Binding>();
-    (*(*default_mode).bindings).tqh_last = &raw mut (*(*default_mode).bindings).tqh_first;
+    let default_mode = Box::into_raw(Box::new(Mode::new(c"default".to_owned(), false)));
     (*default_mode).modes.sle_next = modes.slh_first;
     modes.slh_first = default_mode;
-    bindings = (*default_mode).bindings;
-    current_binding_mode = (*default_mode).name;
+    bindings = (*default_mode).bindings_ptr();
+    current_binding_mode = (*default_mode).name.as_ptr();
     config = empty_config();
     {
         let screen = crate::application::root_display_opt();

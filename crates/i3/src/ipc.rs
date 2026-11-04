@@ -1321,7 +1321,7 @@ unsafe fn handle_get_binding_modes(
     let mut names = Vec::new();
     let mut mode = modes.slh_first;
     while !mode.is_null() {
-        names.push(native_text((*mode).name));
+        names.push(messages::NativeText::cstr(&(*mode).name));
         mode = (*mode).modes.sle_next;
     }
     send_typed_reply(client, I3_IPC_REPLY_TYPE_BINDING_MODES as u32, &names);

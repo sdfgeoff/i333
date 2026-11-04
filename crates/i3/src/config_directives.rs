@@ -514,7 +514,7 @@ pub unsafe fn cfg_enter_mode(
     let mut mode: *mut Mode = ::core::ptr::null_mut::<Mode>();
     mode = modes.slh_first;
     while !mode.is_null() {
-        if strcmp((*mode).name, modename) == 0 as ::core::ffi::c_int {
+        if strcmp((*mode).name.as_ptr(), modename) == 0 as ::core::ffi::c_int {
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
                 let log_pointer_1 = modename;
@@ -583,10 +583,10 @@ pub unsafe fn cfg_exec(
     no_startup_id: *const ::core::ffi::c_char,
     command: *const ::core::ffi::c_char,
 ) {
-    let new: *mut Autostart =
-        smalloc(::core::mem::size_of::<Autostart>() as usize) as *mut Autostart;
-    (*new).command = sstrdup(command);
-    (*new).no_startup_id = !no_startup_id.is_null();
+    let new = Box::into_raw(Box::new(Autostart::new(
+        std::ffi::CStr::from_ptr(command).to_owned(),
+        !no_startup_id.is_null(),
+    )));
     if strcmp(exectype, c"exec".as_ptr()) == 0 as ::core::ffi::c_int {
         (*new).autostarts.tqe_next = ::core::ptr::null_mut::<Autostart>();
         (*new).autostarts.tqe_prev = autostarts.tqh_last;
