@@ -1344,9 +1344,7 @@ pub unsafe fn cfg_bar_font(
     result: *mut ConfigResultIR,
     font: *const ::core::ffi::c_char,
 ) {
-    free((*current_bar).font as *mut ::core::ffi::c_void);
-    (*current_bar).font = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    (*current_bar).font = sstrdup(font);
+    (*current_bar).font = Some(std::ffi::CStr::from_ptr(font).to_owned());
 }
 
 pub unsafe fn cfg_bar_separator_symbol(
@@ -1354,9 +1352,7 @@ pub unsafe fn cfg_bar_separator_symbol(
     result: *mut ConfigResultIR,
     separator: *const ::core::ffi::c_char,
 ) {
-    free((*current_bar).separator_symbol as *mut ::core::ffi::c_void);
-    (*current_bar).separator_symbol = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    (*current_bar).separator_symbol = sstrdup(separator);
+    (*current_bar).separator_symbol = Some(std::ffi::CStr::from_ptr(separator).to_owned());
 }
 
 pub unsafe fn cfg_bar_mode(
@@ -1393,7 +1389,7 @@ pub unsafe fn cfg_bar_id(
     result: *mut ConfigResultIR,
     bar_id: *const ::core::ffi::c_char,
 ) {
-    (*current_bar).id = sstrdup(bar_id);
+    (*current_bar).id = Some(std::ffi::CStr::from_ptr(bar_id).to_owned());
 }
 
 pub unsafe fn cfg_bar_output(
@@ -1401,17 +1397,9 @@ pub unsafe fn cfg_bar_output(
     result: *mut ConfigResultIR,
     output: *const ::core::ffi::c_char,
 ) {
-    let new_outputs: ::core::ffi::c_int = (*current_bar).num_outputs + 1 as ::core::ffi::c_int;
-    (*current_bar).outputs = srealloc(
-        (*current_bar).outputs as *mut ::core::ffi::c_void,
-        (::core::mem::size_of::<*mut ::core::ffi::c_char>() as usize)
-            .wrapping_mul(new_outputs as usize),
-    ) as *mut *mut ::core::ffi::c_char;
-    let ref mut fresh0 = *(*current_bar)
+    (*current_bar)
         .outputs
-        .offset((*current_bar).num_outputs as isize);
-    *fresh0 = sstrdup(output);
-    (*current_bar).num_outputs = new_outputs;
+        .push(std::ffi::CStr::from_ptr(output).to_owned());
 }
 
 pub unsafe fn cfg_bar_verbose(
@@ -1627,9 +1615,7 @@ pub unsafe fn cfg_bar_i3bar_command(
     result: *mut ConfigResultIR,
     i3bar_command: *const ::core::ffi::c_char,
 ) {
-    free((*current_bar).i3bar_command as *mut ::core::ffi::c_void);
-    (*current_bar).i3bar_command = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    (*current_bar).i3bar_command = sstrdup(i3bar_command);
+    (*current_bar).i3bar_command = Some(std::ffi::CStr::from_ptr(i3bar_command).to_owned());
 }
 
 pub unsafe fn cfg_bar_color(
@@ -1642,52 +1628,77 @@ pub unsafe fn cfg_bar_color(
 ) {
     if strcmp(colorclass, c"focused_workspace".as_ptr()) == 0 as ::core::ffi::c_int {
         if !text.is_null() {
-            (*current_bar).colors.focused_workspace_border = sstrdup(border);
-            (*current_bar).colors.focused_workspace_bg = sstrdup(background);
-            (*current_bar).colors.focused_workspace_text = sstrdup(text);
+            (*current_bar).colors.focused_workspace_border =
+                Some(std::ffi::CStr::from_ptr(border).to_owned());
+            (*current_bar).colors.focused_workspace_bg =
+                Some(std::ffi::CStr::from_ptr(background).to_owned());
+            (*current_bar).colors.focused_workspace_text =
+                Some(std::ffi::CStr::from_ptr(text).to_owned());
         } else {
-            (*current_bar).colors.focused_workspace_bg = sstrdup(background);
-            (*current_bar).colors.focused_workspace_text = sstrdup(border);
+            (*current_bar).colors.focused_workspace_bg =
+                Some(std::ffi::CStr::from_ptr(background).to_owned());
+            (*current_bar).colors.focused_workspace_text =
+                Some(std::ffi::CStr::from_ptr(border).to_owned());
         }
     }
     if strcmp(colorclass, c"active_workspace".as_ptr()) == 0 as ::core::ffi::c_int {
         if !text.is_null() {
-            (*current_bar).colors.active_workspace_border = sstrdup(border);
-            (*current_bar).colors.active_workspace_bg = sstrdup(background);
-            (*current_bar).colors.active_workspace_text = sstrdup(text);
+            (*current_bar).colors.active_workspace_border =
+                Some(std::ffi::CStr::from_ptr(border).to_owned());
+            (*current_bar).colors.active_workspace_bg =
+                Some(std::ffi::CStr::from_ptr(background).to_owned());
+            (*current_bar).colors.active_workspace_text =
+                Some(std::ffi::CStr::from_ptr(text).to_owned());
         } else {
-            (*current_bar).colors.active_workspace_bg = sstrdup(background);
-            (*current_bar).colors.active_workspace_text = sstrdup(border);
+            (*current_bar).colors.active_workspace_bg =
+                Some(std::ffi::CStr::from_ptr(background).to_owned());
+            (*current_bar).colors.active_workspace_text =
+                Some(std::ffi::CStr::from_ptr(border).to_owned());
         }
     }
     if strcmp(colorclass, c"inactive_workspace".as_ptr()) == 0 as ::core::ffi::c_int {
         if !text.is_null() {
-            (*current_bar).colors.inactive_workspace_border = sstrdup(border);
-            (*current_bar).colors.inactive_workspace_bg = sstrdup(background);
-            (*current_bar).colors.inactive_workspace_text = sstrdup(text);
+            (*current_bar).colors.inactive_workspace_border =
+                Some(std::ffi::CStr::from_ptr(border).to_owned());
+            (*current_bar).colors.inactive_workspace_bg =
+                Some(std::ffi::CStr::from_ptr(background).to_owned());
+            (*current_bar).colors.inactive_workspace_text =
+                Some(std::ffi::CStr::from_ptr(text).to_owned());
         } else {
-            (*current_bar).colors.inactive_workspace_bg = sstrdup(background);
-            (*current_bar).colors.inactive_workspace_text = sstrdup(border);
+            (*current_bar).colors.inactive_workspace_bg =
+                Some(std::ffi::CStr::from_ptr(background).to_owned());
+            (*current_bar).colors.inactive_workspace_text =
+                Some(std::ffi::CStr::from_ptr(border).to_owned());
         }
     }
     if strcmp(colorclass, c"urgent_workspace".as_ptr()) == 0 as ::core::ffi::c_int {
         if !text.is_null() {
-            (*current_bar).colors.urgent_workspace_border = sstrdup(border);
-            (*current_bar).colors.urgent_workspace_bg = sstrdup(background);
-            (*current_bar).colors.urgent_workspace_text = sstrdup(text);
+            (*current_bar).colors.urgent_workspace_border =
+                Some(std::ffi::CStr::from_ptr(border).to_owned());
+            (*current_bar).colors.urgent_workspace_bg =
+                Some(std::ffi::CStr::from_ptr(background).to_owned());
+            (*current_bar).colors.urgent_workspace_text =
+                Some(std::ffi::CStr::from_ptr(text).to_owned());
         } else {
-            (*current_bar).colors.urgent_workspace_bg = sstrdup(background);
-            (*current_bar).colors.urgent_workspace_text = sstrdup(border);
+            (*current_bar).colors.urgent_workspace_bg =
+                Some(std::ffi::CStr::from_ptr(background).to_owned());
+            (*current_bar).colors.urgent_workspace_text =
+                Some(std::ffi::CStr::from_ptr(border).to_owned());
         }
     }
     if strcmp(colorclass, c"binding_mode".as_ptr()) == 0 as ::core::ffi::c_int {
         if !text.is_null() {
-            (*current_bar).colors.binding_mode_border = sstrdup(border);
-            (*current_bar).colors.binding_mode_bg = sstrdup(background);
-            (*current_bar).colors.binding_mode_text = sstrdup(text);
+            (*current_bar).colors.binding_mode_border =
+                Some(std::ffi::CStr::from_ptr(border).to_owned());
+            (*current_bar).colors.binding_mode_bg =
+                Some(std::ffi::CStr::from_ptr(background).to_owned());
+            (*current_bar).colors.binding_mode_text =
+                Some(std::ffi::CStr::from_ptr(text).to_owned());
         } else {
-            (*current_bar).colors.binding_mode_bg = sstrdup(background);
-            (*current_bar).colors.binding_mode_text = sstrdup(border);
+            (*current_bar).colors.binding_mode_bg =
+                Some(std::ffi::CStr::from_ptr(background).to_owned());
+            (*current_bar).colors.binding_mode_text =
+                Some(std::ffi::CStr::from_ptr(border).to_owned());
         }
     }
 }
@@ -1697,9 +1708,7 @@ pub unsafe fn cfg_bar_socket_path(
     result: *mut ConfigResultIR,
     socket_path: *const ::core::ffi::c_char,
 ) {
-    free((*current_bar).socket_path as *mut ::core::ffi::c_void);
-    (*current_bar).socket_path = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    (*current_bar).socket_path = sstrdup(socket_path);
+    (*current_bar).socket_path = Some(std::ffi::CStr::from_ptr(socket_path).to_owned());
 }
 
 pub unsafe fn cfg_bar_tray_output(
@@ -1731,17 +1740,17 @@ pub unsafe fn cfg_bar_color_single(
     color: *const ::core::ffi::c_char,
 ) {
     if strcmp(colorclass, c"background".as_ptr()) == 0 as ::core::ffi::c_int {
-        (*current_bar).colors.background = sstrdup(color);
+        (*current_bar).colors.background = Some(std::ffi::CStr::from_ptr(color).to_owned());
     } else if strcmp(colorclass, c"separator".as_ptr()) == 0 as ::core::ffi::c_int {
-        (*current_bar).colors.separator = sstrdup(color);
+        (*current_bar).colors.separator = Some(std::ffi::CStr::from_ptr(color).to_owned());
     } else if strcmp(colorclass, c"statusline".as_ptr()) == 0 as ::core::ffi::c_int {
-        (*current_bar).colors.statusline = sstrdup(color);
+        (*current_bar).colors.statusline = Some(std::ffi::CStr::from_ptr(color).to_owned());
     } else if strcmp(colorclass, c"focused_background".as_ptr()) == 0 as ::core::ffi::c_int {
-        (*current_bar).colors.focused_background = sstrdup(color);
+        (*current_bar).colors.focused_background = Some(std::ffi::CStr::from_ptr(color).to_owned());
     } else if strcmp(colorclass, c"focused_separator".as_ptr()) == 0 as ::core::ffi::c_int {
-        (*current_bar).colors.focused_separator = sstrdup(color);
+        (*current_bar).colors.focused_separator = Some(std::ffi::CStr::from_ptr(color).to_owned());
     } else {
-        (*current_bar).colors.focused_statusline = sstrdup(color);
+        (*current_bar).colors.focused_statusline = Some(std::ffi::CStr::from_ptr(color).to_owned());
     };
 }
 
@@ -1750,9 +1759,7 @@ pub unsafe fn cfg_bar_status_command(
     result: *mut ConfigResultIR,
     command: *const ::core::ffi::c_char,
 ) {
-    free((*current_bar).status_command as *mut ::core::ffi::c_void);
-    (*current_bar).status_command = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    (*current_bar).status_command = sstrdup(command);
+    (*current_bar).status_command = Some(std::ffi::CStr::from_ptr(command).to_owned());
 }
 
 pub unsafe fn cfg_bar_workspace_command(
@@ -1760,9 +1767,7 @@ pub unsafe fn cfg_bar_workspace_command(
     result: *mut ConfigResultIR,
     command: *const ::core::ffi::c_char,
 ) {
-    free((*current_bar).workspace_command as *mut ::core::ffi::c_void);
-    (*current_bar).workspace_command = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    (*current_bar).workspace_command = sstrdup(command);
+    (*current_bar).workspace_command = Some(std::ffi::CStr::from_ptr(command).to_owned());
 }
 
 pub unsafe fn cfg_bar_binding_mode_indicator(
@@ -1806,8 +1811,7 @@ pub unsafe fn cfg_bar_strip_workspace_name(
 }
 
 pub unsafe fn cfg_bar_start(current_match: *mut Match, result: *mut ConfigResultIR) {
-    current_bar =
-        scalloc(1 as usize, ::core::mem::size_of::<Barconfig>() as usize) as *mut Barconfig;
+    current_bar = Box::into_raw(Box::new(Barconfig::default()));
     (*current_bar).bar_bindings.tqh_first = ::core::ptr::null_mut::<Barbinding>();
     (*current_bar).bar_bindings.tqh_last =
         &raw mut (*current_bar).bar_bindings.tqh_first as *mut *mut Barbinding;
@@ -1827,12 +1831,9 @@ pub unsafe fn cfg_bar_finish(current_match: *mut Match, result: *mut ConfigResul
         c"cfg_bar_finish".as_ptr(),
         959 as ::core::ffi::c_int,
     );
-    if (*current_bar).id.is_null() {
-        sasprintf(
-            &raw mut (*current_bar).id,
-            c"bar-%d".as_ptr(),
-            config.number_barconfigs,
-        );
+    if (*current_bar).id.is_none() {
+        (*current_bar).id =
+            Some(std::ffi::CString::new(format!("bar-{}", config.number_barconfigs)).unwrap());
     }
     config.number_barconfigs += 1;
     (*current_bar).configs.tqe_next = ::core::ptr::null_mut::<Barconfig>();

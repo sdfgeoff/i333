@@ -592,6 +592,9 @@ fn gap_values(gaps: gaps_t) -> messages::Gaps {
         left: gaps.left as i64,
     }
 }
+fn owned_optional_text(value: Option<&CStr>) -> messages::Omitted<messages::NativeText> {
+    messages::Omitted(value.map(messages::NativeText::cstr))
+}
 unsafe fn optional_text(value: *const libc::c_char) -> messages::Omitted<messages::NativeText> {
     messages::Omitted((!value.is_null()).then(|| native_text(value)))
 }
@@ -992,7 +995,7 @@ unsafe fn dump_node_stream(
     let _ = output.end_object();
 }
 
-unsafe fn canonicalize_output_name(name: *mut ::core::ffi::c_char) -> *mut ::core::ffi::c_char {
+unsafe fn canonicalize_output_name(name: *const ::core::ffi::c_char) -> *const ::core::ffi::c_char {
     if strcasecmp(name, c"primary".as_ptr()) == 0 as ::core::ffi::c_int
         || strcasecmp(name, c"nonprimary".as_ptr()) == 0 as ::core::ffi::c_int
     {
@@ -1008,10 +1011,8 @@ unsafe fn canonicalize_output_name(name: *mut ::core::ffi::c_char) -> *mut ::cor
 unsafe fn snapshot_bar_config(config: *mut Barconfig) -> messages::BarConfig {
     use messages::Omitted;
     let mut configured_outputs = Vec::new();
-    for index in 0..(*config).num_outputs.max(0) {
-        configured_outputs.push(native_text(canonicalize_output_name(
-            *(*config).outputs.add(index as usize),
-        )));
+    for output in &(*config).outputs {
+        configured_outputs.push(native_text(canonicalize_output_name(output.as_ptr())));
     }
     let mut trays = Vec::new();
     let mut tray = (*config).tray_outputs.tqh_first;
@@ -1030,34 +1031,52 @@ unsafe fn snapshot_bar_config(config: *mut Barconfig) -> messages::BarConfig {
         binding = (*binding).bindings.tqe_next;
     }
     let colors = messages::BarColors {
-        background: optional_text((*config).colors.background),
-        statusline: optional_text((*config).colors.statusline),
-        separator: optional_text((*config).colors.separator),
-        focused_background: optional_text((*config).colors.focused_background),
-        focused_statusline: optional_text((*config).colors.focused_statusline),
-        focused_separator: optional_text((*config).colors.focused_separator),
-        focused_workspace_border: optional_text((*config).colors.focused_workspace_border),
-        focused_workspace_bg: optional_text((*config).colors.focused_workspace_bg),
-        focused_workspace_text: optional_text((*config).colors.focused_workspace_text),
-        active_workspace_border: optional_text((*config).colors.active_workspace_border),
-        active_workspace_bg: optional_text((*config).colors.active_workspace_bg),
-        active_workspace_text: optional_text((*config).colors.active_workspace_text),
-        inactive_workspace_border: optional_text((*config).colors.inactive_workspace_border),
-        inactive_workspace_bg: optional_text((*config).colors.inactive_workspace_bg),
-        inactive_workspace_text: optional_text((*config).colors.inactive_workspace_text),
-        urgent_workspace_border: optional_text((*config).colors.urgent_workspace_border),
-        urgent_workspace_bg: optional_text((*config).colors.urgent_workspace_bg),
-        urgent_workspace_text: optional_text((*config).colors.urgent_workspace_text),
-        binding_mode_border: optional_text((*config).colors.binding_mode_border),
-        binding_mode_bg: optional_text((*config).colors.binding_mode_bg),
-        binding_mode_text: optional_text((*config).colors.binding_mode_text),
+        background: owned_optional_text((*config).colors.background.as_deref()),
+        statusline: owned_optional_text((*config).colors.statusline.as_deref()),
+        separator: owned_optional_text((*config).colors.separator.as_deref()),
+        focused_background: owned_optional_text((*config).colors.focused_background.as_deref()),
+        focused_statusline: owned_optional_text((*config).colors.focused_statusline.as_deref()),
+        focused_separator: owned_optional_text((*config).colors.focused_separator.as_deref()),
+        focused_workspace_border: owned_optional_text(
+            (*config).colors.focused_workspace_border.as_deref(),
+        ),
+        focused_workspace_bg: owned_optional_text((*config).colors.focused_workspace_bg.as_deref()),
+        focused_workspace_text: owned_optional_text(
+            (*config).colors.focused_workspace_text.as_deref(),
+        ),
+        active_workspace_border: owned_optional_text(
+            (*config).colors.active_workspace_border.as_deref(),
+        ),
+        active_workspace_bg: owned_optional_text((*config).colors.active_workspace_bg.as_deref()),
+        active_workspace_text: owned_optional_text(
+            (*config).colors.active_workspace_text.as_deref(),
+        ),
+        inactive_workspace_border: owned_optional_text(
+            (*config).colors.inactive_workspace_border.as_deref(),
+        ),
+        inactive_workspace_bg: owned_optional_text(
+            (*config).colors.inactive_workspace_bg.as_deref(),
+        ),
+        inactive_workspace_text: owned_optional_text(
+            (*config).colors.inactive_workspace_text.as_deref(),
+        ),
+        urgent_workspace_border: owned_optional_text(
+            (*config).colors.urgent_workspace_border.as_deref(),
+        ),
+        urgent_workspace_bg: owned_optional_text((*config).colors.urgent_workspace_bg.as_deref()),
+        urgent_workspace_text: owned_optional_text(
+            (*config).colors.urgent_workspace_text.as_deref(),
+        ),
+        binding_mode_border: owned_optional_text((*config).colors.binding_mode_border.as_deref()),
+        binding_mode_bg: owned_optional_text((*config).colors.binding_mode_bg.as_deref()),
+        binding_mode_text: owned_optional_text((*config).colors.binding_mode_text.as_deref()),
     };
     messages::BarConfig {
-        id: native_text((*config).id),
-        outputs: Omitted(((*config).num_outputs > 0).then_some(configured_outputs)),
+        id: messages::NativeText::cstr((*config).id()),
+        outputs: Omitted((!(*config).outputs.is_empty()).then_some(configured_outputs)),
         tray_outputs: Omitted((!trays.is_empty()).then_some(trays)),
         tray_padding: (*config).tray_padding as i64,
-        socket_path: optional_text((*config).socket_path),
+        socket_path: owned_optional_text((*config).socket_path.as_deref()),
         mode: match (*config).mode as u32 {
             1 => "hide",
             2 => "invisible",
@@ -1074,12 +1093,12 @@ unsafe fn snapshot_bar_config(config: *mut Barconfig) -> messages::BarConfig {
         } else {
             "top"
         },
-        status_command: optional_text((*config).status_command),
-        workspace_command: optional_text((*config).workspace_command),
-        font: optional_text((*config).font),
+        status_command: owned_optional_text((*config).status_command.as_deref()),
+        workspace_command: owned_optional_text((*config).workspace_command.as_deref()),
+        font: owned_optional_text((*config).font.as_deref()),
         bar_height: Omitted(((*config).bar_height != 0).then_some((*config).bar_height as i64)),
         padding: signed_rect((*config).padding),
-        separator_symbol: optional_text((*config).separator_symbol),
+        separator_symbol: owned_optional_text((*config).separator_symbol.as_deref()),
         workspace_buttons: !(*config).hide_workspace_buttons,
         workspace_min_width: (*config).workspace_min_width as i64,
         strip_workspace_numbers: (*config).strip_workspace_numbers,
@@ -1223,7 +1242,7 @@ unsafe fn handle_get_bar_config(
         let mut names = Vec::new();
         let mut current = barconfigs.tqh_first;
         while !current.is_null() {
-            names.push(native_text((*current).id));
+            names.push(messages::NativeText::cstr((*current).id()));
             current = (*current).configs.tqe_next;
         }
         send_typed_reply(client, I3_IPC_REPLY_TYPE_BAR_CONFIG as u32, &names);
@@ -1242,7 +1261,7 @@ unsafe fn handle_get_bar_config(
     let mut config: *mut Barconfig = ::core::ptr::null_mut::<Barconfig>();
     current_0 = barconfigs.tqh_first as *mut Barconfig;
     while !current_0.is_null() {
-        if strcmp((*current_0).id, bar_id) != 0 as ::core::ffi::c_int {
+        if strcmp((*current_0).id().as_ptr(), bar_id) != 0 as ::core::ffi::c_int {
             current_0 = (*current_0).configs.tqe_next as *mut Barconfig;
         } else {
             config = current_0;
@@ -1818,7 +1837,7 @@ pub unsafe fn ipc_send_barconfig_update_event(barconfig: *mut Barconfig) {
         c"../src/ipc.c".as_ptr(),
         c"ipc_send_barconfig_update_event".as_ptr(),
         1674 as ::core::ffi::c_int,
-        (*barconfig).id,
+        (*barconfig).id().as_ptr(),
     );
     let locale = NumericLocale::c();
     let payload = snapshot_bar_config(barconfig).to_bytes();

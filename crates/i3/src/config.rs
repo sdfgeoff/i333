@@ -594,13 +594,6 @@ unsafe fn free_configuration() {
     }
     while !barconfigs.tqh_first.is_null() {
         let mut barconfig: *mut Barconfig = barconfigs.tqh_first as *mut Barconfig;
-        free((*barconfig).id as *mut ::core::ffi::c_void);
-        (*barconfig).id = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        let mut c: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-        while c < (*barconfig).num_outputs {
-            free(*(*barconfig).outputs.offset(c as isize) as *mut ::core::ffi::c_void);
-            c += 1;
-        }
         while !(*barconfig).bar_bindings.tqh_first.is_null() {
             let mut binding: *mut Barbinding =
                 (*barconfig).bar_bindings.tqh_first as *mut Barbinding;
@@ -631,72 +624,13 @@ unsafe fn free_configuration() {
             free(tray_output as *mut ::core::ffi::c_void);
             tray_output = ::core::ptr::null_mut::<tray_output_t>();
         }
-        free((*barconfig).outputs as *mut ::core::ffi::c_void);
-        (*barconfig).outputs = ::core::ptr::null_mut::<*mut ::core::ffi::c_char>();
-        free((*barconfig).socket_path as *mut ::core::ffi::c_void);
-        (*barconfig).socket_path = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        free((*barconfig).status_command as *mut ::core::ffi::c_void);
-        (*barconfig).status_command = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        free((*barconfig).workspace_command as *mut ::core::ffi::c_void);
-        (*barconfig).workspace_command = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        free((*barconfig).i3bar_command as *mut ::core::ffi::c_void);
-        (*barconfig).i3bar_command = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        free((*barconfig).font as *mut ::core::ffi::c_void);
-        (*barconfig).font = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        free((*barconfig).colors.background as *mut ::core::ffi::c_void);
-        (*barconfig).colors.background = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        free((*barconfig).colors.statusline as *mut ::core::ffi::c_void);
-        (*barconfig).colors.statusline = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        free((*barconfig).colors.separator as *mut ::core::ffi::c_void);
-        (*barconfig).colors.separator = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        free((*barconfig).colors.focused_background as *mut ::core::ffi::c_void);
-        (*barconfig).colors.focused_background = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        free((*barconfig).colors.focused_statusline as *mut ::core::ffi::c_void);
-        (*barconfig).colors.focused_statusline = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        free((*barconfig).colors.focused_separator as *mut ::core::ffi::c_void);
-        (*barconfig).colors.focused_separator = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        free((*barconfig).colors.focused_workspace_border as *mut ::core::ffi::c_void);
-        (*barconfig).colors.focused_workspace_border =
-            ::core::ptr::null_mut::<::core::ffi::c_char>();
-        free((*barconfig).colors.focused_workspace_bg as *mut ::core::ffi::c_void);
-        (*barconfig).colors.focused_workspace_bg = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        free((*barconfig).colors.focused_workspace_text as *mut ::core::ffi::c_void);
-        (*barconfig).colors.focused_workspace_text = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        free((*barconfig).colors.active_workspace_border as *mut ::core::ffi::c_void);
-        (*barconfig).colors.active_workspace_border =
-            ::core::ptr::null_mut::<::core::ffi::c_char>();
-        free((*barconfig).colors.active_workspace_bg as *mut ::core::ffi::c_void);
-        (*barconfig).colors.active_workspace_bg = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        free((*barconfig).colors.active_workspace_text as *mut ::core::ffi::c_void);
-        (*barconfig).colors.active_workspace_text = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        free((*barconfig).colors.inactive_workspace_border as *mut ::core::ffi::c_void);
-        (*barconfig).colors.inactive_workspace_border =
-            ::core::ptr::null_mut::<::core::ffi::c_char>();
-        free((*barconfig).colors.inactive_workspace_bg as *mut ::core::ffi::c_void);
-        (*barconfig).colors.inactive_workspace_bg = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        free((*barconfig).colors.inactive_workspace_text as *mut ::core::ffi::c_void);
-        (*barconfig).colors.inactive_workspace_text =
-            ::core::ptr::null_mut::<::core::ffi::c_char>();
-        free((*barconfig).colors.urgent_workspace_border as *mut ::core::ffi::c_void);
-        (*barconfig).colors.urgent_workspace_border =
-            ::core::ptr::null_mut::<::core::ffi::c_char>();
-        free((*barconfig).colors.urgent_workspace_bg as *mut ::core::ffi::c_void);
-        (*barconfig).colors.urgent_workspace_bg = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        free((*barconfig).colors.urgent_workspace_text as *mut ::core::ffi::c_void);
-        (*barconfig).colors.urgent_workspace_text = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        free((*barconfig).colors.binding_mode_border as *mut ::core::ffi::c_void);
-        (*barconfig).colors.binding_mode_border = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        free((*barconfig).colors.binding_mode_bg as *mut ::core::ffi::c_void);
-        (*barconfig).colors.binding_mode_bg = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        free((*barconfig).colors.binding_mode_text as *mut ::core::ffi::c_void);
-        (*barconfig).colors.binding_mode_text = ::core::ptr::null_mut::<::core::ffi::c_char>();
         if !(*barconfig).configs.tqe_next.is_null() {
             (*(*barconfig).configs.tqe_next).configs.tqe_prev = (*barconfig).configs.tqe_prev;
         } else {
             barconfigs.tqh_last = (*barconfig).configs.tqe_prev;
         }
         *(*barconfig).configs.tqe_prev = (*barconfig).configs.tqe_next;
-        free(barconfig as *mut ::core::ffi::c_void);
+        drop(Box::from_raw(barconfig));
         barconfig = ::core::ptr::null_mut::<Barconfig>();
     }
     for id in containers() {
@@ -898,9 +832,8 @@ pub unsafe fn load_configuration(
         let mut current: *mut Barconfig = ::core::ptr::null_mut::<Barconfig>();
         current = barconfigs.tqh_first as *mut Barconfig;
         while !current.is_null() {
-            if (*current).font.is_null() {
-                (*current).font =
-                    sstrdup(config.font.pattern().map_or(std::ptr::null(), CStr::as_ptr));
+            if (*current).font.is_none() {
+                (*current).font = config.font.pattern().map(CStr::to_owned);
             }
             current = (*current).configs.tqe_next as *mut Barconfig;
         }

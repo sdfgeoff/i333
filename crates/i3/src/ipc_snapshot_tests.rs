@@ -268,17 +268,15 @@ unsafe fn collect() -> BTreeMap<String, String> {
     }
     focused = std::ptr::null_mut();
     previous_workspace_name = std::ptr::null_mut();
-    // Barconfig remains a native-compatible POD; no owned Rust fields reside
-    // in its calloc-initialized representation.
-    let mut bar: Barconfig = std::mem::zeroed();
-    bar.id = c"bar0".as_ptr().cast_mut();
+    let mut bar = Barconfig::default();
+    bar.id = Some(c"bar0".to_owned());
     let bytes = snapshot_bar_config(&mut bar).to_bytes();
     result.insert("bar_sparse".into(), String::from_utf8(bytes).unwrap());
-    bar.socket_path = c"socket".as_ptr().cast_mut();
-    bar.status_command = c"status --flag".as_ptr().cast_mut();
-    bar.workspace_command = c"workspaces".as_ptr().cast_mut();
-    bar.font = c"pango:monospace 8".as_ptr().cast_mut();
-    bar.separator_symbol = c"|".as_ptr().cast_mut();
+    bar.socket_path = Some(c"socket".to_owned());
+    bar.status_command = Some(c"status --flag".to_owned());
+    bar.workspace_command = Some(c"workspaces".to_owned());
+    bar.font = Some(c"pango:monospace 8".to_owned());
+    bar.separator_symbol = Some(c"|".to_owned());
     bar.bar_height = 30;
     bar.padding = Rect {
         x: u32::MAX,
@@ -286,15 +284,10 @@ unsafe fn collect() -> BTreeMap<String, String> {
         width: 3,
         height: 4,
     };
-    bar.colors.background = c"#112233".as_ptr().cast_mut();
-    bar.colors.statusline = c"".as_ptr().cast_mut();
-    bar.colors.binding_mode_text = c"#abcdef".as_ptr().cast_mut();
-    let mut bar_outputs = [
-        c"PrImArY".as_ptr().cast_mut(),
-        c"nonprimary".as_ptr().cast_mut(),
-    ];
-    bar.outputs = bar_outputs.as_mut_ptr();
-    bar.num_outputs = 2;
+    bar.colors.background = Some(c"#112233".to_owned());
+    bar.colors.statusline = Some(c"".to_owned());
+    bar.colors.binding_mode_text = Some(c"#abcdef".to_owned());
+    bar.outputs = vec![c"PrImArY".to_owned(), c"nonprimary".to_owned()];
     let mut binding: Barbinding = std::mem::zeroed();
     binding.input_code = 1;
     binding.command = c"nop \"click\"".as_ptr().cast_mut();
@@ -305,7 +298,7 @@ unsafe fn collect() -> BTreeMap<String, String> {
     bar.tray_outputs.tqh_first = &mut tray;
     let bytes = snapshot_bar_config(&mut bar).to_bytes();
     result.insert("bar_full".into(), String::from_utf8(bytes).unwrap());
-    bar.socket_path = invalid.as_ptr().cast_mut();
+    bar.socket_path = Some(invalid.to_owned());
     let bytes = snapshot_bar_config(&mut bar).to_bytes();
     result.insert(
         "bar_invalid_socket".into(),

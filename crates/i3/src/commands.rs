@@ -4640,7 +4640,9 @@ pub unsafe fn cmd_bar_mode(
     let mut current: *mut Barconfig = ::core::ptr::null_mut::<Barconfig>();
     current = barconfigs.tqh_first as *mut Barconfig;
     while !current.is_null() {
-        if !(!bar_id.is_null() && strcmp((*current).id, bar_id) != 0 as ::core::ffi::c_int) {
+        if !(!bar_id.is_null()
+            && strcmp((*current).id().as_ptr(), bar_id) != 0 as ::core::ffi::c_int)
+        {
             if toggle {
                 mode = (*current).mode.toggled();
             }
@@ -4651,7 +4653,7 @@ pub unsafe fn cmd_bar_mode(
                 c"../src/commands.c".as_ptr(),
                 c"cmd_bar_mode".as_ptr(),
                 2239 as ::core::ffi::c_int,
-                (*current).id,
+                (*current).id().as_ptr(),
                 (*current).mode as ::core::ffi::c_uint,
                 bar_mode,
                 (mode) as u32,
@@ -4736,7 +4738,9 @@ pub unsafe fn cmd_bar_hidden_state(
     let mut current: *mut Barconfig = ::core::ptr::null_mut::<Barconfig>();
     current = barconfigs.tqh_first as *mut Barconfig;
     while !current.is_null() {
-        if !(!bar_id.is_null() && strcmp((*current).id, bar_id) != 0 as ::core::ffi::c_int) {
+        if !(!bar_id.is_null()
+            && strcmp((*current).id().as_ptr(), bar_id) != 0 as ::core::ffi::c_int)
+        {
             if toggle {
                 hidden_state = (*current).hidden_state.toggled();
             }
@@ -4747,7 +4751,7 @@ pub unsafe fn cmd_bar_hidden_state(
                 c"../src/commands.c".as_ptr(),
                 c"cmd_bar_hidden_state".as_ptr(),
                 2296 as ::core::ffi::c_int,
-                (*current).id,
+                (*current).id().as_ptr(),
                 (*current).hidden_state as ::core::ffi::c_uint,
                 bar_hidden_state,
                 (hidden_state) as u32,

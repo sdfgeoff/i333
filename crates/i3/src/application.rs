@@ -158,25 +158,22 @@ pub struct assignments_head {
 }
 pub type tiling_drag_t = TilingDrag;
 
-#[derive(Copy, Clone)]
-#[repr(C)]
 pub struct Barconfig {
-    pub id: *mut ::core::ffi::c_char,
-    pub num_outputs: ::core::ffi::c_int,
-    pub outputs: *mut *mut ::core::ffi::c_char,
+    pub id: Option<std::ffi::CString>,
+    pub outputs: Vec<std::ffi::CString>,
     pub tray_outputs: tray_outputs_head,
     pub tray_padding: ::core::ffi::c_int,
-    pub socket_path: *mut ::core::ffi::c_char,
+    pub socket_path: Option<std::ffi::CString>,
     pub mode: BarMode,
     pub hidden_state: BarHiddenState,
     pub modifier: u32,
     pub bar_bindings: bar_bindings_head,
     pub position: BarPosition,
-    pub i3bar_command: *mut ::core::ffi::c_char,
-    pub status_command: *mut ::core::ffi::c_char,
-    pub workspace_command: *mut ::core::ffi::c_char,
-    pub font: *mut ::core::ffi::c_char,
-    pub separator_symbol: *mut ::core::ffi::c_char,
+    pub i3bar_command: Option<std::ffi::CString>,
+    pub status_command: Option<std::ffi::CString>,
+    pub workspace_command: Option<std::ffi::CString>,
+    pub font: Option<std::ffi::CString>,
+    pub separator_symbol: Option<std::ffi::CString>,
     pub hide_workspace_buttons: bool,
     pub workspace_min_width: ::core::ffi::c_int,
     pub strip_workspace_numbers: bool,
@@ -188,36 +185,87 @@ pub struct Barconfig {
     pub colors: bar_colors,
     pub configs: BarConfigLinks,
 }
+impl Barconfig {
+    pub fn id(&self) -> &CStr {
+        self.id
+            .as_deref()
+            .expect("finished bar configuration has an ID")
+    }
+}
+impl Default for Barconfig {
+    fn default() -> Self {
+        Self {
+            id: None,
+            outputs: Vec::new(),
+            tray_outputs: tray_outputs_head {
+                tqh_first: std::ptr::null_mut(),
+                tqh_last: std::ptr::null_mut(),
+            },
+            tray_padding: 0,
+            socket_path: None,
+            mode: BarMode::Dock,
+            hidden_state: BarHiddenState::Hide,
+            modifier: 0,
+            bar_bindings: bar_bindings_head {
+                tqh_first: std::ptr::null_mut(),
+                tqh_last: std::ptr::null_mut(),
+            },
+            position: BarPosition::Bottom,
+            i3bar_command: None,
+            status_command: None,
+            workspace_command: None,
+            font: None,
+            separator_symbol: None,
+            hide_workspace_buttons: false,
+            workspace_min_width: 0,
+            strip_workspace_numbers: false,
+            strip_workspace_name: false,
+            hide_binding_mode_indicator: false,
+            verbose: false,
+            bar_height: 0,
+            padding: Rect {
+                x: 0,
+                y: 0,
+                width: 0,
+                height: 0,
+            },
+            colors: bar_colors::default(),
+            configs: BarConfigLinks {
+                tqe_next: std::ptr::null_mut(),
+                tqe_prev: std::ptr::null_mut(),
+            },
+        }
+    }
+}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct BarConfigLinks {
     pub tqe_next: *mut Barconfig,
     pub tqe_prev: *mut *mut Barconfig,
 }
-#[derive(Copy, Clone)]
-#[repr(C)]
+#[derive(Default)]
 pub struct bar_colors {
-    pub background: *mut ::core::ffi::c_char,
-    pub statusline: *mut ::core::ffi::c_char,
-    pub separator: *mut ::core::ffi::c_char,
-    pub focused_background: *mut ::core::ffi::c_char,
-    pub focused_statusline: *mut ::core::ffi::c_char,
-    pub focused_separator: *mut ::core::ffi::c_char,
-    pub focused_workspace_border: *mut ::core::ffi::c_char,
-    pub focused_workspace_bg: *mut ::core::ffi::c_char,
-    pub focused_workspace_text: *mut ::core::ffi::c_char,
-    pub active_workspace_border: *mut ::core::ffi::c_char,
-    pub active_workspace_bg: *mut ::core::ffi::c_char,
-    pub active_workspace_text: *mut ::core::ffi::c_char,
-    pub inactive_workspace_border: *mut ::core::ffi::c_char,
-    pub inactive_workspace_bg: *mut ::core::ffi::c_char,
-    pub inactive_workspace_text: *mut ::core::ffi::c_char,
-    pub urgent_workspace_border: *mut ::core::ffi::c_char,
-    pub urgent_workspace_bg: *mut ::core::ffi::c_char,
-    pub urgent_workspace_text: *mut ::core::ffi::c_char,
-    pub binding_mode_border: *mut ::core::ffi::c_char,
-    pub binding_mode_bg: *mut ::core::ffi::c_char,
-    pub binding_mode_text: *mut ::core::ffi::c_char,
+    pub background: Option<std::ffi::CString>,
+    pub statusline: Option<std::ffi::CString>,
+    pub separator: Option<std::ffi::CString>,
+    pub focused_background: Option<std::ffi::CString>,
+    pub focused_statusline: Option<std::ffi::CString>,
+    pub focused_separator: Option<std::ffi::CString>,
+    pub focused_workspace_border: Option<std::ffi::CString>,
+    pub focused_workspace_bg: Option<std::ffi::CString>,
+    pub focused_workspace_text: Option<std::ffi::CString>,
+    pub active_workspace_border: Option<std::ffi::CString>,
+    pub active_workspace_bg: Option<std::ffi::CString>,
+    pub active_workspace_text: Option<std::ffi::CString>,
+    pub inactive_workspace_border: Option<std::ffi::CString>,
+    pub inactive_workspace_bg: Option<std::ffi::CString>,
+    pub inactive_workspace_text: Option<std::ffi::CString>,
+    pub urgent_workspace_border: Option<std::ffi::CString>,
+    pub urgent_workspace_bg: Option<std::ffi::CString>,
+    pub urgent_workspace_text: Option<std::ffi::CString>,
+    pub binding_mode_border: Option<std::ffi::CString>,
+    pub binding_mode_bg: Option<std::ffi::CString>,
+    pub binding_mode_text: Option<std::ffi::CString>,
 }
 
 #[derive(Copy, Clone)]
@@ -2084,15 +2132,14 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     let mut barconfig: *mut Barconfig = ::core::ptr::null_mut::<Barconfig>();
     barconfig = barconfigs.tqh_first as *mut Barconfig;
     while !barconfig.is_null() {
-        let program = if (*barconfig).i3bar_command.is_null() {
-            c"exec i3bar"
-        } else {
-            CStr::from_ptr((*barconfig).i3bar_command)
-        };
+        let program = (*barconfig)
+            .i3bar_command
+            .as_deref()
+            .unwrap_or(c"exec i3bar");
         let command = bar_command(
             program,
             (*barconfig).verbose,
-            CStr::from_ptr((*barconfig).id),
+            (*barconfig).id(),
             CStr::from_ptr(current_socketpath),
         );
         verboselog(
