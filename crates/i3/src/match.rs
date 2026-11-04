@@ -72,7 +72,6 @@ fn compile_expression(pattern: &[u8]) -> Option<Regex> {
 use crate::regex::Regex;
 use i3_common::logging::{emit, emit_parts, Level};
 use i3_common::string::I3String;
-use std::ffi::{c_char, CStr};
 
 #[derive(Default, Clone, Copy)]
 struct TextProperties<'a> {
@@ -492,23 +491,31 @@ pub unsafe fn match_matches_window(raw_match: *mut Match, raw_window: *mut Windo
     true
 }
 
+/// Add a criterion from bounded parser bytes, preserving absent flag values.
+///
 /// # Safety
-/// Parser compatibility boundary over an exclusively borrowed owned Match.
-/// # Safety
-/// Match is exclusively borrowed; ctype is a live C string. cvalue is null only
-/// for flag criteria, otherwise a live C string. Global atom/focus state belongs
-/// to the calling event thread, and replaced expressions are uniquely owned.
-pub unsafe fn match_parse_property(
-    match_0: *mut Match,
-    ctype: *const ::core::ffi::c_char,
-    cvalue: *const ::core::ffi::c_char,
-) {
-    // SAFETY: this compatibility edge borrows the caller's live C arguments and
-    // exclusive Match/event-thread globals for the complete parse. Owned fields
-    // are replaced normally; no allocation ownership crosses the raw boundary.
+/// Match is initialized and exclusively accessible throughout this call. Parser
+/// grammar supplies Some for value-bearing criteria. Input owners remain live
+/// through callbacks; dispatchers snapshot parser storage before calling. Global
+/// atom/focus state belongs to this event thread.
+pub unsafe fn match_parse_property(match_0: *mut Match, ctype: &[u8], cvalue: Option<&[u8]>) {
+    // Dispatchers retain independent parser-input owners through callbacks.
+    let property_owner = ctype
+        .split(|&byte| byte == 0)
+        .next()
+        .unwrap_or_default()
+        .to_vec();
+    let value_owner = cvalue.map(|value| {
+        value
+            .split(|&byte| byte == 0)
+            .next()
+            .unwrap_or_default()
+            .to_vec()
+    });
+    // SAFETY: caller retains the initialized Match and exclusive event-thread
+    // graph. No mutable model reference spans diagnostic callbacks.
     unsafe {
-        if !match_0.is_null() {
-        } else {
+        if match_0.is_null() {
             __assert_fail(
                 c"match != NULL".as_ptr(),
                 c"../src/match.c".as_ptr(),
@@ -517,15 +524,13 @@ pub unsafe fn match_parse_property(
             );
         };
         {
-            let property = CStr::from_ptr(ctype).to_owned();
-            let value = cvalue
-                .as_ref()
-                .map(|value| CStr::from_ptr(value).to_owned());
-            let value_bytes = i3_common::logging::string_bytes(
-                (value.as_deref()).map(std::ffi::CStr::to_bytes),
-                None,
-            );
-            match (property.to_str(), std::str::from_utf8(value_bytes)) {
+            let property = property_owner.clone();
+            let value = value_owner.clone();
+            let value_bytes = i3_common::logging::string_bytes(value.as_deref(), None);
+            match (
+                std::str::from_utf8(&property),
+                std::str::from_utf8(value_bytes),
+            ) {
                 (Ok(property), Ok(value)) => ::log::debug!(
                     "../src/match.c:match_parse_property:297 - ctype=*{}*, cvalue=*{}*\n",
                     property,
@@ -535,7 +540,7 @@ pub unsafe fn match_parse_property(
                     Level::Debug,
                     &[
                         b"../src/match.c:match_parse_property:297 - ctype=*",
-                        property.to_bytes(),
+                        &property,
                         b"*, cvalue=*",
                         value_bytes,
                         b"*\n",
@@ -543,40 +548,41 @@ pub unsafe fn match_parse_property(
                 ),
             }
         };
-        let property = CStr::from_ptr(ctype).to_bytes();
+        let property = property_owner.as_slice();
+        let cvalue = value_owner.as_deref();
         if property == b"class" {
-            (*match_0).class = compile_expression(&CStr::from_ptr(cvalue).to_bytes().to_vec());
+            (*match_0).class =
+                compile_expression(cvalue.expect("value-bearing criterion requires a value"));
             return;
         }
         if property == b"instance" {
-            (*match_0).instance = compile_expression(&CStr::from_ptr(cvalue).to_bytes().to_vec());
+            (*match_0).instance =
+                compile_expression(cvalue.expect("value-bearing criterion requires a value"));
             return;
         }
         if property == b"window_role" {
             (*match_0).window_role =
-                compile_expression(&CStr::from_ptr(cvalue).to_bytes().to_vec());
+                compile_expression(cvalue.expect("value-bearing criterion requires a value"));
             return;
         }
         if property == b"con_id" {
-            if strcmp(cvalue, c"__focused__".as_ptr()) == 0_i32 {
+            if cvalue == Some(b"__focused__".as_slice()) {
                 (*match_0).con_id = global_focused;
                 return;
             }
-            match parse_long(CStr::from_ptr(cvalue).to_bytes(), 0) {
+            match parse_long(cvalue.expect("numeric criterion requires a value"), 0) {
                 Err(_) => {
                     {
-                        let value = CStr::from_ptr(cvalue).to_owned();
-                        match value.to_str() {
+                        let value = cvalue
+                            .expect("value-bearing criterion requires a value")
+                            .to_vec();
+                        match std::str::from_utf8(&value) {
                             Ok(value) => {
                                 ::log::error!("ERROR: Could not parse con id \"{}\"\n", value)
                             }
                             Err(_) => emit_parts(
                                 Level::Error,
-                                &[
-                                    b"ERROR: Could not parse con id \"",
-                                    value.to_bytes(),
-                                    b"\"\n",
-                                ],
+                                &[b"ERROR: Could not parse con id \"", &value, b"\"\n"],
                             ),
                         }
                     };
@@ -593,21 +599,19 @@ pub unsafe fn match_parse_property(
             return;
         }
         if property == b"id" {
-            match parse_long(CStr::from_ptr(cvalue).to_bytes(), 0) {
+            match parse_long(cvalue.expect("numeric criterion requires a value"), 0) {
                 Err(_) => {
                     {
-                        let value = CStr::from_ptr(cvalue).to_owned();
-                        match value.to_str() {
+                        let value = cvalue
+                            .expect("value-bearing criterion requires a value")
+                            .to_vec();
+                        match std::str::from_utf8(&value) {
                             Ok(value) => {
                                 ::log::error!("ERROR: Could not parse window id \"{}\"\n", value)
                             }
                             Err(_) => emit_parts(
                                 Level::Error,
-                                &[
-                                    b"ERROR: Could not parse window id \"",
-                                    value.to_bytes(),
-                                    b"\"\n",
-                                ],
+                                &[b"ERROR: Could not parse window id \"", &value, b"\"\n"],
                             ),
                         }
                     };
@@ -624,40 +628,68 @@ pub unsafe fn match_parse_property(
             return;
         }
         if property == b"window_type" {
-            if strcasecmp(cvalue, c"normal".as_ptr()) == 0_i32 {
+            if crate::util::text_eq_ignore_case(
+                cvalue.expect("value-bearing criterion requires a value"),
+                b"normal",
+            ) {
                 (*match_0).window_type = A__NET_WM_WINDOW_TYPE_NORMAL;
-            } else if strcasecmp(cvalue, c"dialog".as_ptr()) == 0_i32 {
+            } else if crate::util::text_eq_ignore_case(
+                cvalue.expect("value-bearing criterion requires a value"),
+                b"dialog",
+            ) {
                 (*match_0).window_type = A__NET_WM_WINDOW_TYPE_DIALOG;
-            } else if strcasecmp(cvalue, c"utility".as_ptr()) == 0_i32 {
+            } else if crate::util::text_eq_ignore_case(
+                cvalue.expect("value-bearing criterion requires a value"),
+                b"utility",
+            ) {
                 (*match_0).window_type = A__NET_WM_WINDOW_TYPE_UTILITY;
-            } else if strcasecmp(cvalue, c"toolbar".as_ptr()) == 0_i32 {
+            } else if crate::util::text_eq_ignore_case(
+                cvalue.expect("value-bearing criterion requires a value"),
+                b"toolbar",
+            ) {
                 (*match_0).window_type = A__NET_WM_WINDOW_TYPE_TOOLBAR;
-            } else if strcasecmp(cvalue, c"splash".as_ptr()) == 0_i32 {
+            } else if crate::util::text_eq_ignore_case(
+                cvalue.expect("value-bearing criterion requires a value"),
+                b"splash",
+            ) {
                 (*match_0).window_type = A__NET_WM_WINDOW_TYPE_SPLASH;
-            } else if strcasecmp(cvalue, c"menu".as_ptr()) == 0_i32 {
+            } else if crate::util::text_eq_ignore_case(
+                cvalue.expect("value-bearing criterion requires a value"),
+                b"menu",
+            ) {
                 (*match_0).window_type = A__NET_WM_WINDOW_TYPE_MENU;
-            } else if strcasecmp(cvalue, c"dropdown_menu".as_ptr()) == 0_i32 {
+            } else if crate::util::text_eq_ignore_case(
+                cvalue.expect("value-bearing criterion requires a value"),
+                b"dropdown_menu",
+            ) {
                 (*match_0).window_type = A__NET_WM_WINDOW_TYPE_DROPDOWN_MENU;
-            } else if strcasecmp(cvalue, c"popup_menu".as_ptr()) == 0_i32 {
+            } else if crate::util::text_eq_ignore_case(
+                cvalue.expect("value-bearing criterion requires a value"),
+                b"popup_menu",
+            ) {
                 (*match_0).window_type = A__NET_WM_WINDOW_TYPE_POPUP_MENU;
-            } else if strcasecmp(cvalue, c"tooltip".as_ptr()) == 0_i32 {
+            } else if crate::util::text_eq_ignore_case(
+                cvalue.expect("value-bearing criterion requires a value"),
+                b"tooltip",
+            ) {
                 (*match_0).window_type = A__NET_WM_WINDOW_TYPE_TOOLTIP;
-            } else if strcasecmp(cvalue, c"notification".as_ptr()) == 0_i32 {
+            } else if crate::util::text_eq_ignore_case(
+                cvalue.expect("value-bearing criterion requires a value"),
+                b"notification",
+            ) {
                 (*match_0).window_type = A__NET_WM_WINDOW_TYPE_NOTIFICATION;
             } else {
                 {
-                    let value = CStr::from_ptr(cvalue).to_owned();
-                    match value.to_str() {
+                    let value = cvalue
+                        .expect("value-bearing criterion requires a value")
+                        .to_vec();
+                    match std::str::from_utf8(&value) {
                         Ok(value) => {
                             ::log::error!("ERROR: unknown window_type value \"{}\"\n", value)
                         }
                         Err(_) => emit_parts(
                             Level::Error,
-                            &[
-                                b"ERROR: unknown window_type value \"",
-                                value.to_bytes(),
-                                b"\"\n",
-                            ],
+                            &[b"ERROR: unknown window_type value \"", &value, b"\"\n"],
                         ),
                     }
                 };
@@ -666,50 +698,60 @@ pub unsafe fn match_parse_property(
             return;
         }
         if property == b"con_mark" {
-            (*match_0).mark = compile_expression(&CStr::from_ptr(cvalue).to_bytes().to_vec());
+            (*match_0).mark =
+                compile_expression(cvalue.expect("value-bearing criterion requires a value"));
             return;
         }
         if property == b"title" {
-            (*match_0).title = compile_expression(&CStr::from_ptr(cvalue).to_bytes().to_vec());
+            (*match_0).title =
+                compile_expression(cvalue.expect("value-bearing criterion requires a value"));
             return;
         }
         if property == b"urgent" {
-            if strcasecmp(cvalue, c"latest".as_ptr()) == 0_i32
-                || strcasecmp(cvalue, c"newest".as_ptr()) == 0_i32
-                || strcasecmp(cvalue, c"recent".as_ptr()) == 0_i32
-                || strcasecmp(cvalue, c"last".as_ptr()) == 0_i32
-            {
+            if crate::util::text_eq_ignore_case(
+                cvalue.expect("value-bearing criterion requires a value"),
+                b"latest",
+            ) || crate::util::text_eq_ignore_case(
+                cvalue.expect("value-bearing criterion requires a value"),
+                b"newest",
+            ) || crate::util::text_eq_ignore_case(
+                cvalue.expect("value-bearing criterion requires a value"),
+                b"recent",
+            ) || crate::util::text_eq_ignore_case(
+                cvalue.expect("value-bearing criterion requires a value"),
+                b"last",
+            ) {
                 (*match_0).urgent = UrgencyMatch::Latest;
-            } else if strcasecmp(cvalue, c"oldest".as_ptr()) == 0_i32
-                || strcasecmp(cvalue, c"first".as_ptr()) == 0_i32
-            {
+            } else if crate::util::text_eq_ignore_case(
+                cvalue.expect("value-bearing criterion requires a value"),
+                b"oldest",
+            ) || crate::util::text_eq_ignore_case(
+                cvalue.expect("value-bearing criterion requires a value"),
+                b"first",
+            ) {
                 (*match_0).urgent = UrgencyMatch::Oldest;
             }
             return;
         }
         if property == b"workspace" {
-            (*match_0).workspace = compile_expression(&CStr::from_ptr(cvalue).to_bytes().to_vec());
+            (*match_0).workspace =
+                compile_expression(cvalue.expect("value-bearing criterion requires a value"));
             return;
         }
         if property == b"machine" {
-            (*match_0).machine = compile_expression(&CStr::from_ptr(cvalue).to_bytes().to_vec());
+            (*match_0).machine =
+                compile_expression(cvalue.expect("value-bearing criterion requires a value"));
             return;
         }
         if property == b"tiling" {
             (*match_0).window_mode = WindowMode::Tiling;
             return;
         }
-        if property == b"tiling_from"
-            && !cvalue.is_null()
-            && strcmp(cvalue, c"auto".as_ptr()) == 0_i32
-        {
+        if property == b"tiling_from" && cvalue == Some(b"auto".as_slice()) {
             (*match_0).window_mode = WindowMode::TilingAuto;
             return;
         }
-        if property == b"tiling_from"
-            && !cvalue.is_null()
-            && strcmp(cvalue, c"user".as_ptr()) == 0_i32
-        {
+        if property == b"tiling_from" && cvalue == Some(b"user".as_slice()) {
             (*match_0).window_mode = WindowMode::TilingUser;
             return;
         }
@@ -717,17 +759,11 @@ pub unsafe fn match_parse_property(
             (*match_0).window_mode = WindowMode::Floating;
             return;
         }
-        if property == b"floating_from"
-            && !cvalue.is_null()
-            && strcmp(cvalue, c"auto".as_ptr()) == 0_i32
-        {
+        if property == b"floating_from" && cvalue == Some(b"auto".as_slice()) {
             (*match_0).window_mode = WindowMode::FloatingAuto;
             return;
         }
-        if property == b"floating_from"
-            && !cvalue.is_null()
-            && strcmp(cvalue, c"user".as_ptr()) == 0_i32
-        {
+        if property == b"floating_from" && cvalue == Some(b"user".as_slice()) {
             (*match_0).window_mode = WindowMode::FloatingUser;
             return;
         }
@@ -736,12 +772,12 @@ pub unsafe fn match_parse_property(
             return;
         }
         {
-            let value = CStr::from_ptr(ctype).to_owned();
-            match value.to_str() {
+            let value = property.to_vec();
+            match std::str::from_utf8(&value) {
                 Ok(value) => ::log::error!("ERROR: Unknown criterion: {}\n", value),
                 Err(_) => emit_parts(
                     Level::Error,
-                    &[b"ERROR: Unknown criterion: ", value.to_bytes(), b"\n"],
+                    &[b"ERROR: Unknown criterion: ", &value, b"\n"],
                 ),
             }
         };
@@ -752,8 +788,6 @@ pub unsafe fn match_parse_property(
 use crate::util::parse_long;
 
 // Canonical Cairo backend ABI; renderer logic remains local.
-
-use libc::{strcasecmp, strcmp};
 
 use i3_common::native_stdio::__assert_fail;
 
@@ -984,18 +1018,18 @@ mod tests {
         }
         i3_common::logging::set_sink(capture);
         for (property, expected) in [
-            (c"tiling", WindowMode::Tiling),
-            (c"floating", WindowMode::Floating),
+            (b"tiling".as_slice(), WindowMode::Tiling),
+            (b"floating".as_slice(), WindowMode::Floating),
         ] {
             let mut parsed = empty_match();
             unsafe {
-                match_parse_property(&mut parsed, property.as_ptr(), std::ptr::null());
+                match_parse_property(&mut parsed, property, None);
             }
             assert_eq!(parsed.window_mode, expected);
         }
         let mut parsed = empty_match();
         unsafe {
-            match_parse_property(&mut parsed, c"all".as_ptr(), std::ptr::null());
+            match_parse_property(&mut parsed, b"all", None);
         }
         assert!(parsed.match_all_windows);
         assert_eq!(
@@ -1009,5 +1043,12 @@ mod tests {
                     .to_vec(),
             ]
         );
+        i3_common::logging::set_sink(i3_common::logging::stderr_sink);
+        unsafe {
+            match_parse_property(&mut parsed, b"class\0ignored", Some(b"^raw$\0ignored"));
+            assert_eq!(parsed.class.as_ref().unwrap().pattern_str(), "^raw$");
+            match_parse_property(&mut parsed, b"instance", Some(b""));
+            assert_eq!(parsed.instance.as_ref().unwrap().pattern_str(), "");
+        }
     }
 }

@@ -1,23 +1,22 @@
 //! Owned captures shared by the command and configuration parsers.
 #![deny(unsafe_op_in_unsafe_fn)]
-use std::ffi::{CStr, CString};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum Capture {
-    String(CString),
+    String(Vec<u8>),
     Long(i64),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Entry {
-    identifier: CString,
+    identifier: Vec<u8>,
     value: Capture,
 }
 
 /// Parser-local Rust storage. Construct normally; never calloc/memset this type.
-/// CString buffers keep callback arguments stable until that capture is changed
-/// or cleared. No borrowed parser input or identifier pointer escapes a push.
-#[derive(Debug, Default)]
+/// Captures own bounded bytes. Dispatchers snapshot values before callbacks;
+/// no borrowed parser input or identifier escapes a push.
+#[derive(Debug, Default, Clone)]
 pub struct ParserStack {
     entries: Vec<Entry>,
 }
@@ -27,17 +26,19 @@ impl ParserStack {
         self.entries.len() == 10
     }
 
-    fn push_string(&mut self, identifier: &CStr, value: &CStr) {
+    pub(crate) fn push_string(&mut self, identifier: &[u8], value: &[u8]) {
+        let identifier = first_nul(identifier);
+        let value = first_nul(value);
         if let Some(entry) = self
             .entries
             .iter_mut()
-            .find(|entry| entry.identifier.as_c_str() == identifier)
+            .find(|entry| entry.identifier == identifier)
         {
             if let Capture::String(previous) = &mut entry.value {
-                let mut joined = previous.as_bytes().to_vec();
+                let mut joined = previous.clone();
                 joined.push(b',');
-                joined.extend_from_slice(value.to_bytes());
-                *previous = CString::new(joined).expect("C string captures contain no NUL");
+                joined.extend_from_slice(value);
+                *previous = joined;
                 return;
             }
             // Generated grammar must never append a string to a numeric capture.
@@ -53,7 +54,8 @@ impl ParserStack {
         });
     }
 
-    fn push_long(&mut self, identifier: &CStr, value: i64) {
+    pub(crate) fn push_long(&mut self, identifier: &[u8], value: i64) {
+        let identifier = first_nul(identifier);
         if self.full() {
             full_stack();
         }
@@ -63,23 +65,25 @@ impl ParserStack {
         });
     }
 
-    pub(crate) fn get_string(&self, identifier: &CStr) -> Option<&CStr> {
+    pub(crate) fn get_string(&self, identifier: &[u8]) -> Option<&[u8]> {
+        let identifier = first_nul(identifier);
         self.entries
             .iter()
-            .find(|entry| entry.identifier.as_c_str() == identifier)
+            .find(|entry| entry.identifier == identifier)
             .and_then(|entry| {
                 if let Capture::String(value) = &entry.value {
-                    Some(value.as_c_str())
+                    Some(value.as_slice())
                 } else {
                     None
                 }
             })
     }
 
-    fn get_long(&self, identifier: &CStr) -> i64 {
+    pub(crate) fn get_long(&self, identifier: &[u8]) -> i64 {
+        let identifier = first_nul(identifier);
         self.entries
             .iter()
-            .find(|entry| entry.identifier.as_c_str() == identifier)
+            .find(|entry| entry.identifier == identifier)
             .map_or(0, |entry| {
                 if let Capture::Long(value) = entry.value {
                     value
@@ -88,6 +92,13 @@ impl ParserStack {
                 }
             })
     }
+    pub(crate) fn clear(&mut self) {
+        self.entries.clear();
+    }
+}
+
+fn first_nul(bytes: &[u8]) -> &[u8] {
+    bytes.split(|&byte| byte == 0).next().unwrap()
 }
 
 fn full_stack() -> ! {
@@ -97,52 +108,6 @@ fn full_stack() -> ! {
         libc::fprintf(i3_common::native_stdio::stderr, c"BUG: parser stack full. This means either a bug in the code, or a new command which contains more than 10 identified tokens.\n".as_ptr())
     };
     std::process::exit(libc::EXIT_FAILURE)
-}
-
-/// # Safety
-/// stack is a live normally constructed parser-local stack, uniquely borrowed
-/// during this call. identifier/value are live C strings, copied before return.
-pub unsafe fn parser_push_string(
-    stack: *mut ParserStack,
-    identifier: *const libc::c_char,
-    value: *const libc::c_char,
-) {
-    // SAFETY: caller supplies the exclusive stack and live C strings.
-    unsafe { (&mut *stack).push_string(CStr::from_ptr(identifier), CStr::from_ptr(value)) };
-}
-
-/// # Safety
-/// stack is live and exclusively borrowed here; identifier is a live C string.
-pub unsafe fn parser_push_long(
-    stack: *mut ParserStack,
-    identifier: *const libc::c_char,
-    value: i64,
-) {
-    unsafe { (&mut *stack).push_long(CStr::from_ptr(identifier), value) };
-}
-
-/// # Safety
-/// stack and identifier remain live during the call. The result borrows a capture
-/// until its next mutation/clear or stack destruction; it must never be freed.
-pub unsafe fn parser_get_string(
-    stack: *const ParserStack,
-    identifier: *const libc::c_char,
-) -> *const libc::c_char {
-    unsafe { (&*stack).get_string(CStr::from_ptr(identifier)) }
-        .map_or(std::ptr::null(), CStr::as_ptr)
-}
-
-/// # Safety
-/// stack and identifier are readable during this call, without concurrent mutation.
-pub unsafe fn parser_get_long(stack: *const ParserStack, identifier: *const libc::c_char) -> i64 {
-    unsafe { (&*stack).get_long(CStr::from_ptr(identifier)) }
-}
-
-/// # Safety
-/// stack is a live normally constructed parser stack, exclusively borrowed here.
-/// Previously returned capture pointers must no longer be used.
-pub unsafe fn parser_clear_stack(stack: *mut ParserStack) {
-    unsafe { (&mut *stack).entries.clear() };
 }
 
 /// The two grammars have intentionally different quoting and string terminators.
@@ -218,10 +183,10 @@ pub(crate) fn lex_string(input: &[u8], as_word: bool, grammar: StringGrammar) ->
     }
 }
 
-pub(crate) fn expected_tokens(names: &[&CStr], skip_error: bool) -> Vec<u8> {
+pub(crate) fn expected_tokens(names: &[&[u8]], skip_error: bool) -> Vec<u8> {
     let mut output = Vec::new();
     for (index, name) in names.iter().enumerate() {
-        let bytes = name.to_bytes();
+        let bytes = *name;
         if skip_error && bytes == b"error" {
             continue;
         }
@@ -251,29 +216,35 @@ mod tests {
     fn captures_own_sources_join_identifiers_and_reset_independently() {
         let mut stack = ParserStack::default();
         {
-            let id = CString::new("name").unwrap();
-            let value = CString::new(vec![0xFF, b'a']).unwrap();
+            let id = b"name".to_vec();
+            let value = vec![0xFF, b'a'];
             stack.push_string(&id, &value);
         }
-        stack.push_string(c"name", c"second");
-        stack.push_string(c"empty", c"");
-        stack.push_long(c"number", i64::MIN);
+        stack.push_string(b"name", b"second");
+        stack.push_string(b"empty", b"");
+        stack.push_long(b"number", i64::MIN);
+        assert_eq!(stack.get_string(b"name").unwrap(), b"\xffa,second");
+        assert_eq!(stack.get_string(b"empty"), Some(b"".as_slice()));
+        assert_eq!(stack.get_long(b"number"), i64::MIN);
+        assert_eq!(stack.get_string(b"missing"), None);
+        assert_eq!(stack.get_long(b"missing"), 0);
+        stack.push_string(b"name\0ignored", b"third\0ignored\xff");
         assert_eq!(
-            stack.get_string(c"name").unwrap().to_bytes(),
-            b"\xffa,second"
+            stack.get_string(b"name\0other"),
+            Some(b"\xffa,second,third".as_slice())
         );
-        assert_eq!(stack.get_string(c"empty"), Some(c""));
-        assert_eq!(stack.get_long(c"number"), i64::MIN);
-        assert_eq!(stack.get_string(c"missing"), None);
-        assert_eq!(stack.get_long(c"missing"), 0);
-        // SAFETY: the normal Rust stack is uniquely borrowed and no capture views remain.
-        unsafe {
-            parser_clear_stack(&mut stack);
-            parser_clear_stack(&mut stack);
-        }
-        stack.push_long(c"fresh", 42);
+        let copied = stack.clone();
+        stack.clear();
+        stack.clear();
+        assert_eq!(
+            copied.get_string(b"name"),
+            Some(b"\xffa,second,third".as_slice())
+        );
+        assert_eq!(copied.get_string(b"empty"), Some(b"".as_slice()));
+        assert_eq!(copied.get_long(b"number"), i64::MIN);
+        stack.push_long(b"fresh", 42);
         assert_eq!(stack.entries.len(), 1);
-        assert_eq!(stack.get_long(c"fresh"), 42);
+        assert_eq!(stack.get_long(b"fresh"), 42);
     }
 
     #[test]
@@ -281,12 +252,12 @@ mod tests {
         const CHILD: &str = "I333_CAPTURE_LIMIT_CHILD";
         let mut stack = ParserStack::default();
         for value in 0..10 {
-            stack.push_long(c"number", value);
+            stack.push_long(b"number", value);
         }
         assert_eq!(stack.entries.len(), 10);
-        assert_eq!(stack.get_long(c"number"), 0); // duplicate long identifiers keep the first match
+        assert_eq!(stack.get_long(b"number"), 0); // duplicate long identifiers keep the first match
         if std::env::var_os(CHILD).is_some() {
-            stack.push_long(c"overflow", 10);
+            stack.push_long(b"overflow", 10);
             panic!("full stack must terminate");
         }
         let result = std::process::Command::new(std::env::current_exe().unwrap())
@@ -299,11 +270,11 @@ mod tests {
     #[test]
     fn expected_token_text_preserves_skipped_recovery_separator_bytes() {
         assert_eq!(
-            expected_tokens(&[c"'foo", c"number", c"error"], false),
+            expected_tokens(&[b"'foo", b"number", b"error"], false),
             b"'foo', <number>, <error>"
         );
         assert_eq!(
-            expected_tokens(&[c"'foo", c"number", c"error"], true),
+            expected_tokens(&[b"'foo", b"number", b"error"], true),
             b"'foo', <number>, "
         );
     }

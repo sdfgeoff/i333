@@ -266,9 +266,11 @@ pub unsafe fn cmd_criteria_match_windows(
 pub unsafe fn cmd_criteria_add(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    ctype: *const ::core::ffi::c_char,
-    cvalue: *const ::core::ffi::c_char,
+    ctype: &[u8],
+    cvalue: Option<&[u8]>,
 ) {
+    let ctype = ctype.split(|&byte| byte == 0).next().unwrap();
+    let cvalue = cvalue.map(|bytes| bytes.split(|&byte| byte == 0).next().unwrap());
     match_parse_property(current_match, ctype, cvalue);
 }
 unsafe fn move_matches_to_workspace(owindows: *const owindows_head, ws: *mut Con) {
@@ -310,21 +312,12 @@ unsafe fn move_matches_to_workspace(owindows: *const owindows_head, ws: *mut Con
 pub unsafe fn cmd_move_con_to_workspace(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    which: *const ::core::ffi::c_char,
+    which: &[u8],
 ) {
+    let which = which.split(|&byte| byte == 0).next().unwrap();
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = which;
-        let log_value_0 = i3_common::logging::string_bytes(
-            (if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_0 = i3_common::logging::string_bytes(Some(which), None).to_vec();
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::debug!(
                 "../src/commands.c:cmd_move_con_to_workspace:264 - which={}\n",
@@ -410,24 +403,19 @@ pub unsafe fn cmd_move_con_to_workspace(
         }
     }
     let mut ws: *mut Con = ::core::ptr::null_mut::<Con>();
-    if strcmp(which, c"next".as_ptr()) == 0_i32 {
+    if which == b"next" {
         ws = workspace_next();
-    } else if strcmp(which, c"prev".as_ptr()) == 0_i32 {
+    } else if which == b"prev" {
         ws = workspace_prev();
-    } else if strcmp(which, c"next_on_output".as_ptr()) == 0_i32 {
+    } else if which == b"next_on_output" {
         ws = workspace_next_on_output();
-    } else if strcmp(which, c"prev_on_output".as_ptr()) == 0_i32 {
+    } else if which == b"prev_on_output" {
         ws = workspace_prev_on_output();
-    } else if strcmp(which, c"current".as_ptr()) == 0_i32 {
+    } else if which == b"current" {
         ws = con_get_workspace(focused);
     } else {
         if (*cmd_output).has_reply() {
-            let error_pointer_0 = which;
-            let error_bytes_0 = if error_pointer_0.is_null() {
-                b"(null)".as_slice()
-            } else {
-                std::ffi::CStr::from_ptr(error_pointer_0).to_bytes()
-            };
+            let error_bytes_0 = which;
             let message_2 = [b"BUG: called with which=".as_slice(), error_bytes_0].concat();
             emit_command_reply(cmd_output, CommandReply::Error(&message_2));
         }
@@ -494,17 +482,15 @@ pub unsafe fn cmd_move_con_to_workspace_back_and_forth(
 pub unsafe fn cmd_move_con_to_workspace_name(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    name: *const ::core::ffi::c_char,
-    no_auto_back_and_forth: *const ::core::ffi::c_char,
+    name: &[u8],
+    no_auto_back_and_forth: Option<&[u8]>,
 ) {
-    if strncasecmp(name, c"__".as_ptr(), c"__".count_bytes()) == 0_i32 {
+    let name = name.split(|&byte| byte == 0).next().unwrap();
+    let no_auto_back_and_forth =
+        no_auto_back_and_forth.map(|bytes| bytes.split(|&byte| byte == 0).next().unwrap());
+    if name.starts_with(b"__") {
         if (*cmd_output).has_reply() {
-            let error_pointer_0 = name;
-            let error_bytes_0 = if error_pointer_0.is_null() {
-                b"(null)".as_slice()
-            } else {
-                std::ffi::CStr::from_ptr(error_pointer_0).to_bytes()
-            };
+            let error_bytes_0 = name;
             let message = [
                 b"You cannot move containers to i3-internal workspaces (\"".as_slice(),
                 error_bytes_0,
@@ -585,17 +571,7 @@ pub unsafe fn cmd_move_con_to_workspace_name(
     }
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = name;
-        let log_value_0 = i3_common::logging::string_bytes(
-            (if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_0 = i3_common::logging::string_bytes(Some(name), None).to_vec();
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::info!("should move window to workspace {}\n", log_value_0_text);
         } else {
@@ -609,8 +585,8 @@ pub unsafe fn cmd_move_con_to_workspace_name(
             );
         }
     };
-    let mut ws: *mut Con = workspace_get(&std::ffi::CStr::from_ptr(name).to_bytes().to_vec());
-    if no_auto_back_and_forth.is_null() {
+    let mut ws: *mut Con = workspace_get(&name.to_vec());
+    if no_auto_back_and_forth.is_none() {
         ws = maybe_auto_back_and_forth_workspace(ws);
     }
     move_matches_to_workspace(&raw mut (*(*cmd_output).ctx).owindows, ws);
@@ -623,9 +599,12 @@ pub unsafe fn cmd_move_con_to_workspace_name(
 pub unsafe fn cmd_move_con_to_workspace_number(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    which: *const ::core::ffi::c_char,
-    no_auto_back_and_forth: *const ::core::ffi::c_char,
+    which: &[u8],
+    no_auto_back_and_forth: Option<&[u8]>,
 ) {
+    let which = which.split(|&byte| byte == 0).next().unwrap();
+    let no_auto_back_and_forth =
+        no_auto_back_and_forth.map(|bytes| bytes.split(|&byte| byte == 0).next().unwrap());
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
             let error =
@@ -696,17 +675,7 @@ pub unsafe fn cmd_move_con_to_workspace_number(
     }
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = which;
-        let log_value_0 = i3_common::logging::string_bytes(
-            (if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_0 = i3_common::logging::string_bytes(Some(which), None).to_vec();
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::info!("should move window to workspace {}\n", log_value_0_text);
         } else {
@@ -720,22 +689,11 @@ pub unsafe fn cmd_move_con_to_workspace_number(
             );
         }
     };
-    let parsed_num: i64 =
-        ws_name_to_number(std::ffi::CStr::from_ptr(which).to_bytes()).unwrap_or(-1) as i64;
+    let parsed_num: i64 = ws_name_to_number(which).unwrap_or(-1) as i64;
     if parsed_num == -1_i32 as i64 {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_pointer_1 = which;
-            let log_value_0 = i3_common::logging::string_bytes(
-                (if log_pointer_1.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                })
-                .map(std::ffi::CStr::to_bytes),
-                None,
-            )
-            .to_vec();
+            let log_value_0 = i3_common::logging::string_bytes(Some(which), None).to_vec();
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::info!(
                     "Could not parse initial part of \"{}\" as a number.\n",
@@ -753,12 +711,7 @@ pub unsafe fn cmd_move_con_to_workspace_number(
             }
         };
         if (*cmd_output).has_reply() {
-            let error_pointer_0 = which;
-            let error_bytes_0 = if error_pointer_0.is_null() {
-                b"(null)".as_slice()
-            } else {
-                std::ffi::CStr::from_ptr(error_pointer_0).to_bytes()
-            };
+            let error_bytes_0 = which;
             let message_2 = [
                 b"Could not parse number \"".as_slice(),
                 error_bytes_0,
@@ -771,9 +724,9 @@ pub unsafe fn cmd_move_con_to_workspace_number(
     }
     let mut ws: *mut Con = get_existing_workspace_by_num(parsed_num as i32);
     if ws.is_null() {
-        ws = workspace_get(&std::ffi::CStr::from_ptr(which).to_bytes().to_vec());
+        ws = workspace_get(&which.to_vec());
     }
-    if no_auto_back_and_forth.is_null() {
+    if no_auto_back_and_forth.is_none() {
         ws = maybe_auto_back_and_forth_workspace(ws);
     }
     move_matches_to_workspace(&raw mut (*(*cmd_output).ctx).owindows, ws);
@@ -811,19 +764,20 @@ fn parse_direction(value: &[u8]) -> Direction {
 unsafe fn cmd_resize_floating(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    direction_str: *const ::core::ffi::c_char,
+    direction_str: &[u8],
     floating_con: *mut Con,
     mut px: i32,
 ) {
+    let direction_str = direction_str.split(|&byte| byte == 0).next().unwrap();
     let old_rect: Rect = (*floating_con).rect as Rect;
     let focused_con: *const Con = con_descend_focused(floating_con);
     let mut direction: Direction = Direction::Left;
-    if strcmp(direction_str, c"height".as_ptr()) == 0_i32 {
+    if direction_str == b"height" {
         direction = Direction::Down;
-    } else if strcmp(direction_str, c"width".as_ptr()) == 0_i32 {
+    } else if direction_str == b"width" {
         direction = Direction::Right;
     } else {
-        direction = parse_direction(std::ffi::CStr::from_ptr(direction_str).to_bytes());
+        direction = parse_direction(direction_str);
     }
     let orientation: Orientation = orientation_from_direction(direction);
     let window: *const i3Window = (*focused_con).window;
@@ -884,12 +838,12 @@ unsafe fn cmd_resize_tiling_direction(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
     current: *mut Con,
-    direction: *const ::core::ffi::c_char,
+    direction: &[u8],
     mut px: i32,
     ppt: i32,
 ) -> bool {
-    let search_direction: Direction =
-        parse_direction(std::ffi::CStr::from_ptr(direction).to_bytes());
+    let direction = direction.split(|&byte| byte == 0).next().unwrap();
+    let search_direction: Direction = parse_direction(direction);
     let Ok((first, second)) = resize_find_tiling_participants(current, search_direction, false)
     else {
         if (*cmd_output).has_reply() {
@@ -909,12 +863,13 @@ unsafe fn cmd_resize_tiling_width_height(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
     current: *mut Con,
-    direction: *const ::core::ffi::c_char,
+    direction: &[u8],
     px: i32,
     mut ppt: f64,
 ) -> bool {
+    let direction = direction.split(|&byte| byte == 0).next().unwrap();
     ::log::info!("width/height resize\n");
-    let search_direction: Direction = if strcmp(direction, c"width".as_ptr()) == 0_i32 {
+    let search_direction: Direction = if direction == b"width" {
         Direction::Left
     } else {
         Direction::Down
@@ -1115,35 +1070,17 @@ unsafe fn cmd_resize_tiling_width_height(
 pub unsafe fn cmd_resize(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    way: *const ::core::ffi::c_char,
-    direction: *const ::core::ffi::c_char,
+    way: &[u8],
+    direction: &[u8],
     mut resize_px: i64,
     mut resize_ppt: i64,
 ) {
+    let way = way.split(|&byte| byte == 0).next().unwrap();
+    let direction = direction.split(|&byte| byte == 0).next().unwrap();
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = way;
-        let log_value_0 = i3_common::logging::string_bytes(
-            (if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
-        let log_pointer_2 = direction;
-        let log_value_1 = i3_common::logging::string_bytes(
-            (if log_pointer_2.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_2))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_0 = i3_common::logging::string_bytes(Some(way), None).to_vec();
+        let log_value_1 = i3_common::logging::string_bytes(Some(direction), None).to_vec();
         let log_value_2 = (resize_px);
         let log_value_3 = (resize_ppt);
         if let (Ok(log_value_0_text), Ok(log_value_1_text)) = (
@@ -1164,7 +1101,7 @@ pub unsafe fn cmd_resize(
             );
         }
     };
-    if strcmp(way, c"shrink".as_ptr()) == 0_i32 {
+    if way == b"shrink" {
         resize_px *= -1_i32 as i64;
         resize_ppt *= -1_i32 as i64;
     }
@@ -1214,9 +1151,7 @@ pub unsafe fn cmd_resize(
                     floating_con,
                     resize_px as i32,
                 );
-            } else if strcmp(direction, c"width".as_ptr()) == 0_i32
-                || strcmp(direction, c"height".as_ptr()) == 0_i32
-            {
+            } else if direction == b"width" || direction == b"height" {
                 let ppt: f64 = resize_ppt as f64 / 100.0f64;
                 if !cmd_resize_tiling_width_height(
                     current_match,
@@ -1261,14 +1196,13 @@ unsafe fn resize_set_tiling(
     target_size: i64,
 ) -> bool {
     let mut search_direction: Direction = Direction::Left;
-    let mut mode: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    if resize_orientation == Orientation::Horizontal {
+    let mode: &[u8] = if resize_orientation == Orientation::Horizontal {
         search_direction = Direction::Left;
-        mode = c"width".as_ptr().cast_mut();
+        b"width"
     } else {
         search_direction = Direction::Down;
-        mode = c"height".as_ptr().cast_mut();
-    }
+        b"height"
+    };
     let target = match resize_find_tiling_participants(target, search_direction, true) {
         Ok((first, _)) | Err(first) => first,
     };
@@ -1291,36 +1225,18 @@ pub unsafe fn cmd_resize_set(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
     mut cwidth: i64,
-    mode_width: *const ::core::ffi::c_char,
+    mode_width: Option<&[u8]>,
     mut cheight: i64,
-    mode_height: *const ::core::ffi::c_char,
+    mode_height: Option<&[u8]>,
 ) {
+    let mode_width = mode_width.map(|bytes| bytes.split(|&byte| byte == 0).next().unwrap());
+    let mode_height = mode_height.map(|bytes| bytes.split(|&byte| byte == 0).next().unwrap());
     {
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_value_0 = (cwidth);
-        let log_pointer_2 = mode_width;
-        let log_value_1 = i3_common::logging::string_bytes(
-            (if log_pointer_2.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_2))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_1 = i3_common::logging::string_bytes(mode_width, None).to_vec();
         let log_value_2 = (cheight);
-        let log_pointer_4 = mode_height;
-        let log_value_3 = i3_common::logging::string_bytes(
-            (if log_pointer_4.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_4))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_3 = i3_common::logging::string_bytes(mode_height, None).to_vec();
         if let (Ok(log_value_1_text), Ok(log_value_3_text)) = (
             std::str::from_utf8(&log_value_1),
             std::str::from_utf8(&log_value_3),
@@ -1398,12 +1314,12 @@ pub unsafe fn cmd_resize_set(
             let output: *const Con = con_get_output(floating_con);
             if cwidth == 0_i64 {
                 cwidth = (*floating_con).rect.width as i64;
-            } else if !mode_width.is_null() && strcmp(mode_width, c"ppt".as_ptr()) == 0_i32 {
+            } else if mode_width == Some(b"ppt".as_slice()) {
                 cwidth = ((*output).rect.width as f64 * (cwidth as f64 / 100.0f64)) as i64;
             }
             if cheight == 0_i64 {
                 cheight = (*floating_con).rect.height as i64;
-            } else if !mode_height.is_null() && strcmp(mode_height, c"ppt".as_ptr()) == 0_i32 {
+            } else if mode_height == Some(b"ppt".as_slice()) {
                 cheight = ((*output).rect.height as f64 * (cheight as f64 / 100.0f64)) as i64;
             }
             floating_resize(floating_con, cwidth as u32, cheight as u32);
@@ -1413,8 +1329,7 @@ pub unsafe fn cmd_resize_set(
             ::log::debug!("../src/commands.c:cmd_resize_set:651 - This is a dock window. Not resizing (con = {})\n)", i3_common::logging::pointer((*current).con));
         } else {
             if cwidth > 0_i64 {
-                let is_ppt: bool =
-                    !mode_width.is_null() && strcmp(mode_width, c"ppt".as_ptr()) == 0_i32;
+                let is_ppt: bool = mode_width == Some(b"ppt".as_slice());
                 success = (success as i32
                     & resize_set_tiling(
                         current_match,
@@ -1427,8 +1342,7 @@ pub unsafe fn cmd_resize_set(
                     != 0;
             }
             if cheight > 0_i64 {
-                let is_ppt_0: bool =
-                    !mode_height.is_null() && strcmp(mode_height, c"ppt".as_ptr()) == 0_i32;
+                let is_ppt_0: bool = mode_height == Some(b"ppt".as_slice());
                 success = (success as i32
                     & resize_set_tiling(
                         current_match,
@@ -1476,22 +1390,13 @@ unsafe fn border_width_from_style(
 pub unsafe fn cmd_border(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    border_style_str: *const ::core::ffi::c_char,
+    border_style_str: &[u8],
     border_width: i64,
 ) {
+    let border_style_str = border_style_str.split(|&byte| byte == 0).next().unwrap();
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = border_style_str;
-        let log_value_0 = i3_common::logging::string_bytes(
-            (if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_0 = i3_common::logging::string_bytes(Some(border_style_str), None).to_vec();
         let log_value_1 = (border_width);
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::debug!("../src/commands.c:cmd_border:697 - border style should be changed to {} with border width {}\n", log_value_0_text, log_value_1);
@@ -1568,22 +1473,17 @@ pub unsafe fn cmd_border(
             }
         };
         let mut border_style: BorderStyle = BorderStyle::None;
-        if strcmp(border_style_str, c"toggle".as_ptr()) == 0_i32 {
+        if border_style_str == b"toggle" {
             border_style = (*(*current).con).border_style.next();
-        } else if strcmp(border_style_str, c"normal".as_ptr()) == 0_i32 {
+        } else if border_style_str == b"normal" {
             border_style = BorderStyle::Normal;
-        } else if strcmp(border_style_str, c"pixel".as_ptr()) == 0_i32 {
+        } else if border_style_str == b"pixel" {
             border_style = BorderStyle::Pixel;
-        } else if strcmp(border_style_str, c"none".as_ptr()) == 0_i32 {
+        } else if border_style_str == b"none" {
             border_style = BorderStyle::None;
         } else {
             if (*cmd_output).has_reply() {
-                let error_pointer_0 = border_style_str;
-                let error_bytes_0 = if error_pointer_0.is_null() {
-                    b"(null)".as_slice()
-                } else {
-                    std::ffi::CStr::from_ptr(error_pointer_0).to_bytes()
-                };
+                let error_bytes_0 = border_style_str;
                 let message_0 =
                     [b"BUG: called with border_style=".as_slice(), error_bytes_0].concat();
                 emit_command_reply(cmd_output, CommandReply::Error(&message_0));
@@ -1605,22 +1505,13 @@ pub unsafe fn cmd_border(
 pub unsafe fn cmd_nop(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    comment: *const ::core::ffi::c_char,
+    comment: Option<&[u8]>,
 ) {
+    let comment = comment.map(|bytes| bytes.split(|&byte| byte == 0).next().unwrap());
     ::log::info!("-------------------------------------------------\n");
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = comment;
-        let log_value_0 = i3_common::logging::string_bytes(
-            (if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            Some(4000),
-        )
-        .to_vec();
+        let log_value_0 = i3_common::logging::string_bytes(comment, Some(4000)).to_vec();
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::info!("  NOP: {}\n", log_value_0_text);
         } else {
@@ -1780,22 +1671,13 @@ unsafe fn disable_global_fullscreen() {
 pub unsafe fn cmd_workspace(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    which: *const ::core::ffi::c_char,
+    which: &[u8],
 ) {
+    let which = which.split(|&byte| byte == 0).next().unwrap();
     let mut ws: *mut Con = ::core::ptr::null_mut::<Con>();
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = which;
-        let log_value_0 = i3_common::logging::string_bytes(
-            (if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_0 = i3_common::logging::string_bytes(Some(which), None).to_vec();
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::debug!(
                 "../src/commands.c:cmd_workspace:832 - which={}\n",
@@ -1813,22 +1695,17 @@ pub unsafe fn cmd_workspace(
         }
     };
     disable_global_fullscreen();
-    if strcmp(which, c"next".as_ptr()) == 0_i32 {
+    if which == b"next" {
         ws = workspace_next();
-    } else if strcmp(which, c"prev".as_ptr()) == 0_i32 {
+    } else if which == b"prev" {
         ws = workspace_prev();
-    } else if strcmp(which, c"next_on_output".as_ptr()) == 0_i32 {
+    } else if which == b"next_on_output" {
         ws = workspace_next_on_output();
-    } else if strcmp(which, c"prev_on_output".as_ptr()) == 0_i32 {
+    } else if which == b"prev_on_output" {
         ws = workspace_prev_on_output();
     } else {
         if (*cmd_output).has_reply() {
-            let error_pointer_0 = which;
-            let error_bytes_0 = if error_pointer_0.is_null() {
-                b"(null)".as_slice()
-            } else {
-                std::ffi::CStr::from_ptr(error_pointer_0).to_bytes()
-            };
+            let error_bytes_0 = which;
             let message = [b"BUG: called with which=".as_slice(), error_bytes_0].concat();
             emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
@@ -1844,21 +1721,18 @@ pub unsafe fn cmd_workspace(
 pub unsafe fn cmd_workspace_number(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    which: *const ::core::ffi::c_char,
-    no_auto_back_and_forth_str: *const ::core::ffi::c_char,
+    which: &[u8],
+    no_auto_back_and_forth_str: Option<&[u8]>,
 ) {
-    let no_auto_back_and_forth: bool = !no_auto_back_and_forth_str.is_null();
+    let which = which.split(|&byte| byte == 0).next().unwrap();
+    let no_auto_back_and_forth_str =
+        no_auto_back_and_forth_str.map(|bytes| bytes.split(|&byte| byte == 0).next().unwrap());
+    let no_auto_back_and_forth: bool = no_auto_back_and_forth_str.is_some();
     disable_global_fullscreen();
-    let parsed_num: i64 =
-        ws_name_to_number(std::ffi::CStr::from_ptr(which).to_bytes()).unwrap_or(-1) as i64;
+    let parsed_num: i64 = ws_name_to_number(which).unwrap_or(-1) as i64;
     if parsed_num == -1_i32 as i64 {
         if (*cmd_output).has_reply() {
-            let error_pointer_0 = which;
-            let error_bytes_0 = if error_pointer_0.is_null() {
-                b"(null)".as_slice()
-            } else {
-                std::ffi::CStr::from_ptr(error_pointer_0).to_bytes()
-            };
+            let error_bytes_0 = which;
             let message = [
                 b"Could not parse initial part of \"".as_slice(),
                 error_bytes_0,
@@ -1878,7 +1752,7 @@ pub unsafe fn cmd_workspace_number(
         if (*cmd_output).has_reply() {
             emit_command_reply(cmd_output, CommandReply::Success(true));
         }
-        workspace_show_by_name(&std::ffi::CStr::from_ptr(which).to_bytes().to_vec());
+        workspace_show_by_name(&which.to_vec());
         (*cmd_output).needs_tree_render = true;
         return;
     }
@@ -1911,18 +1785,16 @@ pub unsafe fn cmd_workspace_back_and_forth(
 pub unsafe fn cmd_workspace_name(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    name: *const ::core::ffi::c_char,
-    no_auto_back_and_forth_str: *const ::core::ffi::c_char,
+    name: &[u8],
+    no_auto_back_and_forth_str: Option<&[u8]>,
 ) {
-    let no_auto_back_and_forth: bool = !no_auto_back_and_forth_str.is_null();
-    if strncasecmp(name, c"__".as_ptr(), c"__".count_bytes()) == 0_i32 {
+    let name = name.split(|&byte| byte == 0).next().unwrap();
+    let no_auto_back_and_forth_str =
+        no_auto_back_and_forth_str.map(|bytes| bytes.split(|&byte| byte == 0).next().unwrap());
+    let no_auto_back_and_forth: bool = no_auto_back_and_forth_str.is_some();
+    if name.starts_with(b"__") {
         if (*cmd_output).has_reply() {
-            let error_pointer_0 = name;
-            let error_bytes_0 = if error_pointer_0.is_null() {
-                b"(null)".as_slice()
-            } else {
-                std::ffi::CStr::from_ptr(error_pointer_0).to_bytes()
-            };
+            let error_bytes_0 = name;
             let message = [
                 b"You cannot switch to the i3-internal workspaces (\"".as_slice(),
                 error_bytes_0,
@@ -1936,17 +1808,7 @@ pub unsafe fn cmd_workspace_name(
     disable_global_fullscreen();
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = name;
-        let log_value_0 = i3_common::logging::string_bytes(
-            (if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_0 = i3_common::logging::string_bytes(Some(name), None).to_vec();
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::debug!(
                 "../src/commands.c:cmd_workspace_name:918 - should switch to workspace {}\n",
@@ -1964,18 +1826,13 @@ pub unsafe fn cmd_workspace_name(
             );
         }
     };
-    if !no_auto_back_and_forth
-        && maybe_back_and_forth(
-            cmd_output,
-            &std::ffi::CStr::from_ptr(name).to_bytes().to_vec(),
-        )
-    {
+    if !no_auto_back_and_forth && maybe_back_and_forth(cmd_output, &name.to_vec()) {
         if (*cmd_output).has_reply() {
             emit_command_reply(cmd_output, CommandReply::Success(true));
         }
         return;
     }
-    workspace_show_by_name(&std::ffi::CStr::from_ptr(name).to_bytes().to_vec());
+    workspace_show_by_name(&name.to_vec());
     (*cmd_output).needs_tree_render = true;
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
@@ -2108,24 +1965,11 @@ pub unsafe fn cmd_unmark(
     }
 }
 
-pub unsafe fn cmd_mode(
-    current_match: *mut Match,
-    cmd_output: *mut CommandResultIR,
-    mode: *const ::core::ffi::c_char,
-) {
+pub unsafe fn cmd_mode(current_match: *mut Match, cmd_output: *mut CommandResultIR, mode: &[u8]) {
+    let mode = mode.split(|&byte| byte == 0).next().unwrap();
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = mode;
-        let log_value_0 = i3_common::logging::string_bytes(
-            (if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_0 = i3_common::logging::string_bytes(Some(mode), None).to_vec();
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::debug!(
                 "../src/commands.c:cmd_mode:987 - mode={}\n",
@@ -2142,15 +1986,16 @@ pub unsafe fn cmd_mode(
             );
         }
     };
-    switch_mode(&std::ffi::CStr::from_ptr(mode).to_bytes().to_vec());
+    switch_mode(&mode.to_vec());
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
-unsafe fn user_output_names_add(list: &OutputNames, name: *const libc::c_char) {
-    let get_non_primary = strcasecmp(c"nonprimary".as_ptr(), name) == 0;
+unsafe fn user_output_names_add(list: &OutputNames, name: &[u8]) {
+    let name = name.split(|&byte| byte == 0).next().unwrap();
+    let get_non_primary = crate::util::text_eq_ignore_case(b"nonprimary", name);
     let mut added = Vec::new();
-    if get_non_primary || strcmp(name, c"next".as_ptr()) == 0 {
+    if get_non_primary || name == b"next" {
         let mut output = outputs.tqh_first;
         while !output.is_null() {
             if !(get_non_primary && (*output).primary) {
@@ -2159,7 +2004,7 @@ unsafe fn user_output_names_add(list: &OutputNames, name: *const libc::c_char) {
             output = (*output).outputs.tqe_next;
         }
     } else {
-        added.push(std::ffi::CStr::from_ptr(name).to_bytes().to_vec());
+        added.push(name.to_vec());
     }
     // No lock is held while querying native graphs or invoking callbacks.
     list.lock()
@@ -2202,10 +2047,11 @@ fn user_output_names_free(list: &OutputNames) {
 pub unsafe fn cmd_move_con_to_output(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    name: *const ::core::ffi::c_char,
+    name: Option<&[u8]>,
     move_workspace: bool,
 ) {
-    if !name.is_null() {
+    let name = name.map(|bytes| bytes.split(|&byte| byte == 0).next().unwrap());
+    if let Some(name) = name {
         user_output_names_add(&names, name);
         return;
     }
@@ -2370,30 +2216,12 @@ pub unsafe fn cmd_move_con_to_mark(
 pub unsafe fn cmd_floating(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    floating_mode: *const ::core::ffi::c_char,
+    floating_mode: &[u8],
 ) {
-    if !floating_mode.is_null() {
-    } else {
-        __assert_fail(
-            c"floating_mode != NULL".as_ptr(),
-            c"../src/commands.c".as_ptr(),
-            1143 as ::core::ffi::c_uint,
-            c"void cmd_floating(Match *, struct CommandResultIR *, const char *)".as_ptr(),
-        );
-    };
+    let floating_mode = floating_mode.split(|&byte| byte == 0).next().unwrap();
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = floating_mode;
-        let log_value_0 = i3_common::logging::string_bytes(
-            (if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_0 = i3_common::logging::string_bytes(Some(floating_mode), None).to_vec();
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::debug!(
                 "../src/commands.c:cmd_floating:1144 - floating_mode={}\n",
@@ -2470,23 +2298,14 @@ pub unsafe fn cmd_floating(
                 );
             }
         };
-        if strcmp(floating_mode, c"toggle".as_ptr()) == 0_i32 {
+        if floating_mode == b"toggle" {
             ::log::debug!("../src/commands.c:cmd_floating:1152 - should toggle mode\n");
             toggle_floating_mode((*current).con, false);
         } else {
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
-                let log_pointer_1 = floating_mode;
-                let log_value_0 = i3_common::logging::string_bytes(
-                    (if log_pointer_1.is_null() {
-                        None
-                    } else {
-                        Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                    })
-                    .map(std::ffi::CStr::to_bytes),
-                    None,
-                )
-                .to_vec();
+                let log_value_0 =
+                    i3_common::logging::string_bytes(Some(floating_mode), None).to_vec();
                 if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                     ::log::debug!(
                         "../src/commands.c:cmd_floating:1155 - should switch mode to {}\n",
@@ -2504,7 +2323,7 @@ pub unsafe fn cmd_floating(
                     );
                 }
             };
-            if strcmp(floating_mode, c"enable".as_ptr()) == 0_i32 {
+            if floating_mode == b"enable" {
                 floating_enable((*current).con, false);
             } else {
                 floating_disable((*current).con);
@@ -2638,24 +2457,14 @@ pub unsafe fn cmd_split(
 pub unsafe fn cmd_kill(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    mut kill_mode_str: *const ::core::ffi::c_char,
+    kill_mode_str: Option<&[u8]>,
 ) {
-    if kill_mode_str.is_null() {
-        kill_mode_str = c"window".as_ptr();
-    }
+    let kill_mode_str = kill_mode_str
+        .map(|bytes| bytes.split(|&byte| byte == 0).next().unwrap())
+        .unwrap_or(b"window");
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = kill_mode_str;
-        let log_value_0 = i3_common::logging::string_bytes(
-            (if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_0 = i3_common::logging::string_bytes(Some(kill_mode_str), None).to_vec();
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::debug!(
                 "../src/commands.c:cmd_kill:1218 - kill_mode={}\n",
@@ -2673,18 +2482,13 @@ pub unsafe fn cmd_kill(
         }
     };
     let mut kill_mode: KillWindow = KillWindow::DontKill;
-    if strcmp(kill_mode_str, c"window".as_ptr()) == 0_i32 {
+    if kill_mode_str == b"window" {
         kill_mode = KillWindow::Window;
-    } else if strcmp(kill_mode_str, c"client".as_ptr()) == 0_i32 {
+    } else if kill_mode_str == b"client" {
         kill_mode = KillWindow::Client;
     } else {
         if (*cmd_output).has_reply() {
-            let error_pointer_0 = kill_mode_str;
-            let error_bytes_0 = if error_pointer_0.is_null() {
-                b"(null)".as_slice()
-            } else {
-                std::ffi::CStr::from_ptr(error_pointer_0).to_bytes()
-            };
+            let error_bytes_0 = kill_mode_str;
             let message = [b"BUG: called with kill_mode=".as_slice(), error_bytes_0].concat();
             emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
@@ -2735,10 +2539,12 @@ pub unsafe fn cmd_kill(
 pub unsafe fn cmd_exec(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    nosn: *const ::core::ffi::c_char,
-    command: *const ::core::ffi::c_char,
+    nosn: Option<&[u8]>,
+    command: &[u8],
 ) {
-    let no_startup_id: bool = !nosn.is_null();
+    let nosn = nosn.map(|bytes| bytes.split(|&byte| byte == 0).next().unwrap());
+    let command = command.split(|&byte| byte == 0).next().unwrap();
+    let no_startup_id: bool = nosn.is_some();
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
             let error =
@@ -2783,17 +2589,7 @@ pub unsafe fn cmd_exec(
     while !current.is_null() {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_pointer_1 = command;
-            let log_value_0 = i3_common::logging::string_bytes(
-                (if log_pointer_1.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                })
-                .map(std::ffi::CStr::to_bytes),
-                None,
-            )
-            .to_vec();
+            let log_value_0 = i3_common::logging::string_bytes(Some(command), None).to_vec();
             let log_value_1 = (no_startup_id as i32);
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::debug!(
@@ -2813,7 +2609,7 @@ pub unsafe fn cmd_exec(
             }
         };
         start_application(
-            &std::ffi::CStr::from_ptr(command).to_bytes().to_vec(),
+            &command.to_vec(),
             no_startup_id,
             (if (*(*current).con).window.is_null() {
                 0
@@ -2950,11 +2746,10 @@ pub unsafe fn cmd_focus_sibling(
     if count > 1_i32 {
         ::log::info!("WARNING: Your criteria for the focus command matches {} containers, while only exactly one container can be focused at a time.\n", { (count) });
     }
-    let direction: Position = if i3_common::safewrappers::strcasecmp_nullable(
-        Some(&direction_str[..direction_str.len().min(4)]),
-        Some(b"prev"),
-    ) == 0
-    {
+    let direction: Position = if crate::util::text_eq_ignore_case(
+        &direction_str[..direction_str.len().min(4)],
+        b"prev",
+    ) {
         Position::Before
     } else {
         Position::After
@@ -3036,16 +2831,7 @@ pub unsafe fn cmd_focus_window_mode(
             emit_command_reply(cmd_output, CommandReply::Success(true));
         }
     } else if (*cmd_output).has_reply() {
-        let error_pointer_0 = if to_floating {
-            c"floating".as_ptr()
-        } else {
-            c"tiling".as_ptr()
-        };
-        let error_bytes_0 = if error_pointer_0.is_null() {
-            b"(null)".as_slice()
-        } else {
-            std::ffi::CStr::from_ptr(error_pointer_0).to_bytes()
-        };
+        let error_bytes_0: &[u8] = if to_floating { b"floating" } else { b"tiling" };
         let message = [
             b"Failed to find a ".as_slice(),
             error_bytes_0,
@@ -3221,38 +3007,20 @@ pub unsafe fn cmd_focus(
 pub unsafe fn cmd_fullscreen(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    action: *const ::core::ffi::c_char,
-    fullscreen_mode: *const ::core::ffi::c_char,
+    action: &[u8],
+    fullscreen_mode: &[u8],
 ) {
-    let mode: FullscreenMode = (if strcmp(fullscreen_mode, c"global".as_ptr()) == 0_i32 {
+    let action = action.split(|&byte| byte == 0).next().unwrap();
+    let fullscreen_mode = fullscreen_mode.split(|&byte| byte == 0).next().unwrap();
+    let mode: FullscreenMode = (if fullscreen_mode == b"global" {
         FullscreenMode::Global
     } else {
         FullscreenMode::Output
     });
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = action;
-        let log_value_0 = i3_common::logging::string_bytes(
-            (if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
-        let log_pointer_2 = fullscreen_mode;
-        let log_value_1 = i3_common::logging::string_bytes(
-            (if log_pointer_2.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_2))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_0 = i3_common::logging::string_bytes(Some(action), None).to_vec();
+        let log_value_1 = i3_common::logging::string_bytes(Some(fullscreen_mode), None).to_vec();
         if let (Ok(log_value_0_text), Ok(log_value_1_text)) = (
             std::str::from_utf8(&log_value_0),
             std::str::from_utf8(&log_value_1),
@@ -3335,11 +3103,11 @@ pub unsafe fn cmd_fullscreen(
                 );
             }
         };
-        if strcmp(action, c"toggle".as_ptr()) == 0_i32 {
+        if action == b"toggle" {
             con_toggle_fullscreen((*current).con, mode);
-        } else if strcmp(action, c"enable".as_ptr()) == 0_i32 {
+        } else if action == b"enable" {
             con_enable_fullscreen((*current).con, mode);
-        } else if strcmp(action, c"disable".as_ptr()) == 0_i32 {
+        } else if action == b"disable" {
             con_disable_fullscreen((*current).con);
         }
         current = (*current).owindows.tqe_next;
@@ -3353,21 +3121,12 @@ pub unsafe fn cmd_fullscreen(
 pub unsafe fn cmd_sticky(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    action: *const ::core::ffi::c_char,
+    action: &[u8],
 ) {
+    let action = action.split(|&byte| byte == 0).next().unwrap();
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = action;
-        let log_value_0 = i3_common::logging::string_bytes(
-            (if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_0 = i3_common::logging::string_bytes(Some(action), None).to_vec();
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::debug!(
                 "../src/commands.c:cmd_sticky:1516 - {} sticky on window\n",
@@ -3436,11 +3195,11 @@ pub unsafe fn cmd_sticky(
                 }
             };
             let mut sticky: bool = false;
-            if strcmp(action, c"enable".as_ptr()) == 0_i32 {
+            if action == b"enable" {
                 sticky = true;
-            } else if strcmp(action, c"disable".as_ptr()) == 0_i32 {
+            } else if action == b"disable" {
                 sticky = false;
-            } else if strcmp(action, c"toggle".as_ptr()) == 0_i32 {
+            } else if action == b"toggle" {
                 sticky = !(*(*current).con).sticky;
             }
             (*(*current).con).sticky = sticky;
@@ -3459,10 +3218,12 @@ pub unsafe fn cmd_sticky(
 pub unsafe fn cmd_move_direction(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    direction_str: *const ::core::ffi::c_char,
+    direction_str: &[u8],
     amount: i64,
-    mode: *const ::core::ffi::c_char,
+    mode: Option<&[u8]>,
 ) {
+    let direction_str = direction_str.split(|&byte| byte == 0).next().unwrap();
+    let mode = mode.map(|bytes| bytes.split(|&byte| byte == 0).next().unwrap());
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
@@ -3494,33 +3255,13 @@ pub unsafe fn cmd_move_direction(
         *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
-    let direction: Direction = parse_direction(std::ffi::CStr::from_ptr(direction_str).to_bytes());
-    let is_ppt: bool = !mode.is_null() && strcmp(mode, c"ppt".as_ptr()) == 0_i32;
+    let direction: Direction = parse_direction(direction_str);
+    let is_ppt: bool = mode == Some(b"ppt".as_slice());
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = direction_str;
-        let log_value_0 = i3_common::logging::string_bytes(
-            (if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_0 = i3_common::logging::string_bytes(Some(direction_str), None).to_vec();
         let log_value_1 = (amount);
-        let log_pointer_3 = mode;
-        let log_value_2 = i3_common::logging::string_bytes(
-            (if log_pointer_3.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_3))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_2 = i3_common::logging::string_bytes(mode, None).to_vec();
         if let (Ok(log_value_0_text), Ok(log_value_2_text)) = (
             std::str::from_utf8(&log_value_0),
             std::str::from_utf8(&log_value_2),
@@ -3550,17 +3291,7 @@ pub unsafe fn cmd_move_direction(
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
                 let log_value_0 = (amount);
-                let log_pointer_2 = mode;
-                let log_value_1 = i3_common::logging::string_bytes(
-                    (if log_pointer_2.is_null() {
-                        None
-                    } else {
-                        Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                    })
-                    .map(std::ffi::CStr::to_bytes),
-                    None,
-                )
-                .to_vec();
+                let log_value_1 = i3_common::logging::string_bytes(mode, None).to_vec();
                 if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
                     ::log::debug!(
                         "../src/commands.c:cmd_move_direction:1565 - floating move with {} {}\n",
@@ -3623,8 +3354,9 @@ pub unsafe fn cmd_move_direction(
 pub unsafe fn cmd_layout(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    layout_str: *const ::core::ffi::c_char,
+    layout_str: &[u8],
 ) {
+    let layout_str = layout_str.split(|&byte| byte == 0).next().unwrap();
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
             let error =
@@ -3655,14 +3387,9 @@ pub unsafe fn cmd_layout(
         *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
-    let Some(layout) = layout_from_name(std::ffi::CStr::from_ptr(layout_str).to_bytes()) else {
+    let Some(layout) = layout_from_name(layout_str) else {
         if (*cmd_output).has_reply() {
-            let error_pointer_0 = layout_str;
-            let error_bytes_0 = if error_pointer_0.is_null() {
-                b"(null)".as_slice()
-            } else {
-                std::ffi::CStr::from_ptr(error_pointer_0).to_bytes()
-            };
+            let error_bytes_0 = layout_str;
             let message_0 = [
                 b"Unknown layout \"".as_slice(),
                 error_bytes_0,
@@ -3675,17 +3402,7 @@ pub unsafe fn cmd_layout(
     };
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = layout_str;
-        let log_value_0 = i3_common::logging::string_bytes(
-            (if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_0 = i3_common::logging::string_bytes(Some(layout_str), None).to_vec();
         let log_value_1 = (layout as u32) as i32;
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::debug!(
@@ -3750,24 +3467,14 @@ pub unsafe fn cmd_layout(
 pub unsafe fn cmd_layout_toggle(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    mut toggle_mode: *const ::core::ffi::c_char,
+    toggle_mode: Option<&[u8]>,
 ) {
-    if toggle_mode.is_null() {
-        toggle_mode = c"default".as_ptr();
-    }
+    let toggle_mode = toggle_mode
+        .map(|bytes| bytes.split(|&byte| byte == 0).next().unwrap())
+        .unwrap_or(b"default");
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = toggle_mode;
-        let log_value_0 = i3_common::logging::string_bytes(
-            (if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_0 = i3_common::logging::string_bytes(Some(toggle_mode), None).to_vec();
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::debug!(
                 "../src/commands.c:cmd_layout_toggle:1635 - toggling layout (mode = {})\n",
@@ -3912,9 +3619,10 @@ pub unsafe fn cmd_open(current_match: *mut Match, cmd_output: *mut CommandResult
 pub unsafe fn cmd_focus_output(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    name: *const ::core::ffi::c_char,
+    name: Option<&[u8]>,
 ) {
-    if !name.is_null() {
+    let name = name.map(|bytes| bytes.split(|&byte| byte == 0).next().unwrap());
+    if let Some(name) = name {
         user_output_names_add(&names_global, name);
         return;
     }
@@ -4025,10 +3733,12 @@ pub unsafe fn cmd_move_window_to_position(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
     x: i64,
-    mode_x: *const ::core::ffi::c_char,
+    mode_x: Option<&[u8]>,
     y: i64,
-    mode_y: *const ::core::ffi::c_char,
+    mode_y: Option<&[u8]>,
 ) {
+    let mode_x = mode_x.map(|bytes| bytes.split(|&byte| byte == 0).next().unwrap());
+    let mode_y = mode_y.map(|bytes| bytes.split(|&byte| byte == 0).next().unwrap());
     let mut has_error: bool = false;
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
     if (*current_match).error.is_some() {
@@ -4074,12 +3784,12 @@ pub unsafe fn cmd_move_window_to_position(
         } else {
             let mut newrect: Rect = (*parent_ptr((*current).con)).rect as Rect;
             let output: *const Con = con_get_output((*current).con);
-            newrect.x = (if !mode_x.is_null() && strcmp(mode_x, c"ppt".as_ptr()) == 0_i32 {
+            newrect.x = (if mode_x == Some(b"ppt".as_slice()) {
                 (*output).rect.width as f64 * (x as f64 / 100.0f64)
             } else {
                 x as f64
             }) as u32;
-            newrect.y = (if !mode_y.is_null() && strcmp(mode_y, c"ppt".as_ptr()) == 0_i32 {
+            newrect.y = (if mode_y == Some(b"ppt".as_slice()) {
                 (*output).rect.height as f64 * (y as f64 / 100.0f64)
             } else {
                 y as f64
@@ -4087,29 +3797,9 @@ pub unsafe fn cmd_move_window_to_position(
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
                 let log_value_0 = (newrect.x) as i32;
-                let log_pointer_2 = mode_x;
-                let log_value_1 = i3_common::logging::string_bytes(
-                    (if log_pointer_2.is_null() {
-                        None
-                    } else {
-                        Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                    })
-                    .map(std::ffi::CStr::to_bytes),
-                    None,
-                )
-                .to_vec();
+                let log_value_1 = i3_common::logging::string_bytes(mode_x, None).to_vec();
                 let log_value_2 = (newrect.y) as i32;
-                let log_pointer_4 = mode_y;
-                let log_value_3 = i3_common::logging::string_bytes(
-                    (if log_pointer_4.is_null() {
-                        None
-                    } else {
-                        Some(std::ffi::CStr::from_ptr(log_pointer_4))
-                    })
-                    .map(std::ffi::CStr::to_bytes),
-                    None,
-                )
-                .to_vec();
+                let log_value_3 = i3_common::logging::string_bytes(mode_y, None).to_vec();
                 if let (Ok(log_value_1_text), Ok(log_value_3_text)) = (
                     std::str::from_utf8(&log_value_1),
                     std::str::from_utf8(&log_value_3),
@@ -4139,8 +3829,9 @@ pub unsafe fn cmd_move_window_to_position(
 pub unsafe fn cmd_move_window_to_center(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    method: *const ::core::ffi::c_char,
+    method: &[u8],
 ) {
+    let method = method.split(|&byte| byte == 0).next().unwrap();
     let mut has_error: bool = false;
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
@@ -4207,13 +3898,13 @@ pub unsafe fn cmd_move_window_to_center(
                 has_error = true;
             }
         } else {
-            if strcmp(method, c"absolute".as_ptr()) == 0_i32 {
+            if method == b"absolute" {
                 ::log::debug!("../src/commands.c:cmd_move_window_to_center:1872 - moving to absolute center\n");
                 floating_center(floating_con, (*croot).rect as Rect);
                 floating_maybe_reassign_ws(floating_con);
                 (*cmd_output).needs_tree_render = true;
             }
-            if strcmp(method, c"position".as_ptr()) == 0_i32 {
+            if method == b"position" {
                 ::log::debug!(
                     "../src/commands.c:cmd_move_window_to_center:1880 - moving to center\n"
                 );
@@ -4438,9 +4129,11 @@ pub unsafe fn cmd_scratchpad_show(current_match: *mut Match, cmd_output: *mut Co
 pub unsafe fn cmd_swap(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    mode: *const ::core::ffi::c_char,
-    arg: *const ::core::ffi::c_char,
+    mode: &[u8],
+    arg: &[u8],
 ) {
+    let mode = mode.split(|&byte| byte == 0).next().unwrap();
+    let arg = arg.split(|&byte| byte == 0).next().unwrap();
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
             let error =
@@ -4492,15 +4185,10 @@ pub unsafe fn cmd_swap(
         return;
     }
     let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
-    if strcmp(mode, c"id".as_ptr()) == 0_i32 {
-        let Ok(target) = parse_long(std::ffi::CStr::from_ptr(arg).to_bytes(), 0) else {
+    if mode == b"id" {
+        let Ok(target) = parse_long(arg, 0) else {
             if (*cmd_output).has_reply() {
-                let error_pointer_0 = arg;
-                let error_bytes_0 = if error_pointer_0.is_null() {
-                    b"(null)".as_slice()
-                } else {
-                    std::ffi::CStr::from_ptr(error_pointer_0).to_bytes()
-                };
+                let error_bytes_0 = arg;
                 let message_2 = [
                     b"Failed to parse ".as_slice(),
                     error_bytes_0,
@@ -4512,15 +4200,10 @@ pub unsafe fn cmd_swap(
             return;
         };
         con = con_by_window_id(target as u32);
-    } else if strcmp(mode, c"con_id".as_ptr()) == 0_i32 {
-        let Ok(target_0) = parse_long(std::ffi::CStr::from_ptr(arg).to_bytes(), 0) else {
+    } else if mode == b"con_id" {
+        let Ok(target_0) = parse_long(arg, 0) else {
             if (*cmd_output).has_reply() {
-                let error_pointer_0 = arg;
-                let error_bytes_0 = if error_pointer_0.is_null() {
-                    b"(null)".as_slice()
-                } else {
-                    std::ffi::CStr::from_ptr(error_pointer_0).to_bytes()
-                };
+                let error_bytes_0 = arg;
                 let message_3 = [
                     b"Failed to parse ".as_slice(),
                     error_bytes_0,
@@ -4532,16 +4215,11 @@ pub unsafe fn cmd_swap(
             return;
         };
         con = con_by_con_id(target_0);
-    } else if strcmp(mode, c"mark".as_ptr()) == 0_i32 {
-        con = con_by_mark(std::ffi::CStr::from_ptr(arg).to_bytes());
+    } else if mode == b"mark" {
+        con = con_by_mark(arg);
     } else {
         if (*cmd_output).has_reply() {
-            let error_pointer_0 = mode;
-            let error_bytes_0 = if error_pointer_0.is_null() {
-                b"(null)".as_slice()
-            } else {
-                std::ffi::CStr::from_ptr(error_pointer_0).to_bytes()
-            };
+            let error_bytes_0 = mode;
             let message_4 = [
                 b"Unhandled swap mode \"".as_slice(),
                 error_bytes_0,
@@ -4554,18 +4232,8 @@ pub unsafe fn cmd_swap(
     }
     if con.is_null() {
         if (*cmd_output).has_reply() {
-            let error_pointer_0 = mode;
-            let error_bytes_0 = if error_pointer_0.is_null() {
-                b"(null)".as_slice()
-            } else {
-                std::ffi::CStr::from_ptr(error_pointer_0).to_bytes()
-            };
-            let error_pointer_1 = arg;
-            let error_bytes_1 = if error_pointer_1.is_null() {
-                b"(null)".as_slice()
-            } else {
-                std::ffi::CStr::from_ptr(error_pointer_1).to_bytes()
-            };
+            let error_bytes_0 = mode;
+            let error_bytes_1 = arg;
             let message_5 = [
                 b"Could not find container for ".as_slice(),
                 error_bytes_0,
@@ -4667,11 +4335,7 @@ pub unsafe fn cmd_title_format(
             }
         };
         (*(*current).con).title_format = None;
-        if strcasecmp(
-            std::ffi::CString::new(format.as_slice()).unwrap().as_ptr(),
-            c"%title".as_ptr(),
-        ) != 0_i32
-        {
+        if !crate::util::text_eq_ignore_case(&format, b"%title") {
             (*(*current).con).title_format = Some(format.clone());
             if !(*(*current).con).window.is_null() {
                 let formatted_title = con_parse_title_format((*current).con);
@@ -4700,14 +4364,14 @@ pub unsafe fn cmd_title_format(
 pub unsafe fn cmd_title_window_icon(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    enable: Option<&std::ffi::CStr>,
+    enable: Option<&[u8]>,
     mut padding: i32,
 ) {
     let mut is_toggle: bool = false;
     if let Some(enable) = enable {
-        if enable == c"toggle" {
+        if enable == b"toggle" {
             is_toggle = true;
-        } else if !is_enabled(enable.to_bytes()) {
+        } else if !is_enabled(enable) {
             padding = -1_i32;
         }
     }
@@ -5150,27 +4814,23 @@ pub unsafe fn cmd_bar_hidden_state(
 pub unsafe fn cmd_shmlog(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    argument: *const ::core::ffi::c_char,
+    argument: &[u8],
 ) {
-    if strcmp(argument, c"toggle".as_ptr()) == 0 {
+    let argument = argument.split(|&byte| byte == 0).next().unwrap();
+    if argument == b"toggle" {
         shmlog_size = if shmlog_size != 0 {
             -shmlog_size
         } else {
             default_shmlog_size
         };
-    } else if strcmp(argument, c"on".as_ptr()) == 0 {
+    } else if argument == b"on" {
         shmlog_size = default_shmlog_size;
-    } else if strcmp(argument, c"off".as_ptr()) == 0 {
+    } else if argument == b"off" {
         shmlog_size = 0_i32;
     } else {
-        let Ok(new_size) = parse_long(std::ffi::CStr::from_ptr(argument).to_bytes(), 0) else {
+        let Ok(new_size) = parse_long(argument, 0) else {
             if (*cmd_output).has_reply() {
-                let error_pointer_0 = argument;
-                let error_bytes_0 = if error_pointer_0.is_null() {
-                    b"(null)".as_slice()
-                } else {
-                    std::ffi::CStr::from_ptr(error_pointer_0).to_bytes()
-                };
+                let error_bytes_0 = argument;
                 let message = [
                     b"Failed to parse ".as_slice(),
                     error_bytes_0,
@@ -5206,10 +4866,11 @@ pub unsafe fn cmd_shmlog(
 pub unsafe fn cmd_debuglog(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    argument: *const ::core::ffi::c_char,
+    argument: &[u8],
 ) {
+    let argument = argument.split(|&byte| byte == 0).next().unwrap();
     let logging: bool = get_debug_logging();
-    if strcmp(argument, c"toggle".as_ptr()) == 0 {
+    if argument == b"toggle" {
         ::log::info!(
             "{} debug logging\n",
             if logging as i32 != 0 {
@@ -5219,10 +4880,10 @@ pub unsafe fn cmd_debuglog(
             }
         );
         set_debug_logging(!logging);
-    } else if strcmp(argument, c"on".as_ptr()) == 0 && !logging {
+    } else if argument == b"on" && !logging {
         ::log::info!("Enabling debug logging\n");
         set_debug_logging(true);
-    } else if strcmp(argument, c"off".as_ptr()) == 0 && logging {
+    } else if argument == b"off" && logging {
         ::log::info!("Disabling debug logging\n");
         set_debug_logging(false);
     }
@@ -5245,36 +4906,13 @@ unsafe fn gaps_bottom(gaps: *mut gaps_t) -> *mut i32 {
 unsafe fn gaps_right(gaps: *mut gaps_t) -> *mut i32 {
     &raw mut (*gaps).right
 }
-unsafe fn gaps_update(
-    get: gap_accessor,
-    scope: *const ::core::ffi::c_char,
-    mode: *const ::core::ffi::c_char,
-    pixels: i32,
-) -> bool {
+unsafe fn gaps_update(get: gap_accessor, scope: &[u8], mode: &[u8], pixels: i32) -> bool {
+    let scope = scope.split(|&byte| byte == 0).next().unwrap();
+    let mode = mode.split(|&byte| byte == 0).next().unwrap();
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = scope;
-        let log_value_0 = i3_common::logging::string_bytes(
-            (if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
-        let log_pointer_2 = mode;
-        let log_value_1 = i3_common::logging::string_bytes(
-            (if log_pointer_2.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_2))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_0 = i3_common::logging::string_bytes(Some(scope), None).to_vec();
+        let log_value_1 = i3_common::logging::string_bytes(Some(mode), None).to_vec();
         let log_value_2 = (pixels);
         if let (Ok(log_value_0_text), Ok(log_value_1_text)) = (
             std::str::from_utf8(&log_value_0),
@@ -5302,7 +4940,7 @@ unsafe fn gaps_update(
     let workspace: *mut Con = con_get_workspace(focused);
     let global_gap_size: i32 = *get.expect("non-null function pointer")(&raw mut config.gaps);
     let mut current_value: i32 = global_gap_size;
-    if strcmp(scope, c"current".as_ptr()) == 0_i32 {
+    if scope == b"current" {
         current_value += *get.expect("non-null function pointer")(&raw mut (*workspace).gaps);
     }
     ::log::debug!(
@@ -5311,30 +4949,20 @@ unsafe fn gaps_update(
         { (current_value) }
     );
     let mut reset: bool = false;
-    if strcmp(mode, c"plus".as_ptr()) == 0_i32 {
+    if mode == b"plus" {
         current_value += pixels;
-    } else if strcmp(mode, c"minus".as_ptr()) == 0_i32 {
+    } else if mode == b"minus" {
         current_value -= pixels;
-    } else if strcmp(mode, c"set".as_ptr()) == 0_i32 {
+    } else if mode == b"set" {
         current_value = pixels;
         reset = true;
-    } else if strcmp(mode, c"toggle".as_ptr()) == 0_i32 {
+    } else if mode == b"toggle" {
         current_value = (current_value == 0) as i32 * pixels;
         reset = true;
     } else {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_pointer_1 = mode;
-            let log_value_0 = i3_common::logging::string_bytes(
-                (if log_pointer_1.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                })
-                .map(std::ffi::CStr::to_bytes),
-                None,
-            )
-            .to_vec();
+            let log_value_0 = i3_common::logging::string_bytes(Some(mode), None).to_vec();
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::error!(
                     "ERROR: Invalid mode {} when changing gaps",
@@ -5357,7 +4985,7 @@ unsafe fn gaps_update(
     let is_outer: bool = get.expect("non-null function pointer")(&raw mut config.gaps)
         != gaps_inner(&raw mut config.gaps);
     if is_outer {
-        if strcmp(scope, c"all".as_ptr()) == 0_i32 {
+        if scope == b"all" {
             min_value = -config.gaps.inner;
         } else {
             min_value = -config.gaps.inner - (*workspace).gaps.inner;
@@ -5366,7 +4994,7 @@ unsafe fn gaps_update(
     if current_value < min_value {
         current_value = min_value;
     }
-    if strcmp(scope, c"all".as_ptr()) == 0_i32 {
+    if scope == b"all" {
         let mut output: *mut Con = nodes::first_ptr(croot);
 
         while !output.is_null() {
@@ -5415,14 +5043,19 @@ unsafe fn gaps_update(
 pub unsafe fn cmd_gaps(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    type_0: *const ::core::ffi::c_char,
-    scope: *const ::core::ffi::c_char,
-    mode: *const ::core::ffi::c_char,
-    value: *const ::core::ffi::c_char,
+    type_0: &[u8],
+    scope: &[u8],
+    mode: &[u8],
+    value: &[u8],
 ) {
+    let type_0 = type_0.split(|&byte| byte == 0).next().unwrap();
+    let scope = scope.split(|&byte| byte == 0).next().unwrap();
+    let mode = mode.split(|&byte| byte == 0).next().unwrap();
+    let value = value.split(|&byte| byte == 0).next().unwrap();
     let current_block: u64;
-    let pixels: i32 = logical_px(atoi(value)) as i32;
-    if strcmp(type_0, c"inner".as_ptr()) == 0 {
+    let native_value = std::ffi::CString::new(value).expect("bounded numeric bytes contain no NUL");
+    let pixels: i32 = logical_px(atoi(native_value.as_ptr())) as i32;
+    if type_0 == b"inner" {
         if !gaps_update(
             Some(gaps_inner as unsafe fn(*mut gaps_t) -> *mut i32),
             scope,
@@ -5430,30 +5063,30 @@ pub unsafe fn cmd_gaps(
             pixels,
         ) || !gaps_update(
             Some(gaps_top as unsafe fn(*mut gaps_t) -> *mut i32),
-            c"all".as_ptr(),
-            c"plus".as_ptr(),
+            b"all",
+            b"plus",
             0_i32,
         ) || !gaps_update(
             Some(gaps_bottom as unsafe fn(*mut gaps_t) -> *mut i32),
-            c"all".as_ptr(),
-            c"plus".as_ptr(),
+            b"all",
+            b"plus",
             0_i32,
         ) || !gaps_update(
             Some(gaps_right as unsafe fn(*mut gaps_t) -> *mut i32),
-            c"all".as_ptr(),
-            c"plus".as_ptr(),
+            b"all",
+            b"plus",
             0_i32,
         ) || !gaps_update(
             Some(gaps_left as unsafe fn(*mut gaps_t) -> *mut i32),
-            c"all".as_ptr(),
-            c"plus".as_ptr(),
+            b"all",
+            b"plus",
             0_i32,
         ) {
             current_block = 1063758793336646565;
         } else {
             current_block = 11057878835866523405;
         }
-    } else if strcmp(type_0, c"outer".as_ptr()) == 0 {
+    } else if type_0 == b"outer" {
         if !gaps_update(
             Some(gaps_top as unsafe fn(*mut gaps_t) -> *mut i32),
             scope,
@@ -5479,7 +5112,7 @@ pub unsafe fn cmd_gaps(
         } else {
             current_block = 11057878835866523405;
         }
-    } else if strcmp(type_0, c"vertical".as_ptr()) == 0 {
+    } else if type_0 == b"vertical" {
         if !gaps_update(
             Some(gaps_top as unsafe fn(*mut gaps_t) -> *mut i32),
             scope,
@@ -5495,7 +5128,7 @@ pub unsafe fn cmd_gaps(
         } else {
             current_block = 11057878835866523405;
         }
-    } else if strcmp(type_0, c"horizontal".as_ptr()) == 0 {
+    } else if type_0 == b"horizontal" {
         if !gaps_update(
             Some(gaps_right as unsafe fn(*mut gaps_t) -> *mut i32),
             scope,
@@ -5511,7 +5144,7 @@ pub unsafe fn cmd_gaps(
         } else {
             current_block = 11057878835866523405;
         }
-    } else if strcmp(type_0, c"top".as_ptr()) == 0 {
+    } else if type_0 == b"top" {
         if !gaps_update(
             Some(gaps_top as unsafe fn(*mut gaps_t) -> *mut i32),
             scope,
@@ -5522,7 +5155,7 @@ pub unsafe fn cmd_gaps(
         } else {
             current_block = 11057878835866523405;
         }
-    } else if strcmp(type_0, c"bottom".as_ptr()) == 0 {
+    } else if type_0 == b"bottom" {
         if !gaps_update(
             Some(gaps_bottom as unsafe fn(*mut gaps_t) -> *mut i32),
             scope,
@@ -5533,7 +5166,7 @@ pub unsafe fn cmd_gaps(
         } else {
             current_block = 11057878835866523405;
         }
-    } else if strcmp(type_0, c"right".as_ptr()) == 0 {
+    } else if type_0 == b"right" {
         if !gaps_update(
             Some(gaps_right as unsafe fn(*mut gaps_t) -> *mut i32),
             scope,
@@ -5544,7 +5177,7 @@ pub unsafe fn cmd_gaps(
         } else {
             current_block = 11057878835866523405;
         }
-    } else if strcmp(type_0, c"left".as_ptr()) == 0 {
+    } else if type_0 == b"left" {
         if !gaps_update(
             Some(gaps_left as unsafe fn(*mut gaps_t) -> *mut i32),
             scope,
@@ -5558,17 +5191,7 @@ pub unsafe fn cmd_gaps(
     } else {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_pointer_1 = type_0;
-            let log_value_0 = i3_common::logging::string_bytes(
-                (if log_pointer_1.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                })
-                .map(std::ffi::CStr::to_bytes),
-                None,
-            )
-            .to_vec();
+            let log_value_0 = i3_common::logging::string_bytes(Some(type_0), None).to_vec();
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::error!(
                     "ERROR: Invalid type {} when changing gaps",
@@ -5639,13 +5262,12 @@ use i3_common::boolstr::is_enabled;
 use i3_common::dpi::logical_px;
 use i3_common::safewrappers::scalloc;
 use i3_common::safewrappers::smalloc;
-use i3_common::safewrappers::sstrdup;
 
 // Canonical Cairo backend ABI; renderer logic remains local.
 
 // Canonical Pango backend ABI; font policy remains local.
 
-pub use libc::{atoi, exit, fcntl, free, setenv, strcasecmp, strcmp, strlen, strncasecmp, unlink};
+pub use libc::{atoi, exit, fcntl, free, setenv, unlink};
 
 use i3_common::native_stdio::__assert_fail;
 
@@ -5794,7 +5416,7 @@ mod argument_tests {
                 cmd_shmlog(
                     &raw mut context.current_match,
                     &raw mut context.command_output,
-                    input.as_ptr(),
+                    input.to_bytes(),
                 );
             }
             let actual = context.json_output.take().unwrap().finish();
@@ -5839,8 +5461,8 @@ mod argument_tests {
     #[test]
     fn output_name_accumulators_own_bytes_and_snapshot_without_holding_callback_locks() {
         let accumulator = OutputNames::new(Vec::new());
-        let input = std::ffi::CString::new(b"HDMI-\xff".as_slice()).unwrap();
-        unsafe { user_output_names_add(&accumulator, input.as_ptr()) };
+        let input = b"HDMI-\xff".to_vec();
+        unsafe { user_output_names_add(&accumulator, &input) };
         drop(input);
         let snapshot = accumulator.lock().unwrap().clone();
         assert_eq!(snapshot[0].as_slice(), b"HDMI-\xff");

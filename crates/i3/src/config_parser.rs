@@ -75,11 +75,6 @@ use crate::config_directives::cfg_title_align;
 use crate::config_directives::cfg_workspace;
 use crate::config_directives::cfg_workspace_back_and_forth;
 use crate::config_directives::cfg_workspace_layout;
-use crate::parser_util::parser_clear_stack;
-use crate::parser_util::parser_get_long;
-use crate::parser_util::parser_get_string;
-use crate::parser_util::parser_push_long;
-use crate::parser_util::parser_push_string;
 use crate::types::ParseFileResult;
 use std::os::unix::ffi::{OsStrExt, OsStringExt};
 /*
@@ -122,4018 +117,3659 @@ pub use crate::config_directives::ConfigResultIR;
 
 pub type cmdp_token = token;
 #[derive(Clone, Copy)]
-#[repr(C)]
 pub struct token {
-    pub name: *mut ::core::ffi::c_char,
-    pub identifier: *mut ::core::ffi::c_char,
+    pub name: &'static [u8],
+    pub identifier: Option<&'static [u8]>,
     pub next_state: ConfigParserState,
     pub extra: ConfigTokenData,
 }
 pub use crate::commands_parser::ParserTokenData as ConfigTokenData;
 
-pub type cmdp_token_ptr = tokenptr;
-#[derive(Clone, Copy)]
-#[repr(C)]
-pub struct tokenptr {
-    pub array: *mut cmdp_token,
-    pub n: i32,
-}
 pub const LONG_MAX: i64 = __LONG_MAX__;
 pub const LONG_MIN: i64 = -__LONG_MAX__ - 1_i64;
 pub const O_RDONLY: i32 = 0_i32;
 
 pub static mut config_error_nagbar_pid: libc::pid_t = -(1 as libc::pid_t);
-static mut tokens_FORCE_DISPLAY_URGENCY_HINT_MS: [cmdp_token; 2] = [
+static tokens_FORCE_DISPLAY_URGENCY_HINT_MS: [cmdp_token; 2] = [
     token {
-        name: c"'ms".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'ms",
+        identifier: None,
         next_state: ConfigParserState::ForceDisplayUrgencyHintMs,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
 ];
-static mut tokens_FLOATING_MAXIMUM_SIZE_HEIGHT: [cmdp_token; 1] = [token {
-    name: c"number".as_ptr().cast_mut(),
-    identifier: c"height".as_ptr().cast_mut(),
+static tokens_FLOATING_MAXIMUM_SIZE_HEIGHT: [cmdp_token; 1] = [token {
+    name: b"number",
+    identifier: Some(b"height"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 1_i32 as u16,
     },
 }];
-static mut tokens_FLOATING_MINIMUM_SIZE_HEIGHT: [cmdp_token; 1] = [token {
-    name: c"number".as_ptr().cast_mut(),
-    identifier: c"height".as_ptr().cast_mut(),
+static tokens_FLOATING_MINIMUM_SIZE_HEIGHT: [cmdp_token; 1] = [token {
+    name: b"number",
+    identifier: Some(b"height"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 2_i32 as u16,
     },
 }];
-static mut tokens_BAR_STRIP_WORKSPACE_NUMBERS: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"value".as_ptr().cast_mut(),
+static tokens_BAR_STRIP_WORKSPACE_NUMBERS: [cmdp_token; 1] = [token {
+    name: b"word",
+    identifier: Some(b"value"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 3_i32 as u16,
     },
 }];
-static mut tokens_FLOATING_MAXIMUM_SIZE_WIDTH: [cmdp_token; 1] = [token {
-    name: c"number".as_ptr().cast_mut(),
-    identifier: c"width".as_ptr().cast_mut(),
+static tokens_FLOATING_MAXIMUM_SIZE_WIDTH: [cmdp_token; 1] = [token {
+    name: b"number",
+    identifier: Some(b"width"),
     next_state: ConfigParserState::FloatingMaximumSizeX,
     extra: ConfigTokenData {
         call_identifier: 0_i32 as u16,
     },
 }];
-static mut tokens_FLOATING_MINIMUM_SIZE_WIDTH: [cmdp_token; 1] = [token {
-    name: c"number".as_ptr().cast_mut(),
-    identifier: c"width".as_ptr().cast_mut(),
+static tokens_FLOATING_MINIMUM_SIZE_WIDTH: [cmdp_token; 1] = [token {
+    name: b"number",
+    identifier: Some(b"width"),
     next_state: ConfigParserState::FloatingMinimumSizeX,
     extra: ConfigTokenData {
         call_identifier: 0_i32 as u16,
     },
 }];
-static mut tokens_BAR_BINDING_MODE_INDICATOR: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"value".as_ptr().cast_mut(),
+static tokens_BAR_BINDING_MODE_INDICATOR: [cmdp_token; 1] = [token {
+    name: b"word",
+    identifier: Some(b"value"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 4_i32 as u16,
     },
 }];
-static mut tokens_BAR_WORKSPACE_MIN_WIDTH_PX: [cmdp_token; 2] = [
+static tokens_BAR_WORKSPACE_MIN_WIDTH_PX: [cmdp_token; 2] = [
     token {
-        name: c"'px".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'px",
+        identifier: None,
         next_state: ConfigParserState::BarWorkspaceMinWidthPx,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 5_i32 as u16,
         },
     },
 ];
-static mut tokens_FOCUS_ON_WINDOW_ACTIVATION: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"mode".as_ptr().cast_mut(),
+static tokens_FOCUS_ON_WINDOW_ACTIVATION: [cmdp_token; 1] = [token {
+    name: b"word",
+    identifier: Some(b"mode"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 6_i32 as u16,
     },
 }];
-static mut tokens_FORCE_DISPLAY_URGENCY_HINT: [cmdp_token; 1] = [token {
-    name: c"number".as_ptr().cast_mut(),
-    identifier: c"duration_ms".as_ptr().cast_mut(),
+static tokens_FORCE_DISPLAY_URGENCY_HINT: [cmdp_token; 1] = [token {
+    name: b"number",
+    identifier: Some(b"duration_ms"),
     next_state: ConfigParserState::ForceDisplayUrgencyHintMs,
     extra: ConfigTokenData {
         call_identifier: 0_i32 as u16,
     },
 }];
-static mut tokens_TILING_DRAG_SWAP_MODIFIER: [cmdp_token; 10] = [
+static tokens_TILING_DRAG_SWAP_MODIFIER: [cmdp_token; 10] = [
     token {
-        name: c"'Mod1".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Mod1",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::TilingDragSwapModifier,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Mod2".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Mod2",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::TilingDragSwapModifier,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Mod3".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Mod3",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::TilingDragSwapModifier,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Mod4".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Mod4",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::TilingDragSwapModifier,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Mod5".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Mod5",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::TilingDragSwapModifier,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Shift".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Shift",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::TilingDragSwapModifier,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Control".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Control",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::TilingDragSwapModifier,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Ctrl".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Ctrl",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::TilingDragSwapModifier,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'+".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'+",
+        identifier: None,
         next_state: ConfigParserState::TilingDragSwapModifier,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 7_i32 as u16,
         },
     },
 ];
-static mut tokens_BAR_STRIP_WORKSPACE_NAME: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"value".as_ptr().cast_mut(),
+static tokens_BAR_STRIP_WORKSPACE_NAME: [cmdp_token; 1] = [token {
+    name: b"word",
+    identifier: Some(b"value"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 8_i32 as u16,
     },
 }];
-static mut tokens_CRITERION_FROM_STR_START: [cmdp_token; 3] = [
+static tokens_CRITERION_FROM_STR_START: [cmdp_token; 3] = [
     token {
-        name: c"'\"".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'\"",
+        identifier: None,
         next_state: ConfigParserState::CriterionFromStr,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'auto".as_ptr().cast_mut(),
-        identifier: c"kind".as_ptr().cast_mut(),
+        name: b"'auto",
+        identifier: Some(b"kind"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 9_i32 as u16,
         },
     },
     token {
-        name: c"'user".as_ptr().cast_mut(),
-        identifier: c"kind".as_ptr().cast_mut(),
+        name: b"'user",
+        identifier: Some(b"kind"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 10_i32 as u16,
         },
     },
 ];
-static mut tokens_DEFAULT_BORDER_PIXELS_PX: [cmdp_token; 2] = [
+static tokens_DEFAULT_BORDER_PIXELS_PX: [cmdp_token; 2] = [
     token {
-        name: c"'px".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'px",
+        identifier: None,
         next_state: ConfigParserState::DefaultBorderPixelsPx,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 11_i32 as u16,
         },
     },
 ];
-static mut tokens_WORKSPACE_BACK_AND_FORTH: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"value".as_ptr().cast_mut(),
+static tokens_WORKSPACE_BACK_AND_FORTH: [cmdp_token; 1] = [token {
+    name: b"word",
+    identifier: Some(b"value"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 12_i32 as u16,
     },
 }];
-static mut tokens_ASSIGN_WORKSPACE_NUMBER: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"number".as_ptr().cast_mut(),
+static tokens_ASSIGN_WORKSPACE_NUMBER: [cmdp_token; 1] = [token {
+    name: b"string",
+    identifier: Some(b"number"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 13_i32 as u16,
     },
 }];
-static mut tokens_BAR_WORKSPACE_MIN_WIDTH: [cmdp_token; 1] = [token {
-    name: c"number".as_ptr().cast_mut(),
-    identifier: c"width".as_ptr().cast_mut(),
+static tokens_BAR_WORKSPACE_MIN_WIDTH: [cmdp_token; 1] = [token {
+    name: b"number",
+    identifier: Some(b"width"),
     next_state: ConfigParserState::BarWorkspaceMinWidthPx,
     extra: ConfigTokenData {
         call_identifier: 0_i32 as u16,
     },
 }];
-static mut tokens_FLOATING_MAXIMUM_SIZE_X: [cmdp_token; 1] = [token {
-    name: c"'x".as_ptr().cast_mut(),
-    identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static tokens_FLOATING_MAXIMUM_SIZE_X: [cmdp_token; 1] = [token {
+    name: b"'x",
+    identifier: None,
     next_state: ConfigParserState::FloatingMaximumSizeHeight,
     extra: ConfigTokenData {
         call_identifier: 0_i32 as u16,
     },
 }];
-static mut tokens_FLOATING_MINIMUM_SIZE_X: [cmdp_token; 1] = [token {
-    name: c"'x".as_ptr().cast_mut(),
-    identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static tokens_FLOATING_MINIMUM_SIZE_X: [cmdp_token; 1] = [token {
+    name: b"'x",
+    identifier: None,
     next_state: ConfigParserState::FloatingMinimumSizeHeight,
     extra: ConfigTokenData {
         call_identifier: 0_i32 as u16,
     },
 }];
-static mut tokens_POPUP_DURING_FULLSCREEN: [cmdp_token; 4] = [
+static tokens_POPUP_DURING_FULLSCREEN: [cmdp_token; 4] = [
     token {
-        name: c"'ignore".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+        name: b"'ignore",
+        identifier: Some(b"value"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 14_i32 as u16,
         },
     },
     token {
-        name: c"'leave_fullscreen".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+        name: b"'leave_fullscreen",
+        identifier: Some(b"value"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 15_i32 as u16,
         },
     },
     token {
-        name: c"'all".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+        name: b"'all",
+        identifier: Some(b"value"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 16_i32 as u16,
         },
     },
     token {
-        name: c"'smart".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+        name: b"'smart",
+        identifier: Some(b"value"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 17_i32 as u16,
         },
     },
 ];
-static mut tokens_BAR_COLORS_IGNORE_LINE: [cmdp_token; 1] = [token {
-    name: c"line".as_ptr().cast_mut(),
-    identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static tokens_BAR_COLORS_IGNORE_LINE: [cmdp_token; 1] = [token {
+    name: b"line",
+    identifier: None,
     next_state: ConfigParserState::BarColors,
     extra: ConfigTokenData {
         call_identifier: 0_i32 as u16,
     },
 }];
-static mut tokens_CRITERION_FROM_STR_END: [cmdp_token; 1] = [token {
-    name: c"'\"".as_ptr().cast_mut(),
-    identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static tokens_CRITERION_FROM_STR_END: [cmdp_token; 1] = [token {
+    name: b"'\"",
+    identifier: None,
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 18_i32 as u16,
     },
 }];
-static mut tokens_BAR_COLORS_BACKGROUND: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"background".as_ptr().cast_mut(),
+static tokens_BAR_COLORS_BACKGROUND: [cmdp_token; 1] = [token {
+    name: b"word",
+    identifier: Some(b"background"),
     next_state: ConfigParserState::BarColorsText,
     extra: ConfigTokenData {
         call_identifier: 0_i32 as u16,
     },
 }];
-static mut tokens_BAR_WORKSPACE_BUTTONS: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"value".as_ptr().cast_mut(),
+static tokens_BAR_WORKSPACE_BUTTONS: [cmdp_token; 1] = [token {
+    name: b"word",
+    identifier: Some(b"value"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 19_i32 as u16,
     },
 }];
-static mut tokens_BAR_WORKSPACE_COMMAND: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"command".as_ptr().cast_mut(),
+static tokens_BAR_WORKSPACE_COMMAND: [cmdp_token; 1] = [token {
+    name: b"string",
+    identifier: Some(b"command"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 20_i32 as u16,
     },
 }];
-static mut tokens_DEFAULT_BORDER_PIXELS: [cmdp_token; 2] = [
+static tokens_DEFAULT_BORDER_PIXELS: [cmdp_token; 2] = [
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 21_i32 as u16,
         },
     },
     token {
-        name: c"number".as_ptr().cast_mut(),
-        identifier: c"width".as_ptr().cast_mut(),
+        name: b"number",
+        identifier: Some(b"width"),
         next_state: ConfigParserState::DefaultBorderPixelsPx,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
 ];
-static mut tokens_WORKSPACE_OUTPUT_WORD: [cmdp_token; 2] = [
+static tokens_WORKSPACE_OUTPUT_WORD: [cmdp_token; 2] = [
     token {
-        name: c"word".as_ptr().cast_mut(),
-        identifier: c"output".as_ptr().cast_mut(),
+        name: b"word",
+        identifier: Some(b"output"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 22_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: ConfigParserState::Initial,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
 ];
-static mut tokens_BAR_SEPARATOR_SYMBOL: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"separator".as_ptr().cast_mut(),
+static tokens_BAR_SEPARATOR_SYMBOL: [cmdp_token; 1] = [token {
+    name: b"string",
+    identifier: Some(b"separator"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 23_i32 as u16,
     },
 }];
-static mut tokens_FORCE_FOCUS_WRAPPING: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"value".as_ptr().cast_mut(),
+static tokens_FORCE_FOCUS_WRAPPING: [cmdp_token; 1] = [token {
+    name: b"word",
+    identifier: Some(b"value"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 24_i32 as u16,
     },
 }];
-static mut tokens_BAR_BINDSYM_COMMAND: [cmdp_token; 2] = [
+static tokens_BAR_BINDSYM_COMMAND: [cmdp_token; 2] = [
     token {
-        name: c"'--release".as_ptr().cast_mut(),
-        identifier: c"release".as_ptr().cast_mut(),
+        name: b"'--release",
+        identifier: Some(b"release"),
         next_state: ConfigParserState::BarBindsymCommand,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"string".as_ptr().cast_mut(),
-        identifier: c"command".as_ptr().cast_mut(),
+        name: b"string",
+        identifier: Some(b"command"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 25_i32 as u16,
         },
     },
 ];
-static mut tokens_BAR_TRAY_PADDING_PX: [cmdp_token; 2] = [
+static tokens_BAR_TRAY_PADDING_PX: [cmdp_token; 2] = [
     token {
-        name: c"'px".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'px",
+        identifier: None,
         next_state: ConfigParserState::BarTrayPaddingPx,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 26_i32 as u16,
         },
     },
 ];
-static mut tokens_DEFAULT_ORIENTATION: [cmdp_token; 3] = [
+static tokens_DEFAULT_ORIENTATION: [cmdp_token; 3] = [
     token {
-        name: c"'horizontal".as_ptr().cast_mut(),
-        identifier: c"orientation".as_ptr().cast_mut(),
+        name: b"'horizontal",
+        identifier: Some(b"orientation"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 27_i32 as u16,
         },
     },
     token {
-        name: c"'vertical".as_ptr().cast_mut(),
-        identifier: c"orientation".as_ptr().cast_mut(),
+        name: b"'vertical",
+        identifier: Some(b"orientation"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 28_i32 as u16,
         },
     },
     token {
-        name: c"'auto".as_ptr().cast_mut(),
-        identifier: c"orientation".as_ptr().cast_mut(),
+        name: b"'auto",
+        identifier: Some(b"orientation"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 29_i32 as u16,
         },
     },
 ];
-static mut tokens_FOCUS_FOLLOWS_MOUSE: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"value".as_ptr().cast_mut(),
+static tokens_FOCUS_FOLLOWS_MOUSE: [cmdp_token; 1] = [token {
+    name: b"word",
+    identifier: Some(b"value"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 30_i32 as u16,
     },
 }];
-static mut tokens_BAR_PADDING_BOTTOM: [cmdp_token; 3] = [
+static tokens_BAR_PADDING_BOTTOM: [cmdp_token; 3] = [
     token {
-        name: c"'px".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'px",
+        identifier: None,
         next_state: ConfigParserState::BarPaddingBottom,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"number".as_ptr().cast_mut(),
-        identifier: c"left".as_ptr().cast_mut(),
+        name: b"number",
+        identifier: Some(b"left"),
         next_state: ConfigParserState::BarPaddingLeft,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 31_i32 as u16,
         },
     },
 ];
-static mut tokens_BAR_STATUS_COMMAND: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"command".as_ptr().cast_mut(),
+static tokens_BAR_STATUS_COMMAND: [cmdp_token; 1] = [token {
+    name: b"string",
+    identifier: Some(b"command"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 32_i32 as u16,
     },
 }];
-static mut tokens_BAR_WHEEL_DOWN_CMD: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"command".as_ptr().cast_mut(),
+static tokens_BAR_WHEEL_DOWN_CMD: [cmdp_token; 1] = [token {
+    name: b"string",
+    identifier: Some(b"command"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 33_i32 as u16,
     },
 }];
-static mut tokens_COLOR_CHILD_BORDER: [cmdp_token; 2] = [
+static tokens_COLOR_CHILD_BORDER: [cmdp_token; 2] = [
     token {
-        name: c"word".as_ptr().cast_mut(),
-        identifier: c"child_border".as_ptr().cast_mut(),
+        name: b"word",
+        identifier: Some(b"child_border"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 34_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 35_i32 as u16,
         },
     },
 ];
-static mut tokens_CRITERION_FROM_STR: [cmdp_token; 2] = [
+static tokens_CRITERION_FROM_STR: [cmdp_token; 2] = [
     token {
-        name: c"'auto".as_ptr().cast_mut(),
-        identifier: c"kind".as_ptr().cast_mut(),
+        name: b"'auto",
+        identifier: Some(b"kind"),
         next_state: ConfigParserState::CriterionFromStrEnd,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'user".as_ptr().cast_mut(),
-        identifier: c"kind".as_ptr().cast_mut(),
+        name: b"'user",
+        identifier: Some(b"kind"),
         next_state: ConfigParserState::CriterionFromStrEnd,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
 ];
-static mut tokens_FOR_WINDOW_COMMAND: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"command".as_ptr().cast_mut(),
+static tokens_FOR_WINDOW_COMMAND: [cmdp_token; 1] = [token {
+    name: b"string",
+    identifier: Some(b"command"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 36_i32 as u16,
     },
 }];
-static mut tokens_BAR_COLORS_BORDER: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"border".as_ptr().cast_mut(),
+static tokens_BAR_COLORS_BORDER: [cmdp_token; 1] = [token {
+    name: b"word",
+    identifier: Some(b"border"),
     next_state: ConfigParserState::BarColorsBackground,
     extra: ConfigTokenData {
         call_identifier: 0_i32 as u16,
     },
 }];
-static mut tokens_BAR_COLORS_SINGLE: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"color".as_ptr().cast_mut(),
+static tokens_BAR_COLORS_SINGLE: [cmdp_token; 1] = [token {
+    name: b"word",
+    identifier: Some(b"color"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 37_i32 as u16,
     },
 }];
-static mut tokens_BAR_PADDING_RIGHT: [cmdp_token; 3] = [
+static tokens_BAR_PADDING_RIGHT: [cmdp_token; 3] = [
     token {
-        name: c"'px".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'px",
+        identifier: None,
         next_state: ConfigParserState::BarPaddingRight,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"number".as_ptr().cast_mut(),
-        identifier: c"bottom".as_ptr().cast_mut(),
+        name: b"number",
+        identifier: Some(b"bottom"),
         next_state: ConfigParserState::BarPaddingBottom,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 38_i32 as u16,
         },
     },
 ];
-static mut tokens_FLOATING_MODIFIER: [cmdp_token; 10] = [
+static tokens_FLOATING_MODIFIER: [cmdp_token; 10] = [
     token {
-        name: c"'Mod1".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Mod1",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::FloatingModifier,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Mod2".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Mod2",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::FloatingModifier,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Mod3".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Mod3",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::FloatingModifier,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Mod4".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Mod4",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::FloatingModifier,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Mod5".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Mod5",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::FloatingModifier,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Shift".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Shift",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::FloatingModifier,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Control".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Control",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::FloatingModifier,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Ctrl".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Ctrl",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::FloatingModifier,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'+".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'+",
+        identifier: None,
         next_state: ConfigParserState::FloatingModifier,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 39_i32 as u16,
         },
     },
 ];
-static mut tokens_HIDE_EDGE_BORDERS: [cmdp_token; 12] = [
+static tokens_HIDE_EDGE_BORDERS: [cmdp_token; 12] = [
     token {
-        name: c"'none".as_ptr().cast_mut(),
-        identifier: c"hide_borders".as_ptr().cast_mut(),
+        name: b"'none",
+        identifier: Some(b"hide_borders"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 40_i32 as u16,
         },
     },
     token {
-        name: c"'vertical".as_ptr().cast_mut(),
-        identifier: c"hide_borders".as_ptr().cast_mut(),
+        name: b"'vertical",
+        identifier: Some(b"hide_borders"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 41_i32 as u16,
         },
     },
     token {
-        name: c"'horizontal".as_ptr().cast_mut(),
-        identifier: c"hide_borders".as_ptr().cast_mut(),
+        name: b"'horizontal",
+        identifier: Some(b"hide_borders"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 42_i32 as u16,
         },
     },
     token {
-        name: c"'both".as_ptr().cast_mut(),
-        identifier: c"hide_borders".as_ptr().cast_mut(),
+        name: b"'both",
+        identifier: Some(b"hide_borders"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 43_i32 as u16,
         },
     },
     token {
-        name: c"'smart_no_gaps".as_ptr().cast_mut(),
-        identifier: c"hide_borders".as_ptr().cast_mut(),
+        name: b"'smart_no_gaps",
+        identifier: Some(b"hide_borders"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 44_i32 as u16,
         },
     },
     token {
-        name: c"'smart".as_ptr().cast_mut(),
-        identifier: c"hide_borders".as_ptr().cast_mut(),
+        name: b"'smart",
+        identifier: Some(b"hide_borders"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 45_i32 as u16,
         },
     },
     token {
-        name: c"'1".as_ptr().cast_mut(),
-        identifier: c"hide_borders".as_ptr().cast_mut(),
+        name: b"'1",
+        identifier: Some(b"hide_borders"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 46_i32 as u16,
         },
     },
     token {
-        name: c"'yes".as_ptr().cast_mut(),
-        identifier: c"hide_borders".as_ptr().cast_mut(),
+        name: b"'yes",
+        identifier: Some(b"hide_borders"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 47_i32 as u16,
         },
     },
     token {
-        name: c"'true".as_ptr().cast_mut(),
-        identifier: c"hide_borders".as_ptr().cast_mut(),
+        name: b"'true",
+        identifier: Some(b"hide_borders"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 48_i32 as u16,
         },
     },
     token {
-        name: c"'on".as_ptr().cast_mut(),
-        identifier: c"hide_borders".as_ptr().cast_mut(),
+        name: b"'on",
+        identifier: Some(b"hide_borders"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 49_i32 as u16,
         },
     },
     token {
-        name: c"'enable".as_ptr().cast_mut(),
-        identifier: c"hide_borders".as_ptr().cast_mut(),
+        name: b"'enable",
+        identifier: Some(b"hide_borders"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 50_i32 as u16,
         },
     },
     token {
-        name: c"'active".as_ptr().cast_mut(),
-        identifier: c"hide_borders".as_ptr().cast_mut(),
+        name: b"'active",
+        identifier: Some(b"hide_borders"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 51_i32 as u16,
         },
     },
 ];
-static mut tokens_WORKSPACE_COMMAND: [cmdp_token; 2] = [
+static tokens_WORKSPACE_COMMAND: [cmdp_token; 2] = [
     token {
-        name: c"'output".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'output",
+        identifier: None,
         next_state: ConfigParserState::WorkspaceOutputWord,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'gaps".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'gaps",
+        identifier: None,
         next_state: ConfigParserState::Gaps,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
 ];
-static mut tokens_ASSIGN_WORKSPACE: [cmdp_token; 5] = [
+static tokens_ASSIGN_WORKSPACE: [cmdp_token; 5] = [
     token {
-        name: c"'→".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: "'→".as_bytes(),
+        identifier: None,
         next_state: ConfigParserState::AssignWorkspace,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'output".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'output",
+        identifier: None,
         next_state: ConfigParserState::AssignOutput,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'workspace".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'workspace",
+        identifier: None,
         next_state: ConfigParserState::AssignWorkspace,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'number".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'number",
+        identifier: None,
         next_state: ConfigParserState::AssignWorkspaceNumber,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"string".as_ptr().cast_mut(),
-        identifier: c"workspace".as_ptr().cast_mut(),
+        name: b"string",
+        identifier: Some(b"workspace"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 52_i32 as u16,
         },
     },
 ];
-static mut tokens_BAR_COLORS_BRACE: [cmdp_token; 2] = [
+static tokens_BAR_COLORS_BRACE: [cmdp_token; 2] = [
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: ConfigParserState::BarColorsBrace,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'{".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'{",
+        identifier: None,
         next_state: ConfigParserState::BarColors,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
 ];
-static mut tokens_BAR_HIDDEN_STATE: [cmdp_token; 2] = [
+static tokens_BAR_HIDDEN_STATE: [cmdp_token; 2] = [
     token {
-        name: c"'hide".as_ptr().cast_mut(),
-        identifier: c"hidden_state".as_ptr().cast_mut(),
+        name: b"'hide",
+        identifier: Some(b"hidden_state"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 53_i32 as u16,
         },
     },
     token {
-        name: c"'show".as_ptr().cast_mut(),
-        identifier: c"hidden_state".as_ptr().cast_mut(),
+        name: b"'show",
+        identifier: Some(b"hidden_state"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 54_i32 as u16,
         },
     },
 ];
-static mut tokens_BAR_PADDING_LEFT: [cmdp_token; 2] = [
+static tokens_BAR_PADDING_LEFT: [cmdp_token; 2] = [
     token {
-        name: c"'px".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'px",
+        identifier: None,
         next_state: ConfigParserState::BarPaddingLeft,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 55_i32 as u16,
         },
     },
 ];
-static mut tokens_BAR_TRAY_PADDING: [cmdp_token; 1] = [token {
-    name: c"number".as_ptr().cast_mut(),
-    identifier: c"padding_px".as_ptr().cast_mut(),
+static tokens_BAR_TRAY_PADDING: [cmdp_token; 1] = [token {
+    name: b"number",
+    identifier: Some(b"padding_px"),
     next_state: ConfigParserState::BarTrayPaddingPx,
     extra: ConfigTokenData {
         call_identifier: 0_i32 as u16,
     },
 }];
-static mut tokens_BAR_WHEEL_UP_CMD: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"command".as_ptr().cast_mut(),
+static tokens_BAR_WHEEL_UP_CMD: [cmdp_token; 1] = [token {
+    name: b"string",
+    identifier: Some(b"command"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 56_i32 as u16,
     },
 }];
-static mut tokens_COLOR_BACKGROUND: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"background".as_ptr().cast_mut(),
+static tokens_COLOR_BACKGROUND: [cmdp_token; 1] = [token {
+    name: b"word",
+    identifier: Some(b"background"),
     next_state: ConfigParserState::ColorText,
     extra: ConfigTokenData {
         call_identifier: 0_i32 as u16,
     },
 }];
-static mut tokens_IPC_KILL_TIMEOUT: [cmdp_token; 1] = [token {
-    name: c"number".as_ptr().cast_mut(),
-    identifier: c"timeout".as_ptr().cast_mut(),
+static tokens_IPC_KILL_TIMEOUT: [cmdp_token; 1] = [token {
+    name: b"number",
+    identifier: Some(b"timeout"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 57_i32 as u16,
     },
 }];
-static mut tokens_MODE_BINDCOMMAND: [cmdp_token; 5] = [
+static tokens_MODE_BINDCOMMAND: [cmdp_token; 5] = [
     token {
-        name: c"'--release".as_ptr().cast_mut(),
-        identifier: c"release".as_ptr().cast_mut(),
+        name: b"'--release",
+        identifier: Some(b"release"),
         next_state: ConfigParserState::ModeBindcommand,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'--border".as_ptr().cast_mut(),
-        identifier: c"border".as_ptr().cast_mut(),
+        name: b"'--border",
+        identifier: Some(b"border"),
         next_state: ConfigParserState::ModeBindcommand,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'--whole-window".as_ptr().cast_mut(),
-        identifier: c"whole_window".as_ptr().cast_mut(),
+        name: b"'--whole-window",
+        identifier: Some(b"whole_window"),
         next_state: ConfigParserState::ModeBindcommand,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'--exclude-titlebar".as_ptr().cast_mut(),
-        identifier: c"exclude_titlebar".as_ptr().cast_mut(),
+        name: b"'--exclude-titlebar",
+        identifier: Some(b"exclude_titlebar"),
         next_state: ConfigParserState::ModeBindcommand,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"string".as_ptr().cast_mut(),
-        identifier: c"command".as_ptr().cast_mut(),
+        name: b"string",
+        identifier: Some(b"command"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 58_i32 as u16,
         },
     },
 ];
-static mut tokens_MODE_IGNORE_LINE: [cmdp_token; 1] = [token {
-    name: c"line".as_ptr().cast_mut(),
-    identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static tokens_MODE_IGNORE_LINE: [cmdp_token; 1] = [token {
+    name: b"line",
+    identifier: None,
     next_state: ConfigParserState::Mode,
     extra: ConfigTokenData {
         call_identifier: 0_i32 as u16,
     },
 }];
-static mut tokens_TILING_DRAG_MODE: [cmdp_token; 3] = [
+static tokens_TILING_DRAG_MODE: [cmdp_token; 3] = [
     token {
-        name: c"'modifier".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+        name: b"'modifier",
+        identifier: Some(b"value"),
         next_state: ConfigParserState::TilingDragMode,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'titlebar".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+        name: b"'titlebar",
+        identifier: Some(b"value"),
         next_state: ConfigParserState::TilingDragMode,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 59_i32 as u16,
         },
     },
 ];
-static mut tokens_WORKSPACE_LAYOUT: [cmdp_token; 4] = [
+static tokens_WORKSPACE_LAYOUT: [cmdp_token; 4] = [
     token {
-        name: c"'default".as_ptr().cast_mut(),
-        identifier: c"layout".as_ptr().cast_mut(),
+        name: b"'default",
+        identifier: Some(b"layout"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 60_i32 as u16,
         },
     },
     token {
-        name: c"'stacking".as_ptr().cast_mut(),
-        identifier: c"layout".as_ptr().cast_mut(),
+        name: b"'stacking",
+        identifier: Some(b"layout"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 61_i32 as u16,
         },
     },
     token {
-        name: c"'stacked".as_ptr().cast_mut(),
-        identifier: c"layout".as_ptr().cast_mut(),
+        name: b"'stacked",
+        identifier: Some(b"layout"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 62_i32 as u16,
         },
     },
     token {
-        name: c"'tabbed".as_ptr().cast_mut(),
-        identifier: c"layout".as_ptr().cast_mut(),
+        name: b"'tabbed",
+        identifier: Some(b"layout"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 63_i32 as u16,
         },
     },
 ];
-static mut tokens_BAR_BAR_COMMAND: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"command".as_ptr().cast_mut(),
+static tokens_BAR_BAR_COMMAND: [cmdp_token; 1] = [token {
+    name: b"string",
+    identifier: Some(b"command"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 64_i32 as u16,
     },
 }];
-static mut tokens_BAR_COLORS_TEXT: [cmdp_token; 2] = [
+static tokens_BAR_COLORS_TEXT: [cmdp_token; 2] = [
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 65_i32 as u16,
         },
     },
     token {
-        name: c"word".as_ptr().cast_mut(),
-        identifier: c"text".as_ptr().cast_mut(),
+        name: b"word",
+        identifier: Some(b"text"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 66_i32 as u16,
         },
     },
 ];
-static mut tokens_BAR_IGNORE_LINE: [cmdp_token; 1] = [token {
-    name: c"line".as_ptr().cast_mut(),
-    identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static tokens_BAR_IGNORE_LINE: [cmdp_token; 1] = [token {
+    name: b"line",
+    identifier: None,
     next_state: ConfigParserState::Bar,
     extra: ConfigTokenData {
         call_identifier: 0_i32 as u16,
     },
 }];
-static mut tokens_BAR_PADDING_TOP: [cmdp_token; 3] = [
+static tokens_BAR_PADDING_TOP: [cmdp_token; 3] = [
     token {
-        name: c"'px".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'px",
+        identifier: None,
         next_state: ConfigParserState::BarPaddingTop,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"number".as_ptr().cast_mut(),
-        identifier: c"right_or_right_and_left".as_ptr().cast_mut(),
+        name: b"number",
+        identifier: Some(b"right_or_right_and_left"),
         next_state: ConfigParserState::BarPaddingRight,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 67_i32 as u16,
         },
     },
 ];
-static mut tokens_BAR_SOCKET_PATH: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"path".as_ptr().cast_mut(),
+static tokens_BAR_SOCKET_PATH: [cmdp_token; 1] = [token {
+    name: b"string",
+    identifier: Some(b"path"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 68_i32 as u16,
     },
 }];
-static mut tokens_BAR_TRAY_OUTPUT: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"output".as_ptr().cast_mut(),
+static tokens_BAR_TRAY_OUTPUT: [cmdp_token; 1] = [token {
+    name: b"word",
+    identifier: Some(b"output"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 69_i32 as u16,
     },
 }];
-static mut tokens_COLOR_INDICATOR: [cmdp_token; 2] = [
+static tokens_COLOR_INDICATOR: [cmdp_token; 2] = [
     token {
-        name: c"word".as_ptr().cast_mut(),
-        identifier: c"indicator".as_ptr().cast_mut(),
+        name: b"word",
+        identifier: Some(b"indicator"),
         next_state: ConfigParserState::ColorChildBorder,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 70_i32 as u16,
         },
     },
 ];
-static mut tokens_DISABLE_RANDR15: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"value".as_ptr().cast_mut(),
+static tokens_DISABLE_RANDR15: [cmdp_token; 1] = [token {
+    name: b"word",
+    identifier: Some(b"value"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 71_i32 as u16,
     },
 }];
-static mut tokens_GAPS_WITH_SCOPE: [cmdp_token; 1] = [token {
-    name: c"number".as_ptr().cast_mut(),
-    identifier: c"value".as_ptr().cast_mut(),
+static tokens_GAPS_WITH_SCOPE: [cmdp_token; 1] = [token {
+    name: b"number",
+    identifier: Some(b"value"),
     next_state: ConfigParserState::GapsEnd,
     extra: ConfigTokenData {
         call_identifier: 0_i32 as u16,
     },
 }];
-static mut tokens_CRITERION_FROM: [cmdp_token; 1] = [token {
-    name: c"'=".as_ptr().cast_mut(),
-    identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static tokens_CRITERION_FROM: [cmdp_token; 1] = [token {
+    name: b"'=",
+    identifier: None,
     next_state: ConfigParserState::CriterionFromStrStart,
     extra: ConfigTokenData {
         call_identifier: 0_i32 as u16,
     },
 }];
-static mut tokens_DEFAULT_BORDER: [cmdp_token; 4] = [
+static tokens_DEFAULT_BORDER: [cmdp_token; 4] = [
     token {
-        name: c"'normal".as_ptr().cast_mut(),
-        identifier: c"border".as_ptr().cast_mut(),
+        name: b"'normal",
+        identifier: Some(b"border"),
         next_state: ConfigParserState::DefaultBorderPixels,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'pixel".as_ptr().cast_mut(),
-        identifier: c"border".as_ptr().cast_mut(),
+        name: b"'pixel",
+        identifier: Some(b"border"),
         next_state: ConfigParserState::DefaultBorderPixels,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'1pixel".as_ptr().cast_mut(),
-        identifier: c"border".as_ptr().cast_mut(),
+        name: b"'1pixel",
+        identifier: Some(b"border"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 72_i32 as u16,
         },
     },
     token {
-        name: c"'none".as_ptr().cast_mut(),
-        identifier: c"border".as_ptr().cast_mut(),
+        name: b"'none",
+        identifier: Some(b"border"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 73_i32 as u16,
         },
     },
 ];
-static mut tokens_FOCUS_WRAPPING: [cmdp_token; 14] = [
+static tokens_FOCUS_WRAPPING: [cmdp_token; 14] = [
     token {
-        name: c"'1".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+        name: b"'1",
+        identifier: Some(b"value"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 74_i32 as u16,
         },
     },
     token {
-        name: c"'yes".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+        name: b"'yes",
+        identifier: Some(b"value"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 75_i32 as u16,
         },
     },
     token {
-        name: c"'true".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+        name: b"'true",
+        identifier: Some(b"value"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 76_i32 as u16,
         },
     },
     token {
-        name: c"'on".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+        name: b"'on",
+        identifier: Some(b"value"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 77_i32 as u16,
         },
     },
     token {
-        name: c"'enable".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+        name: b"'enable",
+        identifier: Some(b"value"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 78_i32 as u16,
         },
     },
     token {
-        name: c"'active".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+        name: b"'active",
+        identifier: Some(b"value"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 79_i32 as u16,
         },
     },
     token {
-        name: c"'0".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+        name: b"'0",
+        identifier: Some(b"value"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 80_i32 as u16,
         },
     },
     token {
-        name: c"'no".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+        name: b"'no",
+        identifier: Some(b"value"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 81_i32 as u16,
         },
     },
     token {
-        name: c"'false".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+        name: b"'false",
+        identifier: Some(b"value"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 82_i32 as u16,
         },
     },
     token {
-        name: c"'off".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+        name: b"'off",
+        identifier: Some(b"value"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 83_i32 as u16,
         },
     },
     token {
-        name: c"'disable".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+        name: b"'disable",
+        identifier: Some(b"value"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 84_i32 as u16,
         },
     },
     token {
-        name: c"'inactive".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+        name: b"'inactive",
+        identifier: Some(b"value"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 85_i32 as u16,
         },
     },
     token {
-        name: c"'force".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+        name: b"'force",
+        identifier: Some(b"value"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 86_i32 as u16,
         },
     },
     token {
-        name: c"'workspace".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+        name: b"'workspace",
+        identifier: Some(b"value"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 87_i32 as u16,
         },
     },
 ];
-static mut tokens_FORCE_XINERAMA: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"value".as_ptr().cast_mut(),
+static tokens_FORCE_XINERAMA: [cmdp_token; 1] = [token {
+    name: b"word",
+    identifier: Some(b"value"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 88_i32 as u16,
     },
 }];
-static mut tokens_ASSIGN_OUTPUT: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"output".as_ptr().cast_mut(),
+static tokens_ASSIGN_OUTPUT: [cmdp_token; 1] = [token {
+    name: b"string",
+    identifier: Some(b"output"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 89_i32 as u16,
     },
 }];
-static mut tokens_CRITERION_STR: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"cvalue".as_ptr().cast_mut(),
+static tokens_CRITERION_STR: [cmdp_token; 1] = [token {
+    name: b"word",
+    identifier: Some(b"cvalue"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 90_i32 as u16,
     },
 }];
-static mut tokens_MOUSE_WARPING: [cmdp_token; 2] = [
+static tokens_MOUSE_WARPING: [cmdp_token; 2] = [
     token {
-        name: c"'none".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+        name: b"'none",
+        identifier: Some(b"value"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 91_i32 as u16,
         },
     },
     token {
-        name: c"'output".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+        name: b"'output",
+        identifier: Some(b"value"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 92_i32 as u16,
         },
     },
 ];
-static mut tokens_RESTART_STATE: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"path".as_ptr().cast_mut(),
+static tokens_RESTART_STATE: [cmdp_token; 1] = [token {
+    name: b"string",
+    identifier: Some(b"path"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 93_i32 as u16,
     },
 }];
-static mut tokens_SMART_BORDERS: [cmdp_token; 7] = [
+static tokens_SMART_BORDERS: [cmdp_token; 7] = [
     token {
-        name: c"'1".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+        name: b"'1",
+        identifier: Some(b"enabled"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 94_i32 as u16,
         },
     },
     token {
-        name: c"'yes".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+        name: b"'yes",
+        identifier: Some(b"enabled"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 95_i32 as u16,
         },
     },
     token {
-        name: c"'true".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+        name: b"'true",
+        identifier: Some(b"enabled"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 96_i32 as u16,
         },
     },
     token {
-        name: c"'on".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+        name: b"'on",
+        identifier: Some(b"enabled"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 97_i32 as u16,
         },
     },
     token {
-        name: c"'enable".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+        name: b"'enable",
+        identifier: Some(b"enabled"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 98_i32 as u16,
         },
     },
     token {
-        name: c"'active".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+        name: b"'active",
+        identifier: Some(b"enabled"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 99_i32 as u16,
         },
     },
     token {
-        name: c"'no_gaps".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+        name: b"'no_gaps",
+        identifier: Some(b"enabled"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 100_i32 as u16,
         },
     },
 ];
-static mut tokens_BAR_MODIFIER: [cmdp_token; 12] = [
+static tokens_BAR_MODIFIER: [cmdp_token; 12] = [
     token {
-        name: c"'off".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'off",
+        identifier: None,
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 101_i32 as u16,
         },
     },
     token {
-        name: c"'none".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'none",
+        identifier: None,
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 102_i32 as u16,
         },
     },
     token {
-        name: c"'Mod1".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Mod1",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::BarModifier,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Mod2".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Mod2",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::BarModifier,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Mod3".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Mod3",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::BarModifier,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Mod4".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Mod4",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::BarModifier,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Mod5".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Mod5",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::BarModifier,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Shift".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Shift",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::BarModifier,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Control".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Control",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::BarModifier,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Ctrl".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Ctrl",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::BarModifier,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'+".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'+",
+        identifier: None,
         next_state: ConfigParserState::BarModifier,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 103_i32 as u16,
         },
     },
 ];
-static mut tokens_BAR_POSITION: [cmdp_token; 2] = [
+static tokens_BAR_POSITION: [cmdp_token; 2] = [
     token {
-        name: c"'top".as_ptr().cast_mut(),
-        identifier: c"position".as_ptr().cast_mut(),
+        name: b"'top",
+        identifier: Some(b"position"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 104_i32 as u16,
         },
     },
     token {
-        name: c"'bottom".as_ptr().cast_mut(),
-        identifier: c"position".as_ptr().cast_mut(),
+        name: b"'bottom",
+        identifier: Some(b"position"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 105_i32 as u16,
         },
     },
 ];
-static mut tokens_COLOR_BORDER: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"border".as_ptr().cast_mut(),
+static tokens_COLOR_BORDER: [cmdp_token; 1] = [token {
+    name: b"word",
+    identifier: Some(b"border"),
     next_state: ConfigParserState::ColorBackground,
     extra: ConfigTokenData {
         call_identifier: 0_i32 as u16,
     },
 }];
-static mut tokens_COLOR_SINGLE: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"color".as_ptr().cast_mut(),
+static tokens_COLOR_SINGLE: [cmdp_token; 1] = [token {
+    name: b"word",
+    identifier: Some(b"color"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 106_i32 as u16,
     },
 }];
-static mut tokens_FAKE_OUTPUTS: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"outputs".as_ptr().cast_mut(),
+static tokens_FAKE_OUTPUTS: [cmdp_token; 1] = [token {
+    name: b"string",
+    identifier: Some(b"outputs"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 107_i32 as u16,
     },
 }];
-static mut tokens_MODE_BINDING: [cmdp_token; 20] = [
+static tokens_MODE_BINDING: [cmdp_token; 20] = [
     token {
-        name: c"'--release".as_ptr().cast_mut(),
-        identifier: c"release".as_ptr().cast_mut(),
+        name: b"'--release",
+        identifier: Some(b"release"),
         next_state: ConfigParserState::ModeBinding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'--border".as_ptr().cast_mut(),
-        identifier: c"border".as_ptr().cast_mut(),
+        name: b"'--border",
+        identifier: Some(b"border"),
         next_state: ConfigParserState::ModeBinding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'--whole-window".as_ptr().cast_mut(),
-        identifier: c"whole_window".as_ptr().cast_mut(),
+        name: b"'--whole-window",
+        identifier: Some(b"whole_window"),
         next_state: ConfigParserState::ModeBinding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'--exclude-titlebar".as_ptr().cast_mut(),
-        identifier: c"exclude_titlebar".as_ptr().cast_mut(),
+        name: b"'--exclude-titlebar",
+        identifier: Some(b"exclude_titlebar"),
         next_state: ConfigParserState::ModeBinding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Mod1".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Mod1",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::ModeBinding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Mod2".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Mod2",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::ModeBinding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Mod3".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Mod3",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::ModeBinding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Mod4".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Mod4",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::ModeBinding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Mod5".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Mod5",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::ModeBinding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Shift".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Shift",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::ModeBinding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Control".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Control",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::ModeBinding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Ctrl".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Ctrl",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::ModeBinding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Mode_switch".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Mode_switch",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::ModeBinding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Group1".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Group1",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::ModeBinding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Group2".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Group2",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::ModeBinding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Group3".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Group3",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::ModeBinding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Group4".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Group4",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::ModeBinding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'$mod".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'$mod",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::ModeBinding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'+".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'+",
+        identifier: None,
         next_state: ConfigParserState::ModeBinding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"word".as_ptr().cast_mut(),
-        identifier: c"key".as_ptr().cast_mut(),
+        name: b"word",
+        identifier: Some(b"key"),
         next_state: ConfigParserState::ModeBindcommand,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
 ];
-static mut tokens_NO_FOCUS_END: [cmdp_token; 1] = [token {
-    name: c"end".as_ptr().cast_mut(),
-    identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static tokens_NO_FOCUS_END: [cmdp_token; 1] = [token {
+    name: b"end",
+    identifier: None,
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 108_i32 as u16,
     },
 }];
-static mut tokens_BAR_BINDSYM: [cmdp_token; 2] = [
+static tokens_BAR_BINDSYM: [cmdp_token; 2] = [
     token {
-        name: c"'--release".as_ptr().cast_mut(),
-        identifier: c"release".as_ptr().cast_mut(),
+        name: b"'--release",
+        identifier: Some(b"release"),
         next_state: ConfigParserState::BarBindsym,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"word".as_ptr().cast_mut(),
-        identifier: c"button".as_ptr().cast_mut(),
+        name: b"word",
+        identifier: Some(b"button"),
         next_state: ConfigParserState::BarBindsymCommand,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
 ];
-static mut tokens_BAR_PADDING: [cmdp_token; 1] = [token {
-    name: c"number".as_ptr().cast_mut(),
-    identifier: c"top_or_all".as_ptr().cast_mut(),
+static tokens_BAR_PADDING: [cmdp_token; 1] = [token {
+    name: b"number",
+    identifier: Some(b"top_or_all"),
     next_state: ConfigParserState::BarPaddingTop,
     extra: ConfigTokenData {
         call_identifier: 0_i32 as u16,
     },
 }];
-static mut tokens_BAR_VERBOSE: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"value".as_ptr().cast_mut(),
+static tokens_BAR_VERBOSE: [cmdp_token; 1] = [token {
+    name: b"word",
+    identifier: Some(b"value"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 109_i32 as u16,
     },
 }];
-static mut tokens_BINDCOMMAND: [cmdp_token; 5] = [
+static tokens_BINDCOMMAND: [cmdp_token; 5] = [
     token {
-        name: c"'--release".as_ptr().cast_mut(),
-        identifier: c"release".as_ptr().cast_mut(),
+        name: b"'--release",
+        identifier: Some(b"release"),
         next_state: ConfigParserState::Bindcommand,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'--border".as_ptr().cast_mut(),
-        identifier: c"border".as_ptr().cast_mut(),
+        name: b"'--border",
+        identifier: Some(b"border"),
         next_state: ConfigParserState::Bindcommand,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'--whole-window".as_ptr().cast_mut(),
-        identifier: c"whole_window".as_ptr().cast_mut(),
+        name: b"'--whole-window",
+        identifier: Some(b"whole_window"),
         next_state: ConfigParserState::Bindcommand,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'--exclude-titlebar".as_ptr().cast_mut(),
-        identifier: c"exclude_titlebar".as_ptr().cast_mut(),
+        name: b"'--exclude-titlebar",
+        identifier: Some(b"exclude_titlebar"),
         next_state: ConfigParserState::Bindcommand,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"string".as_ptr().cast_mut(),
-        identifier: c"command".as_ptr().cast_mut(),
+        name: b"string",
+        identifier: Some(b"command"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 110_i32 as u16,
         },
     },
 ];
-static mut tokens_IGNORE_LINE: [cmdp_token; 1] = [token {
-    name: c"line".as_ptr().cast_mut(),
-    identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static tokens_IGNORE_LINE: [cmdp_token; 1] = [token {
+    name: b"line",
+    identifier: None,
     next_state: ConfigParserState::Initial,
     extra: ConfigTokenData {
         call_identifier: 0_i32 as u16,
     },
 }];
-static mut tokens_TILING_DRAG: [cmdp_token; 9] = [
+static tokens_TILING_DRAG: [cmdp_token; 9] = [
     token {
-        name: c"'0".as_ptr().cast_mut(),
-        identifier: c"off".as_ptr().cast_mut(),
+        name: b"'0",
+        identifier: Some(b"off"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 111_i32 as u16,
         },
     },
     token {
-        name: c"'no".as_ptr().cast_mut(),
-        identifier: c"off".as_ptr().cast_mut(),
+        name: b"'no",
+        identifier: Some(b"off"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 112_i32 as u16,
         },
     },
     token {
-        name: c"'false".as_ptr().cast_mut(),
-        identifier: c"off".as_ptr().cast_mut(),
+        name: b"'false",
+        identifier: Some(b"off"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 113_i32 as u16,
         },
     },
     token {
-        name: c"'off".as_ptr().cast_mut(),
-        identifier: c"off".as_ptr().cast_mut(),
+        name: b"'off",
+        identifier: Some(b"off"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 114_i32 as u16,
         },
     },
     token {
-        name: c"'disable".as_ptr().cast_mut(),
-        identifier: c"off".as_ptr().cast_mut(),
+        name: b"'disable",
+        identifier: Some(b"off"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 115_i32 as u16,
         },
     },
     token {
-        name: c"'inactive".as_ptr().cast_mut(),
-        identifier: c"off".as_ptr().cast_mut(),
+        name: b"'inactive",
+        identifier: Some(b"off"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 116_i32 as u16,
         },
     },
     token {
-        name: c"'swap_modifier".as_ptr().cast_mut(),
-        identifier: c"swap_modifier".as_ptr().cast_mut(),
+        name: b"'swap_modifier",
+        identifier: Some(b"swap_modifier"),
         next_state: ConfigParserState::TilingDragSwapModifier,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'modifier".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+        name: b"'modifier",
+        identifier: Some(b"value"),
         next_state: ConfigParserState::TilingDragMode,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'titlebar".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+        name: b"'titlebar",
+        identifier: Some(b"value"),
         next_state: ConfigParserState::TilingDragMode,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
 ];
-static mut tokens_TITLE_ALIGN: [cmdp_token; 3] = [
+static tokens_TITLE_ALIGN: [cmdp_token; 3] = [
     token {
-        name: c"'left".as_ptr().cast_mut(),
-        identifier: c"alignment".as_ptr().cast_mut(),
+        name: b"'left",
+        identifier: Some(b"alignment"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 117_i32 as u16,
         },
     },
     token {
-        name: c"'center".as_ptr().cast_mut(),
-        identifier: c"alignment".as_ptr().cast_mut(),
+        name: b"'center",
+        identifier: Some(b"alignment"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 118_i32 as u16,
         },
     },
     token {
-        name: c"'right".as_ptr().cast_mut(),
-        identifier: c"alignment".as_ptr().cast_mut(),
+        name: b"'right",
+        identifier: Some(b"alignment"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 119_i32 as u16,
         },
     },
 ];
-static mut tokens_BAR_COLORS: [cmdp_token; 15] = [
+static tokens_BAR_COLORS: [cmdp_token; 15] = [
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: ConfigParserState::BarColors,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'#".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'#",
+        identifier: None,
         next_state: ConfigParserState::BarColorsIgnoreLine,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'set".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'set",
+        identifier: None,
         next_state: ConfigParserState::BarColorsIgnoreLine,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'background".as_ptr().cast_mut(),
-        identifier: c"colorclass".as_ptr().cast_mut(),
+        name: b"'background",
+        identifier: Some(b"colorclass"),
         next_state: ConfigParserState::BarColorsSingle,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'statusline".as_ptr().cast_mut(),
-        identifier: c"colorclass".as_ptr().cast_mut(),
+        name: b"'statusline",
+        identifier: Some(b"colorclass"),
         next_state: ConfigParserState::BarColorsSingle,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'separator".as_ptr().cast_mut(),
-        identifier: c"colorclass".as_ptr().cast_mut(),
+        name: b"'separator",
+        identifier: Some(b"colorclass"),
         next_state: ConfigParserState::BarColorsSingle,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'focused_background".as_ptr().cast_mut(),
-        identifier: c"colorclass".as_ptr().cast_mut(),
+        name: b"'focused_background",
+        identifier: Some(b"colorclass"),
         next_state: ConfigParserState::BarColorsSingle,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'focused_statusline".as_ptr().cast_mut(),
-        identifier: c"colorclass".as_ptr().cast_mut(),
+        name: b"'focused_statusline",
+        identifier: Some(b"colorclass"),
         next_state: ConfigParserState::BarColorsSingle,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'focused_separator".as_ptr().cast_mut(),
-        identifier: c"colorclass".as_ptr().cast_mut(),
+        name: b"'focused_separator",
+        identifier: Some(b"colorclass"),
         next_state: ConfigParserState::BarColorsSingle,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'focused_workspace".as_ptr().cast_mut(),
-        identifier: c"colorclass".as_ptr().cast_mut(),
+        name: b"'focused_workspace",
+        identifier: Some(b"colorclass"),
         next_state: ConfigParserState::BarColorsBorder,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'active_workspace".as_ptr().cast_mut(),
-        identifier: c"colorclass".as_ptr().cast_mut(),
+        name: b"'active_workspace",
+        identifier: Some(b"colorclass"),
         next_state: ConfigParserState::BarColorsBorder,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'inactive_workspace".as_ptr().cast_mut(),
-        identifier: c"colorclass".as_ptr().cast_mut(),
+        name: b"'inactive_workspace",
+        identifier: Some(b"colorclass"),
         next_state: ConfigParserState::BarColorsBorder,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'urgent_workspace".as_ptr().cast_mut(),
-        identifier: c"colorclass".as_ptr().cast_mut(),
+        name: b"'urgent_workspace",
+        identifier: Some(b"colorclass"),
         next_state: ConfigParserState::BarColorsBorder,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'binding_mode".as_ptr().cast_mut(),
-        identifier: c"colorclass".as_ptr().cast_mut(),
+        name: b"'binding_mode",
+        identifier: Some(b"colorclass"),
         next_state: ConfigParserState::BarColorsBorder,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'}".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'}",
+        identifier: None,
         next_state: ConfigParserState::Bar,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
 ];
-static mut tokens_BAR_HEIGHT: [cmdp_token; 1] = [token {
-    name: c"number".as_ptr().cast_mut(),
-    identifier: c"value".as_ptr().cast_mut(),
+static tokens_BAR_HEIGHT: [cmdp_token; 1] = [token {
+    name: b"number",
+    identifier: Some(b"value"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 120_i32 as u16,
     },
 }];
-static mut tokens_BAR_OUTPUT: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"output".as_ptr().cast_mut(),
+static tokens_BAR_OUTPUT: [cmdp_token; 1] = [token {
+    name: b"word",
+    identifier: Some(b"output"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 121_i32 as u16,
     },
 }];
-static mut tokens_COLOR_TEXT: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"text".as_ptr().cast_mut(),
+static tokens_COLOR_TEXT: [cmdp_token; 1] = [token {
+    name: b"word",
+    identifier: Some(b"text"),
     next_state: ConfigParserState::ColorIndicator,
     extra: ConfigTokenData {
         call_identifier: 0_i32 as u16,
     },
 }];
-static mut tokens_FOR_WINDOW: [cmdp_token; 1] = [token {
-    name: c"'[".as_ptr().cast_mut(),
-    identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static tokens_FOR_WINDOW: [cmdp_token; 1] = [token {
+    name: b"'[",
+    identifier: None,
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 122_i32 as u16,
     },
 }];
-static mut tokens_IPC_SOCKET: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"path".as_ptr().cast_mut(),
+static tokens_IPC_SOCKET: [cmdp_token; 1] = [token {
+    name: b"string",
+    identifier: Some(b"path"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 123_i32 as u16,
     },
 }];
-static mut tokens_SHOW_MARKS: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"value".as_ptr().cast_mut(),
+static tokens_SHOW_MARKS: [cmdp_token; 1] = [token {
+    name: b"word",
+    identifier: Some(b"value"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 124_i32 as u16,
     },
 }];
-static mut tokens_SMART_GAPS: [cmdp_token; 13] = [
+static tokens_SMART_GAPS: [cmdp_token; 13] = [
     token {
-        name: c"'1".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+        name: b"'1",
+        identifier: Some(b"enabled"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 125_i32 as u16,
         },
     },
     token {
-        name: c"'yes".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+        name: b"'yes",
+        identifier: Some(b"enabled"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 126_i32 as u16,
         },
     },
     token {
-        name: c"'true".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+        name: b"'true",
+        identifier: Some(b"enabled"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 127_i32 as u16,
         },
     },
     token {
-        name: c"'on".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+        name: b"'on",
+        identifier: Some(b"enabled"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 128_i32 as u16,
         },
     },
     token {
-        name: c"'enable".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+        name: b"'enable",
+        identifier: Some(b"enabled"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 129_i32 as u16,
         },
     },
     token {
-        name: c"'active".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+        name: b"'active",
+        identifier: Some(b"enabled"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 130_i32 as u16,
         },
     },
     token {
-        name: c"'0".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+        name: b"'0",
+        identifier: Some(b"enabled"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 131_i32 as u16,
         },
     },
     token {
-        name: c"'no".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+        name: b"'no",
+        identifier: Some(b"enabled"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 132_i32 as u16,
         },
     },
     token {
-        name: c"'false".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+        name: b"'false",
+        identifier: Some(b"enabled"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 133_i32 as u16,
         },
     },
     token {
-        name: c"'off".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+        name: b"'off",
+        identifier: Some(b"enabled"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 134_i32 as u16,
         },
     },
     token {
-        name: c"'disable".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+        name: b"'disable",
+        identifier: Some(b"enabled"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 135_i32 as u16,
         },
     },
     token {
-        name: c"'inactive".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+        name: b"'inactive",
+        identifier: Some(b"enabled"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 136_i32 as u16,
         },
     },
     token {
-        name: c"'inverse_outer".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+        name: b"'inverse_outer",
+        identifier: Some(b"enabled"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 137_i32 as u16,
         },
     },
 ];
-static mut tokens_CRITERION: [cmdp_token; 1] = [token {
-    name: c"'=".as_ptr().cast_mut(),
-    identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static tokens_CRITERION: [cmdp_token; 1] = [token {
+    name: b"'=",
+    identifier: None,
     next_state: ConfigParserState::CriterionStr,
     extra: ConfigTokenData {
         call_identifier: 0_i32 as u16,
     },
 }];
-static mut tokens_MODEBRACE: [cmdp_token; 2] = [
+static tokens_MODEBRACE: [cmdp_token; 2] = [
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: ConfigParserState::Modebrace,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'{".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'{",
+        identifier: None,
         next_state: ConfigParserState::Mode,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
 ];
-static mut tokens_WORKSPACE: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"workspace".as_ptr().cast_mut(),
+static tokens_WORKSPACE: [cmdp_token; 1] = [token {
+    name: b"word",
+    identifier: Some(b"workspace"),
     next_state: ConfigParserState::WorkspaceCommand,
     extra: ConfigTokenData {
         call_identifier: 0_i32 as u16,
     },
 }];
-static mut tokens_BARBRACE: [cmdp_token; 2] = [
+static tokens_BARBRACE: [cmdp_token; 2] = [
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: ConfigParserState::Barbrace,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'{".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'{",
+        identifier: None,
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 138_i32 as u16,
         },
     },
 ];
-static mut tokens_BAR_FONT: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"font".as_ptr().cast_mut(),
+static tokens_BAR_FONT: [cmdp_token; 1] = [token {
+    name: b"string",
+    identifier: Some(b"font"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 139_i32 as u16,
     },
 }];
-static mut tokens_BAR_MODE: [cmdp_token; 3] = [
+static tokens_BAR_MODE: [cmdp_token; 3] = [
     token {
-        name: c"'dock".as_ptr().cast_mut(),
-        identifier: c"mode".as_ptr().cast_mut(),
+        name: b"'dock",
+        identifier: Some(b"mode"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 140_i32 as u16,
         },
     },
     token {
-        name: c"'hide".as_ptr().cast_mut(),
-        identifier: c"mode".as_ptr().cast_mut(),
+        name: b"'hide",
+        identifier: Some(b"mode"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 141_i32 as u16,
         },
     },
     token {
-        name: c"'invisible".as_ptr().cast_mut(),
-        identifier: c"mode".as_ptr().cast_mut(),
+        name: b"'invisible",
+        identifier: Some(b"mode"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 142_i32 as u16,
         },
     },
 ];
-static mut tokens_CRITERIA: [cmdp_token; 17] = [
+static tokens_CRITERIA: [cmdp_token; 17] = [
     token {
-        name: c"'class".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+        name: b"'class",
+        identifier: Some(b"ctype"),
         next_state: ConfigParserState::Criterion,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'instance".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+        name: b"'instance",
+        identifier: Some(b"ctype"),
         next_state: ConfigParserState::Criterion,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'window_role".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+        name: b"'window_role",
+        identifier: Some(b"ctype"),
         next_state: ConfigParserState::Criterion,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'con_id".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+        name: b"'con_id",
+        identifier: Some(b"ctype"),
         next_state: ConfigParserState::Criterion,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'id".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+        name: b"'id",
+        identifier: Some(b"ctype"),
         next_state: ConfigParserState::Criterion,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'window_type".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+        name: b"'window_type",
+        identifier: Some(b"ctype"),
         next_state: ConfigParserState::Criterion,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'con_mark".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+        name: b"'con_mark",
+        identifier: Some(b"ctype"),
         next_state: ConfigParserState::Criterion,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'title".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+        name: b"'title",
+        identifier: Some(b"ctype"),
         next_state: ConfigParserState::Criterion,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'urgent".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+        name: b"'urgent",
+        identifier: Some(b"ctype"),
         next_state: ConfigParserState::Criterion,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'workspace".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+        name: b"'workspace",
+        identifier: Some(b"ctype"),
         next_state: ConfigParserState::Criterion,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'machine".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+        name: b"'machine",
+        identifier: Some(b"ctype"),
         next_state: ConfigParserState::Criterion,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'floating_from".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+        name: b"'floating_from",
+        identifier: Some(b"ctype"),
         next_state: ConfigParserState::CriterionFrom,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'tiling_from".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+        name: b"'tiling_from",
+        identifier: Some(b"ctype"),
         next_state: ConfigParserState::CriterionFrom,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'tiling".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+        name: b"'tiling",
+        identifier: Some(b"ctype"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 143_i32 as u16,
         },
     },
     token {
-        name: c"'floating".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+        name: b"'floating",
+        identifier: Some(b"ctype"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 144_i32 as u16,
         },
     },
     token {
-        name: c"'all".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+        name: b"'all",
+        identifier: Some(b"ctype"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 145_i32 as u16,
         },
     },
     token {
-        name: c"']".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"']",
+        identifier: None,
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 146_i32 as u16,
         },
     },
 ];
-static mut tokens_GAPS_END: [cmdp_token; 2] = [
+static tokens_GAPS_END: [cmdp_token; 2] = [
     token {
-        name: c"'px".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'px",
+        identifier: None,
         next_state: ConfigParserState::GapsEnd,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 147_i32 as u16,
         },
     },
 ];
-static mut tokens_MODENAME: [cmdp_token; 2] = [
+static tokens_MODENAME: [cmdp_token; 2] = [
     token {
-        name: c"'--pango_markup".as_ptr().cast_mut(),
-        identifier: c"pango_markup".as_ptr().cast_mut(),
+        name: b"'--pango_markup",
+        identifier: Some(b"pango_markup"),
         next_state: ConfigParserState::Modename,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"word".as_ptr().cast_mut(),
-        identifier: c"modename".as_ptr().cast_mut(),
+        name: b"word",
+        identifier: Some(b"modename"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 148_i32 as u16,
         },
     },
 ];
-static mut tokens_NO_FOCUS: [cmdp_token; 1] = [token {
-    name: c"'[".as_ptr().cast_mut(),
-    identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static tokens_NO_FOCUS: [cmdp_token; 1] = [token {
+    name: b"'[",
+    identifier: None,
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 149_i32 as u16,
     },
 }];
-static mut tokens_BINDING: [cmdp_token; 20] = [
+static tokens_BINDING: [cmdp_token; 20] = [
     token {
-        name: c"'--release".as_ptr().cast_mut(),
-        identifier: c"release".as_ptr().cast_mut(),
+        name: b"'--release",
+        identifier: Some(b"release"),
         next_state: ConfigParserState::Binding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'--border".as_ptr().cast_mut(),
-        identifier: c"border".as_ptr().cast_mut(),
+        name: b"'--border",
+        identifier: Some(b"border"),
         next_state: ConfigParserState::Binding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'--whole-window".as_ptr().cast_mut(),
-        identifier: c"whole_window".as_ptr().cast_mut(),
+        name: b"'--whole-window",
+        identifier: Some(b"whole_window"),
         next_state: ConfigParserState::Binding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'--exclude-titlebar".as_ptr().cast_mut(),
-        identifier: c"exclude_titlebar".as_ptr().cast_mut(),
+        name: b"'--exclude-titlebar",
+        identifier: Some(b"exclude_titlebar"),
         next_state: ConfigParserState::Binding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Mod1".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Mod1",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::Binding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Mod2".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Mod2",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::Binding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Mod3".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Mod3",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::Binding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Mod4".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Mod4",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::Binding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Mod5".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Mod5",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::Binding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Shift".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Shift",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::Binding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Control".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Control",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::Binding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Ctrl".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Ctrl",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::Binding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Mode_switch".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Mode_switch",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::Binding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Group1".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Group1",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::Binding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Group2".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Group2",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::Binding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Group3".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Group3",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::Binding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'Group4".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'Group4",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::Binding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'$mod".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+        name: b"'$mod",
+        identifier: Some(b"modifiers"),
         next_state: ConfigParserState::Binding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'+".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'+",
+        identifier: None,
         next_state: ConfigParserState::Binding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"word".as_ptr().cast_mut(),
-        identifier: c"key".as_ptr().cast_mut(),
+        name: b"word",
+        identifier: Some(b"key"),
         next_state: ConfigParserState::Bindcommand,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
 ];
-static mut tokens_INCLUDE: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"pattern".as_ptr().cast_mut(),
+static tokens_INCLUDE: [cmdp_token; 1] = [token {
+    name: b"string",
+    identifier: Some(b"pattern"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 150_i32 as u16,
     },
 }];
-static mut tokens_INITIAL: [cmdp_token; 60] = [
+static tokens_INITIAL: [cmdp_token; 60] = [
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: ConfigParserState::Initial,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"error".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"error",
+        identifier: None,
         next_state: ConfigParserState::Initial,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'#".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'#",
+        identifier: None,
         next_state: ConfigParserState::IgnoreLine,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'set ".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'set ",
+        identifier: None,
         next_state: ConfigParserState::IgnoreLine,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'set\t".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'set\t",
+        identifier: None,
         next_state: ConfigParserState::IgnoreLine,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'set_from_resource".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'set_from_resource",
+        identifier: None,
         next_state: ConfigParserState::IgnoreLine,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'include".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'include",
+        identifier: None,
         next_state: ConfigParserState::Include,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'bindsym".as_ptr().cast_mut(),
-        identifier: c"bindtype".as_ptr().cast_mut(),
+        name: b"'bindsym",
+        identifier: Some(b"bindtype"),
         next_state: ConfigParserState::Binding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'bindcode".as_ptr().cast_mut(),
-        identifier: c"bindtype".as_ptr().cast_mut(),
+        name: b"'bindcode",
+        identifier: Some(b"bindtype"),
         next_state: ConfigParserState::Binding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'bind".as_ptr().cast_mut(),
-        identifier: c"bindtype".as_ptr().cast_mut(),
+        name: b"'bind",
+        identifier: Some(b"bindtype"),
         next_state: ConfigParserState::Binding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'bar".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'bar",
+        identifier: None,
         next_state: ConfigParserState::Barbrace,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'font".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'font",
+        identifier: None,
         next_state: ConfigParserState::Font,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'mode".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'mode",
+        identifier: None,
         next_state: ConfigParserState::Modename,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'gaps".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'gaps",
+        identifier: None,
         next_state: ConfigParserState::Gaps,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'smart_borders".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'smart_borders",
+        identifier: None,
         next_state: ConfigParserState::SmartBorders,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'smart_gaps".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'smart_gaps",
+        identifier: None,
         next_state: ConfigParserState::SmartGaps,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'floating_minimum_size".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'floating_minimum_size",
+        identifier: None,
         next_state: ConfigParserState::FloatingMinimumSizeWidth,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'floating_maximum_size".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'floating_maximum_size",
+        identifier: None,
         next_state: ConfigParserState::FloatingMaximumSizeWidth,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'floating_modifier".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'floating_modifier",
+        identifier: None,
         next_state: ConfigParserState::FloatingModifier,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'default_orientation".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'default_orientation",
+        identifier: None,
         next_state: ConfigParserState::DefaultOrientation,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'workspace_layout".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'workspace_layout",
+        identifier: None,
         next_state: ConfigParserState::WorkspaceLayout,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'default_border".as_ptr().cast_mut(),
-        identifier: c"windowtype".as_ptr().cast_mut(),
+        name: b"'default_border",
+        identifier: Some(b"windowtype"),
         next_state: ConfigParserState::DefaultBorder,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'new_window".as_ptr().cast_mut(),
-        identifier: c"windowtype".as_ptr().cast_mut(),
+        name: b"'new_window",
+        identifier: Some(b"windowtype"),
         next_state: ConfigParserState::DefaultBorder,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'default_floating_border".as_ptr().cast_mut(),
-        identifier: c"windowtype".as_ptr().cast_mut(),
+        name: b"'default_floating_border",
+        identifier: Some(b"windowtype"),
         next_state: ConfigParserState::DefaultBorder,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'new_float".as_ptr().cast_mut(),
-        identifier: c"windowtype".as_ptr().cast_mut(),
+        name: b"'new_float",
+        identifier: Some(b"windowtype"),
         next_state: ConfigParserState::DefaultBorder,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'hide_edge_borders".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'hide_edge_borders",
+        identifier: None,
         next_state: ConfigParserState::HideEdgeBorders,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'for_window".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'for_window",
+        identifier: None,
         next_state: ConfigParserState::ForWindow,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'assign".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'assign",
+        identifier: None,
         next_state: ConfigParserState::Assign,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'no_focus".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'no_focus",
+        identifier: None,
         next_state: ConfigParserState::NoFocus,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'focus_follows_mouse".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'focus_follows_mouse",
+        identifier: None,
         next_state: ConfigParserState::FocusFollowsMouse,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'mouse_warping".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'mouse_warping",
+        identifier: None,
         next_state: ConfigParserState::MouseWarping,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'focus_wrapping".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'focus_wrapping",
+        identifier: None,
         next_state: ConfigParserState::FocusWrapping,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'force_focus_wrapping".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'force_focus_wrapping",
+        identifier: None,
         next_state: ConfigParserState::ForceFocusWrapping,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'force_xinerama".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'force_xinerama",
+        identifier: None,
         next_state: ConfigParserState::ForceXinerama,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'force-xinerama".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'force-xinerama",
+        identifier: None,
         next_state: ConfigParserState::ForceXinerama,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'disable_randr15".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'disable_randr15",
+        identifier: None,
         next_state: ConfigParserState::DisableRandr15,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'disable-randr15".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'disable-randr15",
+        identifier: None,
         next_state: ConfigParserState::DisableRandr15,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'workspace_auto_back_and_forth".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'workspace_auto_back_and_forth",
+        identifier: None,
         next_state: ConfigParserState::WorkspaceBackAndForth,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'fake_outputs".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'fake_outputs",
+        identifier: None,
         next_state: ConfigParserState::FakeOutputs,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'fake-outputs".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'fake-outputs",
+        identifier: None,
         next_state: ConfigParserState::FakeOutputs,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'force_display_urgency_hint".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'force_display_urgency_hint",
+        identifier: None,
         next_state: ConfigParserState::ForceDisplayUrgencyHint,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'focus_on_window_activation".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'focus_on_window_activation",
+        identifier: None,
         next_state: ConfigParserState::FocusOnWindowActivation,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'title_align".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'title_align",
+        identifier: None,
         next_state: ConfigParserState::TitleAlign,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'show_marks".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'show_marks",
+        identifier: None,
         next_state: ConfigParserState::ShowMarks,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'workspace".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'workspace",
+        identifier: None,
         next_state: ConfigParserState::Workspace,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'ipc_socket".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'ipc_socket",
+        identifier: None,
         next_state: ConfigParserState::IpcSocket,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'ipc-socket".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'ipc-socket",
+        identifier: None,
         next_state: ConfigParserState::IpcSocket,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'ipc_kill_timeout".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'ipc_kill_timeout",
+        identifier: None,
         next_state: ConfigParserState::IpcKillTimeout,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'restart_state".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'restart_state",
+        identifier: None,
         next_state: ConfigParserState::RestartState,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'popup_during_fullscreen".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'popup_during_fullscreen",
+        identifier: None,
         next_state: ConfigParserState::PopupDuringFullscreen,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'tiling_drag".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'tiling_drag",
+        identifier: None,
         next_state: ConfigParserState::TilingDrag,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'exec_always".as_ptr().cast_mut(),
-        identifier: c"exectype".as_ptr().cast_mut(),
+        name: b"'exec_always",
+        identifier: Some(b"exectype"),
         next_state: ConfigParserState::Exec,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'exec".as_ptr().cast_mut(),
-        identifier: c"exectype".as_ptr().cast_mut(),
+        name: b"'exec",
+        identifier: Some(b"exectype"),
         next_state: ConfigParserState::Exec,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'client.background".as_ptr().cast_mut(),
-        identifier: c"colorclass".as_ptr().cast_mut(),
+        name: b"'client.background",
+        identifier: Some(b"colorclass"),
         next_state: ConfigParserState::ColorSingle,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'client.focused_inactive".as_ptr().cast_mut(),
-        identifier: c"colorclass".as_ptr().cast_mut(),
+        name: b"'client.focused_inactive",
+        identifier: Some(b"colorclass"),
         next_state: ConfigParserState::ColorBorder,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'client.focused_tab_title".as_ptr().cast_mut(),
-        identifier: c"colorclass".as_ptr().cast_mut(),
+        name: b"'client.focused_tab_title",
+        identifier: Some(b"colorclass"),
         next_state: ConfigParserState::ColorBorder,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'client.focused".as_ptr().cast_mut(),
-        identifier: c"colorclass".as_ptr().cast_mut(),
+        name: b"'client.focused",
+        identifier: Some(b"colorclass"),
         next_state: ConfigParserState::ColorBorder,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'client.unfocused".as_ptr().cast_mut(),
-        identifier: c"colorclass".as_ptr().cast_mut(),
+        name: b"'client.unfocused",
+        identifier: Some(b"colorclass"),
         next_state: ConfigParserState::ColorBorder,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'client.urgent".as_ptr().cast_mut(),
-        identifier: c"colorclass".as_ptr().cast_mut(),
+        name: b"'client.urgent",
+        identifier: Some(b"colorclass"),
         next_state: ConfigParserState::ColorBorder,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'client.placeholder".as_ptr().cast_mut(),
-        identifier: c"colorclass".as_ptr().cast_mut(),
+        name: b"'client.placeholder",
+        identifier: Some(b"colorclass"),
         next_state: ConfigParserState::ColorBorder,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
 ];
-static mut tokens_ASSIGN: [cmdp_token; 1] = [token {
-    name: c"'[".as_ptr().cast_mut(),
-    identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static tokens_ASSIGN: [cmdp_token; 1] = [token {
+    name: b"'[",
+    identifier: None,
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 151_i32 as u16,
     },
 }];
-static mut tokens_BAR_ID: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"bar_id".as_ptr().cast_mut(),
+static tokens_BAR_ID: [cmdp_token; 1] = [token {
+    name: b"word",
+    identifier: Some(b"bar_id"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 152_i32 as u16,
     },
 }];
-static mut tokens_EXEC: [cmdp_token; 2] = [
+static tokens_EXEC: [cmdp_token; 2] = [
     token {
-        name: c"'--no-startup-id".as_ptr().cast_mut(),
-        identifier: c"no_startup_id".as_ptr().cast_mut(),
+        name: b"'--no-startup-id",
+        identifier: Some(b"no_startup_id"),
         next_state: ConfigParserState::Exec,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"string".as_ptr().cast_mut(),
-        identifier: c"command".as_ptr().cast_mut(),
+        name: b"string",
+        identifier: Some(b"command"),
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 153_i32 as u16,
         },
     },
 ];
-static mut tokens_FONT: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"font".as_ptr().cast_mut(),
+static tokens_FONT: [cmdp_token; 1] = [token {
+    name: b"string",
+    identifier: Some(b"font"),
     next_state: ConfigParserState::Call,
     extra: ConfigTokenData {
         call_identifier: 154_i32 as u16,
     },
 }];
-static mut tokens_GAPS: [cmdp_token; 8] = [
+static tokens_GAPS: [cmdp_token; 8] = [
     token {
-        name: c"'inner".as_ptr().cast_mut(),
-        identifier: c"scope".as_ptr().cast_mut(),
+        name: b"'inner",
+        identifier: Some(b"scope"),
         next_state: ConfigParserState::GapsWithScope,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'outer".as_ptr().cast_mut(),
-        identifier: c"scope".as_ptr().cast_mut(),
+        name: b"'outer",
+        identifier: Some(b"scope"),
         next_state: ConfigParserState::GapsWithScope,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'horizontal".as_ptr().cast_mut(),
-        identifier: c"scope".as_ptr().cast_mut(),
+        name: b"'horizontal",
+        identifier: Some(b"scope"),
         next_state: ConfigParserState::GapsWithScope,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'vertical".as_ptr().cast_mut(),
-        identifier: c"scope".as_ptr().cast_mut(),
+        name: b"'vertical",
+        identifier: Some(b"scope"),
         next_state: ConfigParserState::GapsWithScope,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'top".as_ptr().cast_mut(),
-        identifier: c"scope".as_ptr().cast_mut(),
+        name: b"'top",
+        identifier: Some(b"scope"),
         next_state: ConfigParserState::GapsWithScope,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'right".as_ptr().cast_mut(),
-        identifier: c"scope".as_ptr().cast_mut(),
+        name: b"'right",
+        identifier: Some(b"scope"),
         next_state: ConfigParserState::GapsWithScope,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'bottom".as_ptr().cast_mut(),
-        identifier: c"scope".as_ptr().cast_mut(),
+        name: b"'bottom",
+        identifier: Some(b"scope"),
         next_state: ConfigParserState::GapsWithScope,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'left".as_ptr().cast_mut(),
-        identifier: c"scope".as_ptr().cast_mut(),
+        name: b"'left",
+        identifier: Some(b"scope"),
         next_state: ConfigParserState::GapsWithScope,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
 ];
-static mut tokens_MODE: [cmdp_token; 8] = [
+static tokens_MODE: [cmdp_token; 8] = [
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: ConfigParserState::Mode,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"error".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"error",
+        identifier: None,
         next_state: ConfigParserState::Mode,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'#".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'#",
+        identifier: None,
         next_state: ConfigParserState::ModeIgnoreLine,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'set".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'set",
+        identifier: None,
         next_state: ConfigParserState::ModeIgnoreLine,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'bindsym".as_ptr().cast_mut(),
-        identifier: c"bindtype".as_ptr().cast_mut(),
+        name: b"'bindsym",
+        identifier: Some(b"bindtype"),
         next_state: ConfigParserState::ModeBinding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'bindcode".as_ptr().cast_mut(),
-        identifier: c"bindtype".as_ptr().cast_mut(),
+        name: b"'bindcode",
+        identifier: Some(b"bindtype"),
         next_state: ConfigParserState::ModeBinding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'bind".as_ptr().cast_mut(),
-        identifier: c"bindtype".as_ptr().cast_mut(),
+        name: b"'bind",
+        identifier: Some(b"bindtype"),
         next_state: ConfigParserState::ModeBinding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'}".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'}",
+        identifier: None,
         next_state: ConfigParserState::Initial,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
 ];
-static mut tokens_BAR: [cmdp_token; 31] = [
+static tokens_BAR: [cmdp_token; 31] = [
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: ConfigParserState::Bar,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"error".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"error",
+        identifier: None,
         next_state: ConfigParserState::Bar,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'#".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'#",
+        identifier: None,
         next_state: ConfigParserState::BarIgnoreLine,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'set".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'set",
+        identifier: None,
         next_state: ConfigParserState::BarIgnoreLine,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'i3bar_command".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'i3bar_command",
+        identifier: None,
         next_state: ConfigParserState::BarBarCommand,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'status_command".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'status_command",
+        identifier: None,
         next_state: ConfigParserState::BarStatusCommand,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'workspace_command".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'workspace_command",
+        identifier: None,
         next_state: ConfigParserState::BarWorkspaceCommand,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'socket_path".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'socket_path",
+        identifier: None,
         next_state: ConfigParserState::BarSocketPath,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'mode".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'mode",
+        identifier: None,
         next_state: ConfigParserState::BarMode,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'hidden_state".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'hidden_state",
+        identifier: None,
         next_state: ConfigParserState::BarHiddenState,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'id".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'id",
+        identifier: None,
         next_state: ConfigParserState::BarId,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'modifier".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'modifier",
+        identifier: None,
         next_state: ConfigParserState::BarModifier,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'wheel_up_cmd".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'wheel_up_cmd",
+        identifier: None,
         next_state: ConfigParserState::BarWheelUpCmd,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'wheel_down_cmd".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'wheel_down_cmd",
+        identifier: None,
         next_state: ConfigParserState::BarWheelDownCmd,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'bindsym".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'bindsym",
+        identifier: None,
         next_state: ConfigParserState::BarBindsym,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'position".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'position",
+        identifier: None,
         next_state: ConfigParserState::BarPosition,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'output".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'output",
+        identifier: None,
         next_state: ConfigParserState::BarOutput,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'tray_output".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'tray_output",
+        identifier: None,
         next_state: ConfigParserState::BarTrayOutput,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'tray_padding".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'tray_padding",
+        identifier: None,
         next_state: ConfigParserState::BarTrayPadding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'font".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'font",
+        identifier: None,
         next_state: ConfigParserState::BarFont,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'separator_symbol".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'separator_symbol",
+        identifier: None,
         next_state: ConfigParserState::BarSeparatorSymbol,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'binding_mode_indicator".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'binding_mode_indicator",
+        identifier: None,
         next_state: ConfigParserState::BarBindingModeIndicator,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'workspace_buttons".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'workspace_buttons",
+        identifier: None,
         next_state: ConfigParserState::BarWorkspaceButtons,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'workspace_min_width".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'workspace_min_width",
+        identifier: None,
         next_state: ConfigParserState::BarWorkspaceMinWidth,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'strip_workspace_numbers".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'strip_workspace_numbers",
+        identifier: None,
         next_state: ConfigParserState::BarStripWorkspaceNumbers,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'strip_workspace_name".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'strip_workspace_name",
+        identifier: None,
         next_state: ConfigParserState::BarStripWorkspaceName,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'verbose".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'verbose",
+        identifier: None,
         next_state: ConfigParserState::BarVerbose,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'height".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'height",
+        identifier: None,
         next_state: ConfigParserState::BarHeight,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'padding".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'padding",
+        identifier: None,
         next_state: ConfigParserState::BarPadding,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'colors".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'colors",
+        identifier: None,
         next_state: ConfigParserState::BarColorsBrace,
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'}".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'}",
+        identifier: None,
         next_state: ConfigParserState::Call,
         extra: ConfigTokenData {
             call_identifier: 155_i32 as u16,
         },
     },
 ];
-static mut tokens: [cmdp_token_ptr; 117] = [
-    tokenptr {
-        array: &raw const tokens_FORCE_DISPLAY_URGENCY_HINT_MS as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FLOATING_MAXIMUM_SIZE_HEIGHT as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FLOATING_MINIMUM_SIZE_HEIGHT as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_STRIP_WORKSPACE_NUMBERS as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FLOATING_MAXIMUM_SIZE_WIDTH as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FLOATING_MINIMUM_SIZE_WIDTH as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_BINDING_MODE_INDICATOR as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_WORKSPACE_MIN_WIDTH_PX as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FOCUS_ON_WINDOW_ACTIVATION as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FORCE_DISPLAY_URGENCY_HINT as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_TILING_DRAG_SWAP_MODIFIER as *mut cmdp_token,
-        n: 10_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_STRIP_WORKSPACE_NAME as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_CRITERION_FROM_STR_START as *mut cmdp_token,
-        n: 3_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_DEFAULT_BORDER_PIXELS_PX as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_WORKSPACE_BACK_AND_FORTH as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_ASSIGN_WORKSPACE_NUMBER as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_WORKSPACE_MIN_WIDTH as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FLOATING_MAXIMUM_SIZE_X as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FLOATING_MINIMUM_SIZE_X as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_POPUP_DURING_FULLSCREEN as *mut cmdp_token,
-        n: 4_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_COLORS_IGNORE_LINE as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_CRITERION_FROM_STR_END as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_COLORS_BACKGROUND as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_WORKSPACE_BUTTONS as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_WORKSPACE_COMMAND as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_DEFAULT_BORDER_PIXELS as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_WORKSPACE_OUTPUT_WORD as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_SEPARATOR_SYMBOL as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FORCE_FOCUS_WRAPPING as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_BINDSYM_COMMAND as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_TRAY_PADDING_PX as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_DEFAULT_ORIENTATION as *mut cmdp_token,
-        n: 3_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FOCUS_FOLLOWS_MOUSE as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_PADDING_BOTTOM as *mut cmdp_token,
-        n: 3_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_STATUS_COMMAND as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_WHEEL_DOWN_CMD as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_COLOR_CHILD_BORDER as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_CRITERION_FROM_STR as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FOR_WINDOW_COMMAND as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_COLORS_BORDER as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_COLORS_SINGLE as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_PADDING_RIGHT as *mut cmdp_token,
-        n: 3_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FLOATING_MODIFIER as *mut cmdp_token,
-        n: 10_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_HIDE_EDGE_BORDERS as *mut cmdp_token,
-        n: 12_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_WORKSPACE_COMMAND as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_ASSIGN_WORKSPACE as *mut cmdp_token,
-        n: 5_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_COLORS_BRACE as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_HIDDEN_STATE as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_PADDING_LEFT as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_TRAY_PADDING as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_WHEEL_UP_CMD as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_COLOR_BACKGROUND as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_IPC_KILL_TIMEOUT as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_MODE_BINDCOMMAND as *mut cmdp_token,
-        n: 5_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_MODE_IGNORE_LINE as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_TILING_DRAG_MODE as *mut cmdp_token,
-        n: 3_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_WORKSPACE_LAYOUT as *mut cmdp_token,
-        n: 4_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_BAR_COMMAND as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_COLORS_TEXT as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_IGNORE_LINE as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_PADDING_TOP as *mut cmdp_token,
-        n: 3_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_SOCKET_PATH as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_TRAY_OUTPUT as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_COLOR_INDICATOR as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_DISABLE_RANDR15 as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_GAPS_WITH_SCOPE as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_CRITERION_FROM as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_DEFAULT_BORDER as *mut cmdp_token,
-        n: 4_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FOCUS_WRAPPING as *mut cmdp_token,
-        n: 14_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FORCE_XINERAMA as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_ASSIGN_OUTPUT as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_CRITERION_STR as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_MOUSE_WARPING as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_RESTART_STATE as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_SMART_BORDERS as *mut cmdp_token,
-        n: 7_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_MODIFIER as *mut cmdp_token,
-        n: 12_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_POSITION as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_COLOR_BORDER as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_COLOR_SINGLE as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FAKE_OUTPUTS as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_MODE_BINDING as *mut cmdp_token,
-        n: 20_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_NO_FOCUS_END as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_BINDSYM as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_PADDING as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_VERBOSE as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BINDCOMMAND as *mut cmdp_token,
-        n: 5_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_IGNORE_LINE as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_TILING_DRAG as *mut cmdp_token,
-        n: 9_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_TITLE_ALIGN as *mut cmdp_token,
-        n: 3_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_COLORS as *mut cmdp_token,
-        n: 15_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_HEIGHT as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_OUTPUT as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_COLOR_TEXT as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FOR_WINDOW as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_IPC_SOCKET as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_SHOW_MARKS as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_SMART_GAPS as *mut cmdp_token,
-        n: 13_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_CRITERION as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_MODEBRACE as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_WORKSPACE as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BARBRACE as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_FONT as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_MODE as *mut cmdp_token,
-        n: 3_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_CRITERIA as *mut cmdp_token,
-        n: 17_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_GAPS_END as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_MODENAME as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_NO_FOCUS as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BINDING as *mut cmdp_token,
-        n: 20_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_INCLUDE as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_INITIAL as *mut cmdp_token,
-        n: 60_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_ASSIGN as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_ID as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_EXEC as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FONT as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_GAPS as *mut cmdp_token,
-        n: 8_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_MODE as *mut cmdp_token,
-        n: 8_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR as *mut cmdp_token,
-        n: 31_i32,
-    },
+static tokens: [&[cmdp_token]; 117] = [
+    &tokens_FORCE_DISPLAY_URGENCY_HINT_MS,
+    &tokens_FLOATING_MAXIMUM_SIZE_HEIGHT,
+    &tokens_FLOATING_MINIMUM_SIZE_HEIGHT,
+    &tokens_BAR_STRIP_WORKSPACE_NUMBERS,
+    &tokens_FLOATING_MAXIMUM_SIZE_WIDTH,
+    &tokens_FLOATING_MINIMUM_SIZE_WIDTH,
+    &tokens_BAR_BINDING_MODE_INDICATOR,
+    &tokens_BAR_WORKSPACE_MIN_WIDTH_PX,
+    &tokens_FOCUS_ON_WINDOW_ACTIVATION,
+    &tokens_FORCE_DISPLAY_URGENCY_HINT,
+    &tokens_TILING_DRAG_SWAP_MODIFIER,
+    &tokens_BAR_STRIP_WORKSPACE_NAME,
+    &tokens_CRITERION_FROM_STR_START,
+    &tokens_DEFAULT_BORDER_PIXELS_PX,
+    &tokens_WORKSPACE_BACK_AND_FORTH,
+    &tokens_ASSIGN_WORKSPACE_NUMBER,
+    &tokens_BAR_WORKSPACE_MIN_WIDTH,
+    &tokens_FLOATING_MAXIMUM_SIZE_X,
+    &tokens_FLOATING_MINIMUM_SIZE_X,
+    &tokens_POPUP_DURING_FULLSCREEN,
+    &tokens_BAR_COLORS_IGNORE_LINE,
+    &tokens_CRITERION_FROM_STR_END,
+    &tokens_BAR_COLORS_BACKGROUND,
+    &tokens_BAR_WORKSPACE_BUTTONS,
+    &tokens_BAR_WORKSPACE_COMMAND,
+    &tokens_DEFAULT_BORDER_PIXELS,
+    &tokens_WORKSPACE_OUTPUT_WORD,
+    &tokens_BAR_SEPARATOR_SYMBOL,
+    &tokens_FORCE_FOCUS_WRAPPING,
+    &tokens_BAR_BINDSYM_COMMAND,
+    &tokens_BAR_TRAY_PADDING_PX,
+    &tokens_DEFAULT_ORIENTATION,
+    &tokens_FOCUS_FOLLOWS_MOUSE,
+    &tokens_BAR_PADDING_BOTTOM,
+    &tokens_BAR_STATUS_COMMAND,
+    &tokens_BAR_WHEEL_DOWN_CMD,
+    &tokens_COLOR_CHILD_BORDER,
+    &tokens_CRITERION_FROM_STR,
+    &tokens_FOR_WINDOW_COMMAND,
+    &tokens_BAR_COLORS_BORDER,
+    &tokens_BAR_COLORS_SINGLE,
+    &tokens_BAR_PADDING_RIGHT,
+    &tokens_FLOATING_MODIFIER,
+    &tokens_HIDE_EDGE_BORDERS,
+    &tokens_WORKSPACE_COMMAND,
+    &tokens_ASSIGN_WORKSPACE,
+    &tokens_BAR_COLORS_BRACE,
+    &tokens_BAR_HIDDEN_STATE,
+    &tokens_BAR_PADDING_LEFT,
+    &tokens_BAR_TRAY_PADDING,
+    &tokens_BAR_WHEEL_UP_CMD,
+    &tokens_COLOR_BACKGROUND,
+    &tokens_IPC_KILL_TIMEOUT,
+    &tokens_MODE_BINDCOMMAND,
+    &tokens_MODE_IGNORE_LINE,
+    &tokens_TILING_DRAG_MODE,
+    &tokens_WORKSPACE_LAYOUT,
+    &tokens_BAR_BAR_COMMAND,
+    &tokens_BAR_COLORS_TEXT,
+    &tokens_BAR_IGNORE_LINE,
+    &tokens_BAR_PADDING_TOP,
+    &tokens_BAR_SOCKET_PATH,
+    &tokens_BAR_TRAY_OUTPUT,
+    &tokens_COLOR_INDICATOR,
+    &tokens_DISABLE_RANDR15,
+    &tokens_GAPS_WITH_SCOPE,
+    &tokens_CRITERION_FROM,
+    &tokens_DEFAULT_BORDER,
+    &tokens_FOCUS_WRAPPING,
+    &tokens_FORCE_XINERAMA,
+    &tokens_ASSIGN_OUTPUT,
+    &tokens_CRITERION_STR,
+    &tokens_MOUSE_WARPING,
+    &tokens_RESTART_STATE,
+    &tokens_SMART_BORDERS,
+    &tokens_BAR_MODIFIER,
+    &tokens_BAR_POSITION,
+    &tokens_COLOR_BORDER,
+    &tokens_COLOR_SINGLE,
+    &tokens_FAKE_OUTPUTS,
+    &tokens_MODE_BINDING,
+    &tokens_NO_FOCUS_END,
+    &tokens_BAR_BINDSYM,
+    &tokens_BAR_PADDING,
+    &tokens_BAR_VERBOSE,
+    &tokens_BINDCOMMAND,
+    &tokens_IGNORE_LINE,
+    &tokens_TILING_DRAG,
+    &tokens_TITLE_ALIGN,
+    &tokens_BAR_COLORS,
+    &tokens_BAR_HEIGHT,
+    &tokens_BAR_OUTPUT,
+    &tokens_COLOR_TEXT,
+    &tokens_FOR_WINDOW,
+    &tokens_IPC_SOCKET,
+    &tokens_SHOW_MARKS,
+    &tokens_SMART_GAPS,
+    &tokens_CRITERION,
+    &tokens_MODEBRACE,
+    &tokens_WORKSPACE,
+    &tokens_BARBRACE,
+    &tokens_BAR_FONT,
+    &tokens_BAR_MODE,
+    &tokens_CRITERIA,
+    &tokens_GAPS_END,
+    &tokens_MODENAME,
+    &tokens_NO_FOCUS,
+    &tokens_BINDING,
+    &tokens_INCLUDE,
+    &tokens_INITIAL,
+    &tokens_ASSIGN,
+    &tokens_BAR_ID,
+    &tokens_EXEC,
+    &tokens_FONT,
+    &tokens_GAPS,
+    &tokens_MODE,
+    &tokens_BAR,
 ];
 unsafe fn GENERATED_call(
     current_match: *mut Match,
@@ -4141,13 +3777,15 @@ unsafe fn GENERATED_call(
     call_identifier: i32,
     result: *mut ConfigResultIR,
 ) {
+    // Independent captures remain live even when a directive reloads parser/model state.
+    let captures = (&*stack).clone();
     match call_identifier {
         0 => {
             (*result).next_state = ConfigParserState::Initial;
             cfg_force_display_urgency_hint(
                 current_match,
                 result,
-                parser_get_long(stack, c"duration_ms".as_ptr()),
+                captures.get_long(b"duration_ms"),
             );
         }
         1 => {
@@ -4155,8 +3793,8 @@ unsafe fn GENERATED_call(
             cfg_floating_maximum_size(
                 current_match,
                 result,
-                parser_get_long(stack, c"width".as_ptr()),
-                parser_get_long(stack, c"height".as_ptr()),
+                captures.get_long(b"width"),
+                captures.get_long(b"height"),
             );
         }
         2 => {
@@ -4164,8 +3802,8 @@ unsafe fn GENERATED_call(
             cfg_floating_minimum_size(
                 current_match,
                 result,
-                parser_get_long(stack, c"width".as_ptr()),
-                parser_get_long(stack, c"height".as_ptr()),
+                captures.get_long(b"width"),
+                captures.get_long(b"height"),
             );
         }
         3 => {
@@ -4174,10 +3812,9 @@ unsafe fn GENERATED_call(
                 current_match,
                 result,
                 i3_common::boolstr::is_enabled(
-                    (&*stack)
-                        .get_string(c"value")
-                        .expect("boolean directive has a captured value")
-                        .to_bytes(),
+                    captures
+                        .get_string(b"value")
+                        .expect("boolean directive has a captured value"),
                 ),
             );
         }
@@ -4187,36 +3824,29 @@ unsafe fn GENERATED_call(
                 current_match,
                 result,
                 i3_common::boolstr::is_enabled(
-                    (&*stack)
-                        .get_string(c"value")
-                        .expect("boolean directive has a captured value")
-                        .to_bytes(),
+                    captures
+                        .get_string(b"value")
+                        .expect("boolean directive has a captured value"),
                 ),
             );
         }
         5 => {
             (*result).next_state = ConfigParserState::Bar;
-            cfg_bar_workspace_min_width(
-                current_match,
-                result,
-                parser_get_long(stack, c"width".as_ptr()),
-            );
+            cfg_bar_workspace_min_width(current_match, result, captures.get_long(b"width"));
         }
         6 => {
             (*result).next_state = ConfigParserState::Initial;
             cfg_focus_on_window_activation(
                 current_match,
                 result,
-                parser_get_string(stack, c"mode".as_ptr()),
+                captures
+                    .get_string(b"mode")
+                    .expect("required directive capture"),
             );
         }
         7 => {
             (*result).next_state = ConfigParserState::Initial;
-            cfg_tiling_drag_swap_modifier(
-                current_match,
-                result,
-                parser_get_string(stack, c"modifiers".as_ptr()),
-            );
+            cfg_tiling_drag_swap_modifier(current_match, result, captures.get_string(b"modifiers"));
         }
         8 => {
             (*result).next_state = ConfigParserState::Bar;
@@ -4224,10 +3854,9 @@ unsafe fn GENERATED_call(
                 current_match,
                 result,
                 i3_common::boolstr::is_enabled(
-                    (&*stack)
-                        .get_string(c"value")
-                        .expect("boolean directive has a captured value")
-                        .to_bytes(),
+                    captures
+                        .get_string(b"value")
+                        .expect("boolean directive has a captured value"),
                 ),
             );
         }
@@ -4236,8 +3865,10 @@ unsafe fn GENERATED_call(
             cfg_criteria_add(
                 current_match,
                 result,
-                parser_get_string(stack, c"ctype".as_ptr()),
-                parser_get_string(stack, c"kind".as_ptr()),
+                captures
+                    .get_string(b"ctype")
+                    .expect("required directive capture"),
+                captures.get_string(b"kind"),
             );
         }
         10 => {
@@ -4245,8 +3876,10 @@ unsafe fn GENERATED_call(
             cfg_criteria_add(
                 current_match,
                 result,
-                parser_get_string(stack, c"ctype".as_ptr()),
-                parser_get_string(stack, c"kind".as_ptr()),
+                captures
+                    .get_string(b"ctype")
+                    .expect("required directive capture"),
+                captures.get_string(b"kind"),
             );
         }
         11 => {
@@ -4254,9 +3887,13 @@ unsafe fn GENERATED_call(
             cfg_default_border(
                 current_match,
                 result,
-                parser_get_string(stack, c"windowtype".as_ptr()),
-                parser_get_string(stack, c"border".as_ptr()),
-                parser_get_long(stack, c"width".as_ptr()),
+                captures
+                    .get_string(b"windowtype")
+                    .expect("required directive capture"),
+                captures
+                    .get_string(b"border")
+                    .expect("required directive capture"),
+                captures.get_long(b"width"),
             );
         }
         12 => {
@@ -4265,10 +3902,9 @@ unsafe fn GENERATED_call(
                 current_match,
                 result,
                 i3_common::boolstr::is_enabled(
-                    (&*stack)
-                        .get_string(c"value")
-                        .expect("boolean directive has a captured value")
-                        .to_bytes(),
+                    captures
+                        .get_string(b"value")
+                        .expect("boolean directive has a captured value"),
                 ),
             );
         }
@@ -4277,7 +3913,9 @@ unsafe fn GENERATED_call(
             cfg_assign(
                 current_match,
                 result,
-                parser_get_string(stack, c"number".as_ptr()),
+                captures
+                    .get_string(b"number")
+                    .expect("required directive capture"),
                 true,
             );
         }
@@ -4286,7 +3924,9 @@ unsafe fn GENERATED_call(
             cfg_popup_during_fullscreen(
                 current_match,
                 result,
-                parser_get_string(stack, c"value".as_ptr()),
+                captures
+                    .get_string(b"value")
+                    .expect("required directive capture"),
             );
         }
         15 => {
@@ -4294,7 +3934,9 @@ unsafe fn GENERATED_call(
             cfg_popup_during_fullscreen(
                 current_match,
                 result,
-                parser_get_string(stack, c"value".as_ptr()),
+                captures
+                    .get_string(b"value")
+                    .expect("required directive capture"),
             );
         }
         16 => {
@@ -4302,7 +3944,9 @@ unsafe fn GENERATED_call(
             cfg_popup_during_fullscreen(
                 current_match,
                 result,
-                parser_get_string(stack, c"value".as_ptr()),
+                captures
+                    .get_string(b"value")
+                    .expect("required directive capture"),
             );
         }
         17 => {
@@ -4310,7 +3954,9 @@ unsafe fn GENERATED_call(
             cfg_popup_during_fullscreen(
                 current_match,
                 result,
-                parser_get_string(stack, c"value".as_ptr()),
+                captures
+                    .get_string(b"value")
+                    .expect("required directive capture"),
             );
         }
         18 => {
@@ -4318,8 +3964,10 @@ unsafe fn GENERATED_call(
             cfg_criteria_add(
                 current_match,
                 result,
-                parser_get_string(stack, c"ctype".as_ptr()),
-                parser_get_string(stack, c"kind".as_ptr()),
+                captures
+                    .get_string(b"ctype")
+                    .expect("required directive capture"),
+                captures.get_string(b"kind"),
             );
         }
         19 => {
@@ -4328,20 +3976,19 @@ unsafe fn GENERATED_call(
                 current_match,
                 result,
                 i3_common::boolstr::is_enabled(
-                    (&*stack)
-                        .get_string(c"value")
-                        .expect("boolean directive has a captured value")
-                        .to_bytes(),
+                    captures
+                        .get_string(b"value")
+                        .expect("boolean directive has a captured value"),
                 ),
             );
         }
         20 => {
             (*result).next_state = ConfigParserState::Bar;
             {
-                let bar_arg_command =
-                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"command".as_ptr()))
-                        .to_bytes()
-                        .to_vec();
+                let bar_arg_command = captures
+                    .get_string(b"command")
+                    .expect("required directive capture")
+                    .to_vec();
                 cfg_bar_workspace_command(current_match, result, &bar_arg_command);
             }
         }
@@ -4350,22 +3997,21 @@ unsafe fn GENERATED_call(
             cfg_default_border(
                 current_match,
                 result,
-                parser_get_string(stack, c"windowtype".as_ptr()),
-                parser_get_string(stack, c"border".as_ptr()),
+                captures
+                    .get_string(b"windowtype")
+                    .expect("required directive capture"),
+                captures
+                    .get_string(b"border")
+                    .expect("required directive capture"),
                 2_i64,
             );
         }
         22 => {
             (*result).next_state = ConfigParserState::WorkspaceOutputWord;
-            let workspace_pointer = parser_get_string(stack, c"workspace".as_ptr());
-            let output_pointer = parser_get_string(stack, c"output".as_ptr());
-            let workspace = (!workspace_pointer.is_null()).then(|| {
-                std::ffi::CStr::from_ptr(workspace_pointer)
-                    .to_bytes()
-                    .to_vec()
-            });
-            let output = (!output_pointer.is_null())
-                .then(|| std::ffi::CStr::from_ptr(output_pointer).to_bytes().to_vec());
+            let workspace_pointer = captures.get_string(b"workspace");
+            let output_pointer = captures.get_string(b"output");
+            let workspace = workspace_pointer.map(<[u8]>::to_vec);
+            let output = output_pointer.map(<[u8]>::to_vec);
             cfg_workspace(
                 current_match,
                 result,
@@ -4376,10 +4022,10 @@ unsafe fn GENERATED_call(
         23 => {
             (*result).next_state = ConfigParserState::Bar;
             {
-                let bar_arg_separator =
-                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"separator".as_ptr()))
-                        .to_bytes()
-                        .to_vec();
+                let bar_arg_separator = captures
+                    .get_string(b"separator")
+                    .expect("required directive capture")
+                    .to_vec();
                 cfg_bar_separator_symbol(current_match, result, &bar_arg_separator);
             }
         }
@@ -4389,47 +4035,44 @@ unsafe fn GENERATED_call(
                 current_match,
                 result,
                 i3_common::boolstr::is_enabled(
-                    (&*stack)
-                        .get_string(c"value")
-                        .expect("boolean directive has a captured value")
-                        .to_bytes(),
+                    captures
+                        .get_string(b"value")
+                        .expect("boolean directive has a captured value"),
                 ),
             );
         }
         25 => {
             (*result).next_state = ConfigParserState::Bar;
             {
-                let bar_arg_button =
-                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"button".as_ptr()))
-                        .to_bytes()
-                        .to_vec();
-                let bar_arg_command =
-                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"command".as_ptr()))
-                        .to_bytes()
-                        .to_vec();
+                let bar_arg_button = captures
+                    .get_string(b"button")
+                    .expect("required directive capture")
+                    .to_vec();
+                let bar_arg_command = captures
+                    .get_string(b"command")
+                    .expect("required directive capture")
+                    .to_vec();
                 cfg_bar_bindsym(
                     current_match,
                     result,
                     &bar_arg_button,
-                    !(parser_get_string(stack, c"release".as_ptr())).is_null(),
+                    captures.get_string(b"release").is_some(),
                     &bar_arg_command,
                 );
             }
         }
         26 => {
             (*result).next_state = ConfigParserState::Bar;
-            cfg_bar_tray_padding(
-                current_match,
-                result,
-                parser_get_long(stack, c"padding_px".as_ptr()),
-            );
+            cfg_bar_tray_padding(current_match, result, captures.get_long(b"padding_px"));
         }
         27 => {
             (*result).next_state = ConfigParserState::Initial;
             cfg_default_orientation(
                 current_match,
                 result,
-                parser_get_string(stack, c"orientation".as_ptr()),
+                captures
+                    .get_string(b"orientation")
+                    .expect("required directive capture"),
             );
         }
         28 => {
@@ -4437,7 +4080,9 @@ unsafe fn GENERATED_call(
             cfg_default_orientation(
                 current_match,
                 result,
-                parser_get_string(stack, c"orientation".as_ptr()),
+                captures
+                    .get_string(b"orientation")
+                    .expect("required directive capture"),
             );
         }
         29 => {
@@ -4445,7 +4090,9 @@ unsafe fn GENERATED_call(
             cfg_default_orientation(
                 current_match,
                 result,
-                parser_get_string(stack, c"orientation".as_ptr()),
+                captures
+                    .get_string(b"orientation")
+                    .expect("required directive capture"),
             );
         }
         30 => {
@@ -4454,10 +4101,9 @@ unsafe fn GENERATED_call(
                 current_match,
                 result,
                 i3_common::boolstr::is_enabled(
-                    (&*stack)
-                        .get_string(c"value")
-                        .expect("boolean directive has a captured value")
-                        .to_bytes(),
+                    captures
+                        .get_string(b"value")
+                        .expect("boolean directive has a captured value"),
                 ),
             );
         }
@@ -4466,28 +4112,28 @@ unsafe fn GENERATED_call(
             cfg_bar_padding_three(
                 current_match,
                 result,
-                parser_get_long(stack, c"top_or_all".as_ptr()),
-                parser_get_long(stack, c"right_or_right_and_left".as_ptr()),
-                parser_get_long(stack, c"bottom".as_ptr()),
+                captures.get_long(b"top_or_all"),
+                captures.get_long(b"right_or_right_and_left"),
+                captures.get_long(b"bottom"),
             );
         }
         32 => {
             (*result).next_state = ConfigParserState::Bar;
             {
-                let bar_arg_command =
-                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"command".as_ptr()))
-                        .to_bytes()
-                        .to_vec();
+                let bar_arg_command = captures
+                    .get_string(b"command")
+                    .expect("required directive capture")
+                    .to_vec();
                 cfg_bar_status_command(current_match, result, &bar_arg_command);
             }
         }
         33 => {
             (*result).next_state = ConfigParserState::Bar;
             {
-                let bar_arg_command =
-                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"command".as_ptr()))
-                        .to_bytes()
-                        .to_vec();
+                let bar_arg_command = captures
+                    .get_string(b"command")
+                    .expect("required directive capture")
+                    .to_vec();
                 cfg_bar_wheel_down_cmd(current_match, result, &bar_arg_command);
             }
         }
@@ -4496,12 +4142,20 @@ unsafe fn GENERATED_call(
             cfg_color(
                 current_match,
                 result,
-                parser_get_string(stack, c"colorclass".as_ptr()),
-                parser_get_string(stack, c"border".as_ptr()),
-                parser_get_string(stack, c"background".as_ptr()),
-                parser_get_string(stack, c"text".as_ptr()),
-                parser_get_string(stack, c"indicator".as_ptr()),
-                parser_get_string(stack, c"child_border".as_ptr()),
+                captures
+                    .get_string(b"colorclass")
+                    .expect("required directive capture"),
+                captures
+                    .get_string(b"border")
+                    .expect("required directive capture"),
+                captures
+                    .get_string(b"background")
+                    .expect("required directive capture"),
+                captures
+                    .get_string(b"text")
+                    .expect("required directive capture"),
+                captures.get_string(b"indicator"),
+                captures.get_string(b"child_border"),
             );
         }
         35 => {
@@ -4509,12 +4163,20 @@ unsafe fn GENERATED_call(
             cfg_color(
                 current_match,
                 result,
-                parser_get_string(stack, c"colorclass".as_ptr()),
-                parser_get_string(stack, c"border".as_ptr()),
-                parser_get_string(stack, c"background".as_ptr()),
-                parser_get_string(stack, c"text".as_ptr()),
-                parser_get_string(stack, c"indicator".as_ptr()),
-                ::core::ptr::null::<::core::ffi::c_char>(),
+                captures
+                    .get_string(b"colorclass")
+                    .expect("required directive capture"),
+                captures
+                    .get_string(b"border")
+                    .expect("required directive capture"),
+                captures
+                    .get_string(b"background")
+                    .expect("required directive capture"),
+                captures
+                    .get_string(b"text")
+                    .expect("required directive capture"),
+                captures.get_string(b"indicator"),
+                None,
             );
         }
         36 => {
@@ -4522,20 +4184,22 @@ unsafe fn GENERATED_call(
             cfg_for_window(
                 current_match,
                 result,
-                parser_get_string(stack, c"command".as_ptr()),
+                captures
+                    .get_string(b"command")
+                    .expect("required directive capture"),
             );
         }
         37 => {
             (*result).next_state = ConfigParserState::BarColors;
             {
-                let bar_arg_colorclass =
-                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"colorclass".as_ptr()))
-                        .to_bytes()
-                        .to_vec();
-                let bar_arg_color =
-                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"color".as_ptr()))
-                        .to_bytes()
-                        .to_vec();
+                let bar_arg_colorclass = captures
+                    .get_string(b"colorclass")
+                    .expect("required directive capture")
+                    .to_vec();
+                let bar_arg_color = captures
+                    .get_string(b"color")
+                    .expect("required directive capture")
+                    .to_vec();
                 cfg_bar_color_single(current_match, result, &bar_arg_colorclass, &bar_arg_color);
             }
         }
@@ -4544,25 +4208,21 @@ unsafe fn GENERATED_call(
             cfg_bar_padding_two(
                 current_match,
                 result,
-                parser_get_long(stack, c"top_or_all".as_ptr()),
-                parser_get_long(stack, c"right_or_right_and_left".as_ptr()),
+                captures.get_long(b"top_or_all"),
+                captures.get_long(b"right_or_right_and_left"),
             );
         }
         39 => {
             (*result).next_state = ConfigParserState::Initial;
-            cfg_floating_modifier(
-                current_match,
-                result,
-                parser_get_string(stack, c"modifiers".as_ptr()),
-            );
+            cfg_floating_modifier(current_match, result, captures.get_string(b"modifiers"));
         }
         40 => {
             (*result).next_state = ConfigParserState::Initial;
             cfg_hide_edge_borders(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"hide_borders")
+                captures
+                    .get_string(b"hide_borders")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -4571,8 +4231,8 @@ unsafe fn GENERATED_call(
             cfg_hide_edge_borders(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"hide_borders")
+                captures
+                    .get_string(b"hide_borders")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -4581,8 +4241,8 @@ unsafe fn GENERATED_call(
             cfg_hide_edge_borders(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"hide_borders")
+                captures
+                    .get_string(b"hide_borders")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -4591,8 +4251,8 @@ unsafe fn GENERATED_call(
             cfg_hide_edge_borders(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"hide_borders")
+                captures
+                    .get_string(b"hide_borders")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -4601,8 +4261,8 @@ unsafe fn GENERATED_call(
             cfg_hide_edge_borders(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"hide_borders")
+                captures
+                    .get_string(b"hide_borders")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -4611,8 +4271,8 @@ unsafe fn GENERATED_call(
             cfg_hide_edge_borders(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"hide_borders")
+                captures
+                    .get_string(b"hide_borders")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -4621,8 +4281,8 @@ unsafe fn GENERATED_call(
             cfg_hide_edge_borders(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"hide_borders")
+                captures
+                    .get_string(b"hide_borders")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -4631,8 +4291,8 @@ unsafe fn GENERATED_call(
             cfg_hide_edge_borders(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"hide_borders")
+                captures
+                    .get_string(b"hide_borders")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -4641,8 +4301,8 @@ unsafe fn GENERATED_call(
             cfg_hide_edge_borders(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"hide_borders")
+                captures
+                    .get_string(b"hide_borders")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -4651,8 +4311,8 @@ unsafe fn GENERATED_call(
             cfg_hide_edge_borders(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"hide_borders")
+                captures
+                    .get_string(b"hide_borders")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -4661,8 +4321,8 @@ unsafe fn GENERATED_call(
             cfg_hide_edge_borders(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"hide_borders")
+                captures
+                    .get_string(b"hide_borders")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -4671,8 +4331,8 @@ unsafe fn GENERATED_call(
             cfg_hide_edge_borders(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"hide_borders")
+                captures
+                    .get_string(b"hide_borders")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -4681,27 +4341,29 @@ unsafe fn GENERATED_call(
             cfg_assign(
                 current_match,
                 result,
-                parser_get_string(stack, c"workspace".as_ptr()),
+                captures
+                    .get_string(b"workspace")
+                    .expect("required directive capture"),
                 false,
             );
         }
         53 => {
             (*result).next_state = ConfigParserState::Bar;
             {
-                let bar_arg_hidden_state =
-                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"hidden_state".as_ptr()))
-                        .to_bytes()
-                        .to_vec();
+                let bar_arg_hidden_state = captures
+                    .get_string(b"hidden_state")
+                    .expect("required directive capture")
+                    .to_vec();
                 cfg_bar_hidden_state(current_match, result, &bar_arg_hidden_state);
             }
         }
         54 => {
             (*result).next_state = ConfigParserState::Bar;
             {
-                let bar_arg_hidden_state =
-                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"hidden_state".as_ptr()))
-                        .to_bytes()
-                        .to_vec();
+                let bar_arg_hidden_state = captures
+                    .get_string(b"hidden_state")
+                    .expect("required directive capture")
+                    .to_vec();
                 cfg_bar_hidden_state(current_match, result, &bar_arg_hidden_state);
             }
         }
@@ -4710,69 +4372,47 @@ unsafe fn GENERATED_call(
             cfg_bar_padding_four(
                 current_match,
                 result,
-                parser_get_long(stack, c"top_or_all".as_ptr()),
-                parser_get_long(stack, c"right_or_right_and_left".as_ptr()),
-                parser_get_long(stack, c"bottom".as_ptr()),
-                parser_get_long(stack, c"left".as_ptr()),
+                captures.get_long(b"top_or_all"),
+                captures.get_long(b"right_or_right_and_left"),
+                captures.get_long(b"bottom"),
+                captures.get_long(b"left"),
             );
         }
         56 => {
             (*result).next_state = ConfigParserState::Bar;
             {
-                let bar_arg_command =
-                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"command".as_ptr()))
-                        .to_bytes()
-                        .to_vec();
+                let bar_arg_command = captures
+                    .get_string(b"command")
+                    .expect("required directive capture")
+                    .to_vec();
                 cfg_bar_wheel_up_cmd(current_match, result, &bar_arg_command);
             }
         }
         57 => {
             (*result).next_state = ConfigParserState::Initial;
-            cfg_ipc_kill_timeout(
-                current_match,
-                result,
-                parser_get_long(stack, c"timeout".as_ptr()),
-            );
+            cfg_ipc_kill_timeout(current_match, result, captures.get_long(b"timeout"));
         }
         58 => {
             (*result).next_state = ConfigParserState::Mode;
-            let bindtype_pointer = parser_get_string(stack, c"bindtype".as_ptr());
-            let bindtype_owner = std::ffi::CStr::from_ptr(bindtype_pointer)
-                .to_bytes()
+            let bindtype_pointer = captures.get_string(b"bindtype");
+            let bindtype_owner = bindtype_pointer
+                .expect("required directive capture")
                 .to_vec();
-            let modifiers_pointer = parser_get_string(stack, c"modifiers".as_ptr());
-            let modifiers_owner = modifiers_pointer.as_ref().map(|_| {
-                std::ffi::CStr::from_ptr(modifiers_pointer)
-                    .to_bytes()
-                    .to_vec()
-            });
-            let key_pointer = parser_get_string(stack, c"key".as_ptr());
-            let key_owner = std::ffi::CStr::from_ptr(key_pointer).to_bytes().to_vec();
-            let release_pointer = parser_get_string(stack, c"release".as_ptr());
-            let release_owner = release_pointer.as_ref().map(|_| {
-                std::ffi::CStr::from_ptr(release_pointer)
-                    .to_bytes()
-                    .to_vec()
-            });
-            let border_pointer = parser_get_string(stack, c"border".as_ptr());
-            let border_owner = border_pointer
-                .as_ref()
-                .map(|_| std::ffi::CStr::from_ptr(border_pointer).to_bytes().to_vec());
-            let whole_window_pointer = parser_get_string(stack, c"whole_window".as_ptr());
-            let whole_window_owner = whole_window_pointer.as_ref().map(|_| {
-                std::ffi::CStr::from_ptr(whole_window_pointer)
-                    .to_bytes()
-                    .to_vec()
-            });
-            let exclude_titlebar_pointer = parser_get_string(stack, c"exclude_titlebar".as_ptr());
-            let exclude_titlebar_owner = exclude_titlebar_pointer.as_ref().map(|_| {
-                std::ffi::CStr::from_ptr(exclude_titlebar_pointer)
-                    .to_bytes()
-                    .to_vec()
-            });
-            let command_pointer = parser_get_string(stack, c"command".as_ptr());
-            let command_owner = std::ffi::CStr::from_ptr(command_pointer)
-                .to_bytes()
+            let modifiers_pointer = captures.get_string(b"modifiers");
+            let modifiers_owner = modifiers_pointer.map(<[u8]>::to_vec);
+            let key_pointer = captures.get_string(b"key");
+            let key_owner = key_pointer.expect("required directive capture").to_vec();
+            let release_pointer = captures.get_string(b"release");
+            let release_owner = release_pointer.map(<[u8]>::to_vec);
+            let border_pointer = captures.get_string(b"border");
+            let border_owner = border_pointer.map(<[u8]>::to_vec);
+            let whole_window_pointer = captures.get_string(b"whole_window");
+            let whole_window_owner = whole_window_pointer.map(<[u8]>::to_vec);
+            let exclude_titlebar_pointer = captures.get_string(b"exclude_titlebar");
+            let exclude_titlebar_owner = exclude_titlebar_pointer.map(<[u8]>::to_vec);
+            let command_pointer = captures.get_string(b"command");
+            let command_owner = command_pointer
+                .expect("required directive capture")
                 .to_vec();
             cfg_mode_binding(
                 current_match,
@@ -4792,7 +4432,9 @@ unsafe fn GENERATED_call(
             cfg_tiling_drag(
                 current_match,
                 result,
-                parser_get_string(stack, c"value".as_ptr()),
+                captures
+                    .get_string(b"value")
+                    .expect("required directive capture"),
             );
         }
         60 => {
@@ -4800,7 +4442,9 @@ unsafe fn GENERATED_call(
             cfg_workspace_layout(
                 current_match,
                 result,
-                parser_get_string(stack, c"layout".as_ptr()),
+                captures
+                    .get_string(b"layout")
+                    .expect("required directive capture"),
             );
         }
         61 => {
@@ -4808,7 +4452,9 @@ unsafe fn GENERATED_call(
             cfg_workspace_layout(
                 current_match,
                 result,
-                parser_get_string(stack, c"layout".as_ptr()),
+                captures
+                    .get_string(b"layout")
+                    .expect("required directive capture"),
             );
         }
         62 => {
@@ -4816,7 +4462,9 @@ unsafe fn GENERATED_call(
             cfg_workspace_layout(
                 current_match,
                 result,
-                parser_get_string(stack, c"layout".as_ptr()),
+                captures
+                    .get_string(b"layout")
+                    .expect("required directive capture"),
             );
         }
         63 => {
@@ -4824,39 +4472,37 @@ unsafe fn GENERATED_call(
             cfg_workspace_layout(
                 current_match,
                 result,
-                parser_get_string(stack, c"layout".as_ptr()),
+                captures
+                    .get_string(b"layout")
+                    .expect("required directive capture"),
             );
         }
         64 => {
             (*result).next_state = ConfigParserState::Bar;
             {
-                let bar_arg_i3bar_command =
-                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"command".as_ptr()))
-                        .to_bytes()
-                        .to_vec();
+                let bar_arg_i3bar_command = captures
+                    .get_string(b"command")
+                    .expect("required directive capture")
+                    .to_vec();
                 cfg_bar_i3bar_command(current_match, result, &bar_arg_i3bar_command);
             }
         }
         65 => {
             (*result).next_state = ConfigParserState::BarColors;
             {
-                let bar_arg_colorclass =
-                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"colorclass".as_ptr()))
-                        .to_bytes()
-                        .to_vec();
-                let bar_arg_border =
-                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"border".as_ptr()))
-                        .to_bytes()
-                        .to_vec();
-                let bar_arg_background =
-                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"background".as_ptr()))
-                        .to_bytes()
-                        .to_vec();
-                let bar_arg_text = {
-                    let raw = ::core::ptr::null::<::core::ffi::c_char>();
-                    raw.as_ref()
-                        .map(|value| std::ffi::CStr::from_ptr(value).to_bytes().to_vec())
-                };
+                let bar_arg_colorclass = captures
+                    .get_string(b"colorclass")
+                    .expect("required directive capture")
+                    .to_vec();
+                let bar_arg_border = captures
+                    .get_string(b"border")
+                    .expect("required directive capture")
+                    .to_vec();
+                let bar_arg_background = captures
+                    .get_string(b"background")
+                    .expect("required directive capture")
+                    .to_vec();
+                let bar_arg_text: Option<Vec<u8>> = None;
                 cfg_bar_color(
                     current_match,
                     result,
@@ -4870,23 +4516,19 @@ unsafe fn GENERATED_call(
         66 => {
             (*result).next_state = ConfigParserState::BarColors;
             {
-                let bar_arg_colorclass =
-                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"colorclass".as_ptr()))
-                        .to_bytes()
-                        .to_vec();
-                let bar_arg_border =
-                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"border".as_ptr()))
-                        .to_bytes()
-                        .to_vec();
-                let bar_arg_background =
-                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"background".as_ptr()))
-                        .to_bytes()
-                        .to_vec();
-                let bar_arg_text = {
-                    let raw = parser_get_string(stack, c"text".as_ptr());
-                    raw.as_ref()
-                        .map(|value| std::ffi::CStr::from_ptr(value).to_bytes().to_vec())
-                };
+                let bar_arg_colorclass = captures
+                    .get_string(b"colorclass")
+                    .expect("required directive capture")
+                    .to_vec();
+                let bar_arg_border = captures
+                    .get_string(b"border")
+                    .expect("required directive capture")
+                    .to_vec();
+                let bar_arg_background = captures
+                    .get_string(b"background")
+                    .expect("required directive capture")
+                    .to_vec();
+                let bar_arg_text = captures.get_string(b"text").map(<[u8]>::to_vec);
                 cfg_bar_color(
                     current_match,
                     result,
@@ -4899,19 +4541,15 @@ unsafe fn GENERATED_call(
         }
         67 => {
             (*result).next_state = ConfigParserState::Bar;
-            cfg_bar_padding_one(
-                current_match,
-                result,
-                parser_get_long(stack, c"top_or_all".as_ptr()),
-            );
+            cfg_bar_padding_one(current_match, result, captures.get_long(b"top_or_all"));
         }
         68 => {
             (*result).next_state = ConfigParserState::Bar;
             {
-                let bar_arg_socket_path =
-                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"path".as_ptr()))
-                        .to_bytes()
-                        .to_vec();
+                let bar_arg_socket_path = captures
+                    .get_string(b"path")
+                    .expect("required directive capture")
+                    .to_vec();
                 let bar_arg_socket_path =
                     std::path::PathBuf::from(std::ffi::OsString::from_vec(bar_arg_socket_path));
                 cfg_bar_socket_path(current_match, result, &bar_arg_socket_path);
@@ -4920,10 +4558,10 @@ unsafe fn GENERATED_call(
         69 => {
             (*result).next_state = ConfigParserState::Bar;
             {
-                let bar_arg_output =
-                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"output".as_ptr()))
-                        .to_bytes()
-                        .to_vec();
+                let bar_arg_output = captures
+                    .get_string(b"output")
+                    .expect("required directive capture")
+                    .to_vec();
                 cfg_bar_tray_output(current_match, result, &bar_arg_output);
             }
         }
@@ -4932,12 +4570,20 @@ unsafe fn GENERATED_call(
             cfg_color(
                 current_match,
                 result,
-                parser_get_string(stack, c"colorclass".as_ptr()),
-                parser_get_string(stack, c"border".as_ptr()),
-                parser_get_string(stack, c"background".as_ptr()),
-                parser_get_string(stack, c"text".as_ptr()),
-                ::core::ptr::null::<::core::ffi::c_char>(),
-                ::core::ptr::null::<::core::ffi::c_char>(),
+                captures
+                    .get_string(b"colorclass")
+                    .expect("required directive capture"),
+                captures
+                    .get_string(b"border")
+                    .expect("required directive capture"),
+                captures
+                    .get_string(b"background")
+                    .expect("required directive capture"),
+                captures
+                    .get_string(b"text")
+                    .expect("required directive capture"),
+                None,
+                None,
             );
         }
         71 => {
@@ -4946,10 +4592,9 @@ unsafe fn GENERATED_call(
                 current_match,
                 result,
                 i3_common::boolstr::is_enabled(
-                    (&*stack)
-                        .get_string(c"value")
-                        .expect("boolean directive has a captured value")
-                        .to_bytes(),
+                    captures
+                        .get_string(b"value")
+                        .expect("boolean directive has a captured value"),
                 ),
             );
         }
@@ -4958,8 +4603,12 @@ unsafe fn GENERATED_call(
             cfg_default_border(
                 current_match,
                 result,
-                parser_get_string(stack, c"windowtype".as_ptr()),
-                parser_get_string(stack, c"border".as_ptr()),
+                captures
+                    .get_string(b"windowtype")
+                    .expect("required directive capture"),
+                captures
+                    .get_string(b"border")
+                    .expect("required directive capture"),
                 -1_i32 as i64,
             );
         }
@@ -4968,8 +4617,12 @@ unsafe fn GENERATED_call(
             cfg_default_border(
                 current_match,
                 result,
-                parser_get_string(stack, c"windowtype".as_ptr()),
-                parser_get_string(stack, c"border".as_ptr()),
+                captures
+                    .get_string(b"windowtype")
+                    .expect("required directive capture"),
+                captures
+                    .get_string(b"border")
+                    .expect("required directive capture"),
                 -1_i32 as i64,
             );
         }
@@ -4978,8 +4631,8 @@ unsafe fn GENERATED_call(
             cfg_focus_wrapping(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"value")
+                captures
+                    .get_string(b"value")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -4988,8 +4641,8 @@ unsafe fn GENERATED_call(
             cfg_focus_wrapping(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"value")
+                captures
+                    .get_string(b"value")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -4998,8 +4651,8 @@ unsafe fn GENERATED_call(
             cfg_focus_wrapping(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"value")
+                captures
+                    .get_string(b"value")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -5008,8 +4661,8 @@ unsafe fn GENERATED_call(
             cfg_focus_wrapping(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"value")
+                captures
+                    .get_string(b"value")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -5018,8 +4671,8 @@ unsafe fn GENERATED_call(
             cfg_focus_wrapping(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"value")
+                captures
+                    .get_string(b"value")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -5028,8 +4681,8 @@ unsafe fn GENERATED_call(
             cfg_focus_wrapping(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"value")
+                captures
+                    .get_string(b"value")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -5038,8 +4691,8 @@ unsafe fn GENERATED_call(
             cfg_focus_wrapping(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"value")
+                captures
+                    .get_string(b"value")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -5048,8 +4701,8 @@ unsafe fn GENERATED_call(
             cfg_focus_wrapping(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"value")
+                captures
+                    .get_string(b"value")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -5058,8 +4711,8 @@ unsafe fn GENERATED_call(
             cfg_focus_wrapping(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"value")
+                captures
+                    .get_string(b"value")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -5068,8 +4721,8 @@ unsafe fn GENERATED_call(
             cfg_focus_wrapping(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"value")
+                captures
+                    .get_string(b"value")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -5078,8 +4731,8 @@ unsafe fn GENERATED_call(
             cfg_focus_wrapping(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"value")
+                captures
+                    .get_string(b"value")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -5088,8 +4741,8 @@ unsafe fn GENERATED_call(
             cfg_focus_wrapping(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"value")
+                captures
+                    .get_string(b"value")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -5098,8 +4751,8 @@ unsafe fn GENERATED_call(
             cfg_focus_wrapping(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"value")
+                captures
+                    .get_string(b"value")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -5108,8 +4761,8 @@ unsafe fn GENERATED_call(
             cfg_focus_wrapping(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"value")
+                captures
+                    .get_string(b"value")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -5119,10 +4772,9 @@ unsafe fn GENERATED_call(
                 current_match,
                 result,
                 i3_common::boolstr::is_enabled(
-                    (&*stack)
-                        .get_string(c"value")
-                        .expect("boolean directive has a captured value")
-                        .to_bytes(),
+                    captures
+                        .get_string(b"value")
+                        .expect("boolean directive has a captured value"),
                 ),
             );
         }
@@ -5131,7 +4783,9 @@ unsafe fn GENERATED_call(
             cfg_assign_output(
                 current_match,
                 result,
-                parser_get_string(stack, c"output".as_ptr()),
+                captures
+                    .get_string(b"output")
+                    .expect("required directive capture"),
             );
         }
         90 => {
@@ -5139,8 +4793,10 @@ unsafe fn GENERATED_call(
             cfg_criteria_add(
                 current_match,
                 result,
-                parser_get_string(stack, c"ctype".as_ptr()),
-                parser_get_string(stack, c"cvalue".as_ptr()),
+                captures
+                    .get_string(b"ctype")
+                    .expect("required directive capture"),
+                captures.get_string(b"cvalue"),
             );
         }
         91 => {
@@ -5148,7 +4804,9 @@ unsafe fn GENERATED_call(
             cfg_mouse_warping(
                 current_match,
                 result,
-                parser_get_string(stack, c"value".as_ptr()),
+                captures
+                    .get_string(b"value")
+                    .expect("required directive capture"),
             );
         }
         92 => {
@@ -5156,7 +4814,9 @@ unsafe fn GENERATED_call(
             cfg_mouse_warping(
                 current_match,
                 result,
-                parser_get_string(stack, c"value".as_ptr()),
+                captures
+                    .get_string(b"value")
+                    .expect("required directive capture"),
             );
         }
         93 => {
@@ -5165,7 +4825,9 @@ unsafe fn GENERATED_call(
                 current_match,
                 result,
                 std::path::Path::new(std::ffi::OsStr::from_bytes(
-                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"path".as_ptr())).to_bytes(),
+                    captures
+                        .get_string(b"path")
+                        .expect("required directive capture"),
                 )),
             );
         }
@@ -5174,8 +4836,8 @@ unsafe fn GENERATED_call(
             cfg_smart_borders(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"enabled")
+                captures
+                    .get_string(b"enabled")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -5184,8 +4846,8 @@ unsafe fn GENERATED_call(
             cfg_smart_borders(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"enabled")
+                captures
+                    .get_string(b"enabled")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -5194,8 +4856,8 @@ unsafe fn GENERATED_call(
             cfg_smart_borders(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"enabled")
+                captures
+                    .get_string(b"enabled")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -5204,8 +4866,8 @@ unsafe fn GENERATED_call(
             cfg_smart_borders(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"enabled")
+                captures
+                    .get_string(b"enabled")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -5214,8 +4876,8 @@ unsafe fn GENERATED_call(
             cfg_smart_borders(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"enabled")
+                captures
+                    .get_string(b"enabled")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -5224,8 +4886,8 @@ unsafe fn GENERATED_call(
             cfg_smart_borders(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"enabled")
+                captures
+                    .get_string(b"enabled")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -5234,61 +4896,49 @@ unsafe fn GENERATED_call(
             cfg_smart_borders(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"enabled")
+                captures
+                    .get_string(b"enabled")
                     .expect("boolean directive has a captured value"),
             );
         }
         101 => {
             (*result).next_state = ConfigParserState::Bar;
             {
-                let bar_arg_modifiers = {
-                    let raw = ::core::ptr::null::<::core::ffi::c_char>();
-                    raw.as_ref()
-                        .map(|value| std::ffi::CStr::from_ptr(value).to_bytes().to_vec())
-                };
+                let bar_arg_modifiers: Option<Vec<u8>> = None;
                 cfg_bar_modifier(current_match, result, bar_arg_modifiers.as_deref());
             }
         }
         102 => {
             (*result).next_state = ConfigParserState::Bar;
             {
-                let bar_arg_modifiers = {
-                    let raw = ::core::ptr::null::<::core::ffi::c_char>();
-                    raw.as_ref()
-                        .map(|value| std::ffi::CStr::from_ptr(value).to_bytes().to_vec())
-                };
+                let bar_arg_modifiers: Option<Vec<u8>> = None;
                 cfg_bar_modifier(current_match, result, bar_arg_modifiers.as_deref());
             }
         }
         103 => {
             (*result).next_state = ConfigParserState::Bar;
             {
-                let bar_arg_modifiers = {
-                    let raw = parser_get_string(stack, c"modifiers".as_ptr());
-                    raw.as_ref()
-                        .map(|value| std::ffi::CStr::from_ptr(value).to_bytes().to_vec())
-                };
+                let bar_arg_modifiers = captures.get_string(b"modifiers").map(<[u8]>::to_vec);
                 cfg_bar_modifier(current_match, result, bar_arg_modifiers.as_deref());
             }
         }
         104 => {
             (*result).next_state = ConfigParserState::Bar;
             {
-                let bar_arg_position =
-                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"position".as_ptr()))
-                        .to_bytes()
-                        .to_vec();
+                let bar_arg_position = captures
+                    .get_string(b"position")
+                    .expect("required directive capture")
+                    .to_vec();
                 cfg_bar_position(current_match, result, &bar_arg_position);
             }
         }
         105 => {
             (*result).next_state = ConfigParserState::Bar;
             {
-                let bar_arg_position =
-                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"position".as_ptr()))
-                        .to_bytes()
-                        .to_vec();
+                let bar_arg_position = captures
+                    .get_string(b"position")
+                    .expect("required directive capture")
+                    .to_vec();
                 cfg_bar_position(current_match, result, &bar_arg_position);
             }
         }
@@ -5297,8 +4947,12 @@ unsafe fn GENERATED_call(
             cfg_color_single(
                 current_match,
                 result,
-                parser_get_string(stack, c"colorclass".as_ptr()),
-                parser_get_string(stack, c"color".as_ptr()),
+                captures
+                    .get_string(b"colorclass")
+                    .expect("required directive capture"),
+                captures
+                    .get_string(b"color")
+                    .expect("required directive capture"),
             );
         }
         107 => {
@@ -5306,7 +4960,9 @@ unsafe fn GENERATED_call(
             cfg_fake_outputs(
                 current_match,
                 result,
-                std::ffi::CStr::from_ptr(parser_get_string(stack, c"outputs".as_ptr())).to_bytes(),
+                captures
+                    .get_string(b"outputs")
+                    .expect("required directive capture"),
             );
         }
         108 => {
@@ -5319,52 +4975,33 @@ unsafe fn GENERATED_call(
                 current_match,
                 result,
                 i3_common::boolstr::is_enabled(
-                    (&*stack)
-                        .get_string(c"value")
-                        .expect("boolean directive has a captured value")
-                        .to_bytes(),
+                    captures
+                        .get_string(b"value")
+                        .expect("boolean directive has a captured value"),
                 ),
             );
         }
         110 => {
             (*result).next_state = ConfigParserState::Initial;
-            let bindtype_pointer = parser_get_string(stack, c"bindtype".as_ptr());
-            let bindtype_owner = std::ffi::CStr::from_ptr(bindtype_pointer)
-                .to_bytes()
+            let bindtype_pointer = captures.get_string(b"bindtype");
+            let bindtype_owner = bindtype_pointer
+                .expect("required directive capture")
                 .to_vec();
-            let modifiers_pointer = parser_get_string(stack, c"modifiers".as_ptr());
-            let modifiers_owner = modifiers_pointer.as_ref().map(|_| {
-                std::ffi::CStr::from_ptr(modifiers_pointer)
-                    .to_bytes()
-                    .to_vec()
-            });
-            let key_pointer = parser_get_string(stack, c"key".as_ptr());
-            let key_owner = std::ffi::CStr::from_ptr(key_pointer).to_bytes().to_vec();
-            let release_pointer = parser_get_string(stack, c"release".as_ptr());
-            let release_owner = release_pointer.as_ref().map(|_| {
-                std::ffi::CStr::from_ptr(release_pointer)
-                    .to_bytes()
-                    .to_vec()
-            });
-            let border_pointer = parser_get_string(stack, c"border".as_ptr());
-            let border_owner = border_pointer
-                .as_ref()
-                .map(|_| std::ffi::CStr::from_ptr(border_pointer).to_bytes().to_vec());
-            let whole_window_pointer = parser_get_string(stack, c"whole_window".as_ptr());
-            let whole_window_owner = whole_window_pointer.as_ref().map(|_| {
-                std::ffi::CStr::from_ptr(whole_window_pointer)
-                    .to_bytes()
-                    .to_vec()
-            });
-            let exclude_titlebar_pointer = parser_get_string(stack, c"exclude_titlebar".as_ptr());
-            let exclude_titlebar_owner = exclude_titlebar_pointer.as_ref().map(|_| {
-                std::ffi::CStr::from_ptr(exclude_titlebar_pointer)
-                    .to_bytes()
-                    .to_vec()
-            });
-            let command_pointer = parser_get_string(stack, c"command".as_ptr());
-            let command_owner = std::ffi::CStr::from_ptr(command_pointer)
-                .to_bytes()
+            let modifiers_pointer = captures.get_string(b"modifiers");
+            let modifiers_owner = modifiers_pointer.map(<[u8]>::to_vec);
+            let key_pointer = captures.get_string(b"key");
+            let key_owner = key_pointer.expect("required directive capture").to_vec();
+            let release_pointer = captures.get_string(b"release");
+            let release_owner = release_pointer.map(<[u8]>::to_vec);
+            let border_pointer = captures.get_string(b"border");
+            let border_owner = border_pointer.map(<[u8]>::to_vec);
+            let whole_window_pointer = captures.get_string(b"whole_window");
+            let whole_window_owner = whole_window_pointer.map(<[u8]>::to_vec);
+            let exclude_titlebar_pointer = captures.get_string(b"exclude_titlebar");
+            let exclude_titlebar_owner = exclude_titlebar_pointer.map(<[u8]>::to_vec);
+            let command_pointer = captures.get_string(b"command");
+            let command_owner = command_pointer
+                .expect("required directive capture")
                 .to_vec();
             cfg_binding(
                 current_match,
@@ -5384,7 +5021,9 @@ unsafe fn GENERATED_call(
             cfg_tiling_drag(
                 current_match,
                 result,
-                parser_get_string(stack, c"off".as_ptr()),
+                captures
+                    .get_string(b"off")
+                    .expect("required directive capture"),
             );
         }
         112 => {
@@ -5392,7 +5031,9 @@ unsafe fn GENERATED_call(
             cfg_tiling_drag(
                 current_match,
                 result,
-                parser_get_string(stack, c"off".as_ptr()),
+                captures
+                    .get_string(b"off")
+                    .expect("required directive capture"),
             );
         }
         113 => {
@@ -5400,7 +5041,9 @@ unsafe fn GENERATED_call(
             cfg_tiling_drag(
                 current_match,
                 result,
-                parser_get_string(stack, c"off".as_ptr()),
+                captures
+                    .get_string(b"off")
+                    .expect("required directive capture"),
             );
         }
         114 => {
@@ -5408,7 +5051,9 @@ unsafe fn GENERATED_call(
             cfg_tiling_drag(
                 current_match,
                 result,
-                parser_get_string(stack, c"off".as_ptr()),
+                captures
+                    .get_string(b"off")
+                    .expect("required directive capture"),
             );
         }
         115 => {
@@ -5416,7 +5061,9 @@ unsafe fn GENERATED_call(
             cfg_tiling_drag(
                 current_match,
                 result,
-                parser_get_string(stack, c"off".as_ptr()),
+                captures
+                    .get_string(b"off")
+                    .expect("required directive capture"),
             );
         }
         116 => {
@@ -5424,7 +5071,9 @@ unsafe fn GENERATED_call(
             cfg_tiling_drag(
                 current_match,
                 result,
-                parser_get_string(stack, c"off".as_ptr()),
+                captures
+                    .get_string(b"off")
+                    .expect("required directive capture"),
             );
         }
         117 => {
@@ -5432,7 +5081,9 @@ unsafe fn GENERATED_call(
             cfg_title_align(
                 current_match,
                 result,
-                parser_get_string(stack, c"alignment".as_ptr()),
+                captures
+                    .get_string(b"alignment")
+                    .expect("required directive capture"),
             );
         }
         118 => {
@@ -5440,7 +5091,9 @@ unsafe fn GENERATED_call(
             cfg_title_align(
                 current_match,
                 result,
-                parser_get_string(stack, c"alignment".as_ptr()),
+                captures
+                    .get_string(b"alignment")
+                    .expect("required directive capture"),
             );
         }
         119 => {
@@ -5448,24 +5101,22 @@ unsafe fn GENERATED_call(
             cfg_title_align(
                 current_match,
                 result,
-                parser_get_string(stack, c"alignment".as_ptr()),
+                captures
+                    .get_string(b"alignment")
+                    .expect("required directive capture"),
             );
         }
         120 => {
             (*result).next_state = ConfigParserState::Bar;
-            cfg_bar_height(
-                current_match,
-                result,
-                parser_get_long(stack, c"value".as_ptr()),
-            );
+            cfg_bar_height(current_match, result, captures.get_long(b"value"));
         }
         121 => {
             (*result).next_state = ConfigParserState::Bar;
             {
-                let bar_arg_output =
-                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"output".as_ptr()))
-                        .to_bytes()
-                        .to_vec();
+                let bar_arg_output = captures
+                    .get_string(b"output")
+                    .expect("required directive capture")
+                    .to_vec();
                 cfg_bar_output(current_match, result, &bar_arg_output);
             }
         }
@@ -5479,7 +5130,9 @@ unsafe fn GENERATED_call(
                 current_match,
                 result,
                 std::path::Path::new(std::ffi::OsStr::from_bytes(
-                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"path".as_ptr())).to_bytes(),
+                    captures
+                        .get_string(b"path")
+                        .expect("required directive capture"),
                 )),
             );
         }
@@ -5489,10 +5142,9 @@ unsafe fn GENERATED_call(
                 current_match,
                 result,
                 i3_common::boolstr::is_enabled(
-                    (&*stack)
-                        .get_string(c"value")
-                        .expect("boolean directive has a captured value")
-                        .to_bytes(),
+                    captures
+                        .get_string(b"value")
+                        .expect("boolean directive has a captured value"),
                 ),
             );
         }
@@ -5501,8 +5153,8 @@ unsafe fn GENERATED_call(
             cfg_smart_gaps(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"enabled")
+                captures
+                    .get_string(b"enabled")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -5511,8 +5163,8 @@ unsafe fn GENERATED_call(
             cfg_smart_gaps(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"enabled")
+                captures
+                    .get_string(b"enabled")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -5521,8 +5173,8 @@ unsafe fn GENERATED_call(
             cfg_smart_gaps(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"enabled")
+                captures
+                    .get_string(b"enabled")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -5531,8 +5183,8 @@ unsafe fn GENERATED_call(
             cfg_smart_gaps(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"enabled")
+                captures
+                    .get_string(b"enabled")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -5541,8 +5193,8 @@ unsafe fn GENERATED_call(
             cfg_smart_gaps(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"enabled")
+                captures
+                    .get_string(b"enabled")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -5551,8 +5203,8 @@ unsafe fn GENERATED_call(
             cfg_smart_gaps(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"enabled")
+                captures
+                    .get_string(b"enabled")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -5561,8 +5213,8 @@ unsafe fn GENERATED_call(
             cfg_smart_gaps(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"enabled")
+                captures
+                    .get_string(b"enabled")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -5571,8 +5223,8 @@ unsafe fn GENERATED_call(
             cfg_smart_gaps(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"enabled")
+                captures
+                    .get_string(b"enabled")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -5581,8 +5233,8 @@ unsafe fn GENERATED_call(
             cfg_smart_gaps(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"enabled")
+                captures
+                    .get_string(b"enabled")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -5591,8 +5243,8 @@ unsafe fn GENERATED_call(
             cfg_smart_gaps(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"enabled")
+                captures
+                    .get_string(b"enabled")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -5601,8 +5253,8 @@ unsafe fn GENERATED_call(
             cfg_smart_gaps(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"enabled")
+                captures
+                    .get_string(b"enabled")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -5611,8 +5263,8 @@ unsafe fn GENERATED_call(
             cfg_smart_gaps(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"enabled")
+                captures
+                    .get_string(b"enabled")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -5621,8 +5273,8 @@ unsafe fn GENERATED_call(
             cfg_smart_gaps(
                 current_match,
                 result,
-                (&*stack)
-                    .get_string(c"enabled")
+                captures
+                    .get_string(b"enabled")
                     .expect("boolean directive has a captured value"),
             );
         }
@@ -5633,40 +5285,40 @@ unsafe fn GENERATED_call(
         139 => {
             (*result).next_state = ConfigParserState::Bar;
             {
-                let bar_arg_font =
-                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"font".as_ptr()))
-                        .to_bytes()
-                        .to_vec();
+                let bar_arg_font = captures
+                    .get_string(b"font")
+                    .expect("required directive capture")
+                    .to_vec();
                 cfg_bar_font(current_match, result, &bar_arg_font);
             }
         }
         140 => {
             (*result).next_state = ConfigParserState::Bar;
             {
-                let bar_arg_mode =
-                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"mode".as_ptr()))
-                        .to_bytes()
-                        .to_vec();
+                let bar_arg_mode = captures
+                    .get_string(b"mode")
+                    .expect("required directive capture")
+                    .to_vec();
                 cfg_bar_mode(current_match, result, &bar_arg_mode);
             }
         }
         141 => {
             (*result).next_state = ConfigParserState::Bar;
             {
-                let bar_arg_mode =
-                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"mode".as_ptr()))
-                        .to_bytes()
-                        .to_vec();
+                let bar_arg_mode = captures
+                    .get_string(b"mode")
+                    .expect("required directive capture")
+                    .to_vec();
                 cfg_bar_mode(current_match, result, &bar_arg_mode);
             }
         }
         142 => {
             (*result).next_state = ConfigParserState::Bar;
             {
-                let bar_arg_mode =
-                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"mode".as_ptr()))
-                        .to_bytes()
-                        .to_vec();
+                let bar_arg_mode = captures
+                    .get_string(b"mode")
+                    .expect("required directive capture")
+                    .to_vec();
                 cfg_bar_mode(current_match, result, &bar_arg_mode);
             }
         }
@@ -5675,8 +5327,10 @@ unsafe fn GENERATED_call(
             cfg_criteria_add(
                 current_match,
                 result,
-                parser_get_string(stack, c"ctype".as_ptr()),
-                ::core::ptr::null::<::core::ffi::c_char>(),
+                captures
+                    .get_string(b"ctype")
+                    .expect("required directive capture"),
+                None,
             );
         }
         144 => {
@@ -5684,8 +5338,10 @@ unsafe fn GENERATED_call(
             cfg_criteria_add(
                 current_match,
                 result,
-                parser_get_string(stack, c"ctype".as_ptr()),
-                ::core::ptr::null::<::core::ffi::c_char>(),
+                captures
+                    .get_string(b"ctype")
+                    .expect("required directive capture"),
+                None,
             );
         }
         145 => {
@@ -5693,8 +5349,10 @@ unsafe fn GENERATED_call(
             cfg_criteria_add(
                 current_match,
                 result,
-                parser_get_string(stack, c"ctype".as_ptr()),
-                ::core::ptr::null::<::core::ffi::c_char>(),
+                captures
+                    .get_string(b"ctype")
+                    .expect("required directive capture"),
+                None,
             );
         }
         146 => {
@@ -5706,20 +5364,23 @@ unsafe fn GENERATED_call(
             cfg_gaps(
                 current_match,
                 result,
-                parser_get_string(stack, c"workspace".as_ptr()),
-                parser_get_string(stack, c"scope".as_ptr()),
-                parser_get_long(stack, c"value".as_ptr()),
+                captures.get_string(b"workspace"),
+                captures
+                    .get_string(b"scope")
+                    .expect("required directive capture"),
+                captures.get_long(b"value"),
             );
         }
         148 => {
             (*result).next_state = ConfigParserState::Modebrace;
-            let modename = std::ffi::CStr::from_ptr(parser_get_string(stack, c"modename".as_ptr()))
-                .to_bytes()
+            let modename = captures
+                .get_string(b"modename")
+                .expect("required directive capture")
                 .to_vec();
             cfg_enter_mode(
                 current_match,
                 result,
-                parser_get_string(stack, c"pango_markup".as_ptr()),
+                captures.get_string(b"pango_markup").is_some(),
                 &modename,
             );
         }
@@ -5732,7 +5393,9 @@ unsafe fn GENERATED_call(
             cfg_include(
                 current_match,
                 result,
-                parser_get_string(stack, c"pattern".as_ptr()),
+                captures
+                    .get_string(b"pattern")
+                    .expect("required directive capture"),
             );
         }
         151 => {
@@ -5742,10 +5405,10 @@ unsafe fn GENERATED_call(
         152 => {
             (*result).next_state = ConfigParserState::Bar;
             {
-                let bar_arg_bar_id =
-                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"bar_id".as_ptr()))
-                        .to_bytes()
-                        .to_vec();
+                let bar_arg_bar_id = captures
+                    .get_string(b"bar_id")
+                    .expect("required directive capture")
+                    .to_vec();
                 cfg_bar_id(current_match, result, &bar_arg_bar_id);
             }
         }
@@ -5754,9 +5417,13 @@ unsafe fn GENERATED_call(
             cfg_exec(
                 current_match,
                 result,
-                std::ffi::CStr::from_ptr(parser_get_string(stack, c"exectype".as_ptr())).to_bytes(),
-                !parser_get_string(stack, c"no_startup_id".as_ptr()).is_null(),
-                std::ffi::CStr::from_ptr(parser_get_string(stack, c"command".as_ptr())).to_bytes(),
+                captures
+                    .get_string(b"exectype")
+                    .expect("required directive capture"),
+                captures.get_string(b"no_startup_id").is_some(),
+                captures
+                    .get_string(b"command")
+                    .expect("required directive capture"),
             );
         }
         154 => {
@@ -5764,7 +5431,9 @@ unsafe fn GENERATED_call(
             cfg_font(
                 current_match,
                 result,
-                parser_get_string(stack, c"font".as_ptr()),
+                captures
+                    .get_string(b"font")
+                    .expect("required directive capture"),
             );
         }
         155 => {
@@ -5783,24 +5452,17 @@ unsafe fn GENERATED_call(
         }
     };
 }
-// These private generated arrays are initialized once and never mutated. Only
-// the legacy metadata representation uses raw pointers; callers receive a
-// checked immutable view, and no user-supplied pointer enters this boundary.
+// Grammar metadata is immutable Rust bytes. Bounds-check the state before lookup.
 fn state_tokens(state: ConfigParserState) -> &'static [cmdp_token] {
-    // SAFETY: schema-checked static token arrays have their declared lengths and
-    // remain alive/immutable for the process. State indexing is checked first.
-    unsafe {
-        let states = &*(&raw const tokens);
-        let entry = states
-            .get(state as usize)
-            .expect("grammar state has a token table");
-        std::slice::from_raw_parts(entry.array, entry.n as usize)
-    }
+    tokens
+        .get(state as usize)
+        .copied()
+        .expect("grammar state has a token table")
 }
 
-unsafe fn next_state(token: *const cmdp_token, ctx: *mut parser_ctx) {
-    let mut _next_state: ConfigParserState = (*token).next_state;
-    if (*token).next_state == ConfigParserState::Call {
+unsafe fn next_state(token: &cmdp_token, ctx: *mut parser_ctx) {
+    let mut _next_state: ConfigParserState = token.next_state;
+    if token.next_state == ConfigParserState::Call {
         let mut subcommand_output: ConfigResultIR = ConfigResultIR {
             ctx,
             next_state: ConfigParserState::ForceDisplayUrgencyHintMs,
@@ -5809,18 +5471,18 @@ unsafe fn next_state(token: *const cmdp_token, ctx: *mut parser_ctx) {
         GENERATED_call(
             &raw mut (*ctx).current_match,
             (*ctx).stack,
-            (*token).extra.call_identifier as i32,
+            token.extra.call_identifier as i32,
             &raw mut subcommand_output,
         );
         if subcommand_output.has_errors {
             (*ctx).has_errors = true;
         }
         _next_state = subcommand_output.next_state;
-        parser_clear_stack((*ctx).stack);
+        (&mut *(*ctx).stack).clear();
     }
     (*ctx).state = _next_state;
     if (*ctx).state == ConfigParserState::Initial {
-        parser_clear_stack((*ctx).stack);
+        (&mut *(*ctx).stack).clear();
     }
     if let Some(index) = (*ctx)
         .statelist
@@ -5858,19 +5520,17 @@ unsafe fn previous_line(
     start_of_line(beginning.add(position.saturating_sub(2)), beginning)
 }
 
-unsafe fn single_line(start: *const ::core::ffi::c_char) -> *mut ::core::ffi::c_char {
-    let result: *mut ::core::ffi::c_char = sstrdup(start);
-    let end: *mut ::core::ffi::c_char = strchr(result, '\n' as i32);
-    if !end.is_null() {
-        *end = '\0' as i32 as ::core::ffi::c_char;
-    }
-    result
+fn single_line(bytes: &[u8]) -> Vec<u8> {
+    bytes
+        .split(|byte| *byte == b'\n' || *byte == 0)
+        .next()
+        .unwrap()
+        .to_vec()
 }
-unsafe fn parse_config(
-    ctx: *mut parser_ctx,
-    input: *const ::core::ffi::c_char,
-    context: *mut context,
-) {
+unsafe fn parse_config(ctx: *mut parser_ctx, input: &[u8], context: *mut context) {
+    let mut scanner_input = input.split(|byte| *byte == 0).next().unwrap().to_vec();
+    scanner_input.push(0);
+    let input = scanner_input.as_ptr().cast::<libc::c_char>();
     let mut dumpwalk: *const ::core::ffi::c_char = input;
     let mut linecnt: i32 = 1_i32;
     while *dumpwalk as i32 != '\0' as i32 {
@@ -5958,7 +5618,6 @@ unsafe fn parse_config(
     let mut walk: *const ::core::ffi::c_char = input;
     let len: usize = strlen(input) as usize;
     let mut c: i32 = 0;
-    let mut token: *const cmdp_token = ::core::ptr::null::<cmdp_token>();
     let mut token_handled: bool = false;
     linecnt = 1_i32;
     let mut subcommand_output: ConfigResultIR = ConfigResultIR {
@@ -5981,27 +5640,21 @@ unsafe fn parse_config(
         token_handled = false;
         c = 0_i32;
         while c < grammar.len() as i32 {
-            token = &grammar[c as usize] as *const cmdp_token;
-            if *(*token).name.offset(0_isize) as i32 == '\'' as i32 {
-                if strncasecmp(
-                    walk,
-                    (*token).name.offset(1_isize),
-                    strlen((*token).name).wrapping_sub(1_usize),
-                ) == 0_i32
+            let token = &grammar[c as usize];
+            if let Some(keyword) = token.name.strip_prefix(b"'") {
+                let remaining = std::ffi::CStr::from_ptr(walk).to_bytes();
+                if remaining.len() >= keyword.len()
+                    && crate::util::text_eq_ignore_case(&remaining[..keyword.len()], keyword)
                 {
-                    if !(*token).identifier.is_null() {
-                        parser_push_string(
-                            (*ctx).stack,
-                            (*token).identifier,
-                            (*token).name.offset(1_isize),
-                        );
+                    if let Some(identifier) = token.identifier {
+                        (&mut *(*ctx).stack).push_string(identifier, keyword);
                     }
-                    walk = walk.add(strlen((*token).name).wrapping_sub(1_usize));
+                    walk = walk.add(keyword.len());
                     next_state(token, ctx);
                     token_handled = true;
                     break;
                 }
-            } else if strcmp((*token).name, c"number".as_ptr()) == 0_i32 {
+            } else if token.name == b"number" {
                 let mut end: *mut ::core::ffi::c_char =
                     ::core::ptr::null_mut::<::core::ffi::c_char>();
                 *__errno_location() = 0_i32;
@@ -6010,8 +5663,8 @@ unsafe fn parse_config(
                     || *__errno_location() != 0_i32 && num == 0_i64)
                     && !std::ptr::eq(end, walk)
                 {
-                    if !(*token).identifier.is_null() {
-                        parser_push_long((*ctx).stack, (*token).identifier, num);
+                    if let Some(identifier) = token.identifier {
+                        (&mut *(*ctx).stack).push_long(identifier, num);
                     }
                     walk = end;
                     next_state(token, ctx);
@@ -6019,20 +5672,17 @@ unsafe fn parse_config(
                     break;
                 }
             } else {
-                if strcmp((*token).name, c"string".as_ptr()) == 0_i32
-                    || strcmp((*token).name, c"word".as_ptr()) == 0_i32
-                {
+                if token.name == b"string" || token.name == b"word" {
                     let remaining = std::ffi::CStr::from_ptr(walk);
                     let capture = crate::parser_util::lex_string(
                         remaining.to_bytes(),
-                        *(*token).name != b's' as libc::c_char,
+                        token.name.first() != Some(&b's'),
                         crate::parser_util::StringGrammar::Config,
                     );
                     walk = walk.add(capture.consumed);
                     if let Some(bytes) = capture.bytes {
-                        if !(*token).identifier.is_null() {
-                            let value = std::ffi::CString::new(bytes).expect("lexer excludes NUL");
-                            parser_push_string((*ctx).stack, (*token).identifier, value.as_ptr());
+                        if let Some(identifier) = token.identifier {
+                            (&mut *(*ctx).stack).push_string(identifier, &bytes);
                         }
                         if *walk == b'"' as libc::c_char {
                             walk = walk.add(1);
@@ -6042,7 +5692,7 @@ unsafe fn parse_config(
                         break;
                     }
                 }
-                if strcmp((*token).name, c"line".as_ptr()) == 0_i32 {
+                if token.name == b"line" {
                     while *walk as i32 != '\0' as i32
                         && *walk as i32 != '\n' as i32
                         && *walk as i32 != '\r' as i32
@@ -6054,7 +5704,7 @@ unsafe fn parse_config(
                     linecnt += 1;
                     walk = walk.offset(1);
                     break;
-                } else if strcmp((*token).name, c"end".as_ptr()) == 0_i32
+                } else if token.name == b"end"
                     && (*walk as i32 == '\0' as i32
                         || *walk as i32 == '\n' as i32
                         || *walk as i32 == '\r' as i32)
@@ -6074,14 +5724,10 @@ unsafe fn parse_config(
             c += 1;
         }
         if !token_handled {
-            let names: Vec<_> = grammar
-                .iter()
-                .map(|token| std::ffi::CStr::from_ptr(token.name))
-                .collect();
+            let names: Vec<_> = grammar.iter().map(|token| token.name).collect();
             let mut message = b"Expected one of these tokens: ".to_vec();
             message.extend_from_slice(&crate::parser_util::expected_tokens(&names, true));
-            let message = std::ffi::CString::new(message).expect("grammar names contain no NUL");
-            let errormessage = message.as_ptr();
+            let errormessage = message;
             let mut error_line = start_of_line(walk, input);
             let line_bytes = std::ffi::CStr::from_ptr(error_line).to_bytes();
             let line_len = line_bytes
@@ -6102,21 +5748,10 @@ unsafe fn parse_config(
                     }
                 })
                 .collect();
-            let caret = std::ffi::CString::new(caret).expect("caret bytes contain no NUL");
-            let position = caret.as_ptr();
+            let position = caret;
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
-                let log_pointer_1 = errormessage;
-                let log_value_0 = i3_common::logging::string_bytes(
-                    (if log_pointer_1.is_null() {
-                        None
-                    } else {
-                        Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                    })
-                    .map(std::ffi::CStr::to_bytes),
-                    None,
-                )
-                .to_vec();
+                let log_value_0 = errormessage.clone();
                 if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                     ::log::error!("ERROR: CONFIG: {}\n", log_value_0_text);
                 } else {
@@ -6145,28 +5780,20 @@ unsafe fn parse_config(
                     i3_common::logging::emit(i3_common::logging::Level::Error, &message);
                 }
             };
-            let mut error_copy: *mut ::core::ffi::c_char = single_line(error_line);
+            let mut error_copy = single_line(std::ffi::CStr::from_ptr(error_line).to_bytes());
             if linecnt > 1_i32 {
                 let context_p1_start: *const ::core::ffi::c_char = previous_line(error_line, input);
-                let context_p1_line: *mut ::core::ffi::c_char = single_line(context_p1_start);
+                let context_p1_line =
+                    single_line(std::ffi::CStr::from_ptr(context_p1_start).to_bytes());
                 if linecnt > 2_i32 {
                     let context_p2_start: *const ::core::ffi::c_char =
                         previous_line(context_p1_start, input);
-                    let context_p2_line: *mut ::core::ffi::c_char = single_line(context_p2_start);
+                    let context_p2_line =
+                        single_line(std::ffi::CStr::from_ptr(context_p2_start).to_bytes());
                     {
                         // Snapshot native bytes before the logger can dispatch a callback.
                         let log_value_0 = (linecnt - 2_i32);
-                        let log_pointer_2 = context_p2_line;
-                        let log_value_1 = i3_common::logging::string_bytes(
-                            (if log_pointer_2.is_null() {
-                                None
-                            } else {
-                                Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                            })
-                            .map(std::ffi::CStr::to_bytes),
-                            None,
-                        )
-                        .to_vec();
+                        let log_value_1 = context_p2_line.clone();
                         if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
                             ::log::error!(
                                 "ERROR: CONFIG: Line {:3}: {}\n",
@@ -6183,22 +5810,11 @@ unsafe fn parse_config(
                             i3_common::logging::emit(i3_common::logging::Level::Error, &message);
                         }
                     };
-                    free(context_p2_line as *mut ::core::ffi::c_void);
                 }
                 {
                     // Snapshot native bytes before the logger can dispatch a callback.
                     let log_value_0 = (linecnt - 1_i32);
-                    let log_pointer_2 = context_p1_line;
-                    let log_value_1 = i3_common::logging::string_bytes(
-                        (if log_pointer_2.is_null() {
-                            None
-                        } else {
-                            Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                        })
-                        .map(std::ffi::CStr::to_bytes),
-                        None,
-                    )
-                    .to_vec();
+                    let log_value_1 = context_p1_line.clone();
                     if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
                         ::log::error!(
                             "ERROR: CONFIG: Line {:3}: {}\n",
@@ -6215,22 +5831,11 @@ unsafe fn parse_config(
                         i3_common::logging::emit(i3_common::logging::Level::Error, &message);
                     }
                 };
-                free(context_p1_line as *mut ::core::ffi::c_void);
             }
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
                 let log_value_0 = (linecnt);
-                let log_pointer_2 = error_copy;
-                let log_value_1 = i3_common::logging::string_bytes(
-                    (if log_pointer_2.is_null() {
-                        None
-                    } else {
-                        Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                    })
-                    .map(std::ffi::CStr::to_bytes),
-                    None,
-                )
-                .to_vec();
+                let log_value_1 = error_copy.clone();
                 if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
                     ::log::error!(
                         "ERROR: CONFIG: Line {:3}: {}\n",
@@ -6249,17 +5854,7 @@ unsafe fn parse_config(
             };
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
-                let log_pointer_1 = position;
-                let log_value_0 = i3_common::logging::string_bytes(
-                    (if log_pointer_1.is_null() {
-                        None
-                    } else {
-                        Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                    })
-                    .map(std::ffi::CStr::to_bytes),
-                    None,
-                )
-                .to_vec();
+                let log_value_0 = position.clone();
                 if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                     ::log::error!("ERROR: CONFIG:           {}\n", log_value_0_text);
                 } else {
@@ -6270,7 +5865,6 @@ unsafe fn parse_config(
                     i3_common::logging::emit(i3_common::logging::Level::Error, &message);
                 }
             };
-            free(error_copy as *mut ::core::ffi::c_void);
             let mut i_0: i32 = 0_i32;
             while i_0 < 2_i32 {
                 let error_line_end: *const ::core::ffi::c_char = strchr(error_line, '\n' as i32);
@@ -6278,21 +5872,11 @@ unsafe fn parse_config(
                     && *error_line_end.offset(1_isize) as i32 != '\0' as i32
                 {
                     error_line = error_line_end.offset(1_isize);
-                    error_copy = single_line(error_line);
+                    error_copy = single_line(std::ffi::CStr::from_ptr(error_line).to_bytes());
                     {
                         // Snapshot native bytes before the logger can dispatch a callback.
                         let log_value_0 = (linecnt + i_0 + 1_i32);
-                        let log_pointer_2 = error_copy;
-                        let log_value_1 = i3_common::logging::string_bytes(
-                            (if log_pointer_2.is_null() {
-                                None
-                            } else {
-                                Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                            })
-                            .map(std::ffi::CStr::to_bytes),
-                            None,
-                        )
-                        .to_vec();
+                        let log_value_1 = error_copy.clone();
                         if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
                             ::log::error!(
                                 "ERROR: CONFIG: Line {:3}: {}\n",
@@ -6309,7 +5893,6 @@ unsafe fn parse_config(
                             i3_common::logging::emit(i3_common::logging::Level::Error, &message);
                         }
                     };
-                    free(error_copy as *mut ::core::ffi::c_void);
                 }
                 i_0 += 1;
             }
@@ -6317,17 +5900,17 @@ unsafe fn parse_config(
             while walk.offset_from(input) as i64 as usize <= len && *walk as i32 != '\n' as i32 {
                 walk = walk.offset(1);
             }
-            parser_clear_stack((*ctx).stack);
+            (&mut *(*ctx).stack).clear();
             let mut error_token_found: bool = false;
             let mut i_1: i32 = (*ctx).statelist_idx - 1_i32;
             while i_1 >= 0_i32 && !error_token_found {
                 let recovery = state_tokens((&(*ctx).statelist)[i_1 as usize]);
                 let mut j: i32 = 0_i32;
                 while j < recovery.len() as i32 {
-                    if strcmp(recovery[j as usize].name, c"error".as_ptr()) != 0_i32 {
+                    if recovery[j as usize].name != b"error" {
                         j += 1;
                     } else {
-                        next_state(&recovery[j as usize] as *const cmdp_token, ctx);
+                        next_state(&recovery[j as usize], ctx);
                         error_token_found = true;
                         break;
                     }
@@ -6501,7 +6084,7 @@ struct ResourceDatabase(Option<xcb_interop::xrm::Database>);
 impl ResourceDatabase {
     /// The core connection is read only on its event thread. A configuration
     /// check without a display keeps using the variable's configured fallback.
-    unsafe fn get(&mut self, name: &std::ffi::CStr) -> Option<std::ffi::CString> {
+    unsafe fn get(&mut self, name: &[u8]) -> Option<Vec<u8>> {
         if conn.is_null() {
             return None;
         }
@@ -6514,7 +6097,12 @@ impl ResourceDatabase {
                 return None;
             }
         }
-        self.0.as_ref()?.resource(name, None)
+        let native_name =
+            std::ffi::CString::new(name.split(|byte| *byte == 0).next().unwrap()).unwrap();
+        self.0
+            .as_ref()?
+            .resource(&native_name, None)
+            .map(std::ffi::CString::into_bytes)
     }
 }
 
@@ -6910,12 +6498,10 @@ unsafe fn parse_file_inner(
                     );
                     invalid_sets = true;
                 } else {
-                    let resource_name = std::ffi::CStr::from_ptr(res_name.as_ptr());
-                    let resource = resources.get(resource_name);
-                    let mut res_value = resource
-                        .as_ref()
-                        .map_or(std::ptr::null(), |value| value.as_ptr());
-                    if res_value.is_null() {
+                    let resource_name = std::ffi::CStr::from_ptr(res_name.as_ptr()).to_bytes();
+                    let res_value = if let Some(resource) = resources.get(resource_name) {
+                        resource
+                    } else {
                         {
                             // Snapshot native bytes before the logger can dispatch a callback.
                             let log_pointer_1 = &raw mut res_name as *mut ::core::ffi::c_char;
@@ -6958,12 +6544,14 @@ unsafe fn parse_file_inner(
                                 );
                             }
                         };
-                        res_value = fallback.as_ptr();
-                    }
+                        std::ffi::CStr::from_ptr(fallback.as_ptr())
+                            .to_bytes()
+                            .to_vec()
+                    };
                     upsert_variable(
                         &raw mut (*ctx).variables,
                         std::ffi::CStr::from_ptr(v_key_0.as_ptr()).to_bytes(),
-                        std::ffi::CStr::from_ptr(res_value).to_bytes(),
+                        &res_value,
                     );
                 }
             }
@@ -6980,16 +6568,13 @@ unsafe fn parse_file_inner(
     let expanded = expand_variables(&input, &variables);
     drop(variables);
     (*included_file).variable_replaced_contents = Some(expanded.clone());
-    // The remaining private C scanner consumes a terminated, independently owned buffer.
-    let scanner_input =
-        std::ffi::CString::new(expanded).expect("variable projections contain no NUL");
-    let new = scanner_input.as_ptr();
+
     let mut local_context = context {
         filename: Some(filename.to_path_buf()),
         ..Default::default()
     };
     let context = &raw mut local_context;
-    parse_config(ctx, new, context);
+    parse_config(ctx, &expanded, context);
     if (*ctx).has_errors {
         (*context).has_errors = true;
     }
@@ -7311,6 +6896,9 @@ mod owned_config_tests {
         assert_eq!(line_start(b"abc", 0), 0);
         assert_eq!(line_start(b"abc", usize::MAX), 0);
         assert_eq!(line_start(b"a\r\nb", 2), 3);
+        assert_eq!(single_line(b"first\r\nsecond"), b"first\r");
+        assert_eq!(single_line(b"\xffline\0ignored"), b"\xffline");
+        assert_eq!(single_line(b""), b"");
         let input = c"a\n\nb";
         unsafe {
             assert_eq!(
@@ -7325,15 +6913,14 @@ mod owned_config_tests {
     }
     #[test]
     fn generated_config_tables_keep_complete_states_and_dispatch_ids() {
-        let states = unsafe { &*(&raw const tokens) };
+        let states = &tokens;
         assert_eq!(states.len(), 117);
         let mut calls = std::collections::BTreeSet::new();
         for table in states {
-            assert!(table.n > 0);
-            let entries = unsafe { std::slice::from_raw_parts(table.array, table.n as usize) };
-            for entry in entries {
+            assert!(!table.is_empty());
+            for entry in *table {
                 if entry.next_state == ConfigParserState::Call {
-                    calls.insert(unsafe { entry.extra.call_identifier });
+                    calls.insert(entry.extra.call_identifier);
                 } else {
                     assert!((entry.next_state as usize) < states.len());
                 }

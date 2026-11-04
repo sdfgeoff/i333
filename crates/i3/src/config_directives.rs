@@ -75,24 +75,11 @@ impl Drop for ExpandedWords {
     }
 }
 
-pub unsafe fn cfg_include(
-    current_match: *mut Match,
-    result: *mut ConfigResultIR,
-    pattern: *const ::core::ffi::c_char,
-) {
+pub unsafe fn cfg_include(current_match: *mut Match, result: *mut ConfigResultIR, pattern: &[u8]) {
+    let pattern = text_prefix(pattern).to_vec();
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = pattern;
-        let log_value_0 = i3_common::logging::string_bytes(
-            (if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_0 = pattern.clone();
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::debug!(
                 "../src/config_directives.c:cfg_include:19 - include {}\n",
@@ -113,7 +100,8 @@ pub unsafe fn cfg_include(
         we_wordv: ::core::ptr::null_mut::<*mut ::core::ffi::c_char>(),
         we_offs: 0,
     };
-    let ret: i32 = wordexp(pattern, &raw mut p, 0_i32) as i32;
+    let native_pattern = std::ffi::CString::new(pattern.as_slice()).unwrap();
+    let ret: i32 = wordexp(native_pattern.as_ptr(), &raw mut p, 0_i32) as i32;
     if ret != 0_i32 {
         // GNU wordexp may leave partial output on WRDE_NOSPACE (value1 in the
         // supported native ABI); other failed expansions transfer no ownership.
@@ -122,17 +110,7 @@ pub unsafe fn cfg_include(
         }
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_pointer_1 = pattern;
-            let log_value_0 = i3_common::logging::string_bytes(
-                (if log_pointer_1.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                })
-                .map(std::ffi::CStr::to_bytes),
-                None,
-            )
-            .to_vec();
+            let log_value_0 = pattern.clone();
             let log_value_1 = (ret) as i32;
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::error!(
@@ -379,8 +357,8 @@ pub unsafe fn cfg_criteria_pop_state(current_match: *mut Match, result: *mut Con
 pub unsafe fn cfg_criteria_add(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    ctype: *const ::core::ffi::c_char,
-    cvalue: *const ::core::ffi::c_char,
+    ctype: &[u8],
+    cvalue: Option<&[u8]>,
 ) {
     match_parse_property(current_match, ctype, cvalue);
 }
@@ -416,12 +394,9 @@ pub fn event_state_from_str(value: Option<&[u8]>) -> i3_event_state_mask_t {
     value.map_or(0, event_state_bytes)
 }
 
-pub unsafe fn cfg_font(
-    current_match: *mut Match,
-    result: *mut ConfigResultIR,
-    font: *const ::core::ffi::c_char,
-) {
-    crate::config::set_config_font(&CStr::from_ptr(font).to_bytes().to_vec());
+pub unsafe fn cfg_font(current_match: *mut Match, result: *mut ConfigResultIR, font: &[u8]) {
+    let font = text_prefix(font).to_vec();
+    crate::config::set_config_font(&font.clone());
 }
 
 pub unsafe fn cfg_binding(
@@ -488,7 +463,7 @@ pub unsafe fn cfg_mode_binding(
 pub unsafe fn cfg_enter_mode(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    pango_markup: *const ::core::ffi::c_char,
+    pango_markup: bool,
     modename: &[u8],
 ) {
     let modename = modename.split(|byte| *byte == 0).next().unwrap().to_vec();
@@ -554,7 +529,7 @@ pub unsafe fn cfg_enter_mode(
     let mode = modename;
     *CURRENT_MODE
         .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner) = Some((mode, !pango_markup.is_null()));
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = Some((mode, pango_markup));
 }
 
 pub unsafe fn cfg_exec(
@@ -581,8 +556,9 @@ pub unsafe fn cfg_exec(
 pub unsafe fn cfg_for_window(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    command: *const ::core::ffi::c_char,
+    command: &[u8],
 ) {
+    let command = text_prefix(command).to_vec();
     if (*current_match).error.is_some() {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
@@ -606,17 +582,7 @@ pub unsafe fn cfg_for_window(
     }
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = command;
-        let log_value_0 = i3_common::logging::string_bytes(
-            (if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_0 = command.clone();
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::debug!("../src/config_directives.c:cfg_for_window:237 - \t should execute command {} for the criteria mentioned above\n", log_value_0_text);
         } else {
@@ -631,7 +597,7 @@ pub unsafe fn cfg_for_window(
         }
     };
     let assignment: *mut Assignment = Box::into_raw(Box::new(Assignment::new(
-        crate::types::AssignmentDest::Command(CStr::from_ptr(command).to_bytes().to_vec()),
+        crate::types::AssignmentDest::Command(command.clone()),
         (*current_match).clone(),
     )));
     (*assignment).assignments.tqe_next = ::core::ptr::null_mut::<Assignment>();
@@ -697,44 +663,35 @@ unsafe fn create_gaps_assignment(workspace: &[u8], mask: gaps_mask_t, pixels: i3
     (*assignment).gaps_mask |= mask;
     apply_gaps(&raw mut (*assignment).gaps, mask, pixels);
 }
-unsafe fn gaps_scope_to_mask(scope: *const ::core::ffi::c_char) -> gaps_mask_t {
-    if strcmp(scope, c"inner".as_ptr()) == 0 {
+unsafe fn gaps_scope_to_mask(scope: &[u8]) -> gaps_mask_t {
+    let scope = text_prefix(scope).to_vec();
+    if scope == b"inner" {
         return GapMask::INNER;
     }
-    if strcmp(scope, c"outer".as_ptr()) == 0 {
+    if scope == b"outer" {
         return GapMask::OUTER;
     }
-    if strcmp(scope, c"vertical".as_ptr()) == 0 {
+    if scope == b"vertical" {
         return GapMask::VERTICAL;
     }
-    if strcmp(scope, c"horizontal".as_ptr()) == 0 {
+    if scope == b"horizontal" {
         return GapMask::HORIZONTAL;
     }
-    if strcmp(scope, c"top".as_ptr()) == 0 {
+    if scope == b"top" {
         return GapMask::TOP;
     }
-    if strcmp(scope, c"right".as_ptr()) == 0 {
+    if scope == b"right" {
         return GapMask::RIGHT;
     }
-    if strcmp(scope, c"bottom".as_ptr()) == 0 {
+    if scope == b"bottom" {
         return GapMask::BOTTOM;
     }
-    if strcmp(scope, c"left".as_ptr()) == 0 {
+    if scope == b"left" {
         return GapMask::LEFT;
     }
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = scope;
-        let log_value_0 = i3_common::logging::string_bytes(
-            (if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_0 = scope.clone();
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::error!(
                 "ERROR: Invalid command, cannot process scope {}",
@@ -753,27 +710,30 @@ unsafe fn gaps_scope_to_mask(scope: *const ::core::ffi::c_char) -> gaps_mask_t {
 pub unsafe fn cfg_gaps(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    workspace: *const ::core::ffi::c_char,
-    scope: *const ::core::ffi::c_char,
+    workspace: Option<&[u8]>,
+    scope: &[u8],
     value: i64,
 ) {
+    let scope = text_prefix(scope).to_vec();
+    let workspace = workspace.map(|bytes| text_prefix(bytes).to_vec());
     let pixels: i32 = logical_px(value as i32) as i32;
-    let mask: gaps_mask_t = gaps_scope_to_mask(scope);
-    if workspace.is_null() {
-        apply_gaps(&raw mut config.gaps, mask, pixels);
+    let mask: gaps_mask_t = gaps_scope_to_mask(&scope);
+    if let Some(workspace) = workspace.as_deref() {
+        create_gaps_assignment(workspace, mask, pixels);
     } else {
-        create_gaps_assignment(&CStr::from_ptr(workspace).to_bytes().to_vec(), mask, pixels);
+        apply_gaps(&raw mut config.gaps, mask, pixels);
     };
 }
 
 pub unsafe fn cfg_smart_borders(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    enable: &CStr,
+    enable: &[u8],
 ) {
-    if enable == c"no_gaps" {
+    let enable = text_prefix(enable).to_vec();
+    if enable == b"no_gaps" {
         config.hide_edge_borders = HideEdgeBordersMode::SmartNoGaps;
-    } else if is_enabled(enable.to_bytes()) {
+    } else if is_enabled(enable.as_slice()) {
         if config.hide_edge_borders == HideEdgeBordersMode::None {
             config.hide_edge_borders = HideEdgeBordersMode::Smart;
         } else {
@@ -785,12 +745,13 @@ pub unsafe fn cfg_smart_borders(
 pub unsafe fn cfg_smart_gaps(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    enable: &CStr,
+    enable: &[u8],
 ) {
-    if enable == c"inverse_outer" {
+    let enable = text_prefix(enable).to_vec();
+    if enable == b"inverse_outer" {
         config.smart_gaps = SmartGaps::InverseOuter;
     } else {
-        config.smart_gaps = if is_enabled(enable.to_bytes()) {
+        config.smart_gaps = if is_enabled(enable.as_slice()) {
             SmartGaps::On
         } else {
             SmartGaps::Off
@@ -821,35 +782,30 @@ pub unsafe fn cfg_floating_maximum_size(
 pub unsafe fn cfg_floating_modifier(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    modifiers: *const ::core::ffi::c_char,
+    modifiers: Option<&[u8]>,
 ) {
-    config.floating_modifier = event_state_from_str(
-        modifiers
-            .as_ref()
-            .map(|_| CStr::from_ptr(modifiers).to_bytes()),
-    ) as u32;
+    let modifiers = modifiers.map(|bytes| text_prefix(bytes).to_vec());
+    config.floating_modifier = event_state_from_str(modifiers.as_deref()) as u32;
 }
 
 pub unsafe fn cfg_tiling_drag_swap_modifier(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    modifiers: *const ::core::ffi::c_char,
+    modifiers: Option<&[u8]>,
 ) {
-    config.swap_modifier = event_state_from_str(
-        modifiers
-            .as_ref()
-            .map(|_| CStr::from_ptr(modifiers).to_bytes()),
-    ) as u32;
+    let modifiers = modifiers.map(|bytes| text_prefix(bytes).to_vec());
+    config.swap_modifier = event_state_from_str(modifiers.as_deref()) as u32;
 }
 
 pub unsafe fn cfg_default_orientation(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    orientation: *const ::core::ffi::c_char,
+    orientation: &[u8],
 ) {
-    if strcmp(orientation, c"horizontal".as_ptr()) == 0_i32 {
+    let orientation = text_prefix(orientation).to_vec();
+    if orientation == b"horizontal" {
         config.default_orientation = Orientation::Horizontal;
-    } else if strcmp(orientation, c"vertical".as_ptr()) == 0_i32 {
+    } else if orientation == b"vertical" {
         config.default_orientation = Orientation::Vertical;
     } else {
         config.default_orientation = Orientation::None;
@@ -859,13 +815,12 @@ pub unsafe fn cfg_default_orientation(
 pub unsafe fn cfg_workspace_layout(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    layout: *const ::core::ffi::c_char,
+    layout: &[u8],
 ) {
-    if strcmp(layout, c"default".as_ptr()) == 0_i32 {
+    let layout = text_prefix(layout).to_vec();
+    if layout == b"default" {
         config.default_layout = Layout::Default;
-    } else if strcmp(layout, c"stacking".as_ptr()) == 0_i32
-        || strcmp(layout, c"stacked".as_ptr()) == 0_i32
-    {
+    } else if layout == b"stacking" || layout == b"stacked" {
         config.default_layout = Layout::Stacked;
     } else {
         config.default_layout = Layout::Tabbed;
@@ -875,28 +830,28 @@ pub unsafe fn cfg_workspace_layout(
 pub unsafe fn cfg_default_border(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    windowtype: *const ::core::ffi::c_char,
-    border: *const ::core::ffi::c_char,
+    windowtype: &[u8],
+    border: &[u8],
     width: i64,
 ) {
+    let windowtype = text_prefix(windowtype).to_vec();
+    let border = text_prefix(border).to_vec();
     let mut border_style: BorderStyle = BorderStyle::None;
     let mut border_width: i32 = 0;
-    if strcmp(border, c"1pixel".as_ptr()) == 0_i32 {
+    if border == b"1pixel" {
         border_style = BorderStyle::Pixel;
         border_width = 1_i32;
-    } else if strcmp(border, c"none".as_ptr()) == 0_i32 {
+    } else if border == b"none" {
         border_style = BorderStyle::None;
         border_width = 0_i32;
-    } else if strcmp(border, c"pixel".as_ptr()) == 0_i32 {
+    } else if border == b"pixel" {
         border_style = BorderStyle::Pixel;
         border_width = width as i32;
     } else {
         border_style = BorderStyle::Normal;
         border_width = width as i32;
     }
-    if strcmp(windowtype, c"default_border".as_ptr()) == 0_i32
-        || strcmp(windowtype, c"new_window".as_ptr()) == 0_i32
-    {
+    if windowtype == b"default_border" || windowtype == b"new_window" {
         {
             let log_value_0 = ((border_style) as u32) as i32;
             let log_value_1 = (border_width);
@@ -920,21 +875,22 @@ pub unsafe fn cfg_default_border(
 pub unsafe fn cfg_hide_edge_borders(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    borders: &CStr,
+    borders: &[u8],
 ) {
-    if borders == c"smart_no_gaps" {
+    let borders = text_prefix(borders).to_vec();
+    if borders == b"smart_no_gaps" {
         config.hide_edge_borders = HideEdgeBordersMode::SmartNoGaps;
-    } else if borders == c"smart" {
+    } else if borders == b"smart" {
         config.hide_edge_borders = HideEdgeBordersMode::Smart;
-    } else if borders == c"vertical" {
+    } else if borders == b"vertical" {
         config.hide_edge_borders = HideEdgeBordersMode::Vertical;
-    } else if borders == c"horizontal" {
+    } else if borders == b"horizontal" {
         config.hide_edge_borders = HideEdgeBordersMode::Horizontal;
-    } else if borders == c"both" {
+    } else if borders == b"both" {
         config.hide_edge_borders = HideEdgeBordersMode::Both;
-    } else if borders == c"none" {
+    } else if borders == b"none" {
         config.hide_edge_borders = HideEdgeBordersMode::None;
-    } else if is_enabled(borders.to_bytes()) {
+    } else if is_enabled(borders.as_slice()) {
         config.hide_edge_borders = HideEdgeBordersMode::Vertical;
     } else {
         config.hide_edge_borders = HideEdgeBordersMode::None;
@@ -952,11 +908,12 @@ pub unsafe fn cfg_focus_follows_mouse(
 pub unsafe fn cfg_mouse_warping(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    value: *const ::core::ffi::c_char,
+    value: &[u8],
 ) {
-    if strcmp(value, c"none".as_ptr()) == 0_i32 {
+    let value = text_prefix(value).to_vec();
+    if value == b"none" {
         config.mouse_warping = Warping::None;
-    } else if strcmp(value, c"output".as_ptr()) == 0_i32 {
+    } else if value == b"output" {
         config.mouse_warping = Warping::Output;
     }
 }
@@ -980,13 +937,14 @@ pub unsafe fn cfg_disable_randr15(
 pub unsafe fn cfg_focus_wrapping(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    value: &CStr,
+    value: &[u8],
 ) {
-    if value == c"force" {
+    let value = text_prefix(value).to_vec();
+    if value == b"force" {
         config.focus_wrapping = FocusWrapping::Force;
-    } else if value == c"workspace" {
+    } else if value == b"workspace" {
         config.focus_wrapping = FocusWrapping::Workspace;
-    } else if is_enabled(value.to_bytes()) {
+    } else if is_enabled(value.as_slice()) {
         config.focus_wrapping = FocusWrapping::On;
     } else {
         config.focus_wrapping = FocusWrapping::Off;
@@ -1032,30 +990,21 @@ pub unsafe fn cfg_force_display_urgency_hint(
 pub unsafe fn cfg_focus_on_window_activation(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    mode: *const ::core::ffi::c_char,
+    mode: &[u8],
 ) {
-    if strcmp(mode, c"smart".as_ptr()) == 0_i32 {
+    let mode = text_prefix(mode).to_vec();
+    if mode == b"smart" {
         config.focus_on_window_activation = FocusActivation::Smart;
-    } else if strcmp(mode, c"urgent".as_ptr()) == 0_i32 {
+    } else if mode == b"urgent" {
         config.focus_on_window_activation = FocusActivation::Urgent;
-    } else if strcmp(mode, c"focus".as_ptr()) == 0_i32 {
+    } else if mode == b"focus" {
         config.focus_on_window_activation = FocusActivation::Focus;
-    } else if strcmp(mode, c"none".as_ptr()) == 0_i32 {
+    } else if mode == b"none" {
         config.focus_on_window_activation = FocusActivation::None;
     } else {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_pointer_1 = mode;
-            let log_value_0 = i3_common::logging::string_bytes(
-                (if log_pointer_1.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                })
-                .map(std::ffi::CStr::to_bytes),
-                None,
-            )
-            .to_vec();
+            let log_value_0 = mode.clone();
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::error!(
                     "ERROR: Unknown focus_on_window_activation mode \"{}\", ignoring it.\n",
@@ -1082,13 +1031,14 @@ pub unsafe fn cfg_focus_on_window_activation(
 pub unsafe fn cfg_title_align(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    alignment: *const ::core::ffi::c_char,
+    alignment: &[u8],
 ) {
-    if strcmp(alignment, c"left".as_ptr()) == 0_i32 {
+    let alignment = text_prefix(alignment).to_vec();
+    if alignment == b"left" {
         config.title_align = TitleAlign::Left;
-    } else if strcmp(alignment, c"center".as_ptr()) == 0_i32 {
+    } else if alignment == b"center" {
         config.title_align = TitleAlign::Center;
-    } else if strcmp(alignment, c"right".as_ptr()) == 0_i32 {
+    } else if alignment == b"right" {
         config.title_align = TitleAlign::Right;
     } else {
         __assert_fail(
@@ -1201,13 +1151,14 @@ pub unsafe fn cfg_restart_state(
 pub unsafe fn cfg_popup_during_fullscreen(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    value: *const ::core::ffi::c_char,
+    value: &[u8],
 ) {
-    if strcmp(value, c"ignore".as_ptr()) == 0_i32 {
+    let value = text_prefix(value).to_vec();
+    if value == b"ignore" {
         config.popup_during_fullscreen = PopupDuringFullscreen::Ignore;
-    } else if strcmp(value, c"leave_fullscreen".as_ptr()) == 0_i32 {
+    } else if value == b"leave_fullscreen" {
         config.popup_during_fullscreen = PopupDuringFullscreen::LeaveFullscreen;
-    } else if strcmp(value, c"all".as_ptr()) == 0_i32 {
+    } else if value == b"all" {
         config.popup_during_fullscreen = PopupDuringFullscreen::All;
     } else {
         config.popup_during_fullscreen = PopupDuringFullscreen::Smart;
@@ -1217,10 +1168,11 @@ pub unsafe fn cfg_popup_during_fullscreen(
 pub unsafe fn cfg_color_single(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    colorclass: *const ::core::ffi::c_char,
-    color: *const ::core::ffi::c_char,
+    colorclass: &[u8],
+    color: &[u8],
 ) {
-    let color = CStr::from_ptr(color).to_bytes().to_vec();
+    let colorclass = text_prefix(colorclass).to_vec();
+    let color = text_prefix(color).to_vec();
     config.client.background =
         draw_util_hex_to_color(crate::application::root_display_opt(), &color);
 }
@@ -1228,27 +1180,23 @@ pub unsafe fn cfg_color_single(
 pub unsafe fn cfg_color(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    colorclass: *const ::core::ffi::c_char,
-    border: *const ::core::ffi::c_char,
-    background: *const ::core::ffi::c_char,
-    text: *const ::core::ffi::c_char,
-    indicator: *const ::core::ffi::c_char,
-    child_border: *const ::core::ffi::c_char,
+    colorclass: &[u8],
+    border: &[u8],
+    background: &[u8],
+    text: &[u8],
+    indicator: Option<&[u8]>,
+    child_border: Option<&[u8]>,
 ) {
+    let colorclass = text_prefix(colorclass).to_vec();
+    let border = text_prefix(border).to_vec();
+    let background = text_prefix(background).to_vec();
+    let text = text_prefix(text).to_vec();
+    let indicator = indicator.map(|bytes| text_prefix(bytes).to_vec());
+    let child_border = child_border.map(|bytes| text_prefix(bytes).to_vec());
     // Snapshot every parser argument before any color-error logger can call out.
-    let colorclass = CStr::from_ptr(colorclass).to_owned();
-    let border = CStr::from_ptr(border).to_bytes().to_vec();
-    let background = CStr::from_ptr(background).to_bytes().to_vec();
-    let text = CStr::from_ptr(text).to_bytes().to_vec();
-    let indicator = indicator
-        .as_ref()
-        .map(|value| CStr::from_ptr(value).to_bytes().to_vec());
-    let child_border = child_border
-        .as_ref()
-        .map(|value| CStr::from_ptr(value).to_bytes().to_vec());
     let screen = crate::application::root_display_opt();
-    if strcmp(colorclass.as_ptr(), c"client.focused_inactive".as_ptr()) == 0_i32 {
-        if strcmp(c"focused_tab_title".as_ptr(), c"focused_inactive".as_ptr()) == 0_i32 {
+    if colorclass == b"client.focused_inactive" {
+        if false {
             config.client.got_focused_tab_title = true;
             if indicator.is_some() || child_border.is_some() {
                 ::log::error!("ERROR: indicator and child_border colors have no effect for client.focused_tab_title\n");
@@ -1268,8 +1216,8 @@ pub unsafe fn cfg_color(
         }
         return;
     }
-    if strcmp(colorclass.as_ptr(), c"client.focused_tab_title".as_ptr()) == 0_i32 {
-        if strcmp(c"focused_tab_title".as_ptr(), c"focused_tab_title".as_ptr()) == 0_i32 {
+    if colorclass == b"client.focused_tab_title" {
+        if true {
             config.client.got_focused_tab_title = true;
             if indicator.is_some() || child_border.is_some() {
                 ::log::error!("ERROR: indicator and child_border colors have no effect for client.focused_tab_title\n");
@@ -1290,8 +1238,8 @@ pub unsafe fn cfg_color(
         }
         return;
     }
-    if strcmp(colorclass.as_ptr(), c"client.focused".as_ptr()) == 0_i32 {
-        if strcmp(c"focused_tab_title".as_ptr(), c"focused".as_ptr()) == 0_i32 {
+    if colorclass == b"client.focused" {
+        if false {
             config.client.got_focused_tab_title = true;
             if indicator.is_some() || child_border.is_some() {
                 ::log::error!("ERROR: indicator and child_border colors have no effect for client.focused_tab_title\n");
@@ -1310,8 +1258,8 @@ pub unsafe fn cfg_color(
         }
         return;
     }
-    if strcmp(colorclass.as_ptr(), c"client.unfocused".as_ptr()) == 0_i32 {
-        if strcmp(c"focused_tab_title".as_ptr(), c"unfocused".as_ptr()) == 0_i32 {
+    if colorclass == b"client.unfocused" {
+        if false {
             config.client.got_focused_tab_title = true;
             if indicator.is_some() || child_border.is_some() {
                 ::log::error!("ERROR: indicator and child_border colors have no effect for client.focused_tab_title\n");
@@ -1330,8 +1278,8 @@ pub unsafe fn cfg_color(
         }
         return;
     }
-    if strcmp(colorclass.as_ptr(), c"client.urgent".as_ptr()) == 0_i32 {
-        if strcmp(c"focused_tab_title".as_ptr(), c"urgent".as_ptr()) == 0_i32 {
+    if colorclass == b"client.urgent" {
+        if false {
             config.client.got_focused_tab_title = true;
             if indicator.is_some() || child_border.is_some() {
                 ::log::error!("ERROR: indicator and child_border colors have no effect for client.focused_tab_title\n");
@@ -1350,8 +1298,8 @@ pub unsafe fn cfg_color(
         }
         return;
     }
-    if strcmp(colorclass.as_ptr(), c"client.placeholder".as_ptr()) == 0_i32 {
-        if strcmp(c"focused_tab_title".as_ptr(), c"placeholder".as_ptr()) == 0_i32 {
+    if colorclass == b"client.placeholder" {
+        if false {
             config.client.got_focused_tab_title = true;
             if indicator.is_some() || child_border.is_some() {
                 ::log::error!("ERROR: indicator and child_border colors have no effect for client.focused_tab_title\n");
@@ -1374,8 +1322,9 @@ pub unsafe fn cfg_color(
 pub unsafe fn cfg_assign_output(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    output: *const ::core::ffi::c_char,
+    output: &[u8],
 ) {
+    let output = text_prefix(output).to_vec();
     if (*current_match).error.is_some() {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
@@ -1403,17 +1352,7 @@ pub unsafe fn cfg_assign_output(
     }
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = output;
-        let log_value_0 = i3_common::logging::string_bytes(
-            (if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_0 = output.clone();
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::debug!("../src/config_directives.c:cfg_assign_output:654 - New assignment, using above criteria, to output \"{}\".\n", log_value_0_text);
         } else {
@@ -1425,7 +1364,7 @@ pub unsafe fn cfg_assign_output(
         }
     };
     let assignment: *mut Assignment = Box::into_raw(Box::new(Assignment::new(
-        crate::types::AssignmentDest::Output(CStr::from_ptr(output).to_bytes().to_vec()),
+        crate::types::AssignmentDest::Output(output.clone()),
         (*current_match).clone(),
     )));
     (*assignment).assignments.tqe_next = ::core::ptr::null_mut::<Assignment>();
@@ -1437,9 +1376,10 @@ pub unsafe fn cfg_assign_output(
 pub unsafe fn cfg_assign(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    workspace: *const ::core::ffi::c_char,
+    workspace: &[u8],
     is_number: bool,
 ) {
+    let workspace = text_prefix(workspace).to_vec();
     if (*current_match).error.is_some() {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
@@ -1465,22 +1405,10 @@ pub unsafe fn cfg_assign(
         ::log::error!("ERROR: Assignments using window mode (floating/tiling) is not supported\n");
         return;
     }
-    if is_number
-        && ws_name_to_number(std::ffi::CStr::from_ptr(workspace).to_bytes()).unwrap_or(-1) == -1_i32
-    {
+    if is_number && ws_name_to_number(workspace.as_slice()).unwrap_or(-1) == -1_i32 {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_pointer_1 = workspace;
-            let log_value_0 = i3_common::logging::string_bytes(
-                (if log_pointer_1.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                })
-                .map(std::ffi::CStr::to_bytes),
-                None,
-            )
-            .to_vec();
+            let log_value_0 = workspace.clone();
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::error!(
                     "ERROR: Could not parse initial part of \"{}\" as a number.\n",
@@ -1498,17 +1426,7 @@ pub unsafe fn cfg_assign(
     }
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = workspace;
-        let log_value_0 = i3_common::logging::string_bytes(
-            (if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_0 = workspace.clone();
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::debug!("../src/config_directives.c:cfg_assign:682 - New assignment, using above criteria, to workspace \"{}\".\n", log_value_0_text);
         } else {
@@ -1521,11 +1439,9 @@ pub unsafe fn cfg_assign(
     };
     let assignment: *mut Assignment = Box::into_raw(Box::new(Assignment::new(
         if is_number {
-            crate::types::AssignmentDest::WorkspaceNumber(
-                CStr::from_ptr(workspace).to_bytes().to_vec(),
-            )
+            crate::types::AssignmentDest::WorkspaceNumber(workspace.clone())
         } else {
-            crate::types::AssignmentDest::Workspace(CStr::from_ptr(workspace).to_bytes().to_vec())
+            crate::types::AssignmentDest::Workspace(workspace.clone())
         },
         (*current_match).clone(),
     )));
@@ -1579,15 +1495,14 @@ pub unsafe fn cfg_ipc_kill_timeout(
 pub unsafe fn cfg_tiling_drag(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    value: *const ::core::ffi::c_char,
+    value: &[u8],
 ) {
-    if strcmp(value, c"modifier".as_ptr()) == 0_i32 {
+    let value = text_prefix(value).to_vec();
+    if value == b"modifier" {
         config.tiling_drag = TilingDrag::MODIFIER;
-    } else if strcmp(value, c"titlebar".as_ptr()) == 0_i32 {
+    } else if value == b"titlebar" {
         config.tiling_drag = TilingDrag::TITLEBAR;
-    } else if strcmp(value, c"modifier,titlebar".as_ptr()) == 0_i32
-        || strcmp(value, c"titlebar,modifier".as_ptr()) == 0_i32
-    {
+    } else if value == b"modifier,titlebar" || value == b"titlebar,modifier" {
         config.tiling_drag = TilingDrag::MODIFIER_OR_TITLEBAR;
     } else {
         config.tiling_drag = TilingDrag::empty();
@@ -1595,12 +1510,12 @@ pub unsafe fn cfg_tiling_drag(
 }
 static mut current_bar: *mut Barconfig = std::ptr::null_mut::<Barconfig>();
 
-fn bar_prefix(bytes: &[u8]) -> &[u8] {
+fn text_prefix(bytes: &[u8]) -> &[u8] {
     bytes.split(|&byte| byte == 0).next().unwrap_or_default()
 }
 
 pub unsafe fn cfg_bar_font(current_match: *mut Match, result: *mut ConfigResultIR, font: &[u8]) {
-    (*current_bar).font = Some(bar_prefix(font).to_vec());
+    (*current_bar).font = Some(text_prefix(font).to_vec());
 }
 
 pub unsafe fn cfg_bar_separator_symbol(
@@ -1608,14 +1523,14 @@ pub unsafe fn cfg_bar_separator_symbol(
     result: *mut ConfigResultIR,
     separator: &[u8],
 ) {
-    (*current_bar).separator_symbol = Some(bar_prefix(separator).to_vec());
+    (*current_bar).separator_symbol = Some(text_prefix(separator).to_vec());
 }
 
 pub unsafe fn cfg_bar_mode(current_match: *mut Match, result: *mut ConfigResultIR, mode: &[u8]) {
-    (*current_bar).mode = if bar_prefix(mode) == b"dock" {
+    (*current_bar).mode = if text_prefix(mode) == b"dock" {
         BarMode::Dock
     } else {
-        if bar_prefix(mode) == b"hide" {
+        if text_prefix(mode) == b"hide" {
             BarMode::Hide
         } else {
             BarMode::Invisible
@@ -1628,7 +1543,7 @@ pub unsafe fn cfg_bar_hidden_state(
     result: *mut ConfigResultIR,
     hidden_state: &[u8],
 ) {
-    (*current_bar).hidden_state = if bar_prefix(hidden_state) == b"hide" {
+    (*current_bar).hidden_state = if text_prefix(hidden_state) == b"hide" {
         BarHiddenState::Hide
     } else {
         BarHiddenState::Show
@@ -1636,7 +1551,7 @@ pub unsafe fn cfg_bar_hidden_state(
 }
 
 pub unsafe fn cfg_bar_id(current_match: *mut Match, result: *mut ConfigResultIR, bar_id: &[u8]) {
-    (*current_bar).id = Some(bar_prefix(bar_id).to_vec());
+    (*current_bar).id = Some(text_prefix(bar_id).to_vec());
 }
 
 pub unsafe fn cfg_bar_output(
@@ -1644,7 +1559,7 @@ pub unsafe fn cfg_bar_output(
     result: *mut ConfigResultIR,
     output: &[u8],
 ) {
-    (*current_bar).outputs.push(bar_prefix(output).to_vec());
+    (*current_bar).outputs.push(text_prefix(output).to_vec());
 }
 
 pub unsafe fn cfg_bar_verbose(
@@ -1737,7 +1652,7 @@ pub unsafe fn cfg_bar_modifier(
 }
 unsafe fn bar_configure_binding(button: &[u8], release: bool, command: &[u8]) {
     // Actual libc locale/atoi validation keeps the legacy button syntax.
-    let native_button = std::ffi::CString::new(bar_prefix(button)).unwrap();
+    let native_button = std::ffi::CString::new(text_prefix(button)).unwrap();
     if strncasecmp(
         native_button.as_ptr(),
         c"button".as_ptr(),
@@ -1746,7 +1661,7 @@ unsafe fn bar_configure_binding(button: &[u8], release: bool, command: &[u8]) {
     {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_value_0 = bar_prefix(button).to_vec();
+            let log_value_0 = text_prefix(button).to_vec();
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::error!(
                     "ERROR: Bindings for a bar can only be mouse bindings, not \"{}\", ignoring.\n",
@@ -1768,7 +1683,7 @@ unsafe fn bar_configure_binding(button: &[u8], release: bool, command: &[u8]) {
     if input_code < 1_i32 {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_value_0 = bar_prefix(button).to_vec();
+            let log_value_0 = text_prefix(button).to_vec();
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::error!(
                     "ERROR: Button \"{}\" does not seem to be in format 'buttonX'.\n",
@@ -1792,7 +1707,7 @@ unsafe fn bar_configure_binding(button: &[u8], release: bool, command: &[u8]) {
         if (*current).input_code == input_code && (*current).release == release_bool {
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
-                let log_value_0 = bar_prefix(button).to_vec();
+                let log_value_0 = text_prefix(button).to_vec();
                 if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                     ::log::error!(
                         "ERROR: command for button {} was already specified, ignoring.\n",
@@ -1813,7 +1728,7 @@ unsafe fn bar_configure_binding(button: &[u8], release: bool, command: &[u8]) {
     let new_binding = Box::into_raw(Box::new(Barbinding {
         release: release_bool,
         input_code,
-        command: bar_prefix(command).to_vec(),
+        command: text_prefix(command).to_vec(),
         bindings: crate::application::BarBindingLinks {
             tqe_next: std::ptr::null_mut(),
             tqe_prev: std::ptr::null_mut(),
@@ -1832,7 +1747,7 @@ pub unsafe fn cfg_bar_wheel_up_cmd(
 ) {
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_value_0 = bar_prefix(command).to_vec();
+        let log_value_0 = text_prefix(command).to_vec();
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::error!(
                 "ERROR: 'wheel_up_cmd' is deprecated. Please use 'bindsym button4 {}' instead.\n",
@@ -1858,7 +1773,7 @@ pub unsafe fn cfg_bar_wheel_down_cmd(
 ) {
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_value_0 = bar_prefix(command).to_vec();
+        let log_value_0 = text_prefix(command).to_vec();
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::error!(
                 "ERROR: 'wheel_down_cmd' is deprecated. Please use 'bindsym button5 {}' instead.\n",
@@ -1892,7 +1807,7 @@ pub unsafe fn cfg_bar_position(
     result: *mut ConfigResultIR,
     position: &[u8],
 ) {
-    (*current_bar).position = if bar_prefix(position) == b"top" {
+    (*current_bar).position = if text_prefix(position) == b"top" {
         BarPosition::Top
     } else {
         BarPosition::Bottom
@@ -1904,7 +1819,7 @@ pub unsafe fn cfg_bar_i3bar_command(
     result: *mut ConfigResultIR,
     i3bar_command: &[u8],
 ) {
-    (*current_bar).i3bar_command = Some(bar_prefix(i3bar_command).to_vec());
+    (*current_bar).i3bar_command = Some(text_prefix(i3bar_command).to_vec());
 }
 
 pub unsafe fn cfg_bar_color(
@@ -1915,54 +1830,54 @@ pub unsafe fn cfg_bar_color(
     background: &[u8],
     text: Option<&[u8]>,
 ) {
-    if bar_prefix(colorclass) == b"focused_workspace" {
+    if text_prefix(colorclass) == b"focused_workspace" {
         if let Some(text) = text {
-            (*current_bar).colors.focused_workspace_border = Some(bar_prefix(border).to_vec());
-            (*current_bar).colors.focused_workspace_bg = Some(bar_prefix(background).to_vec());
-            (*current_bar).colors.focused_workspace_text = Some(bar_prefix(text).to_vec());
+            (*current_bar).colors.focused_workspace_border = Some(text_prefix(border).to_vec());
+            (*current_bar).colors.focused_workspace_bg = Some(text_prefix(background).to_vec());
+            (*current_bar).colors.focused_workspace_text = Some(text_prefix(text).to_vec());
         } else {
-            (*current_bar).colors.focused_workspace_bg = Some(bar_prefix(background).to_vec());
-            (*current_bar).colors.focused_workspace_text = Some(bar_prefix(border).to_vec());
+            (*current_bar).colors.focused_workspace_bg = Some(text_prefix(background).to_vec());
+            (*current_bar).colors.focused_workspace_text = Some(text_prefix(border).to_vec());
         }
     }
-    if bar_prefix(colorclass) == b"active_workspace" {
+    if text_prefix(colorclass) == b"active_workspace" {
         if let Some(text) = text {
-            (*current_bar).colors.active_workspace_border = Some(bar_prefix(border).to_vec());
-            (*current_bar).colors.active_workspace_bg = Some(bar_prefix(background).to_vec());
-            (*current_bar).colors.active_workspace_text = Some(bar_prefix(text).to_vec());
+            (*current_bar).colors.active_workspace_border = Some(text_prefix(border).to_vec());
+            (*current_bar).colors.active_workspace_bg = Some(text_prefix(background).to_vec());
+            (*current_bar).colors.active_workspace_text = Some(text_prefix(text).to_vec());
         } else {
-            (*current_bar).colors.active_workspace_bg = Some(bar_prefix(background).to_vec());
-            (*current_bar).colors.active_workspace_text = Some(bar_prefix(border).to_vec());
+            (*current_bar).colors.active_workspace_bg = Some(text_prefix(background).to_vec());
+            (*current_bar).colors.active_workspace_text = Some(text_prefix(border).to_vec());
         }
     }
-    if bar_prefix(colorclass) == b"inactive_workspace" {
+    if text_prefix(colorclass) == b"inactive_workspace" {
         if let Some(text) = text {
-            (*current_bar).colors.inactive_workspace_border = Some(bar_prefix(border).to_vec());
-            (*current_bar).colors.inactive_workspace_bg = Some(bar_prefix(background).to_vec());
-            (*current_bar).colors.inactive_workspace_text = Some(bar_prefix(text).to_vec());
+            (*current_bar).colors.inactive_workspace_border = Some(text_prefix(border).to_vec());
+            (*current_bar).colors.inactive_workspace_bg = Some(text_prefix(background).to_vec());
+            (*current_bar).colors.inactive_workspace_text = Some(text_prefix(text).to_vec());
         } else {
-            (*current_bar).colors.inactive_workspace_bg = Some(bar_prefix(background).to_vec());
-            (*current_bar).colors.inactive_workspace_text = Some(bar_prefix(border).to_vec());
+            (*current_bar).colors.inactive_workspace_bg = Some(text_prefix(background).to_vec());
+            (*current_bar).colors.inactive_workspace_text = Some(text_prefix(border).to_vec());
         }
     }
-    if bar_prefix(colorclass) == b"urgent_workspace" {
+    if text_prefix(colorclass) == b"urgent_workspace" {
         if let Some(text) = text {
-            (*current_bar).colors.urgent_workspace_border = Some(bar_prefix(border).to_vec());
-            (*current_bar).colors.urgent_workspace_bg = Some(bar_prefix(background).to_vec());
-            (*current_bar).colors.urgent_workspace_text = Some(bar_prefix(text).to_vec());
+            (*current_bar).colors.urgent_workspace_border = Some(text_prefix(border).to_vec());
+            (*current_bar).colors.urgent_workspace_bg = Some(text_prefix(background).to_vec());
+            (*current_bar).colors.urgent_workspace_text = Some(text_prefix(text).to_vec());
         } else {
-            (*current_bar).colors.urgent_workspace_bg = Some(bar_prefix(background).to_vec());
-            (*current_bar).colors.urgent_workspace_text = Some(bar_prefix(border).to_vec());
+            (*current_bar).colors.urgent_workspace_bg = Some(text_prefix(background).to_vec());
+            (*current_bar).colors.urgent_workspace_text = Some(text_prefix(border).to_vec());
         }
     }
-    if bar_prefix(colorclass) == b"binding_mode" {
+    if text_prefix(colorclass) == b"binding_mode" {
         if let Some(text) = text {
-            (*current_bar).colors.binding_mode_border = Some(bar_prefix(border).to_vec());
-            (*current_bar).colors.binding_mode_bg = Some(bar_prefix(background).to_vec());
-            (*current_bar).colors.binding_mode_text = Some(bar_prefix(text).to_vec());
+            (*current_bar).colors.binding_mode_border = Some(text_prefix(border).to_vec());
+            (*current_bar).colors.binding_mode_bg = Some(text_prefix(background).to_vec());
+            (*current_bar).colors.binding_mode_text = Some(text_prefix(text).to_vec());
         } else {
-            (*current_bar).colors.binding_mode_bg = Some(bar_prefix(background).to_vec());
-            (*current_bar).colors.binding_mode_text = Some(bar_prefix(border).to_vec());
+            (*current_bar).colors.binding_mode_bg = Some(text_prefix(background).to_vec());
+            (*current_bar).colors.binding_mode_text = Some(text_prefix(border).to_vec());
         }
     }
 }
@@ -1981,7 +1896,7 @@ pub unsafe fn cfg_bar_tray_output(
     output: &[u8],
 ) {
     let tray_output = Box::into_raw(Box::new(tray_output_t {
-        output: bar_prefix(output).to_vec(),
+        output: text_prefix(output).to_vec(),
         tray_outputs: crate::application::TrayOutputLinks {
             tqe_next: std::ptr::null_mut(),
             tqe_prev: std::ptr::null_mut(),
@@ -2007,18 +1922,18 @@ pub unsafe fn cfg_bar_color_single(
     colorclass: &[u8],
     color: &[u8],
 ) {
-    if bar_prefix(colorclass) == b"background" {
-        (*current_bar).colors.background = Some(bar_prefix(color).to_vec());
-    } else if bar_prefix(colorclass) == b"separator" {
-        (*current_bar).colors.separator = Some(bar_prefix(color).to_vec());
-    } else if bar_prefix(colorclass) == b"statusline" {
-        (*current_bar).colors.statusline = Some(bar_prefix(color).to_vec());
-    } else if bar_prefix(colorclass) == b"focused_background" {
-        (*current_bar).colors.focused_background = Some(bar_prefix(color).to_vec());
-    } else if bar_prefix(colorclass) == b"focused_separator" {
-        (*current_bar).colors.focused_separator = Some(bar_prefix(color).to_vec());
+    if text_prefix(colorclass) == b"background" {
+        (*current_bar).colors.background = Some(text_prefix(color).to_vec());
+    } else if text_prefix(colorclass) == b"separator" {
+        (*current_bar).colors.separator = Some(text_prefix(color).to_vec());
+    } else if text_prefix(colorclass) == b"statusline" {
+        (*current_bar).colors.statusline = Some(text_prefix(color).to_vec());
+    } else if text_prefix(colorclass) == b"focused_background" {
+        (*current_bar).colors.focused_background = Some(text_prefix(color).to_vec());
+    } else if text_prefix(colorclass) == b"focused_separator" {
+        (*current_bar).colors.focused_separator = Some(text_prefix(color).to_vec());
     } else {
-        (*current_bar).colors.focused_statusline = Some(bar_prefix(color).to_vec());
+        (*current_bar).colors.focused_statusline = Some(text_prefix(color).to_vec());
     };
 }
 
@@ -2027,7 +1942,7 @@ pub unsafe fn cfg_bar_status_command(
     result: *mut ConfigResultIR,
     command: &[u8],
 ) {
-    (*current_bar).status_command = Some(bar_prefix(command).to_vec());
+    (*current_bar).status_command = Some(text_prefix(command).to_vec());
 }
 
 pub unsafe fn cfg_bar_workspace_command(
@@ -2035,7 +1950,7 @@ pub unsafe fn cfg_bar_workspace_command(
     result: *mut ConfigResultIR,
     command: &[u8],
 ) {
-    (*current_bar).workspace_command = Some(bar_prefix(command).to_vec());
+    (*current_bar).workspace_command = Some(text_prefix(command).to_vec());
 }
 
 pub unsafe fn cfg_bar_binding_mode_indicator(
@@ -2186,29 +2101,22 @@ mod color_snapshot_tests {
             );
             return;
         }
-        static INPUTS: std::sync::Mutex<Option<Vec<std::ffi::CString>>> =
-            std::sync::Mutex::new(None);
+        static INPUTS: std::sync::Mutex<Option<Vec<Vec<u8>>>> = std::sync::Mutex::new(None);
         fn release_inputs(level: i3_common::logging::Level, _: &[u8]) {
             assert_eq!(level, i3_common::logging::Level::Error);
             drop(INPUTS.lock().unwrap().take());
         }
-        let values = [
-            c"client.focused",
-            c"invalid-\xff",
-            c"#112233",
-            c"#445566",
-            c"#778899",
-            c"#abcdef",
+        let values: &[&[u8]] = &[
+            b"client.focused",
+            b"invalid-\xff",
+            b"#112233",
+            b"#445566",
+            b"#778899",
+            b"#abcdef",
         ];
-        *INPUTS.lock().unwrap() = Some(values.iter().map(|value| (*value).to_owned()).collect());
-        let pointers: Vec<_> = INPUTS
-            .lock()
-            .unwrap()
-            .as_ref()
-            .unwrap()
-            .iter()
-            .map(|value| value.as_ptr())
-            .collect();
+        *INPUTS.lock().unwrap() = Some(values.iter().map(|value| value.to_vec()).collect());
+        // The dispatcher owns an independent capture snapshot across callbacks.
+        let captures = INPUTS.lock().unwrap().as_ref().unwrap().clone();
         i3_common::logging::set_sink(release_inputs);
         let mut stack = crate::config_parser::stack::default();
         let mut ctx = parser_ctx {
@@ -2232,12 +2140,12 @@ mod color_snapshot_tests {
             cfg_color(
                 &mut current,
                 &mut result,
-                pointers[0],
-                pointers[1],
-                pointers[2],
-                pointers[3],
-                pointers[4],
-                pointers[5],
+                &captures[0],
+                &captures[1],
+                &captures[2],
+                &captures[3],
+                Some(&captures[4]),
+                Some(&captures[5]),
             );
             assert!(INPUTS.lock().unwrap().is_none());
             assert_eq!(config.client.focused.border.colorpixel, 0xffa9a9a9);

@@ -53,11 +53,6 @@ use crate::commands::cmd_workspace_back_and_forth;
 use crate::commands::cmd_workspace_name;
 use crate::commands::cmd_workspace_number;
 use crate::domains::{DockMatch, MatchInsertWhere};
-use crate::parser_util::parser_clear_stack;
-use crate::parser_util::parser_get_long;
-use crate::parser_util::parser_get_string;
-use crate::parser_util::parser_push_long;
-use crate::parser_util::parser_push_string;
 use crate::types::UrgencyMatch;
 use crate::types::WindowMode;
 use std::os::unix::ffi::OsStrExt;
@@ -98,2696 +93,2451 @@ pub use crate::commands::owindow;
 pub use crate::commands::owindows_head;
 pub use crate::commands::stack;
 pub use crate::commands::CommandResultIR;
-pub type cmdp_token_ptr = tokenptr;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct tokenptr {
-    pub array: *mut cmdp_token,
-    pub n: i32,
-}
 pub type cmdp_token = token;
 #[derive(Copy, Clone)]
-#[repr(C)]
 pub struct token {
-    pub name: *mut ::core::ffi::c_char,
-    pub identifier: *mut ::core::ffi::c_char,
+    pub name: &'static [u8],
+    pub identifier: Option<&'static [u8]>,
     pub next_state: CommandParserState,
     pub extra: ParserTokenData,
 }
 #[derive(Copy, Clone)]
-#[repr(C)]
-pub union ParserTokenData {
+pub struct ParserTokenData {
     pub call_identifier: u16,
 }
 
-pub const __ASSERT_FUNCTION: [::core::ffi::c_char; 82] = unsafe {
-    ::core::mem::transmute::<[u8; 82], [::core::ffi::c_char; 82]>(
-        *b"void GENERATED_call(Match *, struct stack *, const int, struct CommandResultIR *)\0",
-    )
-};
 pub const LONG_MAX: i64 = __LONG_MAX__;
 pub const LONG_MIN: i64 = -__LONG_MAX__ - 1_i64;
-static mut tokens_RENAME_WORKSPACE_LIKELY_TO_NEW_NAME: [cmdp_token; 2] = [
+static tokens_RENAME_WORKSPACE_LIKELY_TO_NEW_NAME: [cmdp_token; 2] = [
     token {
-        name: c"string".as_ptr().cast_mut(),
-        identifier: c"new_name".as_ptr().cast_mut(),
+        name: b"string",
+        identifier: Some(b"new_name"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 1_i32 as u16,
         },
     },
 ];
-static mut tokens_MOVE_WORKSPACE_TO_OUTPUT_WORD: [cmdp_token; 2] = [
+static tokens_MOVE_WORKSPACE_TO_OUTPUT_WORD: [cmdp_token; 2] = [
     token {
-        name: c"word".as_ptr().cast_mut(),
-        identifier: c"output".as_ptr().cast_mut(),
+        name: b"word",
+        identifier: Some(b"output"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 2_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 3_i32 as u16,
         },
     },
 ];
-static mut tokens_RENAME_WORKSPACE_TO_NEW_NAME: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"new_name".as_ptr().cast_mut(),
+static tokens_RENAME_WORKSPACE_TO_NEW_NAME: [cmdp_token; 1] = [token {
+    name: b"string",
+    identifier: Some(b"new_name"),
     next_state: CommandParserState::Call,
     extra: ParserTokenData {
         call_identifier: 4_i32 as u16,
     },
 }];
-static mut tokens_RENAME_WORKSPACE_LIKELY_TO: [cmdp_token; 2] = [
+static tokens_RENAME_WORKSPACE_LIKELY_TO: [cmdp_token; 2] = [
     token {
-        name: c"'to ".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'to ",
+        identifier: None,
         next_state: CommandParserState::RenameWorkspaceLikelyToNewName,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"word".as_ptr().cast_mut(),
-        identifier: c"new_name".as_ptr().cast_mut(),
+        name: b"word",
+        identifier: Some(b"new_name"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 5_i32 as u16,
         },
     },
 ];
-static mut tokens_MOVE_TO_ABSOLUTE_POSITION: [cmdp_token; 1] = [token {
-    name: c"'position".as_ptr().cast_mut(),
-    identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static tokens_MOVE_TO_ABSOLUTE_POSITION: [cmdp_token; 1] = [token {
+    name: b"'position",
+    identifier: None,
     next_state: CommandParserState::MoveToPosition,
     extra: ParserTokenData {
         call_identifier: 0_i32 as u16,
     },
 }];
-static mut tokens_TITLE_WINDOW_ICON_PADDING: [cmdp_token; 3] = [
+static tokens_TITLE_WINDOW_ICON_PADDING: [cmdp_token; 3] = [
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 6_i32 as u16,
         },
     },
     token {
-        name: c"'px".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'px",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 7_i32 as u16,
         },
     },
     token {
-        name: c"number".as_ptr().cast_mut(),
-        identifier: c"padding".as_ptr().cast_mut(),
+        name: b"number",
+        identifier: Some(b"padding"),
         next_state: CommandParserState::TitleWindowIconPadding,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
 ];
-static mut tokens_CRITERION_FROM_STR_START: [cmdp_token; 3] = [
+static tokens_CRITERION_FROM_STR_START: [cmdp_token; 3] = [
     token {
-        name: c"'\"".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'\"",
+        identifier: None,
         next_state: CommandParserState::CriterionFromStr,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'auto".as_ptr().cast_mut(),
-        identifier: c"kind".as_ptr().cast_mut(),
+        name: b"'auto",
+        identifier: Some(b"kind"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 8_i32 as u16,
         },
     },
     token {
-        name: c"'user".as_ptr().cast_mut(),
-        identifier: c"kind".as_ptr().cast_mut(),
+        name: b"'user",
+        identifier: Some(b"kind"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 9_i32 as u16,
         },
     },
 ];
-static mut tokens_MOVE_WORKSPACE_TO_OUTPUT: [cmdp_token; 1] = [token {
-    name: c"'output".as_ptr().cast_mut(),
-    identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static tokens_MOVE_WORKSPACE_TO_OUTPUT: [cmdp_token; 1] = [token {
+    name: b"'output",
+    identifier: None,
     next_state: CommandParserState::MoveWorkspaceToOutputWord,
     extra: ParserTokenData {
         call_identifier: 0_i32 as u16,
     },
 }];
-static mut tokens_RESIZE_HEIGHT_GET_NUMBER: [cmdp_token; 1] = [token {
-    name: c"number".as_ptr().cast_mut(),
-    identifier: c"height".as_ptr().cast_mut(),
+static tokens_RESIZE_HEIGHT_GET_NUMBER: [cmdp_token; 1] = [token {
+    name: b"number",
+    identifier: Some(b"height"),
     next_state: CommandParserState::ResizeHeight,
     extra: ParserTokenData {
         call_identifier: 0_i32 as u16,
     },
 }];
-static mut tokens_CRITERION_FROM_STR_END: [cmdp_token; 1] = [token {
-    name: c"'\"".as_ptr().cast_mut(),
-    identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static tokens_CRITERION_FROM_STR_END: [cmdp_token; 1] = [token {
+    name: b"'\"",
+    identifier: None,
     next_state: CommandParserState::Call,
     extra: ParserTokenData {
         call_identifier: 10_i32 as u16,
     },
 }];
-static mut tokens_MOVE_DIRECTION_NUMBER: [cmdp_token; 3] = [
+static tokens_MOVE_DIRECTION_NUMBER: [cmdp_token; 3] = [
     token {
-        name: c"'px".as_ptr().cast_mut(),
-        identifier: c"mode".as_ptr().cast_mut(),
+        name: b"'px",
+        identifier: Some(b"mode"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 11_i32 as u16,
         },
     },
     token {
-        name: c"'ppt".as_ptr().cast_mut(),
-        identifier: c"mode".as_ptr().cast_mut(),
+        name: b"'ppt",
+        identifier: Some(b"mode"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 12_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 13_i32 as u16,
         },
     },
 ];
-static mut tokens_MOVE_WORKSPACE_NUMBER: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"number".as_ptr().cast_mut(),
+static tokens_MOVE_WORKSPACE_NUMBER: [cmdp_token; 1] = [token {
+    name: b"string",
+    identifier: Some(b"number"),
     next_state: CommandParserState::Call,
     extra: ParserTokenData {
         call_identifier: 14_i32 as u16,
     },
 }];
-static mut tokens_BAR_HIDDEN_STATE_ID: [cmdp_token; 2] = [
+static tokens_BAR_HIDDEN_STATE_ID: [cmdp_token; 2] = [
     token {
-        name: c"word".as_ptr().cast_mut(),
-        identifier: c"bar_id".as_ptr().cast_mut(),
+        name: b"word",
+        identifier: Some(b"bar_id"),
         next_state: CommandParserState::BarHiddenStateId,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 15_i32 as u16,
         },
     },
 ];
-static mut tokens_RENAME_WORKSPACE_TO: [cmdp_token; 1] = [token {
-    name: c"'to".as_ptr().cast_mut(),
-    identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static tokens_RENAME_WORKSPACE_TO: [cmdp_token; 1] = [token {
+    name: b"'to",
+    identifier: None,
     next_state: CommandParserState::RenameWorkspaceToNewName,
     extra: ParserTokenData {
         call_identifier: 0_i32 as u16,
     },
 }];
-static mut tokens_RESIZE_TILING_FINAL: [cmdp_token; 2] = [
+static tokens_RESIZE_TILING_FINAL: [cmdp_token; 2] = [
     token {
-        name: c"'ppt".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'ppt",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 16_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 17_i32 as u16,
         },
     },
 ];
-static mut tokens_CRITERION_FROM_STR: [cmdp_token; 2] = [
+static tokens_CRITERION_FROM_STR: [cmdp_token; 2] = [
     token {
-        name: c"'auto".as_ptr().cast_mut(),
-        identifier: c"kind".as_ptr().cast_mut(),
+        name: b"'auto",
+        identifier: Some(b"kind"),
         next_state: CommandParserState::CriterionFromStrEnd,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'user".as_ptr().cast_mut(),
-        identifier: c"kind".as_ptr().cast_mut(),
+        name: b"'user",
+        identifier: Some(b"kind"),
         next_state: CommandParserState::CriterionFromStrEnd,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
 ];
-static mut tokens_MOVE_TO_POSITION_X: [cmdp_token; 3] = [
+static tokens_MOVE_TO_POSITION_X: [cmdp_token; 3] = [
     token {
-        name: c"'px".as_ptr().cast_mut(),
-        identifier: c"mode_x".as_ptr().cast_mut(),
+        name: b"'px",
+        identifier: Some(b"mode_x"),
         next_state: CommandParserState::MoveToPositionX,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'ppt".as_ptr().cast_mut(),
-        identifier: c"mode_x".as_ptr().cast_mut(),
+        name: b"'ppt",
+        identifier: Some(b"mode_x"),
         next_state: CommandParserState::MoveToPositionX,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"number".as_ptr().cast_mut(),
-        identifier: c"coord_y".as_ptr().cast_mut(),
+        name: b"number",
+        identifier: Some(b"coord_y"),
         next_state: CommandParserState::MoveToPositionY,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
 ];
-static mut tokens_MOVE_TO_POSITION_Y: [cmdp_token; 3] = [
+static tokens_MOVE_TO_POSITION_Y: [cmdp_token; 3] = [
     token {
-        name: c"'px".as_ptr().cast_mut(),
-        identifier: c"mode_y".as_ptr().cast_mut(),
+        name: b"'px",
+        identifier: Some(b"mode_y"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 18_i32 as u16,
         },
     },
     token {
-        name: c"'ppt".as_ptr().cast_mut(),
-        identifier: c"mode_y".as_ptr().cast_mut(),
+        name: b"'ppt",
+        identifier: Some(b"mode_y"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 19_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 20_i32 as u16,
         },
     },
 ];
-static mut tokens_FULLSCREEN_COMPAT: [cmdp_token; 2] = [
+static tokens_FULLSCREEN_COMPAT: [cmdp_token; 2] = [
     token {
-        name: c"'global".as_ptr().cast_mut(),
-        identifier: c"mode".as_ptr().cast_mut(),
+        name: b"'global",
+        identifier: Some(b"mode"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 21_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 22_i32 as u16,
         },
     },
 ];
-static mut tokens_TITLE_WINDOW_ICON: [cmdp_token; 14] = [
+static tokens_TITLE_WINDOW_ICON: [cmdp_token; 14] = [
     token {
-        name: c"'padding".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'padding",
+        identifier: None,
         next_state: CommandParserState::TitleWindowIconPadding,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'toggle".as_ptr().cast_mut(),
-        identifier: c"enable".as_ptr().cast_mut(),
+        name: b"'toggle",
+        identifier: Some(b"enable"),
         next_state: CommandParserState::TitleWindowIconPadding,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'1".as_ptr().cast_mut(),
-        identifier: c"enable".as_ptr().cast_mut(),
+        name: b"'1",
+        identifier: Some(b"enable"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 23_i32 as u16,
         },
     },
     token {
-        name: c"'yes".as_ptr().cast_mut(),
-        identifier: c"enable".as_ptr().cast_mut(),
+        name: b"'yes",
+        identifier: Some(b"enable"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 24_i32 as u16,
         },
     },
     token {
-        name: c"'true".as_ptr().cast_mut(),
-        identifier: c"enable".as_ptr().cast_mut(),
+        name: b"'true",
+        identifier: Some(b"enable"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 25_i32 as u16,
         },
     },
     token {
-        name: c"'on".as_ptr().cast_mut(),
-        identifier: c"enable".as_ptr().cast_mut(),
+        name: b"'on",
+        identifier: Some(b"enable"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 26_i32 as u16,
         },
     },
     token {
-        name: c"'enable".as_ptr().cast_mut(),
-        identifier: c"enable".as_ptr().cast_mut(),
+        name: b"'enable",
+        identifier: Some(b"enable"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 27_i32 as u16,
         },
     },
     token {
-        name: c"'active".as_ptr().cast_mut(),
-        identifier: c"enable".as_ptr().cast_mut(),
+        name: b"'active",
+        identifier: Some(b"enable"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 28_i32 as u16,
         },
     },
     token {
-        name: c"'0".as_ptr().cast_mut(),
-        identifier: c"enable".as_ptr().cast_mut(),
+        name: b"'0",
+        identifier: Some(b"enable"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 29_i32 as u16,
         },
     },
     token {
-        name: c"'no".as_ptr().cast_mut(),
-        identifier: c"enable".as_ptr().cast_mut(),
+        name: b"'no",
+        identifier: Some(b"enable"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 30_i32 as u16,
         },
     },
     token {
-        name: c"'false".as_ptr().cast_mut(),
-        identifier: c"enable".as_ptr().cast_mut(),
+        name: b"'false",
+        identifier: Some(b"enable"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 31_i32 as u16,
         },
     },
     token {
-        name: c"'off".as_ptr().cast_mut(),
-        identifier: c"enable".as_ptr().cast_mut(),
+        name: b"'off",
+        identifier: Some(b"enable"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 32_i32 as u16,
         },
     },
     token {
-        name: c"'disable".as_ptr().cast_mut(),
-        identifier: c"enable".as_ptr().cast_mut(),
+        name: b"'disable",
+        identifier: Some(b"enable"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 33_i32 as u16,
         },
     },
     token {
-        name: c"'inactive".as_ptr().cast_mut(),
-        identifier: c"enable".as_ptr().cast_mut(),
+        name: b"'inactive",
+        identifier: Some(b"enable"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 34_i32 as u16,
         },
     },
 ];
-static mut tokens_BAR_HIDDEN_STATE: [cmdp_token; 3] = [
+static tokens_BAR_HIDDEN_STATE: [cmdp_token; 3] = [
     token {
-        name: c"'hide".as_ptr().cast_mut(),
-        identifier: c"bar_value".as_ptr().cast_mut(),
+        name: b"'hide",
+        identifier: Some(b"bar_value"),
         next_state: CommandParserState::BarHiddenStateId,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'show".as_ptr().cast_mut(),
-        identifier: c"bar_value".as_ptr().cast_mut(),
+        name: b"'show",
+        identifier: Some(b"bar_value"),
         next_state: CommandParserState::BarHiddenStateId,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'toggle".as_ptr().cast_mut(),
-        identifier: c"bar_value".as_ptr().cast_mut(),
+        name: b"'toggle",
+        identifier: Some(b"bar_value"),
         next_state: CommandParserState::BarHiddenStateId,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
 ];
-static mut tokens_MOVE_TO_POSITION: [cmdp_token; 5] = [
+static tokens_MOVE_TO_POSITION: [cmdp_token; 5] = [
     token {
-        name: c"'center".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'center",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 35_i32 as u16,
         },
     },
     token {
-        name: c"'mouse".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'mouse",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 36_i32 as u16,
         },
     },
     token {
-        name: c"'cursor".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'cursor",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 37_i32 as u16,
         },
     },
     token {
-        name: c"'pointer".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'pointer",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 38_i32 as u16,
         },
     },
     token {
-        name: c"number".as_ptr().cast_mut(),
-        identifier: c"coord_x".as_ptr().cast_mut(),
+        name: b"number",
+        identifier: Some(b"coord_x"),
         next_state: CommandParserState::MoveToPositionX,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
 ];
-static mut tokens_RENAME_WORKSPACE: [cmdp_token; 2] = [
+static tokens_RENAME_WORKSPACE: [cmdp_token; 2] = [
     token {
-        name: c"'to".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'to",
+        identifier: None,
         next_state: CommandParserState::RenameWorkspaceLikelyTo,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"word".as_ptr().cast_mut(),
-        identifier: c"old_name".as_ptr().cast_mut(),
+        name: b"word",
+        identifier: Some(b"old_name"),
         next_state: CommandParserState::RenameWorkspaceTo,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
 ];
-static mut tokens_RESIZE_DIRECTION: [cmdp_token; 6] = [
+static tokens_RESIZE_DIRECTION: [cmdp_token; 6] = [
     token {
-        name: c"'up".as_ptr().cast_mut(),
-        identifier: c"direction".as_ptr().cast_mut(),
+        name: b"'up",
+        identifier: Some(b"direction"),
         next_state: CommandParserState::ResizePx,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'down".as_ptr().cast_mut(),
-        identifier: c"direction".as_ptr().cast_mut(),
+        name: b"'down",
+        identifier: Some(b"direction"),
         next_state: CommandParserState::ResizePx,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'left".as_ptr().cast_mut(),
-        identifier: c"direction".as_ptr().cast_mut(),
+        name: b"'left",
+        identifier: Some(b"direction"),
         next_state: CommandParserState::ResizePx,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'right".as_ptr().cast_mut(),
-        identifier: c"direction".as_ptr().cast_mut(),
+        name: b"'right",
+        identifier: Some(b"direction"),
         next_state: CommandParserState::ResizePx,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'width".as_ptr().cast_mut(),
-        identifier: c"direction".as_ptr().cast_mut(),
+        name: b"'width",
+        identifier: Some(b"direction"),
         next_state: CommandParserState::ResizePx,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'height".as_ptr().cast_mut(),
-        identifier: c"direction".as_ptr().cast_mut(),
+        name: b"'height",
+        identifier: Some(b"direction"),
         next_state: CommandParserState::ResizePx,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
 ];
-static mut tokens_RESIZE_TILING_OR: [cmdp_token; 1] = [token {
-    name: c"number".as_ptr().cast_mut(),
-    identifier: c"resize_ppt".as_ptr().cast_mut(),
+static tokens_RESIZE_TILING_OR: [cmdp_token; 1] = [token {
+    name: b"number",
+    identifier: Some(b"resize_ppt"),
     next_state: CommandParserState::ResizeTilingFinal,
     extra: ParserTokenData {
         call_identifier: 0_i32 as u16,
     },
 }];
-static mut tokens_WORKSPACE_NUMBER: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"workspace".as_ptr().cast_mut(),
+static tokens_WORKSPACE_NUMBER: [cmdp_token; 1] = [token {
+    name: b"string",
+    identifier: Some(b"workspace"),
     next_state: CommandParserState::Call,
     extra: ParserTokenData {
         call_identifier: 39_i32 as u16,
     },
 }];
-static mut tokens_FULLSCREEN_MODE: [cmdp_token; 2] = [
+static tokens_FULLSCREEN_MODE: [cmdp_token; 2] = [
     token {
-        name: c"'global".as_ptr().cast_mut(),
-        identifier: c"mode".as_ptr().cast_mut(),
+        name: b"'global",
+        identifier: Some(b"mode"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 40_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 41_i32 as u16,
         },
     },
 ];
-static mut tokens_GAPS_WITH_SCOPE: [cmdp_token; 4] = [
+static tokens_GAPS_WITH_SCOPE: [cmdp_token; 4] = [
     token {
-        name: c"'plus".as_ptr().cast_mut(),
-        identifier: c"mode".as_ptr().cast_mut(),
+        name: b"'plus",
+        identifier: Some(b"mode"),
         next_state: CommandParserState::GapsWithMode,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'minus".as_ptr().cast_mut(),
-        identifier: c"mode".as_ptr().cast_mut(),
+        name: b"'minus",
+        identifier: Some(b"mode"),
         next_state: CommandParserState::GapsWithMode,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'set".as_ptr().cast_mut(),
-        identifier: c"mode".as_ptr().cast_mut(),
+        name: b"'set",
+        identifier: Some(b"mode"),
         next_state: CommandParserState::GapsWithMode,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'toggle".as_ptr().cast_mut(),
-        identifier: c"mode".as_ptr().cast_mut(),
+        name: b"'toggle",
+        identifier: Some(b"mode"),
         next_state: CommandParserState::GapsWithMode,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
 ];
-static mut tokens_CRITERION_FROM: [cmdp_token; 1] = [token {
-    name: c"'=".as_ptr().cast_mut(),
-    identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static tokens_CRITERION_FROM: [cmdp_token; 1] = [token {
+    name: b"'=",
+    identifier: None,
     next_state: CommandParserState::CriterionFromStrStart,
     extra: ParserTokenData {
         call_identifier: 0_i32 as u16,
     },
 }];
-static mut tokens_GAPS_WITH_MODE: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"value".as_ptr().cast_mut(),
+static tokens_GAPS_WITH_MODE: [cmdp_token; 1] = [token {
+    name: b"word",
+    identifier: Some(b"value"),
     next_state: CommandParserState::GapsEnd,
     extra: ParserTokenData {
         call_identifier: 0_i32 as u16,
     },
 }];
-static mut tokens_GAPS_WITH_TYPE: [cmdp_token; 2] = [
+static tokens_GAPS_WITH_TYPE: [cmdp_token; 2] = [
     token {
-        name: c"'current".as_ptr().cast_mut(),
-        identifier: c"scope".as_ptr().cast_mut(),
+        name: b"'current",
+        identifier: Some(b"scope"),
         next_state: CommandParserState::GapsWithScope,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'all".as_ptr().cast_mut(),
-        identifier: c"scope".as_ptr().cast_mut(),
+        name: b"'all",
+        identifier: Some(b"scope"),
         next_state: CommandParserState::GapsWithScope,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
 ];
-static mut tokens_MOVE_DIRECTION: [cmdp_token; 2] = [
+static tokens_MOVE_DIRECTION: [cmdp_token; 2] = [
     token {
-        name: c"number".as_ptr().cast_mut(),
-        identifier: c"amount".as_ptr().cast_mut(),
+        name: b"number",
+        identifier: Some(b"amount"),
         next_state: CommandParserState::MoveDirectionNumber,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 42_i32 as u16,
         },
     },
 ];
-static mut tokens_MOVE_TO_OUTPUT: [cmdp_token; 2] = [
+static tokens_MOVE_TO_OUTPUT: [cmdp_token; 2] = [
     token {
-        name: c"word".as_ptr().cast_mut(),
-        identifier: c"output".as_ptr().cast_mut(),
+        name: b"word",
+        identifier: Some(b"output"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 43_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 44_i32 as u16,
         },
     },
 ];
-static mut tokens_MOVE_WORKSPACE: [cmdp_token; 9] = [
+static tokens_MOVE_WORKSPACE: [cmdp_token; 9] = [
     token {
-        name: c"'to ".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'to ",
+        identifier: None,
         next_state: CommandParserState::MoveWorkspaceToOutput,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'next_on_output".as_ptr().cast_mut(),
-        identifier: c"workspace".as_ptr().cast_mut(),
+        name: b"'next_on_output",
+        identifier: Some(b"workspace"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 45_i32 as u16,
         },
     },
     token {
-        name: c"'prev_on_output".as_ptr().cast_mut(),
-        identifier: c"workspace".as_ptr().cast_mut(),
+        name: b"'prev_on_output",
+        identifier: Some(b"workspace"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 46_i32 as u16,
         },
     },
     token {
-        name: c"'next".as_ptr().cast_mut(),
-        identifier: c"workspace".as_ptr().cast_mut(),
+        name: b"'next",
+        identifier: Some(b"workspace"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 47_i32 as u16,
         },
     },
     token {
-        name: c"'prev".as_ptr().cast_mut(),
-        identifier: c"workspace".as_ptr().cast_mut(),
+        name: b"'prev",
+        identifier: Some(b"workspace"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 48_i32 as u16,
         },
     },
     token {
-        name: c"'current".as_ptr().cast_mut(),
-        identifier: c"workspace".as_ptr().cast_mut(),
+        name: b"'current",
+        identifier: Some(b"workspace"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 49_i32 as u16,
         },
     },
     token {
-        name: c"'back_and_forth".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'back_and_forth",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 50_i32 as u16,
         },
     },
     token {
-        name: c"'number".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'number",
+        identifier: None,
         next_state: CommandParserState::MoveWorkspaceNumber,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"string".as_ptr().cast_mut(),
-        identifier: c"workspace".as_ptr().cast_mut(),
+        name: b"string",
+        identifier: Some(b"workspace"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 51_i32 as u16,
         },
     },
 ];
-static mut tokens_APPEND_LAYOUT: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"path".as_ptr().cast_mut(),
+static tokens_APPEND_LAYOUT: [cmdp_token; 1] = [token {
+    name: b"string",
+    identifier: Some(b"path"),
     next_state: CommandParserState::Call,
     extra: ParserTokenData {
         call_identifier: 52_i32 as u16,
     },
 }];
-static mut tokens_CRITERION_STR: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"cvalue".as_ptr().cast_mut(),
+static tokens_CRITERION_STR: [cmdp_token; 1] = [token {
+    name: b"word",
+    identifier: Some(b"cvalue"),
     next_state: CommandParserState::Call,
     extra: ParserTokenData {
         call_identifier: 53_i32 as u16,
     },
 }];
-static mut tokens_LAYOUT_TOGGLE: [cmdp_token; 2] = [
+static tokens_LAYOUT_TOGGLE: [cmdp_token; 2] = [
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 54_i32 as u16,
         },
     },
     token {
-        name: c"string".as_ptr().cast_mut(),
-        identifier: c"toggle_mode".as_ptr().cast_mut(),
+        name: b"string",
+        identifier: Some(b"toggle_mode"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 55_i32 as u16,
         },
     },
 ];
-static mut tokens_RESIZE_HEIGHT: [cmdp_token; 3] = [
+static tokens_RESIZE_HEIGHT: [cmdp_token; 3] = [
     token {
-        name: c"'px".as_ptr().cast_mut(),
-        identifier: c"mode_height".as_ptr().cast_mut(),
+        name: b"'px",
+        identifier: Some(b"mode_height"),
         next_state: CommandParserState::ResizeHeight,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'ppt".as_ptr().cast_mut(),
-        identifier: c"mode_height".as_ptr().cast_mut(),
+        name: b"'ppt",
+        identifier: Some(b"mode_height"),
         next_state: CommandParserState::ResizeHeight,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 56_i32 as u16,
         },
     },
 ];
-static mut tokens_RESIZE_TILING: [cmdp_token; 3] = [
+static tokens_RESIZE_TILING: [cmdp_token; 3] = [
     token {
-        name: c"'px".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'px",
+        identifier: None,
         next_state: CommandParserState::ResizeTiling,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'or".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'or",
+        identifier: None,
         next_state: CommandParserState::ResizeTilingOr,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 57_i32 as u16,
         },
     },
 ];
-static mut tokens_SWAP_ARGUMENT: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"arg".as_ptr().cast_mut(),
+static tokens_SWAP_ARGUMENT: [cmdp_token; 1] = [token {
+    name: b"string",
+    identifier: Some(b"arg"),
     next_state: CommandParserState::Call,
     extra: ParserTokenData {
         call_identifier: 58_i32 as u16,
     },
 }];
-static mut tokens_BORDER_WIDTH: [cmdp_token; 2] = [
+static tokens_BORDER_WIDTH: [cmdp_token; 2] = [
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 59_i32 as u16,
         },
     },
     token {
-        name: c"number".as_ptr().cast_mut(),
-        identifier: c"border_width".as_ptr().cast_mut(),
+        name: b"number",
+        identifier: Some(b"border_width"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 60_i32 as u16,
         },
     },
 ];
-static mut tokens_FOCUS_OUTPUT: [cmdp_token; 2] = [
+static tokens_FOCUS_OUTPUT: [cmdp_token; 2] = [
     token {
-        name: c"word".as_ptr().cast_mut(),
-        identifier: c"output".as_ptr().cast_mut(),
+        name: b"word",
+        identifier: Some(b"output"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 61_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 62_i32 as u16,
         },
     },
 ];
-static mut tokens_MOVE_TO_MARK: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"mark".as_ptr().cast_mut(),
+static tokens_MOVE_TO_MARK: [cmdp_token; 1] = [token {
+    name: b"string",
+    identifier: Some(b"mark"),
     next_state: CommandParserState::Call,
     extra: ParserTokenData {
         call_identifier: 63_i32 as u16,
     },
 }];
-static mut tokens_RESIZE_WIDTH: [cmdp_token; 5] = [
+static tokens_RESIZE_WIDTH: [cmdp_token; 5] = [
     token {
-        name: c"'px".as_ptr().cast_mut(),
-        identifier: c"mode_width".as_ptr().cast_mut(),
+        name: b"'px",
+        identifier: Some(b"mode_width"),
         next_state: CommandParserState::ResizeWidth,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'ppt".as_ptr().cast_mut(),
-        identifier: c"mode_width".as_ptr().cast_mut(),
+        name: b"'ppt",
+        identifier: Some(b"mode_width"),
         next_state: CommandParserState::ResizeWidth,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 64_i32 as u16,
         },
     },
     token {
-        name: c"'height".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'height",
+        identifier: None,
         next_state: CommandParserState::ResizeHeightGetNumber,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"number".as_ptr().cast_mut(),
-        identifier: c"height".as_ptr().cast_mut(),
+        name: b"number",
+        identifier: Some(b"height"),
         next_state: CommandParserState::ResizeHeight,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
 ];
-static mut tokens_TITLE_FORMAT: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"format".as_ptr().cast_mut(),
+static tokens_TITLE_FORMAT: [cmdp_token; 1] = [token {
+    name: b"string",
+    identifier: Some(b"format"),
     next_state: CommandParserState::Call,
     extra: ParserTokenData {
         call_identifier: 65_i32 as u16,
     },
 }];
-static mut tokens_BAR_MODE_ID: [cmdp_token; 2] = [
+static tokens_BAR_MODE_ID: [cmdp_token; 2] = [
     token {
-        name: c"word".as_ptr().cast_mut(),
-        identifier: c"bar_id".as_ptr().cast_mut(),
+        name: b"word",
+        identifier: Some(b"bar_id"),
         next_state: CommandParserState::BarModeId,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 66_i32 as u16,
         },
     },
 ];
-static mut tokens_FOCUS_AUTO: [cmdp_token; 2] = [
+static tokens_FOCUS_AUTO: [cmdp_token; 2] = [
     token {
-        name: c"'sibling".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'sibling",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 67_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 68_i32 as u16,
         },
     },
 ];
-static mut tokens_FULLSCREEN: [cmdp_token; 4] = [
+static tokens_FULLSCREEN: [cmdp_token; 4] = [
     token {
-        name: c"'disable".as_ptr().cast_mut(),
-        identifier: c"action".as_ptr().cast_mut(),
+        name: b"'disable",
+        identifier: Some(b"action"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 69_i32 as u16,
         },
     },
     token {
-        name: c"'enable".as_ptr().cast_mut(),
-        identifier: c"action".as_ptr().cast_mut(),
+        name: b"'enable",
+        identifier: Some(b"action"),
         next_state: CommandParserState::FullscreenMode,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'toggle".as_ptr().cast_mut(),
-        identifier: c"action".as_ptr().cast_mut(),
+        name: b"'toggle",
+        identifier: Some(b"action"),
         next_state: CommandParserState::FullscreenMode,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'".as_ptr().cast_mut(),
-        identifier: c"action".as_ptr().cast_mut(),
+        name: b"'",
+        identifier: Some(b"action"),
         next_state: CommandParserState::FullscreenCompat,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
 ];
-static mut tokens_RESIZE_SET: [cmdp_token; 3] = [
+static tokens_RESIZE_SET: [cmdp_token; 3] = [
     token {
-        name: c"'height".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'height",
+        identifier: None,
         next_state: CommandParserState::ResizeHeightGetNumber,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'width".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'width",
+        identifier: None,
         next_state: CommandParserState::ResizeSet,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"number".as_ptr().cast_mut(),
-        identifier: c"width".as_ptr().cast_mut(),
+        name: b"number",
+        identifier: Some(b"width"),
         next_state: CommandParserState::ResizeWidth,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
 ];
-static mut tokens_SCRATCHPAD: [cmdp_token; 1] = [token {
-    name: c"'show".as_ptr().cast_mut(),
-    identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static tokens_SCRATCHPAD: [cmdp_token; 1] = [token {
+    name: b"'show",
+    identifier: None,
     next_state: CommandParserState::Call,
     extra: ParserTokenData {
         call_identifier: 70_i32 as u16,
     },
 }];
-static mut tokens_CRITERION: [cmdp_token; 1] = [token {
-    name: c"'=".as_ptr().cast_mut(),
-    identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static tokens_CRITERION: [cmdp_token; 1] = [token {
+    name: b"'=",
+    identifier: None,
     next_state: CommandParserState::CriterionStr,
     extra: ParserTokenData {
         call_identifier: 0_i32 as u16,
     },
 }];
-static mut tokens_RESIZE_PX: [cmdp_token; 2] = [
+static tokens_RESIZE_PX: [cmdp_token; 2] = [
     token {
-        name: c"number".as_ptr().cast_mut(),
-        identifier: c"resize_px".as_ptr().cast_mut(),
+        name: b"number",
+        identifier: Some(b"resize_px"),
         next_state: CommandParserState::ResizeTiling,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 71_i32 as u16,
         },
     },
 ];
-static mut tokens_WORKSPACE: [cmdp_token; 8] = [
+static tokens_WORKSPACE: [cmdp_token; 8] = [
     token {
-        name: c"'--no-auto-back-and-forth".as_ptr().cast_mut(),
-        identifier: c"no_auto_back_and_forth".as_ptr().cast_mut(),
+        name: b"'--no-auto-back-and-forth",
+        identifier: Some(b"no_auto_back_and_forth"),
         next_state: CommandParserState::Workspace,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'next_on_output".as_ptr().cast_mut(),
-        identifier: c"direction".as_ptr().cast_mut(),
+        name: b"'next_on_output",
+        identifier: Some(b"direction"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 72_i32 as u16,
         },
     },
     token {
-        name: c"'prev_on_output".as_ptr().cast_mut(),
-        identifier: c"direction".as_ptr().cast_mut(),
+        name: b"'prev_on_output",
+        identifier: Some(b"direction"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 73_i32 as u16,
         },
     },
     token {
-        name: c"'next".as_ptr().cast_mut(),
-        identifier: c"direction".as_ptr().cast_mut(),
+        name: b"'next",
+        identifier: Some(b"direction"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 74_i32 as u16,
         },
     },
     token {
-        name: c"'prev".as_ptr().cast_mut(),
-        identifier: c"direction".as_ptr().cast_mut(),
+        name: b"'prev",
+        identifier: Some(b"direction"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 75_i32 as u16,
         },
     },
     token {
-        name: c"'back_and_forth".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'back_and_forth",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 76_i32 as u16,
         },
     },
     token {
-        name: c"'number".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'number",
+        identifier: None,
         next_state: CommandParserState::WorkspaceNumber,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"string".as_ptr().cast_mut(),
-        identifier: c"workspace".as_ptr().cast_mut(),
+        name: b"string",
+        identifier: Some(b"workspace"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 77_i32 as u16,
         },
     },
 ];
-static mut tokens_BAR_MODE: [cmdp_token; 4] = [
+static tokens_BAR_MODE: [cmdp_token; 4] = [
     token {
-        name: c"'dock".as_ptr().cast_mut(),
-        identifier: c"bar_value".as_ptr().cast_mut(),
+        name: b"'dock",
+        identifier: Some(b"bar_value"),
         next_state: CommandParserState::BarModeId,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'hide".as_ptr().cast_mut(),
-        identifier: c"bar_value".as_ptr().cast_mut(),
+        name: b"'hide",
+        identifier: Some(b"bar_value"),
         next_state: CommandParserState::BarModeId,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'invisible".as_ptr().cast_mut(),
-        identifier: c"bar_value".as_ptr().cast_mut(),
+        name: b"'invisible",
+        identifier: Some(b"bar_value"),
         next_state: CommandParserState::BarModeId,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'toggle".as_ptr().cast_mut(),
-        identifier: c"bar_value".as_ptr().cast_mut(),
+        name: b"'toggle",
+        identifier: Some(b"bar_value"),
         next_state: CommandParserState::BarModeId,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
 ];
-static mut tokens_CRITERIA: [cmdp_token; 17] = [
+static tokens_CRITERIA: [cmdp_token; 17] = [
     token {
-        name: c"'class".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+        name: b"'class",
+        identifier: Some(b"ctype"),
         next_state: CommandParserState::Criterion,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'instance".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+        name: b"'instance",
+        identifier: Some(b"ctype"),
         next_state: CommandParserState::Criterion,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'window_role".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+        name: b"'window_role",
+        identifier: Some(b"ctype"),
         next_state: CommandParserState::Criterion,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'con_id".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+        name: b"'con_id",
+        identifier: Some(b"ctype"),
         next_state: CommandParserState::Criterion,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'id".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+        name: b"'id",
+        identifier: Some(b"ctype"),
         next_state: CommandParserState::Criterion,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'window_type".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+        name: b"'window_type",
+        identifier: Some(b"ctype"),
         next_state: CommandParserState::Criterion,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'con_mark".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+        name: b"'con_mark",
+        identifier: Some(b"ctype"),
         next_state: CommandParserState::Criterion,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'title".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+        name: b"'title",
+        identifier: Some(b"ctype"),
         next_state: CommandParserState::Criterion,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'urgent".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+        name: b"'urgent",
+        identifier: Some(b"ctype"),
         next_state: CommandParserState::Criterion,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'workspace".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+        name: b"'workspace",
+        identifier: Some(b"ctype"),
         next_state: CommandParserState::Criterion,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'machine".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+        name: b"'machine",
+        identifier: Some(b"ctype"),
         next_state: CommandParserState::Criterion,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'floating_from".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+        name: b"'floating_from",
+        identifier: Some(b"ctype"),
         next_state: CommandParserState::CriterionFrom,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'tiling_from".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+        name: b"'tiling_from",
+        identifier: Some(b"ctype"),
         next_state: CommandParserState::CriterionFrom,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'tiling".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+        name: b"'tiling",
+        identifier: Some(b"ctype"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 78_i32 as u16,
         },
     },
     token {
-        name: c"'floating".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+        name: b"'floating",
+        identifier: Some(b"ctype"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 79_i32 as u16,
         },
     },
     token {
-        name: c"'all".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+        name: b"'all",
+        identifier: Some(b"ctype"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 80_i32 as u16,
         },
     },
     token {
-        name: c"']".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"']",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 81_i32 as u16,
         },
     },
 ];
-static mut tokens_DEBUGLOG: [cmdp_token; 3] = [
+static tokens_DEBUGLOG: [cmdp_token; 3] = [
     token {
-        name: c"'toggle".as_ptr().cast_mut(),
-        identifier: c"argument".as_ptr().cast_mut(),
+        name: b"'toggle",
+        identifier: Some(b"argument"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 82_i32 as u16,
         },
     },
     token {
-        name: c"'on".as_ptr().cast_mut(),
-        identifier: c"argument".as_ptr().cast_mut(),
+        name: b"'on",
+        identifier: Some(b"argument"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 83_i32 as u16,
         },
     },
     token {
-        name: c"'off".as_ptr().cast_mut(),
-        identifier: c"argument".as_ptr().cast_mut(),
+        name: b"'off",
+        identifier: Some(b"argument"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 84_i32 as u16,
         },
     },
 ];
-static mut tokens_FLOATING: [cmdp_token; 3] = [
+static tokens_FLOATING: [cmdp_token; 3] = [
     token {
-        name: c"'enable".as_ptr().cast_mut(),
-        identifier: c"floating".as_ptr().cast_mut(),
+        name: b"'enable",
+        identifier: Some(b"floating"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 85_i32 as u16,
         },
     },
     token {
-        name: c"'disable".as_ptr().cast_mut(),
-        identifier: c"floating".as_ptr().cast_mut(),
+        name: b"'disable",
+        identifier: Some(b"floating"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 86_i32 as u16,
         },
     },
     token {
-        name: c"'toggle".as_ptr().cast_mut(),
-        identifier: c"floating".as_ptr().cast_mut(),
+        name: b"'toggle",
+        identifier: Some(b"floating"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 87_i32 as u16,
         },
     },
 ];
-static mut tokens_GAPS_END: [cmdp_token; 2] = [
+static tokens_GAPS_END: [cmdp_token; 2] = [
     token {
-        name: c"'px".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'px",
+        identifier: None,
         next_state: CommandParserState::GapsEnd,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 88_i32 as u16,
         },
     },
 ];
-static mut tokens_INITIAL: [cmdp_token; 32] = [
+static tokens_INITIAL: [cmdp_token; 32] = [
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: CommandParserState::Initial,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'[".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'[",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 89_i32 as u16,
         },
     },
     token {
-        name: c"'move".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'move",
+        identifier: None,
         next_state: CommandParserState::Move,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'exec".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'exec",
+        identifier: None,
         next_state: CommandParserState::Exec,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'exit".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'exit",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 90_i32 as u16,
         },
     },
     token {
-        name: c"'restart".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'restart",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 91_i32 as u16,
         },
     },
     token {
-        name: c"'reload".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'reload",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 92_i32 as u16,
         },
     },
     token {
-        name: c"'shmlog".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'shmlog",
+        identifier: None,
         next_state: CommandParserState::Shmlog,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'debuglog".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'debuglog",
+        identifier: None,
         next_state: CommandParserState::Debuglog,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'border".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'border",
+        identifier: None,
         next_state: CommandParserState::Border,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'layout".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'layout",
+        identifier: None,
         next_state: CommandParserState::Layout,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'append_layout".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'append_layout",
+        identifier: None,
         next_state: CommandParserState::AppendLayout,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'workspace".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'workspace",
+        identifier: None,
         next_state: CommandParserState::Workspace,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'focus".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'focus",
+        identifier: None,
         next_state: CommandParserState::Focus,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'kill".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'kill",
+        identifier: None,
         next_state: CommandParserState::Kill,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'open".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'open",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 93_i32 as u16,
         },
     },
     token {
-        name: c"'fullscreen".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'fullscreen",
+        identifier: None,
         next_state: CommandParserState::Fullscreen,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'sticky".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'sticky",
+        identifier: None,
         next_state: CommandParserState::Sticky,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'split".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'split",
+        identifier: None,
         next_state: CommandParserState::Split,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'floating".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'floating",
+        identifier: None,
         next_state: CommandParserState::Floating,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'mark".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'mark",
+        identifier: None,
         next_state: CommandParserState::Mark,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'unmark".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'unmark",
+        identifier: None,
         next_state: CommandParserState::Unmark,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'resize".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'resize",
+        identifier: None,
         next_state: CommandParserState::Resize,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'rename".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'rename",
+        identifier: None,
         next_state: CommandParserState::Rename,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'nop".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'nop",
+        identifier: None,
         next_state: CommandParserState::Nop,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'scratchpad".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'scratchpad",
+        identifier: None,
         next_state: CommandParserState::Scratchpad,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'swap".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'swap",
+        identifier: None,
         next_state: CommandParserState::Swap,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'title_format".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'title_format",
+        identifier: None,
         next_state: CommandParserState::TitleFormat,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'title_window_icon".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'title_window_icon",
+        identifier: None,
         next_state: CommandParserState::TitleWindowIcon,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'mode".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'mode",
+        identifier: None,
         next_state: CommandParserState::Mode,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'bar".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'bar",
+        identifier: None,
         next_state: CommandParserState::Bar,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'gaps".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'gaps",
+        identifier: None,
         next_state: CommandParserState::Gaps,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
 ];
-static mut tokens_BORDER: [cmdp_token; 5] = [
+static tokens_BORDER: [cmdp_token; 5] = [
     token {
-        name: c"'normal".as_ptr().cast_mut(),
-        identifier: c"border_style".as_ptr().cast_mut(),
+        name: b"'normal",
+        identifier: Some(b"border_style"),
         next_state: CommandParserState::BorderWidth,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'pixel".as_ptr().cast_mut(),
-        identifier: c"border_style".as_ptr().cast_mut(),
+        name: b"'pixel",
+        identifier: Some(b"border_style"),
         next_state: CommandParserState::BorderWidth,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'toggle".as_ptr().cast_mut(),
-        identifier: c"border_style".as_ptr().cast_mut(),
+        name: b"'toggle",
+        identifier: Some(b"border_style"),
         next_state: CommandParserState::BorderWidth,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'none".as_ptr().cast_mut(),
-        identifier: c"border_style".as_ptr().cast_mut(),
+        name: b"'none",
+        identifier: Some(b"border_style"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 94_i32 as u16,
         },
     },
     token {
-        name: c"'1pixel".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'1pixel",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 95_i32 as u16,
         },
     },
 ];
-static mut tokens_LAYOUT: [cmdp_token; 7] = [
+static tokens_LAYOUT: [cmdp_token; 7] = [
     token {
-        name: c"'default".as_ptr().cast_mut(),
-        identifier: c"layout_mode".as_ptr().cast_mut(),
+        name: b"'default",
+        identifier: Some(b"layout_mode"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 96_i32 as u16,
         },
     },
     token {
-        name: c"'stacked".as_ptr().cast_mut(),
-        identifier: c"layout_mode".as_ptr().cast_mut(),
+        name: b"'stacked",
+        identifier: Some(b"layout_mode"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 97_i32 as u16,
         },
     },
     token {
-        name: c"'stacking".as_ptr().cast_mut(),
-        identifier: c"layout_mode".as_ptr().cast_mut(),
+        name: b"'stacking",
+        identifier: Some(b"layout_mode"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 98_i32 as u16,
         },
     },
     token {
-        name: c"'tabbed".as_ptr().cast_mut(),
-        identifier: c"layout_mode".as_ptr().cast_mut(),
+        name: b"'tabbed",
+        identifier: Some(b"layout_mode"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 99_i32 as u16,
         },
     },
     token {
-        name: c"'splitv".as_ptr().cast_mut(),
-        identifier: c"layout_mode".as_ptr().cast_mut(),
+        name: b"'splitv",
+        identifier: Some(b"layout_mode"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 100_i32 as u16,
         },
     },
     token {
-        name: c"'splith".as_ptr().cast_mut(),
-        identifier: c"layout_mode".as_ptr().cast_mut(),
+        name: b"'splith",
+        identifier: Some(b"layout_mode"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 101_i32 as u16,
         },
     },
     token {
-        name: c"'toggle".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'toggle",
+        identifier: None,
         next_state: CommandParserState::LayoutToggle,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
 ];
-static mut tokens_RENAME: [cmdp_token; 1] = [token {
-    name: c"'workspace".as_ptr().cast_mut(),
-    identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static tokens_RENAME: [cmdp_token; 1] = [token {
+    name: b"'workspace",
+    identifier: None,
     next_state: CommandParserState::RenameWorkspace,
     extra: ParserTokenData {
         call_identifier: 0_i32 as u16,
     },
 }];
-static mut tokens_RESIZE: [cmdp_token; 3] = [
+static tokens_RESIZE: [cmdp_token; 3] = [
     token {
-        name: c"'grow".as_ptr().cast_mut(),
-        identifier: c"way".as_ptr().cast_mut(),
+        name: b"'grow",
+        identifier: Some(b"way"),
         next_state: CommandParserState::ResizeDirection,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'shrink".as_ptr().cast_mut(),
-        identifier: c"way".as_ptr().cast_mut(),
+        name: b"'shrink",
+        identifier: Some(b"way"),
         next_state: CommandParserState::ResizeDirection,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'set".as_ptr().cast_mut(),
-        identifier: c"set".as_ptr().cast_mut(),
+        name: b"'set",
+        identifier: Some(b"set"),
         next_state: CommandParserState::ResizeSet,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
 ];
-static mut tokens_SHMLOG: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"argument".as_ptr().cast_mut(),
+static tokens_SHMLOG: [cmdp_token; 1] = [token {
+    name: b"string",
+    identifier: Some(b"argument"),
     next_state: CommandParserState::Call,
     extra: ParserTokenData {
         call_identifier: 102_i32 as u16,
     },
 }];
-static mut tokens_STICKY: [cmdp_token; 3] = [
+static tokens_STICKY: [cmdp_token; 3] = [
     token {
-        name: c"'enable".as_ptr().cast_mut(),
-        identifier: c"action".as_ptr().cast_mut(),
+        name: b"'enable",
+        identifier: Some(b"action"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 103_i32 as u16,
         },
     },
     token {
-        name: c"'disable".as_ptr().cast_mut(),
-        identifier: c"action".as_ptr().cast_mut(),
+        name: b"'disable",
+        identifier: Some(b"action"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 104_i32 as u16,
         },
     },
     token {
-        name: c"'toggle".as_ptr().cast_mut(),
-        identifier: c"action".as_ptr().cast_mut(),
+        name: b"'toggle",
+        identifier: Some(b"action"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 105_i32 as u16,
         },
     },
 ];
-static mut tokens_UNMARK: [cmdp_token; 2] = [
+static tokens_UNMARK: [cmdp_token; 2] = [
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 106_i32 as u16,
         },
     },
     token {
-        name: c"string".as_ptr().cast_mut(),
-        identifier: c"mark".as_ptr().cast_mut(),
+        name: b"string",
+        identifier: Some(b"mark"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 107_i32 as u16,
         },
     },
 ];
-static mut tokens_FOCUS: [cmdp_token; 14] = [
+static tokens_FOCUS: [cmdp_token; 14] = [
     token {
-        name: c"'left".as_ptr().cast_mut(),
-        identifier: c"direction".as_ptr().cast_mut(),
+        name: b"'left",
+        identifier: Some(b"direction"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 108_i32 as u16,
         },
     },
     token {
-        name: c"'right".as_ptr().cast_mut(),
-        identifier: c"direction".as_ptr().cast_mut(),
+        name: b"'right",
+        identifier: Some(b"direction"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 109_i32 as u16,
         },
     },
     token {
-        name: c"'up".as_ptr().cast_mut(),
-        identifier: c"direction".as_ptr().cast_mut(),
+        name: b"'up",
+        identifier: Some(b"direction"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 110_i32 as u16,
         },
     },
     token {
-        name: c"'down".as_ptr().cast_mut(),
-        identifier: c"direction".as_ptr().cast_mut(),
+        name: b"'down",
+        identifier: Some(b"direction"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 111_i32 as u16,
         },
     },
     token {
-        name: c"'prev".as_ptr().cast_mut(),
-        identifier: c"direction".as_ptr().cast_mut(),
+        name: b"'prev",
+        identifier: Some(b"direction"),
         next_state: CommandParserState::FocusAuto,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'next".as_ptr().cast_mut(),
-        identifier: c"direction".as_ptr().cast_mut(),
+        name: b"'next",
+        identifier: Some(b"direction"),
         next_state: CommandParserState::FocusAuto,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'output".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'output",
+        identifier: None,
         next_state: CommandParserState::FocusOutput,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'tiling".as_ptr().cast_mut(),
-        identifier: c"window_mode".as_ptr().cast_mut(),
+        name: b"'tiling",
+        identifier: Some(b"window_mode"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 112_i32 as u16,
         },
     },
     token {
-        name: c"'floating".as_ptr().cast_mut(),
-        identifier: c"window_mode".as_ptr().cast_mut(),
+        name: b"'floating",
+        identifier: Some(b"window_mode"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 113_i32 as u16,
         },
     },
     token {
-        name: c"'mode_toggle".as_ptr().cast_mut(),
-        identifier: c"window_mode".as_ptr().cast_mut(),
+        name: b"'mode_toggle",
+        identifier: Some(b"window_mode"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 114_i32 as u16,
         },
     },
     token {
-        name: c"'parent".as_ptr().cast_mut(),
-        identifier: c"level".as_ptr().cast_mut(),
+        name: b"'parent",
+        identifier: Some(b"level"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 115_i32 as u16,
         },
     },
     token {
-        name: c"'child".as_ptr().cast_mut(),
-        identifier: c"level".as_ptr().cast_mut(),
+        name: b"'child",
+        identifier: Some(b"level"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 116_i32 as u16,
         },
     },
     token {
-        name: c"'workspace".as_ptr().cast_mut(),
-        identifier: c"workspace".as_ptr().cast_mut(),
+        name: b"'workspace",
+        identifier: Some(b"workspace"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 117_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 118_i32 as u16,
         },
     },
 ];
-static mut tokens_SPLIT: [cmdp_token; 6] = [
+static tokens_SPLIT: [cmdp_token; 6] = [
     token {
-        name: c"'horizontal".as_ptr().cast_mut(),
-        identifier: c"direction".as_ptr().cast_mut(),
+        name: b"'horizontal",
+        identifier: Some(b"direction"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 119_i32 as u16,
         },
     },
     token {
-        name: c"'vertical".as_ptr().cast_mut(),
-        identifier: c"direction".as_ptr().cast_mut(),
+        name: b"'vertical",
+        identifier: Some(b"direction"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 120_i32 as u16,
         },
     },
     token {
-        name: c"'toggle".as_ptr().cast_mut(),
-        identifier: c"direction".as_ptr().cast_mut(),
+        name: b"'toggle",
+        identifier: Some(b"direction"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 121_i32 as u16,
         },
     },
     token {
-        name: c"'v".as_ptr().cast_mut(),
-        identifier: c"direction".as_ptr().cast_mut(),
+        name: b"'v",
+        identifier: Some(b"direction"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 122_i32 as u16,
         },
     },
     token {
-        name: c"'h".as_ptr().cast_mut(),
-        identifier: c"direction".as_ptr().cast_mut(),
+        name: b"'h",
+        identifier: Some(b"direction"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 123_i32 as u16,
         },
     },
     token {
-        name: c"'t".as_ptr().cast_mut(),
-        identifier: c"direction".as_ptr().cast_mut(),
+        name: b"'t",
+        identifier: Some(b"direction"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 124_i32 as u16,
         },
     },
 ];
-static mut tokens_EXEC: [cmdp_token; 2] = [
+static tokens_EXEC: [cmdp_token; 2] = [
     token {
-        name: c"'--no-startup-id".as_ptr().cast_mut(),
-        identifier: c"nosn".as_ptr().cast_mut(),
+        name: b"'--no-startup-id",
+        identifier: Some(b"nosn"),
         next_state: CommandParserState::Exec,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"string".as_ptr().cast_mut(),
-        identifier: c"command".as_ptr().cast_mut(),
+        name: b"string",
+        identifier: Some(b"command"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 125_i32 as u16,
         },
     },
 ];
-static mut tokens_GAPS: [cmdp_token; 8] = [
+static tokens_GAPS: [cmdp_token; 8] = [
     token {
-        name: c"'inner".as_ptr().cast_mut(),
-        identifier: c"type".as_ptr().cast_mut(),
+        name: b"'inner",
+        identifier: Some(b"type"),
         next_state: CommandParserState::GapsWithType,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'outer".as_ptr().cast_mut(),
-        identifier: c"type".as_ptr().cast_mut(),
+        name: b"'outer",
+        identifier: Some(b"type"),
         next_state: CommandParserState::GapsWithType,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'horizontal".as_ptr().cast_mut(),
-        identifier: c"type".as_ptr().cast_mut(),
+        name: b"'horizontal",
+        identifier: Some(b"type"),
         next_state: CommandParserState::GapsWithType,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'vertical".as_ptr().cast_mut(),
-        identifier: c"type".as_ptr().cast_mut(),
+        name: b"'vertical",
+        identifier: Some(b"type"),
         next_state: CommandParserState::GapsWithType,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'top".as_ptr().cast_mut(),
-        identifier: c"type".as_ptr().cast_mut(),
+        name: b"'top",
+        identifier: Some(b"type"),
         next_state: CommandParserState::GapsWithType,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'right".as_ptr().cast_mut(),
-        identifier: c"type".as_ptr().cast_mut(),
+        name: b"'right",
+        identifier: Some(b"type"),
         next_state: CommandParserState::GapsWithType,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'bottom".as_ptr().cast_mut(),
-        identifier: c"type".as_ptr().cast_mut(),
+        name: b"'bottom",
+        identifier: Some(b"type"),
         next_state: CommandParserState::GapsWithType,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'left".as_ptr().cast_mut(),
-        identifier: c"type".as_ptr().cast_mut(),
+        name: b"'left",
+        identifier: Some(b"type"),
         next_state: CommandParserState::GapsWithType,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
 ];
-static mut tokens_KILL: [cmdp_token; 3] = [
+static tokens_KILL: [cmdp_token; 3] = [
     token {
-        name: c"'window".as_ptr().cast_mut(),
-        identifier: c"kill_mode".as_ptr().cast_mut(),
+        name: b"'window",
+        identifier: Some(b"kill_mode"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 126_i32 as u16,
         },
     },
     token {
-        name: c"'client".as_ptr().cast_mut(),
-        identifier: c"kill_mode".as_ptr().cast_mut(),
+        name: b"'client",
+        identifier: Some(b"kill_mode"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 127_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 128_i32 as u16,
         },
     },
 ];
-static mut tokens_MARK: [cmdp_token; 4] = [
+static tokens_MARK: [cmdp_token; 4] = [
     token {
-        name: c"'--add".as_ptr().cast_mut(),
-        identifier: c"mode".as_ptr().cast_mut(),
+        name: b"'--add",
+        identifier: Some(b"mode"),
         next_state: CommandParserState::Mark,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'--replace".as_ptr().cast_mut(),
-        identifier: c"mode".as_ptr().cast_mut(),
+        name: b"'--replace",
+        identifier: Some(b"mode"),
         next_state: CommandParserState::Mark,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'--toggle".as_ptr().cast_mut(),
-        identifier: c"toggle".as_ptr().cast_mut(),
+        name: b"'--toggle",
+        identifier: Some(b"toggle"),
         next_state: CommandParserState::Mark,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"string".as_ptr().cast_mut(),
-        identifier: c"mark".as_ptr().cast_mut(),
+        name: b"string",
+        identifier: Some(b"mark"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 129_i32 as u16,
         },
     },
 ];
-static mut tokens_MODE: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"mode".as_ptr().cast_mut(),
+static tokens_MODE: [cmdp_token; 1] = [token {
+    name: b"string",
+    identifier: Some(b"mode"),
     next_state: CommandParserState::Call,
     extra: ParserTokenData {
         call_identifier: 130_i32 as u16,
     },
 }];
-static mut tokens_MOVE: [cmdp_token; 14] = [
+static tokens_MOVE: [cmdp_token; 14] = [
     token {
-        name: c"'window".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'window",
+        identifier: None,
         next_state: CommandParserState::Move,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'container".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'container",
+        identifier: None,
         next_state: CommandParserState::Move,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'to".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'to",
+        identifier: None,
         next_state: CommandParserState::Move,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'--no-auto-back-and-forth".as_ptr().cast_mut(),
-        identifier: c"no_auto_back_and_forth".as_ptr().cast_mut(),
+        name: b"'--no-auto-back-and-forth",
+        identifier: Some(b"no_auto_back_and_forth"),
         next_state: CommandParserState::Move,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'workspace".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'workspace",
+        identifier: None,
         next_state: CommandParserState::MoveWorkspace,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'output".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'output",
+        identifier: None,
         next_state: CommandParserState::MoveToOutput,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'mark".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'mark",
+        identifier: None,
         next_state: CommandParserState::MoveToMark,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'scratchpad".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'scratchpad",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 131_i32 as u16,
         },
     },
     token {
-        name: c"'left".as_ptr().cast_mut(),
-        identifier: c"direction".as_ptr().cast_mut(),
+        name: b"'left",
+        identifier: Some(b"direction"),
         next_state: CommandParserState::MoveDirection,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'right".as_ptr().cast_mut(),
-        identifier: c"direction".as_ptr().cast_mut(),
+        name: b"'right",
+        identifier: Some(b"direction"),
         next_state: CommandParserState::MoveDirection,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'up".as_ptr().cast_mut(),
-        identifier: c"direction".as_ptr().cast_mut(),
+        name: b"'up",
+        identifier: Some(b"direction"),
         next_state: CommandParserState::MoveDirection,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'down".as_ptr().cast_mut(),
-        identifier: c"direction".as_ptr().cast_mut(),
+        name: b"'down",
+        identifier: Some(b"direction"),
         next_state: CommandParserState::MoveDirection,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'position".as_ptr().cast_mut(),
-        identifier: c"method".as_ptr().cast_mut(),
+        name: b"'position",
+        identifier: Some(b"method"),
         next_state: CommandParserState::MoveToPosition,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'absolute".as_ptr().cast_mut(),
-        identifier: c"method".as_ptr().cast_mut(),
+        name: b"'absolute",
+        identifier: Some(b"method"),
         next_state: CommandParserState::MoveToAbsolutePosition,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
 ];
-static mut tokens_SWAP: [cmdp_token; 5] = [
+static tokens_SWAP: [cmdp_token; 5] = [
     token {
-        name: c"'container".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'container",
+        identifier: None,
         next_state: CommandParserState::Swap,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'with".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'with",
+        identifier: None,
         next_state: CommandParserState::Swap,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'id".as_ptr().cast_mut(),
-        identifier: c"mode".as_ptr().cast_mut(),
+        name: b"'id",
+        identifier: Some(b"mode"),
         next_state: CommandParserState::SwapArgument,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'con_id".as_ptr().cast_mut(),
-        identifier: c"mode".as_ptr().cast_mut(),
+        name: b"'con_id",
+        identifier: Some(b"mode"),
         next_state: CommandParserState::SwapArgument,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'mark".as_ptr().cast_mut(),
-        identifier: c"mode".as_ptr().cast_mut(),
+        name: b"'mark",
+        identifier: Some(b"mode"),
         next_state: CommandParserState::SwapArgument,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
 ];
-static mut tokens_BAR: [cmdp_token; 2] = [
+static tokens_BAR: [cmdp_token; 2] = [
     token {
-        name: c"'hidden_state".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'hidden_state",
+        identifier: None,
         next_state: CommandParserState::BarHiddenState,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
     token {
-        name: c"'mode".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"'mode",
+        identifier: None,
         next_state: CommandParserState::BarMode,
         extra: ParserTokenData {
             call_identifier: 0_i32 as u16,
         },
     },
 ];
-static mut tokens_NOP: [cmdp_token; 2] = [
+static tokens_NOP: [cmdp_token; 2] = [
     token {
-        name: c"string".as_ptr().cast_mut(),
-        identifier: c"comment".as_ptr().cast_mut(),
+        name: b"string",
+        identifier: Some(b"comment"),
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 132_i32 as u16,
         },
     },
     token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+        name: b"end",
+        identifier: None,
         next_state: CommandParserState::Call,
         extra: ParserTokenData {
             call_identifier: 133_i32 as u16,
         },
     },
 ];
-static mut tokens: [cmdp_token_ptr; 77] = [
-    tokenptr {
-        array: &raw const tokens_RENAME_WORKSPACE_LIKELY_TO_NEW_NAME as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_MOVE_WORKSPACE_TO_OUTPUT_WORD as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_RENAME_WORKSPACE_TO_NEW_NAME as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_RENAME_WORKSPACE_LIKELY_TO as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_MOVE_TO_ABSOLUTE_POSITION as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_TITLE_WINDOW_ICON_PADDING as *mut cmdp_token,
-        n: 3_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_CRITERION_FROM_STR_START as *mut cmdp_token,
-        n: 3_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_MOVE_WORKSPACE_TO_OUTPUT as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_RESIZE_HEIGHT_GET_NUMBER as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_CRITERION_FROM_STR_END as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_MOVE_DIRECTION_NUMBER as *mut cmdp_token,
-        n: 3_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_MOVE_WORKSPACE_NUMBER as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_HIDDEN_STATE_ID as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_RENAME_WORKSPACE_TO as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_RESIZE_TILING_FINAL as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_CRITERION_FROM_STR as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_MOVE_TO_POSITION_X as *mut cmdp_token,
-        n: 3_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_MOVE_TO_POSITION_Y as *mut cmdp_token,
-        n: 3_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FULLSCREEN_COMPAT as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_TITLE_WINDOW_ICON as *mut cmdp_token,
-        n: 14_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_HIDDEN_STATE as *mut cmdp_token,
-        n: 3_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_MOVE_TO_POSITION as *mut cmdp_token,
-        n: 5_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_RENAME_WORKSPACE as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_RESIZE_DIRECTION as *mut cmdp_token,
-        n: 6_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_RESIZE_TILING_OR as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_WORKSPACE_NUMBER as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FULLSCREEN_MODE as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_GAPS_WITH_SCOPE as *mut cmdp_token,
-        n: 4_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_CRITERION_FROM as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_GAPS_WITH_MODE as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_GAPS_WITH_TYPE as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_MOVE_DIRECTION as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_MOVE_TO_OUTPUT as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_MOVE_WORKSPACE as *mut cmdp_token,
-        n: 9_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_APPEND_LAYOUT as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_CRITERION_STR as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_LAYOUT_TOGGLE as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_RESIZE_HEIGHT as *mut cmdp_token,
-        n: 3_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_RESIZE_TILING as *mut cmdp_token,
-        n: 3_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_SWAP_ARGUMENT as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BORDER_WIDTH as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FOCUS_OUTPUT as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_MOVE_TO_MARK as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_RESIZE_WIDTH as *mut cmdp_token,
-        n: 5_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_TITLE_FORMAT as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_MODE_ID as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FOCUS_AUTO as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FULLSCREEN as *mut cmdp_token,
-        n: 4_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_RESIZE_SET as *mut cmdp_token,
-        n: 3_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_SCRATCHPAD as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_CRITERION as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_RESIZE_PX as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_WORKSPACE as *mut cmdp_token,
-        n: 8_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_MODE as *mut cmdp_token,
-        n: 4_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_CRITERIA as *mut cmdp_token,
-        n: 17_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_DEBUGLOG as *mut cmdp_token,
-        n: 3_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FLOATING as *mut cmdp_token,
-        n: 3_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_GAPS_END as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_INITIAL as *mut cmdp_token,
-        n: 32_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BORDER as *mut cmdp_token,
-        n: 5_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_LAYOUT as *mut cmdp_token,
-        n: 7_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_RENAME as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_RESIZE as *mut cmdp_token,
-        n: 3_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_SHMLOG as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_STICKY as *mut cmdp_token,
-        n: 3_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_UNMARK as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FOCUS as *mut cmdp_token,
-        n: 14_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_SPLIT as *mut cmdp_token,
-        n: 6_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_EXEC as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_GAPS as *mut cmdp_token,
-        n: 8_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_KILL as *mut cmdp_token,
-        n: 3_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_MARK as *mut cmdp_token,
-        n: 4_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_MODE as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_MOVE as *mut cmdp_token,
-        n: 14_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_SWAP as *mut cmdp_token,
-        n: 5_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_NOP as *mut cmdp_token,
-        n: 2_i32,
-    },
+static tokens: [&[cmdp_token]; 77] = [
+    &tokens_RENAME_WORKSPACE_LIKELY_TO_NEW_NAME,
+    &tokens_MOVE_WORKSPACE_TO_OUTPUT_WORD,
+    &tokens_RENAME_WORKSPACE_TO_NEW_NAME,
+    &tokens_RENAME_WORKSPACE_LIKELY_TO,
+    &tokens_MOVE_TO_ABSOLUTE_POSITION,
+    &tokens_TITLE_WINDOW_ICON_PADDING,
+    &tokens_CRITERION_FROM_STR_START,
+    &tokens_MOVE_WORKSPACE_TO_OUTPUT,
+    &tokens_RESIZE_HEIGHT_GET_NUMBER,
+    &tokens_CRITERION_FROM_STR_END,
+    &tokens_MOVE_DIRECTION_NUMBER,
+    &tokens_MOVE_WORKSPACE_NUMBER,
+    &tokens_BAR_HIDDEN_STATE_ID,
+    &tokens_RENAME_WORKSPACE_TO,
+    &tokens_RESIZE_TILING_FINAL,
+    &tokens_CRITERION_FROM_STR,
+    &tokens_MOVE_TO_POSITION_X,
+    &tokens_MOVE_TO_POSITION_Y,
+    &tokens_FULLSCREEN_COMPAT,
+    &tokens_TITLE_WINDOW_ICON,
+    &tokens_BAR_HIDDEN_STATE,
+    &tokens_MOVE_TO_POSITION,
+    &tokens_RENAME_WORKSPACE,
+    &tokens_RESIZE_DIRECTION,
+    &tokens_RESIZE_TILING_OR,
+    &tokens_WORKSPACE_NUMBER,
+    &tokens_FULLSCREEN_MODE,
+    &tokens_GAPS_WITH_SCOPE,
+    &tokens_CRITERION_FROM,
+    &tokens_GAPS_WITH_MODE,
+    &tokens_GAPS_WITH_TYPE,
+    &tokens_MOVE_DIRECTION,
+    &tokens_MOVE_TO_OUTPUT,
+    &tokens_MOVE_WORKSPACE,
+    &tokens_APPEND_LAYOUT,
+    &tokens_CRITERION_STR,
+    &tokens_LAYOUT_TOGGLE,
+    &tokens_RESIZE_HEIGHT,
+    &tokens_RESIZE_TILING,
+    &tokens_SWAP_ARGUMENT,
+    &tokens_BORDER_WIDTH,
+    &tokens_FOCUS_OUTPUT,
+    &tokens_MOVE_TO_MARK,
+    &tokens_RESIZE_WIDTH,
+    &tokens_TITLE_FORMAT,
+    &tokens_BAR_MODE_ID,
+    &tokens_FOCUS_AUTO,
+    &tokens_FULLSCREEN,
+    &tokens_RESIZE_SET,
+    &tokens_SCRATCHPAD,
+    &tokens_CRITERION,
+    &tokens_RESIZE_PX,
+    &tokens_WORKSPACE,
+    &tokens_BAR_MODE,
+    &tokens_CRITERIA,
+    &tokens_DEBUGLOG,
+    &tokens_FLOATING,
+    &tokens_GAPS_END,
+    &tokens_INITIAL,
+    &tokens_BORDER,
+    &tokens_LAYOUT,
+    &tokens_RENAME,
+    &tokens_RESIZE,
+    &tokens_SHMLOG,
+    &tokens_STICKY,
+    &tokens_UNMARK,
+    &tokens_FOCUS,
+    &tokens_SPLIT,
+    &tokens_EXEC,
+    &tokens_GAPS,
+    &tokens_KILL,
+    &tokens_MARK,
+    &tokens_MODE,
+    &tokens_MOVE,
+    &tokens_SWAP,
+    &tokens_BAR,
+    &tokens_NOP,
 ];
 unsafe fn GENERATED_call(
     current_match: *mut Match,
@@ -2795,13 +2545,13 @@ unsafe fn GENERATED_call(
     call_identifier: i32,
     result: *mut CommandResultIR,
 ) {
+    let captures = (&*stack).clone();
     match call_identifier {
         0 => {
             (*result).next_state = CommandParserState::Initial;
-            let new_name = (&*stack)
-                .get_string(c"new_name")
+            let new_name = captures
+                .get_string(b"new_name")
                 .expect("rename grammar supplies new_name")
-                .to_bytes()
                 .to_vec();
             cmd_rename_workspace(current_match, result, Some(b"to"), &new_name);
         }
@@ -2811,40 +2561,26 @@ unsafe fn GENERATED_call(
         }
         2 => {
             (*result).next_state = CommandParserState::MoveWorkspaceToOutputWord;
-            cmd_move_con_to_output(
-                current_match,
-                result,
-                parser_get_string(stack, c"output".as_ptr()),
-                true,
-            );
+            cmd_move_con_to_output(current_match, result, captures.get_string(b"output"), true);
         }
         3 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_move_con_to_output(
-                current_match,
-                result,
-                ::core::ptr::null::<::core::ffi::c_char>(),
-                true,
-            );
+            cmd_move_con_to_output(current_match, result, None, true);
         }
         4 => {
             (*result).next_state = CommandParserState::Initial;
-            let old_name = (&*stack)
-                .get_string(c"old_name")
-                .map(|name| name.to_bytes().to_vec());
-            let new_name = (&*stack)
-                .get_string(c"new_name")
+            let old_name = captures.get_string(b"old_name").map(|name| name.to_vec());
+            let new_name = captures
+                .get_string(b"new_name")
                 .expect("rename grammar supplies new_name")
-                .to_bytes()
                 .to_vec();
             cmd_rename_workspace(current_match, result, old_name.as_deref(), &new_name);
         }
         5 => {
             (*result).next_state = CommandParserState::Initial;
-            let new_name = (&*stack)
-                .get_string(c"new_name")
+            let new_name = captures
+                .get_string(b"new_name")
                 .expect("rename grammar supplies new_name")
-                .to_bytes()
                 .to_vec();
             cmd_rename_workspace(current_match, result, None, &new_name);
         }
@@ -2853,8 +2589,8 @@ unsafe fn GENERATED_call(
             cmd_title_window_icon(
                 current_match,
                 result,
-                (&*stack).get_string(c"enable"),
-                parser_get_long(stack, c"padding".as_ptr()) as i32,
+                captures.get_string(b"enable"),
+                captures.get_long(b"padding") as i32,
             );
         }
         7 => {
@@ -2862,8 +2598,8 @@ unsafe fn GENERATED_call(
             cmd_title_window_icon(
                 current_match,
                 result,
-                (&*stack).get_string(c"enable"),
-                parser_get_long(stack, c"padding".as_ptr()) as i32,
+                captures.get_string(b"enable"),
+                captures.get_long(b"padding") as i32,
             );
         }
         8 => {
@@ -2871,8 +2607,10 @@ unsafe fn GENERATED_call(
             cmd_criteria_add(
                 current_match,
                 result,
-                parser_get_string(stack, c"ctype".as_ptr()),
-                parser_get_string(stack, c"kind".as_ptr()),
+                captures
+                    .get_string(b"ctype")
+                    .expect("command grammar supplies required text"),
+                captures.get_string(b"kind"),
             );
         }
         9 => {
@@ -2880,8 +2618,10 @@ unsafe fn GENERATED_call(
             cmd_criteria_add(
                 current_match,
                 result,
-                parser_get_string(stack, c"ctype".as_ptr()),
-                parser_get_string(stack, c"kind".as_ptr()),
+                captures
+                    .get_string(b"ctype")
+                    .expect("command grammar supplies required text"),
+                captures.get_string(b"kind"),
             );
         }
         10 => {
@@ -2889,8 +2629,10 @@ unsafe fn GENERATED_call(
             cmd_criteria_add(
                 current_match,
                 result,
-                parser_get_string(stack, c"ctype".as_ptr()),
-                parser_get_string(stack, c"kind".as_ptr()),
+                captures
+                    .get_string(b"ctype")
+                    .expect("command grammar supplies required text"),
+                captures.get_string(b"kind"),
             );
         }
         11 => {
@@ -2898,9 +2640,11 @@ unsafe fn GENERATED_call(
             cmd_move_direction(
                 current_match,
                 result,
-                parser_get_string(stack, c"direction".as_ptr()),
-                parser_get_long(stack, c"amount".as_ptr()),
-                parser_get_string(stack, c"mode".as_ptr()),
+                captures
+                    .get_string(b"direction")
+                    .expect("command grammar supplies required text"),
+                captures.get_long(b"amount"),
+                captures.get_string(b"mode"),
             );
         }
         12 => {
@@ -2908,9 +2652,11 @@ unsafe fn GENERATED_call(
             cmd_move_direction(
                 current_match,
                 result,
-                parser_get_string(stack, c"direction".as_ptr()),
-                parser_get_long(stack, c"amount".as_ptr()),
-                parser_get_string(stack, c"mode".as_ptr()),
+                captures
+                    .get_string(b"direction")
+                    .expect("command grammar supplies required text"),
+                captures.get_long(b"amount"),
+                captures.get_string(b"mode"),
             );
         }
         13 => {
@@ -2918,9 +2664,11 @@ unsafe fn GENERATED_call(
             cmd_move_direction(
                 current_match,
                 result,
-                parser_get_string(stack, c"direction".as_ptr()),
-                parser_get_long(stack, c"amount".as_ptr()),
-                c"px".as_ptr(),
+                captures
+                    .get_string(b"direction")
+                    .expect("command grammar supplies required text"),
+                captures.get_long(b"amount"),
+                Some(b"px".as_slice()),
             );
         }
         14 => {
@@ -2928,35 +2676,36 @@ unsafe fn GENERATED_call(
             cmd_move_con_to_workspace_number(
                 current_match,
                 result,
-                parser_get_string(stack, c"number".as_ptr()),
-                parser_get_string(stack, c"no_auto_back_and_forth".as_ptr()),
+                captures
+                    .get_string(b"number")
+                    .expect("command grammar supplies required text"),
+                captures.get_string(b"no_auto_back_and_forth"),
             );
         }
         15 => {
             (*result).next_state = CommandParserState::Initial;
-            {
-                let bar_value =
-                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"bar_value".as_ptr()))
-                        .to_bytes()
-                        .to_vec();
-                let bar_id = {
-                    let pointer = parser_get_string(stack, c"bar_id".as_ptr());
-                    pointer
-                        .as_ref()
-                        .map(|value| std::ffi::CStr::from_ptr(value).to_bytes().to_vec())
-                };
-                cmd_bar_hidden_state(current_match, result, &bar_value, bar_id.as_deref());
-            }
+            cmd_bar_hidden_state(
+                current_match,
+                result,
+                captures
+                    .get_string(b"bar_value")
+                    .expect("bar grammar supplies value"),
+                captures.get_string(b"bar_id"),
+            );
         }
         16 => {
             (*result).next_state = CommandParserState::Initial;
             cmd_resize(
                 current_match,
                 result,
-                parser_get_string(stack, c"way".as_ptr()),
-                parser_get_string(stack, c"direction".as_ptr()),
-                parser_get_long(stack, c"resize_px".as_ptr()),
-                parser_get_long(stack, c"resize_ppt".as_ptr()),
+                captures
+                    .get_string(b"way")
+                    .expect("command grammar supplies required text"),
+                captures
+                    .get_string(b"direction")
+                    .expect("command grammar supplies required text"),
+                captures.get_long(b"resize_px"),
+                captures.get_long(b"resize_ppt"),
             );
         }
         17 => {
@@ -2964,10 +2713,14 @@ unsafe fn GENERATED_call(
             cmd_resize(
                 current_match,
                 result,
-                parser_get_string(stack, c"way".as_ptr()),
-                parser_get_string(stack, c"direction".as_ptr()),
-                parser_get_long(stack, c"resize_px".as_ptr()),
-                parser_get_long(stack, c"resize_ppt".as_ptr()),
+                captures
+                    .get_string(b"way")
+                    .expect("command grammar supplies required text"),
+                captures
+                    .get_string(b"direction")
+                    .expect("command grammar supplies required text"),
+                captures.get_long(b"resize_px"),
+                captures.get_long(b"resize_ppt"),
             );
         }
         18 => {
@@ -2975,10 +2728,10 @@ unsafe fn GENERATED_call(
             cmd_move_window_to_position(
                 current_match,
                 result,
-                parser_get_long(stack, c"coord_x".as_ptr()),
-                parser_get_string(stack, c"mode_x".as_ptr()),
-                parser_get_long(stack, c"coord_y".as_ptr()),
-                parser_get_string(stack, c"mode_y".as_ptr()),
+                captures.get_long(b"coord_x"),
+                captures.get_string(b"mode_x"),
+                captures.get_long(b"coord_y"),
+                captures.get_string(b"mode_y"),
             );
         }
         19 => {
@@ -2986,10 +2739,10 @@ unsafe fn GENERATED_call(
             cmd_move_window_to_position(
                 current_match,
                 result,
-                parser_get_long(stack, c"coord_x".as_ptr()),
-                parser_get_string(stack, c"mode_x".as_ptr()),
-                parser_get_long(stack, c"coord_y".as_ptr()),
-                parser_get_string(stack, c"mode_y".as_ptr()),
+                captures.get_long(b"coord_x"),
+                captures.get_string(b"mode_x"),
+                captures.get_long(b"coord_y"),
+                captures.get_string(b"mode_y"),
             );
         }
         20 => {
@@ -2997,10 +2750,10 @@ unsafe fn GENERATED_call(
             cmd_move_window_to_position(
                 current_match,
                 result,
-                parser_get_long(stack, c"coord_x".as_ptr()),
-                parser_get_string(stack, c"mode_x".as_ptr()),
-                parser_get_long(stack, c"coord_y".as_ptr()),
-                ::core::ptr::null::<::core::ffi::c_char>(),
+                captures.get_long(b"coord_x"),
+                captures.get_string(b"mode_x"),
+                captures.get_long(b"coord_y"),
+                None,
             );
         }
         21 => {
@@ -3008,133 +2761,72 @@ unsafe fn GENERATED_call(
             cmd_fullscreen(
                 current_match,
                 result,
-                c"toggle".as_ptr(),
-                parser_get_string(stack, c"mode".as_ptr()),
+                b"toggle",
+                captures
+                    .get_string(b"mode")
+                    .expect("command grammar supplies required text"),
             );
         }
         22 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_fullscreen(
-                current_match,
-                result,
-                c"toggle".as_ptr(),
-                c"output".as_ptr(),
-            );
+            cmd_fullscreen(current_match, result, b"toggle", b"output");
         }
         23 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_title_window_icon(
-                current_match,
-                result,
-                (&*stack).get_string(c"enable"),
-                0_i32,
-            );
+            cmd_title_window_icon(current_match, result, captures.get_string(b"enable"), 0_i32);
         }
         24 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_title_window_icon(
-                current_match,
-                result,
-                (&*stack).get_string(c"enable"),
-                0_i32,
-            );
+            cmd_title_window_icon(current_match, result, captures.get_string(b"enable"), 0_i32);
         }
         25 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_title_window_icon(
-                current_match,
-                result,
-                (&*stack).get_string(c"enable"),
-                0_i32,
-            );
+            cmd_title_window_icon(current_match, result, captures.get_string(b"enable"), 0_i32);
         }
         26 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_title_window_icon(
-                current_match,
-                result,
-                (&*stack).get_string(c"enable"),
-                0_i32,
-            );
+            cmd_title_window_icon(current_match, result, captures.get_string(b"enable"), 0_i32);
         }
         27 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_title_window_icon(
-                current_match,
-                result,
-                (&*stack).get_string(c"enable"),
-                0_i32,
-            );
+            cmd_title_window_icon(current_match, result, captures.get_string(b"enable"), 0_i32);
         }
         28 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_title_window_icon(
-                current_match,
-                result,
-                (&*stack).get_string(c"enable"),
-                0_i32,
-            );
+            cmd_title_window_icon(current_match, result, captures.get_string(b"enable"), 0_i32);
         }
         29 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_title_window_icon(
-                current_match,
-                result,
-                (&*stack).get_string(c"enable"),
-                0_i32,
-            );
+            cmd_title_window_icon(current_match, result, captures.get_string(b"enable"), 0_i32);
         }
         30 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_title_window_icon(
-                current_match,
-                result,
-                (&*stack).get_string(c"enable"),
-                0_i32,
-            );
+            cmd_title_window_icon(current_match, result, captures.get_string(b"enable"), 0_i32);
         }
         31 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_title_window_icon(
-                current_match,
-                result,
-                (&*stack).get_string(c"enable"),
-                0_i32,
-            );
+            cmd_title_window_icon(current_match, result, captures.get_string(b"enable"), 0_i32);
         }
         32 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_title_window_icon(
-                current_match,
-                result,
-                (&*stack).get_string(c"enable"),
-                0_i32,
-            );
+            cmd_title_window_icon(current_match, result, captures.get_string(b"enable"), 0_i32);
         }
         33 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_title_window_icon(
-                current_match,
-                result,
-                (&*stack).get_string(c"enable"),
-                0_i32,
-            );
+            cmd_title_window_icon(current_match, result, captures.get_string(b"enable"), 0_i32);
         }
         34 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_title_window_icon(
-                current_match,
-                result,
-                (&*stack).get_string(c"enable"),
-                0_i32,
-            );
+            cmd_title_window_icon(current_match, result, captures.get_string(b"enable"), 0_i32);
         }
         35 => {
             (*result).next_state = CommandParserState::Initial;
             cmd_move_window_to_center(
                 current_match,
                 result,
-                parser_get_string(stack, c"method".as_ptr()),
+                captures
+                    .get_string(b"method")
+                    .expect("command grammar supplies required text"),
             );
         }
         36 => {
@@ -3154,8 +2846,10 @@ unsafe fn GENERATED_call(
             cmd_workspace_number(
                 current_match,
                 result,
-                parser_get_string(stack, c"workspace".as_ptr()),
-                parser_get_string(stack, c"no_auto_back_and_forth".as_ptr()),
+                captures
+                    .get_string(b"workspace")
+                    .expect("command grammar supplies required text"),
+                captures.get_string(b"no_auto_back_and_forth"),
             );
         }
         40 => {
@@ -3163,8 +2857,12 @@ unsafe fn GENERATED_call(
             cmd_fullscreen(
                 current_match,
                 result,
-                parser_get_string(stack, c"action".as_ptr()),
-                parser_get_string(stack, c"mode".as_ptr()),
+                captures
+                    .get_string(b"action")
+                    .expect("command grammar supplies required text"),
+                captures
+                    .get_string(b"mode")
+                    .expect("command grammar supplies required text"),
             );
         }
         41 => {
@@ -3172,8 +2870,10 @@ unsafe fn GENERATED_call(
             cmd_fullscreen(
                 current_match,
                 result,
-                parser_get_string(stack, c"action".as_ptr()),
-                c"output".as_ptr(),
+                captures
+                    .get_string(b"action")
+                    .expect("command grammar supplies required text"),
+                b"output",
             );
         }
         42 => {
@@ -3181,35 +2881,29 @@ unsafe fn GENERATED_call(
             cmd_move_direction(
                 current_match,
                 result,
-                parser_get_string(stack, c"direction".as_ptr()),
+                captures
+                    .get_string(b"direction")
+                    .expect("command grammar supplies required text"),
                 10_i64,
-                c"px".as_ptr(),
+                Some(b"px".as_slice()),
             );
         }
         43 => {
             (*result).next_state = CommandParserState::MoveToOutput;
-            cmd_move_con_to_output(
-                current_match,
-                result,
-                parser_get_string(stack, c"output".as_ptr()),
-                false,
-            );
+            cmd_move_con_to_output(current_match, result, captures.get_string(b"output"), false);
         }
         44 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_move_con_to_output(
-                current_match,
-                result,
-                ::core::ptr::null::<::core::ffi::c_char>(),
-                false,
-            );
+            cmd_move_con_to_output(current_match, result, None, false);
         }
         45 => {
             (*result).next_state = CommandParserState::Initial;
             cmd_move_con_to_workspace(
                 current_match,
                 result,
-                parser_get_string(stack, c"workspace".as_ptr()),
+                captures
+                    .get_string(b"workspace")
+                    .expect("command grammar supplies required text"),
             );
         }
         46 => {
@@ -3217,7 +2911,9 @@ unsafe fn GENERATED_call(
             cmd_move_con_to_workspace(
                 current_match,
                 result,
-                parser_get_string(stack, c"workspace".as_ptr()),
+                captures
+                    .get_string(b"workspace")
+                    .expect("command grammar supplies required text"),
             );
         }
         47 => {
@@ -3225,7 +2921,9 @@ unsafe fn GENERATED_call(
             cmd_move_con_to_workspace(
                 current_match,
                 result,
-                parser_get_string(stack, c"workspace".as_ptr()),
+                captures
+                    .get_string(b"workspace")
+                    .expect("command grammar supplies required text"),
             );
         }
         48 => {
@@ -3233,7 +2931,9 @@ unsafe fn GENERATED_call(
             cmd_move_con_to_workspace(
                 current_match,
                 result,
-                parser_get_string(stack, c"workspace".as_ptr()),
+                captures
+                    .get_string(b"workspace")
+                    .expect("command grammar supplies required text"),
             );
         }
         49 => {
@@ -3241,7 +2941,9 @@ unsafe fn GENERATED_call(
             cmd_move_con_to_workspace(
                 current_match,
                 result,
-                parser_get_string(stack, c"workspace".as_ptr()),
+                captures
+                    .get_string(b"workspace")
+                    .expect("command grammar supplies required text"),
             );
         }
         50 => {
@@ -3253,52 +2955,49 @@ unsafe fn GENERATED_call(
             cmd_move_con_to_workspace_name(
                 current_match,
                 result,
-                parser_get_string(stack, c"workspace".as_ptr()),
-                parser_get_string(stack, c"no_auto_back_and_forth".as_ptr()),
+                captures
+                    .get_string(b"workspace")
+                    .expect("command grammar supplies required text"),
+                captures.get_string(b"no_auto_back_and_forth"),
             );
         }
         52 => {
             (*result).next_state = CommandParserState::Initial;
-            let path_pointer = parser_get_string(stack, c"path".as_ptr());
-            let path_owner = std::path::PathBuf::from(std::ffi::OsStr::from_bytes(
-                std::ffi::CStr::from_ptr(path_pointer).to_bytes(),
+            let path = std::path::Path::new(std::ffi::OsStr::from_bytes(
+                captures
+                    .get_string(b"path")
+                    .expect("append grammar supplies path"),
             ));
-            cmd_append_layout(current_match, result, &path_owner);
+            cmd_append_layout(current_match, result, path);
         }
         53 => {
             (*result).next_state = CommandParserState::Criteria;
             cmd_criteria_add(
                 current_match,
                 result,
-                parser_get_string(stack, c"ctype".as_ptr()),
-                parser_get_string(stack, c"cvalue".as_ptr()),
+                captures
+                    .get_string(b"ctype")
+                    .expect("command grammar supplies required text"),
+                captures.get_string(b"cvalue"),
             );
         }
         54 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_layout_toggle(
-                current_match,
-                result,
-                parser_get_string(stack, c"toggle_mode".as_ptr()),
-            );
+            cmd_layout_toggle(current_match, result, captures.get_string(b"toggle_mode"));
         }
         55 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_layout_toggle(
-                current_match,
-                result,
-                parser_get_string(stack, c"toggle_mode".as_ptr()),
-            );
+            cmd_layout_toggle(current_match, result, captures.get_string(b"toggle_mode"));
         }
         56 => {
             (*result).next_state = CommandParserState::Initial;
             cmd_resize_set(
                 current_match,
                 result,
-                parser_get_long(stack, c"width".as_ptr()),
-                parser_get_string(stack, c"mode_width".as_ptr()),
-                parser_get_long(stack, c"height".as_ptr()),
-                parser_get_string(stack, c"mode_height".as_ptr()),
+                captures.get_long(b"width"),
+                captures.get_string(b"mode_width"),
+                captures.get_long(b"height"),
+                captures.get_string(b"mode_height"),
             );
         }
         57 => {
@@ -3306,9 +3005,13 @@ unsafe fn GENERATED_call(
             cmd_resize(
                 current_match,
                 result,
-                parser_get_string(stack, c"way".as_ptr()),
-                parser_get_string(stack, c"direction".as_ptr()),
-                parser_get_long(stack, c"resize_px".as_ptr()),
+                captures
+                    .get_string(b"way")
+                    .expect("command grammar supplies required text"),
+                captures
+                    .get_string(b"direction")
+                    .expect("command grammar supplies required text"),
+                captures.get_long(b"resize_px"),
                 0_i64,
             );
         }
@@ -3317,8 +3020,12 @@ unsafe fn GENERATED_call(
             cmd_swap(
                 current_match,
                 result,
-                parser_get_string(stack, c"mode".as_ptr()),
-                parser_get_string(stack, c"arg".as_ptr()),
+                captures
+                    .get_string(b"mode")
+                    .expect("command grammar supplies required text"),
+                captures
+                    .get_string(b"arg")
+                    .expect("command grammar supplies required text"),
             );
         }
         59 => {
@@ -3326,7 +3033,9 @@ unsafe fn GENERATED_call(
             cmd_border(
                 current_match,
                 result,
-                parser_get_string(stack, c"border_style".as_ptr()),
+                captures
+                    .get_string(b"border_style")
+                    .expect("command grammar supplies required text"),
                 -1_i32 as i64,
             );
         }
@@ -3335,32 +3044,25 @@ unsafe fn GENERATED_call(
             cmd_border(
                 current_match,
                 result,
-                parser_get_string(stack, c"border_style".as_ptr()),
-                parser_get_long(stack, c"border_width".as_ptr()),
+                captures
+                    .get_string(b"border_style")
+                    .expect("command grammar supplies required text"),
+                captures.get_long(b"border_width"),
             );
         }
         61 => {
             (*result).next_state = CommandParserState::FocusOutput;
-            cmd_focus_output(
-                current_match,
-                result,
-                parser_get_string(stack, c"output".as_ptr()),
-            );
+            cmd_focus_output(current_match, result, captures.get_string(b"output"));
         }
         62 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_focus_output(
-                current_match,
-                result,
-                ::core::ptr::null::<::core::ffi::c_char>(),
-            );
+            cmd_focus_output(current_match, result, None);
         }
         63 => {
             (*result).next_state = CommandParserState::Initial;
-            let mark = (&*stack)
-                .get_string(c"mark")
+            let mark = captures
+                .get_string(b"mark")
                 .expect("command grammar supplies mark")
-                .to_bytes()
                 .to_vec();
             cmd_move_con_to_mark(current_match, result, &mark);
         }
@@ -3369,10 +3071,10 @@ unsafe fn GENERATED_call(
             cmd_resize_set(
                 current_match,
                 result,
-                parser_get_long(stack, c"width".as_ptr()),
-                parser_get_string(stack, c"mode_width".as_ptr()),
+                captures.get_long(b"width"),
+                captures.get_string(b"mode_width"),
                 0_i64,
-                ::core::ptr::null::<::core::ffi::c_char>(),
+                None,
             );
         }
         65 => {
@@ -3380,42 +3082,35 @@ unsafe fn GENERATED_call(
             cmd_title_format(
                 current_match,
                 result,
-                &std::ffi::CStr::from_ptr(parser_get_string(stack, c"format".as_ptr()))
-                    .to_bytes()
-                    .to_vec(),
+                captures
+                    .get_string(b"format")
+                    .expect("title grammar supplies format"),
             );
         }
         66 => {
             (*result).next_state = CommandParserState::Initial;
-            {
-                let bar_value =
-                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"bar_value".as_ptr()))
-                        .to_bytes()
-                        .to_vec();
-                let bar_id = {
-                    let pointer = parser_get_string(stack, c"bar_id".as_ptr());
-                    pointer
-                        .as_ref()
-                        .map(|value| std::ffi::CStr::from_ptr(value).to_bytes().to_vec())
-                };
-                cmd_bar_mode(current_match, result, &bar_value, bar_id.as_deref());
-            }
+            cmd_bar_mode(
+                current_match,
+                result,
+                captures
+                    .get_string(b"bar_value")
+                    .expect("bar grammar supplies value"),
+                captures.get_string(b"bar_id"),
+            );
         }
         67 => {
             (*result).next_state = CommandParserState::Initial;
-            let command_text = (&*stack)
-                .get_string(c"direction")
+            let command_text = captures
+                .get_string(b"direction")
                 .expect("command grammar supplies direction")
-                .to_bytes()
                 .to_vec();
             cmd_focus_sibling(current_match, result, &command_text);
         }
         68 => {
             (*result).next_state = CommandParserState::Initial;
-            let command_text = (&*stack)
-                .get_string(c"direction")
+            let command_text = captures
+                .get_string(b"direction")
                 .expect("command grammar supplies direction")
-                .to_bytes()
                 .to_vec();
             cmd_focus_direction(current_match, result, &command_text);
         }
@@ -3424,8 +3119,10 @@ unsafe fn GENERATED_call(
             cmd_fullscreen(
                 current_match,
                 result,
-                parser_get_string(stack, c"action".as_ptr()),
-                c"output".as_ptr(),
+                captures
+                    .get_string(b"action")
+                    .expect("command grammar supplies required text"),
+                b"output",
             );
         }
         70 => {
@@ -3437,8 +3134,12 @@ unsafe fn GENERATED_call(
             cmd_resize(
                 current_match,
                 result,
-                parser_get_string(stack, c"way".as_ptr()),
-                parser_get_string(stack, c"direction".as_ptr()),
+                captures
+                    .get_string(b"way")
+                    .expect("command grammar supplies required text"),
+                captures
+                    .get_string(b"direction")
+                    .expect("command grammar supplies required text"),
                 10_i64,
                 10_i64,
             );
@@ -3448,7 +3149,9 @@ unsafe fn GENERATED_call(
             cmd_workspace(
                 current_match,
                 result,
-                parser_get_string(stack, c"direction".as_ptr()),
+                captures
+                    .get_string(b"direction")
+                    .expect("command grammar supplies required text"),
             );
         }
         73 => {
@@ -3456,7 +3159,9 @@ unsafe fn GENERATED_call(
             cmd_workspace(
                 current_match,
                 result,
-                parser_get_string(stack, c"direction".as_ptr()),
+                captures
+                    .get_string(b"direction")
+                    .expect("command grammar supplies required text"),
             );
         }
         74 => {
@@ -3464,7 +3169,9 @@ unsafe fn GENERATED_call(
             cmd_workspace(
                 current_match,
                 result,
-                parser_get_string(stack, c"direction".as_ptr()),
+                captures
+                    .get_string(b"direction")
+                    .expect("command grammar supplies required text"),
             );
         }
         75 => {
@@ -3472,7 +3179,9 @@ unsafe fn GENERATED_call(
             cmd_workspace(
                 current_match,
                 result,
-                parser_get_string(stack, c"direction".as_ptr()),
+                captures
+                    .get_string(b"direction")
+                    .expect("command grammar supplies required text"),
             );
         }
         76 => {
@@ -3484,8 +3193,10 @@ unsafe fn GENERATED_call(
             cmd_workspace_name(
                 current_match,
                 result,
-                parser_get_string(stack, c"workspace".as_ptr()),
-                parser_get_string(stack, c"no_auto_back_and_forth".as_ptr()),
+                captures
+                    .get_string(b"workspace")
+                    .expect("command grammar supplies required text"),
+                captures.get_string(b"no_auto_back_and_forth"),
             );
         }
         78 => {
@@ -3493,8 +3204,10 @@ unsafe fn GENERATED_call(
             cmd_criteria_add(
                 current_match,
                 result,
-                parser_get_string(stack, c"ctype".as_ptr()),
-                ::core::ptr::null::<::core::ffi::c_char>(),
+                captures
+                    .get_string(b"ctype")
+                    .expect("command grammar supplies required text"),
+                None,
             );
         }
         79 => {
@@ -3502,8 +3215,10 @@ unsafe fn GENERATED_call(
             cmd_criteria_add(
                 current_match,
                 result,
-                parser_get_string(stack, c"ctype".as_ptr()),
-                ::core::ptr::null::<::core::ffi::c_char>(),
+                captures
+                    .get_string(b"ctype")
+                    .expect("command grammar supplies required text"),
+                None,
             );
         }
         80 => {
@@ -3511,8 +3226,10 @@ unsafe fn GENERATED_call(
             cmd_criteria_add(
                 current_match,
                 result,
-                parser_get_string(stack, c"ctype".as_ptr()),
-                ::core::ptr::null::<::core::ffi::c_char>(),
+                captures
+                    .get_string(b"ctype")
+                    .expect("command grammar supplies required text"),
+                None,
             );
         }
         81 => {
@@ -3524,7 +3241,9 @@ unsafe fn GENERATED_call(
             cmd_debuglog(
                 current_match,
                 result,
-                parser_get_string(stack, c"argument".as_ptr()),
+                captures
+                    .get_string(b"argument")
+                    .expect("command grammar supplies required text"),
             );
         }
         83 => {
@@ -3532,7 +3251,9 @@ unsafe fn GENERATED_call(
             cmd_debuglog(
                 current_match,
                 result,
-                parser_get_string(stack, c"argument".as_ptr()),
+                captures
+                    .get_string(b"argument")
+                    .expect("command grammar supplies required text"),
             );
         }
         84 => {
@@ -3540,7 +3261,9 @@ unsafe fn GENERATED_call(
             cmd_debuglog(
                 current_match,
                 result,
-                parser_get_string(stack, c"argument".as_ptr()),
+                captures
+                    .get_string(b"argument")
+                    .expect("command grammar supplies required text"),
             );
         }
         85 => {
@@ -3548,7 +3271,9 @@ unsafe fn GENERATED_call(
             cmd_floating(
                 current_match,
                 result,
-                parser_get_string(stack, c"floating".as_ptr()),
+                captures
+                    .get_string(b"floating")
+                    .expect("command grammar supplies required text"),
             );
         }
         86 => {
@@ -3556,7 +3281,9 @@ unsafe fn GENERATED_call(
             cmd_floating(
                 current_match,
                 result,
-                parser_get_string(stack, c"floating".as_ptr()),
+                captures
+                    .get_string(b"floating")
+                    .expect("command grammar supplies required text"),
             );
         }
         87 => {
@@ -3564,7 +3291,9 @@ unsafe fn GENERATED_call(
             cmd_floating(
                 current_match,
                 result,
-                parser_get_string(stack, c"floating".as_ptr()),
+                captures
+                    .get_string(b"floating")
+                    .expect("command grammar supplies required text"),
             );
         }
         88 => {
@@ -3572,10 +3301,18 @@ unsafe fn GENERATED_call(
             cmd_gaps(
                 current_match,
                 result,
-                parser_get_string(stack, c"type".as_ptr()),
-                parser_get_string(stack, c"scope".as_ptr()),
-                parser_get_string(stack, c"mode".as_ptr()),
-                parser_get_string(stack, c"value".as_ptr()),
+                captures
+                    .get_string(b"type")
+                    .expect("command grammar supplies required text"),
+                captures
+                    .get_string(b"scope")
+                    .expect("command grammar supplies required text"),
+                captures
+                    .get_string(b"mode")
+                    .expect("command grammar supplies required text"),
+                captures
+                    .get_string(b"value")
+                    .expect("command grammar supplies required text"),
             );
         }
         89 => {
@@ -3603,20 +3340,24 @@ unsafe fn GENERATED_call(
             cmd_border(
                 current_match,
                 result,
-                parser_get_string(stack, c"border_style".as_ptr()),
+                captures
+                    .get_string(b"border_style")
+                    .expect("command grammar supplies required text"),
                 0_i64,
             );
         }
         95 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_border(current_match, result, c"pixel".as_ptr(), 1_i64);
+            cmd_border(current_match, result, b"pixel", 1_i64);
         }
         96 => {
             (*result).next_state = CommandParserState::Initial;
             cmd_layout(
                 current_match,
                 result,
-                parser_get_string(stack, c"layout_mode".as_ptr()),
+                captures
+                    .get_string(b"layout_mode")
+                    .expect("command grammar supplies required text"),
             );
         }
         97 => {
@@ -3624,7 +3365,9 @@ unsafe fn GENERATED_call(
             cmd_layout(
                 current_match,
                 result,
-                parser_get_string(stack, c"layout_mode".as_ptr()),
+                captures
+                    .get_string(b"layout_mode")
+                    .expect("command grammar supplies required text"),
             );
         }
         98 => {
@@ -3632,7 +3375,9 @@ unsafe fn GENERATED_call(
             cmd_layout(
                 current_match,
                 result,
-                parser_get_string(stack, c"layout_mode".as_ptr()),
+                captures
+                    .get_string(b"layout_mode")
+                    .expect("command grammar supplies required text"),
             );
         }
         99 => {
@@ -3640,7 +3385,9 @@ unsafe fn GENERATED_call(
             cmd_layout(
                 current_match,
                 result,
-                parser_get_string(stack, c"layout_mode".as_ptr()),
+                captures
+                    .get_string(b"layout_mode")
+                    .expect("command grammar supplies required text"),
             );
         }
         100 => {
@@ -3648,7 +3395,9 @@ unsafe fn GENERATED_call(
             cmd_layout(
                 current_match,
                 result,
-                parser_get_string(stack, c"layout_mode".as_ptr()),
+                captures
+                    .get_string(b"layout_mode")
+                    .expect("command grammar supplies required text"),
             );
         }
         101 => {
@@ -3656,7 +3405,9 @@ unsafe fn GENERATED_call(
             cmd_layout(
                 current_match,
                 result,
-                parser_get_string(stack, c"layout_mode".as_ptr()),
+                captures
+                    .get_string(b"layout_mode")
+                    .expect("command grammar supplies required text"),
             );
         }
         102 => {
@@ -3664,7 +3415,9 @@ unsafe fn GENERATED_call(
             cmd_shmlog(
                 current_match,
                 result,
-                parser_get_string(stack, c"argument".as_ptr()),
+                captures
+                    .get_string(b"argument")
+                    .expect("command grammar supplies required text"),
             );
         }
         103 => {
@@ -3672,7 +3425,9 @@ unsafe fn GENERATED_call(
             cmd_sticky(
                 current_match,
                 result,
-                parser_get_string(stack, c"action".as_ptr()),
+                captures
+                    .get_string(b"action")
+                    .expect("command grammar supplies required text"),
             );
         }
         104 => {
@@ -3680,7 +3435,9 @@ unsafe fn GENERATED_call(
             cmd_sticky(
                 current_match,
                 result,
-                parser_get_string(stack, c"action".as_ptr()),
+                captures
+                    .get_string(b"action")
+                    .expect("command grammar supplies required text"),
             );
         }
         105 => {
@@ -3688,101 +3445,90 @@ unsafe fn GENERATED_call(
             cmd_sticky(
                 current_match,
                 result,
-                parser_get_string(stack, c"action".as_ptr()),
+                captures
+                    .get_string(b"action")
+                    .expect("command grammar supplies required text"),
             );
         }
         106 => {
             (*result).next_state = CommandParserState::Initial;
-            let mark = (&*stack)
-                .get_string(c"mark")
-                .map(|value| value.to_bytes().to_vec());
+            let mark = captures.get_string(b"mark").map(|value| value.to_vec());
             cmd_unmark(current_match, result, mark.as_deref());
         }
         107 => {
             (*result).next_state = CommandParserState::Initial;
-            let mark = (&*stack)
-                .get_string(c"mark")
-                .map(|value| value.to_bytes().to_vec());
+            let mark = captures.get_string(b"mark").map(|value| value.to_vec());
             cmd_unmark(current_match, result, mark.as_deref());
         }
         108 => {
             (*result).next_state = CommandParserState::Initial;
-            let command_text = (&*stack)
-                .get_string(c"direction")
+            let command_text = captures
+                .get_string(b"direction")
                 .expect("command grammar supplies direction")
-                .to_bytes()
                 .to_vec();
             cmd_focus_direction(current_match, result, &command_text);
         }
         109 => {
             (*result).next_state = CommandParserState::Initial;
-            let command_text = (&*stack)
-                .get_string(c"direction")
+            let command_text = captures
+                .get_string(b"direction")
                 .expect("command grammar supplies direction")
-                .to_bytes()
                 .to_vec();
             cmd_focus_direction(current_match, result, &command_text);
         }
         110 => {
             (*result).next_state = CommandParserState::Initial;
-            let command_text = (&*stack)
-                .get_string(c"direction")
+            let command_text = captures
+                .get_string(b"direction")
                 .expect("command grammar supplies direction")
-                .to_bytes()
                 .to_vec();
             cmd_focus_direction(current_match, result, &command_text);
         }
         111 => {
             (*result).next_state = CommandParserState::Initial;
-            let command_text = (&*stack)
-                .get_string(c"direction")
+            let command_text = captures
+                .get_string(b"direction")
                 .expect("command grammar supplies direction")
-                .to_bytes()
                 .to_vec();
             cmd_focus_direction(current_match, result, &command_text);
         }
         112 => {
             (*result).next_state = CommandParserState::Initial;
-            let command_text = (&*stack)
-                .get_string(c"window_mode")
+            let command_text = captures
+                .get_string(b"window_mode")
                 .expect("command grammar supplies window_mode")
-                .to_bytes()
                 .to_vec();
             cmd_focus_window_mode(current_match, result, &command_text);
         }
         113 => {
             (*result).next_state = CommandParserState::Initial;
-            let command_text = (&*stack)
-                .get_string(c"window_mode")
+            let command_text = captures
+                .get_string(b"window_mode")
                 .expect("command grammar supplies window_mode")
-                .to_bytes()
                 .to_vec();
             cmd_focus_window_mode(current_match, result, &command_text);
         }
         114 => {
             (*result).next_state = CommandParserState::Initial;
-            let command_text = (&*stack)
-                .get_string(c"window_mode")
+            let command_text = captures
+                .get_string(b"window_mode")
                 .expect("command grammar supplies window_mode")
-                .to_bytes()
                 .to_vec();
             cmd_focus_window_mode(current_match, result, &command_text);
         }
         115 => {
             (*result).next_state = CommandParserState::Initial;
-            let command_text = (&*stack)
-                .get_string(c"level")
+            let command_text = captures
+                .get_string(b"level")
                 .expect("command grammar supplies level")
-                .to_bytes()
                 .to_vec();
             cmd_focus_level(current_match, result, &command_text);
         }
         116 => {
             (*result).next_state = CommandParserState::Initial;
-            let command_text = (&*stack)
-                .get_string(c"level")
+            let command_text = captures
+                .get_string(b"level")
                 .expect("command grammar supplies level")
-                .to_bytes()
                 .to_vec();
             cmd_focus_level(current_match, result, &command_text);
         }
@@ -3796,55 +3542,49 @@ unsafe fn GENERATED_call(
         }
         119 => {
             (*result).next_state = CommandParserState::Initial;
-            let command_text = (&*stack)
-                .get_string(c"direction")
+            let command_text = captures
+                .get_string(b"direction")
                 .expect("command grammar supplies direction")
-                .to_bytes()
                 .to_vec();
             cmd_split(current_match, result, &command_text);
         }
         120 => {
             (*result).next_state = CommandParserState::Initial;
-            let command_text = (&*stack)
-                .get_string(c"direction")
+            let command_text = captures
+                .get_string(b"direction")
                 .expect("command grammar supplies direction")
-                .to_bytes()
                 .to_vec();
             cmd_split(current_match, result, &command_text);
         }
         121 => {
             (*result).next_state = CommandParserState::Initial;
-            let command_text = (&*stack)
-                .get_string(c"direction")
+            let command_text = captures
+                .get_string(b"direction")
                 .expect("command grammar supplies direction")
-                .to_bytes()
                 .to_vec();
             cmd_split(current_match, result, &command_text);
         }
         122 => {
             (*result).next_state = CommandParserState::Initial;
-            let command_text = (&*stack)
-                .get_string(c"direction")
+            let command_text = captures
+                .get_string(b"direction")
                 .expect("command grammar supplies direction")
-                .to_bytes()
                 .to_vec();
             cmd_split(current_match, result, &command_text);
         }
         123 => {
             (*result).next_state = CommandParserState::Initial;
-            let command_text = (&*stack)
-                .get_string(c"direction")
+            let command_text = captures
+                .get_string(b"direction")
                 .expect("command grammar supplies direction")
-                .to_bytes()
                 .to_vec();
             cmd_split(current_match, result, &command_text);
         }
         124 => {
             (*result).next_state = CommandParserState::Initial;
-            let command_text = (&*stack)
-                .get_string(c"direction")
+            let command_text = captures
+                .get_string(b"direction")
                 .expect("command grammar supplies direction")
-                .to_bytes()
                 .to_vec();
             cmd_split(current_match, result, &command_text);
         }
@@ -3853,47 +3593,32 @@ unsafe fn GENERATED_call(
             cmd_exec(
                 current_match,
                 result,
-                parser_get_string(stack, c"nosn".as_ptr()),
-                parser_get_string(stack, c"command".as_ptr()),
+                captures.get_string(b"nosn"),
+                captures
+                    .get_string(b"command")
+                    .expect("command grammar supplies required text"),
             );
         }
         126 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_kill(
-                current_match,
-                result,
-                parser_get_string(stack, c"kill_mode".as_ptr()),
-            );
+            cmd_kill(current_match, result, captures.get_string(b"kill_mode"));
         }
         127 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_kill(
-                current_match,
-                result,
-                parser_get_string(stack, c"kill_mode".as_ptr()),
-            );
+            cmd_kill(current_match, result, captures.get_string(b"kill_mode"));
         }
         128 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_kill(
-                current_match,
-                result,
-                parser_get_string(stack, c"kill_mode".as_ptr()),
-            );
+            cmd_kill(current_match, result, captures.get_string(b"kill_mode"));
         }
         129 => {
             (*result).next_state = CommandParserState::Initial;
-            let mark = (&*stack)
-                .get_string(c"mark")
+            let mark = captures
+                .get_string(b"mark")
                 .expect("command grammar supplies mark")
-                .to_bytes()
                 .to_vec();
-            let mode = (&*stack)
-                .get_string(c"mode")
-                .map(|value| value.to_bytes().to_vec());
-            let toggle = (&*stack)
-                .get_string(c"toggle")
-                .map(|value| value.to_bytes().to_vec());
+            let mode = captures.get_string(b"mode").map(|value| value.to_vec());
+            let toggle = captures.get_string(b"toggle").map(|value| value.to_vec());
             cmd_mark(
                 current_match,
                 result,
@@ -3907,7 +3632,9 @@ unsafe fn GENERATED_call(
             cmd_mode(
                 current_match,
                 result,
-                parser_get_string(stack, c"mode".as_ptr()),
+                captures
+                    .get_string(b"mode")
+                    .expect("command grammar supplies required text"),
             );
         }
         131 => {
@@ -3916,19 +3643,11 @@ unsafe fn GENERATED_call(
         }
         132 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_nop(
-                current_match,
-                result,
-                parser_get_string(stack, c"comment".as_ptr()),
-            );
+            cmd_nop(current_match, result, captures.get_string(b"comment"));
         }
         133 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_nop(
-                current_match,
-                result,
-                ::core::ptr::null::<::core::ffi::c_char>(),
-            );
+            cmd_nop(current_match, result, None);
         }
         _ => {
             printf(c"BUG in the parser. state = %d\n".as_ptr(), call_identifier);
@@ -3936,69 +3655,40 @@ unsafe fn GENERATED_call(
                 c"false".as_ptr(),
                 c"./GENERATED_command_call.h".as_ptr(),
                 1078 as ::core::ffi::c_uint,
-                __ASSERT_FUNCTION.as_ptr(),
+                c"void GENERATED_call(Match *, struct stack *, const int, struct CommandResultIR *)".as_ptr(),
             );
         }
     };
 }
-// These private generated arrays are initialized once and never mutated. Only
-// the legacy metadata representation uses raw pointers; callers receive a
-// checked immutable view, and no user-supplied pointer enters this boundary.
 fn state_tokens(state: CommandParserState) -> &'static [cmdp_token] {
-    // SAFETY: schema-checked static token arrays have their declared lengths and
-    // remain alive/immutable for the process. State indexing is checked first.
-    unsafe {
-        let states = &*(&raw const tokens);
-        let entry = states
-            .get(state as usize)
-            .expect("grammar state has a token table");
-        std::slice::from_raw_parts(entry.array, entry.n as usize)
-    }
+    tokens
+        .get(state as usize)
+        .copied()
+        .expect("grammar state has a token table")
 }
 
-unsafe fn next_state(token: *const cmdp_token, cmd_ctx: *mut cmd_parser_ctx) {
-    if (*token).next_state == CommandParserState::Call {
+unsafe fn next_state(token: &cmdp_token, cmd_ctx: *mut cmd_parser_ctx) {
+    if token.next_state == CommandParserState::Call {
         (*cmd_ctx).subcommand_output.ctx = cmd_ctx;
         (*cmd_ctx).subcommand_output.client = (*cmd_ctx).command_output.client;
         (*cmd_ctx).subcommand_output.needs_tree_render = false;
         GENERATED_call(
             &raw mut (*cmd_ctx).current_match,
             &raw mut (*cmd_ctx).stack,
-            (*token).extra.call_identifier as i32,
+            token.extra.call_identifier as i32,
             &raw mut (*cmd_ctx).subcommand_output,
         );
         (*cmd_ctx).state = (*cmd_ctx).subcommand_output.next_state;
         if (*cmd_ctx).subcommand_output.needs_tree_render {
             (*cmd_ctx).command_output.needs_tree_render = true;
         }
-        parser_clear_stack(&raw mut (*cmd_ctx).stack);
+        (*cmd_ctx).stack.clear();
         return;
     }
-    (*cmd_ctx).state = (*token).next_state;
+    (*cmd_ctx).state = token.next_state;
     if (*cmd_ctx).state == CommandParserState::Initial {
-        parser_clear_stack(&raw mut (*cmd_ctx).stack);
+        (*cmd_ctx).stack.clear();
     }
-}
-
-/// # Safety
-/// walk is writable and points to a live NUL-terminated input cursor. Returned
-/// storage is malloc-owned; the updated cursor remains inside the original input.
-#[deny(unsafe_op_in_unsafe_fn)]
-pub unsafe fn parse_string(walk: *mut *const libc::c_char, as_word: bool) -> *mut libc::c_char {
-    // SAFETY: caller supplies readable terminated input and writable cursor storage.
-    let input = unsafe { std::ffi::CStr::from_ptr(*walk) };
-    let capture = crate::parser_util::lex_string(
-        input.to_bytes(),
-        as_word,
-        crate::parser_util::StringGrammar::Command,
-    );
-    // SAFETY: consumed is bounded by the original C string, including its terminator.
-    unsafe { *walk = (*walk).add(capture.consumed) };
-    capture.bytes.map_or(std::ptr::null_mut(), |bytes| {
-        // SAFETY: initialized bytes are readable for their bounded length; the
-        // native duplicate transfers independent malloc-compatible ownership.
-        unsafe { i3_common::safewrappers::sstrndup(bytes.as_ptr().cast(), bytes.len()) }
-    })
 }
 
 /// Parse and execute commands, returning an owned diagnostic and render flag.
@@ -4067,9 +3757,6 @@ pub unsafe fn parse_command(
     cmd_ctx.command_output.needs_tree_render = false;
     let mut walk: *const ::core::ffi::c_char = input;
     let len = input_owner.len() - 1;
-    let mut c: i32 = 0;
-    let mut token: *const cmdp_token = ::core::ptr::null::<cmdp_token>();
-    let mut token_handled: bool = false;
     cmd_criteria_init(
         &raw mut cmd_ctx.current_match,
         &raw mut cmd_ctx.subcommand_output,
@@ -4084,40 +3771,31 @@ pub unsafe fn parse_command(
             walk = walk.offset(1);
         }
         let grammar = state_tokens(cmd_ctx.state);
-        token_handled = false;
-        c = 0_i32;
-        while c < grammar.len() as i32 {
-            token = &grammar[c as usize] as *const cmdp_token;
-            if *(*token).name.offset(0_isize) as i32 == '\'' as i32 {
-                if strncasecmp(
-                    walk,
-                    (*token).name.offset(1_isize),
-                    strlen((*token).name).wrapping_sub(1_usize),
-                ) == 0_i32
+        let mut token_handled = false;
+        for token in grammar {
+            if let Some(literal) = token.name.strip_prefix(b"'") {
+                let remaining = &input_owner[walk.offset_from(input) as usize..len];
+                if remaining.len() >= literal.len()
+                    && crate::util::text_eq_ignore_case(&remaining[..literal.len()], literal)
                 {
-                    if !(*token).identifier.is_null() {
-                        parser_push_string(
-                            &raw mut cmd_ctx.stack,
-                            (*token).identifier,
-                            (*token).name.offset(1_isize),
-                        );
+                    if let Some(identifier) = token.identifier {
+                        cmd_ctx.stack.push_string(identifier, literal);
                     }
-                    walk = walk.add(strlen((*token).name).wrapping_sub(1_usize));
+                    walk = walk.add(literal.len());
                     next_state(token, &raw mut cmd_ctx);
                     token_handled = true;
                     break;
                 }
-            } else if strcmp((*token).name, c"number".as_ptr()) == 0_i32 {
-                let mut end: *mut ::core::ffi::c_char =
-                    ::core::ptr::null_mut::<::core::ffi::c_char>();
-                *__errno_location() = 0_i32;
-                let num: i64 = strtol(walk, &raw mut end, 10 as ::core::ffi::c_int) as i64;
+            } else if token.name == b"number" {
+                let mut end = std::ptr::null_mut();
+                *__errno_location() = 0;
+                let num = strtol(walk, &raw mut end, 10);
                 if !(*__errno_location() == ERANGE && (num == LONG_MIN || num == LONG_MAX)
-                    || *__errno_location() != 0_i32 && num == 0_i64)
+                    || *__errno_location() != 0 && num == 0)
                     && !std::ptr::eq(end, walk)
                 {
-                    if !(*token).identifier.is_null() {
-                        parser_push_long(&raw mut cmd_ctx.stack, (*token).identifier, num);
+                    if let Some(identifier) = token.identifier {
+                        cmd_ctx.stack.push_long(identifier, num);
                     }
                     walk = end;
                     next_state(token, &raw mut cmd_ctx);
@@ -4125,27 +3803,26 @@ pub unsafe fn parse_command(
                     break;
                 }
             } else {
-                if strcmp((*token).name, c"string".as_ptr()) == 0_i32
-                    || strcmp((*token).name, c"word".as_ptr()) == 0_i32
-                {
-                    let str: *mut ::core::ffi::c_char = parse_string(
-                        &raw mut walk,
-                        *(*token).name.offset(0_isize) as i32 != 's' as i32,
+                if token.name == b"string" || token.name == b"word" {
+                    let capture = crate::parser_util::lex_string(
+                        &input_owner[walk.offset_from(input) as usize..len],
+                        token.name.first() != Some(&b's'),
+                        crate::parser_util::StringGrammar::Command,
                     );
-                    if !str.is_null() {
-                        if !(*token).identifier.is_null() {
-                            parser_push_string(&raw mut cmd_ctx.stack, (*token).identifier, str);
+                    walk = walk.add(capture.consumed);
+                    if let Some(bytes) = capture.bytes {
+                        if let Some(identifier) = token.identifier {
+                            cmd_ctx.stack.push_string(identifier, &bytes);
                         }
-                        free(str as *mut ::core::ffi::c_void);
                         if *walk as i32 == '"' as i32 {
-                            walk = walk.offset(1);
+                            walk = walk.add(1);
                         }
                         next_state(token, &raw mut cmd_ctx);
                         token_handled = true;
                         break;
                     }
                 }
-                if strcmp((*token).name, c"end".as_ptr()) == 0_i32
+                if token.name == b"end"
                     && (*walk as i32 == '\0' as i32
                         || *walk as i32 == ',' as i32
                         || *walk as i32 == ';' as i32)
@@ -4158,42 +3835,24 @@ pub unsafe fn parse_command(
                             &raw mut cmd_ctx.subcommand_output,
                         );
                     }
-                    walk = walk.offset(1);
+                    walk = walk.add(1);
                     break;
                 }
             }
-            c += 1;
         }
         if token_handled {
             continue;
         }
-        // Names are borrowed from immutable generated C-string literals.
-        let names: Vec<_> = grammar
-            .iter()
-            .map(|token| std::ffi::CStr::from_ptr(token.name))
-            .collect();
+        // Grammar names borrow immutable bounded byte literals.
+        let names: Vec<_> = grammar.iter().map(|token| token.name).collect();
         let mut message = b"Expected one of these tokens: ".to_vec();
         message.extend_from_slice(&crate::parser_util::expected_tokens(&names, false));
-        let message = std::ffi::CString::new(message).expect("grammar names contain no NUL");
-        let errormessage = message.as_ptr();
         let offset = (walk.offset_from(input) as usize).min(len);
         let mut caret = vec![b' '; len];
         caret[offset..].fill(b'^');
-        let caret = std::ffi::CString::new(caret).expect("caret bytes contain no NUL");
-        let position = caret.as_ptr();
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_pointer_1 = errormessage;
-            let log_value_0 = i3_common::logging::string_bytes(
-                (if log_pointer_1.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                })
-                .map(std::ffi::CStr::to_bytes),
-                None,
-            )
-            .to_vec();
+            let log_value_0 = message.to_vec();
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::error!("ERROR: {}\n", log_value_0_text);
             } else {
@@ -4206,17 +3865,7 @@ pub unsafe fn parse_command(
         };
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_pointer_1 = input;
-            let log_value_0 = i3_common::logging::string_bytes(
-                (if log_pointer_1.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                })
-                .map(std::ffi::CStr::to_bytes),
-                None,
-            )
-            .to_vec();
+            let log_value_0 = input_owner[..len].to_vec();
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::error!("ERROR: Your command: {}\n", log_value_0_text);
             } else {
@@ -4229,17 +3878,7 @@ pub unsafe fn parse_command(
         };
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_pointer_1 = position;
-            let log_value_0 = i3_common::logging::string_bytes(
-                (if log_pointer_1.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                })
-                .map(std::ffi::CStr::to_bytes),
-                None,
-            )
-            .to_vec();
+            let log_value_0 = caret.to_vec();
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::error!("ERROR:               {}\n", log_value_0_text);
             } else {
@@ -4254,13 +3893,13 @@ pub unsafe fn parse_command(
         emit_command_reply(
             &raw mut cmd_ctx.command_output,
             CommandReply::ParseError {
-                error: message.as_bytes(),
+                error: &message,
                 input: &input_owner[..len],
-                position: caret.as_bytes(),
+                position: &caret,
             },
         );
-        result.error_message = Some(message.into_bytes());
-        parser_clear_stack(&raw mut cmd_ctx.stack);
+        result.error_message = Some(message);
+        cmd_ctx.stack.clear();
         break;
     }
     if let Some(output) = output {
@@ -4410,35 +4049,34 @@ mod owned_parser_tests {
     }
 
     #[test]
-    fn legacy_string_entry_updates_cursor_and_keeps_malloc_ownership() {
-        let input = c"\"a\\\"b\"rest";
-        let mut cursor = input.as_ptr();
-        // SAFETY: cursor is writable, and input remains a valid native string.
-        unsafe {
-            let value = parse_string(&mut cursor, false);
-            assert_eq!(std::ffi::CStr::from_ptr(value), c"a\"b");
-            assert_eq!(cursor.offset_from(input.as_ptr()), 5);
-            libc::free(value.cast());
-            let mut empty = c"\"\"".as_ptr();
-            assert!(parse_string(&mut empty, false).is_null());
-            assert_eq!(*empty, b'"' as libc::c_char);
-        }
+    fn command_lexer_owns_captures_and_reports_consumed_offsets() {
+        let capture = crate::parser_util::lex_string(
+            b"\"a\\\"b\"rest",
+            false,
+            crate::parser_util::StringGrammar::Command,
+        );
+        assert_eq!(capture.bytes.as_deref(), Some(b"a\"b".as_slice()));
+        assert_eq!(capture.consumed, 5);
+        let empty = crate::parser_util::lex_string(
+            b"\"\"",
+            false,
+            crate::parser_util::StringGrammar::Command,
+        );
+        assert!(empty.bytes.is_none());
+        assert_eq!(empty.consumed, 1);
     }
     #[test]
     fn generated_command_tables_keep_complete_states_and_dispatch_ids() {
-        // SAFETY: private immutable generated arrays remain initialized for this process.
-        let states = unsafe { &*(&raw const tokens) };
+        let states = &tokens;
         assert_eq!(states.len(), 77);
         let mut calls = std::collections::BTreeSet::new();
         for table in states {
-            assert!(table.n > 0);
-            let entries = unsafe { std::slice::from_raw_parts(table.array, table.n as usize) };
+            assert!(!table.is_empty());
+            let entries = *table;
             for entry in entries {
-                assert!(!unsafe { std::ffi::CStr::from_ptr(entry.name) }
-                    .to_bytes()
-                    .is_empty());
+                assert!(!entry.name.is_empty());
                 if entry.next_state == CommandParserState::Call {
-                    calls.insert(unsafe { entry.extra.call_identifier });
+                    calls.insert(entry.extra.call_identifier);
                 } else {
                     assert!((entry.next_state as usize) < states.len());
                 }

@@ -2039,24 +2039,22 @@ pub unsafe fn con_set_layout(mut con: *mut Con, layout: Layout) {
 }
 
 fn layout_toggle(
-    mode: &std::ffi::CStr,
+    mode: &[u8],
     current: Layout,
     last_split: Layout,
-) -> (Option<Layout>, Vec<std::ffi::CString>) {
-    let equals = |left: &std::ffi::CStr, right: &std::ffi::CStr| unsafe {
-        libc::strcasecmp(left.as_ptr(), right.as_ptr()) == 0
-    };
+) -> (Option<Layout>, Vec<Vec<u8>>) {
+    let mode = mode.split(|byte| *byte == 0).next().unwrap();
+    let equals = crate::util::text_eq_ignore_case;
     let mut invalid = Vec::new();
-    if equals(mode, c"split") || mode.to_bytes().contains(&b' ') {
+    if equals(mode, b"split") || mode.contains(&b' ') {
         let mut next = None;
         let mut found = false;
         for bytes in mode
-            .to_bytes()
             .split(|&byte| byte == b' ')
             .filter(|bytes| !bytes.is_empty())
         {
-            let token = std::ffi::CString::new(bytes).unwrap();
-            let layout = if equals(&token, c"split") {
+            let token = bytes;
+            let layout = if equals(token, b"split") {
                 match current {
                     Layout::SplitH => Layout::SplitV,
                     Layout::SplitV => Layout::SplitH,
@@ -2064,10 +2062,10 @@ fn layout_toggle(
                     _ => last_split,
                 }
             } else {
-                match layout_from_name(token.as_bytes()) {
+                match layout_from_name(token) {
                     Some(layout) if layout != Layout::Default => layout,
                     _ => {
-                        invalid.push(token);
+                        invalid.push(token.to_vec());
                         continue;
                     }
                 }
@@ -2085,8 +2083,8 @@ fn layout_toggle(
         }
         (next, invalid)
     } else {
-        let all = equals(mode, c"all");
-        let next = if all || equals(mode, c"default") {
+        let all = equals(mode, b"all");
+        let next = if all || equals(mode, b"default") {
             match current {
                 Layout::Stacked => Some(Layout::Tabbed),
                 Layout::Tabbed => Some(if all { Layout::SplitH } else { last_split }),
@@ -2101,7 +2099,12 @@ fn layout_toggle(
     }
 }
 
-pub unsafe fn con_toggle_layout(con: *mut Con, toggle_mode: *const ::core::ffi::c_char) {
+pub unsafe fn con_toggle_layout(con: *mut Con, toggle_mode: &[u8]) {
+    let toggle_mode = toggle_mode
+        .split(|byte| *byte == 0)
+        .next()
+        .unwrap()
+        .to_vec();
     let parent = if (*con).type_0 == ContainerType::Workspace {
         con
     } else {
@@ -2110,19 +2113,7 @@ pub unsafe fn con_toggle_layout(con: *mut Con, toggle_mode: *const ::core::ffi::
     {
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_value_0 = i3_common::logging::pointer(con);
-        let log_value_1 = {
-            let pointer: *const libc::c_char = toggle_mode;
-            i3_common::logging::string_bytes(
-                (if pointer.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(pointer))
-                })
-                .map(std::ffi::CStr::to_bytes),
-                None,
-            )
-            .to_vec()
-        };
+        let log_value_1 = toggle_mode.clone();
         let log_value_2 = i3_common::logging::pointer(parent);
         if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
             ::log::debug!(
@@ -2146,15 +2137,12 @@ pub unsafe fn con_toggle_layout(con: *mut Con, toggle_mode: *const ::core::ffi::
             );
         }
     };
-    let mode = std::ffi::CStr::from_ptr(toggle_mode);
+    let mode = toggle_mode.as_slice();
     let (next, invalid) = layout_toggle(mode, (*parent).layout, (*parent).last_split_layout);
     for token in invalid {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_value_0 = i3_common::logging::string_bytes(
-                (Some(token.as_c_str())).map(std::ffi::CStr::to_bytes),
-                None,
-            );
+            let log_value_0 = i3_common::logging::string_bytes(Some(&token), None);
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(log_value_0),) {
                 ::log::error!(
                     "ERROR: The token '{}' was not recognized and has been skipped.\n",
@@ -3000,45 +2988,48 @@ mod owned_graph_tests {
     #[test]
     fn layout_toggle_retains_space_only_tokenization_aliases_errors_and_wrap() {
         assert_eq!(
-            layout_toggle(c"split", Layout::Tabbed, Layout::Default).0,
+            layout_toggle(b"split", Layout::Tabbed, Layout::Default).0,
             Some(Layout::SplitH)
         );
         assert_eq!(
-            layout_toggle(c"split", Layout::SplitH, Layout::Default).0,
+            layout_toggle(b"split", Layout::SplitH, Layout::Default).0,
             Some(Layout::SplitV)
         );
         assert_eq!(
-            layout_toggle(c"all", Layout::SplitV, Layout::SplitH).0,
+            layout_toggle(b"all", Layout::SplitV, Layout::SplitH).0,
             Some(Layout::Stacked)
         );
         assert_eq!(
-            layout_toggle(c"default", Layout::Tabbed, Layout::SplitV).0,
+            layout_toggle(b"default", Layout::Tabbed, Layout::SplitV).0,
             Some(Layout::SplitV)
         );
         let (next, invalid) = layout_toggle(
-            c"  nonsense stacked invalid tabbed splitv",
+            b"  nonsense stacked invalid tabbed splitv",
             Layout::Stacked,
             Layout::SplitH,
         );
         assert_eq!(next, Some(Layout::Tabbed));
         assert_eq!(
-            invalid
-                .iter()
-                .map(|token| token.as_bytes())
-                .collect::<Vec<_>>(),
+            invalid.iter().map(Vec::as_slice).collect::<Vec<_>>(),
             [b"nonsense".as_slice(), b"invalid"]
         );
         assert_eq!(
-            layout_toggle(c"stacked tabbed", Layout::Tabbed, Layout::SplitH).0,
+            layout_toggle(b"stacked tabbed", Layout::Tabbed, Layout::SplitH).0,
             Some(Layout::Stacked)
         );
         assert_eq!(
-            layout_toggle(c"stacked\ttabbed", Layout::SplitH, Layout::SplitH).0,
+            layout_toggle(b"stacked\ttabbed", Layout::SplitH, Layout::SplitH).0,
             None
         );
-        let (next, invalid) = layout_toggle(c"default bad", Layout::SplitH, Layout::SplitH);
+        let (next, invalid) = layout_toggle(b"default bad", Layout::SplitH, Layout::SplitH);
         assert_eq!(next, None);
         assert_eq!(invalid.len(), 2);
+        assert_eq!(
+            layout_toggle(b"split\0ignored", Layout::SplitH, Layout::Default).0,
+            Some(Layout::SplitV)
+        );
+        let (_, invalid) = layout_toggle(b"\xff splitv", Layout::SplitH, Layout::Default);
+        assert_eq!(invalid, [b"\xff".to_vec()]);
     }
     #[test]
     fn title_captures_escape_and_repair_only_for_markup() {
