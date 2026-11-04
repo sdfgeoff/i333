@@ -467,10 +467,10 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
     if current_output.is_null() || (*current_output).con != correct_output {
         ::log::debug!("../src/floating.c:floating_enable:391 - This floating window is on the wrong output, fixing coordinates (currently ({}, {}))\n", ((*nc).rect.x) as i32, ((*nc).rect.y) as i32);
         if !current_output.is_null() {
-            floating_fix_coordinates(
-                nc,
-                &raw mut (*(*current_output).con).rect,
-                &raw mut (*correct_output).rect,
+            (*nc).rect = floating_fix_coordinates(
+                (*nc).rect,
+                (*(*current_output).con).rect,
+                (*correct_output).rect,
             );
             current_output = get_output_from_rect((*nc).rect);
         }
@@ -884,8 +884,9 @@ fn remapped(mut target: Rect, old_rect: Rect, new_rect: Rect) -> Rect {
 
     target
 }
-pub unsafe fn floating_fix_coordinates(con: *mut Con, old_rect: *mut Rect, new_rect: *mut Rect) {
-    (*con).rect = remapped((*con).rect, *old_rect, *new_rect);
+/// Remap copied geometry without borrowing or mutating the live container graph.
+pub fn floating_fix_coordinates(target: Rect, old_rect: Rect, new_rect: Rect) -> Rect {
+    remapped(target, old_rect, new_rect)
 }
 
 // Internal helpers use Rust linkage rather than foreign symbol lookup.

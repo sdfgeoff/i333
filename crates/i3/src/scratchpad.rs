@@ -303,7 +303,7 @@ pub unsafe fn scratchpad_fix_resolution() {
         let Some(con) = resolve(floating_id) else {
             continue;
         };
-        floating_fix_coordinates(con, &raw mut old_rect, &raw mut new_rect);
+        (*con).rect = floating_fix_coordinates((*con).rect, old_rect, new_rect);
     }
 }
 

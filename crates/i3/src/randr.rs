@@ -910,11 +910,8 @@ unsafe fn output_change_mode(output: *mut Output) {
     while !workspace.is_null() {
         for id in floating::children(identity(workspace).expect("live workspace")) {
             let Some(child) = resolve(id) else { continue };
-            floating_fix_coordinates(
-                child,
-                &raw mut (*workspace).rect,
-                &raw mut (*(*output).con).rect,
-            );
+            (*child).rect =
+                floating_fix_coordinates((*child).rect, (*workspace).rect, (*(*output).con).rect);
         }
         workspace = nodes::next_ptr(workspace);
     }
@@ -1449,11 +1446,8 @@ unsafe fn move_content(con: *mut Con) {
                 let Some(floating_con) = resolve(id) else {
                     continue;
                 };
-                floating_fix_coordinates(
-                    floating_con,
-                    &raw mut (*con).rect,
-                    &raw mut (*first).rect,
-                );
+                (*floating_con).rect =
+                    floating_fix_coordinates((*floating_con).rect, (*con).rect, (*first).rect);
             }
         }
     }

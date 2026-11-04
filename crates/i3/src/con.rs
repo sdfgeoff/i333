@@ -1400,11 +1400,8 @@ unsafe fn _con_move_to_con(
     }
     if source_output != dest_output {
         if fix_coordinates && ((*con).type_0) == ContainerType::Floating {
-            floating_fix_coordinates(
-                con,
-                &raw mut (*source_output).rect,
-                &raw mut (*dest_output).rect,
-            );
+            (*con).rect =
+                floating_fix_coordinates((*con).rect, (*source_output).rect, (*dest_output).rect);
         } else {
             ::log::debug!("../src/con.c:_con_move_to_con:1394 - Not fixing coordinates, fix_coordinates flag = {}\n", { (fix_coordinates as ::core::ffi::c_int) });
         }

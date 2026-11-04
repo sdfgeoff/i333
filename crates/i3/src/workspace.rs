@@ -1498,11 +1498,8 @@ pub unsafe fn workspace_move_to_output(mut ws: *mut Con, output: *mut Output) {
         let Some(floating_con) = resolve(floating_id) else {
             continue;
         };
-        floating_fix_coordinates(
-            floating_con,
-            &raw mut (*old_content).rect,
-            &raw mut (*content).rect,
-        );
+        (*floating_con).rect =
+            floating_fix_coordinates((*floating_con).rect, (*old_content).rect, (*content).rect);
     }
     ipc_send_workspace_event(c"move".as_ptr(), ws, ::core::ptr::null_mut::<Con>());
     if workspace_was_visible {
