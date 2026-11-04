@@ -31,27 +31,12 @@ pub use i3_common::font::Font;
 pub use i3_common::draw_util::color_t;
 pub use i3_common::draw_util::surface_t;
 
-pub type cmdp_token = token;
 #[derive(Copy, Clone)]
-#[repr(C)]
-pub struct token {
-    pub name: *mut ::core::ffi::c_char,
-    pub identifier: *mut ::core::ffi::c_char,
-    pub next_state: ParserState,
-    pub extra: WizardTokenData,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub union WizardTokenData {
-    pub call_identifier: u16,
-}
-
-pub type cmdp_token_ptr = tokenptr;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct tokenptr {
-    pub array: *mut cmdp_token,
-    pub n: i32,
+struct GrammarToken {
+    name: &'static [u8],
+    identifier: Option<&'static [u8]>,
+    next_state: ParserState,
+    call_identifier: u16,
 }
 
 pub const DEFAULT_DIR_MODE: libc::mode_t =
@@ -81,3997 +66,2792 @@ pub static mut root: u32 = 0;
 static mut xkb_keymap: *mut xkb_keymap = std::ptr::null_mut::<xkb_keymap>();
 static mut xkb_base_event: u8 = 0;
 static mut xkb_base_error: u8 = 0;
-static mut tokens_FORCE_DISPLAY_URGENCY_HINT_MS: [cmdp_token; 2] = [
-    token {
-        name: c"'ms".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static TOKENS_FORCE_DISPLAY_URGENCY_HINT_MS: [GrammarToken; 2] = [
+    GrammarToken {
+        name: b"'ms",
+        identifier: None,
         next_state: ParserState::ForceDisplayUrgencyHintMs,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"end",
+        identifier: None,
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
 ];
-static mut tokens_FLOATING_MAXIMUM_SIZE_HEIGHT: [cmdp_token; 1] = [token {
-    name: c"number".as_ptr().cast_mut(),
-    identifier: c"height".as_ptr().cast_mut(),
+static TOKENS_FLOATING_MAXIMUM_SIZE_HEIGHT: [GrammarToken; 1] = [GrammarToken {
+    name: b"number",
+    identifier: Some(b"height"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 1_i32 as u16,
-    },
+    call_identifier: 1,
 }];
-static mut tokens_FLOATING_MINIMUM_SIZE_HEIGHT: [cmdp_token; 1] = [token {
-    name: c"number".as_ptr().cast_mut(),
-    identifier: c"height".as_ptr().cast_mut(),
+static TOKENS_FLOATING_MINIMUM_SIZE_HEIGHT: [GrammarToken; 1] = [GrammarToken {
+    name: b"number",
+    identifier: Some(b"height"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 2_i32 as u16,
-    },
+    call_identifier: 2,
 }];
-static mut tokens_BAR_STRIP_WORKSPACE_NUMBERS: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"value".as_ptr().cast_mut(),
+static TOKENS_BAR_STRIP_WORKSPACE_NUMBERS: [GrammarToken; 1] = [GrammarToken {
+    name: b"word",
+    identifier: Some(b"value"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 3_i32 as u16,
-    },
+    call_identifier: 3,
 }];
-static mut tokens_FLOATING_MAXIMUM_SIZE_WIDTH: [cmdp_token; 1] = [token {
-    name: c"number".as_ptr().cast_mut(),
-    identifier: c"width".as_ptr().cast_mut(),
+static TOKENS_FLOATING_MAXIMUM_SIZE_WIDTH: [GrammarToken; 1] = [GrammarToken {
+    name: b"number",
+    identifier: Some(b"width"),
     next_state: ParserState::FloatingMaximumSizeX,
-    extra: WizardTokenData {
-        call_identifier: 0_i32 as u16,
-    },
+    call_identifier: 0,
 }];
-static mut tokens_FLOATING_MINIMUM_SIZE_WIDTH: [cmdp_token; 1] = [token {
-    name: c"number".as_ptr().cast_mut(),
-    identifier: c"width".as_ptr().cast_mut(),
+static TOKENS_FLOATING_MINIMUM_SIZE_WIDTH: [GrammarToken; 1] = [GrammarToken {
+    name: b"number",
+    identifier: Some(b"width"),
     next_state: ParserState::FloatingMinimumSizeX,
-    extra: WizardTokenData {
-        call_identifier: 0_i32 as u16,
-    },
+    call_identifier: 0,
 }];
-static mut tokens_BAR_BINDING_MODE_INDICATOR: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"value".as_ptr().cast_mut(),
+static TOKENS_BAR_BINDING_MODE_INDICATOR: [GrammarToken; 1] = [GrammarToken {
+    name: b"word",
+    identifier: Some(b"value"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 4_i32 as u16,
-    },
+    call_identifier: 4,
 }];
-static mut tokens_BAR_WORKSPACE_MIN_WIDTH_PX: [cmdp_token; 2] = [
-    token {
-        name: c"'px".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static TOKENS_BAR_WORKSPACE_MIN_WIDTH_PX: [GrammarToken; 2] = [
+    GrammarToken {
+        name: b"'px",
+        identifier: None,
         next_state: ParserState::BarWorkspaceMinWidthPx,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"end",
+        identifier: None,
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 5_i32 as u16,
-        },
+        call_identifier: 5,
     },
 ];
-static mut tokens_FOCUS_ON_WINDOW_ACTIVATION: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"mode".as_ptr().cast_mut(),
+static TOKENS_FOCUS_ON_WINDOW_ACTIVATION: [GrammarToken; 1] = [GrammarToken {
+    name: b"word",
+    identifier: Some(b"mode"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 6_i32 as u16,
-    },
+    call_identifier: 6,
 }];
-static mut tokens_FORCE_DISPLAY_URGENCY_HINT: [cmdp_token; 1] = [token {
-    name: c"number".as_ptr().cast_mut(),
-    identifier: c"duration_ms".as_ptr().cast_mut(),
+static TOKENS_FORCE_DISPLAY_URGENCY_HINT: [GrammarToken; 1] = [GrammarToken {
+    name: b"number",
+    identifier: Some(b"duration_ms"),
     next_state: ParserState::ForceDisplayUrgencyHintMs,
-    extra: WizardTokenData {
-        call_identifier: 0_i32 as u16,
-    },
+    call_identifier: 0,
 }];
-static mut tokens_TILING_DRAG_SWAP_MODIFIER: [cmdp_token; 10] = [
-    token {
-        name: c"'Mod1".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+static TOKENS_TILING_DRAG_SWAP_MODIFIER: [GrammarToken; 10] = [
+    GrammarToken {
+        name: b"'Mod1",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::TilingDragSwapModifier,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Mod2".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Mod2",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::TilingDragSwapModifier,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Mod3".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Mod3",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::TilingDragSwapModifier,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Mod4".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Mod4",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::TilingDragSwapModifier,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Mod5".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Mod5",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::TilingDragSwapModifier,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Shift".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Shift",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::TilingDragSwapModifier,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Control".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Control",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::TilingDragSwapModifier,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Ctrl".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Ctrl",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::TilingDragSwapModifier,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'+".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'+",
+        identifier: None,
         next_state: ParserState::TilingDragSwapModifier,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"end",
+        identifier: None,
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 7_i32 as u16,
-        },
+        call_identifier: 7,
     },
 ];
-static mut tokens_BAR_STRIP_WORKSPACE_NAME: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"value".as_ptr().cast_mut(),
+static TOKENS_BAR_STRIP_WORKSPACE_NAME: [GrammarToken; 1] = [GrammarToken {
+    name: b"word",
+    identifier: Some(b"value"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 8_i32 as u16,
-    },
+    call_identifier: 8,
 }];
-static mut tokens_CRITERION_FROM_STR_START: [cmdp_token; 3] = [
-    token {
-        name: c"'\"".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static TOKENS_CRITERION_FROM_STR_START: [GrammarToken; 3] = [
+    GrammarToken {
+        name: b"'\"",
+        identifier: None,
         next_state: ParserState::CriterionFromStr,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'auto".as_ptr().cast_mut(),
-        identifier: c"kind".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'auto",
+        identifier: Some(b"kind"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 9_i32 as u16,
-        },
+        call_identifier: 9,
     },
-    token {
-        name: c"'user".as_ptr().cast_mut(),
-        identifier: c"kind".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'user",
+        identifier: Some(b"kind"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 10_i32 as u16,
-        },
+        call_identifier: 10,
     },
 ];
-static mut tokens_DEFAULT_BORDER_PIXELS_PX: [cmdp_token; 2] = [
-    token {
-        name: c"'px".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static TOKENS_DEFAULT_BORDER_PIXELS_PX: [GrammarToken; 2] = [
+    GrammarToken {
+        name: b"'px",
+        identifier: None,
         next_state: ParserState::DefaultBorderPixelsPx,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"end",
+        identifier: None,
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 11_i32 as u16,
-        },
+        call_identifier: 11,
     },
 ];
-static mut tokens_WORKSPACE_BACK_AND_FORTH: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"value".as_ptr().cast_mut(),
+static TOKENS_WORKSPACE_BACK_AND_FORTH: [GrammarToken; 1] = [GrammarToken {
+    name: b"word",
+    identifier: Some(b"value"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 12_i32 as u16,
-    },
+    call_identifier: 12,
 }];
-static mut tokens_ASSIGN_WORKSPACE_NUMBER: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"number".as_ptr().cast_mut(),
+static TOKENS_ASSIGN_WORKSPACE_NUMBER: [GrammarToken; 1] = [GrammarToken {
+    name: b"string",
+    identifier: Some(b"number"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 13_i32 as u16,
-    },
+    call_identifier: 13,
 }];
-static mut tokens_BAR_WORKSPACE_MIN_WIDTH: [cmdp_token; 1] = [token {
-    name: c"number".as_ptr().cast_mut(),
-    identifier: c"width".as_ptr().cast_mut(),
+static TOKENS_BAR_WORKSPACE_MIN_WIDTH: [GrammarToken; 1] = [GrammarToken {
+    name: b"number",
+    identifier: Some(b"width"),
     next_state: ParserState::BarWorkspaceMinWidthPx,
-    extra: WizardTokenData {
-        call_identifier: 0_i32 as u16,
-    },
+    call_identifier: 0,
 }];
-static mut tokens_FLOATING_MAXIMUM_SIZE_X: [cmdp_token; 1] = [token {
-    name: c"'x".as_ptr().cast_mut(),
-    identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static TOKENS_FLOATING_MAXIMUM_SIZE_X: [GrammarToken; 1] = [GrammarToken {
+    name: b"'x",
+    identifier: None,
     next_state: ParserState::FloatingMaximumSizeHeight,
-    extra: WizardTokenData {
-        call_identifier: 0_i32 as u16,
-    },
+    call_identifier: 0,
 }];
-static mut tokens_FLOATING_MINIMUM_SIZE_X: [cmdp_token; 1] = [token {
-    name: c"'x".as_ptr().cast_mut(),
-    identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static TOKENS_FLOATING_MINIMUM_SIZE_X: [GrammarToken; 1] = [GrammarToken {
+    name: b"'x",
+    identifier: None,
     next_state: ParserState::FloatingMinimumSizeHeight,
-    extra: WizardTokenData {
-        call_identifier: 0_i32 as u16,
-    },
+    call_identifier: 0,
 }];
-static mut tokens_POPUP_DURING_FULLSCREEN: [cmdp_token; 4] = [
-    token {
-        name: c"'ignore".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+static TOKENS_POPUP_DURING_FULLSCREEN: [GrammarToken; 4] = [
+    GrammarToken {
+        name: b"'ignore",
+        identifier: Some(b"value"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 14_i32 as u16,
-        },
+        call_identifier: 14,
     },
-    token {
-        name: c"'leave_fullscreen".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'leave_fullscreen",
+        identifier: Some(b"value"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 15_i32 as u16,
-        },
+        call_identifier: 15,
     },
-    token {
-        name: c"'all".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'all",
+        identifier: Some(b"value"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 16_i32 as u16,
-        },
+        call_identifier: 16,
     },
-    token {
-        name: c"'smart".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'smart",
+        identifier: Some(b"value"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 17_i32 as u16,
-        },
+        call_identifier: 17,
     },
 ];
-static mut tokens_BAR_COLORS_IGNORE_LINE: [cmdp_token; 1] = [token {
-    name: c"line".as_ptr().cast_mut(),
-    identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static TOKENS_BAR_COLORS_IGNORE_LINE: [GrammarToken; 1] = [GrammarToken {
+    name: b"line",
+    identifier: None,
     next_state: ParserState::BarColors,
-    extra: WizardTokenData {
-        call_identifier: 0_i32 as u16,
-    },
+    call_identifier: 0,
 }];
-static mut tokens_CRITERION_FROM_STR_END: [cmdp_token; 1] = [token {
-    name: c"'\"".as_ptr().cast_mut(),
-    identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static TOKENS_CRITERION_FROM_STR_END: [GrammarToken; 1] = [GrammarToken {
+    name: b"'\"",
+    identifier: None,
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 18_i32 as u16,
-    },
+    call_identifier: 18,
 }];
-static mut tokens_BAR_COLORS_BACKGROUND: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"background".as_ptr().cast_mut(),
+static TOKENS_BAR_COLORS_BACKGROUND: [GrammarToken; 1] = [GrammarToken {
+    name: b"word",
+    identifier: Some(b"background"),
     next_state: ParserState::BarColorsText,
-    extra: WizardTokenData {
-        call_identifier: 0_i32 as u16,
-    },
+    call_identifier: 0,
 }];
-static mut tokens_BAR_WORKSPACE_BUTTONS: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"value".as_ptr().cast_mut(),
+static TOKENS_BAR_WORKSPACE_BUTTONS: [GrammarToken; 1] = [GrammarToken {
+    name: b"word",
+    identifier: Some(b"value"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 19_i32 as u16,
-    },
+    call_identifier: 19,
 }];
-static mut tokens_BAR_WORKSPACE_COMMAND: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"command".as_ptr().cast_mut(),
+static TOKENS_BAR_WORKSPACE_COMMAND: [GrammarToken; 1] = [GrammarToken {
+    name: b"string",
+    identifier: Some(b"command"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 20_i32 as u16,
-    },
+    call_identifier: 20,
 }];
-static mut tokens_DEFAULT_BORDER_PIXELS: [cmdp_token; 2] = [
-    token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static TOKENS_DEFAULT_BORDER_PIXELS: [GrammarToken; 2] = [
+    GrammarToken {
+        name: b"end",
+        identifier: None,
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 21_i32 as u16,
-        },
+        call_identifier: 21,
     },
-    token {
-        name: c"number".as_ptr().cast_mut(),
-        identifier: c"width".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"number",
+        identifier: Some(b"width"),
         next_state: ParserState::DefaultBorderPixelsPx,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
 ];
-static mut tokens_WORKSPACE_OUTPUT_WORD: [cmdp_token; 2] = [
-    token {
-        name: c"word".as_ptr().cast_mut(),
-        identifier: c"output".as_ptr().cast_mut(),
+static TOKENS_WORKSPACE_OUTPUT_WORD: [GrammarToken; 2] = [
+    GrammarToken {
+        name: b"word",
+        identifier: Some(b"output"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 22_i32 as u16,
-        },
+        call_identifier: 22,
     },
-    token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"end",
+        identifier: None,
         next_state: ParserState::Initial,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
 ];
-static mut tokens_BAR_SEPARATOR_SYMBOL: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"separator".as_ptr().cast_mut(),
+static TOKENS_BAR_SEPARATOR_SYMBOL: [GrammarToken; 1] = [GrammarToken {
+    name: b"string",
+    identifier: Some(b"separator"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 23_i32 as u16,
-    },
+    call_identifier: 23,
 }];
-static mut tokens_FORCE_FOCUS_WRAPPING: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"value".as_ptr().cast_mut(),
+static TOKENS_FORCE_FOCUS_WRAPPING: [GrammarToken; 1] = [GrammarToken {
+    name: b"word",
+    identifier: Some(b"value"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 24_i32 as u16,
-    },
+    call_identifier: 24,
 }];
-static mut tokens_BAR_BINDSYM_COMMAND: [cmdp_token; 2] = [
-    token {
-        name: c"'--release".as_ptr().cast_mut(),
-        identifier: c"release".as_ptr().cast_mut(),
+static TOKENS_BAR_BINDSYM_COMMAND: [GrammarToken; 2] = [
+    GrammarToken {
+        name: b"'--release",
+        identifier: Some(b"release"),
         next_state: ParserState::BarBindsymCommand,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"string".as_ptr().cast_mut(),
-        identifier: c"command".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"string",
+        identifier: Some(b"command"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 25_i32 as u16,
-        },
+        call_identifier: 25,
     },
 ];
-static mut tokens_BAR_TRAY_PADDING_PX: [cmdp_token; 2] = [
-    token {
-        name: c"'px".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static TOKENS_BAR_TRAY_PADDING_PX: [GrammarToken; 2] = [
+    GrammarToken {
+        name: b"'px",
+        identifier: None,
         next_state: ParserState::BarTrayPaddingPx,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"end",
+        identifier: None,
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 26_i32 as u16,
-        },
+        call_identifier: 26,
     },
 ];
-static mut tokens_DEFAULT_ORIENTATION: [cmdp_token; 3] = [
-    token {
-        name: c"'horizontal".as_ptr().cast_mut(),
-        identifier: c"orientation".as_ptr().cast_mut(),
+static TOKENS_DEFAULT_ORIENTATION: [GrammarToken; 3] = [
+    GrammarToken {
+        name: b"'horizontal",
+        identifier: Some(b"orientation"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 27_i32 as u16,
-        },
+        call_identifier: 27,
     },
-    token {
-        name: c"'vertical".as_ptr().cast_mut(),
-        identifier: c"orientation".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'vertical",
+        identifier: Some(b"orientation"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 28_i32 as u16,
-        },
+        call_identifier: 28,
     },
-    token {
-        name: c"'auto".as_ptr().cast_mut(),
-        identifier: c"orientation".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'auto",
+        identifier: Some(b"orientation"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 29_i32 as u16,
-        },
+        call_identifier: 29,
     },
 ];
-static mut tokens_FOCUS_FOLLOWS_MOUSE: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"value".as_ptr().cast_mut(),
+static TOKENS_FOCUS_FOLLOWS_MOUSE: [GrammarToken; 1] = [GrammarToken {
+    name: b"word",
+    identifier: Some(b"value"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 30_i32 as u16,
-    },
+    call_identifier: 30,
 }];
-static mut tokens_BAR_PADDING_BOTTOM: [cmdp_token; 3] = [
-    token {
-        name: c"'px".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static TOKENS_BAR_PADDING_BOTTOM: [GrammarToken; 3] = [
+    GrammarToken {
+        name: b"'px",
+        identifier: None,
         next_state: ParserState::BarPaddingBottom,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"number".as_ptr().cast_mut(),
-        identifier: c"left".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"number",
+        identifier: Some(b"left"),
         next_state: ParserState::BarPaddingLeft,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"end",
+        identifier: None,
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 31_i32 as u16,
-        },
+        call_identifier: 31,
     },
 ];
-static mut tokens_BAR_STATUS_COMMAND: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"command".as_ptr().cast_mut(),
+static TOKENS_BAR_STATUS_COMMAND: [GrammarToken; 1] = [GrammarToken {
+    name: b"string",
+    identifier: Some(b"command"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 32_i32 as u16,
-    },
+    call_identifier: 32,
 }];
-static mut tokens_BAR_WHEEL_DOWN_CMD: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"command".as_ptr().cast_mut(),
+static TOKENS_BAR_WHEEL_DOWN_CMD: [GrammarToken; 1] = [GrammarToken {
+    name: b"string",
+    identifier: Some(b"command"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 33_i32 as u16,
-    },
+    call_identifier: 33,
 }];
-static mut tokens_COLOR_CHILD_BORDER: [cmdp_token; 2] = [
-    token {
-        name: c"word".as_ptr().cast_mut(),
-        identifier: c"child_border".as_ptr().cast_mut(),
+static TOKENS_COLOR_CHILD_BORDER: [GrammarToken; 2] = [
+    GrammarToken {
+        name: b"word",
+        identifier: Some(b"child_border"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 34_i32 as u16,
-        },
+        call_identifier: 34,
     },
-    token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"end",
+        identifier: None,
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 35_i32 as u16,
-        },
+        call_identifier: 35,
     },
 ];
-static mut tokens_CRITERION_FROM_STR: [cmdp_token; 2] = [
-    token {
-        name: c"'auto".as_ptr().cast_mut(),
-        identifier: c"kind".as_ptr().cast_mut(),
+static TOKENS_CRITERION_FROM_STR: [GrammarToken; 2] = [
+    GrammarToken {
+        name: b"'auto",
+        identifier: Some(b"kind"),
         next_state: ParserState::CriterionFromStrEnd,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'user".as_ptr().cast_mut(),
-        identifier: c"kind".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'user",
+        identifier: Some(b"kind"),
         next_state: ParserState::CriterionFromStrEnd,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
 ];
-static mut tokens_FOR_WINDOW_COMMAND: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"command".as_ptr().cast_mut(),
+static TOKENS_FOR_WINDOW_COMMAND: [GrammarToken; 1] = [GrammarToken {
+    name: b"string",
+    identifier: Some(b"command"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 36_i32 as u16,
-    },
+    call_identifier: 36,
 }];
-static mut tokens_BAR_COLORS_BORDER: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"border".as_ptr().cast_mut(),
+static TOKENS_BAR_COLORS_BORDER: [GrammarToken; 1] = [GrammarToken {
+    name: b"word",
+    identifier: Some(b"border"),
     next_state: ParserState::BarColorsBackground,
-    extra: WizardTokenData {
-        call_identifier: 0_i32 as u16,
-    },
+    call_identifier: 0,
 }];
-static mut tokens_BAR_COLORS_SINGLE: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"color".as_ptr().cast_mut(),
+static TOKENS_BAR_COLORS_SINGLE: [GrammarToken; 1] = [GrammarToken {
+    name: b"word",
+    identifier: Some(b"color"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 37_i32 as u16,
-    },
+    call_identifier: 37,
 }];
-static mut tokens_BAR_PADDING_RIGHT: [cmdp_token; 3] = [
-    token {
-        name: c"'px".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static TOKENS_BAR_PADDING_RIGHT: [GrammarToken; 3] = [
+    GrammarToken {
+        name: b"'px",
+        identifier: None,
         next_state: ParserState::BarPaddingRight,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"number".as_ptr().cast_mut(),
-        identifier: c"bottom".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"number",
+        identifier: Some(b"bottom"),
         next_state: ParserState::BarPaddingBottom,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"end",
+        identifier: None,
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 38_i32 as u16,
-        },
+        call_identifier: 38,
     },
 ];
-static mut tokens_FLOATING_MODIFIER: [cmdp_token; 10] = [
-    token {
-        name: c"'Mod1".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+static TOKENS_FLOATING_MODIFIER: [GrammarToken; 10] = [
+    GrammarToken {
+        name: b"'Mod1",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::FloatingModifier,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Mod2".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Mod2",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::FloatingModifier,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Mod3".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Mod3",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::FloatingModifier,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Mod4".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Mod4",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::FloatingModifier,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Mod5".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Mod5",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::FloatingModifier,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Shift".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Shift",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::FloatingModifier,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Control".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Control",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::FloatingModifier,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Ctrl".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Ctrl",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::FloatingModifier,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'+".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'+",
+        identifier: None,
         next_state: ParserState::FloatingModifier,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"end",
+        identifier: None,
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 39_i32 as u16,
-        },
+        call_identifier: 39,
     },
 ];
-static mut tokens_HIDE_EDGE_BORDERS: [cmdp_token; 12] = [
-    token {
-        name: c"'none".as_ptr().cast_mut(),
-        identifier: c"hide_borders".as_ptr().cast_mut(),
+static TOKENS_HIDE_EDGE_BORDERS: [GrammarToken; 12] = [
+    GrammarToken {
+        name: b"'none",
+        identifier: Some(b"hide_borders"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 40_i32 as u16,
-        },
+        call_identifier: 40,
     },
-    token {
-        name: c"'vertical".as_ptr().cast_mut(),
-        identifier: c"hide_borders".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'vertical",
+        identifier: Some(b"hide_borders"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 41_i32 as u16,
-        },
+        call_identifier: 41,
     },
-    token {
-        name: c"'horizontal".as_ptr().cast_mut(),
-        identifier: c"hide_borders".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'horizontal",
+        identifier: Some(b"hide_borders"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 42_i32 as u16,
-        },
+        call_identifier: 42,
     },
-    token {
-        name: c"'both".as_ptr().cast_mut(),
-        identifier: c"hide_borders".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'both",
+        identifier: Some(b"hide_borders"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 43_i32 as u16,
-        },
+        call_identifier: 43,
     },
-    token {
-        name: c"'smart_no_gaps".as_ptr().cast_mut(),
-        identifier: c"hide_borders".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'smart_no_gaps",
+        identifier: Some(b"hide_borders"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 44_i32 as u16,
-        },
+        call_identifier: 44,
     },
-    token {
-        name: c"'smart".as_ptr().cast_mut(),
-        identifier: c"hide_borders".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'smart",
+        identifier: Some(b"hide_borders"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 45_i32 as u16,
-        },
+        call_identifier: 45,
     },
-    token {
-        name: c"'1".as_ptr().cast_mut(),
-        identifier: c"hide_borders".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'1",
+        identifier: Some(b"hide_borders"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 46_i32 as u16,
-        },
+        call_identifier: 46,
     },
-    token {
-        name: c"'yes".as_ptr().cast_mut(),
-        identifier: c"hide_borders".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'yes",
+        identifier: Some(b"hide_borders"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 47_i32 as u16,
-        },
+        call_identifier: 47,
     },
-    token {
-        name: c"'true".as_ptr().cast_mut(),
-        identifier: c"hide_borders".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'true",
+        identifier: Some(b"hide_borders"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 48_i32 as u16,
-        },
+        call_identifier: 48,
     },
-    token {
-        name: c"'on".as_ptr().cast_mut(),
-        identifier: c"hide_borders".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'on",
+        identifier: Some(b"hide_borders"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 49_i32 as u16,
-        },
+        call_identifier: 49,
     },
-    token {
-        name: c"'enable".as_ptr().cast_mut(),
-        identifier: c"hide_borders".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'enable",
+        identifier: Some(b"hide_borders"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 50_i32 as u16,
-        },
+        call_identifier: 50,
     },
-    token {
-        name: c"'active".as_ptr().cast_mut(),
-        identifier: c"hide_borders".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'active",
+        identifier: Some(b"hide_borders"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 51_i32 as u16,
-        },
+        call_identifier: 51,
     },
 ];
-static mut tokens_WORKSPACE_COMMAND: [cmdp_token; 2] = [
-    token {
-        name: c"'output".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static TOKENS_WORKSPACE_COMMAND: [GrammarToken; 2] = [
+    GrammarToken {
+        name: b"'output",
+        identifier: None,
         next_state: ParserState::WorkspaceOutputWord,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'gaps".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'gaps",
+        identifier: None,
         next_state: ParserState::Gaps,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
 ];
-static mut tokens_ASSIGN_WORKSPACE: [cmdp_token; 5] = [
-    token {
-        name: c"'→".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static TOKENS_ASSIGN_WORKSPACE: [GrammarToken; 5] = [
+    GrammarToken {
+        name: b"'\xe2\x86\x92",
+        identifier: None,
         next_state: ParserState::AssignWorkspace,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'output".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'output",
+        identifier: None,
         next_state: ParserState::AssignOutput,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'workspace".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'workspace",
+        identifier: None,
         next_state: ParserState::AssignWorkspace,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'number".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'number",
+        identifier: None,
         next_state: ParserState::AssignWorkspaceNumber,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"string".as_ptr().cast_mut(),
-        identifier: c"workspace".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"string",
+        identifier: Some(b"workspace"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 52_i32 as u16,
-        },
+        call_identifier: 52,
     },
 ];
-static mut tokens_BAR_COLORS_BRACE: [cmdp_token; 2] = [
-    token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static TOKENS_BAR_COLORS_BRACE: [GrammarToken; 2] = [
+    GrammarToken {
+        name: b"end",
+        identifier: None,
         next_state: ParserState::BarColorsBrace,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'{".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'{",
+        identifier: None,
         next_state: ParserState::BarColors,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
 ];
-static mut tokens_BAR_HIDDEN_STATE: [cmdp_token; 2] = [
-    token {
-        name: c"'hide".as_ptr().cast_mut(),
-        identifier: c"hidden_state".as_ptr().cast_mut(),
+static TOKENS_BAR_HIDDEN_STATE: [GrammarToken; 2] = [
+    GrammarToken {
+        name: b"'hide",
+        identifier: Some(b"hidden_state"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 53_i32 as u16,
-        },
+        call_identifier: 53,
     },
-    token {
-        name: c"'show".as_ptr().cast_mut(),
-        identifier: c"hidden_state".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'show",
+        identifier: Some(b"hidden_state"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 54_i32 as u16,
-        },
+        call_identifier: 54,
     },
 ];
-static mut tokens_BAR_PADDING_LEFT: [cmdp_token; 2] = [
-    token {
-        name: c"'px".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static TOKENS_BAR_PADDING_LEFT: [GrammarToken; 2] = [
+    GrammarToken {
+        name: b"'px",
+        identifier: None,
         next_state: ParserState::BarPaddingLeft,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"end",
+        identifier: None,
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 55_i32 as u16,
-        },
+        call_identifier: 55,
     },
 ];
-static mut tokens_BAR_TRAY_PADDING: [cmdp_token; 1] = [token {
-    name: c"number".as_ptr().cast_mut(),
-    identifier: c"padding_px".as_ptr().cast_mut(),
+static TOKENS_BAR_TRAY_PADDING: [GrammarToken; 1] = [GrammarToken {
+    name: b"number",
+    identifier: Some(b"padding_px"),
     next_state: ParserState::BarTrayPaddingPx,
-    extra: WizardTokenData {
-        call_identifier: 0_i32 as u16,
-    },
+    call_identifier: 0,
 }];
-static mut tokens_BAR_WHEEL_UP_CMD: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"command".as_ptr().cast_mut(),
+static TOKENS_BAR_WHEEL_UP_CMD: [GrammarToken; 1] = [GrammarToken {
+    name: b"string",
+    identifier: Some(b"command"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 56_i32 as u16,
-    },
+    call_identifier: 56,
 }];
-static mut tokens_COLOR_BACKGROUND: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"background".as_ptr().cast_mut(),
+static TOKENS_COLOR_BACKGROUND: [GrammarToken; 1] = [GrammarToken {
+    name: b"word",
+    identifier: Some(b"background"),
     next_state: ParserState::ColorText,
-    extra: WizardTokenData {
-        call_identifier: 0_i32 as u16,
-    },
+    call_identifier: 0,
 }];
-static mut tokens_IPC_KILL_TIMEOUT: [cmdp_token; 1] = [token {
-    name: c"number".as_ptr().cast_mut(),
-    identifier: c"timeout".as_ptr().cast_mut(),
+static TOKENS_IPC_KILL_TIMEOUT: [GrammarToken; 1] = [GrammarToken {
+    name: b"number",
+    identifier: Some(b"timeout"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 57_i32 as u16,
-    },
+    call_identifier: 57,
 }];
-static mut tokens_MODE_BINDCOMMAND: [cmdp_token; 5] = [
-    token {
-        name: c"'--release".as_ptr().cast_mut(),
-        identifier: c"release".as_ptr().cast_mut(),
+static TOKENS_MODE_BINDCOMMAND: [GrammarToken; 5] = [
+    GrammarToken {
+        name: b"'--release",
+        identifier: Some(b"release"),
         next_state: ParserState::ModeBindcommand,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'--border".as_ptr().cast_mut(),
-        identifier: c"border".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'--border",
+        identifier: Some(b"border"),
         next_state: ParserState::ModeBindcommand,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'--whole-window".as_ptr().cast_mut(),
-        identifier: c"whole_window".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'--whole-window",
+        identifier: Some(b"whole_window"),
         next_state: ParserState::ModeBindcommand,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'--exclude-titlebar".as_ptr().cast_mut(),
-        identifier: c"exclude_titlebar".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'--exclude-titlebar",
+        identifier: Some(b"exclude_titlebar"),
         next_state: ParserState::ModeBindcommand,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"string".as_ptr().cast_mut(),
-        identifier: c"command".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"string",
+        identifier: Some(b"command"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 58_i32 as u16,
-        },
+        call_identifier: 58,
     },
 ];
-static mut tokens_MODE_IGNORE_LINE: [cmdp_token; 1] = [token {
-    name: c"line".as_ptr().cast_mut(),
-    identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static TOKENS_MODE_IGNORE_LINE: [GrammarToken; 1] = [GrammarToken {
+    name: b"line",
+    identifier: None,
     next_state: ParserState::Mode,
-    extra: WizardTokenData {
-        call_identifier: 0_i32 as u16,
-    },
+    call_identifier: 0,
 }];
-static mut tokens_TILING_DRAG_MODE: [cmdp_token; 3] = [
-    token {
-        name: c"'modifier".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+static TOKENS_TILING_DRAG_MODE: [GrammarToken; 3] = [
+    GrammarToken {
+        name: b"'modifier",
+        identifier: Some(b"value"),
         next_state: ParserState::TilingDragMode,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'titlebar".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'titlebar",
+        identifier: Some(b"value"),
         next_state: ParserState::TilingDragMode,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"end",
+        identifier: None,
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 59_i32 as u16,
-        },
+        call_identifier: 59,
     },
 ];
-static mut tokens_WORKSPACE_LAYOUT: [cmdp_token; 4] = [
-    token {
-        name: c"'default".as_ptr().cast_mut(),
-        identifier: c"layout".as_ptr().cast_mut(),
+static TOKENS_WORKSPACE_LAYOUT: [GrammarToken; 4] = [
+    GrammarToken {
+        name: b"'default",
+        identifier: Some(b"layout"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 60_i32 as u16,
-        },
+        call_identifier: 60,
     },
-    token {
-        name: c"'stacking".as_ptr().cast_mut(),
-        identifier: c"layout".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'stacking",
+        identifier: Some(b"layout"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 61_i32 as u16,
-        },
+        call_identifier: 61,
     },
-    token {
-        name: c"'stacked".as_ptr().cast_mut(),
-        identifier: c"layout".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'stacked",
+        identifier: Some(b"layout"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 62_i32 as u16,
-        },
+        call_identifier: 62,
     },
-    token {
-        name: c"'tabbed".as_ptr().cast_mut(),
-        identifier: c"layout".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'tabbed",
+        identifier: Some(b"layout"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 63_i32 as u16,
-        },
+        call_identifier: 63,
     },
 ];
-static mut tokens_BAR_BAR_COMMAND: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"command".as_ptr().cast_mut(),
+static TOKENS_BAR_BAR_COMMAND: [GrammarToken; 1] = [GrammarToken {
+    name: b"string",
+    identifier: Some(b"command"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 64_i32 as u16,
-    },
+    call_identifier: 64,
 }];
-static mut tokens_BAR_COLORS_TEXT: [cmdp_token; 2] = [
-    token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static TOKENS_BAR_COLORS_TEXT: [GrammarToken; 2] = [
+    GrammarToken {
+        name: b"end",
+        identifier: None,
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 65_i32 as u16,
-        },
+        call_identifier: 65,
     },
-    token {
-        name: c"word".as_ptr().cast_mut(),
-        identifier: c"text".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"word",
+        identifier: Some(b"text"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 66_i32 as u16,
-        },
+        call_identifier: 66,
     },
 ];
-static mut tokens_BAR_IGNORE_LINE: [cmdp_token; 1] = [token {
-    name: c"line".as_ptr().cast_mut(),
-    identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static TOKENS_BAR_IGNORE_LINE: [GrammarToken; 1] = [GrammarToken {
+    name: b"line",
+    identifier: None,
     next_state: ParserState::Bar,
-    extra: WizardTokenData {
-        call_identifier: 0_i32 as u16,
-    },
+    call_identifier: 0,
 }];
-static mut tokens_BAR_PADDING_TOP: [cmdp_token; 3] = [
-    token {
-        name: c"'px".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static TOKENS_BAR_PADDING_TOP: [GrammarToken; 3] = [
+    GrammarToken {
+        name: b"'px",
+        identifier: None,
         next_state: ParserState::BarPaddingTop,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"number".as_ptr().cast_mut(),
-        identifier: c"right_or_right_and_left".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"number",
+        identifier: Some(b"right_or_right_and_left"),
         next_state: ParserState::BarPaddingRight,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"end",
+        identifier: None,
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 67_i32 as u16,
-        },
+        call_identifier: 67,
     },
 ];
-static mut tokens_BAR_SOCKET_PATH: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"path".as_ptr().cast_mut(),
+static TOKENS_BAR_SOCKET_PATH: [GrammarToken; 1] = [GrammarToken {
+    name: b"string",
+    identifier: Some(b"path"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 68_i32 as u16,
-    },
+    call_identifier: 68,
 }];
-static mut tokens_BAR_TRAY_OUTPUT: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"output".as_ptr().cast_mut(),
+static TOKENS_BAR_TRAY_OUTPUT: [GrammarToken; 1] = [GrammarToken {
+    name: b"word",
+    identifier: Some(b"output"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 69_i32 as u16,
-    },
+    call_identifier: 69,
 }];
-static mut tokens_COLOR_INDICATOR: [cmdp_token; 2] = [
-    token {
-        name: c"word".as_ptr().cast_mut(),
-        identifier: c"indicator".as_ptr().cast_mut(),
+static TOKENS_COLOR_INDICATOR: [GrammarToken; 2] = [
+    GrammarToken {
+        name: b"word",
+        identifier: Some(b"indicator"),
         next_state: ParserState::ColorChildBorder,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"end",
+        identifier: None,
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 70_i32 as u16,
-        },
+        call_identifier: 70,
     },
 ];
-static mut tokens_DISABLE_RANDR15: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"value".as_ptr().cast_mut(),
+static TOKENS_DISABLE_RANDR15: [GrammarToken; 1] = [GrammarToken {
+    name: b"word",
+    identifier: Some(b"value"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 71_i32 as u16,
-    },
+    call_identifier: 71,
 }];
-static mut tokens_GAPS_WITH_SCOPE: [cmdp_token; 1] = [token {
-    name: c"number".as_ptr().cast_mut(),
-    identifier: c"value".as_ptr().cast_mut(),
+static TOKENS_GAPS_WITH_SCOPE: [GrammarToken; 1] = [GrammarToken {
+    name: b"number",
+    identifier: Some(b"value"),
     next_state: ParserState::GapsEnd,
-    extra: WizardTokenData {
-        call_identifier: 0_i32 as u16,
-    },
+    call_identifier: 0,
 }];
-static mut tokens_CRITERION_FROM: [cmdp_token; 1] = [token {
-    name: c"'=".as_ptr().cast_mut(),
-    identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static TOKENS_CRITERION_FROM: [GrammarToken; 1] = [GrammarToken {
+    name: b"'=",
+    identifier: None,
     next_state: ParserState::CriterionFromStrStart,
-    extra: WizardTokenData {
-        call_identifier: 0_i32 as u16,
-    },
+    call_identifier: 0,
 }];
-static mut tokens_DEFAULT_BORDER: [cmdp_token; 4] = [
-    token {
-        name: c"'normal".as_ptr().cast_mut(),
-        identifier: c"border".as_ptr().cast_mut(),
+static TOKENS_DEFAULT_BORDER: [GrammarToken; 4] = [
+    GrammarToken {
+        name: b"'normal",
+        identifier: Some(b"border"),
         next_state: ParserState::DefaultBorderPixels,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'pixel".as_ptr().cast_mut(),
-        identifier: c"border".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'pixel",
+        identifier: Some(b"border"),
         next_state: ParserState::DefaultBorderPixels,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'1pixel".as_ptr().cast_mut(),
-        identifier: c"border".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'1pixel",
+        identifier: Some(b"border"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 72_i32 as u16,
-        },
+        call_identifier: 72,
     },
-    token {
-        name: c"'none".as_ptr().cast_mut(),
-        identifier: c"border".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'none",
+        identifier: Some(b"border"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 73_i32 as u16,
-        },
+        call_identifier: 73,
     },
 ];
-static mut tokens_FOCUS_WRAPPING: [cmdp_token; 14] = [
-    token {
-        name: c"'1".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+static TOKENS_FOCUS_WRAPPING: [GrammarToken; 14] = [
+    GrammarToken {
+        name: b"'1",
+        identifier: Some(b"value"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 74_i32 as u16,
-        },
+        call_identifier: 74,
     },
-    token {
-        name: c"'yes".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'yes",
+        identifier: Some(b"value"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 75_i32 as u16,
-        },
+        call_identifier: 75,
     },
-    token {
-        name: c"'true".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'true",
+        identifier: Some(b"value"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 76_i32 as u16,
-        },
+        call_identifier: 76,
     },
-    token {
-        name: c"'on".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'on",
+        identifier: Some(b"value"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 77_i32 as u16,
-        },
+        call_identifier: 77,
     },
-    token {
-        name: c"'enable".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'enable",
+        identifier: Some(b"value"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 78_i32 as u16,
-        },
+        call_identifier: 78,
     },
-    token {
-        name: c"'active".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'active",
+        identifier: Some(b"value"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 79_i32 as u16,
-        },
+        call_identifier: 79,
     },
-    token {
-        name: c"'0".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'0",
+        identifier: Some(b"value"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 80_i32 as u16,
-        },
+        call_identifier: 80,
     },
-    token {
-        name: c"'no".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'no",
+        identifier: Some(b"value"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 81_i32 as u16,
-        },
+        call_identifier: 81,
     },
-    token {
-        name: c"'false".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'false",
+        identifier: Some(b"value"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 82_i32 as u16,
-        },
+        call_identifier: 82,
     },
-    token {
-        name: c"'off".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'off",
+        identifier: Some(b"value"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 83_i32 as u16,
-        },
+        call_identifier: 83,
     },
-    token {
-        name: c"'disable".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'disable",
+        identifier: Some(b"value"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 84_i32 as u16,
-        },
+        call_identifier: 84,
     },
-    token {
-        name: c"'inactive".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'inactive",
+        identifier: Some(b"value"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 85_i32 as u16,
-        },
+        call_identifier: 85,
     },
-    token {
-        name: c"'force".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'force",
+        identifier: Some(b"value"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 86_i32 as u16,
-        },
+        call_identifier: 86,
     },
-    token {
-        name: c"'workspace".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'workspace",
+        identifier: Some(b"value"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 87_i32 as u16,
-        },
+        call_identifier: 87,
     },
 ];
-static mut tokens_FORCE_XINERAMA: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"value".as_ptr().cast_mut(),
+static TOKENS_FORCE_XINERAMA: [GrammarToken; 1] = [GrammarToken {
+    name: b"word",
+    identifier: Some(b"value"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 88_i32 as u16,
-    },
+    call_identifier: 88,
 }];
-static mut tokens_ASSIGN_OUTPUT: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"output".as_ptr().cast_mut(),
+static TOKENS_ASSIGN_OUTPUT: [GrammarToken; 1] = [GrammarToken {
+    name: b"string",
+    identifier: Some(b"output"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 89_i32 as u16,
-    },
+    call_identifier: 89,
 }];
-static mut tokens_CRITERION_STR: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"cvalue".as_ptr().cast_mut(),
+static TOKENS_CRITERION_STR: [GrammarToken; 1] = [GrammarToken {
+    name: b"word",
+    identifier: Some(b"cvalue"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 90_i32 as u16,
-    },
+    call_identifier: 90,
 }];
-static mut tokens_MOUSE_WARPING: [cmdp_token; 2] = [
-    token {
-        name: c"'none".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+static TOKENS_MOUSE_WARPING: [GrammarToken; 2] = [
+    GrammarToken {
+        name: b"'none",
+        identifier: Some(b"value"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 91_i32 as u16,
-        },
+        call_identifier: 91,
     },
-    token {
-        name: c"'output".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'output",
+        identifier: Some(b"value"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 92_i32 as u16,
-        },
+        call_identifier: 92,
     },
 ];
-static mut tokens_RESTART_STATE: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"path".as_ptr().cast_mut(),
+static TOKENS_RESTART_STATE: [GrammarToken; 1] = [GrammarToken {
+    name: b"string",
+    identifier: Some(b"path"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 93_i32 as u16,
-    },
+    call_identifier: 93,
 }];
-static mut tokens_SMART_BORDERS: [cmdp_token; 7] = [
-    token {
-        name: c"'1".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+static TOKENS_SMART_BORDERS: [GrammarToken; 7] = [
+    GrammarToken {
+        name: b"'1",
+        identifier: Some(b"enabled"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 94_i32 as u16,
-        },
+        call_identifier: 94,
     },
-    token {
-        name: c"'yes".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'yes",
+        identifier: Some(b"enabled"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 95_i32 as u16,
-        },
+        call_identifier: 95,
     },
-    token {
-        name: c"'true".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'true",
+        identifier: Some(b"enabled"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 96_i32 as u16,
-        },
+        call_identifier: 96,
     },
-    token {
-        name: c"'on".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'on",
+        identifier: Some(b"enabled"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 97_i32 as u16,
-        },
+        call_identifier: 97,
     },
-    token {
-        name: c"'enable".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'enable",
+        identifier: Some(b"enabled"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 98_i32 as u16,
-        },
+        call_identifier: 98,
     },
-    token {
-        name: c"'active".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'active",
+        identifier: Some(b"enabled"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 99_i32 as u16,
-        },
+        call_identifier: 99,
     },
-    token {
-        name: c"'no_gaps".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'no_gaps",
+        identifier: Some(b"enabled"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 100_i32 as u16,
-        },
+        call_identifier: 100,
     },
 ];
-static mut tokens_BAR_MODIFIER: [cmdp_token; 12] = [
-    token {
-        name: c"'off".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static TOKENS_BAR_MODIFIER: [GrammarToken; 12] = [
+    GrammarToken {
+        name: b"'off",
+        identifier: None,
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 101_i32 as u16,
-        },
+        call_identifier: 101,
     },
-    token {
-        name: c"'none".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'none",
+        identifier: None,
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 102_i32 as u16,
-        },
+        call_identifier: 102,
     },
-    token {
-        name: c"'Mod1".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Mod1",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::BarModifier,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Mod2".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Mod2",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::BarModifier,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Mod3".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Mod3",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::BarModifier,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Mod4".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Mod4",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::BarModifier,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Mod5".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Mod5",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::BarModifier,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Shift".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Shift",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::BarModifier,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Control".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Control",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::BarModifier,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Ctrl".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Ctrl",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::BarModifier,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'+".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'+",
+        identifier: None,
         next_state: ParserState::BarModifier,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"end",
+        identifier: None,
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 103_i32 as u16,
-        },
+        call_identifier: 103,
     },
 ];
-static mut tokens_BAR_POSITION: [cmdp_token; 2] = [
-    token {
-        name: c"'top".as_ptr().cast_mut(),
-        identifier: c"position".as_ptr().cast_mut(),
+static TOKENS_BAR_POSITION: [GrammarToken; 2] = [
+    GrammarToken {
+        name: b"'top",
+        identifier: Some(b"position"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 104_i32 as u16,
-        },
+        call_identifier: 104,
     },
-    token {
-        name: c"'bottom".as_ptr().cast_mut(),
-        identifier: c"position".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'bottom",
+        identifier: Some(b"position"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 105_i32 as u16,
-        },
+        call_identifier: 105,
     },
 ];
-static mut tokens_COLOR_BORDER: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"border".as_ptr().cast_mut(),
+static TOKENS_COLOR_BORDER: [GrammarToken; 1] = [GrammarToken {
+    name: b"word",
+    identifier: Some(b"border"),
     next_state: ParserState::ColorBackground,
-    extra: WizardTokenData {
-        call_identifier: 0_i32 as u16,
-    },
+    call_identifier: 0,
 }];
-static mut tokens_COLOR_SINGLE: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"color".as_ptr().cast_mut(),
+static TOKENS_COLOR_SINGLE: [GrammarToken; 1] = [GrammarToken {
+    name: b"word",
+    identifier: Some(b"color"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 106_i32 as u16,
-    },
+    call_identifier: 106,
 }];
-static mut tokens_FAKE_OUTPUTS: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"outputs".as_ptr().cast_mut(),
+static TOKENS_FAKE_OUTPUTS: [GrammarToken; 1] = [GrammarToken {
+    name: b"string",
+    identifier: Some(b"outputs"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 107_i32 as u16,
-    },
+    call_identifier: 107,
 }];
-static mut tokens_MODE_BINDING: [cmdp_token; 20] = [
-    token {
-        name: c"'--release".as_ptr().cast_mut(),
-        identifier: c"release".as_ptr().cast_mut(),
+static TOKENS_MODE_BINDING: [GrammarToken; 20] = [
+    GrammarToken {
+        name: b"'--release",
+        identifier: Some(b"release"),
         next_state: ParserState::ModeBinding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'--border".as_ptr().cast_mut(),
-        identifier: c"border".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'--border",
+        identifier: Some(b"border"),
         next_state: ParserState::ModeBinding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'--whole-window".as_ptr().cast_mut(),
-        identifier: c"whole_window".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'--whole-window",
+        identifier: Some(b"whole_window"),
         next_state: ParserState::ModeBinding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'--exclude-titlebar".as_ptr().cast_mut(),
-        identifier: c"exclude_titlebar".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'--exclude-titlebar",
+        identifier: Some(b"exclude_titlebar"),
         next_state: ParserState::ModeBinding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Mod1".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Mod1",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::ModeBinding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Mod2".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Mod2",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::ModeBinding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Mod3".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Mod3",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::ModeBinding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Mod4".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Mod4",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::ModeBinding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Mod5".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Mod5",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::ModeBinding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Shift".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Shift",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::ModeBinding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Control".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Control",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::ModeBinding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Ctrl".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Ctrl",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::ModeBinding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Mode_switch".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Mode_switch",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::ModeBinding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Group1".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Group1",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::ModeBinding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Group2".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Group2",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::ModeBinding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Group3".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Group3",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::ModeBinding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Group4".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Group4",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::ModeBinding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'$mod".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'$mod",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::ModeBinding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'+".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'+",
+        identifier: None,
         next_state: ParserState::ModeBinding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"word".as_ptr().cast_mut(),
-        identifier: c"key".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"word",
+        identifier: Some(b"key"),
         next_state: ParserState::ModeBindcommand,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
 ];
-static mut tokens_NO_FOCUS_END: [cmdp_token; 1] = [token {
-    name: c"end".as_ptr().cast_mut(),
-    identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static TOKENS_NO_FOCUS_END: [GrammarToken; 1] = [GrammarToken {
+    name: b"end",
+    identifier: None,
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 108_i32 as u16,
-    },
+    call_identifier: 108,
 }];
-static mut tokens_BAR_BINDSYM: [cmdp_token; 2] = [
-    token {
-        name: c"'--release".as_ptr().cast_mut(),
-        identifier: c"release".as_ptr().cast_mut(),
+static TOKENS_BAR_BINDSYM: [GrammarToken; 2] = [
+    GrammarToken {
+        name: b"'--release",
+        identifier: Some(b"release"),
         next_state: ParserState::BarBindsym,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"word".as_ptr().cast_mut(),
-        identifier: c"button".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"word",
+        identifier: Some(b"button"),
         next_state: ParserState::BarBindsymCommand,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
 ];
-static mut tokens_BAR_PADDING: [cmdp_token; 1] = [token {
-    name: c"number".as_ptr().cast_mut(),
-    identifier: c"top_or_all".as_ptr().cast_mut(),
+static TOKENS_BAR_PADDING: [GrammarToken; 1] = [GrammarToken {
+    name: b"number",
+    identifier: Some(b"top_or_all"),
     next_state: ParserState::BarPaddingTop,
-    extra: WizardTokenData {
-        call_identifier: 0_i32 as u16,
-    },
+    call_identifier: 0,
 }];
-static mut tokens_BAR_VERBOSE: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"value".as_ptr().cast_mut(),
+static TOKENS_BAR_VERBOSE: [GrammarToken; 1] = [GrammarToken {
+    name: b"word",
+    identifier: Some(b"value"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 109_i32 as u16,
-    },
+    call_identifier: 109,
 }];
-static mut tokens_BINDCOMMAND: [cmdp_token; 5] = [
-    token {
-        name: c"'--release".as_ptr().cast_mut(),
-        identifier: c"release".as_ptr().cast_mut(),
+static TOKENS_BINDCOMMAND: [GrammarToken; 5] = [
+    GrammarToken {
+        name: b"'--release",
+        identifier: Some(b"release"),
         next_state: ParserState::Bindcommand,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'--border".as_ptr().cast_mut(),
-        identifier: c"border".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'--border",
+        identifier: Some(b"border"),
         next_state: ParserState::Bindcommand,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'--whole-window".as_ptr().cast_mut(),
-        identifier: c"whole_window".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'--whole-window",
+        identifier: Some(b"whole_window"),
         next_state: ParserState::Bindcommand,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'--exclude-titlebar".as_ptr().cast_mut(),
-        identifier: c"exclude_titlebar".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'--exclude-titlebar",
+        identifier: Some(b"exclude_titlebar"),
         next_state: ParserState::Bindcommand,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"string".as_ptr().cast_mut(),
-        identifier: c"command".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"string",
+        identifier: Some(b"command"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 110_i32 as u16,
-        },
+        call_identifier: 110,
     },
 ];
-static mut tokens_IGNORE_LINE: [cmdp_token; 1] = [token {
-    name: c"line".as_ptr().cast_mut(),
-    identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static TOKENS_IGNORE_LINE: [GrammarToken; 1] = [GrammarToken {
+    name: b"line",
+    identifier: None,
     next_state: ParserState::Initial,
-    extra: WizardTokenData {
-        call_identifier: 0_i32 as u16,
-    },
+    call_identifier: 0,
 }];
-static mut tokens_TILING_DRAG: [cmdp_token; 9] = [
-    token {
-        name: c"'0".as_ptr().cast_mut(),
-        identifier: c"off".as_ptr().cast_mut(),
+static TOKENS_TILING_DRAG: [GrammarToken; 9] = [
+    GrammarToken {
+        name: b"'0",
+        identifier: Some(b"off"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 111_i32 as u16,
-        },
+        call_identifier: 111,
     },
-    token {
-        name: c"'no".as_ptr().cast_mut(),
-        identifier: c"off".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'no",
+        identifier: Some(b"off"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 112_i32 as u16,
-        },
+        call_identifier: 112,
     },
-    token {
-        name: c"'false".as_ptr().cast_mut(),
-        identifier: c"off".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'false",
+        identifier: Some(b"off"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 113_i32 as u16,
-        },
+        call_identifier: 113,
     },
-    token {
-        name: c"'off".as_ptr().cast_mut(),
-        identifier: c"off".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'off",
+        identifier: Some(b"off"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 114_i32 as u16,
-        },
+        call_identifier: 114,
     },
-    token {
-        name: c"'disable".as_ptr().cast_mut(),
-        identifier: c"off".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'disable",
+        identifier: Some(b"off"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 115_i32 as u16,
-        },
+        call_identifier: 115,
     },
-    token {
-        name: c"'inactive".as_ptr().cast_mut(),
-        identifier: c"off".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'inactive",
+        identifier: Some(b"off"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 116_i32 as u16,
-        },
+        call_identifier: 116,
     },
-    token {
-        name: c"'swap_modifier".as_ptr().cast_mut(),
-        identifier: c"swap_modifier".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'swap_modifier",
+        identifier: Some(b"swap_modifier"),
         next_state: ParserState::TilingDragSwapModifier,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'modifier".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'modifier",
+        identifier: Some(b"value"),
         next_state: ParserState::TilingDragMode,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'titlebar".as_ptr().cast_mut(),
-        identifier: c"value".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'titlebar",
+        identifier: Some(b"value"),
         next_state: ParserState::TilingDragMode,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
 ];
-static mut tokens_TITLE_ALIGN: [cmdp_token; 3] = [
-    token {
-        name: c"'left".as_ptr().cast_mut(),
-        identifier: c"alignment".as_ptr().cast_mut(),
+static TOKENS_TITLE_ALIGN: [GrammarToken; 3] = [
+    GrammarToken {
+        name: b"'left",
+        identifier: Some(b"alignment"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 117_i32 as u16,
-        },
+        call_identifier: 117,
     },
-    token {
-        name: c"'center".as_ptr().cast_mut(),
-        identifier: c"alignment".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'center",
+        identifier: Some(b"alignment"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 118_i32 as u16,
-        },
+        call_identifier: 118,
     },
-    token {
-        name: c"'right".as_ptr().cast_mut(),
-        identifier: c"alignment".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'right",
+        identifier: Some(b"alignment"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 119_i32 as u16,
-        },
+        call_identifier: 119,
     },
 ];
-static mut tokens_BAR_COLORS: [cmdp_token; 15] = [
-    token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static TOKENS_BAR_COLORS: [GrammarToken; 15] = [
+    GrammarToken {
+        name: b"end",
+        identifier: None,
         next_state: ParserState::BarColors,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'#".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'#",
+        identifier: None,
         next_state: ParserState::BarColorsIgnoreLine,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'set".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'set",
+        identifier: None,
         next_state: ParserState::BarColorsIgnoreLine,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'background".as_ptr().cast_mut(),
-        identifier: c"colorclass".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'background",
+        identifier: Some(b"colorclass"),
         next_state: ParserState::BarColorsSingle,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'statusline".as_ptr().cast_mut(),
-        identifier: c"colorclass".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'statusline",
+        identifier: Some(b"colorclass"),
         next_state: ParserState::BarColorsSingle,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'separator".as_ptr().cast_mut(),
-        identifier: c"colorclass".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'separator",
+        identifier: Some(b"colorclass"),
         next_state: ParserState::BarColorsSingle,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'focused_background".as_ptr().cast_mut(),
-        identifier: c"colorclass".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'focused_background",
+        identifier: Some(b"colorclass"),
         next_state: ParserState::BarColorsSingle,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'focused_statusline".as_ptr().cast_mut(),
-        identifier: c"colorclass".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'focused_statusline",
+        identifier: Some(b"colorclass"),
         next_state: ParserState::BarColorsSingle,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'focused_separator".as_ptr().cast_mut(),
-        identifier: c"colorclass".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'focused_separator",
+        identifier: Some(b"colorclass"),
         next_state: ParserState::BarColorsSingle,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'focused_workspace".as_ptr().cast_mut(),
-        identifier: c"colorclass".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'focused_workspace",
+        identifier: Some(b"colorclass"),
         next_state: ParserState::BarColorsBorder,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'active_workspace".as_ptr().cast_mut(),
-        identifier: c"colorclass".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'active_workspace",
+        identifier: Some(b"colorclass"),
         next_state: ParserState::BarColorsBorder,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'inactive_workspace".as_ptr().cast_mut(),
-        identifier: c"colorclass".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'inactive_workspace",
+        identifier: Some(b"colorclass"),
         next_state: ParserState::BarColorsBorder,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'urgent_workspace".as_ptr().cast_mut(),
-        identifier: c"colorclass".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'urgent_workspace",
+        identifier: Some(b"colorclass"),
         next_state: ParserState::BarColorsBorder,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'binding_mode".as_ptr().cast_mut(),
-        identifier: c"colorclass".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'binding_mode",
+        identifier: Some(b"colorclass"),
         next_state: ParserState::BarColorsBorder,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'}".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'}",
+        identifier: None,
         next_state: ParserState::Bar,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
 ];
-static mut tokens_BAR_HEIGHT: [cmdp_token; 1] = [token {
-    name: c"number".as_ptr().cast_mut(),
-    identifier: c"value".as_ptr().cast_mut(),
+static TOKENS_BAR_HEIGHT: [GrammarToken; 1] = [GrammarToken {
+    name: b"number",
+    identifier: Some(b"value"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 120_i32 as u16,
-    },
+    call_identifier: 120,
 }];
-static mut tokens_BAR_OUTPUT: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"output".as_ptr().cast_mut(),
+static TOKENS_BAR_OUTPUT: [GrammarToken; 1] = [GrammarToken {
+    name: b"word",
+    identifier: Some(b"output"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 121_i32 as u16,
-    },
+    call_identifier: 121,
 }];
-static mut tokens_COLOR_TEXT: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"text".as_ptr().cast_mut(),
+static TOKENS_COLOR_TEXT: [GrammarToken; 1] = [GrammarToken {
+    name: b"word",
+    identifier: Some(b"text"),
     next_state: ParserState::ColorIndicator,
-    extra: WizardTokenData {
-        call_identifier: 0_i32 as u16,
-    },
+    call_identifier: 0,
 }];
-static mut tokens_FOR_WINDOW: [cmdp_token; 1] = [token {
-    name: c"'[".as_ptr().cast_mut(),
-    identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static TOKENS_FOR_WINDOW: [GrammarToken; 1] = [GrammarToken {
+    name: b"'[",
+    identifier: None,
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 122_i32 as u16,
-    },
+    call_identifier: 122,
 }];
-static mut tokens_IPC_SOCKET: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"path".as_ptr().cast_mut(),
+static TOKENS_IPC_SOCKET: [GrammarToken; 1] = [GrammarToken {
+    name: b"string",
+    identifier: Some(b"path"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 123_i32 as u16,
-    },
+    call_identifier: 123,
 }];
-static mut tokens_SHOW_MARKS: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"value".as_ptr().cast_mut(),
+static TOKENS_SHOW_MARKS: [GrammarToken; 1] = [GrammarToken {
+    name: b"word",
+    identifier: Some(b"value"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 124_i32 as u16,
-    },
+    call_identifier: 124,
 }];
-static mut tokens_SMART_GAPS: [cmdp_token; 13] = [
-    token {
-        name: c"'1".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+static TOKENS_SMART_GAPS: [GrammarToken; 13] = [
+    GrammarToken {
+        name: b"'1",
+        identifier: Some(b"enabled"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 125_i32 as u16,
-        },
+        call_identifier: 125,
     },
-    token {
-        name: c"'yes".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'yes",
+        identifier: Some(b"enabled"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 126_i32 as u16,
-        },
+        call_identifier: 126,
     },
-    token {
-        name: c"'true".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'true",
+        identifier: Some(b"enabled"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 127_i32 as u16,
-        },
+        call_identifier: 127,
     },
-    token {
-        name: c"'on".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'on",
+        identifier: Some(b"enabled"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 128_i32 as u16,
-        },
+        call_identifier: 128,
     },
-    token {
-        name: c"'enable".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'enable",
+        identifier: Some(b"enabled"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 129_i32 as u16,
-        },
+        call_identifier: 129,
     },
-    token {
-        name: c"'active".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'active",
+        identifier: Some(b"enabled"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 130_i32 as u16,
-        },
+        call_identifier: 130,
     },
-    token {
-        name: c"'0".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'0",
+        identifier: Some(b"enabled"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 131_i32 as u16,
-        },
+        call_identifier: 131,
     },
-    token {
-        name: c"'no".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'no",
+        identifier: Some(b"enabled"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 132_i32 as u16,
-        },
+        call_identifier: 132,
     },
-    token {
-        name: c"'false".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'false",
+        identifier: Some(b"enabled"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 133_i32 as u16,
-        },
+        call_identifier: 133,
     },
-    token {
-        name: c"'off".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'off",
+        identifier: Some(b"enabled"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 134_i32 as u16,
-        },
+        call_identifier: 134,
     },
-    token {
-        name: c"'disable".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'disable",
+        identifier: Some(b"enabled"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 135_i32 as u16,
-        },
+        call_identifier: 135,
     },
-    token {
-        name: c"'inactive".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'inactive",
+        identifier: Some(b"enabled"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 136_i32 as u16,
-        },
+        call_identifier: 136,
     },
-    token {
-        name: c"'inverse_outer".as_ptr().cast_mut(),
-        identifier: c"enabled".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'inverse_outer",
+        identifier: Some(b"enabled"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 137_i32 as u16,
-        },
+        call_identifier: 137,
     },
 ];
-static mut tokens_CRITERION: [cmdp_token; 1] = [token {
-    name: c"'=".as_ptr().cast_mut(),
-    identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static TOKENS_CRITERION: [GrammarToken; 1] = [GrammarToken {
+    name: b"'=",
+    identifier: None,
     next_state: ParserState::CriterionStr,
-    extra: WizardTokenData {
-        call_identifier: 0_i32 as u16,
-    },
+    call_identifier: 0,
 }];
-static mut tokens_MODEBRACE: [cmdp_token; 2] = [
-    token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static TOKENS_MODEBRACE: [GrammarToken; 2] = [
+    GrammarToken {
+        name: b"end",
+        identifier: None,
         next_state: ParserState::Modebrace,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'{".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'{",
+        identifier: None,
         next_state: ParserState::Mode,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
 ];
-static mut tokens_WORKSPACE: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"workspace".as_ptr().cast_mut(),
+static TOKENS_WORKSPACE: [GrammarToken; 1] = [GrammarToken {
+    name: b"word",
+    identifier: Some(b"workspace"),
     next_state: ParserState::WorkspaceCommand,
-    extra: WizardTokenData {
-        call_identifier: 0_i32 as u16,
-    },
+    call_identifier: 0,
 }];
-static mut tokens_BARBRACE: [cmdp_token; 2] = [
-    token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static TOKENS_BARBRACE: [GrammarToken; 2] = [
+    GrammarToken {
+        name: b"end",
+        identifier: None,
         next_state: ParserState::Barbrace,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'{".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'{",
+        identifier: None,
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 138_i32 as u16,
-        },
+        call_identifier: 138,
     },
 ];
-static mut tokens_BAR_FONT: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"font".as_ptr().cast_mut(),
+static TOKENS_BAR_FONT: [GrammarToken; 1] = [GrammarToken {
+    name: b"string",
+    identifier: Some(b"font"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 139_i32 as u16,
-    },
+    call_identifier: 139,
 }];
-static mut tokens_BAR_MODE: [cmdp_token; 3] = [
-    token {
-        name: c"'dock".as_ptr().cast_mut(),
-        identifier: c"mode".as_ptr().cast_mut(),
+static TOKENS_BAR_MODE: [GrammarToken; 3] = [
+    GrammarToken {
+        name: b"'dock",
+        identifier: Some(b"mode"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 140_i32 as u16,
-        },
+        call_identifier: 140,
     },
-    token {
-        name: c"'hide".as_ptr().cast_mut(),
-        identifier: c"mode".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'hide",
+        identifier: Some(b"mode"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 141_i32 as u16,
-        },
+        call_identifier: 141,
     },
-    token {
-        name: c"'invisible".as_ptr().cast_mut(),
-        identifier: c"mode".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'invisible",
+        identifier: Some(b"mode"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 142_i32 as u16,
-        },
+        call_identifier: 142,
     },
 ];
-static mut tokens_CRITERIA: [cmdp_token; 17] = [
-    token {
-        name: c"'class".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+static TOKENS_CRITERIA: [GrammarToken; 17] = [
+    GrammarToken {
+        name: b"'class",
+        identifier: Some(b"ctype"),
         next_state: ParserState::Criterion,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'instance".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'instance",
+        identifier: Some(b"ctype"),
         next_state: ParserState::Criterion,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'window_role".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'window_role",
+        identifier: Some(b"ctype"),
         next_state: ParserState::Criterion,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'con_id".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'con_id",
+        identifier: Some(b"ctype"),
         next_state: ParserState::Criterion,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'id".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'id",
+        identifier: Some(b"ctype"),
         next_state: ParserState::Criterion,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'window_type".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'window_type",
+        identifier: Some(b"ctype"),
         next_state: ParserState::Criterion,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'con_mark".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'con_mark",
+        identifier: Some(b"ctype"),
         next_state: ParserState::Criterion,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'title".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'title",
+        identifier: Some(b"ctype"),
         next_state: ParserState::Criterion,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'urgent".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'urgent",
+        identifier: Some(b"ctype"),
         next_state: ParserState::Criterion,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'workspace".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'workspace",
+        identifier: Some(b"ctype"),
         next_state: ParserState::Criterion,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'machine".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'machine",
+        identifier: Some(b"ctype"),
         next_state: ParserState::Criterion,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'floating_from".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'floating_from",
+        identifier: Some(b"ctype"),
         next_state: ParserState::CriterionFrom,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'tiling_from".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'tiling_from",
+        identifier: Some(b"ctype"),
         next_state: ParserState::CriterionFrom,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'tiling".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'tiling",
+        identifier: Some(b"ctype"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 143_i32 as u16,
-        },
+        call_identifier: 143,
     },
-    token {
-        name: c"'floating".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'floating",
+        identifier: Some(b"ctype"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 144_i32 as u16,
-        },
+        call_identifier: 144,
     },
-    token {
-        name: c"'all".as_ptr().cast_mut(),
-        identifier: c"ctype".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'all",
+        identifier: Some(b"ctype"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 145_i32 as u16,
-        },
+        call_identifier: 145,
     },
-    token {
-        name: c"']".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"']",
+        identifier: None,
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 146_i32 as u16,
-        },
+        call_identifier: 146,
     },
 ];
-static mut tokens_GAPS_END: [cmdp_token; 2] = [
-    token {
-        name: c"'px".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static TOKENS_GAPS_END: [GrammarToken; 2] = [
+    GrammarToken {
+        name: b"'px",
+        identifier: None,
         next_state: ParserState::GapsEnd,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"end",
+        identifier: None,
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 147_i32 as u16,
-        },
+        call_identifier: 147,
     },
 ];
-static mut tokens_MODENAME: [cmdp_token; 2] = [
-    token {
-        name: c"'--pango_markup".as_ptr().cast_mut(),
-        identifier: c"pango_markup".as_ptr().cast_mut(),
+static TOKENS_MODENAME: [GrammarToken; 2] = [
+    GrammarToken {
+        name: b"'--pango_markup",
+        identifier: Some(b"pango_markup"),
         next_state: ParserState::Modename,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"word".as_ptr().cast_mut(),
-        identifier: c"modename".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"word",
+        identifier: Some(b"modename"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 148_i32 as u16,
-        },
+        call_identifier: 148,
     },
 ];
-static mut tokens_NO_FOCUS: [cmdp_token; 1] = [token {
-    name: c"'[".as_ptr().cast_mut(),
-    identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static TOKENS_NO_FOCUS: [GrammarToken; 1] = [GrammarToken {
+    name: b"'[",
+    identifier: None,
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 149_i32 as u16,
-    },
+    call_identifier: 149,
 }];
-static mut tokens_BINDING: [cmdp_token; 20] = [
-    token {
-        name: c"'--release".as_ptr().cast_mut(),
-        identifier: c"release".as_ptr().cast_mut(),
+static TOKENS_BINDING: [GrammarToken; 20] = [
+    GrammarToken {
+        name: b"'--release",
+        identifier: Some(b"release"),
         next_state: ParserState::Binding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'--border".as_ptr().cast_mut(),
-        identifier: c"border".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'--border",
+        identifier: Some(b"border"),
         next_state: ParserState::Binding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'--whole-window".as_ptr().cast_mut(),
-        identifier: c"whole_window".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'--whole-window",
+        identifier: Some(b"whole_window"),
         next_state: ParserState::Binding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'--exclude-titlebar".as_ptr().cast_mut(),
-        identifier: c"exclude_titlebar".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'--exclude-titlebar",
+        identifier: Some(b"exclude_titlebar"),
         next_state: ParserState::Binding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Mod1".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Mod1",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::Binding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Mod2".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Mod2",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::Binding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Mod3".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Mod3",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::Binding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Mod4".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Mod4",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::Binding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Mod5".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Mod5",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::Binding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Shift".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Shift",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::Binding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Control".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Control",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::Binding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Ctrl".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Ctrl",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::Binding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Mode_switch".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Mode_switch",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::Binding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Group1".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Group1",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::Binding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Group2".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Group2",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::Binding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Group3".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Group3",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::Binding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'Group4".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'Group4",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::Binding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'$mod".as_ptr().cast_mut(),
-        identifier: c"modifiers".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'$mod",
+        identifier: Some(b"modifiers"),
         next_state: ParserState::Binding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'+".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'+",
+        identifier: None,
         next_state: ParserState::Binding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"word".as_ptr().cast_mut(),
-        identifier: c"key".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"word",
+        identifier: Some(b"key"),
         next_state: ParserState::Bindcommand,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
 ];
-static mut tokens_INCLUDE: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"pattern".as_ptr().cast_mut(),
+static TOKENS_INCLUDE: [GrammarToken; 1] = [GrammarToken {
+    name: b"string",
+    identifier: Some(b"pattern"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 150_i32 as u16,
-    },
+    call_identifier: 150,
 }];
-static mut tokens_INITIAL: [cmdp_token; 60] = [
-    token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static TOKENS_INITIAL: [GrammarToken; 60] = [
+    GrammarToken {
+        name: b"end",
+        identifier: None,
         next_state: ParserState::Initial,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"error".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"error",
+        identifier: None,
         next_state: ParserState::Initial,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'#".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'#",
+        identifier: None,
         next_state: ParserState::IgnoreLine,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'set ".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'set ",
+        identifier: None,
         next_state: ParserState::IgnoreLine,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'set\t".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'set\t",
+        identifier: None,
         next_state: ParserState::IgnoreLine,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'set_from_resource".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'set_from_resource",
+        identifier: None,
         next_state: ParserState::IgnoreLine,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'include".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'include",
+        identifier: None,
         next_state: ParserState::Include,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'bindsym".as_ptr().cast_mut(),
-        identifier: c"bindtype".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'bindsym",
+        identifier: Some(b"bindtype"),
         next_state: ParserState::Binding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'bindcode".as_ptr().cast_mut(),
-        identifier: c"bindtype".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'bindcode",
+        identifier: Some(b"bindtype"),
         next_state: ParserState::Binding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'bind".as_ptr().cast_mut(),
-        identifier: c"bindtype".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'bind",
+        identifier: Some(b"bindtype"),
         next_state: ParserState::Binding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'bar".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'bar",
+        identifier: None,
         next_state: ParserState::Barbrace,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'font".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'font",
+        identifier: None,
         next_state: ParserState::Font,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'mode".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'mode",
+        identifier: None,
         next_state: ParserState::Modename,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'gaps".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'gaps",
+        identifier: None,
         next_state: ParserState::Gaps,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'smart_borders".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'smart_borders",
+        identifier: None,
         next_state: ParserState::SmartBorders,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'smart_gaps".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'smart_gaps",
+        identifier: None,
         next_state: ParserState::SmartGaps,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'floating_minimum_size".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'floating_minimum_size",
+        identifier: None,
         next_state: ParserState::FloatingMinimumSizeWidth,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'floating_maximum_size".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'floating_maximum_size",
+        identifier: None,
         next_state: ParserState::FloatingMaximumSizeWidth,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'floating_modifier".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'floating_modifier",
+        identifier: None,
         next_state: ParserState::FloatingModifier,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'default_orientation".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'default_orientation",
+        identifier: None,
         next_state: ParserState::DefaultOrientation,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'workspace_layout".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'workspace_layout",
+        identifier: None,
         next_state: ParserState::WorkspaceLayout,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'default_border".as_ptr().cast_mut(),
-        identifier: c"windowtype".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'default_border",
+        identifier: Some(b"windowtype"),
         next_state: ParserState::DefaultBorder,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'new_window".as_ptr().cast_mut(),
-        identifier: c"windowtype".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'new_window",
+        identifier: Some(b"windowtype"),
         next_state: ParserState::DefaultBorder,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'default_floating_border".as_ptr().cast_mut(),
-        identifier: c"windowtype".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'default_floating_border",
+        identifier: Some(b"windowtype"),
         next_state: ParserState::DefaultBorder,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'new_float".as_ptr().cast_mut(),
-        identifier: c"windowtype".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'new_float",
+        identifier: Some(b"windowtype"),
         next_state: ParserState::DefaultBorder,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'hide_edge_borders".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'hide_edge_borders",
+        identifier: None,
         next_state: ParserState::HideEdgeBorders,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'for_window".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'for_window",
+        identifier: None,
         next_state: ParserState::ForWindow,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'assign".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'assign",
+        identifier: None,
         next_state: ParserState::Assign,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'no_focus".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'no_focus",
+        identifier: None,
         next_state: ParserState::NoFocus,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'focus_follows_mouse".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'focus_follows_mouse",
+        identifier: None,
         next_state: ParserState::FocusFollowsMouse,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'mouse_warping".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'mouse_warping",
+        identifier: None,
         next_state: ParserState::MouseWarping,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'focus_wrapping".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'focus_wrapping",
+        identifier: None,
         next_state: ParserState::FocusWrapping,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'force_focus_wrapping".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'force_focus_wrapping",
+        identifier: None,
         next_state: ParserState::ForceFocusWrapping,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'force_xinerama".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'force_xinerama",
+        identifier: None,
         next_state: ParserState::ForceXinerama,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'force-xinerama".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'force-xinerama",
+        identifier: None,
         next_state: ParserState::ForceXinerama,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'disable_randr15".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'disable_randr15",
+        identifier: None,
         next_state: ParserState::DisableRandr15,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'disable-randr15".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'disable-randr15",
+        identifier: None,
         next_state: ParserState::DisableRandr15,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'workspace_auto_back_and_forth".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'workspace_auto_back_and_forth",
+        identifier: None,
         next_state: ParserState::WorkspaceBackAndForth,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'fake_outputs".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'fake_outputs",
+        identifier: None,
         next_state: ParserState::FakeOutputs,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'fake-outputs".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'fake-outputs",
+        identifier: None,
         next_state: ParserState::FakeOutputs,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'force_display_urgency_hint".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'force_display_urgency_hint",
+        identifier: None,
         next_state: ParserState::ForceDisplayUrgencyHint,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'focus_on_window_activation".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'focus_on_window_activation",
+        identifier: None,
         next_state: ParserState::FocusOnWindowActivation,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'title_align".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'title_align",
+        identifier: None,
         next_state: ParserState::TitleAlign,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'show_marks".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'show_marks",
+        identifier: None,
         next_state: ParserState::ShowMarks,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'workspace".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'workspace",
+        identifier: None,
         next_state: ParserState::Workspace,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'ipc_socket".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'ipc_socket",
+        identifier: None,
         next_state: ParserState::IpcSocket,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'ipc-socket".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'ipc-socket",
+        identifier: None,
         next_state: ParserState::IpcSocket,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'ipc_kill_timeout".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'ipc_kill_timeout",
+        identifier: None,
         next_state: ParserState::IpcKillTimeout,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'restart_state".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'restart_state",
+        identifier: None,
         next_state: ParserState::RestartState,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'popup_during_fullscreen".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'popup_during_fullscreen",
+        identifier: None,
         next_state: ParserState::PopupDuringFullscreen,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'tiling_drag".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'tiling_drag",
+        identifier: None,
         next_state: ParserState::TilingDrag,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'exec_always".as_ptr().cast_mut(),
-        identifier: c"exectype".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'exec_always",
+        identifier: Some(b"exectype"),
         next_state: ParserState::Exec,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'exec".as_ptr().cast_mut(),
-        identifier: c"exectype".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'exec",
+        identifier: Some(b"exectype"),
         next_state: ParserState::Exec,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'client.background".as_ptr().cast_mut(),
-        identifier: c"colorclass".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'client.background",
+        identifier: Some(b"colorclass"),
         next_state: ParserState::ColorSingle,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'client.focused_inactive".as_ptr().cast_mut(),
-        identifier: c"colorclass".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'client.focused_inactive",
+        identifier: Some(b"colorclass"),
         next_state: ParserState::ColorBorder,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'client.focused_tab_title".as_ptr().cast_mut(),
-        identifier: c"colorclass".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'client.focused_tab_title",
+        identifier: Some(b"colorclass"),
         next_state: ParserState::ColorBorder,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'client.focused".as_ptr().cast_mut(),
-        identifier: c"colorclass".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'client.focused",
+        identifier: Some(b"colorclass"),
         next_state: ParserState::ColorBorder,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'client.unfocused".as_ptr().cast_mut(),
-        identifier: c"colorclass".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'client.unfocused",
+        identifier: Some(b"colorclass"),
         next_state: ParserState::ColorBorder,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'client.urgent".as_ptr().cast_mut(),
-        identifier: c"colorclass".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'client.urgent",
+        identifier: Some(b"colorclass"),
         next_state: ParserState::ColorBorder,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'client.placeholder".as_ptr().cast_mut(),
-        identifier: c"colorclass".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'client.placeholder",
+        identifier: Some(b"colorclass"),
         next_state: ParserState::ColorBorder,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
 ];
-static mut tokens_ASSIGN: [cmdp_token; 1] = [token {
-    name: c"'[".as_ptr().cast_mut(),
-    identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static TOKENS_ASSIGN: [GrammarToken; 1] = [GrammarToken {
+    name: b"'[",
+    identifier: None,
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 151_i32 as u16,
-    },
+    call_identifier: 151,
 }];
-static mut tokens_BAR_ID: [cmdp_token; 1] = [token {
-    name: c"word".as_ptr().cast_mut(),
-    identifier: c"bar_id".as_ptr().cast_mut(),
+static TOKENS_BAR_ID: [GrammarToken; 1] = [GrammarToken {
+    name: b"word",
+    identifier: Some(b"bar_id"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 152_i32 as u16,
-    },
+    call_identifier: 152,
 }];
-static mut tokens_EXEC: [cmdp_token; 2] = [
-    token {
-        name: c"'--no-startup-id".as_ptr().cast_mut(),
-        identifier: c"no_startup_id".as_ptr().cast_mut(),
+static TOKENS_EXEC: [GrammarToken; 2] = [
+    GrammarToken {
+        name: b"'--no-startup-id",
+        identifier: Some(b"no_startup_id"),
         next_state: ParserState::Exec,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"string".as_ptr().cast_mut(),
-        identifier: c"command".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"string",
+        identifier: Some(b"command"),
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 153_i32 as u16,
-        },
+        call_identifier: 153,
     },
 ];
-static mut tokens_FONT: [cmdp_token; 1] = [token {
-    name: c"string".as_ptr().cast_mut(),
-    identifier: c"font".as_ptr().cast_mut(),
+static TOKENS_FONT: [GrammarToken; 1] = [GrammarToken {
+    name: b"string",
+    identifier: Some(b"font"),
     next_state: ParserState::Call,
-    extra: WizardTokenData {
-        call_identifier: 154_i32 as u16,
-    },
+    call_identifier: 154,
 }];
-static mut tokens_GAPS: [cmdp_token; 8] = [
-    token {
-        name: c"'inner".as_ptr().cast_mut(),
-        identifier: c"scope".as_ptr().cast_mut(),
+static TOKENS_GAPS: [GrammarToken; 8] = [
+    GrammarToken {
+        name: b"'inner",
+        identifier: Some(b"scope"),
         next_state: ParserState::GapsWithScope,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'outer".as_ptr().cast_mut(),
-        identifier: c"scope".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'outer",
+        identifier: Some(b"scope"),
         next_state: ParserState::GapsWithScope,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'horizontal".as_ptr().cast_mut(),
-        identifier: c"scope".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'horizontal",
+        identifier: Some(b"scope"),
         next_state: ParserState::GapsWithScope,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'vertical".as_ptr().cast_mut(),
-        identifier: c"scope".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'vertical",
+        identifier: Some(b"scope"),
         next_state: ParserState::GapsWithScope,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'top".as_ptr().cast_mut(),
-        identifier: c"scope".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'top",
+        identifier: Some(b"scope"),
         next_state: ParserState::GapsWithScope,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'right".as_ptr().cast_mut(),
-        identifier: c"scope".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'right",
+        identifier: Some(b"scope"),
         next_state: ParserState::GapsWithScope,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'bottom".as_ptr().cast_mut(),
-        identifier: c"scope".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'bottom",
+        identifier: Some(b"scope"),
         next_state: ParserState::GapsWithScope,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'left".as_ptr().cast_mut(),
-        identifier: c"scope".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'left",
+        identifier: Some(b"scope"),
         next_state: ParserState::GapsWithScope,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
 ];
-static mut tokens_MODE: [cmdp_token; 8] = [
-    token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static TOKENS_MODE: [GrammarToken; 8] = [
+    GrammarToken {
+        name: b"end",
+        identifier: None,
         next_state: ParserState::Mode,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"error".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"error",
+        identifier: None,
         next_state: ParserState::Mode,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'#".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'#",
+        identifier: None,
         next_state: ParserState::ModeIgnoreLine,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'set".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'set",
+        identifier: None,
         next_state: ParserState::ModeIgnoreLine,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'bindsym".as_ptr().cast_mut(),
-        identifier: c"bindtype".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'bindsym",
+        identifier: Some(b"bindtype"),
         next_state: ParserState::ModeBinding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'bindcode".as_ptr().cast_mut(),
-        identifier: c"bindtype".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'bindcode",
+        identifier: Some(b"bindtype"),
         next_state: ParserState::ModeBinding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'bind".as_ptr().cast_mut(),
-        identifier: c"bindtype".as_ptr().cast_mut(),
+    GrammarToken {
+        name: b"'bind",
+        identifier: Some(b"bindtype"),
         next_state: ParserState::ModeBinding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'}".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'}",
+        identifier: None,
         next_state: ParserState::Initial,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
 ];
-static mut tokens_BAR: [cmdp_token; 31] = [
-    token {
-        name: c"end".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+static TOKENS_BAR: [GrammarToken; 31] = [
+    GrammarToken {
+        name: b"end",
+        identifier: None,
         next_state: ParserState::Bar,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"error".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"error",
+        identifier: None,
         next_state: ParserState::Bar,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'#".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'#",
+        identifier: None,
         next_state: ParserState::BarIgnoreLine,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'set".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'set",
+        identifier: None,
         next_state: ParserState::BarIgnoreLine,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'i3bar_command".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'i3bar_command",
+        identifier: None,
         next_state: ParserState::BarBarCommand,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'status_command".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'status_command",
+        identifier: None,
         next_state: ParserState::BarStatusCommand,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'workspace_command".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'workspace_command",
+        identifier: None,
         next_state: ParserState::BarWorkspaceCommand,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'socket_path".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'socket_path",
+        identifier: None,
         next_state: ParserState::BarSocketPath,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'mode".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'mode",
+        identifier: None,
         next_state: ParserState::BarMode,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'hidden_state".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'hidden_state",
+        identifier: None,
         next_state: ParserState::BarHiddenState,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'id".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'id",
+        identifier: None,
         next_state: ParserState::BarId,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'modifier".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'modifier",
+        identifier: None,
         next_state: ParserState::BarModifier,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'wheel_up_cmd".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'wheel_up_cmd",
+        identifier: None,
         next_state: ParserState::BarWheelUpCmd,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'wheel_down_cmd".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'wheel_down_cmd",
+        identifier: None,
         next_state: ParserState::BarWheelDownCmd,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'bindsym".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'bindsym",
+        identifier: None,
         next_state: ParserState::BarBindsym,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'position".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'position",
+        identifier: None,
         next_state: ParserState::BarPosition,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'output".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'output",
+        identifier: None,
         next_state: ParserState::BarOutput,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'tray_output".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'tray_output",
+        identifier: None,
         next_state: ParserState::BarTrayOutput,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'tray_padding".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'tray_padding",
+        identifier: None,
         next_state: ParserState::BarTrayPadding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'font".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'font",
+        identifier: None,
         next_state: ParserState::BarFont,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'separator_symbol".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'separator_symbol",
+        identifier: None,
         next_state: ParserState::BarSeparatorSymbol,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'binding_mode_indicator".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'binding_mode_indicator",
+        identifier: None,
         next_state: ParserState::BarBindingModeIndicator,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'workspace_buttons".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'workspace_buttons",
+        identifier: None,
         next_state: ParserState::BarWorkspaceButtons,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'workspace_min_width".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'workspace_min_width",
+        identifier: None,
         next_state: ParserState::BarWorkspaceMinWidth,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'strip_workspace_numbers".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'strip_workspace_numbers",
+        identifier: None,
         next_state: ParserState::BarStripWorkspaceNumbers,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'strip_workspace_name".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'strip_workspace_name",
+        identifier: None,
         next_state: ParserState::BarStripWorkspaceName,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'verbose".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'verbose",
+        identifier: None,
         next_state: ParserState::BarVerbose,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'height".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'height",
+        identifier: None,
         next_state: ParserState::BarHeight,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'padding".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'padding",
+        identifier: None,
         next_state: ParserState::BarPadding,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'colors".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'colors",
+        identifier: None,
         next_state: ParserState::BarColorsBrace,
-        extra: WizardTokenData {
-            call_identifier: 0_i32 as u16,
-        },
+        call_identifier: 0,
     },
-    token {
-        name: c"'}".as_ptr().cast_mut(),
-        identifier: std::ptr::null_mut::<::core::ffi::c_char>(),
+    GrammarToken {
+        name: b"'}",
+        identifier: None,
         next_state: ParserState::Call,
-        extra: WizardTokenData {
-            call_identifier: 155_i32 as u16,
-        },
+        call_identifier: 155,
     },
 ];
-static mut tokens: [cmdp_token_ptr; 117] = [
-    tokenptr {
-        array: &raw const tokens_FORCE_DISPLAY_URGENCY_HINT_MS as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FLOATING_MAXIMUM_SIZE_HEIGHT as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FLOATING_MINIMUM_SIZE_HEIGHT as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_STRIP_WORKSPACE_NUMBERS as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FLOATING_MAXIMUM_SIZE_WIDTH as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FLOATING_MINIMUM_SIZE_WIDTH as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_BINDING_MODE_INDICATOR as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_WORKSPACE_MIN_WIDTH_PX as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FOCUS_ON_WINDOW_ACTIVATION as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FORCE_DISPLAY_URGENCY_HINT as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_TILING_DRAG_SWAP_MODIFIER as *mut cmdp_token,
-        n: 10_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_STRIP_WORKSPACE_NAME as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_CRITERION_FROM_STR_START as *mut cmdp_token,
-        n: 3_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_DEFAULT_BORDER_PIXELS_PX as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_WORKSPACE_BACK_AND_FORTH as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_ASSIGN_WORKSPACE_NUMBER as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_WORKSPACE_MIN_WIDTH as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FLOATING_MAXIMUM_SIZE_X as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FLOATING_MINIMUM_SIZE_X as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_POPUP_DURING_FULLSCREEN as *mut cmdp_token,
-        n: 4_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_COLORS_IGNORE_LINE as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_CRITERION_FROM_STR_END as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_COLORS_BACKGROUND as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_WORKSPACE_BUTTONS as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_WORKSPACE_COMMAND as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_DEFAULT_BORDER_PIXELS as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_WORKSPACE_OUTPUT_WORD as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_SEPARATOR_SYMBOL as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FORCE_FOCUS_WRAPPING as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_BINDSYM_COMMAND as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_TRAY_PADDING_PX as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_DEFAULT_ORIENTATION as *mut cmdp_token,
-        n: 3_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FOCUS_FOLLOWS_MOUSE as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_PADDING_BOTTOM as *mut cmdp_token,
-        n: 3_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_STATUS_COMMAND as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_WHEEL_DOWN_CMD as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_COLOR_CHILD_BORDER as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_CRITERION_FROM_STR as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FOR_WINDOW_COMMAND as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_COLORS_BORDER as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_COLORS_SINGLE as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_PADDING_RIGHT as *mut cmdp_token,
-        n: 3_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FLOATING_MODIFIER as *mut cmdp_token,
-        n: 10_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_HIDE_EDGE_BORDERS as *mut cmdp_token,
-        n: 12_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_WORKSPACE_COMMAND as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_ASSIGN_WORKSPACE as *mut cmdp_token,
-        n: 5_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_COLORS_BRACE as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_HIDDEN_STATE as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_PADDING_LEFT as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_TRAY_PADDING as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_WHEEL_UP_CMD as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_COLOR_BACKGROUND as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_IPC_KILL_TIMEOUT as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_MODE_BINDCOMMAND as *mut cmdp_token,
-        n: 5_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_MODE_IGNORE_LINE as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_TILING_DRAG_MODE as *mut cmdp_token,
-        n: 3_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_WORKSPACE_LAYOUT as *mut cmdp_token,
-        n: 4_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_BAR_COMMAND as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_COLORS_TEXT as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_IGNORE_LINE as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_PADDING_TOP as *mut cmdp_token,
-        n: 3_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_SOCKET_PATH as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_TRAY_OUTPUT as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_COLOR_INDICATOR as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_DISABLE_RANDR15 as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_GAPS_WITH_SCOPE as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_CRITERION_FROM as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_DEFAULT_BORDER as *mut cmdp_token,
-        n: 4_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FOCUS_WRAPPING as *mut cmdp_token,
-        n: 14_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FORCE_XINERAMA as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_ASSIGN_OUTPUT as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_CRITERION_STR as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_MOUSE_WARPING as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_RESTART_STATE as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_SMART_BORDERS as *mut cmdp_token,
-        n: 7_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_MODIFIER as *mut cmdp_token,
-        n: 12_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_POSITION as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_COLOR_BORDER as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_COLOR_SINGLE as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FAKE_OUTPUTS as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_MODE_BINDING as *mut cmdp_token,
-        n: 20_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_NO_FOCUS_END as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_BINDSYM as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_PADDING as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_VERBOSE as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BINDCOMMAND as *mut cmdp_token,
-        n: 5_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_IGNORE_LINE as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_TILING_DRAG as *mut cmdp_token,
-        n: 9_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_TITLE_ALIGN as *mut cmdp_token,
-        n: 3_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_COLORS as *mut cmdp_token,
-        n: 15_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_HEIGHT as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_OUTPUT as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_COLOR_TEXT as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FOR_WINDOW as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_IPC_SOCKET as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_SHOW_MARKS as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_SMART_GAPS as *mut cmdp_token,
-        n: 13_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_CRITERION as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_MODEBRACE as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_WORKSPACE as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BARBRACE as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_FONT as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_MODE as *mut cmdp_token,
-        n: 3_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_CRITERIA as *mut cmdp_token,
-        n: 17_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_GAPS_END as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_MODENAME as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_NO_FOCUS as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BINDING as *mut cmdp_token,
-        n: 20_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_INCLUDE as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_INITIAL as *mut cmdp_token,
-        n: 60_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_ASSIGN as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR_ID as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_EXEC as *mut cmdp_token,
-        n: 2_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_FONT as *mut cmdp_token,
-        n: 1_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_GAPS as *mut cmdp_token,
-        n: 8_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_MODE as *mut cmdp_token,
-        n: 8_i32,
-    },
-    tokenptr {
-        array: &raw const tokens_BAR as *mut cmdp_token,
-        n: 31_i32,
-    },
+static TOKENS: [&[GrammarToken]; 117] = [
+    &TOKENS_FORCE_DISPLAY_URGENCY_HINT_MS,
+    &TOKENS_FLOATING_MAXIMUM_SIZE_HEIGHT,
+    &TOKENS_FLOATING_MINIMUM_SIZE_HEIGHT,
+    &TOKENS_BAR_STRIP_WORKSPACE_NUMBERS,
+    &TOKENS_FLOATING_MAXIMUM_SIZE_WIDTH,
+    &TOKENS_FLOATING_MINIMUM_SIZE_WIDTH,
+    &TOKENS_BAR_BINDING_MODE_INDICATOR,
+    &TOKENS_BAR_WORKSPACE_MIN_WIDTH_PX,
+    &TOKENS_FOCUS_ON_WINDOW_ACTIVATION,
+    &TOKENS_FORCE_DISPLAY_URGENCY_HINT,
+    &TOKENS_TILING_DRAG_SWAP_MODIFIER,
+    &TOKENS_BAR_STRIP_WORKSPACE_NAME,
+    &TOKENS_CRITERION_FROM_STR_START,
+    &TOKENS_DEFAULT_BORDER_PIXELS_PX,
+    &TOKENS_WORKSPACE_BACK_AND_FORTH,
+    &TOKENS_ASSIGN_WORKSPACE_NUMBER,
+    &TOKENS_BAR_WORKSPACE_MIN_WIDTH,
+    &TOKENS_FLOATING_MAXIMUM_SIZE_X,
+    &TOKENS_FLOATING_MINIMUM_SIZE_X,
+    &TOKENS_POPUP_DURING_FULLSCREEN,
+    &TOKENS_BAR_COLORS_IGNORE_LINE,
+    &TOKENS_CRITERION_FROM_STR_END,
+    &TOKENS_BAR_COLORS_BACKGROUND,
+    &TOKENS_BAR_WORKSPACE_BUTTONS,
+    &TOKENS_BAR_WORKSPACE_COMMAND,
+    &TOKENS_DEFAULT_BORDER_PIXELS,
+    &TOKENS_WORKSPACE_OUTPUT_WORD,
+    &TOKENS_BAR_SEPARATOR_SYMBOL,
+    &TOKENS_FORCE_FOCUS_WRAPPING,
+    &TOKENS_BAR_BINDSYM_COMMAND,
+    &TOKENS_BAR_TRAY_PADDING_PX,
+    &TOKENS_DEFAULT_ORIENTATION,
+    &TOKENS_FOCUS_FOLLOWS_MOUSE,
+    &TOKENS_BAR_PADDING_BOTTOM,
+    &TOKENS_BAR_STATUS_COMMAND,
+    &TOKENS_BAR_WHEEL_DOWN_CMD,
+    &TOKENS_COLOR_CHILD_BORDER,
+    &TOKENS_CRITERION_FROM_STR,
+    &TOKENS_FOR_WINDOW_COMMAND,
+    &TOKENS_BAR_COLORS_BORDER,
+    &TOKENS_BAR_COLORS_SINGLE,
+    &TOKENS_BAR_PADDING_RIGHT,
+    &TOKENS_FLOATING_MODIFIER,
+    &TOKENS_HIDE_EDGE_BORDERS,
+    &TOKENS_WORKSPACE_COMMAND,
+    &TOKENS_ASSIGN_WORKSPACE,
+    &TOKENS_BAR_COLORS_BRACE,
+    &TOKENS_BAR_HIDDEN_STATE,
+    &TOKENS_BAR_PADDING_LEFT,
+    &TOKENS_BAR_TRAY_PADDING,
+    &TOKENS_BAR_WHEEL_UP_CMD,
+    &TOKENS_COLOR_BACKGROUND,
+    &TOKENS_IPC_KILL_TIMEOUT,
+    &TOKENS_MODE_BINDCOMMAND,
+    &TOKENS_MODE_IGNORE_LINE,
+    &TOKENS_TILING_DRAG_MODE,
+    &TOKENS_WORKSPACE_LAYOUT,
+    &TOKENS_BAR_BAR_COMMAND,
+    &TOKENS_BAR_COLORS_TEXT,
+    &TOKENS_BAR_IGNORE_LINE,
+    &TOKENS_BAR_PADDING_TOP,
+    &TOKENS_BAR_SOCKET_PATH,
+    &TOKENS_BAR_TRAY_OUTPUT,
+    &TOKENS_COLOR_INDICATOR,
+    &TOKENS_DISABLE_RANDR15,
+    &TOKENS_GAPS_WITH_SCOPE,
+    &TOKENS_CRITERION_FROM,
+    &TOKENS_DEFAULT_BORDER,
+    &TOKENS_FOCUS_WRAPPING,
+    &TOKENS_FORCE_XINERAMA,
+    &TOKENS_ASSIGN_OUTPUT,
+    &TOKENS_CRITERION_STR,
+    &TOKENS_MOUSE_WARPING,
+    &TOKENS_RESTART_STATE,
+    &TOKENS_SMART_BORDERS,
+    &TOKENS_BAR_MODIFIER,
+    &TOKENS_BAR_POSITION,
+    &TOKENS_COLOR_BORDER,
+    &TOKENS_COLOR_SINGLE,
+    &TOKENS_FAKE_OUTPUTS,
+    &TOKENS_MODE_BINDING,
+    &TOKENS_NO_FOCUS_END,
+    &TOKENS_BAR_BINDSYM,
+    &TOKENS_BAR_PADDING,
+    &TOKENS_BAR_VERBOSE,
+    &TOKENS_BINDCOMMAND,
+    &TOKENS_IGNORE_LINE,
+    &TOKENS_TILING_DRAG,
+    &TOKENS_TITLE_ALIGN,
+    &TOKENS_BAR_COLORS,
+    &TOKENS_BAR_HEIGHT,
+    &TOKENS_BAR_OUTPUT,
+    &TOKENS_COLOR_TEXT,
+    &TOKENS_FOR_WINDOW,
+    &TOKENS_IPC_SOCKET,
+    &TOKENS_SHOW_MARKS,
+    &TOKENS_SMART_GAPS,
+    &TOKENS_CRITERION,
+    &TOKENS_MODEBRACE,
+    &TOKENS_WORKSPACE,
+    &TOKENS_BARBRACE,
+    &TOKENS_BAR_FONT,
+    &TOKENS_BAR_MODE,
+    &TOKENS_CRITERIA,
+    &TOKENS_GAPS_END,
+    &TOKENS_MODENAME,
+    &TOKENS_NO_FOCUS,
+    &TOKENS_BINDING,
+    &TOKENS_INCLUDE,
+    &TOKENS_INITIAL,
+    &TOKENS_ASSIGN,
+    &TOKENS_BAR_ID,
+    &TOKENS_EXEC,
+    &TOKENS_FONT,
+    &TOKENS_GAPS,
+    &TOKENS_MODE,
+    &TOKENS_BAR,
 ];
 #[derive(Clone)]
 struct ParserToken {
@@ -4080,21 +2860,14 @@ struct ParserToken {
     next: ParserState,
 }
 
-// Generated tables are immutable in operation, despite their legacy raw-pointer
-// representation. Only this adapter touches their pointers; parser state/captures
-// and input positions are local owned Rust values.
-unsafe fn parser_tokens(state: ParserState) -> Vec<ParserToken> {
-    assert!((state as usize) < 117);
-    let entry = (&raw const tokens)
-        .cast::<tokenptr>()
-        .add(state as usize)
-        .read();
-    std::slice::from_raw_parts(entry.array, entry.n as usize)
+// Immutable Rust metadata has no foreign layout or lifetime contract. Captures
+// still own their token bytes, retaining the existing parser state algorithm.
+fn parser_tokens(state: ParserState) -> Vec<ParserToken> {
+    TOKENS[state as usize]
         .iter()
         .map(|token| ParserToken {
-            name: CStr::from_ptr(token.name).to_bytes().to_vec(),
-            identifier: (!token.identifier.is_null())
-                .then(|| CStr::from_ptr(token.identifier).to_bytes().to_vec()),
+            name: token.name.to_vec(),
+            identifier: token.identifier.map(<[u8]>::to_vec),
             next: token.next_state,
         })
         .collect()
@@ -4303,7 +3076,7 @@ fn keysym_used_on_other_key(keysyms: &KeySymbols, sym: u64, except_keycode: u8) 
 // Parsing and formatting use owned Rust bytes. Only keysym lookup borrows the
 // initialized event-thread XKB/key-symbol native resources.
 unsafe fn rewrite_binding(input: &[u8], keysyms: &KeySymbols) -> Option<Vec<u8>> {
-    let binding = parse_binding(input, |state| parser_tokens(state))?;
+    let binding = parse_binding(input, parser_tokens)?;
     let modifiers = binding.modifiers.as_deref();
     let key = CString::new(binding.key.clone()).expect("key has no NUL");
     let keycode = atoi(key.as_ptr());
@@ -5373,9 +4146,36 @@ pub enum ParserState {
 mod tests {
     use super::*;
 
+    #[test]
+    fn immutable_grammar_keeps_every_original_token_state_and_call_id() {
+        fn add(hash: &mut u64, bytes: &[u8]) {
+            for &byte in bytes {
+                *hash = (*hash ^ u64::from(byte)).wrapping_mul(0x100000001b3);
+            }
+        }
+        let mut hash = 0xcbf29ce484222325u64;
+        for (state, row) in TOKENS.iter().enumerate() {
+            add(&mut hash, &(state as u32).to_le_bytes());
+            add(&mut hash, &(row.len() as u32).to_le_bytes());
+            for token in *row {
+                add(&mut hash, &(token.name.len() as u32).to_le_bytes());
+                add(&mut hash, token.name);
+                add(&mut hash, &[u8::from(token.identifier.is_some())]);
+                if let Some(identifier) = token.identifier {
+                    add(&mut hash, &(identifier.len() as u32).to_le_bytes());
+                    add(&mut hash, identifier);
+                }
+                add(&mut hash, &(token.next_state as u32).to_le_bytes());
+                add(&mut hash, &token.call_identifier.to_le_bytes());
+            }
+        }
+        // Independently recorded from the prior generated C-pointer tables.
+        assert_eq!(hash, 0x451f06603a0965b3u64);
+    }
+
     fn parse(input: &[u8]) -> Option<BindingFields> {
         // Generated grammar is immutable and this local parser never touches X.
-        parse_binding(input, |state| unsafe { parser_tokens(state) })
+        parse_binding(input, parser_tokens)
     }
 
     #[test]
