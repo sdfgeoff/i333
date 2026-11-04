@@ -6345,12 +6345,10 @@ unsafe fn parse_config(
     }
 }
 
-pub unsafe fn start_config_error_nagbar(configpath: *const ::core::ffi::c_char, has_errors: bool) {
-    let configpath = if configpath.is_null() {
-        b"(null)".to_vec()
-    } else {
-        std::ffi::CStr::from_ptr(configpath).to_bytes().to_vec()
-    };
+pub unsafe fn start_config_error_nagbar(configpath: Option<&std::path::Path>, has_errors: bool) {
+    let configpath = configpath
+        .map_or(b"(null)".as_slice(), |path| path.as_os_str().as_bytes())
+        .to_vec();
     let error_path = errorfilename.clone();
     let mut edit_bytes = b"i3-sensible-editor \"".to_vec();
     edit_bytes.extend_from_slice(&configpath);
@@ -7016,7 +7014,10 @@ unsafe fn parse_file_inner(
                 i3_common::logging::emit(i3_common::logging::Level::Error, &message);
             }
         };
-        start_config_error_nagbar(f, (*context).has_errors || invalid_sets);
+        let path = std::path::Path::new(std::ffi::OsStr::from_bytes(
+            std::ffi::CStr::from_ptr(f).to_bytes(),
+        ));
+        start_config_error_nagbar(Some(path), (*context).has_errors || invalid_sets);
     }
     let has_errors: bool = (*context).has_errors;
     free((*context).line_copy as *mut ::core::ffi::c_void);

@@ -986,7 +986,8 @@ pub unsafe fn translate_keysyms() {
 
     drop(temporary_states);
     if has_errors {
-        start_config_error_nagbar(current_configpath, true);
+        let path = current_configpath.clone();
+        start_config_error_nagbar(path.as_deref(), true);
     }
 }
 

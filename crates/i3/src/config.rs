@@ -190,8 +190,7 @@ pub const __ASSERT_FUNCTION: [::core::ffi::c_char; 30] = unsafe {
 };
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 
-pub static mut current_configpath: *mut ::core::ffi::c_char =
-    std::ptr::null_mut::<::core::ffi::c_char>();
+pub static mut current_configpath: Option<std::path::PathBuf> = None;
 
 const fn empty_config() -> Config {
     Config {
@@ -705,7 +704,7 @@ pub unsafe fn set_config_font(pattern: &[u8]) {
 }
 
 pub unsafe fn load_configuration(
-    override_configpath: *const ::core::ffi::c_char,
+    override_configpath: Option<&std::path::Path>,
     load_type: ConfigLoad,
 ) -> bool {
     if load_type == ConfigLoad::Reload {
@@ -780,21 +779,21 @@ pub unsafe fn load_configuration(
     config.focus_wrapping = FocusWrapping::On;
     config.tiling_drag = TilingDrag::MODIFIER;
     config.swap_modifier = (::xcb::x::KeyButMask::SHIFT.bits()) as i32 as u32;
-    free(current_configpath as *mut ::core::ffi::c_void);
-    current_configpath = ::core::ptr::null_mut::<::core::ffi::c_char>();
     current_configpath = get_config_path(override_configpath, true);
-    if current_configpath.is_null() {
+    let config_path_owner = current_configpath.clone().unwrap_or_else(|| {
         errx(
             EXIT_FAILURE,
             c"Unable to find the configuration file (looked at $XDG_CONFIG_HOME/i3/config, ~/.i3/config, $XDG_CONFIG_DIRS/i3/config and /usr/local/etc/i3/config)".as_ptr(),
         );
-    }
+    });
     while !included_files.tqh_first.is_null() {
         remove_included_file(included_files.tqh_first);
     }
+    let native_config_path = std::ffi::CString::new(config_path_owner.as_os_str().as_bytes())
+        .expect("OS config path has no NUL");
     let mut resolved_path: [::core::ffi::c_char; 4096] = [0; 4096];
     if realpath(
-        current_configpath,
+        native_config_path.as_ptr(),
         &raw mut resolved_path as *mut ::core::ffi::c_char,
     )
     .is_null()
@@ -802,7 +801,7 @@ pub unsafe fn load_configuration(
         errx(
             EXIT_FAILURE,
             c"realpath(%s): %s".as_ptr(),
-            current_configpath,
+            native_config_path.as_ptr(),
             strerror(*__errno_location()),
         );
     }

@@ -2219,7 +2219,12 @@ pub unsafe fn x_set_i3_atoms() {
     let connection = connection();
     let socket_path_owner = current_socketpath.clone();
     let log_path_owner = current_log_stream_socket_path.clone();
-    let config_path = CStr::from_ptr(current_configpath).to_bytes().to_vec();
+    let config_path = current_configpath
+        .as_deref()
+        .expect("configuration path initialized")
+        .as_os_str()
+        .as_bytes()
+        .to_vec();
     let socket_path = socket_path_owner
         .as_deref()
         .map_or(&[][..], |path| path.as_os_str().as_bytes());
@@ -2238,10 +2243,7 @@ pub unsafe fn x_set_i3_atoms() {
         data: &[getpid() as u32],
     });
     for (atom, path) in [
-        (
-            A_I3_CONFIG_PATH,
-            CStr::from_ptr(current_configpath).to_bytes(),
-        ),
+        (A_I3_CONFIG_PATH, config_path.as_slice()),
         (
             A_I3_LOG_STREAM_SOCKET_PATH,
             log_path_owner

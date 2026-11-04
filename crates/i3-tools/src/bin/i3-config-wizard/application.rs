@@ -4831,14 +4831,12 @@ unsafe fn run_window(settings: WizardSettings) -> i32 {
         Some(ModifierKey::Alt) => WizardModifier::Alt,
         _ => WizardModifier::Win,
     };
-    let path: *mut ::core::ffi::c_char =
-        get_config_path(::core::ptr::null::<::core::ffi::c_char>(), false);
-    if !path.is_null() {
+    if let Some(path) = get_config_path(None, false) {
+        let native_path = CString::new(path.as_os_str().as_bytes()).expect("OS path has no NUL");
         printf(
             c"The config file \"%s\" already exists. Exiting.\n".as_ptr(),
-            path,
+            native_path.as_ptr(),
         );
-        free(path as *mut ::core::ffi::c_void);
         return 0_i32;
     }
     let config_home = std::env::var_os("XDG_CONFIG_HOME").unwrap_or_else(|| "~/.config".into());

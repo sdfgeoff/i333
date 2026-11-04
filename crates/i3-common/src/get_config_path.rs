@@ -74,41 +74,20 @@ pub fn find_config_path(
     ConfigSearch::from_environment().find(use_system_paths)
 }
 
-mod legacy {
-    use super::*;
-    use std::ffi::CStr;
-    use std::os::unix::ffi::OsStrExt;
-    use std::sync::Mutex;
-    static OVERRIDE: Mutex<Option<PathBuf>> = Mutex::new(None);
+static OVERRIDE: std::sync::Mutex<Option<PathBuf>> = std::sync::Mutex::new(None);
 
-    /// # Safety
-    /// `override_path` is null or a live C string. Returned storage belongs to free.
-    pub unsafe fn get_config_path(
-        override_path: *const libc::c_char,
-        use_system_paths: bool,
-    ) -> *mut libc::c_char {
-        let cached = {
-            let mut cached = OVERRIDE
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            if !override_path.is_null() {
-                // SAFETY: Copy the caller's string so the remembered override
-                // does not borrow an argv/config allocation that might be freed.
-                let bytes = unsafe { CStr::from_ptr(override_path) }.to_bytes();
-                *cached = Some(PathBuf::from(std::ffi::OsStr::from_bytes(bytes)));
-            }
-            cached.clone()
-        };
-        let found = find_config_path(cached.as_deref(), use_system_paths)
-            .unwrap_or_else(|error| crate::resolve_tilde::abort(error));
-        match found {
-            None => std::ptr::null_mut(),
-            Some(path) => {
-                let bytes = path.as_os_str().as_bytes();
-                // SAFETY: Preserve malloc/free ownership for existing callers.
-                unsafe { crate::safewrappers::sstrndup(bytes.as_ptr().cast(), bytes.len()) }
-            }
+/// Find the configuration with the application's remembered override and fatal
+/// glob-error policy. Returned paths own their bytes independently of the cache.
+pub fn get_config_path(override_path: Option<&Path>, use_system_paths: bool) -> Option<PathBuf> {
+    let cached = {
+        let mut cached = OVERRIDE
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some(path) = override_path {
+            *cached = Some(path.to_owned());
         }
-    }
+        cached.clone()
+    };
+    find_config_path(cached.as_deref(), use_system_paths)
+        .unwrap_or_else(|error| crate::resolve_tilde::abort(error))
 }
-pub use legacy::get_config_path;

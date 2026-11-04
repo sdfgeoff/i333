@@ -739,23 +739,16 @@ fn configuration_search_preserves_user_then_system_order() {
 }
 
 #[test]
-fn legacy_configuration_override_owns_its_remembered_path() {
-    let expected = b"./unresolved-override-config";
-    // SAFETY: CString remains live for the first call, then is intentionally
-    // dropped. The second call must use the adapter's owned remembered path.
-    unsafe {
-        let first = {
-            let temporary = CString::new(expected.as_slice()).unwrap();
-            crate::get_config_path::get_config_path(temporary.as_ptr(), false)
-        };
-        let actual = CStr::from_ptr(first).to_bytes().to_vec();
-        libc::free(first.cast());
-        assert_eq!(actual, expected);
-        let second = crate::get_config_path::get_config_path(std::ptr::null(), false);
-        let actual = CStr::from_ptr(second).to_bytes().to_vec();
-        libc::free(second.cast());
-        assert_eq!(actual, expected);
-    }
+fn configuration_override_owns_its_remembered_os_path() {
+    use std::os::unix::ffi::OsStrExt;
+    let expected = b"./unresolved-override-config-\xff";
+    let first = {
+        let temporary = std::path::PathBuf::from(std::ffi::OsStr::from_bytes(expected));
+        crate::get_config_path::get_config_path(Some(&temporary), false).unwrap()
+    };
+    assert_eq!(first.as_os_str().as_bytes(), expected);
+    let second = crate::get_config_path::get_config_path(None, false).unwrap();
+    assert_eq!(second.as_os_str().as_bytes(), expected);
 }
 
 #[test]

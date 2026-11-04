@@ -4040,10 +4040,7 @@ pub unsafe fn cmd_reload(current_match: *mut Match, cmd_output: *mut CommandResu
     kill_nagbar(command_error_nagbar_pid, false);
     command_error_nagbar_pid = -1_i32 as libc::pid_t;
     config_error_nagbar_pid = command_error_nagbar_pid;
-    load_configuration(
-        ::core::ptr::null::<::core::ffi::c_char>(),
-        ConfigLoad::Reload,
-    );
+    load_configuration(None, ConfigLoad::Reload);
     x_set_i3_atoms();
     ipc_send_workspace_event(
         c"reload".as_ptr(),

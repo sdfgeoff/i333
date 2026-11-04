@@ -1072,11 +1072,9 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> i32 {
     #[used]
     static mut _i3_version: *const ::core::ffi::c_char =
         I3_VERSION.as_ptr().cast::<::core::ffi::c_char>();
-    let mut override_owner: Option<CString> = None;
     let mut layout_owner: Option<CString> = None;
     let mut fake_owner: Option<Vec<u8>> = None;
-    let mut override_configpath: *mut ::core::ffi::c_char =
-        ::core::ptr::null_mut::<::core::ffi::c_char>();
+    let mut override_configpath: Option<std::path::PathBuf> = None;
     let mut autostart: bool = true;
     let mut layout_path: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
     let mut delete_layout_path: bool = false;
@@ -1132,7 +1130,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> i32 {
                 layout_path=layout_owner.as_ref().unwrap().as_ptr().cast_mut();
                 delete_layout_path = flag == OPT_RESTART;
             },
-            b'c' => { override_owner=value.clone(); override_configpath=override_owner.as_ref().unwrap().as_ptr().cast_mut(); },
+            b'c' => { override_configpath = Some(std::path::PathBuf::from(std::ffi::OsStr::from_bytes(value.as_ref().unwrap().to_bytes()))); },
             b'C' => { ::log::info!("Checking configuration file only (-C)\n"); only_check_config = true; },
             b'v' => { printf(c"i3 version %s © 2009 Michael Stapelberg and contributors\n".as_ptr(), i3_version); return EXIT_SUCCESS; },
             b'm' => { printf(c"Binary i3 version:  %s © 2009 Michael Stapelberg and contributors\n".as_ptr(), i3_version); return display_running_version(); },
@@ -1178,7 +1176,7 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
     }
     if only_check_config {
         exit(
-            if load_configuration(override_configpath, ConfigLoad::Validate) {
+            if load_configuration(override_configpath.as_deref(), ConfigLoad::Validate) {
                 EXIT_SUCCESS
             } else {
                 EXIT_FAILURE
@@ -1636,7 +1634,7 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
         };
         target.write(reply.atom().resource_id());
     }
-    load_configuration(override_configpath, ConfigLoad::Load);
+    load_configuration(override_configpath.as_deref(), ConfigLoad::Load);
     if config.ipc_socket_path.is_none() {
         config.ipc_socket_path = std::env::var_os("I3SOCK")
             .map(std::path::PathBuf::from)

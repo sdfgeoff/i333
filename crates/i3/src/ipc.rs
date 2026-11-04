@@ -1238,7 +1238,13 @@ unsafe fn handle_get_version(
         minor: MINOR_VERSION as i64,
         patch: PATCH_VERSION as i64,
         human_readable: native_text(i3_version),
-        loaded_config_file_name: native_text(current_configpath),
+        loaded_config_file_name: messages::NativeText::bytes(
+            current_configpath
+                .as_deref()
+                .expect("configuration path initialized")
+                .as_os_str()
+                .as_bytes(),
+        ),
         included_config_file_names,
     };
     send_typed_reply(client, I3_IPC_REPLY_TYPE_VERSION as u32, &reply);
