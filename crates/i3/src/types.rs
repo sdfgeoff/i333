@@ -486,7 +486,7 @@ impl Con {
 }
 
 pub struct Config {
-    pub terminal: Option<std::ffi::CString>,
+    pub terminal: Option<Vec<u8>>,
     pub font: i3_common::font::Font,
     pub ipc_socket_path: Option<std::ffi::CString>,
     pub restart_state_path: Option<std::ffi::CString>,
@@ -503,7 +503,7 @@ pub struct Config {
     pub focus_wrapping: FocusWrapping,
     pub force_xinerama: bool,
     pub disable_randr15: bool,
-    pub fake_outputs: Option<std::ffi::CString>,
+    pub fake_outputs: Option<Vec<u8>>,
     pub workspace_auto_back_and_forth: bool,
     pub workspace_urgency_timer: ::core::ffi::c_float,
     pub focus_on_window_activation: FocusActivation,

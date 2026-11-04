@@ -1092,14 +1092,13 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         I3_VERSION.as_ptr().cast::<::core::ffi::c_char>();
     let mut override_owner: Option<CString> = None;
     let mut layout_owner: Option<CString> = None;
-    let mut fake_owner: Option<CString> = None;
+    let mut fake_owner: Option<Vec<u8>> = None;
     let mut override_configpath: *mut ::core::ffi::c_char =
         ::core::ptr::null_mut::<::core::ffi::c_char>();
     let mut autostart: bool = true;
     let mut layout_path: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
     let mut delete_layout_path: bool = false;
     let mut disable_randr15: bool = false;
-    let mut fake_outputs: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
     let mut disable_signalhandler: bool = false;
     let mut only_check_config: bool = false;
     let mut replace_wm: bool = false;
@@ -1190,8 +1189,7 @@ if let Ok(log_value_0_text) = std::str::from_utf8(&log_value_0) {
 i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializing fake outputs: ".as_bytes(), &log_value_0, "\n".as_bytes() ]);
 }
 };
-                fake_owner=Some(value.clone());
-                fake_outputs=fake_owner.as_ref().unwrap().as_ptr().cast_mut();
+                fake_owner=Some(value.as_bytes().to_vec());
             },
             OPT_OLD_PARSER => ::log::error!("ERROR: You are passing --force-old-config-parser-v4.4-only, but that flag was removed by now.\n"),
             _ => unreachable!(),
@@ -1927,20 +1925,10 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
         tree_init(&greply);
     }
     drop(greply);
-    let configured_fake = if fake_outputs.is_null() {
-        config.fake_outputs.take()
-    } else {
-        None
-    };
-    if let Some(owner) = configured_fake.as_ref() {
-        fake_outputs = owner.as_ptr().cast_mut();
-    }
-    if !fake_outputs.is_null() {
-        fake_outputs_init(fake_outputs);
+    let configured_fake = fake_owner.take().or_else(|| config.fake_outputs.take());
+    if let Some(specification) = configured_fake {
+        fake_outputs_init(&specification);
         config.fake_outputs = None;
-        drop(fake_owner.take());
-        drop(configured_fake);
-        fake_outputs = std::ptr::null_mut();
     } else if force_xinerama {
         xinerama_init();
     } else {

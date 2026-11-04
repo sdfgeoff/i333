@@ -1026,9 +1026,9 @@ pub unsafe fn cfg_workspace_back_and_forth(
 pub unsafe fn cfg_fake_outputs(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    outputs: *const ::core::ffi::c_char,
+    outputs: &[u8],
 ) {
-    config.fake_outputs = Some(std::ffi::CStr::from_ptr(outputs).to_owned());
+    config.fake_outputs = Some(outputs.split(|byte| *byte == 0).next().unwrap().to_vec());
 }
 
 pub unsafe fn cfg_force_display_urgency_hint(

@@ -5170,7 +5170,7 @@ unsafe fn GENERATED_call(
             cfg_fake_outputs(
                 current_match,
                 result,
-                parser_get_string(stack, c"outputs".as_ptr()),
+                std::ffi::CStr::from_ptr(parser_get_string(stack, c"outputs".as_ptr())).to_bytes(),
             );
         }
         108 => {

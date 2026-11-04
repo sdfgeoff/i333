@@ -15,7 +15,7 @@ use crate::output::output_primary_name;
 use crate::randr::{init_ws_for_output, output_init_con, outputs};
 use crate::types::{output_name, xoutput as Output, Rect};
 use i3_common::safewrappers::{scalloc, sstrdup};
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 use std::sync::atomic::{AtomicI32, Ordering};
 
 // The name counter deliberately survives repeated initialization calls.
@@ -235,10 +235,9 @@ unsafe fn attach_output(parsed: ParsedOutput) {
 /// # Safety
 /// output_spec is a live NUL-terminated string. The caller has exclusive
 /// event-thread access to the initialized output/container graph and renderer.
-pub unsafe fn fake_outputs_init(output_spec: *const libc::c_char) {
-    // SAFETY: the caller supplies a live C string; no pointer walking escapes.
-    let specification = unsafe { CStr::from_ptr(output_spec) };
-    for parsed in ParsedOutputs::new(specification.to_bytes()) {
+pub unsafe fn fake_outputs_init(output_spec: &[u8]) {
+    let specification = output_spec.split(|byte| *byte == 0).next().unwrap();
+    for parsed in ParsedOutputs::new(specification) {
         // SAFETY: the caller owns the initialized graph throughout this call.
         unsafe { attach_output(parsed) };
     }
