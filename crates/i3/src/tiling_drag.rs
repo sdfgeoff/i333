@@ -403,15 +403,12 @@ pub unsafe fn tiling_drag(con: *mut Con, event: &x::ButtonPressEvent, use_thresh
         let fs: *mut Con = con_get_fullscreen_covering_ws(con_get_workspace(con));
         if fs == con {
             ::log::error!("ERROR: dragged container somehow got fullscreen again.\n");
-            if 0 != 0 {
-            } else {
-                __assert_fail(
-                    c"false".as_ptr(),
-                    c"../src/tiling_drag.c".as_ptr(),
-                    406 as u32,
-                    c"void tiling_drag(Con *, xcb_button_press_event_t *, _Bool)".as_ptr(),
-                );
-            };
+            __assert_fail(
+                c"false".as_ptr(),
+                c"../src/tiling_drag.c".as_ptr(),
+                406 as u32,
+                c"void tiling_drag(Con *, xcb_button_press_event_t *, _Bool)".as_ptr(),
+            );
         } else if !fs.is_null() && set_focus && set_fs {
             con_disable_fullscreen(fs);
         } else if !fs.is_null() {

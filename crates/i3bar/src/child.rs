@@ -1255,7 +1255,7 @@ unsafe fn child_click_events_initialize() {
                 c"child_click_events_initialize".as_ptr(),
             );
         }
-    } else if status_child.pid == status_child.pid {
+    } else {
         if config.verbose {
             printf(
                 c"[%s:%d] %s: status_command: pid=%ld stopped=%d stop_signal=%d cont_signal=%d click_events=%d click_events_init=%d\n".as_ptr(),
@@ -1270,35 +1270,6 @@ unsafe fn child_click_events_initialize() {
                 status_child.click_events_init as ::core::ffi::c_int,
             );
         }
-    } else if status_child.pid == ws_child.pid {
-        if config.verbose {
-            printf(
-                c"[%s:%d] %s: workspace_command: pid=%ld stopped=%d stop_signal=%d cont_signal=%d click_events=%d click_events_init=%d\n".as_ptr(),
-                c"../i3bar/src/child.c".as_ptr(),
-                847 as ::core::ffi::c_int,
-                c"child_click_events_initialize".as_ptr(),
-                status_child.pid as ::core::ffi::c_long,
-                status_child.stopped as ::core::ffi::c_int,
-                status_child.stop_signal,
-                status_child.cont_signal,
-                status_child.click_events as ::core::ffi::c_int,
-                status_child.click_events_init as ::core::ffi::c_int,
-            );
-        }
-    } else {
-        fprintf(
-            stderr,
-            c"[%s:%d] ERROR: %s: unknown child, this should never happen pid=%ld stopped=%d stop_signal=%d cont_signal=%d click_events=%d click_events_init=%d\n".as_ptr(),
-            c"../i3bar/src/child.c".as_ptr(),
-            847 as ::core::ffi::c_int,
-            c"child_click_events_initialize".as_ptr(),
-            status_child.pid as ::core::ffi::c_long,
-            status_child.stopped as ::core::ffi::c_int,
-            status_child.stop_signal,
-            status_child.cont_signal,
-            status_child.click_events as ::core::ffi::c_int,
-            status_child.click_events_init as ::core::ffi::c_int,
-        );
     }
     if !status_child.click_events_init {
         CLICK_STREAM.with(|generator| {
@@ -1517,7 +1488,7 @@ pub extern "C" fn kill_children_at_exit() {
                     c"kill_children_at_exit".as_ptr(),
                 );
             }
-        } else if status_child.pid == status_child.pid {
+        } else {
             if config.verbose {
                 printf(
                 c"[%s:%d] %s: status_command: pid=%ld stopped=%d stop_signal=%d cont_signal=%d click_events=%d click_events_init=%d\n".as_ptr(),
@@ -1532,35 +1503,6 @@ pub extern "C" fn kill_children_at_exit() {
                 status_child.click_events_init as ::core::ffi::c_int,
             );
             }
-        } else if status_child.pid == ws_child.pid {
-            if config.verbose {
-                printf(
-                c"[%s:%d] %s: workspace_command: pid=%ld stopped=%d stop_signal=%d cont_signal=%d click_events=%d click_events_init=%d\n".as_ptr(),
-                c"../i3bar/src/child.c".as_ptr(),
-                960 as ::core::ffi::c_int,
-                c"kill_children_at_exit".as_ptr(),
-                status_child.pid as ::core::ffi::c_long,
-                status_child.stopped as ::core::ffi::c_int,
-                status_child.stop_signal,
-                status_child.cont_signal,
-                status_child.click_events as ::core::ffi::c_int,
-                status_child.click_events_init as ::core::ffi::c_int,
-            );
-            }
-        } else {
-            fprintf(
-            stderr,
-            c"[%s:%d] ERROR: %s: unknown child, this should never happen pid=%ld stopped=%d stop_signal=%d cont_signal=%d click_events=%d click_events_init=%d\n".as_ptr(),
-            c"../i3bar/src/child.c".as_ptr(),
-            960 as ::core::ffi::c_int,
-            c"kill_children_at_exit".as_ptr(),
-            status_child.pid as ::core::ffi::c_long,
-            status_child.stopped as ::core::ffi::c_int,
-            status_child.stop_signal,
-            status_child.cont_signal,
-            status_child.click_events as ::core::ffi::c_int,
-            status_child.click_events_init as ::core::ffi::c_int,
-        );
         }
         if ws_child.pid == 0 as ::core::ffi::c_int {
             if config.verbose {
@@ -1586,7 +1528,7 @@ pub extern "C" fn kill_children_at_exit() {
                 ws_child.click_events_init as ::core::ffi::c_int,
             );
             }
-        } else if ws_child.pid == ws_child.pid {
+        } else {
             if config.verbose {
                 printf(
                 c"[%s:%d] %s: workspace_command: pid=%ld stopped=%d stop_signal=%d cont_signal=%d click_events=%d click_events_init=%d\n".as_ptr(),
@@ -1601,20 +1543,6 @@ pub extern "C" fn kill_children_at_exit() {
                 ws_child.click_events_init as ::core::ffi::c_int,
             );
             }
-        } else {
-            fprintf(
-            stderr,
-            c"[%s:%d] ERROR: %s: unknown child, this should never happen pid=%ld stopped=%d stop_signal=%d cont_signal=%d click_events=%d click_events_init=%d\n".as_ptr(),
-            c"../i3bar/src/child.c".as_ptr(),
-            960 as ::core::ffi::c_int,
-            c"kill_children_at_exit".as_ptr(),
-            ws_child.pid as ::core::ffi::c_long,
-            ws_child.stopped as ::core::ffi::c_int,
-            ws_child.stop_signal,
-            ws_child.cont_signal,
-            ws_child.click_events as ::core::ffi::c_int,
-            ws_child.click_events_init as ::core::ffi::c_int,
-        );
         }
         cont_children();
         if is_alive(&raw mut status_child) {
@@ -1727,7 +1655,7 @@ pub unsafe fn stop_children() {
                 c"stop_children".as_ptr(),
             );
         }
-    } else if status_child.pid == status_child.pid {
+    } else {
         if config.verbose {
             printf(
                 c"[%s:%d] %s: status_command: pid=%ld stopped=%d stop_signal=%d cont_signal=%d click_events=%d click_events_init=%d\n".as_ptr(),
@@ -1742,35 +1670,6 @@ pub unsafe fn stop_children() {
                 status_child.click_events_init as ::core::ffi::c_int,
             );
         }
-    } else if status_child.pid == ws_child.pid {
-        if config.verbose {
-            printf(
-                c"[%s:%d] %s: workspace_command: pid=%ld stopped=%d stop_signal=%d cont_signal=%d click_events=%d click_events_init=%d\n".as_ptr(),
-                c"../i3bar/src/child.c".as_ptr(),
-                1022 as ::core::ffi::c_int,
-                c"stop_children".as_ptr(),
-                status_child.pid as ::core::ffi::c_long,
-                status_child.stopped as ::core::ffi::c_int,
-                status_child.stop_signal,
-                status_child.cont_signal,
-                status_child.click_events as ::core::ffi::c_int,
-                status_child.click_events_init as ::core::ffi::c_int,
-            );
-        }
-    } else {
-        fprintf(
-            stderr,
-            c"[%s:%d] ERROR: %s: unknown child, this should never happen pid=%ld stopped=%d stop_signal=%d cont_signal=%d click_events=%d click_events_init=%d\n".as_ptr(),
-            c"../i3bar/src/child.c".as_ptr(),
-            1022 as ::core::ffi::c_int,
-            c"stop_children".as_ptr(),
-            status_child.pid as ::core::ffi::c_long,
-            status_child.stopped as ::core::ffi::c_int,
-            status_child.stop_signal,
-            status_child.cont_signal,
-            status_child.click_events as ::core::ffi::c_int,
-            status_child.click_events_init as ::core::ffi::c_int,
-        );
     }
     if ws_child.pid == 0 as ::core::ffi::c_int {
         if config.verbose {
@@ -1796,7 +1695,7 @@ pub unsafe fn stop_children() {
                 ws_child.click_events_init as ::core::ffi::c_int,
             );
         }
-    } else if ws_child.pid == ws_child.pid {
+    } else {
         if config.verbose {
             printf(
                 c"[%s:%d] %s: workspace_command: pid=%ld stopped=%d stop_signal=%d cont_signal=%d click_events=%d click_events_init=%d\n".as_ptr(),
@@ -1811,20 +1710,6 @@ pub unsafe fn stop_children() {
                 ws_child.click_events_init as ::core::ffi::c_int,
             );
         }
-    } else {
-        fprintf(
-            stderr,
-            c"[%s:%d] ERROR: %s: unknown child, this should never happen pid=%ld stopped=%d stop_signal=%d cont_signal=%d click_events=%d click_events_init=%d\n".as_ptr(),
-            c"../i3bar/src/child.c".as_ptr(),
-            1022 as ::core::ffi::c_int,
-            c"stop_children".as_ptr(),
-            ws_child.pid as ::core::ffi::c_long,
-            ws_child.stopped as ::core::ffi::c_int,
-            ws_child.stop_signal,
-            ws_child.cont_signal,
-            ws_child.click_events as ::core::ffi::c_int,
-            ws_child.click_events_init as ::core::ffi::c_int,
-        );
     }
     stop_child(&raw mut status_child);
     stop_child(&raw mut ws_child);
@@ -1840,7 +1725,7 @@ pub unsafe fn cont_children() {
                 c"cont_children".as_ptr(),
             );
         }
-    } else if status_child.pid == status_child.pid {
+    } else {
         if config.verbose {
             printf(
                 c"[%s:%d] %s: status_command: pid=%ld stopped=%d stop_signal=%d cont_signal=%d click_events=%d click_events_init=%d\n".as_ptr(),
@@ -1855,35 +1740,6 @@ pub unsafe fn cont_children() {
                 status_child.click_events_init as ::core::ffi::c_int,
             );
         }
-    } else if status_child.pid == ws_child.pid {
-        if config.verbose {
-            printf(
-                c"[%s:%d] %s: workspace_command: pid=%ld stopped=%d stop_signal=%d cont_signal=%d click_events=%d click_events_init=%d\n".as_ptr(),
-                c"../i3bar/src/child.c".as_ptr(),
-                1032 as ::core::ffi::c_int,
-                c"cont_children".as_ptr(),
-                status_child.pid as ::core::ffi::c_long,
-                status_child.stopped as ::core::ffi::c_int,
-                status_child.stop_signal,
-                status_child.cont_signal,
-                status_child.click_events as ::core::ffi::c_int,
-                status_child.click_events_init as ::core::ffi::c_int,
-            );
-        }
-    } else {
-        fprintf(
-            stderr,
-            c"[%s:%d] ERROR: %s: unknown child, this should never happen pid=%ld stopped=%d stop_signal=%d cont_signal=%d click_events=%d click_events_init=%d\n".as_ptr(),
-            c"../i3bar/src/child.c".as_ptr(),
-            1032 as ::core::ffi::c_int,
-            c"cont_children".as_ptr(),
-            status_child.pid as ::core::ffi::c_long,
-            status_child.stopped as ::core::ffi::c_int,
-            status_child.stop_signal,
-            status_child.cont_signal,
-            status_child.click_events as ::core::ffi::c_int,
-            status_child.click_events_init as ::core::ffi::c_int,
-        );
     }
     if ws_child.pid == 0 as ::core::ffi::c_int {
         if config.verbose {
@@ -1909,7 +1765,7 @@ pub unsafe fn cont_children() {
                 ws_child.click_events_init as ::core::ffi::c_int,
             );
         }
-    } else if ws_child.pid == ws_child.pid {
+    } else {
         if config.verbose {
             printf(
                 c"[%s:%d] %s: workspace_command: pid=%ld stopped=%d stop_signal=%d cont_signal=%d click_events=%d click_events_init=%d\n".as_ptr(),
@@ -1924,20 +1780,6 @@ pub unsafe fn cont_children() {
                 ws_child.click_events_init as ::core::ffi::c_int,
             );
         }
-    } else {
-        fprintf(
-            stderr,
-            c"[%s:%d] ERROR: %s: unknown child, this should never happen pid=%ld stopped=%d stop_signal=%d cont_signal=%d click_events=%d click_events_init=%d\n".as_ptr(),
-            c"../i3bar/src/child.c".as_ptr(),
-            1032 as ::core::ffi::c_int,
-            c"cont_children".as_ptr(),
-            ws_child.pid as ::core::ffi::c_long,
-            ws_child.stopped as ::core::ffi::c_int,
-            ws_child.stop_signal,
-            ws_child.cont_signal,
-            ws_child.click_events as ::core::ffi::c_int,
-            ws_child.click_events_init as ::core::ffi::c_int,
-        );
     }
     cont_child(&raw mut status_child);
     cont_child(&raw mut ws_child);

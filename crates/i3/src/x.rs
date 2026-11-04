@@ -405,15 +405,12 @@ unsafe fn state_for_frame(window: u32) -> *mut FrameState {
         "ERROR: No state found for window 0x{:08x}\n",
         (window) as u32
     );
-    if 0 != 0 {
-    } else {
-        __assert_fail(
-            c"false".as_ptr(),
-            c"../src/x.c".as_ptr(),
-            99 as u32,
-            c"FrameState *state_for_frame(u32)".as_ptr(),
-        );
-    };
+    __assert_fail(
+        c"false".as_ptr(),
+        c"../src/x.c".as_ptr(),
+        99 as u32,
+        c"FrameState *state_for_frame(u32)".as_ptr(),
+    );
     ::core::ptr::null_mut::<FrameState>()
 }
 unsafe fn change_ewmh_focus(new_focus: u32, old_focus: u32) {

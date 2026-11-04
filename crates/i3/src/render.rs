@@ -382,15 +382,12 @@ unsafe fn render_output(con: *mut Con) {
                     "../src/render.c:render_output:329 - More than one ",
                     "CT_CON on output container\n"
                 ));
-                if 0 != 0 {
-                } else {
-                    __assert_fail(
-                        c"false".as_ptr(),
-                        c"../src/render.c".as_ptr(),
-                        330 as u32,
-                        c"void render_output(Con *)".as_ptr(),
-                    );
-                };
+                __assert_fail(
+                    c"false".as_ptr(),
+                    c"../src/render.c".as_ptr(),
+                    330 as u32,
+                    c"void render_output(Con *)".as_ptr(),
+                );
             }
             content = child;
         } else if ((*child).type_0) != ContainerType::DockArea {
@@ -402,15 +399,12 @@ unsafe fn render_output(con: *mut Con) {
                 i3_common::logging::pointer(child),
                 (((*child).type_0).raw() as u32) as i32
             );
-            if 0 != 0 {
-            } else {
-                __assert_fail(
-                    c"false".as_ptr(),
-                    c"../src/render.c".as_ptr(),
-                    335 as u32,
-                    c"void render_output(Con *)".as_ptr(),
-                );
-            };
+            __assert_fail(
+                c"false".as_ptr(),
+                c"../src/render.c".as_ptr(),
+                335 as u32,
+                c"void render_output(Con *)".as_ptr(),
+            );
         }
         child = nodes::next_ptr(child);
     }
