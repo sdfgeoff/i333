@@ -532,8 +532,11 @@ pub unsafe fn match_parse_property(
         };
         {
             let property = CStr::from_ptr(ctype).to_owned();
-            let value = CStr::from_ptr(cvalue).to_owned();
-            match (property.to_str(), value.to_str()) {
+            let value = cvalue
+                .as_ref()
+                .map(|value| CStr::from_ptr(value).to_owned());
+            let value_bytes = i3_common::logging::string_bytes(value.as_deref(), None);
+            match (property.to_str(), std::str::from_utf8(value_bytes)) {
                 (Ok(property), Ok(value)) => ::log::debug!(
                     "../src/match.c:match_parse_property:297 - ctype=*{}*, cvalue=*{}*\n",
                     property,
@@ -545,7 +548,7 @@ pub unsafe fn match_parse_property(
                         b"../src/match.c:match_parse_property:297 - ctype=*",
                         property.to_bytes(),
                         b"*, cvalue=*",
-                        value.to_bytes(),
+                        value_bytes,
                         b"*\n",
                     ],
                 ),
@@ -961,5 +964,60 @@ mod tests {
             .unwrap());
         assert_eq!(copied.error.as_deref(), Some(c"error"));
         assert!(is_empty(&empty_match()));
+    }
+    #[test]
+    fn flag_criteria_keep_null_values_in_parser_diagnostics() {
+        if std::env::var_os("I333_NULL_CRITERION_PROBE").is_none() {
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "r#match::tests::flag_criteria_keep_null_values_in_parser_diagnostics",
+                    "--nocapture",
+                ])
+                .env("I333_NULL_CRITERION_PROBE", "1")
+                .env_remove("DISPLAY")
+                .env_remove("I3SOCK")
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{}\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            return;
+        }
+        static MESSAGES: std::sync::Mutex<Vec<Vec<u8>>> = std::sync::Mutex::new(Vec::new());
+        fn capture(level: Level, message: &[u8]) {
+            assert_eq!(level, Level::Debug);
+            MESSAGES.lock().unwrap().push(message.to_vec());
+        }
+        i3_common::logging::set_sink(capture);
+        for (property, expected) in [
+            (c"tiling", WindowMode::Tiling),
+            (c"floating", WindowMode::Floating),
+        ] {
+            let mut parsed = empty_match();
+            unsafe {
+                match_parse_property(&mut parsed, property.as_ptr(), std::ptr::null());
+            }
+            assert_eq!(parsed.window_mode, expected);
+        }
+        let mut parsed = empty_match();
+        unsafe {
+            match_parse_property(&mut parsed, c"all".as_ptr(), std::ptr::null());
+        }
+        assert!(parsed.match_all_windows);
+        assert_eq!(
+            *MESSAGES.lock().unwrap(),
+            [
+                b"../src/match.c:match_parse_property:297 - ctype=*tiling*, cvalue=*(null)*\n"
+                    .to_vec(),
+                b"../src/match.c:match_parse_property:297 - ctype=*floating*, cvalue=*(null)*\n"
+                    .to_vec(),
+                b"../src/match.c:match_parse_property:297 - ctype=*all*, cvalue=*(null)*\n"
+                    .to_vec(),
+            ]
+        );
     }
 }
