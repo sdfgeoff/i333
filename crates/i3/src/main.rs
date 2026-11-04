@@ -1,4 +1,4 @@
-#![feature(c_variadic)]
+#![cfg_attr(test, feature(c_variadic))]
 #![allow(
     dead_code,
     unused_imports,

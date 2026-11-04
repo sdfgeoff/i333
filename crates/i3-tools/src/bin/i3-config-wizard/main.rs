@@ -1,4 +1,3 @@
-#![feature(c_variadic)]
 #![allow(
     dead_code,
     unused_imports,
