@@ -8,19 +8,19 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 23 wallclock secs ( 0.70 usr +  0.07 sys =  0.77 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 23 wallclock secs ( 0.68 usr +  0.06 sys =  0.74 CPU)\nResult: PASS",
     "profile": "debug",
     "build": "cargo test --locked",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "fca6a85964078adf6e28a8065c0b20f7f11d42809add7344fbc7c44414cca86b",
-    "i3bar": "d578b0c00f93670763deeb27ba55e3bfe1c8352f3b7c5780031661f5e272d42d",
-    "i3-config-wizard": "51d1cc2d8d550ce703d3d263dec810cf1aede30460b6cdc18b026ef21d4ebc53",
-    "i3-dump-log": "cc4a35d2fe7026100ad9cc23dd697334eb2fb1eb962bc9b1edca39b03fa6bf64",
-    "i3-input": "ff72507be805e53ded0f01ef658dd487191b2c6d621509b41e078adb73b9fe6c",
-    "i3-msg": "c829e5bc7937203c088294eeef6f4ad3a7874ca0c09507f535cdfd1bc4433e8d",
-    "i3-nagbar": "c6748ebea7d736bddaa177d56395851472c9fdb797d698f1266d291b21fd38cf"
+    "i3": "b78e50621a8cc3890bfd41a3b6909b8c74f2c5b3ba36fed6eefa098d7c11d0f6",
+    "i3bar": "47633d9b80976580f5e6dc96e7fca5a77b17718d5534931261070bc97693ac77",
+    "i3-config-wizard": "08e6adf69248e8c3f635a3aea62a74ef63e4abd2eb45a73f05144302a5413212",
+    "i3-dump-log": "d788228774d92984713eb3d175ca77653cf6343b26dd42f581bfd9896c461688",
+    "i3-input": "b3e2901187c93915b7b70ef750e7ac6d8676d6925a40d2330e407d5efc0333d9",
+    "i3-msg": "afa0b7930535e3a38da469952821c31cd829f095c447bd7a99d8967a42295f20",
+    "i3-nagbar": "a88389adb5d8b6efe9dfb19d6847c3f4ef879a01d1ca7b176259b4bcae3b98cf"
   },
   "note": "Nine-member Cargo workspace. cargo test --locked passed 452 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
@@ -2842,7 +2842,7 @@
       "backend_replacement": false,
       "checkpoints": [
         {
-          "stage": 8,
+          "stage": 1,
           "source_commit": "9bd25ed71d12e218177a1689d9b63727ee2ff1e3",
           "scope": "Rust-native interface transition stage1: mode names/state and mode lookup/configuration/switch APIs use Rust byte owners/borrows; IPC event names/payloads use bytes without CString JSON roundtrips; native legacy mode wire behavior compared directly.",
           "rust_tests": 451,
@@ -2850,7 +2850,7 @@
           "status": "validated"
         },
         {
-          "stage": 8,
+          "stage": 2,
           "source_commit": "d5c842c6b4bbec0f333952ece684293355e0ea62",
           "scope": "Rust-native rendering checkpoint: I3String owns repaired String and forbids unsafe; public text/font/visible-name/title APIs use Rust strings/bytes and Result views, with native CString temporaries only at actual backend calls. Core, bar and tool callers migrated atomically.",
           "rust_tests": 451,
@@ -2858,7 +2858,7 @@
           "status": "validated"
         },
         {
-          "stage": 8,
+          "stage": 3,
           "source_commit": "91dea878f1732f40c49104b9100da76c8751f183",
           "scope": "Rust-native application models: process commands, parser variables, configured terminal/output specs and bar configuration/output/workspace names use bytes; included paths use PathBuf and expanded file text uses Vec. Intrusive bar head ownership derives aliases only after raw allocation ownership.",
           "rust_tests": 451,
@@ -2866,7 +2866,7 @@
           "status": "validated"
         },
         {
-          "stage": 8,
+          "stage": 4,
           "source_commit": "db22d7e2126bf90491da39b23d7a3dfe89695164",
           "scope": "Rust-native path/socket checkpoint: safe Path-based create_socket returns owned BoundSocket; process filename and resolve APIs return owned paths, core listeners own descriptors through watcher teardown, published/log/restart/config paths are PathBuf, input/nagbar models use Rust strings/bytes/paths, and internal model numeric aliases use exact native-width Rust primitives.",
           "rust_tests": 451,
@@ -2874,7 +2874,7 @@
           "status": "validated"
         },
         {
-          "stage": 8,
+          "stage": 5,
           "source_commit": "6455202a5b6e08a147717130d59554974410d360",
           "scope": "Rust-native command/bar checkpoint: owned container title/sticky bytes; numeric/layout names and command input borrowed as bounded bytes; 31 core bar fields use byte/path owners and typed directives/selectors; floating geometry remapping returns copied Rect values through a safe function.",
           "rust_tests": 451,
@@ -2882,9 +2882,17 @@
           "status": "validated"
         },
         {
-          "stage": 8,
+          "stage": 6,
           "source_commit": "4fc0b9a48ee60e2249bc4b651810b3287f1ca1e9",
           "scope": "Rust-native binding/scalar checkpoint: binding symbol/command use byte owners with stable Box/raw intrusive node lifetimes and independently owned deep copies; 1492 internal numeric aliases become Rust primitives; diagnostic helpers accept byte slices; DPI/visual depth use explicit retained screen owners and safe queries.",
+          "rust_tests": 452,
+          "upstream_assertions": 4205,
+          "status": "validated"
+        },
+        {
+          "stage": 7,
+          "source_commit": "15a8ab415c465924892483b2f592973a32ddc500",
+          "scope": "Rust-native scalar/binding API checkpoint: remaining 908 internal core numeric aliases and 991 bar/tools/common aliases use Rust primitives; typed binding and modifier configuration owns callback-safe byte snapshots; obsolete CStr placeholder and unused variadic sd_notifyf facades retired; retained numeric FFI uses audited as actual native boundaries.",
           "rust_tests": 452,
           "upstream_assertions": 4205,
           "status": "validated"
