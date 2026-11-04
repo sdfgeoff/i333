@@ -612,7 +612,7 @@ pub unsafe fn floating_raise_con(con: *mut Con) {
         c"floating_raise_con".as_ptr(),
         479,
         con,
-        (*con).name,
+        (*con).name_ptr(),
     );
     floating::move_to_back(
         identity(parent_ptr(con)).expect("live floating parent"),
@@ -667,9 +667,9 @@ pub unsafe fn floating_maybe_reassign_ws(con: *mut Con) -> bool {
         c"floating_maybe_reassign_ws".as_ptr(),
         511,
         con,
-        (*con).name,
+        (*con).name_ptr(),
         ws,
-        (*ws).name,
+        (*ws).name_ptr(),
     );
     let mut needs_focus: *mut Con = con_descend_focused(con);
     if !con_inside_focused(needs_focus) {

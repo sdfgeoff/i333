@@ -203,7 +203,7 @@ unsafe fn ewmh_update_desktop_names() {
     let names: Vec<_> = workspace_entries()
         .into_iter()
         .filter(|workspace| !workspace.internal)
-        .map(|workspace| CStr::from_ptr((*workspace.con).name).to_owned())
+        .map(|workspace| CStr::from_ptr((*workspace.con).name_ptr()).to_owned())
         .collect();
     let payload = desktop_names(names.iter().map(|name| name.as_c_str()));
     set_bytes(root, A__NET_DESKTOP_NAMES, A_UTF8_STRING, &payload);

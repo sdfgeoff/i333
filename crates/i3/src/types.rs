@@ -382,7 +382,7 @@ pub struct Con {
     pub window_rect: crate::types::Rect,
     pub deco_rect: crate::types::Rect,
     pub geometry: crate::types::Rect,
-    pub name: *mut ::core::ffi::c_char,
+    pub name: Option<std::ffi::CString>,
     pub title_format: Option<std::ffi::CString>,
     pub window_icon_padding: ::core::ffi::c_int,
     pub sticky_group: Option<std::ffi::CString>,
@@ -411,6 +411,14 @@ pub struct Con {
 }
 
 impl Con {
+    /// A borrowed native view. Callers must not retain it across model mutation;
+    /// logging callbacks should receive an independently owned name snapshot.
+    pub fn name_ptr(&self) -> *const libc::c_char {
+        self.name
+            .as_deref()
+            .map_or(std::ptr::null(), std::ffi::CStr::as_ptr)
+    }
+
     /// Construct detached storage without assuming that Rust owners are zeroable.
     /// Mark/swallow queue tails are installed only after stable allocation.
     pub fn empty() -> Self {
@@ -441,7 +449,7 @@ impl Con {
             window_rect: rect,
             deco_rect: rect,
             geometry: rect,
-            name: null_mut(),
+            name: None,
             title_format: None,
             window_icon_padding: 0,
             sticky_group: None,

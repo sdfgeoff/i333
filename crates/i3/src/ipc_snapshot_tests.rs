@@ -89,7 +89,7 @@ unsafe fn collect() -> BTreeMap<String, String> {
         (*raw).layout = Layout::SplitH;
         (*raw).workspace_layout = Layout::Default;
         (*raw).border_style = BorderStyle::Pixel;
-        (*raw).name = i3_common::safewrappers::sstrdup(c"node".as_ptr());
+        (*raw).name = Some(c"node".to_owned());
         all.push(raw);
         raw
     }

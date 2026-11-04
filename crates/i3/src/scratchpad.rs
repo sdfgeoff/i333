@@ -52,7 +52,7 @@ pub unsafe fn scratchpad_move(mut con: *mut Con) {
     if ((*con).type_0) == ContainerType::Workspace {
         verboselog(
             c"'move scratchpad' used on a workspace \"%s\". Calling it recursively on all windows on this workspace.\n".as_ptr().cast_mut(),
-            (*con).name,
+            (*con).name_ptr(),
         );
         let owner = crate::con::arena::identity(con).expect("live scratchpad workspace");
         let mut current = focus::first(owner);
@@ -342,7 +342,7 @@ pub unsafe fn scratchpad_fix_resolution() {
                 c"../src/scratchpad.c".as_ptr(),
                 c"scratchpad_fix_resolution".as_ptr(),
                 263,
-                (*output).name,
+                (*output).name_ptr(),
                 (*output).rect.x,
                 (*output).rect.y,
                 (*output).rect.width,

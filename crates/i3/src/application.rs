@@ -1866,7 +1866,8 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
             output = outputs.tqh_first as *mut Output;
             while !output.is_null() {
                 if !((*output).active as ::core::ffi::c_int != 0
-                    || strcmp((*con).name, output_primary_name(output)) != 0 as ::core::ffi::c_int)
+                    || strcmp((*con).name_ptr(), output_primary_name(output))
+                        != 0 as ::core::ffi::c_int)
                 {
                     if (*output).con.is_null() {
                         output_init_con(output);

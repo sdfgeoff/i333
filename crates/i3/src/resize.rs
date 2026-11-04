@@ -328,7 +328,7 @@ pub unsafe fn resize_graphical_handler(
         c"resize_graphical_handler".as_ptr(),
         178,
         first,
-        (*first).name,
+        (*first).name_ptr(),
     );
     debuglog(
         c"%s:%s:%d - second = %p / %s\n".as_ptr().cast_mut(),
@@ -336,7 +336,7 @@ pub unsafe fn resize_graphical_handler(
         c"resize_graphical_handler".as_ptr(),
         179,
         second,
-        (*second).name,
+        (*second).name_ptr(),
     );
     x_mask_event_mask(!((::xcb::x::EventMask::ENTER_WINDOW.bits()) as i32) as u32);
     let _ = connection().flush();

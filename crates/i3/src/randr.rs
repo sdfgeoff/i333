@@ -524,7 +524,7 @@ pub unsafe fn output_init_con(output: *mut Output) {
     );
     current = nodes::first_ptr(croot);
     while !current.is_null() {
-        if strcmp((*current).name, output_primary_name(output)) != 0 as ::core::ffi::c_int {
+        if strcmp((*current).name_ptr(), output_primary_name(output)) != 0 as ::core::ffi::c_int {
             current = nodes::next_ptr(current);
         } else {
             con = current;
@@ -537,16 +537,14 @@ pub unsafe fn output_init_con(output: *mut Output) {
                 c"output_init_con".as_ptr(),
                 362 as ::core::ffi::c_int,
                 con,
-                (*con).name,
+                (*con).name_ptr(),
             );
             break;
         }
     }
     if con.is_null() {
         con = con_new(croot, ::core::ptr::null_mut::<Window>());
-        free((*con).name as *mut ::core::ffi::c_void);
-        (*con).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        (*con).name = sstrdup(output_primary_name(output));
+        (*con).name = Some(std::ffi::CStr::from_ptr(output_primary_name(output)).to_owned());
         (*con).type_0 = ContainerType::Output;
         (*con).layout = Layout::Output;
         con_fix_percent(croot);
@@ -554,7 +552,11 @@ pub unsafe fn output_init_con(output: *mut Output) {
     (*con).rect = (*output).rect as Rect;
     (*output).con = con;
     let mut name: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    sasprintf(&raw mut name, c"[i3 con] output %s".as_ptr(), (*con).name);
+    sasprintf(
+        &raw mut name,
+        c"[i3 con] output %s".as_ptr(),
+        (*con).name_ptr(),
+    );
     x_set_name(con, name);
     free(name as *mut ::core::ffi::c_void);
     name = ::core::ptr::null_mut::<::core::ffi::c_char>();
@@ -591,13 +593,11 @@ pub unsafe fn output_init_con(output: *mut Output) {
     (*match_0).matches.tqe_prev = (*topdock).swallow_head.tqh_last;
     *(*topdock).swallow_head.tqh_last = match_0 as *mut Match;
     (*topdock).swallow_head.tqh_last = &raw mut (*match_0).matches.tqe_next;
-    free((*topdock).name as *mut ::core::ffi::c_void);
-    (*topdock).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    (*topdock).name = sstrdup(c"topdock".as_ptr());
+    (*topdock).name = Some(c"topdock".to_owned());
     sasprintf(
         &raw mut name,
         c"[i3 con] top dockarea %s".as_ptr(),
-        (*con).name,
+        (*con).name_ptr(),
     );
     x_set_name(topdock, name);
     free(name as *mut ::core::ffi::c_void);
@@ -623,10 +623,12 @@ pub unsafe fn output_init_con(output: *mut Output) {
     );
     (*content).type_0 = ContainerType::Con;
     (*content).layout = Layout::SplitH;
-    free((*content).name as *mut ::core::ffi::c_void);
-    (*content).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    (*content).name = sstrdup(c"content".as_ptr());
-    sasprintf(&raw mut name, c"[i3 con] content %s".as_ptr(), (*con).name);
+    (*content).name = Some(c"content".to_owned());
+    sasprintf(
+        &raw mut name,
+        c"[i3 con] content %s".as_ptr(),
+        (*con).name_ptr(),
+    );
     x_set_name(content, name);
     free(name as *mut ::core::ffi::c_void);
     name = ::core::ptr::null_mut::<::core::ffi::c_char>();
@@ -645,13 +647,11 @@ pub unsafe fn output_init_con(output: *mut Output) {
     (*match_0).matches.tqe_prev = (*bottomdock).swallow_head.tqh_last;
     *(*bottomdock).swallow_head.tqh_last = match_0 as *mut Match;
     (*bottomdock).swallow_head.tqh_last = &raw mut (*match_0).matches.tqe_next;
-    free((*bottomdock).name as *mut ::core::ffi::c_void);
-    (*bottomdock).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    (*bottomdock).name = sstrdup(c"bottomdock".as_ptr());
+    (*bottomdock).name = Some(c"bottomdock".to_owned());
     sasprintf(
         &raw mut name,
         c"[i3 con] bottom dockarea %s".as_ptr(),
-        (*con).name,
+        (*con).name_ptr(),
     );
     x_set_name(bottomdock, name);
     free(name as *mut ::core::ffi::c_void);
@@ -686,15 +686,16 @@ pub unsafe fn init_ws_for_output(output: *mut Output) {
         if !(((*workspace).type_0) != ContainerType::Workspace
             || con_is_internal(workspace) as ::core::ffi::c_int != 0)
         {
+            let name = (*workspace).name.clone().expect("workspace has a name");
             let workspace_out: *mut Con =
-                get_assigned_output((*workspace).name, (*workspace).num as ::core::ffi::c_long);
+                get_assigned_output(name.as_ptr(), (*workspace).num as ::core::ffi::c_long);
             if !((*output).con != workspace_out) {
                 debuglog(
                     c"%s:%s:%d - Moving workspace \"%s\" from output \"%s\" to \"%s\" due to assignment\n".as_ptr().cast_mut(),
                     c"../src/randr.c".as_ptr(),
                     c"init_ws_for_output".as_ptr(),
                     479 as ::core::ffi::c_int,
-                    (*workspace).name,
+                    (*workspace).name_ptr(),
                     output_primary_name(get_output_for_con(workspace)),
                     output_primary_name(output),
                 );
@@ -816,7 +817,7 @@ unsafe fn output_change_mode(output: *mut Output) {
                     c"output_change_mode".as_ptr(),
                     568 as ::core::ffi::c_int,
                     (*workspace).num,
-                    (*workspace).name,
+                    (*workspace).name_ptr(),
                     (*workspace).layout as ::core::ffi::c_uint,
                 );
                 child = nodes::first_ptr(workspace);
@@ -832,7 +833,7 @@ unsafe fn output_change_mode(output: *mut Output) {
                         c"output_change_mode".as_ptr(),
                         573 as ::core::ffi::c_int,
                         (*child).num,
-                        (*child).name,
+                        (*child).name_ptr(),
                         (*child).layout as ::core::ffi::c_uint,
                     );
                 }
@@ -1215,7 +1216,7 @@ unsafe fn move_content(con: *mut Con) {
                 c"move_content".as_ptr(),
                 875 as ::core::ffi::c_int,
                 current,
-                (*current).name,
+                (*current).name_ptr(),
             );
             tree_close_internal(current, KillWindow::DontKill, false);
         } else {
@@ -1227,7 +1228,7 @@ unsafe fn move_content(con: *mut Con) {
                 c"move_content".as_ptr(),
                 879 as ::core::ffi::c_int,
                 current,
-                (*current).name,
+                (*current).name_ptr(),
             );
             con_detach(current);
             debuglog(
@@ -1238,7 +1239,7 @@ unsafe fn move_content(con: *mut Con) {
                 c"move_content".as_ptr(),
                 881 as ::core::ffi::c_int,
                 current,
-                (*current).name,
+                (*current).name_ptr(),
             );
             con_attach(current, first_content, false);
             debuglog(
@@ -1461,7 +1462,15 @@ pub unsafe fn randr_query_outputs() {
         // current output. A generation ID cannot reconnect a reused address.
         candidate = nodes::next(owner, id);
         let Some(con) = resolve(id) else { continue };
-        if !con_is_internal(con) && get_output_by_name((*con).name, true).is_null() {
+        let name = (*con).name.clone();
+        if !con_is_internal(con)
+            && get_output_by_name(
+                name.as_deref()
+                    .map_or(std::ptr::null(), std::ffi::CStr::as_ptr),
+                true,
+            )
+            .is_null()
+        {
             debuglog(
                 c"%s:%s:%d - No output %s found, moving its old content to first output\n"
                     .as_ptr()
@@ -1469,7 +1478,7 @@ pub unsafe fn randr_query_outputs() {
                 c"../src/randr.c".as_ptr(),
                 c"randr_query_outputs".as_ptr(),
                 1007 as ::core::ffi::c_int,
-                (*con).name,
+                (*con).name_ptr(),
             );
             move_content(con);
         }

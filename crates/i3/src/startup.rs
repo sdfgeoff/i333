@@ -193,7 +193,7 @@ pub unsafe fn start_application(command: *const libc::c_char, no_startup_id: boo
         );
         let id = CStr::from_ptr(sn_launcher_context_get_startup_id(launcher.raw())).to_owned();
         verboselog(c"startup id = %s\n".as_ptr().cast_mut(), id.as_ptr());
-        let workspace = CStr::from_ptr((*con_get_workspace(focused)).name).to_owned();
+        let workspace = CStr::from_ptr((*con_get_workspace(focused)).name_ptr()).to_owned();
         let sequence = Box::new(Startup_Sequence {
             id,
             workspace,

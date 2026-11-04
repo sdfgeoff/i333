@@ -675,7 +675,7 @@ unsafe fn snapshot_node_header(con: *mut Con, restart: bool) -> messages::NodeHe
     }
     let output = Omitted(
         ((*con).type_0 != ContainerType::Root && (*con).type_0 != ContainerType::Output)
-            .then(|| native_text((*con_get_output(con)).name)),
+            .then(|| native_text((*con_get_output(con)).name_ptr())),
     );
     let layout = node_layout(con);
     let workspace_layout = node_workspace_layout(con);
@@ -695,7 +695,7 @@ unsafe fn snapshot_node_header(con: *mut Con, restart: bool) -> messages::NodeHe
             None => NativeValue::Rejected,
         }
     } else {
-        NativeValue::Value((!(*con).name.is_null()).then(|| native_text((*con).name)))
+        NativeValue::Value((*con).name.as_deref().map(messages::NativeText::cstr))
     };
     let properties = Omitted((!window.is_null() && !restart).then(|| {
         messages::WindowProperties {
@@ -1155,11 +1155,11 @@ unsafe fn handle_get_workspaces(
                 workspaces.push(messages::Workspace {
                     id: workspace as usize as i64,
                     num: (*workspace).num as i64,
-                    name: native_text((*workspace).name),
+                    name: native_text((*workspace).name_ptr()),
                     visible: workspace_is_visible(workspace),
                     focused: workspace == focused_workspace,
                     rect: unsigned_rect((*workspace).rect),
-                    output: native_text((*output).name),
+                    output: native_text((*output).name_ptr()),
                     urgent: (*workspace).urgent,
                 });
                 workspace = nodes::next_ptr(workspace);
@@ -1189,7 +1189,7 @@ unsafe fn handle_get_outputs(
             active: (*output).active,
             primary: (*output).primary,
             rect: unsigned_rect((*output).rect),
-            current_workspace: (!workspace.is_null()).then(|| native_text((*workspace).name)),
+            current_workspace: (!workspace.is_null()).then(|| native_text((*workspace).name_ptr())),
         });
         output = (*output).outputs.tqe_next;
     }

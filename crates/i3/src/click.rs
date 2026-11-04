@@ -225,7 +225,7 @@ unsafe fn route_click(con: *mut Con, event: &x::ButtonPressEvent, dest: ClickDes
         c"route_click".as_ptr(),
         175,
         ((*con).type_0).raw() as u32,
-        (*con).name,
+        (*con).name_ptr(),
     );
     if ((*parent_ptr(con)).type_0) == ContainerType::DockArea {
         allow_replay_pointer(event.time());

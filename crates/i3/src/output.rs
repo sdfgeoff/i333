@@ -121,7 +121,8 @@ pub unsafe fn output_primary_name(output: *mut Output) -> *mut libc::c_char {
 pub unsafe fn get_output_for_con(con: *mut Con) -> *mut Output {
     unsafe {
         let output_con = con_get_output(con);
-        let output = get_output_by_name((*output_con).name, true);
+        let name = (*output_con).name.clone().expect("output has a name");
+        let output = get_output_by_name(name.as_ptr(), true);
         if output.is_null() {
             i3_common::native_stdio::__assert_fail(
                 c"output != NULL".as_ptr(),

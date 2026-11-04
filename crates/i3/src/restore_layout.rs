@@ -320,13 +320,13 @@ unsafe fn open_placeholder_window(con: *mut Con) {
             r#type: x::ATOM_WM_HINTS,
             data: &PLACEHOLDER_HINTS,
         });
-        if !(*con).name.is_null() {
+        if !(*con).name.is_none() {
             restore_connection().send_request(&x::ChangeProperty {
                 mode: x::PropMode::Replace,
                 window: x::Window::new(placeholder),
                 property: x::Atom::new(A__NET_WM_NAME),
                 r#type: x::Atom::new(A_UTF8_STRING),
-                data: CStr::from_ptr((*con).name).to_bytes(),
+                data: CStr::from_ptr((*con).name_ptr()).to_bytes(),
             });
         }
         debuglog(
@@ -338,7 +338,7 @@ unsafe fn open_placeholder_window(con: *mut Con) {
             219 as ::core::ffi::c_int,
             placeholder,
             con,
-            (*con).name,
+            (*con).name_ptr(),
         );
         let state = Box::into_raw(Box::new(placeholder_state {
             window: placeholder,

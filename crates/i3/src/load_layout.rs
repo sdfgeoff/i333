@@ -129,7 +129,7 @@ impl LayoutState {
                     ::core::ptr::null_mut::<Con>(),
                     ::core::ptr::null_mut::<i3Window>(),
                 );
-                (*self.json_node).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
+                (*self.json_node).name = None;
                 set_parent_ptr(self.json_node, ws as *mut Con).expect("live acyclic ancestry");
                 debuglog(
                     c"%s:%s:%d - Parent is workspace = %p\n".as_ptr().cast_mut(),
@@ -144,7 +144,7 @@ impl LayoutState {
                     ::core::ptr::null_mut::<Con>(),
                     ::core::ptr::null_mut::<i3Window>(),
                 );
-                (*self.json_node).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
+                (*self.json_node).name = None;
                 set_parent_ptr(self.json_node, parent as *mut Con).expect("live acyclic ancestry");
             }
             self.incomplete += 1;
@@ -211,29 +211,27 @@ impl LayoutState {
                     c"../src/load_layout.c".as_ptr(),
                     c"json_end_map".as_ptr(),
                     121 as ::core::ffi::c_int,
-                    (*self.json_node).name,
+                    (*self.json_node).name_ptr(),
                 );
-                if (*self.json_node).name.is_null()
-                    || strcmp((*self.json_node).name, c"".as_ptr()) == 0 as ::core::ffi::c_int
+                if (*self.json_node).name.is_none()
+                    || strcmp((*self.json_node).name_ptr(), c"".as_ptr()) == 0 as ::core::ffi::c_int
                 {
-                    (*self.json_node).name = sstrdup(c"unnamed".as_ptr());
+                    (*self.json_node).name = Some(c"unnamed".to_owned());
                 }
-                let base = CStr::from_ptr((*self.json_node).name).to_owned();
+                let base = (*self.json_node)
+                    .name
+                    .clone()
+                    .expect("layout workspace name is initialized");
                 let mut cnt: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-                while !get_existing_workspace_by_name((*self.json_node).name).is_null() {
-                    free((*self.json_node).name as *mut ::core::ffi::c_void);
-                    (*self.json_node).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
+                while !get_existing_workspace_by_name((*self.json_node).name_ptr()).is_null() {
                     let fresh1 = cnt;
                     cnt = cnt + 1;
-                    sasprintf(
-                        &raw mut (*self.json_node).name,
-                        c"%s_%d".as_ptr(),
-                        base.as_ptr(),
-                        fresh1,
-                    );
+                    let mut name = base.to_bytes().to_vec();
+                    name.extend_from_slice(format!("_{fresh1}").as_bytes());
+                    (*self.json_node).name = Some(CString::new(name).unwrap());
                 }
                 (*self.json_node).num =
-                    ws_name_to_number(std::ffi::CStr::from_ptr((*self.json_node).name))
+                    ws_name_to_number(std::ffi::CStr::from_ptr((*self.json_node).name_ptr()))
                         .unwrap_or(-1);
             }
             if ((*self.json_node).type_0) == ContainerType::Floating {
@@ -245,7 +243,7 @@ impl LayoutState {
                     c"json_end_map".as_ptr(),
                     148 as ::core::ffi::c_int,
                     parent_ptr(self.json_node),
-                    (*parent_ptr(self.json_node)).name,
+                    (*parent_ptr(self.json_node)).name_ptr(),
                 );
                 set_parent_ptr(
                     self.json_node,
@@ -470,14 +468,7 @@ impl LayoutState {
                 self.json_node,
             ));
         } else if strcasecmp(self.last_key.as_ptr(), c"name".as_ptr()) == 0 as ::core::ffi::c_int {
-            free((*self.json_node).name.cast());
-            (*self.json_node).name =
-                scalloc(len.wrapping_add(1 as usize), 1 as usize) as *mut ::core::ffi::c_char;
-            memcpy(
-                (*self.json_node).name as *mut ::core::ffi::c_void,
-                val as *const ::core::ffi::c_void,
-                len,
-            );
+            (*self.json_node).name = Some(property_string(std::slice::from_raw_parts(val, len)));
         } else if strcasecmp(self.last_key.as_ptr(), c"title_format".as_ptr())
             == 0 as ::core::ffi::c_int
         {

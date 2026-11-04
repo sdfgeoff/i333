@@ -269,7 +269,7 @@ pub unsafe fn gaps_for_workspace(ws: *mut Con) -> gaps_t {
     let (mut current, name, number, configured) = unsafe {
         (
             ws_assignments.tqh_first,
-            CStr::from_ptr((*ws).name),
+            (*ws).name.clone().expect("workspace has a name"),
             (*ws).num,
             config.gaps,
         )
@@ -285,7 +285,7 @@ pub unsafe fn gaps_for_workspace(ws: *mut Con) -> gaps_t {
         unsafe {
             let assignment = &*current;
             current = assignment.ws_assignments.tqe_next;
-            let matching = if CStr::from_ptr(assignment.name) == name {
+            let matching = if CStr::from_ptr(assignment.name) == name.as_c_str() {
                 AssignmentMatch::Name
             } else if number != -1
                 && name_is_digits(std::ffi::CStr::from_ptr(assignment.name))
@@ -328,7 +328,7 @@ pub unsafe fn gaps_reapply_workspace_assignments() {
                     c"../src/gaps.c".as_ptr(),
                     c"gaps_reapply_workspace_assignments".as_ptr(),
                     171i32,
-                    (*workspace).name,
+                    (*workspace).name_ptr(),
                 );
                 (*workspace).gaps = gaps_for_workspace(workspace);
                 workspace = nodes::next_ptr(workspace);

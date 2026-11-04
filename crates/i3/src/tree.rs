@@ -41,9 +41,7 @@ pub static mut focused: *mut Con = ::core::ptr::null::<Con>() as *mut Con;
 
 unsafe fn _create___i3() -> *mut Con {
     let mut __i3: *mut Con = con_new(croot, ::core::ptr::null_mut::<i3Window>());
-    free((*__i3).name as *mut ::core::ffi::c_void);
-    (*__i3).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    (*__i3).name = sstrdup(c"__i3".as_ptr());
+    (*__i3).name = Some(c"__i3".to_owned());
     (*__i3).type_0 = ContainerType::Output;
     (*__i3).layout = Layout::Output;
     con_fix_percent(croot);
@@ -63,9 +61,7 @@ unsafe fn _create___i3() -> *mut Con {
         ::core::ptr::null_mut::<i3Window>(),
     );
     (*content).type_0 = ContainerType::Con;
-    free((*content).name as *mut ::core::ffi::c_void);
-    (*content).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    (*content).name = sstrdup(c"content".as_ptr());
+    (*content).name = Some(c"content".to_owned());
     (*content).layout = Layout::SplitH;
     x_set_name(content, c"[i3 con] content __i3".as_ptr());
     con_attach(content, __i3, false);
@@ -75,7 +71,7 @@ unsafe fn _create___i3() -> *mut Con {
     );
     (*ws).type_0 = ContainerType::Workspace;
     (*ws).num = -(1 as ::core::ffi::c_int);
-    (*ws).name = sstrdup(c"__i3_scratch".as_ptr());
+    (*ws).name = Some(c"__i3_scratch".to_owned());
     (*ws).layout = Layout::SplitH;
     con_attach(ws, content, false);
     x_set_name(ws, c"[i3 con] workspace __i3_scratch".as_ptr());
@@ -171,7 +167,7 @@ pub unsafe fn tree_restore(
                     103 as ::core::ffi::c_int,
                     ws,
                 );
-                if strcmp((*out).name, c"__i3".as_ptr()) != 0 as ::core::ffi::c_int {
+                if strcmp((*out).name_ptr(), c"__i3".as_ptr()) != 0 as ::core::ffi::c_int {
                     debuglog(
                         c"%s:%s:%d - Adding pseudo-output __i3 during inplace restart\n"
                             .as_ptr()
@@ -200,9 +196,7 @@ pub unsafe fn tree_init(geometry: &x::GetGeometryReply) {
         ::core::ptr::null_mut::<Con>(),
         ::core::ptr::null_mut::<i3Window>(),
     );
-    free((*croot).name as *mut ::core::ffi::c_void);
-    (*croot).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    (*croot).name = c"root".as_ptr().cast_mut();
+    (*croot).name = Some(c"root".to_owned());
     (*croot).type_0 = ContainerType::Root;
     (*croot).layout = Layout::SplitH;
     (*croot).rect = geometry_rect(
@@ -401,7 +395,7 @@ pub unsafe fn tree_close_internal(
             c"../src/tree.c".as_ptr(),
             c"tree_close_internal".as_ptr(),
             302 as ::core::ffi::c_int,
-            (*ws).name,
+            (*ws).name_ptr(),
         );
         ewmh_update_desktop_properties();
     }
@@ -820,7 +814,7 @@ pub unsafe fn tree_flatten(con: *mut Con) {
         c"tree_flatten".as_ptr(),
         659 as ::core::ffi::c_int,
         con,
-        (*con).name,
+        (*con).name_ptr(),
     );
     if !(((*con).type_0) != ContainerType::Con
         || (*parent).layout == Layout::Output
@@ -868,7 +862,7 @@ pub unsafe fn tree_flatten(con: *mut Con) {
                         c"tree_flatten".as_ptr(),
                         695 as ::core::ffi::c_int,
                         current,
-                        (*current).name,
+                        (*current).name_ptr(),
                     );
                     con_detach(current);
                     debuglog(

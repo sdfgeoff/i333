@@ -1027,7 +1027,7 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
                 c"../src/x.c".as_ptr(),
                 c"x_draw_decoration".as_ptr(),
                 602,
-                (*con).name,
+                (*con).name_ptr(),
             );
             dest_surface = &raw mut (*con).frame_buffer;
         } else {
@@ -1074,7 +1074,7 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
                     (*con).deco_rect.y,
                     (*con).deco_rect.width,
                     (*con).deco_rect.height,
-                    (*con).name,
+                    (*con).name_ptr(),
                 );
                 draw_util_rectangle(
                     dest_surface,
@@ -1291,7 +1291,7 @@ unsafe fn set_maximized_state(con: *mut Con) {
             c"set_maximized_state".as_ptr(),
             843,
             con,
-            (*con).name,
+            (*con).name_ptr(),
             con_maximized_horz as i32,
         );
         if con_maximized_horz {
@@ -1321,7 +1321,7 @@ unsafe fn set_maximized_state(con: *mut Con) {
             c"set_maximized_state".as_ptr(),
             856,
             con,
-            (*con).name,
+            (*con).name_ptr(),
             con_maximized_vert as i32,
         );
         if con_maximized_vert {
@@ -1824,7 +1824,7 @@ unsafe fn x_push_node_unmaps(con: *mut Con) {
             c"x_push_node_unmaps".as_ptr(),
             1229,
             con,
-            (*con).name,
+            (*con).name_ptr(),
             cookie.sequence() as u32,
         );
         if !(*con).window.is_null() {
@@ -2041,7 +2041,7 @@ pub unsafe fn x_push_changes(con: *mut Con) {
                 c"x_push_changes".as_ptr(),
                 1406,
                 focused,
-                (*focused).name,
+                (*focused).name_ptr(),
             );
             focused_id = 0 as u32;
         } else {
@@ -2053,7 +2053,7 @@ pub unsafe fn x_push_changes(con: *mut Con) {
                     1414,
                     to_focus,
                     focused,
-                    (*focused).name,
+                    (*focused).name_ptr(),
                 );
                 send_take_focus(to_focus, last_timestamp);
                 change_ewmh_focus(
@@ -2076,7 +2076,7 @@ pub unsafe fn x_push_changes(con: *mut Con) {
                     c"x_push_changes".as_ptr(),
                     1423,
                     focused,
-                    (*focused).name,
+                    (*focused).name_ptr(),
                     to_focus,
                 );
                 if !(*focused).window.is_null() {

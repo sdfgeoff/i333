@@ -139,7 +139,7 @@ pub unsafe fn render_con(con: *mut Con) {
         c"render_con".as_ptr(),
         51,
         con,
-        (*con).name,
+        (*con).name_ptr(),
         (*con).layout as u32,
         params.children,
     );

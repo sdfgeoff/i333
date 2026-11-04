@@ -558,9 +558,9 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                             c"../src/manage.c".as_ptr(),
                             c"manage_window".as_ptr(),
                             306 as ::core::ffi::c_int,
-                            (*assigned_ws).name,
+                            (*assigned_ws).name_ptr(),
                             nc,
-                            (*nc).name,
+                            (*nc).name_ptr(),
                         );
                         if ((*nc).type_0) == ContainerType::Workspace {
                             nc = tree_open_con(nc, cwindow);
@@ -585,7 +585,7 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                             c"manage_window".as_ptr(),
                             325 as ::core::ffi::c_int,
                             wm_desktop_ws,
-                            (*wm_desktop_ws).name,
+                            (*wm_desktop_ws).name_ptr(),
                             (*cwindow).wm_desktop,
                         );
                         nc = con_descend_tiling_focused(wm_desktop_ws);
@@ -612,7 +612,7 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                             337 as ::core::ffi::c_int,
                             startup_ws,
                             nc,
-                            (*nc).name,
+                            (*nc).name_ptr(),
                         );
                         if ((*nc).type_0) == ContainerType::Workspace {
                             nc = tree_open_con(nc, cwindow);
@@ -627,7 +627,7 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                                 .as_ptr()
                                 .cast_mut(),
                             focused,
-                            (*focused).name,
+                            (*focused).name_ptr(),
                         );
                         nc = focused;
                     } else {

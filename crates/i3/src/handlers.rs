@@ -235,7 +235,7 @@ unsafe fn handle_enter_notify(event: &x::EnterNotifyEvent, full_sequence: u32) {
                 verboselog(
                     c"using child %p / %s instead!\n".as_ptr().cast_mut(),
                     child,
-                    (*child).name,
+                    (*child).name_ptr(),
                 );
                 con = child;
                 break;
@@ -518,7 +518,7 @@ unsafe fn handle_configure_request(event: &x::ConfigureRequestEvent) {
     );
     let workspace: *mut Con = con_get_workspace(con);
     if !workspace.is_null()
-        && strcmp((*workspace).name, c"__i3_scratch".as_ptr()) == 0 as ::core::ffi::c_int
+        && strcmp((*workspace).name_ptr(), c"__i3_scratch".as_ptr()) == 0 as ::core::ffi::c_int
     {
         debuglog(
             c"%s:%s:%d - This is a scratchpad container, ignoring ConfigureRequest\n"
@@ -1357,7 +1357,7 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
             c"../src/handlers.c".as_ptr(),
             c"handle_client_message".as_ptr(),
             872 as ::core::ffi::c_int,
-            (*ws_0).name,
+            (*ws_0).name_ptr(),
         );
         workspace_show(ws_0);
         tree_render();
@@ -1621,7 +1621,7 @@ unsafe fn handle_focus_in(event: &x::FocusInEvent) {
         c"handle_focus_in".as_ptr(),
         1077 as ::core::ffi::c_int,
         con,
-        (*con).name,
+        (*con).name_ptr(),
     );
     if event_mode as ::core::ffi::c_int == (::xcb::x::NotifyMode::Grab as u32) as ::core::ffi::c_int
         || event_mode as ::core::ffi::c_int
@@ -1690,8 +1690,11 @@ unsafe fn handle_focus_out(event: &x::FocusInEvent) {
     let mut window_name: *const ::core::ffi::c_char = ::core::ptr::null::<::core::ffi::c_char>();
     let mut mode: *const ::core::ffi::c_char = ::core::ptr::null::<::core::ffi::c_char>();
     let mut detail: *const ::core::ffi::c_char = ::core::ptr::null::<::core::ffi::c_char>();
+    let owned_window_name = (!con.is_null()).then(|| (*con).name.clone()).flatten();
     if !con.is_null() {
-        window_name = (*con).name;
+        window_name = owned_window_name
+            .as_deref()
+            .map_or(std::ptr::null(), std::ffi::CStr::as_ptr);
         if window_name.is_null() {
             window_name = c"<unnamed con>".as_ptr();
         }
@@ -1854,7 +1857,7 @@ unsafe fn handle_strut_partial_change(con: *mut Con, prop: Option<&x::GetPropert
             c"../src/handlers.c".as_ptr(),
             c"handle_strut_partial_change".as_ptr(),
             1270 as ::core::ffi::c_int,
-            (*output).name,
+            (*output).name_ptr(),
         );
         search_at = output;
     }

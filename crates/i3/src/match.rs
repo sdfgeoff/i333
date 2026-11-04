@@ -444,21 +444,26 @@ pub unsafe fn match_matches_window(raw_match: *mut Match, raw_window: *mut Windo
         if con.is_null() {
             return false;
         }
-        let workspace = unsafe { con_get_workspace(con).as_ref() };
-        let Some(workspace) = workspace else {
+        let workspace = unsafe { con_get_workspace(con) };
+        if workspace.is_null() {
             return false;
-        };
-        let name = unsafe { borrowed_text(workspace.name) };
+        }
+        let name = unsafe { (*workspace).name.clone() };
         let focused_name = if focused_pattern(expression) {
             unsafe {
                 con_get_workspace(global_focused)
                     .as_ref()
-                    .and_then(|workspace| borrowed_text(workspace.name))
+                    .and_then(|workspace| workspace.name.clone())
             }
         } else {
             None
         };
-        if !text_matches(expression, name, focused_name, b"workspace") {
+        if !text_matches(
+            expression,
+            name.as_deref(),
+            focused_name.as_deref(),
+            b"workspace",
+        ) {
             return false;
         }
     }

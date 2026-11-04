@@ -90,7 +90,6 @@ pub unsafe fn con_new(parent: *mut Con, window: *mut i3Window) -> *mut Con {
 }
 
 pub unsafe fn con_free(con: *mut Con) {
-    free((*con).name as *mut ::core::ffi::c_void);
     free((*con).deco_render_params as *mut ::core::ffi::c_void);
     (*con).deco_render_params = ::core::ptr::null_mut::<deco_render_params>();
     // Retire the identity before cleanup; the local owner keeps storage live
@@ -658,9 +657,10 @@ pub unsafe fn con_get_fullscreen_covering_ws(ws: *mut Con) -> *mut Con {
 }
 
 pub unsafe fn con_is_internal(con: *mut Con) -> bool {
-    std::ffi::CStr::from_ptr((*con).name)
-        .to_bytes()
-        .starts_with(b"__")
+    (*con)
+        .name
+        .as_deref()
+        .is_some_and(|name| name.to_bytes().starts_with(b"__"))
 }
 
 pub unsafe fn con_is_floating(con: *mut Con) -> bool {
@@ -1178,7 +1178,7 @@ pub unsafe fn con_toggle_fullscreen(con: *mut Con, fullscreen_mode: FullscreenMo
         c"con_toggle_fullscreen".as_ptr(),
         1194 as ::core::ffi::c_int,
         con,
-        (*con).name,
+        (*con).name_ptr(),
     );
     if ((*con).fullscreen_mode) == FullscreenMode::None {
         con_enable_fullscreen(con, fullscreen_mode);
@@ -1266,7 +1266,7 @@ pub unsafe fn con_enable_fullscreen(con: *mut Con, fullscreen_mode: FullscreenMo
             c"con_enable_fullscreen".as_ptr(),
             1253 as ::core::ffi::c_int,
             con,
-            (*con).name,
+            (*con).name_ptr(),
         );
     } else {
         debuglog(
@@ -1277,7 +1277,7 @@ pub unsafe fn con_enable_fullscreen(con: *mut Con, fullscreen_mode: FullscreenMo
             c"con_enable_fullscreen".as_ptr(),
             1255 as ::core::ffi::c_int,
             con,
-            (*con).name,
+            (*con).name_ptr(),
         );
     }
     if ((*con).fullscreen_mode) == fullscreen_mode {
@@ -1289,7 +1289,7 @@ pub unsafe fn con_enable_fullscreen(con: *mut Con, fullscreen_mode: FullscreenMo
             c"con_enable_fullscreen".as_ptr(),
             1259 as ::core::ffi::c_int,
             con,
-            (*con).name,
+            (*con).name_ptr(),
         );
         return;
     }
@@ -1333,7 +1333,7 @@ pub unsafe fn con_disable_fullscreen(con: *mut Con) {
         c"con_disable_fullscreen".as_ptr(),
         1301 as ::core::ffi::c_int,
         con,
-        (*con).name,
+        (*con).name_ptr(),
     );
     if ((*con).fullscreen_mode) == FullscreenMode::None {
         debuglog(
@@ -1344,7 +1344,7 @@ pub unsafe fn con_disable_fullscreen(con: *mut Con) {
             c"con_disable_fullscreen".as_ptr(),
             1304 as ::core::ffi::c_int,
             con,
-            (*con).name,
+            (*con).name_ptr(),
         );
         return;
     }
@@ -1419,7 +1419,7 @@ unsafe fn _con_move_to_con(
             c"_con_move_to_con".as_ptr(),
             1369 as ::core::ffi::c_int,
             target,
-            (*target).name,
+            (*target).name_ptr(),
             ((*target).type_0).raw() as ::core::ffi::c_uint,
         );
         target = parent_ptr(target) as *mut Con;
@@ -1446,7 +1446,7 @@ unsafe fn _con_move_to_con(
             c"_con_move_to_con".as_ptr(),
             1384 as ::core::ffi::c_int,
             ws,
-            (*ws).name,
+            (*ws).name_ptr(),
         );
         target = ws;
     }
@@ -1486,7 +1486,7 @@ unsafe fn _con_move_to_con(
         c"_con_move_to_con".as_ptr(),
         1414 as ::core::ffi::c_int,
         target,
-        (*target).name,
+        (*target).name_ptr(),
     );
     let parent: *mut Con = parent_ptr(con) as *mut Con;
     con_detach(con);
@@ -2337,7 +2337,7 @@ unsafe fn con_on_remove_child(con: *mut Con) {
             c"con_on_remove_child".as_ptr(),
             2214 as ::core::ffi::c_int,
             ((*con).type_0).raw() as ::core::ffi::c_uint,
-            (*con).name,
+            (*con).name_ptr(),
         );
         return;
     }
@@ -2348,7 +2348,7 @@ unsafe fn con_on_remove_child(con: *mut Con) {
                     .as_ptr()
                     .cast_mut(),
                 con,
-                (*con).name,
+                (*con).name_ptr(),
             );
             let payload =
                 ipc_marshal_workspace_event(c"empty".as_ptr(), con, ::core::ptr::null_mut::<Con>());

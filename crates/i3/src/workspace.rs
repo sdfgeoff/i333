@@ -54,7 +54,7 @@ pub unsafe fn get_existing_workspace_by_name(name: *const ::core::ffi::c_char) -
         } {
             child = nodes::first_ptr(output_get_content(output));
             while !child.is_null() {
-                if strcasecmp((*child).name, name) != 0 {
+                if strcasecmp((*child).name_ptr(), name) != 0 {
                     child = nodes::next_ptr(child);
                 } else {
                     workspace = child;
@@ -205,9 +205,7 @@ pub unsafe fn workspace_get(num: *const ::core::ffi::c_char) -> *mut Con {
     sasprintf(&raw mut name, c"[i3 con] workspace %s".as_ptr(), num);
     x_set_name(workspace, name);
     free(name as *mut ::core::ffi::c_void);
-    free((*workspace).name as *mut ::core::ffi::c_void);
-    (*workspace).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    (*workspace).name = sstrdup(num);
+    (*workspace).name = Some(std::ffi::CStr::from_ptr(num).to_owned());
     (*workspace).workspace_layout = config.default_layout;
     (*workspace).num = parsed_num;
     (*workspace).type_0 = ContainerType::Workspace;
@@ -312,7 +310,7 @@ pub unsafe fn create_workspace_on_output(output: *mut Output, content: *mut Con)
             }
             .is_null();
             if !exists {
-                (*ws).name = sstrdup(target_name);
+                (*ws).name = Some(std::ffi::CStr::from_ptr(target_name).to_owned());
                 (*ws).num = num;
                 debuglog(
                     c"%s:%s:%d - Used number %d for workspace with name %s\n"
@@ -322,7 +320,7 @@ pub unsafe fn create_workspace_on_output(output: *mut Output, content: *mut Con)
                     c"create_workspace_on_output".as_ptr(),
                     276 as ::core::ffi::c_int,
                     (*ws).num,
-                    (*ws).name,
+                    (*ws).name_ptr(),
                 );
                 break;
             }
@@ -358,11 +356,15 @@ pub unsafe fn create_workspace_on_output(output: *mut Output, content: *mut Con)
             );
         }
         (*ws).num = c;
-        sasprintf(&raw mut (*ws).name, c"%d".as_ptr(), c);
+        (*ws).name = Some(std::ffi::CString::new(c.to_string()).unwrap());
     }
     con_attach(ws, content, false);
     let mut name: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    sasprintf(&raw mut name, c"[i3 con] workspace %s".as_ptr(), (*ws).name);
+    sasprintf(
+        &raw mut name,
+        c"[i3 con] workspace %s".as_ptr(),
+        (*ws).name_ptr(),
+    );
     x_set_name(ws, name);
     free(name as *mut ::core::ffi::c_void);
     (*ws).gaps = gaps_for_workspace(ws);
@@ -422,7 +424,7 @@ unsafe fn workspace_reassign_sticky(con: *mut Con) {
         if let Some(group) = group {
             verboselog(
                 c"Ah, this one is sticky: %s / %p\n".as_ptr().cast_mut(),
-                (*current).name,
+                (*current).name_ptr(),
                 current,
             );
             let output: *mut Con = con_get_output(current);
@@ -524,7 +526,7 @@ pub unsafe fn workspace_show(workspace: *mut Con) {
     if !current.is_null() && !con_is_internal(current) {
         free(previous_workspace_name as *mut ::core::ffi::c_void);
         previous_workspace_name = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        previous_workspace_name = sstrdup((*current).name);
+        previous_workspace_name = sstrdup((*current).name_ptr());
         debuglog(
             c"%s:%s:%d - Setting previous_workspace_name = %s\n"
                 .as_ptr()
@@ -542,7 +544,7 @@ pub unsafe fn workspace_show(workspace: *mut Con) {
         c"workspace_show".as_ptr(),
         485 as ::core::ffi::c_int,
         workspace,
-        (*workspace).name,
+        (*workspace).name_ptr(),
     );
     let next: *mut Con = con_descend_focused(workspace);
     let old_output: *mut Con = con_get_output(focused);
@@ -620,7 +622,7 @@ pub unsafe fn workspace_show(workspace: *mut Con) {
         524 as ::core::ffi::c_int,
         old,
         if !old.is_null() {
-            (*old).name as *const ::core::ffi::c_char
+            (*old).name_ptr() as *const ::core::ffi::c_char
         } else {
             c"(null)".as_ptr()
         },
@@ -635,7 +637,7 @@ pub unsafe fn workspace_show(workspace: *mut Con) {
                     .as_ptr()
                     .cast_mut(),
                 old,
-                (*old).name,
+                (*old).name_ptr(),
             );
             let payload =
                 ipc_marshal_workspace_event(c"empty".as_ptr(), old, ::core::ptr::null_mut::<Con>());
@@ -655,7 +657,7 @@ pub unsafe fn workspace_show(workspace: *mut Con) {
     verboselog(
         c"focused now = %p / %s\n".as_ptr().cast_mut(),
         focused,
-        (*focused).name,
+        (*focused).name_ptr(),
     );
     let new_output: *mut Con = con_get_output(focused);
     if old_output != new_output {
@@ -984,7 +986,7 @@ pub unsafe fn workspace_prev_on_output() -> *mut Con {
         c"../src/workspace.c".as_ptr(),
         c"workspace_prev_on_output".as_ptr(),
         826 as ::core::ffi::c_int,
-        (*output).name,
+        (*output).name_ptr(),
     );
     if (*current).num == -(1 as ::core::ffi::c_int) {
         prev = nodes::previous_ptr(current);
@@ -1205,7 +1207,7 @@ pub unsafe fn workspace_attach_to(ws: *mut Con) -> *mut Con {
         c"workspace_attach_to".as_ptr(),
         997 as ::core::ffi::c_int,
         ws,
-        (*ws).name,
+        (*ws).name_ptr(),
     );
     if (*ws).workspace_layout == Layout::Default {
         debuglog(
@@ -1254,7 +1256,7 @@ pub unsafe fn workspace_encapsulate(ws: *mut Con) -> *mut Con {
                 .as_ptr()
                 .cast_mut(),
             ws,
-            (*ws).name,
+            (*ws).name_ptr(),
         );
         return ::core::ptr::null_mut::<Con>();
     }
@@ -1273,7 +1275,7 @@ pub unsafe fn workspace_encapsulate(ws: *mut Con) -> *mut Con {
         c"workspace_encapsulate".as_ptr(),
         1041 as ::core::ffi::c_int,
         ws,
-        (*ws).name,
+        (*ws).name_ptr(),
         new,
     );
     let workspace_id = identity(ws).expect("live workspace tiling owner");
@@ -1295,7 +1297,7 @@ pub unsafe fn workspace_move_to_output(mut ws: *mut Con, output: *mut Output) {
         c"workspace_move_to_output".as_ptr(),
         1060 as ::core::ffi::c_int,
         ws,
-        (*ws).name,
+        (*ws).name_ptr(),
         output,
         output_primary_name(output),
     );
@@ -1332,7 +1334,7 @@ pub unsafe fn workspace_move_to_output(mut ws: *mut Con, output: *mut Output) {
             c"workspace_move_to_output".as_ptr(),
             1073 as ::core::ffi::c_int,
             previously_visible_ws,
-            (*previously_visible_ws).name,
+            (*previously_visible_ws).name_ptr(),
         );
     } else {
         debuglog(
@@ -1353,7 +1355,7 @@ pub unsafe fn workspace_move_to_output(mut ws: *mut Con, output: *mut Output) {
             c"../src/workspace.c".as_ptr(),
             c"workspace_move_to_output".as_ptr(),
             1080 as ::core::ffi::c_int,
-            (*ws).name,
+            (*ws).name_ptr(),
         );
         let mut used_assignment: bool = false;
         let mut assignment: *mut Workspace_Assignment =
@@ -1409,7 +1411,7 @@ pub unsafe fn workspace_move_to_output(mut ws: *mut Con, output: *mut Output) {
             c"workspace_move_to_output".as_ptr(),
             1121 as ::core::ffi::c_int,
             focus_ws,
-            (*focus_ws).name,
+            (*focus_ws).name_ptr(),
         );
         workspace_show(focus_ws);
     }

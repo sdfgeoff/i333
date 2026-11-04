@@ -100,7 +100,7 @@ unsafe fn maybe_back_and_forth(
     name: *const ::core::ffi::c_char,
 ) -> bool {
     let ws: *const Con = con_get_workspace(focused);
-    if strcmp((*ws).name, name) != 0 as ::core::ffi::c_int {
+    if strcmp((*ws).name_ptr(), name) != 0 as ::core::ffi::c_int {
         return false_0 != 0;
     }
     debuglog(
@@ -187,7 +187,7 @@ pub unsafe fn cmd_criteria_match_windows(
             c"cmd_criteria_match_windows".as_ptr(),
             157 as ::core::ffi::c_int,
             con,
-            (*con).name,
+            (*con).name_ptr(),
         );
         let mut accept_match: bool = false_0 != 0;
         if !(*current_match).con_id.is_null() {
@@ -285,7 +285,7 @@ pub unsafe fn cmd_criteria_match_windows(
                                         c"cmd_criteria_match_windows".as_ptr(),
                                         206 as ::core::ffi::c_int,
                                         con,
-                                        (*con).name,
+                                        (*con).name_ptr(),
                                     );
                                     let ow_0: *mut owindow =
                                         smalloc(::core::mem::size_of::<owindow>() as usize)
@@ -326,7 +326,7 @@ unsafe fn move_matches_to_workspace(owindows: *const owindows_head, ws: *mut Con
             c"move_matches_to_workspace".as_ptr(),
             226 as ::core::ffi::c_int,
             (*current).con,
-            (*(*current).con).name,
+            (*(*current).con).name_ptr(),
         );
         con_move_to_workspace((*current).con, ws, true_0 != 0, false_0 != 0, false_0 != 0);
         current = (*current).owindows.tqe_next as *mut owindow;
@@ -1491,7 +1491,7 @@ pub unsafe fn cmd_border(
             c"cmd_border".as_ptr(),
             703 as ::core::ffi::c_int,
             (*current).con,
-            (*(*current).con).name,
+            (*(*current).con).name_ptr(),
         );
         let mut border_style: BorderStyle = BorderStyle::None;
         if strcmp(border_style_str, c"toggle".as_ptr()) == 0 as ::core::ffi::c_int {
@@ -1777,8 +1777,9 @@ pub unsafe fn cmd_workspace_number(
         (*cmd_output).needs_tree_render = true_0 != 0;
         return;
     }
+    let workspace_name = (*workspace).name.clone().expect("workspace has a name");
     if !no_auto_back_and_forth
-        && maybe_back_and_forth(cmd_output, (*workspace).name) as ::core::ffi::c_int != 0
+        && maybe_back_and_forth(cmd_output, workspace_name.as_ptr()) as ::core::ffi::c_int != 0
     {
         if (*cmd_output).has_reply() {
             emit_command_reply(cmd_output, CommandReply::Success(true));
@@ -1939,7 +1940,7 @@ pub unsafe fn cmd_mark(
         c"cmd_mark".as_ptr(),
         949 as ::core::ffi::c_int,
         (*current).con,
-        (*(*current).con).name,
+        (*(*current).con).name_ptr(),
     );
     let mark_mode: MarkMode =
         if mode.is_null() || strcmp(mode, c"--replace".as_ptr()) == 0 as ::core::ffi::c_int {
@@ -2217,7 +2218,7 @@ pub unsafe fn cmd_move_con_to_mark(
             c"cmd_move_con_to_mark".as_ptr(),
             1130 as ::core::ffi::c_int,
             (*current).con,
-            (*(*current).con).name,
+            (*(*current).con).name_ptr(),
             mark,
         );
         result = (result as ::core::ffi::c_int
@@ -2300,7 +2301,7 @@ pub unsafe fn cmd_floating(
             c"cmd_floating".as_ptr(),
             1150 as ::core::ffi::c_int,
             (*current).con,
-            (*(*current).con).name,
+            (*(*current).con).name_ptr(),
         );
         if strcmp(floating_mode, c"toggle".as_ptr()) == 0 as ::core::ffi::c_int {
             debuglog(
@@ -2396,7 +2397,7 @@ pub unsafe fn cmd_split(
                 c"cmd_split".as_ptr(),
                 1185 as ::core::ffi::c_int,
                 (*current).con,
-                (*(*current).con).name,
+                (*(*current).con).name_ptr(),
             );
             if *direction.offset(0 as ::core::ffi::c_int as isize) as ::core::ffi::c_int
                 == 't' as i32
@@ -2953,16 +2954,16 @@ pub unsafe fn cmd_focus(
                         .as_ptr()
                         .cast_mut(),
                     (*current_0).con,
-                    (*(*current_0).con).name,
+                    (*(*current_0).con).name_ptr(),
                     ws,
-                    (*ws).name,
+                    (*ws).name_ptr(),
                 );
                 workspace_show(maybe_auto_back_and_forth_workspace(ws));
             } else {
                 verboselog(
                     c"focusing %p / %s\n".as_ptr().cast_mut(),
                     (*current_0).con,
-                    (*(*current_0).con).name,
+                    (*(*current_0).con).name_ptr(),
                 );
                 con_activate_unblock((*current_0).con);
             }
@@ -3042,7 +3043,7 @@ pub unsafe fn cmd_fullscreen(
             c"cmd_fullscreen".as_ptr(),
             1496 as ::core::ffi::c_int,
             (*current).con,
-            (*(*current).con).name,
+            (*(*current).con).name_ptr(),
         );
         if strcmp(action, c"toggle".as_ptr()) == 0 as ::core::ffi::c_int {
             con_toggle_fullscreen((*current).con, mode);
@@ -3128,7 +3129,7 @@ pub unsafe fn cmd_sticky(
                 c"cmd_sticky".as_ptr(),
                 1525 as ::core::ffi::c_int,
                 (*current).con,
-                (*(*current).con).name,
+                (*(*current).con).name_ptr(),
             );
             let mut sticky: bool = false_0 != 0;
             if strcmp(action, c"enable".as_ptr()) == 0 as ::core::ffi::c_int {
@@ -3362,7 +3363,7 @@ pub unsafe fn cmd_layout(
                 c"cmd_layout".as_ptr(),
                 1617 as ::core::ffi::c_int,
                 (*current).con,
-                (*(*current).con).name,
+                (*(*current).con).name_ptr(),
             );
             con_set_layout((*current).con, layout);
         }
@@ -3403,7 +3404,7 @@ pub unsafe fn cmd_layout_toggle(
                 c"cmd_layout_toggle".as_ptr(),
                 1643 as ::core::ffi::c_int,
                 (*current).con,
-                (*(*current).con).name,
+                (*(*current).con).name_ptr(),
             );
             con_toggle_layout((*current).con, toggle_mode);
             current = (*current).owindows.tqe_next as *mut owindow;
@@ -3834,7 +3835,7 @@ pub unsafe fn cmd_move_window_to_center(
                     .as_ptr()
                     .cast_mut(),
                 (*current).con,
-                (*(*current).con).name,
+                (*(*current).con).name_ptr(),
             );
             if !has_error {
                 if (*cmd_output).has_reply() {
@@ -3945,7 +3946,7 @@ pub unsafe fn cmd_move_window_to_mouse(
                 c"cmd_move_window_to_mouse".as_ptr(),
                 1905 as ::core::ffi::c_int,
                 (*current).con,
-                (*(*current).con).name,
+                (*(*current).con).name_ptr(),
             );
         } else {
             debuglog(
@@ -3956,7 +3957,7 @@ pub unsafe fn cmd_move_window_to_mouse(
                 c"cmd_move_window_to_mouse".as_ptr(),
                 1909 as ::core::ffi::c_int,
                 floating_con,
-                (*floating_con).name,
+                (*floating_con).name_ptr(),
             );
             floating_move_to_pointer(floating_con);
         }
@@ -4024,7 +4025,7 @@ pub unsafe fn cmd_move_scratchpad(current_match: *mut Match, cmd_output: *mut Co
             c"cmd_move_scratchpad".as_ptr(),
             1928 as ::core::ffi::c_int,
             (*current).con,
-            (*(*current).con).name,
+            (*(*current).con).name_ptr(),
         );
         scratchpad_move((*current).con);
         current = (*current).owindows.tqe_next as *mut owindow;
@@ -4057,7 +4058,7 @@ pub unsafe fn cmd_scratchpad_show(current_match: *mut Match, cmd_output: *mut Co
                 c"cmd_scratchpad_show".as_ptr(),
                 1950 as ::core::ffi::c_int,
                 (*current).con,
-                (*(*current).con).name,
+                (*(*current).con).name_ptr(),
             );
             result = (result as ::core::ffi::c_int
                 | scratchpad_show((*current).con) as ::core::ffi::c_int)
@@ -4308,7 +4309,7 @@ pub unsafe fn cmd_title_format(
             c"cmd_title_format".as_ptr(),
             2028 as ::core::ffi::c_int,
             (*current).con,
-            (*(*current).con).name,
+            (*(*current).con).name_ptr(),
         );
         (*(*current).con).title_format = None;
         if strcasecmp(format.as_ptr(), c"%title".as_ptr()) != 0 as ::core::ffi::c_int {
@@ -4427,7 +4428,7 @@ pub unsafe fn cmd_title_window_icon(
             c"cmd_title_window_icon".as_ptr(),
             2095 as ::core::ffi::c_int,
             (*current).con,
-            (*(*current).con).name,
+            (*(*current).con).name_ptr(),
             (*(*current).con).window_icon_padding,
         );
         if !(*(*current).con).window.is_null() {
@@ -4450,6 +4451,13 @@ pub unsafe fn cmd_rename_workspace(
     mut old_name: *const ::core::ffi::c_char,
     new_name: *const ::core::ffi::c_char,
 ) {
+    let mut old_name_owner =
+        (!old_name.is_null()).then(|| std::ffi::CStr::from_ptr(old_name).to_owned());
+    let new_name_owner = std::ffi::CStr::from_ptr(new_name).to_owned();
+    old_name = old_name_owner
+        .as_deref()
+        .map_or(std::ptr::null(), std::ffi::CStr::as_ptr);
+    let new_name = new_name_owner.as_ptr();
     if strncasecmp(new_name, c"__".as_ptr(), strlen(c"__".as_ptr())) == 0 as ::core::ffi::c_int {
         if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
@@ -4487,7 +4495,10 @@ pub unsafe fn cmd_rename_workspace(
         workspace = get_existing_workspace_by_name(old_name);
     } else {
         workspace = con_get_workspace(focused);
-        old_name = (*workspace).name;
+        old_name_owner = (*workspace).name.clone();
+        old_name = old_name_owner
+            .as_deref()
+            .map_or(std::ptr::null(), std::ffi::CStr::as_ptr);
     }
     if workspace.is_null() {
         if (*cmd_output).has_reply() {
@@ -4524,10 +4535,8 @@ pub unsafe fn cmd_rename_workspace(
         }
         return;
     }
-    let old_name_copy: *mut ::core::ffi::c_char = sstrdup(old_name);
-    free((*workspace).name as *mut ::core::ffi::c_void);
-    (*workspace).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    (*workspace).name = sstrdup(new_name);
+    let old_name_copy = std::ffi::CStr::from_ptr(old_name).to_owned();
+    (*workspace).name = Some(std::ffi::CStr::from_ptr(new_name).to_owned());
     (*workspace).num = ws_name_to_number(std::ffi::CStr::from_ptr(new_name)).unwrap_or(-1);
     verboselog(c"num = %d\n".as_ptr().cast_mut(), (*workspace).num);
     let previously_focused: *mut Con = focused;
@@ -4545,8 +4554,11 @@ pub unsafe fn cmd_rename_workspace(
         workspace,
         ::core::ptr::null_mut::<Con>(),
     );
-    let assigned: *mut Con =
-        get_assigned_output((*workspace).name, (*workspace).num as ::core::ffi::c_long);
+    let assigned_name = (*workspace).name.clone().expect("workspace has a name");
+    let assigned: *mut Con = get_assigned_output(
+        assigned_name.as_ptr(),
+        (*workspace).num as ::core::ffi::c_long,
+    );
     if !assigned.is_null() {
         workspace_move_to_output(workspace, get_output_for_con(assigned));
     }
@@ -4576,7 +4588,9 @@ pub unsafe fn cmd_rename_workspace(
         workspace_show(con_get_workspace(previously_focused));
         con_focus(previously_focused);
     }
-    if !previous_workspace_name.is_null() && strcmp(previous_workspace_name, old_name_copy) == 0 {
+    if !previous_workspace_name.is_null()
+        && strcmp(previous_workspace_name, old_name_copy.as_ptr()) == 0
+    {
         free(previous_workspace_name as *mut ::core::ffi::c_void);
         previous_workspace_name = ::core::ptr::null_mut::<::core::ffi::c_char>();
         previous_workspace_name = sstrdup(new_name);
@@ -4586,8 +4600,7 @@ pub unsafe fn cmd_rename_workspace(
         emit_command_reply(cmd_output, CommandReply::Success(true));
     }
     ewmh_update_desktop_properties();
-    startup_sequence_rename_workspace(old_name_copy, new_name);
-    free(old_name_copy as *mut ::core::ffi::c_void);
+    startup_sequence_rename_workspace(old_name_copy.as_ptr(), new_name);
 }
 
 pub unsafe fn cmd_bar_mode(
