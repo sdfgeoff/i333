@@ -2116,7 +2116,7 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
     }
     atexit(i3_exit);
     raise(SIGCHLD);
-    sd_notify(1_i32, c"READY=1");
+    sd_notify(1_i32, b"READY=1");
     ev_loop(main_loop, 0_i32);
     ev_prepare_stop(main_loop, xcb_prepare);
     drop(Box::from_raw(xcb_prepare));

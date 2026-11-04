@@ -223,19 +223,19 @@ pub fn is_fifo(fd: RawFd, path: Option<&Path>) -> i32 {
     }
 }
 
-/// # Safety
-/// A non-null path must point to a valid NUL-terminated string when `fd` is a FIFO.
-pub unsafe fn sd_is_fifo(fd: RawFd, path: *const c_char) -> i32 {
-    let metadata = match fifo_metadata(fd) {
-        Ok(Some(metadata)) => metadata,
-        Ok(None) => return 0,
-        Err(error) => return error,
-    };
-    if path.is_null() {
-        return 1;
-    }
-    let path = unsafe { CStr::from_ptr(path) };
-    fifo_path_matches(&metadata, Path::new(OsStr::from_bytes(path.to_bytes())))
+/// Match the compatibility pathname's first-NUL prefix after probing the fd.
+/// A missing pathname accepts any FIFO; the descriptor remains borrowed.
+pub fn sd_is_fifo(fd: RawFd, path: Option<&Path>) -> i32 {
+    let path = path.map(|path| {
+        Path::new(OsStr::from_bytes(
+            path.as_os_str()
+                .as_bytes()
+                .split(|byte| *byte == 0)
+                .next()
+                .unwrap(),
+        ))
+    });
+    is_fifo(fd, path)
 }
 
 fn socket_option(fd: RawFd, option: i32) -> Result<i32, i32> {
@@ -493,20 +493,26 @@ fn notify_socket(endpoint: &[u8], state: &[u8]) -> i32 {
 }
 
 /// Send to the owned NOTIFY_SOCKET value without mutating the environment.
-pub fn notify(state: &CStr) -> i32 {
+pub fn notify(state: &[u8]) -> i32 {
     std::env::var_os("NOTIFY_SOCKET").map_or(0, |endpoint| {
-        notify_socket(endpoint.as_bytes(), state.to_bytes())
+        notify_socket(
+            endpoint.as_bytes(),
+            state.split(|byte| *byte == 0).next().unwrap(),
+        )
     })
 }
 
 /// # Safety
 /// If `unset_environment` is nonzero, no other thread may read or modify the
 /// process environment, including through native libraries.
-pub unsafe fn sd_notify(unset_environment: i32, state: &CStr) -> i32 {
+pub unsafe fn sd_notify(unset_environment: i32, state: &[u8]) -> i32 {
     let Some(endpoint) = std::env::var_os("NOTIFY_SOCKET") else {
         return 0;
     };
-    let result = notify_socket(endpoint.as_bytes(), state.to_bytes());
+    let result = notify_socket(
+        endpoint.as_bytes(),
+        state.split(|byte| *byte == 0).next().unwrap(),
+    );
     if unset_environment != 0 {
         unsafe {
             libc::unsetenv(c"NOTIFY_SOCKET".as_ptr());
@@ -704,6 +710,51 @@ mod tests {
     }
 
     #[test]
+    fn notification_payload_prefix_and_environment_unset_are_compatible() {
+        if let Some(mode) = std::env::var_os("I333_NOTIFY_PROBE") {
+            if mode == "invalid" {
+                assert_eq!(unsafe { sd_notify(1, b"READY=1") }, -libc::EINVAL);
+            } else {
+                assert_eq!(notify(b"READY=1\0ignored"), 1);
+                assert_eq!(unsafe { sd_notify(0, b"\xff\0ignored") }, 1);
+                assert!(std::env::var_os("NOTIFY_SOCKET").is_some());
+                assert_eq!(unsafe { sd_notify(1, b"LAST\0ignored") }, 1);
+            }
+            assert!(std::env::var_os("NOTIFY_SOCKET").is_none());
+            assert_eq!(notify(b"missing"), 0);
+            assert_eq!(unsafe { sd_notify(1, b"missing") }, 0);
+            return;
+        }
+        let work = WorkDir::new();
+        let path = work.0.join("notify");
+        let receiver = UnixDatagram::bind(&path).unwrap();
+        receiver
+            .set_read_timeout(Some(Duration::from_secs(2)))
+            .unwrap();
+        for (mode, endpoint) in [
+            ("normal", path.as_os_str()),
+            ("invalid", OsStr::new("relative")),
+        ] {
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "sd_daemon::tests::notification_payload_prefix_and_environment_unset_are_compatible", "--nocapture"])
+                .env("I333_NOTIFY_PROBE", mode).env("NOTIFY_SOCKET", endpoint)
+                .env_remove("DISPLAY").env_remove("WAYLAND_DISPLAY").env_remove("I3SOCK")
+                .output().unwrap();
+            assert!(
+                output.status.success(),
+                "{}\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+        let mut buffer = [0; 32];
+        for expected in [b"READY=1".as_slice(), b"\xff", b"LAST"] {
+            let size = receiver.recv(&mut buffer).unwrap();
+            assert_eq!(&buffer[..size], expected);
+        }
+    }
+
+    #[test]
     fn maximum_abstract_name_preserves_truncated_final_nul() {
         let mut endpoint = vec![b'x'; 108];
         endpoint[0] = b'@';
@@ -798,6 +849,17 @@ mod tests {
         assert_eq!(is_fifo(fifo.as_raw_fd(), Some(&path)), 1);
         assert_eq!(is_fifo(fifo.as_raw_fd(), Some(&work.0.join("missing"))), 0);
         assert_eq!(is_fifo(fifo.as_raw_fd(), None), 1);
+        assert_eq!(sd_is_fifo(fifo.as_raw_fd(), Some(&path)), 1);
+        assert_eq!(sd_is_fifo(fifo.as_raw_fd(), None), 1);
+        assert_eq!(
+            sd_is_fifo(fifo.as_raw_fd(), Some(&work.0.join("missing"))),
+            0
+        );
+        let mut suffix_path = path.as_os_str().as_bytes().to_vec();
+        suffix_path.extend_from_slice(b"\0ignored");
+        let suffix_path = Path::new(OsStr::from_bytes(&suffix_path));
+        assert_eq!(sd_is_fifo(fifo.as_raw_fd(), Some(suffix_path)), 1);
+        assert_eq!(sd_is_fifo(-1, Some(suffix_path)), -libc::EINVAL);
         assert_eq!(mark_cloexec(fifo.as_raw_fd()), Ok(()));
         assert!(!fifo.metadata().unwrap().is_file());
         assert_eq!(sd_is_socket(fifo.as_raw_fd(), 0, 0, -1), 0);
