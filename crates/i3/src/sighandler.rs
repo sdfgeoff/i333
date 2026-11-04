@@ -1,7 +1,6 @@
 use crate::randr::outputs;
 use crate::xcursor::Cursor;
 use i3_common::draw_util::draw_util_text;
-use i3_common::safewrappers::sasprintf;
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -14,7 +13,8 @@ use i3_common::safewrappers::sasprintf;
 
 // The crash callback remains a legacy native signal edge: X11/rendering,
 // logging and restart are not claimed async-signal-safe. New helpers below are
-// stack-only; owned text is prepared before handlers are installed.
+// geometry helpers are stack-only; backtrace arguments allocate before fork,
+// as their native predecessors did. No display registry is consulted here.
 use i3_common::display::CairoVisual;
 use i3_common::string::I3String;
 use std::ffi::CStr;
@@ -72,48 +72,50 @@ static mut dialog_width: i32 = 0;
 static mut dialog_height: i32 = 0;
 static mut border_width: i32 = 2_i32;
 static mut margin: i32 = 4_i32;
+fn backtrace_filename(directory: &[u8], pid: i32, suffix: i32) -> Vec<u8> {
+    let directory = directory.split(|&byte| byte == 0).next().unwrap();
+    let mut filename = directory.to_vec();
+    filename.extend_from_slice(format!("/i3-backtrace.{pid}.{suffix}.txt").as_bytes());
+    filename
+}
+
+fn backtrace_log_command(filename: &[u8]) -> Vec<u8> {
+    let filename = filename.split(|&byte| byte == 0).next().unwrap();
+    let mut command = b"set logging file ".to_vec();
+    command.extend_from_slice(filename);
+    command
+}
+
 unsafe fn sighandler_backtrace() -> i32 {
     let mut tmpdir: *mut ::core::ffi::c_char = getenv(c"TMPDIR".as_ptr());
     if tmpdir.is_null() {
         tmpdir = c"/tmp".as_ptr().cast_mut();
     }
-    let pid_parent: libc::pid_t = getpid() as libc::pid_t;
-    let mut filename: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    let mut suffix: i32 = 0_i32;
-    loop {
-        free(filename as *mut ::core::ffi::c_void);
-        filename = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        sasprintf(
-            &raw mut filename,
-            c"%s/i3-backtrace.%d.%d.txt".as_ptr(),
-            tmpdir,
-            pid_parent,
-            suffix,
-        );
+    let directory = CStr::from_ptr(tmpdir).to_bytes();
+    let pid_parent = getpid();
+    let mut suffix = 0_i32;
+    let filename = loop {
+        let filename = backtrace_filename(directory, pid_parent, suffix);
         suffix += 1;
-        if !exists(std::ffi::OsStr::from_bytes(
-            CStr::from_ptr(filename).to_bytes(),
-        )) {
-            break;
+        if !exists(std::ffi::OsStr::from_bytes(&filename)) {
+            break filename;
         }
-    }
-    let mut pid_s = std::ptr::null_mut();
-    let mut gdb_log_cmd = std::ptr::null_mut();
-    sasprintf(&raw mut pid_s, c"%d".as_ptr(), pid_parent);
-    sasprintf(
-        &raw mut gdb_log_cmd,
-        c"set logging file %s".as_ptr(),
-        filename,
-    );
+    };
+    // These two C strings exist only for execvp's native argv boundary. Build
+    // every owned argument before fork, keeping the child path allocation-free.
+    let pid_s = std::ffi::CString::new(pid_parent.to_string())
+        .expect("a decimal process id contains no NUL");
+    let gdb_log_cmd = std::ffi::CString::new(backtrace_log_command(&filename))
+        .expect("native path components contain no NUL");
     let args = [
         c"gdb".as_ptr(),
         *start_argv,
         c"-p".as_ptr(),
-        pid_s,
+        pid_s.as_ptr(),
         c"-batch".as_ptr(),
         c"-nx".as_ptr(),
         c"-ex".as_ptr(),
-        gdb_log_cmd,
+        gdb_log_cmd.as_ptr(),
         c"-ex".as_ptr(),
         c"set logging on".as_ptr(),
         c"-ex".as_ptr(),
@@ -126,17 +128,11 @@ unsafe fn sighandler_backtrace() -> i32 {
     // The old unconsumed pipes could block a large batch output indefinitely.
     let null_fd = libc::open(c"/dev/null".as_ptr(), libc::O_RDWR);
     if null_fd < 0 {
-        free(pid_s.cast());
-        free(gdb_log_cmd.cast());
-        free(filename.cast());
         return -1;
     }
     let pid_gdb = fork();
     if pid_gdb < 0 {
         close(null_fd);
-        free(pid_s.cast());
-        free(gdb_log_cmd.cast());
-        free(filename.cast());
         return -1;
     }
     if pid_gdb == 0 {
@@ -150,8 +146,7 @@ unsafe fn sighandler_backtrace() -> i32 {
         err(EXIT_FAILURE, c"execvp(gdb)".as_ptr());
     }
     close(null_fd);
-    free(pid_s.cast());
-    free(gdb_log_cmd.cast());
+    drop((pid_s, gdb_log_cmd));
     let mut status: i32 = 0_i32;
     waitpid(
         pid_gdb as libc::pid_t,
@@ -163,16 +158,11 @@ unsafe fn sighandler_backtrace() -> i32 {
             i3_common::logging::Level::Debug,
             b"../src/sighandler.c:sighandler_backtrace:123 - GDB did not run properly\n",
         );
-        free(filename.cast());
         return -1;
-    } else if !exists(std::ffi::OsStr::from_bytes(
-        CStr::from_ptr(filename).to_bytes(),
-    )) {
+    } else if !exists(std::ffi::OsStr::from_bytes(&filename)) {
         crate::log::write_log_bytes(i3_common::logging::Level::Debug, b"../src/sighandler.c:sighandler_backtrace:126 - GDB executed successfully, but no backtrace was generated\n");
-        free(filename.cast());
         return -1;
     }
-    free(filename.cast());
     1
 }
 unsafe fn prepare_crash_messages() {
@@ -624,6 +614,48 @@ use crate::xcb::xcb_numlock_mask;
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn backtrace_argument_bytes_match_native_printf_without_running_gdb() {
+        for directory in [b"".as_slice(), b".work", b"dir/\xff", b"dir\0ignored\xff"] {
+            let prefix = directory.split(|&byte| byte == 0).next().unwrap();
+            let native_directory = std::ffi::CString::new(prefix).unwrap();
+            for pid in [i32::MIN, -1, 0, 1, i32::MAX] {
+                for suffix in [i32::MIN, -1, 0, 1, i32::MAX] {
+                    let filename = backtrace_filename(directory, pid, suffix);
+                    let mut native = [0u8; 256];
+                    let count = unsafe {
+                        libc::snprintf(
+                            native.as_mut_ptr().cast(),
+                            native.len(),
+                            c"%s/i3-backtrace.%d.%d.txt".as_ptr(),
+                            native_directory.as_ptr(),
+                            pid,
+                            suffix,
+                        )
+                    };
+                    assert!(count >= 0 && (count as usize) < native.len());
+                    assert_eq!(filename, &native[..count as usize]);
+                    let native_filename = std::ffi::CString::new(filename.clone()).unwrap();
+                    let count = unsafe {
+                        libc::snprintf(
+                            native.as_mut_ptr().cast(),
+                            native.len(),
+                            c"set logging file %s".as_ptr(),
+                            native_filename.as_ptr(),
+                        )
+                    };
+                    assert!(count >= 0 && (count as usize) < native.len());
+                    let mut bounded_filename = filename;
+                    bounded_filename.extend_from_slice(b"\0ignored\xff");
+                    assert_eq!(
+                        backtrace_log_command(&bounded_filename),
+                        &native[..count as usize],
+                    );
+                }
+            }
+        }
+    }
+
     #[test]
     fn crash_value_helpers_are_stack_only_and_preserve_native_projection() {
         let r = dialog_geometry(
