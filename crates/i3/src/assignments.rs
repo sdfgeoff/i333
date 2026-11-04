@@ -9,7 +9,6 @@ use std::ptr::NonNull;
 
 use crate::application::assignments;
 use crate::commands_parser::{command_result_free, parse_command};
-use crate::log::debuglog;
 use crate::r#match::match_matches_window;
 use crate::tree::tree_render;
 use crate::types::{Assignment, AssignmentDest, Window};
@@ -82,13 +81,8 @@ pub unsafe fn run_assignments(window: *mut Window) {
     if window.is_null() {
         return;
     }
-    debuglog(
-        c"%s:%s:%d - Checking if any assignments match this window\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/assignments.c".as_ptr(),
-        c"run_assignments".as_ptr(),
-        22 as libc::c_int,
+    ::log::debug!(
+        "../src/assignments.c:run_assignments:22 - Checking if any assignments match this window\n"
     );
     let mut needs_tree_render = false;
     let old_first_assignment = assignments.tqh_first;
@@ -98,8 +92,7 @@ pub unsafe fn run_assignments(window: *mut Window) {
             && match_matches_window(&raw mut (*current).match_0, window)
         {
             if window_already_ran(window, current) {
-                debuglog(c"%s:%s:%d - This assignment already ran for the given window, not executing it again.\n".as_ptr().cast_mut(),
-                    c"../src/assignments.c".as_ptr(), c"run_assignments".as_ptr(), 40 as libc::c_int);
+                ::log::debug!("../src/assignments.c:run_assignments:40 - This assignment already ran for the given window, not executing it again.\n");
             } else {
                 remember_assignment(window, current);
                 // Own both the command bytes and ID before callbacks can reload
@@ -109,15 +102,28 @@ pub unsafe fn run_assignments(window: *mut Window) {
                         unreachable!("command assignment has a command destination");
                     };
                     let expanded = window_command((*window).id, command);
-                    debuglog(
-                        c"%s:%s:%d - matching assignment, execute command %s\n"
-                            .as_ptr()
-                            .cast_mut(),
-                        c"../src/assignments.c".as_ptr(),
-                        c"run_assignments".as_ptr(),
-                        56 as libc::c_int,
-                        command.as_ptr(),
-                    );
+                    {
+                        // Snapshot native bytes before the logger can dispatch a callback.
+                        let log_pointer_1 = command.as_ptr();
+                        let log_value_0 = i3_common::logging::string_bytes(
+                            if log_pointer_1.is_null() {
+                                None
+                            } else {
+                                Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                            },
+                            None,
+                        )
+                        .to_vec();
+                        if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                            ::log::debug!("../src/assignments.c:run_assignments:56 - matching assignment, execute command {}\n", log_value_0_text);
+                        } else {
+                            let mut message = Vec::new();
+                            message.extend_from_slice("../src/assignments.c:run_assignments:56 - matching assignment, execute command ".as_bytes());
+                            message.extend_from_slice(&log_value_0);
+                            message.extend_from_slice("\n".as_bytes());
+                            i3_common::logging::emit(i3_common::logging::Level::Debug, &message);
+                        }
+                    };
                     expanded
                 };
                 {
@@ -145,14 +151,7 @@ pub unsafe fn assignment_for(window: *mut Window, filter: AssignmentKind) -> *mu
         if accepts_assignment((*assignment).kind(), filter)
             && match_matches_window(&raw mut (*assignment).match_0, window)
         {
-            debuglog(
-                c"%s:%s:%d - got a matching assignment\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/assignments.c".as_ptr(),
-                c"assignment_for".as_ptr(),
-                95 as libc::c_int,
-            );
+            ::log::debug!("../src/assignments.c:assignment_for:95 - got a matching assignment\n");
             return assignment;
         }
         assignment = (*assignment).assignments.tqe_next;

@@ -510,12 +510,7 @@ pub static mut included_files: includedfiles_head = includedfiles_head {
 };
 
 pub unsafe fn ungrab_all_keys() {
-    debuglog(
-        c"%s:%s:%d - Ungrabbing all keys\n".as_ptr().cast_mut(),
-        c"../src/config.c".as_ptr(),
-        c"ungrab_all_keys".as_ptr(),
-        28 as ::core::ffi::c_int,
-    );
+    ::log::debug!("../src/config.c:ungrab_all_keys:28 - Ungrabbing all keys\n");
     i3_common::display::connection()
         .expect("main X11 connection is registered")
         .send_request(&xcb::x::UngrabKey {
@@ -786,10 +781,28 @@ pub unsafe fn load_configuration(
     (*file).files.tqe_prev = included_files.tqh_last;
     *included_files.tqh_last = file as *mut IncludedFile;
     included_files.tqh_last = &raw mut (*file).files.tqe_next;
-    verboselog(
-        c"Parsing configfile %s\n".as_ptr().cast_mut(),
-        &raw mut resolved_path as *mut ::core::ffi::c_char,
-    );
+    {
+        // Snapshot native bytes before the logger can dispatch a callback.
+        let log_pointer_1 = &raw mut resolved_path as *mut ::core::ffi::c_char;
+        let log_value_0 = i3_common::logging::string_bytes(
+            if log_pointer_1.is_null() {
+                None
+            } else {
+                Some(std::ffi::CStr::from_ptr(log_pointer_1))
+            },
+            None,
+        )
+        .to_vec();
+        if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+            ::log::info!("Parsing configfile {}\n", log_value_0_text);
+        } else {
+            let mut message = Vec::new();
+            message.extend_from_slice("Parsing configfile ".as_bytes());
+            message.extend_from_slice(&log_value_0);
+            message.extend_from_slice("\n".as_bytes());
+            i3_common::logging::emit(i3_common::logging::Level::Verbose, &message);
+        }
+    };
     let mut stack: stack = stack::default();
     let mut ctx: parser_ctx = parser_ctx {
         use_nagbar: load_type != ConfigLoad::Validate,
@@ -817,11 +830,7 @@ pub unsafe fn load_configuration(
     extract_workspace_names_from_bindings();
     reorder_bindings();
     if !config.font.is_loaded() && load_type != ConfigLoad::Validate {
-        errorlog(
-            c"ERROR: You did not specify required configuration option \"font\"\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::error!("ERROR: You did not specify required configuration option \"font\"\n");
         set_config_font(c"fixed");
     }
     if load_type != ConfigLoad::Validate {
@@ -864,8 +873,6 @@ use xcb::ffi::xcb_connection_t;
 pub use libc::{__errno_location, free, realpath, strerror};
 
 use i3_common::native_stdio::{__assert_fail, errx};
-
-use crate::log::{debuglog, errorlog, verboselog};
 
 // Shared model types retain field layout while using one Rust identity.
 pub use crate::types::config_bar;
