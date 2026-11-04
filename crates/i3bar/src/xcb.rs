@@ -603,7 +603,7 @@ unsafe fn predict_block_length(block: *mut status_block) {
         return;
     }
     (*render).width = predict_text_width(&crate::xcb::font, text) as u32;
-    if !(*block).border.is_null() {
+    if (*block).border.is_some() {
         (*render).width = (*render).width.wrapping_add(logical_px(
             (*block).border_left.wrapping_add((*block).border_right) as ::core::ffi::c_int,
         ) as u32);
@@ -649,11 +649,11 @@ unsafe fn adjust_statusline_length(max_length: u32) -> u32 {
             break;
         }
         width = width.wrapping_sub(switch_block_to_short(block));
-        if !(*block).name.is_null() {
+        if (*block).name.is_some() {
             let mut other: *mut status_block = ::core::ptr::null_mut::<status_block>();
             other = statusline_head.tqh_first;
             while !other.is_null() {
-                if !(*other).name.is_null() && strcmp((*other).name, (*block).name) == 0 {
+                if (*other).name.is_some() && (*other).name == (*block).name {
                     width = width.wrapping_sub(switch_block_to_short(other));
                 }
                 other = (*other).blocks.tqe_next;
@@ -691,11 +691,8 @@ unsafe fn draw_statusline(output: *mut i3_output, clip_left: u32, use_focus_colo
             };
             if (*block).urgent {
                 fg_color = colors.urgent_ws_fg;
-            } else if !(*block).color.is_null() {
-                fg_color = draw_util_hex_to_color(
-                    color_screen,
-                    std::ffi::CStr::from_ptr((*block).color).to_bytes().to_vec(),
-                );
+            } else if (*block).color.is_some() {
+                fg_color = draw_util_hex_to_color(color_screen, (*block).color.clone().unwrap());
             } else if use_focus_colors {
                 fg_color = colors.focus_bar_fg;
             } else {
@@ -707,13 +704,13 @@ unsafe fn draw_statusline(output: *mut i3_output, clip_left: u32, use_focus_colo
                 .wrapping_add((*render).x_offset)
                 .wrapping_add((*render).x_append)
                 as ::core::ffi::c_int;
-            let has_border: ::core::ffi::c_int = if !(*block).border.is_null() {
+            let has_border: ::core::ffi::c_int = if (*block).border.is_some() {
                 1 as ::core::ffi::c_int
             } else {
                 0 as ::core::ffi::c_int
             };
-            if !(*block).border.is_null()
-                || !(*block).background.is_null()
+            if (*block).border.is_some()
+                || (*block).background.is_some()
                 || (*block).urgent as ::core::ffi::c_int != 0
             {
                 let mut border_color: color_t = bar_color;
@@ -721,20 +718,14 @@ unsafe fn draw_statusline(output: *mut i3_output, clip_left: u32, use_focus_colo
                     border_color = colors.urgent_ws_border;
                     bg_color = colors.urgent_ws_bg;
                 } else {
-                    if !(*block).border.is_null() {
-                        border_color = draw_util_hex_to_color(
-                            color_screen,
-                            std::ffi::CStr::from_ptr((*block).border)
-                                .to_bytes()
-                                .to_vec(),
-                        );
+                    if (*block).border.is_some() {
+                        border_color =
+                            draw_util_hex_to_color(color_screen, (*block).border.clone().unwrap());
                     }
-                    if !(*block).background.is_null() {
+                    if (*block).background.is_some() {
                         bg_color = draw_util_hex_to_color(
                             color_screen,
-                            std::ffi::CStr::from_ptr((*block).background)
-                                .to_bytes()
-                                .to_vec(),
+                            (*block).background.clone().unwrap(),
                         );
                     }
                 }
@@ -1059,8 +1050,8 @@ unsafe fn child_handle_button(
                 let output_y: u32 = statusline_y.wrapping_add(event.y as u32);
                 send_block_clicked(
                     event.button as ::core::ffi::c_int,
-                    (*block).name,
-                    (*block).instance,
+                    (*block).name.clone(),
+                    (*block).instance.clone(),
                     event.root_x as ::core::ffi::c_int,
                     event.root_y as ::core::ffi::c_int,
                     relative_x as ::core::ffi::c_int,

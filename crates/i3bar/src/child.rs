@@ -44,11 +44,11 @@ pub struct status_block {
     pub short_text: Option<I3String>,
     pub use_short: bool,
     pub render_length: u32,
-    pub color: *mut ::core::ffi::c_char,
-    pub background: *mut ::core::ffi::c_char,
-    pub border: *mut ::core::ffi::c_char,
+    pub color: Option<Vec<u8>>,
+    pub background: Option<Vec<u8>>,
+    pub border: Option<Vec<u8>>,
     pub min_width: u32,
-    pub min_width_str: *mut ::core::ffi::c_char,
+    pub min_width_str: Option<Vec<u8>>,
     pub align: crate::child::BlockAlign,
     pub urgent: bool,
     pub no_separator: bool,
@@ -60,8 +60,8 @@ pub struct status_block {
     pub sep_block_width: u32,
     pub full_render: status_block_render_desc,
     pub short_render: status_block_render_desc,
-    pub name: *mut ::core::ffi::c_char,
-    pub instance: *mut ::core::ffi::c_char,
+    pub name: Option<Vec<u8>>,
+    pub instance: Option<Vec<u8>>,
     pub blocks: StatusBlockLinks,
 }
 impl Default for status_block {
@@ -71,11 +71,11 @@ impl Default for status_block {
             short_text: None,
             use_short: Default::default(),
             render_length: Default::default(),
-            color: std::ptr::null_mut(),
-            background: std::ptr::null_mut(),
-            border: std::ptr::null_mut(),
+            color: None,
+            background: None,
+            border: None,
             min_width: Default::default(),
-            min_width_str: std::ptr::null_mut(),
+            min_width_str: None,
             align: BlockAlign::Left,
             urgent: Default::default(),
             no_separator: Default::default(),
@@ -95,8 +95,8 @@ impl Default for status_block {
                 x_offset: 0,
                 x_append: 0,
             },
-            name: std::ptr::null_mut(),
-            instance: std::ptr::null_mut(),
+            name: None,
+            instance: None,
             blocks: StatusBlockLinks {
                 tqe_next: std::ptr::null_mut(),
                 tqe_prev: std::ptr::null_mut(),
@@ -104,24 +104,6 @@ impl Default for status_block {
         }
     }
 }
-impl Drop for status_block {
-    fn drop(&mut self) {
-        // All native auxiliary strings are exclusively owned by this block.
-        for pointer in [
-            self.color,
-            self.name,
-            self.instance,
-            self.min_width_str,
-            self.background,
-            self.border,
-        ] {
-            unsafe {
-                libc::free(pointer.cast());
-            }
-        }
-    }
-}
-
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct StatusBlockLinks {
@@ -262,13 +244,13 @@ unsafe extern "C" fn set_statusline_error(format: *const ::core::ffi::c_char, ar
     if !(vasprintf(&raw mut message, format, i333_va_list!(args_0)) == -(1 as ::core::ffi::c_int)) {
         err_block = Box::into_raw(Box::new(status_block::default()));
         (*err_block).full_text = I3String::new("Error: ");
-        (*err_block).name = sstrdup(c"error".as_ptr());
-        (*err_block).color = sstrdup(c"#ff0000".as_ptr());
+        (*err_block).name = Some(b"error".to_vec());
+        (*err_block).color = Some(b"#ff0000".to_vec());
         (*err_block).no_separator = true;
         message_block = Box::into_raw(Box::new(status_block::default()));
         (*message_block).full_text = I3String::from_cstr(std::ffi::CStr::from_ptr(message));
-        (*message_block).name = sstrdup(c"error_message".as_ptr());
-        (*message_block).color = sstrdup(c"#ff0000".as_ptr());
+        (*message_block).name = Some(b"error_message".to_vec());
+        (*message_block).color = Some(b"#ff0000".to_vec());
         (*message_block).no_separator = true;
         (*err_block).blocks.tqe_next = statusline_head.tqh_first;
         if !(*err_block).blocks.tqe_next.is_null() {
@@ -617,7 +599,7 @@ thread_local! {
     static WORKSPACE_LINES: std::cell::RefCell<WorkspaceLines> = std::cell::RefCell::new(WorkspaceLines::default());
 }
 
-/// Materialize one completed owned frame into the existing renderer's malloc
+/// Move one completed owned frame into the renderer's Box
 /// queue. Caller owns the event-thread queue/font; no Rust state borrow overlaps
 /// native allocation, font prediction, logging or rendering callbacks.
 unsafe fn install_status_frame(frame: Vec<StatusValue>) {
@@ -639,19 +621,12 @@ unsafe fn install_status_frame(frame: Vec<StatusValue>) {
             .short
             .as_ref()
             .map(|text| I3String::from_bytes_with_legacy_length(text));
-        for (slot, bytes) in [
-            (&raw mut (*block).color, value.color),
-            (&raw mut (*block).background, value.background),
-            (&raw mut (*block).border, value.border),
-            (&raw mut (*block).name, value.name),
-            (&raw mut (*block).instance, value.instance),
-            (&raw mut (*block).min_width_str, value.minimum_text),
-        ] {
-            if let Some(bytes) = bytes {
-                let string = std::ffi::CString::new(bytes).unwrap();
-                *slot = sstrdup(string.as_ptr());
-            }
-        }
+        (*block).color = value.color;
+        (*block).background = value.background;
+        (*block).border = value.border;
+        (*block).min_width_str = value.minimum_text;
+        (*block).name = value.name;
+        (*block).instance = value.instance;
         (*block).min_width = value.minimum;
         (*block).sep_block_width = value.separator;
         (*block).align = value.align;
@@ -662,8 +637,8 @@ unsafe fn install_status_frame(frame: Vec<StatusValue>) {
         (*block).border_bottom = value.borders[2];
         (*block).border_left = value.borders[3];
         (*block).pango_markup = value.markup;
-        if !(*block).min_width_str.is_null() {
-            let text = I3String::from_cstr(std::ffi::CStr::from_ptr((*block).min_width_str));
+        if let Some(bytes) = (*block).min_width_str.as_deref() {
+            let text = I3String::from_bytes_with_legacy_length(bytes);
             text.set_markup(value.markup);
             (*block).min_width = predict_text_width(&crate::xcb::font, &text) as u32;
         }
@@ -711,7 +686,14 @@ unsafe fn install_status_frame(frame: Vec<StatusValue>) {
                 c"[%s:%d] color = %s\n".as_ptr(),
                 c"../i3bar/src/child.c".as_ptr(),
                 383i32,
-                (*current).color,
+                (*current)
+                    .color
+                    .as_ref()
+                    .map(|bytes| {
+                        std::ffi::CString::new(bytes.clone()).expect("color C-string prefix")
+                    })
+                    .as_ref()
+                    .map_or(std::ptr::null(), |color| color.as_ptr()),
             );
             current = (*current).blocks.tqe_next;
         }
@@ -1431,8 +1413,8 @@ fn append_legacy_click(
 }
 pub unsafe fn send_block_clicked(
     button: ::core::ffi::c_int,
-    name: *const ::core::ffi::c_char,
-    instance: *const ::core::ffi::c_char,
+    name: Option<Vec<u8>>,
+    instance: Option<Vec<u8>>,
     x: ::core::ffi::c_int,
     y: ::core::ffi::c_int,
     x_rel: ::core::ffi::c_int,
@@ -1447,16 +1429,13 @@ pub unsafe fn send_block_clicked(
         return;
     }
     child_click_events_initialize();
-    // Name/instance are live native strings for this callback. Stream access
-    // ends before output failure can invoke kill_child/cleanup/reload.
-    let name = (!name.is_null()).then(|| std::ffi::CStr::from_ptr(name).to_bytes());
-    let instance = (!instance.is_null()).then(|| std::ffi::CStr::from_ptr(instance).to_bytes());
+    // The caller owns identifier snapshots before initialization/output callbacks.
     CLICK_STREAM.with(|generator| {
         append_click(
             &mut generator.borrow_mut(),
             ClickValue {
-                name,
-                instance,
+                name: name.as_deref(),
+                instance: instance.as_deref(),
                 button,
                 position: [x, y, x_rel, y_rel, out_x, out_y, width, height],
                 modifiers: mods,
@@ -1808,15 +1787,14 @@ use crate::xcb::draw_bars;
 use i3_common::dpi::logical_px;
 use i3_common::safewrappers::scalloc;
 use i3_common::safewrappers::smalloc;
-use i3_common::safewrappers::sstrdup;
 use i3_common::safewrappers::write_all;
 
 // Canonical Cairo backend ABI; renderer logic remains local.
 
 pub use libc::{
-    __errno_location, close, dup2, execl, exit, fcntl, fork, fprintf, free, killpg, memcpy,
-    memmove, memset, pipe, printf, read, setpgid, strcasecmp, strerror, strlen, strncasecmp,
-    strncmp, waitpid,
+    __errno_location, close, dup2, execl, exit, fcntl, fork, fprintf, free, killpg, memmove,
+    memset, pipe, printf, read, setpgid, strcasecmp, strerror, strlen, strncasecmp, strncmp,
+    waitpid,
 };
 
 use i3_common::native_stdio::{__ctype_b_loc, err, stderr, vasprintf};
@@ -1850,8 +1828,12 @@ mod owned_tests {
                 let block = Box::into_raw(Box::new(status_block {
                     full_text: I3String::new(text),
                     short_text: Some(I3String::new("short")),
-                    // Exercise the block's independent native-string ownership.
-                    color: unsafe { libc::strdup(c"#ff0000".as_ptr()) },
+                    // Each queued block independently owns its auxiliary bytes.
+                    color: Some(b"#ff0000".to_vec()),
+                    background: Some(Vec::new()),
+                    min_width_str: Some(b"width-\xff".to_vec()),
+                    name: Some(b"\xff".to_vec()),
+                    instance: Some(Vec::new()),
                     ..status_block::default()
                 }));
                 unsafe {
@@ -1860,9 +1842,47 @@ mod owned_tests {
                     head.tqh_last = &raw mut (*block).blocks.tqe_next;
                 }
             }
+            // Click identifiers must remain independently owned when output
+            // callbacks clear the live status queue before serialization.
+            let (name, instance) = unsafe {
+                (
+                    (*head.tqh_first).name.clone(),
+                    (*head.tqh_first).instance.clone(),
+                )
+            };
+            let mut expected = ClickStream::default();
             unsafe {
+                append_click(
+                    &mut expected,
+                    ClickValue {
+                        name: (*head.tqh_first).name.as_deref(),
+                        instance: (*head.tqh_first).instance.as_deref(),
+                        button: 1,
+                        position: [0; 8],
+                        modifiers: 0,
+                    },
+                );
+            }
+            unsafe {
+                assert_eq!(
+                    (*head.tqh_first).background.as_deref(),
+                    Some(b"".as_slice())
+                );
+                assert!((*head.tqh_first).border.is_none());
                 clear_statusline(&raw mut *head);
             }
+            let mut clicks = ClickStream::default();
+            append_click(
+                &mut clicks,
+                ClickValue {
+                    name: name.as_deref(),
+                    instance: instance.as_deref(),
+                    button: 1,
+                    position: [0; 8],
+                    modifiers: 0,
+                },
+            );
+            assert_eq!(clicks.bytes(), expected.bytes());
             assert!(head.tqh_first.is_null());
             assert_eq!(head.tqh_last, &raw mut head.tqh_first);
         }
