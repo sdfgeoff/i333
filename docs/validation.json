@@ -8,19 +8,19 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 31 wallclock secs ( 0.83 usr +  0.09 sys =  0.92 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 23 wallclock secs ( 0.76 usr +  0.08 sys =  0.84 CPU)\nResult: PASS",
     "profile": "debug",
     "build": "cargo test --locked",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "8894ab9498ac0caafa8ef40aa7ceb4ee6705cc832deca687ce9fe148278a8d2d",
-    "i3bar": "b6407000703532cf80741a558e8d82819fc97650964886994c93ca0794d0f37e",
-    "i3-config-wizard": "4a2fd2f63d1ad7446600afa8b6acdda5100fd1284b017ef8d1b33cc7a2ded1ef",
-    "i3-dump-log": "96a5563865bbef56ca17a0e7d16ac4c3cbefd2edd3f40fb57c543093280c1a0b",
-    "i3-input": "d13dff89afeb9206dc413d833a2d091503561b2c102e89deceefe29398839a78",
-    "i3-msg": "b264ca7d57c22761713c105cc7265c15be9631fe42c1afcf5d277b69b536792b",
-    "i3-nagbar": "e8ea8cdb512ad473bcbc9c5759d36756f12bef42fa54164dd5059aceaed1a5dd"
+    "i3": "ef26d0b8976b77cc4f4f782ed0ff62c2f5e20e608a9bf3267976b00f5982775d",
+    "i3bar": "9aaef04f6af473f20966b57794fd3caaf01d3b306fe4f807d332b6fe8d677d61",
+    "i3-config-wizard": "601288aa42b8f7c9fbe3a1dea2206484f975141d703cb6e8f60536ed9ab71ba1",
+    "i3-dump-log": "dacfd6d384c662615e6a5e297ffc627530a594b784c0f156673b67a0933aabe9",
+    "i3-input": "469d11afe43b86363cc7b5125fd05ca0793f98d11d038f217f5a0cdfd584953e",
+    "i3-msg": "1f3703a641041a0ddbf16b30cf04a717d2c11a3dfb566a077ae4e21c25ccb9a7",
+    "i3-nagbar": "1a31ae93383acc6e0eac9eb29a206b0d387813266ebfb0c756e2ee3bc27ecdc1"
   },
   "note": "Nine-member Cargo workspace. cargo test --locked passed 440 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
@@ -2690,6 +2690,39 @@
       "full_rust_tests": 440,
       "upstream_assertions": 4205,
       "installed_binary_or_current_desktop_changed": false
+    },
+    "clippy_straightforward_cleanup": {
+      "status": "validated",
+      "source_commit": "8e99f6fff165bce83d4301bf4dd186b508c6a7e1",
+      "baseline_findings": 223,
+      "resolved_findings": 187,
+      "remaining_findings": 36,
+      "new_lint_suppressions": 0,
+      "scope": [
+        "Inline immediately invoked logging snapshot closures with stable owners and preserved evaluation order",
+        "Use C-string literals and native byte counts; retain invalid UTF-8 bytes",
+        "Simplify bounded byte-chunk iteration, pointer identity comparisons and nonnegative in-allocation offsets",
+        "Use raw pointer swaps without introducing aliasing mutable references",
+        "Document two actual native safety contracts and organize tests without changing their compilation",
+        "Apply ordinary style fixes without API or ownership redesign"
+      ],
+      "remaining": {
+        "explicit_raw_global_views": 20,
+        "native_and_higharity_signatures": 13,
+        "stable_address_boxed_libev_watchers": 1,
+        "public_binding_release_variant_names": 1,
+        "guarded_geometry_unwrap_in_large_manage_window_branch_deferred": 1
+      },
+      "preserved": "Native byte behavior, offsets, assertion failures, callback-safe snapshots, pointer types/lifetimes, test-module cfg and test coverage.",
+      "validation": {
+        "workspace_all_target_clippy": "passed with three previously cleaned lint classes denied; the 36 documented warnings remain",
+        "worker_unit_tests": 422,
+        "cargo_test_rust_tests": 440,
+        "upstream_assertions": 4205,
+        "cargo_fmt": "passed",
+        "git_diff_check": "passed"
+      },
+      "user_scope": "Low-risk cleanup only; bigger changes deferred as requested. No CI gate or ownership migration in this batch; installed binary and current desktop unchanged."
     }
   },
   "ci_dependency_preparation": {
