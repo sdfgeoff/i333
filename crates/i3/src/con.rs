@@ -2627,7 +2627,7 @@ pub unsafe fn con_parse_title_format(con: *mut Con) -> i3_common::string::I3Stri
         )
     };
     let expanded = i3_common::format_placeholders::expand_bytes(
-        format.as_bytes(),
+        &format,
         &[
             (b"%title", &title),
             (b"%class", &class),

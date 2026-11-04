@@ -776,7 +776,7 @@ unsafe fn snapshot_node_header(con: *mut Con, restart: bool) -> messages::NodeHe
             (*con)
                 .title_format
                 .as_deref()
-                .map(messages::NativeText::cstr),
+                .map(messages::NativeText::bytes),
         ),
         window_icon_padding: (*con).window_icon_padding as i64,
         num: Omitted(((*con).type_0 == ContainerType::Workspace).then_some((*con).num as i64)),

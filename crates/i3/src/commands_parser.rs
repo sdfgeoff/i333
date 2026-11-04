@@ -3374,7 +3374,9 @@ unsafe fn GENERATED_call(
             cmd_title_format(
                 current_match,
                 result,
-                parser_get_string(stack, c"format".as_ptr()),
+                &std::ffi::CStr::from_ptr(parser_get_string(stack, c"format".as_ptr()))
+                    .to_bytes()
+                    .to_vec(),
             );
         }
         66 => {

@@ -529,27 +529,25 @@ impl LayoutState {
         } else if strcasecmp(self.last_key.as_ptr(), c"title_format".as_ptr())
             == 0 as ::core::ffi::c_int
         {
-            (*self.json_node).title_format =
-                Some(property_string(std::slice::from_raw_parts(val, len)));
+            (*self.json_node).title_format = Some(
+                std::slice::from_raw_parts(val, len)
+                    .split(|byte| *byte == 0)
+                    .next()
+                    .unwrap()
+                    .to_vec(),
+            );
         } else if strcasecmp(self.last_key.as_ptr(), c"sticky_group".as_ptr())
             == 0 as ::core::ffi::c_int
         {
-            let group = property_string(std::slice::from_raw_parts(val, len));
+            let group = std::slice::from_raw_parts(val, len)
+                .split(|byte| *byte == 0)
+                .next()
+                .unwrap()
+                .to_vec();
             (*self.json_node).sticky_group = Some(group.clone());
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
-                let log_value_0 = {
-                    let pointer: *const libc::c_char = group.as_ptr();
-                    i3_common::logging::string_bytes(
-                        if pointer.is_null() {
-                            None
-                        } else {
-                            Some(std::ffi::CStr::from_ptr(pointer))
-                        },
-                        None,
-                    )
-                    .to_vec()
-                };
+                let log_value_0 = group.clone();
                 if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                     ::log::info!("sticky_group of this container is {}\n", log_value_0_text);
                 } else {

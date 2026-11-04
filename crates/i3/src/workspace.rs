@@ -440,7 +440,7 @@ pub unsafe fn workspace_is_visible(ws: *mut Con) -> bool {
     let fs: *mut Con = con_get_fullscreen_con(output, FullscreenMode::Output);
     fs == ws
 }
-unsafe fn _get_sticky(con: *mut Con, sticky_group: &std::ffi::CStr, exclude: *mut Con) -> *mut Con {
+unsafe fn _get_sticky(con: *mut Con, sticky_group: &[u8], exclude: *mut Con) -> *mut Con {
     let mut current: *mut Con = nodes::first_ptr(con);
 
     while !current.is_null() {

@@ -5215,21 +5215,11 @@ pub unsafe fn cmd_swap(
 pub unsafe fn cmd_title_format(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    format: *const ::core::ffi::c_char,
+    format: &[u8],
 ) {
-    let format = std::ffi::CStr::from_ptr(format).to_owned();
+    let format = format.split(|byte| *byte == 0).next().unwrap().to_vec();
     {
-        // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = format.as_ptr();
-        let log_value_0 = i3_common::logging::string_bytes(
-            if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            },
-            None,
-        )
-        .to_vec();
+        let log_value_0 = format.clone();
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::debug!(
                 "../src/commands.c:cmd_title_format:2023 - setting title_format to \"{}\"\n",
@@ -5312,7 +5302,11 @@ pub unsafe fn cmd_title_format(
             }
         };
         (*(*current).con).title_format = None;
-        if strcasecmp(format.as_ptr(), c"%title".as_ptr()) != 0 as ::core::ffi::c_int {
+        if strcasecmp(
+            std::ffi::CString::new(format.as_slice()).unwrap().as_ptr(),
+            c"%title".as_ptr(),
+        ) != 0 as ::core::ffi::c_int
+        {
             (*(*current).con).title_format = Some(format.clone());
             if !(*(*current).con).window.is_null() {
                 let formatted_title = con_parse_title_format((*current).con);
