@@ -6129,14 +6129,9 @@ unsafe fn parse_config(
             };
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
-                let log_pointer_1 = (*context).filename;
+                let filename = (*context).filename.clone();
                 let log_value_0 = i3_common::logging::string_bytes(
-                    (if log_pointer_1.is_null() {
-                        None
-                    } else {
-                        Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                    })
-                    .map(std::ffi::CStr::to_bytes),
+                    filename.as_deref().map(|path| path.as_os_str().as_bytes()),
                     None,
                 )
                 .to_vec();
@@ -6586,11 +6581,13 @@ pub unsafe fn free_variables(ctx: *mut parser_ctx) {
     (*ctx).variables.clear();
 }
 
-unsafe fn try_chdir(path: *const ::core::ffi::c_char) -> bool {
+unsafe fn try_chdir(path: &std::path::Path) -> bool {
     let mut result: bool = true;
     let mut dir: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    let mut dirbuf: *mut ::core::ffi::c_char = sstrdup(path);
-    dir = dirname(dirbuf);
+    let mut native_path = std::ffi::CString::new(path.as_os_str().as_bytes())
+        .expect("resolved configuration path has no NUL")
+        .into_bytes_with_nul();
+    dir = dirname(native_path.as_mut_ptr().cast());
     if !dir.is_null() {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
@@ -6667,8 +6664,6 @@ unsafe fn try_chdir(path: *const ::core::ffi::c_char) -> bool {
             result = false;
         }
     }
-    free(dirbuf as *mut ::core::ffi::c_void);
-    dirbuf = ::core::ptr::null_mut::<::core::ffi::c_char>();
     result
 }
 /// The caller keeps the file node and FILE live; only native fread touches the
@@ -6694,13 +6689,15 @@ unsafe fn read_config_contents(file: *mut IncludedFile, stream: *mut FILE, size:
 
 unsafe fn parse_file_inner(
     ctx: *mut parser_ctx,
-    f: *const ::core::ffi::c_char,
+    filename: &std::path::Path,
     included_file: *mut IncludedFile,
 ) -> ParseFileResult {
-    if !try_chdir(f) {
+    if !try_chdir(filename) {
         return ParseFileResult::Failed;
     }
-    let fd = open(f, O_RDONLY);
+    let native_filename = std::ffi::CString::new(filename.as_os_str().as_bytes())
+        .expect("resolved configuration path has no NUL");
+    let fd = open(native_filename.as_ptr(), O_RDONLY);
     if fd == -1_i32 {
         return ParseFileResult::Failed;
     }
@@ -6987,8 +6984,10 @@ unsafe fn parse_file_inner(
     let scanner_input =
         std::ffi::CString::new(expanded).expect("variable projections contain no NUL");
     let new = scanner_input.as_ptr();
-    let mut local_context: context = std::mem::zeroed();
-    local_context.filename = f;
+    let mut local_context = context {
+        filename: Some(filename.to_path_buf()),
+        ..Default::default()
+    };
     let context = &raw mut local_context;
     parse_config(ctx, new, context);
     if (*ctx).has_errors {
@@ -7022,14 +7021,9 @@ unsafe fn parse_file_inner(
                 i3_common::logging::emit(i3_common::logging::Level::Error, &message);
             }
         };
-        let path = std::path::Path::new(std::ffi::OsStr::from_bytes(
-            std::ffi::CStr::from_ptr(f).to_bytes(),
-        ));
-        start_config_error_nagbar(Some(path), (*context).has_errors || invalid_sets);
+        start_config_error_nagbar(Some(filename), (*context).has_errors || invalid_sets);
     }
     let has_errors: bool = (*context).has_errors;
-    free((*context).line_copy as *mut ::core::ffi::c_void);
-    (*context).line_copy = ::core::ptr::null_mut::<::core::ffi::c_char>();
 
     if has_errors {
         return ParseFileResult::ConfigErrors;
@@ -7048,12 +7042,9 @@ pub unsafe fn parse_file(
     included_file: *mut IncludedFile,
 ) -> ParseFileResult {
     let filename = filename.to_path_buf();
-    let native_filename = std::ffi::CString::new(filename.as_os_str().as_bytes())
-        .expect("resolved configuration path has no NUL");
-    let f = native_filename.as_ptr();
     let old_directory = NativeString(getcwd(std::ptr::null_mut(), 0));
     let old_dir = old_directory.0;
-    let mut result: ParseFileResult = parse_file_inner(ctx, f, included_file);
+    let mut result: ParseFileResult = parse_file_inner(ctx, &filename, included_file);
     if chdir(old_dir) == -1_i32 {
         {
             // Snapshot native bytes before the logger can dispatch a callback.

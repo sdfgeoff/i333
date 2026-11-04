@@ -100,15 +100,12 @@ impl Mode {
 pub struct ModeLinks {
     pub sle_next: *mut Mode,
 }
-#[derive(Copy, Clone)]
-#[repr(C)]
+#[derive(Default)]
 pub struct context {
     pub has_errors: bool,
     pub has_warnings: bool,
     pub line_number: i32,
-    pub line_copy: *mut ::core::ffi::c_char,
-    pub filename: *const ::core::ffi::c_char,
-    pub compact_error: *mut ::core::ffi::c_char,
+    pub filename: Option<std::path::PathBuf>,
     pub first_column: i32,
     pub last_column: i32,
 }
