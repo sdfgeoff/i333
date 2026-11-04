@@ -459,26 +459,12 @@ unsafe fn log_x11_error(error: &xcb::ProtocolError) {
         },
         0,
     ) {
-        debuglog(
-            c"%s:%s:%d - Expected X11 Error received for sequence %x\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/main.c".as_ptr(),
-            c"xcb_prepare_cb".as_ptr(),
-            137,
-            i32::from(error.sequence),
+        ::log::debug!(
+            "../src/main.c:xcb_prepare_cb:137 - Expected X11 Error received for sequence {:x}\n",
+            (i32::from(error.sequence)) as u32
         );
     } else {
-        debuglog(
-            c"%s:%s:%d - X11 Error received (probably harmless)! sequence 0x%x, error_code = %d\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/main.c".as_ptr(),
-            c"xcb_prepare_cb".as_ptr(),
-            141,
-            i32::from(error.sequence),
-            i32::from(error.error_code),
-        );
+        ::log::debug!("../src/main.c:xcb_prepare_cb:141 - X11 Error received (probably harmless)! sequence 0x{:x}, error_code = {}\n", (i32::from(error.sequence)) as u32, (i32::from(error.error_code)) as i32);
     }
 }
 
@@ -774,14 +760,9 @@ unsafe extern "C" fn xcb_prepare_cb(
 }
 
 pub unsafe fn main_set_x11_cb(enable: bool) {
-    debuglog(
-        c"%s:%s:%d - Setting main X11 callback to enabled=%d\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/main.c".as_ptr(),
-        c"main_set_x11_cb".as_ptr(),
-        165 as ::core::ffi::c_int,
-        enable as ::core::ffi::c_int,
+    ::log::debug!(
+        "../src/main.c:main_set_x11_cb:165 - Setting main X11 callback to enabled={}\n",
+        (enable as ::core::ffi::c_int) as i32
     );
     if enable {
         ev_prepare_start(main_loop, xcb_prepare);
@@ -859,12 +840,31 @@ unsafe fn parse_restart_fd() -> ::core::ffi::c_int {
         return -(1 as ::core::ffi::c_int);
     }
     let Ok(fd) = parse_long(std::ffi::CStr::from_ptr(restart_fd), 10) else {
-        errorlog(
-            c"ERROR: Malformed _I3_RESTART_FD \"%s\"\n"
-                .as_ptr()
-                .cast_mut(),
-            restart_fd,
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_pointer_1 = restart_fd;
+            let log_value_0 = i3_common::logging::string_bytes(
+                if log_pointer_1.is_null() {
+                    None
+                } else {
+                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                },
+                None,
+            )
+            .to_vec();
+            if let Ok(log_value_0_text) = std::str::from_utf8(&log_value_0) {
+                ::log::error!("ERROR: Malformed _I3_RESTART_FD \"{}\"\n", log_value_0_text);
+            } else {
+                i3_common::logging::emit_parts(
+                    i3_common::logging::Level::Error,
+                    &[
+                        "ERROR: Malformed _I3_RESTART_FD \"".as_bytes(),
+                        &log_value_0,
+                        "\"\n".as_bytes(),
+                    ],
+                );
+            }
+        };
         return -(1 as ::core::ffi::c_int);
     };
     fd as ::core::ffi::c_int
@@ -1067,24 +1067,24 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
             std::ffi::CString::new(value.as_bytes()).expect("OS arguments have no NUL bytes")
         });
         match flag {
-            b'a' => { verboselog(c"Autostart disabled using -a\n".as_ptr().cast_mut()); autostart = false; },
+            b'a' => { ::log::info!("Autostart disabled using -a\n"); autostart = false; },
             b'L' | OPT_RESTART => {
                 layout_owner=value.clone();
                 layout_path=layout_owner.as_ref().unwrap().as_ptr().cast_mut();
                 delete_layout_path = flag == OPT_RESTART;
             },
             b'c' => { override_owner=value.clone(); override_configpath=override_owner.as_ref().unwrap().as_ptr().cast_mut(); },
-            b'C' => { verboselog(c"Checking configuration file only (-C)\n".as_ptr().cast_mut()); only_check_config = true; },
+            b'C' => { ::log::info!("Checking configuration file only (-C)\n"); only_check_config = true; },
             b'v' => { printf(c"i3 version %s © 2009 Michael Stapelberg and contributors\n".as_ptr(), i3_version); return EXIT_SUCCESS; },
             b'm' => { printf(c"Binary i3 version:  %s © 2009 Michael Stapelberg and contributors\n".as_ptr(), i3_version); return display_running_version(); },
             b'V' => set_verbosity(true),
-            b'd' => { verboselog(c"Enabling debug logging\n".as_ptr().cast_mut()); set_debug_logging(true); },
+            b'd' => { ::log::info!("Enabling debug logging\n"); set_debug_logging(true); },
             b'l' => {},
             b'r' => replace_wm = true,
             b'h' => { print_usage(program, shmlog_size); return EXIT_SUCCESS; },
             OPT_XINERAMA => {
                 force_xinerama = true;
-                errorlog(c"ERROR: Using Xinerama instead of RandR. This option should be avoided at all cost because it does not refresh the list of screens, so you cannot configure displays at runtime. Please check if your driver really does not support RandR and disable this option as soon as you can.\n".as_ptr().cast_mut());
+                ::log::error!("ERROR: Using Xinerama instead of RandR. This option should be avoided at all cost because it does not refresh the list of screens, so you cannot configure displays at runtime. Please check if your driver really does not support RandR and disable this option as soon as you can.\n");
             },
             OPT_RANDR15 => disable_randr15 = true,
             OPT_SIGNAL => disable_signalhandler = true,
@@ -1098,15 +1098,24 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
             OPT_SHMLOG => {
                 shmlog_size = i3_common::cli::decimal_prefix(value.as_ref().unwrap().as_bytes());
                 init_logging();
-                verboselog(c"Limiting SHM log size to %d bytes\n".as_ptr().cast_mut(), shmlog_size);
+                ::log::info!("Limiting SHM log size to {} bytes\n", (shmlog_size) as i32);
             },
             OPT_FAKE_OUTPUTS => {
                 let value = value.as_ref().unwrap();
-                verboselog(c"Initializing fake outputs: %s\n".as_ptr().cast_mut(), value.as_ptr());
+                {
+// Snapshot native bytes before the logger can dispatch a callback.
+let log_pointer_1 = value.as_ptr();
+let log_value_0 = i3_common::logging::string_bytes(if log_pointer_1.is_null() { None } else { Some(std::ffi::CStr::from_ptr(log_pointer_1)) }, None).to_vec();
+if let Ok(log_value_0_text) = std::str::from_utf8(&log_value_0) {
+::log::info!("Initializing fake outputs: {}\n", log_value_0_text);
+} else {
+i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializing fake outputs: ".as_bytes(), &log_value_0, "\n".as_bytes() ]);
+}
+};
                 fake_owner=Some(value.clone());
                 fake_outputs=fake_owner.as_ref().unwrap().as_ptr().cast_mut();
             },
-            OPT_OLD_PARSER => errorlog(c"ERROR: You are passing --force-old-config-parser-v4.4-only, but that flag was removed by now.\n".as_ptr().cast_mut()),
+            OPT_OLD_PARSER => ::log::error!("ERROR: You are passing --force-old-config-parser-v4.4-only, but that flag was removed by now.\n"),
             _ => unreachable!(),
         }
     }
@@ -1123,11 +1132,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     }
     if !operands.is_empty() {
         set_verbosity(true_0 != 0);
-        verboselog(
-            c"Additional arguments passed. Sending them as a command to i3.\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::info!("Additional arguments passed. Sending them as a command to i3.\n");
         let payload_bytes = operands
             .iter()
             .map(|argument| argument.as_bytes())
@@ -1136,27 +1141,43 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         let payload_owner =
             std::ffi::CString::new(payload_bytes).expect("OS arguments have no NUL bytes");
         let payload = payload_owner.as_ptr();
-        debuglog(
-            c"%s:%s:%d - Command is: %s (%zd bytes)\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/main.c".as_ptr(),
-            c"main".as_ptr(),
-            500 as ::core::ffi::c_int,
-            payload,
-            strlen(payload),
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_pointer_1 = payload;
+            let log_value_0 = i3_common::logging::string_bytes(
+                if log_pointer_1.is_null() {
+                    None
+                } else {
+                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                },
+                None,
+            )
+            .to_vec();
+            let log_value_1 = (strlen(payload)) as isize;
+            if let Ok(log_value_0_text) = std::str::from_utf8(&log_value_0) {
+                ::log::debug!(
+                    "../src/main.c:main:500 - Command is: {} ({} bytes)\n",
+                    log_value_0_text,
+                    log_value_1
+                );
+            } else {
+                i3_common::logging::emit_parts(
+                    i3_common::logging::Level::Debug,
+                    &[
+                        "../src/main.c:main:500 - Command is: ".as_bytes(),
+                        &log_value_0,
+                        format!(" ({} bytes)\n", log_value_1).as_bytes(),
+                    ],
+                );
+            }
+        };
         let socket_path_0: *mut ::core::ffi::c_char = root_atom_contents(
             c"I3_SOCKET_PATH".as_ptr(),
             ::core::ptr::null_mut::<xcb_connection_t>(),
             0 as ::core::ffi::c_int,
         );
         if socket_path_0.is_null() {
-            errorlog(
-                c"ERROR: Could not get i3 IPC socket path\n"
-                    .as_ptr()
-                    .cast_mut(),
-            );
+            ::log::error!("ERROR: Could not get i3 IPC socket path\n");
             return 1 as ::core::ffi::c_int;
         }
         let socket_path = std::ffi::CStr::from_ptr(socket_path_0).to_owned();
@@ -1216,31 +1237,83 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
             rlim_max: RLIM_INFINITY as libc::rlim_t,
         };
         setrlimit(libc::RLIMIT_CORE, &raw mut limit);
-        verboselog(
-            c"CORE DUMPS: You are running a development version of i3, so coredumps were automatically enabled (ulimit -c unlimited).\n".as_ptr().cast_mut(),
-        );
+        ::log::info!("CORE DUMPS: You are running a development version of i3, so coredumps were automatically enabled (ulimit -c unlimited).\n");
         let cwd: *mut ::core::ffi::c_char =
             getcwd(::core::ptr::null_mut::<::core::ffi::c_char>(), 0 as usize);
         if !cwd.is_null() {
-            verboselog(
-                c"CORE DUMPS: Your current working directory is \"%s\".\n"
-                    .as_ptr()
-                    .cast_mut(),
-                cwd,
-            );
+            {
+                // Snapshot native bytes before the logger can dispatch a callback.
+                let log_pointer_1 = cwd;
+                let log_value_0 = i3_common::logging::string_bytes(
+                    if log_pointer_1.is_null() {
+                        None
+                    } else {
+                        Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                    },
+                    None,
+                )
+                .to_vec();
+                if let Ok(log_value_0_text) = std::str::from_utf8(&log_value_0) {
+                    ::log::info!(
+                        "CORE DUMPS: Your current working directory is \"{}\".\n",
+                        log_value_0_text
+                    );
+                } else {
+                    i3_common::logging::emit_parts(
+                        i3_common::logging::Level::Verbose,
+                        &[
+                            "CORE DUMPS: Your current working directory is \"".as_bytes(),
+                            &log_value_0,
+                            "\".\n".as_bytes(),
+                        ],
+                    );
+                }
+            };
             free(cwd as *mut ::core::ffi::c_void);
         }
         if let Ok(mut file) = std::fs::File::open("/proc/sys/kernel/core_pattern") {
             let mut buffer = [0u8; 1024];
             if file.read(&mut buffer[..1023]).is_ok_and(|count| count > 0) {
-                verboselog(
-                    c"CORE DUMPS: Your core_pattern is: %s".as_ptr().cast_mut(),
-                    buffer.as_ptr().cast::<libc::c_char>(),
-                );
+                {
+                    // Snapshot the first-NUL prefix through this zeroed byte span;
+                    // the read above is bounded to 1023 bytes before dispatch.
+                    let log_value_0 = buffer.split(|byte| *byte == 0).next().unwrap().to_vec();
+                    if let Ok(log_value_0_text) = std::str::from_utf8(&log_value_0) {
+                        ::log::info!("CORE DUMPS: Your core_pattern is: {}", log_value_0_text);
+                    } else {
+                        i3_common::logging::emit_parts(
+                            i3_common::logging::Level::Verbose,
+                            &[
+                                "CORE DUMPS: Your core_pattern is: ".as_bytes(),
+                                &log_value_0,
+                            ],
+                        );
+                    }
+                };
             }
         }
     }
-    verboselog(c"i3 %s starting\n".as_ptr().cast_mut(), _i3_version);
+    {
+        // Snapshot native bytes before the logger can dispatch a callback.
+        let log_pointer_1 = _i3_version;
+        let log_value_0 = i3_common::logging::string_bytes(
+            if log_pointer_1.is_null() {
+                None
+            } else {
+                Some(std::ffi::CStr::from_ptr(log_pointer_1))
+            },
+            None,
+        )
+        .to_vec();
+        if let Ok(log_value_0_text) = std::str::from_utf8(&log_value_0) {
+            ::log::info!("i3 {} starting\n", log_value_0_text);
+        } else {
+            i3_common::logging::emit_parts(
+                i3_common::logging::Level::Verbose,
+                &["i3 ".as_bytes(), &log_value_0, " starting\n".as_bytes()],
+            );
+        }
+    };
     // Keep extension events as owned UnknownEvent values for now. xcb 1.7's
     // optional extension resolver unwraps unknown extension opcodes/subtypes;
     // the existing checked native dispatcher must continue ignoring them.
@@ -1437,46 +1510,22 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
             visual: visual_id,
         });
         if let Err(error) = main_connection().check_request(cookie) {
-            errorlog(
-                c"ERROR: Could not create colormap. Error code: %d\n"
-                    .as_ptr()
-                    .cast_mut(),
-                i32::from((*error.as_raw()).error_code),
+            ::log::error!(
+                "ERROR: Could not create colormap. Error code: {}\n",
+                (i32::from((*error.as_raw()).error_code)) as i32
             );
             exit(EXIT_FAILURE);
         }
     }
     main_connection().prefetch_maximum_request_length();
     init_dpi();
-    debuglog(
-        c"%s:%s:%d - root_depth = %d, visual_id = 0x%08x.\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/main.c".as_ptr(),
-        c"main".as_ptr(),
-        648 as ::core::ffi::c_int,
-        root_depth as ::core::ffi::c_int,
-        visual_id,
+    ::log::debug!(
+        "../src/main.c:main:648 - root_depth = {}, visual_id = 0x{:08x}.\n",
+        (root_depth as ::core::ffi::c_int) as i32,
+        (visual_id) as u32
     );
-    debuglog(
-        c"%s:%s:%d - root_screen->height_in_pixels = %d, root_screen->height_in_millimeters = %d\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/main.c".as_ptr(),
-        c"main".as_ptr(),
-        650 as ::core::ffi::c_int,
-        root_screen_info().height_in_pixels as ::core::ffi::c_int,
-        root_screen_info().height_in_millimeters as ::core::ffi::c_int,
-    );
-    debuglog(
-        c"%s:%s:%d - One logical pixel corresponds to %d physical pixels on this display.\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/main.c".as_ptr(),
-        c"main".as_ptr(),
-        651 as ::core::ffi::c_int,
-        logical_px(1 as ::core::ffi::c_int),
-    );
+    ::log::debug!("../src/main.c:main:650 - root_screen->height_in_pixels = {}, root_screen->height_in_millimeters = {}\n", (root_screen_info().height_in_pixels as ::core::ffi::c_int) as i32, (root_screen_info().height_in_millimeters as ::core::ffi::c_int) as i32);
+    ::log::debug!("../src/main.c:main:651 - One logical pixel corresponds to {} physical pixels on this display.\n", (logical_px(1 as ::core::ffi::c_int)) as i32);
     let gcookie = main_connection().send_request(&x::GetGeometry {
         drawable: x::Drawable::Window(x::Window::new(root)),
     });
@@ -1484,14 +1533,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         window: x::Window::new(root),
     });
     let _ = main_connection().flush();
-    debuglog(
-        c"%s:%s:%d - waiting for PropertyNotify event\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/main.c".as_ptr(),
-        c"main".as_ptr(),
-        660 as ::core::ffi::c_int,
-    );
+    ::log::debug!("../src/main.c:main:660 - waiting for PropertyNotify event\n");
     loop {
         match main_connection().wait_for_event() {
             Ok(event)
@@ -1507,19 +1549,37 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
             Err(xcb::Error::Connection(_)) => break,
         }
     }
-    debuglog(
-        c"%s:%s:%d - got timestamp %d\n".as_ptr().cast_mut(),
-        c"../src/main.c".as_ptr(),
-        c"main".as_ptr(),
-        669 as ::core::ffi::c_int,
-        last_timestamp,
+    ::log::debug!(
+        "../src/main.c:main:669 - got timestamp {}\n",
+        (last_timestamp) as i32
     );
     for ((name, target), cookie) in atom_requests.into_iter().zip(atom_cookies) {
         let Ok(reply) = main_connection().wait_for_reply(cookie) else {
-            errorlog(
-                c"ERROR: Could not get atom %s\n".as_ptr().cast_mut(),
-                name.as_ptr(),
-            );
+            {
+                // Snapshot native bytes before the logger can dispatch a callback.
+                let log_pointer_1 = name.as_ptr();
+                let log_value_0 = i3_common::logging::string_bytes(
+                    if log_pointer_1.is_null() {
+                        None
+                    } else {
+                        Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                    },
+                    None,
+                )
+                .to_vec();
+                if let Ok(log_value_0_text) = std::str::from_utf8(&log_value_0) {
+                    ::log::error!("ERROR: Could not get atom {}\n", log_value_0_text);
+                } else {
+                    i3_common::logging::emit_parts(
+                        i3_common::logging::Level::Error,
+                        &[
+                            "ERROR: Could not get atom ".as_bytes(),
+                            &log_value_0,
+                            "\n".as_bytes(),
+                        ],
+                    );
+                }
+            };
             exit(-1);
         };
         target.write(reply.atom().resource_id());
@@ -1563,11 +1623,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         .ok()
         .flatten()
     else {
-        errorlog(
-            c"ERROR: Failed to intern the WM_Sn atom, exiting\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::error!("ERROR: Failed to intern the WM_Sn atom, exiting\n");
         return 1;
     };
     wm_sn = atom_reply.atom().resource_id();
@@ -1580,11 +1636,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         .map(|reply| reply.owner())
         .filter(|owner| !owner.is_none());
     if old_owner.is_some() && !replace_wm {
-        errorlog(
-            c"ERROR: Another window manager is already running (WM_Sn is owned)"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::error!("ERROR: Another window manager is already running (WM_Sn is owned)");
         return 1;
     }
     main_connection().send_request(&x::CreateWindow {
@@ -1614,22 +1666,11 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     });
     if let Some(old_owner) = old_owner {
         let mut check_rounds = 150;
-        debuglog(
-            c"%s:%s:%d - waiting for old WM_Sn selection owner to exit"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/main.c".as_ptr(),
-            c"main".as_ptr(),
-            768 as ::core::ffi::c_int,
-        );
+        ::log::debug!("../src/main.c:main:768 - waiting for old WM_Sn selection owner to exit");
         loop {
             usleep(100000);
             if check_rounds == 0 {
-                errorlog(
-                    c"ERROR: The old window manager is not exiting"
-                        .as_ptr()
-                        .cast_mut(),
-                );
+                ::log::error!("ERROR: The old window manager is not exiting");
                 return 1;
             }
             check_rounds -= 1;
@@ -1667,54 +1708,31 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         )],
     });
     if let Err(error) = main_connection().check_request(cookie) {
-        errorlog(
-            c"ERROR: Another window manager seems to be running (X error %d)\n"
-                .as_ptr()
-                .cast_mut(),
-            i32::from((*error.as_raw()).error_code),
+        ::log::error!(
+            "ERROR: Another window manager seems to be running (X error {})\n",
+            (i32::from((*error.as_raw()).error_code)) as i32
         );
         return 1 as ::core::ffi::c_int;
     }
     let Ok(greply) = main_connection().wait_for_reply(gcookie) else {
-        errorlog(
-            c"ERROR: Could not get geometry of the root window, exiting\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::error!("ERROR: Could not get geometry of the root window, exiting\n");
         return 1 as ::core::ffi::c_int;
     };
-    debuglog(
-        c"%s:%s:%d - root geometry reply: (%d, %d) %d x %d\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/main.c".as_ptr(),
-        c"main".as_ptr(),
-        819 as ::core::ffi::c_int,
-        greply.x() as ::core::ffi::c_int,
-        greply.y() as ::core::ffi::c_int,
-        greply.width() as ::core::ffi::c_int,
-        greply.height() as ::core::ffi::c_int,
+    ::log::debug!(
+        "../src/main.c:main:819 - root geometry reply: ({}, {}) {} x {}\n",
+        (greply.x() as ::core::ffi::c_int) as i32,
+        (greply.y() as ::core::ffi::c_int) as i32,
+        (greply.width() as ::core::ffi::c_int) as i32,
+        (greply.height() as ::core::ffi::c_int) as i32
     );
     xcursor_load_cursors();
     xcursor_set_root_cursor(Cursor::Pointer);
     let xkb_extension = main_connection().wait_for_reply(xkb_extension_cookie).ok();
     xkb_supported = xkb_extension.as_ref().is_some_and(|reply| reply.present());
     if !xkb_supported {
-        debuglog(
-            c"%s:%s:%d - xkb is not present on this server\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/main.c".as_ptr(),
-            c"main".as_ptr(),
-            831 as ::core::ffi::c_int,
-        );
+        ::log::debug!("../src/main.c:main:831 - xkb is not present on this server\n");
     } else {
-        debuglog(
-            c"%s:%s:%d - initializing xcb-xkb\n".as_ptr().cast_mut(),
-            c"../src/main.c".as_ptr(),
-            c"main".as_ptr(),
-            833 as ::core::ffi::c_int,
-        );
+        ::log::debug!("../src/main.c:main:833 - initializing xcb-xkb\n");
         let cookie = main_connection().send_request(&xkb::UseExtension {
             wanted_major: xkb::MAJOR_VERSION as u16,
             wanted_minor: xkb::MINOR_VERSION as u16,
@@ -1750,25 +1768,15 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
             .as_ref()
             .map_or(xkb::PerClientFlag::empty(), |reply| reply.value());
         if !pcf_value.contains(xkb::PerClientFlag::GRABS_USE_XKB_STATE) {
-            errorlog(
-                c"ERROR: Could not set XCB_XKB_PER_CLIENT_FLAG_GRABS_USE_XKB_STATE\n"
-                    .as_ptr()
-                    .cast_mut(),
-            );
+            ::log::error!("ERROR: Could not set XCB_XKB_PER_CLIENT_FLAG_GRABS_USE_XKB_STATE\n");
         }
         if !pcf_value.contains(xkb::PerClientFlag::LOOKUP_STATE_WHEN_GRABBED) {
-            errorlog(
-                c"ERROR: Could not set XCB_XKB_PER_CLIENT_FLAG_LOOKUP_STATE_WHEN_GRABBED\n"
-                    .as_ptr()
-                    .cast_mut(),
+            ::log::error!(
+                "ERROR: Could not set XCB_XKB_PER_CLIENT_FLAG_LOOKUP_STATE_WHEN_GRABBED\n"
             );
         }
         if !pcf_value.contains(xkb::PerClientFlag::DETECTABLE_AUTO_REPEAT) {
-            errorlog(
-                c"ERROR: Could not set XCB_XKB_PER_CLIENT_FLAG_DETECTABLE_AUTO_REPEAT\n"
-                    .as_ptr()
-                    .cast_mut(),
-            );
+            ::log::error!("ERROR: Could not set XCB_XKB_PER_CLIENT_FLAG_DETECTABLE_AUTO_REPEAT\n");
         }
         xkb_base = i32::from(
             xkb_extension
@@ -1791,14 +1799,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         shape_supported = false;
     }
     if !shape_supported {
-        debuglog(
-            c"%s:%s:%d - shape 1.1 is not present on this server\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/main.c".as_ptr(),
-            c"main".as_ptr(),
-            903 as ::core::ffi::c_int,
-        );
+        ::log::debug!("../src/main.c:main:903 - shape 1.1 is not present on this server\n");
     }
     restore_connect();
     property_handlers_init();
@@ -1812,12 +1813,34 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     grab_all_keys();
     let mut needs_tree_init: bool = true_0 != 0;
     if !layout_path.is_null() {
-        verboselog(
-            c"Trying to restore the layout from \"%s\".\n"
-                .as_ptr()
-                .cast_mut(),
-            layout_path,
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_pointer_1 = layout_path;
+            let log_value_0 = i3_common::logging::string_bytes(
+                if log_pointer_1.is_null() {
+                    None
+                } else {
+                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                },
+                None,
+            )
+            .to_vec();
+            if let Ok(log_value_0_text) = std::str::from_utf8(&log_value_0) {
+                ::log::info!(
+                    "Trying to restore the layout from \"{}\".\n",
+                    log_value_0_text
+                );
+            } else {
+                i3_common::logging::emit_parts(
+                    i3_common::logging::Level::Verbose,
+                    &[
+                        "Trying to restore the layout from \"".as_bytes(),
+                        &log_value_0,
+                        "\".\n".as_bytes(),
+                    ],
+                );
+            }
+        };
         needs_tree_init = !tree_restore(layout_path, &greply);
         if delete_layout_path {
             unlink(layout_path);
@@ -1846,12 +1869,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     } else if force_xinerama {
         xinerama_init();
     } else {
-        debuglog(
-            c"%s:%s:%d - Checking for XRandR...\n".as_ptr().cast_mut(),
-            c"../src/main.c".as_ptr(),
-            c"main".as_ptr(),
-            956 as ::core::ffi::c_int,
-        );
+        ::log::debug!("../src/main.c:main:956 - Checking for XRandR...\n");
         randr_init(
             &raw mut randr_base,
             disable_randr15 as ::core::ffi::c_int != 0
@@ -1887,31 +1905,22 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     let mut output_0: *mut Output = ::core::ptr::null_mut::<Output>();
     let pointer_reply = main_connection().wait_for_reply(pointercookie).ok();
     if pointer_reply.is_none() {
-        errorlog(
-            c"ERROR: Could not query pointer position, using first screen\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::error!("ERROR: Could not query pointer position, using first screen\n");
     } else if let Some(pointer_reply) = pointer_reply {
-        debuglog(
-            c"%s:%s:%d - Pointer at %d, %d\n".as_ptr().cast_mut(),
-            c"../src/main.c".as_ptr(),
-            c"main".as_ptr(),
-            995 as ::core::ffi::c_int,
-            pointer_reply.root_x() as ::core::ffi::c_int,
-            pointer_reply.root_y() as ::core::ffi::c_int,
+        ::log::debug!(
+            "../src/main.c:main:995 - Pointer at {}, {}\n",
+            (pointer_reply.root_x() as ::core::ffi::c_int) as i32,
+            (pointer_reply.root_y() as ::core::ffi::c_int) as i32
         );
         output_0 = get_output_containing(
             pointer_reply.root_x() as ::core::ffi::c_uint,
             pointer_reply.root_y() as ::core::ffi::c_uint,
         );
         if output_0.is_null() {
-            errorlog(
-                c"ERROR: ERROR: No screen at (%d, %d), starting on the first screen\n"
-                    .as_ptr()
-                    .cast_mut(),
-                pointer_reply.root_x() as ::core::ffi::c_int,
-                pointer_reply.root_y() as ::core::ffi::c_int,
+            ::log::error!(
+                "ERROR: ERROR: No screen at ({}, {}), starting on the first screen\n",
+                (pointer_reply.root_x() as ::core::ffi::c_int) as i32,
+                (pointer_reply.root_y() as ::core::ffi::c_int) as i32
             );
         }
     }
@@ -1931,53 +1940,31 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     free(log_stream_socket_path as *mut ::core::ffi::c_void);
     let mut log_io: *mut ev_io = ::core::ptr::null_mut::<ev_io>();
     if log_socket == -(1 as ::core::ffi::c_int) {
-        errorlog(
-            c"ERROR: Could not create the log socket, i3-dump-log -f will not work\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::error!("ERROR: Could not create the log socket, i3-dump-log -f will not work\n");
     } else {
         log_io = watchers.add(log_socket, log_new_client);
     }
     let mut socket_ipc_io: *mut ev_io = ::core::ptr::null_mut::<ev_io>();
     listen_fds = crate::sd_daemon::listen_fds();
     if listen_fds < 0 as ::core::ffi::c_int {
-        errorlog(
-            c"ERROR: socket activation: Error in sd_listen_fds\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::error!("ERROR: socket activation: Error in sd_listen_fds\n");
     } else if listen_fds == 0 as ::core::ffi::c_int {
-        debuglog(
-            c"%s:%s:%d - socket activation: no sockets passed\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/main.c".as_ptr(),
-            c"main".as_ptr(),
-            1036 as ::core::ffi::c_int,
-        );
+        ::log::debug!("../src/main.c:main:1036 - socket activation: no sockets passed\n");
     } else {
         let mut flags: ::core::ffi::c_int = 0;
         let mut fd: ::core::ffi::c_int = SD_LISTEN_FDS_START;
         while fd < SD_LISTEN_FDS_START + listen_fds {
-            debuglog(
-                c"%s:%s:%d - socket activation: also listening on fd %d\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/main.c".as_ptr(),
-                c"main".as_ptr(),
-                1042 as ::core::ffi::c_int,
-                fd,
+            ::log::debug!(
+                "../src/main.c:main:1042 - socket activation: also listening on fd {}\n",
+                (fd) as i32
             );
             flags = fcntl(fd, F_GETFD);
             if flags < 0 as ::core::ffi::c_int
                 || fcntl(fd, F_SETFD, flags & !FD_CLOEXEC) < 0 as ::core::ffi::c_int
             {
-                errorlog(
-                    c"ERROR: Could not disable FD_CLOEXEC on fd %d\n"
-                        .as_ptr()
-                        .cast_mut(),
-                    fd,
+                ::log::error!(
+                    "ERROR: Could not disable FD_CLOEXEC on fd {}\n",
+                    (fd) as i32
                 );
             }
             socket_ipc_io = watchers.add(fd, ipc_new_client);
@@ -1986,12 +1973,9 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     }
     let restart_fd: ::core::ffi::c_int = parse_restart_fd() as ::core::ffi::c_int;
     if restart_fd != -(1 as ::core::ffi::c_int) {
-        debuglog(
-            c"%s:%s:%d - serving restart fd %d".as_ptr().cast_mut(),
-            c"../src/main.c".as_ptr(),
-            c"main".as_ptr(),
-            1061 as ::core::ffi::c_int,
-            restart_fd,
+        ::log::debug!(
+            "../src/main.c:main:1061 - serving restart fd {}",
+            (restart_fd) as i32
         );
         let client: *mut ipc_client = ipc_new_client_on_fd(main_loop, restart_fd);
         ipc_confirm_restart(client);
@@ -2021,23 +2005,11 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     manage_existing_windows(root);
     main_connection().send_request(&x::UngrabServer {});
     if autostart {
-        verboselog(
-            c"This is not an in-place restart, checking if a wallpaper is set.\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::info!("This is not an in-place restart, checking if a wallpaper is set.\n");
         if is_background_set(&main_connection(), root_screen_info()) {
-            verboselog(
-                c"A wallpaper is set, so no screenshot is necessary.\n"
-                    .as_ptr()
-                    .cast_mut(),
-            );
+            ::log::info!("A wallpaper is set, so no screenshot is necessary.\n");
         } else {
-            verboselog(
-                c"No wallpaper set, copying root window contents to a pixmap\n"
-                    .as_ptr()
-                    .cast_mut(),
-            );
+            ::log::info!("No wallpaper set, copying root window contents to a pixmap\n");
             set_screenshot_as_wallpaper(&main_connection(), root_screen_info());
         }
     }
@@ -2076,11 +2048,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
                 ::core::ptr::null_mut::<sigaction>(),
             ) == -(1 as ::core::ffi::c_int)
         {
-            errorlog(
-                c"ERROR: Could not setup signal handler.\n"
-                    .as_ptr()
-                    .cast_mut(),
-            );
+            ::log::error!("ERROR: Could not setup signal handler.\n");
         }
     }
     setup_term_handlers();
@@ -2088,7 +2056,27 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     if autostart {
         while !autostarts.tqh_first.is_null() {
             let mut exec: *mut Autostart = autostarts.tqh_first;
-            verboselog(c"auto-starting %s\n".as_ptr().cast_mut(), (*exec).command);
+            {
+                // Snapshot native bytes before the logger can dispatch a callback.
+                let log_pointer_1 = (*exec).command;
+                let log_value_0 = i3_common::logging::string_bytes(
+                    if log_pointer_1.is_null() {
+                        None
+                    } else {
+                        Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                    },
+                    None,
+                )
+                .to_vec();
+                if let Ok(log_value_0_text) = std::str::from_utf8(&log_value_0) {
+                    ::log::info!("auto-starting {}\n", log_value_0_text);
+                } else {
+                    i3_common::logging::emit_parts(
+                        i3_common::logging::Level::Verbose,
+                        &["auto-starting ".as_bytes(), &log_value_0, "\n".as_bytes()],
+                    );
+                }
+            };
             start_application((*exec).command, (*exec).no_startup_id, 0 as u32);
             free((*exec).command as *mut ::core::ffi::c_void);
             (*exec).command = ::core::ptr::null_mut::<::core::ffi::c_char>();
@@ -2104,10 +2092,31 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     }
     while !autostarts_always.tqh_first.is_null() {
         let mut exec_always: *mut Autostart = autostarts_always.tqh_first;
-        verboselog(
-            c"auto-starting (always!) %s\n".as_ptr().cast_mut(),
-            (*exec_always).command,
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_pointer_1 = (*exec_always).command;
+            let log_value_0 = i3_common::logging::string_bytes(
+                if log_pointer_1.is_null() {
+                    None
+                } else {
+                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                },
+                None,
+            )
+            .to_vec();
+            if let Ok(log_value_0_text) = std::str::from_utf8(&log_value_0) {
+                ::log::info!("auto-starting (always!) {}\n", log_value_0_text);
+            } else {
+                i3_common::logging::emit_parts(
+                    i3_common::logging::Level::Verbose,
+                    &[
+                        "auto-starting (always!) ".as_bytes(),
+                        &log_value_0,
+                        "\n".as_bytes(),
+                    ],
+                );
+            }
+        };
         start_application(
             (*exec_always).command,
             (*exec_always).no_startup_id,
@@ -2139,10 +2148,31 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
             (*barconfig).id(),
             CStr::from_ptr(current_socketpath),
         );
-        verboselog(
-            c"Starting bar process: %s\n".as_ptr().cast_mut(),
-            command.as_ptr(),
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_pointer_1 = command.as_ptr();
+            let log_value_0 = i3_common::logging::string_bytes(
+                if log_pointer_1.is_null() {
+                    None
+                } else {
+                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                },
+                None,
+            )
+            .to_vec();
+            if let Ok(log_value_0_text) = std::str::from_utf8(&log_value_0) {
+                ::log::info!("Starting bar process: {}\n", log_value_0_text);
+            } else {
+                i3_common::logging::emit_parts(
+                    i3_common::logging::Level::Verbose,
+                    &[
+                        "Starting bar process: ".as_bytes(),
+                        &log_value_0,
+                        "\n".as_bytes(),
+                    ],
+                );
+            }
+        };
         start_application(command.as_ptr(), true, 0);
         barconfig = (*barconfig).configs.tqe_next as *mut Barconfig;
     }
@@ -2237,8 +2267,6 @@ pub use libc::{
 };
 
 use i3_common::native_stdio::{err, errx, stderr, stdout};
-
-use crate::log::{debuglog, errorlog, verboselog};
 
 // Shared model types retain field layout while using one Rust identity.
 pub use crate::types::gaps_t;
