@@ -110,7 +110,7 @@ fn focused_pattern(expression: &Regex) -> bool {
     expression.pattern().to_bytes() == b"__focused__"
 }
 
-fn regex_matches_bytes(expression: &Regex, bytes: &[u8]) -> bool {
+pub(crate) fn regex_matches_bytes(expression: &Regex, bytes: &[u8]) -> bool {
     let mut message = Vec::new();
     match expression.is_match_bytes(bytes) {
         Ok(matched) => {
@@ -169,10 +169,10 @@ fn text_matches(
     true
 }
 
-fn marks_match(expression: &Regex, names: &[&CStr]) -> bool {
+fn marks_match(expression: &Regex, names: &[&[u8]]) -> bool {
     let matched = names
         .iter()
-        .any(|name| regex_matches_bytes(expression, name.to_bytes()));
+        .any(|name| regex_matches_bytes(expression, name));
     emit(
         Level::Verbose,
         if matched {
@@ -370,15 +370,6 @@ fn text_properties(window: &Window) -> TextProperties<'_> {
     }
 }
 
-/// The non-null pointer is a live C string with the returned borrow's lifetime.
-unsafe fn borrowed_text<'a>(pointer: *const c_char) -> Option<&'a CStr> {
-    if pointer.is_null() {
-        None
-    } else {
-        Some(unsafe { CStr::from_ptr(pointer) })
-    }
-}
-
 /// The event-thread container list and its window models remain live and are
 /// not mutated during this traversal. Only value timestamps escape the boundary.
 unsafe fn urgency_snapshot() -> UrgencyRange {
@@ -477,9 +468,7 @@ pub unsafe fn match_matches_window(raw_match: *mut Match, raw_window: *mut Windo
         let mut names = Vec::new();
         let mut mark = container.marks_head.tqh_first;
         while let Some(value) = unsafe { mark.as_ref() } {
-            if let Some(name) = unsafe { borrowed_text(value.name) } {
-                names.push(name);
-            }
+            names.push(value.name.as_slice());
             mark = value.marks.tqe_next;
         }
         let matched = marks_match(expression, &names);
@@ -932,11 +921,11 @@ mod tests {
     fn marks_match_any_name_and_do_not_interpret_the_focused_sentinel() {
         let expression = Regex::compile_str(r"(?<=mark-)\d+").unwrap();
         assert!(!marks_match(&expression, &[]));
-        assert!(marks_match(&expression, &[c"unrelated", c"mark-42"]));
-        assert!(!marks_match(&expression, &[c"mark-text"]));
+        assert!(marks_match(&expression, &[b"unrelated", b"mark-42"]));
+        assert!(!marks_match(&expression, &[b"mark-text"]));
         let literal = Regex::compile_str("__focused__").unwrap();
-        assert!(marks_match(&literal, &[c"__focused__"]));
-        assert!(!marks_match(&literal, &[c"other"]));
+        assert!(marks_match(&literal, &[b"__focused__"]));
+        assert!(!marks_match(&literal, &[b"other"]));
     }
 
     #[test]

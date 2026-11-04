@@ -65,7 +65,7 @@ struct LayoutState {
     parsing_marks: bool,
     current_swallow: *mut Match,
     swallow_is_empty: bool,
-    pending_marks: Vec<(CString, *mut Con)>,
+    pending_marks: Vec<(Vec<u8>, *mut Con)>,
     focus_mappings: Vec<i32>,
 }
 impl LayoutState {
@@ -294,7 +294,7 @@ impl LayoutState {
                 floating_check_size(self.json_node, false);
             }
             for (mark, con) in std::mem::take(&mut self.pending_marks) {
-                con_mark(con, mark.as_ptr(), MarkMode::Add);
+                con_mark(con, &mark, MarkMode::Add);
             }
             ::log::info!("attaching\n");
             con_attach(self.json_node, parent_ptr(self.json_node), true);
@@ -516,7 +516,11 @@ impl LayoutState {
             }
         } else if self.parsing_marks {
             self.pending_marks.push((
-                property_string(std::slice::from_raw_parts(val, len)),
+                std::slice::from_raw_parts(val, len)
+                    .split(|byte| *byte == 0)
+                    .next()
+                    .unwrap()
+                    .to_vec(),
                 self.json_node,
             ));
         } else if strcasecmp(self.last_key.as_ptr(), c"name".as_ptr()) == 0_i32 {
@@ -815,9 +819,8 @@ impl LayoutState {
             ::log::debug!(
                 "../src/load_layout.c:json_string:443 - Found deprecated key \"mark\".\n"
             );
-            let owned_buf_5 = property_string(std::slice::from_raw_parts(val, len));
-            let buf_5 = owned_buf_5.as_ptr();
-            con_mark(self.json_node, buf_5, MarkMode::Replace);
+            let mark = std::slice::from_raw_parts(val, len).to_vec();
+            con_mark(self.json_node, &mark, MarkMode::Replace);
         } else if strcasecmp(self.last_key.as_ptr(), c"floating".as_ptr()) == 0_i32 {
             let owned_buf_6 = property_string(std::slice::from_raw_parts(val, len));
             let buf_6 = owned_buf_6.as_ptr();

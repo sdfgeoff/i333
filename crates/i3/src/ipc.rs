@@ -657,7 +657,7 @@ unsafe fn snapshot_node_header(con: *mut Con, restart: bool) -> messages::NodeHe
     let mut marks = Vec::new();
     let mut mark = (*con).marks_head.tqh_first;
     while !mark.is_null() {
-        marks.push(native_text((*mark).name));
+        marks.push(messages::NativeText::bytes(&(*mark).name));
         mark = (*mark).marks.tqe_next;
     }
     let output = Omitted(
@@ -1225,7 +1225,7 @@ unsafe fn handle_get_marks(
         let Some(con) = resolve(id) else { continue };
         let mut mark = (*con).marks_head.tqh_first;
         while !mark.is_null() {
-            marks.push(native_text((*mark).name));
+            marks.push(messages::NativeText::bytes(&(*mark).name));
             mark = (*mark).marks.tqe_next;
         }
     }

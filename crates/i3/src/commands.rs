@@ -186,10 +186,9 @@ pub unsafe fn cmd_criteria_match_windows(
                 let mut mark: *mut mark_t = (*con).marks_head.tqh_first;
 
                 while !mark.is_null() {
-                    if !regex_matches(
-                        (*current_match).mark.as_ref().unwrap(),
-                        std::ffi::CStr::from_ptr((*mark).name),
-                    ) {
+                    let mark_name =
+                        i3_common::logging::string_bytes(Some(&(*mark).name), None).to_vec();
+                    if !regex_matches_bytes((*current_match).mark.as_ref().unwrap(), &mark_name) {
                         mark = (*mark).marks.tqe_next;
                     } else {
                         ::log::debug!(
@@ -1990,10 +1989,12 @@ pub unsafe fn cmd_workspace_name(
 pub unsafe fn cmd_mark(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    mark: *const ::core::ffi::c_char,
-    mode: *const ::core::ffi::c_char,
-    toggle: *const ::core::ffi::c_char,
+    mark: &[u8],
+    mode: Option<&[u8]>,
+    toggle: Option<&[u8]>,
 ) {
+    let mark = mark.split(|&byte| byte == 0).next().unwrap();
+    let mode = mode.map(|value| value.split(|&byte| byte == 0).next().unwrap());
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
             let error =
@@ -2073,12 +2074,12 @@ pub unsafe fn cmd_mark(
             );
         }
     };
-    let mark_mode: MarkMode = if mode.is_null() || strcmp(mode, c"--replace".as_ptr()) == 0_i32 {
+    let mark_mode: MarkMode = if mode.is_none() || mode == Some(b"--replace".as_slice()) {
         MarkMode::Replace
     } else {
         MarkMode::Add
     };
-    if !toggle.is_null() {
+    if toggle.is_some() {
         con_mark_toggle((*current).con, mark, mark_mode);
     } else {
         con_mark((*current).con, mark, mark_mode);
@@ -2092,8 +2093,9 @@ pub unsafe fn cmd_mark(
 pub unsafe fn cmd_unmark(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    mark: *const ::core::ffi::c_char,
+    mark: Option<&[u8]>,
 ) {
+    let mark = mark.map(|value| value.split(|&byte| byte == 0).next().unwrap());
     if match_is_empty(current_match) {
         con_unmark(::core::ptr::null_mut::<Con>(), mark);
     } else {
@@ -2294,21 +2296,12 @@ pub unsafe fn cmd_move_con_to_output(
 pub unsafe fn cmd_move_con_to_mark(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    mark: *const ::core::ffi::c_char,
+    mark: &[u8],
 ) {
+    let mark = mark.split(|&byte| byte == 0).next().unwrap();
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = mark;
-        let log_value_0 = i3_common::logging::string_bytes(
-            (if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_0 = mark.to_vec();
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::debug!(
                 "../src/commands.c:cmd_move_con_to_mark:1123 - moving window to mark \"{}\"\n",
@@ -2366,17 +2359,7 @@ pub unsafe fn cmd_move_con_to_mark(
             let log_name_owner_2 = (*(*current).con).name.clone();
             let log_value_1 =
                 i3_common::logging::string_bytes(log_name_owner_2.as_deref(), None).to_vec();
-            let log_pointer_3 = mark;
-            let log_value_2 = i3_common::logging::string_bytes(
-                (if log_pointer_3.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_3))
-                })
-                .map(std::ffi::CStr::to_bytes),
-                None,
-            )
-            .to_vec();
+            let log_value_2 = mark.to_vec();
             if let (Ok(log_value_1_text), Ok(log_value_2_text)) = (
                 std::str::from_utf8(&log_value_1),
                 std::str::from_utf8(&log_value_2),
@@ -4561,7 +4544,7 @@ pub unsafe fn cmd_swap(
         };
         con = con_by_con_id(target_0);
     } else if strcmp(mode, c"mark".as_ptr()) == 0_i32 {
-        con = con_by_mark(arg);
+        con = con_by_mark(std::ffi::CStr::from_ptr(arg).to_bytes());
     } else {
         if (*cmd_output).has_reply() {
             let error_pointer_0 = mode;
@@ -5635,7 +5618,7 @@ pub unsafe fn cmd_gaps(
 }
 pub const EXIT_SUCCESS: i32 = 0_i32;
 
-use crate::regex::regex_matches;
+use crate::r#match::regex_matches_bytes;
 
 // Internal helpers use Rust linkage rather than foreign symbol lookup.
 use crate::bindings::switch_mode;

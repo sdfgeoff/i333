@@ -1051,7 +1051,7 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
                     let mut marks = Vec::new();
                     let mut mark = (*con).marks_head.tqh_first;
                     while !mark.is_null() {
-                        marks.push(CStr::from_ptr((*mark).name).to_bytes().to_owned());
+                        marks.push((*mark).name.clone());
                         mark = (*mark).marks.tqe_next;
                     }
                     if let Some(formatted_mark) = format_marks(marks.iter().map(Vec::as_slice)) {

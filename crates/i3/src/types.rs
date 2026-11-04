@@ -774,10 +774,8 @@ pub struct gaps_t {
     pub left: i32,
 }
 
-#[derive(Copy, Clone)]
-#[repr(C)]
 pub struct mark_t {
-    pub name: *mut ::core::ffi::c_char,
+    pub name: Vec<u8>,
     pub marks: crate::types::MarkTMarks,
 }
 

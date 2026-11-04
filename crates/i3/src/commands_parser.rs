@@ -3357,11 +3357,12 @@ unsafe fn GENERATED_call(
         }
         63 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_move_con_to_mark(
-                current_match,
-                result,
-                parser_get_string(stack, c"mark".as_ptr()),
-            );
+            let mark = (&*stack)
+                .get_string(c"mark")
+                .expect("command grammar supplies mark")
+                .to_bytes()
+                .to_vec();
+            cmd_move_con_to_mark(current_match, result, &mark);
         }
         64 => {
             (*result).next_state = CommandParserState::Initial;
@@ -3692,19 +3693,17 @@ unsafe fn GENERATED_call(
         }
         106 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_unmark(
-                current_match,
-                result,
-                parser_get_string(stack, c"mark".as_ptr()),
-            );
+            let mark = (&*stack)
+                .get_string(c"mark")
+                .map(|value| value.to_bytes().to_vec());
+            cmd_unmark(current_match, result, mark.as_deref());
         }
         107 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_unmark(
-                current_match,
-                result,
-                parser_get_string(stack, c"mark".as_ptr()),
-            );
+            let mark = (&*stack)
+                .get_string(c"mark")
+                .map(|value| value.to_bytes().to_vec());
+            cmd_unmark(current_match, result, mark.as_deref());
         }
         108 => {
             (*result).next_state = CommandParserState::Initial;
@@ -3884,12 +3883,23 @@ unsafe fn GENERATED_call(
         }
         129 => {
             (*result).next_state = CommandParserState::Initial;
+            let mark = (&*stack)
+                .get_string(c"mark")
+                .expect("command grammar supplies mark")
+                .to_bytes()
+                .to_vec();
+            let mode = (&*stack)
+                .get_string(c"mode")
+                .map(|value| value.to_bytes().to_vec());
+            let toggle = (&*stack)
+                .get_string(c"toggle")
+                .map(|value| value.to_bytes().to_vec());
             cmd_mark(
                 current_match,
                 result,
-                parser_get_string(stack, c"mark".as_ptr()),
-                parser_get_string(stack, c"mode".as_ptr()),
-                parser_get_string(stack, c"toggle".as_ptr()),
+                &mark,
+                mode.as_deref(),
+                toggle.as_deref(),
             );
         }
         130 => {

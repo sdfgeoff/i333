@@ -97,17 +97,7 @@ pub unsafe fn con_free(con: *mut Con) {
         drop(Box::from_raw(match_0));
     }
     while !(*con).marks_head.tqh_first.is_null() {
-        let mut mark: *mut mark_t = (*con).marks_head.tqh_first;
-        if !(*mark).marks.tqe_next.is_null() {
-            (*(*mark).marks.tqe_next).marks.tqe_prev = (*mark).marks.tqe_prev;
-        } else {
-            (*con).marks_head.tqh_last = (*mark).marks.tqe_prev;
-        }
-        *(*mark).marks.tqe_prev = (*mark).marks.tqe_next;
-        free((*mark).name as *mut ::core::ffi::c_void);
-        (*mark).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        free(mark as *mut ::core::ffi::c_void);
-        mark = ::core::ptr::null_mut::<mark_t>();
+        remove_mark(con, (*con).marks_head.tqh_first);
     }
     ::log::debug!(
         "../src/con.c:con_free:96 - con {} freed\n",
@@ -669,7 +659,7 @@ pub unsafe fn con_by_frame_id(frame: u32) -> *mut Con {
     ::core::ptr::null_mut::<Con>()
 }
 
-pub unsafe fn con_by_mark(mark: *const ::core::ffi::c_char) -> *mut Con {
+pub unsafe fn con_by_mark(mark: &[u8]) -> *mut Con {
     for id in arena::containers() {
         let Some(con) = arena::resolve(id) else {
             continue;
@@ -709,11 +699,25 @@ pub unsafe fn con_find_transient_for_window(start: *mut Con, target: u32) -> boo
     false
 }
 
-pub unsafe fn con_has_mark(con: *mut Con, mark: *const ::core::ffi::c_char) -> bool {
+/// # Safety
+/// `con` owns the initialized event-thread mark queue and `mark` is a live,
+/// uniquely owned Box node linked in it. No mutation may overlap this unlink.
+unsafe fn remove_mark(con: *mut Con, mark: *mut mark_t) {
+    if !(*mark).marks.tqe_next.is_null() {
+        (*(*mark).marks.tqe_next).marks.tqe_prev = (*mark).marks.tqe_prev;
+    } else {
+        (*con).marks_head.tqh_last = (*mark).marks.tqe_prev;
+    }
+    *(*mark).marks.tqe_prev = (*mark).marks.tqe_next;
+    drop(Box::from_raw(mark));
+}
+
+pub unsafe fn con_has_mark(con: *mut Con, mark: &[u8]) -> bool {
+    let mark = mark.split(|byte| *byte == 0).next().unwrap();
     let mut current: *mut mark_t = (*con).marks_head.tqh_first;
 
     while !current.is_null() {
-        if strcmp((*current).name, mark) == 0_i32 {
+        if (*current).name == mark {
             return true;
         }
         current = (*current).marks.tqe_next;
@@ -721,7 +725,8 @@ pub unsafe fn con_has_mark(con: *mut Con, mark: *const ::core::ffi::c_char) -> b
     false
 }
 
-pub unsafe fn con_mark_toggle(con: *mut Con, mark: *const ::core::ffi::c_char, mode: MarkMode) {
+pub unsafe fn con_mark_toggle(con: *mut Con, mark: &[u8], mode: MarkMode) {
+    let mark = mark.split(|byte| *byte == 0).next().unwrap().to_vec();
     if !con.is_null() {
     } else {
         __assert_fail(
@@ -733,19 +738,7 @@ pub unsafe fn con_mark_toggle(con: *mut Con, mark: *const ::core::ffi::c_char, m
     };
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_value_0 = {
-            let pointer: *const libc::c_char = mark;
-            i3_common::logging::string_bytes(
-                (if pointer.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(pointer))
-                })
-                .map(std::ffi::CStr::to_bytes),
-                None,
-            )
-            .to_vec()
-        };
+        let log_value_0 = mark.clone();
         let log_value_1 = i3_common::logging::pointer(con);
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::debug!(
@@ -764,14 +757,15 @@ pub unsafe fn con_mark_toggle(con: *mut Con, mark: *const ::core::ffi::c_char, m
             );
         }
     };
-    if con_has_mark(con, mark) {
-        con_unmark(con, mark);
+    if con_has_mark(con, &mark) {
+        con_unmark(con, Some(&mark));
     } else {
-        con_mark(con, mark, mode);
+        con_mark(con, &mark, mode);
     };
 }
 
-pub unsafe fn con_mark(con: *mut Con, mark: *const ::core::ffi::c_char, mode: MarkMode) {
+pub unsafe fn con_mark(con: *mut Con, mark: &[u8], mode: MarkMode) {
+    let mark = mark.split(|byte| *byte == 0).next().unwrap().to_vec();
     if !con.is_null() {
     } else {
         __assert_fail(
@@ -783,19 +777,7 @@ pub unsafe fn con_mark(con: *mut Con, mark: *const ::core::ffi::c_char, mode: Ma
     };
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_value_0 = {
-            let pointer: *const libc::c_char = mark;
-            i3_common::logging::string_bytes(
-                (if pointer.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(pointer))
-                })
-                .map(std::ffi::CStr::to_bytes),
-                None,
-            )
-            .to_vec()
-        };
+        let log_value_0 = mark.clone();
         let log_value_1 = i3_common::logging::pointer(con);
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::debug!(
@@ -814,7 +796,7 @@ pub unsafe fn con_mark(con: *mut Con, mark: *const ::core::ffi::c_char, mode: Ma
             );
         }
     };
-    con_unmark(::core::ptr::null_mut::<Con>(), mark);
+    con_unmark(::core::ptr::null_mut::<Con>(), Some(&mark));
     if mode == MarkMode::Replace {
         ::log::debug!(
             "../src/con.c:con_mark:893 - Removing all existing marks on con = {}.\n",
@@ -822,12 +804,17 @@ pub unsafe fn con_mark(con: *mut Con, mark: *const ::core::ffi::c_char, mode: Ma
         );
         while !(*con).marks_head.tqh_first.is_null() {
             let current: *const mark_t = (*con).marks_head.tqh_first;
-            con_unmark(con, (*current).name);
+            let previous_name = (*current).name.clone();
+            con_unmark(con, Some(&previous_name));
         }
     }
-    let new: *mut mark_t =
-        scalloc(1_usize, ::core::mem::size_of::<mark_t>() as usize) as *mut mark_t;
-    (*new).name = sstrdup(mark);
+    let new = Box::into_raw(Box::new(mark_t {
+        name: mark,
+        marks: crate::types::MarkTMarks {
+            tqe_next: std::ptr::null_mut(),
+            tqe_prev: std::ptr::null_mut(),
+        },
+    }));
     (*new).marks.tqe_next = ::core::ptr::null_mut::<mark_t>();
     (*new).marks.tqe_prev = (*con).marks_head.tqh_last;
     *(*con).marks_head.tqh_last = new;
@@ -836,8 +823,9 @@ pub unsafe fn con_mark(con: *mut Con, mark: *const ::core::ffi::c_char, mode: Ma
     (*con).mark_changed = true;
 }
 
-pub unsafe fn con_unmark(con: *mut Con, name: *const ::core::ffi::c_char) {
-    if name.is_null() {
+pub unsafe fn con_unmark(con: *mut Con, name: Option<&[u8]>) {
+    let name = name.map(|bytes| bytes.split(|byte| *byte == 0).next().unwrap().to_vec());
+    if name.is_none() {
         ::log::debug!("../src/con.c:con_unmark:919 - Unmarking all containers.\n");
         for id in arena::containers() {
             let Some(current) = arena::resolve(id) else {
@@ -845,38 +833,17 @@ pub unsafe fn con_unmark(con: *mut Con, name: *const ::core::ffi::c_char) {
             };
             if !(!con.is_null() && current != con) && !(*current).marks_head.tqh_first.is_null() {
                 while !(*current).marks_head.tqh_first.is_null() {
-                    let mut mark: *mut mark_t = (*current).marks_head.tqh_first;
-                    free((*mark).name as *mut ::core::ffi::c_void);
-                    (*mark).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
-                    if !(*mark).marks.tqe_next.is_null() {
-                        (*(*mark).marks.tqe_next).marks.tqe_prev = (*mark).marks.tqe_prev;
-                    } else {
-                        (*current).marks_head.tqh_last = (*mark).marks.tqe_prev;
-                    }
-                    *(*mark).marks.tqe_prev = (*mark).marks.tqe_next;
-                    free(mark as *mut ::core::ffi::c_void);
-                    mark = ::core::ptr::null_mut::<mark_t>();
+                    remove_mark(current, (*current).marks_head.tqh_first);
                     ipc_send_window_event(c"mark".as_ptr(), current);
                 }
                 (*current).mark_changed = true;
             }
         }
     } else {
+        let name = name.as_deref().expect("present mark name");
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_value_0 = {
-                let pointer: *const libc::c_char = name;
-                i3_common::logging::string_bytes(
-                    (if pointer.is_null() {
-                        None
-                    } else {
-                        Some(std::ffi::CStr::from_ptr(pointer))
-                    })
-                    .map(std::ffi::CStr::to_bytes),
-                    None,
-                )
-                .to_vec()
-            };
+            let log_value_0 = name.to_vec();
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::debug!(
                     "../src/con.c:con_unmark:941 - Removing mark \"{}\".\n",
@@ -910,19 +877,10 @@ pub unsafe fn con_unmark(con: *mut Con, name: *const ::core::ffi::c_char) {
         let mut mark_0: *mut mark_t = (*current).marks_head.tqh_first;
 
         while !mark_0.is_null() {
-            if strcmp((*mark_0).name, name) != 0_i32 {
+            if (*mark_0).name != name {
                 mark_0 = (*mark_0).marks.tqe_next;
             } else {
-                free((*mark_0).name as *mut ::core::ffi::c_void);
-                (*mark_0).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
-                if !(*mark_0).marks.tqe_next.is_null() {
-                    (*(*mark_0).marks.tqe_next).marks.tqe_prev = (*mark_0).marks.tqe_prev;
-                } else {
-                    (*current).marks_head.tqh_last = (*mark_0).marks.tqe_prev;
-                }
-                *(*mark_0).marks.tqe_prev = (*mark_0).marks.tqe_next;
-                free(mark_0 as *mut ::core::ffi::c_void);
-                mark_0 = ::core::ptr::null_mut::<mark_t>();
+                remove_mark(current, mark_0);
                 ipc_send_window_event(c"mark".as_ptr(), current);
                 break;
             }
@@ -1532,24 +1490,13 @@ pub unsafe fn con_move_to_target(con: *mut Con, mut target: *mut Con) -> bool {
     _con_move_to_con(con, target, false, true, false, false, true)
 }
 
-pub unsafe fn con_move_to_mark(con: *mut Con, mark: *const ::core::ffi::c_char) -> bool {
-    let target: *mut Con = con_by_mark(mark);
+pub unsafe fn con_move_to_mark(con: *mut Con, mark: &[u8]) -> bool {
+    let mark = mark.split(|byte| *byte == 0).next().unwrap().to_vec();
+    let target: *mut Con = con_by_mark(&mark);
     if target.is_null() {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_value_0 = {
-                let pointer: *const libc::c_char = mark;
-                i3_common::logging::string_bytes(
-                    (if pointer.is_null() {
-                        None
-                    } else {
-                        Some(std::ffi::CStr::from_ptr(pointer))
-                    })
-                    .map(std::ffi::CStr::to_bytes),
-                    None,
-                )
-                .to_vec()
-            };
+            let log_value_0 = mark.clone();
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::debug!(
                     "../src/con.c:con_move_to_mark:1542 - found no container with mark \"{}\"\n",
@@ -2715,6 +2662,28 @@ pub unsafe fn con_rect_size_in_orientation(con: *mut Con) -> u32 {
     }
 }
 
+/// # Safety
+/// Both containers own initialized event-thread mark queues. The heads are
+/// distinct and no queue mutation or callbacks overlap this single transfer.
+unsafe fn transfer_first_mark(old: *mut Con, new: *mut Con) -> bool {
+    let mark = (*old).marks_head.tqh_first;
+    if mark.is_null() {
+        return false;
+    }
+    let next = (*mark).marks.tqe_next;
+    (*old).marks_head.tqh_first = next;
+    if next.is_null() {
+        (*old).marks_head.tqh_last = &raw mut (*old).marks_head.tqh_first;
+    } else {
+        (*next).marks.tqe_prev = &raw mut (*old).marks_head.tqh_first;
+    }
+    (*mark).marks.tqe_next = std::ptr::null_mut();
+    (*mark).marks.tqe_prev = (*new).marks_head.tqh_last;
+    *(*new).marks_head.tqh_last = mark;
+    (*new).marks_head.tqh_last = &raw mut (*mark).marks.tqe_next;
+    true
+}
+
 pub unsafe fn con_merge_into(old: *mut Con, new: *mut Con) {
     (*new).window = (*old).window;
     (*old).window = ::core::ptr::null_mut::<Window>();
@@ -2726,19 +2695,12 @@ pub unsafe fn con_merge_into(old: *mut Con, new: *mut Con) {
     }
     (*new).sticky = (*old).sticky;
     con_set_urgency(new, (*old).urgent);
-    let mut mark: *mut mark_t = (*old).marks_head.tqh_first;
-
-    while !mark.is_null() {
-        (*mark).marks.tqe_next = ::core::ptr::null_mut::<mark_t>();
-        (*mark).marks.tqe_prev = (*new).marks_head.tqh_last;
-        *(*new).marks_head.tqh_last = mark;
-        (*new).marks_head.tqh_last = &raw mut (*mark).marks.tqe_next;
+    let had_marks = !(*old).marks_head.tqh_first.is_null();
+    while transfer_first_mark(old, new) {
+        // Both queues are valid before callbacks can observe either container.
         ipc_send_window_event(c"mark".as_ptr(), new);
-        mark = (*mark).marks.tqe_next;
     }
-    (*new).mark_changed = !(*old).marks_head.tqh_first.is_null();
-    (*old).marks_head.tqh_first = ::core::ptr::null_mut::<mark_t>();
-    (*old).marks_head.tqh_last = &raw mut (*old).marks_head.tqh_first;
+    (*new).mark_changed = had_marks;
     tree_close_internal(old, KillWindow::DontKill, false);
 }
 
@@ -2939,6 +2901,82 @@ mod owned_graph_tests {
             }
         }
     }
+    #[test]
+    fn mark_nodes_own_bytes_preserve_empty_names_and_unlink_before_cleanup() {
+        let con = arena::allocate(Con::empty());
+        unsafe {
+            let mut source = b"\xffmark".to_vec();
+            let mut allocated = Vec::new();
+            for name in [source.clone(), Vec::new(), b"tail".to_vec()] {
+                let mark = Box::into_raw(Box::new(mark_t {
+                    name,
+                    marks: crate::types::MarkTMarks {
+                        tqe_next: std::ptr::null_mut(),
+                        tqe_prev: (*con).marks_head.tqh_last,
+                    },
+                }));
+                *(*con).marks_head.tqh_last = mark;
+                (*con).marks_head.tqh_last = &raw mut (*mark).marks.tqe_next;
+                allocated.push(mark);
+            }
+            source.clear();
+            assert!(con_has_mark(con, b"\xffmark\0ignored"));
+            assert!(con_has_mark(con, b""));
+            assert!(!con_has_mark(con, b"missing"));
+            remove_mark(con, allocated[1]);
+            assert!(!con_has_mark(con, b""));
+            assert_eq!((*allocated[0]).marks.tqe_next, allocated[2]);
+            assert_eq!(
+                (*allocated[2]).marks.tqe_prev,
+                &raw mut (*allocated[0]).marks.tqe_next
+            );
+            remove_mark(con, allocated[2]);
+            assert_eq!(
+                (*con).marks_head.tqh_last,
+                &raw mut (*allocated[0]).marks.tqe_next
+            );
+            let target = arena::allocate(Con::empty());
+            let second = Box::into_raw(Box::new(mark_t {
+                name: b"second".to_vec(),
+                marks: crate::types::MarkTMarks {
+                    tqe_next: std::ptr::null_mut(),
+                    tqe_prev: (*con).marks_head.tqh_last,
+                },
+            }));
+            *(*con).marks_head.tqh_last = second;
+            (*con).marks_head.tqh_last = &raw mut (*second).marks.tqe_next;
+            assert!(transfer_first_mark(con, target));
+            assert_eq!((*con).marks_head.tqh_first, second);
+            assert_eq!(
+                (*second).marks.tqe_prev,
+                &raw mut (*con).marks_head.tqh_first
+            );
+            assert!(transfer_first_mark(con, target));
+            assert!(!transfer_first_mark(con, target));
+            assert!((*con).marks_head.tqh_first.is_null());
+            assert_eq!(
+                (*con).marks_head.tqh_last,
+                &raw mut (*con).marks_head.tqh_first
+            );
+            assert_eq!((*target).marks_head.tqh_first, allocated[0]);
+            assert_eq!((*allocated[0]).marks.tqe_next, second);
+            assert_eq!(
+                (*second).marks.tqe_prev,
+                &raw mut (*allocated[0]).marks.tqe_next
+            );
+            assert_eq!(
+                (*target).marks_head.tqh_last,
+                &raw mut (*second).marks.tqe_next
+            );
+            con_free(con);
+            assert!(con_has_mark(target, b"\xffmark"));
+            assert!(con_has_mark(target, b"second"));
+            con_free(target);
+            assert!(arena::identity(con).is_none());
+            assert!(arena::identity(target).is_none());
+        }
+    }
+
     #[test]
     fn tree_text_owns_ordered_bytes_and_nullable_instance_snapshots() {
         let root = arena::allocate(Con::empty());
