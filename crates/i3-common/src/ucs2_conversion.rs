@@ -107,8 +107,8 @@ pub fn decode_ucs2(input: &[Ucs2Char]) -> Result<String, ConversionIssue> {
         .collect()
 }
 
-/// Remaining malloc/free and errno adapters. Conversion itself is pure Rust.
-pub(crate) mod legacy {
+/// Private native errno/perror reporting; conversion itself is pure Rust.
+pub(crate) mod diagnostic {
     use super::*;
     use std::ffi::CStr;
 
@@ -123,64 +123,4 @@ pub(crate) mod legacy {
             libc::perror(message.as_ptr());
         }
     }
-
-    /// # Safety
-    /// `text` contains `count` readable UCS-2 units, or may be null for count zero.
-    pub unsafe fn convert_ucs2_to_utf8(text: *mut Ucs2Char, count: usize) -> *mut libc::c_char {
-        let glyphs = if count == 0 {
-            &[]
-        } else {
-            // SAFETY: The caller supplies count readable units.
-            unsafe { std::slice::from_raw_parts(text, count) }
-        };
-        match decode_ucs2(glyphs) {
-            Err(issue) => {
-                report(issue, c"Converting to UTF-8 failed");
-                std::ptr::null_mut()
-            }
-            Ok(text) => {
-                let bytes = text.as_bytes();
-                // SAFETY: Preserve all encoded bytes, including data after a NUL
-                // code unit, and append the malloc-owned C terminator.
-                unsafe {
-                    let result = crate::safewrappers::scalloc(bytes.len() + 1, 1).cast::<u8>();
-                    std::ptr::copy_nonoverlapping(bytes.as_ptr(), result, bytes.len());
-                    result.cast()
-                }
-            }
-        }
-    }
-
-    /// # Safety
-    /// `input` is a live C string; `length` is null or writable. Returned storage
-    /// belongs to free(). An empty conversion returns null and length zero.
-    pub unsafe fn convert_utf8_to_ucs2(
-        input: *mut libc::c_char,
-        length: *mut usize,
-    ) -> *mut Ucs2Char {
-        // SAFETY: The caller supplies a valid C string.
-        let input = unsafe { CStr::from_ptr(input) };
-        // Linux's original preferred backend is UCS-2BE//IGNORE. Pure Rust needs
-        // no charset-open fallback; Strict remains available as an explicit policy.
-        let encoded = encode_ucs2(input.to_bytes(), EncodingPolicy::Ignore);
-        if let Some(issue) = encoded.issue {
-            report(issue, c"Converting to UCS-2 failed");
-        }
-        // SAFETY: Output is writable when supplied; preserve the original empty
-        // realloc(0) result, and malloc ownership for nonempty converted buffers.
-        unsafe {
-            if !length.is_null() {
-                *length = encoded.glyphs.len();
-            }
-            if encoded.glyphs.is_empty() {
-                return std::ptr::null_mut();
-            }
-            let output =
-                crate::safewrappers::smalloc(std::mem::size_of_val(encoded.glyphs.as_slice()))
-                    .cast::<Ucs2Char>();
-            std::ptr::copy_nonoverlapping(encoded.glyphs.as_ptr(), output, encoded.glyphs.len());
-            output
-        }
-    }
 }
-pub use legacy::{convert_ucs2_to_utf8, convert_utf8_to_ucs2};

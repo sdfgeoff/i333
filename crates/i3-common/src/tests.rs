@@ -507,33 +507,14 @@ fn ucs2_ignore_and_strict_policies_preserve_their_distinct_partial_results() {
 }
 
 #[test]
-fn legacy_ucs2_buffers_retain_malloc_ownership_and_empty_null_result() {
-    use crate::ucs2_conversion::{convert_ucs2_to_utf8, convert_utf8_to_ucs2};
-    let mut length = 999;
-    let mut input = c"Aλ".to_bytes_with_nul().to_vec();
-    // SAFETY: Input is writable and NUL-terminated; length is a live output.
-    unsafe {
-        let glyphs = convert_utf8_to_ucs2(input.as_mut_ptr().cast(), &mut length);
-        assert_eq!(length, 2);
-        assert_eq!(
-            std::slice::from_raw_parts(glyphs, length),
-            &[0x0041.into(), 0x03bb.into()]
-        );
-        let output = convert_ucs2_to_utf8(glyphs, length);
-        let decoded = CStr::from_ptr(output).to_bytes().to_vec();
-        libc::free(glyphs.cast());
-        libc::free(output.cast());
-        assert_eq!(decoded, "Aλ".as_bytes());
-        assert!(convert_utf8_to_ucs2(c"".as_ptr().cast_mut(), &mut length).is_null());
-        assert_eq!(length, 0);
-        let mut nul_glyphs = [0x0041.into(), 0.into(), 0x0042.into()];
-        let output = convert_ucs2_to_utf8(nul_glyphs.as_mut_ptr(), 3);
-        assert_eq!(
-            std::slice::from_raw_parts(output.cast::<u8>(), 4),
-            b"A\0B\0"
-        );
-        libc::free(output.cast());
-    }
+fn owned_ucs2_buffers_retain_empty_and_embedded_nul_payloads() {
+    use crate::ucs2_conversion::{decode_ucs2, encode_ucs2, EncodingPolicy, Ucs2Char};
+    let glyphs = encode_ucs2("Aλ".as_bytes(), EncodingPolicy::Ignore).glyphs;
+    assert_eq!(glyphs, [0x0041.into(), 0x03bb.into()]);
+    assert_eq!(decode_ucs2(&glyphs).unwrap(), "Aλ");
+    assert!(encode_ucs2(b"", EncodingPolicy::Ignore).glyphs.is_empty());
+    let nul_glyphs: [Ucs2Char; 3] = [0x0041.into(), 0.into(), 0x0042.into()];
+    assert_eq!(decode_ucs2(&nul_glyphs).unwrap().as_bytes(), b"A\0B");
 }
 
 #[test]

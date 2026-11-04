@@ -103,7 +103,7 @@ impl I3String {
         match self.as_str() {
             Ok(value) => Some(value),
             Err(issue) => {
-                crate::ucs2_conversion::legacy::report(issue, c"Converting to UTF-8 failed");
+                crate::ucs2_conversion::diagnostic::report(issue, c"Converting to UTF-8 failed");
                 None
             }
         }
@@ -126,7 +126,7 @@ impl I3String {
         let glyphs = self.as_ucs2();
         if conversion_needed {
             if let Some(issue) = self.ucs2.get().unwrap().issue {
-                crate::ucs2_conversion::legacy::report(issue, c"Converting to UCS-2 failed");
+                crate::ucs2_conversion::diagnostic::report(issue, c"Converting to UCS-2 failed");
             }
         }
         glyphs
