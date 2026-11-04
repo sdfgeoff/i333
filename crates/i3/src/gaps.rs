@@ -284,12 +284,11 @@ pub unsafe fn gaps_for_workspace(ws: *mut Con) -> gaps_t {
         unsafe {
             let assignment = &*current;
             current = assignment.ws_assignments.tqe_next;
-            let matching = if CStr::from_ptr(assignment.name) == name.as_c_str() {
+            let matching = if assignment.name.as_c_str() == name.as_c_str() {
                 AssignmentMatch::Name
             } else if number != -1
-                && name_is_digits(std::ffi::CStr::from_ptr(assignment.name))
-                && ws_name_to_number(std::ffi::CStr::from_ptr(assignment.name)).unwrap_or(-1)
-                    == number
+                && name_is_digits(assignment.name.as_c_str())
+                && ws_name_to_number(assignment.name.as_c_str()).unwrap_or(-1) == number
             {
                 AssignmentMatch::Number
             } else {

@@ -90,14 +90,33 @@ pub type Output = xoutput;
 
 pub type gaps_mask_t = GapMask;
 
-#[derive(Copy, Clone)]
-#[repr(C)]
 pub struct Workspace_Assignment {
-    pub name: *mut ::core::ffi::c_char,
-    pub output: *mut ::core::ffi::c_char,
+    pub name: CString,
+    /// None is a gaps-only record; Some(empty) remains an output assignment.
+    pub output: Option<CString>,
     pub gaps: gaps_t,
     pub gaps_mask: gaps_mask_t,
     pub ws_assignments: WorkspaceAssignmentLinks,
+}
+impl Workspace_Assignment {
+    pub fn new(name: CString, output: Option<CString>) -> Self {
+        Self {
+            name,
+            output,
+            gaps: gaps_t {
+                inner: 0,
+                top: 0,
+                right: 0,
+                bottom: 0,
+                left: 0,
+            },
+            gaps_mask: GapMask::empty(),
+            ws_assignments: WorkspaceAssignmentLinks {
+                tqe_next: std::ptr::null_mut(),
+                tqe_prev: std::ptr::null_mut(),
+            },
+        }
+    }
 }
 #[derive(Copy, Clone)]
 #[repr(C)]

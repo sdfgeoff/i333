@@ -112,12 +112,22 @@ pub unsafe fn get_assigned_output(
     name: *const ::core::ffi::c_char,
     parsed_num: ::core::ffi::c_long,
 ) -> *mut Con {
+    let name_owner = name
+        .as_ref()
+        .map(|value| std::ffi::CStr::from_ptr(value).to_owned());
+    let name = name_owner
+        .as_ref()
+        .map_or(std::ptr::null(), |value| value.as_ptr());
     let mut output: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut assignment: *mut Workspace_Assignment = ::core::ptr::null_mut::<Workspace_Assignment>();
     assignment = ws_assignments.tqh_first;
     while !assignment.is_null() {
-        if !(*assignment).output.is_null() {
-            if !name.is_null() && strcmp((*assignment).name, name) == 0 as ::core::ffi::c_int {
+        let next = (*assignment).ws_assignments.tqe_next;
+        let assignment_name = (*assignment).name.clone();
+        let assignment_output = (*assignment).output.clone();
+        if let Some(assignment_output) = assignment_output.as_deref() {
+            if !name.is_null() && strcmp(assignment_name.as_ptr(), name) == 0 as ::core::ffi::c_int
+            {
                 {
                     // Snapshot native bytes before the logger can dispatch a callback.
                     let log_value_0 = {
@@ -133,7 +143,7 @@ pub unsafe fn get_assigned_output(
                         .to_vec()
                     };
                     let log_value_1 = {
-                        let pointer: *const libc::c_char = (*assignment).output;
+                        let pointer: *const libc::c_char = assignment_output.as_ptr();
                         i3_common::logging::string_bytes(
                             if pointer.is_null() {
                                 None
@@ -153,16 +163,15 @@ pub unsafe fn get_assigned_output(
                         i3_common::logging::emit_parts(i3_common::logging::Level::Debug, &[ "../src/workspace.c:get_assigned_output:94 - Found workspace name=\"".as_bytes(), &log_value_0, "\" assignment to output \"".as_bytes(), &log_value_1, "\"\n".as_bytes() ]);
                     }
                 };
-                let assigned_by_name: *mut Output = get_output_by_name((*assignment).output, true);
+                let assigned_by_name: *mut Output =
+                    get_output_by_name(assignment_output.as_ptr(), true);
                 if !assigned_by_name.is_null() {
                     return (*assigned_by_name).con;
                 }
             } else if output.is_null()
                 && parsed_num != -(1 as ::core::ffi::c_int) as ::core::ffi::c_long
-                && name_is_digits(std::ffi::CStr::from_ptr((*assignment).name))
-                    as ::core::ffi::c_int
-                    != 0
-                && ws_name_to_number(std::ffi::CStr::from_ptr((*assignment).name)).unwrap_or(-1)
+                && name_is_digits(assignment_name.as_c_str()) as ::core::ffi::c_int != 0
+                && ws_name_to_number(assignment_name.as_c_str()).unwrap_or(-1)
                     as ::core::ffi::c_long
                     == parsed_num
             {
@@ -170,7 +179,7 @@ pub unsafe fn get_assigned_output(
                     // Snapshot native bytes before the logger can dispatch a callback.
                     let log_value_0 = (parsed_num) as libc::c_long;
                     let log_value_1 = {
-                        let pointer: *const libc::c_char = (*assignment).output;
+                        let pointer: *const libc::c_char = assignment_output.as_ptr();
                         i3_common::logging::string_bytes(
                             if pointer.is_null() {
                                 None
@@ -187,13 +196,14 @@ pub unsafe fn get_assigned_output(
                         i3_common::logging::emit_parts(i3_common::logging::Level::Debug, &[ format!("../src/workspace.c:get_assigned_output:105 - Found workspace number={} assignment to output \"", log_value_0).as_bytes(), &log_value_1, "\"\n".as_bytes() ]);
                     }
                 };
-                let assigned_by_num: *mut Output = get_output_by_name((*assignment).output, true);
+                let assigned_by_num: *mut Output =
+                    get_output_by_name(assignment_output.as_ptr(), true);
                 if !assigned_by_num.is_null() {
                     output = (*assigned_by_num).con;
                 }
             }
         }
-        assignment = (*assignment).ws_assignments.tqe_next;
+        assignment = next;
     }
     output
 }
@@ -202,8 +212,9 @@ pub unsafe fn output_triggers_assignment(
     output: *mut Output,
     assignment: *mut Workspace_Assignment,
 ) -> bool {
+    let name = (*assignment).name.clone();
     let assigned: *mut Con = get_assigned_output(
-        (*assignment).name,
+        name.as_ptr(),
         -(1 as ::core::ffi::c_int) as ::core::ffi::c_long,
     );
     !assigned.is_null() && assigned == (*output).con
@@ -1436,12 +1447,14 @@ pub unsafe fn workspace_move_to_output(mut ws: *mut Con, output: *mut Output) {
             ::core::ptr::null_mut::<Workspace_Assignment>();
         assignment = ws_assignments.tqh_first;
         while !assignment.is_null() {
+            let next = (*assignment).ws_assignments.tqe_next;
+            let assignment_name = (*assignment).name.clone();
             if output_triggers_assignment(current_output, assignment) {
-                let num: ::core::ffi::c_int =
-                    ws_name_to_number(std::ffi::CStr::from_ptr((*assignment).name)).unwrap_or(-1)
-                        as ::core::ffi::c_int;
+                let num: ::core::ffi::c_int = ws_name_to_number(assignment_name.as_c_str())
+                    .unwrap_or(-1)
+                    as ::core::ffi::c_int;
                 let attached: bool = !if num == -(1 as ::core::ffi::c_int) {
-                    get_existing_workspace_by_name((*assignment).name)
+                    get_existing_workspace_by_name(assignment_name.as_ptr())
                 } else {
                     get_existing_workspace_by_num(num)
                 }
@@ -1450,7 +1463,7 @@ pub unsafe fn workspace_move_to_output(mut ws: *mut Con, output: *mut Output) {
                     {
                         // Snapshot native bytes before the logger can dispatch a callback.
                         let log_value_0 = {
-                            let pointer: *const libc::c_char = (*assignment).name;
+                            let pointer: *const libc::c_char = assignment_name.as_ptr();
                             i3_common::logging::string_bytes(
                                 if pointer.is_null() {
                                     None
@@ -1467,12 +1480,12 @@ pub unsafe fn workspace_move_to_output(mut ws: *mut Con, output: *mut Output) {
                             i3_common::logging::emit_parts(i3_common::logging::Level::Debug, &[ "../src/workspace.c:workspace_move_to_output:1099 - Creating workspace from assignment ".as_bytes(), &log_value_0, ".\n".as_bytes() ]);
                         }
                     };
-                    workspace_get((*assignment).name);
+                    workspace_get(assignment_name.as_ptr());
                     used_assignment = true;
                     break;
                 }
             }
-            assignment = (*assignment).ws_assignments.tqe_next;
+            assignment = next;
         }
         if !used_assignment {
             create_workspace_on_output(current_output, parent_ptr(ws));

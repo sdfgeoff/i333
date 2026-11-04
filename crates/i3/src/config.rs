@@ -39,6 +39,41 @@ pub use crate::application::Binding;
 
 pub use crate::application::bindings_head;
 pub use crate::application::Workspace_Assignment;
+/// # Safety
+/// The initialized assignment queue is exclusively owned by this event thread.
+/// No concurrent or reentrant queue mutation may occur while linking the Box.
+#[deny(unsafe_op_in_unsafe_fn)]
+pub unsafe fn append_workspace_assignment(
+    value: Workspace_Assignment,
+) -> *mut Workspace_Assignment {
+    let node = Box::into_raw(Box::new(value));
+    // SAFETY: the queue's predecessor slot remains live during this append.
+    unsafe {
+        (*node).ws_assignments.tqe_next = std::ptr::null_mut();
+        (*node).ws_assignments.tqe_prev = ws_assignments.tqh_last;
+        *ws_assignments.tqh_last = node;
+        ws_assignments.tqh_last = &raw mut (*node).ws_assignments.tqe_next;
+    }
+    node
+}
+/// # Safety
+/// node is a live, uniquely owned linked Box; queue access is event-thread
+/// exclusive with no concurrent/reentrant mutation. Unlink precedes owner Drop.
+#[deny(unsafe_op_in_unsafe_fn)]
+pub unsafe fn remove_workspace_assignment(node: *mut Workspace_Assignment) {
+    // SAFETY: neighboring link slots remain live until the unlink completes.
+    unsafe {
+        if !(*node).ws_assignments.tqe_next.is_null() {
+            (*(*node).ws_assignments.tqe_next).ws_assignments.tqe_prev =
+                (*node).ws_assignments.tqe_prev;
+        } else {
+            ws_assignments.tqh_last = (*node).ws_assignments.tqe_prev;
+        }
+        *(*node).ws_assignments.tqe_prev = (*node).ws_assignments.tqe_next;
+        drop(Box::from_raw(node));
+    }
+}
+
 pub type tiling_drag_t = TilingDrag;
 pub struct IncludedFile {
     pub path: std::ffi::CString,
@@ -626,21 +661,7 @@ unsafe fn free_configuration() {
         assign = ::core::ptr::null_mut::<Assignment>();
     }
     while !ws_assignments.tqh_first.is_null() {
-        let mut assign_0: *mut Workspace_Assignment = ws_assignments.tqh_first;
-        free((*assign_0).name as *mut ::core::ffi::c_void);
-        (*assign_0).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        free((*assign_0).output as *mut ::core::ffi::c_void);
-        (*assign_0).output = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        if !(*assign_0).ws_assignments.tqe_next.is_null() {
-            (*(*assign_0).ws_assignments.tqe_next)
-                .ws_assignments
-                .tqe_prev = (*assign_0).ws_assignments.tqe_prev;
-        } else {
-            ws_assignments.tqh_last = (*assign_0).ws_assignments.tqe_prev;
-        }
-        *(*assign_0).ws_assignments.tqe_prev = (*assign_0).ws_assignments.tqe_next;
-        free(assign_0 as *mut ::core::ffi::c_void);
-        assign_0 = ::core::ptr::null_mut::<Workspace_Assignment>();
+        remove_workspace_assignment(ws_assignments.tqh_first);
     }
     while !barconfigs.tqh_first.is_null() {
         let mut barconfig: *mut Barconfig = barconfigs.tqh_first;
@@ -1004,6 +1025,219 @@ mod included_file_tests {
             remove_included_file(last);
             assert!(included_files.tqh_first.is_null());
             assert_eq!(included_files.tqh_last, &raw mut included_files.tqh_first);
+        }
+    }
+}
+
+#[cfg(test)]
+mod workspace_assignment_tests {
+    use super::*;
+    use crate::flags::GapMask;
+    use crate::types::{
+        names_head, output_name, xoutput, Con, OutputNameNames, Rect, XoutputOutputs,
+    };
+    #[test]
+    fn owned_assignments_preserve_routing_null_empty_and_gap_precedence() {
+        if std::env::var_os("I333_WORKSPACE_ASSIGNMENT_PROBE").is_none() {
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "config::workspace_assignment_tests::owned_assignments_preserve_routing_null_empty_and_gap_precedence", "--nocapture"])
+                .env("I333_WORKSPACE_ASSIGNMENT_PROBE", "1")
+                .env_remove("DISPLAY").env_remove("I3SOCK").env_remove("WAYLAND_DISPLAY")
+                .output().unwrap();
+            assert!(
+                output.status.success(),
+                "{}\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            return;
+        }
+        fn output(id: u32, name: &mut output_name, con: *mut Con) -> Box<xoutput> {
+            Box::new(xoutput {
+                id,
+                active: true,
+                changed: false,
+                to_be_disabled: false,
+                primary: id == 1,
+                names_head: names_head { slh_first: name },
+                con,
+                rect: Rect {
+                    x: 0,
+                    y: 0,
+                    width: 1,
+                    height: 1,
+                },
+                outputs: XoutputOutputs {
+                    tqe_next: std::ptr::null_mut(),
+                    tqe_prev: std::ptr::null_mut(),
+                },
+            })
+        }
+        let gaps = |value| gaps_t {
+            inner: value,
+            top: value,
+            right: value,
+            bottom: value,
+            left: value,
+        };
+        let label_a = c"OUT-A".to_owned();
+        let label_b = c"out-\xff".to_owned();
+        let mut name_a = Box::new(output_name {
+            name: label_a.as_ptr().cast_mut(),
+            names: OutputNameNames {
+                sle_next: std::ptr::null_mut(),
+            },
+        });
+        let mut name_b = Box::new(output_name {
+            name: label_b.as_ptr().cast_mut(),
+            names: OutputNameNames {
+                sle_next: std::ptr::null_mut(),
+            },
+        });
+        let mut con_a = Box::new(Con::empty());
+        let mut con_b = Box::new(Con::empty());
+        let mut a = output(1, &mut name_a, &mut *con_a);
+        let mut b = output(2, &mut name_b, &mut *con_b);
+        i3_common::logging::set_sink(|_, _| {});
+        unsafe {
+            assert!(ws_assignments.tqh_first.is_null());
+            ws_assignments.tqh_last = &raw mut ws_assignments.tqh_first;
+            // Error recovery returns before dereferencing missing output values.
+            crate::config_directives::cfg_workspace(
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                std::ptr::null(),
+                std::ptr::null(),
+            );
+            assert!(ws_assignments.tqh_first.is_null());
+            crate::randr::outputs.tqh_first = &mut *a;
+            crate::randr::outputs.tqh_last = &raw mut b.outputs.tqe_next;
+            a.outputs.tqe_prev = &raw mut crate::randr::outputs.tqh_first;
+            a.outputs.tqe_next = &mut *b;
+            b.outputs.tqe_prev = &raw mut a.outputs.tqe_next;
+            let gaps_only =
+                append_workspace_assignment(Workspace_Assignment::new(c"1".to_owned(), None));
+            let first = append_workspace_assignment(Workspace_Assignment::new(
+                c"1".to_owned(),
+                Some(c"out-a".to_owned()),
+            ));
+            append_workspace_assignment(Workspace_Assignment::new(
+                c"1:dev".to_owned(),
+                Some(label_b.clone()),
+            ));
+            append_workspace_assignment(Workspace_Assignment::new(
+                c"01".to_owned(),
+                Some(label_b.clone()),
+            ));
+            let empty_output = append_workspace_assignment(Workspace_Assignment::new(
+                c"empty".to_owned(),
+                Some(c"".to_owned()),
+            ));
+            let invalid = append_workspace_assignment(Workspace_Assignment::new(
+                c"work-\xff".to_owned(),
+                Some(label_b.clone()),
+            ));
+            assert!((*gaps_only).output.is_none());
+            assert_eq!((*empty_output).output.as_deref(), Some(c""));
+            let saved_name = (*invalid).name.clone();
+            let saved_output = (*invalid).output.clone();
+            assert_eq!(
+                crate::workspace::get_assigned_output(c"1:dev".as_ptr(), 1),
+                &raw mut *con_b
+            );
+            assert_eq!(
+                crate::workspace::get_assigned_output(c"1:Dev".as_ptr(), 1),
+                &raw mut *con_a
+            );
+            assert_eq!(
+                crate::workspace::get_assigned_output(std::ptr::null(), 1),
+                &raw mut *con_a
+            );
+            assert_eq!(
+                crate::workspace::get_assigned_output(c"work-\xff".as_ptr(), -1),
+                &raw mut *con_b
+            );
+            assert!(crate::workspace::get_assigned_output(c"empty".as_ptr(), -1).is_null());
+            assert!(crate::workspace::output_triggers_assignment(
+                &mut *a, gaps_only
+            ));
+            // Some(empty) still counts as a duplicate output assignment.
+            let tail = ws_assignments.tqh_last;
+            crate::config_directives::cfg_workspace(
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                c"empty".as_ptr(),
+                std::ptr::null(),
+            );
+            assert_eq!(ws_assignments.tqh_last, tail);
+            let successor = (*first).ws_assignments.tqe_next;
+            remove_workspace_assignment(first);
+            assert_eq!((*gaps_only).ws_assignments.tqe_next, successor);
+            assert_eq!(
+                (*successor).ws_assignments.tqe_prev,
+                &raw mut (*gaps_only).ws_assignments.tqe_next
+            );
+            while !ws_assignments.tqh_first.is_null() {
+                remove_workspace_assignment(ws_assignments.tqh_first);
+            }
+            assert_eq!(ws_assignments.tqh_last, &raw mut ws_assignments.tqh_first);
+            assert_eq!(saved_name.as_bytes(), b"work-\xff");
+            assert_eq!(saved_output.as_deref(), Some(label_b.as_c_str()));
+            // Exercise the actual queue adapter, not only the pure gap reducer.
+            config.gaps = gaps_t {
+                inner: 1,
+                top: 2,
+                right: 3,
+                bottom: 4,
+                left: 5,
+            };
+            let numeric =
+                append_workspace_assignment(Workspace_Assignment::new(c"1".to_owned(), None));
+            (*numeric).gaps = gaps(10);
+            (*numeric).gaps_mask = GapMask::TOP;
+            let numeric =
+                append_workspace_assignment(Workspace_Assignment::new(c"01".to_owned(), None));
+            (*numeric).gaps = gaps(20);
+            (*numeric).gaps_mask = GapMask::LEFT;
+            let mut workspace = Con::empty();
+            workspace.name = Some(c"1:dev".to_owned());
+            workspace.num = 1;
+            let actual = crate::gaps::gaps_for_workspace(&mut workspace);
+            assert_eq!(
+                [
+                    actual.inner,
+                    actual.top,
+                    actual.right,
+                    actual.bottom,
+                    actual.left
+                ],
+                [20, 20, 20, 20, 15]
+            );
+            let exact =
+                append_workspace_assignment(Workspace_Assignment::new(c"1:dev".to_owned(), None));
+            (*exact).gaps = gaps(30);
+            (*exact).gaps_mask = GapMask::INNER | GapMask::BOTTOM;
+            let actual = crate::gaps::gaps_for_workspace(&mut workspace);
+            assert_eq!(
+                [
+                    actual.inner,
+                    actual.top,
+                    actual.right,
+                    actual.bottom,
+                    actual.left
+                ],
+                [29, 30, 30, 26, 30]
+            );
+            let later =
+                append_workspace_assignment(Workspace_Assignment::new(c"1:dev".to_owned(), None));
+            (*later).gaps = gaps(99);
+            let actual = crate::gaps::gaps_for_workspace(&mut workspace);
+            assert_eq!(actual.inner, 29);
+            while !ws_assignments.tqh_first.is_null() {
+                remove_workspace_assignment(ws_assignments.tqh_first);
+            }
+            crate::randr::outputs.tqh_first = std::ptr::null_mut();
+            crate::randr::outputs.tqh_last = &raw mut crate::randr::outputs.tqh_first;
         }
     }
 }

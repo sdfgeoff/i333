@@ -829,12 +829,15 @@ pub unsafe fn init_ws_for_output(output: *mut Output) {
                 current_block = 11057878835866523405;
                 break;
             }
+            let next = (*assignment).ws_assignments.tqe_next;
+            let assignment_name = (*assignment).name.clone();
+            let assignment_output = (*assignment).output.clone();
             if !output_triggers_assignment(output, assignment) {
-                assignment = (*assignment).ws_assignments.tqe_next;
+                assignment = next;
             } else {
                 {
                     // Snapshot native bytes before the logger can dispatch a callback.
-                    let log_pointer_1 = (*assignment).name;
+                    let log_pointer_1 = assignment_name.as_ptr();
                     let log_value_0 = i3_common::logging::string_bytes(
                         if log_pointer_1.is_null() {
                             None
@@ -844,7 +847,9 @@ pub unsafe fn init_ws_for_output(output: *mut Output) {
                         None,
                     )
                     .to_vec();
-                    let log_pointer_2 = (*assignment).output;
+                    let log_pointer_2 = assignment_output
+                        .as_ref()
+                        .map_or(std::ptr::null(), |value| value.as_ptr());
                     let log_value_1 = i3_common::logging::string_bytes(
                         if log_pointer_2.is_null() {
                             None
@@ -876,7 +881,7 @@ pub unsafe fn init_ws_for_output(output: *mut Output) {
                         );
                     }
                 };
-                workspace_show_by_name((*assignment).name);
+                workspace_show_by_name(assignment_name.as_ptr());
                 current_block = 4825863742504697761;
                 break;
             }

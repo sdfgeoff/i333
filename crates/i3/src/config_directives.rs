@@ -696,6 +696,8 @@ unsafe fn create_gaps_assignment(
     if mask.is_empty() {
         return;
     }
+    let workspace_owner = CStr::from_ptr(workspace).to_owned();
+    let workspace = workspace_owner.as_ptr();
     {
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_pointer_1 = workspace;
@@ -721,7 +723,7 @@ unsafe fn create_gaps_assignment(
     let mut assignment: *mut Workspace_Assignment = ::core::ptr::null_mut::<Workspace_Assignment>();
     assignment = ws_assignments.tqh_first;
     while !assignment.is_null() {
-        if strcasecmp((*assignment).name, workspace) == 0 as ::core::ffi::c_int {
+        if strcasecmp((*assignment).name.as_ptr(), workspace) == 0 as ::core::ffi::c_int {
             found = true;
             break;
         } else {
@@ -729,16 +731,10 @@ unsafe fn create_gaps_assignment(
         }
     }
     if !found {
-        assignment = scalloc(
-            1_usize,
-            ::core::mem::size_of::<Workspace_Assignment>() as usize,
-        ) as *mut Workspace_Assignment;
-        (*assignment).name = sstrdup(workspace);
-        (*assignment).output = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        (*assignment).ws_assignments.tqe_next = ::core::ptr::null_mut::<Workspace_Assignment>();
-        (*assignment).ws_assignments.tqe_prev = ws_assignments.tqh_last;
-        *ws_assignments.tqh_last = assignment;
-        ws_assignments.tqh_last = &raw mut (*assignment).ws_assignments.tqe_next;
+        assignment = crate::config::append_workspace_assignment(Workspace_Assignment::new(
+            workspace_owner,
+            None,
+        ));
     }
     (*assignment).gaps_mask |= mask;
     apply_gaps(&raw mut (*assignment).gaps, mask, pixels);
@@ -1151,6 +1147,19 @@ pub unsafe fn cfg_workspace(
     mut workspace: *const ::core::ffi::c_char,
     output: *const ::core::ffi::c_char,
 ) {
+    // Own parser arguments before logging can dispatch a callback.
+    let supplied_workspace = workspace
+        .as_ref()
+        .map(|value| CStr::from_ptr(value).to_owned());
+    let output_owner = output
+        .as_ref()
+        .map(|value| CStr::from_ptr(value).to_owned());
+    let output = output_owner
+        .as_ref()
+        .map_or(std::ptr::null(), |value| value.as_ptr());
+    workspace = supplied_workspace
+        .as_ref()
+        .map_or(std::ptr::null(), |name| name.as_ptr());
     let mut assignment: *mut Workspace_Assignment = ::core::ptr::null_mut::<Workspace_Assignment>();
     let cached_workspace = CURRENT_WORKSPACE
         .lock()
@@ -1162,8 +1171,8 @@ pub unsafe fn cfg_workspace(
             .unwrap_or_else(std::sync::PoisonError::into_inner) = None;
         assignment = ws_assignments.tqh_first;
         while !assignment.is_null() {
-            if strcasecmp((*assignment).name, workspace) == 0 as ::core::ffi::c_int
-                && !(*assignment).output.is_null()
+            if strcasecmp((*assignment).name.as_ptr(), workspace) == 0 as ::core::ffi::c_int
+                && (*assignment).output.is_some()
             {
                 {
                     // Snapshot native bytes before the logger can dispatch a callback.
@@ -1244,16 +1253,12 @@ pub unsafe fn cfg_workspace(
             i3_common::logging::emit(i3_common::logging::Level::Debug, &message);
         }
     };
-    assignment = scalloc(
-        1_usize,
-        ::core::mem::size_of::<Workspace_Assignment>() as usize,
-    ) as *mut Workspace_Assignment;
-    (*assignment).name = sstrdup(workspace);
-    (*assignment).output = sstrdup(output);
-    (*assignment).ws_assignments.tqe_next = ::core::ptr::null_mut::<Workspace_Assignment>();
-    (*assignment).ws_assignments.tqe_prev = ws_assignments.tqh_last;
-    *ws_assignments.tqh_last = assignment;
-    ws_assignments.tqh_last = &raw mut (*assignment).ws_assignments.tqe_next;
+    crate::config::append_workspace_assignment(Workspace_Assignment::new(
+        CStr::from_ptr(workspace).to_owned(),
+        Some(
+            output_owner.expect("workspace output is required when creating a routing assignment"),
+        ),
+    ));
 }
 
 pub unsafe fn cfg_ipc_socket(
