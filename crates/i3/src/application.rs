@@ -2166,14 +2166,14 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
         );
         {
             let log_value_0 = &command;
-            if let Ok(log_value_0_text) = std::str::from_utf8(&log_value_0) {
+            if let Ok(log_value_0_text) = std::str::from_utf8(log_value_0) {
                 ::log::info!("Starting bar process: {}\n", log_value_0_text);
             } else {
                 i3_common::logging::emit_parts(
                     i3_common::logging::Level::Verbose,
                     &[
                         "Starting bar process: ".as_bytes(),
-                        &log_value_0,
+                        log_value_0,
                         "\n".as_bytes(),
                     ],
                 );
