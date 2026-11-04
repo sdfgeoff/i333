@@ -1,6 +1,7 @@
 use crate::con::arena::focus;
 use crate::con::arena::parent::parent_ptr;
 use crate::domains::{ContainerType, DockMatch, FullscreenMode, MatchInsertWhere};
+use std::os::unix::ffi::OsStrExt;
 #[path = "ipc_messages.rs"]
 mod messages;
 use crate::commands_parser::command_result_free;
@@ -1223,7 +1224,9 @@ unsafe fn handle_get_version(
     let mut file = included_files.tqh_first;
     while !file.is_null() {
         if file != included_files.tqh_first {
-            included_config_file_names.push(messages::NativeText::cstr(&(*file).path));
+            included_config_file_names.push(messages::NativeText::bytes(
+                (*file).path.as_os_str().as_bytes(),
+            ));
         }
         file = (*file).files.tqe_next;
     }
@@ -1430,13 +1433,13 @@ unsafe fn handle_get_config(
     let mut file = first;
     while !file.is_null() {
         configs.push(messages::IncludedConfig {
-            path: messages::NativeText::cstr(&(*file).path),
+            path: messages::NativeText::bytes((*file).path.as_os_str().as_bytes()),
             raw_contents: messages::NativeText::bytes(
                 (*file)
                     .raw_contents_prefix()
                     .expect("published config has been read"),
             ),
-            variable_replaced_contents: messages::NativeText::cstr(
+            variable_replaced_contents: messages::NativeText::bytes(
                 (*file)
                     .variable_replaced_contents
                     .as_deref()

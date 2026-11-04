@@ -22,6 +22,7 @@ use crate::types::UrgencyMatch;
 use crate::types::Warping;
 use crate::types::WindowMode;
 use std::ffi::CStr;
+use std::os::unix::ffi::OsStrExt;
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -76,15 +77,15 @@ pub unsafe fn remove_workspace_assignment(node: *mut Workspace_Assignment) {
 
 pub type tiling_drag_t = TilingDrag;
 pub struct IncludedFile {
-    pub path: std::ffi::CString,
+    pub path: std::path::PathBuf,
     /// None means reading has not started; Some retains the zeroed stat-sized
     /// buffer and trailing NUL even when fread returns a partial prefix.
     pub raw_contents: Option<Vec<u8>>,
-    pub variable_replaced_contents: Option<std::ffi::CString>,
+    pub variable_replaced_contents: Option<Vec<u8>>,
     pub files: IncludedFileLinks,
 }
 impl IncludedFile {
-    pub fn new(path: std::ffi::CString) -> Self {
+    pub fn new(path: std::path::PathBuf) -> Self {
         Self {
             path,
             raw_contents: None,
@@ -113,7 +114,7 @@ impl IncludedFile {
 /// The event-thread queue is initialized and exclusively accessed. No concurrent
 /// or reentrant queue mutation may occur; nodes stay live throughout parsing.
 #[deny(unsafe_op_in_unsafe_fn)]
-pub unsafe fn append_included_file(path: std::ffi::CString) -> *mut IncludedFile {
+pub unsafe fn append_included_file(path: std::path::PathBuf) -> *mut IncludedFile {
     let file = Box::into_raw(Box::new(IncludedFile::new(path)));
     // SAFETY: exclusive initialized queue access keeps its link slots live.
     unsafe {
@@ -805,7 +806,9 @@ pub unsafe fn load_configuration(
             strerror(*__errno_location()),
         );
     }
-    let file = append_included_file(CStr::from_ptr(resolved_path.as_ptr()).to_owned());
+    let file = append_included_file(std::path::PathBuf::from(std::ffi::OsStr::from_bytes(
+        CStr::from_ptr(resolved_path.as_ptr()).to_bytes(),
+    )));
     {
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_pointer_1 = &raw mut resolved_path as *mut ::core::ffi::c_char;
@@ -839,8 +842,13 @@ pub unsafe fn load_configuration(
         variables: Vec::new(),
         has_errors: false,
     };
-    let result: ParseFileResult =
-        parse_file(&raw mut ctx, CStr::from_ptr(resolved_path.as_ptr()), file);
+    let result: ParseFileResult = parse_file(
+        &raw mut ctx,
+        std::path::Path::new(std::ffi::OsStr::from_bytes(
+            CStr::from_ptr(resolved_path.as_ptr()).to_bytes(),
+        )),
+        file,
+    );
     free_variables(&raw mut ctx);
     if result == ParseFileResult::Failed {
         errx(
@@ -961,12 +969,12 @@ mod included_file_tests {
         let _directory = Remove(directory.clone());
         let mut bytes = directory.as_os_str().as_bytes().to_vec();
         bytes.extend_from_slice(b"/missing-\xff");
-        let missing_path = std::ffi::CString::new(bytes).unwrap();
+        let missing_path = std::path::PathBuf::from(std::ffi::OsStr::from_bytes(&bytes));
         unsafe {
             assert!(included_files.tqh_first.is_null());
-            let first = append_included_file(c"/first".to_owned());
+            let first = append_included_file("/first".into());
             let failed = append_included_file(missing_path.clone());
-            let last = append_included_file(c"/last".to_owned());
+            let last = append_included_file("/last".into());
             let filename_snapshot = (*failed).path.clone();
             let mut stack = crate::config_parser::stack::default();
             let mut ctx = parser_ctx {

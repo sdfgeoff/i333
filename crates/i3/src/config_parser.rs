@@ -82,6 +82,7 @@ use crate::parser_util::parser_push_long;
 use crate::parser_util::parser_push_string;
 use crate::types::ParseFileResult;
 use i3_common::safewrappers::sasprintf;
+use std::os::unix::ffi::OsStrExt;
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -6394,40 +6395,46 @@ impl Drop for ConfigFile {
     }
 }
 
-fn expand_variables(
-    input: &std::ffi::CStr,
-    variables: &[(&std::ffi::CStr, &std::ffi::CStr)],
-) -> Vec<u8> {
-    let bytes = input.to_bytes();
+fn expand_variables(input: &[u8], variables: &[(&[u8], &[u8])]) -> Vec<u8> {
+    let bytes = input.split(|byte| *byte == 0).next().unwrap();
+    // libc's locale-sensitive search remains the backend. Only its temporary
+    // native arguments need termination; the parser's model owns Rust bytes.
+    let native_input = std::ffi::CString::new(bytes).unwrap();
+    let native_variables: Vec<_> = variables
+        .iter()
+        .map(|&(key, value)| {
+            let key = key.split(|byte| *byte == 0).next().unwrap();
+            let value = value.split(|byte| *byte == 0).next().unwrap();
+            (std::ffi::CString::new(key).unwrap(), value)
+        })
+        .collect();
     let mut output = Vec::with_capacity(bytes.len());
     let mut offset = 0;
     while offset < bytes.len() {
-        let remainder = std::ffi::CStr::from_bytes_with_nul(&input.to_bytes_with_nul()[offset..])
-            .expect("input suffix remains terminated");
-        let nearest = variables
+        // Offset is within the live native input allocation, including its NUL.
+        let remainder = unsafe { native_input.as_ptr().add(offset) };
+        let nearest = native_variables
             .iter()
-            .filter_map(|&(key, value)| {
-                if key.to_bytes().is_empty() {
+            .filter_map(|(key, value)| {
+                if key.as_bytes().is_empty() {
                     return None;
                 }
-                // SAFETY: native case-folded search preserves locale behavior; both
-                // inputs are C strings and any result points into remainder.
-                let found = unsafe { libc::strcasestr(remainder.as_ptr(), key.as_ptr()) };
+                let found = unsafe { libc::strcasestr(remainder, key.as_ptr()) };
                 if found.is_null() {
                     None
                 } else {
-                    let distance = unsafe { found.offset_from(remainder.as_ptr()) } as usize;
-                    Some((distance, key, value))
+                    let distance = unsafe { found.offset_from(remainder) } as usize;
+                    Some((distance, key.as_bytes().len(), *value))
                 }
             })
             .min_by_key(|&(distance, _, _)| distance);
-        let Some((distance, key, value)) = nearest else {
+        let Some((distance, key_length, value)) = nearest else {
             output.extend_from_slice(&bytes[offset..]);
             break;
         };
         output.extend_from_slice(&bytes[offset..offset + distance]);
-        output.extend_from_slice(value.to_bytes());
-        offset += distance + key.to_bytes().len();
+        output.extend_from_slice(value);
+        offset += distance + key_length;
     }
     output
 }
@@ -6822,18 +6829,19 @@ unsafe fn parse_file_inner(
     }
     drop(stream);
     drop(resources);
-    let input =
-        std::ffi::CString::new(buffer_contents).expect("fgets C-string projections contain no NUL");
+    let input = buffer_contents;
     let variables: Vec<_> = (*ctx)
         .variables
         .iter()
-        .map(|variable| (variable.key.as_c_str(), variable.value.as_c_str()))
+        .map(|variable| (variable.key.as_bytes(), variable.value.as_bytes()))
         .collect();
     let expanded = expand_variables(&input, &variables);
     drop(variables);
-    let expanded = std::ffi::CString::new(expanded).expect("variable C strings contain no NUL");
-    let new = expanded.as_ptr();
     (*included_file).variable_replaced_contents = Some(expanded.clone());
+    // The remaining private C scanner consumes a terminated, independently owned buffer.
+    let scanner_input =
+        std::ffi::CString::new(expanded).expect("variable projections contain no NUL");
+    let new = scanner_input.as_ptr();
     let mut local_context: context = std::mem::zeroed();
     local_context.filename = f;
     let context = &raw mut local_context;
@@ -6887,11 +6895,13 @@ unsafe fn parse_file_inner(
 /// for the whole call, including any callbacks. Queue mutation is serialized.
 pub unsafe fn parse_file(
     ctx: *mut parser_ctx,
-    filename: &std::ffi::CStr,
+    filename: &std::path::Path,
     included_file: *mut IncludedFile,
 ) -> ParseFileResult {
-    let filename = filename.to_owned();
-    let f = filename.as_ptr();
+    let filename = filename.to_path_buf();
+    let native_filename = std::ffi::CString::new(filename.as_os_str().as_bytes())
+        .expect("resolved configuration path has no NUL");
+    let f = native_filename.as_ptr();
     let old_directory = NativeString(getcwd(std::ptr::null_mut(), 0));
     let old_dir = old_directory.0;
     let mut result: ParseFileResult = parse_file_inner(ctx, f, included_file);
@@ -7101,7 +7111,9 @@ pub enum ConfigParserState {
 mod owned_config_tests {
     #[test]
     fn owned_file_reads_keep_partial_zero_tail_binary_suffix_and_empty_state() {
-        let mut file = crate::config::IncludedFile::new(c"config-\xff".to_owned());
+        let mut file = crate::config::IncludedFile::new(std::path::PathBuf::from(
+            std::ffi::OsStr::from_bytes(b"config-\xff"),
+        ));
         assert!(file.raw_contents.is_none());
         assert!(file.variable_replaced_contents.is_none());
         let mut input = [b'a', 0xff];
@@ -7127,8 +7139,11 @@ mod owned_config_tests {
         assert!(unsafe { super::read_config_contents(&mut file, stream, 0) });
         assert_eq!(file.raw_contents.as_deref(), Some(b"\0".as_slice()));
         assert_eq!(file.raw_contents_prefix(), Some(b"".as_slice()));
-        file.variable_replaced_contents = Some(c"".to_owned());
-        assert_eq!(file.variable_replaced_contents.as_deref(), Some(c""));
+        file.variable_replaced_contents = Some(Vec::new());
+        assert_eq!(
+            file.variable_replaced_contents.as_deref(),
+            Some(b"".as_slice())
+        );
     }
 
     use super::*;
@@ -7144,10 +7159,10 @@ mod owned_config_tests {
         assert_eq!(variables[0].key.as_c_str(), c"$ABC");
         let pairs: Vec<_> = variables
             .iter()
-            .map(|entry| (entry.key.as_c_str(), entry.value.as_c_str()))
+            .map(|entry| (entry.key.as_bytes(), entry.value.as_bytes()))
             .collect();
-        assert_eq!(expand_variables(c"$abc $A $X", &pairs), b"updated case $A");
-        assert_eq!(expand_variables(c"nothing\xff", &pairs), b"nothing\xff");
+        assert_eq!(expand_variables(b"$abc $A $X", &pairs), b"updated case $A");
+        assert_eq!(expand_variables(b"nothing\xff", &pairs), b"nothing\xff");
     }
     #[test]
     fn bounded_line_context_handles_first_byte_crlf_and_previous_lines() {

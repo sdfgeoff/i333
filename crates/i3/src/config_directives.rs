@@ -27,6 +27,7 @@ use crate::types::Warping;
 use crate::types::WindowMode;
 use i3_common::safewrappers::sasprintf;
 use std::ffi::CStr;
+use std::os::unix::ffi::OsStrExt;
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -204,7 +205,9 @@ pub unsafe fn cfg_include(
             let mut file: *mut IncludedFile = included_files.tqh_first;
 
             while !file.is_null() {
-                if (*file).path.as_c_str() == CStr::from_ptr(resolved_path.as_ptr()) {
+                if (*file).path.as_os_str().as_bytes()
+                    == CStr::from_ptr(resolved_path.as_ptr()).to_bytes()
+                {
                     skip = true;
                     break;
                 } else {
@@ -257,9 +260,9 @@ pub unsafe fn cfg_include(
                         i3_common::logging::emit(i3_common::logging::Level::Verbose, &message);
                     }
                 };
-                file = crate::config::append_included_file(
-                    CStr::from_ptr(resolved_path.as_ptr()).to_owned(),
-                );
+                file = crate::config::append_included_file(std::path::PathBuf::from(
+                    std::ffi::OsStr::from_bytes(CStr::from_ptr(resolved_path.as_ptr()).to_bytes()),
+                ));
                 let mut stack: stack = stack::default();
                 let mut ctx: parser_ctx = parser_ctx {
                     use_nagbar: (*(*result).ctx).use_nagbar,
@@ -272,8 +275,13 @@ pub unsafe fn cfg_include(
                     has_errors: false,
                 };
 
-                let parse_result =
-                    parse_file(&raw mut ctx, CStr::from_ptr(resolved_path.as_ptr()), file);
+                let parse_result = parse_file(
+                    &raw mut ctx,
+                    std::path::Path::new(std::ffi::OsStr::from_bytes(
+                        CStr::from_ptr(resolved_path.as_ptr()).to_bytes(),
+                    )),
+                    file,
+                );
                 let current_block_46: u64 = match parse_result {
                     ParseFileResult::Success => 10150597327160359210,
                     ParseFileResult::Failed => {
