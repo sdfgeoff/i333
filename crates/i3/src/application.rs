@@ -464,7 +464,7 @@ unsafe fn log_x11_error(error: &xcb::ProtocolError) {
             (i32::from(error.sequence)) as u32
         );
     } else {
-        ::log::debug!("../src/main.c:xcb_prepare_cb:141 - X11 Error received (probably harmless)! sequence 0x{:x}, error_code = {}\n", (i32::from(error.sequence)) as u32, (i32::from(error.error_code)) as i32);
+        ::log::debug!("../src/main.c:xcb_prepare_cb:141 - X11 Error received (probably harmless)! sequence 0x{:x}, error_code = {}\n", (i32::from(error.sequence)) as u32, { (i32::from(error.error_code)) });
     }
 }
 
@@ -472,7 +472,7 @@ pub static mut conn_screen: ::core::ffi::c_int = 0;
 
 pub static mut sndisplay: *mut SnDisplay = ::core::ptr::null::<SnDisplay>() as *mut SnDisplay;
 
-pub static mut last_timestamp: u32 = (::xcb::x::CURRENT_TIME) as u32;
+pub static mut last_timestamp: u32 = (::xcb::x::CURRENT_TIME);
 
 pub static mut root: u32 = 0;
 
@@ -762,7 +762,7 @@ unsafe extern "C" fn xcb_prepare_cb(
 pub unsafe fn main_set_x11_cb(enable: bool) {
     ::log::debug!(
         "../src/main.c:main_set_x11_cb:165 - Setting main X11 callback to enabled={}\n",
-        (enable as ::core::ffi::c_int) as i32
+        { (enable as ::core::ffi::c_int) }
     );
     if enable {
         ev_prepare_start(main_loop, xcb_prepare);
@@ -1098,7 +1098,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
             OPT_SHMLOG => {
                 shmlog_size = i3_common::cli::decimal_prefix(value.as_ref().unwrap().as_bytes());
                 init_logging();
-                ::log::info!("Limiting SHM log size to {} bytes\n", (shmlog_size) as i32);
+                ::log::info!("Limiting SHM log size to {} bytes\n", { (shmlog_size) });
             },
             OPT_FAKE_OUTPUTS => {
                 let value = value.as_ref().unwrap();
@@ -1239,7 +1239,7 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
         setrlimit(libc::RLIMIT_CORE, &raw mut limit);
         ::log::info!("CORE DUMPS: You are running a development version of i3, so coredumps were automatically enabled (ulimit -c unlimited).\n");
         let cwd: *mut ::core::ffi::c_char =
-            getcwd(::core::ptr::null_mut::<::core::ffi::c_char>(), 0 as usize);
+            getcwd(::core::ptr::null_mut::<::core::ffi::c_char>(), 0_usize);
         if !cwd.is_null() {
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
@@ -1348,7 +1348,7 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
     main_connection().send_request(&x::ChangeProperty {
         mode: x::PropMode::Append,
         window: x::Window::new(root),
-        property: x::Atom::new((::xcb::x::ATOM_SUPERSCRIPT_X.resource_id()) as u32),
+        property: x::Atom::new((::xcb::x::ATOM_SUPERSCRIPT_X.resource_id())),
         r#type: x::ATOM_CARDINAL,
         data: &[] as &[u32],
     });
@@ -1510,10 +1510,9 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
             visual: visual_id,
         });
         if let Err(error) = main_connection().check_request(cookie) {
-            ::log::error!(
-                "ERROR: Could not create colormap. Error code: {}\n",
-                (i32::from((*error.as_raw()).error_code)) as i32
-            );
+            ::log::error!("ERROR: Could not create colormap. Error code: {}\n", {
+                (i32::from((*error.as_raw()).error_code))
+            });
             exit(EXIT_FAILURE);
         }
     }
@@ -1521,10 +1520,10 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
     init_dpi();
     ::log::debug!(
         "../src/main.c:main:648 - root_depth = {}, visual_id = 0x{:08x}.\n",
-        (root_depth as ::core::ffi::c_int) as i32,
-        (visual_id) as u32
+        { (root_depth as ::core::ffi::c_int) },
+        { (visual_id) }
     );
-    ::log::debug!("../src/main.c:main:650 - root_screen->height_in_pixels = {}, root_screen->height_in_millimeters = {}\n", (root_screen_info().height_in_pixels as ::core::ffi::c_int) as i32, (root_screen_info().height_in_millimeters as ::core::ffi::c_int) as i32);
+    ::log::debug!("../src/main.c:main:650 - root_screen->height_in_pixels = {}, root_screen->height_in_millimeters = {}\n", { (root_screen_info().height_in_pixels as ::core::ffi::c_int) }, { (root_screen_info().height_in_millimeters as ::core::ffi::c_int) });
     ::log::debug!("../src/main.c:main:651 - One logical pixel corresponds to {} physical pixels on this display.\n", (logical_px(1 as ::core::ffi::c_int)) as i32);
     let gcookie = main_connection().send_request(&x::GetGeometry {
         drawable: x::Drawable::Window(x::Window::new(root)),
@@ -1710,7 +1709,7 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
     if let Err(error) = main_connection().check_request(cookie) {
         ::log::error!(
             "ERROR: Another window manager seems to be running (X error {})\n",
-            (i32::from((*error.as_raw()).error_code)) as i32
+            { (i32::from((*error.as_raw()).error_code)) }
         );
         return 1 as ::core::ffi::c_int;
     }
@@ -1720,10 +1719,10 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
     };
     ::log::debug!(
         "../src/main.c:main:819 - root geometry reply: ({}, {}) {} x {}\n",
-        (greply.x() as ::core::ffi::c_int) as i32,
-        (greply.y() as ::core::ffi::c_int) as i32,
-        (greply.width() as ::core::ffi::c_int) as i32,
-        (greply.height() as ::core::ffi::c_int) as i32
+        { (greply.x() as ::core::ffi::c_int) },
+        { (greply.y() as ::core::ffi::c_int) },
+        { (greply.width() as ::core::ffi::c_int) },
+        { (greply.height() as ::core::ffi::c_int) }
     );
     xcursor_load_cursors();
     xcursor_set_root_cursor(Cursor::Pointer);
@@ -1805,7 +1804,7 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
     property_handlers_init();
     ewmh_setup_hints();
     rebuild_key_symbols();
-    xcb_numlock_mask = key_symbol_modifiers((xkbcommon::xkb::keysyms::KEY_Num_Lock) as u32);
+    xcb_numlock_mask = key_symbol_modifiers((xkbcommon::xkb::keysyms::KEY_Num_Lock));
     if !load_keymap() {
         errx(EXIT_FAILURE, c"Could not load keymap\n".as_ptr());
     }
@@ -1909,8 +1908,8 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
     } else if let Some(pointer_reply) = pointer_reply {
         ::log::debug!(
             "../src/main.c:main:995 - Pointer at {}, {}\n",
-            (pointer_reply.root_x() as ::core::ffi::c_int) as i32,
-            (pointer_reply.root_y() as ::core::ffi::c_int) as i32
+            { (pointer_reply.root_x() as ::core::ffi::c_int) },
+            { (pointer_reply.root_y() as ::core::ffi::c_int) }
         );
         output_0 = get_output_containing(
             pointer_reply.root_x() as ::core::ffi::c_uint,
@@ -1919,8 +1918,8 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
         if output_0.is_null() {
             ::log::error!(
                 "ERROR: ERROR: No screen at ({}, {}), starting on the first screen\n",
-                (pointer_reply.root_x() as ::core::ffi::c_int) as i32,
-                (pointer_reply.root_y() as ::core::ffi::c_int) as i32
+                { (pointer_reply.root_x() as ::core::ffi::c_int) },
+                { (pointer_reply.root_y() as ::core::ffi::c_int) }
             );
         }
     }
@@ -2077,7 +2076,7 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
                     );
                 }
             };
-            start_application((*exec).command, (*exec).no_startup_id, 0 as u32);
+            start_application((*exec).command, (*exec).no_startup_id, 0_u32);
             free((*exec).command as *mut ::core::ffi::c_void);
             (*exec).command = ::core::ptr::null_mut::<::core::ffi::c_char>();
             if !(*exec).autostarts.tqe_next.is_null() {
@@ -2117,11 +2116,7 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
                 );
             }
         };
-        start_application(
-            (*exec_always).command,
-            (*exec_always).no_startup_id,
-            0 as u32,
-        );
+        start_application((*exec_always).command, (*exec_always).no_startup_id, 0_u32);
         free((*exec_always).command as *mut ::core::ffi::c_void);
         (*exec_always).command = ::core::ptr::null_mut::<::core::ffi::c_char>();
         if !(*exec_always).autostarts_always.tqe_next.is_null() {
@@ -2136,7 +2131,7 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
         exec_always = ::core::ptr::null_mut::<Autostart>();
     }
     let mut barconfig: *mut Barconfig = ::core::ptr::null_mut::<Barconfig>();
-    barconfig = barconfigs.tqh_first as *mut Barconfig;
+    barconfig = barconfigs.tqh_first;
     while !barconfig.is_null() {
         let program = (*barconfig)
             .i3bar_command
@@ -2174,7 +2169,7 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
             }
         };
         start_application(command.as_ptr(), true, 0);
-        barconfig = (*barconfig).configs.tqe_next as *mut Barconfig;
+        barconfig = (*barconfig).configs.tqe_next;
     }
     atexit(i3_exit);
     raise(SIGCHLD);

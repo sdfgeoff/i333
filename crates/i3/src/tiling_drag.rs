@@ -96,7 +96,7 @@ unsafe fn find_drop_target(x: u32, y: u32) -> *mut Con {
             return if !fs.is_null() { fs } else { con };
         }
     }
-    let output: *mut Output = get_output_containing(x as u32, y as u32);
+    let output: *mut Output = get_output_containing(x, y);
     if output.is_null() {
         return ::core::ptr::null_mut::<Con>();
     }
@@ -211,10 +211,10 @@ unsafe fn drag_callback(
                     rect.y = rect.y.wrapping_add(sibling_indicator_size);
                     rect.width = rect
                         .width
-                        .wrapping_sub(sibling_indicator_size.wrapping_mul(2 as u32));
+                        .wrapping_sub(sibling_indicator_size.wrapping_mul(2_u32));
                     rect.height = rect
                         .height
-                        .wrapping_sub(sibling_indicator_size.wrapping_mul(2 as u32));
+                        .wrapping_sub(sibling_indicator_size.wrapping_mul(2_u32));
                 }
                 DropType::Sibling => {
                     rect = adjust_rect((*target).rect, direction, sibling_indicator_size);
@@ -297,7 +297,7 @@ pub unsafe fn tiling_drag(con: *mut Con, event: &x::ButtonPressEvent, use_thresh
     let drag_result: DragResult = drag_pointer(
         con,
         event,
-        0 as u32,
+        0_u32,
         Cursor::Move,
         use_threshold,
         Some(
@@ -338,8 +338,8 @@ pub unsafe fn tiling_drag(con: *mut Con, event: &x::ButtonPressEvent, use_thresh
                 "../src/tiling_drag.c:tiling_drag:340 - drop to center of {}\n",
                 i3_common::logging::pointer(target)
             );
-            mod_0 = config.swap_modifier & 0xffff as u32;
-            swap_pressed = mod_0 != 0 as u32
+            mod_0 = config.swap_modifier & 0xffff_u32;
+            swap_pressed = mod_0 != 0_u32
                 && xcb_interop::events::button_press_state(event) as u32 & mod_0 == mod_0;
             if swap_pressed {
                 if !con_swap(con, target) {
@@ -406,7 +406,7 @@ pub unsafe fn tiling_drag(con: *mut Con, event: &x::ButtonPressEvent, use_thresh
             __assert_fail(
                 c"false".as_ptr(),
                 c"../src/tiling_drag.c".as_ptr(),
-                406 as u32,
+                406_u32,
                 c"void tiling_drag(Con *, xcb_button_press_event_t *, _Bool)".as_ptr(),
             );
         } else if !fs.is_null() && set_focus && set_fs {

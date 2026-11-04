@@ -107,9 +107,9 @@ unsafe fn apply_screen(screen: &ScreenInfo) {
             );
             shrink_clone(&mut (*s).rect, screen);
         } else {
-            s = scalloc(1 as usize, ::core::mem::size_of::<Output>() as usize) as *mut Output;
+            s = scalloc(1_usize, ::core::mem::size_of::<Output>() as usize) as *mut Output;
             let output_name: *mut output_name =
-                scalloc(1 as usize, ::core::mem::size_of::<output_name>() as usize)
+                scalloc(1_usize, ::core::mem::size_of::<output_name>() as usize)
                     as *mut output_name;
             let name = CString::new(format!("xinerama-{}", NUM_SCREENS.load(Ordering::Relaxed)))
                 .expect("generated output name contains no NUL");
@@ -131,12 +131,12 @@ unsafe fn apply_screen(screen: &ScreenInfo) {
                 } else {
                     outputs.tqh_last = &raw mut (*s).outputs.tqe_next;
                 }
-                outputs.tqh_first = s as *mut xoutput;
+                outputs.tqh_first = s;
                 (*s).outputs.tqe_prev = &raw mut outputs.tqh_first;
             } else {
                 (*s).outputs.tqe_next = ::core::ptr::null_mut::<xoutput>();
                 (*s).outputs.tqe_prev = outputs.tqh_last;
-                *outputs.tqh_last = s as *mut xoutput;
+                *outputs.tqh_last = s;
                 outputs.tqh_last = &raw mut (*s).outputs.tqe_next;
             }
             output_init_con(s);
@@ -172,10 +172,10 @@ unsafe fn query_screens(connection: &Connection) {
             apply_screen(screen);
             ::log::debug!(
                 "../src/xinerama.c:query_screens:80 - found Xinerama screen: {} x {} at {} x {}\n",
-                (i32::from(screen.width)) as i32,
-                (i32::from(screen.height)) as i32,
-                (i32::from(screen.x_org)) as i32,
-                (i32::from(screen.y_org)) as i32
+                { (i32::from(screen.width)) },
+                { (i32::from(screen.height)) },
+                { (i32::from(screen.x_org)) },
+                { (i32::from(screen.y_org)) }
             );
         }
     }

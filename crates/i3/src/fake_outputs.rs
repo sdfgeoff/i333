@@ -181,7 +181,7 @@ unsafe fn attach_output(parsed: ParsedOutput) {
     // SAFETY: this is the single raw graph boundary; all geometry and input
     // traversal above it use ordinary borrowed bytes and checked Rust values.
     unsafe {
-        ::log::debug!("../src/fake_outputs.c:fake_outputs_init:53 - Parsed output as width = {}, height = {} at ({}, {}){}\n", (parsed.width) as u32, (parsed.height) as u32, (parsed.x) as u32, (parsed.y) as u32, if parsed.primary { " (primary)" } else { "" });
+        ::log::debug!("../src/fake_outputs.c:fake_outputs_init:53 - Parsed output as width = {}, height = {} at ({}, {}){}\n", { (parsed.width) }, { (parsed.height) }, { (parsed.x) }, { (parsed.y) }, if parsed.primary { " (primary)" } else { "" });
         let mut output = get_screen_at(parsed.x, parsed.y);
         if !output.is_null() {
             ::log::debug!(

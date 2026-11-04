@@ -85,22 +85,22 @@ pub static mut command_error_nagbar_pid: libc::pid_t = -(1 as libc::pid_t);
 pub static mut DEFAULT_BINDING_MODE: *const ::core::ffi::c_char = c"default".as_ptr();
 unsafe fn mode_from_name(name: *const ::core::ffi::c_char, pango_markup: bool) -> *mut Mode {
     let mut mode: *mut Mode = ::core::ptr::null_mut::<Mode>();
-    mode = modes.slh_first as *mut Mode;
+    mode = modes.slh_first;
     while !mode.is_null() {
         if strcmp((*mode).name, name) == 0 {
             return mode;
         }
         mode = (*mode).modes.sle_next;
     }
-    mode = scalloc(1 as usize, ::core::mem::size_of::<Mode>() as usize) as *mut Mode;
+    mode = scalloc(1_usize, ::core::mem::size_of::<Mode>() as usize) as *mut Mode;
     (*mode).name = sstrdup(name);
     (*mode).pango_markup = pango_markup;
     (*mode).bindings =
-        scalloc(1 as usize, ::core::mem::size_of::<bindings_head>() as usize) as *mut bindings_head;
+        scalloc(1_usize, ::core::mem::size_of::<bindings_head>() as usize) as *mut bindings_head;
     (*(*mode).bindings).tqh_first = ::core::ptr::null_mut::<Binding>();
     (*(*mode).bindings).tqh_last = &raw mut (*(*mode).bindings).tqh_first;
-    (*mode).modes.sle_next = modes.slh_first as *mut Mode;
-    modes.slh_first = mode as *mut Mode;
+    (*mode).modes.sle_next = modes.slh_first;
+    modes.slh_first = mode;
     mode
 }
 
@@ -117,7 +117,7 @@ pub unsafe fn configure_binding(
     pango_markup: bool,
 ) -> *mut Binding {
     let mut new_binding: *mut Binding =
-        scalloc(1 as usize, ::core::mem::size_of::<Binding>() as usize) as *mut Binding;
+        scalloc(1_usize, ::core::mem::size_of::<Binding>() as usize) as *mut Binding;
     {
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_value_0 = i3_common::logging::pointer(new_binding);
@@ -205,7 +205,7 @@ pub unsafe fn configure_binding(
         (*new_binding).input_type = if strncasecmp(
             input_code,
             c"button".as_ptr(),
-            (::core::mem::size_of::<[::core::ffi::c_char; 7]>() as usize).wrapping_sub(1 as usize),
+            (::core::mem::size_of::<[::core::ffi::c_char; 7]>() as usize).wrapping_sub(1_usize),
         ) == 0
         {
             InputType::Mouse
@@ -258,7 +258,7 @@ pub unsafe fn configure_binding(
     let mode: *const Mode = mode_from_name(modename, pango_markup);
     (*new_binding).bindings.tqe_next = ::core::ptr::null_mut::<Binding>();
     (*new_binding).bindings.tqe_prev = (*(*mode).bindings).tqh_last;
-    *(*(*mode).bindings).tqh_last = new_binding as *mut Binding;
+    *(*(*mode).bindings).tqh_last = new_binding;
     (*(*mode).bindings).tqh_last = &raw mut (*new_binding).bindings.tqe_next;
     (*new_binding).keycodes_head.tqh_first = ::core::ptr::null_mut::<Binding_Keycode>();
     (*new_binding).keycodes_head.tqh_last = &raw mut (*new_binding).keycodes_head.tqh_first;
@@ -270,18 +270,18 @@ fn group_matches(mask: u32, group: u32) -> bool {
 unsafe fn binding_in_current_group(bind: *const Binding) -> bool {
     if (*bind).event_state_mask >> 16 != 0 && xkb_current_group > 3 {
         {
-            let log_value_0 = (xkb_current_group) as i32;
+            let log_value_0 = (xkb_current_group);
             ::log::error!("ERROR: BUG: xkb_current_group (= {}) outside of [XCB_XKB_GROUP_1..XCB_XKB_GROUP_4]\n", log_value_0);
         };
     }
     group_matches((*bind).event_state_mask, xkb_current_group as u32)
 }
 unsafe fn grab_keycode_for_binding(connection: &xcb::Connection, bind: *mut Binding, keycode: u32) {
-    let mods: i32 = ((*bind).event_state_mask & 0xffff as u32) as i32;
+    let mods: i32 = ((*bind).event_state_mask & 0xffff_u32) as i32;
     {
         let log_value_0 = i3_common::logging::pointer(bind);
         let log_value_1 = (keycode) as i32;
-        let log_value_2 = ((*bind).event_state_mask) as u32;
+        let log_value_2 = ((*bind).event_state_mask);
         let log_value_3 = (mods) as u32;
         ::log::debug!("../src/bindings.c:grab_keycode_for_binding:141 - Binding {} Grabbing keycode {} with event state mask 0x{:x} (mods 0x{:x})\n", log_value_0, log_value_1, log_value_2, log_value_3);
     };
@@ -300,11 +300,11 @@ unsafe fn grab_keycode_for_binding(connection: &xcb::Connection, bind: *mut Bind
 pub unsafe fn grab_all_keys() {
     let connection = connection();
     let mut bind: *mut Binding = ::core::ptr::null_mut::<Binding>();
-    bind = (*bindings).tqh_first as *mut Binding;
+    bind = (*bindings).tqh_first;
     while !bind.is_null() {
         if !((*bind).input_type != InputType::Keyboard) {
             if binding_in_current_group(bind) {
-                if (*bind).keycode > 0 as u32 {
+                if (*bind).keycode > 0_u32 {
                     grab_keycode_for_binding(&connection, bind, (*bind).keycode);
                 } else {
                     let mut binding_keycode: *mut Binding_Keycode =
@@ -312,7 +312,7 @@ pub unsafe fn grab_all_keys() {
                     binding_keycode = (*bind).keycodes_head.tqh_first;
                     while !binding_keycode.is_null() {
                         let keycode: i32 = (*binding_keycode).keycode as i32;
-                        let mods: i32 = ((*binding_keycode).modifiers & 0xffff as u32) as i32;
+                        let mods: i32 = ((*binding_keycode).modifiers & 0xffff_u32) as i32;
                         {
                             let log_value_0 = i3_common::logging::pointer(bind);
                             let log_value_1 = (keycode) as i32;
@@ -332,7 +332,7 @@ pub unsafe fn grab_all_keys() {
                 }
             }
         }
-        bind = (*bind).bindings.tqe_next as *mut Binding;
+        bind = (*bind).bindings.tqe_next;
     }
 }
 
@@ -455,12 +455,12 @@ pub unsafe fn get_binding_from_event(
     let mut state_filtered: u32 =
         (event_state as i32 & !((::xcb::x::ModMask::LOCK.bits()) as i32)) as u32;
     {
-        let log_value_0 = (state_filtered) as u32;
+        let log_value_0 = (state_filtered);
         ::log::debug!("../src/bindings.c:get_binding_from_xcb_event:329 - (removed capslock, state = 0x{:x})\n", log_value_0);
     };
     state_filtered = filtered_event_state(event_state);
     {
-        let log_value_0 = (state_filtered) as u32;
+        let log_value_0 = (state_filtered);
         ::log::debug!("../src/bindings.c:get_binding_from_xcb_event:354 - (transformed keyboard group, state = 0x{:x})\n", log_value_0);
     };
     get_binding(state_filtered, is_release, event_detail, input_type)
@@ -498,19 +498,15 @@ unsafe extern "C" fn add_keycode_if_matches(
         key as u8,
         (*bind).event_state_mask | (::xcb::x::ModMask::LOCK.bits()) as i32 as u32,
     );
-    if (*bind).event_state_mask & xcb_numlock_mask as u32 != xcb_numlock_mask as u32 {
+    if (*bind).event_state_mask & xcb_numlock_mask != xcb_numlock_mask {
         let sym_numlock: xkb_keysym_t = xkb_state_key_get_one_sym(numlock_state, key);
         if sym_numlock == (*resolving).keysym {
-            append_keycode(
-                bind,
-                key as u8,
-                (*bind).event_state_mask | xcb_numlock_mask as u32,
-            );
+            append_keycode(bind, key as u8, (*bind).event_state_mask | xcb_numlock_mask);
             append_keycode(
                 bind,
                 key as u8,
                 (*bind).event_state_mask
-                    | xcb_numlock_mask as u32
+                    | xcb_numlock_mask
                     | (::xcb::x::ModMask::LOCK.bits()) as i32 as u32,
             );
         } else {
@@ -549,7 +545,7 @@ pub unsafe fn translate_keysyms() {
         ::log::error!("ERROR: Could not create XKB state, cannot translate keysyms.\n");
     } else {
         bind = ::core::ptr::null_mut::<Binding>();
-        bind = (*bindings).tqh_first as *mut Binding;
+        bind = (*bindings).tqh_first;
         while !bind.is_null() {
             if (*bind).input_type == InputType::Mouse {
                 let button = match parse_long(
@@ -721,7 +717,7 @@ pub unsafe fn translate_keysyms() {
                 0 as xkb_layout_index_t,
                 group,
             );
-            if (*bind).keycode > 0 as u32 {
+            if (*bind).keycode > 0_u32 {
                 while !(*bind).keycodes_head.tqh_first.is_null() {
                     let mut first: *mut Binding_Keycode = (*bind).keycodes_head.tqh_first;
                     if !(*first).keycodes.tqe_next.is_null() {
@@ -740,7 +736,7 @@ pub unsafe fn translate_keysyms() {
                     (*bind).keycode as u8,
                     (*bind).event_state_mask | (::xcb::x::ModMask::LOCK.bits()) as i32 as u32,
                 );
-                if (*bind).event_state_mask & xcb_numlock_mask as u32 != xcb_numlock_mask as u32 {
+                if (*bind).event_state_mask & xcb_numlock_mask != xcb_numlock_mask {
                     let sym: xkb_keysym_t =
                         xkb_state_key_get_one_sym(dummy_state, (*bind).keycode as xkb_keycode_t);
                     let sym_numlock: xkb_keysym_t = xkb_state_key_get_one_sym(
@@ -758,7 +754,7 @@ pub unsafe fn translate_keysyms() {
                             (*bind).keycode as u8,
                             (*bind).event_state_mask
                                 | xcb_numlock_mask
-                                | (::xcb::x::ModMask::LOCK.bits()) as u32,
+                                | (::xcb::x::ModMask::LOCK.bits()),
                         );
                     } else {
                         {
@@ -840,7 +836,7 @@ pub unsafe fn translate_keysyms() {
                         write!(&mut keycodes, " {}", (*binding_keycode_3).keycode).unwrap();
                         num_keycodes += 1;
                         let mut check: *mut Binding = ::core::ptr::null_mut::<Binding>();
-                        check = (*bindings).tqh_first as *mut Binding;
+                        check = (*bindings).tqh_first;
                         while !check.is_null() {
                             if !(check == bind) {
                                 if (*check).symbol.is_null() {
@@ -888,7 +884,7 @@ pub unsafe fn translate_keysyms() {
                                     }
                                 }
                             }
-                            check = (*check).bindings.tqe_next as *mut Binding;
+                            check = (*check).bindings.tqe_next;
                         }
                         binding_keycode_3 = (*binding_keycode_3).keycodes.tqe_next;
                     }
@@ -917,7 +913,7 @@ pub unsafe fn translate_keysyms() {
                             None,
                         )
                         .to_vec();
-                        let log_value_4 = (num_keycodes) as i32;
+                        let log_value_4 = (num_keycodes);
                         if let (Ok(log_value_1_text), Ok(log_value_3_text)) = (
                             std::str::from_utf8(&log_value_1),
                             std::str::from_utf8(&log_value_3),
@@ -937,7 +933,7 @@ pub unsafe fn translate_keysyms() {
                     };
                 }
             }
-            bind = (*bind).bindings.tqe_next as *mut Binding;
+            bind = (*bind).bindings.tqe_next;
         }
     }
 
@@ -976,24 +972,24 @@ pub unsafe fn switch_mode(new_mode: *const ::core::ffi::c_char) {
             i3_common::logging::emit(i3_common::logging::Level::Debug, &message);
         }
     };
-    mode = modes.slh_first as *mut Mode;
+    mode = modes.slh_first;
     while !mode.is_null() {
         if strcmp((*mode).name, new_mode) != 0 {
             mode = (*mode).modes.sle_next;
         } else {
             ungrab_all_keys();
-            bindings = (*mode).bindings as *mut bindings_head;
+            bindings = (*mode).bindings;
             current_binding_mode = (*mode).name;
             translate_keysyms();
             grab_all_keys();
             regrab_all_buttons();
             let mut bind: *mut Binding = ::core::ptr::null_mut::<Binding>();
-            bind = (*bindings).tqh_first as *mut Binding;
+            bind = (*bindings).tqh_first;
             while !bind.is_null() {
                 if (*bind).release == BindingRelease::KeyReleaseIgnoreMods {
                     (*bind).release = BindingRelease::KeyRelease;
                 }
-                bind = (*bind).bindings.tqe_next as *mut Binding;
+                bind = (*bind).bindings.tqe_next;
             }
             let mut event_msg: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
@@ -1039,7 +1035,7 @@ unsafe fn reorder_bindings_of_mode(mode: *mut Mode) {
     let n = tmp.len();
     qsort(
         tmp.as_mut_ptr().cast(),
-        n as usize,
+        n,
         ::core::mem::size_of::<*mut Binding>() as usize,
         Some(
             reorder_binding_cmp
@@ -1050,7 +1046,7 @@ unsafe fn reorder_bindings_of_mode(mode: *mut Mode) {
         ),
     );
     let reordered: *mut bindings_head =
-        scalloc(1 as usize, ::core::mem::size_of::<bindings_head>() as usize) as *mut bindings_head;
+        scalloc(1_usize, ::core::mem::size_of::<bindings_head>() as usize) as *mut bindings_head;
     (*reordered).tqh_first = ::core::ptr::null_mut::<Binding>();
     (*reordered).tqh_last = &raw mut (*reordered).tqh_first;
     let mut i = 0usize;
@@ -1064,7 +1060,7 @@ unsafe fn reorder_bindings_of_mode(mode: *mut Mode) {
         *(*current).bindings.tqe_prev = (*current).bindings.tqe_next;
         (*current).bindings.tqe_next = ::core::ptr::null_mut::<Binding>();
         (*current).bindings.tqe_prev = (*reordered).tqh_last;
-        *(*reordered).tqh_last = current as *mut Binding;
+        *(*reordered).tqh_last = current;
         (*reordered).tqh_last = &raw mut (*current).bindings.tqe_next;
         i += 1;
     }
@@ -1076,7 +1072,7 @@ unsafe fn reorder_bindings_of_mode(mode: *mut Mode) {
         __assert_fail(
             c"TAILQ_EMPTY(mode->bindings)".as_ptr(),
             c"../src/bindings.c".as_ptr(),
-            713 as u32,
+            713_u32,
             c"void reorder_bindings_of_mode(struct Mode *)".as_ptr(),
         );
     };
@@ -1086,12 +1082,12 @@ unsafe fn reorder_bindings_of_mode(mode: *mut Mode) {
 
 pub unsafe fn reorder_bindings() {
     let mut mode: *mut Mode = ::core::ptr::null_mut::<Mode>();
-    mode = modes.slh_first as *mut Mode;
+    mode = modes.slh_first;
     while !mode.is_null() {
         let current_mode: bool = (*mode).bindings == bindings;
         reorder_bindings_of_mode(mode);
         if current_mode {
-            bindings = (*mode).bindings as *mut bindings_head;
+            bindings = (*mode).bindings;
         }
         mode = (*mode).modes.sle_next;
     }
@@ -1120,16 +1116,16 @@ unsafe fn binding_same_key(a: *mut Binding, b: *mut Binding) -> bool {
 pub unsafe fn check_for_duplicate_bindings(context: *mut context) {
     let mut bind: *mut Binding = ::core::ptr::null_mut::<Binding>();
     let mut current: *mut Binding = ::core::ptr::null_mut::<Binding>();
-    current = (*bindings).tqh_first as *mut Binding;
+    current = (*bindings).tqh_first;
     while !current.is_null() {
-        bind = (*bindings).tqh_first as *mut Binding;
+        bind = (*bindings).tqh_first;
         while !bind.is_null() {
             if bind == current {
                 break;
             }
             if binding_same_key(bind, current) {
                 (*context).has_errors = true;
-                if (*current).keycode != 0 as u32 {
+                if (*current).keycode != 0_u32 {
                     {
                         // Snapshot native bytes before the logger can dispatch a callback.
                         let log_value_0 = ((*current).event_state_mask) as u32;
@@ -1195,9 +1191,9 @@ pub unsafe fn check_for_duplicate_bindings(context: *mut context) {
                     };
                 }
             }
-            bind = (*bind).bindings.tqe_next as *mut Binding;
+            bind = (*bind).bindings.tqe_next;
         }
-        current = (*current).bindings.tqe_next as *mut Binding;
+        current = (*current).bindings.tqe_next;
     }
 }
 unsafe fn binding_copy(bind: *mut Binding) -> *mut Binding {

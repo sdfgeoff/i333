@@ -270,7 +270,7 @@ unsafe fn ewmh_update_wm_desktop_recursively(con: *mut Con, desktop: u32) {
     let window = (*(*con).window).id;
     match change {
         DesktopProperty::Set(desktop) => {
-            ::log::debug!("../src/ewmh.c:ewmh_update_wm_desktop_recursively:{} - Setting _NET_WM_DESKTOP = {} for window 0x{:08x}.\n", (171i32) as i32, (desktop) as i32, (window) as u32);
+            ::log::debug!("../src/ewmh.c:ewmh_update_wm_desktop_recursively:{} - Setting _NET_WM_DESKTOP = {} for window 0x{:08x}.\n", { (171i32) }, (desktop) as i32, { (window) });
             set_words(
                 window,
                 A__NET_WM_DESKTOP,
@@ -279,7 +279,7 @@ unsafe fn ewmh_update_wm_desktop_recursively(con: *mut Con, desktop: u32) {
             );
         }
         DesktopProperty::Delete => {
-            ::log::error!("ERROR: Failed to determine the proper EWMH desktop index for window 0x{:08x}, deleting _NET_WM_DESKTOP.\n", (window) as u32);
+            ::log::error!("ERROR: Failed to determine the proper EWMH desktop index for window 0x{:08x}, deleting _NET_WM_DESKTOP.\n", { (window) });
             delete_property(window, A__NET_WM_DESKTOP);
         }
     }
@@ -361,10 +361,10 @@ pub unsafe fn ewmh_update_client_list_stacking(stack: *mut u32, num_windows: i32
 /// conn and the requested window belong to the native event thread.
 pub unsafe fn ewmh_update_sticky(window: u32, sticky: bool) {
     if sticky {
-        ::log::debug!("../src/ewmh.c:ewmh_update_sticky:{} - Setting _NET_WM_STATE_STICKY for window = {:08x}.\n", (283 as ::core::ffi::c_int) as i32, (window) as u32);
+        ::log::debug!("../src/ewmh.c:ewmh_update_sticky:{} - Setting _NET_WM_STATE_STICKY for window = {:08x}.\n", { (283 as ::core::ffi::c_int) }, { (window) });
         xcb_add_property_atom(conn, window, A__NET_WM_STATE, A__NET_WM_STATE_STICKY);
     } else {
-        ::log::debug!("../src/ewmh.c:ewmh_update_sticky:{} - Removing _NET_WM_STATE_STICKY for window = {:08x}.\n", (286 as ::core::ffi::c_int) as i32, (window) as u32);
+        ::log::debug!("../src/ewmh.c:ewmh_update_sticky:{} - Removing _NET_WM_STATE_STICKY for window = {:08x}.\n", { (286 as ::core::ffi::c_int) }, { (window) });
         xcb_remove_property_atom(conn, window, A__NET_WM_STATE, A__NET_WM_STATE_STICKY);
     };
 }
@@ -373,10 +373,10 @@ pub unsafe fn ewmh_update_sticky(window: u32, sticky: bool) {
 /// conn and the requested window belong to the native event thread.
 pub unsafe fn ewmh_update_focused(window: u32, is_focused: bool) {
     if is_focused {
-        ::log::debug!("../src/ewmh.c:ewmh_update_focused:{} - Setting _NET_WM_STATE_FOCUSED for window = {:08x}.\n", (297 as ::core::ffi::c_int) as i32, (window) as u32);
+        ::log::debug!("../src/ewmh.c:ewmh_update_focused:{} - Setting _NET_WM_STATE_FOCUSED for window = {:08x}.\n", { (297 as ::core::ffi::c_int) }, { (window) });
         xcb_add_property_atom(conn, window, A__NET_WM_STATE, A__NET_WM_STATE_FOCUSED);
     } else {
-        ::log::debug!("../src/ewmh.c:ewmh_update_focused:{} - Removing _NET_WM_STATE_FOCUSED for window = {:08x}.\n", (300 as ::core::ffi::c_int) as i32, (window) as u32);
+        ::log::debug!("../src/ewmh.c:ewmh_update_focused:{} - Removing _NET_WM_STATE_FOCUSED for window = {:08x}.\n", { (300 as ::core::ffi::c_int) }, { (window) });
         xcb_remove_property_atom(conn, window, A__NET_WM_STATE, A__NET_WM_STATE_FOCUSED);
     };
 }

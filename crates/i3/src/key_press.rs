@@ -27,7 +27,7 @@ pub unsafe fn handle_key_press(event: &x::KeyPressEvent) {
     // BaseEvent number. Read the actual release response (3) and preserve the
     // legacy unmasked comparison for synthetic SendEvent input.
     let (key_release, time, detail, state) = (
-        event.response_type() == 3 as u8,
+        event.response_type() == 3_u8,
         event.time(),
         event.detail(),
         xcb_interop::events::key_press_state(event),

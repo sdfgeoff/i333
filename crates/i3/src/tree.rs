@@ -46,8 +46,8 @@ unsafe fn _create___i3() -> *mut Con {
     (*__i3).layout = Layout::Output;
     con_fix_percent(croot);
     x_set_name(__i3, c"[i3 con] pseudo-output __i3".as_ptr());
-    (*__i3).rect.width = 1280 as u32;
-    (*__i3).rect.height = 1024 as u32;
+    (*__i3).rect.width = 1280_u32;
+    (*__i3).rect.height = 1024_u32;
     ::log::debug!("../src/tree.c:_create___i3:39 - adding main content container\n");
     let content: *mut Con = con_new(
         ::core::ptr::null_mut::<Con>(),
@@ -147,18 +147,18 @@ pub unsafe fn tree_restore(
                 ::core::ptr::null_mut::<*mut ::core::ffi::c_char>(),
             );
             ::log::debug!("../src/tree.c:tree_restore:93 - appended tree, using new root\n");
-            croot = nodes::first_ptr(croot) as *mut Con;
+            croot = nodes::first_ptr(croot);
             if !croot.is_null() {
                 ::log::debug!(
                     "../src/tree.c:tree_restore:99 - new root = {}\n",
                     i3_common::logging::pointer(croot)
                 );
-                out = nodes::first_ptr(croot) as *mut Con;
+                out = nodes::first_ptr(croot);
                 ::log::debug!(
                     "../src/tree.c:tree_restore:101 - out = {}\n",
                     i3_common::logging::pointer(out)
                 );
-                ws = nodes::first_ptr(out) as *mut Con;
+                ws = nodes::first_ptr(out);
                 ::log::debug!(
                     "../src/tree.c:tree_restore:103 - ws = {}\n",
                     i3_common::logging::pointer(ws)
@@ -199,16 +199,16 @@ pub unsafe fn tree_init(geometry: &x::GetGeometryReply) {
 
 pub unsafe fn tree_open_con(mut con: *mut Con, window: *mut i3Window) -> *mut Con {
     if con.is_null() {
-        con = parent_ptr(focused) as *mut Con;
+        con = parent_ptr(focused);
         if ((*parent_ptr(con)).type_0) == ContainerType::Output
             && ((*con).type_0) != ContainerType::DockArea
         {
             con = focused;
         }
         if ((*con).type_0) == ContainerType::Floating {
-            con = con_descend_tiling_focused(parent_ptr(con) as *mut Con);
+            con = con_descend_tiling_focused(parent_ptr(con));
             if ((*con).type_0) != ContainerType::Workspace {
-                con = parent_ptr(con) as *mut Con;
+                con = parent_ptr(con);
             }
         }
         ::log::debug!(
@@ -236,7 +236,7 @@ pub unsafe fn tree_close_internal(
     kill_window: KillWindow,
     dont_kill_parent: bool,
 ) -> bool {
-    let parent: *mut Con = parent_ptr(con) as *mut Con;
+    let parent: *mut Con = parent_ptr(con);
     if (*con).urgent {
         con_set_urgency(con, false);
         con_update_parents_urgency(con);
@@ -297,7 +297,7 @@ pub unsafe fn tree_close_internal(
             window: x::Window::new((*(*con).window).id),
             property: x::Atom::new(A_WM_STATE),
             r#type: x::Atom::new(A_WM_STATE),
-            data: &[(crate::domains::IcccmState::Withdrawn as u32) as u32, 0],
+            data: &[(crate::domains::IcccmState::Withdrawn as u32), 0],
         });
         connection().send_request(&x::ChangeSaveSet {
             mode: x::SetMode::Delete,
@@ -341,7 +341,7 @@ pub unsafe fn tree_close_internal(
             i3_common::logging::pointer(con)
         );
         workspace_update_urgent_flag(ws);
-        ev_timer_stop(main_loop, (*con).urgency_timer as *mut ev_timer);
+        ev_timer_stop(main_loop, (*con).urgency_timer);
         free((*con).urgency_timer as *mut ::core::ffi::c_void);
         (*con).urgency_timer = ::core::ptr::null_mut::<ev_timer>();
     }
@@ -357,7 +357,7 @@ pub unsafe fn tree_close_internal(
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_owner_1 = (*ws).name.clone();
             let log_value_0 = i3_common::logging::string_bytes(log_owner_1.as_deref(), None);
-            if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+            if let (Ok(log_value_0_text),) = (std::str::from_utf8(log_value_0),) {
                 ::log::debug!("../src/tree.c:tree_close_internal:302 - Closing workspace container {}, updating EWMH atoms\n", log_value_0_text);
             } else {
                 i3_common::logging::emit_parts(
@@ -365,7 +365,7 @@ pub unsafe fn tree_close_internal(
                     &[
                         "../src/tree.c:tree_close_internal:302 - Closing workspace container "
                             .as_bytes(),
-                        &log_value_0,
+                        log_value_0,
                         ", updating EWMH atoms\n".as_bytes(),
                     ],
                 );
@@ -411,7 +411,7 @@ pub unsafe fn tree_split(mut con: *mut Con, orientation: Orientation) {
             con = workspace_encapsulate(con);
         }
     }
-    let parent: *mut Con = parent_ptr(con) as *mut Con;
+    let parent: *mut Con = parent_ptr(con);
     con_force_split_parents_redraw(con);
     if con_num_children(parent) == 1 as ::core::ffi::c_int
         && ((*parent).layout == Layout::SplitH || (*parent).layout == Layout::SplitV)
@@ -446,7 +446,7 @@ pub unsafe fn tree_split(mut con: *mut Con, orientation: Orientation) {
         identity(new).expect("live split wrapper"),
     )
     .expect("replace split focus slot");
-    set_parent_ptr(new, parent as *mut Con).expect("live acyclic ancestry");
+    set_parent_ptr(new, parent).expect("live acyclic ancestry");
     (*new).layout = if orientation == Orientation::Horizontal {
         Layout::SplitH
     } else {
@@ -459,7 +459,7 @@ pub unsafe fn tree_split(mut con: *mut Con, orientation: Orientation) {
 
 pub unsafe fn level_up() -> bool {
     if ((*parent_ptr(focused)).type_0) == ContainerType::Floating {
-        con_activate(parent_ptr(parent_ptr(focused)) as *mut Con);
+        con_activate(parent_ptr(parent_ptr(focused)));
         return true;
     }
     if ((*parent_ptr(focused)).type_0) != ContainerType::Con
@@ -469,22 +469,22 @@ pub unsafe fn level_up() -> bool {
         ::log::error!("ERROR: 'focus parent': Focus is already on the workspace, cannot go higher than that.\n");
         return false;
     }
-    con_activate(parent_ptr(focused) as *mut Con);
+    con_activate(parent_ptr(focused));
     true
 }
 
 pub unsafe fn level_down() -> bool {
-    let mut next: *mut Con = focus::first_ptr(focused) as *mut Con;
+    let mut next: *mut Con = focus::first_ptr(focused);
     if next.is_null() {
         ::log::debug!("../src/tree.c:level_down:413 - cannot go down\n");
         return false;
     } else if ((*next).type_0) == ContainerType::Floating {
-        let child: *mut Con = focus::first_ptr(next) as *mut Con;
+        let child: *mut Con = focus::first_ptr(next);
         if child.is_null() {
             ::log::debug!("../src/tree.c:level_down:420 - cannot go down\n");
             return false;
         } else {
-            next = focus::first_ptr(next) as *mut Con;
+            next = focus::first_ptr(next);
         }
     }
     con_activate(next);
@@ -493,10 +493,10 @@ pub unsafe fn level_down() -> bool {
 unsafe fn mark_unmapped(con: *mut Con) {
     let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
     (*con).mapped = false;
-    current = nodes::first_ptr(con) as *mut Con;
+    current = nodes::first_ptr(con);
     while !current.is_null() {
         mark_unmapped(current);
-        current = nodes::next_ptr(current) as *mut Con;
+        current = nodes::next_ptr(current);
     }
     if ((*con).type_0) == ContainerType::Workspace {
         for id in identity(con).into_iter().flat_map(floating::children) {
@@ -526,11 +526,11 @@ unsafe fn get_tree_next_workspace(con: *mut Con, direction: Direction) -> *mut C
     let x: u32 = (*con)
         .rect
         .x
-        .wrapping_add((*con).rect.width.wrapping_div(2 as u32));
+        .wrapping_add((*con).rect.width.wrapping_div(2_u32));
     let y: u32 = (*con)
         .rect
         .y
-        .wrapping_add((*con).rect.height.wrapping_div(2 as u32));
+        .wrapping_add((*con).rect.height.wrapping_div(2_u32));
     let current_output: *mut Output =
         get_output_containing(x as ::core::ffi::c_uint, y as ::core::ffi::c_uint);
     if current_output.is_null() {
@@ -622,7 +622,7 @@ unsafe fn get_tree_next(mut con: *mut Con, direction: Direction) -> *mut Con {
                 if ((*con).fullscreen_mode) == FullscreenMode::Global {
                     return first_wrap;
                 }
-                let parent: *mut Con = parent_ptr(con) as *mut Con;
+                let parent: *mut Con = parent_ptr(con);
                 if ((*con).type_0) == ContainerType::Floating {
                     if orientation != Orientation::Horizontal {
                         return ::core::ptr::null_mut::<Con>();
@@ -654,7 +654,7 @@ unsafe fn get_tree_next(mut con: *mut Con, direction: Direction) -> *mut Con {
                     let next_0: *mut Con = if previous as ::core::ffi::c_int != 0 {
                         nodes::previous_ptr(con)
                     } else {
-                        nodes::next_ptr(con) as *mut Con
+                        nodes::next_ptr(con)
                     };
                     if !next_0.is_null()
                         && con_fullscreen_permits_focusing(next_0) as ::core::ffi::c_int != 0
@@ -664,7 +664,7 @@ unsafe fn get_tree_next(mut con: *mut Con, direction: Direction) -> *mut Con {
                     let wrap: *mut Con = if previous as ::core::ffi::c_int != 0 {
                         nodes::last_ptr(parent)
                     } else {
-                        nodes::first_ptr(parent) as *mut Con
+                        nodes::first_ptr(parent)
                     };
                     match config.focus_wrapping {
                         FocusWrapping::Workspace | FocusWrapping::On => {
@@ -731,7 +731,7 @@ pub unsafe fn tree_next(con: *mut Con, direction: Direction) {
         x_set_warp_to(&raw mut (*focus).rect);
         return;
     } else if ((*next).type_0) == ContainerType::Floating {
-        let parent: *mut Con = parent_ptr(next) as *mut Con;
+        let parent: *mut Con = parent_ptr(next);
         floating::rotate_after(
             identity(parent).expect("live floating parent"),
             identity(next).expect("live floating child"),
@@ -746,7 +746,7 @@ pub unsafe fn get_tree_next_sibling(con: *mut Con, direction: Position) -> *mut 
     let to_focus: *mut Con = if direction == Position::Before {
         nodes::previous_ptr(con)
     } else {
-        nodes::next_ptr(con) as *mut Con
+        nodes::next_ptr(con)
     };
     if !to_focus.is_null() && con_fullscreen_permits_focusing(to_focus) as ::core::ffi::c_int != 0 {
         return to_focus;
@@ -758,13 +758,13 @@ pub unsafe fn tree_flatten(con: *mut Con) {
     let mut focus_next: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-    let parent: *mut Con = parent_ptr(con) as *mut Con;
+    let parent: *mut Con = parent_ptr(con);
     {
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_value_0 = i3_common::logging::pointer(con);
         let log_owner_2 = (*con).name.clone();
         let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
-        if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+        if let (Ok(log_value_1_text),) = (std::str::from_utf8(log_value_1),) {
             ::log::debug!(
                 "../src/tree.c:tree_flatten:659 - Checking if I can flatten con = {} / {}\n",
                 log_value_0,
@@ -779,7 +779,7 @@ pub unsafe fn tree_flatten(con: *mut Con) {
                         log_value_0
                     )
                     .as_bytes(),
-                    &log_value_1,
+                    log_value_1,
                     "\n".as_bytes(),
                 ],
             );
@@ -789,7 +789,7 @@ pub unsafe fn tree_flatten(con: *mut Con) {
         || (*parent).layout == Layout::Output
         || !(*con).window.is_null())
     {
-        child = nodes::first_ptr(con) as *mut Con;
+        child = nodes::first_ptr(con);
         if !(child.is_null() || !nodes::next_ptr(child).is_null()) {
             ::log::debug!(
                 "../src/tree.c:tree_flatten:674 - child = {}, con = {}, parent = {}\n",
@@ -802,17 +802,17 @@ pub unsafe fn tree_flatten(con: *mut Con) {
                 && flatten_layouts((*con).layout, (*child).layout, con_orientation(parent))
             {
                 ::log::debug!("../src/tree.c:tree_flatten:687 - Alright, I have to flatten this situation now. Stay calm.\n");
-                focus_next = focus::first_ptr(child) as *mut Con;
+                focus_next = focus::first_ptr(child);
                 ::log::debug!("../src/tree.c:tree_flatten:691 - detaching...\n");
                 while !nodes::first_ptr(child).is_null() {
-                    current = nodes::first_ptr(child) as *mut Con;
+                    current = nodes::first_ptr(child);
                     {
                         // Snapshot native bytes before the logger can dispatch a callback.
                         let log_value_0 = i3_common::logging::pointer(current);
                         let log_owner_2 = (*current).name.clone();
                         let log_value_1 =
                             i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
-                        if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+                        if let (Ok(log_value_1_text),) = (std::str::from_utf8(log_value_1),) {
                             ::log::debug!(
                                 "../src/tree.c:tree_flatten:695 - detaching current={} / {}\n",
                                 log_value_0,
@@ -827,7 +827,7 @@ pub unsafe fn tree_flatten(con: *mut Con) {
                                         log_value_0
                                     )
                                     .as_bytes(),
-                                    &log_value_1,
+                                    log_value_1,
                                     "\n".as_bytes(),
                                 ],
                             );
@@ -835,7 +835,7 @@ pub unsafe fn tree_flatten(con: *mut Con) {
                     };
                     con_detach(current);
                     ::log::debug!("../src/tree.c:tree_flatten:697 - re-attaching\n");
-                    set_parent_ptr(current, parent as *mut Con).expect("live acyclic ancestry");
+                    set_parent_ptr(current, parent).expect("live acyclic ancestry");
                     nodes::insert_before(
                         identity(parent).expect("live flatten parent"),
                         identity(current).expect("live lifted child"),

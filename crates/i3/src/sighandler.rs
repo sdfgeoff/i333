@@ -291,7 +291,7 @@ unsafe fn sighandler_create_dialogs() {
             }));
             (*dialog).dialogs.tqe_next = ::core::ptr::null_mut::<dialog_t>();
             (*dialog).dialogs.tqe_prev = dialogs.tqh_last;
-            *dialogs.tqh_last = dialog as *mut dialog_t;
+            *dialogs.tqh_last = dialog;
             dialogs.tqh_last = &raw mut (*dialog).dialogs.tqe_next;
             // Prepared before signal installation: no registry/Rc operation.
             let Some(renderer) = CRASH_RENDERER.as_mut() else {
@@ -353,7 +353,7 @@ unsafe fn sighandler_create_dialogs() {
 unsafe fn sighandler_destroy_dialogs() {
     let connection = i3_common::xcb_connection::borrowed(conn);
     while !dialogs.tqh_first.is_null() {
-        let dialog: *mut dialog_t = dialogs.tqh_first as *mut dialog_t;
+        let dialog: *mut dialog_t = dialogs.tqh_first;
         if let Some(connection) = &connection {
             connection.send_request(&x::FreeColormap {
                 cmap: x::Colormap::new((*dialog).colormap),
@@ -379,10 +379,10 @@ unsafe fn sighandler_destroy_dialogs() {
 }
 unsafe fn sighandler_handle_expose() {
     let mut current: *mut dialog_t = ::core::ptr::null_mut::<dialog_t>();
-    current = dialogs.tqh_first as *mut dialog_t;
+    current = dialogs.tqh_first;
     while !current.is_null() {
         sighandler_draw_dialog(current);
-        current = (*current).dialogs.tqe_next as *mut dialog_t;
+        current = (*current).dialogs.tqe_next;
     }
     if let Some(connection) = i3_common::xcb_connection::borrowed(conn) {
         let _ = connection.flush();

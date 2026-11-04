@@ -347,7 +347,7 @@ pub fn load_font(context: &FontContext, pattern: &CStr, fallback: bool) -> Font 
     }
     let mut pattern = pattern;
     let id: x::Font = connection.generate_id();
-    let (font_cookie, mut info_cookie) = open_core_font(&connection, id, pattern);
+    let (font_cookie, mut info_cookie) = open_core_font(connection, id, pattern);
     let mut error = connection.check_request(font_cookie).err();
     if fallback && error.is_some() {
         {
@@ -374,7 +374,7 @@ pub fn load_font(context: &FontContext, pattern: &CStr, fallback: bool) -> Font 
             }
         };
         pattern = c"fixed";
-        let (font_cookie, cookie) = open_core_font(&connection, id, pattern);
+        let (font_cookie, cookie) = open_core_font(connection, id, pattern);
         info_cookie = cookie;
         error = connection.check_request(font_cookie).err();
         if error.is_some() {
@@ -382,7 +382,7 @@ pub fn load_font(context: &FontContext, pattern: &CStr, fallback: bool) -> Font 
                 "[libi3] ERROR: Could not open fallback font 'fixed', trying with '-misc-*'.\n"
             );
             pattern = c"-misc-*";
-            let (font_cookie, cookie) = open_core_font(&connection, id, pattern);
+            let (font_cookie, cookie) = open_core_font(connection, id, pattern);
             info_cookie = cookie;
             error = connection.check_request(font_cookie).err();
             if error.is_some() {

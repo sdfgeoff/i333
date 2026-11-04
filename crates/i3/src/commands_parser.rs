@@ -3927,7 +3927,7 @@ fn state_tokens(state: CommandParserState) -> &'static [cmdp_token] {
 
 unsafe fn next_state(token: *const cmdp_token, cmd_ctx: *mut cmd_parser_ctx) {
     if (*token).next_state == CommandParserState::Call {
-        (*cmd_ctx).subcommand_output.ctx = cmd_ctx as *mut cmd_parser_ctx;
+        (*cmd_ctx).subcommand_output.ctx = cmd_ctx;
         (*cmd_ctx).subcommand_output.client = (*cmd_ctx).command_output.client;
         (*cmd_ctx).subcommand_output.needs_tree_render = false_0 != 0;
         GENERATED_call(
@@ -4029,8 +4029,8 @@ pub unsafe fn parse_command(
     };
     cmd_ctx.state = CommandParserState::Initial;
     let result: *mut CommandResult =
-        scalloc(1 as usize, ::core::mem::size_of::<CommandResult>() as usize) as *mut CommandResult;
-    cmd_ctx.command_output.ctx = &raw mut cmd_ctx as *mut cmd_parser_ctx;
+        scalloc(1_usize, ::core::mem::size_of::<CommandResult>() as usize) as *mut CommandResult;
+    cmd_ctx.command_output.ctx = &raw mut cmd_ctx;
     cmd_ctx.command_output.client = client;
     cmd_ctx.command_output.needs_tree_render = false_0 != 0;
     let mut walk: *const ::core::ffi::c_char = input;
@@ -4062,7 +4062,7 @@ pub unsafe fn parse_command(
                 if strncasecmp(
                     walk,
                     (*token).name.offset(1 as ::core::ffi::c_int as isize),
-                    strlen((*token).name).wrapping_sub(1 as usize),
+                    strlen((*token).name).wrapping_sub(1_usize),
                 ) == 0 as ::core::ffi::c_int
                 {
                     if !(*token).identifier.is_null() {
@@ -4072,7 +4072,7 @@ pub unsafe fn parse_command(
                             (*token).name.offset(1 as ::core::ffi::c_int as isize),
                         );
                     }
-                    walk = walk.offset(strlen((*token).name).wrapping_sub(1 as usize) as isize);
+                    walk = walk.offset(strlen((*token).name).wrapping_sub(1_usize) as isize);
                     next_state(token, &raw mut cmd_ctx);
                     token_handled = true_0 != 0;
                     break;

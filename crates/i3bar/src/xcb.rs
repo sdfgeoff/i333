@@ -122,7 +122,7 @@ pub unsafe fn common_display_context() -> i3_common::display::DisplayContext {
 
 pub static mut xcb_root: u32 = 0;
 static mut cursor: u32 = 0;
-static mut selwin: u32 = 0 as u32;
+static mut selwin: u32 = 0_u32;
 static mut tray_atom: Option<x::Atom> = None;
 
 pub static mut conn: *mut xcb_connection_t =
@@ -557,7 +557,7 @@ unsafe fn draw_separator(
         colors.bar_bg
     };
     let sep_offset: u32 = get_sep_offset(block);
-    if (*block).blocks.tqe_next.is_null() || sep_offset == 0 as u32 {
+    if (*block).blocks.tqe_next.is_null() || sep_offset == 0_u32 {
         return;
     }
     let center_x: u32 = x.wrapping_sub(sep_offset);
@@ -598,8 +598,8 @@ unsafe fn predict_block_length(block: *mut status_block) {
         text = (*block).short_text.as_ref().unwrap();
         render = &raw mut (*block).short_render;
     }
-    if text.rendering_byte_len() == 0 as usize {
-        (*block).render_length = 0 as u32;
+    if text.rendering_byte_len() == 0_usize {
+        (*block).render_length = 0_u32;
         return;
     }
     (*render).width = predict_text_width(&crate::xcb::font, text) as u32;
@@ -615,13 +615,13 @@ unsafe fn predict_block_length(block: *mut status_block) {
         .wrapping_add((*render).x_append);
 }
 unsafe fn predict_statusline_length() -> u32 {
-    let mut width: u32 = 0 as u32;
+    let mut width: u32 = 0_u32;
     let mut block: *mut status_block = ::core::ptr::null_mut::<status_block>();
     block = statusline_head.tqh_first;
     while !block.is_null() {
         predict_block_length(block);
         let block_width: u32 = (*block).render_length;
-        if !(block_width == 0 as u32) {
+        if !(block_width == 0_u32) {
             width = width.wrapping_add(block_width);
             if !(*block).blocks.tqe_next.is_null() {
                 width = width.wrapping_add((*block).sep_block_width);
@@ -633,7 +633,7 @@ unsafe fn predict_statusline_length() -> u32 {
 }
 unsafe fn switch_block_to_short(block: *mut status_block) -> u32 {
     if (*block).short_text.is_none() || (*block).use_short as ::core::ffi::c_int != 0 {
-        return 0 as u32;
+        return 0_u32;
     }
     let full: u32 = (*block).render_length;
     (*block).use_short = true;
@@ -671,7 +671,7 @@ unsafe fn draw_statusline(output: *mut i3_output, clip_left: u32, use_focus_colo
         colors.bar_bg
     };
     draw_util_clear_surface(&raw mut (*output).statusline_buffer, bar_color);
-    let mut x: u32 = (0 as u32).wrapping_sub(clip_left);
+    let mut x: u32 = 0_u32.wrapping_sub(clip_left);
     block = statusline_head.tqh_first;
     while !block.is_null() {
         let mut text = &(*block).full_text;
@@ -680,7 +680,7 @@ unsafe fn draw_statusline(output: *mut i3_output, clip_left: u32, use_focus_colo
             text = (*block).short_text.as_ref().unwrap();
             render = &raw mut (*block).short_render;
         }
-        if !(text.rendering_byte_len() == 0 as usize) {
+        if !(text.rendering_byte_len() == 0_usize) {
             let mut fg_color: color_t = color_t {
                 red: 0.,
                 green: 0.,
@@ -788,14 +788,14 @@ unsafe fn hide_bars() {
         return;
     }
     let mut walk: *mut i3_output = ::core::ptr::null_mut::<i3_output>();
-    walk = (*outputs).slh_first as *mut i3_output;
+    walk = (*outputs).slh_first;
     while !walk.is_null() {
         if (*walk).active {
             send_unchecked(&x::UnmapWindow {
                 window: x::Window::new((*walk).bar.id as u32),
             });
         }
-        walk = (*walk).slist.sle_next as *mut i3_output;
+        walk = (*walk).slist.sle_next;
     }
     stop_children();
 }
@@ -809,7 +809,7 @@ unsafe fn unhide_bars() {
     let mut walk: *mut i3_output = ::core::ptr::null_mut::<i3_output>();
     let mut values: [u32; 5] = [0; 5];
     cont_children();
-    walk = (*outputs).slh_first as *mut i3_output;
+    walk = (*outputs).slh_first;
     while !walk.is_null() {
         if !((*walk).bar.id as ::core::ffi::c_long == 0) {
             values[0 as ::core::ffi::c_int as usize] = (*walk).rect.x as u32;
@@ -854,7 +854,7 @@ unsafe fn unhide_bars() {
                 window: x::Window::new((*walk).bar.id as u32),
             });
         }
-        walk = (*walk).slist.sle_next as *mut i3_output;
+        walk = (*walk).slist.sle_next;
     }
 }
 
@@ -972,12 +972,12 @@ pub unsafe fn init_colors(new_colors: *const ColorStrings) {
 }
 unsafe fn execute_custom_command(input_code: u8, event_is_release: bool) -> bool {
     let mut binding_0: *mut binding_t = ::core::ptr::null_mut::<binding_t>();
-    binding_0 = config.bindings.tqh_first as *mut binding_t;
+    binding_0 = config.bindings.tqh_first;
     while !binding_0.is_null() {
         if (*binding_0).input_code != input_code as ::core::ffi::c_int
             || (*binding_0).release as ::core::ffi::c_int != event_is_release as ::core::ffi::c_int
         {
-            binding_0 = (*binding_0).bindings.tqe_next as *mut binding_t;
+            binding_0 = (*binding_0).bindings.tqe_next;
         } else {
             i3_send_msg(
                 I3_IPC_MESSAGE_TYPE_RUN_COMMAND as u32,
@@ -1029,7 +1029,7 @@ unsafe fn child_handle_button(
     if statusline_x > (*output).statusline_width as u32 {
         return;
     }
-    let mut last_block_x: u32 = 0 as u32;
+    let mut last_block_x: u32 = 0_u32;
     let mut block: *mut status_block = ::core::ptr::null_mut::<status_block>();
     block = statusline_head.tqh_first;
     while !block.is_null() {
@@ -1043,7 +1043,7 @@ unsafe fn child_handle_button(
             text = &(*block).full_text;
             render = &raw mut (*block).full_render;
         }
-        if !(text.rendering_byte_len() == 0 as usize) {
+        if !(text.rendering_byte_len() == 0_usize) {
             let full_render_width: u32 = (*render)
                 .width
                 .wrapping_add((*render).x_offset)
@@ -1105,12 +1105,12 @@ unsafe extern "C" fn focus_workspace(ws: *mut i3_ws) {
 unsafe fn handle_button(event: &ButtonInput) {
     let mut walk: *mut i3_output = ::core::ptr::null_mut::<i3_output>();
     let bar: u32 = event.window;
-    walk = (*outputs).slh_first as *mut i3_output;
+    walk = (*outputs).slh_first;
     while !walk.is_null() {
         if (*walk).bar.id == bar {
             break;
         }
-        walk = (*walk).slist.sle_next as *mut i3_output;
+        walk = (*walk).slist.sle_next;
     }
     if walk.is_null() {
         if config.verbose {
@@ -1144,7 +1144,7 @@ unsafe fn handle_button(event: &ButtonInput) {
     let mut cur_ws: *mut i3_ws = ::core::ptr::null_mut::<i3_ws>();
     let mut clicked_ws: *mut i3_ws = ::core::ptr::null_mut::<i3_ws>();
     let mut ws_walk: *mut i3_ws = ::core::ptr::null_mut::<i3_ws>();
-    ws_walk = (*(*walk).workspaces).tqh_first as *mut i3_ws;
+    ws_walk = (*(*walk).workspaces).tqh_first;
     while !ws_walk.is_null() {
         let w: ::core::ffi::c_int = predict_button_width((*ws_walk).name_width);
         if x >= workspace_width && x <= workspace_width + w {
@@ -1157,11 +1157,11 @@ unsafe fn handle_button(event: &ButtonInput) {
         if !(*ws_walk).tailq.tqe_next.is_null() {
             workspace_width += logical_px(ws_spacing_px);
         }
-        ws_walk = (*ws_walk).tailq.tqe_next as *mut i3_ws;
+        ws_walk = (*ws_walk).tailq.tqe_next;
     }
     if child_want_click_events() as ::core::ffi::c_int != 0 && x > workspace_width {
         let tray_width: ::core::ffi::c_int =
-            get_tray_width((*walk).trayclients as *mut tc_head) as ::core::ffi::c_int;
+            get_tray_width((*walk).trayclients) as ::core::ffi::c_int;
         let offset_x: ::core::ffi::c_int = (*walk).rect.w
             - (*walk).statusline_width
             - tray_width
@@ -1178,7 +1178,7 @@ unsafe fn handle_button(event: &ButtonInput) {
             return;
         }
     }
-    if execute_custom_command(event.button as u8, event_is_release) as ::core::ffi::c_int != 0
+    if execute_custom_command(event.button, event_is_release) as ::core::ffi::c_int != 0
         || event_is_release as ::core::ffi::c_int != 0
     {
         return;
@@ -1198,23 +1198,23 @@ unsafe fn handle_button(event: &ButtonInput) {
             if cur_ws == (*(*walk).workspaces).tqh_first {
                 return;
             }
-            cur_ws = *(*((*cur_ws).tailq.tqe_prev as *mut ws_head)).tqh_last as *mut i3_ws;
+            cur_ws = *(*((*cur_ws).tailq.tqe_prev as *mut ws_head)).tqh_last;
         }
         Some(WorkspaceButton::Down | WorkspaceButton::Right) => {
             if cur_ws == *(*((*(*walk).workspaces).tqh_last as *mut ws_head)).tqh_last {
                 return;
             }
-            cur_ws = (*cur_ws).tailq.tqe_next as *mut i3_ws;
+            cur_ws = (*cur_ws).tailq.tqe_next;
         }
         Some(WorkspaceButton::Click) => {
             cur_ws = clicked_ws;
             if cur_ws.is_null() {
-                cur_ws = (*(*walk).workspaces).tqh_first as *mut i3_ws;
+                cur_ws = (*(*walk).workspaces).tqh_first;
                 while !cur_ws.is_null() {
                     if (*cur_ws).visible as ::core::ffi::c_int != 0 && !(*cur_ws).focused {
                         break;
                     }
-                    cur_ws = (*cur_ws).tailq.tqe_next as *mut i3_ws;
+                    cur_ws = (*cur_ws).tailq.tqe_next;
                 }
             }
             if cur_ws.is_null() {
@@ -1229,7 +1229,7 @@ unsafe fn handle_visibility_notify(event: &x::VisibilityNotifyEvent) {
     let visible: bool = events::visibility_state(event) != x::Visibility::FullyObscured as u8;
     let mut num_visible: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
     let mut output: *mut i3_output = ::core::ptr::null_mut::<i3_output>();
-    output = (*outputs).slh_first as *mut i3_output;
+    output = (*outputs).slh_first;
     while !output.is_null() {
         if (*output).active {
             if (*output).bar.id == event.window().resource_id() {
@@ -1237,7 +1237,7 @@ unsafe fn handle_visibility_notify(event: &x::VisibilityNotifyEvent) {
             }
             num_visible += (*output).visible as ::core::ffi::c_int;
         }
-        output = (*output).slist.sle_next as *mut i3_output;
+        output = (*output).slist.sle_next;
     }
     if num_visible == 0 as ::core::ffi::c_int {
         stop_children();
@@ -1260,17 +1260,17 @@ unsafe extern "C" fn reorder_trayclients_cmp(
 }
 unsafe fn configure_trayclients() {
     let mut output: *mut i3_output = ::core::ptr::null_mut::<i3_output>();
-    output = (*outputs).slh_first as *mut i3_output;
+    output = (*outputs).slh_first;
     while !output.is_null() {
         if (*output).active {
             let mut count: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
             let mut client: *mut trayclient = ::core::ptr::null_mut::<trayclient>();
-            client = (*(*output).trayclients).tqh_first as *mut trayclient;
+            client = (*(*output).trayclients).tqh_first;
             while !client.is_null() {
                 if (*client).mapped {
                     count += 1;
                 }
-                client = (*client).tailq.tqe_next as *mut trayclient;
+                client = (*client).tailq.tqe_next;
             }
             let mut trayclients: Vec<*mut trayclient> = Vec::with_capacity(count as usize);
             client = (*(*output).trayclients).tqh_first;
@@ -1308,7 +1308,7 @@ unsafe fn configure_trayclients() {
                 idx -= 1;
             }
         }
-        output = (*output).slist.sle_next as *mut i3_output;
+        output = (*output).slist.sle_next;
     }
 }
 unsafe fn trayclient_and_output_from_window(
@@ -1316,11 +1316,11 @@ unsafe fn trayclient_and_output_from_window(
     output: *mut *mut i3_output,
 ) -> *mut trayclient {
     let mut o_walk: *mut i3_output = ::core::ptr::null_mut::<i3_output>();
-    o_walk = (*outputs).slh_first as *mut i3_output;
+    o_walk = (*outputs).slh_first;
     while !o_walk.is_null() {
         if (*o_walk).active {
             let mut client: *mut trayclient = ::core::ptr::null_mut::<trayclient>();
-            client = (*(*o_walk).trayclients).tqh_first as *mut trayclient;
+            client = (*(*o_walk).trayclients).tqh_first;
             while !client.is_null() {
                 if (*client).win == win {
                     if !output.is_null() {
@@ -1328,10 +1328,10 @@ unsafe fn trayclient_and_output_from_window(
                     }
                     return client;
                 }
-                client = (*client).tailq.tqe_next as *mut trayclient;
+                client = (*client).tailq.tqe_next;
             }
         }
-        o_walk = (*o_walk).slist.sle_next as *mut i3_output;
+        o_walk = (*o_walk).slist.sle_next;
     }
     ::core::ptr::null_mut::<trayclient>()
 }
@@ -1507,7 +1507,7 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
             }
             let rcookie = connection.send_request(&x::ReparentWindow {
                 window: x::Window::new(client),
-                parent: x::Window::new((*output_for_tray).bar.id as u32),
+                parent: x::Window::new((*output_for_tray).bar.id),
                 x: ((*output_for_tray).rect.w - icon_size - logical_px(config.tray_padding)) as i16,
                 y: logical_px(config.tray_padding) as i16,
             });
@@ -1530,7 +1530,7 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
                 client,
                 atoms[AtomIndex::Xembed as usize],
                 [
-                    x::CURRENT_TIME as u32,
+                    x::CURRENT_TIME,
                     XEMBED_EMBEDDED_NOTIFY as u32,
                     (*output_for_tray).bar.id,
                     xe_version as u32,
@@ -1543,14 +1543,13 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
                 window: x::Window::new(client),
             });
             let tc: *mut trayclient =
-                scalloc(1 as usize, ::core::mem::size_of::<trayclient>() as usize)
-                    as *mut trayclient;
+                scalloc(1_usize, ::core::mem::size_of::<trayclient>() as usize) as *mut trayclient;
             (*tc).win = client;
             (*tc).xe_version = xe_version;
             (*tc).mapped = false;
             (*tc).tailq.tqe_next = ::core::ptr::null_mut::<trayclient>();
             (*tc).tailq.tqe_prev = (*(*output_for_tray).trayclients).tqh_last;
-            *(*(*output_for_tray).trayclients).tqh_last = tc as *mut trayclient;
+            *(*(*output_for_tray).trayclients).tqh_last = tc;
             (*(*output_for_tray).trayclients).tqh_last = &raw mut (*tc).tailq.tqe_next;
             trayclient_update_class(tc);
             if map_it {
@@ -1795,12 +1794,11 @@ unsafe fn handle_property_notify(event: &x::PropertyNotifyEvent) {
 unsafe fn handle_configuration_change(window: u32) {
     let mut trayclient: *mut trayclient = ::core::ptr::null_mut::<trayclient>();
     let mut output: *mut i3_output = ::core::ptr::null_mut::<i3_output>();
-    output = (*outputs).slh_first as *mut i3_output;
+    output = (*outputs).slh_first;
     while !output.is_null() {
         if (*output).active {
             let mut clients: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-            trayclient =
-                *(*((*(*output).trayclients).tqh_last as *mut tc_head)).tqh_last as *mut trayclient;
+            trayclient = *(*((*(*output).trayclients).tqh_last as *mut tc_head)).tqh_last;
             while !trayclient.is_null() {
                 if (*trayclient).mapped {
                     clients += 1;
@@ -1831,11 +1829,10 @@ unsafe fn handle_configuration_change(window: u32) {
                         return;
                     }
                 }
-                trayclient =
-                    *(*((*trayclient).tailq.tqe_prev as *mut tc_head)).tqh_last as *mut trayclient;
+                trayclient = *(*((*trayclient).tailq.tqe_prev as *mut tc_head)).tqh_last;
             }
         }
-        output = (*output).slist.sle_next as *mut i3_output;
+        output = (*output).slist.sle_next;
     }
     if config.verbose {
         printf(
@@ -2068,8 +2065,8 @@ pub unsafe fn init_xcb_early() -> *mut ::core::ffi::c_char {
     ));
     xcb_prep = smalloc(std::mem::size_of::<ev_prepare>()).cast();
     xcb_prep.write(ev_prepare::new(xcb_prep_cb));
-    ev_io_start(main_loop as *mut ev_loop, xcb_io);
-    ev_prepare_start(main_loop as *mut ev_loop, xcb_prep);
+    ev_io_start(main_loop, xcb_io);
+    ev_prepare_start(main_loop, xcb_prep);
     get_atoms(&connection, atom_cookies);
     let path: *mut ::core::ffi::c_char =
         root_atom_contents(c"I3_SOCKET_PATH".as_ptr(), xcb_connection, screen);
@@ -2162,11 +2159,11 @@ pub unsafe fn init_xcb_late(mut fontname: *mut ::core::ffi::c_char) {
         font.height + 2 as ::core::ffi::c_int * logical_px(ws_voff_px) as ::core::ffi::c_int;
     let mut padding_scaled: ::core::ffi::c_int = logical_px(config.padding.y as ::core::ffi::c_int)
         + logical_px(config.padding.height as ::core::ffi::c_int);
-    if config.bar_height > 0 as u32
-        && config.padding.x == 0 as u32
-        && config.padding.y == 0 as u32
-        && config.padding.width == 0 as u32
-        && config.padding.height == 0 as u32
+    if config.bar_height > 0_u32
+        && config.padding.x == 0_u32
+        && config.padding.y == 0_u32
+        && config.padding.width == 0_u32
+        && config.padding.height == 0_u32
     {
         padding_scaled = config.bar_height.wrapping_sub(default_px as u32) as ::core::ffi::c_int;
         if config.verbose {
@@ -2203,7 +2200,7 @@ unsafe fn send_tray_clientmessage() {
         xcb_root,
         atoms[AtomIndex::Manager as usize],
         [
-            x::CURRENT_TIME as u32,
+            x::CURRENT_TIME,
             tray_atom.unwrap().resource_id(),
             selwin,
             0,
@@ -2231,16 +2228,16 @@ unsafe fn init_tray() {
             name: atomname.as_bytes(),
         })
     });
-    selwin = connection.generate_id::<x::Window>().resource_id() as u32;
+    selwin = connection.generate_id::<x::Window>().resource_id();
     connection.send_request(&x::CreateWindow {
         depth: depth,
         wid: x::Window::new(selwin),
         parent: x::Window::new(xcb_root),
         x: -(1 as ::core::ffi::c_int) as i16,
         y: -(1 as ::core::ffi::c_int) as i16,
-        width: 1 as u16,
-        height: 1 as u16,
-        border_width: 0 as u16,
+        width: 1_u16,
+        height: 1_u16,
+        border_width: 0_u16,
         class: x::WindowClass::InputOutput,
         visual: common_display_context().visual_id,
         value_list: &[
@@ -2446,7 +2443,7 @@ pub unsafe fn kick_tray_clients(output: *mut i3_output) {
     }
     let mut trayclient: *mut trayclient = ::core::ptr::null_mut::<trayclient>();
     while !(*(*output).trayclients).tqh_first.is_null() {
-        trayclient = (*(*output).trayclients).tqh_first as *mut trayclient;
+        trayclient = (*(*output).trayclients).tqh_first;
         send_unchecked(&x::UnmapWindow {
             window: x::Window::new((*trayclient).win),
         });
@@ -2481,7 +2478,7 @@ pub unsafe fn destroy_window(output: *mut i3_output) {
     draw_util_surface_free(xcb_connection, &raw mut (*output).buffer);
     draw_util_surface_free(xcb_connection, &raw mut (*output).statusline_buffer);
     send_unchecked(&x::DestroyWindow {
-        window: x::Window::new((*output).bar.id as u32),
+        window: x::Window::new((*output).bar.id),
     });
     (*output).buffer.clear();
     if !(*output).buffer.release_pixmap() {
@@ -2495,7 +2492,7 @@ pub unsafe fn destroy_window(output: *mut i3_output) {
             pixmap: x::Pixmap::new((*output).statusline_buffer.id),
         });
     }
-    (*output).bar.id = 0 as u32;
+    (*output).bar.id = 0_u32;
 }
 unsafe fn config_strut_partial(
     connection: &::xcb::Connection,
@@ -2514,12 +2511,12 @@ unsafe fn config_strut_partial(
 unsafe fn get_tray_output() -> *mut i3_output {
     let mut output: *mut i3_output = ::core::ptr::null_mut::<i3_output>();
     if config.tray_outputs.tqh_first.is_null() {
-        output = (*outputs).slh_first as *mut i3_output;
+        output = (*outputs).slh_first;
         while !output.is_null() {
             if (*output).active {
                 return output;
             }
-            output = (*output).slist.sle_next as *mut i3_output;
+            output = (*output).slist.sle_next;
         }
         return ::core::ptr::null_mut::<i3_output>();
     } else if strcasecmp(
@@ -2530,9 +2527,9 @@ unsafe fn get_tray_output() -> *mut i3_output {
         return ::core::ptr::null_mut::<i3_output>();
     }
     let mut tray_output: *mut tray_output_t = ::core::ptr::null_mut::<tray_output_t>();
-    tray_output = config.tray_outputs.tqh_first as *mut tray_output_t;
+    tray_output = config.tray_outputs.tqh_first;
     while !tray_output.is_null() {
-        output = (*outputs).slh_first as *mut i3_output;
+        output = (*outputs).slh_first;
         while !output.is_null() {
             if (*output).active as ::core::ffi::c_int != 0
                 && (strcasecmp((*output).name_ptr(), (*tray_output).output_ptr())
@@ -2543,9 +2540,9 @@ unsafe fn get_tray_output() -> *mut i3_output {
             {
                 return output;
             }
-            output = (*output).slist.sle_next as *mut i3_output;
+            output = (*output).slist.sle_next;
         }
-        tray_output = (*tray_output).tray_outputs.tqe_next as *mut tray_output_t;
+        tray_output = (*tray_output).tray_outputs.tqe_next;
     }
     ::core::ptr::null_mut::<i3_output>()
 }
@@ -2556,7 +2553,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
     };
     let mut values: [u32; 6] = [0; 6];
     let mut walk: *mut i3_output = ::core::ptr::null_mut::<i3_output>();
-    walk = (*outputs).slh_first as *mut i3_output;
+    walk = (*outputs).slh_first;
     while !walk.is_null() {
         if !(*walk).active {
             if config.verbose {
@@ -2577,10 +2574,9 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                     (*walk).name_ptr(),
                 );
             }
-            let bar_id: u32 = connection.generate_id::<x::Window>().resource_id() as u32;
+            let bar_id: u32 = connection.generate_id::<x::Window>().resource_id();
             let buffer_id: u32 = connection.generate_id::<x::Pixmap>().resource_id();
-            let statusline_buffer_id: u32 =
-                connection.generate_id::<x::Pixmap>().resource_id() as u32;
+            let statusline_buffer_id: u32 = connection.generate_id::<x::Pixmap>().resource_id();
 
             values[0 as ::core::ffi::c_int as usize] = colors.bar_bg.colorpixel;
             values[1 as ::core::ffi::c_int as usize] =
@@ -2602,8 +2598,8 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                     x::EventMask::VISIBILITY_CHANGE.bits() as ::core::ffi::c_int as u32;
                 (*walk).visible = true;
             }
-            values[4 as ::core::ffi::c_int as usize] = colormap as u32;
-            values[5 as ::core::ffi::c_int as usize] = cursor as u32;
+            values[4 as ::core::ffi::c_int as usize] = colormap;
+            values[5 as ::core::ffi::c_int as usize] = cursor;
             let win_cookie = connection.send_request_checked(&x::CreateWindow {
                 depth: depth,
                 wid: x::Window::new(bar_id),
@@ -2612,7 +2608,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 y: ((*walk).rect.y + (*walk).rect.h - bar_height) as i16,
                 width: (*walk).rect.w as u16,
                 height: bar_height as u16,
-                border_width: 0 as u16,
+                border_width: 0_u16,
                 class: x::WindowClass::InputOutput,
                 visual: common_display_context().visual_id,
                 value_list: &[
@@ -2627,14 +2623,14 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
             let pm_cookie = connection.send_request_checked(&x::CreatePixmap {
                 depth: depth,
                 pid: x::Pixmap::new(buffer_id),
-                drawable: x::Drawable::Window(x::Window::new(bar_id as u32)),
+                drawable: x::Drawable::Window(x::Window::new(bar_id)),
                 width: (*walk).rect.w as u16,
                 height: bar_height as u16,
             });
             let slpm_cookie = connection.send_request_checked(&x::CreatePixmap {
                 depth: depth,
                 pid: x::Pixmap::new(statusline_buffer_id),
-                drawable: x::Drawable::Window(x::Window::new(bar_id as u32)),
+                drawable: x::Drawable::Window(x::Window::new(bar_id)),
                 width: (*walk).rect.w as u16,
                 height: bar_height as u16,
             });
@@ -2684,7 +2680,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                     .expect("bar display initialized")
                     .renderer,
                 &raw mut (*walk).bar,
-                bar_id as u32,
+                bar_id,
                 None,
                 (*walk).rect.w,
                 bar_height,
@@ -2695,7 +2691,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                     .expect("bar display initialized")
                     .renderer,
                 &raw mut (*walk).buffer,
-                buffer_id as u32,
+                buffer_id,
                 None,
                 (*walk).rect.w,
                 bar_height,
@@ -2706,7 +2702,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                     .expect("bar display initialized")
                     .renderer,
                 &raw mut (*walk).statusline_buffer,
-                statusline_buffer_id as u32,
+                statusline_buffer_id,
                 None,
                 (*walk).rect.w,
                 bar_height,
@@ -3002,7 +2998,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 )
             });
         }
-        walk = (*walk).slist.sle_next as *mut i3_output;
+        walk = (*walk).slist.sle_next;
     }
     output_for_tray = get_tray_output();
     if !output_for_tray.is_null() {
@@ -3020,7 +3016,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
         send_unchecked(&x::DestroyWindow {
             window: x::Window::new(selwin),
         });
-        selwin = 0 as u32;
+        selwin = 0_u32;
     }
 }
 unsafe fn draw_button(
@@ -3074,7 +3070,7 @@ pub unsafe fn draw_bars(mut unhide: bool) {
         );
     }
     let mut outputs_walk: *mut i3_output = ::core::ptr::null_mut::<i3_output>();
-    outputs_walk = (*outputs).slh_first as *mut i3_output;
+    outputs_walk = (*outputs).slh_first;
     while !outputs_walk.is_null() {
         let mut workspace_width: ::core::ffi::c_int =
             logical_px(config.padding.x as ::core::ffi::c_int);
@@ -3102,7 +3098,7 @@ pub unsafe fn draw_bars(mut unhide: bool) {
             );
             if !config.disable_ws {
                 let mut ws_walk: *mut i3_ws = ::core::ptr::null_mut::<i3_ws>();
-                ws_walk = (*(*outputs_walk).workspaces).tqh_first as *mut i3_ws;
+                ws_walk = (*(*outputs_walk).workspaces).tqh_first;
                 while !ws_walk.is_null() {
                     if config.verbose {
                         printf(
@@ -3165,7 +3161,7 @@ pub unsafe fn draw_bars(mut unhide: bool) {
                     if !(*ws_walk).tailq.tqe_next.is_null() {
                         workspace_width += logical_px(ws_spacing_px);
                     }
-                    ws_walk = (*ws_walk).tailq.tqe_next as *mut i3_ws;
+                    ws_walk = (*ws_walk).tailq.tqe_next;
                 }
             }
             if let Some(mode_name) = binding
@@ -3196,8 +3192,7 @@ pub unsafe fn draw_bars(mut unhide: bool) {
                         2184 as ::core::ffi::c_int,
                     );
                 }
-                let tray_width: ::core::ffi::c_int =
-                    get_tray_width((*outputs_walk).trayclients as *mut tc_head);
+                let tray_width: ::core::ffi::c_int = get_tray_width((*outputs_walk).trayclients);
                 let hoff: u32 = logical_px(
                     ((workspace_width > 0 as ::core::ffi::c_int) as ::core::ffi::c_int
                         + (tray_width > 0 as ::core::ffi::c_int) as ::core::ffi::c_int)
@@ -3206,7 +3201,7 @@ pub unsafe fn draw_bars(mut unhide: bool) {
                 let max_statusline_width: u32 =
                     (((*outputs_walk).rect.w - workspace_width - tray_width) as u32)
                         .wrapping_sub(hoff);
-                let mut clip_left: u32 = 0 as u32;
+                let mut clip_left: u32 = 0_u32;
                 let mut block: *mut status_block = ::core::ptr::null_mut::<status_block>();
                 block = statusline_head.tqh_first;
                 while !block.is_null() {
@@ -3243,7 +3238,7 @@ pub unsafe fn draw_bars(mut unhide: bool) {
                 (*outputs_walk).statusline_width = statusline_width as ::core::ffi::c_int;
             }
         }
-        outputs_walk = (*outputs_walk).slist.sle_next as *mut i3_output;
+        outputs_walk = (*outputs_walk).slist.sle_next;
     }
     if mod_pressed as ::core::ffi::c_int != 0
         || config.hidden_state == crate::application::HiddenState::Show
@@ -3258,7 +3253,7 @@ pub unsafe fn draw_bars(mut unhide: bool) {
 
 pub unsafe fn redraw_bars() {
     let mut outputs_walk: *mut i3_output = ::core::ptr::null_mut::<i3_output>();
-    outputs_walk = (*outputs).slh_first as *mut i3_output;
+    outputs_walk = (*outputs).slh_first;
     while !outputs_walk.is_null() {
         if (*outputs_walk).active {
             draw_util_copy_surface(
@@ -3273,7 +3268,7 @@ pub unsafe fn redraw_bars() {
             );
             flush_requests();
         }
-        outputs_walk = (*outputs_walk).slist.sle_next as *mut i3_output;
+        outputs_walk = (*outputs_walk).slist.sle_next;
     }
 }
 

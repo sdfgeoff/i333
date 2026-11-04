@@ -156,7 +156,7 @@ pub unsafe fn cfg_include(
     let mut expanded_words = ExpandedWords(p);
     let p = &mut expanded_words.0;
     let w: *mut *mut ::core::ffi::c_char = p.we_wordv;
-    let mut i: usize = 0 as usize;
+    let mut i: usize = 0_usize;
     while i < p.we_wordc {
         let mut resolved_path: [::core::ffi::c_char; 4096] = [0; 4096];
         if realpath(
@@ -205,7 +205,7 @@ pub unsafe fn cfg_include(
         } else {
             let mut skip: bool = false_0 != 0;
             let mut file: *mut IncludedFile = ::core::ptr::null_mut::<IncludedFile>();
-            file = included_files.tqh_first as *mut IncludedFile;
+            file = included_files.tqh_first;
             while !file.is_null() {
                 if strcmp(
                     (*file).path,
@@ -215,7 +215,7 @@ pub unsafe fn cfg_include(
                     skip = true_0 != 0;
                     break;
                 } else {
-                    file = (*file).files.tqe_next as *mut IncludedFile;
+                    file = (*file).files.tqe_next;
                 }
             }
             if skip {
@@ -264,12 +264,12 @@ pub unsafe fn cfg_include(
                         i3_common::logging::emit(i3_common::logging::Level::Verbose, &message);
                     }
                 };
-                file = scalloc(1 as usize, ::core::mem::size_of::<IncludedFile>() as usize)
+                file = scalloc(1_usize, ::core::mem::size_of::<IncludedFile>() as usize)
                     as *mut IncludedFile;
                 (*file).path = sstrdup(&raw mut resolved_path as *mut ::core::ffi::c_char);
                 (*file).files.tqe_next = ::core::ptr::null_mut::<IncludedFile>();
                 (*file).files.tqe_prev = included_files.tqh_last;
-                *included_files.tqh_last = file as *mut IncludedFile;
+                *included_files.tqh_last = file;
                 included_files.tqh_last = &raw mut (*file).files.tqe_next;
                 let mut stack: stack = stack::default();
                 let mut ctx: parser_ctx = parser_ctx {
@@ -545,7 +545,7 @@ pub unsafe fn cfg_enter_mode(
         return;
     }
     let mut mode: *mut Mode = ::core::ptr::null_mut::<Mode>();
-    mode = modes.slh_first as *mut Mode;
+    mode = modes.slh_first;
     while !mode.is_null() {
         if strcmp((*mode).name, modename) == 0 as ::core::ffi::c_int {
             {
@@ -698,7 +698,7 @@ pub unsafe fn cfg_for_window(
     )));
     (*assignment).assignments.tqe_next = ::core::ptr::null_mut::<Assignment>();
     (*assignment).assignments.tqe_prev = assignments.tqh_last;
-    *assignments.tqh_last = assignment as *mut Assignment;
+    *assignments.tqh_last = assignment;
     assignments.tqh_last = &raw mut (*assignment).assignments.tqe_next;
 }
 unsafe fn apply_gaps(gaps: *mut gaps_t, mask: gaps_mask_t, value: ::core::ffi::c_int) {
@@ -763,7 +763,7 @@ unsafe fn create_gaps_assignment(
     }
     if !found {
         assignment = scalloc(
-            1 as usize,
+            1_usize,
             ::core::mem::size_of::<Workspace_Assignment>() as usize,
         ) as *mut Workspace_Assignment;
         (*assignment).name = sstrdup(workspace);
@@ -1278,7 +1278,7 @@ pub unsafe fn cfg_workspace(
         }
     };
     assignment = scalloc(
-        1 as usize,
+        1_usize,
         ::core::mem::size_of::<Workspace_Assignment>() as usize,
     ) as *mut Workspace_Assignment;
     (*assignment).name = sstrdup(workspace);
@@ -1533,7 +1533,7 @@ pub unsafe fn cfg_assign_output(
     )));
     (*assignment).assignments.tqe_next = ::core::ptr::null_mut::<Assignment>();
     (*assignment).assignments.tqe_prev = assignments.tqh_last;
-    *assignments.tqh_last = assignment as *mut Assignment;
+    *assignments.tqh_last = assignment;
     assignments.tqh_last = &raw mut (*assignment).assignments.tqe_next;
 }
 
@@ -1639,7 +1639,7 @@ pub unsafe fn cfg_assign(
     )));
     (*assignment).assignments.tqe_next = ::core::ptr::null_mut::<Assignment>();
     (*assignment).assignments.tqe_prev = assignments.tqh_last;
-    *assignments.tqh_last = assignment as *mut Assignment;
+    *assignments.tqh_last = assignment;
     assignments.tqh_last = &raw mut (*assignment).assignments.tqe_next;
 }
 
@@ -1680,7 +1680,7 @@ pub unsafe fn cfg_no_focus(current_match: *mut Match, result: *mut ConfigResultI
     )));
     (*assignment).assignments.tqe_next = ::core::ptr::null_mut::<Assignment>();
     (*assignment).assignments.tqe_prev = assignments.tqh_last;
-    *assignments.tqh_last = assignment as *mut Assignment;
+    *assignments.tqh_last = assignment;
     assignments.tqh_last = &raw mut (*assignment).assignments.tqe_next;
 }
 
@@ -1940,7 +1940,7 @@ unsafe fn bar_configure_binding(
     }
     let release_bool: bool = !release.is_null();
     let mut current: *mut Barbinding = ::core::ptr::null_mut::<Barbinding>();
-    current = (*current_bar).bar_bindings.tqh_first as *mut Barbinding;
+    current = (*current_bar).bar_bindings.tqh_first;
     while !current.is_null() {
         if (*current).input_code == input_code
             && (*current).release as ::core::ffi::c_int == release_bool as ::core::ffi::c_int
@@ -2296,11 +2296,9 @@ pub unsafe fn cfg_bar_strip_workspace_name(
 pub unsafe fn cfg_bar_start(current_match: *mut Match, result: *mut ConfigResultIR) {
     current_bar = Box::into_raw(Box::new(Barconfig::default()));
     (*current_bar).bar_bindings.tqh_first = ::core::ptr::null_mut::<Barbinding>();
-    (*current_bar).bar_bindings.tqh_last =
-        &raw mut (*current_bar).bar_bindings.tqh_first as *mut *mut Barbinding;
+    (*current_bar).bar_bindings.tqh_last = &raw mut (*current_bar).bar_bindings.tqh_first;
     (*current_bar).tray_outputs.tqh_first = ::core::ptr::null_mut::<tray_output_t>();
-    (*current_bar).tray_outputs.tqh_last =
-        &raw mut (*current_bar).tray_outputs.tqh_first as *mut *mut tray_output_t;
+    (*current_bar).tray_outputs.tqh_last = &raw mut (*current_bar).tray_outputs.tqh_first;
     (*current_bar).tray_padding = 2 as ::core::ffi::c_int;
     (*current_bar).modifier = (::xcb::x::KeyButMask::MOD4.bits()) as ::core::ffi::c_int as u32;
 }
@@ -2314,7 +2312,7 @@ pub unsafe fn cfg_bar_finish(current_match: *mut Match, result: *mut ConfigResul
     config.number_barconfigs += 1;
     (*current_bar).configs.tqe_next = ::core::ptr::null_mut::<Barconfig>();
     (*current_bar).configs.tqe_prev = barconfigs.tqh_last;
-    *barconfigs.tqh_last = current_bar as *mut Barconfig;
+    *barconfigs.tqh_last = current_bar;
     barconfigs.tqh_last = &raw mut (*current_bar).configs.tqe_next;
     current_bar = ::core::ptr::null_mut::<Barconfig>();
 }

@@ -61,7 +61,7 @@ unsafe fn drain_drag_events(loop_0: *mut ev_loop, dragloop: *mut DragState<'_>) 
                         "error_code = {}\n"
                     ),
                     (i32::from(error.sequence)) as u32,
-                    (i32::from(error.error_code)) as i32
+                    { (i32::from(error.error_code)) }
                 );
                 continue;
             }
@@ -76,8 +76,8 @@ unsafe fn drain_drag_events(loop_0: *mut ev_loop, dragloop: *mut DragState<'_>) 
                         "../src/drag.c:drain_drag_events:70 - Ignoring button ",
                         "{} press during drag initiated by button {}\n"
                     ),
-                    (press.detail() as i32) as i32,
-                    ((*dragloop).event.detail() as i32) as i32
+                    { (press.detail() as i32) },
+                    { ((*dragloop).event.detail() as i32) }
                 );
             }
             xcb::Event::X(x::Event::ButtonRelease(release)) => {
@@ -87,8 +87,8 @@ unsafe fn drain_drag_events(loop_0: *mut ev_loop, dragloop: *mut DragState<'_>) 
                             "../src/drag.c:drain_drag_events:79 - Button {} ",
                             "released, ending drag initiated by button {}\n"
                         ),
-                        (release.detail() as i32) as i32,
-                        ((*dragloop).event.detail() as i32) as i32
+                        { (release.detail() as i32) },
+                        { ((*dragloop).event.detail() as i32) }
                     );
                     (*dragloop).result = DragResult::Success;
                 } else {
@@ -97,8 +97,8 @@ unsafe fn drain_drag_events(loop_0: *mut ev_loop, dragloop: *mut DragState<'_>) 
                             "../src/drag.c:drain_drag_events:83 - Ignoring button ",
                             "{} release during drag initiated by button {}\n"
                         ),
-                        (release.detail() as i32) as i32,
-                        ((*dragloop).event.detail() as i32) as i32
+                        { (release.detail() as i32) },
+                        { ((*dragloop).event.detail() as i32) }
                     );
                 }
             }
@@ -118,7 +118,7 @@ unsafe fn drain_drag_events(loop_0: *mut ev_loop, dragloop: *mut DragState<'_>) 
                             "../src/drag.c:drain_drag_events:99 - UnmapNotify for ",
                             "window 0x{:08x} (container {})\n"
                         ),
-                        (unmap_event.window().resource_id()) as u32,
+                        { (unmap_event.window().resource_id()) },
                         i3_common::logging::pointer(con)
                     );
                     if con_get_workspace(con) == con_get_workspace(focused) {
@@ -143,7 +143,7 @@ unsafe fn drain_drag_events(loop_0: *mut ev_loop, dragloop: *mut DragState<'_>) 
                             "_NET_WM_MOVERESIZE request during active drag (window ",
                             "= 0x{:08x}, direction = {})\n"
                         ),
-                        (client_message.window().resource_id()) as u32,
+                        { (client_message.window().resource_id()) },
                         (words[2]) as i32
                     );
                 } else {
@@ -244,19 +244,17 @@ pub unsafe fn drag_pointer(
         match connection.wait_for_reply(cookie) {
             Ok(reply) => reply,
             Err(error) => {
-                ::log::error!(
-                    "ERROR: Could not grab pointer (error_code = {})\n",
-                    (i32::from(protocol_error_code(&error))) as i32
-                );
+                ::log::error!("ERROR: Could not grab pointer (error_code = {})\n", {
+                    (i32::from(protocol_error_code(&error)))
+                });
                 return DragResult::Abort;
             }
         }
     };
     if let Err(status) = successful_grab(&pointer_reply) {
-        ::log::error!(
-            "ERROR: Could not grab pointer (status = {})\n",
-            (i32::from(status)) as i32
-        );
+        ::log::error!("ERROR: Could not grab pointer (status = {})\n", {
+            (i32::from(status))
+        });
         return DragResult::Abort;
     }
     ::log::debug!("../src/drag.c:drag_pointer:238 - Pointer grab successful\n");
@@ -275,19 +273,17 @@ pub unsafe fn drag_pointer(
         match connection.wait_for_reply(cookie) {
             Ok(reply) => reply,
             Err(error) => {
-                ::log::error!(
-                    "ERROR: Could not grab keyboard (error_code = {})\n",
-                    (i32::from(protocol_error_code(&error))) as i32
-                );
+                ::log::error!("ERROR: Could not grab keyboard (error_code = {})\n", {
+                    (i32::from(protocol_error_code(&error)))
+                });
                 return DragResult::Abort;
             }
         }
     };
     if let Err(status) = successful_grab(&keyboard_reply) {
-        ::log::error!(
-            "ERROR: Could not grab keyboard (status = {})\n",
-            (i32::from(status)) as i32
-        );
+        ::log::error!("ERROR: Could not grab keyboard (status = {})\n", {
+            (i32::from(status))
+        });
         return DragResult::Abort;
     }
     ::log::debug!("../src/drag.c:drag_pointer:266 - Keyboard grab successful\n");
@@ -319,13 +315,13 @@ pub unsafe fn drag_pointer(
     ::log::debug!(
         "../src/drag.c:drag_pointer:288 - Entering drag loop (con = {}, button = {})\n",
         i3_common::logging::pointer(con),
-        (event.detail() as i32) as i32
+        { (event.detail() as i32) }
     );
     ev_loop(main_loop, 0);
     ::log::debug!(
         "../src/drag.c:drag_pointer:291 - Leaving drag loop (con = {}, button = {}, result = {})\n",
         i3_common::logging::pointer(con),
-        (event.detail() as i32) as i32,
+        { (event.detail() as i32) },
         (loop_0.result as u32) as i32
     );
     ev_prepare_stop(main_loop, prepare);

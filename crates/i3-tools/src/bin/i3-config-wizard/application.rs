@@ -5010,8 +5010,8 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
     };
     if xkb_x11_setup_xkb_extension(
         conn.cast(),
-        XKB_X11_MIN_MAJOR_XKB_VERSION as u16,
-        XKB_X11_MIN_MINOR_XKB_VERSION as u16,
+        XKB_X11_MIN_MAJOR_XKB_VERSION,
+        XKB_X11_MIN_MINOR_XKB_VERSION,
         xkb_x11_setup_xkb_extension_flags::NO_FLAGS,
         ::core::ptr::null_mut::<u16>(),
         ::core::ptr::null_mut::<u16>(),
@@ -5172,7 +5172,7 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
         .expect("root visual belongs to the selected screen");
     surface = surface_t::for_drawable(
         rendering.clone(),
-        win as u32,
+        win,
         visual,
         logical_px(300 as ::core::ffi::c_int),
         15 as ::core::ffi::c_int * font.height + logical_px(4 as ::core::ffi::c_int),

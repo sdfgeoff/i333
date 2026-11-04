@@ -126,10 +126,9 @@ pub unsafe fn create_window(
     // Native CreateWindow is unchecked, but still followed by request_check.
     // Retain that barrier without claiming errors from the event queue.
     if let Some(code) = xcb_interop::transport::check_unchecked(connection, cookie) {
-        ::log::error!(
-            "ERROR: Could not create window. Error code: {}.\n",
-            (i32::from(code)) as i32
-        );
+        ::log::error!("ERROR: Could not create window. Error code: {}.\n", {
+            (i32::from(code))
+        });
     }
     connection.send_request(&x::ChangeWindowAttributes {
         window: result,
@@ -150,10 +149,10 @@ pub unsafe fn fake_absolute_configure_notify(con: *mut Con) {
     let absolute = absolute_geometry((*con).rect, (*con).window_rect);
     ::log::debug!(
         "../src/xcb.c:fake_absolute_configure_notify:75 - fake rect = ({}, {}, {}, {})\n",
-        (absolute.x as ::core::ffi::c_int) as i32,
-        (absolute.y as ::core::ffi::c_int) as i32,
-        (absolute.width as ::core::ffi::c_int) as i32,
-        (absolute.height as ::core::ffi::c_int) as i32
+        { (absolute.x as ::core::ffi::c_int) },
+        { (absolute.y as ::core::ffi::c_int) },
+        { (absolute.width as ::core::ffi::c_int) },
+        { (absolute.height as ::core::ffi::c_int) }
     );
     if let Some(connection) = i3_common::display::connection() {
         send_configure_notify(

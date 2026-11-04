@@ -532,11 +532,11 @@ unsafe fn free_configuration() {
     switch_mode(c"default".as_ptr());
     ungrab_all_keys();
     while !modes.slh_first.is_null() {
-        let mut mode: *mut Mode = modes.slh_first as *mut Mode;
+        let mut mode: *mut Mode = modes.slh_first;
         free((*mode).name as *mut ::core::ffi::c_void);
         (*mode).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
         while !(*(*mode).bindings).tqh_first.is_null() {
-            let bind: *mut Binding = (*(*mode).bindings).tqh_first as *mut Binding;
+            let bind: *mut Binding = (*(*mode).bindings).tqh_first;
             if !(*bind).bindings.tqe_next.is_null() {
                 (*(*bind).bindings.tqe_next).bindings.tqe_prev = (*bind).bindings.tqe_prev;
             } else {
@@ -548,9 +548,9 @@ unsafe fn free_configuration() {
         free((*mode).bindings as *mut ::core::ffi::c_void);
         (*mode).bindings = ::core::ptr::null_mut::<bindings_head>();
         if modes.slh_first == mode {
-            modes.slh_first = (*modes.slh_first).modes.sle_next as *mut Mode;
+            modes.slh_first = (*modes.slh_first).modes.sle_next;
         } else {
-            let mut curelm: *mut Mode = modes.slh_first as *mut Mode;
+            let mut curelm: *mut Mode = modes.slh_first;
             while (*curelm).modes.sle_next != mode {
                 curelm = (*curelm).modes.sle_next;
             }
@@ -560,7 +560,7 @@ unsafe fn free_configuration() {
         mode = ::core::ptr::null_mut::<Mode>();
     }
     while !assignments.tqh_first.is_null() {
-        let mut assign: *mut Assignment = assignments.tqh_first as *mut Assignment;
+        let mut assign: *mut Assignment = assignments.tqh_first;
         if !(*assign).assignments.tqe_next.is_null() {
             (*(*assign).assignments.tqe_next).assignments.tqe_prev = (*assign).assignments.tqe_prev;
         } else {
@@ -588,10 +588,9 @@ unsafe fn free_configuration() {
         assign_0 = ::core::ptr::null_mut::<Workspace_Assignment>();
     }
     while !barconfigs.tqh_first.is_null() {
-        let mut barconfig: *mut Barconfig = barconfigs.tqh_first as *mut Barconfig;
+        let mut barconfig: *mut Barconfig = barconfigs.tqh_first;
         while !(*barconfig).bar_bindings.tqh_first.is_null() {
-            let mut binding: *mut Barbinding =
-                (*barconfig).bar_bindings.tqh_first as *mut Barbinding;
+            let mut binding: *mut Barbinding = (*barconfig).bar_bindings.tqh_first;
             if !(*binding).bindings.tqe_next.is_null() {
                 (*(*binding).bindings.tqe_next).bindings.tqe_prev = (*binding).bindings.tqe_prev;
             } else {
@@ -602,8 +601,7 @@ unsafe fn free_configuration() {
             binding = ::core::ptr::null_mut::<Barbinding>();
         }
         while !(*barconfig).tray_outputs.tqh_first.is_null() {
-            let mut tray_output: *mut tray_output_t =
-                (*barconfig).tray_outputs.tqh_first as *mut tray_output_t;
+            let mut tray_output: *mut tray_output_t = (*barconfig).tray_outputs.tqh_first;
             if !(*tray_output).tray_outputs.tqe_next.is_null() {
                 (*(*tray_output).tray_outputs.tqe_next)
                     .tray_outputs
@@ -663,15 +661,15 @@ pub unsafe fn load_configuration(
     }
     modes.slh_first = ::core::ptr::null_mut::<Mode>();
     let default_mode: *mut Mode =
-        scalloc(1 as usize, ::core::mem::size_of::<Mode>() as usize) as *mut Mode;
+        scalloc(1_usize, ::core::mem::size_of::<Mode>() as usize) as *mut Mode;
     (*default_mode).name = sstrdup(c"default".as_ptr());
     (*default_mode).bindings =
-        scalloc(1 as usize, ::core::mem::size_of::<bindings_head>() as usize) as *mut bindings_head;
+        scalloc(1_usize, ::core::mem::size_of::<bindings_head>() as usize) as *mut bindings_head;
     (*(*default_mode).bindings).tqh_first = ::core::ptr::null_mut::<Binding>();
     (*(*default_mode).bindings).tqh_last = &raw mut (*(*default_mode).bindings).tqh_first;
-    (*default_mode).modes.sle_next = modes.slh_first as *mut Mode;
-    modes.slh_first = default_mode as *mut Mode;
-    bindings = (*default_mode).bindings as *mut bindings_head;
+    (*default_mode).modes.sle_next = modes.slh_first;
+    modes.slh_first = default_mode;
+    bindings = (*default_mode).bindings;
     current_binding_mode = (*default_mode).name;
     config = empty_config();
     config.client.background = draw_util_hex_to_color(c"#000000".as_ptr());
@@ -744,7 +742,7 @@ pub unsafe fn load_configuration(
     }
     let mut file: *mut IncludedFile = ::core::ptr::null_mut::<IncludedFile>();
     while !included_files.tqh_first.is_null() {
-        file = included_files.tqh_first as *mut IncludedFile;
+        file = included_files.tqh_first;
         free((*file).path as *mut ::core::ffi::c_void);
         (*file).path = ::core::ptr::null_mut::<::core::ffi::c_char>();
         free((*file).raw_contents as *mut ::core::ffi::c_void);
@@ -774,12 +772,11 @@ pub unsafe fn load_configuration(
             strerror(*__errno_location()),
         );
     }
-    file =
-        scalloc(1 as usize, ::core::mem::size_of::<IncludedFile>() as usize) as *mut IncludedFile;
+    file = scalloc(1_usize, ::core::mem::size_of::<IncludedFile>() as usize) as *mut IncludedFile;
     (*file).path = sstrdup(&raw mut resolved_path as *mut ::core::ffi::c_char);
     (*file).files.tqe_next = ::core::ptr::null_mut::<IncludedFile>();
     (*file).files.tqe_prev = included_files.tqh_last;
-    *included_files.tqh_last = file as *mut IncludedFile;
+    *included_files.tqh_last = file;
     included_files.tqh_last = &raw mut (*file).files.tqe_next;
     {
         // Snapshot native bytes before the logger can dispatch a callback.
@@ -835,12 +832,12 @@ pub unsafe fn load_configuration(
     }
     if load_type != ConfigLoad::Validate {
         let mut current: *mut Barconfig = ::core::ptr::null_mut::<Barconfig>();
-        current = barconfigs.tqh_first as *mut Barconfig;
+        current = barconfigs.tqh_first;
         while !current.is_null() {
             if (*current).font.is_none() {
                 (*current).font = config.font.pattern().map(CStr::to_owned);
             }
-            current = (*current).configs.tqe_next as *mut Barconfig;
+            current = (*current).configs.tqe_next;
         }
     }
     if load_type == ConfigLoad::Reload {

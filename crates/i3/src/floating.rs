@@ -38,26 +38,26 @@ struct ResizeParameters {
 unsafe fn total_outputs_dimensions() -> Rect {
     if outputs.tqh_first.is_null() {
         return Rect {
-            x: 0 as u32,
-            y: 0 as u32,
+            x: 0_u32,
+            y: 0_u32,
             width: root_screen_info().width_in_pixels as u32,
             height: root_screen_info().height_in_pixels as u32,
         };
     }
     let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
     let mut outputs_dimensions: Rect = Rect {
-        x: 0 as u32,
-        y: 0 as u32,
-        width: 0 as u32,
-        height: 0 as u32,
+        x: 0_u32,
+        y: 0_u32,
+        width: 0_u32,
+        height: 0_u32,
     };
-    output = outputs.tqh_first as *mut Output;
+    output = outputs.tqh_first;
     while !output.is_null() {
         outputs_dimensions.height = outputs_dimensions
             .height
             .wrapping_add((*output).rect.height);
         outputs_dimensions.width = outputs_dimensions.width.wrapping_add((*output).rect.width);
-        output = (*output).outputs.tqe_next as *mut Output;
+        output = (*output).outputs.tqe_next;
     }
     outputs_dimensions
 }
@@ -227,7 +227,7 @@ fn constrained_size(
         if limits.minimum_height == 0 {
             rect.height = max(rect.height as i32, floating_sane_min_height) as u32;
         } else {
-            rect.height = max(rect.height as i32, limits.minimum_height as i32) as u32;
+            rect.height = max(rect.height as i32, limits.minimum_height) as u32;
         }
         rect.height = rect.height.wrapping_add(border_rect.height);
     }
@@ -236,7 +236,7 @@ fn constrained_size(
         if limits.minimum_width == 0 {
             rect.width = max(rect.width as i32, floating_sane_min_width) as u32;
         } else {
-            rect.width = max(rect.width as i32, limits.minimum_width as i32) as u32;
+            rect.width = max(rect.width as i32, limits.minimum_width) as u32;
         }
         rect.width = rect.width.wrapping_add(border_rect.width);
     }
@@ -249,7 +249,7 @@ fn constrained_size(
                 floating_sane_max_dimensions.height as i32,
             ) as u32;
         } else {
-            rect.height = min(rect.height as i32, limits.maximum_height as i32) as u32;
+            rect.height = min(rect.height as i32, limits.maximum_height) as u32;
         }
         rect.height = rect.height.wrapping_add(border_rect.height);
     }
@@ -258,7 +258,7 @@ fn constrained_size(
         if limits.maximum_width == 0 {
             rect.width = min(rect.width as i32, floating_sane_max_dimensions.width as i32) as u32;
         } else {
-            rect.width = min(rect.width as i32, limits.maximum_width as i32) as u32;
+            rect.width = min(rect.width as i32, limits.maximum_width) as u32;
         }
         rect.width = rect.width.wrapping_add(border_rect.width);
     }
@@ -344,7 +344,7 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
         ::core::ptr::null_mut::<Window>(),
     );
     let ws: *mut Con = con_get_workspace(con);
-    set_parent_ptr(nc, ws as *mut Con).expect("live acyclic ancestry");
+    set_parent_ptr(nc, ws).expect("live acyclic ancestry");
     (*nc).type_0 = ContainerType::Floating;
     (*nc).layout = Layout::SplitH;
     floating::prepend(
@@ -394,10 +394,10 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
     if rect_equals(
         (*nc).rect,
         Rect {
-            x: 0 as u32,
-            y: 0 as u32,
-            width: 0 as u32,
-            height: 0 as u32,
+            x: 0_u32,
+            y: 0_u32,
+            width: 0_u32,
+            height: 0_u32,
         },
     ) {
         ::log::debug!(
@@ -427,7 +427,7 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
         identity(con).expect("live wrapped child"),
     )
     .expect("detached wrapped focus child");
-    set_parent_ptr(con, nc as *mut Con).expect("live acyclic ancestry");
+    set_parent_ptr(con, nc).expect("live acyclic ancestry");
     (*con).percent = 1.0f64;
     (*con).floating = FloatingState::UserOn;
     if automatic {
@@ -446,7 +446,7 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
         .width
         .wrapping_add(((*con).border_width * 2) as u32);
     floating_check_size(nc, false);
-    if (*nc).rect.x == 0 as u32 && (*nc).rect.y == 0 as u32 {
+    if (*nc).rect.x == 0_u32 && (*nc).rect.y == 0_u32 {
         let mut leader: *mut Con = ::core::ptr::null_mut::<Con>();
         if !(*con).window.is_null()
             && (*(*con).window).leader as ::core::ffi::c_long != 0
@@ -540,7 +540,7 @@ pub unsafe fn floating_raise_con(con: *mut Con) {
         let log_value_0 = i3_common::logging::pointer(con);
         let log_owner_2 = (*con).name.clone();
         let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
-        if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+        if let (Ok(log_value_1_text),) = (std::str::from_utf8(log_value_1),) {
             ::log::debug!(
                 "../src/floating.c:floating_raise_con:479 - Raising floating con {} / {}\n",
                 log_value_0,
@@ -555,7 +555,7 @@ pub unsafe fn floating_raise_con(con: *mut Con) {
                         log_value_0
                     )
                     .as_bytes(),
-                    &log_value_1,
+                    log_value_1,
                     "\n".as_bytes(),
                 ],
             );
@@ -596,8 +596,8 @@ pub unsafe fn floating_maybe_reassign_ws(con: *mut Con) -> bool {
         let log_owner_4 = (*ws).name.clone();
         let log_value_3 = i3_common::logging::string_bytes(log_owner_4.as_deref(), None);
         if let (Ok(log_value_1_text), Ok(log_value_3_text)) = (
-            std::str::from_utf8(&log_value_1),
-            std::str::from_utf8(&log_value_3),
+            std::str::from_utf8(log_value_1),
+            std::str::from_utf8(log_value_3),
         ) {
             ::log::debug!("../src/floating.c:floating_maybe_reassign_ws:511 - Moving con {} / {} to workspace {} / {}\n", log_value_0, log_value_1_text, log_value_2, log_value_3_text);
         } else {
@@ -609,9 +609,9 @@ pub unsafe fn floating_maybe_reassign_ws(con: *mut Con) -> bool {
                         log_value_0
                     )
                     .as_bytes(),
-                    &log_value_1,
+                    log_value_1,
                     format!(" to workspace {} / ", log_value_2).as_bytes(),
-                    &log_value_3,
+                    log_value_3,
                     "\n".as_bytes(),
                 ],
             );
@@ -632,12 +632,12 @@ pub unsafe fn floating_maybe_reassign_ws(con: *mut Con) -> bool {
 fn centered(mut target: Rect, rect: Rect) -> Rect {
     target.x = rect
         .x
-        .wrapping_add(rect.width.wrapping_div(2 as u32))
-        .wrapping_sub(target.width.wrapping_div(2 as u32));
+        .wrapping_add(rect.width.wrapping_div(2_u32))
+        .wrapping_sub(target.width.wrapping_div(2_u32));
     target.y = rect
         .y
-        .wrapping_add(rect.height.wrapping_div(2 as u32))
-        .wrapping_sub(target.height.wrapping_div(2 as u32));
+        .wrapping_add(rect.height.wrapping_div(2_u32))
+        .wrapping_sub(target.height.wrapping_div(2_u32));
 
     target
 }
@@ -651,7 +651,7 @@ pub unsafe fn floating_move_to_pointer(con: *mut Con) {
         __assert_fail(
             c"con->type == CT_FLOATING_CON".as_ptr(),
             c"../src/floating.c".as_ptr(),
-            538 as u32,
+            538_u32,
             c"void floating_move_to_pointer(Con *)".as_ptr(),
         );
     };
@@ -707,7 +707,7 @@ pub unsafe fn floating_drag_window(
     let drag_result: DragResult = drag_pointer(
         con,
         event,
-        0 as u32,
+        0_u32,
         Cursor::Move,
         use_threshold,
         Some(
@@ -796,7 +796,7 @@ pub unsafe fn floating_resize_window(
     let drag_result: DragResult = drag_pointer(
         con,
         event,
-        0 as u32,
+        0_u32,
         cursor,
         false,
         Some(
@@ -869,20 +869,18 @@ fn remapped(mut target: Rect, old_rect: Rect, new_rect: Rect) -> Rect {
     let rel_x: i32 = target
         .x
         .wrapping_sub(old_rect.x)
-        .wrapping_add(target.width.wrapping_div(2 as u32) as i32 as u32)
-        as i32;
+        .wrapping_add(target.width.wrapping_div(2_u32) as i32 as u32) as i32;
     let rel_y: i32 = target
         .y
         .wrapping_sub(old_rect.y)
-        .wrapping_add(target.height.wrapping_div(2 as u32) as i32 as u32)
-        as i32;
+        .wrapping_add(target.height.wrapping_div(2_u32) as i32 as u32) as i32;
 
     target.x = (new_rect.x as i32 as f64
         + (rel_x * new_rect.width as i32) as f64 / old_rect.width as i32 as f64
-        - target.width.wrapping_div(2 as u32) as i32 as f64) as u32;
+        - target.width.wrapping_div(2_u32) as i32 as f64) as u32;
     target.y = (new_rect.y as i32 as f64
         + (rel_y * new_rect.height as i32) as f64 / old_rect.height as i32 as f64
-        - target.height.wrapping_div(2 as u32) as i32 as f64) as u32;
+        - target.height.wrapping_div(2_u32) as i32 as f64) as u32;
 
     target
 }

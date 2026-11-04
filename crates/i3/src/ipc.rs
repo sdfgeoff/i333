@@ -249,7 +249,7 @@ unsafe fn free_ipc_client(client: *mut ipc_client, exempt_fd: libc::c_int) {
     if (*client).fd != exempt_fd {
         ::log::debug!(
             "../src/ipc.c:free_ipc_client:119 - Disconnecting client on fd {}\n",
-            ((*client).fd) as i32
+            { ((*client).fd) }
         );
     }
     // Stop and unlink before dropping owned buffers/fd; native list edges are
@@ -314,7 +314,7 @@ unsafe fn ipc_send_shutdown_event(reason: ShutdownReason) {
 pub unsafe fn ipc_shutdown(reason: ShutdownReason, exempt_fd: ::core::ffi::c_int) {
     ipc_send_shutdown_event(reason);
     while !all_clients.tqh_first.is_null() {
-        let current: *mut ipc_client = all_clients.tqh_first as *mut ipc_client;
+        let current: *mut ipc_client = all_clients.tqh_first;
         if (*current).fd != exempt_fd {
             shutdown((*current).fd, libc::SHUT_RDWR as ::core::ffi::c_int);
         }
@@ -1132,7 +1132,7 @@ unsafe fn handle_tree(
     let length = payload.len();
     ipc_send_client_message(
         client,
-        length as usize,
+        length,
         I3_IPC_REPLY_TYPE_TREE as u32,
         payload.as_ptr(),
     );
@@ -1291,10 +1291,10 @@ unsafe fn handle_get_bar_config(
     };
     let mut current_0: *mut Barconfig = ::core::ptr::null_mut::<Barconfig>();
     let mut config: *mut Barconfig = ::core::ptr::null_mut::<Barconfig>();
-    current_0 = barconfigs.tqh_first as *mut Barconfig;
+    current_0 = barconfigs.tqh_first;
     while !current_0.is_null() {
         if strcmp((*current_0).id().as_ptr(), bar_id) != 0 as ::core::ffi::c_int {
-            current_0 = (*current_0).configs.tqe_next as *mut Barconfig;
+            current_0 = (*current_0).configs.tqe_next;
         } else {
             config = current_0;
             break;
@@ -1720,7 +1720,7 @@ unsafe extern "C" fn ipc_client_timeout(_: *mut ev_loop, w: *mut ev_timer, _: li
                         None,
                     )
                     .to_vec();
-                    let log_value_3 = ((*client).fd) as i32;
+                    let log_value_3 = ((*client).fd);
                     if let Ok(log_value_2_text) = std::str::from_utf8(&log_value_2) {
                         ::log::error!("ERROR: client {} with pid {} and cmdline '{}' on fd {} timed out, killing\n", log_value_0, log_value_1, log_value_2_text, log_value_3);
                     } else {
@@ -1745,7 +1745,7 @@ unsafe extern "C" fn ipc_client_timeout(_: *mut ev_loop, w: *mut ev_timer, _: li
         ::log::error!(
             "ERROR: client {} on fd {} timed out, killing\n",
             i3_common::logging::pointer(client),
-            ((*client).fd) as i32
+            { ((*client).fd) }
         );
     }
     free_ipc_client(client, -1);
@@ -1757,7 +1757,7 @@ unsafe extern "C" fn ipc_socket_writeable_cb(
 ) {
     ::log::debug!(
         "../src/ipc.c:ipc_socket_writeable_cb:1524 - fd {} writeable\n",
-        ((*w).fd) as i32
+        { ((*w).fd) }
     );
     let client: *mut ipc_client = (*w).data as *mut ipc_client;
     if (*client).timeout != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut ev_timer {
@@ -1884,7 +1884,7 @@ pub unsafe fn ipc_send_window_event(property: *const ::core::ffi::c_char, con: *
             (*(*con).window).id
         } else {
             0 as ::core::ffi::c_int as u32
-        }) as u32;
+        });
         if let Ok(log_value_0_text) = std::str::from_utf8(&log_value_0) {
             ::log::debug!("../src/ipc.c:ipc_send_window_event:1644 - Issue IPC window {} event (con = {}, window = 0x{:08x})\n", log_value_0_text, log_value_1, log_value_2);
         } else {
@@ -2016,7 +2016,7 @@ pub unsafe fn ipc_send_binding_event(
 pub unsafe fn ipc_confirm_restart(client: *mut ipc_client) {
     ::log::debug!(
         "../src/ipc.c:ipc_confirm_restart:1734 - ipc_confirm_restart(fd {})\n",
-        ((*client).fd) as i32
+        { ((*client).fd) }
     );
     let reply = c"[{\"success\":true}]".as_ptr();
     ipc_send_client_message(

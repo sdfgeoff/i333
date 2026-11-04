@@ -141,7 +141,7 @@ pub unsafe fn cmd_criteria_match_windows(
 ) {
     ::log::debug!("../src/commands.c:cmd_criteria_match_windows:144 - match specification finished, matching...\n");
     while !(*(*cmd_output).ctx).owindows.tqh_first.is_null() {
-        let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+        let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
         if !(*ow).owindows.tqe_next.is_null() {
             (*(*ow).owindows.tqe_next).owindows.tqe_prev = (*ow).owindows.tqe_prev;
         } else {
@@ -197,13 +197,13 @@ pub unsafe fn cmd_criteria_match_windows(
                     accept_match = true_0 != 0;
                     let mut matched_by_mark: bool = false_0 != 0;
                     let mut mark: *mut mark_t = ::core::ptr::null_mut::<mark_t>();
-                    mark = (*con).marks_head.tqh_first as *mut mark_t;
+                    mark = (*con).marks_head.tqh_first;
                     while !mark.is_null() {
                         if !regex_matches(
                             (*current_match).mark.as_ref().unwrap(),
                             std::ffi::CStr::from_ptr((*mark).name),
                         ) {
-                            mark = (*mark).marks.tqe_next as *mut mark_t;
+                            mark = (*mark).marks.tqe_next;
                         } else {
                             ::log::debug!("../src/commands.c:cmd_criteria_match_windows:184 - match by mark\n");
                             matched_by_mark = true_0 != 0;
@@ -266,7 +266,7 @@ pub unsafe fn cmd_criteria_match_windows(
                                     (*ow_0).owindows.tqe_next = ::core::ptr::null_mut::<owindow>();
                                     (*ow_0).owindows.tqe_prev =
                                         (*(*cmd_output).ctx).owindows.tqh_last;
-                                    *(*(*cmd_output).ctx).owindows.tqh_last = ow_0 as *mut owindow;
+                                    *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
                                     (*(*cmd_output).ctx).owindows.tqh_last =
                                         &raw mut (*ow_0).owindows.tqe_next;
                                 }
@@ -290,7 +290,7 @@ pub unsafe fn cmd_criteria_add(
 }
 unsafe fn move_matches_to_workspace(owindows: *const owindows_head, ws: *mut Con) {
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current = (*owindows).tqh_first as *mut owindow;
+    current = (*owindows).tqh_first;
     while !current.is_null() {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
@@ -327,7 +327,7 @@ unsafe fn move_matches_to_workspace(owindows: *const owindows_head, ws: *mut Con
             }
         };
         con_move_to_workspace((*current).con, ws, true_0 != 0, false_0 != 0, false_0 != 0);
-        current = (*current).owindows.tqe_next as *mut owindow;
+        current = (*current).owindows.tqe_next;
     }
 }
 
@@ -383,7 +383,7 @@ pub unsafe fn cmd_move_con_to_workspace(
     }
     if match_is_empty(current_match) {
         while !(*(*cmd_output).ctx).owindows.tqh_first.is_null() {
-            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
             if !(*ow).owindows.tqe_next.is_null() {
                 (*(*ow).owindows.tqe_next).owindows.tqe_prev = (*ow).owindows.tqe_prev;
             } else {
@@ -399,7 +399,7 @@ pub unsafe fn cmd_move_con_to_workspace(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
         (*ow_0).owindows.tqe_next = ::core::ptr::null_mut::<owindow>();
         (*ow_0).owindows.tqe_prev = (*(*cmd_output).ctx).owindows.tqh_last;
-        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0 as *mut owindow;
+        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
     if (*(*cmd_output).ctx).owindows.tqh_first.is_null() {
@@ -419,9 +419,9 @@ pub unsafe fn cmd_move_con_to_workspace(
         return;
     } else {
         let mut found: bool = false_0 != 0;
-        let mut current: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+        let mut current: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
         while !current.is_null() {
-            let next: *mut owindow = (*current).owindows.tqe_next as *mut owindow;
+            let next: *mut owindow = (*current).owindows.tqe_next;
             if ((*(*current).con).type_0) == ContainerType::Workspace
                 && !con_has_children((*current).con)
             {
@@ -529,7 +529,7 @@ pub unsafe fn cmd_move_con_to_workspace_back_and_forth(
     }
     if match_is_empty(current_match) {
         while !(*(*cmd_output).ctx).owindows.tqh_first.is_null() {
-            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
             if !(*ow).owindows.tqe_next.is_null() {
                 (*(*ow).owindows.tqe_next).owindows.tqe_prev = (*ow).owindows.tqe_prev;
             } else {
@@ -545,7 +545,7 @@ pub unsafe fn cmd_move_con_to_workspace_back_and_forth(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
         (*ow_0).owindows.tqe_next = ::core::ptr::null_mut::<owindow>();
         (*ow_0).owindows.tqe_prev = (*(*cmd_output).ctx).owindows.tqh_last;
-        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0 as *mut owindow;
+        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
     move_matches_to_workspace(&raw mut (*(*cmd_output).ctx).owindows, ws);
@@ -597,7 +597,7 @@ pub unsafe fn cmd_move_con_to_workspace_name(
     }
     if match_is_empty(current_match) {
         while !(*(*cmd_output).ctx).owindows.tqh_first.is_null() {
-            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
             if !(*ow).owindows.tqe_next.is_null() {
                 (*(*ow).owindows.tqe_next).owindows.tqe_prev = (*ow).owindows.tqe_prev;
             } else {
@@ -613,7 +613,7 @@ pub unsafe fn cmd_move_con_to_workspace_name(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
         (*ow_0).owindows.tqe_next = ::core::ptr::null_mut::<owindow>();
         (*ow_0).owindows.tqe_prev = (*(*cmd_output).ctx).owindows.tqh_last;
-        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0 as *mut owindow;
+        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
     if (*(*cmd_output).ctx).owindows.tqh_first.is_null() {
@@ -633,9 +633,9 @@ pub unsafe fn cmd_move_con_to_workspace_name(
         return;
     } else {
         let mut found: bool = false_0 != 0;
-        let mut current: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+        let mut current: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
         while !current.is_null() {
-            let next: *mut owindow = (*current).owindows.tqe_next as *mut owindow;
+            let next: *mut owindow = (*current).owindows.tqe_next;
             if ((*(*current).con).type_0) == ContainerType::Workspace
                 && !con_has_children((*current).con)
             {
@@ -729,7 +729,7 @@ pub unsafe fn cmd_move_con_to_workspace_number(
     }
     if match_is_empty(current_match) {
         while !(*(*cmd_output).ctx).owindows.tqh_first.is_null() {
-            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
             if !(*ow).owindows.tqe_next.is_null() {
                 (*(*ow).owindows.tqe_next).owindows.tqe_prev = (*ow).owindows.tqe_prev;
             } else {
@@ -745,7 +745,7 @@ pub unsafe fn cmd_move_con_to_workspace_number(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
         (*ow_0).owindows.tqe_next = ::core::ptr::null_mut::<owindow>();
         (*ow_0).owindows.tqe_prev = (*(*cmd_output).ctx).owindows.tqh_last;
-        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0 as *mut owindow;
+        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
     if (*(*cmd_output).ctx).owindows.tqh_first.is_null() {
@@ -765,9 +765,9 @@ pub unsafe fn cmd_move_con_to_workspace_number(
         return;
     } else {
         let mut found: bool = false_0 != 0;
-        let mut current: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+        let mut current: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
         while !current.is_null() {
-            let next: *mut owindow = (*current).owindows.tqe_next as *mut owindow;
+            let next: *mut owindow = (*current).owindows.tqe_next;
             if ((*(*current).con).type_0) == ContainerType::Workspace
                 && !con_has_children((*current).con)
             {
@@ -1207,7 +1207,7 @@ unsafe fn cmd_resize_tiling_width_height(
     {
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_value_0 = i3_common::logging::fixed_decimal(
-            ((*current).percent) as f64,
+            ((*current).percent),
             i3_common::logging::FixedPrecision::Six,
         );
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
@@ -1330,7 +1330,7 @@ pub unsafe fn cmd_resize(
     }
     if match_is_empty(current_match) {
         while !(*(*cmd_output).ctx).owindows.tqh_first.is_null() {
-            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
             if !(*ow).owindows.tqe_next.is_null() {
                 (*(*ow).owindows.tqe_next).owindows.tqe_prev = (*ow).owindows.tqe_prev;
             } else {
@@ -1346,11 +1346,11 @@ pub unsafe fn cmd_resize(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
         (*ow_0).owindows.tqe_next = ::core::ptr::null_mut::<owindow>();
         (*ow_0).owindows.tqe_prev = (*(*cmd_output).ctx).owindows.tqh_last;
-        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0 as *mut owindow;
+        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+    current = (*(*cmd_output).ctx).owindows.tqh_first;
     while !current.is_null() {
         if !(*(*current).con).window.is_null()
             && (*(*(*current).con).window).dock as ::core::ffi::c_uint != 0
@@ -1412,7 +1412,7 @@ pub unsafe fn cmd_resize(
                 return;
             }
         }
-        current = (*current).owindows.tqe_next as *mut owindow;
+        current = (*current).owindows.tqe_next;
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
     if (*cmd_output).has_reply() {
@@ -1550,7 +1550,7 @@ pub unsafe fn cmd_resize_set(
     }
     if match_is_empty(current_match) {
         while !(*(*cmd_output).ctx).owindows.tqh_first.is_null() {
-            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
             if !(*ow).owindows.tqe_next.is_null() {
                 (*(*ow).owindows.tqe_next).owindows.tqe_prev = (*ow).owindows.tqe_prev;
             } else {
@@ -1566,12 +1566,12 @@ pub unsafe fn cmd_resize_set(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
         (*ow_0).owindows.tqe_next = ::core::ptr::null_mut::<owindow>();
         (*ow_0).owindows.tqe_prev = (*(*cmd_output).ctx).owindows.tqh_last;
-        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0 as *mut owindow;
+        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
     let mut success: bool = true_0 != 0;
-    current = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+    current = (*(*cmd_output).ctx).owindows.tqh_first;
     while !current.is_null() {
         let mut floating_con: *mut Con = ::core::ptr::null_mut::<Con>();
         floating_con = con_inside_floating((*current).con);
@@ -1630,7 +1630,7 @@ pub unsafe fn cmd_resize_set(
                     != 0;
             }
         }
-        current = (*current).owindows.tqe_next as *mut owindow;
+        current = (*current).owindows.tqe_next;
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
     if (*cmd_output).has_reply() {
@@ -1715,7 +1715,7 @@ pub unsafe fn cmd_border(
     }
     if match_is_empty(current_match) {
         while !(*(*cmd_output).ctx).owindows.tqh_first.is_null() {
-            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
             if !(*ow).owindows.tqe_next.is_null() {
                 (*(*ow).owindows.tqe_next).owindows.tqe_prev = (*ow).owindows.tqe_prev;
             } else {
@@ -1731,10 +1731,10 @@ pub unsafe fn cmd_border(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
         (*ow_0).owindows.tqe_next = ::core::ptr::null_mut::<owindow>();
         (*ow_0).owindows.tqe_prev = (*(*cmd_output).ctx).owindows.tqh_last;
-        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0 as *mut owindow;
+        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
-    current = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+    current = (*(*cmd_output).ctx).owindows.tqh_first;
     while !current.is_null() {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
@@ -1801,7 +1801,7 @@ pub unsafe fn cmd_border(
             border_width_from_style(border_style, border_width, (*current).con)
                 as ::core::ffi::c_int;
         con_set_border_style((*current).con, border_style, con_border_width);
-        current = (*current).owindows.tqe_next as *mut owindow;
+        current = (*current).owindows.tqe_next;
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
     if (*cmd_output).has_reply() {
@@ -2266,7 +2266,7 @@ pub unsafe fn cmd_mark(
     }
     if match_is_empty(current_match) {
         while !(*(*cmd_output).ctx).owindows.tqh_first.is_null() {
-            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
             if !(*ow).owindows.tqe_next.is_null() {
                 (*(*ow).owindows.tqe_next).owindows.tqe_prev = (*ow).owindows.tqe_prev;
             } else {
@@ -2282,7 +2282,7 @@ pub unsafe fn cmd_mark(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
         (*ow_0).owindows.tqe_next = ::core::ptr::null_mut::<owindow>();
         (*ow_0).owindows.tqe_prev = (*(*cmd_output).ctx).owindows.tqh_last;
-        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0 as *mut owindow;
+        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
     let current: *const owindow = (*(*cmd_output).ctx).owindows.tqh_first;
@@ -2381,10 +2381,10 @@ pub unsafe fn cmd_unmark(
         con_unmark(::core::ptr::null_mut::<Con>(), mark);
     } else {
         let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-        current = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+        current = (*(*cmd_output).ctx).owindows.tqh_first;
         while !current.is_null() {
             con_unmark((*current).con, mark);
-            current = (*current).owindows.tqe_next as *mut owindow;
+            current = (*current).owindows.tqe_next;
         }
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
@@ -2512,7 +2512,7 @@ pub unsafe fn cmd_move_con_to_output(
     }
     if match_is_empty(current_match) {
         while !(*(*cmd_output).ctx).owindows.tqh_first.is_null() {
-            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
             if !(*ow).owindows.tqe_next.is_null() {
                 (*(*ow).owindows.tqe_next).owindows.tqe_prev = (*ow).owindows.tqe_prev;
             } else {
@@ -2528,7 +2528,7 @@ pub unsafe fn cmd_move_con_to_output(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
         (*ow_0).owindows.tqe_next = ::core::ptr::null_mut::<owindow>();
         (*ow_0).owindows.tqe_prev = (*(*cmd_output).ctx).owindows.tqh_last;
-        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0 as *mut owindow;
+        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
     if names
@@ -2553,7 +2553,7 @@ pub unsafe fn cmd_move_con_to_output(
     }
     let mut success: bool = false_0 != 0;
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+    current = (*(*cmd_output).ctx).owindows.tqh_first;
     while !current.is_null() {
         let ws: *mut Con = con_get_workspace((*current).con);
         if !con_is_internal(ws) {
@@ -2568,7 +2568,7 @@ pub unsafe fn cmd_move_con_to_output(
                 success = true_0 != 0;
             }
         }
-        current = (*current).owindows.tqe_next as *mut owindow;
+        current = (*current).owindows.tqe_next;
     }
     user_output_names_free(&names);
     (*cmd_output).needs_tree_render = success;
@@ -2641,7 +2641,7 @@ pub unsafe fn cmd_move_con_to_mark(
     }
     if match_is_empty(current_match) {
         while !(*(*cmd_output).ctx).owindows.tqh_first.is_null() {
-            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
             if !(*ow).owindows.tqe_next.is_null() {
                 (*(*ow).owindows.tqe_next).owindows.tqe_prev = (*ow).owindows.tqe_prev;
             } else {
@@ -2657,12 +2657,12 @@ pub unsafe fn cmd_move_con_to_mark(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
         (*ow_0).owindows.tqe_next = ::core::ptr::null_mut::<owindow>();
         (*ow_0).owindows.tqe_prev = (*(*cmd_output).ctx).owindows.tqh_last;
-        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0 as *mut owindow;
+        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
     let mut result: bool = true_0 != 0;
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+    current = (*(*cmd_output).ctx).owindows.tqh_first;
     while !current.is_null() {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
@@ -2699,7 +2699,7 @@ pub unsafe fn cmd_move_con_to_mark(
         result = (result as ::core::ffi::c_int
             & con_move_to_mark((*current).con, mark) as ::core::ffi::c_int)
             != 0;
-        current = (*current).owindows.tqe_next as *mut owindow;
+        current = (*current).owindows.tqe_next;
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
     if (*cmd_output).has_reply() {
@@ -2769,7 +2769,7 @@ pub unsafe fn cmd_floating(
     }
     if match_is_empty(current_match) {
         while !(*(*cmd_output).ctx).owindows.tqh_first.is_null() {
-            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
             if !(*ow).owindows.tqe_next.is_null() {
                 (*(*ow).owindows.tqe_next).owindows.tqe_prev = (*ow).owindows.tqe_prev;
             } else {
@@ -2785,11 +2785,11 @@ pub unsafe fn cmd_floating(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
         (*ow_0).owindows.tqe_next = ::core::ptr::null_mut::<owindow>();
         (*ow_0).owindows.tqe_prev = (*(*cmd_output).ctx).owindows.tqh_last;
-        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0 as *mut owindow;
+        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+    current = (*(*cmd_output).ctx).owindows.tqh_first;
     while !current.is_null() {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
@@ -2865,7 +2865,7 @@ pub unsafe fn cmd_floating(
             }
         }
         run_assignments((*(*current).con).window as *mut i3Window);
-        current = (*current).owindows.tqe_next as *mut owindow;
+        current = (*current).owindows.tqe_next;
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
     if (*cmd_output).has_reply() {
@@ -2897,7 +2897,7 @@ pub unsafe fn cmd_split(
     }
     if match_is_empty(current_match) {
         while !(*(*cmd_output).ctx).owindows.tqh_first.is_null() {
-            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
             if !(*ow).owindows.tqe_next.is_null() {
                 (*(*ow).owindows.tqe_next).owindows.tqe_prev = (*ow).owindows.tqe_prev;
             } else {
@@ -2913,7 +2913,7 @@ pub unsafe fn cmd_split(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
         (*ow_0).owindows.tqe_next = ::core::ptr::null_mut::<owindow>();
         (*ow_0).owindows.tqe_prev = (*(*cmd_output).ctx).owindows.tqh_last;
-        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0 as *mut owindow;
+        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
@@ -2934,7 +2934,7 @@ pub unsafe fn cmd_split(
             );
         }
     };
-    current = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+    current = (*(*cmd_output).ctx).owindows.tqh_first;
     while !current.is_null() {
         if con_is_docked((*current).con) {
             ::log::error!("ERROR: Cannot split a docked container, skipping.\n");
@@ -3000,7 +3000,7 @@ pub unsafe fn cmd_split(
                 );
             }
         }
-        current = (*current).owindows.tqe_next as *mut owindow;
+        current = (*current).owindows.tqe_next;
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
     if (*cmd_output).has_reply() {
@@ -3085,7 +3085,7 @@ pub unsafe fn cmd_kill(
     }
     if match_is_empty(current_match) {
         while !(*(*cmd_output).ctx).owindows.tqh_first.is_null() {
-            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
             if !(*ow).owindows.tqe_next.is_null() {
                 (*(*ow).owindows.tqe_next).owindows.tqe_prev = (*ow).owindows.tqe_prev;
             } else {
@@ -3101,14 +3101,14 @@ pub unsafe fn cmd_kill(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
         (*ow_0).owindows.tqe_next = ::core::ptr::null_mut::<owindow>();
         (*ow_0).owindows.tqe_prev = (*(*cmd_output).ctx).owindows.tqh_last;
-        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0 as *mut owindow;
+        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+    current = (*(*cmd_output).ctx).owindows.tqh_first;
     while !current.is_null() {
         con_close((*current).con, kill_mode);
-        current = (*current).owindows.tqe_next as *mut owindow;
+        current = (*current).owindows.tqe_next;
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
     if (*cmd_output).has_reply() {
@@ -3142,7 +3142,7 @@ pub unsafe fn cmd_exec(
     }
     if match_is_empty(current_match) {
         while !(*(*cmd_output).ctx).owindows.tqh_first.is_null() {
-            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
             if !(*ow).owindows.tqe_next.is_null() {
                 (*(*ow).owindows.tqe_next).owindows.tqe_prev = (*ow).owindows.tqe_prev;
             } else {
@@ -3158,20 +3158,20 @@ pub unsafe fn cmd_exec(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
         (*ow_0).owindows.tqe_next = ::core::ptr::null_mut::<owindow>();
         (*ow_0).owindows.tqe_prev = (*(*cmd_output).ctx).owindows.tqh_last;
-        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0 as *mut owindow;
+        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
     let mut count: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+    current = (*(*cmd_output).ctx).owindows.tqh_first;
     while !current.is_null() {
         count += 1;
-        current = (*current).owindows.tqe_next as *mut owindow;
+        current = (*current).owindows.tqe_next;
     }
     if count > 1 as ::core::ffi::c_int {
         ::log::info!("WARNING: Your criteria for the exec command match {} containers, so the command will execute this many times.\n", (count) as i32);
     }
-    current = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+    current = (*(*cmd_output).ctx).owindows.tqh_first;
     while !current.is_null() {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
@@ -3185,7 +3185,7 @@ pub unsafe fn cmd_exec(
                 None,
             )
             .to_vec();
-            let log_value_1 = (no_startup_id as ::core::ffi::c_int) as i32;
+            let log_value_1 = (no_startup_id as ::core::ffi::c_int);
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::debug!(
                     "../src/commands.c:cmd_exec:1264 - should execute {}, no_startup_id = {}\n",
@@ -3212,7 +3212,7 @@ pub unsafe fn cmd_exec(
                 (*(*(*current).con).window).id as ::core::ffi::c_long
             }) as u32,
         );
-        current = (*current).owindows.tqe_next as *mut owindow;
+        current = (*current).owindows.tqe_next;
     }
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
@@ -3243,7 +3243,7 @@ pub unsafe fn cmd_focus_direction(
     }
     if match_is_empty(current_match) {
         while !(*(*cmd_output).ctx).owindows.tqh_first.is_null() {
-            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
             if !(*ow).owindows.tqe_next.is_null() {
                 (*(*ow).owindows.tqe_next).owindows.tqe_prev = (*ow).owindows.tqe_prev;
             } else {
@@ -3259,15 +3259,15 @@ pub unsafe fn cmd_focus_direction(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
         (*ow_0).owindows.tqe_next = ::core::ptr::null_mut::<owindow>();
         (*ow_0).owindows.tqe_prev = (*(*cmd_output).ctx).owindows.tqh_last;
-        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0 as *mut owindow;
+        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
     let mut count: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+    current = (*(*cmd_output).ctx).owindows.tqh_first;
     while !current.is_null() {
         count += 1;
-        current = (*current).owindows.tqe_next as *mut owindow;
+        current = (*current).owindows.tqe_next;
     }
     if count > 1 as ::core::ffi::c_int {
         ::log::info!("WARNING: Your criteria for the focus command matches {} containers, while only exactly one container can be focused at a time.\n", (count) as i32);
@@ -3284,7 +3284,7 @@ pub unsafe fn cmd_focus_direction(
         direction = parse_direction(direction_str);
     }
     let mut current_0: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current_0 = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+    current_0 = (*(*cmd_output).ctx).owindows.tqh_first;
     while !current_0.is_null() {
         let ws: *mut Con = con_get_workspace((*current_0).con);
         if !(ws.is_null() || con_is_internal(ws) as ::core::ffi::c_int != 0) {
@@ -3294,7 +3294,7 @@ pub unsafe fn cmd_focus_direction(
             }
             tree_next((*current_0).con, direction);
         }
-        current_0 = (*current_0).owindows.tqe_next as *mut owindow;
+        current_0 = (*current_0).owindows.tqe_next;
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
     if (*cmd_output).has_reply() {
@@ -3326,7 +3326,7 @@ pub unsafe fn cmd_focus_sibling(
     }
     if match_is_empty(current_match) {
         while !(*(*cmd_output).ctx).owindows.tqh_first.is_null() {
-            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
             if !(*ow).owindows.tqe_next.is_null() {
                 (*(*ow).owindows.tqe_next).owindows.tqe_prev = (*ow).owindows.tqe_prev;
             } else {
@@ -3342,15 +3342,15 @@ pub unsafe fn cmd_focus_sibling(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
         (*ow_0).owindows.tqe_next = ::core::ptr::null_mut::<owindow>();
         (*ow_0).owindows.tqe_prev = (*(*cmd_output).ctx).owindows.tqh_last;
-        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0 as *mut owindow;
+        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
     let mut count: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+    current = (*(*cmd_output).ctx).owindows.tqh_first;
     while !current.is_null() {
         count += 1;
-        current = (*current).owindows.tqe_next as *mut owindow;
+        current = (*current).owindows.tqe_next;
     }
     if count > 1 as ::core::ffi::c_int {
         ::log::info!("WARNING: Your criteria for the focus command matches {} containers, while only exactly one container can be focused at a time.\n", (count) as i32);
@@ -3364,7 +3364,7 @@ pub unsafe fn cmd_focus_sibling(
             Position::After
         };
     let mut current_0: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current_0 = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+    current_0 = (*(*cmd_output).ctx).owindows.tqh_first;
     while !current_0.is_null() {
         let ws: *mut Con = con_get_workspace((*current_0).con);
         if !(ws.is_null() || con_is_internal(ws) as ::core::ffi::c_int != 0) {
@@ -3378,7 +3378,7 @@ pub unsafe fn cmd_focus_sibling(
                 }
             }
         }
-        current_0 = (*current_0).owindows.tqe_next as *mut owindow;
+        current_0 = (*current_0).owindows.tqe_next;
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
     if (*cmd_output).has_reply() {
@@ -3561,17 +3561,17 @@ pub unsafe fn cmd_focus(
     }
     let mut count: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+    current = (*(*cmd_output).ctx).owindows.tqh_first;
     while !current.is_null() {
         count += 1;
-        current = (*current).owindows.tqe_next as *mut owindow;
+        current = (*current).owindows.tqe_next;
     }
     if count > 1 as ::core::ffi::c_int {
         ::log::info!("WARNING: Your criteria for the focus command matches {} containers, while only exactly one container can be focused at a time.\n", (count) as i32);
     }
     let mut __i3_scratch: *const Con = workspace_get(c"__i3_scratch".as_ptr());
     let mut current_0: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current_0 = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+    current_0 = (*(*cmd_output).ctx).owindows.tqh_first;
     while !current_0.is_null() {
         let ws: *mut Con = con_get_workspace((*current_0).con);
         if !ws.is_null() {
@@ -3658,7 +3658,7 @@ pub unsafe fn cmd_focus(
                 con_activate_unblock((*current_0).con);
             }
         }
-        current_0 = (*current_0).owindows.tqe_next as *mut owindow;
+        current_0 = (*current_0).owindows.tqe_next;
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
     if (*cmd_output).has_reply() {
@@ -3742,7 +3742,7 @@ pub unsafe fn cmd_fullscreen(
     }
     if match_is_empty(current_match) {
         while !(*(*cmd_output).ctx).owindows.tqh_first.is_null() {
-            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
             if !(*ow).owindows.tqe_next.is_null() {
                 (*(*ow).owindows.tqe_next).owindows.tqe_prev = (*ow).owindows.tqe_prev;
             } else {
@@ -3758,10 +3758,10 @@ pub unsafe fn cmd_fullscreen(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
         (*ow_0).owindows.tqe_next = ::core::ptr::null_mut::<owindow>();
         (*ow_0).owindows.tqe_prev = (*(*cmd_output).ctx).owindows.tqh_last;
-        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0 as *mut owindow;
+        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
-    current = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+    current = (*(*cmd_output).ctx).owindows.tqh_first;
     while !current.is_null() {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
@@ -3804,7 +3804,7 @@ pub unsafe fn cmd_fullscreen(
         } else if strcmp(action, c"disable".as_ptr()) == 0 as ::core::ffi::c_int {
             con_disable_fullscreen((*current).con);
         }
-        current = (*current).owindows.tqe_next as *mut owindow;
+        current = (*current).owindows.tqe_next;
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
     if (*cmd_output).has_reply() {
@@ -3864,7 +3864,7 @@ pub unsafe fn cmd_sticky(
     }
     if match_is_empty(current_match) {
         while !(*(*cmd_output).ctx).owindows.tqh_first.is_null() {
-            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
             if !(*ow).owindows.tqe_next.is_null() {
                 (*(*ow).owindows.tqe_next).owindows.tqe_prev = (*ow).owindows.tqe_prev;
             } else {
@@ -3880,11 +3880,11 @@ pub unsafe fn cmd_sticky(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
         (*ow_0).owindows.tqe_next = ::core::ptr::null_mut::<owindow>();
         (*ow_0).owindows.tqe_prev = (*(*cmd_output).ctx).owindows.tqh_last;
-        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0 as *mut owindow;
+        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+    current = (*(*cmd_output).ctx).owindows.tqh_first;
     while !current.is_null() {
         if (*(*current).con).window.is_null() {
             ::log::error!(
@@ -3922,7 +3922,7 @@ pub unsafe fn cmd_sticky(
             (*(*current).con).sticky = sticky;
             ewmh_update_sticky((*(*(*current).con).window).id, sticky);
         }
-        current = (*current).owindows.tqe_next as *mut owindow;
+        current = (*current).owindows.tqe_next;
     }
     output_push_sticky_windows(focused);
     ewmh_update_wm_desktop();
@@ -3959,7 +3959,7 @@ pub unsafe fn cmd_move_direction(
     }
     if match_is_empty(current_match) {
         while !(*(*cmd_output).ctx).owindows.tqh_first.is_null() {
-            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
             if !(*ow).owindows.tqe_next.is_null() {
                 (*(*ow).owindows.tqe_next).owindows.tqe_prev = (*ow).owindows.tqe_prev;
             } else {
@@ -3975,7 +3975,7 @@ pub unsafe fn cmd_move_direction(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
         (*ow_0).owindows.tqe_next = ::core::ptr::null_mut::<owindow>();
         (*ow_0).owindows.tqe_prev = (*(*cmd_output).ctx).owindows.tqh_last;
-        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0 as *mut owindow;
+        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
     let direction: Direction = parse_direction(direction_str);
@@ -4026,7 +4026,7 @@ pub unsafe fn cmd_move_direction(
             );
         }
     };
-    current = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+    current = (*(*cmd_output).ctx).owindows.tqh_first;
     while !current.is_null() {
         if con_is_floating((*current).con) {
             {
@@ -4098,7 +4098,7 @@ pub unsafe fn cmd_move_direction(
             tree_move((*current).con, direction);
             (*cmd_output).needs_tree_render = true_0 != 0;
         }
-        current = (*current).owindows.tqe_next as *mut owindow;
+        current = (*current).owindows.tqe_next;
     }
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
@@ -4129,7 +4129,7 @@ pub unsafe fn cmd_layout(
     }
     if match_is_empty(current_match) {
         while !(*(*cmd_output).ctx).owindows.tqh_first.is_null() {
-            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
             if !(*ow).owindows.tqe_next.is_null() {
                 (*(*ow).owindows.tqe_next).owindows.tqe_prev = (*ow).owindows.tqe_prev;
             } else {
@@ -4145,7 +4145,7 @@ pub unsafe fn cmd_layout(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
         (*ow_0).owindows.tqe_next = ::core::ptr::null_mut::<owindow>();
         (*ow_0).owindows.tqe_prev = (*(*cmd_output).ctx).owindows.tqh_last;
-        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0 as *mut owindow;
+        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
     let Some(layout) = layout_from_name(std::ffi::CStr::from_ptr(layout_str)) else {
@@ -4196,7 +4196,7 @@ pub unsafe fn cmd_layout(
         }
     };
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+    current = (*(*cmd_output).ctx).owindows.tqh_first;
     while !current.is_null() {
         if con_is_docked((*current).con) {
             ::log::error!("ERROR: cannot change layout of a docked container, skipping it.\n");
@@ -4237,7 +4237,7 @@ pub unsafe fn cmd_layout(
             };
             con_set_layout((*current).con, layout);
         }
-        current = (*current).owindows.tqe_next as *mut owindow;
+        current = (*current).owindows.tqe_next;
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
     if (*cmd_output).has_reply() {
@@ -4286,7 +4286,7 @@ pub unsafe fn cmd_layout_toggle(
         con_toggle_layout(focused, toggle_mode);
     } else {
         let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-        current = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+        current = (*(*cmd_output).ctx).owindows.tqh_first;
         while !current.is_null() {
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
@@ -4323,7 +4323,7 @@ pub unsafe fn cmd_layout_toggle(
                 }
             };
             con_toggle_layout((*current).con, toggle_mode);
-            current = (*current).owindows.tqe_next as *mut owindow;
+            current = (*current).owindows.tqe_next;
         }
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
@@ -4354,10 +4354,10 @@ pub unsafe fn cmd_reload(current_match: *mut Match, cmd_output: *mut CommandResu
         ::core::ptr::null_mut::<Con>(),
     );
     let mut current: *mut Barconfig = ::core::ptr::null_mut::<Barconfig>();
-    current = barconfigs.tqh_first as *mut Barconfig;
+    current = barconfigs.tqh_first;
     while !current.is_null() {
         ipc_send_barconfig_update_event(current);
-        current = (*current).configs.tqe_next as *mut Barconfig;
+        current = (*current).configs.tqe_next;
     }
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
@@ -4470,7 +4470,7 @@ pub unsafe fn cmd_focus_output(
     }
     if match_is_empty(current_match) {
         while !(*(*cmd_output).ctx).owindows.tqh_first.is_null() {
-            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
             if !(*ow).owindows.tqe_next.is_null() {
                 (*(*ow).owindows.tqe_next).owindows.tqe_prev = (*ow).owindows.tqe_prev;
             } else {
@@ -4486,7 +4486,7 @@ pub unsafe fn cmd_focus_output(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
         (*ow_0).owindows.tqe_next = ::core::ptr::null_mut::<owindow>();
         (*ow_0).owindows.tqe_prev = (*(*cmd_output).ctx).owindows.tqh_last;
-        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0 as *mut owindow;
+        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
     if (*(*cmd_output).ctx).owindows.tqh_first.is_null() {
@@ -4497,13 +4497,13 @@ pub unsafe fn cmd_focus_output(
     }
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
     let mut con: *mut Con = focused;
-    current = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+    current = (*(*cmd_output).ctx).owindows.tqh_first;
     while !current.is_null() {
         if !con_is_internal(con_get_workspace((*current).con)) {
             con = (*current).con;
             break;
         } else {
-            current = (*current).owindows.tqe_next as *mut owindow;
+            current = (*current).owindows.tqe_next;
         }
     }
     let current_output: *mut Output = get_output_for_con(con);
@@ -4592,7 +4592,7 @@ pub unsafe fn cmd_move_window_to_position(
     }
     if match_is_empty(current_match) {
         while !(*(*cmd_output).ctx).owindows.tqh_first.is_null() {
-            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
             if !(*ow).owindows.tqe_next.is_null() {
                 (*(*ow).owindows.tqe_next).owindows.tqe_prev = (*ow).owindows.tqe_prev;
             } else {
@@ -4608,10 +4608,10 @@ pub unsafe fn cmd_move_window_to_position(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
         (*ow_0).owindows.tqe_next = ::core::ptr::null_mut::<owindow>();
         (*ow_0).owindows.tqe_prev = (*(*cmd_output).ctx).owindows.tqh_last;
-        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0 as *mut owindow;
+        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
-    current = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+    current = (*(*cmd_output).ctx).owindows.tqh_first;
     while !current.is_null() {
         if !con_is_floating((*current).con) {
             ::log::error!("ERROR: Cannot change position. The window/container is not floating\n");
@@ -4701,7 +4701,7 @@ pub unsafe fn cmd_move_window_to_position(
                 has_error = true_0 != 0;
             }
         }
-        current = (*current).owindows.tqe_next as *mut owindow;
+        current = (*current).owindows.tqe_next;
     }
     if !has_error {
         if (*cmd_output).has_reply() {
@@ -4735,7 +4735,7 @@ pub unsafe fn cmd_move_window_to_center(
     }
     if match_is_empty(current_match) {
         while !(*(*cmd_output).ctx).owindows.tqh_first.is_null() {
-            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
             if !(*ow).owindows.tqe_next.is_null() {
                 (*(*ow).owindows.tqe_next).owindows.tqe_prev = (*ow).owindows.tqe_prev;
             } else {
@@ -4751,11 +4751,11 @@ pub unsafe fn cmd_move_window_to_center(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
         (*ow_0).owindows.tqe_next = ::core::ptr::null_mut::<owindow>();
         (*ow_0).owindows.tqe_prev = (*(*cmd_output).ctx).owindows.tqh_last;
-        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0 as *mut owindow;
+        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+    current = (*(*cmd_output).ctx).owindows.tqh_first;
     while !current.is_null() {
         let floating_con: *mut Con = con_inside_floating((*current).con);
         if floating_con.is_null() {
@@ -4824,7 +4824,7 @@ pub unsafe fn cmd_move_window_to_center(
                 (*cmd_output).needs_tree_render = true_0 != 0;
             }
         }
-        current = (*current).owindows.tqe_next as *mut owindow;
+        current = (*current).owindows.tqe_next;
     }
     if !has_error {
         if (*cmd_output).has_reply() {
@@ -4856,7 +4856,7 @@ pub unsafe fn cmd_move_window_to_mouse(
     }
     if match_is_empty(current_match) {
         while !(*(*cmd_output).ctx).owindows.tqh_first.is_null() {
-            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
             if !(*ow).owindows.tqe_next.is_null() {
                 (*(*ow).owindows.tqe_next).owindows.tqe_prev = (*ow).owindows.tqe_prev;
             } else {
@@ -4872,11 +4872,11 @@ pub unsafe fn cmd_move_window_to_mouse(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
         (*ow_0).owindows.tqe_next = ::core::ptr::null_mut::<owindow>();
         (*ow_0).owindows.tqe_prev = (*(*cmd_output).ctx).owindows.tqh_last;
-        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0 as *mut owindow;
+        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+    current = (*(*cmd_output).ctx).owindows.tqh_first;
     while !current.is_null() {
         let floating_con: *mut Con = con_inside_floating((*current).con);
         if floating_con.is_null() {
@@ -4932,7 +4932,7 @@ pub unsafe fn cmd_move_window_to_mouse(
             };
             floating_move_to_pointer(floating_con);
         }
-        current = (*current).owindows.tqe_next as *mut owindow;
+        current = (*current).owindows.tqe_next;
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
     if (*cmd_output).has_reply() {
@@ -4964,7 +4964,7 @@ pub unsafe fn cmd_move_scratchpad(current_match: *mut Match, cmd_output: *mut Co
     }
     if match_is_empty(current_match) {
         while !(*(*cmd_output).ctx).owindows.tqh_first.is_null() {
-            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
             if !(*ow).owindows.tqe_next.is_null() {
                 (*(*ow).owindows.tqe_next).owindows.tqe_prev = (*ow).owindows.tqe_prev;
             } else {
@@ -4980,10 +4980,10 @@ pub unsafe fn cmd_move_scratchpad(current_match: *mut Match, cmd_output: *mut Co
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
         (*ow_0).owindows.tqe_next = ::core::ptr::null_mut::<owindow>();
         (*ow_0).owindows.tqe_prev = (*(*cmd_output).ctx).owindows.tqh_last;
-        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0 as *mut owindow;
+        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
-    current = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+    current = (*(*cmd_output).ctx).owindows.tqh_first;
     while !current.is_null() {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
@@ -5020,7 +5020,7 @@ pub unsafe fn cmd_move_scratchpad(current_match: *mut Match, cmd_output: *mut Co
             }
         };
         scratchpad_move((*current).con);
-        current = (*current).owindows.tqe_next as *mut owindow;
+        current = (*current).owindows.tqe_next;
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
     if (*cmd_output).has_reply() {
@@ -5035,7 +5035,7 @@ pub unsafe fn cmd_scratchpad_show(current_match: *mut Match, cmd_output: *mut Co
         result = scratchpad_show(::core::ptr::null_mut::<Con>());
     } else {
         let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-        current = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+        current = (*(*cmd_output).ctx).owindows.tqh_first;
         while !current.is_null() {
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
@@ -5074,7 +5074,7 @@ pub unsafe fn cmd_scratchpad_show(current_match: *mut Match, cmd_output: *mut Co
             result = (result as ::core::ffi::c_int
                 | scratchpad_show((*current).con) as ::core::ffi::c_int)
                 != 0;
-            current = (*current).owindows.tqe_next as *mut owindow;
+            current = (*current).owindows.tqe_next;
         }
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
@@ -5108,7 +5108,7 @@ pub unsafe fn cmd_swap(
     }
     if match_is_empty(current_match) {
         while !(*(*cmd_output).ctx).owindows.tqh_first.is_null() {
-            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
             if !(*ow).owindows.tqe_next.is_null() {
                 (*(*ow).owindows.tqe_next).owindows.tqe_prev = (*ow).owindows.tqe_prev;
             } else {
@@ -5124,10 +5124,10 @@ pub unsafe fn cmd_swap(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
         (*ow_0).owindows.tqe_next = ::core::ptr::null_mut::<owindow>();
         (*ow_0).owindows.tqe_prev = (*(*cmd_output).ctx).owindows.tqh_last;
-        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0 as *mut owindow;
+        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
-    let match_0: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+    let match_0: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
     if match_0.is_null() {
         if (*cmd_output).has_reply() {
             let mut message_0: *mut ::core::ffi::c_char =
@@ -5303,7 +5303,7 @@ pub unsafe fn cmd_title_format(
     }
     if match_is_empty(current_match) {
         while !(*(*cmd_output).ctx).owindows.tqh_first.is_null() {
-            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
             if !(*ow).owindows.tqe_next.is_null() {
                 (*(*ow).owindows.tqe_next).owindows.tqe_prev = (*ow).owindows.tqe_prev;
             } else {
@@ -5319,11 +5319,11 @@ pub unsafe fn cmd_title_format(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
         (*ow_0).owindows.tqe_next = ::core::ptr::null_mut::<owindow>();
         (*ow_0).owindows.tqe_prev = (*(*cmd_output).ctx).owindows.tqh_last;
-        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0 as *mut owindow;
+        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+    current = (*(*cmd_output).ctx).owindows.tqh_first;
     while !current.is_null() {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
@@ -5372,7 +5372,7 @@ pub unsafe fn cmd_title_format(
             free((*(*current).con).deco_render_params as *mut ::core::ffi::c_void);
             (*(*current).con).deco_render_params = ::core::ptr::null_mut::<deco_render_params>();
         }
-        current = (*current).owindows.tqe_next as *mut owindow;
+        current = (*current).owindows.tqe_next;
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
     if (*cmd_output).has_reply() {
@@ -5396,7 +5396,7 @@ pub unsafe fn cmd_title_window_icon(
     }
     ::log::debug!(
         "../src/commands.c:cmd_title_window_icon:2074 - setting window_icon={}\n",
-        (padding) as i32
+        { (padding) }
     );
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
@@ -5417,7 +5417,7 @@ pub unsafe fn cmd_title_window_icon(
     }
     if match_is_empty(current_match) {
         while !(*(*cmd_output).ctx).owindows.tqh_first.is_null() {
-            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+            let ow: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
             if !(*ow).owindows.tqe_next.is_null() {
                 (*(*ow).owindows.tqe_next).owindows.tqe_prev = (*ow).owindows.tqe_prev;
             } else {
@@ -5433,11 +5433,11 @@ pub unsafe fn cmd_title_window_icon(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*(*cmd_output).ctx).owindows.tqh_first;
         (*ow_0).owindows.tqe_next = ::core::ptr::null_mut::<owindow>();
         (*ow_0).owindows.tqe_prev = (*(*cmd_output).ctx).owindows.tqh_last;
-        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0 as *mut owindow;
+        *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current = (*(*cmd_output).ctx).owindows.tqh_first as *mut owindow;
+    current = (*(*cmd_output).ctx).owindows.tqh_first;
     while !current.is_null() {
         if is_toggle {
             let current_padding: ::core::ffi::c_int = (*(*current).con).window_icon_padding;
@@ -5480,7 +5480,7 @@ pub unsafe fn cmd_title_window_icon(
             free((*(*current).con).deco_render_params as *mut ::core::ffi::c_void);
             (*(*current).con).deco_render_params = ::core::ptr::null_mut::<deco_render_params>();
         }
-        current = (*current).owindows.tqe_next as *mut owindow;
+        current = (*current).owindows.tqe_next;
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
     if (*cmd_output).has_reply() {
@@ -5771,7 +5771,7 @@ pub unsafe fn cmd_bar_mode(
         return;
     }
     let mut current: *mut Barconfig = ::core::ptr::null_mut::<Barconfig>();
-    current = barconfigs.tqh_first as *mut Barconfig;
+    current = barconfigs.tqh_first;
     while !current.is_null() {
         if !(!bar_id.is_null()
             && strcmp((*current).id().as_ptr(), bar_id) != 0 as ::core::ffi::c_int)
@@ -5833,7 +5833,7 @@ pub unsafe fn cmd_bar_mode(
                 return;
             }
         }
-        current = (*current).configs.tqe_next as *mut Barconfig;
+        current = (*current).configs.tqe_next;
     }
     if !bar_id.is_null() {
         if (*cmd_output).has_reply() {
@@ -5919,7 +5919,7 @@ pub unsafe fn cmd_bar_hidden_state(
         return;
     }
     let mut current: *mut Barconfig = ::core::ptr::null_mut::<Barconfig>();
-    current = barconfigs.tqh_first as *mut Barconfig;
+    current = barconfigs.tqh_first;
     while !current.is_null() {
         if !(!bar_id.is_null()
             && strcmp((*current).id().as_ptr(), bar_id) != 0 as ::core::ffi::c_int)
@@ -5971,7 +5971,7 @@ pub unsafe fn cmd_bar_hidden_state(
                 return;
             }
         }
-        current = (*current).configs.tqe_next as *mut Barconfig;
+        current = (*current).configs.tqe_next;
     }
     if !bar_id.is_null() {
         if (*cmd_output).has_reply() {
@@ -6118,7 +6118,7 @@ unsafe fn gaps_update(
             None,
         )
         .to_vec();
-        let log_value_2 = (pixels) as i32;
+        let log_value_2 = (pixels);
         if let (Ok(log_value_0_text), Ok(log_value_1_text)) = (
             std::str::from_utf8(&log_value_0),
             std::str::from_utf8(&log_value_1),
@@ -6245,7 +6245,7 @@ unsafe fn gaps_update(
         *get.expect("non-null function pointer")(&raw mut config.gaps) = current_value;
         ::log::debug!(
             "../src/commands.c:gaps_update:2464 - global gaps value after fix = {}\n",
-            (*get.expect("non-null function pointer")(&raw mut config.gaps)) as i32
+            { (*get.expect("non-null function pointer")(&raw mut config.gaps)) }
         );
     } else {
         let gaps_value_0: *mut ::core::ffi::c_int =

@@ -83,13 +83,13 @@ pub fn rect_sub(a: Rect, b: Rect) -> Rect {
 }
 
 pub fn rect_sanitize_dimensions(mut rect: Rect) -> Rect {
-    rect.width = if rect.width as i32 <= 0 as i32 {
-        1 as u32
+    rect.width = if rect.width as i32 <= 0_i32 {
+        1_u32
     } else {
         rect.width
     };
-    rect.height = if rect.height as i32 <= 0 as i32 {
-        1 as u32
+    rect.height = if rect.height as i32 <= 0_i32 {
+        1_u32
     } else {
         rect.height
     };
@@ -106,7 +106,7 @@ pub fn name_is_digits(name: &CStr) -> bool {
     // Do not substitute Unicode/ASCII classification for the libc locale table.
     let digits = unsafe { *__ctype_b_loc() };
     name.to_bytes().iter().all(|byte| unsafe {
-        *digits.add(*byte as usize) & i3_common::native_stdio::CTYPE_DIGIT as u16 != 0
+        *digits.add(*byte as usize) & i3_common::native_stdio::CTYPE_DIGIT != 0
     })
 }
 
@@ -282,7 +282,7 @@ unsafe fn store_restart_layout() -> Option<CString> {
     {
         let diagnostic_5_owner = base.clone();
         let diagnostic_5_bytes = diagnostic_5_owner.as_bytes();
-        match (std::str::from_utf8(&diagnostic_5_bytes),) { (Ok(diagnostic_5_text),) => ::log::debug!("../src/util.c:store_restart_layout:253 - Creating \"{}\" for storing the restart layout\n", diagnostic_5_text), _ => emit_parts(Level::Debug, &[b"../src/util.c:store_restart_layout:253 - Creating \"", &diagnostic_5_bytes, b"\" for storing the restart layout\n"]), }
+        match (std::str::from_utf8(diagnostic_5_bytes),) { (Ok(diagnostic_5_text),) => ::log::debug!("../src/util.c:store_restart_layout:253 - Creating \"{}\" for storing the restart layout\n", diagnostic_5_text), _ => emit_parts(Level::Debug, &[b"../src/util.c:store_restart_layout:253 - Creating \"", diagnostic_5_bytes, b"\" for storing the restart layout\n"]), }
     };
     if let Err(error) = create_dir_all(
         std::ffi::OsStr::from_bytes(base.to_bytes()),
@@ -293,7 +293,7 @@ unsafe fn store_restart_layout() -> Option<CString> {
         {
             let diagnostic_2_owner = base.clone();
             let diagnostic_2_bytes = diagnostic_2_owner.as_bytes();
-            match (std::str::from_utf8(&diagnostic_2_bytes),) { (Ok(diagnostic_2_text),) => ::log::error!("ERROR: Could not create \"{}\" for storing the restart layout, layout will be lost.\n", diagnostic_2_text), _ => emit_parts(Level::Error, &[b"ERROR: Could not create \"", &diagnostic_2_bytes, b"\" for storing the restart layout, layout will be lost.\n"]), }
+            match (std::str::from_utf8(diagnostic_2_bytes),) { (Ok(diagnostic_2_text),) => ::log::error!("ERROR: Could not create \"{}\" for storing the restart layout, layout will be lost.\n", diagnostic_2_text), _ => emit_parts(Level::Error, &[b"ERROR: Could not create \"", diagnostic_2_bytes, b"\" for storing the restart layout, layout will be lost.\n"]), }
         };
     }
     let path = std::path::Path::new(std::ffi::OsStr::from_bytes(filename.as_c_str().to_bytes()));
@@ -323,8 +323,8 @@ unsafe fn store_restart_layout() -> Option<CString> {
             };
             let diagnostic_3_bytes = string_bytes(diagnostic_3_owner.as_deref(), None);
             match (
-                std::str::from_utf8(&diagnostic_2_bytes),
-                std::str::from_utf8(&diagnostic_3_bytes),
+                std::str::from_utf8(diagnostic_2_bytes),
+                std::str::from_utf8(diagnostic_3_bytes),
             ) {
                 (Ok(diagnostic_2_text), Ok(diagnostic_3_text)) => ::log::error!(
                     "ERROR: Could not write restart layout to \"{}\", layout will be lost: {}\n",
@@ -335,9 +335,9 @@ unsafe fn store_restart_layout() -> Option<CString> {
                     Level::Error,
                     &[
                         b"ERROR: Could not write restart layout to \"",
-                        &diagnostic_2_bytes,
+                        diagnostic_2_bytes,
                         b"\", layout will be lost: ",
-                        &diagnostic_3_bytes,
+                        diagnostic_3_bytes,
                         b"\n",
                     ],
                 ),
@@ -397,11 +397,11 @@ pub unsafe fn i3_restart(forget_layout: bool) {
                 .map(|value| std::ffi::CStr::from_ptr(value).to_owned())
         };
         let diagnostic_2_bytes = string_bytes(diagnostic_2_owner.as_deref(), None);
-        match (std::str::from_utf8(&diagnostic_2_bytes),) {
+        match (std::str::from_utf8(diagnostic_2_bytes),) {
             (Ok(diagnostic_2_text),) => ::log::info!("restarting \"{}\"...\n", diagnostic_2_text),
             _ => emit_parts(
                 Level::Verbose,
-                &[b"restarting \"", &diagnostic_2_bytes, b"\"...\n"],
+                &[b"restarting \"", diagnostic_2_bytes, b"\"...\n"],
             ),
         }
     };
@@ -436,17 +436,17 @@ unsafe extern "C" fn nagbar_exited(
     let watcher = Box::from_raw(watcher);
     let exitcode = libc::WEXITSTATUS(watcher.rstatus);
     if !libc::WIFEXITED(watcher.rstatus) {
-        ::log::error!("ERROR: i3-nagbar ({}) did not exit normally. This is not an error if the config was reloaded while a nagbar was active.\n", ((*watcher).pid) as i32);
+        ::log::error!("ERROR: i3-nagbar ({}) did not exit normally. This is not an error if the config was reloaded while a nagbar was active.\n", { ((*watcher).pid) });
     } else if exitcode != 0 as ::core::ffi::c_int {
         ::log::error!(
             "ERROR: i3-nagbar ({}) process exited with status {}\n",
-            ((*watcher).pid) as i32,
+            { ((*watcher).pid) },
             (exitcode) as i32
         );
     } else {
         ::log::debug!(
             "../src/util.c:nagbar_exited:348 - i3-nagbar ({}) process exited with status {}\n",
-            ((*watcher).pid) as i32,
+            { ((*watcher).pid) },
             (exitcode) as i32
         );
     }
@@ -460,7 +460,7 @@ unsafe extern "C" fn nagbar_exited(
 /// argv is a writable, terminated native argument array valid through exec.
 pub unsafe fn start_nagbar(nagbar_pid: *mut libc::pid_t, argv: *mut *mut ::core::ffi::c_char) {
     if *nagbar_pid != -(1 as ::core::ffi::c_int) {
-        ::log::debug!("../src/util.c:start_nagbar:368 - i3-nagbar already running (PID {}), not starting again.\n", (*nagbar_pid) as i32);
+        ::log::debug!("../src/util.c:start_nagbar:368 - i3-nagbar already running (PID {}), not starting again.\n", { (*nagbar_pid) });
         return;
     }
     let prepared = PreparedUtility::new(c"i3-nagbar", CStr::from_ptr(*start_argv));
@@ -474,7 +474,7 @@ pub unsafe fn start_nagbar(nagbar_pid: *mut libc::pid_t, argv: *mut *mut ::core:
     }
     ::log::debug!(
         "../src/util.c:start_nagbar:383 - Starting i3-nagbar with PID {}\n",
-        (*nagbar_pid) as i32
+        { (*nagbar_pid) }
     );
     let mut child = Box::new(ev_child::new(*nagbar_pid, false, nagbar_exited));
     child.data = nagbar_pid.cast();
@@ -578,8 +578,8 @@ pub(crate) fn slurp(path: &CStr) -> Result<Vec<u8>, SlurpFailure> {
             };
             let diagnostic_3_bytes = string_bytes(diagnostic_3_owner.as_deref(), None);
             match (
-                std::str::from_utf8(&diagnostic_2_bytes),
-                std::str::from_utf8(&diagnostic_3_bytes),
+                std::str::from_utf8(diagnostic_2_bytes),
+                std::str::from_utf8(diagnostic_3_bytes),
             ) {
                 (Ok(diagnostic_2_text), Ok(diagnostic_3_text)) => ::log::error!(
                     "ERROR: Cannot open file \"{}\": {}\n",
@@ -590,9 +590,9 @@ pub(crate) fn slurp(path: &CStr) -> Result<Vec<u8>, SlurpFailure> {
                     Level::Error,
                     &[
                         b"ERROR: Cannot open file \"",
-                        &diagnostic_2_bytes,
+                        diagnostic_2_bytes,
                         b"\": ",
-                        &diagnostic_3_bytes,
+                        diagnostic_3_bytes,
                         b"\n",
                     ],
                 ),
@@ -609,8 +609,8 @@ pub(crate) fn slurp(path: &CStr) -> Result<Vec<u8>, SlurpFailure> {
             };
             let diagnostic_3_bytes = string_bytes(diagnostic_3_owner.as_deref(), None);
             match (
-                std::str::from_utf8(&diagnostic_2_bytes),
-                std::str::from_utf8(&diagnostic_3_bytes),
+                std::str::from_utf8(diagnostic_2_bytes),
+                std::str::from_utf8(diagnostic_3_bytes),
             ) {
                 (Ok(diagnostic_2_text), Ok(diagnostic_3_text)) => ::log::error!(
                     "ERROR: Cannot fstat() \"{}\": {}\n",
@@ -621,9 +621,9 @@ pub(crate) fn slurp(path: &CStr) -> Result<Vec<u8>, SlurpFailure> {
                     Level::Error,
                     &[
                         b"ERROR: Cannot fstat() \"",
-                        &diagnostic_2_bytes,
+                        diagnostic_2_bytes,
                         b"\": ",
-                        &diagnostic_3_bytes,
+                        diagnostic_3_bytes,
                         b"\n",
                     ],
                 ),
@@ -634,7 +634,7 @@ pub(crate) fn slurp(path: &CStr) -> Result<Vec<u8>, SlurpFailure> {
             let diagnostic_2_bytes = diagnostic_2_owner.as_bytes();
             let diagnostic_3 = (*got) as isize;
             let diagnostic_4 = (*want as libc::c_long) as libc::c_long;
-            match (std::str::from_utf8(&diagnostic_2_bytes),) {
+            match (std::str::from_utf8(diagnostic_2_bytes),) {
                 (Ok(diagnostic_2_text),) => ::log::error!(
                     "ERROR: File \"{}\" could not be read entirely: got {}, want {}\n",
                     diagnostic_2_text,
@@ -645,7 +645,7 @@ pub(crate) fn slurp(path: &CStr) -> Result<Vec<u8>, SlurpFailure> {
                     Level::Error,
                     &[
                         b"ERROR: File \"",
-                        &diagnostic_2_bytes,
+                        diagnostic_2_bytes,
                         b"\" could not be read entirely: got ",
                         format!("{}", diagnostic_3).as_bytes(),
                         b", want ",

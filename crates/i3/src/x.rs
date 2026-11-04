@@ -370,8 +370,8 @@ struct StateHead {
     cqh_last: *mut FrameState,
 }
 
-pub static mut focused_id: u32 = 0 as u32;
-static mut last_focused: u32 = 0 as u32;
+pub static mut focused_id: u32 = 0_u32;
+static mut last_focused: u32 = 0_u32;
 static mut warp_to: *mut Rect = ::core::ptr::null::<Rect>() as *mut Rect;
 
 static mut state_head: StateHead = StateHead {
@@ -394,34 +394,30 @@ static mut initial_mapping_head: InitialMappingHead = InitialMappingHead {
 };
 unsafe fn state_for_frame(window: u32) -> *mut FrameState {
     let mut state: *mut FrameState = ::core::ptr::null_mut::<FrameState>();
-    state = state_head.cqh_first as *mut FrameState;
+    state = state_head.cqh_first;
     while state != &raw mut state_head as *mut ::core::ffi::c_void as *mut FrameState {
         if (*state).id == window {
             return state;
         }
-        state = (*state).state.cqe_next as *mut FrameState;
+        state = (*state).state.cqe_next;
     }
-    ::log::error!(
-        "ERROR: No state found for window 0x{:08x}\n",
-        (window) as u32
-    );
+    ::log::error!("ERROR: No state found for window 0x{:08x}\n", { (window) });
     __assert_fail(
         c"false".as_ptr(),
         c"../src/x.c".as_ptr(),
-        99 as u32,
+        99_u32,
         c"FrameState *state_for_frame(u32)".as_ptr(),
-    );
-    ::core::ptr::null_mut::<FrameState>()
+    )
 }
 unsafe fn change_ewmh_focus(new_focus: u32, old_focus: u32) {
     if new_focus == old_focus {
         return;
     }
     ewmh_update_active_window(new_focus);
-    if new_focus != 0 as i32 as u32 {
+    if new_focus != 0_i32 as u32 {
         ewmh_update_focused(new_focus, true);
     }
-    if old_focus != 0 as i32 as u32 {
+    if old_focus != 0_i32 as u32 {
         ewmh_update_focused(old_focus, false);
     }
 }
@@ -442,7 +438,7 @@ pub unsafe fn x_con_init(con: *mut Con) {
         (*con).colormap = win_colormap;
     } else {
         win_colormap = colormap;
-        (*con).colormap = 0 as u32;
+        (*con).colormap = 0_u32;
     }
     let event_mask = x::EventMask::BUTTON_PRESS
         | x::EventMask::BUTTON_RELEASE
@@ -461,8 +457,8 @@ pub unsafe fn x_con_init(con: *mut Con) {
     let dims: Rect = Rect {
         x: (-15i32) as u32,
         y: (-15i32) as u32,
-        width: 10 as u32,
-        height: 10 as u32,
+        width: 10_u32,
+        height: 10_u32,
     };
     let frame_id = create_window(
         &connection,
@@ -477,7 +473,7 @@ pub unsafe fn x_con_init(con: *mut Con) {
     draw_util_surface_init(
         &crate::application::rendering_context(),
         &raw mut (*con).frame,
-        frame_id as u32,
+        frame_id,
         get_visualtype_by_id(visual).as_deref(),
         dims.width as i32,
         dims.height as i32,
@@ -535,25 +531,25 @@ pub unsafe fn x_con_init(con: *mut Con) {
     (*state).state.cqe_next = state_head.cqh_first;
     (*state).state.cqe_prev = &raw mut state_head as *mut ::core::ffi::c_void as *mut FrameState;
     if state_head.cqh_last == &raw mut state_head as *mut ::core::ffi::c_void as *mut FrameState {
-        state_head.cqh_last = state as *mut FrameState;
+        state_head.cqh_last = state;
     } else {
-        (*state_head.cqh_first).state.cqe_prev = state as *mut FrameState;
+        (*state_head.cqh_first).state.cqe_prev = state;
     }
-    state_head.cqh_first = state as *mut FrameState;
+    state_head.cqh_first = state;
     (*state).old_state.cqe_next = old_state_head.cqh_first;
     (*state).old_state.cqe_prev =
         &raw mut old_state_head as *mut ::core::ffi::c_void as *mut FrameState;
     if old_state_head.cqh_last
         == &raw mut old_state_head as *mut ::core::ffi::c_void as *mut FrameState
     {
-        old_state_head.cqh_last = state as *mut FrameState;
+        old_state_head.cqh_last = state;
     } else {
-        (*old_state_head.cqh_first).old_state.cqe_prev = state as *mut FrameState;
+        (*old_state_head.cqh_first).old_state.cqe_prev = state;
     }
-    old_state_head.cqh_first = state as *mut FrameState;
+    old_state_head.cqh_first = state;
     (*state).initial_mapping_order.tqe_next = ::core::ptr::null_mut::<FrameState>();
     (*state).initial_mapping_order.tqe_prev = initial_mapping_head.tqh_last;
-    *initial_mapping_head.tqh_last = state as *mut FrameState;
+    *initial_mapping_head.tqh_last = state;
     initial_mapping_head.tqh_last = &raw mut (*state).initial_mapping_order.tqe_next;
     ::log::debug!(
         "../src/x.c:x_con_init:190 - adding new state for window id 0x{:08x}\n",
@@ -563,7 +559,7 @@ pub unsafe fn x_con_init(con: *mut Con) {
 
 pub unsafe fn x_reinit(con: *mut Con) {
     let mut state: *mut FrameState = ::core::ptr::null_mut::<FrameState>();
-    state = state_for_frame((*con).frame.id as u32);
+    state = state_for_frame((*con).frame.id);
     if state.is_null() {
         ::log::error!("ERROR: window state not found\n");
         return;
@@ -585,24 +581,24 @@ pub unsafe fn x_reinit(con: *mut Con) {
 
 pub unsafe fn x_reparent_child(con: *mut Con, old: *mut Con) {
     let mut state: *mut FrameState = ::core::ptr::null_mut::<FrameState>();
-    state = state_for_frame((*con).frame.id as u32);
+    state = state_for_frame((*con).frame.id);
     if state.is_null() {
         ::log::error!("ERROR: window state for con not found\n");
         return;
     }
     (*state).need_reparent = true;
-    (*state).old_frame = (*old).frame.id as u32;
+    (*state).old_frame = (*old).frame.id;
 }
 
 pub unsafe fn x_move_win(src: *mut Con, dest: *mut Con) {
     let mut state_src: *mut FrameState = ::core::ptr::null_mut::<FrameState>();
     let mut state_dest: *mut FrameState = ::core::ptr::null_mut::<FrameState>();
-    state_src = state_for_frame((*src).frame.id as u32);
+    state_src = state_for_frame((*src).frame.id);
     if state_src.is_null() {
         ::log::error!("ERROR: window state for src not found\n");
         return;
     }
-    state_dest = state_for_frame((*dest).frame.id as u32);
+    state_dest = state_for_frame((*dest).frame.id);
     if state_dest.is_null() {
         ::log::error!("ERROR: window state for dest not found\n");
         return;
@@ -612,10 +608,10 @@ pub unsafe fn x_move_win(src: *mut Con, dest: *mut Con) {
     if rect_equals(
         (*state_dest).window_rect,
         Rect {
-            x: 0 as u32,
-            y: 0 as u32,
-            width: 0 as u32,
-            height: 0 as u32,
+            x: 0_u32,
+            y: 0_u32,
+            width: 0_u32,
+            height: 0_u32,
         },
     ) {
         (*state_dest).window_rect = (*state_src).window_rect;
@@ -636,8 +632,8 @@ unsafe fn _x_con_kill(con: *mut Con) {
             pixmap: x::Pixmap::new((*con).frame_buffer.id),
         });
     }
-    (*con).frame_buffer.id = 0 as u32;
-    let state: *mut FrameState = state_for_frame((*con).frame.id as u32);
+    (*con).frame_buffer.id = 0_u32;
+    let state: *mut FrameState = state_for_frame((*con).frame.id);
     if (*state).state.cqe_next == &raw mut state_head as *mut ::core::ffi::c_void as *mut FrameState
     {
         state_head.cqh_last = (*state).state.cqe_prev;
@@ -675,10 +671,10 @@ unsafe fn _x_con_kill(con: *mut Con) {
     // All three intrusive memberships are gone before destroying owned fields.
     drop(Box::from_raw(state));
     if (*con).frame.id == focused_id {
-        focused_id = 0 as u32;
+        focused_id = 0_u32;
     }
     if (*con).frame.id == last_focused {
-        last_focused = 0 as u32;
+        last_focused = 0_u32;
     }
 }
 
@@ -728,15 +724,14 @@ pub unsafe fn x_window_kill(window: u32, kill_window: KillWindow) {
     let connection = connection();
     if !window_supports_protocol(window, A_WM_DELETE_WINDOW) {
         if kill_window == KillWindow::Window {
-            ::log::info!("Killing specific window 0x{:08x}\n", (window) as u32);
+            ::log::info!("Killing specific window 0x{:08x}\n", { (window) });
             connection.send_request(&x::DestroyWindow {
                 window: x::Window::new(window),
             });
         } else {
-            ::log::info!(
-                "Killing the X11 client which owns window 0x{:08x}\n",
-                (window) as u32
-            );
+            ::log::info!("Killing the X11 client which owns window 0x{:08x}\n", {
+                (window)
+            });
             connection.send_request(&x::KillClient { resource: window });
         }
         return;
@@ -771,7 +766,7 @@ unsafe fn x_draw_decoration_after_title(
         __assert_fail(
             c"con->parent != NULL".as_ptr(),
             c"../src/x.c".as_ptr(),
-            381 as u32,
+            381_u32,
             c"void x_draw_decoration_after_title(Con *, struct deco_render_params *, surface_t *)"
                 .as_ptr(),
         );
@@ -823,24 +818,24 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
     {
         return;
     }
-    if (*con).rect.height == 0 as u32 {
+    if (*con).rect.height == 0_u32 {
         return;
     }
     if leaf && (*con).frame_buffer.id as ::core::ffi::c_long == 0 {
         return;
     }
     let color = if (*con).urgent {
-        &raw mut config.client.urgent as *mut Colortriple
+        &raw mut config.client.urgent
     } else if con == focused || con_inside_focused(con) {
-        &raw mut config.client.focused as *mut Colortriple
+        &raw mut config.client.focused
     } else if con == focus::first_ptr(parent) {
         if config.client.got_focused_tab_title && !leaf && con_descend_focused(con) == focused {
-            &raw mut config.client.focused_tab_title as *mut Colortriple
+            &raw mut config.client.focused_tab_title
         } else {
-            &raw mut config.client.focused_inactive as *mut Colortriple
+            &raw mut config.client.focused_inactive
         }
     } else {
-        &raw mut config.client.unfocused as *mut Colortriple
+        &raw mut config.client.unfocused
     };
     let r = (*con).rect;
     let w = (*con).window_rect;
@@ -977,7 +972,7 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
             {
                 let diagnostic_5_owner = (*con).name.clone();
                 let diagnostic_5_bytes = string_bytes(diagnostic_5_owner.as_deref(), None);
-                match (std::str::from_utf8(&diagnostic_5_bytes),) { (Ok(diagnostic_5_text),) => ::log::debug!(concat!("../src/x.c:x_draw_decoration:602 - using ","con->frame_buffer (for con->name={}) as dest_surface\n"), diagnostic_5_text), _ => emit_parts(Level::Debug, &[b"../src/x.c:x_draw_decoration:602 - using con->frame_buffer (for con->name=", &diagnostic_5_bytes, b") as dest_surface\n"]), }
+                match (std::str::from_utf8(diagnostic_5_bytes),) { (Ok(diagnostic_5_text),) => ::log::debug!(concat!("../src/x.c:x_draw_decoration:602 - using ","con->frame_buffer (for con->name={}) as dest_surface\n"), diagnostic_5_text), _ => emit_parts(Level::Debug, &[b"../src/x.c:x_draw_decoration:602 - using con->frame_buffer (for con->name=", diagnostic_5_bytes, b") as dest_surface\n"]), }
             };
             dest_surface = &raw mut (*con).frame_buffer;
         } else {
@@ -1000,8 +995,8 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
                     ::core::ptr::null_mut::<deco_render_params>();
             }
             if !((*p).border_style != BorderStyle::Normal
-                || (*con).deco_rect.width == 0 as u32
-                || (*con).deco_rect.height == 0 as u32)
+                || (*con).deco_rect.width == 0_u32
+                || (*con).deco_rect.height == 0_u32)
             {
                 {
                     let diagnostic_5 = ((*con).deco_rect.x) as i32;
@@ -1010,7 +1005,7 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
                     let diagnostic_8 = ((*con).deco_rect.height) as i32;
                     let diagnostic_9_owner = (*con).name.clone();
                     let diagnostic_9_bytes = string_bytes(diagnostic_9_owner.as_deref(), None);
-                    match (std::str::from_utf8(&diagnostic_9_bytes),) {
+                    match (std::str::from_utf8(diagnostic_9_bytes),) {
                         (Ok(diagnostic_9_text),) => ::log::debug!(
                             concat!(
                                 "../src/x.c:x_draw_decoration:630 - con->deco_rect = ",
@@ -1034,7 +1029,7 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
                                 b", h=",
                                 format!("{}", diagnostic_8).as_bytes(),
                                 b") for con->name=",
-                                &diagnostic_9_bytes,
+                                diagnostic_9_bytes,
                                 b"\n",
                             ],
                         ),
@@ -1053,7 +1048,7 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
                     .deco_rect
                     .height
                     .wrapping_sub(config.font.height as u32)
-                    .wrapping_div(2 as u32) as i32;
+                    .wrapping_div(2_u32) as i32;
                 win = (*con).window;
                 deco_width = (*con).deco_rect.width as i32;
                 title_padding = logical_px(2) as i32;
@@ -1162,7 +1157,7 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
 pub unsafe fn x_deco_recurse(con: *mut Con) {
     let leaf: bool = nodes::first_ptr(con).is_null()
         && floating::is_empty(identity(con).expect("live floating parent"));
-    let state: *const FrameState = state_for_frame((*con).frame.id as u32);
+    let state: *const FrameState = state_for_frame((*con).frame.id);
     if !leaf {
         let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
         current = nodes::first_ptr(con);
@@ -1200,7 +1195,7 @@ unsafe fn set_hidden_state(con: *mut Con) {
     if (*con).window.is_null() {
         return;
     }
-    let state: *mut FrameState = state_for_frame((*con).frame.id as u32);
+    let state: *mut FrameState = state_for_frame((*con).frame.id);
     let should_be_hidden: bool = con_is_hidden(con);
     if should_be_hidden == (*state).is_hidden {
         return;
@@ -1234,15 +1229,15 @@ unsafe fn set_maximized_state(con: *mut Con) {
     if (*con).window.is_null() {
         return;
     }
-    let state: *mut FrameState = state_for_frame((*con).frame.id as u32);
+    let state: *mut FrameState = state_for_frame((*con).frame.id);
     let con_maximized_horz: bool = con_is_maximized(con, Orientation::Horizontal);
     if con_maximized_horz != (*state).is_maximized_horz {
         {
             let diagnostic_5 = i3_common::logging::pointer(con);
             let diagnostic_6_owner = (*con).name.clone();
             let diagnostic_6_bytes = string_bytes(diagnostic_6_owner.as_deref(), None);
-            let diagnostic_7 = (con_maximized_horz as i32) as i32;
-            match (std::str::from_utf8(&diagnostic_6_bytes),) { (Ok(diagnostic_6_text),) => ::log::debug!(concat!("../src/x.c:set_maximized_state:843 - setting ","_NET_WM_STATE_MAXIMIZED_HORZ for con {}({}) to {}\n"), diagnostic_5, diagnostic_6_text, diagnostic_7), _ => emit_parts(Level::Debug, &[b"../src/x.c:set_maximized_state:843 - setting _NET_WM_STATE_MAXIMIZED_HORZ for con ", format!("{}", diagnostic_5).as_bytes(), b"(", &diagnostic_6_bytes, b") to ", format!("{}", diagnostic_7).as_bytes(), b"\n"]), }
+            let diagnostic_7 = (con_maximized_horz as i32);
+            match (std::str::from_utf8(diagnostic_6_bytes),) { (Ok(diagnostic_6_text),) => ::log::debug!(concat!("../src/x.c:set_maximized_state:843 - setting ","_NET_WM_STATE_MAXIMIZED_HORZ for con {}({}) to {}\n"), diagnostic_5, diagnostic_6_text, diagnostic_7), _ => emit_parts(Level::Debug, &[b"../src/x.c:set_maximized_state:843 - setting _NET_WM_STATE_MAXIMIZED_HORZ for con ", format!("{}", diagnostic_5).as_bytes(), b"(", diagnostic_6_bytes, b") to ", format!("{}", diagnostic_7).as_bytes(), b"\n"]), }
         };
         if con_maximized_horz {
             xcb_add_property_atom(
@@ -1267,8 +1262,8 @@ unsafe fn set_maximized_state(con: *mut Con) {
             let diagnostic_5 = i3_common::logging::pointer(con);
             let diagnostic_6_owner = (*con).name.clone();
             let diagnostic_6_bytes = string_bytes(diagnostic_6_owner.as_deref(), None);
-            let diagnostic_7 = (con_maximized_vert as i32) as i32;
-            match (std::str::from_utf8(&diagnostic_6_bytes),) { (Ok(diagnostic_6_text),) => ::log::debug!(concat!("../src/x.c:set_maximized_state:856 - setting ","_NET_WM_STATE_MAXIMIZED_VERT for con {}({}) to {}\n"), diagnostic_5, diagnostic_6_text, diagnostic_7), _ => emit_parts(Level::Debug, &[b"../src/x.c:set_maximized_state:856 - setting _NET_WM_STATE_MAXIMIZED_VERT for con ", format!("{}", diagnostic_5).as_bytes(), b"(", &diagnostic_6_bytes, b") to ", format!("{}", diagnostic_7).as_bytes(), b"\n"]), }
+            let diagnostic_7 = (con_maximized_vert as i32);
+            match (std::str::from_utf8(diagnostic_6_bytes),) { (Ok(diagnostic_6_text),) => ::log::debug!(concat!("../src/x.c:set_maximized_state:856 - setting ","_NET_WM_STATE_MAXIMIZED_VERT for con {}({}) to {}\n"), diagnostic_5, diagnostic_6_text, diagnostic_7), _ => emit_parts(Level::Debug, &[b"../src/x.c:set_maximized_state:856 - setting _NET_WM_STATE_MAXIMIZED_VERT for con ", format!("{}", diagnostic_5).as_bytes(), b"(", diagnostic_6_bytes, b") to ", format!("{}", diagnostic_7).as_bytes(), b"\n"]), }
         };
         if con_maximized_vert {
             xcb_add_property_atom(
@@ -1294,7 +1289,7 @@ unsafe fn x_shape_frame(con: *mut Con, shape_kind: shape::Sk) {
         __assert_fail(
             c"con->window".as_ptr(),
             c"../src/x.c".as_ptr(),
-            873 as u32,
+            873_u32,
             c"void x_shape_frame(Con *, xcb_shape_sk_t)".as_ptr(),
         );
     };
@@ -1333,7 +1328,7 @@ unsafe fn x_unshape_frame(con: *mut Con, shape_kind: shape::Sk) {
         __assert_fail(
             c"con->window".as_ptr(),
             c"../src/x.c".as_ptr(),
-            893 as u32,
+            893_u32,
             c"void x_unshape_frame(Con *, xcb_shape_sk_t)".as_ptr(),
         );
     };
@@ -1352,7 +1347,7 @@ unsafe fn set_shape_state(con: *mut Con, need_reshape: bool) {
         return;
     }
     let mut state: *mut FrameState = ::core::ptr::null_mut::<FrameState>();
-    state = state_for_frame((*con).frame.id as u32);
+    state = state_for_frame((*con).frame.id);
     if state.is_null() {
         ::log::error!(
             "ERROR: window state for con {} not found\n",
@@ -1381,13 +1376,13 @@ unsafe fn set_shape_state(con: *mut Con, need_reshape: bool) {
 pub unsafe fn x_push_node(con: *mut Con) {
     let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut rect: Rect = (*con).rect as Rect;
-    let state: *mut FrameState = state_for_frame((*con).frame.id as u32);
+    let state: *mut FrameState = state_for_frame((*con).frame.id);
     if let Some(name) = (*state).name.take() {
         {
             let diagnostic_2_owner = name.clone();
             let diagnostic_2_bytes = diagnostic_2_owner.as_bytes();
             let diagnostic_3 = i3_common::logging::pointer(con);
-            match (std::str::from_utf8(&diagnostic_2_bytes),) {
+            match (std::str::from_utf8(diagnostic_2_bytes),) {
                 (Ok(diagnostic_2_text),) => ::log::debug!(
                     "pushing name {} for con {}\n",
                     diagnostic_2_text,
@@ -1397,7 +1392,7 @@ pub unsafe fn x_push_node(con: *mut Con) {
                     Level::Debug,
                     &[
                         b"pushing name ",
-                        &diagnostic_2_bytes,
+                        diagnostic_2_bytes,
                         b" for con ",
                         format!("{}", diagnostic_3).as_bytes(),
                         b"\n",
@@ -1416,8 +1411,8 @@ pub unsafe fn x_push_node(con: *mut Con) {
     if (*con).window.is_null()
         && ((*con).layout == Layout::Stacked || (*con).layout == Layout::Tabbed)
     {
-        let mut max_y: u32 = 0 as u32;
-        let mut max_height: u32 = 0 as u32;
+        let mut max_y: u32 = 0_u32;
+        let mut max_height: u32 = 0_u32;
         current = nodes::first_ptr(con);
         while !current.is_null() {
             let dr: *mut Rect = &raw mut (*current).deco_rect;
@@ -1428,7 +1423,7 @@ pub unsafe fn x_push_node(con: *mut Con) {
             current = nodes::next_ptr(current);
         }
         rect.height = max_y.wrapping_add(max_height);
-        if rect.height == 0 as u32 {
+        if rect.height == 0_u32 {
             (*con).mapped = false;
         }
     } else if (*con).window.is_null() {
@@ -1437,14 +1432,14 @@ pub unsafe fn x_push_node(con: *mut Con) {
     let mut need_reshape: bool = false;
     if (*state).need_reparent && !(*con).window.is_null() {
         ::log::debug!("../src/x.c:x_push_node:978 - Reparenting child window\n");
-        let mut values: u32 = 0 as u32;
+        let mut values: u32 = 0_u32;
         set_event_mask((*state).old_frame, values);
         set_event_mask((*(*con).window).id, values);
         connection().send_request(&x::ReparentWindow {
             window: x::Window::new((*(*con).window).id),
-            parent: x::Window::new((*con).frame.id as u32),
-            x: 0 as i16,
-            y: 0 as i16,
+            parent: x::Window::new((*con).frame.id),
+            x: 0_i16,
+            y: 0_i16,
         });
         values = (x::EventMask::BUTTON_PRESS.bits() as i32
             | x::EventMask::BUTTON_RELEASE.bits() as i32
@@ -1459,7 +1454,7 @@ pub unsafe fn x_push_node(con: *mut Con) {
             | x::EventMask::STRUCTURE_NOTIFY.bits() as i32
             | x::EventMask::FOCUS_CHANGE.bits() as i32) as u32;
         set_event_mask((*(*con).window).id, values);
-        (*state).old_frame = 0 as u32;
+        (*state).old_frame = 0_u32;
         (*state).need_reparent = false;
         (*con).ignore_unmap = (*con).ignore_unmap.wrapping_add(1);
         ::log::debug!(
@@ -1468,8 +1463,8 @@ pub unsafe fn x_push_node(con: *mut Con) {
                 "reparenting of con {} (win 0x{:08x}) is now {}\n"
             ),
             i3_common::logging::pointer(con),
-            ((*(*con).window).id) as u32,
-            ((*con).ignore_unmap as i32) as i32
+            { ((*(*con).window).id) },
+            { ((*con).ignore_unmap as i32) }
         );
         need_reshape = true;
     }
@@ -1500,7 +1495,7 @@ pub unsafe fn x_push_node(con: *mut Con) {
     );
     let mut fake_notify: bool = false;
     if is_pixmap_needed && (*con).frame_buffer.id as ::core::ffi::c_long == 0
-        || !rect_equals((*state).rect, rect) && rect.height > 0 as u32
+        || !rect_equals((*state).rect, rect) && rect.height > 0_u32
     {
         let has_rect_changed: bool = (*state).rect.x != rect.x
             || (*state).rect.y != rect.y
@@ -1513,7 +1508,7 @@ pub unsafe fn x_push_node(con: *mut Con) {
                     pixmap: x::Pixmap::new((*con).frame_buffer.id),
                 });
             }
-            (*con).frame_buffer.id = 0 as u32;
+            (*con).frame_buffer.id = 0_u32;
         }
         if is_pixmap_needed
             && (has_rect_changed || (*con).frame_buffer.id as ::core::ffi::c_long == 0)
@@ -1539,15 +1534,15 @@ pub unsafe fn x_push_node(con: *mut Con) {
                     "for con {} (con->frame_buffer.id = (pixmap_t)0x{:08x}) ",
                     "(con->frame.id (drawable_t)0x{:08x})\n"
                 ),
-                (width) as i32,
-                (height) as i32,
+                { (width) },
+                { (height) },
                 i3_common::logging::pointer(con),
-                ((*con).frame_buffer.id) as u32,
-                ((*con).frame.id) as u32
+                { ((*con).frame_buffer.id) },
+                { ((*con).frame.id) }
             );
             connection().send_request(&x::CreatePixmap {
                 depth: win_depth as u8,
-                pid: x::Pixmap::new((*con).frame_buffer.id as u32),
+                pid: x::Pixmap::new((*con).frame_buffer.id),
                 drawable: x::Drawable::Window(x::Window::new((*con).frame.id)),
                 width: width as u16,
                 height: height as u16,
@@ -1600,7 +1595,7 @@ pub unsafe fn x_push_node(con: *mut Con) {
         {
             let _ = connection().flush();
         };
-        xcb_set_window_rect(conn, (*con).frame.id as u32, rect);
+        xcb_set_window_rect(conn, (*con).frame.id, rect);
         if (*con).frame_buffer.id as ::core::ffi::c_long != 0 {
             draw_util_copy_surface(
                 &raw mut (*con).frame_buffer,
@@ -1684,7 +1679,7 @@ pub unsafe fn x_push_node(con: *mut Con) {
             | x::EventMask::SUBSTRUCTURE_REDIRECT.bits() as i32
             | x::EventMask::SUBSTRUCTURE_NOTIFY.bits() as i32
             | x::EventMask::ENTER_WINDOW.bits() as i32) as u32;
-        set_event_mask((*con).frame.id as u32, values_0);
+        set_event_mask((*con).frame.id, values_0);
         if (*con).frame_buffer.id as ::core::ffi::c_long != 0 {
             draw_util_copy_surface(
                 &raw mut (*con).frame_buffer,
@@ -1702,7 +1697,7 @@ pub unsafe fn x_push_node(con: *mut Con) {
         };
         ::log::debug!(
             "../src/x.c:x_push_node:1181 - mapping container {:08x} (serial {})\n",
-            ((*con).frame.id) as u32,
+            { ((*con).frame.id) },
             (cookie.sequence() as u32) as i32
         );
         (*state).mapped = (*con).mapped;
@@ -1723,7 +1718,7 @@ pub unsafe fn x_push_node(con: *mut Con) {
 }
 unsafe fn x_push_node_unmaps(con: *mut Con) {
     let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
-    let state: *mut FrameState = state_for_frame((*con).frame.id as u32);
+    let state: *mut FrameState = state_for_frame((*con).frame.id);
     if (*state).unmap_now {
         if !(*con).window.is_null() {
             let data = [0u32, 0];
@@ -1743,7 +1738,7 @@ unsafe fn x_push_node_unmaps(con: *mut Con) {
             let diagnostic_6_owner = (*con).name.clone();
             let diagnostic_6_bytes = string_bytes(diagnostic_6_owner.as_deref(), None);
             let diagnostic_7 = (cookie.sequence() as u32) as i32;
-            match (std::str::from_utf8(&diagnostic_6_bytes),) {
+            match (std::str::from_utf8(diagnostic_6_bytes),) {
                 (Ok(diagnostic_6_text),) => ::log::debug!(
                     concat!(
                         "../src/x.c:x_push_node_unmaps:1229 - unmapping ",
@@ -1759,7 +1754,7 @@ unsafe fn x_push_node_unmaps(con: *mut Con) {
                         b"../src/x.c:x_push_node_unmaps:1229 - unmapping container ",
                         format!("{}", diagnostic_5).as_bytes(),
                         b" / ",
-                        &diagnostic_6_bytes,
+                        diagnostic_6_bytes,
                         b" (serial ",
                         format!("{}", diagnostic_7).as_bytes(),
                         b")\n",
@@ -1775,8 +1770,8 @@ unsafe fn x_push_node_unmaps(con: *mut Con) {
                     "con {} (frame 0x{:08x}) now {}\n"
                 ),
                 i3_common::logging::pointer(con),
-                ((*con).frame.id) as u32,
-                ((*con).ignore_unmap as i32) as i32
+                { ((*con).frame.id) },
+                { ((*con).ignore_unmap as i32) }
             );
         }
         (*state).mapped = (*con).mapped;
@@ -1818,31 +1813,31 @@ pub unsafe fn x_push_changes(con: *mut Con) {
     }
     ::log::debug!("../src/x.c:x_push_changes:1290 - -- PUSHING WINDOW STACK --\n");
     let mut values: u32 = x::EventMask::SUBSTRUCTURE_REDIRECT.bits() as i32 as u32;
-    state = state_head.cqh_last as *mut FrameState;
+    state = state_head.cqh_last;
     while state != &raw mut state_head as *mut ::core::ffi::c_void as *mut FrameState {
         if (*state).mapped {
             set_event_mask((*state).id, values);
         }
-        state = (*state).state.cqe_prev as *mut FrameState;
+        state = (*state).state.cqe_prev;
     }
     let mut order_changed: bool = false;
     let mut stacking_changed: bool = false;
     let mut cnt: i32 = 0;
-    state = state_head.cqh_last as *mut FrameState;
+    state = state_head.cqh_last;
     while state != &raw mut state_head as *mut ::core::ffi::c_void as *mut FrameState {
         if con_has_managed_window((*state).con) {
             cnt += 1;
         }
-        state = (*state).state.cqe_prev as *mut FrameState;
+        state = (*state).state.cqe_prev;
     }
     let mut client_list_windows = Vec::with_capacity(cnt as usize);
-    state = state_head.cqh_last as *mut FrameState;
+    state = state_head.cqh_last;
     while state != &raw mut state_head as *mut ::core::ffi::c_void as *mut FrameState {
         if con_has_managed_window((*state).con) {
             client_list_windows.push((*(*(*state).con).window).id);
         }
-        let prev: *mut FrameState = (*state).state.cqe_prev as *mut FrameState;
-        let old_prev: *mut FrameState = (*state).old_state.cqe_prev as *mut FrameState;
+        let prev: *mut FrameState = (*state).state.cqe_prev;
+        let old_prev: *mut FrameState = (*state).old_state.cqe_prev;
         if prev != old_prev {
             order_changed = true;
         }
@@ -1859,24 +1854,24 @@ pub unsafe fn x_push_changes(con: *mut Con) {
             });
         }
         (*state).initial = false;
-        state = (*state).state.cqe_prev as *mut FrameState;
+        state = (*state).state.cqe_prev;
     }
     if stacking_changed {
         ::log::debug!(
             "../src/x.c:x_push_changes:1350 - Client list changed ({} clients)\n",
-            (cnt) as i32
+            { (cnt) }
         );
         ewmh_update_client_list_stacking(
             client_list_windows.as_mut_ptr(),
             client_list_windows.len() as i32,
         );
         client_list_windows.clear();
-        state = initial_mapping_head.tqh_first as *mut FrameState;
+        state = initial_mapping_head.tqh_first;
         while !state.is_null() {
             if con_has_managed_window((*state).con) {
                 client_list_windows.push((*(*(*state).con).window).id);
             }
-            state = (*state).initial_mapping_order.tqe_next as *mut FrameState;
+            state = (*state).initial_mapping_order.tqe_next;
         }
         ewmh_update_client_list(
             client_list_windows.as_mut_ptr(),
@@ -1931,15 +1926,15 @@ pub unsafe fn x_push_changes(con: *mut Con) {
         | x::EventMask::SUBSTRUCTURE_REDIRECT.bits() as i32
         | x::EventMask::SUBSTRUCTURE_NOTIFY.bits() as i32
         | x::EventMask::ENTER_WINDOW.bits() as i32) as u32;
-    state = state_head.cqh_last as *mut FrameState;
+    state = state_head.cqh_last;
     while state != &raw mut state_head as *mut ::core::ffi::c_void as *mut FrameState {
         if (*state).mapped {
             set_event_mask((*state).id, values);
         }
-        state = (*state).state.cqe_prev as *mut FrameState;
+        state = (*state).state.cqe_prev;
     }
     x_deco_recurse(con);
-    let mut to_focus: u32 = (*focused).frame.id as u32;
+    let mut to_focus: u32 = (*focused).frame.id;
     if !(*focused).window.is_null() {
         to_focus = (*(*focused).window).id;
     }
@@ -1954,7 +1949,7 @@ pub unsafe fn x_push_changes(con: *mut Con) {
                 let diagnostic_5 = i3_common::logging::pointer(focused);
                 let diagnostic_6_owner = (*focused).name.clone();
                 let diagnostic_6_bytes = string_bytes(diagnostic_6_owner.as_deref(), None);
-                match (std::str::from_utf8(&diagnostic_6_bytes),) {
+                match (std::str::from_utf8(diagnostic_6_bytes),) {
                     (Ok(diagnostic_6_text),) => ::log::debug!(
                         concat!(
                             "../src/x.c:x_push_changes:1406 - Not updating focus ",
@@ -1969,28 +1964,28 @@ pub unsafe fn x_push_changes(con: *mut Con) {
                             b"../src/x.c:x_push_changes:1406 - Not updating focus (to ",
                             format!("{}", diagnostic_5).as_bytes(),
                             b" / ",
-                            &diagnostic_6_bytes,
+                            diagnostic_6_bytes,
                             b"), focused window is not mapped.\n",
                         ],
                     ),
                 }
             };
-            focused_id = 0 as u32;
+            focused_id = 0_u32;
         } else {
             if action == FocusAction::TakeFocus {
                 {
-                    let diagnostic_5 = (to_focus) as u32;
+                    let diagnostic_5 = (to_focus);
                     let diagnostic_6 = i3_common::logging::pointer(focused);
                     let diagnostic_7_owner = (*focused).name.clone();
                     let diagnostic_7_bytes = string_bytes(diagnostic_7_owner.as_deref(), None);
-                    match (std::str::from_utf8(&diagnostic_7_bytes),) { (Ok(diagnostic_7_text),) => ::log::debug!(concat!("../src/x.c:x_push_changes:1414 - Updating focus by ","sending WM_TAKE_FOCUS to window 0x{:08x} (focused: {} ","/ {})\n"), diagnostic_5, diagnostic_6, diagnostic_7_text), _ => emit_parts(Level::Debug, &[b"../src/x.c:x_push_changes:1414 - Updating focus by sending WM_TAKE_FOCUS to window 0x", format!("{:08x}", diagnostic_5).as_bytes(), b" (focused: ", format!("{}", diagnostic_6).as_bytes(), b" / ", &diagnostic_7_bytes, b")\n"]), }
+                    match (std::str::from_utf8(diagnostic_7_bytes),) { (Ok(diagnostic_7_text),) => ::log::debug!(concat!("../src/x.c:x_push_changes:1414 - Updating focus by ","sending WM_TAKE_FOCUS to window 0x{:08x} (focused: {} ","/ {})\n"), diagnostic_5, diagnostic_6, diagnostic_7_text), _ => emit_parts(Level::Debug, &[b"../src/x.c:x_push_changes:1414 - Updating focus by sending WM_TAKE_FOCUS to window 0x", format!("{:08x}", diagnostic_5).as_bytes(), b" (focused: ", format!("{}", diagnostic_6).as_bytes(), b" / ", diagnostic_7_bytes, b")\n"]), }
                 };
                 send_take_focus(to_focus, last_timestamp);
                 change_ewmh_focus(
                     if con_has_managed_window(focused) {
                         (*(*focused).window).id
                     } else {
-                        0 as i32 as u32
+                        0_i32 as u32
                     },
                     last_focused,
                 );
@@ -2002,8 +1997,8 @@ pub unsafe fn x_push_changes(con: *mut Con) {
                     let diagnostic_5 = i3_common::logging::pointer(focused);
                     let diagnostic_6_owner = (*focused).name.clone();
                     let diagnostic_6_bytes = string_bytes(diagnostic_6_owner.as_deref(), None);
-                    let diagnostic_7 = (to_focus) as u32;
-                    match (std::str::from_utf8(&diagnostic_6_bytes),) {
+                    let diagnostic_7 = (to_focus);
+                    match (std::str::from_utf8(diagnostic_6_bytes),) {
                         (Ok(diagnostic_6_text),) => ::log::debug!(
                             concat!(
                                 "../src/x.c:x_push_changes:1423 - Updating focus ",
@@ -2019,7 +2014,7 @@ pub unsafe fn x_push_changes(con: *mut Con) {
                                 b"../src/x.c:x_push_changes:1423 - Updating focus (focused: ",
                                 format!("{}", diagnostic_5).as_bytes(),
                                 b" / ",
-                                &diagnostic_6_bytes,
+                                diagnostic_6_bytes,
                                 b") to X11 window 0x",
                                 format!("{:08x}", diagnostic_7).as_bytes(),
                                 b"\n",
@@ -2051,7 +2046,7 @@ pub unsafe fn x_push_changes(con: *mut Con) {
                     if con_has_managed_window(focused) {
                         (*(*focused).window).id
                     } else {
-                        0 as i32 as u32
+                        0_i32 as u32
                     },
                     last_focused,
                 );
@@ -2081,9 +2076,9 @@ pub unsafe fn x_push_changes(con: *mut Con) {
             focus: x::Window::new(ewmh_window),
             time: last_timestamp,
         });
-        change_ewmh_focus(0 as i32 as u32, last_focused);
+        change_ewmh_focus(0_i32 as u32, last_focused);
         focused_id = ewmh_window;
-        last_focused = 0 as u32;
+        last_focused = 0_u32;
     }
     {
         let _ = connection().flush();
@@ -2098,15 +2093,15 @@ pub unsafe fn x_push_changes(con: *mut Con) {
         | x::EventMask::SUBSTRUCTURE_NOTIFY.bits() as i32
         | x::EventMask::ENTER_WINDOW.bits() as i32)
         & !(x::EventMask::ENTER_WINDOW.bits() as i32)) as u32;
-    state = state_head.cqh_last as *mut FrameState;
+    state = state_head.cqh_last;
     while state != &raw mut state_head as *mut ::core::ffi::c_void as *mut FrameState {
         if (*state).unmap_now {
             set_event_mask((*state).id, values);
         }
-        state = (*state).state.cqe_prev as *mut FrameState;
+        state = (*state).state.cqe_prev;
     }
     x_push_node_unmaps(con);
-    state = state_head.cqh_first as *mut FrameState;
+    state = state_head.cqh_first;
     while state != &raw mut state_head as *mut ::core::ffi::c_void as *mut FrameState {
         if (*state).old_state.cqe_next
             == &raw mut old_state_head as *mut ::core::ffi::c_void as *mut FrameState
@@ -2128,12 +2123,12 @@ pub unsafe fn x_push_changes(con: *mut Con) {
         if old_state_head.cqh_first
             == &raw mut old_state_head as *mut ::core::ffi::c_void as *mut FrameState
         {
-            old_state_head.cqh_first = state as *mut FrameState;
+            old_state_head.cqh_first = state;
         } else {
-            (*old_state_head.cqh_last).old_state.cqe_next = state as *mut FrameState;
+            (*old_state_head.cqh_last).old_state.cqe_next = state;
         }
-        old_state_head.cqh_last = state as *mut FrameState;
-        state = (*state).state.cqe_next as *mut FrameState;
+        old_state_head.cqh_last = state;
+        state = (*state).state.cqe_next;
     }
     {
         let _ = connection().flush();
@@ -2141,7 +2136,7 @@ pub unsafe fn x_push_changes(con: *mut Con) {
 }
 
 pub unsafe fn x_raise_con(con: *const Con) {
-    let state: *mut FrameState = state_for_frame((*con).frame.id as u32);
+    let state: *mut FrameState = state_for_frame((*con).frame.id);
     if (*state).state.cqe_next == &raw mut state_head as *mut ::core::ffi::c_void as *mut FrameState
     {
         state_head.cqh_last = (*state).state.cqe_prev;
@@ -2157,16 +2152,16 @@ pub unsafe fn x_raise_con(con: *const Con) {
     (*state).state.cqe_next = state_head.cqh_first;
     (*state).state.cqe_prev = &raw mut state_head as *mut ::core::ffi::c_void as *mut FrameState;
     if state_head.cqh_last == &raw mut state_head as *mut ::core::ffi::c_void as *mut FrameState {
-        state_head.cqh_last = state as *mut FrameState;
+        state_head.cqh_last = state;
     } else {
-        (*state_head.cqh_first).state.cqe_prev = state as *mut FrameState;
+        (*state_head.cqh_first).state.cqe_prev = state;
     }
-    state_head.cqh_first = state as *mut FrameState;
+    state_head.cqh_first = state;
 }
 
 pub unsafe fn x_set_name(con: *mut Con, name: *const ::core::ffi::c_char) {
     let mut state: *mut FrameState = ::core::ptr::null_mut::<FrameState>();
-    state = state_for_frame((*con).frame.id as u32);
+    state = state_for_frame((*con).frame.id);
     if state.is_null() {
         ::log::error!("ERROR: window state not found\n");
         return;
@@ -2248,17 +2243,17 @@ pub unsafe fn x_mask_event_mask(mask: u32) {
         | x::EventMask::ENTER_WINDOW.bits() as i32) as u32
         & mask;
     let mut state: *mut FrameState = ::core::ptr::null_mut::<FrameState>();
-    state = state_head.cqh_last as *mut FrameState;
+    state = state_head.cqh_last;
     while state != &raw mut state_head as *mut ::core::ffi::c_void as *mut FrameState {
         if (*state).mapped {
             set_event_mask((*state).id, values);
         }
-        state = (*state).state.cqe_prev as *mut FrameState;
+        state = (*state).state.cqe_prev;
     }
 }
 
 pub unsafe fn x_set_shape(con: *mut Con, kind: shape::Sk, enable: bool) {
-    if state_for_frame((*con).frame.id as u32).is_null() {
+    if state_for_frame((*con).frame.id).is_null() {
         ::log::error!(
             "ERROR: window state for con {} not found\n",
             i3_common::logging::pointer(con)

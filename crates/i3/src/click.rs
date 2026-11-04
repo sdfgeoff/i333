@@ -71,7 +71,7 @@ unsafe fn tiling_resize_for_border(
         return false;
     }
     if ((*first).fullscreen_mode) != (*second).fullscreen_mode {
-        ::log::debug!("../src/click.c:tiling_resize_for_border:53 - Avoiding resize between containers with different fullscreen modes, {} != {}\n", (((*first).fullscreen_mode).raw() as u32) as i32, (((*second).fullscreen_mode).raw() as u32) as i32);
+        ::log::debug!("../src/click.c:tiling_resize_for_border:53 - Avoiding resize between containers with different fullscreen modes, {} != {}\n", ((*first).fullscreen_mode).raw() as i32, (((*second).fullscreen_mode).raw() as u32) as i32);
         return false;
     }
     if first != second {
@@ -79,7 +79,7 @@ unsafe fn tiling_resize_for_border(
         __assert_fail(
             c"first != second".as_ptr(),
             c"../src/click.c".as_ptr(),
-            57 as u32,
+            57_u32,
             c"_Bool tiling_resize_for_border(Con *, u32, xcb_button_press_event_t *, _Bool)"
                 .as_ptr(),
         );
@@ -89,7 +89,7 @@ unsafe fn tiling_resize_for_border(
         __assert_fail(
             c"first->parent == second->parent".as_ptr(),
             c"../src/click.c".as_ptr(),
-            58 as u32,
+            58_u32,
             c"_Bool tiling_resize_for_border(Con *, u32, xcb_button_press_event_t *, _Bool)"
                 .as_ptr(),
         );
@@ -114,7 +114,7 @@ unsafe fn floating_mod_on_tiled_client(con: *mut Con, event: &x::ButtonPressEven
     let to_left: i32 = event.event_x() as i32;
     let to_top: i32 = event.event_y() as i32;
     let to_bottom: i32 = (*con).rect.height.wrapping_sub(event.event_y() as u32) as i32;
-    ::log::debug!("../src/click.c:floating_mod_on_tiled_client:94 - click was {} px to the right, {} px to the left, {} px to top, {} px to bottom\n", (to_right) as i32, (to_left) as i32, (to_top) as i32, (to_bottom) as i32);
+    ::log::debug!("../src/click.c:floating_mod_on_tiled_client:94 - click was {} px to the right, {} px to the left, {} px to top, {} px to bottom\n", { (to_right) }, { (to_left) }, { (to_top) }, { (to_bottom) });
     nearest_border([to_left, to_top, to_right, to_bottom])
         .is_some_and(|border| tiling_resize_for_border(con, border, event, false))
 }
@@ -127,10 +127,10 @@ unsafe fn tiling_resize(
     let bsr: Rect = con_border_style_rect(con);
     ::log::debug!(
         "../src/click.c:tiling_resize:131 - BORDER x = {}, y = {} for con {}, window 0x{:08x}\n",
-        (event.event_x() as i32) as i32,
-        (event.event_y() as i32) as i32,
+        { (event.event_x() as i32) },
+        { (event.event_y() as i32) },
         i3_common::logging::pointer(con),
-        (event.event().resource_id()) as u32
+        { (event.event().resource_id()) }
     );
     ::log::debug!(
         "../src/click.c:tiling_resize:132 - checks for right >= {}\n",
@@ -172,7 +172,7 @@ unsafe fn route_click(con: *mut Con, event: &x::ButtonPressEvent, dest: ClickDes
     );
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_value_0 = (((*con).type_0).raw() as u32) as i32;
+        let log_value_0 = ((*con).type_0).raw() as i32;
         let log_pointer_2 = (*con).name_ptr();
         let log_value_1 = i3_common::logging::string_bytes(
             if log_pointer_2.is_null() {
@@ -381,11 +381,11 @@ unsafe fn route_click(con: *mut Con, event: &x::ButtonPressEvent, dest: ClickDes
 
 pub unsafe fn handle_button_press(event: &x::ButtonPressEvent) {
     let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
-    ::log::debug!("../src/click.c:handle_button_press:377 - Button {} (state {}) {} on window 0x{:08x} (child 0x{:08x}) at ({}, {}) (root {}, {})\n", (event.detail() as i32) as i32, (xcb_interop::events::button_press_state(event) as i32) as i32, if event.response_type() as i32 == 4 {
+    ::log::debug!("../src/click.c:handle_button_press:377 - Button {} (state {}) {} on window 0x{:08x} (child 0x{:08x}) at ({}, {}) (root {}, {})\n", { (event.detail() as i32) }, (xcb_interop::events::button_press_state(event) as i32) as i32, if event.response_type() as i32 == 4 {
             "press"
         } else {
             "release"
-        }, (event.event().resource_id()) as u32, (event.child().resource_id()) as u32, (event.event_x() as i32) as i32, (event.event_y() as i32) as i32, (event.root_x() as i32) as i32, (event.root_y() as i32) as i32);
+        }, { (event.event().resource_id()) }, { (event.child().resource_id()) }, { (event.event_x() as i32) }, { (event.event_y() as i32) }, { (event.root_x() as i32) }, { (event.root_y() as i32) });
     last_timestamp = event.time();
     con = con_by_window_id(event.event().resource_id());
     if !con.is_null() {

@@ -599,7 +599,7 @@ unsafe fn run_window(settings: InputSettings) -> ::core::ffi::c_int {
         .expect("root visual belongs to the selected screen");
     surface = surface_t::for_drawable(
         rendering.clone(),
-        win as u32,
+        win,
         visual,
         win_pos.width as ::core::ffi::c_int,
         win_pos.height as ::core::ffi::c_int,

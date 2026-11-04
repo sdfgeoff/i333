@@ -255,7 +255,7 @@ pub unsafe fn init_logging() {
         if errorfilename.is_null() {
             fprintf(stderr, c"Could not initialize errorlog\n".as_ptr());
         } else {
-            errorfile = fopen(errorfilename, c"w".as_ptr()) as *mut FILE;
+            errorfile = fopen(errorfilename, c"w".as_ptr());
             if errorfile.is_null() {
                 fprintf(
                     stderr,

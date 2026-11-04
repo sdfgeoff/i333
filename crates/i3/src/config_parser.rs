@@ -5800,7 +5800,7 @@ unsafe fn parse_config(
                 if strncasecmp(
                     walk,
                     (*token).name.offset(1 as ::core::ffi::c_int as isize),
-                    strlen((*token).name).wrapping_sub(1 as usize),
+                    strlen((*token).name).wrapping_sub(1_usize),
                 ) == 0 as ::core::ffi::c_int
                 {
                     if !(*token).identifier.is_null() {
@@ -5810,7 +5810,7 @@ unsafe fn parse_config(
                             (*token).name.offset(1 as ::core::ffi::c_int as isize),
                         );
                     }
-                    walk = walk.offset(strlen((*token).name).wrapping_sub(1 as usize) as isize);
+                    walk = walk.offset(strlen((*token).name).wrapping_sub(1_usize) as isize);
                     next_state(token, ctx);
                     token_handled = true_0 != 0;
                     break;
@@ -6563,7 +6563,7 @@ unsafe fn parse_file_inner(
     (*included_file).raw_contents = scalloc(allocation_size, 1) as *mut ::core::ffi::c_char;
     if fread(
         (*included_file).raw_contents as *mut ::core::ffi::c_void,
-        1 as usize,
+        1_usize,
         stbuf.st_size as usize,
         fstr,
     ) as isize
@@ -6617,7 +6617,7 @@ unsafe fn parse_file_inner(
                 &raw mut key as *mut ::core::ffi::c_char,
                 &raw mut value as *mut ::core::ffi::c_char,
             ) < 1 as ::core::ffi::c_int
-                || strlen(&raw mut key as *mut ::core::ffi::c_char) < 3 as usize;
+                || strlen(&raw mut key as *mut ::core::ffi::c_char) < 3_usize;
             let comment: bool =
                 key[0 as ::core::ffi::c_int as usize] as ::core::ffi::c_int == '#' as i32;
             value[4095 as ::core::ffi::c_int as usize] = '\n' as i32 as ::core::ffi::c_char;

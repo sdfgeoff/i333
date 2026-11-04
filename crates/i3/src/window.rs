@@ -234,13 +234,13 @@ pub unsafe fn window_update_leader(win: *mut Window, prop: Option<&x::GetPropert
     // throughout this compatibility operation; owned payload borrows stay local.
     unsafe {
         let Some(leader) = property_view(prop).word(0) else {
-            ::log::debug!("../src/window.c:window_update_leader:145 - CLIENT_LEADER not set on window 0x{:08x}.\n", ((*win).id) as u32);
+            ::log::debug!("../src/window.c:window_update_leader:145 - CLIENT_LEADER not set on window 0x{:08x}.\n", { ((*win).id) });
             (*win).leader = 0;
             return;
         };
         ::log::debug!(
             "../src/window.c:window_update_leader:157 - Client leader changed to {:08x}\n",
-            (leader) as u32
+            { (leader) }
         );
         (*win).leader = leader;
     }
@@ -256,12 +256,12 @@ pub unsafe fn window_update_transient_for(win: *mut Window, prop: Option<&x::Get
     // throughout this compatibility operation; owned payload borrows stay local.
     unsafe {
         if property_view(prop).bytes.is_empty() {
-            ::log::debug!("../src/window.c:window_update_transient_for:170 - TRANSIENT_FOR not set on window 0x{:08x}.\n", ((*win).id) as u32);
+            ::log::debug!("../src/window.c:window_update_transient_for:170 - TRANSIENT_FOR not set on window 0x{:08x}.\n", { ((*win).id) });
             (*win).transient_for = 0;
             return;
         }
         if let Some(transient_for) = transient_for(property_view(prop)) {
-            ::log::debug!("../src/window.c:window_update_transient_for:182 - Transient for changed to 0x{:08x} (window 0x{:08x})\n", (transient_for) as u32, ((*win).id) as u32);
+            ::log::debug!("../src/window.c:window_update_transient_for:182 - Transient for changed to 0x{:08x} (window 0x{:08x})\n", { (transient_for) }, { ((*win).id) });
             (*win).transient_for = transient_for;
         }
     }
@@ -571,15 +571,15 @@ fn requested_geometry(hints: &SizeHints) -> Option<(i16, i16, u16, u16)> {
 // Only owned hint values are borrowed while native logging runs.
 fn log_size_hints(size_hints: &SizeHints, old: SizeConstraints, has_geometry: bool) {
     if size_hints.flags.contains(SizeHintFlags::MIN_SIZE) {
-        ::log::debug!("../src/window.c:window_update_normal_hints:282 - Minimum size: {} (width) x {} (height)\n", (size_hints.min_width) as i32, (size_hints.min_height) as i32);
+        ::log::debug!("../src/window.c:window_update_normal_hints:282 - Minimum size: {} (width) x {} (height)\n", { (size_hints.min_width) }, { (size_hints.min_height) });
     }
     if size_hints.flags.contains(SizeHintFlags::MAX_SIZE) {
-        ::log::debug!("../src/window.c:window_update_normal_hints:289 - Maximum size: {} (width) x {} (height)\n", (size_hints.max_width) as i32, (size_hints.max_height) as i32);
+        ::log::debug!("../src/window.c:window_update_normal_hints:289 - Maximum size: {} (width) x {} (height)\n", { (size_hints.max_width) }, { (size_hints.max_height) });
     } else {
         ::log::debug!("../src/window.c:window_update_normal_hints:297 - Clearing maximum size\n");
     }
     if size_hints.flags.contains(SizeHintFlags::RESIZE_INCREMENT) {
-        ::log::debug!("../src/window.c:window_update_normal_hints:304 - Size increments: {} (width) x {} (height)\n", (size_hints.width_increment) as i32, (size_hints.height_increment) as i32);
+        ::log::debug!("../src/window.c:window_update_normal_hints:304 - Size increments: {} (width) x {} (height)\n", { (size_hints.width_increment) }, { (size_hints.height_increment) });
     } else {
         ::log::debug!(
             "../src/window.c:window_update_normal_hints:318 - Clearing size increments\n"
@@ -589,12 +589,12 @@ fn log_size_hints(size_hints: &SizeHints, old: SizeConstraints, has_geometry: bo
         && old.base_width >= 0
         && old.base_height >= 0
     {
-        ::log::debug!("../src/window.c:window_update_normal_hints:327 - Base size: {} (width) x {} (height)\n", (size_hints.base_width) as i32, (size_hints.base_height) as i32);
+        ::log::debug!("../src/window.c:window_update_normal_hints:327 - Base size: {} (width) x {} (height)\n", { (size_hints.base_width) }, { (size_hints.base_height) });
     } else {
         ::log::debug!("../src/window.c:window_update_normal_hints:332 - Clearing base size\n");
     }
     if has_geometry && requested_geometry(size_hints).is_some() {
-        ::log::debug!("../src/window.c:window_update_normal_hints:341 - Setting geometry x={} y={} w={} h={}\n", (size_hints.x) as i32, (size_hints.y) as i32, (size_hints.width) as i32, (size_hints.height) as i32);
+        ::log::debug!("../src/window.c:window_update_normal_hints:341 - Setting geometry x={} y={} w={} h={}\n", { (size_hints.x) }, { (size_hints.y) }, { (size_hints.width) }, { (size_hints.height) });
     }
     if size_hints.flags.contains(SizeHintFlags::ASPECT)
         && size_hints.min_aspect_num >= 0

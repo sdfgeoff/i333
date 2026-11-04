@@ -409,7 +409,7 @@ pub unsafe fn draw_util_surface_set_size(surface: *mut surface_t, width: i32, he
 pub unsafe fn draw_util_hex_to_color(color: *const ::core::ffi::c_char) -> color_t {
     // SAFETY: The caller supplies a live NUL-terminated native color string, including its terminator.
     unsafe {
-        if strlen(color) < 6 as usize
+        if strlen(color) < 6_usize
             || *color.offset(0 as ::core::ffi::c_int as isize) as ::core::ffi::c_int != '#' as i32
         {
             {
@@ -532,7 +532,7 @@ pub unsafe fn draw_util_text(
     // SAFETY: an initialized record holds a live non-null surface. This wrapper
     // borrows its reference, including error surfaces, and never outlives it.
     let target = surface.resources.as_ref().unwrap().surface.as_surface();
-    flush_twice(&target);
+    flush_twice(target);
     // SAFETY: text, font, drawable and GC validity are the caller's contract.
     unsafe {
         draw_text(
@@ -636,7 +636,7 @@ pub unsafe fn draw_util_rectangle(
     // wrappers leave scope. Their original reference counts are unchanged.
     let context = &surface.resources.as_ref().unwrap().context;
     let target = surface.resources.as_ref().unwrap().surface.as_surface();
-    rectangle(&context, &target, color, x, y, w, h);
+    rectangle(context, target, color, x, y, w, h);
 }
 
 fn clear(context: &cairo::Context, target: &cairo::Surface, color: color_t) {
@@ -661,7 +661,7 @@ pub unsafe fn draw_util_clear_surface(surface: *mut surface_t, color: color_t) {
     // SAFETY: wrappers borrow live native objects without taking their references.
     let context = &surface.resources.as_ref().unwrap().context;
     let target = surface.resources.as_ref().unwrap().surface.as_surface();
-    clear(&context, &target, color);
+    clear(context, target, color);
 }
 
 fn copy_surface(
@@ -709,7 +709,7 @@ pub unsafe fn draw_util_copy_surface(
     let source = src.resources.as_ref().unwrap().surface.as_surface();
     let target = dest.resources.as_ref().unwrap().surface.as_surface();
     copy_surface(
-        &source, &target, &context, src_x, src_y, dest_x, dest_y, width, height,
+        source, target, context, src_x, src_y, dest_x, dest_y, width, height,
     );
 }
 

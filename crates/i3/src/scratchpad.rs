@@ -54,14 +54,14 @@ pub unsafe fn scratchpad_move(mut con: *mut Con) {
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_owner_1 = (*con).name.clone();
             let log_value_0 = i3_common::logging::string_bytes(log_owner_1.as_deref(), None);
-            if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+            if let (Ok(log_value_0_text),) = (std::str::from_utf8(log_value_0),) {
                 ::log::info!("'move scratchpad' used on a workspace \"{}\". Calling it recursively on all windows on this workspace.\n", log_value_0_text);
             } else {
                 i3_common::logging::emit_parts(
                     i3_common::logging::Level::Verbose,
                     &[
                         "'move scratchpad' used on a workspace \"".as_bytes(),
-                        &log_value_0,
+                        log_value_0,
                         "\". Calling it recursively on all windows on this workspace.\n".as_bytes(),
                     ],
                 );
@@ -251,7 +251,7 @@ pub unsafe fn scratchpad_fix_resolution() {
                 let log_value_2 = ((*output).rect.y) as i32;
                 let log_value_3 = ((*output).rect.width) as i32;
                 let log_value_4 = ((*output).rect.height) as i32;
-                if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                if let (Ok(log_value_0_text),) = (std::str::from_utf8(log_value_0),) {
                     ::log::debug!("../src/scratchpad.c:scratchpad_fix_resolution:263 - output {}'s resolution: ({}, {}) {} x {}\n", log_value_0_text, log_value_1, log_value_2, log_value_3, log_value_4);
                 } else {
                     i3_common::logging::emit_parts(
@@ -259,7 +259,7 @@ pub unsafe fn scratchpad_fix_resolution() {
                         &[
                             "../src/scratchpad.c:scratchpad_fix_resolution:263 - output "
                                 .as_bytes(),
-                            &log_value_0,
+                            log_value_0,
                             format!(
                                 "'s resolution: ({}, {}) {} x {}\n",
                                 log_value_1, log_value_2, log_value_3, log_value_4
@@ -285,8 +285,8 @@ pub unsafe fn scratchpad_fix_resolution() {
     let mut old_rect: Rect = (*__i3_output).rect as Rect;
     ::log::debug!(
         "../src/scratchpad.c:scratchpad_fix_resolution:276 - new width = {}, new height = {}\n",
-        (new_width) as i32,
-        (new_height) as i32
+        { (new_width) },
+        { (new_height) }
     );
     (*__i3_output).rect.width = new_width as u32;
     (*__i3_output).rect.height = new_height as u32;

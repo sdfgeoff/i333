@@ -128,7 +128,7 @@ impl LayoutState {
             (*self.current_swallow).dock = DockMatch::DontCheck;
             (*self.current_swallow).matches.tqe_next = ::core::ptr::null_mut::<Match>();
             (*self.current_swallow).matches.tqe_prev = (*self.json_node).swallow_head.tqh_last;
-            *(*self.json_node).swallow_head.tqh_last = self.current_swallow as *mut Match;
+            *(*self.json_node).swallow_head.tqh_last = self.current_swallow;
             (*self.json_node).swallow_head.tqh_last =
                 &raw mut (*self.current_swallow).matches.tqe_next;
             self.swallow_is_empty = true;
@@ -147,7 +147,7 @@ impl LayoutState {
                     ::core::ptr::null_mut::<i3Window>(),
                 );
                 (*self.json_node).name = None;
-                set_parent_ptr(self.json_node, ws as *mut Con).expect("live acyclic ancestry");
+                set_parent_ptr(self.json_node, ws).expect("live acyclic ancestry");
                 ::log::debug!(
                     "../src/load_layout.c:json_start_map:77 - Parent is workspace = {}\n",
                     i3_common::logging::pointer(ws)
@@ -159,12 +159,12 @@ impl LayoutState {
                     ::core::ptr::null_mut::<i3Window>(),
                 );
                 (*self.json_node).name = None;
-                set_parent_ptr(self.json_node, parent as *mut Con).expect("live acyclic ancestry");
+                set_parent_ptr(self.json_node, parent).expect("live acyclic ancestry");
             }
             self.incomplete += 1;
             ::log::debug!(
                 "../src/load_layout.c:json_start_map:86 - incomplete = {}\n",
-                (self.incomplete) as i32
+                { (self.incomplete) }
             );
         }
         1 as ::core::ffi::c_int
@@ -190,8 +190,7 @@ impl LayoutState {
             {
                 ::log::debug!("../src/load_layout.c:json_end_map:110 - sanity check: removing swallows specification from split container\n");
                 while !(*self.json_node).swallow_head.tqh_first.is_null() {
-                    let match_0: *mut Match =
-                        (*self.json_node).swallow_head.tqh_first as *mut Match;
+                    let match_0: *mut Match = (*self.json_node).swallow_head.tqh_first;
                     if !(*match_0).matches.tqe_next.is_null() {
                         (*(*match_0).matches.tqe_next).matches.tqe_prev =
                             (*match_0).matches.tqe_prev;
@@ -208,10 +207,10 @@ impl LayoutState {
                     let log_owner_1 = (*self.json_node).name.clone();
                     let log_value_0 =
                         i3_common::logging::string_bytes(log_owner_1.as_deref(), None);
-                    if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                    if let (Ok(log_value_0_text),) = (std::str::from_utf8(log_value_0),) {
                         ::log::debug!("../src/load_layout.c:json_end_map:121 - Attaching workspace. name = {}\n", log_value_0_text);
                     } else {
-                        i3_common::logging::emit_parts(i3_common::logging::Level::Debug, &[ "../src/load_layout.c:json_end_map:121 - Attaching workspace. name = ".as_bytes(), &log_value_0, "\n".as_bytes() ]);
+                        i3_common::logging::emit_parts(i3_common::logging::Level::Debug, &[ "../src/load_layout.c:json_end_map:121 - Attaching workspace. name = ".as_bytes(), log_value_0, "\n".as_bytes() ]);
                     }
                 };
                 if (*self.json_node).name.is_none()
@@ -242,24 +241,24 @@ impl LayoutState {
                     let log_owner_2 = (*parent_ptr(self.json_node)).name.clone();
                     let log_value_1 =
                         i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
-                    if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+                    if let (Ok(log_value_1_text),) = (std::str::from_utf8(log_value_1),) {
                         ::log::debug!("../src/load_layout.c:json_end_map:148 - fixing parent which currently is {} / {}\n", log_value_0, log_value_1_text);
                     } else {
-                        i3_common::logging::emit_parts(i3_common::logging::Level::Debug, &[ format!("../src/load_layout.c:json_end_map:148 - fixing parent which currently is {} / ", log_value_0).as_bytes(), &log_value_1, "\n".as_bytes() ]);
+                        i3_common::logging::emit_parts(i3_common::logging::Level::Debug, &[ format!("../src/load_layout.c:json_end_map:148 - fixing parent which currently is {} / ", log_value_0).as_bytes(), log_value_1, "\n".as_bytes() ]);
                     }
                 };
                 set_parent_ptr(
                     self.json_node,
-                    con_get_workspace(parent_ptr(self.json_node)) as *mut Con,
+                    con_get_workspace(parent_ptr(self.json_node)),
                 )
                 .expect("live acyclic ancestry");
                 if rect_equals(
                     (*self.json_node).rect as Rect,
                     Rect {
-                        x: 0 as u32,
-                        y: 0 as u32,
-                        width: 0 as u32,
-                        height: 0 as u32,
+                        x: 0_u32,
+                        y: 0_u32,
+                        width: 0_u32,
+                        height: 0_u32,
                     },
                 ) {
                     ::log::debug!("../src/load_layout.c:json_end_map:155 - Geometry not set, combining children\n");
@@ -304,7 +303,7 @@ impl LayoutState {
             self.incomplete -= 1;
             ::log::debug!(
                 "../src/load_layout.c:json_end_map:198 - incomplete = {}\n",
-                (self.incomplete) as i32
+                { (self.incomplete) }
             );
         }
         if self.parsing_swallows as ::core::ffi::c_int != 0
@@ -360,17 +359,17 @@ impl LayoutState {
         });
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_precision_0 = (len as ::core::ffi::c_int) as i32;
+            let log_precision_0 = (len as ::core::ffi::c_int);
             let log_value_0 = i3_common::logging::string_bytes(
                 Some(logged_key.as_c_str()),
                 usize::try_from(log_precision_0).ok(),
             );
-            if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+            if let (Ok(log_value_0_text),) = (std::str::from_utf8(log_value_0),) {
                 ::log::info!("key: {}\n", log_value_0_text);
             } else {
                 i3_common::logging::emit_parts(
                     i3_common::logging::Level::Verbose,
-                    &["key: ".as_bytes(), &log_value_0, "\n".as_bytes()],
+                    &["key: ".as_bytes(), log_value_0, "\n".as_bytes()],
                 );
             }
         };
@@ -419,7 +418,7 @@ impl LayoutState {
         });
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_precision_0 = (len as ::core::ffi::c_int) as i32;
+            let log_precision_0 = (len as ::core::ffi::c_int);
             let log_value_0 = i3_common::logging::string_bytes(
                 Some(logged_string.as_c_str()),
                 usize::try_from(log_precision_0).ok(),
@@ -436,7 +435,7 @@ impl LayoutState {
                 .to_vec()
             })(self.last_key.as_ptr());
             if let (Ok(log_value_0_text), Ok(log_value_1_text)) = (
-                std::str::from_utf8(&log_value_0),
+                std::str::from_utf8(log_value_0),
                 std::str::from_utf8(&log_value_1),
             ) {
                 ::log::info!(
@@ -449,7 +448,7 @@ impl LayoutState {
                     i3_common::logging::Level::Verbose,
                     &[
                         "string: ".as_bytes(),
-                        &log_value_0,
+                        log_value_0,
                         " for key ".as_bytes(),
                         &log_value_1,
                         "\n".as_bytes(),
@@ -921,11 +920,11 @@ impl LayoutState {
         {
             let mut r: *mut Rect = ::core::ptr::null_mut::<Rect>();
             if self.parsing_rect {
-                r = &raw mut (*self.json_node).rect as *mut Rect;
+                r = &raw mut (*self.json_node).rect;
             } else if self.parsing_window_rect {
-                r = &raw mut (*self.json_node).window_rect as *mut Rect;
+                r = &raw mut (*self.json_node).window_rect;
             } else {
-                r = &raw mut (*self.json_node).geometry as *mut Rect;
+                r = &raw mut (*self.json_node).geometry;
             }
             if let Some(rect) = rect_value(*r, &self.last_key, val) {
                 r.write(rect);
@@ -1006,7 +1005,7 @@ impl LayoutState {
     unsafe fn json_bool(&mut self, val: ::core::ffi::c_int) -> ::core::ffi::c_int {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_value_0 = (val) as i32;
+            let log_value_0 = (val);
             let log_value_1 = (|pointer: *const libc::c_char| {
                 i3_common::logging::string_bytes(
                     if pointer.is_null() {

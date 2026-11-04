@@ -258,7 +258,7 @@ unsafe fn set_window_position_primary(connection: &xcb::Connection, result: &mut
         ::log::info!("[libi3] ../i3-nagbar/main.c Could not get CRTC.\n");
         return;
     };
-    ::log::info!("[libi3] ../i3-nagbar/main.c Found primary output on position x = {} / y = {} / w = {} / h = {}.\n", (i32::from(crtc.x())) as i32, (i32::from(crtc.y())) as i32, (i32::from(crtc.width())) as i32, (i32::from(crtc.height())) as i32);
+    ::log::info!("[libi3] ../i3-nagbar/main.c Found primary output on position x = {} / y = {} / w = {} / h = {}.\n", { (i32::from(crtc.x())) }, { (i32::from(crtc.y())) }, { (i32::from(crtc.width())) }, { (i32::from(crtc.height())) });
     if crtc.width() == 0 || crtc.height() == 0 {
         ::log::info!("[libi3] ../i3-nagbar/main.c Primary output is not active, ignoring it.\n");
     } else {
@@ -307,8 +307,8 @@ unsafe fn set_window_position_focus(connection: &xcb::Connection, result: &mut x
         };
         ::log::info!(
             "[libi3] ../i3-nagbar/main.c Found current focus at x = {} / y = {}.\n",
-            (i32::from(coordinates.dst_x())) as i32,
-            (i32::from(coordinates.dst_y())) as i32
+            { (i32::from(coordinates.dst_x())) },
+            { (i32::from(coordinates.dst_y())) }
         );
         Some((coordinates.dst_x(), coordinates.dst_y()))
     })();
@@ -590,9 +590,9 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
     state.has_font = true;
 
     let mut win_pos = x::Rectangle {
-        x: 50 as i16,
-        y: 50 as i16,
-        width: 500 as u16,
+        x: 50_i16,
+        y: 50_i16,
+        width: 500_u16,
         height: state
             .render
             .font
@@ -681,7 +681,7 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
         .expect("root visual belongs to the selected screen");
     state.render.bar = surface_t::for_drawable(
         rendering.clone(),
-        state.window as u32,
+        state.window,
         visual,
         win_pos.width as ::core::ffi::c_int,
         win_pos.height as ::core::ffi::c_int,

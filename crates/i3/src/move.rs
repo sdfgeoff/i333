@@ -121,7 +121,7 @@ pub unsafe fn insert_con_into(mut con: *mut Con, target: *mut Con, position: Pos
             ::log::debug!(
                 "../src/move.c:insert_con_into:126 - Got a new split con, using that one instead\n"
             );
-            set_parent_ptr(con, split as *mut Con).expect("live acyclic ancestry");
+            set_parent_ptr(con, split).expect("live acyclic ancestry");
             con_attach(con, split, false);
             ::log::debug!("../src/move.c:insert_con_into:129 - attached\n");
             (*con).percent = 0.0f64;
@@ -134,7 +134,7 @@ pub unsafe fn insert_con_into(mut con: *mut Con, target: *mut Con, position: Pos
             con_detach(con);
         }
     }
-    set_parent_ptr(con, parent as *mut Con).expect("live acyclic ancestry");
+    set_parent_ptr(con, parent).expect("live acyclic ancestry");
     let owner = identity(parent).expect("live focus owner");
     let child = identity(con).expect("live moved container");
     if parent == lca {
@@ -164,7 +164,7 @@ pub unsafe fn insert_con_into(mut con: *mut Con, target: *mut Con, position: Pos
 unsafe fn attach_to_workspace(con: *mut Con, ws: *mut Con, direction: Direction) {
     con_detach(con);
     let old_parent: *mut Con = parent_ptr(con);
-    set_parent_ptr(con, ws as *mut Con).expect("live acyclic ancestry");
+    set_parent_ptr(con, ws).expect("live acyclic ancestry");
     let owner = identity(ws).expect("live workspace tiling owner");
     let child = identity(con).expect("live moved container");
     if direction == Direction::Right || direction == Direction::Down {

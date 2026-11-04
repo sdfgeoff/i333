@@ -309,7 +309,7 @@ pub unsafe fn resize_graphical_handler(
         let diagnostic_5 = i3_common::logging::pointer(first);
         let diagnostic_6_owner = (*first).name.clone();
         let diagnostic_6_bytes = string_bytes(diagnostic_6_owner.as_deref(), None);
-        match (std::str::from_utf8(&diagnostic_6_bytes),) {
+        match (std::str::from_utf8(diagnostic_6_bytes),) {
             (Ok(diagnostic_6_text),) => ::log::debug!(
                 "../src/resize.c:resize_graphical_handler:178 - first = {} / {}\n",
                 diagnostic_5,
@@ -321,7 +321,7 @@ pub unsafe fn resize_graphical_handler(
                     b"../src/resize.c:resize_graphical_handler:178 - first = ",
                     format!("{}", diagnostic_5).as_bytes(),
                     b" / ",
-                    &diagnostic_6_bytes,
+                    diagnostic_6_bytes,
                     b"\n",
                 ],
             ),
@@ -331,7 +331,7 @@ pub unsafe fn resize_graphical_handler(
         let diagnostic_5 = i3_common::logging::pointer(second);
         let diagnostic_6_owner = (*second).name.clone();
         let diagnostic_6_bytes = string_bytes(diagnostic_6_owner.as_deref(), None);
-        match (std::str::from_utf8(&diagnostic_6_bytes),) {
+        match (std::str::from_utf8(diagnostic_6_bytes),) {
             (Ok(diagnostic_6_text),) => ::log::debug!(
                 "../src/resize.c:resize_graphical_handler:179 - second = {} / {}\n",
                 diagnostic_5,
@@ -343,7 +343,7 @@ pub unsafe fn resize_graphical_handler(
                     b"../src/resize.c:resize_graphical_handler:179 - second = ",
                     format!("{}", diagnostic_5).as_bytes(),
                     b" / ",
-                    &diagnostic_6_bytes,
+                    diagnostic_6_bytes,
                     b"\n",
                 ],
             ),
@@ -448,7 +448,7 @@ pub unsafe fn resize_graphical_handler(
     let pixels: i32 = params.new_position.wrapping_sub(initial_position) as i32;
     ::log::debug!(
         "../src/resize.c:resize_graphical_handler:279 - Done, pixels = {}\n",
-        (pixels) as i32
+        { (pixels) }
     );
     if pixels == 0 {
         return;
@@ -457,7 +457,7 @@ pub unsafe fn resize_graphical_handler(
         (*first).percent > 0.0 && (*second).percent > 0.0,
         "resize participants must have positive percentages"
     );
-    let result: bool = resize_neighboring_cons(first, second, pixels, 0) as bool;
+    let result: bool = resize_neighboring_cons(first, second, pixels, 0);
     {
         let outcome = if result { "successful" } else { "failed" };
         let first_percent = fixed_decimal((*first).percent, FixedPrecision::Six);

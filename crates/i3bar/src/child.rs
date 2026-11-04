@@ -341,7 +341,7 @@ unsafe fn cleanup(c: *mut i3bar_child) {
         );
     }
     if !(*c).stdin_io.is_null() {
-        ev_io_stop(main_loop as *mut ev_loop, (*c).stdin_io);
+        ev_io_stop(main_loop, (*c).stdin_io);
         free((*c).stdin_io as *mut ::core::ffi::c_void);
         (*c).stdin_io = ::core::ptr::null_mut::<ev_io>();
         if (*c).pid == status_child.pid {
@@ -351,7 +351,7 @@ unsafe fn cleanup(c: *mut i3bar_child) {
         close((*c).stdin_fd);
     }
     if !(*c).child_sig.is_null() {
-        ev_child_stop(main_loop as *mut ev_loop, (*c).child_sig);
+        ev_child_stop(main_loop, (*c).child_sig);
         free((*c).child_sig as *mut ::core::ffi::c_void);
         (*c).child_sig = ::core::ptr::null_mut::<ev_child>();
     }

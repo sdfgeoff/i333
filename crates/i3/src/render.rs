@@ -137,7 +137,7 @@ pub unsafe fn render_con(con: *mut Con) {
         let diagnostic_6_bytes = string_bytes(diagnostic_6_owner.as_deref(), None);
         let diagnostic_7 = ((*con).layout as u32) as i32;
         let diagnostic_8 = (params.children) as i32;
-        match (std::str::from_utf8(&diagnostic_6_bytes),) {
+        match (std::str::from_utf8(diagnostic_6_bytes),) {
             (Ok(diagnostic_6_text),) => ::log::debug!(
                 concat!(
                     "../src/render.c:render_con:51 - Rendering node {} / {} ",
@@ -154,7 +154,7 @@ pub unsafe fn render_con(con: *mut Con) {
                     b"../src/render.c:render_con:51 - Rendering node ",
                     format!("{}", diagnostic_5).as_bytes(),
                     b" / ",
-                    &diagnostic_6_bytes,
+                    diagnostic_6_bytes,
                     b" / layout ",
                     format!("{}", diagnostic_7).as_bytes(),
                     b" / children ",
@@ -244,7 +244,7 @@ pub unsafe fn render_con(con: *mut Con) {
                 __assert_fail(
                     c"params.children > 0".as_ptr(),
                     c"../src/render.c".as_ptr(),
-                    164 as u32,
+                    164_u32,
                     c"void render_con(Con *)".as_ptr(),
                 );
             };
@@ -385,7 +385,7 @@ unsafe fn render_output(con: *mut Con) {
                 __assert_fail(
                     c"false".as_ptr(),
                     c"../src/render.c".as_ptr(),
-                    330 as u32,
+                    330_u32,
                     c"void render_output(Con *)".as_ptr(),
                 );
             }
@@ -402,7 +402,7 @@ unsafe fn render_output(con: *mut Con) {
             __assert_fail(
                 c"false".as_ptr(),
                 c"../src/render.c".as_ptr(),
-                335 as u32,
+                335_u32,
                 c"void render_output(Con *)".as_ptr(),
             );
         }
@@ -433,7 +433,7 @@ unsafe fn render_output(con: *mut Con) {
     child = nodes::first_ptr(con);
     while !child.is_null() {
         if (*child).type_0 == ContainerType::DockArea {
-            (*child).rect.height = 0 as u32;
+            (*child).rect.height = 0_u32;
             dockchild = nodes::first_ptr(child);
             while !dockchild.is_null() {
                 (*child).rect.height = (*child)
@@ -457,10 +457,10 @@ unsafe fn render_output(con: *mut Con) {
         (*child).rect.x = x as u32;
         (*child).rect.y = y as u32;
         (*child).rect.width = (*con).rect.width;
-        (*child).deco_rect.x = 0 as u32;
-        (*child).deco_rect.y = 0 as u32;
-        (*child).deco_rect.width = 0 as u32;
-        (*child).deco_rect.height = 0 as u32;
+        (*child).deco_rect.x = 0_u32;
+        (*child).deco_rect.y = 0_u32;
+        (*child).deco_rect.width = 0_u32;
+        (*child).deco_rect.height = 0_u32;
         y = (y as u32).wrapping_add((*child).rect.height) as i32 as i32;
         ::log::debug!(
             "../src/render.c:render_output:396 - child at ({}, {}) with ({} x {})\n",
