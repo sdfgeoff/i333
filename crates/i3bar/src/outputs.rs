@@ -8,7 +8,7 @@ use crate::xcb::destroy_window;
 use i3_common::draw_util::surface_t;
 use i3_common::json_stream::{Event, EventHandler, ParseError, Parser};
 use std::cell::RefCell;
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 use std::ptr;
 use std::rc::Rc;
 
@@ -16,7 +16,7 @@ use std::rc::Rc;
 /// addresses stable; public raw aliases are only for legacy native callers.
 /// No Drop traverses those forgeable raw links or releases native resources.
 pub struct Output {
-    pub name: CString,
+    pub name: Vec<u8>,
     pub active: bool,
     pub primary: bool,
     pub visible: bool,
@@ -33,7 +33,7 @@ pub struct Output {
     _trayclient_head: Box<tc_head>,
 }
 impl Output {
-    pub fn new(name: CString) -> Self {
+    pub fn new(name: Vec<u8>) -> Self {
         let mut workspace_head = Box::new(ws_head {
             tqh_first: ptr::null_mut(),
             tqh_last: ptr::null_mut(),
@@ -69,15 +69,11 @@ impl Output {
             _trayclient_head: trayclient_head,
         }
     }
-    /// Borrowed native view; callers must neither free nor retain it.
-    pub fn name_ptr(&self) -> *const libc::c_char {
-        self.name.as_ptr()
-    }
 }
 
 #[derive(Default)]
 struct OutputRecord {
-    name: Option<CString>,
+    name: Option<Vec<u8>>,
     active: bool,
     primary: bool,
     ws: i32,
@@ -172,9 +168,7 @@ impl EventHandler for SharedReader {
                     return false;
                 };
                 match key.as_deref() {
-                    Some(b"name") => {
-                        record.name = Some(CString::new(prefix(value)).expect("NUL-free prefix"))
-                    }
+                    Some(b"name") => record.name = Some(prefix(value).to_vec()),
                     Some(b"current_workspace") => {
                         if let Some(value) = workspace_number(value) {
                             record.ws = value;
@@ -220,15 +214,21 @@ unsafe fn apply_outputs(records: Vec<OutputRecord>) {
         let name = record.name.take().expect("reader checked name");
         if !config.outputs.is_empty() {
             let accepted = config.outputs.iter().any(|requested| {
-                let requested = CString::new(prefix(requested)).expect("output byte prefix");
-                let requested = requested.as_ptr();
-                libc::strcasecmp(name.as_ptr(), requested) == 0
-                    || libc::strcasecmp(requested, c"primary".as_ptr()) == 0 && record.primary
-                    || libc::strcasecmp(requested, c"nonprimary".as_ptr()) == 0 && !record.primary
+                native_name_equal(&name, requested)
+                    || native_name_equal(requested, b"primary") && record.primary
+                    || native_name_equal(requested, b"nonprimary") && !record.primary
             });
             if !accepted {
                 if config.verbose {
-                    libc::printf(c"[../i3bar/src/outputs.c:205] Ignoring output \"%s\", not configured to handle it.\n".as_ptr(), name.as_ptr());
+                    let mut message = b"[../i3bar/src/outputs.c:205] Ignoring output \"".to_vec();
+                    message.extend_from_slice(&name);
+                    message.extend_from_slice(b"\", not configured to handle it.\n");
+                    libc::fwrite(
+                        message.as_ptr().cast(),
+                        1,
+                        message.len(),
+                        i3_common::native_stdio::stdout,
+                    );
                 }
                 continue;
             }
@@ -238,8 +238,8 @@ unsafe fn apply_outputs(records: Vec<OutputRecord>) {
 }
 
 // head owns distinct Output boxes and is exclusively accessed on this thread.
-unsafe fn publish_output(head: *mut outputs_head, record: OutputRecord, name: CString) {
-    let existing = find_output(head, name.as_c_str());
+unsafe fn publish_output(head: *mut outputs_head, record: OutputRecord, name: Vec<u8>) {
+    let existing = find_output(head, &name);
     let target = if existing.is_null() {
         let mut output = Box::new(Output::new(name));
         output.slist.sle_next = (*head).slh_first;
@@ -315,19 +315,26 @@ pub unsafe fn free_outputs() {
 /// # Safety
 /// name is a live terminated string or null. The initialized event-thread
 /// output graph stays live and unmodified while searching.
-pub unsafe fn get_output_by_name(name: *mut libc::c_char) -> *mut Output {
-    if name.is_null() || outputs.is_null() {
+pub unsafe fn get_output_by_name(name: &[u8]) -> *mut Output {
+    if outputs.is_null() {
         return ptr::null_mut();
     }
-    find_output(outputs, CStr::from_ptr(name))
+    find_output(outputs, prefix(name))
+}
+
+pub(crate) fn native_name_equal(left: &[u8], right: &[u8]) -> bool {
+    let left = CString::new(prefix(left)).expect("bounded prefix");
+    let right = CString::new(prefix(right)).expect("bounded prefix");
+    // SAFETY: both native strings are owned for this synchronous locale comparison.
+    unsafe { libc::strcasecmp(left.as_ptr(), right.as_ptr()) == 0 }
 }
 
 // head and its names are live, acyclic, and unmodified during this search.
-unsafe fn find_output(head: *mut outputs_head, name: &CStr) -> *mut Output {
-    let primary = libc::strcasecmp(name.as_ptr(), c"primary".as_ptr()) == 0;
+unsafe fn find_output(head: *mut outputs_head, name: &[u8]) -> *mut Output {
+    let primary = native_name_equal(name, b"primary");
     let mut output = (*head).slh_first;
     while !output.is_null() {
-        if primary && (*output).primary || (*output).name.as_c_str() == name {
+        if primary && (*output).primary || (*output).name == name {
             break;
         }
         output = (*output).slist.sle_next;
@@ -358,7 +365,7 @@ mod tests {
         let records = read_outputs(&input).unwrap();
         drop(input);
         assert_eq!(records.len(), 1);
-        assert_eq!(records[0].name.as_deref(), Some(c"DP-1"));
+        assert_eq!(records[0].name.as_deref(), Some(b"DP-1".as_slice()));
         assert_eq!(records[0].rect, [-8, 4, 1920, 1080]);
         assert!(records[0].active);
         assert!(read_outputs(br#"[{"name":"partial""#).unwrap().is_empty());
@@ -416,7 +423,7 @@ mod tests {
                 }
             }
             let two = head.slh_first;
-            assert_eq!((*two).name.as_c_str(), c"two");
+            assert_eq!((*two).name.as_slice(), b"two".as_slice());
             assert_eq!((*two).slist.sle_next, first_node);
             assert!((*first_node).active);
             assert!(!(*first_node).primary);

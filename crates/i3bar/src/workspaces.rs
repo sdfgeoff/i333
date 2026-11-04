@@ -15,7 +15,6 @@ use i3_common::font::predict_text_width;
 use i3_common::json_stream::{Event, EventHandler, ParseError, Parser};
 use i3_common::string::I3String;
 use std::cell::RefCell;
-use std::ffi::{CStr, CString};
 use std::io::Write;
 use std::ptr;
 use std::rc::Rc;
@@ -26,7 +25,7 @@ use std::rc::Rc;
 pub struct Workspace {
     pub id: usize,
     pub num: i32,
-    pub canonical_name: Option<CString>,
+    pub canonical_name: Option<Vec<u8>>,
     pub name: I3String,
     pub name_width: i32,
     pub visible: bool,
@@ -64,7 +63,7 @@ struct NameOptions {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct NameSnapshot {
-    canonical: CString,
+    canonical: Vec<u8>,
     display: Vec<u8>,
     explicit_length: bool,
 }
@@ -74,7 +73,7 @@ fn c_prefix(bytes: &[u8]) -> &[u8] {
 }
 
 fn name_snapshot(bytes: &[u8], num: i32, options: NameOptions) -> NameSnapshot {
-    let canonical = CString::new(c_prefix(bytes)).expect("prefix contains no NUL");
+    let canonical = c_prefix(bytes).to_vec();
     let (display, explicit_length) = if (options.strip_numbers || options.strip_name) && num >= 0 {
         let number = num.to_string();
         // Upstream uses strspn, not a numeric-prefix comparison: every leading
@@ -109,7 +108,7 @@ struct WorkspaceRecord {
     visible: bool,
     focused: bool,
     urgent: bool,
-    output_names: Vec<CString>,
+    output_names: Vec<Vec<u8>>,
     completed: bool,
 }
 
@@ -203,9 +202,7 @@ impl EventHandler for SharedReader {
                             .names
                             .push(name_snapshot(value, workspace.num, options))
                     }
-                    Some(b"output") => workspace
-                        .output_names
-                        .push(CString::new(c_prefix(value)).expect("prefix contains no NUL")),
+                    Some(b"output") => workspace.output_names.push(c_prefix(value).to_vec()),
                     _ => return false,
                 }
             }
@@ -246,7 +243,7 @@ fn read_workspaces(json: &[u8], options: NameOptions) -> Result<Vec<WorkspaceRec
 
 fn output_targets<T: Copy + PartialEq>(
     workspace: &WorkspaceRecord,
-    mut lookup: impl FnMut(&CStr) -> Option<T>,
+    mut lookup: impl FnMut(&[u8]) -> Option<T>,
     fallback: Option<T>,
 ) -> Vec<T> {
     if workspace.output_names.is_empty() {
@@ -295,7 +292,7 @@ unsafe fn apply_workspaces(records: Vec<WorkspaceRecord>) {
         let fallback = if outputs.is_null() || (*outputs).slh_first.is_null() {
             None
         } else {
-            let primary = get_output_by_name(c"primary".as_ptr().cast_mut());
+            let primary = get_output_by_name(b"primary");
             Some(if primary.is_null() {
                 (*outputs).slh_first
             } else {
@@ -319,7 +316,19 @@ unsafe fn apply_workspaces(records: Vec<WorkspaceRecord>) {
                 let text = &name;
                 let width = predict_text_width(&crate::xcb::font, text);
                 if config.verbose {
-                    let _ = writeln!(std::io::stdout().lock(), "[../i3bar/src/workspaces.c:146] Got workspace canonical: {}, name: '{}', name_width: {}, glyphs: {}", snapshot.canonical.to_string_lossy(), name.as_str().expect("workspace text is UTF-8"), width, text.rendering_glyphs().len());
+                    let mut message =
+                        b"[../i3bar/src/workspaces.c:146] Got workspace canonical: ".to_vec();
+                    message.extend_from_slice(&snapshot.canonical);
+                    message.extend_from_slice(
+                        format!(
+                            ", name: '{}', name_width: {}, glyphs: {}\n",
+                            name.as_str().expect("workspace text is UTF-8"),
+                            width,
+                            text.rendering_glyphs().len()
+                        )
+                        .as_bytes(),
+                    );
+                    let _ = std::io::stdout().lock().write_all(&message);
                 }
                 last_name = Some((name, width));
             }
@@ -328,7 +337,7 @@ unsafe fn apply_workspaces(records: Vec<WorkspaceRecord>) {
                 &record,
                 |name| {
                     fallback?;
-                    let output = get_output_by_name(name.as_ptr().cast_mut());
+                    let output = get_output_by_name(name);
                     (!output.is_null()).then_some(output)
                 },
                 fallback,
@@ -470,10 +479,10 @@ mod tests {
         );
         drop(json);
         assert!(parsed[0].visible);
-        assert_eq!(parsed[0].names[0].canonical.to_bytes(), b"1:one");
+        assert_eq!(parsed[0].names[0].canonical.as_slice(), b"1:one");
         assert_eq!(parsed[0].names[0].display, b"one\0rest");
         assert!(parsed[0].names[0].explicit_length);
-        assert_eq!(parsed[0].output_names[0].to_bytes(), b"primary");
+        assert_eq!(parsed[0].output_names[0].as_slice(), b"primary");
     }
 
     #[test]
@@ -501,7 +510,7 @@ mod tests {
     #[test]
     fn output_mentions_keep_prior_matches_without_reusing_owned_nodes() {
         let parsed = records(br#"[{"name":"one","output":"a","output":"missing","output":"a","output":"b"},{"name":"two","output":"missing"},{"name":"fallback"}]"#, NameOptions::default());
-        let lookup = |name: &CStr| match name.to_bytes() {
+        let lookup = |name: &[u8]| match name {
             b"a" => Some(1),
             b"b" => Some(2),
             _ => None,
@@ -545,7 +554,7 @@ mod tests {
 
     #[test]
     fn intrusive_lists_detach_then_drop_owned_nodes_and_can_be_cleared_twice() {
-        let mut output = Box::new(i3_output::new(c"test".to_owned()));
+        let mut output = Box::new(i3_output::new(b"test".to_vec()));
         let head = output.workspaces;
         unsafe {
             append_workspace(

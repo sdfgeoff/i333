@@ -12,7 +12,6 @@
 
 use i3_common::json_stream::{Event, EventHandler, Parser};
 use std::cell::RefCell;
-use std::ffi::CStr;
 use std::rc::Rc;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -51,12 +50,12 @@ enum HeaderKey {
     ClickEvents,
 }
 
-fn key_matches(key: &[u8], expected: &CStr) -> bool {
-    key.len() == expected.to_bytes().len()
+fn key_matches(key: &[u8], expected: &[u8]) -> bool {
+    key.len() == expected.len()
         // SAFETY: Both byte spans contain at least key.len() readable bytes.
         // strncasecmp only reads them and preserves the process locale's
         // comparison rules, including its treatment of embedded NUL bytes.
-        && unsafe { libc::strncasecmp(key.as_ptr().cast(), expected.as_ptr(), key.len()) == 0 }
+        && unsafe { libc::strncasecmp(key.as_ptr().cast(), expected.as_ptr().cast(), key.len()) == 0 }
 }
 
 struct SharedReader(Rc<RefCell<HeaderReader>>);
@@ -66,13 +65,13 @@ impl EventHandler for SharedReader {
         let mut reader = self.0.borrow_mut();
         match event {
             Event::MapKey(key) => {
-                let key = if key_matches(key, c"version") {
+                let key = if key_matches(key, b"version") {
                     Some(HeaderKey::Version)
-                } else if key_matches(key, c"stop_signal") {
+                } else if key_matches(key, b"stop_signal") {
                     Some(HeaderKey::StopSignal)
-                } else if key_matches(key, c"cont_signal") {
+                } else if key_matches(key, b"cont_signal") {
                     Some(HeaderKey::ContSignal)
-                } else if key_matches(key, c"click_events") {
+                } else if key_matches(key, b"click_events") {
                     Some(HeaderKey::ClickEvents)
                 } else {
                     // Unknown keys deliberately retain the previous key, as

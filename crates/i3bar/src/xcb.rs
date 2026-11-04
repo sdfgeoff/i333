@@ -383,16 +383,16 @@ fn render_dimensions(
     }
     result
 }
-fn quote_workspace(name: &std::ffi::CStr) -> std::ffi::CString {
+fn quote_workspace(name: &[u8]) -> Vec<u8> {
     let mut bytes = b"workspace \"".to_vec();
-    for &byte in name.to_bytes() {
+    for &byte in first_nul(name) {
         if matches!(byte, b'"' | b'\\') {
             bytes.push(b'\\');
         }
         bytes.push(byte);
     }
     bytes.push(b'"');
-    std::ffi::CString::new(bytes).unwrap()
+    bytes
 }
 fn tray_width(mapped: usize, step: i32, left: i32) -> i32 {
     let mut width = 0;
@@ -818,13 +818,21 @@ unsafe fn unhide_bars() {
             values[3_usize] = bar_height as u32;
 
             if config.verbose {
-                printf(
-                    c"[%s:%d] Reconfiguring window for output %s to %d,%d\n".as_ptr(),
-                    c"../i3bar/src/xcb.c".as_ptr(),
-                    435 as ::core::ffi::c_int,
-                    (*walk).name_ptr(),
-                    values[0_usize],
-                    values[1_usize],
+                let mut record =
+                    b"[../i3bar/src/xcb.c:435] Reconfiguring window for output ".to_vec();
+                record.extend_from_slice(&(*walk).name);
+                record.extend_from_slice(
+                    format!(
+                        " to {},{}\n",
+                        values[0_usize] as i32, values[1_usize] as i32
+                    )
+                    .as_bytes(),
+                );
+                libc::fwrite(
+                    record.as_ptr().cast(),
+                    1,
+                    record.len(),
+                    i3_common::native_stdio::stdout,
                 );
             }
             let cookie = connection.send_request_checked(&x::ConfigureWindow {
@@ -1075,17 +1083,14 @@ unsafe fn predict_button_width(name_width: ::core::ffi::c_int) -> ::core::ffi::c
 }
 unsafe extern "C" fn focus_workspace(ws: *mut i3_ws) {
     let command = if (*ws).id != 0 {
-        std::ffi::CString::new(format!("[con_id={}] focus workspace", (*ws).id)).unwrap()
+        format!("[con_id={}] focus workspace", (*ws).id).into_bytes()
     } else {
         let Some(name) = (*ws).canonical_name.as_deref() else {
             return;
         };
         quote_workspace(name)
     };
-    i3_send_msg(
-        I3_IPC_MESSAGE_TYPE_RUN_COMMAND as u32,
-        Some(command.to_bytes()),
-    );
+    i3_send_msg(I3_IPC_MESSAGE_TYPE_RUN_COMMAND as u32, Some(&command));
 }
 
 unsafe fn handle_button(event: &ButtonInput) {
@@ -2497,13 +2502,7 @@ unsafe fn get_tray_output() -> *mut i3_output {
             output = (*output).slist.sle_next;
         }
         return ::core::ptr::null_mut::<i3_output>();
-    } else if strcasecmp(
-        std::ffi::CString::new(first_nul(&(*config.tray_outputs.tqh_first).output))
-            .unwrap()
-            .as_ptr(),
-        c"none".as_ptr(),
-    ) == 0 as ::core::ffi::c_int
-    {
+    } else if crate::outputs::native_name_equal(&(*config.tray_outputs.tqh_first).output, b"none") {
         return ::core::ptr::null_mut::<i3_output>();
     }
     let mut tray_output: *mut tray_output_t = config.tray_outputs.tqh_first;
@@ -2512,18 +2511,8 @@ unsafe fn get_tray_output() -> *mut i3_output {
         output = (*outputs).slh_first;
         while !output.is_null() {
             if (*output).active
-                && (strcasecmp(
-                    (*output).name_ptr(),
-                    std::ffi::CString::new(first_nul(&(*tray_output).output))
-                        .unwrap()
-                        .as_ptr(),
-                ) == 0 as ::core::ffi::c_int
-                    || strcasecmp(
-                        std::ffi::CString::new(first_nul(&(*tray_output).output))
-                            .unwrap()
-                            .as_ptr(),
-                        c"primary".as_ptr(),
-                    ) == 0 as ::core::ffi::c_int
+                && (crate::outputs::native_name_equal(&(*output).name, &(*tray_output).output)
+                    || crate::outputs::native_name_equal(&(*tray_output).output, b"primary")
                         && (*output).primary)
             {
                 return output;
@@ -2545,21 +2534,28 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
     while !walk.is_null() {
         if !(*walk).active {
             if config.verbose {
-                printf(
-                    c"[%s:%d] Destroying window for output %s\n".as_ptr(),
-                    c"../i3bar/src/xcb.c".as_ptr(),
-                    1857 as ::core::ffi::c_int,
-                    (*walk).name_ptr(),
+                let mut record =
+                    b"[../i3bar/src/xcb.c:1857] Destroying window for output ".to_vec();
+                record.extend_from_slice(&(*walk).name);
+                record.extend_from_slice(format!("\n").as_bytes());
+                libc::fwrite(
+                    record.as_ptr().cast(),
+                    1,
+                    record.len(),
+                    i3_common::native_stdio::stdout,
                 );
             }
             destroy_window(walk);
         } else if (*walk).bar.id as ::core::ffi::c_long == 0 {
             if config.verbose {
-                printf(
-                    c"[%s:%d] Creating window for output %s\n".as_ptr(),
-                    c"../i3bar/src/xcb.c".as_ptr(),
-                    1862 as ::core::ffi::c_int,
-                    (*walk).name_ptr(),
+                let mut record = b"[../i3bar/src/xcb.c:1862] Creating window for output ".to_vec();
+                record.extend_from_slice(&(*walk).name);
+                record.extend_from_slice(format!("\n").as_bytes());
+                libc::fwrite(
+                    record.as_ptr().cast(),
+                    1,
+                    record.len(),
+                    i3_common::native_stdio::stdout,
                 );
             }
             let bar_id: u32 = connection.generate_id::<x::Window>().resource_id();
@@ -2629,20 +2625,16 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 r#type: x::ATOM_STRING,
                 data: &class,
             });
-            let mut name: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut name,
-                c"i3bar for output %s".as_ptr(),
-                (*walk).name_ptr(),
-            );
+            let mut name = b"i3bar for output ".to_vec();
+            name.extend_from_slice(&(*walk).name);
             let name_cookie = connection.send_request(&x::ChangeProperty {
                 mode: x::PropMode::Replace,
                 window: x::Window::new(bar_id),
                 property: x::Atom::new(x::ATOM_WM_NAME.resource_id() as ::core::ffi::c_int as u32),
                 r#type: x::ATOM_STRING,
-                data: std::ffi::CStr::from_ptr(name).to_bytes(),
+                data: &name,
             });
-            free(name as *mut ::core::ffi::c_void);
+
             let dock_cookie = connection.send_request(&x::ChangeProperty {
                 mode: x::PropMode::Replace,
                 window: x::Window::new(bar_id),
@@ -2759,20 +2751,29 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
             values[3_usize] = bar_height as u32;
 
             if config.verbose {
-                printf(
-                    c"[%s:%d] Reconfiguring strut partial property for output %s\n".as_ptr(),
-                    c"../i3bar/src/xcb.c".as_ptr(),
-                    1998 as ::core::ffi::c_int,
-                    (*walk).name_ptr(),
+                let mut record =
+                    b"[../i3bar/src/xcb.c:1998] Reconfiguring strut partial property for output "
+                        .to_vec();
+                record.extend_from_slice(&(*walk).name);
+                record.extend_from_slice(format!("\n").as_bytes());
+                libc::fwrite(
+                    record.as_ptr().cast(),
+                    1,
+                    record.len(),
+                    i3_common::native_stdio::stdout,
                 );
             }
             let strut_cookie_0 = config_strut_partial(&connection, walk);
             if config.verbose {
-                printf(
-                    c"[%s:%d] Destroying buffer for output %s\n".as_ptr(),
-                    c"../i3bar/src/xcb.c".as_ptr(),
-                    2001 as ::core::ffi::c_int,
-                    (*walk).name_ptr(),
+                let mut record =
+                    b"[../i3bar/src/xcb.c:2001] Destroying buffer for output ".to_vec();
+                record.extend_from_slice(&(*walk).name);
+                record.extend_from_slice(format!("\n").as_bytes());
+                libc::fwrite(
+                    record.as_ptr().cast(),
+                    1,
+                    record.len(),
+                    i3_common::native_stdio::stdout,
                 );
             }
             (*walk).buffer.clear();
@@ -2782,11 +2783,15 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 });
             }
             if config.verbose {
-                printf(
-                    c"[%s:%d] Destroying statusline buffer for output %s\n".as_ptr(),
-                    c"../i3bar/src/xcb.c".as_ptr(),
-                    2004 as ::core::ffi::c_int,
-                    (*walk).name_ptr(),
+                let mut record =
+                    b"[../i3bar/src/xcb.c:2004] Destroying statusline buffer for output ".to_vec();
+                record.extend_from_slice(&(*walk).name);
+                record.extend_from_slice(format!("\n").as_bytes());
+                libc::fwrite(
+                    record.as_ptr().cast(),
+                    1,
+                    record.len(),
+                    i3_common::native_stdio::stdout,
                 );
             }
             (*walk).statusline_buffer.clear();
@@ -2796,13 +2801,21 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 });
             }
             if config.verbose {
-                printf(
-                    c"[%s:%d] Reconfiguring window for output %s to %d,%d\n".as_ptr(),
-                    c"../i3bar/src/xcb.c".as_ptr(),
-                    2007 as ::core::ffi::c_int,
-                    (*walk).name_ptr(),
-                    values[0_usize],
-                    values[1_usize],
+                let mut record =
+                    b"[../i3bar/src/xcb.c:2007] Reconfiguring window for output ".to_vec();
+                record.extend_from_slice(&(*walk).name);
+                record.extend_from_slice(
+                    format!(
+                        " to {},{}\n",
+                        values[0_usize] as i32, values[1_usize] as i32
+                    )
+                    .as_bytes(),
+                );
+                libc::fwrite(
+                    record.as_ptr().cast(),
+                    1,
+                    record.len(),
+                    i3_common::native_stdio::stdout,
                 );
             }
             let cfg_cookie = connection.send_request_checked(&x::ConfigureWindow {
@@ -2823,13 +2836,14 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                     1 as ::core::ffi::c_int
                 }) as u32;
             if config.verbose {
-                printf(
-                    c"[%s:%d] Changing window attribute override_redirect for output %s to %d\n"
-                        .as_ptr(),
-                    c"../i3bar/src/xcb.c".as_ptr(),
-                    2015 as ::core::ffi::c_int,
-                    (*walk).name_ptr(),
-                    values[0_usize],
+                let mut record = b"[../i3bar/src/xcb.c:2015] Changing window attribute override_redirect for output ".to_vec();
+                record.extend_from_slice(&(*walk).name);
+                record.extend_from_slice(format!(" to {}\n", values[0_usize] as i32).as_bytes());
+                libc::fwrite(
+                    record.as_ptr().cast(),
+                    1,
+                    record.len(),
+                    i3_common::native_stdio::stdout,
                 );
             }
             let chg_cookie = connection.send_request(&x::ChangeWindowAttributes {
@@ -2837,11 +2851,15 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 value_list: &[x::Cw::OverrideRedirect(values[0] != 0)],
             });
             if config.verbose {
-                printf(
-                    c"[%s:%d] Recreating buffer for output %s\n".as_ptr(),
-                    c"../i3bar/src/xcb.c".as_ptr(),
-                    2021 as ::core::ffi::c_int,
-                    (*walk).name_ptr(),
+                let mut record =
+                    b"[../i3bar/src/xcb.c:2021] Recreating buffer for output ".to_vec();
+                record.extend_from_slice(&(*walk).name);
+                record.extend_from_slice(format!("\n").as_bytes());
+                libc::fwrite(
+                    record.as_ptr().cast(),
+                    1,
+                    record.len(),
+                    i3_common::native_stdio::stdout,
                 );
             }
             let pm_cookie_0 = connection.send_request_checked(&x::CreatePixmap {
@@ -2852,11 +2870,15 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 height: bar_height as u16,
             });
             if config.verbose {
-                printf(
-                    c"[%s:%d] Recreating statusline buffer for output %s\n".as_ptr(),
-                    c"../i3bar/src/xcb.c".as_ptr(),
-                    2029 as ::core::ffi::c_int,
-                    (*walk).name_ptr(),
+                let mut record =
+                    b"[../i3bar/src/xcb.c:2029] Recreating statusline buffer for output ".to_vec();
+                record.extend_from_slice(&(*walk).name);
+                record.extend_from_slice(format!("\n").as_bytes());
+                libc::fwrite(
+                    record.as_ptr().cast(),
+                    1,
+                    record.len(),
+                    i3_common::native_stdio::stdout,
                 );
             }
             let slpm_cookie_0 = connection.send_request_checked(&x::CreatePixmap {
@@ -3053,11 +3075,14 @@ pub unsafe fn draw_bars(mut unhide: bool) {
             logical_px(config.padding.x as ::core::ffi::c_int);
         if !(*outputs_walk).active {
             if config.verbose {
-                printf(
-                    c"[%s:%d] Output %s inactive, skipping...\n".as_ptr(),
-                    c"../i3bar/src/xcb.c".as_ptr(),
-                    2121 as ::core::ffi::c_int,
-                    (*outputs_walk).name_ptr(),
+                let mut record = b"[../i3bar/src/xcb.c:2121] Output ".to_vec();
+                record.extend_from_slice(&(*outputs_walk).name);
+                record.extend_from_slice(format!(" inactive, skipping...\n").as_bytes());
+                libc::fwrite(
+                    record.as_ptr().cast(),
+                    1,
+                    record.len(),
+                    i3_common::native_stdio::stdout,
                 );
             }
         } else {
@@ -3414,11 +3439,8 @@ mod owned_tests {
     }
     #[test]
     fn quoting_and_class_bytes_preserve_non_utf8_escapes_and_first_nul() {
-        let input = c"raw\xff\"\\name";
-        assert_eq!(
-            quote_workspace(input).to_bytes(),
-            b"workspace \"raw\xff\\\"\\\\name\""
-        );
+        let input = b"raw\xff\"\\name";
+        assert_eq!(quote_workspace(input), b"workspace \"raw\xff\\\"\\\\name\"");
         assert_eq!(
             class_parts(b"inst\0Class\0ignored"),
             (&b"inst"[..], Some(&b"Class"[..]))
