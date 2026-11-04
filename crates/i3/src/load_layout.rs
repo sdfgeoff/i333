@@ -92,7 +92,7 @@ impl LayoutState {
             focus_mappings: Vec::new(),
         }
     }
-    unsafe fn json_start_map(&mut self) -> ::core::ffi::c_int {
+    unsafe fn json_start_map(&mut self) -> i32 {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_value_0 = {
@@ -167,9 +167,9 @@ impl LayoutState {
                 { (self.incomplete) }
             );
         }
-        1 as ::core::ffi::c_int
+        1_i32
     }
-    unsafe fn json_end_map(&mut self) -> ::core::ffi::c_int {
+    unsafe fn json_end_map(&mut self) -> i32 {
         ::log::info!("end of map\n");
         if !self.parsing_swallows
             && !self.parsing_rect
@@ -185,7 +185,7 @@ impl LayoutState {
                 );
                 (*self.json_node).layout = Layout::SplitH;
             }
-            if con_is_split(self.json_node) as ::core::ffi::c_int > 0 as ::core::ffi::c_int
+            if con_is_split(self.json_node) as i32 > 0_i32
                 && !(*self.json_node).swallow_head.tqh_first.is_null()
             {
                 ::log::debug!("../src/load_layout.c:json_end_map:110 - sanity check: removing swallows specification from split container\n");
@@ -216,7 +216,7 @@ impl LayoutState {
                     }
                 };
                 if (*self.json_node).name.is_none()
-                    || strcmp((*self.json_node).name_ptr(), c"".as_ptr()) == 0 as ::core::ffi::c_int
+                    || strcmp((*self.json_node).name_ptr(), c"".as_ptr()) == 0_i32
                 {
                     (*self.json_node).name = Some(c"unnamed".to_owned());
                 }
@@ -224,7 +224,7 @@ impl LayoutState {
                     .name
                     .clone()
                     .expect("layout workspace name is initialized");
-                let mut cnt: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
+                let mut cnt: i32 = 1_i32;
                 while !get_existing_workspace_by_name((*self.json_node).name_ptr()).is_null() {
                     let fresh1 = cnt;
                     cnt += 1;
@@ -280,8 +280,8 @@ impl LayoutState {
                             .width
                             .wrapping_add((*child).geometry.width);
                         (*self.json_node).rect.height = max(
-                            (*self.json_node).rect.height as ::core::ffi::c_int,
-                            (*child).geometry.height as ::core::ffi::c_int,
+                            (*self.json_node).rect.height as i32,
+                            (*child).geometry.height as i32,
                         ) as u32;
                         child = nodes::next_ptr(child);
                     }
@@ -313,7 +313,7 @@ impl LayoutState {
         }
         if self.parsing_swallows && self.swallow_is_empty {
             ::log::error!("ERROR: Layout file is invalid: found an empty swallow definition.\n");
-            return 0 as ::core::ffi::c_int;
+            return 0_i32;
         }
         self.parsing_gaps = false;
         self.parsing_rect = false;
@@ -321,9 +321,9 @@ impl LayoutState {
         self.parsing_deco_rect = false;
         self.parsing_window_rect = false;
         self.parsing_geometry = false;
-        1 as ::core::ffi::c_int
+        1_i32
     }
-    unsafe fn json_end_array(&mut self) -> ::core::ffi::c_int {
+    unsafe fn json_end_array(&mut self) -> i32 {
         ::log::info!("end of array\n");
         if !self.parsing_swallows && !self.parsing_focus && !self.parsing_marks {
             con_fix_percent(self.json_node);
@@ -348,13 +348,9 @@ impl LayoutState {
             }
             self.parsing_focus = false;
         }
-        1 as ::core::ffi::c_int
+        1_i32
     }
-    unsafe fn json_key(
-        &mut self,
-        val: *const ::core::ffi::c_uchar,
-        len: usize,
-    ) -> ::core::ffi::c_int {
+    unsafe fn json_key(&mut self, val: *const ::core::ffi::c_uchar, len: usize) -> i32 {
         let logged_key = property_string(if len == 0 {
             &[]
         } else {
@@ -362,7 +358,7 @@ impl LayoutState {
         });
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_precision_0 = (len as ::core::ffi::c_int);
+            let log_precision_0 = (len as i32);
             let log_value_0 = i3_common::logging::string_bytes(
                 (Some(logged_key.as_c_str())).map(std::ffi::CStr::to_bytes),
                 usize::try_from(log_precision_0).ok(),
@@ -377,43 +373,37 @@ impl LayoutState {
             }
         };
         self.last_key = logged_key;
-        if strcasecmp(self.last_key.as_ptr(), c"swallows".as_ptr()) == 0 as ::core::ffi::c_int {
+        if strcasecmp(self.last_key.as_ptr(), c"swallows".as_ptr()) == 0_i32 {
             self.parsing_swallows = true;
         }
-        if strcasecmp(self.last_key.as_ptr(), c"gaps".as_ptr()) == 0 as ::core::ffi::c_int {
+        if strcasecmp(self.last_key.as_ptr(), c"gaps".as_ptr()) == 0_i32 {
             self.parsing_gaps = true;
         }
-        if strcasecmp(self.last_key.as_ptr(), c"rect".as_ptr()) == 0 as ::core::ffi::c_int {
+        if strcasecmp(self.last_key.as_ptr(), c"rect".as_ptr()) == 0_i32 {
             self.parsing_rect = true;
         }
-        if strcasecmp(self.last_key.as_ptr(), c"actual_deco_rect".as_ptr())
-            == 0 as ::core::ffi::c_int
-        {
+        if strcasecmp(self.last_key.as_ptr(), c"actual_deco_rect".as_ptr()) == 0_i32 {
             self.parsing_actual_deco_rect = true;
         }
-        if strcasecmp(self.last_key.as_ptr(), c"deco_rect".as_ptr()) == 0 as ::core::ffi::c_int {
+        if strcasecmp(self.last_key.as_ptr(), c"deco_rect".as_ptr()) == 0_i32 {
             self.parsing_deco_rect = true;
         }
-        if strcasecmp(self.last_key.as_ptr(), c"window_rect".as_ptr()) == 0 as ::core::ffi::c_int {
+        if strcasecmp(self.last_key.as_ptr(), c"window_rect".as_ptr()) == 0_i32 {
             self.parsing_window_rect = true;
         }
-        if strcasecmp(self.last_key.as_ptr(), c"geometry".as_ptr()) == 0 as ::core::ffi::c_int {
+        if strcasecmp(self.last_key.as_ptr(), c"geometry".as_ptr()) == 0_i32 {
             self.parsing_geometry = true;
         }
-        if strcasecmp(self.last_key.as_ptr(), c"focus".as_ptr()) == 0 as ::core::ffi::c_int {
+        if strcasecmp(self.last_key.as_ptr(), c"focus".as_ptr()) == 0_i32 {
             self.parsing_focus = true;
         }
-        if strcasecmp(self.last_key.as_ptr(), c"marks".as_ptr()) == 0 as ::core::ffi::c_int {
+        if strcasecmp(self.last_key.as_ptr(), c"marks".as_ptr()) == 0_i32 {
             self.pending_marks.clear();
             self.parsing_marks = true;
         }
-        1 as ::core::ffi::c_int
+        1_i32
     }
-    unsafe fn json_string(
-        &mut self,
-        val: *const ::core::ffi::c_uchar,
-        len: usize,
-    ) -> ::core::ffi::c_int {
+    unsafe fn json_string(&mut self, val: *const ::core::ffi::c_uchar, len: usize) -> i32 {
         let logged_string = property_string(if len == 0 {
             &[]
         } else {
@@ -421,7 +411,7 @@ impl LayoutState {
         });
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_precision_0 = (len as ::core::ffi::c_int);
+            let log_precision_0 = (len as i32);
             let log_value_0 = i3_common::logging::string_bytes(
                 (Some(logged_string.as_c_str())).map(std::ffi::CStr::to_bytes),
                 usize::try_from(log_precision_0).ok(),
@@ -464,35 +454,27 @@ impl LayoutState {
         if self.parsing_swallows {
             let owned_sval = property_string(std::slice::from_raw_parts(val, len));
             let sval = owned_sval.as_ptr();
-            if strcasecmp(self.last_key.as_ptr(), c"class".as_ptr()) == 0 as ::core::ffi::c_int {
+            if strcasecmp(self.last_key.as_ptr(), c"class".as_ptr()) == 0_i32 {
                 let new = compile_or_report(owned_sval.as_c_str());
 
                 (*self.current_swallow).class = new;
                 self.swallow_is_empty = false;
-            } else if strcasecmp(self.last_key.as_ptr(), c"instance".as_ptr())
-                == 0 as ::core::ffi::c_int
-            {
+            } else if strcasecmp(self.last_key.as_ptr(), c"instance".as_ptr()) == 0_i32 {
                 let new = compile_or_report(owned_sval.as_c_str());
 
                 (*self.current_swallow).instance = new;
                 self.swallow_is_empty = false;
-            } else if strcasecmp(self.last_key.as_ptr(), c"window_role".as_ptr())
-                == 0 as ::core::ffi::c_int
-            {
+            } else if strcasecmp(self.last_key.as_ptr(), c"window_role".as_ptr()) == 0_i32 {
                 let new = compile_or_report(owned_sval.as_c_str());
 
                 (*self.current_swallow).window_role = new;
                 self.swallow_is_empty = false;
-            } else if strcasecmp(self.last_key.as_ptr(), c"title".as_ptr())
-                == 0 as ::core::ffi::c_int
-            {
+            } else if strcasecmp(self.last_key.as_ptr(), c"title".as_ptr()) == 0_i32 {
                 let new = compile_or_report(owned_sval.as_c_str());
 
                 (*self.current_swallow).title = new;
                 self.swallow_is_empty = false;
-            } else if strcasecmp(self.last_key.as_ptr(), c"machine".as_ptr())
-                == 0 as ::core::ffi::c_int
-            {
+            } else if strcasecmp(self.last_key.as_ptr(), c"machine".as_ptr()) == 0_i32 {
                 let new = compile_or_report(owned_sval.as_c_str());
 
                 (*self.current_swallow).machine = new;
@@ -532,11 +514,9 @@ impl LayoutState {
                 property_string(std::slice::from_raw_parts(val, len)),
                 self.json_node,
             ));
-        } else if strcasecmp(self.last_key.as_ptr(), c"name".as_ptr()) == 0 as ::core::ffi::c_int {
+        } else if strcasecmp(self.last_key.as_ptr(), c"name".as_ptr()) == 0_i32 {
             (*self.json_node).name = Some(property_string(std::slice::from_raw_parts(val, len)));
-        } else if strcasecmp(self.last_key.as_ptr(), c"title_format".as_ptr())
-            == 0 as ::core::ffi::c_int
-        {
+        } else if strcasecmp(self.last_key.as_ptr(), c"title_format".as_ptr()) == 0_i32 {
             (*self.json_node).title_format = Some(
                 std::slice::from_raw_parts(val, len)
                     .split(|byte| *byte == 0)
@@ -544,9 +524,7 @@ impl LayoutState {
                     .unwrap()
                     .to_vec(),
             );
-        } else if strcasecmp(self.last_key.as_ptr(), c"sticky_group".as_ptr())
-            == 0 as ::core::ffi::c_int
-        {
+        } else if strcasecmp(self.last_key.as_ptr(), c"sticky_group".as_ptr()) == 0_i32 {
             let group = std::slice::from_raw_parts(val, len)
                 .split(|byte| *byte == 0)
                 .next()
@@ -569,16 +547,14 @@ impl LayoutState {
                     );
                 }
             };
-        } else if strcasecmp(self.last_key.as_ptr(), c"orientation".as_ptr())
-            == 0 as ::core::ffi::c_int
-        {
+        } else if strcasecmp(self.last_key.as_ptr(), c"orientation".as_ptr()) == 0_i32 {
             let owned_buf = property_string(std::slice::from_raw_parts(val, len));
             let buf = owned_buf.as_ptr();
-            if strcasecmp(buf, c"none".as_ptr()) == 0 as ::core::ffi::c_int
-                || strcasecmp(buf, c"horizontal".as_ptr()) == 0 as ::core::ffi::c_int
+            if strcasecmp(buf, c"none".as_ptr()) == 0_i32
+                || strcasecmp(buf, c"horizontal".as_ptr()) == 0_i32
             {
                 (*self.json_node).last_split_layout = Layout::SplitH;
-            } else if strcasecmp(buf, c"vertical".as_ptr()) == 0 as ::core::ffi::c_int {
+            } else if strcasecmp(buf, c"vertical".as_ptr()) == 0_i32 {
                 (*self.json_node).last_split_layout = Layout::SplitV;
             } else {
                 {
@@ -610,21 +586,20 @@ impl LayoutState {
                     }
                 };
             }
-        } else if strcasecmp(self.last_key.as_ptr(), c"border".as_ptr()) == 0 as ::core::ffi::c_int
-        {
+        } else if strcasecmp(self.last_key.as_ptr(), c"border".as_ptr()) == 0_i32 {
             let owned_buf_0 = property_string(std::slice::from_raw_parts(val, len));
             let buf_0 = owned_buf_0.as_ptr();
-            if strcasecmp(buf_0, c"none".as_ptr()) == 0 as ::core::ffi::c_int {
+            if strcasecmp(buf_0, c"none".as_ptr()) == 0_i32 {
                 (*self.json_node).border_style = BorderStyle::None;
                 (*self.json_node).max_user_border_style = (*self.json_node).border_style;
-            } else if strcasecmp(buf_0, c"1pixel".as_ptr()) == 0 as ::core::ffi::c_int {
+            } else if strcasecmp(buf_0, c"1pixel".as_ptr()) == 0_i32 {
                 (*self.json_node).border_style = BorderStyle::Pixel;
                 (*self.json_node).max_user_border_style = (*self.json_node).border_style;
-                (*self.json_node).current_border_width = 1 as ::core::ffi::c_int;
-            } else if strcasecmp(buf_0, c"pixel".as_ptr()) == 0 as ::core::ffi::c_int {
+                (*self.json_node).current_border_width = 1_i32;
+            } else if strcasecmp(buf_0, c"pixel".as_ptr()) == 0_i32 {
                 (*self.json_node).border_style = BorderStyle::Pixel;
                 (*self.json_node).max_user_border_style = (*self.json_node).border_style;
-            } else if strcasecmp(buf_0, c"normal".as_ptr()) == 0 as ::core::ffi::c_int {
+            } else if strcasecmp(buf_0, c"normal".as_ptr()) == 0_i32 {
                 (*self.json_node).border_style = BorderStyle::Normal;
                 (*self.json_node).max_user_border_style = (*self.json_node).border_style;
             } else {
@@ -657,20 +632,20 @@ impl LayoutState {
                     }
                 };
             }
-        } else if strcasecmp(self.last_key.as_ptr(), c"type".as_ptr()) == 0 as ::core::ffi::c_int {
+        } else if strcasecmp(self.last_key.as_ptr(), c"type".as_ptr()) == 0_i32 {
             let owned_buf_1 = property_string(std::slice::from_raw_parts(val, len));
             let buf_1 = owned_buf_1.as_ptr();
-            if strcasecmp(buf_1, c"root".as_ptr()) == 0 as ::core::ffi::c_int {
+            if strcasecmp(buf_1, c"root".as_ptr()) == 0_i32 {
                 (*self.json_node).type_0 = ContainerType::Root;
-            } else if strcasecmp(buf_1, c"output".as_ptr()) == 0 as ::core::ffi::c_int {
+            } else if strcasecmp(buf_1, c"output".as_ptr()) == 0_i32 {
                 (*self.json_node).type_0 = ContainerType::Output;
-            } else if strcasecmp(buf_1, c"con".as_ptr()) == 0 as ::core::ffi::c_int {
+            } else if strcasecmp(buf_1, c"con".as_ptr()) == 0_i32 {
                 (*self.json_node).type_0 = ContainerType::Con;
-            } else if strcasecmp(buf_1, c"floating_con".as_ptr()) == 0 as ::core::ffi::c_int {
+            } else if strcasecmp(buf_1, c"floating_con".as_ptr()) == 0_i32 {
                 (*self.json_node).type_0 = ContainerType::Floating;
-            } else if strcasecmp(buf_1, c"workspace".as_ptr()) == 0 as ::core::ffi::c_int {
+            } else if strcasecmp(buf_1, c"workspace".as_ptr()) == 0_i32 {
                 (*self.json_node).type_0 = ContainerType::Workspace;
-            } else if strcasecmp(buf_1, c"dockarea".as_ptr()) == 0 as ::core::ffi::c_int {
+            } else if strcasecmp(buf_1, c"dockarea".as_ptr()) == 0_i32 {
                 (*self.json_node).type_0 = ContainerType::DockArea;
             } else {
                 {
@@ -702,23 +677,22 @@ impl LayoutState {
                     }
                 };
             }
-        } else if strcasecmp(self.last_key.as_ptr(), c"layout".as_ptr()) == 0 as ::core::ffi::c_int
-        {
+        } else if strcasecmp(self.last_key.as_ptr(), c"layout".as_ptr()) == 0_i32 {
             let owned_buf_2 = property_string(std::slice::from_raw_parts(val, len));
             let buf_2 = owned_buf_2.as_ptr();
-            if strcasecmp(buf_2, c"default".as_ptr()) == 0 as ::core::ffi::c_int {
+            if strcasecmp(buf_2, c"default".as_ptr()) == 0_i32 {
                 (*self.json_node).layout = (*self.json_node).last_split_layout;
-            } else if strcasecmp(buf_2, c"stacked".as_ptr()) == 0 as ::core::ffi::c_int {
+            } else if strcasecmp(buf_2, c"stacked".as_ptr()) == 0_i32 {
                 (*self.json_node).layout = Layout::Stacked;
-            } else if strcasecmp(buf_2, c"tabbed".as_ptr()) == 0 as ::core::ffi::c_int {
+            } else if strcasecmp(buf_2, c"tabbed".as_ptr()) == 0_i32 {
                 (*self.json_node).layout = Layout::Tabbed;
-            } else if strcasecmp(buf_2, c"dockarea".as_ptr()) == 0 as ::core::ffi::c_int {
+            } else if strcasecmp(buf_2, c"dockarea".as_ptr()) == 0_i32 {
                 (*self.json_node).layout = Layout::DockArea;
-            } else if strcasecmp(buf_2, c"output".as_ptr()) == 0 as ::core::ffi::c_int {
+            } else if strcasecmp(buf_2, c"output".as_ptr()) == 0_i32 {
                 (*self.json_node).layout = Layout::Output;
-            } else if strcasecmp(buf_2, c"splith".as_ptr()) == 0 as ::core::ffi::c_int {
+            } else if strcasecmp(buf_2, c"splith".as_ptr()) == 0_i32 {
                 (*self.json_node).layout = Layout::SplitH;
-            } else if strcasecmp(buf_2, c"splitv".as_ptr()) == 0 as ::core::ffi::c_int {
+            } else if strcasecmp(buf_2, c"splitv".as_ptr()) == 0_i32 {
                 (*self.json_node).layout = Layout::SplitV;
             } else {
                 {
@@ -750,16 +724,14 @@ impl LayoutState {
                     }
                 };
             }
-        } else if strcasecmp(self.last_key.as_ptr(), c"workspace_layout".as_ptr())
-            == 0 as ::core::ffi::c_int
-        {
+        } else if strcasecmp(self.last_key.as_ptr(), c"workspace_layout".as_ptr()) == 0_i32 {
             let owned_buf_3 = property_string(std::slice::from_raw_parts(val, len));
             let buf_3 = owned_buf_3.as_ptr();
-            if strcasecmp(buf_3, c"default".as_ptr()) == 0 as ::core::ffi::c_int {
+            if strcasecmp(buf_3, c"default".as_ptr()) == 0_i32 {
                 (*self.json_node).workspace_layout = Layout::Default;
-            } else if strcasecmp(buf_3, c"stacked".as_ptr()) == 0 as ::core::ffi::c_int {
+            } else if strcasecmp(buf_3, c"stacked".as_ptr()) == 0_i32 {
                 (*self.json_node).workspace_layout = Layout::Stacked;
-            } else if strcasecmp(buf_3, c"tabbed".as_ptr()) == 0 as ::core::ffi::c_int {
+            } else if strcasecmp(buf_3, c"tabbed".as_ptr()) == 0_i32 {
                 (*self.json_node).workspace_layout = Layout::Tabbed;
             } else {
                 {
@@ -791,14 +763,12 @@ impl LayoutState {
                     }
                 };
             }
-        } else if strcasecmp(self.last_key.as_ptr(), c"last_split_layout".as_ptr())
-            == 0 as ::core::ffi::c_int
-        {
+        } else if strcasecmp(self.last_key.as_ptr(), c"last_split_layout".as_ptr()) == 0_i32 {
             let owned_buf_4 = property_string(std::slice::from_raw_parts(val, len));
             let buf_4 = owned_buf_4.as_ptr();
-            if strcasecmp(buf_4, c"splith".as_ptr()) == 0 as ::core::ffi::c_int {
+            if strcasecmp(buf_4, c"splith".as_ptr()) == 0_i32 {
                 (*self.json_node).last_split_layout = Layout::SplitH;
-            } else if strcasecmp(buf_4, c"splitv".as_ptr()) == 0 as ::core::ffi::c_int {
+            } else if strcasecmp(buf_4, c"splitv".as_ptr()) == 0_i32 {
                 (*self.json_node).last_split_layout = Layout::SplitV;
             } else {
                 {
@@ -830,52 +800,46 @@ impl LayoutState {
                     }
                 };
             }
-        } else if strcasecmp(self.last_key.as_ptr(), c"mark".as_ptr()) == 0 as ::core::ffi::c_int {
+        } else if strcasecmp(self.last_key.as_ptr(), c"mark".as_ptr()) == 0_i32 {
             ::log::debug!(
                 "../src/load_layout.c:json_string:443 - Found deprecated key \"mark\".\n"
             );
             let owned_buf_5 = property_string(std::slice::from_raw_parts(val, len));
             let buf_5 = owned_buf_5.as_ptr();
             con_mark(self.json_node, buf_5, MarkMode::Replace);
-        } else if strcasecmp(self.last_key.as_ptr(), c"floating".as_ptr())
-            == 0 as ::core::ffi::c_int
-        {
+        } else if strcasecmp(self.last_key.as_ptr(), c"floating".as_ptr()) == 0_i32 {
             let owned_buf_6 = property_string(std::slice::from_raw_parts(val, len));
             let buf_6 = owned_buf_6.as_ptr();
-            if strcasecmp(buf_6, c"auto_off".as_ptr()) == 0 as ::core::ffi::c_int {
+            if strcasecmp(buf_6, c"auto_off".as_ptr()) == 0_i32 {
                 (*self.json_node).floating = FloatingState::AutoOff;
-            } else if strcasecmp(buf_6, c"auto_on".as_ptr()) == 0 as ::core::ffi::c_int {
+            } else if strcasecmp(buf_6, c"auto_on".as_ptr()) == 0_i32 {
                 (*self.json_node).floating = FloatingState::AutoOn;
-            } else if strcasecmp(buf_6, c"user_off".as_ptr()) == 0 as ::core::ffi::c_int {
+            } else if strcasecmp(buf_6, c"user_off".as_ptr()) == 0_i32 {
                 (*self.json_node).floating = FloatingState::UserOff;
-            } else if strcasecmp(buf_6, c"user_on".as_ptr()) == 0 as ::core::ffi::c_int {
+            } else if strcasecmp(buf_6, c"user_on".as_ptr()) == 0_i32 {
                 (*self.json_node).floating = FloatingState::UserOn;
             }
-        } else if strcasecmp(self.last_key.as_ptr(), c"scratchpad_state".as_ptr())
-            == 0 as ::core::ffi::c_int
-        {
+        } else if strcasecmp(self.last_key.as_ptr(), c"scratchpad_state".as_ptr()) == 0_i32 {
             let owned_buf_7 = property_string(std::slice::from_raw_parts(val, len));
             let buf_7 = owned_buf_7.as_ptr();
-            if strcasecmp(buf_7, c"none".as_ptr()) == 0 as ::core::ffi::c_int {
+            if strcasecmp(buf_7, c"none".as_ptr()) == 0_i32 {
                 (*self.json_node).scratchpad_state = ScratchpadState::None;
-            } else if strcasecmp(buf_7, c"fresh".as_ptr()) == 0 as ::core::ffi::c_int {
+            } else if strcasecmp(buf_7, c"fresh".as_ptr()) == 0_i32 {
                 (*self.json_node).scratchpad_state = ScratchpadState::Fresh;
-            } else if strcasecmp(buf_7, c"changed".as_ptr()) == 0 as ::core::ffi::c_int {
+            } else if strcasecmp(buf_7, c"changed".as_ptr()) == 0_i32 {
                 (*self.json_node).scratchpad_state = ScratchpadState::Changed;
             }
-        } else if strcasecmp(self.last_key.as_ptr(), c"previous_workspace_name".as_ptr())
-            == 0 as ::core::ffi::c_int
-        {
+        } else if strcasecmp(self.last_key.as_ptr(), c"previous_workspace_name".as_ptr()) == 0_i32 {
             free(previous_workspace_name as *mut ::core::ffi::c_void);
             previous_workspace_name = ::core::ptr::null_mut::<::core::ffi::c_char>();
             previous_workspace_name = sstrndup(val as *const ::core::ffi::c_char, len);
         }
-        1 as ::core::ffi::c_int
+        1_i32
     }
-    unsafe fn json_int(&mut self, val: ::core::ffi::c_longlong) -> ::core::ffi::c_int {
+    unsafe fn json_int(&mut self, val: i64) -> i32 {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_value_0 = (val) as libc::c_longlong;
+            let log_value_0 = (val);
             let log_value_1 = {
                 let pointer: *const libc::c_char = self.last_key.as_ptr();
                 i3_common::logging::string_bytes(
@@ -902,34 +866,26 @@ impl LayoutState {
                 );
             }
         };
-        if strcasecmp(self.last_key.as_ptr(), c"type".as_ptr()) == 0 as ::core::ffi::c_int {
+        if strcasecmp(self.last_key.as_ptr(), c"type".as_ptr()) == 0_i32 {
             (*self.json_node).type_0 = ContainerType::from_raw(val as u32);
         }
-        if strcasecmp(self.last_key.as_ptr(), c"fullscreen_mode".as_ptr())
-            == 0 as ::core::ffi::c_int
-        {
+        if strcasecmp(self.last_key.as_ptr(), c"fullscreen_mode".as_ptr()) == 0_i32 {
             (*self.json_node).fullscreen_mode = FullscreenMode::from_raw(val as u32);
         }
-        if strcasecmp(self.last_key.as_ptr(), c"num".as_ptr()) == 0 as ::core::ffi::c_int {
-            (*self.json_node).num = val as ::core::ffi::c_int;
+        if strcasecmp(self.last_key.as_ptr(), c"num".as_ptr()) == 0_i32 {
+            (*self.json_node).num = val as i32;
         }
-        if strcasecmp(self.last_key.as_ptr(), c"current_border_width".as_ptr())
-            == 0 as ::core::ffi::c_int
-        {
-            (*self.json_node).current_border_width = val as ::core::ffi::c_int;
+        if strcasecmp(self.last_key.as_ptr(), c"current_border_width".as_ptr()) == 0_i32 {
+            (*self.json_node).current_border_width = val as i32;
         }
-        if strcasecmp(self.last_key.as_ptr(), c"window_icon_padding".as_ptr())
-            == 0 as ::core::ffi::c_int
-        {
-            (*self.json_node).window_icon_padding = val as ::core::ffi::c_int;
+        if strcasecmp(self.last_key.as_ptr(), c"window_icon_padding".as_ptr()) == 0_i32 {
+            (*self.json_node).window_icon_padding = val as i32;
         }
-        if strcasecmp(self.last_key.as_ptr(), c"depth".as_ptr()) == 0 as ::core::ffi::c_int {
+        if strcasecmp(self.last_key.as_ptr(), c"depth".as_ptr()) == 0_i32 {
             (*self.json_node).depth = val as u16;
         }
-        if !self.parsing_swallows
-            && strcasecmp(self.last_key.as_ptr(), c"id".as_ptr()) == 0 as ::core::ffi::c_int
-        {
-            (*self.json_node).old_id = val as ::core::ffi::c_int;
+        if !self.parsing_swallows && strcasecmp(self.last_key.as_ptr(), c"id".as_ptr()) == 0_i32 {
+            (*self.json_node).old_id = val as i32;
         }
         if self.parsing_focus {
             self.focus_mappings.push(val as i32);
@@ -984,44 +940,35 @@ impl LayoutState {
             );
         }
         if self.parsing_swallows {
-            if strcasecmp(self.last_key.as_ptr(), c"id".as_ptr()) == 0 as ::core::ffi::c_int {
+            if strcasecmp(self.last_key.as_ptr(), c"id".as_ptr()) == 0_i32 {
                 (*self.current_swallow).id = val as u32;
                 self.swallow_is_empty = false;
             }
-            if strcasecmp(self.last_key.as_ptr(), c"dock".as_ptr()) == 0 as ::core::ffi::c_int {
+            if strcasecmp(self.last_key.as_ptr(), c"dock".as_ptr()) == 0_i32 {
                 (*self.current_swallow).dock = DockMatch::from_raw(val as i32);
                 self.swallow_is_empty = false;
             }
-            if strcasecmp(self.last_key.as_ptr(), c"insert_where".as_ptr())
-                == 0 as ::core::ffi::c_int
-            {
+            if strcasecmp(self.last_key.as_ptr(), c"insert_where".as_ptr()) == 0_i32 {
                 (*self.current_swallow).insert_where = MatchInsertWhere::from_raw(val as u32);
                 self.swallow_is_empty = false;
             }
         }
         if self.parsing_gaps {
-            if strcasecmp(self.last_key.as_ptr(), c"inner".as_ptr()) == 0 as ::core::ffi::c_int {
-                (*self.json_node).gaps.inner = val as ::core::ffi::c_int;
-            } else if strcasecmp(self.last_key.as_ptr(), c"top".as_ptr()) == 0 as ::core::ffi::c_int
-            {
-                (*self.json_node).gaps.top = val as ::core::ffi::c_int;
-            } else if strcasecmp(self.last_key.as_ptr(), c"right".as_ptr())
-                == 0 as ::core::ffi::c_int
-            {
-                (*self.json_node).gaps.right = val as ::core::ffi::c_int;
-            } else if strcasecmp(self.last_key.as_ptr(), c"bottom".as_ptr())
-                == 0 as ::core::ffi::c_int
-            {
-                (*self.json_node).gaps.bottom = val as ::core::ffi::c_int;
-            } else if strcasecmp(self.last_key.as_ptr(), c"left".as_ptr())
-                == 0 as ::core::ffi::c_int
-            {
-                (*self.json_node).gaps.left = val as ::core::ffi::c_int;
+            if strcasecmp(self.last_key.as_ptr(), c"inner".as_ptr()) == 0_i32 {
+                (*self.json_node).gaps.inner = val as i32;
+            } else if strcasecmp(self.last_key.as_ptr(), c"top".as_ptr()) == 0_i32 {
+                (*self.json_node).gaps.top = val as i32;
+            } else if strcasecmp(self.last_key.as_ptr(), c"right".as_ptr()) == 0_i32 {
+                (*self.json_node).gaps.right = val as i32;
+            } else if strcasecmp(self.last_key.as_ptr(), c"bottom".as_ptr()) == 0_i32 {
+                (*self.json_node).gaps.bottom = val as i32;
+            } else if strcasecmp(self.last_key.as_ptr(), c"left".as_ptr()) == 0_i32 {
+                (*self.json_node).gaps.left = val as i32;
             }
         }
-        1 as ::core::ffi::c_int
+        1_i32
     }
-    unsafe fn json_bool(&mut self, val: ::core::ffi::c_int) -> ::core::ffi::c_int {
+    unsafe fn json_bool(&mut self, val: i32) -> i32 {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_value_0 = (val);
@@ -1051,24 +998,21 @@ impl LayoutState {
                 );
             }
         };
-        if strcasecmp(self.last_key.as_ptr(), c"focused".as_ptr()) == 0 as ::core::ffi::c_int
-            && val != 0
-        {
+        if strcasecmp(self.last_key.as_ptr(), c"focused".as_ptr()) == 0_i32 && val != 0 {
             self.to_focus = self.json_node;
         }
-        if strcasecmp(self.last_key.as_ptr(), c"sticky".as_ptr()) == 0 as ::core::ffi::c_int {
+        if strcasecmp(self.last_key.as_ptr(), c"sticky".as_ptr()) == 0_i32 {
             (*self.json_node).sticky = val != 0;
         }
         if self.parsing_swallows
-            && strcasecmp(self.last_key.as_ptr(), c"restart_mode".as_ptr())
-                == 0 as ::core::ffi::c_int
+            && strcasecmp(self.last_key.as_ptr(), c"restart_mode".as_ptr()) == 0_i32
         {
             (*self.current_swallow).restart_mode = val != 0;
             self.swallow_is_empty = false;
         }
-        1 as ::core::ffi::c_int
+        1_i32
     }
-    unsafe fn json_double(&mut self, val: ::core::ffi::c_double) -> ::core::ffi::c_int {
+    unsafe fn json_double(&mut self, val: f64) -> i32 {
         let value = i3_common::logging::fixed_decimal(val, i3_common::logging::FixedPrecision::Six);
         let key = self.last_key.clone();
         if let (Ok(value), Ok(key)) = (std::str::from_utf8(&value), key.to_str()) {
@@ -1079,10 +1023,10 @@ impl LayoutState {
                 &[b"double ", &value, b" for key ", key.to_bytes(), b"\n"],
             );
         }
-        if strcasecmp(self.last_key.as_ptr(), c"percent".as_ptr()) == 0 as ::core::ffi::c_int {
+        if strcasecmp(self.last_key.as_ptr(), c"percent".as_ptr()) == 0_i32 {
             (*self.json_node).percent = val;
         }
-        1 as ::core::ffi::c_int
+        1_i32
     }
 }
 struct LayoutEvents {

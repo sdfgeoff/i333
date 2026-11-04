@@ -35,10 +35,8 @@ pub type tiling_drag_t = TilingDrag;
 pub type ylength = usize;
 
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
-pub const I3_IPC_EVENT_MASK: ::core::ffi::c_ulong =
-    (1 as ::core::ffi::c_ulong) << 31 as ::core::ffi::c_int;
-pub const I3_IPC_EVENT_WORKSPACE: ::core::ffi::c_ulong =
-    I3_IPC_EVENT_MASK | 0 as ::core::ffi::c_ulong;
+pub const I3_IPC_EVENT_MASK: u64 = 1_u64 << 31_i32;
+pub const I3_IPC_EVENT_WORKSPACE: u64 = I3_IPC_EVENT_MASK | 0_u64;
 
 pub unsafe fn con_force_split_parents_redraw(con: *mut Con) {
     let mut parent: *mut Con = con;
@@ -62,8 +60,8 @@ pub unsafe fn con_new_skeleton(parent: *mut Con, window: *mut i3Window) -> *mut 
     (*new).window = window;
     (*new).max_user_border_style = config.default_border;
     (*new).border_style = (*new).max_user_border_style;
-    (*new).current_border_width = -(1 as ::core::ffi::c_int);
-    (*new).window_icon_padding = -(1 as ::core::ffi::c_int);
+    (*new).current_border_width = -1_i32;
+    (*new).window_icon_padding = -1_i32;
     if !window.is_null() {
         (*new).depth = (*window).depth;
     } else {
@@ -161,17 +159,17 @@ unsafe fn _con_attach(con: *mut Con, parent: *mut Con, previous: *mut Con, ignor
             .and_then(arena::resolve)
             .unwrap_or(std::ptr::null_mut());
         while !loop_0.is_null() {
-            let mut result: ::core::ffi::c_int = strcasecmp_nullable(
+            let mut result: i32 = strcasecmp_nullable(
                 (*(*con).window).class_class_ptr(),
                 (*(*loop_0).window).class_class_ptr(),
             );
-            if result == 0 as ::core::ffi::c_int {
+            if result == 0_i32 {
                 result = strcasecmp_nullable(
                     (*(*con).window).class_instance_ptr(),
                     (*(*loop_0).window).class_instance_ptr(),
                 );
             }
-            if result < 0 as ::core::ffi::c_int {
+            if result < 0_i32 {
                 current = loop_0;
                 break;
             } else {
@@ -382,7 +380,7 @@ pub fn con_is_leaf(con: *mut Con) -> bool {
 pub unsafe fn con_has_managed_window(con: *mut Con) -> bool {
     !con.is_null()
         && !(*con).window.is_null()
-        && (*(*con).window).id != 0 as ::core::ffi::c_int as u32
+        && (*(*con).window).id != 0_i32 as u32
         && !con_get_workspace(con).is_null()
 }
 
@@ -444,7 +442,7 @@ pub unsafe fn con_is_maximized(con: *mut Con, orientation: Orientation) -> bool 
         if parent.is_null() || ((*current).type_0) == ContainerType::Workspace {
             return true;
         }
-        if (*parent).layout == layout && con_num_children(parent) > 1 as ::core::ffi::c_int {
+        if (*parent).layout == layout && con_num_children(parent) > 1_i32 {
             return false;
         }
         if ((*parent).type_0) == ContainerType::Floating {
@@ -651,7 +649,7 @@ pub unsafe fn con_by_window_id(window: u32) -> *mut Con {
     ::core::ptr::null_mut::<Con>()
 }
 
-pub fn con_by_con_id(target: ::core::ffi::c_long) -> *mut Con {
+pub fn con_by_con_id(target: i64) -> *mut Con {
     arena::lookup_address(target as usize)
 }
 
@@ -685,10 +683,10 @@ pub unsafe fn con_by_mark(mark: *const ::core::ffi::c_char) -> *mut Con {
 
 pub unsafe fn con_find_transient_for_window(start: *mut Con, target: u32) -> bool {
     let mut transient_con: *mut Con = start;
-    let mut count: ::core::ffi::c_int = con_num_windows(croot);
+    let mut count: i32 = con_num_windows(croot);
     while !transient_con.is_null()
         && !(*transient_con).window.is_null()
-        && (*(*transient_con).window).transient_for as ::core::ffi::c_long != 0
+        && (*(*transient_con).window).transient_for as i64 != 0
     {
         ::log::debug!("../src/con.c:con_find_transient_for_window:829 - transient_con = 0x{:08x}, transient_con->window->transient_for = 0x{:08x}, target = 0x{:08x}\n", { ((*(*transient_con).window).id) }, { ((*(*transient_con).window).transient_for) }, { (target) });
         if (*(*transient_con).window).transient_for == target {
@@ -704,7 +702,7 @@ pub unsafe fn con_find_transient_for_window(start: *mut Con, target: u32) -> boo
         transient_con = next_transient;
         let fresh0 = count;
         count -= 1;
-        if fresh0 <= 0 as ::core::ffi::c_int {
+        if fresh0 <= 0_i32 {
             break;
         }
     }
@@ -715,7 +713,7 @@ pub unsafe fn con_has_mark(con: *mut Con, mark: *const ::core::ffi::c_char) -> b
     let mut current: *mut mark_t = (*con).marks_head.tqh_first;
 
     while !current.is_null() {
-        if strcmp((*current).name, mark) == 0 as ::core::ffi::c_int {
+        if strcmp((*current).name, mark) == 0_i32 {
             return true;
         }
         current = (*current).marks.tqe_next;
@@ -912,7 +910,7 @@ pub unsafe fn con_unmark(con: *mut Con, name: *const ::core::ffi::c_char) {
         let mut mark_0: *mut mark_t = (*current).marks_head.tqh_first;
 
         while !mark_0.is_null() {
-            if strcmp((*mark_0).name, name) != 0 as ::core::ffi::c_int {
+            if strcmp((*mark_0).name, name) != 0_i32 {
                 mark_0 = (*mark_0).marks.tqe_next;
             } else {
                 free((*mark_0).name as *mut ::core::ffi::c_void);
@@ -1014,11 +1012,11 @@ pub unsafe fn set_focus_order(con: *mut Con, focus_order: &[ConId]) {
         .expect("focus snapshot must permute retained membership");
 }
 
-pub fn con_num_children(con: *mut Con) -> ::core::ffi::c_int {
-    nodes::len_ptr(con) as ::core::ffi::c_int
+pub fn con_num_children(con: *mut Con) -> i32 {
+    nodes::len_ptr(con) as i32
 }
 
-pub unsafe fn con_num_visible_children(con: *mut Con) -> ::core::ffi::c_int {
+pub unsafe fn con_num_visible_children(con: *mut Con) -> i32 {
     if con.is_null() {
         return 0;
     }
@@ -1035,14 +1033,14 @@ pub unsafe fn con_num_visible_children(con: *mut Con) -> ::core::ffi::c_int {
     children
 }
 
-pub unsafe fn con_num_windows(con: *mut Con) -> ::core::ffi::c_int {
+pub unsafe fn con_num_windows(con: *mut Con) -> i32 {
     if con.is_null() {
-        return 0 as ::core::ffi::c_int;
+        return 0_i32;
     }
     if con_has_managed_window(con) {
-        return 1 as ::core::ffi::c_int;
+        return 1_i32;
     }
-    let mut num: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
+    let mut num: i32 = 0_i32;
     let mut current: *mut Con = nodes::first_ptr(con);
 
     while !current.is_null() {
@@ -1377,7 +1375,7 @@ unsafe fn _con_move_to_con(
                 (log_owner_2.as_deref()).map(std::ffi::CStr::to_bytes),
                 None,
             );
-            let log_value_2 = (((*target).type_0).raw() as ::core::ffi::c_uint) as i32;
+            let log_value_2 = ((*target).type_0).raw() as i32;
             if let (Ok(log_value_1_text),) = (std::str::from_utf8(log_value_1),) {
                 ::log::debug!(
                     "../src/con.c:_con_move_to_con:1369 - target originally = {} / {} / type {}\n",
@@ -1636,8 +1634,8 @@ pub unsafe fn con_move_to_workspace(
 
 pub unsafe fn con_move_to_output(con: *mut Con, output: *mut Output, fix_coordinates: bool) {
     let mut ws: *mut Con = ::core::ptr::null_mut::<Con>();
-    let mut child: *mut Con = -(1 as ::core::ffi::c_int) as *mut Con;
-    while child == -(1 as ::core::ffi::c_int) as *mut Con && {
+    let mut child: *mut Con = -1_i32 as *mut Con;
+    while child == -1_i32 as *mut Con && {
         child = ::core::ptr::null_mut::<Con>();
         true
     } {
@@ -1886,10 +1884,7 @@ pub unsafe fn con_descend_direction(con: *mut Con, direction: Direction) -> *mut
     con_descend_direction(most, direction)
 }
 fn has_outer_gaps(gaps: gaps_t) -> bool {
-    gaps.top > 0 as ::core::ffi::c_int
-        || gaps.right > 0 as ::core::ffi::c_int
-        || gaps.bottom > 0 as ::core::ffi::c_int
-        || gaps.left > 0 as ::core::ffi::c_int
+    gaps.top > 0_i32 || gaps.right > 0_i32 || gaps.bottom > 0_i32 || gaps.left > 0_i32
 }
 
 pub unsafe fn con_draw_decoration_into_frame(con: *mut Con) -> bool {
@@ -1959,9 +1954,9 @@ fn adjacent_borders(rect: Rect, workspace: Rect) -> adjacent_t {
 
 unsafe fn con_border_style_rect_without_title(con: *mut Con) -> Rect {
     if (config.hide_edge_borders == HideEdgeBordersMode::Smart
-        && con_num_visible_children(con_get_workspace(con)) <= 1 as ::core::ffi::c_int
+        && con_num_visible_children(con_get_workspace(con)) <= 1_i32
         || config.hide_edge_borders == HideEdgeBordersMode::SmartNoGaps
-            && con_num_visible_children(con_get_workspace(con)) <= 1 as ::core::ffi::c_int
+            && con_num_visible_children(con_get_workspace(con)) <= 1_i32
             && !has_outer_gaps(calculate_effective_gaps(con)))
         && !con_is_floating(con)
     {
@@ -1972,16 +1967,16 @@ unsafe fn con_border_style_rect_without_title(con: *mut Con) -> Rect {
             height: 0_u32,
         };
     }
-    let mut border_width: ::core::ffi::c_int = (*con).current_border_width;
+    let mut border_width: i32 = (*con).current_border_width;
     ::log::debug!("../src/con.c:con_border_style_rect_without_title:1831 - The border width for con is set to: {}\n", { ((*con).current_border_width) });
-    if (*con).current_border_width < 0 as ::core::ffi::c_int {
+    if (*con).current_border_width < 0_i32 {
         if con_is_floating(con) {
             border_width = config.default_floating_border_width;
         } else {
             border_width = config.default_border_width;
         }
     }
-    ::log::debug!("../src/con.c:con_border_style_rect_without_title:1840 - Effective border width is set to: {}\n", (border_width) as i32);
+    ::log::debug!("../src/con.c:con_border_style_rect_without_title:1840 - Effective border width is set to: {}\n", { (border_width) });
     let border_style: BorderStyle = con_border_style(con);
     if border_style == BorderStyle::None {
         return border_rect(border_style, border_width, AdjacentEdges::empty());
@@ -1998,7 +1993,7 @@ unsafe fn con_border_style_rect_without_title(con: *mut Con) -> Rect {
 pub unsafe fn con_border_style_rect(con: *mut Con) -> Rect {
     let mut result: Rect = con_border_style_rect_without_title(con);
     if con_border_style(con) == BorderStyle::Normal && con_draw_decoration_into_frame(con) {
-        let deco_height: ::core::ffi::c_int = render_deco_height() as ::core::ffi::c_int;
+        let deco_height: i32 = render_deco_height();
         result.y = result.y.wrapping_add(deco_height as u32);
         result.height = result.height.wrapping_sub(deco_height as u32);
     }
@@ -2024,7 +2019,7 @@ pub unsafe fn con_border_style(con: *mut Con) -> BorderStyle {
     }
     if !parent_ptr(con).is_null() {
         if (*parent_ptr(con)).layout == Layout::Stacked {
-            return if con_num_children(parent_ptr(con)) == 1 as ::core::ffi::c_int {
+            return if con_num_children(parent_ptr(con)) == 1_i32 {
                 (*con).border_style
             } else {
                 BorderStyle::Normal
@@ -2032,7 +2027,7 @@ pub unsafe fn con_border_style(con: *mut Con) -> BorderStyle {
         }
         if (*parent_ptr(con)).layout == Layout::Tabbed && (*con).border_style != BorderStyle::Normal
         {
-            return if con_num_children(parent_ptr(con)) == 1 as ::core::ffi::c_int {
+            return if con_num_children(parent_ptr(con)) == 1_i32 {
                 (*con).border_style
             } else {
                 BorderStyle::Normal
@@ -2048,9 +2043,9 @@ pub unsafe fn con_border_style(con: *mut Con) -> BorderStyle {
 pub unsafe fn con_set_border_style(
     con: *mut Con,
     mut border_style: BorderStyle,
-    border_width: ::core::ffi::c_int,
+    border_width: i32,
 ) {
-    if border_style as ::core::ffi::c_uint > (*con).max_user_border_style as ::core::ffi::c_uint {
+    if border_style as u32 > (*con).max_user_border_style as u32 {
         border_style = (*con).max_user_border_style;
     }
     if !con_is_floating(con) {
@@ -2083,7 +2078,7 @@ pub unsafe fn con_set_layout(mut con: *mut Con, layout: Layout) {
         (*con).last_split_layout = (*con).layout;
     }
     if ((*con).type_0) == ContainerType::Workspace {
-        if con_num_children(con) == 0 as ::core::ffi::c_int {
+        if con_num_children(con) == 0_i32 {
             let ws_layout: Layout = if layout == Layout::Stacked || layout == Layout::Tabbed {
                 layout
             } else {
@@ -2129,8 +2124,8 @@ pub unsafe fn con_set_layout(mut con: *mut Con, layout: Layout) {
     }
     if ((*con).type_0) != ContainerType::Workspace
         && ((*parent_ptr(con)).type_0) != ContainerType::Workspace
-        && con_num_children(con) == 1 as ::core::ffi::c_int
-        && con_num_children(parent_ptr(con)) == 1 as ::core::ffi::c_int
+        && con_num_children(con) == 1_i32
+        && con_num_children(parent_ptr(con)) == 1_i32
     {
         let parent: *mut Con = parent_ptr(con);
         let child_0: *mut Con = nodes::first_ptr(con);
@@ -2299,7 +2294,7 @@ unsafe fn con_on_remove_child(con: *mut Con) {
     {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_value_0 = (((*con).type_0).raw() as ::core::ffi::c_uint) as i32;
+            let log_value_0 = ((*con).type_0).raw() as i32;
             let log_owner_2 = (*con).name.clone();
             let log_value_1 = i3_common::logging::string_bytes(
                 (log_owner_2.as_deref()).map(std::ffi::CStr::to_bytes),
@@ -2358,8 +2353,8 @@ unsafe fn con_on_remove_child(con: *mut Con) {
     con_force_split_parents_redraw(con);
     (*con).urgent = con_has_urgent_child(con);
     con_update_parents_urgency(con);
-    let children: ::core::ffi::c_int = con_num_children(con);
-    if children == 0 as ::core::ffi::c_int {
+    let children: i32 = con_num_children(con);
+    if children == 0_i32 {
         ::log::debug!("../src/con.c:con_on_remove_child:2243 - Container empty, closing\n");
         tree_close_internal(con, KillWindow::DontKill, false);
     }
@@ -2393,14 +2388,8 @@ pub unsafe fn con_minimum_size(con: *mut Con) -> Rect {
         while !child_0.is_null() {
             let min: Rect = con_minimum_size(child_0);
             deco_height = deco_height.wrapping_add((*child_0).deco_rect.height);
-            max_width = max(
-                max_width as ::core::ffi::c_int,
-                min.width as ::core::ffi::c_int,
-            ) as u32;
-            max_height = max(
-                max_height as ::core::ffi::c_int,
-                min.height as ::core::ffi::c_int,
-            ) as u32;
+            max_width = max(max_width as i32, min.width as i32) as u32;
+            max_height = max(max_height as i32, min.height as i32) as u32;
             child_0 = nodes::next_ptr(child_0);
         }
         ::log::debug!("../src/con.c:con_minimum_size:2277 - stacked/tabbed now, returning {} x {} + deco_rect = {}\n", (max_width) as i32, (max_height) as i32, (deco_height) as i32);
@@ -2420,16 +2409,10 @@ pub unsafe fn con_minimum_size(con: *mut Con) -> Rect {
             let min_0: Rect = con_minimum_size(child_1);
             if (*con).layout == Layout::SplitH {
                 width = width.wrapping_add(min_0.width);
-                height = max(
-                    height as ::core::ffi::c_int,
-                    min_0.height as ::core::ffi::c_int,
-                ) as u32;
+                height = max(height as i32, min_0.height as i32) as u32;
             } else {
                 height = height.wrapping_add(min_0.height);
-                width = max(
-                    width as ::core::ffi::c_int,
-                    min_0.width as ::core::ffi::c_int,
-                ) as u32;
+                width = max(width as i32, min_0.width as i32) as u32;
             }
             child_1 = nodes::next_ptr(child_1);
         }

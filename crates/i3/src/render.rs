@@ -139,7 +139,7 @@ pub unsafe fn render_con(con: *mut Con) {
             None,
         );
         let diagnostic_7 = ((*con).layout as u32) as i32;
-        let diagnostic_8 = (params.children) as i32;
+        let diagnostic_8 = (params.children);
         match (std::str::from_utf8(diagnostic_6_bytes),) {
             (Ok(diagnostic_6_text),) => ::log::debug!(
                 concat!(
