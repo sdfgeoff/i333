@@ -392,7 +392,7 @@ pub unsafe fn parse_workspaces_json(json: *const u8, size: usize) {
                 if config.workspace_command.is_some() {
                     crate::child::kill_ws_child();
                     crate::child::set_workspace_button_error(
-                        c"Could not parse workspace_command's JSON".as_ptr(),
+                        b"Could not parse workspace_command's JSON",
                     );
                 } else {
                     std::process::exit(libc::EXIT_FAILURE);

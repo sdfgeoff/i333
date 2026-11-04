@@ -14,7 +14,6 @@ use i3_common::safewrappers::sasprintf;
  */
 // Mechanical file-by-file Rust translation of i3bar/src/child.c.
 // Originally translated with C2Rust 0.22.1; subsequently maintained in Rust.
-use i3_common::i333_va_list;
 pub use libev_sys::{
     ev_child, ev_child_start, ev_child_stop, ev_io, ev_io_start, ev_io_stop, ev_loop, ev_watcher,
     EV_READ, EV__IOFDSET,
@@ -242,39 +241,35 @@ pub unsafe fn clear_statusline(head: *mut statusline_head) {
         drop(Box::from_raw(first));
     }
 }
-unsafe extern "C" fn set_statusline_error(format: *const ::core::ffi::c_char, args: ...) {
-    let mut err_block: *mut status_block = ::core::ptr::null_mut::<status_block>();
-    let mut message_block: *mut status_block = ::core::ptr::null_mut::<status_block>();
+unsafe fn set_statusline_error(message: &[u8]) {
+    let message = message[..message
+        .iter()
+        .position(|&byte| byte == 0)
+        .unwrap_or(message.len())]
+        .to_vec();
     clear_statusline(&raw mut statusline_head);
-    let mut message: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    let mut args_0;
-    args_0 = args.clone();
-    if !(vasprintf(&raw mut message, format, i333_va_list!(args_0)) == -1_i32) {
-        err_block = Box::into_raw(Box::new(status_block::default()));
-        (*err_block).full_text = I3String::new("Error: ");
-        (*err_block).name = Some(b"error".to_vec());
-        (*err_block).color = Some(b"#ff0000".to_vec());
-        (*err_block).no_separator = true;
-        message_block = Box::into_raw(Box::new(status_block::default()));
-        (*message_block).full_text =
-            I3String::from_bytes(std::ffi::CStr::from_ptr(message).to_bytes());
-        (*message_block).name = Some(b"error_message".to_vec());
-        (*message_block).color = Some(b"#ff0000".to_vec());
-        (*message_block).no_separator = true;
-        (*err_block).blocks.tqe_next = statusline_head.tqh_first;
-        if !(*err_block).blocks.tqe_next.is_null() {
-            (*statusline_head.tqh_first).blocks.tqe_prev = &raw mut (*err_block).blocks.tqe_next;
-        } else {
-            statusline_head.tqh_last = &raw mut (*err_block).blocks.tqe_next;
-        }
-        statusline_head.tqh_first = err_block;
-        (*err_block).blocks.tqe_prev = &raw mut statusline_head.tqh_first;
-        (*message_block).blocks.tqe_next = ::core::ptr::null_mut::<status_block>();
-        (*message_block).blocks.tqe_prev = statusline_head.tqh_last;
-        *statusline_head.tqh_last = message_block;
-        statusline_head.tqh_last = &raw mut (*message_block).blocks.tqe_next;
+    let err_block = Box::into_raw(Box::new(status_block::default()));
+    (*err_block).full_text = I3String::new("Error: ");
+    (*err_block).name = Some(b"error".to_vec());
+    (*err_block).color = Some(b"#ff0000".to_vec());
+    (*err_block).no_separator = true;
+    let message_block = Box::into_raw(Box::new(status_block::default()));
+    (*message_block).full_text = I3String::from_bytes(&message);
+    (*message_block).name = Some(b"error_message".to_vec());
+    (*message_block).color = Some(b"#ff0000".to_vec());
+    (*message_block).no_separator = true;
+    (*err_block).blocks.tqe_next = statusline_head.tqh_first;
+    if !(*err_block).blocks.tqe_next.is_null() {
+        (*statusline_head.tqh_first).blocks.tqe_prev = &raw mut (*err_block).blocks.tqe_next;
+    } else {
+        statusline_head.tqh_last = &raw mut (*err_block).blocks.tqe_next;
     }
-    free(message as *mut ::core::ffi::c_void);
+    statusline_head.tqh_first = err_block;
+    (*err_block).blocks.tqe_prev = &raw mut statusline_head.tqh_first;
+    (*message_block).blocks.tqe_next = ::core::ptr::null_mut::<status_block>();
+    (*message_block).blocks.tqe_prev = statusline_head.tqh_last;
+    *statusline_head.tqh_last = message_block;
+    statusline_head.tqh_last = &raw mut (*message_block).blocks.tqe_next;
 }
 unsafe fn cleanup(c: *mut i3bar_child) {
     if (*c).pid == 0_i32 {
@@ -814,7 +809,13 @@ unsafe fn read_json_input(input: &[u8]) -> bool {
                 input.len().min(i32::MAX as usize) as i32,
                 input.as_ptr(),
             );
-            set_statusline_error(c"Could not parse JSON (%s)".as_ptr(), message.as_ptr());
+            set_statusline_error(
+                format!(
+                    "Could not parse JSON ({})",
+                    diagnostic.trim_end_matches('\n')
+                )
+                .as_bytes(),
+            );
             draw_bars(false);
             false
         }
@@ -913,21 +914,16 @@ pub unsafe fn repeat_last_ws_json() {
         parse_workspaces_json(frame.as_ptr(), frame.len());
     }
 }
-unsafe extern "C" fn set_workspace_button_error_f(format: *const ::core::ffi::c_char, args: ...) {
-    let mut message: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    let mut args_0;
-    args_0 = args.clone();
-    if !(vasprintf(&raw mut message, format, i333_va_list!(args_0)) == -1_i32) {
-        set_workspace_button_error(message);
-    }
-    free(message as *mut ::core::ffi::c_void);
-}
-
-pub unsafe fn set_workspace_button_error(message: *const ::core::ffi::c_char) {
-    free_workspaces();
+pub unsafe fn set_workspace_button_error(message: &[u8]) {
     let mut text = b"Error: ".to_vec();
-    text.extend_from_slice(std::ffi::CStr::from_ptr(message).to_bytes());
+    text.extend_from_slice(
+        &message[..message
+            .iter()
+            .position(|&byte| byte == 0)
+            .unwrap_or(message.len())],
+    );
     let name = i3_common::string::I3String::from_bytes(&text);
+    free_workspaces();
     let mut output = (*outputs).slh_first;
     while !output.is_null() {
         let text = name.clone();
@@ -936,6 +932,16 @@ pub unsafe fn set_workspace_button_error(message: *const ::core::ffi::c_char) {
         output = (*output).slist.sle_next;
     }
 }
+fn child_exit_message(command: &str, exit_status: i32) -> String {
+    match exit_status {
+        126 => format!("{command} is not executable (exit {exit_status})"),
+        127 => {
+            format!("{command} not found or is missing a library dependency (exit {exit_status})")
+        }
+        _ => format!("{command} process exited unexpectedly (exit {exit_status})"),
+    }
+}
+
 unsafe extern "C" fn child_sig_cb(
     loop_0: *mut ev_loop,
     watcher: *mut ev_child,
@@ -950,25 +956,16 @@ unsafe extern "C" fn child_sig_cb(
         (*watcher).pid,
         exit_status,
     );
-    let mut error_function_pointer: Option<
-        unsafe extern "C" fn(*const ::core::ffi::c_char, ...) -> (),
-    > = None;
-    let mut command_type: *const ::core::ffi::c_char = c"".as_ptr();
-    let mut c: *mut i3bar_child = ::core::ptr::null_mut::<i3bar_child>();
+    let error_function: unsafe fn(&[u8]);
+    let command_type: &str;
+    let c: *mut i3bar_child;
     if (*watcher).pid == status_child.pid {
-        command_type = c"status_command".as_ptr();
-        error_function_pointer = Some(
-            set_statusline_error as unsafe extern "C" fn(*const ::core::ffi::c_char, ...) -> (),
-        )
-            as Option<unsafe extern "C" fn(*const ::core::ffi::c_char, ...) -> ()>;
+        command_type = "status_command";
+        error_function = set_statusline_error;
         c = &raw mut status_child;
     } else if (*watcher).pid == ws_child.pid {
-        command_type = c"workspace_command".as_ptr();
-        error_function_pointer = Some(
-            set_workspace_button_error_f
-                as unsafe extern "C" fn(*const ::core::ffi::c_char, ...) -> (),
-        )
-            as Option<unsafe extern "C" fn(*const ::core::ffi::c_char, ...) -> ()>;
+        command_type = "workspace_command";
+        error_function = set_workspace_button_error;
         c = &raw mut ws_child;
     } else {
         fprintf(
@@ -1033,25 +1030,7 @@ unsafe extern "C" fn child_sig_cb(
             (*c).click_events_init as ::core::ffi::c_int,
         );
     }
-    if exit_status == 126_i32 {
-        error_function_pointer.expect("non-null function pointer")(
-            c"%s is not executable (exit %d)".as_ptr(),
-            command_type,
-            exit_status,
-        );
-    } else if exit_status == 127_i32 {
-        error_function_pointer.expect("non-null function pointer")(
-            c"%s not found or is missing a library dependency (exit %d)".as_ptr(),
-            command_type,
-            exit_status,
-        );
-    } else {
-        error_function_pointer.expect("non-null function pointer")(
-            c"%s process exited unexpectedly (exit %d)".as_ptr(),
-            command_type,
-            exit_status,
-        );
-    }
+    error_function(child_exit_message(command_type, exit_status).as_bytes());
     cleanup(c);
     draw_bars(false);
 }
@@ -1070,7 +1049,7 @@ unsafe fn child_write_output() {
     if result.is_err() {
         status_child.click_events = false;
         kill_child();
-        set_statusline_error(c"child_write_output failed".as_ptr());
+        set_statusline_error(b"child_write_output failed");
         draw_bars(false);
     }
 }
@@ -1787,7 +1766,7 @@ pub use libc::{
     waitpid,
 };
 
-use i3_common::native_stdio::{__ctype_b_loc, err, stderr, vasprintf};
+use i3_common::native_stdio::{__ctype_b_loc, err, stderr};
 
 // Internal calls and globals use canonical Rust identities.
 use crate::application::main_loop;
@@ -1806,6 +1785,67 @@ pub enum BlockAlign {
 #[cfg(test)]
 mod owned_tests {
     use super::*;
+    #[test]
+    fn error_materialization_matches_native_messages_and_repaired_text_lengths() {
+        if std::env::var_os("I333_BAR_ERROR_PROBE").is_none() {
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "child::owned_tests::error_materialization_matches_native_messages_and_repaired_text_lengths", "--nocapture"])
+                .env("I333_BAR_ERROR_PROBE", "1")
+                .env_remove("DISPLAY").env_remove("I3SOCK").env_remove("WAYLAND_DISPLAY")
+                .output().unwrap();
+            assert!(
+                output.status.success(),
+                "{}\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            return;
+        }
+        for command in ["status_command", "workspace_command"] {
+            let native_command = std::ffi::CString::new(command).unwrap();
+            for status in [0, 1, 126, 127, 255] {
+                let format = match status {
+                    126 => c"%s is not executable (exit %d)",
+                    127 => c"%s not found or is missing a library dependency (exit %d)",
+                    _ => c"%s process exited unexpectedly (exit %d)",
+                };
+                let mut expected = [0u8; 160];
+                let length = unsafe {
+                    libc::snprintf(
+                        expected.as_mut_ptr().cast(),
+                        expected.len(),
+                        format.as_ptr(),
+                        native_command.as_ptr(),
+                        status,
+                    )
+                };
+                assert_eq!(
+                    child_exit_message(command, status).as_bytes(),
+                    &expected[..length as usize]
+                );
+            }
+        }
+        unsafe {
+            assert!(statusline_head.tqh_first.is_null());
+            set_statusline_error(b"bad\xff\0ignored");
+            let first = statusline_head.tqh_first;
+            let message = (*first).blocks.tqe_next;
+            assert_eq!((*first).full_text.as_str().unwrap(), "Error: ");
+            assert_eq!((*message).full_text.as_str().unwrap(), "bad�");
+            assert_eq!((*message).full_text.rendering_byte_len(), 6);
+            assert_eq!(
+                (*message).blocks.tqe_prev,
+                &raw mut (*first).blocks.tqe_next
+            );
+            assert_eq!(
+                statusline_head.tqh_last,
+                &raw mut (*message).blocks.tqe_next
+            );
+            clear_statusline(&raw mut statusline_head);
+            assert_eq!(statusline_head.tqh_last, &raw mut statusline_head.tqh_first);
+        }
+    }
+
     #[test]
     fn owned_status_blocks_unlink_drop_and_allow_reuse_of_the_same_local_queue() {
         let mut head = Box::new(statusline_head {
