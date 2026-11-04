@@ -324,20 +324,7 @@ pub unsafe fn get_output_containing(x: ::core::ffi::c_uint, y: ::core::ffi::c_ui
     output = outputs.tqh_first as *mut Output;
     while !output.is_null() {
         if (*output).active {
-            debuglog(
-                c"%s:%s:%d - comparing x=%d y=%d with x=%d and y=%d width %d height %d\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/randr.c".as_ptr(),
-                c"get_output_containing".as_ptr(),
-                129 as ::core::ffi::c_int,
-                x,
-                y,
-                (*output).rect.x,
-                (*output).rect.y,
-                (*output).rect.width,
-                (*output).rect.height,
-            );
+            ::log::debug!("../src/randr.c:get_output_containing:129 - comparing x={} y={} with x={} and y={} width {} height {}\n", (x) as i32, (y) as i32, ((*output).rect.x) as i32, ((*output).rect.y) as i32, ((*output).rect.width) as i32, ((*output).rect.height) as i32);
             if contains_point((*output).rect, x, y) {
                 return output;
             }
@@ -362,22 +349,7 @@ pub unsafe fn get_output_with_dimensions(rect: Rect) -> *mut Output {
     output = outputs.tqh_first as *mut Output;
     while !output.is_null() {
         if (*output).active {
-            debuglog(
-                c"%s:%s:%d - comparing x=%d y=%d %dx%d with x=%d and y=%d %dx%d\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/randr.c".as_ptr(),
-                c"get_output_with_dimensions".as_ptr(),
-                166 as ::core::ffi::c_int,
-                rect.x,
-                rect.y,
-                rect.width,
-                rect.height,
-                (*output).rect.x,
-                (*output).rect.y,
-                (*output).rect.width,
-                (*output).rect.height,
-            );
+            ::log::debug!("../src/randr.c:get_output_with_dimensions:166 - comparing x={} y={} {}x{} with x={} and y={} {}x{}\n", (rect.x) as i32, (rect.y) as i32, (rect.width) as i32, (rect.height) as i32, ((*output).rect.x) as i32, ((*output).rect.y) as i32, ((*output).rect.width) as i32, ((*output).rect.height) as i32);
             if rect.x == (*output).rect.x
                 && rect.width == (*output).rect.width
                 && rect.y == (*output).rect.y
@@ -397,20 +369,7 @@ pub unsafe fn output_containing_rect(rect: Rect) -> *mut Output {
     output = outputs.tqh_first as *mut Output;
     while !output.is_null() {
         if (*output).active {
-            debuglog(
-                c"%s:%s:%d - comparing x=%d y=%d with x=%d and y=%d width %d height %d\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/randr.c".as_ptr(),
-                c"output_containing_rect".as_ptr(),
-                199 as ::core::ffi::c_int,
-                rect.x,
-                rect.y,
-                (*output).rect.x,
-                (*output).rect.y,
-                (*output).rect.width,
-                (*output).rect.height,
-            );
+            ::log::debug!("../src/randr.c:output_containing_rect:199 - comparing x={} y={} with x={} and y={} width {} height {}\n", (rect.x) as i32, (rect.y) as i32, ((*output).rect.x) as i32, ((*output).rect.y) as i32, ((*output).rect.width) as i32, ((*output).rect.height) as i32);
             if positive_overlap(rect, (*output).rect) {
                 result = output;
             }
@@ -438,14 +397,50 @@ pub unsafe fn get_output_next_wrap(direction: Direction, current: *mut Output) -
     if best.is_null() {
         best = current;
     }
-    debuglog(
-        c"%s:%s:%d - current = %s, best = %s\n".as_ptr().cast_mut(),
-        c"../src/randr.c".as_ptr(),
-        c"get_output_next_wrap".as_ptr(),
-        244 as ::core::ffi::c_int,
-        output_primary_name(current),
-        output_primary_name(best),
-    );
+    {
+        // Snapshot native bytes before the logger can dispatch a callback.
+        let log_pointer_1 = output_primary_name(current);
+        let log_value_0 = i3_common::logging::string_bytes(
+            if log_pointer_1.is_null() {
+                None
+            } else {
+                Some(std::ffi::CStr::from_ptr(log_pointer_1))
+            },
+            None,
+        )
+        .to_vec();
+        let log_pointer_2 = output_primary_name(best);
+        let log_value_1 = i3_common::logging::string_bytes(
+            if log_pointer_2.is_null() {
+                None
+            } else {
+                Some(std::ffi::CStr::from_ptr(log_pointer_2))
+            },
+            None,
+        )
+        .to_vec();
+        if let (Ok(log_value_0_text), Ok(log_value_1_text)) = (
+            std::str::from_utf8(&log_value_0),
+            std::str::from_utf8(&log_value_1),
+        ) {
+            ::log::debug!(
+                "../src/randr.c:get_output_next_wrap:244 - current = {}, best = {}\n",
+                log_value_0_text,
+                log_value_1_text
+            );
+        } else {
+            i3_common::logging::emit_parts(
+                i3_common::logging::Level::Debug,
+                &[
+                    "../src/randr.c:get_output_next_wrap:244 - current = ".as_bytes(),
+                    &log_value_0,
+                    ", best = ".as_bytes(),
+                    &log_value_1,
+                    "\n".as_bytes(),
+                ],
+            );
+        }
+    };
     best
 }
 
@@ -467,18 +462,54 @@ pub unsafe fn get_output_next(
         }
         output = (*output).outputs.tqe_next;
     }
-    debuglog(
-        c"%s:%s:%d - current = %s, best = %s\n".as_ptr().cast_mut(),
-        c"../src/randr.c".as_ptr(),
-        c"get_output_next".as_ptr(),
-        317 as ::core::ffi::c_int,
-        output_primary_name(current),
-        if !best.is_null() {
+    {
+        // Snapshot native bytes before the logger can dispatch a callback.
+        let log_pointer_1 = output_primary_name(current);
+        let log_value_0 = i3_common::logging::string_bytes(
+            if log_pointer_1.is_null() {
+                None
+            } else {
+                Some(std::ffi::CStr::from_ptr(log_pointer_1))
+            },
+            None,
+        )
+        .to_vec();
+        let log_pointer_2 = if !best.is_null() {
             output_primary_name(best) as *const ::core::ffi::c_char
         } else {
             c"NULL".as_ptr()
-        },
-    );
+        };
+        let log_value_1 = i3_common::logging::string_bytes(
+            if log_pointer_2.is_null() {
+                None
+            } else {
+                Some(std::ffi::CStr::from_ptr(log_pointer_2))
+            },
+            None,
+        )
+        .to_vec();
+        if let (Ok(log_value_0_text), Ok(log_value_1_text)) = (
+            std::str::from_utf8(&log_value_0),
+            std::str::from_utf8(&log_value_1),
+        ) {
+            ::log::debug!(
+                "../src/randr.c:get_output_next:317 - current = {}, best = {}\n",
+                log_value_0_text,
+                log_value_1_text
+            );
+        } else {
+            i3_common::logging::emit_parts(
+                i3_common::logging::Level::Debug,
+                &[
+                    "../src/randr.c:get_output_next:317 - current = ".as_bytes(),
+                    &log_value_0,
+                    ", best = ".as_bytes(),
+                    &log_value_1,
+                    "\n".as_bytes(),
+                ],
+            );
+        }
+    };
     best
 }
 
@@ -515,13 +546,34 @@ pub unsafe fn output_init_con(output: *mut Output) {
     let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut reused: bool = false;
-    debuglog(
-        c"%s:%s:%d - init_con for output %s\n".as_ptr().cast_mut(),
-        c"../src/randr.c".as_ptr(),
-        c"output_init_con".as_ptr(),
-        351 as ::core::ffi::c_int,
-        output_primary_name(output),
-    );
+    {
+        // Snapshot native bytes before the logger can dispatch a callback.
+        let log_pointer_1 = output_primary_name(output);
+        let log_value_0 = i3_common::logging::string_bytes(
+            if log_pointer_1.is_null() {
+                None
+            } else {
+                Some(std::ffi::CStr::from_ptr(log_pointer_1))
+            },
+            None,
+        )
+        .to_vec();
+        if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+            ::log::debug!(
+                "../src/randr.c:output_init_con:351 - init_con for output {}\n",
+                log_value_0_text
+            );
+        } else {
+            i3_common::logging::emit_parts(
+                i3_common::logging::Level::Debug,
+                &[
+                    "../src/randr.c:output_init_con:351 - init_con for output ".as_bytes(),
+                    &log_value_0,
+                    "\n".as_bytes(),
+                ],
+            );
+        }
+    };
     current = nodes::first_ptr(croot);
     while !current.is_null() {
         if strcmp((*current).name_ptr(), output_primary_name(output)) != 0 as ::core::ffi::c_int {
@@ -529,16 +581,40 @@ pub unsafe fn output_init_con(output: *mut Output) {
         } else {
             con = current;
             reused = true;
-            debuglog(
-                c"%s:%s:%d - Using existing con %p / %s\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/randr.c".as_ptr(),
-                c"output_init_con".as_ptr(),
-                362 as ::core::ffi::c_int,
-                con,
-                (*con).name_ptr(),
-            );
+            {
+                // Snapshot native bytes before the logger can dispatch a callback.
+                let log_value_0 = i3_common::logging::pointer(con);
+                let log_pointer_2 = (*con).name_ptr();
+                let log_value_1 = i3_common::logging::string_bytes(
+                    if log_pointer_2.is_null() {
+                        None
+                    } else {
+                        Some(std::ffi::CStr::from_ptr(log_pointer_2))
+                    },
+                    None,
+                )
+                .to_vec();
+                if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+                    ::log::debug!(
+                        "../src/randr.c:output_init_con:362 - Using existing con {} / {}\n",
+                        log_value_0,
+                        log_value_1_text
+                    );
+                } else {
+                    i3_common::logging::emit_parts(
+                        i3_common::logging::Level::Debug,
+                        &[
+                            format!(
+                                "../src/randr.c:output_init_con:362 - Using existing con {} / ",
+                                log_value_0
+                            )
+                            .as_bytes(),
+                            &log_value_1,
+                            "\n".as_bytes(),
+                        ],
+                    );
+                }
+            };
             break;
         }
     }
@@ -561,23 +637,13 @@ pub unsafe fn output_init_con(output: *mut Output) {
     free(name as *mut ::core::ffi::c_void);
     name = ::core::ptr::null_mut::<::core::ffi::c_char>();
     if reused {
-        debuglog(
-            c"%s:%s:%d - Not adding workspace, this was a reused con\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/randr.c".as_ptr(),
-            c"output_init_con".as_ptr(),
-            383 as ::core::ffi::c_int,
+        ::log::debug!(
+            "../src/randr.c:output_init_con:383 - Not adding workspace, this was a reused con\n"
         );
         return;
     }
-    debuglog(
-        c"%s:%s:%d - Changing layout, adding top/bottom dockarea\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/randr.c".as_ptr(),
-        c"output_init_con".as_ptr(),
-        387 as ::core::ffi::c_int,
+    ::log::debug!(
+        "../src/randr.c:output_init_con:387 - Changing layout, adding top/bottom dockarea\n"
     );
     let topdock: *mut Con = con_new(
         ::core::ptr::null_mut::<Con>(),
@@ -602,21 +668,9 @@ pub unsafe fn output_init_con(output: *mut Output) {
     x_set_name(topdock, name);
     free(name as *mut ::core::ffi::c_void);
     name = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    debuglog(
-        c"%s:%s:%d - attaching\n".as_ptr().cast_mut(),
-        c"../src/randr.c".as_ptr(),
-        c"output_init_con".as_ptr(),
-        404 as ::core::ffi::c_int,
-    );
+    ::log::debug!("../src/randr.c:output_init_con:404 - attaching\n");
     con_attach(topdock, con, false);
-    debuglog(
-        c"%s:%s:%d - adding main content container\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/randr.c".as_ptr(),
-        c"output_init_con".as_ptr(),
-        409 as ::core::ffi::c_int,
-    );
+    ::log::debug!("../src/randr.c:output_init_con:409 - adding main content container\n");
     let content: *mut Con = con_new(
         ::core::ptr::null_mut::<Con>(),
         ::core::ptr::null_mut::<Window>(),
@@ -656,12 +710,7 @@ pub unsafe fn output_init_con(output: *mut Output) {
     x_set_name(bottomdock, name);
     free(name as *mut ::core::ffi::c_void);
     name = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    debuglog(
-        c"%s:%s:%d - attaching\n".as_ptr().cast_mut(),
-        c"../src/randr.c".as_ptr(),
-        c"output_init_con".as_ptr(),
-        438 as ::core::ffi::c_int,
-    );
+    ::log::debug!("../src/randr.c:output_init_con:438 - attaching\n");
     con_attach(bottomdock, con, false);
     let owner = identity(con).expect("live output focus owner");
     let member = identity(content).expect("live output content");
@@ -690,15 +739,60 @@ pub unsafe fn init_ws_for_output(output: *mut Output) {
             let workspace_out: *mut Con =
                 get_assigned_output(name.as_ptr(), (*workspace).num as ::core::ffi::c_long);
             if !((*output).con != workspace_out) {
-                debuglog(
-                    c"%s:%s:%d - Moving workspace \"%s\" from output \"%s\" to \"%s\" due to assignment\n".as_ptr().cast_mut(),
-                    c"../src/randr.c".as_ptr(),
-                    c"init_ws_for_output".as_ptr(),
-                    479 as ::core::ffi::c_int,
-                    (*workspace).name_ptr(),
-                    output_primary_name(get_output_for_con(workspace)),
-                    output_primary_name(output),
-                );
+                {
+                    // Snapshot native bytes before the logger can dispatch a callback.
+                    let log_pointer_1 = (*workspace).name_ptr();
+                    let log_value_0 = i3_common::logging::string_bytes(
+                        if log_pointer_1.is_null() {
+                            None
+                        } else {
+                            Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                        },
+                        None,
+                    )
+                    .to_vec();
+                    let log_pointer_2 = output_primary_name(get_output_for_con(workspace));
+                    let log_value_1 = i3_common::logging::string_bytes(
+                        if log_pointer_2.is_null() {
+                            None
+                        } else {
+                            Some(std::ffi::CStr::from_ptr(log_pointer_2))
+                        },
+                        None,
+                    )
+                    .to_vec();
+                    let log_pointer_3 = output_primary_name(output);
+                    let log_value_2 = i3_common::logging::string_bytes(
+                        if log_pointer_3.is_null() {
+                            None
+                        } else {
+                            Some(std::ffi::CStr::from_ptr(log_pointer_3))
+                        },
+                        None,
+                    )
+                    .to_vec();
+                    if let (Ok(log_value_0_text), Ok(log_value_1_text), Ok(log_value_2_text)) = (
+                        std::str::from_utf8(&log_value_0),
+                        std::str::from_utf8(&log_value_1),
+                        std::str::from_utf8(&log_value_2),
+                    ) {
+                        ::log::debug!("../src/randr.c:init_ws_for_output:479 - Moving workspace \"{}\" from output \"{}\" to \"{}\" due to assignment\n", log_value_0_text, log_value_1_text, log_value_2_text);
+                    } else {
+                        i3_common::logging::emit_parts(
+                            i3_common::logging::Level::Debug,
+                            &[
+                                "../src/randr.c:init_ws_for_output:479 - Moving workspace \""
+                                    .as_bytes(),
+                                &log_value_0,
+                                "\" from output \"".as_bytes(),
+                                &log_value_1,
+                                "\" to \"".as_bytes(),
+                                &log_value_2,
+                                "\" due to assignment\n".as_bytes(),
+                            ],
+                        );
+                    }
+                };
                 (*content).rect = (*(*output).con).rect;
                 workspace_move_to_output(workspace, output);
             }
@@ -737,13 +831,50 @@ pub unsafe fn init_ws_for_output(output: *mut Output) {
             if !output_triggers_assignment(output, assignment) {
                 assignment = (*assignment).ws_assignments.tqe_next;
             } else {
-                verboselog(
-                    c"Initializing first assigned workspace \"%s\" for output \"%s\"\n"
-                        .as_ptr()
-                        .cast_mut(),
-                    (*assignment).name,
-                    (*assignment).output,
-                );
+                {
+                    // Snapshot native bytes before the logger can dispatch a callback.
+                    let log_pointer_1 = (*assignment).name;
+                    let log_value_0 = i3_common::logging::string_bytes(
+                        if log_pointer_1.is_null() {
+                            None
+                        } else {
+                            Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                        },
+                        None,
+                    )
+                    .to_vec();
+                    let log_pointer_2 = (*assignment).output;
+                    let log_value_1 = i3_common::logging::string_bytes(
+                        if log_pointer_2.is_null() {
+                            None
+                        } else {
+                            Some(std::ffi::CStr::from_ptr(log_pointer_2))
+                        },
+                        None,
+                    )
+                    .to_vec();
+                    if let (Ok(log_value_0_text), Ok(log_value_1_text)) = (
+                        std::str::from_utf8(&log_value_0),
+                        std::str::from_utf8(&log_value_1),
+                    ) {
+                        ::log::info!(
+                            "Initializing first assigned workspace \"{}\" for output \"{}\"\n",
+                            log_value_0_text,
+                            log_value_1_text
+                        );
+                    } else {
+                        i3_common::logging::emit_parts(
+                            i3_common::logging::Level::Verbose,
+                            &[
+                                "Initializing first assigned workspace \"".as_bytes(),
+                                &log_value_0,
+                                "\" for output \"".as_bytes(),
+                                &log_value_1,
+                                "\"\n".as_bytes(),
+                            ],
+                        );
+                    }
+                };
                 workspace_show_by_name((*assignment).name);
                 current_block = 4825863742504697761;
                 break;
@@ -752,12 +883,7 @@ pub unsafe fn init_ws_for_output(output: *mut Output) {
         match current_block {
             4825863742504697761 => {}
             _ => {
-                debuglog(
-                    c"%s:%s:%d - Now adding a workspace\n".as_ptr().cast_mut(),
-                    c"../src/randr.c".as_ptr(),
-                    c"init_ws_for_output".as_ptr(),
-                    518 as ::core::ffi::c_int,
-                );
+                ::log::debug!("../src/randr.c:init_ws_for_output:518 - Now adding a workspace\n");
                 workspace_show(create_workspace_on_output(output, content));
             }
         }
@@ -767,14 +893,7 @@ pub unsafe fn init_ws_for_output(output: *mut Output) {
     }
 }
 unsafe fn output_change_mode(output: *mut Output) {
-    debuglog(
-        c"%s:%s:%d - Output mode changed, updating rect\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/randr.c".as_ptr(),
-        c"output_change_mode".as_ptr(),
-        539 as ::core::ffi::c_int,
-    );
+    ::log::debug!("../src/randr.c:output_change_mode:539 - Output mode changed, updating rect\n");
     if (*output).con != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Con {
     } else {
         __assert_fail(
@@ -809,33 +928,51 @@ unsafe fn output_change_mode(output: *mut Output) {
                 } else {
                     Layout::SplitH
                 };
-                debuglog(
-                    c"%s:%s:%d - Setting workspace [%d,%s]'s layout to %d.\n"
-                        .as_ptr()
-                        .cast_mut(),
-                    c"../src/randr.c".as_ptr(),
-                    c"output_change_mode".as_ptr(),
-                    568 as ::core::ffi::c_int,
-                    (*workspace).num,
-                    (*workspace).name_ptr(),
-                    (*workspace).layout as ::core::ffi::c_uint,
-                );
+                {
+                    // Snapshot native bytes before the logger can dispatch a callback.
+                    let log_value_0 = ((*workspace).num) as i32;
+                    let log_pointer_2 = (*workspace).name_ptr();
+                    let log_value_1 = i3_common::logging::string_bytes(
+                        if log_pointer_2.is_null() {
+                            None
+                        } else {
+                            Some(std::ffi::CStr::from_ptr(log_pointer_2))
+                        },
+                        None,
+                    )
+                    .to_vec();
+                    let log_value_2 = ((*workspace).layout as ::core::ffi::c_uint) as i32;
+                    if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+                        ::log::debug!("../src/randr.c:output_change_mode:568 - Setting workspace [{},{}]'s layout to {}.\n", log_value_0, log_value_1_text, log_value_2);
+                    } else {
+                        i3_common::logging::emit_parts(i3_common::logging::Level::Debug, &[ format!("../src/randr.c:output_change_mode:568 - Setting workspace [{},", log_value_0).as_bytes(), &log_value_1, format!("]'s layout to {}.\n", log_value_2).as_bytes() ]);
+                    }
+                };
                 child = nodes::first_ptr(workspace);
                 if !child.is_null() {
                     if (*child).layout == Layout::SplitV || (*child).layout == Layout::SplitH {
                         (*child).layout = (*workspace).layout;
                     }
-                    debuglog(
-                        c"%s:%s:%d - Setting child [%d,%s]'s layout to %d.\n"
-                            .as_ptr()
-                            .cast_mut(),
-                        c"../src/randr.c".as_ptr(),
-                        c"output_change_mode".as_ptr(),
-                        573 as ::core::ffi::c_int,
-                        (*child).num,
-                        (*child).name_ptr(),
-                        (*child).layout as ::core::ffi::c_uint,
-                    );
+                    {
+                        // Snapshot native bytes before the logger can dispatch a callback.
+                        let log_value_0 = ((*child).num) as i32;
+                        let log_pointer_2 = (*child).name_ptr();
+                        let log_value_1 = i3_common::logging::string_bytes(
+                            if log_pointer_2.is_null() {
+                                None
+                            } else {
+                                Some(std::ffi::CStr::from_ptr(log_pointer_2))
+                            },
+                            None,
+                        )
+                        .to_vec();
+                        let log_value_2 = ((*child).layout as ::core::ffi::c_uint) as i32;
+                        if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+                            ::log::debug!("../src/randr.c:output_change_mode:573 - Setting child [{},{}]'s layout to {}.\n", log_value_0, log_value_1_text, log_value_2);
+                        } else {
+                            i3_common::logging::emit_parts(i3_common::logging::Level::Debug, &[ format!("../src/randr.c:output_change_mode:573 - Setting child [{},", log_value_0).as_bytes(), &log_value_1, format!("]'s layout to {}.\n", log_value_2).as_bytes() ]);
+                        }
+                    };
                 }
             }
             workspace = nodes::next_ptr(workspace);
@@ -849,14 +986,7 @@ unsafe fn randr_query_outputs_15() -> bool {
     let Some(connection) = display::connection() else {
         return false;
     };
-    debuglog(
-        c"%s:%s:%d - Querying outputs using RandR 1.5\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/randr.c".as_ptr(),
-        c"randr_query_outputs_15".as_ptr(),
-        593 as ::core::ffi::c_int,
-    );
+    ::log::debug!("../src/randr.c:randr_query_outputs_15:593 - Querying outputs using RandR 1.5\n");
     let cookie = connection.send_request(&randr::GetMonitors {
         window: x::Window::new(root),
         get_active: true,
@@ -865,11 +995,9 @@ unsafe fn randr_query_outputs_15() -> bool {
         Ok(reply) => reply,
         Err(error) => {
             if let ::xcb::Error::Protocol(error) = error {
-                errorlog(
-                    c"ERROR: Could not get RandR monitors: X11 error code %d\n"
-                        .as_ptr()
-                        .cast_mut(),
-                    i32::from((*error.as_raw()).error_code),
+                ::log::error!(
+                    "ERROR: Could not get RandR monitors: X11 error code {}\n",
+                    (i32::from((*error.as_raw()).error_code)) as i32
                 );
             }
             return false;
@@ -883,15 +1011,10 @@ unsafe fn randr_query_outputs_15() -> bool {
         }
         output = (*output).outputs.tqe_next as *mut Output;
     }
-    debuglog(
-        c"%s:%s:%d - %d RandR monitors found (timestamp %d)\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/randr.c".as_ptr(),
-        c"randr_query_outputs_15".as_ptr(),
-        616 as ::core::ffi::c_int,
-        monitor_count(&monitors) as i32,
-        monitors.timestamp(),
+    ::log::debug!(
+        "../src/randr.c:randr_query_outputs_15:616 - {} RandR monitors found (timestamp {})\n",
+        (monitor_count(&monitors) as i32) as i32,
+        (monitors.timestamp()) as i32
     );
     let Some(snapshot) = owned_monitor_snapshots(&monitors) else {
         return false;
@@ -904,11 +1027,9 @@ unsafe fn randr_query_outputs_15() -> bool {
             Ok(reply) => reply,
             Err(error) => {
                 if let ::xcb::Error::Protocol(error) = error {
-                    errorlog(
-                        c"ERROR: Could not get RandR monitor name: X11 error code %d\n"
-                            .as_ptr()
-                            .cast_mut(),
-                        i32::from((*error.as_raw()).error_code),
+                    ::log::error!(
+                        "ERROR: Could not get RandR monitor name: X11 error code {}\n",
+                        (i32::from((*error.as_raw()).error_code)) as i32
                     );
                 }
                 continue;
@@ -984,21 +1105,32 @@ unsafe fn randr_query_outputs_15() -> bool {
             || update_y as ::core::ffi::c_int != 0
             || update_w as ::core::ffi::c_int != 0
             || update_h as ::core::ffi::c_int != 0;
-        debuglog(
-                c"%s:%s:%d - name %s, x %d, y %d, width %d px, height %d px, width %d mm, height %d mm, primary %d, automatic %d\n".as_ptr().cast_mut(),
-                c"../src/randr.c".as_ptr(),
-                c"randr_query_outputs_15".as_ptr(),
-                699 as ::core::ffi::c_int,
-                name,
-                monitor.x as ::core::ffi::c_int,
-                monitor.y as ::core::ffi::c_int,
-                monitor.width as ::core::ffi::c_int,
-                monitor.height as ::core::ffi::c_int,
-                monitor.width_in_millimeters,
-                monitor.height_in_millimeters,
-                monitor.primary as ::core::ffi::c_int,
-                monitor.automatic as ::core::ffi::c_int,
-            );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_pointer_1 = name;
+            let log_value_0 = i3_common::logging::string_bytes(
+                if log_pointer_1.is_null() {
+                    None
+                } else {
+                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                },
+                None,
+            )
+            .to_vec();
+            let log_value_1 = (monitor.x as ::core::ffi::c_int) as i32;
+            let log_value_2 = (monitor.y as ::core::ffi::c_int) as i32;
+            let log_value_3 = (monitor.width as ::core::ffi::c_int) as i32;
+            let log_value_4 = (monitor.height as ::core::ffi::c_int) as i32;
+            let log_value_5 = (monitor.width_in_millimeters) as i32;
+            let log_value_6 = (monitor.height_in_millimeters) as i32;
+            let log_value_7 = (monitor.primary as ::core::ffi::c_int) as i32;
+            let log_value_8 = (monitor.automatic as ::core::ffi::c_int) as i32;
+            if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                ::log::debug!("../src/randr.c:randr_query_outputs_15:699 - name {}, x {}, y {}, width {} px, height {} px, width {} mm, height {} mm, primary {}, automatic {}\n", log_value_0_text, log_value_1, log_value_2, log_value_3, log_value_4, log_value_5, log_value_6, log_value_7, log_value_8);
+            } else {
+                i3_common::logging::emit_parts(i3_common::logging::Level::Debug, &[ "../src/randr.c:randr_query_outputs_15:699 - name ".as_bytes(), &log_value_0, format!(", x {}, y {}, width {} px, height {} px, width {} mm, height {} mm, primary {}, automatic {}\n", log_value_1, log_value_2, log_value_3, log_value_4, log_value_5, log_value_6, log_value_7, log_value_8).as_bytes() ]);
+            }
+        };
     }
     true
 }
@@ -1033,15 +1165,34 @@ unsafe fn handle_output(
     (*output_name).name = sstrdup(name.as_ptr());
     (*output_name).names.sle_next = (*new).names_head.slh_first;
     (*new).names_head.slh_first = output_name;
-    debuglog(
-        c"%s:%s:%d - found output with name %s\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/randr.c".as_ptr(),
-        c"handle_output".as_ptr(),
-        742 as ::core::ffi::c_int,
-        output_primary_name(new),
-    );
+    {
+        // Snapshot native bytes before the logger can dispatch a callback.
+        let log_pointer_1 = output_primary_name(new);
+        let log_value_0 = i3_common::logging::string_bytes(
+            if log_pointer_1.is_null() {
+                None
+            } else {
+                Some(std::ffi::CStr::from_ptr(log_pointer_1))
+            },
+            None,
+        )
+        .to_vec();
+        if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+            ::log::debug!(
+                "../src/randr.c:handle_output:742 - found output with name {}\n",
+                log_value_0_text
+            );
+        } else {
+            i3_common::logging::emit_parts(
+                i3_common::logging::Level::Debug,
+                &[
+                    "../src/randr.c:handle_output:742 - found output with name ".as_bytes(),
+                    &log_value_0,
+                    "\n".as_bytes(),
+                ],
+            );
+        }
+    };
     if output.crtc().is_none() {
         if !existing {
             if (*new).primary {
@@ -1069,16 +1220,32 @@ unsafe fn handle_output(
         config_timestamp: cts,
     });
     let Ok(crtc) = connection.wait_for_reply(cookie) else {
-        debuglog(
-            c"%s:%s:%d - Skipping output %s: could not get CRTC (%p)\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/randr.c".as_ptr(),
-            c"handle_output".as_ptr(),
-            763 as ::core::ffi::c_int,
-            output_primary_name(new),
-            std::ptr::null::<libc::c_void>(),
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_pointer_1 = output_primary_name(new);
+            let log_value_0 = i3_common::logging::string_bytes(
+                if log_pointer_1.is_null() {
+                    None
+                } else {
+                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                },
+                None,
+            )
+            .to_vec();
+            let log_value_1 = i3_common::logging::pointer(std::ptr::null::<libc::c_void>());
+            if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                ::log::debug!("../src/randr.c:handle_output:763 - Skipping output {}: could not get CRTC ({})\n", log_value_0_text, log_value_1);
+            } else {
+                i3_common::logging::emit_parts(
+                    i3_common::logging::Level::Debug,
+                    &[
+                        "../src/randr.c:handle_output:763 - Skipping output ".as_bytes(),
+                        &log_value_0,
+                        format!(": could not get CRTC ({})\n", log_value_1).as_bytes(),
+                    ],
+                );
+            }
+        };
         return;
     };
     let update_x: bool = update_if_necessary(&mut (*new).rect.x, crtc.x() as u32) as bool;
@@ -1091,25 +1258,15 @@ unsafe fn handle_output(
         || update_h as ::core::ffi::c_int != 0;
     (*new).active = (*new).rect.width != 0 as u32 && (*new).rect.height != 0 as u32;
     if !(*new).active {
-        debuglog(
-            c"%s:%s:%d - width/height 0/0, disabling output\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/randr.c".as_ptr(),
-            c"handle_output".as_ptr(),
-            775 as ::core::ffi::c_int,
-        );
+        ::log::debug!("../src/randr.c:handle_output:775 - width/height 0/0, disabling output\n");
         return;
     }
-    debuglog(
-        c"%s:%s:%d - mode: %dx%d+%d+%d\n".as_ptr().cast_mut(),
-        c"../src/randr.c".as_ptr(),
-        c"handle_output".as_ptr(),
-        780 as ::core::ffi::c_int,
-        (*new).rect.width,
-        (*new).rect.height,
-        (*new).rect.x,
-        (*new).rect.y,
+    ::log::debug!(
+        "../src/randr.c:handle_output:780 - mode: {}x{}+{}+{}\n",
+        ((*new).rect.width) as i32,
+        ((*new).rect.height) as i32,
+        ((*new).rect.x) as i32,
+        ((*new).rect.y) as i32
     );
     if !updated || !existing {
         if !existing {
@@ -1134,13 +1291,8 @@ unsafe fn handle_output(
     (*new).changed = true;
 }
 unsafe fn randr_query_outputs_14() {
-    debuglog(
-        c"%s:%s:%d - Querying outputs using RandR ≤ 1.4\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/randr.c".as_ptr(),
-        c"randr_query_outputs_14".as_ptr(),
-        804i32,
+    ::log::debug!(
+        "../src/randr.c:randr_query_outputs_14:804 - Querying outputs using RandR ≤ 1.4\n"
     );
     let Some(connection) = display::connection() else {
         return;
@@ -1158,26 +1310,15 @@ unsafe fn randr_query_outputs_14() {
         .ok()
         .map(|reply| reply.output().resource_id());
     if let Some(primary_id) = PRIMARY_OUTPUT {
-        debuglog(
-            c"%s:%s:%d - primary output is %08x\n".as_ptr().cast_mut(),
-            c"../src/randr.c".as_ptr(),
-            c"randr_query_outputs_14".as_ptr(),
-            813i32,
-            primary_id,
+        ::log::debug!(
+            "../src/randr.c:randr_query_outputs_14:813 - primary output is {:08x}\n",
+            (primary_id) as u32
         );
     } else {
-        errorlog(
-            c"ERROR: Could not get RandR primary output\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::error!("ERROR: Could not get RandR primary output\n");
     }
     let Ok(resources) = connection.wait_for_reply(resources_cookie) else {
-        errorlog(
-            c"ERROR: Could not query screen resources.\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::error!("ERROR: Could not query screen resources.\n");
         return;
     };
     let cts = resources.config_timestamp();
@@ -1208,47 +1349,110 @@ unsafe fn move_content(con: *mut Con) {
     while !nodes::first_ptr(old_content.cast_mut()).is_null() {
         let current: *mut Con = nodes::first_ptr(old_content.cast_mut());
         if current != next && focus::first_ptr(current).is_null() {
-            debuglog(
-                c"%s:%s:%d - Getting rid of current = %p / %s (empty, unfocused)\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/randr.c".as_ptr(),
-                c"move_content".as_ptr(),
-                875 as ::core::ffi::c_int,
-                current,
-                (*current).name_ptr(),
-            );
+            {
+                // Snapshot native bytes before the logger can dispatch a callback.
+                let log_value_0 = i3_common::logging::pointer(current);
+                let log_pointer_2 = (*current).name_ptr();
+                let log_value_1 = i3_common::logging::string_bytes(
+                    if log_pointer_2.is_null() {
+                        None
+                    } else {
+                        Some(std::ffi::CStr::from_ptr(log_pointer_2))
+                    },
+                    None,
+                )
+                .to_vec();
+                if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+                    ::log::debug!("../src/randr.c:move_content:875 - Getting rid of current = {} / {} (empty, unfocused)\n", log_value_0, log_value_1_text);
+                } else {
+                    i3_common::logging::emit_parts(
+                        i3_common::logging::Level::Debug,
+                        &[
+                            format!(
+                                "../src/randr.c:move_content:875 - Getting rid of current = {} / ",
+                                log_value_0
+                            )
+                            .as_bytes(),
+                            &log_value_1,
+                            " (empty, unfocused)\n".as_bytes(),
+                        ],
+                    );
+                }
+            };
             tree_close_internal(current, KillWindow::DontKill, false);
         } else {
-            debuglog(
-                c"%s:%s:%d - Detaching current = %p / %s\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/randr.c".as_ptr(),
-                c"move_content".as_ptr(),
-                879 as ::core::ffi::c_int,
-                current,
-                (*current).name_ptr(),
-            );
+            {
+                // Snapshot native bytes before the logger can dispatch a callback.
+                let log_value_0 = i3_common::logging::pointer(current);
+                let log_pointer_2 = (*current).name_ptr();
+                let log_value_1 = i3_common::logging::string_bytes(
+                    if log_pointer_2.is_null() {
+                        None
+                    } else {
+                        Some(std::ffi::CStr::from_ptr(log_pointer_2))
+                    },
+                    None,
+                )
+                .to_vec();
+                if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+                    ::log::debug!(
+                        "../src/randr.c:move_content:879 - Detaching current = {} / {}\n",
+                        log_value_0,
+                        log_value_1_text
+                    );
+                } else {
+                    i3_common::logging::emit_parts(
+                        i3_common::logging::Level::Debug,
+                        &[
+                            format!(
+                                "../src/randr.c:move_content:879 - Detaching current = {} / ",
+                                log_value_0
+                            )
+                            .as_bytes(),
+                            &log_value_1,
+                            "\n".as_bytes(),
+                        ],
+                    );
+                }
+            };
             con_detach(current);
-            debuglog(
-                c"%s:%s:%d - Re-attaching current = %p / %s\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/randr.c".as_ptr(),
-                c"move_content".as_ptr(),
-                881 as ::core::ffi::c_int,
-                current,
-                (*current).name_ptr(),
-            );
+            {
+                // Snapshot native bytes before the logger can dispatch a callback.
+                let log_value_0 = i3_common::logging::pointer(current);
+                let log_pointer_2 = (*current).name_ptr();
+                let log_value_1 = i3_common::logging::string_bytes(
+                    if log_pointer_2.is_null() {
+                        None
+                    } else {
+                        Some(std::ffi::CStr::from_ptr(log_pointer_2))
+                    },
+                    None,
+                )
+                .to_vec();
+                if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+                    ::log::debug!(
+                        "../src/randr.c:move_content:881 - Re-attaching current = {} / {}\n",
+                        log_value_0,
+                        log_value_1_text
+                    );
+                } else {
+                    i3_common::logging::emit_parts(
+                        i3_common::logging::Level::Debug,
+                        &[
+                            format!(
+                                "../src/randr.c:move_content:881 - Re-attaching current = {} / ",
+                                log_value_0
+                            )
+                            .as_bytes(),
+                            &log_value_1,
+                            "\n".as_bytes(),
+                        ],
+                    );
+                }
+            };
             con_attach(current, first_content, false);
-            debuglog(
-                c"%s:%s:%d - Fixing the coordinates of floating containers\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/randr.c".as_ptr(),
-                c"move_content".as_ptr(),
-                883 as ::core::ffi::c_int,
+            ::log::debug!(
+                "../src/randr.c:move_content:883 - Fixing the coordinates of floating containers\n"
             );
             for id in floating::children(identity(current).expect("live workspace")) {
                 let Some(floating_con) = resolve(id) else {
@@ -1263,12 +1467,9 @@ unsafe fn move_content(con: *mut Con) {
         }
     }
     if !next.is_null() {
-        debuglog(
-            c"%s:%s:%d - now focusing next = %p\n".as_ptr().cast_mut(),
-            c"../src/randr.c".as_ptr(),
-            c"move_content".as_ptr(),
-            892 as ::core::ffi::c_int,
-            next,
+        ::log::debug!(
+            "../src/randr.c:move_content:892 - now focusing next = {}\n",
+            i3_common::logging::pointer(next)
         );
         con_focus(next);
         workspace_show(con_get_workspace(next));
@@ -1277,54 +1478,31 @@ unsafe fn move_content(con: *mut Con) {
     child = nodes::first_ptr(con);
     while !child.is_null() {
         if !(((*child).type_0) != ContainerType::DockArea) {
-            debuglog(
-                c"%s:%s:%d - Handling dock con %p\n".as_ptr().cast_mut(),
-                c"../src/randr.c".as_ptr(),
-                c"move_content".as_ptr(),
-                903 as ::core::ffi::c_int,
-                child,
+            ::log::debug!(
+                "../src/randr.c:move_content:903 - Handling dock con {}\n",
+                i3_common::logging::pointer(child)
             );
             while !nodes::first_ptr(child).is_null() {
                 let mut match_0: *mut Match = ::core::ptr::null_mut::<Match>();
                 let dock: *mut Con = nodes::first_ptr(child);
                 let nc: *mut Con =
                     con_for_window(first, (*dock).window as *mut Window, &raw mut match_0);
-                debuglog(
-                    c"%s:%s:%d - Moving dock client %p to nc %p\n"
-                        .as_ptr()
-                        .cast_mut(),
-                    c"../src/randr.c".as_ptr(),
-                    c"move_content".as_ptr(),
-                    908 as ::core::ffi::c_int,
-                    dock,
-                    nc,
+                ::log::debug!(
+                    "../src/randr.c:move_content:908 - Moving dock client {} to nc {}\n",
+                    i3_common::logging::pointer(dock),
+                    i3_common::logging::pointer(nc)
                 );
                 con_detach(dock);
-                debuglog(
-                    c"%s:%s:%d - Re-attaching\n".as_ptr().cast_mut(),
-                    c"../src/randr.c".as_ptr(),
-                    c"move_content".as_ptr(),
-                    910 as ::core::ffi::c_int,
-                );
+                ::log::debug!("../src/randr.c:move_content:910 - Re-attaching\n");
                 con_attach(dock, nc, false);
-                debuglog(
-                    c"%s:%s:%d - Done\n".as_ptr().cast_mut(),
-                    c"../src/randr.c".as_ptr(),
-                    c"move_content".as_ptr(),
-                    912 as ::core::ffi::c_int,
-                );
+                ::log::debug!("../src/randr.c:move_content:912 - Done\n");
             }
         }
         child = nodes::next_ptr(child);
     }
-    debuglog(
-        c"%s:%s:%d - Destroying disappearing con %p\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/randr.c".as_ptr(),
-        c"move_content".as_ptr(),
-        916 as ::core::ffi::c_int,
-        con,
+    ::log::debug!(
+        "../src/randr.c:move_content:916 - Destroying disappearing con {}\n",
+        i3_common::logging::pointer(con)
     );
     tree_close_internal(con, KillWindow::DontKill, true);
 }
@@ -1334,44 +1512,54 @@ pub unsafe fn randr_query_outputs() {
         randr_query_outputs_14();
     }
     if any_randr_output_active() {
-        debuglog(
-            c"%s:%s:%d - Active RandR output found. Disabling root output.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/randr.c".as_ptr(),
-            c"randr_query_outputs".as_ptr(),
-            933 as ::core::ffi::c_int,
-        );
+        ::log::debug!("../src/randr.c:randr_query_outputs:933 - Active RandR output found. Disabling root output.\n");
         if !root_output.is_null() && (*root_output).active as ::core::ffi::c_int != 0 {
             (*root_output).to_be_disabled = true;
         }
     } else {
-        debuglog(
-            c"%s:%s:%d - No active RandR output found. Enabling root output.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/randr.c".as_ptr(),
-            c"randr_query_outputs".as_ptr(),
-            938 as ::core::ffi::c_int,
-        );
+        ::log::debug!("../src/randr.c:randr_query_outputs:938 - No active RandR output found. Enabling root output.\n");
         (*root_output).active = true;
     }
     let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
     output = outputs.tqh_first as *mut Output;
     while !output.is_null() {
         if !(!(*output).active || (*output).to_be_disabled as ::core::ffi::c_int != 0) {
-            debuglog(
-                c"%s:%s:%d - output %p / %s, position (%d, %d), checking for clones\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/randr.c".as_ptr(),
-                c"randr_query_outputs".as_ptr(),
-                950 as ::core::ffi::c_int,
-                output,
-                output_primary_name(output),
-                (*output).rect.x,
-                (*output).rect.y,
-            );
+            {
+                // Snapshot native bytes before the logger can dispatch a callback.
+                let log_value_0 = i3_common::logging::pointer(output);
+                let log_pointer_2 = output_primary_name(output);
+                let log_value_1 = i3_common::logging::string_bytes(
+                    if log_pointer_2.is_null() {
+                        None
+                    } else {
+                        Some(std::ffi::CStr::from_ptr(log_pointer_2))
+                    },
+                    None,
+                )
+                .to_vec();
+                let log_value_2 = ((*output).rect.x) as i32;
+                let log_value_3 = ((*output).rect.y) as i32;
+                if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+                    ::log::debug!("../src/randr.c:randr_query_outputs:950 - output {} / {}, position ({}, {}), checking for clones\n", log_value_0, log_value_1_text, log_value_2, log_value_3);
+                } else {
+                    i3_common::logging::emit_parts(
+                        i3_common::logging::Level::Debug,
+                        &[
+                            format!(
+                                "../src/randr.c:randr_query_outputs:950 - output {} / ",
+                                log_value_0
+                            )
+                            .as_bytes(),
+                            &log_value_1,
+                            format!(
+                                ", position ({}, {}), checking for clones\n",
+                                log_value_2, log_value_3
+                            )
+                            .as_bytes(),
+                        ],
+                    );
+                }
+            };
             let mut other: *mut Output = output;
             while !other.is_null() {
                 if !(other == output
@@ -1380,17 +1568,7 @@ pub unsafe fn randr_query_outputs() {
                 {
                     if !((*other).rect.x != (*output).rect.x || (*other).rect.y != (*output).rect.y)
                     {
-                        debuglog(
-                            c"%s:%s:%d - output %p has the same position, its mode = %d x %d\n"
-                                .as_ptr()
-                                .cast_mut(),
-                            c"../src/randr.c".as_ptr(),
-                            c"randr_query_outputs".as_ptr(),
-                            965 as ::core::ffi::c_int,
-                            other,
-                            (*other).rect.width,
-                            (*other).rect.height,
-                        );
+                        ::log::debug!("../src/randr.c:randr_query_outputs:965 - output {} has the same position, its mode = {} x {}\n", i3_common::logging::pointer(other), ((*other).rect.width) as i32, ((*other).rect.height) as i32);
                         let width: u32 = min(
                             (*other).rect.width as ::core::ffi::c_int,
                             (*output).rect.width as ::core::ffi::c_int,
@@ -1410,27 +1588,27 @@ pub unsafe fn randr_query_outputs() {
                         }
                         update_if_necessary(&mut (*other).rect.width, width);
                         update_if_necessary(&mut (*other).rect.height, height);
-                        debuglog(
-                            c"%s:%s:%d - disabling output %p (%s)\n".as_ptr().cast_mut(),
-                            c"../src/randr.c".as_ptr(),
-                            c"randr_query_outputs".as_ptr(),
-                            978 as ::core::ffi::c_int,
-                            other,
-                            output_primary_name(other),
-                        );
+                        {
+                            // Snapshot native bytes before the logger can dispatch a callback.
+                            let log_value_0 = i3_common::logging::pointer(other);
+                            let log_pointer_2 = output_primary_name(other);
+                            let log_value_1 = i3_common::logging::string_bytes(
+                                if log_pointer_2.is_null() {
+                                    None
+                                } else {
+                                    Some(std::ffi::CStr::from_ptr(log_pointer_2))
+                                },
+                                None,
+                            )
+                            .to_vec();
+                            if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+                                ::log::debug!("../src/randr.c:randr_query_outputs:978 - disabling output {} ({})\n", log_value_0, log_value_1_text);
+                            } else {
+                                i3_common::logging::emit_parts(i3_common::logging::Level::Debug, &[ format!("../src/randr.c:randr_query_outputs:978 - disabling output {} (", log_value_0).as_bytes(), &log_value_1, ")\n".as_bytes() ]);
+                            }
+                        };
                         (*other).to_be_disabled = true;
-                        debuglog(
-                            c"%s:%s:%d - new output mode %d x %d, other mode %d x %d\n"
-                                .as_ptr()
-                                .cast_mut(),
-                            c"../src/randr.c".as_ptr(),
-                            c"randr_query_outputs".as_ptr(),
-                            983 as ::core::ffi::c_int,
-                            (*output).rect.width,
-                            (*output).rect.height,
-                            (*other).rect.width,
-                            (*other).rect.height,
-                        );
+                        ::log::debug!("../src/randr.c:randr_query_outputs:983 - new output mode {} x {}, other mode {} x {}\n", ((*output).rect.width) as i32, ((*output).rect.height) as i32, ((*other).rect.width) as i32, ((*other).rect.height) as i32);
                     }
                 }
                 other = (*other).outputs.tqe_next as *mut Output;
@@ -1441,15 +1619,24 @@ pub unsafe fn randr_query_outputs() {
     output = outputs.tqh_first as *mut Output;
     while !output.is_null() {
         if (*output).active as ::core::ffi::c_int != 0 && (*output).con.is_null() {
-            debuglog(
-                c"%s:%s:%d - Need to initialize a Con for output %s\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/randr.c".as_ptr(),
-                c"randr_query_outputs".as_ptr(),
-                993 as ::core::ffi::c_int,
-                output_primary_name(output),
-            );
+            {
+                // Snapshot native bytes before the logger can dispatch a callback.
+                let log_pointer_1 = output_primary_name(output);
+                let log_value_0 = i3_common::logging::string_bytes(
+                    if log_pointer_1.is_null() {
+                        None
+                    } else {
+                        Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                    },
+                    None,
+                )
+                .to_vec();
+                if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                    ::log::debug!("../src/randr.c:randr_query_outputs:993 - Need to initialize a Con for output {}\n", log_value_0_text);
+                } else {
+                    i3_common::logging::emit_parts(i3_common::logging::Level::Debug, &[ "../src/randr.c:randr_query_outputs:993 - Need to initialize a Con for output ".as_bytes(), &log_value_0, "\n".as_bytes() ]);
+                }
+            };
             output_init_con(output);
             (*output).changed = false;
         }
@@ -1471,15 +1658,31 @@ pub unsafe fn randr_query_outputs() {
             )
             .is_null()
         {
-            debuglog(
-                c"%s:%s:%d - No output %s found, moving its old content to first output\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/randr.c".as_ptr(),
-                c"randr_query_outputs".as_ptr(),
-                1007 as ::core::ffi::c_int,
-                (*con).name_ptr(),
-            );
+            {
+                // Snapshot native bytes before the logger can dispatch a callback.
+                let log_pointer_1 = (*con).name_ptr();
+                let log_value_0 = i3_common::logging::string_bytes(
+                    if log_pointer_1.is_null() {
+                        None
+                    } else {
+                        Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                    },
+                    None,
+                )
+                .to_vec();
+                if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                    ::log::debug!("../src/randr.c:randr_query_outputs:1007 - No output {} found, moving its old content to first output\n", log_value_0_text);
+                } else {
+                    i3_common::logging::emit_parts(
+                        i3_common::logging::Level::Debug,
+                        &[
+                            "../src/randr.c:randr_query_outputs:1007 - No output ".as_bytes(),
+                            &log_value_0,
+                            " found, moving its old content to first output\n".as_bytes(),
+                        ],
+                    );
+                }
+            };
             move_content(con);
         }
     }
@@ -1499,15 +1702,24 @@ pub unsafe fn randr_query_outputs() {
         if (*output).active {
             let content: *mut Con = output_get_content((*output).con);
             if nodes::first_ptr(content).is_null() {
-                debuglog(
-                    c"%s:%s:%d - Should add ws for output %s\n"
-                        .as_ptr()
-                        .cast_mut(),
-                    c"../src/randr.c".as_ptr(),
-                    c"randr_query_outputs".as_ptr(),
-                    1035 as ::core::ffi::c_int,
-                    output_primary_name(output),
-                );
+                {
+                    // Snapshot native bytes before the logger can dispatch a callback.
+                    let log_pointer_1 = output_primary_name(output);
+                    let log_value_0 = i3_common::logging::string_bytes(
+                        if log_pointer_1.is_null() {
+                            None
+                        } else {
+                            Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                        },
+                        None,
+                    )
+                    .to_vec();
+                    if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                        ::log::debug!("../src/randr.c:randr_query_outputs:1035 - Should add ws for output {}\n", log_value_0_text);
+                    } else {
+                        i3_common::logging::emit_parts(i3_common::logging::Level::Debug, &[ "../src/randr.c:randr_query_outputs:1035 - Should add ws for output ".as_bytes(), &log_value_0, "\n".as_bytes() ]);
+                    }
+                };
                 init_ws_for_output(output);
             }
         }
@@ -1516,15 +1728,35 @@ pub unsafe fn randr_query_outputs() {
     output = outputs.tqh_first as *mut Output;
     while !output.is_null() {
         if !(!(*output).primary || (*output).con.is_null()) {
-            debuglog(
-                c"%s:%s:%d - Focusing primary output %s\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/randr.c".as_ptr(),
-                c"randr_query_outputs".as_ptr(),
-                1045 as ::core::ffi::c_int,
-                output_primary_name(output),
-            );
+            {
+                // Snapshot native bytes before the logger can dispatch a callback.
+                let log_pointer_1 = output_primary_name(output);
+                let log_value_0 = i3_common::logging::string_bytes(
+                    if log_pointer_1.is_null() {
+                        None
+                    } else {
+                        Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                    },
+                    None,
+                )
+                .to_vec();
+                if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                    ::log::debug!(
+                        "../src/randr.c:randr_query_outputs:1045 - Focusing primary output {}\n",
+                        log_value_0_text
+                    );
+                } else {
+                    i3_common::logging::emit_parts(
+                        i3_common::logging::Level::Debug,
+                        &[
+                            "../src/randr.c:randr_query_outputs:1045 - Focusing primary output "
+                                .as_bytes(),
+                            &log_value_0,
+                            "\n".as_bytes(),
+                        ],
+                    );
+                }
+            };
             let content_0: *mut Con = output_get_content((*output).con);
             let ws: *mut Con = focus::first_ptr(content_0);
             workspace_show(ws);
@@ -1547,15 +1779,31 @@ pub unsafe fn randr_disable_output(output: *mut Output) {
         );
     };
     (*output).active = false;
-    debuglog(
-        c"%s:%s:%d - Output %s disabled, re-assigning workspaces/docks\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/randr.c".as_ptr(),
-        c"randr_disable_output".as_ptr(),
-        1066 as ::core::ffi::c_int,
-        output_primary_name(output),
-    );
+    {
+        // Snapshot native bytes before the logger can dispatch a callback.
+        let log_pointer_1 = output_primary_name(output);
+        let log_value_0 = i3_common::logging::string_bytes(
+            if log_pointer_1.is_null() {
+                None
+            } else {
+                Some(std::ffi::CStr::from_ptr(log_pointer_1))
+            },
+            None,
+        )
+        .to_vec();
+        if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+            ::log::debug!("../src/randr.c:randr_disable_output:1066 - Output {} disabled, re-assigning workspaces/docks\n", log_value_0_text);
+        } else {
+            i3_common::logging::emit_parts(
+                i3_common::logging::Level::Debug,
+                &[
+                    "../src/randr.c:randr_disable_output:1066 - Output ".as_bytes(),
+                    &log_value_0,
+                    " disabled, re-assigning workspaces/docks\n".as_bytes(),
+                ],
+            );
+        }
+    };
     if !(*output).con.is_null() {
         let con: *mut Con = (*output).con;
         (*output).con = ::core::ptr::null_mut::<Con>();
@@ -1586,13 +1834,8 @@ pub unsafe fn randr_init(event_base: *mut ::core::ffi::c_int, disable_randr15: b
     let extension_reply = match connection.wait_for_reply(cookie) {
         Ok(reply) if reply.present() => reply,
         _ => {
-            debuglog(
-                c"%s:%s:%d - RandR is not present, activating root output.\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/randr.c".as_ptr(),
-                c"randr_init".as_ptr(),
-                1096 as ::core::ffi::c_int,
+            ::log::debug!(
+                "../src/randr.c:randr_init:1096 - RandR is not present, activating root output.\n"
             );
             fallback_to_root_output();
             return;
@@ -1608,11 +1851,9 @@ pub unsafe fn randr_init(event_base: *mut ::core::ffi::c_int, disable_randr15: b
             if let ::xcb::Error::Protocol(error) = error {
                 // The maintained protocol-error owner retains this native header;
                 // error codes remain an open numeric domain for diagnostics.
-                errorlog(
-                    c"ERROR: Could not query RandR version: X11 error code %d\n"
-                        .as_ptr()
-                        .cast_mut(),
-                    i32::from((*error.as_raw()).error_code),
+                ::log::error!(
+                    "ERROR: Could not query RandR version: X11 error code {}\n",
+                    (i32::from((*error.as_raw()).error_code)) as i32
                 );
             }
             fallback_to_root_output();
@@ -1667,8 +1908,6 @@ use i3_common::safewrappers::sstrdup;
 pub use libc::{free, strcasecmp, strcmp};
 
 use i3_common::native_stdio::{__assert_fail, errx};
-
-use crate::log::{debuglog, errorlog, verboselog};
 
 // Shared model types retain field layout while using one Rust identity.
 pub use crate::types::output_name;
