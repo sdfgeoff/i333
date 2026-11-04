@@ -1,5 +1,8 @@
 //! Standard Rust logging shares the program's event-thread byte sink. Native
 //! byte diagnostics remain available without UTF-8 conversion through `emit`.
+mod compat;
+pub use compat::{pointer, string_bytes};
+
 use std::io::Write;
 use std::sync::{Once, RwLock};
 
