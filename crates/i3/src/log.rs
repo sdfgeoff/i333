@@ -91,7 +91,8 @@ impl RingWritePlan {
     }
 }
 
-/// The exported name remains malloc-compatible for the legacy application API.
+/// Own the native SHM descriptor and its prebuilt POSIX name argument.
+/// The fallible native allocation and its failure stage remain backend policy.
 struct ShmFile {
     fd: OwnedFd,
     name: NonNull<libc::c_char>,
@@ -233,7 +234,6 @@ static mut debug_logging: bool = false;
 static mut verbose: bool = false;
 static mut errorfile: *mut FILE = std::ptr::null_mut();
 pub static mut errorfilename: Option<std::path::PathBuf> = None;
-pub static mut shmlogname: *mut libc::c_char = c"".as_ptr().cast_mut();
 pub static mut shmlog_size: i32 = 0;
 static mut physical_mem_bytes: i64 = 0;
 pub static mut current_log_stream_socket_path: Option<std::path::PathBuf> = None;
@@ -280,7 +280,7 @@ pub unsafe fn init_logging() {
     atexit(purge_zerobyte_logfile);
 }
 
-/// Event-thread only; replaces any previous owned mapping and compatibility name.
+/// Event-thread only; replaces any previous owned mapping.
 pub unsafe fn open_logbuffer() {
     let size = if physical_mem_bytes as f64 * 0.01 < shmlog_size as f64 {
         (physical_mem_bytes as f64 * 0.01) as i32
@@ -291,7 +291,6 @@ pub unsafe fn open_logbuffer() {
     let name = CString::new(format!("/i3-log-{}", std::process::id())).expect("numeric SHM name");
     match MappedLog::open(&name, size.max(0) as usize) {
         Ok(log) => {
-            shmlogname = log.file.name.as_ptr();
             (&raw mut LOG_BUFFER).write(Some(log));
         }
         Err((stage, error)) => {
@@ -305,8 +304,46 @@ pub unsafe fn open_logbuffer() {
     }
 }
 
+/// Copy the application-facing name without exposing the native allocation.
+///
+/// # Safety
+/// Only the logger's event thread may access or replace the backend owner.
+pub(crate) unsafe fn shmlog_name() -> Vec<u8> {
+    (*(&raw const LOG_BUFFER))
+        .as_ref()
+        .map_or_else(Vec::new, |log| {
+            CStr::from_ptr(log.file.name.as_ptr()).to_bytes().to_vec()
+        })
+}
+
+/// Remove the native namespace entry without dropping its still-mapped owner.
+/// No allocation, registry, TLS, Rc or logger lock is used on this fault path.
+///
+/// # Safety
+/// The prepared backend owner remains live and cannot be replaced concurrently.
+pub(crate) unsafe fn unlink_shmlog_name() {
+    if let Some(log) = (*(&raw const LOG_BUFFER)).as_ref() {
+        libc::shm_unlink(log.file.name.as_ptr());
+    }
+}
+
+/// Preserve exit's direct native report before unlinking the SHM name.
+///
+/// # Safety
+/// The event-thread backend and native stderr stream remain live for this call.
+pub(crate) unsafe fn report_and_unlink_shmlog_name() {
+    if let Some(log) = (*(&raw const LOG_BUFFER)).as_ref() {
+        fprintf(
+            stderr,
+            c"Closing SHM log \"%s\"\n".as_ptr(),
+            log.file.name.as_ptr(),
+        );
+        fflush(stderr);
+        libc::shm_unlink(log.file.name.as_ptr());
+    }
+}
+
 pub unsafe fn close_logbuffer() {
-    shmlogname = c"".as_ptr().cast_mut();
     drop((&raw mut LOG_BUFFER).replace(None));
 }
 pub unsafe fn set_verbosity(value: bool) {

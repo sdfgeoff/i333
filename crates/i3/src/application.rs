@@ -822,11 +822,7 @@ pub unsafe fn main_set_x11_cb(enable: bool) {
 }
 extern "C" fn i3_exit() {
     unsafe {
-        if *shmlogname as i32 != '\0' as i32 {
-            fprintf(stderr, c"Closing SHM log \"%s\"\n".as_ptr(), shmlogname);
-            fflush(stderr);
-            shm_unlink(shmlogname);
-        }
+        crate::log::report_and_unlink_shmlog_name();
         ipc_shutdown(ShutdownReason::Exit, -1_i32);
         if let Some(path) = config.ipc_socket_path.as_deref() {
             let _ = std::fs::remove_file(path);
@@ -857,9 +853,7 @@ unsafe extern "C" fn handle_core_signal(
     info: *mut siginfo_t,
     data: *mut ::core::ffi::c_void,
 ) {
-    if *shmlogname as i32 != '\0' as i32 {
-        shm_unlink(shmlogname);
-    }
+    crate::log::unlink_shmlog_name();
     raise(sig);
 }
 unsafe extern "C" fn handle_term_signal(
@@ -2231,8 +2225,8 @@ use startup_notification_sys::{sn_xcb_display_new, SnDisplay};
 pub use libc::{
     atexit, close, dirname, exit, fcntl, fflush, fileno, fprintf, free, getcwd, getenv, getrlimit,
     isatty, memmove, open, printf, raise, read, rlimit, rmdir, setbuf, setlocale, setrlimit,
-    shm_unlink, sigaction, sigemptyset, siginfo_t, signal, srand, strcmp, strlen, strstr, time,
-    unlink, unsetenv, usleep,
+    sigaction, sigemptyset, siginfo_t, signal, srand, strcmp, strlen, strstr, time, unlink,
+    unsetenv, usleep,
 };
 
 use i3_common::native_stdio::{err, errx, stderr, stdout};
@@ -2381,7 +2375,6 @@ use crate::ipc::ipc_new_client;
 use crate::log::current_log_stream_socket_path;
 use crate::log::log_new_client;
 use crate::log::shmlog_size;
-use crate::log::shmlogname;
 use crate::output::output_get_content;
 use crate::output::output_primary_name;
 use crate::randr::get_first_output;

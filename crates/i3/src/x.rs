@@ -2166,7 +2166,7 @@ pub unsafe fn x_set_name(con: *mut Con, mut name: Vec<u8>) {
 
 pub unsafe fn update_shmlog_atom() {
     let connection = connection();
-    let path = CStr::from_ptr(shmlogname).to_bytes();
+    let path = crate::log::shmlog_name();
     if path.is_empty() {
         connection.send_request(&x::DeleteProperty {
             window: x::Window::new(root),
@@ -2178,7 +2178,7 @@ pub unsafe fn update_shmlog_atom() {
             window: x::Window::new(root),
             property: x::Atom::new(A_I3_SHMLOG_PATH),
             r#type: x::Atom::new(A_UTF8_STRING),
-            data: path,
+            data: &path,
         });
     }
 }
@@ -2362,7 +2362,6 @@ use crate::ewmh::ewmh_window;
 use crate::ipc::current_socketpath;
 use crate::ipc::ipc_send_window_event;
 use crate::log::current_log_stream_socket_path;
-use crate::log::shmlogname;
 use crate::randr::get_output_containing;
 use crate::tree::focused;
 use crate::util::rect_equals;
