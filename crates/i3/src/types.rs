@@ -642,11 +642,11 @@ pub struct Window {
     pub transient_for: u32,
     /// Borrowed global assignment identities, cleared on configuration reload.
     pub ran_assignments: Vec<*mut crate::types::Assignment>,
-    pub class_class: Option<std::ffi::CString>,
-    pub class_instance: Option<std::ffi::CString>,
+    pub class_class: Option<Vec<u8>>,
+    pub class_instance: Option<Vec<u8>>,
     pub name: Option<i3_common::string::I3String>,
-    pub role: Option<std::ffi::CString>,
-    pub machine: Option<std::ffi::CString>,
+    pub role: Option<Vec<u8>>,
+    pub machine: Option<Vec<u8>>,
     pub name_x_changed: bool,
     pub uses_net_wm_name: bool,
     pub needs_take_focus: bool,
@@ -720,30 +720,6 @@ impl Default for Window {
             managed_since: Default::default(),
             swallowed: Default::default(),
         }
-    }
-}
-
-// Native logging/sort adapters borrow C views without exposing ownership.
-impl Window {
-    pub fn class_class_ptr(&self) -> *const ::core::ffi::c_char {
-        self.class_class
-            .as_ref()
-            .map_or(std::ptr::null(), |text| text.as_ptr())
-    }
-    pub fn class_instance_ptr(&self) -> *const ::core::ffi::c_char {
-        self.class_instance
-            .as_ref()
-            .map_or(std::ptr::null(), |text| text.as_ptr())
-    }
-    pub fn role_ptr(&self) -> *const ::core::ffi::c_char {
-        self.role
-            .as_ref()
-            .map_or(std::ptr::null(), |text| text.as_ptr())
-    }
-    pub fn machine_ptr(&self) -> *const ::core::ffi::c_char {
-        self.machine
-            .as_ref()
-            .map_or(std::ptr::null(), |text| text.as_ptr())
     }
 }
 

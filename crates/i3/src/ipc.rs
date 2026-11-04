@@ -698,19 +698,22 @@ unsafe fn snapshot_node_header(con: *mut Con, restart: bool) -> messages::NodeHe
                 (*window)
                     .class_class
                     .as_deref()
-                    .map(messages::NativeText::cstr),
+                    .map(messages::NativeText::bytes),
             ),
             instance: messages::Omitted(
                 (*window)
                     .class_instance
                     .as_deref()
-                    .map(messages::NativeText::cstr),
+                    .map(messages::NativeText::bytes),
             ),
             window_role: messages::Omitted(
-                (*window).role.as_deref().map(messages::NativeText::cstr),
+                (*window).role.as_deref().map(messages::NativeText::bytes),
             ),
             machine: messages::Omitted(
-                (*window).machine.as_deref().map(messages::NativeText::cstr),
+                (*window)
+                    .machine
+                    .as_deref()
+                    .map(messages::NativeText::bytes),
             ),
             title: Omitted(
                 (*window)

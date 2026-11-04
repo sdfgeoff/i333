@@ -76,11 +76,11 @@ use std::ffi::{c_char, CStr};
 
 #[derive(Default, Clone, Copy)]
 struct TextProperties<'a> {
-    class: Option<&'a CStr>,
-    instance: Option<&'a CStr>,
+    class: Option<&'a [u8]>,
+    instance: Option<&'a [u8]>,
     title: Option<&'a I3String>,
-    role: Option<&'a CStr>,
-    machine: Option<&'a CStr>,
+    role: Option<&'a [u8]>,
+    machine: Option<&'a [u8]>,
 }
 
 struct WindowProperties<'a> {
@@ -225,14 +225,14 @@ impl Criteria<'_> {
 
     fn fields_match(&self, window: &WindowProperties<'_>, focused: TextProperties<'_>) -> bool {
         let mut message = format!("Checking window 0x{:08x} (class ", window.id).into_bytes();
-        message.extend_from_slice(window.text.class.map_or(&b"(null)"[..], CStr::to_bytes));
+        message.extend_from_slice(window.text.class.unwrap_or(b"(null)"));
         message.extend_from_slice(b")\n");
         emit(Level::Verbose, &message);
         if let Some(expression) = self.class {
             if !text_matches(
                 expression,
-                window.text.class.map(CStr::to_bytes),
-                focused.class.map(CStr::to_bytes),
+                window.text.class,
+                focused.class,
                 b"window class",
             ) {
                 return false;
@@ -241,8 +241,8 @@ impl Criteria<'_> {
         if let Some(expression) = self.instance {
             if !text_matches(
                 expression,
-                window.text.instance.map(CStr::to_bytes),
-                focused.instance.map(CStr::to_bytes),
+                window.text.instance,
+                focused.instance,
                 b"window instance",
             ) {
                 return false;
@@ -273,8 +273,8 @@ impl Criteria<'_> {
         if let Some(expression) = self.role {
             if !text_matches(
                 expression,
-                window.text.role.map(CStr::to_bytes),
-                focused.role.map(CStr::to_bytes),
+                window.text.role,
+                focused.role,
                 b"window window_role",
             ) {
                 return false;
@@ -292,8 +292,8 @@ impl Criteria<'_> {
         if let Some(expression) = self.machine {
             if !text_matches(
                 expression,
-                window.text.machine.map(CStr::to_bytes),
-                focused.machine.map(CStr::to_bytes),
+                window.text.machine,
+                focused.machine,
                 b"window machine",
             ) {
                 return false;
@@ -867,13 +867,13 @@ mod tests {
         let mut criterion = criteria();
         criterion.class = Some(&expression);
         let mut properties = window();
-        properties.text.class = Some(c"\xff");
+        properties.text.class = Some(b"\xff");
         assert!(!criterion.fields_match(&properties, TextProperties::default()));
-        properties.text.class = Some(c"\u{fffd}");
+        properties.text.class = Some("\u{fffd}".as_bytes());
         assert!(criterion.fields_match(&properties, TextProperties::default()));
         let lookbehind = Regex::compile_str(r"(?<=prefix-)\w+$").unwrap();
         criterion.class = Some(&lookbehind);
-        properties.text.class = Some(c"prefix-café");
+        properties.text.class = Some("prefix-café".as_bytes());
         assert!(criterion.fields_match(&properties, TextProperties::default()));
         i3_common::logging::set_sink(i3_common::logging::stderr_sink);
     }

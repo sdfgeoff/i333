@@ -286,7 +286,7 @@ mod tests {
             ));
             let assignment_ptr = std::ptr::from_mut(&mut *assignment);
             let mut window = Window {
-                class_class: Some(c"\xffClass".to_owned()),
+                class_class: Some(b"\xffClass".to_vec()),
                 ..Default::default()
             };
             window.ran_assignments.push(assignment_ptr);
@@ -296,7 +296,7 @@ mod tests {
             for _ in 0..256 {
                 arena.insert_window(Window::default());
             }
-            assert_eq!((*raw).class_class.as_deref(), Some(c"\xffClass"));
+            assert_eq!((*raw).class_class.as_deref(), Some(&b"\xffClass"[..]));
             assert_eq!((*raw).ran_assignments, [assignment_ptr]);
             drop(arena);
             // Window Drop reclaimed its icon; only our observer remains. The

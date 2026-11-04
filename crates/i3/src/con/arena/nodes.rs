@@ -628,7 +628,6 @@ mod tests {
 
     #[test]
     fn actual_dock_attach_uses_stable_nullable_native_class_then_instance_order() {
-        use std::ffi::CString;
         let raw_parent = allocate(Con::empty());
         let p = identity(raw_parent).unwrap();
         let classes = [
@@ -642,8 +641,8 @@ mod tests {
             .iter()
             .map(|(class, instance)| {
                 (
-                    class.map(|s| CString::new(s).unwrap()),
-                    instance.map(|s| CString::new(s).unwrap()),
+                    class.map(|s| s.as_bytes().to_vec()),
+                    instance.map(|s| s.as_bytes().to_vec()),
                 )
             })
             .collect();
@@ -671,7 +670,7 @@ mod tests {
             }
             release(raw_parent);
         }
-        // These fixture Windows borrow CString class views; ordinary Box drop
+        // These fixture Windows own class bytes; ordinary Box drop
         // releases their Rust fields, never calls the native window_free API.
         drop(windows);
         drop(text);

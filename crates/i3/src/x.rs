@@ -30,15 +30,6 @@ use std::os::unix::ffi::OsStrExt;
 
 type Output = xoutput;
 
-// Adoption is confined to native reply/allocation producers in this module.
-struct NativeReply<T>(*mut T);
-impl<T> Drop for NativeReply<T> {
-    fn drop(&mut self) {
-        unsafe {
-            free(self.0.cast());
-        }
-    }
-}
 fn delete_window_event(window: u32, protocols: u32, delete: u32) -> x::ClientMessageEvent {
     x::ClientMessageEvent::new(
         x::Window::new(window),
@@ -1088,9 +1079,9 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
                 let owned_title = if (*con).title_format.is_some() {
                     Some(con_parse_title_format(con))
                 } else if win.is_null() {
-                    let tree = NativeReply(con_get_tree_representation(con));
+                    let tree = con_get_tree_representation(con);
                     let mut bytes = b"i3: ".to_vec();
-                    bytes.extend_from_slice(CStr::from_ptr(tree.0).to_bytes());
+                    bytes.extend_from_slice(&tree);
                     Some(I3String::from_bytes(&bytes))
                 } else {
                     None

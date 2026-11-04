@@ -21,7 +21,6 @@ use i3_common::dpi::logical_px;
 use i3_common::safewrappers::smalloc;
 use i3_common::string::I3String;
 use libc::free;
-use std::ffi::{CStr, CString};
 use std::ptr::NonNull;
 
 /// Mutable geometry decisions belong to Rust values, not an XCB reply buffer.
@@ -104,9 +103,8 @@ fn class_parts(bytes: &[u8]) -> (&[u8], Option<&[u8]>) {
 }
 /// Keep the native first-NUL byte view, including invalid UTF-8 and present
 /// empty strings. Replacement drops the previous allocation normally.
-fn replace_string(slot: &mut Option<CString>, bytes: Option<&[u8]>) {
-    *slot = bytes
-        .map(|bytes| CString::new(string_prefix(bytes)).expect("first-NUL prefix contains no NUL"));
+fn replace_text(slot: &mut Option<Vec<u8>>, bytes: Option<&[u8]>) {
+    *slot = bytes.map(|bytes| string_prefix(bytes).to_vec());
 }
 
 /// All entry points operate on the live event-thread Window graph. Property
@@ -132,14 +130,13 @@ pub unsafe fn window_update_class(win: *mut Window, prop: Option<&x::GetProperty
             return;
         }
         let (instance, class) = class_parts(value.bytes);
-        replace_string(&mut (*win).class_instance, Some(instance));
-        replace_string(&mut (*win).class_class, class);
+        replace_text(&mut (*win).class_instance, Some(instance));
+        replace_text(&mut (*win).class_class, class);
         {
             let instance = (*win).class_instance.clone();
             let class = (*win).class_class.clone();
-            let instance_bytes =
-                string_bytes((instance.as_deref()).map(std::ffi::CStr::to_bytes), None);
-            let class_bytes = string_bytes((class.as_deref()).map(std::ffi::CStr::to_bytes), None);
+            let instance_bytes = string_bytes(instance.as_deref(), None);
+            let class_bytes = string_bytes(class.as_deref(), None);
             match (
                 std::str::from_utf8(instance_bytes),
                 std::str::from_utf8(class_bytes),
@@ -288,10 +285,10 @@ pub unsafe fn window_update_role(win: *mut Window, prop: Option<&x::GetPropertyR
             ::log::debug!("../src/window.c:window_update_role:220 - WM_WINDOW_ROLE not set.\n");
             return;
         }
-        replace_string(&mut (*win).role, Some(property_view(prop).bytes));
+        replace_text(&mut (*win).role, Some(property_view(prop).bytes));
         {
             let value = (*win).role.clone();
-            let bytes = string_bytes((value.as_deref()).map(std::ffi::CStr::to_bytes), None);
+            let bytes = string_bytes(value.as_deref(), None);
             match std::str::from_utf8(bytes) {
                 Ok(value) => ::log::info!("WM_WINDOW_ROLE changed to \"{}\"\n", value),
                 Err(_) => emit_parts(
@@ -312,10 +309,10 @@ pub unsafe fn window_update_machine(win: *mut Window, prop: Option<&x::GetProper
             );
             return;
         }
-        replace_string(&mut (*win).machine, Some(property_view(prop).bytes));
+        replace_text(&mut (*win).machine, Some(property_view(prop).bytes));
         {
             let value = (*win).machine.clone();
-            let bytes = string_bytes((value.as_deref()).map(std::ffi::CStr::to_bytes), None);
+            let bytes = string_bytes(value.as_deref(), None);
             match std::str::from_utf8(bytes) {
                 Ok(value) => ::log::info!("WM_CLIENT_MACHINE changed to \"{}\"\n", value),
                 Err(_) => emit_parts(
@@ -1087,11 +1084,11 @@ mod tests {
         assert_eq!(string_prefix(b"title\0ignored"), b"title");
         // Owned fields retain missing/present-empty and first-NUL byte views.
         let mut field = None;
-        replace_string(&mut field, Some(b"\xff\0ignored"));
-        assert_eq!(field.as_ref().unwrap().to_bytes(), b"\xff");
-        replace_string(&mut field, Some(b""));
-        assert_eq!(field.as_deref(), Some(c""));
-        replace_string(&mut field, None);
+        replace_text(&mut field, Some(b"\xff\0ignored"));
+        assert_eq!(field.as_deref().unwrap(), b"\xff");
+        replace_text(&mut field, Some(b""));
+        assert_eq!(field.as_deref(), Some(&b""[..]));
+        replace_text(&mut field, None);
         assert!(field.is_none());
     }
 

@@ -160,25 +160,13 @@ unsafe fn _con_attach(con: *mut Con, parent: *mut Con, previous: *mut Con, ignor
             .unwrap_or(std::ptr::null_mut());
         while !loop_0.is_null() {
             let mut result: i32 = strcasecmp_nullable(
-                (*(*con).window)
-                    .class_class
-                    .as_deref()
-                    .map(std::ffi::CStr::to_bytes),
-                (*(*loop_0).window)
-                    .class_class
-                    .as_deref()
-                    .map(std::ffi::CStr::to_bytes),
+                (*(*con).window).class_class.as_deref(),
+                (*(*loop_0).window).class_class.as_deref(),
             );
             if result == 0_i32 {
                 result = strcasecmp_nullable(
-                    (*(*con).window)
-                        .class_instance
-                        .as_deref()
-                        .map(std::ffi::CStr::to_bytes),
-                    (*(*loop_0).window)
-                        .class_instance
-                        .as_deref()
-                        .map(std::ffi::CStr::to_bytes),
+                    (*(*con).window).class_instance.as_deref(),
+                    (*(*loop_0).window).class_instance.as_deref(),
                 );
             }
             if result < 0_i32 {
@@ -2508,18 +2496,20 @@ pub unsafe fn con_set_urgency(con: *mut Con, urgent: bool) {
     }
 }
 
-/// Borrowed graph names are copied before returning; the native adapter below
-/// retains the existing malloc ownership contract used by diagnostics/title code.
-unsafe fn tree_representation(con: *mut Con) -> Vec<u8> {
+/// Copy graph text into an independently owned tree description.
+///
+/// # Safety
+/// `con` and its descendants must be live on the event thread throughout this call.
+pub unsafe fn con_get_tree_representation(con: *mut Con) -> Vec<u8> {
     if con_is_leaf(con) {
-        let name = if (*con).window.is_null() {
-            c"nowin".as_ptr()
-        } else if (*(*con).window).class_instance.is_none() {
-            c"noinstance".as_ptr()
+        return if (*con).window.is_null() {
+            b"nowin".to_vec()
         } else {
-            (*(*con).window).class_instance_ptr()
+            (*(*con).window)
+                .class_instance
+                .clone()
+                .unwrap_or_else(|| b"noinstance".to_vec())
         };
-        return std::ffi::CStr::from_ptr(name).to_bytes().to_vec();
     }
     let label = match (*con).layout {
         Layout::Default => b'D',
@@ -2543,16 +2533,11 @@ unsafe fn tree_representation(con: *mut Con) -> Vec<u8> {
         if child != nodes::first_ptr(con) {
             text.push(b' ');
         }
-        text.extend(tree_representation(child));
+        text.extend(con_get_tree_representation(child));
         child = nodes::next_ptr(child);
     }
     text.push(b']');
     text
-}
-
-pub unsafe fn con_get_tree_representation(con: *mut Con) -> *mut ::core::ffi::c_char {
-    let text = tree_representation(con);
-    i3_common::safewrappers::sstrndup(text.as_ptr().cast(), text.len())
 }
 
 fn title_capture(bytes: &[u8], markup: bool) -> Vec<u8> {
@@ -2576,7 +2561,7 @@ pub unsafe fn con_parse_title_format(con: *mut Con) -> i3_common::string::I3Stri
     let markup = font_is_pango(&crate::config::config.font);
     let (title, class, instance, machine) = if win.is_null() {
         (
-            title_capture(&tree_representation(con), markup),
+            title_capture(&con_get_tree_representation(con), markup),
             b"i3-frame".to_vec(),
             b"i3-frame".to_vec(),
             Vec::new(),
@@ -2594,20 +2579,9 @@ pub unsafe fn con_parse_title_format(con: *mut Con) -> i3_common::string::I3Stri
                     .map_or(&[][..], str::as_bytes),
                 markup,
             ),
-            title_capture(
-                class.as_deref().map_or(&[][..], std::ffi::CStr::to_bytes),
-                markup,
-            ),
-            title_capture(
-                instance
-                    .as_deref()
-                    .map_or(&[][..], std::ffi::CStr::to_bytes),
-                markup,
-            ),
-            title_capture(
-                machine.as_deref().map_or(&[][..], std::ffi::CStr::to_bytes),
-                markup,
-            ),
+            title_capture(class.as_deref().unwrap_or_default(), markup),
+            title_capture(instance.as_deref().unwrap_or_default(), markup),
+            title_capture(machine.as_deref().unwrap_or_default(), markup),
         )
     };
     let expanded = i3_common::format_placeholders::expand_bytes(
@@ -2966,7 +2940,7 @@ mod owned_graph_tests {
         }
     }
     #[test]
-    fn tree_text_owns_ordered_bytes_and_malloc_adapter() {
+    fn tree_text_owns_ordered_bytes_and_nullable_instance_snapshots() {
         let root = arena::allocate(Con::empty());
         let first = arena::allocate(Con::empty());
         let second = arena::allocate(Con::empty());
@@ -2982,10 +2956,17 @@ mod owned_graph_tests {
         .unwrap();
         unsafe {
             (*root).layout = Layout::SplitH;
-            assert_eq!(tree_representation(root), b"H[nowin nowin]");
-            let text = con_get_tree_representation(root);
-            assert_eq!(std::ffi::CStr::from_ptr(text).to_bytes(), b"H[nowin nowin]");
-            libc::free(text.cast());
+            assert_eq!(con_get_tree_representation(root), b"H[nowin nowin]");
+            let mut window = Window::default();
+            (*first).window = &raw mut window;
+            assert_eq!(con_get_tree_representation(root), b"H[noinstance nowin]");
+            window.class_instance = Some(Vec::new());
+            assert_eq!(con_get_tree_representation(root), b"H[ nowin]");
+            window.class_instance = Some(b"\xffinstance".to_vec());
+            let snapshot = con_get_tree_representation(root);
+            window.class_instance = None;
+            assert_eq!(snapshot, b"H[\xffinstance nowin]");
+            (*first).window = std::ptr::null_mut();
             for raw in [root, first, second] {
                 arena::release(raw);
             }
