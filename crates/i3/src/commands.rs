@@ -4249,6 +4249,7 @@ pub unsafe fn cmd_title_format(
     cmd_output: *mut CommandResultIR,
     format: *const ::core::ffi::c_char,
 ) {
+    let format = std::ffi::CStr::from_ptr(format).to_owned();
     debuglog(
         c"%s:%s:%d - setting title_format to \"%s\"\n"
             .as_ptr()
@@ -4256,7 +4257,7 @@ pub unsafe fn cmd_title_format(
         c"../src/commands.c".as_ptr(),
         c"cmd_title_format".as_ptr(),
         2023 as ::core::ffi::c_int,
-        format,
+        format.as_ptr(),
     );
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
@@ -4309,10 +4310,9 @@ pub unsafe fn cmd_title_format(
             (*current).con,
             (*(*current).con).name,
         );
-        free((*(*current).con).title_format as *mut ::core::ffi::c_void);
-        (*(*current).con).title_format = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        if strcasecmp(format, c"%title".as_ptr()) != 0 as ::core::ffi::c_int {
-            (*(*current).con).title_format = sstrdup(format);
+        (*(*current).con).title_format = None;
+        if strcasecmp(format.as_ptr(), c"%title".as_ptr()) != 0 as ::core::ffi::c_int {
+            (*(*current).con).title_format = Some(format.clone());
             if !(*(*current).con).window.is_null() {
                 let formatted_title = con_parse_title_format((*current).con);
                 ewmh_update_visible_name(

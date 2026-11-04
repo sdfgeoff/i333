@@ -481,14 +481,8 @@ impl LayoutState {
         } else if strcasecmp(self.last_key.as_ptr(), c"title_format".as_ptr())
             == 0 as ::core::ffi::c_int
         {
-            free((*self.json_node).title_format.cast());
             (*self.json_node).title_format =
-                scalloc(len.wrapping_add(1 as usize), 1 as usize) as *mut ::core::ffi::c_char;
-            memcpy(
-                (*self.json_node).title_format as *mut ::core::ffi::c_void,
-                val as *const ::core::ffi::c_void,
-                len,
-            );
+                Some(property_string(std::slice::from_raw_parts(val, len)));
         } else if strcasecmp(self.last_key.as_ptr(), c"sticky_group".as_ptr())
             == 0 as ::core::ffi::c_int
         {

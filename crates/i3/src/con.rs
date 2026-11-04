@@ -2693,7 +2693,11 @@ fn title_capture(bytes: &[u8], markup: bool) -> std::ffi::CString {
 /// `con`, its optional window, title format and borrowed string fields are live
 /// event-thread data throughout this call; no graph callbacks occur here.
 pub unsafe fn con_parse_title_format(con: *mut Con) -> i3_common::string::I3String {
-    assert!(!(*con).title_format.is_null());
+    // Snapshot before text conversion/logging can reenter the model.
+    let format = (*con)
+        .title_format
+        .clone()
+        .expect("container has a title format");
     let win = (*con).window;
     let markup = font_is_pango(&crate::config::config.font);
     let capture = |pointer: *const libc::c_char| {
@@ -2712,39 +2716,35 @@ pub unsafe fn con_parse_title_format(con: *mut Con) -> i3_common::string::I3Stri
             c"".to_owned(),
         )
     } else {
+        let title = (*win).name.clone();
+        let class = (*win).class_class.clone();
+        let instance = (*win).class_instance.clone();
+        let machine = (*win).machine.clone();
         (
             capture(
-                (*win)
-                    .name
+                title
                     .as_ref()
                     .and_then(|text| text.cstr_or_report())
                     .map_or(std::ptr::null(), std::ffi::CStr::as_ptr),
             ),
             title_capture(
-                (*win)
-                    .class_class
+                class.as_deref().map_or(&[][..], std::ffi::CStr::to_bytes),
+                markup,
+            ),
+            title_capture(
+                instance
                     .as_deref()
                     .map_or(&[][..], std::ffi::CStr::to_bytes),
                 markup,
             ),
             title_capture(
-                (*win)
-                    .class_instance
-                    .as_deref()
-                    .map_or(&[][..], std::ffi::CStr::to_bytes),
-                markup,
-            ),
-            title_capture(
-                (*win)
-                    .machine
-                    .as_deref()
-                    .map_or(&[][..], std::ffi::CStr::to_bytes),
+                machine.as_deref().map_or(&[][..], std::ffi::CStr::to_bytes),
                 markup,
             ),
         )
     };
     let expanded = i3_common::format_placeholders::expand_cstr(
-        std::ffi::CStr::from_ptr((*con).title_format),
+        &format,
         &[
             (c"%title", &title),
             (c"%class", &class),
@@ -2901,11 +2901,8 @@ pub unsafe fn con_rect_size_in_orientation(con: *mut Con) -> u32 {
 pub unsafe fn con_merge_into(old: *mut Con, new: *mut Con) {
     (*new).window = (*old).window;
     (*old).window = ::core::ptr::null_mut::<Window>();
-    if !(*old).title_format.is_null() {
-        free((*new).title_format as *mut ::core::ffi::c_void);
-        (*new).title_format = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        (*new).title_format = (*old).title_format;
-        (*old).title_format = ::core::ptr::null_mut::<::core::ffi::c_char>();
+    if let Some(format) = (*old).title_format.take() {
+        (*new).title_format = Some(format);
     }
     if !(*old).sticky_group.is_null() {
         free((*new).sticky_group as *mut ::core::ffi::c_void);

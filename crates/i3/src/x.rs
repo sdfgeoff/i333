@@ -1123,7 +1123,7 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
                         mark_width += title_padding;
                     }
                 }
-                let owned_title = if !(*con).title_format.is_null() {
+                let owned_title = if (*con).title_format.is_some() {
                     Some(con_parse_title_format(con))
                 } else if win.is_null() {
                     let tree = NativeReply(con_get_tree_representation(con));
@@ -1135,7 +1135,7 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
                 };
                 let title = if let Some(owned) = owned_title.as_ref() {
                     Some(owned)
-                } else if !win.is_null() && (*con).title_format.is_null() {
+                } else if !win.is_null() && (*con).title_format.is_none() {
                     (*win).name.as_ref()
                 } else {
                     None

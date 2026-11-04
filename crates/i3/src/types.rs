@@ -383,7 +383,7 @@ pub struct Con {
     pub deco_rect: crate::types::Rect,
     pub geometry: crate::types::Rect,
     pub name: *mut ::core::ffi::c_char,
-    pub title_format: *mut ::core::ffi::c_char,
+    pub title_format: Option<std::ffi::CString>,
     pub window_icon_padding: ::core::ffi::c_int,
     pub sticky_group: *mut ::core::ffi::c_char,
     pub marks_head: crate::types::marks_head,
@@ -442,7 +442,7 @@ impl Con {
             deco_rect: rect,
             geometry: rect,
             name: null_mut(),
-            title_format: null_mut(),
+            title_format: None,
             window_icon_padding: 0,
             sticky_group: null_mut(),
             marks_head: marks_head {

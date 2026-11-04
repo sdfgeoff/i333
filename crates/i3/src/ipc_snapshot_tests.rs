@@ -148,7 +148,7 @@ unsafe fn collect() -> BTreeMap<String, String> {
     (*leaf).window = &mut *window;
     (*leaf).border_style = BorderStyle::Normal;
     (*leaf).depth = 32;
-    (*leaf).title_format = c"%title [%class]".as_ptr().cast_mut();
+    (*leaf).title_format = Some(c"%title [%class]".to_owned());
     (*leaf).percent = 0.25;
     result.insert("node_window".into(), node_bytes(leaf, false, 0, &allocated));
     result.insert("node_restart".into(), node_bytes(leaf, true, 0, &allocated));

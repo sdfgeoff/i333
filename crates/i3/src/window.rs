@@ -170,7 +170,7 @@ unsafe fn set_name(win: *mut Window, bytes: &[u8]) {
     unsafe {
         (*win).name = Some(I3String::from_bytes(string_prefix(bytes)));
         let con = con_by_window_id((*win).id);
-        if !con.is_null() && !(*con).title_format.is_null() {
+        if !con.is_null() && (*con).title_format.is_some() {
             let formatted = con_parse_title_format(con);
             ewmh_update_visible_name(
                 (*win).id,
