@@ -3,6 +3,7 @@
 #![cfg_attr(not(test), deny(unsafe_code))]
 
 mod compat;
+pub use crate::native_stdio::{fixed_decimal, FixedPrecision};
 pub use compat::{pointer, string_bytes};
 
 use std::io::Write;
