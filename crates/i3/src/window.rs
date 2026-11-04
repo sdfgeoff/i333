@@ -1,4 +1,5 @@
 #![deny(unsafe_op_in_unsafe_fn)]
+use i3_common::logging::{emit_parts, fixed_decimal, string_bytes, FixedPrecision, Level};
 
 /*
  * i3 - an improved tiling window manager
@@ -8,7 +9,6 @@
 use crate::assignments::run_assignments;
 use crate::con::{con_by_window_id, con_parse_title_format};
 use crate::ewmh::ewmh_update_visible_name;
-use crate::log::{debuglog, verboselog};
 use crate::render::render_deco_height;
 use crate::types::{reservedpx, BorderStyle, Window};
 use ::xcb::{x, Reply, Xid, XidNew};
@@ -23,26 +23,6 @@ use i3_common::string::I3String;
 use libc::free;
 use std::ffi::{CStr, CString};
 use std::ptr::NonNull;
-
-macro_rules! trace {
-    ($function:literal, $line:literal, $message:literal $(,)?) => {
-        debuglog(
-            c"%s:%s:%d - %s".as_ptr().cast_mut(),
-            c"../src/window.c".as_ptr(),
-            concat!($function, "\0").as_ptr().cast::<libc::c_char>(),
-            $line as libc::c_int,
-            $message.as_ptr(),
-        );
-    };
-}
-
-macro_rules! tracef {
-    ($function:literal, $line:literal, $format:literal $(, $arg:expr)* $(,)?) => {
-        debuglog(concat!("%s:%s:%d - ", $format, "\0").as_ptr().cast_mut().cast(),
-            c"../src/window.c".as_ptr(), concat!($function,"\0").as_ptr().cast::<libc::c_char>(),
-            $line as libc::c_int $(, $arg)*);
-    };
-}
 
 /// Mutable geometry decisions belong to Rust values, not an XCB reply buffer.
 /// Size hints may override these coordinates/extents before managing a window.
@@ -148,19 +128,38 @@ pub unsafe fn window_update_class(win: *mut Window, prop: Option<&x::GetProperty
     unsafe {
         let value = property_view(prop);
         if value.bytes.is_empty() {
-            trace!("window_update_class", 36, c"WM_CLASS not set.\n");
+            ::log::debug!("../src/window.c:window_update_class:36 - WM_CLASS not set.\n");
             return;
         }
         let (instance, class) = class_parts(value.bytes);
         replace_string(&mut (*win).class_instance, Some(instance));
         replace_string(&mut (*win).class_class, class);
-        verboselog(
-            c"WM_CLASS changed to %s (instance), %s (class)\n"
-                .as_ptr()
-                .cast_mut(),
-            (*win).class_instance_ptr(),
-            (*win).class_class_ptr(),
-        );
+        {
+            let instance = (*win).class_instance.clone();
+            let class = (*win).class_class.clone();
+            let instance_bytes = string_bytes(instance.as_deref(), None);
+            let class_bytes = string_bytes(class.as_deref(), None);
+            match (
+                std::str::from_utf8(instance_bytes),
+                std::str::from_utf8(class_bytes),
+            ) {
+                (Ok(instance), Ok(class)) => ::log::info!(
+                    "WM_CLASS changed to {} (instance), {} (class)\n",
+                    instance,
+                    class
+                ),
+                _ => emit_parts(
+                    Level::Verbose,
+                    &[
+                        b"WM_CLASS changed to ",
+                        instance_bytes,
+                        b" (instance), ",
+                        class_bytes,
+                        b" (class)\n",
+                    ],
+                ),
+            }
+        };
     }
 }
 
@@ -186,23 +185,21 @@ pub unsafe fn window_update_name(win: *mut Window, prop: Option<&x::GetPropertyR
     // throughout this compatibility operation; owned payload borrows stay local.
     unsafe {
         if property_view(prop).bytes.is_empty() {
-            trace!(
-                "window_update_name",
-                70,
-                c"_NET_WM_NAME not specified, not changing\n"
-            );
+            ::log::debug!("../src/window.c:window_update_name:70 - _NET_WM_NAME not specified, not changing\n");
             return;
         }
         set_name(win, property_view(prop).bytes);
         (*win).name_x_changed = true;
-        verboselog(
-            c"_NET_WM_NAME changed to \"%s\"\n".as_ptr().cast_mut(),
-            (*win)
-                .name
+        {
+            let name = (*win).name.clone();
+            let text = name
                 .as_ref()
                 .and_then(I3String::cstr_or_report)
-                .map_or(std::ptr::null(), CStr::as_ptr),
-        );
+                .map_or("(null)", |value| {
+                    value.to_str().expect("I3String owns valid UTF-8")
+                });
+            ::log::info!("_NET_WM_NAME changed to \"{}\"\n", text);
+        };
         (*win).uses_net_wm_name = true;
     }
 }
@@ -211,26 +208,24 @@ pub unsafe fn window_update_name_legacy(win: *mut Window, prop: Option<&x::GetPr
     // throughout this compatibility operation; owned payload borrows stay local.
     unsafe {
         if property_view(prop).bytes.is_empty() {
-            trace!(
-                "window_update_name_legacy",
-                106,
-                c"WM_NAME not set (_NET_WM_NAME is what you want anyways).\n"
-            );
+            ::log::debug!("../src/window.c:window_update_name_legacy:106 - WM_NAME not set (_NET_WM_NAME is what you want anyways).\n");
             return;
         }
         if (*win).uses_net_wm_name {
             return;
         }
         set_name(win, property_view(prop).bytes);
-        verboselog(
-            c"WM_NAME changed to \"%s\"\n".as_ptr().cast_mut(),
-            (*win)
-                .name
+        {
+            let name = (*win).name.clone();
+            let text = name
                 .as_ref()
                 .and_then(I3String::cstr_or_report)
-                .map_or(std::ptr::null(), CStr::as_ptr),
-        );
-        verboselog(c"Using legacy window title. Note that in order to get Unicode window titles in i3, the application has to set _NET_WM_NAME (UTF-8)\n".as_ptr().cast_mut());
+                .map_or("(null)", |value| {
+                    value.to_str().expect("I3String owns valid UTF-8")
+                });
+            ::log::info!("WM_NAME changed to \"{}\"\n", text);
+        };
+        ::log::info!("Using legacy window title. Note that in order to get Unicode window titles in i3, the application has to set _NET_WM_NAME (UTF-8)\n");
         (*win).name_x_changed = true;
     }
 }
@@ -239,20 +234,13 @@ pub unsafe fn window_update_leader(win: *mut Window, prop: Option<&x::GetPropert
     // throughout this compatibility operation; owned payload borrows stay local.
     unsafe {
         let Some(leader) = property_view(prop).word(0) else {
-            tracef!(
-                "window_update_leader",
-                145,
-                "CLIENT_LEADER not set on window 0x%08x.\n",
-                (*win).id
-            );
+            ::log::debug!("../src/window.c:window_update_leader:145 - CLIENT_LEADER not set on window 0x{:08x}.\n", ((*win).id) as u32);
             (*win).leader = 0;
             return;
         };
-        tracef!(
-            "window_update_leader",
-            157,
-            "Client leader changed to %08x\n",
-            leader
+        ::log::debug!(
+            "../src/window.c:window_update_leader:157 - Client leader changed to {:08x}\n",
+            (leader) as u32
         );
         (*win).leader = leader;
     }
@@ -268,23 +256,12 @@ pub unsafe fn window_update_transient_for(win: *mut Window, prop: Option<&x::Get
     // throughout this compatibility operation; owned payload borrows stay local.
     unsafe {
         if property_view(prop).bytes.is_empty() {
-            tracef!(
-                "window_update_transient_for",
-                170,
-                "TRANSIENT_FOR not set on window 0x%08x.\n",
-                (*win).id
-            );
+            ::log::debug!("../src/window.c:window_update_transient_for:170 - TRANSIENT_FOR not set on window 0x{:08x}.\n", ((*win).id) as u32);
             (*win).transient_for = 0;
             return;
         }
         if let Some(transient_for) = transient_for(property_view(prop)) {
-            tracef!(
-                "window_update_transient_for",
-                182,
-                "Transient for changed to 0x%08x (window 0x%08x)\n",
-                transient_for,
-                (*win).id
-            );
+            ::log::debug!("../src/window.c:window_update_transient_for:182 - Transient for changed to 0x{:08x} (window 0x{:08x})\n", (transient_for) as u32, ((*win).id) as u32);
             (*win).transient_for = transient_for;
         }
     }
@@ -295,25 +272,13 @@ pub unsafe fn window_update_strut_partial(win: *mut Window, prop: Option<&x::Get
     unsafe {
         let value = property_view(prop);
         if value.bytes.is_empty() {
-            trace!(
-                "window_update_strut_partial",
-                195,
-                c"_NET_WM_STRUT_PARTIAL not set.\n"
-            );
+            ::log::debug!("../src/window.c:window_update_strut_partial:195 - _NET_WM_STRUT_PARTIAL not set.\n");
             return;
         }
         if let (Some(left), Some(right), Some(top), Some(bottom)) =
             (value.word(0), value.word(1), value.word(2), value.word(3))
         {
-            tracef!(
-                "window_update_strut_partial",
-                207,
-                "Reserved pixels changed to: left = %d, right = %d, top = %d, bottom = %d\n",
-                left,
-                right,
-                top,
-                bottom
-            );
+            ::log::debug!("../src/window.c:window_update_strut_partial:207 - Reserved pixels changed to: left = {}, right = {}, top = {}, bottom = {}\n", (left) as i32, (right) as i32, (top) as i32, (bottom) as i32);
             (*win).reserved = reservedpx {
                 left,
                 right,
@@ -328,14 +293,21 @@ pub unsafe fn window_update_role(win: *mut Window, prop: Option<&x::GetPropertyR
     // throughout this compatibility operation; owned payload borrows stay local.
     unsafe {
         if property_view(prop).bytes.is_empty() {
-            trace!("window_update_role", 220, c"WM_WINDOW_ROLE not set.\n");
+            ::log::debug!("../src/window.c:window_update_role:220 - WM_WINDOW_ROLE not set.\n");
             return;
         }
         replace_string(&mut (*win).role, Some(property_view(prop).bytes));
-        verboselog(
-            c"WM_WINDOW_ROLE changed to \"%s\"\n".as_ptr().cast_mut(),
-            (*win).role_ptr(),
-        );
+        {
+            let value = (*win).role.clone();
+            let bytes = string_bytes(value.as_deref(), None);
+            match std::str::from_utf8(bytes) {
+                Ok(value) => ::log::info!("WM_WINDOW_ROLE changed to \"{}\"\n", value),
+                Err(_) => emit_parts(
+                    Level::Verbose,
+                    &[b"WM_WINDOW_ROLE changed to \"", bytes, b"\"\n"],
+                ),
+            }
+        };
     }
 }
 pub unsafe fn window_update_machine(win: *mut Window, prop: Option<&x::GetPropertyReply>) {
@@ -343,18 +315,23 @@ pub unsafe fn window_update_machine(win: *mut Window, prop: Option<&x::GetProper
     // throughout this compatibility operation; owned payload borrows stay local.
     unsafe {
         if property_view(prop).bytes.is_empty() {
-            trace!(
-                "window_update_machine",
-                509,
-                c"WM_CLIENT_MACHINE not set.\n"
+            ::log::debug!(
+                "../src/window.c:window_update_machine:509 - WM_CLIENT_MACHINE not set.\n"
             );
             return;
         }
         replace_string(&mut (*win).machine, Some(property_view(prop).bytes));
-        verboselog(
-            c"WM_CLIENT_MACHINE changed to \"%s\"\n".as_ptr().cast_mut(),
-            (*win).machine_ptr(),
-        );
+        {
+            let value = (*win).machine.clone();
+            let bytes = string_bytes(value.as_deref(), None);
+            match std::str::from_utf8(bytes) {
+                Ok(value) => ::log::info!("WM_CLIENT_MACHINE changed to \"{}\"\n", value),
+                Err(_) => emit_parts(
+                    Level::Verbose,
+                    &[b"WM_CLIENT_MACHINE changed to \"", bytes, b"\"\n"],
+                ),
+            }
+        };
     }
 }
 pub unsafe fn window_update_type(window: *mut Window, reply: Option<&x::GetPropertyReply>) {
@@ -378,18 +355,11 @@ pub unsafe fn window_update_type(window: *mut Window, reply: Option<&x::GetPrope
         ];
         let new_type = preferred_type(value, &supported);
         let Some(new_type) = new_type else {
-            trace!(
-                "window_update_type",
-                243,
-                c"cannot read _NET_WM_WINDOW_TYPE from window.\n"
-            );
+            ::log::debug!("../src/window.c:window_update_type:243 - cannot read _NET_WM_WINDOW_TYPE from window.\n");
             return;
         };
         (*window).window_type = new_type;
-        verboselog(
-            c"_NET_WM_WINDOW_TYPE changed to %i.\n".as_ptr().cast_mut(),
-            new_type,
-        );
+        ::log::info!("_NET_WM_WINDOW_TYPE changed to {}.\n", (new_type) as i32);
         run_assignments(window);
     }
 }
@@ -604,90 +574,32 @@ unsafe fn log_size_hints(size_hints: &SizeHints, old: SizeConstraints, has_geome
     // throughout this compatibility operation; owned payload borrows stay local.
     unsafe {
         if size_hints.flags.contains(SizeHintFlags::MIN_SIZE) {
-            debuglog(
-                c"%s:%s:%d - Minimum size: %d (width) x %d (height)\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/window.c".as_ptr(),
-                c"window_update_normal_hints".as_ptr(),
-                282 as ::core::ffi::c_int,
-                size_hints.min_width,
-                size_hints.min_height,
-            );
+            ::log::debug!("../src/window.c:window_update_normal_hints:282 - Minimum size: {} (width) x {} (height)\n", (size_hints.min_width) as i32, (size_hints.min_height) as i32);
         }
         if size_hints.flags.contains(SizeHintFlags::MAX_SIZE) {
-            debuglog(
-                c"%s:%s:%d - Maximum size: %d (width) x %d (height)\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/window.c".as_ptr(),
-                c"window_update_normal_hints".as_ptr(),
-                289 as ::core::ffi::c_int,
-                size_hints.max_width,
-                size_hints.max_height,
-            );
+            ::log::debug!("../src/window.c:window_update_normal_hints:289 - Maximum size: {} (width) x {} (height)\n", (size_hints.max_width) as i32, (size_hints.max_height) as i32);
         } else {
-            debuglog(
-                c"%s:%s:%d - Clearing maximum size\n".as_ptr().cast_mut(),
-                c"../src/window.c".as_ptr(),
-                c"window_update_normal_hints".as_ptr(),
-                297 as ::core::ffi::c_int,
+            ::log::debug!(
+                "../src/window.c:window_update_normal_hints:297 - Clearing maximum size\n"
             );
         }
         if size_hints.flags.contains(SizeHintFlags::RESIZE_INCREMENT) {
-            debuglog(
-                c"%s:%s:%d - Size increments: %d (width) x %d (height)\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/window.c".as_ptr(),
-                c"window_update_normal_hints".as_ptr(),
-                304 as ::core::ffi::c_int,
-                size_hints.width_increment,
-                size_hints.height_increment,
-            );
+            ::log::debug!("../src/window.c:window_update_normal_hints:304 - Size increments: {} (width) x {} (height)\n", (size_hints.width_increment) as i32, (size_hints.height_increment) as i32);
         } else {
-            debuglog(
-                c"%s:%s:%d - Clearing size increments\n".as_ptr().cast_mut(),
-                c"../src/window.c".as_ptr(),
-                c"window_update_normal_hints".as_ptr(),
-                318 as ::core::ffi::c_int,
+            ::log::debug!(
+                "../src/window.c:window_update_normal_hints:318 - Clearing size increments\n"
             );
         }
         if size_hints.flags.contains(SizeHintFlags::BASE_SIZE)
             && old.base_width >= 0
             && old.base_height >= 0
         {
-            debuglog(
-                c"%s:%s:%d - Base size: %d (width) x %d (height)\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/window.c".as_ptr(),
-                c"window_update_normal_hints".as_ptr(),
-                327 as ::core::ffi::c_int,
-                size_hints.base_width,
-                size_hints.base_height,
-            );
+            ::log::debug!("../src/window.c:window_update_normal_hints:327 - Base size: {} (width) x {} (height)\n", (size_hints.base_width) as i32, (size_hints.base_height) as i32);
         } else {
-            debuglog(
-                c"%s:%s:%d - Clearing base size\n".as_ptr().cast_mut(),
-                c"../src/window.c".as_ptr(),
-                c"window_update_normal_hints".as_ptr(),
-                332 as ::core::ffi::c_int,
-            );
+            ::log::debug!("../src/window.c:window_update_normal_hints:332 - Clearing base size\n");
         }
         if has_geometry && requested_geometry(size_hints).is_some() {
-            debuglog(
-                c"%s:%s:%d - Setting geometry x=%d y=%d w=%d h=%d\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/window.c".as_ptr(),
-                c"window_update_normal_hints".as_ptr(),
-                341 as ::core::ffi::c_int,
-                size_hints.x,
-                size_hints.y,
-                size_hints.width,
-                size_hints.height,
-            );
+            ::log::debug!("../src/window.c:window_update_normal_hints:341 - Setting geometry x={} y={} w={} h={}\n", (size_hints.x) as i32, (size_hints.y) as i32, (size_hints.width) as i32, (size_hints.height) as i32);
         }
         if size_hints.flags.contains(SizeHintFlags::ASPECT)
             && size_hints.min_aspect_num >= 0
@@ -697,22 +609,17 @@ unsafe fn log_size_hints(size_hints: &SizeHints, old: SizeConstraints, has_geome
         {
             let min_aspect = size_hints.min_aspect_num as f64 / size_hints.min_aspect_den as f64;
             let max_aspect = size_hints.max_aspect_num as f64 / size_hints.max_aspect_den as f64;
-            debuglog(
-                c"%s:%s:%d - Aspect ratio set: minimum %f, maximum %f\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/window.c".as_ptr(),
-                c"window_update_normal_hints".as_ptr(),
-                355 as ::core::ffi::c_int,
-                min_aspect,
-                max_aspect,
-            );
+            {
+                let minimum = fixed_decimal(min_aspect, FixedPrecision::Six);
+                let maximum = fixed_decimal(max_aspect, FixedPrecision::Six);
+                match (std::str::from_utf8(&minimum), std::str::from_utf8(&maximum)) {
+        (Ok(minimum), Ok(maximum)) => ::log::debug!("../src/window.c:window_update_normal_hints:355 - Aspect ratio set: minimum {}, maximum {}\n", minimum, maximum),
+        _ => emit_parts(Level::Debug, &[b"../src/window.c:window_update_normal_hints:355 - Aspect ratio set: minimum ", &minimum, b", maximum ", &maximum, b"\n"]),
+    }
+            };
         } else {
-            debuglog(
-                c"%s:%s:%d - Clearing aspect ratios\n".as_ptr().cast_mut(),
-                c"../src/window.c".as_ptr(),
-                c"window_update_normal_hints".as_ptr(),
-                365 as ::core::ffi::c_int,
+            ::log::debug!(
+                "../src/window.c:window_update_normal_hints:365 - Clearing aspect ratios\n"
             );
         }
     }
@@ -747,10 +654,8 @@ pub unsafe fn window_update_normal_hints(
             fetched.as_ref()
         };
         let Some(hints) = decode_size_hints(property_view(reply)) else {
-            trace!(
-                "window_update_normal_hints",
-                269,
-                c"Could not get WM_NORMAL_HINTS\n"
+            ::log::debug!(
+                "../src/window.c:window_update_normal_hints:269 - Could not get WM_NORMAL_HINTS\n"
             );
             return false;
         };
@@ -802,19 +707,16 @@ pub unsafe fn window_update_hints(
             *urgency_hint = false;
         }
         if property_view(prop).bytes.is_empty() {
-            trace!("window_update_hints", 384, c"WM_HINTS not set.\n");
+            ::log::debug!("../src/window.c:window_update_hints:384 - WM_HINTS not set.\n");
             return;
         }
         let Some(hints) = decode_wm_hints(property_view(prop)) else {
-            trace!("window_update_hints", 392, c"Could not get WM_HINTS\n");
+            ::log::debug!("../src/window.c:window_update_hints:392 - Could not get WM_HINTS\n");
             return;
         };
         if let Some(input) = hints.input {
             (*win).doesnt_accept_focus = input == 0;
-            verboselog(
-                c"WM_HINTS.input changed to \"%d\"\n".as_ptr().cast_mut(),
-                input,
-            );
+            ::log::info!("WM_HINTS.input changed to \"{}\"\n", (input) as i32);
         }
         if !urgency_hint.is_null() {
             *urgency_hint = hints.urgent;
@@ -1006,29 +908,20 @@ pub unsafe fn window_update_icon(win: *mut Window, prop: Option<&x::GetPropertyR
         let property = property_view(prop);
         let preferred = (render_deco_height() - logical_px(2)) as u32;
         if property.kind != x::ATOM_CARDINAL.resource_id() || property.format != 32 {
-            trace!("window_update_icon", 528, c"_NET_WM_ICON is not set\n");
+            ::log::debug!("../src/window.c:window_update_icon:528 - _NET_WM_ICON is not set\n");
             return;
         }
         let Some(icon) = select_icon_with(property, preferred, |width, height| {
-            tracef!(
-                "window_update_icon",
-                555,
-                "Found _NET_WM_ICON of size: (%d,%d)\n",
-                width,
-                height
+            ::log::debug!(
+                "../src/window.c:window_update_icon:555 - Found _NET_WM_ICON of size: ({},{})\n",
+                (width) as i32,
+                (height) as i32
             );
         }) else {
-            trace!("window_update_icon", 587, c"Could not get _NET_WM_ICON\n");
+            ::log::debug!("../src/window.c:window_update_icon:587 - Could not get _NET_WM_ICON\n");
             return;
         };
-        tracef!(
-            "window_update_icon",
-            593,
-            "Using icon of size (%d,%d) (preferred size: %d)\n",
-            icon.width,
-            icon.height,
-            preferred
-        );
+        ::log::debug!("../src/window.c:window_update_icon:593 - Using icon of size ({},{}) (preferred size: {})\n", (icon.width) as i32, (icon.height) as i32, (preferred) as i32);
         let Some(surface) = OwnedIcon::new(icon.width, icon.height, &icon_pixels(property, icon))
         else {
             return;
