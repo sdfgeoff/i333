@@ -42,7 +42,7 @@ unsafe fn _create___i3() -> *mut Con {
     (*__i3).type_0 = ContainerType::Output;
     (*__i3).layout = Layout::Output;
     con_fix_percent(croot);
-    x_set_name(__i3, b"[i3 con] pseudo-output __i3");
+    x_set_name(__i3, b"[i3 con] pseudo-output __i3".to_vec());
     (*__i3).rect.width = 1280_u32;
     (*__i3).rect.height = 1024_u32;
     ::log::debug!("../src/tree.c:_create___i3:39 - adding main content container\n");
@@ -53,7 +53,7 @@ unsafe fn _create___i3() -> *mut Con {
     (*content).type_0 = ContainerType::Con;
     (*content).name = Some(b"content".to_vec());
     (*content).layout = Layout::SplitH;
-    x_set_name(content, b"[i3 con] content __i3");
+    x_set_name(content, b"[i3 con] content __i3".to_vec());
     con_attach(content, __i3, false);
     let ws: *mut Con = con_new(
         ::core::ptr::null_mut::<Con>(),
@@ -64,7 +64,7 @@ unsafe fn _create___i3() -> *mut Con {
     (*ws).name = Some(b"__i3_scratch".to_vec());
     (*ws).layout = Layout::SplitH;
     con_attach(ws, content, false);
-    x_set_name(ws, b"[i3 con] workspace __i3_scratch");
+    x_set_name(ws, b"[i3 con] workspace __i3_scratch".to_vec());
     (*ws).fullscreen_mode = FullscreenMode::Output;
     __i3
 }

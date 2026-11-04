@@ -204,7 +204,7 @@ pub unsafe fn workspace_get(num: &[u8]) -> *mut Con {
     );
     let mut name = b"[i3 con] workspace ".to_vec();
     name.extend_from_slice(num);
-    x_set_name(workspace, &name);
+    x_set_name(workspace, name);
     (*workspace).name = Some(num.to_vec());
     (*workspace).workspace_layout = config.default_layout;
     (*workspace).num = parsed_num;
@@ -350,7 +350,7 @@ pub unsafe fn create_workspace_on_output(output: *mut Output, content: *mut Con)
     con_attach(ws, content, false);
     let mut name = b"[i3 con] workspace ".to_vec();
     name.extend_from_slice((*ws).name.as_deref().expect("workspace has a name"));
-    x_set_name(ws, &name);
+    x_set_name(ws, name);
     (*ws).gaps = gaps_for_workspace(ws);
     (*ws).fullscreen_mode = FullscreenMode::Output;
     (*ws).workspace_layout = config.default_layout;

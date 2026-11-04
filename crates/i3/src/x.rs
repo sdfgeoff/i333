@@ -2160,15 +2160,16 @@ pub unsafe fn x_raise_con(con: *const Con) {
     state_head.cqh_first = state;
 }
 
-pub unsafe fn x_set_name(con: *mut Con, name: &[u8]) {
+pub unsafe fn x_set_name(con: *mut Con, mut name: Vec<u8>) {
     let mut state: *mut FrameState = state_for_frame((*con).frame.id);
 
     if state.is_null() {
         ::log::error!("ERROR: window state not found\n");
         return;
     }
-    // The incoming bytes may alias the previous name: clone before replacement.
-    let name = name.split(|byte| *byte == 0).next().unwrap().to_vec();
+    if let Some(end) = name.iter().position(|byte| *byte == 0) {
+        name.truncate(end);
+    }
     (*state).name = Some(name);
 }
 

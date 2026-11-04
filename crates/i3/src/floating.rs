@@ -375,7 +375,7 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
         tree_close_internal(parent, KillWindow::DontKill, false);
     }
     let name = format!("[i3 con] floatingcon around {con:p}").into_bytes();
-    x_set_name(nc, &name);
+    x_set_name(nc, name);
     ::log::debug!(
         "../src/floating.c:floating_enable:328 - Original rect: ({}, {}) with {} x {}\n",
         ((*con).rect.x) as i32,

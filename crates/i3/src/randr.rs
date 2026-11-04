@@ -628,7 +628,7 @@ pub unsafe fn output_init_con(output: *mut Output) {
     (*output).con = con;
     let mut name = b"[i3 con] output ".to_vec();
     name.extend_from_slice((*con).name.as_deref().unwrap_or(b"(null)"));
-    x_set_name(con, &name);
+    x_set_name(con, name);
     if reused {
         ::log::debug!(
             "../src/randr.c:output_init_con:383 - Not adding workspace, this was a reused con\n"
@@ -655,7 +655,7 @@ pub unsafe fn output_init_con(output: *mut Output) {
     (*topdock).name = Some(b"topdock".to_vec());
     let mut name = b"[i3 con] top dockarea ".to_vec();
     name.extend_from_slice((*con).name.as_deref().unwrap_or(b"(null)"));
-    x_set_name(topdock, &name);
+    x_set_name(topdock, name);
     ::log::debug!("../src/randr.c:output_init_con:404 - attaching\n");
     con_attach(topdock, con, false);
     ::log::debug!("../src/randr.c:output_init_con:409 - adding main content container\n");
@@ -668,7 +668,7 @@ pub unsafe fn output_init_con(output: *mut Output) {
     (*content).name = Some(b"content".to_vec());
     let mut name = b"[i3 con] content ".to_vec();
     name.extend_from_slice((*con).name.as_deref().unwrap_or(b"(null)"));
-    x_set_name(content, &name);
+    x_set_name(content, name);
     con_attach(content, con, false);
     let bottomdock: *mut Con = con_new(
         ::core::ptr::null_mut::<Con>(),
@@ -687,7 +687,7 @@ pub unsafe fn output_init_con(output: *mut Output) {
     (*bottomdock).name = Some(b"bottomdock".to_vec());
     let mut name = b"[i3 con] bottom dockarea ".to_vec();
     name.extend_from_slice((*con).name.as_deref().unwrap_or(b"(null)"));
-    x_set_name(bottomdock, &name);
+    x_set_name(bottomdock, name);
     ::log::debug!("../src/randr.c:output_init_con:438 - attaching\n");
     con_attach(bottomdock, con, false);
     let owner = identity(con).expect("live output focus owner");

@@ -639,7 +639,7 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                     i3_common::logging::pointer(cwindow)
                 )
                 .into_bytes();
-                x_set_name(nc, &name);
+                x_set_name(nc, name);
                 ws = con_get_workspace(nc);
                 fs = con_get_fullscreen_covering_ws(ws);
                 if xcb_reply_contains_atom(state_reply.as_ref(), A__NET_WM_STATE_FULLSCREEN) {
