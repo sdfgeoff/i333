@@ -11,7 +11,6 @@
 //! Borrowed geometry parsing, followed by the legacy output-graph boundary.
 #![deny(unsafe_op_in_unsafe_fn)]
 
-use crate::log::{debuglog, errorlog};
 use crate::output::output_primary_name;
 use crate::randr::{init_ws_for_output, output_init_con, outputs};
 use crate::types::{output_name, xoutput as Output, Rect};
@@ -182,31 +181,12 @@ unsafe fn attach_output(parsed: ParsedOutput) {
     // SAFETY: this is the single raw graph boundary; all geometry and input
     // traversal above it use ordinary borrowed bytes and checked Rust values.
     unsafe {
-        debuglog(
-            c"%s:%s:%d - Parsed output as width = %u, height = %u at (%u, %u)%s\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/fake_outputs.c".as_ptr(),
-            c"fake_outputs_init".as_ptr(),
-            53,
-            parsed.width,
-            parsed.height,
-            parsed.x,
-            parsed.y,
-            if parsed.primary {
-                c" (primary)".as_ptr()
-            } else {
-                c"".as_ptr()
-            },
-        );
+        ::log::debug!("../src/fake_outputs.c:fake_outputs_init:53 - Parsed output as width = {}, height = {} at ({}, {}){}\n", (parsed.width) as u32, (parsed.height) as u32, (parsed.x) as u32, (parsed.y) as u32, if parsed.primary { " (primary)" } else { "" });
         let mut output = get_screen_at(parsed.x, parsed.y);
         if !output.is_null() {
-            debuglog(
-                c"%s:%s:%d - Re-used old output %p\n".as_ptr().cast_mut(),
-                c"../src/fake_outputs.c".as_ptr(),
-                c"fake_outputs_init".as_ptr(),
-                57,
-                output,
+            ::log::debug!(
+                "../src/fake_outputs.c:fake_outputs_init:57 - Re-used old output {}\n",
+                i3_common::logging::pointer(output)
             );
             parsed.shrink(&mut (*output).rect);
         } else {
@@ -220,15 +200,10 @@ unsafe fn attach_output(parsed: ParsedOutput) {
             (*output_name).name = sstrdup(name.as_ptr());
             (*output_name).names.sle_next = std::ptr::null_mut();
             (*output).names_head.slh_first = output_name;
-            debuglog(
-                c"%s:%s:%d - Created new fake output %s (%p)\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/fake_outputs.c".as_ptr(),
-                c"fake_outputs_init".as_ptr(),
-                68,
-                output_primary_name(output),
-                output,
+            ::log::debug!(
+                "../src/fake_outputs.c:fake_outputs_init:68 - Created new fake output {} ({})\n",
+                name.to_str().expect("generated output name is UTF-8"),
+                i3_common::logging::pointer(output)
             );
             (*output).active = true;
             (*output).rect = parsed.rect();
@@ -270,11 +245,7 @@ pub unsafe fn fake_outputs_init(output_spec: *const libc::c_char) {
     if NUM_SCREENS.load(Ordering::Relaxed) == 0 {
         // SAFETY: a fixed C format with no arguments, followed by process exit.
         unsafe {
-            errorlog(
-                c"ERROR: No screens found. Please fix your setup. i3 will exit now.\n"
-                    .as_ptr()
-                    .cast_mut(),
-            );
+            ::log::error!("ERROR: No screens found. Please fix your setup. i3 will exit now.\n");
             libc::exit(libc::EXIT_FAILURE);
         }
     }

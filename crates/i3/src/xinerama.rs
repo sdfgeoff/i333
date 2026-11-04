@@ -11,7 +11,6 @@
  */
 #![deny(unsafe_op_in_unsafe_fn)]
 
-use crate::log::{debuglog, errorlog};
 use crate::output::output_primary_name;
 use crate::randr::{create_root_output, init_ws_for_output, output_init_con, outputs};
 use crate::types::{output_name, xoutput, xoutput as Output, Rect};
@@ -102,14 +101,9 @@ unsafe fn apply_screen(screen: &ScreenInfo) {
     unsafe {
         let mut s: *mut Output = get_screen_at(screen_rect(screen));
         if !s.is_null() {
-            debuglog(
-                c"%s:%s:%d - Re-used old Xinerama screen %p\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/xinerama.c".as_ptr(),
-                c"query_screens".as_ptr(),
-                50 as ::core::ffi::c_int,
-                s,
+            ::log::debug!(
+                "../src/xinerama.c:query_screens:50 - Re-used old Xinerama screen {}\n",
+                i3_common::logging::pointer(s)
             );
             shrink_clone(&mut (*s).rect, screen);
         } else {
@@ -123,15 +117,10 @@ unsafe fn apply_screen(screen: &ScreenInfo) {
             (*s).names_head.slh_first = ::core::ptr::null_mut::<output_name>();
             (*output_name).names.sle_next = (*s).names_head.slh_first;
             (*s).names_head.slh_first = output_name;
-            debuglog(
-                c"%s:%s:%d - Created new Xinerama screen %s (%p)\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/xinerama.c".as_ptr(),
-                c"query_screens".as_ptr(),
-                61 as ::core::ffi::c_int,
-                output_primary_name(s),
-                s,
+            ::log::debug!(
+                "../src/xinerama.c:query_screens:61 - Created new Xinerama screen {} ({})\n",
+                name.to_str().expect("generated output name is UTF-8"),
+                i3_common::logging::pointer(s)
             );
             (*s).active = true;
             (*s).rect = screen_rect(screen);
@@ -172,44 +161,27 @@ unsafe fn query_screens(connection: &Connection) {
         let cookie = connection.send_request_unchecked(&xinerama::QueryScreens {});
         let reply = connection.wait_for_reply_unchecked(cookie).ok().flatten();
         let Some(reply) = reply else {
-            errorlog(
-                c"ERROR: Couldn't get Xinerama screens\n"
-                    .as_ptr()
-                    .cast_mut(),
-            );
+            ::log::error!("ERROR: Couldn't get Xinerama screens\n");
             return;
         };
         let Some(screens) = screens(&reply) else {
-            errorlog(
-                c"ERROR: Invalid Xinerama screen reply\n"
-                    .as_ptr()
-                    .cast_mut(),
-            );
+            ::log::error!("ERROR: Invalid Xinerama screen reply\n");
             return;
         };
         for screen in screens {
             apply_screen(screen);
-            debuglog(
-                c"%s:%s:%d - found Xinerama screen: %d x %d at %d x %d\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/xinerama.c".as_ptr(),
-                c"query_screens".as_ptr(),
-                80i32,
-                i32::from(screen.width),
-                i32::from(screen.height),
-                i32::from(screen.x_org),
-                i32::from(screen.y_org),
+            ::log::debug!(
+                "../src/xinerama.c:query_screens:80 - found Xinerama screen: {} x {} at {} x {}\n",
+                (i32::from(screen.width)) as i32,
+                (i32::from(screen.height)) as i32,
+                (i32::from(screen.x_org)) as i32,
+                (i32::from(screen.y_org)) as i32
             );
         }
     }
     if NUM_SCREENS.load(Ordering::Relaxed) == 0 {
         unsafe {
-            errorlog(
-                c"ERROR: No screens found. Please fix your setup. i3 will exit now.\n"
-                    .as_ptr()
-                    .cast_mut(),
-            );
+            ::log::error!("ERROR: No screens found. Please fix your setup. i3 will exit now.\n");
             libc::exit(libc::EXIT_SUCCESS);
         }
     }
@@ -264,25 +236,11 @@ pub unsafe fn xinerama_init() {
         };
         match screen_source(present, active) {
             ScreenSource::MissingExtension => {
-                debuglog(
-                    c"%s:%s:%d - Xinerama extension not found, using root output.\n"
-                        .as_ptr()
-                        .cast_mut(),
-                    c"../src/xinerama.c".as_ptr(),
-                    c"xinerama_init".as_ptr(),
-                    111i32,
-                );
+                ::log::debug!("../src/xinerama.c:xinerama_init:111 - Xinerama extension not found, using root output.\n");
                 use_root_output();
             }
             ScreenSource::Inactive => {
-                debuglog(
-                    c"%s:%s:%d - Xinerama is not active (in your X-Server), using root output.\n"
-                        .as_ptr()
-                        .cast_mut(),
-                    c"../src/xinerama.c".as_ptr(),
-                    c"xinerama_init".as_ptr(),
-                    117i32,
-                );
+                ::log::debug!("../src/xinerama.c:xinerama_init:117 - Xinerama is not active (in your X-Server), using root output.\n");
                 use_root_output();
             }
             ScreenSource::Xinerama => query_screens(&connection),

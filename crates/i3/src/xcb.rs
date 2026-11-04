@@ -126,11 +126,9 @@ pub unsafe fn create_window(
     // Native CreateWindow is unchecked, but still followed by request_check.
     // Retain that barrier without claiming errors from the event queue.
     if let Some(code) = xcb_interop::transport::check_unchecked(connection, cookie) {
-        errorlog(
-            c"ERROR: Could not create window. Error code: %d.\n"
-                .as_ptr()
-                .cast_mut(),
-            i32::from(code),
+        ::log::error!(
+            "ERROR: Could not create window. Error code: {}.\n",
+            (i32::from(code)) as i32
         );
     }
     connection.send_request(&x::ChangeWindowAttributes {
@@ -150,17 +148,12 @@ pub unsafe fn fake_absolute_configure_notify(con: *mut Con) {
         return;
     }
     let absolute = absolute_geometry((*con).rect, (*con).window_rect);
-    debuglog(
-        c"%s:%s:%d - fake rect = (%d, %d, %d, %d)\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/xcb.c".as_ptr(),
-        c"fake_absolute_configure_notify".as_ptr(),
-        75 as ::core::ffi::c_int,
-        absolute.x as ::core::ffi::c_int,
-        absolute.y as ::core::ffi::c_int,
-        absolute.width as ::core::ffi::c_int,
-        absolute.height as ::core::ffi::c_int,
+    ::log::debug!(
+        "../src/xcb.c:fake_absolute_configure_notify:75 - fake rect = ({}, {}, {}, {})\n",
+        (absolute.x as ::core::ffi::c_int) as i32,
+        (absolute.y as ::core::ffi::c_int) as i32,
+        (absolute.width as ::core::ffi::c_int) as i32,
+        (absolute.height as ::core::ffi::c_int) as i32
     );
     if let Some(connection) = i3_common::display::connection() {
         send_configure_notify(
@@ -176,14 +169,7 @@ pub unsafe fn fake_absolute_configure_notify(con: *mut Con) {
 /// initialized, exclusively accessible pointers/resources for this operation.
 pub unsafe fn send_take_focus(window: u32, timestamp: u32) {
     let event = take_focus_message(window, timestamp, A_WM_PROTOCOLS, A_WM_TAKE_FOCUS);
-    debuglog(
-        c"%s:%s:%d - Sending WM_TAKE_FOCUS to the client\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/xcb.c".as_ptr(),
-        c"send_take_focus".as_ptr(),
-        98 as ::core::ffi::c_int,
-    );
+    ::log::debug!("../src/xcb.c:send_take_focus:98 - Sending WM_TAKE_FOCUS to the client\n");
     let Some(connection) = i3_common::display::connection() else {
         return;
     };
@@ -374,8 +360,6 @@ pub unsafe fn xcb_grab_buttons(
 use crate::xcursor::xcursor_get_cursor;
 
 // Canonical Cairo backend ABI; renderer logic remains local.
-
-use crate::log::{debuglog, errorlog};
 
 // Shared model types retain field layout while using one Rust identity.
 pub use crate::types::Con;
