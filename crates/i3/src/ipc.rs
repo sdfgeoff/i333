@@ -247,14 +247,9 @@ unsafe fn ipc_send_client_message(
 }
 unsafe fn free_ipc_client(client: *mut ipc_client, exempt_fd: libc::c_int) {
     if (*client).fd != exempt_fd {
-        debuglog(
-            c"%s:%s:%d - Disconnecting client on fd %d\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/ipc.c".as_ptr(),
-            c"free_ipc_client".as_ptr(),
-            119 as libc::c_int,
-            (*client).fd,
+        ::log::debug!(
+            "../src/ipc.c:free_ipc_client:119 - Disconnecting client on fd {}\n",
+            ((*client).fd) as i32
         );
     }
     // Stop and unlink before dropping owned buffers/fd; native list edges are
@@ -493,10 +488,25 @@ unsafe fn handle_run_command(
     let prefix = bytes.split(|byte| *byte == 0).next().unwrap();
     let command = CString::new(prefix).unwrap();
     let token = ClientToken::capture(client);
-    verboselog(
-        c"IPC: received: *%.4000s*\n".as_ptr().cast_mut(),
-        command.as_ptr(),
-    );
+    {
+        // Snapshot native bytes before the logger can dispatch a callback.
+        // command owns the decoded first-NUL prefix; bound byte precision
+        // directly without treating the original IPC payload as a C string.
+        let bytes = command.to_bytes();
+        let log_value_0 = bytes[..bytes.len().min(4000)].to_vec();
+        if let Ok(log_value_0_text) = std::str::from_utf8(&log_value_0) {
+            ::log::info!("IPC: received: *{}*\n", log_value_0_text);
+        } else {
+            i3_common::logging::emit_parts(
+                i3_common::logging::Level::Verbose,
+                &[
+                    "IPC: received: *".as_bytes(),
+                    &log_value_0,
+                    "*\n".as_bytes(),
+                ],
+            );
+        }
+    };
     let mut output = Vec::new();
     let result = CommandResultOwner(parse_command(command.as_ptr(), Some(&mut output), client));
     if (*result.0).needs_tree_render {
@@ -601,14 +611,7 @@ unsafe fn optional_text(value: *const libc::c_char) -> messages::Omitted<message
 unsafe fn node_layout(con: *mut Con) -> &'static str {
     match (*con).layout {
         Layout::Default => {
-            debuglog(
-                c"%s:%s:%d - About to dump layout=default, this is a bug in the code.\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/ipc.c".as_ptr(),
-                c"dump_node".as_ptr(),
-                442,
-            );
+            ::log::debug!("../src/ipc.c:dump_node:442 - About to dump layout=default, this is a bug in the code.\n");
             __assert_fail(
                 c"false".as_ptr(),
                 c"../src/ipc.c".as_ptr(),
@@ -630,7 +633,7 @@ unsafe fn node_workspace_layout(con: *mut Con) -> &'static str {
         Layout::Stacked => "stacked",
         Layout::Tabbed => "tabbed",
         Layout::DockArea | Layout::Output | Layout::SplitV | Layout::SplitH => {
-            debuglog(c"%s:%s:%d - About to dump workspace_layout=%d (none of default/stacked/tabbed), this is a bug.\n".as_ptr().cast_mut(), c"../src/ipc.c".as_ptr(), c"dump_node".as_ptr(), 477, (*con).workspace_layout as u32);
+            ::log::debug!("../src/ipc.c:dump_node:477 - About to dump workspace_layout={} (none of default/stacked/tabbed), this is a bug.\n", ((*con).workspace_layout as u32) as i32);
             __assert_fail(
                 c"false".as_ptr(),
                 c"../src/ipc.c".as_ptr(),
@@ -1258,12 +1261,34 @@ unsafe fn handle_get_bar_config(
     let bar_bytes = std::slice::from_raw_parts(message, message_size as usize);
     let bar_id_owner = CString::new(bar_bytes.split(|byte| *byte == 0).next().unwrap()).unwrap();
     let bar_id = bar_id_owner.as_ptr();
-    verboselog(
-        c"IPC: looking for config for bar ID \"%s\"\n"
-            .as_ptr()
-            .cast_mut(),
-        bar_id,
-    );
+    {
+        // Snapshot native bytes before the logger can dispatch a callback.
+        let log_pointer_1 = bar_id;
+        let log_value_0 = i3_common::logging::string_bytes(
+            if log_pointer_1.is_null() {
+                None
+            } else {
+                Some(std::ffi::CStr::from_ptr(log_pointer_1))
+            },
+            None,
+        )
+        .to_vec();
+        if let Ok(log_value_0_text) = std::str::from_utf8(&log_value_0) {
+            ::log::info!(
+                "IPC: looking for config for bar ID \"{}\"\n",
+                log_value_0_text
+            );
+        } else {
+            i3_common::logging::emit_parts(
+                i3_common::logging::Level::Verbose,
+                &[
+                    "IPC: looking for config for bar ID \"".as_bytes(),
+                    &log_value_0,
+                    "\"\n".as_bytes(),
+                ],
+            );
+        }
+    };
     let mut current_0: *mut Barconfig = ::core::ptr::null_mut::<Barconfig>();
     let mut config: *mut Barconfig = ::core::ptr::null_mut::<Barconfig>();
     current_0 = barconfigs.tqh_first as *mut Barconfig;
@@ -1337,10 +1362,31 @@ unsafe fn handle_subscribe(
     (*client).events.append(&mut events);
     if let Err(error) = result {
         let error = CString::new(format!("{error}\n")).unwrap();
-        errorlog(
-            c"ERROR: YAJL parse error: %s\n".as_ptr().cast_mut(),
-            error.as_ptr(),
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_pointer_1 = error.as_ptr();
+            let log_value_0 = i3_common::logging::string_bytes(
+                if log_pointer_1.is_null() {
+                    None
+                } else {
+                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                },
+                None,
+            )
+            .to_vec();
+            if let Ok(log_value_0_text) = std::str::from_utf8(&log_value_0) {
+                ::log::error!("ERROR: YAJL parse error: {}\n", log_value_0_text);
+            } else {
+                i3_common::logging::emit_parts(
+                    i3_common::logging::Level::Error,
+                    &[
+                        "ERROR: YAJL parse error: ".as_bytes(),
+                        &log_value_0,
+                        "\n".as_bytes(),
+                    ],
+                );
+            }
+        };
         ipc_send_client_message(
             client,
             17,
@@ -1419,12 +1465,7 @@ unsafe fn handle_send_tick(
         I3_IPC_REPLY_TYPE_TICK as u32,
         reply as *const u8,
     );
-    debuglog(
-        c"%s:%s:%d - Sent tick event\n".as_ptr().cast_mut(),
-        c"../src/ipc.c".as_ptr(),
-        c"handle_send_tick".as_ptr(),
-        1342 as ::core::ffi::c_int,
-    );
+    ::log::debug!("../src/ipc.c:handle_send_tick:1342 - Sent tick event\n");
 }
 #[derive(Clone, Copy, Default, Debug, PartialEq)]
 struct SyncRequest {
@@ -1491,10 +1532,31 @@ unsafe fn handle_sync(
         true
     } else {
         let error = CString::new(format!("{}\n", parsed.unwrap_err())).unwrap();
-        errorlog(
-            c"ERROR: YAJL parse error: %s\n".as_ptr().cast_mut(),
-            error.as_ptr(),
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_pointer_1 = error.as_ptr();
+            let log_value_0 = i3_common::logging::string_bytes(
+                if log_pointer_1.is_null() {
+                    None
+                } else {
+                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                },
+                None,
+            )
+            .to_vec();
+            if let Ok(log_value_0_text) = std::str::from_utf8(&log_value_0) {
+                ::log::error!("ERROR: YAJL parse error: {}\n", log_value_0_text);
+            } else {
+                i3_common::logging::emit_parts(
+                    i3_common::logging::Level::Error,
+                    &[
+                        "ERROR: YAJL parse error: ".as_bytes(),
+                        &log_value_0,
+                        "\n".as_bytes(),
+                    ],
+                );
+            }
+        };
         false
     };
     if !token.live() {
@@ -1614,14 +1676,9 @@ unsafe extern "C" fn ipc_receive_message(_: *mut ev_loop, w: *mut ev_io, _: libc
             message_type,
         );
     } else {
-        debuglog(
-            c"%s:%s:%d - Unhandled message type: %d\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/ipc.c".as_ptr(),
-            c"ipc_receive_message".as_ptr(),
-            1468 as libc::c_int,
-            message_type,
+        ::log::debug!(
+            "../src/ipc.c:ipc_receive_message:1468 - Unhandled message type: {}\n",
+            (message_type) as i32
         );
     }
 }
@@ -1658,25 +1715,46 @@ unsafe extern "C" fn ipc_client_timeout(_: *mut ev_loop, w: *mut ev_timer, _: li
             if let Ok(count) = file.read(&mut bytes) {
                 let line = diagnostic_cmdline(&bytes[..count]);
                 identified = true;
-                errorlog(
-                    c"ERROR: client %p with pid %d and cmdline '%s' on fd %d timed out, killing\n"
-                        .as_ptr()
-                        .cast_mut(),
-                    client,
-                    peercred.pid,
-                    line.as_ptr(),
-                    (*client).fd,
-                );
+                {
+                    // Snapshot native bytes before the logger can dispatch a callback.
+                    let log_value_0 = i3_common::logging::pointer(client);
+                    let log_value_1 = (peercred.pid) as i32;
+                    let log_pointer_3 = line.as_ptr();
+                    let log_value_2 = i3_common::logging::string_bytes(
+                        if log_pointer_3.is_null() {
+                            None
+                        } else {
+                            Some(std::ffi::CStr::from_ptr(log_pointer_3))
+                        },
+                        None,
+                    )
+                    .to_vec();
+                    let log_value_3 = ((*client).fd) as i32;
+                    if let Ok(log_value_2_text) = std::str::from_utf8(&log_value_2) {
+                        ::log::error!("ERROR: client {} with pid {} and cmdline '{}' on fd {} timed out, killing\n", log_value_0, log_value_1, log_value_2_text, log_value_3);
+                    } else {
+                        i3_common::logging::emit_parts(
+                            i3_common::logging::Level::Error,
+                            &[
+                                format!(
+                                    "ERROR: client {} with pid {} and cmdline '",
+                                    log_value_0, log_value_1
+                                )
+                                .as_bytes(),
+                                &log_value_2,
+                                format!("' on fd {} timed out, killing\n", log_value_3).as_bytes(),
+                            ],
+                        );
+                    }
+                };
             }
         }
     }
     if !identified {
-        errorlog(
-            c"ERROR: client %p on fd %d timed out, killing\n"
-                .as_ptr()
-                .cast_mut(),
-            client,
-            (*client).fd,
+        ::log::error!(
+            "ERROR: client {} on fd {} timed out, killing\n",
+            i3_common::logging::pointer(client),
+            ((*client).fd) as i32
         );
     }
     free_ipc_client(client, -1);
@@ -1686,12 +1764,9 @@ unsafe extern "C" fn ipc_socket_writeable_cb(
     w: *mut ev_io,
     revents: ::core::ffi::c_int,
 ) {
-    debuglog(
-        c"%s:%s:%d - fd %d writeable\n".as_ptr().cast_mut(),
-        c"../src/ipc.c".as_ptr(),
-        c"ipc_socket_writeable_cb".as_ptr(),
-        1524 as ::core::ffi::c_int,
-        (*w).fd,
+    ::log::debug!(
+        "../src/ipc.c:ipc_socket_writeable_cb:1524 - fd {} writeable\n",
+        ((*w).fd) as i32
     );
     let client: *mut ipc_client = (*w).data as *mut ipc_client;
     if (*client).timeout != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut ev_timer {
@@ -1801,21 +1876,41 @@ pub unsafe fn ipc_send_workspace_event(
 }
 
 pub unsafe fn ipc_send_window_event(property: *const ::core::ffi::c_char, con: *mut Con) {
-    debuglog(
-        c"%s:%s:%d - Issue IPC window %s event (con = %p, window = 0x%08x)\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/ipc.c".as_ptr(),
-        c"ipc_send_window_event".as_ptr(),
-        1644 as ::core::ffi::c_int,
-        property,
-        con,
-        if !(*con).window.is_null() {
+    {
+        // Snapshot native bytes before the logger can dispatch a callback.
+        let log_pointer_1 = property;
+        let log_value_0 = i3_common::logging::string_bytes(
+            if log_pointer_1.is_null() {
+                None
+            } else {
+                Some(std::ffi::CStr::from_ptr(log_pointer_1))
+            },
+            None,
+        )
+        .to_vec();
+        let log_value_1 = i3_common::logging::pointer(con);
+        let log_value_2 = (if !(*con).window.is_null() {
             (*(*con).window).id
         } else {
             0 as ::core::ffi::c_int as u32
-        },
-    );
+        }) as u32;
+        if let Ok(log_value_0_text) = std::str::from_utf8(&log_value_0) {
+            ::log::debug!("../src/ipc.c:ipc_send_window_event:1644 - Issue IPC window {} event (con = {}, window = 0x{:08x})\n", log_value_0_text, log_value_1, log_value_2);
+        } else {
+            i3_common::logging::emit_parts(
+                i3_common::logging::Level::Debug,
+                &[
+                    "../src/ipc.c:ipc_send_window_event:1644 - Issue IPC window ".as_bytes(),
+                    &log_value_0,
+                    format!(
+                        " event (con = {}, window = 0x{:08x})\n",
+                        log_value_1, log_value_2
+                    )
+                    .as_bytes(),
+                ],
+            );
+        }
+    };
     let locale = NumericLocale::c();
     let payload = messages::WindowEvent {
         change: native_text(property),
@@ -1837,15 +1932,24 @@ pub unsafe fn ipc_send_window_event(property: *const ::core::ffi::c_char, con: *
 }
 
 pub unsafe fn ipc_send_barconfig_update_event(barconfig: *mut Barconfig) {
-    debuglog(
-        c"%s:%s:%d - Issue barconfig_update event for id = %s\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/ipc.c".as_ptr(),
-        c"ipc_send_barconfig_update_event".as_ptr(),
-        1674 as ::core::ffi::c_int,
-        (*barconfig).id().as_ptr(),
-    );
+    {
+        // Snapshot native bytes before the logger can dispatch a callback.
+        let log_pointer_1 = (*barconfig).id().as_ptr();
+        let log_value_0 = i3_common::logging::string_bytes(
+            if log_pointer_1.is_null() {
+                None
+            } else {
+                Some(std::ffi::CStr::from_ptr(log_pointer_1))
+            },
+            None,
+        )
+        .to_vec();
+        if let Ok(log_value_0_text) = std::str::from_utf8(&log_value_0) {
+            ::log::debug!("../src/ipc.c:ipc_send_barconfig_update_event:1674 - Issue barconfig_update event for id = {}\n", log_value_0_text);
+        } else {
+            i3_common::logging::emit_parts(i3_common::logging::Level::Debug, &[ "../src/ipc.c:ipc_send_barconfig_update_event:1674 - Issue barconfig_update event for id = ".as_bytes(), &log_value_0, "\n".as_bytes() ]);
+        }
+    };
     let locale = NumericLocale::c();
     let payload = snapshot_bar_config(barconfig).to_bytes();
     let length = payload.len();
@@ -1865,17 +1969,47 @@ pub unsafe fn ipc_send_binding_event(
     bind: *mut Binding,
     modename: *const ::core::ffi::c_char,
 ) {
-    debuglog(
-        c"%s:%s:%d - Issue IPC binding %s event (sym = %s, code = %d)\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/ipc.c".as_ptr(),
-        c"ipc_send_binding_event".as_ptr(),
-        1695 as ::core::ffi::c_int,
-        event_type,
-        (*bind).symbol,
-        (*bind).keycode,
-    );
+    {
+        // Snapshot native bytes before the logger can dispatch a callback.
+        let log_pointer_1 = event_type;
+        let log_value_0 = i3_common::logging::string_bytes(
+            if log_pointer_1.is_null() {
+                None
+            } else {
+                Some(std::ffi::CStr::from_ptr(log_pointer_1))
+            },
+            None,
+        )
+        .to_vec();
+        let log_pointer_2 = (*bind).symbol;
+        let log_value_1 = i3_common::logging::string_bytes(
+            if log_pointer_2.is_null() {
+                None
+            } else {
+                Some(std::ffi::CStr::from_ptr(log_pointer_2))
+            },
+            None,
+        )
+        .to_vec();
+        let log_value_2 = ((*bind).keycode) as i32;
+        if let (Ok(log_value_0_text), Ok(log_value_1_text)) = (
+            std::str::from_utf8(&log_value_0),
+            std::str::from_utf8(&log_value_1),
+        ) {
+            ::log::debug!("../src/ipc.c:ipc_send_binding_event:1695 - Issue IPC binding {} event (sym = {}, code = {})\n", log_value_0_text, log_value_1_text, log_value_2);
+        } else {
+            i3_common::logging::emit_parts(
+                i3_common::logging::Level::Debug,
+                &[
+                    "../src/ipc.c:ipc_send_binding_event:1695 - Issue IPC binding ".as_bytes(),
+                    &log_value_0,
+                    " event (sym = ".as_bytes(),
+                    &log_value_1,
+                    format!(", code = {})\n", log_value_2).as_bytes(),
+                ],
+            );
+        }
+    };
     let event = messages::BindingEvent {
         change: native_text(event_type),
         mode: native_text(if modename.is_null() {
@@ -1889,14 +2023,9 @@ pub unsafe fn ipc_send_binding_event(
 }
 
 pub unsafe fn ipc_confirm_restart(client: *mut ipc_client) {
-    debuglog(
-        c"%s:%s:%d - ipc_confirm_restart(fd %d)\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/ipc.c".as_ptr(),
-        c"ipc_confirm_restart".as_ptr(),
-        1734 as ::core::ffi::c_int,
-        (*client).fd,
+    ::log::debug!(
+        "../src/ipc.c:ipc_confirm_restart:1734 - ipc_confirm_restart(fd {})\n",
+        ((*client).fd) as i32
     );
     let reply = c"[{\"success\":true}]".as_ptr();
     ipc_send_client_message(
@@ -1936,8 +2065,6 @@ pub use libc::{
 };
 
 use i3_common::native_stdio::__assert_fail;
-
-use crate::log::{debuglog, errorlog, verboselog};
 
 pub use libc::ucred;
 
