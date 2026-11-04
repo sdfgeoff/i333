@@ -324,7 +324,7 @@ unsafe fn run(arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         );
         socket_path = Some(std::path::PathBuf::from("/tmp/i3-ipc.sock"));
     }
-    init_dpi();
+    init_dpi(&crate::xcb::display_screen());
     init_outputs();
     init_connection(socket_path.as_deref().unwrap());
     i3_send_msg(

@@ -393,7 +393,7 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
     for depth in screen.allowed_depths() {
         for visual in depth.visuals() {
             assert_eq!(
-                unsafe { i3_common::draw_util::get_visual_depth(visual.visual_id()) },
+                i3_common::draw_util::get_visual_depth(&owned_screen, visual.visual_id()),
                 u16::from(depth.depth())
             );
         }
@@ -484,7 +484,7 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
     i3_common::display::set_provider(display_context);
     maintained_xcb::utility_probe::verify(connection.clone(), screen_number, root);
     assert_eq!(
-        unsafe { i3_common::draw_util::get_visual_depth(u32::MAX) },
+        i3_common::draw_util::get_visual_depth(&owned_screen, u32::MAX),
         0
     );
     if screen.root_depth() == 8 {

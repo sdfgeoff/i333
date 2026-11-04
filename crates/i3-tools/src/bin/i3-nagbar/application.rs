@@ -617,7 +617,7 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
         state.render.color_border = draw_util_hex_to_color(root_screen.as_ref(), "#ab7100");
         state.render.color_border_bottom = draw_util_hex_to_color(root_screen.as_ref(), "#ab7100");
     }
-    init_dpi();
+    init_dpi(root_screen.as_ref().expect("initialized display screen"));
     let font_context = i3_common::font::FontContext::for_screen(
         root_screen.as_ref().expect("initialized display screen"),
     );

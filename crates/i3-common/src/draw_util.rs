@@ -288,30 +288,10 @@ fn surface_initialized(surface: &surface_t) -> bool {
     }
     true
 }
-/// Find a visual's depth on the display provider's selected screen.
-///
-/// # Safety
-/// Call on the display's event thread. The provider's native connection must
-/// remain live and exclusively available throughout the borrowed setup lookup.
-pub unsafe fn get_visual_depth(visual_id: u32) -> u16 {
-    let crate::display::DisplayContext {
-        connection, screen, ..
-    } = crate::display::context();
-    let Some(screen_info) = screen else {
-        return 0;
-    };
-    let Some(connection) = (unsafe { crate::xcb_connection::borrowed(connection) }) else {
-        return 0;
-    };
-    // Select the exact registered screen instead of assuming setup screen zero.
-    let Some(screen) = connection
-        .get_setup()
-        .roots()
-        .find(|screen| screen.root().resource_id() == screen_info.root)
-    else {
-        return 0;
-    };
-    screen
+/// Find a visual's depth on the explicitly retained selected screen.
+pub fn get_visual_depth(display: &crate::display::DisplayScreen, visual_id: u32) -> u16 {
+    display
+        .screen()
         .allowed_depths()
         .find_map(|depth| {
             depth

@@ -44,21 +44,11 @@ fn store(value: libc::c_long) {
 /// Initialize DPI from Xft.dpi, falling back to physical screen geometry only
 /// when the current cached value is zero. Missing resources retain a prior value.
 ///
-/// # Safety
-/// The display provider must return live native connection/screen records on the
-/// display event thread. The screen must be readable whenever fallback is needed.
-/// Display discovery and its callbacks must not race destruction of those records.
-pub unsafe fn init_dpi() {
-    let crate::display::DisplayContext {
-        connection, screen, ..
-    } = crate::display::context();
-    if !connection.is_null() {
-        // SAFETY: legacy providers retain their native owner. Migrated
-        // executables supply the registered maintained owner directly.
-        let owner = crate::display::connection().or_else(|| {
-            unsafe { crate::xcb_connection::borrowed(connection.cast()) }.map(std::rc::Rc::new)
-        });
-        match owner.and_then(Database::from_connection) {
+/// The selected screen retains its connection through discovery and fallback.
+pub fn init_dpi(display: &crate::display::DisplayScreen) {
+    {
+        let owner = display.connection_owner();
+        match Database::from_connection(owner) {
             None => emit(
                 Level::Error,
                 b"[libi3] ERROR: Failed to open the resource database.\n",
@@ -91,12 +81,15 @@ pub unsafe fn init_dpi() {
             },
         }
     }
+    finish_dpi(Some(display.info()));
+}
+
+fn finish_dpi(screen: Option<crate::display::ScreenInfo>) {
     if get_dpi_value() == 0 {
         emit(
             Level::Debug,
             b"../libi3/dpi.c:init_dpi:65 - Using fallback for calculating DPI.\n",
         );
-        // SAFETY: caller supplies a live readable screen when fallback is needed.
         let screen = screen.expect("initialized display screen");
         // Preserve the previous float-to-integer cast, including a zero physical
         // height; no substitute monitor dimensions or fallback policy is introduced.
@@ -191,13 +184,9 @@ mod tests {
     fn missing_display_retains_an_initialized_dpi_without_reading_a_screen() {
         let previous = get_dpi_value();
         store(144);
-        // The provider registry gives threads without a registered display a
-        // detached context. A missing resource must retain a nonzero cache,
-        // avoiding fallback through that context's null screen pointer.
-        assert!(crate::display::context().connection.is_null());
-        // SAFETY: no connection is queried and no screen is needed because the
-        // already initialized scalar is retained on this missing-resource path.
-        unsafe { init_dpi() };
+        // Missing resources retain a nonzero cache; fallback needs no screen
+        // when discovery has already initialized the scalar.
+        finish_dpi(None);
         let retained = get_dpi_value();
         store(previous);
         assert_eq!(retained, 144);

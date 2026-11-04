@@ -543,7 +543,7 @@ unsafe fn run_window(settings: InputSettings) -> ::core::ffi::c_int {
         KeySymbols::new(resources.connection.clone())
             .unwrap_or_else(|| errx(EXIT_ERROR, c"Could not allocate key symbols".as_ptr())),
     );
-    init_dpi();
+    init_dpi(root_screen.as_ref().expect("initialized display screen"));
     let font_context = i3_common::font::FontContext::for_screen(
         root_screen.as_ref().expect("initialized display screen"),
     );

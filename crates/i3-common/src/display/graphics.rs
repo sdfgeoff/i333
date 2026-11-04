@@ -60,6 +60,10 @@ impl DisplayScreen {
         &self.connection
     }
 
+    pub(crate) fn connection_owner(&self) -> Rc<xcb::Connection> {
+        self.connection.clone()
+    }
+
     pub fn visual(&self, id: u32) -> Option<CairoVisual> {
         self.screen().allowed_depths().find_map(|depth| {
             depth

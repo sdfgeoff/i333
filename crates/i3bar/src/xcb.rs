@@ -119,6 +119,19 @@ pub unsafe fn common_display_context() -> i3_common::display::DisplayContext {
         })
 }
 
+/// Clone the selected screen owner without exposing a borrow of mutable bar state.
+///
+/// # Safety
+/// Call only on the bar event thread while its display state is initialized.
+pub unsafe fn display_screen() -> i3_common::display::DisplayScreen {
+    DISPLAY_STATE
+        .as_ref()
+        .expect("initialized display state")
+        .renderer
+        .screen()
+        .clone()
+}
+
 pub static mut xcb_root: u32 = 0;
 static mut cursor: u32 = 0;
 static mut selwin: u32 = 0_u32;
