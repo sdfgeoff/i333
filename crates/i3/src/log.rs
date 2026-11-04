@@ -7,6 +7,7 @@ use std::ffi::{CStr, CString};
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
 use std::os::unix::ffi::OsStrExt;
 use std::ptr::NonNull;
+use std::sync::atomic::{AtomicPtr, Ordering};
 
 use i3_common::get_process_filename::get_process_filename;
 #[cfg(test)]
@@ -229,6 +230,11 @@ impl Drop for MappedLog {
 // points additionally require valid printf arguments. Logging is not promised
 // async-signal-safe; no mutex or long-lived global mutable borrow is introduced.
 static mut LOG_BUFFER: Option<MappedLog> = None;
+// Prepared native argument only: its owner is the active ShmFile. Logging may
+// temporarily move that owner out of LOG_BUFFER while a synchronous signal
+// interrupts it, so native unlink must not discover the name through the Option.
+// Clear this alias before dropping the owner; no app API exposes this pointer.
+static NATIVE_SHM_NAME: AtomicPtr<libc::c_char> = AtomicPtr::new(std::ptr::null_mut());
 static mut CLIENTS: Vec<OwnedFd> = Vec::new();
 static mut debug_logging: bool = false;
 static mut verbose: bool = false;
@@ -291,7 +297,9 @@ pub unsafe fn open_logbuffer() {
     let name = CString::new(format!("/i3-log-{}", std::process::id())).expect("numeric SHM name");
     match MappedLog::open(&name, size.max(0) as usize) {
         Ok(log) => {
+            let name = log.file.name.as_ptr();
             (&raw mut LOG_BUFFER).write(Some(log));
+            NATIVE_SHM_NAME.store(name, Ordering::Relaxed);
         }
         Err((stage, error)) => {
             fprintf(
@@ -309,11 +317,12 @@ pub unsafe fn open_logbuffer() {
 /// # Safety
 /// Only the logger's event thread may access or replace the backend owner.
 pub(crate) unsafe fn shmlog_name() -> Vec<u8> {
-    (*(&raw const LOG_BUFFER))
-        .as_ref()
-        .map_or_else(Vec::new, |log| {
-            CStr::from_ptr(log.file.name.as_ptr()).to_bytes().to_vec()
-        })
+    let name = NATIVE_SHM_NAME.load(Ordering::Relaxed);
+    if name.is_null() {
+        Vec::new()
+    } else {
+        CStr::from_ptr(name).to_bytes().to_vec()
+    }
 }
 
 /// Remove the native namespace entry without dropping its still-mapped owner.
@@ -322,8 +331,9 @@ pub(crate) unsafe fn shmlog_name() -> Vec<u8> {
 /// # Safety
 /// The prepared backend owner remains live and cannot be replaced concurrently.
 pub(crate) unsafe fn unlink_shmlog_name() {
-    if let Some(log) = (*(&raw const LOG_BUFFER)).as_ref() {
-        libc::shm_unlink(log.file.name.as_ptr());
+    let name = NATIVE_SHM_NAME.load(Ordering::Relaxed);
+    if !name.is_null() {
+        libc::shm_unlink(name);
     }
 }
 
@@ -332,18 +342,16 @@ pub(crate) unsafe fn unlink_shmlog_name() {
 /// # Safety
 /// The event-thread backend and native stderr stream remain live for this call.
 pub(crate) unsafe fn report_and_unlink_shmlog_name() {
-    if let Some(log) = (*(&raw const LOG_BUFFER)).as_ref() {
-        fprintf(
-            stderr,
-            c"Closing SHM log \"%s\"\n".as_ptr(),
-            log.file.name.as_ptr(),
-        );
+    let name = NATIVE_SHM_NAME.load(Ordering::Relaxed);
+    if !name.is_null() {
+        fprintf(stderr, c"Closing SHM log \"%s\"\n".as_ptr(), name);
         fflush(stderr);
-        libc::shm_unlink(log.file.name.as_ptr());
+        libc::shm_unlink(name);
     }
 }
 
 pub unsafe fn close_logbuffer() {
+    NATIVE_SHM_NAME.store(std::ptr::null_mut(), Ordering::Relaxed);
     drop((&raw mut LOG_BUFFER).replace(None));
 }
 pub unsafe fn set_verbosity(value: bool) {
@@ -513,6 +521,57 @@ mod tests {
             offset_last_wrap: size,
             size,
             wrap_count: 0,
+        }
+    }
+
+    #[test]
+    fn prepared_shm_name_survives_backend_owner_move() {
+        if std::env::var_os("I333_SHM_NAME_PROBE").is_none() {
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "log::tests::prepared_shm_name_survives_backend_owner_move",
+                    "--nocapture",
+                ])
+                .env("I333_SHM_NAME_PROBE", "1")
+                .env_remove("DISPLAY")
+                .env_remove("I3SOCK")
+                .env_remove("WAYLAND_DISPLAY")
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{}\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            return;
+        }
+        unsafe {
+            physical_mem_bytes = 1024 * 1024;
+            shmlog_size = 64;
+            open_logbuffer();
+            let name = shmlog_name();
+            assert_eq!(name, format!("/i3-log-{}", std::process::id()).into_bytes());
+            // This is the real logger's take/write/restore lifetime window.
+            let owner = (&raw mut LOG_BUFFER).replace(None);
+            assert!(owner.is_some());
+            assert_eq!(shmlog_name(), name);
+            unlink_shmlog_name();
+            let native_name = CString::new(name).unwrap();
+            let fd = libc::shm_open(native_name.as_ptr(), libc::O_RDONLY, 0);
+            if fd >= 0 {
+                libc::close(fd);
+            }
+            assert_eq!(fd, -1);
+            assert_eq!(
+                std::io::Error::last_os_error().raw_os_error(),
+                Some(libc::ENOENT)
+            );
+            (&raw mut LOG_BUFFER).write(owner);
+            close_logbuffer();
+            assert!(shmlog_name().is_empty());
+            assert!(NATIVE_SHM_NAME.load(Ordering::Relaxed).is_null());
         }
     }
 
