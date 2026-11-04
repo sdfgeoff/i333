@@ -4478,13 +4478,15 @@ impl Drop for WizardResources {
 unsafe fn atom_reply(
     connection: &xcb::Connection,
     cookie: x::InternAtomCookie,
-    name: &CStr,
+    name: &[u8],
 ) -> x::Atom {
     let Ok(reply) = connection.wait_for_reply(cookie) else {
+        let native_name = CString::new(name.split(|&byte| byte == 0).next().unwrap_or_default())
+            .expect("first-NUL atom name");
         errx(
             libc::EXIT_FAILURE,
             c"Could not get atom %s".as_ptr(),
-            name.as_ptr(),
+            native_name.as_ptr(),
         );
     };
     reply.atom()
@@ -4943,18 +4945,19 @@ unsafe fn run_window(settings: WizardSettings) -> i32 {
         );
         return 0_i32;
     }
-    let intern = |name: &CStr| {
+    let intern = |name: &[u8]| {
+        let name = name.split(|&byte| byte == 0).next().unwrap_or_default();
         connection.send_request(&x::InternAtom {
             only_if_exists: false,
-            name: &name.to_bytes()[..name.to_bytes().len() as u16 as usize],
+            name: &name[..name.len() as u16 as usize],
         })
     };
-    let name_cookie = intern(c"_NET_WM_NAME");
-    let window_type_cookie = intern(c"_NET_WM_WINDOW_TYPE");
-    let dialog_cookie = intern(c"_NET_WM_WINDOW_TYPE_DIALOG");
-    let atom_cookie = intern(c"ATOM");
-    let cardinal_cookie = intern(c"CARDINAL");
-    let utf8_cookie = intern(c"UTF8_STRING");
+    let name_cookie = intern(b"_NET_WM_NAME");
+    let window_type_cookie = intern(b"_NET_WM_WINDOW_TYPE");
+    let dialog_cookie = intern(b"_NET_WM_WINDOW_TYPE_DIALOG");
+    let atom_cookie = intern(b"ATOM");
+    let cardinal_cookie = intern(b"CARDINAL");
+    let utf8_cookie = intern(b"UTF8_STRING");
     let sndisplay: *mut SnDisplay = sn_xcb_display_new(conn.cast(), None, None);
     let sncontext: *mut SnLauncheeContext =
         sn_launchee_context_new_from_environment(sndisplay, screen);
@@ -5039,12 +5042,12 @@ unsafe fn run_window(settings: WizardSettings) -> i32 {
         sn_launchee_context_setup_window(sncontext, win as libc::c_ulong);
     }
     connection.send_request(&x::MapWindow { window });
-    let name = atom_reply(&connection, name_cookie, c"_NET_WM_NAME");
-    let window_type = atom_reply(&connection, window_type_cookie, c"_NET_WM_WINDOW_TYPE");
-    let dialog = atom_reply(&connection, dialog_cookie, c"_NET_WM_WINDOW_TYPE_DIALOG");
-    let atom = atom_reply(&connection, atom_cookie, c"ATOM");
-    let _cardinal = atom_reply(&connection, cardinal_cookie, c"CARDINAL");
-    let utf8 = atom_reply(&connection, utf8_cookie, c"UTF8_STRING");
+    let name = atom_reply(&connection, name_cookie, b"_NET_WM_NAME");
+    let window_type = atom_reply(&connection, window_type_cookie, b"_NET_WM_WINDOW_TYPE");
+    let dialog = atom_reply(&connection, dialog_cookie, b"_NET_WM_WINDOW_TYPE_DIALOG");
+    let atom = atom_reply(&connection, atom_cookie, b"ATOM");
+    let _cardinal = atom_reply(&connection, cardinal_cookie, b"CARDINAL");
+    let utf8 = atom_reply(&connection, utf8_cookie, b"UTF8_STRING");
     let atoms = WizardAtoms { name, utf8 };
     connection.send_request(&x::ChangeProperty {
         mode: x::PropMode::Replace,

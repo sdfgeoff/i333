@@ -14,7 +14,6 @@ use i3_common::draw_util::draw_util_text;
 use i3_common::font::load_font;
 use i3_common::font::predict_text_width;
 use i3_common::safewrappers::strcasecmp_nullable;
-use std::ffi::CStr;
 use xcb_interop::events;
 /*
  * vim:ts=4:sw=4:expandtab
@@ -471,19 +470,19 @@ fn send_event<E: ::xcb::BaseEvent>(window: u32, mask: u32, event: &E) {
         });
     }
 }
-const ATOM_NAMES: [&std::ffi::CStr; 12] = [
-    c"_NET_WM_WINDOW_TYPE",
-    c"_NET_WM_WINDOW_TYPE_DOCK",
-    c"_NET_WM_STRUT_PARTIAL",
-    c"I3_SOCKET_PATH",
-    c"MANAGER",
-    c"_NET_SYSTEM_TRAY_ORIENTATION",
-    c"_NET_SYSTEM_TRAY_VISUAL",
-    c"_NET_SYSTEM_TRAY_OPCODE",
-    c"_NET_SYSTEM_TRAY_COLORS",
-    c"_XEMBED_INFO",
-    c"_XEMBED",
-    c"I3_SYNC",
+const ATOM_NAMES: [&[u8]; 12] = [
+    b"_NET_WM_WINDOW_TYPE",
+    b"_NET_WM_WINDOW_TYPE_DOCK",
+    b"_NET_WM_STRUT_PARTIAL",
+    b"I3_SOCKET_PATH",
+    b"MANAGER",
+    b"_NET_SYSTEM_TRAY_ORIENTATION",
+    b"_NET_SYSTEM_TRAY_VISUAL",
+    b"_NET_SYSTEM_TRAY_OPCODE",
+    b"_NET_SYSTEM_TRAY_COLORS",
+    b"_XEMBED_INFO",
+    b"_XEMBED",
+    b"I3_SYNC",
 ];
 
 enum PendingRequest {
@@ -500,11 +499,7 @@ impl From<::xcb::VoidCookie> for PendingRequest {
         Self::Unchecked(cookie)
     }
 }
-unsafe fn request_failed(
-    cookie: impl Into<PendingRequest>,
-    err_msg: &std::ffi::CStr,
-    line: i32,
-) -> i32 {
+unsafe fn request_failed(cookie: impl Into<PendingRequest>, err_msg: &str, line: i32) -> i32 {
     let Some(connection) = i3_common::display::connection() else {
         return 0;
     };
@@ -518,12 +513,14 @@ unsafe fn request_failed(
         }
     };
     if let Some(code) = code {
+        let native_message =
+            std::ffi::CString::new(first_nul(err_msg.as_bytes())).expect("first-NUL diagnostic");
         fprintf(
             stderr,
             c"[%s:%d] ERROR: %s. X Error Code: %d\n".as_ptr(),
             c"../i3bar/src/xcb.c".as_ptr(),
             line,
-            err_msg.as_ptr(),
+            native_message.as_ptr(),
             i32::from(code),
         );
         i32::from(code)
@@ -854,7 +851,7 @@ unsafe fn unhide_bars() {
                     x::ConfigWindow::StackMode(x::StackMode::Above),
                 ],
             });
-            if request_failed(cookie, c"Could not reconfigure window", 441_i32) != 0 {
+            if request_failed(cookie, "Could not reconfigure window", 441_i32) != 0 {
                 exit(libc::EXIT_FAILURE);
             }
             send_unchecked(&x::MapWindow {
@@ -1505,7 +1502,7 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
             });
             if request_failed(
                 rcookie,
-                c"Could not reparent window. Maybe it is using an incorrect depth/visual?",
+                "Could not reparent window. Maybe it is using an incorrect depth/visual?",
                 981_i32,
             ) != 0
             {
@@ -1991,7 +1988,7 @@ pub unsafe fn init_xcb_early() -> Option<std::path::PathBuf> {
     let atom_cookies = std::array::from_fn(|index| {
         connection.send_request(&::xcb::x::InternAtom {
             only_if_exists: false,
-            name: ATOM_NAMES[index].to_bytes(),
+            name: ATOM_NAMES[index],
         })
     });
     let selected_screen = i3_common::display::DisplayScreen::new(connection.clone(), screen)
@@ -2038,7 +2035,7 @@ pub unsafe fn init_xcb_early() -> Option<std::path::PathBuf> {
             window: x::Window::new(xcb_root),
             visual: visual_id,
         });
-        if request_failed(cm_cookie, c"Could not allocate colormap", 1363) != 0 {
+        if request_failed(cm_cookie, "Could not allocate colormap", 1363) != 0 {
             exit(libc::EXIT_FAILURE);
         }
     }
@@ -2213,7 +2210,8 @@ unsafe fn init_tray() {
     let Some(connection) = i3_common::display::connection() else {
         return;
     };
-    let atomname = std::ffi::CString::new(format!("_NET_SYSTEM_TRAY_S{screen}")).unwrap();
+    let atomname = format!("_NET_SYSTEM_TRAY_S{screen}");
+    let native_atomname = std::ffi::CString::new(atomname.as_bytes()).unwrap();
     let tray_cookie = tray_atom.is_none().then(|| {
         connection.send_request(&x::InternAtom {
             only_if_exists: false,
@@ -2265,7 +2263,7 @@ unsafe fn init_tray() {
                 c"[%s:%d] ERROR: Could not get atom %s\n".as_ptr(),
                 c"../i3bar/src/xcb.c".as_ptr(),
                 1565,
-                atomname.as_ptr(),
+                native_atomname.as_ptr(),
             );
             exit(libc::EXIT_FAILURE);
         }
@@ -2285,7 +2283,7 @@ unsafe fn init_tray() {
             c"[%s:%d] ERROR: Could not get selection owner for %s\n".as_ptr(),
             c"../i3bar/src/xcb.c".as_ptr(),
             1581 as ::core::ffi::c_int,
-            atomname.as_ptr(),
+            native_atomname.as_ptr(),
         );
         exit(libc::EXIT_FAILURE);
     };
@@ -2295,7 +2293,7 @@ unsafe fn init_tray() {
             c"[%s:%d] ERROR: Could not set the %s selection. Maybe another tray is already running?\n".as_ptr(),
             c"../i3bar/src/xcb.c".as_ptr(),
             1588 as ::core::ffi::c_int,
-            atomname.as_ptr(),
+            native_atomname.as_ptr(),
         );
         return;
     }
@@ -2408,12 +2406,13 @@ unsafe fn get_atoms(
 ) {
     for (index, (name, cookie)) in ATOM_NAMES.iter().zip(cookies).enumerate() {
         let Ok(reply) = connection.wait_for_reply(cookie) else {
+            let native_name = std::ffi::CString::new(*name).expect("static atom name has no NUL");
             fprintf(
                 stderr,
                 c"[%s:%d] ERROR: Could not get atom %s\n".as_ptr(),
                 c"../i3bar/include/xcb_atoms.def".as_ptr(),
                 index as i32 + 1,
-                name.as_ptr(),
+                native_name.as_ptr(),
             );
             exit(libc::EXIT_FAILURE);
         };
@@ -2686,15 +2685,15 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                     window: x::Window::new(bar_id),
                 }));
             }
-            if request_failed(win_cookie, c"Could not create window", 1970_i32) != 0
-                || request_failed(pm_cookie, c"Could not create pixmap", 1971_i32) != 0
-                || request_failed(slpm_cookie, c"Could not create statusline pixmap", 1972_i32) != 0
-                || request_failed(dock_cookie, c"Could not set dock mode", 1973_i32) != 0
-                || request_failed(class_cookie, c"Could not set WM_CLASS", 1974_i32) != 0
-                || request_failed(name_cookie, c"Could not set WM_NAME", 1975_i32) != 0
-                || request_failed(strut_cookie, c"Could not set strut", 1976_i32) != 0
+            if request_failed(win_cookie, "Could not create window", 1970_i32) != 0
+                || request_failed(pm_cookie, "Could not create pixmap", 1971_i32) != 0
+                || request_failed(slpm_cookie, "Could not create statusline pixmap", 1972_i32) != 0
+                || request_failed(dock_cookie, "Could not set dock mode", 1973_i32) != 0
+                || request_failed(class_cookie, "Could not set WM_CLASS", 1974_i32) != 0
+                || request_failed(name_cookie, "Could not set WM_NAME", 1975_i32) != 0
+                || request_failed(strut_cookie, "Could not set strut", 1976_i32) != 0
                 || config.hide_on_modifier == crate::application::BarDisplayMode::Dock
-                    && request_failed(map_cookie.unwrap(), c"Could not map window", 1977_i32) != 0
+                    && request_failed(map_cookie.unwrap(), "Could not map window", 1977_i32) != 0
             {
                 exit(libc::EXIT_FAILURE);
             }
@@ -2914,22 +2913,22 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                     deregister_xkb_keyevents();
                 }
             }
-            if request_failed(cfg_cookie, c"Could not reconfigure window", 2064_i32) != 0
-                || request_failed(chg_cookie, c"Could not change window", 2065_i32) != 0
-                || request_failed(pm_cookie_0, c"Could not create pixmap", 2066_i32) != 0
+            if request_failed(cfg_cookie, "Could not reconfigure window", 2064_i32) != 0
+                || request_failed(chg_cookie, "Could not change window", 2065_i32) != 0
+                || request_failed(pm_cookie_0, "Could not create pixmap", 2066_i32) != 0
                 || request_failed(
                     slpm_cookie_0,
-                    c"Could not create statusline pixmap",
+                    "Could not create statusline pixmap",
                     2067_i32,
                 ) != 0
-                || request_failed(strut_cookie_0, c"Could not set strut", 2068_i32) != 0
+                || request_failed(strut_cookie_0, "Could not set strut", 2068_i32) != 0
                 || redraw_bars_0
-                    && (request_failed(umap_cookie.unwrap(), c"Could not unmap window", 2069_i32)
+                    && (request_failed(umap_cookie.unwrap(), "Could not unmap window", 2069_i32)
                         != 0
                         || config.hide_on_modifier == crate::application::BarDisplayMode::Dock
                             && request_failed(
                                 map_cookie_0.unwrap(),
-                                c"Could not map window",
+                                "Could not map window",
                                 2070_i32,
                             ) != 0)
             {
