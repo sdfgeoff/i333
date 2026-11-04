@@ -597,22 +597,18 @@ unsafe fn free_configuration() {
         while !(*barconfig).bar_bindings.tqh_first.is_null() {
             let mut binding: *mut Barbinding =
                 (*barconfig).bar_bindings.tqh_first as *mut Barbinding;
-            free((*binding).command as *mut ::core::ffi::c_void);
-            (*binding).command = ::core::ptr::null_mut::<::core::ffi::c_char>();
             if !(*binding).bindings.tqe_next.is_null() {
                 (*(*binding).bindings.tqe_next).bindings.tqe_prev = (*binding).bindings.tqe_prev;
             } else {
                 (*barconfig).bar_bindings.tqh_last = (*binding).bindings.tqe_prev;
             }
             *(*binding).bindings.tqe_prev = (*binding).bindings.tqe_next;
-            free(binding as *mut ::core::ffi::c_void);
+            drop(Box::from_raw(binding));
             binding = ::core::ptr::null_mut::<Barbinding>();
         }
         while !(*barconfig).tray_outputs.tqh_first.is_null() {
             let mut tray_output: *mut tray_output_t =
                 (*barconfig).tray_outputs.tqh_first as *mut tray_output_t;
-            free((*tray_output).output as *mut ::core::ffi::c_void);
-            (*tray_output).output = ::core::ptr::null_mut::<::core::ffi::c_char>();
             if !(*tray_output).tray_outputs.tqe_next.is_null() {
                 (*(*tray_output).tray_outputs.tqe_next)
                     .tray_outputs
@@ -621,7 +617,7 @@ unsafe fn free_configuration() {
                 (*barconfig).tray_outputs.tqh_last = (*tray_output).tray_outputs.tqe_prev;
             }
             *(*tray_output).tray_outputs.tqe_prev = (*tray_output).tray_outputs.tqe_next;
-            free(tray_output as *mut ::core::ffi::c_void);
+            drop(Box::from_raw(tray_output));
             tray_output = ::core::ptr::null_mut::<tray_output_t>();
         }
         if !(*barconfig).configs.tqe_next.is_null() {

@@ -288,13 +288,23 @@ unsafe fn collect() -> BTreeMap<String, String> {
     bar.colors.statusline = Some(c"".to_owned());
     bar.colors.binding_mode_text = Some(c"#abcdef".to_owned());
     bar.outputs = vec![c"PrImArY".to_owned(), c"nonprimary".to_owned()];
-    let mut binding: Barbinding = std::mem::zeroed();
-    binding.input_code = 1;
-    binding.command = c"nop \"click\"".as_ptr().cast_mut();
-    binding.release = true;
+    let mut binding = Barbinding {
+        input_code: 1,
+        command: c"nop \"click\"".to_owned(),
+        release: true,
+        bindings: crate::application::BarBindingLinks {
+            tqe_next: std::ptr::null_mut(),
+            tqe_prev: std::ptr::null_mut(),
+        },
+    };
     bar.bar_bindings.tqh_first = &mut binding;
-    let mut tray: tray_output_t = std::mem::zeroed();
-    tray.output = c"PRIMARY".as_ptr().cast_mut();
+    let mut tray = tray_output_t {
+        output: c"PRIMARY".to_owned(),
+        tray_outputs: crate::application::TrayOutputLinks {
+            tqe_next: std::ptr::null_mut(),
+            tqe_prev: std::ptr::null_mut(),
+        },
+    };
     bar.tray_outputs.tqh_first = &mut tray;
     let bytes = snapshot_bar_config(&mut bar).to_bytes();
     result.insert("bar_full".into(), String::from_utf8(bytes).unwrap());

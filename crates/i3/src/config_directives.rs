@@ -1541,11 +1541,15 @@ unsafe fn bar_configure_binding(
         }
         current = (*current).bindings.tqe_next;
     }
-    let new_binding: *mut Barbinding =
-        scalloc(1 as usize, ::core::mem::size_of::<Barbinding>() as usize) as *mut Barbinding;
-    (*new_binding).release = release_bool;
-    (*new_binding).input_code = input_code;
-    (*new_binding).command = sstrdup(command);
+    let new_binding = Box::into_raw(Box::new(Barbinding {
+        release: release_bool,
+        input_code,
+        command: std::ffi::CStr::from_ptr(command).to_owned(),
+        bindings: crate::application::BarBindingLinks {
+            tqe_next: std::ptr::null_mut(),
+            tqe_prev: std::ptr::null_mut(),
+        },
+    }));
     (*new_binding).bindings.tqe_next = ::core::ptr::null_mut::<Barbinding>();
     (*new_binding).bindings.tqe_prev = (*current_bar).bar_bindings.tqh_last;
     *(*current_bar).bar_bindings.tqh_last = new_binding;
@@ -1716,9 +1720,13 @@ pub unsafe fn cfg_bar_tray_output(
     result: *mut ConfigResultIR,
     output: *const ::core::ffi::c_char,
 ) {
-    let tray_output: *mut tray_output_t =
-        scalloc(1 as usize, ::core::mem::size_of::<tray_output_t>() as usize) as *mut tray_output_t;
-    (*tray_output).output = sstrdup(output);
+    let tray_output = Box::into_raw(Box::new(tray_output_t {
+        output: std::ffi::CStr::from_ptr(output).to_owned(),
+        tray_outputs: crate::application::TrayOutputLinks {
+            tqe_next: std::ptr::null_mut(),
+            tqe_prev: std::ptr::null_mut(),
+        },
+    }));
     (*tray_output).tray_outputs.tqe_next = ::core::ptr::null_mut::<tray_output_t>();
     (*tray_output).tray_outputs.tqe_prev = (*current_bar).tray_outputs.tqh_last;
     *(*current_bar).tray_outputs.tqh_last = tray_output;

@@ -1017,7 +1017,9 @@ unsafe fn snapshot_bar_config(config: *mut Barconfig) -> messages::BarConfig {
     let mut trays = Vec::new();
     let mut tray = (*config).tray_outputs.tqh_first;
     while !tray.is_null() {
-        trays.push(native_text(canonicalize_output_name((*tray).output)));
+        trays.push(native_text(canonicalize_output_name(
+            (*tray).output.as_ptr(),
+        )));
         tray = (*tray).tray_outputs.tqe_next;
     }
     let mut bindings = Vec::new();
@@ -1025,7 +1027,7 @@ unsafe fn snapshot_bar_config(config: *mut Barconfig) -> messages::BarConfig {
     while !binding.is_null() {
         bindings.push(messages::BarBinding {
             input_code: (*binding).input_code as i64,
-            command: native_text((*binding).command),
+            command: messages::NativeText::cstr(&(*binding).command),
             release: (*binding).release,
         });
         binding = (*binding).bindings.tqe_next;

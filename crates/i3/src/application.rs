@@ -274,11 +274,9 @@ pub struct bar_bindings_head {
     pub tqh_first: *mut Barbinding,
     pub tqh_last: *mut *mut Barbinding,
 }
-#[derive(Copy, Clone)]
-#[repr(C)]
 pub struct Barbinding {
     pub input_code: ::core::ffi::c_int,
-    pub command: *mut ::core::ffi::c_char,
+    pub command: std::ffi::CString,
     pub release: bool,
     pub bindings: BarBindingLinks,
 }
@@ -295,10 +293,8 @@ pub struct tray_outputs_head {
     pub tqh_first: *mut tray_output_t,
     pub tqh_last: *mut *mut tray_output_t,
 }
-#[derive(Copy, Clone)]
-#[repr(C)]
 pub struct tray_output_t {
-    pub output: *mut ::core::ffi::c_char,
+    pub output: std::ffi::CString,
     pub tray_outputs: TrayOutputLinks,
 }
 #[derive(Copy, Clone)]
