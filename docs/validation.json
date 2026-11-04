@@ -8,26 +8,26 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 22 wallclock secs ( 0.83 usr +  0.08 sys =  0.91 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 22 wallclock secs ( 0.74 usr +  0.07 sys =  0.81 CPU)\nResult: PASS",
     "profile": "debug",
     "build": "cargo test --locked",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "0bc95d58f7278dbbbef1098131dc9aa9f07ed52b0fee9606b2808fbc4ce36c5c",
-    "i3bar": "f62d13f96ea4dbaf35340c3fec9b2ed0a805429047737b830a69906bf2fb2c18",
-    "i3-config-wizard": "aae7e63f865b147a028972a645b8de8e6ca98c5607f20240fccc333042e2380b",
-    "i3-dump-log": "7b9e14a26743f39fef9c84aeafc2d9ea26db8c06620769b23db5b4f8e3bb2ea7",
-    "i3-input": "74940064287e305ed3b9837bd8725b4a034538b67c5b4984aea240eb7f0dcd32",
-    "i3-msg": "d51bc6fb8905ed089b7cf6bbfdc1c6a73d063b1c5897fd5fc50e39d215e1ac21",
-    "i3-nagbar": "d941c4c5d4b8504e2a0ede13d578469f6dc02638a0e1f876fdfaafe24dd1d1e3"
+    "i3": "9e900694354880e607d69afbc7bbabc3af64dbec60902f3d2711cf2e4f7a6af1",
+    "i3bar": "a61df6df7ae2f050bb00a8b9574a9537303462be2cbe321d018ac08f235dc8bc",
+    "i3-config-wizard": "89bcd4dfb068c73c8a70e2005015192c25d0110eb216ab6a73bcbab85b688b3c",
+    "i3-dump-log": "deba4a6ac05ec7bb73d8f407a96d70252da33ec4438a956c81e8305bb6d727a9",
+    "i3-input": "14e73d6a135022aed0b64d24dee5b09b23ec845f9ab6057ca253a85a158280c8",
+    "i3-msg": "b536ec8f9a19c1e5004b97da948caa4ca30a48e8a2a4d3b94d5dd08f086c080f",
+    "i3-nagbar": "1f2da8c68e44c8cf6c1c773558a61d08518c0e8ea8f393bfcd26450f50a4a60a"
   },
-  "note": "Nine-member Cargo workspace. cargo test --locked passed 434 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
+  "note": "Nine-member Cargo workspace. cargo test --locked passed 436 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
   "additional_checks": {
     "headless_c_rust_state_comparisons": 61,
     "ipc_client_test_groups": 16,
-    "workspace_unit_tests": 434,
+    "workspace_unit_tests": 436,
     "core_and_bar_cli_comparisons": 39,
     "pcre2_compile_match_error_comparisons": 4620,
     "json_oracle_cases": 2263,
@@ -125,7 +125,7 @@
       "cargo_regression_wrappers": 8,
       "xkb_integration": 1,
       "i3-build": 3,
-      "i3-common": 98,
+      "i3-common": 100,
       "native_graphics": 5,
       "i3-config-wizard": 5,
       "i3-dump-log": 5,
@@ -142,13 +142,13 @@
     "cargo_fmt_check": true,
     "debug_build": true,
     "release_build": true,
-    "unit_tests_total_including_integration_checks": 434,
+    "unit_tests_total_including_integration_checks": 436,
     "test_command": "cargo test",
     "clean_source_command": "cargo test -p i3-test-support --features clean-source-check",
     "test_support": "development-only process capture, failure propagation and isolated regression orchestration",
     "release_build_note": "Property/native-utility checkpoint cac6b76d passed Ubuntu CI complete tests, clean-source build isolation and release build. Current input/core/RandR checkpoint additionally passes the full local Cargo gate.",
     "last_release_build_verified_commit": "cac6b76dc83c5b1f2ea36e6ccd58985470e931c2",
-    "rust_source_files": 149
+    "rust_source_files": 150
   },
   "modernization": {
     "yajl_product_dependency": false,
@@ -2569,6 +2569,14 @@
         "source_commit": "e8c078ba917bde27367795a8a8694e61f58776ee",
         "scope": "Own assignment destinations in a derived-kind Rust enum; own Config and complete bar strings/colors/output/nested-node payloads; install standard log facade with existing byte backends, preserving outputs; logging caller migration remains in progress",
         "rust_tests": 434,
+        "upstream_assertions": 4205,
+        "status": "validated"
+      },
+      {
+        "stage": 2,
+        "source_commit": "114e603573777f82619fa7e5b2885927bd799191",
+        "scope": "Own Con title/sticky strings; preserve native pointer/string presentation with typed helpers; convert common/tool/bar and parser/regex/output logging to standard log macros with exact byte fallback; core caller migration and Con names remain in progress",
+        "rust_tests": 436,
         "upstream_assertions": 4205,
         "status": "validated"
       }
