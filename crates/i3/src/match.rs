@@ -554,7 +554,7 @@ pub unsafe fn match_parse_property(
                 ),
             }
         };
-        let property = unsafe { CStr::from_ptr(ctype) }.to_bytes();
+        let property = CStr::from_ptr(ctype).to_bytes();
         if property == b"class" {
             (*match_0).class = compile_expression(CStr::from_ptr(cvalue));
             return;

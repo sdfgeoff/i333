@@ -429,8 +429,8 @@ fn manager_notification(
     owner: u32,
 ) -> x::ClientMessageEvent {
     x::ClientMessageEvent::new(
-        unsafe { x::Window::new(root_window) },
-        unsafe { x::Atom::new(atom) },
+        x::Window::new(root_window),
+        x::Atom::new(atom),
         x::ClientMessageData::Data32([time, selection, owner, 0, 0]),
     )
 }

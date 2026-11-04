@@ -146,7 +146,7 @@ pub unsafe fn get_colorpixel(hex: *const c_char) -> u32 {
     let reply =
         unsafe { crate::xcb_connection::borrowed(connection.cast()) }.and_then(|connection| {
             let cookie = connection.send_request(&x::AllocColor {
-                cmap: unsafe { x::Colormap::new(screen.default_colormap) },
+                cmap: x::Colormap::new(screen.default_colormap),
                 red,
                 green,
                 blue,

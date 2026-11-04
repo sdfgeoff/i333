@@ -456,7 +456,7 @@ fn draw_text_xcb(font: &CoreFont, glyphs: &[Ucs2Char], drawable: u32, gc: u32, m
         }
         connection.send_request(&x::ImageText16 {
             drawable: x::Drawable::Unknown(drawable),
-            gc: unsafe { x::Gcontext::new(gc) },
+            gc: x::Gcontext::new(gc),
             x: x as i16,
             y: pos_y as i16,
             string: &wire[..chunk.len()],

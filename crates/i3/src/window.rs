@@ -569,59 +569,51 @@ fn requested_geometry(hints: &SizeHints) -> Option<(i16, i16, u16, u16)> {
     ))
 }
 // Only owned hint values are borrowed while native logging runs.
-unsafe fn log_size_hints(size_hints: &SizeHints, old: SizeConstraints, has_geometry: bool) {
-    // SAFETY: the caller retains initialized native/event-thread model storage
-    // throughout this compatibility operation; owned payload borrows stay local.
-    unsafe {
-        if size_hints.flags.contains(SizeHintFlags::MIN_SIZE) {
-            ::log::debug!("../src/window.c:window_update_normal_hints:282 - Minimum size: {} (width) x {} (height)\n", (size_hints.min_width) as i32, (size_hints.min_height) as i32);
-        }
-        if size_hints.flags.contains(SizeHintFlags::MAX_SIZE) {
-            ::log::debug!("../src/window.c:window_update_normal_hints:289 - Maximum size: {} (width) x {} (height)\n", (size_hints.max_width) as i32, (size_hints.max_height) as i32);
-        } else {
-            ::log::debug!(
-                "../src/window.c:window_update_normal_hints:297 - Clearing maximum size\n"
-            );
-        }
-        if size_hints.flags.contains(SizeHintFlags::RESIZE_INCREMENT) {
-            ::log::debug!("../src/window.c:window_update_normal_hints:304 - Size increments: {} (width) x {} (height)\n", (size_hints.width_increment) as i32, (size_hints.height_increment) as i32);
-        } else {
-            ::log::debug!(
-                "../src/window.c:window_update_normal_hints:318 - Clearing size increments\n"
-            );
-        }
-        if size_hints.flags.contains(SizeHintFlags::BASE_SIZE)
-            && old.base_width >= 0
-            && old.base_height >= 0
+fn log_size_hints(size_hints: &SizeHints, old: SizeConstraints, has_geometry: bool) {
+    if size_hints.flags.contains(SizeHintFlags::MIN_SIZE) {
+        ::log::debug!("../src/window.c:window_update_normal_hints:282 - Minimum size: {} (width) x {} (height)\n", (size_hints.min_width) as i32, (size_hints.min_height) as i32);
+    }
+    if size_hints.flags.contains(SizeHintFlags::MAX_SIZE) {
+        ::log::debug!("../src/window.c:window_update_normal_hints:289 - Maximum size: {} (width) x {} (height)\n", (size_hints.max_width) as i32, (size_hints.max_height) as i32);
+    } else {
+        ::log::debug!("../src/window.c:window_update_normal_hints:297 - Clearing maximum size\n");
+    }
+    if size_hints.flags.contains(SizeHintFlags::RESIZE_INCREMENT) {
+        ::log::debug!("../src/window.c:window_update_normal_hints:304 - Size increments: {} (width) x {} (height)\n", (size_hints.width_increment) as i32, (size_hints.height_increment) as i32);
+    } else {
+        ::log::debug!(
+            "../src/window.c:window_update_normal_hints:318 - Clearing size increments\n"
+        );
+    }
+    if size_hints.flags.contains(SizeHintFlags::BASE_SIZE)
+        && old.base_width >= 0
+        && old.base_height >= 0
+    {
+        ::log::debug!("../src/window.c:window_update_normal_hints:327 - Base size: {} (width) x {} (height)\n", (size_hints.base_width) as i32, (size_hints.base_height) as i32);
+    } else {
+        ::log::debug!("../src/window.c:window_update_normal_hints:332 - Clearing base size\n");
+    }
+    if has_geometry && requested_geometry(size_hints).is_some() {
+        ::log::debug!("../src/window.c:window_update_normal_hints:341 - Setting geometry x={} y={} w={} h={}\n", (size_hints.x) as i32, (size_hints.y) as i32, (size_hints.width) as i32, (size_hints.height) as i32);
+    }
+    if size_hints.flags.contains(SizeHintFlags::ASPECT)
+        && size_hints.min_aspect_num >= 0
+        && size_hints.min_aspect_den > 0
+        && size_hints.max_aspect_num >= 0
+        && size_hints.max_aspect_den > 0
+    {
+        let min_aspect = size_hints.min_aspect_num as f64 / size_hints.min_aspect_den as f64;
+        let max_aspect = size_hints.max_aspect_num as f64 / size_hints.max_aspect_den as f64;
         {
-            ::log::debug!("../src/window.c:window_update_normal_hints:327 - Base size: {} (width) x {} (height)\n", (size_hints.base_width) as i32, (size_hints.base_height) as i32);
-        } else {
-            ::log::debug!("../src/window.c:window_update_normal_hints:332 - Clearing base size\n");
-        }
-        if has_geometry && requested_geometry(size_hints).is_some() {
-            ::log::debug!("../src/window.c:window_update_normal_hints:341 - Setting geometry x={} y={} w={} h={}\n", (size_hints.x) as i32, (size_hints.y) as i32, (size_hints.width) as i32, (size_hints.height) as i32);
-        }
-        if size_hints.flags.contains(SizeHintFlags::ASPECT)
-            && size_hints.min_aspect_num >= 0
-            && size_hints.min_aspect_den > 0
-            && size_hints.max_aspect_num >= 0
-            && size_hints.max_aspect_den > 0
-        {
-            let min_aspect = size_hints.min_aspect_num as f64 / size_hints.min_aspect_den as f64;
-            let max_aspect = size_hints.max_aspect_num as f64 / size_hints.max_aspect_den as f64;
-            {
-                let minimum = fixed_decimal(min_aspect, FixedPrecision::Six);
-                let maximum = fixed_decimal(max_aspect, FixedPrecision::Six);
-                match (std::str::from_utf8(&minimum), std::str::from_utf8(&maximum)) {
+            let minimum = fixed_decimal(min_aspect, FixedPrecision::Six);
+            let maximum = fixed_decimal(max_aspect, FixedPrecision::Six);
+            match (std::str::from_utf8(&minimum), std::str::from_utf8(&maximum)) {
         (Ok(minimum), Ok(maximum)) => ::log::debug!("../src/window.c:window_update_normal_hints:355 - Aspect ratio set: minimum {}, maximum {}\n", minimum, maximum),
         _ => emit_parts(Level::Debug, &[b"../src/window.c:window_update_normal_hints:355 - Aspect ratio set: minimum ", &minimum, b", maximum ", &maximum, b"\n"]),
     }
-            };
-        } else {
-            ::log::debug!(
-                "../src/window.c:window_update_normal_hints:365 - Clearing aspect ratios\n"
-            );
-        }
+        };
+    } else {
+        ::log::debug!("../src/window.c:window_update_normal_hints:365 - Clearing aspect ratios\n");
     }
 }
 /// The property reply stays owned by the caller. Missing reply requests an
@@ -840,7 +832,7 @@ struct NativePixels(NonNull<u32>);
 impl NativePixels {
     fn copy(pixels: &[u32]) -> Self {
         let bytes = std::mem::size_of_val(pixels);
-        let ptr = unsafe { smalloc(bytes) }.cast::<u32>();
+        let ptr = smalloc(bytes).cast::<u32>();
         unsafe {
             std::ptr::copy_nonoverlapping(pixels.as_ptr(), ptr, pixels.len());
         }

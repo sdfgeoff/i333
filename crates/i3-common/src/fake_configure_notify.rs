@@ -63,7 +63,7 @@ mod tests {
             width: u16::MAX,
             height: 456,
         };
-        let event = configure_event(rectangle, unsafe { x::Window::new(0x12345678) }, -1);
+        let event = configure_event(rectangle, x::Window::new(0x12345678), -1);
         // Independent complete wire fixture retained from the native boundary:
         // response byte, sequence/padding, two XIDs, sibling, geometry, border.
         let mut expected = [0; 32];
@@ -79,9 +79,7 @@ mod tests {
         assert_eq!(bytes, expected);
         assert_eq!(
             (event.event(), event.window()),
-            (unsafe { x::Window::new(0x12345678) }, unsafe {
-                x::Window::new(0x12345678)
-            })
+            (x::Window::new(0x12345678), x::Window::new(0x12345678))
         );
         assert_eq!(
             (event.x(), event.y(), event.width(), event.height()),

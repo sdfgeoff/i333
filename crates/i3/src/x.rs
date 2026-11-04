@@ -40,8 +40,8 @@ impl<T> Drop for NativeReply<T> {
 }
 fn delete_window_event(window: u32, protocols: u32, delete: u32) -> x::ClientMessageEvent {
     x::ClientMessageEvent::new(
-        unsafe { x::Window::new(window) },
-        unsafe { x::Atom::new(protocols) },
+        x::Window::new(window),
+        x::Atom::new(protocols),
         x::ClientMessageData::Data32([delete, x::CURRENT_TIME, 0, 0, 0]),
     )
 }
@@ -52,7 +52,7 @@ fn connection() -> std::rc::Rc<::xcb::Connection> {
 
 fn set_event_mask(window: u32, mask: u32) {
     connection().send_request(&x::ChangeWindowAttributes {
-        window: unsafe { x::Window::new(window) },
+        window: x::Window::new(window),
         value_list: &[x::Cw::EventMask(x::EventMask::from_bits_retain(mask))],
     });
 }
@@ -374,22 +374,18 @@ pub static mut focused_id: u32 = 0 as u32;
 static mut last_focused: u32 = 0 as u32;
 static mut warp_to: *mut Rect = ::core::ptr::null::<Rect>() as *mut Rect;
 
-static mut state_head: StateHead = unsafe {
-    StateHead {
-        cqh_first: &raw const state_head as *mut StateHead as *mut ::core::ffi::c_void
-            as *mut FrameState,
-        cqh_last: &raw const state_head as *mut StateHead as *mut ::core::ffi::c_void
-            as *mut FrameState,
-    }
+static mut state_head: StateHead = StateHead {
+    cqh_first: &raw const state_head as *mut StateHead as *mut ::core::ffi::c_void
+        as *mut FrameState,
+    cqh_last: &raw const state_head as *mut StateHead as *mut ::core::ffi::c_void
+        as *mut FrameState,
 };
 
-static mut old_state_head: OldStateHead = unsafe {
-    OldStateHead {
-        cqh_first: &raw const old_state_head as *mut OldStateHead as *mut ::core::ffi::c_void
-            as *mut FrameState,
-        cqh_last: &raw const old_state_head as *mut OldStateHead as *mut ::core::ffi::c_void
-            as *mut FrameState,
-    }
+static mut old_state_head: OldStateHead = OldStateHead {
+    cqh_first: &raw const old_state_head as *mut OldStateHead as *mut ::core::ffi::c_void
+        as *mut FrameState,
+    cqh_last: &raw const old_state_head as *mut OldStateHead as *mut ::core::ffi::c_void
+        as *mut FrameState,
 };
 
 static mut initial_mapping_head: InitialMappingHead = InitialMappingHead {

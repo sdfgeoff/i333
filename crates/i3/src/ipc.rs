@@ -1587,60 +1587,51 @@ unsafe fn handle_get_binding_state(
     send_typed_reply(client, I3_IPC_REPLY_TYPE_GET_BINDING_STATE as u32, &reply);
 }
 
-pub const handlers: [handler_t; 13] = unsafe {
-    [
-        Some(
-            handle_run_command
-                as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
-        ),
-        Some(
-            handle_get_workspaces
-                as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
-        ),
-        Some(
-            handle_subscribe
-                as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
-        ),
-        Some(
-            handle_get_outputs
-                as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
-        ),
-        Some(
-            handle_tree as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
-        ),
-        Some(
-            handle_get_marks
-                as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
-        ),
-        Some(
-            handle_get_bar_config
-                as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
-        ),
-        Some(
-            handle_get_version
-                as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
-        ),
-        Some(
-            handle_get_binding_modes
-                as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
-        ),
-        Some(
-            handle_get_config
-                as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
-        ),
-        Some(
-            handle_send_tick
-                as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
-        ),
-        Some(
-            handle_sync as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
-        ),
-        Some(
-            handle_get_binding_state
-                as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
-        ),
-    ]
-};
+pub const handlers: [handler_t; 13] = [
+    Some(
+        handle_run_command
+            as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
+    ),
+    Some(
+        handle_get_workspaces
+            as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
+    ),
+    Some(
+        handle_subscribe as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
+    ),
+    Some(
+        handle_get_outputs
+            as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
+    ),
+    Some(handle_tree as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> ()),
+    Some(
+        handle_get_marks as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
+    ),
+    Some(
+        handle_get_bar_config
+            as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
+    ),
+    Some(
+        handle_get_version
+            as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
+    ),
+    Some(
+        handle_get_binding_modes
+            as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
+    ),
+    Some(
+        handle_get_config
+            as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
+    ),
+    Some(
+        handle_send_tick as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
+    ),
+    Some(handle_sync as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> ()),
+    Some(
+        handle_get_binding_state
+            as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
+    ),
+];
 unsafe extern "C" fn ipc_receive_message(_: *mut ev_loop, w: *mut ev_io, _: libc::c_int) {
     let client = (*w).data.cast::<ipc_client>();
     assert_eq!((*client).fd, (*w).fd);

@@ -3667,478 +3667,476 @@ static mut tokens_BAR: [cmdp_token; 31] = [
         },
     },
 ];
-static mut tokens: [cmdp_token_ptr; 117] = unsafe {
-    [
-        tokenptr {
-            array: &raw const tokens_FORCE_DISPLAY_URGENCY_HINT_MS as *mut cmdp_token,
-            n: 2 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_FLOATING_MAXIMUM_SIZE_HEIGHT as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_FLOATING_MINIMUM_SIZE_HEIGHT as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_STRIP_WORKSPACE_NUMBERS as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_FLOATING_MAXIMUM_SIZE_WIDTH as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_FLOATING_MINIMUM_SIZE_WIDTH as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_BINDING_MODE_INDICATOR as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_WORKSPACE_MIN_WIDTH_PX as *mut cmdp_token,
-            n: 2 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_FOCUS_ON_WINDOW_ACTIVATION as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_FORCE_DISPLAY_URGENCY_HINT as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_TILING_DRAG_SWAP_MODIFIER as *mut cmdp_token,
-            n: 10 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_STRIP_WORKSPACE_NAME as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_CRITERION_FROM_STR_START as *mut cmdp_token,
-            n: 3 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_DEFAULT_BORDER_PIXELS_PX as *mut cmdp_token,
-            n: 2 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_WORKSPACE_BACK_AND_FORTH as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_ASSIGN_WORKSPACE_NUMBER as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_WORKSPACE_MIN_WIDTH as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_FLOATING_MAXIMUM_SIZE_X as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_FLOATING_MINIMUM_SIZE_X as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_POPUP_DURING_FULLSCREEN as *mut cmdp_token,
-            n: 4 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_COLORS_IGNORE_LINE as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_CRITERION_FROM_STR_END as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_COLORS_BACKGROUND as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_WORKSPACE_BUTTONS as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_WORKSPACE_COMMAND as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_DEFAULT_BORDER_PIXELS as *mut cmdp_token,
-            n: 2 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_WORKSPACE_OUTPUT_WORD as *mut cmdp_token,
-            n: 2 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_SEPARATOR_SYMBOL as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_FORCE_FOCUS_WRAPPING as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_BINDSYM_COMMAND as *mut cmdp_token,
-            n: 2 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_TRAY_PADDING_PX as *mut cmdp_token,
-            n: 2 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_DEFAULT_ORIENTATION as *mut cmdp_token,
-            n: 3 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_FOCUS_FOLLOWS_MOUSE as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_PADDING_BOTTOM as *mut cmdp_token,
-            n: 3 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_STATUS_COMMAND as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_WHEEL_DOWN_CMD as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_COLOR_CHILD_BORDER as *mut cmdp_token,
-            n: 2 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_CRITERION_FROM_STR as *mut cmdp_token,
-            n: 2 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_FOR_WINDOW_COMMAND as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_COLORS_BORDER as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_COLORS_SINGLE as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_PADDING_RIGHT as *mut cmdp_token,
-            n: 3 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_FLOATING_MODIFIER as *mut cmdp_token,
-            n: 10 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_HIDE_EDGE_BORDERS as *mut cmdp_token,
-            n: 12 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_WORKSPACE_COMMAND as *mut cmdp_token,
-            n: 2 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_ASSIGN_WORKSPACE as *mut cmdp_token,
-            n: 5 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_COLORS_BRACE as *mut cmdp_token,
-            n: 2 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_HIDDEN_STATE as *mut cmdp_token,
-            n: 2 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_PADDING_LEFT as *mut cmdp_token,
-            n: 2 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_TRAY_PADDING as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_WHEEL_UP_CMD as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_COLOR_BACKGROUND as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_IPC_KILL_TIMEOUT as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_MODE_BINDCOMMAND as *mut cmdp_token,
-            n: 5 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_MODE_IGNORE_LINE as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_TILING_DRAG_MODE as *mut cmdp_token,
-            n: 3 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_WORKSPACE_LAYOUT as *mut cmdp_token,
-            n: 4 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_BAR_COMMAND as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_COLORS_TEXT as *mut cmdp_token,
-            n: 2 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_IGNORE_LINE as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_PADDING_TOP as *mut cmdp_token,
-            n: 3 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_SOCKET_PATH as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_TRAY_OUTPUT as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_COLOR_INDICATOR as *mut cmdp_token,
-            n: 2 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_DISABLE_RANDR15 as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_GAPS_WITH_SCOPE as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_CRITERION_FROM as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_DEFAULT_BORDER as *mut cmdp_token,
-            n: 4 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_FOCUS_WRAPPING as *mut cmdp_token,
-            n: 14 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_FORCE_XINERAMA as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_ASSIGN_OUTPUT as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_CRITERION_STR as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_MOUSE_WARPING as *mut cmdp_token,
-            n: 2 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_RESTART_STATE as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_SMART_BORDERS as *mut cmdp_token,
-            n: 7 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_MODIFIER as *mut cmdp_token,
-            n: 12 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_POSITION as *mut cmdp_token,
-            n: 2 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_COLOR_BORDER as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_COLOR_SINGLE as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_FAKE_OUTPUTS as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_MODE_BINDING as *mut cmdp_token,
-            n: 20 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_NO_FOCUS_END as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_BINDSYM as *mut cmdp_token,
-            n: 2 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_PADDING as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_VERBOSE as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BINDCOMMAND as *mut cmdp_token,
-            n: 5 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_IGNORE_LINE as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_TILING_DRAG as *mut cmdp_token,
-            n: 9 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_TITLE_ALIGN as *mut cmdp_token,
-            n: 3 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_COLORS as *mut cmdp_token,
-            n: 15 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_HEIGHT as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_OUTPUT as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_COLOR_TEXT as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_FOR_WINDOW as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_IPC_SOCKET as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_SHOW_MARKS as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_SMART_GAPS as *mut cmdp_token,
-            n: 13 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_CRITERION as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_MODEBRACE as *mut cmdp_token,
-            n: 2 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_WORKSPACE as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BARBRACE as *mut cmdp_token,
-            n: 2 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_FONT as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_MODE as *mut cmdp_token,
-            n: 3 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_CRITERIA as *mut cmdp_token,
-            n: 17 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_GAPS_END as *mut cmdp_token,
-            n: 2 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_MODENAME as *mut cmdp_token,
-            n: 2 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_NO_FOCUS as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BINDING as *mut cmdp_token,
-            n: 20 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_INCLUDE as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_INITIAL as *mut cmdp_token,
-            n: 60 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_ASSIGN as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR_ID as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_EXEC as *mut cmdp_token,
-            n: 2 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_FONT as *mut cmdp_token,
-            n: 1 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_GAPS as *mut cmdp_token,
-            n: 8 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_MODE as *mut cmdp_token,
-            n: 8 as ::core::ffi::c_int,
-        },
-        tokenptr {
-            array: &raw const tokens_BAR as *mut cmdp_token,
-            n: 31 as ::core::ffi::c_int,
-        },
-    ]
-};
+static mut tokens: [cmdp_token_ptr; 117] = [
+    tokenptr {
+        array: &raw const tokens_FORCE_DISPLAY_URGENCY_HINT_MS as *mut cmdp_token,
+        n: 2 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_FLOATING_MAXIMUM_SIZE_HEIGHT as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_FLOATING_MINIMUM_SIZE_HEIGHT as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_STRIP_WORKSPACE_NUMBERS as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_FLOATING_MAXIMUM_SIZE_WIDTH as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_FLOATING_MINIMUM_SIZE_WIDTH as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_BINDING_MODE_INDICATOR as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_WORKSPACE_MIN_WIDTH_PX as *mut cmdp_token,
+        n: 2 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_FOCUS_ON_WINDOW_ACTIVATION as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_FORCE_DISPLAY_URGENCY_HINT as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_TILING_DRAG_SWAP_MODIFIER as *mut cmdp_token,
+        n: 10 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_STRIP_WORKSPACE_NAME as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_CRITERION_FROM_STR_START as *mut cmdp_token,
+        n: 3 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_DEFAULT_BORDER_PIXELS_PX as *mut cmdp_token,
+        n: 2 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_WORKSPACE_BACK_AND_FORTH as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_ASSIGN_WORKSPACE_NUMBER as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_WORKSPACE_MIN_WIDTH as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_FLOATING_MAXIMUM_SIZE_X as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_FLOATING_MINIMUM_SIZE_X as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_POPUP_DURING_FULLSCREEN as *mut cmdp_token,
+        n: 4 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_COLORS_IGNORE_LINE as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_CRITERION_FROM_STR_END as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_COLORS_BACKGROUND as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_WORKSPACE_BUTTONS as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_WORKSPACE_COMMAND as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_DEFAULT_BORDER_PIXELS as *mut cmdp_token,
+        n: 2 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_WORKSPACE_OUTPUT_WORD as *mut cmdp_token,
+        n: 2 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_SEPARATOR_SYMBOL as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_FORCE_FOCUS_WRAPPING as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_BINDSYM_COMMAND as *mut cmdp_token,
+        n: 2 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_TRAY_PADDING_PX as *mut cmdp_token,
+        n: 2 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_DEFAULT_ORIENTATION as *mut cmdp_token,
+        n: 3 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_FOCUS_FOLLOWS_MOUSE as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_PADDING_BOTTOM as *mut cmdp_token,
+        n: 3 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_STATUS_COMMAND as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_WHEEL_DOWN_CMD as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_COLOR_CHILD_BORDER as *mut cmdp_token,
+        n: 2 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_CRITERION_FROM_STR as *mut cmdp_token,
+        n: 2 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_FOR_WINDOW_COMMAND as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_COLORS_BORDER as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_COLORS_SINGLE as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_PADDING_RIGHT as *mut cmdp_token,
+        n: 3 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_FLOATING_MODIFIER as *mut cmdp_token,
+        n: 10 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_HIDE_EDGE_BORDERS as *mut cmdp_token,
+        n: 12 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_WORKSPACE_COMMAND as *mut cmdp_token,
+        n: 2 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_ASSIGN_WORKSPACE as *mut cmdp_token,
+        n: 5 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_COLORS_BRACE as *mut cmdp_token,
+        n: 2 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_HIDDEN_STATE as *mut cmdp_token,
+        n: 2 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_PADDING_LEFT as *mut cmdp_token,
+        n: 2 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_TRAY_PADDING as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_WHEEL_UP_CMD as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_COLOR_BACKGROUND as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_IPC_KILL_TIMEOUT as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_MODE_BINDCOMMAND as *mut cmdp_token,
+        n: 5 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_MODE_IGNORE_LINE as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_TILING_DRAG_MODE as *mut cmdp_token,
+        n: 3 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_WORKSPACE_LAYOUT as *mut cmdp_token,
+        n: 4 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_BAR_COMMAND as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_COLORS_TEXT as *mut cmdp_token,
+        n: 2 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_IGNORE_LINE as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_PADDING_TOP as *mut cmdp_token,
+        n: 3 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_SOCKET_PATH as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_TRAY_OUTPUT as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_COLOR_INDICATOR as *mut cmdp_token,
+        n: 2 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_DISABLE_RANDR15 as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_GAPS_WITH_SCOPE as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_CRITERION_FROM as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_DEFAULT_BORDER as *mut cmdp_token,
+        n: 4 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_FOCUS_WRAPPING as *mut cmdp_token,
+        n: 14 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_FORCE_XINERAMA as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_ASSIGN_OUTPUT as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_CRITERION_STR as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_MOUSE_WARPING as *mut cmdp_token,
+        n: 2 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_RESTART_STATE as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_SMART_BORDERS as *mut cmdp_token,
+        n: 7 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_MODIFIER as *mut cmdp_token,
+        n: 12 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_POSITION as *mut cmdp_token,
+        n: 2 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_COLOR_BORDER as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_COLOR_SINGLE as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_FAKE_OUTPUTS as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_MODE_BINDING as *mut cmdp_token,
+        n: 20 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_NO_FOCUS_END as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_BINDSYM as *mut cmdp_token,
+        n: 2 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_PADDING as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_VERBOSE as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BINDCOMMAND as *mut cmdp_token,
+        n: 5 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_IGNORE_LINE as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_TILING_DRAG as *mut cmdp_token,
+        n: 9 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_TITLE_ALIGN as *mut cmdp_token,
+        n: 3 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_COLORS as *mut cmdp_token,
+        n: 15 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_HEIGHT as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_OUTPUT as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_COLOR_TEXT as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_FOR_WINDOW as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_IPC_SOCKET as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_SHOW_MARKS as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_SMART_GAPS as *mut cmdp_token,
+        n: 13 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_CRITERION as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_MODEBRACE as *mut cmdp_token,
+        n: 2 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_WORKSPACE as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BARBRACE as *mut cmdp_token,
+        n: 2 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_FONT as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_MODE as *mut cmdp_token,
+        n: 3 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_CRITERIA as *mut cmdp_token,
+        n: 17 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_GAPS_END as *mut cmdp_token,
+        n: 2 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_MODENAME as *mut cmdp_token,
+        n: 2 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_NO_FOCUS as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BINDING as *mut cmdp_token,
+        n: 20 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_INCLUDE as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_INITIAL as *mut cmdp_token,
+        n: 60 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_ASSIGN as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR_ID as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_EXEC as *mut cmdp_token,
+        n: 2 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_FONT as *mut cmdp_token,
+        n: 1 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_GAPS as *mut cmdp_token,
+        n: 8 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_MODE as *mut cmdp_token,
+        n: 8 as ::core::ffi::c_int,
+    },
+    tokenptr {
+        array: &raw const tokens_BAR as *mut cmdp_token,
+        n: 31 as ::core::ffi::c_int,
+    },
+];
 unsafe fn GENERATED_call(
     current_match: *mut Match,
     stack: *mut stack,

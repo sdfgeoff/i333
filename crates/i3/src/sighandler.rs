@@ -235,7 +235,7 @@ fn dialog_attributes(black: u32, colormap: u32) -> [x::Cw; 4] {
         x::Cw::BackPixel(black),
         x::Cw::BorderPixel(black),
         x::Cw::OverrideRedirect(true),
-        x::Cw::Colormap(unsafe { x::Colormap::new(colormap) }),
+        x::Cw::Colormap(x::Colormap::new(colormap)),
     ]
 }
 #[derive(Clone, Copy, Debug, PartialEq)]
