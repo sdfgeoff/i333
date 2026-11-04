@@ -81,7 +81,6 @@ use crate::parser_util::parser_get_string;
 use crate::parser_util::parser_push_long;
 use crate::parser_util::parser_push_string;
 use crate::types::ParseFileResult;
-use i3_common::safewrappers::sasprintf;
 use std::os::unix::ffi::{OsStrExt, OsStringExt};
 /*
  * vim:ts=4:sw=4:expandtab

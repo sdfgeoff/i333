@@ -25,7 +25,6 @@ use crate::types::TitleAlign;
 use crate::types::UrgencyMatch;
 use crate::types::Warping;
 use crate::types::WindowMode;
-use i3_common::safewrappers::sasprintf;
 use std::ffi::CStr;
 use std::os::unix::ffi::OsStrExt;
 /*

@@ -9,7 +9,6 @@ use crate::types::Layout;
 use crate::types::MarkMode;
 use crate::types::ScratchpadState;
 use i3_common::json_stream::{Event, EventHandler, ParseError, Parser};
-use i3_common::safewrappers::sasprintf;
 use std::cell::RefCell;
 use std::ffi::{CStr, CString};
 use std::rc::Rc;

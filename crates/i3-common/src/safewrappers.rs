@@ -7,8 +7,7 @@
  */
 // Native allocation compatibility and bounded descriptor writes.
 #![deny(unsafe_op_in_unsafe_fn)]
-use crate::i333_va_list;
-use core::ffi::{c_char, c_int, c_void};
+use core::ffi::{c_char, c_void};
 use std::{io, os::fd::RawFd};
 
 /// Allocate malloc-compatible, uninitialized storage, or terminate on failure.
@@ -69,24 +68,6 @@ pub unsafe fn sstrndup(str: *const c_char, size: usize) -> *mut c_char {
     let result = unsafe { strndup(str, size) };
     if result.is_null() {
         unsafe { err(libc::EXIT_FAILURE, c"strndup()".as_ptr()) };
-    }
-    result
-}
-
-/// Format into a new malloc-owned string, terminating on allocation failure.
-///
-/// # Safety
-/// strp must be writable, fmt must be a live C format string, and every variadic
-/// argument must match its promoted C type and pointer/buffer requirements.
-/// Successful output belongs to libc::free; no Rust allocation is substituted.
-pub unsafe extern "C" fn sasprintf(strp: *mut *mut c_char, fmt: *const c_char, args: ...) -> c_int {
-    let mut cursor = args.clone();
-    // SAFETY: caller guarantees the output pointer and all native printf argument
-    // types. The cloned cursor preserves va_copy semantics on both compiler ABIs.
-    let result = unsafe { vasprintf(strp, fmt, i333_va_list!(cursor)) };
-    if result == -1 {
-        // SAFETY: fmt is a live C string and the diagnostic consumes no extra args.
-        unsafe { err(libc::EXIT_FAILURE, c"asprintf(%s)".as_ptr(), fmt) };
     }
     result
 }
@@ -166,7 +147,7 @@ use libc::strndup;
 
 pub use libc::{__errno_location, calloc, malloc, realloc, strcasecmp, strdup, write};
 
-use crate::native_stdio::{err, vasprintf};
+use crate::native_stdio::err;
 
 #[cfg(test)]
 mod tests {

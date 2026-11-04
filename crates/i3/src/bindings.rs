@@ -6,7 +6,6 @@ use crate::flags::KeyboardGroups;
 use crate::ipc::ipc_send_binding_event;
 use crate::types::BindingRelease;
 use crate::types::InputType;
-use i3_common::safewrappers::sasprintf;
 use std::os::unix::ffi::OsStrExt;
 use std::rc::Rc;
 use xcb::{x, XidNew};

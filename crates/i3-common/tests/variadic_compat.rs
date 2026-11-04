@@ -7,9 +7,15 @@
     non_upper_case_globals,
     stable_features
 )]
-use i3_common::{i333_va_list, native_stdio, safewrappers};
+use i3_common::i333_va_list;
 use libc::free;
-use native_stdio::vasprintf;
+unsafe extern "C" {
+    fn vasprintf(
+        buffer: *mut *mut core::ffi::c_char,
+        format: *const core::ffi::c_char,
+        arguments: core::ffi::VaList,
+    ) -> core::ffi::c_int;
+}
 
 unsafe extern "C" fn copy_twice(format: *const core::ffi::c_char, mut args: ...) {
     let mut cursor = args.clone();
@@ -33,25 +39,6 @@ fn main() {
     // by vasprintf and released once with libc free after string inspection.
     unsafe {
         let format = c"%d:%d:%d:%d:%d:%d:%d:%d:%s:%.2f";
-        let mut value = core::ptr::null_mut();
-        let count = safewrappers::sasprintf(
-            &mut value,
-            format.as_ptr(),
-            1,
-            2,
-            3,
-            4,
-            5,
-            6,
-            7,
-            8,
-            c"hello".as_ptr(),
-            3.25f64,
-        );
-        let expected = b"1:2:3:4:5:6:7:8:hello:3.25";
-        assert_eq!(count as usize, expected.len());
-        assert_eq!(std::ffi::CStr::from_ptr(value).to_bytes(), expected);
-        free(value.cast());
         copy_twice(
             format.as_ptr(),
             1,

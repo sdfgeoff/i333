@@ -20,7 +20,6 @@ use crate::types::Layout;
 use crate::types::Orientation;
 use crate::types::ScratchpadState;
 use crate::types::ShutdownReason;
-use i3_common::safewrappers::sasprintf;
 use messages::{WireFields, WireValue};
 use std::cell::RefCell;
 use std::ffi::{CStr, CString};

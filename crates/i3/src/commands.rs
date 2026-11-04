@@ -19,7 +19,6 @@ use crate::types::Orientation;
 use crate::types::Position;
 use crate::types::ScratchpadState;
 use crate::types::ShutdownReason;
-use i3_common::safewrappers::sasprintf;
 use std::os::unix::ffi::OsStrExt;
 /*
  * vim:ts=4:sw=4:expandtab
@@ -4912,64 +4911,29 @@ pub unsafe fn cmd_title_window_icon(
 pub unsafe fn cmd_rename_workspace(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    mut old_name: *const ::core::ffi::c_char,
-    new_name: *const ::core::ffi::c_char,
+    old_name: Option<&[u8]>,
+    new_name: &[u8],
 ) {
     let mut old_name_owner =
-        (!old_name.is_null()).then(|| std::ffi::CStr::from_ptr(old_name).to_bytes().to_vec());
-    let new_name_owner = std::ffi::CStr::from_ptr(new_name).to_bytes().to_vec();
-    // Temporary native formatting arguments while legacy reply builders remain.
-    let mut native_old_name = old_name_owner
-        .as_ref()
-        .map(|name| std::ffi::CString::new(name.as_slice()).unwrap());
-    let native_new_name = std::ffi::CString::new(new_name_owner.as_slice()).unwrap();
-    old_name = native_old_name
-        .as_deref()
-        .map_or(std::ptr::null(), std::ffi::CStr::as_ptr);
-    let new_name = native_new_name.as_ptr();
-    if strncasecmp(new_name, c"__".as_ptr(), c"__".count_bytes()) == 0_i32 {
+        old_name.map(|name| name.split(|&byte| byte == 0).next().unwrap().to_vec());
+    let new_name_owner = new_name.split(|&byte| byte == 0).next().unwrap().to_vec();
+    if new_name_owner.starts_with(b"__") {
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message,
-                c"Cannot rename workspace to \"%s\": names starting with __ are i3-internal."
-                    .as_ptr(),
-                new_name,
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
-            );
-            free(message as *mut ::core::ffi::c_void);
+            let message = [
+                b"Cannot rename workspace to \"".as_slice(),
+                new_name_owner.as_slice(),
+                b"\": names starting with __ are i3-internal.".as_slice(),
+            ]
+            .concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
         return;
     }
-    if !old_name.is_null() {
+    if let Some(old_name) = old_name_owner.as_deref() {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_pointer_1 = old_name;
-            let log_value_0 = i3_common::logging::string_bytes(
-                (if log_pointer_1.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                })
-                .map(std::ffi::CStr::to_bytes),
-                None,
-            )
-            .to_vec();
-            let log_pointer_2 = new_name;
-            let log_value_1 = i3_common::logging::string_bytes(
-                (if log_pointer_2.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                })
-                .map(std::ffi::CStr::to_bytes),
-                None,
-            )
-            .to_vec();
+            let log_value_0 = old_name.to_vec();
+            let log_value_1 = new_name_owner.clone();
             if let (Ok(log_value_0_text), Ok(log_value_1_text)) = (
                 std::str::from_utf8(&log_value_0),
                 std::str::from_utf8(&log_value_1),
@@ -4995,17 +4959,7 @@ pub unsafe fn cmd_rename_workspace(
     } else {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_pointer_1 = new_name;
-            let log_value_0 = i3_common::logging::string_bytes(
-                (if log_pointer_1.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                })
-                .map(std::ffi::CStr::to_bytes),
-                None,
-            )
-            .to_vec();
+            let log_value_0 = new_name_owner.clone();
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::info!("Renaming current workspace to \"{}\"\n", log_value_0_text);
             } else {
@@ -5020,53 +4974,35 @@ pub unsafe fn cmd_rename_workspace(
             }
         };
     }
-    let mut workspace: *mut Con = ::core::ptr::null_mut::<Con>();
-    if !old_name.is_null() {
-        workspace =
-            get_existing_workspace_by_name(&std::ffi::CStr::from_ptr(old_name).to_bytes().to_vec());
+    let workspace = if let Some(name) = old_name_owner.as_deref() {
+        get_existing_workspace_by_name(name)
     } else {
-        workspace = con_get_workspace(focused);
+        let workspace = con_get_workspace(focused);
         old_name_owner = (*workspace).name.clone();
-        native_old_name = old_name_owner
-            .as_ref()
-            .map(|name| std::ffi::CString::new(name.as_slice()).unwrap());
-        old_name = native_old_name
-            .as_deref()
-            .map_or(std::ptr::null(), std::ffi::CStr::as_ptr);
-    }
+        workspace
+    };
     if workspace.is_null() {
         if (*cmd_output).has_reply() {
-            let mut message_0: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message_0,
-                c"Old workspace \"%s\" not found".as_ptr(),
-                old_name,
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
-            );
-            free(message_0 as *mut ::core::ffi::c_void);
+            let message_0 = [
+                b"Old workspace \"".as_slice(),
+                old_name_owner.as_deref().unwrap_or(b"(null)"),
+                b"\" not found".as_slice(),
+            ]
+            .concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message_0));
         }
         return;
     }
-    let check_dest: *const Con =
-        get_existing_workspace_by_name(&std::ffi::CStr::from_ptr(new_name).to_bytes().to_vec());
+    let check_dest: *const Con = get_existing_workspace_by_name(&new_name_owner);
     if !check_dest.is_null() && !std::ptr::eq(check_dest, workspace) {
         if (*cmd_output).has_reply() {
-            let mut message_1: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message_1,
-                c"New workspace \"%s\" already exists".as_ptr(),
-                new_name,
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_1).to_bytes()),
-            );
-            free(message_1 as *mut ::core::ffi::c_void);
+            let message_1 = [
+                b"New workspace \"".as_slice(),
+                new_name_owner.as_slice(),
+                b"\" already exists".as_slice(),
+            ]
+            .concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message_1));
         }
         return;
     }
@@ -5074,9 +5010,8 @@ pub unsafe fn cmd_rename_workspace(
         .clone()
         .expect("renamed workspace has an old name");
     (*workspace).name = Some(new_name_owner.clone());
-    (*workspace).num =
-        ws_name_to_number(std::ffi::CStr::from_ptr(new_name).to_bytes()).unwrap_or(-1);
-    ::log::info!("num = {}\n", ((*workspace).num) as i32);
+    (*workspace).num = ws_name_to_number(&new_name_owner).unwrap_or(-1);
+    ::log::info!("num = {}\n", { ((*workspace).num) });
     let previously_focused: *mut Con = focused;
     let previously_focused_content: *const Con = if ((*focused).type_0) == ContainerType::Workspace
     {

@@ -7,7 +7,6 @@ use crate::types::BorderStyle;
 use crate::types::FloatingState;
 use crate::types::PopupDuringFullscreen;
 use crate::types::WindowDock;
-use i3_common::safewrappers::sasprintf;
 use xcb::{x, Xid, XidNew};
 /*
  * vim:ts=4:sw=4:expandtab

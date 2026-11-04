@@ -16,7 +16,6 @@ use crate::types::InputType;
 use crate::types::ShutdownReason;
 use crate::xcursor::Cursor;
 use i3_common::display::{CairoVisual, DisplayScreen, ScreenInfo};
-use i3_common::safewrappers::sasprintf;
 use std::ffi::{CStr, CString};
 use std::io::Read;
 use std::os::fd::{AsRawFd, FromRawFd};

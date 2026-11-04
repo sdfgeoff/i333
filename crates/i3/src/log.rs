@@ -11,8 +11,6 @@ use std::ptr::NonNull;
 use i3_common::get_process_filename::get_process_filename;
 #[cfg(test)]
 use i3_common::i333_va_list;
-#[cfg(test)]
-use i3_common::native_stdio::vsnprintf;
 use i3_common::native_stdio::{stderr, stdout};
 use i3_common::nonblock::set_nonblock;
 use i3_common::safewrappers::write_all;
@@ -347,6 +345,14 @@ unsafe fn format_record(
     fmt: *const libc::c_char,
     mut args: std::ffi::VaList,
 ) -> (Vec<u8>, bool) {
+    unsafe extern "C" {
+        fn vsnprintf(
+            buffer: *mut libc::c_char,
+            size: usize,
+            format: *const libc::c_char,
+            arguments: std::ffi::VaList,
+        ) -> libc::c_int;
+    }
     assert!(prefix.len() < MESSAGE_CAPACITY);
     let mut message = vec![0u8; MESSAGE_CAPACITY];
     message[..prefix.len()].copy_from_slice(prefix);

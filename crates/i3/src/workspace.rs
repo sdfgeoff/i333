@@ -6,7 +6,6 @@ use crate::domains::{ContainerType, FullscreenMode};
 use crate::types::KillWindow;
 use crate::types::Layout;
 use crate::types::Orientation;
-use i3_common::safewrappers::sasprintf;
 /*
  * vim:ts=4:sw=4:expandtab
  *

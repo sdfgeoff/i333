@@ -1,9 +1,8 @@
 //! Native C runtime entry points absent from `libc`'s public Rust bindings.
 //!
-//! All FILE pointers use libc's opaque type. VaList arguments deliberately use
-//! Rust's compiler-provided ABI; forwarding sites use `i333_va_list!` across
-//! the old borrowed and newer owned VaList compiler versions.
-use core::ffi::{c_char, c_int, c_uint, c_ushort, VaList};
+//! All FILE pointers use libc's opaque type. Variadic cursor declarations live
+//! beside the native test oracles that need them.
+use core::ffi::{c_char, c_int, c_uint, c_ushort};
 use libc::FILE;
 
 /// The two fixed-decimal precisions used by native i3 diagnostics.
@@ -51,15 +50,6 @@ unsafe extern "C" {
     fn strfromd(buffer: *mut c_char, capacity: usize, format: *const c_char, value: f64) -> c_int;
     pub static mut stdout: *mut FILE;
     pub static mut stderr: *mut FILE;
-    pub fn vfprintf(stream: *mut FILE, format: *const c_char, arguments: VaList) -> c_int;
-    pub fn vprintf(format: *const c_char, arguments: VaList) -> c_int;
-    pub fn vsnprintf(
-        buffer: *mut c_char,
-        capacity: usize,
-        format: *const c_char,
-        arguments: VaList,
-    ) -> c_int;
-    pub fn vasprintf(buffer: *mut *mut c_char, format: *const c_char, arguments: VaList) -> c_int;
     pub fn err(status: c_int, format: *const c_char, ...) -> !;
     pub fn errx(status: c_int, format: *const c_char, ...) -> !;
     pub fn warn(format: *const c_char, ...);

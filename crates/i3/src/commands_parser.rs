@@ -60,7 +60,6 @@ use crate::parser_util::parser_push_long;
 use crate::parser_util::parser_push_string;
 use crate::types::UrgencyMatch;
 use crate::types::WindowMode;
-use i3_common::safewrappers::sasprintf;
 use std::os::unix::ffi::OsStrExt;
 /*
  * vim:ts=4:sw=4:expandtab
@@ -2799,21 +2798,16 @@ unsafe fn GENERATED_call(
     match call_identifier {
         0 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_rename_workspace(
-                current_match,
-                result,
-                c"to".as_ptr(),
-                parser_get_string(stack, c"new_name".as_ptr()),
-            );
+            let new_name = (&*stack)
+                .get_string(c"new_name")
+                .expect("rename grammar supplies new_name")
+                .to_bytes()
+                .to_vec();
+            cmd_rename_workspace(current_match, result, Some(b"to"), &new_name);
         }
         1 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_rename_workspace(
-                current_match,
-                result,
-                ::core::ptr::null::<::core::ffi::c_char>(),
-                c"to".as_ptr(),
-            );
+            cmd_rename_workspace(current_match, result, None, b"to");
         }
         2 => {
             (*result).next_state = CommandParserState::MoveWorkspaceToOutputWord;
@@ -2835,21 +2829,24 @@ unsafe fn GENERATED_call(
         }
         4 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_rename_workspace(
-                current_match,
-                result,
-                parser_get_string(stack, c"old_name".as_ptr()),
-                parser_get_string(stack, c"new_name".as_ptr()),
-            );
+            let old_name = (&*stack)
+                .get_string(c"old_name")
+                .map(|name| name.to_bytes().to_vec());
+            let new_name = (&*stack)
+                .get_string(c"new_name")
+                .expect("rename grammar supplies new_name")
+                .to_bytes()
+                .to_vec();
+            cmd_rename_workspace(current_match, result, old_name.as_deref(), &new_name);
         }
         5 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_rename_workspace(
-                current_match,
-                result,
-                ::core::ptr::null::<::core::ffi::c_char>(),
-                parser_get_string(stack, c"new_name".as_ptr()),
-            );
+            let new_name = (&*stack)
+                .get_string(c"new_name")
+                .expect("rename grammar supplies new_name")
+                .to_bytes()
+                .to_vec();
+            cmd_rename_workspace(current_match, result, None, &new_name);
         }
         6 => {
             (*result).next_state = CommandParserState::Initial;

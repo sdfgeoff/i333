@@ -11,7 +11,6 @@ use crate::types::OutputSelection;
 use crate::workspace::output_triggers_assignment;
 use ::xcb::{randr, x, Reply, Xid, XidNew};
 use i3_common::display;
-use i3_common::safewrappers::sasprintf;
 /*
  * vim:ts=4:sw=4:expandtab
  *
