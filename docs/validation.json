@@ -8,26 +8,26 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 23 wallclock secs ( 0.76 usr +  0.08 sys =  0.84 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 23 wallclock secs ( 0.66 usr +  0.08 sys =  0.74 CPU)\nResult: PASS",
     "profile": "debug",
     "build": "cargo test --locked",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "ef26d0b8976b77cc4f4f782ed0ff62c2f5e20e608a9bf3267976b00f5982775d",
-    "i3bar": "9aaef04f6af473f20966b57794fd3caaf01d3b306fe4f807d332b6fe8d677d61",
-    "i3-config-wizard": "601288aa42b8f7c9fbe3a1dea2206484f975141d703cb6e8f60536ed9ab71ba1",
-    "i3-dump-log": "dacfd6d384c662615e6a5e297ffc627530a594b784c0f156673b67a0933aabe9",
-    "i3-input": "469d11afe43b86363cc7b5125fd05ca0793f98d11d038f217f5a0cdfd584953e",
-    "i3-msg": "1f3703a641041a0ddbf16b30cf04a717d2c11a3dfb566a077ae4e21c25ccb9a7",
-    "i3-nagbar": "1a31ae93383acc6e0eac9eb29a206b0d387813266ebfb0c756e2ee3bc27ecdc1"
+    "i3": "c23943fc59fa9c130fa0beda17f1093483e3d8029a0da8ca7a5dac5eec2ed080",
+    "i3bar": "3c282f5b57a2ded8a0f59c3a02dca88f27661c0568a1bbcc4bdde65e27d63f9a",
+    "i3-config-wizard": "c1c4f5931dd40695a233967192c15a17b9ec57f08ceb536b27169d5fab60f1a8",
+    "i3-dump-log": "ad91e73e7fb003bcfef51d78c65babdc78a10f70e49ac1a335dae86266eac446",
+    "i3-input": "2ff1e44272d9998f553fb0ebb791525ae3a07a3b8334066a1bf75fabb9e1c507",
+    "i3-msg": "76c25135180a145168a333da08ca8dad10aae8d4a5c5527cda8948cc0192c365",
+    "i3-nagbar": "c7347fc4aac4f797929aa3be3e8defa3d76e3a9f8f4fc33f7993e27c852709dc"
   },
-  "note": "Nine-member Cargo workspace. cargo test --locked passed 440 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
+  "note": "Nine-member Cargo workspace. cargo test --locked passed 446 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
   "additional_checks": {
     "headless_c_rust_state_comparisons": 61,
     "ipc_client_test_groups": 16,
-    "workspace_unit_tests": 440,
+    "workspace_unit_tests": 446,
     "core_and_bar_cli_comparisons": 39,
     "pcre2_compile_match_error_comparisons": 4620,
     "json_oracle_cases": 2263,
@@ -121,11 +121,11 @@
     "binary_count": 7,
     "native_library_discovery": "maintained native binding build scripts and dedicated sys crates; i3-build links only platform m/rt",
     "unit_tests": {
-      "i3": 229,
+      "i3": 232,
       "cargo_regression_wrappers": 8,
       "xkb_integration": 1,
       "i3-build": 3,
-      "i3-common": 102,
+      "i3-common": 105,
       "native_graphics": 5,
       "i3-config-wizard": 5,
       "i3-dump-log": 5,
@@ -142,7 +142,7 @@
     "cargo_fmt_check": true,
     "debug_build": true,
     "release_build": true,
-    "unit_tests_total_including_integration_checks": 440,
+    "unit_tests_total_including_integration_checks": 446,
     "test_command": "cargo test",
     "clean_source_command": "cargo test -p i3-test-support --features clean-source-check",
     "test_support": "development-only process capture, failure propagation and isolated regression orchestration",
@@ -2723,6 +2723,43 @@
         "git_diff_check": "passed"
       },
       "user_scope": "Low-risk cleanup only; bigger changes deferred as requested. No CI gate or ownership migration in this batch; installed binary and current desktop unchanged."
+    },
+    "owned_color_and_included_config": {
+      "status": "validated",
+      "source_commit": "e3288d9b84beaf62ca7d7b6a356208d153b09886",
+      "color_api": "draw_util_hex_to_color(screen: Option<&DisplayScreen>, color: impl AsRef<[u8]>) -> color_t",
+      "color_behavior": "One safe public function accepts Rust str/String and bounded bytes without NUL termination. First-NUL projection precedes validation, signed RGBA parsing, wrapped pixel channels, alpha-length selection and cache lookup. Detached/TrueColor paths need no allocation; low-depth AllocColor uses the retained screen and historical cache rules.",
+      "color_callers": "Fixed colors use Rust strings. Native parser/status inputs become owned byte snapshots before callback-capable conversion. Crash drawing borrows the selected display without new Rc cloning, TLS or provider access.",
+      "included_file_ownership": {
+        "path": "CString",
+        "raw_contents": "Option<Vec<u8>> retaining stat-size+1, partial-read prefix and zero-filled tail",
+        "expanded_contents": "Option<CString>",
+        "nodes": "Box with existing intrusive links; unlink before Drop, no Copy/raw allocation",
+        "parsing": "Own filename and expanded input through nested callbacks; existing unsafe live-node contract retained",
+        "ipc": "Own first-NUL byte projections, preserving invalid UTF-8 and required initialized fields"
+      },
+      "focused_regressions": [
+        "65,536 two-byte groups compared with signed native strtol before pixel narrowing",
+        "Whole-color RGBA bits/pixels/fallback and invalid-byte comparisons",
+        "String borrow/move, interior NUL and unterminated invalid-byte buffers",
+        "Detached fallback needs no ambient display lookup",
+        "Actual partial fread, embedded NUL, invalid bytes and empty-file storage",
+        "Failed-include unlink/drop and independent pathname lifetime",
+        "Logging callback drops every original parser color argument; owned snapshots remain valid"
+      ],
+      "test_isolation_fix": "Initial full gate passed runtime/upstream checks but exposed an existing stale-listener unit race. Private fork probe reproduced inherited listener descriptors surviving parent close until child exit/exec. Original socket assertions now run in an exact-filter child with a finite timeout. Production socket behavior is unchanged.",
+      "validation": {
+        "rust_tests": 446,
+        "upstream_assertions": 4205,
+        "headless_comparisons": 61,
+        "worker_core_tests": 232,
+        "worker_common_tests": 105,
+        "workspace_all_targets_and_selected_clippy_lints": "passed",
+        "independent_exact_tip_review": "approved",
+        "cargo_fmt": "passed",
+        "installed_binary_or_current_desktop_changed": false
+      },
+      "scope": "Color conversion and included-config ownership; no global-state redesign, generation registry, CI gate or new dependencies."
     }
   },
   "ci_dependency_preparation": {
