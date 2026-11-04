@@ -137,8 +137,9 @@ pub unsafe fn window_update_class(win: *mut Window, prop: Option<&x::GetProperty
         {
             let instance = (*win).class_instance.clone();
             let class = (*win).class_class.clone();
-            let instance_bytes = string_bytes(instance.as_deref(), None);
-            let class_bytes = string_bytes(class.as_deref(), None);
+            let instance_bytes =
+                string_bytes((instance.as_deref()).map(std::ffi::CStr::to_bytes), None);
+            let class_bytes = string_bytes((class.as_deref()).map(std::ffi::CStr::to_bytes), None);
             match (
                 std::str::from_utf8(instance_bytes),
                 std::str::from_utf8(class_bytes),
@@ -290,7 +291,7 @@ pub unsafe fn window_update_role(win: *mut Window, prop: Option<&x::GetPropertyR
         replace_string(&mut (*win).role, Some(property_view(prop).bytes));
         {
             let value = (*win).role.clone();
-            let bytes = string_bytes(value.as_deref(), None);
+            let bytes = string_bytes((value.as_deref()).map(std::ffi::CStr::to_bytes), None);
             match std::str::from_utf8(bytes) {
                 Ok(value) => ::log::info!("WM_WINDOW_ROLE changed to \"{}\"\n", value),
                 Err(_) => emit_parts(
@@ -314,7 +315,7 @@ pub unsafe fn window_update_machine(win: *mut Window, prop: Option<&x::GetProper
         replace_string(&mut (*win).machine, Some(property_view(prop).bytes));
         {
             let value = (*win).machine.clone();
-            let bytes = string_bytes(value.as_deref(), None);
+            let bytes = string_bytes((value.as_deref()).map(std::ffi::CStr::to_bytes), None);
             match std::str::from_utf8(bytes) {
                 Ok(value) => ::log::info!("WM_CLIENT_MACHINE changed to \"{}\"\n", value),
                 Err(_) => emit_parts(

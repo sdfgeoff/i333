@@ -398,21 +398,23 @@ pub unsafe fn get_output_next_wrap(direction: Direction, current: *mut Output) -
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_pointer_1 = output_primary_name(current);
         let log_value_0 = i3_common::logging::string_bytes(
-            if log_pointer_1.is_null() {
+            (if log_pointer_1.is_null() {
                 None
             } else {
                 Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            },
+            })
+            .map(std::ffi::CStr::to_bytes),
             None,
         )
         .to_vec();
         let log_pointer_2 = output_primary_name(best);
         let log_value_1 = i3_common::logging::string_bytes(
-            if log_pointer_2.is_null() {
+            (if log_pointer_2.is_null() {
                 None
             } else {
                 Some(std::ffi::CStr::from_ptr(log_pointer_2))
-            },
+            })
+            .map(std::ffi::CStr::to_bytes),
             None,
         )
         .to_vec();
@@ -463,11 +465,12 @@ pub unsafe fn get_output_next(
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_pointer_1 = output_primary_name(current);
         let log_value_0 = i3_common::logging::string_bytes(
-            if log_pointer_1.is_null() {
+            (if log_pointer_1.is_null() {
                 None
             } else {
                 Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            },
+            })
+            .map(std::ffi::CStr::to_bytes),
             None,
         )
         .to_vec();
@@ -477,11 +480,12 @@ pub unsafe fn get_output_next(
             c"NULL".as_ptr()
         };
         let log_value_1 = i3_common::logging::string_bytes(
-            if log_pointer_2.is_null() {
+            (if log_pointer_2.is_null() {
                 None
             } else {
                 Some(std::ffi::CStr::from_ptr(log_pointer_2))
-            },
+            })
+            .map(std::ffi::CStr::to_bytes),
             None,
         )
         .to_vec();
@@ -546,11 +550,12 @@ pub unsafe fn output_init_con(output: *mut Output) {
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_pointer_1 = output_primary_name(output);
         let log_value_0 = i3_common::logging::string_bytes(
-            if log_pointer_1.is_null() {
+            (if log_pointer_1.is_null() {
                 None
             } else {
                 Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            },
+            })
+            .map(std::ffi::CStr::to_bytes),
             None,
         )
         .to_vec();
@@ -582,11 +587,12 @@ pub unsafe fn output_init_con(output: *mut Output) {
                 let log_value_0 = i3_common::logging::pointer(con);
                 let log_pointer_2 = (*con).name_ptr();
                 let log_value_1 = i3_common::logging::string_bytes(
-                    if log_pointer_2.is_null() {
+                    (if log_pointer_2.is_null() {
                         None
                     } else {
                         Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                    },
+                    })
+                    .map(std::ffi::CStr::to_bytes),
                     None,
                 )
                 .to_vec();
@@ -737,31 +743,34 @@ pub unsafe fn init_ws_for_output(output: *mut Output) {
                     // Snapshot native bytes before the logger can dispatch a callback.
                     let log_pointer_1 = (*workspace).name_ptr();
                     let log_value_0 = i3_common::logging::string_bytes(
-                        if log_pointer_1.is_null() {
+                        (if log_pointer_1.is_null() {
                             None
                         } else {
                             Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                        },
+                        })
+                        .map(std::ffi::CStr::to_bytes),
                         None,
                     )
                     .to_vec();
                     let log_pointer_2 = output_primary_name(get_output_for_con(workspace));
                     let log_value_1 = i3_common::logging::string_bytes(
-                        if log_pointer_2.is_null() {
+                        (if log_pointer_2.is_null() {
                             None
                         } else {
                             Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                        },
+                        })
+                        .map(std::ffi::CStr::to_bytes),
                         None,
                     )
                     .to_vec();
                     let log_pointer_3 = output_primary_name(output);
                     let log_value_2 = i3_common::logging::string_bytes(
-                        if log_pointer_3.is_null() {
+                        (if log_pointer_3.is_null() {
                             None
                         } else {
                             Some(std::ffi::CStr::from_ptr(log_pointer_3))
-                        },
+                        })
+                        .map(std::ffi::CStr::to_bytes),
                         None,
                     )
                     .to_vec();
@@ -832,11 +841,12 @@ pub unsafe fn init_ws_for_output(output: *mut Output) {
                     // Snapshot native bytes before the logger can dispatch a callback.
                     let log_pointer_1 = assignment_name.as_ptr();
                     let log_value_0 = i3_common::logging::string_bytes(
-                        if log_pointer_1.is_null() {
+                        (if log_pointer_1.is_null() {
                             None
                         } else {
                             Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                        },
+                        })
+                        .map(std::ffi::CStr::to_bytes),
                         None,
                     )
                     .to_vec();
@@ -844,11 +854,12 @@ pub unsafe fn init_ws_for_output(output: *mut Output) {
                         .as_ref()
                         .map_or(std::ptr::null(), |value| value.as_ptr());
                     let log_value_1 = i3_common::logging::string_bytes(
-                        if log_pointer_2.is_null() {
+                        (if log_pointer_2.is_null() {
                             None
                         } else {
                             Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                        },
+                        })
+                        .map(std::ffi::CStr::to_bytes),
                         None,
                     )
                     .to_vec();
@@ -929,11 +940,12 @@ unsafe fn output_change_mode(output: *mut Output) {
                     let log_value_0 = ((*workspace).num) as i32;
                     let log_pointer_2 = (*workspace).name_ptr();
                     let log_value_1 = i3_common::logging::string_bytes(
-                        if log_pointer_2.is_null() {
+                        (if log_pointer_2.is_null() {
                             None
                         } else {
                             Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                        },
+                        })
+                        .map(std::ffi::CStr::to_bytes),
                         None,
                     )
                     .to_vec();
@@ -954,11 +966,12 @@ unsafe fn output_change_mode(output: *mut Output) {
                         let log_value_0 = ((*child).num) as i32;
                         let log_pointer_2 = (*child).name_ptr();
                         let log_value_1 = i3_common::logging::string_bytes(
-                            if log_pointer_2.is_null() {
+                            (if log_pointer_2.is_null() {
                                 None
                             } else {
                                 Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                            },
+                            })
+                            .map(std::ffi::CStr::to_bytes),
                             None,
                         )
                         .to_vec();
@@ -1100,11 +1113,12 @@ unsafe fn randr_query_outputs_15() -> bool {
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_pointer_1 = name;
             let log_value_0 = i3_common::logging::string_bytes(
-                if log_pointer_1.is_null() {
+                (if log_pointer_1.is_null() {
                     None
                 } else {
                     Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                },
+                })
+                .map(std::ffi::CStr::to_bytes),
                 None,
             )
             .to_vec();
@@ -1160,11 +1174,12 @@ unsafe fn handle_output(
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_pointer_1 = output_primary_name(new);
         let log_value_0 = i3_common::logging::string_bytes(
-            if log_pointer_1.is_null() {
+            (if log_pointer_1.is_null() {
                 None
             } else {
                 Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            },
+            })
+            .map(std::ffi::CStr::to_bytes),
             None,
         )
         .to_vec();
@@ -1215,11 +1230,12 @@ unsafe fn handle_output(
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_pointer_1 = output_primary_name(new);
             let log_value_0 = i3_common::logging::string_bytes(
-                if log_pointer_1.is_null() {
+                (if log_pointer_1.is_null() {
                     None
                 } else {
                     Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                },
+                })
+                .map(std::ffi::CStr::to_bytes),
                 None,
             )
             .to_vec();
@@ -1342,11 +1358,12 @@ unsafe fn move_content(con: *mut Con) {
                 let log_value_0 = i3_common::logging::pointer(current);
                 let log_pointer_2 = (*current).name_ptr();
                 let log_value_1 = i3_common::logging::string_bytes(
-                    if log_pointer_2.is_null() {
+                    (if log_pointer_2.is_null() {
                         None
                     } else {
                         Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                    },
+                    })
+                    .map(std::ffi::CStr::to_bytes),
                     None,
                 )
                 .to_vec();
@@ -1374,11 +1391,12 @@ unsafe fn move_content(con: *mut Con) {
                 let log_value_0 = i3_common::logging::pointer(current);
                 let log_pointer_2 = (*current).name_ptr();
                 let log_value_1 = i3_common::logging::string_bytes(
-                    if log_pointer_2.is_null() {
+                    (if log_pointer_2.is_null() {
                         None
                     } else {
                         Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                    },
+                    })
+                    .map(std::ffi::CStr::to_bytes),
                     None,
                 )
                 .to_vec();
@@ -1409,11 +1427,12 @@ unsafe fn move_content(con: *mut Con) {
                 let log_value_0 = i3_common::logging::pointer(current);
                 let log_pointer_2 = (*current).name_ptr();
                 let log_value_1 = i3_common::logging::string_bytes(
-                    if log_pointer_2.is_null() {
+                    (if log_pointer_2.is_null() {
                         None
                     } else {
                         Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                    },
+                    })
+                    .map(std::ffi::CStr::to_bytes),
                     None,
                 )
                 .to_vec();
@@ -1513,11 +1532,12 @@ pub unsafe fn randr_query_outputs() {
                 let log_value_0 = i3_common::logging::pointer(output);
                 let log_pointer_2 = output_primary_name(output);
                 let log_value_1 = i3_common::logging::string_bytes(
-                    if log_pointer_2.is_null() {
+                    (if log_pointer_2.is_null() {
                         None
                     } else {
                         Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                    },
+                    })
+                    .map(std::ffi::CStr::to_bytes),
                     None,
                 )
                 .to_vec();
@@ -1570,11 +1590,12 @@ pub unsafe fn randr_query_outputs() {
                         let log_value_0 = i3_common::logging::pointer(other);
                         let log_pointer_2 = output_primary_name(other);
                         let log_value_1 = i3_common::logging::string_bytes(
-                            if log_pointer_2.is_null() {
+                            (if log_pointer_2.is_null() {
                                 None
                             } else {
                                 Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                            },
+                            })
+                            .map(std::ffi::CStr::to_bytes),
                             None,
                         )
                         .to_vec();
@@ -1599,11 +1620,12 @@ pub unsafe fn randr_query_outputs() {
                 // Snapshot native bytes before the logger can dispatch a callback.
                 let log_pointer_1 = output_primary_name(output);
                 let log_value_0 = i3_common::logging::string_bytes(
-                    if log_pointer_1.is_null() {
+                    (if log_pointer_1.is_null() {
                         None
                     } else {
                         Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                    },
+                    })
+                    .map(std::ffi::CStr::to_bytes),
                     None,
                 )
                 .to_vec();
@@ -1638,11 +1660,12 @@ pub unsafe fn randr_query_outputs() {
                 // Snapshot native bytes before the logger can dispatch a callback.
                 let log_pointer_1 = (*con).name_ptr();
                 let log_value_0 = i3_common::logging::string_bytes(
-                    if log_pointer_1.is_null() {
+                    (if log_pointer_1.is_null() {
                         None
                     } else {
                         Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                    },
+                    })
+                    .map(std::ffi::CStr::to_bytes),
                     None,
                 )
                 .to_vec();
@@ -1682,11 +1705,12 @@ pub unsafe fn randr_query_outputs() {
                     // Snapshot native bytes before the logger can dispatch a callback.
                     let log_pointer_1 = output_primary_name(output);
                     let log_value_0 = i3_common::logging::string_bytes(
-                        if log_pointer_1.is_null() {
+                        (if log_pointer_1.is_null() {
                             None
                         } else {
                             Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                        },
+                        })
+                        .map(std::ffi::CStr::to_bytes),
                         None,
                     )
                     .to_vec();
@@ -1708,11 +1732,12 @@ pub unsafe fn randr_query_outputs() {
                 // Snapshot native bytes before the logger can dispatch a callback.
                 let log_pointer_1 = output_primary_name(output);
                 let log_value_0 = i3_common::logging::string_bytes(
-                    if log_pointer_1.is_null() {
+                    (if log_pointer_1.is_null() {
                         None
                     } else {
                         Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                    },
+                    })
+                    .map(std::ffi::CStr::to_bytes),
                     None,
                 )
                 .to_vec();
@@ -1759,11 +1784,12 @@ pub unsafe fn randr_disable_output(output: *mut Output) {
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_pointer_1 = output_primary_name(output);
         let log_value_0 = i3_common::logging::string_bytes(
-            if log_pointer_1.is_null() {
+            (if log_pointer_1.is_null() {
                 None
             } else {
                 Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            },
+            })
+            .map(std::ffi::CStr::to_bytes),
             None,
         )
         .to_vec();

@@ -307,7 +307,10 @@ unsafe fn store_restart_layout() -> Option<std::path::PathBuf> {
                     .as_ref()
                     .map(|value| std::ffi::CStr::from_ptr(value).to_owned())
             };
-            let diagnostic_3_bytes = string_bytes(diagnostic_3_owner.as_deref(), None);
+            let diagnostic_3_bytes = string_bytes(
+                (diagnostic_3_owner.as_deref()).map(std::ffi::CStr::to_bytes),
+                None,
+            );
             match (
                 std::str::from_utf8(diagnostic_2_bytes),
                 std::str::from_utf8(diagnostic_3_bytes),
@@ -382,7 +385,10 @@ pub unsafe fn i3_restart(forget_layout: bool) {
                 .as_ref()
                 .map(|value| std::ffi::CStr::from_ptr(value).to_owned())
         };
-        let diagnostic_2_bytes = string_bytes(diagnostic_2_owner.as_deref(), None);
+        let diagnostic_2_bytes = string_bytes(
+            (diagnostic_2_owner.as_deref()).map(std::ffi::CStr::to_bytes),
+            None,
+        );
         match (std::str::from_utf8(diagnostic_2_bytes),) {
             (Ok(diagnostic_2_text),) => ::log::info!("restarting \"{}\"...\n", diagnostic_2_text),
             _ => emit_parts(
@@ -565,7 +571,10 @@ pub(crate) fn slurp(path: &CStr) -> Result<Vec<u8>, SlurpFailure> {
                     .as_ref()
                     .map(|value| std::ffi::CStr::from_ptr(value).to_owned())
             };
-            let diagnostic_3_bytes = string_bytes(diagnostic_3_owner.as_deref(), None);
+            let diagnostic_3_bytes = string_bytes(
+                (diagnostic_3_owner.as_deref()).map(std::ffi::CStr::to_bytes),
+                None,
+            );
             match (
                 std::str::from_utf8(diagnostic_2_bytes),
                 std::str::from_utf8(diagnostic_3_bytes),
@@ -596,7 +605,10 @@ pub(crate) fn slurp(path: &CStr) -> Result<Vec<u8>, SlurpFailure> {
                     .as_ref()
                     .map(|value| std::ffi::CStr::from_ptr(value).to_owned())
             };
-            let diagnostic_3_bytes = string_bytes(diagnostic_3_owner.as_deref(), None);
+            let diagnostic_3_bytes = string_bytes(
+                (diagnostic_3_owner.as_deref()).map(std::ffi::CStr::to_bytes),
+                None,
+            );
             match (
                 std::str::from_utf8(diagnostic_2_bytes),
                 std::str::from_utf8(diagnostic_3_bytes),

@@ -101,11 +101,12 @@ pub unsafe fn tree_restore(
             let log_value_0 = {
                 let pointer: *const libc::c_char = globbed;
                 i3_common::logging::string_bytes(
-                    if pointer.is_null() {
+                    (if pointer.is_null() {
                         None
                     } else {
                         Some(std::ffi::CStr::from_ptr(pointer))
-                    },
+                    })
+                    .map(std::ffi::CStr::to_bytes),
                     None,
                 )
                 .to_vec()
@@ -354,7 +355,10 @@ pub unsafe fn tree_close_internal(
         {
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_owner_1 = (*ws).name.clone();
-            let log_value_0 = i3_common::logging::string_bytes(log_owner_1.as_deref(), None);
+            let log_value_0 = i3_common::logging::string_bytes(
+                (log_owner_1.as_deref()).map(std::ffi::CStr::to_bytes),
+                None,
+            );
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(log_value_0),) {
                 ::log::debug!("../src/tree.c:tree_close_internal:302 - Closing workspace container {}, updating EWMH atoms\n", log_value_0_text);
             } else {
@@ -539,11 +543,12 @@ unsafe fn get_tree_next_workspace(con: *mut Con, direction: Direction) -> *mut C
         let log_value_0 = {
             let pointer: *const libc::c_char = output_primary_name(current_output);
             i3_common::logging::string_bytes(
-                if pointer.is_null() {
+                (if pointer.is_null() {
                     None
                 } else {
                     Some(std::ffi::CStr::from_ptr(pointer))
-                },
+                })
+                .map(std::ffi::CStr::to_bytes),
                 None,
             )
             .to_vec()
@@ -574,11 +579,12 @@ unsafe fn get_tree_next_workspace(con: *mut Con, direction: Direction) -> *mut C
         let log_value_0 = {
             let pointer: *const libc::c_char = output_primary_name(next_output);
             i3_common::logging::string_bytes(
-                if pointer.is_null() {
+                (if pointer.is_null() {
                     None
                 } else {
                     Some(std::ffi::CStr::from_ptr(pointer))
-                },
+                })
+                .map(std::ffi::CStr::to_bytes),
                 None,
             )
             .to_vec()
@@ -757,7 +763,10 @@ pub unsafe fn tree_flatten(con: *mut Con) {
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_value_0 = i3_common::logging::pointer(con);
         let log_owner_2 = (*con).name.clone();
-        let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
+        let log_value_1 = i3_common::logging::string_bytes(
+            (log_owner_2.as_deref()).map(std::ffi::CStr::to_bytes),
+            None,
+        );
         if let (Ok(log_value_1_text),) = (std::str::from_utf8(log_value_1),) {
             ::log::debug!(
                 "../src/tree.c:tree_flatten:659 - Checking if I can flatten con = {} / {}\n",
@@ -804,8 +813,10 @@ pub unsafe fn tree_flatten(con: *mut Con) {
                         // Snapshot native bytes before the logger can dispatch a callback.
                         let log_value_0 = i3_common::logging::pointer(current);
                         let log_owner_2 = (*current).name.clone();
-                        let log_value_1 =
-                            i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
+                        let log_value_1 = i3_common::logging::string_bytes(
+                            (log_owner_2.as_deref()).map(std::ffi::CStr::to_bytes),
+                            None,
+                        );
                         if let (Ok(log_value_1_text),) = (std::str::from_utf8(log_value_1),) {
                             ::log::debug!(
                                 "../src/tree.c:tree_flatten:695 - detaching current={} / {}\n",

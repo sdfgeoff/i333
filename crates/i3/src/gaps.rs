@@ -321,7 +321,10 @@ pub unsafe fn gaps_reapply_workspace_assignments() {
             while !workspace.is_null() {
                 {
                     let diagnostic_5_owner = (*workspace).name.clone();
-                    let diagnostic_5_bytes = string_bytes(diagnostic_5_owner.as_deref(), None);
+                    let diagnostic_5_bytes = string_bytes(
+                        (diagnostic_5_owner.as_deref()).map(std::ffi::CStr::to_bytes),
+                        None,
+                    );
                     match (std::str::from_utf8(diagnostic_5_bytes),) { (Ok(diagnostic_5_text),) => ::log::debug!(concat!("../src/gaps.c:gaps_reapply_workspace_assignments:171 - ","updating gap assignments for workspace {}\n"), diagnostic_5_text), _ => emit_parts(Level::Debug, &[b"../src/gaps.c:gaps_reapply_workspace_assignments:171 - updating gap assignments for workspace ", diagnostic_5_bytes, b"\n"]), }
                 };
                 (*workspace).gaps = gaps_for_workspace(workspace);

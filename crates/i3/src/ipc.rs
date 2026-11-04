@@ -1374,11 +1374,12 @@ unsafe fn handle_subscribe(
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_pointer_1 = error.as_ptr();
             let log_value_0 = i3_common::logging::string_bytes(
-                if log_pointer_1.is_null() {
+                (if log_pointer_1.is_null() {
                     None
                 } else {
                     Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                },
+                })
+                .map(std::ffi::CStr::to_bytes),
                 None,
             )
             .to_vec();
@@ -1557,11 +1558,12 @@ unsafe fn handle_sync(
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_pointer_1 = error.as_ptr();
             let log_value_0 = i3_common::logging::string_bytes(
-                if log_pointer_1.is_null() {
+                (if log_pointer_1.is_null() {
                     None
                 } else {
                     Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                },
+                })
+                .map(std::ffi::CStr::to_bytes),
                 None,
             )
             .to_vec();
@@ -1733,11 +1735,12 @@ unsafe extern "C" fn ipc_client_timeout(_: *mut ev_loop, w: *mut ev_timer, _: li
                     let log_value_1 = (peercred.pid) as i32;
                     let log_pointer_3 = line.as_ptr();
                     let log_value_2 = i3_common::logging::string_bytes(
-                        if log_pointer_3.is_null() {
+                        (if log_pointer_3.is_null() {
                             None
                         } else {
                             Some(std::ffi::CStr::from_ptr(log_pointer_3))
-                        },
+                        })
+                        .map(std::ffi::CStr::to_bytes),
                         None,
                     )
                     .to_vec();
@@ -1892,11 +1895,12 @@ pub unsafe fn ipc_send_window_event(property: *const ::core::ffi::c_char, con: *
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_pointer_1 = property;
         let log_value_0 = i3_common::logging::string_bytes(
-            if log_pointer_1.is_null() {
+            (if log_pointer_1.is_null() {
                 None
             } else {
                 Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            },
+            })
+            .map(std::ffi::CStr::to_bytes),
             None,
         )
         .to_vec();
@@ -1967,11 +1971,12 @@ pub unsafe fn ipc_send_binding_event(event_type: &[u8], bind: *mut Binding, mode
         let log_value_0 = event_type.to_vec();
         let log_pointer_2 = (*bind).symbol;
         let log_value_1 = i3_common::logging::string_bytes(
-            if log_pointer_2.is_null() {
+            (if log_pointer_2.is_null() {
                 None
             } else {
                 Some(std::ffi::CStr::from_ptr(log_pointer_2))
-            },
+            })
+            .map(std::ffi::CStr::to_bytes),
             None,
         )
         .to_vec();

@@ -532,7 +532,10 @@ pub unsafe fn match_parse_property(
             let value = cvalue
                 .as_ref()
                 .map(|value| CStr::from_ptr(value).to_owned());
-            let value_bytes = i3_common::logging::string_bytes(value.as_deref(), None);
+            let value_bytes = i3_common::logging::string_bytes(
+                (value.as_deref()).map(std::ffi::CStr::to_bytes),
+                None,
+            );
             match (property.to_str(), std::str::from_utf8(value_bytes)) {
                 (Ok(property), Ok(value)) => ::log::debug!(
                     "../src/match.c:match_parse_property:297 - ctype=*{}*, cvalue=*{}*\n",

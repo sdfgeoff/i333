@@ -378,11 +378,12 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                     let log_value_0 = {
                         let pointer: *const libc::c_char = startup_ws;
                         i3_common::logging::string_bytes(
-                            if pointer.is_null() {
+                            (if pointer.is_null() {
                                 None
                             } else {
                                 Some(std::ffi::CStr::from_ptr(pointer))
-                            },
+                            })
+                            .map(std::ffi::CStr::to_bytes),
                             None,
                         )
                         .to_vec()
@@ -425,11 +426,12 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                             let log_value_0 = {
                                 let pointer: *const libc::c_char = output_primary_name(output);
                                 i3_common::logging::string_bytes(
-                                    if pointer.is_null() {
+                                    (if pointer.is_null() {
                                         None
                                     } else {
                                         Some(std::ffi::CStr::from_ptr(pointer))
-                                    },
+                                    })
+                                    .map(std::ffi::CStr::to_bytes),
                                     None,
                                 )
                                 .to_vec()
@@ -508,12 +510,16 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                         {
                             // Snapshot native bytes before the logger can dispatch a callback.
                             let log_owner_1 = (*assigned_ws).name.clone();
-                            let log_value_0 =
-                                i3_common::logging::string_bytes(log_owner_1.as_deref(), None);
+                            let log_value_0 = i3_common::logging::string_bytes(
+                                (log_owner_1.as_deref()).map(std::ffi::CStr::to_bytes),
+                                None,
+                            );
                             let log_value_1 = i3_common::logging::pointer(nc);
                             let log_owner_3 = (*nc).name.clone();
-                            let log_value_2 =
-                                i3_common::logging::string_bytes(log_owner_3.as_deref(), None);
+                            let log_value_2 = i3_common::logging::string_bytes(
+                                (log_owner_3.as_deref()).map(std::ffi::CStr::to_bytes),
+                                None,
+                            );
                             if let (Ok(log_value_0_text), Ok(log_value_2_text)) = (
                                 std::str::from_utf8(log_value_0),
                                 std::str::from_utf8(log_value_2),
@@ -552,8 +558,10 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                             // Snapshot native bytes before the logger can dispatch a callback.
                             let log_value_0 = i3_common::logging::pointer(wm_desktop_ws);
                             let log_owner_2 = (*wm_desktop_ws).name.clone();
-                            let log_value_1 =
-                                i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
+                            let log_value_1 = i3_common::logging::string_bytes(
+                                (log_owner_2.as_deref()).map(std::ffi::CStr::to_bytes),
+                                None,
+                            );
                             let log_value_2 = ((*cwindow).wm_desktop) as i32;
                             if let (Ok(log_value_1_text),) = (std::str::from_utf8(log_value_1),) {
                                 ::log::debug!("../src/manage.c:manage_window:325 - Using workspace {} / {} because _NET_WM_DESKTOP = {}.\n", log_value_0, log_value_1_text, log_value_2);
@@ -573,11 +581,12 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                             let log_value_0 = {
                                 let pointer: *const libc::c_char = startup_ws;
                                 i3_common::logging::string_bytes(
-                                    if pointer.is_null() {
+                                    (if pointer.is_null() {
                                         None
                                     } else {
                                         Some(std::ffi::CStr::from_ptr(pointer))
-                                    },
+                                    })
+                                    .map(std::ffi::CStr::to_bytes),
                                     None,
                                 )
                                 .to_vec()
@@ -594,19 +603,22 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                             let log_value_0 = {
                                 let pointer: *const libc::c_char = startup_ws;
                                 i3_common::logging::string_bytes(
-                                    if pointer.is_null() {
+                                    (if pointer.is_null() {
                                         None
                                     } else {
                                         Some(std::ffi::CStr::from_ptr(pointer))
-                                    },
+                                    })
+                                    .map(std::ffi::CStr::to_bytes),
                                     None,
                                 )
                                 .to_vec()
                             };
                             let log_value_1 = i3_common::logging::pointer(nc);
                             let log_owner_3 = (*nc).name.clone();
-                            let log_value_2 =
-                                i3_common::logging::string_bytes(log_owner_3.as_deref(), None);
+                            let log_value_2 = i3_common::logging::string_bytes(
+                                (log_owner_3.as_deref()).map(std::ffi::CStr::to_bytes),
+                                None,
+                            );
                             if let (Ok(log_value_0_text), Ok(log_value_2_text)) = (
                                 std::str::from_utf8(&log_value_0),
                                 std::str::from_utf8(log_value_2),
@@ -638,8 +650,10 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                             // Snapshot native bytes before the logger can dispatch a callback.
                             let log_value_0 = i3_common::logging::pointer(focused);
                             let log_owner_2 = (*focused).name.clone();
-                            let log_value_1 =
-                                i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
+                            let log_value_1 = i3_common::logging::string_bytes(
+                                (log_owner_2.as_deref()).map(std::ffi::CStr::to_bytes),
+                                None,
+                            );
                             if let (Ok(log_value_1_text),) = (std::str::from_utf8(log_value_1),) {
                                 ::log::info!(
                                     "using current container, focused = {}, focused->name = {}\n",

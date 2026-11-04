@@ -204,11 +204,12 @@ unsafe fn handle_enter_notify(event: &x::EnterNotifyEvent, full_sequence: u32) {
                     let log_value_0 = i3_common::logging::pointer(child);
                     let log_pointer_2 = (*child).name_ptr();
                     let log_value_1 = i3_common::logging::string_bytes(
-                        if log_pointer_2.is_null() {
+                        (if log_pointer_2.is_null() {
                             None
                         } else {
                             Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                        },
+                        })
+                        .map(std::ffi::CStr::to_bytes),
                         None,
                     )
                     .to_vec();
@@ -561,11 +562,12 @@ unsafe fn handle_configure_request(event: &x::ConfigureRequestEvent) {
                         // Snapshot native bytes before the logger can dispatch a callback.
                         let log_pointer_1 = output_primary_name(target);
                         let log_value_0 = i3_common::logging::string_bytes(
-                            if log_pointer_1.is_null() {
+                            (if log_pointer_1.is_null() {
                                 None
                             } else {
                                 Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                            },
+                            })
+                            .map(std::ffi::CStr::to_bytes),
                             None,
                         )
                         .to_vec();
@@ -804,11 +806,12 @@ unsafe fn handle_net_wm_state_change(mut con: *mut Con, change: u32, atom: u32) 
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_pointer_1 = debug_change;
             let log_value_0 = i3_common::logging::string_bytes(
-                if log_pointer_1.is_null() {
+                (if log_pointer_1.is_null() {
                     None
                 } else {
                     Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                },
+                })
+                .map(std::ffi::CStr::to_bytes),
                 None,
             )
             .to_vec();
@@ -834,11 +837,12 @@ unsafe fn handle_net_wm_state_change(mut con: *mut Con, change: u32, atom: u32) 
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_pointer_1 = debug_change;
             let log_value_0 = i3_common::logging::string_bytes(
-                if log_pointer_1.is_null() {
+                (if log_pointer_1.is_null() {
                     None
                 } else {
                     Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                },
+                })
+                .map(std::ffi::CStr::to_bytes),
                 None,
             )
             .to_vec();
@@ -863,11 +867,12 @@ unsafe fn handle_net_wm_state_change(mut con: *mut Con, change: u32, atom: u32) 
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_pointer_1 = debug_change;
             let log_value_0 = i3_common::logging::string_bytes(
-                if log_pointer_1.is_null() {
+                (if log_pointer_1.is_null() {
                     None
                 } else {
                     Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                },
+                })
+                .map(std::ffi::CStr::to_bytes),
                 None,
             )
             .to_vec();
@@ -893,11 +898,12 @@ unsafe fn handle_net_wm_state_change(mut con: *mut Con, change: u32, atom: u32) 
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_pointer_1 = debug_change;
             let log_value_0 = i3_common::logging::string_bytes(
-                if log_pointer_1.is_null() {
+                (if log_pointer_1.is_null() {
                     None
                 } else {
                     Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                },
+                })
+                .map(std::ffi::CStr::to_bytes),
                 None,
             )
             .to_vec();
@@ -1044,11 +1050,12 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_pointer_1 = (*ws_0).name_ptr();
             let log_value_0 = i3_common::logging::string_bytes(
-                if log_pointer_1.is_null() {
+                (if log_pointer_1.is_null() {
                     None
                 } else {
                     Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                },
+                })
+                .map(std::ffi::CStr::to_bytes),
                 None,
             )
             .to_vec();
@@ -1232,11 +1239,12 @@ unsafe fn handle_focus_in(event: &x::FocusInEvent) {
         let log_value_0 = i3_common::logging::pointer(con);
         let log_pointer_2 = (*con).name_ptr();
         let log_value_1 = i3_common::logging::string_bytes(
-            if log_pointer_2.is_null() {
+            (if log_pointer_2.is_null() {
                 None
             } else {
                 Some(std::ffi::CStr::from_ptr(log_pointer_2))
-            },
+            })
+            .map(std::ffi::CStr::to_bytes),
             None,
         )
         .to_vec();
@@ -1362,31 +1370,34 @@ unsafe fn handle_focus_out(event: &x::FocusInEvent) {
         let log_value_1 = i3_common::logging::pointer(con);
         let log_pointer_3 = window_name;
         let log_value_2 = i3_common::logging::string_bytes(
-            if log_pointer_3.is_null() {
+            (if log_pointer_3.is_null() {
                 None
             } else {
                 Some(std::ffi::CStr::from_ptr(log_pointer_3))
-            },
+            })
+            .map(std::ffi::CStr::to_bytes),
             None,
         )
         .to_vec();
         let log_pointer_4 = detail;
         let log_value_3 = i3_common::logging::string_bytes(
-            if log_pointer_4.is_null() {
+            (if log_pointer_4.is_null() {
                 None
             } else {
                 Some(std::ffi::CStr::from_ptr(log_pointer_4))
-            },
+            })
+            .map(std::ffi::CStr::to_bytes),
             None,
         )
         .to_vec();
         let log_pointer_5 = mode;
         let log_value_4 = i3_common::logging::string_bytes(
-            if log_pointer_5.is_null() {
+            (if log_pointer_5.is_null() {
                 None
             } else {
                 Some(std::ffi::CStr::from_ptr(log_pointer_5))
-            },
+            })
+            .map(std::ffi::CStr::to_bytes),
             None,
         )
         .to_vec();
@@ -1461,11 +1472,12 @@ unsafe fn handle_strut_partial_change(con: *mut Con, prop: Option<&x::GetPropert
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_pointer_1 = (*output).name_ptr();
             let log_value_0 = i3_common::logging::string_bytes(
-                if log_pointer_1.is_null() {
+                (if log_pointer_1.is_null() {
                     None
                 } else {
                     Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                },
+                })
+                .map(std::ffi::CStr::to_bytes),
                 None,
             )
             .to_vec();

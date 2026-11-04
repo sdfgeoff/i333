@@ -133,11 +133,12 @@ pub unsafe fn get_assigned_output(
                     let log_value_0 = {
                         let pointer: *const libc::c_char = name;
                         i3_common::logging::string_bytes(
-                            if pointer.is_null() {
+                            (if pointer.is_null() {
                                 None
                             } else {
                                 Some(std::ffi::CStr::from_ptr(pointer))
-                            },
+                            })
+                            .map(std::ffi::CStr::to_bytes),
                             None,
                         )
                         .to_vec()
@@ -145,11 +146,12 @@ pub unsafe fn get_assigned_output(
                     let log_value_1 = {
                         let pointer: *const libc::c_char = assignment_output.as_ptr();
                         i3_common::logging::string_bytes(
-                            if pointer.is_null() {
+                            (if pointer.is_null() {
                                 None
                             } else {
                                 Some(std::ffi::CStr::from_ptr(pointer))
-                            },
+                            })
+                            .map(std::ffi::CStr::to_bytes),
                             None,
                         )
                         .to_vec()
@@ -181,11 +183,12 @@ pub unsafe fn get_assigned_output(
                     let log_value_1 = {
                         let pointer: *const libc::c_char = assignment_output.as_ptr();
                         i3_common::logging::string_bytes(
-                            if pointer.is_null() {
+                            (if pointer.is_null() {
                                 None
                             } else {
                                 Some(std::ffi::CStr::from_ptr(pointer))
-                            },
+                            })
+                            .map(std::ffi::CStr::to_bytes),
                             None,
                         )
                         .to_vec()
@@ -230,11 +233,12 @@ pub unsafe fn workspace_get(num: *const ::core::ffi::c_char) -> *mut Con {
         let log_value_0 = {
             let pointer: *const libc::c_char = num;
             i3_common::logging::string_bytes(
-                if pointer.is_null() {
+                (if pointer.is_null() {
                     None
                 } else {
                     Some(std::ffi::CStr::from_ptr(pointer))
-                },
+                })
+                .map(std::ffi::CStr::to_bytes),
                 None,
             )
             .to_vec()
@@ -333,7 +337,10 @@ pub unsafe fn extract_workspace_names_from_bindings() {
             if name.as_bytes().starts_with(b"__") {
                 {
                     // Snapshot native bytes before the logger can dispatch a callback.
-                    let log_value_0 = i3_common::logging::string_bytes(Some(name.as_c_str()), None);
+                    let log_value_0 = i3_common::logging::string_bytes(
+                        (Some(name.as_c_str())).map(std::ffi::CStr::to_bytes),
+                        None,
+                    );
                     if let (Ok(log_value_0_text),) = (std::str::from_utf8(log_value_0),) {
                         ::log::info!("Cannot create workspace \"{}\". Names starting with __ are i3-internal.\n", log_value_0_text);
                     } else {
@@ -388,8 +395,10 @@ pub unsafe fn create_workspace_on_output(output: *mut Output, content: *mut Con)
                     // Snapshot native bytes before the logger can dispatch a callback.
                     let log_value_0 = ((*ws).num) as i32;
                     let log_owner_2 = (*ws).name.clone();
-                    let log_value_1 =
-                        i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
+                    let log_value_1 = i3_common::logging::string_bytes(
+                        (log_owner_2.as_deref()).map(std::ffi::CStr::to_bytes),
+                        None,
+                    );
                     if let (Ok(log_value_1_text),) = (std::str::from_utf8(log_value_1),) {
                         ::log::debug!("../src/workspace.c:create_workspace_on_output:276 - Used number {} for workspace with name {}\n", log_value_0, log_value_1_text);
                     } else {
@@ -483,7 +492,10 @@ unsafe fn workspace_reassign_sticky(con: *mut Con) {
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
                 let log_owner_1 = (*current).name.clone();
-                let log_value_0 = i3_common::logging::string_bytes(log_owner_1.as_deref(), None);
+                let log_value_0 = i3_common::logging::string_bytes(
+                    (log_owner_1.as_deref()).map(std::ffi::CStr::to_bytes),
+                    None,
+                );
                 let log_value_1 = i3_common::logging::pointer(current);
                 if let (Ok(log_value_0_text),) = (std::str::from_utf8(log_value_0),) {
                     ::log::info!(
@@ -586,11 +598,12 @@ pub unsafe fn workspace_show(workspace: *mut Con) {
             let log_value_0 = {
                 let pointer: *const libc::c_char = previous_workspace_name;
                 i3_common::logging::string_bytes(
-                    if pointer.is_null() {
+                    (if pointer.is_null() {
                         None
                     } else {
                         Some(std::ffi::CStr::from_ptr(pointer))
-                    },
+                    })
+                    .map(std::ffi::CStr::to_bytes),
                     None,
                 )
                 .to_vec()
@@ -607,7 +620,10 @@ pub unsafe fn workspace_show(workspace: *mut Con) {
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_value_0 = i3_common::logging::pointer(workspace);
         let log_owner_2 = (*workspace).name.clone();
-        let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
+        let log_value_1 = i3_common::logging::string_bytes(
+            (log_owner_2.as_deref()).map(std::ffi::CStr::to_bytes),
+            None,
+        );
         if let (Ok(log_value_1_text),) = (std::str::from_utf8(log_value_1),) {
             ::log::debug!(
                 "../src/workspace.c:workspace_show:485 - switching to {} / {}\n",
@@ -684,7 +700,10 @@ pub unsafe fn workspace_show(workspace: *mut Con) {
     ipc_send_workspace_event(c"focus".as_ptr(), workspace, current);
     {
         let old_name = (!old.is_null()).then(|| (*old).name.clone()).flatten();
-        let name_bytes = i3_common::logging::string_bytes(old_name.as_deref(), None);
+        let name_bytes = i3_common::logging::string_bytes(
+            (old_name.as_deref()).map(std::ffi::CStr::to_bytes),
+            None,
+        );
         let old_pointer = i3_common::logging::pointer(old);
         if let Ok(name) = std::str::from_utf8(name_bytes) {
             ::log::debug!(
@@ -716,7 +735,10 @@ pub unsafe fn workspace_show(workspace: *mut Con) {
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_value_0 = i3_common::logging::pointer(old);
             let log_owner_2 = (*old).name.clone();
-            let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
+            let log_value_1 = i3_common::logging::string_bytes(
+                (log_owner_2.as_deref()).map(std::ffi::CStr::to_bytes),
+                None,
+            );
             if let (Ok(log_value_1_text),) = (std::str::from_utf8(log_value_1),) {
                 ::log::info!(
                     "Closing old workspace ({} / {}), it is empty\n",
@@ -752,7 +774,10 @@ pub unsafe fn workspace_show(workspace: *mut Con) {
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_value_0 = i3_common::logging::pointer(focused);
         let log_owner_2 = (*focused).name.clone();
-        let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
+        let log_value_1 = i3_common::logging::string_bytes(
+            (log_owner_2.as_deref()).map(std::ffi::CStr::to_bytes),
+            None,
+        );
         if let (Ok(log_value_1_text),) = (std::str::from_utf8(log_value_1),) {
             ::log::info!("focused now = {} / {}\n", log_value_0, log_value_1_text);
         } else {
@@ -1079,7 +1104,10 @@ pub unsafe fn workspace_prev_on_output() -> *mut Con {
     {
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_owner_1 = (*output).name.clone();
-        let log_value_0 = i3_common::logging::string_bytes(log_owner_1.as_deref(), None);
+        let log_value_0 = i3_common::logging::string_bytes(
+            (log_owner_1.as_deref()).map(std::ffi::CStr::to_bytes),
+            None,
+        );
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(log_value_0),) {
             ::log::debug!(
                 "../src/workspace.c:workspace_prev_on_output:826 - output = {}\n",
@@ -1264,7 +1292,10 @@ pub unsafe fn workspace_attach_to(ws: *mut Con) -> *mut Con {
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_value_0 = i3_common::logging::pointer(ws);
         let log_owner_2 = (*ws).name.clone();
-        let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
+        let log_value_1 = i3_common::logging::string_bytes(
+            (log_owner_2.as_deref()).map(std::ffi::CStr::to_bytes),
+            None,
+        );
         if let (Ok(log_value_1_text),) = (std::str::from_utf8(log_value_1),) {
             ::log::debug!("../src/workspace.c:workspace_attach_to:997 - Attaching a window to workspace {} / {}\n", log_value_0, log_value_1_text);
         } else {
@@ -1298,7 +1329,10 @@ pub unsafe fn workspace_encapsulate(ws: *mut Con) -> *mut Con {
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_value_0 = i3_common::logging::pointer(ws);
             let log_owner_2 = (*ws).name.clone();
-            let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
+            let log_value_1 = i3_common::logging::string_bytes(
+                (log_owner_2.as_deref()).map(std::ffi::CStr::to_bytes),
+                None,
+            );
             if let (Ok(log_value_1_text),) = (std::str::from_utf8(log_value_1),) {
                 ::log::error!(
                     "ERROR: Workspace {} / {} has no children to encapsulate\n",
@@ -1329,7 +1363,10 @@ pub unsafe fn workspace_encapsulate(ws: *mut Con) -> *mut Con {
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_value_0 = i3_common::logging::pointer(ws);
         let log_owner_2 = (*ws).name.clone();
-        let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
+        let log_value_1 = i3_common::logging::string_bytes(
+            (log_owner_2.as_deref()).map(std::ffi::CStr::to_bytes),
+            None,
+        );
         let log_value_2 = i3_common::logging::pointer(new);
         if let (Ok(log_value_1_text),) = (std::str::from_utf8(log_value_1),) {
             ::log::debug!("../src/workspace.c:workspace_encapsulate:1041 - Moving children of workspace {} / {} into container {}\n", log_value_0, log_value_1_text, log_value_2);
@@ -1352,16 +1389,20 @@ pub unsafe fn workspace_move_to_output(mut ws: *mut Con, output: *mut Output) {
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_value_0 = i3_common::logging::pointer(ws);
         let log_owner_2 = (*ws).name.clone();
-        let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
+        let log_value_1 = i3_common::logging::string_bytes(
+            (log_owner_2.as_deref()).map(std::ffi::CStr::to_bytes),
+            None,
+        );
         let log_value_2 = i3_common::logging::pointer(output);
         let log_value_3 = {
             let pointer: *const libc::c_char = output_primary_name(output);
             i3_common::logging::string_bytes(
-                if pointer.is_null() {
+                (if pointer.is_null() {
                     None
                 } else {
                     Some(std::ffi::CStr::from_ptr(pointer))
-                },
+                })
+                .map(std::ffi::CStr::to_bytes),
                 None,
             )
             .to_vec()
@@ -1405,7 +1446,10 @@ pub unsafe fn workspace_move_to_output(mut ws: *mut Con, output: *mut Output) {
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_value_0 = i3_common::logging::pointer(previously_visible_ws);
             let log_owner_2 = (*previously_visible_ws).name.clone();
-            let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
+            let log_value_1 = i3_common::logging::string_bytes(
+                (log_owner_2.as_deref()).map(std::ffi::CStr::to_bytes),
+                None,
+            );
             if let (Ok(log_value_1_text),) = (std::str::from_utf8(log_value_1),) {
                 ::log::debug!("../src/workspace.c:workspace_move_to_output:1073 - Previously visible workspace = {} / {}\n", log_value_0, log_value_1_text);
             } else {
@@ -1420,7 +1464,10 @@ pub unsafe fn workspace_move_to_output(mut ws: *mut Con, output: *mut Output) {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_owner_1 = (*ws).name.clone();
-            let log_value_0 = i3_common::logging::string_bytes(log_owner_1.as_deref(), None);
+            let log_value_0 = i3_common::logging::string_bytes(
+                (log_owner_1.as_deref()).map(std::ffi::CStr::to_bytes),
+                None,
+            );
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(log_value_0),) {
                 ::log::debug!("../src/workspace.c:workspace_move_to_output:1080 - Creating a new workspace to replace \"{}\" (last on its output).\n", log_value_0_text);
             } else {
@@ -1449,11 +1496,12 @@ pub unsafe fn workspace_move_to_output(mut ws: *mut Con, output: *mut Output) {
                         let log_value_0 = {
                             let pointer: *const libc::c_char = assignment_name.as_ptr();
                             i3_common::logging::string_bytes(
-                                if pointer.is_null() {
+                                (if pointer.is_null() {
                                     None
                                 } else {
                                     Some(std::ffi::CStr::from_ptr(pointer))
-                                },
+                                })
+                                .map(std::ffi::CStr::to_bytes),
                                 None,
                             )
                             .to_vec()
@@ -1484,7 +1532,10 @@ pub unsafe fn workspace_move_to_output(mut ws: *mut Con, output: *mut Output) {
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_value_0 = i3_common::logging::pointer(focus_ws);
             let log_owner_2 = (*focus_ws).name.clone();
-            let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
+            let log_value_1 = i3_common::logging::string_bytes(
+                (log_owner_2.as_deref()).map(std::ffi::CStr::to_bytes),
+                None,
+            );
             if let (Ok(log_value_1_text),) = (std::str::from_utf8(log_value_1),) {
                 ::log::debug!("../src/workspace.c:workspace_move_to_output:1121 - workspace was visible, focusing {} / {} now\n", log_value_0, log_value_1_text);
             } else {

@@ -53,7 +53,10 @@ pub unsafe fn scratchpad_move(mut con: *mut Con) {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_owner_1 = (*con).name.clone();
-            let log_value_0 = i3_common::logging::string_bytes(log_owner_1.as_deref(), None);
+            let log_value_0 = i3_common::logging::string_bytes(
+                (log_owner_1.as_deref()).map(std::ffi::CStr::to_bytes),
+                None,
+            );
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(log_value_0),) {
                 ::log::info!("'move scratchpad' used on a workspace \"{}\". Calling it recursively on all windows on this workspace.\n", log_value_0_text);
             } else {
@@ -247,7 +250,10 @@ pub unsafe fn scratchpad_fix_resolution() {
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
                 let log_owner_1 = (*output).name.clone();
-                let log_value_0 = i3_common::logging::string_bytes(log_owner_1.as_deref(), None);
+                let log_value_0 = i3_common::logging::string_bytes(
+                    (log_owner_1.as_deref()).map(std::ffi::CStr::to_bytes),
+                    None,
+                );
                 let log_value_1 = ((*output).rect.x) as i32;
                 let log_value_2 = ((*output).rect.y) as i32;
                 let log_value_3 = ((*output).rect.width) as i32;

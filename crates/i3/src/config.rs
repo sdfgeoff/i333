@@ -813,11 +813,12 @@ pub unsafe fn load_configuration(
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_pointer_1 = &raw mut resolved_path as *mut ::core::ffi::c_char;
         let log_value_0 = i3_common::logging::string_bytes(
-            if log_pointer_1.is_null() {
+            (if log_pointer_1.is_null() {
                 None
             } else {
                 Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            },
+            })
+            .map(std::ffi::CStr::to_bytes),
             None,
         )
         .to_vec();

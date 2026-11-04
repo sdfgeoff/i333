@@ -173,11 +173,12 @@ unsafe fn route_click(con: *mut Con, event: &x::ButtonPressEvent, dest: ClickDes
         let log_value_0 = ((*con).type_0).raw() as i32;
         let log_pointer_2 = (*con).name_ptr();
         let log_value_1 = i3_common::logging::string_bytes(
-            if log_pointer_2.is_null() {
+            (if log_pointer_2.is_null() {
                 None
             } else {
                 Some(std::ffi::CStr::from_ptr(log_pointer_2))
-            },
+            })
+            .map(std::ffi::CStr::to_bytes),
             None,
         )
         .to_vec();

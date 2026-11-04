@@ -204,41 +204,45 @@ pub unsafe fn configure_binding(
         let log_value_0 = i3_common::logging::pointer(new_binding);
         let log_pointer_2 = bindtype;
         let log_value_1 = i3_common::logging::string_bytes(
-            if log_pointer_2.is_null() {
+            (if log_pointer_2.is_null() {
                 None
             } else {
                 Some(std::ffi::CStr::from_ptr(log_pointer_2))
-            },
+            })
+            .map(std::ffi::CStr::to_bytes),
             None,
         )
         .to_vec();
         let log_pointer_3 = modifiers;
         let log_value_2 = i3_common::logging::string_bytes(
-            if log_pointer_3.is_null() {
+            (if log_pointer_3.is_null() {
                 None
             } else {
                 Some(std::ffi::CStr::from_ptr(log_pointer_3))
-            },
+            })
+            .map(std::ffi::CStr::to_bytes),
             None,
         )
         .to_vec();
         let log_pointer_4 = input_code;
         let log_value_3 = i3_common::logging::string_bytes(
-            if log_pointer_4.is_null() {
+            (if log_pointer_4.is_null() {
                 None
             } else {
                 Some(std::ffi::CStr::from_ptr(log_pointer_4))
-            },
+            })
+            .map(std::ffi::CStr::to_bytes),
             None,
         )
         .to_vec();
         let log_pointer_5 = release;
         let log_value_4 = i3_common::logging::string_bytes(
-            if log_pointer_5.is_null() {
+            (if log_pointer_5.is_null() {
                 None
             } else {
                 Some(std::ffi::CStr::from_ptr(log_pointer_5))
-            },
+            })
+            .map(std::ffi::CStr::to_bytes),
             None,
         )
         .to_vec();
@@ -300,11 +304,12 @@ pub unsafe fn configure_binding(
                 // Snapshot native bytes before the logger can dispatch a callback.
                 let log_pointer_1 = input_code;
                 let log_value_0 = i3_common::logging::string_bytes(
-                    if log_pointer_1.is_null() {
+                    (if log_pointer_1.is_null() {
                         None
                     } else {
                         Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                    },
+                    })
+                    .map(std::ffi::CStr::to_bytes),
                     None,
                 )
                 .to_vec();
@@ -642,11 +647,12 @@ pub unsafe fn translate_keysyms() {
                             // Snapshot native bytes before the logger can dispatch a callback.
                             let log_pointer_1 = (*bind).symbol;
                             let log_value_0 = i3_common::logging::string_bytes(
-                                if log_pointer_1.is_null() {
+                                (if log_pointer_1.is_null() {
                                     None
                                 } else {
                                     Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                                },
+                                })
+                                .map(std::ffi::CStr::to_bytes),
                                 None,
                             )
                             .to_vec();
@@ -696,11 +702,12 @@ pub unsafe fn translate_keysyms() {
                     c"no".as_ptr()
                 };
                 let log_value_3 = i3_common::logging::string_bytes(
-                    if log_pointer_4.is_null() {
+                    (if log_pointer_4.is_null() {
                         None
                     } else {
                         Some(std::ffi::CStr::from_ptr(log_pointer_4))
-                    },
+                    })
+                    .map(std::ffi::CStr::to_bytes),
                     None,
                 )
                 .to_vec();
@@ -713,11 +720,12 @@ pub unsafe fn translate_keysyms() {
                     c"no".as_ptr()
                 };
                 let log_value_4 = i3_common::logging::string_bytes(
-                    if log_pointer_5.is_null() {
+                    (if log_pointer_5.is_null() {
                         None
                     } else {
                         Some(std::ffi::CStr::from_ptr(log_pointer_5))
-                    },
+                    })
+                    .map(std::ffi::CStr::to_bytes),
                     None,
                 )
                 .to_vec();
@@ -730,11 +738,12 @@ pub unsafe fn translate_keysyms() {
                     c"no".as_ptr()
                 };
                 let log_value_5 = i3_common::logging::string_bytes(
-                    if log_pointer_6.is_null() {
+                    (if log_pointer_6.is_null() {
                         None
                     } else {
                         Some(std::ffi::CStr::from_ptr(log_pointer_6))
-                    },
+                    })
+                    .map(std::ffi::CStr::to_bytes),
                     None,
                 )
                 .to_vec();
@@ -851,11 +860,12 @@ pub unsafe fn translate_keysyms() {
                         // Snapshot native bytes before the logger can dispatch a callback.
                         let log_pointer_1 = (*bind).symbol;
                         let log_value_0 = i3_common::logging::string_bytes(
-                            if log_pointer_1.is_null() {
+                            (if log_pointer_1.is_null() {
                                 None
                             } else {
                                 Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                            },
+                            })
+                            .map(std::ffi::CStr::to_bytes),
                             None,
                         )
                         .to_vec();
@@ -928,11 +938,12 @@ pub unsafe fn translate_keysyms() {
                                     // Snapshot native bytes before the logger can dispatch a callback.
                                     let log_pointer_1 = (*bind).symbol;
                                     let log_value_0 = i3_common::logging::string_bytes(
-                                        if log_pointer_1.is_null() {
+                                        (if log_pointer_1.is_null() {
                                             None
                                         } else {
                                             Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                                        },
+                                        })
+                                        .map(std::ffi::CStr::to_bytes),
                                         None,
                                     )
                                     .to_vec();
@@ -970,22 +981,24 @@ pub unsafe fn translate_keysyms() {
                         let log_value_0 = ((*bind).event_state_mask) as u32;
                         let log_pointer_2 = (*bind).symbol;
                         let log_value_1 = i3_common::logging::string_bytes(
-                            if log_pointer_2.is_null() {
+                            (if log_pointer_2.is_null() {
                                 None
                             } else {
                                 Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                            },
+                            })
+                            .map(std::ffi::CStr::to_bytes),
                             None,
                         )
                         .to_vec();
                         let log_value_2 = (keysym) as u32;
                         let log_pointer_4 = keycodes.as_ptr();
                         let log_value_3 = i3_common::logging::string_bytes(
-                            if log_pointer_4.is_null() {
+                            (if log_pointer_4.is_null() {
                                 None
                             } else {
                                 Some(std::ffi::CStr::from_ptr(log_pointer_4))
-                            },
+                            })
+                            .map(std::ffi::CStr::to_bytes),
                             None,
                         )
                         .to_vec();
@@ -1197,11 +1210,12 @@ pub unsafe fn check_for_duplicate_bindings(context: *mut context) {
                         let log_value_1 = ((*current).keycode) as i32;
                         let log_pointer_3 = (*current).command;
                         let log_value_2 = i3_common::logging::string_bytes(
-                            if log_pointer_3.is_null() {
+                            (if log_pointer_3.is_null() {
                                 None
                             } else {
                                 Some(std::ffi::CStr::from_ptr(log_pointer_3))
-                            },
+                            })
+                            .map(std::ffi::CStr::to_bytes),
                             None,
                         )
                         .to_vec();
@@ -1221,21 +1235,23 @@ pub unsafe fn check_for_duplicate_bindings(context: *mut context) {
                         let log_value_0 = ((*current).event_state_mask);
                         let log_pointer_2 = (*current).symbol;
                         let log_value_1 = i3_common::logging::string_bytes(
-                            if log_pointer_2.is_null() {
+                            (if log_pointer_2.is_null() {
                                 None
                             } else {
                                 Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                            },
+                            })
+                            .map(std::ffi::CStr::to_bytes),
                             None,
                         )
                         .to_vec();
                         let log_pointer_3 = (*current).command;
                         let log_value_2 = i3_common::logging::string_bytes(
-                            if log_pointer_3.is_null() {
+                            (if log_pointer_3.is_null() {
                                 None
                             } else {
                                 Some(std::ffi::CStr::from_ptr(log_pointer_3))
-                            },
+                            })
+                            .map(std::ffi::CStr::to_bytes),
                             None,
                         )
                         .to_vec();

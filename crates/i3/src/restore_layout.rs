@@ -318,7 +318,10 @@ unsafe fn open_placeholder_window(con: *mut Con) {
             let diagnostic_5 = (placeholder);
             let diagnostic_6 = i3_common::logging::pointer(con);
             let diagnostic_7_owner = (*con).name.clone();
-            let diagnostic_7_bytes = string_bytes(diagnostic_7_owner.as_deref(), None);
+            let diagnostic_7_bytes = string_bytes(
+                (diagnostic_7_owner.as_deref()).map(std::ffi::CStr::to_bytes),
+                None,
+            );
             match (std::str::from_utf8(diagnostic_7_bytes),) { (Ok(diagnostic_7_text),) => ::log::debug!(concat!("../src/restore_layout.c:open_placeholder_window:219 - ","Created placeholder window 0x{:08x} for leaf container ","{} / {}\n"), diagnostic_5, diagnostic_6, diagnostic_7_text), _ => emit_parts(Level::Debug, &[b"../src/restore_layout.c:open_placeholder_window:219 - Created placeholder window 0x", format!("{:08x}", diagnostic_5).as_bytes(), b" for leaf container ", format!("{}", diagnostic_6).as_bytes(), b" / ", diagnostic_7_bytes, b"\n"]), }
         };
         let state = Box::into_raw(Box::new(placeholder_state {

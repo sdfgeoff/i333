@@ -5799,11 +5799,12 @@ unsafe fn parse_config(
                     as ::core::ffi::c_int) as i32;
                 let log_pointer_2 = dumpwalk;
                 let log_value_1 = i3_common::logging::string_bytes(
-                    if log_pointer_2.is_null() {
+                    (if log_pointer_2.is_null() {
                         None
                     } else {
                         Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                    },
+                    })
+                    .map(std::ffi::CStr::to_bytes),
                     usize::try_from(log_precision_1).ok(),
                 )
                 .to_vec();
@@ -5835,11 +5836,12 @@ unsafe fn parse_config(
                 let log_value_0 = (linecnt) as i32;
                 let log_pointer_2 = dumpwalk;
                 let log_value_1 = i3_common::logging::string_bytes(
-                    if log_pointer_2.is_null() {
+                    (if log_pointer_2.is_null() {
                         None
                     } else {
                         Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                    },
+                    })
+                    .map(std::ffi::CStr::to_bytes),
                     None,
                 )
                 .to_vec();
@@ -6026,11 +6028,12 @@ unsafe fn parse_config(
                 // Snapshot native bytes before the logger can dispatch a callback.
                 let log_pointer_1 = errormessage;
                 let log_value_0 = i3_common::logging::string_bytes(
-                    if log_pointer_1.is_null() {
+                    (if log_pointer_1.is_null() {
                         None
                     } else {
                         Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                    },
+                    })
+                    .map(std::ffi::CStr::to_bytes),
                     None,
                 )
                 .to_vec();
@@ -6048,11 +6051,12 @@ unsafe fn parse_config(
                 // Snapshot native bytes before the logger can dispatch a callback.
                 let log_pointer_1 = (*context).filename;
                 let log_value_0 = i3_common::logging::string_bytes(
-                    if log_pointer_1.is_null() {
+                    (if log_pointer_1.is_null() {
                         None
                     } else {
                         Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                    },
+                    })
+                    .map(std::ffi::CStr::to_bytes),
                     None,
                 )
                 .to_vec();
@@ -6079,11 +6083,12 @@ unsafe fn parse_config(
                         let log_value_0 = (linecnt - 2 as ::core::ffi::c_int) as i32;
                         let log_pointer_2 = context_p2_line;
                         let log_value_1 = i3_common::logging::string_bytes(
-                            if log_pointer_2.is_null() {
+                            (if log_pointer_2.is_null() {
                                 None
                             } else {
                                 Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                            },
+                            })
+                            .map(std::ffi::CStr::to_bytes),
                             None,
                         )
                         .to_vec();
@@ -6110,11 +6115,12 @@ unsafe fn parse_config(
                     let log_value_0 = (linecnt - 1 as ::core::ffi::c_int) as i32;
                     let log_pointer_2 = context_p1_line;
                     let log_value_1 = i3_common::logging::string_bytes(
-                        if log_pointer_2.is_null() {
+                        (if log_pointer_2.is_null() {
                             None
                         } else {
                             Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                        },
+                        })
+                        .map(std::ffi::CStr::to_bytes),
                         None,
                     )
                     .to_vec();
@@ -6141,11 +6147,12 @@ unsafe fn parse_config(
                 let log_value_0 = (linecnt) as i32;
                 let log_pointer_2 = error_copy;
                 let log_value_1 = i3_common::logging::string_bytes(
-                    if log_pointer_2.is_null() {
+                    (if log_pointer_2.is_null() {
                         None
                     } else {
                         Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                    },
+                    })
+                    .map(std::ffi::CStr::to_bytes),
                     None,
                 )
                 .to_vec();
@@ -6169,11 +6176,12 @@ unsafe fn parse_config(
                 // Snapshot native bytes before the logger can dispatch a callback.
                 let log_pointer_1 = position;
                 let log_value_0 = i3_common::logging::string_bytes(
-                    if log_pointer_1.is_null() {
+                    (if log_pointer_1.is_null() {
                         None
                     } else {
                         Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                    },
+                    })
+                    .map(std::ffi::CStr::to_bytes),
                     None,
                 )
                 .to_vec();
@@ -6201,11 +6209,12 @@ unsafe fn parse_config(
                         let log_value_0 = (linecnt + i_0 + 1 as ::core::ffi::c_int) as i32;
                         let log_pointer_2 = error_copy;
                         let log_value_1 = i3_common::logging::string_bytes(
-                            if log_pointer_2.is_null() {
+                            (if log_pointer_2.is_null() {
                                 None
                             } else {
                                 Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                            },
+                            })
+                            .map(std::ffi::CStr::to_bytes),
                             None,
                         )
                         .to_vec();
@@ -6513,11 +6522,12 @@ unsafe fn try_chdir(path: *const ::core::ffi::c_char) -> bool {
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_pointer_1 = dir;
             let log_value_0 = i3_common::logging::string_bytes(
-                if log_pointer_1.is_null() {
+                (if log_pointer_1.is_null() {
                     None
                 } else {
                     Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                },
+                })
+                .map(std::ffi::CStr::to_bytes),
                 None,
             )
             .to_vec();
@@ -6541,21 +6551,23 @@ unsafe fn try_chdir(path: *const ::core::ffi::c_char) -> bool {
                 // Snapshot native bytes before the logger can dispatch a callback.
                 let log_pointer_1 = dir;
                 let log_value_0 = i3_common::logging::string_bytes(
-                    if log_pointer_1.is_null() {
+                    (if log_pointer_1.is_null() {
                         None
                     } else {
                         Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                    },
+                    })
+                    .map(std::ffi::CStr::to_bytes),
                     None,
                 )
                 .to_vec();
                 let log_pointer_2 = strerror(*__errno_location());
                 let log_value_1 = i3_common::logging::string_bytes(
-                    if log_pointer_2.is_null() {
+                    (if log_pointer_2.is_null() {
                         None
                     } else {
                         Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                    },
+                    })
+                    .map(std::ffi::CStr::to_bytes),
                     None,
                 )
                 .to_vec();
@@ -6702,11 +6714,12 @@ unsafe fn parse_file_inner(
                         - 1 as ::core::ffi::c_int) as i32;
                     let log_pointer_1 = &raw mut buffer as *mut ::core::ffi::c_char;
                     let log_value_0 = i3_common::logging::string_bytes(
-                        if log_pointer_1.is_null() {
+                        (if log_pointer_1.is_null() {
                             None
                         } else {
                             Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                        },
+                        })
+                        .map(std::ffi::CStr::to_bytes),
                         usize::try_from(log_precision_0).ok(),
                     )
                     .to_vec();
@@ -6744,11 +6757,12 @@ unsafe fn parse_file_inner(
                         // Snapshot native bytes before the logger can dispatch a callback.
                         let log_pointer_1 = &raw mut value as *mut ::core::ffi::c_char;
                         let log_value_0 = i3_common::logging::string_bytes(
-                            if log_pointer_1.is_null() {
+                            (if log_pointer_1.is_null() {
                                 None
                             } else {
                                 Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                            },
+                            })
+                            .map(std::ffi::CStr::to_bytes),
                             None,
                         )
                         .to_vec();
@@ -6801,11 +6815,12 @@ unsafe fn parse_file_inner(
                         // Snapshot native bytes before the logger can dispatch a callback.
                         let log_pointer_1 = &raw mut value as *mut ::core::ffi::c_char;
                         let log_value_0 = i3_common::logging::string_bytes(
-                            if log_pointer_1.is_null() {
+                            (if log_pointer_1.is_null() {
                                 None
                             } else {
                                 Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                            },
+                            })
+                            .map(std::ffi::CStr::to_bytes),
                             None,
                         )
                         .to_vec();
@@ -6838,21 +6853,23 @@ unsafe fn parse_file_inner(
                             // Snapshot native bytes before the logger can dispatch a callback.
                             let log_pointer_1 = &raw mut res_name as *mut ::core::ffi::c_char;
                             let log_value_0 = i3_common::logging::string_bytes(
-                                if log_pointer_1.is_null() {
+                                (if log_pointer_1.is_null() {
                                     None
                                 } else {
                                     Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                                },
+                                })
+                                .map(std::ffi::CStr::to_bytes),
                                 None,
                             )
                             .to_vec();
                             let log_pointer_2 = &raw mut fallback as *mut ::core::ffi::c_char;
                             let log_value_1 = i3_common::logging::string_bytes(
-                                if log_pointer_2.is_null() {
+                                (if log_pointer_2.is_null() {
                                     None
                                 } else {
                                     Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                                },
+                                })
+                                .map(std::ffi::CStr::to_bytes),
                                 None,
                             )
                             .to_vec();
@@ -6913,11 +6930,12 @@ unsafe fn parse_file_inner(
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_pointer_1 = i3_version;
             let log_value_0 = i3_common::logging::string_bytes(
-                if log_pointer_1.is_null() {
+                (if log_pointer_1.is_null() {
                     None
                 } else {
                     Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                },
+                })
+                .map(std::ffi::CStr::to_bytes),
                 None,
             )
             .to_vec();
@@ -6968,21 +6986,23 @@ pub unsafe fn parse_file(
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_pointer_1 = old_dir;
             let log_value_0 = i3_common::logging::string_bytes(
-                if log_pointer_1.is_null() {
+                (if log_pointer_1.is_null() {
                     None
                 } else {
                     Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                },
+                })
+                .map(std::ffi::CStr::to_bytes),
                 None,
             )
             .to_vec();
             let log_pointer_2 = strerror(*__errno_location());
             let log_value_1 = i3_common::logging::string_bytes(
-                if log_pointer_2.is_null() {
+                (if log_pointer_2.is_null() {
                     None
                 } else {
                     Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                },
+                })
+                .map(std::ffi::CStr::to_bytes),
                 None,
             )
             .to_vec();

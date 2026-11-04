@@ -4164,11 +4164,12 @@ pub unsafe fn parse_command(
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_pointer_1 = errormessage;
             let log_value_0 = i3_common::logging::string_bytes(
-                if log_pointer_1.is_null() {
+                (if log_pointer_1.is_null() {
                     None
                 } else {
                     Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                },
+                })
+                .map(std::ffi::CStr::to_bytes),
                 None,
             )
             .to_vec();
@@ -4186,11 +4187,12 @@ pub unsafe fn parse_command(
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_pointer_1 = input;
             let log_value_0 = i3_common::logging::string_bytes(
-                if log_pointer_1.is_null() {
+                (if log_pointer_1.is_null() {
                     None
                 } else {
                     Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                },
+                })
+                .map(std::ffi::CStr::to_bytes),
                 None,
             )
             .to_vec();
@@ -4208,11 +4210,12 @@ pub unsafe fn parse_command(
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_pointer_1 = position;
             let log_value_0 = i3_common::logging::string_bytes(
-                if log_pointer_1.is_null() {
+                (if log_pointer_1.is_null() {
                     None
                 } else {
                     Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                },
+                })
+                .map(std::ffi::CStr::to_bytes),
                 None,
             )
             .to_vec();

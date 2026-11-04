@@ -308,7 +308,10 @@ pub unsafe fn resize_graphical_handler(
     {
         let diagnostic_5 = i3_common::logging::pointer(first);
         let diagnostic_6_owner = (*first).name.clone();
-        let diagnostic_6_bytes = string_bytes(diagnostic_6_owner.as_deref(), None);
+        let diagnostic_6_bytes = string_bytes(
+            (diagnostic_6_owner.as_deref()).map(std::ffi::CStr::to_bytes),
+            None,
+        );
         match (std::str::from_utf8(diagnostic_6_bytes),) {
             (Ok(diagnostic_6_text),) => ::log::debug!(
                 "../src/resize.c:resize_graphical_handler:178 - first = {} / {}\n",
@@ -330,7 +333,10 @@ pub unsafe fn resize_graphical_handler(
     {
         let diagnostic_5 = i3_common::logging::pointer(second);
         let diagnostic_6_owner = (*second).name.clone();
-        let diagnostic_6_bytes = string_bytes(diagnostic_6_owner.as_deref(), None);
+        let diagnostic_6_bytes = string_bytes(
+            (diagnostic_6_owner.as_deref()).map(std::ffi::CStr::to_bytes),
+            None,
+        );
         match (std::str::from_utf8(diagnostic_6_bytes),) {
             (Ok(diagnostic_6_text),) => ::log::debug!(
                 "../src/resize.c:resize_graphical_handler:179 - second = {} / {}\n",

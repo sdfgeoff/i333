@@ -906,11 +906,12 @@ unsafe fn parse_restart_fd() -> ::core::ffi::c_int {
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_pointer_1 = restart_fd;
             let log_value_0 = i3_common::logging::string_bytes(
-                if log_pointer_1.is_null() {
+                (if log_pointer_1.is_null() {
                     None
                 } else {
                     Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                },
+                })
+                .map(std::ffi::CStr::to_bytes),
                 None,
             )
             .to_vec();
@@ -1166,7 +1167,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
                 {
 // Snapshot native bytes before the logger can dispatch a callback.
 let log_pointer_1 = value.as_ptr();
-let log_value_0 = i3_common::logging::string_bytes(if log_pointer_1.is_null() { None } else { Some(std::ffi::CStr::from_ptr(log_pointer_1)) }, None).to_vec();
+let log_value_0 = i3_common::logging::string_bytes((if log_pointer_1.is_null() { None } else { Some(std::ffi::CStr::from_ptr(log_pointer_1)) }).map(std::ffi::CStr::to_bytes), None).to_vec();
 if let Ok(log_value_0_text) = std::str::from_utf8(&log_value_0) {
 ::log::info!("Initializing fake outputs: {}\n", log_value_0_text);
 } else {
@@ -1203,11 +1204,12 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_pointer_1 = payload;
             let log_value_0 = i3_common::logging::string_bytes(
-                if log_pointer_1.is_null() {
+                (if log_pointer_1.is_null() {
                     None
                 } else {
                     Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                },
+                })
+                .map(std::ffi::CStr::to_bytes),
                 None,
             )
             .to_vec();
@@ -1303,11 +1305,12 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
                 // Snapshot native bytes before the logger can dispatch a callback.
                 let log_pointer_1 = cwd;
                 let log_value_0 = i3_common::logging::string_bytes(
-                    if log_pointer_1.is_null() {
+                    (if log_pointer_1.is_null() {
                         None
                     } else {
                         Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                    },
+                    })
+                    .map(std::ffi::CStr::to_bytes),
                     None,
                 )
                 .to_vec();
@@ -1355,11 +1358,12 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_pointer_1 = _i3_version;
         let log_value_0 = i3_common::logging::string_bytes(
-            if log_pointer_1.is_null() {
+            (if log_pointer_1.is_null() {
                 None
             } else {
                 Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            },
+            })
+            .map(std::ffi::CStr::to_bytes),
             None,
         )
         .to_vec();
@@ -1616,11 +1620,12 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
                 // Snapshot native bytes before the logger can dispatch a callback.
                 let log_pointer_1 = name.as_ptr();
                 let log_value_0 = i3_common::logging::string_bytes(
-                    if log_pointer_1.is_null() {
+                    (if log_pointer_1.is_null() {
                         None
                     } else {
                         Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                    },
+                    })
+                    .map(std::ffi::CStr::to_bytes),
                     None,
                 )
                 .to_vec();
@@ -1883,11 +1888,12 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_pointer_1 = layout_path;
             let log_value_0 = i3_common::logging::string_bytes(
-                if log_pointer_1.is_null() {
+                (if log_pointer_1.is_null() {
                     None
                 } else {
                     Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                },
+                })
+                .map(std::ffi::CStr::to_bytes),
                 None,
             )
             .to_vec();

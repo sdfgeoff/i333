@@ -85,11 +85,12 @@ pub unsafe fn cfg_include(
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_pointer_1 = pattern;
         let log_value_0 = i3_common::logging::string_bytes(
-            if log_pointer_1.is_null() {
+            (if log_pointer_1.is_null() {
                 None
             } else {
                 Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            },
+            })
+            .map(std::ffi::CStr::to_bytes),
             None,
         )
         .to_vec();
@@ -125,11 +126,12 @@ pub unsafe fn cfg_include(
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_pointer_1 = pattern;
             let log_value_0 = i3_common::logging::string_bytes(
-                if log_pointer_1.is_null() {
+                (if log_pointer_1.is_null() {
                     None
                 } else {
                     Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                },
+                })
+                .map(std::ffi::CStr::to_bytes),
                 None,
             )
             .to_vec();
@@ -167,21 +169,23 @@ pub unsafe fn cfg_include(
                 // Snapshot native bytes before the logger can dispatch a callback.
                 let log_pointer_1 = *w.add(i);
                 let log_value_0 = i3_common::logging::string_bytes(
-                    if log_pointer_1.is_null() {
+                    (if log_pointer_1.is_null() {
                         None
                     } else {
                         Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                    },
+                    })
+                    .map(std::ffi::CStr::to_bytes),
                     None,
                 )
                 .to_vec();
                 let log_pointer_2 = strerror(*__errno_location());
                 let log_value_1 = i3_common::logging::string_bytes(
-                    if log_pointer_2.is_null() {
+                    (if log_pointer_2.is_null() {
                         None
                     } else {
                         Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                    },
+                    })
+                    .map(std::ffi::CStr::to_bytes),
                     None,
                 )
                 .to_vec();
@@ -219,11 +223,12 @@ pub unsafe fn cfg_include(
                     // Snapshot native bytes before the logger can dispatch a callback.
                     let log_pointer_1 = &raw mut resolved_path as *mut ::core::ffi::c_char;
                     let log_value_0 = i3_common::logging::string_bytes(
-                        if log_pointer_1.is_null() {
+                        (if log_pointer_1.is_null() {
                             None
                         } else {
                             Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                        },
+                        })
+                        .map(std::ffi::CStr::to_bytes),
                         None,
                     )
                     .to_vec();
@@ -242,11 +247,12 @@ pub unsafe fn cfg_include(
                     // Snapshot native bytes before the logger can dispatch a callback.
                     let log_pointer_1 = &raw mut resolved_path as *mut ::core::ffi::c_char;
                     let log_value_0 = i3_common::logging::string_bytes(
-                        if log_pointer_1.is_null() {
+                        (if log_pointer_1.is_null() {
                             None
                         } else {
                             Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                        },
+                        })
+                        .map(std::ffi::CStr::to_bytes),
                         None,
                     )
                     .to_vec();
@@ -289,21 +295,23 @@ pub unsafe fn cfg_include(
                             // Snapshot native bytes before the logger can dispatch a callback.
                             let log_pointer_1 = &raw mut resolved_path as *mut ::core::ffi::c_char;
                             let log_value_0 = i3_common::logging::string_bytes(
-                                if log_pointer_1.is_null() {
+                                (if log_pointer_1.is_null() {
                                     None
                                 } else {
                                     Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                                },
+                                })
+                                .map(std::ffi::CStr::to_bytes),
                                 None,
                             )
                             .to_vec();
                             let log_pointer_2 = strerror(*__errno_location());
                             let log_value_1 = i3_common::logging::string_bytes(
-                                if log_pointer_2.is_null() {
+                                (if log_pointer_2.is_null() {
                                     None
                                 } else {
                                     Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                                },
+                                })
+                                .map(std::ffi::CStr::to_bytes),
                                 None,
                             )
                             .to_vec();
@@ -587,11 +595,12 @@ pub unsafe fn cfg_for_window(
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_pointer_1 = (*current_match).error_ptr();
             let log_value_0 = i3_common::logging::string_bytes(
-                if log_pointer_1.is_null() {
+                (if log_pointer_1.is_null() {
                     None
                 } else {
                     Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                },
+                })
+                .map(std::ffi::CStr::to_bytes),
                 None,
             )
             .to_vec();
@@ -615,11 +624,12 @@ pub unsafe fn cfg_for_window(
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_pointer_1 = command;
         let log_value_0 = i3_common::logging::string_bytes(
-            if log_pointer_1.is_null() {
+            (if log_pointer_1.is_null() {
                 None
             } else {
                 Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            },
+            })
+            .map(std::ffi::CStr::to_bytes),
             None,
         )
         .to_vec();
@@ -679,11 +689,12 @@ unsafe fn create_gaps_assignment(
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_pointer_1 = workspace;
         let log_value_0 = i3_common::logging::string_bytes(
-            if log_pointer_1.is_null() {
+            (if log_pointer_1.is_null() {
                 None
             } else {
                 Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            },
+            })
+            .map(std::ffi::CStr::to_bytes),
             None,
         )
         .to_vec();
@@ -745,11 +756,12 @@ unsafe fn gaps_scope_to_mask(scope: *const ::core::ffi::c_char) -> gaps_mask_t {
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_pointer_1 = scope;
         let log_value_0 = i3_common::logging::string_bytes(
-            if log_pointer_1.is_null() {
+            (if log_pointer_1.is_null() {
                 None
             } else {
                 Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            },
+            })
+            .map(std::ffi::CStr::to_bytes),
             None,
         )
         .to_vec();
@@ -1058,11 +1070,12 @@ pub unsafe fn cfg_focus_on_window_activation(
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_pointer_1 = mode;
             let log_value_0 = i3_common::logging::string_bytes(
-                if log_pointer_1.is_null() {
+                (if log_pointer_1.is_null() {
                     None
                 } else {
                     Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                },
+                })
+                .map(std::ffi::CStr::to_bytes),
                 None,
             )
             .to_vec();
@@ -1152,11 +1165,12 @@ pub unsafe fn cfg_workspace(
                     // Snapshot native bytes before the logger can dispatch a callback.
                     let log_pointer_1 = workspace;
                     let log_value_0 = i3_common::logging::string_bytes(
-                        if log_pointer_1.is_null() {
+                        (if log_pointer_1.is_null() {
                             None
                         } else {
                             Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                        },
+                        })
+                        .map(std::ffi::CStr::to_bytes),
                         None,
                     )
                     .to_vec();
@@ -1192,21 +1206,23 @@ pub unsafe fn cfg_workspace(
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_pointer_1 = workspace;
         let log_value_0 = i3_common::logging::string_bytes(
-            if log_pointer_1.is_null() {
+            (if log_pointer_1.is_null() {
                 None
             } else {
                 Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            },
+            })
+            .map(std::ffi::CStr::to_bytes),
             None,
         )
         .to_vec();
         let log_pointer_2 = output;
         let log_value_1 = i3_common::logging::string_bytes(
-            if log_pointer_2.is_null() {
+            (if log_pointer_2.is_null() {
                 None
             } else {
                 Some(std::ffi::CStr::from_ptr(log_pointer_2))
-            },
+            })
+            .map(std::ffi::CStr::to_bytes),
             None,
         )
         .to_vec();
@@ -1440,11 +1456,12 @@ pub unsafe fn cfg_assign_output(
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_pointer_1 = (*current_match).error_ptr();
             let log_value_0 = i3_common::logging::string_bytes(
-                if log_pointer_1.is_null() {
+                (if log_pointer_1.is_null() {
                     None
                 } else {
                     Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                },
+                })
+                .map(std::ffi::CStr::to_bytes),
                 None,
             )
             .to_vec();
@@ -1472,11 +1489,12 @@ pub unsafe fn cfg_assign_output(
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_pointer_1 = output;
         let log_value_0 = i3_common::logging::string_bytes(
-            if log_pointer_1.is_null() {
+            (if log_pointer_1.is_null() {
                 None
             } else {
                 Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            },
+            })
+            .map(std::ffi::CStr::to_bytes),
             None,
         )
         .to_vec();
@@ -1511,11 +1529,12 @@ pub unsafe fn cfg_assign(
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_pointer_1 = (*current_match).error_ptr();
             let log_value_0 = i3_common::logging::string_bytes(
-                if log_pointer_1.is_null() {
+                (if log_pointer_1.is_null() {
                     None
                 } else {
                     Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                },
+                })
+                .map(std::ffi::CStr::to_bytes),
                 None,
             )
             .to_vec();
@@ -1547,11 +1566,12 @@ pub unsafe fn cfg_assign(
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_pointer_1 = workspace;
             let log_value_0 = i3_common::logging::string_bytes(
-                if log_pointer_1.is_null() {
+                (if log_pointer_1.is_null() {
                     None
                 } else {
                     Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                },
+                })
+                .map(std::ffi::CStr::to_bytes),
                 None,
             )
             .to_vec();
@@ -1574,11 +1594,12 @@ pub unsafe fn cfg_assign(
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_pointer_1 = workspace;
         let log_value_0 = i3_common::logging::string_bytes(
-            if log_pointer_1.is_null() {
+            (if log_pointer_1.is_null() {
                 None
             } else {
                 Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            },
+            })
+            .map(std::ffi::CStr::to_bytes),
             None,
         )
         .to_vec();
@@ -1612,11 +1633,12 @@ pub unsafe fn cfg_no_focus(current_match: *mut Match, result: *mut ConfigResultI
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_pointer_1 = (*current_match).error_ptr();
             let log_value_0 = i3_common::logging::string_bytes(
-                if log_pointer_1.is_null() {
+                (if log_pointer_1.is_null() {
                     None
                 } else {
                     Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                },
+                })
+                .map(std::ffi::CStr::to_bytes),
                 None,
             )
             .to_vec();

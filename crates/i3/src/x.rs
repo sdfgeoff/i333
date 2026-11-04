@@ -974,7 +974,10 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
         if con_draw_decoration_into_frame(con) {
             {
                 let diagnostic_5_owner = (*con).name.clone();
-                let diagnostic_5_bytes = string_bytes(diagnostic_5_owner.as_deref(), None);
+                let diagnostic_5_bytes = string_bytes(
+                    (diagnostic_5_owner.as_deref()).map(std::ffi::CStr::to_bytes),
+                    None,
+                );
                 match (std::str::from_utf8(diagnostic_5_bytes),) { (Ok(diagnostic_5_text),) => ::log::debug!(concat!("../src/x.c:x_draw_decoration:602 - using ","con->frame_buffer (for con->name={}) as dest_surface\n"), diagnostic_5_text), _ => emit_parts(Level::Debug, &[b"../src/x.c:x_draw_decoration:602 - using con->frame_buffer (for con->name=", diagnostic_5_bytes, b") as dest_surface\n"]), }
             };
             dest_surface = &raw mut (*con).frame_buffer;
@@ -1007,7 +1010,10 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
                     let diagnostic_7 = ((*con).deco_rect.width) as i32;
                     let diagnostic_8 = ((*con).deco_rect.height) as i32;
                     let diagnostic_9_owner = (*con).name.clone();
-                    let diagnostic_9_bytes = string_bytes(diagnostic_9_owner.as_deref(), None);
+                    let diagnostic_9_bytes = string_bytes(
+                        (diagnostic_9_owner.as_deref()).map(std::ffi::CStr::to_bytes),
+                        None,
+                    );
                     match (std::str::from_utf8(diagnostic_9_bytes),) {
                         (Ok(diagnostic_9_text),) => ::log::debug!(
                             concat!(
@@ -1238,7 +1244,10 @@ unsafe fn set_maximized_state(con: *mut Con) {
         {
             let diagnostic_5 = i3_common::logging::pointer(con);
             let diagnostic_6_owner = (*con).name.clone();
-            let diagnostic_6_bytes = string_bytes(diagnostic_6_owner.as_deref(), None);
+            let diagnostic_6_bytes = string_bytes(
+                (diagnostic_6_owner.as_deref()).map(std::ffi::CStr::to_bytes),
+                None,
+            );
             let diagnostic_7 = (con_maximized_horz as i32);
             match (std::str::from_utf8(diagnostic_6_bytes),) { (Ok(diagnostic_6_text),) => ::log::debug!(concat!("../src/x.c:set_maximized_state:843 - setting ","_NET_WM_STATE_MAXIMIZED_HORZ for con {}({}) to {}\n"), diagnostic_5, diagnostic_6_text, diagnostic_7), _ => emit_parts(Level::Debug, &[b"../src/x.c:set_maximized_state:843 - setting _NET_WM_STATE_MAXIMIZED_HORZ for con ", format!("{}", diagnostic_5).as_bytes(), b"(", diagnostic_6_bytes, b") to ", format!("{}", diagnostic_7).as_bytes(), b"\n"]), }
         };
@@ -1264,7 +1273,10 @@ unsafe fn set_maximized_state(con: *mut Con) {
         {
             let diagnostic_5 = i3_common::logging::pointer(con);
             let diagnostic_6_owner = (*con).name.clone();
-            let diagnostic_6_bytes = string_bytes(diagnostic_6_owner.as_deref(), None);
+            let diagnostic_6_bytes = string_bytes(
+                (diagnostic_6_owner.as_deref()).map(std::ffi::CStr::to_bytes),
+                None,
+            );
             let diagnostic_7 = (con_maximized_vert as i32);
             match (std::str::from_utf8(diagnostic_6_bytes),) { (Ok(diagnostic_6_text),) => ::log::debug!(concat!("../src/x.c:set_maximized_state:856 - setting ","_NET_WM_STATE_MAXIMIZED_VERT for con {}({}) to {}\n"), diagnostic_5, diagnostic_6_text, diagnostic_7), _ => emit_parts(Level::Debug, &[b"../src/x.c:set_maximized_state:856 - setting _NET_WM_STATE_MAXIMIZED_VERT for con ", format!("{}", diagnostic_5).as_bytes(), b"(", diagnostic_6_bytes, b") to ", format!("{}", diagnostic_7).as_bytes(), b"\n"]), }
         };
@@ -1739,7 +1751,10 @@ unsafe fn x_push_node_unmaps(con: *mut Con) {
         {
             let diagnostic_5 = i3_common::logging::pointer(con);
             let diagnostic_6_owner = (*con).name.clone();
-            let diagnostic_6_bytes = string_bytes(diagnostic_6_owner.as_deref(), None);
+            let diagnostic_6_bytes = string_bytes(
+                (diagnostic_6_owner.as_deref()).map(std::ffi::CStr::to_bytes),
+                None,
+            );
             let diagnostic_7 = (cookie.sequence() as u32) as i32;
             match (std::str::from_utf8(diagnostic_6_bytes),) {
                 (Ok(diagnostic_6_text),) => ::log::debug!(
@@ -1951,7 +1966,10 @@ pub unsafe fn x_push_changes(con: *mut Con) {
             {
                 let diagnostic_5 = i3_common::logging::pointer(focused);
                 let diagnostic_6_owner = (*focused).name.clone();
-                let diagnostic_6_bytes = string_bytes(diagnostic_6_owner.as_deref(), None);
+                let diagnostic_6_bytes = string_bytes(
+                    (diagnostic_6_owner.as_deref()).map(std::ffi::CStr::to_bytes),
+                    None,
+                );
                 match (std::str::from_utf8(diagnostic_6_bytes),) {
                     (Ok(diagnostic_6_text),) => ::log::debug!(
                         concat!(
@@ -1980,7 +1998,10 @@ pub unsafe fn x_push_changes(con: *mut Con) {
                     let diagnostic_5 = (to_focus);
                     let diagnostic_6 = i3_common::logging::pointer(focused);
                     let diagnostic_7_owner = (*focused).name.clone();
-                    let diagnostic_7_bytes = string_bytes(diagnostic_7_owner.as_deref(), None);
+                    let diagnostic_7_bytes = string_bytes(
+                        (diagnostic_7_owner.as_deref()).map(std::ffi::CStr::to_bytes),
+                        None,
+                    );
                     match (std::str::from_utf8(diagnostic_7_bytes),) { (Ok(diagnostic_7_text),) => ::log::debug!(concat!("../src/x.c:x_push_changes:1414 - Updating focus by ","sending WM_TAKE_FOCUS to window 0x{:08x} (focused: {} ","/ {})\n"), diagnostic_5, diagnostic_6, diagnostic_7_text), _ => emit_parts(Level::Debug, &[b"../src/x.c:x_push_changes:1414 - Updating focus by sending WM_TAKE_FOCUS to window 0x", format!("{:08x}", diagnostic_5).as_bytes(), b" (focused: ", format!("{}", diagnostic_6).as_bytes(), b" / ", diagnostic_7_bytes, b")\n"]), }
                 };
                 send_take_focus(to_focus, last_timestamp);
@@ -1999,7 +2020,10 @@ pub unsafe fn x_push_changes(con: *mut Con) {
                 {
                     let diagnostic_5 = i3_common::logging::pointer(focused);
                     let diagnostic_6_owner = (*focused).name.clone();
-                    let diagnostic_6_bytes = string_bytes(diagnostic_6_owner.as_deref(), None);
+                    let diagnostic_6_bytes = string_bytes(
+                        (diagnostic_6_owner.as_deref()).map(std::ffi::CStr::to_bytes),
+                        None,
+                    );
                     let diagnostic_7 = (to_focus);
                     match (std::str::from_utf8(diagnostic_6_bytes),) {
                         (Ok(diagnostic_6_text),) => ::log::debug!(

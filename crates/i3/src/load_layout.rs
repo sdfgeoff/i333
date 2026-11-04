@@ -98,11 +98,12 @@ impl LayoutState {
             let log_value_0 = {
                 let pointer: *const libc::c_char = self.last_key.as_ptr();
                 i3_common::logging::string_bytes(
-                    if pointer.is_null() {
+                    (if pointer.is_null() {
                         None
                     } else {
                         Some(std::ffi::CStr::from_ptr(pointer))
-                    },
+                    })
+                    .map(std::ffi::CStr::to_bytes),
                     None,
                 )
                 .to_vec()
@@ -204,8 +205,10 @@ impl LayoutState {
                 {
                     // Snapshot native bytes before the logger can dispatch a callback.
                     let log_owner_1 = (*self.json_node).name.clone();
-                    let log_value_0 =
-                        i3_common::logging::string_bytes(log_owner_1.as_deref(), None);
+                    let log_value_0 = i3_common::logging::string_bytes(
+                        (log_owner_1.as_deref()).map(std::ffi::CStr::to_bytes),
+                        None,
+                    );
                     if let (Ok(log_value_0_text),) = (std::str::from_utf8(log_value_0),) {
                         ::log::debug!("../src/load_layout.c:json_end_map:121 - Attaching workspace. name = {}\n", log_value_0_text);
                     } else {
@@ -239,8 +242,10 @@ impl LayoutState {
                     // Snapshot native bytes before the logger can dispatch a callback.
                     let log_value_0 = i3_common::logging::pointer(parent_ptr(self.json_node));
                     let log_owner_2 = (*parent_ptr(self.json_node)).name.clone();
-                    let log_value_1 =
-                        i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
+                    let log_value_1 = i3_common::logging::string_bytes(
+                        (log_owner_2.as_deref()).map(std::ffi::CStr::to_bytes),
+                        None,
+                    );
                     if let (Ok(log_value_1_text),) = (std::str::from_utf8(log_value_1),) {
                         ::log::debug!("../src/load_layout.c:json_end_map:148 - fixing parent which currently is {} / {}\n", log_value_0, log_value_1_text);
                     } else {
@@ -359,7 +364,7 @@ impl LayoutState {
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_precision_0 = (len as ::core::ffi::c_int);
             let log_value_0 = i3_common::logging::string_bytes(
-                Some(logged_key.as_c_str()),
+                (Some(logged_key.as_c_str())).map(std::ffi::CStr::to_bytes),
                 usize::try_from(log_precision_0).ok(),
             );
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(log_value_0),) {
@@ -418,17 +423,18 @@ impl LayoutState {
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_precision_0 = (len as ::core::ffi::c_int);
             let log_value_0 = i3_common::logging::string_bytes(
-                Some(logged_string.as_c_str()),
+                (Some(logged_string.as_c_str())).map(std::ffi::CStr::to_bytes),
                 usize::try_from(log_precision_0).ok(),
             );
             let log_value_1 = {
                 let pointer: *const libc::c_char = self.last_key.as_ptr();
                 i3_common::logging::string_bytes(
-                    if pointer.is_null() {
+                    (if pointer.is_null() {
                         None
                     } else {
                         Some(std::ffi::CStr::from_ptr(pointer))
-                    },
+                    })
+                    .map(std::ffi::CStr::to_bytes),
                     None,
                 )
                 .to_vec()
@@ -497,11 +503,12 @@ impl LayoutState {
                     let log_value_0 = {
                         let pointer: *const libc::c_char = self.last_key.as_ptr();
                         i3_common::logging::string_bytes(
-                            if pointer.is_null() {
+                            (if pointer.is_null() {
                                 None
                             } else {
                                 Some(std::ffi::CStr::from_ptr(pointer))
-                            },
+                            })
+                            .map(std::ffi::CStr::to_bytes),
                             None,
                         )
                         .to_vec()
@@ -579,11 +586,12 @@ impl LayoutState {
                     let log_value_0 = {
                         let pointer: *const libc::c_char = buf;
                         i3_common::logging::string_bytes(
-                            if pointer.is_null() {
+                            (if pointer.is_null() {
                                 None
                             } else {
                                 Some(std::ffi::CStr::from_ptr(pointer))
-                            },
+                            })
+                            .map(std::ffi::CStr::to_bytes),
                             None,
                         )
                         .to_vec()
@@ -625,11 +633,12 @@ impl LayoutState {
                     let log_value_0 = {
                         let pointer: *const libc::c_char = buf_0;
                         i3_common::logging::string_bytes(
-                            if pointer.is_null() {
+                            (if pointer.is_null() {
                                 None
                             } else {
                                 Some(std::ffi::CStr::from_ptr(pointer))
-                            },
+                            })
+                            .map(std::ffi::CStr::to_bytes),
                             None,
                         )
                         .to_vec()
@@ -669,11 +678,12 @@ impl LayoutState {
                     let log_value_0 = {
                         let pointer: *const libc::c_char = buf_1;
                         i3_common::logging::string_bytes(
-                            if pointer.is_null() {
+                            (if pointer.is_null() {
                                 None
                             } else {
                                 Some(std::ffi::CStr::from_ptr(pointer))
-                            },
+                            })
+                            .map(std::ffi::CStr::to_bytes),
                             None,
                         )
                         .to_vec()
@@ -716,11 +726,12 @@ impl LayoutState {
                     let log_value_0 = {
                         let pointer: *const libc::c_char = buf_2;
                         i3_common::logging::string_bytes(
-                            if pointer.is_null() {
+                            (if pointer.is_null() {
                                 None
                             } else {
                                 Some(std::ffi::CStr::from_ptr(pointer))
-                            },
+                            })
+                            .map(std::ffi::CStr::to_bytes),
                             None,
                         )
                         .to_vec()
@@ -756,11 +767,12 @@ impl LayoutState {
                     let log_value_0 = {
                         let pointer: *const libc::c_char = buf_3;
                         i3_common::logging::string_bytes(
-                            if pointer.is_null() {
+                            (if pointer.is_null() {
                                 None
                             } else {
                                 Some(std::ffi::CStr::from_ptr(pointer))
-                            },
+                            })
+                            .map(std::ffi::CStr::to_bytes),
                             None,
                         )
                         .to_vec()
@@ -794,11 +806,12 @@ impl LayoutState {
                     let log_value_0 = {
                         let pointer: *const libc::c_char = buf_4;
                         i3_common::logging::string_bytes(
-                            if pointer.is_null() {
+                            (if pointer.is_null() {
                                 None
                             } else {
                                 Some(std::ffi::CStr::from_ptr(pointer))
-                            },
+                            })
+                            .map(std::ffi::CStr::to_bytes),
                             None,
                         )
                         .to_vec()
@@ -866,11 +879,12 @@ impl LayoutState {
             let log_value_1 = {
                 let pointer: *const libc::c_char = self.last_key.as_ptr();
                 i3_common::logging::string_bytes(
-                    if pointer.is_null() {
+                    (if pointer.is_null() {
                         None
                     } else {
                         Some(std::ffi::CStr::from_ptr(pointer))
-                    },
+                    })
+                    .map(std::ffi::CStr::to_bytes),
                     None,
                 )
                 .to_vec()
@@ -937,11 +951,12 @@ impl LayoutState {
                     let log_value_0 = {
                         let pointer: *const libc::c_char = self.last_key.as_ptr();
                         i3_common::logging::string_bytes(
-                            if pointer.is_null() {
+                            (if pointer.is_null() {
                                 None
                             } else {
                                 Some(std::ffi::CStr::from_ptr(pointer))
-                            },
+                            })
+                            .map(std::ffi::CStr::to_bytes),
                             None,
                         )
                         .to_vec()
@@ -1013,11 +1028,12 @@ impl LayoutState {
             let log_value_1 = {
                 let pointer: *const libc::c_char = self.last_key.as_ptr();
                 i3_common::logging::string_bytes(
-                    if pointer.is_null() {
+                    (if pointer.is_null() {
                         None
                     } else {
                         Some(std::ffi::CStr::from_ptr(pointer))
-                    },
+                    })
+                    .map(std::ffi::CStr::to_bytes),
                     None,
                 )
                 .to_vec()
@@ -1204,11 +1220,12 @@ pub unsafe fn json_validate(buf: *const libc::c_char, len: usize) -> bool {
                 let log_value_0 = {
                     let pointer: *const libc::c_char = text.as_ptr();
                     i3_common::logging::string_bytes(
-                        if pointer.is_null() {
+                        (if pointer.is_null() {
                             None
                         } else {
                             Some(std::ffi::CStr::from_ptr(pointer))
-                        },
+                        })
+                        .map(std::ffi::CStr::to_bytes),
                         None,
                     )
                     .to_vec()
@@ -1243,11 +1260,12 @@ pub unsafe fn json_determine_content(buf: *const libc::c_char, len: usize) -> Js
             let log_value_0 = {
                 let pointer: *const libc::c_char = text.as_ptr();
                 i3_common::logging::string_bytes(
-                    if pointer.is_null() {
+                    (if pointer.is_null() {
                         None
                     } else {
                         Some(std::ffi::CStr::from_ptr(pointer))
-                    },
+                    })
+                    .map(std::ffi::CStr::to_bytes),
                     None,
                 )
                 .to_vec()
@@ -1314,11 +1332,12 @@ pub unsafe fn tree_append_json(
             let log_value_0 = {
                 let pointer: *const libc::c_char = message.as_ptr();
                 i3_common::logging::string_bytes(
-                    if pointer.is_null() {
+                    (if pointer.is_null() {
                         None
                     } else {
                         Some(std::ffi::CStr::from_ptr(pointer))
-                    },
+                    })
+                    .map(std::ffi::CStr::to_bytes),
                     None,
                 )
                 .to_vec()
