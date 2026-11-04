@@ -829,7 +829,7 @@ mod tests {
         assert_eq!(pango_pattern(c"pango:"), None);
         assert_eq!(pango_pattern(c"xft:"), None);
         assert_eq!(pango_pattern(c"fixed"), None);
-        let invalid_utf8 = CStr::from_bytes_with_nul(b"pango:\xff\0").unwrap();
+        let invalid_utf8 = c"pango:\xff";
         assert_eq!(pango_pattern(invalid_utf8).unwrap().to_bytes(), b"\xff");
     }
 

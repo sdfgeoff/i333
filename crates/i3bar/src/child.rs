@@ -1273,7 +1273,7 @@ unsafe fn child_click_events_initialize() {
     }
     if !status_child.click_events_init {
         CLICK_STREAM.with(|generator| {
-            let _ = generator.borrow_mut().start();
+            generator.borrow_mut().start();
         });
         child_write_output();
         status_child.click_events_init = true;

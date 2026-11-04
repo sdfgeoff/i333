@@ -163,7 +163,7 @@ unsafe fn collect() -> BTreeMap<String, String> {
         result.insert(name.into(), node_bytes(leaf, false, 0, &allocated));
     }
     (*leaf).percent = 0.5;
-    let invalid = CStr::from_bytes_with_nul(b"\xff\0").unwrap();
+    let invalid = c"\xff";
     window.class_class = Some(invalid.to_owned());
     result.insert(
         "invalid_class".into(),
@@ -268,8 +268,10 @@ unsafe fn collect() -> BTreeMap<String, String> {
     }
     focused = std::ptr::null_mut();
     previous_workspace_name = std::ptr::null_mut();
-    let mut bar = Barconfig::default();
-    bar.id = Some(c"bar0".to_owned());
+    let mut bar = Barconfig {
+        id: Some(c"bar0".to_owned()),
+        ..Default::default()
+    };
     let bytes = snapshot_bar_config(&mut bar).to_bytes();
     result.insert("bar_sparse".into(), String::from_utf8(bytes).unwrap());
     bar.socket_path = Some(c"socket".to_owned());

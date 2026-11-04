@@ -160,14 +160,14 @@ pub unsafe fn cfg_include(
     while i < p.we_wordc {
         let mut resolved_path: [::core::ffi::c_char; 4096] = [0; 4096];
         if realpath(
-            *w.offset(i as isize),
+            *w.add(i),
             &raw mut resolved_path as *mut ::core::ffi::c_char,
         )
         .is_null()
         {
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
-                let log_pointer_1 = *w.offset(i as isize);
+                let log_pointer_1 = *w.add(i);
                 let log_value_0 = i3_common::logging::string_bytes(
                     if log_pointer_1.is_null() {
                         None
@@ -282,15 +282,13 @@ pub unsafe fn cfg_include(
                     variables: std::mem::take(&mut (*(*result).ctx).variables),
                     has_errors: false,
                 };
-                let current_block_46: u64;
-                match parse_file(
+
+                let current_block_46: u64 = match parse_file(
                     &raw mut ctx,
                     &raw mut resolved_path as *mut ::core::ffi::c_char,
                     file,
                 ) {
-                    ParseFileResult::Success => {
-                        current_block_46 = 10150597327160359210;
-                    }
+                    ParseFileResult::Success => 10150597327160359210,
                     ParseFileResult::Failed => {
                         {
                             // Snapshot native bytes before the logger can dispatch a callback.
@@ -337,32 +335,27 @@ pub unsafe fn cfg_include(
                                 );
                             }
                         };
-                        current_block_46 = 1383695296304875401;
+                        1383695296304875401
                     }
-                    ParseFileResult::ConfigErrors => {
-                        current_block_46 = 1383695296304875401;
+                    ParseFileResult::ConfigErrors => 1383695296304875401,
+                };
+                if current_block_46 == 1383695296304875401 {
+                    (*result).has_errors = true_0 != 0;
+                    if !(*file).files.tqe_next.is_null() {
+                        (*(*file).files.tqe_next).files.tqe_prev = (*file).files.tqe_prev;
+                    } else {
+                        included_files.tqh_last = (*file).files.tqe_prev;
                     }
-                }
-                match current_block_46 {
-                    1383695296304875401 => {
-                        (*result).has_errors = true_0 != 0;
-                        if !(*file).files.tqe_next.is_null() {
-                            (*(*file).files.tqe_next).files.tqe_prev = (*file).files.tqe_prev;
-                        } else {
-                            included_files.tqh_last = (*file).files.tqe_prev;
-                        }
-                        *(*file).files.tqe_prev = (*file).files.tqe_next;
-                        free((*file).path as *mut ::core::ffi::c_void);
-                        (*file).path = ::core::ptr::null_mut::<::core::ffi::c_char>();
-                        free((*file).raw_contents as *mut ::core::ffi::c_void);
-                        (*file).raw_contents = ::core::ptr::null_mut::<::core::ffi::c_char>();
-                        free((*file).variable_replaced_contents as *mut ::core::ffi::c_void);
-                        (*file).variable_replaced_contents =
-                            ::core::ptr::null_mut::<::core::ffi::c_char>();
-                        free(file as *mut ::core::ffi::c_void);
-                        file = ::core::ptr::null_mut::<IncludedFile>();
-                    }
-                    _ => {}
+                    *(*file).files.tqe_prev = (*file).files.tqe_next;
+                    free((*file).path as *mut ::core::ffi::c_void);
+                    (*file).path = ::core::ptr::null_mut::<::core::ffi::c_char>();
+                    free((*file).raw_contents as *mut ::core::ffi::c_void);
+                    (*file).raw_contents = ::core::ptr::null_mut::<::core::ffi::c_char>();
+                    free((*file).variable_replaced_contents as *mut ::core::ffi::c_void);
+                    (*file).variable_replaced_contents =
+                        ::core::ptr::null_mut::<::core::ffi::c_char>();
+                    free(file as *mut ::core::ffi::c_void);
+                    file = ::core::ptr::null_mut::<IncludedFile>();
                 }
                 (*(*result).ctx).variables = ctx.variables;
             }
@@ -1195,35 +1188,35 @@ pub unsafe fn cfg_workspace(
             .unwrap_or_else(std::sync::PoisonError::into_inner) = None;
         assignment = ws_assignments.tqh_first;
         while !assignment.is_null() {
-            if strcasecmp((*assignment).name, workspace) == 0 as ::core::ffi::c_int {
-                if !(*assignment).output.is_null() {
-                    {
-                        // Snapshot native bytes before the logger can dispatch a callback.
-                        let log_pointer_1 = workspace;
-                        let log_value_0 = i3_common::logging::string_bytes(
-                            if log_pointer_1.is_null() {
-                                None
-                            } else {
-                                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                            },
-                            None,
-                        )
-                        .to_vec();
-                        if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
-                            ::log::error!("ERROR: You have a duplicate workspace assignment for workspace \"{}\"\n", log_value_0_text);
+            if strcasecmp((*assignment).name, workspace) == 0 as ::core::ffi::c_int
+                && !(*assignment).output.is_null()
+            {
+                {
+                    // Snapshot native bytes before the logger can dispatch a callback.
+                    let log_pointer_1 = workspace;
+                    let log_value_0 = i3_common::logging::string_bytes(
+                        if log_pointer_1.is_null() {
+                            None
                         } else {
-                            let mut message = Vec::new();
-                            message.extend_from_slice(
-                                "ERROR: You have a duplicate workspace assignment for workspace \""
-                                    .as_bytes(),
-                            );
-                            message.extend_from_slice(&log_value_0);
-                            message.extend_from_slice("\"\n".as_bytes());
-                            i3_common::logging::emit(i3_common::logging::Level::Error, &message);
-                        }
-                    };
-                    return;
-                }
+                            Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                        },
+                        None,
+                    )
+                    .to_vec();
+                    if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                        ::log::error!("ERROR: You have a duplicate workspace assignment for workspace \"{}\"\n", log_value_0_text);
+                    } else {
+                        let mut message = Vec::new();
+                        message.extend_from_slice(
+                            "ERROR: You have a duplicate workspace assignment for workspace \""
+                                .as_bytes(),
+                        );
+                        message.extend_from_slice(&log_value_0);
+                        message.extend_from_slice("\"\n".as_bytes());
+                        i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+                    }
+                };
+                return;
             }
             assignment = (*assignment).ws_assignments.tqe_next;
         }
@@ -1875,9 +1868,7 @@ unsafe fn bar_configure_binding(
     release: *const ::core::ffi::c_char,
     command: *const ::core::ffi::c_char,
 ) {
-    if strncasecmp(button, c"button".as_ptr(), strlen(c"button".as_ptr()))
-        != 0 as ::core::ffi::c_int
-    {
+    if strncasecmp(button, c"button".as_ptr(), c"button".count_bytes()) != 0 as ::core::ffi::c_int {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_pointer_1 = button;
@@ -1908,7 +1899,7 @@ unsafe fn bar_configure_binding(
         return;
     }
     let input_code: ::core::ffi::c_int =
-        atoi(button.offset(strlen(c"button".as_ptr()) as isize)) as ::core::ffi::c_int;
+        atoi(button.add(c"button".count_bytes())) as ::core::ffi::c_int;
     if input_code < 1 as ::core::ffi::c_int {
         {
             // Snapshot native bytes before the logger can dispatch a callback.

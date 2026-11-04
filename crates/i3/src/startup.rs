@@ -389,6 +389,8 @@ pub unsafe fn startup_sequence_delete_by_window(window: *const Window) {
     }
 }
 
+use i3_common::logging::{emit_parts, Level};
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -409,5 +411,3 @@ mod tests {
         assert!(expired(100, 101));
     }
 }
-
-use i3_common::logging::{emit_parts, Level};

@@ -233,8 +233,10 @@ mod tests {
                 crate::types::Match::empty(),
             ));
             let assignment_ptr = std::ptr::from_mut(&mut *assignment);
-            let mut window = Window::default();
-            window.class_class = Some(c"\xffClass".to_owned());
+            let mut window = Window {
+                class_class: Some(c"\xffClass".to_owned()),
+                ..Default::default()
+            };
             window.ran_assignments.push(assignment_ptr);
             window.icon = Some(i3_common::draw_util::CairoSurface::from_raw_owned(image));
             let mut arena = Arena::default();

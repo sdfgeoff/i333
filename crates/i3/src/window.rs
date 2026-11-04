@@ -369,8 +369,10 @@ fn preferred_type(property: Property<'_>, supported: &[u32]) -> Option<u32> {
     }
     property
         .bytes
-        .chunks_exact(4)
-        .map(|word| u32::from_ne_bytes(word.try_into().unwrap()))
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|word| u32::from_ne_bytes(*word))
         .find(|atom| *atom != 0 && supported.contains(atom))
 }
 bitflags::bitflags! {
@@ -822,8 +824,10 @@ fn premultiplied_argb(pixel: u32) -> u32 {
 }
 fn icon_pixels(property: Property<'_>, icon: IconCandidate) -> Vec<u32> {
     property.bytes[icon.start..icon.start + icon.pixels * 4]
-        .chunks_exact(4)
-        .map(|bytes| premultiplied_argb(u32::from_ne_bytes(bytes.try_into().unwrap())))
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|bytes| premultiplied_argb(u32::from_ne_bytes(*bytes)))
         .collect()
 }
 
@@ -1361,17 +1365,20 @@ mod tests {
             width_increment: 3,
             ..Default::default()
         };
-        let mut hints = SizeHints::default();
-        hints.flags =
-            SizeHintFlags::BASE_SIZE | SizeHintFlags::RESIZE_INCREMENT | SizeHintFlags::ASPECT;
-        hints.base_width = 12;
-        hints.base_height = 13;
-        hints.width_increment = 0xffff;
-        hints.height_increment = 0xfffe;
-        hints.min_aspect_num = 1;
-        hints.min_aspect_den = 2;
-        hints.max_aspect_num = 2;
-        hints.max_aspect_den = 1;
+        let mut hints = SizeHints {
+            flags: SizeHintFlags::BASE_SIZE
+                | SizeHintFlags::RESIZE_INCREMENT
+                | SizeHintFlags::ASPECT,
+            base_width: 12,
+            base_height: 13,
+            width_increment: 0xffff,
+            height_increment: 0xfffe,
+            min_aspect_num: 1,
+            min_aspect_den: 2,
+            max_aspect_num: 2,
+            max_aspect_den: 1,
+            ..Default::default()
+        };
         assert!(state.update(&hints));
         assert_eq!((state.base_width, state.base_height), (0, 0));
         assert_eq!((state.width_increment, state.height_increment), (0, 0xfffe));

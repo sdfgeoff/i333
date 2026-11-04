@@ -101,7 +101,8 @@ pub unsafe fn tree_restore(
     if !exists(file_path) {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_value_0 = (|pointer: *const libc::c_char| {
+            let log_value_0 = {
+                let pointer: *const libc::c_char = globbed;
                 i3_common::logging::string_bytes(
                     if pointer.is_null() {
                         None
@@ -111,7 +112,7 @@ pub unsafe fn tree_restore(
                     None,
                 )
                 .to_vec()
-            })(globbed);
+            };
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::info!("{} does not exist, not restoring tree\n", log_value_0_text);
             } else {
@@ -538,7 +539,8 @@ unsafe fn get_tree_next_workspace(con: *mut Con, direction: Direction) -> *mut C
     }
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_value_0 = (|pointer: *const libc::c_char| {
+        let log_value_0 = {
+            let pointer: *const libc::c_char = output_primary_name(current_output);
             i3_common::logging::string_bytes(
                 if pointer.is_null() {
                     None
@@ -548,7 +550,7 @@ unsafe fn get_tree_next_workspace(con: *mut Con, direction: Direction) -> *mut C
                 None,
             )
             .to_vec()
-        })(output_primary_name(current_output));
+        };
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::debug!(
                 "../src/tree.c:get_tree_next_workspace:483 - Current output is {}\n",
@@ -572,7 +574,8 @@ unsafe fn get_tree_next_workspace(con: *mut Con, direction: Direction) -> *mut C
     }
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_value_0 = (|pointer: *const libc::c_char| {
+        let log_value_0 = {
+            let pointer: *const libc::c_char = output_primary_name(next_output);
             i3_common::logging::string_bytes(
                 if pointer.is_null() {
                     None
@@ -582,7 +585,7 @@ unsafe fn get_tree_next_workspace(con: *mut Con, direction: Direction) -> *mut C
                 None,
             )
             .to_vec()
-        })(output_primary_name(next_output));
+        };
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::debug!(
                 "../src/tree.c:get_tree_next_workspace:489 - Next output is {}\n",
@@ -961,6 +964,10 @@ use crate::x::x_set_name;
 use crate::x::x_set_warp_to;
 use i3_common::resolve_tilde::resolve_cstring;
 
+fn connection() -> std::rc::Rc<xcb::Connection> {
+    i3_common::display::connection().expect("main X11 connection is registered")
+}
+
 #[cfg(test)]
 mod owned_policy_tests {
     use super::*;
@@ -999,8 +1006,4 @@ mod owned_policy_tests {
             Orientation::Horizontal
         ));
     }
-}
-
-fn connection() -> std::rc::Rc<xcb::Connection> {
-    i3_common::display::connection().expect("main X11 connection is registered")
 }

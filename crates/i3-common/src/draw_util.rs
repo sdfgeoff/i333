@@ -290,6 +290,11 @@ fn surface_initialized(surface: &surface_t) -> bool {
     }
     true
 }
+/// Find a visual's depth on the display provider's selected screen.
+///
+/// # Safety
+/// Call on the display's event thread. The provider's native connection must
+/// remain live and exclusively available throughout the borrowed setup lookup.
 pub unsafe fn get_visual_depth(visual_id: u32) -> u16 {
     let crate::display::DisplayContext {
         connection, screen, ..
@@ -406,6 +411,11 @@ pub unsafe fn draw_util_surface_set_size(surface: *mut surface_t, width: i32, he
     }
 }
 
+/// Parse a native hexadecimal color, falling back to gray on invalid input.
+///
+/// # Safety
+/// `color` must point to a live NUL-terminated string, readable through its
+/// terminator for the entire call, including any diagnostic callbacks.
 pub unsafe fn draw_util_hex_to_color(color: *const ::core::ffi::c_char) -> color_t {
     // SAFETY: The caller supplies a live NUL-terminated native color string, including its terminator.
     unsafe {
@@ -429,7 +439,7 @@ pub unsafe fn draw_util_hex_to_color(color: *const ::core::ffi::c_char) -> color
             return draw_util_hex_to_color(c"#A9A9A9".as_ptr());
         }
         let mut alpha: [::core::ffi::c_char; 2] = [0; 2];
-        if strlen(color) == strlen(c"#rrggbbaa".as_ptr()) {
+        if strlen(color) == c"#rrggbbaa".count_bytes() {
             alpha[0 as ::core::ffi::c_int as usize] =
                 *color.offset(7 as ::core::ffi::c_int as isize);
             alpha[1 as ::core::ffi::c_int as usize] =

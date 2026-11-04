@@ -82,11 +82,11 @@ mod tests {
 
     #[test]
     fn native_paths_retain_non_utf8_and_expand_only_the_first_component() {
-        let literal = CStr::from_bytes_with_nul(b"literal/\xff//tail*\0").unwrap();
+        let literal = c"literal/\xff//tail*";
         assert_eq!(resolve_cstring(literal).as_c_str(), literal);
         // This first component matches the package manifest; the non-UTF-8
         // tail and its glob syntax must remain byte-for-byte untouched.
-        let globbed = CStr::from_bytes_with_nul(b"Cargo.tom?/\xff/tail*\0").unwrap();
+        let globbed = c"Cargo.tom?/\xff/tail*";
         assert_eq!(
             resolve_cstring(globbed).to_bytes(),
             b"Cargo.toml/\xff/tail*"

@@ -4072,7 +4072,7 @@ pub unsafe fn parse_command(
                             (*token).name.offset(1 as ::core::ffi::c_int as isize),
                         );
                     }
-                    walk = walk.offset(strlen((*token).name).wrapping_sub(1_usize) as isize);
+                    walk = walk.add(strlen((*token).name).wrapping_sub(1_usize));
                     next_state(token, &raw mut cmd_ctx);
                     token_handled = true_0 != 0;
                     break;
@@ -4086,16 +4086,15 @@ pub unsafe fn parse_command(
                 if !(*__errno_location() == ERANGE && (num == LONG_MIN || num == LONG_MAX)
                     || *__errno_location() != 0 as ::core::ffi::c_int
                         && num == 0 as ::core::ffi::c_long)
+                    && !std::ptr::eq(end, walk)
                 {
-                    if !(end == walk as *mut ::core::ffi::c_char) {
-                        if !(*token).identifier.is_null() {
-                            parser_push_long(&raw mut cmd_ctx.stack, (*token).identifier, num);
-                        }
-                        walk = end;
-                        next_state(token, &raw mut cmd_ctx);
-                        token_handled = true_0 != 0;
-                        break;
+                    if !(*token).identifier.is_null() {
+                        parser_push_long(&raw mut cmd_ctx.stack, (*token).identifier, num);
                     }
+                    walk = end;
+                    next_state(token, &raw mut cmd_ctx);
+                    token_handled = true_0 != 0;
+                    break;
                 }
             } else {
                 if strcmp((*token).name, c"string".as_ptr()) == 0 as ::core::ffi::c_int
@@ -4120,24 +4119,23 @@ pub unsafe fn parse_command(
                         break;
                     }
                 }
-                if strcmp((*token).name, c"end".as_ptr()) == 0 as ::core::ffi::c_int {
-                    if *walk as ::core::ffi::c_int == '\0' as i32
+                if strcmp((*token).name, c"end".as_ptr()) == 0 as ::core::ffi::c_int
+                    && (*walk as ::core::ffi::c_int == '\0' as i32
                         || *walk as ::core::ffi::c_int == ',' as i32
+                        || *walk as ::core::ffi::c_int == ';' as i32)
+                {
+                    next_state(token, &raw mut cmd_ctx);
+                    token_handled = true_0 != 0;
+                    if *walk as ::core::ffi::c_int == '\0' as i32
                         || *walk as ::core::ffi::c_int == ';' as i32
                     {
-                        next_state(token, &raw mut cmd_ctx);
-                        token_handled = true_0 != 0;
-                        if *walk as ::core::ffi::c_int == '\0' as i32
-                            || *walk as ::core::ffi::c_int == ';' as i32
-                        {
-                            cmd_criteria_init(
-                                &raw mut cmd_ctx.current_match,
-                                &raw mut cmd_ctx.subcommand_output,
-                            );
-                        }
-                        walk = walk.offset(1);
-                        break;
+                        cmd_criteria_init(
+                            &raw mut cmd_ctx.current_match,
+                            &raw mut cmd_ctx.subcommand_output,
+                        );
                     }
+                    walk = walk.offset(1);
+                    break;
                 }
             }
             c += 1;

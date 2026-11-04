@@ -126,7 +126,6 @@ pub(crate) mod legacy {
 
     /// # Safety
     /// `text` contains `count` readable UCS-2 units, or may be null for count zero.
-
     pub unsafe fn convert_ucs2_to_utf8(text: *mut Ucs2Char, count: usize) -> *mut libc::c_char {
         let glyphs = if count == 0 {
             &[]
@@ -155,7 +154,6 @@ pub(crate) mod legacy {
     /// # Safety
     /// `input` is a live C string; `length` is null or writable. Returned storage
     /// belongs to free(). An empty conversion returns null and length zero.
-
     pub unsafe fn convert_utf8_to_ucs2(
         input: *mut libc::c_char,
         length: *mut usize,

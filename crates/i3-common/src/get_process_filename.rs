@@ -109,7 +109,6 @@ mod legacy {
     use std::ffi::CString;
     /// # Safety
     /// `prefix` is a live C string. The returned allocation belongs to free().
-
     pub unsafe fn get_process_filename(prefix: *const libc::c_char) -> *mut libc::c_char {
         // SAFETY: The caller supplies a borrowed C string.
         let prefix = unsafe { CStr::from_ptr(prefix) };

@@ -302,33 +302,31 @@ pub unsafe fn grab_all_keys() {
     let mut bind: *mut Binding = ::core::ptr::null_mut::<Binding>();
     bind = (*bindings).tqh_first;
     while !bind.is_null() {
-        if !((*bind).input_type != InputType::Keyboard) {
-            if binding_in_current_group(bind) {
-                if (*bind).keycode > 0_u32 {
-                    grab_keycode_for_binding(&connection, bind, (*bind).keycode);
-                } else {
-                    let mut binding_keycode: *mut Binding_Keycode =
-                        ::core::ptr::null_mut::<Binding_Keycode>();
-                    binding_keycode = (*bind).keycodes_head.tqh_first;
-                    while !binding_keycode.is_null() {
-                        let keycode: i32 = (*binding_keycode).keycode as i32;
-                        let mods: i32 = ((*binding_keycode).modifiers & 0xffff_u32) as i32;
-                        {
-                            let log_value_0 = i3_common::logging::pointer(bind);
-                            let log_value_1 = (keycode) as i32;
-                            let log_value_2 = (mods) as i32;
-                            ::log::debug!("../src/bindings.c:grab_all_keys:176 - Binding {} Grabbing keycode {} with mods {}\n", log_value_0, log_value_1, log_value_2);
-                        };
-                        connection.send_request(&x::GrabKey {
-                            owner_events: false,
-                            grab_window: x::Window::new(root),
-                            modifiers: x::ModMask::from_bits_retain(u32::from(mods as u16)),
-                            key: keycode as u8,
-                            pointer_mode: x::GrabMode::Async,
-                            keyboard_mode: x::GrabMode::Async,
-                        });
-                        binding_keycode = (*binding_keycode).keycodes.tqe_next;
-                    }
+        if !((*bind).input_type != InputType::Keyboard) && binding_in_current_group(bind) {
+            if (*bind).keycode > 0_u32 {
+                grab_keycode_for_binding(&connection, bind, (*bind).keycode);
+            } else {
+                let mut binding_keycode: *mut Binding_Keycode =
+                    ::core::ptr::null_mut::<Binding_Keycode>();
+                binding_keycode = (*bind).keycodes_head.tqh_first;
+                while !binding_keycode.is_null() {
+                    let keycode: i32 = (*binding_keycode).keycode as i32;
+                    let mods: i32 = ((*binding_keycode).modifiers & 0xffff_u32) as i32;
+                    {
+                        let log_value_0 = i3_common::logging::pointer(bind);
+                        let log_value_1 = (keycode) as i32;
+                        let log_value_2 = (mods) as i32;
+                        ::log::debug!("../src/bindings.c:grab_all_keys:176 - Binding {} Grabbing keycode {} with mods {}\n", log_value_0, log_value_1, log_value_2);
+                    };
+                    connection.send_request(&x::GrabKey {
+                        owner_events: false,
+                        grab_window: x::Window::new(root),
+                        modifiers: x::ModMask::from_bits_retain(u32::from(mods as u16)),
+                        key: keycode as u8,
+                        pointer_mode: x::GrabMode::Async,
+                        keyboard_mode: x::GrabMode::Async,
+                    });
+                    binding_keycode = (*binding_keycode).keycodes.tqe_next;
                 }
             }
         }
@@ -550,9 +548,9 @@ pub unsafe fn translate_keysyms() {
             if (*bind).input_type == InputType::Mouse {
                 let button = match parse_long(
                     std::ffi::CStr::from_ptr(
-                        (*bind).symbol.offset(
+                        (*bind).symbol.add(
                             (::core::mem::size_of::<[::core::ffi::c_char; 7]>() as usize)
-                                .wrapping_sub(1_usize) as isize,
+                                .wrapping_sub(1_usize),
                         ),
                     ),
                     10,
@@ -838,51 +836,48 @@ pub unsafe fn translate_keysyms() {
                         let mut check: *mut Binding = ::core::ptr::null_mut::<Binding>();
                         check = (*bindings).tqh_first;
                         while !check.is_null() {
-                            if !(check == bind) {
-                                if (*check).symbol.is_null() {
-                                    if !((*check).keycode != (*binding_keycode_3).keycode as u32
-                                        || (*check).event_state_mask
-                                            != (*binding_keycode_3).modifiers
-                                        || (*check).release as u32 != (*bind).release as u32)
+                            if !(check == bind)
+                                && (*check).symbol.is_null()
+                                && !((*check).keycode != (*binding_keycode_3).keycode as u32
+                                    || (*check).event_state_mask != (*binding_keycode_3).modifiers
+                                    || (*check).release as u32 != (*bind).release as u32)
+                            {
+                                has_errors = true;
+                                {
+                                    // Snapshot native bytes before the logger can dispatch a callback.
+                                    let log_pointer_1 = (*bind).symbol;
+                                    let log_value_0 = i3_common::logging::string_bytes(
+                                        if log_pointer_1.is_null() {
+                                            None
+                                        } else {
+                                            Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                                        },
+                                        None,
+                                    )
+                                    .to_vec();
+                                    let log_value_1 = ((*check).keycode) as i32;
+                                    let log_value_2 = ((*bind).event_state_mask) as u32;
+                                    if let (Ok(log_value_0_text),) =
+                                        (std::str::from_utf8(&log_value_0),)
                                     {
-                                        has_errors = true;
-                                        {
-                                            // Snapshot native bytes before the logger can dispatch a callback.
-                                            let log_pointer_1 = (*bind).symbol;
-                                            let log_value_0 = i3_common::logging::string_bytes(
-                                                if log_pointer_1.is_null() {
-                                                    None
-                                                } else {
-                                                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                                                },
-                                                None,
+                                        ::log::error!("ERROR: Duplicate keybinding in config file:\n  keysym = {}, keycode = {}, state_mask = 0x{:x}\n", log_value_0_text, log_value_1, log_value_2);
+                                    } else {
+                                        let mut message = Vec::new();
+                                        message.extend_from_slice("ERROR: Duplicate keybinding in config file:\n  keysym = ".as_bytes());
+                                        message.extend_from_slice(&log_value_0);
+                                        message.extend_from_slice(
+                                            format!(
+                                                ", keycode = {}, state_mask = 0x{:x}\n",
+                                                log_value_1, log_value_2
                                             )
-                                            .to_vec();
-                                            let log_value_1 = ((*check).keycode) as i32;
-                                            let log_value_2 = ((*bind).event_state_mask) as u32;
-                                            if let (Ok(log_value_0_text),) =
-                                                (std::str::from_utf8(&log_value_0),)
-                                            {
-                                                ::log::error!("ERROR: Duplicate keybinding in config file:\n  keysym = {}, keycode = {}, state_mask = 0x{:x}\n", log_value_0_text, log_value_1, log_value_2);
-                                            } else {
-                                                let mut message = Vec::new();
-                                                message.extend_from_slice("ERROR: Duplicate keybinding in config file:\n  keysym = ".as_bytes());
-                                                message.extend_from_slice(&log_value_0);
-                                                message.extend_from_slice(
-                                                    format!(
-                                                        ", keycode = {}, state_mask = 0x{:x}\n",
-                                                        log_value_1, log_value_2
-                                                    )
-                                                    .as_bytes(),
-                                                );
-                                                i3_common::logging::emit(
-                                                    i3_common::logging::Level::Error,
-                                                    &message,
-                                                );
-                                            }
-                                        };
+                                            .as_bytes(),
+                                        );
+                                        i3_common::logging::emit(
+                                            i3_common::logging::Level::Error,
+                                            &message,
+                                        );
                                     }
-                                }
+                                };
                             }
                             check = (*check).bindings.tqe_next;
                         }
@@ -1558,6 +1553,42 @@ fn append_button(buttons: &mut Vec<i32>, button: libc::c_long) {
         buttons.push(button as i32);
     }
 }
+
+/// Append an initialized native malloc node to an exclusively-owned valid queue.
+unsafe fn append_keycode(bind: *mut Binding, keycode: u8, modifiers: u32) {
+    let pointer = smalloc(std::mem::size_of::<Binding_Keycode>()).cast::<Binding_Keycode>();
+    pointer.write(Binding_Keycode {
+        keycode,
+        modifiers,
+        keycodes: crate::application::BindingKeycodeLinks {
+            tqe_next: std::ptr::null_mut(),
+            tqe_prev: (*bind).keycodes_head.tqh_last,
+        },
+    });
+    *(*bind).keycodes_head.tqh_last = pointer;
+    (*bind).keycodes_head.tqh_last = &raw mut (*pointer).keycodes.tqe_next;
+}
+
+fn translation_group(mask: u32) -> u32 {
+    KeyboardGroups::from_state_mask(mask).translation_group()
+}
+
+struct BindingCopy(*mut Binding);
+impl Drop for BindingCopy {
+    fn drop(&mut self) {
+        unsafe {
+            binding_free(self.0);
+        }
+    }
+}
+
+struct ServerGrab(Rc<xcb::Connection>);
+impl Drop for ServerGrab {
+    fn drop(&mut self) {
+        self.0.send_request(&x::UngrabServer {});
+    }
+}
+
 #[cfg(test)]
 mod owned_tests {
     use super::*;
@@ -1667,40 +1698,5 @@ mod owned_tests {
             append_button(&mut buttons, button);
         }
         assert_eq!(buttons.len(), 24);
-    }
-}
-
-/// Append an initialized native malloc node to an exclusively-owned valid queue.
-unsafe fn append_keycode(bind: *mut Binding, keycode: u8, modifiers: u32) {
-    let pointer = smalloc(std::mem::size_of::<Binding_Keycode>()).cast::<Binding_Keycode>();
-    pointer.write(Binding_Keycode {
-        keycode,
-        modifiers,
-        keycodes: crate::application::BindingKeycodeLinks {
-            tqe_next: std::ptr::null_mut(),
-            tqe_prev: (*bind).keycodes_head.tqh_last,
-        },
-    });
-    *(*bind).keycodes_head.tqh_last = pointer;
-    (*bind).keycodes_head.tqh_last = &raw mut (*pointer).keycodes.tqe_next;
-}
-
-fn translation_group(mask: u32) -> u32 {
-    KeyboardGroups::from_state_mask(mask).translation_group()
-}
-
-struct BindingCopy(*mut Binding);
-impl Drop for BindingCopy {
-    fn drop(&mut self) {
-        unsafe {
-            binding_free(self.0);
-        }
-    }
-}
-
-struct ServerGrab(Rc<xcb::Connection>);
-impl Drop for ServerGrab {
-    fn drop(&mut self) {
-        self.0.send_request(&x::UngrabServer {});
     }
 }

@@ -5239,10 +5239,8 @@ unsafe fn run_window(settings: WizardSettings) -> ::core::ffi::c_int {
             xcb::Event::X(x::Event::ButtonPress(event)) => {
                 handle_button_press(&mut ui, &connection, &event);
             }
-            xcb::Event::X(x::Event::Expose(event)) => {
-                if event.count() == 0 {
-                    handle_expose(&ui, &connection);
-                }
+            xcb::Event::X(x::Event::Expose(event)) if event.count() == 0 => {
+                handle_expose(&ui, &connection);
             }
             _ => {}
         }

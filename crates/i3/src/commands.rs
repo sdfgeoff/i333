@@ -117,7 +117,7 @@ unsafe fn maybe_auto_back_and_forth_workspace(workspace: *mut Con) -> *mut Con {
         return workspace;
     }
     let current: *const Con = con_get_workspace(focused);
-    if current == workspace as *const Con {
+    if std::ptr::eq(current, workspace) {
         let baf: *mut Con = workspace_back_and_forth_get();
         if !baf.is_null() {
             ::log::debug!("../src/commands.c:maybe_auto_back_and_forth_workspace:112 - Substituting workspace with back_and_forth, as it is focused.\n");
@@ -191,91 +191,91 @@ pub unsafe fn cmd_criteria_match_windows(
         } else {
             current_block_41 = 15089075282327824602;
         }
-        match current_block_41 {
-            15089075282327824602 => {
-                if (*current_match).mark.is_some() && !(*con).marks_head.tqh_first.is_null() {
-                    accept_match = true_0 != 0;
-                    let mut matched_by_mark: bool = false_0 != 0;
-                    let mut mark: *mut mark_t = ::core::ptr::null_mut::<mark_t>();
-                    mark = (*con).marks_head.tqh_first;
-                    while !mark.is_null() {
-                        if !regex_matches(
-                            (*current_match).mark.as_ref().unwrap(),
-                            std::ffi::CStr::from_ptr((*mark).name),
-                        ) {
-                            mark = (*mark).marks.tqe_next;
-                        } else {
-                            ::log::debug!("../src/commands.c:cmd_criteria_match_windows:184 - match by mark\n");
-                            matched_by_mark = true_0 != 0;
-                            break;
-                        }
-                    }
-                    if !matched_by_mark {
-                        ::log::debug!("../src/commands.c:cmd_criteria_match_windows:190 - mark does not match.\n");
-                        current_block_41 = 3512920355445576850;
+        if current_block_41 == 15089075282327824602 {
+            if (*current_match).mark.is_some() && !(*con).marks_head.tqh_first.is_null() {
+                accept_match = true_0 != 0;
+                let mut matched_by_mark: bool = false_0 != 0;
+                let mut mark: *mut mark_t = ::core::ptr::null_mut::<mark_t>();
+                mark = (*con).marks_head.tqh_first;
+                while !mark.is_null() {
+                    if !regex_matches(
+                        (*current_match).mark.as_ref().unwrap(),
+                        std::ffi::CStr::from_ptr((*mark).name),
+                    ) {
+                        mark = (*mark).marks.tqe_next;
                     } else {
-                        current_block_41 = 5494826135382683477;
+                        ::log::debug!(
+                            "../src/commands.c:cmd_criteria_match_windows:184 - match by mark\n"
+                        );
+                        matched_by_mark = true_0 != 0;
+                        break;
                     }
+                }
+                if !matched_by_mark {
+                    ::log::debug!(
+                        "../src/commands.c:cmd_criteria_match_windows:190 - mark does not match.\n"
+                    );
+                    current_block_41 = 3512920355445576850;
                 } else {
                     current_block_41 = 5494826135382683477;
                 }
-                match current_block_41 {
-                    3512920355445576850 => {}
-                    _ => {
-                        if !(*con).window.is_null() {
-                            if match_matches_window(current_match, (*con).window as *mut i3Window) {
-                                ::log::debug!("../src/commands.c:cmd_criteria_match_windows:197 - matches window!\n");
-                                accept_match = true_0 != 0;
-                                current_block_41 = 8845338526596852646;
-                            } else {
-                                ::log::debug!("../src/commands.c:cmd_criteria_match_windows:200 - doesn't match\n");
-                                current_block_41 = 3512920355445576850;
-                            }
-                        } else {
+            } else {
+                current_block_41 = 5494826135382683477;
+            }
+            match current_block_41 {
+                3512920355445576850 => {}
+                _ => {
+                    if !(*con).window.is_null() {
+                        if match_matches_window(current_match, (*con).window as *mut i3Window) {
+                            ::log::debug!("../src/commands.c:cmd_criteria_match_windows:197 - matches window!\n");
+                            accept_match = true_0 != 0;
                             current_block_41 = 8845338526596852646;
+                        } else {
+                            ::log::debug!("../src/commands.c:cmd_criteria_match_windows:200 - doesn't match\n");
+                            current_block_41 = 3512920355445576850;
                         }
-                        match current_block_41 {
-                            3512920355445576850 => {}
-                            _ => {
-                                if accept_match {
-                                    {
-                                        // Snapshot native bytes before the logger can dispatch a callback.
-                                        let log_value_0 = i3_common::logging::pointer(con);
-                                        let log_pointer_2 = (*con).name_ptr();
-                                        let log_value_1 = i3_common::logging::string_bytes(
-                                            if log_pointer_2.is_null() {
-                                                None
-                                            } else {
-                                                Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                                            },
-                                            None,
-                                        )
-                                        .to_vec();
-                                        if let (Ok(log_value_1_text),) =
-                                            (std::str::from_utf8(&log_value_1),)
-                                        {
-                                            ::log::debug!("../src/commands.c:cmd_criteria_match_windows:206 - matching: {} / {}\n", log_value_0, log_value_1_text);
+                    } else {
+                        current_block_41 = 8845338526596852646;
+                    }
+                    match current_block_41 {
+                        3512920355445576850 => {}
+                        _ => {
+                            if accept_match {
+                                {
+                                    // Snapshot native bytes before the logger can dispatch a callback.
+                                    let log_value_0 = i3_common::logging::pointer(con);
+                                    let log_pointer_2 = (*con).name_ptr();
+                                    let log_value_1 = i3_common::logging::string_bytes(
+                                        if log_pointer_2.is_null() {
+                                            None
                                         } else {
-                                            i3_common::logging::emit_parts(i3_common::logging::Level::Debug, &[ format!("../src/commands.c:cmd_criteria_match_windows:206 - matching: {} / ", log_value_0).as_bytes(), &log_value_1, "\n".as_bytes() ]);
-                                        }
-                                    };
-                                    let ow_0: *mut owindow =
-                                        smalloc(::core::mem::size_of::<owindow>() as usize)
-                                            as *mut owindow;
-                                    (*ow_0).con = con;
-                                    (*ow_0).owindows.tqe_next = ::core::ptr::null_mut::<owindow>();
-                                    (*ow_0).owindows.tqe_prev =
-                                        (*(*cmd_output).ctx).owindows.tqh_last;
-                                    *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
-                                    (*(*cmd_output).ctx).owindows.tqh_last =
-                                        &raw mut (*ow_0).owindows.tqe_next;
-                                }
+                                            Some(std::ffi::CStr::from_ptr(log_pointer_2))
+                                        },
+                                        None,
+                                    )
+                                    .to_vec();
+                                    if let (Ok(log_value_1_text),) =
+                                        (std::str::from_utf8(&log_value_1),)
+                                    {
+                                        ::log::debug!("../src/commands.c:cmd_criteria_match_windows:206 - matching: {} / {}\n", log_value_0, log_value_1_text);
+                                    } else {
+                                        i3_common::logging::emit_parts(i3_common::logging::Level::Debug, &[ format!("../src/commands.c:cmd_criteria_match_windows:206 - matching: {} / ", log_value_0).as_bytes(), &log_value_1, "\n".as_bytes() ]);
+                                    }
+                                };
+                                let ow_0: *mut owindow =
+                                    smalloc(::core::mem::size_of::<owindow>() as usize)
+                                        as *mut owindow;
+                                (*ow_0).con = con;
+                                (*ow_0).owindows.tqe_next = ::core::ptr::null_mut::<owindow>();
+                                (*ow_0).owindows.tqe_prev = (*(*cmd_output).ctx).owindows.tqh_last;
+                                *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
+                                (*(*cmd_output).ctx).owindows.tqh_last =
+                                    &raw mut (*ow_0).owindows.tqe_next;
                             }
                         }
                     }
                 }
             }
-            _ => {}
         }
     }
 }
@@ -561,7 +561,7 @@ pub unsafe fn cmd_move_con_to_workspace_name(
     name: *const ::core::ffi::c_char,
     no_auto_back_and_forth: *const ::core::ffi::c_char,
 ) {
-    if strncasecmp(name, c"__".as_ptr(), strlen(c"__".as_ptr())) == 0 as ::core::ffi::c_int {
+    if strncasecmp(name, c"__".as_ptr(), c"__".count_bytes()) == 0 as ::core::ffi::c_int {
         if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
@@ -1180,25 +1180,23 @@ unsafe fn cmd_resize_tiling_width_height(
     if subtract_percent >= 0.0f64 {
         child = nodes::first_ptr(parent_ptr(current));
         while !child.is_null() {
-            if !(child == current) {
-                if (*child).percent - subtract_percent < percent_for_1px(child) {
-                    if (*cmd_output).has_reply() {
-                        let mut message_1: *mut ::core::ffi::c_char =
-                            ::core::ptr::null_mut::<::core::ffi::c_char>();
-                        sasprintf(
+            if !(child == current) && (*child).percent - subtract_percent < percent_for_1px(child) {
+                if (*cmd_output).has_reply() {
+                    let mut message_1: *mut ::core::ffi::c_char =
+                        ::core::ptr::null_mut::<::core::ffi::c_char>();
+                    sasprintf(
                             &raw mut message_1,
                             c"Not resizing, already at minimum size (child %p would end up with a size of %.f".as_ptr(),
                             child,
                             (*child).percent - subtract_percent,
                         );
-                        emit_command_reply(
-                            cmd_output,
-                            CommandReply::Error(std::ffi::CStr::from_ptr(message_1)),
-                        );
-                        free(message_1 as *mut ::core::ffi::c_void);
-                    }
-                    return false_0 != 0;
+                    emit_command_reply(
+                        cmd_output,
+                        CommandReply::Error(std::ffi::CStr::from_ptr(message_1)),
+                    );
+                    free(message_1 as *mut ::core::ffi::c_void);
                 }
+                return false_0 != 0;
             }
             child = nodes::next_ptr(child);
         }
@@ -2179,7 +2177,7 @@ pub unsafe fn cmd_workspace_name(
     no_auto_back_and_forth_str: *const ::core::ffi::c_char,
 ) {
     let no_auto_back_and_forth: bool = !no_auto_back_and_forth_str.is_null();
-    if strncasecmp(name, c"__".as_ptr(), strlen(c"__".as_ptr())) == 0 as ::core::ffi::c_int {
+    if strncasecmp(name, c"__".as_ptr(), c"__".count_bytes()) == 0 as ::core::ffi::c_int {
         if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
@@ -2302,10 +2300,10 @@ pub unsafe fn cmd_mark(
         }
         return;
     }
-    if current
-        != *(*((*(*cmd_output).ctx).owindows.tqh_last as *mut owindows_head)).tqh_last
-            as *const owindow
-    {
+    if !std::ptr::eq(
+        current,
+        *(*((*(*cmd_output).ctx).owindows.tqh_last as *mut owindows_head)).tqh_last,
+    ) {
         if (*cmd_output).has_reply() {
             let mut message_1: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
@@ -2703,7 +2701,7 @@ pub unsafe fn cmd_move_con_to_mark(
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
     if (*cmd_output).has_reply() {
-        emit_command_reply(cmd_output, CommandReply::Success((result)));
+        emit_command_reply(cmd_output, CommandReply::Success(result));
     }
 }
 
@@ -3355,14 +3353,13 @@ pub unsafe fn cmd_focus_sibling(
     if count > 1 as ::core::ffi::c_int {
         ::log::info!("WARNING: Your criteria for the focus command matches {} containers, while only exactly one container can be focused at a time.\n", (count) as i32);
     }
-    let direction: Position =
-        if strncasecmp(direction_str, c"prev".as_ptr(), strlen(c"prev".as_ptr()))
-            == 0 as ::core::ffi::c_int
-        {
-            Position::Before
-        } else {
-            Position::After
-        };
+    let direction: Position = if strncasecmp(direction_str, c"prev".as_ptr(), c"prev".count_bytes())
+        == 0 as ::core::ffi::c_int
+    {
+        Position::Before
+    } else {
+        Position::After
+    };
     let mut current_0: *mut owindow = ::core::ptr::null_mut::<owindow>();
     current_0 = (*(*cmd_output).ctx).owindows.tqh_first;
     while !current_0.is_null() {
@@ -3575,7 +3572,7 @@ pub unsafe fn cmd_focus(
     while !current_0.is_null() {
         let ws: *mut Con = con_get_workspace((*current_0).con);
         if !ws.is_null() {
-            if ws == __i3_scratch as *mut Con && !focus_workspace {
+            if std::ptr::eq(ws, __i3_scratch) && !focus_workspace {
                 scratchpad_show((*current_0).con);
                 break;
             } else if focus_workspace {
@@ -4703,10 +4700,8 @@ pub unsafe fn cmd_move_window_to_position(
         }
         current = (*current).owindows.tqe_next;
     }
-    if !has_error {
-        if (*cmd_output).has_reply() {
-            emit_command_reply(cmd_output, CommandReply::Success(true));
-        }
+    if !has_error && (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 
@@ -4826,10 +4821,8 @@ pub unsafe fn cmd_move_window_to_center(
         }
         current = (*current).owindows.tqe_next;
     }
-    if !has_error {
-        if (*cmd_output).has_reply() {
-            emit_command_reply(cmd_output, CommandReply::Success(true));
-        }
+    if !has_error && (*cmd_output).has_reply() {
+        emit_command_reply(cmd_output, CommandReply::Success(true));
     }
 }
 
@@ -5079,7 +5072,7 @@ pub unsafe fn cmd_scratchpad_show(current_match: *mut Match, cmd_output: *mut Co
     }
     (*cmd_output).needs_tree_render = true_0 != 0;
     if (*cmd_output).has_reply() {
-        emit_command_reply(cmd_output, CommandReply::Success((result)));
+        emit_command_reply(cmd_output, CommandReply::Success(result));
     }
 }
 
@@ -5245,7 +5238,7 @@ pub unsafe fn cmd_swap(
     let result: bool = con_swap((*match_0).con, con) as bool;
     (*cmd_output).needs_tree_render = true_0 != 0;
     if (*cmd_output).has_reply() {
-        emit_command_reply(cmd_output, CommandReply::Success((result)));
+        emit_command_reply(cmd_output, CommandReply::Success(result));
     }
 }
 
@@ -5501,7 +5494,7 @@ pub unsafe fn cmd_rename_workspace(
         .as_deref()
         .map_or(std::ptr::null(), std::ffi::CStr::as_ptr);
     let new_name = new_name_owner.as_ptr();
-    if strncasecmp(new_name, c"__".as_ptr(), strlen(c"__".as_ptr())) == 0 as ::core::ffi::c_int {
+    if strncasecmp(new_name, c"__".as_ptr(), c"__".count_bytes()) == 0 as ::core::ffi::c_int {
         if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
@@ -5619,7 +5612,7 @@ pub unsafe fn cmd_rename_workspace(
         return;
     }
     let check_dest: *const Con = get_existing_workspace_by_name(new_name);
-    if !check_dest.is_null() && check_dest != workspace as *const Con {
+    if !check_dest.is_null() && !std::ptr::eq(check_dest, workspace) {
         if (*cmd_output).has_reply() {
             let mut message_1: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
@@ -6271,9 +6264,7 @@ pub unsafe fn cmd_gaps(
             scope,
             mode,
             pixels,
-        ) {
-            current_block = 1063758793336646565;
-        } else if !gaps_update(
+        ) || !gaps_update(
             Some(gaps_top as unsafe fn(*mut gaps_t) -> *mut ::core::ffi::c_int),
             c"all".as_ptr(),
             c"plus".as_ptr(),
@@ -6598,6 +6589,8 @@ use crate::workspace::workspace_prev_on_output;
 use crate::workspace::workspace_show;
 use i3_common::resolve_tilde::resolve_cstring;
 
+use crate::con::arena::nodes;
+
 #[cfg(test)]
 mod argument_tests {
     use super::*;
@@ -6628,5 +6621,3 @@ mod argument_tests {
         assert_eq!(snapshot[0].as_bytes(), b"HDMI-\xff");
     }
 }
-
-use crate::con::arena::nodes;

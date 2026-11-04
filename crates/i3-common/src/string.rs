@@ -224,13 +224,11 @@ mod legacy {
     }
     /// # Safety
     /// Input is a live C string; release the returned box only with i3string_free.
-
     pub unsafe fn i3string_from_utf8(input: *const libc::c_char) -> *mut I3String {
         unsafe { i3string_from_utf8_with_length(input, -1) }
     }
     /// # Safety
     /// Input is a live C string, or readable for length bytes when nonnegative.
-
     pub unsafe fn i3string_from_utf8_with_length(
         input: *const libc::c_char,
         length: isize,
@@ -253,7 +251,6 @@ mod legacy {
     }
     /// # Safety
     /// Input is a live C string.
-
     pub unsafe fn i3string_from_markup(input: *const libc::c_char) -> *mut I3String {
         let result = unsafe { i3string_from_utf8(input) };
         unsafe { text(result) }.set_markup(true);
@@ -261,7 +258,6 @@ mod legacy {
     }
     /// # Safety
     /// Input is readable for length bytes.
-
     pub unsafe fn i3string_from_markup_with_length(
         input: *const libc::c_char,
         length: usize,
@@ -272,7 +268,6 @@ mod legacy {
     }
     /// # Safety
     /// Input contains count readable UCS-2 units, or may be null for count zero.
-
     pub unsafe fn i3string_from_ucs2(input: *const Ucs2Char, count: usize) -> *mut I3String {
         let glyphs = if count == 0 {
             &[]
@@ -283,7 +278,6 @@ mod legacy {
     }
     /// # Safety
     /// raw is a live text box. Its copy is independently owned.
-
     pub unsafe fn i3string_copy(raw: *mut I3String) -> *mut I3String {
         let source = unsafe { text(raw) };
         let Some(value) = utf8(source) else {
@@ -295,7 +289,6 @@ mod legacy {
     }
     /// # Safety
     /// raw is null or a still-owned box returned by an i3string constructor.
-
     pub unsafe fn i3string_free(raw: *mut I3String) {
         if !raw.is_null() {
             unsafe { drop(Box::from_raw(raw)) };
@@ -303,13 +296,11 @@ mod legacy {
     }
     /// # Safety
     /// raw is a live text box; the borrowed pointer lasts until i3string_free.
-
     pub unsafe fn i3string_as_utf8(raw: *mut I3String) -> *const libc::c_char {
         utf8(unsafe { text(raw) }).map_or(std::ptr::null(), CStr::as_ptr)
     }
     /// # Safety
     /// raw is a live text box; the borrowed pointer lasts until i3string_free.
-
     pub unsafe fn i3string_as_ucs2(raw: *mut I3String) -> *const Ucs2Char {
         let source = unsafe { text(raw) };
         let glyphs = glyphs(source);
@@ -321,7 +312,6 @@ mod legacy {
     }
     /// # Safety
     /// raw is a live text box.
-
     pub unsafe fn i3string_get_num_bytes(raw: *mut I3String) -> usize {
         let source = unsafe { text(raw) };
         let _ = utf8(source);
@@ -329,25 +319,21 @@ mod legacy {
     }
     /// # Safety
     /// raw is a live text box.
-
     pub unsafe fn i3string_get_num_glyphs(raw: *mut I3String) -> usize {
         glyphs(unsafe { text(raw) }).len()
     }
     /// # Safety
     /// raw is a live text box.
-
     pub unsafe fn i3string_is_markup(raw: *mut I3String) -> bool {
         unsafe { text(raw) }.is_markup()
     }
     /// # Safety
     /// raw is a live text box.
-
     pub unsafe fn i3string_set_markup(raw: *mut I3String, markup: bool) {
         unsafe { text(raw) }.set_markup(markup);
     }
     /// # Safety
     /// raw is a live text box; release the returned independent box with i3string_free.
-
     pub unsafe fn i3string_escape_markup(raw: *mut I3String) -> *mut I3String {
         let source = unsafe { text(raw) };
         match source.escaped_markup() {

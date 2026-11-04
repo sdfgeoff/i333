@@ -268,12 +268,11 @@ pub unsafe fn render_con(con: *mut Con) {
             );
             x_raise_con(child);
             render_con(child);
-            if (*con).layout == Layout::SplitH || (*con).layout == Layout::SplitV {
-                if con_is_leaf(child) {
-                    if (*child).border_style == BorderStyle::Normal {
-                        (*child).deco_rect.width = (*child).rect.width;
-                    }
-                }
+            if ((*con).layout == Layout::SplitH || (*con).layout == Layout::SplitV)
+                && con_is_leaf(child)
+                && (*child).border_style == BorderStyle::Normal
+            {
+                (*child).deco_rect.width = (*child).rect.width;
             }
             i += 1;
             child = nodes::next_ptr(child);
@@ -619,6 +618,10 @@ use crate::util::rect_add;
 use crate::util::rect_sanitize_dimensions;
 use crate::x::x_raise_con;
 
+use crate::con::arena::nodes;
+
+use i3_common::logging::{emit_parts, string_bytes, Level};
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -754,7 +757,3 @@ mod tests {
         assert_eq!((r.height, p.y, d.unwrap().height), (17, 39, 0));
     }
 }
-
-use crate::con::arena::nodes;
-
-use i3_common::logging::{emit_parts, string_bytes, Level};

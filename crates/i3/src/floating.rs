@@ -1022,6 +1022,11 @@ fn increment_up(value: u32, increment: i32) -> u32 {
         )
     }
 }
+
+fn connection() -> std::rc::Rc<xcb::Connection> {
+    i3_common::display::connection().expect("main X11 connection is registered")
+}
+
 #[cfg(test)]
 mod owned_tests {
     use super::*;
@@ -1155,8 +1160,4 @@ mod owned_tests {
         );
         assert_eq!((mapped.x, mapped.y), (30, 2));
     }
-}
-
-fn connection() -> std::rc::Rc<xcb::Connection> {
-    i3_common::display::connection().expect("main X11 connection is registered")
 }

@@ -198,12 +198,13 @@ pub unsafe fn scratchpad_show(mut con: *mut Con) -> bool {
         }
         && (*floating).scratchpad_state != ScratchpadState::None
         && current != __i3_scratch
+        && current == active
     {
-        if current == active {
-            ::log::debug!("../src/scratchpad.c:scratchpad_show:165 - Window is a scratchpad window, hiding it.\n");
-            scratchpad_move(con);
-            return true;
-        }
+        ::log::debug!(
+            "../src/scratchpad.c:scratchpad_show:165 - Window is a scratchpad window, hiding it.\n"
+        );
+        scratchpad_move(con);
+        return true;
     }
     if con.is_null() {
         con = floating::first(identity(__i3_scratch).expect("live scratchpad workspace"))
@@ -333,6 +334,8 @@ use crate::util::rect_equals;
 use crate::workspace::workspace_get;
 use crate::workspace::workspace_show;
 
+use crate::con::arena::nodes;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -363,5 +366,3 @@ mod tests {
         assert!(!can_focus_visible(ScratchpadState::Changed, true));
     }
 }
-
-use crate::con::arena::nodes;

@@ -221,6 +221,31 @@ pub(crate) fn lex_string(input: &[u8], as_word: bool, grammar: StringGrammar) ->
     }
 }
 
+pub(crate) fn expected_tokens(names: &[&CStr], skip_error: bool) -> Vec<u8> {
+    let mut output = Vec::new();
+    for (index, name) in names.iter().enumerate() {
+        let bytes = name.to_bytes();
+        if skip_error && bytes == b"error" {
+            continue;
+        }
+        if let Some(literal) = bytes.strip_prefix(b"'") {
+            output.push(b'\'');
+            output.extend_from_slice(literal);
+            output.push(b'\'');
+        } else {
+            output.push(b'<');
+            output.extend_from_slice(bytes);
+            output.push(b'>');
+        }
+        // Preserve the old diagnostic's separator position even when an error
+        // recovery token is skipped at the end of the generated alternatives.
+        if index + 1 < names.len() {
+            output.extend_from_slice(b", ");
+        }
+    }
+    output
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -288,7 +313,8 @@ mod tests {
 
     #[test]
     fn command_and_config_lexers_keep_distinct_escaping_and_consumed_offsets() {
-        let common: &[(&[u8], bool, Option<&[u8]>, usize)] = &[
+        type StringCase<'a> = (&'a [u8], bool, Option<&'a [u8]>, usize);
+        let common: &[StringCase<'_>] = &[
             (b"", false, None, 0),
             (b"\"\"", false, None, 1),
             (b"\"abc", false, Some(b"abc"), 4),
@@ -333,29 +359,4 @@ mod tests {
             (Some(b"a\\\"tail".as_slice()), 9)
         );
     }
-}
-
-pub(crate) fn expected_tokens(names: &[&CStr], skip_error: bool) -> Vec<u8> {
-    let mut output = Vec::new();
-    for (index, name) in names.iter().enumerate() {
-        let bytes = name.to_bytes();
-        if skip_error && bytes == b"error" {
-            continue;
-        }
-        if let Some(literal) = bytes.strip_prefix(b"'") {
-            output.push(b'\'');
-            output.extend_from_slice(literal);
-            output.push(b'\'');
-        } else {
-            output.push(b'<');
-            output.extend_from_slice(bytes);
-            output.push(b'>');
-        }
-        // Preserve the old diagnostic's separator position even when an error
-        // recovery token is skipped at the end of the generated alternatives.
-        if index + 1 < names.len() {
-            output.extend_from_slice(b", ");
-        }
-    }
-    output
 }

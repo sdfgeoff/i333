@@ -716,8 +716,10 @@ pub unsafe fn window_supports_protocol(window: u32, atom: u32) -> bool {
         std::slice::from_raw_parts(raw.add(32), count * 4)
     };
     words
-        .chunks_exact(4)
-        .any(|word| u32::from_ne_bytes(word.try_into().unwrap()) == atom)
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .any(|word| u32::from_ne_bytes(*word) == atom)
 }
 
 pub unsafe fn x_window_kill(window: u32, kill_window: KillWindow) {
@@ -2378,6 +2380,10 @@ use i3_common::draw_util::draw_util_surface_set_size;
 use i3_common::draw_util::OwnedPixmap;
 use i3_common::font::predict_text_width;
 
+use crate::con::arena::nodes;
+
+use i3_common::logging::{emit_parts, string_bytes, Level};
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2548,7 +2554,3 @@ mod tests {
         ));
     }
 }
-
-use crate::con::arena::nodes;
-
-use i3_common::logging::{emit_parts, string_bytes, Level};

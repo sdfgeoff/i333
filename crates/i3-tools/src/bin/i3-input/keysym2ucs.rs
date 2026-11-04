@@ -33,7 +33,6 @@
 /// Immutable X11 legacy keysym-to-UCS mapping; the original table is public domain.
 // Direct Unicode keysyms deliberately retain the historical 24-bit UCS range.
 // Return a code point rather than char: the protocol also admits non-scalars.
-
 const LEGACY: &[(u16, u16)] = &[
     (0x01a1, 0x0104),
     (0x01a2, 0x02d8),

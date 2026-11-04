@@ -327,9 +327,7 @@ unsafe fn apply_workspaces(records: Vec<WorkspaceRecord>) {
             let targets = output_targets(
                 &record,
                 |name| {
-                    if fallback.is_none() {
-                        return None;
-                    }
+                    fallback?;
                     let output = get_output_by_name(name.as_ptr().cast_mut());
                     (!output.is_null()).then_some(output)
                 },

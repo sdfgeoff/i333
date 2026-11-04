@@ -174,11 +174,10 @@ unsafe fn drag_callback(
         let sibling_indicator_size = edges.sibling;
         let parent_indicator_size = edges.parent;
         let d_min = edges.distance;
-        let target_parent;
-        let target_sibling;
-        target_parent =
+
+        let target_parent =
             d_min < parent_indicator_size && con_on_side_of_parent(target, direction) as i32 != 0;
-        target_sibling = d_min < sibling_indicator_size;
+        let target_sibling = d_min < sibling_indicator_size;
         drop_type = if target_parent {
             DropType::Parent
         } else {
@@ -536,6 +535,9 @@ fn indicator_edges(rect: Rect, x: u32, y: u32, min_size: i32, max_parent: i32) -
         parent,
     }
 }
+
+use crate::con::arena::nodes;
+
 #[cfg(test)]
 mod owned_tests {
     use super::*;
@@ -600,5 +602,3 @@ mod owned_tests {
         assert_eq!((down.y, down.height), (17, 5));
     }
 }
-
-use crate::con::arena::nodes;

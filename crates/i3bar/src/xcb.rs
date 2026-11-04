@@ -2230,7 +2230,7 @@ unsafe fn init_tray() {
     });
     selwin = connection.generate_id::<x::Window>().resource_id();
     connection.send_request(&x::CreateWindow {
-        depth: depth,
+        depth,
         wid: x::Window::new(selwin),
         parent: x::Window::new(xcb_root),
         x: -(1 as ::core::ffi::c_int) as i16,
@@ -2601,7 +2601,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
             values[4 as ::core::ffi::c_int as usize] = colormap;
             values[5 as ::core::ffi::c_int as usize] = cursor;
             let win_cookie = connection.send_request_checked(&x::CreateWindow {
-                depth: depth,
+                depth,
                 wid: x::Window::new(bar_id),
                 parent: x::Window::new(xcb_root),
                 x: (*walk).rect.x as i16,
@@ -2621,14 +2621,14 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 ],
             });
             let pm_cookie = connection.send_request_checked(&x::CreatePixmap {
-                depth: depth,
+                depth,
                 pid: x::Pixmap::new(buffer_id),
                 drawable: x::Drawable::Window(x::Window::new(bar_id)),
                 width: (*walk).rect.w as u16,
                 height: bar_height as u16,
             });
             let slpm_cookie = connection.send_request_checked(&x::CreatePixmap {
-                depth: depth,
+                depth,
                 pid: x::Pixmap::new(statusline_buffer_id),
                 drawable: x::Drawable::Window(x::Window::new(bar_id)),
                 width: (*walk).rect.w as u16,
@@ -2868,7 +2868,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 );
             }
             let pm_cookie_0 = connection.send_request_checked(&x::CreatePixmap {
-                depth: depth,
+                depth,
                 pid: x::Pixmap::new((*walk).buffer.id as u32),
                 drawable: x::Drawable::Window(x::Window::new((*walk).bar.id)),
                 width: (*walk).rect.w as u16,
@@ -2883,7 +2883,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 );
             }
             let slpm_cookie_0 = connection.send_request_checked(&x::CreatePixmap {
-                depth: depth,
+                depth,
                 pid: x::Pixmap::new((*walk).statusline_buffer.id as u32),
                 drawable: x::Drawable::Window(x::Window::new((*walk).bar.id)),
                 width: (*walk).rect.w as u16,
@@ -3437,7 +3437,7 @@ mod owned_tests {
     }
     #[test]
     fn quoting_and_class_bytes_preserve_non_utf8_escapes_and_first_nul() {
-        let input = std::ffi::CStr::from_bytes_with_nul(b"raw\xff\"\\name\0").unwrap();
+        let input = c"raw\xff\"\\name";
         assert_eq!(
             quote_workspace(input).to_bytes(),
             b"workspace \"raw\xff\\\"\\\\name\""

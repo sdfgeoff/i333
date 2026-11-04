@@ -815,7 +815,6 @@ fn read_first_config(json: &[u8]) -> Option<CString> {
     let _ = parser.parse(json);
     drop(parser);
     Rc::try_unwrap(first)
-        .ok()
         .expect("parser released first config")
         .into_inner()
 }

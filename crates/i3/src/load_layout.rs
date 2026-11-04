@@ -97,7 +97,8 @@ impl LayoutState {
     unsafe fn json_start_map(&mut self) -> ::core::ffi::c_int {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_value_0 = (|pointer: *const libc::c_char| {
+            let log_value_0 = {
+                let pointer: *const libc::c_char = self.last_key.as_ptr();
                 i3_common::logging::string_bytes(
                     if pointer.is_null() {
                         None
@@ -107,7 +108,7 @@ impl LayoutState {
                     None,
                 )
                 .to_vec()
-            })(self.last_key.as_ptr());
+            };
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::info!("start of map, last_key = {}\n", log_value_0_text);
             } else {
@@ -225,7 +226,7 @@ impl LayoutState {
                 let mut cnt: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
                 while !get_existing_workspace_by_name((*self.json_node).name_ptr()).is_null() {
                     let fresh1 = cnt;
-                    cnt = cnt + 1;
+                    cnt += 1;
                     let mut name = base.to_bytes().to_vec();
                     name.extend_from_slice(format!("_{fresh1}").as_bytes());
                     (*self.json_node).name = Some(CString::new(name).unwrap());
@@ -423,7 +424,8 @@ impl LayoutState {
                 Some(logged_string.as_c_str()),
                 usize::try_from(log_precision_0).ok(),
             );
-            let log_value_1 = (|pointer: *const libc::c_char| {
+            let log_value_1 = {
+                let pointer: *const libc::c_char = self.last_key.as_ptr();
                 i3_common::logging::string_bytes(
                     if pointer.is_null() {
                         None
@@ -433,7 +435,7 @@ impl LayoutState {
                     None,
                 )
                 .to_vec()
-            })(self.last_key.as_ptr());
+            };
             if let (Ok(log_value_0_text), Ok(log_value_1_text)) = (
                 std::str::from_utf8(log_value_0),
                 std::str::from_utf8(&log_value_1),
@@ -495,7 +497,8 @@ impl LayoutState {
             } else {
                 {
                     // Snapshot native bytes before the logger can dispatch a callback.
-                    let log_value_0 = (|pointer: *const libc::c_char| {
+                    let log_value_0 = {
+                        let pointer: *const libc::c_char = self.last_key.as_ptr();
                         i3_common::logging::string_bytes(
                             if pointer.is_null() {
                                 None
@@ -505,7 +508,7 @@ impl LayoutState {
                             None,
                         )
                         .to_vec()
-                    })(self.last_key.as_ptr());
+                    };
                     if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                         ::log::error!("ERROR: swallow key {} unknown\n", log_value_0_text);
                     } else {
@@ -539,7 +542,8 @@ impl LayoutState {
             (*self.json_node).sticky_group = Some(group.clone());
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
-                let log_value_0 = (|pointer: *const libc::c_char| {
+                let log_value_0 = {
+                    let pointer: *const libc::c_char = group.as_ptr();
                     i3_common::logging::string_bytes(
                         if pointer.is_null() {
                             None
@@ -549,7 +553,7 @@ impl LayoutState {
                         None,
                     )
                     .to_vec()
-                })(group.as_ptr());
+                };
                 if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                     ::log::info!("sticky_group of this container is {}\n", log_value_0_text);
                 } else {
@@ -577,7 +581,8 @@ impl LayoutState {
             } else {
                 {
                     // Snapshot native bytes before the logger can dispatch a callback.
-                    let log_value_0 = (|pointer: *const libc::c_char| {
+                    let log_value_0 = {
+                        let pointer: *const libc::c_char = buf;
                         i3_common::logging::string_bytes(
                             if pointer.is_null() {
                                 None
@@ -587,7 +592,7 @@ impl LayoutState {
                             None,
                         )
                         .to_vec()
-                    })(buf);
+                    };
                     if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                         ::log::info!("Unhandled orientation: {}\n", log_value_0_text);
                     } else {
@@ -622,7 +627,8 @@ impl LayoutState {
             } else {
                 {
                     // Snapshot native bytes before the logger can dispatch a callback.
-                    let log_value_0 = (|pointer: *const libc::c_char| {
+                    let log_value_0 = {
+                        let pointer: *const libc::c_char = buf_0;
                         i3_common::logging::string_bytes(
                             if pointer.is_null() {
                                 None
@@ -632,7 +638,7 @@ impl LayoutState {
                             None,
                         )
                         .to_vec()
-                    })(buf_0);
+                    };
                     if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                         ::log::info!("Unhandled \"border\": {}\n", log_value_0_text);
                     } else {
@@ -665,7 +671,8 @@ impl LayoutState {
             } else {
                 {
                     // Snapshot native bytes before the logger can dispatch a callback.
-                    let log_value_0 = (|pointer: *const libc::c_char| {
+                    let log_value_0 = {
+                        let pointer: *const libc::c_char = buf_1;
                         i3_common::logging::string_bytes(
                             if pointer.is_null() {
                                 None
@@ -675,7 +682,7 @@ impl LayoutState {
                             None,
                         )
                         .to_vec()
-                    })(buf_1);
+                    };
                     if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                         ::log::info!("Unhandled \"type\": {}\n", log_value_0_text);
                     } else {
@@ -711,7 +718,8 @@ impl LayoutState {
             } else {
                 {
                     // Snapshot native bytes before the logger can dispatch a callback.
-                    let log_value_0 = (|pointer: *const libc::c_char| {
+                    let log_value_0 = {
+                        let pointer: *const libc::c_char = buf_2;
                         i3_common::logging::string_bytes(
                             if pointer.is_null() {
                                 None
@@ -721,7 +729,7 @@ impl LayoutState {
                             None,
                         )
                         .to_vec()
-                    })(buf_2);
+                    };
                     if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                         ::log::info!("Unhandled \"layout\": {}\n", log_value_0_text);
                     } else {
@@ -750,7 +758,8 @@ impl LayoutState {
             } else {
                 {
                     // Snapshot native bytes before the logger can dispatch a callback.
-                    let log_value_0 = (|pointer: *const libc::c_char| {
+                    let log_value_0 = {
+                        let pointer: *const libc::c_char = buf_3;
                         i3_common::logging::string_bytes(
                             if pointer.is_null() {
                                 None
@@ -760,7 +769,7 @@ impl LayoutState {
                             None,
                         )
                         .to_vec()
-                    })(buf_3);
+                    };
                     if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                         ::log::info!("Unhandled \"workspace_layout\": {}\n", log_value_0_text);
                     } else {
@@ -787,7 +796,8 @@ impl LayoutState {
             } else {
                 {
                     // Snapshot native bytes before the logger can dispatch a callback.
-                    let log_value_0 = (|pointer: *const libc::c_char| {
+                    let log_value_0 = {
+                        let pointer: *const libc::c_char = buf_4;
                         i3_common::logging::string_bytes(
                             if pointer.is_null() {
                                 None
@@ -797,7 +807,7 @@ impl LayoutState {
                             None,
                         )
                         .to_vec()
-                    })(buf_4);
+                    };
                     if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                         ::log::info!("Unhandled \"last_splitlayout\": {}\n", log_value_0_text);
                     } else {
@@ -858,7 +868,8 @@ impl LayoutState {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_value_0 = (val) as libc::c_longlong;
-            let log_value_1 = (|pointer: *const libc::c_char| {
+            let log_value_1 = {
+                let pointer: *const libc::c_char = self.last_key.as_ptr();
                 i3_common::logging::string_bytes(
                     if pointer.is_null() {
                         None
@@ -868,7 +879,7 @@ impl LayoutState {
                     None,
                 )
                 .to_vec()
-            })(self.last_key.as_ptr());
+            };
             if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
                 ::log::info!("int {} for key {}\n", log_value_0, log_value_1_text);
             } else {
@@ -931,7 +942,8 @@ impl LayoutState {
             } else {
                 {
                     // Snapshot native bytes before the logger can dispatch a callback.
-                    let log_value_0 = (|pointer: *const libc::c_char| {
+                    let log_value_0 = {
+                        let pointer: *const libc::c_char = self.last_key.as_ptr();
                         i3_common::logging::string_bytes(
                             if pointer.is_null() {
                                 None
@@ -941,7 +953,7 @@ impl LayoutState {
                             None,
                         )
                         .to_vec()
-                    })(self.last_key.as_ptr());
+                    };
                     if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                         ::log::error!("ERROR: WARNING: unknown key {} in rect\n", log_value_0_text);
                     } else {
@@ -1006,7 +1018,8 @@ impl LayoutState {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_value_0 = (val);
-            let log_value_1 = (|pointer: *const libc::c_char| {
+            let log_value_1 = {
+                let pointer: *const libc::c_char = self.last_key.as_ptr();
                 i3_common::logging::string_bytes(
                     if pointer.is_null() {
                         None
@@ -1016,7 +1029,7 @@ impl LayoutState {
                     None,
                 )
                 .to_vec()
-            })(self.last_key.as_ptr());
+            };
             if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
                 ::log::info!("bool {} for key {}\n", log_value_0, log_value_1_text);
             } else {
@@ -1038,13 +1051,12 @@ impl LayoutState {
         if strcasecmp(self.last_key.as_ptr(), c"sticky".as_ptr()) == 0 as ::core::ffi::c_int {
             (*self.json_node).sticky = val != 0;
         }
-        if self.parsing_swallows {
-            if strcasecmp(self.last_key.as_ptr(), c"restart_mode".as_ptr())
+        if self.parsing_swallows
+            && strcasecmp(self.last_key.as_ptr(), c"restart_mode".as_ptr())
                 == 0 as ::core::ffi::c_int
-            {
-                (*self.current_swallow).restart_mode = val != 0;
-                self.swallow_is_empty = false;
-            }
+        {
+            (*self.current_swallow).restart_mode = val != 0;
+            self.swallow_is_empty = false;
         }
         1 as ::core::ffi::c_int
     }
@@ -1197,7 +1209,8 @@ pub unsafe fn json_validate(buf: *const libc::c_char, len: usize) -> bool {
             let text = CString::new(format!("{error}\n")).unwrap();
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
-                let log_value_0 = (|pointer: *const libc::c_char| {
+                let log_value_0 = {
+                    let pointer: *const libc::c_char = text.as_ptr();
                     i3_common::logging::string_bytes(
                         if pointer.is_null() {
                             None
@@ -1207,7 +1220,7 @@ pub unsafe fn json_validate(buf: *const libc::c_char, len: usize) -> bool {
                         None,
                     )
                     .to_vec()
-                })(text.as_ptr());
+                };
                 if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                     ::log::error!("ERROR: JSON parsing error: {}\n", log_value_0_text);
                 } else {
@@ -1235,7 +1248,8 @@ pub unsafe fn json_determine_content(buf: *const libc::c_char, len: usize) -> Js
         let text = CString::new(format!("{error}\n")).unwrap();
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_value_0 = (|pointer: *const libc::c_char| {
+            let log_value_0 = {
+                let pointer: *const libc::c_char = text.as_ptr();
                 i3_common::logging::string_bytes(
                     if pointer.is_null() {
                         None
@@ -1245,7 +1259,7 @@ pub unsafe fn json_determine_content(buf: *const libc::c_char, len: usize) -> Js
                     None,
                 )
                 .to_vec()
-            })(text.as_ptr());
+            };
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::error!("ERROR: JSON parsing error: {}\n", log_value_0_text);
             } else {
@@ -1305,7 +1319,8 @@ pub unsafe fn tree_append_json(
         let message = CString::new(format!("{message}\n")).unwrap();
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_value_0 = (|pointer: *const libc::c_char| {
+            let log_value_0 = {
+                let pointer: *const libc::c_char = message.as_ptr();
                 i3_common::logging::string_bytes(
                     if pointer.is_null() {
                         None
@@ -1315,7 +1330,7 @@ pub unsafe fn tree_append_json(
                     None,
                 )
                 .to_vec()
-            })(message.as_ptr());
+            };
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::error!("ERROR: JSON parsing error: {}\n", log_value_0_text);
             } else {

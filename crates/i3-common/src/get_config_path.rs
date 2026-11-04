@@ -83,7 +83,6 @@ mod legacy {
 
     /// # Safety
     /// `override_path` is null or a live C string. Returned storage belongs to free.
-
     pub unsafe fn get_config_path(
         override_path: *const libc::c_char,
         use_system_paths: bool,

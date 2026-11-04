@@ -517,6 +517,10 @@ use crate::config::config;
 use crate::drag::drag_pointer;
 use crate::xcb::create_window;
 
+use crate::con::arena::nodes;
+
+use i3_common::logging::{emit_parts, fixed_decimal, string_bytes, FixedPrecision, Level};
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -562,7 +566,3 @@ mod tests {
         assert_eq!(1u32.wrapping_sub(u32::MAX) as i32, 2);
     }
 }
-
-use crate::con::arena::nodes;
-
-use i3_common::logging::{emit_parts, fixed_decimal, string_bytes, FixedPrecision, Level};

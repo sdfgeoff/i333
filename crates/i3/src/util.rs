@@ -436,22 +436,22 @@ unsafe extern "C" fn nagbar_exited(
     let watcher = Box::from_raw(watcher);
     let exitcode = libc::WEXITSTATUS(watcher.rstatus);
     if !libc::WIFEXITED(watcher.rstatus) {
-        ::log::error!("ERROR: i3-nagbar ({}) did not exit normally. This is not an error if the config was reloaded while a nagbar was active.\n", { ((*watcher).pid) });
+        ::log::error!("ERROR: i3-nagbar ({}) did not exit normally. This is not an error if the config was reloaded while a nagbar was active.\n", { (watcher.pid) });
     } else if exitcode != 0 as ::core::ffi::c_int {
         ::log::error!(
             "ERROR: i3-nagbar ({}) process exited with status {}\n",
-            { ((*watcher).pid) },
+            { (watcher.pid) },
             (exitcode) as i32
         );
     } else {
         ::log::debug!(
             "../src/util.c:nagbar_exited:348 - i3-nagbar ({}) process exited with status {}\n",
-            { ((*watcher).pid) },
+            { (watcher.pid) },
             (exitcode) as i32
         );
     }
-    let nagbar_pid: *mut libc::pid_t = (*watcher).data as *mut libc::pid_t;
-    if *nagbar_pid == (*watcher).pid {
+    let nagbar_pid: *mut libc::pid_t = watcher.data as *mut libc::pid_t;
+    if *nagbar_pid == watcher.pid {
         *nagbar_pid = -(1 as ::core::ffi::c_int) as libc::pid_t;
     }
 }
@@ -700,6 +700,8 @@ pub fn position_name(position: Position) -> &'static str {
         Position::After => "after",
     }
 }
+
+use i3_common::logging::{emit_parts, string_bytes, Level};
 
 #[cfg(test)]
 mod tests {
@@ -961,5 +963,3 @@ mod tests {
         assert_eq!(slurp(c"/proc/self/status").unwrap(), b"");
     }
 }
-
-use i3_common::logging::{emit_parts, string_bytes, Level};

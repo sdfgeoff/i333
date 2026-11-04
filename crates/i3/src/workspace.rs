@@ -122,7 +122,8 @@ pub unsafe fn get_assigned_output(
             if !name.is_null() && strcmp((*assignment).name, name) == 0 as ::core::ffi::c_int {
                 {
                     // Snapshot native bytes before the logger can dispatch a callback.
-                    let log_value_0 = (|pointer: *const libc::c_char| {
+                    let log_value_0 = {
+                        let pointer: *const libc::c_char = name;
                         i3_common::logging::string_bytes(
                             if pointer.is_null() {
                                 None
@@ -132,8 +133,9 @@ pub unsafe fn get_assigned_output(
                             None,
                         )
                         .to_vec()
-                    })(name);
-                    let log_value_1 = (|pointer: *const libc::c_char| {
+                    };
+                    let log_value_1 = {
+                        let pointer: *const libc::c_char = (*assignment).output;
                         i3_common::logging::string_bytes(
                             if pointer.is_null() {
                                 None
@@ -143,7 +145,7 @@ pub unsafe fn get_assigned_output(
                             None,
                         )
                         .to_vec()
-                    })((*assignment).output);
+                    };
                     if let (Ok(log_value_0_text), Ok(log_value_1_text)) = (
                         std::str::from_utf8(&log_value_0),
                         std::str::from_utf8(&log_value_1),
@@ -169,7 +171,8 @@ pub unsafe fn get_assigned_output(
                 {
                     // Snapshot native bytes before the logger can dispatch a callback.
                     let log_value_0 = (parsed_num) as libc::c_long;
-                    let log_value_1 = (|pointer: *const libc::c_char| {
+                    let log_value_1 = {
+                        let pointer: *const libc::c_char = (*assignment).output;
                         i3_common::logging::string_bytes(
                             if pointer.is_null() {
                                 None
@@ -179,7 +182,7 @@ pub unsafe fn get_assigned_output(
                             None,
                         )
                         .to_vec()
-                    })((*assignment).output);
+                    };
                     if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
                         ::log::debug!("../src/workspace.c:get_assigned_output:105 - Found workspace number={} assignment to output \"{}\"\n", log_value_0, log_value_1_text);
                     } else {
@@ -215,7 +218,8 @@ pub unsafe fn workspace_get(num: *const ::core::ffi::c_char) -> *mut Con {
     }
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_value_0 = (|pointer: *const libc::c_char| {
+        let log_value_0 = {
+            let pointer: *const libc::c_char = num;
             i3_common::logging::string_bytes(
                 if pointer.is_null() {
                     None
@@ -225,7 +229,7 @@ pub unsafe fn workspace_get(num: *const ::core::ffi::c_char) -> *mut Con {
                 None,
             )
             .to_vec()
-        })(num);
+        };
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::info!("Creating new workspace \"{}\"\n", log_value_0_text);
         } else {
@@ -569,7 +573,8 @@ pub unsafe fn workspace_show(workspace: *mut Con) {
         previous_workspace_name = sstrdup((*current).name_ptr());
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_value_0 = (|pointer: *const libc::c_char| {
+            let log_value_0 = {
+                let pointer: *const libc::c_char = previous_workspace_name;
                 i3_common::logging::string_bytes(
                     if pointer.is_null() {
                         None
@@ -579,7 +584,7 @@ pub unsafe fn workspace_show(workspace: *mut Con) {
                     None,
                 )
                 .to_vec()
-            })(previous_workspace_name);
+            };
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::debug!("../src/workspace.c:workspace_show:480 - Setting previous_workspace_name = {}\n", log_value_0_text);
             } else {
@@ -629,7 +634,7 @@ pub unsafe fn workspace_show(workspace: *mut Con) {
             ::log::debug!("../src/workspace.c:workspace_show:506 - Deferring reset of urgency flag of con {} on newly shown workspace {}\n", i3_common::logging::pointer(focused), i3_common::logging::pointer(workspace));
             (*focused).urgency_timer =
                 scalloc(1_usize, ::core::mem::size_of::<ev_timer>() as usize) as *mut ev_timer;
-            let ref mut fresh2 = (*((*focused).urgency_timer as *mut ::core::ffi::c_void
+            let fresh2 = &mut (*((*focused).urgency_timer as *mut ::core::ffi::c_void
                 as *mut ev_watcher))
                 .pending;
             *fresh2 = 0 as ::core::ffi::c_int;
@@ -695,43 +700,42 @@ pub unsafe fn workspace_show(workspace: *mut Con) {
     if !old.is_null()
         && nodes::first_ptr(old).is_null()
         && floating::is_empty(identity(old).expect("live old workspace"))
+        && !workspace_is_visible(old)
     {
-        if !workspace_is_visible(old) {
-            {
-                // Snapshot native bytes before the logger can dispatch a callback.
-                let log_value_0 = i3_common::logging::pointer(old);
-                let log_owner_2 = (*old).name.clone();
-                let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
-                if let (Ok(log_value_1_text),) = (std::str::from_utf8(log_value_1),) {
-                    ::log::info!(
-                        "Closing old workspace ({} / {}), it is empty\n",
-                        log_value_0,
-                        log_value_1_text
-                    );
-                } else {
-                    i3_common::logging::emit_parts(
-                        i3_common::logging::Level::Verbose,
-                        &[
-                            format!("Closing old workspace ({} / ", log_value_0).as_bytes(),
-                            log_value_1,
-                            "), it is empty\n".as_bytes(),
-                        ],
-                    );
-                }
-            };
-            let payload =
-                ipc_marshal_workspace_event(c"empty".as_ptr(), old, ::core::ptr::null_mut::<Con>());
-            tree_close_internal(old, KillWindow::DontKill, false);
-            ipc_send_event(
-                c"workspace".as_ptr(),
-                I3_IPC_EVENT_WORKSPACE as u32,
-                payload.as_ptr(),
-            );
-            if old == old_focus {
-                old_focus = ::core::ptr::null_mut::<Con>();
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_value_0 = i3_common::logging::pointer(old);
+            let log_owner_2 = (*old).name.clone();
+            let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
+            if let (Ok(log_value_1_text),) = (std::str::from_utf8(log_value_1),) {
+                ::log::info!(
+                    "Closing old workspace ({} / {}), it is empty\n",
+                    log_value_0,
+                    log_value_1_text
+                );
+            } else {
+                i3_common::logging::emit_parts(
+                    i3_common::logging::Level::Verbose,
+                    &[
+                        format!("Closing old workspace ({} / ", log_value_0).as_bytes(),
+                        log_value_1,
+                        "), it is empty\n".as_bytes(),
+                    ],
+                );
             }
-            ewmh_update_desktop_properties();
+        };
+        let payload =
+            ipc_marshal_workspace_event(c"empty".as_ptr(), old, ::core::ptr::null_mut::<Con>());
+        tree_close_internal(old, KillWindow::DontKill, false);
+        ipc_send_event(
+            c"workspace".as_ptr(),
+            I3_IPC_EVENT_WORKSPACE as u32,
+            payload.as_ptr(),
+        );
+        if old == old_focus {
+            old_focus = ::core::ptr::null_mut::<Con>();
         }
+        ewmh_update_desktop_properties();
     }
     (*workspace).fullscreen_mode = FullscreenMode::Output;
     {
@@ -1042,25 +1046,22 @@ pub unsafe fn workspace_next_on_output() -> *mut Con {
         current_block = 17281240262373992796;
     }
     match current_block {
-        17281240262373992796 => {
-            if next.is_null() {
-                let mut child_1: *mut Con = -(1 as ::core::ffi::c_int) as *mut Con;
-                while child_1 == -(1 as ::core::ffi::c_int) as *mut Con && {
-                    child_1 = ::core::ptr::null_mut::<Con>();
-                    true
-                } {
-                    child_1 = nodes::first_ptr(output_get_content(output));
-                    while !child_1.is_null() {
-                        if !(((*child_1).type_0) != ContainerType::Workspace) {
-                            if next.is_null()
-                                || (*child_1).num != -(1 as ::core::ffi::c_int)
-                                    && (*child_1).num < (*next).num
-                            {
-                                next = child_1;
-                            }
-                        }
-                        child_1 = nodes::next_ptr(child_1);
+        17281240262373992796 if next.is_null() => {
+            let mut child_1: *mut Con = -(1 as ::core::ffi::c_int) as *mut Con;
+            while child_1 == -(1 as ::core::ffi::c_int) as *mut Con && {
+                child_1 = ::core::ptr::null_mut::<Con>();
+                true
+            } {
+                child_1 = nodes::first_ptr(output_get_content(output));
+                while !child_1.is_null() {
+                    if !(((*child_1).type_0) != ContainerType::Workspace)
+                        && (next.is_null()
+                            || (*child_1).num != -(1 as ::core::ffi::c_int)
+                                && (*child_1).num < (*next).num)
+                    {
+                        next = child_1;
                     }
+                    child_1 = nodes::next_ptr(child_1);
                 }
             }
         }
@@ -1160,22 +1161,20 @@ pub unsafe fn workspace_prev_on_output() -> *mut Con {
         current_block = 11913429853522160501;
     }
     match current_block {
-        11913429853522160501 => {
-            if prev.is_null() {
-                let mut child_1: *mut Con = -(1 as ::core::ffi::c_int) as *mut Con;
-                while child_1 == -(1 as ::core::ffi::c_int) as *mut Con && {
-                    child_1 = ::core::ptr::null_mut::<Con>();
-                    true
-                } {
-                    child_1 = nodes::last_ptr(output_get_content(output));
-                    while !child_1.is_null() {
-                        if !(((*child_1).type_0) != ContainerType::Workspace) {
-                            if prev.is_null() || (*child_1).num > (*prev).num {
-                                prev = child_1;
-                            }
-                        }
-                        child_1 = nodes::previous_ptr(child_1);
+        11913429853522160501 if prev.is_null() => {
+            let mut child_1: *mut Con = -(1 as ::core::ffi::c_int) as *mut Con;
+            while child_1 == -(1 as ::core::ffi::c_int) as *mut Con && {
+                child_1 = ::core::ptr::null_mut::<Con>();
+                true
+            } {
+                child_1 = nodes::last_ptr(output_get_content(output));
+                while !child_1.is_null() {
+                    if !(((*child_1).type_0) != ContainerType::Workspace)
+                        && (prev.is_null() || (*child_1).num > (*prev).num)
+                    {
+                        prev = child_1;
                     }
+                    child_1 = nodes::previous_ptr(child_1);
                 }
             }
         }
@@ -1361,7 +1360,8 @@ pub unsafe fn workspace_move_to_output(mut ws: *mut Con, output: *mut Output) {
         let log_owner_2 = (*ws).name.clone();
         let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
         let log_value_2 = i3_common::logging::pointer(output);
-        let log_value_3 = (|pointer: *const libc::c_char| {
+        let log_value_3 = {
+            let pointer: *const libc::c_char = output_primary_name(output);
             i3_common::logging::string_bytes(
                 if pointer.is_null() {
                     None
@@ -1371,7 +1371,7 @@ pub unsafe fn workspace_move_to_output(mut ws: *mut Con, output: *mut Output) {
                 None,
             )
             .to_vec()
-        })(output_primary_name(output));
+        };
         if let (Ok(log_value_1_text), Ok(log_value_3_text)) = (
             std::str::from_utf8(log_value_1),
             std::str::from_utf8(&log_value_3),
@@ -1451,7 +1451,8 @@ pub unsafe fn workspace_move_to_output(mut ws: *mut Con, output: *mut Output) {
                 if !attached {
                     {
                         // Snapshot native bytes before the logger can dispatch a callback.
-                        let log_value_0 = (|pointer: *const libc::c_char| {
+                        let log_value_0 = {
+                            let pointer: *const libc::c_char = (*assignment).name;
                             i3_common::logging::string_bytes(
                                 if pointer.is_null() {
                                     None
@@ -1461,7 +1462,7 @@ pub unsafe fn workspace_move_to_output(mut ws: *mut Con, output: *mut Output) {
                                 None,
                             )
                             .to_vec()
-                        })((*assignment).name);
+                        };
                         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                             ::log::debug!("../src/workspace.c:workspace_move_to_output:1099 - Creating workspace from assignment {}.\n", log_value_0_text);
                         } else {

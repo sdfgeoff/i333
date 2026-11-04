@@ -5810,7 +5810,7 @@ unsafe fn parse_config(
                             (*token).name.offset(1 as ::core::ffi::c_int as isize),
                         );
                     }
-                    walk = walk.offset(strlen((*token).name).wrapping_sub(1_usize) as isize);
+                    walk = walk.add(strlen((*token).name).wrapping_sub(1_usize));
                     next_state(token, ctx);
                     token_handled = true_0 != 0;
                     break;
@@ -5824,16 +5824,15 @@ unsafe fn parse_config(
                 if !(*__errno_location() == ERANGE && (num == LONG_MIN || num == LONG_MAX)
                     || *__errno_location() != 0 as ::core::ffi::c_int
                         && num == 0 as ::core::ffi::c_long)
+                    && !std::ptr::eq(end, walk)
                 {
-                    if !(end == walk as *mut ::core::ffi::c_char) {
-                        if !(*token).identifier.is_null() {
-                            parser_push_long((*ctx).stack, (*token).identifier, num);
-                        }
-                        walk = end;
-                        next_state(token, ctx);
-                        token_handled = true_0 != 0;
-                        break;
+                    if !(*token).identifier.is_null() {
+                        parser_push_long((*ctx).stack, (*token).identifier, num);
                     }
+                    walk = end;
+                    next_state(token, ctx);
+                    token_handled = true_0 != 0;
+                    break;
                 }
             } else {
                 if strcmp((*token).name, c"string".as_ptr()) == 0 as ::core::ffi::c_int
@@ -5871,22 +5870,21 @@ unsafe fn parse_config(
                     linecnt += 1;
                     walk = walk.offset(1);
                     break;
-                } else if strcmp((*token).name, c"end".as_ptr()) == 0 as ::core::ffi::c_int {
-                    if *walk as ::core::ffi::c_int == '\0' as i32
+                } else if strcmp((*token).name, c"end".as_ptr()) == 0 as ::core::ffi::c_int
+                    && (*walk as ::core::ffi::c_int == '\0' as i32
                         || *walk as ::core::ffi::c_int == '\n' as i32
-                        || *walk as ::core::ffi::c_int == '\r' as i32
-                    {
-                        next_state(token, ctx);
-                        token_handled = true_0 != 0;
-                        cfg_criteria_init(
-                            &raw mut (*ctx).current_match,
-                            &raw mut subcommand_output,
-                            ConfigParserState::Initial,
-                        );
-                        linecnt += 1;
-                        walk = walk.offset(1);
-                        break;
-                    }
+                        || *walk as ::core::ffi::c_int == '\r' as i32)
+                {
+                    next_state(token, ctx);
+                    token_handled = true_0 != 0;
+                    cfg_criteria_init(
+                        &raw mut (*ctx).current_match,
+                        &raw mut subcommand_output,
+                        ConfigParserState::Initial,
+                    );
+                    linecnt += 1;
+                    walk = walk.offset(1);
+                    break;
                 }
             }
             c += 1;
@@ -6144,7 +6142,7 @@ unsafe fn parse_config(
                 let recovery = state_tokens((&(*ctx).statelist)[i_1 as usize]);
                 let mut j: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
                 while j < recovery.len() as libc::c_int {
-                    if strcmp((*&recovery[j as usize]).name, c"error".as_ptr())
+                    if strcmp(recovery[j as usize].name, c"error".as_ptr())
                         != 0 as ::core::ffi::c_int
                     {
                         j += 1;

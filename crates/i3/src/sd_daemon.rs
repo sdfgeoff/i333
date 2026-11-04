@@ -748,7 +748,7 @@ mod tests {
         assert_eq!(&name[..106], &endpoint[1..107]);
         assert_eq!(name[106], 0);
         assert_eq!(
-            notification_address(&vec![b'@'; 109]).unwrap_err(),
+            notification_address(&[b'@'; 109]).unwrap_err(),
             -libc::EINVAL
         );
     }
@@ -805,12 +805,9 @@ mod tests {
                 .matches(b""),
             1
         );
-        assert_eq!(
-            unix_socket_path(receiver.as_raw_fd(), libc::SOCK_DGRAM, -1)
-                .unwrap()
-                .is_none(),
-            true
-        );
+        assert!(unix_socket_path(receiver.as_raw_fd(), libc::SOCK_DGRAM, -1)
+            .unwrap()
+            .is_none());
         // Native callers may supply an explicit length; an oversized length
         // cannot match and must not cause a raw buffer read.
         assert_eq!(
@@ -837,7 +834,7 @@ mod tests {
         assert_eq!(is_fifo(fifo.as_raw_fd(), Some(&work.0.join("missing"))), 0);
         assert_eq!(is_fifo(fifo.as_raw_fd(), None), 1);
         assert_eq!(mark_cloexec(fifo.as_raw_fd()), Ok(()));
-        assert!(fifo.metadata().unwrap().is_file() == false);
+        assert!(!fifo.metadata().unwrap().is_file());
         assert_eq!(sd_is_socket(fifo.as_raw_fd(), 0, 0, -1), 0);
     }
 }

@@ -89,17 +89,17 @@ fn should_inset(
 
 #[derive(Clone, Copy)]
 enum FullscreenNeighbor {
-    NoFullscreen,
-    ContainerIsFullscreen,
-    WithinFullscreen { container: bool, neighbor: bool },
+    None,
+    Container,
+    Ancestor { container: bool, neighbor: bool },
 }
 
 fn has_adjacent(found_neighbor: bool, fullscreen: FullscreenNeighbor) -> bool {
     found_neighbor
         && match fullscreen {
-            FullscreenNeighbor::NoFullscreen => true,
-            FullscreenNeighbor::ContainerIsFullscreen => false,
-            FullscreenNeighbor::WithinFullscreen {
+            FullscreenNeighbor::None => true,
+            FullscreenNeighbor::Container => false,
+            FullscreenNeighbor::Ancestor {
                 container,
                 neighbor,
             } => container && neighbor,
@@ -239,16 +239,16 @@ pub unsafe fn gaps_has_adjacent_container(con: *mut Con, direction: Direction) -
             fullscreen = con_get_fullscreen_con(workspace, FullscreenMode::Output);
         }
         if con == fullscreen {
-            return has_adjacent(false, FullscreenNeighbor::ContainerIsFullscreen);
+            return has_adjacent(false, FullscreenNeighbor::Container);
         }
         let mut first = con;
         let mut second = std::ptr::null_mut();
         let found = resize_find_tiling_participants(&mut first, &mut second, direction, false);
         let context = if !found || fullscreen.is_null() {
-            FullscreenNeighbor::NoFullscreen
+            FullscreenNeighbor::None
         } else {
             let container = con_has_parent(con, fullscreen);
-            FullscreenNeighbor::WithinFullscreen {
+            FullscreenNeighbor::Ancestor {
                 container,
                 neighbor: container && con_has_parent(second, fullscreen),
             }
@@ -332,6 +332,10 @@ pub unsafe fn gaps_reapply_workspace_assignments() {
         }
     }
 }
+
+use crate::con::arena::nodes;
+
+use i3_common::logging::{emit_parts, string_bytes, Level};
 
 #[cfg(test)]
 mod tests {
@@ -460,19 +464,16 @@ mod tests {
 
     #[test]
     fn adjacency_stays_inside_the_fullscreen_region() {
-        assert!(has_adjacent(true, FullscreenNeighbor::NoFullscreen));
+        assert!(has_adjacent(true, FullscreenNeighbor::None));
         for found in [false, true] {
-            assert!(!has_adjacent(
-                found,
-                FullscreenNeighbor::ContainerIsFullscreen
-            ));
+            assert!(!has_adjacent(found, FullscreenNeighbor::Container));
             for (container, neighbor) in
                 [(false, false), (true, false), (false, true), (true, true)]
             {
                 assert_eq!(
                     has_adjacent(
                         found,
-                        FullscreenNeighbor::WithinFullscreen {
+                        FullscreenNeighbor::Ancestor {
                             container,
                             neighbor
                         }
@@ -481,7 +482,7 @@ mod tests {
                 );
             }
         }
-        assert!(!has_adjacent(false, FullscreenNeighbor::NoFullscreen));
+        assert!(!has_adjacent(false, FullscreenNeighbor::None));
     }
 
     fn assigned(matching: AssignmentMatch, number: i32, mask: GapMask) -> GapAssignment {
@@ -582,7 +583,3 @@ mod tests {
         );
     }
 }
-
-use crate::con::arena::nodes;
-
-use i3_common::logging::{emit_parts, string_bytes, Level};

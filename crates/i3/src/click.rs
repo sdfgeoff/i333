@@ -95,9 +95,7 @@ unsafe fn tiling_resize_for_border(
         );
     };
     if search_direction == Direction::Up || search_direction == Direction::Left {
-        let tmp: *mut Con = first;
-        first = second;
-        second = tmp;
+        std::mem::swap(&mut first, &mut second);
     }
     let orientation: Orientation = if border == ResizeEdges::LEFT || border == ResizeEdges::RIGHT {
         Orientation::Horizontal
@@ -290,11 +288,12 @@ unsafe fn route_click(con: *mut Con, event: &x::ButtonPressEvent, dest: ClickDes
         return;
     }
     let mut con_to_focus: *mut Con = con;
-    if in_stacked && dest == ClickDestination::Decoration {
-        if was_focused || !con_has_parent(focused, con) {
-            while !focus::first_ptr(con_to_focus).is_null() {
-                con_to_focus = focus::first_ptr(con_to_focus);
-            }
+    if in_stacked
+        && dest == ClickDestination::Decoration
+        && (was_focused || !con_has_parent(focused, con))
+    {
+        while !focus::first_ptr(con_to_focus).is_null() {
+            con_to_focus = focus::first_ptr(con_to_focus);
         }
     }
     if ws != focused_workspace {
@@ -528,14 +527,13 @@ fn border_hit(
 ) -> Option<(ResizeEdges, bool)> {
     if dest == ClickDestination::Decoration {
         return Some((ResizeEdges::TOP, use_threshold));
-    } else if dest == ClickDestination::Border {
-        if y as i32 >= 0
-            && y as i32 <= bsr.y as i32
-            && x as i32 >= bsr.x as i32
-            && x as i32 <= rect.width.wrapping_add(bsr.width) as i32
-        {
-            return Some((ResizeEdges::TOP, false));
-        }
+    } else if dest == ClickDestination::Border
+        && y as i32 >= 0
+        && y as i32 <= bsr.y as i32
+        && x as i32 >= bsr.x as i32
+        && x as i32 <= rect.width.wrapping_add(bsr.width) as i32
+    {
+        return Some((ResizeEdges::TOP, false));
     }
     if x as i32 >= 0
         && x as i32 <= bsr.x as i32
@@ -572,6 +570,9 @@ fn binding_destination(
         ClickDestination::Border => border,
     }
 }
+
+use crate::con::arena::nodes;
+
 #[cfg(test)]
 mod owned_tests {
     use super::*;
@@ -664,5 +665,3 @@ mod owned_tests {
         ));
     }
 }
-
-use crate::con::arena::nodes;

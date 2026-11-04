@@ -316,7 +316,7 @@ unsafe fn handle_mapping_notify(event: &x::MappingNotifyEvent) {
     ::log::debug!("../src/handlers.c:handle_mapping_notify:269 - Received mapping_notify for keyboard or modifier mapping, re-grabbing keys\n");
     crate::application::refresh_key_symbols(event);
     xcb_numlock_mask =
-        crate::application::key_symbol_modifiers((xkbcommon::xkb::keysyms::KEY_Num_Lock));
+        crate::application::key_symbol_modifiers(xkbcommon::xkb::keysyms::KEY_Num_Lock);
     ungrab_all_keys();
     translate_keysyms();
     grab_all_keys();
@@ -1586,8 +1586,8 @@ unsafe fn property_notify(state: u8, window: u32, atom: u32) {
         return;
     };
     let mut reply = None;
-    let con;
-    con = con_by_window_id(window);
+
+    let con = con_by_window_id(window);
     if con.is_null() || (*con).window.is_null() {
         ::log::debug!("../src/handlers.c:property_notify:1385 - Received property for atom {} for unknown client\n", (atom) as i32);
         return;
@@ -2061,6 +2061,12 @@ use i3_common::draw_util::draw_util_copy_surface;
 
 use crate::xcb::xcb_numlock_mask;
 
+use crate::con::arena::nodes;
+
+fn connection() -> std::rc::Rc<xcb::Connection> {
+    i3_common::display::connection().expect("main X11 connection is registered")
+}
+
 #[cfg(test)]
 mod owned_event_tests {
     use super::*;
@@ -2309,10 +2315,4 @@ mod owned_event_tests {
         assert!(events.contains(1, 3, 6));
         assert!(!events.contains(1, 2, 6));
     }
-}
-
-use crate::con::arena::nodes;
-
-fn connection() -> std::rc::Rc<xcb::Connection> {
-    i3_common::display::connection().expect("main X11 connection is registered")
 }

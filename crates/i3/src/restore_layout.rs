@@ -263,7 +263,7 @@ unsafe fn update_placeholder_contents(state: *mut placeholder_state) {
             );
             n += 1;
         } else {
-            ::log::debug!(concat!("../src/restore_layout.c:update_placeholder_contents:159 - This swallows specification is not serializable?!\n"));
+            ::log::debug!("../src/restore_layout.c:update_placeholder_contents:159 - This swallows specification is not serializable?!\n");
         }
         swallows = (*swallows).matches.tqe_next;
     }
@@ -554,6 +554,10 @@ use i3_common::draw_util::draw_util_surface_init;
 use i3_common::draw_util::draw_util_surface_set_size;
 use i3_common::font::predict_text_width;
 
+use crate::con::arena::nodes;
+
+use i3_common::logging::{emit_parts, string_bytes, Level};
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -579,7 +583,3 @@ mod tests {
         assert_eq!(centered_text(rect, 8, 10), (-3, -3));
     }
 }
-
-use crate::con::arena::nodes;
-
-use i3_common::logging::{emit_parts, string_bytes, Level};

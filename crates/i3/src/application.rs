@@ -1348,7 +1348,7 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
     main_connection().send_request(&x::ChangeProperty {
         mode: x::PropMode::Append,
         window: x::Window::new(root),
-        property: x::Atom::new((::xcb::x::ATOM_SUPERSCRIPT_X.resource_id())),
+        property: x::Atom::new(::xcb::x::ATOM_SUPERSCRIPT_X.resource_id()),
         r#type: x::ATOM_CARDINAL,
         data: &[] as &[u32],
     });
@@ -1804,7 +1804,7 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
     property_handlers_init();
     ewmh_setup_hints();
     rebuild_key_symbols();
-    xcb_numlock_mask = key_symbol_modifiers((xkbcommon::xkb::keysyms::KEY_Num_Lock));
+    xcb_numlock_mask = key_symbol_modifiers(xkbcommon::xkb::keysyms::KEY_Num_Lock);
     if !load_keymap() {
         errx(EXIT_FAILURE, c"Could not load keymap\n".as_ptr());
     }

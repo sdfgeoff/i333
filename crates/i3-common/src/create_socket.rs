@@ -45,7 +45,6 @@ mod legacy {
     /// # Safety
     /// `filename` is a live C string. `out_path` points to a writable null or
     /// malloc-owned pointer; a successful replacement also belongs to free().
-
     pub unsafe fn create_socket(
         filename: *const libc::c_char,
         out_path: *mut *mut libc::c_char,

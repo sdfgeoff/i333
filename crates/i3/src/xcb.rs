@@ -25,8 +25,10 @@ impl Drop for ServerGrab<'_> {
 
 fn atom_words(bytes: &[u8]) -> Vec<u32> {
     bytes
-        .chunks_exact(4)
-        .map(|word| u32::from_ne_bytes(word.try_into().unwrap()))
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|word| u32::from_ne_bytes(*word))
         .collect()
 }
 /// Borrow bytes from an owned maintained reply only after validating its wire

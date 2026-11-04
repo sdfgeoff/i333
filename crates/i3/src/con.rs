@@ -410,10 +410,9 @@ pub unsafe fn con_is_hidden(con: *mut Con) -> bool {
         let parent: *mut Con = parent_ptr(current);
         if !parent.is_null()
             && ((*parent).layout == Layout::Tabbed || (*parent).layout == Layout::Stacked)
+            && focus::first_ptr(parent) != current
         {
-            if focus::first_ptr(parent) != current {
-                return true;
-            }
+            return true;
         }
         current = parent;
     }
@@ -709,7 +708,7 @@ pub unsafe fn con_find_transient_for_window(start: *mut Con, target: u32) -> boo
         }
         transient_con = next_transient;
         let fresh0 = count;
-        count = count - 1;
+        count -= 1;
         if fresh0 <= 0 as ::core::ffi::c_int {
             break;
         }
@@ -741,7 +740,8 @@ pub unsafe fn con_mark_toggle(con: *mut Con, mark: *const ::core::ffi::c_char, m
     };
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_value_0 = (|pointer: *const libc::c_char| {
+        let log_value_0 = {
+            let pointer: *const libc::c_char = mark;
             i3_common::logging::string_bytes(
                 if pointer.is_null() {
                     None
@@ -751,7 +751,7 @@ pub unsafe fn con_mark_toggle(con: *mut Con, mark: *const ::core::ffi::c_char, m
                 None,
             )
             .to_vec()
-        })(mark);
+        };
         let log_value_1 = i3_common::logging::pointer(con);
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::debug!(
@@ -789,7 +789,8 @@ pub unsafe fn con_mark(con: *mut Con, mark: *const ::core::ffi::c_char, mode: Ma
     };
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_value_0 = (|pointer: *const libc::c_char| {
+        let log_value_0 = {
+            let pointer: *const libc::c_char = mark;
             i3_common::logging::string_bytes(
                 if pointer.is_null() {
                     None
@@ -799,7 +800,7 @@ pub unsafe fn con_mark(con: *mut Con, mark: *const ::core::ffi::c_char, mode: Ma
                 None,
             )
             .to_vec()
-        })(mark);
+        };
         let log_value_1 = i3_common::logging::pointer(con);
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::debug!(
@@ -847,30 +848,29 @@ pub unsafe fn con_unmark(con: *mut Con, name: *const ::core::ffi::c_char) {
             let Some(current) = arena::resolve(id) else {
                 continue;
             };
-            if !(!con.is_null() && current != con) {
-                if !(*current).marks_head.tqh_first.is_null() {
-                    while !(*current).marks_head.tqh_first.is_null() {
-                        let mut mark: *mut mark_t = (*current).marks_head.tqh_first;
-                        free((*mark).name as *mut ::core::ffi::c_void);
-                        (*mark).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
-                        if !(*mark).marks.tqe_next.is_null() {
-                            (*(*mark).marks.tqe_next).marks.tqe_prev = (*mark).marks.tqe_prev;
-                        } else {
-                            (*current).marks_head.tqh_last = (*mark).marks.tqe_prev;
-                        }
-                        *(*mark).marks.tqe_prev = (*mark).marks.tqe_next;
-                        free(mark as *mut ::core::ffi::c_void);
-                        mark = ::core::ptr::null_mut::<mark_t>();
-                        ipc_send_window_event(c"mark".as_ptr(), current);
+            if !(!con.is_null() && current != con) && !(*current).marks_head.tqh_first.is_null() {
+                while !(*current).marks_head.tqh_first.is_null() {
+                    let mut mark: *mut mark_t = (*current).marks_head.tqh_first;
+                    free((*mark).name as *mut ::core::ffi::c_void);
+                    (*mark).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
+                    if !(*mark).marks.tqe_next.is_null() {
+                        (*(*mark).marks.tqe_next).marks.tqe_prev = (*mark).marks.tqe_prev;
+                    } else {
+                        (*current).marks_head.tqh_last = (*mark).marks.tqe_prev;
                     }
-                    (*current).mark_changed = true;
+                    *(*mark).marks.tqe_prev = (*mark).marks.tqe_next;
+                    free(mark as *mut ::core::ffi::c_void);
+                    mark = ::core::ptr::null_mut::<mark_t>();
+                    ipc_send_window_event(c"mark".as_ptr(), current);
                 }
+                (*current).mark_changed = true;
             }
         }
     } else {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_value_0 = (|pointer: *const libc::c_char| {
+            let log_value_0 = {
+                let pointer: *const libc::c_char = name;
                 i3_common::logging::string_bytes(
                     if pointer.is_null() {
                         None
@@ -880,7 +880,7 @@ pub unsafe fn con_unmark(con: *mut Con, name: *const ::core::ffi::c_char) {
                     None,
                 )
                 .to_vec()
-            })(name);
+            };
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::debug!(
                     "../src/con.c:con_unmark:941 - Removing mark \"{}\".\n",
@@ -1547,7 +1547,8 @@ pub unsafe fn con_move_to_mark(con: *mut Con, mark: *const ::core::ffi::c_char) 
     if target.is_null() {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_value_0 = (|pointer: *const libc::c_char| {
+            let log_value_0 = {
+                let pointer: *const libc::c_char = mark;
                 i3_common::logging::string_bytes(
                     if pointer.is_null() {
                         None
@@ -1557,7 +1558,7 @@ pub unsafe fn con_move_to_mark(con: *mut Con, mark: *const ::core::ffi::c_char) 
                     None,
                 )
                 .to_vec()
-            })(mark);
+            };
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::debug!(
                     "../src/con.c:con_move_to_mark:1542 - found no container with mark \"{}\"\n",
@@ -1642,7 +1643,8 @@ pub unsafe fn con_move_to_output(con: *mut Con, output: *mut Output, fix_coordin
     {
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_value_0 = i3_common::logging::pointer(con);
-        let log_value_1 = (|pointer: *const libc::c_char| {
+        let log_value_1 = {
+            let pointer: *const libc::c_char = output_primary_name(output);
             i3_common::logging::string_bytes(
                 if pointer.is_null() {
                     None
@@ -1652,7 +1654,7 @@ pub unsafe fn con_move_to_output(con: *mut Con, output: *mut Output, fix_coordin
                 None,
             )
             .to_vec()
-        })(output_primary_name(output));
+        };
         if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
             ::log::debug!(
                 "../src/con.c:con_move_to_output:1591 - Moving con {} to output {}\n",
@@ -1687,7 +1689,8 @@ pub unsafe fn con_move_to_output_name(
     if output.is_null() {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_value_0 = (|pointer: *const libc::c_char| {
+            let log_value_0 = {
+                let pointer: *const libc::c_char = name;
                 i3_common::logging::string_bytes(
                     if pointer.is_null() {
                         None
@@ -1697,7 +1700,7 @@ pub unsafe fn con_move_to_output_name(
                     None,
                 )
                 .to_vec()
-            })(name);
+            };
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::error!("ERROR: Could not find output \"{}\"\n", log_value_0_text);
             } else {
@@ -1933,20 +1936,19 @@ fn adjacent_borders(rect: Rect, workspace: Rect) -> adjacent_t {
 }
 
 unsafe fn con_border_style_rect_without_title(con: *mut Con) -> Rect {
-    if config.hide_edge_borders == HideEdgeBordersMode::Smart
+    if (config.hide_edge_borders == HideEdgeBordersMode::Smart
         && con_num_visible_children(con_get_workspace(con)) <= 1 as ::core::ffi::c_int
         || config.hide_edge_borders == HideEdgeBordersMode::SmartNoGaps
             && con_num_visible_children(con_get_workspace(con)) <= 1 as ::core::ffi::c_int
-            && !has_outer_gaps(calculate_effective_gaps(con))
+            && !has_outer_gaps(calculate_effective_gaps(con)))
+        && !con_is_floating(con)
     {
-        if !con_is_floating(con) {
-            return Rect {
-                x: 0_u32,
-                y: 0_u32,
-                width: 0_u32,
-                height: 0_u32,
-            };
-        }
+        return Rect {
+            x: 0_u32,
+            y: 0_u32,
+            width: 0_u32,
+            height: 0_u32,
+        };
     }
     let mut border_width: ::core::ffi::c_int = (*con).current_border_width;
     ::log::debug!("../src/con.c:con_border_style_rect_without_title:1831 - The border width for con is set to: {}\n", { ((*con).current_border_width) });
@@ -2199,7 +2201,8 @@ pub unsafe fn con_toggle_layout(con: *mut Con, toggle_mode: *const ::core::ffi::
     {
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_value_0 = i3_common::logging::pointer(con);
-        let log_value_1 = (|pointer: *const libc::c_char| {
+        let log_value_1 = {
+            let pointer: *const libc::c_char = toggle_mode;
             i3_common::logging::string_bytes(
                 if pointer.is_null() {
                     None
@@ -2209,7 +2212,7 @@ pub unsafe fn con_toggle_layout(con: *mut Con, toggle_mode: *const ::core::ffi::
                 None,
             )
             .to_vec()
-        })(toggle_mode);
+        };
         let log_value_2 = i3_common::logging::pointer(parent);
         if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
             ::log::debug!(
@@ -2732,18 +2735,14 @@ pub unsafe fn con_swap(first: *mut Con, second: *mut Con) -> bool {
     let tmp_SWAP: *mut Con = parent_ptr(first);
     set_parent_ptr(first, parent_ptr(second)).expect("live acyclic ancestry");
     set_parent_ptr(second, tmp_SWAP).expect("live acyclic ancestry");
-    let tmp_SWAP_0: FloatingState = (*first).floating;
-    (*first).floating = (*second).floating;
-    (*second).floating = tmp_SWAP_0;
-    let tmp_SWAP_1: Rect = (*first).rect as Rect;
-    (*first).rect = (*second).rect;
-    (*second).rect = tmp_SWAP_1 as Rect;
-    let tmp_SWAP_2: Rect = (*first).window_rect as Rect;
-    (*first).window_rect = (*second).window_rect;
-    (*second).window_rect = tmp_SWAP_2 as Rect;
-    let tmp_SWAP_3: ::core::ffi::c_double = (*first).percent;
-    (*first).percent = (*second).percent;
-    (*second).percent = tmp_SWAP_3;
+    // Swap raw payload fields without introducing mutable references to node storage.
+    std::ptr::swap(&raw mut (*first).floating, &raw mut (*second).floating);
+    std::ptr::swap(&raw mut (*first).rect, &raw mut (*second).rect);
+    std::ptr::swap(
+        &raw mut (*first).window_rect,
+        &raw mut (*second).window_rect,
+    );
+    std::ptr::swap(&raw mut (*first).percent, &raw mut (*second).percent);
     if !restore_focus.is_null() {
         con_focus(restore_focus);
     }

@@ -216,14 +216,12 @@ unsafe extern "C" fn sig_cb(
                 );
             }
         }
-        libc::SIGHUP => {
-            if config.verbose {
-                printf(
-                    c"[%s:%d] Got a SIGHUP, stopping\n".as_ptr(),
-                    c"../i3bar/src/main.c".as_ptr(),
-                    89 as ::core::ffi::c_int,
-                );
-            }
+        libc::SIGHUP if config.verbose => {
+            printf(
+                c"[%s:%d] Got a SIGHUP, stopping\n".as_ptr(),
+                c"../i3bar/src/main.c".as_ptr(),
+                89 as ::core::ffi::c_int,
+            );
         }
         _ => {}
     }

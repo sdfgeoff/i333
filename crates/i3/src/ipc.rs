@@ -2295,7 +2295,7 @@ mod typed_reply_tests {
     }
     #[test]
     fn invalid_native_strings_preserve_rejected_value_and_partial_stream() {
-        let invalid = CStr::from_bytes_with_nul(b"\xff\0").unwrap();
+        let invalid = c"\xff";
         assert_eq!(
             stream(&[CommandReply::Error(invalid), CommandReply::Success(true)]),
             br#"[{"success":false,"error""#

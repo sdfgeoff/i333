@@ -723,14 +723,14 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
                     return 0;
                 }
             }
-            xcb::Event::X(x::Event::ConfigureNotify(event)) => {
-                if event.width() > 0 && event.height() > 0 {
-                    draw_util_surface_set_size(
-                        &mut state.render.bar,
-                        i32::from(event.width()),
-                        i32::from(event.height()),
-                    );
-                }
+            xcb::Event::X(x::Event::ConfigureNotify(event))
+                if event.width() > 0 && event.height() > 0 =>
+            {
+                draw_util_surface_set_size(
+                    &mut state.render.bar,
+                    i32::from(event.width()),
+                    i32::from(event.height()),
+                );
             }
             _ => {}
         }

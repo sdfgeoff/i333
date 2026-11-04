@@ -212,9 +212,7 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
         return;
     }
     let attr = attr.unwrap();
-    if needs_to_be_mapped && !attributes_viewable(&attr) {
-        xcb_interop::transport::discard_reply(&connection(), geomc);
-    } else if attr.override_redirect() {
+    if needs_to_be_mapped && !attributes_viewable(&attr) || attr.override_redirect() {
         xcb_interop::transport::discard_reply(&connection(), geomc);
     } else if !con_by_window_id(window).is_null() {
         ::log::debug!(
@@ -381,7 +379,8 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                 startup_ws = startup_workspace_for_window(cwindow, startup_id_reply.as_ref());
                 {
                     // Snapshot native bytes before the logger can dispatch a callback.
-                    let log_value_0 = (|pointer: *const libc::c_char| {
+                    let log_value_0 = {
+                        let pointer: *const libc::c_char = startup_ws;
                         i3_common::logging::string_bytes(
                             if pointer.is_null() {
                                 None
@@ -391,7 +390,7 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                             None,
                         )
                         .to_vec()
-                    })(startup_ws);
+                    };
                     if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                         ::log::debug!(
                             "../src/manage.c:manage_window:227 - startup workspace = {}\n",
@@ -427,18 +426,18 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                     if !output.is_null() {
                         {
                             // Snapshot native bytes before the logger can dispatch a callback.
-                            let log_value_0 =
-                                (|pointer: *const libc::c_char| {
-                                    i3_common::logging::string_bytes(
-                                        if pointer.is_null() {
-                                            None
-                                        } else {
-                                            Some(std::ffi::CStr::from_ptr(pointer))
-                                        },
-                                        None,
-                                    )
-                                    .to_vec()
-                                })(output_primary_name(output));
+                            let log_value_0 = {
+                                let pointer: *const libc::c_char = output_primary_name(output);
+                                i3_common::logging::string_bytes(
+                                    if pointer.is_null() {
+                                        None
+                                    } else {
+                                        Some(std::ffi::CStr::from_ptr(pointer))
+                                    },
+                                    None,
+                                )
+                                .to_vec()
+                            };
                             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                                 ::log::debug!("../src/manage.c:manage_window:252 - Starting search at output {}\n", log_value_0_text);
                             } else {
@@ -575,7 +574,8 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                     } else if !startup_ws.is_null() {
                         {
                             // Snapshot native bytes before the logger can dispatch a callback.
-                            let log_value_0 = (|pointer: *const libc::c_char| {
+                            let log_value_0 = {
+                                let pointer: *const libc::c_char = startup_ws;
                                 i3_common::logging::string_bytes(
                                     if pointer.is_null() {
                                         None
@@ -585,7 +585,7 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                                     None,
                                 )
                                 .to_vec()
-                            })(startup_ws);
+                            };
                             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                                 ::log::debug!("../src/manage.c:manage_window:335 - Using workspace on which this application was started ({})\n", log_value_0_text);
                             } else {
@@ -595,7 +595,8 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                         nc = con_descend_tiling_focused(workspace_get(startup_ws));
                         {
                             // Snapshot native bytes before the logger can dispatch a callback.
-                            let log_value_0 = (|pointer: *const libc::c_char| {
+                            let log_value_0 = {
+                                let pointer: *const libc::c_char = startup_ws;
                                 i3_common::logging::string_bytes(
                                     if pointer.is_null() {
                                         None
@@ -605,7 +606,7 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                                     None,
                                 )
                                 .to_vec()
-                            })(startup_ws);
+                            };
                             let log_value_1 = i3_common::logging::pointer(nc);
                             let log_owner_3 = (*nc).name.clone();
                             let log_value_2 =

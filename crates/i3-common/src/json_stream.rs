@@ -367,10 +367,8 @@ fn normalize(input: &[u8], options: ParserOptions) -> Normalized {
                     i += 1;
                 }
             }
-            for index in start..i {
-                result
-                    .bytes
-                    .push(if input[index] == b'\n' { b'\n' } else { b' ' });
+            for (index, &byte) in input.iter().enumerate().take(i).skip(start) {
+                result.bytes.push(if byte == b'\n' { b'\n' } else { b' ' });
                 result.ends.push(index + 1);
             }
             number_start = true;

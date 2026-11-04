@@ -551,17 +551,15 @@ use crate::tree::focused;
 use crate::xcb::xcb_add_property_atom;
 use crate::xcb::xcb_remove_property_atom;
 
+use crate::con::arena::nodes;
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn desktop_name_payload_preserves_raw_bytes_empty_names_and_final_nul() {
-        let names = [
-            c"1: web",
-            c"",
-            CStr::from_bytes_with_nul(b"\xff\xfe\0").unwrap(),
-        ];
+        let names = [c"1: web", c"", c"\xff\xfe"];
         assert_eq!(desktop_names(names), b"1: web\0\0\xff\xfe\0");
         assert!(desktop_names(std::iter::empty()).is_empty());
     }
@@ -652,5 +650,3 @@ mod tests {
         );
     }
 }
-
-use crate::con::arena::nodes;

@@ -197,6 +197,8 @@ pub unsafe fn output_push_sticky_windows(old_focus: *mut Con) {
     }
 }
 
+use crate::con::arena::nodes;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -214,10 +216,7 @@ mod tests {
             (c"current-output", OutputQuery::Named),
             (c" left", OutputQuery::Named),
             (c"HDMI-1", OutputQuery::Named),
-            (
-                CStr::from_bytes_with_nul(b"\xff\xfe\0").unwrap(),
-                OutputQuery::Named,
-            ),
+            (c"\xff\xfe", OutputQuery::Named),
         ] {
             assert_eq!(output_query(name), expected);
         }
@@ -238,5 +237,3 @@ mod tests {
         }
     }
 }
-
-use crate::con::arena::nodes;

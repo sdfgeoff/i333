@@ -170,8 +170,10 @@ fn monitor_snapshots(mut bytes: &[u8], count: u32) -> Option<Vec<MonitorSnapshot
             width_in_millimeters: word(header, 16)?,
             height_in_millimeters: word(header, 20)?,
             outputs: record[24..]
-                .chunks_exact(4)
-                .map(|part| u32::from_ne_bytes(part.try_into().unwrap()))
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .map(|part| u32::from_ne_bytes(*part))
                 .collect(),
         });
         bytes = &bytes[length..];
@@ -1561,51 +1563,47 @@ pub unsafe fn randr_query_outputs() {
                 if !(other == output
                     || !(*other).active
                     || (*other).to_be_disabled as ::core::ffi::c_int != 0)
+                    && !((*other).rect.x != (*output).rect.x || (*other).rect.y != (*output).rect.y)
                 {
-                    if !((*other).rect.x != (*output).rect.x || (*other).rect.y != (*output).rect.y)
-                    {
-                        ::log::debug!("../src/randr.c:randr_query_outputs:965 - output {} has the same position, its mode = {} x {}\n", i3_common::logging::pointer(other), ((*other).rect.width) as i32, ((*other).rect.height) as i32);
-                        let width: u32 = min(
-                            (*other).rect.width as ::core::ffi::c_int,
-                            (*output).rect.width as ::core::ffi::c_int,
-                        ) as u32;
-                        let height: u32 = min(
-                            (*other).rect.height as ::core::ffi::c_int,
-                            (*output).rect.height as ::core::ffi::c_int,
-                        ) as u32;
-                        let update_w: bool =
-                            update_if_necessary(&mut (*output).rect.width, width) as bool;
-                        let update_h: bool =
-                            update_if_necessary(&mut (*output).rect.height, height) as bool;
-                        if update_w as ::core::ffi::c_int != 0
-                            || update_h as ::core::ffi::c_int != 0
-                        {
-                            (*output).changed = true;
-                        }
-                        update_if_necessary(&mut (*other).rect.width, width);
-                        update_if_necessary(&mut (*other).rect.height, height);
-                        {
-                            // Snapshot native bytes before the logger can dispatch a callback.
-                            let log_value_0 = i3_common::logging::pointer(other);
-                            let log_pointer_2 = output_primary_name(other);
-                            let log_value_1 = i3_common::logging::string_bytes(
-                                if log_pointer_2.is_null() {
-                                    None
-                                } else {
-                                    Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                                },
-                                None,
-                            )
-                            .to_vec();
-                            if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
-                                ::log::debug!("../src/randr.c:randr_query_outputs:978 - disabling output {} ({})\n", log_value_0, log_value_1_text);
-                            } else {
-                                i3_common::logging::emit_parts(i3_common::logging::Level::Debug, &[ format!("../src/randr.c:randr_query_outputs:978 - disabling output {} (", log_value_0).as_bytes(), &log_value_1, ")\n".as_bytes() ]);
-                            }
-                        };
-                        (*other).to_be_disabled = true;
-                        ::log::debug!("../src/randr.c:randr_query_outputs:983 - new output mode {} x {}, other mode {} x {}\n", ((*output).rect.width) as i32, ((*output).rect.height) as i32, ((*other).rect.width) as i32, ((*other).rect.height) as i32);
+                    ::log::debug!("../src/randr.c:randr_query_outputs:965 - output {} has the same position, its mode = {} x {}\n", i3_common::logging::pointer(other), ((*other).rect.width) as i32, ((*other).rect.height) as i32);
+                    let width: u32 = min(
+                        (*other).rect.width as ::core::ffi::c_int,
+                        (*output).rect.width as ::core::ffi::c_int,
+                    ) as u32;
+                    let height: u32 = min(
+                        (*other).rect.height as ::core::ffi::c_int,
+                        (*output).rect.height as ::core::ffi::c_int,
+                    ) as u32;
+                    let update_w: bool =
+                        update_if_necessary(&mut (*output).rect.width, width) as bool;
+                    let update_h: bool =
+                        update_if_necessary(&mut (*output).rect.height, height) as bool;
+                    if update_w as ::core::ffi::c_int != 0 || update_h as ::core::ffi::c_int != 0 {
+                        (*output).changed = true;
                     }
+                    update_if_necessary(&mut (*other).rect.width, width);
+                    update_if_necessary(&mut (*other).rect.height, height);
+                    {
+                        // Snapshot native bytes before the logger can dispatch a callback.
+                        let log_value_0 = i3_common::logging::pointer(other);
+                        let log_pointer_2 = output_primary_name(other);
+                        let log_value_1 = i3_common::logging::string_bytes(
+                            if log_pointer_2.is_null() {
+                                None
+                            } else {
+                                Some(std::ffi::CStr::from_ptr(log_pointer_2))
+                            },
+                            None,
+                        )
+                        .to_vec();
+                        if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+                            ::log::debug!("../src/randr.c:randr_query_outputs:978 - disabling output {} ({})\n", log_value_0, log_value_1_text);
+                        } else {
+                            i3_common::logging::emit_parts(i3_common::logging::Level::Debug, &[ format!("../src/randr.c:randr_query_outputs:978 - disabling output {} (", log_value_0).as_bytes(), &log_value_1, ")\n".as_bytes() ]);
+                        }
+                    };
+                    (*other).to_be_disabled = true;
+                    ::log::debug!("../src/randr.c:randr_query_outputs:983 - new output mode {} x {}, other mode {} x {}\n", ((*output).rect.width) as i32, ((*output).rect.height) as i32, ((*other).rect.width) as i32, ((*other).rect.height) as i32);
                 }
                 other = (*other).outputs.tqe_next;
             }
@@ -1939,6 +1937,8 @@ use crate::workspace::workspace_move_to_output;
 use crate::workspace::workspace_show;
 use crate::x::x_set_name;
 
+use crate::con::arena::nodes;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2196,5 +2196,3 @@ mod tests {
         assert!(!randr15_version(2, 0, false));
     }
 }
-
-use crate::con::arena::nodes;
