@@ -590,7 +590,7 @@ pub unsafe fn match_parse_property(
                             ),
                         }
                     };
-                    (*match_0).error = Some(c"invalid con_id".to_owned());
+                    (*match_0).error = Some(b"invalid con_id".to_vec());
                 }
                 Ok(parsed) => {
                     (*match_0).con_id = parsed as *mut Con;
@@ -621,7 +621,7 @@ pub unsafe fn match_parse_property(
                             ),
                         }
                     };
-                    (*match_0).error = Some(c"invalid id".to_owned());
+                    (*match_0).error = Some(b"invalid id".to_vec());
                 }
                 Ok(parsed_0) => {
                     (*match_0).id = parsed_0 as u32;
@@ -671,7 +671,7 @@ pub unsafe fn match_parse_property(
                         ),
                     }
                 };
-                (*match_0).error = Some(c"unknown window_type value".to_owned());
+                (*match_0).error = Some(b"unknown window_type value".to_vec());
             }
             return;
         }
@@ -943,7 +943,7 @@ mod tests {
     fn copied_match_owns_payload_and_resets_intrusive_membership() {
         let mut original = empty_match();
         original.class = Some(Regex::compile_str(r"(foo)\1").unwrap());
-        original.error = Some(c"error".to_owned());
+        original.error = Some(b"error".to_vec());
         original.matches.tqe_next = std::ptr::NonNull::<Match>::dangling().as_ptr();
         let copied = original.clone();
         assert_ne!(
@@ -962,7 +962,7 @@ mod tests {
             .unwrap()
             .is_match_str("foofoo")
             .unwrap());
-        assert_eq!(copied.error.as_deref(), Some(c"error"));
+        assert_eq!(copied.error.as_deref(), Some(b"error".as_slice()));
         assert!(is_empty(&empty_match()));
     }
     #[test]

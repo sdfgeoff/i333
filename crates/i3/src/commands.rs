@@ -344,11 +344,8 @@ pub unsafe fn cmd_move_con_to_workspace(
     };
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let error = (*current_match)
-                .error
-                .as_ref()
-                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
-                .to_vec();
+            let error =
+                i3_common::logging::string_bytes((*current_match).error.as_deref(), None).to_vec();
             let message = [b"Invalid match: ".as_slice(), &error].concat();
             emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
@@ -460,11 +457,8 @@ pub unsafe fn cmd_move_con_to_workspace_back_and_forth(
     }
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let error = (*current_match)
-                .error
-                .as_ref()
-                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
-                .to_vec();
+            let error =
+                i3_common::logging::string_bytes((*current_match).error.as_deref(), None).to_vec();
             let message_0 = [b"Invalid match: ".as_slice(), &error].concat();
             emit_command_reply(cmd_output, CommandReply::Error(&message_0));
         }
@@ -524,11 +518,8 @@ pub unsafe fn cmd_move_con_to_workspace_name(
     }
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let error = (*current_match)
-                .error
-                .as_ref()
-                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
-                .to_vec();
+            let error =
+                i3_common::logging::string_bytes((*current_match).error.as_deref(), None).to_vec();
             let message_0 = [b"Invalid match: ".as_slice(), &error].concat();
             emit_command_reply(cmd_output, CommandReply::Error(&message_0));
         }
@@ -638,11 +629,8 @@ pub unsafe fn cmd_move_con_to_workspace_number(
 ) {
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let error = (*current_match)
-                .error
-                .as_ref()
-                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
-                .to_vec();
+            let error =
+                i3_common::logging::string_bytes((*current_match).error.as_deref(), None).to_vec();
             let message = [b"Invalid match: ".as_slice(), &error].concat();
             emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
@@ -1178,11 +1166,8 @@ pub unsafe fn cmd_resize(
     }
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let error = (*current_match)
-                .error
-                .as_ref()
-                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
-                .to_vec();
+            let error =
+                i3_common::logging::string_bytes((*current_match).error.as_deref(), None).to_vec();
             let message = [b"Invalid match: ".as_slice(), &error].concat();
             emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
@@ -1371,11 +1356,8 @@ pub unsafe fn cmd_resize_set(
     }
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let error = (*current_match)
-                .error
-                .as_ref()
-                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
-                .to_vec();
+            let error =
+                i3_common::logging::string_bytes((*current_match).error.as_deref(), None).to_vec();
             let message_0 = [b"Invalid match: ".as_slice(), &error].concat();
             emit_command_reply(cmd_output, CommandReply::Error(&message_0));
         }
@@ -1524,11 +1506,8 @@ pub unsafe fn cmd_border(
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let error = (*current_match)
-                .error
-                .as_ref()
-                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
-                .to_vec();
+            let error =
+                i3_common::logging::string_bytes((*current_match).error.as_deref(), None).to_vec();
             let message = [b"Invalid match: ".as_slice(), &error].concat();
             emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
@@ -2012,11 +1991,8 @@ pub unsafe fn cmd_mark(
 ) {
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let error = (*current_match)
-                .error
-                .as_ref()
-                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
-                .to_vec();
+            let error =
+                i3_common::logging::string_bytes((*current_match).error.as_deref(), None).to_vec();
             let message = [b"Invalid match: ".as_slice(), &error].concat();
             emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
@@ -2239,11 +2215,8 @@ pub unsafe fn cmd_move_con_to_output(
     }
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let error = (*current_match)
-                .error
-                .as_ref()
-                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
-                .to_vec();
+            let error =
+                i3_common::logging::string_bytes((*current_match).error.as_deref(), None).to_vec();
             let message = [b"Invalid match: ".as_slice(), &error].concat();
             emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
@@ -2350,11 +2323,8 @@ pub unsafe fn cmd_move_con_to_mark(
     };
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let error = (*current_match)
-                .error
-                .as_ref()
-                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
-                .to_vec();
+            let error =
+                i3_common::logging::string_bytes((*current_match).error.as_deref(), None).to_vec();
             let message = [b"Invalid match: ".as_slice(), &error].concat();
             emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
@@ -2465,11 +2435,8 @@ pub unsafe fn cmd_floating(
     };
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let error = (*current_match)
-                .error
-                .as_ref()
-                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
-                .to_vec();
+            let error =
+                i3_common::logging::string_bytes((*current_match).error.as_deref(), None).to_vec();
             let message = [b"Invalid match: ".as_slice(), &error].concat();
             emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
@@ -2582,11 +2549,8 @@ pub unsafe fn cmd_split(
 ) {
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let error = (*current_match)
-                .error
-                .as_ref()
-                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
-                .to_vec();
+            let error =
+                i3_common::logging::string_bytes((*current_match).error.as_deref(), None).to_vec();
             let message = [b"Invalid match: ".as_slice(), &error].concat();
             emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
@@ -2750,11 +2714,8 @@ pub unsafe fn cmd_kill(
     }
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let error = (*current_match)
-                .error
-                .as_ref()
-                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
-                .to_vec();
+            let error =
+                i3_common::logging::string_bytes((*current_match).error.as_deref(), None).to_vec();
             let message_0 = [b"Invalid match: ".as_slice(), &error].concat();
             emit_command_reply(cmd_output, CommandReply::Error(&message_0));
         }
@@ -2802,11 +2763,8 @@ pub unsafe fn cmd_exec(
     let no_startup_id: bool = !nosn.is_null();
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let error = (*current_match)
-                .error
-                .as_ref()
-                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
-                .to_vec();
+            let error =
+                i3_common::logging::string_bytes((*current_match).error.as_deref(), None).to_vec();
             let message = [b"Invalid match: ".as_slice(), &error].concat();
             emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
@@ -2899,11 +2857,8 @@ pub unsafe fn cmd_focus_direction(
 ) {
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let error = (*current_match)
-                .error
-                .as_ref()
-                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
-                .to_vec();
+            let error =
+                i3_common::logging::string_bytes((*current_match).error.as_deref(), None).to_vec();
             let message = [b"Invalid match: ".as_slice(), &error].concat();
             emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
@@ -2977,11 +2932,8 @@ pub unsafe fn cmd_focus_sibling(
 ) {
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let error = (*current_match)
-                .error
-                .as_ref()
-                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
-                .to_vec();
+            let error =
+                i3_common::logging::string_bytes((*current_match).error.as_deref(), None).to_vec();
             let message = [b"Invalid match: ".as_slice(), &error].concat();
             emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
@@ -3361,11 +3313,8 @@ pub unsafe fn cmd_fullscreen(
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let error = (*current_match)
-                .error
-                .as_ref()
-                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
-                .to_vec();
+            let error =
+                i3_common::logging::string_bytes((*current_match).error.as_deref(), None).to_vec();
             let message = [b"Invalid match: ".as_slice(), &error].concat();
             emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
@@ -3472,11 +3421,8 @@ pub unsafe fn cmd_sticky(
     };
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let error = (*current_match)
-                .error
-                .as_ref()
-                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
-                .to_vec();
+            let error =
+                i3_common::logging::string_bytes((*current_match).error.as_deref(), None).to_vec();
             let message = [b"Invalid match: ".as_slice(), &error].concat();
             emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
@@ -3555,11 +3501,8 @@ pub unsafe fn cmd_move_direction(
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let error = (*current_match)
-                .error
-                .as_ref()
-                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
-                .to_vec();
+            let error =
+                i3_common::logging::string_bytes((*current_match).error.as_deref(), None).to_vec();
             let message = [b"Invalid match: ".as_slice(), &error].concat();
             emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
@@ -3719,11 +3662,8 @@ pub unsafe fn cmd_layout(
 ) {
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let error = (*current_match)
-                .error
-                .as_ref()
-                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
-                .to_vec();
+            let error =
+                i3_common::logging::string_bytes((*current_match).error.as_deref(), None).to_vec();
             let message = [b"Invalid match: ".as_slice(), &error].concat();
             emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
@@ -4028,11 +3968,8 @@ pub unsafe fn cmd_focus_output(
     }
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let error = (*current_match)
-                .error
-                .as_ref()
-                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
-                .to_vec();
+            let error =
+                i3_common::logging::string_bytes((*current_match).error.as_deref(), None).to_vec();
             let message_0 = [b"Invalid match: ".as_slice(), &error].concat();
             emit_command_reply(cmd_output, CommandReply::Error(&message_0));
         }
@@ -4131,11 +4068,8 @@ pub unsafe fn cmd_move_window_to_position(
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let error = (*current_match)
-                .error
-                .as_ref()
-                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
-                .to_vec();
+            let error =
+                i3_common::logging::string_bytes((*current_match).error.as_deref(), None).to_vec();
             let message = [b"Invalid match: ".as_slice(), &error].concat();
             emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
@@ -4245,11 +4179,8 @@ pub unsafe fn cmd_move_window_to_center(
     let mut has_error: bool = false;
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let error = (*current_match)
-                .error
-                .as_ref()
-                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
-                .to_vec();
+            let error =
+                i3_common::logging::string_bytes((*current_match).error.as_deref(), None).to_vec();
             let message = [b"Invalid match: ".as_slice(), &error].concat();
             emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
@@ -4341,11 +4272,8 @@ pub unsafe fn cmd_move_window_to_mouse(
 ) {
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let error = (*current_match)
-                .error
-                .as_ref()
-                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
-                .to_vec();
+            let error =
+                i3_common::logging::string_bytes((*current_match).error.as_deref(), None).to_vec();
             let message = [b"Invalid match: ".as_slice(), &error].concat();
             emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
@@ -4430,11 +4358,8 @@ pub unsafe fn cmd_move_scratchpad(current_match: *mut Match, cmd_output: *mut Co
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let error = (*current_match)
-                .error
-                .as_ref()
-                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
-                .to_vec();
+            let error =
+                i3_common::logging::string_bytes((*current_match).error.as_deref(), None).to_vec();
             let message = [b"Invalid match: ".as_slice(), &error].concat();
             emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
@@ -4553,11 +4478,8 @@ pub unsafe fn cmd_swap(
 ) {
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let error = (*current_match)
-                .error
-                .as_ref()
-                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
-                .to_vec();
+            let error =
+                i3_common::logging::string_bytes((*current_match).error.as_deref(), None).to_vec();
             let message = [b"Invalid match: ".as_slice(), &error].concat();
             emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
@@ -4732,11 +4654,8 @@ pub unsafe fn cmd_title_format(
     };
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let error = (*current_match)
-                .error
-                .as_ref()
-                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
-                .to_vec();
+            let error =
+                i3_common::logging::string_bytes((*current_match).error.as_deref(), None).to_vec();
             let message = [b"Invalid match: ".as_slice(), &error].concat();
             emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
@@ -4833,11 +4752,8 @@ pub unsafe fn cmd_title_window_icon(
     );
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let error = (*current_match)
-                .error
-                .as_ref()
-                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
-                .to_vec();
+            let error =
+                i3_common::logging::string_bytes((*current_match).error.as_deref(), None).to_vec();
             let message = [b"Invalid match: ".as_slice(), &error].concat();
             emit_command_reply(cmd_output, CommandReply::Error(&message));
         }

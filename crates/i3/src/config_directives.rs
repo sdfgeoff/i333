@@ -586,17 +586,8 @@ pub unsafe fn cfg_for_window(
     if (*current_match).error.is_some() {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_pointer_1 = (*current_match).error_ptr();
-            let log_value_0 = i3_common::logging::string_bytes(
-                (if log_pointer_1.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                })
-                .map(std::ffi::CStr::to_bytes),
-                None,
-            )
-            .to_vec();
+            let log_value_0 =
+                i3_common::logging::string_bytes((*current_match).error.as_deref(), None).to_vec();
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::error!("ERROR: match has error: {}\n", log_value_0_text);
             } else {
@@ -1388,17 +1379,8 @@ pub unsafe fn cfg_assign_output(
     if (*current_match).error.is_some() {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_pointer_1 = (*current_match).error_ptr();
-            let log_value_0 = i3_common::logging::string_bytes(
-                (if log_pointer_1.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                })
-                .map(std::ffi::CStr::to_bytes),
-                None,
-            )
-            .to_vec();
+            let log_value_0 =
+                i3_common::logging::string_bytes((*current_match).error.as_deref(), None).to_vec();
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::error!("ERROR: match has error: {}\n", log_value_0_text);
             } else {
@@ -1461,17 +1443,8 @@ pub unsafe fn cfg_assign(
     if (*current_match).error.is_some() {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_pointer_1 = (*current_match).error_ptr();
-            let log_value_0 = i3_common::logging::string_bytes(
-                (if log_pointer_1.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                })
-                .map(std::ffi::CStr::to_bytes),
-                None,
-            )
-            .to_vec();
+            let log_value_0 =
+                i3_common::logging::string_bytes((*current_match).error.as_deref(), None).to_vec();
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::error!("ERROR: match has error: {}\n", log_value_0_text);
             } else {
@@ -1566,17 +1539,8 @@ pub unsafe fn cfg_no_focus(current_match: *mut Match, result: *mut ConfigResultI
     if (*current_match).error.is_some() {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_pointer_1 = (*current_match).error_ptr();
-            let log_value_0 = i3_common::logging::string_bytes(
-                (if log_pointer_1.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                })
-                .map(std::ffi::CStr::to_bytes),
-                None,
-            )
-            .to_vec();
+            let log_value_0 =
+                i3_common::logging::string_bytes((*current_match).error.as_deref(), None).to_vec();
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::error!("ERROR: match has error: {}\n", log_value_0_text);
             } else {

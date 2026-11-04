@@ -526,7 +526,7 @@ pub struct MarkTMarks {
 }
 
 pub struct Match {
-    pub error: Option<std::ffi::CString>,
+    pub error: Option<Vec<u8>>,
     pub title: Option<crate::regex::Regex>,
     pub application: Option<crate::regex::Regex>,
     pub class: Option<crate::regex::Regex>,
@@ -573,11 +573,6 @@ impl Match {
             },
             restart_mode: false,
         }
-    }
-    pub fn error_ptr(&self) -> *const ::core::ffi::c_char {
-        self.error
-            .as_ref()
-            .map_or(std::ptr::null(), |error| error.as_ptr())
     }
 }
 impl Default for Match {
