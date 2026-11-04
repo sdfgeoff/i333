@@ -369,18 +369,13 @@ pub unsafe fn cmd_move_con_to_workspace(
     };
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message,
-                c"Invalid match: %s".as_ptr(),
-                (*current_match).error_ptr(),
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
-            );
-            free(message as *mut ::core::ffi::c_void);
+            let error = (*current_match)
+                .error
+                .as_ref()
+                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
+                .to_vec();
+            let message = [b"Invalid match: ".as_slice(), &error].concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
         return;
     }
@@ -407,17 +402,10 @@ pub unsafe fn cmd_move_con_to_workspace(
     }
     if (*(*cmd_output).ctx).owindows.tqh_first.is_null() {
         if (*cmd_output).has_reply() {
-            let mut message_0: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message_0,
-                c"Nothing to move: specified criteria don't match any window".as_ptr(),
-            );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
+                CommandReply::Error(b"Nothing to move: specified criteria don't match any window"),
             );
-            free(message_0 as *mut ::core::ffi::c_void);
         }
         return;
     } else {
@@ -442,17 +430,10 @@ pub unsafe fn cmd_move_con_to_workspace(
         }
         if !found {
             if (*cmd_output).has_reply() {
-                let mut message_1: *mut ::core::ffi::c_char =
-                    ::core::ptr::null_mut::<::core::ffi::c_char>();
-                sasprintf(
-                    &raw mut message_1,
-                    c"Nothing to move: workspace empty".as_ptr(),
-                );
                 emit_command_reply(
                     cmd_output,
-                    CommandReply::Error(std::ffi::CStr::from_ptr(message_1).to_bytes()),
+                    CommandReply::Error(b"Nothing to move: workspace empty"),
                 );
-                free(message_1 as *mut ::core::ffi::c_void);
             }
             return;
         }
@@ -499,34 +480,22 @@ pub unsafe fn cmd_move_con_to_workspace_back_and_forth(
     let ws: *mut Con = workspace_back_and_forth_get();
     if ws.is_null() {
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message,
-                c"No workspace was previously active.".as_ptr(),
-            );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
+                CommandReply::Error(b"No workspace was previously active."),
             );
-            free(message as *mut ::core::ffi::c_void);
         }
         return;
     }
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let mut message_0: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message_0,
-                c"Invalid match: %s".as_ptr(),
-                (*current_match).error_ptr(),
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
-            );
-            free(message_0 as *mut ::core::ffi::c_void);
+            let error = (*current_match)
+                .error
+                .as_ref()
+                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
+                .to_vec();
+            let message_0 = [b"Invalid match: ".as_slice(), &error].concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message_0));
         }
         return;
     }
@@ -583,18 +552,13 @@ pub unsafe fn cmd_move_con_to_workspace_name(
     }
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let mut message_0: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message_0,
-                c"Invalid match: %s".as_ptr(),
-                (*current_match).error_ptr(),
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
-            );
-            free(message_0 as *mut ::core::ffi::c_void);
+            let error = (*current_match)
+                .error
+                .as_ref()
+                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
+                .to_vec();
+            let message_0 = [b"Invalid match: ".as_slice(), &error].concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message_0));
         }
         return;
     }
@@ -621,17 +585,10 @@ pub unsafe fn cmd_move_con_to_workspace_name(
     }
     if (*(*cmd_output).ctx).owindows.tqh_first.is_null() {
         if (*cmd_output).has_reply() {
-            let mut message_1: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message_1,
-                c"Nothing to move: specified criteria don't match any window".as_ptr(),
-            );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_1).to_bytes()),
+                CommandReply::Error(b"Nothing to move: specified criteria don't match any window"),
             );
-            free(message_1 as *mut ::core::ffi::c_void);
         }
         return;
     } else {
@@ -656,17 +613,10 @@ pub unsafe fn cmd_move_con_to_workspace_name(
         }
         if !found {
             if (*cmd_output).has_reply() {
-                let mut message_2: *mut ::core::ffi::c_char =
-                    ::core::ptr::null_mut::<::core::ffi::c_char>();
-                sasprintf(
-                    &raw mut message_2,
-                    c"Nothing to move: workspace empty".as_ptr(),
-                );
                 emit_command_reply(
                     cmd_output,
-                    CommandReply::Error(std::ffi::CStr::from_ptr(message_2).to_bytes()),
+                    CommandReply::Error(b"Nothing to move: workspace empty"),
                 );
-                free(message_2 as *mut ::core::ffi::c_void);
             }
             return;
         }
@@ -716,18 +666,13 @@ pub unsafe fn cmd_move_con_to_workspace_number(
 ) {
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message,
-                c"Invalid match: %s".as_ptr(),
-                (*current_match).error_ptr(),
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
-            );
-            free(message as *mut ::core::ffi::c_void);
+            let error = (*current_match)
+                .error
+                .as_ref()
+                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
+                .to_vec();
+            let message = [b"Invalid match: ".as_slice(), &error].concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
         return;
     }
@@ -754,17 +699,10 @@ pub unsafe fn cmd_move_con_to_workspace_number(
     }
     if (*(*cmd_output).ctx).owindows.tqh_first.is_null() {
         if (*cmd_output).has_reply() {
-            let mut message_0: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message_0,
-                c"Nothing to move: specified criteria don't match any window".as_ptr(),
-            );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
+                CommandReply::Error(b"Nothing to move: specified criteria don't match any window"),
             );
-            free(message_0 as *mut ::core::ffi::c_void);
         }
         return;
     } else {
@@ -789,17 +727,10 @@ pub unsafe fn cmd_move_con_to_workspace_number(
         }
         if !found {
             if (*cmd_output).has_reply() {
-                let mut message_1: *mut ::core::ffi::c_char =
-                    ::core::ptr::null_mut::<::core::ffi::c_char>();
-                sasprintf(
-                    &raw mut message_1,
-                    c"Nothing to move: workspace empty".as_ptr(),
-                );
                 emit_command_reply(
                     cmd_output,
-                    CommandReply::Error(std::ffi::CStr::from_ptr(message_1).to_bytes()),
+                    CommandReply::Error(b"Nothing to move: workspace empty"),
                 );
-                free(message_1 as *mut ::core::ffi::c_void);
             }
             return;
         }
@@ -997,17 +928,10 @@ unsafe fn cmd_resize_tiling_direction(
     let Ok((first, second)) = resize_find_tiling_participants(current, search_direction, false)
     else {
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message,
-                c"No second container found in this direction.".as_ptr(),
-            );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
+                CommandReply::Error(b"No second container found in this direction."),
             );
-            free(message as *mut ::core::ffi::c_void);
         }
         return false;
     };
@@ -1032,17 +956,12 @@ unsafe fn cmd_resize_tiling_width_height(
     };
     let Ok((current, _)) = resize_find_tiling_participants(current, search_direction, true) else {
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message,
-                c"Failed to find appropriate tiling containers for resize operation".as_ptr(),
-            );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
+                CommandReply::Error(
+                    b"Failed to find appropriate tiling containers for resize operation",
+                ),
             );
-            free(message as *mut ::core::ffi::c_void);
         }
         return false;
     };
@@ -1110,17 +1029,10 @@ unsafe fn cmd_resize_tiling_width_height(
     let subtract_percent: f64 = ppt / (children - 1_i32) as f64;
     if ppt < 0.0f64 && new_current_percent < percent_for_1px(current) {
         if (*cmd_output).has_reply() {
-            let mut message_0: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message_0,
-                c"Not resizing, container would end with less than 1px".as_ptr(),
-            );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
+                CommandReply::Error(b"Not resizing, container would end with less than 1px"),
             );
-            free(message_0 as *mut ::core::ffi::c_void);
         }
         return false;
     }
@@ -1298,18 +1210,13 @@ pub unsafe fn cmd_resize(
     }
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message,
-                c"Invalid match: %s".as_ptr(),
-                (*current_match).error_ptr(),
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
-            );
-            free(message as *mut ::core::ffi::c_void);
+            let error = (*current_match)
+                .error
+                .as_ref()
+                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
+                .to_vec();
+            let message = [b"Invalid match: ".as_slice(), &error].concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
         return;
     }
@@ -1363,14 +1270,7 @@ pub unsafe fn cmd_resize(
                     ppt,
                 ) {
                     if (*cmd_output).has_reply() {
-                        let mut message_0: *mut ::core::ffi::c_char =
-                            ::core::ptr::null_mut::<::core::ffi::c_char>();
-                        sasprintf(&raw mut message_0, c"Cannot resize.".as_ptr());
-                        emit_command_reply(
-                            cmd_output,
-                            CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
-                        );
-                        free(message_0 as *mut ::core::ffi::c_void);
+                        emit_command_reply(cmd_output, CommandReply::Error(b"Cannot resize."));
                     }
                     return;
                 }
@@ -1383,14 +1283,7 @@ pub unsafe fn cmd_resize(
                 resize_ppt as i32,
             ) {
                 if (*cmd_output).has_reply() {
-                    let mut message_1: *mut ::core::ffi::c_char =
-                        ::core::ptr::null_mut::<::core::ffi::c_char>();
-                    sasprintf(&raw mut message_1, c"Cannot resize.".as_ptr());
-                    emit_command_reply(
-                        cmd_output,
-                        CommandReply::Error(std::ffi::CStr::from_ptr(message_1).to_bytes()),
-                    );
-                    free(message_1 as *mut ::core::ffi::c_void);
+                    emit_command_reply(cmd_output, CommandReply::Error(b"Cannot resize."));
                 }
                 return;
             }
@@ -1501,31 +1394,22 @@ pub unsafe fn cmd_resize_set(
     };
     if cwidth < 0_i64 || cheight < 0_i64 {
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(&raw mut message, c"Dimensions cannot be negative.".as_ptr());
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
+                CommandReply::Error(b"Dimensions cannot be negative."),
             );
-            free(message as *mut ::core::ffi::c_void);
         }
         return;
     }
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let mut message_0: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message_0,
-                c"Invalid match: %s".as_ptr(),
-                (*current_match).error_ptr(),
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
-            );
-            free(message_0 as *mut ::core::ffi::c_void);
+            let error = (*current_match)
+                .error
+                .as_ref()
+                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
+                .to_vec();
+            let message_0 = [b"Invalid match: ".as_slice(), &error].concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message_0));
         }
         return;
     }
@@ -1672,18 +1556,13 @@ pub unsafe fn cmd_border(
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message,
-                c"Invalid match: %s".as_ptr(),
-                (*current_match).error_ptr(),
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
-            );
-            free(message as *mut ::core::ffi::c_void);
+            let error = (*current_match)
+                .error
+                .as_ref()
+                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
+                .to_vec();
+            let message = [b"Invalid match: ".as_slice(), &error].concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
         return;
     }
@@ -2173,18 +2052,13 @@ pub unsafe fn cmd_mark(
 ) {
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message,
-                c"Invalid match: %s".as_ptr(),
-                (*current_match).error_ptr(),
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
-            );
-            free(message as *mut ::core::ffi::c_void);
+            let error = (*current_match)
+                .error
+                .as_ref()
+                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
+                .to_vec();
+            let message = [b"Invalid match: ".as_slice(), &error].concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
         return;
     }
@@ -2212,17 +2086,10 @@ pub unsafe fn cmd_mark(
     let current: *const owindow = (*(*cmd_output).ctx).owindows.tqh_first;
     if current.is_null() {
         if (*cmd_output).has_reply() {
-            let mut message_0: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message_0,
-                c"Given criteria don't match a window".as_ptr(),
-            );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
+                CommandReply::Error(b"Given criteria don't match a window"),
             );
-            free(message_0 as *mut ::core::ffi::c_void);
         }
         return;
     }
@@ -2231,17 +2098,10 @@ pub unsafe fn cmd_mark(
         *(*((*(*cmd_output).ctx).owindows.tqh_last as *mut owindows_head)).tqh_last,
     ) {
         if (*cmd_output).has_reply() {
-            let mut message_1: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message_1,
-                c"A mark must not be put onto more than one window".as_ptr(),
-            );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_1).to_bytes()),
+                CommandReply::Error(b"A mark must not be put onto more than one window"),
             );
-            free(message_1 as *mut ::core::ffi::c_void);
         }
         return;
     }
@@ -2420,18 +2280,13 @@ pub unsafe fn cmd_move_con_to_output(
     }
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message,
-                c"Invalid match: %s".as_ptr(),
-                (*current_match).error_ptr(),
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
-            );
-            free(message as *mut ::core::ffi::c_void);
+            let error = (*current_match)
+                .error
+                .as_ref()
+                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
+                .to_vec();
+            let message = [b"Invalid match: ".as_slice(), &error].concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
         return;
     }
@@ -2462,17 +2317,10 @@ pub unsafe fn cmd_move_con_to_output(
         .is_empty()
     {
         if (*cmd_output).has_reply() {
-            let mut message_0: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message_0,
-                c"At least one output must be specified".as_ptr(),
-            );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
+                CommandReply::Error(b"At least one output must be specified"),
             );
-            free(message_0 as *mut ::core::ffi::c_void);
         }
         return;
     }
@@ -2502,14 +2350,7 @@ pub unsafe fn cmd_move_con_to_output(
             emit_command_reply(cmd_output, CommandReply::Success(true));
         }
     } else if (*cmd_output).has_reply() {
-        let mut message_1: *mut ::core::ffi::c_char =
-            ::core::ptr::null_mut::<::core::ffi::c_char>();
-        sasprintf(&raw mut message_1, c"No output matched".as_ptr());
-        emit_command_reply(
-            cmd_output,
-            CommandReply::Error(std::ffi::CStr::from_ptr(message_1).to_bytes()),
-        );
-        free(message_1 as *mut ::core::ffi::c_void);
+        emit_command_reply(cmd_output, CommandReply::Error(b"No output matched"));
     }
 }
 
@@ -2550,18 +2391,13 @@ pub unsafe fn cmd_move_con_to_mark(
     };
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message,
-                c"Invalid match: %s".as_ptr(),
-                (*current_match).error_ptr(),
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
-            );
-            free(message as *mut ::core::ffi::c_void);
+            let error = (*current_match)
+                .error
+                .as_ref()
+                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
+                .to_vec();
+            let message = [b"Invalid match: ".as_slice(), &error].concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
         return;
     }
@@ -2678,18 +2514,13 @@ pub unsafe fn cmd_floating(
     };
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message,
-                c"Invalid match: %s".as_ptr(),
-                (*current_match).error_ptr(),
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
-            );
-            free(message as *mut ::core::ffi::c_void);
+            let error = (*current_match)
+                .error
+                .as_ref()
+                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
+                .to_vec();
+            let message = [b"Invalid match: ".as_slice(), &error].concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
         return;
     }
@@ -2808,18 +2639,13 @@ pub unsafe fn cmd_split(
 ) {
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message,
-                c"Invalid match: %s".as_ptr(),
-                (*current_match).error_ptr(),
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
-            );
-            free(message as *mut ::core::ffi::c_void);
+            let error = (*current_match)
+                .error
+                .as_ref()
+                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
+                .to_vec();
+            let message = [b"Invalid match: ".as_slice(), &error].concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
         return;
     }
@@ -2993,18 +2819,13 @@ pub unsafe fn cmd_kill(
     }
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let mut message_0: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message_0,
-                c"Invalid match: %s".as_ptr(),
-                (*current_match).error_ptr(),
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
-            );
-            free(message_0 as *mut ::core::ffi::c_void);
+            let error = (*current_match)
+                .error
+                .as_ref()
+                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
+                .to_vec();
+            let message_0 = [b"Invalid match: ".as_slice(), &error].concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message_0));
         }
         return;
     }
@@ -3050,18 +2871,13 @@ pub unsafe fn cmd_exec(
     let no_startup_id: bool = !nosn.is_null();
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message,
-                c"Invalid match: %s".as_ptr(),
-                (*current_match).error_ptr(),
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
-            );
-            free(message as *mut ::core::ffi::c_void);
+            let error = (*current_match)
+                .error
+                .as_ref()
+                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
+                .to_vec();
+            let message = [b"Invalid match: ".as_slice(), &error].concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
         return;
     }
@@ -3152,18 +2968,13 @@ pub unsafe fn cmd_focus_direction(
 ) {
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message,
-                c"Invalid match: %s".as_ptr(),
-                (*current_match).error_ptr(),
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
-            );
-            free(message as *mut ::core::ffi::c_void);
+            let error = (*current_match)
+                .error
+                .as_ref()
+                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
+                .to_vec();
+            let message = [b"Invalid match: ".as_slice(), &error].concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
         return;
     }
@@ -3235,18 +3046,13 @@ pub unsafe fn cmd_focus_sibling(
 ) {
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message,
-                c"Invalid match: %s".as_ptr(),
-                (*current_match).error_ptr(),
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
-            );
-            free(message as *mut ::core::ffi::c_void);
+            let error = (*current_match)
+                .error
+                .as_ref()
+                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
+                .to_vec();
+            let message = [b"Invalid match: ".as_slice(), &error].concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
         return;
     }
@@ -3456,32 +3262,20 @@ pub unsafe fn cmd_focus(
         ::log::error!("ERROR: You have to specify which window/container should be focused.\n");
         ::log::error!("ERROR: Example: [class=\"urxvt\" title=\"irssi\"] focus\n");
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message,
-                c"You have to specify which window/container should be focused".as_ptr(),
-            );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
+                CommandReply::Error(
+                    b"You have to specify which window/container should be focused",
+                ),
             );
-            free(message as *mut ::core::ffi::c_void);
         }
         return;
     } else if (*(*cmd_output).ctx).owindows.tqh_first.is_null() {
         if (*cmd_output).has_reply() {
-            let mut message_0: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message_0,
-                c"No window matches given criteria".as_ptr(),
-            );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
+                CommandReply::Error(b"No window matches given criteria"),
             );
-            free(message_0 as *mut ::core::ffi::c_void);
         }
         return;
     }
@@ -3655,18 +3449,13 @@ pub unsafe fn cmd_fullscreen(
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message,
-                c"Invalid match: %s".as_ptr(),
-                (*current_match).error_ptr(),
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
-            );
-            free(message as *mut ::core::ffi::c_void);
+            let error = (*current_match)
+                .error
+                .as_ref()
+                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
+                .to_vec();
+            let message = [b"Invalid match: ".as_slice(), &error].concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
         return;
     }
@@ -3779,18 +3568,13 @@ pub unsafe fn cmd_sticky(
     };
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message,
-                c"Invalid match: %s".as_ptr(),
-                (*current_match).error_ptr(),
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
-            );
-            free(message as *mut ::core::ffi::c_void);
+            let error = (*current_match)
+                .error
+                .as_ref()
+                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
+                .to_vec();
+            let message = [b"Invalid match: ".as_slice(), &error].concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
         return;
     }
@@ -3875,18 +3659,13 @@ pub unsafe fn cmd_move_direction(
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message,
-                c"Invalid match: %s".as_ptr(),
-                (*current_match).error_ptr(),
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
-            );
-            free(message as *mut ::core::ffi::c_void);
+            let error = (*current_match)
+                .error
+                .as_ref()
+                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
+                .to_vec();
+            let message = [b"Invalid match: ".as_slice(), &error].concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
         return;
     }
@@ -4044,18 +3823,13 @@ pub unsafe fn cmd_layout(
 ) {
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message,
-                c"Invalid match: %s".as_ptr(),
-                (*current_match).error_ptr(),
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
-            );
-            free(message as *mut ::core::ffi::c_void);
+            let error = (*current_match)
+                .error
+                .as_ref()
+                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
+                .to_vec();
+            let message = [b"Invalid match: ".as_slice(), &error].concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
         return;
     }
@@ -4363,34 +4137,22 @@ pub unsafe fn cmd_focus_output(
         .is_empty()
     {
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message,
-                c"At least one output must be specified".as_ptr(),
-            );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
+                CommandReply::Error(b"At least one output must be specified"),
             );
-            free(message as *mut ::core::ffi::c_void);
         }
         return;
     }
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let mut message_0: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message_0,
-                c"Invalid match: %s".as_ptr(),
-                (*current_match).error_ptr(),
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
-            );
-            free(message_0 as *mut ::core::ffi::c_void);
+            let error = (*current_match)
+                .error
+                .as_ref()
+                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
+                .to_vec();
+            let message_0 = [b"Invalid match: ".as_slice(), &error].concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message_0));
         }
         return;
     }
@@ -4456,17 +4218,10 @@ pub unsafe fn cmd_focus_output(
         }
         if ws.is_null() {
             if (*cmd_output).has_reply() {
-                let mut message_1: *mut ::core::ffi::c_char =
-                    ::core::ptr::null_mut::<::core::ffi::c_char>();
-                sasprintf(
-                    &raw mut message_1,
-                    c"BUG: No workspace found on output.".as_ptr(),
-                );
                 emit_command_reply(
                     cmd_output,
-                    CommandReply::Error(std::ffi::CStr::from_ptr(message_1).to_bytes()),
+                    CommandReply::Error(b"BUG: No workspace found on output."),
                 );
-                free(message_1 as *mut ::core::ffi::c_void);
             }
             return;
         }
@@ -4478,14 +4233,7 @@ pub unsafe fn cmd_focus_output(
             emit_command_reply(cmd_output, CommandReply::Success(true));
         }
     } else if (*cmd_output).has_reply() {
-        let mut message_2: *mut ::core::ffi::c_char =
-            ::core::ptr::null_mut::<::core::ffi::c_char>();
-        sasprintf(&raw mut message_2, c"No output matched".as_ptr());
-        emit_command_reply(
-            cmd_output,
-            CommandReply::Error(std::ffi::CStr::from_ptr(message_2).to_bytes()),
-        );
-        free(message_2 as *mut ::core::ffi::c_void);
+        emit_command_reply(cmd_output, CommandReply::Error(b"No output matched"));
     }
 }
 
@@ -4501,18 +4249,13 @@ pub unsafe fn cmd_move_window_to_position(
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message,
-                c"Invalid match: %s".as_ptr(),
-                (*current_match).error_ptr(),
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
-            );
-            free(message as *mut ::core::ffi::c_void);
+            let error = (*current_match)
+                .error
+                .as_ref()
+                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
+                .to_vec();
+            let message = [b"Invalid match: ".as_slice(), &error].concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
         return;
     }
@@ -4608,17 +4351,10 @@ pub unsafe fn cmd_move_window_to_position(
             };
             if !floating_reposition(parent_ptr((*current).con), newrect) {
                 if (*cmd_output).has_reply() {
-                    let mut message_1: *mut ::core::ffi::c_char =
-                        ::core::ptr::null_mut::<::core::ffi::c_char>();
-                    sasprintf(
-                        &raw mut message_1,
-                        c"Cannot move window/container out of bounds.".as_ptr(),
-                    );
                     emit_command_reply(
                         cmd_output,
-                        CommandReply::Error(std::ffi::CStr::from_ptr(message_1).to_bytes()),
+                        CommandReply::Error(b"Cannot move window/container out of bounds."),
                     );
-                    free(message_1 as *mut ::core::ffi::c_void);
                 }
                 has_error = true;
             }
@@ -4638,18 +4374,13 @@ pub unsafe fn cmd_move_window_to_center(
     let mut has_error: bool = false;
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message,
-                c"Invalid match: %s".as_ptr(),
-                (*current_match).error_ptr(),
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
-            );
-            free(message as *mut ::core::ffi::c_void);
+            let error = (*current_match)
+                .error
+                .as_ref()
+                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
+                .to_vec();
+            let message = [b"Invalid match: ".as_slice(), &error].concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
         return;
     }
@@ -4758,18 +4489,13 @@ pub unsafe fn cmd_move_window_to_mouse(
 ) {
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message,
-                c"Invalid match: %s".as_ptr(),
-                (*current_match).error_ptr(),
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
-            );
-            free(message as *mut ::core::ffi::c_void);
+            let error = (*current_match)
+                .error
+                .as_ref()
+                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
+                .to_vec();
+            let message = [b"Invalid match: ".as_slice(), &error].concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
         return;
     }
@@ -4868,18 +4594,13 @@ pub unsafe fn cmd_move_scratchpad(current_match: *mut Match, cmd_output: *mut Co
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message,
-                c"Invalid match: %s".as_ptr(),
-                (*current_match).error_ptr(),
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
-            );
-            free(message as *mut ::core::ffi::c_void);
+            let error = (*current_match)
+                .error
+                .as_ref()
+                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
+                .to_vec();
+            let message = [b"Invalid match: ".as_slice(), &error].concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
         return;
     }
@@ -5012,18 +4733,13 @@ pub unsafe fn cmd_swap(
 ) {
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message,
-                c"Invalid match: %s".as_ptr(),
-                (*current_match).error_ptr(),
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
-            );
-            free(message as *mut ::core::ffi::c_void);
+            let error = (*current_match)
+                .error
+                .as_ref()
+                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
+                .to_vec();
+            let message = [b"Invalid match: ".as_slice(), &error].concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
         return;
     }
@@ -5051,14 +4767,10 @@ pub unsafe fn cmd_swap(
     let match_0: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
     if match_0.is_null() {
         if (*cmd_output).has_reply() {
-            let mut message_0: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(&raw mut message_0, c"No match found for swapping.".as_ptr());
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
+                CommandReply::Error(b"No match found for swapping."),
             );
-            free(message_0 as *mut ::core::ffi::c_void);
         }
         return;
     }
@@ -5197,18 +4909,13 @@ pub unsafe fn cmd_title_format(
     };
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message,
-                c"Invalid match: %s".as_ptr(),
-                (*current_match).error_ptr(),
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
-            );
-            free(message as *mut ::core::ffi::c_void);
+            let error = (*current_match)
+                .error
+                .as_ref()
+                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
+                .to_vec();
+            let message = [b"Invalid match: ".as_slice(), &error].concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
         return;
     }
@@ -5311,18 +5018,13 @@ pub unsafe fn cmd_title_window_icon(
     );
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message,
-                c"Invalid match: %s".as_ptr(),
-                (*current_match).error_ptr(),
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
-            );
-            free(message as *mut ::core::ffi::c_void);
+            let error = (*current_match)
+                .error
+                .as_ref()
+                .map_or(b"(null)".as_slice(), |error| error.as_bytes())
+                .to_vec();
+            let message = [b"Invalid match: ".as_slice(), &error].concat();
+            emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
         return;
     }
