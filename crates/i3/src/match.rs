@@ -530,14 +530,27 @@ pub unsafe fn match_parse_property(
                 c"void match_parse_property(Match *, const char *, const char *)".as_ptr(),
             );
         };
-        debuglog(
-            c"%s:%s:%d - ctype=*%s*, cvalue=*%s*\n".as_ptr().cast_mut(),
-            c"../src/match.c".as_ptr(),
-            c"match_parse_property".as_ptr(),
-            297 as ::core::ffi::c_int,
-            ctype,
-            cvalue,
-        );
+        {
+            let property = CStr::from_ptr(ctype).to_owned();
+            let value = CStr::from_ptr(cvalue).to_owned();
+            match (property.to_str(), value.to_str()) {
+                (Ok(property), Ok(value)) => ::log::debug!(
+                    "../src/match.c:match_parse_property:297 - ctype=*{}*, cvalue=*{}*\n",
+                    property,
+                    value
+                ),
+                _ => emit_parts(
+                    Level::Debug,
+                    &[
+                        b"../src/match.c:match_parse_property:297 - ctype=*",
+                        property.to_bytes(),
+                        b"*, cvalue=*",
+                        value.to_bytes(),
+                        b"*\n",
+                    ],
+                ),
+            }
+        };
         let property = unsafe { CStr::from_ptr(ctype) }.to_bytes();
         if property == b"class" {
             (*match_0).class = compile_expression(CStr::from_ptr(cvalue));
@@ -558,22 +571,29 @@ pub unsafe fn match_parse_property(
             }
             match parse_long(CStr::from_ptr(cvalue), 0) {
                 Err(_) => {
-                    errorlog(
-                        c"ERROR: Could not parse con id \"%s\"\n"
-                            .as_ptr()
-                            .cast_mut(),
-                        cvalue,
-                    );
+                    {
+                        let value = CStr::from_ptr(cvalue).to_owned();
+                        match value.to_str() {
+                            Ok(value) => {
+                                ::log::error!("ERROR: Could not parse con id \"{}\"\n", value)
+                            }
+                            Err(_) => emit_parts(
+                                Level::Error,
+                                &[
+                                    b"ERROR: Could not parse con id \"",
+                                    value.to_bytes(),
+                                    b"\"\n",
+                                ],
+                            ),
+                        }
+                    };
                     (*match_0).error = Some(c"invalid con_id".to_owned());
                 }
                 Ok(parsed) => {
                     (*match_0).con_id = parsed as *mut Con;
-                    debuglog(
-                        c"%s:%s:%d - id as int = %p\n".as_ptr().cast_mut(),
-                        c"../src/match.c".as_ptr(),
-                        c"match_parse_property".as_ptr(),
-                        329 as ::core::ffi::c_int,
-                        (*match_0).con_id,
+                    ::log::debug!(
+                        "../src/match.c:match_parse_property:329 - id as int = {}\n",
+                        i3_common::logging::pointer((*match_0).con_id)
                     );
                 }
             }
@@ -582,22 +602,29 @@ pub unsafe fn match_parse_property(
         if property == b"id" {
             match parse_long(CStr::from_ptr(cvalue), 0) {
                 Err(_) => {
-                    errorlog(
-                        c"ERROR: Could not parse window id \"%s\"\n"
-                            .as_ptr()
-                            .cast_mut(),
-                        cvalue,
-                    );
+                    {
+                        let value = CStr::from_ptr(cvalue).to_owned();
+                        match value.to_str() {
+                            Ok(value) => {
+                                ::log::error!("ERROR: Could not parse window id \"{}\"\n", value)
+                            }
+                            Err(_) => emit_parts(
+                                Level::Error,
+                                &[
+                                    b"ERROR: Could not parse window id \"",
+                                    value.to_bytes(),
+                                    b"\"\n",
+                                ],
+                            ),
+                        }
+                    };
                     (*match_0).error = Some(c"invalid id".to_owned());
                 }
                 Ok(parsed_0) => {
                     (*match_0).id = parsed_0 as u32;
-                    debuglog(
-                        c"%s:%s:%d - window id as int = %d\n".as_ptr().cast_mut(),
-                        c"../src/match.c".as_ptr(),
-                        c"match_parse_property".as_ptr(),
-                        341 as ::core::ffi::c_int,
-                        (*match_0).id,
+                    ::log::debug!(
+                        "../src/match.c:match_parse_property:341 - window id as int = {}\n",
+                        ((*match_0).id) as i32
                     );
                 }
             }
@@ -625,12 +652,22 @@ pub unsafe fn match_parse_property(
             } else if strcasecmp(cvalue, c"notification".as_ptr()) == 0 as ::core::ffi::c_int {
                 (*match_0).window_type = A__NET_WM_WINDOW_TYPE_NOTIFICATION;
             } else {
-                errorlog(
-                    c"ERROR: unknown window_type value \"%s\"\n"
-                        .as_ptr()
-                        .cast_mut(),
-                    cvalue,
-                );
+                {
+                    let value = CStr::from_ptr(cvalue).to_owned();
+                    match value.to_str() {
+                        Ok(value) => {
+                            ::log::error!("ERROR: unknown window_type value \"{}\"\n", value)
+                        }
+                        Err(_) => emit_parts(
+                            Level::Error,
+                            &[
+                                b"ERROR: unknown window_type value \"",
+                                value.to_bytes(),
+                                b"\"\n",
+                            ],
+                        ),
+                    }
+                };
                 (*match_0).error = Some(c"unknown window_type value".to_owned());
             }
             return;
@@ -705,20 +742,28 @@ pub unsafe fn match_parse_property(
             (*match_0).match_all_windows = true_0 != 0;
             return;
         }
-        errorlog(c"ERROR: Unknown criterion: %s\n".as_ptr().cast_mut(), ctype);
+        {
+            let value = CStr::from_ptr(ctype).to_owned();
+            match value.to_str() {
+                Ok(value) => ::log::error!("ERROR: Unknown criterion: {}\n", value),
+                Err(_) => emit_parts(
+                    Level::Error,
+                    &[b"ERROR: Unknown criterion: ", value.to_bytes(), b"\n"],
+                ),
+            }
+        };
     }
 }
 
 // Internal helpers use Rust linkage rather than foreign symbol lookup.
 use crate::util::parse_long;
+use i3_common::logging::{emit_parts, Level};
 
 // Canonical Cairo backend ABI; renderer logic remains local.
 
 use libc::{strcasecmp, strcmp};
 
 use i3_common::native_stdio::__assert_fail;
-
-use crate::log::{debuglog, errorlog};
 
 // Shared model types retain field layout while using one Rust identity.
 pub use crate::types::Con;
