@@ -8,19 +8,19 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 22 wallclock secs ( 0.74 usr +  0.07 sys =  0.81 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 22 wallclock secs ( 0.71 usr +  0.07 sys =  0.78 CPU)\nResult: PASS",
     "profile": "debug",
     "build": "cargo test --locked",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "9e900694354880e607d69afbc7bbabc3af64dbec60902f3d2711cf2e4f7a6af1",
-    "i3bar": "a61df6df7ae2f050bb00a8b9574a9537303462be2cbe321d018ac08f235dc8bc",
-    "i3-config-wizard": "89bcd4dfb068c73c8a70e2005015192c25d0110eb216ab6a73bcbab85b688b3c",
-    "i3-dump-log": "deba4a6ac05ec7bb73d8f407a96d70252da33ec4438a956c81e8305bb6d727a9",
-    "i3-input": "14e73d6a135022aed0b64d24dee5b09b23ec845f9ab6057ca253a85a158280c8",
-    "i3-msg": "b536ec8f9a19c1e5004b97da948caa4ca30a48e8a2a4d3b94d5dd08f086c080f",
-    "i3-nagbar": "1f2da8c68e44c8cf6c1c773558a61d08518c0e8ea8f393bfcd26450f50a4a60a"
+    "i3": "e62ba4ab7677f620302f405aa4f4169afdbf572c8b1f9ef755a035f8c6288b5f",
+    "i3bar": "a4d1651ff7ac705b480c8535393d719ddd2a2311bfdac691e4ca4b125ee89e96",
+    "i3-config-wizard": "ad7b79450410d8700a64734fc6b12211d84e5885f847ccd31b39da7f5a04ceec",
+    "i3-dump-log": "7ca2a865b6deb0fb27608aa4d5e2416fb2f501f5e3a151499d5985d1099310ea",
+    "i3-input": "74de69e52e48fc646291d680a1f3b99896cefa37f012611a683eebf852fed00c",
+    "i3-msg": "552de585508ef927c9dcc6efa234e30ebf9e9485a8f7e6de56458fecd7874a25",
+    "i3-nagbar": "c372519a66e8f052931490ff12eea810d94a356265ebacbe8aeebb9cff7188f2"
   },
   "note": "Nine-member Cargo workspace. cargo test --locked passed 436 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
@@ -2576,6 +2576,14 @@
         "stage": 2,
         "source_commit": "114e603573777f82619fa7e5b2885927bd799191",
         "scope": "Own Con title/sticky strings; preserve native pointer/string presentation with typed helpers; convert common/tool/bar and parser/regex/output logging to standard log macros with exact byte fallback; core caller migration and Con names remain in progress",
+        "rust_tests": 436,
+        "upstream_assertions": 4205,
+        "status": "validated"
+      },
+      {
+        "stage": 3,
+        "source_commit": "191722762050c9f2e195219c9eb5cae5a0081744",
+        "scope": "Complete owned Con names/title/sticky fields and callback-safe snapshots alongside owned assignments/config/bar data; convert another82core configuration/binding logcalls and bytefallback helper; allownedmodelareas complete, remainingcoreloggingcaller migration ongoing",
         "rust_tests": 436,
         "upstream_assertions": 4205,
         "status": "validated"
