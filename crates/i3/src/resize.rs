@@ -121,13 +121,10 @@ unsafe fn resize_callback(
     // extra is the live unique stack context passed below, not an arbitrary pointer.
     let params = extra.cast_mut().cast::<DragState>();
     let output: *mut Con = (*params).output;
-    debuglog(
-        c"%s:%s:%d - new x = %d, y = %d\n".as_ptr().cast_mut(),
-        c"../src/resize.c".as_ptr(),
-        c"resize_callback".as_ptr(),
-        30,
-        new_x,
-        new_y,
+    ::log::debug!(
+        "../src/resize.c:resize_callback:30 - new x = {}, y = {}\n",
+        (new_x) as i32,
+        (new_y) as i32
     );
     if !(*params).threshold_exceeded {
         connection().send_request(&x::MapWindow {
@@ -190,27 +187,22 @@ pub unsafe fn resize_find_tiling_participants(
     direction: Direction,
     both_sides: bool,
 ) -> bool {
-    debuglog(
-        c"%s:%s:%d - Find two participants for resizing container=%p in direction=%i\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/resize.c".as_ptr(),
-        c"resize_find_tiling_participants".as_ptr(),
-        73,
-        other,
-        direction as u32,
+    ::log::debug!(
+        concat!(
+            "../src/resize.c:resize_find_tiling_participants:73 - ",
+            "Find two participants for resizing container={} in ",
+            "direction={}\n"
+        ),
+        i3_common::logging::pointer(other),
+        (direction as u32) as i32
     );
     let mut first: *mut Con = *current;
     let mut second: *mut Con = ::core::ptr::null_mut::<Con>();
     if first.is_null() {
-        debuglog(
-            c"%s:%s:%d - Current container is NULL, aborting.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/resize.c".as_ptr(),
-            c"resize_find_tiling_participants".as_ptr(),
-            77,
-        );
+        ::log::debug!(concat!(
+            "../src/resize.c:resize_find_tiling_participants:77 - ",
+            "Current container is NULL, aborting.\n"
+        ));
         return false;
     }
     let search_orientation: Orientation = orientation_from_direction(direction);
@@ -237,37 +229,31 @@ pub unsafe fn resize_find_tiling_participants(
                 }
             }
             if second.is_null() {
-                debuglog(
-                    c"%s:%s:%d - No second container in this direction found, trying to look further up in the tree...\n".as_ptr().cast_mut(),
-                    c"../src/resize.c".as_ptr(),
-                    c"resize_find_tiling_participants".as_ptr(),
-                    110,
-                );
+                ::log::debug!(concat!(
+                    "../src/resize.c:resize_find_tiling_participants:110 - ",
+                    "No second container in this direction found, trying to ",
+                    "look further up in the tree...\n"
+                ));
                 first = parent_ptr(first);
             }
         }
     }
-    debuglog(
-        c"%s:%s:%d - Found participants: first=%p and second=%p.\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/resize.c".as_ptr(),
-        c"resize_find_tiling_participants".as_ptr(),
-        115,
-        first,
-        second,
+    ::log::debug!(
+        concat!(
+            "../src/resize.c:resize_find_tiling_participants:115 - ",
+            "Found participants: first={} and second={}.\n"
+        ),
+        i3_common::logging::pointer(first),
+        i3_common::logging::pointer(second)
     );
     *current = first;
     *other = second;
     if first.is_null() || second.is_null() {
-        debuglog(
-            c"%s:%s:%d - Could not find two participants for this resize request.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/resize.c".as_ptr(),
-            c"resize_find_tiling_participants".as_ptr(),
-            119,
-        );
+        ::log::debug!(concat!(
+            "../src/resize.c:resize_find_tiling_participants:119 - ",
+            "Could not find two participants for this resize ",
+            "request.\n"
+        ));
         return false;
     }
     true
@@ -314,30 +300,55 @@ pub unsafe fn resize_graphical_handler(
     use_threshold: bool,
 ) {
     let output: *mut Con = con_get_output(first);
-    debuglog(
-        c"%s:%s:%d - x = %d, width = %d\n".as_ptr().cast_mut(),
-        c"../src/resize.c".as_ptr(),
-        c"resize_graphical_handler".as_ptr(),
-        177,
-        (*output).rect.x,
-        (*output).rect.width,
+    ::log::debug!(
+        "../src/resize.c:resize_graphical_handler:177 - x = {}, width = {}\n",
+        ((*output).rect.x) as i32,
+        ((*output).rect.width) as i32
     );
-    debuglog(
-        c"%s:%s:%d - first = %p / %s\n".as_ptr().cast_mut(),
-        c"../src/resize.c".as_ptr(),
-        c"resize_graphical_handler".as_ptr(),
-        178,
-        first,
-        (*first).name_ptr(),
-    );
-    debuglog(
-        c"%s:%s:%d - second = %p / %s\n".as_ptr().cast_mut(),
-        c"../src/resize.c".as_ptr(),
-        c"resize_graphical_handler".as_ptr(),
-        179,
-        second,
-        (*second).name_ptr(),
-    );
+    {
+        let diagnostic_5 = i3_common::logging::pointer(first);
+        let diagnostic_6_owner = (*first).name.clone();
+        let diagnostic_6_bytes = string_bytes(diagnostic_6_owner.as_deref(), None);
+        match (std::str::from_utf8(&diagnostic_6_bytes),) {
+            (Ok(diagnostic_6_text),) => ::log::debug!(
+                "../src/resize.c:resize_graphical_handler:178 - first = {} / {}\n",
+                diagnostic_5,
+                diagnostic_6_text
+            ),
+            _ => emit_parts(
+                Level::Debug,
+                &[
+                    b"../src/resize.c:resize_graphical_handler:178 - first = ",
+                    format!("{}", diagnostic_5).as_bytes(),
+                    b" / ",
+                    &diagnostic_6_bytes,
+                    b"\n",
+                ],
+            ),
+        }
+    };
+    {
+        let diagnostic_5 = i3_common::logging::pointer(second);
+        let diagnostic_6_owner = (*second).name.clone();
+        let diagnostic_6_bytes = string_bytes(diagnostic_6_owner.as_deref(), None);
+        match (std::str::from_utf8(&diagnostic_6_bytes),) {
+            (Ok(diagnostic_6_text),) => ::log::debug!(
+                "../src/resize.c:resize_graphical_handler:179 - second = {} / {}\n",
+                diagnostic_5,
+                diagnostic_6_text
+            ),
+            _ => emit_parts(
+                Level::Debug,
+                &[
+                    b"../src/resize.c:resize_graphical_handler:179 - second = ",
+                    format!("{}", diagnostic_5).as_bytes(),
+                    b" / ",
+                    &diagnostic_6_bytes,
+                    b"\n",
+                ],
+            ),
+        }
+    };
     x_mask_event_mask(!((::xcb::x::EventMask::ENTER_WINDOW.bits()) as i32) as u32);
     let _ = connection().flush();
     let grabwin = create_window(
@@ -435,12 +446,9 @@ pub unsafe fn resize_graphical_handler(
         return;
     }
     let pixels: i32 = params.new_position.wrapping_sub(initial_position) as i32;
-    debuglog(
-        c"%s:%s:%d - Done, pixels = %d\n".as_ptr().cast_mut(),
-        c"../src/resize.c".as_ptr(),
-        c"resize_graphical_handler".as_ptr(),
-        279,
-        pixels,
+    ::log::debug!(
+        "../src/resize.c:resize_graphical_handler:279 - Done, pixels = {}\n",
+        (pixels) as i32
     );
     if pixels == 0 {
         return;
@@ -450,21 +458,38 @@ pub unsafe fn resize_graphical_handler(
         "resize participants must have positive percentages"
     );
     let result: bool = resize_neighboring_cons(first, second, pixels, 0) as bool;
-    debuglog(
-        c"%s:%s:%d - Graphical resize %s: first->percent = %f, second->percent = %f.\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/resize.c".as_ptr(),
-        c"resize_graphical_handler".as_ptr(),
-        291,
-        if result {
-            c"successful".as_ptr()
-        } else {
-            c"failed".as_ptr()
-        },
-        (*first).percent,
-        (*second).percent,
-    );
+    {
+        let outcome = if result { "successful" } else { "failed" };
+        let first_percent = fixed_decimal((*first).percent, FixedPrecision::Six);
+        let second_percent = fixed_decimal((*second).percent, FixedPrecision::Six);
+        match (
+            std::str::from_utf8(&first_percent),
+            std::str::from_utf8(&second_percent),
+        ) {
+            (Ok(first), Ok(second)) => ::log::debug!(
+                concat!(
+                    "../src/resize.c:resize_graphical_handler:291 - ",
+                    "Graphical resize {}: first->percent = {}, ",
+                    "second->percent = {}.\n"
+                ),
+                outcome,
+                first,
+                second
+            ),
+            _ => emit_parts(
+                Level::Debug,
+                &[
+                    b"../src/resize.c:resize_graphical_handler:291 - Graphical resize ",
+                    outcome.as_bytes(),
+                    b": first->percent = ",
+                    &first_percent,
+                    b", second->percent = ",
+                    &second_percent,
+                    b".\n",
+                ],
+            ),
+        }
+    };
 }
 
 // Internal helpers use Rust linkage rather than foreign symbol lookup.
@@ -476,8 +501,6 @@ use i3_common::dpi::logical_px;
 // Canonical Cairo backend ABI; renderer logic remains local.
 
 // Canonical Pango backend ABI; font policy remains local.
-
-use crate::log::debuglog;
 
 // Shared model types retain field layout while using one Rust identity.
 use crate::types::Con;
@@ -541,3 +564,5 @@ mod tests {
 }
 
 use crate::con::arena::nodes;
+
+use i3_common::logging::{emit_parts, fixed_decimal, string_bytes, FixedPrecision, Level};

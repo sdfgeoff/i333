@@ -131,18 +131,39 @@ pub unsafe fn render_con(con: *mut Con) {
         children: con_num_children(con),
         sizes: Vec::new(),
     };
-    debuglog(
-        c"%s:%s:%d - Rendering node %p / %s / layout %d / children %d\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/render.c".as_ptr(),
-        c"render_con".as_ptr(),
-        51,
-        con,
-        (*con).name_ptr(),
-        (*con).layout as u32,
-        params.children,
-    );
+    {
+        let diagnostic_5 = i3_common::logging::pointer(con);
+        let diagnostic_6_owner = (*con).name.clone();
+        let diagnostic_6_bytes = string_bytes(diagnostic_6_owner.as_deref(), None);
+        let diagnostic_7 = ((*con).layout as u32) as i32;
+        let diagnostic_8 = (params.children) as i32;
+        match (std::str::from_utf8(&diagnostic_6_bytes),) {
+            (Ok(diagnostic_6_text),) => ::log::debug!(
+                concat!(
+                    "../src/render.c:render_con:51 - Rendering node {} / {} ",
+                    "/ layout {} / children {}\n"
+                ),
+                diagnostic_5,
+                diagnostic_6_text,
+                diagnostic_7,
+                diagnostic_8
+            ),
+            _ => emit_parts(
+                Level::Debug,
+                &[
+                    b"../src/render.c:render_con:51 - Rendering node ",
+                    format!("{}", diagnostic_5).as_bytes(),
+                    b" / ",
+                    &diagnostic_6_bytes,
+                    b" / layout ",
+                    format!("{}", diagnostic_7).as_bytes(),
+                    b" / children ",
+                    format!("{}", diagnostic_8).as_bytes(),
+                    b"\n",
+                ],
+            ),
+        }
+    };
     if ((*con).type_0) == ContainerType::Workspace {
         let gaps: gaps_t = calculate_effective_gaps(con);
         let inset = workspace_inset(gaps);
@@ -178,17 +199,12 @@ pub unsafe fn render_con(con: *mut Con) {
         };
         let inset_1 = window_geometry((*con).rect, border, (*con).border_width);
         (*con).window_rect = inset_1;
-        debuglog(
-            c"%s:%s:%d - child will be at %dx%d with size %dx%d\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/render.c".as_ptr(),
-            c"render_con".as_ptr(),
-            123,
-            inset_1.x,
-            inset_1.y,
-            inset_1.width,
-            inset_1.height,
+        ::log::debug!(
+            "../src/render.c:render_con:123 - child will be at {}x{} with size {}x{}\n",
+            (inset_1.x) as i32,
+            (inset_1.y) as i32,
+            (inset_1.width) as i32,
+            (inset_1.height) as i32
         );
     }
     let mut fullscreen: *mut Con = ::core::ptr::null_mut::<Con>();
@@ -243,17 +259,12 @@ pub unsafe fn render_con(con: *mut Con) {
                 render_child_geometry(con, child, &mut params, i);
             }
             (*child).rect = rect_sanitize_dimensions((*child).rect as Rect) as Rect;
-            debuglog(
-                c"%s:%s:%d - child at (%d, %d) with (%d x %d)\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/render.c".as_ptr(),
-                c"render_con".as_ptr(),
-                179,
-                (*child).rect.x,
-                (*child).rect.y,
-                (*child).rect.width,
-                (*child).rect.height,
+            ::log::debug!(
+                "../src/render.c:render_con:179 - child at ({}, {}) with ({} x {})\n",
+                ((*child).rect.x) as i32,
+                ((*child).rect.y) as i32,
+                ((*child).rect.width) as i32,
+                ((*child).rect.height) as i32
             );
             x_raise_con(child);
             render_con(child);
@@ -317,27 +328,16 @@ unsafe fn render_root(con: *mut Con, fullscreen: *mut Con) {
             output = nodes::next_ptr(output);
         }
     }
-    debuglog(
-        c"%s:%s:%d - Rendering floating windows:\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/render.c".as_ptr(),
-        c"render_root".as_ptr(),
-        285,
-    );
+    ::log::debug!("../src/render.c:render_root:285 - Rendering floating windows:\n");
     output = nodes::first_ptr(con);
     while !output.is_null() {
         if !con_is_internal(output) {
             let content: *mut Con = output_get_content(output);
             if content.is_null() || focus::first_ptr(content).is_null() {
-                debuglog(
-                    c"%s:%s:%d - Skipping this output because it is currently being destroyed.\n"
-                        .as_ptr()
-                        .cast_mut(),
-                    c"../src/render.c".as_ptr(),
-                    c"render_root".as_ptr(),
-                    293,
-                );
+                ::log::debug!(concat!(
+                    "../src/render.c:render_root:293 - Skipping this output ",
+                    "because it is currently being destroyed.\n"
+                ));
             } else {
                 let workspace: *mut Con = focus::first_ptr(content);
                 let fullscreen_0: *mut Con = con_get_fullscreen_covering_ws(workspace);
@@ -348,17 +348,15 @@ unsafe fn render_root(con: *mut Con, fullscreen: *mut Con) {
                         continue;
                     };
                     if !fullscreen_blocks_floating_render(fullscreen_0, child) {
-                        debuglog(
-                            c"%s:%s:%d - floating child at (%d,%d) with %d x %d\n"
-                                .as_ptr()
-                                .cast_mut(),
-                            c"../src/render.c".as_ptr(),
-                            c"render_root".as_ptr(),
-                            304,
-                            (*child).rect.x,
-                            (*child).rect.y,
-                            (*child).rect.width,
-                            (*child).rect.height,
+                        ::log::debug!(
+                            concat!(
+                                "../src/render.c:render_root:304 - floating child at ",
+                                "({},{}) with {} x {}\n"
+                            ),
+                            ((*child).rect.x) as i32,
+                            ((*child).rect.y) as i32,
+                            ((*child).rect.width) as i32,
+                            ((*child).rect.height) as i32
                         );
                         x_raise_con(child);
                         render_con(child);
@@ -380,14 +378,10 @@ unsafe fn render_output(con: *mut Con) {
     while !child.is_null() {
         if ((*child).type_0) == ContainerType::Con {
             if !content.is_null() {
-                debuglog(
-                    c"%s:%s:%d - More than one CT_CON on output container\n"
-                        .as_ptr()
-                        .cast_mut(),
-                    c"../src/render.c".as_ptr(),
-                    c"render_output".as_ptr(),
-                    329,
-                );
+                ::log::debug!(concat!(
+                    "../src/render.c:render_output:329 - More than one ",
+                    "CT_CON on output container\n"
+                ));
                 if 0 != 0 {
                 } else {
                     __assert_fail(
@@ -400,15 +394,13 @@ unsafe fn render_output(con: *mut Con) {
             }
             content = child;
         } else if ((*child).type_0) != ContainerType::DockArea {
-            debuglog(
-                c"%s:%s:%d - Child %p of type %d is inside the OUTPUT con\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/render.c".as_ptr(),
-                c"render_output".as_ptr(),
-                334,
-                child,
-                ((*child).type_0).raw() as u32,
+            ::log::debug!(
+                concat!(
+                    "../src/render.c:render_output:334 - Child {} of type ",
+                    "{} is inside the OUTPUT con\n"
+                ),
+                i3_common::logging::pointer(child),
+                (((*child).type_0).raw() as u32) as i32
             );
             if 0 != 0 {
             } else {
@@ -423,26 +415,18 @@ unsafe fn render_output(con: *mut Con) {
         child = nodes::next_ptr(child);
     }
     if content.is_null() {
-        debuglog(
-            c"%s:%s:%d - Skipping this output because it is currently being destroyed.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/render.c".as_ptr(),
-            c"render_output".as_ptr(),
-            340,
-        );
+        ::log::debug!(concat!(
+            "../src/render.c:render_output:340 - Skipping this ",
+            "output because it is currently being destroyed.\n"
+        ));
         return;
     }
     let ws: *mut Con = con_get_fullscreen_con(content, FullscreenMode::Output);
     if ws.is_null() {
-        debuglog(
-            c"%s:%s:%d - Skipping this output because it is currently being destroyed.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/render.c".as_ptr(),
-            c"render_output".as_ptr(),
-            349,
-        );
+        ::log::debug!(concat!(
+            "../src/render.c:render_output:349 - Skipping this ",
+            "output because it is currently being destroyed.\n"
+        ));
         return;
     }
     let fullscreen: *mut Con = con_get_fullscreen_con(ws, FullscreenMode::Output);
@@ -484,17 +468,12 @@ unsafe fn render_output(con: *mut Con) {
         (*child).deco_rect.width = 0 as u32;
         (*child).deco_rect.height = 0 as u32;
         y = (y as u32).wrapping_add((*child).rect.height) as i32 as i32;
-        debuglog(
-            c"%s:%s:%d - child at (%d, %d) with (%d x %d)\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/render.c".as_ptr(),
-            c"render_output".as_ptr(),
-            396,
-            (*child).rect.x,
-            (*child).rect.y,
-            (*child).rect.width,
-            (*child).rect.height,
+        ::log::debug!(
+            "../src/render.c:render_output:396 - child at ({}, {}) with ({} x {})\n",
+            ((*child).rect.x) as i32,
+            ((*child).rect.y) as i32,
+            ((*child).rect.width) as i32,
+            ((*child).rect.height) as i32
         );
         x_raise_con(child);
         render_con(child);
@@ -620,8 +599,6 @@ unsafe fn render_child_geometry(con: *mut Con, child: *mut Con, p: &mut RenderPa
 // Canonical Pango backend ABI; font policy remains local.
 
 use i3_common::native_stdio::__assert_fail;
-
-use crate::log::debuglog;
 
 // Shared model types retain field layout while using one Rust identity.
 use crate::types::gaps_t;
@@ -785,3 +762,5 @@ mod tests {
 }
 
 use crate::con::arena::nodes;
+
+use i3_common::logging::{emit_parts, string_bytes, Level};

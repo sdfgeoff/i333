@@ -20,7 +20,6 @@ use crate::con::{
     con_inside_stacked_or_tabbed, con_is_leaf, con_num_children, con_num_visible_children,
 };
 use crate::config::config;
-use crate::log::debuglog;
 use crate::output::output_get_content;
 use crate::resize::resize_find_tiling_participants;
 use crate::tree::croot;
@@ -321,15 +320,11 @@ pub unsafe fn gaps_reapply_workspace_assignments() {
             let content = output_get_content(output);
             let mut workspace = nodes::first_ptr(content);
             while !workspace.is_null() {
-                debuglog(
-                    c"%s:%s:%d - updating gap assignments for workspace %s\n"
-                        .as_ptr()
-                        .cast_mut(),
-                    c"../src/gaps.c".as_ptr(),
-                    c"gaps_reapply_workspace_assignments".as_ptr(),
-                    171i32,
-                    (*workspace).name_ptr(),
-                );
+                {
+                    let diagnostic_5_owner = (*workspace).name.clone();
+                    let diagnostic_5_bytes = string_bytes(diagnostic_5_owner.as_deref(), None);
+                    match (std::str::from_utf8(&diagnostic_5_bytes),) { (Ok(diagnostic_5_text),) => ::log::debug!(concat!("../src/gaps.c:gaps_reapply_workspace_assignments:171 - ","updating gap assignments for workspace {}\n"), diagnostic_5_text), _ => emit_parts(Level::Debug, &[b"../src/gaps.c:gaps_reapply_workspace_assignments:171 - updating gap assignments for workspace ", &diagnostic_5_bytes, b"\n"]), }
+                };
                 (*workspace).gaps = gaps_for_workspace(workspace);
                 workspace = nodes::next_ptr(workspace);
             }
@@ -589,3 +584,5 @@ mod tests {
 }
 
 use crate::con::arena::nodes;
+
+use i3_common::logging::{emit_parts, string_bytes, Level};

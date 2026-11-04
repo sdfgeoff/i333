@@ -161,25 +161,16 @@ unsafe fn sighandler_backtrace() -> ::core::ffi::c_int {
         0 as ::core::ffi::c_int,
     );
     if !child_succeeded(status) {
-        debuglog(
-            c"%s:%s:%d - GDB did not run properly\n".as_ptr().cast_mut(),
-            c"../src/sighandler.c".as_ptr(),
-            c"sighandler_backtrace".as_ptr(),
-            123 as ::core::ffi::c_int,
+        crate::log::write_log_bytes(
+            i3_common::logging::Level::Debug,
+            b"../src/sighandler.c:sighandler_backtrace:123 - GDB did not run properly\n",
         );
         free(filename.cast());
         return -1;
     } else if !exists(std::ffi::OsStr::from_bytes(
         CStr::from_ptr(filename).to_bytes(),
     )) {
-        debuglog(
-            c"%s:%s:%d - GDB executed successfully, but no backtrace was generated\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/sighandler.c".as_ptr(),
-            c"sighandler_backtrace".as_ptr(),
-            126 as ::core::ffi::c_int,
-        );
+        crate::log::write_log_bytes(i3_common::logging::Level::Debug, b"../src/sighandler.c:sighandler_backtrace:126 - GDB executed successfully, but no backtrace was generated\n");
         free(filename.cast());
         return -1;
     }
@@ -493,14 +484,7 @@ unsafe fn sighandler_handle_key_press(event: &xcb::x::KeyPressEvent) {
     // The native press-lookup utility is exactly this keycode/column lookup.
     let sym = crate::application::key_symbol(event.detail(), i32::from(state));
     if crash_action(sym) == Some(CrashAction::Backtrace) {
-        debuglog(
-            c"%s:%s:%d - User issued core-dump command.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/sighandler.c".as_ptr(),
-            c"sighandler_handle_key_press".as_ptr(),
-            280 as ::core::ffi::c_int,
-        );
+        crate::log::write_log_bytes(i3_common::logging::Level::Debug, b"../src/sighandler.c:sighandler_handle_key_press:280 - User issued core-dump command.\n");
         backtrace_done = sighandler_backtrace();
         sighandler_handle_expose();
     } else if crash_action(sym) == Some(CrashAction::Restart) {
@@ -516,13 +500,16 @@ unsafe extern "C" fn handle_signal(
     info: *mut siginfo_t,
     data: *mut ::core::ffi::c_void,
 ) {
-    debuglog(
-        c"%s:%s:%d - i3 crashed. SIG: %d\n".as_ptr().cast_mut(),
-        c"../src/sighandler.c".as_ptr(),
-        c"handle_signal".as_ptr(),
-        296 as ::core::ffi::c_int,
-        sig,
-    );
+    // The fault may interrupt the facade sink's lock. Keep emergency records
+    // on the existing native backend, including this function's key-event loop.
+    // Preserve the legacy debug filter before allocating the formatted bytes.
+    if crate::log::debug_record_enabled() {
+        let message = format!(
+            "../src/sighandler.c:handle_signal:296 - i3 crashed. SIG: {}\n",
+            sig
+        );
+        crate::log::write_log_bytes(i3_common::logging::Level::Debug, message.as_bytes());
+    };
     let mut action: sigaction = ::core::mem::zeroed();
     action.sa_sigaction = libc::SIG_DFL;
     action.sa_flags = 0 as ::core::ffi::c_int;
@@ -586,11 +573,7 @@ pub unsafe fn setup_signal_handler() {
             ::core::ptr::null_mut::<sigaction>(),
         ) == -(1 as ::core::ffi::c_int)
     {
-        errorlog(
-            c"ERROR: Could not setup signal handler.\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::error!("ERROR: Could not setup signal handler.\n");
     }
 }
 pub const EXIT_FAILURE: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
@@ -623,8 +606,6 @@ pub use libc::{
 };
 
 use i3_common::native_stdio::err;
-
-use crate::log::{debuglog, errorlog};
 
 // Shared model types retain field layout while using one Rust identity.
 pub use crate::types::xoutput;

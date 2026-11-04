@@ -405,11 +405,9 @@ unsafe fn state_for_frame(window: u32) -> *mut FrameState {
         }
         state = (*state).state.cqe_next as *mut FrameState;
     }
-    errorlog(
-        c"ERROR: No state found for window 0x%08x\n"
-            .as_ptr()
-            .cast_mut(),
-        window,
+    ::log::error!(
+        "ERROR: No state found for window 0x{:08x}\n",
+        (window) as u32
     );
     if 0 != 0 {
     } else {
@@ -537,14 +535,9 @@ pub unsafe fn x_con_init(con: *mut Con) {
             tqe_prev: std::ptr::null_mut(),
         },
     }));
-    debuglog(
-        c"%s:%s:%d - Adding window 0x%08x to lists\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/x.c".as_ptr(),
-        c"x_con_init".as_ptr(),
-        186,
-        (*state).id,
+    ::log::debug!(
+        "../src/x.c:x_con_init:186 - Adding window 0x{:08x} to lists\n",
+        ((*state).id) as u32
     );
     (*state).state.cqe_next = state_head.cqh_first;
     (*state).state.cqe_prev = &raw mut state_head as *mut ::core::ffi::c_void as *mut FrameState;
@@ -569,14 +562,9 @@ pub unsafe fn x_con_init(con: *mut Con) {
     (*state).initial_mapping_order.tqe_prev = initial_mapping_head.tqh_last;
     *initial_mapping_head.tqh_last = state as *mut FrameState;
     initial_mapping_head.tqh_last = &raw mut (*state).initial_mapping_order.tqe_next;
-    debuglog(
-        c"%s:%s:%d - adding new state for window id 0x%08x\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/x.c".as_ptr(),
-        c"x_con_init".as_ptr(),
-        190,
-        (*state).id,
+    ::log::debug!(
+        "../src/x.c:x_con_init:190 - adding new state for window id 0x{:08x}\n",
+        ((*state).id) as u32
     );
 }
 
@@ -584,17 +572,12 @@ pub unsafe fn x_reinit(con: *mut Con) {
     let mut state: *mut FrameState = ::core::ptr::null_mut::<FrameState>();
     state = state_for_frame((*con).frame.id as u32);
     if state.is_null() {
-        errorlog(c"ERROR: window state not found\n".as_ptr().cast_mut());
+        ::log::error!("ERROR: window state not found\n");
         return;
     }
-    debuglog(
-        c"%s:%s:%d - resetting state %p to initial\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/x.c".as_ptr(),
-        c"x_reinit".as_ptr(),
-        207,
-        state,
+    ::log::debug!(
+        "../src/x.c:x_reinit:207 - resetting state {} to initial\n",
+        i3_common::logging::pointer(state)
     );
     (*state).initial = true;
     (*state).child_mapped = false;
@@ -611,11 +594,7 @@ pub unsafe fn x_reparent_child(con: *mut Con, old: *mut Con) {
     let mut state: *mut FrameState = ::core::ptr::null_mut::<FrameState>();
     state = state_for_frame((*con).frame.id as u32);
     if state.is_null() {
-        errorlog(
-            c"ERROR: window state for con not found\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::error!("ERROR: window state for con not found\n");
         return;
     }
     (*state).need_reparent = true;
@@ -627,20 +606,12 @@ pub unsafe fn x_move_win(src: *mut Con, dest: *mut Con) {
     let mut state_dest: *mut FrameState = ::core::ptr::null_mut::<FrameState>();
     state_src = state_for_frame((*src).frame.id as u32);
     if state_src.is_null() {
-        errorlog(
-            c"ERROR: window state for src not found\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::error!("ERROR: window state for src not found\n");
         return;
     }
     state_dest = state_for_frame((*dest).frame.id as u32);
     if state_dest.is_null() {
-        errorlog(
-            c"ERROR: window state for dest not found\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::error!("ERROR: window state for dest not found\n");
         return;
     }
     (*state_dest).con = (*state_src).con;
@@ -655,12 +626,7 @@ pub unsafe fn x_move_win(src: *mut Con, dest: *mut Con) {
         },
     ) {
         (*state_dest).window_rect = (*state_src).window_rect;
-        debuglog(
-            c"%s:%s:%d - COPYING RECT\n".as_ptr().cast_mut(),
-            c"../src/x.c".as_ptr(),
-            c"x_move_win".as_ptr(),
-            252,
-        );
+        ::log::debug!("../src/x.c:x_move_win:252 - COPYING RECT\n");
     }
 }
 unsafe fn _x_con_kill(con: *mut Con) {
@@ -769,26 +735,21 @@ pub unsafe fn x_window_kill(window: u32, kill_window: KillWindow) {
     let connection = connection();
     if !window_supports_protocol(window, A_WM_DELETE_WINDOW) {
         if kill_window == KillWindow::Window {
-            verboselog(
-                c"Killing specific window 0x%08x\n".as_ptr().cast_mut(),
-                window,
-            );
+            ::log::info!("Killing specific window 0x{:08x}\n", (window) as u32);
             connection.send_request(&x::DestroyWindow {
                 window: x::Window::new(window),
             });
         } else {
-            verboselog(
-                c"Killing the X11 client which owns window 0x%08x\n"
-                    .as_ptr()
-                    .cast_mut(),
-                window,
+            ::log::info!(
+                "Killing the X11 client which owns window 0x{:08x}\n",
+                (window) as u32
             );
             connection.send_request(&x::KillClient { resource: window });
         }
         return;
     }
     let event = delete_window_event(window, A_WM_PROTOCOLS, A_WM_DELETE_WINDOW);
-    verboselog(c"Sending WM_DELETE to the client\n".as_ptr().cast_mut());
+    ::log::info!("Sending WM_DELETE to the client\n");
     connection.send_request(&x::SendEvent {
         propagate: false,
         destination: x::SendEventDest::Window(x::Window::new(window)),
@@ -1020,38 +981,24 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
         }
         dest_surface = &raw mut (*parent).frame_buffer;
         if con_draw_decoration_into_frame(con) {
-            debuglog(
-                c"%s:%s:%d - using con->frame_buffer (for con->name=%s) as dest_surface\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/x.c".as_ptr(),
-                c"x_draw_decoration".as_ptr(),
-                602,
-                (*con).name_ptr(),
-            );
+            {
+                let diagnostic_5_owner = (*con).name.clone();
+                let diagnostic_5_bytes = string_bytes(diagnostic_5_owner.as_deref(), None);
+                match (std::str::from_utf8(&diagnostic_5_bytes),) { (Ok(diagnostic_5_text),) => ::log::debug!(concat!("../src/x.c:x_draw_decoration:602 - using ","con->frame_buffer (for con->name={}) as dest_surface\n"), diagnostic_5_text), _ => emit_parts(Level::Debug, &[b"../src/x.c:x_draw_decoration:602 - using con->frame_buffer (for con->name=", &diagnostic_5_bytes, b") as dest_surface\n"]), }
+            };
             dest_surface = &raw mut (*con).frame_buffer;
         } else {
-            debuglog(
-                c"%s:%s:%d - sticking to parent->frame_buffer = %p\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/x.c".as_ptr(),
-                c"x_draw_decoration".as_ptr(),
-                605,
-                dest_surface,
+            ::log::debug!(
+                "../src/x.c:x_draw_decoration:605 - sticking to parent->frame_buffer = {}\n",
+                i3_common::logging::pointer(dest_surface)
             );
         }
-        debuglog(
-            c"%s:%s:%d - dest_surface %p is %d x %d (id=0x%08x)\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/x.c".as_ptr(),
-            c"x_draw_decoration".as_ptr(),
-            607,
-            dest_surface,
-            (*dest_surface).width,
-            (*dest_surface).height,
-            (*dest_surface).id,
+        ::log::debug!(
+            "../src/x.c:x_draw_decoration:607 - dest_surface {} is {} x {} (id=0x{:08x})\n",
+            i3_common::logging::pointer(dest_surface),
+            ((*dest_surface).width) as i32,
+            ((*dest_surface).height) as i32,
+            ((*dest_surface).id) as u32
         );
         if !((*dest_surface).id as ::core::ffi::c_long == 0) {
             if con == nodes::first_ptr(parent_ptr(con)) {
@@ -1063,19 +1010,43 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
                 || (*con).deco_rect.width == 0 as u32
                 || (*con).deco_rect.height == 0 as u32)
             {
-                debuglog(
-                    c"%s:%s:%d - con->deco_rect = (x=%d, y=%d, w=%d, h=%d) for con->name=%s\n"
-                        .as_ptr()
-                        .cast_mut(),
-                    c"../src/x.c".as_ptr(),
-                    c"x_draw_decoration".as_ptr(),
-                    630,
-                    (*con).deco_rect.x,
-                    (*con).deco_rect.y,
-                    (*con).deco_rect.width,
-                    (*con).deco_rect.height,
-                    (*con).name_ptr(),
-                );
+                {
+                    let diagnostic_5 = ((*con).deco_rect.x) as i32;
+                    let diagnostic_6 = ((*con).deco_rect.y) as i32;
+                    let diagnostic_7 = ((*con).deco_rect.width) as i32;
+                    let diagnostic_8 = ((*con).deco_rect.height) as i32;
+                    let diagnostic_9_owner = (*con).name.clone();
+                    let diagnostic_9_bytes = string_bytes(diagnostic_9_owner.as_deref(), None);
+                    match (std::str::from_utf8(&diagnostic_9_bytes),) {
+                        (Ok(diagnostic_9_text),) => ::log::debug!(
+                            concat!(
+                                "../src/x.c:x_draw_decoration:630 - con->deco_rect = ",
+                                "(x={}, y={}, w={}, h={}) for con->name={}\n"
+                            ),
+                            diagnostic_5,
+                            diagnostic_6,
+                            diagnostic_7,
+                            diagnostic_8,
+                            diagnostic_9_text
+                        ),
+                        _ => emit_parts(
+                            Level::Debug,
+                            &[
+                                b"../src/x.c:x_draw_decoration:630 - con->deco_rect = (x=",
+                                format!("{}", diagnostic_5).as_bytes(),
+                                b", y=",
+                                format!("{}", diagnostic_6).as_bytes(),
+                                b", w=",
+                                format!("{}", diagnostic_7).as_bytes(),
+                                b", h=",
+                                format!("{}", diagnostic_8).as_bytes(),
+                                b") for con->name=",
+                                &diagnostic_9_bytes,
+                                b"\n",
+                            ],
+                        ),
+                    }
+                };
                 draw_util_rectangle(
                     dest_surface,
                     (*(*p).color).background,
@@ -1242,14 +1213,9 @@ unsafe fn set_hidden_state(con: *mut Con) {
         return;
     }
     if should_be_hidden {
-        debuglog(
-            c"%s:%s:%d - setting _NET_WM_STATE_HIDDEN for con = %p\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/x.c".as_ptr(),
-            c"set_hidden_state".as_ptr(),
-            820,
-            con,
+        ::log::debug!(
+            "../src/x.c:set_hidden_state:820 - setting _NET_WM_STATE_HIDDEN for con = {}\n",
+            i3_common::logging::pointer(con)
         );
         xcb_add_property_atom(
             conn,
@@ -1258,14 +1224,9 @@ unsafe fn set_hidden_state(con: *mut Con) {
             A__NET_WM_STATE_HIDDEN,
         );
     } else {
-        debuglog(
-            c"%s:%s:%d - removing _NET_WM_STATE_HIDDEN for con = %p\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/x.c".as_ptr(),
-            c"set_hidden_state".as_ptr(),
-            823,
-            con,
+        ::log::debug!(
+            "../src/x.c:set_hidden_state:823 - removing _NET_WM_STATE_HIDDEN for con = {}\n",
+            i3_common::logging::pointer(con)
         );
         xcb_remove_property_atom(
             conn,
@@ -1283,17 +1244,13 @@ unsafe fn set_maximized_state(con: *mut Con) {
     let state: *mut FrameState = state_for_frame((*con).frame.id as u32);
     let con_maximized_horz: bool = con_is_maximized(con, Orientation::Horizontal);
     if con_maximized_horz != (*state).is_maximized_horz {
-        debuglog(
-            c"%s:%s:%d - setting _NET_WM_STATE_MAXIMIZED_HORZ for con %p(%s) to %d\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/x.c".as_ptr(),
-            c"set_maximized_state".as_ptr(),
-            843,
-            con,
-            (*con).name_ptr(),
-            con_maximized_horz as i32,
-        );
+        {
+            let diagnostic_5 = i3_common::logging::pointer(con);
+            let diagnostic_6_owner = (*con).name.clone();
+            let diagnostic_6_bytes = string_bytes(diagnostic_6_owner.as_deref(), None);
+            let diagnostic_7 = (con_maximized_horz as i32) as i32;
+            match (std::str::from_utf8(&diagnostic_6_bytes),) { (Ok(diagnostic_6_text),) => ::log::debug!(concat!("../src/x.c:set_maximized_state:843 - setting ","_NET_WM_STATE_MAXIMIZED_HORZ for con {}({}) to {}\n"), diagnostic_5, diagnostic_6_text, diagnostic_7), _ => emit_parts(Level::Debug, &[b"../src/x.c:set_maximized_state:843 - setting _NET_WM_STATE_MAXIMIZED_HORZ for con ", format!("{}", diagnostic_5).as_bytes(), b"(", &diagnostic_6_bytes, b") to ", format!("{}", diagnostic_7).as_bytes(), b"\n"]), }
+        };
         if con_maximized_horz {
             xcb_add_property_atom(
                 conn,
@@ -1313,17 +1270,13 @@ unsafe fn set_maximized_state(con: *mut Con) {
     }
     let con_maximized_vert: bool = con_is_maximized(con, Orientation::Vertical);
     if con_maximized_vert != (*state).is_maximized_vert {
-        debuglog(
-            c"%s:%s:%d - setting _NET_WM_STATE_MAXIMIZED_VERT for con %p(%s) to %d\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/x.c".as_ptr(),
-            c"set_maximized_state".as_ptr(),
-            856,
-            con,
-            (*con).name_ptr(),
-            con_maximized_vert as i32,
-        );
+        {
+            let diagnostic_5 = i3_common::logging::pointer(con);
+            let diagnostic_6_owner = (*con).name.clone();
+            let diagnostic_6_bytes = string_bytes(diagnostic_6_owner.as_deref(), None);
+            let diagnostic_7 = (con_maximized_vert as i32) as i32;
+            match (std::str::from_utf8(&diagnostic_6_bytes),) { (Ok(diagnostic_6_text),) => ::log::debug!(concat!("../src/x.c:set_maximized_state:856 - setting ","_NET_WM_STATE_MAXIMIZED_VERT for con {}({}) to {}\n"), diagnostic_5, diagnostic_6_text, diagnostic_7), _ => emit_parts(Level::Debug, &[b"../src/x.c:set_maximized_state:856 - setting _NET_WM_STATE_MAXIMIZED_VERT for con ", format!("{}", diagnostic_5).as_bytes(), b"(", &diagnostic_6_bytes, b") to ", format!("{}", diagnostic_7).as_bytes(), b"\n"]), }
+        };
         if con_maximized_vert {
             xcb_add_property_atom(
                 conn,
@@ -1408,11 +1361,9 @@ unsafe fn set_shape_state(con: *mut Con, need_reshape: bool) {
     let mut state: *mut FrameState = ::core::ptr::null_mut::<FrameState>();
     state = state_for_frame((*con).frame.id as u32);
     if state.is_null() {
-        errorlog(
-            c"ERROR: window state for con %p not found\n"
-                .as_ptr()
-                .cast_mut(),
-            con,
+        ::log::error!(
+            "ERROR: window state for con {} not found\n",
+            i3_common::logging::pointer(con)
         );
         return;
     }
@@ -1439,11 +1390,28 @@ pub unsafe fn x_push_node(con: *mut Con) {
     let mut rect: Rect = (*con).rect as Rect;
     let state: *mut FrameState = state_for_frame((*con).frame.id as u32);
     if let Some(name) = (*state).name.take() {
-        debuglog(
-            c"pushing name %s for con %p\n".as_ptr().cast_mut(),
-            name.as_ptr(),
-            con,
-        );
+        {
+            let diagnostic_2_owner = name.clone();
+            let diagnostic_2_bytes = diagnostic_2_owner.as_bytes();
+            let diagnostic_3 = i3_common::logging::pointer(con);
+            match (std::str::from_utf8(&diagnostic_2_bytes),) {
+                (Ok(diagnostic_2_text),) => ::log::debug!(
+                    "pushing name {} for con {}\n",
+                    diagnostic_2_text,
+                    diagnostic_3
+                ),
+                _ => emit_parts(
+                    Level::Debug,
+                    &[
+                        b"pushing name ",
+                        &diagnostic_2_bytes,
+                        b" for con ",
+                        format!("{}", diagnostic_3).as_bytes(),
+                        b"\n",
+                    ],
+                ),
+            }
+        };
         connection().send_request(&x::ChangeProperty {
             mode: x::PropMode::Replace,
             window: x::Window::new((*con).frame.id),
@@ -1475,12 +1443,7 @@ pub unsafe fn x_push_node(con: *mut Con) {
     }
     let mut need_reshape: bool = false;
     if (*state).need_reparent && !(*con).window.is_null() {
-        debuglog(
-            c"%s:%s:%d - Reparenting child window\n".as_ptr().cast_mut(),
-            c"../src/x.c".as_ptr(),
-            c"x_push_node".as_ptr(),
-            978,
-        );
+        ::log::debug!("../src/x.c:x_push_node:978 - Reparenting child window\n");
         let mut values: u32 = 0 as u32;
         set_event_mask((*state).old_frame, values);
         set_event_mask((*(*con).window).id, values);
@@ -1506,16 +1469,14 @@ pub unsafe fn x_push_node(con: *mut Con) {
         (*state).old_frame = 0 as u32;
         (*state).need_reparent = false;
         (*con).ignore_unmap = (*con).ignore_unmap.wrapping_add(1);
-        debuglog(
-            c"%s:%s:%d - ignore_unmap for reparenting of con %p (win 0x%08x) is now %d\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/x.c".as_ptr(),
-            c"x_push_node".as_ptr(),
-            999,
-            con,
-            (*(*con).window).id,
-            (*con).ignore_unmap as i32,
+        ::log::debug!(
+            concat!(
+                "../src/x.c:x_push_node:999 - ignore_unmap for ",
+                "reparenting of con {} (win 0x{:08x}) is now {}\n"
+            ),
+            i3_common::logging::pointer(con),
+            ((*(*con).window).id) as u32,
+            ((*con).ignore_unmap as i32) as i32
         );
         need_reshape = true;
     }
@@ -1534,21 +1495,15 @@ pub unsafe fn x_push_node(con: *mut Con) {
         (*con).layout,
         (*con).type_0,
     );
-    debuglog(
-        c"%s:%s:%d - Con %p (layout %d), is_pixmap_needed = %s, rect.height = %d\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/x.c".as_ptr(),
-        c"x_push_node".as_ptr(),
-        1019,
-        con,
-        (*con).layout as u32,
-        if is_pixmap_needed {
-            c"yes".as_ptr()
-        } else {
-            c"no".as_ptr()
-        },
-        (*con).rect.height,
+    ::log::debug!(
+        concat!(
+            "../src/x.c:x_push_node:1019 - Con {} (layout {}), ",
+            "is_pixmap_needed = {}, rect.height = {}\n"
+        ),
+        i3_common::logging::pointer(con),
+        (*con).layout as i32,
+        if is_pixmap_needed { "yes" } else { "no" },
+        (*con).rect.height as i32
     );
     let mut fake_notify: bool = false;
     if is_pixmap_needed && (*con).frame_buffer.id as ::core::ffi::c_long == 0
@@ -1585,16 +1540,17 @@ pub unsafe fn x_push_node(con: *mut Con) {
                 win_depth = (*(*con).window).depth;
             }
             let (width, height) = pixmap_dimensions(rect);
-            debuglog(
-                c"%s:%s:%d - creating %d x %d pixmap for con %p (con->frame_buffer.id = (pixmap_t)0x%08x) (con->frame.id (drawable_t)0x%08x)\n".as_ptr().cast_mut(),
-                c"../src/x.c".as_ptr(),
-                c"x_push_node".as_ptr(),
-                1068,
-                width,
-                height,
-                con,
-                (*con).frame_buffer.id,
-                (*con).frame.id,
+            ::log::debug!(
+                concat!(
+                    "../src/x.c:x_push_node:1068 - creating {} x {} pixmap ",
+                    "for con {} (con->frame_buffer.id = (pixmap_t)0x{:08x}) ",
+                    "(con->frame.id (drawable_t)0x{:08x})\n"
+                ),
+                (width) as i32,
+                (height) as i32,
+                i3_common::logging::pointer(con),
+                ((*con).frame_buffer.id) as u32,
+                ((*con).frame.id) as u32
             );
             connection().send_request(&x::CreatePixmap {
                 depth: win_depth as u8,
@@ -1641,17 +1597,12 @@ pub unsafe fn x_push_node(con: *mut Con) {
                 x_deco_recurse(con);
             }
         }
-        debuglog(
-            c"%s:%s:%d - setting rect (%d, %d, %d, %d)\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/x.c".as_ptr(),
-            c"x_push_node".as_ptr(),
-            1097,
-            rect.x,
-            rect.y,
-            rect.width,
-            rect.height,
+        ::log::debug!(
+            "../src/x.c:x_push_node:1097 - setting rect ({}, {}, {}, {})\n",
+            (rect.x) as i32,
+            (rect.y) as i32,
+            (rect.width) as i32,
+            (rect.height) as i32
         );
         {
             let _ = connection().flush();
@@ -1676,17 +1627,12 @@ pub unsafe fn x_push_node(con: *mut Con) {
         fake_notify = true;
     }
     if !(*con).window.is_null() && !rect_equals((*state).window_rect, (*con).window_rect as Rect) {
-        debuglog(
-            c"%s:%s:%d - setting window rect (%d, %d, %d, %d)\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/x.c".as_ptr(),
-            c"x_push_node".as_ptr(),
-            1117,
-            (*con).window_rect.x,
-            (*con).window_rect.y,
-            (*con).window_rect.width,
-            (*con).window_rect.height,
+        ::log::debug!(
+            "../src/x.c:x_push_node:1117 - setting window rect ({}, {}, {}, {})\n",
+            ((*con).window_rect.x) as i32,
+            ((*con).window_rect.y) as i32,
+            ((*con).window_rect.width) as i32,
+            ((*con).window_rect.height) as i32
         );
         xcb_set_window_rect(conn, (*(*con).window).id, (*con).window_rect as Rect);
         (*state).window_rect = (*con).window_rect;
@@ -1728,14 +1674,9 @@ pub unsafe fn x_push_node(con: *mut Con) {
                 | x::EventMask::STRUCTURE_NOTIFY.bits() as i32
                 | x::EventMask::FOCUS_CHANGE.bits() as i32) as u32;
             set_event_mask((*(*con).window).id, values_0);
-            debuglog(
-                c"%s:%s:%d - mapping child window (serial %d)\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/x.c".as_ptr(),
-                c"x_push_node".as_ptr(),
-                1166,
-                cookie.sequence() as u32,
+            ::log::debug!(
+                "../src/x.c:x_push_node:1166 - mapping child window (serial {})\n",
+                (cookie.sequence() as u32) as i32
             );
             (*state).child_mapped = true;
         }
@@ -1766,29 +1707,17 @@ pub unsafe fn x_push_node(con: *mut Con) {
         {
             let _ = connection().flush();
         };
-        debuglog(
-            c"%s:%s:%d - mapping container %08x (serial %d)\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/x.c".as_ptr(),
-            c"x_push_node".as_ptr(),
-            1181,
-            (*con).frame.id,
-            cookie.sequence() as u32,
+        ::log::debug!(
+            "../src/x.c:x_push_node:1181 - mapping container {:08x} (serial {})\n",
+            ((*con).frame.id) as u32,
+            (cookie.sequence() as u32) as i32
         );
         (*state).mapped = (*con).mapped;
     }
     (*state).unmap_now = (*state).mapped != (*con).mapped && !(*con).mapped;
     (*state).was_floating = con_is_floating(con);
     if fake_notify {
-        debuglog(
-            c"%s:%s:%d - Sending fake configure notify\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/x.c".as_ptr(),
-            c"x_push_node".as_ptr(),
-            1189,
-        );
+        ::log::debug!("../src/x.c:x_push_node:1189 - Sending fake configure notify\n");
         fake_absolute_configure_notify(con);
     }
     set_hidden_state(con);
@@ -1816,29 +1745,45 @@ unsafe fn x_push_node_unmaps(con: *mut Con) {
         let cookie = connection().send_request(&x::UnmapWindow {
             window: x::Window::new((*con).frame.id),
         });
-        debuglog(
-            c"%s:%s:%d - unmapping container %p / %s (serial %d)\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/x.c".as_ptr(),
-            c"x_push_node_unmaps".as_ptr(),
-            1229,
-            con,
-            (*con).name_ptr(),
-            cookie.sequence() as u32,
-        );
+        {
+            let diagnostic_5 = i3_common::logging::pointer(con);
+            let diagnostic_6_owner = (*con).name.clone();
+            let diagnostic_6_bytes = string_bytes(diagnostic_6_owner.as_deref(), None);
+            let diagnostic_7 = (cookie.sequence() as u32) as i32;
+            match (std::str::from_utf8(&diagnostic_6_bytes),) {
+                (Ok(diagnostic_6_text),) => ::log::debug!(
+                    concat!(
+                        "../src/x.c:x_push_node_unmaps:1229 - unmapping ",
+                        "container {} / {} (serial {})\n"
+                    ),
+                    diagnostic_5,
+                    diagnostic_6_text,
+                    diagnostic_7
+                ),
+                _ => emit_parts(
+                    Level::Debug,
+                    &[
+                        b"../src/x.c:x_push_node_unmaps:1229 - unmapping container ",
+                        format!("{}", diagnostic_5).as_bytes(),
+                        b" / ",
+                        &diagnostic_6_bytes,
+                        b" (serial ",
+                        format!("{}", diagnostic_7).as_bytes(),
+                        b")\n",
+                    ],
+                ),
+            }
+        };
         if !(*con).window.is_null() {
             (*con).ignore_unmap = (*con).ignore_unmap.wrapping_add(1);
-            debuglog(
-                c"%s:%s:%d - ignore_unmap for con %p (frame 0x%08x) now %d\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/x.c".as_ptr(),
-                c"x_push_node_unmaps".as_ptr(),
-                1235,
-                con,
-                (*con).frame.id,
-                (*con).ignore_unmap as i32,
+            ::log::debug!(
+                concat!(
+                    "../src/x.c:x_push_node_unmaps:1235 - ignore_unmap for ",
+                    "con {} (frame 0x{:08x}) now {}\n"
+                ),
+                i3_common::logging::pointer(con),
+                ((*con).frame.id) as u32,
+                ((*con).ignore_unmap as i32) as i32
             );
         }
         (*state).mapped = (*con).mapped;
@@ -1878,14 +1823,7 @@ pub unsafe fn x_push_changes(con: *mut Con) {
             window: x::Window::new(root),
         }));
     }
-    debuglog(
-        c"%s:%s:%d - -- PUSHING WINDOW STACK --\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/x.c".as_ptr(),
-        c"x_push_changes".as_ptr(),
-        1290,
-    );
+    ::log::debug!("../src/x.c:x_push_changes:1290 - -- PUSHING WINDOW STACK --\n");
     let mut values: u32 = x::EventMask::SUBSTRUCTURE_REDIRECT.bits() as i32 as u32;
     state = state_head.cqh_last as *mut FrameState;
     while state != &raw mut state_head as *mut ::core::ffi::c_void as *mut FrameState {
@@ -1931,14 +1869,9 @@ pub unsafe fn x_push_changes(con: *mut Con) {
         state = (*state).state.cqe_prev as *mut FrameState;
     }
     if stacking_changed {
-        debuglog(
-            c"%s:%s:%d - Client list changed (%i clients)\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/x.c".as_ptr(),
-            c"x_push_changes".as_ptr(),
-            1350,
-            cnt,
+        ::log::debug!(
+            "../src/x.c:x_push_changes:1350 - Client list changed ({} clients)\n",
+            (cnt) as i32
         );
         ewmh_update_client_list_stacking(
             client_list_windows.as_mut_ptr(),
@@ -1957,12 +1890,7 @@ pub unsafe fn x_push_changes(con: *mut Con) {
             client_list_windows.len() as i32,
         );
     }
-    debuglog(
-        c"%s:%s:%d - PUSHING CHANGES\n".as_ptr().cast_mut(),
-        c"../src/x.c".as_ptr(),
-        c"x_push_changes".as_ptr(),
-        1365,
-    );
+    ::log::debug!("../src/x.c:x_push_changes:1365 - PUSHING CHANGES\n");
     x_push_node(con);
     if !warp_to.is_null() {
         let pointer_reply = pointer_cookie
@@ -1998,11 +1926,7 @@ pub unsafe fn x_push_changes(con: *mut Con) {
                 set_event_mask(root, root_mask);
             }
         } else {
-            errorlog(
-                c"ERROR: Could not query pointer position, not warping pointer\n"
-                    .as_ptr()
-                    .cast_mut(),
-            );
+            ::log::error!("ERROR: Could not query pointer position, not warping pointer\n");
         }
         warp_to = ::core::ptr::null_mut::<Rect>();
     }
@@ -2033,28 +1957,41 @@ pub unsafe fn x_push_changes(con: *mut Con) {
             !(*focused).window.is_null() && (*(*focused).window).doesnt_accept_focus,
         );
         if action == FocusAction::Unmapped {
-            debuglog(
-                c"%s:%s:%d - Not updating focus (to %p / %s), focused window is not mapped.\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/x.c".as_ptr(),
-                c"x_push_changes".as_ptr(),
-                1406,
-                focused,
-                (*focused).name_ptr(),
-            );
+            {
+                let diagnostic_5 = i3_common::logging::pointer(focused);
+                let diagnostic_6_owner = (*focused).name.clone();
+                let diagnostic_6_bytes = string_bytes(diagnostic_6_owner.as_deref(), None);
+                match (std::str::from_utf8(&diagnostic_6_bytes),) {
+                    (Ok(diagnostic_6_text),) => ::log::debug!(
+                        concat!(
+                            "../src/x.c:x_push_changes:1406 - Not updating focus ",
+                            "(to {} / {}), focused window is not mapped.\n"
+                        ),
+                        diagnostic_5,
+                        diagnostic_6_text
+                    ),
+                    _ => emit_parts(
+                        Level::Debug,
+                        &[
+                            b"../src/x.c:x_push_changes:1406 - Not updating focus (to ",
+                            format!("{}", diagnostic_5).as_bytes(),
+                            b" / ",
+                            &diagnostic_6_bytes,
+                            b"), focused window is not mapped.\n",
+                        ],
+                    ),
+                }
+            };
             focused_id = 0 as u32;
         } else {
             if action == FocusAction::TakeFocus {
-                debuglog(
-                    c"%s:%s:%d - Updating focus by sending WM_TAKE_FOCUS to window 0x%08x (focused: %p / %s)\n".as_ptr().cast_mut(),
-                    c"../src/x.c".as_ptr(),
-                    c"x_push_changes".as_ptr(),
-                    1414,
-                    to_focus,
-                    focused,
-                    (*focused).name_ptr(),
-                );
+                {
+                    let diagnostic_5 = (to_focus) as u32;
+                    let diagnostic_6 = i3_common::logging::pointer(focused);
+                    let diagnostic_7_owner = (*focused).name.clone();
+                    let diagnostic_7_bytes = string_bytes(diagnostic_7_owner.as_deref(), None);
+                    match (std::str::from_utf8(&diagnostic_7_bytes),) { (Ok(diagnostic_7_text),) => ::log::debug!(concat!("../src/x.c:x_push_changes:1414 - Updating focus by ","sending WM_TAKE_FOCUS to window 0x{:08x} (focused: {} ","/ {})\n"), diagnostic_5, diagnostic_6, diagnostic_7_text), _ => emit_parts(Level::Debug, &[b"../src/x.c:x_push_changes:1414 - Updating focus by sending WM_TAKE_FOCUS to window 0x", format!("{:08x}", diagnostic_5).as_bytes(), b" (focused: ", format!("{}", diagnostic_6).as_bytes(), b" / ", &diagnostic_7_bytes, b")\n"]), }
+                };
                 send_take_focus(to_focus, last_timestamp);
                 change_ewmh_focus(
                     if con_has_managed_window(focused) {
@@ -2068,17 +2005,35 @@ pub unsafe fn x_push_changes(con: *mut Con) {
                     ipc_send_window_event(c"focus".as_ptr(), focused);
                 }
             } else {
-                debuglog(
-                    c"%s:%s:%d - Updating focus (focused: %p / %s) to X11 window 0x%08x\n"
-                        .as_ptr()
-                        .cast_mut(),
-                    c"../src/x.c".as_ptr(),
-                    c"x_push_changes".as_ptr(),
-                    1423,
-                    focused,
-                    (*focused).name_ptr(),
-                    to_focus,
-                );
+                {
+                    let diagnostic_5 = i3_common::logging::pointer(focused);
+                    let diagnostic_6_owner = (*focused).name.clone();
+                    let diagnostic_6_bytes = string_bytes(diagnostic_6_owner.as_deref(), None);
+                    let diagnostic_7 = (to_focus) as u32;
+                    match (std::str::from_utf8(&diagnostic_6_bytes),) {
+                        (Ok(diagnostic_6_text),) => ::log::debug!(
+                            concat!(
+                                "../src/x.c:x_push_changes:1423 - Updating focus ",
+                                "(focused: {} / {}) to X11 window 0x{:08x}\n"
+                            ),
+                            diagnostic_5,
+                            diagnostic_6_text,
+                            diagnostic_7
+                        ),
+                        _ => emit_parts(
+                            Level::Debug,
+                            &[
+                                b"../src/x.c:x_push_changes:1423 - Updating focus (focused: ",
+                                format!("{}", diagnostic_5).as_bytes(),
+                                b" / ",
+                                &diagnostic_6_bytes,
+                                b") to X11 window 0x",
+                                format!("{:08x}", diagnostic_7).as_bytes(),
+                                b"\n",
+                            ],
+                        ),
+                    }
+                };
                 if !(*focused).window.is_null() {
                     values = ((x::EventMask::PROPERTY_CHANGE.bits() as i32
                         | x::EventMask::STRUCTURE_NOTIFY.bits() as i32
@@ -2120,12 +2075,13 @@ pub unsafe fn x_push_changes(con: *mut Con) {
         }
     }
     if focused_id as ::core::ffi::c_long == 0 {
-        debuglog(
-            c"%s:%s:%d - Still no window focused, better set focus to the EWMH support window (%d)\n".as_ptr().cast_mut(),
-            c"../src/x.c".as_ptr(),
-            c"x_push_changes".as_ptr(),
-            1451,
-            ewmh_window,
+        ::log::debug!(
+            concat!(
+                "../src/x.c:x_push_changes:1451 - Still no window ",
+                "focused, better set focus to the EWMH support window ",
+                "({})\n"
+            ),
+            (ewmh_window) as i32
         );
         connection().send_request(&x::SetInputFocus {
             revert_to: x::InputFocus::PointerRoot,
@@ -2139,12 +2095,7 @@ pub unsafe fn x_push_changes(con: *mut Con) {
     {
         let _ = connection().flush();
     };
-    debuglog(
-        c"%s:%s:%d - ENDING CHANGES\n".as_ptr().cast_mut(),
-        c"../src/x.c".as_ptr(),
-        c"x_push_changes".as_ptr(),
-        1460,
-    );
+    ::log::debug!("../src/x.c:x_push_changes:1460 - ENDING CHANGES\n");
     values = ((x::EventMask::BUTTON_PRESS.bits() as i32
         | x::EventMask::BUTTON_RELEASE.bits() as i32
         | x::EventMask::POINTER_MOTION.bits() as i32
@@ -2224,7 +2175,7 @@ pub unsafe fn x_set_name(con: *mut Con, name: *const ::core::ffi::c_char) {
     let mut state: *mut FrameState = ::core::ptr::null_mut::<FrameState>();
     state = state_for_frame((*con).frame.id as u32);
     if state.is_null() {
-        errorlog(c"ERROR: window state not found\n".as_ptr().cast_mut());
+        ::log::error!("ERROR: window state not found\n");
         return;
     }
     // The incoming bytes may alias the previous name: clone before replacement.
@@ -2315,11 +2266,9 @@ pub unsafe fn x_mask_event_mask(mask: u32) {
 
 pub unsafe fn x_set_shape(con: *mut Con, kind: shape::Sk, enable: bool) {
     if state_for_frame((*con).frame.id as u32).is_null() {
-        errorlog(
-            c"ERROR: window state for con %p not found\n"
-                .as_ptr()
-                .cast_mut(),
-            con,
+        ::log::error!(
+            "ERROR: window state for con {} not found\n",
+            i3_common::logging::pointer(con)
         );
         return;
     }
@@ -2331,11 +2280,9 @@ pub unsafe fn x_set_shape(con: *mut Con, kind: shape::Sk, enable: bool) {
             (*(*con).window).input_shaped = enable;
         }
         _ => {
-            errorlog(
-                c"ERROR: Received unknown shape event kind for con %p. This is a bug.\n"
-                    .as_ptr()
-                    .cast_mut(),
-                con,
+            ::log::error!(
+                "ERROR: Received unknown shape event kind for con {}. This is a bug.\n",
+                i3_common::logging::pointer(con)
             );
             return;
         }
@@ -2369,8 +2316,6 @@ use i3_common::safewrappers::scalloc;
 use libc::{free, getpid, strlen};
 
 use i3_common::native_stdio::__assert_fail;
-
-use crate::log::{debuglog, errorlog, verboselog};
 
 // Shared model types retain field layout while using one Rust identity.
 use crate::types::deco_render_params;
@@ -2617,3 +2562,5 @@ mod tests {
 }
 
 use crate::con::arena::nodes;
+
+use i3_common::logging::{emit_parts, string_bytes, Level};

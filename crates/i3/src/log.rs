@@ -240,6 +240,12 @@ unsafe fn logbuffer_is_closed() -> bool {
     unsafe { (*(&raw const LOG_BUFFER)).is_none() }
 }
 
+/// Emergency diagnostics consult only the already-owned backend state; they
+/// must not enter the standard facade's shared sink lock from a signal handler.
+pub(crate) unsafe fn debug_record_enabled() -> bool {
+    !logbuffer_is_closed() || debug_logging
+}
+
 pub unsafe fn init_logging() {
     if errorfilename.is_null() {
         errorfilename = get_process_filename(c"errorlog".as_ptr());

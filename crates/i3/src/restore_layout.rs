@@ -129,14 +129,10 @@ unsafe extern "C" fn restore_xcb_prepare_cb(
     revents: ::core::ffi::c_int,
 ) {
     if restore_connection().has_error().is_err() {
-        debuglog(
-            c"%s:%s:%d - restore X11 connection has an error, reconnecting\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/restore_layout.c".as_ptr(),
-            c"restore_xcb_prepare_cb".as_ptr(),
-            53,
-        );
+        ::log::debug!(concat!(
+            "../src/restore_layout.c:restore_xcb_prepare_cb:53 - ",
+            "restore X11 connection has an error, reconnecting\n"
+        ));
         restore_connect();
         return;
     }
@@ -150,11 +146,14 @@ unsafe extern "C" fn restore_xcb_prepare_cb(
             }
             Err(xcb::Error::Protocol(error)) => {
                 let error = &*error.as_raw();
-                debuglog(
-                    c"%s:%s:%d - X11 Error received (probably harmless)! sequence 0x%x, error_code = %d\n".as_ptr().cast_mut(),
-                    c"../src/restore_layout.c".as_ptr(),
-                    c"restore_xcb_prepare_cb".as_ptr(), 62,
-                    i32::from(error.sequence), i32::from(error.error_code),
+                ::log::debug!(
+                    concat!(
+                        "../src/restore_layout.c:restore_xcb_prepare_cb:62 - ",
+                        "X11 Error received (probably harmless)! sequence ",
+                        "0x{:x}, error_code = {}\n"
+                    ),
+                    (i32::from(error.sequence)) as u32,
+                    (i32::from(error.error_code)) as i32
                 );
             }
             Ok(None) | Err(xcb::Error::Connection(_)) => break,
@@ -241,18 +240,14 @@ unsafe fn update_placeholder_contents(state: *mut placeholder_state) {
     swallows = (*(*state).con).swallow_head.tqh_first as *mut Match;
     while !swallows.is_null() {
         if let Some(serialized) = swallow_text(swallows) {
-            debuglog(
-                c"%s:%s:%d - con %p (placeholder 0x%08x) line %d: %s\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/restore_layout.c".as_ptr(),
-                c"update_placeholder_contents".as_ptr(),
-                166 as libc::c_int,
-                (*state).con,
-                (*state).window,
-                n,
-                serialized.as_ptr(),
-            );
+            {
+                let diagnostic_5 = i3_common::logging::pointer((*state).con);
+                let diagnostic_6 = ((*state).window) as u32;
+                let diagnostic_7 = (n) as i32;
+                let diagnostic_8_owner = serialized.clone();
+                let diagnostic_8_bytes = diagnostic_8_owner.as_bytes();
+                match (std::str::from_utf8(&diagnostic_8_bytes),) { (Ok(diagnostic_8_text),) => ::log::debug!(concat!("../src/restore_layout.c:update_placeholder_contents:166 - con {} (placeholder 0x{:08x}) line {}: {}\n"), diagnostic_5, diagnostic_6, diagnostic_7, diagnostic_8_text), _ => emit_parts(Level::Debug, &[b"../src/restore_layout.c:update_placeholder_contents:166 - con ", format!("{}", diagnostic_5).as_bytes(), b" (placeholder 0x", format!("{:08x}", diagnostic_6).as_bytes(), b") line ", format!("{}", diagnostic_7).as_bytes(), b": ", &diagnostic_8_bytes, b"\n"]), }
+            };
             let text = i3_common::string::I3String::from_cstr(&serialized);
             let (x, y, max_width) =
                 text_geometry((*state).rect, config.font.height, logical_px(2), n);
@@ -268,14 +263,7 @@ unsafe fn update_placeholder_contents(state: *mut placeholder_state) {
             );
             n += 1;
         } else {
-            debuglog(
-                c"%s:%s:%d - This swallows specification is not serializable?!\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/restore_layout.c".as_ptr(),
-                c"update_placeholder_contents".as_ptr(),
-                159 as libc::c_int,
-            );
+            ::log::debug!(concat!("../src/restore_layout.c:update_placeholder_contents:159 - This swallows specification is not serializable?!\n"));
         }
         swallows = (*swallows).matches.tqe_next as *mut Match;
     }
@@ -329,17 +317,13 @@ unsafe fn open_placeholder_window(con: *mut Con) {
                 data: CStr::from_ptr((*con).name_ptr()).to_bytes(),
             });
         }
-        debuglog(
-            c"%s:%s:%d - Created placeholder window 0x%08x for leaf container %p / %s\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/restore_layout.c".as_ptr(),
-            c"open_placeholder_window".as_ptr(),
-            219 as ::core::ffi::c_int,
-            placeholder,
-            con,
-            (*con).name_ptr(),
-        );
+        {
+            let diagnostic_5 = (placeholder) as u32;
+            let diagnostic_6 = i3_common::logging::pointer(con);
+            let diagnostic_7_owner = (*con).name.clone();
+            let diagnostic_7_bytes = string_bytes(diagnostic_7_owner.as_deref(), None);
+            match (std::str::from_utf8(&diagnostic_7_bytes),) { (Ok(diagnostic_7_text),) => ::log::debug!(concat!("../src/restore_layout.c:open_placeholder_window:219 - ","Created placeholder window 0x{:08x} for leaf container ","{} / {}\n"), diagnostic_5, diagnostic_6, diagnostic_7_text), _ => emit_parts(Level::Debug, &[b"../src/restore_layout.c:open_placeholder_window:219 - Created placeholder window 0x", format!("{:08x}", diagnostic_5).as_bytes(), b" for leaf container ", format!("{}", diagnostic_6).as_bytes(), b" / ", &diagnostic_7_bytes, b"\n"]), }
+        };
         let state = Box::into_raw(Box::new(placeholder_state {
             window: placeholder,
             con,
@@ -427,26 +411,22 @@ pub unsafe fn restore_kill_placeholder(placeholder: u32) -> bool {
             }
             *(*state).state.tqe_prev = (*state).state.tqe_next;
             drop(Box::from_raw(state));
-            debuglog(
-                c"%s:%s:%d - placeholder window 0x%08x destroyed.\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/restore_layout.c".as_ptr(),
-                c"restore_kill_placeholder".as_ptr(),
-                284 as ::core::ffi::c_int,
-                placeholder,
+            ::log::debug!(
+                concat!(
+                    "../src/restore_layout.c:restore_kill_placeholder:284 - ",
+                    "placeholder window 0x{:08x} destroyed.\n"
+                ),
+                (placeholder) as u32
             );
             return true_0 != 0;
         }
     }
-    debuglog(
-        c"%s:%s:%d - 0x%08x is not a placeholder window, ignoring.\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/restore_layout.c".as_ptr(),
-        c"restore_kill_placeholder".as_ptr(),
-        288 as ::core::ffi::c_int,
-        placeholder,
+    ::log::debug!(
+        concat!(
+            "../src/restore_layout.c:restore_kill_placeholder:288 - ",
+            "0x{:08x} is not a placeholder window, ignoring.\n"
+        ),
+        (placeholder) as u32
     );
     false_0 != 0
 }
@@ -457,25 +437,21 @@ unsafe fn expose_event(event: &x::ExposeEvent) {
         if (*state).window != event.window().resource_id() {
             state = (*state).state.tqe_next as *mut placeholder_state;
         } else {
-            debuglog(
-                c"%s:%s:%d - refreshing window 0x%08x contents (con %p)\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/restore_layout.c".as_ptr(),
-                c"expose_event".as_ptr(),
-                299 as ::core::ffi::c_int,
-                (*state).window,
-                (*state).con,
+            ::log::debug!(
+                concat!(
+                    "../src/restore_layout.c:expose_event:299 - refreshing ",
+                    "window 0x{:08x} contents (con {})\n"
+                ),
+                ((*state).window) as u32,
+                i3_common::logging::pointer((*state).con)
             );
             update_placeholder_contents(state);
             return;
         }
     }
-    errorlog(
-        c"ERROR: Received ExposeEvent for unknown window 0x%08x\n"
-            .as_ptr()
-            .cast_mut(),
-        event.window().resource_id(),
+    ::log::error!(
+        "ERROR: Received ExposeEvent for unknown window 0x{:08x}\n",
+        (event.window().resource_id()) as u32
     );
 }
 unsafe fn configure_notify(event: &x::ConfigureNotifyEvent) {
@@ -485,17 +461,16 @@ unsafe fn configure_notify(event: &x::ConfigureNotifyEvent) {
         if (*state).window != event.window().resource_id() {
             state = (*state).state.tqe_next as *mut placeholder_state;
         } else {
-            debuglog(
-                c"%s:%s:%d - ConfigureNotify: window 0x%08x has now width=%d, height=%d (con %p)\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/restore_layout.c".as_ptr(),
-                c"configure_notify".as_ptr(),
-                323 as ::core::ffi::c_int,
-                (*state).window,
-                event.width() as ::core::ffi::c_int,
-                event.height() as ::core::ffi::c_int,
-                (*state).con,
+            ::log::debug!(
+                concat!(
+                    "../src/restore_layout.c:configure_notify:323 - ",
+                    "ConfigureNotify: window 0x{:08x} has now width={}, ",
+                    "height={} (con {})\n"
+                ),
+                ((*state).window) as u32,
+                (event.width() as ::core::ffi::c_int) as i32,
+                (event.height() as ::core::ffi::c_int) as i32,
+                i3_common::logging::pointer((*state).con)
             );
             (*state).rect.width = event.width() as u32;
             (*state).rect.height = event.height() as u32;
@@ -508,11 +483,9 @@ unsafe fn configure_notify(event: &x::ConfigureNotifyEvent) {
             return;
         }
     }
-    errorlog(
-        c"ERROR: Received ConfigureNotify for unknown window 0x%08x\n"
-            .as_ptr()
-            .cast_mut(),
-        event.window().resource_id(),
+    ::log::error!(
+        "ERROR: Received ConfigureNotify for unknown window 0x{:08x}\n",
+        (event.window().resource_id()) as u32
     );
 }
 unsafe fn restore_handle_event(event: &xcb::Event) {
@@ -524,14 +497,12 @@ unsafe fn restore_handle_event(event: &xcb::Event) {
         }
         xcb::Event::X(x::Event::ConfigureNotify(event)) => configure_notify(event),
         _ => {
-            debuglog(
-                c"%s:%s:%d - Received unhandled X11 event of type %d\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/restore_layout.c".as_ptr(),
-                c"restore_handle_event".as_ptr(),
-                350 as ::core::ffi::c_int,
-                i32::from((*event.as_raw()).response_type & 0x7f),
+            ::log::debug!(
+                concat!(
+                    "../src/restore_layout.c:restore_handle_event:350 - ",
+                    "Received unhandled X11 event of type {}\n"
+                ),
+                (i32::from((*event.as_raw()).response_type & 0x7f)) as i32
             );
         }
     }
@@ -561,8 +532,6 @@ use i3_common::safewrappers::smalloc;
 pub use libc::{free, memmove, strlen};
 
 use i3_common::native_stdio::errx;
-
-use crate::log::{debuglog, errorlog};
 
 // Shared model types retain field layout while using one Rust identity.
 pub use crate::types::Con;
@@ -612,3 +581,5 @@ mod tests {
 }
 
 use crate::con::arena::nodes;
+
+use i3_common::logging::{emit_parts, string_bytes, Level};

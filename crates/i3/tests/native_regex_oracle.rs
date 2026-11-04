@@ -1,11 +1,7 @@
-#![feature(c_variadic)]
-#![allow(dead_code, stable_features)]
+#![allow(dead_code)]
 #[path = "../src/regex.rs"]
 mod regex;
-mod log {
-    pub unsafe extern "C" fn errorlog(_: *mut core::ffi::c_char, _: ...) {}
-    pub unsafe extern "C" fn verboselog(_: *mut core::ffi::c_char, _: ...) {}
-}
+
 fn unhex(value: &str) -> Vec<u8> {
     (0..value.len())
         .step_by(2)
