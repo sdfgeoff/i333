@@ -20,6 +20,7 @@ use crate::types::Position;
 use crate::types::ScratchpadState;
 use crate::types::ShutdownReason;
 use i3_common::safewrappers::sasprintf;
+use std::os::unix::ffi::OsStrExt;
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -1824,24 +1825,15 @@ pub unsafe fn cmd_nop(
 pub unsafe fn cmd_append_layout(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    cpath: *const ::core::ffi::c_char,
+    cpath: &std::path::Path,
 ) {
+    let cpath = cpath.to_owned();
     let mut content: JsonContent = JsonContent::Unknown;
     let mut parent: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut errormsg: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = cpath;
-        let log_value_0 = i3_common::logging::string_bytes(
-            (if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_0 = cpath.as_os_str().as_bytes().to_vec();
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::info!("Appending layout \"{}\"\n", log_value_0_text);
         } else {
@@ -1855,20 +1847,15 @@ pub unsafe fn cmd_append_layout(
             );
         }
     };
-    let path_owner = resolve_cstring(std::ffi::CStr::from_ptr(cpath));
-    let path = path_owner.as_ptr();
+    let path_owner = resolve_or_exit(&cpath);
     let mut bytes = match slurp(&path_owner) {
         Ok(bytes) => bytes,
         Err(_) => {
             if (*cmd_output).has_reply() {
-                let mut message: *mut ::core::ffi::c_char =
-                    ::core::ptr::null_mut::<::core::ffi::c_char>();
-                sasprintf(&raw mut message, c"Could not slurp \"%s\".".as_ptr(), path);
-                emit_command_reply(
-                    cmd_output,
-                    CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
-                );
-                free(message as *mut ::core::ffi::c_void);
+                let mut message = b"Could not slurp \"".to_vec();
+                message.extend_from_slice(path_owner.as_os_str().as_bytes());
+                message.extend_from_slice(b"\".");
+                emit_command_reply(cmd_output, CommandReply::Error(&message));
             }
             return;
         }
@@ -1880,17 +1867,7 @@ pub unsafe fn cmd_append_layout(
     if !json_validate(buf, len) {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_pointer_1 = path;
-            let log_value_0 = i3_common::logging::string_bytes(
-                (if log_pointer_1.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                })
-                .map(std::ffi::CStr::to_bytes),
-                None,
-            )
-            .to_vec();
+            let log_value_0 = path_owner.as_os_str().as_bytes().to_vec();
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::error!(
                     "ERROR: Could not parse \"{}\" as JSON, not loading.\n",
@@ -1908,18 +1885,10 @@ pub unsafe fn cmd_append_layout(
             }
         };
         if (*cmd_output).has_reply() {
-            let mut message_0: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message_0,
-                c"Could not parse \"%s\" as JSON.".as_ptr(),
-                path,
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
-            );
-            free(message_0 as *mut ::core::ffi::c_void);
+            let mut message_0 = b"Could not parse \"".to_vec();
+            message_0.extend_from_slice(path_owner.as_os_str().as_bytes());
+            message_0.extend_from_slice(b"\" as JSON.");
+            emit_command_reply(cmd_output, CommandReply::Error(&message_0));
         }
     } else {
         content = json_determine_content(buf, len);
@@ -1927,17 +1896,7 @@ pub unsafe fn cmd_append_layout(
         if content == JsonContent::Unknown {
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
-                let log_pointer_1 = path;
-                let log_value_0 = i3_common::logging::string_bytes(
-                    (if log_pointer_1.is_null() {
-                        None
-                    } else {
-                        Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                    })
-                    .map(std::ffi::CStr::to_bytes),
-                    None,
-                )
-                .to_vec();
+                let log_value_0 = path_owner.as_os_str().as_bytes().to_vec();
                 if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                     ::log::error!(
                         "ERROR: Could not determine the contents of \"{}\", not loading.\n",
@@ -1955,18 +1914,10 @@ pub unsafe fn cmd_append_layout(
                 }
             };
             if (*cmd_output).has_reply() {
-                let mut message_1: *mut ::core::ffi::c_char =
-                    ::core::ptr::null_mut::<::core::ffi::c_char>();
-                sasprintf(
-                    &raw mut message_1,
-                    c"Could not determine the contents of \"%s\".".as_ptr(),
-                    path,
-                );
-                emit_command_reply(
-                    cmd_output,
-                    CommandReply::Error(std::ffi::CStr::from_ptr(message_1).to_bytes()),
-                );
-                free(message_1 as *mut ::core::ffi::c_void);
+                let mut message_1 = b"Could not determine the contents of \"".to_vec();
+                message_1.extend_from_slice(path_owner.as_os_str().as_bytes());
+                message_1.extend_from_slice(b"\".");
+                emit_command_reply(cmd_output, CommandReply::Error(&message_1));
             }
         } else {
             parent = focused;
@@ -6475,7 +6426,7 @@ use crate::workspace::workspace_next_on_output;
 use crate::workspace::workspace_prev;
 use crate::workspace::workspace_prev_on_output;
 use crate::workspace::workspace_show;
-use i3_common::resolve_tilde::resolve_cstring;
+use i3_common::resolve_tilde::resolve_or_exit;
 
 use crate::con::arena::nodes;
 

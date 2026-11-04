@@ -61,6 +61,7 @@ use crate::parser_util::parser_push_string;
 use crate::types::UrgencyMatch;
 use crate::types::WindowMode;
 use i3_common::safewrappers::sasprintf;
+use std::os::unix::ffi::OsStrExt;
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -3261,11 +3262,11 @@ unsafe fn GENERATED_call(
         }
         52 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_append_layout(
-                current_match,
-                result,
-                parser_get_string(stack, c"path".as_ptr()),
-            );
+            let path_pointer = parser_get_string(stack, c"path".as_ptr());
+            let path_owner = std::path::PathBuf::from(std::ffi::OsStr::from_bytes(
+                std::ffi::CStr::from_ptr(path_pointer).to_bytes(),
+            ));
+            cmd_append_layout(current_match, result, &path_owner);
         }
         53 => {
             (*result).next_state = CommandParserState::Criteria;

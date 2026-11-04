@@ -64,14 +64,6 @@ pub fn resolve_or_exit(path: impl AsRef<Path>) -> PathBuf {
     resolve(path).unwrap_or_else(|error| abort(error))
 }
 
-/// Resolve a native path into Rust-owned, NUL-terminated storage. Native callers
-/// retain the historical fatal glob diagnostic without malloc ownership transfer.
-pub fn resolve_cstring(path: &CStr) -> CString {
-    let resolved =
-        resolve(std::ffi::OsStr::from_bytes(path.to_bytes())).unwrap_or_else(|error| abort(error));
-    CString::new(resolved.as_os_str().as_bytes()).expect("resolved OS path contains no NUL")
-}
-
 pub(crate) fn abort(error: io::Error) -> ! {
     // SAFETY: Preserve the fatal glob diagnostic and errno without unwinding.
     unsafe {
@@ -82,18 +74,20 @@ pub(crate) fn abort(error: io::Error) -> ! {
 
 #[cfg(test)]
 mod tests {
-    use super::resolve_cstring;
-    use std::ffi::CStr;
+    use super::resolve_or_exit;
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt;
+    use std::path::Path;
 
     #[test]
     fn native_paths_retain_non_utf8_and_expand_only_the_first_component() {
-        let literal = c"literal/\xff//tail*";
-        assert_eq!(resolve_cstring(literal).as_c_str(), literal);
+        let literal = Path::new(OsStr::from_bytes(b"literal/\xff//tail*"));
+        assert_eq!(resolve_or_exit(literal), literal);
         // This first component matches the package manifest; the non-UTF-8
         // tail and its glob syntax must remain byte-for-byte untouched.
-        let globbed = c"Cargo.tom?/\xff/tail*";
+        let globbed = Path::new(OsStr::from_bytes(b"Cargo.tom?/\xff/tail*"));
         assert_eq!(
-            resolve_cstring(globbed).to_bytes(),
+            resolve_or_exit(globbed).as_os_str().as_bytes(),
             b"Cargo.toml/\xff/tail*"
         );
     }

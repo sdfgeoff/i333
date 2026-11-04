@@ -85,32 +85,15 @@ fn flatten_layouts(con: Layout, child: Layout, parent: Orientation) -> bool {
     }
 }
 
-pub unsafe fn tree_restore(
-    path: *const ::core::ffi::c_char,
-    geometry: &x::GetGeometryReply,
-) -> bool {
+pub unsafe fn tree_restore(path: &std::path::Path, geometry: &x::GetGeometryReply) -> bool {
     let mut out: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut ws: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut result: bool = false;
-    let path_owner = resolve_cstring(std::ffi::CStr::from_ptr(path));
-    let globbed = path_owner.as_ptr();
-    let file_path = std::path::Path::new(std::ffi::OsStr::from_bytes(path_owner.to_bytes()));
-    if !exists(file_path) {
+    let path_owner = resolve_or_exit(path);
+    if !exists(&path_owner) {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_value_0 = {
-                let pointer: *const libc::c_char = globbed;
-                i3_common::logging::string_bytes(
-                    (if pointer.is_null() {
-                        None
-                    } else {
-                        Some(std::ffi::CStr::from_ptr(pointer))
-                    })
-                    .map(std::ffi::CStr::to_bytes),
-                    None,
-                )
-                .to_vec()
-            };
+            let log_value_0 = path_owner.as_os_str().as_bytes().to_vec();
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::info!("{} does not exist, not restoring tree\n", log_value_0_text);
             } else {
@@ -961,7 +944,7 @@ use crate::x::x_con_kill;
 use crate::x::x_push_changes;
 use crate::x::x_set_name;
 use crate::x::x_set_warp_to;
-use i3_common::resolve_tilde::resolve_cstring;
+use i3_common::resolve_tilde::resolve_or_exit;
 
 fn connection() -> std::rc::Rc<xcb::Connection> {
     i3_common::display::connection().expect("main X11 connection is registered")

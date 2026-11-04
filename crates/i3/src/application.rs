@@ -1910,7 +1910,10 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
                 );
             }
         };
-        needs_tree_init = !tree_restore(layout_path, &greply);
+        let restore_path = std::path::PathBuf::from(std::ffi::OsStr::from_bytes(
+            CStr::from_ptr(layout_path).to_bytes(),
+        ));
+        needs_tree_init = !tree_restore(&restore_path, &greply);
         if delete_layout_path {
             unlink(layout_path);
             let dir = owned_dirname(CStr::from_ptr(layout_path));

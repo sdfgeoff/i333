@@ -6,7 +6,7 @@ use i3_common::font::load_font;
 use i3_common::font::predict_text_width;
 use i3_common::mkdirp::{create_dir_all, report_create_error};
 use std::ffi::{CStr, CString};
-use std::os::unix::ffi::OsStrExt;
+use std::os::unix::ffi::{OsStrExt, OsStringExt};
 use std::rc::Rc;
 use xcb::{x, Xid, XidNew};
 use xcb_interop::events::key_press_state;
@@ -4384,8 +4384,8 @@ pub fn write_log_bytes(level: i3_common::logging::Level, message: &[u8]) {
 struct WizardUi {
     step: WizardStep,
     modifier: WizardModifier,
-    config_path: CString,
-    socket: Option<CString>,
+    config_path: std::path::PathBuf,
+    socket: Option<std::path::PathBuf>,
     modifier_codes: [Vec<u8>; 2],
 }
 fn clicked_modifier(
@@ -4492,17 +4492,15 @@ struct WizardAtoms {
     utf8: x::Atom,
 }
 
-unsafe fn txt(
-    text_font: &Font,
-    col: i32,
-    row: i32,
-    text: *mut ::core::ffi::c_char,
-    fg: color_t,
-    bg: color_t,
-) {
+unsafe fn txt(text_font: &Font, col: i32, row: i32, text: &[u8], fg: color_t, bg: color_t) {
     let x: i32 = (col - 1_i32) * char_width + logical_px(4_i32);
     let y: i32 = (row - 1_i32) * font.height + logical_px(4_i32);
-    let string = i3_common::string::I3String::from_bytes(CStr::from_ptr(text).to_bytes());
+    let string = i3_common::string::I3String::from_bytes(
+        &text[..text
+            .iter()
+            .position(|&byte| byte == 0)
+            .unwrap_or(text.len())],
+    );
     draw_util_text(
         text_font,
         &string,
@@ -4526,7 +4524,7 @@ unsafe fn handle_expose(ui: &WizardUi, connection: &xcb::Connection) -> i32 {
             &font,
             2_i32,
             2_i32,
-            c"You have not configured i3 yet.".as_ptr().cast_mut(),
+            b"You have not configured i3 yet.",
             white,
             black,
         );
@@ -4534,22 +4532,19 @@ unsafe fn handle_expose(ui: &WizardUi, connection: &xcb::Connection) -> i32 {
             &font,
             2_i32,
             3_i32,
-            c"Do you want me to generate a config at"
-                .as_ptr()
-                .cast_mut(),
+            b"Do you want me to generate a config at",
             white,
             black,
         );
-        let mut message = ui.config_path.to_bytes().to_vec();
+        let mut message = ui.config_path.as_os_str().as_bytes().to_vec();
         message.push(b'?');
-        let msg = CString::new(message).expect("path contains no NUL");
-        txt(&font, 2_i32, 4_i32, msg.as_ptr().cast_mut(), white, black);
+        txt(&font, 2_i32, 4_i32, &message, white, black);
 
         txt(
             &font,
             13_i32,
             6_i32,
-            c"Yes, generate the config".as_ptr().cast_mut(),
+            b"Yes, generate the config",
             white,
             black,
         );
@@ -4557,41 +4552,20 @@ unsafe fn handle_expose(ui: &WizardUi, connection: &xcb::Connection) -> i32 {
             &font,
             13_i32,
             8_i32,
-            c"No, I will use the defaults".as_ptr().cast_mut(),
+            b"No, I will use the defaults",
             white,
             black,
         );
-        txt(
-            &font,
-            4_i32,
-            6_i32,
-            c"<Enter>".as_ptr().cast_mut(),
-            green,
-            black,
-        );
-        txt(
-            &font,
-            5_i32,
-            8_i32,
-            c"<ESC>".as_ptr().cast_mut(),
-            red,
-            black,
-        );
+        txt(&font, 4_i32, 6_i32, b"<Enter>", green, black);
+        txt(&font, 5_i32, 8_i32, b"<ESC>", red, black);
     }
     if ui.step == WizardStep::Generate {
-        txt(
-            &font,
-            2_i32,
-            2_i32,
-            c"Please choose either:".as_ptr().cast_mut(),
-            white,
-            black,
-        );
+        txt(&font, 2_i32, 2_i32, b"Please choose either:", white, black);
         txt(
             &font,
             13_i32,
             4_i32,
-            c"Win as default modifier".as_ptr().cast_mut(),
+            b"Win as default modifier",
             white,
             black,
         );
@@ -4599,90 +4573,27 @@ unsafe fn handle_expose(ui: &WizardUi, connection: &xcb::Connection) -> i32 {
             &font,
             13_i32,
             5_i32,
-            c"Alt as default modifier".as_ptr().cast_mut(),
+            b"Alt as default modifier",
             white,
             black,
         );
-        txt(
-            &font,
-            2_i32,
-            7_i32,
-            c"Afterwards, press".as_ptr().cast_mut(),
-            white,
-            black,
-        );
-        txt(
-            &font,
-            13_i32,
-            9_i32,
-            c"to write the config".as_ptr().cast_mut(),
-            white,
-            black,
-        );
-        txt(
-            &font,
-            13_i32,
-            10_i32,
-            c"to abort".as_ptr().cast_mut(),
-            white,
-            black,
-        );
+        txt(&font, 2_i32, 7_i32, b"Afterwards, press", white, black);
+        txt(&font, 13_i32, 9_i32, b"to write the config", white, black);
+        txt(&font, 13_i32, 10_i32, b"to abort", white, black);
         if ui.modifier == WizardModifier::Win {
-            txt(
-                &font,
-                5_i32,
-                5_i32,
-                c"<Alt>".as_ptr().cast_mut(),
-                white,
-                black,
-            );
+            txt(&font, 5_i32, 5_i32, b"<Alt>", white, black);
         } else {
-            txt(
-                &font,
-                5_i32,
-                4_i32,
-                c"<Win>".as_ptr().cast_mut(),
-                white,
-                black,
-            );
+            txt(&font, 5_i32, 4_i32, b"<Win>", white, black);
         }
 
         if ui.modifier == WizardModifier::Win {
-            txt(
-                &bold_font,
-                2_i32,
-                4_i32,
-                c"-> <Win>".as_ptr().cast_mut(),
-                white,
-                black,
-            );
+            txt(&bold_font, 2_i32, 4_i32, b"-> <Win>", white, black);
         } else {
-            txt(
-                &bold_font,
-                2_i32,
-                5_i32,
-                c"-> <Alt>".as_ptr().cast_mut(),
-                white,
-                black,
-            );
+            txt(&bold_font, 2_i32, 5_i32, b"-> <Alt>", white, black);
         }
 
-        txt(
-            &font,
-            4_i32,
-            9_i32,
-            c"<Enter>".as_ptr().cast_mut(),
-            green,
-            black,
-        );
-        txt(
-            &font,
-            5_i32,
-            10_i32,
-            c"<ESC>".as_ptr().cast_mut(),
-            red,
-            black,
-        );
+        txt(&font, 4_i32, 9_i32, b"<Enter>", green, black);
+        txt(&font, 5_i32, 10_i32, b"<ESC>", red, black);
     }
     let _ = connection.flush();
     1_i32
@@ -4830,7 +4741,12 @@ unsafe fn finish(ui: &WizardUi, keysyms: &KeySymbols) {
     use std::fs::File;
     use std::io::{BufRead, BufReader, Write};
     use std::os::unix::ffi::OsStrExt;
-    printf(c"creating \"%s\"...\n".as_ptr(), ui.config_path.as_ptr());
+    let native_config_path =
+        CString::new(ui.config_path.as_os_str().as_bytes()).expect("OS path has no NUL");
+    printf(
+        c"creating \"%s\"...\n".as_ptr(),
+        native_config_path.as_ptr(),
+    );
     let Some(context) = std::ptr::NonNull::new(xkb_context_new(XKB_CONTEXT_NO_FLAGS)) else {
         errx(1, c"could not create xkbcommon context".as_ptr());
     };
@@ -4855,15 +4771,14 @@ unsafe fn finish(ui: &WizardUi, keysyms: &KeySymbols) {
             );
         },
     );
-    let mut output = File::create(std::ffi::OsStr::from_bytes(ui.config_path.to_bytes()))
-        .unwrap_or_else(|error| {
-            *__errno_location() = error.raw_os_error().unwrap_or(libc::EIO);
-            err(
-                1,
-                c"Could not open output config file \"%s\"".as_ptr(),
-                ui.config_path.as_ptr(),
-            );
-        });
+    let mut output = File::create(&ui.config_path).unwrap_or_else(|error| {
+        *__errno_location() = error.raw_os_error().unwrap_or(libc::EIO);
+        err(
+            1,
+            c"Could not open output config file \"%s\"".as_ptr(),
+            native_config_path.as_ptr(),
+        );
+    });
     let mut input = BufReader::new(input);
     let _ = output.write_all(CONFIG_HEADER);
     let mut template = TemplateLines { head: true };
@@ -4885,11 +4800,7 @@ unsafe fn finish(ui: &WizardUi, keysyms: &KeySymbols) {
     let _ = output.flush();
     let _ = output.sync_all();
     drop(output);
-    let path = ui
-        .socket
-        .as_deref()
-        .map(|path| std::path::Path::new(std::ffi::OsStr::from_bytes(path.to_bytes())));
-    let mut socket = connect_or_exit(path);
+    let mut socket = connect_or_exit(ui.socket.as_deref());
     let _ = send_message_retry_would_block(&mut socket, 0, b"reload");
 }
 #[derive(Clone, Copy)]
@@ -4899,7 +4810,7 @@ enum ModifierKey {
 }
 #[derive(Default)]
 struct WizardSettings {
-    socket: Option<std::ffi::CString>,
+    socket: Option<std::path::PathBuf>,
     modifier: Option<ModifierKey>,
 }
 const WIZARD_OPTIONS: &[i3_common::cli::OptionSpec] = &[
@@ -4913,7 +4824,6 @@ const WIZARD_OPTIONS: &[i3_common::cli::OptionSpec] = &[
     i3_common::cli::OptionSpec::flag(b'h', "help"),
 ];
 unsafe fn run_window(settings: WizardSettings) -> i32 {
-    let mut xdg_config_home: *mut ::core::ffi::c_char = std::ptr::null_mut();
     let pattern = c"pango:monospace 8".as_ptr();
     let patternbold = c"pango:monospace bold 8".as_ptr();
     let headless_run = settings.modifier.is_some();
@@ -4931,46 +4841,48 @@ unsafe fn run_window(settings: WizardSettings) -> i32 {
         free(path as *mut ::core::ffi::c_void);
         return 0_i32;
     }
-    xdg_config_home = getenv(c"XDG_CONFIG_HOME".as_ptr());
-    if xdg_config_home.is_null() {
-        xdg_config_home = c"~/.config".as_ptr().cast_mut();
-    }
-    let base = resolve_cstring(CStr::from_ptr(xdg_config_home));
-    let mut directory = base.to_bytes().to_vec();
+    let config_home = std::env::var_os("XDG_CONFIG_HOME").unwrap_or_else(|| "~/.config".into());
+    let base = resolve_or_exit(std::path::Path::new(&config_home));
+    // Append exact byte suffixes rather than normalizing repeated separators.
+    let mut directory = base.as_os_str().as_bytes().to_vec();
     directory.extend_from_slice(b"/i3");
-    let config_dir = CString::new(directory).expect("base path has no NUL");
-    let mut path = config_dir.to_bytes().to_vec();
+    let config_dir = std::path::PathBuf::from(std::ffi::OsString::from_vec(directory));
+    let mut path = config_dir.as_os_str().as_bytes().to_vec();
     path.extend_from_slice(b"/config");
-    let config_path = CString::new(path).expect("base path has no NUL");
+    let config_path = std::path::PathBuf::from(std::ffi::OsString::from_vec(path));
+    let native_config_dir =
+        CString::new(config_dir.as_os_str().as_bytes()).expect("OS path has no NUL");
+    let native_config_path =
+        CString::new(config_path.as_os_str().as_bytes()).expect("OS path has no NUL");
     let mut stbuf: stat = ::core::mem::zeroed();
-    if stat(config_dir.as_ptr(), &raw mut stbuf) != 0 {
-        let directory = std::path::Path::new(std::ffi::OsStr::from_bytes(config_dir.to_bytes()));
+    if stat(native_config_dir.as_ptr(), &raw mut stbuf) != 0 {
+        let directory = config_dir.as_path();
         if let Err(error) = create_dir_all(directory, DEFAULT_DIR_MODE) {
             let error = report_create_error(directory, error);
             *__errno_location() = error.raw_os_error().unwrap_or(libc::EIO);
             err(
                 libc::EXIT_FAILURE,
                 c"mkdirp(%s) failed".as_ptr(),
-                config_dir.as_ptr(),
+                native_config_dir.as_ptr(),
             );
         }
     }
     let mut fd: i32 = 0;
     fd = open(
-        config_path.as_ptr(),
+        native_config_path.as_ptr(),
         libc::O_CREAT | libc::O_RDWR,
         0o644 as ::core::ffi::c_int,
     );
     if fd == -1_i32 {
         printf(
             c"Cannot open file \"%s\" for writing: %s. Exiting.\n".as_ptr(),
-            config_path.as_ptr(),
+            native_config_path.as_ptr(),
             strerror(*__errno_location()),
         );
         return 0_i32;
     }
     close(fd);
-    unlink(config_path.as_ptr());
+    unlink(native_config_path.as_ptr());
     let mut ui = WizardUi {
         step: WizardStep::Welcome,
         modifier: selected_modifier,
@@ -5267,12 +5179,7 @@ pub fn main() {
                     println!("i3-config-wizard {}\ni3-config-wizard [-s <socket>] [-m win|alt] [-v] [-h]", env!("I3_VERSION"));
                     return;
                 }
-                b's' => {
-                    settings.socket = Some(
-                        std::ffi::CString::new(value.unwrap().as_bytes())
-                            .expect("OS arguments have no NUL bytes"),
-                    )
-                }
+                b's' => settings.socket = Some(std::path::PathBuf::from(value.unwrap())),
                 b'm' => {
                     let value = value.unwrap();
                     settings.modifier = Some(match value.as_bytes() {
@@ -5329,7 +5236,7 @@ use i3_common::native_stdio::{err, errx, stderr, stdout};
 use i3_common::get_config_path::get_config_path;
 use i3_common::ipc_connect::connect_or_exit;
 use i3_common::ipc_send_message::send_message_retry_would_block;
-use i3_common::resolve_tilde::resolve_cstring;
+use i3_common::resolve_tilde::resolve_or_exit;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u32)]

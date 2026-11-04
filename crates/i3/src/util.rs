@@ -554,9 +554,8 @@ fn slurp_file(path: &std::path::Path) -> Result<Vec<u8>, SlurpFailure> {
 }
 /// Read the stat-sized snapshot, preserving binary bytes and logging the native
 /// open/stat/short-read diagnostics. The caller owns the returned payload.
-pub(crate) fn slurp(path: &CStr) -> Result<Vec<u8>, SlurpFailure> {
-    let path_view = std::path::Path::new(std::ffi::OsStr::from_bytes(path.to_bytes()));
-    let error = match slurp_file(path_view) {
+pub(crate) fn slurp(path: &std::path::Path) -> Result<Vec<u8>, SlurpFailure> {
+    let error = match slurp_file(path) {
         Ok(bytes) => return Ok(bytes),
         Err(error) => error,
     };
@@ -564,7 +563,7 @@ pub(crate) fn slurp(path: &CStr) -> Result<Vec<u8>, SlurpFailure> {
     match &error {
         SlurpFailure::Open(error) => {
             let diagnostic_2_owner = path.to_owned();
-            let diagnostic_2_bytes = diagnostic_2_owner.as_bytes();
+            let diagnostic_2_bytes = diagnostic_2_owner.as_os_str().as_bytes();
             let diagnostic_3_owner = unsafe {
                 (strerror(error.raw_os_error().unwrap_or(libc::EIO)))
                     .cast::<libc::c_char>()
@@ -598,7 +597,7 @@ pub(crate) fn slurp(path: &CStr) -> Result<Vec<u8>, SlurpFailure> {
         }
         SlurpFailure::Metadata(error) => {
             let diagnostic_2_owner = path.to_owned();
-            let diagnostic_2_bytes = diagnostic_2_owner.as_bytes();
+            let diagnostic_2_bytes = diagnostic_2_owner.as_os_str().as_bytes();
             let diagnostic_3_owner = unsafe {
                 (strerror(error.raw_os_error().unwrap_or(libc::EIO)))
                     .cast::<libc::c_char>()
@@ -632,7 +631,7 @@ pub(crate) fn slurp(path: &CStr) -> Result<Vec<u8>, SlurpFailure> {
         }
         SlurpFailure::Short { got, want } => {
             let diagnostic_2_owner = path.to_owned();
-            let diagnostic_2_bytes = diagnostic_2_owner.as_bytes();
+            let diagnostic_2_bytes = diagnostic_2_owner.as_os_str().as_bytes();
             let diagnostic_3 = (*got) as isize;
             let diagnostic_4 = (*want as i64);
             match (std::str::from_utf8(diagnostic_2_bytes),) {
@@ -943,7 +942,7 @@ mod tests {
     fn file_snapshot_preserves_binary_bytes_and_stat_size() {
         let directory = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.work/tmp");
         std::fs::create_dir_all(&directory).unwrap();
-        let path = directory.join(format!(
+        let mut path = directory.join(format!(
             "util-slurp-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
@@ -951,6 +950,8 @@ mod tests {
                 .unwrap()
                 .as_nanos()
         ));
+        path.as_mut_os_string()
+            .push(std::ffi::OsStr::from_bytes(b"-\xff"));
         struct Remove(std::path::PathBuf);
         impl Drop for Remove {
             fn drop(&mut self) {
@@ -959,8 +960,7 @@ mod tests {
         }
         let _remove = Remove(path.clone());
         std::fs::write(&path, b"layout\0bytes").unwrap();
-        let name = CString::new(path.as_os_str().as_bytes()).unwrap();
-        assert_eq!(slurp(&name).unwrap(), b"layout\0bytes");
+        assert_eq!(slurp(&path).unwrap(), b"layout\0bytes");
         assert!(matches!(
             slurp_file(&path.with_extension("missing")),
             Err(SlurpFailure::Open(_))
@@ -968,6 +968,6 @@ mod tests {
         // procfs reports size zero even though an ordinary read returns data.
         let proc_path = std::path::Path::new("/proc/self/status");
         assert!(!std::fs::read(proc_path).unwrap().is_empty());
-        assert_eq!(slurp(c"/proc/self/status").unwrap(), b"");
+        assert_eq!(slurp(proc_path).unwrap(), b"");
     }
 }
