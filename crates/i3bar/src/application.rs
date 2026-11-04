@@ -35,34 +35,57 @@ pub struct Rect {
     pub width: u32,
     pub height: u32,
 }
-/// Configuration color text belongs to the bar, not the XCB protocol.
-///
-/// Every non-null slot uniquely owns a malloc-backed NUL-terminated string.
-/// Configuration updates replace/free individual slots; `config::free_colors`
-/// releases and clears them during explicit teardown. Rendering only borrows
-/// these pointers. Deliberately not Copy or Clone: copies would alias ownership.
+/// Owned native color bytes; None and an explicitly empty color stay distinct.
+#[derive(Clone, Default)]
 pub struct ColorStrings {
-    pub bar_fg: *mut ::core::ffi::c_char,
-    pub bar_bg: *mut ::core::ffi::c_char,
-    pub sep_fg: *mut ::core::ffi::c_char,
-    pub focus_bar_fg: *mut ::core::ffi::c_char,
-    pub focus_bar_bg: *mut ::core::ffi::c_char,
-    pub focus_sep_fg: *mut ::core::ffi::c_char,
-    pub active_ws_fg: *mut ::core::ffi::c_char,
-    pub active_ws_bg: *mut ::core::ffi::c_char,
-    pub active_ws_border: *mut ::core::ffi::c_char,
-    pub inactive_ws_fg: *mut ::core::ffi::c_char,
-    pub inactive_ws_bg: *mut ::core::ffi::c_char,
-    pub inactive_ws_border: *mut ::core::ffi::c_char,
-    pub focus_ws_bg: *mut ::core::ffi::c_char,
-    pub focus_ws_fg: *mut ::core::ffi::c_char,
-    pub focus_ws_border: *mut ::core::ffi::c_char,
-    pub urgent_ws_bg: *mut ::core::ffi::c_char,
-    pub urgent_ws_fg: *mut ::core::ffi::c_char,
-    pub urgent_ws_border: *mut ::core::ffi::c_char,
-    pub binding_mode_bg: *mut ::core::ffi::c_char,
-    pub binding_mode_fg: *mut ::core::ffi::c_char,
-    pub binding_mode_border: *mut ::core::ffi::c_char,
+    pub bar_fg: Option<Vec<u8>>,
+    pub bar_bg: Option<Vec<u8>>,
+    pub sep_fg: Option<Vec<u8>>,
+    pub focus_bar_fg: Option<Vec<u8>>,
+    pub focus_bar_bg: Option<Vec<u8>>,
+    pub focus_sep_fg: Option<Vec<u8>>,
+    pub active_ws_fg: Option<Vec<u8>>,
+    pub active_ws_bg: Option<Vec<u8>>,
+    pub active_ws_border: Option<Vec<u8>>,
+    pub inactive_ws_fg: Option<Vec<u8>>,
+    pub inactive_ws_bg: Option<Vec<u8>>,
+    pub inactive_ws_border: Option<Vec<u8>>,
+    pub focus_ws_bg: Option<Vec<u8>>,
+    pub focus_ws_fg: Option<Vec<u8>>,
+    pub focus_ws_border: Option<Vec<u8>>,
+    pub urgent_ws_bg: Option<Vec<u8>>,
+    pub urgent_ws_fg: Option<Vec<u8>>,
+    pub urgent_ws_border: Option<Vec<u8>>,
+    pub binding_mode_bg: Option<Vec<u8>>,
+    pub binding_mode_fg: Option<Vec<u8>>,
+    pub binding_mode_border: Option<Vec<u8>>,
+}
+impl ColorStrings {
+    pub const fn empty() -> Self {
+        Self {
+            bar_fg: None,
+            bar_bg: None,
+            sep_fg: None,
+            focus_bar_fg: None,
+            focus_bar_bg: None,
+            focus_sep_fg: None,
+            active_ws_fg: None,
+            active_ws_bg: None,
+            active_ws_border: None,
+            inactive_ws_fg: None,
+            inactive_ws_bg: None,
+            inactive_ws_border: None,
+            focus_ws_bg: None,
+            focus_ws_fg: None,
+            focus_ws_border: None,
+            urgent_ws_bg: None,
+            urgent_ws_fg: None,
+            urgent_ws_border: None,
+            binding_mode_bg: None,
+            binding_mode_fg: None,
+            binding_mode_border: None,
+        }
+    }
 }
 
 #[repr(C)]

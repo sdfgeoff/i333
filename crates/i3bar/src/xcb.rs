@@ -873,244 +873,102 @@ unsafe fn unhide_bars() {
 }
 
 pub unsafe fn init_colors(new_colors: *const ColorStrings) {
+    // Own all inputs before conversion can invoke the error logger.
+    let new_colors = (*new_colors).clone();
     let color_screen = DISPLAY_STATE.as_ref().map(|state| state.renderer.screen());
     colors.bar_fg = draw_util_hex_to_color(
         color_screen,
-        if (*new_colors).bar_fg.is_null() {
-            std::borrow::Cow::Borrowed("#FFFFFF".as_bytes())
-        } else {
-            std::borrow::Cow::Owned(
-                std::ffi::CStr::from_ptr((*new_colors).bar_fg)
-                    .to_bytes()
-                    .to_vec(),
-            )
-        },
+        new_colors.bar_fg.as_deref().unwrap_or(b"#FFFFFF"),
     );
     colors.bar_bg = draw_util_hex_to_color(
         color_screen,
-        if (*new_colors).bar_bg.is_null() {
-            std::borrow::Cow::Borrowed("#000000".as_bytes())
-        } else {
-            std::borrow::Cow::Owned(
-                std::ffi::CStr::from_ptr((*new_colors).bar_bg)
-                    .to_bytes()
-                    .to_vec(),
-            )
-        },
+        new_colors.bar_bg.as_deref().unwrap_or(b"#000000"),
     );
     colors.sep_fg = draw_util_hex_to_color(
         color_screen,
-        if (*new_colors).sep_fg.is_null() {
-            std::borrow::Cow::Borrowed("#666666".as_bytes())
-        } else {
-            std::borrow::Cow::Owned(
-                std::ffi::CStr::from_ptr((*new_colors).sep_fg)
-                    .to_bytes()
-                    .to_vec(),
-            )
-        },
+        new_colors.sep_fg.as_deref().unwrap_or(b"#666666"),
     );
     colors.active_ws_fg = draw_util_hex_to_color(
         color_screen,
-        if (*new_colors).active_ws_fg.is_null() {
-            std::borrow::Cow::Borrowed("#FFFFFF".as_bytes())
-        } else {
-            std::borrow::Cow::Owned(
-                std::ffi::CStr::from_ptr((*new_colors).active_ws_fg)
-                    .to_bytes()
-                    .to_vec(),
-            )
-        },
+        new_colors.active_ws_fg.as_deref().unwrap_or(b"#FFFFFF"),
     );
     colors.active_ws_bg = draw_util_hex_to_color(
         color_screen,
-        if (*new_colors).active_ws_bg.is_null() {
-            std::borrow::Cow::Borrowed("#333333".as_bytes())
-        } else {
-            std::borrow::Cow::Owned(
-                std::ffi::CStr::from_ptr((*new_colors).active_ws_bg)
-                    .to_bytes()
-                    .to_vec(),
-            )
-        },
+        new_colors.active_ws_bg.as_deref().unwrap_or(b"#333333"),
     );
     colors.active_ws_border = draw_util_hex_to_color(
         color_screen,
-        if (*new_colors).active_ws_border.is_null() {
-            std::borrow::Cow::Borrowed("#333333".as_bytes())
-        } else {
-            std::borrow::Cow::Owned(
-                std::ffi::CStr::from_ptr((*new_colors).active_ws_border)
-                    .to_bytes()
-                    .to_vec(),
-            )
-        },
+        new_colors.active_ws_border.as_deref().unwrap_or(b"#333333"),
     );
     colors.inactive_ws_fg = draw_util_hex_to_color(
         color_screen,
-        if (*new_colors).inactive_ws_fg.is_null() {
-            std::borrow::Cow::Borrowed("#888888".as_bytes())
-        } else {
-            std::borrow::Cow::Owned(
-                std::ffi::CStr::from_ptr((*new_colors).inactive_ws_fg)
-                    .to_bytes()
-                    .to_vec(),
-            )
-        },
+        new_colors.inactive_ws_fg.as_deref().unwrap_or(b"#888888"),
     );
     colors.inactive_ws_bg = draw_util_hex_to_color(
         color_screen,
-        if (*new_colors).inactive_ws_bg.is_null() {
-            std::borrow::Cow::Borrowed("#222222".as_bytes())
-        } else {
-            std::borrow::Cow::Owned(
-                std::ffi::CStr::from_ptr((*new_colors).inactive_ws_bg)
-                    .to_bytes()
-                    .to_vec(),
-            )
-        },
+        new_colors.inactive_ws_bg.as_deref().unwrap_or(b"#222222"),
     );
     colors.inactive_ws_border = draw_util_hex_to_color(
         color_screen,
-        if (*new_colors).inactive_ws_border.is_null() {
-            std::borrow::Cow::Borrowed("#333333".as_bytes())
-        } else {
-            std::borrow::Cow::Owned(
-                std::ffi::CStr::from_ptr((*new_colors).inactive_ws_border)
-                    .to_bytes()
-                    .to_vec(),
-            )
-        },
+        new_colors
+            .inactive_ws_border
+            .as_deref()
+            .unwrap_or(b"#333333"),
     );
     colors.urgent_ws_fg = draw_util_hex_to_color(
         color_screen,
-        if (*new_colors).urgent_ws_fg.is_null() {
-            std::borrow::Cow::Borrowed("#FFFFFF".as_bytes())
-        } else {
-            std::borrow::Cow::Owned(
-                std::ffi::CStr::from_ptr((*new_colors).urgent_ws_fg)
-                    .to_bytes()
-                    .to_vec(),
-            )
-        },
+        new_colors.urgent_ws_fg.as_deref().unwrap_or(b"#FFFFFF"),
     );
     colors.urgent_ws_bg = draw_util_hex_to_color(
         color_screen,
-        if (*new_colors).urgent_ws_bg.is_null() {
-            std::borrow::Cow::Borrowed("#900000".as_bytes())
-        } else {
-            std::borrow::Cow::Owned(
-                std::ffi::CStr::from_ptr((*new_colors).urgent_ws_bg)
-                    .to_bytes()
-                    .to_vec(),
-            )
-        },
+        new_colors.urgent_ws_bg.as_deref().unwrap_or(b"#900000"),
     );
     colors.urgent_ws_border = draw_util_hex_to_color(
         color_screen,
-        if (*new_colors).urgent_ws_border.is_null() {
-            std::borrow::Cow::Borrowed("#2f343a".as_bytes())
-        } else {
-            std::borrow::Cow::Owned(
-                std::ffi::CStr::from_ptr((*new_colors).urgent_ws_border)
-                    .to_bytes()
-                    .to_vec(),
-            )
-        },
+        new_colors.urgent_ws_border.as_deref().unwrap_or(b"#2f343a"),
     );
     colors.focus_ws_fg = draw_util_hex_to_color(
         color_screen,
-        if (*new_colors).focus_ws_fg.is_null() {
-            std::borrow::Cow::Borrowed("#FFFFFF".as_bytes())
-        } else {
-            std::borrow::Cow::Owned(
-                std::ffi::CStr::from_ptr((*new_colors).focus_ws_fg)
-                    .to_bytes()
-                    .to_vec(),
-            )
-        },
+        new_colors.focus_ws_fg.as_deref().unwrap_or(b"#FFFFFF"),
     );
     colors.focus_ws_bg = draw_util_hex_to_color(
         color_screen,
-        if (*new_colors).focus_ws_bg.is_null() {
-            std::borrow::Cow::Borrowed("#285577".as_bytes())
-        } else {
-            std::borrow::Cow::Owned(
-                std::ffi::CStr::from_ptr((*new_colors).focus_ws_bg)
-                    .to_bytes()
-                    .to_vec(),
-            )
-        },
+        new_colors.focus_ws_bg.as_deref().unwrap_or(b"#285577"),
     );
     colors.focus_ws_border = draw_util_hex_to_color(
         color_screen,
-        if (*new_colors).focus_ws_border.is_null() {
-            std::borrow::Cow::Borrowed("#4c7899".as_bytes())
-        } else {
-            std::borrow::Cow::Owned(
-                std::ffi::CStr::from_ptr((*new_colors).focus_ws_border)
-                    .to_bytes()
-                    .to_vec(),
-            )
-        },
+        new_colors.focus_ws_border.as_deref().unwrap_or(b"#4c7899"),
     );
-    colors.binding_mode_fg = if !(*new_colors).binding_mode_fg.is_null() {
-        draw_util_hex_to_color(
-            color_screen,
-            std::ffi::CStr::from_ptr((*new_colors).binding_mode_fg)
-                .to_bytes()
-                .to_vec(),
-        )
+    colors.binding_mode_fg = if new_colors.binding_mode_fg.is_some() {
+        draw_util_hex_to_color(color_screen, new_colors.binding_mode_fg.as_deref().unwrap())
     } else {
         colors.urgent_ws_fg
     };
-    colors.binding_mode_bg = if !(*new_colors).binding_mode_bg.is_null() {
-        draw_util_hex_to_color(
-            color_screen,
-            std::ffi::CStr::from_ptr((*new_colors).binding_mode_bg)
-                .to_bytes()
-                .to_vec(),
-        )
+    colors.binding_mode_bg = if new_colors.binding_mode_bg.is_some() {
+        draw_util_hex_to_color(color_screen, new_colors.binding_mode_bg.as_deref().unwrap())
     } else {
         colors.urgent_ws_bg
     };
-    colors.binding_mode_border = if !(*new_colors).binding_mode_border.is_null() {
+    colors.binding_mode_border = if new_colors.binding_mode_border.is_some() {
         draw_util_hex_to_color(
             color_screen,
-            std::ffi::CStr::from_ptr((*new_colors).binding_mode_border)
-                .to_bytes()
-                .to_vec(),
+            new_colors.binding_mode_border.as_deref().unwrap(),
         )
     } else {
         colors.urgent_ws_border
     };
-    colors.focus_bar_fg = if !(*new_colors).focus_bar_fg.is_null() {
-        draw_util_hex_to_color(
-            color_screen,
-            std::ffi::CStr::from_ptr((*new_colors).focus_bar_fg)
-                .to_bytes()
-                .to_vec(),
-        )
+    colors.focus_bar_fg = if new_colors.focus_bar_fg.is_some() {
+        draw_util_hex_to_color(color_screen, new_colors.focus_bar_fg.as_deref().unwrap())
     } else {
         colors.bar_fg
     };
-    colors.focus_bar_bg = if !(*new_colors).focus_bar_bg.is_null() {
-        draw_util_hex_to_color(
-            color_screen,
-            std::ffi::CStr::from_ptr((*new_colors).focus_bar_bg)
-                .to_bytes()
-                .to_vec(),
-        )
+    colors.focus_bar_bg = if new_colors.focus_bar_bg.is_some() {
+        draw_util_hex_to_color(color_screen, new_colors.focus_bar_bg.as_deref().unwrap())
     } else {
         colors.bar_bg
     };
-    colors.focus_sep_fg = if !(*new_colors).focus_sep_fg.is_null() {
-        draw_util_hex_to_color(
-            color_screen,
-            std::ffi::CStr::from_ptr((*new_colors).focus_sep_fg)
-                .to_bytes()
-                .to_vec(),
-        )
+    colors.focus_sep_fg = if new_colors.focus_sep_fg.is_some() {
+        draw_util_hex_to_color(color_screen, new_colors.focus_sep_fg.as_deref().unwrap())
     } else {
         colors.sep_fg
     };
@@ -2458,33 +2316,35 @@ unsafe fn init_tray() {
 }
 
 pub unsafe fn init_tray_colors() {
-    let bar_fg: *const ::core::ffi::c_char = if !config.colors.bar_fg.is_null() {
-        config.colors.bar_fg as *const ::core::ffi::c_char
-    } else {
-        c"#FFFFFF".as_ptr()
-    };
+    let bar_fg = config
+        .colors
+        .bar_fg
+        .clone()
+        .unwrap_or_else(|| b"#FFFFFF".to_vec());
+    let bar_fg_cstr =
+        std::ffi::CString::new(bar_fg.clone()).expect("color bytes are a C-string prefix");
     if config.verbose {
         printf(
             c"[%s:%d] Setting bar_fg = %s as _NET_SYSTEM_TRAY_COLORS\n".as_ptr(),
             c"../i3bar/src/xcb.c".as_ptr(),
             1611 as ::core::ffi::c_int,
-            bar_fg,
+            bar_fg_cstr.as_ptr(),
         );
     }
     let mut strgroups: [[::core::ffi::c_char; 3]; 3] = [
         [
-            *bar_fg.offset(1 as ::core::ffi::c_int as isize),
-            *bar_fg.offset(2 as ::core::ffi::c_int as isize),
+            bar_fg.get(1).copied().unwrap_or(0) as ::core::ffi::c_char,
+            bar_fg.get(2).copied().unwrap_or(0) as ::core::ffi::c_char,
             '\0' as i32 as ::core::ffi::c_char,
         ],
         [
-            *bar_fg.offset(3 as ::core::ffi::c_int as isize),
-            *bar_fg.offset(4 as ::core::ffi::c_int as isize),
+            bar_fg.get(3).copied().unwrap_or(0) as ::core::ffi::c_char,
+            bar_fg.get(4).copied().unwrap_or(0) as ::core::ffi::c_char,
             '\0' as i32 as ::core::ffi::c_char,
         ],
         [
-            *bar_fg.offset(5 as ::core::ffi::c_int as isize),
-            *bar_fg.offset(6 as ::core::ffi::c_int as isize),
+            bar_fg.get(5).copied().unwrap_or(0) as ::core::ffi::c_char,
+            bar_fg.get(6).copied().unwrap_or(0) as ::core::ffi::c_char,
             '\0' as i32 as ::core::ffi::c_char,
         ],
     ];

@@ -175,7 +175,7 @@ unsafe fn got_bar_config(reply: &[u8]) {
         log_payload(123, b"Received bar config \"", reply, b"\"\n");
     }
     i3_send_msg(I3_IPC_MESSAGE_TYPE_GET_OUTPUTS, ptr::null());
-    free_colors(&raw mut config.colors);
+    config.colors = crate::application::ColorStrings::empty();
     parse_config_json(reply.as_ptr(), reply.len());
     subscribe_events();
     if i3_provides_workspaces() {
@@ -245,7 +245,7 @@ unsafe fn got_bar_config_update(event: &[u8]) {
         return;
     }
     i3_send_msg(I3_IPC_MESSAGE_TYPE_GET_OUTPUTS, ptr::null());
-    free_colors(&raw mut config.colors);
+    config.colors = crate::application::ColorStrings::empty();
     if config.verbose {
         log_payload(225, b"Received bar config update \"", event, b"\"\n");
     }
@@ -530,7 +530,6 @@ use i3_common::native_stdio::stderr;
 
 // Internal calls and globals use canonical Rust identities.
 use crate::application::main_loop;
-use crate::config::free_colors;
 use crate::xcb::init_colors;
 use i3_common::ipc_connect::connect_or_exit;
 

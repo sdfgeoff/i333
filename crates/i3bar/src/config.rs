@@ -80,33 +80,7 @@ pub(crate) const fn empty_config() -> config_t {
             height: 0,
         },
         transparency: false,
-        colors: ColorStrings {
-            bar_fg: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-            bar_bg: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-            sep_fg: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-            focus_bar_fg: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-            focus_bar_bg: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-            focus_sep_fg: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-            active_ws_fg: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-            active_ws_bg: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-            active_ws_border: ::core::ptr::null::<::core::ffi::c_char>()
-                as *mut ::core::ffi::c_char,
-            inactive_ws_fg: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-            inactive_ws_bg: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-            inactive_ws_border: ::core::ptr::null::<::core::ffi::c_char>()
-                as *mut ::core::ffi::c_char,
-            focus_ws_bg: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-            focus_ws_fg: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-            focus_ws_border: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-            urgent_ws_bg: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-            urgent_ws_fg: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-            urgent_ws_border: ::core::ptr::null::<::core::ffi::c_char>()
-                as *mut ::core::ffi::c_char,
-            binding_mode_bg: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-            binding_mode_fg: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-            binding_mode_border: ::core::ptr::null::<::core::ffi::c_char>()
-                as *mut ::core::ffi::c_char,
-        },
+        colors: ColorStrings::empty(),
         disable_binding_mode_indicator: false,
         disable_ws: false,
         ws_min_width: 0,
@@ -684,38 +658,56 @@ unsafe fn apply_config(target: *mut config_t, updates: Vec<Update>) {
     clear_config_lists(target);
     for update in updates {
         match update {
-            Update::String(field, value) => {
-                let slot = match field {
-                    StringField::Command => &raw mut (*target).command,
-                    StringField::WorkspaceCommand => &raw mut (*target).workspace_command,
-                    StringField::Font => {
-                        free((*target).fontname.cast());
-                        &raw mut (*target).fontname
-                    }
-                    StringField::BarFg => &raw mut (*target).colors.bar_fg,
-                    StringField::BarBg => &raw mut (*target).colors.bar_bg,
-                    StringField::SepFg => &raw mut (*target).colors.sep_fg,
-                    StringField::FocusBarFg => &raw mut (*target).colors.focus_bar_fg,
-                    StringField::FocusBarBg => &raw mut (*target).colors.focus_bar_bg,
-                    StringField::FocusSepFg => &raw mut (*target).colors.focus_sep_fg,
-                    StringField::FocusWsBorder => &raw mut (*target).colors.focus_ws_border,
-                    StringField::FocusWsBg => &raw mut (*target).colors.focus_ws_bg,
-                    StringField::FocusWsFg => &raw mut (*target).colors.focus_ws_fg,
-                    StringField::ActiveWsBorder => &raw mut (*target).colors.active_ws_border,
-                    StringField::ActiveWsBg => &raw mut (*target).colors.active_ws_bg,
-                    StringField::ActiveWsFg => &raw mut (*target).colors.active_ws_fg,
-                    StringField::InactiveWsBorder => &raw mut (*target).colors.inactive_ws_border,
-                    StringField::InactiveWsBg => &raw mut (*target).colors.inactive_ws_bg,
-                    StringField::InactiveWsFg => &raw mut (*target).colors.inactive_ws_fg,
-                    StringField::UrgentWsBorder => &raw mut (*target).colors.urgent_ws_border,
-                    StringField::UrgentWsBg => &raw mut (*target).colors.urgent_ws_bg,
-                    StringField::UrgentWsFg => &raw mut (*target).colors.urgent_ws_fg,
-                    StringField::BindingModeBorder => &raw mut (*target).colors.binding_mode_border,
-                    StringField::BindingModeBg => &raw mut (*target).colors.binding_mode_bg,
-                    StringField::BindingModeFg => &raw mut (*target).colors.binding_mode_fg,
-                };
-                store_native(slot, &value);
-            }
+            Update::String(field, value) => match field {
+                StringField::Command => store_native(&raw mut (*target).command, &value),
+                StringField::WorkspaceCommand => {
+                    store_native(&raw mut (*target).workspace_command, &value)
+                }
+                StringField::Font => {
+                    free((*target).fontname.cast());
+                    store_native(&raw mut (*target).fontname, &value);
+                }
+                StringField::BarFg => (*target).colors.bar_fg = Some(value.into_bytes()),
+                StringField::BarBg => (*target).colors.bar_bg = Some(value.into_bytes()),
+                StringField::SepFg => (*target).colors.sep_fg = Some(value.into_bytes()),
+                StringField::FocusBarFg => (*target).colors.focus_bar_fg = Some(value.into_bytes()),
+                StringField::FocusBarBg => (*target).colors.focus_bar_bg = Some(value.into_bytes()),
+                StringField::FocusSepFg => (*target).colors.focus_sep_fg = Some(value.into_bytes()),
+                StringField::FocusWsBorder => {
+                    (*target).colors.focus_ws_border = Some(value.into_bytes())
+                }
+                StringField::FocusWsBg => (*target).colors.focus_ws_bg = Some(value.into_bytes()),
+                StringField::FocusWsFg => (*target).colors.focus_ws_fg = Some(value.into_bytes()),
+                StringField::ActiveWsBorder => {
+                    (*target).colors.active_ws_border = Some(value.into_bytes())
+                }
+                StringField::ActiveWsBg => (*target).colors.active_ws_bg = Some(value.into_bytes()),
+                StringField::ActiveWsFg => (*target).colors.active_ws_fg = Some(value.into_bytes()),
+                StringField::InactiveWsBorder => {
+                    (*target).colors.inactive_ws_border = Some(value.into_bytes())
+                }
+                StringField::InactiveWsBg => {
+                    (*target).colors.inactive_ws_bg = Some(value.into_bytes())
+                }
+                StringField::InactiveWsFg => {
+                    (*target).colors.inactive_ws_fg = Some(value.into_bytes())
+                }
+                StringField::UrgentWsBorder => {
+                    (*target).colors.urgent_ws_border = Some(value.into_bytes())
+                }
+                StringField::UrgentWsBg => (*target).colors.urgent_ws_bg = Some(value.into_bytes()),
+                StringField::UrgentWsFg => (*target).colors.urgent_ws_fg = Some(value.into_bytes()),
+                StringField::BindingModeBorder => {
+                    (*target).colors.binding_mode_border = Some(value.into_bytes())
+                }
+                StringField::BindingModeBg => {
+                    (*target).colors.binding_mode_bg = Some(value.into_bytes())
+                }
+                StringField::BindingModeFg => {
+                    (*target).colors.binding_mode_fg = Some(value.into_bytes())
+                }
+            },
+
             Update::Boolean(field, value) => match field {
                 BooleanField::BindingIndicator => (*target).disable_binding_mode_indicator = !value,
                 BooleanField::WorkspaceButtons => (*target).disable_ws = !value,
@@ -831,54 +823,6 @@ pub unsafe fn parse_get_first_i3bar_config(json: *const u8, size: usize) {
     }
 }
 
-/// # Safety
-/// Every non-null color slot is a native malloc allocation exclusively owned
-/// by this transport; no borrowed color pointer survives the call.
-pub unsafe fn free_colors(colors: *mut ColorStrings) {
-    free((*colors).bar_fg as *mut ::core::ffi::c_void);
-    (*colors).bar_fg = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    free((*colors).bar_bg as *mut ::core::ffi::c_void);
-    (*colors).bar_bg = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    free((*colors).sep_fg as *mut ::core::ffi::c_void);
-    (*colors).sep_fg = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    free((*colors).focus_bar_fg as *mut ::core::ffi::c_void);
-    (*colors).focus_bar_fg = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    free((*colors).focus_bar_bg as *mut ::core::ffi::c_void);
-    (*colors).focus_bar_bg = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    free((*colors).focus_sep_fg as *mut ::core::ffi::c_void);
-    (*colors).focus_sep_fg = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    free((*colors).active_ws_fg as *mut ::core::ffi::c_void);
-    (*colors).active_ws_fg = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    free((*colors).active_ws_bg as *mut ::core::ffi::c_void);
-    (*colors).active_ws_bg = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    free((*colors).active_ws_border as *mut ::core::ffi::c_void);
-    (*colors).active_ws_border = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    free((*colors).inactive_ws_fg as *mut ::core::ffi::c_void);
-    (*colors).inactive_ws_fg = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    free((*colors).inactive_ws_bg as *mut ::core::ffi::c_void);
-    (*colors).inactive_ws_bg = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    free((*colors).inactive_ws_border as *mut ::core::ffi::c_void);
-    (*colors).inactive_ws_border = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    free((*colors).urgent_ws_fg as *mut ::core::ffi::c_void);
-    (*colors).urgent_ws_fg = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    free((*colors).urgent_ws_bg as *mut ::core::ffi::c_void);
-    (*colors).urgent_ws_bg = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    free((*colors).urgent_ws_border as *mut ::core::ffi::c_void);
-    (*colors).urgent_ws_border = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    free((*colors).focus_ws_fg as *mut ::core::ffi::c_void);
-    (*colors).focus_ws_fg = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    free((*colors).focus_ws_bg as *mut ::core::ffi::c_void);
-    (*colors).focus_ws_bg = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    free((*colors).focus_ws_border as *mut ::core::ffi::c_void);
-    (*colors).focus_ws_border = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    free((*colors).binding_mode_fg as *mut ::core::ffi::c_void);
-    (*colors).binding_mode_fg = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    free((*colors).binding_mode_bg as *mut ::core::ffi::c_void);
-    (*colors).binding_mode_bg = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    free((*colors).binding_mode_border as *mut ::core::ffi::c_void);
-    (*colors).binding_mode_border = ::core::ptr::null_mut::<::core::ffi::c_char>();
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -890,7 +834,7 @@ mod tests {
     // Tests own a local POD transport; they never access the real event thread.
     unsafe fn release(target: *mut config_t) {
         clear_config_lists(target);
-        free_colors(&raw mut (*target).colors);
+        (*target).colors = ColorStrings::empty();
         free((*target).command.cast());
         free((*target).workspace_command.cast());
         free((*target).fontname.cast());
@@ -899,6 +843,37 @@ mod tests {
             free((*(*target).outputs.add(index as usize)).cast());
         }
         free((*target).outputs.cast());
+    }
+
+    #[test]
+    fn color_reload_keeps_empty_binary_and_first_nul_values_in_independent_snapshots() {
+        let mut target = empty_config();
+        let mut patch = parse(br##"{"statusline":"","background":"#112233\u0000ignored"}"##);
+        patch.updates.push(Update::String(
+            StringField::SepFg,
+            CString::new(vec![b'#', 0xff]).unwrap(),
+        ));
+        unsafe {
+            apply_config(&raw mut target, patch.updates);
+        }
+        assert_eq!(target.colors.bar_fg.as_deref(), Some(b"".as_slice()));
+        assert_eq!(target.colors.bar_bg.as_deref(), Some(b"#112233".as_slice()));
+        assert_eq!(target.colors.sep_fg.as_deref(), Some(b"#\xff".as_slice()));
+        assert!(target.colors.focus_bar_fg.is_none());
+        let snapshot = target.colors.clone();
+        unsafe {
+            apply_config(
+                &raw mut target,
+                parse(br##"{"statusline":"#abcdef"}"##).updates,
+            );
+        }
+        assert_eq!(target.colors.bar_fg.as_deref(), Some(b"#abcdef".as_slice()));
+        assert_eq!(snapshot.bar_fg.as_deref(), Some(b"".as_slice()));
+        target.colors = ColorStrings::empty();
+        assert_eq!(snapshot.bar_bg.as_deref(), Some(b"#112233".as_slice()));
+        unsafe {
+            release(&raw mut target);
+        }
     }
 
     #[test]
