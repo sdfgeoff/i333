@@ -356,6 +356,58 @@ unsafe fn format_record(
     (message, truncated)
 }
 
+fn format_byte_record(prefix: &[u8], body: &[u8]) -> (Vec<u8>, bool) {
+    assert!(prefix.len() < MESSAGE_CAPACITY);
+    let length = prefix.len().saturating_add(body.len());
+    let truncated = length >= MESSAGE_CAPACITY;
+    let mut message = Vec::with_capacity(length.min(MESSAGE_CAPACITY));
+    message.extend_from_slice(prefix);
+    let count = body.len().min(MESSAGE_CAPACITY - prefix.len() - 1);
+    message.extend_from_slice(&body[..count]);
+    if truncated {
+        message.resize(MESSAGE_CAPACITY, 0);
+        message[MESSAGE_CAPACITY - 2] = b'\n';
+    }
+    (message, truncated)
+}
+
+/// Event-thread backend for standard Rust records and explicit byte diagnostics.
+/// The application owns log globals and their native streams for this call.
+pub unsafe fn write_log_bytes(level: i3_common::logging::Level, body: &[u8]) {
+    use i3_common::logging::Level;
+    let print = match level {
+        Level::Error => true,
+        Level::Verbose => verbose,
+        Level::Debug => debug_logging,
+    };
+    if logbuffer_is_closed() && !print {
+        return;
+    }
+    let prefix = timestamp();
+    if logbuffer_is_closed() {
+        fwrite(prefix.as_ptr().cast(), prefix.len(), 1, stdout);
+        fwrite(body.as_ptr().cast(), body.len(), 1, stdout);
+    } else {
+        let (message, truncated) = format_byte_record(&prefix, body);
+        if truncated {
+            fprintf(stderr, c"BUG: single log message > 4k\n".as_ptr());
+        }
+        let mut log = (&raw mut LOG_BUFFER).replace(None);
+        if let Some(log) = log.as_mut() {
+            log.write(&message);
+        }
+        (&raw mut LOG_BUFFER).write(log);
+        if print {
+            fwrite(message.as_ptr().cast(), message.len(), 1, stdout);
+        }
+        broadcast(&message);
+    }
+    if level == Level::Error && !errorfile.is_null() {
+        fwrite(body.as_ptr().cast(), body.len(), 1, errorfile);
+        fflush(errorfile);
+    }
+}
+
 unsafe fn vlog(print: bool, fmt: *const libc::c_char, mut args: std::ffi::VaList) {
     let prefix = timestamp();
     if logbuffer_is_closed() {
@@ -615,6 +667,21 @@ mod tests {
             );
         }
         assert_eq!(result, (b"T - text\0end".to_vec(), false));
+        assert_eq!(format_byte_record(b"T - ", b"text\0end"), result);
+        for length in [
+            0,
+            1,
+            MESSAGE_CAPACITY - 5,
+            MESSAGE_CAPACITY - 4,
+            MESSAGE_CAPACITY - 3,
+            5000,
+        ] {
+            let body = CString::new(vec![b'x'; length]).unwrap();
+            unsafe {
+                render(&mut result, c"%s".as_ptr(), body.as_ptr());
+            }
+            assert_eq!(format_byte_record(b"T - ", body.as_bytes()), result);
+        }
         let long = CString::new(vec![b'x'; 5000]).unwrap();
         unsafe {
             render(&mut result, c"%s".as_ptr(), long.as_ptr());

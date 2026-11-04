@@ -111,6 +111,20 @@ pub const I3_IPC_MESSAGE_TYPE_GET_BAR_CONFIG: ::core::ffi::c_int = 6 as ::core::
 
 pub static mut main_loop: *mut ev_loop = ::core::ptr::null::<ev_loop>() as *mut ev_loop;
 
+/// Program-local byte sink: verbose records use stdout, errors stderr, and
+/// debug remains suppressed exactly as in the original tools/bar logger.
+pub fn write_log_bytes(level: i3_common::logging::Level, message: &[u8]) {
+    use i3_common::logging::Level;
+    unsafe {
+        let stream = match level {
+            Level::Error => stderr,
+            Level::Verbose => stdout,
+            Level::Debug => return,
+        };
+        libc::fwrite(message.as_ptr().cast(), message.len(), 1, stream);
+    }
+}
+
 pub unsafe extern "C" fn verboselog(fmt: *mut ::core::ffi::c_char, args: ...) {
     let mut args_0;
     args_0 = args.clone();

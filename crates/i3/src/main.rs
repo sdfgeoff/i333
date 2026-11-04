@@ -77,28 +77,8 @@ fn main() {
 // Private adapters installed for the event-thread application. The legacy
 // logger/tree globals are not made thread-safe by the shared callback interface.
 fn common_log_sink(level: i3_common::logging::Level, message: &[u8]) {
-    use i3_common::logging::Level;
-    let length = message.len().min(i32::MAX as usize) as i32;
-    // A constant format prevents diagnostic bytes from becoming conversions.
-    unsafe {
-        match level {
-            Level::Error => log::errorlog(
-                c"%.*s".as_ptr().cast_mut(),
-                length,
-                message.as_ptr().cast::<libc::c_char>(),
-            ),
-            Level::Verbose => log::verboselog(
-                c"%.*s".as_ptr().cast_mut(),
-                length,
-                message.as_ptr().cast::<libc::c_char>(),
-            ),
-            Level::Debug => log::debuglog(
-                c"%.*s".as_ptr().cast_mut(),
-                length,
-                message.as_ptr().cast::<libc::c_char>(),
-            ),
-        }
-    }
+    // The registered sink runs only on the event thread owning the log state.
+    unsafe { log::write_log_bytes(level, message) };
 }
 
 fn common_display_context() -> i3_common::display::DisplayContext {

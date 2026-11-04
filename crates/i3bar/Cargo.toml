@@ -6,6 +6,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+log.workspace = true
 xcb-interop.workspace = true
 xcb.workspace = true
 serde.workspace = true

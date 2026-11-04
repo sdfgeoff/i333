@@ -1,10 +1,7 @@
-//! Shared diagnostics use Rust callbacks, independent of executable symbols.
-//!
-//! Translated helpers still call the isolated printf adapters below. Their C
-//! ABI is required only by Rust's variadic syntax; no native library or dynamic
-//! symbol lookup is involved. New helpers can call `emit` with borrowed bytes.
+//! Standard Rust logging shares the program's event-thread byte sink. Native
+//! byte diagnostics remain available without UTF-8 conversion through `emit`.
 use std::io::Write;
-use std::sync::RwLock;
+use std::sync::{Once, RwLock};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Level {
@@ -21,9 +18,38 @@ struct RegisteredSink {
 }
 static SINK: RwLock<Option<RegisteredSink>> = RwLock::new(None);
 
+struct Logger;
+static LOGGER: Logger = Logger;
+static INITIALIZE: Once = Once::new();
+
+impl ::log::Log for Logger {
+    fn enabled(&self, _: &::log::Metadata<'_>) -> bool {
+        true
+    }
+    fn log(&self, record: &::log::Record<'_>) {
+        let level = match record.level() {
+            ::log::Level::Error | ::log::Level::Warn => Level::Error,
+            ::log::Level::Info => Level::Verbose,
+            ::log::Level::Debug | ::log::Level::Trace => Level::Debug,
+        };
+        emit(level, record.args().to_string().as_bytes());
+    }
+    fn flush(&self) {}
+}
+
+/// Install once, before application startup. Filtering stays in the program
+/// backend because even suppressed stdout messages may belong in shared memory.
+pub fn initialize() {
+    INITIALIZE.call_once(|| {
+        ::log::set_logger(&LOGGER).expect("i333 owns the process logger");
+        ::log::set_max_level(::log::LevelFilter::Trace);
+    });
+}
+
 /// Install the program's sink on its event thread before calling common helpers.
 /// Diagnostics from other threads use stderr instead of touching program globals.
 pub fn set_sink(sink: Sink) {
+    initialize();
     *SINK
         .write()
         .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(RegisteredSink {
@@ -101,7 +127,17 @@ mod tests {
             verboselog(c"logging-test:%.3s".as_ptr(), c"abcdef".as_ptr());
             debuglog(c"logging-test:%c%c".as_ptr(), 0i32, 255i32);
         }
+        ::log::error!("logging-test:rust {} {:04x}\n", 42, 15);
+        ::log::warn!("logging-test:warning");
+        ::log::info!("logging-test:info");
+        ::log::debug!("logging-test:debug");
+        ::log::trace!("logging-test:trace");
         let messages = MESSAGES.lock().unwrap();
+        assert!(messages.contains(&(Level::Error, b"logging-test:rust 42 000f\n".to_vec())));
+        assert!(messages.contains(&(Level::Error, b"logging-test:warning".to_vec())));
+        assert!(messages.contains(&(Level::Verbose, b"logging-test:info".to_vec())));
+        assert!(messages.contains(&(Level::Debug, b"logging-test:debug".to_vec())));
+        assert!(messages.contains(&(Level::Debug, b"logging-test:trace".to_vec())));
         assert!(messages.contains(&(Level::Error, b"logging-test:text 42 %\n".to_vec())));
         assert!(messages.contains(&(Level::Verbose, b"logging-test:abc".to_vec())));
         assert!(messages.contains(&(Level::Debug, b"logging-test:\0\xff".to_vec())));
