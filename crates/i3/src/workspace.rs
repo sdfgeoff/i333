@@ -381,18 +381,13 @@ pub unsafe fn workspace_is_visible(ws: *mut Con) -> bool {
     let fs: *mut Con = con_get_fullscreen_con(output, FullscreenMode::Output);
     fs == ws
 }
-unsafe fn _get_sticky(
-    con: *mut Con,
-    sticky_group: *const ::core::ffi::c_char,
-    exclude: *mut Con,
-) -> *mut Con {
+unsafe fn _get_sticky(con: *mut Con, sticky_group: &std::ffi::CStr, exclude: *mut Con) -> *mut Con {
     let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
     current = nodes::first_ptr(con);
     while !current.is_null() {
         if current != exclude
-            && !(*current).sticky_group.is_null()
             && !(*current).window.is_null()
-            && strcmp((*current).sticky_group, sticky_group) == 0 as ::core::ffi::c_int
+            && (*current).sticky_group.as_deref() == Some(sticky_group)
         {
             return current;
         }
@@ -407,9 +402,8 @@ unsafe fn _get_sticky(
             continue;
         };
         if current != exclude
-            && !(*current).sticky_group.is_null()
             && !(*current).window.is_null()
-            && strcmp((*current).sticky_group, sticky_group) == 0 as ::core::ffi::c_int
+            && (*current).sticky_group.as_deref() == Some(sticky_group)
         {
             return current;
         }
@@ -424,16 +418,15 @@ unsafe fn workspace_reassign_sticky(con: *mut Con) {
     let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
     current = nodes::first_ptr(con);
     while !current.is_null() {
-        if (*current).sticky_group.is_null() {
-            workspace_reassign_sticky(current);
-        } else {
+        let group = (*current).sticky_group.clone();
+        if let Some(group) = group {
             verboselog(
                 c"Ah, this one is sticky: %s / %p\n".as_ptr().cast_mut(),
                 (*current).name,
                 current,
             );
             let output: *mut Con = con_get_output(current);
-            let src: *mut Con = _get_sticky(output, (*current).sticky_group, current);
+            let src: *mut Con = _get_sticky(output, &group, current);
             if src.is_null() {
                 verboselog(
                     c"No window found for this sticky group\n"
@@ -456,7 +449,10 @@ unsafe fn workspace_reassign_sticky(con: *mut Con) {
                     current,
                 );
             }
+        } else {
+            workspace_reassign_sticky(current);
         }
+
         current = nodes::next_ptr(current);
     }
     for floating_id in floating::children(identity(con).expect("live floating parent")) {

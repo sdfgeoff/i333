@@ -385,7 +385,7 @@ pub struct Con {
     pub name: *mut ::core::ffi::c_char,
     pub title_format: Option<std::ffi::CString>,
     pub window_icon_padding: ::core::ffi::c_int,
-    pub sticky_group: *mut ::core::ffi::c_char,
+    pub sticky_group: Option<std::ffi::CString>,
     pub marks_head: crate::types::marks_head,
     pub mark_changed: bool,
     pub percent: ::core::ffi::c_double,
@@ -444,7 +444,7 @@ impl Con {
             name: null_mut(),
             title_format: None,
             window_icon_padding: 0,
-            sticky_group: null_mut(),
+            sticky_group: None,
             marks_head: marks_head {
                 tqh_first: null_mut(),
                 tqh_last: null_mut(),

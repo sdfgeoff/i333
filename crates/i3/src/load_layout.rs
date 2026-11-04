@@ -486,19 +486,13 @@ impl LayoutState {
         } else if strcasecmp(self.last_key.as_ptr(), c"sticky_group".as_ptr())
             == 0 as ::core::ffi::c_int
         {
-            free((*self.json_node).sticky_group.cast());
-            (*self.json_node).sticky_group =
-                scalloc(len.wrapping_add(1 as usize), 1 as usize) as *mut ::core::ffi::c_char;
-            memcpy(
-                (*self.json_node).sticky_group as *mut ::core::ffi::c_void,
-                val as *const ::core::ffi::c_void,
-                len,
-            );
+            let group = property_string(std::slice::from_raw_parts(val, len));
+            (*self.json_node).sticky_group = Some(group.clone());
             verboselog(
                 c"sticky_group of this container is %s\n"
                     .as_ptr()
                     .cast_mut(),
-                (*self.json_node).sticky_group,
+                group.as_ptr(),
             );
         } else if strcasecmp(self.last_key.as_ptr(), c"orientation".as_ptr())
             == 0 as ::core::ffi::c_int

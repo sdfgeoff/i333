@@ -2904,11 +2904,8 @@ pub unsafe fn con_merge_into(old: *mut Con, new: *mut Con) {
     if let Some(format) = (*old).title_format.take() {
         (*new).title_format = Some(format);
     }
-    if !(*old).sticky_group.is_null() {
-        free((*new).sticky_group as *mut ::core::ffi::c_void);
-        (*new).sticky_group = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        (*new).sticky_group = (*old).sticky_group;
-        (*old).sticky_group = ::core::ptr::null_mut::<::core::ffi::c_char>();
+    if let Some(group) = (*old).sticky_group.take() {
+        (*new).sticky_group = Some(group);
     }
     (*new).sticky = (*old).sticky;
     con_set_urgency(new, (*old).urgent);
