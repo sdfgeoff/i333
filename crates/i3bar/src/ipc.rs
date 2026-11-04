@@ -23,24 +23,6 @@ const I3_IPC_MESSAGE_TYPE_GET_BAR_CONFIG: u32 = 6;
 const EVENT_BIT: u32 = 1 << 31;
 type Handler = unsafe fn(&[u8]);
 
-// Only DetachedCommand::take can create this malloc owner. The POD global
-// config retains its raw-pointer ABI; old snapshots stay live through restart.
-struct DetachedCommand(*mut libc::c_char);
-impl DetachedCommand {
-    /// slot exclusively owns a malloc string or null and is detached here.
-    unsafe fn take(slot: *mut *mut libc::c_char) -> Self {
-        Self(ptr::replace(slot, ptr::null_mut()))
-    }
-    fn as_c_str(&self) -> Option<&CStr> {
-        // SAFETY: take preserves sole ownership of this live terminated string.
-        unsafe { optional_c_str(self.0) }
-    }
-}
-impl Drop for DetachedCommand {
-    fn drop(&mut self) {
-        unsafe { libc::free(self.0.cast()) }
-    }
-}
 unsafe fn optional_c_str<'a>(value: *const libc::c_char) -> Option<&'a CStr> {
     if value.is_null() {
         None
@@ -76,7 +58,7 @@ unsafe fn log_payload(line: u16, before: &[u8], payload: &[u8], after: &[u8]) {
     }
 }
 unsafe fn i3_provides_workspaces() -> bool {
-    !config.disable_ws && config.workspace_command.is_null()
+    !config.disable_ws && config.workspace_command.is_none()
 }
 unsafe fn got_command_reply(_reply: &[u8]) {}
 unsafe fn got_workspace_reply(reply: &[u8]) {
@@ -127,18 +109,18 @@ unsafe fn got_output_reply(reply: &[u8]) {
     }
     if i3_provides_workspaces() {
         i3_send_msg(I3_IPC_MESSAGE_TYPE_GET_WORKSPACES, ptr::null());
-    } else if !config.workspace_command.is_null() {
+    } else if config.workspace_command.is_some() {
         repeat_last_ws_json();
     }
     draw_bars(false);
 }
 unsafe fn got_bar_config(reply: &[u8]) {
-    if config.bar_id.is_null() {
+    if config.bar_id.is_none() {
         if config.verbose {
             log_payload(110, b"Received bar list \"", reply, b"\"\n");
         }
         parse_get_first_i3bar_config(reply.as_ptr(), reply.len());
-        if config.bar_id.is_null() {
+        if config.bar_id.is_none() {
             fprintf(
                 stderr,
                 c"[%s:%d] ERROR: No bar configuration found, please configure a bar block in your i3 config file.\n".as_ptr(),
@@ -148,7 +130,7 @@ unsafe fn got_bar_config(reply: &[u8]) {
             exit(libc::EXIT_FAILURE);
         }
         {
-            let log_text_bytes = (CStr::from_ptr(config.bar_id).to_bytes()).to_vec();
+            let log_text_bytes = (config.bar_id.as_ref().unwrap().to_bytes()).to_vec();
             match std::str::from_utf8(&log_text_bytes) {
                 Ok(log_text) => ::log::info!(
                     concat!(
@@ -168,7 +150,14 @@ unsafe fn got_bar_config(reply: &[u8]) {
                 }
             }
         };
-        i3_send_msg(I3_IPC_MESSAGE_TYPE_GET_BAR_CONFIG, config.bar_id);
+        i3_send_msg(
+            I3_IPC_MESSAGE_TYPE_GET_BAR_CONFIG,
+            config
+                .bar_id
+                .clone()
+                .as_ref()
+                .map_or(ptr::null(), |id| id.as_ptr()),
+        );
         return;
     }
     if config.verbose {
@@ -181,10 +170,10 @@ unsafe fn got_bar_config(reply: &[u8]) {
     if i3_provides_workspaces() {
         i3_send_msg(I3_IPC_MESSAGE_TYPE_GET_WORKSPACES, ptr::null());
     }
-    init_xcb_late(config.fontname);
+    init_xcb_late(config.fontname.clone());
     init_colors(&raw mut config.colors);
-    start_child(config.command);
-    start_ws_child(config.workspace_command);
+    start_child(config.command.clone());
+    start_ws_child(config.workspace_command.clone());
 }
 
 unsafe fn got_workspace_event(_event: &[u8]) {
@@ -241,7 +230,8 @@ unsafe fn got_mode_event(event: &[u8]) {
 unsafe fn got_bar_config_update(event: &[u8]) {
     // Keep the original compact substring match and first-NUL boundary; the
     // matching decision owns no global graph references across subsequent calls.
-    if config.bar_id.is_null() || !matches_bar_id(event, CStr::from_ptr(config.bar_id).to_bytes()) {
+    if config.bar_id.is_none() || !matches_bar_id(event, config.bar_id.as_ref().unwrap().to_bytes())
+    {
         return;
     }
     i3_send_msg(I3_IPC_MESSAGE_TYPE_GET_OUTPUTS, ptr::null());
@@ -249,33 +239,33 @@ unsafe fn got_bar_config_update(event: &[u8]) {
     if config.verbose {
         log_payload(225, b"Received bar config update \"", event, b"\"\n");
     }
-    let old_command = DetachedCommand::take(&raw mut config.command);
-    let old_workspace_command = DetachedCommand::take(&raw mut config.workspace_command);
+    let old_command = config.command.take();
+    let old_workspace_command = config.workspace_command.take();
     let old_mode: crate::application::BarDisplayMode = config.hide_on_modifier;
     parse_config_json(event.as_ptr(), event.len());
     if old_mode != config.hide_on_modifier {
         reconfig_windows(true);
     }
-    init_xcb_late(config.fontname);
+    init_xcb_late(config.fontname.clone());
     init_colors(&raw mut config.colors);
     if child_needs_restart(
         status_child_is_alive(),
-        old_command.as_c_str(),
-        optional_c_str(config.command),
+        old_command.as_deref(),
+        config.command.as_deref(),
     ) {
         kill_child();
         clear_statusline(&raw mut statusline_head);
-        start_child(config.command);
+        start_child(config.command.clone());
     }
     drop(old_command);
     if child_needs_restart(
         ws_child_is_alive(),
-        old_workspace_command.as_c_str(),
-        optional_c_str(config.workspace_command),
+        old_workspace_command.as_deref(),
+        config.workspace_command.as_deref(),
     ) {
         free_workspaces();
         kill_ws_child();
-        start_ws_child(config.workspace_command);
+        start_ws_child(config.workspace_command.clone());
     }
     drop(old_workspace_command);
     draw_bars(false);
@@ -695,18 +685,14 @@ mod tests {
         assert!(child_needs_restart(true, None, Some(c"")));
         assert!(child_needs_restart(true, Some(c""), None));
         assert!(child_needs_restart(true, Some(c"old"), Some(c"new")));
-        unsafe {
-            let mut slot = libc::strdup(c"old\xff".as_ptr());
-            assert!(!slot.is_null());
-            let command = DetachedCommand::take(&raw mut slot);
-            assert!(slot.is_null());
-            assert_eq!(command.as_c_str(), Some(c"old\xff"));
-            assert!(!child_needs_restart(
-                true,
-                command.as_c_str(),
-                Some(c"old\xff")
-            ));
-            drop(command);
-        }
+        let mut slot = Some(c"old\xff".to_owned());
+        let command = slot.take();
+        assert!(slot.is_none());
+        assert_eq!(command.as_deref(), Some(c"old\xff"));
+        assert!(!child_needs_restart(
+            true,
+            command.as_deref(),
+            Some(c"old\xff")
+        ));
     }
 }

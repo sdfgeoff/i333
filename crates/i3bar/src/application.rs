@@ -103,15 +103,14 @@ pub struct config_t {
     pub ws_min_width: ::core::ffi::c_int,
     pub strip_ws_numbers: bool,
     pub strip_ws_name: bool,
-    pub bar_id: *mut ::core::ffi::c_char,
-    pub command: *mut ::core::ffi::c_char,
-    pub workspace_command: *mut ::core::ffi::c_char,
-    pub fontname: *mut ::core::ffi::c_char,
+    pub bar_id: Option<std::ffi::CString>,
+    pub command: Option<std::ffi::CString>,
+    pub workspace_command: Option<std::ffi::CString>,
+    pub fontname: Option<std::ffi::CString>,
     pub separator_symbol: Option<I3String>,
     pub tray_outputs: tray_outputs_head,
     pub tray_padding: ::core::ffi::c_int,
-    pub num_outputs: ::core::ffi::c_int,
-    pub outputs: *mut *mut ::core::ffi::c_char,
+    pub outputs: Vec<std::ffi::CString>,
     pub hide_on_modifier: crate::application::BarDisplayMode,
     pub hidden_state: crate::application::HiddenState,
 }
@@ -300,8 +299,7 @@ unsafe fn run(arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
                         // socket path. Never give libc a Rust allocation.
                         socket_path = Some(expand_path(&value));
                     } else {
-                        free(config.bar_id.cast());
-                        config.bar_id = sstrdup(value.as_ptr());
+                        config.bar_id = Some(value);
                     }
                 }
                 _ => unreachable!(),
@@ -334,7 +332,14 @@ unsafe fn run(arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     init_dpi();
     init_outputs();
     init_connection(socket_path.as_ref().unwrap().as_ptr());
-    i3_send_msg(I3_IPC_MESSAGE_TYPE_GET_BAR_CONFIG as u32, config.bar_id);
+    i3_send_msg(
+        I3_IPC_MESSAGE_TYPE_GET_BAR_CONFIG as u32,
+        config
+            .bar_id
+            .clone()
+            .as_ref()
+            .map_or(std::ptr::null(), |id| id.as_ptr()),
+    );
     drop(socket_path);
     let mut signals = SignalWatchers {
         loop_: main_loop,
@@ -372,7 +377,6 @@ use crate::xcb::clean_xcb;
 use crate::xcb::init_xcb_early;
 use i3_common::dpi::init_dpi;
 use i3_common::safewrappers::smalloc;
-use i3_common::safewrappers::sstrdup;
 
 pub use libc::{
     atexit, exit, fprintf, free, getenv, glob, glob_t, globfree, memmove, memset, printf,

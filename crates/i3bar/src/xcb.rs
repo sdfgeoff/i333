@@ -691,8 +691,8 @@ unsafe fn draw_statusline(output: *mut i3_output, clip_left: u32, use_focus_colo
             };
             if (*block).urgent {
                 fg_color = colors.urgent_ws_fg;
-            } else if (*block).color.is_some() {
-                fg_color = draw_util_hex_to_color(color_screen, (*block).color.clone().unwrap());
+            } else if let Some(color) = (*block).color.clone() {
+                fg_color = draw_util_hex_to_color(color_screen, color);
             } else if use_focus_colors {
                 fg_color = colors.focus_bar_fg;
             } else {
@@ -718,15 +718,11 @@ unsafe fn draw_statusline(output: *mut i3_output, clip_left: u32, use_focus_colo
                     border_color = colors.urgent_ws_border;
                     bg_color = colors.urgent_ws_bg;
                 } else {
-                    if (*block).border.is_some() {
-                        border_color =
-                            draw_util_hex_to_color(color_screen, (*block).border.clone().unwrap());
+                    if let Some(border) = (*block).border.clone() {
+                        border_color = draw_util_hex_to_color(color_screen, border);
                     }
-                    if (*block).background.is_some() {
-                        bg_color = draw_util_hex_to_color(
-                            color_screen,
-                            (*block).background.clone().unwrap(),
-                        );
+                    if let Some(background) = (*block).background.clone() {
+                        bg_color = draw_util_hex_to_color(color_screen, background);
                     }
                 }
                 draw_util_rectangle(
@@ -930,36 +926,33 @@ pub unsafe fn init_colors(new_colors: *const ColorStrings) {
         color_screen,
         new_colors.focus_ws_border.as_deref().unwrap_or(b"#4c7899"),
     );
-    colors.binding_mode_fg = if new_colors.binding_mode_fg.is_some() {
-        draw_util_hex_to_color(color_screen, new_colors.binding_mode_fg.as_deref().unwrap())
+    colors.binding_mode_fg = if let Some(bytes) = new_colors.binding_mode_fg.as_deref() {
+        draw_util_hex_to_color(color_screen, bytes)
     } else {
         colors.urgent_ws_fg
     };
-    colors.binding_mode_bg = if new_colors.binding_mode_bg.is_some() {
-        draw_util_hex_to_color(color_screen, new_colors.binding_mode_bg.as_deref().unwrap())
+    colors.binding_mode_bg = if let Some(bytes) = new_colors.binding_mode_bg.as_deref() {
+        draw_util_hex_to_color(color_screen, bytes)
     } else {
         colors.urgent_ws_bg
     };
-    colors.binding_mode_border = if new_colors.binding_mode_border.is_some() {
-        draw_util_hex_to_color(
-            color_screen,
-            new_colors.binding_mode_border.as_deref().unwrap(),
-        )
+    colors.binding_mode_border = if let Some(bytes) = new_colors.binding_mode_border.as_deref() {
+        draw_util_hex_to_color(color_screen, bytes)
     } else {
         colors.urgent_ws_border
     };
-    colors.focus_bar_fg = if new_colors.focus_bar_fg.is_some() {
-        draw_util_hex_to_color(color_screen, new_colors.focus_bar_fg.as_deref().unwrap())
+    colors.focus_bar_fg = if let Some(bytes) = new_colors.focus_bar_fg.as_deref() {
+        draw_util_hex_to_color(color_screen, bytes)
     } else {
         colors.bar_fg
     };
-    colors.focus_bar_bg = if new_colors.focus_bar_bg.is_some() {
-        draw_util_hex_to_color(color_screen, new_colors.focus_bar_bg.as_deref().unwrap())
+    colors.focus_bar_bg = if let Some(bytes) = new_colors.focus_bar_bg.as_deref() {
+        draw_util_hex_to_color(color_screen, bytes)
     } else {
         colors.bar_bg
     };
-    colors.focus_sep_fg = if new_colors.focus_sep_fg.is_some() {
-        draw_util_hex_to_color(color_screen, new_colors.focus_sep_fg.as_deref().unwrap())
+    colors.focus_sep_fg = if let Some(bytes) = new_colors.focus_sep_fg.as_deref() {
+        draw_util_hex_to_color(color_screen, bytes)
     } else {
         colors.sep_fg
     };
@@ -2127,19 +2120,17 @@ unsafe fn deregister_xkb_keyevents() {
     send_unchecked(&xkb_event_selection(false));
 }
 
-pub unsafe fn init_xcb_late(mut fontname: *mut ::core::ffi::c_char) {
-    if fontname.is_null() {
-        fontname = c"-misc-fixed-medium-r-normal--13-120-75-75-C-70-iso10646-1"
-            .as_ptr()
-            .cast_mut();
-    }
+pub unsafe fn init_xcb_late(fontname: Option<std::ffi::CString>) {
+    let fontname = fontname
+        .as_deref()
+        .unwrap_or(c"-misc-fixed-medium-r-normal--13-120-75-75-C-70-iso10646-1");
     i3_common::font::replace_font(
         &mut font,
         &DISPLAY_STATE
             .as_ref()
             .expect("bar display initialized")
             .font_context,
-        CStr::from_ptr(fontname),
+        fontname,
         true,
     );
 
@@ -2637,7 +2628,11 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
             let len: ::core::ffi::c_int = sasprintf(
                 &raw mut class,
                 c"%s%ci3bar%c".as_ptr(),
-                config.bar_id,
+                config
+                    .bar_id
+                    .clone()
+                    .as_ref()
+                    .map_or(std::ptr::null(), |id| id.as_ptr()),
                 0 as ::core::ffi::c_int,
                 0 as ::core::ffi::c_int,
             );

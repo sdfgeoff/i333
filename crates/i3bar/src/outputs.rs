@@ -218,9 +218,9 @@ unsafe fn apply_outputs(records: Vec<OutputRecord>) {
     for record in records {
         let mut record = record;
         let name = record.name.take().expect("reader checked name");
-        if config.num_outputs > 0 {
-            let accepted = (0..config.num_outputs).any(|index| {
-                let requested = *config.outputs.offset(index as isize);
+        if !config.outputs.is_empty() {
+            let accepted = config.outputs.iter().any(|requested| {
+                let requested = requested.as_ptr();
                 libc::strcasecmp(name.as_ptr(), requested) == 0
                     || libc::strcasecmp(requested, c"primary".as_ptr()) == 0 && record.primary
                     || libc::strcasecmp(requested, c"nonprimary".as_ptr()) == 0 && !record.primary

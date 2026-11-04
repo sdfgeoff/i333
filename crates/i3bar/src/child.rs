@@ -1092,12 +1092,12 @@ unsafe fn spipe(pipedes: *mut ::core::ffi::c_int) {
         err(libc::EXIT_FAILURE, c"pipe(pipe_in)".as_ptr());
     }
 }
-unsafe fn exec_shell(command: *mut ::core::ffi::c_char) {
+unsafe fn exec_shell(command: &std::ffi::CStr) {
     execl(
         c"/bin/sh".as_ptr(),
         c"/bin/sh".as_ptr(),
         c"-c".as_ptr(),
-        command,
+        command.as_ptr(),
         std::ptr::null::<libc::c_char>(),
     );
     err(libc::EXIT_FAILURE, c"execl return".as_ptr());
@@ -1170,10 +1170,10 @@ unsafe fn setup_child_cb(child: *mut i3bar_child) {
     };
 }
 
-pub unsafe fn start_child(command: *mut ::core::ffi::c_char) {
-    if command.is_null() {
+pub unsafe fn start_child(command: Option<std::ffi::CString>) {
+    let Some(command) = command else {
         return;
-    }
+    };
     let urgent = EVER_URGENT.with(|value| value.get());
     STATUS_PARSER.with(|parser| *parser.borrow_mut() = Some(StatusParser::new(urgent)));
     CLICK_STREAM.with(|generator| *generator.borrow_mut() = ClickStream::default());
@@ -1194,7 +1194,7 @@ pub unsafe fn start_child(command: *mut ::core::ffi::c_char) {
             libc::STDIN_FILENO,
         );
         setpgid(status_child.pid as libc::pid_t, 0 as libc::pid_t);
-        exec_shell(command);
+        exec_shell(&command);
         return;
     }
     close(pipe_in[1 as ::core::ffi::c_int as usize]);
@@ -1205,10 +1205,10 @@ pub unsafe fn start_child(command: *mut ::core::ffi::c_char) {
     setup_child_cb(&raw mut status_child);
 }
 
-pub unsafe fn start_ws_child(command: *mut ::core::ffi::c_char) {
-    if command.is_null() {
+pub unsafe fn start_ws_child(command: Option<std::ffi::CString>) {
+    let Some(command) = command else {
         return;
-    }
+    };
     ws_child.stop_signal = libc::SIGSTOP;
     ws_child.cont_signal = libc::SIGCONT;
     let mut pipe_in: [::core::ffi::c_int; 2] = [0; 2];
@@ -1221,7 +1221,7 @@ pub unsafe fn start_ws_child(command: *mut ::core::ffi::c_char) {
             libc::STDOUT_FILENO,
         );
         setpgid(ws_child.pid as libc::pid_t, 0 as libc::pid_t);
-        exec_shell(command);
+        exec_shell(&command);
     }
     close(pipe_in[1 as ::core::ffi::c_int as usize]);
     ws_child.stdin_fd = pipe_in[0 as ::core::ffi::c_int as usize];

@@ -8,9 +8,7 @@ pub use crate::application::{
 use crate::application::{BarBindingLinks, TrayOutputLinks};
 use crate::application::{BarDisplayMode, BarPosition, HiddenState, Rect};
 use i3_common::json_stream::{Event, EventHandler, ParseError, ParseErrorKind, Parser};
-use i3_common::safewrappers::srealloc;
 use i3_common::string::I3String;
-use libc::free;
 use std::cell::RefCell;
 use std::ffi::CString;
 use std::ptr;
@@ -86,18 +84,17 @@ pub(crate) const fn empty_config() -> config_t {
         ws_min_width: 0,
         strip_ws_numbers: false,
         strip_ws_name: false,
-        bar_id: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        command: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        workspace_command: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        fontname: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
+        bar_id: None,
+        command: None,
+        workspace_command: None,
+        fontname: None,
         separator_symbol: None,
         tray_outputs: tray_outputs_head {
             tqh_first: ::core::ptr::null::<tray_output_t>() as *mut tray_output_t,
             tqh_last: ::core::ptr::null::<*mut tray_output_t>() as *mut *mut tray_output_t,
         },
         tray_padding: 0,
-        num_outputs: 0,
-        outputs: ::core::ptr::null::<*mut ::core::ffi::c_char>() as *mut *mut ::core::ffi::c_char,
+        outputs: Vec::new(),
         hide_on_modifier: crate::application::BarDisplayMode::Dock,
         hidden_state: crate::application::HiddenState::Hide,
     }
@@ -608,15 +605,6 @@ fn read_config(json: &[u8], state: ReaderState) -> Result<ConfigPatch, ParseErro
     Ok(reader.patch)
 }
 
-// CString allocations cannot be handed to libc::free. The remaining legacy
-// config string slots deliberately receive native strdup allocations instead.
-unsafe fn store_native(slot: *mut *mut libc::c_char, value: &CString) {
-    *slot = libc::strdup(value.as_ptr());
-    if (*slot).is_null() {
-        std::alloc::handle_alloc_error(std::alloc::Layout::new::<u8>());
-    }
-}
-
 /// # Safety
 /// config's intrusive heads exclusively own distinct Box nodes created here;
 /// no native caller or iterator borrows these nodes during replacement.
@@ -652,21 +640,16 @@ unsafe fn append_tray(target: *mut config_t, mut output: Box<TrayOutput>) {
 }
 /// # Safety
 /// The caller exclusively owns the event-thread config graph. Native font and
-/// command consumers must not retain slots replaced by these updates. IPC's
-/// detached old command snapshots are never freed by this function.
+/// command consumers must not retain slots replaced by these updates. IPC owns
+/// detached old commands independently through reload comparison.
 unsafe fn apply_config(target: *mut config_t, updates: Vec<Update>) {
     clear_config_lists(target);
     for update in updates {
         match update {
             Update::String(field, value) => match field {
-                StringField::Command => store_native(&raw mut (*target).command, &value),
-                StringField::WorkspaceCommand => {
-                    store_native(&raw mut (*target).workspace_command, &value)
-                }
-                StringField::Font => {
-                    free((*target).fontname.cast());
-                    store_native(&raw mut (*target).fontname, &value);
-                }
+                StringField::Command => (*target).command = Some(value),
+                StringField::WorkspaceCommand => (*target).workspace_command = Some(value),
+                StringField::Font => (*target).fontname = Some(value),
                 StringField::BarFg => (*target).colors.bar_fg = Some(value.into_bytes()),
                 StringField::BarBg => (*target).colors.bar_bg = Some(value.into_bytes()),
                 StringField::SepFg => (*target).colors.sep_fg = Some(value.into_bytes()),
@@ -733,21 +716,7 @@ unsafe fn apply_config(target: *mut config_t, updates: Vec<Update>) {
             }
             Update::Binding(binding) => append_binding(target, binding),
             Update::Tray(output) => append_tray(target, output),
-            Update::Output(value) => {
-                let count = (*target)
-                    .num_outputs
-                    .checked_add(1)
-                    .expect("too many configured outputs");
-                let bytes = (count as usize)
-                    .checked_mul(std::mem::size_of::<*mut libc::c_char>())
-                    .expect("output array exceeds address space");
-                (*target).outputs = srealloc((*target).outputs.cast(), bytes).cast();
-                store_native(
-                    (*target).outputs.add((*target).num_outputs as usize),
-                    &value,
-                );
-                (*target).num_outputs = count;
-            }
+            Update::Output(value) => (*target).outputs.push(value),
             Update::Log {
                 label,
                 value,
@@ -758,10 +727,9 @@ unsafe fn apply_config(target: *mut config_t, updates: Vec<Update>) {
             _ => {}
         }
     }
-    if (*target).disable_ws && !(*target).workspace_command.is_null() {
-        libc::fprintf(i3_common::native_stdio::stderr,c"[../i3bar/src/config.c:428] ERROR: You have specified 'workspace_buttons no'. Your 'workspace_command %s' will be ignored.\n".as_ptr(),(*target).workspace_command);
-        free((*target).workspace_command.cast());
-        (*target).workspace_command = ptr::null_mut();
+    if (*target).disable_ws && (*target).workspace_command.is_some() {
+        libc::fprintf(i3_common::native_stdio::stderr,c"[../i3bar/src/config.c:428] ERROR: You have specified 'workspace_buttons no'. Your 'workspace_command %s' will be ignored.\n".as_ptr(),(*target).workspace_command.as_ref().unwrap().as_ptr());
+        (*target).workspace_command = None;
     }
 }
 /// # Safety
@@ -819,30 +787,21 @@ pub unsafe fn parse_get_first_i3bar_config(json: *const u8, size: usize) {
         std::slice::from_raw_parts(json, size)
     };
     if let Some(first) = read_first_config(json) {
-        store_native(&raw mut config.bar_id, &first);
+        config.bar_id = Some(first);
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::ffi::CStr;
 
     fn parse(json: &[u8]) -> ConfigPatch {
         read_config(json, ReaderState::default()).unwrap()
     }
-    // Tests own a local POD transport; they never access the real event thread.
+    // Tests own local configuration values; only their intrusive node lists need
+    // explicit unlinking. Owned fields are released when the local config drops.
     unsafe fn release(target: *mut config_t) {
         clear_config_lists(target);
-        (*target).colors = ColorStrings::empty();
-        free((*target).command.cast());
-        free((*target).workspace_command.cast());
-        free((*target).fontname.cast());
-        (*target).separator_symbol = None;
-        for index in 0..(*target).num_outputs {
-            free((*(*target).outputs.add(index as usize)).cast());
-        }
-        free((*target).outputs.cast());
     }
 
     #[test]
@@ -879,7 +838,7 @@ mod tests {
     #[test]
     fn partial_configs_keep_omitted_scalars_and_append_outputs_but_replace_lists() {
         let mut target = empty_config();
-        let first = parse(br#"{"bar_height":23,"font":"old-font","outputs":["one"],"bindings":[{"input_code":4,"command":"old"}],"tray_outputs":["one"]}"#);
+        let first = parse(br#"{"bar_height":23,"font":"old-font\u0000ignored","outputs":["one\u0000ignored"],"bindings":[{"input_code":4,"command":"old"}],"tray_outputs":["one"]}"#);
         let second = parse(br#"{"outputs":["two"],"strip_workspace_name":true,"padding":{"x":6 "#);
         unsafe {
             apply_config(&raw mut target, first.updates);
@@ -887,10 +846,10 @@ mod tests {
             assert_eq!(target.bar_height, 23);
             assert_eq!(target.padding.x, 6);
             assert!(target.strip_ws_name);
-            assert_eq!(CStr::from_ptr(target.fontname), c"old-font");
-            assert_eq!(target.num_outputs, 2);
-            assert_eq!(CStr::from_ptr(*target.outputs), c"one");
-            assert_eq!(CStr::from_ptr(*target.outputs.add(1)), c"two");
+            assert_eq!(target.fontname.as_deref().unwrap(), c"old-font");
+            assert_eq!(target.outputs.len(), 2);
+            assert_eq!(target.outputs[0].as_c_str(), c"one");
+            assert_eq!(target.outputs[1].as_c_str(), c"two");
             assert!(target.bindings.tqh_first.is_null());
             assert!(target.tray_outputs.tqh_first.is_null());
             clear_config_lists(&raw mut target);
@@ -961,7 +920,7 @@ mod tests {
             assert_eq!(target.hide_on_modifier, BarDisplayMode::Invisible);
             assert_eq!(target.position, BarPosition::Bottom);
             assert_eq!(target.modifier, 64);
-            assert_eq!(CStr::from_ptr(target.command), c"run");
+            assert_eq!(target.command.as_deref().unwrap(), c"run");
             assert_eq!(
                 target.separator_symbol.as_ref().unwrap().as_str().unwrap(),
                 "a�b"
@@ -1012,21 +971,16 @@ mod tests {
                 parse(br#"{"status_command":"same","workspace_command":"different"}"#).updates,
             );
             // IPC deliberately detaches these snapshots before parsing a reload.
-            let old_command = target.command;
-            let old_workspace_command = target.workspace_command;
-            target.command = ptr::null_mut();
-            target.workspace_command = ptr::null_mut();
+            let old_command = target.command.take();
+            let old_workspace_command = target.workspace_command.take();
             apply_config(
                 &raw mut target,
                 parse(br#"{"status_command":"same","workspace_command":"new"}"#).updates,
             );
-            assert_eq!(CStr::from_ptr(old_command), CStr::from_ptr(target.command));
-            assert_ne!(
-                CStr::from_ptr(old_workspace_command),
-                CStr::from_ptr(target.workspace_command)
-            );
-            free(old_command.cast());
-            free(old_workspace_command.cast());
+            assert_eq!(old_command, target.command);
+            assert_ne!(old_workspace_command, target.workspace_command);
+            drop(old_command);
+            drop(old_workspace_command);
             release(&raw mut target);
         }
     }
