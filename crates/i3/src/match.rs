@@ -73,7 +73,7 @@ fn compile_expression(pattern: &CStr) -> Option<Regex> {
 // Borrowed criteria/window values never own or mutate the legacy graph. PCRE
 // sees the original C-string bytes, not a lossy UTF-8 conversion.
 use crate::regex::Regex;
-use i3_common::logging::{emit, Level};
+use i3_common::logging::{emit, emit_parts, Level};
 use i3_common::string::I3String;
 use std::ffi::{c_char, CStr};
 
@@ -757,7 +757,6 @@ pub unsafe fn match_parse_property(
 
 // Internal helpers use Rust linkage rather than foreign symbol lookup.
 use crate::util::parse_long;
-use i3_common::logging::{emit_parts, Level};
 
 // Canonical Cairo backend ABI; renderer logic remains local.
 
