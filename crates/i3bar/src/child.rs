@@ -2,7 +2,6 @@ use crate::config::config;
 use crate::outputs::outputs;
 use crate::parse_json_header::parse_json_header;
 use i3_common::font::predict_text_width;
-use i3_common::safewrappers::sasprintf;
 /*
  * vim:ts=4:sw=4:expandtab
  *

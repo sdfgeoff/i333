@@ -3,10 +3,10 @@
  * © 2009 Michael Stapelberg and contributors (see also: LICENSE).
  */
 //! Modifier lookup over checked keycode slices.
-#![deny(unsafe_op_in_unsafe_fn)]
+#![cfg_attr(not(test), forbid(unsafe_code))]
 
 use xcb::x;
-use xcb_interop::keysyms::{keycodes_for_raw, KeySymbols, NativeKeySymbols};
+use xcb_interop::keysyms::KeySymbols;
 /// Query a modifier mask using an owned native key-symbol cache.
 pub fn query_modifier_mask(keysym: u32, symbols: &KeySymbols) -> u32 {
     let connection = symbols.connection();
@@ -33,56 +33,11 @@ pub fn modifier_mask_for(
     )
 }
 
-/// Fetch the current modifier map and find the first modifier containing keysym.
-///
-/// # Safety
-/// symbols must be a live native key-symbol table, and the registered display
-/// context must contain its live connection for the duration of this call.
-pub unsafe fn aio_get_mod_mask_for(keysym: u32, symbols: *mut NativeKeySymbols) -> u32 {
-    let raw = crate::display::context().connection;
-    if symbols.is_null() {
-        return 0;
-    }
-    // SAFETY: the provider keeps the sole native owner live for this call.
-    let Some(connection) = (unsafe { crate::xcb_connection::borrowed(raw.cast()) }) else {
-        return 0;
-    };
-    let _ = connection.flush();
-    let cookie = connection.send_request(&x::GetModifierMapping {});
-    let Ok(reply) = connection.wait_for_reply(cookie) else {
-        return 0;
-    };
-    // SAFETY: symbols remains live under the caller's contract.
-    unsafe { get_mod_mask_for(keysym, symbols, &reply) }
-}
-
 /// Borrow the modifier keycodes after validating their advertised wire length.
 pub fn modifier_keycodes(reply: &x::GetModifierMappingReply) -> Option<&[u8]> {
     let count = usize::from(reply.keycodes_per_modifier()) * 8;
     let available = usize::try_from(reply.length()).ok()?.checked_mul(4)?;
     (count <= available).then(|| reply.keycodes())
-}
-
-/// Look up a key symbol in an owned maintained modifier-map reply.
-///
-/// # Safety
-/// symbols must point to a live XCB key-symbol table.
-pub unsafe fn get_mod_mask_for(
-    keysym: u32,
-    symbols: *mut NativeKeySymbols,
-    reply: &x::GetModifierMappingReply,
-) -> u32 {
-    if symbols.is_null() {
-        return 0;
-    }
-    let per_modifier = usize::from(reply.keycodes_per_modifier());
-    let Some(mapping) = modifier_keycodes(reply).filter(|_| per_modifier != 0) else {
-        return 0;
-    };
-    // SAFETY: caller retains this native cache and its display. The adapter
-    // owns/frees the utility's allocation and returns ordinary Rust bytes.
-    let codes = unsafe { keycodes_for_raw(symbols, keysym) };
-    modifier_mask(&codes, mapping, per_modifier)
 }
 
 fn modifier_mask(codes: &[u8], mapping: &[u8], per_modifier: usize) -> u32 {

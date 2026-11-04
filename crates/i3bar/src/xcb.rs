@@ -13,7 +13,7 @@ use i3_common::draw_util::draw_util_surface_init;
 use i3_common::draw_util::draw_util_text;
 use i3_common::font::load_font;
 use i3_common::font::predict_text_width;
-use i3_common::safewrappers::{sasprintf, sstrdup};
+use i3_common::safewrappers::sstrdup;
 use std::ffi::CStr;
 use xcb_interop::events;
 /*

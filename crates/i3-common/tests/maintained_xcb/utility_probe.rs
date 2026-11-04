@@ -32,7 +32,20 @@ pub fn verify(connection: Rc<xcb::Connection>, screen: i32, root: x::Window) {
             bytes
         };
         assert_eq!(owned.keycodes(keysym), expected);
-        let mask = unsafe { i3_common::get_mod_mask::get_mod_mask_for(keysym, reference, &reply) };
+        let per_modifier = usize::from(reply.keycodes_per_modifier());
+        let mask = if per_modifier == 0 {
+            0
+        } else {
+            reply
+                .keycodes()
+                .chunks_exact(per_modifier)
+                .position(|modifier| {
+                    modifier
+                        .iter()
+                        .any(|code| *code != 0 && expected.contains(code))
+                })
+                .map_or(0, |modifier| 1 << modifier)
+        };
         assert_eq!(
             i3_common::get_mod_mask::modifier_mask_for(keysym, &owned, &reply),
             mask

@@ -500,6 +500,7 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
         .wait_for_reply(connection.send_request(&x::GetModifierMapping {}))
         .unwrap();
     let symbols = unsafe { native::xcb_key_symbols_alloc(raw) };
+    let maintained_symbols = xcb_interop::keysyms::KeySymbols::new(connection.clone()).unwrap();
     assert!(!symbols.is_null());
     for keysym in [0xffe1, 0xffe3, 0xffe9, 0xff7f, 0xffeb, u32::MAX] {
         // Compute the expected modifier with the native utility's keycode list
@@ -529,15 +530,16 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
             result
         };
         assert_eq!(
-            unsafe { i3_common::get_mod_mask::get_mod_mask_for(keysym, symbols, &mapping) },
+            i3_common::get_mod_mask::modifier_mask_for(keysym, &maintained_symbols, &mapping),
             expected
         );
         assert_eq!(
-            unsafe { i3_common::get_mod_mask::aio_get_mod_mask_for(keysym, symbols) },
+            i3_common::get_mod_mask::query_modifier_mask(keysym, &maintained_symbols),
             expected
         );
     }
     unsafe { native::xcb_key_symbols_free(symbols) };
+    drop(maintained_symbols);
 
     assert!(i3_common::is_background_set::is_background_set(
         &connection,
