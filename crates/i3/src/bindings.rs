@@ -197,8 +197,25 @@ pub unsafe fn configure_binding(
     modename: &[u8],
     pango_markup: bool,
 ) -> *mut Binding {
-    let mut new_binding: *mut Binding =
-        scalloc(1_usize, ::core::mem::size_of::<Binding>() as usize) as *mut Binding;
+    let new_binding = allocate_binding(Binding {
+        input_type: InputType::Keyboard,
+        release: BindingRelease::KeyPress,
+        border: false,
+        whole_window: false,
+        exclude_titlebar: false,
+        keycode: 0,
+        event_state_mask: 0,
+        symbol: None,
+        command: Vec::new(),
+        keycodes_head: crate::application::keycodes_head {
+            tqh_first: std::ptr::null_mut(),
+            tqh_last: std::ptr::null_mut(),
+        },
+        bindings: crate::application::BindingLinks {
+            tqe_next: std::ptr::null_mut(),
+            tqe_prev: std::ptr::null_mut(),
+        },
+    });
     {
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_value_0 = i3_common::logging::pointer(new_binding);
@@ -297,7 +314,7 @@ pub unsafe fn configure_binding(
         } else {
             InputType::Keyboard
         };
-        (*new_binding).symbol = sstrdup(input_code);
+        (*new_binding).symbol = Some(std::ffi::CStr::from_ptr(input_code).to_bytes().to_vec());
     } else {
         let Ok(keycode) = parse_long(std::ffi::CStr::from_ptr(input_code).to_bytes(), 10) else {
             {
@@ -328,14 +345,13 @@ pub unsafe fn configure_binding(
                     i3_common::logging::emit(i3_common::logging::Level::Error, &message);
                 }
             };
-            free(new_binding as *mut ::core::ffi::c_void);
-            new_binding = ::core::ptr::null_mut::<Binding>();
+            drop(Box::from_raw(new_binding));
             return ::core::ptr::null_mut::<Binding>();
         };
         (*new_binding).keycode = keycode as u32;
         (*new_binding).input_type = InputType::Keyboard;
     }
-    (*new_binding).command = sstrdup(command);
+    (*new_binding).command = std::ffi::CStr::from_ptr(command).to_bytes().to_vec();
     (*new_binding).event_state_mask = event_state_from_str(modifiers);
     let group_bits_set = (((*new_binding).event_state_mask >> 16) & 15).count_ones();
     if group_bits_set > 1 {
@@ -476,7 +492,7 @@ unsafe fn find_binding(
             bind = next;
             continue;
         }
-        let symbol_keyboard = input_type == InputType::Keyboard && !(*bind).symbol.is_null();
+        let symbol_keyboard = input_type == InputType::Keyboard && (*bind).symbol.is_some();
         if !symbol_keyboard && (*bind).keycode != u32::from(input_code) {
             bind = next;
             continue;
@@ -632,30 +648,16 @@ pub unsafe fn translate_keysyms() {
         while !bind.is_null() {
             if (*bind).input_type == InputType::Mouse {
                 let button = match parse_long(
-                    std::ffi::CStr::from_ptr(
-                        (*bind).symbol.add(
-                            (::core::mem::size_of::<[::core::ffi::c_char; 7]>() as usize)
-                                .wrapping_sub(1_usize),
-                        ),
-                    )
-                    .to_bytes(),
+                    &(*bind).symbol.as_deref().expect("mouse binding symbol")[6..],
                     10,
                 ) {
                     Ok(button) => button,
                     Err(error) => {
                         {
                             // Snapshot native bytes before the logger can dispatch a callback.
-                            let log_pointer_1 = (*bind).symbol;
-                            let log_value_0 = i3_common::logging::string_bytes(
-                                (if log_pointer_1.is_null() {
-                                    None
-                                } else {
-                                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                                })
-                                .map(std::ffi::CStr::to_bytes),
-                                None,
-                            )
-                            .to_vec();
+                            let log_value_0 =
+                                i3_common::logging::string_bytes((*bind).symbol.as_deref(), None)
+                                    .to_vec();
                             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                                 ::log::error!(
                                     "ERROR: Could not translate string to button: \"{}\"\n",
@@ -815,7 +817,7 @@ pub unsafe fn translate_keysyms() {
                         (*bind).keycodes_head.tqh_last = (*first).keycodes.tqe_prev;
                     }
                     *(*first).keycodes.tqe_prev = (*first).keycodes.tqe_next;
-                    free(first as *mut ::core::ffi::c_void);
+                    drop(Box::from_raw(first));
                     first = ::core::ptr::null_mut::<Binding_Keycode>();
                 }
                 append_keycode(bind, (*bind).keycode as u8, (*bind).event_state_mask);
@@ -853,22 +855,21 @@ pub unsafe fn translate_keysyms() {
                     }
                 }
             } else {
-                let keysym: xkb_keysym_t =
-                    xkb_keysym_from_name((*bind).symbol, XKB_KEYSYM_NO_FLAGS) as xkb_keysym_t;
+                let symbol_native = (*bind).symbol.as_deref().map(|symbol| {
+                    std::ffi::CString::new(symbol).expect("binding symbol excludes NUL")
+                });
+                let keysym: xkb_keysym_t = xkb_keysym_from_name(
+                    symbol_native
+                        .as_ref()
+                        .map_or(std::ptr::null(), |symbol| symbol.as_ptr()),
+                    XKB_KEYSYM_NO_FLAGS,
+                ) as xkb_keysym_t;
                 if keysym == XKB_KEY_NoSymbol as xkb_keysym_t {
                     {
                         // Snapshot native bytes before the logger can dispatch a callback.
-                        let log_pointer_1 = (*bind).symbol;
-                        let log_value_0 = i3_common::logging::string_bytes(
-                            (if log_pointer_1.is_null() {
-                                None
-                            } else {
-                                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                            })
-                            .map(std::ffi::CStr::to_bytes),
-                            None,
-                        )
-                        .to_vec();
+                        let log_value_0 =
+                            i3_common::logging::string_bytes((*bind).symbol.as_deref(), None)
+                                .to_vec();
                         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                             ::log::error!(
                                 "ERROR: Could not translate string to key symbol: \"{}\"\n",
@@ -902,7 +903,7 @@ pub unsafe fn translate_keysyms() {
                             (*bind).keycodes_head.tqh_last = (*first_0).keycodes.tqe_prev;
                         }
                         *(*first_0).keycodes.tqe_prev = (*first_0).keycodes.tqe_next;
-                        free(first_0 as *mut ::core::ffi::c_void);
+                        drop(Box::from_raw(first_0));
                         first_0 = ::core::ptr::null_mut::<Binding_Keycode>();
                     }
                     xkb_keymap_key_for_each(
@@ -928,7 +929,7 @@ pub unsafe fn translate_keysyms() {
 
                         while !check.is_null() {
                             if !(check == bind)
-                                && (*check).symbol.is_null()
+                                && (*check).symbol.is_none()
                                 && !((*check).keycode != (*binding_keycode_3).keycode as u32
                                     || (*check).event_state_mask != (*binding_keycode_3).modifiers
                                     || (*check).release as u32 != (*bind).release as u32)
@@ -936,14 +937,8 @@ pub unsafe fn translate_keysyms() {
                                 has_errors = true;
                                 {
                                     // Snapshot native bytes before the logger can dispatch a callback.
-                                    let log_pointer_1 = (*bind).symbol;
                                     let log_value_0 = i3_common::logging::string_bytes(
-                                        (if log_pointer_1.is_null() {
-                                            None
-                                        } else {
-                                            Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                                        })
-                                        .map(std::ffi::CStr::to_bytes),
+                                        (*bind).symbol.as_deref(),
                                         None,
                                     )
                                     .to_vec();
@@ -979,17 +974,9 @@ pub unsafe fn translate_keysyms() {
                     {
                         // Snapshot native bytes before the logger can dispatch a callback.
                         let log_value_0 = ((*bind).event_state_mask) as u32;
-                        let log_pointer_2 = (*bind).symbol;
-                        let log_value_1 = i3_common::logging::string_bytes(
-                            (if log_pointer_2.is_null() {
-                                None
-                            } else {
-                                Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                            })
-                            .map(std::ffi::CStr::to_bytes),
-                            None,
-                        )
-                        .to_vec();
+                        let log_value_1 =
+                            i3_common::logging::string_bytes((*bind).symbol.as_deref(), None)
+                                .to_vec();
                         let log_value_2 = (keysym) as u32;
                         let log_pointer_4 = keycodes.as_ptr();
                         let log_value_3 = i3_common::logging::string_bytes(
@@ -1174,13 +1161,17 @@ unsafe fn binding_same_key(a: *mut Binding, b: *mut Binding) -> bool {
     if (*a).input_type != (*b).input_type {
         return false;
     }
-    if (*a).symbol.is_null() && !(*b).symbol.is_null()
-        || !(*a).symbol.is_null() && (*b).symbol.is_null()
+    if (*a).symbol.is_none() && (*b).symbol.is_some()
+        || (*a).symbol.is_some() && (*b).symbol.is_none()
     {
         return false;
     }
-    if !(*a).symbol.is_null() && strcasecmp((*a).symbol, (*b).symbol) != 0 {
-        return false;
+    if let (Some(a), Some(b)) = ((*a).symbol.as_deref(), (*b).symbol.as_deref()) {
+        let a = std::ffi::CString::new(a).expect("symbol excludes NUL");
+        let b = std::ffi::CString::new(b).expect("symbol excludes NUL");
+        if strcasecmp(a.as_ptr(), b.as_ptr()) != 0 {
+            return false;
+        }
     }
     if (*a).keycode != (*b).keycode
         || (*a).event_state_mask != (*b).event_state_mask
@@ -1208,14 +1199,8 @@ pub unsafe fn check_for_duplicate_bindings(context: *mut context) {
                         // Snapshot native bytes before the logger can dispatch a callback.
                         let log_value_0 = ((*current).event_state_mask);
                         let log_value_1 = ((*current).keycode) as i32;
-                        let log_pointer_3 = (*current).command;
                         let log_value_2 = i3_common::logging::string_bytes(
-                            (if log_pointer_3.is_null() {
-                                None
-                            } else {
-                                Some(std::ffi::CStr::from_ptr(log_pointer_3))
-                            })
-                            .map(std::ffi::CStr::to_bytes),
+                            Some((*current).command.as_slice()),
                             None,
                         )
                         .to_vec();
@@ -1233,25 +1218,11 @@ pub unsafe fn check_for_duplicate_bindings(context: *mut context) {
                     {
                         // Snapshot native bytes before the logger can dispatch a callback.
                         let log_value_0 = ((*current).event_state_mask);
-                        let log_pointer_2 = (*current).symbol;
-                        let log_value_1 = i3_common::logging::string_bytes(
-                            (if log_pointer_2.is_null() {
-                                None
-                            } else {
-                                Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                            })
-                            .map(std::ffi::CStr::to_bytes),
-                            None,
-                        )
-                        .to_vec();
-                        let log_pointer_3 = (*current).command;
+                        let log_value_1 =
+                            i3_common::logging::string_bytes((*current).symbol.as_deref(), None)
+                                .to_vec();
                         let log_value_2 = i3_common::logging::string_bytes(
-                            (if log_pointer_3.is_null() {
-                                None
-                            } else {
-                                Some(std::ffi::CStr::from_ptr(log_pointer_3))
-                            })
-                            .map(std::ffi::CStr::to_bytes),
+                            Some((*current).command.as_slice()),
                             None,
                         )
                         .to_vec();
@@ -1277,23 +1248,37 @@ pub unsafe fn check_for_duplicate_bindings(context: *mut context) {
         current = (*current).bindings.tqe_next;
     }
 }
+/// Allocate first, then publish self-relative queue addresses; the raw node is
+/// never moved while queue aliases are live.
+fn allocate_binding(value: Binding) -> *mut Binding {
+    let pointer = Box::into_raw(Box::new(value));
+    // SAFETY: this new allocation is exclusively owned and not yet published.
+    unsafe {
+        (*pointer).keycodes_head.tqh_last = &raw mut (*pointer).keycodes_head.tqh_first;
+    }
+    pointer
+}
 unsafe fn binding_copy(bind: *mut Binding) -> *mut Binding {
-    let ret: *mut Binding = smalloc(::core::mem::size_of::<Binding>() as usize) as *mut Binding;
-    *ret = *bind;
-    if !(*bind).symbol.is_null() {
-        (*ret).symbol = sstrdup((*bind).symbol);
-    }
-    if !(*bind).command.is_null() {
-        (*ret).command = sstrdup((*bind).command);
-    }
-    (*ret).keycodes_head.tqh_first = ::core::ptr::null_mut::<Binding_Keycode>();
-    (*ret).keycodes_head.tqh_last = &raw mut (*ret).keycodes_head.tqh_first;
+    let ret = allocate_binding(Binding {
+        input_type: (*bind).input_type,
+        release: (*bind).release,
+        border: (*bind).border,
+        whole_window: (*bind).whole_window,
+        exclude_titlebar: (*bind).exclude_titlebar,
+        keycode: (*bind).keycode,
+        event_state_mask: (*bind).event_state_mask,
+        symbol: (*bind).symbol.clone(),
+        command: (*bind).command.clone(),
+        keycodes_head: crate::application::keycodes_head {
+            tqh_first: std::ptr::null_mut(),
+            tqh_last: std::ptr::null_mut(),
+        },
+        bindings: (*bind).bindings,
+    });
     let mut binding_keycode: *mut Binding_Keycode = (*bind).keycodes_head.tqh_first;
 
     while !binding_keycode.is_null() {
-        let ret_binding_keycode: *mut Binding_Keycode =
-            smalloc(::core::mem::size_of::<Binding_Keycode>()) as *mut Binding_Keycode;
-        *ret_binding_keycode = *binding_keycode;
+        let ret_binding_keycode = Box::into_raw(Box::new(*binding_keycode));
         (*ret_binding_keycode).keycodes.tqe_next = ::core::ptr::null_mut::<Binding_Keycode>();
         (*ret_binding_keycode).keycodes.tqe_prev = (*ret).keycodes_head.tqh_last;
         *(*ret).keycodes_head.tqh_last = ret_binding_keycode;
@@ -1303,7 +1288,7 @@ unsafe fn binding_copy(bind: *mut Binding) -> *mut Binding {
     ret
 }
 
-pub unsafe fn binding_free(mut bind: *mut Binding) {
+pub unsafe fn binding_free(bind: *mut Binding) {
     if bind.is_null() {
         return;
     }
@@ -1315,19 +1300,14 @@ pub unsafe fn binding_free(mut bind: *mut Binding) {
             (*bind).keycodes_head.tqh_last = (*first).keycodes.tqe_prev;
         }
         *(*first).keycodes.tqe_prev = (*first).keycodes.tqe_next;
-        free(first as *mut ::core::ffi::c_void);
+        drop(Box::from_raw(first));
         first = ::core::ptr::null_mut::<Binding_Keycode>();
     }
-    free((*bind).symbol as *mut ::core::ffi::c_void);
-    (*bind).symbol = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    free((*bind).command as *mut ::core::ffi::c_void);
-    (*bind).command = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    free(bind as *mut ::core::ffi::c_void);
-    bind = ::core::ptr::null_mut::<Binding>();
+    drop(Box::from_raw(bind));
 }
 
 pub unsafe fn run_binding(bind: *mut Binding, con: *mut Con) -> *mut CommandResult {
-    let source = std::ffi::CStr::from_ptr((*bind).command).to_bytes();
+    let source = (*bind).command.as_slice();
     let command = if con.is_null() {
         source.to_vec()
     } else {
@@ -1508,7 +1488,7 @@ pub unsafe fn bindings_get_buttons_to_grab() -> *mut libc::c_int {
         }
         if (*bind).input_type == InputType::Mouse && (*bind).whole_window {
             if let Ok(button) = parse_long(
-                std::ffi::CStr::from_ptr((*bind).symbol.add(6)).to_bytes(),
+                &(*bind).symbol.as_deref().expect("mouse binding symbol")[6..],
                 10,
             ) {
                 append_button(&mut buttons, button);
@@ -1643,17 +1623,16 @@ fn append_button(buttons: &mut Vec<i32>, button: libc::c_long) {
     }
 }
 
-/// Append an initialized native malloc node to an exclusively-owned valid queue.
+/// Append an initialized owned node to an exclusively-owned valid queue.
 unsafe fn append_keycode(bind: *mut Binding, keycode: u8, modifiers: u32) {
-    let pointer = smalloc(std::mem::size_of::<Binding_Keycode>()).cast::<Binding_Keycode>();
-    pointer.write(Binding_Keycode {
+    let pointer = Box::into_raw(Box::new(Binding_Keycode {
         keycode,
         modifiers,
         keycodes: crate::application::BindingKeycodeLinks {
             tqe_next: std::ptr::null_mut(),
             tqe_prev: (*bind).keycodes_head.tqh_last,
         },
-    });
+    }));
     *(*bind).keycodes_head.tqh_last = pointer;
     (*bind).keycodes_head.tqh_last = &raw mut (*pointer).keycodes.tqe_next;
 }
@@ -1682,6 +1661,62 @@ impl Drop for ServerGrab {
 mod owned_tests {
     use super::*;
     #[test]
+    fn copied_bindings_own_binary_payloads_and_independent_keycode_queues() {
+        unsafe {
+            for symbol in [None, Some(Vec::new()), Some(vec![0xff, b'k'])] {
+                let source = allocate_binding(Binding {
+                    input_type: InputType::Keyboard,
+                    release: BindingRelease::KeyRelease,
+                    border: true,
+                    whole_window: false,
+                    exclude_titlebar: true,
+                    keycode: 42,
+                    event_state_mask: 0x1234,
+                    symbol: symbol.clone(),
+                    command: vec![0xfe, b'c'],
+                    keycodes_head: crate::application::keycodes_head {
+                        tqh_first: std::ptr::null_mut(),
+                        tqh_last: std::ptr::null_mut(),
+                    },
+                    bindings: crate::application::BindingLinks {
+                        tqe_next: std::ptr::null_mut(),
+                        tqe_prev: std::ptr::null_mut(),
+                    },
+                });
+                assert_eq!(
+                    (*source).keycodes_head.tqh_last,
+                    &raw mut (*source).keycodes_head.tqh_first
+                );
+                append_keycode(source, 42, 1);
+                append_keycode(source, 43, 2);
+                let copy = binding_copy(source);
+                let first = (*copy).keycodes_head.tqh_first;
+                let second = (*first).keycodes.tqe_next;
+                assert_ne!(first, (*source).keycodes_head.tqh_first);
+                assert_eq!(
+                    (*first).keycodes.tqe_prev,
+                    &raw mut (*copy).keycodes_head.tqh_first
+                );
+                assert_eq!(
+                    (*second).keycodes.tqe_prev,
+                    &raw mut (*first).keycodes.tqe_next
+                );
+                assert_eq!(
+                    (*copy).keycodes_head.tqh_last,
+                    &raw mut (*second).keycodes.tqe_next
+                );
+                binding_free(source);
+                assert_eq!((*copy).symbol, symbol);
+                assert_eq!((*copy).command, [0xfe, b'c']);
+                assert_eq!(((*first).keycode, (*second).keycode), (42, 43));
+                assert_eq!(((*first).modifiers, (*second).modifiers), (1, 2));
+                assert_eq!((*copy).release, BindingRelease::KeyRelease);
+                binding_free(copy);
+            }
+        }
+    }
+
+    #[test]
     fn native_queue_lookup_preserves_press_release_pair_order_and_modifier_rearming() {
         use crate::application::{keycodes_head, BindingKeycodeLinks, BindingLinks};
         fn binding(release: BindingRelease, key: *mut Binding_Keycode) -> Box<Binding> {
@@ -1693,8 +1728,8 @@ mod owned_tests {
                 exclude_titlebar: false,
                 keycode: 42,
                 event_state_mask: 1 << 16,
-                symbol: std::ptr::null_mut(),
-                command: std::ptr::null_mut(),
+                symbol: None,
+                command: Vec::new(),
                 keycodes_head: keycodes_head {
                     tqh_first: key,
                     tqh_last: std::ptr::null_mut(),

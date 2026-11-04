@@ -578,8 +578,11 @@ unsafe fn snapshot_binding(binding: *mut Binding) -> messages::Binding {
         } else {
             "mouse"
         },
-        symbol: (!(*binding).symbol.is_null()).then(|| native_text((*binding).symbol)),
-        command: native_text((*binding).command),
+        symbol: (*binding)
+            .symbol
+            .as_deref()
+            .map(messages::NativeText::bytes),
+        command: messages::NativeText::bytes(&(*binding).command),
         mods: modifiers.clone(),
         event_state_mask: modifiers,
     }
@@ -1969,17 +1972,8 @@ pub unsafe fn ipc_send_barconfig_update_event(barconfig: *mut Barconfig) {
 pub unsafe fn ipc_send_binding_event(event_type: &[u8], bind: *mut Binding, modename: &[u8]) {
     {
         let log_value_0 = event_type.to_vec();
-        let log_pointer_2 = (*bind).symbol;
-        let log_value_1 = i3_common::logging::string_bytes(
-            (if log_pointer_2.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_2))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_1 =
+            i3_common::logging::string_bytes((*bind).symbol.as_deref(), None).to_vec();
         let log_value_2 = ((*bind).keycode) as i32;
         if let (Ok(log_value_0_text), Ok(log_value_1_text)) = (
             std::str::from_utf8(&log_value_0),

@@ -332,8 +332,8 @@ pub unsafe fn extract_workspace_names_from_bindings() {
     let mut names = Vec::new();
     let mut binding = (*bindings).tqh_first;
     while !binding.is_null() {
-        let command = std::ffi::CStr::from_ptr((*binding).command);
-        if let Some(name) = workspace_binding_name(command.to_bytes()) {
+        let command = (*binding).command.as_slice();
+        if let Some(name) = workspace_binding_name(command) {
             if name.as_bytes().starts_with(b"__") {
                 {
                     // Snapshot native bytes before the logger can dispatch a callback.

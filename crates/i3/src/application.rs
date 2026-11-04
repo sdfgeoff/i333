@@ -44,8 +44,6 @@ pub use libev_sys::{
 
 pub type i3Font = Font;
 
-#[derive(Copy, Clone)]
-#[repr(C)]
 pub struct Binding {
     pub input_type: InputType,
     pub release: BindingRelease,
@@ -54,9 +52,9 @@ pub struct Binding {
     pub exclude_titlebar: bool,
     pub keycode: u32,
     pub event_state_mask: i3_event_state_mask_t,
-    pub symbol: *mut ::core::ffi::c_char,
+    pub symbol: Option<Vec<u8>>,
     pub keycodes_head: keycodes_head,
-    pub command: *mut ::core::ffi::c_char,
+    pub command: Vec<u8>,
     pub bindings: BindingLinks,
 }
 #[derive(Copy, Clone)]
