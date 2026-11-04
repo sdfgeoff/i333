@@ -304,25 +304,33 @@ pub enum BarPosition {
     Top = 1,
 }
 
+/// A stable assignment node. The intrusive links borrow the configuration list;
+/// the criterion and destination payload have unique Rust ownership.
 pub struct Assignment {
-    pub type_0: AssignmentKind,
-    pub match_0: crate::types::Match,
-    pub dest: crate::types::AssignmentDest,
-    pub assignments: crate::types::AssignmentAssignments,
+    pub match_0: Match,
+    pub dest: AssignmentDest,
+    pub assignments: AssignmentAssignments,
 }
 
 impl Assignment {
-    pub fn new(type_0: AssignmentKind, match_0: Match) -> Self {
+    pub fn new(dest: AssignmentDest, match_0: Match) -> Self {
         Self {
-            type_0,
             match_0,
-            dest: AssignmentDest {
-                command: std::ptr::null_mut(),
-            },
+            dest,
             assignments: AssignmentAssignments {
                 tqe_next: std::ptr::null_mut(),
                 tqe_prev: std::ptr::null_mut(),
             },
+        }
+    }
+
+    pub fn kind(&self) -> AssignmentKind {
+        match &self.dest {
+            AssignmentDest::Command(_) => AssignmentKind::COMMAND,
+            AssignmentDest::Workspace(_) => AssignmentKind::TO_WORKSPACE,
+            AssignmentDest::WorkspaceNumber(_) => AssignmentKind::TO_WORKSPACE_NUMBER,
+            AssignmentDest::Output(_) => AssignmentKind::TO_OUTPUT,
+            AssignmentDest::NoFocus => AssignmentKind::NO_FOCUS,
         }
     }
 }
@@ -334,12 +342,14 @@ pub struct AssignmentAssignments {
     pub tqe_prev: *mut *mut crate::types::Assignment,
 }
 
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub union AssignmentDest {
-    pub command: *mut ::core::ffi::c_char,
-    pub workspace: *mut ::core::ffi::c_char,
-    pub output: *mut ::core::ffi::c_char,
+/// The destination also identifies the assignment kind, preventing mismatched
+/// tags or uninitialized destination storage. Names/commands preserve C bytes.
+pub enum AssignmentDest {
+    Command(std::ffi::CString),
+    Workspace(std::ffi::CString),
+    WorkspaceNumber(std::ffi::CString),
+    Output(std::ffi::CString),
+    NoFocus,
 }
 
 #[derive(Copy, Clone)]

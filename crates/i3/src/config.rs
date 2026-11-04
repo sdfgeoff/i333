@@ -7,7 +7,7 @@ use crate::config_parser::free_variables;
 use crate::config_parser::parse_file;
 use crate::config_parser::ConfigParserState;
 use crate::domains::{DockMatch, HideEdgeBordersMode, MatchInsertWhere};
-use crate::flags::{AssignmentKind, TilingDrag};
+use crate::flags::TilingDrag;
 use crate::types::BorderStyle;
 use crate::types::ConfigLoad;
 use crate::types::FocusActivation;
@@ -566,18 +566,6 @@ unsafe fn free_configuration() {
     }
     while !assignments.tqh_first.is_null() {
         let mut assign: *mut Assignment = assignments.tqh_first as *mut Assignment;
-        if (*assign).type_0 == AssignmentKind::TO_WORKSPACE
-            || (*assign).type_0 == AssignmentKind::TO_WORKSPACE_NUMBER
-        {
-            free((*assign).dest.workspace as *mut ::core::ffi::c_void);
-            (*assign).dest.workspace = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        } else if (*assign).type_0 == AssignmentKind::COMMAND {
-            free((*assign).dest.command as *mut ::core::ffi::c_void);
-            (*assign).dest.command = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        } else if (*assign).type_0 == AssignmentKind::TO_OUTPUT {
-            free((*assign).dest.output as *mut ::core::ffi::c_void);
-            (*assign).dest.output = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        }
         if !(*assign).assignments.tqe_next.is_null() {
             (*(*assign).assignments.tqe_next).assignments.tqe_prev = (*assign).assignments.tqe_prev;
         } else {

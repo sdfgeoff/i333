@@ -229,7 +229,7 @@ mod tests {
             let image = cairo_sys::cairo_image_surface_create(cairo_sys::FORMAT_A_RGB32, 1, 1);
             let observer = cairo_sys::cairo_surface_reference(image);
             let mut assignment = Box::new(crate::types::Assignment::new(
-                crate::flags::AssignmentKind::COMMAND,
+                crate::types::AssignmentDest::Command(c"nop".to_owned()),
                 crate::types::Match::empty(),
             ));
             let assignment_ptr = std::ptr::from_mut(&mut *assignment);
@@ -249,7 +249,7 @@ mod tests {
             // assignment identity was borrowed, so its separate owner survives.
             assert_eq!(cairo_sys::cairo_surface_get_reference_count(observer), 1);
             cairo_sys::cairo_surface_destroy(observer);
-            assert_eq!(assignment.type_0, crate::flags::AssignmentKind::COMMAND);
+            assert_eq!(assignment.kind(), crate::flags::AssignmentKind::COMMAND);
         }
     }
 

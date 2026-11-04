@@ -533,18 +533,22 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                             291 as ::core::ffi::c_int,
                             match_0,
                         );
+                        // Destination bytes must survive graph callbacks, which
+                        // may reload and release the borrowed assignment node.
+                        let (workspace, by_number) = match &(*assignment).dest {
+                            crate::types::AssignmentDest::Workspace(name) => (name.clone(), false),
+                            crate::types::AssignmentDest::WorkspaceNumber(name) => {
+                                (name.clone(), true)
+                            }
+                            _ => unreachable!("workspace assignment has a workspace destination"),
+                        };
                         let mut assigned_ws: *mut Con = ::core::ptr::null_mut::<Con>();
-                        if (*assignment).type_0 == AssignmentKind::TO_WORKSPACE_NUMBER {
-                            let parsed_num: ::core::ffi::c_long = ws_name_to_number(
-                                std::ffi::CStr::from_ptr((*assignment).dest.workspace),
-                            )
-                            .unwrap_or(-1)
-                                as ::core::ffi::c_long;
-                            assigned_ws =
-                                get_existing_workspace_by_num(parsed_num as ::core::ffi::c_int);
+                        if by_number {
+                            let parsed_num = ws_name_to_number(&workspace).unwrap_or(-1);
+                            assigned_ws = get_existing_workspace_by_num(parsed_num);
                         }
                         if assigned_ws.is_null() {
-                            assigned_ws = workspace_get((*assignment).dest.workspace);
+                            assigned_ws = workspace_get(workspace.as_ptr());
                         }
                         nc = con_descend_tiling_focused(assigned_ws);
                         debuglog(
@@ -631,7 +635,12 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                     }
                     assignment = assignment_for(cwindow, AssignmentKind::TO_OUTPUT);
                     if !assignment.is_null() {
-                        con_move_to_output_name(nc, (*assignment).dest.output, true);
+                        let crate::types::AssignmentDest::Output(output) = &(*assignment).dest
+                        else {
+                            unreachable!("output assignment has an output destination");
+                        };
+                        let output = output.clone();
+                        con_move_to_output_name(nc, output.as_ptr(), true);
                     }
                 } else {
                     if !match_0.is_null() && ((*match_0).insert_where) == MatchInsertWhere::Below {

@@ -12,7 +12,7 @@ use crate::commands_parser::{command_result_free, parse_command};
 use crate::log::debuglog;
 use crate::r#match::match_matches_window;
 use crate::tree::tree_render;
-use crate::types::{Assignment, Window};
+use crate::types::{Assignment, AssignmentDest, Window};
 
 // Shared with the command parser and IPC; allocation remains malloc-compatible.
 #[derive(Copy, Clone)]
@@ -94,7 +94,7 @@ pub unsafe fn run_assignments(window: *mut Window) {
     let old_first_assignment = assignments.tqh_first;
     let mut current = assignments.tqh_first;
     while !current.is_null() {
-        if (*current).type_0 == AssignmentKind::COMMAND
+        if (*current).kind() == AssignmentKind::COMMAND
             && match_matches_window(&raw mut (*current).match_0, window)
         {
             if window_already_ran(window, current) {
@@ -104,16 +104,22 @@ pub unsafe fn run_assignments(window: *mut Window) {
                 remember_assignment(window, current);
                 // Own both the command bytes and ID before callbacks can reload
                 // and free the assignment list. Non-UTF-8 commands stay bytes.
-                let command = window_command((*window).id, CStr::from_ptr((*current).dest.command));
-                debuglog(
-                    c"%s:%s:%d - matching assignment, execute command %s\n"
-                        .as_ptr()
-                        .cast_mut(),
-                    c"../src/assignments.c".as_ptr(),
-                    c"run_assignments".as_ptr(),
-                    56 as libc::c_int,
-                    (*current).dest.command,
-                );
+                let command = {
+                    let AssignmentDest::Command(command) = &(*current).dest else {
+                        unreachable!("command assignment has a command destination");
+                    };
+                    let expanded = window_command((*window).id, command);
+                    debuglog(
+                        c"%s:%s:%d - matching assignment, execute command %s\n"
+                            .as_ptr()
+                            .cast_mut(),
+                        c"../src/assignments.c".as_ptr(),
+                        c"run_assignments".as_ptr(),
+                        56 as libc::c_int,
+                        command.as_ptr(),
+                    );
+                    expanded
+                };
                 {
                     let result = OwnedCommandResult::execute(&command);
                     needs_tree_render |= result.needs_tree_render();
@@ -136,7 +142,7 @@ pub unsafe fn run_assignments(window: *mut Window) {
 pub unsafe fn assignment_for(window: *mut Window, filter: AssignmentKind) -> *mut Assignment {
     let mut assignment = assignments.tqh_first;
     while !assignment.is_null() {
-        if accepts_assignment((*assignment).type_0, filter)
+        if accepts_assignment((*assignment).kind(), filter)
             && match_matches_window(&raw mut (*assignment).match_0, window)
         {
             debuglog(
@@ -204,8 +210,14 @@ mod tests {
 
     #[test]
     fn dedup_uses_assignment_identity_and_ignores_unused_capacity() {
-        let first = Assignment::new(AssignmentKind::COMMAND, crate::types::Match::empty());
-        let second = Assignment::new(AssignmentKind::COMMAND, crate::types::Match::empty());
+        let first = Assignment::new(
+            AssignmentDest::Command(c"nop".to_owned()),
+            crate::types::Match::empty(),
+        );
+        let second = Assignment::new(
+            AssignmentDest::Command(c"nop".to_owned()),
+            crate::types::Match::empty(),
+        );
         let first = std::ptr::from_ref(&first).cast_mut();
         let second = std::ptr::from_ref(&second).cast_mut();
         let entries = [first, second, first];

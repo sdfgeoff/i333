@@ -9,7 +9,7 @@ use crate::config::modes;
 use crate::config_parser::parse_file;
 use crate::config_parser::ConfigParserState;
 use crate::domains::{DockMatch, HideEdgeBordersMode, MatchInsertWhere};
-use crate::flags::{AssignmentKind, GapMask, KeyboardGroups, TilingDrag};
+use crate::flags::{GapMask, KeyboardGroups, TilingDrag};
 use crate::types::BarHiddenState;
 use crate::types::BarMode;
 use crate::types::BarPosition;
@@ -460,11 +460,9 @@ pub unsafe fn cfg_for_window(
         command,
     );
     let assignment: *mut Assignment = Box::into_raw(Box::new(Assignment::new(
-        AssignmentKind::empty(),
+        crate::types::AssignmentDest::Command(CStr::from_ptr(command).to_owned()),
         (*current_match).clone(),
     )));
-    (*assignment).type_0 = AssignmentKind::COMMAND;
-    (*assignment).dest.command = sstrdup(command);
     (*assignment).assignments.tqe_next = ::core::ptr::null_mut::<Assignment>();
     (*assignment).assignments.tqe_prev = assignments.tqh_last;
     *assignments.tqh_last = assignment as *mut Assignment;
@@ -1210,11 +1208,9 @@ pub unsafe fn cfg_assign_output(
         output,
     );
     let assignment: *mut Assignment = Box::into_raw(Box::new(Assignment::new(
-        AssignmentKind::empty(),
+        crate::types::AssignmentDest::Output(CStr::from_ptr(output).to_owned()),
         (*current_match).clone(),
     )));
-    (*assignment).type_0 = AssignmentKind::TO_OUTPUT;
-    (*assignment).dest.output = sstrdup(output);
     (*assignment).assignments.tqe_next = ::core::ptr::null_mut::<Assignment>();
     (*assignment).assignments.tqe_prev = assignments.tqh_last;
     *assignments.tqh_last = assignment as *mut Assignment;
@@ -1272,15 +1268,13 @@ pub unsafe fn cfg_assign(
         workspace,
     );
     let assignment: *mut Assignment = Box::into_raw(Box::new(Assignment::new(
-        AssignmentKind::empty(),
+        if is_number {
+            crate::types::AssignmentDest::WorkspaceNumber(CStr::from_ptr(workspace).to_owned())
+        } else {
+            crate::types::AssignmentDest::Workspace(CStr::from_ptr(workspace).to_owned())
+        },
         (*current_match).clone(),
     )));
-    (*assignment).type_0 = if is_number as ::core::ffi::c_int != 0 {
-        AssignmentKind::TO_WORKSPACE_NUMBER
-    } else {
-        AssignmentKind::TO_WORKSPACE
-    };
-    (*assignment).dest.workspace = sstrdup(workspace);
     (*assignment).assignments.tqe_next = ::core::ptr::null_mut::<Assignment>();
     (*assignment).assignments.tqe_prev = assignments.tqh_last;
     *assignments.tqh_last = assignment as *mut Assignment;
@@ -1312,10 +1306,9 @@ pub unsafe fn cfg_no_focus(current_match: *mut Match, result: *mut ConfigResultI
         700 as ::core::ffi::c_int,
     );
     let assignment: *mut Assignment = Box::into_raw(Box::new(Assignment::new(
-        AssignmentKind::empty(),
+        crate::types::AssignmentDest::NoFocus,
         (*current_match).clone(),
     )));
-    (*assignment).type_0 = AssignmentKind::NO_FOCUS;
     (*assignment).assignments.tqe_next = ::core::ptr::null_mut::<Assignment>();
     (*assignment).assignments.tqe_prev = assignments.tqh_last;
     *assignments.tqh_last = assignment as *mut Assignment;
