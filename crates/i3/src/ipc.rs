@@ -268,14 +268,13 @@ unsafe fn free_ipc_client(client: *mut ipc_client, exempt_fd: i32) {
 }
 
 pub unsafe fn ipc_send_event(event: &[u8], message_type: u32, payload: &[u8]) {
-    let event = CString::new(event.split(|b| *b == 0).next().unwrap()).unwrap();
+    let event = event.split(|b| *b == 0).next().unwrap().to_vec();
     let payload = payload.split(|b| *b == 0).next().unwrap().to_vec();
     let mut current = all_clients.tqh_first;
     while !current.is_null() {
-        let subscribed = (*current)
-            .events
-            .iter()
-            .any(|subscription| strcasecmp(subscription.as_ptr(), event.as_ptr()) == 0);
+        let subscribed = (*current).events.iter().any(|subscription| {
+            i3_common::safewrappers::strcasecmp_nullable(Some(subscription), Some(&event)) == 0
+        });
         if subscribed {
             ipc_send_client_message(
                 current,
@@ -1341,7 +1340,7 @@ unsafe fn handle_get_binding_modes(
 }
 fn parse_subscriptions(
     message: &[u8],
-) -> (Vec<CString>, Result<(), i3_common::json_stream::ParseError>) {
+) -> (Vec<Vec<u8>>, Result<(), i3_common::json_stream::ParseError>) {
     let events = Rc::new(RefCell::new(Vec::new()));
     let output = events.clone();
     let mut parser =
@@ -1351,7 +1350,7 @@ fn parse_subscriptions(
                     .iter()
                     .position(|byte| *byte == 0)
                     .unwrap_or(bytes.len())];
-                output.borrow_mut().push(CString::new(prefix).unwrap());
+                output.borrow_mut().push(prefix.to_vec());
             }
             true
         });
@@ -1372,33 +1371,7 @@ unsafe fn handle_subscribe(
     // Legacy subscription callbacks committed before a later parse error.
     (*client).events.append(&mut events);
     if let Err(error) = result {
-        let error = CString::new(format!("{error}\n")).unwrap();
-        {
-            // Snapshot native bytes before the logger can dispatch a callback.
-            let log_pointer_1 = error.as_ptr();
-            let log_value_0 = i3_common::logging::string_bytes(
-                (if log_pointer_1.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                })
-                .map(std::ffi::CStr::to_bytes),
-                None,
-            )
-            .to_vec();
-            if let Ok(log_value_0_text) = std::str::from_utf8(&log_value_0) {
-                ::log::error!("ERROR: YAJL parse error: {}\n", log_value_0_text);
-            } else {
-                i3_common::logging::emit_parts(
-                    i3_common::logging::Level::Error,
-                    &[
-                        "ERROR: YAJL parse error: ".as_bytes(),
-                        &log_value_0,
-                        "\n".as_bytes(),
-                    ],
-                );
-            }
-        };
+        ::log::error!("ERROR: YAJL parse error: {error}\n\n");
         ipc_send_client_message(
             client,
             17,
@@ -1413,12 +1386,7 @@ unsafe fn handle_subscribe(
         I3_IPC_REPLY_TYPE_SUBSCRIBE as u32,
         b"{\"success\":true}".as_ptr(),
     );
-    if !(*client).first_tick_sent
-        && (*client)
-            .events
-            .iter()
-            .any(|event| event.as_c_str() == c"tick")
-    {
+    if !(*client).first_tick_sent && (*client).events.iter().any(|event| event == b"tick") {
         (*client).first_tick_sent = true;
         let payload = b"{\"first\":true,\"payload\":\"\"}";
         ipc_send_client_message(
@@ -2076,15 +2044,12 @@ mod owned_tests {
         let (events, status) = parse_subscriptions(br#"["","tick\u0000ignored","tick"] trailing"#);
         assert!(status.is_err());
         assert_eq!(
-            events
-                .iter()
-                .map(|event| event.to_bytes())
-                .collect::<Vec<_>>(),
+            events.iter().map(Vec::as_slice).collect::<Vec<_>>(),
             [b"".as_slice(), b"tick", b"tick"]
         );
         let (events, status) = parse_subscriptions(br#"["workspace""#);
         assert!(status.is_ok());
-        assert_eq!(events[0].as_c_str(), c"workspace");
+        assert_eq!(events[0], b"workspace");
     }
     #[test]
     fn sync_values_keep_no_finish_key_projection_and_u32_casts() {

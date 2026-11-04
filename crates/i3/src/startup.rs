@@ -47,14 +47,15 @@ impl Drop for LauncherRef {
 }
 
 pub struct Startup_Sequence {
-    id: CString,
+    id: Vec<u8>,
     workspace: Vec<u8>,
     context: LauncherRef,
     delete_at: libc::time_t,
 }
 // Box keeps published sequence/workspace addresses stable until explicit delete.
 static mut SEQUENCES: Vec<NonNull<Startup_Sequence>> = Vec::new();
-unsafe fn find_sequence(id: &CStr) -> *mut Startup_Sequence {
+unsafe fn find_sequence(id: &[u8]) -> *mut Startup_Sequence {
+    let id = startup_id(id);
     (*(&raw const SEQUENCES))
         .iter()
         .copied()
@@ -69,10 +70,12 @@ struct StartupTimer {
 unsafe extern "C" fn startup_timeout(loop_: *mut ev_loop, watcher: *mut ev_timer, _: libc::c_int) {
     ev_timer_stop(loop_, watcher);
     let timer = Box::from_raw((*watcher).data.cast::<StartupTimer>());
-    let id = CStr::from_ptr(sn_launcher_context_get_startup_id(timer.context.raw())).to_owned();
+    let id = CStr::from_ptr(sn_launcher_context_get_startup_id(timer.context.raw()))
+        .to_bytes()
+        .to_vec();
     {
         let diagnostic_5_owner = id.clone();
-        let diagnostic_5_bytes = diagnostic_5_owner.as_bytes();
+        let diagnostic_5_bytes = diagnostic_5_owner.as_slice();
         match (std::str::from_utf8(diagnostic_5_bytes),) {
             (Ok(diagnostic_5_text),) => ::log::debug!(
                 "../src/startup.c:startup_timeout:36 - Timeout for startup sequence {}\n",
@@ -134,7 +137,7 @@ pub unsafe fn startup_sequence_delete(sequence: *mut Startup_Sequence) {
         let sequence = Box::from_raw((*(&raw mut SEQUENCES)).remove(index).as_ptr());
         {
             let diagnostic_5_owner = sequence.id.clone();
-            let diagnostic_5_bytes = diagnostic_5_owner.as_bytes();
+            let diagnostic_5_bytes = diagnostic_5_owner.as_slice();
             let diagnostic_6 = sequence.delete_at;
             let diagnostic_7 = (libc::time(std::ptr::null_mut()) as i64) as i64;
             match (std::str::from_utf8(diagnostic_5_bytes),) { (Ok(diagnostic_5_text),) => ::log::debug!("../src/startup.c:startup_sequence_delete:108 - Deleting startup sequence {}, delete_at = {}, current_time = {}\n", diagnostic_5_text, diagnostic_6, diagnostic_7), _ => emit_parts(Level::Debug, &[b"../src/startup.c:startup_sequence_delete:108 - Deleting startup sequence ", diagnostic_5_bytes, b", delete_at = ", format!("{}", diagnostic_6).as_bytes(), b", current_time = ", format!("{}", diagnostic_7).as_bytes(), b"\n"]), }
@@ -193,10 +196,12 @@ pub unsafe fn start_application(command: &[u8], no_startup_id: bool, window_id: 
             prepared.first_word.as_ptr(),
             last_timestamp as libc::c_ulong,
         );
-        let id = CStr::from_ptr(sn_launcher_context_get_startup_id(launcher.raw())).to_owned();
+        let id = CStr::from_ptr(sn_launcher_context_get_startup_id(launcher.raw()))
+            .to_bytes()
+            .to_vec();
         {
             let diagnostic_2_owner = id.clone();
-            let diagnostic_2_bytes = diagnostic_2_owner.as_bytes();
+            let diagnostic_2_bytes = diagnostic_2_owner.as_slice();
             match (std::str::from_utf8(diagnostic_2_bytes),) {
                 (Ok(diagnostic_2_text),) => ::log::info!("startup id = {}\n", diagnostic_2_text),
                 _ => emit_parts(
@@ -271,12 +276,14 @@ pub unsafe fn start_application(command: &[u8], no_startup_id: bool, window_id: 
 
 pub unsafe extern "C" fn startup_monitor_event(event: *mut SnMonitorEvent, _: *mut libc::c_void) {
     let native = sn_monitor_event_get_startup_sequence(event);
-    let id = CStr::from_ptr(sn_startup_sequence_get_id(native)).to_owned();
+    let id = CStr::from_ptr(sn_startup_sequence_get_id(native))
+        .to_bytes()
+        .to_vec();
     let sequence = find_sequence(&id);
     if sequence.is_null() {
         {
             let diagnostic_5_owner = id.clone();
-            let diagnostic_5_bytes = diagnostic_5_owner.as_bytes();
+            let diagnostic_5_bytes = diagnostic_5_owner.as_slice();
             match (std::str::from_utf8(diagnostic_5_bytes),) { (Ok(diagnostic_5_text),) => ::log::debug!("../src/startup.c:startup_monitor_event:237 - Got event for startup sequence that we did not initiate (ID = {}). Ignoring.\n", diagnostic_5_text), _ => emit_parts(Level::Debug, &[b"../src/startup.c:startup_monitor_event:237 - Got event for startup sequence that we did not initiate (ID = ", diagnostic_5_bytes, b"). Ignoring.\n"]), }
         };
         return;
@@ -286,7 +293,7 @@ pub unsafe extern "C" fn startup_monitor_event(event: *mut SnMonitorEvent, _: *m
     {
         {
             let diagnostic_5_owner = id.clone();
-            let diagnostic_5_bytes = diagnostic_5_owner.as_bytes();
+            let diagnostic_5_bytes = diagnostic_5_owner.as_slice();
             match (std::str::from_utf8(diagnostic_5_bytes),) {
                 (Ok(diagnostic_5_text),) => ::log::debug!(
                     "../src/startup.c:startup_monitor_event:243 - startup sequence {} completed\n",
@@ -336,14 +343,8 @@ fn startup_property_bytes(reply: Option<&x::GetPropertyReply>) -> &[u8] {
         .and_then(crate::xcb::property_payload)
         .unwrap_or_default()
 }
-fn startup_id(bytes: &[u8]) -> CString {
-    CString::new(
-        &bytes[..bytes
-            .iter()
-            .position(|byte| *byte == 0)
-            .unwrap_or(bytes.len())],
-    )
-    .unwrap()
+fn startup_id(bytes: &[u8]) -> &[u8] {
+    bytes.split(|byte| *byte == 0).next().unwrap()
 }
 /// The reply is borrowed for this lookup. cwindow and any returned sequence
 /// belong to the event-thread graph until deletion or workspace rename.
@@ -367,7 +368,7 @@ pub unsafe fn startup_sequence_get(
     if bytes.is_empty() {
         return std::ptr::null_mut();
     }
-    find_sequence(&startup_id(bytes))
+    find_sequence(startup_id(bytes))
 }
 
 pub unsafe fn startup_workspace_for_window(
@@ -412,7 +413,7 @@ mod tests {
     }
     #[test]
     fn startup_ids_and_expiry_preserve_prefix_and_strict_deadline() {
-        assert_eq!(startup_id(b"\xff\0ignored").to_bytes(), b"\xff");
+        assert_eq!(startup_id(b"\xff\0ignored"), b"\xff");
         assert!(!expired(0, 100));
         assert!(!expired(100, 100));
         assert!(expired(100, 101));

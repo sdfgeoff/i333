@@ -387,7 +387,7 @@ pub struct ipc_client {
     pub fd: i32,
     pub generation: u64,
     pub fd_owner: Option<std::os::unix::net::UnixStream>,
-    pub events: Vec<std::ffi::CString>,
+    pub events: Vec<Vec<u8>>,
     pub first_tick_sent: bool,
     pub read_callback: *mut ev_io,
     pub write_callback: *mut ev_io,
