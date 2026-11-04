@@ -229,7 +229,7 @@ mod tests {
             let image = cairo_sys::cairo_image_surface_create(cairo_sys::FORMAT_A_RGB32, 1, 1);
             let observer = cairo_sys::cairo_surface_reference(image);
             let mut assignment = Box::new(crate::types::Assignment::new(
-                crate::types::AssignmentDest::Command(c"nop".to_owned()),
+                crate::types::AssignmentDest::Command(b"nop".to_vec()),
                 crate::types::Match::empty(),
             ));
             let assignment_ptr = std::ptr::from_mut(&mut *assignment);

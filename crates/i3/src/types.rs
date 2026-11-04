@@ -345,7 +345,7 @@ pub struct AssignmentAssignments {
 /// The destination also identifies the assignment kind, preventing mismatched
 /// tags or uninitialized destination storage. Names/commands preserve C bytes.
 pub enum AssignmentDest {
-    Command(std::ffi::CString),
+    Command(Vec<u8>),
     Workspace(std::ffi::CString),
     WorkspaceNumber(std::ffi::CString),
     Output(std::ffi::CString),

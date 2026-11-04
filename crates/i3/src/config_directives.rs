@@ -637,7 +637,7 @@ pub unsafe fn cfg_for_window(
         }
     };
     let assignment: *mut Assignment = Box::into_raw(Box::new(Assignment::new(
-        crate::types::AssignmentDest::Command(CStr::from_ptr(command).to_owned()),
+        crate::types::AssignmentDest::Command(CStr::from_ptr(command).to_bytes().to_vec()),
         (*current_match).clone(),
     )));
     (*assignment).assignments.tqe_next = ::core::ptr::null_mut::<Assignment>();

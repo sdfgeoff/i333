@@ -3968,22 +3968,17 @@ pub unsafe fn parse_string(walk: *mut *const libc::c_char, as_word: bool) -> *mu
 }
 
 pub unsafe fn parse_command(
-    input: *const ::core::ffi::c_char,
+    input: &[u8],
     output: Option<&mut Vec<u8>>,
     client: *mut ipc_client,
 ) -> *mut CommandResult {
+    // Own bytes before callbacks. The existing private scanner currently uses
+    // pointer cursors, so its bounded backing Vec includes one trailing zero.
+    let mut input_owner = input.split(|byte| *byte == 0).next().unwrap().to_vec();
+    let log_value_0 = input_owner[..input_owner.len().min(4000)].to_vec();
+    input_owner.push(0);
+    let input = input_owner.as_ptr().cast::<libc::c_char>();
     {
-        // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = input;
-        let log_value_0 = i3_common::logging::string_bytes(
-            if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            },
-            Some(4000),
-        )
-        .to_vec();
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::debug!(
                 "../src/commands_parser.c:parse_command:159 - COMMAND: *{}*\n",
@@ -4031,7 +4026,7 @@ pub unsafe fn parse_command(
     cmd_ctx.command_output.client = client;
     cmd_ctx.command_output.needs_tree_render = false;
     let mut walk: *const ::core::ffi::c_char = input;
-    let len: usize = strlen(input) as usize;
+    let len = input_owner.len() - 1;
     let mut c: ::core::ffi::c_int = 0;
     let mut token: *const cmdp_token = ::core::ptr::null::<cmdp_token>();
     let mut token_handled: bool = false;

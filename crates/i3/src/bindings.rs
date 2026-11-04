@@ -1311,26 +1311,22 @@ pub unsafe fn binding_free(mut bind: *mut Binding) {
 }
 
 pub unsafe fn run_binding(bind: *mut Binding, con: *mut Con) -> *mut CommandResult {
-    let mut command: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    if con.is_null() {
-        command = sstrdup((*bind).command);
+    let source = std::ffi::CStr::from_ptr((*bind).command).to_bytes();
+    let command = if con.is_null() {
+        source.to_vec()
     } else {
-        sasprintf(
-            &raw mut command,
-            c"[con_id=\"%p\"] %s".as_ptr(),
-            con,
-            (*bind).command,
-        );
-    }
-    let command_owner = Native::take(command);
+        let mut command =
+            format!("[con_id=\"{}\"] ", i3_common::logging::pointer(con)).into_bytes();
+        command.extend_from_slice(source);
+        command
+    };
     let bind_cp = binding_copy(bind);
     let binding_owner = BindingCopy(bind_cp);
     let modename = current_binding_mode
         .clone()
         .unwrap_or_else(|| DEFAULT_BINDING_MODE.to_vec());
     let result: *mut CommandResult =
-        parse_command(command, None, ::core::ptr::null_mut::<ipc_client>());
-    drop(command_owner);
+        parse_command(&command, None, ::core::ptr::null_mut::<ipc_client>());
     if (*result).needs_tree_render {
         tree_render();
     }

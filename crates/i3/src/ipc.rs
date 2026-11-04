@@ -480,13 +480,13 @@ unsafe fn handle_run_command(
 ) {
     let bytes = std::slice::from_raw_parts(message, message_size as usize);
     let prefix = bytes.split(|byte| *byte == 0).next().unwrap();
-    let command = CString::new(prefix).unwrap();
+    let command = prefix.to_vec();
     let token = ClientToken::capture(client);
     {
         // Snapshot native bytes before the logger can dispatch a callback.
         // command owns the decoded first-NUL prefix; bound byte precision
         // directly without treating the original IPC payload as a C string.
-        let bytes = command.to_bytes();
+        let bytes = command.as_slice();
         let log_value_0 = bytes[..bytes.len().min(4000)].to_vec();
         if let Ok(log_value_0_text) = std::str::from_utf8(&log_value_0) {
             ::log::info!("IPC: received: *{}*\n", log_value_0_text);
@@ -502,7 +502,7 @@ unsafe fn handle_run_command(
         }
     };
     let mut output = Vec::new();
-    let result = CommandResultOwner(parse_command(command.as_ptr(), Some(&mut output), client));
+    let result = CommandResultOwner(parse_command(&command, Some(&mut output), client));
     if (*result.0).needs_tree_render {
         tree_render();
     }

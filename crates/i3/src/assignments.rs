@@ -4,7 +4,6 @@ use crate::flags::AssignmentKind;
  * © 2009 Michael Stapelberg and contributors (see also: LICENSE)
  * Assignments for specific windows (for_window).
  */
-use std::ffi::{CStr, CString};
 use std::ptr::NonNull;
 
 use crate::application::assignments;
@@ -26,8 +25,8 @@ struct OwnedCommandResult(NonNull<CommandResult>);
 impl OwnedCommandResult {
     /// The parser mutates the live tree and can reload the assignment list.
     /// The caller must uphold parse_command's event-thread/tree contracts.
-    unsafe fn execute(command: &CStr) -> Self {
-        let result = unsafe { parse_command(command.as_ptr(), None, std::ptr::null_mut()) };
+    unsafe fn execute(command: &[u8]) -> Self {
+        let result = unsafe { parse_command(command, None, std::ptr::null_mut()) };
         Self(NonNull::new(result).expect("parse_command returns an allocated result"))
     }
     fn needs_tree_render(&self) -> bool {
@@ -44,12 +43,12 @@ impl Drop for OwnedCommandResult {
     }
 }
 
-fn window_command(id: u32, command: &CStr) -> CString {
+fn window_command(id: u32, command: &[u8]) -> Vec<u8> {
     // The original native printf used %d, interpreting the XID's bits as a
     // signed int. Keep that behavior even for IDs above i32::MAX.
     let mut bytes = format!("[id=\"{}\"] ", id as i32).into_bytes();
-    bytes.extend_from_slice(command.to_bytes());
-    CString::new(bytes).expect("numeric prefix and CStr contain no NUL")
+    bytes.extend_from_slice(command.split(|byte| *byte == 0).next().unwrap());
+    bytes
 }
 
 fn accepts_assignment(kind: AssignmentKind, filter: AssignmentKind) -> bool {
@@ -103,17 +102,7 @@ pub unsafe fn run_assignments(window: *mut Window) {
                     };
                     let expanded = window_command((*window).id, command);
                     {
-                        // Snapshot native bytes before the logger can dispatch a callback.
-                        let log_pointer_1 = command.as_ptr();
-                        let log_value_0 = i3_common::logging::string_bytes(
-                            if log_pointer_1.is_null() {
-                                None
-                            } else {
-                                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                            },
-                            None,
-                        )
-                        .to_vec();
+                        let log_value_0 = command.clone();
                         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                             ::log::debug!("../src/assignments.c:run_assignments:56 - matching assignment, execute command {}\n", log_value_0_text);
                         } else {
@@ -180,7 +169,7 @@ mod tests {
                 };
                 assert!(len >= 0 && (len as usize) < native.len());
                 assert_eq!(
-                    window_command(id, command).to_bytes(),
+                    window_command(id, command.to_bytes()),
                     &native[..len as usize]
                 );
             }
@@ -210,11 +199,11 @@ mod tests {
     #[test]
     fn dedup_uses_assignment_identity_and_ignores_unused_capacity() {
         let first = Assignment::new(
-            AssignmentDest::Command(c"nop".to_owned()),
+            AssignmentDest::Command(b"nop".to_vec()),
             crate::types::Match::empty(),
         );
         let second = Assignment::new(
-            AssignmentDest::Command(c"nop".to_owned()),
+            AssignmentDest::Command(b"nop".to_vec()),
             crate::types::Match::empty(),
         );
         let first = std::ptr::from_ref(&first).cast_mut();
