@@ -802,6 +802,47 @@ fn tilde_resolution_preserves_absolute_paths_and_limits_globs_to_first_component
 
 #[test]
 fn owned_listener_replaces_stale_sockets_but_rejects_active_listeners() {
+    const CHILD: &str = "I333_STALE_LISTENER_CHILD";
+    if std::env::var_os(CHILD).is_none() {
+        // Parallel tests spawn processes. A fork can briefly inherit the live
+        // listener until exec, making its parent's dropped socket still active.
+        // Create this fixture only after exec, with no sibling tests in its process.
+        let mut child = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "tests::owned_listener_replaces_stale_sockets_but_rejects_active_listeners",
+                "--color=never",
+            ])
+            .env(CHILD, "1")
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .unwrap();
+        let start = std::time::Instant::now();
+        while child.try_wait().unwrap().is_none() {
+            if start.elapsed() > Duration::from_secs(5) {
+                let _ = child.kill();
+                let output = child.wait_with_output().unwrap();
+                panic!(
+                    "isolated listener regression timed out: {}",
+                    String::from_utf8_lossy(&output.stderr)
+                );
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
+        let output = child.wait_with_output().unwrap();
+        assert!(
+            output.status.success(),
+            "{}\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(
+            String::from_utf8_lossy(&output.stdout).contains("1 passed; 0 failed"),
+            "the exact-filter child must execute the listener regression"
+        );
+        return;
+    }
     use crate::create_socket::bind;
     let temp = TempDir::new();
     let path = temp.0.join("nested/ipc");
