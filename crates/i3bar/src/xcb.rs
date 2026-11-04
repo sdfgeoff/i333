@@ -3235,7 +3235,6 @@ use crate::outputs::free_outputs;
 use i3_common::dpi::logical_px;
 use i3_common::safewrappers::scalloc;
 use i3_common::safewrappers::smalloc;
-use i3_common::safewrappers::sstrndup;
 
 // Canonical Cairo backend ABI; renderer logic remains local.
 

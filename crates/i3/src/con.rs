@@ -2697,7 +2697,6 @@ use crate::util::layout_from_name;
 use crate::util::max;
 use i3_common::font::font_is_pango;
 use i3_common::safewrappers::scalloc;
-use i3_common::safewrappers::sstrdup;
 use i3_common::safewrappers::strcasecmp_nullable;
 
 // Canonical Cairo backend ABI; renderer logic remains local.

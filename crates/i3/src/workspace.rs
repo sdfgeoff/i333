@@ -1399,7 +1399,6 @@ use crate::tree::tree_render;
 use crate::util::name_is_digits;
 use crate::util::ws_name_to_number;
 use i3_common::safewrappers::scalloc;
-use i3_common::safewrappers::sstrdup;
 
 // Canonical Cairo backend ABI; renderer logic remains local.
 

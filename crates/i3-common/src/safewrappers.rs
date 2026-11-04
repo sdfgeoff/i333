@@ -7,7 +7,7 @@
  */
 // Native allocation compatibility and bounded descriptor writes.
 #![deny(unsafe_op_in_unsafe_fn)]
-use core::ffi::{c_char, c_void};
+use core::ffi::c_void;
 use std::{io, os::fd::RawFd};
 
 /// Allocate malloc-compatible, uninitialized storage, or terminate on failure.
@@ -42,32 +42,6 @@ pub unsafe fn srealloc(ptr: *mut c_void, size: usize) -> *mut c_void {
     let result = unsafe { realloc(ptr, size) };
     if result.is_null() && size > 0 {
         unsafe { err(libc::EXIT_FAILURE, c"realloc(%zd)".as_ptr(), size) };
-    }
-    result
-}
-
-/// Duplicate a native string into malloc-owned storage, or terminate on failure.
-///
-/// # Safety
-/// str must point to a readable NUL-terminated string. The caller frees the
-/// independent returned allocation with libc::free.
-pub unsafe fn sstrdup(str: *const c_char) -> *mut c_char {
-    let result = unsafe { strdup(str) };
-    if result.is_null() {
-        unsafe { err(libc::EXIT_FAILURE, c"strdup()".as_ptr()) };
-    }
-    result
-}
-
-/// Duplicate at most size bytes into a terminated malloc-owned string.
-///
-/// # Safety
-/// str must be readable through its first NUL or size bytes, whichever comes
-/// first. The caller releases the independent returned allocation with free().
-pub unsafe fn sstrndup(str: *const c_char, size: usize) -> *mut c_char {
-    let result = unsafe { strndup(str, size) };
-    if result.is_null() {
-        unsafe { err(libc::EXIT_FAILURE, c"strndup()".as_ptr()) };
     }
     result
 }
@@ -139,10 +113,7 @@ pub fn strcasecmp_nullable(a: Option<&[u8]>, b: Option<&[u8]>) -> i32 {
     }
 }
 
-// Internal helpers use Rust linkage rather than foreign symbol lookup.
-use libc::strndup;
-
-pub use libc::{__errno_location, calloc, malloc, realloc, strcasecmp, strdup, write};
+pub use libc::{__errno_location, calloc, malloc, realloc, strcasecmp, write};
 
 use crate::native_stdio::err;
 

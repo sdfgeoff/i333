@@ -845,7 +845,6 @@ use crate::util::position_from_direction;
 use crate::util::slurp;
 use crate::x::x_window_kill;
 use i3_common::path_exists::exists;
-use i3_common::safewrappers::sstrdup;
 use std::os::unix::ffi::OsStrExt;
 
 // Canonical Cairo backend ABI; renderer logic remains local.

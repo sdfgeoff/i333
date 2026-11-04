@@ -892,7 +892,6 @@ use crate::tree::tree_render;
 use crate::workspace::extract_workspace_names_from_bindings;
 use i3_common::dpi::logical_px;
 use i3_common::safewrappers::scalloc;
-use i3_common::safewrappers::sstrdup;
 
 // Canonical Cairo backend ABI; renderer logic remains local.
 

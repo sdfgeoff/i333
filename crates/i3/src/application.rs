@@ -2187,7 +2187,6 @@ use i3_common::dpi::init_dpi;
 use i3_common::dpi::logical_px;
 use i3_common::is_debug_build::is_debug_build;
 use i3_common::safewrappers::scalloc;
-use i3_common::safewrappers::sstrdup;
 
 // Canonical Cairo backend ABI; renderer logic remains local.
 

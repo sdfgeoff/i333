@@ -1481,7 +1481,6 @@ use crate::util::parse_long;
 use crate::util::start_nagbar;
 use i3_common::safewrappers::scalloc;
 use i3_common::safewrappers::smalloc;
-use i3_common::safewrappers::sstrdup;
 
 // Canonical Pango backend ABI; font policy remains local.
 

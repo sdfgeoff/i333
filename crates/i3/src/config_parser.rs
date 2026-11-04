@@ -6686,7 +6686,6 @@ pub const __LONG_MAX__: i64 = 9223372036854775807_i64;
 use crate::util::start_nagbar;
 use i3_common::safewrappers::scalloc;
 use i3_common::safewrappers::smalloc;
-use i3_common::safewrappers::sstrdup;
 
 // Canonical Cairo backend ABI; renderer logic remains local.
 

@@ -1922,8 +1922,6 @@ use crate::sync::sync_respond;
 use crate::tree::tree_render;
 use i3_common::safewrappers::scalloc;
 use i3_common::safewrappers::srealloc;
-use i3_common::safewrappers::sstrdup;
-use i3_common::safewrappers::sstrndup;
 use i3_common::safewrappers::write_available;
 
 // Canonical Cairo backend ABI; renderer logic remains local.
