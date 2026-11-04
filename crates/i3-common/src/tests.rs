@@ -230,14 +230,14 @@ fn path_exists_uses_stat_semantics_for_files_directories_and_symlinks() {
 
 #[test]
 fn placeholders_expand_repeated_names_and_preserve_unknown_tokens() {
-    let result = crate::format_placeholders::expand_cstr(
-        c"%title:%x:%title:%unknown",
-        &[(c"%title", c"hello"), (c"%x", c"")],
+    let result = crate::format_placeholders::expand_bytes(
+        b"%title:%x:%title:%unknown",
+        &[(b"%title", b"hello"), (b"%x", b"")],
     );
-    assert_eq!(result.to_bytes(), b"hello::hello:%unknown");
+    assert_eq!(result, b"hello::hello:%unknown");
     assert_eq!(
-        crate::format_placeholders::expand_cstr(c"%unknown", &[]).as_c_str(),
-        c"%unknown"
+        crate::format_placeholders::expand_bytes(b"%unknown", &[]),
+        b"%unknown"
     );
 }
 
@@ -398,7 +398,7 @@ fn safe_nonblocking_api_is_reversible_and_preserves_descriptor_flags() {
 
 #[test]
 fn safe_placeholder_apis_preserve_unicode_binary_bytes_and_matching_order() {
-    use crate::format_placeholders::{expand, expand_cstr};
+    use crate::format_placeholders::{expand, expand_bytes};
     assert_eq!(
         expand("%title/%title/%unknown", &[("%title", "λ"), ("%ti", "bad")]),
         "λ/λ/%unknown"
@@ -411,10 +411,8 @@ fn safe_placeholder_apis_preserve_unicode_binary_bytes_and_matching_order() {
         expand("a%title", &[("", "bad"), ("a", "bad"), ("%title", "")]),
         "a"
     );
-    let binary = CString::new(b"\xffvalue".to_vec()).unwrap();
-    let format = CString::new(b"before:%x:\xfe".to_vec()).unwrap();
-    let expanded = expand_cstr(&format, &[(c"%x", binary.as_c_str())]);
-    assert_eq!(expanded.to_bytes(), b"before:\xffvalue:\xfe");
+    let expanded = expand_bytes(b"before:%x:\xfe", &[(b"%x", b"\xffvalue")]);
+    assert_eq!(expanded, b"before:\xffvalue:\xfe");
 }
 
 #[test]

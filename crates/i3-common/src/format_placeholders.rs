@@ -2,8 +2,6 @@
 
 // Copyright © 2009 Michael Stapelberg and contributors (see LICENSE).
 
-use std::ffi::{CStr, CString};
-
 /// Expand '%' placeholders in order, leaving unknown tokens unchanged.
 /// The first matching nonempty '%' name wins when names share a prefix.
 pub fn expand(format: &str, placeholders: &[(&str, &str)]) -> String {
@@ -16,16 +14,7 @@ pub fn expand(format: &str, placeholders: &[(&str, &str)]) -> String {
         .expect("UTF-8 placeholder expansion")
 }
 
-/// Byte-preserving expansion for C strings, without a raw pointer interface.
-pub fn expand_cstr(format: &CStr, placeholders: &[(&CStr, &CStr)]) -> CString {
-    let entries: Vec<_> = placeholders
-        .iter()
-        .map(|(name, value)| (name.to_bytes(), value.to_bytes()))
-        .collect();
-    CString::new(expand_bytes(format.to_bytes(), &entries))
-        .expect("C string inputs contain no embedded NUL")
-}
-
+/// Expand ordered placeholders without changing binary payload bytes.
 pub fn expand_bytes(format: &[u8], placeholders: &[(&[u8], &[u8])]) -> Vec<u8> {
     let mut output = Vec::with_capacity(format.len());
     let mut remaining = format;
