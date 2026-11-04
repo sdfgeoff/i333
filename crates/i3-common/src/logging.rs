@@ -75,6 +75,13 @@ pub fn emit(level: Level, message: &[u8]) {
     }
 }
 
+/// Join explicit byte fragments for exceptional non-UTF-8 diagnostics. Normal
+/// text records use standard log macros; this path performs no formatting.
+/// All fragments are copied before dispatching a potentially reentrant sink.
+pub fn emit_parts(level: Level, parts: &[&[u8]]) {
+    emit(level, &parts.concat());
+}
+
 /// Explicit fallback for small tools without a custom logging backend.
 pub fn stderr_sink(level: Level, message: &[u8]) {
     if level == Level::Error {
@@ -96,7 +103,7 @@ mod tests {
         set_sink(record);
         ::log::error!("logging-test:{} {} %\n", "text", 42);
         ::log::info!("logging-test:{}", "abc");
-        emit(Level::Debug, b"logging-test:\0\xff");
+        emit_parts(Level::Debug, &[b"logging-test:", b"\0\xff"]);
         ::log::error!("logging-test:rust {} {:04x}\n", 42, 15);
         ::log::warn!("logging-test:warning");
         ::log::info!("logging-test:info");
