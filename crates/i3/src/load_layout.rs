@@ -95,12 +95,34 @@ impl LayoutState {
         }
     }
     unsafe fn json_start_map(&mut self) -> ::core::ffi::c_int {
-        verboselog(
-            c"start of map, last_key = %s\n".as_ptr().cast_mut(),
-            self.last_key.as_ptr(),
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_value_0 = (|pointer: *const libc::c_char| {
+                i3_common::logging::string_bytes(
+                    if pointer.is_null() {
+                        None
+                    } else {
+                        Some(std::ffi::CStr::from_ptr(pointer))
+                    },
+                    None,
+                )
+                .to_vec()
+            })(self.last_key.as_ptr());
+            if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                ::log::info!("start of map, last_key = {}\n", log_value_0_text);
+            } else {
+                i3_common::logging::emit_parts(
+                    i3_common::logging::Level::Verbose,
+                    &[
+                        "start of map, last_key = ".as_bytes(),
+                        &log_value_0,
+                        "\n".as_bytes(),
+                    ],
+                );
+            }
+        };
         if self.parsing_swallows {
-            verboselog(c"creating new swallow\n".as_ptr().cast_mut());
+            ::log::info!("creating new swallow\n");
             self.current_swallow = Box::into_raw(Box::new(Match::empty()));
 
             (*self.current_swallow).dock = DockMatch::DontCheck;
@@ -118,12 +140,7 @@ impl LayoutState {
             && !self.parsing_gaps
         {
             if key_is(&self.last_key, c"floating_nodes") {
-                debuglog(
-                    c"%s:%s:%d - New floating_node\n".as_ptr().cast_mut(),
-                    c"../src/load_layout.c".as_ptr(),
-                    c"json_start_map".as_ptr(),
-                    72 as ::core::ffi::c_int,
-                );
+                ::log::debug!("../src/load_layout.c:json_start_map:72 - New floating_node\n");
                 let ws: *mut Con = con_get_workspace(self.json_node);
                 self.json_node = con_new_skeleton(
                     ::core::ptr::null_mut::<Con>(),
@@ -131,12 +148,9 @@ impl LayoutState {
                 );
                 (*self.json_node).name = None;
                 set_parent_ptr(self.json_node, ws as *mut Con).expect("live acyclic ancestry");
-                debuglog(
-                    c"%s:%s:%d - Parent is workspace = %p\n".as_ptr().cast_mut(),
-                    c"../src/load_layout.c".as_ptr(),
-                    c"json_start_map".as_ptr(),
-                    77 as ::core::ffi::c_int,
-                    ws,
+                ::log::debug!(
+                    "../src/load_layout.c:json_start_map:77 - Parent is workspace = {}\n",
+                    i3_common::logging::pointer(ws)
                 );
             } else {
                 let parent: *mut Con = self.json_node;
@@ -148,18 +162,15 @@ impl LayoutState {
                 set_parent_ptr(self.json_node, parent as *mut Con).expect("live acyclic ancestry");
             }
             self.incomplete += 1;
-            debuglog(
-                c"%s:%s:%d - incomplete = %d\n".as_ptr().cast_mut(),
-                c"../src/load_layout.c".as_ptr(),
-                c"json_start_map".as_ptr(),
-                86 as ::core::ffi::c_int,
-                self.incomplete,
+            ::log::debug!(
+                "../src/load_layout.c:json_start_map:86 - incomplete = {}\n",
+                (self.incomplete) as i32
             );
         }
         1 as ::core::ffi::c_int
     }
     unsafe fn json_end_map(&mut self) -> ::core::ffi::c_int {
-        verboselog(c"end of map\n".as_ptr().cast_mut());
+        ::log::info!("end of map\n");
         if !self.parsing_swallows
             && !self.parsing_rect
             && !self.parsing_actual_deco_rect
@@ -169,27 +180,15 @@ impl LayoutState {
             && !self.parsing_gaps
         {
             if (*self.json_node).layout == Layout::Default {
-                debuglog(
-                    c"%s:%s:%d - Setting layout = L_SPLITH\n"
-                        .as_ptr()
-                        .cast_mut(),
-                    c"../src/load_layout.c".as_ptr(),
-                    c"json_end_map".as_ptr(),
-                    103 as ::core::ffi::c_int,
+                ::log::debug!(
+                    "../src/load_layout.c:json_end_map:103 - Setting layout = L_SPLITH\n"
                 );
                 (*self.json_node).layout = Layout::SplitH;
             }
             if con_is_split(self.json_node) as ::core::ffi::c_int > 0 as ::core::ffi::c_int
                 && !(*self.json_node).swallow_head.tqh_first.is_null()
             {
-                debuglog(
-                c"%s:%s:%d - sanity check: removing swallows specification from split container\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/load_layout.c".as_ptr(),
-                c"json_end_map".as_ptr(),
-                110 as ::core::ffi::c_int,
-            );
+                ::log::debug!("../src/load_layout.c:json_end_map:110 - sanity check: removing swallows specification from split container\n");
                 while !(*self.json_node).swallow_head.tqh_first.is_null() {
                     let match_0: *mut Match =
                         (*self.json_node).swallow_head.tqh_first as *mut Match;
@@ -204,15 +203,17 @@ impl LayoutState {
                 }
             }
             if ((*self.json_node).type_0) == ContainerType::Workspace {
-                debuglog(
-                    c"%s:%s:%d - Attaching workspace. name = %s\n"
-                        .as_ptr()
-                        .cast_mut(),
-                    c"../src/load_layout.c".as_ptr(),
-                    c"json_end_map".as_ptr(),
-                    121 as ::core::ffi::c_int,
-                    (*self.json_node).name_ptr(),
-                );
+                {
+                    // Snapshot native bytes before the logger can dispatch a callback.
+                    let log_owner_1 = (*self.json_node).name.clone();
+                    let log_value_0 =
+                        i3_common::logging::string_bytes(log_owner_1.as_deref(), None);
+                    if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                        ::log::debug!("../src/load_layout.c:json_end_map:121 - Attaching workspace. name = {}\n", log_value_0_text);
+                    } else {
+                        i3_common::logging::emit_parts(i3_common::logging::Level::Debug, &[ "../src/load_layout.c:json_end_map:121 - Attaching workspace. name = ".as_bytes(), &log_value_0, "\n".as_bytes() ]);
+                    }
+                };
                 if (*self.json_node).name.is_none()
                     || strcmp((*self.json_node).name_ptr(), c"".as_ptr()) == 0 as ::core::ffi::c_int
                 {
@@ -235,16 +236,18 @@ impl LayoutState {
                         .unwrap_or(-1);
             }
             if ((*self.json_node).type_0) == ContainerType::Floating {
-                debuglog(
-                    c"%s:%s:%d - fixing parent which currently is %p / %s\n"
-                        .as_ptr()
-                        .cast_mut(),
-                    c"../src/load_layout.c".as_ptr(),
-                    c"json_end_map".as_ptr(),
-                    148 as ::core::ffi::c_int,
-                    parent_ptr(self.json_node),
-                    (*parent_ptr(self.json_node)).name_ptr(),
-                );
+                {
+                    // Snapshot native bytes before the logger can dispatch a callback.
+                    let log_value_0 = i3_common::logging::pointer(parent_ptr(self.json_node));
+                    let log_owner_2 = (*parent_ptr(self.json_node)).name.clone();
+                    let log_value_1 =
+                        i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
+                    if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+                        ::log::debug!("../src/load_layout.c:json_end_map:148 - fixing parent which currently is {} / {}\n", log_value_0, log_value_1_text);
+                    } else {
+                        i3_common::logging::emit_parts(i3_common::logging::Level::Debug, &[ format!("../src/load_layout.c:json_end_map:148 - fixing parent which currently is {} / ", log_value_0).as_bytes(), &log_value_1, "\n".as_bytes() ]);
+                    }
+                };
                 set_parent_ptr(
                     self.json_node,
                     con_get_workspace(parent_ptr(self.json_node)) as *mut Con,
@@ -259,24 +262,14 @@ impl LayoutState {
                         height: 0 as u32,
                     },
                 ) {
-                    debuglog(
-                        c"%s:%s:%d - Geometry not set, combining children\n"
-                            .as_ptr()
-                            .cast_mut(),
-                        c"../src/load_layout.c".as_ptr(),
-                        c"json_end_map".as_ptr(),
-                        155 as ::core::ffi::c_int,
-                    );
+                    ::log::debug!("../src/load_layout.c:json_end_map:155 - Geometry not set, combining children\n");
                     let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
                     child = nodes::first_ptr(self.json_node);
                     while !child.is_null() {
-                        debuglog(
-                            c"%s:%s:%d - child geometry: %d x %d\n".as_ptr().cast_mut(),
-                            c"../src/load_layout.c".as_ptr(),
-                            c"json_end_map".as_ptr(),
-                            158 as ::core::ffi::c_int,
-                            (*child).geometry.width,
-                            (*child).geometry.height,
+                        ::log::debug!(
+                            "../src/load_layout.c:json_end_map:158 - child geometry: {} x {}\n",
+                            ((*child).geometry.width) as i32,
+                            ((*child).geometry.height) as i32
                         );
                         (*self.json_node).rect.width = (*self.json_node)
                             .rect
@@ -294,41 +287,30 @@ impl LayoutState {
             for (mark, con) in std::mem::take(&mut self.pending_marks) {
                 con_mark(con, mark.as_ptr(), MarkMode::Add);
             }
-            verboselog(c"attaching\n".as_ptr().cast_mut());
+            ::log::info!("attaching\n");
             con_attach(self.json_node, parent_ptr(self.json_node), true);
-            verboselog(c"Creating window\n".as_ptr().cast_mut());
+            ::log::info!("Creating window\n");
             x_con_init(self.json_node);
             let old_floating_mode: FloatingState = (*self.json_node).floating;
             if (old_floating_mode).is_floating()
                 && ((*parent_ptr(self.json_node)).type_0) != ContainerType::Floating
             {
-                verboselog(
-                    c"Fixing floating node without CT_FLOATING_CON parent\n"
-                        .as_ptr()
-                        .cast_mut(),
-                );
+                ::log::info!("Fixing floating node without CT_FLOATING_CON parent\n");
                 (*self.json_node).floating = FloatingState::AutoOff;
                 floating_enable(self.json_node, false);
                 (*self.json_node).floating = old_floating_mode;
             }
             self.json_node = parent_ptr(self.json_node);
             self.incomplete -= 1;
-            debuglog(
-                c"%s:%s:%d - incomplete = %d\n".as_ptr().cast_mut(),
-                c"../src/load_layout.c".as_ptr(),
-                c"json_end_map".as_ptr(),
-                198 as ::core::ffi::c_int,
-                self.incomplete,
+            ::log::debug!(
+                "../src/load_layout.c:json_end_map:198 - incomplete = {}\n",
+                (self.incomplete) as i32
             );
         }
         if self.parsing_swallows as ::core::ffi::c_int != 0
             && self.swallow_is_empty as ::core::ffi::c_int != 0
         {
-            errorlog(
-                c"ERROR: Layout file is invalid: found an empty swallow definition.\n"
-                    .as_ptr()
-                    .cast_mut(),
-            );
+            ::log::error!("ERROR: Layout file is invalid: found an empty swallow definition.\n");
             return 0 as ::core::ffi::c_int;
         }
         self.parsing_gaps = false;
@@ -340,7 +322,7 @@ impl LayoutState {
         1 as ::core::ffi::c_int
     }
     unsafe fn json_end_array(&mut self) -> ::core::ffi::c_int {
-        verboselog(c"end of array\n".as_ptr().cast_mut());
+        ::log::info!("end of array\n");
         if !self.parsing_swallows && !self.parsing_focus && !self.parsing_marks {
             con_fix_percent(self.json_node);
         }
@@ -356,7 +338,7 @@ impl LayoutState {
                 for id in focus::children(owner) {
                     let Some(con) = resolve(id) else { continue };
                     if (*con).old_id == old_id {
-                        verboselog(c"got it! %p\n".as_ptr().cast_mut(), con);
+                        ::log::info!("got it! {}\n", i3_common::logging::pointer(con));
                         focus::move_to_front(owner, id).expect("existing parsed focus member");
                         break;
                     }
@@ -371,12 +353,28 @@ impl LayoutState {
         val: *const ::core::ffi::c_uchar,
         len: usize,
     ) -> ::core::ffi::c_int {
-        verboselog(
-            c"key: %.*s\n".as_ptr().cast_mut(),
-            len as ::core::ffi::c_int,
-            val,
-        );
-        self.last_key = property_string(std::slice::from_raw_parts(val, len));
+        let logged_key = property_string(if len == 0 {
+            &[]
+        } else {
+            std::slice::from_raw_parts(val, len)
+        });
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_precision_0 = (len as ::core::ffi::c_int) as i32;
+            let log_value_0 = i3_common::logging::string_bytes(
+                Some(logged_key.as_c_str()),
+                usize::try_from(log_precision_0).ok(),
+            );
+            if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                ::log::info!("key: {}\n", log_value_0_text);
+            } else {
+                i3_common::logging::emit_parts(
+                    i3_common::logging::Level::Verbose,
+                    &["key: ".as_bytes(), &log_value_0, "\n".as_bytes()],
+                );
+            }
+        };
+        self.last_key = logged_key;
         if strcasecmp(self.last_key.as_ptr(), c"swallows".as_ptr()) == 0 as ::core::ffi::c_int {
             self.parsing_swallows = true;
         }
@@ -414,12 +412,51 @@ impl LayoutState {
         val: *const ::core::ffi::c_uchar,
         len: usize,
     ) -> ::core::ffi::c_int {
-        verboselog(
-            c"string: %.*s for key %s\n".as_ptr().cast_mut(),
-            len as ::core::ffi::c_int,
-            val,
-            self.last_key.as_ptr(),
-        );
+        let logged_string = property_string(if len == 0 {
+            &[]
+        } else {
+            std::slice::from_raw_parts(val, len)
+        });
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_precision_0 = (len as ::core::ffi::c_int) as i32;
+            let log_value_0 = i3_common::logging::string_bytes(
+                Some(logged_string.as_c_str()),
+                usize::try_from(log_precision_0).ok(),
+            );
+            let log_value_1 = (|pointer: *const libc::c_char| {
+                i3_common::logging::string_bytes(
+                    if pointer.is_null() {
+                        None
+                    } else {
+                        Some(std::ffi::CStr::from_ptr(pointer))
+                    },
+                    None,
+                )
+                .to_vec()
+            })(self.last_key.as_ptr());
+            if let (Ok(log_value_0_text), Ok(log_value_1_text)) = (
+                std::str::from_utf8(&log_value_0),
+                std::str::from_utf8(&log_value_1),
+            ) {
+                ::log::info!(
+                    "string: {} for key {}\n",
+                    log_value_0_text,
+                    log_value_1_text
+                );
+            } else {
+                i3_common::logging::emit_parts(
+                    i3_common::logging::Level::Verbose,
+                    &[
+                        "string: ".as_bytes(),
+                        &log_value_0,
+                        " for key ".as_bytes(),
+                        &log_value_1,
+                        "\n".as_bytes(),
+                    ],
+                );
+            }
+        };
         if self.parsing_swallows {
             let owned_sval = property_string(std::slice::from_raw_parts(val, len));
             let sval = owned_sval.as_ptr();
@@ -457,10 +494,32 @@ impl LayoutState {
                 (*self.current_swallow).machine = new;
                 self.swallow_is_empty = false;
             } else {
-                errorlog(
-                    c"ERROR: swallow key %s unknown\n".as_ptr().cast_mut(),
-                    self.last_key.as_ptr(),
-                );
+                {
+                    // Snapshot native bytes before the logger can dispatch a callback.
+                    let log_value_0 = (|pointer: *const libc::c_char| {
+                        i3_common::logging::string_bytes(
+                            if pointer.is_null() {
+                                None
+                            } else {
+                                Some(std::ffi::CStr::from_ptr(pointer))
+                            },
+                            None,
+                        )
+                        .to_vec()
+                    })(self.last_key.as_ptr());
+                    if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                        ::log::error!("ERROR: swallow key {} unknown\n", log_value_0_text);
+                    } else {
+                        i3_common::logging::emit_parts(
+                            i3_common::logging::Level::Error,
+                            &[
+                                "ERROR: swallow key ".as_bytes(),
+                                &log_value_0,
+                                " unknown\n".as_bytes(),
+                            ],
+                        );
+                    }
+                };
             }
         } else if self.parsing_marks {
             self.pending_marks.push((
@@ -479,12 +538,32 @@ impl LayoutState {
         {
             let group = property_string(std::slice::from_raw_parts(val, len));
             (*self.json_node).sticky_group = Some(group.clone());
-            verboselog(
-                c"sticky_group of this container is %s\n"
-                    .as_ptr()
-                    .cast_mut(),
-                group.as_ptr(),
-            );
+            {
+                // Snapshot native bytes before the logger can dispatch a callback.
+                let log_value_0 = (|pointer: *const libc::c_char| {
+                    i3_common::logging::string_bytes(
+                        if pointer.is_null() {
+                            None
+                        } else {
+                            Some(std::ffi::CStr::from_ptr(pointer))
+                        },
+                        None,
+                    )
+                    .to_vec()
+                })(group.as_ptr());
+                if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                    ::log::info!("sticky_group of this container is {}\n", log_value_0_text);
+                } else {
+                    i3_common::logging::emit_parts(
+                        i3_common::logging::Level::Verbose,
+                        &[
+                            "sticky_group of this container is ".as_bytes(),
+                            &log_value_0,
+                            "\n".as_bytes(),
+                        ],
+                    );
+                }
+            };
         } else if strcasecmp(self.last_key.as_ptr(), c"orientation".as_ptr())
             == 0 as ::core::ffi::c_int
         {
@@ -497,7 +576,32 @@ impl LayoutState {
             } else if strcasecmp(buf, c"vertical".as_ptr()) == 0 as ::core::ffi::c_int {
                 (*self.json_node).last_split_layout = Layout::SplitV;
             } else {
-                verboselog(c"Unhandled orientation: %s\n".as_ptr().cast_mut(), buf);
+                {
+                    // Snapshot native bytes before the logger can dispatch a callback.
+                    let log_value_0 = (|pointer: *const libc::c_char| {
+                        i3_common::logging::string_bytes(
+                            if pointer.is_null() {
+                                None
+                            } else {
+                                Some(std::ffi::CStr::from_ptr(pointer))
+                            },
+                            None,
+                        )
+                        .to_vec()
+                    })(buf);
+                    if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                        ::log::info!("Unhandled orientation: {}\n", log_value_0_text);
+                    } else {
+                        i3_common::logging::emit_parts(
+                            i3_common::logging::Level::Verbose,
+                            &[
+                                "Unhandled orientation: ".as_bytes(),
+                                &log_value_0,
+                                "\n".as_bytes(),
+                            ],
+                        );
+                    }
+                };
             }
         } else if strcasecmp(self.last_key.as_ptr(), c"border".as_ptr()) == 0 as ::core::ffi::c_int
         {
@@ -517,7 +621,32 @@ impl LayoutState {
                 (*self.json_node).border_style = BorderStyle::Normal;
                 (*self.json_node).max_user_border_style = (*self.json_node).border_style;
             } else {
-                verboselog(c"Unhandled \"border\": %s\n".as_ptr().cast_mut(), buf_0);
+                {
+                    // Snapshot native bytes before the logger can dispatch a callback.
+                    let log_value_0 = (|pointer: *const libc::c_char| {
+                        i3_common::logging::string_bytes(
+                            if pointer.is_null() {
+                                None
+                            } else {
+                                Some(std::ffi::CStr::from_ptr(pointer))
+                            },
+                            None,
+                        )
+                        .to_vec()
+                    })(buf_0);
+                    if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                        ::log::info!("Unhandled \"border\": {}\n", log_value_0_text);
+                    } else {
+                        i3_common::logging::emit_parts(
+                            i3_common::logging::Level::Verbose,
+                            &[
+                                "Unhandled \"border\": ".as_bytes(),
+                                &log_value_0,
+                                "\n".as_bytes(),
+                            ],
+                        );
+                    }
+                };
             }
         } else if strcasecmp(self.last_key.as_ptr(), c"type".as_ptr()) == 0 as ::core::ffi::c_int {
             let owned_buf_1 = property_string(std::slice::from_raw_parts(val, len));
@@ -535,7 +664,32 @@ impl LayoutState {
             } else if strcasecmp(buf_1, c"dockarea".as_ptr()) == 0 as ::core::ffi::c_int {
                 (*self.json_node).type_0 = ContainerType::DockArea;
             } else {
-                verboselog(c"Unhandled \"type\": %s\n".as_ptr().cast_mut(), buf_1);
+                {
+                    // Snapshot native bytes before the logger can dispatch a callback.
+                    let log_value_0 = (|pointer: *const libc::c_char| {
+                        i3_common::logging::string_bytes(
+                            if pointer.is_null() {
+                                None
+                            } else {
+                                Some(std::ffi::CStr::from_ptr(pointer))
+                            },
+                            None,
+                        )
+                        .to_vec()
+                    })(buf_1);
+                    if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                        ::log::info!("Unhandled \"type\": {}\n", log_value_0_text);
+                    } else {
+                        i3_common::logging::emit_parts(
+                            i3_common::logging::Level::Verbose,
+                            &[
+                                "Unhandled \"type\": ".as_bytes(),
+                                &log_value_0,
+                                "\n".as_bytes(),
+                            ],
+                        );
+                    }
+                };
             }
         } else if strcasecmp(self.last_key.as_ptr(), c"layout".as_ptr()) == 0 as ::core::ffi::c_int
         {
@@ -556,7 +710,32 @@ impl LayoutState {
             } else if strcasecmp(buf_2, c"splitv".as_ptr()) == 0 as ::core::ffi::c_int {
                 (*self.json_node).layout = Layout::SplitV;
             } else {
-                verboselog(c"Unhandled \"layout\": %s\n".as_ptr().cast_mut(), buf_2);
+                {
+                    // Snapshot native bytes before the logger can dispatch a callback.
+                    let log_value_0 = (|pointer: *const libc::c_char| {
+                        i3_common::logging::string_bytes(
+                            if pointer.is_null() {
+                                None
+                            } else {
+                                Some(std::ffi::CStr::from_ptr(pointer))
+                            },
+                            None,
+                        )
+                        .to_vec()
+                    })(buf_2);
+                    if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                        ::log::info!("Unhandled \"layout\": {}\n", log_value_0_text);
+                    } else {
+                        i3_common::logging::emit_parts(
+                            i3_common::logging::Level::Verbose,
+                            &[
+                                "Unhandled \"layout\": ".as_bytes(),
+                                &log_value_0,
+                                "\n".as_bytes(),
+                            ],
+                        );
+                    }
+                };
             }
         } else if strcasecmp(self.last_key.as_ptr(), c"workspace_layout".as_ptr())
             == 0 as ::core::ffi::c_int
@@ -570,10 +749,32 @@ impl LayoutState {
             } else if strcasecmp(buf_3, c"tabbed".as_ptr()) == 0 as ::core::ffi::c_int {
                 (*self.json_node).workspace_layout = Layout::Tabbed;
             } else {
-                verboselog(
-                    c"Unhandled \"workspace_layout\": %s\n".as_ptr().cast_mut(),
-                    buf_3,
-                );
+                {
+                    // Snapshot native bytes before the logger can dispatch a callback.
+                    let log_value_0 = (|pointer: *const libc::c_char| {
+                        i3_common::logging::string_bytes(
+                            if pointer.is_null() {
+                                None
+                            } else {
+                                Some(std::ffi::CStr::from_ptr(pointer))
+                            },
+                            None,
+                        )
+                        .to_vec()
+                    })(buf_3);
+                    if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                        ::log::info!("Unhandled \"workspace_layout\": {}\n", log_value_0_text);
+                    } else {
+                        i3_common::logging::emit_parts(
+                            i3_common::logging::Level::Verbose,
+                            &[
+                                "Unhandled \"workspace_layout\": ".as_bytes(),
+                                &log_value_0,
+                                "\n".as_bytes(),
+                            ],
+                        );
+                    }
+                };
             }
         } else if strcasecmp(self.last_key.as_ptr(), c"last_split_layout".as_ptr())
             == 0 as ::core::ffi::c_int
@@ -585,19 +786,36 @@ impl LayoutState {
             } else if strcasecmp(buf_4, c"splitv".as_ptr()) == 0 as ::core::ffi::c_int {
                 (*self.json_node).last_split_layout = Layout::SplitV;
             } else {
-                verboselog(
-                    c"Unhandled \"last_splitlayout\": %s\n".as_ptr().cast_mut(),
-                    buf_4,
-                );
+                {
+                    // Snapshot native bytes before the logger can dispatch a callback.
+                    let log_value_0 = (|pointer: *const libc::c_char| {
+                        i3_common::logging::string_bytes(
+                            if pointer.is_null() {
+                                None
+                            } else {
+                                Some(std::ffi::CStr::from_ptr(pointer))
+                            },
+                            None,
+                        )
+                        .to_vec()
+                    })(buf_4);
+                    if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                        ::log::info!("Unhandled \"last_splitlayout\": {}\n", log_value_0_text);
+                    } else {
+                        i3_common::logging::emit_parts(
+                            i3_common::logging::Level::Verbose,
+                            &[
+                                "Unhandled \"last_splitlayout\": ".as_bytes(),
+                                &log_value_0,
+                                "\n".as_bytes(),
+                            ],
+                        );
+                    }
+                };
             }
         } else if strcasecmp(self.last_key.as_ptr(), c"mark".as_ptr()) == 0 as ::core::ffi::c_int {
-            debuglog(
-                c"%s:%s:%d - Found deprecated key \"mark\".\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/load_layout.c".as_ptr(),
-                c"json_string".as_ptr(),
-                443 as ::core::ffi::c_int,
+            ::log::debug!(
+                "../src/load_layout.c:json_string:443 - Found deprecated key \"mark\".\n"
             );
             let owned_buf_5 = property_string(std::slice::from_raw_parts(val, len));
             let buf_5 = owned_buf_5.as_ptr();
@@ -638,11 +856,33 @@ impl LayoutState {
         1 as ::core::ffi::c_int
     }
     unsafe fn json_int(&mut self, val: ::core::ffi::c_longlong) -> ::core::ffi::c_int {
-        verboselog(
-            c"int %lld for key %s\n".as_ptr().cast_mut(),
-            val,
-            self.last_key.as_ptr(),
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_value_0 = (val) as libc::c_longlong;
+            let log_value_1 = (|pointer: *const libc::c_char| {
+                i3_common::logging::string_bytes(
+                    if pointer.is_null() {
+                        None
+                    } else {
+                        Some(std::ffi::CStr::from_ptr(pointer))
+                    },
+                    None,
+                )
+                .to_vec()
+            })(self.last_key.as_ptr());
+            if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+                ::log::info!("int {} for key {}\n", log_value_0, log_value_1_text);
+            } else {
+                i3_common::logging::emit_parts(
+                    i3_common::logging::Level::Verbose,
+                    &[
+                        format!("int {} for key ", log_value_0).as_bytes(),
+                        &log_value_1,
+                        "\n".as_bytes(),
+                    ],
+                );
+            }
+        };
         if strcasecmp(self.last_key.as_ptr(), c"type".as_ptr()) == 0 as ::core::ffi::c_int {
             (*self.json_node).type_0 = ContainerType::from_raw(val as u32);
         }
@@ -690,24 +930,39 @@ impl LayoutState {
             if let Some(rect) = rect_value(*r, &self.last_key, val) {
                 r.write(rect);
             } else {
-                errorlog(
-                    c"ERROR: WARNING: unknown key %s in rect\n"
-                        .as_ptr()
-                        .cast_mut(),
-                    self.last_key.as_ptr(),
-                );
+                {
+                    // Snapshot native bytes before the logger can dispatch a callback.
+                    let log_value_0 = (|pointer: *const libc::c_char| {
+                        i3_common::logging::string_bytes(
+                            if pointer.is_null() {
+                                None
+                            } else {
+                                Some(std::ffi::CStr::from_ptr(pointer))
+                            },
+                            None,
+                        )
+                        .to_vec()
+                    })(self.last_key.as_ptr());
+                    if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                        ::log::error!("ERROR: WARNING: unknown key {} in rect\n", log_value_0_text);
+                    } else {
+                        i3_common::logging::emit_parts(
+                            i3_common::logging::Level::Error,
+                            &[
+                                "ERROR: WARNING: unknown key ".as_bytes(),
+                                &log_value_0,
+                                " in rect\n".as_bytes(),
+                            ],
+                        );
+                    }
+                };
             }
-            debuglog(
-                c"%s:%s:%d - rect now: (%d, %d, %d, %d)\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/load_layout.c".as_ptr(),
-                c"json_int".as_ptr(),
-                539 as ::core::ffi::c_int,
-                (*r).x,
-                (*r).y,
-                (*r).width,
-                (*r).height,
+            ::log::debug!(
+                "../src/load_layout.c:json_int:539 - rect now: ({}, {}, {}, {})\n",
+                ((*r).x) as i32,
+                ((*r).y) as i32,
+                ((*r).width) as i32,
+                ((*r).height) as i32
             );
         }
         if self.parsing_swallows {
@@ -749,11 +1004,33 @@ impl LayoutState {
         1 as ::core::ffi::c_int
     }
     unsafe fn json_bool(&mut self, val: ::core::ffi::c_int) -> ::core::ffi::c_int {
-        verboselog(
-            c"bool %d for key %s\n".as_ptr().cast_mut(),
-            val,
-            self.last_key.as_ptr(),
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_value_0 = (val) as i32;
+            let log_value_1 = (|pointer: *const libc::c_char| {
+                i3_common::logging::string_bytes(
+                    if pointer.is_null() {
+                        None
+                    } else {
+                        Some(std::ffi::CStr::from_ptr(pointer))
+                    },
+                    None,
+                )
+                .to_vec()
+            })(self.last_key.as_ptr());
+            if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+                ::log::info!("bool {} for key {}\n", log_value_0, log_value_1_text);
+            } else {
+                i3_common::logging::emit_parts(
+                    i3_common::logging::Level::Verbose,
+                    &[
+                        format!("bool {} for key ", log_value_0).as_bytes(),
+                        &log_value_1,
+                        "\n".as_bytes(),
+                    ],
+                );
+            }
+        };
         if strcasecmp(self.last_key.as_ptr(), c"focused".as_ptr()) == 0 as ::core::ffi::c_int
             && val != 0
         {
@@ -773,11 +1050,16 @@ impl LayoutState {
         1 as ::core::ffi::c_int
     }
     unsafe fn json_double(&mut self, val: ::core::ffi::c_double) -> ::core::ffi::c_int {
-        verboselog(
-            c"double %f for key %s\n".as_ptr().cast_mut(),
-            val,
-            self.last_key.as_ptr(),
-        );
+        let value = i3_common::logging::fixed_decimal(val, i3_common::logging::FixedPrecision::Six);
+        let key = self.last_key.clone();
+        if let (Ok(value), Ok(key)) = (std::str::from_utf8(&value), key.to_str()) {
+            ::log::info!("double {} for key {}\n", value, key);
+        } else {
+            i3_common::logging::emit_parts(
+                i3_common::logging::Level::Verbose,
+                &[b"double ", &value, b" for key ", key.to_bytes(), b"\n"],
+            );
+        }
         if strcasecmp(self.last_key.as_ptr(), c"percent".as_ptr()) == 0 as ::core::ffi::c_int {
             (*self.json_node).percent = val;
         }
@@ -914,10 +1196,32 @@ pub unsafe fn json_validate(buf: *const libc::c_char, len: usize) -> bool {
         Ok(()) => true,
         Err(error) => {
             let text = CString::new(format!("{error}\n")).unwrap();
-            errorlog(
-                c"ERROR: JSON parsing error: %s\n".as_ptr().cast_mut(),
-                text.as_ptr(),
-            );
+            {
+                // Snapshot native bytes before the logger can dispatch a callback.
+                let log_value_0 = (|pointer: *const libc::c_char| {
+                    i3_common::logging::string_bytes(
+                        if pointer.is_null() {
+                            None
+                        } else {
+                            Some(std::ffi::CStr::from_ptr(pointer))
+                        },
+                        None,
+                    )
+                    .to_vec()
+                })(text.as_ptr());
+                if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                    ::log::error!("ERROR: JSON parsing error: {}\n", log_value_0_text);
+                } else {
+                    i3_common::logging::emit_parts(
+                        i3_common::logging::Level::Error,
+                        &[
+                            "ERROR: JSON parsing error: ".as_bytes(),
+                            &log_value_0,
+                            "\n".as_bytes(),
+                        ],
+                    );
+                }
+            };
             false
         }
     }
@@ -930,10 +1234,32 @@ pub unsafe fn json_determine_content(buf: *const libc::c_char, len: usize) -> Js
     });
     if let Some(error) = error {
         let text = CString::new(format!("{error}\n")).unwrap();
-        errorlog(
-            c"ERROR: JSON parsing error: %s\n".as_ptr().cast_mut(),
-            text.as_ptr(),
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_value_0 = (|pointer: *const libc::c_char| {
+                i3_common::logging::string_bytes(
+                    if pointer.is_null() {
+                        None
+                    } else {
+                        Some(std::ffi::CStr::from_ptr(pointer))
+                    },
+                    None,
+                )
+                .to_vec()
+            })(text.as_ptr());
+            if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                ::log::error!("ERROR: JSON parsing error: {}\n", log_value_0_text);
+            } else {
+                i3_common::logging::emit_parts(
+                    i3_common::logging::Level::Error,
+                    &[
+                        "ERROR: JSON parsing error: ".as_bytes(),
+                        &log_value_0,
+                        "\n".as_bytes(),
+                    ],
+                );
+            }
+        };
     }
     content
 }
@@ -978,10 +1304,32 @@ pub unsafe fn tree_append_json(
     if let Err(error) = parser.parse(bytes) {
         let message = error.to_string();
         let message = CString::new(format!("{message}\n")).unwrap();
-        errorlog(
-            c"ERROR: JSON parsing error: %s\n".as_ptr().cast_mut(),
-            message.as_ptr(),
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_value_0 = (|pointer: *const libc::c_char| {
+                i3_common::logging::string_bytes(
+                    if pointer.is_null() {
+                        None
+                    } else {
+                        Some(std::ffi::CStr::from_ptr(pointer))
+                    },
+                    None,
+                )
+                .to_vec()
+            })(message.as_ptr());
+            if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                ::log::error!("ERROR: JSON parsing error: {}\n", log_value_0_text);
+            } else {
+                i3_common::logging::emit_parts(
+                    i3_common::logging::Level::Error,
+                    &[
+                        "ERROR: JSON parsing error: ".as_bytes(),
+                        &log_value_0,
+                        "\n".as_bytes(),
+                    ],
+                );
+            }
+        };
         if !errormsg.is_null() {
             *errormsg = sstrdup(message.as_ptr());
         }
@@ -1026,8 +1374,6 @@ use i3_common::safewrappers::sstrndup;
 
 pub use libc::{free, memcpy, setlocale, strcasecmp, strcmp, strncasecmp};
 
-use crate::log::{debuglog, errorlog, verboselog};
-
 // Shared model types retain field layout while using one Rust identity.
 pub use crate::types::Con;
 pub use crate::types::Match;
@@ -1053,6 +1399,99 @@ use crate::x::x_con_init;
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn callback_logging_matches_native_bounded_bytes_and_fixed_decimals() {
+        const CHILD: &str = "I333_LAYOUT_LOG_NATIVE_CHILD";
+        if std::env::var_os(CHILD).is_none() {
+            let child = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "load_layout::tests::callback_logging_matches_native_bounded_bytes_and_fixed_decimals", "--nocapture"])
+                .env(CHILD, "1")
+                .output().unwrap();
+            assert!(
+                child.status.success(),
+                "{}",
+                String::from_utf8_lossy(&child.stderr)
+            );
+            return;
+        }
+        // A child isolates the process-wide log sink from other unit tests. The
+        // callbacks below exercise their real formatting and parser state, with
+        // libc printf as the independent byte oracle (no X server required).
+        static MESSAGES: std::sync::Mutex<Vec<Vec<u8>>> = std::sync::Mutex::new(Vec::new());
+        fn capture(_: i3_common::logging::Level, message: &[u8]) {
+            MESSAGES.lock().unwrap().push(message.to_vec());
+        }
+        fn take() -> Vec<u8> {
+            let mut messages = MESSAGES.lock().unwrap();
+            assert_eq!(messages.len(), 1);
+            messages.pop().unwrap()
+        }
+        i3_common::logging::set_sink(capture);
+        let mut node = Con::empty();
+        let mut state = unsafe { LayoutState::new(&raw mut node) };
+        for bytes in [
+            b"".as_slice(),
+            b"unterminated",
+            b"nul\0ignored",
+            b"bad-\xff",
+        ] {
+            let pointer = if bytes.is_empty() {
+                std::ptr::null()
+            } else {
+                bytes.as_ptr()
+            };
+            let mut native = [0u8; 1024];
+            let count = unsafe {
+                libc::snprintf(
+                    native.as_mut_ptr().cast(),
+                    native.len(),
+                    c"key: %.*s\n".as_ptr(),
+                    bytes.len() as i32,
+                    pointer,
+                )
+            };
+            assert!(count >= 0 && (count as usize) < native.len());
+            assert_eq!(unsafe { state.json_key(pointer, bytes.len()) }, 1);
+            assert_eq!(take(), &native[..count as usize]);
+            state.last_key = c"unknown-\xff".to_owned();
+            let count = unsafe {
+                libc::snprintf(
+                    native.as_mut_ptr().cast(),
+                    native.len(),
+                    c"string: %.*s for key %s\n".as_ptr(),
+                    bytes.len() as i32,
+                    pointer,
+                    state.last_key.as_ptr(),
+                )
+            };
+            assert!(count >= 0 && (count as usize) < native.len());
+            assert_eq!(unsafe { state.json_string(pointer, bytes.len()) }, 1);
+            assert_eq!(take(), &native[..count as usize]);
+        }
+        for value in [
+            0.0,
+            -0.0,
+            1.2345675,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            f64::NAN,
+        ] {
+            let mut native = [0u8; 1024];
+            let count = unsafe {
+                libc::snprintf(
+                    native.as_mut_ptr().cast(),
+                    native.len(),
+                    c"double %f for key %s\n".as_ptr(),
+                    value,
+                    state.last_key.as_ptr(),
+                )
+            };
+            assert!(count >= 0 && (count as usize) < native.len());
+            assert_eq!(unsafe { state.json_double(value) }, 1);
+            assert_eq!(take(), &native[..count as usize]);
+        }
+    }
+
     #[test]
     fn fragment_validation_keeps_parse_only_success_and_errors() {
         for bytes in [

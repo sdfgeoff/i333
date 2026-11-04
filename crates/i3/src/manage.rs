@@ -142,23 +142,13 @@ fn request_failed(cookie: xcb::VoidCookieChecked) -> bool {
 }
 
 pub unsafe fn restore_geometry() {
-    debuglog(
-        c"%s:%s:%d - Restoring geometry\n".as_ptr().cast_mut(),
-        c"../src/manage.c".as_ptr(),
-        c"restore_geometry".as_ptr(),
-        79 as ::core::ffi::c_int,
-    );
+    ::log::debug!("../src/manage.c:restore_geometry:79 - Restoring geometry\n");
     for id in containers() {
         let Some(con) = resolve(id) else { continue };
         if !(*con).window.is_null() {
-            debuglog(
-                c"%s:%s:%d - Re-adding X11 border of %d px\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/manage.c".as_ptr(),
-                c"restore_geometry".as_ptr(),
-                84 as ::core::ffi::c_int,
-                (*con).border_width,
+            ::log::debug!(
+                "../src/manage.c:restore_geometry:84 - Re-adding X11 border of {} px\n",
+                ((*con).border_width) as i32
             );
             (*con).window_rect.width = (*con)
                 .window_rect
@@ -169,16 +159,11 @@ pub unsafe fn restore_geometry() {
                 .height
                 .wrapping_add((2 as ::core::ffi::c_int * (*con).border_width) as u32);
             xcb_set_window_rect(conn, (*(*con).window).id, (*con).window_rect as Rect);
-            debuglog(
-                c"%s:%s:%d - placing window %08x at %d %d\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/manage.c".as_ptr(),
-                c"restore_geometry".as_ptr(),
-                88 as ::core::ffi::c_int,
-                (*(*con).window).id,
-                (*con).rect.x,
-                (*con).rect.y,
+            ::log::debug!(
+                "../src/manage.c:restore_geometry:88 - placing window {:08x} at {} {}\n",
+                ((*(*con).window).id) as u32,
+                ((*con).rect.x) as i32,
+                ((*con).rect.y) as i32
             );
             connection().send_request(&x::ReparentWindow {
                 window: x::Window::new((*(*con).window).id),
@@ -214,24 +199,16 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
     let mut fs: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut set_focus: bool = false;
     let mut want_floating: bool = false;
-    debuglog(
-        c"%s:%s:%d - window 0x%08x\n".as_ptr().cast_mut(),
-        c"../src/manage.c".as_ptr(),
-        c"manage_window".as_ptr(),
-        108 as ::core::ffi::c_int,
-        window,
+    ::log::debug!(
+        "../src/manage.c:manage_window:108 - window 0x{:08x}\n",
+        (window) as u32
     );
     let geomc = connection().send_request(&x::GetGeometry {
         drawable: x::Drawable::Window(x::Window::new(window)),
     });
     let attr = attribute_reply(cookie);
     if attr.is_none() {
-        debuglog(
-            c"%s:%s:%d - Could not get attributes\n".as_ptr().cast_mut(),
-            c"../src/manage.c".as_ptr(),
-            c"manage_window".as_ptr(),
-            129 as ::core::ffi::c_int,
-        );
+        ::log::debug!("../src/manage.c:manage_window:129 - Could not get attributes\n");
         xcb_interop::transport::discard_reply(&connection(), geomc);
         return;
     }
@@ -241,25 +218,15 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
     } else if attr.override_redirect() {
         xcb_interop::transport::discard_reply(&connection(), geomc);
     } else if !con_by_window_id(window).is_null() {
-        debuglog(
-            c"%s:%s:%d - already managed (by con %p)\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/manage.c".as_ptr(),
-            c"manage_window".as_ptr(),
-            147 as ::core::ffi::c_int,
-            con_by_window_id(window),
+        ::log::debug!(
+            "../src/manage.c:manage_window:147 - already managed (by con {})\n",
+            i3_common::logging::pointer(con_by_window_id(window))
         );
         xcb_interop::transport::discard_reply(&connection(), geomc);
     } else {
         let geom = connection().wait_for_reply(geomc).ok();
         if geom.is_none() {
-            debuglog(
-                c"%s:%s:%d - could not get geometry\n".as_ptr().cast_mut(),
-                c"../src/manage.c".as_ptr(),
-                c"manage_window".as_ptr(),
-                154 as ::core::ffi::c_int,
-            );
+            ::log::debug!("../src/manage.c:manage_window:154 - could not get geometry\n");
         } else {
             let mut geom = crate::window::WindowGeometry::from(geom.as_ref().unwrap());
             values = [0; 1];
@@ -272,10 +239,8 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                 value_list: &[x::Cw::EventMask(x::EventMask::from_bits_retain(values[0]))],
             });
             if request_failed(event_mask_cookie) {
-                verboselog(
-                    c"Could not change event mask, the window probably already disappeared.\n"
-                        .as_ptr()
-                        .cast_mut(),
+                ::log::info!(
+                    "Could not change event mask, the window probably already disappeared.\n"
                 );
             } else {
                 let wm_type_cookie = property_cookie(
@@ -415,13 +380,36 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                 let state_reply = property_reply(state_cookie);
                 let startup_id_reply = property_reply(startup_id_cookie);
                 startup_ws = startup_workspace_for_window(cwindow, startup_id_reply.as_ref());
-                debuglog(
-                    c"%s:%s:%d - startup workspace = %s\n".as_ptr().cast_mut(),
-                    c"../src/manage.c".as_ptr(),
-                    c"manage_window".as_ptr(),
-                    227 as ::core::ffi::c_int,
-                    startup_ws,
-                );
+                {
+                    // Snapshot native bytes before the logger can dispatch a callback.
+                    let log_value_0 = (|pointer: *const libc::c_char| {
+                        i3_common::logging::string_bytes(
+                            if pointer.is_null() {
+                                None
+                            } else {
+                                Some(std::ffi::CStr::from_ptr(pointer))
+                            },
+                            None,
+                        )
+                        .to_vec()
+                    })(startup_ws);
+                    if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                        ::log::debug!(
+                            "../src/manage.c:manage_window:227 - startup workspace = {}\n",
+                            log_value_0_text
+                        );
+                    } else {
+                        i3_common::logging::emit_parts(
+                            i3_common::logging::Level::Debug,
+                            &[
+                                "../src/manage.c:manage_window:227 - startup workspace = "
+                                    .as_bytes(),
+                                &log_value_0,
+                                "\n".as_bytes(),
+                            ],
+                        );
+                    }
+                };
                 let wm_desktop_reply = property_reply(wm_desktop_cookie);
                 (*cwindow).wm_desktop = NET_WM_DESKTOP_NONE as u32;
                 if let Some(desktop) = first_property_word(wm_desktop_reply.as_ref()) {
@@ -432,86 +420,63 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                 (*cwindow).window_type = xcb_get_preferred_window_type(type_reply.as_ref());
                 search_at = croot;
                 if xcb_reply_contains_atom(type_reply.as_ref(), A__NET_WM_WINDOW_TYPE_DOCK) {
-                    verboselog(c"This window is of type dock\n".as_ptr().cast_mut());
+                    ::log::info!("This window is of type dock\n");
                     let output: *mut Output = get_output_containing(
                         geom.x as ::core::ffi::c_uint,
                         geom.y as ::core::ffi::c_uint,
                     );
                     if !output.is_null() {
-                        debuglog(
-                            c"%s:%s:%d - Starting search at output %s\n"
-                                .as_ptr()
-                                .cast_mut(),
-                            c"../src/manage.c".as_ptr(),
-                            c"manage_window".as_ptr(),
-                            252 as ::core::ffi::c_int,
-                            output_primary_name(output),
-                        );
+                        {
+                            // Snapshot native bytes before the logger can dispatch a callback.
+                            let log_value_0 =
+                                (|pointer: *const libc::c_char| {
+                                    i3_common::logging::string_bytes(
+                                        if pointer.is_null() {
+                                            None
+                                        } else {
+                                            Some(std::ffi::CStr::from_ptr(pointer))
+                                        },
+                                        None,
+                                    )
+                                    .to_vec()
+                                })(output_primary_name(output));
+                            if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                                ::log::debug!("../src/manage.c:manage_window:252 - Starting search at output {}\n", log_value_0_text);
+                            } else {
+                                i3_common::logging::emit_parts(i3_common::logging::Level::Debug, &[ "../src/manage.c:manage_window:252 - Starting search at output ".as_bytes(), &log_value_0, "\n".as_bytes() ]);
+                            }
+                        };
                         search_at = (*output).con;
                     }
                     if (*cwindow).reserved.top > 0 as u32 && (*cwindow).reserved.bottom == 0 as u32
                     {
-                        debuglog(
-                            c"%s:%s:%d - Top dock client\n".as_ptr().cast_mut(),
-                            c"../src/manage.c".as_ptr(),
-                            c"manage_window".as_ptr(),
-                            258 as ::core::ffi::c_int,
-                        );
+                        ::log::debug!("../src/manage.c:manage_window:258 - Top dock client\n");
                         (*cwindow).dock = WindowDock::Top;
                     } else if (*cwindow).reserved.top == 0 as u32
                         && (*cwindow).reserved.bottom > 0 as u32
                     {
-                        debuglog(
-                            c"%s:%s:%d - Bottom dock client\n".as_ptr().cast_mut(),
-                            c"../src/manage.c".as_ptr(),
-                            c"manage_window".as_ptr(),
-                            261 as ::core::ffi::c_int,
-                        );
+                        ::log::debug!("../src/manage.c:manage_window:261 - Bottom dock client\n");
                         (*cwindow).dock = WindowDock::Bottom;
                     } else {
-                        debuglog(
-                            c"%s:%s:%d - Ignoring invalid reserved edges (_NET_WM_STRUT_PARTIAL), using position as fallback:\n".as_ptr().cast_mut(),
-                            c"../src/manage.c".as_ptr(),
-                            c"manage_window".as_ptr(),
-                            264 as ::core::ffi::c_int,
-                        );
+                        ::log::debug!("../src/manage.c:manage_window:264 - Ignoring invalid reserved edges (_NET_WM_STRUT_PARTIAL), using position as fallback:\n");
                         if (geom.y as ::core::ffi::c_int)
                             < (*search_at).rect.height.wrapping_div(2 as u32) as i16
                                 as ::core::ffi::c_int
                         {
-                            debuglog(
-                                c"%s:%s:%d - geom->y = %d < rect.height / 2 = %d, it is a top dock client\n".as_ptr().cast_mut(),
-                                c"../src/manage.c".as_ptr(),
-                                c"manage_window".as_ptr(),
-                                267 as ::core::ffi::c_int,
-                                geom.y as ::core::ffi::c_int,
-                                (*search_at).rect.height.wrapping_div(2 as u32),
-                            );
+                            ::log::debug!("../src/manage.c:manage_window:267 - geom->y = {} < rect.height / 2 = {}, it is a top dock client\n", (geom.y as ::core::ffi::c_int) as i32, ((*search_at).rect.height.wrapping_div(2 as u32)) as i32);
                             (*cwindow).dock = WindowDock::Top;
                         } else {
-                            debuglog(
-                                c"%s:%s:%d - geom->y = %d >= rect.height / 2 = %d, it is a bottom dock client\n".as_ptr().cast_mut(),
-                                c"../src/manage.c".as_ptr(),
-                                c"manage_window".as_ptr(),
-                                271 as ::core::ffi::c_int,
-                                geom.y as ::core::ffi::c_int,
-                                (*search_at).rect.height.wrapping_div(2 as u32),
-                            );
+                            ::log::debug!("../src/manage.c:manage_window:271 - geom->y = {} >= rect.height / 2 = {}, it is a bottom dock client\n", (geom.y as ::core::ffi::c_int) as i32, ((*search_at).rect.height.wrapping_div(2 as u32)) as i32);
                             (*cwindow).dock = WindowDock::Bottom;
                         }
                     }
                 }
-                debuglog(
-                    c"%s:%s:%d - Initial geometry: (%d, %d, %d, %d)\n"
-                        .as_ptr()
-                        .cast_mut(),
-                    c"../src/manage.c".as_ptr(),
-                    c"manage_window".as_ptr(),
-                    277 as ::core::ffi::c_int,
-                    geom.x as ::core::ffi::c_int,
-                    geom.y as ::core::ffi::c_int,
-                    geom.width as ::core::ffi::c_int,
-                    geom.height as ::core::ffi::c_int,
+                ::log::debug!(
+                    "../src/manage.c:manage_window:277 - Initial geometry: ({}, {}, {}, {})\n",
+                    (geom.x as ::core::ffi::c_int) as i32,
+                    (geom.y as ::core::ffi::c_int) as i32,
+                    (geom.width as ::core::ffi::c_int) as i32,
+                    (geom.height as ::core::ffi::c_int) as i32
                 );
                 (*cwindow).swallowed = false;
                 match_0 = ::core::ptr::null_mut::<Match>();
@@ -526,12 +491,9 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                         assignment = assignment_for(cwindow, AssignmentKind::TO_WORKSPACE_NUMBER);
                         !assignment.is_null()
                     } {
-                        debuglog(
-                            c"%s:%s:%d - Assignment matches (%p)\n".as_ptr().cast_mut(),
-                            c"../src/manage.c".as_ptr(),
-                            c"manage_window".as_ptr(),
-                            291 as ::core::ffi::c_int,
-                            match_0,
+                        ::log::debug!(
+                            "../src/manage.c:manage_window:291 - Assignment matches ({})\n",
+                            i3_common::logging::pointer(match_0)
                         );
                         // Destination bytes must survive graph callbacks, which
                         // may reload and release the borrowed assignment node.
@@ -551,17 +513,34 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                             assigned_ws = workspace_get(workspace.as_ptr());
                         }
                         nc = con_descend_tiling_focused(assigned_ws);
-                        debuglog(
-                            c"%s:%s:%d - focused on ws %s: %p / %s\n"
-                                .as_ptr()
-                                .cast_mut(),
-                            c"../src/manage.c".as_ptr(),
-                            c"manage_window".as_ptr(),
-                            306 as ::core::ffi::c_int,
-                            (*assigned_ws).name_ptr(),
-                            nc,
-                            (*nc).name_ptr(),
-                        );
+                        {
+                            // Snapshot native bytes before the logger can dispatch a callback.
+                            let log_owner_1 = (*assigned_ws).name.clone();
+                            let log_value_0 =
+                                i3_common::logging::string_bytes(log_owner_1.as_deref(), None);
+                            let log_value_1 = i3_common::logging::pointer(nc);
+                            let log_owner_3 = (*nc).name.clone();
+                            let log_value_2 =
+                                i3_common::logging::string_bytes(log_owner_3.as_deref(), None);
+                            if let (Ok(log_value_0_text), Ok(log_value_2_text)) = (
+                                std::str::from_utf8(&log_value_0),
+                                std::str::from_utf8(&log_value_2),
+                            ) {
+                                ::log::debug!("../src/manage.c:manage_window:306 - focused on ws {}: {} / {}\n", log_value_0_text, log_value_1, log_value_2_text);
+                            } else {
+                                i3_common::logging::emit_parts(
+                                    i3_common::logging::Level::Debug,
+                                    &[
+                                        "../src/manage.c:manage_window:306 - focused on ws "
+                                            .as_bytes(),
+                                        &log_value_0,
+                                        format!(": {} / ", log_value_1).as_bytes(),
+                                        &log_value_2,
+                                        "\n".as_bytes(),
+                                    ],
+                                );
+                            }
+                        };
                         if ((*nc).type_0) == ContainerType::Workspace {
                             nc = tree_open_con(nc, cwindow);
                         } else {
@@ -577,17 +556,19 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                             !wm_desktop_ws.is_null()
                         }
                     {
-                        debuglog(
-                            c"%s:%s:%d - Using workspace %p / %s because _NET_WM_DESKTOP = %d.\n"
-                                .as_ptr()
-                                .cast_mut(),
-                            c"../src/manage.c".as_ptr(),
-                            c"manage_window".as_ptr(),
-                            325 as ::core::ffi::c_int,
-                            wm_desktop_ws,
-                            (*wm_desktop_ws).name_ptr(),
-                            (*cwindow).wm_desktop,
-                        );
+                        {
+                            // Snapshot native bytes before the logger can dispatch a callback.
+                            let log_value_0 = i3_common::logging::pointer(wm_desktop_ws);
+                            let log_owner_2 = (*wm_desktop_ws).name.clone();
+                            let log_value_1 =
+                                i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
+                            let log_value_2 = ((*cwindow).wm_desktop) as i32;
+                            if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+                                ::log::debug!("../src/manage.c:manage_window:325 - Using workspace {} / {} because _NET_WM_DESKTOP = {}.\n", log_value_0, log_value_1_text, log_value_2);
+                            } else {
+                                i3_common::logging::emit_parts(i3_common::logging::Level::Debug, &[ format!("../src/manage.c:manage_window:325 - Using workspace {} / ", log_value_0).as_bytes(), &log_value_1, format!(" because _NET_WM_DESKTOP = {}.\n", log_value_2).as_bytes() ]);
+                            }
+                        };
                         nc = con_descend_tiling_focused(wm_desktop_ws);
                         if ((*nc).type_0) == ContainerType::Workspace {
                             nc = tree_open_con(nc, cwindow);
@@ -595,25 +576,62 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                             nc = tree_open_con(parent_ptr(nc), cwindow);
                         }
                     } else if !startup_ws.is_null() {
-                        debuglog(
-                            c"%s:%s:%d - Using workspace on which this application was started (%s)\n".as_ptr().cast_mut(),
-                            c"../src/manage.c".as_ptr(),
-                            c"manage_window".as_ptr(),
-                            335 as ::core::ffi::c_int,
-                            startup_ws,
-                        );
+                        {
+                            // Snapshot native bytes before the logger can dispatch a callback.
+                            let log_value_0 = (|pointer: *const libc::c_char| {
+                                i3_common::logging::string_bytes(
+                                    if pointer.is_null() {
+                                        None
+                                    } else {
+                                        Some(std::ffi::CStr::from_ptr(pointer))
+                                    },
+                                    None,
+                                )
+                                .to_vec()
+                            })(startup_ws);
+                            if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                                ::log::debug!("../src/manage.c:manage_window:335 - Using workspace on which this application was started ({})\n", log_value_0_text);
+                            } else {
+                                i3_common::logging::emit_parts(i3_common::logging::Level::Debug, &[ "../src/manage.c:manage_window:335 - Using workspace on which this application was started (".as_bytes(), &log_value_0, ")\n".as_bytes() ]);
+                            }
+                        };
                         nc = con_descend_tiling_focused(workspace_get(startup_ws));
-                        debuglog(
-                            c"%s:%s:%d - focused on ws %s: %p / %s\n"
-                                .as_ptr()
-                                .cast_mut(),
-                            c"../src/manage.c".as_ptr(),
-                            c"manage_window".as_ptr(),
-                            337 as ::core::ffi::c_int,
-                            startup_ws,
-                            nc,
-                            (*nc).name_ptr(),
-                        );
+                        {
+                            // Snapshot native bytes before the logger can dispatch a callback.
+                            let log_value_0 = (|pointer: *const libc::c_char| {
+                                i3_common::logging::string_bytes(
+                                    if pointer.is_null() {
+                                        None
+                                    } else {
+                                        Some(std::ffi::CStr::from_ptr(pointer))
+                                    },
+                                    None,
+                                )
+                                .to_vec()
+                            })(startup_ws);
+                            let log_value_1 = i3_common::logging::pointer(nc);
+                            let log_owner_3 = (*nc).name.clone();
+                            let log_value_2 =
+                                i3_common::logging::string_bytes(log_owner_3.as_deref(), None);
+                            if let (Ok(log_value_0_text), Ok(log_value_2_text)) = (
+                                std::str::from_utf8(&log_value_0),
+                                std::str::from_utf8(&log_value_2),
+                            ) {
+                                ::log::debug!("../src/manage.c:manage_window:337 - focused on ws {}: {} / {}\n", log_value_0_text, log_value_1, log_value_2_text);
+                            } else {
+                                i3_common::logging::emit_parts(
+                                    i3_common::logging::Level::Debug,
+                                    &[
+                                        "../src/manage.c:manage_window:337 - focused on ws "
+                                            .as_bytes(),
+                                        &log_value_0,
+                                        format!(": {} / ", log_value_1).as_bytes(),
+                                        &log_value_2,
+                                        "\n".as_bytes(),
+                                    ],
+                                );
+                            }
+                        };
                         if ((*nc).type_0) == ContainerType::Workspace {
                             nc = tree_open_con(nc, cwindow);
                         } else {
@@ -622,13 +640,22 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                     } else if ((*focused).type_0) == ContainerType::Con
                         && con_accepts_window(focused) as ::core::ffi::c_int != 0
                     {
-                        verboselog(
-                            c"using current container, focused = %p, focused->name = %s\n"
-                                .as_ptr()
-                                .cast_mut(),
-                            focused,
-                            (*focused).name_ptr(),
-                        );
+                        {
+                            // Snapshot native bytes before the logger can dispatch a callback.
+                            let log_value_0 = i3_common::logging::pointer(focused);
+                            let log_owner_2 = (*focused).name.clone();
+                            let log_value_1 =
+                                i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
+                            if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+                                ::log::info!(
+                                    "using current container, focused = {}, focused->name = {}\n",
+                                    log_value_0,
+                                    log_value_1_text
+                                );
+                            } else {
+                                i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ format!("using current container, focused = {}, focused->name = ", log_value_0).as_bytes(), &log_value_1, "\n".as_bytes() ]);
+                            }
+                        };
                         nc = focused;
                     } else {
                         nc = tree_open_con(::core::ptr::null_mut::<Con>(), cwindow);
@@ -647,16 +674,7 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                         nc = tree_open_con(nc, cwindow);
                     }
                     if !match_0.is_null() && ((*match_0).insert_where) != MatchInsertWhere::Below {
-                        debuglog(
-                            c"%s:%s:%d - Removing match %p from container %p\n"
-                                .as_ptr()
-                                .cast_mut(),
-                            c"../src/manage.c".as_ptr(),
-                            c"manage_window".as_ptr(),
-                            369 as ::core::ffi::c_int,
-                            match_0,
-                            nc,
-                        );
+                        ::log::debug!("../src/manage.c:manage_window:369 - Removing match {} from container {}\n", i3_common::logging::pointer(match_0), i3_common::logging::pointer(nc));
                         if !(*match_0).matches.tqe_next.is_null() {
                             (*(*match_0).matches.tqe_next).matches.tqe_prev =
                                 (*match_0).matches.tqe_prev;
@@ -669,21 +687,13 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                     }
                     (*cwindow).swallowed = true;
                 }
-                debuglog(
-                    c"%s:%s:%d - new container = %p\n".as_ptr().cast_mut(),
-                    c"../src/manage.c".as_ptr(),
-                    c"manage_window".as_ptr(),
-                    378 as ::core::ffi::c_int,
-                    nc,
+                ::log::debug!(
+                    "../src/manage.c:manage_window:378 - new container = {}\n",
+                    i3_common::logging::pointer(nc)
                 );
                 if !(*nc).window.is_null() && (*nc).window != cwindow {
                     if !restore_kill_placeholder((*(*nc).window).id) {
-                        debuglog(
-                            c"%s:%s:%d - Uh?! Container without a placeholder, but with a window, has swallowed this to-be-managed window?!\n".as_ptr().cast_mut(),
-                            c"../src/manage.c".as_ptr(),
-                            c"manage_window".as_ptr(),
-                            381 as ::core::ffi::c_int,
-                        );
+                        ::log::debug!("../src/manage.c:manage_window:381 - Uh?! Container without a placeholder, but with a window, has swallowed this to-be-managed window?!\n");
                     } else {
                         _remove_matches(nc);
                     }
@@ -723,13 +733,8 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                 }
                 set_focus = false;
                 if fs.is_null() {
-                    debuglog(
-                        c"%s:%s:%d - Not in fullscreen mode, focusing\n"
-                            .as_ptr()
-                            .cast_mut(),
-                        c"../src/manage.c".as_ptr(),
-                        c"manage_window".as_ptr(),
-                        426 as ::core::ffi::c_int,
+                    ::log::debug!(
+                        "../src/manage.c:manage_window:426 - Not in fullscreen mode, focusing\n"
                     );
                     if (*cwindow).dock as u64 == 0 {
                         let current_output: *mut Con = con_get_output(focused);
@@ -740,43 +745,19 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                             if !match_from_restart_mode {
                                 set_focus = true;
                             } else {
-                                debuglog(
-                                    c"%s:%s:%d - not focusing, matched with restart_mode == true\n"
-                                        .as_ptr()
-                                        .cast_mut(),
-                                    c"../src/manage.c".as_ptr(),
-                                    c"manage_window".as_ptr(),
-                                    438 as ::core::ffi::c_int,
-                                );
+                                ::log::debug!("../src/manage.c:manage_window:438 - not focusing, matched with restart_mode == true\n");
                             }
                         } else {
-                            debuglog(
-                                c"%s:%s:%d - workspace not visible, not focusing\n"
-                                    .as_ptr()
-                                    .cast_mut(),
-                                c"../src/manage.c".as_ptr(),
-                                c"manage_window".as_ptr(),
-                                441 as ::core::ffi::c_int,
-                            );
+                            ::log::debug!("../src/manage.c:manage_window:441 - workspace not visible, not focusing\n");
                         }
                     } else {
-                        debuglog(
-                            c"%s:%s:%d - dock, not focusing\n".as_ptr().cast_mut(),
-                            c"../src/manage.c".as_ptr(),
-                            c"manage_window".as_ptr(),
-                            444 as ::core::ffi::c_int,
-                        );
+                        ::log::debug!("../src/manage.c:manage_window:444 - dock, not focusing\n");
                     }
                 } else {
-                    debuglog(
-                        c"%s:%s:%d - fs = %p, ws = %p, not focusing\n"
-                            .as_ptr()
-                            .cast_mut(),
-                        c"../src/manage.c".as_ptr(),
-                        c"manage_window".as_ptr(),
-                        447 as ::core::ffi::c_int,
-                        fs,
-                        ws,
+                    ::log::debug!(
+                        "../src/manage.c:manage_window:447 - fs = {}, ws = {}, not focusing\n",
+                        i3_common::logging::pointer(fs),
+                        i3_common::logging::pointer(ws)
                     );
                     let owner =
                         crate::con::arena::identity(parent_ptr(nc)).expect("live managed parent");
@@ -823,11 +804,7 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                         && (*cwindow).min_height == (*cwindow).max_height
                         && (*cwindow).min_width == (*cwindow).max_width
                 {
-                    verboselog(
-                        c"This window is a dialog window, setting floating\n"
-                            .as_ptr()
-                            .cast_mut(),
-                    );
+                    ::log::info!("This window is a dialog window, setting floating\n");
                     want_floating = true;
                 }
                 if xcb_reply_contains_atom(state_reply.as_ref(), A__NET_WM_STATE_STICKY) {
@@ -836,12 +813,7 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                 if (*cwindow).wm_desktop == NET_WM_DESKTOP_ALL as u32
                     && (ws.is_null() || !con_is_internal(ws))
                 {
-                    debuglog(
-                        c"%s:%s:%d - This window has _NET_WM_DESKTOP = 0xFFFFFFFF. Will float it and make it sticky.\n".as_ptr().cast_mut(),
-                        c"../src/manage.c".as_ptr(),
-                        c"manage_window".as_ptr(),
-                        484 as ::core::ffi::c_int,
-                    );
+                    ::log::debug!("../src/manage.c:manage_window:484 - This window has _NET_WM_DESKTOP = 0xFFFFFFFF. Will float it and make it sticky.\n");
                     (*nc).sticky = true;
                     want_floating = true;
                 }
@@ -852,24 +824,12 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                         && (*cwindow).leader != (*cwindow).id
                         && !con_by_window_id((*cwindow).leader).is_null()
                 {
-                    debuglog(
-                        c"%s:%s:%d - This window is transient for another window, setting floating\n".as_ptr().cast_mut(),
-                        c"../src/manage.c".as_ptr(),
-                        c"manage_window".as_ptr(),
-                        496 as ::core::ffi::c_int,
-                    );
+                    ::log::debug!("../src/manage.c:manage_window:496 - This window is transient for another window, setting floating\n");
                     want_floating = true;
                     if config.popup_during_fullscreen == PopupDuringFullscreen::LeaveFullscreen
                         && !fs.is_null()
                     {
-                        debuglog(
-                            c"%s:%s:%d - There is a fullscreen window, leaving fullscreen mode\n"
-                                .as_ptr()
-                                .cast_mut(),
-                            c"../src/manage.c".as_ptr(),
-                            c"manage_window".as_ptr(),
-                            501 as ::core::ffi::c_int,
-                        );
+                        ::log::debug!("../src/manage.c:manage_window:501 - There is a fullscreen window, leaving fullscreen mode\n");
                         con_disable_fullscreen(fs);
                     } else if config.popup_during_fullscreen == PopupDuringFullscreen::Smart
                         && !fs.is_null()
@@ -896,28 +856,17 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                     set_focus = true;
                 }
                 if want_floating {
-                    debuglog(
-                        c"%s:%s:%d - geometry = %d x %d\n".as_ptr().cast_mut(),
-                        c"../src/manage.c".as_ptr(),
-                        c"manage_window".as_ptr(),
-                        529 as ::core::ffi::c_int,
-                        (*nc).geometry.width,
-                        (*nc).geometry.height,
+                    ::log::debug!(
+                        "../src/manage.c:manage_window:529 - geometry = {} x {}\n",
+                        ((*nc).geometry.width) as i32,
+                        ((*nc).geometry.height) as i32
                     );
                     if floating_enable(nc, true) {
                         (*nc).floating = FloatingState::AutoOn;
                     }
                 }
                 if has_mwm_hints {
-                    debuglog(
-                        c"%s:%s:%d - MOTIF_WM_HINTS specifies decorations (border_style = %d)\n"
-                            .as_ptr()
-                            .cast_mut(),
-                        c"../src/manage.c".as_ptr(),
-                        c"manage_window".as_ptr(),
-                        536 as ::core::ffi::c_int,
-                        motif_border_style as ::core::ffi::c_uint,
-                    );
+                    ::log::debug!("../src/manage.c:manage_window:536 - MOTIF_WM_HINTS specifies decorations (border_style = {})\n", (motif_border_style as ::core::ffi::c_uint) as i32);
                     if want_floating {
                         con_set_border_style(
                             nc,
@@ -947,11 +896,7 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                     y: 0 as i16,
                 });
                 if request_failed(rcookie) {
-                    verboselog(
-                        c"Could not reparent the window, aborting\n"
-                            .as_ptr()
-                            .cast_mut(),
-                    );
+                    ::log::info!("Could not reparent the window, aborting\n");
                 } else {
                     values[0 as ::core::ffi::c_int as usize] =
                         (((::xcb::x::EventMask::PROPERTY_CHANGE.bits()) as ::core::ffi::c_int
@@ -997,46 +942,17 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                         && !assignment_for(cwindow, AssignmentKind::NO_FOCUS).is_null()
                     {
                         if con_num_windows(ws) == 1 as ::core::ffi::c_int {
-                            debuglog(
-                                c"%s:%s:%d - This is the first window on this workspace, ignoring no_focus.\n".as_ptr().cast_mut(),
-                                c"../src/manage.c".as_ptr(),
-                                c"manage_window".as_ptr(),
-                                626 as ::core::ffi::c_int,
-                            );
+                            ::log::debug!("../src/manage.c:manage_window:626 - This is the first window on this workspace, ignoring no_focus.\n");
                         } else {
-                            debuglog(
-                                c"%s:%s:%d - no_focus was set for con = %p, not setting focus.\n"
-                                    .as_ptr()
-                                    .cast_mut(),
-                                c"../src/manage.c".as_ptr(),
-                                c"manage_window".as_ptr(),
-                                628 as ::core::ffi::c_int,
-                                nc,
-                            );
+                            ::log::debug!("../src/manage.c:manage_window:628 - no_focus was set for con = {}, not setting focus.\n", i3_common::logging::pointer(nc));
                             set_focus = false;
                         }
                     }
                     if set_focus {
-                        debuglog(
-                            c"%s:%s:%d - Checking con = %p for _NET_WM_USER_TIME.\n"
-                                .as_ptr()
-                                .cast_mut(),
-                            c"../src/manage.c".as_ptr(),
-                            c"manage_window".as_ptr(),
-                            634 as ::core::ffi::c_int,
-                            nc,
-                        );
+                        ::log::debug!("../src/manage.c:manage_window:634 - Checking con = {} for _NET_WM_USER_TIME.\n", i3_common::logging::pointer(nc));
                         let wm_user_time_reply = property_reply(wm_user_time_cookie);
                         if first_property_word(wm_user_time_reply.as_ref()) == Some(0) {
-                            debuglog(
-                                c"%s:%s:%d - _NET_WM_USER_TIME set to 0, not focusing con = %p.\n"
-                                    .as_ptr()
-                                    .cast_mut(),
-                                c"../src/manage.c".as_ptr(),
-                                c"manage_window".as_ptr(),
-                                641 as ::core::ffi::c_int,
-                                nc,
-                            );
+                            ::log::debug!("../src/manage.c:manage_window:641 - _NET_WM_USER_TIME set to 0, not focusing con = {}.\n", i3_common::logging::pointer(nc));
                             set_focus = false;
                         }
                     } else {
@@ -1050,12 +966,7 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                     if set_focus as ::core::ffi::c_int != 0
                         && (*nc).mapped as ::core::ffi::c_int != 0
                     {
-                        debuglog(
-                            c"%s:%s:%d - Now setting focus.\n".as_ptr().cast_mut(),
-                            c"../src/manage.c".as_ptr(),
-                            c"manage_window".as_ptr(),
-                            662 as ::core::ffi::c_int,
-                        );
+                        ::log::debug!("../src/manage.c:manage_window:662 - Now setting focus.\n");
                         con_activate(nc);
                     }
                     tree_render();
@@ -1095,12 +1006,7 @@ pub unsafe fn remanage_window(con: *mut Con) -> *mut Con {
         return con;
     }
     if !restore_kill_placeholder((*(*nc).window).id) {
-        debuglog(
-            c"%s:%s:%d - Uh?! Container without a placeholder, but with a window, has swallowed this managed window?!\n".as_ptr().cast_mut(),
-            c"../src/manage.c".as_ptr(),
-            c"remanage_window".as_ptr(),
-            726 as ::core::ffi::c_int,
-        );
+        ::log::debug!("../src/manage.c:remanage_window:726 - Uh?! Container without a placeholder, but with a window, has swallowed this managed window?!\n");
     } else {
         _remove_matches(nc);
     }
@@ -1138,8 +1044,6 @@ use i3_common::safewrappers::scalloc;
 // Canonical Pango backend ABI; font policy remains local.
 
 pub use libc::{free, time};
-
-use crate::log::{debuglog, verboselog};
 
 // Shared model types retain field layout while using one Rust identity.
 pub use crate::types::xoutput;
