@@ -498,7 +498,7 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                         };
                         let mut assigned_ws: *mut Con = ::core::ptr::null_mut::<Con>();
                         if by_number {
-                            let parsed_num = ws_name_to_number(&workspace).unwrap_or(-1);
+                            let parsed_num = ws_name_to_number(workspace.as_bytes()).unwrap_or(-1);
                             assigned_ws = get_existing_workspace_by_num(parsed_num);
                         }
                         if assigned_ws.is_null() {

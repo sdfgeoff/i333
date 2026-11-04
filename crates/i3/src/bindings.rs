@@ -295,7 +295,7 @@ pub unsafe fn configure_binding(
         };
         (*new_binding).symbol = sstrdup(input_code);
     } else {
-        let Ok(keycode) = parse_long(std::ffi::CStr::from_ptr(input_code), 10) else {
+        let Ok(keycode) = parse_long(std::ffi::CStr::from_ptr(input_code).to_bytes(), 10) else {
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
                 let log_pointer_1 = input_code;
@@ -632,7 +632,8 @@ pub unsafe fn translate_keysyms() {
                             (::core::mem::size_of::<[::core::ffi::c_char; 7]>() as usize)
                                 .wrapping_sub(1_usize),
                         ),
-                    ),
+                    )
+                    .to_bytes(),
                     10,
                 ) {
                     Ok(button) => button,
@@ -1494,7 +1495,10 @@ pub unsafe fn bindings_get_buttons_to_grab() -> *mut libc::c_int {
             break;
         }
         if (*bind).input_type == InputType::Mouse && (*bind).whole_window {
-            if let Ok(button) = parse_long(std::ffi::CStr::from_ptr((*bind).symbol.add(6)), 10) {
+            if let Ok(button) = parse_long(
+                std::ffi::CStr::from_ptr((*bind).symbol.add(6)).to_bytes(),
+                10,
+            ) {
                 append_button(&mut buttons, button);
             } else {
                 ::log::error!("ERROR: Could not parse button number, skipping this binding. Please report this bug in i3.\n");

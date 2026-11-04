@@ -569,7 +569,7 @@ pub unsafe fn match_parse_property(
                 (*match_0).con_id = global_focused;
                 return;
             }
-            match parse_long(CStr::from_ptr(cvalue), 0) {
+            match parse_long(CStr::from_ptr(cvalue).to_bytes(), 0) {
                 Err(_) => {
                     {
                         let value = CStr::from_ptr(cvalue).to_owned();
@@ -600,7 +600,7 @@ pub unsafe fn match_parse_property(
             return;
         }
         if property == b"id" {
-            match parse_long(CStr::from_ptr(cvalue), 0) {
+            match parse_long(CStr::from_ptr(cvalue).to_bytes(), 0) {
                 Err(_) => {
                     {
                         let value = CStr::from_ptr(cvalue).to_owned();

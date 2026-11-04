@@ -2147,7 +2147,7 @@ fn layout_toggle(
                     _ => last_split,
                 }
             } else {
-                match layout_from_name(&token) {
+                match layout_from_name(token.as_bytes()) {
                     Some(layout) if layout != Layout::Default => layout,
                     _ => {
                         invalid.push(token);

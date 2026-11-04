@@ -1540,7 +1540,7 @@ pub unsafe fn cfg_assign(
         return;
     }
     if is_number
-        && ws_name_to_number(std::ffi::CStr::from_ptr(workspace)).unwrap_or(-1)
+        && ws_name_to_number(std::ffi::CStr::from_ptr(workspace).to_bytes()).unwrap_or(-1)
             == -(1 as ::core::ffi::c_int)
     {
         {

@@ -79,21 +79,24 @@ pub fn rect_equals(a: Rect, b: Rect) -> bool {
 }
 
 /// Classify workspace bytes using the current native locale.
-pub fn name_is_digits(name: &CStr) -> bool {
-    // Snapshot locale-sensitive classification, then use a bounded CStr walk.
+pub fn name_is_digits(name: &[u8]) -> bool {
+    let name = name.split(|byte| *byte == 0).next().unwrap();
+    // Snapshot locale-sensitive classification, then use bounded bytes.
     // Do not substitute Unicode/ASCII classification for the libc locale table.
     let digits = unsafe { *__ctype_b_loc() };
-    name.to_bytes().iter().all(|byte| unsafe {
+    name.iter().all(|byte| unsafe {
         *digits.add(*byte as usize) & i3_common::native_stdio::CTYPE_DIGIT != 0
     })
 }
 
 /// Parse a layout name using the current native locale. `default` remains
 /// deliberately case sensitive, while named layouts follow libc strcasecmp.
-pub fn layout_from_name(name: &CStr) -> Option<Layout> {
-    if name == c"default" {
+pub fn layout_from_name(name: &[u8]) -> Option<Layout> {
+    let name = name.split(|byte| *byte == 0).next().unwrap();
+    if name == b"default" {
         return Some(Layout::Default);
     }
+    let name = CString::new(name).unwrap();
     [
         (c"stacked", Layout::Stacked),
         (c"stacking", Layout::Stacked),
@@ -110,7 +113,8 @@ pub fn layout_from_name(name: &CStr) -> Option<Layout> {
 
 /// Parse a nonnegative workspace prefix, retaining native decimal/locale rules.
 /// The native errno reset and range result remain observable to callers.
-pub fn ws_name_to_number(name: &CStr) -> Option<i32> {
+pub fn ws_name_to_number(name: &[u8]) -> Option<i32> {
+    let name = CString::new(name.split(|byte| *byte == 0).next().unwrap()).unwrap();
     let mut end = std::ptr::null_mut();
     // SAFETY: the borrowed C string remains live, end is writable, and errno is
     // thread local. Preserve the original decimal prefix and errno behavior.
@@ -493,7 +497,8 @@ pub struct ParseLongError {
 
 /// Retain strtol's locale/base rules, empty-string acceptance, errno behavior
 /// and LONG_MIN/MAX rejection, without an output pointer or borrowed raw input.
-pub fn parse_long(input: &CStr, base: libc::c_int) -> Result<libc::c_long, ParseLongError> {
+pub fn parse_long(input: &[u8], base: libc::c_int) -> Result<libc::c_long, ParseLongError> {
+    let input = CString::new(input.split(|byte| *byte == 0).next().unwrap()).unwrap();
     let mut end = std::ptr::null_mut();
     // SAFETY: input is a live native string; end receives a pointer into it (or
     // null for a base rejected by libc). Do not clear/test errno: native i3 did
@@ -810,7 +815,7 @@ mod tests {
                 (c"-1", -1),
                 (c"999999999999999999999999", -1),
             ] {
-                assert_eq!(ws_name_to_number(name).unwrap_or(-1), expected);
+                assert_eq!(ws_name_to_number(name.to_bytes()).unwrap_or(-1), expected);
             }
             for (name, expected, value) in [
                 (c"", true, 0),
@@ -820,19 +825,26 @@ mod tests {
                 (c"9223372036854775807", false, libc::c_long::MAX),
                 (c"0x10", true, 16),
             ] {
-                let parsed = parse_long(name, 0);
+                let parsed = parse_long(name.to_bytes(), 0);
                 assert_eq!(parsed.is_ok(), expected);
                 assert_eq!(parsed.unwrap_or_else(|error| error.value), value);
             }
-            assert!(name_is_digits(c""));
-            assert!(name_is_digits(c"123"));
+            assert!(name_is_digits(b""));
+            assert!(name_is_digits(b"123"));
             for byte in 1..=255u8 {
                 let value = CString::new([byte]).unwrap();
-                assert_eq!(name_is_digits(&value), libc::isdigit(byte as i32) != 0);
+                assert_eq!(
+                    name_is_digits(value.as_bytes()),
+                    libc::isdigit(byte as i32) != 0
+                );
             }
-            assert_eq!(layout_from_name(c"DEFAULT"), None);
-            assert_eq!(layout_from_name(c"default"), Some(Layout::Default));
-            assert_eq!(layout_from_name(c"StAcKiNg"), Some(Layout::Stacked));
+            assert_eq!(layout_from_name(b"DEFAULT"), None);
+            assert_eq!(layout_from_name(b"default"), Some(Layout::Default));
+            assert_eq!(layout_from_name(b"StAcKiNg"), Some(Layout::Stacked));
+            assert!(name_is_digits(b"123\0not-digits"));
+            assert_eq!(layout_from_name(b"default\0ignored"), Some(Layout::Default));
+            assert_eq!(ws_name_to_number(b"42\0ignored"), Some(42));
+            assert_eq!(parse_long(b"12\0junk", 10), Ok(12));
         }
     }
 
@@ -871,7 +883,7 @@ mod tests {
                     (native, *__errno_location())
                 };
                 unsafe { *__errno_location() = initial_errno };
-                let parsed = parse_long(input, base);
+                let parsed = parse_long(input.to_bytes(), base);
                 assert_eq!(unsafe { *__errno_location() }, native_errno);
                 assert_eq!(parsed.is_ok(), valid, "{input:?}, base {base}");
                 assert_eq!(parsed.unwrap_or_else(|error| error.value), native);
@@ -880,11 +892,11 @@ mod tests {
         // Workspace numbers deliberately reset errno, allow trailing names,
         // and reject overflow outside their signed-32-bit model field.
         unsafe { *__errno_location() = libc::E2BIG };
-        assert_eq!(ws_name_to_number(c" +42:name"), Some(42));
+        assert_eq!(ws_name_to_number(b" +42:name"), Some(42));
         assert_eq!(unsafe { *__errno_location() }, 0);
-        assert_eq!(ws_name_to_number(c"2147483648:name"), None);
+        assert_eq!(ws_name_to_number(b"2147483648:name"), None);
         assert_eq!(
-            ws_name_to_number(c"999999999999999999999999999999999"),
+            ws_name_to_number(b"999999999999999999999999999999999"),
             None
         );
         assert_eq!(unsafe { *__errno_location() }, libc::ERANGE);

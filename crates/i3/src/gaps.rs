@@ -287,8 +287,8 @@ pub unsafe fn gaps_for_workspace(ws: *mut Con) -> gaps_t {
             let matching = if assignment.name.as_c_str() == name.as_c_str() {
                 AssignmentMatch::Name
             } else if number != -1
-                && name_is_digits(assignment.name.as_c_str())
-                && ws_name_to_number(assignment.name.as_c_str()).unwrap_or(-1) == number
+                && name_is_digits(assignment.name.as_bytes())
+                && ws_name_to_number(assignment.name.as_bytes()).unwrap_or(-1) == number
             {
                 AssignmentMatch::Number
             } else {

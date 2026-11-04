@@ -170,8 +170,8 @@ pub unsafe fn get_assigned_output(
                 }
             } else if output.is_null()
                 && parsed_num != -(1 as ::core::ffi::c_int) as ::core::ffi::c_long
-                && name_is_digits(assignment_name.as_c_str())
-                && ws_name_to_number(assignment_name.as_c_str()).unwrap_or(-1)
+                && name_is_digits(assignment_name.as_bytes())
+                && ws_name_to_number(assignment_name.as_bytes()).unwrap_or(-1)
                     as ::core::ffi::c_long
                     == parsed_num
             {
@@ -252,8 +252,8 @@ pub unsafe fn workspace_get(num: *const ::core::ffi::c_char) -> *mut Con {
             );
         }
     };
-    let parsed_num: ::core::ffi::c_int =
-        ws_name_to_number(std::ffi::CStr::from_ptr(num)).unwrap_or(-1) as ::core::ffi::c_int;
+    let parsed_num: ::core::ffi::c_int = ws_name_to_number(std::ffi::CStr::from_ptr(num).to_bytes())
+        .unwrap_or(-1) as ::core::ffi::c_int;
     let mut output: *mut Con = get_assigned_output(num, parsed_num as ::core::ffi::c_long);
     if output.is_null() {
         output = con_get_output(focused);
@@ -372,8 +372,9 @@ pub unsafe fn create_workspace_on_output(output: *mut Output, content: *mut Con)
             -(1 as ::core::ffi::c_int) as ::core::ffi::c_long,
         );
         if !(!assigned.is_null() && assigned != (*output).con) {
-            let num: ::core::ffi::c_int = ws_name_to_number(std::ffi::CStr::from_ptr(target_name))
-                .unwrap_or(-1) as ::core::ffi::c_int;
+            let num: ::core::ffi::c_int =
+                ws_name_to_number(std::ffi::CStr::from_ptr(target_name).to_bytes()).unwrap_or(-1)
+                    as ::core::ffi::c_int;
             exists = !if num == -(1 as ::core::ffi::c_int) {
                 get_existing_workspace_by_name(target_name)
             } else {
@@ -1433,7 +1434,7 @@ pub unsafe fn workspace_move_to_output(mut ws: *mut Con, output: *mut Output) {
             let next = (*assignment).ws_assignments.tqe_next;
             let assignment_name = (*assignment).name.clone();
             if output_triggers_assignment(current_output, assignment) {
-                let num: ::core::ffi::c_int = ws_name_to_number(assignment_name.as_c_str())
+                let num: ::core::ffi::c_int = ws_name_to_number(assignment_name.as_bytes())
                     .unwrap_or(-1)
                     as ::core::ffi::c_int;
                 let attached: bool = !if num == -(1 as ::core::ffi::c_int) {

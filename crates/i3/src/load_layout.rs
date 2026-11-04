@@ -229,9 +229,10 @@ impl LayoutState {
                     name.extend_from_slice(format!("_{fresh1}").as_bytes());
                     (*self.json_node).name = Some(CString::new(name).unwrap());
                 }
-                (*self.json_node).num =
-                    ws_name_to_number(std::ffi::CStr::from_ptr((*self.json_node).name_ptr()))
-                        .unwrap_or(-1);
+                (*self.json_node).num = ws_name_to_number(
+                    std::ffi::CStr::from_ptr((*self.json_node).name_ptr()).to_bytes(),
+                )
+                .unwrap_or(-1);
             }
             if ((*self.json_node).type_0) == ContainerType::Floating {
                 {

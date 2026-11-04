@@ -901,7 +901,7 @@ unsafe fn parse_restart_fd() -> ::core::ffi::c_int {
     if restart_fd.is_null() {
         return -(1 as ::core::ffi::c_int);
     }
-    let Ok(fd) = parse_long(std::ffi::CStr::from_ptr(restart_fd), 10) else {
+    let Ok(fd) = parse_long(std::ffi::CStr::from_ptr(restart_fd).to_bytes(), 10) else {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_pointer_1 = restart_fd;

@@ -824,7 +824,8 @@ pub unsafe fn cmd_move_con_to_workspace_number(
         }
     };
     let parsed_num: ::core::ffi::c_long =
-        ws_name_to_number(std::ffi::CStr::from_ptr(which)).unwrap_or(-1) as ::core::ffi::c_long;
+        ws_name_to_number(std::ffi::CStr::from_ptr(which).to_bytes()).unwrap_or(-1)
+            as ::core::ffi::c_long;
     if parsed_num == -(1 as ::core::ffi::c_int) as ::core::ffi::c_long {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
@@ -2092,7 +2093,8 @@ pub unsafe fn cmd_workspace_number(
     let no_auto_back_and_forth: bool = !no_auto_back_and_forth_str.is_null();
     disable_global_fullscreen();
     let parsed_num: ::core::ffi::c_long =
-        ws_name_to_number(std::ffi::CStr::from_ptr(which)).unwrap_or(-1) as ::core::ffi::c_long;
+        ws_name_to_number(std::ffi::CStr::from_ptr(which).to_bytes()).unwrap_or(-1)
+            as ::core::ffi::c_long;
     if parsed_num == -(1 as ::core::ffi::c_int) as ::core::ffi::c_long {
         if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
@@ -4118,7 +4120,7 @@ pub unsafe fn cmd_layout(
         *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
-    let Some(layout) = layout_from_name(std::ffi::CStr::from_ptr(layout_str)) else {
+    let Some(layout) = layout_from_name(std::ffi::CStr::from_ptr(layout_str).to_bytes()) else {
         if (*cmd_output).has_reply() {
             let mut message_0: *mut ::core::ffi::c_char =
                 ::core::ptr::null_mut::<::core::ffi::c_char>();
@@ -5123,7 +5125,7 @@ pub unsafe fn cmd_swap(
     }
     let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
     if strcmp(mode, c"id".as_ptr()) == 0 as ::core::ffi::c_int {
-        let Ok(target) = parse_long(std::ffi::CStr::from_ptr(arg), 0) else {
+        let Ok(target) = parse_long(std::ffi::CStr::from_ptr(arg).to_bytes(), 0) else {
             if (*cmd_output).has_reply() {
                 let mut message_2: *mut ::core::ffi::c_char =
                     ::core::ptr::null_mut::<::core::ffi::c_char>();
@@ -5142,7 +5144,7 @@ pub unsafe fn cmd_swap(
         };
         con = con_by_window_id(target as u32);
     } else if strcmp(mode, c"con_id".as_ptr()) == 0 as ::core::ffi::c_int {
-        let Ok(target_0) = parse_long(std::ffi::CStr::from_ptr(arg), 0) else {
+        let Ok(target_0) = parse_long(std::ffi::CStr::from_ptr(arg).to_bytes(), 0) else {
             if (*cmd_output).has_reply() {
                 let mut message_3: *mut ::core::ffi::c_char =
                     ::core::ptr::null_mut::<::core::ffi::c_char>();
@@ -5590,7 +5592,8 @@ pub unsafe fn cmd_rename_workspace(
     }
     let old_name_copy = std::ffi::CStr::from_ptr(old_name).to_owned();
     (*workspace).name = Some(std::ffi::CStr::from_ptr(new_name).to_owned());
-    (*workspace).num = ws_name_to_number(std::ffi::CStr::from_ptr(new_name)).unwrap_or(-1);
+    (*workspace).num =
+        ws_name_to_number(std::ffi::CStr::from_ptr(new_name).to_bytes()).unwrap_or(-1);
     ::log::info!("num = {}\n", ((*workspace).num) as i32);
     let previously_focused: *mut Con = focused;
     let previously_focused_content: *const Con = if ((*focused).type_0) == ContainerType::Workspace
@@ -5955,7 +5958,7 @@ pub unsafe fn cmd_shmlog(
     } else if strcmp(argument, c"off".as_ptr()) == 0 {
         shmlog_size = 0 as ::core::ffi::c_int;
     } else {
-        let Ok(new_size) = parse_long(std::ffi::CStr::from_ptr(argument), 0) else {
+        let Ok(new_size) = parse_long(std::ffi::CStr::from_ptr(argument).to_bytes(), 0) else {
             if (*cmd_output).has_reply() {
                 let mut message: *mut ::core::ffi::c_char =
                     ::core::ptr::null_mut::<::core::ffi::c_char>();
