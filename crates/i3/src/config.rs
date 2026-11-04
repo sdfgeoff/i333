@@ -104,10 +104,10 @@ pub static mut current_configpath: *mut ::core::ffi::c_char =
 
 const fn empty_config() -> Config {
     Config {
-        terminal: ::core::ptr::null::<::core::ffi::c_char>(),
+        terminal: None,
         font: Font::empty(),
-        ipc_socket_path: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
-        restart_state_path: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
+        ipc_socket_path: None,
+        restart_state_path: None,
         default_layout: Layout::Default,
         container_stack_limit: 0,
         container_stack_limit_value: 0,
@@ -121,7 +121,7 @@ const fn empty_config() -> Config {
         focus_wrapping: FocusWrapping::Off,
         force_xinerama: false,
         disable_randr15: false,
-        fake_outputs: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
+        fake_outputs: None,
         workspace_auto_back_and_forth: false,
         workspace_urgency_timer: 0.,
         focus_on_window_activation: FocusActivation::Smart,
@@ -708,9 +708,10 @@ unsafe fn free_configuration() {
         (*con).deco_render_params = ::core::ptr::null_mut::<deco_render_params>();
     }
     config.font = Font::empty();
-    free(config.ipc_socket_path as *mut ::core::ffi::c_void);
-    free(config.restart_state_path as *mut ::core::ffi::c_void);
-    free(config.fake_outputs as *mut ::core::ffi::c_void);
+    config.terminal = None;
+    config.ipc_socket_path = None;
+    config.restart_state_path = None;
+    config.fake_outputs = None;
 }
 
 /// Configuration owns its font; validation without X11 keeps an empty value.

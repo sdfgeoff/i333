@@ -478,10 +478,10 @@ impl Con {
 }
 
 pub struct Config {
-    pub terminal: *const ::core::ffi::c_char,
+    pub terminal: Option<std::ffi::CString>,
     pub font: i3_common::font::Font,
-    pub ipc_socket_path: *mut ::core::ffi::c_char,
-    pub restart_state_path: *mut ::core::ffi::c_char,
+    pub ipc_socket_path: Option<std::ffi::CString>,
+    pub restart_state_path: Option<std::ffi::CString>,
     pub default_layout: Layout,
     pub container_stack_limit: ::core::ffi::c_int,
     pub container_stack_limit_value: ::core::ffi::c_int,
@@ -495,7 +495,7 @@ pub struct Config {
     pub focus_wrapping: FocusWrapping,
     pub force_xinerama: bool,
     pub disable_randr15: bool,
-    pub fake_outputs: *mut ::core::ffi::c_char,
+    pub fake_outputs: Option<std::ffi::CString>,
     pub workspace_auto_back_and_forth: bool,
     pub workspace_urgency_timer: ::core::ffi::c_float,
     pub focus_on_window_activation: FocusActivation,

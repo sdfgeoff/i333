@@ -758,7 +758,9 @@ extern "C" fn i3_exit() {
             shm_unlink(shmlogname);
         }
         ipc_shutdown(ShutdownReason::Exit, -(1 as ::core::ffi::c_int));
-        unlink(config.ipc_socket_path);
+        if let Some(path) = config.ipc_socket_path.as_deref() {
+            unlink(path.as_ptr());
+        }
         if !current_log_stream_socket_path.is_null() {
             unlink(current_log_stream_socket_path);
         }
@@ -1479,21 +1481,26 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
         target.write(reply.atom().resource_id());
     }
     load_configuration(override_configpath, ConfigLoad::Load);
-    if config.ipc_socket_path.is_null() {
-        config.ipc_socket_path = getenv(c"I3SOCK".as_ptr());
-        if config.ipc_socket_path.is_null() {
-            config.ipc_socket_path = get_process_filename(c"ipc-socket".as_ptr());
+    if config.ipc_socket_path.is_none() {
+        let environment = getenv(c"I3SOCK".as_ptr());
+        config.ipc_socket_path = if environment.is_null() {
+            // Preserve the process-filename helper's fatal diagnostic/null fallback.
+            NativeAllocation::take(get_process_filename(c"ipc-socket".as_ptr()))
+                .map(|path| CStr::from_ptr(path.raw()).to_owned())
         } else {
-            config.ipc_socket_path = sstrdup(config.ipc_socket_path);
-        }
+            Some(CStr::from_ptr(environment).to_owned())
+        };
     }
-    let ipc_socket: ::core::ffi::c_int =
-        create_socket(config.ipc_socket_path, &raw mut current_socketpath);
+    let socket_path = config
+        .ipc_socket_path
+        .as_ref()
+        .map_or(std::ptr::null(), |path| path.as_ptr());
+    let ipc_socket: ::core::ffi::c_int = create_socket(socket_path, &raw mut current_socketpath);
     if ipc_socket == -(1 as ::core::ffi::c_int) {
         errx(
             EXIT_FAILURE,
             c"Could not create the IPC socket: %s".as_ptr(),
-            config.ipc_socket_path,
+            socket_path,
         );
     }
     if config.force_xinerama {
@@ -1779,19 +1786,16 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     }
     drop(greply);
     let configured_fake = if fake_outputs.is_null() {
-        NativeAllocation::take(config.fake_outputs)
+        config.fake_outputs.take()
     } else {
         None
     };
     if let Some(owner) = configured_fake.as_ref() {
-        fake_outputs = owner.raw();
+        fake_outputs = owner.as_ptr().cast_mut();
     }
     if !fake_outputs.is_null() {
         fake_outputs_init(fake_outputs);
-        if fake_owner.is_some() {
-            free(config.fake_outputs.cast());
-        }
-        config.fake_outputs = std::ptr::null_mut();
+        config.fake_outputs = None;
         drop(fake_owner.take());
         drop(configured_fake);
         fake_outputs = std::ptr::null_mut();

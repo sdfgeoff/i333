@@ -272,11 +272,11 @@ unsafe fn restart_layout_payload() -> Vec<u8> {
 }
 unsafe fn store_restart_layout() -> Option<CString> {
     let payload = restart_layout_payload();
-    let filename = if config.restart_state_path.is_null() {
+    let filename = if let Some(path) = config.restart_state_path.as_deref() {
+        resolve_cstring(path)
+    } else {
         let filename = MallocBuffer::take(get_process_filename(c"restart-state".as_ptr()))?;
         filename.as_cstr().to_owned()
-    } else {
-        resolve_cstring(CStr::from_ptr(config.restart_state_path))
     };
     let base = parent_directory(filename.as_c_str());
     debuglog(

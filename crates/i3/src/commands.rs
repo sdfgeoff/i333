@@ -3475,7 +3475,9 @@ pub unsafe fn cmd_restart(current_match: *mut Match, cmd_output: *mut CommandRes
         setenv(c"_I3_RESTART_FD".as_ptr(), fdstr, 1 as ::core::ffi::c_int);
     }
     ipc_shutdown(ShutdownReason::Restart, exempt_fd);
-    unlink(config.ipc_socket_path);
+    if let Some(path) = config.ipc_socket_path.as_deref() {
+        unlink(path.as_ptr());
+    }
     if !current_log_stream_socket_path.is_null() {
         unlink(current_log_stream_socket_path);
     }

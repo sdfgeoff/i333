@@ -835,8 +835,7 @@ pub unsafe fn cfg_fake_outputs(
     result: *mut ConfigResultIR,
     outputs: *const ::core::ffi::c_char,
 ) {
-    free(config.fake_outputs as *mut ::core::ffi::c_void);
-    config.fake_outputs = sstrdup(outputs);
+    config.fake_outputs = Some(std::ffi::CStr::from_ptr(outputs).to_owned());
 }
 
 pub unsafe fn cfg_force_display_urgency_hint(
@@ -983,8 +982,7 @@ pub unsafe fn cfg_ipc_socket(
     result: *mut ConfigResultIR,
     path: *const ::core::ffi::c_char,
 ) {
-    free(config.ipc_socket_path as *mut ::core::ffi::c_void);
-    config.ipc_socket_path = sstrdup(path);
+    config.ipc_socket_path = Some(std::ffi::CStr::from_ptr(path).to_owned());
 }
 
 pub unsafe fn cfg_restart_state(
@@ -992,8 +990,7 @@ pub unsafe fn cfg_restart_state(
     result: *mut ConfigResultIR,
     path: *const ::core::ffi::c_char,
 ) {
-    free(config.restart_state_path as *mut ::core::ffi::c_void);
-    config.restart_state_path = sstrdup(path);
+    config.restart_state_path = Some(std::ffi::CStr::from_ptr(path).to_owned());
 }
 
 pub unsafe fn cfg_popup_during_fullscreen(
