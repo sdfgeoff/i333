@@ -2158,11 +2158,7 @@ unsafe fn user_output_names_add(list: &OutputNames, name: *const libc::c_char) {
         let mut output = outputs.tqh_first;
         while !output.is_null() {
             if !(get_non_primary && (*output).primary) {
-                added.push(
-                    std::ffi::CStr::from_ptr(output_primary_name(output))
-                        .to_bytes()
-                        .to_vec(),
-                );
+                added.push(output_primary_name(output));
             }
             output = (*output).outputs.tqe_next;
         }
@@ -2188,10 +2184,7 @@ unsafe fn user_output_names_find_next(
         if target.is_null() {
             target = get_output_from_string(current_output, name.as_slice());
         }
-        if crate::util::text_eq_ignore_case(
-            std::ffi::CStr::from_ptr(output_primary_name(current_output)).to_bytes(),
-            name,
-        ) {
+        if crate::util::text_eq_ignore_case(&output_primary_name(current_output), name) {
             for next in &snapshot[index + 1..] {
                 let output = get_output_from_string(current_output, next.as_slice());
                 if !output.is_null() {

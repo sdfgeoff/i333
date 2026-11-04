@@ -792,11 +792,19 @@ pub struct names_head {
     pub slh_first: *mut crate::types::output_name,
 }
 
-#[derive(Copy, Clone)]
-#[repr(C)]
 pub struct output_name {
-    pub name: *mut ::core::ffi::c_char,
+    pub name: Vec<u8>,
     pub names: crate::types::OutputNameNames,
+}
+impl output_name {
+    pub fn new(name: &[u8]) -> Self {
+        Self {
+            name: name.split(|byte| *byte == 0).next().unwrap().to_vec(),
+            names: OutputNameNames {
+                sle_next: std::ptr::null_mut(),
+            },
+        }
+    }
 }
 
 #[derive(Copy, Clone)]

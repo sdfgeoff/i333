@@ -372,19 +372,7 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                     if !output.is_null() {
                         {
                             // Snapshot native bytes before the logger can dispatch a callback.
-                            let log_value_0 = {
-                                let pointer: *const libc::c_char = output_primary_name(output);
-                                i3_common::logging::string_bytes(
-                                    (if pointer.is_null() {
-                                        None
-                                    } else {
-                                        Some(std::ffi::CStr::from_ptr(pointer))
-                                    })
-                                    .map(std::ffi::CStr::to_bytes),
-                                    None,
-                                )
-                                .to_vec()
-                            };
+                            let log_value_0 = output_primary_name(output);
                             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                                 ::log::debug!("../src/manage.c:manage_window:252 - Starting search at output {}\n", log_value_0_text);
                             } else {

@@ -1057,16 +1057,16 @@ mod workspace_assignment_tests {
             bottom: value,
             left: value,
         };
-        let label_a = c"OUT-A".to_owned();
-        let label_b = c"out-\xff".to_owned();
+        let label_a = b"OUT-A".to_vec();
+        let label_b = b"out-\xff".to_vec();
         let mut name_a = Box::new(output_name {
-            name: label_a.as_ptr().cast_mut(),
+            name: label_a.clone(),
             names: OutputNameNames {
                 sle_next: std::ptr::null_mut(),
             },
         });
         let mut name_b = Box::new(output_name {
-            name: label_b.as_ptr().cast_mut(),
+            name: label_b.clone(),
             names: OutputNameNames {
                 sle_next: std::ptr::null_mut(),
             },
@@ -1100,11 +1100,11 @@ mod workspace_assignment_tests {
             ));
             append_workspace_assignment(Workspace_Assignment::new(
                 b"1:dev".to_vec(),
-                Some(label_b.as_bytes().to_vec()),
+                Some(label_b.as_slice().to_vec()),
             ));
             append_workspace_assignment(Workspace_Assignment::new(
                 b"01".to_vec(),
-                Some(label_b.as_bytes().to_vec()),
+                Some(label_b.as_slice().to_vec()),
             ));
             let empty_output = append_workspace_assignment(Workspace_Assignment::new(
                 b"empty".to_vec(),
@@ -1112,7 +1112,7 @@ mod workspace_assignment_tests {
             ));
             let invalid = append_workspace_assignment(Workspace_Assignment::new(
                 b"work-\xff".to_vec(),
-                Some(label_b.as_bytes().to_vec()),
+                Some(label_b.as_slice().to_vec()),
             ));
             assert!((*gaps_only).output.is_none());
             assert_eq!((*empty_output).output.as_deref(), Some(b"".as_slice()));
@@ -1159,7 +1159,7 @@ mod workspace_assignment_tests {
             }
             assert_eq!(ws_assignments.tqh_last, &raw mut ws_assignments.tqh_first);
             assert_eq!(saved_name.as_slice(), b"work-\xff");
-            assert_eq!(saved_output.as_deref(), Some(label_b.as_bytes()));
+            assert_eq!(saved_output.as_deref(), Some(label_b.as_slice()));
             // Exercise the actual queue adapter, not only the pure gap reducer.
             config.gaps = gaps_t {
                 inner: 1,

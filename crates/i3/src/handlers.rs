@@ -542,17 +542,7 @@ unsafe fn handle_configure_request(event: &x::ConfigureRequestEvent) {
                 if !target.is_null() && current_output != (*target).con {
                     {
                         // Snapshot native bytes before the logger can dispatch a callback.
-                        let log_pointer_1 = output_primary_name(target);
-                        let log_value_0 = i3_common::logging::string_bytes(
-                            (if log_pointer_1.is_null() {
-                                None
-                            } else {
-                                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                            })
-                            .map(std::ffi::CStr::to_bytes),
-                            None,
-                        )
-                        .to_vec();
+                        let log_value_0 = output_primary_name(target);
                         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                             ::log::debug!("../src/handlers.c:handle_configure_request:395 - Dock client is requested to be moved to output {}, moving it there.\n", log_value_0_text);
                         } else {

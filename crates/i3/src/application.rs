@@ -1922,8 +1922,7 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
 
             while !output.is_null() {
                 if !((*output).active
-                    || (*con).name.as_deref()
-                        != Some(CStr::from_ptr(output_primary_name(output)).to_bytes()))
+                    || (*con).name.as_deref() != Some(output_primary_name(output).as_slice()))
                 {
                     if (*output).con.is_null() {
                         output_init_con(output);

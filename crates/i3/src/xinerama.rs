@@ -17,8 +17,7 @@ use crate::types::{output_name, xoutput, xoutput as Output, Rect};
 use ::xcb::xinerama::{QueryScreensReply, ScreenInfo};
 use ::xcb::{x, xinerama, Connection, Reply};
 use i3_common::display;
-use i3_common::safewrappers::{scalloc, sstrdup};
-use std::ffi::CString;
+use i3_common::safewrappers::scalloc;
 use std::sync::atomic::{AtomicI32, Ordering};
 
 // Survives repeated initialization calls, including clone-only queries.
@@ -108,18 +107,14 @@ unsafe fn apply_screen(screen: &ScreenInfo) {
             shrink_clone(&mut (*s).rect, screen);
         } else {
             s = scalloc(1_usize, ::core::mem::size_of::<Output>() as usize) as *mut Output;
-            let output_name: *mut output_name =
-                scalloc(1_usize, ::core::mem::size_of::<output_name>() as usize)
-                    as *mut output_name;
-            let name = CString::new(format!("xinerama-{}", NUM_SCREENS.load(Ordering::Relaxed)))
-                .expect("generated output name contains no NUL");
-            (*output_name).name = sstrdup(name.as_ptr());
+            let name = format!("xinerama-{}", NUM_SCREENS.load(Ordering::Relaxed));
+            let output_name = Box::into_raw(Box::new(output_name::new(name.as_bytes())));
             (*s).names_head.slh_first = ::core::ptr::null_mut::<output_name>();
             (*output_name).names.sle_next = (*s).names_head.slh_first;
             (*s).names_head.slh_first = output_name;
             ::log::debug!(
                 "../src/xinerama.c:query_screens:61 - Created new Xinerama screen {} ({})\n",
-                name.to_str().expect("generated output name is UTF-8"),
+                name,
                 i3_common::logging::pointer(s)
             );
             (*s).active = true;

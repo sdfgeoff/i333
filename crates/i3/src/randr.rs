@@ -136,8 +136,12 @@ fn short(bytes: &[u8], offset: usize) -> Option<u16> {
         bytes.get(offset..offset.checked_add(2)?)?.try_into().ok()?,
     ))
 }
-fn c_name(bytes: &[u8]) -> std::ffi::CString {
-    std::ffi::CString::new(bytes.split(|&byte| byte == 0).next().unwrap_or_default()).unwrap()
+fn owned_name(bytes: &[u8]) -> Vec<u8> {
+    bytes
+        .split(|&byte| byte == 0)
+        .next()
+        .unwrap_or_default()
+        .to_vec()
 }
 struct MonitorSnapshot {
     name: u32,
@@ -194,7 +198,7 @@ fn owned_monitor_snapshots(reply: &randr::GetMonitorsReply) -> Option<Vec<Monito
     let body = unsafe { std::slice::from_raw_parts(reply.as_raw().add(32), length) };
     monitor_snapshots(body, monitor_count(reply))
 }
-fn atom_name(reply: &x::GetAtomNameReply) -> Option<std::ffi::CString> {
+fn atom_name(reply: &x::GetAtomNameReply) -> Option<Vec<u8>> {
     // SAFETY: name_len is inside the initialized 32-byte fixed reply header.
     let length = usize::from(unsafe { reply.as_raw().add(8).cast::<u16>().read_unaligned() });
     let available = (reply.length() as usize).checked_mul(4)?;
@@ -202,9 +206,9 @@ fn atom_name(reply: &x::GetAtomNameReply) -> Option<std::ffi::CString> {
         return None;
     }
     // The byte count is validated before the generated variable-length getter.
-    Some(c_name(reply.name().as_bytes()))
+    Some(owned_name(reply.name().as_bytes()))
 }
-fn output_info_name(reply: &randr::GetOutputInfoReply) -> Option<std::ffi::CString> {
+fn output_info_name(reply: &randr::GetOutputInfoReply) -> Option<Vec<u8>> {
     let available = (reply.length() as usize).checked_mul(4)?.checked_add(32)?;
     // OutputInfo has four bytes of fixed fields beyond the ordinary header.
     // Validate those bytes before reading its private count/name fields.
@@ -224,7 +228,7 @@ fn output_info_name(reply: &randr::GetOutputInfoReply) -> Option<std::ffi::CStri
     // SAFETY: the maintained owner advertises this complete allocation; both
     // variable offset and byte count were checked before constructing the view.
     let bytes = unsafe { std::slice::from_raw_parts(raw.add(offset), length) };
-    Some(c_name(bytes))
+    Some(owned_name(bytes))
 }
 fn resource_outputs(reply: &randr::GetScreenResourcesCurrentReply) -> Option<Vec<u32>> {
     let raw = unsafe { reply.as_raw() };
@@ -269,10 +273,7 @@ pub unsafe fn get_output_by_name(name: &[u8], require_active: bool) -> *mut Outp
             let mut output_name: *mut output_name = (*output).names_head.slh_first;
 
             while !output_name.is_null() {
-                if crate::util::text_eq_ignore_case(
-                    std::ffi::CStr::from_ptr((*output_name).name).to_bytes(),
-                    name,
-                ) {
+                if crate::util::text_eq_ignore_case(&(*output_name).name, name) {
                     return output;
                 }
                 output_name = (*output_name).names.sle_next;
@@ -395,28 +396,8 @@ pub unsafe fn get_output_next_wrap(direction: Direction, current: *mut Output) -
     }
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = output_primary_name(current);
-        let log_value_0 = i3_common::logging::string_bytes(
-            (if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
-        let log_pointer_2 = output_primary_name(best);
-        let log_value_1 = i3_common::logging::string_bytes(
-            (if log_pointer_2.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_2))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_0 = output_primary_name(current);
+        let log_value_1 = output_primary_name(best);
         if let (Ok(log_value_0_text), Ok(log_value_1_text)) = (
             std::str::from_utf8(&log_value_0),
             std::str::from_utf8(&log_value_1),
@@ -462,32 +443,12 @@ pub unsafe fn get_output_next(
     }
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = output_primary_name(current);
-        let log_value_0 = i3_common::logging::string_bytes(
-            (if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
-        let log_pointer_2 = if !best.is_null() {
-            output_primary_name(best) as *const ::core::ffi::c_char
+        let log_value_0 = output_primary_name(current);
+        let log_value_1 = if !best.is_null() {
+            output_primary_name(best)
         } else {
-            c"NULL".as_ptr()
+            b"NULL".to_vec()
         };
-        let log_value_1 = i3_common::logging::string_bytes(
-            (if log_pointer_2.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_2))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
         if let (Ok(log_value_0_text), Ok(log_value_1_text)) = (
             std::str::from_utf8(&log_value_0),
             std::str::from_utf8(&log_value_1),
@@ -532,9 +493,7 @@ pub unsafe fn create_root_output() -> *mut Output {
     (*s).rect.y = 0_u32;
     (*s).rect.width = dimensions.0;
     (*s).rect.height = dimensions.1;
-    let output_name: *mut output_name =
-        scalloc(1_usize, ::core::mem::size_of::<output_name>() as usize) as *mut output_name;
-    (*output_name).name = c"xroot-0".as_ptr().cast_mut();
+    let output_name = Box::into_raw(Box::new(output_name::new(b"xroot-0")));
     (*s).names_head.slh_first = ::core::ptr::null_mut::<output_name>();
     (*output_name).names.sle_next = (*s).names_head.slh_first;
     (*s).names_head.slh_first = output_name;
@@ -547,17 +506,7 @@ pub unsafe fn output_init_con(output: *mut Output) {
     let mut reused: bool = false;
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = output_primary_name(output);
-        let log_value_0 = i3_common::logging::string_bytes(
-            (if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_0 = output_primary_name(output);
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::debug!(
                 "../src/randr.c:output_init_con:351 - init_con for output {}\n",
@@ -576,9 +525,7 @@ pub unsafe fn output_init_con(output: *mut Output) {
     };
     current = nodes::first_ptr(croot);
     while !current.is_null() {
-        if (*current).name.as_deref()
-            != Some(std::ffi::CStr::from_ptr(output_primary_name(output)).to_bytes())
-        {
+        if (*current).name.as_deref() != Some(output_primary_name(output).as_slice()) {
             current = nodes::next_ptr(current);
         } else {
             con = current;
@@ -615,11 +562,7 @@ pub unsafe fn output_init_con(output: *mut Output) {
     }
     if con.is_null() {
         con = con_new(croot, ::core::ptr::null_mut::<Window>());
-        (*con).name = Some(
-            std::ffi::CStr::from_ptr(output_primary_name(output))
-                .to_bytes()
-                .to_vec(),
-        );
+        (*con).name = Some(output_primary_name(output));
         (*con).type_0 = ContainerType::Output;
         (*con).layout = Layout::Output;
         con_fix_percent(croot);
@@ -720,28 +663,8 @@ pub unsafe fn init_ws_for_output(output: *mut Output) {
                     let log_value_0 =
                         i3_common::logging::string_bytes(log_name_owner_1.as_deref(), None)
                             .to_vec();
-                    let log_pointer_2 = output_primary_name(get_output_for_con(workspace));
-                    let log_value_1 = i3_common::logging::string_bytes(
-                        (if log_pointer_2.is_null() {
-                            None
-                        } else {
-                            Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                        })
-                        .map(std::ffi::CStr::to_bytes),
-                        None,
-                    )
-                    .to_vec();
-                    let log_pointer_3 = output_primary_name(output);
-                    let log_value_2 = i3_common::logging::string_bytes(
-                        (if log_pointer_3.is_null() {
-                            None
-                        } else {
-                            Some(std::ffi::CStr::from_ptr(log_pointer_3))
-                        })
-                        .map(std::ffi::CStr::to_bytes),
-                        None,
-                    )
-                    .to_vec();
+                    let log_value_1 = output_primary_name(get_output_for_con(workspace));
+                    let log_value_2 = output_primary_name(output);
                     if let (Ok(log_value_0_text), Ok(log_value_1_text), Ok(log_value_2_text)) = (
                         std::str::from_utf8(&log_value_0),
                         std::str::from_utf8(&log_value_1),
@@ -981,9 +904,8 @@ unsafe fn randr_query_outputs_15() -> bool {
         let Some(name_owned) = atom_name(&atom_reply) else {
             continue;
         };
-        let name = name_owned.as_ptr();
-        let mut new: *mut Output =
-            get_output_by_name(std::ffi::CStr::from_ptr(name).to_bytes(), false);
+        let name = name_owned.as_slice();
+        let mut new: *mut Output = get_output_by_name(name, false);
         if new.is_null() {
             new = scalloc(1_usize, ::core::mem::size_of::<Output>() as usize) as *mut Output;
             (*new).names_head.slh_first = ::core::ptr::null_mut::<output_name>();
@@ -1002,22 +924,16 @@ unsafe fn randr_query_outputs_15() -> bool {
                         i += 1;
                         continue;
                     };
-                    let oname = oname_owned.as_ptr();
-                    if strcmp(name, oname) != 0_i32 {
-                        let output_name: *mut output_name =
-                            scalloc(1_usize, ::core::mem::size_of::<output_name>() as usize)
-                                as *mut output_name;
-                        (*output_name).name = sstrdup(oname);
+                    let oname = oname_owned.as_slice();
+                    if name != oname {
+                        let output_name = Box::into_raw(Box::new(output_name::new(oname)));
                         (*output_name).names.sle_next = (*new).names_head.slh_first;
                         (*new).names_head.slh_first = output_name;
                     }
                 }
                 i += 1;
             }
-            let output_name_0: *mut output_name =
-                scalloc(1_usize, ::core::mem::size_of::<output_name>() as usize)
-                    as *mut output_name;
-            (*output_name_0).name = sstrdup(name);
+            let output_name_0 = Box::into_raw(Box::new(output_name::new(name)));
             (*output_name_0).names.sle_next = (*new).names_head.slh_first;
             (*new).names_head.slh_first = output_name_0;
             if monitor.primary != 0 {
@@ -1046,17 +962,7 @@ unsafe fn randr_query_outputs_15() -> bool {
         (*new).changed = update_x || update_y || update_w || update_h;
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_pointer_1 = name;
-            let log_value_0 = i3_common::logging::string_bytes(
-                (if log_pointer_1.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                })
-                .map(std::ffi::CStr::to_bytes),
-                None,
-            )
-            .to_vec();
+            let log_value_0 = name.to_vec();
             let log_value_1 = (monitor.x as i32);
             let log_value_2 = (monitor.y as i32);
             let log_value_3 = (monitor.width as i32);
@@ -1093,31 +999,16 @@ unsafe fn handle_output(
     (*new).id = id;
     (*new).primary = PRIMARY_OUTPUT == Some(id);
     while !(*new).names_head.slh_first.is_null() {
-        free((*(*new).names_head.slh_first).name as *mut ::core::ffi::c_void);
-        (*(*new).names_head.slh_first).name = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        let mut old_head: *mut output_name = (*new).names_head.slh_first;
-        (*new).names_head.slh_first = (*(*new).names_head.slh_first).names.sle_next;
-        free(old_head as *mut ::core::ffi::c_void);
-        old_head = ::core::ptr::null_mut::<output_name>();
+        let previous = (*new).names_head.slh_first;
+        (*new).names_head.slh_first = (*previous).names.sle_next;
+        drop(Box::from_raw(previous));
     }
-    let output_name: *mut output_name =
-        scalloc(1_usize, ::core::mem::size_of::<output_name>() as usize) as *mut output_name;
-    (*output_name).name = sstrdup(name.as_ptr());
+    let output_name = Box::into_raw(Box::new(output_name::new(&name)));
     (*output_name).names.sle_next = (*new).names_head.slh_first;
     (*new).names_head.slh_first = output_name;
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = output_primary_name(new);
-        let log_value_0 = i3_common::logging::string_bytes(
-            (if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_0 = output_primary_name(new);
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::debug!(
                 "../src/randr.c:handle_output:742 - found output with name {}\n",
@@ -1163,17 +1054,7 @@ unsafe fn handle_output(
     let Ok(crtc) = connection.wait_for_reply(cookie) else {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_pointer_1 = output_primary_name(new);
-            let log_value_0 = i3_common::logging::string_bytes(
-                (if log_pointer_1.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                })
-                .map(std::ffi::CStr::to_bytes),
-                None,
-            )
-            .to_vec();
+            let log_value_0 = output_primary_name(new);
             let log_value_1 = i3_common::logging::pointer(std::ptr::null::<libc::c_void>());
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::debug!("../src/randr.c:handle_output:763 - Skipping output {}: could not get CRTC ({})\n", log_value_0_text, log_value_1);
@@ -1441,17 +1322,7 @@ pub unsafe fn randr_query_outputs() {
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
                 let log_value_0 = i3_common::logging::pointer(output);
-                let log_pointer_2 = output_primary_name(output);
-                let log_value_1 = i3_common::logging::string_bytes(
-                    (if log_pointer_2.is_null() {
-                        None
-                    } else {
-                        Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                    })
-                    .map(std::ffi::CStr::to_bytes),
-                    None,
-                )
-                .to_vec();
+                let log_value_1 = output_primary_name(output);
                 let log_value_2 = ((*output).rect.x) as i32;
                 let log_value_3 = ((*output).rect.y) as i32;
                 if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
@@ -1495,17 +1366,7 @@ pub unsafe fn randr_query_outputs() {
                     {
                         // Snapshot native bytes before the logger can dispatch a callback.
                         let log_value_0 = i3_common::logging::pointer(other);
-                        let log_pointer_2 = output_primary_name(other);
-                        let log_value_1 = i3_common::logging::string_bytes(
-                            (if log_pointer_2.is_null() {
-                                None
-                            } else {
-                                Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                            })
-                            .map(std::ffi::CStr::to_bytes),
-                            None,
-                        )
-                        .to_vec();
+                        let log_value_1 = output_primary_name(other);
                         if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
                             ::log::debug!("../src/randr.c:randr_query_outputs:978 - disabling output {} ({})\n", log_value_0, log_value_1_text);
                         } else {
@@ -1525,17 +1386,7 @@ pub unsafe fn randr_query_outputs() {
         if (*output).active && (*output).con.is_null() {
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
-                let log_pointer_1 = output_primary_name(output);
-                let log_value_0 = i3_common::logging::string_bytes(
-                    (if log_pointer_1.is_null() {
-                        None
-                    } else {
-                        Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                    })
-                    .map(std::ffi::CStr::to_bytes),
-                    None,
-                )
-                .to_vec();
+                let log_value_0 = output_primary_name(output);
                 if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                     ::log::debug!("../src/randr.c:randr_query_outputs:993 - Need to initialize a Con for output {}\n", log_value_0_text);
                 } else {
@@ -1597,17 +1448,7 @@ pub unsafe fn randr_query_outputs() {
             if nodes::first_ptr(content).is_null() {
                 {
                     // Snapshot native bytes before the logger can dispatch a callback.
-                    let log_pointer_1 = output_primary_name(output);
-                    let log_value_0 = i3_common::logging::string_bytes(
-                        (if log_pointer_1.is_null() {
-                            None
-                        } else {
-                            Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                        })
-                        .map(std::ffi::CStr::to_bytes),
-                        None,
-                    )
-                    .to_vec();
+                    let log_value_0 = output_primary_name(output);
                     if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                         ::log::debug!("../src/randr.c:randr_query_outputs:1035 - Should add ws for output {}\n", log_value_0_text);
                     } else {
@@ -1624,17 +1465,7 @@ pub unsafe fn randr_query_outputs() {
         if !(!(*output).primary || (*output).con.is_null()) {
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
-                let log_pointer_1 = output_primary_name(output);
-                let log_value_0 = i3_common::logging::string_bytes(
-                    (if log_pointer_1.is_null() {
-                        None
-                    } else {
-                        Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                    })
-                    .map(std::ffi::CStr::to_bytes),
-                    None,
-                )
-                .to_vec();
+                let log_value_0 = output_primary_name(output);
                 if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                     ::log::debug!(
                         "../src/randr.c:randr_query_outputs:1045 - Focusing primary output {}\n",
@@ -1676,17 +1507,7 @@ pub unsafe fn randr_disable_output(output: *mut Output) {
     (*output).active = false;
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = output_primary_name(output);
-        let log_value_0 = i3_common::logging::string_bytes(
-            (if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_0 = output_primary_name(output);
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::debug!("../src/randr.c:randr_disable_output:1066 - Output {} disabled, re-assigning workspaces/docks\n", log_value_0_text);
         } else {
@@ -1795,7 +1616,6 @@ use crate::util::min;
 use crate::util::update_if_necessary;
 use crate::workspace::workspace_show_by_name;
 use i3_common::safewrappers::scalloc;
-use i3_common::safewrappers::sstrdup;
 
 // Canonical Cairo backend ABI; renderer logic remains local.
 
@@ -1915,7 +1735,7 @@ mod tests {
         bytes[8..10].copy_from_slice(&(name.len() as u16).to_ne_bytes());
         bytes[32..].copy_from_slice(name);
         let reply: x::GetAtomNameReply = owned_reply(bytes);
-        assert_eq!(atom_name(&reply).unwrap().to_bytes(), b"m\xff");
+        assert_eq!(atom_name(&reply).unwrap(), b"m\xff");
         unsafe {
             reply
                 .as_raw()
@@ -1933,7 +1753,7 @@ mod tests {
                 .cast::<u16>()
                 .write_unaligned(0)
         };
-        assert_eq!(atom_name(&reply).unwrap().to_bytes(), b"");
+        assert_eq!(atom_name(&reply).unwrap(), b"");
     }
 
     #[test]
@@ -1949,7 +1769,7 @@ mod tests {
         bytes[34..36].copy_from_slice(&(name.len() as u16).to_ne_bytes());
         bytes[52..].copy_from_slice(name);
         let reply: randr::GetOutputInfoReply = owned_reply(bytes);
-        assert_eq!(output_info_name(&reply).unwrap().to_bytes(), b"DP\xff");
+        assert_eq!(output_info_name(&reply).unwrap(), b"DP\xff");
         // Counts are checked before any generated variable-length accessor.
         unsafe {
             reply
@@ -1961,7 +1781,7 @@ mod tests {
         };
         assert!(output_info_name(&reply).is_none());
         let reply: randr::GetOutputInfoReply = owned_reply(vec![0; 36]);
-        assert_eq!(output_info_name(&reply).unwrap().to_bytes(), b"");
+        assert_eq!(output_info_name(&reply).unwrap(), b"");
         unsafe {
             reply
                 .as_raw()
@@ -2088,7 +1908,7 @@ mod tests {
             assert!(monitor_snapshots(&bytes[..length], 1).is_none());
         }
         assert!(monitor_snapshots(&bytes, 2).is_none());
-        assert_eq!(c_name(b"raw\xff\0tail").to_bytes(), b"raw\xff");
+        assert_eq!(owned_name(b"raw\xff\0tail"), b"raw\xff");
     }
     #[test]
     fn version_gate_keeps_the_existing_major_and_minor_policy() {

@@ -1011,9 +1011,7 @@ unsafe fn canonicalize_output_name(name: &[u8]) -> Vec<u8> {
     if output.is_null() {
         name.to_vec()
     } else {
-        CStr::from_ptr(output_primary_name(output))
-            .to_bytes()
-            .to_vec()
+        output_primary_name(output)
     }
 }
 unsafe fn snapshot_bar_config(config: *mut Barconfig) -> messages::BarConfig {
@@ -1199,7 +1197,7 @@ unsafe fn handle_get_outputs(
             con_get_fullscreen_con((*output).con, FullscreenMode::Output)
         };
         result.push(messages::Output {
-            name: native_text(output_primary_name(output)),
+            name: messages::NativeText::bytes(&output_primary_name(output)),
             active: (*output).active,
             primary: (*output).primary,
             rect: unsigned_rect((*output).rect),

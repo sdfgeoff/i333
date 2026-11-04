@@ -102,13 +102,13 @@ pub unsafe fn get_output_from_string(
     }
 }
 
-/// Return the primary name borrowed from an output's native name list.
+/// Copy the primary name from an output's owned name list.
 ///
 /// # Safety
-/// `output` has a nonempty, initialized name list. Its first name and node must
-/// remain live and exclusively accessible while the returned pointer is used.
-pub unsafe fn output_primary_name(output: *mut Output) -> *mut libc::c_char {
-    unsafe { (*(*output).names_head.slh_first).name }
+/// `output` has a live nonempty, initialized event-thread name list. No queue
+/// mutation overlaps this snapshot; the returned bytes are independent of it.
+pub unsafe fn output_primary_name(output: *mut Output) -> Vec<u8> {
+    unsafe { (*(*output).names_head.slh_first).name.clone() }
 }
 
 /// Resolve the output containing a live native container.

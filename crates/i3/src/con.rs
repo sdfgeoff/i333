@@ -1581,19 +1581,7 @@ pub unsafe fn con_move_to_output(con: *mut Con, output: *mut Output, fix_coordin
     {
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_value_0 = i3_common::logging::pointer(con);
-        let log_value_1 = {
-            let pointer: *const libc::c_char = output_primary_name(output);
-            i3_common::logging::string_bytes(
-                (if pointer.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(pointer))
-                })
-                .map(std::ffi::CStr::to_bytes),
-                None,
-            )
-            .to_vec()
-        };
+        let log_value_1 = output_primary_name(output);
         if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
             ::log::debug!(
                 "../src/con.c:con_move_to_output:1591 - Moving con {} to output {}\n",

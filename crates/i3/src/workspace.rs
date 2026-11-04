@@ -1248,19 +1248,7 @@ pub unsafe fn workspace_move_to_output(mut ws: *mut Con, output: *mut Output) {
         let log_owner_2 = (*ws).name.clone();
         let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
         let log_value_2 = i3_common::logging::pointer(output);
-        let log_value_3 = {
-            let pointer: *const libc::c_char = output_primary_name(output);
-            i3_common::logging::string_bytes(
-                (if pointer.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(pointer))
-                })
-                .map(std::ffi::CStr::to_bytes),
-                None,
-            )
-            .to_vec()
-        };
+        let log_value_3 = output_primary_name(output);
         if let (Ok(log_value_1_text), Ok(log_value_3_text)) = (
             std::str::from_utf8(log_value_1),
             std::str::from_utf8(&log_value_3),

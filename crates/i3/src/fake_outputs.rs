@@ -14,7 +14,8 @@
 use crate::output::output_primary_name;
 use crate::randr::{init_ws_for_output, output_init_con, outputs};
 use crate::types::{output_name, xoutput as Output, Rect};
-use i3_common::safewrappers::{scalloc, sstrdup};
+use i3_common::safewrappers::scalloc;
+#[cfg(test)]
 use std::ffi::CString;
 use std::sync::atomic::{AtomicI32, Ordering};
 
@@ -190,19 +191,14 @@ unsafe fn attach_output(parsed: ParsedOutput) {
             );
             parsed.shrink(&mut (*output).rect);
         } else {
-            let name = CString::new(format!("fake-{}", NUM_SCREENS.load(Ordering::Relaxed)))
-                .expect("an integer output name contains no NUL");
-            // These nodes escape into the existing graph and are freed with
-            // libc::free. Rust Box/CString raw allocations must not be handed
-            // to that ownership contract.
-            let output_name = scalloc(1, std::mem::size_of::<output_name>()).cast::<output_name>();
+            let name = format!("fake-{}", NUM_SCREENS.load(Ordering::Relaxed));
+            let output_name = Box::into_raw(Box::new(output_name::new(name.as_bytes())));
             output = scalloc(1, std::mem::size_of::<Output>()).cast::<Output>();
-            (*output_name).name = sstrdup(name.as_ptr());
             (*output_name).names.sle_next = std::ptr::null_mut();
             (*output).names_head.slh_first = output_name;
             ::log::debug!(
                 "../src/fake_outputs.c:fake_outputs_init:68 - Created new fake output {} ({})\n",
-                name.to_str().expect("generated output name is UTF-8"),
+                name,
                 i3_common::logging::pointer(output)
             );
             (*output).active = true;
