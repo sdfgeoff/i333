@@ -71,12 +71,7 @@ pub unsafe fn con_new_skeleton(parent: *mut Con, window: *mut i3Window) -> *mut 
     } else {
         (*new).depth = root_depth as u16;
     }
-    debuglog(
-        c"%s:%s:%d - opening window\n".as_ptr().cast_mut(),
-        c"../src/con.c".as_ptr(),
-        c"con_new_skeleton".as_ptr(),
-        52 as ::core::ffi::c_int,
-    );
+    ::log::debug!("../src/con.c:con_new_skeleton:52 - opening window\n");
     if !parent.is_null() {
         con_attach(new, parent, false);
     }
@@ -118,12 +113,9 @@ pub unsafe fn con_free(con: *mut Con) {
         free(mark as *mut ::core::ffi::c_void);
         mark = ::core::ptr::null_mut::<mark_t>();
     }
-    debuglog(
-        c"%s:%s:%d - con %p freed\n".as_ptr().cast_mut(),
-        c"../src/con.c".as_ptr(),
-        c"con_free".as_ptr(),
-        96 as ::core::ffi::c_int,
-        con,
+    ::log::debug!(
+        "../src/con.c:con_free:96 - con {} freed\n",
+        i3_common::logging::pointer(con)
     );
     // All graph links and native resources are released before Rust ownership.
     drop(owner);
@@ -136,14 +128,9 @@ unsafe fn _con_attach(con: *mut Con, parent: *mut Con, previous: *mut Con, ignor
     let child_id = arena::identity(con).expect("live child");
     let mut focus_parent = parent;
     if ((*con).type_0) == ContainerType::Workspace {
-        debuglog(
-            c"%s:%s:%d - it's a workspace. num = %d\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"_con_attach".as_ptr(),
-            110 as ::core::ffi::c_int,
-            (*con).num,
+        ::log::debug!(
+            "../src/con.c:_con_attach:110 - it's a workspace. num = {}\n",
+            ((*con).num) as i32
         );
         current = nodes::first(node_owner)
             .and_then(arena::resolve)
@@ -204,14 +191,7 @@ unsafe fn _con_attach(con: *mut Con, parent: *mut Con, previous: *mut Con, ignor
             nodes::append(node_owner, child_id).expect("detached dock child");
         }
     } else if ((*con).type_0) == ContainerType::Floating {
-        debuglog(
-            c"%s:%s:%d - Inserting into floating containers\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"_con_attach".as_ptr(),
-            162 as ::core::ffi::c_int,
-        );
+        ::log::debug!("../src/con.c:_con_attach:162 - Inserting into floating containers\n");
         arena::floating::append(
             arena::identity(parent).expect("live floating parent"),
             arena::identity(con).expect("live floating child"),
@@ -233,36 +213,19 @@ unsafe fn _con_attach(con: *mut Con, parent: *mut Con, previous: *mut Con, ignor
             && ((*parent).type_0) == ContainerType::Workspace
             && (*parent).workspace_layout != Layout::Default
         {
-            debuglog(
-                c"%s:%s:%d - Parent is a workspace. Applying default layout...\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/con.c".as_ptr(),
-                c"_con_attach".as_ptr(),
-                186 as ::core::ffi::c_int,
-            );
+            ::log::debug!("../src/con.c:_con_attach:186 - Parent is a workspace. Applying default layout...\n");
             let target: *mut Con = workspace_attach_to(parent);
             node_owner = arena::identity(target).expect("live workspace split");
             focus_parent = target;
             set_parent_ptr(con, target as *mut Con).expect("live acyclic ancestry");
             current = ::core::ptr::null_mut::<Con>();
-            debuglog(
-                c"%s:%s:%d - done\n".as_ptr().cast_mut(),
-                c"../src/con.c".as_ptr(),
-                c"_con_attach".as_ptr(),
-                195 as ::core::ffi::c_int,
-            );
+            ::log::debug!("../src/con.c:_con_attach:195 - done\n");
         }
         if !current.is_null() && ((*parent).type_0) != ContainerType::Output {
-            debuglog(
-                c"%s:%s:%d - Inserting con = %p after con %p\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/con.c".as_ptr(),
-                c"_con_attach".as_ptr(),
-                201 as ::core::ffi::c_int,
-                con,
-                current,
+            ::log::debug!(
+                "../src/con.c:_con_attach:201 - Inserting con = {} after con {}\n",
+                i3_common::logging::pointer(con),
+                i3_common::logging::pointer(current)
             );
             nodes::insert_after(
                 node_owner,
@@ -318,12 +281,9 @@ pub unsafe fn con_focus(con: *mut Con) {
             c"void con_focus(Con *)".as_ptr(),
         );
     };
-    debuglog(
-        c"%s:%s:%d - con_focus = %p\n".as_ptr().cast_mut(),
-        c"../src/con.c".as_ptr(),
-        c"con_focus".as_ptr(),
-        252 as ::core::ffi::c_int,
-        con,
+    ::log::debug!(
+        "../src/con.c:con_focus:252 - con_focus = {}\n",
+        i3_common::logging::pointer(con)
     );
     focus::move_to_front(
         arena::identity(parent_ptr(con)).expect("live focus parent"),
@@ -381,35 +341,22 @@ pub unsafe fn con_close(con: *mut Con, kill_window: KillWindow) {
             c"void con_close(Con *, kill_window_t)".as_ptr(),
         );
     };
-    debuglog(
-        c"%s:%s:%d - Closing con = %p.\n".as_ptr().cast_mut(),
-        c"../src/con.c".as_ptr(),
-        c"con_close".as_ptr(),
-        338 as ::core::ffi::c_int,
-        con,
+    ::log::debug!(
+        "../src/con.c:con_close:338 - Closing con = {}.\n",
+        i3_common::logging::pointer(con)
     );
     if ((*con).type_0) == ContainerType::Output || ((*con).type_0) == ContainerType::Root {
-        debuglog(
-            c"%s:%s:%d - con = %p is of type %d, not closing anything.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_close".as_ptr(),
-            342 as ::core::ffi::c_int,
-            con,
-            ((*con).type_0).raw() as ::core::ffi::c_uint,
+        ::log::debug!(
+            "../src/con.c:con_close:342 - con = {} is of type {}, not closing anything.\n",
+            i3_common::logging::pointer(con),
+            (((*con).type_0).raw() as ::core::ffi::c_uint) as i32
         );
         return;
     }
     if ((*con).type_0) == ContainerType::Workspace {
-        debuglog(
-            c"%s:%s:%d - con = %p is a workspace, closing all children instead.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_close".as_ptr(),
-            347 as ::core::ffi::c_int,
-            con,
+        ::log::debug!(
+            "../src/con.c:con_close:347 - con = {} is a workspace, closing all children instead.\n",
+            i3_common::logging::pointer(con)
         );
         let owner = arena::identity(con).expect("live closing workspace");
         let mut child_id = focus::first(owner);
@@ -418,12 +365,9 @@ pub unsafe fn con_close(con: *mut Con, kill_window: KillWindow) {
             let Some(child) = arena::resolve(id) else {
                 break;
             };
-            debuglog(
-                c"%s:%s:%d - killing child = %p.\n".as_ptr().cast_mut(),
-                c"../src/con.c".as_ptr(),
-                c"con_close".as_ptr(),
-                350 as ::core::ffi::c_int,
-                child,
+            ::log::debug!(
+                "../src/con.c:con_close:350 - killing child = {}.\n",
+                i3_common::logging::pointer(child)
             );
             tree_close_internal(child, kill_window, false);
             child_id = next_child;
@@ -536,15 +480,7 @@ pub unsafe fn con_accepts_window(con: *mut Con) -> bool {
         return false;
     }
     if con_is_split(con) {
-        debuglog(
-            c"%s:%s:%d - container %p does not accept windows, it is a split container.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_accepts_window".as_ptr(),
-            518 as ::core::ffi::c_int,
-            con,
-        );
+        ::log::debug!("../src/con.c:con_accepts_window:518 - container {} does not accept windows, it is a split container.\n", i3_common::logging::pointer(con));
         return false;
     }
     (*con).window.is_null()
@@ -576,28 +512,14 @@ pub unsafe fn con_get_workspace(con: *mut Con) -> *mut Con {
 }
 
 pub unsafe fn con_parent_with_orientation(con: *mut Con, orientation: Orientation) -> *mut Con {
-    debuglog(
-        c"%s:%s:%d - Searching for parent of Con %p with orientation %d\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/con.c".as_ptr(),
-        c"con_parent_with_orientation".as_ptr(),
-        560 as ::core::ffi::c_int,
-        con,
-        orientation as ::core::ffi::c_uint,
-    );
+    ::log::debug!("../src/con.c:con_parent_with_orientation:560 - Searching for parent of Con {} with orientation {}\n", i3_common::logging::pointer(con), (orientation as ::core::ffi::c_uint) as i32);
     let mut parent: *mut Con = parent_ptr(con) as *mut Con;
     if ((*parent).type_0) == ContainerType::Floating {
         return ::core::ptr::null_mut::<Con>();
     }
     while con_orientation(parent) != orientation {
-        debuglog(
-            c"%s:%s:%d - Need to go one level further up\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_parent_with_orientation".as_ptr(),
-            566 as ::core::ffi::c_int,
+        ::log::debug!(
+            "../src/con.c:con_parent_with_orientation:566 - Need to go one level further up\n"
         );
         parent = parent_ptr(parent) as *mut Con;
         if !parent.is_null()
@@ -612,12 +534,9 @@ pub unsafe fn con_parent_with_orientation(con: *mut Con, orientation: Orientatio
             break;
         }
     }
-    debuglog(
-        c"%s:%s:%d - Result: %p\n".as_ptr().cast_mut(),
-        c"../src/con.c".as_ptr(),
-        c"con_parent_with_orientation".as_ptr(),
-        579 as ::core::ffi::c_int,
-        parent,
+    ::log::debug!(
+        "../src/con.c:con_parent_with_orientation:579 - Result: {}\n",
+        i3_common::logging::pointer(parent)
     );
     parent
 }
@@ -777,15 +696,7 @@ pub unsafe fn con_find_transient_for_window(start: *mut Con, target: u32) -> boo
         && !(*transient_con).window.is_null()
         && (*(*transient_con).window).transient_for as ::core::ffi::c_long != 0
     {
-        debuglog(
-            c"%s:%s:%d - transient_con = 0x%08x, transient_con->window->transient_for = 0x%08x, target = 0x%08x\n".as_ptr().cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_find_transient_for_window".as_ptr(),
-            829 as ::core::ffi::c_int,
-            (*(*transient_con).window).id,
-            (*(*transient_con).window).transient_for,
-            target,
-        );
+        ::log::debug!("../src/con.c:con_find_transient_for_window:829 - transient_con = 0x{:08x}, transient_con->window->transient_for = 0x{:08x}, target = 0x{:08x}\n", ((*(*transient_con).window).id) as u32, ((*(*transient_con).window).transient_for) as u32, (target) as u32);
         if (*(*transient_con).window).transient_for == target {
             return true;
         }
@@ -828,16 +739,37 @@ pub unsafe fn con_mark_toggle(con: *mut Con, mark: *const ::core::ffi::c_char, m
             c"void con_mark_toggle(Con *, const char *, mark_mode_t)".as_ptr(),
         );
     };
-    debuglog(
-        c"%s:%s:%d - Toggling mark \"%s\" on con = %p.\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/con.c".as_ptr(),
-        c"con_mark_toggle".as_ptr(),
-        874 as ::core::ffi::c_int,
-        mark,
-        con,
-    );
+    {
+        // Snapshot native bytes before the logger can dispatch a callback.
+        let log_value_0 = (|pointer: *const libc::c_char| {
+            i3_common::logging::string_bytes(
+                if pointer.is_null() {
+                    None
+                } else {
+                    Some(std::ffi::CStr::from_ptr(pointer))
+                },
+                None,
+            )
+            .to_vec()
+        })(mark);
+        let log_value_1 = i3_common::logging::pointer(con);
+        if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+            ::log::debug!(
+                "../src/con.c:con_mark_toggle:874 - Toggling mark \"{}\" on con = {}.\n",
+                log_value_0_text,
+                log_value_1
+            );
+        } else {
+            i3_common::logging::emit_parts(
+                i3_common::logging::Level::Debug,
+                &[
+                    "../src/con.c:con_mark_toggle:874 - Toggling mark \"".as_bytes(),
+                    &log_value_0,
+                    format!("\" on con = {}.\n", log_value_1).as_bytes(),
+                ],
+            );
+        }
+    };
     if con_has_mark(con, mark) {
         con_unmark(con, mark);
     } else {
@@ -855,26 +787,42 @@ pub unsafe fn con_mark(con: *mut Con, mark: *const ::core::ffi::c_char, mode: Ma
             c"void con_mark(Con *, const char *, mark_mode_t)".as_ptr(),
         );
     };
-    debuglog(
-        c"%s:%s:%d - Setting mark \"%s\" on con = %p.\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/con.c".as_ptr(),
-        c"con_mark".as_ptr(),
-        889 as ::core::ffi::c_int,
-        mark,
-        con,
-    );
+    {
+        // Snapshot native bytes before the logger can dispatch a callback.
+        let log_value_0 = (|pointer: *const libc::c_char| {
+            i3_common::logging::string_bytes(
+                if pointer.is_null() {
+                    None
+                } else {
+                    Some(std::ffi::CStr::from_ptr(pointer))
+                },
+                None,
+            )
+            .to_vec()
+        })(mark);
+        let log_value_1 = i3_common::logging::pointer(con);
+        if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+            ::log::debug!(
+                "../src/con.c:con_mark:889 - Setting mark \"{}\" on con = {}.\n",
+                log_value_0_text,
+                log_value_1
+            );
+        } else {
+            i3_common::logging::emit_parts(
+                i3_common::logging::Level::Debug,
+                &[
+                    "../src/con.c:con_mark:889 - Setting mark \"".as_bytes(),
+                    &log_value_0,
+                    format!("\" on con = {}.\n", log_value_1).as_bytes(),
+                ],
+            );
+        }
+    };
     con_unmark(::core::ptr::null_mut::<Con>(), mark);
     if mode == MarkMode::Replace {
-        debuglog(
-            c"%s:%s:%d - Removing all existing marks on con = %p.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_mark".as_ptr(),
-            893 as ::core::ffi::c_int,
-            con,
+        ::log::debug!(
+            "../src/con.c:con_mark:893 - Removing all existing marks on con = {}.\n",
+            i3_common::logging::pointer(con)
         );
         while !(*con).marks_head.tqh_first.is_null() {
             let current: *const mark_t = (*con).marks_head.tqh_first;
@@ -894,14 +842,7 @@ pub unsafe fn con_mark(con: *mut Con, mark: *const ::core::ffi::c_char, mode: Ma
 
 pub unsafe fn con_unmark(con: *mut Con, name: *const ::core::ffi::c_char) {
     if name.is_null() {
-        debuglog(
-            c"%s:%s:%d - Unmarking all containers.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_unmark".as_ptr(),
-            919 as ::core::ffi::c_int,
-        );
+        ::log::debug!("../src/con.c:con_unmark:919 - Unmarking all containers.\n");
         for id in arena::containers() {
             let Some(current) = arena::resolve(id) else {
                 continue;
@@ -927,37 +868,47 @@ pub unsafe fn con_unmark(con: *mut Con, name: *const ::core::ffi::c_char) {
             }
         }
     } else {
-        debuglog(
-            c"%s:%s:%d - Removing mark \"%s\".\n".as_ptr().cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_unmark".as_ptr(),
-            941 as ::core::ffi::c_int,
-            name,
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_value_0 = (|pointer: *const libc::c_char| {
+                i3_common::logging::string_bytes(
+                    if pointer.is_null() {
+                        None
+                    } else {
+                        Some(std::ffi::CStr::from_ptr(pointer))
+                    },
+                    None,
+                )
+                .to_vec()
+            })(name);
+            if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                ::log::debug!(
+                    "../src/con.c:con_unmark:941 - Removing mark \"{}\".\n",
+                    log_value_0_text
+                );
+            } else {
+                i3_common::logging::emit_parts(
+                    i3_common::logging::Level::Debug,
+                    &[
+                        "../src/con.c:con_unmark:941 - Removing mark \"".as_bytes(),
+                        &log_value_0,
+                        "\".\n".as_bytes(),
+                    ],
+                );
+            }
+        };
         let current = if con.is_null() {
             con_by_mark(name)
         } else {
             con
         };
         if current.is_null() {
-            debuglog(
-                c"%s:%s:%d - No container found with this mark, so there is nothing to do.\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/con.c".as_ptr(),
-                c"con_unmark".as_ptr(),
-                944 as ::core::ffi::c_int,
-            );
+            ::log::debug!("../src/con.c:con_unmark:944 - No container found with this mark, so there is nothing to do.\n");
             return;
         }
-        debuglog(
-            c"%s:%s:%d - Found mark on con = %p. Removing it now.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_unmark".as_ptr(),
-            948 as ::core::ffi::c_int,
-            current,
+        ::log::debug!(
+            "../src/con.c:con_unmark:948 - Found mark on con = {}. Removing it now.\n",
+            i3_common::logging::pointer(current)
         );
         (*current).mark_changed = true;
         let mut mark_0: *mut mark_t = ::core::ptr::null_mut::<mark_t>();
@@ -1160,26 +1111,37 @@ pub unsafe fn con_fix_percent(con: *mut Con) {
 
 pub unsafe fn con_toggle_fullscreen(con: *mut Con, fullscreen_mode: FullscreenMode) {
     if ((*con).type_0) == ContainerType::Workspace {
-        debuglog(
-            c"%s:%s:%d - You cannot make a workspace fullscreen.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_toggle_fullscreen".as_ptr(),
-            1190 as ::core::ffi::c_int,
+        ::log::debug!(
+            "../src/con.c:con_toggle_fullscreen:1190 - You cannot make a workspace fullscreen.\n"
         );
         return;
     }
-    debuglog(
-        c"%s:%s:%d - toggling fullscreen for %p / %s\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/con.c".as_ptr(),
-        c"con_toggle_fullscreen".as_ptr(),
-        1194 as ::core::ffi::c_int,
-        con,
-        (*con).name_ptr(),
-    );
+    {
+        // Snapshot native bytes before the logger can dispatch a callback.
+        let log_value_0 = i3_common::logging::pointer(con);
+        let log_owner_2 = (*con).name.clone();
+        let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
+        if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+            ::log::debug!(
+                "../src/con.c:con_toggle_fullscreen:1194 - toggling fullscreen for {} / {}\n",
+                log_value_0,
+                log_value_1_text
+            );
+        } else {
+            i3_common::logging::emit_parts(
+                i3_common::logging::Level::Debug,
+                &[
+                    format!(
+                        "../src/con.c:con_toggle_fullscreen:1194 - toggling fullscreen for {} / ",
+                        log_value_0
+                    )
+                    .as_bytes(),
+                    &log_value_1,
+                    "\n".as_bytes(),
+                ],
+            );
+        }
+    };
     if ((*con).fullscreen_mode) == FullscreenMode::None {
         con_enable_fullscreen(con, fullscreen_mode);
     } else {
@@ -1188,28 +1150,16 @@ pub unsafe fn con_toggle_fullscreen(con: *mut Con, fullscreen_mode: FullscreenMo
 }
 unsafe fn con_set_fullscreen_mode(con: *mut Con, fullscreen_mode: FullscreenMode) {
     (*con).fullscreen_mode = fullscreen_mode;
-    debuglog(
-        c"%s:%s:%d - mode now: %d\n".as_ptr().cast_mut(),
-        c"../src/con.c".as_ptr(),
-        c"con_set_fullscreen_mode".as_ptr(),
-        1212 as ::core::ffi::c_int,
-        ((*con).fullscreen_mode).raw() as ::core::ffi::c_uint,
+    ::log::debug!(
+        "../src/con.c:con_set_fullscreen_mode:1212 - mode now: {}\n",
+        (((*con).fullscreen_mode).raw() as ::core::ffi::c_uint) as i32
     );
     ipc_send_window_event(c"fullscreen_mode".as_ptr(), con);
     if (*con).window.is_null() {
         return;
     }
     if ((*con).fullscreen_mode) != FullscreenMode::None {
-        debuglog(
-            c"%s:%s:%d - Setting _NET_WM_STATE_FULLSCREEN for con = %p / window = %d.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_set_fullscreen_mode".as_ptr(),
-            1225 as ::core::ffi::c_int,
-            con,
-            (*(*con).window).id,
-        );
+        ::log::debug!("../src/con.c:con_set_fullscreen_mode:1225 - Setting _NET_WM_STATE_FULLSCREEN for con = {} / window = {}.\n", i3_common::logging::pointer(con), ((*(*con).window).id) as i32);
         xcb_add_property_atom(
             conn,
             (*(*con).window).id,
@@ -1217,16 +1167,7 @@ unsafe fn con_set_fullscreen_mode(con: *mut Con, fullscreen_mode: FullscreenMode
             A__NET_WM_STATE_FULLSCREEN,
         );
     } else {
-        debuglog(
-            c"%s:%s:%d - Removing _NET_WM_STATE_FULLSCREEN for con = %p / window = %d.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_set_fullscreen_mode".as_ptr(),
-            1228 as ::core::ffi::c_int,
-            con,
-            (*(*con).window).id,
-        );
+        ::log::debug!("../src/con.c:con_set_fullscreen_mode:1228 - Removing _NET_WM_STATE_FULLSCREEN for con = {} / window = {}.\n", i3_common::logging::pointer(con), ((*(*con).window).id) as i32);
         xcb_remove_property_atom(
             conn,
             (*(*con).window).id,
@@ -1238,13 +1179,8 @@ unsafe fn con_set_fullscreen_mode(con: *mut Con, fullscreen_mode: FullscreenMode
 
 pub unsafe fn con_enable_fullscreen(con: *mut Con, fullscreen_mode: FullscreenMode) {
     if ((*con).type_0) == ContainerType::Workspace {
-        debuglog(
-            c"%s:%s:%d - You cannot make a workspace fullscreen.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_enable_fullscreen".as_ptr(),
-            1246 as ::core::ffi::c_int,
+        ::log::debug!(
+            "../src/con.c:con_enable_fullscreen:1246 - You cannot make a workspace fullscreen.\n"
         );
         return;
     }
@@ -1258,39 +1194,46 @@ pub unsafe fn con_enable_fullscreen(con: *mut Con, fullscreen_mode: FullscreenMo
         );
     };
     if (fullscreen_mode) == FullscreenMode::Global {
-        debuglog(
-            c"%s:%s:%d - enabling global fullscreen for %p / %s\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_enable_fullscreen".as_ptr(),
-            1253 as ::core::ffi::c_int,
-            con,
-            (*con).name_ptr(),
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_value_0 = i3_common::logging::pointer(con);
+            let log_owner_2 = (*con).name.clone();
+            let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
+            if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+                ::log::debug!("../src/con.c:con_enable_fullscreen:1253 - enabling global fullscreen for {} / {}\n", log_value_0, log_value_1_text);
+            } else {
+                i3_common::logging::emit_parts(i3_common::logging::Level::Debug, &[ format!("../src/con.c:con_enable_fullscreen:1253 - enabling global fullscreen for {} / ", log_value_0).as_bytes(), &log_value_1, "\n".as_bytes() ]);
+            }
+        };
     } else {
-        debuglog(
-            c"%s:%s:%d - enabling fullscreen for %p / %s\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_enable_fullscreen".as_ptr(),
-            1255 as ::core::ffi::c_int,
-            con,
-            (*con).name_ptr(),
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_value_0 = i3_common::logging::pointer(con);
+            let log_owner_2 = (*con).name.clone();
+            let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
+            if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+                ::log::debug!(
+                    "../src/con.c:con_enable_fullscreen:1255 - enabling fullscreen for {} / {}\n",
+                    log_value_0,
+                    log_value_1_text
+                );
+            } else {
+                i3_common::logging::emit_parts(i3_common::logging::Level::Debug, &[ format!("../src/con.c:con_enable_fullscreen:1255 - enabling fullscreen for {} / ", log_value_0).as_bytes(), &log_value_1, "\n".as_bytes() ]);
+            }
+        };
     }
     if ((*con).fullscreen_mode) == fullscreen_mode {
-        debuglog(
-            c"%s:%s:%d - fullscreen already enabled for %p / %s\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_enable_fullscreen".as_ptr(),
-            1259 as ::core::ffi::c_int,
-            con,
-            (*con).name_ptr(),
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_value_0 = i3_common::logging::pointer(con);
+            let log_owner_2 = (*con).name.clone();
+            let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
+            if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+                ::log::debug!("../src/con.c:con_enable_fullscreen:1259 - fullscreen already enabled for {} / {}\n", log_value_0, log_value_1_text);
+            } else {
+                i3_common::logging::emit_parts(i3_common::logging::Level::Debug, &[ format!("../src/con.c:con_enable_fullscreen:1259 - fullscreen already enabled for {} / ", log_value_0).as_bytes(), &log_value_1, "\n".as_bytes() ]);
+            }
+        };
         return;
     }
     let con_ws: *mut Con = con_get_workspace(con);
@@ -1315,37 +1258,49 @@ pub unsafe fn con_enable_fullscreen(con: *mut Con, fullscreen_mode: FullscreenMo
 
 pub unsafe fn con_disable_fullscreen(con: *mut Con) {
     if ((*con).type_0) == ContainerType::Workspace {
-        debuglog(
-            c"%s:%s:%d - You cannot make a workspace fullscreen.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_disable_fullscreen".as_ptr(),
-            1297 as ::core::ffi::c_int,
+        ::log::debug!(
+            "../src/con.c:con_disable_fullscreen:1297 - You cannot make a workspace fullscreen.\n"
         );
         return;
     }
-    debuglog(
-        c"%s:%s:%d - disabling fullscreen for %p / %s\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/con.c".as_ptr(),
-        c"con_disable_fullscreen".as_ptr(),
-        1301 as ::core::ffi::c_int,
-        con,
-        (*con).name_ptr(),
-    );
+    {
+        // Snapshot native bytes before the logger can dispatch a callback.
+        let log_value_0 = i3_common::logging::pointer(con);
+        let log_owner_2 = (*con).name.clone();
+        let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
+        if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+            ::log::debug!(
+                "../src/con.c:con_disable_fullscreen:1301 - disabling fullscreen for {} / {}\n",
+                log_value_0,
+                log_value_1_text
+            );
+        } else {
+            i3_common::logging::emit_parts(
+                i3_common::logging::Level::Debug,
+                &[
+                    format!(
+                        "../src/con.c:con_disable_fullscreen:1301 - disabling fullscreen for {} / ",
+                        log_value_0
+                    )
+                    .as_bytes(),
+                    &log_value_1,
+                    "\n".as_bytes(),
+                ],
+            );
+        }
+    };
     if ((*con).fullscreen_mode) == FullscreenMode::None {
-        debuglog(
-            c"%s:%s:%d - fullscreen already disabled for %p / %s\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_disable_fullscreen".as_ptr(),
-            1304 as ::core::ffi::c_int,
-            con,
-            (*con).name_ptr(),
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_value_0 = i3_common::logging::pointer(con);
+            let log_owner_2 = (*con).name.clone();
+            let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
+            if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+                ::log::debug!("../src/con.c:con_disable_fullscreen:1304 - fullscreen already disabled for {} / {}\n", log_value_0, log_value_1_text);
+            } else {
+                i3_common::logging::emit_parts(i3_common::logging::Level::Debug, &[ format!("../src/con.c:con_disable_fullscreen:1304 - fullscreen already disabled for {} / ", log_value_0).as_bytes(), &log_value_1, "\n".as_bytes() ]);
+            }
+        };
         return;
     }
     con_set_fullscreen_mode(con, FullscreenMode::None);
@@ -1362,21 +1317,12 @@ unsafe fn _con_move_to_con(
     let mut orig_target: *mut Con = target;
     let target_ws: *mut Con = con_get_workspace(target);
     if !ignore_focus && !con_fullscreen_permits_focusing(target_ws) {
-        verboselog(
-            c"Cannot move out of a fullscreen container.\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::info!("Cannot move out of a fullscreen container.\n");
         return false;
     }
     if con_is_floating(con) {
-        debuglog(
-            c"%s:%s:%d - Container is floating, using parent instead.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"_con_move_to_con".as_ptr(),
-            1322 as ::core::ffi::c_int,
+        ::log::debug!(
+            "../src/con.c:_con_move_to_con:1322 - Container is floating, using parent instead.\n"
         );
         con = parent_ptr(con) as *mut Con;
     }
@@ -1391,11 +1337,7 @@ unsafe fn _con_move_to_con(
         }
         con = workspace_encapsulate(con);
         if con.is_null() {
-            errorlog(
-                c"ERROR: Workspace failed to move its contents into a container!\n"
-                    .as_ptr()
-                    .cast_mut(),
-            );
+            ::log::error!("ERROR: Workspace failed to move its contents into a container!\n");
             return false;
         }
     }
@@ -1411,43 +1353,54 @@ unsafe fn _con_move_to_con(
         }
     }
     if ((*target).type_0) != ContainerType::Workspace {
-        debuglog(
-            c"%s:%s:%d - target originally = %p / %s / type %d\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"_con_move_to_con".as_ptr(),
-            1369 as ::core::ffi::c_int,
-            target,
-            (*target).name_ptr(),
-            ((*target).type_0).raw() as ::core::ffi::c_uint,
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_value_0 = i3_common::logging::pointer(target);
+            let log_owner_2 = (*target).name.clone();
+            let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
+            let log_value_2 = (((*target).type_0).raw() as ::core::ffi::c_uint) as i32;
+            if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+                ::log::debug!(
+                    "../src/con.c:_con_move_to_con:1369 - target originally = {} / {} / type {}\n",
+                    log_value_0,
+                    log_value_1_text,
+                    log_value_2
+                );
+            } else {
+                i3_common::logging::emit_parts(
+                    i3_common::logging::Level::Debug,
+                    &[
+                        format!(
+                            "../src/con.c:_con_move_to_con:1369 - target originally = {} / ",
+                            log_value_0
+                        )
+                        .as_bytes(),
+                        &log_value_1,
+                        format!(" / type {}\n", log_value_2).as_bytes(),
+                    ],
+                );
+            }
+        };
         target = parent_ptr(target) as *mut Con;
     }
     if ((*target).type_0) == ContainerType::Floating {
-        debuglog(
-            c"%s:%s:%d - floatingcon, going up even further\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"_con_move_to_con".as_ptr(),
-            1377 as ::core::ffi::c_int,
-        );
+        ::log::debug!("../src/con.c:_con_move_to_con:1377 - floatingcon, going up even further\n");
         orig_target = target;
         target = parent_ptr(target) as *mut Con;
     }
     if ((*con).type_0) == ContainerType::Floating {
         let ws: *mut Con = con_get_workspace(target);
-        debuglog(
-            c"%s:%s:%d - This is a floating window, using workspace %p / %s\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"_con_move_to_con".as_ptr(),
-            1384 as ::core::ffi::c_int,
-            ws,
-            (*ws).name_ptr(),
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_value_0 = i3_common::logging::pointer(ws);
+            let log_owner_2 = (*ws).name.clone();
+            let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
+            if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+                ::log::debug!("../src/con.c:_con_move_to_con:1384 - This is a floating window, using workspace {} / {}\n", log_value_0, log_value_1_text);
+            } else {
+                i3_common::logging::emit_parts(i3_common::logging::Level::Debug, &[ format!("../src/con.c:_con_move_to_con:1384 - This is a floating window, using workspace {} / ", log_value_0).as_bytes(), &log_value_1, "\n".as_bytes() ]);
+            }
+        };
         target = ws;
     }
     if source_output != dest_output {
@@ -1459,15 +1412,7 @@ unsafe fn _con_move_to_con(
                 &raw mut (*dest_output).rect,
             );
         } else {
-            debuglog(
-                c"%s:%s:%d - Not fixing coordinates, fix_coordinates flag = %d\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/con.c".as_ptr(),
-                c"_con_move_to_con".as_ptr(),
-                1394 as ::core::ffi::c_int,
-                fix_coordinates as ::core::ffi::c_int,
-            );
+            ::log::debug!("../src/con.c:_con_move_to_con:1394 - Not fixing coordinates, fix_coordinates flag = {}\n", (fix_coordinates as ::core::ffi::c_int) as i32);
         }
     }
     let mut fullscreen: *mut Con = con_get_fullscreen_con(target_ws, FullscreenMode::Output);
@@ -1478,16 +1423,32 @@ unsafe fn _con_move_to_con(
         con_toggle_fullscreen(fullscreen, FullscreenMode::Output);
         fullscreen = ::core::ptr::null_mut::<Con>();
     }
-    debuglog(
-        c"%s:%s:%d - Re-attaching container to %p / %s\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/con.c".as_ptr(),
-        c"_con_move_to_con".as_ptr(),
-        1414 as ::core::ffi::c_int,
-        target,
-        (*target).name_ptr(),
-    );
+    {
+        // Snapshot native bytes before the logger can dispatch a callback.
+        let log_value_0 = i3_common::logging::pointer(target);
+        let log_owner_2 = (*target).name.clone();
+        let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
+        if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+            ::log::debug!(
+                "../src/con.c:_con_move_to_con:1414 - Re-attaching container to {} / {}\n",
+                log_value_0,
+                log_value_1_text
+            );
+        } else {
+            i3_common::logging::emit_parts(
+                i3_common::logging::Level::Debug,
+                &[
+                    format!(
+                        "../src/con.c:_con_move_to_con:1414 - Re-attaching container to {} / ",
+                        log_value_0
+                    )
+                    .as_bytes(),
+                    &log_value_1,
+                    "\n".as_bytes(),
+                ],
+            );
+        }
+    };
     let parent: *mut Con = parent_ptr(con) as *mut Con;
     con_detach(con);
     _con_attach(
@@ -1518,14 +1479,7 @@ unsafe fn _con_move_to_con(
     if !ignore_focus {
         workspace_show(current_ws);
         if dont_warp {
-            debuglog(
-                c"%s:%s:%d - x_set_warp_to(NULL) because dont_warp is set\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/con.c".as_ptr(),
-                c"_con_move_to_con".as_ptr(),
-                1455 as ::core::ffi::c_int,
-            );
+            ::log::debug!("../src/con.c:_con_move_to_con:1455 - x_set_warp_to(NULL) because dont_warp is set\n");
             x_set_warp_to(::core::ptr::null_mut::<Rect>());
         }
     }
@@ -1561,61 +1515,28 @@ unsafe fn _con_move_to_con(
 
 pub unsafe fn con_move_to_target(con: *mut Con, mut target: *mut Con) -> bool {
     if con_get_workspace(target) == workspace_get(c"__i3_scratch".as_ptr()) {
-        debuglog(
-            c"%s:%s:%d - target container is in the scratchpad, moving container to scratchpad.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_move_to_target".as_ptr(),
-            1501 as ::core::ffi::c_int,
-        );
+        ::log::debug!("../src/con.c:con_move_to_target:1501 - target container is in the scratchpad, moving container to scratchpad.\n");
         scratchpad_move(con);
         return true;
     }
     if con_is_floating(target) {
-        debuglog(
-            c"%s:%s:%d - target container is floating, moving container to target's workspace.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_move_to_target".as_ptr(),
-            1508 as ::core::ffi::c_int,
-        );
+        ::log::debug!("../src/con.c:con_move_to_target:1508 - target container is floating, moving container to target's workspace.\n");
         con_move_to_workspace(con, con_get_workspace(target), true, false, false);
         return true;
     }
     if ((*target).type_0) == ContainerType::Workspace
         && con_is_leaf(target) as ::core::ffi::c_int != 0
     {
-        debuglog(
-            c"%s:%s:%d - target container is an empty workspace, simply moving the container there.\n".as_ptr().cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_move_to_target".as_ptr(),
-            1514 as ::core::ffi::c_int,
-        );
+        ::log::debug!("../src/con.c:con_move_to_target:1514 - target container is an empty workspace, simply moving the container there.\n");
         con_move_to_workspace(con, target, true, false, false);
         return true;
     }
     if con_is_split(target) {
-        debuglog(
-            c"%s:%s:%d - target is a split container, descending to the currently focused child.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_move_to_target".as_ptr(),
-            1523 as ::core::ffi::c_int,
-        );
+        ::log::debug!("../src/con.c:con_move_to_target:1523 - target is a split container, descending to the currently focused child.\n");
         target = focus::first_ptr(target) as *mut Con;
     }
     if con == target || con_has_parent(target, con) as ::core::ffi::c_int != 0 {
-        debuglog(
-            c"%s:%s:%d - cannot move the container to or inside itself, aborting.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_move_to_target".as_ptr(),
-            1528 as ::core::ffi::c_int,
-        );
+        ::log::debug!("../src/con.c:con_move_to_target:1528 - cannot move the container to or inside itself, aborting.\n");
         return false;
     }
     _con_move_to_con(con, target, false, true, false, false, true)
@@ -1624,15 +1545,36 @@ pub unsafe fn con_move_to_target(con: *mut Con, mut target: *mut Con) -> bool {
 pub unsafe fn con_move_to_mark(con: *mut Con, mark: *const ::core::ffi::c_char) -> bool {
     let target: *mut Con = con_by_mark(mark);
     if target.is_null() {
-        debuglog(
-            c"%s:%s:%d - found no container with mark \"%s\"\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_move_to_mark".as_ptr(),
-            1542 as ::core::ffi::c_int,
-            mark,
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_value_0 = (|pointer: *const libc::c_char| {
+                i3_common::logging::string_bytes(
+                    if pointer.is_null() {
+                        None
+                    } else {
+                        Some(std::ffi::CStr::from_ptr(pointer))
+                    },
+                    None,
+                )
+                .to_vec()
+            })(mark);
+            if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                ::log::debug!(
+                    "../src/con.c:con_move_to_mark:1542 - found no container with mark \"{}\"\n",
+                    log_value_0_text
+                );
+            } else {
+                i3_common::logging::emit_parts(
+                    i3_common::logging::Level::Debug,
+                    &[
+                        "../src/con.c:con_move_to_mark:1542 - found no container with mark \""
+                            .as_bytes(),
+                        &log_value_0,
+                        "\"\n".as_bytes(),
+                    ],
+                );
+            }
+        };
         return false;
     }
     con_move_to_target(con, target)
@@ -1656,14 +1598,7 @@ pub unsafe fn con_move_to_workspace(
     };
     let source_ws: *mut Con = con_get_workspace(con);
     if workspace == source_ws {
-        debuglog(
-            c"%s:%s:%d - Not moving, already there\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_move_to_workspace".as_ptr(),
-            1574 as ::core::ffi::c_int,
-        );
+        ::log::debug!("../src/con.c:con_move_to_workspace:1574 - Not moving, already there\n");
         return;
     }
     let target: *mut Con = con_descend_focused(workspace);
@@ -1704,16 +1639,41 @@ pub unsafe fn con_move_to_output(con: *mut Con, output: *mut Output, fix_coordin
             c"void con_move_to_output(Con *, Output *, _Bool)".as_ptr(),
         );
     };
-    debuglog(
-        c"%s:%s:%d - Moving con %p to output %s\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/con.c".as_ptr(),
-        c"con_move_to_output".as_ptr(),
-        1591 as ::core::ffi::c_int,
-        con,
-        output_primary_name(output),
-    );
+    {
+        // Snapshot native bytes before the logger can dispatch a callback.
+        let log_value_0 = i3_common::logging::pointer(con);
+        let log_value_1 = (|pointer: *const libc::c_char| {
+            i3_common::logging::string_bytes(
+                if pointer.is_null() {
+                    None
+                } else {
+                    Some(std::ffi::CStr::from_ptr(pointer))
+                },
+                None,
+            )
+            .to_vec()
+        })(output_primary_name(output));
+        if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+            ::log::debug!(
+                "../src/con.c:con_move_to_output:1591 - Moving con {} to output {}\n",
+                log_value_0,
+                log_value_1_text
+            );
+        } else {
+            i3_common::logging::emit_parts(
+                i3_common::logging::Level::Debug,
+                &[
+                    format!(
+                        "../src/con.c:con_move_to_output:1591 - Moving con {} to output ",
+                        log_value_0
+                    )
+                    .as_bytes(),
+                    &log_value_1,
+                    "\n".as_bytes(),
+                ],
+            );
+        }
+    };
     con_move_to_workspace(con, ws, fix_coordinates, false, false);
 }
 
@@ -1725,10 +1685,32 @@ pub unsafe fn con_move_to_output_name(
     let current_output: *mut Output = get_output_for_con(con);
     let output: *mut Output = get_output_from_string(current_output, name);
     if output.is_null() {
-        errorlog(
-            c"ERROR: Could not find output \"%s\"\n".as_ptr().cast_mut(),
-            name,
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_value_0 = (|pointer: *const libc::c_char| {
+                i3_common::logging::string_bytes(
+                    if pointer.is_null() {
+                        None
+                    } else {
+                        Some(std::ffi::CStr::from_ptr(pointer))
+                    },
+                    None,
+                )
+                .to_vec()
+            })(name);
+            if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                ::log::error!("ERROR: Could not find output \"{}\"\n", log_value_0_text);
+            } else {
+                i3_common::logging::emit_parts(
+                    i3_common::logging::Level::Error,
+                    &[
+                        "ERROR: Could not find output \"".as_bytes(),
+                        &log_value_0,
+                        "\"\n".as_bytes(),
+                    ],
+                );
+            }
+        };
         return false;
     }
     con_move_to_output(con, output, fix_coordinates);
@@ -1740,9 +1722,7 @@ pub unsafe fn con_orientation(con: *mut Con) -> Orientation {
         Layout::SplitV | Layout::Stacked => Orientation::Vertical,
         Layout::SplitH | Layout::Tabbed => Orientation::Horizontal,
         Layout::Default => {
-            errorlog(
-                c"ERROR: Someone called con_orientation() on a con with L_DEFAULT, this is a bug in the code.\n".as_ptr().cast_mut(),
-            );
+            ::log::error!("ERROR: Someone called con_orientation() on a con with L_DEFAULT, this is a bug in the code.\n");
             __assert_fail(
                 c"false".as_ptr(),
                 c"../src/con.c".as_ptr(),
@@ -1751,12 +1731,10 @@ pub unsafe fn con_orientation(con: *mut Con) -> Orientation {
             )
         }
         Layout::DockArea | Layout::Output => {
-            errorlog(
-                c"ERROR: con_orientation() called on dockarea/output (%d) container %p\n"
-                    .as_ptr()
-                    .cast_mut(),
-                (*con).layout as ::core::ffi::c_uint,
-                con,
+            ::log::error!(
+                "ERROR: con_orientation() called on dockarea/output ({}) container {}\n",
+                ((*con).layout as ::core::ffi::c_uint) as i32,
+                i3_common::logging::pointer(con)
             );
             __assert_fail(
                 c"false".as_ptr(),
@@ -1770,14 +1748,7 @@ pub unsafe fn con_orientation(con: *mut Con) -> Orientation {
 
 pub unsafe fn con_next_focused(mut con: *mut Con) -> *mut Con {
     if ((*parent_ptr(con)).type_0) == ContainerType::DockArea {
-        debuglog(
-            c"%s:%s:%d - selecting workspace for dock client\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_next_focused".as_ptr(),
-            1654 as ::core::ffi::c_int,
-        );
+        ::log::debug!("../src/con.c:con_next_focused:1654 - selecting workspace for dock client\n");
         return con_descend_focused(output_get_content(parent_ptr(parent_ptr(con)) as *mut Con));
     }
     if con_is_floating(con) {
@@ -1785,12 +1756,9 @@ pub unsafe fn con_next_focused(mut con: *mut Con) -> *mut Con {
     }
     let mut next: *mut Con = focus::first_ptr(parent_ptr(con)) as *mut Con;
     if next != con {
-        debuglog(
-            c"%s:%s:%d - Using first entry %p\n".as_ptr().cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_next_focused".as_ptr(),
-            1665 as ::core::ffi::c_int,
-            next,
+        ::log::debug!(
+            "../src/con.c:con_next_focused:1665 - Using first entry {}\n",
+            i3_common::logging::pointer(next)
         );
     } else {
         next = focus::next_ptr(con) as *mut Con;
@@ -1844,17 +1812,7 @@ pub unsafe fn con_descend_direction(con: *mut Con, direction: Direction) -> *mut
     let mut most: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
     let orientation: Orientation = con_orientation(con);
-    debuglog(
-        c"%s:%s:%d - con_descend_direction(%p, orientation %d, direction %d)\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/con.c".as_ptr(),
-        c"con_descend_direction".as_ptr(),
-        1741 as ::core::ffi::c_int,
-        con,
-        (orientation) as u32,
-        direction as ::core::ffi::c_uint,
-    );
+    ::log::debug!("../src/con.c:con_descend_direction:1741 - con_descend_direction({}, orientation {}, direction {})\n", i3_common::logging::pointer(con), ((orientation) as u32) as i32, (direction as ::core::ffi::c_uint) as i32);
     if direction == Direction::Left || direction == Direction::Right {
         if orientation == Orientation::Horizontal {
             if direction == Direction::Right {
@@ -1991,15 +1949,7 @@ unsafe fn con_border_style_rect_without_title(con: *mut Con) -> Rect {
         }
     }
     let mut border_width: ::core::ffi::c_int = (*con).current_border_width;
-    debuglog(
-        c"%s:%s:%d - The border width for con is set to: %d\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/con.c".as_ptr(),
-        c"con_border_style_rect_without_title".as_ptr(),
-        1831 as ::core::ffi::c_int,
-        (*con).current_border_width,
-    );
+    ::log::debug!("../src/con.c:con_border_style_rect_without_title:1831 - The border width for con is set to: {}\n", ((*con).current_border_width) as i32);
     if (*con).current_border_width < 0 as ::core::ffi::c_int {
         if con_is_floating(con) {
             border_width = config.default_floating_border_width;
@@ -2007,15 +1957,7 @@ unsafe fn con_border_style_rect_without_title(con: *mut Con) -> Rect {
             border_width = config.default_border_width;
         }
     }
-    debuglog(
-        c"%s:%s:%d - Effective border width is set to: %d\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/con.c".as_ptr(),
-        c"con_border_style_rect_without_title".as_ptr(),
-        1840 as ::core::ffi::c_int,
-        border_width,
-    );
+    ::log::debug!("../src/con.c:con_border_style_rect_without_title:1840 - Effective border width is set to: {}\n", (border_width) as i32);
     let border_style: BorderStyle = con_border_style(con);
     if border_style == BorderStyle::None {
         return border_rect(border_style, border_width, AdjacentEdges::empty());
@@ -2051,13 +1993,8 @@ pub unsafe fn con_border_style(con: *mut Con) -> BorderStyle {
     if ((*con).fullscreen_mode) == FullscreenMode::Output
         || ((*con).fullscreen_mode) == FullscreenMode::Global
     {
-        debuglog(
-            c"%s:%s:%d - this one is fullscreen! overriding BS_NONE\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_border_style".as_ptr(),
-            1933 as ::core::ffi::c_int,
+        ::log::debug!(
+            "../src/con.c:con_border_style:1933 - this one is fullscreen! overriding BS_NONE\n"
         );
         return BorderStyle::None;
     }
@@ -2109,16 +2046,11 @@ pub unsafe fn con_set_border_style(
 }
 
 pub unsafe fn con_set_layout(mut con: *mut Con, layout: Layout) {
-    debuglog(
-        c"%s:%s:%d - con_set_layout(%p, %d), con->type = %d\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/con.c".as_ptr(),
-        c"con_set_layout".as_ptr(),
-        1999 as ::core::ffi::c_int,
-        con,
-        layout as ::core::ffi::c_uint,
-        ((*con).type_0).raw() as ::core::ffi::c_uint,
+    ::log::debug!(
+        "../src/con.c:con_set_layout:1999 - con_set_layout({}, {}), con->type = {}\n",
+        i3_common::logging::pointer(con),
+        (layout as ::core::ffi::c_uint) as i32,
+        (((*con).type_0).raw() as ::core::ffi::c_uint) as i32
     );
     if ((*con).type_0) != ContainerType::Workspace {
         con = parent_ptr(con) as *mut Con;
@@ -2133,22 +2065,14 @@ pub unsafe fn con_set_layout(mut con: *mut Con, layout: Layout) {
             } else {
                 Layout::Default
             };
-            debuglog(
-                c"%s:%s:%d - Setting workspace_layout to %d\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/con.c".as_ptr(),
-                c"con_set_layout".as_ptr(),
-                2022 as ::core::ffi::c_int,
-                ws_layout as ::core::ffi::c_uint,
+            ::log::debug!(
+                "../src/con.c:con_set_layout:2022 - Setting workspace_layout to {}\n",
+                (ws_layout as ::core::ffi::c_uint) as i32
             );
             (*con).workspace_layout = ws_layout;
-            debuglog(
-                c"%s:%s:%d - Setting layout to %d\n".as_ptr().cast_mut(),
-                c"../src/con.c".as_ptr(),
-                c"con_set_layout".as_ptr(),
-                2024 as ::core::ffi::c_int,
-                layout as ::core::ffi::c_uint,
+            ::log::debug!(
+                "../src/con.c:con_set_layout:2024 - Setting layout to {}\n",
+                (layout as ::core::ffi::c_uint) as i32
             );
             (*con).layout = layout;
         } else if layout == Layout::Stacked
@@ -2156,14 +2080,7 @@ pub unsafe fn con_set_layout(mut con: *mut Con, layout: Layout) {
             || layout == Layout::SplitV
             || layout == Layout::SplitH
         {
-            debuglog(
-                c"%s:%s:%d - Creating new split container\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/con.c".as_ptr(),
-                c"con_set_layout".as_ptr(),
-                2027 as ::core::ffi::c_int,
-            );
+            ::log::debug!("../src/con.c:con_set_layout:2027 - Creating new split container\n");
             let new: *mut Con = con_new(
                 ::core::ptr::null_mut::<Con>(),
                 ::core::ptr::null_mut::<i3Window>(),
@@ -2172,26 +2089,14 @@ pub unsafe fn con_set_layout(mut con: *mut Con, layout: Layout) {
             (*new).layout = layout;
             (*new).last_split_layout = (*con).last_split_layout;
             let focus_order = get_focus_order(con);
-            debuglog(
-                c"%s:%s:%d - Moving cons\n".as_ptr().cast_mut(),
-                c"../src/con.c".as_ptr(),
-                c"con_set_layout".as_ptr(),
-                2040 as ::core::ffi::c_int,
-            );
+            ::log::debug!("../src/con.c:con_set_layout:2040 - Moving cons\n");
             while !nodes::first_ptr(con).is_null() {
                 let child: *mut Con = nodes::first_ptr(con) as *mut Con;
                 con_detach(child);
                 con_attach(child, new, true);
             }
             set_focus_order(new, &focus_order);
-            debuglog(
-                c"%s:%s:%d - Attaching new split to ws\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/con.c".as_ptr(),
-                c"con_set_layout".as_ptr(),
-                2051 as ::core::ffi::c_int,
-            );
+            ::log::debug!("../src/con.c:con_set_layout:2051 - Attaching new split to ws\n");
             con_attach(new, con, false);
             tree_flatten(croot);
             con_force_split_parents_redraw(con);
@@ -2291,26 +2196,65 @@ pub unsafe fn con_toggle_layout(con: *mut Con, toggle_mode: *const ::core::ffi::
     } else {
         parent_ptr(con)
     };
-    debuglog(
-        c"%s:%s:%d - con_toggle_layout(%p, %s), parent = %p\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/con.c".as_ptr(),
-        c"con_toggle_layout".as_ptr(),
-        2117i32,
-        con,
-        toggle_mode,
-        parent,
-    );
+    {
+        // Snapshot native bytes before the logger can dispatch a callback.
+        let log_value_0 = i3_common::logging::pointer(con);
+        let log_value_1 = (|pointer: *const libc::c_char| {
+            i3_common::logging::string_bytes(
+                if pointer.is_null() {
+                    None
+                } else {
+                    Some(std::ffi::CStr::from_ptr(pointer))
+                },
+                None,
+            )
+            .to_vec()
+        })(toggle_mode);
+        let log_value_2 = i3_common::logging::pointer(parent);
+        if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+            ::log::debug!(
+                "../src/con.c:con_toggle_layout:2117 - con_toggle_layout({}, {}), parent = {}\n",
+                log_value_0,
+                log_value_1_text,
+                log_value_2
+            );
+        } else {
+            i3_common::logging::emit_parts(
+                i3_common::logging::Level::Debug,
+                &[
+                    format!(
+                        "../src/con.c:con_toggle_layout:2117 - con_toggle_layout({}, ",
+                        log_value_0
+                    )
+                    .as_bytes(),
+                    &log_value_1,
+                    format!("), parent = {}\n", log_value_2).as_bytes(),
+                ],
+            );
+        }
+    };
     let mode = std::ffi::CStr::from_ptr(toggle_mode);
     let (next, invalid) = layout_toggle(mode, (*parent).layout, (*parent).last_split_layout);
     for token in invalid {
-        errorlog(
-            c"ERROR: The token '%s' was not recognized and has been skipped.\n"
-                .as_ptr()
-                .cast_mut(),
-            token.as_ptr(),
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_value_0 = i3_common::logging::string_bytes(Some(token.as_c_str()), None);
+            if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                ::log::error!(
+                    "ERROR: The token '{}' was not recognized and has been skipped.\n",
+                    log_value_0_text
+                );
+            } else {
+                i3_common::logging::emit_parts(
+                    i3_common::logging::Level::Error,
+                    &[
+                        "ERROR: The token '".as_bytes(),
+                        &log_value_0,
+                        "' was not recognized and has been skipped.\n".as_bytes(),
+                    ],
+                );
+            }
+        };
     }
     if let Some(next) = next {
         con_set_layout(con, next);
@@ -2318,38 +2262,53 @@ pub unsafe fn con_toggle_layout(con: *mut Con, toggle_mode: *const ::core::ffi::
 }
 
 unsafe fn con_on_remove_child(con: *mut Con) {
-    debuglog(
-        c"%s:%s:%d - on_remove_child\n".as_ptr().cast_mut(),
-        c"../src/con.c".as_ptr(),
-        c"con_on_remove_child".as_ptr(),
-        2206 as ::core::ffi::c_int,
-    );
+    ::log::debug!("../src/con.c:con_on_remove_child:2206 - on_remove_child\n");
     if ((*con).type_0) == ContainerType::Output
         || ((*con).type_0) == ContainerType::Root
         || ((*con).type_0) == ContainerType::DockArea
         || !parent_ptr(con).is_null() && ((*parent_ptr(con)).type_0) == ContainerType::Output
     {
-        debuglog(
-            c"%s:%s:%d - not handling, type = %d, name = %s\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_on_remove_child".as_ptr(),
-            2214 as ::core::ffi::c_int,
-            ((*con).type_0).raw() as ::core::ffi::c_uint,
-            (*con).name_ptr(),
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_value_0 = (((*con).type_0).raw() as ::core::ffi::c_uint) as i32;
+            let log_owner_2 = (*con).name.clone();
+            let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
+            if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+                ::log::debug!(
+                    "../src/con.c:con_on_remove_child:2214 - not handling, type = {}, name = {}\n",
+                    log_value_0,
+                    log_value_1_text
+                );
+            } else {
+                i3_common::logging::emit_parts(i3_common::logging::Level::Debug, &[ format!("../src/con.c:con_on_remove_child:2214 - not handling, type = {}, name = ", log_value_0).as_bytes(), &log_value_1, "\n".as_bytes() ]);
+            }
+        };
         return;
     }
     if ((*con).type_0) == ContainerType::Workspace {
         if focus::first_ptr(con).is_null() && !workspace_is_visible(con) {
-            verboselog(
-                c"Closing old workspace (%p / %s), it is empty\n"
-                    .as_ptr()
-                    .cast_mut(),
-                con,
-                (*con).name_ptr(),
-            );
+            {
+                // Snapshot native bytes before the logger can dispatch a callback.
+                let log_value_0 = i3_common::logging::pointer(con);
+                let log_owner_2 = (*con).name.clone();
+                let log_value_1 = i3_common::logging::string_bytes(log_owner_2.as_deref(), None);
+                if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+                    ::log::info!(
+                        "Closing old workspace ({} / {}), it is empty\n",
+                        log_value_0,
+                        log_value_1_text
+                    );
+                } else {
+                    i3_common::logging::emit_parts(
+                        i3_common::logging::Level::Verbose,
+                        &[
+                            format!("Closing old workspace ({} / ", log_value_0).as_bytes(),
+                            &log_value_1,
+                            "), it is empty\n".as_bytes(),
+                        ],
+                    );
+                }
+            };
             let payload =
                 ipc_marshal_workspace_event(c"empty".as_ptr(), con, ::core::ptr::null_mut::<Con>());
             tree_close_internal(con, KillWindow::DontKill, false);
@@ -2366,35 +2325,18 @@ unsafe fn con_on_remove_child(con: *mut Con) {
     con_update_parents_urgency(con);
     let children: ::core::ffi::c_int = con_num_children(con);
     if children == 0 as ::core::ffi::c_int {
-        debuglog(
-            c"%s:%s:%d - Container empty, closing\n".as_ptr().cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_on_remove_child".as_ptr(),
-            2243 as ::core::ffi::c_int,
-        );
+        ::log::debug!("../src/con.c:con_on_remove_child:2243 - Container empty, closing\n");
         tree_close_internal(con, KillWindow::DontKill, false);
     }
 }
 
 pub unsafe fn con_minimum_size(con: *mut Con) -> Rect {
-    debuglog(
-        c"%s:%s:%d - Determining minimum size for con %p\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/con.c".as_ptr(),
-        c"con_minimum_size".as_ptr(),
-        2254 as ::core::ffi::c_int,
-        con,
+    ::log::debug!(
+        "../src/con.c:con_minimum_size:2254 - Determining minimum size for con {}\n",
+        i3_common::logging::pointer(con)
     );
     if con_is_leaf(con) {
-        debuglog(
-            c"%s:%s:%d - leaf node, returning 75x50\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_minimum_size".as_ptr(),
-            2257 as ::core::ffi::c_int,
-        );
+        ::log::debug!("../src/con.c:con_minimum_size:2257 - leaf node, returning 75x50\n");
         return Rect {
             x: 0 as u32,
             y: 0 as u32,
@@ -2403,12 +2345,7 @@ pub unsafe fn con_minimum_size(con: *mut Con) -> Rect {
         };
     }
     if ((*con).type_0) == ContainerType::Floating {
-        debuglog(
-            c"%s:%s:%d - floating con\n".as_ptr().cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_minimum_size".as_ptr(),
-            2262 as ::core::ffi::c_int,
-        );
+        ::log::debug!("../src/con.c:con_minimum_size:2262 - floating con\n");
         let child: *mut Con = nodes::first_ptr(con) as *mut Con;
         return con_minimum_size(child);
     }
@@ -2431,17 +2368,7 @@ pub unsafe fn con_minimum_size(con: *mut Con) -> Rect {
             ) as u32;
             child_0 = nodes::next_ptr(child_0) as *mut Con;
         }
-        debuglog(
-            c"%s:%s:%d - stacked/tabbed now, returning %d x %d + deco_rect = %d\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_minimum_size".as_ptr(),
-            2277 as ::core::ffi::c_int,
-            max_width,
-            max_height,
-            deco_height,
-        );
+        ::log::debug!("../src/con.c:con_minimum_size:2277 - stacked/tabbed now, returning {} x {} + deco_rect = {}\n", (max_width) as i32, (max_height) as i32, (deco_height) as i32);
         return Rect {
             x: 0 as u32,
             y: 0 as u32,
@@ -2471,16 +2398,7 @@ pub unsafe fn con_minimum_size(con: *mut Con) -> Rect {
             }
             child_1 = nodes::next_ptr(child_1) as *mut Con;
         }
-        debuglog(
-            c"%s:%s:%d - split container, returning width = %d x height = %d\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_minimum_size".as_ptr(),
-            2297 as ::core::ffi::c_int,
-            width,
-            height,
-        );
+        ::log::debug!("../src/con.c:con_minimum_size:2297 - split container, returning width = {} x height = {}\n", (width) as i32, (height) as i32);
         return Rect {
             x: 0 as u32,
             y: 0 as u32,
@@ -2488,13 +2406,11 @@ pub unsafe fn con_minimum_size(con: *mut Con) -> Rect {
             height,
         };
     }
-    errorlog(
-        c"ERROR: Unhandled case, type = %d, layout = %d, split = %d\n"
-            .as_ptr()
-            .cast_mut(),
-        ((*con).type_0).raw() as ::core::ffi::c_uint,
-        (*con).layout as ::core::ffi::c_uint,
-        con_is_split(con) as ::core::ffi::c_int,
+    ::log::error!(
+        "ERROR: Unhandled case, type = {}, layout = {}, split = {}\n",
+        (((*con).type_0).raw() as ::core::ffi::c_uint) as i32,
+        ((*con).layout as ::core::ffi::c_uint) as i32,
+        (con_is_split(con) as ::core::ffi::c_int) as i32
     );
     if 0 as ::core::ffi::c_int != 0 {
     } else {
@@ -2584,13 +2500,8 @@ pub unsafe fn con_update_parents_urgency(con: *mut Con) {
 
 pub unsafe fn con_set_urgency(con: *mut Con, urgent: bool) {
     if urgent && focused == con {
-        debuglog(
-            c"%s:%s:%d - Ignoring urgency flag for current client\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_set_urgency".as_ptr(),
-            2426 as ::core::ffi::c_int,
+        ::log::debug!(
+            "../src/con.c:con_set_urgency:2426 - Ignoring urgency flag for current client\n"
         );
         return;
     }
@@ -2598,14 +2509,7 @@ pub unsafe fn con_set_urgency(con: *mut Con, urgent: bool) {
     if (*con).urgency_timer.is_null() {
         (*con).urgent = urgent;
     } else {
-        debuglog(
-            c"%s:%s:%d - Discarding urgency WM_HINT because timer is running\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_set_urgency".as_ptr(),
-            2435 as ::core::ffi::c_int,
-        );
+        ::log::debug!("../src/con.c:con_set_urgency:2435 - Discarding urgency WM_HINT because timer is running\n");
     }
     if !(*con).window.is_null() {
         if (*con).urgent {
@@ -2622,9 +2526,9 @@ pub unsafe fn con_set_urgency(con: *mut Con, urgent: bool) {
         workspace_update_urgent_flag(ws);
     }
     if (*con).urgent != old_urgent {
-        verboselog(
-            c"Urgency flag changed to %d\n".as_ptr().cast_mut(),
-            (*con).urgent as ::core::ffi::c_int,
+        ::log::info!(
+            "Urgency flag changed to {}\n",
+            ((*con).urgent as ::core::ffi::c_int) as i32
         );
         ipc_send_window_event(c"urgent".as_ptr(), con);
     }
@@ -2650,11 +2554,7 @@ unsafe fn tree_representation(con: *mut Con) -> Vec<u8> {
         Layout::Tabbed => b'T',
         Layout::Stacked => b'S',
         _ => {
-            errorlog(
-                c"ERROR: BUG: Code not updated to account for new layout type\n"
-                    .as_ptr()
-                    .cast_mut(),
-            );
+            ::log::error!("ERROR: BUG: Code not updated to account for new layout type\n");
             __assert_fail(
                 c"false".as_ptr(),
                 c"../src/con.c".as_ptr(),
@@ -2776,56 +2676,38 @@ pub unsafe fn con_swap(first: *mut Con, second: *mut Con) -> bool {
             c"_Bool con_swap(Con *, Con *)".as_ptr(),
         );
     };
-    debuglog(
-        c"%s:%s:%d - Swapping containers %p / %p\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/con.c".as_ptr(),
-        c"con_swap".as_ptr(),
-        2583 as ::core::ffi::c_int,
-        first,
-        second,
+    ::log::debug!(
+        "../src/con.c:con_swap:2583 - Swapping containers {} / {}\n",
+        i3_common::logging::pointer(first),
+        i3_common::logging::pointer(second)
     );
     if ((*first).type_0) != ContainerType::Con {
-        errorlog(
-            c"ERROR: Only regular containers can be swapped, but found con = %p with type = %d.\n"
-                .as_ptr()
-                .cast_mut(),
-            first,
-            ((*first).type_0).raw() as ::core::ffi::c_uint,
+        ::log::error!(
+            "ERROR: Only regular containers can be swapped, but found con = {} with type = {}.\n",
+            i3_common::logging::pointer(first),
+            (((*first).type_0).raw() as ::core::ffi::c_uint) as i32
         );
         return false;
     }
     if ((*second).type_0) != ContainerType::Con {
-        errorlog(
-            c"ERROR: Only regular containers can be swapped, but found con = %p with type = %d.\n"
-                .as_ptr()
-                .cast_mut(),
-            second,
-            ((*second).type_0).raw() as ::core::ffi::c_uint,
+        ::log::error!(
+            "ERROR: Only regular containers can be swapped, but found con = {} with type = {}.\n",
+            i3_common::logging::pointer(second),
+            (((*second).type_0).raw() as ::core::ffi::c_uint) as i32
         );
         return false;
     }
     if first == second {
-        debuglog(
-            c"%s:%s:%d - Swapping container %p with itself, nothing to do.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/con.c".as_ptr(),
-            c"con_swap".as_ptr(),
-            2596 as ::core::ffi::c_int,
-            first,
+        ::log::debug!(
+            "../src/con.c:con_swap:2596 - Swapping container {} with itself, nothing to do.\n",
+            i3_common::logging::pointer(first)
         );
         return false;
     }
     if con_has_parent(first, second) as ::core::ffi::c_int != 0
         || con_has_parent(second, first) as ::core::ffi::c_int != 0
     {
-        errorlog(
-            c"ERROR: Cannot swap containers %p and %p because they are in a parent-child relationship.\n".as_ptr().cast_mut(),
-            first,
-            second,
-        );
+        ::log::error!("ERROR: Cannot swap containers {} and {} because they are in a parent-child relationship.\n", i3_common::logging::pointer(first), i3_common::logging::pointer(second));
         return false;
     }
     let ws1: *mut Con = con_get_workspace(first);
@@ -2953,8 +2835,6 @@ use i3_common::safewrappers::strcasecmp_nullable;
 pub use libc::{free, gettimeofday, strcasecmp, strcmp};
 
 use i3_common::native_stdio::__assert_fail;
-
-use crate::log::{debuglog, errorlog, verboselog};
 
 // Shared Rust model payload types.
 pub use crate::types::deco_render_params;
