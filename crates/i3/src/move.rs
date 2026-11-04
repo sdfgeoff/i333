@@ -83,11 +83,7 @@ pub unsafe fn insert_con_into(mut con: *mut Con, target: *mut Con, position: Pos
     let old_parent: *mut Con = parent_ptr(con);
     let lca: *mut Con = lowest_common_ancestor(con, parent);
     if lca == con {
-        errorlog(
-            c"ERROR: Container is being inserted into one of its descendants.\n"
-                .as_ptr()
-                .cast_mut(),
-        );
+        ::log::error!("ERROR: Container is being inserted into one of its descendants.\n");
         return;
     }
     let con_ancestor: *mut Con = child_containing_con_recursively(lca, con);
@@ -122,33 +118,18 @@ pub unsafe fn insert_con_into(mut con: *mut Con, target: *mut Con, position: Pos
     if ((*parent).type_0) == ContainerType::Workspace {
         let split: *mut Con = workspace_attach_to(parent);
         if split != parent {
-            debuglog(
-                c"%s:%s:%d - Got a new split con, using that one instead\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/move.c".as_ptr(),
-                c"insert_con_into".as_ptr(),
-                126,
+            ::log::debug!(
+                "../src/move.c:insert_con_into:126 - Got a new split con, using that one instead\n"
             );
             set_parent_ptr(con, split as *mut Con).expect("live acyclic ancestry");
             con_attach(con, split, false);
-            debuglog(
-                c"%s:%s:%d - attached\n".as_ptr().cast_mut(),
-                c"../src/move.c".as_ptr(),
-                c"insert_con_into".as_ptr(),
-                129,
-            );
+            ::log::debug!("../src/move.c:insert_con_into:129 - attached\n");
             (*con).percent = 0.0f64;
             con_fix_percent(split);
             con = split;
-            debuglog(
-                c"%s:%s:%d - ok, continuing with con %p instead\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/move.c".as_ptr(),
-                c"insert_con_into".as_ptr(),
-                133,
-                con,
+            ::log::debug!(
+                "../src/move.c:insert_con_into:133 - ok, continuing with con {} instead\n",
+                i3_common::logging::pointer(con)
             );
             con_detach(con);
         }
@@ -207,14 +188,7 @@ unsafe fn move_to_output_directed(con: *mut Con, direction: Direction) {
     let current_output: *mut Output = get_output_for_con(con);
     let output: *mut Output = get_output_next(direction, current_output, OutputSelection::Closest);
     if output.is_null() {
-        debuglog(
-            c"%s:%s:%d - No output in this direction found. Not moving.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/move.c".as_ptr(),
-            c"move_to_output_directed".as_ptr(),
-            211,
-        );
+        ::log::debug!("../src/move.c:move_to_output_directed:211 - No output in this direction found. Not moving.\n");
         return;
     }
     let mut ws: *mut Con = ::core::ptr::null_mut::<Con>();
@@ -227,14 +201,7 @@ unsafe fn move_to_output_directed(con: *mut Con, direction: Direction) {
         child = nodes::next_ptr(child);
     }
     if ws.is_null() {
-        debuglog(
-            c"%s:%s:%d - No workspace on output in this direction found. Not moving.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/move.c".as_ptr(),
-            c"move_to_output_directed".as_ptr(),
-            219,
-        );
+        ::log::debug!("../src/move.c:move_to_output_directed:219 - No workspace on output in this direction found. Not moving.\n");
         return;
     }
     let old_ws: *mut Con = con_get_workspace(con);
@@ -258,31 +225,16 @@ pub unsafe fn tree_move(con: *mut Con, direction: Direction) {
     let mut next: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut position: Position = Position::Before;
     let mut target: *mut Con = ::core::ptr::null_mut::<Con>();
-    debuglog(
-        c"%s:%s:%d - Moving in direction %d\n".as_ptr().cast_mut(),
-        c"../src/move.c".as_ptr(),
-        c"tree_move".as_ptr(),
-        263,
-        direction as u32,
+    ::log::debug!(
+        "../src/move.c:tree_move:263 - Moving in direction {}\n",
+        (direction as u32) as i32
     );
     if ((*con).type_0) == ContainerType::Workspace {
-        debuglog(
-            c"%s:%s:%d - Not moving workspace\n".as_ptr().cast_mut(),
-            c"../src/move.c".as_ptr(),
-            c"tree_move".as_ptr(),
-            268,
-        );
+        ::log::debug!("../src/move.c:tree_move:268 - Not moving workspace\n");
         return;
     }
     if ((*con).fullscreen_mode) == FullscreenMode::Global {
-        debuglog(
-            c"%s:%s:%d - Not moving fullscreen global container\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/move.c".as_ptr(),
-            c"tree_move".as_ptr(),
-            273,
-        );
+        ::log::debug!("../src/move.c:tree_move:273 - Not moving fullscreen global container\n");
         return;
     }
     if ((*con).fullscreen_mode) == FullscreenMode::Output
@@ -302,25 +254,13 @@ pub unsafe fn tree_move(con: *mut Con, direction: Direction) {
                 return;
             }
             if !con_inside_floating(con).is_null() {
-                debuglog(
-                    c"%s:%s:%d - Inside floating, moving to workspace\n"
-                        .as_ptr()
-                        .cast_mut(),
-                    c"../src/move.c".as_ptr(),
-                    c"tree_move".as_ptr(),
-                    301,
+                ::log::debug!(
+                    "../src/move.c:tree_move:301 - Inside floating, moving to workspace\n"
                 );
                 attach_to_workspace(con, con_get_workspace(con), direction);
                 break false;
             } else {
-                debuglog(
-                    c"%s:%s:%d - Force-changing orientation\n"
-                        .as_ptr()
-                        .cast_mut(),
-                    c"../src/move.c".as_ptr(),
-                    c"tree_move".as_ptr(),
-                    305,
-                );
+                ::log::debug!("../src/move.c:tree_move:305 - Force-changing orientation\n");
                 ws_force_orientation(con_get_workspace(con), o);
                 same_orientation = con_parent_with_orientation(con, o);
             }
@@ -333,25 +273,15 @@ pub unsafe fn tree_move(con: *mut Con, direction: Direction) {
             };
             if !swap.is_null() {
                 if !con_is_leaf(swap) {
-                    debuglog(
-                        c"%s:%s:%d - Moving into our bordering branch\n"
-                            .as_ptr()
-                            .cast_mut(),
-                        c"../src/move.c".as_ptr(),
-                        c"tree_move".as_ptr(),
-                        317,
+                    ::log::debug!(
+                        "../src/move.c:tree_move:317 - Moving into our bordering branch\n"
                     );
                     target = con_descend_direction(swap, direction);
                     position = branch_position(direction, con_orientation(parent_ptr(target)) == o);
                     insert_con_into(con, target, position);
                     break false;
                 } else {
-                    debuglog(
-                        c"%s:%s:%d - Swapping with sibling.\n".as_ptr().cast_mut(),
-                        c"../src/move.c".as_ptr(),
-                        c"tree_move".as_ptr(),
-                        328,
-                    );
+                    ::log::debug!("../src/move.c:tree_move:328 - Swapping with sibling.\n");
                     nodes::swap(
                         identity(con).expect("live moved tiling child"),
                         identity(swap).expect("live adjacent tiling child"),
@@ -379,19 +309,12 @@ pub unsafe fn tree_move(con: *mut Con, direction: Direction) {
             above = parent_ptr(above);
         }
         if !con_fullscreen_permits_focusing(parent_ptr(above)) {
-            verboselog(
-                c"Cannot move out of fullscreen container\n"
-                    .as_ptr()
-                    .cast_mut(),
-            );
+            ::log::info!("Cannot move out of fullscreen container\n");
             return;
         }
-        debuglog(
-            c"%s:%s:%d - above = %p\n".as_ptr().cast_mut(),
-            c"../src/move.c".as_ptr(),
-            c"tree_move".as_ptr(),
-            369,
-            above,
+        ::log::debug!(
+            "../src/move.c:tree_move:369 - above = {}\n",
+            i3_common::logging::pointer(above)
         );
         next = if backward(direction) {
             nodes::previous_ptr(above)
@@ -399,14 +322,7 @@ pub unsafe fn tree_move(con: *mut Con, direction: Direction) {
             nodes::next_ptr(above)
         };
         if !next.is_null() && !con_is_leaf(next) {
-            debuglog(
-                c"%s:%s:%d - Moving into the bordering branch of our adjacent container\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/move.c".as_ptr(),
-                c"tree_move".as_ptr(),
-                374,
-            );
+            ::log::debug!("../src/move.c:tree_move:374 - Moving into the bordering branch of our adjacent container\n");
             target = con_descend_direction(next, direction);
             position = branch_position(direction, con_orientation(parent_ptr(target)) == o);
             insert_con_into(con, target, position);
@@ -415,23 +331,11 @@ pub unsafe fn tree_move(con: *mut Con, direction: Direction) {
             && (*parent_ptr(con)).layout != Layout::Default
             && con_num_children(parent_ptr(con)) == 1
         {
-            debuglog(
-                c"%s:%s:%d - Grandparent is workspace\n".as_ptr().cast_mut(),
-                c"../src/move.c".as_ptr(),
-                c"tree_move".as_ptr(),
-                389,
-            );
+            ::log::debug!("../src/move.c:tree_move:389 - Grandparent is workspace\n");
             move_to_output_directed(con, direction);
             return;
         } else {
-            debuglog(
-                c"%s:%s:%d - Moving into container above\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/move.c".as_ptr(),
-                c"tree_move".as_ptr(),
-                393,
-            );
+            ::log::debug!("../src/move.c:tree_move:393 - Moving into container above\n");
             position = if backward(direction) {
                 Position::Before
             } else {
@@ -454,8 +358,6 @@ use crate::util::orientation_from_direction;
 // Canonical Cairo backend ABI; renderer logic remains local.
 
 use libc::free;
-
-use crate::log::{debuglog, errorlog, verboselog};
 
 // Shared model types retain field layout while using one Rust identity.
 use crate::types::deco_render_params;

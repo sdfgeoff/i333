@@ -50,10 +50,23 @@ fn can_focus_visible(state: ScratchpadState, is_focused: bool) -> bool {
 
 pub unsafe fn scratchpad_move(mut con: *mut Con) {
     if ((*con).type_0) == ContainerType::Workspace {
-        verboselog(
-            c"'move scratchpad' used on a workspace \"%s\". Calling it recursively on all windows on this workspace.\n".as_ptr().cast_mut(),
-            (*con).name_ptr(),
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_owner_1 = (*con).name.clone();
+            let log_value_0 = i3_common::logging::string_bytes(log_owner_1.as_deref(), None);
+            if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                ::log::info!("'move scratchpad' used on a workspace \"{}\". Calling it recursively on all windows on this workspace.\n", log_value_0_text);
+            } else {
+                i3_common::logging::emit_parts(
+                    i3_common::logging::Level::Verbose,
+                    &[
+                        "'move scratchpad' used on a workspace \"".as_bytes(),
+                        &log_value_0,
+                        "\". Calling it recursively on all windows on this workspace.\n".as_bytes(),
+                    ],
+                );
+            }
+        };
         let owner = crate::con::arena::identity(con).expect("live scratchpad workspace");
         let mut current = focus::first(owner);
         while let Some(id) = current {
@@ -65,24 +78,14 @@ pub unsafe fn scratchpad_move(mut con: *mut Con) {
         }
         return;
     }
-    debuglog(
-        c"%s:%s:%d - should move con %p to __i3_scratch\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/scratchpad.c".as_ptr(),
-        c"scratchpad_move".as_ptr(),
-        32,
-        con,
+    ::log::debug!(
+        "../src/scratchpad.c:scratchpad_move:32 - should move con {} to __i3_scratch\n",
+        i3_common::logging::pointer(con)
     );
     let mut __i3_scratch: *mut Con = workspace_get(c"__i3_scratch".as_ptr());
     if con_get_workspace(con) == __i3_scratch {
-        debuglog(
-            c"%s:%s:%d - This window is already on __i3_scratch.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/scratchpad.c".as_ptr(),
-            c"scratchpad_move".as_ptr(),
-            36,
+        ::log::debug!(
+            "../src/scratchpad.c:scratchpad_move:36 - This window is already on __i3_scratch.\n"
         );
         return;
     }
@@ -96,47 +99,21 @@ pub unsafe fn scratchpad_move(mut con: *mut Con) {
     }
     con_move_to_workspace(con, __i3_scratch, true, true, false);
     if (*con).scratchpad_state == ScratchpadState::None {
-        debuglog(
-            c"%s:%s:%d - This window was never used as a scratchpad before.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/scratchpad.c".as_ptr(),
-            c"scratchpad_move".as_ptr(),
-            64,
-        );
+        ::log::debug!("../src/scratchpad.c:scratchpad_move:64 - This window was never used as a scratchpad before.\n");
         if con == maybe_floating_con {
-            debuglog(
-                c"%s:%s:%d - It was in floating mode before, set scratchpad state to changed.\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/scratchpad.c".as_ptr(),
-                c"scratchpad_move".as_ptr(),
-                66,
-            );
+            ::log::debug!("../src/scratchpad.c:scratchpad_move:66 - It was in floating mode before, set scratchpad state to changed.\n");
             (*con).scratchpad_state = ScratchpadState::Changed;
         } else {
-            debuglog(
-                c"%s:%s:%d - It was in tiling mode before, set scratchpad state to fresh.\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/scratchpad.c".as_ptr(),
-                c"scratchpad_move".as_ptr(),
-                69,
-            );
+            ::log::debug!("../src/scratchpad.c:scratchpad_move:69 - It was in tiling mode before, set scratchpad state to fresh.\n");
             (*con).scratchpad_state = ScratchpadState::Fresh;
         }
     }
 }
 
 pub unsafe fn scratchpad_show(mut con: *mut Con) -> bool {
-    debuglog(
-        c"%s:%s:%d - should show scratchpad window %p\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/scratchpad.c".as_ptr(),
-        c"scratchpad_show".as_ptr(),
-        85,
-        con,
+    ::log::debug!(
+        "../src/scratchpad.c:scratchpad_show:85 - should show scratchpad window {}\n",
+        i3_common::logging::pointer(con)
     );
     let mut __i3_scratch: *mut Con = workspace_get(c"__i3_scratch".as_ptr());
     let mut floating: *mut Con = ::core::ptr::null_mut::<Con>();
@@ -147,14 +124,7 @@ pub unsafe fn scratchpad_show(mut con: *mut Con) -> bool {
         }
         && (*floating).scratchpad_state != ScratchpadState::None
     {
-        debuglog(
-            c"%s:%s:%d - Focused window is a scratchpad window, hiding it.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/scratchpad.c".as_ptr(),
-            c"scratchpad_show".as_ptr(),
-            95,
-        );
+        ::log::debug!("../src/scratchpad.c:scratchpad_show:95 - Focused window is a scratchpad window, hiding it.\n");
         scratchpad_move(focused);
         return true;
     }
@@ -180,20 +150,10 @@ pub unsafe fn scratchpad_show(mut con: *mut Con) -> bool {
                 floating == con_inside_floating(focused),
             )
         {
-            debuglog(
-                c"%s:%s:%d - Found an unfocused scratchpad window on this workspace\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/scratchpad.c".as_ptr(),
-                c"scratchpad_show".as_ptr(),
-                119,
-            );
-            debuglog(
-                c"%s:%s:%d - Focusing it: %p\n".as_ptr().cast_mut(),
-                c"../src/scratchpad.c".as_ptr(),
-                c"scratchpad_show".as_ptr(),
-                120,
-                walk_con,
+            ::log::debug!("../src/scratchpad.c:scratchpad_show:119 - Found an unfocused scratchpad window on this workspace\n");
+            ::log::debug!(
+                "../src/scratchpad.c:scratchpad_show:120 - Focusing it: {}\n",
+                i3_common::logging::pointer(walk_con)
             );
             con_activate(con_descend_tiling_focused(walk_con));
             return true;
@@ -215,22 +175,10 @@ pub unsafe fn scratchpad_show(mut con: *mut Con) -> bool {
             }
             && (*floating).scratchpad_state != ScratchpadState::None
         {
-            debuglog(
-                c"%s:%s:%d - Found a visible scratchpad window on another workspace,\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/scratchpad.c".as_ptr(),
-                c"scratchpad_show".as_ptr(),
-                139,
-            );
-            debuglog(
-                c"%s:%s:%d - moving it to this workspace: con = %p\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/scratchpad.c".as_ptr(),
-                c"scratchpad_show".as_ptr(),
-                140,
-                walk_con,
+            ::log::debug!("../src/scratchpad.c:scratchpad_show:139 - Found a visible scratchpad window on another workspace,\n");
+            ::log::debug!(
+                "../src/scratchpad.c:scratchpad_show:140 - moving it to this workspace: con = {}\n",
+                i3_common::logging::pointer(walk_con)
             );
             con_move_to_workspace(floating, focused_ws, true, false, false);
             con_activate(con_descend_focused(walk_con));
@@ -238,14 +186,7 @@ pub unsafe fn scratchpad_show(mut con: *mut Con) -> bool {
         }
     }
     if !con.is_null() && (*parent_ptr(con)).scratchpad_state == ScratchpadState::None {
-        debuglog(
-            c"%s:%s:%d - Window is not in the scratchpad, doing nothing.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/scratchpad.c".as_ptr(),
-            c"scratchpad_show".as_ptr(),
-            150,
-        );
+        ::log::debug!("../src/scratchpad.c:scratchpad_show:150 - Window is not in the scratchpad, doing nothing.\n");
         return false;
     }
     let active: *mut Con = con_get_workspace(focused);
@@ -259,14 +200,7 @@ pub unsafe fn scratchpad_show(mut con: *mut Con) -> bool {
         && current != __i3_scratch
     {
         if current == active {
-            debuglog(
-                c"%s:%s:%d - Window is a scratchpad window, hiding it.\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/scratchpad.c".as_ptr(),
-                c"scratchpad_show".as_ptr(),
-                165,
-            );
+            ::log::debug!("../src/scratchpad.c:scratchpad_show:165 - Window is a scratchpad window, hiding it.\n");
             scratchpad_move(con);
             return true;
         }
@@ -276,16 +210,8 @@ pub unsafe fn scratchpad_show(mut con: *mut Con) -> bool {
             .and_then(resolve)
             .unwrap_or(std::ptr::null_mut());
         if con.is_null() {
-            verboselog(
-                c"You don't have any scratchpad windows yet.\n"
-                    .as_ptr()
-                    .cast_mut(),
-            );
-            verboselog(
-                c"Use 'move scratchpad' to move a window to the scratchpad.\n"
-                    .as_ptr()
-                    .cast_mut(),
-            );
+            ::log::info!("You don't have any scratchpad windows yet.\n");
+            ::log::info!("Use 'move scratchpad' to move a window to the scratchpad.\n");
             return false;
         }
     } else {
@@ -293,14 +219,7 @@ pub unsafe fn scratchpad_show(mut con: *mut Con) -> bool {
     }
     con_move_to_workspace(con, active, true, false, false);
     if (*con).scratchpad_state == ScratchpadState::Fresh {
-        debuglog(
-            c"%s:%s:%d - Adjusting size of this window.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/scratchpad.c".as_ptr(),
-            c"scratchpad_show".as_ptr(),
-            193,
-        );
+        ::log::debug!("../src/scratchpad.c:scratchpad_show:193 - Adjusting size of this window.\n");
         let output: *mut Con = con_get_output(con);
         let (width, height) = fresh_dimensions((*output).rect);
         (*con).rect.width = width;
@@ -317,37 +236,39 @@ pub unsafe fn scratchpad_show(mut con: *mut Con) -> bool {
 pub unsafe fn scratchpad_fix_resolution() {
     let mut __i3_scratch: *mut Con = workspace_get(c"__i3_scratch".as_ptr());
     let mut __i3_output: *mut Con = con_get_output(__i3_scratch);
-    debuglog(
-        c"%s:%s:%d - Current resolution: (%d, %d) %d x %d\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/scratchpad.c".as_ptr(),
-        c"scratchpad_fix_resolution".as_ptr(),
-        253,
-        (*__i3_output).rect.x,
-        (*__i3_output).rect.y,
-        (*__i3_output).rect.width,
-        (*__i3_output).rect.height,
-    );
+    ::log::debug!("../src/scratchpad.c:scratchpad_fix_resolution:253 - Current resolution: ({}, {}) {} x {}\n", ((*__i3_output).rect.x) as i32, ((*__i3_output).rect.y) as i32, ((*__i3_output).rect.width) as i32, ((*__i3_output).rect.height) as i32);
     let mut output: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut new_width: i32 = -(1);
     let mut new_height: i32 = -(1);
     output = nodes::first_ptr(croot);
     while !output.is_null() {
         if !(output == __i3_output) {
-            debuglog(
-                c"%s:%s:%d - output %s's resolution: (%d, %d) %d x %d\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/scratchpad.c".as_ptr(),
-                c"scratchpad_fix_resolution".as_ptr(),
-                263,
-                (*output).name_ptr(),
-                (*output).rect.x,
-                (*output).rect.y,
-                (*output).rect.width,
-                (*output).rect.height,
-            );
+            {
+                // Snapshot native bytes before the logger can dispatch a callback.
+                let log_owner_1 = (*output).name.clone();
+                let log_value_0 = i3_common::logging::string_bytes(log_owner_1.as_deref(), None);
+                let log_value_1 = ((*output).rect.x) as i32;
+                let log_value_2 = ((*output).rect.y) as i32;
+                let log_value_3 = ((*output).rect.width) as i32;
+                let log_value_4 = ((*output).rect.height) as i32;
+                if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                    ::log::debug!("../src/scratchpad.c:scratchpad_fix_resolution:263 - output {}'s resolution: ({}, {}) {} x {}\n", log_value_0_text, log_value_1, log_value_2, log_value_3, log_value_4);
+                } else {
+                    i3_common::logging::emit_parts(
+                        i3_common::logging::Level::Debug,
+                        &[
+                            "../src/scratchpad.c:scratchpad_fix_resolution:263 - output "
+                                .as_bytes(),
+                            &log_value_0,
+                            format!(
+                                "'s resolution: ({}, {}) {} x {}\n",
+                                log_value_1, log_value_2, log_value_3, log_value_4
+                            )
+                            .as_bytes(),
+                        ],
+                    );
+                }
+            };
             if new_width == -(1) {
                 (new_width, new_height) =
                     common_resolution(None, (*output).rect.width, (*output).rect.height);
@@ -362,38 +283,21 @@ pub unsafe fn scratchpad_fix_resolution() {
         output = nodes::next_ptr(output);
     }
     let mut old_rect: Rect = (*__i3_output).rect as Rect;
-    debuglog(
-        c"%s:%s:%d - new width = %d, new height = %d\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/scratchpad.c".as_ptr(),
-        c"scratchpad_fix_resolution".as_ptr(),
-        276,
-        new_width,
-        new_height,
+    ::log::debug!(
+        "../src/scratchpad.c:scratchpad_fix_resolution:276 - new width = {}, new height = {}\n",
+        (new_width) as i32,
+        (new_height) as i32
     );
     (*__i3_output).rect.width = new_width as u32;
     (*__i3_output).rect.height = new_height as u32;
     let mut new_rect: Rect = (*__i3_output).rect as Rect;
     if rect_equals(new_rect, old_rect) {
-        debuglog(
-            c"%s:%s:%d - Scratchpad size unchanged.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/scratchpad.c".as_ptr(),
-            c"scratchpad_fix_resolution".as_ptr(),
-            283,
+        ::log::debug!(
+            "../src/scratchpad.c:scratchpad_fix_resolution:283 - Scratchpad size unchanged.\n"
         );
         return;
     }
-    debuglog(
-        c"%s:%s:%d - Fixing coordinates of scratchpad windows\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/scratchpad.c".as_ptr(),
-        c"scratchpad_fix_resolution".as_ptr(),
-        287,
-    );
+    ::log::debug!("../src/scratchpad.c:scratchpad_fix_resolution:287 - Fixing coordinates of scratchpad windows\n");
     for floating_id in floating::children(identity(__i3_scratch).expect("live floating parent")) {
         let Some(con) = resolve(floating_id) else {
             continue;
@@ -403,8 +307,6 @@ pub unsafe fn scratchpad_fix_resolution() {
 }
 
 // Canonical Cairo backend ABI; renderer logic remains local.
-
-use crate::log::{debuglog, verboselog};
 
 // Shared model types retain field layout while using one Rust identity.
 use crate::types::Con;
