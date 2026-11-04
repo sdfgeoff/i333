@@ -413,14 +413,9 @@ fn event_state_bytes(bytes: &[u8]) -> u32 {
         .fold(0, |mask, (_, flag)| mask | flag)
 }
 
-/// # Safety
-/// value is null or a readable terminated string, borrowed only for this call.
-pub unsafe fn event_state_from_str(value: *const libc::c_char) -> i3_event_state_mask_t {
-    if value.is_null() {
-        0
-    } else {
-        event_state_bytes(std::ffi::CStr::from_ptr(value).to_bytes())
-    }
+/// Native modifier-name substring policy over bounded application bytes.
+pub fn event_state_from_str(value: Option<&[u8]>) -> i3_event_state_mask_t {
+    value.map_or(0, event_state_bytes)
 }
 
 pub unsafe fn cfg_font(
@@ -434,14 +429,14 @@ pub unsafe fn cfg_font(
 pub unsafe fn cfg_binding(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    bindtype: *const ::core::ffi::c_char,
-    modifiers: *const ::core::ffi::c_char,
-    key: *const ::core::ffi::c_char,
-    release: *const ::core::ffi::c_char,
-    border: *const ::core::ffi::c_char,
-    whole_window: *const ::core::ffi::c_char,
-    exclude_titlebar: *const ::core::ffi::c_char,
-    command: *const ::core::ffi::c_char,
+    bindtype: &[u8],
+    modifiers: Option<&[u8]>,
+    key: &[u8],
+    release: Option<&[u8]>,
+    border: Option<&[u8]>,
+    whole_window: Option<&[u8]>,
+    exclude_titlebar: Option<&[u8]>,
+    command: &[u8],
 ) {
     configure_binding(
         bindtype,
@@ -461,14 +456,14 @@ static CURRENT_MODE: std::sync::Mutex<Option<(Vec<u8>, bool)>> = std::sync::Mute
 pub unsafe fn cfg_mode_binding(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    bindtype: *const ::core::ffi::c_char,
-    modifiers: *const ::core::ffi::c_char,
-    key: *const ::core::ffi::c_char,
-    release: *const ::core::ffi::c_char,
-    border: *const ::core::ffi::c_char,
-    whole_window: *const ::core::ffi::c_char,
-    exclude_titlebar: *const ::core::ffi::c_char,
-    command: *const ::core::ffi::c_char,
+    bindtype: &[u8],
+    modifiers: Option<&[u8]>,
+    key: &[u8],
+    release: Option<&[u8]>,
+    border: Option<&[u8]>,
+    whole_window: Option<&[u8]>,
+    exclude_titlebar: Option<&[u8]>,
+    command: &[u8],
 ) {
     let snapshot = CURRENT_MODE
         .lock()
@@ -853,7 +848,11 @@ pub unsafe fn cfg_floating_modifier(
     result: *mut ConfigResultIR,
     modifiers: *const ::core::ffi::c_char,
 ) {
-    config.floating_modifier = event_state_from_str(modifiers) as u32;
+    config.floating_modifier = event_state_from_str(
+        modifiers
+            .as_ref()
+            .map(|_| CStr::from_ptr(modifiers).to_bytes()),
+    ) as u32;
 }
 
 pub unsafe fn cfg_tiling_drag_swap_modifier(
@@ -861,7 +860,11 @@ pub unsafe fn cfg_tiling_drag_swap_modifier(
     result: *mut ConfigResultIR,
     modifiers: *const ::core::ffi::c_char,
 ) {
-    config.swap_modifier = event_state_from_str(modifiers) as u32;
+    config.swap_modifier = event_state_from_str(
+        modifiers
+            .as_ref()
+            .map(|_| CStr::from_ptr(modifiers).to_bytes()),
+    ) as u32;
 }
 
 pub unsafe fn cfg_default_orientation(
@@ -1838,11 +1841,7 @@ pub unsafe fn cfg_bar_modifier(
     result: *mut ConfigResultIR,
     modifiers: Option<&[u8]>,
 ) {
-    (*current_bar).modifier = modifiers.map_or(0, |bytes| {
-        // Transitional call into the general binding parser, ported separately.
-        let native = std::ffi::CString::new(bar_prefix(bytes)).unwrap();
-        event_state_from_str(native.as_ptr())
-    });
+    (*current_bar).modifier = event_state_from_str(modifiers);
 }
 unsafe fn bar_configure_binding(button: &[u8], release: bool, command: &[u8]) {
     // Actual libc locale/atoi validation keeps the legacy button syntax.
@@ -2267,9 +2266,12 @@ mod argument_tests {
             event_state_bytes(b"Mod1\0Mod4"),
             (::xcb::x::KeyButMask::MOD1.bits())
         );
-        unsafe {
-            assert_eq!(event_state_from_str(std::ptr::null()), 0);
-        }
+        assert_eq!(event_state_from_str(None), 0);
+        assert_eq!(event_state_from_str(Some(b"")), 0);
+        assert_eq!(
+            event_state_from_str(Some(b"Mod1\0Mod4")),
+            xcb::x::KeyButMask::MOD1.bits()
+        );
     }
 }
 

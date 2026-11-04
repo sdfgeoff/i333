@@ -185,18 +185,35 @@ pub unsafe fn remove_first_mode() {
     }
 }
 
+fn binding_prefix(bytes: &[u8]) -> &[u8] {
+    &bytes[..bytes
+        .iter()
+        .position(|&byte| byte == 0)
+        .unwrap_or(bytes.len())]
+}
+
 pub unsafe fn configure_binding(
-    bindtype: *const ::core::ffi::c_char,
-    modifiers: *const ::core::ffi::c_char,
-    input_code: *const ::core::ffi::c_char,
-    release: *const ::core::ffi::c_char,
-    border: *const ::core::ffi::c_char,
-    whole_window: *const ::core::ffi::c_char,
-    exclude_titlebar: *const ::core::ffi::c_char,
-    command: *const ::core::ffi::c_char,
+    bindtype: &[u8],
+    modifiers: Option<&[u8]>,
+    input_code: &[u8],
+    release: Option<&[u8]>,
+    border: Option<&[u8]>,
+    whole_window: Option<&[u8]>,
+    exclude_titlebar: Option<&[u8]>,
+    command: &[u8],
     modename: &[u8],
     pango_markup: bool,
 ) -> *mut Binding {
+    // Own every caller byte span before diagnostics can reload parser/model data.
+    let bindtype = binding_prefix(bindtype).to_vec();
+    let input_code = binding_prefix(input_code).to_vec();
+    let command = binding_prefix(command).to_vec();
+    let modename = binding_prefix(modename).to_vec();
+    let modifiers = modifiers.map(|bytes| binding_prefix(bytes).to_vec());
+    let release = release.map(|bytes| binding_prefix(bytes).to_vec());
+    let border = border.map(|bytes| binding_prefix(bytes).to_vec());
+    let whole_window = whole_window.map(|bytes| binding_prefix(bytes).to_vec());
+    let exclude_titlebar = exclude_titlebar.map(|bytes| binding_prefix(bytes).to_vec());
     let new_binding = allocate_binding(Binding {
         input_type: InputType::Keyboard,
         release: BindingRelease::KeyPress,
@@ -219,50 +236,12 @@ pub unsafe fn configure_binding(
     {
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_value_0 = i3_common::logging::pointer(new_binding);
-        let log_pointer_2 = bindtype;
-        let log_value_1 = i3_common::logging::string_bytes(
-            (if log_pointer_2.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_2))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
-        let log_pointer_3 = modifiers;
-        let log_value_2 = i3_common::logging::string_bytes(
-            (if log_pointer_3.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_3))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
-        let log_pointer_4 = input_code;
-        let log_value_3 = i3_common::logging::string_bytes(
-            (if log_pointer_4.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_4))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
-        let log_pointer_5 = release;
-        let log_value_4 = i3_common::logging::string_bytes(
-            (if log_pointer_5.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_5))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_1 =
+            i3_common::logging::string_bytes(Some(bindtype.as_slice()), None).to_vec();
+        let log_value_2 = i3_common::logging::string_bytes(modifiers.as_deref(), None).to_vec();
+        let log_value_3 =
+            i3_common::logging::string_bytes(Some(input_code.as_slice()), None).to_vec();
+        let log_value_4 = i3_common::logging::string_bytes(release.as_deref(), None).to_vec();
         if let (
             Ok(log_value_1_text),
             Ok(log_value_2_text),
@@ -295,17 +274,18 @@ pub unsafe fn configure_binding(
             i3_common::logging::emit(i3_common::logging::Level::Debug, &message);
         }
     };
-    (*new_binding).release = if !release.is_null() {
+    (*new_binding).release = if release.is_some() {
         BindingRelease::KeyRelease
     } else {
         BindingRelease::KeyPress
     };
-    (*new_binding).border = !border.is_null();
-    (*new_binding).whole_window = !whole_window.is_null();
-    (*new_binding).exclude_titlebar = !exclude_titlebar.is_null();
-    if strcmp(bindtype, c"bindsym".as_ptr()) == 0 {
+    (*new_binding).border = border.is_some();
+    (*new_binding).whole_window = whole_window.is_some();
+    (*new_binding).exclude_titlebar = exclude_titlebar.is_some();
+    if bindtype == b"bindsym" {
+        let native_code = std::ffi::CString::new(input_code.clone()).expect("first-NUL input code");
         (*new_binding).input_type = if strncasecmp(
-            input_code,
+            native_code.as_ptr(),
             c"button".as_ptr(),
             (::core::mem::size_of::<[::core::ffi::c_char; 7]>() as usize).wrapping_sub(1_usize),
         ) == 0
@@ -314,22 +294,13 @@ pub unsafe fn configure_binding(
         } else {
             InputType::Keyboard
         };
-        (*new_binding).symbol = Some(std::ffi::CStr::from_ptr(input_code).to_bytes().to_vec());
+        (*new_binding).symbol = Some(input_code);
     } else {
-        let Ok(keycode) = parse_long(std::ffi::CStr::from_ptr(input_code).to_bytes(), 10) else {
+        let Ok(keycode) = parse_long(&input_code, 10) else {
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
-                let log_pointer_1 = input_code;
-                let log_value_0 = i3_common::logging::string_bytes(
-                    (if log_pointer_1.is_null() {
-                        None
-                    } else {
-                        Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                    })
-                    .map(std::ffi::CStr::to_bytes),
-                    None,
-                )
-                .to_vec();
+                let log_value_0 =
+                    i3_common::logging::string_bytes(Some(input_code.as_slice()), None).to_vec();
                 if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                     ::log::error!(
                         "ERROR: Could not parse \"{}\" as an input code, ignoring this binding.\n",
@@ -351,13 +322,13 @@ pub unsafe fn configure_binding(
         (*new_binding).keycode = keycode as u32;
         (*new_binding).input_type = InputType::Keyboard;
     }
-    (*new_binding).command = std::ffi::CStr::from_ptr(command).to_bytes().to_vec();
-    (*new_binding).event_state_mask = event_state_from_str(modifiers);
+    (*new_binding).command = command;
+    (*new_binding).event_state_mask = event_state_from_str(modifiers.as_deref());
     let group_bits_set = (((*new_binding).event_state_mask >> 16) & 15).count_ones();
     if group_bits_set > 1 {
         ::log::error!("ERROR: Keybinding has more than one Group specified, but your X server is always in precisely one group. The keybinding can never trigger.\n");
     }
-    let mode: *mut Mode = mode_from_name(modename, pango_markup);
+    let mode: *mut Mode = mode_from_name(&modename, pango_markup);
     (*new_binding).bindings.tqe_next = ::core::ptr::null_mut::<Binding>();
     (*new_binding).bindings.tqe_prev = (*(*mode).bindings.as_ptr()).tqh_last;
     *(*(*mode).bindings.as_ptr()).tqh_last = new_binding;
@@ -1884,26 +1855,26 @@ mod mode_ownership_tests {
             assert_eq!(mode_from_name(&[0xff, b'm', 0, b'x'], false), mode);
             assert!((*mode).pango_markup);
             let first = configure_binding(
-                c"bindcode".as_ptr(),
-                c"".as_ptr(),
-                c"42".as_ptr(),
-                std::ptr::null(),
-                std::ptr::null(),
-                std::ptr::null(),
-                std::ptr::null(),
-                c"nop first".as_ptr(),
+                b"bindcode",
+                Some(b""),
+                b"42",
+                None,
+                None,
+                None,
+                None,
+                b"nop first",
                 &name,
                 true,
             );
             let second = configure_binding(
-                c"bindcode".as_ptr(),
-                c"Mod4".as_ptr(),
-                c"42".as_ptr(),
-                std::ptr::null(),
-                std::ptr::null(),
-                std::ptr::null(),
-                std::ptr::null(),
-                c"nop second".as_ptr(),
+                b"bindcode",
+                Some(b"Mod4"),
+                b"42",
+                None,
+                None,
+                None,
+                None,
+                b"nop second",
                 &name,
                 true,
             );
@@ -1930,6 +1901,25 @@ mod mode_ownership_tests {
                 b"default"
             );
             assert_eq!(retained_name, &[0xff, b'm']);
+            let binary = configure_binding(
+                b"bindsym\0ignored",
+                Some(b"Mod4\0Shift"),
+                b"BuTtOn7\0ignored",
+                Some(b""),
+                Some(b""),
+                None,
+                Some(b"--exclude-titlebar"),
+                &[0xfe, b'c', 0, b'x'],
+                b"binary\0ignored",
+                false,
+            );
+            assert_eq!((*binary).symbol.as_deref(), Some(b"BuTtOn7".as_slice()));
+            assert_eq!((*binary).command, [0xfe, b'c']);
+            assert_eq!((*binary).input_type, InputType::Mouse);
+            assert_eq!((*binary).release, BindingRelease::KeyRelease);
+            assert!((*binary).border && (*binary).exclude_titlebar && !(*binary).whole_window);
+            assert_eq!((*binary).event_state_mask, x::KeyButMask::MOD4.bits());
+            remove_first_mode();
             let empty_mode = mode_from_name(b"", false);
             assert!((*empty_mode).name.is_empty());
             assert_eq!(

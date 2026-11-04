@@ -4728,17 +4728,55 @@ unsafe fn GENERATED_call(
         }
         58 => {
             (*result).next_state = ConfigParserState::Mode;
+            let bindtype_pointer = parser_get_string(stack, c"bindtype".as_ptr());
+            let bindtype_owner = std::ffi::CStr::from_ptr(bindtype_pointer)
+                .to_bytes()
+                .to_vec();
+            let modifiers_pointer = parser_get_string(stack, c"modifiers".as_ptr());
+            let modifiers_owner = modifiers_pointer.as_ref().map(|_| {
+                std::ffi::CStr::from_ptr(modifiers_pointer)
+                    .to_bytes()
+                    .to_vec()
+            });
+            let key_pointer = parser_get_string(stack, c"key".as_ptr());
+            let key_owner = std::ffi::CStr::from_ptr(key_pointer).to_bytes().to_vec();
+            let release_pointer = parser_get_string(stack, c"release".as_ptr());
+            let release_owner = release_pointer.as_ref().map(|_| {
+                std::ffi::CStr::from_ptr(release_pointer)
+                    .to_bytes()
+                    .to_vec()
+            });
+            let border_pointer = parser_get_string(stack, c"border".as_ptr());
+            let border_owner = border_pointer
+                .as_ref()
+                .map(|_| std::ffi::CStr::from_ptr(border_pointer).to_bytes().to_vec());
+            let whole_window_pointer = parser_get_string(stack, c"whole_window".as_ptr());
+            let whole_window_owner = whole_window_pointer.as_ref().map(|_| {
+                std::ffi::CStr::from_ptr(whole_window_pointer)
+                    .to_bytes()
+                    .to_vec()
+            });
+            let exclude_titlebar_pointer = parser_get_string(stack, c"exclude_titlebar".as_ptr());
+            let exclude_titlebar_owner = exclude_titlebar_pointer.as_ref().map(|_| {
+                std::ffi::CStr::from_ptr(exclude_titlebar_pointer)
+                    .to_bytes()
+                    .to_vec()
+            });
+            let command_pointer = parser_get_string(stack, c"command".as_ptr());
+            let command_owner = std::ffi::CStr::from_ptr(command_pointer)
+                .to_bytes()
+                .to_vec();
             cfg_mode_binding(
                 current_match,
                 result,
-                parser_get_string(stack, c"bindtype".as_ptr()),
-                parser_get_string(stack, c"modifiers".as_ptr()),
-                parser_get_string(stack, c"key".as_ptr()),
-                parser_get_string(stack, c"release".as_ptr()),
-                parser_get_string(stack, c"border".as_ptr()),
-                parser_get_string(stack, c"whole_window".as_ptr()),
-                parser_get_string(stack, c"exclude_titlebar".as_ptr()),
-                parser_get_string(stack, c"command".as_ptr()),
+                &bindtype_owner,
+                modifiers_owner.as_deref(),
+                &key_owner,
+                release_owner.as_deref(),
+                border_owner.as_deref(),
+                whole_window_owner.as_deref(),
+                exclude_titlebar_owner.as_deref(),
+                &command_owner,
             );
         }
         59 => {
@@ -5282,17 +5320,55 @@ unsafe fn GENERATED_call(
         }
         110 => {
             (*result).next_state = ConfigParserState::Initial;
+            let bindtype_pointer = parser_get_string(stack, c"bindtype".as_ptr());
+            let bindtype_owner = std::ffi::CStr::from_ptr(bindtype_pointer)
+                .to_bytes()
+                .to_vec();
+            let modifiers_pointer = parser_get_string(stack, c"modifiers".as_ptr());
+            let modifiers_owner = modifiers_pointer.as_ref().map(|_| {
+                std::ffi::CStr::from_ptr(modifiers_pointer)
+                    .to_bytes()
+                    .to_vec()
+            });
+            let key_pointer = parser_get_string(stack, c"key".as_ptr());
+            let key_owner = std::ffi::CStr::from_ptr(key_pointer).to_bytes().to_vec();
+            let release_pointer = parser_get_string(stack, c"release".as_ptr());
+            let release_owner = release_pointer.as_ref().map(|_| {
+                std::ffi::CStr::from_ptr(release_pointer)
+                    .to_bytes()
+                    .to_vec()
+            });
+            let border_pointer = parser_get_string(stack, c"border".as_ptr());
+            let border_owner = border_pointer
+                .as_ref()
+                .map(|_| std::ffi::CStr::from_ptr(border_pointer).to_bytes().to_vec());
+            let whole_window_pointer = parser_get_string(stack, c"whole_window".as_ptr());
+            let whole_window_owner = whole_window_pointer.as_ref().map(|_| {
+                std::ffi::CStr::from_ptr(whole_window_pointer)
+                    .to_bytes()
+                    .to_vec()
+            });
+            let exclude_titlebar_pointer = parser_get_string(stack, c"exclude_titlebar".as_ptr());
+            let exclude_titlebar_owner = exclude_titlebar_pointer.as_ref().map(|_| {
+                std::ffi::CStr::from_ptr(exclude_titlebar_pointer)
+                    .to_bytes()
+                    .to_vec()
+            });
+            let command_pointer = parser_get_string(stack, c"command".as_ptr());
+            let command_owner = std::ffi::CStr::from_ptr(command_pointer)
+                .to_bytes()
+                .to_vec();
             cfg_binding(
                 current_match,
                 result,
-                parser_get_string(stack, c"bindtype".as_ptr()),
-                parser_get_string(stack, c"modifiers".as_ptr()),
-                parser_get_string(stack, c"key".as_ptr()),
-                parser_get_string(stack, c"release".as_ptr()),
-                parser_get_string(stack, c"border".as_ptr()),
-                parser_get_string(stack, c"whole_window".as_ptr()),
-                parser_get_string(stack, c"exclude_titlebar".as_ptr()),
-                parser_get_string(stack, c"command".as_ptr()),
+                &bindtype_owner,
+                modifiers_owner.as_deref(),
+                &key_owner,
+                release_owner.as_deref(),
+                border_owner.as_deref(),
+                whole_window_owner.as_deref(),
+                exclude_titlebar_owner.as_deref(),
+                &command_owner,
             );
         }
         111 => {
