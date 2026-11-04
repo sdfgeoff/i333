@@ -6523,6 +6523,27 @@ unsafe fn try_chdir(path: *const ::core::ffi::c_char) -> bool {
     dirbuf = ::core::ptr::null_mut::<::core::ffi::c_char>();
     result
 }
+/// The caller keeps the file node and FILE live; only native fread touches the
+/// temporary buffer pointer. Assign before reading so failed reads retain their
+/// initialized prefix and zero-filled tail, matching the original allocation.
+#[deny(unsafe_op_in_unsafe_fn)]
+unsafe fn read_config_contents(file: *mut IncludedFile, stream: *mut FILE, size: usize) -> bool {
+    let Some(allocation) = size
+        .checked_add(1)
+        .filter(|&size| size <= isize::MAX as usize)
+    else {
+        return false;
+    };
+    let mut contents = vec![0; allocation];
+    let target = contents.as_mut_ptr();
+    // SAFETY: file remains a live Box for this call, and fread only writes the
+    // announced size into its newly initialized, size+1-byte owned allocation.
+    unsafe {
+        (*file).raw_contents = Some(contents);
+        fread(target.cast(), 1, size, stream) == size
+    }
+}
+
 unsafe fn parse_file_inner(
     ctx: *mut parser_ctx,
     f: *const ::core::ffi::c_char,
@@ -6552,21 +6573,7 @@ unsafe fn parse_file_inner(
     let Ok(file_size) = usize::try_from(stbuf.st_size) else {
         return ParseFileResult::Failed;
     };
-    let Some(allocation_size) = file_size
-        .checked_add(1)
-        .filter(|&size| size <= isize::MAX as usize)
-    else {
-        return ParseFileResult::Failed;
-    };
-    (*included_file).raw_contents = scalloc(allocation_size, 1) as *mut ::core::ffi::c_char;
-    if fread(
-        (*included_file).raw_contents as *mut ::core::ffi::c_void,
-        1_usize,
-        stbuf.st_size as usize,
-        fstr,
-    ) as isize
-        != stbuf.st_size as isize
-    {
+    if !read_config_contents(included_file, fstr, file_size) {
         return ParseFileResult::Failed;
     }
     rewind(fstr);
@@ -6834,7 +6841,7 @@ unsafe fn parse_file_inner(
     drop(variables);
     let expanded = std::ffi::CString::new(expanded).expect("variable C strings contain no NUL");
     let new = expanded.as_ptr();
-    (*included_file).variable_replaced_contents = sstrdup(new);
+    (*included_file).variable_replaced_contents = Some(expanded.clone());
     let mut local_context: context = std::mem::zeroed();
     local_context.filename = f;
     let context = &raw mut local_context;
@@ -6889,11 +6896,18 @@ unsafe fn parse_file_inner(
     ParseFileResult::Success
 }
 
+/// Own the pathname separately so nested includes/logging do not borrow
+/// storage from a queued IncludedFile.
+/// # Safety
+/// The caller retains the live file node and exclusively borrowed parser context
+/// for the whole call, including any callbacks. Queue mutation is serialized.
 pub unsafe fn parse_file(
     ctx: *mut parser_ctx,
-    f: *const ::core::ffi::c_char,
+    filename: &std::ffi::CStr,
     included_file: *mut IncludedFile,
 ) -> ParseFileResult {
+    let filename = filename.to_owned();
+    let f = filename.as_ptr();
     let old_directory = NativeString(getcwd(std::ptr::null_mut(), 0));
     let old_dir = old_directory.0;
     let mut result: ParseFileResult = parse_file_inner(ctx, f, included_file);
@@ -7101,6 +7115,38 @@ pub enum ConfigParserState {
 
 #[cfg(test)]
 mod owned_config_tests {
+    #[test]
+    fn owned_file_reads_keep_partial_zero_tail_binary_suffix_and_empty_state() {
+        let mut file = crate::config::IncludedFile::new(c"config-\xff".to_owned());
+        assert!(file.raw_contents.is_none());
+        assert!(file.variable_replaced_contents.is_none());
+        let mut input = [b'a', 0xff];
+        let stream =
+            unsafe { libc::fmemopen(input.as_mut_ptr().cast(), input.len(), c"r".as_ptr()) };
+        assert!(!stream.is_null());
+        let _stream = super::ConfigFile(stream);
+        assert!(!unsafe { super::read_config_contents(&mut file, stream, 6) });
+        assert_eq!(
+            file.raw_contents.as_deref(),
+            Some(b"a\xff\0\0\0\0\0".as_slice())
+        );
+        assert_eq!(file.raw_contents_prefix(), Some(b"a\xff".as_slice()));
+        assert!(file.variable_replaced_contents.is_none());
+        let mut input = [b'a', 0, b'b', 0xff];
+        let stream =
+            unsafe { libc::fmemopen(input.as_mut_ptr().cast(), input.len(), c"r".as_ptr()) };
+        assert!(!stream.is_null());
+        let _stream = super::ConfigFile(stream);
+        assert!(unsafe { super::read_config_contents(&mut file, stream, 4) });
+        assert_eq!(file.raw_contents.as_deref(), Some(b"a\0b\xff\0".as_slice()));
+        assert_eq!(file.raw_contents_prefix(), Some(b"a".as_slice()));
+        assert!(unsafe { super::read_config_contents(&mut file, stream, 0) });
+        assert_eq!(file.raw_contents.as_deref(), Some(b"\0".as_slice()));
+        assert_eq!(file.raw_contents_prefix(), Some(b"".as_slice()));
+        file.variable_replaced_contents = Some(c"".to_owned());
+        assert_eq!(file.variable_replaced_contents.as_deref(), Some(c""));
+    }
+
     use super::*;
     #[test]
     fn variable_storage_keeps_longest_first_case_sensitive_updates_and_nonrecursive_expansion() {

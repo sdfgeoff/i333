@@ -403,6 +403,15 @@ pub unsafe fn root_display() -> &'static DisplayScreen {
         .expect("main setup screen is initialized")
 }
 
+/// Borrow the initialized screen, or remain detached during startup validation.
+///
+/// # Safety
+/// Call only on the main event thread; no returned reference may outlive or
+/// trigger teardown of the selected display owner.
+pub unsafe fn root_display_opt() -> Option<&'static DisplayScreen> {
+    MAIN_SCREEN.as_ref()
+}
+
 /// Copy immutable setup values without registry borrows or connection cloning.
 pub unsafe fn root_screen_info() -> ScreenInfo {
     root_display().info()

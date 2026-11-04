@@ -252,13 +252,13 @@ fn crash_action(symbol: u32) -> Option<CrashAction> {
         _ => None,
     }
 }
-fn backtrace_color(status: i32) -> &'static CStr {
+fn backtrace_color(status: i32) -> &'static str {
     if status < 0 {
-        c"#AA0000"
+        "#AA0000"
     } else if status > 0 {
-        c"#00AA00"
+        "#00AA00"
     } else {
-        c"#FFFFFF"
+        "#FFFFFF"
     }
 }
 fn child_succeeded(status: i32) -> bool {
@@ -394,9 +394,10 @@ pub unsafe fn shutdown_crash_visual() {
 }
 
 unsafe fn sighandler_draw_dialog(dialog: *mut dialog_t) {
-    let black: color_t = draw_util_hex_to_color(c"#000000".as_ptr()) as color_t;
-    let white: color_t = draw_util_hex_to_color(c"#FFFFFF".as_ptr()) as color_t;
-    let red: color_t = draw_util_hex_to_color(c"#FF0000".as_ptr()) as color_t;
+    let color_screen = crate::application::root_display_opt();
+    let black: color_t = draw_util_hex_to_color(color_screen, "#000000") as color_t;
+    let white: color_t = draw_util_hex_to_color(color_screen, "#FFFFFF") as color_t;
+    let red: color_t = draw_util_hex_to_color(color_screen, "#FF0000") as color_t;
     draw_util_clear_surface(&raw mut (*dialog).surface, red);
     draw_util_rectangle(
         &raw mut (*dialog).surface,
@@ -448,7 +449,7 @@ unsafe fn sighandler_draw_dialog(dialog: *mut dialog_t) {
         &crate::config::config.font,
         (&*(&raw const message_option_backtrace)).as_ref().unwrap(),
         &raw mut (*dialog).surface,
-        draw_util_hex_to_color(bt_color.as_ptr()),
+        draw_util_hex_to_color(color_screen, bt_color),
         black,
         x,
         y,
@@ -655,8 +656,8 @@ mod tests {
         );
         assert_eq!(crash_action(b'b' as u32), Some(CrashAction::Backtrace));
         assert_eq!(crash_action(b'B' as u32), None);
-        assert_eq!(backtrace_color(-1), c"#AA0000");
-        assert_eq!(backtrace_color(1), c"#00AA00");
+        assert_eq!(backtrace_color(-1), "#AA0000");
+        assert_eq!(backtrace_color(1), "#00AA00");
         assert!(child_succeeded(0));
         assert!(!child_succeeded(256));
         assert!(!child_succeeded(9));

@@ -40,13 +40,70 @@ pub use crate::application::Binding;
 pub use crate::application::bindings_head;
 pub use crate::application::Workspace_Assignment;
 pub type tiling_drag_t = TilingDrag;
-#[derive(Copy, Clone)]
-#[repr(C)]
 pub struct IncludedFile {
-    pub path: *mut ::core::ffi::c_char,
-    pub raw_contents: *mut ::core::ffi::c_char,
-    pub variable_replaced_contents: *mut ::core::ffi::c_char,
+    pub path: std::ffi::CString,
+    /// None means reading has not started; Some retains the zeroed stat-sized
+    /// buffer and trailing NUL even when fread returns a partial prefix.
+    pub raw_contents: Option<Vec<u8>>,
+    pub variable_replaced_contents: Option<std::ffi::CString>,
     pub files: IncludedFileLinks,
+}
+impl IncludedFile {
+    pub fn new(path: std::ffi::CString) -> Self {
+        Self {
+            path,
+            raw_contents: None,
+            variable_replaced_contents: None,
+            files: IncludedFileLinks {
+                tqe_next: std::ptr::null_mut(),
+                tqe_prev: std::ptr::null_mut(),
+            },
+        }
+    }
+    /// IPC historically observes only the first C-string prefix; retain the
+    /// complete file bytes in owned storage until this explicit projection.
+    pub fn raw_contents_prefix(&self) -> Option<&[u8]> {
+        self.raw_contents.as_deref().map(|bytes| {
+            let end = bytes
+                .iter()
+                .position(|byte| *byte == 0)
+                .unwrap_or(bytes.len());
+            &bytes[..end]
+        })
+    }
+}
+
+/// Link a uniquely owned file node into the existing intrusive queue.
+/// # Safety
+/// The event-thread queue is initialized and exclusively accessed. No concurrent
+/// or reentrant queue mutation may occur; nodes stay live throughout parsing.
+#[deny(unsafe_op_in_unsafe_fn)]
+pub unsafe fn append_included_file(path: std::ffi::CString) -> *mut IncludedFile {
+    let file = Box::into_raw(Box::new(IncludedFile::new(path)));
+    // SAFETY: exclusive initialized queue access keeps its link slots live.
+    unsafe {
+        (*file).files.tqe_prev = included_files.tqh_last;
+        *included_files.tqh_last = file;
+        included_files.tqh_last = &raw mut (*file).files.tqe_next;
+    }
+    file
+}
+/// Unlink the live Box before dropping its owned path and content buffers.
+/// # Safety
+/// `file` is a live, uniquely owned linked Box created by append_included_file.
+/// Queue access is event-thread exclusive, without concurrent/reentrant mutation.
+#[deny(unsafe_op_in_unsafe_fn)]
+pub unsafe fn remove_included_file(file: *mut IncludedFile) {
+    // SAFETY: all neighboring link slots remain live until this unlink finishes.
+    unsafe {
+        if !(*file).files.tqe_next.is_null() {
+            (*(*file).files.tqe_next).files.tqe_prev = (*file).files.tqe_prev;
+        } else {
+            included_files.tqh_last = (*file).files.tqe_prev;
+        }
+        *(*file).files.tqe_prev = (*file).files.tqe_next;
+        drop(Box::from_raw(file));
+    }
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -672,48 +729,51 @@ pub unsafe fn load_configuration(
     bindings = (*default_mode).bindings;
     current_binding_mode = (*default_mode).name;
     config = empty_config();
-    config.client.background = draw_util_hex_to_color(c"#000000".as_ptr());
-    config.client.focused.border = draw_util_hex_to_color(c"#4c7899".as_ptr());
-    config.client.focused.background = draw_util_hex_to_color(c"#285577".as_ptr());
-    config.client.focused.text = draw_util_hex_to_color(c"#ffffff".as_ptr());
-    config.client.focused.indicator = draw_util_hex_to_color(c"#2e9ef4".as_ptr());
-    config.client.focused.child_border = draw_util_hex_to_color(c"#285577".as_ptr());
-    config.client.focused_inactive.border = draw_util_hex_to_color(c"#333333".as_ptr());
-    config.client.focused_inactive.background = draw_util_hex_to_color(c"#5f676a".as_ptr());
-    config.client.focused_inactive.text = draw_util_hex_to_color(c"#ffffff".as_ptr());
-    config.client.focused_inactive.indicator = draw_util_hex_to_color(c"#484e50".as_ptr());
-    config.client.focused_inactive.child_border = draw_util_hex_to_color(c"#5f676a".as_ptr());
-    config.client.unfocused.border = draw_util_hex_to_color(c"#333333".as_ptr());
-    config.client.unfocused.background = draw_util_hex_to_color(c"#222222".as_ptr());
-    config.client.unfocused.text = draw_util_hex_to_color(c"#888888".as_ptr());
-    config.client.unfocused.indicator = draw_util_hex_to_color(c"#292d2e".as_ptr());
-    config.client.unfocused.child_border = draw_util_hex_to_color(c"#222222".as_ptr());
-    config.client.urgent.border = draw_util_hex_to_color(c"#2f343a".as_ptr());
-    config.client.urgent.background = draw_util_hex_to_color(c"#900000".as_ptr());
-    config.client.urgent.text = draw_util_hex_to_color(c"#ffffff".as_ptr());
-    config.client.urgent.indicator = draw_util_hex_to_color(c"#900000".as_ptr());
-    config.client.urgent.child_border = draw_util_hex_to_color(c"#900000".as_ptr());
-    config.client.got_focused_tab_title = false_0 != 0;
-    config.client.placeholder.border = draw_util_hex_to_color(c"#000000".as_ptr());
-    config.client.placeholder.background = draw_util_hex_to_color(c"#0c0c0c".as_ptr());
-    config.client.placeholder.text = draw_util_hex_to_color(c"#ffffff".as_ptr());
-    config.client.placeholder.indicator = draw_util_hex_to_color(c"#000000".as_ptr());
-    config.client.placeholder.child_border = draw_util_hex_to_color(c"#0c0c0c".as_ptr());
-    config.bar.focused.border = draw_util_hex_to_color(c"#4c7899".as_ptr());
-    config.bar.focused.background = draw_util_hex_to_color(c"#285577".as_ptr());
-    config.bar.focused.text = draw_util_hex_to_color(c"#ffffff".as_ptr());
-    config.bar.focused.indicator = draw_util_hex_to_color(c"#000000".as_ptr());
-    config.bar.focused.child_border = draw_util_hex_to_color(c"#285577".as_ptr());
-    config.bar.unfocused.border = draw_util_hex_to_color(c"#333333".as_ptr());
-    config.bar.unfocused.background = draw_util_hex_to_color(c"#222222".as_ptr());
-    config.bar.unfocused.text = draw_util_hex_to_color(c"#888888".as_ptr());
-    config.bar.unfocused.indicator = draw_util_hex_to_color(c"#000000".as_ptr());
-    config.bar.unfocused.child_border = draw_util_hex_to_color(c"#222222".as_ptr());
-    config.bar.urgent.border = draw_util_hex_to_color(c"#2f343a".as_ptr());
-    config.bar.urgent.background = draw_util_hex_to_color(c"#900000".as_ptr());
-    config.bar.urgent.text = draw_util_hex_to_color(c"#ffffff".as_ptr());
-    config.bar.urgent.indicator = draw_util_hex_to_color(c"#000000".as_ptr());
-    config.bar.urgent.child_border = draw_util_hex_to_color(c"#900000".as_ptr());
+    {
+        let screen = crate::application::root_display_opt();
+        config.client.background = draw_util_hex_to_color(screen, "#000000");
+        config.client.focused.border = draw_util_hex_to_color(screen, "#4c7899");
+        config.client.focused.background = draw_util_hex_to_color(screen, "#285577");
+        config.client.focused.text = draw_util_hex_to_color(screen, "#ffffff");
+        config.client.focused.indicator = draw_util_hex_to_color(screen, "#2e9ef4");
+        config.client.focused.child_border = draw_util_hex_to_color(screen, "#285577");
+        config.client.focused_inactive.border = draw_util_hex_to_color(screen, "#333333");
+        config.client.focused_inactive.background = draw_util_hex_to_color(screen, "#5f676a");
+        config.client.focused_inactive.text = draw_util_hex_to_color(screen, "#ffffff");
+        config.client.focused_inactive.indicator = draw_util_hex_to_color(screen, "#484e50");
+        config.client.focused_inactive.child_border = draw_util_hex_to_color(screen, "#5f676a");
+        config.client.unfocused.border = draw_util_hex_to_color(screen, "#333333");
+        config.client.unfocused.background = draw_util_hex_to_color(screen, "#222222");
+        config.client.unfocused.text = draw_util_hex_to_color(screen, "#888888");
+        config.client.unfocused.indicator = draw_util_hex_to_color(screen, "#292d2e");
+        config.client.unfocused.child_border = draw_util_hex_to_color(screen, "#222222");
+        config.client.urgent.border = draw_util_hex_to_color(screen, "#2f343a");
+        config.client.urgent.background = draw_util_hex_to_color(screen, "#900000");
+        config.client.urgent.text = draw_util_hex_to_color(screen, "#ffffff");
+        config.client.urgent.indicator = draw_util_hex_to_color(screen, "#900000");
+        config.client.urgent.child_border = draw_util_hex_to_color(screen, "#900000");
+        config.client.got_focused_tab_title = false_0 != 0;
+        config.client.placeholder.border = draw_util_hex_to_color(screen, "#000000");
+        config.client.placeholder.background = draw_util_hex_to_color(screen, "#0c0c0c");
+        config.client.placeholder.text = draw_util_hex_to_color(screen, "#ffffff");
+        config.client.placeholder.indicator = draw_util_hex_to_color(screen, "#000000");
+        config.client.placeholder.child_border = draw_util_hex_to_color(screen, "#0c0c0c");
+        config.bar.focused.border = draw_util_hex_to_color(screen, "#4c7899");
+        config.bar.focused.background = draw_util_hex_to_color(screen, "#285577");
+        config.bar.focused.text = draw_util_hex_to_color(screen, "#ffffff");
+        config.bar.focused.indicator = draw_util_hex_to_color(screen, "#000000");
+        config.bar.focused.child_border = draw_util_hex_to_color(screen, "#285577");
+        config.bar.unfocused.border = draw_util_hex_to_color(screen, "#333333");
+        config.bar.unfocused.background = draw_util_hex_to_color(screen, "#222222");
+        config.bar.unfocused.text = draw_util_hex_to_color(screen, "#888888");
+        config.bar.unfocused.indicator = draw_util_hex_to_color(screen, "#000000");
+        config.bar.unfocused.child_border = draw_util_hex_to_color(screen, "#222222");
+        config.bar.urgent.border = draw_util_hex_to_color(screen, "#2f343a");
+        config.bar.urgent.background = draw_util_hex_to_color(screen, "#900000");
+        config.bar.urgent.text = draw_util_hex_to_color(screen, "#ffffff");
+        config.bar.urgent.indicator = draw_util_hex_to_color(screen, "#000000");
+        config.bar.urgent.child_border = draw_util_hex_to_color(screen, "#900000");
+    }
     config.show_marks = true_0 != 0;
     config.default_border = BorderStyle::Normal;
     config.default_floating_border = BorderStyle::Normal;
@@ -740,23 +800,8 @@ pub unsafe fn load_configuration(
             c"Unable to find the configuration file (looked at $XDG_CONFIG_HOME/i3/config, ~/.i3/config, $XDG_CONFIG_DIRS/i3/config and /usr/local/etc/i3/config)".as_ptr(),
         );
     }
-    let mut file: *mut IncludedFile = ::core::ptr::null_mut::<IncludedFile>();
     while !included_files.tqh_first.is_null() {
-        file = included_files.tqh_first;
-        free((*file).path as *mut ::core::ffi::c_void);
-        (*file).path = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        free((*file).raw_contents as *mut ::core::ffi::c_void);
-        (*file).raw_contents = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        free((*file).variable_replaced_contents as *mut ::core::ffi::c_void);
-        (*file).variable_replaced_contents = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        if !(*file).files.tqe_next.is_null() {
-            (*(*file).files.tqe_next).files.tqe_prev = (*file).files.tqe_prev;
-        } else {
-            included_files.tqh_last = (*file).files.tqe_prev;
-        }
-        *(*file).files.tqe_prev = (*file).files.tqe_next;
-        free(file as *mut ::core::ffi::c_void);
-        file = ::core::ptr::null_mut::<IncludedFile>();
+        remove_included_file(included_files.tqh_first);
     }
     let mut resolved_path: [::core::ffi::c_char; 4096] = [0; 4096];
     if realpath(
@@ -772,12 +817,7 @@ pub unsafe fn load_configuration(
             strerror(*__errno_location()),
         );
     }
-    file = scalloc(1_usize, ::core::mem::size_of::<IncludedFile>() as usize) as *mut IncludedFile;
-    (*file).path = sstrdup(&raw mut resolved_path as *mut ::core::ffi::c_char);
-    (*file).files.tqe_next = ::core::ptr::null_mut::<IncludedFile>();
-    (*file).files.tqe_prev = included_files.tqh_last;
-    *included_files.tqh_last = file;
-    included_files.tqh_last = &raw mut (*file).files.tqe_next;
+    let file = append_included_file(CStr::from_ptr(resolved_path.as_ptr()).to_owned());
     {
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_pointer_1 = &raw mut resolved_path as *mut ::core::ffi::c_char;
@@ -811,11 +851,8 @@ pub unsafe fn load_configuration(
         variables: Vec::new(),
         has_errors: false,
     };
-    let result: ParseFileResult = parse_file(
-        &raw mut ctx,
-        &raw mut resolved_path as *mut ::core::ffi::c_char,
-        file,
-    );
+    let result: ParseFileResult =
+        parse_file(&raw mut ctx, CStr::from_ptr(resolved_path.as_ptr()), file);
     free_variables(&raw mut ctx);
     if result == ParseFileResult::Failed {
         errx(
@@ -892,3 +929,83 @@ use crate::bindings::grab_all_keys;
 use crate::bindings::regrab_all_buttons;
 use i3_common::draw_util::draw_util_hex_to_color;
 use i3_common::get_config_path::get_config_path;
+
+#[cfg(test)]
+mod included_file_tests {
+    use super::*;
+    use std::os::unix::ffi::OsStrExt;
+    #[test]
+    fn failed_include_unlinks_owned_box_without_losing_other_nodes_or_path_snapshots() {
+        if std::env::var_os("I333_INCLUDED_QUEUE_PROBE").is_none() {
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "config::included_file_tests::failed_include_unlinks_owned_box_without_losing_other_nodes_or_path_snapshots", "--nocapture"])
+                .env("I333_INCLUDED_QUEUE_PROBE", "1")
+                .env_remove("DISPLAY").env_remove("I3SOCK").env_remove("WAYLAND_DISPLAY")
+                .output().unwrap();
+            assert!(
+                output.status.success(),
+                "{}\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            return;
+        }
+        let directory = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../.work/included-file-tests")
+            .join(format!(
+                "{}-{}",
+                std::process::id(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            ));
+        std::fs::create_dir_all(&directory).unwrap();
+        struct Remove(std::path::PathBuf);
+        impl Drop for Remove {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
+        }
+        let _directory = Remove(directory.clone());
+        let mut bytes = directory.as_os_str().as_bytes().to_vec();
+        bytes.extend_from_slice(b"/missing-\xff");
+        let missing_path = std::ffi::CString::new(bytes).unwrap();
+        unsafe {
+            assert!(included_files.tqh_first.is_null());
+            let first = append_included_file(c"/first".to_owned());
+            let failed = append_included_file(missing_path.clone());
+            let last = append_included_file(c"/last".to_owned());
+            let filename_snapshot = (*failed).path.clone();
+            let mut stack = crate::config_parser::stack::default();
+            let mut ctx = parser_ctx {
+                use_nagbar: false,
+                state: ConfigParserState::Initial,
+                current_match: Match::empty(),
+                statelist: Vec::new(),
+                statelist_idx: 0,
+                stack: &mut stack,
+                variables: Vec::new(),
+                has_errors: false,
+            };
+            assert_eq!(
+                parse_file(&mut ctx, &filename_snapshot, failed),
+                ParseFileResult::Failed
+            );
+            assert!((*failed).raw_contents.is_none());
+            assert!((*failed).variable_replaced_contents.is_none());
+            remove_included_file(failed);
+            assert_eq!(filename_snapshot, missing_path);
+            assert_eq!(included_files.tqh_first, first);
+            assert_eq!((*first).files.tqe_next, last);
+            assert_eq!((*last).files.tqe_prev, &raw mut (*first).files.tqe_next);
+            assert_eq!(included_files.tqh_last, &raw mut (*last).files.tqe_next);
+            remove_included_file(first);
+            assert_eq!(included_files.tqh_first, last);
+            assert_eq!((*last).files.tqe_prev, &raw mut included_files.tqh_first);
+            remove_included_file(last);
+            assert!(included_files.tqh_first.is_null());
+            assert_eq!(included_files.tqh_last, &raw mut included_files.tqh_first);
+        }
+    }
+}

@@ -1227,7 +1227,7 @@ unsafe fn handle_get_version(
     let mut file = included_files.tqh_first;
     while !file.is_null() {
         if file != included_files.tqh_first {
-            included_config_file_names.push(native_text((*file).path));
+            included_config_file_names.push(messages::NativeText::cstr(&(*file).path));
         }
         file = (*file).files.tqe_next;
     }
@@ -1426,13 +1426,26 @@ unsafe fn handle_get_config(
 ) {
     let mut configs = Vec::new();
     let first = included_files.tqh_first;
-    let config = native_text((*first).raw_contents);
+    let config = messages::NativeText::bytes(
+        (*first)
+            .raw_contents_prefix()
+            .expect("main config has been read"),
+    );
     let mut file = first;
     while !file.is_null() {
         configs.push(messages::IncludedConfig {
-            path: native_text((*file).path),
-            raw_contents: native_text((*file).raw_contents),
-            variable_replaced_contents: native_text((*file).variable_replaced_contents),
+            path: messages::NativeText::cstr(&(*file).path),
+            raw_contents: messages::NativeText::bytes(
+                (*file)
+                    .raw_contents_prefix()
+                    .expect("published config has been read"),
+            ),
+            variable_replaced_contents: messages::NativeText::cstr(
+                (*file)
+                    .variable_replaced_contents
+                    .as_deref()
+                    .expect("published config has been expanded"),
+            ),
         });
         file = (*file).files.tqe_next;
     }

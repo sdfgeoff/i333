@@ -5,8 +5,8 @@
 //! Bounded color parsing and owned low-depth colormap caching.
 #![deny(unsafe_op_in_unsafe_fn)]
 
+use crate::display::DisplayScreen;
 use std::collections::HashMap;
-use std::ffi::{c_char, CStr};
 #[cfg(test)]
 use std::ptr;
 use std::sync::{LazyLock, Mutex};
@@ -34,15 +34,15 @@ static COLORPIXELS: LazyLock<Mutex<ColorCache>> =
     LazyLock::new(|| Mutex::new(ColorCache::default()));
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-struct Channels {
-    red: u8,
-    green: u8,
-    blue: u8,
-    alpha: u8,
+pub(crate) struct Channels {
+    red: i16,
+    green: i16,
+    blue: i16,
+    alpha: i16,
 }
 
 impl Channels {
-    fn parse(hex: &[u8]) -> Self {
+    pub(crate) fn parse(hex: &[u8]) -> Self {
         let pair = |start| {
             [
                 hex.get(start).copied().unwrap_or(0),
@@ -50,27 +50,38 @@ impl Channels {
             ]
         };
         Self {
-            red: hex_byte(pair(1)),
-            green: hex_byte(pair(3)),
-            blue: hex_byte(pair(5)),
+            red: hex_component(pair(1)),
+            green: hex_component(pair(3)),
+            blue: hex_component(pair(5)),
             alpha: if hex.len() == 9 {
-                hex_byte(pair(7))
+                hex_component(pair(7))
             } else {
-                u8::MAX
+                i16::from(u8::MAX)
             },
         }
     }
 
+    /// Native draw colors retain signed strtol values; pixel channels separately
+    /// wrap to u8, matching get_colorpixel's historical conversion.
+    pub(crate) fn rgba(self) -> [f64; 4] {
+        [self.red, self.green, self.blue, self.alpha].map(|channel| f64::from(channel) / 255.0)
+    }
+
     fn argb(self) -> u32 {
-        u32::from_be_bytes([self.alpha, self.red, self.green, self.blue])
+        u32::from_be_bytes([
+            self.alpha as u8,
+            self.red as u8,
+            self.green as u8,
+            self.blue as u8,
+        ])
     }
 
     fn native_rgb(self) -> (u16, u16, u16) {
         // 65535 * channel / 255 is exactly channel * 257 for every u8.
         (
-            u16::from(self.red) * 257,
-            u16::from(self.green) * 257,
-            u16::from(self.blue) * 257,
+            u16::from(self.red as u8) * 257,
+            u16::from(self.green as u8) * 257,
+            u16::from(self.blue as u8) * 257,
         )
     }
 }
@@ -85,7 +96,7 @@ fn digit(byte: u8) -> Option<u8> {
 }
 
 /// Preserve strtol(base 16)'s prefix/sign/locale-space rules for a two-byte group.
-fn hex_byte(pair: [u8; 2]) -> u8 {
+fn hex_component(pair: [u8; 2]) -> i16 {
     let mut bytes = pair.as_slice();
     while let Some(byte) = bytes.first() {
         // SAFETY: every u8 promoted to int is a valid isspace argument. This
@@ -99,38 +110,22 @@ fn hex_byte(pair: [u8; 2]) -> u8 {
     if matches!(bytes.first(), Some(b'-' | b'+')) {
         bytes = &bytes[1..];
     }
-    let mut value = 0u8;
+    let mut value = 0i16;
     for byte in bytes {
         let Some(nibble) = digit(*byte) else { break };
-        value = value * 16 + nibble;
+        value = value * 16 + i16::from(nibble);
     }
     if negative {
-        value.wrapping_neg()
+        -value
     } else {
         value
     }
 }
 
-/// Get the packed ARGB value or allocate a color in the current native colormap.
-///
-/// # Safety
-/// hex must point to a live NUL-terminated string. The registered display
-/// provider must keep its screen and connection live for this call. Null screen
-/// contexts need no connection and use the same ARGB fallback as TrueColor.
-pub unsafe fn get_colorpixel(hex: *const c_char) -> u32 {
-    if hex.is_null() {
-        return Channels::parse(&[]).argb();
-    }
-    // SAFETY: the caller guarantees this string lives for the call. Parse using
-    // its actual byte length; malformed short strings no longer read past NUL.
-    let hex = unsafe { CStr::from_ptr(hex) }.to_bytes();
-    let channels = Channels::parse(hex);
-    let crate::display::DisplayContext {
-        connection, screen, ..
-    } = crate::display::context();
-    // SAFETY: the display provider keeps any non-null screen live by contract.
-
-    let Some(screen) = screen.filter(|screen| !matches!(screen.root_depth, 24 | 32)) else {
+/// Resolve a parsed color using only the caller's retained display owner.
+/// Detached validation and TrueColor screens require no native requests.
+pub(crate) fn resolve_pixel(screen: Option<&DisplayScreen>, hex: &[u8], channels: Channels) -> u32 {
+    let Some(screen) = screen.filter(|screen| !matches!(screen.info().root_depth, 24 | 32)) else {
         return channels.argb();
     };
     if let Some(pixel) = COLORPIXELS
@@ -141,18 +136,14 @@ pub unsafe fn get_colorpixel(hex: *const c_char) -> u32 {
         return pixel;
     }
     let (red, green, blue) = channels.native_rgb();
-    // SAFETY: the display provider retains the connection owner throughout
-    // this synchronous operation. The maintained reply owns its allocation.
-    let reply =
-        unsafe { crate::xcb_connection::borrowed(connection.cast()) }.and_then(|connection| {
-            let cookie = connection.send_request(&x::AllocColor {
-                cmap: x::Colormap::new(screen.default_colormap),
-                red,
-                green,
-                blue,
-            });
-            connection.wait_for_reply(cookie).ok()
-        });
+    let connection = screen.connection();
+    let cookie = connection.send_request(&x::AllocColor {
+        cmap: x::Colormap::new(screen.info().default_colormap),
+        red,
+        green,
+        blue,
+    });
+    let reply = connection.wait_for_reply(cookie).ok();
     let Some(reply) = reply else {
         crate::logging::emit(
             crate::logging::Level::Verbose,
@@ -192,15 +183,128 @@ mod tests {
                 let string = [first, second, 0];
                 // SAFETY: this initialized array is NUL-terminated, and the
                 // native parser only borrows it. No locale changes occur here.
-                let expected =
-                    unsafe { libc::strtol(string.as_ptr().cast(), ptr::null_mut(), 16) } as u8;
+                let expected = unsafe { libc::strtol(string.as_ptr().cast(), ptr::null_mut(), 16) };
                 assert_eq!(
-                    hex_byte([first, second]),
+                    libc::c_long::from(hex_component([first, second])),
                     expected,
                     "pair {first:02x} {second:02x}"
                 );
             }
         }
+    }
+
+    #[test]
+    fn bounded_color_values_match_the_native_signed_and_wrapped_rules() {
+        use std::ffi::CStr;
+        for input in [
+            &b"#123456\0"[..],
+            &b"#12345678\0"[..],
+            &b"#123456789\0"[..],
+            &b"#12345\0"[..],
+            &b"#fZ-f+f\0"[..],
+            &b"#-f+f f-f\0"[..],
+            &b"#0x0Xff\0"[..],
+            &b"#\xff1\xfe2\xfd3\0"[..],
+            &b"#12\03456\0"[..],
+            &b"bad\xff\0"[..],
+            &b"\0"[..],
+            &b"#f\0"[..],
+        ] {
+            let original = input;
+            let input = CStr::from_bytes_until_nul(input).unwrap();
+            let bytes = input.to_bytes();
+            let effective = if bytes.len() < 6 || bytes.first() != Some(&b'#') {
+                c"#A9A9A9"
+            } else {
+                input
+            };
+            let bytes = effective.to_bytes_with_nul();
+            let mut signed = [255i16; 4];
+            for (index, value) in signed.iter_mut().enumerate() {
+                if index == 3 && effective.count_bytes() != 9 {
+                    continue;
+                }
+                let start = index * 2 + 1;
+                let pair = [bytes[start], bytes[start + 1], 0];
+                // SAFETY: exactly two initialized bytes and a trailing NUL;
+                // strtol's signed result is the native drawing oracle.
+                *value = unsafe { libc::strtol(pair.as_ptr().cast(), ptr::null_mut(), 16) } as i16;
+            }
+            let actual = crate::draw_util::draw_util_hex_to_color(None, original);
+            assert_eq!(
+                [actual.red, actual.green, actual.blue, actual.alpha].map(f64::to_bits),
+                signed.map(|channel| (f64::from(channel) / 255.0).to_bits()),
+                "RGBA input {:?}",
+                input.to_bytes(),
+            );
+            assert_eq!(
+                actual.colorpixel,
+                u32::from_be_bytes([
+                    signed[3] as u8,
+                    signed[0] as u8,
+                    signed[1] as u8,
+                    signed[2] as u8
+                ]),
+                "pixel input {:?}",
+                input.to_bytes(),
+            );
+        }
+    }
+
+    #[test]
+    fn colors_accept_owned_rust_strings_and_bounded_non_utf8_without_terminators() {
+        let owned = String::from("#fZ-f+f");
+        let borrowed = crate::draw_util::draw_util_hex_to_color(None, &owned);
+        let moved = crate::draw_util::draw_util_hex_to_color(None, owned);
+        assert_eq!(borrowed.colorpixel, 0xff0ff10f);
+        assert_eq!(moved.colorpixel, borrowed.colorpixel);
+        assert_eq!(moved.green.to_bits(), (-15.0f64 / 255.0).to_bits());
+        let interior_nul = String::from("#12345678\0ignored-alpha");
+        let color = crate::draw_util::draw_util_hex_to_color(None, interior_nul);
+        assert_eq!(color.colorpixel, 0x78123456);
+        let binary = vec![b'#', 0xff, b'1', 0xfe, b'2', 0xfd, b'3'];
+        assert_eq!(
+            crate::draw_util::draw_util_hex_to_color(None, binary).colorpixel,
+            0xff000000
+        );
+    }
+
+    #[test]
+    fn detached_color_fallback_keeps_diagnostic_bytes_without_display_lookup() {
+        const CHILD: &str = "I333_COLOR_FALLBACK_CHILD";
+        if std::env::var_os(CHILD).is_none() {
+            let result = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "get_colorpixel::tests::detached_color_fallback_keeps_diagnostic_bytes_without_display_lookup"])
+                .env(CHILD, "1").output().unwrap();
+            assert!(
+                result.status.success(),
+                "{}",
+                String::from_utf8_lossy(&result.stderr)
+            );
+            return;
+        }
+        fn unexpected_display() -> crate::display::DisplayContext {
+            panic!("explicit detached colors must not consult the display registry");
+        }
+        static MESSAGES: Mutex<Vec<Vec<u8>>> = Mutex::new(Vec::new());
+        fn record(level: crate::logging::Level, message: &[u8]) {
+            assert_eq!(level, crate::logging::Level::Error);
+            MESSAGES.lock().unwrap().push(message.to_vec());
+        }
+        crate::display::set_provider(unexpected_display);
+        crate::logging::set_sink(record);
+        for input in [&b""[..], &b"bad\xff\0ignored"[..], &b"#f"[..]] {
+            let actual = crate::draw_util::draw_util_hex_to_color(None, input);
+            assert_eq!(actual.colorpixel, 0xffa9a9a9);
+        }
+        assert_eq!(
+            *MESSAGES.lock().unwrap(),
+            [
+                b"[libi3] ERROR: Could not parse color: \n".to_vec(),
+                b"[libi3] ERROR: Could not parse color: bad\xff\n".to_vec(),
+                b"[libi3] ERROR: Could not parse color: #f\n".to_vec(),
+            ]
+        );
     }
 
     #[test]

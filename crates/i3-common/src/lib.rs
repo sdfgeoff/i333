@@ -24,7 +24,7 @@ pub mod fake_configure_notify;
 pub mod font;
 pub mod format_placeholders;
 pub mod g_utf8_make_valid;
-pub mod get_colorpixel;
+mod get_colorpixel;
 pub mod get_config_path;
 pub mod get_exe_path;
 pub mod get_mod_mask;

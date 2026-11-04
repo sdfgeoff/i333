@@ -495,10 +495,11 @@ fn maintained_xcb_requests_and_borrowed_lifetime() {
             blue: 0x5656,
         });
         let expected = connection.wait_for_reply(cookie).unwrap().pixel();
-        let actual = unsafe { i3_common::get_colorpixel::get_colorpixel(c"#123456".as_ptr()) };
+        let actual =
+            i3_common::draw_util::draw_util_hex_to_color(Some(&owned_screen), "#123456").colorpixel;
         assert_eq!(actual, expected);
         assert_eq!(
-            unsafe { i3_common::get_colorpixel::get_colorpixel(c"#123456".as_ptr()) },
+            i3_common::draw_util::draw_util_hex_to_color(Some(&owned_screen), "#123456").colorpixel,
             expected
         );
     }

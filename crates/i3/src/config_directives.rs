@@ -207,11 +207,7 @@ pub unsafe fn cfg_include(
             let mut file: *mut IncludedFile = ::core::ptr::null_mut::<IncludedFile>();
             file = included_files.tqh_first;
             while !file.is_null() {
-                if strcmp(
-                    (*file).path,
-                    &raw mut resolved_path as *mut ::core::ffi::c_char,
-                ) == 0 as ::core::ffi::c_int
-                {
+                if (*file).path.as_c_str() == CStr::from_ptr(resolved_path.as_ptr()) {
                     skip = true_0 != 0;
                     break;
                 } else {
@@ -264,13 +260,9 @@ pub unsafe fn cfg_include(
                         i3_common::logging::emit(i3_common::logging::Level::Verbose, &message);
                     }
                 };
-                file = scalloc(1_usize, ::core::mem::size_of::<IncludedFile>() as usize)
-                    as *mut IncludedFile;
-                (*file).path = sstrdup(&raw mut resolved_path as *mut ::core::ffi::c_char);
-                (*file).files.tqe_next = ::core::ptr::null_mut::<IncludedFile>();
-                (*file).files.tqe_prev = included_files.tqh_last;
-                *included_files.tqh_last = file;
-                included_files.tqh_last = &raw mut (*file).files.tqe_next;
+                file = crate::config::append_included_file(
+                    CStr::from_ptr(resolved_path.as_ptr()).to_owned(),
+                );
                 let mut stack: stack = stack::default();
                 let mut ctx: parser_ctx = parser_ctx {
                     use_nagbar: (*(*result).ctx).use_nagbar,
@@ -283,11 +275,9 @@ pub unsafe fn cfg_include(
                     has_errors: false,
                 };
 
-                let current_block_46: u64 = match parse_file(
-                    &raw mut ctx,
-                    &raw mut resolved_path as *mut ::core::ffi::c_char,
-                    file,
-                ) {
+                let parse_result =
+                    parse_file(&raw mut ctx, CStr::from_ptr(resolved_path.as_ptr()), file);
+                let current_block_46: u64 = match parse_result {
                     ParseFileResult::Success => 10150597327160359210,
                     ParseFileResult::Failed => {
                         {
@@ -341,20 +331,7 @@ pub unsafe fn cfg_include(
                 };
                 if current_block_46 == 1383695296304875401 {
                     (*result).has_errors = true_0 != 0;
-                    if !(*file).files.tqe_next.is_null() {
-                        (*(*file).files.tqe_next).files.tqe_prev = (*file).files.tqe_prev;
-                    } else {
-                        included_files.tqh_last = (*file).files.tqe_prev;
-                    }
-                    *(*file).files.tqe_prev = (*file).files.tqe_next;
-                    free((*file).path as *mut ::core::ffi::c_void);
-                    (*file).path = ::core::ptr::null_mut::<::core::ffi::c_char>();
-                    free((*file).raw_contents as *mut ::core::ffi::c_void);
-                    (*file).raw_contents = ::core::ptr::null_mut::<::core::ffi::c_char>();
-                    free((*file).variable_replaced_contents as *mut ::core::ffi::c_void);
-                    (*file).variable_replaced_contents =
-                        ::core::ptr::null_mut::<::core::ffi::c_char>();
-                    free(file as *mut ::core::ffi::c_void);
+                    crate::config::remove_included_file(file);
                     file = ::core::ptr::null_mut::<IncludedFile>();
                 }
                 (*(*result).ctx).variables = ctx.variables;
@@ -1320,7 +1297,9 @@ pub unsafe fn cfg_color_single(
     colorclass: *const ::core::ffi::c_char,
     color: *const ::core::ffi::c_char,
 ) {
-    config.client.background = draw_util_hex_to_color(color);
+    let color = CStr::from_ptr(color).to_bytes().to_vec();
+    config.client.background =
+        draw_util_hex_to_color(crate::application::root_display_opt(), &color);
 }
 
 pub unsafe fn cfg_color(
@@ -1333,127 +1312,142 @@ pub unsafe fn cfg_color(
     indicator: *const ::core::ffi::c_char,
     child_border: *const ::core::ffi::c_char,
 ) {
-    if strcmp(colorclass, c"client.focused_inactive".as_ptr()) == 0 as ::core::ffi::c_int {
+    // Snapshot every parser argument before any color-error logger can call out.
+    let colorclass = CStr::from_ptr(colorclass).to_owned();
+    let border = CStr::from_ptr(border).to_bytes().to_vec();
+    let background = CStr::from_ptr(background).to_bytes().to_vec();
+    let text = CStr::from_ptr(text).to_bytes().to_vec();
+    let indicator = indicator
+        .as_ref()
+        .map(|value| CStr::from_ptr(value).to_bytes().to_vec());
+    let child_border = child_border
+        .as_ref()
+        .map(|value| CStr::from_ptr(value).to_bytes().to_vec());
+    let screen = crate::application::root_display_opt();
+    if strcmp(colorclass.as_ptr(), c"client.focused_inactive".as_ptr()) == 0 as ::core::ffi::c_int {
         if strcmp(c"focused_tab_title".as_ptr(), c"focused_inactive".as_ptr())
             == 0 as ::core::ffi::c_int
         {
             config.client.got_focused_tab_title = true_0 != 0;
-            if !indicator.is_null() || !child_border.is_null() {
+            if indicator.is_some() || child_border.is_some() {
                 ::log::error!("ERROR: indicator and child_border colors have no effect for client.focused_tab_title\n");
             }
         }
-        config.client.focused_inactive.border = draw_util_hex_to_color(border);
-        config.client.focused_inactive.background = draw_util_hex_to_color(background);
-        config.client.focused_inactive.text = draw_util_hex_to_color(text);
-        if !indicator.is_null() {
-            config.client.focused_inactive.indicator = draw_util_hex_to_color(indicator);
+        config.client.focused_inactive.border = draw_util_hex_to_color(screen, &border);
+        config.client.focused_inactive.background = draw_util_hex_to_color(screen, &background);
+        config.client.focused_inactive.text = draw_util_hex_to_color(screen, &text);
+        if let Some(indicator) = indicator.as_deref() {
+            config.client.focused_inactive.indicator = draw_util_hex_to_color(screen, indicator);
         }
-        if !child_border.is_null() {
-            config.client.focused_inactive.child_border = draw_util_hex_to_color(child_border);
+        if let Some(child_border) = child_border.as_deref() {
+            config.client.focused_inactive.child_border =
+                draw_util_hex_to_color(screen, child_border);
         } else {
             config.client.focused_inactive.child_border = config.client.focused_inactive.background;
         }
         return;
     }
-    if strcmp(colorclass, c"client.focused_tab_title".as_ptr()) == 0 as ::core::ffi::c_int {
+    if strcmp(colorclass.as_ptr(), c"client.focused_tab_title".as_ptr()) == 0 as ::core::ffi::c_int
+    {
         if strcmp(c"focused_tab_title".as_ptr(), c"focused_tab_title".as_ptr())
             == 0 as ::core::ffi::c_int
         {
             config.client.got_focused_tab_title = true_0 != 0;
-            if !indicator.is_null() || !child_border.is_null() {
+            if indicator.is_some() || child_border.is_some() {
                 ::log::error!("ERROR: indicator and child_border colors have no effect for client.focused_tab_title\n");
             }
         }
-        config.client.focused_tab_title.border = draw_util_hex_to_color(border);
-        config.client.focused_tab_title.background = draw_util_hex_to_color(background);
-        config.client.focused_tab_title.text = draw_util_hex_to_color(text);
-        if !indicator.is_null() {
-            config.client.focused_tab_title.indicator = draw_util_hex_to_color(indicator);
+        config.client.focused_tab_title.border = draw_util_hex_to_color(screen, &border);
+        config.client.focused_tab_title.background = draw_util_hex_to_color(screen, &background);
+        config.client.focused_tab_title.text = draw_util_hex_to_color(screen, &text);
+        if let Some(indicator) = indicator.as_deref() {
+            config.client.focused_tab_title.indicator = draw_util_hex_to_color(screen, indicator);
         }
-        if !child_border.is_null() {
-            config.client.focused_tab_title.child_border = draw_util_hex_to_color(child_border);
+        if let Some(child_border) = child_border.as_deref() {
+            config.client.focused_tab_title.child_border =
+                draw_util_hex_to_color(screen, child_border);
         } else {
             config.client.focused_tab_title.child_border =
                 config.client.focused_tab_title.background;
         }
         return;
     }
-    if strcmp(colorclass, c"client.focused".as_ptr()) == 0 as ::core::ffi::c_int {
+    if strcmp(colorclass.as_ptr(), c"client.focused".as_ptr()) == 0 as ::core::ffi::c_int {
         if strcmp(c"focused_tab_title".as_ptr(), c"focused".as_ptr()) == 0 as ::core::ffi::c_int {
             config.client.got_focused_tab_title = true_0 != 0;
-            if !indicator.is_null() || !child_border.is_null() {
+            if indicator.is_some() || child_border.is_some() {
                 ::log::error!("ERROR: indicator and child_border colors have no effect for client.focused_tab_title\n");
             }
         }
-        config.client.focused.border = draw_util_hex_to_color(border);
-        config.client.focused.background = draw_util_hex_to_color(background);
-        config.client.focused.text = draw_util_hex_to_color(text);
-        if !indicator.is_null() {
-            config.client.focused.indicator = draw_util_hex_to_color(indicator);
+        config.client.focused.border = draw_util_hex_to_color(screen, &border);
+        config.client.focused.background = draw_util_hex_to_color(screen, &background);
+        config.client.focused.text = draw_util_hex_to_color(screen, &text);
+        if let Some(indicator) = indicator.as_deref() {
+            config.client.focused.indicator = draw_util_hex_to_color(screen, indicator);
         }
-        if !child_border.is_null() {
-            config.client.focused.child_border = draw_util_hex_to_color(child_border);
+        if let Some(child_border) = child_border.as_deref() {
+            config.client.focused.child_border = draw_util_hex_to_color(screen, child_border);
         } else {
             config.client.focused.child_border = config.client.focused.background;
         }
         return;
     }
-    if strcmp(colorclass, c"client.unfocused".as_ptr()) == 0 as ::core::ffi::c_int {
+    if strcmp(colorclass.as_ptr(), c"client.unfocused".as_ptr()) == 0 as ::core::ffi::c_int {
         if strcmp(c"focused_tab_title".as_ptr(), c"unfocused".as_ptr()) == 0 as ::core::ffi::c_int {
             config.client.got_focused_tab_title = true_0 != 0;
-            if !indicator.is_null() || !child_border.is_null() {
+            if indicator.is_some() || child_border.is_some() {
                 ::log::error!("ERROR: indicator and child_border colors have no effect for client.focused_tab_title\n");
             }
         }
-        config.client.unfocused.border = draw_util_hex_to_color(border);
-        config.client.unfocused.background = draw_util_hex_to_color(background);
-        config.client.unfocused.text = draw_util_hex_to_color(text);
-        if !indicator.is_null() {
-            config.client.unfocused.indicator = draw_util_hex_to_color(indicator);
+        config.client.unfocused.border = draw_util_hex_to_color(screen, &border);
+        config.client.unfocused.background = draw_util_hex_to_color(screen, &background);
+        config.client.unfocused.text = draw_util_hex_to_color(screen, &text);
+        if let Some(indicator) = indicator.as_deref() {
+            config.client.unfocused.indicator = draw_util_hex_to_color(screen, indicator);
         }
-        if !child_border.is_null() {
-            config.client.unfocused.child_border = draw_util_hex_to_color(child_border);
+        if let Some(child_border) = child_border.as_deref() {
+            config.client.unfocused.child_border = draw_util_hex_to_color(screen, child_border);
         } else {
             config.client.unfocused.child_border = config.client.unfocused.background;
         }
         return;
     }
-    if strcmp(colorclass, c"client.urgent".as_ptr()) == 0 as ::core::ffi::c_int {
+    if strcmp(colorclass.as_ptr(), c"client.urgent".as_ptr()) == 0 as ::core::ffi::c_int {
         if strcmp(c"focused_tab_title".as_ptr(), c"urgent".as_ptr()) == 0 as ::core::ffi::c_int {
             config.client.got_focused_tab_title = true_0 != 0;
-            if !indicator.is_null() || !child_border.is_null() {
+            if indicator.is_some() || child_border.is_some() {
                 ::log::error!("ERROR: indicator and child_border colors have no effect for client.focused_tab_title\n");
             }
         }
-        config.client.urgent.border = draw_util_hex_to_color(border);
-        config.client.urgent.background = draw_util_hex_to_color(background);
-        config.client.urgent.text = draw_util_hex_to_color(text);
-        if !indicator.is_null() {
-            config.client.urgent.indicator = draw_util_hex_to_color(indicator);
+        config.client.urgent.border = draw_util_hex_to_color(screen, &border);
+        config.client.urgent.background = draw_util_hex_to_color(screen, &background);
+        config.client.urgent.text = draw_util_hex_to_color(screen, &text);
+        if let Some(indicator) = indicator.as_deref() {
+            config.client.urgent.indicator = draw_util_hex_to_color(screen, indicator);
         }
-        if !child_border.is_null() {
-            config.client.urgent.child_border = draw_util_hex_to_color(child_border);
+        if let Some(child_border) = child_border.as_deref() {
+            config.client.urgent.child_border = draw_util_hex_to_color(screen, child_border);
         } else {
             config.client.urgent.child_border = config.client.urgent.background;
         }
         return;
     }
-    if strcmp(colorclass, c"client.placeholder".as_ptr()) == 0 as ::core::ffi::c_int {
+    if strcmp(colorclass.as_ptr(), c"client.placeholder".as_ptr()) == 0 as ::core::ffi::c_int {
         if strcmp(c"focused_tab_title".as_ptr(), c"placeholder".as_ptr()) == 0 as ::core::ffi::c_int
         {
             config.client.got_focused_tab_title = true_0 != 0;
-            if !indicator.is_null() || !child_border.is_null() {
+            if indicator.is_some() || child_border.is_some() {
                 ::log::error!("ERROR: indicator and child_border colors have no effect for client.focused_tab_title\n");
             }
         }
-        config.client.placeholder.border = draw_util_hex_to_color(border);
-        config.client.placeholder.background = draw_util_hex_to_color(background);
-        config.client.placeholder.text = draw_util_hex_to_color(text);
-        if !indicator.is_null() {
-            config.client.placeholder.indicator = draw_util_hex_to_color(indicator);
+        config.client.placeholder.border = draw_util_hex_to_color(screen, &border);
+        config.client.placeholder.background = draw_util_hex_to_color(screen, &background);
+        config.client.placeholder.text = draw_util_hex_to_color(screen, &text);
+        if let Some(indicator) = indicator.as_deref() {
+            config.client.placeholder.indicator = draw_util_hex_to_color(screen, indicator);
         }
-        if !child_border.is_null() {
-            config.client.placeholder.child_border = draw_util_hex_to_color(child_border);
+        if let Some(child_border) = child_border.as_deref() {
+            config.client.placeholder.child_border = draw_util_hex_to_color(screen, child_border);
         } else {
             config.client.placeholder.child_border = config.client.placeholder.background;
         }
@@ -2367,6 +2361,88 @@ mod argument_tests {
         );
         unsafe {
             assert_eq!(event_state_from_str(std::ptr::null()), 0);
+        }
+    }
+}
+
+#[cfg(test)]
+mod color_snapshot_tests {
+    use super::*;
+    #[test]
+    fn color_arguments_remain_owned_when_error_logging_drops_the_parser_inputs() {
+        if std::env::var_os("I333_CONFIG_COLOR_PROBE").is_none() {
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "config_directives::color_snapshot_tests::color_arguments_remain_owned_when_error_logging_drops_the_parser_inputs", "--nocapture"])
+                .env("I333_CONFIG_COLOR_PROBE", "1")
+                .env_remove("DISPLAY").env_remove("I3SOCK").env_remove("WAYLAND_DISPLAY")
+                .output().unwrap();
+            assert!(
+                output.status.success(),
+                "{}\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            return;
+        }
+        static INPUTS: std::sync::Mutex<Option<Vec<std::ffi::CString>>> =
+            std::sync::Mutex::new(None);
+        fn release_inputs(level: i3_common::logging::Level, _: &[u8]) {
+            assert_eq!(level, i3_common::logging::Level::Error);
+            drop(INPUTS.lock().unwrap().take());
+        }
+        let values = [
+            c"client.focused",
+            c"invalid-\xff",
+            c"#112233",
+            c"#445566",
+            c"#778899",
+            c"#abcdef",
+        ];
+        *INPUTS.lock().unwrap() = Some(values.iter().map(|value| (*value).to_owned()).collect());
+        let pointers: Vec<_> = INPUTS
+            .lock()
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(|value| value.as_ptr())
+            .collect();
+        i3_common::logging::set_sink(release_inputs);
+        let mut stack = crate::config_parser::stack::default();
+        let mut ctx = parser_ctx {
+            use_nagbar: false,
+            state: ConfigParserState::Initial,
+            current_match: Match::empty(),
+            statelist: Vec::new(),
+            statelist_idx: 0,
+            stack: &mut stack,
+            variables: Vec::new(),
+            has_errors: false,
+        };
+        let mut result = ConfigResultIR {
+            ctx: &mut ctx,
+            next_state: ConfigParserState::Initial,
+            has_errors: false,
+        };
+        let mut current = Match::empty();
+        unsafe {
+            assert!(crate::application::root_display_opt().is_none());
+            cfg_color(
+                &mut current,
+                &mut result,
+                pointers[0],
+                pointers[1],
+                pointers[2],
+                pointers[3],
+                pointers[4],
+                pointers[5],
+            );
+            assert!(INPUTS.lock().unwrap().is_none());
+            assert_eq!(config.client.focused.border.colorpixel, 0xffa9a9a9);
+            assert_eq!(config.client.focused.background.colorpixel, 0xff112233);
+            assert_eq!(config.client.focused.text.colorpixel, 0xff445566);
+            assert_eq!(config.client.focused.indicator.colorpixel, 0xff778899);
+            assert_eq!(config.client.focused.child_border.colorpixel, 0xffabcdef);
         }
     }
 }

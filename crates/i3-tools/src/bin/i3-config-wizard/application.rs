@@ -4522,10 +4522,10 @@ unsafe fn txt(
     );
 }
 unsafe fn handle_expose(ui: &WizardUi, connection: &xcb::Connection) -> ::core::ffi::c_int {
-    let black: color_t = draw_util_hex_to_color(c"#000000".as_ptr()) as color_t;
-    let white: color_t = draw_util_hex_to_color(c"#FFFFFF".as_ptr()) as color_t;
-    let green: color_t = draw_util_hex_to_color(c"#00FF00".as_ptr()) as color_t;
-    let red: color_t = draw_util_hex_to_color(c"#FF0000".as_ptr()) as color_t;
+    let black: color_t = draw_util_hex_to_color(root_screen.as_ref(), "#000000") as color_t;
+    let white: color_t = draw_util_hex_to_color(root_screen.as_ref(), "#FFFFFF") as color_t;
+    let green: color_t = draw_util_hex_to_color(root_screen.as_ref(), "#00FF00") as color_t;
+    let red: color_t = draw_util_hex_to_color(root_screen.as_ref(), "#FF0000") as color_t;
     draw_util_clear_surface(&raw mut surface, black);
 
     if ui.step == WizardStep::Welcome {

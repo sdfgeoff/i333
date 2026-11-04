@@ -411,100 +411,44 @@ pub unsafe fn draw_util_surface_set_size(surface: *mut surface_t, width: i32, he
     }
 }
 
-/// Parse a native hexadecimal color, falling back to gray on invalid input.
-///
-/// # Safety
-/// `color` must point to a live NUL-terminated string, readable through its
-/// terminator for the entire call, including any diagnostic callbacks.
-pub unsafe fn draw_util_hex_to_color(color: *const ::core::ffi::c_char) -> color_t {
-    // SAFETY: The caller supplies a live NUL-terminated native color string, including its terminator.
-    unsafe {
-        if strlen(color) < 6_usize
-            || *color.offset(0 as ::core::ffi::c_int as isize) as ::core::ffi::c_int != '#' as i32
-        {
-            {
-                let log_text_bytes = (std::ffi::CStr::from_ptr(color).to_bytes()).to_vec();
-                match std::str::from_utf8(&log_text_bytes) {
-                    Ok(log_text) => {
-                        ::log::error!("[libi3] ERROR: Could not parse color: {}\n", log_text)
-                    }
-                    Err(_) => {
-                        let mut message = b"[libi3] ERROR: Could not parse color: ".to_vec();
-                        message.extend_from_slice(&log_text_bytes);
-                        message.extend_from_slice(b"\n");
-                        crate::logging::emit(crate::logging::Level::Error, &message);
-                    }
-                }
-            };
-            return draw_util_hex_to_color(c"#A9A9A9".as_ptr());
+/// Parse Rust strings or bounded bytes into rendering components and a pixel.
+/// The first NUL still ends input for compatibility with native color strings.
+/// Invalid short/non-hex-prefixed input reports the original bytes and uses gray.
+/// A missing screen supports configuration validation before X11 initialization.
+/// Borrowing an existing screen performs no provider lookup or connection clone,
+/// including when the crash dialog calls this helper from its native fault edge.
+pub fn draw_util_hex_to_color(
+    screen: Option<&crate::display::DisplayScreen>,
+    color: impl AsRef<[u8]>,
+) -> color_t {
+    let color = color.as_ref();
+    let color = &color[..color
+        .iter()
+        .position(|&byte| byte == 0)
+        .unwrap_or(color.len())];
+    let color = if color.len() < 6 || color.first() != Some(&b'#') {
+        let bytes = color.to_vec();
+        match std::str::from_utf8(&bytes) {
+            Ok(text) => ::log::error!("[libi3] ERROR: Could not parse color: {}\n", text),
+            Err(_) => {
+                let mut message = b"[libi3] ERROR: Could not parse color: ".to_vec();
+                message.extend_from_slice(&bytes);
+                message.push(b'\n');
+                crate::logging::emit(crate::logging::Level::Error, &message);
+            }
         }
-        let mut alpha: [::core::ffi::c_char; 2] = [0; 2];
-        if strlen(color) == c"#rrggbbaa".count_bytes() {
-            alpha[0 as ::core::ffi::c_int as usize] =
-                *color.offset(7 as ::core::ffi::c_int as isize);
-            alpha[1 as ::core::ffi::c_int as usize] =
-                *color.offset(8 as ::core::ffi::c_int as isize);
-        } else {
-            alpha[1 as ::core::ffi::c_int as usize] = 'F' as i32 as ::core::ffi::c_char;
-            alpha[0 as ::core::ffi::c_int as usize] = alpha[1 as ::core::ffi::c_int as usize];
-        }
-        let mut groups: [[::core::ffi::c_char; 3]; 4] = [
-            [
-                *color.offset(1 as ::core::ffi::c_int as isize),
-                *color.offset(2 as ::core::ffi::c_int as isize),
-                '\0' as i32 as ::core::ffi::c_char,
-            ],
-            [
-                *color.offset(3 as ::core::ffi::c_int as isize),
-                *color.offset(4 as ::core::ffi::c_int as isize),
-                '\0' as i32 as ::core::ffi::c_char,
-            ],
-            [
-                *color.offset(5 as ::core::ffi::c_int as isize),
-                *color.offset(6 as ::core::ffi::c_int as isize),
-                '\0' as i32 as ::core::ffi::c_char,
-            ],
-            [
-                alpha[0 as ::core::ffi::c_int as usize],
-                alpha[1 as ::core::ffi::c_int as usize],
-                '\0' as i32 as ::core::ffi::c_char,
-            ],
-        ];
-        color_t {
-            red: strtol(
-                &raw mut *(&raw mut groups as *mut [::core::ffi::c_char; 3])
-                    .offset(0 as ::core::ffi::c_int as isize)
-                    as *mut ::core::ffi::c_char,
-                ::core::ptr::null_mut::<*mut ::core::ffi::c_char>(),
-                16 as ::core::ffi::c_int,
-            ) as ::core::ffi::c_double
-                / 255.0f64,
-            green: strtol(
-                &raw mut *(&raw mut groups as *mut [::core::ffi::c_char; 3])
-                    .offset(1 as ::core::ffi::c_int as isize)
-                    as *mut ::core::ffi::c_char,
-                ::core::ptr::null_mut::<*mut ::core::ffi::c_char>(),
-                16 as ::core::ffi::c_int,
-            ) as ::core::ffi::c_double
-                / 255.0f64,
-            blue: strtol(
-                &raw mut *(&raw mut groups as *mut [::core::ffi::c_char; 3])
-                    .offset(2 as ::core::ffi::c_int as isize)
-                    as *mut ::core::ffi::c_char,
-                ::core::ptr::null_mut::<*mut ::core::ffi::c_char>(),
-                16 as ::core::ffi::c_int,
-            ) as ::core::ffi::c_double
-                / 255.0f64,
-            alpha: strtol(
-                &raw mut *(&raw mut groups as *mut [::core::ffi::c_char; 3])
-                    .offset(3 as ::core::ffi::c_int as isize)
-                    as *mut ::core::ffi::c_char,
-                ::core::ptr::null_mut::<*mut ::core::ffi::c_char>(),
-                16 as ::core::ffi::c_int,
-            ) as ::core::ffi::c_double
-                / 255.0f64,
-            colorpixel: get_colorpixel(color),
-        }
+        b"#A9A9A9".as_slice()
+    } else {
+        color
+    };
+    let channels = crate::get_colorpixel::Channels::parse(color);
+    let [red, green, blue, alpha] = channels.rgba();
+    color_t {
+        red,
+        green,
+        blue,
+        alpha,
+        colorpixel: crate::get_colorpixel::resolve_pixel(screen, color, channels),
     }
 }
 // These helpers work with real borrowed cairo-rs objects. The legacy surface
@@ -724,7 +668,6 @@ pub unsafe fn draw_util_copy_surface(
 }
 
 // Internal helpers use Rust linkage rather than foreign symbol lookup.
-use crate::get_colorpixel::get_colorpixel;
 
 // Canonical Cairo backend ABI; renderer logic remains local.
 pub use cairo_sys::{
@@ -737,8 +680,6 @@ pub use cairo_sys::{
 };
 
 use xcb::ffi::xcb_connection_t;
-
-pub use libc::{strlen, strtol};
 
 // Internal calls and globals use canonical Rust identities.
 

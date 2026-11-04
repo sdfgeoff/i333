@@ -196,9 +196,9 @@ unsafe fn handle_expose(
     connection: &xcb::Connection,
 ) -> ::core::ffi::c_int {
     printf(c"expose!\n".as_ptr());
-    let border_color: color_t = draw_util_hex_to_color(c"#FF0000".as_ptr());
-    let fg_color: color_t = draw_util_hex_to_color(c"#FFFFFF".as_ptr());
-    let bg_color: color_t = draw_util_hex_to_color(c"#000000".as_ptr());
+    let border_color: color_t = draw_util_hex_to_color(root_screen.as_ref(), "#FF0000");
+    let fg_color: color_t = draw_util_hex_to_color(root_screen.as_ref(), "#FFFFFF");
+    let bg_color: color_t = draw_util_hex_to_color(root_screen.as_ref(), "#000000");
     let text_offset: ::core::ffi::c_int =
         logical_px(2 as ::core::ffi::c_int) + logical_px(2 as ::core::ffi::c_int);
     draw_util_rectangle(

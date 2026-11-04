@@ -570,17 +570,19 @@ unsafe fn run_window(settings: NagbarSettings) -> ::core::ffi::c_int {
         .expect("root Cairo visual")
         .as_ptr();
     if bar_type == MessageType::Error {
-        state.render.color_button_background = draw_util_hex_to_color(c"#680a0a".as_ptr());
-        state.render.color_background = draw_util_hex_to_color(c"#900000".as_ptr());
-        state.render.color_text = draw_util_hex_to_color(c"#ffffff".as_ptr());
-        state.render.color_border = draw_util_hex_to_color(c"#d92424".as_ptr());
-        state.render.color_border_bottom = draw_util_hex_to_color(c"#470909".as_ptr());
+        state.render.color_button_background =
+            draw_util_hex_to_color(root_screen.as_ref(), "#680a0a");
+        state.render.color_background = draw_util_hex_to_color(root_screen.as_ref(), "#900000");
+        state.render.color_text = draw_util_hex_to_color(root_screen.as_ref(), "#ffffff");
+        state.render.color_border = draw_util_hex_to_color(root_screen.as_ref(), "#d92424");
+        state.render.color_border_bottom = draw_util_hex_to_color(root_screen.as_ref(), "#470909");
     } else {
-        state.render.color_button_background = draw_util_hex_to_color(c"#ffc100".as_ptr());
-        state.render.color_background = draw_util_hex_to_color(c"#ffa800".as_ptr());
-        state.render.color_text = draw_util_hex_to_color(c"#000000".as_ptr());
-        state.render.color_border = draw_util_hex_to_color(c"#ab7100".as_ptr());
-        state.render.color_border_bottom = draw_util_hex_to_color(c"#ab7100".as_ptr());
+        state.render.color_button_background =
+            draw_util_hex_to_color(root_screen.as_ref(), "#ffc100");
+        state.render.color_background = draw_util_hex_to_color(root_screen.as_ref(), "#ffa800");
+        state.render.color_text = draw_util_hex_to_color(root_screen.as_ref(), "#000000");
+        state.render.color_border = draw_util_hex_to_color(root_screen.as_ref(), "#ab7100");
+        state.render.color_border_bottom = draw_util_hex_to_color(root_screen.as_ref(), "#ab7100");
     }
     init_dpi();
     let font_context = i3_common::font::FontContext::for_screen(

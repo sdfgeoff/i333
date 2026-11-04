@@ -664,6 +664,7 @@ unsafe fn adjust_statusline_length(max_length: u32) -> u32 {
     width
 }
 unsafe fn draw_statusline(output: *mut i3_output, clip_left: u32, use_focus_colors: bool) {
+    let color_screen = DISPLAY_STATE.as_ref().map(|state| state.renderer.screen());
     let mut block: *mut status_block = ::core::ptr::null_mut::<status_block>();
     let bar_color: color_t = if use_focus_colors as ::core::ffi::c_int != 0 {
         colors.focus_bar_bg
@@ -691,7 +692,10 @@ unsafe fn draw_statusline(output: *mut i3_output, clip_left: u32, use_focus_colo
             if (*block).urgent {
                 fg_color = colors.urgent_ws_fg;
             } else if !(*block).color.is_null() {
-                fg_color = draw_util_hex_to_color((*block).color);
+                fg_color = draw_util_hex_to_color(
+                    color_screen,
+                    std::ffi::CStr::from_ptr((*block).color).to_bytes().to_vec(),
+                );
             } else if use_focus_colors {
                 fg_color = colors.focus_bar_fg;
             } else {
@@ -718,10 +722,20 @@ unsafe fn draw_statusline(output: *mut i3_output, clip_left: u32, use_focus_colo
                     bg_color = colors.urgent_ws_bg;
                 } else {
                     if !(*block).border.is_null() {
-                        border_color = draw_util_hex_to_color((*block).border);
+                        border_color = draw_util_hex_to_color(
+                            color_screen,
+                            std::ffi::CStr::from_ptr((*block).border)
+                                .to_bytes()
+                                .to_vec(),
+                        );
                     }
                     if !(*block).background.is_null() {
-                        bg_color = draw_util_hex_to_color((*block).background);
+                        bg_color = draw_util_hex_to_color(
+                            color_screen,
+                            std::ffi::CStr::from_ptr((*block).background)
+                                .to_bytes()
+                                .to_vec(),
+                        );
                     }
                 }
                 draw_util_rectangle(
@@ -859,111 +873,244 @@ unsafe fn unhide_bars() {
 }
 
 pub unsafe fn init_colors(new_colors: *const ColorStrings) {
-    colors.bar_fg = draw_util_hex_to_color(if !(*new_colors).bar_fg.is_null() {
-        (*new_colors).bar_fg as *const ::core::ffi::c_char
-    } else {
-        c"#FFFFFF".as_ptr()
-    });
-    colors.bar_bg = draw_util_hex_to_color(if !(*new_colors).bar_bg.is_null() {
-        (*new_colors).bar_bg as *const ::core::ffi::c_char
-    } else {
-        c"#000000".as_ptr()
-    });
-    colors.sep_fg = draw_util_hex_to_color(if !(*new_colors).sep_fg.is_null() {
-        (*new_colors).sep_fg as *const ::core::ffi::c_char
-    } else {
-        c"#666666".as_ptr()
-    });
-    colors.active_ws_fg = draw_util_hex_to_color(if !(*new_colors).active_ws_fg.is_null() {
-        (*new_colors).active_ws_fg as *const ::core::ffi::c_char
-    } else {
-        c"#FFFFFF".as_ptr()
-    });
-    colors.active_ws_bg = draw_util_hex_to_color(if !(*new_colors).active_ws_bg.is_null() {
-        (*new_colors).active_ws_bg as *const ::core::ffi::c_char
-    } else {
-        c"#333333".as_ptr()
-    });
-    colors.active_ws_border =
-        draw_util_hex_to_color(if !(*new_colors).active_ws_border.is_null() {
-            (*new_colors).active_ws_border as *const ::core::ffi::c_char
+    let color_screen = DISPLAY_STATE.as_ref().map(|state| state.renderer.screen());
+    colors.bar_fg = draw_util_hex_to_color(
+        color_screen,
+        if (*new_colors).bar_fg.is_null() {
+            std::borrow::Cow::Borrowed("#FFFFFF".as_bytes())
         } else {
-            c"#333333".as_ptr()
-        });
-    colors.inactive_ws_fg = draw_util_hex_to_color(if !(*new_colors).inactive_ws_fg.is_null() {
-        (*new_colors).inactive_ws_fg as *const ::core::ffi::c_char
-    } else {
-        c"#888888".as_ptr()
-    });
-    colors.inactive_ws_bg = draw_util_hex_to_color(if !(*new_colors).inactive_ws_bg.is_null() {
-        (*new_colors).inactive_ws_bg as *const ::core::ffi::c_char
-    } else {
-        c"#222222".as_ptr()
-    });
-    colors.inactive_ws_border =
-        draw_util_hex_to_color(if !(*new_colors).inactive_ws_border.is_null() {
-            (*new_colors).inactive_ws_border as *const ::core::ffi::c_char
+            std::borrow::Cow::Owned(
+                std::ffi::CStr::from_ptr((*new_colors).bar_fg)
+                    .to_bytes()
+                    .to_vec(),
+            )
+        },
+    );
+    colors.bar_bg = draw_util_hex_to_color(
+        color_screen,
+        if (*new_colors).bar_bg.is_null() {
+            std::borrow::Cow::Borrowed("#000000".as_bytes())
         } else {
-            c"#333333".as_ptr()
-        });
-    colors.urgent_ws_fg = draw_util_hex_to_color(if !(*new_colors).urgent_ws_fg.is_null() {
-        (*new_colors).urgent_ws_fg as *const ::core::ffi::c_char
-    } else {
-        c"#FFFFFF".as_ptr()
-    });
-    colors.urgent_ws_bg = draw_util_hex_to_color(if !(*new_colors).urgent_ws_bg.is_null() {
-        (*new_colors).urgent_ws_bg as *const ::core::ffi::c_char
-    } else {
-        c"#900000".as_ptr()
-    });
-    colors.urgent_ws_border =
-        draw_util_hex_to_color(if !(*new_colors).urgent_ws_border.is_null() {
-            (*new_colors).urgent_ws_border as *const ::core::ffi::c_char
+            std::borrow::Cow::Owned(
+                std::ffi::CStr::from_ptr((*new_colors).bar_bg)
+                    .to_bytes()
+                    .to_vec(),
+            )
+        },
+    );
+    colors.sep_fg = draw_util_hex_to_color(
+        color_screen,
+        if (*new_colors).sep_fg.is_null() {
+            std::borrow::Cow::Borrowed("#666666".as_bytes())
         } else {
-            c"#2f343a".as_ptr()
-        });
-    colors.focus_ws_fg = draw_util_hex_to_color(if !(*new_colors).focus_ws_fg.is_null() {
-        (*new_colors).focus_ws_fg as *const ::core::ffi::c_char
-    } else {
-        c"#FFFFFF".as_ptr()
-    });
-    colors.focus_ws_bg = draw_util_hex_to_color(if !(*new_colors).focus_ws_bg.is_null() {
-        (*new_colors).focus_ws_bg as *const ::core::ffi::c_char
-    } else {
-        c"#285577".as_ptr()
-    });
-    colors.focus_ws_border = draw_util_hex_to_color(if !(*new_colors).focus_ws_border.is_null() {
-        (*new_colors).focus_ws_border as *const ::core::ffi::c_char
-    } else {
-        c"#4c7899".as_ptr()
-    });
+            std::borrow::Cow::Owned(
+                std::ffi::CStr::from_ptr((*new_colors).sep_fg)
+                    .to_bytes()
+                    .to_vec(),
+            )
+        },
+    );
+    colors.active_ws_fg = draw_util_hex_to_color(
+        color_screen,
+        if (*new_colors).active_ws_fg.is_null() {
+            std::borrow::Cow::Borrowed("#FFFFFF".as_bytes())
+        } else {
+            std::borrow::Cow::Owned(
+                std::ffi::CStr::from_ptr((*new_colors).active_ws_fg)
+                    .to_bytes()
+                    .to_vec(),
+            )
+        },
+    );
+    colors.active_ws_bg = draw_util_hex_to_color(
+        color_screen,
+        if (*new_colors).active_ws_bg.is_null() {
+            std::borrow::Cow::Borrowed("#333333".as_bytes())
+        } else {
+            std::borrow::Cow::Owned(
+                std::ffi::CStr::from_ptr((*new_colors).active_ws_bg)
+                    .to_bytes()
+                    .to_vec(),
+            )
+        },
+    );
+    colors.active_ws_border = draw_util_hex_to_color(
+        color_screen,
+        if (*new_colors).active_ws_border.is_null() {
+            std::borrow::Cow::Borrowed("#333333".as_bytes())
+        } else {
+            std::borrow::Cow::Owned(
+                std::ffi::CStr::from_ptr((*new_colors).active_ws_border)
+                    .to_bytes()
+                    .to_vec(),
+            )
+        },
+    );
+    colors.inactive_ws_fg = draw_util_hex_to_color(
+        color_screen,
+        if (*new_colors).inactive_ws_fg.is_null() {
+            std::borrow::Cow::Borrowed("#888888".as_bytes())
+        } else {
+            std::borrow::Cow::Owned(
+                std::ffi::CStr::from_ptr((*new_colors).inactive_ws_fg)
+                    .to_bytes()
+                    .to_vec(),
+            )
+        },
+    );
+    colors.inactive_ws_bg = draw_util_hex_to_color(
+        color_screen,
+        if (*new_colors).inactive_ws_bg.is_null() {
+            std::borrow::Cow::Borrowed("#222222".as_bytes())
+        } else {
+            std::borrow::Cow::Owned(
+                std::ffi::CStr::from_ptr((*new_colors).inactive_ws_bg)
+                    .to_bytes()
+                    .to_vec(),
+            )
+        },
+    );
+    colors.inactive_ws_border = draw_util_hex_to_color(
+        color_screen,
+        if (*new_colors).inactive_ws_border.is_null() {
+            std::borrow::Cow::Borrowed("#333333".as_bytes())
+        } else {
+            std::borrow::Cow::Owned(
+                std::ffi::CStr::from_ptr((*new_colors).inactive_ws_border)
+                    .to_bytes()
+                    .to_vec(),
+            )
+        },
+    );
+    colors.urgent_ws_fg = draw_util_hex_to_color(
+        color_screen,
+        if (*new_colors).urgent_ws_fg.is_null() {
+            std::borrow::Cow::Borrowed("#FFFFFF".as_bytes())
+        } else {
+            std::borrow::Cow::Owned(
+                std::ffi::CStr::from_ptr((*new_colors).urgent_ws_fg)
+                    .to_bytes()
+                    .to_vec(),
+            )
+        },
+    );
+    colors.urgent_ws_bg = draw_util_hex_to_color(
+        color_screen,
+        if (*new_colors).urgent_ws_bg.is_null() {
+            std::borrow::Cow::Borrowed("#900000".as_bytes())
+        } else {
+            std::borrow::Cow::Owned(
+                std::ffi::CStr::from_ptr((*new_colors).urgent_ws_bg)
+                    .to_bytes()
+                    .to_vec(),
+            )
+        },
+    );
+    colors.urgent_ws_border = draw_util_hex_to_color(
+        color_screen,
+        if (*new_colors).urgent_ws_border.is_null() {
+            std::borrow::Cow::Borrowed("#2f343a".as_bytes())
+        } else {
+            std::borrow::Cow::Owned(
+                std::ffi::CStr::from_ptr((*new_colors).urgent_ws_border)
+                    .to_bytes()
+                    .to_vec(),
+            )
+        },
+    );
+    colors.focus_ws_fg = draw_util_hex_to_color(
+        color_screen,
+        if (*new_colors).focus_ws_fg.is_null() {
+            std::borrow::Cow::Borrowed("#FFFFFF".as_bytes())
+        } else {
+            std::borrow::Cow::Owned(
+                std::ffi::CStr::from_ptr((*new_colors).focus_ws_fg)
+                    .to_bytes()
+                    .to_vec(),
+            )
+        },
+    );
+    colors.focus_ws_bg = draw_util_hex_to_color(
+        color_screen,
+        if (*new_colors).focus_ws_bg.is_null() {
+            std::borrow::Cow::Borrowed("#285577".as_bytes())
+        } else {
+            std::borrow::Cow::Owned(
+                std::ffi::CStr::from_ptr((*new_colors).focus_ws_bg)
+                    .to_bytes()
+                    .to_vec(),
+            )
+        },
+    );
+    colors.focus_ws_border = draw_util_hex_to_color(
+        color_screen,
+        if (*new_colors).focus_ws_border.is_null() {
+            std::borrow::Cow::Borrowed("#4c7899".as_bytes())
+        } else {
+            std::borrow::Cow::Owned(
+                std::ffi::CStr::from_ptr((*new_colors).focus_ws_border)
+                    .to_bytes()
+                    .to_vec(),
+            )
+        },
+    );
     colors.binding_mode_fg = if !(*new_colors).binding_mode_fg.is_null() {
-        draw_util_hex_to_color((*new_colors).binding_mode_fg)
+        draw_util_hex_to_color(
+            color_screen,
+            std::ffi::CStr::from_ptr((*new_colors).binding_mode_fg)
+                .to_bytes()
+                .to_vec(),
+        )
     } else {
         colors.urgent_ws_fg
     };
     colors.binding_mode_bg = if !(*new_colors).binding_mode_bg.is_null() {
-        draw_util_hex_to_color((*new_colors).binding_mode_bg)
+        draw_util_hex_to_color(
+            color_screen,
+            std::ffi::CStr::from_ptr((*new_colors).binding_mode_bg)
+                .to_bytes()
+                .to_vec(),
+        )
     } else {
         colors.urgent_ws_bg
     };
     colors.binding_mode_border = if !(*new_colors).binding_mode_border.is_null() {
-        draw_util_hex_to_color((*new_colors).binding_mode_border)
+        draw_util_hex_to_color(
+            color_screen,
+            std::ffi::CStr::from_ptr((*new_colors).binding_mode_border)
+                .to_bytes()
+                .to_vec(),
+        )
     } else {
         colors.urgent_ws_border
     };
     colors.focus_bar_fg = if !(*new_colors).focus_bar_fg.is_null() {
-        draw_util_hex_to_color((*new_colors).focus_bar_fg)
+        draw_util_hex_to_color(
+            color_screen,
+            std::ffi::CStr::from_ptr((*new_colors).focus_bar_fg)
+                .to_bytes()
+                .to_vec(),
+        )
     } else {
         colors.bar_fg
     };
     colors.focus_bar_bg = if !(*new_colors).focus_bar_bg.is_null() {
-        draw_util_hex_to_color((*new_colors).focus_bar_bg)
+        draw_util_hex_to_color(
+            color_screen,
+            std::ffi::CStr::from_ptr((*new_colors).focus_bar_bg)
+                .to_bytes()
+                .to_vec(),
+        )
     } else {
         colors.bar_bg
     };
     colors.focus_sep_fg = if !(*new_colors).focus_sep_fg.is_null() {
-        draw_util_hex_to_color((*new_colors).focus_sep_fg)
+        draw_util_hex_to_color(
+            color_screen,
+            std::ffi::CStr::from_ptr((*new_colors).focus_sep_fg)
+                .to_bytes()
+                .to_vec(),
+        )
     } else {
         colors.sep_fg
     };
