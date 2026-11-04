@@ -1579,7 +1579,7 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
         }
     }
     main_connection().prefetch_maximum_request_length();
-    init_dpi();
+    init_dpi(root_display());
     ::log::debug!(
         "../src/main.c:main:648 - root_depth = {}, visual_id = 0x{:08x}.\n",
         { (root_depth as ::core::ffi::c_int) },

@@ -340,7 +340,8 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                 );
                 cwindow = crate::con::arena::allocate_window(i3Window::default());
                 (*cwindow).id = window;
-                (*cwindow).depth = get_visual_depth(attr.visual());
+                (*cwindow).depth =
+                    get_visual_depth(crate::application::root_display(), attr.visual());
                 buttons = bindings_get_buttons_to_grab();
                 xcb_grab_buttons(conn, window, buttons);
                 free(buttons as *mut ::core::ffi::c_void);
