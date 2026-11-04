@@ -6,6 +6,7 @@ mod compat;
 pub use crate::native_stdio::{fixed_decimal, FixedPrecision};
 pub use compat::{pointer, string_bytes};
 
+use std::cell::Cell;
 use std::io::Write;
 use std::sync::{Once, RwLock};
 
@@ -23,6 +24,19 @@ struct RegisteredSink {
     thread: std::thread::ThreadId,
 }
 static SINK: RwLock<Option<RegisteredSink>> = RwLock::new(None);
+
+// A const, Copy-only slot has no lazy value allocation or TLS destructor. It is
+// touched during normal registration before signal handlers can be installed.
+thread_local! {
+    static EMERGENCY_SINK: Cell<Option<Sink>> = const { Cell::new(None) };
+}
+
+/// Switch this already-prepared thread to its known emergency backend. No
+/// shared sink lock or Rust ThreadId lookup occurs here or on subsequent emits.
+/// The override lasts until exit/exec; unrelated threads retain normal routing.
+pub fn enter_emergency_logging(sink: Sink) {
+    EMERGENCY_SINK.set(Some(sink));
+}
 
 struct Logger;
 static LOGGER: Logger = Logger;
@@ -56,6 +70,9 @@ pub fn initialize() {
 /// Diagnostics from other threads use stderr instead of touching program globals.
 pub fn set_sink(sink: Sink) {
     initialize();
+    // Force a real access so dynamically linked TLS storage, if any, is ready
+    // before entry from an asynchronous signal handler.
+    let _ = std::hint::black_box(EMERGENCY_SINK.get());
     *SINK
         .write()
         .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(RegisteredSink {
@@ -66,6 +83,11 @@ pub fn set_sink(sink: Sink) {
 
 /// Error diagnostics remain available during startup before a sink is installed.
 pub fn emit(level: Level, message: &[u8]) {
+    // Copy the override before dispatch: reentry never retains a Cell borrow.
+    if let Some(sink) = EMERGENCY_SINK.get() {
+        sink(level, message);
+        return;
+    }
     let sink = *SINK
         .read()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -119,5 +141,71 @@ mod tests {
         assert!(messages.contains(&(Level::Error, b"logging-test:text 42 %\n".to_vec())));
         assert!(messages.contains(&(Level::Verbose, b"logging-test:abc".to_vec())));
         assert!(messages.contains(&(Level::Debug, b"logging-test:\0\xff".to_vec())));
+    }
+    #[test]
+    fn emergency_records_bypass_a_held_sink_lock_and_keep_thread_fallback() {
+        if std::env::var_os("I333_EMERGENCY_LOG_PROBE").is_none() {
+            let mut child = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "logging::tests::emergency_records_bypass_a_held_sink_lock_and_keep_thread_fallback", "--nocapture"])
+                .env("I333_EMERGENCY_LOG_PROBE", "1")
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::piped())
+                .spawn().unwrap();
+            let start = std::time::Instant::now();
+            while child.try_wait().unwrap().is_none() {
+                if start.elapsed() > std::time::Duration::from_secs(5) {
+                    child.kill().unwrap();
+                    let output = child.wait_with_output().unwrap();
+                    panic!(
+                        "emergency logging blocked on the held sink lock: {}",
+                        String::from_utf8_lossy(&output.stderr)
+                    );
+                }
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            let output = child.wait_with_output().unwrap();
+            assert!(
+                output.status.success(),
+                "{}\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            assert!(output
+                .stderr
+                .windows(b"emergency-foreign-thread\n".len())
+                .any(|bytes| bytes == b"emergency-foreign-thread\n"));
+            return;
+        }
+        static EMERGENCY_MESSAGES: Mutex<Vec<(Level, Vec<u8>)>> = Mutex::new(Vec::new());
+        fn emergency(level: Level, bytes: &[u8]) {
+            EMERGENCY_MESSAGES
+                .lock()
+                .unwrap()
+                .push((level, bytes.to_vec()));
+        }
+        fn ordinary(_: Level, _: &[u8]) {
+            panic!("the normal owner sink must be bypassed");
+        }
+        set_sink(ordinary); // Also primes the same const TLS key before entry.
+        let locked = SINK.write().unwrap();
+        enter_emergency_logging(emergency);
+        fn nested_restart_record() {
+            ::log::info!("nested restart record {}\n", 42);
+            emit_parts(Level::Error, &[b"binary emergency: ", b"\xff\0"]);
+        }
+        nested_restart_record();
+        drop(locked);
+        std::thread::spawn(|| {
+            ::log::error!("emergency-foreign-thread\n");
+        })
+        .join()
+        .unwrap();
+        assert_eq!(
+            *EMERGENCY_MESSAGES.lock().unwrap(),
+            [
+                (Level::Verbose, b"nested restart record 42\n".to_vec()),
+                (Level::Error, b"binary emergency: \xff\0".to_vec()),
+            ]
+        );
     }
 }

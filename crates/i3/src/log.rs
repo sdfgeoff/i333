@@ -9,8 +9,11 @@ use std::os::unix::ffi::OsStrExt;
 use std::ptr::NonNull;
 
 use i3_common::get_process_filename::get_process_filename;
+#[cfg(test)]
 use i3_common::i333_va_list;
-use i3_common::native_stdio::{stderr, stdout, vfprintf, vprintf, vsnprintf};
+#[cfg(test)]
+use i3_common::native_stdio::vsnprintf;
+use i3_common::native_stdio::{stderr, stdout};
 use i3_common::nonblock::set_nonblock;
 use i3_common::safewrappers::write_all;
 use libc::{
@@ -337,6 +340,7 @@ fn timestamp() -> Vec<u8> {
 
 /// fmt and args must satisfy printf's native variadic contract. The prefix
 /// comes from timestamp, which cannot exceed this record's fixed capacity.
+#[cfg(test)]
 unsafe fn format_record(
     prefix: &[u8],
     fmt: *const libc::c_char,
@@ -414,61 +418,6 @@ pub unsafe fn write_log_bytes(level: i3_common::logging::Level, body: &[u8]) {
     }
 }
 
-unsafe fn vlog(print: bool, fmt: *const libc::c_char, mut args: std::ffi::VaList) {
-    let prefix = timestamp();
-    if logbuffer_is_closed() {
-        fwrite(prefix.as_ptr().cast(), prefix.len(), 1, stdout);
-        vprintf(fmt, i333_va_list!(args));
-        return;
-    }
-    let (message, truncated) = format_record(&prefix, fmt, i333_va_list!(args));
-    if truncated {
-        fprintf(stderr, c"BUG: single log message > 4k\n".as_ptr());
-    }
-    let message = message.as_slice();
-    // Release the global slot before native output. The owned mapping itself
-    // contains no references to shared bytes.
-    let mut log = (&raw mut LOG_BUFFER).replace(None);
-    if let Some(log) = log.as_mut() {
-        log.write(message);
-    }
-    (&raw mut LOG_BUFFER).write(log);
-    if print {
-        fwrite(message.as_ptr().cast(), message.len(), 1, stdout);
-    }
-    broadcast(message);
-}
-
-pub unsafe extern "C" fn verboselog(fmt: *mut ::core::ffi::c_char, args: ...) {
-    let mut args_0;
-    if logbuffer_is_closed() && !verbose {
-        return;
-    }
-    args_0 = args.clone();
-    vlog(verbose, fmt, i333_va_list!(args_0));
-}
-
-pub unsafe extern "C" fn errorlog(fmt: *mut ::core::ffi::c_char, args: ...) {
-    let mut args_0;
-    args_0 = args.clone();
-    vlog(true, fmt, i333_va_list!(args_0));
-    if errorfile.is_null() {
-        return;
-    }
-    args_0 = args.clone();
-    vfprintf(errorfile, fmt, i333_va_list!(args_0));
-    fflush(errorfile);
-}
-
-pub unsafe extern "C" fn debuglog(fmt: *mut ::core::ffi::c_char, args: ...) {
-    let mut args_0;
-    if logbuffer_is_closed() && !debug_logging {
-        return;
-    }
-    args_0 = args.clone();
-    vlog(debug_logging, fmt, i333_va_list!(args_0));
-}
-
 pub extern "C" fn purge_zerobyte_logfile() {
     // atexit runs after event-thread logging has stopped; copy the legacy name
     // before filesystem operations rather than modifying its parent separator.
@@ -502,14 +451,9 @@ pub unsafe extern "C" fn log_new_client(_loop: *mut ev_loop, w: *mut ev_io, _eve
     fcntl(fd, F_SETFD, FD_CLOEXEC);
     set_nonblock(fd);
     (*(&raw mut CLIENTS)).push(client);
-    debuglog(
-        c"%s:%s:%d - log: new client connected on fd %d\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/log.c".as_ptr(),
-        c"log_new_client".as_ptr(),
-        419 as libc::c_int,
-        fd,
+    ::log::debug!(
+        "../src/log.c:log_new_client:419 - log: new client connected on fd {}\n",
+        fd
     );
 }
 unsafe fn broadcast(message: &[u8]) {

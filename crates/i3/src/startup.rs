@@ -7,7 +7,6 @@ use crate::application::{
 };
 use crate::con::{con_by_window_id, con_get_workspace};
 use crate::ipc::current_socketpath;
-use crate::log::{debuglog, verboselog};
 use crate::tree::focused;
 use crate::types::Window;
 use crate::xcursor::{xcursor_set_root_cursor, Cursor};

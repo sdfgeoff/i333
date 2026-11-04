@@ -5,7 +5,7 @@ use crate::bindings::command_error_nagbar_pid;
 use crate::config::config;
 use crate::config_parser::config_error_nagbar_pid;
 use crate::ipc::ipc_shutdown;
-use crate::log::{debuglog, errorlog, get_debug_logging, verboselog};
+use crate::log::get_debug_logging;
 use crate::manage::restore_geometry;
 use crate::tree::croot;
 pub use crate::types::Rect;

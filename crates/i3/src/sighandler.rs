@@ -500,6 +500,9 @@ unsafe extern "C" fn handle_signal(
     info: *mut siginfo_t,
     data: *mut ::core::ffi::c_void,
 ) {
+    // Nested restart, IPC and geometry helpers also log. Use the prepared
+    // per-thread fast sink before any of them can consult the facade registry.
+    i3_common::logging::enter_emergency_logging(crate::common_log_sink);
     // The fault may interrupt the facade sink's lock. Keep emergency records
     // on the existing native backend, including this function's key-event loop.
     // Preserve the legacy debug filter before allocating the formatted bytes.
