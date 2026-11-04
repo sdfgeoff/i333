@@ -185,14 +185,14 @@ unsafe fn handle_enter_notify(event: &x::EnterNotifyEvent, full_sequence: u32) {
         check_crossing_screen_boundary(event.root_x() as u32, event.root_y() as u32);
         return;
     }
-    let layout: Layout = if enter_child as ::core::ffi::c_int != 0 {
+    let layout: Layout = if enter_child {
         (*parent_ptr(con)).layout
     } else {
         (*con).layout
     };
     if layout == Layout::Default {
-        let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-        child = nodes::last_ptr(con);
+        let mut child: *mut Con = nodes::last_ptr(con);
+
         while !child.is_null() {
             if rect_contains(
                 (*child).deco_rect as Rect,
@@ -255,8 +255,8 @@ unsafe fn handle_motion_notify(event: &x::MotionNotifyEvent) {
     if event.child().resource_id() as ::core::ffi::c_long != 0 {
         return;
     }
-    let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
-    con = con_by_frame_id(event.event().resource_id());
+    let mut con: *mut Con = con_by_frame_id(event.event().resource_id());
+
     if con.is_null() {
         ::log::debug!("../src/handlers.c:handle_motion_notify:214 - MotionNotify for an unknown container, checking if it crosses screen boundaries.\n");
         check_crossing_screen_boundary(event.root_x() as u32, event.root_y() as u32);
@@ -284,8 +284,8 @@ unsafe fn handle_motion_notify(event: &x::MotionNotifyEvent) {
             x_push_changes(croot);
         }
     } else {
-        let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
-        current = nodes::last_ptr(con);
+        let mut current: *mut Con = nodes::last_ptr(con);
+
         while !current.is_null() {
             if !rect_contains(
                 (*current).deco_rect as Rect,
@@ -474,10 +474,7 @@ unsafe fn handle_configure_request(event: &x::ConfigureRequestEvent) {
         ::log::debug!("../src/handlers.c:handle_configure_request:340 - This is a scratchpad container, ignoring ConfigureRequest\n");
     } else {
         fullscreen = con_get_fullscreen_covering_ws(workspace);
-        if fullscreen != con
-            && con_is_floating(con) as ::core::ffi::c_int != 0
-            && con_is_leaf(con) as ::core::ffi::c_int != 0
-        {
+        if fullscreen != con && con_is_floating(con) && con_is_leaf(con) {
             let bsr: Rect = con_border_style_rect(con);
             let floatingcon: *mut Con = parent_ptr(con);
             let mut newrect: Rect = (*floatingcon).rect as Rect;
@@ -607,7 +604,7 @@ unsafe fn handle_configure_request(event: &x::ConfigureRequestEvent) {
                 ::log::debug!("../src/handlers.c:handle_configure_request:426 - Window is not being managed, ignoring ConfigureRequest\n");
             } else if config.focus_on_window_activation == FocusActivation::Focus
                 || config.focus_on_window_activation == FocusActivation::Smart
-                    && workspace_is_visible(workspace) as ::core::ffi::c_int != 0
+                    && workspace_is_visible(workspace)
             {
                 ::log::debug!(
                     "../src/handlers.c:handle_configure_request:431 - Focusing con = {}\n",
@@ -939,11 +936,7 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
                 .wrapping_div(::core::mem::size_of::<u32>() as usize)
                 .wrapping_sub(1_usize)
         {
-            handle_net_wm_state_change(
-                con,
-                words[0 as ::core::ffi::c_int as usize],
-                words[i.wrapping_add(1_usize)],
-            );
+            handle_net_wm_state_change(con, words[0_usize], words[i.wrapping_add(1_usize)]);
             i = i.wrapping_add(1);
         }
     } else if event.r#type().resource_id() == A__NET_ACTIVE_WINDOW {
@@ -961,13 +954,11 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
             ::log::debug!("../src/handlers.c:handle_client_message:770 - Window is not being managed, ignoring _NET_ACTIVE_WINDOW\n");
             return;
         }
-        if con_is_internal(ws) as ::core::ffi::c_int != 0
-            && ws != workspace_get(c"__i3_scratch".as_ptr())
-        {
+        if con_is_internal(ws) && ws != workspace_get(c"__i3_scratch".as_ptr()) {
             ::log::debug!("../src/handlers.c:handle_client_message:775 - Workspace is internal but not scratchpad, ignoring _NET_ACTIVE_WINDOW\n");
             return;
         }
-        if words[0 as ::core::ffi::c_int as usize] == 2_u32 {
+        if words[0_usize] == 2_u32 {
             ::log::debug!("../src/handlers.c:handle_client_message:783 - This request came from a pager. Focusing con = {}\n", i3_common::logging::pointer(con_0));
             if con_is_internal(ws) {
                 scratchpad_show(con_0);
@@ -983,7 +974,7 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
             }
             if config.focus_on_window_activation == FocusActivation::Focus
                 || config.focus_on_window_activation == FocusActivation::Smart
-                    && workspace_is_visible(ws) as ::core::ffi::c_int != 0
+                    && workspace_is_visible(ws)
             {
                 ::log::debug!(
                     "../src/handlers.c:handle_client_message:801 - Focusing con = {}\n",
@@ -1006,8 +997,8 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
         }
         tree_render();
     } else if event.r#type().resource_id() == A_I3_SYNC {
-        let window: u32 = words[0 as ::core::ffi::c_int as usize];
-        let rnd: u32 = words[1 as ::core::ffi::c_int as usize];
+        let window: u32 = words[0_usize];
+        let rnd: u32 = words[1_usize];
         sync_respond(window, rnd);
     } else if event.r#type().resource_id() == A__NET_REQUEST_FRAME_EXTENTS {
         ::log::debug!("../src/handlers.c:handle_client_message:830 - _NET_REQUEST_FRAME_EXTENTS for window 0x{:08x}\n", { (event.window().resource_id()) });
@@ -1026,7 +1017,7 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
         });
         let _ = connection().flush();
     } else if event.r#type().resource_id() == A_WM_CHANGE_STATE {
-        if words[0 as ::core::ffi::c_int as usize]
+        if words[0_usize]
             == (crate::domains::IcccmState::Iconic as u32) as ::core::ffi::c_int as u32
         {
             ::log::debug!("../src/handlers.c:handle_client_message:852 - Client has requested iconic state, rejecting. (window = {:08x})\n", { (event.window().resource_id()) });
@@ -1042,7 +1033,7 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
         }
     } else if event.r#type().resource_id() == A__NET_CURRENT_DESKTOP {
         ::log::debug!("../src/handlers.c:handle_client_message:865 - Request to change current desktop to index {}\n", (words[0 as ::core::ffi::c_int as usize]) as i32);
-        let ws_0: *mut Con = ewmh_get_workspace_by_index(words[0 as ::core::ffi::c_int as usize]);
+        let ws_0: *mut Con = ewmh_get_workspace_by_index(words[0_usize]);
         if ws_0.is_null() {
             ::log::error!(
                 "ERROR: Could not determine workspace for this index, ignoring request.\n"
@@ -1070,7 +1061,7 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
         workspace_show(ws_0);
         tree_render();
     } else if event.r#type().resource_id() == A__NET_WM_DESKTOP {
-        let index: u32 = words[0 as ::core::ffi::c_int as usize];
+        let index: u32 = words[0_usize];
         ::log::debug!("../src/handlers.c:handle_client_message:877 - Request to move window {} to EWMH desktop index {}\n", (event.window().resource_id()) as i32, (index) as i32);
         let con_1: *mut Con = con_by_window_id(event.window().resource_id());
         if con_1.is_null() {
@@ -1102,8 +1093,8 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
         let con_2: *mut Con = con_by_window_id(event.window().resource_id());
         if !con_2.is_null() {
             ::log::debug!("../src/handlers.c:handle_client_message:918 - Handling _NET_CLOSE_WINDOW request (con = {})\n", i3_common::logging::pointer(con_2));
-            if words[0 as ::core::ffi::c_int as usize] != 0 {
-                last_timestamp = words[0 as ::core::ffi::c_int as usize] as u32;
+            if words[0_usize] != 0 {
+                last_timestamp = words[0_usize] as u32;
             }
             tree_close_internal(con_2, KillWindow::Window, false);
             tree_render();
@@ -1117,9 +1108,9 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
             return;
         }
         ::log::debug!("../src/handlers.c:handle_client_message:939 - Handling _NET_WM_MOVERESIZE request (con = {})\n", i3_common::logging::pointer(con_3));
-        let direction: u32 = words[2 as ::core::ffi::c_int as usize];
-        let x_root: u32 = words[0 as ::core::ffi::c_int as usize];
-        let y_root: u32 = words[1 as ::core::ffi::c_int as usize];
+        let direction: u32 = words[2_usize];
+        let x_root: u32 = words[0_usize];
+        let y_root: u32 = words[1_usize];
         // This local initiating press is never queued; callbacks borrow only
         // its copied button/coordinate fields throughout the synchronous drag.
         let fake = x::ButtonPressEvent::new(
@@ -1231,8 +1222,8 @@ unsafe fn handle_focus_in(event: &x::FocusInEvent) {
         focused_id = 0_u32;
         x_push_changes(croot);
     }
-    let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
-    con = con_by_window_id(event.event().resource_id());
+    let mut con: *mut Con = con_by_window_id(event.event().resource_id());
+
     if con.is_null() || (*con).window.is_null() {
         return;
     }
@@ -1451,7 +1442,7 @@ unsafe fn handle_motif_hints_change(con: *mut Con, prop: Option<&x::GetPropertyR
         prop,
         &raw mut motif_border_style,
     );
-    if has_mwm_hints as ::core::ffi::c_int != 0 && motif_border_style != (*con).border_style {
+    if has_mwm_hints && motif_border_style != (*con).border_style {
         ::log::debug!("../src/handlers.c:handle_motif_hints_change:1246 - Update border style of con {} to {}\n", i3_common::logging::pointer(con), (motif_border_style as ::core::ffi::c_uint) as i32);
         con_set_border_style(con, motif_border_style, (*con).current_border_width);
         x_push_changes(croot);
@@ -1507,7 +1498,7 @@ unsafe fn handle_strut_partial_change(con: *mut Con, prop: Option<&x::GetPropert
         (*con).window as *mut i3Window,
         ::core::ptr::null_mut::<*mut Match>(),
     );
-    if dockarea != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Con {
+    if !dockarea.is_null() {
     } else {
         __assert_fail(
             c"dockarea != NULL".as_ptr(),
@@ -1544,25 +1535,25 @@ pub unsafe fn property_handlers_init() {
         NULL,
         None,
     );
-    property_handlers[0 as ::core::ffi::c_int as usize].atom = A__NET_WM_NAME;
-    property_handlers[1 as ::core::ffi::c_int as usize].atom =
+    property_handlers[0_usize].atom = A__NET_WM_NAME;
+    property_handlers[1_usize].atom =
         (::xcb::x::ATOM_WM_HINTS.resource_id()) as ::core::ffi::c_int as u32;
-    property_handlers[2 as ::core::ffi::c_int as usize].atom =
+    property_handlers[2_usize].atom =
         (::xcb::x::ATOM_WM_NAME.resource_id()) as ::core::ffi::c_int as u32;
-    property_handlers[3 as ::core::ffi::c_int as usize].atom =
+    property_handlers[3_usize].atom =
         (::xcb::x::ATOM_WM_NORMAL_HINTS.resource_id()) as ::core::ffi::c_int as u32;
-    property_handlers[4 as ::core::ffi::c_int as usize].atom = A_WM_CLIENT_LEADER;
-    property_handlers[5 as ::core::ffi::c_int as usize].atom =
+    property_handlers[4_usize].atom = A_WM_CLIENT_LEADER;
+    property_handlers[5_usize].atom =
         (::xcb::x::ATOM_WM_TRANSIENT_FOR.resource_id()) as ::core::ffi::c_int as u32;
-    property_handlers[6 as ::core::ffi::c_int as usize].atom = A_WM_WINDOW_ROLE;
-    property_handlers[7 as ::core::ffi::c_int as usize].atom =
+    property_handlers[6_usize].atom = A_WM_WINDOW_ROLE;
+    property_handlers[7_usize].atom =
         (::xcb::x::ATOM_WM_CLASS.resource_id()) as ::core::ffi::c_int as u32;
-    property_handlers[8 as ::core::ffi::c_int as usize].atom = A__NET_WM_STRUT_PARTIAL;
-    property_handlers[9 as ::core::ffi::c_int as usize].atom = A__NET_WM_WINDOW_TYPE;
-    property_handlers[10 as ::core::ffi::c_int as usize].atom =
+    property_handlers[8_usize].atom = A__NET_WM_STRUT_PARTIAL;
+    property_handlers[9_usize].atom = A__NET_WM_WINDOW_TYPE;
+    property_handlers[10_usize].atom =
         (::xcb::x::ATOM_WM_CLIENT_MACHINE.resource_id()) as ::core::ffi::c_int as u32;
-    property_handlers[11 as ::core::ffi::c_int as usize].atom = A__MOTIF_WM_HINTS;
-    property_handlers[12 as ::core::ffi::c_int as usize].atom = A__NET_WM_ICON;
+    property_handlers[11_usize].atom = A__MOTIF_WM_HINTS;
+    property_handlers[12_usize].atom = A__NET_WM_ICON;
 }
 /// The request retains ownership across callbacks, including unwinding. A
 /// handler can borrow the property but cannot consume or retain its allocation.
@@ -1724,7 +1715,7 @@ pub unsafe fn handle_event(owner: &xcb::Event) {
         }
         return;
     }
-    if shape_supported as ::core::ffi::c_int != 0
+    if shape_supported
         && type_0 == shape_base + (<::xcb::shape::NotifyEvent as ::xcb::BaseEvent>::NUMBER as i32)
     {
         let Some(shape) = shape_change(owner, shape_base) else {

@@ -63,8 +63,8 @@ unsafe fn total_outputs_dimensions() -> Rect {
 }
 unsafe fn floating_set_hint_atom(con: *mut Con, floating: bool) {
     if !con_is_leaf(con) {
-        let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-        child = nodes::first_ptr(con);
+        let mut child: *mut Con = nodes::first_ptr(con);
+
         while !child.is_null() {
             floating_set_hint_atom(child, floating);
             child = nodes::next_ptr(child);
@@ -403,8 +403,8 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
         ::log::debug!(
             "../src/floating.c:floating_enable:334 - Geometry not set, combining children\n"
         );
-        let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-        child = nodes::first_ptr(con);
+        let mut child: *mut Con = nodes::first_ptr(con);
+
         while !child.is_null() {
             ::log::debug!(
                 "../src/floating.c:floating_enable:337 - child geometry: {} x {}\n",

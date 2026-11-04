@@ -518,7 +518,7 @@ pub unsafe fn match_parse_property(
     // exclusive Match/event-thread globals for the complete parse. Owned fields
     // are replaced normally; no allocation ownership crosses the raw boundary.
     unsafe {
-        if match_0 != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Match {
+        if !match_0.is_null() {
         } else {
             __assert_fail(
                 c"match != NULL".as_ptr(),

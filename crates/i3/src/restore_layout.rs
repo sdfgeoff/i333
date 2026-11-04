@@ -37,11 +37,10 @@ pub struct state_head {
 
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 static mut state_head: state_head = state_head {
-    tqh_first: ::core::ptr::null::<placeholder_state>() as *mut placeholder_state,
-    tqh_last: ::core::ptr::null::<*mut placeholder_state>() as *mut *mut placeholder_state,
+    tqh_first: std::ptr::null_mut::<placeholder_state>(),
+    tqh_last: std::ptr::null_mut::<*mut placeholder_state>(),
 };
-static mut restore_conn: *mut xcb_connection_t =
-    ::core::ptr::null::<xcb_connection_t>() as *mut xcb_connection_t;
+static mut restore_conn: *mut xcb_connection_t = std::ptr::null_mut::<xcb_connection_t>();
 // Placeholder windows intentionally use a second connection, independent of
 // the main display registry. `restore_conn` is only its native request alias.
 static mut RESTORE_CONNECTION: Option<Rc<xcb::Connection>> = None;
@@ -57,8 +56,8 @@ unsafe fn restore_connection() -> Rc<xcb::Connection> {
         .clone()
 }
 
-static mut xcb_watcher: *mut ev_io = ::core::ptr::null::<ev_io>() as *mut ev_io;
-static mut xcb_prepare: *mut ev_prepare = ::core::ptr::null::<ev_prepare>() as *mut ev_prepare;
+static mut xcb_watcher: *mut ev_io = std::ptr::null_mut::<ev_io>();
+static mut xcb_prepare: *mut ev_prepare = std::ptr::null_mut::<ev_prepare>();
 fn serialize_swallow(fields: [Option<&CStr>; 5]) -> Option<CString> {
     let mut output = Vec::new();
     for (name, value) in [
@@ -281,7 +280,7 @@ unsafe fn update_placeholder_contents(state: *mut placeholder_state) {
     restore_sync();
 }
 unsafe fn open_placeholder_window(con: *mut Con) {
-    if con_is_leaf(con) as ::core::ffi::c_int != 0
+    if con_is_leaf(con)
         && ((*con).window.is_null() || (*(*con).window).id as ::core::ffi::c_long == 0)
         && !(*con).swallow_head.tqh_first.is_null()
         && ((*con).type_0) == ContainerType::Con
@@ -361,8 +360,8 @@ unsafe fn open_placeholder_window(con: *mut Con) {
         (*con).swallow_head.tqh_first = temp_id;
         (*temp_id).matches.tqe_prev = &raw mut (*con).swallow_head.tqh_first;
     }
-    let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-    child = nodes::first_ptr(con);
+    let mut child: *mut Con = nodes::first_ptr(con);
+
     while !child.is_null() {
         open_placeholder_window(child);
         child = nodes::next_ptr(child);
@@ -376,8 +375,8 @@ unsafe fn open_placeholder_window(con: *mut Con) {
 }
 
 pub unsafe fn restore_open_placeholder_windows(parent: *mut Con) {
-    let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-    child = nodes::first_ptr(parent);
+    let mut child: *mut Con = nodes::first_ptr(parent);
+
     while !child.is_null() {
         open_placeholder_window(child);
         child = nodes::next_ptr(child);
@@ -392,8 +391,8 @@ pub unsafe fn restore_open_placeholder_windows(parent: *mut Con) {
 }
 
 pub unsafe fn restore_kill_placeholder(placeholder: u32) -> bool {
-    let mut state: *mut placeholder_state = ::core::ptr::null_mut::<placeholder_state>();
-    state = state_head.tqh_first;
+    let mut state: *mut placeholder_state = state_head.tqh_first;
+
     while !state.is_null() {
         if (*state).window != placeholder {
             state = (*state).state.tqe_next;
@@ -429,8 +428,8 @@ pub unsafe fn restore_kill_placeholder(placeholder: u32) -> bool {
     false
 }
 unsafe fn expose_event(event: &x::ExposeEvent) {
-    let mut state: *mut placeholder_state = ::core::ptr::null_mut::<placeholder_state>();
-    state = state_head.tqh_first;
+    let mut state: *mut placeholder_state = state_head.tqh_first;
+
     while !state.is_null() {
         if (*state).window != event.window().resource_id() {
             state = (*state).state.tqe_next;
@@ -440,7 +439,7 @@ unsafe fn expose_event(event: &x::ExposeEvent) {
                     "../src/restore_layout.c:expose_event:299 - refreshing ",
                     "window 0x{:08x} contents (con {})\n"
                 ),
-                ((*state).window) as u32,
+                { ((*state).window) },
                 i3_common::logging::pointer((*state).con)
             );
             update_placeholder_contents(state);
@@ -453,8 +452,8 @@ unsafe fn expose_event(event: &x::ExposeEvent) {
     );
 }
 unsafe fn configure_notify(event: &x::ConfigureNotifyEvent) {
-    let mut state: *mut placeholder_state = ::core::ptr::null_mut::<placeholder_state>();
-    state = state_head.tqh_first;
+    let mut state: *mut placeholder_state = state_head.tqh_first;
+
     while !state.is_null() {
         if (*state).window != event.window().resource_id() {
             state = (*state).state.tqe_next;
@@ -465,7 +464,7 @@ unsafe fn configure_notify(event: &x::ConfigureNotifyEvent) {
                     "ConfigureNotify: window 0x{:08x} has now width={}, ",
                     "height={} (con {})\n"
                 ),
-                ((*state).window) as u32,
+                { ((*state).window) },
                 { (event.width() as ::core::ffi::c_int) },
                 { (event.height() as ::core::ffi::c_int) },
                 i3_common::logging::pointer((*state).con)

@@ -201,8 +201,8 @@ pub unsafe fn cfg_include(
             };
         } else {
             let mut skip: bool = false;
-            let mut file: *mut IncludedFile = ::core::ptr::null_mut::<IncludedFile>();
-            file = included_files.tqh_first;
+            let mut file: *mut IncludedFile = included_files.tqh_first;
+
             while !file.is_null() {
                 if (*file).path.as_c_str() == CStr::from_ptr(resolved_path.as_ptr()) {
                     skip = true;
@@ -511,8 +511,8 @@ pub unsafe fn cfg_enter_mode(
         };
         return;
     }
-    let mut mode: *mut Mode = ::core::ptr::null_mut::<Mode>();
-    mode = modes.slh_first;
+    let mut mode: *mut Mode = modes.slh_first;
+
     while !mode.is_null() {
         if strcmp((*mode).name.as_ptr(), modename) == 0 as ::core::ffi::c_int {
             {
@@ -720,8 +720,8 @@ unsafe fn create_gaps_assignment(
         }
     };
     let mut found: bool = false;
-    let mut assignment: *mut Workspace_Assignment = ::core::ptr::null_mut::<Workspace_Assignment>();
-    assignment = ws_assignments.tqh_first;
+    let mut assignment: *mut Workspace_Assignment = ws_assignments.tqh_first;
+
     while !assignment.is_null() {
         if strcasecmp((*assignment).name.as_ptr(), workspace) == 0 as ::core::ffi::c_int {
             found = true;
@@ -1124,15 +1124,12 @@ pub unsafe fn cfg_title_align(
     } else if strcmp(alignment, c"right".as_ptr()) == 0 as ::core::ffi::c_int {
         config.title_align = TitleAlign::Right;
     } else {
-        if 0 as ::core::ffi::c_int != 0 {
-        } else {
-            __assert_fail(
-                c"false".as_ptr(),
-                c"../src/config_directives.c".as_ptr(),
-                530 as ::core::ffi::c_uint,
-                c"void cfg_title_align(Match *, struct ConfigResultIR *, const char *)".as_ptr(),
-            );
-        };
+        __assert_fail(
+            c"false".as_ptr(),
+            c"../src/config_directives.c".as_ptr(),
+            530 as ::core::ffi::c_uint,
+            c"void cfg_title_align(Match *, struct ConfigResultIR *, const char *)".as_ptr(),
+        );
     };
 }
 
@@ -1565,7 +1562,7 @@ pub unsafe fn cfg_assign(
         ::log::error!("ERROR: Assignments using window mode (floating/tiling) is not supported\n");
         return;
     }
-    if is_number as ::core::ffi::c_int != 0
+    if is_number
         && ws_name_to_number(std::ffi::CStr::from_ptr(workspace)).unwrap_or(-1)
             == -(1 as ::core::ffi::c_int)
     {
@@ -1698,7 +1695,7 @@ pub unsafe fn cfg_tiling_drag(
         config.tiling_drag = TilingDrag::empty();
     };
 }
-static mut current_bar: *mut Barconfig = ::core::ptr::null::<Barconfig>() as *mut Barconfig;
+static mut current_bar: *mut Barconfig = std::ptr::null_mut::<Barconfig>();
 
 pub unsafe fn cfg_bar_font(
     current_match: *mut Match,
@@ -1926,8 +1923,8 @@ unsafe fn bar_configure_binding(
         return;
     }
     let release_bool: bool = !release.is_null();
-    let mut current: *mut Barbinding = ::core::ptr::null_mut::<Barbinding>();
-    current = (*current_bar).bar_bindings.tqh_first;
+    let mut current: *mut Barbinding = (*current_bar).bar_bindings.tqh_first;
+
     while !current.is_null() {
         if (*current).input_code == input_code
             && (*current).release as ::core::ffi::c_int == release_bool as ::core::ffi::c_int

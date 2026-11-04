@@ -63,8 +63,8 @@ pub unsafe fn has_drop_targets() -> bool {
             drop_targets += 1;
         }
     }
-    let mut output: *mut Con = ::core::ptr::null_mut::<Con>();
-    output = focus::first_ptr(croot);
+    let mut output: *mut Con = focus::first_ptr(croot);
+
     while !output.is_null() {
         if !con_is_internal(output) {
             let mut visible_ws: *mut Con = ::core::ptr::null_mut::<Con>();

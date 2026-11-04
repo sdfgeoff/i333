@@ -57,8 +57,8 @@ pub const STDOUT_FILENO: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
 pub const STDERR_FILENO: ::core::ffi::c_int = 2 as ::core::ffi::c_int;
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 static mut dialogs: dialogs_head = dialogs_head {
-    tqh_first: ::core::ptr::null::<dialog_t>() as *mut dialog_t,
-    tqh_last: ::core::ptr::null::<*mut dialog_t>() as *mut *mut dialog_t,
+    tqh_first: std::ptr::null_mut::<dialog_t>(),
+    tqh_last: std::ptr::null_mut::<*mut dialog_t>(),
 };
 static mut raised_signal: ::core::ffi::c_int = 0;
 static mut CRASH_RENDERER: Option<i3_common::draw_util::NativeRenderingContext> = None;
@@ -268,8 +268,8 @@ unsafe fn sighandler_create_dialogs() {
     let Some(connection) = i3_common::xcb_connection::borrowed(conn) else {
         return;
     };
-    let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
-    output = outputs.tqh_first as *mut Output;
+    let mut output: *mut Output = outputs.tqh_first as *mut Output;
+
     while !output.is_null() {
         if (*output).active {
             let dialog = Box::into_raw(Box::new(dialog_t {
@@ -376,8 +376,8 @@ unsafe fn sighandler_destroy_dialogs() {
     }
 }
 unsafe fn sighandler_handle_expose() {
-    let mut current: *mut dialog_t = ::core::ptr::null_mut::<dialog_t>();
-    current = dialogs.tqh_first;
+    let mut current: *mut dialog_t = dialogs.tqh_first;
+
     while !current.is_null() {
         sighandler_draw_dialog(current);
         current = (*current).dialogs.tqe_next;

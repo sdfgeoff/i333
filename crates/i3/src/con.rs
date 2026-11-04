@@ -270,7 +270,7 @@ pub unsafe fn con_detach(con: *mut Con) {
 }
 
 pub unsafe fn con_focus(con: *mut Con) {
-    if con != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Con {
+    if !con.is_null() {
     } else {
         __assert_fail(
             c"con != NULL".as_ptr(),
@@ -292,7 +292,7 @@ pub unsafe fn con_focus(con: *mut Con) {
         con_focus(parent_ptr(con));
     }
     focused = con;
-    if (*con).urgent as ::core::ffi::c_int != 0 && con_is_leaf(con) {
+    if (*con).urgent && con_is_leaf(con) {
         con_set_urgency(con, false);
         con_update_parents_urgency(con);
         workspace_update_urgent_flag(con_get_workspace(con));
@@ -330,7 +330,7 @@ pub unsafe fn con_activate_unblock(con: *mut Con) {
 }
 
 pub unsafe fn con_close(con: *mut Con, kill_window: KillWindow) {
-    if con != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Con {
+    if !con.is_null() {
     } else {
         __assert_fail(
             c"con != NULL".as_ptr(),
@@ -430,15 +430,12 @@ pub unsafe fn con_is_maximized(con: *mut Con, orientation: Orientation) -> bool 
             layout = Layout::SplitV;
         }
         Orientation::None => {
-            if 0 as ::core::ffi::c_int != 0 {
-            } else {
-                __assert_fail(
-                    c"false".as_ptr(),
-                    c"../src/con.c".as_ptr(),
-                    458 as ::core::ffi::c_uint,
-                    c"_Bool con_is_maximized(Con *, orientation_t)".as_ptr(),
-                );
-            };
+            __assert_fail(
+                c"false".as_ptr(),
+                c"../src/con.c".as_ptr(),
+                458 as ::core::ffi::c_uint,
+                c"_Bool con_is_maximized(Con *, orientation_t)".as_ptr(),
+            );
         }
     }
     let mut current: *mut Con = con;
@@ -461,8 +458,8 @@ pub unsafe fn con_is_sticky(con: *mut Con) -> bool {
     if (*con).sticky {
         return true;
     }
-    let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-    child = nodes::first_ptr(con);
+    let mut child: *mut Con = nodes::first_ptr(con);
+
     while !child.is_null() {
         if con_is_sticky(child) {
             return true;
@@ -488,7 +485,7 @@ pub unsafe fn con_get_output(con: *mut Con) -> *mut Con {
     while !result.is_null() && ((*result).type_0) != ContainerType::Output {
         result = parent_ptr(result);
     }
-    if result != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Con {
+    if !result.is_null() {
     } else {
         __assert_fail(
             c"result != NULL".as_ptr(),
@@ -580,7 +577,7 @@ pub unsafe fn con_is_internal(con: *mut Con) -> bool {
 }
 
 pub unsafe fn con_is_floating(con: *mut Con) -> bool {
-    if con != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Con {
+    if !con.is_null() {
     } else {
         __assert_fail(
             c"con != NULL".as_ptr(),
@@ -715,8 +712,8 @@ pub unsafe fn con_find_transient_for_window(start: *mut Con, target: u32) -> boo
 }
 
 pub unsafe fn con_has_mark(con: *mut Con, mark: *const ::core::ffi::c_char) -> bool {
-    let mut current: *mut mark_t = ::core::ptr::null_mut::<mark_t>();
-    current = (*con).marks_head.tqh_first;
+    let mut current: *mut mark_t = (*con).marks_head.tqh_first;
+
     while !current.is_null() {
         if strcmp((*current).name, mark) == 0 as ::core::ffi::c_int {
             return true;
@@ -727,7 +724,7 @@ pub unsafe fn con_has_mark(con: *mut Con, mark: *const ::core::ffi::c_char) -> b
 }
 
 pub unsafe fn con_mark_toggle(con: *mut Con, mark: *const ::core::ffi::c_char, mode: MarkMode) {
-    if con != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Con {
+    if !con.is_null() {
     } else {
         __assert_fail(
             c"con != NULL".as_ptr(),
@@ -776,7 +773,7 @@ pub unsafe fn con_mark_toggle(con: *mut Con, mark: *const ::core::ffi::c_char, m
 }
 
 pub unsafe fn con_mark(con: *mut Con, mark: *const ::core::ffi::c_char, mode: MarkMode) {
-    if con != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Con {
+    if !con.is_null() {
     } else {
         __assert_fail(
             c"con != NULL".as_ptr(),
@@ -909,8 +906,8 @@ pub unsafe fn con_unmark(con: *mut Con, name: *const ::core::ffi::c_char) {
             i3_common::logging::pointer(current)
         );
         (*current).mark_changed = true;
-        let mut mark_0: *mut mark_t = ::core::ptr::null_mut::<mark_t>();
-        mark_0 = (*current).marks_head.tqh_first;
+        let mut mark_0: *mut mark_t = (*current).marks_head.tqh_first;
+
         while !mark_0.is_null() {
             if strcmp((*mark_0).name, name) != 0 as ::core::ffi::c_int {
                 mark_0 = (*mark_0).marks.tqe_next;
@@ -1043,8 +1040,8 @@ pub unsafe fn con_num_windows(con: *mut Con) -> ::core::ffi::c_int {
         return 1 as ::core::ffi::c_int;
     }
     let mut num: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
-    current = nodes::first_ptr(con);
+    let mut current: *mut Con = nodes::first_ptr(con);
+
     while !current.is_null() {
         num += con_num_windows(current);
         current = nodes::next_ptr(current);
@@ -1346,7 +1343,7 @@ unsafe fn _con_move_to_con(
     let mut focus_next: *mut Con = ::core::ptr::null_mut::<Con>();
     if !ignore_focus && source_ws == current_ws && target_ws != source_ws {
         focus_next = con_descend_focused(source_ws);
-        if focus_next == con || con_has_parent(focus_next, con) as ::core::ffi::c_int != 0 {
+        if focus_next == con || con_has_parent(focus_next, con) {
             focus_next = con_next_focused(con);
         }
     }
@@ -1402,8 +1399,7 @@ unsafe fn _con_move_to_con(
         target = ws;
     }
     if source_output != dest_output {
-        if fix_coordinates as ::core::ffi::c_int != 0 && ((*con).type_0) == ContainerType::Floating
-        {
+        if fix_coordinates && ((*con).type_0) == ContainerType::Floating {
             floating_fix_coordinates(
                 con,
                 &raw mut (*source_output).rect,
@@ -1417,7 +1413,7 @@ unsafe fn _con_move_to_con(
     let con_has_fullscreen: bool = ((*con).fullscreen_mode) != FullscreenMode::None
         || !con_get_fullscreen_con(con, FullscreenMode::Global).is_null()
         || !con_get_fullscreen_con(con, FullscreenMode::Output).is_null();
-    if con_has_fullscreen as ::core::ffi::c_int != 0 && !fullscreen.is_null() {
+    if con_has_fullscreen && !fullscreen.is_null() {
         con_toggle_fullscreen(fullscreen, FullscreenMode::Output);
         fullscreen = ::core::ptr::null_mut::<Con>();
     }
@@ -1452,7 +1448,7 @@ unsafe fn _con_move_to_con(
     _con_attach(
         con,
         target,
-        if behind_focused as ::core::ffi::c_int != 0 {
+        if behind_focused {
             ::core::ptr::null_mut::<Con>()
         } else {
             orig_target
@@ -1485,8 +1481,8 @@ unsafe fn _con_move_to_con(
         con_activate(con_descend_focused(focus_next));
     }
     if !con_is_leaf(con) {
-        let mut child_0: *mut Con = ::core::ptr::null_mut::<Con>();
-        child_0 = nodes::first_ptr(con);
+        let mut child_0: *mut Con = nodes::first_ptr(con);
+
         while !child_0.is_null() {
             if !(*child_0).window.is_null() {
                 startup_sequence_delete_by_window((*child_0).window);
@@ -1522,9 +1518,7 @@ pub unsafe fn con_move_to_target(con: *mut Con, mut target: *mut Con) -> bool {
         con_move_to_workspace(con, con_get_workspace(target), true, false, false);
         return true;
     }
-    if ((*target).type_0) == ContainerType::Workspace
-        && con_is_leaf(target) as ::core::ffi::c_int != 0
-    {
+    if ((*target).type_0) == ContainerType::Workspace && con_is_leaf(target) {
         ::log::debug!("../src/con.c:con_move_to_target:1514 - target container is an empty workspace, simply moving the container there.\n");
         con_move_to_workspace(con, target, true, false, false);
         return true;
@@ -1533,7 +1527,7 @@ pub unsafe fn con_move_to_target(con: *mut Con, mut target: *mut Con) -> bool {
         ::log::debug!("../src/con.c:con_move_to_target:1523 - target is a split container, descending to the currently focused child.\n");
         target = focus::first_ptr(target);
     }
-    if con == target || con_has_parent(target, con) as ::core::ffi::c_int != 0 {
+    if con == target || con_has_parent(target, con) {
         ::log::debug!("../src/con.c:con_move_to_target:1528 - cannot move the container to or inside itself, aborting.\n");
         return false;
     }
@@ -1629,7 +1623,7 @@ pub unsafe fn con_move_to_output(con: *mut Con, output: *mut Output, fix_coordin
             }
         }
     }
-    if ws != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Con {
+    if !ws.is_null() {
     } else {
         __assert_fail(
             c"ws != NULL".as_ptr(),
@@ -2354,8 +2348,8 @@ pub unsafe fn con_minimum_size(con: *mut Con) -> Rect {
         let mut max_width: u32 = 0_u32;
         let mut max_height: u32 = 0_u32;
         let mut deco_height: u32 = 0_u32;
-        let mut child_0: *mut Con = ::core::ptr::null_mut::<Con>();
-        child_0 = nodes::first_ptr(con);
+        let mut child_0: *mut Con = nodes::first_ptr(con);
+
         while !child_0.is_null() {
             let min: Rect = con_minimum_size(child_0);
             deco_height = deco_height.wrapping_add((*child_0).deco_rect.height);
@@ -2380,8 +2374,8 @@ pub unsafe fn con_minimum_size(con: *mut Con) -> Rect {
     if con_is_split(con) {
         let mut width: u32 = 0_u32;
         let mut height: u32 = 0_u32;
-        let mut child_1: *mut Con = ::core::ptr::null_mut::<Con>();
-        child_1 = nodes::first_ptr(con);
+        let mut child_1: *mut Con = nodes::first_ptr(con);
+
         while !child_1.is_null() {
             let min_0: Rect = con_minimum_size(child_1);
             if (*con).layout == Layout::SplitH {
@@ -2413,16 +2407,12 @@ pub unsafe fn con_minimum_size(con: *mut Con) -> Rect {
         ((*con).layout as ::core::ffi::c_uint) as i32,
         { (con_is_split(con) as ::core::ffi::c_int) }
     );
-    if 0 as ::core::ffi::c_int != 0 {
-    } else {
-        __assert_fail(
-            c"false".as_ptr(),
-            c"../src/con.c".as_ptr(),
-            2303 as ::core::ffi::c_uint,
-            c"Rect con_minimum_size(Con *)".as_ptr(),
-        );
-    };
-    panic!("Reached end of non-void function without returning");
+    __assert_fail(
+        c"false".as_ptr(),
+        c"../src/con.c".as_ptr(),
+        2303 as ::core::ffi::c_uint,
+        c"Rect con_minimum_size(Con *)".as_ptr(),
+    );
 }
 
 pub unsafe fn con_fullscreen_permits_focusing(con: *mut Con) -> bool {
@@ -2433,7 +2423,7 @@ pub unsafe fn con_fullscreen_permits_focusing(con: *mut Con) -> bool {
     while !fs.is_null() && ((*fs).fullscreen_mode) == FullscreenMode::None {
         fs = parent_ptr(fs);
     }
-    if fs != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Con {
+    if !fs.is_null() {
     } else {
         __assert_fail(
             c"fs != NULL".as_ptr(),
@@ -2521,8 +2511,8 @@ pub unsafe fn con_set_urgency(con: *mut Con, urgent: bool) {
         }
     }
     con_update_parents_urgency(con);
-    let mut ws: *mut Con = ::core::ptr::null_mut::<Con>();
-    ws = con_get_workspace(con);
+    let mut ws: *mut Con = con_get_workspace(con);
+
     if !ws.is_null() {
         workspace_update_urgent_flag(ws);
     }
@@ -2658,7 +2648,7 @@ pub unsafe fn con_parse_title_format(con: *mut Con) -> i3_common::string::I3Stri
 }
 
 pub unsafe fn con_swap(first: *mut Con, second: *mut Con) -> bool {
-    if first != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Con {
+    if !first.is_null() {
     } else {
         __assert_fail(
             c"first != NULL".as_ptr(),
@@ -2667,7 +2657,7 @@ pub unsafe fn con_swap(first: *mut Con, second: *mut Con) -> bool {
             c"_Bool con_swap(Con *, Con *)".as_ptr(),
         );
     };
-    if second != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Con {
+    if !second.is_null() {
     } else {
         __assert_fail(
             c"second != NULL".as_ptr(),
@@ -2704,9 +2694,7 @@ pub unsafe fn con_swap(first: *mut Con, second: *mut Con) -> bool {
         );
         return false;
     }
-    if con_has_parent(first, second) as ::core::ffi::c_int != 0
-        || con_has_parent(second, first) as ::core::ffi::c_int != 0
-    {
+    if con_has_parent(first, second) || con_has_parent(second, first) {
         ::log::error!("ERROR: Cannot swap containers {} and {} because they are in a parent-child relationship.\n", i3_common::logging::pointer(first), i3_common::logging::pointer(second));
         return false;
     }
@@ -2715,9 +2703,9 @@ pub unsafe fn con_swap(first: *mut Con, second: *mut Con) -> bool {
     let mut restore_focus: *mut Con = ::core::ptr::null_mut::<Con>();
     if ws1 == ws2 && ws1 == con_get_workspace(focused) {
         restore_focus = focused;
-    } else if first == focused || con_has_parent(focused, first) as ::core::ffi::c_int != 0 {
+    } else if first == focused || con_has_parent(focused, first) {
         restore_focus = second;
-    } else if second == focused || con_has_parent(focused, second) as ::core::ffi::c_int != 0 {
+    } else if second == focused || con_has_parent(focused, second) {
         restore_focus = first;
     }
     nodes::swap(
@@ -2787,8 +2775,8 @@ pub unsafe fn con_merge_into(old: *mut Con, new: *mut Con) {
     }
     (*new).sticky = (*old).sticky;
     con_set_urgency(new, (*old).urgent);
-    let mut mark: *mut mark_t = ::core::ptr::null_mut::<mark_t>();
-    mark = (*old).marks_head.tqh_first;
+    let mut mark: *mut mark_t = (*old).marks_head.tqh_first;
+
     while !mark.is_null() {
         (*mark).marks.tqe_next = ::core::ptr::null_mut::<mark_t>();
         (*mark).marks.tqe_prev = (*new).marks_head.tqh_last;

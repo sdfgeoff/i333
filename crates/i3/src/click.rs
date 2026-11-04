@@ -405,8 +405,8 @@ pub unsafe fn handle_button_press(event: &x::ButtonPressEvent) {
             }
         }
         if event.event().resource_id() == root && event.response_type() as i32 == 4 {
-            let mut output: *mut Con = ::core::ptr::null_mut::<Con>();
-            output = nodes::first_ptr(croot);
+            let mut output: *mut Con = nodes::first_ptr(croot);
+
             while !output.is_null() {
                 if con_is_internal(output) as i32 != 0
                     || !rect_contains(
@@ -441,8 +441,8 @@ pub unsafe fn handle_button_press(event: &x::ButtonPressEvent) {
             return;
         }
     } else {
-        let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-        child = nodes::last_ptr(con);
+        let mut child: *mut Con = nodes::last_ptr(con);
+
         while !child.is_null() {
             if !rect_contains(
                 (*child).deco_rect,

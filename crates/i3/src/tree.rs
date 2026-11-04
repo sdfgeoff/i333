@@ -32,9 +32,9 @@ pub use crate::application::ignore_event_sequence_t;
 
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 
-pub static mut croot: *mut Con = ::core::ptr::null::<Con>() as *mut Con;
+pub static mut croot: *mut Con = std::ptr::null_mut::<Con>();
 
-pub static mut focused: *mut Con = ::core::ptr::null::<Con>() as *mut Con;
+pub static mut focused: *mut Con = std::ptr::null_mut::<Con>();
 
 unsafe fn _create___i3() -> *mut Con {
     let mut __i3: *mut Con = con_new(croot, ::core::ptr::null_mut::<i3Window>());
@@ -214,7 +214,7 @@ pub unsafe fn tree_open_con(mut con: *mut Con, window: *mut i3Window) -> *mut Co
             i3_common::logging::pointer(con)
         );
     }
-    if con != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Con {
+    if !con.is_null() {
     } else {
         __assert_fail(
             c"con != NULL".as_ptr(),
@@ -651,26 +651,22 @@ unsafe fn get_tree_next(mut con: *mut Con, direction: Direction) -> *mut Con {
                 if con_num_children(parent) > 1 as ::core::ffi::c_int
                     && con_orientation(parent) == orientation
                 {
-                    let next_0: *mut Con = if previous as ::core::ffi::c_int != 0 {
+                    let next_0: *mut Con = if previous {
                         nodes::previous_ptr(con)
                     } else {
                         nodes::next_ptr(con)
                     };
-                    if !next_0.is_null()
-                        && con_fullscreen_permits_focusing(next_0) as ::core::ffi::c_int != 0
-                    {
+                    if !next_0.is_null() && con_fullscreen_permits_focusing(next_0) {
                         return next_0;
                     }
-                    let wrap: *mut Con = if previous as ::core::ffi::c_int != 0 {
+                    let wrap: *mut Con = if previous {
                         nodes::last_ptr(parent)
                     } else {
                         nodes::first_ptr(parent)
                     };
                     match config.focus_wrapping {
                         FocusWrapping::Workspace | FocusWrapping::On => {
-                            if first_wrap.is_null()
-                                && con_fullscreen_permits_focusing(wrap) as ::core::ffi::c_int != 0
-                            {
+                            if first_wrap.is_null() && con_fullscreen_permits_focusing(wrap) {
                                 first_wrap = wrap;
                             }
                         }
@@ -678,9 +674,7 @@ unsafe fn get_tree_next(mut con: *mut Con, direction: Direction) -> *mut Con {
                             if !next_0.is_null() {
                                 return ::core::ptr::null_mut::<Con>();
                             }
-                            return if con_fullscreen_permits_focusing(wrap) as ::core::ffi::c_int
-                                != 0
-                            {
+                            return if con_fullscreen_permits_focusing(wrap) {
                                 wrap
                             } else {
                                 ::core::ptr::null_mut::<Con>()
@@ -748,7 +742,7 @@ pub unsafe fn get_tree_next_sibling(con: *mut Con, direction: Position) -> *mut 
     } else {
         nodes::next_ptr(con)
     };
-    if !to_focus.is_null() && con_fullscreen_permits_focusing(to_focus) as ::core::ffi::c_int != 0 {
+    if !to_focus.is_null() && con_fullscreen_permits_focusing(to_focus) {
         return to_focus;
     }
     ::core::ptr::null_mut::<Con>()

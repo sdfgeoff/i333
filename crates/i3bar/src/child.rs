@@ -198,10 +198,10 @@ pub static mut status_child: i3bar_child = i3bar_child {
     cont_signal: 0,
     click_events: false,
     click_events_init: false,
-    stdin_io: ::core::ptr::null::<ev_io>() as *mut ev_io,
-    child_sig: ::core::ptr::null::<ev_child>() as *mut ev_child,
+    stdin_io: std::ptr::null_mut::<ev_io>(),
+    child_sig: std::ptr::null_mut::<ev_child>(),
     stdin_fd: 0,
-    pending_line: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
+    pending_line: std::ptr::null_mut::<::core::ffi::c_char>(),
 };
 
 pub static mut ws_child: i3bar_child = i3bar_child {
@@ -212,15 +212,15 @@ pub static mut ws_child: i3bar_child = i3bar_child {
     cont_signal: 0,
     click_events: false,
     click_events_init: false,
-    stdin_io: ::core::ptr::null::<ev_io>() as *mut ev_io,
-    child_sig: ::core::ptr::null::<ev_child>() as *mut ev_child,
+    stdin_io: std::ptr::null_mut::<ev_io>(),
+    child_sig: std::ptr::null_mut::<ev_child>(),
     stdin_fd: 0,
-    pending_line: ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char,
+    pending_line: std::ptr::null_mut::<::core::ffi::c_char>(),
 };
 
 pub static mut statusline_head: statusline_head = statusline_head {
-    tqh_first: ::core::ptr::null::<status_block>() as *mut status_block,
-    tqh_last: ::core::ptr::null::<*mut status_block>() as *mut *mut status_block,
+    tqh_first: std::ptr::null_mut::<status_block>(),
+    tqh_last: std::ptr::null_mut::<*mut status_block>(),
 };
 
 thread_local! {
@@ -1190,24 +1190,18 @@ pub unsafe fn start_child(command: Option<std::ffi::CString>) {
     spipe(&raw mut pipe_out as *mut ::core::ffi::c_int);
     status_child.pid = sfork();
     if status_child.pid == 0 as ::core::ffi::c_int {
-        close(pipe_in[0 as ::core::ffi::c_int as usize]);
-        close(pipe_out[1 as ::core::ffi::c_int as usize]);
-        dup2(
-            pipe_in[1 as ::core::ffi::c_int as usize],
-            libc::STDOUT_FILENO,
-        );
-        dup2(
-            pipe_out[0 as ::core::ffi::c_int as usize],
-            libc::STDIN_FILENO,
-        );
+        close(pipe_in[0_usize]);
+        close(pipe_out[1_usize]);
+        dup2(pipe_in[1_usize], libc::STDOUT_FILENO);
+        dup2(pipe_out[0_usize], libc::STDIN_FILENO);
         setpgid(status_child.pid as libc::pid_t, 0 as libc::pid_t);
         exec_shell(&command);
         return;
     }
-    close(pipe_in[1 as ::core::ffi::c_int as usize]);
-    close(pipe_out[0 as ::core::ffi::c_int as usize]);
-    status_child.stdin_fd = pipe_in[0 as ::core::ffi::c_int as usize];
-    child_stdin = pipe_out[1 as ::core::ffi::c_int as usize];
+    close(pipe_in[1_usize]);
+    close(pipe_out[0_usize]);
+    status_child.stdin_fd = pipe_in[0_usize];
+    child_stdin = pipe_out[1_usize];
     status_child.version = -(1 as ::core::ffi::c_int) as u32;
     setup_child_cb(&raw mut status_child);
 }
@@ -1222,16 +1216,13 @@ pub unsafe fn start_ws_child(command: Option<std::ffi::CString>) {
     spipe(&raw mut pipe_in as *mut ::core::ffi::c_int);
     ws_child.pid = sfork();
     if ws_child.pid == 0 as ::core::ffi::c_int {
-        close(pipe_in[0 as ::core::ffi::c_int as usize]);
-        dup2(
-            pipe_in[1 as ::core::ffi::c_int as usize],
-            libc::STDOUT_FILENO,
-        );
+        close(pipe_in[0_usize]);
+        dup2(pipe_in[1_usize], libc::STDOUT_FILENO);
         setpgid(ws_child.pid as libc::pid_t, 0 as libc::pid_t);
         exec_shell(&command);
     }
-    close(pipe_in[1 as ::core::ffi::c_int as usize]);
-    ws_child.stdin_fd = pipe_in[0 as ::core::ffi::c_int as usize];
+    close(pipe_in[1_usize]);
+    ws_child.stdin_fd = pipe_in[0_usize];
     setup_child_cb(&raw mut ws_child);
 }
 unsafe fn child_click_events_initialize() {
@@ -1540,10 +1531,7 @@ pub extern "C" fn kill_children_at_exit() {
     }
 }
 unsafe fn cont_child(c: *mut i3bar_child) {
-    if is_alive(c) as ::core::ffi::c_int != 0
-        && (*c).cont_signal > 0 as ::core::ffi::c_int
-        && (*c).stopped as ::core::ffi::c_int != 0
-    {
+    if is_alive(c) && (*c).cont_signal > 0 as ::core::ffi::c_int && (*c).stopped {
         (*c).stopped = false;
         killpg((*c).pid as libc::pid_t, (*c).cont_signal);
     }

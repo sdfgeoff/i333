@@ -224,10 +224,9 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
         } else {
             let mut geom = crate::window::WindowGeometry::from(geom.as_ref().unwrap());
             values = [0; 1];
-            values[0 as ::core::ffi::c_int as usize] =
-                ((::xcb::x::EventMask::PROPERTY_CHANGE.bits()) as ::core::ffi::c_int
-                    | (::xcb::x::EventMask::STRUCTURE_NOTIFY.bits()) as ::core::ffi::c_int)
-                    as u32;
+            values[0_usize] = ((::xcb::x::EventMask::PROPERTY_CHANGE.bits()) as ::core::ffi::c_int
+                | (::xcb::x::EventMask::STRUCTURE_NOTIFY.bits()) as ::core::ffi::c_int)
+                as u32;
             let event_mask_cookie = connection().send_request_checked(&x::ChangeWindowAttributes {
                 window: x::Window::new(window),
                 value_list: &[x::Cw::EventMask(x::EventMask::from_bits_retain(values[0]))],
@@ -474,12 +473,12 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                 (*cwindow).swallowed = false;
                 match_0 = ::core::ptr::null_mut::<Match>();
                 nc = con_for_window(search_at, cwindow, &raw mut match_0);
-                match_from_restart_mode =
-                    !match_0.is_null() && (*match_0).restart_mode as ::core::ffi::c_int != 0;
+                match_from_restart_mode = !match_0.is_null() && (*match_0).restart_mode;
                 if nc.is_null() {
                     let mut wm_desktop_ws: *mut Con = ::core::ptr::null_mut::<Con>();
-                    let mut assignment: *mut Assignment = ::core::ptr::null_mut::<Assignment>();
-                    assignment = assignment_for(cwindow, AssignmentKind::TO_WORKSPACE);
+                    let mut assignment: *mut Assignment =
+                        assignment_for(cwindow, AssignmentKind::TO_WORKSPACE);
+
                     if !assignment.is_null() || {
                         assignment = assignment_for(cwindow, AssignmentKind::TO_WORKSPACE_NUMBER);
                         !assignment.is_null()
@@ -633,7 +632,7 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                             nc = tree_open_con(parent_ptr(nc), cwindow);
                         }
                     } else if ((*focused).type_0) == ContainerType::Con
-                        && con_accepts_window(focused) as ::core::ffi::c_int != 0
+                        && con_accepts_window(focused)
                     {
                         {
                             // Snapshot native bytes before the logger can dispatch a callback.
@@ -734,9 +733,7 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                     if (*cwindow).dock as u64 == 0 {
                         let current_output: *mut Con = con_get_output(focused);
                         let target_output: *mut Con = con_get_output(ws);
-                        if workspace_is_visible(ws) as ::core::ffi::c_int != 0
-                            && current_output == target_output
-                        {
+                        if workspace_is_visible(ws) && current_output == target_output {
                             if !match_from_restart_mode {
                                 set_focus = true;
                             } else {
@@ -775,25 +772,14 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                 }
                 want_floating = false;
                 if xcb_reply_contains_atom(type_reply.as_ref(), A__NET_WM_WINDOW_TYPE_DIALOG)
-                    as ::core::ffi::c_int
-                    != 0
                     || xcb_reply_contains_atom(type_reply.as_ref(), A__NET_WM_WINDOW_TYPE_UTILITY)
-                        as ::core::ffi::c_int
-                        != 0
                     || xcb_reply_contains_atom(type_reply.as_ref(), A__NET_WM_WINDOW_TYPE_TOOLBAR)
-                        as ::core::ffi::c_int
-                        != 0
                     || xcb_reply_contains_atom(
                         type_reply.as_ref(),
                         A__NET_WM_WINDOW_TYPE_NOTIFICATION,
-                    ) as ::core::ffi::c_int
-                        != 0
+                    )
                     || xcb_reply_contains_atom(type_reply.as_ref(), A__NET_WM_WINDOW_TYPE_SPLASH)
-                        as ::core::ffi::c_int
-                        != 0
                     || xcb_reply_contains_atom(state_reply.as_ref(), A__NET_WM_STATE_MODAL)
-                        as ::core::ffi::c_int
-                        != 0
                     || (*cwindow).max_width > 0 as ::core::ffi::c_int
                         && (*cwindow).max_height > 0 as ::core::ffi::c_int
                         && (*cwindow).min_height == (*cwindow).max_height
@@ -845,7 +831,7 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                     } as Rect;
                 }
                 if config.popup_during_fullscreen == PopupDuringFullscreen::All
-                    && want_floating as ::core::ffi::c_int != 0
+                    && want_floating
                     && !fs.is_null()
                 {
                     set_focus = true;
@@ -873,13 +859,13 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                     }
                 }
                 if (*nc).current_border_width == -(1 as ::core::ffi::c_int) {
-                    (*nc).current_border_width = if want_floating as ::core::ffi::c_int != 0 {
+                    (*nc).current_border_width = if want_floating {
                         config.default_floating_border_width
                     } else {
                         config.default_border_width
                     };
                 }
-                values[0 as ::core::ffi::c_int as usize] = 0_u32;
+                values[0_usize] = 0_u32;
                 connection().send_request(&x::ChangeWindowAttributes {
                     window: x::Window::new(window),
                     value_list: &[x::Cw::EventMask(x::EventMask::from_bits_retain(values[0]))],
@@ -893,12 +879,12 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                 if request_failed(rcookie) {
                     ::log::info!("Could not reparent the window, aborting\n");
                 } else {
-                    values[0 as ::core::ffi::c_int as usize] =
-                        (((::xcb::x::EventMask::PROPERTY_CHANGE.bits()) as ::core::ffi::c_int
-                            | (::xcb::x::EventMask::STRUCTURE_NOTIFY.bits()) as ::core::ffi::c_int
-                            | (::xcb::x::EventMask::FOCUS_CHANGE.bits()) as ::core::ffi::c_int)
-                            & !((::xcb::x::EventMask::ENTER_WINDOW.bits()) as ::core::ffi::c_int))
-                            as u32;
+                    values[0_usize] = (((::xcb::x::EventMask::PROPERTY_CHANGE.bits())
+                        as ::core::ffi::c_int
+                        | (::xcb::x::EventMask::STRUCTURE_NOTIFY.bits()) as ::core::ffi::c_int
+                        | (::xcb::x::EventMask::FOCUS_CHANGE.bits()) as ::core::ffi::c_int)
+                        & !((::xcb::x::EventMask::ENTER_WINDOW.bits()) as ::core::ffi::c_int))
+                        as u32;
                     connection().send_request(&x::ChangeWindowAttributes {
                         window: x::Window::new(window),
                         value_list: &[x::Cw::EventMask(x::EventMask::from_bits_retain(values[0]))],
@@ -933,9 +919,7 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                     render_con(croot);
                     (*cwindow).managed_since = time(::core::ptr::null_mut::<libc::time_t>());
                     ipc_send_window_event(c"new".as_ptr(), nc);
-                    if set_focus as ::core::ffi::c_int != 0
-                        && !assignment_for(cwindow, AssignmentKind::NO_FOCUS).is_null()
-                    {
+                    if set_focus && !assignment_for(cwindow, AssignmentKind::NO_FOCUS).is_null() {
                         if con_num_windows(ws) == 1 as ::core::ffi::c_int {
                             ::log::debug!("../src/manage.c:manage_window:626 - This is the first window on this workspace, ignoring no_focus.\n");
                         } else {
@@ -953,14 +937,10 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                     } else {
                         xcb_interop::transport::discard_reply(&connection(), wm_user_time_cookie);
                     }
-                    if (*(*nc).window).doesnt_accept_focus as ::core::ffi::c_int != 0
-                        && !(*(*nc).window).needs_take_focus
-                    {
+                    if (*(*nc).window).doesnt_accept_focus && !(*(*nc).window).needs_take_focus {
                         set_focus = false;
                     }
-                    if set_focus as ::core::ffi::c_int != 0
-                        && (*nc).mapped as ::core::ffi::c_int != 0
-                    {
+                    if set_focus && (*nc).mapped {
                         ::log::debug!("../src/manage.c:manage_window:662 - Now setting focus.\n");
                         con_activate(nc);
                     }

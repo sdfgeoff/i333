@@ -65,8 +65,8 @@ pub(crate) const fn empty_config() -> config_t {
     config_t {
         modifier: 0,
         bindings: bindings_head {
-            tqh_first: ::core::ptr::null::<binding_t>() as *mut binding_t,
-            tqh_last: ::core::ptr::null::<*mut binding_t>() as *mut *mut binding_t,
+            tqh_first: std::ptr::null_mut::<binding_t>(),
+            tqh_last: std::ptr::null_mut::<*mut binding_t>(),
         },
         position: crate::application::BarPosition::None,
         verbose: false,
@@ -90,8 +90,8 @@ pub(crate) const fn empty_config() -> config_t {
         fontname: None,
         separator_symbol: None,
         tray_outputs: tray_outputs_head {
-            tqh_first: ::core::ptr::null::<tray_output_t>() as *mut tray_output_t,
-            tqh_last: ::core::ptr::null::<*mut tray_output_t>() as *mut *mut tray_output_t,
+            tqh_first: std::ptr::null_mut::<tray_output_t>(),
+            tqh_last: std::ptr::null_mut::<*mut tray_output_t>(),
         },
         tray_padding: 0,
         outputs: Vec::new(),

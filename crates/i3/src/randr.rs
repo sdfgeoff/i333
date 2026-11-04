@@ -35,10 +35,10 @@ pub use crate::types::xoutput as Output;
 static mut PRIMARY_OUTPUT: Option<u32> = None;
 
 pub static mut outputs: outputs_head = outputs_head {
-    tqh_first: ::core::ptr::null::<xoutput>() as *mut xoutput,
-    tqh_last: ::core::ptr::null::<*mut xoutput>() as *mut *mut xoutput,
+    tqh_first: std::ptr::null_mut::<xoutput>(),
+    tqh_last: std::ptr::null_mut::<*mut xoutput>(),
 };
-static mut root_output: *mut Output = ::core::ptr::null::<Output>() as *mut Output;
+static mut root_output: *mut Output = std::ptr::null_mut::<Output>();
 static mut has_randr_1_5: bool = false;
 // Native queries/queues are event-thread owned. Helpers below consume copied
 // values or bounded byte slices; they never promise safe access to raw graphs.
@@ -243,8 +243,8 @@ fn resource_outputs(reply: &randr::GetScreenResourcesCurrentReply) -> Option<Vec
 }
 
 unsafe fn get_output_by_id(id: u32) -> *mut Output {
-    let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
-    output = outputs.tqh_first;
+    let mut output: *mut Output = outputs.tqh_first;
+
     while !output.is_null() {
         if (*output).id == id {
             return output;
@@ -260,20 +260,18 @@ pub unsafe fn get_output_by_name(
 ) -> *mut Output {
     let get_primary: bool = strcasecmp(c"primary".as_ptr(), name) == 0 as ::core::ffi::c_int;
     let get_non_primary: bool = strcasecmp(c"nonprimary".as_ptr(), name) == 0 as ::core::ffi::c_int;
-    let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
-    output = outputs.tqh_first;
+    let mut output: *mut Output = outputs.tqh_first;
+
     while !output.is_null() {
-        if !(require_active as ::core::ffi::c_int != 0 && !(*output).active) {
-            if (*output).primary as ::core::ffi::c_int != 0
-                && get_primary as ::core::ffi::c_int != 0
-            {
+        if !(require_active && !(*output).active) {
+            if (*output).primary && get_primary {
                 return output;
             }
-            if !(*output).primary && get_non_primary as ::core::ffi::c_int != 0 {
+            if !(*output).primary && get_non_primary {
                 return output;
             }
-            let mut output_name: *mut output_name = ::core::ptr::null_mut::<output_name>();
-            output_name = (*output).names_head.slh_first;
+            let mut output_name: *mut output_name = (*output).names_head.slh_first;
+
             while !output_name.is_null() {
                 if strcasecmp((*output_name).name, name) == 0 as ::core::ffi::c_int {
                     return output;
@@ -307,13 +305,10 @@ pub unsafe fn get_first_output() -> *mut Output {
     errx(EXIT_FAILURE, c"No usable outputs available.\n".as_ptr());
 }
 unsafe fn any_randr_output_active() -> bool {
-    let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
-    output = outputs.tqh_first;
+    let mut output: *mut Output = outputs.tqh_first;
+
     while !output.is_null() {
-        if output != root_output
-            && !(*output).to_be_disabled
-            && (*output).active as ::core::ffi::c_int != 0
-        {
+        if output != root_output && !(*output).to_be_disabled && (*output).active {
             return true;
         }
         output = (*output).outputs.tqe_next;
@@ -322,8 +317,8 @@ unsafe fn any_randr_output_active() -> bool {
 }
 
 pub unsafe fn get_output_containing(x: ::core::ffi::c_uint, y: ::core::ffi::c_uint) -> *mut Output {
-    let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
-    output = outputs.tqh_first;
+    let mut output: *mut Output = outputs.tqh_first;
+
     while !output.is_null() {
         if (*output).active {
             ::log::debug!("../src/randr.c:get_output_containing:129 - comparing x={} y={} with x={} and y={} width {} height {}\n", (x) as i32, (y) as i32, ((*output).rect.x) as i32, ((*output).rect.y) as i32, ((*output).rect.width) as i32, ((*output).rect.height) as i32);
@@ -347,8 +342,8 @@ pub unsafe fn get_output_from_rect(rect: Rect) -> *mut Output {
 }
 
 pub unsafe fn get_output_with_dimensions(rect: Rect) -> *mut Output {
-    let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
-    output = outputs.tqh_first;
+    let mut output: *mut Output = outputs.tqh_first;
+
     while !output.is_null() {
         if (*output).active {
             ::log::debug!("../src/randr.c:get_output_with_dimensions:166 - comparing x={} y={} {}x{} with x={} and y={} {}x{}\n", (rect.x) as i32, (rect.y) as i32, (rect.width) as i32, (rect.height) as i32, ((*output).rect.x) as i32, ((*output).rect.y) as i32, ((*output).rect.width) as i32, ((*output).rect.height) as i32);
@@ -733,9 +728,7 @@ pub unsafe fn init_ws_for_output(output: *mut Output) {
         let Some(workspace) = resolve(id) else {
             continue;
         };
-        if !(((*workspace).type_0) != ContainerType::Workspace
-            || con_is_internal(workspace) as ::core::ffi::c_int != 0)
-        {
+        if !(((*workspace).type_0) != ContainerType::Workspace || con_is_internal(workspace)) {
             let name = (*workspace).name.clone().expect("workspace has a name");
             let workspace_out: *mut Con =
                 get_assigned_output(name.as_ptr(), (*workspace).num as ::core::ffi::c_long);
@@ -900,7 +893,7 @@ pub unsafe fn init_ws_for_output(output: *mut Output) {
 }
 unsafe fn output_change_mode(output: *mut Output) {
     ::log::debug!("../src/randr.c:output_change_mode:539 - Output mode changed, updating rect\n");
-    if (*output).con != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Con {
+    if !(*output).con.is_null() {
     } else {
         __assert_fail(
             c"output->con != NULL".as_ptr(),
@@ -1009,8 +1002,8 @@ unsafe fn randr_query_outputs_15() -> bool {
             return false;
         }
     };
-    let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
-    output = outputs.tqh_first;
+    let mut output: *mut Output = outputs.tqh_first;
+
     while !output.is_null() {
         if output != root_output {
             (*output).to_be_disabled = true;
@@ -1105,10 +1098,7 @@ unsafe fn randr_query_outputs_15() -> bool {
         let update_y: bool = update_if_necessary(&mut (*new).rect.y, monitor.y as u32);
         let update_w: bool = update_if_necessary(&mut (*new).rect.width, monitor.width as u32);
         let update_h: bool = update_if_necessary(&mut (*new).rect.height, monitor.height as u32);
-        (*new).changed = update_x as ::core::ffi::c_int != 0
-            || update_y as ::core::ffi::c_int != 0
-            || update_w as ::core::ffi::c_int != 0
-            || update_h as ::core::ffi::c_int != 0;
+        (*new).changed = update_x || update_y || update_w || update_h;
         {
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_pointer_1 = name;
@@ -1256,10 +1246,7 @@ unsafe fn handle_output(
     let update_y: bool = update_if_necessary(&mut (*new).rect.y, crtc.y() as u32);
     let update_w: bool = update_if_necessary(&mut (*new).rect.width, crtc.width() as u32);
     let update_h: bool = update_if_necessary(&mut (*new).rect.height, crtc.height() as u32);
-    let updated: bool = update_x as ::core::ffi::c_int != 0
-        || update_y as ::core::ffi::c_int != 0
-        || update_w as ::core::ffi::c_int != 0
-        || update_h as ::core::ffi::c_int != 0;
+    let updated: bool = update_x || update_y || update_w || update_h;
     (*new).active = (*new).rect.width != 0_u32 && (*new).rect.height != 0_u32;
     if !(*new).active {
         ::log::debug!("../src/randr.c:handle_output:775 - width/height 0/0, disabling output\n");
@@ -1478,8 +1465,8 @@ unsafe fn move_content(con: *mut Con) {
         con_focus(next);
         workspace_show(con_get_workspace(next));
     }
-    let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-    child = nodes::first_ptr(con);
+    let mut child: *mut Con = nodes::first_ptr(con);
+
     while !child.is_null() {
         if !(((*child).type_0) != ContainerType::DockArea) {
             ::log::debug!(
@@ -1516,17 +1503,17 @@ pub unsafe fn randr_query_outputs() {
     }
     if any_randr_output_active() {
         ::log::debug!("../src/randr.c:randr_query_outputs:933 - Active RandR output found. Disabling root output.\n");
-        if !root_output.is_null() && (*root_output).active as ::core::ffi::c_int != 0 {
+        if !root_output.is_null() && (*root_output).active {
             (*root_output).to_be_disabled = true;
         }
     } else {
         ::log::debug!("../src/randr.c:randr_query_outputs:938 - No active RandR output found. Enabling root output.\n");
         (*root_output).active = true;
     }
-    let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
-    output = outputs.tqh_first;
+    let mut output: *mut Output = outputs.tqh_first;
+
     while !output.is_null() {
-        if !(!(*output).active || (*output).to_be_disabled as ::core::ffi::c_int != 0) {
+        if !(!(*output).active || (*output).to_be_disabled) {
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
                 let log_value_0 = i3_common::logging::pointer(output);
@@ -1565,9 +1552,7 @@ pub unsafe fn randr_query_outputs() {
             };
             let mut other: *mut Output = output;
             while !other.is_null() {
-                if !(other == output
-                    || !(*other).active
-                    || (*other).to_be_disabled as ::core::ffi::c_int != 0)
+                if !(other == output || !(*other).active || (*other).to_be_disabled)
                     && !((*other).rect.x != (*output).rect.x || (*other).rect.y != (*output).rect.y)
                 {
                     ::log::debug!("../src/randr.c:randr_query_outputs:965 - output {} has the same position, its mode = {} x {}\n", i3_common::logging::pointer(other), ((*other).rect.width) as i32, ((*other).rect.height) as i32);
@@ -1579,11 +1564,9 @@ pub unsafe fn randr_query_outputs() {
                         (*other).rect.height as ::core::ffi::c_int,
                         (*output).rect.height as ::core::ffi::c_int,
                     ) as u32;
-                    let update_w: bool =
-                        update_if_necessary(&mut (*output).rect.width, width) as bool;
-                    let update_h: bool =
-                        update_if_necessary(&mut (*output).rect.height, height) as bool;
-                    if update_w as ::core::ffi::c_int != 0 || update_h as ::core::ffi::c_int != 0 {
+                    let update_w: bool = update_if_necessary(&mut (*output).rect.width, width);
+                    let update_h: bool = update_if_necessary(&mut (*output).rect.height, height);
+                    if update_w || update_h {
                         (*output).changed = true;
                     }
                     update_if_necessary(&mut (*other).rect.width, width);
@@ -1617,7 +1600,7 @@ pub unsafe fn randr_query_outputs() {
     }
     output = outputs.tqh_first;
     while !output.is_null() {
-        if (*output).active as ::core::ffi::c_int != 0 && (*output).con.is_null() {
+        if (*output).active && (*output).con.is_null() {
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
                 let log_pointer_1 = output_primary_name(output);
@@ -1768,7 +1751,7 @@ pub unsafe fn randr_query_outputs() {
 }
 
 pub unsafe fn randr_disable_output(output: *mut Output) {
-    if (*output).to_be_disabled as ::core::ffi::c_int != 0 {
+    if (*output).to_be_disabled {
     } else {
         __assert_fail(
             c"output->to_be_disabled".as_ptr(),

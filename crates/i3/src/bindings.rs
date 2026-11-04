@@ -129,15 +129,15 @@ struct Resolve {
 pub const I3_IPC_EVENT_MASK: ::core::ffi::c_ulong = (1 as ::core::ffi::c_ulong) << 31;
 pub const I3_IPC_EVENT_MODE: ::core::ffi::c_ulong = I3_IPC_EVENT_MASK | 2 as ::core::ffi::c_ulong;
 
-static mut xkb_context: *mut xkb_context = ::core::ptr::null::<xkb_context>() as *mut xkb_context;
-static mut xkb_keymap: *mut xkb_keymap = ::core::ptr::null::<xkb_keymap>() as *mut xkb_keymap;
+static mut xkb_context: *mut xkb_context = std::ptr::null_mut::<xkb_context>();
+static mut xkb_keymap: *mut xkb_keymap = std::ptr::null_mut::<xkb_keymap>();
 
 pub static mut command_error_nagbar_pid: libc::pid_t = -(1 as libc::pid_t);
 
 pub static mut DEFAULT_BINDING_MODE: *const ::core::ffi::c_char = c"default".as_ptr();
 unsafe fn mode_from_name(name: *const ::core::ffi::c_char, pango_markup: bool) -> *mut Mode {
-    let mut mode: *mut Mode = ::core::ptr::null_mut::<Mode>();
-    mode = modes.slh_first;
+    let mut mode: *mut Mode = modes.slh_first;
+
     while !mode.is_null() {
         if strcmp((*mode).name.as_ptr(), name) == 0 {
             return mode;
@@ -381,23 +381,22 @@ unsafe fn grab_keycode_for_binding(connection: &xcb::Connection, bind: *mut Bind
 
 pub unsafe fn grab_all_keys() {
     let connection = connection();
-    let mut bind: *mut Binding = ::core::ptr::null_mut::<Binding>();
-    bind = (*bindings).tqh_first;
+    let mut bind: *mut Binding = (*bindings).tqh_first;
+
     while !bind.is_null() {
         if !((*bind).input_type != InputType::Keyboard) && binding_in_current_group(bind) {
             if (*bind).keycode > 0_u32 {
                 grab_keycode_for_binding(&connection, bind, (*bind).keycode);
             } else {
-                let mut binding_keycode: *mut Binding_Keycode =
-                    ::core::ptr::null_mut::<Binding_Keycode>();
-                binding_keycode = (*bind).keycodes_head.tqh_first;
+                let mut binding_keycode: *mut Binding_Keycode = (*bind).keycodes_head.tqh_first;
+
                 while !binding_keycode.is_null() {
                     let keycode: i32 = (*binding_keycode).keycode as i32;
                     let mods: i32 = ((*binding_keycode).modifiers & 0xffff_u32) as i32;
                     {
                         let log_value_0 = i3_common::logging::pointer(bind);
-                        let log_value_1 = (keycode) as i32;
-                        let log_value_2 = (mods) as i32;
+                        let log_value_1 = (keycode);
+                        let log_value_2 = (mods);
                         ::log::debug!("../src/bindings.c:grab_all_keys:176 - Binding {} Grabbing keycode {} with mods {}\n", log_value_0, log_value_1, log_value_2);
                     };
                     connection.send_request(&x::GrabKey {
@@ -909,14 +908,14 @@ pub unsafe fn translate_keysyms() {
                     let mut keycodes = String::new();
                     let mut num_keycodes: i32 = 0;
                     let mut binding_keycode_3: *mut Binding_Keycode =
-                        ::core::ptr::null_mut::<Binding_Keycode>();
-                    binding_keycode_3 = (*bind).keycodes_head.tqh_first;
+                        (*bind).keycodes_head.tqh_first;
+
                     while !binding_keycode_3.is_null() {
                         use std::fmt::Write;
                         write!(&mut keycodes, " {}", (*binding_keycode_3).keycode).unwrap();
                         num_keycodes += 1;
-                        let mut check: *mut Binding = ::core::ptr::null_mut::<Binding>();
-                        check = (*bindings).tqh_first;
+                        let mut check: *mut Binding = (*bindings).tqh_first;
+
                         while !check.is_null() {
                             if !(check == bind)
                                 && (*check).symbol.is_null()
@@ -1064,8 +1063,8 @@ pub unsafe fn switch_mode(new_mode: *const ::core::ffi::c_char) {
             translate_keysyms();
             grab_all_keys();
             regrab_all_buttons();
-            let mut bind: *mut Binding = ::core::ptr::null_mut::<Binding>();
-            bind = (*bindings).tqh_first;
+            let mut bind: *mut Binding = (*bindings).tqh_first;
+
             while !bind.is_null() {
                 if (*bind).release == BindingRelease::KeyReleaseIgnoreMods {
                     (*bind).release = BindingRelease::KeyRelease;
@@ -1144,9 +1143,7 @@ unsafe fn reorder_bindings_of_mode(mode: *mut Mode) {
         i += 1;
     }
 
-    if (*(*mode).bindings.as_ptr()).tqh_first
-        == ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Binding
-    {
+    if (*(*mode).bindings.as_ptr()).tqh_first.is_null() {
     } else {
         __assert_fail(
             c"TAILQ_EMPTY(mode->bindings)".as_ptr(),
@@ -1162,8 +1159,8 @@ unsafe fn reorder_bindings_of_mode(mode: *mut Mode) {
 }
 
 pub unsafe fn reorder_bindings() {
-    let mut mode: *mut Mode = ::core::ptr::null_mut::<Mode>();
-    mode = modes.slh_first;
+    let mut mode: *mut Mode = modes.slh_first;
+
     while !mode.is_null() {
         reorder_bindings_of_mode(mode);
         mode = (*mode).modes.sle_next;
@@ -1192,8 +1189,8 @@ unsafe fn binding_same_key(a: *mut Binding, b: *mut Binding) -> bool {
 
 pub unsafe fn check_for_duplicate_bindings(context: *mut context) {
     let mut bind: *mut Binding = ::core::ptr::null_mut::<Binding>();
-    let mut current: *mut Binding = ::core::ptr::null_mut::<Binding>();
-    current = (*bindings).tqh_first;
+    let mut current: *mut Binding = (*bindings).tqh_first;
+
     while !current.is_null() {
         bind = (*bindings).tqh_first;
         while !bind.is_null() {
@@ -1205,7 +1202,7 @@ pub unsafe fn check_for_duplicate_bindings(context: *mut context) {
                 if (*current).keycode != 0_u32 {
                     {
                         // Snapshot native bytes before the logger can dispatch a callback.
-                        let log_value_0 = ((*current).event_state_mask) as u32;
+                        let log_value_0 = ((*current).event_state_mask);
                         let log_value_1 = ((*current).keycode) as i32;
                         let log_pointer_3 = (*current).command;
                         let log_value_2 = i3_common::logging::string_bytes(
@@ -1230,7 +1227,7 @@ pub unsafe fn check_for_duplicate_bindings(context: *mut context) {
                 } else {
                     {
                         // Snapshot native bytes before the logger can dispatch a callback.
-                        let log_value_0 = ((*current).event_state_mask) as u32;
+                        let log_value_0 = ((*current).event_state_mask);
                         let log_pointer_2 = (*current).symbol;
                         let log_value_1 = i3_common::logging::string_bytes(
                             if log_pointer_2.is_null() {
@@ -1284,8 +1281,8 @@ unsafe fn binding_copy(bind: *mut Binding) -> *mut Binding {
     }
     (*ret).keycodes_head.tqh_first = ::core::ptr::null_mut::<Binding_Keycode>();
     (*ret).keycodes_head.tqh_last = &raw mut (*ret).keycodes_head.tqh_first;
-    let mut binding_keycode: *mut Binding_Keycode = ::core::ptr::null_mut::<Binding_Keycode>();
-    binding_keycode = (*bind).keycodes_head.tqh_first;
+    let mut binding_keycode: *mut Binding_Keycode = (*bind).keycodes_head.tqh_first;
+
     while !binding_keycode.is_null() {
         let ret_binding_keycode: *mut Binding_Keycode =
             smalloc(::core::mem::size_of::<Binding_Keycode>()) as *mut Binding_Keycode;

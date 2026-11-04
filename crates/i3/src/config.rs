@@ -190,7 +190,7 @@ pub const __ASSERT_FUNCTION: [::core::ffi::c_char; 30] = unsafe {
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 
 pub static mut current_configpath: *mut ::core::ffi::c_char =
-    ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char;
+    std::ptr::null_mut::<::core::ffi::c_char>();
 
 const fn empty_config() -> Config {
     Config {
@@ -586,7 +586,7 @@ const fn empty_config() -> Config {
 pub static mut config: Config = empty_config();
 
 pub static mut modes: modes_head = modes_head {
-    slh_first: ::core::ptr::null::<Mode>() as *mut Mode,
+    slh_first: std::ptr::null_mut::<Mode>(),
 };
 
 pub static mut barconfigs: barconfig_head = barconfig_head {
@@ -610,7 +610,7 @@ pub unsafe fn ungrab_all_keys() {
         });
 }
 unsafe fn free_configuration() {
-    if conn != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut xcb_connection_t {
+    if !conn.is_null() {
     } else {
         __assert_fail(
             c"conn != NULL".as_ptr(),
@@ -856,8 +856,8 @@ pub unsafe fn load_configuration(
         set_config_font(c"fixed");
     }
     if load_type != ConfigLoad::Validate {
-        let mut current: *mut Barconfig = ::core::ptr::null_mut::<Barconfig>();
-        current = barconfigs.tqh_first;
+        let mut current: *mut Barconfig = barconfigs.tqh_first;
+
         while !current.is_null() {
             if (*current).font.is_none() {
                 (*current).font = config.font.pattern().map(CStr::to_owned);

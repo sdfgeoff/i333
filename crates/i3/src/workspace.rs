@@ -36,7 +36,7 @@ pub const I3_IPC_EVENT_WORKSPACE: ::core::ffi::c_ulong =
     I3_IPC_EVENT_MASK | 0 as ::core::ffi::c_ulong;
 
 pub static mut previous_workspace_name: *mut ::core::ffi::c_char =
-    ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char;
+    std::ptr::null_mut::<::core::ffi::c_char>();
 static BINDING_WORKSPACE_NAMES: std::sync::Mutex<Vec<std::ffi::CString>> =
     std::sync::Mutex::new(Vec::new());
 
@@ -119,8 +119,8 @@ pub unsafe fn get_assigned_output(
         .as_ref()
         .map_or(std::ptr::null(), |value| value.as_ptr());
     let mut output: *mut Con = ::core::ptr::null_mut::<Con>();
-    let mut assignment: *mut Workspace_Assignment = ::core::ptr::null_mut::<Workspace_Assignment>();
-    assignment = ws_assignments.tqh_first;
+    let mut assignment: *mut Workspace_Assignment = ws_assignments.tqh_first;
+
     while !assignment.is_null() {
         let next = (*assignment).ws_assignments.tqe_next;
         let assignment_name = (*assignment).name.clone();
@@ -170,7 +170,7 @@ pub unsafe fn get_assigned_output(
                 }
             } else if output.is_null()
                 && parsed_num != -(1 as ::core::ffi::c_int) as ::core::ffi::c_long
-                && name_is_digits(assignment_name.as_c_str()) as ::core::ffi::c_int != 0
+                && name_is_digits(assignment_name.as_c_str())
                 && ws_name_to_number(assignment_name.as_c_str()).unwrap_or(-1)
                     as ::core::ffi::c_long
                     == parsed_num
@@ -441,8 +441,8 @@ pub unsafe fn workspace_is_visible(ws: *mut Con) -> bool {
     fs == ws
 }
 unsafe fn _get_sticky(con: *mut Con, sticky_group: &std::ffi::CStr, exclude: *mut Con) -> *mut Con {
-    let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
-    current = nodes::first_ptr(con);
+    let mut current: *mut Con = nodes::first_ptr(con);
+
     while !current.is_null() {
         if current != exclude
             && !(*current).window.is_null()
@@ -474,8 +474,8 @@ unsafe fn _get_sticky(con: *mut Con, sticky_group: &std::ffi::CStr, exclude: *mu
     ::core::ptr::null_mut::<Con>()
 }
 unsafe fn workspace_reassign_sticky(con: *mut Con) {
-    let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
-    current = nodes::first_ptr(con);
+    let mut current: *mut Con = nodes::first_ptr(con);
+
     while !current.is_null() {
         let group = (*current).sticky_group.clone();
         if let Some(group) = group {
@@ -630,7 +630,7 @@ pub unsafe fn workspace_show(workspace: *mut Con) {
     };
     let next: *mut Con = con_descend_focused(workspace);
     let old_output: *mut Con = con_get_output(focused);
-    if (*next).urgent as ::core::ffi::c_int != 0
+    if (*next).urgent
         && (config.workspace_urgency_timer * 1000 as ::core::ffi::c_int as ::core::ffi::c_float)
             as ::core::ffi::c_int
             > 0 as ::core::ffi::c_int
@@ -811,9 +811,7 @@ pub unsafe fn workspace_next() -> *mut Con {
                             }
                             if child == current {
                                 found_current = true;
-                            } else if (*child).num == -(1 as ::core::ffi::c_int)
-                                && found_current as ::core::ffi::c_int != 0
-                            {
+                            } else if (*child).num == -(1 as ::core::ffi::c_int) && found_current {
                                 next = child;
                                 return next;
                             }
@@ -858,9 +856,7 @@ pub unsafe fn workspace_next() -> *mut Con {
                             }
                             if child_0 == current {
                                 found_current_0 = true;
-                            } else if found_current_0 as ::core::ffi::c_int != 0
-                                && (*current).num == (*child_0).num
-                            {
+                            } else if found_current_0 && (*current).num == (*child_0).num {
                                 return child_0;
                             }
                         }
@@ -917,7 +913,7 @@ pub unsafe fn workspace_prev() -> *mut Con {
                                 if child == current {
                                     found_current = true;
                                 } else if (*child).num == -(1 as ::core::ffi::c_int)
-                                    && found_current as ::core::ffi::c_int != 0
+                                    && found_current
                                 {
                                     prev = child;
                                     return prev;
@@ -962,9 +958,7 @@ pub unsafe fn workspace_prev() -> *mut Con {
                                 }
                                 if child_0 == current {
                                     found_current_0 = true;
-                                } else if found_current_0 as ::core::ffi::c_int != 0
-                                    && (*current).num == (*child_0).num
-                                {
+                                } else if found_current_0 && (*current).num == (*child_0).num {
                                     return child_0;
                                 }
                             }
@@ -1013,9 +1007,7 @@ pub unsafe fn workspace_next_on_output() -> *mut Con {
                     }
                     if child == current {
                         found_current = true;
-                    } else if found_current as ::core::ffi::c_int != 0
-                        && (*current).num == (*child).num
-                    {
+                    } else if found_current && (*current).num == (*child).num {
                         return child;
                     }
                 }
@@ -1040,8 +1032,7 @@ pub unsafe fn workspace_next_on_output() -> *mut Con {
                     if child_0 == current {
                         found_current_0 = true;
                     } else if (*child_0).num == -(1 as ::core::ffi::c_int)
-                        && ((*current).num != -(1 as ::core::ffi::c_int)
-                            || found_current_0 as ::core::ffi::c_int != 0)
+                        && ((*current).num != -(1 as ::core::ffi::c_int) || found_current_0)
                     {
                         next = child_0;
                         current_block = 13918395486153594028;
@@ -1128,9 +1119,7 @@ pub unsafe fn workspace_prev_on_output() -> *mut Con {
                     }
                     if child == current {
                         found_current = true;
-                    } else if found_current as ::core::ffi::c_int != 0
-                        && (*current).num == (*child).num
-                    {
+                    } else if found_current && (*current).num == (*child).num {
                         return child;
                     }
                 }
@@ -1155,8 +1144,7 @@ pub unsafe fn workspace_prev_on_output() -> *mut Con {
                     if child_0 == current {
                         found_current_0 = true;
                     } else if (*child_0).num == -(1 as ::core::ffi::c_int)
-                        && ((*current).num != -(1 as ::core::ffi::c_int)
-                            || found_current_0 as ::core::ffi::c_int != 0)
+                        && ((*current).num != -(1 as ::core::ffi::c_int) || found_current_0)
                     {
                         prev = child_0;
                         current_block = 12235783886841305969;
@@ -1208,12 +1196,10 @@ pub unsafe fn workspace_back_and_forth_get() -> *mut Con {
     workspace_get(previous_workspace_name)
 }
 unsafe fn get_urgency_flag(con: *mut Con) -> bool {
-    let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-    child = nodes::first_ptr(con);
+    let mut child: *mut Con = nodes::first_ptr(con);
+
     while !child.is_null() {
-        if (*child).urgent as ::core::ffi::c_int != 0
-            || get_urgency_flag(child) as ::core::ffi::c_int != 0
-        {
+        if (*child).urgent || get_urgency_flag(child) {
             return true;
         }
         child = nodes::next_ptr(child);
@@ -1222,9 +1208,7 @@ unsafe fn get_urgency_flag(con: *mut Con) -> bool {
         let Some(child) = resolve(floating_id) else {
             continue;
         };
-        if (*child).urgent as ::core::ffi::c_int != 0
-            || get_urgency_flag(child) as ::core::ffi::c_int != 0
-        {
+        if (*child).urgent || get_urgency_flag(child) {
             return true;
         }
     }
@@ -1443,9 +1427,8 @@ pub unsafe fn workspace_move_to_output(mut ws: *mut Con, output: *mut Output) {
             }
         };
         let mut used_assignment: bool = false;
-        let mut assignment: *mut Workspace_Assignment =
-            ::core::ptr::null_mut::<Workspace_Assignment>();
-        assignment = ws_assignments.tqh_first;
+        let mut assignment: *mut Workspace_Assignment = ws_assignments.tqh_first;
+
         while !assignment.is_null() {
             let next = (*assignment).ws_assignments.tqe_next;
             let assignment_name = (*assignment).name.clone();

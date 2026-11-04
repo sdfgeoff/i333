@@ -33,7 +33,7 @@ pub use i3_common::draw_util::color_t;
 pub use i3_common::draw_util::surface_t;
 
 pub static mut visual_type: *mut cairo_sys::xcb_visualtype_t =
-    ::core::ptr::null::<cairo_sys::xcb_visualtype_t>() as *mut cairo_sys::xcb_visualtype_t;
+    std::ptr::null_mut::<cairo_sys::xcb_visualtype_t>();
 pub const EXIT_OK: i32 = 0;
 pub const EXIT_CANCEL: i32 = 1;
 pub const EXIT_ERROR: i32 = 2;
@@ -43,8 +43,7 @@ static mut font: Font = Font::empty();
 
 pub static mut root: u32 = 0;
 
-pub static mut conn: *mut xcb_connection_t =
-    ::core::ptr::null::<xcb_connection_t>() as *mut xcb_connection_t;
+pub static mut conn: *mut xcb_connection_t = std::ptr::null_mut::<xcb_connection_t>();
 
 pub static mut root_screen: Option<i3_common::display::DisplayScreen> = None;
 

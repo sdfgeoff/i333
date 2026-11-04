@@ -130,7 +130,7 @@ pub struct bindings_head {
 
 pub const I3_IPC_MESSAGE_TYPE_GET_BAR_CONFIG: ::core::ffi::c_int = 6 as ::core::ffi::c_int;
 
-pub static mut main_loop: *mut ev_loop = ::core::ptr::null::<ev_loop>() as *mut ev_loop;
+pub static mut main_loop: *mut ev_loop = std::ptr::null_mut::<ev_loop>();
 
 /// Program-local byte sink: verbose records use stdout, errors stderr, and
 /// debug remains suppressed exactly as in the original tools/bar logger.

@@ -372,7 +372,7 @@ struct StateHead {
 
 pub static mut focused_id: u32 = 0_u32;
 static mut last_focused: u32 = 0_u32;
-static mut warp_to: *mut Rect = ::core::ptr::null::<Rect>() as *mut Rect;
+static mut warp_to: *mut Rect = std::ptr::null_mut::<Rect>();
 
 static mut state_head: StateHead = StateHead {
     cqh_first: &raw const state_head as *mut StateHead as *mut ::core::ffi::c_void
@@ -389,12 +389,12 @@ static mut old_state_head: OldStateHead = OldStateHead {
 };
 
 static mut initial_mapping_head: InitialMappingHead = InitialMappingHead {
-    tqh_first: ::core::ptr::null::<FrameState>() as *mut FrameState,
+    tqh_first: std::ptr::null_mut::<FrameState>(),
     tqh_last: unsafe { &raw mut initial_mapping_head.tqh_first },
 };
 unsafe fn state_for_frame(window: u32) -> *mut FrameState {
-    let mut state: *mut FrameState = ::core::ptr::null_mut::<FrameState>();
-    state = state_head.cqh_first;
+    let mut state: *mut FrameState = state_head.cqh_first;
+
     while state != &raw mut state_head as *mut ::core::ffi::c_void as *mut FrameState {
         if (*state).id == window {
             return state;
@@ -558,8 +558,8 @@ pub unsafe fn x_con_init(con: *mut Con) {
 }
 
 pub unsafe fn x_reinit(con: *mut Con) {
-    let mut state: *mut FrameState = ::core::ptr::null_mut::<FrameState>();
-    state = state_for_frame((*con).frame.id);
+    let mut state: *mut FrameState = state_for_frame((*con).frame.id);
+
     if state.is_null() {
         ::log::error!("ERROR: window state not found\n");
         return;
@@ -580,8 +580,8 @@ pub unsafe fn x_reinit(con: *mut Con) {
 }
 
 pub unsafe fn x_reparent_child(con: *mut Con, old: *mut Con) {
-    let mut state: *mut FrameState = ::core::ptr::null_mut::<FrameState>();
-    state = state_for_frame((*con).frame.id);
+    let mut state: *mut FrameState = state_for_frame((*con).frame.id);
+
     if state.is_null() {
         ::log::error!("ERROR: window state for con not found\n");
         return;
@@ -763,7 +763,7 @@ unsafe fn x_draw_decoration_after_title(
     p: *mut deco_render_params,
     dest_surface: *mut surface_t,
 ) {
-    if parent_ptr(con) != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut Con {
+    if !parent_ptr(con).is_null() {
     } else {
         __assert_fail(
             c"con->parent != NULL".as_ptr(),
@@ -1161,8 +1161,8 @@ pub unsafe fn x_deco_recurse(con: *mut Con) {
         && floating::is_empty(identity(con).expect("live floating parent"));
     let state: *const FrameState = state_for_frame((*con).frame.id);
     if !leaf {
-        let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
-        current = nodes::first_ptr(con);
+        let mut current: *mut Con = nodes::first_ptr(con);
+
         while !current.is_null() {
             x_deco_recurse(current);
             current = nodes::next_ptr(current);
@@ -1348,8 +1348,8 @@ unsafe fn set_shape_state(con: *mut Con, need_reshape: bool) {
     if !shape_supported || (*con).window.is_null() {
         return;
     }
-    let mut state: *mut FrameState = ::core::ptr::null_mut::<FrameState>();
-    state = state_for_frame((*con).frame.id);
+    let mut state: *mut FrameState = state_for_frame((*con).frame.id);
+
     if state.is_null() {
         ::log::error!(
             "ERROR: window state for con {} not found\n",
@@ -1794,8 +1794,8 @@ unsafe fn is_con_attached(con: *mut Con) -> bool {
     if parent_ptr(con).is_null() {
         return false;
     }
-    let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
-    current = nodes::first_ptr(parent_ptr(con));
+    let mut current: *mut Con = nodes::first_ptr(parent_ptr(con));
+
     while !current.is_null() {
         if current == con {
             return true;
@@ -2162,8 +2162,8 @@ pub unsafe fn x_raise_con(con: *const Con) {
 }
 
 pub unsafe fn x_set_name(con: *mut Con, name: *const ::core::ffi::c_char) {
-    let mut state: *mut FrameState = ::core::ptr::null_mut::<FrameState>();
-    state = state_for_frame((*con).frame.id);
+    let mut state: *mut FrameState = state_for_frame((*con).frame.id);
+
     if state.is_null() {
         ::log::error!("ERROR: window state not found\n");
         return;
@@ -2244,8 +2244,8 @@ pub unsafe fn x_mask_event_mask(mask: u32) {
         | x::EventMask::SUBSTRUCTURE_NOTIFY.bits() as i32
         | x::EventMask::ENTER_WINDOW.bits() as i32) as u32
         & mask;
-    let mut state: *mut FrameState = ::core::ptr::null_mut::<FrameState>();
-    state = state_head.cqh_last;
+    let mut state: *mut FrameState = state_head.cqh_last;
+
     while state != &raw mut state_head as *mut ::core::ffi::c_void as *mut FrameState {
         if (*state).mapped {
             set_event_mask((*state).id, values);

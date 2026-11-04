@@ -116,11 +116,11 @@ pub const SO_PEERCRED: ::core::ffi::c_int = 17 as ::core::ffi::c_int;
 pub const LC_NUMERIC: ::core::ffi::c_int = __LC_NUMERIC;
 
 pub static mut current_socketpath: *mut ::core::ffi::c_char =
-    ::core::ptr::null::<::core::ffi::c_char>() as *mut ::core::ffi::c_char;
+    std::ptr::null_mut::<::core::ffi::c_char>();
 
 pub static mut all_clients: ipc_client_head = ipc_client_head {
-    tqh_first: ::core::ptr::null::<ipc_client>() as *mut ipc_client,
-    tqh_last: ::core::ptr::null::<*mut ipc_client>() as *mut *mut ipc_client,
+    tqh_first: std::ptr::null_mut::<ipc_client>(),
+    tqh_last: std::ptr::null_mut::<*mut ipc_client>(),
 };
 static mut kill_timeout: ev_tstamp = 10.0f64;
 
@@ -1771,7 +1771,7 @@ unsafe extern "C" fn ipc_socket_writeable_cb(
         { ((*w).fd) }
     );
     let client: *mut ipc_client = (*w).data as *mut ipc_client;
-    if (*client).timeout != ::core::ptr::null_mut::<::core::ffi::c_void>() as *mut ev_timer {
+    if !(*client).timeout.is_null() {
     } else {
         __assert_fail(
             c"client->timeout != NULL".as_ptr(),

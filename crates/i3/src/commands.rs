@@ -193,8 +193,8 @@ pub unsafe fn cmd_criteria_match_windows(
             if (*current_match).mark.is_some() && !(*con).marks_head.tqh_first.is_null() {
                 accept_match = true;
                 let mut matched_by_mark: bool = false;
-                let mut mark: *mut mark_t = ::core::ptr::null_mut::<mark_t>();
-                mark = (*con).marks_head.tqh_first;
+                let mut mark: *mut mark_t = (*con).marks_head.tqh_first;
+
                 while !mark.is_null() {
                     if !regex_matches(
                         (*current_match).mark.as_ref().unwrap(),
@@ -287,8 +287,8 @@ pub unsafe fn cmd_criteria_add(
     match_parse_property(current_match, ctype, cvalue);
 }
 unsafe fn move_matches_to_workspace(owindows: *const owindows_head, ws: *mut Con) {
-    let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current = (*owindows).tqh_first;
+    let mut current: *mut owindow = (*owindows).tqh_first;
+
     while !current.is_null() {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
@@ -898,16 +898,12 @@ unsafe fn parse_direction(value: *const libc::c_char) -> Direction {
         return direction;
     }
     ::log::error!("ERROR: Invalid direction. This is a parser bug.\n");
-    if 0 as ::core::ffi::c_int != 0 {
-    } else {
-        __assert_fail(
-            c"false".as_ptr(),
-            c"../src/commands.c".as_ptr(),
-            389 as ::core::ffi::c_uint,
-            c"direction_t parse_direction(const char *)".as_ptr(),
-        );
-    };
-    panic!("Reached end of non-void function without returning");
+    __assert_fail(
+        c"false".as_ptr(),
+        c"../src/commands.c".as_ptr(),
+        389 as ::core::ffi::c_uint,
+        c"direction_t parse_direction(const char *)".as_ptr(),
+    );
 }
 unsafe fn cmd_resize_floating(
     current_match: *mut Match,
@@ -993,8 +989,7 @@ unsafe fn cmd_resize_tiling_direction(
     let mut first: *mut Con = current;
     let search_direction: Direction = parse_direction(direction);
     let res: bool =
-        resize_find_tiling_participants(&raw mut first, &raw mut second, search_direction, false)
-            as bool;
+        resize_find_tiling_participants(&raw mut first, &raw mut second, search_direction, false);
     if !res {
         if (*cmd_output).has_reply() {
             let mut message: *mut ::core::ffi::c_char =
@@ -1072,13 +1067,13 @@ unsafe fn cmd_resize_tiling_width_height(
             );
         }
     };
-    let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-    child = nodes::first_ptr(parent_ptr(current));
+    let mut child: *mut Con = nodes::first_ptr(parent_ptr(current));
+
     while !child.is_null() {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_value_0 = i3_common::logging::fixed_decimal(
-                ((*child).percent) as f64,
+                ((*child).percent),
                 i3_common::logging::FixedPrecision::Six,
             );
             let log_value_1 = i3_common::logging::pointer(child);
@@ -1220,7 +1215,7 @@ unsafe fn cmd_resize_tiling_width_height(
                 // Snapshot native bytes before the logger can dispatch a callback.
                 let log_value_0 = i3_common::logging::pointer(child);
                 let log_value_1 = i3_common::logging::fixed_decimal(
-                    ((*child).percent) as f64,
+                    ((*child).percent),
                     i3_common::logging::FixedPrecision::Six,
                 );
                 if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
@@ -1338,16 +1333,16 @@ pub unsafe fn cmd_resize(
         *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
-    let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current = (*(*cmd_output).ctx).owindows.tqh_first;
+    let mut current: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
+
     while !current.is_null() {
         if !(*(*current).con).window.is_null()
             && (*(*(*current).con).window).dock as ::core::ffi::c_uint != 0
         {
             ::log::debug!("../src/commands.c:cmd_resize:557 - This is a dock window. Not resizing (con = {})\n)", i3_common::logging::pointer((*current).con));
         } else {
-            let mut floating_con: *mut Con = ::core::ptr::null_mut::<Con>();
-            floating_con = con_inside_floating((*current).con);
+            let mut floating_con: *mut Con = con_inside_floating((*current).con);
+
             if !floating_con.is_null() {
                 cmd_resize_floating(
                     current_match,
@@ -1557,8 +1552,8 @@ pub unsafe fn cmd_resize_set(
     let mut success: bool = true;
     current = (*(*cmd_output).ctx).owindows.tqh_first;
     while !current.is_null() {
-        let mut floating_con: *mut Con = ::core::ptr::null_mut::<Con>();
-        floating_con = con_inside_floating((*current).con);
+        let mut floating_con: *mut Con = con_inside_floating((*current).con);
+
         if !floating_con.is_null() {
             let output: *const Con = con_get_output(floating_con);
             if cwidth == 0 as ::core::ffi::c_long {
@@ -1633,7 +1628,7 @@ unsafe fn border_width_from_style(
         return logical_px(border_width as ::core::ffi::c_int);
     }
     let is_floating: bool = !con_inside_floating(con).is_null();
-    if is_floating as ::core::ffi::c_int != 0 && border_style == config.default_floating_border {
+    if is_floating && border_style == config.default_floating_border {
         config.default_floating_border_width
     } else if !is_floating && border_style == config.default_border {
         config.default_border_width
@@ -2129,9 +2124,7 @@ pub unsafe fn cmd_workspace_number(
         return;
     }
     let workspace_name = (*workspace).name.clone().expect("workspace has a name");
-    if !no_auto_back_and_forth
-        && maybe_back_and_forth(cmd_output, workspace_name.as_ptr()) as ::core::ffi::c_int != 0
-    {
+    if !no_auto_back_and_forth && maybe_back_and_forth(cmd_output, workspace_name.as_ptr()) {
         if (*cmd_output).has_reply() {
             emit_command_reply(cmd_output, CommandReply::Success(true));
         }
@@ -2210,8 +2203,7 @@ pub unsafe fn cmd_workspace_name(
             );
         }
     };
-    if !no_auto_back_and_forth && maybe_back_and_forth(cmd_output, name) as ::core::ffi::c_int != 0
-    {
+    if !no_auto_back_and_forth && maybe_back_and_forth(cmd_output, name) {
         if (*cmd_output).has_reply() {
             emit_command_reply(cmd_output, CommandReply::Success(true));
         }
@@ -2364,8 +2356,8 @@ pub unsafe fn cmd_unmark(
     if match_is_empty(current_match) {
         con_unmark(::core::ptr::null_mut::<Con>(), mark);
     } else {
-        let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-        current = (*(*cmd_output).ctx).owindows.tqh_first;
+        let mut current: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
+
         while !current.is_null() {
             con_unmark((*current).con, mark);
             current = (*current).owindows.tqe_next;
@@ -2536,8 +2528,8 @@ pub unsafe fn cmd_move_con_to_output(
         return;
     }
     let mut success: bool = false;
-    let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current = (*(*cmd_output).ctx).owindows.tqh_first;
+    let mut current: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
+
     while !current.is_null() {
         let ws: *mut Con = con_get_workspace((*current).con);
         if !con_is_internal(ws) {
@@ -2645,8 +2637,8 @@ pub unsafe fn cmd_move_con_to_mark(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
     let mut result: bool = true;
-    let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current = (*(*cmd_output).ctx).owindows.tqh_first;
+    let mut current: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
+
     while !current.is_null() {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
@@ -2696,8 +2688,7 @@ pub unsafe fn cmd_floating(
     cmd_output: *mut CommandResultIR,
     floating_mode: *const ::core::ffi::c_char,
 ) {
-    if floating_mode != ::core::ptr::null_mut::<::core::ffi::c_void>() as *const ::core::ffi::c_char
-    {
+    if !floating_mode.is_null() {
     } else {
         __assert_fail(
             c"floating_mode != NULL".as_ptr(),
@@ -2772,8 +2763,8 @@ pub unsafe fn cmd_floating(
         *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
-    let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current = (*(*cmd_output).ctx).owindows.tqh_first;
+    let mut current: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
+
     while !current.is_null() {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
@@ -2957,9 +2948,7 @@ pub unsafe fn cmd_split(
                     );
                 }
             };
-            if *direction.offset(0 as ::core::ffi::c_int as isize) as ::core::ffi::c_int
-                == 't' as i32
-            {
+            if *direction.offset(0_isize) as ::core::ffi::c_int == 't' as i32 {
                 let mut current_layout: Layout = Layout::Default;
                 if ((*(*current).con).type_0) == ContainerType::Workspace {
                     current_layout = (*(*current).con).layout;
@@ -2974,9 +2963,7 @@ pub unsafe fn cmd_split(
             } else {
                 tree_split(
                     (*current).con,
-                    if *direction.offset(0 as ::core::ffi::c_int as isize) as ::core::ffi::c_int
-                        == 'v' as i32
-                    {
+                    if *direction.offset(0_isize) as ::core::ffi::c_int == 'v' as i32 {
                         Orientation::Vertical
                     } else {
                         Orientation::Horizontal
@@ -3088,8 +3075,8 @@ pub unsafe fn cmd_kill(
         *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
-    let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current = (*(*cmd_output).ctx).owindows.tqh_first;
+    let mut current: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
+
     while !current.is_null() {
         con_close((*current).con, kill_mode);
         current = (*current).owindows.tqe_next;
@@ -3146,8 +3133,8 @@ pub unsafe fn cmd_exec(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
     let mut count: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current = (*(*cmd_output).ctx).owindows.tqh_first;
+    let mut current: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
+
     while !current.is_null() {
         count += 1;
         current = (*current).owindows.tqe_next;
@@ -3247,8 +3234,8 @@ pub unsafe fn cmd_focus_direction(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
     let mut count: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current = (*(*cmd_output).ctx).owindows.tqh_first;
+    let mut current: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
+
     while !current.is_null() {
         count += 1;
         current = (*current).owindows.tqe_next;
@@ -3267,11 +3254,11 @@ pub unsafe fn cmd_focus_direction(
         auto_direction = false;
         direction = parse_direction(direction_str);
     }
-    let mut current_0: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current_0 = (*(*cmd_output).ctx).owindows.tqh_first;
+    let mut current_0: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
+
     while !current_0.is_null() {
         let ws: *mut Con = con_get_workspace((*current_0).con);
-        if !(ws.is_null() || con_is_internal(ws) as ::core::ffi::c_int != 0) {
+        if !(ws.is_null() || con_is_internal(ws)) {
             if auto_direction {
                 let o: Orientation = con_orientation(parent_ptr((*current_0).con));
                 direction = direction_from_orientation_position(o, position);
@@ -3330,8 +3317,8 @@ pub unsafe fn cmd_focus_sibling(
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
     let mut count: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current = (*(*cmd_output).ctx).owindows.tqh_first;
+    let mut current: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
+
     while !current.is_null() {
         count += 1;
         current = (*current).owindows.tqe_next;
@@ -3346,11 +3333,11 @@ pub unsafe fn cmd_focus_sibling(
     } else {
         Position::After
     };
-    let mut current_0: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current_0 = (*(*cmd_output).ctx).owindows.tqh_first;
+    let mut current_0: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
+
     while !current_0.is_null() {
         let ws: *mut Con = con_get_workspace((*current_0).con);
-        if !(ws.is_null() || con_is_internal(ws) as ::core::ffi::c_int != 0) {
+        if !(ws.is_null() || con_is_internal(ws)) {
             let next: *mut Con = get_tree_next_sibling((*current_0).con, direction);
             if !next.is_null() {
                 if ((*next).type_0) == ContainerType::Workspace {
@@ -3415,7 +3402,7 @@ pub unsafe fn cmd_focus_window_mode(
     let mut success: bool = false;
     current = focus::first_ptr(ws.cast_mut());
     while !current.is_null() {
-        if to_floating as ::core::ffi::c_int != 0 && ((*current).type_0) != ContainerType::Floating
+        if to_floating && ((*current).type_0) != ContainerType::Floating
             || !to_floating && ((*current).type_0) == ContainerType::Floating
         {
             current = focus::next_ptr(current);
@@ -3435,7 +3422,7 @@ pub unsafe fn cmd_focus_window_mode(
         sasprintf(
             &raw mut message,
             c"Failed to find a %s container in workspace.".as_ptr(),
-            if to_floating as ::core::ffi::c_int != 0 {
+            if to_floating {
                 c"floating".as_ptr()
             } else {
                 c"tiling".as_ptr()
@@ -3543,8 +3530,8 @@ pub unsafe fn cmd_focus(
         return;
     }
     let mut count: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current = (*(*cmd_output).ctx).owindows.tqh_first;
+    let mut current: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
+
     while !current.is_null() {
         count += 1;
         current = (*current).owindows.tqe_next;
@@ -3553,8 +3540,8 @@ pub unsafe fn cmd_focus(
         ::log::info!("WARNING: Your criteria for the focus command matches {} containers, while only exactly one container can be focused at a time.\n", (count) as i32);
     }
     let mut __i3_scratch: *const Con = workspace_get(c"__i3_scratch".as_ptr());
-    let mut current_0: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current_0 = (*(*cmd_output).ctx).owindows.tqh_first;
+    let mut current_0: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
+
     while !current_0.is_null() {
         let ws: *mut Con = con_get_workspace((*current_0).con);
         if !ws.is_null() {
@@ -3866,8 +3853,8 @@ pub unsafe fn cmd_sticky(
         *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
-    let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current = (*(*cmd_output).ctx).owindows.tqh_first;
+    let mut current: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
+
     while !current.is_null() {
         if (*(*current).con).window.is_null() {
             ::log::error!(
@@ -4040,7 +4027,7 @@ pub unsafe fn cmd_move_direction(
             match direction {
                 Direction::Left => {
                     newrect.x = (newrect.x as ::core::ffi::c_double
-                        - if is_ppt as ::core::ffi::c_int != 0 {
+                        - if is_ppt {
                             (*output).rect.width as ::core::ffi::c_double
                                 * (amount as ::core::ffi::c_double / 100.0f64)
                         } else {
@@ -4049,7 +4036,7 @@ pub unsafe fn cmd_move_direction(
                 }
                 Direction::Right => {
                     newrect.x = (newrect.x as ::core::ffi::c_double
-                        + if is_ppt as ::core::ffi::c_int != 0 {
+                        + if is_ppt {
                             (*output).rect.width as ::core::ffi::c_double
                                 * (amount as ::core::ffi::c_double / 100.0f64)
                         } else {
@@ -4058,7 +4045,7 @@ pub unsafe fn cmd_move_direction(
                 }
                 Direction::Up => {
                     newrect.y = (newrect.y as ::core::ffi::c_double
-                        - if is_ppt as ::core::ffi::c_int != 0 {
+                        - if is_ppt {
                             (*output).rect.height as ::core::ffi::c_double
                                 * (amount as ::core::ffi::c_double / 100.0f64)
                         } else {
@@ -4067,7 +4054,7 @@ pub unsafe fn cmd_move_direction(
                 }
                 Direction::Down => {
                     newrect.y = (newrect.y as ::core::ffi::c_double
-                        + if is_ppt as ::core::ffi::c_int != 0 {
+                        + if is_ppt {
                             (*output).rect.height as ::core::ffi::c_double
                                 * (amount as ::core::ffi::c_double / 100.0f64)
                         } else {
@@ -4178,8 +4165,8 @@ pub unsafe fn cmd_layout(
             );
         }
     };
-    let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current = (*(*cmd_output).ctx).owindows.tqh_first;
+    let mut current: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
+
     while !current.is_null() {
         if con_is_docked((*current).con) {
             ::log::error!("ERROR: cannot change layout of a docked container, skipping it.\n");
@@ -4268,8 +4255,8 @@ pub unsafe fn cmd_layout_toggle(
     if match_is_empty(current_match) {
         con_toggle_layout(focused, toggle_mode);
     } else {
-        let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-        current = (*(*cmd_output).ctx).owindows.tqh_first;
+        let mut current: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
+
         while !current.is_null() {
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
@@ -4336,8 +4323,8 @@ pub unsafe fn cmd_reload(current_match: *mut Match, cmd_output: *mut CommandResu
         ::core::ptr::null_mut::<Con>(),
         ::core::ptr::null_mut::<Con>(),
     );
-    let mut current: *mut Barconfig = ::core::ptr::null_mut::<Barconfig>();
-    current = barconfigs.tqh_first;
+    let mut current: *mut Barconfig = barconfigs.tqh_first;
+
     while !current.is_null() {
         ipc_send_barconfig_update_event(current);
         current = (*current).configs.tqe_next;
@@ -4379,15 +4366,12 @@ pub unsafe fn cmd_restart(current_match: *mut Match, cmd_output: *mut CommandRes
     }
     purge_zerobyte_logfile();
     i3_restart(false);
-    if 0 as ::core::ffi::c_int != 0 {
-    } else {
-        __assert_fail(
-            c"false".as_ptr(),
-            c"../src/commands.c".as_ptr(),
-            1723 as ::core::ffi::c_uint,
-            c"void cmd_restart(Match *, struct CommandResultIR *)".as_ptr(),
-        );
-    };
+    __assert_fail(
+        c"false".as_ptr(),
+        c"../src/commands.c".as_ptr(),
+        1723 as ::core::ffi::c_uint,
+        c"void cmd_restart(Match *, struct CommandResultIR *)".as_ptr(),
+    );
 }
 
 pub unsafe fn cmd_open(current_match: *mut Match, cmd_output: *mut CommandResultIR) {
@@ -4735,8 +4719,8 @@ pub unsafe fn cmd_move_window_to_center(
         *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
-    let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current = (*(*cmd_output).ctx).owindows.tqh_first;
+    let mut current: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
+
     while !current.is_null() {
         let floating_con: *mut Con = con_inside_floating((*current).con);
         if floating_con.is_null() {
@@ -4854,8 +4838,8 @@ pub unsafe fn cmd_move_window_to_mouse(
         *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
-    let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current = (*(*cmd_output).ctx).owindows.tqh_first;
+    let mut current: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
+
     while !current.is_null() {
         let floating_con: *mut Con = con_inside_floating((*current).con);
         if floating_con.is_null() {
@@ -5013,8 +4997,8 @@ pub unsafe fn cmd_scratchpad_show(current_match: *mut Match, cmd_output: *mut Co
     if match_is_empty(current_match) {
         result = scratchpad_show(::core::ptr::null_mut::<Con>());
     } else {
-        let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-        current = (*(*cmd_output).ctx).owindows.tqh_first;
+        let mut current: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
+
         while !current.is_null() {
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
@@ -5221,7 +5205,7 @@ pub unsafe fn cmd_swap(
         i3_common::logging::pointer((*match_0).con),
         i3_common::logging::pointer(con)
     );
-    let result: bool = con_swap((*match_0).con, con) as bool;
+    let result: bool = con_swap((*match_0).con, con);
     (*cmd_output).needs_tree_render = true;
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(result));
@@ -5301,8 +5285,8 @@ pub unsafe fn cmd_title_format(
         *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
-    let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current = (*(*cmd_output).ctx).owindows.tqh_first;
+    let mut current: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
+
     while !current.is_null() {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
@@ -5415,8 +5399,8 @@ pub unsafe fn cmd_title_window_icon(
         *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
-    let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
-    current = (*(*cmd_output).ctx).owindows.tqh_first;
+    let mut current: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
+
     while !current.is_null() {
         if is_toggle {
             let current_padding: ::core::ffi::c_int = (*(*current).con).window_icon_padding;
@@ -5446,7 +5430,7 @@ pub unsafe fn cmd_title_window_icon(
                 None,
             )
             .to_vec();
-            let log_value_2 = ((*(*current).con).window_icon_padding) as i32;
+            let log_value_2 = ((*(*current).con).window_icon_padding);
             if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
                 ::log::debug!("../src/commands.c:cmd_title_window_icon:2095 - Set window_icon for {} / {} to {}\n", log_value_0, log_value_1_text, log_value_2);
             } else {
@@ -5725,16 +5709,13 @@ pub unsafe fn cmd_bar_mode(
                 );
             }
         };
-        if 0 as ::core::ffi::c_int != 0 {
-        } else {
-            __assert_fail(
-                c"false".as_ptr(),
-                c"../src/commands.c".as_ptr(),
-                2220 as ::core::ffi::c_uint,
-                c"void cmd_bar_mode(Match *, struct CommandResultIR *, const char *, const char *)"
-                    .as_ptr(),
-            );
-        };
+        __assert_fail(
+            c"false".as_ptr(),
+            c"../src/commands.c".as_ptr(),
+            2220 as ::core::ffi::c_uint,
+            c"void cmd_bar_mode(Match *, struct CommandResultIR *, const char *, const char *)"
+                .as_ptr(),
+        );
     }
     if barconfigs.tqh_first.is_null() {
         if (*cmd_output).has_reply() {
@@ -5749,8 +5730,8 @@ pub unsafe fn cmd_bar_mode(
         }
         return;
     }
-    let mut current: *mut Barconfig = ::core::ptr::null_mut::<Barconfig>();
-    current = barconfigs.tqh_first;
+    let mut current: *mut Barconfig = barconfigs.tqh_first;
+
     while !current.is_null() {
         if !(!bar_id.is_null()
             && strcmp((*current).id().as_ptr(), bar_id) != 0 as ::core::ffi::c_int)
@@ -5874,15 +5855,12 @@ pub unsafe fn cmd_bar_hidden_state(
                 );
             }
         };
-        if 0 as ::core::ffi::c_int != 0 {
-        } else {
-            __assert_fail(
+        __assert_fail(
                 c"false".as_ptr(),
                 c"../src/commands.c".as_ptr(),
                 2277 as ::core::ffi::c_uint,
                 c"void cmd_bar_hidden_state(Match *, struct CommandResultIR *, const char *, const char *)".as_ptr(),
             );
-        };
     }
     if barconfigs.tqh_first.is_null() {
         if (*cmd_output).has_reply() {
@@ -5897,8 +5875,8 @@ pub unsafe fn cmd_bar_hidden_state(
         }
         return;
     }
-    let mut current: *mut Barconfig = ::core::ptr::null_mut::<Barconfig>();
-    current = barconfigs.tqh_first;
+    let mut current: *mut Barconfig = barconfigs.tqh_first;
+
     while !current.is_null() {
         if !(!bar_id.is_null()
             && strcmp((*current).id().as_ptr(), bar_id) != 0 as ::core::ffi::c_int)
@@ -6046,7 +6024,7 @@ pub unsafe fn cmd_debuglog(
     } else if strcmp(argument, c"on".as_ptr()) == 0 && !logging {
         ::log::info!("Enabling debug logging\n");
         set_debug_logging(true);
-    } else if strcmp(argument, c"off".as_ptr()) == 0 && logging as ::core::ffi::c_int != 0 {
+    } else if strcmp(argument, c"off".as_ptr()) == 0 && logging {
         ::log::info!("Disabling debug logging\n");
         set_debug_logging(false);
     }
@@ -6189,8 +6167,8 @@ unsafe fn gaps_update(
         current_value = min_value;
     }
     if strcmp(scope, c"all".as_ptr()) == 0 as ::core::ffi::c_int {
-        let mut output: *mut Con = ::core::ptr::null_mut::<Con>();
-        output = nodes::first_ptr(croot);
+        let mut output: *mut Con = nodes::first_ptr(croot);
+
         while !output.is_null() {
             let mut cur_ws: *mut Con = ::core::ptr::null_mut::<Con>();
             let content: *const Con = output_get_content(output);

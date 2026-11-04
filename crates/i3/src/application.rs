@@ -446,13 +446,12 @@ pub static mut original_rlimit_core: rlimit = rlimit {
 };
 
 pub static mut listen_fds: ::core::ffi::c_int = 0;
-static mut xcb_prepare: *mut ev_prepare = ::core::ptr::null::<ev_prepare>() as *mut ev_prepare;
+static mut xcb_prepare: *mut ev_prepare = std::ptr::null_mut::<ev_prepare>();
 
 pub static mut start_argv: *mut *mut ::core::ffi::c_char =
-    ::core::ptr::null::<*mut ::core::ffi::c_char>() as *mut *mut ::core::ffi::c_char;
+    std::ptr::null_mut::<*mut ::core::ffi::c_char>();
 
-pub static mut conn: *mut xcb_connection_t =
-    ::core::ptr::null::<xcb_connection_t>() as *mut xcb_connection_t;
+pub static mut conn: *mut xcb_connection_t = std::ptr::null_mut::<xcb_connection_t>();
 // The registration owns the one maintained connection on the event thread.
 // `conn` is only a compatibility/native-library alias and never disconnects it.
 static mut MAIN_DISPLAY: Option<i3_common::display::DisplayConnection> = None;
@@ -551,7 +550,7 @@ unsafe fn log_x11_error(error: &xcb::ProtocolError) {
 
 pub static mut conn_screen: ::core::ffi::c_int = 0;
 
-pub static mut sndisplay: *mut SnDisplay = ::core::ptr::null::<SnDisplay>() as *mut SnDisplay;
+pub static mut sndisplay: *mut SnDisplay = std::ptr::null_mut::<SnDisplay>();
 
 pub static mut last_timestamp: u32 = (::xcb::x::CURRENT_TIME);
 
@@ -565,7 +564,7 @@ pub static mut root_depth: u8 = 0;
 
 pub static mut colormap: u32 = 0;
 
-pub static mut main_loop: *mut ev_loop = ::core::ptr::null::<ev_loop>() as *mut ev_loop;
+pub static mut main_loop: *mut ev_loop = std::ptr::null_mut::<ev_loop>();
 
 // Native cache ownership remains on the main event thread and outlives TLS.
 // Release it explicitly before the main display registration in native atexit.
@@ -598,30 +597,29 @@ pub unsafe fn key_symbol(keycode: u8, column: i32) -> u32 {
 pub static mut default_shmlog_size: ::core::ffi::c_int =
     25 as ::core::ffi::c_int * 1024 as ::core::ffi::c_int * 1024 as ::core::ffi::c_int;
 
-pub static mut bindings: *mut bindings_head =
-    ::core::ptr::null::<bindings_head>() as *mut bindings_head;
+pub static mut bindings: *mut bindings_head = std::ptr::null_mut::<bindings_head>();
 
 pub static mut current_binding_mode: *const ::core::ffi::c_char =
     ::core::ptr::null::<::core::ffi::c_char>();
 
 pub static mut autostarts: autostarts_head = autostarts_head {
-    tqh_first: ::core::ptr::null::<Autostart>() as *mut Autostart,
-    tqh_last: ::core::ptr::null::<*mut Autostart>() as *mut *mut Autostart,
+    tqh_first: std::ptr::null_mut::<Autostart>(),
+    tqh_last: std::ptr::null_mut::<*mut Autostart>(),
 };
 
 pub static mut autostarts_always: autostarts_always_head = autostarts_always_head {
-    tqh_first: ::core::ptr::null::<Autostart>() as *mut Autostart,
-    tqh_last: ::core::ptr::null::<*mut Autostart>() as *mut *mut Autostart,
+    tqh_first: std::ptr::null_mut::<Autostart>(),
+    tqh_last: std::ptr::null_mut::<*mut Autostart>(),
 };
 
 pub static mut assignments: assignments_head = assignments_head {
-    tqh_first: ::core::ptr::null::<Assignment>() as *mut Assignment,
-    tqh_last: ::core::ptr::null::<*mut Assignment>() as *mut *mut Assignment,
+    tqh_first: std::ptr::null_mut::<Assignment>(),
+    tqh_last: std::ptr::null_mut::<*mut Assignment>(),
 };
 
 pub static mut ws_assignments: ws_assignments_head = ws_assignments_head {
-    tqh_first: ::core::ptr::null::<Workspace_Assignment>() as *mut Workspace_Assignment,
-    tqh_last: ::core::ptr::null::<*mut Workspace_Assignment>() as *mut *mut Workspace_Assignment,
+    tqh_first: std::ptr::null_mut::<Workspace_Assignment>(),
+    tqh_last: std::ptr::null_mut::<*mut Workspace_Assignment>(),
 };
 
 pub static mut xkb_supported: bool = true;
@@ -1113,7 +1111,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     }
     srand(time(::core::ptr::null_mut::<libc::time_t>()) as ::core::ffi::c_uint);
     init_logging();
-    shmlog_size = if is_debug_build() as ::core::ffi::c_int != 0
+    shmlog_size = if is_debug_build()
         || !strstr(
             _restart_arguments.strings[0].as_ptr(),
             c"i3-with-shmlog".as_ptr(),
@@ -1202,9 +1200,7 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
     }
     if only_check_config {
         exit(
-            if load_configuration(override_configpath, ConfigLoad::Validate) as ::core::ffi::c_int
-                != 0
-            {
+            if load_configuration(override_configpath, ConfigLoad::Validate) {
                 EXIT_SUCCESS
             } else {
                 EXIT_FAILURE
@@ -1952,18 +1948,17 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
         ::log::debug!("../src/main.c:main:956 - Checking for XRandR...\n");
         randr_init(
             &raw mut randr_base,
-            disable_randr15 as ::core::ffi::c_int != 0
-                || config.disable_randr15 as ::core::ffi::c_int != 0,
+            disable_randr15 || config.disable_randr15,
         );
     }
     if !layout_path.is_null() && randr_base > -(1 as ::core::ffi::c_int) {
-        let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
-        con = nodes::first_ptr(croot);
+        let mut con: *mut Con = nodes::first_ptr(croot);
+
         while !con.is_null() {
-            let mut output: *mut Output = ::core::ptr::null_mut::<Output>();
-            output = outputs.tqh_first as *mut Output;
+            let mut output: *mut Output = outputs.tqh_first as *mut Output;
+
             while !output.is_null() {
-                if !((*output).active as ::core::ffi::c_int != 0
+                if !((*output).active
                     || strcmp((*con).name_ptr(), output_primary_name(output))
                         != 0 as ::core::ffi::c_int)
                 {
@@ -2173,8 +2168,8 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
             0_u32,
         );
     }
-    let mut barconfig: *mut Barconfig = ::core::ptr::null_mut::<Barconfig>();
-    barconfig = barconfigs.tqh_first;
+    let mut barconfig: *mut Barconfig = barconfigs.tqh_first;
+
     while !barconfig.is_null() {
         let program = (*barconfig)
             .i3bar_command

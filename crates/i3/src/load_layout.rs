@@ -261,8 +261,8 @@ impl LayoutState {
                     },
                 ) {
                     ::log::debug!("../src/load_layout.c:json_end_map:155 - Geometry not set, combining children\n");
-                    let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-                    child = nodes::first_ptr(self.json_node);
+                    let mut child: *mut Con = nodes::first_ptr(self.json_node);
+
                     while !child.is_null() {
                         ::log::debug!(
                             "../src/load_layout.c:json_end_map:158 - child geometry: {} x {}\n",
@@ -305,9 +305,7 @@ impl LayoutState {
                 { (self.incomplete) }
             );
         }
-        if self.parsing_swallows as ::core::ffi::c_int != 0
-            && self.swallow_is_empty as ::core::ffi::c_int != 0
-        {
+        if self.parsing_swallows && self.swallow_is_empty {
             ::log::error!("ERROR: Layout file is invalid: found an empty swallow definition.\n");
             return 0 as ::core::ffi::c_int;
         }
@@ -923,10 +921,7 @@ impl LayoutState {
         if self.parsing_focus {
             self.focus_mappings.push(val as i32);
         }
-        if self.parsing_rect as ::core::ffi::c_int != 0
-            || self.parsing_window_rect as ::core::ffi::c_int != 0
-            || self.parsing_geometry as ::core::ffi::c_int != 0
-        {
+        if self.parsing_rect || self.parsing_window_rect || self.parsing_geometry {
             let mut r: *mut Rect = ::core::ptr::null_mut::<Rect>();
             if self.parsing_rect {
                 r = &raw mut (*self.json_node).rect;

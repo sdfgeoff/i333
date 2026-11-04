@@ -236,8 +236,8 @@ pub unsafe fn render_con(con: *mut Con) {
         render_root(con, fullscreen);
     } else {
         let mut i: i32 = 0;
-        let mut child: *mut Con = ::core::ptr::null_mut::<Con>();
-        child = nodes::first_ptr(con);
+        let mut child: *mut Con = nodes::first_ptr(con);
+
         while !child.is_null() {
             if params.children > 0 {
             } else {

@@ -95,8 +95,7 @@ thread_local! {
         const { std::cell::RefCell::new(None) };
 }
 
-pub static mut xcb_connection: *mut xcb_connection_t =
-    ::core::ptr::null::<xcb_connection_t>() as *mut xcb_connection_t;
+pub static mut xcb_connection: *mut xcb_connection_t = std::ptr::null_mut::<xcb_connection_t>();
 
 pub static mut screen: ::core::ffi::c_int = 0;
 
@@ -125,8 +124,7 @@ static mut cursor: u32 = 0;
 static mut selwin: u32 = 0_u32;
 static mut tray_atom: Option<x::Atom> = None;
 
-pub static mut conn: *mut xcb_connection_t =
-    ::core::ptr::null::<xcb_connection_t>() as *mut xcb_connection_t;
+pub static mut conn: *mut xcb_connection_t = std::ptr::null_mut::<xcb_connection_t>();
 pub(crate) static mut font: Font = Font::empty();
 
 pub static mut icon_size: ::core::ffi::c_int = 0;
@@ -139,20 +137,20 @@ pub static mut bar_height: ::core::ffi::c_int = 0;
 
 pub static mut xkb_base: ::core::ffi::c_int = 0;
 
-pub static mut mod_pressed: bool = 0 as ::core::ffi::c_int != 0;
+pub static mut mod_pressed: bool = false;
 
-pub static mut xcb_prep: *mut ev_prepare = ::core::ptr::null::<ev_prepare>() as *mut ev_prepare;
+pub static mut xcb_prep: *mut ev_prepare = std::ptr::null_mut::<ev_prepare>();
 
-pub static mut xcb_io: *mut ev_io = ::core::ptr::null::<ev_io>() as *mut ev_io;
+pub static mut xcb_io: *mut ev_io = std::ptr::null_mut::<ev_io>();
 
-pub static mut xkb_io: *mut ev_io = ::core::ptr::null::<ev_io>() as *mut ev_io;
+pub static mut xkb_io: *mut ev_io = std::ptr::null_mut::<ev_io>();
 static mut binding: Mode = Mode {
     name: None,
     name_width: 0,
 };
 
 pub static mut activated_mode: bool = false;
-static mut output_for_tray: *mut i3_output = ::core::ptr::null::<i3_output>() as *mut i3_output;
+static mut output_for_tray: *mut i3_output = std::ptr::null_mut::<i3_output>();
 
 pub static mut colors: xcb_colors_t = xcb_colors_t {
     bar_fg: color_t {
@@ -546,12 +544,12 @@ unsafe fn draw_separator(
     block: *mut status_block,
     use_focus_colors: bool,
 ) {
-    let sep_fg: color_t = if use_focus_colors as ::core::ffi::c_int != 0 {
+    let sep_fg: color_t = if use_focus_colors {
         colors.focus_sep_fg
     } else {
         colors.sep_fg
     };
-    let bar_bg: color_t = if use_focus_colors as ::core::ffi::c_int != 0 {
+    let bar_bg: color_t = if use_focus_colors {
         colors.focus_bar_bg
     } else {
         colors.bar_bg
@@ -594,7 +592,7 @@ unsafe fn draw_separator(
 unsafe fn predict_block_length(block: *mut status_block) {
     let mut text = &(*block).full_text;
     let mut render: *mut status_block_render_desc = &raw mut (*block).full_render;
-    if (*block).use_short as ::core::ffi::c_int != 0 && (*block).short_text.is_some() {
+    if (*block).use_short && (*block).short_text.is_some() {
         text = (*block).short_text.as_ref().unwrap();
         render = &raw mut (*block).short_render;
     }
@@ -616,8 +614,8 @@ unsafe fn predict_block_length(block: *mut status_block) {
 }
 unsafe fn predict_statusline_length() -> u32 {
     let mut width: u32 = 0_u32;
-    let mut block: *mut status_block = ::core::ptr::null_mut::<status_block>();
-    block = statusline_head.tqh_first;
+    let mut block: *mut status_block = statusline_head.tqh_first;
+
     while !block.is_null() {
         predict_block_length(block);
         let block_width: u32 = (*block).render_length;
@@ -632,7 +630,7 @@ unsafe fn predict_statusline_length() -> u32 {
     width
 }
 unsafe fn switch_block_to_short(block: *mut status_block) -> u32 {
-    if (*block).short_text.is_none() || (*block).use_short as ::core::ffi::c_int != 0 {
+    if (*block).short_text.is_none() || (*block).use_short {
         return 0_u32;
     }
     let full: u32 = (*block).render_length;
@@ -642,16 +640,16 @@ unsafe fn switch_block_to_short(block: *mut status_block) -> u32 {
 }
 unsafe fn adjust_statusline_length(max_length: u32) -> u32 {
     let mut width: u32 = predict_statusline_length();
-    let mut block: *mut status_block = ::core::ptr::null_mut::<status_block>();
-    block = statusline_head.tqh_first;
+    let mut block: *mut status_block = statusline_head.tqh_first;
+
     while !block.is_null() {
         if width < max_length {
             break;
         }
         width = width.wrapping_sub(switch_block_to_short(block));
         if (*block).name.is_some() {
-            let mut other: *mut status_block = ::core::ptr::null_mut::<status_block>();
-            other = statusline_head.tqh_first;
+            let mut other: *mut status_block = statusline_head.tqh_first;
+
             while !other.is_null() {
                 if (*other).name.is_some() && (*other).name == (*block).name {
                     width = width.wrapping_sub(switch_block_to_short(other));
@@ -666,7 +664,7 @@ unsafe fn adjust_statusline_length(max_length: u32) -> u32 {
 unsafe fn draw_statusline(output: *mut i3_output, clip_left: u32, use_focus_colors: bool) {
     let color_screen = DISPLAY_STATE.as_ref().map(|state| state.renderer.screen());
     let mut block: *mut status_block = ::core::ptr::null_mut::<status_block>();
-    let bar_color: color_t = if use_focus_colors as ::core::ffi::c_int != 0 {
+    let bar_color: color_t = if use_focus_colors {
         colors.focus_bar_bg
     } else {
         colors.bar_bg
@@ -677,7 +675,7 @@ unsafe fn draw_statusline(output: *mut i3_output, clip_left: u32, use_focus_colo
     while !block.is_null() {
         let mut text = &(*block).full_text;
         let mut render: *mut status_block_render_desc = &raw mut (*block).full_render;
-        if (*block).use_short as ::core::ffi::c_int != 0 && (*block).short_text.is_some() {
+        if (*block).use_short && (*block).short_text.is_some() {
             text = (*block).short_text.as_ref().unwrap();
             render = &raw mut (*block).short_render;
         }
@@ -709,10 +707,7 @@ unsafe fn draw_statusline(output: *mut i3_output, clip_left: u32, use_focus_colo
             } else {
                 0 as ::core::ffi::c_int
             };
-            if (*block).border.is_some()
-                || (*block).background.is_some()
-                || (*block).urgent as ::core::ffi::c_int != 0
-            {
+            if (*block).border.is_some() || (*block).background.is_some() || (*block).urgent {
                 let mut border_color: color_t = bar_color;
                 if (*block).urgent {
                     border_color = colors.urgent_ws_border;
@@ -788,12 +783,12 @@ unsafe fn hide_bars() {
     {
         return;
     }
-    let mut walk: *mut i3_output = ::core::ptr::null_mut::<i3_output>();
-    walk = (*outputs).slh_first;
+    let mut walk: *mut i3_output = (*outputs).slh_first;
+
     while !walk.is_null() {
         if (*walk).active {
             send_unchecked(&x::UnmapWindow {
-                window: x::Window::new((*walk).bar.id as u32),
+                window: x::Window::new((*walk).bar.id),
             });
         }
         walk = (*walk).slist.sle_next;
@@ -813,15 +808,14 @@ unsafe fn unhide_bars() {
     walk = (*outputs).slh_first;
     while !walk.is_null() {
         if !((*walk).bar.id as ::core::ffi::c_long == 0) {
-            values[0 as ::core::ffi::c_int as usize] = (*walk).rect.x as u32;
+            values[0_usize] = (*walk).rect.x as u32;
             if config.position == crate::application::BarPosition::Top {
-                values[1 as ::core::ffi::c_int as usize] = (*walk).rect.y as u32;
+                values[1_usize] = (*walk).rect.y as u32;
             } else {
-                values[1 as ::core::ffi::c_int as usize] =
-                    ((*walk).rect.y + (*walk).rect.h - bar_height) as u32;
+                values[1_usize] = ((*walk).rect.y + (*walk).rect.h - bar_height) as u32;
             }
-            values[2 as ::core::ffi::c_int as usize] = (*walk).rect.w as u32;
-            values[3 as ::core::ffi::c_int as usize] = bar_height as u32;
+            values[2_usize] = (*walk).rect.w as u32;
+            values[3_usize] = bar_height as u32;
 
             if config.verbose {
                 printf(
@@ -829,8 +823,8 @@ unsafe fn unhide_bars() {
                     c"../i3bar/src/xcb.c".as_ptr(),
                     435 as ::core::ffi::c_int,
                     (*walk).name_ptr(),
-                    values[0 as ::core::ffi::c_int as usize],
-                    values[1 as ::core::ffi::c_int as usize],
+                    values[0_usize],
+                    values[1_usize],
                 );
             }
             let cookie = connection.send_request_checked(&x::ConfigureWindow {
@@ -960,8 +954,8 @@ pub unsafe fn init_colors(new_colors: *const ColorStrings) {
     flush_requests();
 }
 unsafe fn execute_custom_command(input_code: u8, event_is_release: bool) -> bool {
-    let mut binding_0: *mut binding_t = ::core::ptr::null_mut::<binding_t>();
-    binding_0 = config.bindings.tqh_first;
+    let mut binding_0: *mut binding_t = config.bindings.tqh_first;
+
     while !binding_0.is_null() {
         if (*binding_0).input_code != input_code as ::core::ffi::c_int
             || (*binding_0).release as ::core::ffi::c_int != event_is_release as ::core::ffi::c_int
@@ -1019,13 +1013,13 @@ unsafe fn child_handle_button(
         return;
     }
     let mut last_block_x: u32 = 0_u32;
-    let mut block: *mut status_block = ::core::ptr::null_mut::<status_block>();
-    block = statusline_head.tqh_first;
+    let mut block: *mut status_block = statusline_head.tqh_first;
+
     while !block.is_null() {
         let text: &I3String;
         let mut render: *mut status_block_render_desc =
             ::core::ptr::null_mut::<status_block_render_desc>();
-        if (*block).use_short as ::core::ffi::c_int != 0 && (*block).short_text.is_some() {
+        if (*block).use_short && (*block).short_text.is_some() {
             text = (*block).short_text.as_ref().unwrap();
             render = &raw mut (*block).short_render;
         } else {
@@ -1132,8 +1126,8 @@ unsafe fn handle_button(event: &ButtonInput) {
     let mut workspace_width: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
     let mut cur_ws: *mut i3_ws = ::core::ptr::null_mut::<i3_ws>();
     let mut clicked_ws: *mut i3_ws = ::core::ptr::null_mut::<i3_ws>();
-    let mut ws_walk: *mut i3_ws = ::core::ptr::null_mut::<i3_ws>();
-    ws_walk = (*(*walk).workspaces).tqh_first;
+    let mut ws_walk: *mut i3_ws = (*(*walk).workspaces).tqh_first;
+
     while !ws_walk.is_null() {
         let w: ::core::ffi::c_int = predict_button_width((*ws_walk).name_width);
         if x >= workspace_width && x <= workspace_width + w {
@@ -1148,7 +1142,7 @@ unsafe fn handle_button(event: &ButtonInput) {
         }
         ws_walk = (*ws_walk).tailq.tqe_next;
     }
-    if child_want_click_events() as ::core::ffi::c_int != 0 && x > workspace_width {
+    if child_want_click_events() && x > workspace_width {
         let tray_width: ::core::ffi::c_int =
             get_tray_width((*walk).trayclients) as ::core::ffi::c_int;
         let offset_x: ::core::ffi::c_int = (*walk).rect.w
@@ -1167,9 +1161,7 @@ unsafe fn handle_button(event: &ButtonInput) {
             return;
         }
     }
-    if execute_custom_command(event.button, event_is_release) as ::core::ffi::c_int != 0
-        || event_is_release as ::core::ffi::c_int != 0
-    {
+    if execute_custom_command(event.button, event_is_release) || event_is_release {
         return;
     }
     if cur_ws.is_null() {
@@ -1200,7 +1192,7 @@ unsafe fn handle_button(event: &ButtonInput) {
             if cur_ws.is_null() {
                 cur_ws = (*(*walk).workspaces).tqh_first;
                 while !cur_ws.is_null() {
-                    if (*cur_ws).visible as ::core::ffi::c_int != 0 && !(*cur_ws).focused {
+                    if (*cur_ws).visible && !(*cur_ws).focused {
                         break;
                     }
                     cur_ws = (*cur_ws).tailq.tqe_next;
@@ -1217,8 +1209,8 @@ unsafe fn handle_button(event: &ButtonInput) {
 unsafe fn handle_visibility_notify(event: &x::VisibilityNotifyEvent) {
     let visible: bool = events::visibility_state(event) != x::Visibility::FullyObscured as u8;
     let mut num_visible: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    let mut output: *mut i3_output = ::core::ptr::null_mut::<i3_output>();
-    output = (*outputs).slh_first;
+    let mut output: *mut i3_output = (*outputs).slh_first;
+
     while !output.is_null() {
         if (*output).active {
             if (*output).bar.id == event.window().resource_id() {
@@ -1248,13 +1240,13 @@ unsafe extern "C" fn reorder_trayclients_cmp(
     }
 }
 unsafe fn configure_trayclients() {
-    let mut output: *mut i3_output = ::core::ptr::null_mut::<i3_output>();
-    output = (*outputs).slh_first;
+    let mut output: *mut i3_output = (*outputs).slh_first;
+
     while !output.is_null() {
         if (*output).active {
             let mut count: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-            let mut client: *mut trayclient = ::core::ptr::null_mut::<trayclient>();
-            client = (*(*output).trayclients).tqh_first;
+            let mut client: *mut trayclient = (*(*output).trayclients).tqh_first;
+
             while !client.is_null() {
                 if (*client).mapped {
                     count += 1;
@@ -1304,12 +1296,12 @@ unsafe fn trayclient_and_output_from_window(
     win: u32,
     output: *mut *mut i3_output,
 ) -> *mut trayclient {
-    let mut o_walk: *mut i3_output = ::core::ptr::null_mut::<i3_output>();
-    o_walk = (*outputs).slh_first;
+    let mut o_walk: *mut i3_output = (*outputs).slh_first;
+
     while !o_walk.is_null() {
         if (*o_walk).active {
-            let mut client: *mut trayclient = ::core::ptr::null_mut::<trayclient>();
-            client = (*(*o_walk).trayclients).tqh_first;
+            let mut client: *mut trayclient = (*(*o_walk).trayclients).tqh_first;
+
             while !client.is_null() {
                 if (*client).win == win {
                     if !output.is_null() {
@@ -1376,8 +1368,8 @@ unsafe fn trayclient_update_class(client: *mut trayclient) {
 unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
     let words = events::client_message_words(event);
     if event.r#type().resource_id() == atoms[AtomIndex::I3Sync as ::core::ffi::c_int as usize] {
-        let window: u32 = words[0 as ::core::ffi::c_int as usize];
-        let rnd: u32 = words[1 as ::core::ffi::c_int as usize];
+        let window: u32 = words[0_usize];
+        let rnd: u32 = words[1_usize];
         let mut payload: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
         sasprintf(
             &raw mut payload,
@@ -1398,9 +1390,9 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
                 912 as ::core::ffi::c_int,
             );
         }
-        let op: u32 = words[1 as ::core::ffi::c_int as usize];
+        let op: u32 = words[1_usize];
         if op == SYSTEM_TRAY_REQUEST_DOCK as u32 {
-            let client: u32 = words[2 as ::core::ffi::c_int as usize];
+            let client: u32 = words[2_usize];
             send_unchecked(&x::ChangeWindowAttributes {
                 window: x::Window::new(client),
                 value_list: &[x::Cw::EventMask(
@@ -1762,11 +1754,11 @@ unsafe fn handle_property_notify(event: &x::PropertyNotifyEvent) {
                 map_it as ::core::ffi::c_int,
             );
         }
-        if (*client).mapped as ::core::ffi::c_int != 0 && !map_it {
+        if (*client).mapped && !map_it {
             send_unchecked(&x::UnmapWindow {
                 window: x::Window::new((*client).win),
             });
-        } else if !(*client).mapped && map_it as ::core::ffi::c_int != 0 {
+        } else if !(*client).mapped && map_it {
             send_unchecked(&x::MapWindow {
                 window: x::Window::new((*client).win),
             });
@@ -1782,8 +1774,8 @@ unsafe fn handle_property_notify(event: &x::PropertyNotifyEvent) {
 }
 unsafe fn handle_configuration_change(window: u32) {
     let mut trayclient: *mut trayclient = ::core::ptr::null_mut::<trayclient>();
-    let mut output: *mut i3_output = ::core::ptr::null_mut::<i3_output>();
-    output = (*outputs).slh_first;
+    let mut output: *mut i3_output = (*outputs).slh_first;
+
     while !output.is_null() {
         if (*output).active {
             let mut clients: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
@@ -2331,20 +2323,20 @@ pub unsafe fn init_tray_colors() {
         ],
     ];
     let r: u8 = strtol(
-        &raw mut *(&raw mut strgroups as *mut [::core::ffi::c_char; 3])
-            .offset(0 as ::core::ffi::c_int as isize) as *mut ::core::ffi::c_char,
+        &raw mut *(&raw mut strgroups as *mut [::core::ffi::c_char; 3]).offset(0_isize)
+            as *mut ::core::ffi::c_char,
         ::core::ptr::null_mut::<*mut ::core::ffi::c_char>(),
         16 as ::core::ffi::c_int,
     ) as u8;
     let g: u8 = strtol(
-        &raw mut *(&raw mut strgroups as *mut [::core::ffi::c_char; 3])
-            .offset(1 as ::core::ffi::c_int as isize) as *mut ::core::ffi::c_char,
+        &raw mut *(&raw mut strgroups as *mut [::core::ffi::c_char; 3]).offset(1_isize)
+            as *mut ::core::ffi::c_char,
         ::core::ptr::null_mut::<*mut ::core::ffi::c_char>(),
         16 as ::core::ffi::c_int,
     ) as u8;
     let b: u8 = strtol(
-        &raw mut *(&raw mut strgroups as *mut [::core::ffi::c_char; 3])
-            .offset(2 as ::core::ffi::c_int as isize) as *mut ::core::ffi::c_char,
+        &raw mut *(&raw mut strgroups as *mut [::core::ffi::c_char; 3]).offset(2_isize)
+            as *mut ::core::ffi::c_char,
         ::core::ptr::null_mut::<*mut ::core::ffi::c_char>(),
         16 as ::core::ffi::c_int,
     ) as u8;
@@ -2515,17 +2507,17 @@ unsafe fn get_tray_output() -> *mut i3_output {
     {
         return ::core::ptr::null_mut::<i3_output>();
     }
-    let mut tray_output: *mut tray_output_t = ::core::ptr::null_mut::<tray_output_t>();
-    tray_output = config.tray_outputs.tqh_first;
+    let mut tray_output: *mut tray_output_t = config.tray_outputs.tqh_first;
+
     while !tray_output.is_null() {
         output = (*outputs).slh_first;
         while !output.is_null() {
-            if (*output).active as ::core::ffi::c_int != 0
+            if (*output).active
                 && (strcasecmp((*output).name_ptr(), (*tray_output).output_ptr())
                     == 0 as ::core::ffi::c_int
                     || strcasecmp((*tray_output).output_ptr(), c"primary".as_ptr())
                         == 0 as ::core::ffi::c_int
-                        && (*output).primary as ::core::ffi::c_int != 0)
+                        && (*output).primary)
             {
                 return output;
             }
@@ -2541,8 +2533,8 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
         return;
     };
     let mut values: [u32; 6] = [0; 6];
-    let mut walk: *mut i3_output = ::core::ptr::null_mut::<i3_output>();
-    walk = (*outputs).slh_first;
+    let mut walk: *mut i3_output = (*outputs).slh_first;
+
     while !walk.is_null() {
         if !(*walk).active {
             if config.verbose {
@@ -2567,28 +2559,26 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
             let buffer_id: u32 = connection.generate_id::<x::Pixmap>().resource_id();
             let statusline_buffer_id: u32 = connection.generate_id::<x::Pixmap>().resource_id();
 
-            values[0 as ::core::ffi::c_int as usize] = colors.bar_bg.colorpixel;
-            values[1 as ::core::ffi::c_int as usize] =
-                common_display_context().screen.unwrap().black_pixel;
-            values[2 as ::core::ffi::c_int as usize] =
+            values[0_usize] = colors.bar_bg.colorpixel;
+            values[1_usize] = common_display_context().screen.unwrap().black_pixel;
+            values[2_usize] =
                 (if config.hide_on_modifier == crate::application::BarDisplayMode::Dock {
                     0 as ::core::ffi::c_int
                 } else {
                     1 as ::core::ffi::c_int
                 }) as u32;
-            values[3 as ::core::ffi::c_int as usize] = (x::EventMask::EXPOSURE.bits()
-                as ::core::ffi::c_int
+            values[3_usize] = (x::EventMask::EXPOSURE.bits() as ::core::ffi::c_int
                 | x::EventMask::SUBSTRUCTURE_REDIRECT.bits() as ::core::ffi::c_int
                 | x::EventMask::BUTTON_PRESS.bits() as ::core::ffi::c_int
                 | x::EventMask::BUTTON_RELEASE.bits() as ::core::ffi::c_int)
                 as u32;
             if config.hide_on_modifier == crate::application::BarDisplayMode::Dock {
-                values[3 as ::core::ffi::c_int as usize] |=
+                values[3_usize] |=
                     x::EventMask::VISIBILITY_CHANGE.bits() as ::core::ffi::c_int as u32;
                 (*walk).visible = true;
             }
-            values[4 as ::core::ffi::c_int as usize] = colormap;
-            values[5 as ::core::ffi::c_int as usize] = cursor;
+            values[4_usize] = colormap;
+            values[5_usize] = cursor;
             let win_cookie = connection.send_request_checked(&x::CreateWindow {
                 depth,
                 wid: x::Window::new(bar_id),
@@ -2764,15 +2754,14 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 )
             });
         } else {
-            values[0 as ::core::ffi::c_int as usize] = (*walk).rect.x as u32;
+            values[0_usize] = (*walk).rect.x as u32;
             if config.position == crate::application::BarPosition::Top {
-                values[1 as ::core::ffi::c_int as usize] = (*walk).rect.y as u32;
+                values[1_usize] = (*walk).rect.y as u32;
             } else {
-                values[1 as ::core::ffi::c_int as usize] =
-                    ((*walk).rect.y + (*walk).rect.h - bar_height) as u32;
+                values[1_usize] = ((*walk).rect.y + (*walk).rect.h - bar_height) as u32;
             }
-            values[2 as ::core::ffi::c_int as usize] = (*walk).rect.w as u32;
-            values[3 as ::core::ffi::c_int as usize] = bar_height as u32;
+            values[2_usize] = (*walk).rect.w as u32;
+            values[3_usize] = bar_height as u32;
 
             if config.verbose {
                 printf(
@@ -2817,12 +2806,12 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                     c"../i3bar/src/xcb.c".as_ptr(),
                     2007 as ::core::ffi::c_int,
                     (*walk).name_ptr(),
-                    values[0 as ::core::ffi::c_int as usize],
-                    values[1 as ::core::ffi::c_int as usize],
+                    values[0_usize],
+                    values[1_usize],
                 );
             }
             let cfg_cookie = connection.send_request_checked(&x::ConfigureWindow {
-                window: x::Window::new((*walk).bar.id as u32),
+                window: x::Window::new((*walk).bar.id),
                 value_list: &[
                     x::ConfigWindow::X(values[0] as i32),
                     x::ConfigWindow::Y(values[1] as i32),
@@ -2832,7 +2821,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 ],
             });
 
-            values[0 as ::core::ffi::c_int as usize] =
+            values[0_usize] =
                 (if config.hide_on_modifier == crate::application::BarDisplayMode::Dock {
                     0 as ::core::ffi::c_int
                 } else {
@@ -2845,11 +2834,11 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                     c"../i3bar/src/xcb.c".as_ptr(),
                     2015 as ::core::ffi::c_int,
                     (*walk).name_ptr(),
-                    values[0 as ::core::ffi::c_int as usize],
+                    values[0_usize],
                 );
             }
             let chg_cookie = connection.send_request(&x::ChangeWindowAttributes {
-                window: x::Window::new((*walk).bar.id as u32),
+                window: x::Window::new((*walk).bar.id),
                 value_list: &[x::Cw::OverrideRedirect(values[0] != 0)],
             });
             if config.verbose {
@@ -2862,7 +2851,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
             }
             let pm_cookie_0 = connection.send_request_checked(&x::CreatePixmap {
                 depth,
-                pid: x::Pixmap::new((*walk).buffer.id as u32),
+                pid: x::Pixmap::new((*walk).buffer.id),
                 drawable: x::Drawable::Window(x::Window::new((*walk).bar.id)),
                 width: (*walk).rect.w as u16,
                 height: bar_height as u16,
@@ -2877,7 +2866,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
             }
             let slpm_cookie_0 = connection.send_request_checked(&x::CreatePixmap {
                 depth,
-                pid: x::Pixmap::new((*walk).statusline_buffer.id as u32),
+                pid: x::Pixmap::new((*walk).statusline_buffer.id),
                 drawable: x::Drawable::Window(x::Window::new((*walk).bar.id)),
                 width: (*walk).rect.w as u16,
                 height: bar_height as u16,
@@ -2922,12 +2911,12 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
             let mut umap_cookie = None;
             if redraw_bars_0 {
                 umap_cookie = Some(connection.send_request_checked(&x::UnmapWindow {
-                    window: x::Window::new((*walk).bar.id as u32),
+                    window: x::Window::new((*walk).bar.id),
                 }));
                 if config.hide_on_modifier == crate::application::BarDisplayMode::Dock {
                     cont_children();
                     map_cookie_0 = Some(connection.send_request_checked(&x::MapWindow {
-                        window: x::Window::new((*walk).bar.id as u32),
+                        window: x::Window::new((*walk).bar.id),
                     }));
                 } else {
                     stop_children();
@@ -2963,7 +2952,7 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                     c"Could not set strut",
                     2068 as ::core::ffi::c_int,
                 ) != 0
-                || redraw_bars_0 as ::core::ffi::c_int != 0
+                || redraw_bars_0
                     && (request_failed(
                         umap_cookie.unwrap(),
                         c"Could not unmap window",
@@ -3062,8 +3051,8 @@ pub unsafe fn draw_bars(mut unhide: bool) {
             2114 as ::core::ffi::c_int,
         );
     }
-    let mut outputs_walk: *mut i3_output = ::core::ptr::null_mut::<i3_output>();
-    outputs_walk = (*outputs).slh_first;
+    let mut outputs_walk: *mut i3_output = (*outputs).slh_first;
+
     while !outputs_walk.is_null() {
         let mut workspace_width: ::core::ffi::c_int =
             logical_px(config.padding.x as ::core::ffi::c_int);
@@ -3083,15 +3072,15 @@ pub unsafe fn draw_bars(mut unhide: bool) {
             let use_focus_colors: bool = output_has_focus(outputs_walk);
             draw_util_clear_surface(
                 &raw mut (*outputs_walk).buffer,
-                if use_focus_colors as ::core::ffi::c_int != 0 {
+                if use_focus_colors {
                     colors.focus_bar_bg
                 } else {
                     colors.bar_bg
                 },
             );
             if !config.disable_ws {
-                let mut ws_walk: *mut i3_ws = ::core::ptr::null_mut::<i3_ws>();
-                ws_walk = (*(*outputs_walk).workspaces).tqh_first;
+                let mut ws_walk: *mut i3_ws = (*(*outputs_walk).workspaces).tqh_first;
+
                 while !ws_walk.is_null() {
                     if config.verbose {
                         printf(
@@ -3195,8 +3184,8 @@ pub unsafe fn draw_bars(mut unhide: bool) {
                     (((*outputs_walk).rect.w - workspace_width - tray_width) as u32)
                         .wrapping_sub(hoff);
                 let mut clip_left: u32 = 0_u32;
-                let mut block: *mut status_block = ::core::ptr::null_mut::<status_block>();
-                block = statusline_head.tqh_first;
+                let mut block: *mut status_block = statusline_head.tqh_first;
+
                 while !block.is_null() {
                     (*block).use_short = false;
                     block = (*block).blocks.tqe_next;
@@ -3233,10 +3222,7 @@ pub unsafe fn draw_bars(mut unhide: bool) {
         }
         outputs_walk = (*outputs_walk).slist.sle_next;
     }
-    if mod_pressed as ::core::ffi::c_int != 0
-        || config.hidden_state == crate::application::HiddenState::Show
-        || unhide as ::core::ffi::c_int != 0
-    {
+    if mod_pressed || config.hidden_state == crate::application::HiddenState::Show || unhide {
         unhide_bars();
     } else if config.hide_on_modifier == crate::application::BarDisplayMode::Hide {
         hide_bars();
@@ -3245,8 +3231,8 @@ pub unsafe fn draw_bars(mut unhide: bool) {
 }
 
 pub unsafe fn redraw_bars() {
-    let mut outputs_walk: *mut i3_output = ::core::ptr::null_mut::<i3_output>();
-    outputs_walk = (*outputs).slh_first;
+    let mut outputs_walk: *mut i3_output = (*outputs).slh_first;
+
     while !outputs_walk.is_null() {
         if (*outputs_walk).active {
             draw_util_copy_surface(
