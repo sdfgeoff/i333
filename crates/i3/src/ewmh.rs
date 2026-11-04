@@ -270,16 +270,7 @@ unsafe fn ewmh_update_wm_desktop_recursively(con: *mut Con, desktop: u32) {
     let window = (*(*con).window).id;
     match change {
         DesktopProperty::Set(desktop) => {
-            debuglog(
-                c"%s:%s:%d - Setting _NET_WM_DESKTOP = %d for window 0x%08x.\n"
-                    .as_ptr()
-                    .cast_mut(),
-                c"../src/ewmh.c".as_ptr(),
-                c"ewmh_update_wm_desktop_recursively".as_ptr(),
-                171i32,
-                desktop,
-                window,
-            );
+            ::log::debug!("../src/ewmh.c:ewmh_update_wm_desktop_recursively:{} - Setting _NET_WM_DESKTOP = {} for window 0x{:08x}.\n", (171i32) as i32, (desktop) as i32, (window) as u32);
             set_words(
                 window,
                 A__NET_WM_DESKTOP,
@@ -288,7 +279,7 @@ unsafe fn ewmh_update_wm_desktop_recursively(con: *mut Con, desktop: u32) {
             );
         }
         DesktopProperty::Delete => {
-            errorlog(c"ERROR: Failed to determine the proper EWMH desktop index for window 0x%08x, deleting _NET_WM_DESKTOP.\n".as_ptr().cast_mut(),window);
+            ::log::error!("ERROR: Failed to determine the proper EWMH desktop index for window 0x{:08x}, deleting _NET_WM_DESKTOP.\n", (window) as u32);
             delete_property(window, A__NET_WM_DESKTOP);
         }
     }
@@ -370,26 +361,10 @@ pub unsafe fn ewmh_update_client_list_stacking(stack: *mut u32, num_windows: i32
 /// conn and the requested window belong to the native event thread.
 pub unsafe fn ewmh_update_sticky(window: u32, sticky: bool) {
     if sticky {
-        debuglog(
-            c"%s:%s:%d - Setting _NET_WM_STATE_STICKY for window = %08x.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/ewmh.c".as_ptr(),
-            c"ewmh_update_sticky".as_ptr(),
-            283 as ::core::ffi::c_int,
-            window,
-        );
+        ::log::debug!("../src/ewmh.c:ewmh_update_sticky:{} - Setting _NET_WM_STATE_STICKY for window = {:08x}.\n", (283 as ::core::ffi::c_int) as i32, (window) as u32);
         xcb_add_property_atom(conn, window, A__NET_WM_STATE, A__NET_WM_STATE_STICKY);
     } else {
-        debuglog(
-            c"%s:%s:%d - Removing _NET_WM_STATE_STICKY for window = %08x.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/ewmh.c".as_ptr(),
-            c"ewmh_update_sticky".as_ptr(),
-            286 as ::core::ffi::c_int,
-            window,
-        );
+        ::log::debug!("../src/ewmh.c:ewmh_update_sticky:{} - Removing _NET_WM_STATE_STICKY for window = {:08x}.\n", (286 as ::core::ffi::c_int) as i32, (window) as u32);
         xcb_remove_property_atom(conn, window, A__NET_WM_STATE, A__NET_WM_STATE_STICKY);
     };
 }
@@ -398,26 +373,10 @@ pub unsafe fn ewmh_update_sticky(window: u32, sticky: bool) {
 /// conn and the requested window belong to the native event thread.
 pub unsafe fn ewmh_update_focused(window: u32, is_focused: bool) {
     if is_focused {
-        debuglog(
-            c"%s:%s:%d - Setting _NET_WM_STATE_FOCUSED for window = %08x.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/ewmh.c".as_ptr(),
-            c"ewmh_update_focused".as_ptr(),
-            297 as ::core::ffi::c_int,
-            window,
-        );
+        ::log::debug!("../src/ewmh.c:ewmh_update_focused:{} - Setting _NET_WM_STATE_FOCUSED for window = {:08x}.\n", (297 as ::core::ffi::c_int) as i32, (window) as u32);
         xcb_add_property_atom(conn, window, A__NET_WM_STATE, A__NET_WM_STATE_FOCUSED);
     } else {
-        debuglog(
-            c"%s:%s:%d - Removing _NET_WM_STATE_FOCUSED for window = %08x.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/ewmh.c".as_ptr(),
-            c"ewmh_update_focused".as_ptr(),
-            300 as ::core::ffi::c_int,
-            window,
-        );
+        ::log::debug!("../src/ewmh.c:ewmh_update_focused:{} - Removing _NET_WM_STATE_FOCUSED for window = {:08x}.\n", (300 as ::core::ffi::c_int) as i32, (window) as u32);
         xcb_remove_property_atom(conn, window, A__NET_WM_STATE, A__NET_WM_STATE_FOCUSED);
     };
 }
@@ -535,8 +494,6 @@ pub unsafe fn ewmh_get_workspace_index(con: *mut Con) -> u32 {
         target,
     )
 }
-
-use crate::log::{debuglog, errorlog};
 
 // Shared model types retain field layout while using one Rust identity.
 use crate::types::Con;

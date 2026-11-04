@@ -10,7 +10,6 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 
 use crate::application::A_I3_SYNC;
-use crate::log::debuglog;
 use ::xcb::{x, XidNew};
 use i3_common::display::connection;
 
@@ -32,16 +31,7 @@ pub unsafe fn sync_respond(window: u32, rnd: u32) {
     // logging arguments match the format and SendEvent copies its borrowed event
     // synchronously before returning.
     unsafe {
-        debuglog(
-            c"%s:%s:%d - [i3 sync protocol] Sending random value %d back to X11 window 0x%08x\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/sync.c".as_ptr(),
-            c"sync_respond".as_ptr(),
-            13i32,
-            rnd,
-            window,
-        );
+        ::log::debug!("../src/sync.c:sync_respond:{} - [i3 sync protocol] Sending random value {} back to X11 window 0x{:08x}\n", (13i32) as i32, (rnd) as i32, (window) as u32);
         let reply = sync_reply(window, rnd, A_I3_SYNC);
         let Some(connection) = connection() else {
             return;

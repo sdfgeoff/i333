@@ -14,7 +14,6 @@ use xcb::x;
 use crate::application::last_timestamp;
 use crate::bindings::{get_binding_from_event, run_binding};
 use crate::commands_parser::command_result_free;
-use crate::log::debuglog;
 
 /// Dispatch a native key event against the current bindings.
 ///
@@ -38,18 +37,15 @@ pub unsafe fn handle_key_press(event: &x::KeyPressEvent) {
     // used immediately and the owned command result is freed exactly once.
     unsafe {
         last_timestamp = time;
-        debuglog(
-            c"%s:%s:%d - %s %d, state raw = 0x%x\n".as_ptr().cast_mut(),
-            c"../src/key_press.c".as_ptr(),
-            c"handle_key_press".as_ptr(),
-            23i32,
+        ::log::debug!(
+            "../src/key_press.c:handle_key_press:23 - {} {}, state raw = 0x{:x}\n",
             if key_release {
-                c"KeyRelease".as_ptr()
+                "KeyRelease"
             } else {
-                c"KeyPress".as_ptr()
+                "KeyPress"
             },
-            i32::from(detail),
-            i32::from(state),
+            detail as i32,
+            state as u32,
         );
         let binding = get_binding_from_event(event.response_type(), state, detail);
         if binding.is_null() {
